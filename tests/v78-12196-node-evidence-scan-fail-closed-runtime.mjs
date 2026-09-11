@@ -1,0 +1,17 @@
+import {verifyEvidenceObjectHead} from '../server/evidence-object-integrity.js';
+import {spawnSync} from 'child_process';
+let pass=0;const ok=(c,m)=>{if(!c)throw new Error('FAIL: '+m);pass++;console.log('PASS',m)};
+const expected={expectedSize:1234,contentType:'application/pdf',tenantId:'tenant-1',evidenceId:'evidence-1'};
+const base={ContentLength:1234,ContentType:'application/pdf',Metadata:{tenant:'tenant-1',evidence:'evidence-1'}};
+ok(verifyEvidenceObjectHead(base,expected).ok,'matching object authorization envelope is accepted');
+ok(!verifyEvidenceObjectHead({...base,ContentLength:1235},expected).ok,'size substitution is rejected');
+ok(!verifyEvidenceObjectHead({...base,ContentType:'image/png'},expected).ok,'content-type substitution is rejected');
+ok(!verifyEvidenceObjectHead({...base,Metadata:{tenant:'tenant-2',evidence:'evidence-1'}},expected).ok,'cross-tenant metadata substitution is rejected');
+ok(!verifyEvidenceObjectHead({...base,Metadata:{tenant:'tenant-1',evidence:'evidence-2'}},expected).ok,'evidence-id metadata substitution is rejected');
+ok(verifyEvidenceObjectHead({...base,Metadata:{Tenant:'tenant-1',Evidence:'evidence-1'}},expected).ok,'object metadata keys are verified case-insensitively');
+const common={...process.env,APP_ENV:'production',DATABASE_URL:'postgres://u:p@localhost/db',SESSION_SECRET:'s'.repeat(40),PUBLIC_ORIGIN:'https://app.example.com',RETENTION_JOB_SECRET:'r'.repeat(40),TURNSTILE_SITE_KEY:'site-key-1234567890',TURNSTILE_SECRET_KEY:'t'.repeat(32),OBJECT_STORE_BUCKET:'bucket',OBJECT_STORE_ACCESS_KEY_ID:'key',OBJECT_STORE_SECRET_ACCESS_KEY:'secret',MALWARE_SCAN_WEBHOOK_URL:'https://scanner.example.com/scan',MALWARE_SCAN_WEBHOOK_SECRET:'m'.repeat(40)};
+const run=value=>spawnSync(process.execPath,['scripts/validate-env.mjs'],{cwd:process.cwd(),env:{...common,MALWARE_SCAN_REQUIRED:value},encoding:'utf8'});
+const disabled=run('false');ok(disabled.status!==0&&/must be true in production/.test(disabled.stderr),'production validation rejects explicitly disabled malware scanning');
+const invalid=run('sometimes');ok(invalid.status!==0&&/must be true or false/.test(invalid.stderr),'production validation rejects ambiguous malware-scan booleans');
+const enabled=run('true');ok(enabled.status===0&&/Environment validation passed/.test(enabled.stdout),'production validation accepts scanner-enabled complete configuration');
+console.log(`V78 1.21.96 Node evidence scan fail-closed runtime: ${pass}/${pass} PASS`);

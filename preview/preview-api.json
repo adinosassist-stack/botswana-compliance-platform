@@ -1,0 +1,1140 @@
+{
+  "/api/account/social": {
+    "google": {
+      "linked": false
+    },
+    "facebook": {
+      "linked": false
+    }
+  },
+  "/api/account/sessions": {
+    "items": [
+      {
+        "id": "preview",
+        "created_at": "2026-09-02T19:02:06.435Z",
+        "expires_at": "2026-09-03T19:02:06.435Z"
+      }
+    ]
+  },
+  "/api/account/onboarding": {
+    "complete": true
+  },
+  "/api/account/deletion-status": {
+    "legalHold": false,
+    "latest": null
+  },
+  "/api/ai/credits": {
+    "wallet": {
+      "balance": 75,
+      "monthly_allowance": 75,
+      "lifetime_purchased": 150,
+      "lifetime_used": 42
+    },
+    "plan": {
+      "plan": "pro"
+    },
+    "packs": [
+      {
+        "sku": "AI50",
+        "credits": 50,
+        "price_bwp": 59
+      },
+      {
+        "sku": "AI150",
+        "credits": 150,
+        "price_bwp": 149
+      }
+    ],
+    "ledger": []
+  },
+  "/api/ai/cost-control": {
+    "control": {
+      "monthly_credit_cap": 300,
+      "monthly_cost_cap_bwp": 120,
+      "low_balance_threshold": 25
+    },
+    "usage": {
+      "creditsUsed": 42,
+      "providerCostBwp": 11.8
+    }
+  },
+  "/api/tenders": {
+    "items": [
+      {
+        "id": "td1",
+        "title": "Office Supplies Framework",
+        "issuer": "Demo procuring entity",
+        "closing_at": "2026-09-12T19:02:06.435Z",
+        "status": "watching"
+      }
+    ]
+  },
+  "/api/employees": {
+    "items": [
+      {
+        "id": "emp1",
+        "full_name": "Demo Employee",
+        "role_title": "Operations Assistant",
+        "employment_type": "permanent",
+        "status": "active"
+      }
+    ]
+  },
+  "/api/hr/cases": {
+    "items": [
+      {
+        "id": "hr1",
+        "case_type": "performance",
+        "risk_level": "medium",
+        "status": "evidence",
+        "summary": "Demo case",
+        "professional_review_required": 0
+      }
+    ]
+  },
+  "/api/employer-risk": {
+    "protectionScore": 78,
+    "riskBand": "moderate",
+    "activeEmployees": 8,
+    "dimensions": {
+      "contractCoverage": 88,
+      "controlsReviewed": 75,
+      "highCriticalFindings": 1,
+      "openCases": 1
+    },
+    "findings": [
+      {
+        "employeeId": "emp2",
+        "findingKey": "contract_missing",
+        "severity": "high",
+        "title": "Signed contract not recorded"
+      }
+    ]
+  },
+  "/api/company-actions": {
+    "items": [
+      {
+        "id": "ca1",
+        "action_type": "annual-return",
+        "status": "ready",
+        "due_at": "2026-09-22T19:02:06.435Z"
+      }
+    ]
+  },
+  "/api/licences": {
+    "items": [
+      {
+        "id": "lic1",
+        "licence_type": "Trade licence",
+        "authority": "Local authority",
+        "renewal_due_at": "2026-10-12T19:02:06.435Z",
+        "status": "active"
+      }
+    ]
+  },
+  "/api/next-actions": {
+    "items": [
+      {
+        "source": "regulatory",
+        "id": "preview-obligation-1",
+        "priority": 1,
+        "title": "Compliance: Keep CIPA annual return current",
+        "status": "in_progress",
+        "dueAt": "2026-09-16T19:02:06.435Z",
+        "evidenceRequired": true,
+        "proofTotal": 1,
+        "proofMissing": 1
+      },
+      {
+        "source": "tender",
+        "id": "preview-tender-1",
+        "priority": 2,
+        "title": "Tender: Office Supplies Framework",
+        "status": "watching",
+        "dueAt": "2026-09-12T19:02:06.435Z"
+      }
+    ]
+  },
+  "/api/executive-exceptions": {
+    "generatedAt": "2026-09-02T19:02:06.435Z",
+    "counts": {
+      "total": 5,
+      "critical": 2,
+      "high": 3,
+      "missedDeadlines": 1,
+      "overdueReReviews": 1,
+      "escalations": 1,
+      "reviewBottlenecks": 1,
+      "proofExpiring": 0,
+      "activeInterventions": 1,
+      "overdueRecovery": 0,
+      "readyToClose": 1
+    },
+    "policy": {
+      "leadershipOnly": true,
+      "maxVisible": 5,
+      "routineWorkExcluded": true,
+      "noLegalAllClear": true,
+      "expiringProofWindowDays": 14,
+      "interventionClosure": true,
+      "interventionOwnerRequired": true,
+      "recoveryDeadlineDoesNotReplaceStatutoryDueDate": true,
+      "closureRequiresUnderlyingClear": true,
+      "closureRequiresEvidenceBasis": true,
+      "closureRequiresAttestation": true,
+      "activeInterventionRemainsVisibleUntilClosed": true,
+      "accountabilityPatternsEmbeddedInLeadershipQueue": true,
+      "accountabilityNoEmployeeScoring": true,
+      "accountabilityNoManagerRanking": true,
+      "systemicCorrectiveActionRequiredForRecurringPatterns": true,
+      "correctiveActionTargetDoesNotReplaceRecoveryOrStatutoryDeadline": true,
+      "correctiveActionClosureRequiresUnderlyingInterventionClosed": true
+    },
+    "accountability": {
+      "counts": {
+        "patterns": 1,
+        "critical": 1,
+        "repeatedExtensions": 1,
+        "repeatedBlocks": 1,
+        "repeatedReopens": 0,
+        "repeatedMissedCommitments": 1,
+        "correctiveActionsRequired": 1,
+        "openCorrectiveActions": 0,
+        "overdueCorrectiveActions": 0,
+        "resolvedCorrectiveActions": 0
+      },
+      "correctiveActionPolicy": {
+        "rootCauseRequired": true,
+        "correctiveActionRequired": true,
+        "separateTargetDate": true,
+        "targetDoesNotReplaceRecoveryOrStatutoryDeadline": true,
+        "maxTargetExtensions": 1,
+        "managerCannotExtendTarget": true,
+        "closureRequiresUnderlyingInterventionClosed": true,
+        "closureRequiresEvidence": true,
+        "closureRequiresAttestation": true,
+        "effectivenessVerificationRequired": true,
+        "monitoringPeriodRequired": true,
+        "monitoringMinDays": 14,
+        "monitoringMaxDays": 90,
+        "successCriteriaRequired": true,
+        "stabilizedOnlyAfterEffectivenessPass": true,
+        "noEmployeeScoring": true,
+        "noManagerRanking": true,
+        "noSecondNotificationStream": true
+      },
+      "policy": {
+        "leadershipOnly": true,
+        "interventionLevelOnly": true,
+        "lookbackDays": 180,
+        "noEmployeeScoring": true,
+        "noManagerRanking": true,
+        "noDisciplinaryInference": true,
+        "noSecondNotificationStream": true,
+        "progressiveDisclosure": true,
+        "systemicCorrectiveActionClosure": true
+      },
+      "items": [
+        {
+          "interventionId": "preview-accountability-1",
+          "exceptionKey": "obligation:preview-obligation-1",
+          "title": "Missed statutory deadline: Submit statutory return",
+          "status": "claimed",
+          "ownerName": "Preview owner",
+          "severity": "critical",
+          "patterns": [
+            {
+              "kind": "repeated_extensions",
+              "count": 2,
+              "label": "Recovery target extended 2 times"
+            },
+            {
+              "kind": "repeated_blocks",
+              "count": 2,
+              "label": "Work entered blocked state 2 times"
+            },
+            {
+              "kind": "repeated_missed_commitments",
+              "count": 2,
+              "label": "Recovery commitment missed 2 times"
+            }
+          ],
+          "patternCount": 3,
+          "counts": {
+            "extensions": 2,
+            "blocked": 2,
+            "atRisk": 1,
+            "reopens": 0,
+            "missed": 2
+          },
+          "correctiveActionRequired": true,
+          "correctiveActionResolved": false,
+          "correctiveActionReopenedNeeded": false,
+          "correctiveAction": null
+        }
+      ]
+    },
+    "items": [
+      {
+        "key": "obligation:preview-obligation-1",
+        "kind": "missed_deadline",
+        "id": "preview-obligation-1",
+        "severity": "critical",
+        "title": "Missed statutory deadline: Submit statutory return",
+        "detail": "Due yesterday · responsibility: Preview owner",
+        "dueAt": "2026-09-01T19:02:06.435Z",
+        "target": "regulatoryobligations"
+      },
+      {
+        "key": "rereview:company_action:preview-company-action",
+        "kind": "rereview",
+        "id": "preview-company-action",
+        "reReviewId": "rereview-preview-1",
+        "severity": "critical",
+        "title": "Overdue re-review: director change",
+        "detail": "Source record changed after approval. · response deadline missed",
+        "dueAt": "2026-09-02T18:02:06.435Z",
+        "target": "workhub"
+      },
+      {
+        "key": "review:obligation:preview-review-obligation",
+        "kind": "review_bottleneck",
+        "id": "preview-review-obligation",
+        "sourceType": "obligation",
+        "severity": "high",
+        "title": "Review bottleneck: Compliance · Confirm CIPA annual return filing",
+        "detail": "26h waiting · 24h review SLA breached · reviewer Preview owner",
+        "target": "workhub"
+      },
+      {
+        "key": "obligation:preview-escalation-obligation",
+        "kind": "escalation",
+        "id": "preview-escalation-obligation",
+        "escalationId": "preview-escalation",
+        "severity": "high",
+        "title": "Unresolved escalation: Keep CIPA annual return current",
+        "detail": "urgent · acknowledged but unresolved · responsibility: Preview owner",
+        "target": "notifications"
+      },
+      {
+        "key": "review:company_action:preview-cleared",
+        "kind": "intervention_closure",
+        "id": "review:company_action:preview-cleared",
+        "severity": "high",
+        "title": "Ready to close: Review bottleneck: Company · director change",
+        "detail": "The underlying exception no longer appears in the authoritative exception calculation. Management closure still requires a recorded note, evidence basis and attestation.",
+        "target": "workhub",
+        "closureReady": true,
+        "intervention": {
+          "id": "preview-intervention-close",
+          "status": "ready_to_close",
+          "ownerName": "Preview owner",
+          "decision": "Escalate the director change review",
+          "decisionNote": "Leadership asked for same-day independent review.",
+          "recoveryDueAt": "2026-09-03T19:02:06.435Z",
+          "progressStatus": "on_track",
+          "progressNote": "Independent review completed and source bottleneck cleared.",
+          "progressUpdatedAt": "2026-09-02T19:02:06.435Z",
+          "followThrough": {
+            "needsAttention": false,
+            "level": "none",
+            "reasons": [],
+            "recoveryDueSoon": false,
+            "recoveryOverdue": false,
+            "noProgress": false,
+            "blocked": false,
+            "atRisk": false
+          },
+          "openedAt": "2026-09-02T19:02:06.435Z",
+          "overdue": false
+        }
+      }
+    ]
+  },
+  "/api/daily-brief": {
+    "date": "2026-09-02",
+    "windowHours": 24,
+    "generatedAt": "2026-09-02T19:02:06.451Z",
+    "status": {
+      "openWork": 7,
+      "urgent": 2,
+      "overdue": 0,
+      "urgentEscalations": 1,
+      "waitingReview": 3,
+      "nextDeadline": "2026-09-12T19:02:06.451Z",
+      "reportingCoverage": 88,
+      "changes": 4
+    },
+    "topActions": [
+      {
+        "source": "regulatory",
+        "id": "preview-obligation-1",
+        "priority": 1,
+        "title": "Compliance: Keep CIPA annual return current",
+        "status": "in_progress",
+        "dueAt": "2026-09-16T19:02:06.452Z",
+        "evidenceRequired": true,
+        "proofTotal": 1,
+        "proofMissing": 1
+      },
+      {
+        "source": "risk",
+        "id": "preview-risk-1",
+        "priority": 1,
+        "title": "Risk: Employment contract evidence gap",
+        "status": "open",
+        "dueAt": null
+      },
+      {
+        "source": "tender",
+        "id": "preview-tender-1",
+        "priority": 2,
+        "title": "Tender: Office Supplies Framework",
+        "status": "watching",
+        "dueAt": "2026-09-12T19:02:06.452Z"
+      }
+    ],
+    "changes": [
+      {
+        "kind": "operations",
+        "title": "Francistown output is below learned baseline",
+        "severity": "warning",
+        "at": "2026-09-02T18:02:06.452Z"
+      },
+      {
+        "kind": "business",
+        "title": "Licence continuity needs review after a business change",
+        "severity": "review",
+        "at": "2026-09-02T17:02:06.452Z"
+      },
+      {
+        "kind": "completed",
+        "title": "Completed: PAYE monthly filing",
+        "severity": "positive",
+        "at": "2026-09-02T16:02:06.452Z"
+      },
+      {
+        "kind": "operations",
+        "title": "Manager attention requested in two reports",
+        "severity": "warning",
+        "at": "2026-09-02T15:02:06.452Z"
+      }
+    ],
+    "reviews": {
+      "total": 3,
+      "obligations": 1,
+      "company": 1,
+      "hr": 1,
+      "tenders": 0
+    },
+    "operations": {
+      "coverage": 88,
+      "locationsReporting": 3,
+      "missing": 1,
+      "attention": 2,
+      "incidents": 1,
+      "expected": 8,
+      "submitted": 7,
+      "summary": {
+        "id": "sum-preview",
+        "generationMode": "workers_ai",
+        "narrative": {
+          "executiveSummary": "Seven of eight expected reports were received. Review one missing expected report and two manager-attention flags before drawing conclusions."
+        }
+      }
+    },
+    "evidenceHealth": {
+      "healthScore": 82,
+      "established": true,
+      "approved": 9,
+      "quarantined": 1,
+      "rejected": 0,
+      "expiring": 1,
+      "expired": 0,
+      "missingRequired": 1
+    }
+  },
+  "/api/re-review": {
+    "generatedAt": "2026-09-02T19:02:06.452Z",
+    "counts": {
+      "open": 1,
+      "overdue": 0,
+      "unassigned": 1
+    },
+    "policy": {
+      "staleApprovalsReenterReview": true,
+      "responseSlaHours": 24,
+      "historyImmutable": true
+    },
+    "items": [
+      {
+        "id": "rereview-preview-1",
+        "decision_id": "review-decision-preview-2",
+        "source_type": "company_action",
+        "source_id": "preview-company-action",
+        "status": "open",
+        "reason": "Source record changed after approval.",
+        "changes": [
+          "Source record changed after approval."
+        ],
+        "reviewer_user_id": null,
+        "response_due_at": "2026-09-03T19:02:06.452Z",
+        "opened_at": "2026-09-02T19:02:06.452Z",
+        "prior_reviewer_name": "M. Reviewer",
+        "overdue": false
+      }
+    ]
+  },
+  "/api/review-audit": {
+    "generatedAt": "2026-09-02T19:02:06.452Z",
+    "counts": {
+      "total": 3,
+      "valid": 1,
+      "stale": 1,
+      "returned": 1
+    },
+    "policy": {
+      "approvalIsSnapshot": true,
+      "staleRequiresReReview": true,
+      "auditorHrExcluded": true,
+      "emailsExcluded": true
+    },
+    "items": [
+      {
+        "id": "review-decision-preview-1",
+        "sourceType": "obligation",
+        "sourceId": "preview-obligation-1",
+        "decision": "approve",
+        "validity": "valid",
+        "reviewerName": "M. Reviewer",
+        "note": "Reviewed the current filing proof and source context.",
+        "attestation": "Explicit review attestation",
+        "attestedAt": "2026-09-01T19:02:06.452Z",
+        "sealedStatus": "completed",
+        "evidence": [
+          {
+            "label": "Annual return receipt",
+            "evidenceId": "preview-evidence-1",
+            "displayName": "2026 annual return receipt.pdf",
+            "contentSha256": "b7a31d0c221166aa",
+            "validUntil": "2027-03-01T19:02:06.452Z"
+          }
+        ],
+        "changes": []
+      },
+      {
+        "id": "review-decision-preview-2",
+        "sourceType": "company_action",
+        "sourceId": "preview-company-action",
+        "decision": "approve",
+        "validity": "stale",
+        "reviewerName": "M. Reviewer",
+        "note": "Approved using the company action facts available at the time.",
+        "attestation": "Explicit review attestation",
+        "attestedAt": "2026-08-31T19:02:06.452Z",
+        "sealedStatus": "approved",
+        "evidence": [],
+        "changes": [
+          "Source record changed after approval."
+        ]
+      },
+      {
+        "id": "review-decision-preview-3",
+        "sourceType": "tender_review",
+        "sourceId": "preview-tender-review",
+        "decision": "return",
+        "validity": "returned",
+        "reviewerName": "M. Reviewer",
+        "note": "Returned because a mandatory tender requirement still needed work.",
+        "attestation": "Explicit review attestation",
+        "attestedAt": "2026-08-30T19:02:06.452Z",
+        "sealedStatus": "rejected",
+        "evidence": [],
+        "changes": []
+      }
+    ]
+  },
+  "/api/review-inbox": {
+    "generatedAt": "2026-09-02T19:02:06.452Z",
+    "counts": {
+      "total": 3,
+      "unassigned": 1,
+      "overdue": 1,
+      "mine": 1
+    },
+    "policy": {
+      "approvalRequiresAttestation": true,
+      "decisionNoteRequired": true,
+      "reviewerDirectoryVisible": true
+    },
+    "reviewers": [
+      {
+        "user_id": "preview-user",
+        "display_name": "Preview owner",
+        "email": "preview@local",
+        "role": "owner"
+      },
+      {
+        "user_id": "preview-reviewer",
+        "display_name": "Review Partner",
+        "email": "reviewer@example.com",
+        "role": "reviewer"
+      }
+    ],
+    "items": [
+      {
+        "sourceType": "obligation",
+        "sourceId": "preview-review-obligation",
+        "kind": "Compliance",
+        "title": "Confirm CIPA annual return filing",
+        "summary": "Proof is complete and the action is waiting for a recorded review decision.",
+        "requestedAt": "2026-09-01T17:02:06.452Z",
+        "dueAt": "2026-09-07T19:02:06.452Z",
+        "priority": 1,
+        "actionOwner": "Preview owner",
+        "reviewerUserId": "preview-user",
+        "reviewerName": "Preview owner",
+        "ageHours": 26,
+        "slaHours": 24,
+        "overdue": true,
+        "evidence": {
+          "ready": 1,
+          "total": 1,
+          "label": "mandatory proof"
+        }
+      },
+      {
+        "sourceType": "company_action",
+        "sourceId": "preview-review-company",
+        "kind": "Company",
+        "title": "director change",
+        "summary": "Company action is waiting for a recorded review decision.",
+        "requestedAt": "2026-09-02T14:02:06.452Z",
+        "dueAt": "2026-09-16T19:02:06.452Z",
+        "priority": 2,
+        "reviewerUserId": null,
+        "reviewerName": "",
+        "ageHours": 5,
+        "slaHours": 72,
+        "overdue": false,
+        "evidence": null
+      },
+      {
+        "sourceType": "hr_case",
+        "sourceId": "preview-review-hr",
+        "kind": "HR",
+        "title": "grievance",
+        "summary": "Factual case record is ready for independent review.",
+        "requestedAt": "2026-09-02T11:02:06.452Z",
+        "dueAt": null,
+        "priority": 1,
+        "riskLevel": "high",
+        "reviewerUserId": "preview-reviewer",
+        "reviewerName": "Review Partner",
+        "ageHours": 8,
+        "slaHours": 24,
+        "overdue": false,
+        "evidence": {
+          "ready": 2,
+          "total": 2,
+          "label": "linked trusted evidence"
+        }
+      }
+    ]
+  },
+  "/api/statutory-calendar": {
+    "schedules": [],
+    "obligations": [
+      {
+        "id": "stat-preview",
+        "rule_title": "Demo statutory schedule",
+        "title": "PAYE filing",
+        "due_at": "2026-09-15",
+        "status": "open",
+        "priority": 1,
+        "schedule_type": "monthly"
+      }
+    ]
+  },
+  "/api/evidence-health": {
+    "healthScore": 82,
+    "established": true,
+    "approved": 9,
+    "quarantined": 1,
+    "rejected": 0,
+    "expiring": 1,
+    "expired": 0,
+    "missingRequired": 1
+  },
+  "/api/partner/clients": {
+    "items": [
+      {
+        "client_tenant_id": "Demo Client SME",
+        "relationship_type": "advisor",
+        "status": "active"
+      }
+    ]
+  },
+  "/api/partner/tasks": {
+    "items": [
+      {
+        "title": "Review annual return evidence",
+        "priority": 1,
+        "status": "open",
+        "due_at": "2026-09-07T19:02:06.452Z"
+      }
+    ]
+  },
+  "/api/passport": {
+    "score": {
+      "score": 75,
+      "verified": 6,
+      "total": 8
+    },
+    "controls": [
+      {
+        "control_key": "CIPA annual return",
+        "status": "verified"
+      },
+      {
+        "control_key": "Trade licence",
+        "status": "verified"
+      }
+    ],
+    "shares": []
+  },
+  "/api/workflow-rules": {
+    "items": [
+      {
+        "trigger_type": "deadline",
+        "action_type": "create-task",
+        "enabled": 1
+      }
+    ]
+  },
+  "/api/notification-attention": {
+    "generatedAt": "2026-09-02T19:02:06.452Z",
+    "date": "2026-09-02",
+    "policy": {
+      "externalInterrupts": "urgent_only",
+      "routineFollowUp": "daily_brief",
+      "sameIssueDedupe": true,
+      "quietHoursTimezone": "Africa/Gaborone"
+    },
+    "counts": {
+      "urgent": 2,
+      "review": 3,
+      "staffFlags": 3,
+      "proofGaps": 1,
+      "queued": 1,
+      "failed": 0,
+      "deadLetters": 0,
+      "sent24h": 4,
+      "externalSent24h": 1,
+      "routineKeptInApp24h": 3
+    },
+    "alerts": [
+      {
+        "key": "proof:preview-obligation-1",
+        "kind": "proof",
+        "id": "preview-obligation-1",
+        "severity": "warning",
+        "title": "Proof needed: Keep CIPA annual return current",
+        "status": "in_progress",
+        "dueAt": "2026-09-16T19:02:06.452Z",
+        "missingProof": 1,
+        "target": "evidencehub"
+      },
+      {
+        "key": "ops:preview",
+        "kind": "operations",
+        "severity": "urgent",
+        "title": "Staff reports need management review",
+        "status": "1 incident flag(s) · 2 manager-attention flag(s)",
+        "target": "dailyreports"
+      },
+      {
+        "key": "reviews:preview",
+        "kind": "review",
+        "severity": "warning",
+        "title": "Work is waiting for review",
+        "status": "3 item(s) across compliance, company, HR and tenders",
+        "target": "workhub"
+      }
+    ],
+    "reporting": {
+      "coverage": 88,
+      "missing": 1,
+      "attention": 2,
+      "incidents": 1
+    },
+    "reviews": {
+      "total": 3,
+      "obligations": 1,
+      "company": 1,
+      "hr": 1,
+      "tenders": 0
+    },
+    "nextDeadline": "2026-09-12T19:02:06.452Z"
+  },
+  "/api/notifications": {
+    "items": [
+      {
+        "channel": "whatsapp",
+        "template_key": "compliance_schedule_due",
+        "subject": "Compliance review due",
+        "status": "sent",
+        "provider_status": "delivered",
+        "scheduled_at": "2026-09-02T19:02:06.452Z"
+      }
+    ]
+  },
+  "/api/notification-preferences": {
+    "item": {
+      "email_enabled": 1,
+      "whatsapp_enabled": 0,
+      "sms_enabled": 0,
+      "in_app_enabled": 1,
+      "quiet_hours_start": "20:00",
+      "quiet_hours_end": "07:00",
+      "timezone": "Africa/Gaborone"
+    }
+  },
+  "/api/notification-channels/whatsapp": {
+    "connector": {
+      "configured": false,
+      "graphVersion": "v26.0",
+      "templateCount": 0,
+      "requiredTemplateCount": 6
+    },
+    "consent": {
+      "active": false
+    },
+    "usage": {
+      "enabled": true,
+      "used": 0,
+      "limit": 80,
+      "remaining": 80,
+      "period": "2026-09"
+    },
+    "country": "BW",
+    "consentVersion": "utility-reminders-v1"
+  },
+  "/api/compliance-schedules": {
+    "items": [
+      {
+        "schedule_type": "weekly-compliance-review",
+        "cadence": "weekly",
+        "next_run_at": "2026-09-09T19:02:06.452Z",
+        "enabled": 1
+      }
+    ]
+  },
+  "/api/partner/invites": {
+    "items": []
+  },
+  "/api/services/catalog": {
+    "items": [
+      {
+        "sku": "TENDER_REVIEW",
+        "name": "Tender Review",
+        "description": "Human review of tender readiness and submission risks.",
+        "base_price_bwp": 500
+      },
+      {
+        "sku": "TENDER_PACK",
+        "name": "Assisted Tender Pack",
+        "description": "Assisted assembly and submission-readiness check.",
+        "base_price_bwp": 1500
+      },
+      {
+        "sku": "HR_CASE_REVIEW",
+        "name": "HR Case Review",
+        "description": "Professional review of a high-risk HR case.",
+        "base_price_bwp": 750
+      },
+      {
+        "sku": "COMPANY_CHANGE",
+        "name": "Company Change Assistance",
+        "description": "Assisted company-secretary change workflow.",
+        "base_price_bwp": 450
+      },
+      {
+        "sku": "COMPLIANCE_AUDIT",
+        "name": "SME Compliance Audit",
+        "description": "Structured compliance review.",
+        "base_price_bwp": 1200
+      },
+      {
+        "sku": "LICENCE_ASSIST",
+        "name": "Licence Assistance",
+        "description": "Assisted licence preparation.",
+        "base_price_bwp": 600
+      }
+    ]
+  },
+  "/api/services/orders": {
+    "items": []
+  },
+  "/api/daily-reporting/locations": {
+    "items": [
+      {
+        "id": "loc1",
+        "name": "Gaborone Head Office",
+        "code": "GBE",
+        "town": "Gaborone"
+      },
+      {
+        "id": "loc2",
+        "name": "Francistown Branch",
+        "code": "FTN",
+        "town": "Francistown"
+      },
+      {
+        "id": "loc3",
+        "name": "Maun Office",
+        "code": "MAU",
+        "town": "Maun"
+      }
+    ]
+  },
+  "/api/daily-reporting/access": {
+    "items": [
+      {
+        "id": "ra1",
+        "employee_id": "emp1",
+        "location_id": "loc1",
+        "full_name": "Demo Employee",
+        "location_name": "Gaborone Head Office",
+        "status": "active",
+        "expires_at": "2027-03-01T19:02:06.452Z"
+      }
+    ]
+  },
+  "/api/daily-reporting/settings": {
+    "auto_summary_enabled": 1,
+    "digest_hour_local": 18,
+    "digest_minute_local": 15
+  },
+  "/api/daily-reporting/dashboard": {
+    "coverage": 88,
+    "locationsReporting": 3,
+    "reportingPopulation": {
+      "expected": 8,
+      "expectedSubmitted": 7,
+      "excused": 1,
+      "totalReports": 8
+    },
+    "totals": {
+      "tasks": 126,
+      "customers": 48,
+      "revenue": 18450,
+      "incidents": 1,
+      "attention": 2
+    },
+    "branches": [
+      {
+        "locationId": "loc1",
+        "name": "Gaborone Head Office",
+        "coverage": 100,
+        "submitted": 3,
+        "submittedExpected": 3,
+        "expected": 3,
+        "excused": 0,
+        "tasks": 58,
+        "customers": 22,
+        "revenue": 9200,
+        "incidents": 0,
+        "attention": 0,
+        "trend": {
+          "tasks": 8,
+          "customers": 3,
+          "revenue": 1250,
+          "incidents": 0
+        }
+      },
+      {
+        "locationId": "loc2",
+        "name": "Francistown Branch",
+        "coverage": 75,
+        "submitted": 3,
+        "submittedExpected": 3,
+        "expected": 4,
+        "excused": 0,
+        "tasks": 42,
+        "customers": 17,
+        "revenue": 5900,
+        "incidents": 1,
+        "attention": 1,
+        "trend": {
+          "tasks": -12,
+          "customers": -4,
+          "revenue": -1800,
+          "incidents": 1
+        }
+      },
+      {
+        "locationId": "loc3",
+        "name": "Maun Office",
+        "coverage": 100,
+        "submitted": 2,
+        "submittedExpected": 1,
+        "expected": 1,
+        "excused": 1,
+        "tasks": 26,
+        "customers": 9,
+        "revenue": 3350,
+        "incidents": 0,
+        "attention": 1,
+        "trend": {
+          "tasks": 4,
+          "customers": 2,
+          "revenue": 420,
+          "incidents": 0
+        }
+      }
+    ],
+    "missing": [
+      {
+        "employeeId": "emp2",
+        "fullName": "Demo Reporter",
+        "roleTitle": "Sales Assistant",
+        "locationId": "loc2",
+        "locationName": "Francistown Branch"
+      }
+    ],
+    "exceptions": [],
+    "reports": []
+  },
+  "/api/daily-reporting/summaries": {
+    "items": [
+      {
+        "id": "sum-preview",
+        "summary_date": "2026-09-02",
+        "generation_mode": "workers_ai",
+        "metrics": {
+          "coverage": 88,
+          "performanceIntelligence": {
+            "learningStatus": "active",
+            "sampleDays": 18
+          }
+        },
+        "narrative": {
+          "executiveSummary": "Seven of eight expected reports were received. Gaborone and Maun are stable; Francistown needs management review because output and reporting coverage are below the learned baseline.",
+          "performance": [
+            "Francistown reported revenue is 31% below its 30-day baseline.",
+            "Gaborone task output is 19% above its recent baseline.",
+            "The system has 18 historical reporting days in its performance memory."
+          ],
+          "highlights": [
+            "Gaborone reported stronger task volume and revenue than its recent baseline."
+          ],
+          "risks": [
+            "Francistown has one incident and one manager-attention flag."
+          ],
+          "actions": [
+            "Review the Francistown source reports and blocker notes before tomorrow's operating cycle."
+          ],
+          "disclaimer": "Management aid only. Review source reports before employment decisions."
+        }
+      }
+    ]
+  },
+  "/api/daily-reporting/performance-settings": {
+    "enabled": 1,
+    "notify_deterioration": 1,
+    "notify_improvement": 1,
+    "notify_reporting_gap": 1,
+    "notify_incidents": 1,
+    "notify_in_app": 1,
+    "notify_email": 0,
+    "notify_whatsapp": 0,
+    "coverage_drop_points": 20,
+    "metric_drop_percent": 30,
+    "improvement_percent": 25,
+    "min_baseline_days": 3
+  },
+  "/api/daily-reporting/performance": {
+    "selected": {
+      "profile": {
+        "locationId": null,
+        "locationName": "All locations",
+        "sampleDays": 18,
+        "learningStatus": "active",
+        "baseline7": {
+          "coverage": 91,
+          "tasks": 119,
+          "customers": 46,
+          "revenue": 17620,
+          "incidents": 0.4,
+          "attention": 0.8,
+          "sampleDays": 7
+        },
+        "baseline30": {
+          "coverage": 93,
+          "tasks": 116,
+          "customers": 45,
+          "revenue": 18110,
+          "incidents": 0.3,
+          "attention": 0.7,
+          "sampleDays": 18
+        },
+        "recurringThemes": [
+          {
+            "type": "blocker",
+            "text": "Supplier delivery delays",
+            "days": 4
+          }
+        ],
+        "feedbackContext": {
+          "useful": 6,
+          "notUseful": 1,
+          "outcomes": {
+            "actioned": 3
+          }
+        }
+      },
+      "current": {
+        "coverage": 88,
+        "tasks": 126,
+        "customers": 48,
+        "revenue": 18450,
+        "incidents": 1,
+        "attention": 2
+      },
+      "insights": [
+        {
+          "id": "pi1",
+          "signalType": "manager_attention",
+          "severity": "warning",
+          "title": "Manager attention requested",
+          "explanation": "2 reports require management review.",
+          "status": "open"
+        }
+      ]
+    },
+    "alerts": [
+      {
+        "id": "pi1",
+        "signalType": "manager_attention",
+        "severity": "warning",
+        "title": "Manager attention requested",
+        "explanation": "2 reports require management review.",
+        "locationName": "All locations",
+        "status": "open"
+      }
+    ],
+    "savedInsights": [
+      {
+        "id": "pi2",
+        "insight_date": "2026-09-02",
+        "location_name": "Francistown Branch",
+        "signal_type": "output_deterioration",
+        "severity": "warning",
+        "title": "Operational output is below learned baseline",
+        "explanation": "Reported revenue is 31% below the learned baseline. Review source reports and operating context before drawing conclusions.",
+        "status": "open"
+      }
+    ]
+  }
+}

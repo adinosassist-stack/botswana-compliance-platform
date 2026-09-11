@@ -1,0 +1,17 @@
+import {DatabaseSync} from 'node:sqlite';
+let checks=0;const ok=(v,m)=>{checks++;if(!v)throw new Error(`FAIL: ${m}`)};
+const db=new DatabaseSync(':memory:');
+db.exec(`CREATE TABLE password_reset_tokens(token_hash TEXT PRIMARY KEY,user_id TEXT NOT NULL,expires_at TEXT NOT NULL,used_at TEXT);`);
+const run=(sql,...a)=>db.prepare(sql).run(...a),get=(sql,...a)=>db.prepare(sql).get(...a);
+run("INSERT INTO password_reset_tokens(token_hash,user_id,expires_at) VALUES('old','u1',datetime('now','+30 minutes'))");
+run("UPDATE password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE user_id=? AND used_at IS NULL",'u1');
+run("INSERT INTO password_reset_tokens(token_hash,user_id,expires_at) VALUES('new','u1',datetime('now','+30 minutes'))");
+ok(!!get("SELECT 1 x FROM password_reset_tokens WHERE token_hash='old' AND used_at IS NOT NULL"),'new request invalidates previous unused token');
+const claim="UPDATE password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE token_hash=? AND used_at IS NULL AND expires_at>CURRENT_TIMESTAMP RETURNING user_id";
+ok(get(claim,'new')?.user_id==='u1','first reset claimant consumes token');
+ok(!get(claim,'new'),'second concurrent/replayed claimant loses');
+run("INSERT INTO password_reset_tokens(token_hash,user_id,expires_at) VALUES('expired','u1',datetime('now','-1 minute'))");
+ok(!get(claim,'expired'),'expired token cannot be claimed');
+run("INSERT INTO password_reset_tokens(token_hash,user_id,expires_at) VALUES('used','u1',datetime('now','+30 minutes'))");run("UPDATE password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE token_hash='used'");
+ok(!get(claim,'used'),'already-used token cannot be reclaimed');
+console.log(`V78 1.21.59 password reset runtime: ${checks}/${checks} PASS`);

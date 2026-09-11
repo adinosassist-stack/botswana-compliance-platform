@@ -1,0 +1,225 @@
+import fs from 'node:fs';
+const worker=fs.readFileSync(new URL('../cloudflare/src/worker.js',import.meta.url),'utf8');
+const html=fs.readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
+const migration=fs.readFileSync(new URL('../cloudflare/migrations/029_v78_systemic_corrective_action_closure.sql',import.meta.url),'utf8');
+const schema=fs.readFileSync(new URL('../cloudflare/schema.sql',import.meta.url),'utf8');
+const profile=JSON.parse(fs.readFileSync(new URL('../RELEASE_PROFILE.json',import.meta.url),'utf8'));
+const pkg=JSON.parse(fs.readFileSync(new URL('../package.json',import.meta.url),'utf8'));
+const sw=fs.readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
+const previewApi=JSON.parse(fs.readFileSync(new URL('../preview/preview-api.json',import.meta.url),'utf8'));
+const checks=[];const check=(n,v)=>checks.push([n,!!v]);const patch=Number(pkg.version.split('.')[2]||0);
+const helper=worker.slice(worker.indexOf('// v78 1.21.38 — management accountability effectiveness.'),worker.indexOf('function structuredDailyOpsNarrative'));
+const routes=worker.slice(worker.indexOf('if(url.pathname==="/api/executive-corrective-actions"&&req.method==="POST"'),worker.indexOf('if(url.pathname==="/api/daily-brief"'));
+const ui=html.slice(html.indexOf('<section class="card executive-exception-card'),html.indexOf('<details class="home-common-tools"'))+html.slice(html.indexOf('let executiveExceptionState='),html.indexOf('async function renderWorkHub(){'))+html.slice(html.indexOf('<div class="modal" id="systemicCorrectiveActionModal"'),html.indexOf('<script>\nconst DEFAULT_COMPANY='));
+
+check('version 1.21.39+',pkg.version.startsWith('1.21.')&&patch>=39);
+check('profile aligned',profile.package_version===pkg.version);
+check('service worker aligned',sw.includes(pkg.version));
+check('release chain keeps v1.21.39 gate after successor',pkg.scripts['test:release-regressions'].includes('node tests/v78-12139-systemic-corrective-action-closure-adversarial.mjs')&&pkg.scripts['test:release-regressions'].indexOf('v78-12140-corrective-action-effectiveness-adversarial.mjs')<pkg.scripts['test:release-regressions'].indexOf('v78-12139-systemic-corrective-action-closure-adversarial.mjs'));
+check('v1.21.39 runtime still follows its static gate',pkg.scripts['test:release-regressions'].includes('node tests/v78-12139-systemic-corrective-action-closure-adversarial.mjs && node tests/v78-12139-systemic-corrective-action-runtime.mjs'));
+check('dedicated script static',pkg.scripts['test:v78-12139'].includes('v78-12139-systemic-corrective-action-closure-adversarial.mjs'));
+check('dedicated script runtime',pkg.scripts['test:v78-12139'].includes('v78-12139-systemic-corrective-action-runtime.mjs'));
+
+for(const k of ['systemic_corrective_action_closure','corrective_action_server_backed','corrective_action_root_cause_required','corrective_action_owner_required','corrective_action_target_separate','corrective_action_target_extension_guard','corrective_action_closure_underlying_closed_required','corrective_action_closure_evidence_required','corrective_action_closure_attestation_required','corrective_action_recurs_on_new_pattern_counts','corrective_action_leadership_only','corrective_action_no_employee_scoring','corrective_action_no_manager_ranking','corrective_action_no_second_notification_stream','corrective_action_fail_closed'])check(`profile ${k}`,profile[k]===true);
+check('profile max target extension one',profile.corrective_action_max_target_extensions===1);
+
+// Migration + fresh schema.
+for(const x of ['CREATE TABLE IF NOT EXISTS executive_corrective_actions','intervention_id TEXT NOT NULL','status TEXT NOT NULL DEFAULT \'open\'','owner_user_id TEXT','owner_name_snapshot TEXT NOT NULL','root_cause TEXT NOT NULL','corrective_action TEXT NOT NULL','target_due_at TEXT NOT NULL','target_extension_count INTEGER NOT NULL DEFAULT 0','last_target_extended_at TEXT','closure_note TEXT','closure_evidence TEXT','baseline_counts_json TEXT NOT NULL','closure_counts_json TEXT','executive_corrective_actions_active_idx','executive_corrective_actions_due_idx','executive_corrective_actions_owner_idx'])check(`migration ${x}`,migration.includes(x));
+check('migration open status check',migration.includes("CHECK(status IN ('open','closed','superseded'))"));
+check('migration nonnegative extension',migration.includes('CHECK(target_extension_count>=0)'));
+check('migration tenant cascade',migration.includes('FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE'));
+check('migration intervention cascade',migration.includes('FOREIGN KEY(intervention_id) REFERENCES executive_exception_interventions(id) ON DELETE CASCADE'));
+check('migration owner deletion safe',migration.includes('FOREIGN KEY(owner_user_id) REFERENCES users(id) ON DELETE SET NULL'));
+check('migration opener deletion safe',migration.includes('FOREIGN KEY(opened_by_user_id) REFERENCES users(id) ON DELETE SET NULL'));
+check('migration closer deletion safe',migration.includes('FOREIGN KEY(closed_by_user_id) REFERENCES users(id) ON DELETE SET NULL'));
+check('migration active unique scoped',migration.includes("ON executive_corrective_actions(tenant_id,intervention_id)\nWHERE status='open'"));
+check('migration due tenant scoped',migration.includes('ON executive_corrective_actions(tenant_id,status,target_due_at,opened_at)'));
+check('migration owner tenant scoped',migration.includes('ON executive_corrective_actions(tenant_id,owner_user_id,status,target_due_at)'));
+for(const x of ['CREATE TABLE IF NOT EXISTS executive_corrective_actions','root_cause TEXT NOT NULL','corrective_action TEXT NOT NULL','target_due_at TEXT NOT NULL','target_extension_count INTEGER NOT NULL DEFAULT 0','baseline_counts_json TEXT NOT NULL','closure_counts_json TEXT','executive_corrective_actions_active_idx','executive_corrective_actions_due_idx','executive_corrective_actions_owner_idx'])check(`fresh schema ${x}`,schema.includes(x));
+
+// Helper model.
+check('count snapshot helper',helper.includes('function executiveInterventionCountSnapshot(row)'));
+for(const x of ['extensions','blocked','atRisk','reopens','missed'])check(`count snapshot ${x}`,helper.includes(`${x}:Math.max`));
+check('advanced-count helper',helper.includes('function executiveCorrectiveCountsAdvanced(current,snapshot)'));
+check('advanced compares all counters',helper.includes('["extensions","blocked","atRisk","reopens","missed"].some'));
+check('view helper',helper.includes('function executiveCorrectiveActionView(row)'));
+check('view target overdue',helper.includes('overdue=String(row.status)==="open"'));
+check('view exposes owner not email',helper.includes('ownerName:row.owner_name||row.owner_name_snapshot'));
+check('view exposes root cause',helper.includes('rootCause:row.root_cause'));
+check('view exposes corrective action',helper.includes('correctiveAction:row.corrective_action'));
+check('view exposes target due',helper.includes('targetDueAt:row.target_due_at'));
+check('view exposes target extension count',helper.includes('targetExtensionCount:Number(row.target_extension_count||0)'));
+check('view exposes baseline counts',helper.includes('baselineCounts:safeJson(row.baseline_counts_json,{})'));
+check('view exposes closure counts',helper.includes('closureCounts:safeJson(row.closure_counts_json,null)'));
+check('row helper',helper.includes('async function executiveCorrectiveActionRows(env,tenantId)'));
+check('row helper tenant scoped',helper.includes('WHERE c.tenant_id=? ORDER BY c.opened_at DESC LIMIT 100')||helper.includes('WHERE c.tenant_id=? ORDER BY c.opened_at DESC,c.rowid DESC LIMIT 100'));
+check('row helper joins display name only',helper.includes("COALESCE(u.display_name,c.owner_name_snapshot,'Recorded management owner') owner_name"));
+check('attach helper',helper.includes('async function attachExecutiveCorrectiveActions(env,tenantId,accountabilityItems)'));
+check('attach groups by intervention',helper.includes('byIntervention=new Map()'));
+check('attach finds active',helper.includes('hist.find(x=>String(x.status)==="open")'));
+check('attach finds latest closed',helper.includes('hist.find(x=>String(x.status)==="closed")'));
+check('closed coverage requires no full-relapse counts',helper.includes('closedStillCovers=!executiveCorrectiveCountsAdvanced')||helper.includes('closureSignal=executiveControlPreventionSignal(item.counts,closed.closureCounts||{});closedStillCovers=!closureSignal.fullRelapse'));
+check('successor preserves single-drift prevention before full relapse',!helper.includes('executiveControlPreventionSignal')||helper.includes('closedStillCovers=!closureSignal.fullRelapse'));
+check('required when no active/remediated or effectiveness failed',helper.includes('item.correctiveActionRequired=!active&&(!remediationClosed||effectivenessFailed'));
+check('reopened needed after new counts or failed effectiveness',helper.includes('item.correctiveActionReopenedNeeded=!!(!active&&latestClosed&&(!closedStillCovers||effectivenessFailed'));
+check('attach counts required',helper.includes('if(item.correctiveActionRequired)required++'));
+check('attach counts open',helper.includes('if(action?.status==="open")'));
+check('attach counts overdue',helper.includes('if(action.overdue)overdue++'));
+check('attach counts remediated closure',helper.includes('if(remediationClosed)resolved++')||helper.includes('if(item.correctiveActionResolved)resolved++'));
+for(const x of ['rootCauseRequired:true','correctiveActionRequired:true','separateTargetDate:true','targetDoesNotReplaceRecoveryOrStatutoryDeadline:true','maxTargetExtensions:1','managerCannotExtendTarget:true','closureRequiresUnderlyingInterventionClosed:true','closureRequiresEvidence:true','closureRequiresAttestation:true','closedActionReopensWhenPatternCountsAdvance:true','noEmployeeScoring:true','noManagerRanking:true','noSecondNotificationStream:true'])check(`attach policy ${x}`,helper.includes(x));
+
+// Accountability integration.
+check('accountability carries owner user id',helper.includes('ownerUserId:row.owner_user_id||null'));
+check('accountability query selects owner user id',helper.includes('i.status,i.owner_user_id,i.owner_name_snapshot'));
+check('corrective actions attached after accountability',helper.indexOf('attachExecutiveCorrectiveActions')>helper.indexOf('executiveInterventionAccountabilityRows'));
+check('corrective required count returned',helper.includes('correctiveActionsRequired:corrective.counts.required'));
+check('open corrective count returned',helper.includes('openCorrectiveActions:corrective.counts.open'));
+check('overdue corrective count returned',helper.includes('overdueCorrectiveActions:corrective.counts.overdue'));
+check('resolved corrective count returned',helper.includes('resolvedCorrectiveActions:corrective.counts.resolved'));
+check('accountability returns attached items',helper.includes('const corrective=await attachExecutiveCorrectiveActions(env,a.tenant_id,accountabilityItems)')&&helper.includes('items:accountabilityItems.slice(0,5)'));
+check('accountability corrective policy returned',helper.includes('correctiveActionPolicy:corrective.policy'));
+check('accountability policy systemic closure',helper.includes('systemicCorrectiveActionClosure:true'));
+check('brief policy recurring needs corrective action',helper.includes('systemicCorrectiveActionRequiredForRecurringPatterns:true'));
+check('brief policy target separate',helper.includes('correctiveActionTargetDoesNotReplaceRecoveryOrStatutoryDeadline:true'));
+check('brief policy closure after intervention',helper.includes('correctiveActionClosureRequiresUnderlyingInterventionClosed:true'));
+
+// Create/update route.
+check('create route exists',routes.includes('if(url.pathname==="/api/executive-corrective-actions"&&req.method==="POST")'));
+check('create leadership only',routes.match(/executive-corrective-actions"&&req\.method==="POST"[\s\S]{0,180}roleAllowed\(a,"owner","manager"\)/));
+check('intervention id required',routes.includes('intervention_id_required'));
+check('root cause min 20',routes.includes('if(rootCause.length<20)'));
+check('corrective action min 20',routes.includes('if(correctiveAction.length<20)'));
+check('opening attestation required',routes.includes('corrective_action_attestation_required'));
+check('future target required',routes.includes('future_corrective_target_required'));
+check('target max 90d',routes.includes('corrective_target_too_far'));
+check('intervention tenant scoped lookup',routes.includes('WHERE id=? AND tenant_id=? LIMIT 1'));
+check('recurring pattern required',routes.includes('recurring_pattern_not_detected'));
+check('manager intervention ownership guard',routes.includes('intervention_owned_by_another_manager'));
+check('manager self assignment guard',routes.includes('corrective_action_manager_self_assignment_required'));
+check('eligible management owner required',routes.includes('corrective_action_owner_not_eligible'));
+check('active corrective action tenant scoped',routes.includes("WHERE tenant_id=? AND intervention_id=? AND status='open' LIMIT 1"));
+check('update action manager owner guard',routes.includes('corrective_action_owned_by_another_manager'));
+check('extension detected only later target',routes.includes('dueMs>priorMs'));
+check('manager cannot extend target',routes.includes('corrective_target_extension_owner_only'));
+check('extension limit one',routes.includes('Number(existing.target_extension_count||0)>=1'));
+check('extension reason required',routes.includes('corrective_target_extension_reason_required'));
+check('update increments extension count',routes.includes('target_extension_count=target_extension_count+?'));
+check('update stores extension timestamp',routes.includes('last_target_extended_at=CASE WHEN ?=1 THEN CURRENT_TIMESTAMP'));
+check('update does not touch intervention recovery',!routes.match(/executive_corrective_actions SET[\s\S]{0,400}recovery_due_at/));
+check('update audit event',routes.includes('EXECUTIVE_CORRECTIVE_ACTION_UPDATED'));
+check('update audit says recovery unchanged',routes.includes('recoveryDeadlineUnchanged:true'));
+check('update audit says statutory unchanged',routes.includes('statutoryDeadlineUnchanged:true'));
+check('closed current pattern prevents duplicate action',routes.includes('corrective_action_already_resolved_for_current_pattern'));
+check('new recurrence can open again',routes.includes('executiveCorrectiveCountsAdvanced(counts,safeJson(priorClosed.closure_counts_json,{}))'));
+check('new action stores baseline counts',routes.includes('baseline_counts_json'));
+check('new action audit event',routes.includes('EXECUTIVE_CORRECTIVE_ACTION_OPENED'));
+check('opening audit target separate',routes.includes('targetDoesNotReplaceRecoveryOrStatutoryDeadline:true'));
+check('opening creates no external notification',routes.includes('noExternalNotificationCreated:true'));
+
+// Closure route.
+check('close route exists',routes.includes('/api\\/executive-corrective-actions\\/[^/]+\\/close'));
+check('close leadership only',routes.match(/executive-corrective-actions\\\/\[\^\/\]\+\\\/close[\s\S]{0,220}roleAllowed\(a,"owner","manager"\)/));
+check('closure attestation required',routes.includes('corrective_closure_attestation_required'));
+check('closure evidence min 15',routes.includes('if(closureEvidence.length<15)'));
+check('closure note min 10',routes.includes('if(closureNote.length<10)'));
+check('close joins intervention tenant scoped',routes.includes('JOIN executive_exception_interventions i ON i.id=c.intervention_id AND i.tenant_id=c.tenant_id'));
+check('closed idempotent',routes.includes('alreadyClosed:true'));
+check('manager close owner guard',routes.includes('corrective_action_owned_by_another_manager'));
+check('underlying intervention must be closed',routes.includes('if(String(row.intervention_status)!=="closed")'));
+check('close error explicit',routes.includes('underlying_intervention_not_closed'));
+check('closure count snapshot',routes.includes('const closureCounts=executiveInterventionCountSnapshot(row)'));
+check('closure stores evidence',routes.includes('closure_evidence=?'));
+check('closure stores note',routes.includes('closure_note=?'));
+check('closure stores count snapshot',routes.includes('closure_counts_json=?'));
+check('closure stores actor',routes.includes('closed_by_user_id=?'));
+check('closure audit event',routes.includes('EXECUTIVE_CORRECTIVE_ACTION_CLOSED'));
+check('closure audit root cause flag',routes.includes('systemicRootCauseClosure:true'));
+check('closure verification intervention closed',routes.includes('underlyingInterventionClosed:true'));
+check('closure does not reset intervention counters',!routes.match(/executive_corrective_actions\/\[\^\/\]\+\/close[\s\S]{0,1700}(recovery_extension_count=0|blocked_checkpoint_count=0|reopen_count=0|missed_recovery_count=0)/));
+
+// History/privacy.
+check('history GET exists',routes.includes('if(url.pathname==="/api/executive-corrective-actions"&&req.method==="GET")'));
+check('history leadership only',routes.match(/executive-corrective-actions"&&req\.method==="GET"[\s\S]{0,180}roleAllowed\(a,"owner","manager"\)/));
+check('history view mapping',routes.includes('.map(executiveCorrectiveActionView)')||routes.includes('executiveCorrectiveActionView(x)'));
+check('history email excluded policy',routes.includes('emailsExcluded:true'));
+check('history root cause policy',routes.includes('rootCauseRequired:true'));
+check('history target separate policy',routes.includes('targetDoesNotReplaceRecoveryOrStatutoryDeadline:true'));
+check('history max extension policy',routes.includes('maxTargetExtensions:1'));
+check('history manager cannot extend policy',routes.includes('managerCannotExtendTarget:true'));
+check('history no employee scoring',routes.includes('noEmployeeScoring:true'));
+check('history no manager ranking',routes.includes('noManagerRanking:true'));
+check('history no second stream',routes.includes('noSecondNotificationStream:true'));
+check('corrective SQL does not select email',!helper.match(/executive_corrective_actions[\s\S]{0,700}\bu\.email\b/));
+
+// UI.
+check('systemic style present',html.includes('id="v78-12139-systemic-corrective-action-closure"'));
+check('accountability explanation says corrective action',ui.includes('requires a separate root-cause corrective action'));
+check('accountability says moving recovery not closure',ui.includes('moving the recovery date is not corrective closure'));
+check('corrective required counter',ui.includes('id="execCorrectiveRequired"'));
+check('summary helper exists',ui.includes('function systemicCorrectiveSummary(x)'));
+check('required state text',ui.includes('Systemic corrective action required'));
+check('required state says extension not closure',ui.includes('Extending the intervention recovery date does not close this requirement.'));
+check('open action helper exists',ui.includes('function openSystemicCorrectiveAction(interventionId)'));
+check('submit action helper exists',ui.includes('async function submitSystemicCorrectiveAction()'));
+check('close action helper exists',ui.includes('function openSystemicCorrectiveClosure(correctiveActionId)'));
+check('submit closure helper exists',ui.includes('async function submitSystemicCorrectiveClosure()'));
+check('create button',ui.includes('Create corrective action'));
+check('update button',ui.includes('Update corrective action'));
+check('close button',ui.includes('Close corrective action'));
+check('close intervention first state',ui.includes('Close intervention first'));
+check('root cause field',ui.includes('id="systemicCorrectiveRootCause"'));
+check('corrective action field',ui.includes('id="systemicCorrectiveActionText"'));
+check('target field',ui.includes('id="systemicCorrectiveTargetDue"'));
+check('extension reason field',ui.includes('id="systemicCorrectiveExtensionReason"'));
+check('opening attestation field',ui.includes('id="systemicCorrectiveAttest"'));
+check('deadline guard copy',ui.includes('Repeated extensions are not treated as progress.'));
+check('modal says target separate',ui.includes('separate from the intervention recovery target and from every statutory/source deadline'));
+check('closure evidence field',ui.includes('id="systemicCorrectiveClosureEvidence"'));
+check('closure note field',ui.includes('id="systemicCorrectiveClosureNote"'));
+check('closure attestation field',ui.includes('id="systemicCorrectiveCloseAttest"'));
+check('closure copy underlying intervention closed',ui.includes('only after the underlying leadership intervention itself is closed'));
+check('closure copy recurrence requires new action',ui.includes('A new recurrence after closure will require a new corrective action.'));
+check('UI validates root cause min 20',ui.includes('if(rootCause.length<20)'));
+check('UI validates action min 20',ui.includes('if(correctiveAction.length<20)'));
+check('UI validates future target',ui.includes('Choose a future corrective-action target.'));
+check('UI confirms attestation',ui.includes('Confirm the corrective-action attestation.'));
+check('UI calls create API',ui.includes('apiJson("/api/executive-corrective-actions"'));
+check('UI calls close API',ui.includes('/api/executive-corrective-actions/${encodeURIComponent(c.id)}/close'));
+check('UI maps owner extension error',ui.includes('Only the account owner can extend a corrective-action target.'));
+check('UI maps extension limit',ui.includes('already been extended once'));
+check('UI maps underlying close error',ui.includes('Close the underlying leadership intervention first.'));
+check('renderer sets corrective count',ui.includes('set("execCorrectiveRequired",Number(accountability.counts?.correctiveActionsRequired||0))'));
+check('renderer shows corrective summary',ui.includes('${systemicCorrectiveSummary(x)}${systemicCorrectiveActions(x)}'));
+check('renderer fail closed corrective count',ui.includes('set("execCorrectiveRequired","—")'));
+check('fail closed heading preserves accountability',ui.includes('Accountability pattern check unavailable'));
+check('fail closed corrective check',ui.includes('corrective-action')&&ui.includes('check unavailable'));
+check('fail closed recurring absence warning',ui.includes('Do not infer that recurring execution problems are absent.'));
+check('fail closed corrective absence warning',ui.includes('Do not infer that required corrective actions')&&ui.includes('are absent.'));
+check('mobile corrective actions',html.includes('@media(max-width:620px){.systemic-corrective-actions'));
+
+// Preview fixtures are externalized in v1.21.47; preserve the original governance assertions against the JSON source of truth.
+const previewException=previewApi['/api/executive-exceptions']||{};
+const previewAccountability=previewException.accountability||{};
+const previewAccountabilityItem=(previewAccountability.items||[])[0]||{};
+check('preview corrective required count',previewAccountability.counts?.correctiveActionsRequired===1);
+check('preview corrective policy',previewAccountability.correctiveActionPolicy?.rootCauseRequired===true);
+check('preview systemic policy',previewAccountability.policy?.systemicCorrectiveActionClosure===true);
+check('preview item requires corrective',previewAccountabilityItem.correctiveActionRequired===true);
+check('preview item unresolved',previewAccountabilityItem.correctiveActionResolved===false);
+check('preview no initial corrective action',previewAccountabilityItem.correctiveAction===null);
+check('standalone create mutates local action',ui.includes('item.correctiveAction={id:item.correctiveAction?.id||"preview-corrective"'));
+check('standalone close marks closed',ui.includes('c.status="closed"'));
+
+// Preserve prior safety.
+check('prior intervention closure rechecks source',routes.includes('underlying_exception_still_open'));
+check('prior intervention closure attestation',routes.includes('closure_attestation_required'));
+check('prior intervention closure evidence',routes.includes('closure_evidence_required'));
+check('prior intervention manager guard',routes.includes('intervention_owned_by_another_manager'));
+check('accountability no employee scoring preserved',helper.includes('noEmployeeScoring:true'));
+check('accountability no manager ranking preserved',helper.includes('noManagerRanking:true'));
+check('accountability no disciplinary inference preserved',helper.includes('noDisciplinaryInference:true'));
+check('no corrective notification enqueue',!routes.match(/EXECUTIVE_CORRECTIVE_ACTION[\s\S]{0,2200}(notification_outbox|queueNotification|sendWhatsApp|sendEmail)/));
+check('no score field in corrective UI',!ui.includes('correctiveScore'));
+check('no manager rank field in corrective UI',!ui.includes('correctiveManagerRank'));
+
+const failed=checks.filter(x=>!x[1]);for(const [n,ok] of checks)console.log(`${ok?'PASS':'FAIL'} ${n}`);console.log(`V78 1.21.39 Systemic corrective-action closure adversarial: ${checks.length-failed.length}/${checks.length} PASS`);if(failed.length)process.exit(1);

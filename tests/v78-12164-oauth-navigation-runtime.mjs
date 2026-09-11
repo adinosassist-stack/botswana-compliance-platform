@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';import {safeNextPath} from '../server/oauth-navigation.js';let checks=0;const ok=(v,m)=>{assert.ok(v,m);checks++};
+ok(safeNextPath('/')==='/', 'root allowed');
+ok(safeNextPath('/dashboard')==='/dashboard','normal path allowed');
+ok(safeNextPath('/dashboard?tab=risk#top')==='/dashboard?tab=risk#top','query/hash preserved');
+ok(safeNextPath('//evil.example')==='/', 'protocol-relative redirect rejected');
+ok(safeNextPath('///evil.example')==='/', 'multi-slash protocol-relative redirect rejected');
+ok(safeNextPath('https://evil.example')==='/', 'absolute URL rejected');
+ok(safeNextPath('javascript:alert(1)')==='/', 'scheme URL rejected');
+ok(safeNextPath('/\\evil.example')==='/', 'backslash redirect rejected');
+ok(safeNextPath(' dashboard')==='/', 'non-root-relative path rejected');
+ok(safeNextPath(' /dashboard ')==='/dashboard','surrounding whitespace normalized safely');
+console.log(`V78 1.21.64 OAuth navigation runtime: ${checks}/${checks} PASS`);

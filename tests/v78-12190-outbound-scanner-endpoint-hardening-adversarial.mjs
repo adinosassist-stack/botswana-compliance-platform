@@ -1,0 +1,18 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const read=f=>fs.readFileSync(new URL('../'+f,import.meta.url),'utf8');
+const pkg=JSON.parse(read('package.json')),profile=JSON.parse(read('RELEASE_PROFILE.json')),server=read('server/server.js'),worker=read('cloudflare/src/worker.js'),old=read('tests/v78-12189-social-link-csrf-hardening-adversarial.mjs');
+let pass=0;const ok=(v,m)=>{assert.ok(v,m);console.log('PASS',m);pass++};
+ok(['1.21.90','1.21.91','1.21.92','1.21.93','1.21.94','1.21.95','1.21.96','1.21.97','1.21.98','1.21.99','1.21.100','1.21.101'].includes(pkg.version)&&pkg.scripts.test.includes('npm run test:v78-12190')&&pkg.scripts.test.indexOf('test:v78-12190')<pkg.scripts.test.indexOf('test:v78-12189'),'1.21.90 outbound scanner controls remain active in reviewed successors');
+ok(profile.v12190_outbound_scanner_endpoint_hardening===true&&profile.scanner_private_loopback_endpoint_rejection===true,'release profile records outbound scanner endpoint hardening');
+ok(server.includes('function unsafeServiceHostname(value)')&&server.includes('function safeExternalServiceUrl(value)'),'Node has explicit external-service endpoint policy');
+ok(server.includes('safeExternalServiceUrl(config.MALWARE_SCAN_WEBHOOK_URL)'),'Node production/readiness scanner checks use hardened URL validation');
+ok(worker.includes('function unsafeServiceHostname(value)')&&worker.includes('function safeExternalServiceUrl(value)'),'Worker has explicit external-service endpoint policy');
+ok(worker.includes('const scannerUrl=safeExternalServiceUrl(env.EVIDENCE_SCAN_API_URL)'),'Worker scanner resolves a validated endpoint before sending evidence');
+ok(worker.includes('res=await externalFetch(scannerUrl,'),'Worker evidence bytes are sent only to the validated scanner URL');
+ok(worker.includes('configured:!!safeExternalServiceUrl(env.EVIDENCE_SCAN_API_URL)'),'Worker deployment readiness rejects unsafe scanner endpoints');
+ok(worker.includes('if(!safeExternalServiceUrl(env.EVIDENCE_SCAN_API_URL)||!env.EVIDENCE_SCAN_SECRET)return {processed:0,clean:0,infected:0,errors:0,scannerConfigured:false}'),'scheduled scanner queue also fails closed on unsafe endpoint configuration');
+ok(server.includes('a===169&&b===254')&&server.includes('a===172&&b>=16&&b<=31')&&server.includes('a===192&&b===168'),'Node rejects link-local and RFC1918 IPv4 scanner targets');
+ok(worker.includes('h==="::"||h==="::1"||/^f[cd]/.test(h)||/^fe[89ab]/.test(h)'),'Worker rejects loopback, ULA and link-local IPv6 targets');
+ok(old.includes('v12189_social_link_csrf_hardening'),'v1.21.89 account-link CSRF evidence remains in successor chain');
+console.log(`V78 1.21.90 outbound scanner endpoint hardening adversarial: ${pass}/${pass} PASS`);

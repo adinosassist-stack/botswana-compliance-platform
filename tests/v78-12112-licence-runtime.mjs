@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import {createHmac} from 'node:crypto';
+import fs from 'node:fs';
+import {DatabaseSync} from 'node:sqlite';
+import worker from '../cloudflare/src/worker.js';
+class St{constructor(db,sql){this.db=db;this.sql=sql;this.args=[]}bind(...a){this.args=a;return this}first(){const r=this.db.prepare(this.sql).get(...this.args);return r?{...r}:null}all(){return {results:this.db.prepare(this.sql).all(...this.args).map(r=>({...r}))}}run(){const r=this.db.prepare(this.sql).run(...this.args);return {meta:{changes:Number(r.changes||0)}}}}
+class D1{constructor(db){this.db=db}prepare(sql){return new St(this.db,sql)}batch(ss){this.db.exec('BEGIN IMMEDIATE');try{const r=ss.map(s=>s.run());this.db.exec('COMMIT');return r}catch(e){this.db.exec('ROLLBACK');throw e}}}
+const sqlite=new DatabaseSync(':memory:');sqlite.exec(fs.readFileSync(new URL('../cloudflare/schema.sql',import.meta.url),'utf8'));const DB=new D1(sqlite);
+const secret='v78-12112-session-secret',raw='owner-session',csrf='owner-csrf',hash=createHmac('sha256',secret).update(raw).digest('hex');
+for(const [id,name] of [['t1','Tenant One'],['t2','Tenant Two']])sqlite.prepare('INSERT INTO tenants(id,name) VALUES(?,?)').run(id,name);
+sqlite.prepare('INSERT INTO users(id,email,display_name) VALUES(?,?,?)').run('u1','owner@example.com','Owner');
+sqlite.prepare('INSERT INTO memberships(tenant_id,user_id,role,status) VALUES(?,?,?,?)').run('t1','u1','owner','active');
+sqlite.prepare("INSERT INTO sessions(token_hash,user_id,tenant_id,role,csrf_token,expires_at) VALUES(?,?,?,?,?,datetime('now','+1 day'))").run(hash,'u1','t1','owner',csrf);
+sqlite.prepare('INSERT INTO subscriptions(tenant_id,plan,status) VALUES(?,?,?)').run('t1','business','active');
+sqlite.prepare("INSERT INTO plan_entitlements(plan,feature_key,enabled,limit_value) VALUES(?,?,?,?) ON CONFLICT(plan,feature_key) DO UPDATE SET enabled=excluded.enabled,limit_value=excluded.limit_value").run('business','licenceos',1,10);
+const env={DB,SESSION_SECRET:secret,AUDIT_INTEGRITY_SECRET:'v78-12112-audit-secret',PUBLIC_ORIGIN:'https://app.example'};
+const req=(path,o={})=>new Request(`https://app.example${path}`,{...o,headers:{cookie:`__Host-bw_session=${raw}`,'x-csrf-token':csrf,'content-type':'application/json',...(o.headers||{})}});
+let r=await worker.fetch(req('/api/licences',{method:'POST',body:JSON.stringify({licenceType:'Trade',renewalDueAt:'2026-02-31'})}),env,{});assert.equal(r.status,400);assert.equal((await r.json()).error,'invalid_renewal_date');
+r=await worker.fetch(req('/api/licences',{method:'POST',body:JSON.stringify({licenceType:'Trade',renewalDueAt:'2028-02-29',metadata:{blob:'x'.repeat(5000)}})}),env,{});assert.equal(r.status,413);
+r=await worker.fetch(req('/api/licences',{method:'POST',body:JSON.stringify({licenceType:'Trade',authority:'Council',renewalDueAt:'2028-02-29',metadata:{note:'internal'}})}),env,{});assert.equal(r.status,201);let payload=await r.json(),licenceId=payload.id;
+sqlite.prepare("INSERT INTO licences(id,tenant_id,licence_type,renewal_due_at,status,metadata_json) VALUES(?,?,?,?,?,?)").run('other-tenant','t2','Secret other tenant licence','2028-01-01','active','{}');
+r=await worker.fetch(req('/api/licences'),env,{});payload=await r.json();assert.equal(payload.items.length,1);assert.equal(payload.items[0].renewal_due_at,'2028-02-29');assert.ok(!('metadata_json' in payload.items[0]));
+r=await worker.fetch(req(`/api/licences/${licenceId}/renew`,{method:'POST',body:'{}'}),env,{});assert.equal(r.status,400);assert.equal((await r.json()).error,'renewal_date_required');assert.equal(sqlite.prepare("SELECT count(*) n FROM licence_events WHERE licence_id=? AND event_type='LICENCE_RENEWED'").get(licenceId).n,0);
+r=await worker.fetch(req(`/api/licences/${licenceId}/renew`,{method:'POST',body:JSON.stringify({renewalDueAt:'2026-04-31'})}),env,{});assert.equal(r.status,400);
+r=await worker.fetch(req(`/api/licences/${licenceId}/renew`,{method:'POST',body:JSON.stringify({renewalDueAt:'2029-04-30'})}),env,{});assert.equal(r.status,200);
+sqlite.prepare("INSERT INTO licences(id,tenant_id,licence_type,renewal_due_at,status,metadata_json) VALUES(?,?,?,?,?,?)").run('legacy','t1','Legacy malformed','2026-02-31','active','{}');
+r=await worker.fetch(req('/api/licences'),env,{});payload=await r.json();assert.equal(payload.items.find(x=>x.id==='legacy').renewal_due_at,null);
+r=await worker.fetch(req('/api/next-actions'),env,{});payload=await r.json();assert.equal(payload.items.find(x=>x.id==='legacy').dueAt,null);assert.ok(!JSON.stringify(payload).includes('Secret other tenant licence'));
+sqlite.prepare("UPDATE memberships SET role='reviewer' WHERE tenant_id='t1' AND user_id=(SELECT user_id FROM sessions WHERE token_hash=?)").run(hash);sqlite.prepare("UPDATE plan_entitlements SET enabled=0 WHERE plan='business' AND feature_key='licenceos'").run();
+r=await worker.fetch(req('/api/licences',{method:'POST',body:JSON.stringify({licenceType:'Probe'})}),env,{});assert.equal(r.status,403);assert.equal((await r.json()).error,'workspace_role_mutation_forbidden');
+r=await worker.fetch(req('/api/next-actions'),env,{});assert.equal(r.status,403);
+console.log('v78 1.21.12 licence runtime: PASS');

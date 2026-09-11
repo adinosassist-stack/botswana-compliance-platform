@@ -1,0 +1,320 @@
+{
+  "version": 1,
+  "centralWorkspaceGate": "if(url.pathname.startsWith(\"/api/\"))",
+  "preAuthRoutes": [
+    {
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "kind": "exact",
+      "pattern": "/api/live",
+      "security": "public_probe",
+      "feature": "health"
+    },
+    {
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "kind": "exact",
+      "pattern": "/api/ready",
+      "security": "public_probe",
+      "feature": "health"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "kind": "exact",
+      "pattern": "/api/webhooks/whatsapp",
+      "security": "webhook_verification_token",
+      "feature": "notifications"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "kind": "exact",
+      "pattern": "/api/webhooks/whatsapp",
+      "security": "webhook_signature",
+      "feature": "notifications"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "kind": "exact",
+      "pattern": "/api/auth/anti-bot-config",
+      "security": "public_config",
+      "feature": "authentication"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "kind": "exact",
+      "pattern": "/api/auth/register",
+      "security": "origin_rate_limit",
+      "feature": "authentication"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "kind": "exact",
+      "pattern": "/api/auth/login",
+      "security": "origin_rate_limit",
+      "feature": "authentication"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "kind": "exact",
+      "pattern": "/api/auth/password-reset/request",
+      "security": "origin_rate_limit",
+      "feature": "authentication"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "kind": "exact",
+      "pattern": "/api/auth/password-reset/complete",
+      "security": "origin_token",
+      "feature": "authentication"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "kind": "regex",
+      "pattern": "^/api/auth/oauth/(google|facebook)/start$",
+      "security": "oauth_state",
+      "feature": "authentication"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "kind": "regex",
+      "pattern": "^/api/auth/oauth/(google|facebook)/callback$",
+      "security": "oauth_state_cookie",
+      "feature": "authentication"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "kind": "exact",
+      "pattern": "/api/internal/ai-credit-orders/settle",
+      "security": "disabled_legacy",
+      "feature": "billing"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "kind": "exact",
+      "pattern": "/api/webhooks/payment",
+      "security": "webhook_secret",
+      "feature": "payments"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "kind": "exact",
+      "pattern": "/api/internal/payments/verify-and-settle",
+      "security": "billing_secret",
+      "feature": "payments"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "kind": "exact",
+      "pattern": "/api/internal/payments/settle-verified",
+      "security": "disabled_legacy",
+      "feature": "payments"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "kind": "exact",
+      "pattern": "/api/internal/payments/refund",
+      "security": "billing_and_operations_secret",
+      "feature": "payments"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "kind": "exact",
+      "pattern": "/api/payments/return",
+      "security": "provider_verification_before_settlement",
+      "feature": "payments"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "kind": "exact",
+      "pattern": "/public/daily-reporting/access",
+      "security": "signed_access_token_native_rate_limit",
+      "feature": "daily_reporting"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "kind": "exact",
+      "pattern": "/public/daily-reporting/submit",
+      "security": "signed_access_token_native_rate_limit",
+      "feature": "daily_reporting"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "kind": "exact",
+      "pattern": "/public/passport/verify",
+      "security": "method_denied_token_not_url",
+      "feature": "passport"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "kind": "exact",
+      "pattern": "/public/passport/verify",
+      "security": "share_token_native_rate_limit",
+      "feature": "passport"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "kind": "regex",
+      "pattern": "^/public/passport/receipt/[A-Za-z0-9]+$",
+      "security": "signed_receipt_verification",
+      "feature": "passport"
+    }
+  ],
+  "workspaceFeaturePrefixes": {
+    "account": [
+      "/api/account/",
+      "/api/auth/me",
+      "/api/auth/logout"
+    ],
+    "audit": [
+      "/api/audit",
+      "/api/control-lineage/"
+    ],
+    "billing": [
+      "/api/billing/",
+      "/api/ai/credits"
+    ],
+    "obligations": [
+      "/api/obligations",
+      "/api/statutory-calendar",
+      "/api/obligation-escalations"
+    ],
+    "employees_hr": [
+      "/api/employees",
+      "/api/hr/",
+      "/api/employer-risk"
+    ],
+    "tenders": [
+      "/api/tenders"
+    ],
+    "evidence": [
+      "/api/evidence",
+      "/api/defense-packs",
+      "/api/inspection-packs"
+    ],
+    "regulatory": [
+      "/api/regulatory/",
+      "/api/platform/regulatory/",
+      "/api/regulatory-change-cases"
+    ],
+    "daily_reporting": [
+      "/api/daily-reporting/"
+    ],
+    "passport": [
+      "/api/passport",
+      "/api/partner/"
+    ],
+    "controls": [
+      "/api/control-",
+      "/api/controls/",
+      "/api/remediation",
+      "/api/evidence-health",
+      "/api/executive-corrective-actions",
+      "/api/executive-control-",
+      "/api/executive-interventions",
+      "/api/executive-exceptions"
+    ],
+    "risk": [
+      "/api/business-risk-events",
+      "/api/business-protection-score",
+      "/api/industry/",
+      "/api/internal/industry-benchmarks/refresh"
+    ],
+    "notifications": [
+      "/api/notifications",
+      "/api/whatsapp",
+      "/api/notification-channels",
+      "/api/notification-preferences",
+      "/api/notification-attention"
+    ],
+    "workspace": [
+      "/api/state",
+      "/api/company",
+      "/api/review-",
+      "/api/re-review",
+      "/api/daily-brief",
+      "/api/next-actions"
+    ],
+    "platform": [
+      "/api/ops/",
+      "/api/platform/deployment-readiness",
+      "/api/platform/scheduled-runs"
+    ],
+    "cipa_registry": [
+      "/api/cipa/"
+    ],
+    "entitlements": [
+      "/api/entitlements"
+    ],
+    "inspections": [
+      "/api/inspection-"
+    ],
+    "payments": [
+      "/api/payments/"
+    ],
+    "services": [
+      "/api/services/",
+      "/api/internal/services/"
+    ],
+    "workflows": [
+      "/api/compliance-schedules",
+      "/api/workflow-rules",
+      "/api/workflows"
+    ],
+    "ai": [
+      "/api/ai/"
+    ],
+    "business_events": [
+      "/api/business-events"
+    ],
+    "legal_holds": [
+      "/api/legal-holds"
+    ],
+    "licences": [
+      "/api/licences"
+    ]
+  }
+}

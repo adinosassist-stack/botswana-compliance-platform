@@ -1,0 +1,9 @@
+(function bootstrapBwPreview(global){
+  "use strict";
+  function previewGaboroneDate(){try{return new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Gaborone",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date())}catch{return new Date().toISOString().slice(0,10)}}
+const PREVIEW_API=global.BW?.previewData||Object.freeze({});
+function previewResponse(url,opts={}){const method=String(opts.method||"GET").toUpperCase(),key=String(url).split("?")[0];if(method==="POST"&&key==="/api/ai/advisor"){let body={};try{body=JSON.parse(opts.body||"{}")}catch{}const tenderMode=body.mode==="tender_readiness";return {runId:"preview-advisor",generationMode:"structured_fallback",model:null,creditsUsed:0,confidence:"medium",answer:tenderMode?"The preview workspace tracks one active tender with two mandatory readiness items still requiring review.":"The preview workspace shows one high-priority protection risk, two open obligations and three management follow-ups grounded in the demonstration records.",actions:[{title:tenderMode?"Review mandatory tender evidence":"Review the highest-priority workspace risk",reason:tenderMode?"Two mandatory readiness items are not yet verified in the preview record.":"The current risk record is marked high and needs management review.",priority:"high",sourceRefs:[tenderMode?"TND-1":"RISK-1"]}],caveats:["Preview response only; no live Workers AI request was made.","Verify workspace records and official sources before acting."],sourceRefs:[tenderMode?"TND-1":"RISK-1"],references:[{ref:tenderMode?"TND-1":"RISK-1",type:tenderMode?"tender":"risk_event",label:tenderMode?"Demo facilities tender":"Demo high-priority protection risk"}]};}if(method!=="GET")return {ok:true,id:"preview-"+Date.now(),status:"preview",priceBwp:500,message:"Preview only"};return structuredClone(PREVIEW_API[key]||{items:[]})}
+
+  global.BW=global.BW||{};
+  global.BW.preview=Object.freeze({request:previewResponse});
+})(window);

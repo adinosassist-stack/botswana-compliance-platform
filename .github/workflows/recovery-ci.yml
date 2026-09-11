@@ -1,0 +1,72 @@
+name: Thebe Desk Recovery CI
+run-name: Recovery CI ${{ github.sha }}
+
+on:
+  push:
+    branches: [main, 'recovery/**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: recovery-ci-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: V81 recovery qualification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CI: 'true'
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+
+      - name: Verify pinned npm
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="$(node -p "String(require('./package.json').packageManager).replace(/^npm@/,'')")"
+          actual="$(npm --version)"
+          [[ "$actual" == "$expected" ]] || { echo "npm mismatch expected=$expected actual=$actual" >&2; exit 1; }
+
+      - name: Clean install from committed lockfile
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: V81 recovery boundary
+        run: npm run test:recovery-v81-sites
+
+      - name: Production and historical regression qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run check
+          npm run lint:production
+          npm run test:production-hardening
+          npm run test:feature-hardening
+          npm run test:static
+          npm run test:release-regressions
+          npm run check:dependency-policy
+          npm run check:bundle-budget
+          npm run check:d1-backup-shape
+          npm run check:d1-backup-restore
+          npm run check:d1-recovery-drill
+          npm run check:artifact-boundary
+          npm run check:supply-chain
+
+      - name: Genuine production dependency audit
+        run: npm audit --omit=dev --audit-level=high

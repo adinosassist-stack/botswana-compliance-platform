@@ -1,0 +1,76 @@
+name: BF-07 Supply-Chain Seal
+run-name: BF-07 seal ${{ github.sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: 'Full 40-character commit SHA that must be sealed'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bf07-seal-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  seal:
+    name: Resolve BF-07 from clean npm registry state
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CI: 'true'
+      EXPECTED_SHA: ${{ inputs.expected_sha }}
+
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Verify operator-selected commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'expected_sha must be a full lowercase commit SHA' >&2; exit 1; }
+          [[ "$EXPECTED_SHA" == "$GITHUB_SHA" ]] || { echo "dispatch SHA mismatch: expected=$EXPECTED_SHA actual=$GITHUB_SHA" >&2; exit 1; }
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]] || { echo 'checkout HEAD does not match GITHUB_SHA' >&2; exit 1; }
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo 'checkout is not clean before BF-07 resolution' >&2; exit 1; }
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+
+      - name: Verify Node distribution toolchain pair
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run check:bf07-toolchain
+
+      - name: Resolve BF-07 and seal exact artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod 0755 scripts/resolve-bf07.sh
+          ./scripts/resolve-bf07.sh
+
+      - name: Upload sealed artifact and BF-07 evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: bf07-sealed-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            dist/*_RELEASE_SEALED.zip
+            dist/*_RELEASE_SEALED.zip.sha256
+            package-lock.json
+            sbom.cdx.json
+            audit-report.json
+            bf07-evidence.json
+            bf07-provenance.json
+            dist/bf07-verification/release-provenance.json

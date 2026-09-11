@@ -1,0 +1,13 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+const w=fs.readFileSync(new URL("../cloudflare/src/worker.js", import.meta.url),"utf8");
+const n=fs.readFileSync(new URL("../server/server.js", import.meta.url),"utf8");
+const pkg=JSON.parse(fs.readFileSync(new URL("../package.json",import.meta.url),"utf8"));
+assert.ok(pkg.version.startsWith("1.21.")&&Number(pkg.version.split(".")[2]||0)>=20);
+assert.match(w,/\/api\/account\/delete-request[\s\S]{0,300}!roleAllowed\(a,"owner"\)/);
+assert.match(w,/legacy_deletion_route_disabled/);
+assert.match(w,/\/api\/account\/deletion-status[\s\S]{0,220}!roleAllowed\(a,"owner"\)/);
+assert.match(w,/\/api\/account\/deletion-request[\s\S]{0,260}!roleAllowed\(a,"owner"\)/);
+assert.match(n,/app\.post\("\/api\/account\/delete-request", requireRole\("owner"\)/);
+assert.match(n,/app\.get\("\/api\/account\/deletion-status", requireRole\("owner"\)/);
+console.log("v78 1.21.20 deletion-route adversarial: 6/6 PASS");

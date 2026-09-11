@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+
+# Local environment / secrets
+.env
+.env.*
+!.env.example
+.dev.vars
+.npmrc.local
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+
+# Local databases and runtime state
+*.db
+*.sqlite
+*.sqlite3
+.wrangler/
+coverage/
+
+# Ephemeral Cloudflare production config rendered from provisioned account IDs
+cloudflare/.wrangler-production.*.toml
+
+# Logs / temp / editor / OS
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+*.temp
+
+# BF-07 evidence and sealed artifacts are intentionally NOT ignored.
+# A successful closure PR must be able to commit package-lock.json,
+# sbom.cdx.json, audit-report.json, bf07-evidence.json,
+# bf07-provenance.json, the RELEASE_SEALED archive/sidecar, and
+# dist/bf07-verification/release-provenance.json.

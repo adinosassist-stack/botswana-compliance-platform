@@ -1,0 +1,14 @@
+import {validPublicAppUrl,publicUrlConfig,buildPasswordResetUrl} from '../server/public-app-url.js';
+let pass=0,fail=0;const ok=(v,m)=>{if(v){console.log('PASS',m);pass++}else{console.error('FAIL',m);fail++}};
+const app=validPublicAppUrl('https://app.example/portal/?old=1#frag');
+ok(app?.origin==='https://app.example'&&app.pathname==='/portal/','valid HTTPS app URL preserves configured application path');
+ok(!validPublicAppUrl('http://app.example/'),'HTTP app URL rejected');
+ok(!validPublicAppUrl('https://user:pass@app.example/'),'credential-bearing app URL rejected');
+ok(!validPublicAppUrl('not a url'),'malformed app URL rejected');
+ok(publicUrlConfig('https://app.example','https://app.example/portal/').ok,'same-origin PUBLIC_ORIGIN and PUBLIC_APP_URL accepted');
+ok(!publicUrlConfig('https://app.example','https://other.example/portal/').ok,'cross-origin public app URL rejected');
+ok(!publicUrlConfig('http://app.example','https://app.example/').ok,'insecure public origin rejected');
+const reset=buildPasswordResetUrl('https://app.example/portal/?old=1#frag','a b&c');
+ok(reset==='https://app.example/portal/#reset_token=a%20b%26c','reset URL preserves app path, clears the request query, and safely keeps the token in the fragment');
+ok(buildPasswordResetUrl('http://app.example/','abc')===null,'reset URL builder fails closed for insecure app URL');
+console.log(`V78 1.21.72 Node public app URL runtime: ${pass}/${pass+fail} PASS`);if(fail)process.exit(1);

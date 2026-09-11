@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en-BW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<title>Thebe Desk · V81 Sites Final HTML Review</title>
+<style>
+:root{--bg:#f4f6f5;--card:#fff;--ink:#121715;--muted:#66716b;--line:#dce3df;--dark:#121817;--green:#0f5f46;--green2:#eaf5ef;--amber:#8a5b0a;--amber2:#fff6e7;--red:#a8271e;--red2:#fff0ef;--shadow:0 16px 45px rgba(19,31,25,.07)}
+*{box-sizing:border-box}html{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink)}body{margin:0;background:var(--bg)}button{font:inherit}button{cursor:pointer}.wrap{width:min(1460px,100%);margin:auto;padding:22px clamp(14px,3vw,42px) 64px}
+.reviewbar{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.96);backdrop-filter:blur(14px);border-bottom:1px solid var(--line);padding:12px clamp(14px,3vw,42px);display:flex;justify-content:space-between;align-items:center;gap:16px}.brand{display:flex;align-items:center;gap:10px;font-weight:800}.mark{width:31px;height:31px;border-radius:9px;background:var(--dark);color:#fff;display:grid;place-items:center}.reviewmeta{font-size:12px;color:var(--muted);text-align:right}.hero{background:var(--dark);color:#fff;border-radius:22px;padding:26px;display:flex;justify-content:space-between;gap:28px;align-items:flex-end}.eyebrow{font-size:11px;letter-spacing:.12em;font-weight:800;color:#5f7268;margin:0 0 6px}.hero .eyebrow{color:#a7b7af}.hero h1{font-size:clamp(30px,4vw,48px);letter-spacing:-.045em;margin:0 0 8px}.hero p{margin:0;color:#c7d1cc;max-width:840px;line-height:1.55}.badge{border:1px solid #43524c;border-radius:14px;padding:10px 13px;font-size:12px;white-space:nowrap}.badge strong{display:block}.badge span{color:#bbc6c0}.auditstrip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0 18px}.audit{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px}.audit span{display:block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:800}.audit strong{display:block;margin-top:5px;font-size:17px}.ok{color:var(--green)}.pending{color:var(--amber)}.boundary{background:#fffaf0;border:1px solid #eadcb8;border-radius:13px;padding:12px 14px;margin:12px 0 16px;font-size:12.5px;line-height:1.5}.boundary strong{color:#775019}.reviewtabs{display:flex;gap:8px;margin:0 0 12px;overflow:auto}.reviewtab{border:1px solid var(--line);background:#fff;border-radius:999px;padding:9px 13px;font-weight:750;font-size:12px}.reviewtab.active{background:var(--dark);color:#fff;border-color:var(--dark)}.reviewpanel{display:none}.reviewpanel.active{display:block}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}.kpi{background:#fff;border:1px solid var(--line);border-radius:16px;padding:15px}.kpi span{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:800}.kpi strong{display:block;font-size:28px;letter-spacing:-.04em;margin:4px 0}.kpi small{color:var(--muted)}
+.toolbar{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:12px}.toolbar h2{margin:2px 0 3px}.toolbar p{margin:0;color:var(--muted);font-size:13px}.actions{display:flex;gap:8px}.btn{border-radius:10px;padding:10px 13px;border:1px solid var(--line);background:#fff;font-weight:750}.btn.primary{background:var(--dark);color:#fff;border-color:var(--dark)}
+.workspace{display:grid;grid-template-columns:minmax(250px,320px) minmax(0,1fr);gap:12px;align-items:start}.side,.detail,.reviewcard{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}.side{padding:12px}.filter{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:750;padding:4px 2px 10px}.filter select{border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:#fff}.sitebtn{display:block;width:100%;text-align:left;border:1px solid transparent;background:#f7f9f8;border-radius:13px;padding:12px;margin:7px 0;color:var(--ink)}.sitebtn.active{background:#eef5f1;border-color:#bad0c4}.sitebtn b,.sitebtn small{display:block}.sitebtn small{margin-top:4px;color:var(--muted)}.row{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:8px}.chip{display:inline-flex;border-radius:999px;padding:4px 8px;font-size:10px;font-weight:800;background:var(--green2);color:var(--green)}.chip.warn{background:var(--amber2);color:var(--amber)}.chip.bad{background:var(--red2);color:var(--red)}
+.detail{padding:17px;min-height:650px}.detailhead{display:flex;justify-content:space-between;gap:18px;padding-bottom:14px;border-bottom:1px solid var(--line)}.detailhead h2{margin:0}.detailhead p{margin:5px 0 0;color:var(--muted);font-size:12.5px}.progress{min-width:180px}.progress small{color:var(--muted)}.track{height:7px;background:#e9eeeb;border-radius:99px;overflow:hidden;margin-top:6px}.fill{height:100%;width:70%;background:var(--green)}.tabs{display:flex;gap:6px;overflow:auto;padding:13px 0 12px}.tab{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 11px;font-size:12px;font-weight:750;white-space:nowrap}.tab.active{background:var(--dark);color:#fff;border-color:var(--dark)}.tabpane{display:none}.tabpane.active{display:block}.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:12px}.card{border:1px solid var(--line);border-radius:15px;padding:15px}.card h3{margin:0 0 8px;font-size:15px}.health{font-size:36px;font-weight:850;color:var(--green);letter-spacing:-.05em}.muted{color:var(--muted);font-size:12.5px;line-height:1.48}.summary{font-size:13px;line-height:1.58;color:#37413c}.facts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.fact{border-top:1px solid #edf0ee;padding-top:8px}.fact span{display:block;font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:800}.fact b{font-size:12.5px}.record{border:1px solid #e6ebe8;background:#fafbfa;border-radius:12px;padding:11px;margin:7px 0}.record b,.record small{display:block}.record small{margin-top:3px;color:var(--muted);line-height:1.4}.note{margin-top:10px;border-left:3px solid #c4d2cb;background:#f8faf9;border-radius:7px;padding:9px 10px;font-size:11.5px;color:#5c6862;line-height:1.45}
+.reviewgrid{display:grid;grid-template-columns:1.1fr .9fr;gap:12px}.reviewcard{padding:18px}.reviewcard h2,.reviewcard h3{margin-top:0}.finding{padding:13px;border:1px solid var(--line);border-radius:13px;margin:9px 0}.finding strong{display:flex;align-items:center;gap:8px}.dot{width:9px;height:9px;border-radius:50%;background:var(--green);display:inline-block}.finding p{margin:5px 0 0;color:var(--muted);font-size:12.5px;line-height:1.5}.code{font:12px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#f6f8f7;border:1px solid var(--line);padding:10px;border-radius:10px;overflow:auto}.score{font-size:54px;letter-spacing:-.07em;font-weight:850;margin:0;color:var(--green)}.check{display:flex;gap:9px;align-items:flex-start;margin:9px 0;font-size:13px}.check::before{content:"✓";font-weight:900;color:var(--green)}.footer{margin-top:18px;color:var(--muted);font-size:11.5px;text-align:center}
+button:focus-visible,select:focus-visible{outline:3px solid rgba(15,95,70,.22);outline-offset:2px}
+@media(max-width:1000px){.auditstrip,.kpis{grid-template-columns:repeat(2,1fr)}.workspace,.reviewgrid{grid-template-columns:1fr}.side{position:static}.sitecards{display:grid;grid-template-columns:1fr 1fr;gap:8px}.sitebtn{margin:0}.grid2{grid-template-columns:1fr}}
+@media(max-width:620px){.wrap{padding:14px 12px 44px}.reviewbar{padding:10px 12px}.reviewmeta{display:none}.hero{align-items:flex-start;flex-direction:column;padding:21px}.auditstrip,.kpis{grid-template-columns:1fr 1fr}.toolbar{align-items:stretch;flex-direction:column}.actions .btn{flex:1}.sitecards{grid-template-columns:1fr}.detail{padding:12px}.detailhead{display:block}.progress{margin-top:12px}.facts{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="reviewbar">
+  <div class="brand"><span class="mark">T</span><span>Thebe Desk · V81 Final Review</span></div>
+  <div class="reviewmeta">Base main: b8015f52acbf… · Hardened candidate: 361dd8f9d9dc…</div>
+</header>
+
+<main class="wrap">
+<section class="hero">
+  <div><p class="eyebrow">OPERATIONS · OUT-OF-OFFICE WORK</p><h1>Sites &amp; Field Work</h1><p>Final HTML review of the Phase 0 site-management surface, with the hardened task-session boundary and canonical site binding included in the review.</p></div>
+  <div class="badge"><strong>Phase 0</strong><span>Interactive demo surface</span></div>
+</section>
+
+<section class="auditstrip" aria-label="Final review status">
+  <article class="audit"><span>Pass 1</span><strong class="ok">UI / Product ✓</strong></article>
+  <article class="audit"><span>Pass 2</span><strong class="ok">Security / Isolation ✓</strong></article>
+  <article class="audit"><span>Pass 3</span><strong class="ok">Inherited Gates ✓</strong></article>
+  <article class="audit"><span>Candidate</span><strong>361dd8f9d9dc</strong></article>
+</section>
+
+<div class="boundary"><strong>Review artifact.</strong> This file is a self-contained visual and security review. The production Sites module remains a Phase 0 browser-session demo: it does not create Finance journals, payroll records, disciplinary findings, or authoritative project records.</div>
+
+<nav class="reviewtabs" aria-label="Review sections">
+  <button class="reviewtab active" data-review="site">Sites page</button>
+  <button class="reviewtab" data-review="audit">Hardening review</button>
+</nav>
+
+<section class="reviewpanel active" id="review-site">
+  <div class="kpis">
+    <article class="kpi"><span>Active sites</span><strong>2</strong><small>Temporary jobs in progress</small></article>
+    <article class="kpi"><span>Crew on site</span><strong>3</strong><small>Latest site coordination status</small></article>
+    <article class="kpi"><span>Open issues</span><strong>1</strong><small>Needs management attention</small></article>
+    <article class="kpi"><span>Recorded site cost</span><strong>P1,270</strong><small>Demo field expenses only</small></article>
+  </div>
+
+  <section class="toolbar">
+    <div><p class="eyebrow">FIELD OPERATIONS</p><h2>Current jobs</h2><p>One workspace per temporary site or customer job — never treated as a branch.</p></div>
+    <div class="actions"><button class="btn" type="button">Reset demo</button><button class="btn primary" type="button">Create site / job</button></div>
+  </section>
+
+  <div class="workspace">
+    <aside class="side">
+      <div class="filter"><span>Status</span><select aria-label="Site status"><option>All</option><option>Active</option><option>Delayed</option><option>Completed</option></select></div>
+      <div class="sitecards">
+        <button class="sitebtn active" type="button"><b>Kgale Installation Project</b><small>Demo customer · Kgale, Gaborone</small><span class="row"><span class="chip">Active</span><b>70%</b></span></button>
+        <button class="sitebtn" type="button"><b>Mahalapye Field Service</b><small>Demo service client · Mahalapye</small><span class="row"><span class="chip">Active</span><b>35%</b></span></button>
+      </div>
+    </aside>
+
+    <section class="detail">
+      <div class="detailhead">
+        <div><div class="row" style="justify-content:flex-start;margin:0"><h2>Kgale Installation Project</h2><span class="chip">Active</span></div><p>Demo customer · Kgale, Gaborone</p></div>
+        <div class="progress"><small><b>70%</b> complete</small><div class="track"><div class="fill"></div></div></div>
+      </div>
+
+      <nav class="tabs" aria-label="Site sections">
+        <button class="tab active" data-pane="overview">Overview</button>
+        <button class="tab" data-pane="daily">Daily log</button>
+        <button class="tab" data-pane="crew">Crew</button>
+        <button class="tab" data-pane="tasks">Tasks (2)</button>
+        <button class="tab" data-pane="materials">Materials</button>
+        <button class="tab" data-pane="expenses">Expenses</button>
+        <button class="tab" data-pane="issues">Issues</button>
+      </nav>
+
+      <section class="tabpane active" id="pane-overview">
+        <div class="grid2">
+          <article class="card"><p class="eyebrow">SITE HEALTH</p><div class="health">84/100</div><p class="muted">On track. Score uses recorded site issues, material alerts and delay status only.</p></article>
+          <article class="card"><p class="eyebrow">THEBE AI · DEMO</p><h3>Site summary</h3><p class="summary">Kgale Installation Project is 70% complete. Two crew members are recorded on site today. One medium-severity issue and one low-material alert need review. Recorded demo expenses total P850. Suggested next action: confirm finishing component availability before the next site shift.</p><button class="btn" type="button">Refresh summary</button></article>
+        </div>
+        <div class="grid2">
+          <article class="card"><h3>Scope of work</h3><p class="summary">Install and finish customer works at the temporary field site, record materials, issues, expenses and completion evidence.</p><div class="facts"><div class="fact"><span>Customer</span><b>Demo customer</b></div><div class="fact"><span>Supervisor</span><b>Site supervisor</b></div><div class="fact"><span>Started</span><b>10 Sep 2026</b></div><div class="fact"><span>Target</span><b>15 Sep 2026</b></div></div></article>
+          <article class="card"><h3>Today at a glance</h3><div class="record"><b>2 on site</b><small>Crew marked present today</small></div><div class="record"><b>1 open issue</b><small>Highest severity: medium</small></div><div class="record"><b>1 material alert</b><small>Finishing component needs attention</small></div></article>
+        </div>
+        <article class="card"><h3>Employee report linkage</h3><p class="muted">A field-site job is separate from an office or branch. Employees can tag their daily report to a named site; management reviews the job-level roll-up here.</p><div class="note">A missing report is not proof of absence, misconduct or poor performance.</div></article>
+      </section>
+
+      <section class="tabpane" id="pane-daily"><article class="card"><h3>Recent site logs</h3><div class="record"><b>10 Sep 2026 · 70%</b><small>Primary installation work completed and alignment checked.</small><small>Next: finish remaining fitting and final site clean-up.</small><small>Blocker: one finishing component is still required.</small></div><div class="note">Whole-site record, not an employee score.</div></article></section>
+      <section class="tabpane" id="pane-crew"><article class="card"><h3>Site crew</h3><div class="record"><b>Demo Employee A</b><small>Installer · Present</small></div><div class="record"><b>Demo Employee B</b><small>Assistant · Present</small></div><div class="note">Attendance status is a site coordination signal only; it is not an automatic disciplinary finding.</div></article></section>
+      <section class="tabpane" id="pane-tasks"><div class="grid2"><article class="card"><h3>Add site task / work package</h3><p class="muted">Task creation is enabled only after an independent Owner/Manager session check and tenant identity resolution.</p><div class="record"><b>Fail-closed boundary</b><small>No generic workspace storage fallback.</small></div><div class="record"><b>Canonical job binding</b><small>Tasks bind to the tenant-scoped site ID, not only visible title/meta.</small></div></article><article class="card"><h3>Site tasks &amp; work packages</h3><div class="record"><b>Finish remaining fitting</b><small>Site crew · In progress</small></div><div class="record"><b>Confirm finishing component delivery</b><small>Site supervisor · Open</small></div><div class="note">Task state coordinates work; it does not automatically score employee performance.</div></article></div></section>
+      <section class="tabpane" id="pane-materials"><article class="card"><h3>Materials on this job</h3><div class="record"><b>Finishing components <span class="chip warn">Low</span></b><small>10 sent · 8 used · 2 remaining</small></div><div class="record"><b>Fixing material</b><small>6 sent · 3 used · 3 remaining</small></div></article></section>
+      <section class="tabpane" id="pane-expenses"><article class="card"><h3>Recorded site expenses</h3><div class="record"><b>Transport · P850</b><small>Demo transport cost</small></div><div class="note">Demo expenses do not post to Finance Center or create journals.</div></article></section>
+      <section class="tabpane" id="pane-issues"><article class="card"><h3>Issues &amp; blockers</h3><div class="record"><b>Material shortage <span class="chip warn">Medium</span></b><small>One finishing component is outstanding.</small></div><div class="note">High/critical site issues can flag the job as delayed, but do not create HR findings.</div></article></section>
+    </section>
+  </div>
+</section>
+
+<section class="reviewpanel" id="review-audit">
+  <div class="reviewgrid">
+    <section class="reviewcard">
+      <p class="eyebrow">FINAL HARDENING</p><h2>What changed</h2>
+      <div class="finding"><strong><span class="dot"></span>Task authorization now fails closed</strong><p>The task module starts without a tenant namespace and without authorization. It does not inject, read, write or render task state unless it independently confirms an Owner/Manager session and a tenant identity.</p></div>
+      <div class="finding"><strong><span class="dot"></span>Generic workspace fallback removed</strong><p>The prior task fallback could place demo task data in a generic browser-session bucket when its session lookup failed. The hardened candidate removes that fallback.</p></div>
+      <div class="finding"><strong><span class="dot"></span>Tasks bind to the canonical site ID</strong><p>The selected Site is resolved from the tenant-scoped Sites session record. A task bucket is opened only when exactly one matching Site record is found; duplicate or ambiguous visible jobs fail closed.</p></div>
+      <div class="finding"><strong><span class="dot"></span>Stored task records are normalized</strong><p>Browser-session rows are revalidated on read and write: title/owner lengths are bounded, due dates are shape-checked, status is restricted to open / in progress / done, and the 200-task cap remains enforced.</p></div>
+      <div class="finding"><strong><span class="dot"></span>No authority creep</strong><p>No Finance, payroll or employee APIs were added. The module remains sessionStorage-only and the source continues to avoid dynamic HTML sinks such as innerHTML, eval, document.write and insertAdjacentHTML.</p></div>
+    </section>
+
+    <aside class="reviewcard">
+      <p class="eyebrow">REVIEW RESULT</p><div class="score">10/10</div><p class="muted">Release-candidate quality for the intended Phase 0 demo boundary, subject to merge/deployment of PR #75.</p>
+      <h3>Three-pass result</h3>
+      <div class="check"><span><b>Pass 1 — Product/UI</b><br><span class="muted">Site definition, operating loop, Tasks, responsive layout and branch/report separation intact.</span></span></div>
+      <div class="check"><span><b>Pass 2 — Security/isolation</b><br><span class="muted">Owner/Manager gate, tenant isolation, canonical site binding, normalized bounds, CSP/no-store/noindex and safe DOM construction.</span></span></div>
+      <div class="check"><span><b>Pass 3 — Compatibility</b><br><span class="muted">V80 Agent, Finance, PWA, BF-07 and staged-release boundaries remain unchanged; Phase 0 adds no authoritative backend writes.</span></span></div>
+      <h3>Exact candidate</h3><div class="code">PR #75<br>head: 361dd8f9d9dc9cdaf19af55b752a198c98ad53e8<br>base main: b8015f52acbf2337ea7a4a2b504f2480b5ff026f</div>
+      <h3 style="margin-top:16px">Static route protection</h3>
+      <div class="check"><span>Cache-Control: no-store</span></div><div class="check"><span>X-Robots-Tag: noindex, nofollow</span></div><div class="check"><span>X-Frame-Options: DENY</span></div><div class="check"><span>CSP frame-ancestors 'none' and self-only runtime sources</span></div>
+    </aside>
+  </div>
+</section>
+
+<p class="footer">Thebe Desk · V81 Sites &amp; Field Work · final standalone HTML review · 10 September 2026</p>
+</main>
+
+<script>
+(()=>{"use strict";
+const all=(s)=>Array.from(document.querySelectorAll(s));
+for(const b of all(".reviewtab"))b.addEventListener("click",()=>{for(const x of all(".reviewtab"))x.classList.toggle("active",x===b);for(const p of all(".reviewpanel"))p.classList.toggle("active",p.id==="review-"+b.dataset.review)});
+for(const b of all(".tab"))b.addEventListener("click",()=>{for(const x of all(".tab"))x.classList.toggle("active",x===b);for(const p of all(".tabpane"))p.classList.toggle("active",p.id==="pane-"+b.dataset.pane)});
+})();
+</script>
+</body>
+</html>

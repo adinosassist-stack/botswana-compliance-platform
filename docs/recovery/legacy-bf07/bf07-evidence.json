@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 2,
+  "package": {
+    "name": "bw-compliance-os",
+    "version": "1.21.101"
+  },
+  "toolchain": {
+    "node": "22.23.2",
+    "npm": "10.9.8"
+  },
+  "registry": "https://registry.npmjs.org/",
+  "generation": {
+    "isolatedEmptyCache": true,
+    "registryLiveVerified": true,
+    "preferOnline": true,
+    "offline": false,
+    "ignoreLifecycleScripts": true,
+    "npmCiVerified": true
+  },
+  "sha256": {
+    "packageLock": "eb814a64dbf3d1dbef42deb641d80a4e01819d03cb71dfe8ce10eb5eeaf57d2e",
+    "sbom": "42d7417626bd647a3f34cae81046bd177685fcc9a6f43a2cd47fa6cf865ca51b",
+    "auditReport": "f7c19419e032ac729ad6ee363a1d0b2828fc73249c1466e4a5e3294ec0c410c1",
+    "policy": {
+      ".nvmrc": "08062faf0d7a2d22f5d7933c50e975dd1527034275597be7c1b3b9fd2b9d079a",
+      ".npmrc": "c429c8321bafcb3f69b357c9d312c8f09846c4a7d6ab2027eaf5062d784774fb",
+      "package.json": "708e73c6c94203d86e7f2c0e0fab469e17b40e677a16eef4e05563c90e91d500",
+      ".github/workflows/bf07-seal.yml": "37ad32891d06bdf2568b28be2eab87d1aa3e41b9cc422a7fe2546f14ffafdbf1",
+      "scripts/supply-chain-core.mjs": "822605ba0a01fe6167fd9bd08cb678c75d7175aa2732d63759c297e37108181d",
+      "scripts/supply-chain-gate.mjs": "1c52202a40b98136574f303382a4a48ced4602daef9372454ec77fa95dd03f8b",
+      "scripts/bf07-toolchain-core.mjs": "6a64ca4a608ff1267268d1d2d9f78f0162b06bf0bd11f575f022dc156ad5886b",
+      "scripts/bf07-toolchain-gate.mjs": "149bda8fcfc1ca57788c75360953e282c87c31f68d17e74a1a5cd5666959e80c",
+      "scripts/bf07-evidence-core.mjs": "5e5b0fa99569a13169e30c09db55d986aea7a133bafc663ab2ee69d86d6edac5",
+      "scripts/write-bf07-evidence.mjs": "829b8af0f0440c385209c8fdc1a33d7958358484d9371b69ee9138c20fdab4e8",
+      "scripts/bf07-evidence-gate.mjs": "644331cc7224e4533f87299479300943b26c9afebe118682b0173ba9f1975416",
+      "scripts/bf07-provenance-core.mjs": "04cddabed04b9de9e26fb00b7f2fe45da2ebd3997073b1526bc4082446d97906",
+      "scripts/write-bf07-provenance.mjs": "db3810f7c175c109435b783bdd21d9ba4fd2f7911ca829d8309c8a969316c020",
+      "scripts/bf07-provenance-gate.mjs": "bf5251d5d1fe9420bbade46ede6ef57dc930942fc3cfd05e1eee9c4a8ab2257c",
+      "scripts/bf07-release-provenance-core.mjs": "c1715d3eae78357092c27e5afd14fdff4ace3fd6472c53b53bfd02352be47652",
+      "scripts/write-bf07-release-provenance.mjs": "c48909a8e00e1b257e90a2d4f459402e65ff3e307c3e75b48a96a8e24b5889f5",
+      "scripts/bf07-release-provenance-gate.mjs": "0e7bedeb27e997c21201e920796a8f4ed941a396cf166121003f09e50ac4b984",
+      "scripts/resolve-bf07.sh": "f5b98191efafe98f944846b7ca16652457169c295e79bbaa27fc97225799122e",
+      "scripts/launch-gate.mjs": "2694b2bc346a749334c3469efa805aac023371d8c219b25614394c613381473b",
+      "scripts/package-release.mjs": "e65e2c38361a4f58da6a712c459f873b5c574b7e9f08429183821c7987d7145f",
+      "scripts/artifact-boundary-gate.mjs": "9c853a0257bdfbb413294f3906248d2d2c97f0846876504c2ba33232e7d47e02"
+    }
+  },
+  "auditPolicy": {
+    "omit": "dev",
+    "auditLevel": "high",
+    "high": 0,
+    "critical": 0
+  }
+}

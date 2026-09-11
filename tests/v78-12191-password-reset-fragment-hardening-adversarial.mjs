@@ -1,0 +1,14 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const read=f=>fs.readFileSync(new URL('../'+f,import.meta.url),'utf8');
+const pkg=JSON.parse(read('package.json')),profile=JSON.parse(read('RELEASE_PROFILE.json')),nodeUrl=read('server/public-app-url.js'),worker=read('cloudflare/src/worker.js'),html=read('public/index.html'),old=read('tests/v78-12190-outbound-scanner-endpoint-hardening-adversarial.mjs');
+let pass=0;const ok=(v,m)=>{assert.ok(v,m);console.log('PASS',m);pass++};
+ok(['1.21.91','1.21.92','1.21.93','1.21.94','1.21.95','1.21.96','1.21.97','1.21.98','1.21.99','1.21.100','1.21.101'].includes(pkg.version)&&pkg.scripts.test.includes('npm run test:v78-12191')&&pkg.scripts.test.indexOf('test:v78-12191')<pkg.scripts.test.indexOf('test:v78-12190'),'1.21.91 reset-fragment controls remain active in reviewed successors');
+ok(profile.v12191_password_reset_fragment_hardening===true&&profile.password_reset_token_query_logging_exposure_closed===true,'release profile records reset-token fragment hardening');
+ok(nodeUrl.includes('app.hash=`reset_token=${encodeURIComponent(String(token||""))}`')&&!nodeUrl.includes('searchParams.set("reset_token"'),'Node password-reset URL puts the secret in a fragment, not the request query');
+ok(worker.includes('reset.hash=`reset_token=${encodeURIComponent(String(rawToken||""))}`')&&!worker.slice(worker.indexOf('async function deliverPasswordReset'),worker.indexOf('async function enqueueNotification')).includes('searchParams.set("reset_token"'),'Worker reset email link puts the secret in a fragment, not the request query');
+ok(html.includes('if(!raw.startsWith("#reset_token="))return')&&html.includes('decodeURIComponent(raw.slice("#reset_token=".length))'),'frontend consumes the reset token from the URL fragment');
+ok(!html.slice(html.indexOf('function handleResetLink()'),html.indexOf('async function renderOnboardingBanner')).includes('URLSearchParams(location.search)'),'reset-link handler no longer reads reset credentials from query parameters');
+ok(html.includes('history.replaceState({},document.title,location.pathname+location.search)'),'frontend removes the reset-token fragment from browser history immediately after capture');
+ok(old.includes('v12190_outbound_scanner_endpoint_hardening'),'v1.21.90 outbound scanner evidence remains in successor chain');
+console.log(`V78 1.21.91 password reset fragment hardening adversarial: ${pass}/${pass} PASS`);

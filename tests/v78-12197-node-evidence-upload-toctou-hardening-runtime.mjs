@@ -1,0 +1,11 @@
+import {evidenceStagingKey,evidenceCommittedKey,s3CopySource} from '../server/evidence-object-commit.js';
+let pass=0;const ok=(c,m)=>{if(!c)throw new Error('FAIL: '+m);pass++;console.log('PASS',m)};
+const staging=evidenceStagingKey('tenant/one','company/alpha');
+const committed=evidenceCommittedKey('tenant/one','company/alpha','evidence/123');
+ok(staging.startsWith('staging/tenant/tenant%2Fone/company/company%2Falpha/'),'staging key is isolated and path-segment encoded');
+ok(committed.startsWith('quarantine/tenant/tenant%2Fone/company/company%2Falpha/evidence/evidence%2F123/'),'committed key is separate quarantine namespace and identity-bound');
+ok(staging!==committed&&!committed.includes(staging),'staging upload capability and committed object identity are distinct');
+const copy=s3CopySource('bucket name','staging/a b/x%2Fy');
+ok(copy==='bucket name/staging/a%20b/x%252Fy','CopySource encodes each object-key segment without path collapse');
+ok(!staging.includes('/tenant/one/')&&!committed.includes('/company/alpha/'),'attacker-controlled slash characters cannot reshape key hierarchy');
+console.log(`V78 1.21.97 Node evidence upload TOCTOU hardening runtime: ${pass}/${pass} PASS`);

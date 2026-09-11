@@ -1,0 +1,15 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),"..");
+const source=path.join(root,"cloudflare/seeds/botswana-foundation-pack-v1.json");
+const metaPath=path.join(root,"cloudflare/config/foundation-pack-v1.meta.json");
+const target=path.join(root,"cloudflare/src/generated/foundation-pack-v1.js");
+const pack=JSON.parse(fs.readFileSync(source,"utf8"));
+const meta=JSON.parse(fs.readFileSync(metaPath,"utf8"));
+if(!pack?.packKey||!pack?.version||!Array.isArray(pack.sources)||!Array.isArray(pack.rules)||!Array.isArray(pack.conflicts))throw new Error("Foundation pack source is invalid");
+if(!/^[a-f0-9]{64}$/i.test(meta.importIdentityHash||""))throw new Error("Foundation pack import identity hash is invalid");
+const banner="// GENERATED FILE. Source of truth: cloudflare/seeds/botswana-foundation-pack-v1.json\n// Regenerate with: npm run config:generate\n";
+const out=banner+`export const BOTSWANA_FOUNDATION_PACK_V1=Object.freeze(${JSON.stringify(pack)});\nexport const BOTSWANA_FOUNDATION_PACK_V1_HASH=${JSON.stringify(meta.importIdentityHash)};\n`;
+fs.writeFileSync(target,out);
+console.log(`Generated ${path.relative(root,target)} from external configuration`);

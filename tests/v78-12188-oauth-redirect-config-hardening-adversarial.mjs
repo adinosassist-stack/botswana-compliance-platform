@@ -1,0 +1,18 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const read=f=>fs.readFileSync(new URL('../'+f,import.meta.url),'utf8');
+const pkg=JSON.parse(read('package.json')),profile=JSON.parse(read('RELEASE_PROFILE.json')),worker=read('cloudflare/src/worker.js'),server=read('server/server.js'),old=read('tests/v78-12187-registration-timing-enumeration-hardening-adversarial.mjs');
+let pass=0;const ok=(v,m)=>{assert.ok(v,m);console.log('PASS',m);pass++};
+ok(['1.21.88','1.21.89','1.21.90','1.21.91','1.21.92','1.21.93','1.21.94','1.21.95','1.21.96','1.21.97','1.21.98','1.21.99','1.21.100','1.21.101'].includes(pkg.version)&&pkg.scripts.test.includes('npm run test:v78-12188')&&pkg.scripts.test.indexOf('test:v78-12188')<pkg.scripts.test.indexOf('test:v78-12187'),'1.21.88 OAuth redirect controls remain active in reviewed successors');
+ok(profile.v12188_oauth_redirect_configuration_hardening===true&&profile.worker_oauth_redirect_same_origin_exact_callback===true,'release profile records OAuth redirect configuration hardening');
+ok(worker.includes('function validOauthRedirectUri(env,provider,value)'),'Worker has a dedicated OAuth redirect validator');
+ok(worker.includes('u.origin!==origin')&&worker.includes('u.pathname!==expectedPath||u.search||u.hash'),'Worker redirect validator requires same origin, exact callback path, and no query/hash');
+ok(worker.includes('const redirectUri=validOauthRedirectUri(env,provider,env.GOOGLE_OAUTH_REDIRECT_URI);if(!redirectUri)return null;'),'Google OAuth fails closed on an invalid redirect URI');
+ok(worker.includes('const redirectUri=validOauthRedirectUri(env,provider,env.FACEBOOK_OAUTH_REDIRECT_URI);if(!redirectUri)return null;'),'Facebook OAuth fails closed on an invalid redirect URI');
+ok(worker.includes('key:"GOOGLE_OAUTH_CONFIGURATION"')&&worker.includes('key:"FACEBOOK_OAUTH_CONFIGURATION"'),'deployment readiness exposes OAuth configuration checks');
+ok(worker.includes('required:!!(env.GOOGLE_OAUTH_CLIENT_ID||env.GOOGLE_OAUTH_CLIENT_SECRET||env.GOOGLE_OAUTH_REDIRECT_URI)'),'partial Google OAuth configuration becomes a required readiness check');
+ok(worker.includes('required:!!(env.FACEBOOK_APP_ID||env.FACEBOOK_APP_SECRET||env.FACEBOOK_OAUTH_REDIRECT_URI)'),'partial Facebook OAuth configuration becomes a required readiness check');
+ok(server.includes('function nodeValidOauthRedirectUri(provider,value)'),'Node has matching exact callback validation');
+ok(server.includes('if(u.pathname!==expectedPath||u.search||u.hash)return null'),'Node rejects wrong OAuth callback paths and query/hash drift');
+ok(old.includes('v12187_registration_timing_enumeration_hardening'),'v1.21.87 registration timing evidence remains in successor chain');
+console.log(`V78 1.21.88 OAuth redirect configuration hardening adversarial: ${pass}/${pass} PASS`);

@@ -1,0 +1,6 @@
+# Never upload local/editor/build by-products as public static assets.
+*.map
+*.bak
+*.tmp
+.DS_Store
+Thumbs.db

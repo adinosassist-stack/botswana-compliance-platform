@@ -1,0 +1,18 @@
+import fs from 'node:fs';import assert from 'node:assert/strict';import {DatabaseSync} from 'node:sqlite';
+const worker=fs.readFileSync(new URL('../cloudflare/src/worker.js',import.meta.url),'utf8');
+const m=worker.match(/async function claimExternalIdentity\(env,\{provider,providerId,userId,email\}\)\{[\s\S]*?env\.DB\.prepare\(`([\s\S]*?)`\)\.bind\(provider,providerId,userId,email\)\.first\(\)/);
+assert.ok(m,'extract Cloudflare ownership-claim SQL');
+const sql=m[1];const db=new DatabaseSync(':memory:');
+db.exec(`CREATE TABLE external_identities(provider TEXT NOT NULL,provider_user_id TEXT NOT NULL,user_id TEXT NOT NULL,email TEXT,created_at TEXT DEFAULT CURRENT_TIMESTAMP,updated_at TEXT DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(provider,provider_user_id));`);
+let checks=0;const ok=(v,msg)=>{assert.ok(v,msg);checks++};
+const claim=(user,email)=>db.prepare(sql).get('google','provider-123',user,email);
+let row=claim('user-a','a@old.example');ok(row?.user_id==='user-a','first owner claims identity');
+row=claim('user-a','a@new.example');ok(row?.user_id==='user-a','same owner may refresh identity metadata');
+let stored=db.prepare('select user_id,email from external_identities where provider=? and provider_user_id=?').get('google','provider-123');
+ok(stored.user_id==='user-a','owner remains user A after refresh');ok(stored.email==='a@new.example','same-owner email refresh persisted');
+row=claim('user-b','attacker@example.com');ok(row===undefined,'different user cannot obtain RETURNING ownership');
+stored=db.prepare('select user_id,email from external_identities where provider=? and provider_user_id=?').get('google','provider-123');
+ok(stored.user_id==='user-a','different user cannot transfer identity');ok(stored.email==='a@new.example','different user cannot overwrite identity metadata');
+row=claim('user-b','attacker2@example.com');ok(row===undefined,'repeated conflicting claim remains blocked');
+stored=db.prepare('select count(*) n from external_identities where provider=? and provider_user_id=?').get('google','provider-123');ok(stored.n===1,'identity remains uniquely owned by one local account');
+console.log(`V78 1.21.65 OAuth identity ownership runtime: ${checks}/${checks} PASS`);

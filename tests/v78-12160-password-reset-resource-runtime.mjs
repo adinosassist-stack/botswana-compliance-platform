@@ -1,0 +1,18 @@
+import {DatabaseSync} from 'node:sqlite';
+import {__v782160Test as t} from '../cloudflare/src/worker.js';
+let checks=0;const ok=(v,m)=>{checks++;if(!v)throw new Error(`FAIL: ${m}`);console.log(`PASS ${m}`)};
+ok(t.validPasswordResetToken('a'.repeat(64)),'issued 64-hex reset token format accepted');
+ok(t.validPasswordResetToken('A1'.repeat(32)),'hex token validation is case tolerant');
+ok(!t.validPasswordResetToken('a'.repeat(63)),'short reset token rejected');
+ok(!t.validPasswordResetToken('g'.repeat(64)),'non-hex reset token rejected');
+ok(!t.validPasswordResetToken('a'.repeat(65)),'oversized reset token rejected');
+const db=new DatabaseSync(':memory:');
+db.exec('CREATE TABLE password_reset_tokens(token_hash TEXT PRIMARY KEY,user_id TEXT NOT NULL,expires_at TEXT NOT NULL,used_at TEXT);');
+db.prepare("INSERT INTO password_reset_tokens(token_hash,user_id,expires_at) VALUES(?,?,datetime('now','+30 minutes'))").run('eligible','u1');
+const eligible=db.prepare('SELECT 1 ok FROM password_reset_tokens WHERE token_hash=? AND used_at IS NULL AND expires_at>CURRENT_TIMESTAMP LIMIT 1').get('eligible');
+ok(eligible?.ok===1,'eligible token is cheaply recognized before password work');
+ok(!db.prepare('SELECT 1 ok FROM password_reset_tokens WHERE token_hash=? AND used_at IS NULL AND expires_at>CURRENT_TIMESTAMP LIMIT 1').get('missing'),'invalid token is rejected by cheap lookup');
+const claim='UPDATE password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE token_hash=? AND used_at IS NULL AND expires_at>CURRENT_TIMESTAMP RETURNING user_id';
+ok(db.prepare(claim).get('eligible')?.user_id==='u1','eligible token can be consumed once after password work');
+ok(!db.prepare(claim).get('eligible'),'racing/replayed claimant still loses final compare-and-set');
+console.log(`V78 1.21.60 password reset resource runtime: ${checks}/${checks} PASS`);

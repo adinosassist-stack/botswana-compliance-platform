@@ -1,0 +1,13 @@
+import fs from "node:fs";
+const pkg=JSON.parse(fs.readFileSync(new URL("../package.json",import.meta.url),"utf8"));
+let checks=0;const ok=(v,m)=>{checks++;if(!v)throw new Error(`FAIL ${checks}: ${m}`)};
+const exact=/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
+ok(pkg.packageManager==="npm@10.9.8","package manager must be pinned");
+for(const [name,version] of Object.entries(pkg.dependencies||{}))ok(exact.test(String(version)),`runtime dependency ${name} must use an exact version`);
+ok(pkg.devDependencies?.wrangler==="4.127.1","Wrangler CLI must be pinned to the reviewed release");
+const worker=fs.readFileSync(new URL("../cloudflare/src/worker.js",import.meta.url),"utf8");
+const imports=[...worker.matchAll(/(?:^|\n)import\s+(?:[^"']+?\s+from\s+)?["']([^"']+)["']/g)].map(m=>m[1]);
+ok(imports.every(spec=>spec.startsWith("./")||spec.startsWith("../")),"primary Cloudflare Worker must not depend on unlocked npm runtime imports");
+const deploy=fs.readFileSync(new URL("../cloudflare/deploy-free.sh",import.meta.url),"utf8");
+ok(deploy.includes('WRANGLER_VERSION="4.127.1"')&&deploy.includes('wrangler@${WRANGLER_VERSION}'),"deploy runbook must invoke the pinned Wrangler CLI");
+console.log(`Dependency policy: ${checks}/${checks} PASS`);

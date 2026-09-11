@@ -1,0 +1,15 @@
+import fs from 'node:fs';import assert from 'node:assert/strict';import {DatabaseSync} from 'node:sqlite';
+const worker=fs.readFileSync(new URL('../cloudflare/src/worker.js',import.meta.url),'utf8');
+const m=worker.match(/const removed=await env\.DB\.prepare\(`([\s\S]*?RETURNING provider)`\)\.bind\(a\.user_id,provider,a\.user_id,a\.user_id,provider\)\.first\(\)/);assert.ok(m,'extract atomic unlink SQL');
+const sql=m[1],db=new DatabaseSync(':memory:');db.exec(`CREATE TABLE users(id TEXT PRIMARY KEY,password_hash TEXT);CREATE TABLE external_identities(provider TEXT NOT NULL,provider_user_id TEXT NOT NULL,user_id TEXT NOT NULL,email TEXT,PRIMARY KEY(provider,provider_user_id));`);
+const add=(u,p,id)=>db.prepare('insert into external_identities(provider,provider_user_id,user_id) values(?,?,?)').run(p,id,u);const unlink=(u,p)=>db.prepare(sql).get(u,p,u,u,p);let checks=0;const ok=(v,m)=>{assert.ok(v,m);checks++};
+db.prepare('insert into users(id,password_hash) values(?,NULL)').run('u1');add('u1','google','g1');add('u1','facebook','f1');
+let r=unlink('u1','google');ok(r?.provider==='google','first of two social methods may unlink');
+r=unlink('u1','facebook');ok(r===undefined,'second concurrent-style unlink is blocked for passwordless user');
+let left=db.prepare('select provider from external_identities where user_id=?').all('u1');ok(left.length===1&&left[0].provider==='facebook','one login method remains');
+db.prepare('update users set password_hash=? where id=?').run('hash','u1');r=unlink('u1','facebook');ok(r?.provider==='facebook','password-backed account may unlink final social method');
+left=db.prepare('select count(*) n from external_identities where user_id=?').get('u1');ok(left.n===0,'all social methods may be removed only after password exists');
+db.prepare('insert into users(id,password_hash) values(?,NULL)').run('u2');add('u2','google','g2');r=unlink('u2','google');ok(r===undefined,'single social method cannot be removed from passwordless account');
+left=db.prepare('select count(*) n from external_identities where user_id=?').get('u2');ok(left.n===1,'blocked last social identity remains stored');
+r=unlink('u2','facebook');ok(r===undefined,'already-unlinked provider produces no deletion row');
+console.log(`V78 1.21.66 auth-method unlink runtime: ${checks}/${checks} PASS`);

@@ -1,0 +1,23 @@
+import {nodePreBodyAbuseRule} from '../server/prebody-abuse.js';
+import {__v782178Test} from '../cloudflare/src/worker.js';
+let pass=0,fail=0;const ok=(v,m)=>{if(v){console.log('PASS',m);pass++}else{console.error('FAIL',m);fail++}};
+const login=nodePreBodyAbuseRule('POST','/api/auth/login');ok(login?.scope==='prebody_login_ip'&&login.limit===30&&login.maxBodyBytes===8192&&login.originProtected,'login pre-body rule is bounded and origin-protected');
+const reset=nodePreBodyAbuseRule('POST','/api/auth/password-reset/request');ok(reset?.maxBodyBytes===4096&&reset.windowSeconds===3600,'reset-request pre-body rule uses 4KB/hourly IP admission');
+const scan=nodePreBodyAbuseRule('POST','/api/internal/malware-scan-result');ok(scan?.scope==='prebody_malware_scan_callback_ip'&&scan.limit===600&&!scan.originProtected,'scanner callback has separate high-throughput pre-body budget');
+const maintenance=nodePreBodyAbuseRule('POST','/api/internal/deletion-requests/abc/complete');ok(maintenance?.scope==='prebody_internal_maintenance_ip'&&maintenance.maxBodyBytes===8192,'internal maintenance routes inherit bounded pre-body rule');
+ok(nodePreBodyAbuseRule('GET','/api/auth/login')===null&&nodePreBodyAbuseRule('POST','/api/state')===null,'non-target methods/routes do not consume pre-body auth budget');
+class FakeLimiter{constructor(limit=2){this.max=limit;this.counts=new Map();this.keys=[]}async limit({key}){this.keys.push(key);const n=(this.counts.get(key)||0)+1;this.counts.set(key,n);return {success:n<=this.max}}}
+const limiter=new FakeLimiter(2),env={SESSION_SECRET:'runtime-secret-not-production-123456',PUBLIC_RATE_LIMITER:limiter};
+const req=ip=>new Request('https://example.test/public/passport/verify',{method:'POST',headers:{'cf-connecting-ip':ip,'content-type':'application/json'},body:'{"shareToken":"abc"}'});
+let r=await __v782178Test.edgeScopedRateLimit(req('203.0.113.5'),env,'passport-verify-prebody');ok(r.ok,'first pre-body edge request passes');
+r=await __v782178Test.edgeScopedRateLimit(req('203.0.113.5'),env,'passport-verify-prebody');ok(r.ok,'second pre-body edge request reaches threshold');
+r=await __v782178Test.edgeScopedRateLimit(req('203.0.113.5'),env,'passport-verify-prebody');ok(!r.ok,'third pre-body edge request is rejected before JSON parsing');
+ok(limiter.keys.every(k=>!k.includes('203.0.113.5')),'edge limiter keys do not expose raw client IP');
+const small=new Request('https://example.test/public/passport/verify',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({shareToken:'x'.repeat(64)})});
+const parsed=await __v782178Test.readJson(small,{maxBytes:4096});ok(parsed.shareToken.length===64,'bounded JSON reader accepts small valid body');
+const oversized=new Request('https://example.test/public/passport/verify',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({shareToken:'x'.repeat(5000)})});
+let rejected=false;try{await __v782178Test.readJson(oversized,{maxBytes:4096})}catch(e){rejected=e?.status===413&&e?.code==='payload_too_large'}ok(rejected,'bounded JSON reader rejects oversized body with 413 before full allocation');
+const distributed=new FakeLimiter(1),env2={SESSION_SECRET:env.SESSION_SECRET,PUBLIC_RATE_LIMITER:distributed};
+r=await __v782178Test.edgeScopedRateLimit(req('198.51.100.1'),env2,'daily-report-submit-prebody');ok(r.ok,'first daily-report pre-body request allowed');
+r=await __v782178Test.edgeScopedRateLimit(req('198.51.100.1'),env2,'daily-report-submit-prebody');ok(!r.ok,'same client cannot keep consuming report-body parse budget');
+console.log(`V78 1.21.78 pre-body abuse runtime: ${pass}/${pass+fail} PASS`);if(fail)process.exit(1);

@@ -1,0 +1,16 @@
+import assert from "node:assert/strict";
+import {externalResponseBytesBounded as nodeBytes,externalJsonBounded as nodeJson} from "../server/external-response.js";
+import {__v782193Test as worker} from "../cloudflare/src/worker.js";
+let pass=0;const ok=(v,m)=>{assert.ok(v,m);console.log("PASS",m);pass++};
+const small=new Response(JSON.stringify({ok:true}),{headers:{"content-type":"application/json"}});
+ok((await nodeJson(small,4096)).ok===true,"Node bounded JSON accepts small provider response");
+await assert.rejects(()=>nodeBytes(new Response("small",{headers:{"content-length":"9000"}}),{maxBytes:4096}),/external_response_too_large/);ok(true,"Node rejects oversized declared provider response before allocation");
+const streamed=new Response(new ReadableStream({start(c){c.enqueue(new Uint8Array(3000));c.enqueue(new Uint8Array(3000));c.close()}}));
+await assert.rejects(()=>nodeBytes(streamed,{maxBytes:4096}),/external_response_too_large/);ok(true,"Node rejects provider stream when bytes cross limit");
+await assert.rejects(()=>nodeJson(new Response("not-json"),4096),/external_response_invalid_json/);ok(true,"Node bounded JSON rejects malformed provider body");
+const wsmall=new Response('{"ok":true}');ok((await worker.externalJsonBounded(wsmall,4096)).ok===true,"Worker bounded JSON accepts small provider response");
+await assert.rejects(()=>worker.externalResponseBytesBounded(new Response("small",{headers:{"content-length":"9000"}}),{maxBytes:4096}),/external_response_too_large/);ok(true,"Worker rejects oversized declared provider response");
+const wstream=new Response(new ReadableStream({start(c){c.enqueue(new Uint8Array(2500));c.enqueue(new Uint8Array(2500));c.close()}}));
+await assert.rejects(()=>worker.externalResponseBytesBounded(wstream,{maxBytes:4096}),/external_response_too_large/);ok(true,"Worker rejects provider stream when bytes cross limit");
+await assert.rejects(()=>worker.externalJsonBounded(new Response("{"),4096),/external_response_invalid_json/);ok(true,"Worker bounded JSON rejects malformed provider body");
+console.log(`V78 1.21.93 external response bounding runtime: ${pass}/${pass} PASS`);

@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {__v782186Test} from '../cloudflare/src/worker.js';
+let pass=0;const ok=(v,m)=>{assert.ok(v,m);console.log('PASS',m);pass++};
+const base={SESSION_SECRET:'s'.repeat(40),AUDIT_INTEGRITY_SECRET:'a'.repeat(40),EVIDENCE:{},EVIDENCE_SCAN_API_URL:'https://scanner.example',EVIDENCE_SCAN_SECRET:'e'.repeat(40),DB:{},PUBLIC_RATE_LIMITER:{},OPERATIONS_SECRET:'o'.repeat(40),AUTOMATION_SECRET:'u'.repeat(40),TURNSTILE_SITE_KEY:'1x00000000000000000000AA',TURNSTILE_SECRET_KEY:'t'.repeat(40),PLATFORM_ADMIN_EMAILS:'admin@example.com',PLATFORM_REGULATORY_REVIEWERS:'reviewer@example.com',PUBLIC_APP_URL:'https://app.example.com',PUBLIC_ORIGIN:'https://app.example.com',PAYMENT_WEBHOOK_SECRET:'p'.repeat(40),BILLING_WEBHOOK_SECRET:'b'.repeat(40),PAYMENT_PROVIDER:'none'};
+let r=__v782186Test.deploymentReadiness(base);
+ok(r.ready&&!r.missingRequired.includes('PAYMENT_WEBHOOK_SECRET')&&!r.missingRequired.includes('BILLING_WEBHOOK_SECRET'),'deployment readiness accepts two strong independent payment secrets');
+r=__v782186Test.deploymentReadiness({...base,PAYMENT_WEBHOOK_SECRET:''});
+ok(!r.ready&&r.missingRequired.includes('PAYMENT_WEBHOOK_SECRET'),'deployment readiness fails closed when public payment webhook secret is missing');
+r=__v782186Test.deploymentReadiness({...base,PAYMENT_WEBHOOK_SECRET:'weak'});
+ok(!r.ready&&r.missingRequired.includes('PAYMENT_WEBHOOK_SECRET'),'deployment readiness rejects weak public payment webhook secret');
+const goodReq=new Request('https://app.example.com/api/webhooks/payment',{method:'POST',headers:{'x-payment-webhook-secret':'p'.repeat(40)}});
+const badReq=new Request('https://app.example.com/api/webhooks/payment',{method:'POST',headers:{'x-payment-webhook-secret':'x'.repeat(40)}});
+ok(await __v782186Test.verifyWebhookSecret(goodReq,base),'payment webhook verifier accepts the configured strong secret');
+ok(!(await __v782186Test.verifyWebhookSecret(badReq,base)),'payment webhook verifier rejects a wrong same-length secret');
+ok(!(await __v782186Test.verifyWebhookSecret(goodReq,{...base,PAYMENT_WEBHOOK_SECRET:'weak'})),'payment webhook verifier fails closed on weak expected secret configuration');
+console.log(`V78 1.21.86 payment-auth/configuration runtime: ${pass}/${pass} PASS`);

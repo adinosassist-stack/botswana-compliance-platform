@@ -1,0 +1,18 @@
+import fs from "node:fs";
+import assert from "node:assert/strict";
+const read=p=>fs.readFileSync(new URL(`../${p}`,import.meta.url),"utf8");
+const pkg=JSON.parse(read("package.json")),profile=JSON.parse(read("RELEASE_PROFILE.json")),server=read("server/server.js"),worker=read("cloudflare/src/worker.js"),nodeHelper=read("server/external-response.js"),sw=read("public/sw.js"),readme=read("README.md");
+let pass=0;const ok=(v,m)=>{assert.ok(v,m);console.log("PASS",m);pass++};
+ok(["1.21.93","1.21.94","1.21.95","1.21.96","1.21.97","1.21.98","1.21.99","1.21.100","1.21.101"].includes(pkg.version)&&profile.package_version===pkg.version&&profile.software_release_candidate===`v78.${pkg.version}`,"1.21.93 release identity aligned");
+ok(profile.v12193_external_response_bounding_hardening===true&&profile.external_provider_response_streaming_bounds===true,"release profile records external response bounding");
+ok(nodeHelper.includes("content-length")&&nodeHelper.includes("external_response_too_large")&&nodeHelper.includes("reader.cancel"),"Node bounded response reader rejects declared and streamed overruns");
+ok(worker.includes("async function externalResponseBytesBounded")&&worker.includes("external_response_too_large")&&worker.includes("reader.cancel"),"Worker bounded response reader rejects declared and streamed overruns");
+ok(server.includes("externalJsonBounded(r,128*1024)")&&!/await\s+r\.json\(\)/.test(server),"Node OAuth and Turnstile JSON use bounded parsing");
+ok(worker.includes("externalJsonBounded(r,128*1024)")&&worker.includes("externalJsonBounded(response,128*1024)"),"Worker auth and messaging JSON use bounded parsing");
+ok((worker.match(/externalTextBounded\(r,256\*1024\)/g)||[]).length>=4,"DPO payment XML responses are capped at 256 KiB");
+ok(worker.includes("text=await externalTextBounded(res,128*1024)"),"signed evidence scanner response is capped at 128 KiB");
+ok(!/responseText=await\s+r\.text\(\)|text=await\s+r\.text\(\)|data=await\s+response\.json\(\)/.test(worker),"direct unbounded provider response parsing removed from critical Worker paths");
+ok((sw.includes("1.21.93-external-response-bounding-hardening")||(sw.includes("1.21.94-oauth-state-cookie-hardening")||(sw.includes("1.21.95-fetch-metadata-csrf-hardening")||(sw.includes("1.21.96-node-evidence-scan-fail-closed")||((sw.includes("1.21.97-node-evidence-upload-toctou-hardening")||(sw.includes("1.21.98-node-evidence-signature-hardening")||(sw.includes("1.21.99-bf07-seal-pipeline-hardening")||(sw.includes("1.21.100-bf07-provenance-hardening")||sw.includes("1.21.101-bf07-toolchain-package-hardening")))))||(sw.includes("1.21.98-node-evidence-signature-hardening")||(sw.includes("1.21.99-bf07-seal-pipeline-hardening")||(sw.includes("1.21.100-bf07-provenance-hardening")||sw.includes("1.21.101-bf07-toolchain-package-hardening"))))))))),"service-worker cache identifies v1.21.93 successor");
+ok(pkg.scripts.test.includes("npm run test:v78-12195 && npm run test:v78-12194 && npm run test:v78-12193 && npm run test:v78-12192"),"v1.21.93 gate remains in the full regression chain");
+ok(readme.includes("v1.21.93 hardening")&&readme.includes("128 KiB")&&readme.includes("256 KiB"),"operator documentation records response ceilings");
+console.log(`V78 1.21.93 external response bounding adversarial: ${pass}/${pass} PASS`);

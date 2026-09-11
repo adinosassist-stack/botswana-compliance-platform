@@ -1,0 +1,4 @@
+{
+  "importIdentityHash": "0b3248c3a5004bb1911ac1e939cb8c238de3acddb3e0115e47c773e810e3427f",
+  "note": "Stable import identity retained from v1.21.46 to avoid a duplicate production re-import when only code packaging changes. Update deliberately when the approved foundation pack changes."
+}

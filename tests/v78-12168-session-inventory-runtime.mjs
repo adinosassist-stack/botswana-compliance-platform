@@ -1,0 +1,17 @@
+import {DatabaseSync} from 'node:sqlite';
+import fs from 'node:fs';
+let checks=0;const ok=(v,m)=>{if(!v)throw new Error(m);checks++};
+const db=new DatabaseSync(':memory:');
+db.exec(`create table users(id text primary key,session_generation integer not null default 0);create table sessions(token_hash text primary key,user_id text not null,tenant_id text not null,role text not null,session_generation integer not null default 0,csrf_token text,expires_at text not null,created_at text not null default current_timestamp,last_seen_at text);insert into users(id,session_generation) values('u1',3);insert into sessions(token_hash,user_id,tenant_id,role,session_generation,csrf_token,expires_at,last_seen_at) values('current-secret-hash','u1','t1','owner',3,'c1',datetime('now','+1 day'),datetime('now','-30 minutes')),('stale-secret-hash','u1','t1','owner',2,'c2',datetime('now','+1 day'),datetime('now','-1 minute'));`);
+db.exec(fs.readFileSync(new URL('../cloudflare/migrations/043_v78_session_inventory_hardening.sql',import.meta.url),'utf8'));
+const current=db.prepare(`select public_id as id,created_at,last_seen_at,expires_at from sessions where user_id=? and public_id is not null and session_generation=(select session_generation from users where id=?) and expires_at>current_timestamp order by created_at desc limit 50`).all('u1','u1');
+ok(current.length===1,'inventory excludes stale generation rows');
+ok(current[0].id&&current[0].id!=='current-secret-hash','inventory exposes opaque id instead of token hash');
+ok(!JSON.stringify(current).includes('secret-hash'),'inventory payload contains no token hash');
+const ids=db.prepare('select public_id from sessions').all().map(x=>x.public_id);ok(ids.every(Boolean)&&new Set(ids).size===2,'migration backfills unique opaque ids');
+const before=db.prepare("select last_seen_at x from sessions where token_hash='current-secret-hash'").get().x;
+db.prepare("update sessions set last_seen_at=current_timestamp where token_hash=? and user_id=? and session_generation=(select session_generation from users where id=?) and (last_seen_at is null or last_seen_at<datetime('now','-15 minutes'))").run('current-secret-hash','u1','u1');
+const after=db.prepare("select last_seen_at x from sessions where token_hash='current-secret-hash'").get().x;ok(after!==before,'stale last-seen is refreshed');
+const recentBefore=db.prepare("select last_seen_at x from sessions where token_hash='stale-secret-hash'").get().x;const rr=db.prepare("update sessions set last_seen_at=current_timestamp where token_hash=? and user_id=? and session_generation=(select session_generation from users where id=?) and (last_seen_at is null or last_seen_at<datetime('now','-15 minutes'))").run('stale-secret-hash','u1','u1');ok(rr.changes===0,'stale-generation session cannot be touched as current activity');ok(db.prepare("select last_seen_at x from sessions where token_hash='stale-secret-hash'").get().x===recentBefore,'stale-generation last-seen remains unchanged');
+const worker=fs.readFileSync(new URL('../cloudflare/src/worker.js',import.meta.url),'utf8');ok(!worker.includes('SELECT token_hash AS id,created_at,last_seen_at,expires_at FROM sessions'),'runtime source has no token-hash inventory projection');
+console.log(`V78 1.21.68 session inventory runtime: ${checks}/${checks} PASS`);

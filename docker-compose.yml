@@ -1,0 +1,55 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-bw_compliance}
+      POSTGRES_USER: ${POSTGRES_USER:-bw_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bw_user} -d ${POSTGRES_DB:-bw_compliance}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  migrate:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-bw_user}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-bw_compliance}
+    command: ["node","db/migrate.mjs"]
+    restart: "no"
+  app:
+    build: .
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      APP_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgres://${POSTGRES_USER:-bw_user}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-bw_compliance}
+      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-12}
+      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET}
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?Set PUBLIC_ORIGIN}
+      OBJECT_STORE_ENDPOINT: ${OBJECT_STORE_ENDPOINT:-}
+      OBJECT_STORE_REGION: ${OBJECT_STORE_REGION:-auto}
+      OBJECT_STORE_BUCKET: ${OBJECT_STORE_BUCKET:?Set OBJECT_STORE_BUCKET}
+      OBJECT_STORE_ACCESS_KEY_ID: ${OBJECT_STORE_ACCESS_KEY_ID:?Set OBJECT_STORE_ACCESS_KEY_ID}
+      OBJECT_STORE_SECRET_ACCESS_KEY: ${OBJECT_STORE_SECRET_ACCESS_KEY:?Set OBJECT_STORE_SECRET_ACCESS_KEY}
+      MALWARE_SCAN_REQUIRED: ${MALWARE_SCAN_REQUIRED:-true}
+      MALWARE_SCAN_WEBHOOK_URL: ${MALWARE_SCAN_WEBHOOK_URL:?Set MALWARE_SCAN_WEBHOOK_URL}
+      MALWARE_SCAN_WEBHOOK_SECRET: ${MALWARE_SCAN_WEBHOOK_SECRET:?Set MALWARE_SCAN_WEBHOOK_SECRET}
+      TRIAL_DAYS: ${TRIAL_DAYS:-14}
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    restart: unless-stopped
+volumes:
+  pgdata:

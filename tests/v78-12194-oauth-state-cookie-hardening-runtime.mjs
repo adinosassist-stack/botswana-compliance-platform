@@ -1,0 +1,11 @@
+import assert from "node:assert/strict";
+import {__v782194Test as t} from "../cloudflare/src/worker.js";
+let pass=0;const ok=(v,m)=>{assert.ok(v,m);console.log("PASS",m);pass++};
+ok(t.oauthStateCookieName("google")==="__Host-bw_oauth_state_google","Google state cookie name is host-prefixed");
+ok(t.oauthStateCookieName("facebook")==="__Host-bw_oauth_state_facebook","Facebook state cookie name is host-prefixed");
+const set=t.oauthStateCookie("google","state value",600);
+ok(set.startsWith("__Host-bw_oauth_state_google=state%20value;")&&set.includes("Path=/")&&set.includes("HttpOnly")&&set.includes("Secure")&&set.includes("SameSite=Lax"),"state cookie has __Host-compatible security attributes");
+ok(!/;\s*Domain=/i.test(set),"state cookie has no Domain attribute");
+const clear=t.oauthStateCookie("google","",0);
+ok(clear.includes("__Host-bw_oauth_state_google=;")&&clear.includes("Max-Age=0"),"state cookie clear targets the same host-prefixed key");
+console.log(`V78 1.21.94 OAuth state cookie hardening runtime: ${pass}/${pass} PASS`);

@@ -1,0 +1,15 @@
+import {DatabaseSync} from 'node:sqlite';
+let pass=0,fail=0;const ok=(v,m)=>{if(v){console.log('PASS',m);pass++}else{console.error('FAIL',m);fail++}};
+const db=new DatabaseSync(':memory:');
+db.exec(`create table users(id text primary key,session_generation integer not null);create table sessions(public_id text primary key,user_id text not null,session_generation integer not null,expires_at text not null);insert into users values('u1',3),('u2',1);insert into sessions values('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','u1',3,datetime('now','+1 day')),('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb','u1',3,datetime('now','+1 day')),('cccccccccccccccccccccccccccccccc','u1',2,datetime('now','+1 day')),('dddddddddddddddddddddddddddddddd','u2',1,datetime('now','+1 day'));`);
+const del=db.prepare(`delete from sessions where public_id=? and user_id=? and session_generation=(select session_generation from users where id=?) returning public_id`);
+ok(del.get('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb','u1','u1')?.public_id?.startsWith('bbbb'),'owner can revoke one current-generation session');
+ok(!del.get('dddddddddddddddddddddddddddddddd','u1','u1'),'foreign user session cannot be revoked');
+ok(db.prepare("select count(*) n from sessions where public_id='dddddddddddddddddddddddddddddddd'").get().n===1,'foreign session remains intact');
+ok(!del.get('cccccccccccccccccccccccccccccccc','u1','u1'),'stale-generation session cannot be targeted as active device');
+ok(db.prepare("select count(*) n from sessions where public_id='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'").get().n===1,'current browser session can remain while another device is revoked');
+const rows=db.prepare(`select public_id id from sessions where user_id=? and session_generation=(select session_generation from users where id=?) and expires_at>current_timestamp order by public_id`).all('u1','u1').map(x=>({...x,isCurrent:x.id==='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'}));
+ok(rows.length===1&&rows[0].isCurrent,'inventory current marker is derived only from current live session id');
+ok(!rows.some(x=>x.id==='cccccccccccccccccccccccccccccccc'),'stale generation remains absent from inventory');
+ok(!rows.some(x=>x.id==='dddddddddddddddddddddddddddddddd'),'foreign sessions remain absent from inventory');
+console.log(`RESULT ${pass}/${pass+fail}`);if(fail)process.exit(1);
