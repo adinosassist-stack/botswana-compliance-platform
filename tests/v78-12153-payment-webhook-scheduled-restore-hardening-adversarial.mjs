@@ -17,8 +17,8 @@ ok(worker.includes("async function readBytesBounded")&&worker.includes("async fu
 ok(!/req\.(?:text|arrayBuffer|json|formData|blob)\(/.test(worker),"Worker routes do not bypass bounded inbound-body readers");
 ok(worker.includes('url.pathname==="/api/webhooks/whatsapp"')&&worker.includes('readTextBounded(req,{maxBytes:256*1024})'),"WhatsApp signed webhook body is capped at 256 KiB");
 ok((worker.match(/readTextBounded\(req,\{maxBytes:256\*1024\}\)/g)||[]).length>=2,"payment and WhatsApp webhook raw bodies are capped");
-ok((worker.match(/readBytesBounded\(req,\{maxBytes:EVIDENCE_MAX_BYTES\}\)/g)||[]).length>=2,"both evidence upload paths enforce the 8 MiB stream bound");
-ok(profile.all_inbound_request_bodies_bounded===true&&profile.evidence_upload_stream_bound_bytes===8388608,"release profile records bounded inbound body policy");
+ok((worker.match(/readBytesBounded\(req,\{maxBytes:EVIDENCE_MAX_BYTES\}\)/g)||[]).length>=2,"both evidence upload paths enforce the production evidence stream bound");
+ok(profile.all_inbound_request_bodies_bounded===true&&profile.evidence_upload_stream_bound_bytes===3500000,"release profile records bounded inbound body policy");
 
 ok(worker.includes("normalizePaymentWebhookEvent(body,env)")&&worker.includes('webhook_event_conflict'),"payment webhook identifiers are normalized and conflicting duplicate IDs fail closed");
 ok(worker.includes("existing.payload_hash!==payloadHash||existing.event_type!==eventType"),"payment duplicate identity compares payload hash and event type");
@@ -43,7 +43,7 @@ ok(worker.includes("const queueLimit=250")&&worker.includes("truncated:total>que
 ok(worker.includes("const eventLimit=500,evidenceLimit=500,findingLimit=250")&&worker.includes("historyMeta:{"),"employment defense histories are bounded with metadata disclosure");
 ok(server.includes('async function externalFetch(url,options={},timeoutMs=20000)')&&server.includes('redirect:"error"'),"Node fallback provider I/O has timeout and redirect refusal parity");
 ok((server.match(/await externalFetch\(/g)||[]).length>=5,"Node OAuth, scanner and email provider calls use guarded transport");
-ok(worker.includes('const SEO_RELEASE_LASTMOD="2026-09-03"')&&server.includes('const SEO_RELEASE_LASTMOD="2026-09-03"'),"Worker and Node sitemap release dates are aligned");
+{const wm=worker.match(/const SEO_RELEASE_LASTMOD="([0-9-]+)"/),nm=server.match(/const SEO_RELEASE_LASTMOD="([0-9-]+)"/);ok(!!wm&&!!nm&&wm[1]===nm[1],"Worker and Node sitemap release dates are aligned");}
 
 ok(fs.existsSync(path.join(root,"tests/v78-12153-payment-edge-runtime.mjs"))&&fs.existsSync(path.join(root,"tests/v78-12153-scheduled-run-runtime.mjs")),"v1.21.53 runtime gates are packaged");
 ok(profile.v12153_payment_webhook_scheduled_restore_hardening===true,"release profile records v1.21.53 hardening");

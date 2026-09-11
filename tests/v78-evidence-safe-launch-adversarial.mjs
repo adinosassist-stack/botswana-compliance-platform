@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import wrapperDefault, { __cloudmersiveFreeTierTest as boundary } from '../cloudflare/src/worker-cloudmersive-free.js';
+import workerDefault, { __requestBoundaryTest as boundary } from '../cloudflare/src/worker.js';
 
 const wrangler = fs.readFileSync('cloudflare/wrangler.toml', 'utf8');
-const wrapper = fs.readFileSync('cloudflare/src/worker-cloudmersive-free.js', 'utf8');
+const worker = fs.readFileSync('cloudflare/src/worker.js', 'utf8');
 const url = path => new URL(`https://thebedesk.com${path}`);
 
 test('production activates evidence uploads while the emergency kill switch remains available', () => {
@@ -23,38 +23,28 @@ test('all evidence ingestion/finalization mutations fail closed while uploads ar
     ['POST', '/api/evidence/e1/complete'],
     ['POST', '/api/evidence/e1/scan-retry']
   ];
-  for (const [method, path] of blocked) {
-    assert.equal(boundary.evidenceMutationDisabled(url(path), method), true, `${method} ${path}`);
-  }
+  for (const [method, path] of blocked) assert.equal(boundary.evidenceMutationDisabled(url(path), method), true, `${method} ${path}`);
   assert.equal(boundary.evidenceMutationDisabled(url('/api/evidence'), 'GET'), false);
   assert.equal(boundary.evidenceMutationDisabled(url('/api/evidence/e1/download'), 'GET'), false);
 });
 
-test('blocked upload is stopped before the base worker', async () => {
+test('unauthenticated evidence mutation is rejected by the central auth gate before kill-switch disclosure', async () => {
   const request = new Request('https://thebedesk.com/api/evidence/presign', {
-    method: 'POST',
-    body: '{}',
-    headers: { 'content-type': 'application/json' }
+    method: 'POST', body: '{}', headers: { 'content-type': 'application/json' }
   });
-  const response = await wrapperDefault.fetch(request, { EVIDENCE_UPLOADS_ENABLED: 'false' }, {});
-  assert.equal(response.status, 503);
-  assert.deepEqual(await response.json(), {
-    error: 'evidence_uploads_temporarily_disabled',
-    evidenceUploadsEnabled: false
-  });
+  const response = await workerDefault.fetch(request, { EVIDENCE_UPLOADS_ENABLED: 'false' }, {});
+  assert.equal(response.status, 401);
+  assert.deepEqual(await response.json(), { error: 'unauthenticated' });
 });
 
-test('disabled-mode readiness shim remains scoped to the emergency kill switch and scheduled work receives the real env', () => {
-  assert.match(wrapper, /SAFE_LAUNCH_SCANNER_URL/);
-  assert.match(wrapper, /EVIDENCE_SCAN_API_URL: SAFE_LAUNCH_SCANNER_URL/);
-  assert.match(wrapper, /EVIDENCE_SCAN_SECRET: SAFE_LAUNCH_SCANNER_SECRET/);
-  assert.match(wrapper, /evidenceScannerRequired = false/);
-  assert.match(wrapper, /return app\.scheduled\(event, env, ctx\);/);
+test('disabled-mode readiness is native to deployment readiness and no fake scanner credentials exist', () => {
+  assert.doesNotMatch(worker, /SAFE_LAUNCH_SCANNER_URL|SAFE_LAUNCH_SCANNER_SECRET|thebe-desk-safe-launch-evidence-disabled/);
+  assert.match(worker, /const evidenceScannerRequired=evidenceUploadsEnabled\|\|!!evidenceScanApiUrl\|\|!!evidenceScanSecret/);
   assert.doesNotMatch(wrangler, /EVIDENCE_SCAN_API_URL = "https:\/\/example\.com/);
 });
 
-test('3.5 MB cap remains intact for the active upload path', () => {
-  assert.equal(boundary.EVIDENCE_FREE_TIER_MAX_BYTES, 3_500_000);
-  assert.match(wrapper, /uploadsEnabled && isEvidenceByteUpload/);
-  assert.match(wrapper, /uploadsEnabled && request\.method === "POST" && url\.pathname === "\/api\/evidence\/presign"/);
+test('3.5 MB cap is enforced inside the active production worker', () => {
+  assert.equal(boundary.EVIDENCE_MAX_BYTES, 3_500_000);
+  assert.match(worker, /const EVIDENCE_MAX_BYTES=3_500_000/);
+  assert.match(worker, /readBytesBounded\(req,\{maxBytes:EVIDENCE_MAX_BYTES\}\)/);
 });

@@ -25,6 +25,45 @@ const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{
   status,headers:withSecurityHeaders({"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-robots-tag":"noindex, nofollow",...headers})
 });
 
+const API_TRANSPORT_PREFIX="/__thebe_api";
+const API_TUNNEL_PATH_PARAM="__thebe_api_path";
+const API_TUNNEL_QUERY_PARAM="__thebe_api_query";
+const REGISTER_TRANSPORT_PROBE_PATH="/api/auth/register-transport-probe";
+const CLIENT_RUNTIME_RELEASE="20260906-registration-post-capability-v1";
+function logicalApiPath(pathname){const path=String(pathname||"");if(path===API_TRANSPORT_PREFIX)return "/api";if(path.startsWith(`${API_TRANSPORT_PREFIX}/`))return `/api${path.slice(API_TRANSPORT_PREFIX.length)}`;return null}
+function tunnelPathSegmentSafe(segment){if(segment==="."||segment==="..")return false;try{const decoded=decodeURIComponent(segment);return decoded!=="."&&decoded!==".."}catch{return false}}
+function rootTunnelApiTarget(url){
+  if(url.pathname!=="/"||!url.searchParams.has(API_TUNNEL_PATH_PARAM))return null;
+  const path=String(url.searchParams.get(API_TUNNEL_PATH_PARAM)||""),query=String(url.searchParams.get(API_TUNNEL_QUERY_PARAM)||""),segments=path.split("/");
+  if((path!=="/api"&&!path.startsWith("/api/"))||path.length>2048||path.includes("?")||path.includes("#")||segments.some(segment=>!tunnelPathSegmentSafe(segment))||query.length>8192)return null;
+  const probe=new URL("https://thebe.invalid/");probe.pathname=path;if(probe.pathname!==path||(probe.pathname!=="/api"&&!probe.pathname.startsWith("/api/")))return null;
+  return {path,query};
+}
+function normalizeApiTransport(request){
+  const url=new URL(request.url),tunnel=rootTunnelApiTarget(url);
+  if(tunnel){url.pathname=tunnel.path;url.search=tunnel.query?`?${tunnel.query}`:"";return {request:new Request(url.toString(),request),url,aliased:true,transport:"root_tunnel"}}
+  const logicalPath=logicalApiPath(url.pathname);if(!logicalPath)return {request,url,aliased:false,transport:"direct"};
+  url.pathname=logicalPath;return {request:new Request(url.toString(),request),url,aliased:true,transport:"shadow_path"};
+}
+function evidenceUploadsEnabled(env){return String(env?.EVIDENCE_UPLOADS_ENABLED||"false").trim().toLowerCase()==="true"}
+function evidenceMutationDisabled(url,method){
+  if(method==="POST"&&["/api/evidence/presign","/api/evidence/integrity-upload","/api/evidence/upload"].includes(url.pathname))return true;
+  if(method==="PUT"&&/^\/api\/evidence\/[^/]+\/upload$/.test(url.pathname))return true;
+  return method==="POST"&&/^\/api\/evidence\/[^/]+\/(complete|scan-retry)$/.test(url.pathname);
+}
+function registrationProbeOriginAllowed(request,url){const origin=String(request.headers.get("origin")||"").trim();if(!origin)return true;try{return new URL(origin).origin===url.origin}catch{return false}}
+function authTransportProbeResponse(transport){return json({ok:true,transport,release:CLIENT_RUNTIME_RELEASE},200,{"x-thebe-client-release":CLIENT_RUNTIME_RELEASE})}
+async function versionRuntimeResponse(response,request,url){
+  const headers=new Headers(response.headers);
+  if(url.pathname==="/js/api-client.js"&&["GET","HEAD"].includes(request.method)){headers.set("cache-control","no-store, max-age=0");headers.set("cdn-cache-control","no-store");headers.set("x-thebe-client-release",CLIENT_RUNTIME_RELEASE);return new Response(request.method==="HEAD"?null:response.body,{status:response.status,statusText:response.statusText,headers})}
+  if(url.pathname!=="/"||!["GET","HEAD"].includes(request.method))return response;
+  const type=String(headers.get("content-type")||"").toLowerCase();if(!type.includes("text/html"))return response;
+  headers.set("cache-control","no-store, max-age=0");headers.set("cdn-cache-control","no-store");headers.set("x-thebe-client-release",CLIENT_RUNTIME_RELEASE);
+  if(request.method==="HEAD")return new Response(null,{status:response.status,statusText:response.statusText,headers});
+  const html=await response.text(),versioned=html.replaceAll('src="js/api-client.js"',`src="js/api-client.js?v=${CLIENT_RUNTIME_RELEASE}"`).replaceAll('src="/js/api-client.js"',`src="/js/api-client.js?v=${CLIENT_RUNTIME_RELEASE}"`);
+  return new Response(versioned,{status:response.status,statusText:response.statusText,headers});
+}
+
 const PASSWORD_MIN_CHARS=12;
 const PASSWORD_MAX_CHARS=200;
 const EMAIL_MAX_CHARS=254;
@@ -3099,7 +3138,7 @@ async function evidenceByHash(env,tenantId,sha){
   ).bind(tenantId,sha).first();
 }
 
-const EVIDENCE_MAX_BYTES=8*1024*1024;
+const EVIDENCE_MAX_BYTES=3_500_000;
 const EVIDENCE_ALLOWED_MIME=new Set([
   "application/pdf","image/png","image/jpeg","text/plain","text/csv",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -3213,11 +3252,16 @@ async function scanEvidenceObject(env,row,{trigger="scheduled"}={}){
   let res,text="",body;
   try{
     body=await obj.arrayBuffer();
-    const signature=await hmacHex(env.EVIDENCE_SCAN_SECRET,`${row.id}:${row.content_sha256||""}:${body.byteLength}`);
+    const scanMime=String(row.content_type||"application/octet-stream").split(";")[0].trim().toLowerCase();
+    const scanSize=String(body.byteLength),scanTimestamp=String(Date.now()),scanRequestId=crypto.randomUUID();
+    const signature=await hmacHex(env.EVIDENCE_SCAN_SECRET,`scan:v2:${row.id}:${row.content_sha256||""}:${scanSize}:${scanTimestamp}:${scanRequestId}:${scanMime}`);
     res=await externalFetch(scannerUrl,{method:"POST",headers:{
-      "content-type":row.content_type||"application/octet-stream",
+      "content-type":scanMime,
       "x-evidence-id":row.id,
       "x-evidence-sha256":row.content_sha256||"",
+      "x-evidence-size":scanSize,
+      "x-evidence-timestamp":scanTimestamp,
+      "x-evidence-request-id":scanRequestId,
       "x-evidence-signature":signature,
       "accept":"application/json"
     },body});
@@ -4550,6 +4594,12 @@ async function registrationTimingFloor(startedAt,{minMs=450,jitterMs=50}={}){
   if(wait>0)await new Promise(resolve=>setTimeout(resolve,wait));
   return {elapsedMs:Date.now()-Number(startedAt||Date.now()),targetMs:safeMin+jitter};
 }
+async function passwordResetTimingFloor(startedAt,{minMs=450,jitterMs=50}={}){
+  const safeMin=Math.max(0,Math.min(5000,Number(minMs)||0)),safeJitter=Math.max(0,Math.min(1000,Number(jitterMs)||0));
+  const bytes=crypto.getRandomValues(new Uint8Array(1)),jitter=safeJitter>0?Number(bytes[0])%(safeJitter+1):0,elapsed=Math.max(0,Date.now()-Number(startedAt||Date.now())),wait=Math.max(0,safeMin+jitter-elapsed);
+  if(wait>0)await new Promise(resolve=>setTimeout(resolve,wait));
+  return {elapsedMs:Date.now()-Number(startedAt||Date.now()),targetMs:safeMin+jitter};
+}
 function rateLimitResponse(result){return json({error:"rate_limited",retryAfterSeconds:result.retryAfterSeconds},429,{"retry-after":String(result.retryAfterSeconds||60)})}
 const PASSWORD_RESET_GENERIC_RESPONSE=Object.freeze({ok:true,message:"If that account exists, reset instructions have been sent."});
 async function edgeScopedRateLimit(req,env,scope,subject=""){
@@ -4748,14 +4798,15 @@ export const __v782178Test=Object.freeze({readJson,edgeScopedRateLimit});
 export const __v782179Test=Object.freeze({requestBodyEncodingAllowed,rejectEncodedApiBody,readJson});
 
 export default {
-  async fetch(req,env,ctx){
-    const url=new URL(req.url),requestId=req.headers.get("cf-ray")||crypto.randomUUID();
+  async fetch(incomingRequest,env,ctx){
+    const normalized=normalizeApiTransport(incomingRequest),req=normalized.request,url=normalized.url,requestId=req.headers.get("cf-ray")||crypto.randomUUID();
     try{
+    if(req.method==="POST"&&url.pathname===REGISTER_TRANSPORT_PROBE_PATH){if(!registrationProbeOriginAllowed(req,url))return json({error:"origin_failed"},403);return authTransportProbeResponse(normalized.transport)}
     if(rejectEncodedApiBody(req,url))return json({error:"unsupported_content_encoding"},415);
     if(["GET","HEAD"].includes(req.method)&&url.pathname==="/robots.txt")return seoRobotsResponse(env,url);
     if(["GET","HEAD"].includes(req.method)&&url.pathname==="/sitemap.xml")return seoSitemapResponse(env,url);
     if(["GET","HEAD"].includes(req.method)&&url.pathname==="/index.html")return Response.redirect(seoCanonicalUrl(env,url),301);
-    if(["GET","HEAD"].includes(req.method)&&url.pathname==="/")return seoHomeResponse(req,env,url);
+    if(["GET","HEAD"].includes(req.method)&&url.pathname==="/")return versionRuntimeResponse(await seoHomeResponse(req,env,url),req,url);
     if(["GET","HEAD"].includes(req.method)){
       const match=url.pathname.match(/^\/([^/]+)\/(?:index(?:\.html)?)?$/);
       if(match&&SEO_GUIDE_SLUGS.includes(match[1]))return seoGuideResponse(req,env,url,match[1]);
@@ -4840,18 +4891,24 @@ export default {
     }
     if(url.pathname==="/api/auth/password-reset/request"&&req.method==="POST"){
       if(!requestOriginAllowed(req,env))return json({error:"origin_failed"},403);
+      const passwordResetStartedAt=Date.now();
       const limit=await authRateLimit(env,req,"password-reset",{limit:5,windowSeconds:900});if(!limit.ok)return rateLimitResponse(limit);
       const body=await readJson(req,{maxBytes:4*1024});const email=String(body.email||"").trim().toLowerCase();
       if(validEmail(email)){
-        const accountLimit=await authSubjectRateLimit(env,"password-reset-account",email,{limit:6,windowSeconds:3600});if(!accountLimit.ok)return json(PASSWORD_RESET_GENERIC_RESPONSE);
+        const accountLimit=await authSubjectRateLimit(env,"password-reset-account",email,{limit:6,windowSeconds:3600});if(!accountLimit.ok){await passwordResetTimingFloor(passwordResetStartedAt);return json(PASSWORD_RESET_GENERIC_RESPONSE)}
         const u=await env.DB.prepare("SELECT id FROM users WHERE email=? LIMIT 1").bind(email).first();
         if(u){
           const raw=crypto.randomUUID().replaceAll("-","")+crypto.randomUUID().replaceAll("-","");const hash=await hmacHex(env.SESSION_SECRET,raw);
           await env.DB.prepare("INSERT INTO password_reset_tokens(token_hash,user_id,expires_at) VALUES(?,?,datetime('now','+30 minutes'))").bind(hash,u.id).run();
-          const delivered=await deliverPasswordReset(env,email,raw);
-          if(!delivered)await env.DB.prepare("UPDATE password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE token_hash=? AND user_id=? AND used_at IS NULL").bind(hash,u.id).run();
+          const deliveryTask=(async()=>{
+            let delivered=false;
+            try{delivered=await deliverPasswordReset(env,email,raw)}catch{}
+            if(!delivered){try{await env.DB.prepare("UPDATE password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE token_hash=? AND user_id=? AND used_at IS NULL").bind(hash,u.id).run()}catch{}}
+          })();
+          if(ctx?.waitUntil)ctx.waitUntil(deliveryTask);else deliveryTask.catch(()=>{});
         }
       }
+      await passwordResetTimingFloor(passwordResetStartedAt);
       return json(PASSWORD_RESET_GENERIC_RESPONSE);
     }
     if(url.pathname==="/api/auth/password-reset/complete"&&req.method==="POST"){
@@ -5165,6 +5222,7 @@ export default {
       if(!workspaceSessionRole(a)&&!selfServiceApi(url.pathname,req.method))return json({error:"workspace_role_forbidden"},403);
       if(req.method==="GET"&&!restrictedWorkspaceReadAllowed(url.pathname,a.role))return json({error:"workspace_role_read_forbidden"},403);
       if(!["GET","HEAD","OPTIONS"].includes(req.method)&&!restrictedWorkspaceMutationAllowed(url.pathname,req.method,a.role))return json({error:"workspace_role_mutation_forbidden"},403);
+      if(!evidenceUploadsEnabled(env)&&evidenceMutationDisabled(url,req.method))return json({error:"evidence_uploads_temporarily_disabled",evidenceUploadsEnabled:false},503);
       if(url.pathname==="/api/auth/me"&&req.method==="GET")return json({user:{id:a.user_id,email:a.email,displayName:a.display_name,role:a.role,tenantId:a.tenant_id,tenantName:a.tenant_name,onboardingComplete:!!a.onboarding_complete},csrfToken:a.csrf_token});
 
       if(url.pathname==="/api/account/social"&&req.method==="GET"){
@@ -7578,7 +7636,7 @@ export default {
       return json({error:"not_found"},404);
     }
 
-    const assetResponse=await env.ASSETS.fetch(req);return secureResponse(assetResponse,{html:(assetResponse.headers.get("content-type")||"").includes("text/html")});
+    const assetResponse=await env.ASSETS.fetch(req),securedAsset=secureResponse(assetResponse,{html:(assetResponse.headers.get("content-type")||"").includes("text/html")});return versionRuntimeResponse(securedAsset,req,url);
     }catch(error){
       if(error instanceof HttpError)return json({error:error.code,requestId},error.status,{"x-request-id":requestId});
       console.error("worker_request_failed",{requestId,ray:req.headers.get("cf-ray")||null,code:d1DailyQuotaExceeded(error)?"d1_daily_limit":"internal",method:req.method,path:url.pathname});
@@ -7657,6 +7715,8 @@ export const __v782181Test=Object.freeze({authSubjectRateLimit});
 export const __v782184Test=Object.freeze({consumeSlidingAuthBudget,authRateLimit,authSubjectRateLimit,verifyTurnstileRegistration,privilegedSecretGate,deploymentReadiness});
 export const __v782186Test=Object.freeze({verifyWebhookSecret,privilegedSecretGate,privilegedSecretPairGate,deploymentReadiness});
 export const __v782187Test=Object.freeze({registrationTimingFloor,deploymentReadiness});
+export const __recoverySecurityFindingsTest=Object.freeze({passwordResetTimingFloor});
+export const __requestBoundaryTest=Object.freeze({EVIDENCE_MAX_BYTES,API_TRANSPORT_PREFIX,API_TUNNEL_PATH_PARAM,API_TUNNEL_QUERY_PARAM,REGISTER_TRANSPORT_PROBE_PATH,CLIENT_RUNTIME_RELEASE,logicalApiPath,rootTunnelApiTarget,normalizeApiTransport,evidenceUploadsEnabled,evidenceMutationDisabled,registrationProbeOriginAllowed});
 export const __v782188Test=Object.freeze({validOauthRedirectUri,oauthProviderConfig,deploymentReadiness});
 export const __v782190Test=Object.freeze({unsafeServiceHostname,safeExternalServiceUrl,deploymentReadiness});
 export const __v782193Test=Object.freeze({externalResponseBytesBounded,externalTextBounded,externalJsonBounded});

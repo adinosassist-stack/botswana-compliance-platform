@@ -13,7 +13,7 @@ const nodeParse=nodeReset.indexOf('emailSchema.safeParse(String(req.body?.email|
 const nodeAccount=nodeReset.indexOf('consumeDurableAuthBudget("password_reset_request_account",emailParsed.data,6,3600)');
 const nodeLookup=nodeReset.indexOf('select id,email from users where email=$1 limit 1');
 ok(nodeIp>=0&&nodeParse>nodeIp&&nodeAccount>nodeParse&&nodeLookup>nodeAccount,"Node reset IP/account budgets execute before user lookup");
-ok(nodeReset.includes('if(!accountBudget.allowed)return res.json(PASSWORD_RESET_GENERIC)')&&!nodeReset.includes('if(!accountBudget.allowed)return durableRateLimited'),"Node reset account throttle keeps generic enumeration-safe response");
+ok(/if\(!accountBudget\.allowed\)\{[^}]*passwordResetTimingFloor\(passwordResetStartedAt\)[^}]*return res\.json\(PASSWORD_RESET_GENERIC\)/s.test(nodeReset)&&!nodeReset.includes('if(!accountBudget.allowed)return durableRateLimited'),"Node reset account throttle keeps generic enumeration-safe response behind timing floor");
 ok(server.includes('crypto.createHmac("sha256",config.SESSION_SECRET+"|node-auth-rate-v1")')&&server.includes('.update(`${scope}|${String(material||"")}`)'),"Node durable limiter HMACs account material before storage");
 const workerReset=worker.slice(worker.indexOf('if(url.pathname==="/api/auth/password-reset/request"'),worker.indexOf('if(url.pathname==="/api/auth/password-reset/complete"'));
 const workerIp=workerReset.indexOf('authRateLimit(env,req,"password-reset",{limit:5,windowSeconds:900})');
@@ -22,7 +22,7 @@ const workerAccount=workerReset.indexOf('authSubjectRateLimit(env,"password-rese
 const workerLookup=workerReset.indexOf('SELECT id FROM users WHERE email=? LIMIT 1');
 ok(workerIp>=0&&workerRead>workerIp&&workerAccount>workerRead&&workerLookup>workerAccount,"Cloudflare reset IP/account budgets execute before user lookup");
 ok(worker.includes('const PASSWORD_RESET_GENERIC_RESPONSE=Object.freeze({ok:true,message:"If that account exists, reset instructions have been sent."});'),"Cloudflare defines one generic reset response shape");
-ok(workerReset.includes('if(!accountLimit.ok)return json(PASSWORD_RESET_GENERIC_RESPONSE)')&&workerReset.trimEnd().endsWith('return json(PASSWORD_RESET_GENERIC_RESPONSE);\n    }'),"Cloudflare account-throttle and normal reset requests return the same generic body");
+ok(/if\(!accountLimit\.ok\)\{[^}]*passwordResetTimingFloor\(passwordResetStartedAt\)[^}]*return json\(PASSWORD_RESET_GENERIC_RESPONSE\)/s.test(workerReset)&&workerReset.includes('return json(PASSWORD_RESET_GENERIC_RESPONSE);'),"Cloudflare account-throttle and normal reset requests return the same generic body behind timing floor");
 const subjectFn=worker.slice(worker.indexOf('async function authSubjectRateLimit'),worker.indexOf('async function verifyTurnstileRegistration'));
 const slidingFn=worker.slice(worker.indexOf('async function consumeSlidingAuthBudget'),worker.indexOf('async function authRateLimit'));
 ok(subjectFn.includes('consumeSlidingAuthBudget(env,scope,`subject|${normalized}`')&&!subjectFn.includes('cf-connecting-ip')&&!subjectFn.includes('req.headers'),"Cloudflare subject limiter remains independent of source IP");

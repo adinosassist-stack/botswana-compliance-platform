@@ -4,7 +4,6 @@ import fs from 'node:fs';
 
 const wrangler=fs.readFileSync('cloudflare/wrangler.toml','utf8');
 const worker=fs.readFileSync('cloudflare/src/worker.js','utf8');
-const wrapper=fs.readFileSync('cloudflare/src/worker-cloudmersive-free.js','utf8');
 const scanner=fs.readFileSync('cloudflare/scanner/worker.js','utf8');
 const scannerCfg=fs.readFileSync('cloudflare/scanner/wrangler.toml','utf8');
 const preflight=fs.readFileSync('cloudflare/preflight-production.sh','utf8');
@@ -19,9 +18,9 @@ test('production release activates evidence uploads and requires the scanner sec
 });
 
 test('emergency kill switch and 3.5MB boundary remain fail closed',()=>{
-  assert.match(wrapper,/evidence_uploads_temporarily_disabled/);
-  assert.match(wrapper,/EVIDENCE_FREE_TIER_MAX_BYTES\s*=\s*3_500_000/);
-  assert.match(wrapper,/evidenceMutationDisabled/);
+  assert.match(worker,/evidence_uploads_temporarily_disabled/);
+  assert.match(worker,/EVIDENCE_MAX_BYTES\s*=\s*3_500_000/);
+  assert.match(worker,/evidenceMutationDisabled/);
 });
 
 test('base worker retains quarantine scan and clean-only download boundary',()=>{
@@ -36,7 +35,11 @@ test('base worker retains quarantine scan and clean-only download boundary',()=>
 test('dedicated scanner validates signed envelope and SHA before Cloudmersive',()=>{
   assert.match(scanner,/x-evidence-id/);
   assert.match(scanner,/x-evidence-sha256/);
+  assert.match(scanner,/x-evidence-size/);
+  assert.match(scanner,/x-evidence-timestamp/);
+  assert.match(scanner,/x-evidence-request-id/);
   assert.match(scanner,/x-evidence-signature/);
+  assert.match(scanner,/scan:v2:/);
   assert.match(scanner,/sha256_mismatch/);
   assert.match(scanner,/signature_invalid/);
   assert.match(scanner,/https:\/\/api\.cloudmersive\.com\/virus\/scan\/file/);

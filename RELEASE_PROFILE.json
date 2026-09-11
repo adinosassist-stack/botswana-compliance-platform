@@ -861,7 +861,7 @@
   "all_inbound_request_bodies_bounded": true,
   "payment_webhook_body_limit_bytes": 262144,
   "whatsapp_webhook_body_limit_bytes": 262144,
-  "evidence_upload_stream_bound_bytes": 8388608,
+  "evidence_upload_stream_bound_bytes": 3500000,
   "payment_webhook_conflicting_event_payload_rejected": true,
   "payment_webhook_failed_unprocessed_retryable": true,
   "payment_return_native_edge_rate_limit": true,

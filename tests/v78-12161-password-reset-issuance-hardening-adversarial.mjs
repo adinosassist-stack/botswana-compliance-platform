@@ -14,8 +14,8 @@ ok(requestBlock.includes('authSubjectRateLimit(env,"password-reset-account",emai
 ok(requestBlock.indexOf('authSubjectRateLimit')<requestBlock.indexOf('SELECT id FROM users WHERE email=? LIMIT 1'),'account throttle happens before account lookup');
 ok(!requestBlock.includes('UPDATE password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE user_id=? AND used_at IS NULL'),'request no longer invalidates older usable reset links');
 ok(requestBlock.includes('INSERT INTO password_reset_tokens(token_hash,user_id,expires_at)'),'new reset token persisted before delivery');
-ok(requestBlock.includes('const delivered=await deliverPasswordReset(env,email,raw)'),'delivery outcome is observed');
-ok(requestBlock.includes('if(!delivered)await env.DB.prepare("UPDATE password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE token_hash=? AND user_id=? AND used_at IS NULL")'),'failed delivery invalidates only the undelivered token');
+ok(requestBlock.includes('const deliveryTask=(async()=>')&&requestBlock.includes('try{delivered=await deliverPasswordReset(env,email,raw)}catch{}')&&requestBlock.includes('ctx?.waitUntil)ctx.waitUntil(deliveryTask)'),'delivery outcome is observed inside a detached waitUntil task');
+ok(requestBlock.includes('if(!delivered){try{await env.DB.prepare("UPDATE password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE token_hash=? AND user_id=? AND used_at IS NULL")'),'failed delivery invalidates only the undelivered token');
 const cstart=end;
 const cend=worker.indexOf('if(url.pathname.match(/^\\/api\\/auth\\/oauth',cstart);
 const completeBlock=worker.slice(cstart,cend);

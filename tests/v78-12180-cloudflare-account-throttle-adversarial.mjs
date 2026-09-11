@@ -15,8 +15,10 @@ const login=worker.slice(worker.indexOf('if(url.pathname==="/api/auth/login"'),w
 ok(login.includes('authRateLimit(env,req,"login-ip",{limit:20,windowSeconds:600})'),"login retains separate IP-wide limiter");
 ok(login.includes('authSubjectRateLimit(env,"login-account",email,{limit:10,windowSeconds:600})'),"login adds source-IP-independent account limiter");
 ok(!login.includes('authRateLimit(env,req,"login-account",{limit:10,windowSeconds:600,subject:email})'),"login no longer keys account budget by IP plus email");
-ok(login.indexOf('const email=String(body.email||"").trim().toLowerCase()')>=0&&login.indexOf('authSubjectRateLimit(env,"login-account",email')>login.indexOf('const email=String(body.email||"").trim().toLowerCase()'),"account limiter uses normalized email");
-ok(login.indexOf('authSubjectRateLimit(env,"login-account",email')<login.indexOf('SELECT u.id,u.email,u.display_name'),"account limiter runs before account lookup/password verification");
+const normalizedEmailIndex=login.indexOf('email=String(body.email||"").trim().toLowerCase()');
+ok(normalizedEmailIndex>=0&&login.indexOf('authSubjectRateLimit(env,"login-account",email')>normalizedEmailIndex,"account limiter uses normalized email");
+const loginLookupIndex=login.search(/SELECT\s+(?:u\.)?id,(?:u\.)?email,(?:u\.)?display_name,password_hash,session_generation\s+FROM users/i);
+ok(login.indexOf('authSubjectRateLimit(env,"login-account",email')>=0&&loginLookupIndex>login.indexOf('authSubjectRateLimit(env,"login-account",email'),"account limiter runs before account lookup/password verification");
 ok(login.indexOf('authRateLimit(env,req,"login-ip"')<login.indexOf('readJson(req,{maxBytes:8*1024})'),"IP limiter still runs before JSON parsing");
 ok(worker.includes('export const __v782180Test=Object.freeze({authSubjectRateLimit});'),"runtime exposes v1.21.80 limiter test hook");
 ok(pkg.scripts['test:v78-12180']&&pkg.scripts.test.includes('npm run test:v78-12180 &&'),"v1.21.80 gate remains in the regression chain");

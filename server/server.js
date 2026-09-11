@@ -21,6 +21,7 @@ import { rejectEncodedApiBody } from "./request-encoding.js";
 import { createOAuthStateCodec } from "./oauth-state.js";
 import { createHardenedHttpServer,HTTP_MAX_HEADER_SIZE,HTTP_MAX_HEADERS_COUNT } from "./http-envelope.js";
 import { registrationTimingFloor } from "./registration-timing.js";
+import { passwordResetTimingFloor } from "./password-reset-timing.js";
 import { externalJsonBounded } from "./external-response.js";
 import { verifyEvidenceObjectHead } from "./evidence-object-integrity.js";
 import { evidenceStagingKey, evidenceCommittedKey, s3CopySource } from "./evidence-object-commit.js";
@@ -307,21 +308,25 @@ app.post("/api/auth/register",preAuthOrigin,authLimiter,async(req,res,next)=>{
 app.post("/api/auth/login",preAuthOrigin,authLimiter,async(req,res,next)=>{const p=authSchema.safeParse(req.body);if(!p.success)return res.status(400).json({error:"invalid_credentials"});try{const ipBudget=await consumeDurableAuthBudget("login_ip",req.ip||"unknown",30,900);if(!ipBudget.allowed)return durableRateLimited(res,ipBudget);const accountBudget=await consumeDurableAuthBudget("login_account",p.data.email,12,900);if(!accountBudget.allowed)return durableRateLimited(res,accountBudget);const q=await pool.query(`select u.id,u.email,u.password_salt,u.password_hash,u.session_generation,m.tenant_id,m.role,t.name tenant_name from users u join memberships m on m.user_id=u.id join tenants t on t.id=m.tenant_id where u.email=$1 and m.status='active' order by case m.role when 'owner' then 1 else 2 end limit 1`,[p.data.email]);const row=q.rows[0];const valid=await verifyPassword(p.data.password,row?.password_salt||DUMMY_PASSWORD.salt,row?.password_hash||DUMMY_PASSWORD.hash);if(!row||!valid){metrics.authFailures++;return res.status(401).json({error:"invalid_credentials"})};const s=await createPasswordSession(pool,row.id,row.tenant_id,row.password_salt,row.password_hash,row.session_generation);if(!s){metrics.authFailures++;return res.status(401).json({error:"invalid_credentials"})}await audit(pool,{tenantId:row.tenant_id,userId:row.id,eventType:"LOGIN",requestId:req.requestId});res.setHeader("Set-Cookie",sessionCookie(s.token,s.maxAge));res.json({csrfToken:s.csrf,user:{email:row.email,role:row.role,tenantName:row.tenant_name}})}catch(e){next(e)}});
 const PASSWORD_RESET_GENERIC={ok:true,message:"If that account exists, reset instructions have been sent."};
 app.post("/api/auth/password-reset/request",preAuthOrigin,passwordResetRequestLimiter,async(req,res,next)=>{
+  const passwordResetStartedAt=Date.now();
   try{
-    const ipBudget=await consumeDurableAuthBudget("password_reset_request_ip",req.ip||"unknown",30,3600);if(!ipBudget.allowed){res.setHeader("Retry-After",String(ipBudget.retryAfter));return res.json(PASSWORD_RESET_GENERIC)}
+    const ipBudget=await consumeDurableAuthBudget("password_reset_request_ip",req.ip||"unknown",30,3600);if(!ipBudget.allowed){res.setHeader("Retry-After",String(ipBudget.retryAfter));await passwordResetTimingFloor(passwordResetStartedAt);return res.json(PASSWORD_RESET_GENERIC)}
     const emailParsed=emailSchema.safeParse(String(req.body?.email||"").trim().toLowerCase());
-    if(!emailParsed.success)return res.json(PASSWORD_RESET_GENERIC);
-    const accountBudget=await consumeDurableAuthBudget("password_reset_request_account",emailParsed.data,6,3600);if(!accountBudget.allowed)return res.json(PASSWORD_RESET_GENERIC);
+    if(!emailParsed.success){await passwordResetTimingFloor(passwordResetStartedAt);return res.json(PASSWORD_RESET_GENERIC)}
+    const accountBudget=await consumeDurableAuthBudget("password_reset_request_account",emailParsed.data,6,3600);if(!accountBudget.allowed){await passwordResetTimingFloor(passwordResetStartedAt);return res.json(PASSWORD_RESET_GENERIC)}
     const user=await pool.query("select id,email from users where email=$1 limit 1",[emailParsed.data]);
-    if(!user.rowCount)return res.json(PASSWORD_RESET_GENERIC);
+    if(!user.rowCount){await passwordResetTimingFloor(passwordResetStartedAt);return res.json(PASSWORD_RESET_GENERIC)}
     const row=user.rows[0],recent=await pool.query("select count(*)::int n from password_reset_tokens where user_id=$1 and created_at>now()-interval '1 hour'",[row.id]);
-    if(Number(recent.rows[0]?.n||0)>=6)return res.json(PASSWORD_RESET_GENERIC);
+    if(Number(recent.rows[0]?.n||0)>=6){await passwordResetTimingFloor(passwordResetStartedAt);return res.json(PASSWORD_RESET_GENERIC)}
     const raw=crypto.randomBytes(32).toString("base64url"),tokenHash=sessionHash(raw);
     const created=await pool.query("insert into password_reset_tokens(user_id,token_hash,expires_at) values($1,$2,now()+interval '30 minutes') returning id",[row.id,tokenHash]);
     const resetUrl=buildPasswordResetUrl(config.PUBLIC_APP_URL,raw);
-    let delivered=false;
-    if(resetUrl){try{await sendTransactionalEmail({to:row.email,subject:"Reset your Thebe Desk password",text:`We received a request to reset your password. Use this secure link within 30 minutes: ${resetUrl}\n\nIf you did not request this, you can ignore this email.`});delivered=true}catch{}}
-    if(!delivered)await pool.query("update password_reset_tokens set used_at=now() where id=$1 and used_at is null",[created.rows[0].id]);
+    setImmediate(()=>{void (async()=>{
+      let delivered=false;
+      if(resetUrl){try{await sendTransactionalEmail({to:row.email,subject:"Reset your Thebe Desk password",text:`We received a request to reset your password. Use this secure link within 30 minutes: ${resetUrl}\n\nIf you did not request this, you can ignore this email.`});delivered=true}catch{}}
+      if(!delivered)await pool.query("update password_reset_tokens set used_at=now() where id=$1 and used_at is null",[created.rows[0].id]);
+    })().catch(()=>{})});
+    await passwordResetTimingFloor(passwordResetStartedAt);
     return res.json(PASSWORD_RESET_GENERIC);
   }catch(e){next(e)}
 });
@@ -806,7 +811,7 @@ function sendNonceHtml(res,html){const nonce=htmlScriptNonce();res.set("Content-
 function seoPublicOrigin(req){
   try{const raw=config.PUBLIC_ORIGIN||`${req.protocol}://${req.get("host")}`;const u=new URL(raw);u.pathname="/";u.search="";u.hash="";return u.toString()}catch{return `${req.protocol}://${req.get("host")}/`}
 }
-const SEO_RELEASE_LASTMOD="2026-09-03";
+const SEO_RELEASE_LASTMOD="2026-09-11";
 const SEO_GUIDE_SLUGS=["cipa-compliance-botswana","burs-tax-compliance-botswana","business-licences-botswana","employment-compliance-botswana","tender-readiness-botswana","compliance-evidence-botswana","pricing"];
 function renderSeoIndex(req){
   const canonical=seoPublicOrigin(req),image=new URL("assets/gaborone-entrepreneurs-v67.webp",canonical).toString(),logo=new URL("assets/thebe-desk-icon-512.png",canonical).toString();

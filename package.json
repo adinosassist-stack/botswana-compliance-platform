@@ -193,8 +193,9 @@
     "test:recovery-v81-sites": "node tests/recovery-v81-sites-adversarial.mjs",
     "test:v81-auth-role": "node tests/v81-auth-workspace-selection-adversarial.mjs",
     "test:v81-evidence-active": "node tests/v81-evidence-active-adversarial.mjs && node tests/v81-evidence-scanner-runtime.mjs",
-    "test:recovery-v81-current": "node tests/recovery-v81-sites-adversarial.mjs && npm run test:v81-auth-role && npm run test:v81-evidence-active && npm run test:v81-preview-auth",
-    "test:v81-preview-auth": "node tests/v81-standalone-auth-role-preview-adversarial.mjs && node tests/v81-standalone-auth-role-preview-runtime.mjs"
+    "test:recovery-v81-current": "npm run test:recovery-security-findings && node tests/recovery-v81-sites-adversarial.mjs && npm run test:v81-auth-role && npm run test:v81-evidence-active && npm run test:v81-preview-auth",
+    "test:v81-preview-auth": "node tests/v81-standalone-auth-role-preview-adversarial.mjs && node tests/v81-standalone-auth-role-preview-runtime.mjs",
+    "test:recovery-security-findings": "node tests/recovery-security-findings-adversarial.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1126.0",

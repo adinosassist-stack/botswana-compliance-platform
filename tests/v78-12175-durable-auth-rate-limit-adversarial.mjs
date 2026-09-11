@@ -16,7 +16,7 @@ ok(ipPos>=0&&accountPos>ipPos&&queryPos>accountPos&&verifyPos>queryPos,"login du
 ok(!login.includes('consumeDurableAuthBudget("login_account",row.id'),"login account throttle does not reveal account existence through known-user-only keys");
 ok(server.includes('consumeDurableAuthBudget("register_ip",req.ip||"unknown",20,3600)'),"registration has durable IP abuse budget");
 ok(server.includes('consumeDurableAuthBudget("password_reset_request_ip",req.ip||"unknown",30,3600)'),"password-reset requests have durable IP budget");
-ok(server.includes('if(!ipBudget.allowed){res.setHeader("Retry-After",String(ipBudget.retryAfter));return res.json(PASSWORD_RESET_GENERIC)}'),"reset-request durable throttle preserves enumeration-safe generic response");
+ok(server.includes('if(!ipBudget.allowed){res.setHeader("Retry-After",String(ipBudget.retryAfter));await passwordResetTimingFloor(passwordResetStartedAt);return res.json(PASSWORD_RESET_GENERIC)}'),"reset-request durable throttle preserves enumeration-safe generic response behind timing floor");
 const resetComplete=server.slice(server.indexOf('app.post("/api/auth/password-reset/complete"'),server.indexOf('app.get("/api/auth/me"'));
 ok(resetComplete.indexOf('consumeDurableAuthBudget("password_reset_complete_ip"')>=0&&resetComplete.indexOf('consumeDurableAuthBudget("password_reset_complete_ip"')<resetComplete.indexOf('select user_id from password_reset_tokens')&&resetComplete.indexOf('select user_id from password_reset_tokens')<resetComplete.indexOf('hashPassword('),"reset completion durable throttle runs before token lookup and expensive hashing");
 ok(server.includes('function durableRateLimited(res,budget)')&&server.includes('res.setHeader("Retry-After"'),"durable 429 responses expose bounded retry guidance");

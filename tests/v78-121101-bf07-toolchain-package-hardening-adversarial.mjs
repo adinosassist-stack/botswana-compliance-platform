@@ -8,7 +8,7 @@ ok(profile.v121101_bf07_toolchain_package_hardening===true&&profile.bf07_package
 ok(sw.includes('1.21.101-bf07-toolchain-package-hardening')&&worker.includes('const APP_RELEASE="v78.1.21.101"'),'runtime/cache identities aligned');
 ok(read('.nvmrc').trim()==='22.23.2'&&pkg.packageManager==='npm@10.9.8','Node/npm pair is exactly pinned');
 ok(pkg.scripts['check:bf07-toolchain']==='node scripts/bf07-toolchain-gate.mjs'&&pkg.scripts['release:check'].startsWith('npm run check:bf07-toolchain &&'),'release gate starts with active toolchain verification');
-ok(pkg.scripts.test.startsWith('npm run test:v78-121101 && npm run test:v78-121100'),'v1.21.101 checks lead full regression chain');
+{const chain=String(pkg.scripts.test||'');ok(chain.indexOf('test:v78-121101')>=0&&chain.indexOf('test:v78-121101')<chain.indexOf('test:v78-121100'),'v1.21.101 checks remain ordered before v1.21.100 in the full regression chain');}
 ok(tool.includes('validateToolchain')&&tool.includes('pinnedToolchain')&&tool.includes('packageManager'),'toolchain validator derives both pins from project declarations');
 ok(workflow.includes("uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020")&&workflow.includes('npm run check:bf07-toolchain'),'workflow verifies the exact setup-node supplied toolchain');
 ok(!workflow.includes('npm install --global')&&!workflow.includes('bf07-npm-cli.')&&!workflow.includes('tool_cache='),'workflow no longer bootstraps a second npm executable');
