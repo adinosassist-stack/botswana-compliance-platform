@@ -8,7 +8,8 @@ This profile is intentionally designed for **P0/month hosting** while usage rema
 - Cloudflare Worker: API
 - D1: relational application data
 - R2 Standard: evidence/document storage
-- Cloudflare secrets: OAuth/session/email credentials
+- Dedicated `thebe-evidence-scanner` Worker on `evidence-scanner.thebedesk.com` for signed malware-scan requests
+- Cloudflare secrets: OAuth/session/email/scanner credentials
 - Cron Triggers: two bounded jobs in `wrangler.toml` (06:15 and 16:15 UTC); Workers Free currently permits up to five triggers per account
 
 ## Do not deploy on the free profile
@@ -37,6 +38,14 @@ Those can move the product outside the P0 target or exceed the 10 ms Worker CPU 
 8. Audit reads default to latest 100–500 rows.
 9. Retention cleans stale/failed files.
 10. External AI calls are opt-in and usage-capped separately; they are not part of the P0 hosting promise.
+
+## Active evidence uploads
+
+Recovery R1 ships with `EVIDENCE_UPLOADS_ENABLED="true"`. Evidence upload readiness is fail-closed: the application requires a credential-free HTTPS `EVIDENCE_SCAN_API_URL` and a strong `EVIDENCE_SCAN_SECRET`, and the dedicated scanner Worker requires the same signing secret plus `CLOUDMERSIVE_API_KEY`. Files enter the R2 quarantine namespace, are SHA-256 and magic-byte checked, then are sent to the scanner through a signed request envelope. A signed `clean` verdict is required before an owner/manager/reviewer can approve evidence, and only scan-clean + approved evidence can be downloaded or used by downstream proof controls.
+
+Successful uploads and manual scan retries kick a scan immediately with `waitUntil()`; the bounded scheduled scan sweep remains the durable fallback. Owner, manager and reviewer roles may upload/retry/review evidence. Auditor access is read-only and can download only already approved, scan-clean evidence. The outer Worker retains `EVIDENCE_UPLOADS_ENABLED=false` as an emergency incident-response kill switch, but production preflight requires uploads to be enabled for this release.
+
+The scanner adapter is in `cloudflare/scanner/`. Deploy it before the main Worker, configure its two secrets, confirm `/health`, then configure the main Worker with the same `EVIDENCE_SCAN_SECRET` and `https://evidence-scanner.thebedesk.com/scan`.
 
 ## Important
 

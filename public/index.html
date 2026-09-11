@@ -2562,6 +2562,7 @@ main{
 <div class="auth-divider"><span>or continue with email</span></div>
 <input id="authEmail" type="email" autocomplete="email" placeholder="you@company.co.bw" aria-label="Email"></div>
       <div><label for="authPassword">Password</label><input id="authPassword" type="password" autocomplete="current-password" placeholder="Minimum 12 characters"></div>
+      <div id="workspaceChoiceField" hidden><label for="authWorkspace">Workspace</label><select id="authWorkspace" aria-label="Choose workspace"></select><div class="muted small" style="margin-top:5px">Your account belongs to more than one workspace. Choose the business and role you want to enter.</div></div>
       <div id="turnstileField" hidden><div id="turnstileWidget" aria-label="Human verification"></div></div>
       <button id="authSubmit" class="btn" type="button" data-bw-onclick="submitAuth()">Sign in</button>
       <div id="authError" class="autherror"></div>
@@ -5672,7 +5673,8 @@ async function addEvidence(){
      await apiFetch(`/api/evidence/${pre.evidenceId}/complete`,{method:"POST",body:JSON.stringify({size:file.size})});
      ev.serverEvidenceId=pre.evidenceId;ev.fileUploaded=true;ev.objectKey=pre.objectKey;
    }catch(err){
-     notifyUser("Evidence metadata will be saved, but the file was not uploaded: "+err.message);
+     notifyUser("Evidence upload failed and was not saved. Fix the upload/scanner issue and try again: "+(err?.message||"Upload failed"));
+     return false;
    }
  }
  if(!STANDALONE_PREVIEW&&currentWorkspaceRole()==="reviewer"&&ev.fileUploaded){document.getElementById("evName").value="";if(document.getElementById("evFile"))document.getElementById("evFile").value="";await renderDocumentsProofHub();await renderEvidenceIntegrity();return true}
@@ -8067,6 +8069,18 @@ async function freshRegistrationTurnstileToken(){
   try{window.turnstile.reset(turnstileWidgetId);window.turnstile.execute("#turnstileWidget")}catch(error){turnstileExecutionResolve=null;turnstileExecutionReject=null;finishReject(new Error("Human verification could not start. Try again."))}
  })
 }
+function clearWorkspaceChoice(){
+ const field=document.getElementById("workspaceChoiceField"),select=document.getElementById("authWorkspace");
+ if(field)field.hidden=true;if(select)select.replaceChildren()
+}
+function showWorkspaceChoices(items){
+ const field=document.getElementById("workspaceChoiceField"),select=document.getElementById("authWorkspace");
+ if(!field||!select)return false;
+ const rows=Array.isArray(items)?items.filter(x=>x&&x.tenantId&&x.tenantName&&x.role):[];
+ if(!rows.length){clearWorkspaceChoice();return false}
+ select.replaceChildren(...rows.map(x=>{const option=document.createElement("option");option.value=String(x.tenantId);option.textContent=`${x.tenantName} · ${String(x.role).replace(/^./,c=>c.toUpperCase())}`;return option}));
+ field.hidden=false;select.focus();return true
+}
 function setAuthMode(mode){
  authMode=mode;const registering=mode==="register";
  loginTab.classList.toggle("active",!registering);registerTab.classList.toggle("active",registering);
@@ -8078,7 +8092,7 @@ function setAuthMode(mode){
  googleAuthText.textContent=registering?"Create account with Google":"Continue with Google";
  facebookAuthText.textContent=registering?"Create account with Facebook":"Continue with Facebook";
  authPassword.autocomplete=registering?"new-password":"current-password";
- authError.classList.remove("show");ensureRegistrationChallenge()
+ clearWorkspaceChoice();authError.classList.remove("show");ensureRegistrationChallenge()
 }
 function showAuth(){marketingGate.classList.add("hidden");authGate.classList.remove("hidden");appShell.style.visibility="hidden";syncMobileRoleNav("")}
 function hideAuth(){marketingGate.classList.add("hidden");authGate.classList.add("hidden");appShell.style.visibility="visible";syncMobileRoleNav(currentWorkspaceRole())}
@@ -8087,7 +8101,8 @@ async function submitAuth(){
  if(authSubmissionInFlight)return;
  authError.classList.remove("show");const submittingMode=authMode;let payload={email:authEmail.value.trim(),password:authPassword.value};
  if(submittingMode==="register"){payload.companyName=authCompany.value.trim();payload.plan=safeSessionGet("bwcos_selected_plan")||selectedPublicPlan||"business"}
- authSubmissionInFlight=true;authSubmit.disabled=true;const originalSubmitText=authSubmit.textContent;authSubmit.textContent=submittingMode==="register"?"Verifying…":"Signing in…";
+ else{const selectedWorkspace=document.getElementById("authWorkspace")?.value||"";if(selectedWorkspace)payload.tenantId=selectedWorkspace}
+ authSubmissionInFlight=true;authSubmit.disabled=true;const originalSubmitText=authSubmit.textContent;authSubmit.textContent=submittingMode==="register"?"Creating account…":"Signing in…";
  try{
   if(submittingMode==="register"){
    if(!turnstileConfig)await ensureRegistrationChallenge();
@@ -8095,15 +8110,24 @@ async function submitAuth(){
   }
   const data=await productionApiClient.request(`/api/auth/${submittingMode}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
   if(submittingMode==="register"){
-   turnstileToken="";setAuthMode("login");authIntro.textContent=data.message||"Registration received. Sign in with your email to continue.";authPassword.value="";authPassword.focus();return
+   turnstileToken="";
+   try{
+    const loginData=await productionApiClient.request("/api/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email:payload.email,password:payload.password})});
+    csrfToken=loginData.csrfToken||"";currentUser=loginData.user;await loadServerState();return
+   }catch(loginErr){
+    setAuthMode("login");authPassword.value=payload.password;
+    if(loginErr?.code==="workspace_selection_required"&&showWorkspaceChoices(loginErr?.data?.workspaces)){authIntro.textContent="Your account is ready. Choose the workspace you want to open, then sign in.";return}
+    authIntro.textContent=data.message||"Registration received. Sign in with this email to continue if the account is ready.";authEmail.focus();return
+   }
   }
-  csrfToken=data.csrfToken||"";currentUser=data.user;await loadServerState()
+  csrfToken=data.csrfToken||"";currentUser=data.user;clearWorkspaceChoice();await loadServerState()
  }catch(err){
   if(submittingMode==="register"){turnstileToken="";try{if(window.turnstile&&turnstileWidgetId!==null)window.turnstile.reset(turnstileWidgetId)}catch{}}
+  if(submittingMode==="login"&&err?.code==="workspace_selection_required"&&showWorkspaceChoices(err?.data?.workspaces)){authIntro.textContent="Choose the workspace you want to open with these credentials.";authError.classList.remove("show");return}
   authError.textContent=err.message||"Authentication failed";authError.classList.add("show")
  }finally{
   authSubmissionInFlight=false;authSubmit.disabled=false;
-  if(authMode===submittingMode)authSubmit.textContent=originalSubmitText
+  if(authMode===submittingMode)authSubmit.textContent=originalSubmitText;else authSubmit.textContent=authMode==="register"?"Create account & workspace":"Sign in"
  }
 }
 async function logoutUser(){try{await apiFetch("/api/auth/logout",{method:"POST",body:"{}"})}catch{}csrfToken="";currentUser=null;lastWorkspaceView="dashboard";replaceWorkspaceStore({activeCompanyId:null,activeRole:"",companies:[],audit:[]});authPassword.value="";document.querySelectorAll(".modal.open").forEach(m=>m.classList.remove("open"));showMarketing()}
@@ -8126,6 +8150,8 @@ document.getElementById("nav").addEventListener("click",e=>{let b=e.target.close
 async function bootstrap(){marketingGate.classList.add("hidden");authGate.classList.add("hidden");appShell.style.visibility="hidden";syncMobileRoleNav("");if(await handleDailyReporterPortal())return;if(await handlePublicPassportFragment())return;if(STANDALONE_PREVIEW){showMarketing();return}try{await loadServerState()}catch(err){csrfToken="";currentUser=null;showMarketing()}}
 if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js").catch(()=>{})}
 document.getElementById("authPassword").addEventListener("keydown",e=>{if(e.key==="Enter")submitAuth()});
+document.getElementById("authEmail").addEventListener("input",clearWorkspaceChoice);
+document.getElementById("authPassword").addEventListener("input",clearWorkspaceChoice);
 
 function syncMetricRing(ring){
  const target=document.getElementById(ring.dataset.ringTarget||"");if(!target)return;

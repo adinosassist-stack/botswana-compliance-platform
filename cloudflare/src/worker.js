@@ -175,8 +175,8 @@ async function createPasswordSession(env,userId,tenantId,role,expectedPasswordHa
   const inserted=await env.DB.prepare(`INSERT INTO sessions(token_hash,public_id,user_id,tenant_id,role,session_generation,csrf_token,expires_at,last_seen_at)
     SELECT ?,?,?,?,?,session_generation,?,datetime('now','+14 days'),CURRENT_TIMESTAMP FROM users
     WHERE id=? AND password_hash=? AND session_generation=?
-      AND EXISTS(SELECT 1 FROM memberships WHERE user_id=? AND tenant_id=? AND status='active')
-    RETURNING session_generation`).bind(hash,publicId,userId,tenantId,role,csrf,userId,expectedPasswordHash,expectedGeneration,userId,tenantId).first();
+      AND EXISTS(SELECT 1 FROM memberships WHERE user_id=? AND tenant_id=? AND status='active' AND role=?)
+    RETURNING session_generation`).bind(hash,publicId,userId,tenantId,role,csrf,userId,expectedPasswordHash,expectedGeneration,userId,tenantId,role).first();
   if(inserted?.session_generation===undefined||inserted?.session_generation===null)return null;
   return {raw,csrf};
 }
@@ -3290,6 +3290,12 @@ async function processEvidenceScanQueue(env,limit=10){
   return {processed:(rows.results||[]).length,clean,infected,errors};
 }
 
+function kickEvidenceScan(ctx,env){
+  if(!ctx||typeof ctx.waitUntil!=="function")return false;
+  ctx.waitUntil(processEvidenceScanQueue(env,1).catch(error=>console.error("evidence_scan_kick_failed",{error:String(error?.message||error).slice(0,240)})));
+  return true;
+}
+
 async function recordEvidenceReviewEvent(env,evidenceId,tenantId,eventType,fromStatus,toStatus,actorUserId,data={}){
   await env.DB.prepare(
     "INSERT INTO evidence_review_events(evidence_id,tenant_id,event_type,status_from,status_to,actor_user_id,event_data) VALUES(?,?,?,?,?,?,?)"
@@ -4802,9 +4808,11 @@ export default {
     if(url.pathname==="/api/auth/login"&&req.method==="POST"){
       if(!requestOriginAllowed(req,env))return json({error:"origin_failed"},403);
       const ipLimit=await authRateLimit(env,req,"login-ip",{limit:20,windowSeconds:600});if(!ipLimit.ok)return rateLimitResponse(ipLimit);
-      const body=await readJson(req,{maxBytes:8*1024});const email=String(body.email||"").trim().toLowerCase(),password=String(body.password||"");if(!validEmail(email)||!validPasswordLength(password))return json({error:"invalid_credentials"},401);
+      const body=await readJson(req,{maxBytes:8*1024}),email=String(body.email||"").trim().toLowerCase(),password=String(body.password||""),requestedTenantId=String(body.tenantId||"").trim();
+      if(!validEmail(email)||!validPasswordLength(password))return json({error:"invalid_credentials"},401);
+      if(requestedTenantId&&!/^[a-f0-9-]{32,36}$/i.test(requestedTenantId))return json({error:"workspace_not_available"},403);
       const accountLimit=await authSubjectRateLimit(env,"login-account",email,{limit:10,windowSeconds:600});if(!accountLimit.ok)return rateLimitResponse(accountLimit);
-      const u=await env.DB.prepare("SELECT u.id,u.email,u.display_name,u.password_hash,u.session_generation,m.tenant_id,m.role,t.name tenant_name FROM users u JOIN memberships m ON m.user_id=u.id AND m.status='active' JOIN tenants t ON t.id=m.tenant_id WHERE u.email=? LIMIT 1").bind(email).first();
+      const u=await env.DB.prepare("SELECT id,email,display_name,password_hash,session_generation FROM users WHERE email=? LIMIT 1").bind(email).first();
       const passwordOk=await verifyPassword(password,u?.password_hash||DUMMY_PASSWORD_HASH);
       if(!u||!passwordOk)return json({error:"invalid_credentials"},401);
       let expectedPasswordHash=u.password_hash;
@@ -4813,9 +4821,22 @@ export default {
         if(Number(rehash.meta?.changes||0)!==1)return json({error:"invalid_credentials"},401);
         expectedPasswordHash=upgraded;
       }
-      const sess=await createPasswordSession(env,u.id,u.tenant_id,u.role,expectedPasswordHash,u.session_generation);
+      const memberships=await env.DB.prepare(`SELECT m.tenant_id,m.role,t.name tenant_name
+        FROM memberships m JOIN tenants t ON t.id=m.tenant_id
+        WHERE m.user_id=? AND m.status='active'
+        ORDER BY CASE m.role WHEN 'owner' THEN 1 WHEN 'manager' THEN 2 WHEN 'reviewer' THEN 3 WHEN 'auditor' THEN 4 ELSE 9 END,t.name,m.tenant_id
+        LIMIT 25`).bind(u.id).all();
+      const choices=memberships.results||[];
+      if(!choices.length)return json({error:"invalid_credentials"},401);
+      let selected=requestedTenantId?choices.find(x=>String(x.tenant_id)===requestedTenantId):null;
+      if(requestedTenantId&&!selected)return json({error:"workspace_not_available"},403);
+      if(!requestedTenantId&&choices.length>1){
+        return json({error:"workspace_selection_required",message:"Choose the workspace you want to open.",workspaces:choices.map(x=>({tenantId:x.tenant_id,tenantName:x.tenant_name,role:x.role}))},409);
+      }
+      selected=selected||choices[0];
+      const sess=await createPasswordSession(env,u.id,selected.tenant_id,selected.role,expectedPasswordHash,u.session_generation);
       if(!sess)return json({error:"invalid_credentials"},401);
-      return json({ok:true,csrfToken:sess.csrf,user:{id:u.id,email:u.email,displayName:u.display_name,role:u.role,tenantName:u.tenant_name}},200,{"set-cookie":sessionCookie(sess.raw)});
+      return json({ok:true,csrfToken:sess.csrf,user:{id:u.id,email:u.email,displayName:u.display_name,role:selected.role,tenantId:selected.tenant_id,tenantName:selected.tenant_name}},200,{"set-cookie":sessionCookie(sess.raw)});
     }
     if(url.pathname==="/api/auth/password-reset/request"&&req.method==="POST"){
       if(!requestOriginAllowed(req,env))return json({error:"origin_failed"},403);
@@ -5262,6 +5283,7 @@ export default {
           .bind(eid,a.tenant_id,objectKey,name,ct,size,sha).run();
         await recordEvidenceReviewEvent(env,eid,a.tenant_id,"EVIDENCE_UPLOADED",null,"quarantined",a.user_id,{sha256:sha,sizeBytes:size,mimeType:ct});
         await recordEvidenceScanEvent(env,{evidenceId:eid,tenantId:a.tenant_id,eventType:"QUEUED",before:"not_scanned",after:"queued",details:{upload:"integrity"}});
+        kickEvidenceScan(ctx,env);
         return json({ok:true,id:eid,duplicate:false,reviewStatus:"quarantined",scanStatus:"queued"},201);
       }
       if(url.pathname.match(/^\/api\/evidence\/integrity\/[^/]+\/review$/)&&req.method==="POST"){
@@ -5320,9 +5342,11 @@ export default {
         await env.DB.prepare("UPDATE evidence SET upload_status='complete',scan_status='queued',content_sha256=? WHERE tenant_id=? AND id=?").bind(sha,a.tenant_id,eid).run();
         await recordEvidenceReviewEvent(env,eid,a.tenant_id,"EVIDENCE_UPLOADED",null,"quarantined",a.user_id,{sha256:sha,sizeBytes:buf.byteLength,mimeType:ct});
         await recordEvidenceScanEvent(env,{evidenceId:eid,tenantId:a.tenant_id,eventType:"QUEUED",before:"not_scanned",after:"queued",details:{upload:"presign"}});
+        kickEvidenceScan(ctx,env);
         return json({ok:true,scanStatus:"queued",sha256:sha});
       }
       if(url.pathname.match(/^\/api\/evidence\/[^/]+\/complete$/)&&req.method==="POST"){
+        if(!roleAllowed(a,"owner","manager","reviewer"))return json({error:"forbidden"},403);
         const eid=url.pathname.split("/")[3],row=await env.DB.prepare("SELECT upload_status,scan_status,content_sha256 FROM evidence WHERE tenant_id=? AND id=? LIMIT 1").bind(a.tenant_id,eid).first();
         if(!row)return json({error:"not_found"},404);
         if(row.upload_status!=="complete"||!row.content_sha256)return json({error:"upload_not_complete"},409);
@@ -5346,6 +5370,7 @@ export default {
         await recordEvidenceScanEvent(env,{evidenceId:eid,tenantId:a.tenant_id,eventType:"RETRY",before:row.scan_status,after:"queued",details:{manual:true}});
         await recordEvidenceAccess(env,{evidenceId:eid,tenantId:a.tenant_id,userId:a.user_id,action:"SCAN_RETRY",result:"queued"});
         await writeAudit(env,a.tenant_id,a.user_id,"EVIDENCE_SCAN_RETRY",{evidenceId:eid,from:row.scan_status});
+        kickEvidenceScan(ctx,env);
         return json({ok:true,scanStatus:"queued"});
       }
       if(url.pathname.match(/^\/api\/evidence\/[^/]+\/download$/)&&req.method==="GET"){

@@ -26,5 +26,5 @@ test("production safety gates remain intact",()=>{
   assert.match(wrangler,/workers_dev = false/);
   assert.match(wrangler,/preview_urls = false/);
   assert.match(wrangler,/PAYMENT_PROVIDER = "none"/);
-  assert.match(wrangler,/EVIDENCE_UPLOADS_ENABLED = "false"/);
+  assert.match(wrangler,/EVIDENCE_UPLOADS_ENABLED = "true"/);
 });

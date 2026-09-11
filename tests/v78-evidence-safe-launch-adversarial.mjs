@@ -7,8 +7,8 @@ const wrangler = fs.readFileSync('cloudflare/wrangler.toml', 'utf8');
 const wrapper = fs.readFileSync('cloudflare/src/worker-cloudmersive-free.js', 'utf8');
 const url = path => new URL(`https://thebedesk.com${path}`);
 
-test('safe launch disables evidence uploads by default', () => {
-  assert.match(wrangler, /EVIDENCE_UPLOADS_ENABLED = "false"/);
+test('production activates evidence uploads while the emergency kill switch remains available', () => {
+  assert.match(wrangler, /EVIDENCE_UPLOADS_ENABLED = "true"/);
   assert.equal(boundary.evidenceUploadsEnabled({ EVIDENCE_UPLOADS_ENABLED: 'false' }), false);
   assert.equal(boundary.evidenceUploadsEnabled({}), false);
   assert.equal(boundary.evidenceUploadsEnabled({ EVIDENCE_UPLOADS_ENABLED: 'TRUE' }), true);
@@ -44,7 +44,7 @@ test('blocked upload is stopped before the base worker', async () => {
   });
 });
 
-test('readiness bypass is scoped to disabled scanner checks and scheduled work receives the real env', () => {
+test('disabled-mode readiness shim remains scoped to the emergency kill switch and scheduled work receives the real env', () => {
   assert.match(wrapper, /SAFE_LAUNCH_SCANNER_URL/);
   assert.match(wrapper, /EVIDENCE_SCAN_API_URL: SAFE_LAUNCH_SCANNER_URL/);
   assert.match(wrapper, /EVIDENCE_SCAN_SECRET: SAFE_LAUNCH_SCANNER_SECRET/);
@@ -53,7 +53,7 @@ test('readiness bypass is scoped to disabled scanner checks and scheduled work r
   assert.doesNotMatch(wrangler, /EVIDENCE_SCAN_API_URL = "https:\/\/example\.com/);
 });
 
-test('3.5 MB cap remains intact for the future re-enable path', () => {
+test('3.5 MB cap remains intact for the active upload path', () => {
   assert.equal(boundary.EVIDENCE_FREE_TIER_MAX_BYTES, 3_500_000);
   assert.match(wrapper, /uploadsEnabled && isEvidenceByteUpload/);
   assert.match(wrapper, /uploadsEnabled && request\.method === "POST" && url\.pathname === "\/api\/evidence\/presign"/);

@@ -20,7 +20,7 @@ ok(requiredVars.every(k=>renderer.includes(k)) && renderer.includes('for key in 
 ok(requiredVars.every(k=>preflight.includes(k)), 'production preflight checks every readiness-critical non-secret variable');
 ok(wrangler.includes('keep_vars = true')&&preflight.includes('keep_vars must be true'), 'Wrangler deploy preserves optional dashboard variables while source-controlled readiness vars remain authoritative');
 ok(renderer.includes('PUBLIC_APP_URL and PUBLIC_ORIGIN must be the same exact HTTPS origin')&&preflight.includes('PUBLIC_APP_URL and PUBLIC_ORIGIN must match exactly'), 'public URL/origin mismatch fails before deployment and at preflight');
-ok(deploy.includes('requiredConfigReady=true')&&deploy.includes('quarantine→scan→clean→authorized-download'), 'runbook closes runtime readiness and evidence lifecycle verification');
+ok(deploy.includes('requiredConfigReady=true')&&deploy.includes('quarantine→scan→clean→approval→authorized-download'), 'runbook closes runtime readiness and evidence lifecycle verification');
 ok(!deploy.includes('Configure PLATFORM_ADMIN_EMAILS, PLATFORM_REGULATORY_REVIEWERS, PUBLIC_APP_URL and PUBLIC_ORIGIN for this Worker'), 'old ambiguous dashboard-only readiness instruction is removed');
 
 ok(wrangler.includes('main = "src/worker-cloudmersive-free.js"'), 'production entrypoint enforces the Cloudmersive free-tier evidence boundary before the sealed base Worker');
