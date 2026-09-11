@@ -1,16 +1,8 @@
-name = "thebe-evidence-scanner"
+name = "thebe-evidence-scanner-disabled"
 main = "worker.js"
 compatibility_date = "2026-09-03"
 workers_dev = false
 preview_urls = false
 
-[[routes]]
-pattern = "evidence-scanner.thebedesk.com"
-custom_domain = true
-
-[secrets]
-required = ["EVIDENCE_SCAN_SECRET", "CLOUDMERSIVE_API_KEY"]
-
 [vars]
-CLOUDMERSIVE_SCAN_URL = "https://api.cloudmersive.com/virus/scan/file"
-MAX_SCAN_BYTES = "3500000"
+SCANNER_PROVIDER = "disabled"

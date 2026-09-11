@@ -10,7 +10,7 @@ pattern = "thebedesk.com"
 custom_domain = true
 
 [secrets]
-required = ["SESSION_SECRET", "AUDIT_INTEGRITY_SECRET", "OPERATIONS_SECRET", "AUTOMATION_SECRET", "TURNSTILE_SECRET_KEY", "PAYMENT_WEBHOOK_SECRET", "BILLING_WEBHOOK_SECRET", "EVIDENCE_SCAN_SECRET"]
+required = ["SESSION_SECRET", "AUDIT_INTEGRITY_SECRET", "OPERATIONS_SECRET", "AUTOMATION_SECRET", "TURNSTILE_SECRET_KEY", "PAYMENT_WEBHOOK_SECRET", "BILLING_WEBHOOK_SECRET"]
 
 [vars]
 APP_ENV = "production"
@@ -20,7 +20,7 @@ AI_REPORT_MODEL = "@cf/zai-org/glm-4.7-flash"
 PAYMENT_PROVIDER = "none"
 TRIAL_DAYS = "14"
 MAX_UPLOAD_MB = "3.5"
-EVIDENCE_UPLOADS_ENABLED = "true"
+EVIDENCE_UPLOADS_ENABLED = "false"
 PENDING_UPLOAD_RETENTION_DAYS = "3"
 FAILED_UPLOAD_RETENTION_DAYS = "7"
 PUBLIC_APP_URL = "REPLACE_WITH_PUBLIC_APP_URL"
@@ -103,7 +103,6 @@ crons = ["15 6 * * *", "15 16 * * *"]
 # PLATFORM_REGULATORY_REVIEWERS = "reviewer@example.com"
 # PLATFORM_ADMIN_EMAILS = "admin@example.com"
 
-
 # Required core production secrets / settings before /api/ready returns ready:
 # wrangler secret put SESSION_SECRET
 # wrangler secret put AUDIT_INTEGRITY_SECRET
@@ -112,10 +111,9 @@ crons = ["15 6 * * *", "15 16 * * *"]
 # The EVIDENCE R2 and DB D1 bindings must also be valid.
 
 # Evidence malware scanning:
-# Evidence uploads are active in production and remain quarantined until the dedicated scanner returns a signed clean verdict.
-# EVIDENCE_SCAN_API_URL and EVIDENCE_SCAN_SECRET are mandatory deployment-readiness controls.
-# Default deployment topology uses https://evidence-scanner.thebedesk.com/scan.
-# wrangler secret put EVIDENCE_SCAN_SECRET
+# No third-party malware-scanning provider is configured for this launch.
+# EVIDENCE_UPLOADS_ENABLED remains false and evidence mutations fail closed.
+# EVIDENCE_SCAN_API_URL must render empty for this release; no scanner secret is required.
 
 # Native edge throttling for public bearer-link endpoints. Counters are maintained by
 # Cloudflare's Rate Limiting binding rather than consuming D1 rows.
