@@ -102,16 +102,29 @@ jobs:
             authorization: `Bearer ${token}`,
             'x-github-api-version': '2022-11-28'
           };
-          async function successful(workflow, label) {
-            const url = `https://api.github.com/repos/${owner}/${repo}/actions/workflows/${workflow}/runs?branch=main&per_page=100`;
-            const response = await fetch(url, {headers});
-            if (!response.ok) throw new Error(`${label} lookup failed: HTTP ${response.status}`);
-            const body = await response.json();
-            const run = (body.workflow_runs || []).find(r => r.head_sha === sha && r.status === 'completed' && r.conclusion === 'success');
-            if (!run) throw new Error(`${label} has no successful completed run for exact SHA ${sha}`);
-            console.log(`${label} qualified exact SHA ${sha} with run ${run.id}`);
+          const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+          async function successful(workflow, label, {wait = false} = {}) {
+            const attempts = wait ? 37 : 1;
+            for (let attempt = 1; attempt <= attempts; attempt += 1) {
+              const url = `https://api.github.com/repos/${owner}/${repo}/actions/workflows/${workflow}/runs?branch=main&per_page=100`;
+              const response = await fetch(url, {headers});
+              if (!response.ok) throw new Error(`${label} lookup failed: HTTP ${response.status}`);
+              const body = await response.json();
+              const exactRuns = (body.workflow_runs || []).filter(r => r.head_sha === sha);
+              const passed = exactRuns.find(r => r.status === 'completed' && r.conclusion === 'success');
+              if (passed) {
+                console.log(`${label} qualified exact SHA ${sha} with run ${passed.id}`);
+                return;
+              }
+              const failed = exactRuns.find(r => r.status === 'completed' && r.conclusion && r.conclusion !== 'success');
+              if (failed) throw new Error(`${label} completed as ${failed.conclusion} for exact SHA ${sha} (run ${failed.id})`);
+              if (!wait || attempt === attempts) break;
+              console.log(`${label} for exact SHA ${sha} is not complete yet; bounded wait ${attempt}/${attempts - 1}`);
+              await sleep(10_000);
+            }
+            throw new Error(`${label} has no successful completed run for exact SHA ${sha}`);
           }
-          await successful('recovery-ci.yml', 'Recovery CI');
+          await successful('recovery-ci.yml', 'Recovery CI', {wait: eventName === 'workflow_run'});
           if (eventName === 'workflow_dispatch') {
             await successful('bf07-seal.yml', 'BF-07 Supply-Chain Seal');
           } else {
