@@ -15,9 +15,10 @@ grep -Eq '^workers_dev[[:space:]]*=[[:space:]]*false[[:space:]]*$' "$WRANGLER_TO
 grep -Eq '^preview_urls[[:space:]]*=[[:space:]]*false[[:space:]]*$' "$WRANGLER_TOML" || fail "preview_urls must be false"
 grep -Fq 'pattern = "thebedesk.com"' "$WRANGLER_TOML" || fail "thebedesk.com custom-domain route is missing"
 grep -Eq '^custom_domain[[:space:]]*=[[:space:]]*true[[:space:]]*$' "$WRANGLER_TOML" || fail "custom-domain routing must be enabled"
-for secret in SESSION_SECRET AUDIT_INTEGRITY_SECRET OPERATIONS_SECRET AUTOMATION_SECRET TURNSTILE_SECRET_KEY PAYMENT_WEBHOOK_SECRET BILLING_WEBHOOK_SECRET EVIDENCE_SCAN_SECRET; do
+for secret in SESSION_SECRET AUDIT_INTEGRITY_SECRET OPERATIONS_SECRET AUTOMATION_SECRET TURNSTILE_SECRET_KEY PAYMENT_WEBHOOK_SECRET BILLING_WEBHOOK_SECRET; do
   grep -Fq "\"$secret\"" "$WRANGLER_TOML" || fail "required secret contract is missing $secret"
 done
+if grep -Eq '^required[[:space:]]*=.*EVIDENCE_SCAN_SECRET' "$WRANGLER_TOML"; then fail "EVIDENCE_SCAN_SECRET must not be required while evidence uploads are disabled"; fi
 grep -Eq '^keep_vars[[:space:]]*=[[:space:]]*true[[:space:]]*$' "$WRANGLER_TOML" || fail "keep_vars must be true so optional dashboard vars are not deleted by deploy"
 grep -Eq '^APP_ENV[[:space:]]*=[[:space:]]*"production"[[:space:]]*$' "$WRANGLER_TOML" || fail "APP_ENV must be production"
 grep -Eq '^PAYMENT_PROVIDER[[:space:]]*=[[:space:]]*"(none|dpo)"[[:space:]]*$' "$WRANGLER_TOML" || fail "PAYMENT_PROVIDER must be none or dpo; orange_money is blocked pending a reviewed readiness fix"
@@ -30,13 +31,9 @@ done
 grep -Eq '^[[:space:]]*EVIDENCE_SCAN_API_URL[[:space:]]*=[[:space:]]*"[^"]*"[[:space:]]*$' "$WRANGLER_TOML" || fail "EVIDENCE_SCAN_API_URL must be present in rendered production config"
 if grep -Eq '^[[:space:]]*EVIDENCE_SCAN_API_URL[[:space:]]*=[[:space:]]*"REPLACE_WITH_' "$WRANGLER_TOML"; then fail "EVIDENCE_SCAN_API_URL still contains a placeholder"; fi
 UPLOADS_ENABLED=$(sed -n 's/^[[:space:]]*EVIDENCE_UPLOADS_ENABLED[[:space:]]*=[[:space:]]*"\([^"]*\)"[[:space:]]*$/\1/p' "$WRANGLER_TOML")
-[ "$UPLOADS_ENABLED" = "true" ] || fail "EVIDENCE_UPLOADS_ENABLED must be true for the Recovery R1 production release"
+[ "$UPLOADS_ENABLED" = "false" ] || fail "EVIDENCE_UPLOADS_ENABLED must remain false until an approved scanner provider is configured"
 SCAN_URL=$(sed -n 's/^[[:space:]]*EVIDENCE_SCAN_API_URL[[:space:]]*=[[:space:]]*"\([^"]*\)"[[:space:]]*$/\1/p' "$WRANGLER_TOML")
-if [ "$UPLOADS_ENABLED" = "true" ]; then
-  printf '%s\n' "$SCAN_URL" | grep -Eq '^https://[^[:space:]"<>@]+$' || fail "EVIDENCE_SCAN_API_URL must be credential-free HTTPS when evidence uploads are enabled"
-elif [ -n "$SCAN_URL" ]; then
-  printf '%s\n' "$SCAN_URL" | grep -Eq '^https://[^[:space:]"<>@]+$' || fail "EVIDENCE_SCAN_API_URL must be empty or credential-free HTTPS while uploads are disabled"
-fi
+[ -z "$SCAN_URL" ] || fail "EVIDENCE_SCAN_API_URL must be empty while evidence uploads are disabled"
 PUBLIC_APP=$(sed -n 's/^[[:space:]]*PUBLIC_APP_URL[[:space:]]*=[[:space:]]*"\([^"]*\)"[[:space:]]*$/\1/p' "$WRANGLER_TOML")
 PUBLIC_ORIGIN_VALUE=$(sed -n 's/^[[:space:]]*PUBLIC_ORIGIN[[:space:]]*=[[:space:]]*"\([^"]*\)"[[:space:]]*$/\1/p' "$WRANGLER_TOML")
 [ "$PUBLIC_APP" = "$PUBLIC_ORIGIN_VALUE" ] || fail "PUBLIC_APP_URL and PUBLIC_ORIGIN must match exactly"
