@@ -6566,7 +6566,7 @@ function animateNumber(el,to,suffix=""){
 }
 
 
-function startOAuth(provider){if(!["google","facebook"].includes(provider))return;if(location.protocol==="file:"){notifyUser("Social sign-in requires the deployed OAuth backend. Use Preview workspace for the standalone HTML.");return}const next=encodeURIComponent(window.location.pathname+window.location.search);window.location.assign(`/api/auth/oauth/${provider}/start?next=${next}`)}
+function startOAuth(provider){if(!["google","facebook"].includes(provider))return;if(STANDALONE_PREVIEW||location.protocol==="file:"){notifyUser("Social sign-in requires the deployed OAuth backend. Use email sign-in or Preview workspace in the standalone HTML.");return}const next=encodeURIComponent(window.location.pathname+window.location.search);window.location.assign(`/api/auth/oauth/${provider}/start?next=${next}`)}
 
 
 const RUNTIME_MODE=(document.querySelector('meta[name="bw-runtime-mode"]')?.content||"production").toLowerCase();
@@ -8086,7 +8086,7 @@ function setAuthMode(mode){
  loginTab.classList.toggle("active",!registering);registerTab.classList.toggle("active",registering);
  companyNameField.style.display=registering?"block":"none";
  authTitle.textContent=registering?"Create your business account":"Sign in to your workspace";
- authIntro.textContent=registering?"Create the account now. Quick start asks only a few business facts before your first protection check.":"Use your account email and password to continue.";
+ authIntro.textContent=STANDALONE_PREVIEW?(registering?"Standalone preview: create a demo Owner workspace with any valid email and an 8+ character password.":"Standalone preview roles: owner@preview.local, manager@preview.local, reviewer@preview.local or auditor@preview.local. Use any 8+ character password."):(registering?"Create the account now. Quick start asks only a few business facts before your first protection check.":"Use your account email and password to continue.");
  trialNote.hidden=!registering;
  authSubmit.textContent=registering?"Create account & workspace":"Sign in";
  googleAuthText.textContent=registering?"Create account with Google":"Continue with Google";
@@ -8108,11 +8108,11 @@ async function submitAuth(){
    if(!turnstileConfig)await ensureRegistrationChallenge();
    if(turnstileConfig?.required)payload.turnstileToken=await freshRegistrationTurnstileToken()
   }
-  const data=await productionApiClient.request(`/api/auth/${submittingMode}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
+  const data=await runtimeApiClient.request(`/api/auth/${submittingMode}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
   if(submittingMode==="register"){
    turnstileToken="";
    try{
-    const loginData=await productionApiClient.request("/api/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email:payload.email,password:payload.password})});
+    const loginData=await runtimeApiClient.request("/api/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email:payload.email,password:payload.password})});
     csrfToken=loginData.csrfToken||"";currentUser=loginData.user;await loadServerState();return
    }catch(loginErr){
     setAuthMode("login");authPassword.value=payload.password;
@@ -8132,6 +8132,9 @@ async function submitAuth(){
 }
 async function logoutUser(){try{await apiFetch("/api/auth/logout",{method:"POST",body:"{}"})}catch{}csrfToken="";currentUser=null;lastWorkspaceView="dashboard";replaceWorkspaceStore({activeCompanyId:null,activeRole:"",companies:[],audit:[]});authPassword.value="";document.querySelectorAll(".modal.open").forEach(m=>m.classList.remove("open"));showMarketing()}
 async function loadServerState(){
+ if(STANDALONE_PREVIEW){
+  const role=isWorkspaceRole(currentUser?.role)?currentUser.role:"owner";currentUser={id:currentUser?.id||"preview-user",email:currentUser?.email||"owner@preview.local",displayName:currentUser?.displayName||"Preview user",role,tenantId:currentUser?.tenantId||"preview-tenant",tenantName:currentUser?.tenantName||"Preview Business",onboardingComplete:true};csrfToken="preview-csrf";serverStateVersion=1;const nextStore=structuredClone(DEFAULT_STATE);nextStore.activeRole=role;replaceWorkspaceStore(nextStore);renderAll();applyRoleUi();hideAuth();const landing=roleLandingView(role);if(landing&&roleCanView(landing))showView(landing,{roleRedirect:true});else showView("dashboard",{roleRedirect:true});const chip=document.querySelector(".prodchip");if(chip)chip.textContent=`PREVIEW · ${role.toUpperCase()}`;return
+ }
  const info=await productionApiClient.request("/api/auth/me");currentUser={...(currentUser||{}),...(info.user||{})};csrfToken=info.csrfToken||csrfToken;if(!isWorkspaceRole(currentUser?.role)){showRestrictedRolePortal(currentUser?.role);return}
  const st=await apiFetch("/api/state");serverStateVersion=st.version||1;let nextStore;
  if(st.state&&st.state.companies?.length){nextStore=structuredClone(st.state)}else if(currentUser.role==="owner"){nextStore=blankWorkspaceState(currentUser.tenantName||"My Business",currentUser.role);let init=await apiFetch("/api/state",{method:"PUT",body:JSON.stringify({state:nextStore,version:serverStateVersion})});serverStateVersion=init.version||serverStateVersion}else{throw new Error("The account owner must finish initial workspace setup before this role can enter.")}

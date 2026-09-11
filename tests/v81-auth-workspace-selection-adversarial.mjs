@@ -37,7 +37,8 @@ test('frontend exposes explicit workspace choice and sends selected tenant',()=>
 test('registration retains JIT Turnstile and attempts first sign-in automatically',()=>{
   assert.match(html,/freshRegistrationTurnstileToken/);
   assert.match(html,/payload\.turnstileToken=await freshRegistrationTurnstileToken\(\)/);
-  assert.match(html,/productionApiClient\.request\("\/api\/auth\/login"/);
+  assert.match(html,/runtimeApiClient\.request\("\/api\/auth\/login"/);
+  assert.match(html,/const runtimeApiClient=STANDALONE_PREVIEW\?.*BW\.preview\.request.*:productionApiClient/);
   assert.match(html,/authPassword\.value=payload\.password/);
   assert.doesNotMatch(html,/Complete the human verification before creating the account/);
 });
