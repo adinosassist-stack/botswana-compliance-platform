@@ -7,6 +7,7 @@ const renderer=read('cloudflare/render-production-config.sh');
 const preflight=read('cloudflare/preflight-production.sh');
 const deploy=read('cloudflare/deploy-free.sh');
 const productionDeploy=read('.github/workflows/deploy-production.yml');
+const bf07Workflow=read('.github/workflows/bf07-seal.yml');
 let pass=0;const ok=(c,m)=>{if(!c)throw new Error('FAIL: '+m);pass++;console.log('PASS',m)};
 
 const requiredSecrets=['SESSION_SECRET','AUDIT_INTEGRITY_SECRET','OPERATIONS_SECRET','AUTOMATION_SECRET','TURNSTILE_SECRET_KEY','PAYMENT_WEBHOOK_SECRET','BILLING_WEBHOOK_SECRET'];
@@ -25,6 +26,8 @@ ok(wrangler.includes('EVIDENCE_UPLOADS_ENABLED = "false"')&&preflight.includes('
 ok(deploy.includes('requiredConfigReady=true')&&deploy.includes('evidence upload/mutation routes fail closed'), 'runbook closes runtime readiness and verifies evidence mutations remain disabled');
 ok(!deploy.includes('Configure PLATFORM_ADMIN_EMAILS, PLATFORM_REGULATORY_REVIEWERS, PUBLIC_APP_URL and PUBLIC_ORIGIN for this Worker'), 'old ambiguous dashboard-only readiness instruction is removed');
 
+ok(bf07Workflow.includes('push:')&&bf07Workflow.includes('branches: [main]')&&bf07Workflow.includes("contains(github.event.head_commit.message, '[deploy]')"), 'automatic BF-07 release sealing is restricted to explicit [deploy] commits on main');
+ok(bf07Workflow.includes("github.event_name == 'workflow_dispatch' && inputs.expected_sha || github.sha")&&bf07Workflow.includes("$GITHUB_REF"), 'BF-07 binds both manual and automatic release paths to the exact selected main SHA');
 ok(productionDeploy.includes('workflows: ["BF-07 Supply-Chain Seal"]')&&productionDeploy.includes("recovery-ci.yml")&&productionDeploy.includes("bf07-seal.yml"), 'production automation requires exact-SHA qualification by both Recovery CI and BF-07');
 ok(productionDeploy.includes('refusing stale/non-main deploy')&&productionDeploy.includes('git rev-parse origin/main'), 'production automation refuses stale or non-main deployment targets');
 ok(productionDeploy.includes('environment: production')&&productionDeploy.includes('CLOUDFLARE_API_TOKEN')&&productionDeploy.includes('CLOUDFLARE_ACCOUNT_ID'), 'production automation is isolated behind the GitHub production environment and Cloudflare credentials');
