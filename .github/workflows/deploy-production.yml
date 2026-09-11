@@ -1,0 +1,229 @@
+name: Thebe Desk Production Deploy
+run-name: Production deploy ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.expected_sha }}
+
+on:
+  workflow_run:
+    workflows: ["BF-07 Supply-Chain Seal"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: 'Full 40-character main commit SHA to deploy; it must already have successful Recovery CI and BF-07 runs'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: thebe-desk-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy exact qualified SHA to Cloudflare
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: production
+    env:
+      TARGET_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.expected_sha }}
+      CI: 'true'
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
+      PUBLIC_APP_URL: https://thebedesk.com
+      PUBLIC_ORIGIN: https://thebedesk.com
+      TURNSTILE_SITE_KEY: ${{ vars.TURNSTILE_SITE_KEY }}
+      PLATFORM_ADMIN_EMAILS: ${{ vars.PLATFORM_ADMIN_EMAILS }}
+      PLATFORM_REGULATORY_REVIEWERS: ${{ vars.PLATFORM_REGULATORY_REVIEWERS }}
+      EVIDENCE_SCAN_API_URL: ''
+      PAYMENT_PROVIDER_OVERRIDE: none
+      SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+      AUDIT_INTEGRITY_SECRET: ${{ secrets.AUDIT_INTEGRITY_SECRET }}
+      OPERATIONS_SECRET: ${{ secrets.OPERATIONS_SECRET }}
+      AUTOMATION_SECRET: ${{ secrets.AUTOMATION_SECRET }}
+      TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
+      PAYMENT_WEBHOOK_SECRET: ${{ secrets.PAYMENT_WEBHOOK_SECRET }}
+      BILLING_WEBHOOK_SECRET: ${{ secrets.BILLING_WEBHOOK_SECRET }}
+
+    steps:
+      - name: Checkout exact candidate revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.expected_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact current main SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'TARGET_SHA must be a full lowercase 40-character commit SHA' >&2; exit 1; }
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          head_sha="$(git rev-parse HEAD)"
+          main_sha="$(git rev-parse origin/main)"
+          [[ "$head_sha" == "$TARGET_SHA" ]] || { echo "checkout mismatch expected=$TARGET_SHA actual=$head_sha" >&2; exit 1; }
+          [[ "$main_sha" == "$TARGET_SHA" ]] || { echo "refusing stale/non-main deploy target=$TARGET_SHA current-main=$main_sha" >&2; exit 1; }
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo 'checkout is not clean before deployment qualification' >&2; exit 1; }
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+
+      - name: Verify pinned npm
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="$(node -p "String(require('./package.json').packageManager).replace(/^npm@/,'')")"
+          actual="$(npm --version)"
+          [[ "$actual" == "$expected" ]] || { echo "npm mismatch expected=$expected actual=$actual" >&2; exit 1; }
+
+      - name: Require successful Recovery CI and BF-07 for exact SHA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+          const sha = process.env.TARGET_SHA;
+          const token = process.env.GH_TOKEN;
+          const eventName = process.env.GITHUB_EVENT_NAME;
+          const headers = {
+            accept: 'application/vnd.github+json',
+            authorization: `Bearer ${token}`,
+            'x-github-api-version': '2022-11-28'
+          };
+          async function successful(workflow, label) {
+            const url = `https://api.github.com/repos/${owner}/${repo}/actions/workflows/${workflow}/runs?branch=main&per_page=100`;
+            const response = await fetch(url, {headers});
+            if (!response.ok) throw new Error(`${label} lookup failed: HTTP ${response.status}`);
+            const body = await response.json();
+            const run = (body.workflow_runs || []).find(r => r.head_sha === sha && r.status === 'completed' && r.conclusion === 'success');
+            if (!run) throw new Error(`${label} has no successful completed run for exact SHA ${sha}`);
+            console.log(`${label} qualified exact SHA ${sha} with run ${run.id}`);
+          }
+          await successful('recovery-ci.yml', 'Recovery CI');
+          if (eventName === 'workflow_dispatch') {
+            await successful('bf07-seal.yml', 'BF-07 Supply-Chain Seal');
+          } else {
+            const event = JSON.parse(require('node:fs').readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+            const run = event.workflow_run || {};
+            if (run.head_sha !== sha || run.head_branch !== 'main' || run.conclusion !== 'success') {
+              throw new Error('triggering BF-07 run does not bind to the exact current main SHA');
+            }
+            console.log(`Triggering BF-07 run ${run.id} qualified exact SHA ${sha}`);
+          }
+          NODE
+
+      - name: Clean install from committed lockfile
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Recheck deployment closure at candidate boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run check:bf07-toolchain
+          npm run test:thebe-desk-deployment
+          npm run launch:gate
+          npm audit --omit=dev --audit-level=high
+
+      - name: Validate production environment inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID D1_DATABASE_ID TURNSTILE_SITE_KEY
+            PLATFORM_ADMIN_EMAILS PLATFORM_REGULATORY_REVIEWERS SESSION_SECRET AUDIT_INTEGRITY_SECRET
+            OPERATIONS_SECRET AUTOMATION_SECRET TURNSTILE_SECRET_KEY PAYMENT_WEBHOOK_SECRET BILLING_WEBHOOK_SECRET
+          )
+          for key in "${required[@]}"; do
+            [[ -n "${!key:-}" ]] || { echo "Missing GitHub production environment value: $key" >&2; exit 1; }
+          done
+          [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[0-9a-fA-F]{32}$ ]] || { echo 'CLOUDFLARE_ACCOUNT_ID must be a 32-character account identifier' >&2; exit 1; }
+          [[ "$D1_DATABASE_ID" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]] || { echo 'D1_DATABASE_ID must be a provisioned D1 UUID' >&2; exit 1; }
+
+      - name: Render and preflight ephemeral Cloudflare production config
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROD_CONFIG='cloudflare/.wrangler-production.ci.toml'
+          trap 'rm -f "$PROD_CONFIG"' EXIT
+          sh cloudflare/render-production-config.sh cloudflare/wrangler.toml > "$PROD_CONFIG"
+          chmod 600 "$PROD_CONFIG"
+          sh cloudflare/preflight-production.sh "$PROD_CONFIG"
+          npx --yes wrangler@4.127.1 deploy --dry-run --outdir "$RUNNER_TEMP/wrangler-dry-run" --config "$PROD_CONFIG"
+          rm -f "$PROD_CONFIG"
+          trap - EXIT
+
+      - name: Build ephemeral runtime secrets file
+        shell: bash
+        run: |
+          set -euo pipefail
+          SECRETS_FILE="$RUNNER_TEMP/thebe-worker-secrets.json"
+          node <<'NODE'
+          const fs = require('node:fs');
+          const names = [
+            'SESSION_SECRET','AUDIT_INTEGRITY_SECRET','OPERATIONS_SECRET','AUTOMATION_SECRET',
+            'TURNSTILE_SECRET_KEY','PAYMENT_WEBHOOK_SECRET','BILLING_WEBHOOK_SECRET'
+          ];
+          const out = Object.fromEntries(names.map(name => [name, process.env[name] || '']));
+          for (const [name, value] of Object.entries(out)) {
+            if (!value) throw new Error(`Missing required runtime secret ${name}`);
+          }
+          fs.writeFileSync(process.env.RUNNER_TEMP + '/thebe-worker-secrets.json', JSON.stringify(out), {mode: 0o600});
+          NODE
+          test -s "$SECRETS_FILE"
+
+      - name: Deploy exact candidate to Cloudflare
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROD_CONFIG='cloudflare/.wrangler-production.ci.toml'
+          SECRETS_FILE="$RUNNER_TEMP/thebe-worker-secrets.json"
+          cleanup(){ rm -f "$PROD_CONFIG" "$SECRETS_FILE"; }
+          trap cleanup EXIT
+          sh cloudflare/render-production-config.sh cloudflare/wrangler.toml > "$PROD_CONFIG"
+          chmod 600 "$PROD_CONFIG"
+          sh cloudflare/preflight-production.sh "$PROD_CONFIG"
+          npx --yes wrangler@4.127.1 deploy --yes --secrets-file "$SECRETS_FILE" --config "$PROD_CONFIG"
+          cleanup
+          trap - EXIT
+
+      - name: Verify live production readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          live="$(curl --fail-with-body --silent --show-error --retry 5 --retry-all-errors --max-time 20 'https://thebedesk.com/api/live')"
+          ready="$(curl --fail-with-body --silent --show-error --retry 5 --retry-all-errors --max-time 20 'https://thebedesk.com/api/ready')"
+          antibot="$(curl --fail-with-body --silent --show-error --retry 5 --retry-all-errors --max-time 20 'https://thebedesk.com/api/auth/anti-bot-config')"
+          LIVE_JSON="$live" READY_JSON="$ready" ANTIBOT_JSON="$antibot" node <<'NODE'
+          const live = JSON.parse(process.env.LIVE_JSON);
+          const ready = JSON.parse(process.env.READY_JSON);
+          const antibot = JSON.parse(process.env.ANTIBOT_JSON);
+          if (live.ok !== true) throw new Error('/api/live did not return ok=true');
+          if (ready.ok !== true || ready.schemaReady !== true || ready.requiredConfigReady !== true) {
+            throw new Error('/api/ready did not prove schemaReady=true and requiredConfigReady=true');
+          }
+          if (antibot.provider !== 'turnstile' || antibot.required !== true || antibot.action !== 'register') {
+            throw new Error('anti-bot configuration is not the required Turnstile registration contract');
+          }
+          console.log(`Production ready: version=${ready.version || 'unknown'} schema=${ready.expectedSchemaDelta || 'unknown'}`);
+          NODE
+
+      - name: Record deployed SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'Thebe Desk production deployment succeeded\nSHA: %s\nOrigin: https://thebedesk.com\n' "$TARGET_SHA" >> "$GITHUB_STEP_SUMMARY"
