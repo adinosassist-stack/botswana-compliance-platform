@@ -40,13 +40,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          target_sha="$EXPECTED_SHA"
-          if [[ "$GITHUB_EVENT_NAME" == 'push' ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]; then
+            [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'expected SHA must be a full lowercase commit SHA' >&2; exit 1; }
+            [[ "$EXPECTED_SHA" == "$GITHUB_SHA" ]] || { echo "dispatch SHA mismatch: expected=$EXPECTED_SHA actual=$GITHUB_SHA" >&2; exit 1; }
+          else
             [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo "automatic release trigger is restricted to main, got $GITHUB_REF" >&2; exit 1; }
-            target_sha="$GITHUB_SHA"
+            [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'automatic release SHA must be a full lowercase 40-character commit SHA' >&2; exit 1; }
           fi
-          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]] || { echo 'expected SHA must be a full lowercase commit SHA' >&2; exit 1; }
-          [[ "$target_sha" == "$GITHUB_SHA" ]] || { echo "dispatch SHA mismatch: expected=$target_sha actual=$GITHUB_SHA" >&2; exit 1; }
           [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]] || { echo 'checkout HEAD does not match GITHUB_SHA' >&2; exit 1; }
           [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo 'checkout is not clean before BF-07 resolution' >&2; exit 1; }
 
