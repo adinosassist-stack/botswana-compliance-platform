@@ -154,19 +154,6 @@ jobs:
           [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[0-9a-fA-F]{32}$ ]] || { echo 'CLOUDFLARE_ACCOUNT_ID must be a 32-character account identifier' >&2; exit 1; }
           [[ "$D1_DATABASE_ID" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]] || { echo 'D1_DATABASE_ID must be a provisioned D1 UUID' >&2; exit 1; }
 
-      - name: Render and preflight ephemeral Cloudflare production config
-        shell: bash
-        run: |
-          set -euo pipefail
-          PROD_CONFIG='cloudflare/.wrangler-production.ci.toml'
-          trap 'rm -f "$PROD_CONFIG"' EXIT
-          sh cloudflare/render-production-config.sh cloudflare/wrangler.toml > "$PROD_CONFIG"
-          chmod 600 "$PROD_CONFIG"
-          sh cloudflare/preflight-production.sh "$PROD_CONFIG"
-          npx --yes wrangler@4.127.1 deploy --dry-run --outdir "$RUNNER_TEMP/wrangler-dry-run" --config "$PROD_CONFIG"
-          rm -f "$PROD_CONFIG"
-          trap - EXIT
-
       - name: Build ephemeral runtime secrets file
         shell: bash
         run: |
@@ -185,6 +172,20 @@ jobs:
           fs.writeFileSync(process.env.RUNNER_TEMP + '/thebe-worker-secrets.json', JSON.stringify(out), {mode: 0o600});
           NODE
           test -s "$SECRETS_FILE"
+
+      - name: Render, preflight and dry-run Cloudflare production candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROD_CONFIG='cloudflare/.wrangler-production.ci.toml'
+          SECRETS_FILE="$RUNNER_TEMP/thebe-worker-secrets.json"
+          trap 'rm -f "$PROD_CONFIG"' EXIT
+          sh cloudflare/render-production-config.sh cloudflare/wrangler.toml > "$PROD_CONFIG"
+          chmod 600 "$PROD_CONFIG"
+          sh cloudflare/preflight-production.sh "$PROD_CONFIG"
+          npx --yes wrangler@4.127.1 deploy --dry-run --outdir "$RUNNER_TEMP/wrangler-dry-run" --secrets-file "$SECRETS_FILE" --config "$PROD_CONFIG"
+          rm -f "$PROD_CONFIG"
+          trap - EXIT
 
       - name: Deploy exact candidate to Cloudflare
         shell: bash
