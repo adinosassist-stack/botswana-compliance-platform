@@ -6,6 +6,7 @@ const cloudflareReadme=read('cloudflare/README.md');
 const renderer=read('cloudflare/render-production-config.sh');
 const preflight=read('cloudflare/preflight-production.sh');
 const deploy=read('cloudflare/deploy-free.sh');
+const productionDeploy=read('.github/workflows/deploy-production.yml');
 let pass=0;const ok=(c,m)=>{if(!c)throw new Error('FAIL: '+m);pass++;console.log('PASS',m)};
 
 const requiredSecrets=['SESSION_SECRET','AUDIT_INTEGRITY_SECRET','OPERATIONS_SECRET','AUTOMATION_SECRET','TURNSTILE_SECRET_KEY','PAYMENT_WEBHOOK_SECRET','BILLING_WEBHOOK_SECRET'];
@@ -23,6 +24,15 @@ ok(renderer.includes('PUBLIC_APP_URL and PUBLIC_ORIGIN must be the same exact HT
 ok(wrangler.includes('EVIDENCE_UPLOADS_ENABLED = "false"')&&preflight.includes('EVIDENCE_UPLOADS_ENABLED must remain false')&&preflight.includes('EVIDENCE_SCAN_API_URL must be empty while evidence uploads are disabled'), 'no-scanner production launch keeps evidence uploads fail closed');
 ok(deploy.includes('requiredConfigReady=true')&&deploy.includes('evidence upload/mutation routes fail closed'), 'runbook closes runtime readiness and verifies evidence mutations remain disabled');
 ok(!deploy.includes('Configure PLATFORM_ADMIN_EMAILS, PLATFORM_REGULATORY_REVIEWERS, PUBLIC_APP_URL and PUBLIC_ORIGIN for this Worker'), 'old ambiguous dashboard-only readiness instruction is removed');
+
+ok(productionDeploy.includes('workflows: ["BF-07 Supply-Chain Seal"]')&&productionDeploy.includes("recovery-ci.yml")&&productionDeploy.includes("bf07-seal.yml"), 'production automation requires exact-SHA qualification by both Recovery CI and BF-07');
+ok(productionDeploy.includes('refusing stale/non-main deploy')&&productionDeploy.includes('git rev-parse origin/main'), 'production automation refuses stale or non-main deployment targets');
+ok(productionDeploy.includes('environment: production')&&productionDeploy.includes('CLOUDFLARE_API_TOKEN')&&productionDeploy.includes('CLOUDFLARE_ACCOUNT_ID'), 'production automation is isolated behind the GitHub production environment and Cloudflare credentials');
+ok(requiredSecrets.every(k=>productionDeploy.includes(`secrets.${k}`)), 'production automation sources every launch-critical runtime secret from GitHub secrets');
+ok(productionDeploy.includes('render-production-config.sh')&&productionDeploy.includes('preflight-production.sh')&&productionDeploy.includes('deploy --dry-run'), 'production automation renders an ephemeral config and dry-runs Wrangler before promotion');
+ok(productionDeploy.includes('--secrets-file')&&productionDeploy.includes('thebe-worker-secrets.json'), 'production automation uploads runtime secrets from an ephemeral file rather than source control');
+ok(!productionDeploy.includes('d1 execute')&&!productionDeploy.includes('schema.sql'), 'production automation never replays or mutates the production D1 schema');
+ok(productionDeploy.includes('/api/live')&&productionDeploy.includes('/api/ready')&&productionDeploy.includes('/api/auth/anti-bot-config'), 'production automation verifies liveness, readiness, schema/config state and Turnstile after deploy');
 
 ok(wrangler.includes('main = "src/worker.js"'), 'production entrypoint uses the hardened base Worker directly');
 ok(wrangler.includes('MAX_UPLOAD_MB = "3.5"'), 'deployment metadata retains the bounded evidence cap for future scanner qualification');
