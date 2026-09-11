@@ -10,11 +10,16 @@ const server=fs.readFileSync('server/server.js','utf8');
 const wrangler=fs.readFileSync('cloudflare/wrangler.toml','utf8');
 const scannerCfg=fs.readFileSync('cloudflare/scanner/wrangler.toml','utf8');
 
+const TIMING_FLOOR_TEST_MS=50;
+const TIMER_RESOLUTION_TOLERANCE_MS=2;
+
 test('password reset responses use an explicit minimum+jitter timing floor on edge and Node',async()=>{
-  const a=await edgeSecurity.passwordResetTimingFloor(Date.now(),{minMs:8,jitterMs:0});
-  const b=await nodePasswordResetTimingFloor(Date.now(),{minMs:8,jitterMs:0});
-  assert.equal(a.targetMs,8);assert.ok(a.elapsedMs>=8);
-  assert.equal(b.targetMs,8);assert.ok(b.elapsedMs>=8);
+  const a=await edgeSecurity.passwordResetTimingFloor(Date.now(),{minMs:TIMING_FLOOR_TEST_MS,jitterMs:0});
+  const b=await nodePasswordResetTimingFloor(Date.now(),{minMs:TIMING_FLOOR_TEST_MS,jitterMs:0});
+  assert.equal(a.targetMs,TIMING_FLOOR_TEST_MS);
+  assert.ok(a.elapsedMs>=a.targetMs-TIMER_RESOLUTION_TOLERANCE_MS,`edge timing floor returned too early: elapsed=${a.elapsedMs} target=${a.targetMs}`);
+  assert.equal(b.targetMs,TIMING_FLOOR_TEST_MS);
+  assert.ok(b.elapsedMs>=b.targetMs-TIMER_RESOLUTION_TOLERANCE_MS,`node timing floor returned too early: elapsed=${b.elapsedMs} target=${b.targetMs}`);
 });
 
 test('password reset email delivery is removed from the synchronous response path',()=>{
