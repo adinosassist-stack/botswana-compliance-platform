@@ -39,7 +39,7 @@ const checks=[
  ["manual retry resets attempts",w.includes("scan_status='queued',scan_attempts=0")],
  ["duplicate inheritance recent only",w.includes("30*86400000")&&w.includes("scanned_at>datetime('now','-30 days')")],
  ["unconfigured scanner no hammer",w.includes("scannerConfigured:false")],
- ["deployment readiness scan",w.includes('{key:"EVIDENCE_SCAN_API_URL",required:evidenceUploadsEnabled')&&w.includes('{key:"EVIDENCE_SCAN_SECRET",required:evidenceUploadsEnabled')&&w.includes("const evidenceUploadsEnabled=bool01(env.EVIDENCE_UPLOADS_ENABLED)")],
+ ["deployment readiness scan",w.includes("const evidenceScannerRequired=evidenceUploadsEnabled||!!evidenceScanApiUrl||!!evidenceScanSecret")&&w.includes('{key:"EVIDENCE_SCAN_API_URL",required:evidenceScannerRequired,configured:!!safeExternalServiceUrl(env.EVIDENCE_SCAN_API_URL)')&&w.includes('{key:"EVIDENCE_SCAN_SECRET",required:evidenceScannerRequired,configured:strongSecret(env.EVIDENCE_SCAN_SECRET)')],
  ["env scanner documented",env.includes("EVIDENCE_SCAN_API_URL=")&&env.includes("EVIDENCE_SCAN_SECRET=")],
  ["evidence UI",h.includes("Evidence Security")&&h.includes("Scanner not configured · approval remains blocked")],
  ["runtime v66+",/version:"v(?:6[6-9]|7[0-9]|[89][0-9])",runtime:"cloudflare-worker"/.test(w)]

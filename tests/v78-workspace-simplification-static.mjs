@@ -1,15 +1,22 @@
 import fs from 'node:fs';
 const html=fs.readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
 const primary=[...html.matchAll(/<button[^>]*class="(?:active )?nav-primary"[^>]*data-view="([^"]+)"/g)].map(m=>m[1]);
-// Recovery successor preserves the later Sep-10/V81+ navigation contract: the original simplified hubs stay primary, while deadlines, reporting, Sites, employee/compliance and audit surfaces are deliberately promoted.
-const expected=['dashboard','workhub','calendar','dailyreports','sites','peopleops','employees','businesshub','obligations','evidencehub','tenderhub','automationhub','audit','accounthub'];
-if(JSON.stringify(primary)!==JSON.stringify(expected))throw new Error(`Primary workspace navigation drifted from the recovered V81+ contract; got ${primary.join(', ')}`);
+// Approved Sep-11/V81 Recovery UX contract: keep the everyday workspace to eight primary
+// destinations. Lower-frequency destinations remain reachable under More tools or utilities.
+const expected=['dashboard','workhub','sites','peopleops','businesshub','obligations','evidencehub','automationhub'];
+if(JSON.stringify(primary)!==JSON.stringify(expected))throw new Error(`Primary workspace navigation drifted from the approved 8-destination contract; got ${primary.join(', ')}`);
+for(const id of ['calendar','dailyreports','employees','tenderhub']){
+  if(!html.includes(`class=\"nav-secondary\" data-view=\"${id}\"`))throw new Error(`Approved secondary destination missing from More tools: ${id}`);
+}
+for(const id of ['audit','accounthub']){
+  if(!new RegExp(`class=\"nav-primary nav-utility\"[^>]*data-view=\"${id}\"`).test(html))throw new Error(`Workspace utility destination missing: ${id}`);
+}
 for(const id of ['workhub','peopleops','businesshub','evidencehub','tenderhub','automationhub','accounthub']){
   const tag=(html.match(new RegExp(`<section id="${id}" class="([^"]+)"`))||[])[1]||"";
   const classes=new Set(tag.split(/\s+/).filter(Boolean));
   if(!classes.has("view")||!classes.has("simplified-hub"))throw new Error(`Simplified hub missing: ${id}`);
 }
-if(!((html.includes('class="nav-more-tools"')&&html.includes('data-bw-onclick="openCommandPalette()"'))||(html.includes('id="quickNav"')&&html.includes('data-bw-onclick="openCommandPalette()"')&&html.includes('class="nav-specialist-tools"')&&html.includes('<span>More tools</span>'))))throw new Error('Search/More tools access path missing');
+if(!(html.includes('More tools')&&html.includes('class="nav-access-group"')&&html.includes('class="nav-specialist-tools"')&&html.includes('data-bw-onclick="openCommandPalette()"')))throw new Error('Search/More tools access path missing');
 if(!html.includes('.nav .nav-advanced{display:none!important}'))throw new Error('Specialist navigation must remain hidden from primary sidebar');
 if(!html.includes('const COMMAND_META={'))throw new Error('Command palette taxonomy missing');
 if(!html.includes('data-command-mode="suggested"')||!html.includes('data-command-mode="recent"')||!html.includes('data-command-mode="all"'))throw new Error('Guided More tools modes missing');

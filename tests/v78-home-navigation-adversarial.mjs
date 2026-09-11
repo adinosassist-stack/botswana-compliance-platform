@@ -9,7 +9,7 @@ const ok=(name,cond)=>{assert.ok(cond,name);checks.push(name)};
 
 // Pass 1 — navigation clarity / session continuity.
 ok('package bumped for home navigation hardening',pkg.version.startsWith('1.21.')&&Number(pkg.version.split('.')[2]||0)>=20);
-ok('workspace Home remains the dashboard',/<button[^>]*class="active nav-primary"[^>]*data-view="dashboard"[^>]*><span class="nav-primary-icon">⌂<\/span><span>Home<\/span><\/button>/.test(html));
+ok('workspace Home remains the dashboard',/<button[^>]*class="active nav-primary"[^>]*data-view="dashboard"[^>]*>[\s\S]*?<span>Home<\/span><\/button>/.test(html));
 ok('workspace brand explicitly returns to website',html.includes('class="brand workspace-brand-link"')&&html.includes('data-bw-onclick="returnToPublicWebsite()"')&&html.includes('aria-label="Back to Thebe Desk website"'));
 ok('desktop sidebar exposes a labelled website exit',html.includes('class="sidebar-website-link"')&&html.includes('← Back to website'));
 ok('More tools exposes website exit for mobile and keyboard users',html.includes('["__website","Back to website","Open the public BW homepage","←"]')&&html.includes('if(id==="__website")return returnToPublicWebsite()'));

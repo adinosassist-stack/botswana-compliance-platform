@@ -4567,12 +4567,18 @@ async function currentSchemaReady(env){
 function deploymentReadiness(env){
   const provider=String(env.PAYMENT_PROVIDER||"dpo").toLowerCase();
   const evidenceUploadsEnabled=bool01(env.EVIDENCE_UPLOADS_ENABLED);
+  const evidenceScanApiUrl=String(env.EVIDENCE_SCAN_API_URL||"").trim();
+  const evidenceScanSecret=String(env.EVIDENCE_SCAN_SECRET||"").trim();
+  // Safe-launch contract: scanner settings may be absent while evidence uploads are disabled.
+  // If either scanner setting is supplied, however, require the complete hardened pair so a
+  // dormant unsafe/partial scanner configuration can never be treated as deployment-ready.
+  const evidenceScannerRequired=evidenceUploadsEnabled||!!evidenceScanApiUrl||!!evidenceScanSecret;
   const checks=[
     {key:"SESSION_SECRET",required:true,configured:strongSecret(env.SESSION_SECRET),purpose:"sessions, signed state and Passport token hashing"},
     {key:"AUDIT_INTEGRITY_SECRET",required:true,configured:strongSecret(env.AUDIT_INTEGRITY_SECRET),purpose:"audit ledger and control-lineage integrity"},
     {key:"EVIDENCE",required:true,configured:!!env.EVIDENCE,purpose:"private evidence and regulatory source snapshots"},
-    {key:"EVIDENCE_SCAN_API_URL",required:evidenceUploadsEnabled,configured:!evidenceUploadsEnabled||!!safeExternalServiceUrl(env.EVIDENCE_SCAN_API_URL),purpose:"malware scanning over a public credential-free HTTPS endpoint when evidence uploads are enabled"},
-    {key:"EVIDENCE_SCAN_SECRET",required:evidenceUploadsEnabled,configured:!evidenceUploadsEnabled||strongSecret(env.EVIDENCE_SCAN_SECRET),purpose:"authenticated evidence scanner request/response when evidence uploads are enabled"},
+    {key:"EVIDENCE_SCAN_API_URL",required:evidenceScannerRequired,configured:!!safeExternalServiceUrl(env.EVIDENCE_SCAN_API_URL),purpose:"malware scanning over a public credential-free HTTPS endpoint when evidence uploads are enabled or scanner configuration is supplied"},
+    {key:"EVIDENCE_SCAN_SECRET",required:evidenceScannerRequired,configured:strongSecret(env.EVIDENCE_SCAN_SECRET),purpose:"authenticated evidence scanner request/response when evidence uploads are enabled or scanner configuration is supplied"},
     {key:"DB",required:true,configured:!!env.DB,purpose:"D1 operational database"},
     {key:"PUBLIC_RATE_LIMITER",required:true,configured:!!env.PUBLIC_RATE_LIMITER,purpose:"native edge throttling for public bearer-link verification and reporting"},
     {key:"OPERATIONS_SECRET",required:true,configured:strongSecret(env.OPERATIONS_SECRET),purpose:"internal professional-service progression"},

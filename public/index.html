@@ -899,37 +899,11 @@ main{
 }
 </style>
 
-<style id="v70-active-workspace-groups">
-/* v70: make Products, Automation & AI, Account and Administration active workspace controls */
-.nav .navgroup-toggle{
-  width:100%!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:10px!important;
-  min-height:42px!important;margin:8px 0 2px!important;padding:10px 11px!important;border:0!important;border-radius:10px!important;
-  background:transparent!important;color:#747a80!important;font-size:12.5px!important;font-weight:760!important;letter-spacing:.01em!important;
-  text-transform:none!important;text-align:left!important;cursor:pointer!important;box-shadow:none!important;transition:background .16s ease,color .16s ease,transform .16s ease!important;
-}
-.nav .navgroup-toggle:before{display:none!important}
-.nav .navgroup-toggle:hover,.nav .navgroup-toggle:focus-visible{background:#e9ece8!important;color:#202523!important;outline:none!important}
-.nav .navgroup-toggle:active{transform:scale(.99)!important}
-.nav .navgroup-toggle.group-active{background:#e4f0ea!important;color:#135d45!important}
-.nav .navgroup-toggle.group-active:after{content:'';width:6px;height:6px;border-radius:50%;background:#176b4f;position:absolute;left:2px}
-.navgroup-meta{display:inline-flex;align-items:center;gap:7px;flex:0 0 auto}
-.navgroup-count{display:inline-grid;place-items:center;min-width:24px;height:22px;padding:0 6px;border:1px solid #d9ddda;border-radius:999px;background:#fff;color:#737b76;font-size:11.5px;font-weight:700;line-height:1}
-.navgroup-chevron{font-size:16px;line-height:1;transition:transform .18s ease;color:#8b928e}
-.navgroup-toggle[aria-expanded="false"] .navgroup-chevron{transform:rotate(-90deg)}
-.navgroup-toggle.group-active .navgroup-count{border-color:#c8ddd2;background:#f6fbf8;color:#176b4f}
-.nav button.nav-child-hidden{display:none!important}
-@media(max-width:900px){
-  .nav .navgroup-toggle{display:flex!important;flex:0 0 auto!important;width:auto!important;min-width:max-content!important;margin:0 2px!important;padding:8px 10px!important;border:1px solid #dfe2df!important;background:#fff!important}
-  .nav .navgroup-toggle.group-active{background:#e4f0ea!important;border-color:#c8ddd2!important}
-  .nav .navgroup-toggle.group-active:after{display:none}
-  .navgroup-count{height:20px;min-width:21px;font-size:11px}
-}
-</style>
 
 <style id="v71-adversarial-workspace-upgrade">
 /* v71 final readability contract: operational text should not depend on 8–11px legacy rules. */
 .small{font-size:14px!important;line-height:1.55!important}.muted.small{font-size:14px!important}
-.nav button{font-size:13.5px!important;line-height:1.35!important;min-height:39px!important}.navgroup{font-size:12px!important;line-height:1.25!important}.navgroup-count{font-size:12px!important}
+.nav button{font-size:13.5px!important;line-height:1.35!important;min-height:39px!important}.navgroup{font-size:12px!important;line-height:1.25!important}
 .brand small,.sidebarfoot,.sidebarfoot span{font-size:12px!important;line-height:1.45!important}.searchhint{font-size:12px!important}.top .muted.small{font-size:13px!important}
 .kpi,.section-eyebrow{font-size:12px!important;line-height:1.35!important}.badge,.tag,.pill,.publishstate,.recommended,.billingbadge{font-size:12px!important;line-height:1.2!important}
 label{font-size:12.5px!important}.source{font-size:13px!important}.rulemeta span{font-size:12px!important}table th{font-size:12px!important}table td{font-size:13.5px!important}.marketingfine,.trustline,.peopleproof-copy span{font-size:13px!important}
@@ -945,11 +919,9 @@ label{font-size:12.5px!important}.source{font-size:13px!important}.rulemeta span
 <style id="v72-practical-workspace-layout">
 /* v72 — practical workspace + anti-overlap hardening */
 .shell{grid-template-columns:280px minmax(0,1fr)!important}
-aside,.nav,.nav button,.navgroup-toggle,.navgroup-toggle>span,.top,.top>div,.top>.actions,.card,.view,.row,.between{min-width:0}
+aside,.nav,.nav button,.top,.top>div,.top>.actions,.card,.view,.row,.between{min-width:0}
 .nav button{white-space:normal!important;text-align:left!important;overflow-wrap:break-word!important;word-break:normal!important;height:auto!important}
 .nav button .alertcount{margin-left:auto;flex:0 0 auto}
-.nav .navgroup-toggle>span:first-child{min-width:0;overflow-wrap:break-word}
-.navgroup-meta{margin-left:auto}
 .brand,.brand small,.sidebarfoot,.sidebarfoot span{overflow-wrap:break-word}
 
 /* The sticky header must reflow before controls collide on ordinary laptops. */
@@ -1091,9 +1063,6 @@ aside,.nav,.nav button,.navgroup-toggle,.navgroup-toggle>span,.top,.top>div,.top
   aside>.nav::-webkit-scrollbar-track{background:transparent}
   aside>.sidebarfoot{flex:0 0 auto!important;position:relative!important;z-index:3!important;margin-top:10px!important;padding-top:12px!important;background:var(--sidebar)!important;}
   aside>.sidebarfoot span{display:block!important;margin-top:2px!important;}
-  .nav .navgroup-toggle{position:relative!important;}
-  .nav .navgroup-toggle>span:first-child{flex:1 1 auto!important;min-width:0!important;}
-  .nav .navgroup-meta{flex:0 0 auto!important;margin-left:8px!important;}
 }
 </style>
 
@@ -2392,8 +2361,35 @@ main{
   #workspaceSidebar,.mobile-nav-backdrop{transition:none!important}
 }
 </style>
+<style id="thebe-approved-ux-refinement-v1">
+/* Approved UI/UX refinement — simplify surface complexity without removing capability. */
+#nav .nav-primary-icon.nav-svg-icon{display:grid!important;place-items:center!important;width:27px!important;min-width:27px!important;height:27px!important;border-radius:8px!important;background:rgba(255,255,255,.055)!important;color:#aeb9b3!important}
+#nav .nav-primary-icon.nav-svg-icon svg{width:16px!important;height:16px!important;fill:none!important;stroke:currentColor!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+#nav .nav-primary:hover .nav-svg-icon,#nav .nav-primary.active .nav-svg-icon{background:rgba(255,255,255,.11)!important;color:#f1f5f2!important}
+#nav .nav-primary{letter-spacing:-.005em!important}
+#nav .nav-primary-section{margin-top:13px!important}
+#nav .nav-utility-label{padding-top:11px!important;border-top:1px solid rgba(255,255,255,.07)!important}
+#nav .nav-utility{opacity:.94}
+#nav .nav-access-group>summary{font-weight:620!important}
+#nav .nav-access-group>summary span:first-child{letter-spacing:-.006em}
+#nav .nav-access-count{opacity:.82}
+
+/* Make the management queue the dominant object on Home. */
+#homeDecisionCenter{border-color:#cedbd4!important;box-shadow:0 18px 50px rgba(18,42,31,.075)!important}
+#homeDecisionCenter .daily-brief-grid{grid-template-columns:minmax(0,1.72fr) minmax(285px,.72fr)!important;gap:13px!important}
+#homeDecisionCenter .home-queue-card{background:#fff!important;border:2px solid #d6e5dd!important;padding:17px!important;box-shadow:0 8px 22px rgba(18,42,31,.045)!important}
+#homeDecisionCenter .home-queue-head h3{font-size:20px!important;letter-spacing:-.025em!important}
+#homeDecisionCenter .home-queue-head .section-eyebrow{color:#176f50!important}
+#homeDecisionCenter .home-action-row{padding:13px 0!important}
+#homeDecisionCenter .home-action-copy b{font-size:14px!important}
+#homeDecisionCenter .daily-brief-side{align-content:start!important}
+
+@media(max-width:1100px){#homeDecisionCenter .daily-brief-grid{grid-template-columns:1fr!important}}
+@media(max-width:760px){#nav .nav-primary-icon.nav-svg-icon{width:27px!important;min-width:27px!important;height:27px!important}#homeDecisionCenter .home-queue-card{padding:14px!important}}
+</style>
 </head>
-<body><a class="skiplink" href="#mainContent">Skip to main content</a><div id="srStatus" class="sr-status" aria-live="polite"></div>
+<body>
+<!-- Approved workspace UI/UX refinement · simplified primary navigation + action-first Home · mobile 5-item nav preserved --><a class="skiplink" href="#mainContent">Skip to main content</a><div id="srStatus" class="sr-status" aria-live="polite"></div>
 <!-- Thebe Desk v78.1.21.47 · 2026-09-09 · successor of HERO_MARKET_STATUS_CHECKED_FIXED · Thebe AI naming + financial intelligence scope + auth route diagnostics -->
 <div class="reporter-portal hidden" id="publicPassportGate" data-nosnippet aria-live="polite">
   <div class="reporter-shell">
@@ -2578,30 +2574,23 @@ main{
 <aside id="workspaceSidebar" aria-label="Workspace navigation">
   <button class="brand workspace-brand-link" type="button" data-bw-onclick="returnToPublicWebsite()" aria-label="Back to Thebe Desk website" title="Back to website"><img src="/assets/thebe-desk-logo-symbol.png" alt="Thebe Desk logo symbol"><span>Thebe Desk</span></button>
   <div class="nav" id="nav">
-    <div class="navgroup nav-primary-label">Workspace</div>
-    <button type="button" class="active nav-primary" data-view="dashboard"><span class="nav-primary-icon">⌂</span><span>Home</span></button>
-    <button type="button" class="nav-primary" data-view="workhub"><span class="nav-primary-icon">✓</span><span>Work &amp; deadlines</span><span class="alertcount" id="navAlerts">0</span></button>
-    <button type="button" class="nav-primary" data-view="calendar"><span class="nav-primary-icon">□</span><span>Deadlines</span></button>
-    <button type="button" class="nav-primary" data-view="dailyreports"><span class="nav-primary-icon">☷</span><span>Daily reports</span></button>
-    <button type="button" class="nav-primary" data-view="sites"><span class="nav-primary-icon">⌖</span><span>Sites &amp; field work</span></button>
+    <div class="navgroup nav-primary-label">Core workspace</div>
+    <button type="button" class="active nav-primary" data-view="dashboard"><span class="nav-primary-icon nav-svg-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-5.5h5V20"/></svg></span><span>Home</span></button>
+    <button type="button" class="nav-primary" data-view="workhub"><span class="nav-primary-icon nav-svg-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="m8 12 2.3 2.3L16.5 8"/></svg></span><span>Work</span><span class="alertcount" id="navAlerts">0</span></button>
+    <button type="button" class="nav-primary" data-view="sites"><span class="nav-primary-icon nav-svg-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s6-5.1 6-11a6 6 0 1 0-12 0c0 5.9 6 11 6 11Z"/><circle cx="12" cy="10" r="2"/></svg></span><span>Sites</span></button>
+    <button type="button" class="nav-primary" data-view="peopleops"><span class="nav-primary-icon nav-svg-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3.5 19c.6-4 2.3-6 5.5-6s4.9 2 5.5 6"/><circle cx="17" cy="9" r="2.2"/><path d="M15.5 14.5c3-.2 4.5 1.5 5 4.5"/></svg></span><span>People</span></button>
+    <button type="button" class="nav-primary" data-view="businesshub"><span class="nav-primary-icon nav-svg-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V7l8-3 8 3v13"/><path d="M8 10h1M8 14h1M15 10h1M15 14h1M10 20v-3h4v3"/></svg></span><span>Business</span></button>
+    <button type="button" class="nav-primary" data-view="obligations"><span class="nav-primary-icon nav-svg-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 6v5c0 4.7-2.7 7.8-7 10-4.3-2.2-7-5.3-7-10V6l7-3Z"/><path d="m8.7 11.7 2.1 2.1 4.5-4.7"/></svg></span><span>Compliance</span></button>
+    <button type="button" class="nav-primary" data-view="evidencehub"><span class="nav-primary-icon nav-svg-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg></span><span>Documents</span></button>
+    <button type="button" class="nav-primary" data-view="automationhub"><span class="nav-primary-icon nav-svg-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 1.3 3.7L17 8l-3.7 1.3L12 13l-1.3-3.7L7 8l3.7-1.3L12 3Z"/><path d="m18.5 13 .8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2Z"/><path d="m6 14 .9 2.6L9.5 17l-2.6.9L6 20.5l-.9-2.6L2.5 17l2.6-.4L6 14Z"/></svg></span><span>Thebe AI</span></button>
 
-    <div class="navgroup nav-primary-label nav-primary-section">Business</div>
-    <button type="button" class="nav-primary" data-view="peopleops"><span class="nav-primary-icon">♙</span><span>People</span></button>
-    <button type="button" class="nav-primary" data-view="employees"><span class="nav-primary-icon">♧</span><span>Employee register</span></button>
-    <button type="button" class="nav-primary" data-view="businesshub"><span class="nav-primary-icon">▤</span><span>Business</span></button>
-    <button type="button" class="nav-primary" data-view="obligations"><span class="nav-primary-icon">✓</span><span>Compliance</span></button>
-    <button type="button" class="nav-primary" data-view="evidencehub"><span class="nav-primary-icon">▣</span><span>Documents &amp; proof</span></button>
-    <button type="button" class="nav-primary" data-view="tenderhub"><span class="nav-primary-icon">⚑</span><span>Tenders</span></button>
-
-    <div class="navgroup nav-primary-label nav-primary-section">Insights</div>
-    <button type="button" class="nav-primary" data-view="automationhub"><span class="nav-primary-icon">✦</span><span>Thebe AI</span></button>
-    <button type="button" class="nav-primary" data-view="audit"><span class="nav-primary-icon">≡</span><span>Reports &amp; audit</span></button>
-    <button type="button" class="nav-primary" data-view="accounthub"><span class="nav-primary-icon">⚙</span><span>Settings</span></button>
-
-    <div class="navgroup nav-primary-label nav-primary-section">All workspace tools</div>
+    <div class="navgroup nav-primary-label nav-primary-section">More tools</div>
     <details class="nav-access-group">
-      <summary><span>Operations &amp; people</span><span class="nav-access-count">7</span></summary>
+      <summary><span>Operations &amp; people</span><span class="nav-access-count">10</span></summary>
       <div class="nav-access-items">
+        <button type="button" class="nav-secondary" data-view="calendar">Deadlines</button>
+        <button type="button" class="nav-secondary" data-view="dailyreports">Daily reports</button>
+        <button type="button" class="nav-secondary" data-view="employees">Employee register</button>
         <button type="button" class="nav-secondary" data-view="statutorycalendar">Statutory deadlines</button>
         <button type="button" class="nav-secondary" data-view="changes">Law changes</button>
         <button type="button" class="nav-secondary" data-view="employer">Employment cases</button>
@@ -2625,8 +2614,9 @@ main{
       </div>
     </details>
     <details class="nav-access-group">
-      <summary><span>Evidence, risk &amp; tenders</span><span class="nav-access-count">15</span></summary>
+      <summary><span>Evidence, risk &amp; tenders</span><span class="nav-access-count">16</span></summary>
       <div class="nav-access-items">
+        <button type="button" class="nav-secondary" data-view="tenderhub">Tenders overview</button>
         <button type="button" class="nav-secondary" data-view="tender">Tender register</button>
         <button type="button" class="nav-secondary" data-view="vault">Evidence library</button>
         <button type="button" class="nav-secondary" data-view="evidenceintegrity">Evidence security &amp; integrity</button>
@@ -2681,13 +2671,17 @@ main{
       </div>
     </details>
     <details class="nav-specialist-tools">
-      <summary><span class="nav-primary-icon">•••</span><span>More tools</span><span class="nav-specialist-count">3</span></summary>
+      <summary><span class="nav-primary-icon">•••</span><span>Specialist tools</span><span class="nav-specialist-count">3</span></summary>
       <div class="nav-specialist-items">
         <button type="button" class="platformRegulatoryOnly nav-specialist-item" data-view="sources">Source registry</button>
         <button type="button" class="platformRegulatoryOnly nav-specialist-item" data-view="rules">Rule library</button>
         <button type="button" class="platformRegulatoryOnly nav-specialist-item" data-view="publishing">Rule publishing</button>
       </div>
     </details>
+
+    <div class="navgroup nav-primary-label nav-primary-section nav-utility-label">Workspace settings</div>
+    <button type="button" class="nav-primary nav-utility" data-view="audit"><span class="nav-primary-icon nav-svg-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span><span>Reports &amp; audit</span></button>
+    <button type="button" class="nav-primary nav-utility" data-view="accounthub"><span class="nav-primary-icon nav-svg-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.6-2-3.4-2.5 1a7 7 0 0 0-1.8-1L14.2 3h-4.4l-.4 3a7 7 0 0 0-1.8 1L5.1 6l-2 3.4 2 1.6a7 7 0 0 0 0 2l-2 1.6 2 3.4 2.5-1a7 7 0 0 0 1.8 1l.4 3h4.4l.4-3a7 7 0 0 0 1.8-1l2.5 1 2-3.4-2-1.6a7 7 0 0 0 .1-1Z"/></svg></span><span>Settings</span></button>
   </div>
   <div class="sidebarfoot"><b>Protection workspace</b><span>Source-aware · Evidence-backed</span><span>Advanced tools stay searchable</span><button class="sidebar-website-link" type="button" data-bw-onclick="returnToPublicWebsite()"><span>← Back to website</span><span aria-hidden="true">↗</span></button></div>
 </aside>
@@ -5976,7 +5970,7 @@ function applyRoleUi(){
  const more=document.querySelector(".nav-more-tools");if(more)more.style.display=allowed.size?"":"none";syncMobileRoleNav(role);
  let add=document.getElementById("addCompanyBtn");if(add)add.style.display=role==="owner"?"":"none";
  document.querySelectorAll(".primaryTop,.workspace-quick-actions,.workspace-pulse,#billingBanner").forEach(el=>{if(el)el.hidden=!(role==="owner"||role==="manager")});document.querySelectorAll(".executive-only").forEach(el=>{if(el)el.hidden=!(role==="owner"||role==="manager")});
- window.refreshNavGroupCounts?.();window.refreshSimplifiedHubAccess?.();syncEvidenceRoleUi?.();
+ window.refreshSimplifiedHubAccess?.();syncEvidenceRoleUi?.();
  const active=document.querySelector(".view.active")?.id;if(active&&!allowed.has(active)){const landing=roleLandingView(role);if(landing&&allowed.has(landing))showView(landing,{roleRedirect:true})}
 }
 
@@ -7891,7 +7885,7 @@ async function handlePublicPassportFragment(){
 function leavePublicPassport(){document.getElementById("publicPassportGate")?.classList.add("hidden");showMarketing()}
 
 let lastWorkspaceView="dashboard";
-function showView(id,options={}){if(!roleCanView(id)){console.warn("Role denied view",id,currentWorkspaceRole());if(!options?.silent){let sr=document.getElementById("srStatus");if(sr)sr.textContent="This area is not available for your role."}return false}const target=document.getElementById(id);if(!target){console.warn("Unknown view",id);return false}lastWorkspaceView=id;document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));target.classList.add("active");document.querySelectorAll(".nav button").forEach(b=>{let active=b.dataset.view===id;b.classList.toggle("active",active);if(active)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});if(window.syncNavGroupState)syncNavGroupState(id);const nb=document.querySelector(`[data-view="${id}"]`),meta=(typeof COMMAND_META!=="undefined"?COMMAND_META[id]:null);document.getElementById("pageTitle").textContent=meta?.[0]||nb?.textContent?.trim()||"BW Compliance OS";updateMobileNav(id);let sr=document.getElementById("srStatus");if(sr)sr.textContent="Opened "+document.getElementById("pageTitle").textContent;window.scrollTo({top:0,behavior:prefersReducedMotion()?"auto":"smooth"});setTimeout(animateViewItems,20);if(!options?.skipDataRefresh)queueMicrotask(()=>renderAll());return true}
+function showView(id,options={}){if(!roleCanView(id)){console.warn("Role denied view",id,currentWorkspaceRole());if(!options?.silent){let sr=document.getElementById("srStatus");if(sr)sr.textContent="This area is not available for your role."}return false}const target=document.getElementById(id);if(!target){console.warn("Unknown view",id);return false}lastWorkspaceView=id;document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));target.classList.add("active");document.querySelectorAll(".nav button").forEach(b=>{let active=b.dataset.view===id;b.classList.toggle("active",active);if(active)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});const nb=document.querySelector(`[data-view="${id}"]`),meta=(typeof COMMAND_META!=="undefined"?COMMAND_META[id]:null);document.getElementById("pageTitle").textContent=meta?.[0]||nb?.textContent?.trim()||"BW Compliance OS";updateMobileNav(id);let sr=document.getElementById("srStatus");if(sr)sr.textContent="Opened "+document.getElementById("pageTitle").textContent;window.scrollTo({top:0,behavior:prefersReducedMotion()?"auto":"smooth"});setTimeout(animateViewItems,20);if(!options?.skipDataRefresh)queueMicrotask(()=>renderAll());return true}
 
 let wizardStep=0;
 let firstValueTopTarget="workhub";
@@ -8172,45 +8166,6 @@ bootstrap();
 })();
 </script>
 
-<script id="v70-active-workspace-groups-js">
-(function(){
-  const KEY='bw-nav-groups-v71';
-  function childrenFor(toggle){
-    const items=[]; let el=toggle.nextElementSibling;
-    while(el && !el.classList.contains('navgroup')){if(el.matches?.('button[data-view]'))items.push(el);el=el.nextElementSibling}
-    return items;
-  }
-  function readPrefs(){try{return JSON.parse(sessionStorage.getItem(KEY)||'{}')}catch(_){return {}}}
-  window.refreshNavGroupCounts=function(){document.querySelectorAll('.navgroup-toggle').forEach(toggle=>{const count=childrenFor(toggle).filter(btn=>btn.style.display!=="none").length;const el=toggle.querySelector('.navgroup-count');if(el)el.textContent=String(count);toggle.style.display=count?"":"none"})};
-  function writePrefs(prefs){try{sessionStorage.setItem(KEY,JSON.stringify(prefs))}catch(_){}}
-  window.setNavGroupExpanded=function(toggle,expanded,remember=true){
-    if(!toggle)return;
-    toggle.setAttribute('aria-expanded',expanded?'true':'false');
-    childrenFor(toggle).forEach(btn=>btn.classList.toggle('nav-child-hidden',!expanded));
-    if(remember){const prefs=readPrefs();prefs[toggle.dataset.navGroup]=!!expanded;writePrefs(prefs)}
-  };
-  window.syncNavGroupState=function(viewId){
-    document.querySelectorAll('.navgroup-toggle').forEach(toggle=>{
-      const active=childrenFor(toggle).some(btn=>btn.dataset.view===viewId);
-      toggle.classList.toggle('group-active',active);
-      if(active)window.setNavGroupExpanded(toggle,true,false);
-    });
-  };
-  function init(){
-    const prefs=readPrefs();
-    document.querySelectorAll('.navgroup-toggle').forEach(toggle=>{
-      const key=toggle.dataset.navGroup;
-      const expanded=Object.prototype.hasOwnProperty.call(prefs,key)?!!prefs[key]:false;
-      window.setNavGroupExpanded(toggle,expanded,false);
-      toggle.addEventListener('click',()=>window.setNavGroupExpanded(toggle,toggle.getAttribute('aria-expanded')!=='true'));
-    });
-    window.refreshNavGroupCounts?.();
-    const active=document.querySelector('.nav button[data-view].active');
-    window.syncNavGroupState(active?.dataset.view||'dashboard');
-  }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
-})();
-</script>
 
 <script id="v72-practical-workspace-js">
 (function(){
