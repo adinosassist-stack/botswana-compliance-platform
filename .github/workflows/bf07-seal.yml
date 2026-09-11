@@ -28,7 +28,7 @@ jobs:
     timeout-minutes: 45
     env:
       CI: 'true'
-      EXPECTED_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.expected_sha || github.sha }}
+      EXPECTED_SHA: ${{ inputs.expected_sha }}
 
     steps:
       - name: Checkout exact revision
@@ -40,12 +40,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'expected SHA must be a full lowercase commit SHA' >&2; exit 1; }
-          [[ "$EXPECTED_SHA" == "$GITHUB_SHA" ]] || { echo "release SHA mismatch: expected=$EXPECTED_SHA actual=$GITHUB_SHA" >&2; exit 1; }
-          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]] || { echo 'checkout HEAD does not match GITHUB_SHA' >&2; exit 1; }
+          target_sha="$EXPECTED_SHA"
           if [[ "$GITHUB_EVENT_NAME" == 'push' ]]; then
             [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo "automatic release trigger is restricted to main, got $GITHUB_REF" >&2; exit 1; }
+            target_sha="$GITHUB_SHA"
           fi
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]] || { echo 'expected SHA must be a full lowercase commit SHA' >&2; exit 1; }
+          [[ "$target_sha" == "$GITHUB_SHA" ]] || { echo "dispatch SHA mismatch: expected=$target_sha actual=$GITHUB_SHA" >&2; exit 1; }
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]] || { echo 'checkout HEAD does not match GITHUB_SHA' >&2; exit 1; }
           [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo 'checkout is not clean before BF-07 resolution' >&2; exit 1; }
 
       - name: Setup pinned Node
