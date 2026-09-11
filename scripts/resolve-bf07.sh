@@ -159,24 +159,18 @@ VERIFY_CACHE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/bf07-verify-cache.XXXXXX")"
 (
   cd "$EXTRACT_DIR"
   export NPM_CONFIG_CACHE="$VERIFY_CACHE_DIR" NPM_CONFIG_REGISTRY="$REGISTRY" NPM_CONFIG_OFFLINE=false NPM_CONFIG_PREFER_OFFLINE=false NPM_CONFIG_PREFER_ONLINE=true NPM_CONFIG_FUND=false
-  info '10/10 verify: canonical npm registry reachability'
-  npm ping --registry="$REGISTRY"
-  info '10/10 verify: clean npm ci reconstruction'
-  npm ci --ignore-scripts --no-audit --no-fund --prefer-online --registry="$REGISTRY"
-  info '10/10 verify: complete test suite'
-  npm test
-  info '10/10 verify: artifact boundary'
-  npm run check:artifact-boundary
-  info '10/10 verify: supply-chain and deterministic SBOM'
-  npm run check:supply-chain
-  info '10/10 verify: BF-07 evidence binding'
-  npm run check:bf07-evidence
-  info '10/10 verify: BF-07 execution provenance'
-  npm run check:bf07-provenance
-  info '10/10 verify: production dependency audit'
-  npm audit --omit=dev --audit-level=high
-  info '10/10 verify: launch gate'
-  npm run launch:gate
+  PS4='+ BF07 verify line ${LINENO}: '
+  set -x
+  npm ping --registry="$REGISTRY" >/dev/null
+  npm ci --ignore-scripts --no-audit --no-fund --prefer-online --registry="$REGISTRY" >/dev/null
+  npm test >/dev/null
+  npm run check:artifact-boundary >/dev/null
+  npm run check:supply-chain >/dev/null
+  npm run check:bf07-evidence >/dev/null
+  npm run check:bf07-provenance >/dev/null
+  npm audit --omit=dev --audit-level=high >/dev/null
+  npm run launch:gate >/dev/null
+  set +x
 )
 [[ "$(hash_file "$VERIFY_ARCHIVE_COPY")" == "$EXPECTED_ZIP_SHA" ]] || fail 'Verification snapshot changed during independent verification'
 BF07_VERIFIED_ARCHIVE_SHA256="$EXPECTED_ZIP_SHA" BF07_VERIFIED_SIDECAR_SHA256="$EXPECTED_SIDECAR_SHA" node scripts/write-bf07-release-provenance.mjs
