@@ -64,6 +64,8 @@ jobs:
 
       - name: Resolve BF-07 and seal exact artifact
         shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.expected_sha || github.sha }}
         run: |
           set -euo pipefail
           chmod 0755 scripts/resolve-bf07.sh
