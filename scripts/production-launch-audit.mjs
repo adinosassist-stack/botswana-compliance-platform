@@ -46,6 +46,21 @@ function bindingValue(binding){
   return undefined;
 }
 
+async function d1Count(table){
+  const allowed=new Set(['users','tenants','memberships','operating_locations','employees','daily_employee_reports']);
+  assert(allowed.has(table),`refusing non-whitelisted inventory table ${table}`);
+  const body=await cfJson(`/accounts/${accountId}/d1/database/${databaseId}/query`,{
+    method:'POST',
+    body:JSON.stringify({sql:`SELECT COUNT(*) AS count FROM ${table}`})
+  });
+  const sets=Array.isArray(body?.result)?body.result:[];
+  assert(sets.length&&sets.every(x=>x?.success!==false),`D1 count query failed for ${table}`);
+  const rows=sets.flatMap(x=>Array.isArray(x?.results)?x.results:[]);
+  const count=Number(rows?.[0]?.count);
+  assert(Number.isFinite(count),`D1 count missing for ${table}`);
+  return count;
+}
+
 console.log('=== Thebe Desk Phase 0 production launch audit ===');
 
 const settings=await cfJson(`/accounts/${accountId}/workers/scripts/${SCRIPT}/settings`);
@@ -136,20 +151,10 @@ if(!resendSecret)integrationProblems.push('email: RESEND_API_KEY missing');
 if(!emailFromSafe)integrationProblems.push('email: EMAIL_FROM missing or placeholder');
 mark('password-reset email configuration',resendSecret&&emailFromSafe,resendSecret&&emailFromSafe?'Resend secret + sender present':'not ready');
 
-const d1=await cfJson(`/accounts/${accountId}/d1/database/${databaseId}/query`,{
-  method:'POST',
-  body:JSON.stringify({sql:`SELECT 'users' AS name, COUNT(*) AS count FROM users
-UNION ALL SELECT 'tenants', COUNT(*) FROM tenants
-UNION ALL SELECT 'memberships', COUNT(*) FROM memberships
-UNION ALL SELECT 'operating_locations', COUNT(*) FROM operating_locations
-UNION ALL SELECT 'employees', COUNT(*) FROM employees
-UNION ALL SELECT 'daily_employee_reports', COUNT(*) FROM daily_employee_reports`})
-});
-const querySets=Array.isArray(d1?.result)?d1.result:[];
-assert(querySets.length&&querySets.every(x=>x?.success!==false),'D1 launch inventory count query failed');
-const rows=querySets.flatMap(x=>Array.isArray(x?.results)?x.results:[]);
-const counts=Object.fromEntries(rows.map(x=>[String(x.name),Number(x.count||0)]));
-for(const name of ['users','tenants','memberships','operating_locations','employees','daily_employee_reports'])assert(Number.isFinite(counts[name]),`D1 count missing for ${name}`);
+const inventoryTables=['users','tenants','memberships','operating_locations','employees','daily_employee_reports'];
+const countEntries=[];
+for(const table of inventoryTables)countEntries.push([table,await d1Count(table)]);
+const counts=Object.fromEntries(countEntries);
 console.log(`INFO production inventory counts users=${counts.users} tenants=${counts.tenants} memberships=${counts.memberships} operating_locations=${counts.operating_locations} employees=${counts.employees} daily_employee_reports=${counts.daily_employee_reports}`);
 
 console.log('INFO payments intentionally closed: PAYMENT_PROVIDER=none');
