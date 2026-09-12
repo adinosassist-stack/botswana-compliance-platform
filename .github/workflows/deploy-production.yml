@@ -97,12 +97,14 @@ jobs:
           [[ "$actual" == "$expected" ]] || { echo "npm mismatch expected=$expected actual=$actual" >&2; exit 1; }
 
       - name: Require successful Recovery CI and BF-07 for exact SHA
+        id: qualification
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
           node <<'NODE'
+          const {appendFileSync, readFileSync} = await import('node:fs');
           const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
           const sha = process.env.TARGET_SHA;
           const token = process.env.GH_TOKEN;
@@ -124,7 +126,7 @@ jobs:
               const passed = exactRuns.find(r => r.status === 'completed' && r.conclusion === 'success');
               if (passed) {
                 console.log(`${label} qualified exact SHA ${sha} with run ${passed.id}`);
-                return;
+                return passed.id;
               }
               const failed = exactRuns.find(r => r.status === 'completed' && r.conclusion && r.conclusion !== 'success');
               if (failed) throw new Error(`${label} completed as ${failed.conclusion} for exact SHA ${sha} (run ${failed.id})`);
@@ -135,18 +137,30 @@ jobs:
             throw new Error(`${label} has no successful completed run for exact SHA ${sha}`);
           }
           await successful('recovery-ci.yml', 'Recovery CI', {wait: eventName === 'workflow_run'});
+          let bf07RunId;
           if (eventName === 'workflow_dispatch') {
-            await successful('bf07-seal.yml', 'BF-07 Supply-Chain Seal');
+            bf07RunId = await successful('bf07-seal.yml', 'BF-07 Supply-Chain Seal');
           } else {
-            const {readFileSync} = await import('node:fs');
             const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
             const run = event.workflow_run || {};
             if (run.head_sha !== sha || run.head_branch !== 'main' || run.conclusion !== 'success') {
               throw new Error('triggering BF-07 run does not bind to the exact current main SHA');
             }
-            console.log(`Triggering BF-07 run ${run.id} qualified exact SHA ${sha}`);
+            bf07RunId = run.id;
+            console.log(`Triggering BF-07 run ${bf07RunId} qualified exact SHA ${sha}`);
           }
+          if (!/^\d+$/.test(String(bf07RunId || ''))) throw new Error('BF-07 qualification did not resolve a valid workflow run id');
+          appendFileSync(process.env.GITHUB_OUTPUT, `bf07_run_id=${bf07RunId}\n`);
           NODE
+
+      - name: Restore exact BF-07 seal evidence
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: bf07-sealed-${{ env.TARGET_SHA }}
+          path: .
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.qualification.outputs.bf07_run_id }}
 
       - name: Clean install from committed lockfile
         shell: bash
