@@ -4,7 +4,7 @@ const TURNSTILE_ORIGIN="https://challenges.cloudflare.com";
 const TURNSTILE_VERIFY_URL=`${TURNSTILE_ORIGIN}/turnstile/v0/siteverify`;
 const META_CSP_RE=/<meta\b(?=[^>]*\bhttp-equiv\s*=\s*["']Content-Security-Policy["'])[^>]*>/i;
 const ICON_LINK_RE=/<link\b(?=[^>]*\brel\s*=\s*["'](?:icon|shortcut icon|apple-touch-icon)["'])[^>]*>\s*/gi;
-const THEBE_LOGO_FAVICON="/assets/thebe-desk-logo-symbol.png?v=20260912";
+const THEBE_LOGO_FAVICON="/assets/thebe-desk-favicon-512.png?v=20260912b";
 const TURNSTILE_SECRET_HEALTH_TTL_MS=5*60*1000;
 let turnstileSecretHealthCache={checkedAt:0,result:null};
 
@@ -71,7 +71,7 @@ async function rewriteRegistrationVerificationFailure(response){
     const headers=new Headers(response.headers);headers.set("cache-control","no-store");
     return new Response(JSON.stringify({
       error:"human_verification_retry",
-      message:"Human verification was rejected. Click Create account again to run a fresh verification.",
+      message:"Human verification was rejected. If this repeats after a fresh challenge, confirm the Turnstile site key and secret key come from the same widget and that thebedesk.com is an allowed hostname.",
       retryable:true
     }),{status:403,statusText:response.statusText,headers});
   }catch{return response}
@@ -99,7 +99,7 @@ async function fetchWithTurnstileCspRepair(request,env,ctx){
   if(repaired===html)return response;
   const headers=new Headers(response.headers);
   headers.set("x-thebe-csp-meta","server-header-authoritative");
-  headers.set("x-thebe-favicon","logo-symbol");
+  headers.set("x-thebe-favicon","optimized-512");
   return new Response(repaired,{status:response.status,statusText:response.statusText,headers});
 }
 
