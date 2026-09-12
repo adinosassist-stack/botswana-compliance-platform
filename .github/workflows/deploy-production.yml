@@ -245,7 +245,7 @@ jobs:
           sh cloudflare/render-production-config.sh cloudflare/wrangler.toml > "$PROD_CONFIG"
           chmod 600 "$PROD_CONFIG"
           sh cloudflare/preflight-production.sh "$PROD_CONFIG"
-          npx --yes wrangler@4.127.1 deploy --yes --secrets-file "$SECRETS_FILE" --config "$PROD_CONFIG"
+          npx --yes wrangler@4.127.1 deploy --secrets-file "$SECRETS_FILE" --config "$PROD_CONFIG"
           cleanup
           trap - EXIT
 
