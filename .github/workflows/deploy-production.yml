@@ -138,7 +138,8 @@ jobs:
           if (eventName === 'workflow_dispatch') {
             await successful('bf07-seal.yml', 'BF-07 Supply-Chain Seal');
           } else {
-            const event = JSON.parse(require('node:fs').readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+            const {readFileSync} = await import('node:fs');
+            const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
             const run = event.workflow_run || {};
             if (run.head_sha !== sha || run.head_branch !== 'main' || run.conclusion !== 'success') {
               throw new Error('triggering BF-07 run does not bind to the exact current main SHA');
