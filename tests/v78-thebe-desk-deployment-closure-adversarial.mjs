@@ -48,6 +48,9 @@ ok(productionDeploy.includes('/api/live')&&productionDeploy.includes('/api/ready
 
 ok(wrangler.includes('main = "src/production-entry.js"')&&productionEntry.includes('import worker from "./worker.js"')&&productionEntry.includes('worker.fetch(request,env,ctx)')&&productionEntry.includes('worker.scheduled(event,env,ctx)'), 'production entrypoint wraps and delegates to the hardened base Worker');
 ok(productionEntry.includes('https://challenges.cloudflare.com')&&productionEntry.includes('Content-Security-Policy')&&productionEntry.includes('content-security-policy'), 'production entrypoint repairs only the conflicting meta CSP while retaining authoritative Turnstile server CSP');
+ok(productionEntry.includes('missing-input-response')&&productionEntry.includes('invalid-input-secret')&&productionEntry.includes('turnstile_configuration_error'), 'production registration distinguishes a rejected Turnstile secret from a retryable challenge failure without exposing the secret');
+ok(productionEntry.includes('human_verification_retry')&&productionEntry.includes('retryable:true'), 'production registration returns an explicit retryable challenge response after server-side Turnstile rejection');
+ok(productionEntry.includes('/assets/thebe-desk-logo-symbol.png?v=20260912')&&productionEntry.includes('rel="icon"')&&productionEntry.includes('apple-touch-icon'), 'production HTML rewrites favicon links to the Thebe Desk logo symbol with cache busting');
 ok(wrangler.includes('MAX_UPLOAD_MB = "3.5"'), 'deployment metadata retains the bounded evidence cap for future scanner qualification');
 ok(worker.includes('const EVIDENCE_MAX_BYTES=3_500_000;'), 'production evidence boundary is exactly 3,500,000 bytes');
 ok(worker.includes('/api/evidence/presign')&&worker.includes('/api/evidence/integrity-upload')&&worker.includes('/api/evidence/upload'), 'all direct evidence upload entry routes retain the production cap');
