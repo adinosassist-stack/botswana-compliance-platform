@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: thebe-desk-production
+  group: thebe-desk-turnstile-recovery
   cancel-in-progress: false
 
 jobs:
