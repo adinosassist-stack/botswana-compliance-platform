@@ -201,6 +201,12 @@ jobs:
           [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[0-9a-fA-F]{32}$ ]] || { echo 'CLOUDFLARE_ACCOUNT_ID must be a 32-character account identifier' >&2; exit 1; }
           [[ "$D1_DATABASE_ID" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]] || { echo 'D1_DATABASE_ID must be a provisioned D1 UUID' >&2; exit 1; }
 
+      - name: Diagnose Cloudflare authorization boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/cloudflare-auth-diagnostic.mjs
+
       - name: Build ephemeral runtime secrets file
         shell: bash
         run: |
