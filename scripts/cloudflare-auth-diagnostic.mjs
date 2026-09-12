@@ -76,9 +76,9 @@ function safeEdgeBody(text) {
     .slice(0, 600);
 }
 
-async function probePublicEdge() {
+async function probePublicEdge(path) {
   try {
-    const response = await fetch(`${publicAppUrl}/api/live`, {
+    const response = await fetch(`${publicAppUrl}${path}`, {
       method: 'GET',
       redirect: 'manual',
       headers: {
@@ -100,10 +100,10 @@ async function probePublicEdge() {
     const challengeLike =
       String(fingerprint.cfMitigated).toLowerCase() === 'challenge' ||
       /cloudflare|attention required|just a moment|access denied|forbidden|challenge-platform/i.test(fingerprint.body);
-    console.log(`Public edge /api/live fingerprint: ${JSON.stringify({...fingerprint, challengeLike})}`);
+    console.log(`Public edge ${path} fingerprint: ${JSON.stringify({...fingerprint, challengeLike})}`);
     return {ok: response.ok, ...fingerprint, challengeLike};
   } catch (error) {
-    console.log(`Public edge /api/live fingerprint: network_error=${String(error?.message || error).slice(0, 220)}`);
+    console.log(`Public edge ${path} fingerprint: network_error=${String(error?.message || error).slice(0, 220)}`);
     return {ok: false, status: 0, challengeLike: false};
   }
 }
@@ -134,7 +134,9 @@ if (failed.length) {
   process.exit(2);
 }
 
-await probePublicEdge();
+await probePublicEdge('/api/live');
+await probePublicEdge('/api/ready');
+await probePublicEdge('/api/auth/anti-bot-config');
 
 const firstDeploy = probes.find(item => item.workerMissingBeforeFirstDeploy);
 if (firstDeploy) {
