@@ -57,10 +57,15 @@ async function probe(label, path) {
   }
 
   const apiSuccess = body?.success;
-  const ok = response.ok && apiSuccess !== false;
   const errors = summarizeErrors(body);
-  console.log(`${label}: HTTP ${response.status} api_success=${apiSuccess === undefined ? 'unknown' : String(apiSuccess)} errors=${errors}`);
-  return {label, ok, status: response.status, errors, body};
+  const workerMissingBeforeFirstDeploy =
+    label === 'Worker service metadata' &&
+    response.status === 404 &&
+    errors.includes('10090:This Worker does not exist on this account.');
+  const ok = (response.ok && apiSuccess !== false) || workerMissingBeforeFirstDeploy;
+  const state = workerMissingBeforeFirstDeploy ? ' allowed_first_deploy_absence=true' : '';
+  console.log(`${label}: HTTP ${response.status} api_success=${apiSuccess === undefined ? 'unknown' : String(apiSuccess)} errors=${errors}${state}`);
+  return {label, ok, status: response.status, errors, body, workerMissingBeforeFirstDeploy};
 }
 
 const verifyPath = token.startsWith('cfat_')
@@ -89,4 +94,9 @@ if (failed.length) {
   process.exit(2);
 }
 
-console.log('Cloudflare authorization diagnostic passed: token, account, Worker service, D1, R2, Workers AI, and Worker-domain reads are authorized.');
+const firstDeploy = probes.find(item => item.workerMissingBeforeFirstDeploy);
+if (firstDeploy) {
+  console.log(`Cloudflare authorization diagnostic passed: token, account, D1, R2, Workers AI, and Worker-domain reads are authorized; Worker ${workerName} is absent and may be created by this first deployment.`);
+} else {
+  console.log('Cloudflare authorization diagnostic passed: token, account, Worker service, D1, R2, Workers AI, and Worker-domain reads are authorized.');
+}
