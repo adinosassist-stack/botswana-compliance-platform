@@ -75,7 +75,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          body="$(curl --fail-with-body --silent --show-error --retry 3 --retry-all-errors --max-time 20 'https://thebedesk.com/api/ready')"
+          body="$(curl --silent --show-error --retry 3 --retry-all-errors --max-time 20 'https://thebedesk.com/api/ready')"
           READY_JSON="$body" node <<'NODE'
           const ready = JSON.parse(process.env.READY_JSON);
           if (ready.schemaReady !== true) throw new Error(`/api/ready still reports schemaReady=${String(ready.schemaReady)} error=${String(ready.error || '')}`);
