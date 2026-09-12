@@ -141,14 +141,16 @@ const d1=await cfJson(`/accounts/${accountId}/d1/database/${databaseId}/query`,{
   body:JSON.stringify({sql:`SELECT 'users' AS name, COUNT(*) AS count FROM users
 UNION ALL SELECT 'tenants', COUNT(*) FROM tenants
 UNION ALL SELECT 'memberships', COUNT(*) FROM memberships
-UNION ALL SELECT 'locations', COUNT(*) FROM locations`})
+UNION ALL SELECT 'operating_locations', COUNT(*) FROM operating_locations
+UNION ALL SELECT 'employees', COUNT(*) FROM employees
+UNION ALL SELECT 'daily_employee_reports', COUNT(*) FROM daily_employee_reports`})
 });
 const querySets=Array.isArray(d1?.result)?d1.result:[];
 assert(querySets.length&&querySets.every(x=>x?.success!==false),'D1 launch inventory count query failed');
 const rows=querySets.flatMap(x=>Array.isArray(x?.results)?x.results:[]);
 const counts=Object.fromEntries(rows.map(x=>[String(x.name),Number(x.count||0)]));
-for(const name of ['users','tenants','memberships','locations'])assert(Number.isFinite(counts[name]),`D1 count missing for ${name}`);
-console.log(`INFO production inventory counts users=${counts.users} tenants=${counts.tenants} memberships=${counts.memberships} locations=${counts.locations}`);
+for(const name of ['users','tenants','memberships','operating_locations','employees','daily_employee_reports'])assert(Number.isFinite(counts[name]),`D1 count missing for ${name}`);
+console.log(`INFO production inventory counts users=${counts.users} tenants=${counts.tenants} memberships=${counts.memberships} operating_locations=${counts.operating_locations} employees=${counts.employees} daily_employee_reports=${counts.daily_employee_reports}`);
 
 console.log('INFO payments intentionally closed: PAYMENT_PROVIDER=none');
 console.log('INFO evidence uploads intentionally closed: EVIDENCE_UPLOADS_ENABLED=false');
