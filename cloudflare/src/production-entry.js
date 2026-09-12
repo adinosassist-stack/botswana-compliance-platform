@@ -2,6 +2,7 @@ import worker from "./worker.js";
 
 const TURNSTILE_ORIGIN="https://challenges.cloudflare.com";
 const TURNSTILE_VERIFY_URL=`${TURNSTILE_ORIGIN}/turnstile/v0/siteverify`;
+const LEGACY_TURNSTILE_CONFIGURATION_ERROR="turnstile_configuration_error";
 const META_CSP_RE=/<meta\b(?=[^>]*\bhttp-equiv\s*=\s*["']Content-Security-Policy["'])[^>]*>/i;
 const ICON_LINK_RE=/<link\b(?=[^>]*\brel\s*=\s*["'](?:icon|shortcut icon|apple-touch-icon)["'])[^>]*>\s*/gi;
 const THEBE_LOGO_FAVICON="/assets/thebe-desk-favicon-512.png?v=20260912b";
@@ -271,7 +272,7 @@ async function turnstileSecretHealth(env){
     const result=await response.json();
     const errors=Array.isArray(result?.["error-codes"])?result["error-codes"].map(String):[];
     const health=errors.includes("invalid-input-secret")||errors.includes("missing-input-secret")
-      ?{ok:false,reason:"secret_rejected"}
+      ?{ok:false,reason:LEGACY_TURNSTILE_CONFIGURATION_ERROR}
       :errors.includes("missing-input-response")
         ?{ok:true,reason:"secret_accepted"}
         :{ok:null,reason:errors[0]||"siteverify_unexpected_response"};
