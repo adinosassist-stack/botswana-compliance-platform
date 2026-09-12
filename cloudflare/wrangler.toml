@@ -15,7 +15,7 @@ required = ["SESSION_SECRET", "AUDIT_INTEGRITY_SECRET", "OPERATIONS_SECRET", "AU
 [vars]
 APP_ENV = "production"
 DEPLOYMENT_PROFILE = "workers-free-first"
-AI_FEATURES_DEFAULT = "off"
+AI_FEATURES_DEFAULT = "on"
 AI_REPORT_MODEL = "@cf/zai-org/glm-4.7-flash"
 PAYMENT_PROVIDER = "none"
 TRIAL_DAYS = "14"
