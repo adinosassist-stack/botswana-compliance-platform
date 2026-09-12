@@ -40,6 +40,7 @@ ok(productionDeploy.indexOf('Restore exact BF-07 seal evidence')>=0&&productionD
 ok(productionDeploy.includes('environment: production')&&productionDeploy.includes('CLOUDFLARE_API_TOKEN')&&productionDeploy.includes('CLOUDFLARE_ACCOUNT_ID'), 'production automation is isolated behind the GitHub production environment and Cloudflare credentials');
 ok(requiredSecrets.every(k=>productionDeploy.includes(`secrets.${k}`)), 'production automation sources every launch-critical runtime secret from GitHub secrets');
 ok(productionDeploy.includes('render-production-config.sh')&&productionDeploy.includes('preflight-production.sh')&&productionDeploy.includes('deploy --dry-run'), 'production automation renders an ephemeral config and dry-runs Wrangler before promotion');
+ok(!productionDeploy.includes('wrangler@4.127.1 deploy --yes'), 'production deploy uses only supported Wrangler 4.127.1 flags');
 ok(productionDeploy.includes('--secrets-file')&&productionDeploy.includes('thebe-worker-secrets.json'), 'production automation uploads runtime secrets from an ephemeral file rather than source control');
 ok(!productionDeploy.includes('d1 execute')&&!productionDeploy.includes('schema.sql'), 'production automation never replays or mutates the production D1 schema');
 ok(productionDeploy.includes('/api/live')&&productionDeploy.includes('/api/ready')&&productionDeploy.includes('/api/auth/anti-bot-config'), 'production automation verifies liveness, readiness, schema/config state and Turnstile after deploy');
