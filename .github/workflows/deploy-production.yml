@@ -126,7 +126,7 @@ jobs:
               const passed = exactRuns.find(r => r.status === 'completed' && r.conclusion === 'success');
               if (passed) {
                 console.log(`${label} qualified exact SHA ${sha} with run ${passed.id}`);
-                return passed.id;
+                return passed;
               }
               const failed = exactRuns.find(r => r.status === 'completed' && r.conclusion && r.conclusion !== 'success');
               if (failed) throw new Error(`${label} completed as ${failed.conclusion} for exact SHA ${sha} (run ${failed.id})`);
@@ -137,20 +137,23 @@ jobs:
             throw new Error(`${label} has no successful completed run for exact SHA ${sha}`);
           }
           await successful('recovery-ci.yml', 'Recovery CI', {wait: eventName === 'workflow_run'});
-          let bf07RunId;
+          let bf07Run;
           if (eventName === 'workflow_dispatch') {
-            bf07RunId = await successful('bf07-seal.yml', 'BF-07 Supply-Chain Seal');
+            bf07Run = await successful('bf07-seal.yml', 'BF-07 Supply-Chain Seal');
           } else {
             const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
             const run = event.workflow_run || {};
             if (run.head_sha !== sha || run.head_branch !== 'main' || run.conclusion !== 'success') {
               throw new Error('triggering BF-07 run does not bind to the exact current main SHA');
             }
-            bf07RunId = run.id;
-            console.log(`Triggering BF-07 run ${bf07RunId} qualified exact SHA ${sha}`);
+            bf07Run = run;
+            console.log(`Triggering BF-07 run ${bf07Run.id} qualified exact SHA ${sha}`);
           }
-          if (!/^\d+$/.test(String(bf07RunId || ''))) throw new Error('BF-07 qualification did not resolve a valid workflow run id');
-          appendFileSync(process.env.GITHUB_OUTPUT, `bf07_run_id=${bf07RunId}\n`);
+          if (!/^\d+$/.test(String(bf07Run?.id || '')) || !/^\d+$/.test(String(bf07Run?.run_attempt || ''))) {
+            throw new Error('BF-07 qualification did not resolve a valid workflow run identity');
+          }
+          appendFileSync(process.env.GITHUB_OUTPUT, `bf07_run_id=${bf07Run.id}\n`);
+          appendFileSync(process.env.GITHUB_OUTPUT, `bf07_run_attempt=${bf07Run.run_attempt}\n`);
           NODE
 
       - name: Restore exact BF-07 seal evidence
@@ -169,6 +172,12 @@ jobs:
           npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Recheck deployment closure at candidate boundary
+        env:
+          BF07_EXPECTED_REPOSITORY: ${{ github.repository }}
+          BF07_EXPECTED_SHA: ${{ env.TARGET_SHA }}
+          BF07_EXPECTED_REF: refs/heads/main
+          BF07_EXPECTED_RUN_ID: ${{ steps.qualification.outputs.bf07_run_id }}
+          BF07_EXPECTED_RUN_ATTEMPT: ${{ steps.qualification.outputs.bf07_run_attempt }}
         shell: bash
         run: |
           set -euo pipefail
