@@ -2,6 +2,7 @@ import fs from 'node:fs';
 const read=p=>fs.readFileSync(p,'utf8');
 const worker=read('cloudflare/src/worker.js');
 const wrangler=read('cloudflare/wrangler.toml');
+const productionEntry=read('cloudflare/src/production-entry.js');
 const cloudflareReadme=read('cloudflare/README.md');
 const renderer=read('cloudflare/render-production-config.sh');
 const preflight=read('cloudflare/preflight-production.sh');
@@ -45,7 +46,8 @@ ok(productionDeploy.includes('--secrets-file')&&productionDeploy.includes('thebe
 ok(!productionDeploy.includes('d1 execute')&&!productionDeploy.includes('schema.sql'), 'production automation never replays or mutates the production D1 schema');
 ok(productionDeploy.includes('/api/live')&&productionDeploy.includes('/api/ready')&&productionDeploy.includes('/api/auth/anti-bot-config'), 'production automation verifies liveness, readiness, schema/config state and Turnstile after deploy');
 
-ok(wrangler.includes('main = "src/worker.js"'), 'production entrypoint uses the hardened base Worker directly');
+ok(wrangler.includes('main = "src/production-entry.js"')&&productionEntry.includes('import worker from "./worker.js"')&&productionEntry.includes('worker.fetch(request,env,ctx)')&&productionEntry.includes('worker.scheduled(event,env,ctx)'), 'production entrypoint wraps and delegates to the hardened base Worker');
+ok(productionEntry.includes('https://challenges.cloudflare.com')&&productionEntry.includes('Content-Security-Policy')&&productionEntry.includes('content-security-policy'), 'production entrypoint repairs only the conflicting meta CSP while retaining authoritative Turnstile server CSP');
 ok(wrangler.includes('MAX_UPLOAD_MB = "3.5"'), 'deployment metadata retains the bounded evidence cap for future scanner qualification');
 ok(worker.includes('const EVIDENCE_MAX_BYTES=3_500_000;'), 'production evidence boundary is exactly 3,500,000 bytes');
 ok(worker.includes('/api/evidence/presign')&&worker.includes('/api/evidence/integrity-upload')&&worker.includes('/api/evidence/upload'), 'all direct evidence upload entry routes retain the production cap');
