@@ -5,6 +5,7 @@ const accountId = String(process.env.CLOUDFLARE_ACCOUNT_ID || '').trim();
 const databaseId = String(process.env.D1_DATABASE_ID || '').trim();
 const workerName = String(process.env.CLOUDFLARE_WORKER_NAME || 'bw-compliance-os').trim();
 const bucketName = String(process.env.CLOUDFLARE_R2_BUCKET || 'bw-compliance-evidence').trim();
+const publicAppUrl = String(process.env.PUBLIC_APP_URL || 'https://thebedesk.com').trim().replace(/\/+$/, '');
 
 function fail(message) {
   console.error(`Cloudflare authorization diagnostic failed: ${message}`);
@@ -68,6 +69,45 @@ async function probe(label, path) {
   return {label, ok, status: response.status, errors, body, workerMissingBeforeFirstDeploy};
 }
 
+function safeEdgeBody(text) {
+  return String(text || '')
+    .replace(/[\u0000-\u001f\u007f]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .slice(0, 600);
+}
+
+async function probePublicEdge() {
+  try {
+    const response = await fetch(`${publicAppUrl}/api/live`, {
+      method: 'GET',
+      redirect: 'manual',
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'ThebeDesk-Production-Diagnostic/1.0'
+      }
+    });
+    const text = await response.text();
+    const fingerprint = {
+      status: response.status,
+      server: response.headers.get('server') || '',
+      cfRay: response.headers.get('cf-ray') || '',
+      cfMitigated: response.headers.get('cf-mitigated') || '',
+      contentType: response.headers.get('content-type') || '',
+      cacheStatus: response.headers.get('cf-cache-status') || '',
+      location: response.headers.get('location') || '',
+      body: safeEdgeBody(text)
+    };
+    const challengeLike =
+      String(fingerprint.cfMitigated).toLowerCase() === 'challenge' ||
+      /cloudflare|attention required|just a moment|access denied|forbidden|challenge-platform/i.test(fingerprint.body);
+    console.log(`Public edge /api/live fingerprint: ${JSON.stringify({...fingerprint, challengeLike})}`);
+    return {ok: response.ok, ...fingerprint, challengeLike};
+  } catch (error) {
+    console.log(`Public edge /api/live fingerprint: network_error=${String(error?.message || error).slice(0, 220)}`);
+    return {ok: false, status: 0, challengeLike: false};
+  }
+}
+
 const verifyPath = token.startsWith('cfat_')
   ? `/accounts/${accountId}/tokens/verify`
   : '/user/tokens/verify';
@@ -93,6 +133,8 @@ if (failed.length) {
   }
   process.exit(2);
 }
+
+await probePublicEdge();
 
 const firstDeploy = probes.find(item => item.workerMissingBeforeFirstDeploy);
 if (firstDeploy) {
