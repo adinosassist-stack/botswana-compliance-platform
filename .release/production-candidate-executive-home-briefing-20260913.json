@@ -1,0 +1,9 @@
+{
+  "purpose": "Production release marker for the executive Home briefing refinement",
+  "source_main_sha": "e2f426d05eae24f92ac47adeb020447b73fe0b66",
+  "requested_date": "2026-09-13",
+  "deployment_path": "Recovery CI -> BF-07 Supply-Chain Seal -> Thebe Desk Production Deploy",
+  "brand_contract": "Preserve current live blue/white Thebe Desk branding",
+  "decision_logic_changed": false,
+  "application_behavior_changed_by_marker": false
+}
