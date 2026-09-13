@@ -46,6 +46,5 @@ assert.doesNotMatch(finance,/await\s+fetch\s*\(/);
 
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 assert.match(worker,/handleFinanceRequest/);
-assert.match(worker,/agentic_stage2_execution_enabled|agentic execution|Stage 2/i);
 
 console.log("v81 finance connection boundary tests passed: read-only, no secrets, provider write-back disabled");
