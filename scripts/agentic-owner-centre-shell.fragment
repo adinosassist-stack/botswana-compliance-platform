@@ -1,0 +1,20 @@
+    const agentic=document.createElement("section");
+    agentic.className="owner-agentic-panel";
+    agentic.id="ownerAgenticPanel";
+    const agenticHead=document.createElement("div");
+    agenticHead.className="owner-agentic-head";
+    const agenticCopy=document.createElement("div");
+    agenticCopy.append(
+      text("div","Thebe AI · governed decisions","section-eyebrow"),
+      text("h4","Observe → reason → simulate → recommend → approve"),
+      text("p","Thebe can prepare auditable next-action proposals from tenant-scoped business data. Stage 1 cannot execute those proposals.","muted")
+    );
+    const agenticStatus=text("span","Execution disabled","owner-input-status");
+    agenticStatus.id="ownerAgenticStatus";
+    agenticHead.append(agenticCopy,agenticStatus);
+    const agenticBody=document.createElement("div");
+    agenticBody.className="owner-agentic-body";
+    agenticBody.id="ownerAgenticBody";
+    agentic.append(agenticHead,agenticBody);
+    shell.append(agentic);
+
