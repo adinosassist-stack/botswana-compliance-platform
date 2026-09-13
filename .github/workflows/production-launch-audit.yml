@@ -1,53 +1,63 @@
 name: Thebe Desk Phase 0 Production Launch Audit
-run-name: Phase 0 launch audit ${{ github.sha }}
+run-name: Phase 0 launch audit ${{ github.event.workflow_run.head_sha || inputs.expected_sha || github.sha }}
 
 on:
-  push:
-    branches: [main]
+  workflow_run:
+    workflows: ["Thebe Desk Production Deploy"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact deployed commit SHA to audit
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: thebe-desk-production-launch-audit
+  group: thebe-desk-production-launch-audit-${{ github.event.workflow_run.head_sha || inputs.expected_sha || github.sha }}
   cancel-in-progress: false
 
 jobs:
   audit:
-    name: Audit live Phase 0 beta readiness
-    if: contains(github.event.head_commit.message, '[launch-audit]')
+    name: Audit exact deployed Phase 0 build
+    if: >-
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main') ||
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     environment: production
     env:
+      EXPECTED_DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || inputs.expected_sha }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
 
     steps:
-      - name: Checkout exact audit authority
+      - name: Checkout exact deployed authority
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ env.EXPECTED_DEPLOY_SHA }}
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify exact current main SHA
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Verify exact deployment trigger and main ancestry
         shell: bash
         run: |
           set -euo pipefail
           target="$(git rev-parse HEAD)"
-          main_sha="$(
-            curl --fail-with-body --silent --show-error \
-              --header 'Accept: application/vnd.github+json' \
-              --header "Authorization: Bearer $GH_TOKEN" \
-              --header 'X-GitHub-Api-Version: 2022-11-28' \
-              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main" \
-            | python3 -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])'
-          )"
-          [[ "$target" == "$main_sha" ]] || { echo "refusing stale launch audit target=$target current-main=$main_sha" >&2; exit 1; }
+          [[ "$EXPECTED_DEPLOY_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid EXPECTED_DEPLOY_SHA=$EXPECTED_DEPLOY_SHA" >&2; exit 1; }
+          [[ "$target" == "$EXPECTED_DEPLOY_SHA" ]] || { echo "checkout mismatch target=$target expected=$EXPECTED_DEPLOY_SHA" >&2; exit 1; }
+          if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+            [[ "${{ github.event.workflow_run.conclusion }}" == "success" ]] || { echo 'refusing non-success deployment trigger' >&2; exit 1; }
+            [[ "${{ github.event.workflow_run.head_branch }}" == "main" ]] || { echo 'refusing non-main deployment trigger' >&2; exit 1; }
+            [[ "${{ github.event.workflow_run.head_sha }}" == "$target" ]] || { echo 'workflow_run SHA mismatch' >&2; exit 1; }
+          fi
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$target" origin/main || { echo "audit target is not reachable from current main" >&2; exit 1; }
           [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo 'checkout is not clean' >&2; exit 1; }
 
       - name: Setup pinned Node
@@ -65,19 +75,27 @@ jobs:
           [[ "$actual" == "$expected" ]] || { echo "npm mismatch expected=$expected actual=$actual" >&2; exit 1; }
           npm ci --ignore-scripts --no-audit --no-fund
 
-      - name: Focused authentication, role and AI regression audit
+      - name: Final UI, auth, workspace, SEO and security red-team
         shell: bash
         run: |
           set -euo pipefail
+          node tests/v82-final-build-redteam.mjs
+          node tests/ui-functionality-static.mjs
+          node tests/v78-12146-ui-runtime-wiring-adversarial.mjs
+          node tests/v78-home-navigation-adversarial.mjs
           node tests/v78-role-isolation-static.mjs
           node tests/v78-12114-role-api-adversarial.mjs
-          node tests/v78-ai-copilot-motion-security.mjs
-          node tests/v73-daily-operations-reporting-static.mjs
-          node tests/v74-performance-learning-static.mjs
-          node tests/v81-auth-workspace-selection-adversarial.mjs
+          node tests/v78-12116-seo-adversarial.mjs
+          node tests/v78-12116-seo-runtime.mjs
+          node tests/v78-12149-auth-input-runtime.mjs
+          node tests/v78-12152-tenant-deletion-purge-runtime.mjs
           node tests/v78-12162-password-reset-email-delivery-adversarial.mjs
+          node tests/v78-12179-request-encoding-abuse-runtime.mjs
           node tests/v78-12188-oauth-redirect-config-hardening-adversarial.mjs
           node tests/v78-12194-oauth-state-cookie-hardening-adversarial.mjs
+          node tests/v81-auth-workspace-selection-adversarial.mjs
+          node tests/v81-standalone-auth-role-preview-runtime.mjs
+          node tests/v82-whatsapp-owner-centre.mjs
 
       - name: Audit live production without creating customer data
         shell: bash
