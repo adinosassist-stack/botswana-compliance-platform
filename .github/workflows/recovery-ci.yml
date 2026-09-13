@@ -66,6 +66,28 @@ jobs:
           node tests/v82-whatsapp-prepare.mjs
           node tests/v82-whatsapp-owner-centre.mjs
 
+      - name: Final build red-team qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/v82-final-build-redteam.mjs
+          node tests/ui-functionality-static.mjs
+          node tests/v78-12146-ui-runtime-wiring-adversarial.mjs
+          node tests/v78-home-navigation-adversarial.mjs
+          node tests/v78-role-isolation-static.mjs
+          node tests/v78-12114-role-api-adversarial.mjs
+          node tests/v78-12116-seo-adversarial.mjs
+          node tests/v78-12116-seo-runtime.mjs
+          node tests/v78-12149-auth-input-runtime.mjs
+          node tests/v78-12152-tenant-deletion-purge-runtime.mjs
+          node tests/v78-12162-password-reset-email-delivery-adversarial.mjs
+          node tests/v78-12179-request-encoding-abuse-runtime.mjs
+          node tests/v78-12188-oauth-redirect-config-hardening-adversarial.mjs
+          node tests/v78-12194-oauth-state-cookie-hardening-adversarial.mjs
+          node tests/v81-auth-workspace-selection-adversarial.mjs
+          node tests/v81-standalone-auth-role-preview-runtime.mjs
+          node tests/v82-whatsapp-owner-centre.mjs
+
       - name: Production and historical regression qualification
         shell: bash
         run: |
