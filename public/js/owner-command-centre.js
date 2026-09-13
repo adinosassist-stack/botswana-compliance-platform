@@ -1,7 +1,7 @@
 (function initOwnerCommandCentre(global){
   "use strict";
 
-  const RELEASE="20260913b";
+  const RELEASE="20260913c";
   const MAX_OPPORTUNITIES=500;
   const MAX_CAMPAIGNS=50;
   const PROFILE_KEYS=Object.freeze({
@@ -19,6 +19,8 @@
   let latestStateEnvelope=null;
   let renderSeq=0;
   let stateWriteQueue=Promise.resolve();
+  let agenticLatestPlan=null;
+  let agenticBusy=false;
 
   const q=(selector,root=document)=>root.querySelector(selector);
   const num=value=>{
@@ -437,6 +439,200 @@
     };
   }
 
+  function agenticStatusNode(){return q("#ownerAgenticStatus")}
+
+  function agenticPolicyLabel(proposal){
+    if(proposal?.execution_policy==="prohibited_autonomy"||proposal?.executionPolicy==="prohibited_autonomy")return "Human-only · autonomy prohibited";
+    if(proposal?.authority==="approval_required")return "Approval required · no execution";
+    return "Recommendation only · no execution";
+  }
+
+  function agenticProposalTone(proposal){
+    const risk=String(proposal?.risk||"").toLowerCase();
+    return risk==="high"?"risk":risk==="low"?"positive":"neutral";
+  }
+
+  async function decideAgenticProposal(proposalId,decision){
+    const status=agenticStatusNode();
+    if(agenticBusy)return;
+    agenticBusy=true;
+    if(status)status.textContent=decision==="approve"?"Recording approval…":"Recording rejection…";
+    try{
+      const result=await request(`/api/agentic/proposals/${encodeURIComponent(proposalId)}/${decision}`,{
+        method:"POST",
+        body:"{}"
+      });
+      const nextStatus=String(result?.status||"");
+      if(agenticLatestPlan?.proposals){
+        const local=agenticLatestPlan.proposals.find(item=>String(item?.id||"")===String(proposalId));
+        if(local&&nextStatus)local.status=nextStatus;
+      }
+      if(status)status.textContent=result?.execution?.performed===false
+        ?"Decision recorded. No action was executed."
+        :"Decision recorded.";
+      await renderAgenticGovernance(false);
+    }catch(error){
+      if(status)status.textContent=String(error?.message||"Could not record decision").slice(0,180);
+    }finally{
+      agenticBusy=false;
+    }
+  }
+
+  function agenticProposalCard(proposal){
+    const card=document.createElement("article");
+    card.className="owner-agentic-proposal";
+    card.dataset.tone=agenticProposalTone(proposal);
+
+    const top=document.createElement("div");
+    top.className="owner-agentic-proposal-head";
+    const copy=document.createElement("div");
+    copy.append(
+      text("span",`Priority ${String(proposal?.priority||"medium")}`,"owner-agentic-kicker"),
+      text("h5",proposal?.title||"Governed recommendation")
+    );
+    const badges=document.createElement("div");
+    badges.className="owner-agentic-badges";
+    badges.append(
+      text("span",String(proposal?.risk||"medium").toUpperCase(),`owner-agentic-risk ${String(proposal?.risk||"medium")}`),
+      text("span",String(proposal?.status||"pending").toUpperCase(),`owner-agentic-status-badge ${String(proposal?.status||"pending")}`)
+    );
+    top.append(copy,badges);
+    card.append(top);
+
+    if(proposal?.reason)card.append(text("p",proposal.reason,"owner-agentic-reason"));
+    card.append(text("div",agenticPolicyLabel(proposal),"owner-agentic-policy"));
+
+    const refs=Array.isArray(proposal?.sourceRefs)?proposal.sourceRefs:[];
+    if(refs.length){
+      const sourceRow=document.createElement("div");
+      sourceRow.className="owner-agentic-sources";
+      refs.slice(0,8).forEach(ref=>sourceRow.append(text("span",ref,"owner-agentic-source")));
+      card.append(sourceRow);
+    }
+
+    if(String(proposal?.status||"pending")==="pending"){
+      const actions=document.createElement("div");
+      actions.className="owner-agentic-actions";
+      if(role()==="owner"){
+        actions.append(button("Record approval",()=>decideAgenticProposal(proposal.id,"approve"),"btn soft"));
+      }
+      if(["owner","manager"].includes(role())){
+        actions.append(button("Reject",()=>decideAgenticProposal(proposal.id,"reject"),"btn soft"));
+      }
+      if(actions.childNodes.length)card.append(actions);
+    }
+    return card;
+  }
+
+  function renderAgenticSnapshot(statusPayload,runsPayload){
+    const body=q("#ownerAgenticBody");
+    if(!body)return;
+    body.replaceChildren();
+
+    const controls=document.createElement("div");
+    controls.className="owner-agentic-controls";
+    const copy=document.createElement("div");
+    copy.append(
+      text("b","Governed planning is active."),
+      text("span","Thebe may observe, reason, simulate and recommend. Approval records intent for audit; it does not execute an action.")
+    );
+    const buttons=document.createElement("div");
+    buttons.className="owner-agentic-control-buttons";
+    if(["owner","manager"].includes(role())){
+      const generate=button(agenticBusy?"Generating…":"Generate governed plan",generateAgenticPlan,"btn");
+      generate.disabled=agenticBusy;
+      buttons.append(generate);
+    }
+    buttons.append(button("Refresh",()=>renderAgenticGovernance(true),"btn alt"));
+    controls.append(copy,buttons);
+    body.append(controls);
+
+    const boundary=document.createElement("div");
+    boundary.className="owner-agentic-boundary";
+    boundary.append(
+      text("span","Stage 1 · execution disabled","badge"),
+      text("span",`${Array.isArray(statusPayload?.prohibitedAutonomy)?statusPayload.prohibitedAutonomy.length:0} high-impact autonomy classes remain prohibited.`)
+    );
+    body.append(boundary);
+
+    const latestRun=agenticLatestPlan?.run||(Array.isArray(runsPayload?.items)?runsPayload.items[0]:null);
+    if(!latestRun){
+      body.append(text("div","No governed plan has been generated for this workspace yet. Generate one to turn current finance and operating signals into auditable proposals.","owner-command-empty"));
+      return;
+    }
+
+    const runCard=document.createElement("div");
+    runCard.className="owner-agentic-run";
+    const confidence=String(latestRun?.confidence||"medium");
+    const mode=String(latestRun?.generationMode||latestRun?.generation_mode||"governed").replaceAll("_"," ");
+    runCard.append(
+      text("span",`${confidence.toUpperCase()} confidence · ${mode}`,"owner-agentic-kicker"),
+      text("h4",latestRun?.goal||"Latest governed plan"),
+      text("p",latestRun?.summary||"Plan generated from current tenant-scoped business signals.")
+    );
+    body.append(runCard);
+
+    let proposals=[];
+    if(agenticLatestPlan?.run?.id===latestRun?.id&&Array.isArray(agenticLatestPlan?.proposals)){
+      proposals=agenticLatestPlan.proposals;
+    }else if(Array.isArray(runsPayload?.proposals)){
+      proposals=runsPayload.proposals.filter(item=>String(item?.run_id||"")===String(latestRun?.id||""));
+    }
+
+    const list=document.createElement("div");
+    list.className="owner-agentic-proposals";
+    if(proposals.length){
+      proposals.sort((a,b)=>Number(a?.ordinal||0)-Number(b?.ordinal||0)).forEach(item=>list.append(agenticProposalCard(item)));
+    }else{
+      list.append(text("div","This plan has no pending proposals. Thebe will remain conservative rather than manufacture an action.","owner-command-empty"));
+    }
+    body.append(list);
+  }
+
+  async function renderAgenticGovernance(force=false){
+    const body=q("#ownerAgenticBody");
+    if(!body)return;
+    if(force)agenticLatestPlan=null;
+    const status=agenticStatusNode();
+    if(status)status.textContent="Refreshing governed plan…";
+    try{
+      const [statusPayload,runsPayload]=await Promise.all([
+        request("/api/agentic/status"),
+        request("/api/agentic/runs")
+      ]);
+      renderAgenticSnapshot(statusPayload,runsPayload);
+      if(status)status.textContent="Execution remains disabled";
+    }catch(error){
+      body.replaceChildren(text(
+        "div",
+        "Governed planning is temporarily unavailable. No fallback action will be executed.",
+        "owner-command-empty"
+      ));
+      if(status)status.textContent=String(error?.message||"Agentic planning unavailable").slice(0,180);
+    }
+  }
+
+  async function generateAgenticPlan(){
+    if(agenticBusy)return;
+    agenticBusy=true;
+    const status=agenticStatusNode();
+    if(status)status.textContent="Observing business state and generating a governed plan…";
+    try{
+      agenticLatestPlan=await request("/api/agentic/plan",{
+        method:"POST",
+        body:JSON.stringify({goal:"Protect the business and identify the safest next actions from current authoritative workspace signals."})
+      });
+      if(status)status.textContent="Plan generated. Review proposals before recording any decision.";
+      await renderAgenticGovernance(false);
+    }catch(error){
+      if(status)status.textContent=String(error?.message||"Could not generate governed plan").slice(0,180);
+    }finally{
+      agenticBusy=false;
+      const buttonNode=q("#ownerAgenticBody .owner-agentic-control-buttons .btn");
+      if(buttonNode)buttonNode.disabled=false;
+    }
+  }
+
   function createShell(){
     const parent=q("#homeDecisionCenter");
     if(!parent)return null;
@@ -490,6 +686,26 @@
     simulation.id="ownerSimulationPanel";
     grid.append(actions,simulation);
     shell.append(grid);
+
+    const agentic=document.createElement("section");
+    agentic.className="owner-agentic-panel";
+    agentic.id="ownerAgenticPanel";
+    const agenticHead=document.createElement("div");
+    agenticHead.className="owner-agentic-head";
+    const agenticCopy=document.createElement("div");
+    agenticCopy.append(
+      text("div","Thebe AI · governed decisions","section-eyebrow"),
+      text("h4","Observe → reason → simulate → recommend → approve"),
+      text("p","Thebe can prepare auditable next-action proposals from tenant-scoped business data. Stage 1 cannot execute those proposals.","muted")
+    );
+    const agenticStatus=text("span","Execution disabled","owner-input-status");
+    agenticStatus.id="ownerAgenticStatus";
+    agenticHead.append(agenticCopy,agenticStatus);
+    const agenticBody=document.createElement("div");
+    agenticBody.className="owner-agentic-body";
+    agenticBody.id="ownerAgenticBody";
+    agentic.append(agenticHead,agenticBody);
+    shell.append(agentic);
 
     const salesDetails=document.createElement("details");
     salesDetails.className="owner-sales-workspace";
@@ -1657,6 +1873,7 @@
       renderSimulation(model);
       renderSalesWorkspace(inputs.company,sales);
       renderInputs(inputs);
+      await renderAgenticGovernance();
     }catch(error){
       if(seq!==renderSeq)return;
       const box=q("#ownerCommandSummary");
@@ -1720,6 +1937,8 @@
   global.ThebeOwnerCommandCentre=Object.freeze({
     release:RELEASE,
     refresh:()=>renderOwnerBrief(true),
-    openSales:openSalesWorkspace
+    openSales:openSalesWorkspace,
+    refreshAgentic:()=>renderAgenticGovernance(true),
+    generatePlan:generateAgenticPlan
   });
 })(window);
