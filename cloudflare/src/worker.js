@@ -1,4 +1,5 @@
 import {BOTSWANA_FOUNDATION_PACK_V1,BOTSWANA_FOUNDATION_PACK_V1_HASH} from "./generated/foundation-pack-v1.js";
+import {handleFinanceRequest} from "./finance-core.js";
 const APP_SECURITY_HEADERS=Object.freeze({
   "x-content-type-options":"nosniff",
   "x-frame-options":"DENY",
@@ -4614,11 +4615,11 @@ async function edgeScopedRateLimit(req,env,scope,subject=""){
   return result?.success===false?{ok:false,retryAfterSeconds:60}:{ok:true};
 }
 async function publicBearerRateLimit(req,env,scope,token){return edgeScopedRateLimit(req,env,scope,token)}
-const APP_RELEASE="v78.1.21.101";
-const EXPECTED_SCHEMA_DELTA="043_v78_session_inventory_hardening.sql";
+const APP_RELEASE="v79.0.0";
+const EXPECTED_SCHEMA_DELTA="044_v79_finance_reconciliation.sql";
 async function currentSchemaReady(env){
   if(!env.DB)return false;
-  try{await env.DB.prepare("SELECT 1 ok FROM executive_control_replacement_governance LIMIT 1").first();await env.DB.prepare("SELECT 1 ok FROM auth_rate_limits LIMIT 1").first();await env.DB.prepare("SELECT processing_token,processing_started_at FROM deletion_requests LIMIT 1").first();await env.DB.prepare("SELECT payment_order_id,processing_token,processing_started_at,processing_attempts FROM payment_events LIMIT 1").first();await env.DB.prepare("SELECT 1 ok FROM deletion_tombstones LIMIT 1").first();await env.DB.prepare("SELECT 1 ok FROM platform_scheduled_runs LIMIT 1").first();await env.DB.prepare("SELECT 1 ok FROM api_idempotency LIMIT 1").first();await env.DB.prepare("SELECT session_generation FROM users LIMIT 1").first();await env.DB.prepare("SELECT session_generation,public_id FROM sessions LIMIT 1").first();const revisionTrigger=await env.DB.prepare("SELECT 1 ok FROM sqlite_master WHERE type='trigger' AND name='daily_employee_reports_revision_snapshot' LIMIT 1").first();const revisionIndex=await env.DB.prepare("SELECT 1 ok FROM sqlite_master WHERE type='index' AND name='daily_report_revisions_report_revision_uq' LIMIT 1").first();return !!revisionTrigger&&!!revisionIndex}catch{return false}
+  try{await env.DB.prepare("SELECT 1 ok FROM finance_lineage LIMIT 1").first();await env.DB.prepare("SELECT 1 ok FROM executive_control_replacement_governance LIMIT 1").first();await env.DB.prepare("SELECT 1 ok FROM auth_rate_limits LIMIT 1").first();await env.DB.prepare("SELECT processing_token,processing_started_at FROM deletion_requests LIMIT 1").first();await env.DB.prepare("SELECT payment_order_id,processing_token,processing_started_at,processing_attempts FROM payment_events LIMIT 1").first();await env.DB.prepare("SELECT 1 ok FROM deletion_tombstones LIMIT 1").first();await env.DB.prepare("SELECT 1 ok FROM platform_scheduled_runs LIMIT 1").first();await env.DB.prepare("SELECT 1 ok FROM api_idempotency LIMIT 1").first();await env.DB.prepare("SELECT session_generation FROM users LIMIT 1").first();await env.DB.prepare("SELECT session_generation,public_id FROM sessions LIMIT 1").first();const revisionTrigger=await env.DB.prepare("SELECT 1 ok FROM sqlite_master WHERE type='trigger' AND name='daily_employee_reports_revision_snapshot' LIMIT 1").first();const revisionIndex=await env.DB.prepare("SELECT 1 ok FROM sqlite_master WHERE type='index' AND name='daily_report_revisions_report_revision_uq' LIMIT 1").first();return !!revisionTrigger&&!!revisionIndex}catch{return false}
 }
 function deploymentReadiness(env){
   const provider=String(env.PAYMENT_PROVIDER||"dpo").toLowerCase();
@@ -5223,6 +5224,8 @@ export default {
       if(req.method==="GET"&&!restrictedWorkspaceReadAllowed(url.pathname,a.role))return json({error:"workspace_role_read_forbidden"},403);
       if(!["GET","HEAD","OPTIONS"].includes(req.method)&&!restrictedWorkspaceMutationAllowed(url.pathname,req.method,a.role))return json({error:"workspace_role_mutation_forbidden"},403);
       if(!evidenceUploadsEnabled(env)&&evidenceMutationDisabled(url,req.method))return json({error:"evidence_uploads_temporarily_disabled",evidenceUploadsEnabled:false},503);
+      const financeResponse=await handleFinanceRequest({request:req,url,env,auth:a,json,readJson,id,writeAudit,roleAllowed,sha256Hex});
+      if(financeResponse)return financeResponse;
       if(url.pathname==="/api/auth/me"&&req.method==="GET")return json({user:{id:a.user_id,email:a.email,displayName:a.display_name,role:a.role,tenantId:a.tenant_id,tenantName:a.tenant_name,onboardingComplete:!!a.onboarding_complete},csrfToken:a.csrf_token});
 
       if(url.pathname==="/api/account/social"&&req.method==="GET"){

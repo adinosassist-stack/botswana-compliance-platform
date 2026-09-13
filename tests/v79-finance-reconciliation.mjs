@@ -1,0 +1,26 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import {__financeTest} from "../cloudflare/src/finance-core.js";
+
+assert.equal(__financeTest.validDate("2026-09-13"),true);
+assert.equal(__financeTest.validDate("2026-02-30"),false);
+assert.deepEqual(__financeTest.normalizeFinanceRow({postedOn:"2026-09-13",description:"Customer receipt",amountMinor:125050},0),{ok:true,row:{postedOn:"2026-09-13",description:"Customer receipt",reference:"",amountMinor:125050}});
+assert.equal(__financeTest.normalizeFinanceRow({postedOn:"2026-09-13",description:"",amountMinor:10},2).error,"description_required");
+assert.equal(__financeTest.normalizeFinanceRow({postedOn:"2026-09-13",description:"Invalid float",amountMinor:10.5},3).error,"invalid_amount_minor");
+assert.equal(__financeTest.ACCOUNT_TYPES.has("bank"),true);
+assert.equal(__financeTest.SOURCE_TYPES.has("adapter"),true);
+assert.equal(__financeTest.MAX_IMPORT_ROWS,1000);
+const migration=fs.readFileSync("cloudflare/migrations/044_v79_finance_reconciliation.sql","utf8");
+for(const table of ["finance_accounts","finance_import_batches","finance_transactions","finance_reconciliation_runs","finance_lineage"])assert.match(migration,new RegExp("CREATE TABLE IF NOT EXISTS "+table));
+assert.match(migration,/amount_minor INTEGER NOT NULL CHECK\(amount_minor<>0\)/);
+assert.match(migration,/currency TEXT NOT NULL DEFAULT 'BWP' CHECK\(currency='BWP'\)/);
+assert.match(migration,/UNIQUE\(tenant_id,idempotency_key\)/);
+assert.match(migration,/UNIQUE\(tenant_id,sequence\)/);
+const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
+assert.match(worker,/handleFinanceRequest/);
+assert.match(worker,/044_v79_finance_reconciliation\.sql/);
+assert.match(worker,/SELECT 1 ok FROM finance_lineage/);
+const owner=fs.readFileSync("public/js/owner-command-centre.js","utf8");
+assert.match(owner,/\/api\/finance\/summary/);
+assert.match(owner,/Canonical finance ledger/);
+console.log("v79 finance reconciliation static and normalization tests passed");
