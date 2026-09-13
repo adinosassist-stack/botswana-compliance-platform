@@ -21,13 +21,14 @@ assert.deepEqual(__financeConnectionTest.connectionActionPath("/api/finance/conn
 assert.deepEqual(__financeConnectionTest.connectionSyncRunsPath("/api/finance/connections/c1/sync-runs"),{connectionId:"c1"});
 
 const migration=fs.readFileSync("cloudflare/migrations/047_v81_finance_connections.sql","utf8");
-for(const table of ["finance_connections","finance_connection_sync_runs"])assert.match(migration,new RegExp("CREATE TABLE IF NOT EXISTS "+table));
-assert.match(migration,/read_only INTEGER NOT NULL DEFAULT 1 CHECK\(read_only=1\)/);
-assert.match(migration,/credential_storage TEXT NOT NULL DEFAULT 'external' CHECK\(credential_storage='external'\)/);
-assert.match(migration,/secret_material_stored INTEGER NOT NULL DEFAULT 0 CHECK\(secret_material_stored=0\)/);
-assert.doesNotMatch(migration,/access_token|refresh_token|client_secret|password|api_key/i);
-assert.match(migration,/FOREIGN KEY\(finance_account_id\) REFERENCES finance_accounts\(id\) ON DELETE RESTRICT/);
-assert.match(migration,/UNIQUE\(tenant_id,idempotency_key\)/);
+const ddl=migration.split("\n").filter(line=>!line.trim().startsWith("--")).join("\n");
+for(const table of ["finance_connections","finance_connection_sync_runs"])assert.match(ddl,new RegExp("CREATE TABLE IF NOT EXISTS "+table));
+assert.match(ddl,/read_only INTEGER NOT NULL DEFAULT 1 CHECK\(read_only=1\)/);
+assert.match(ddl,/credential_storage TEXT NOT NULL DEFAULT 'external' CHECK\(credential_storage='external'\)/);
+assert.match(ddl,/secret_material_stored INTEGER NOT NULL DEFAULT 0 CHECK\(secret_material_stored=0\)/);
+assert.doesNotMatch(ddl,/access_token|refresh_token|client_secret|password|api_key/i);
+assert.match(ddl,/FOREIGN KEY\(finance_account_id\) REFERENCES finance_accounts\(id\) ON DELETE RESTRICT/);
+assert.match(ddl,/UNIQUE\(tenant_id,idempotency_key\)/);
 
 const finance=fs.readFileSync("cloudflare/src/finance-core.js","utf8");
 assert.match(finance,/finance_connection_secret_material_forbidden/);
