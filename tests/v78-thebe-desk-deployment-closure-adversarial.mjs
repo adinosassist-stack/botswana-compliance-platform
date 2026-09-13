@@ -4,6 +4,7 @@ const worker=read('cloudflare/src/worker.js');
 const wrangler=read('cloudflare/wrangler.toml');
 const productionEntry=read('cloudflare/src/production-entry.js');
 const ownerBrief=read('public/js/owner-command-centre.js');
+const ownerBriefCompact=ownerBrief.replace(/\s+/g,'');
 const ownerBriefCss=read('public/assets/owner-command-centre.css');
 const cloudflareReadme=read('cloudflare/README.md');
 const renderer=read('cloudflare/render-production-config.sh');
@@ -12,6 +13,7 @@ const deploy=read('cloudflare/deploy-free.sh');
 const productionDeploy=read('.github/workflows/deploy-production.yml');
 const bf07Workflow=read('.github/workflows/bf07-seal.yml');
 const provenanceCore=read('scripts/bf07-provenance-core.mjs');
+const projectedState=worker.slice(worker.indexOf('function projectWorkspaceStateForRole'),worker.indexOf('function mergeManagerWorkspaceState'));
 let pass=0;const ok=(c,m)=>{if(!c)throw new Error('FAIL: '+m);pass++;console.log('PASS',m)};
 
 const requiredSecrets=['SESSION_SECRET','AUDIT_INTEGRITY_SECRET','OPERATIONS_SECRET','AUTOMATION_SECRET','TURNSTILE_SECRET_KEY','PAYMENT_WEBHOOK_SECRET','BILLING_WEBHOOK_SECRET','GOOGLE_OAUTH_CLIENT_SECRET','FACEBOOK_APP_SECRET','RESEND_API_KEY'];
@@ -35,7 +37,7 @@ ok(!deploy.includes('Configure PLATFORM_ADMIN_EMAILS, PLATFORM_REGULATORY_REVIEW
 ok(bf07Workflow.includes('push:')&&bf07Workflow.includes('branches: [main]')&&bf07Workflow.includes("contains(github.event.head_commit.message, '[deploy]')"), 'automatic BF-07 release sealing is restricted to explicit [deploy] commits on main');
 ok(bf07Workflow.includes('EXPECTED_SHA: ${{ inputs.expected_sha }}')&&bf07Workflow.includes('[[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]')&&bf07Workflow.includes('[[ "$EXPECTED_SHA" == "$GITHUB_SHA" ]]')&&bf07Workflow.includes('dispatch SHA mismatch'), 'manual BF-07 release path preserves explicit full-SHA confirmation');
 ok(bf07Workflow.includes('[[ "$GITHUB_REF" == \'refs/heads/main\' ]]')&&bf07Workflow.includes('[[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]'), 'automatic BF-07 release path binds the explicit main release marker to the exact pushed SHA');
-ok(productionDeploy.includes('workflows: ["BF-07 Supply-Chain Seal"]')&&productionDeploy.includes("recovery-ci.yml")&&productionDeploy.includes("bf07-seal.yml"), 'production automation requires exact-SHA qualification by both Recovery CI and BF-07');
+ok(productionDeploy.includes('workflows: ["BF-07 Supply-Chain Seal"]')&&productionDeploy.includes('recovery-ci.yml')&&productionDeploy.includes('bf07-seal.yml'), 'production automation requires exact-SHA qualification by both Recovery CI and BF-07');
 ok(productionDeploy.includes("await successful('recovery-ci.yml', 'Recovery CI', {wait: eventName === 'workflow_run'})")&&productionDeploy.includes('await sleep(10_000)'), 'automatic production promotion waits boundedly for exact-SHA Recovery CI to finish');
 ok(productionDeploy.includes('refusing stale/non-main deploy')&&productionDeploy.includes('git rev-parse origin/main'), 'production automation refuses stale or non-main deployment targets');
 ok(productionDeploy.includes('actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c')&&productionDeploy.includes('name: bf07-sealed-${{ env.TARGET_SHA }}')&&productionDeploy.includes('run-id: ${{ steps.qualification.outputs.bf07_run_id }}')&&productionDeploy.includes('bf07_run_id=${bf07Run.id}'), 'production automation restores sealed BF-07 evidence from the exact qualified workflow run');
@@ -64,14 +66,28 @@ ok(ownerBrief.includes('Business owner brief')&&ownerBrief.includes('What needs 
 ok(ownerBrief.includes('/api/daily-reporting/performance?date=')&&ownerBrief.includes('request("/api/state")'), 'owner brief uses authoritative performance intelligence plus tenant workspace state');
 ok(worker.includes('if(url.pathname==="/api/daily-reporting/performance"&&req.method==="GET")')&&worker.includes('performanceIntelligenceView(env,a.tenant_id,reportDate,locationId)'), 'owner performance source remains tenant-scoped server intelligence');
 ok(ownerBrief.includes('baseline7')&&ownerBrief.includes('baseline30')&&ownerBrief.includes('sampleDays'), 'owner brief compares recent location run-rate with learned historical baselines');
-ok(['decisionMonthlyRevenueTargetBwp','decisionCurrentCashBwp','decisionMinimumCashBufferBwp','decisionMonthlyCashOutflowsBwp','decisionMonthlyLabourCostBwp','decisionPlannedPurchaseBwp','decisionOperatingDaysPerMonth'].every(k=>ownerBrief.includes(k)), 'owner brief keeps financial targets and scenario assumptions explicit rather than inferred');
+ok(['decisionMonthlyRevenueTargetBwp','decisionCurrentCashBwp','decisionMinimumCashBufferBwp','decisionMonthlyCashOutflowsBwp','decisionMonthlyLabourCostBwp','decisionPlannedPurchaseBwp','decisionOperatingDaysPerMonth','decisionSameMonthCollectionPct'].every(k=>ownerBrief.includes(k)), 'owner brief keeps financial targets and scenario assumptions explicit rather than inferred');
 ok(ownerBrief.includes('Owner-entered financial assumptions')&&ownerBrief.includes('Transparent Thebe projection')&&ownerBrief.includes('historical reporting day'), 'owner brief visually distinguishes reported facts, owner inputs and projections');
-ok(ownerBrief.includes('will not substitute missing data with invented advice')&&ownerBrief.includes('sales-pipeline layer is still needed before it can truthfully name dormant quotations, conversion rates or campaign reallocations'), 'owner brief fails closed against fabricated business recommendations');
-ok(ownerBrief.includes('currentCash+projectedMonthlyRevenue-outflows-(purchase||0)')&&ownerBrief.includes('monthEndAfter=monthEndBefore!==null&&purchase?monthEndBefore+purchase:monthEndBefore'), 'cash simulation exposes deterministic before/after purchase impact');
-ok(ownerBrief.includes('canView=()=>["owner","manager"].includes(role())')&&ownerBrief.includes('canEdit=()=>role()==="owner"'), 'owner command centre preserves management visibility and owner-only assumption editing');
-ok(ownerBrief.includes('request("/api/state",{method:"PUT"')&&ownerBrief.includes('version:latestStateEnvelope.version'), 'owner assumptions persist through the versioned tenant state boundary');
-ok(!ownerBrief.includes('.innerHTML=')&&!ownerBrief.includes('.outerHTML='), 'owner command centre avoids direct unsafe HTML assignment');
-ok(ownerBriefCss.includes('.owner-command-centre')&&ownerBriefCss.includes('@media(max-width:700px)')&&ownerBriefCss.includes('.owner-sim-comparison'), 'owner command centre has dedicated responsive decision and simulation styling');
+ok(ownerBrief.includes('will not substitute missing data with invented advice')&&ownerBrief.includes('No decision threshold is currently strong enough for a specific financial recommendation'), 'owner brief fails closed instead of manufacturing recommendations');
+ok(ownerBriefCompact.includes('currentCash+projectedMonthlyRevenue-outflows-(purchase||0)')&&ownerBriefCompact.includes('recommendedCashImpact=purchaseDelayImpact+(salesCashImpact||0)')&&ownerBriefCompact.includes('monthEndAfter=monthEndBefore!==null?monthEndBefore+recommendedCashImpact:null'), 'cash simulation exposes deterministic purchase and sales scenario impact');
+ok(ownerBriefCompact.includes('constcanView=()=>["owner","manager"].includes(role())')&&ownerBriefCompact.includes('constcanEdit=()=>role()=="owner"')&&ownerBriefCompact.includes('constcanEditSales=()=>["owner","manager"].includes(role())'), 'owner command centre preserves management visibility, owner-only financial assumptions and owner-manager sales editing');
+ok(ownerBriefCompact.includes('request("/api/state",{method:"PUT"')&&ownerBriefCompact.includes('version:latestStateEnvelope.version'), 'owner assumptions and sales records persist through the versioned tenant state boundary');
+ok(!ownerBrief.includes('.innerHTML=')&&!ownerBrief.includes('.outerHTML=')&&!/\bfetch\s*\(/.test(ownerBrief), 'owner command centre avoids direct unsafe HTML assignment and raw API transport');
+ok(ownerBriefCss.includes('.owner-command-centre')&&ownerBriefCss.includes('@media(max-width:700px)')&&ownerBriefCss.includes('.owner-sim-comparison')&&ownerBriefCss.includes('.owner-sales-workspace'), 'owner command centre has dedicated responsive decision, simulation and sales styling');
+
+// Sales intelligence: recorded commercial evidence must drive conversion, dormant-quote and campaign recommendations.
+ok(ownerBriefCompact.includes('constMAX_OPPORTUNITIES=500')&&ownerBriefCompact.includes('constMAX_CAMPAIGNS=50'), 'sales layer has bounded per-company record limits');
+ok(ownerBrief.includes('salesIntelligence')&&ownerBrief.includes('opportunities')&&ownerBrief.includes('campaigns'), 'sales layer persists quotations and campaigns inside company-scoped tenant state');
+ok(ownerBrief.includes('function conversionForPeriod')&&ownerBriefCompact.includes('row.status==="won"||row.status==="lost"')&&ownerBriefCompact.includes('resolved.length?won.length/resolved.length*100:null'), 'conversion uses only resolved won/lost quotation cohorts and excludes open quotes');
+ok(ownerBriefCompact.includes('currentStart=addDays(date,-(windowDays-1))')&&ownerBriefCompact.includes('previousStart=addDays(previousEnd,-(windowDays-1))')&&ownerBriefCompact.includes('cur.resolved>=3&&prev.resolved>=3'), 'location conversion comparison uses consecutive 30-day cohorts and minimum resolved evidence');
+ok(ownerBrief.includes('dormantDays')&&ownerBriefCompact.includes('daysSince(row.lastContactAt||row.quotedAt,date)')&&ownerBrief.includes('dormantValue'), 'dormant quotation detection is based on recorded follow-up age and quote value');
+ok(ownerBrief.includes('Follow up ${model.sales.dormantCount} dormant quotation')&&ownerBrief.includes('recoveryRateSource'), 'dormant follow-up recommendation exposes its recovery-rate basis');
+ok(ownerBriefCompact.includes('best.roas>=worst.roas*1.25')&&ownerBriefCompact.includes('Math.min(worst.monthlySpendBwp*.25,worst.monthlySpendBwp)')&&ownerBriefCompact.includes('incrementalRevenue:move*(best.roas-worst.roas)'), 'campaign reallocation requires material ROAS separation and models a bounded 25% shift');
+ok(ownerBrief.includes('Move ${money(shift.move)} of monthly spend from ${shift.worst.name} to ${shift.best.name}')&&ownerBrief.includes('each with at least three resolved quotations'), 'campaign recommendation names exact spend movement only after evidence threshold');
+ok(ownerBrief.toLowerCase().includes('same-month collection')&&ownerBrief.includes('salesRevenueScenario')&&ownerBrief.includes('salesCashImpact'), 'sales-to-cash simulation requires an explicit collection assumption');
+ok(ownerBrief.includes('Do not enter phone numbers, identity numbers, banking details or other sensitive personal data'), 'sales capture explicitly minimizes unnecessary customer personal data');
+ok(ownerBrief.includes('Sales intelligence & quotations')&&ownerBrief.includes('Add quotation / opportunity')&&ownerBrief.includes('Campaign economics')&&ownerBrief.includes('Recent quotations')&&ownerBrief.includes('Campaign performance'), 'sales workspace supports quotation capture, follow-up and campaign review');
+ok(!projectedState.includes('salesIntelligence')&&ownerBriefCompact.includes('if(!canView()){shell.hidden=true;return;}'), 'reviewer/auditor state projection and owner brief visibility do not expose sales records');
 try{new Function(ownerBrief);ok(true,'owner command centre browser asset parses as JavaScript')}catch(error){ok(false,`owner command centre browser asset syntax error: ${error.message}`)}
 
 ok(wrangler.includes('MAX_UPLOAD_MB = "3.5"'), 'deployment metadata retains the bounded evidence cap for future scanner qualification');
