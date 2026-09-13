@@ -10,6 +10,7 @@ function fail(message){throw new Error(`Phase 0 production launch audit failed: 
 function safe(value){return String(value||'').replace(/[\u0000-\u001f\u007f]+/g,' ').replace(/\s+/g,' ').slice(0,400)}
 function assert(condition,message){if(!condition)fail(message)}
 function mark(label,ok,detail=''){console.log(`${ok?'PASS':'MISSING'} ${label}${detail?`: ${detail}`:''}`)}
+function deferred(label,detail=''){console.log(`DEFERRED ${label}${detail?`: ${detail}`:''}`)}
 
 assert(token,'CLOUDFLARE_API_TOKEN is empty');
 assert(/^[0-9a-fA-F]{32}$/.test(accountId),'CLOUDFLARE_ACCOUNT_ID is invalid');
@@ -146,28 +147,51 @@ for(const [provider,cfg] of Object.entries(expectedOauth)){
   const client=bindingValue(byName.get(cfg.client));
   const redirect=bindingValue(byName.get(cfg.redirect));
   const hasSecret=await secretExists(cfg.secret);
-  if(!client)integrationProblems.push(`${provider}: ${cfg.client} missing`);
-  if(redirect!==cfg.callback)integrationProblems.push(`${provider}: ${cfg.redirect} must equal ${cfg.callback}`);
-  if(!hasSecret)integrationProblems.push(`${provider}: ${cfg.secret} missing`);
+  const hasClient=!!client;
+  const hasRedirect=!!redirect;
+  const anyConfigured=hasClient||hasRedirect||hasSecret;
 
+  if(!anyConfigured){
+    let failClosed=false;
+    try{
+      const response=await publicFetch(`/api/auth/oauth/${provider}/start`,{redirect:'manual'});
+      failClosed=response.status===503;
+      if(!failClosed)integrationProblems.push(`${provider}: deferred OAuth start must fail closed with HTTP 503, got HTTP ${response.status}`);
+    }catch(e){integrationProblems.push(`${provider}: deferred OAuth fail-closed probe failed ${safe(e?.message||e)}`)}
+    if(failClosed)deferred(`${provider} OAuth`,'fully absent and runtime start fails closed with HTTP 503');
+    continue;
+  }
+
+  if(!hasClient)integrationProblems.push(`${provider}: ${cfg.client} missing while provider is partially configured`);
+  if(redirect!==cfg.callback)integrationProblems.push(`${provider}: ${cfg.redirect} must equal ${cfg.callback} when provider is configured`);
+  if(!hasSecret)integrationProblems.push(`${provider}: ${cfg.secret} missing while provider is partially configured`);
+
+  const structurallyReady=hasClient&&redirect===cfg.callback&&hasSecret;
   let runtimeOk=false;
-  try{
-    const response=await publicFetch(`/api/auth/oauth/${provider}/start`,{redirect:'manual'});
-    const location=String(response.headers.get('location')||'');
-    if(response.status>=300&&response.status<400&&location){
-      const u=new URL(location);runtimeOk=u.protocol==='https:'&&u.hostname===cfg.host;
-    }
-    if(!runtimeOk)integrationProblems.push(`${provider}: runtime OAuth start did not redirect to ${cfg.host} (HTTP ${response.status})`);
-  }catch(e){integrationProblems.push(`${provider}: runtime OAuth probe failed ${safe(e?.message||e)}`)}
-  mark(`${provider} OAuth`,!integrationProblems.some(x=>x.startsWith(`${provider}:`)),runtimeOk?'provider redirect verified':'not ready');
+  if(structurallyReady){
+    try{
+      const response=await publicFetch(`/api/auth/oauth/${provider}/start`,{redirect:'manual'});
+      const location=String(response.headers.get('location')||'');
+      if(response.status>=300&&response.status<400&&location){
+        const u=new URL(location);runtimeOk=u.protocol==='https:'&&u.hostname===cfg.host;
+      }
+      if(!runtimeOk)integrationProblems.push(`${provider}: runtime OAuth start did not redirect to ${cfg.host} (HTTP ${response.status})`);
+    }catch(e){integrationProblems.push(`${provider}: runtime OAuth probe failed ${safe(e?.message||e)}`)}
+  }
+  mark(`${provider} OAuth`,structurallyReady&&runtimeOk,structurallyReady&&runtimeOk?'provider redirect verified':'partially configured or runtime verification failed');
 }
 
 const resendSecret=await secretExists('RESEND_API_KEY');
 const emailFrom=bindingValue(byName.get('EMAIL_FROM'));
-const emailFromSafe=!!emailFrom&&!/example\.invalid|example\.com|REPLACE_WITH/i.test(emailFrom)&&emailFrom.includes('@');
-if(!resendSecret)integrationProblems.push('email: RESEND_API_KEY missing');
-if(!emailFromSafe)integrationProblems.push('email: EMAIL_FROM missing or placeholder');
-mark('password-reset email configuration',resendSecret&&emailFromSafe,resendSecret&&emailFromSafe?'Resend secret + sender present':'not ready');
+const hasEmailFrom=!!emailFrom;
+const emailFromSafe=hasEmailFrom&&!/example\.invalid|example\.com|REPLACE_WITH/i.test(emailFrom)&&emailFrom.includes('@');
+if(!resendSecret&&!hasEmailFrom){
+  deferred('password-reset email','RESEND_API_KEY and EMAIL_FROM fully absent');
+}else{
+  if(!resendSecret)integrationProblems.push('email: RESEND_API_KEY missing while transactional email is partially configured');
+  if(!emailFromSafe)integrationProblems.push('email: EMAIL_FROM missing, malformed, or placeholder while transactional email is partially configured');
+  mark('password-reset email configuration',resendSecret&&emailFromSafe,resendSecret&&emailFromSafe?'Resend secret + sender present':'partially configured');
+}
 
 const inventoryTables=['users','tenants','memberships','operating_locations','employees','daily_employee_reports'];
 const countEntries=[];
@@ -183,5 +207,5 @@ if(integrationProblems.length){
   for(const problem of integrationProblems)console.error(`- ${problem}`);
   process.exitCode=2;
 }else{
-  console.log('LAUNCH_INTEGRATIONS_READY Google OAuth + Facebook OAuth + Resend sender configuration present and runtime OAuth starts verified');
+  console.log('LAUNCH_INTEGRATIONS_READY_OR_DEFERRED configured integrations verified; deferred integrations remain fully absent and fail closed');
 }
