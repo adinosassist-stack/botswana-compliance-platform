@@ -4618,7 +4618,7 @@ async function edgeScopedRateLimit(req,env,scope,subject=""){
   return result?.success===false?{ok:false,retryAfterSeconds:60}:{ok:true};
 }
 async function publicBearerRateLimit(req,env,scope,token){return edgeScopedRateLimit(req,env,scope,token)}
-const APP_RELEASE="v79.1.0";
+const APP_RELEASE="v78.1.21.101";
 const EXPECTED_SCHEMA_DELTA="044_v79_finance_reconciliation.sql";
 async function currentSchemaReady(env){
   if(!env.DB)return false;
