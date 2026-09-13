@@ -91,29 +91,38 @@ function stripConflictingMetaCsp(html){
   return String(html||"").replace(META_CSP_RE,"");
 }
 
+function injectBeforeFinalClosingTag(html,tag,markup){
+  const source=String(html||"");
+  const closing=`</${String(tag||"").toLowerCase()}>`;
+  const index=source.toLowerCase().lastIndexOf(closing);
+  if(index<0)return source;
+  return source.slice(0,index)+String(markup||"")+source.slice(index);
+}
+
 function injectLogoFavicon(html){
   const source=String(html||"");
-  if(!/<\/head>/i.test(source))return source;
+  if(!source.toLowerCase().includes("</head>"))return source;
   const withoutOldIcons=source.replace(ICON_LINK_RE,"");
   const faviconMarkup=`<link rel="icon" type="image/png" sizes="512x512" href="${THEBE_LOGO_FAVICON}" />\n<link rel="apple-touch-icon" href="${THEBE_LOGO_FAVICON}" />\n`;
-  return withoutOldIcons.replace(/<\/head>/i,`${faviconMarkup}</head>`);
+  return injectBeforeFinalClosingTag(withoutOldIcons,"head",faviconMarkup);
 }
 
 function injectOwnerCommandCentreAssets(html){
   let source=String(html||"");
-  if(!/<\/head>/i.test(source)||!/<\/body>/i.test(source))return source;
+  const lower=source.toLowerCase();
+  if(!lower.includes("</head>")||!lower.includes("</body>"))return source;
   const cssHref=`/assets/owner-command-centre.css?v=${OWNER_COMMAND_CENTRE_RELEASE}`;
   const jsSrc=`/js/owner-command-centre.js?v=${OWNER_COMMAND_CENTRE_RELEASE}`;
   const personalizationCssHref=`/assets/executive-personalization.css?v=${EXECUTIVE_PERSONALIZATION_RELEASE}`;
   const personalizationJsSrc=`/js/executive-personalization.js?v=${EXECUTIVE_PERSONALIZATION_RELEASE}`;
   const bridgeCssHref=`/assets/business-data-bridge.css?v=${BUSINESS_DATA_BRIDGE_RELEASE}`;
   const bridgeJsSrc=`/js/business-data-bridge.js?v=${BUSINESS_DATA_BRIDGE_RELEASE}`;
-  if(!source.includes("/assets/owner-command-centre.css"))source=source.replace(/<\/head>/i,`<link rel="stylesheet" href="${cssHref}" />\n</head>`);
-  if(!source.includes("/assets/executive-personalization.css"))source=source.replace(/<\/head>/i,`<link rel="stylesheet" href="${personalizationCssHref}" />\n</head>`);
-  if(!source.includes("/assets/business-data-bridge.css"))source=source.replace(/<\/head>/i,`<link rel="stylesheet" href="${bridgeCssHref}" />\n</head>`);
-  if(!source.includes("/js/owner-command-centre.js"))source=source.replace(/<\/body>/i,`<script src="${jsSrc}" defer></script>\n</body>`);
-  if(!source.includes("/js/executive-personalization.js"))source=source.replace(/<\/body>/i,`<script src="${personalizationJsSrc}" defer></script>\n</body>`);
-  if(!source.includes("/js/business-data-bridge.js"))source=source.replace(/<\/body>/i,`<script src="${bridgeJsSrc}" defer></script>\n</body>`);
+  if(!source.includes("/assets/owner-command-centre.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${cssHref}" />\n`);
+  if(!source.includes("/assets/executive-personalization.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${personalizationCssHref}" />\n`);
+  if(!source.includes("/assets/business-data-bridge.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${bridgeCssHref}" />\n`);
+  if(!source.includes("/js/owner-command-centre.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${jsSrc}" defer></script>\n`);
+  if(!source.includes("/js/executive-personalization.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${personalizationJsSrc}" defer></script>\n`);
+  if(!source.includes("/js/business-data-bridge.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${bridgeJsSrc}" defer></script>\n`);
   return source;
 }
 
