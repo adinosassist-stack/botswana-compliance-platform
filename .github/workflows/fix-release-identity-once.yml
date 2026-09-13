@@ -28,16 +28,16 @@ jobs:
           const fs = require('fs');
           const path = 'cloudflare/src/worker.js';
           const before = fs.readFileSync(path, 'utf8');
-          const from = 'const APP_RELEASE = "v79.1.0";';
-          const to = 'const APP_RELEASE = "v78.1.21.101";';
+          const from = 'const APP_RELEASE="v79.1.0";';
+          const to = 'const APP_RELEASE="v78.1.21.101";';
           const count = before.split(from).length - 1;
           if (count !== 1) throw new Error(`expected exactly one stale APP_RELEASE, found ${count}`);
           fs.writeFileSync(path, before.replace(from, to));
           NODE
           rm .github/workflows/fix-release-identity-once.yml
           git diff --check
-          grep -F 'const APP_RELEASE = "v78.1.21.101";' cloudflare/src/worker.js
-          ! grep -F 'const APP_RELEASE = "v79.1.0";' cloudflare/src/worker.js
+          grep -F 'const APP_RELEASE="v78.1.21.101";' cloudflare/src/worker.js
+          ! grep -F 'const APP_RELEASE="v79.1.0";' cloudflare/src/worker.js
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add cloudflare/src/worker.js .github/workflows/fix-release-identity-once.yml
