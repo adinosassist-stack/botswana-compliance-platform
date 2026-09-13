@@ -4,14 +4,15 @@ import {__agenticFoundationTest} from '../cloudflare/src/agentic-core.js';
 import {logicalRequestPath} from '../cloudflare/src/agentic-entry.js';
 
 const core=fs.readFileSync(new URL('../cloudflare/src/agentic-core.js',import.meta.url),'utf8');
-const entry=fs.readFileSync(new URL('../cloudflare/src/agentic-entry.js',import.meta.url),'utf8');
+const productionEntry=fs.readFileSync(new URL('../cloudflare/src/production-entry.js',import.meta.url),'utf8');
 const migration=fs.readFileSync(new URL('../cloudflare/migrations/045_v80_agentic_foundation.sql',import.meta.url),'utf8');
 const wrangler=fs.readFileSync(new URL('../cloudflare/wrangler.toml',import.meta.url),'utf8');
 let checks=0;const ok=(value,message)=>{assert.ok(value,message);checks++};
 
-ok(wrangler.includes('main = "src/agentic-entry.js"'),'Cloudflare uses the governed agentic wrapper');
-ok(entry.includes('handleAgenticRequest'),'entrypoint invokes agentic router');
-ok(entry.includes('return base.fetch(request,env,ctx)'),'non-agentic traffic preserves hardened production entry');
+ok(wrangler.includes('main = "src/production-entry.js"'),'canonical hardened production entrypoint remains authoritative');
+ok(productionEntry.includes('import {handleAgenticRequest} from "./agentic-core.js"'),'production boundary imports governed agentic router');
+ok(productionEntry.includes('const agenticResponse=await handleAgenticRequest'),'production boundary invokes agentic router before base worker dispatch');
+ok(productionEntry.includes('worker.fetch(request,env,ctx)'),'non-agentic traffic still delegates to hardened base Worker');
 ok(logicalRequestPath(new Request('https://thebedesk.com/api/agentic/status'))==='/api/agentic/status','direct agentic path normalizes');
 ok(logicalRequestPath(new Request('https://thebedesk.com/?__thebe_api_path=%2Fapi%2Fagentic%2Fplan'))==='/api/agentic/plan','tunneled agentic path normalizes');
 
