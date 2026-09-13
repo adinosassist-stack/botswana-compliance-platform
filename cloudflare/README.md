@@ -61,7 +61,13 @@ The endpoint sends only a bounded whitelist of workspace facts to the configured
 
 The default model remains `@cf/zai-org/glm-4.7-flash` and can be changed with `AI_ADVISOR_MODEL`. A Workers AI run costs six application credits, respects the existing monthly hard stops, is limited to ten completed/fallback tenant runs per minute, and refunds the correct wallet or partner pool on provider/output failure. If no AI binding is configured, the endpoint returns a clearly labelled deterministic workspace fallback without charging credits.
 
-The current V78 deployable Worker requires the **schema state represented by `schema.sql` and upgrade delta `migrations/044_v79_finance_reconciliation.sql`**. For a brand-new D1 database, load the current `schema.sql`. For an existing database, back up first and apply only the pending release migrations through 044. Do not replay migration 001 against a fresh database; the migration chain starts from an older baseline. Migration 020 is only the start of the current v78 upgrade chain and is not the final schema. The deployed `/api/ready` endpoint checks the current schema probe before reporting ready. See `../docs/LAUNCH.md` for the current launch gate and `../V78_AI_COPILOT_AND_MOTION.md` for the original v78 AI data boundaries.
+The current Cloudflare profile requires the finance, governed-agentic and delegated-authority schema chain. For a brand-new D1 database, load the current `schema.sql`, which represents the consolidated schema through migration 046, then apply `migrations/047_v81_delegated_authority.sql`. For an existing database, back up first and apply only pending numbered migrations in order through 047. Do not replay migration 001 against a fresh database; the migration chain starts from an older baseline. The delegated-authority migration is governance/telemetry only and does **not** enable autonomous execution. See `../docs/LAUNCH.md` and `../V81_AGENTIC_BUSINESS_OS.md`.
+
+## V81 delegated authority — shadow only
+
+The V81 authority layer lets an owner define tenant-scoped, action-specific limits for future bounded agent work and lets the system record whether a proposed action would pass those limits. The D1 schema hard-locks these grants and action intents to shadow mode.
+
+The authority API does not contain an external-action execution route. Payments, government/statutory filings, signatures, employment termination, financing acceptance and journal posting remain human-only. Strong-auth integration for delegated external side effects is not live yet, so those evaluations fail closed instead of trusting a browser/client header. A future real-execution release requires a new migration, explicit release flag, compensating-action design, end-to-end provider validation and fresh adversarial review.
 
 ## WhatsApp utility notifications (v76)
 
@@ -95,4 +101,4 @@ Cloudflare Worker social sign-in now supports Google and Facebook directly. Conf
 Google may link an existing local account only when Google reports a verified email. Facebook never links to an existing account by email alone; the user must sign in first and explicitly link it under Sign-in & Accounts.
 
 ### Current upgrade delta
-The current existing-database upgrade delta `migrations/046_v80_agentic_outcomes.sql` must be applied after all earlier numbered migrations. For a brand-new D1 database, load the current `schema.sql`.
+The current existing-database upgrade delta is `migrations/047_v81_delegated_authority.sql` and it must be applied after all earlier numbered migrations. For a brand-new D1 database, load the current `schema.sql` and then apply migration 047. Migration 047 remains shadow-only and does not enable agent execution.
