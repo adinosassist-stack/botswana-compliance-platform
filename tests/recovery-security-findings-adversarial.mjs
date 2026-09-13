@@ -1,3 +1,4 @@
+import './v81-delegated-authority-static.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
