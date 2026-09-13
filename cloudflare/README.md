@@ -101,4 +101,4 @@ Cloudflare Worker social sign-in now supports Google and Facebook directly. Conf
 Google may link an existing local account only when Google reports a verified email. Facebook never links to an existing account by email alone; the user must sign in first and explicitly link it under Sign-in & Accounts.
 
 ### Current upgrade delta
-The current existing-database upgrade delta is `migrations/047_v81_delegated_authority.sql` and it must be applied after all earlier numbered migrations. For a brand-new D1 database, load the current `schema.sql` and then apply migration 047. Migration 047 remains shadow-only and does not enable agent execution.
+The current upgrade delta `migrations/047_v81_delegated_authority.sql` is the required existing-database release delta and must be applied after all earlier numbered migrations. For a brand-new D1 database, load the current `schema.sql` and then apply migration 047. Migration 047 remains shadow-only and does not enable agent execution.
