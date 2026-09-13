@@ -21,6 +21,20 @@ jobs:
     timeout-minutes: 45
     env:
       CI: 'true'
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: thebe_redteam
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d thebe_redteam"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
     steps:
       - name: Checkout exact revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -66,11 +80,37 @@ jobs:
           node tests/v82-whatsapp-prepare.mjs
           node tests/v82-whatsapp-owner-centre.mjs
 
+      - name: Isolated sign-up, sign-in and workspace lifecycle
+        shell: bash
+        env:
+          APP_ENV: test
+          PORT: '3100'
+          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/thebe_redteam
+          PUBLIC_ORIGIN: http://127.0.0.1:3100
+          PUBLIC_APP_URL: http://127.0.0.1:3100
+          TRUST_PROXY_HOPS: '0'
+          TEST_BASE_URL: http://127.0.0.1:3100
+        run: |
+          set -euo pipefail
+          export SESSION_SECRET="$(node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))")"
+          npm run migrate
+          node server/server.js >/tmp/thebe-redteam-server.log 2>&1 &
+          server_pid=$!
+          cleanup(){ kill "$server_pid" 2>/dev/null || true; wait "$server_pid" 2>/dev/null || true; }
+          trap cleanup EXIT
+          ready=0
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3100/api/live >/dev/null 2>&1; then ready=1; break; fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then break; fi
+            sleep 1
+          done
+          if [[ "$ready" != "1" ]]; then cat /tmp/thebe-redteam-server.log >&2 || true; exit 1; fi
+          npm run test:api || { cat /tmp/thebe-redteam-server.log >&2 || true; exit 1; }
+
       - name: Final build red-team qualification
         shell: bash
         run: |
           set -euo pipefail
-          npm run test:api
           node tests/v82-final-build-redteam.mjs
           node tests/ui-functionality-static.mjs
           node tests/v78-12146-ui-runtime-wiring-adversarial.mjs
