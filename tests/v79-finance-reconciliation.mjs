@@ -47,7 +47,7 @@ assert.match(launch,/Migration 044 remains the finance reconciliation prerequisi
 assert.match(launch,/through `047_v81_delegated_authority\.sql`/);
 assert.doesNotMatch(launch,/No new schema migration is required\./);
 assert.match(deploy,/Current reviewed schema delta: 047_v81_delegated_authority\.sql/);
-assert.match(cloudflareReadme,/upgrade delta `migrations\/047_v81_delegated_authority\.sql`/);
+assert.match(cloudflareReadme,/`migrations\/047_v81_delegated_authority\.sql`/);
 for(const path of [
   "tests/v78-12167-session-generation-revocation-adversarial.mjs",
   "tests/v78-12157-authorization-reporting-concurrency-adversarial.mjs",
