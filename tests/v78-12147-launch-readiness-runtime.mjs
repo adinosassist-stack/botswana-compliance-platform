@@ -1,13 +1,16 @@
 import fs from "node:fs";
 import worker from "../cloudflare/src/worker.js";
+import agenticWorker from "../cloudflare/src/agentic-entry.js";
 const pkg=JSON.parse(fs.readFileSync(new URL("../package.json",import.meta.url),"utf8"));
 const profile=JSON.parse(fs.readFileSync(new URL("../RELEASE_PROFILE.json",import.meta.url),"utf8"));
+const CORE_SCHEMA_DELTA="046_v80_agentic_outcomes.sql";
 
 class FakeStmt{
   constructor(sql,mode){this.sql=sql;this.mode=mode}
   bind(){return this}
   async first(){
-    if(this.sql.includes("executive_control_replacement_governance") && this.mode==="stale") throw new Error("no such table");
+    if(this.sql.includes("executive_control_replacement_governance") && this.mode==="core_stale") throw new Error("no such table");
+    if(this.sql.includes("agent_delegations") && this.mode==="authority_stale") throw new Error("no such table");
     return {ok:1};
   }
 }
@@ -20,8 +23,16 @@ const env=(mode)=>({
   PUBLIC_APP_URL:"https://app.example",PUBLIC_ORIGIN:"https://app.example",BILLING_WEBHOOK_SECRET:"b".repeat(48),PAYMENT_WEBHOOK_SECRET:"p".repeat(48),DPO_COMPANY_TOKEN:"d".repeat(24),DPO_SERVICE_TYPE:"service"
 });
 async function body(res){return await res.json()}
-let res=await worker.fetch(new Request("https://app.example/api/ready"),env("stale"),{});let data=await body(res);
-if(res.status!==503||data.error!=="schema_outdated"||data.schemaReady!==false||data.expectedSchemaDelta!==profile.latest_cloudflare_migration)throw new Error("stale schema must fail closed");
-res=await worker.fetch(new Request("https://app.example/api/ready"),env("current"),{});data=await body(res);
-if(res.status!==200||data.ok!==true||data.schemaReady!==true||data.version!==`v78.${pkg.version}`)throw new Error("current schema with required config must be ready");
-console.log("V78 1.21.47 launch readiness runtime: 2/2 PASS");
+
+let res=await worker.fetch(new Request("https://app.example/api/ready"),env("core_stale"),{});let data=await body(res);
+if(res.status!==503||data.error!=="schema_outdated"||data.schemaReady!==false||data.expectedSchemaDelta!==CORE_SCHEMA_DELTA)throw new Error("base Worker core schema must fail closed at migration 046");
+
+res=await agenticWorker.fetch(new Request("https://app.example/api/ready"),env("core_stale"),{});data=await body(res);
+if(res.status!==503||data.error!=="schema_outdated"||data.schemaReady!==false||data.coreSchemaReady!==false||data.agenticAuthoritySchemaReady!==true||data.expectedSchemaDelta!==CORE_SCHEMA_DELTA||data.latestSchemaDelta!==profile.latest_cloudflare_migration)throw new Error("V81 wrapper must preserve core schema failure while reporting migration 047 as release tip");
+
+res=await agenticWorker.fetch(new Request("https://app.example/api/ready"),env("authority_stale"),{});data=await body(res);
+if(res.status!==503||data.error!=="schema_outdated"||data.schemaReady!==false||data.coreSchemaReady!==true||data.agenticAuthoritySchemaReady!==false||data.latestSchemaDelta!==profile.latest_cloudflare_migration)throw new Error("V81 authority schema must fail closed independently at migration 047");
+
+res=await agenticWorker.fetch(new Request("https://app.example/api/ready"),env("current"),{});data=await body(res);
+if(res.status!==200||data.ok!==true||data.schemaReady!==true||data.coreSchemaReady!==true||data.agenticAuthoritySchemaReady!==true||data.latestSchemaDelta!==profile.latest_cloudflare_migration||data.version!==`v78.${pkg.version}`)throw new Error("current core + V81 schemas with required config must be ready");
+console.log("V78 1.21.47 launch readiness runtime: 4/4 PASS through V81 schema wrapper");
