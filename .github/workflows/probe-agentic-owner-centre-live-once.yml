@@ -1,0 +1,84 @@
+name: Probe live governed agentic Owner Command Centre once
+
+on:
+  push:
+    branches:
+      - probe/agentic-owner-centre-live-20260913
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Verify live production edge, agentic UI and safety boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ready="$(mktemp)"
+          curl --silent --show-error --fail-with-body --retry 5 --retry-all-errors --max-time 20 'https://thebedesk.com/api/ready' -o "$ready"
+          READY_FILE="$ready" node <<'NODE'
+          const fs=require('node:fs');
+          const body=JSON.parse(fs.readFileSync(process.env.READY_FILE,'utf8'));
+          if(body.ok!==true||body.schemaReady!==true||body.requiredConfigReady!==true) throw new Error('production readiness contract failed');
+          if(body.expectedSchemaDelta!=='045_v80_agentic_foundation.sql') throw new Error(`unexpected schema ${body.expectedSchemaDelta}`);
+          if(body.version!=='v78.1.21.101') throw new Error(`unexpected version ${body.version}`);
+          console.log(`READY PASS version=${body.version} schema=${body.expectedSchemaDelta}`);
+          NODE
+
+          js="$(mktemp)"
+          js_meta="$(curl --silent --show-error --fail-with-body --retry 5 --retry-all-errors --max-time 20 -o "$js" -w '%{http_code}\n%{content_type}' 'https://thebedesk.com/js/owner-command-centre.js')"
+          js_code="$(printf '%s\n' "$js_meta" | sed -n '1p')"
+          [[ "$js_code" == "200" ]] || { echo "owner command centre JS expected 200 got $js_code" >&2; exit 1; }
+          grep -Fq 'const RELEASE="20260913c";' "$js"
+          grep -Fq 'ownerAgenticPanel' "$js"
+          grep -Fq 'Stage 1 · execution disabled' "$js"
+          grep -Fq '/api/agentic/status' "$js"
+          grep -Fq '/api/agentic/plan' "$js"
+          grep -Fq 'Record approval' "$js"
+          if grep -Fq '/api/agentic/execute' "$js"; then echo 'live browser asset unexpectedly exposes agentic execute route' >&2; exit 1; fi
+          echo 'AGENTIC OWNER CENTRE ASSET PASS'
+
+          home="$(mktemp)"
+          home_meta="$(curl -L --silent --show-error --fail-with-body --retry 5 --retry-all-errors --max-time 20 -o "$home" -w '%{http_code}\n%{content_type}' 'https://thebedesk.com/')"
+          home_code="$(printf '%s\n' "$home_meta" | sed -n '1p')"
+          home_type="$(printf '%s\n' "$home_meta" | sed -n '2p')"
+          [[ "$home_code" == "200" ]] || { echo "home expected 200 got $home_code" >&2; exit 1; }
+          [[ "$home_type" == text/html* ]] || { echo "home expected text/html got ${home_type:-<empty>}" >&2; exit 1; }
+          grep -Fq 'ownerAgenticStyles' "$home"
+          grep -Fq '.owner-agentic-panel' "$home"
+          echo 'AGENTIC OWNER CENTRE HTML PASS'
+
+          status_body="$(mktemp)"
+          status_code="$(curl --silent --show-error --max-time 20 -o "$status_body" -w '%{http_code}' 'https://thebedesk.com/api/agentic/status')"
+          [[ "$status_code" == "401" ]] || { echo "anonymous agentic status expected 401 got $status_code" >&2; cat "$status_body" >&2; exit 1; }
+          STATUS_FILE="$status_body" node <<'NODE'
+          const fs=require('node:fs');
+          const body=JSON.parse(fs.readFileSync(process.env.STATUS_FILE,'utf8'));
+          if(body.error!=='unauthenticated') throw new Error(`unexpected anonymous status body ${JSON.stringify(body)}`);
+          console.log('AGENTIC STATUS FAIL-CLOSED PASS');
+          NODE
+
+          execute_body="$(mktemp)"
+          execute_code="$(curl --silent --show-error --max-time 20 -o "$execute_body" -w '%{http_code}' 'https://thebedesk.com/api/agentic/execute')"
+          [[ "$execute_code" == "401" ]] || { echo "anonymous execute boundary expected 401 got $execute_code" >&2; cat "$execute_body" >&2; exit 1; }
+          EXECUTE_FILE="$execute_body" node <<'NODE'
+          const fs=require('node:fs');
+          const body=JSON.parse(fs.readFileSync(process.env.EXECUTE_FILE,'utf8'));
+          if(body.error!=='unauthenticated') throw new Error(`unexpected execute boundary body ${JSON.stringify(body)}`);
+          console.log('AGENTIC EXECUTE BOUNDARY FAIL-CLOSED PASS');
+          NODE
+
+          register="$(mktemp)"
+          register_meta="$(curl -L --silent --show-error --fail-with-body --retry 5 --retry-all-errors --max-time 20 -o "$register" -w '%{http_code}\n%{content_type}' 'https://thebedesk.com/register-direct.html')"
+          register_code="$(printf '%s\n' "$register_meta" | sed -n '1p')"
+          register_type="$(printf '%s\n' "$register_meta" | sed -n '2p')"
+          [[ "$register_code" == "200" ]] || { echo "registration expected 200 got $register_code" >&2; exit 1; }
+          [[ "$register_type" == text/html* ]] || { echo "registration expected text/html got ${register_type:-<empty>}" >&2; exit 1; }
+          echo 'REGISTRATION PAGE PASS'
+
+          rm -f "$ready" "$js" "$home" "$status_body" "$execute_body" "$register"
+          echo 'LIVE AGENTIC OWNER CENTRE PROBE PASS'
