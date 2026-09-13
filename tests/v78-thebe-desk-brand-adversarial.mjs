@@ -14,6 +14,8 @@ const worker=read('cloudflare/src/worker.js');
 const server=read('server/server.js');
 const sw=read('public/sw.js');
 const profile=JSON.parse(read('RELEASE_PROFILE.json'));
+const ownerCss=read('public/assets/owner-command-centre.css');
+const workspaceUx=read('public/assets/workspace-ui-ux-10.css');
 
 ok(home.includes(`<title>Botswana SME Compliance Software | ${brand}</title>`) && home.includes(`property="og:site_name" content="${brand}"`),'home title and Open Graph site identity use Thebe Desk');
 ok(home.includes(`"name":"${brand}"`) && /class="marketinglogo"[^>]*>[\s\S]*?alt="Thebe Desk logo symbol"[\s\S]*?>Thebe Desk<\/span>/.test(home) && /class="authbrand"[^>]*>[\s\S]*?alt="Thebe Desk logo symbol"[\s\S]*?>Thebe Desk<\/span>/.test(home),'structured data, marketing shell and auth shell use Thebe Desk');
@@ -47,4 +49,13 @@ walk('public');
 ok(publicTree.every(p=>!retired.test(read(p))), 'entire public text tree is free of retired brand strings');
 
 ok(!/\bTD\b/.test(manifest.name) && !/\bTD\b/.test(manifest.short_name),'public install name does not collapse the brand to a TD monogram');
+
+// Workspace UX must preserve the live visual identity instead of rebranding the product.
+ok(workspaceUx.includes('--ws-accent:#0b66d6;') && workspaceUx.includes('--ws-bg:#f7f7f5;') && workspaceUx.includes('--ws-sidebar:#f1f2ef;'),'workspace UX 10 preserves the live blue, warm-white and light-sidebar brand tokens');
+ok(!workspaceUx.includes('--ws-accent:#176b4f;') && !workspaceUx.includes('--ws-sidebar:#111713;'),'workspace UX 10 does not reintroduce the retired green/charcoal base-theme direction');
+ok(workspaceUx.includes('#appShell') && !workspaceUx.includes('.marketinggate{'),'workspace UX refinement is scoped to the authenticated workspace and does not restyle the public marketing site');
+ok(ownerCss.startsWith('@import url("/assets/workspace-ui-ux-10.css?v=20260913b");'),'owner command centre loads the cache-versioned workspace UX refinement before component rules');
+ok(workspaceUx.includes('#appShell .owner-action-index') && workspaceUx.includes('background:var(--ws-accent-soft)!important') && workspaceUx.includes('color:var(--ws-accent-strong)!important'),'owner decision layer is visually unified with the live blue workspace brand');
+ok(workspaceUx.includes('@media(max-width:1000px)') && workspaceUx.includes('@media(prefers-reduced-motion:reduce)'),'workspace UX 10 retains responsive and reduced-motion behavior');
+
 console.log(`Thebe Desk final-brand adversarial gate: ${pass}/${pass} PASS`);
