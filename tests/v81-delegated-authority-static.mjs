@@ -82,6 +82,22 @@ assert.match(migration,/agent_action_intents_proposal_tenant_guard/);
 assert.match(migration,/agent_action_intents_delegation_tenant_guard/);
 assert.match(migration,/agent_delegation_events_tenant_guard/);
 
+const migrationRunner=fs.readFileSync("scripts/migrate-production-v81-delegated-authority.mjs","utf8");
+const migrationWorkflow=fs.readFileSync(".github/workflows/migrate-production-v81-delegated-authority.yml","utf8");
+assert.match(migrationRunner,/expectedGitBlobSha = '207d070808f8ca44e75f49fca3c02f92de5b2091'/);
+assert.match(migrationRunner,/agentic_outcomes/);
+assert.match(migrationRunner,/partial migration detected/);
+assert.match(migrationRunner,/time_travel\/bookmark/);
+assert.match(migrationRunner,/PRAGMA foreign_key_check/);
+for(const objectName of ["agent_delegations","agent_action_intents","agent_delegation_events","agent_delegations_one_active_idx","agent_action_intents_run_tenant_guard","agent_delegation_events_tenant_guard"])assert.match(migrationRunner,new RegExp(objectName));
+assert.match(migrationWorkflow,/\[migrate-047\]/);
+assert.match(migrationWorkflow,/environment: production/);
+assert.match(migrationWorkflow,/ref: \$\{\{ github\.sha \}\}/);
+assert.match(migrationWorkflow,/refusing stale migration target=/);
+assert.match(migrationWorkflow,/node scripts\/migrate-production-v81-delegated-authority\.mjs/);
+assert.match(migrationWorkflow,/agenticAuthoritySchemaReady !== true/);
+assert.match(migrationWorkflow,/047_v81_delegated_authority\.sql/);
+
 const entry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
 const authority=fs.readFileSync("cloudflare/src/agentic-authority-core.js","utf8");
 const wrangler=fs.readFileSync("cloudflare/wrangler.toml","utf8");
@@ -97,4 +113,4 @@ assert.match(authority,/idempotency_key_required/);
 assert.doesNotMatch(authority,/allow_execute\(/);
 assert.doesNotMatch(authority,/fetch\([^)]*https?:\/\//);
 
-console.log("v81 delegated authority shadow-mode tests passed with production wrapper wiring");
+console.log("v81 delegated authority shadow-mode tests passed with production wrapper wiring and guarded migration 047 path");
