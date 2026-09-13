@@ -46,3 +46,6 @@ The repository retains a separate Node/Express + PostgreSQL/S3-compatible profil
 ### Node malware scanner callback contract
 
 When `MALWARE_SCAN_REQUIRED=true`, the scanner job request includes `evidenceId` and a unique `scanJobId`. The scanner callback must echo both values and send `x-scan-signature` as lowercase/uppercase hexadecimal HMAC-SHA256 over `evidenceId:scanJobId:status:sha256` using `MALWARE_SCAN_WEBHOOK_SECRET` (empty string when `sha256` is omitted). A scan job is single-use: replayed, stale, duplicate, or superseded callbacks receive a conflict response and must not be retried as a fresh verdict.
+
+### Current schema upgrade target
+For an existing D1 database, apply only the pending release migrations in order through `045_v80_agentic_foundation.sql` before deploying Worker code. Worker code is newer than the production D1 schema until this completes.

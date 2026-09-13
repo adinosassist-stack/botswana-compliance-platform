@@ -50,12 +50,14 @@ jobs:
       - name: V81 recovery boundary
         run: npm run test:recovery-v81-sites
 
-      - name: Finance and WhatsApp qualification
+      - name: Finance, WhatsApp and agentic qualification
         shell: bash
         run: |
           set -euo pipefail
           node tests/v79-finance-reconciliation.mjs
           node tests/v79-whatsapp-finance-connection.mjs
+          node tests/v80-agentic-foundation.mjs
+          node tests/v80-agentic-runtime.mjs
 
       - name: Production and historical regression qualification
         shell: bash
