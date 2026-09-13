@@ -5,6 +5,7 @@ const migration25=fs.readFileSync('db/migrations/025_v78_automatic_rereview_mana
 const migration32=fs.readFileSync('db/migrations/032_v82_workspace_version_numeric_contract.sql','utf8');
 const schema=fs.readFileSync('db/schema.sql','utf8');
 const api=fs.readFileSync('scripts/api-integration-test.mjs','utf8');
+const security=fs.readFileSync('scripts/security-test.mjs','utf8');
 let checks=0;
 const ok=(condition,message)=>{assert.ok(condition,message);checks++;console.log('PASS',message)};
 
@@ -27,5 +28,8 @@ ok(/registration must not create an authenticated session/.test(api),'integratio
 ok(/\/api\/auth\/login/.test(api),'integration lifecycle explicitly signs in after registration');
 ok(/Number\.isInteger\(gd\.version\)/.test(api)&&/Number\.isInteger\(pd\.version\)/.test(api),'integration test enforces numeric workspace version API contract');
 ok(/afterLogout\.status!==401/.test(api),'integration lifecycle proves logout revokes the session');
+
+ok(/app_state numeric integer version contract/.test(security),'security regression gate requires the numeric integer workspace-version contract');
+ok(/app_state\.version must not be bigint/.test(security)&&!security.includes("'version bigint'"),'security regression gate explicitly rejects the stale bigint workspace-version contract');
 
 console.log(`V82 Node/Postgres lineage hardening: ${checks}/${checks} PASS`);
