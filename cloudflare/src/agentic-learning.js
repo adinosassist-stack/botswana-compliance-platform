@@ -5,7 +5,7 @@ const MAX_ASSOCIATION_ADJUSTMENT=10;
 function finite(value,fallback=0){const n=Number(value);return Number.isFinite(n)?n:fallback}
 
 export function buildOutcomeAssociations(rows=[]){
-  const map={};
+  const map=Object.create(null);
   for(const row of Array.isArray(rows)?rows:[]){
     const ref=String(row?.source_ref||"").trim().slice(0,120);
     if(!ref)continue;
@@ -26,8 +26,9 @@ export function buildOutcomeAssociations(rows=[]){
 }
 
 export function associationForProposal(proposal,associations={}){
-  const refs=Array.isArray(proposal?.sourceRefs)?proposal.sourceRefs:[];
-  const qualified=refs.map(ref=>associations[String(ref)]).filter(item=>item&&item.evidenceCount>=MIN_EVIDENCE);
+  const refs=[...new Set((Array.isArray(proposal?.sourceRefs)?proposal.sourceRefs:[])
+    .map(ref=>String(ref||"").trim()).filter(Boolean))];
+  const qualified=refs.map(ref=>associations[ref]).filter(item=>item&&item.evidenceCount>=MIN_EVIDENCE);
   if(!qualified.length)return {evidenceCount:0,association:0,adjustment:0,causal:false};
   const evidenceCount=qualified.reduce((sum,item)=>sum+item.evidenceCount,0);
   const weighted=qualified.reduce((sum,item)=>sum+(item.association*item.evidenceCount),0)/Math.max(1,evidenceCount);
