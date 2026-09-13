@@ -4056,6 +4056,7 @@ main{
               <label class="checkline"><input id="whatsappConsentAck" type="checkbox" aria-label="WhatsApp consent ack"> I consent to utility reminders about compliance deadlines, operating risks and daily management alerts on this number.</label>
               <button class="btn alt" type="button" data-bw-onclick="saveWhatsAppConsent()">Connect WhatsApp reminders</button>
             </div>
+            <button id="whatsappTestButton" class="btn alt" type="button" style="display:none;margin-top:10px" data-bw-onclick="testWhatsAppConnection()">Send connection test</button>
             <button id="whatsappRevokeButton" class="btn alt" type="button" style="display:none;margin-top:10px" data-bw-onclick="revokeWhatsAppConsent()">Revoke WhatsApp consent</button>
             <div id="whatsappConsentStatus" class="small" style="margin-top:8px"></div>
             <div class="small" style="margin-top:8px"><b>Delivery status is explicit.</b> Accepted by WhatsApp is not the same as delivered. Sent, delivered, read and failed states come from signed provider webhooks.</div>
@@ -7181,9 +7182,9 @@ async function renderNotifications(){
     document.getElementById("prefQuietStart").value=pref.quiet_hours_start||"20:00";document.getElementById("prefQuietEnd").value=pref.quiet_hours_end||"07:00";
     set("notificationQuietPolicy",`${pref.quiet_hours_start||"20:00"}–${pref.quiet_hours_end||"07:00"}`);
     list.safeHTML=items.slice(0,40).map(x=>`<div class="item"><b>${escapeHtml(x.subject||x.template_key)}</b><div class="muted small">${escapeHtml(x.channel)} · ${escapeHtml(x.status)}${x.provider_status?` · provider ${escapeHtml(x.provider_status)}`:""} · ${new Date(x.scheduled_at).toLocaleString()}</div></div>`).join("")||'<div class="muted small">No notifications yet.</div>';
-    const summary=document.getElementById("whatsappConsentSummary"),form=document.getElementById("whatsappConsentForm"),revoke=document.getElementById("whatsappRevokeButton"),waStatus=document.getElementById("whatsappConsentStatus");
+    const summary=document.getElementById("whatsappConsentSummary"),form=document.getElementById("whatsappConsentForm"),revoke=document.getElementById("whatsappRevokeButton"),test=document.getElementById("whatsappTestButton"),waStatus=document.getElementById("whatsappConsentStatus");
     if(connector.configured!==true){summary.textContent=`Connector not active · ${Number(connector.templateCount||0)} of ${Number(connector.requiredTemplateCount||6)} approved template mappings configured.`;form.style.display="none";revoke.style.display="none";waStatus.textContent="An administrator must configure the Meta business number, credentials, all utility templates and signed webhook before consent can be recorded."}
-    else if(consent.active===true){summary.textContent=`Connected to ${consent.phoneMasked||"your consented number"} · consent ${consent.consentVersion||w.consentVersion}.`;form.style.display="none";revoke.style.display="inline-flex";waStatus.textContent=`WhatsApp is enabled for urgent utility interruptions and the scheduled daily summary, subject to quiet hours. ${usage.limit==null?`${Number(usage.used||0)} reserved this month.`:`${Number(usage.used||0)} of ${Number(usage.limit||0)} monthly reminders reserved.`} You can revoke consent at any time.`}
+    else if(consent.active===true){summary.textContent=`Connected to ${consent.phoneMasked||"your consented number"} · consent ${consent.consentVersion||w.consentVersion}.`;form.style.display="none";revoke.style.display="inline-flex";if(test)test.style.display="inline-flex";waStatus.textContent=`WhatsApp is enabled for urgent utility interruptions and the scheduled daily summary, subject to quiet hours. ${usage.limit==null?`${Number(usage.used||0)} reserved this month.`:`${Number(usage.used||0)} of ${Number(usage.limit||0)} monthly reminders reserved.`} You can revoke consent at any time.`}
     else{summary.textContent="Connector ready. Add a Botswana mobile number and give explicit utility-message consent.";form.style.display="flex";revoke.style.display="none";waStatus.textContent=`This validates number format and records consent; it does not prove phone ownership. Plan allowance: ${usage.limit==null?"fair use":Number(usage.limit||0)+" reminders/month"}.`}
   }catch(e){
     ["notifUrgent","notifReviews","notifProofGaps","notifFailed","notifEscalations","notificationRoutineCount","notificationExternalCount","escalationOpenCount","escalationAckCount","escalationOverdueCount"].forEach(id=>set(id,"—"));
@@ -7196,6 +7197,10 @@ async function saveWhatsAppConsent(){
   const status=document.getElementById("whatsappConsentStatus"),phone=document.getElementById("whatsappPhone").value,consent=document.getElementById("whatsappConsentAck").checked;
   try{status.textContent="Saving consent…";await apiJson("/api/notification-channels/whatsapp",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify({phone,consent})});document.getElementById("whatsappConsentAck").checked=false;await renderNotifications();}
   catch(e){status.textContent=e.message}
+}
+async function testWhatsAppConnection(){
+  const status=document.getElementById("whatsappConsentStatus");
+  try{status.textContent="Queuing connection test…";const result=await apiJson("/api/notification-channels/whatsapp/test",{method:"POST"});status.textContent=result.message||"Connection test queued. Check WhatsApp for delivery."}catch(e){status.textContent=e.message}
 }
 async function revokeWhatsAppConsent(){
   const confirmed=await BW.dialog.confirm({title:"Revoke WhatsApp consent?",message:"Revoke WhatsApp reminder consent and cancel queued WhatsApp notifications for this account?",confirmLabel:"Revoke consent",danger:true});if(!confirmed)return;

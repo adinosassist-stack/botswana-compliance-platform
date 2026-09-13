@@ -149,6 +149,7 @@
     'saveProfile',
     'saveTaxFacts',
     'saveWhatsAppConsent',
+    'testWhatsAppConnection',
     'scrollToPricing',
     'selectProofRequirement',
     'sendOpsSummaryFeedback',

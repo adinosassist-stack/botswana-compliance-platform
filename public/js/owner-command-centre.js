@@ -345,7 +345,7 @@
     };
   }
 
-  function deriveModel(performance,inputs,date,sales){
+  function deriveModel(performance,inputs,date,sales,finance){
     const selected=performance?.selected||{};
     const profile=selected.profile||{};
     const baseline30=profile.baseline30||{};
@@ -432,7 +432,8 @@
       salesCashImpact,
       recommendedCashImpact,
       branch:branchSignal(performance),
-      sales
+      sales,
+      finance:finance||null
     };
   }
 
@@ -537,6 +538,7 @@
       "reported"
     ));
     if(model.branch)box.append(sourcePill("Location operating baselines","reported"));
+    if(model.finance?.authority?.canonical)box.append(sourcePill("Canonical finance ledger","reported"));
     if(model.sales?.opportunities.length){
       box.append(sourcePill(`${model.sales.opportunities.length} recorded quotations`,"reported"));
     }
@@ -574,6 +576,11 @@
     const box=q("#ownerSignalList");
     if(!box)return;
     box.replaceChildren();
+
+    if(model.finance){
+      const recon=model.finance.reconciliation||{},exposure=Number(recon.unresolvedExposureMinor||0)/100;
+      box.append(signalCard({label:"Finance integrity",value:recon.unresolvedCount?`${recon.unresolvedCount} exception${recon.unresolvedCount===1?"":"s"}`:(recon.stale?"Review due":"Reconciled"),title:recon.unresolvedCount?`${money(exposure)} remains outside a completed reconciliation.`:(recon.stale?"The finance ledger needs a current reconciliation.":"The latest finance reconciliation has no recorded difference."),detail:`Canonical BWP ledger · ${model.finance.imports?.transactions||0} imported transaction${Number(model.finance.imports?.transactions||0)===1?"":"s"} · no estimate substituted.`,tone:recon.unresolvedCount||recon.stale?"risk":"positive"}));
+    }
 
     if(model.projectedMonthlyRevenue!==null&&model.target){
       const gap=model.targetGapPct||0;
@@ -1631,16 +1638,17 @@
 
     try{
       const date=gaboroneDate();
-      const [performance,stateEnvelope]=await Promise.all([
+      const [performance,stateEnvelope,finance]=await Promise.all([
         request(`/api/daily-reporting/performance?date=${encodeURIComponent(date)}`),
-        request("/api/state")
+        request("/api/state"),
+        request("/api/finance/summary").catch(()=>null)
       ]);
       if(seq!==renderSeq)return;
 
       latestStateEnvelope=stateEnvelope;
       const inputs=decisionInputs(stateEnvelope?.state||{});
       const sales=deriveSalesIntelligence(inputs.company,date);
-      const model=deriveModel(performance,inputs,date,sales);
+      const model=deriveModel(performance,inputs,date,sales,finance);
 
       renderSummary(model);
       renderSources(model,inputs);
