@@ -1,0 +1,56 @@
+name: Agentic successor floor patch once
+
+on:
+  push:
+    branches:
+      - chatgpt/agentic-foundation-20260913
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Extend only reviewed migration successor allowlists
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          files=[
+            'tests/v78-12157-authorization-reporting-concurrency-adversarial.mjs',
+            'tests/v78-12153-payment-webhook-scheduled-restore-hardening-adversarial.mjs',
+            'tests/v78-12154-idempotency-cross-layer-recovery-adversarial.mjs',
+            'tests/v78-12152-tenant-lifecycle-purge-performance-adversarial.mjs',
+          ]
+          marker='"044_v79_finance_reconciliation.sql"'
+          addition=',"045_v80_agentic_foundation.sql"'
+          for name in files:
+            p=Path(name); text=p.read_text()
+            if '045_v80_agentic_foundation.sql' in text:
+              continue
+            needle=marker+']'
+            if needle not in text:
+              raise SystemExit(f'expected successor tail not found in {name}')
+            p.write_text(text.replace(needle,marker+addition+']',1))
+          Path('.github/workflows/agentic-successor-floor-patch-once.yml').unlink()
+          PY
+          node tests/v78-12157-authorization-reporting-concurrency-adversarial.mjs
+          node tests/v78-12153-payment-webhook-scheduled-restore-hardening-adversarial.mjs
+          node tests/v78-12154-idempotency-cross-layer-recovery-adversarial.mjs
+          node tests/v78-12152-tenant-lifecycle-purge-performance-adversarial.mjs
+      - name: Commit successor-floor updates
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --check
+          git commit -m "test: extend reviewed migration successor floors to 045"
+          git push origin HEAD:chatgpt/agentic-foundation-20260913
