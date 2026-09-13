@@ -10,15 +10,23 @@ import {
 const rows=[
   {source_ref:'positive',evidence_count:5,positive_count:5,negative_count:0,unchanged_count:0},
   {source_ref:'negative',evidence_count:5,positive_count:0,negative_count:5,unchanged_count:0},
-  {source_ref:'thin',evidence_count:2,positive_count:2,negative_count:0,unchanged_count:0}
+  {source_ref:'thin',evidence_count:2,positive_count:2,negative_count:0,unchanged_count:0},
+  {source_ref:'__proto__',evidence_count:3,positive_count:3,negative_count:0,unchanged_count:0}
 ];
 const associations=buildOutcomeAssociations(rows);
+assert.equal(Object.getPrototypeOf(associations),null,'association map must not expose an object prototype');
+assert.equal(Object.hasOwn(associations,'__proto__'),true,'hostile-looking source refs must remain inert own keys');
 assert.equal(associations.positive.association,1);
 assert.equal(associations.negative.association,-1);
 assert.equal(associations.thin.association,0);
 assert.equal(associations.positive.causal,false);
 assert.equal(__agenticLearningTest.MIN_EVIDENCE,3);
 assert.ok(__agenticLearningTest.MAX_ASSOCIATION_ADJUSTMENT<50,'learning adjustment must remain far below one priority-class step');
+
+const duplicateRefs=associationForProposal({sourceRefs:['positive','positive',' positive ']},associations);
+assert.equal(duplicateRefs.evidenceCount,5,'duplicate current source refs must not multiply evidence');
+assert.equal(duplicateRefs.association,1);
+assert.equal(duplicateRefs.adjustment,10);
 
 const samePriority=rankOutcomeInformedProposals([
   {ordinal:1,title:'Negative history',priority:'medium',risk:'low',authority:'recommendation_only',executionPolicy:'not_executable_stage_1',sourceRefs:['negative']},
