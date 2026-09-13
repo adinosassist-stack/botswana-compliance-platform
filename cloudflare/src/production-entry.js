@@ -1,4 +1,5 @@
 import worker from "./worker.js";
+import {handleAgenticRequest} from "./agentic-core.js";
 
 const TURNSTILE_ORIGIN="https://challenges.cloudflare.com";
 const TURNSTILE_VERIFY_URL=`${TURNSTILE_ORIGIN}/turnstile/v0/siteverify`;
@@ -329,6 +330,15 @@ async function rewriteRegistrationVerificationFailure(response){
 }
 
 async function fetchWithTurnstileCspRepair(request,env,ctx){
+  const agenticResponse=await handleAgenticRequest({
+    request,
+    logicalPath:logicalRequestPath(request),
+    env,
+    ctx,
+    coreFetch:(innerRequest,innerEnv=env,innerCtx=ctx)=>worker.fetch(innerRequest,innerEnv,innerCtx)
+  });
+  if(agenticResponse)return agenticResponse;
+
   if(isRegistrationProofChallengeRequest(request))return createRegistrationProofChallenge(request,env);
 
   const registrationRequest=isRegistrationRequest(request);
