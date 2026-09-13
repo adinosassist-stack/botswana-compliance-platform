@@ -34,6 +34,17 @@ safe_toml_value() {
   fi
 }
 
+safe_optional_toml_value() {
+  name=$1
+  value=$2
+  case "$value" in
+    *\"*|*\\*) fail "$name contains unsafe TOML string characters" ;;
+  esac
+  if printf '%s' "$value" | LC_ALL=C grep -q '[[:cntrl:]]'; then
+    fail "$name contains control characters"
+  fi
+}
+
 [ -f "$TEMPLATE" ] || fail "wrangler.toml template not found"
 printf '%s\n' "$D1_ID" | grep -Eq '^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$' || fail "D1_DATABASE_ID must be the provisioned D1 UUID"
 
@@ -58,15 +69,17 @@ elif [ -n "$SCAN_URL" ]; then
 fi
 
 PUBLIC_BASE=${PUBLIC_APP%/}
-safe_toml_value GOOGLE_OAUTH_CLIENT_ID "$GOOGLE_CLIENT_ID"
+safe_optional_toml_value GOOGLE_OAUTH_CLIENT_ID "$GOOGLE_CLIENT_ID"
 safe_toml_value GOOGLE_OAUTH_REDIRECT_URI "$GOOGLE_REDIRECT_URI"
-safe_toml_value FACEBOOK_APP_ID "$FACEBOOK_APP_ID_VALUE"
+safe_optional_toml_value FACEBOOK_APP_ID "$FACEBOOK_APP_ID_VALUE"
 safe_toml_value FACEBOOK_OAUTH_REDIRECT_URI "$FACEBOOK_REDIRECT_URI"
-safe_toml_value EMAIL_FROM "$EMAIL_FROM_VALUE"
+safe_optional_toml_value EMAIL_FROM "$EMAIL_FROM_VALUE"
 [ "$GOOGLE_REDIRECT_URI" = "$PUBLIC_BASE/api/auth/oauth/google/callback" ] || fail "GOOGLE_OAUTH_REDIRECT_URI must equal $PUBLIC_BASE/api/auth/oauth/google/callback"
 [ "$FACEBOOK_REDIRECT_URI" = "$PUBLIC_BASE/api/auth/oauth/facebook/callback" ] || fail "FACEBOOK_OAUTH_REDIRECT_URI must equal $PUBLIC_BASE/api/auth/oauth/facebook/callback"
-printf '%s\n' "$EMAIL_FROM_VALUE" | grep -Eq '@[^[:space:]<>]+\.[^[:space:]<>]+>?$' || fail "EMAIL_FROM must contain a real sender email address"
-printf '%s\n' "$EMAIL_FROM_VALUE" | grep -Eqi 'example\.invalid|example\.com|REPLACE_WITH' && fail "EMAIL_FROM must not be a placeholder" || true
+if [ -n "$EMAIL_FROM_VALUE" ]; then
+  printf '%s\n' "$EMAIL_FROM_VALUE" | grep -Eq '@[^[:space:]<>]+\.[^[:space:]<>]+>?$' || fail "EMAIL_FROM must contain a real sender email address when transactional email is enabled"
+  printf '%s\n' "$EMAIL_FROM_VALUE" | grep -Eqi 'example\.invalid|example\.com|REPLACE_WITH' && fail "EMAIL_FROM must not be a placeholder" || true
+fi
 
 TOTAL_IDS=$(grep -Ec '^[[:space:]]*database_id[[:space:]]*=' "$TEMPLATE" || true)
 PLACEHOLDERS=$(grep -Ec '^[[:space:]]*database_id[[:space:]]*=[[:space:]]*"REPLACE_WITH_D1_DATABASE_ID"[[:space:]]*$' "$TEMPLATE" || true)
