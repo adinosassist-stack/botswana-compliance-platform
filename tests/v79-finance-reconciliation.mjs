@@ -36,11 +36,13 @@ assert.equal(profile.latest_cloudflare_migration,"044_v79_finance_reconciliation
 assert.equal(profile.finance_reconciliation_v79,true);
 assert.equal(profile.finance_provider_neutral,true);
 assert.equal(profile.finance_whatsapp_exception_alerts_optional,true);
-const launch=fs.readFileSync("docs/LAUNCH.md","utf8"),deploy=fs.readFileSync("cloudflare/deploy-free.sh","utf8");
+assert.equal(profile.authenticated_route_branches,254);
+const launch=fs.readFileSync("docs/LAUNCH.md","utf8"),deploy=fs.readFileSync("cloudflare/deploy-free.sh","utf8"),cloudflareReadme=fs.readFileSync("cloudflare/README.md","utf8");
 assert.match(launch,/through `044_v79_finance_reconciliation\.sql`/);
 assert.match(launch,/Migration 044 is required before deploying the finance reconciliation Worker/);
 assert.doesNotMatch(launch,/No new schema migration is required\./);
 assert.match(deploy,/Current reviewed schema delta: 044_v79_finance_reconciliation\.sql/);
+assert.match(cloudflareReadme,/upgrade delta `migrations\/044_v79_finance_reconciliation\.sql`/);
 for(const path of [
   "tests/v78-12167-session-generation-revocation-adversarial.mjs",
   "tests/v78-12157-authorization-reporting-concurrency-adversarial.mjs",
@@ -48,6 +50,9 @@ for(const path of [
   "tests/v78-12154-idempotency-cross-layer-recovery-adversarial.mjs",
   "tests/v78-12152-tenant-lifecycle-purge-performance-adversarial.mjs"
 ]) assert.match(fs.readFileSync(path,"utf8"),/044_v79_finance_reconciliation\.sql/);
+const delegated=fs.readFileSync("public/js/event-delegation.js","utf8"),routeGate=fs.readFileSync("tests/v78-12148-feature-security-csp-route-hardening-adversarial.mjs","utf8");
+assert.match(delegated,/'testWhatsAppConnection'/);
+assert.match(routeGate,/pkg\.version==="1\.21\.101"\?254/);
 const owner=fs.readFileSync("public/js/owner-command-centre.js","utf8");
 assert.match(owner,/\/api\/finance\/summary/);
 assert.match(owner,/Canonical finance ledger/);
