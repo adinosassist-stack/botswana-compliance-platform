@@ -83,7 +83,7 @@ export function evaluateDelegatedAuthority({
   globalExecutionEnabled=false,
   amountMinor=0,
   dailyActionCount=0,
-  strongAuth=false,
+  strongAuth="none",
   approvalState="none",
   now=new Date()
 }={}){
@@ -97,8 +97,6 @@ export function evaluateDelegatedAuthority({
     return result({decision:"human_only",code:"human_only_action",reason:"This action is permanently outside autonomous authority and always requires a human decision.",requiredLevel,delegation:grant,humanReviewRequired:true});
   }
 
-  // Read, recommendation and preparation stay governed by the existing agent
-  // policy and do not require a tenant delegation grant.
   if(requiredLevel<=AUTONOMY_LEVELS.PREPARE){
     return result({allowed:true,decision:mode==="shadow"?"shadow_allow":"policy_allow",code:"delegation_not_required",reason:"This action does not require bounded execution authority.",requiredLevel,delegation:grant,executionAllowed:false,humanReviewRequired:Boolean(actionDefinition?.humanReviewRequired)});
   }
@@ -117,8 +115,8 @@ export function evaluateDelegatedAuthority({
   if(Boolean(actionDefinition?.externalSideEffect)&&!grant.externalSideEffects){
     return result({code:"external_side_effect_not_delegated",reason:"The delegation does not permit external side effects.",requiredLevel,delegation:grant});
   }
-  if(grant.strongAuthRequired&&strongAuth!==true){
-    return result({decision:"review_required",code:"strong_auth_required",reason:"Strong authentication is required before this delegated action could proceed.",requiredLevel,delegation:grant,humanReviewRequired:true});
+  if(grant.strongAuthRequired&&strongAuth!=="server_verified"){
+    return result({decision:"review_required",code:"strong_auth_required",reason:"Server-verified strong authentication is required before this delegated action could proceed.",requiredLevel,delegation:grant,humanReviewRequired:true});
   }
   if(grant.humanConfirmationRequired&&approvalState!=="approved"){
     return result({decision:"review_required",code:"human_confirmation_required",reason:"Human confirmation is required by the delegation.",requiredLevel,delegation:grant,humanReviewRequired:true});
