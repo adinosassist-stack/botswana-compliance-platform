@@ -6,6 +6,7 @@ const LEGACY_TURNSTILE_CONFIGURATION_ERROR="turnstile_configuration_error";
 const META_CSP_RE=/<meta\b(?=[^>]*\bhttp-equiv\s*=\s*["']Content-Security-Policy["'])[^>]*>/i;
 const ICON_LINK_RE=/<link\b(?=[^>]*\brel\s*=\s*["'](?:icon|shortcut icon|apple-touch-icon)["'])[^>]*>\s*/gi;
 const THEBE_LOGO_FAVICON="/assets/thebe-desk-favicon-512.png?v=20260912b";
+const OWNER_COMMAND_CENTRE_RELEASE="20260913a";
 const TURNSTILE_SECRET_HEALTH_TTL_MS=5*60*1000;
 const REGISTRATION_PROOF_TTL_MS=5*60*1000;
 const REGISTRATION_PROOF_DIFFICULTY=10;
@@ -94,6 +95,16 @@ function injectLogoFavicon(html){
   const withoutOldIcons=source.replace(ICON_LINK_RE,"");
   const faviconMarkup=`<link rel="icon" type="image/png" sizes="512x512" href="${THEBE_LOGO_FAVICON}" />\n<link rel="apple-touch-icon" href="${THEBE_LOGO_FAVICON}" />\n`;
   return withoutOldIcons.replace(/<\/head>/i,`${faviconMarkup}</head>`);
+}
+
+function injectOwnerCommandCentreAssets(html){
+  let source=String(html||"");
+  if(!/<\/head>/i.test(source)||!/<\/body>/i.test(source))return source;
+  const cssHref=`/assets/owner-command-centre.css?v=${OWNER_COMMAND_CENTRE_RELEASE}`;
+  const jsSrc=`/js/owner-command-centre.js?v=${OWNER_COMMAND_CENTRE_RELEASE}`;
+  if(!source.includes("/assets/owner-command-centre.css"))source=source.replace(/<\/head>/i,`<link rel="stylesheet" href="${cssHref}" />\n</head>`);
+  if(!source.includes("/js/owner-command-centre.js"))source=source.replace(/<\/body>/i,`<script src="${jsSrc}" defer></script>\n</body>`);
+  return source;
 }
 
 function injectFirstPartyRegistrationClient(html){
@@ -322,12 +333,13 @@ async function fetchWithTurnstileCspRepair(request,env,ctx){
   const type=String(response.headers.get("content-type")||"").toLowerCase();
   if(!type.includes("text/html"))return response;
   const html=await response.clone().text();
-  const repaired=injectFirstPartyRegistrationClient(injectLogoFavicon(stripConflictingMetaCsp(html)));
+  const repaired=injectOwnerCommandCentreAssets(injectFirstPartyRegistrationClient(injectLogoFavicon(stripConflictingMetaCsp(html))));
   if(repaired===html)return response;
   const headers=new Headers(response.headers);
   headers.set("x-thebe-csp-meta","server-header-authoritative");
   headers.set("x-thebe-favicon","optimized-512");
   headers.set("x-thebe-registration-protection","first-party-proof-v1");
+  headers.set("x-thebe-owner-brief",OWNER_COMMAND_CENTRE_RELEASE);
   return new Response(repaired,{status:response.status,statusText:response.statusText,headers});
 }
 
@@ -335,6 +347,7 @@ export {
   createRegistrationProofChallenge,
   injectFirstPartyRegistrationClient,
   injectLogoFavicon,
+  injectOwnerCommandCentreAssets,
   isRegistrationRequest,
   isRegistrationProofChallengeRequest,
   rewriteRegistrationVerificationFailure,
