@@ -4,12 +4,13 @@ import assert from 'node:assert/strict';
 const read=p=>fs.readFileSync(new URL(`../${p}`,import.meta.url),'utf8');
 const js=read('public/js/owner-command-centre.js');
 const html=read('public/index.html');
+const sw=read('public/sw.js');
 const core=read('cloudflare/src/agentic-core.js');
 let checks=0;
 const ok=(value,message)=>{assert.ok(value,message);checks++};
 
 ok(js.includes('const RELEASE="20260913c";'),'browser release advanced for agentic UI');
-ok(html.includes('owner-command-centre.js?v=20260913c'),'index cache key serves agentic UI release');
+ok(sw.includes('function criticalRuntimeAsset(url){return url.origin===self.location.origin&&url.pathname.startsWith("/js/")}')&&sw.includes('fetch(request,{cache:"no-store"})'),'JS runtime assets are served network-first instead of relying on a query-string cache key');
 ok(html.includes('id="ownerAgenticStyles"')&&html.includes('.owner-agentic-panel{'),'responsive agentic panel styles are present');
 ok(js.includes('agentic.id="ownerAgenticPanel"')&&js.includes('agenticBody.id="ownerAgenticBody"'),'Owner Command Centre mounts governed agentic panel');
 ok(js.includes('Observe → reason → simulate → recommend → approve'),'UI communicates the bounded Stage 1 loop');
