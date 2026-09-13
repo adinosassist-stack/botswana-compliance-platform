@@ -84,7 +84,12 @@ assert.match(migration,/agent_delegation_events_tenant_guard/);
 
 const entry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
 const authority=fs.readFileSync("cloudflare/src/agentic-authority-core.js","utf8");
+const wrangler=fs.readFileSync("cloudflare/wrangler.toml","utf8");
 assert.match(entry,/handleAgenticAuthorityRequest/);
+assert.match(entry,/agenticAuthoritySchemaReady/);
+assert.match(entry,/latestSchemaDelta:V81_SCHEMA_DELTA/);
+assert.doesNotMatch(entry,/handleAgenticRequest/);
+assert.match(wrangler,/main = "src\/agentic-entry\.js"/);
 assert.match(authority,/executionEnabled:false/);
 assert.match(authority,/shadowOnly:true/);
 assert.match(authority,/owner_required/);
@@ -92,4 +97,4 @@ assert.match(authority,/idempotency_key_required/);
 assert.doesNotMatch(authority,/allow_execute\(/);
 assert.doesNotMatch(authority,/fetch\([^)]*https?:\/\//);
 
-console.log("v81 delegated authority shadow-mode tests passed");
+console.log("v81 delegated authority shadow-mode tests passed with production wrapper wiring");
