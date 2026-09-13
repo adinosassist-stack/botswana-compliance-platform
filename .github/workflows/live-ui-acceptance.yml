@@ -1,0 +1,258 @@
+name: Live UI acceptance
+run-name: Live active-user acceptance ${{ github.sha }}
+
+on:
+  push:
+    branches: ['probe/live-ui-acceptance-20260913']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  active-user:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Install isolated browser harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/thebe-live-acceptance
+          mkdir -p /tmp/thebe-live-acceptance
+          cd /tmp/thebe-live-acceptance
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+      - name: Exercise production as guest and synthetic owner
+        shell: bash
+        env:
+          EXPECTED_SHA: 121a61253f74566a34e9f7274e5387f6ea33d697
+        run: |
+          set -euo pipefail
+          cd /tmp/thebe-live-acceptance
+          cat > acceptance.mjs <<'NODE'
+          import { chromium } from 'playwright';
+          import assert from 'node:assert/strict';
+          import crypto from 'node:crypto';
+
+          const origin='https://thebedesk.com';
+          const run=Date.now().toString(36);
+          const email=`thebe-release-probe-${run}@example.com`;
+          const company=`Thebe Release Probe ${run}`;
+          const password=`Probe-${crypto.randomBytes(12).toString('hex')}!Aa9`;
+          const browser=await chromium.launch({headless:true});
+          const results=[];
+          const log=(name,details={})=>{results.push({name,ok:true,...details});console.log(`PASS ${name}`,details)};
+          const visible=async(locator)=>locator.evaluate(el=>{const s=getComputedStyle(el);return !el.hidden&&s.display!=='none'&&s.visibility!=='hidden'&&s.opacity!=='0'}).catch(()=>false);
+          const newPage=async(viewport={width:1440,height:1000})=>{
+            const context=await browser.newContext({viewport});
+            const page=await context.newPage();
+            const pageErrors=[]; const failed=[];
+            page.on('pageerror',e=>pageErrors.push(String(e)));
+            page.on('requestfailed',r=>failed.push(`${r.method()} ${r.url()} :: ${r.failure()?.errorText||'failed'}`));
+            return {context,page,pageErrors,failed};
+          };
+          const gotoHome=async(page)=>{await page.goto(origin+'/',{waitUntil:'networkidle',timeout:45000});await page.waitForTimeout(250)};
+          const assertRuntimeHealthy=async(page,label)=>{
+            const state=await page.evaluate(()=>({
+              start:typeof window.startFreeFromMarketing,
+              auth:typeof window.openAuthFromMarketing,
+              submit:typeof window.submitAuth,
+              logout:typeof window.logoutUser,
+              delegation:!!window.BW?.events,
+              allowed:Array.isArray(window.BW?.events?.allowedActions)?window.BW.events.allowedActions.length:0
+            }));
+            assert.equal(state.start,'function',`${label}: Start free handler missing`);
+            assert.equal(state.auth,'function',`${label}: auth handler missing`);
+            assert.equal(state.submit,'function',`${label}: submit handler missing`);
+            assert.equal(state.delegation,true,`${label}: delegated action runtime missing`);
+            assert.ok(state.allowed>20,`${label}: action allowlist unexpectedly small`);
+            log(`${label} runtime handlers`,state);
+          };
+          const assertVisibleActionsResolved=async(page,label)=>{
+            const audit=await page.evaluate(()=>{
+              const allow=new Set(window.BW?.events?.allowedActions||[]);
+              return [...document.querySelectorAll('button[data-bw-onclick],a[data-bw-onclick]')]
+                .filter(el=>{const s=getComputedStyle(el);return !el.hidden&&s.display!=='none'&&s.visibility!=='hidden'})
+                .map(el=>{
+                  const code=el.getAttribute('data-bw-onclick')||'';
+                  const match=code.trim().match(/^([A-Za-z_$][\w$]*)\s*\(/);
+                  const action=match?.[1]||'';
+                  return {text:(el.textContent||'').trim().replace(/\s+/g,' ').slice(0,90),code,action,allowed:!!action&&allow.has(action),defined:!!action&&typeof window[action]==='function'};
+                });
+            });
+            const bad=audit.filter(x=>!x.action||!x.allowed||!x.defined);
+            assert.deepEqual(bad,[],`${label}: unresolved visible actions ${JSON.stringify(bad)}`);
+            log(`${label} visible button handlers`,{checked:audit.length});
+            return audit;
+          };
+
+          // 1. Desktop guest: production readiness, all major CTAs and local handler integrity.
+          {
+            const {context,page,pageErrors}=await newPage();
+            await gotoHome(page);
+            const ready=await page.evaluate(async()=>{const r=await fetch('/api/ready',{cache:'no-store'});return {status:r.status,body:await r.json()}});
+            assert.equal(ready.status,200,'/api/ready failed');
+            assert.equal(ready.body?.ok,true,'production readiness not ok');
+            assert.equal(ready.body?.schemaReady,true,'production schema not ready');
+            assert.equal(ready.body?.requiredConfigReady,true,'production config not ready');
+            assert.equal(ready.body?.expectedSchemaDelta,'044_v79_finance_reconciliation.sql','wrong live schema delta');
+            log('production readiness',{version:ready.body?.version,schema:ready.body?.expectedSchemaDelta});
+            await assertRuntimeHealthy(page,'desktop guest');
+            await assertVisibleActionsResolved(page,'desktop marketing');
+
+            const start=page.getByRole('button',{name:/^Start free$/i}).first();
+            assert.ok(await start.count(),'header Start free missing');
+            await start.click(); await page.waitForTimeout(250);
+            assert.equal(await visible(page.locator('#authGate')),true,'header Start free did not open auth gate');
+            assert.equal(await visible(page.locator('#companyNameField')),true,'header Start free did not enter registration mode');
+            log('header Start free opens registration');
+
+            await gotoHome(page);
+            const hero=page.getByRole('button',{name:/Start free for 14 days/i}).first();
+            assert.ok(await hero.count(),'hero free-trial CTA missing');
+            await hero.click(); await page.waitForTimeout(250);
+            assert.equal(await visible(page.locator('#companyNameField')),true,'hero CTA did not open registration');
+            log('hero Start free opens registration');
+
+            await gotoHome(page);
+            const signIn=page.getByRole('button',{name:/^Sign in$/i}).first();
+            assert.ok(await signIn.count(),'Sign in missing');
+            await signIn.click(); await page.waitForTimeout(200);
+            assert.equal(await visible(page.locator('#authGate')),true,'Sign in did not open auth');
+            assert.equal(await visible(page.locator('#companyNameField')),false,'Sign in incorrectly entered registration mode');
+            assert.match(await page.locator('#authTitle').textContent(),/Sign in/i,'Sign in title wrong');
+            log('Sign in opens login');
+
+            await gotoHome(page);
+            const pricingStarts=page.locator('#marketingGate button').filter({hasText:/Start free/i});
+            const count=await pricingStarts.count();
+            assert.ok(count>=2,'expected multiple marketing Start free CTAs');
+            let exercised=0;
+            for(let i=0;i<count;i++){
+              await gotoHome(page);
+              const buttons=page.locator('#marketingGate button').filter({hasText:/Start free/i});
+              const b=buttons.nth(i);
+              if(!(await visible(b)))continue;
+              await b.click(); await page.waitForTimeout(160);
+              assert.equal(await visible(page.locator('#authGate')),true,`marketing Start free CTA ${i+1} inert`);
+              exercised++;
+            }
+            assert.ok(exercised>=2,'not enough Start free CTAs exercised');
+            log('all visible marketing Start free CTAs',{exercised});
+            assert.deepEqual(pageErrors,[],'desktop guest page errors');
+            await context.close();
+          }
+
+          // 2. Mobile guest: critical conversion path must also work.
+          {
+            const {context,page,pageErrors}=await newPage({width:390,height:844});
+            await gotoHome(page);
+            await assertRuntimeHealthy(page,'mobile guest');
+            await assertVisibleActionsResolved(page,'mobile marketing');
+            const starts=page.getByRole('button',{name:/Start free/i});
+            let clicked=false;
+            for(let i=0;i<await starts.count();i++){
+              const b=starts.nth(i);if(await visible(b)){await b.click();clicked=true;break}
+            }
+            assert.equal(clicked,true,'no visible mobile Start free control');
+            await page.waitForTimeout(200);
+            assert.equal(await visible(page.locator('#companyNameField')),true,'mobile Start free did not open registration');
+            log('mobile Start free');
+            assert.deepEqual(pageErrors,[],'mobile guest page errors');
+            await context.close();
+          }
+
+          // 3. Direct registration fallback: validation, proof service, then create a real synthetic owner.
+          const owner=await newPage();
+          const {context,page,pageErrors}=owner;
+          try{
+            await page.goto(origin+'/register-direct.html',{waitUntil:'networkidle',timeout:45000});
+            assert.equal(await page.locator('#registerForm').count(),1,'direct registration form missing');
+            await page.locator('#submitBtn').click(); await page.waitForTimeout(100);
+            assert.match(await page.locator('#status').textContent(),/business name/i,'direct form validation handler inert');
+            const proof=await page.evaluate(async()=>{const c=window.BW.api.createClient({});try{const data=await c.request('/api/auth/registration-proof/challenge',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});return {ok:true,data}}catch(e){return {ok:false,error:String(e),code:e?.code}}});
+            assert.equal(proof.ok,true,`registration proof challenge failed: ${JSON.stringify(proof)}`);
+            assert.equal(proof.data?.provider,'thebe_proof','registration proof provider wrong');
+            log('direct registration protection',{provider:proof.data?.provider,difficulty:proof.data?.difficulty});
+
+            await page.locator('#companyName').fill(company);
+            await page.locator('#email').fill(email);
+            await page.locator('#password').fill(password);
+            await page.locator('#submitBtn').click();
+            await page.waitForFunction(()=>/accepted|created/i.test(document.querySelector('#status')?.textContent||''),null,{timeout:30000});
+            const registrationStatus=await page.locator('#status').textContent();
+            assert.match(registrationStatus,/accepted|created/i,'synthetic registration not accepted');
+            log('synthetic owner registration',{email,status:registrationStatus.trim()});
+
+            // 4. Sign in through the public UI and enter the real workspace.
+            await page.goto(origin+'/',{waitUntil:'networkidle',timeout:45000});
+            await assertRuntimeHealthy(page,'post-registration guest');
+            await page.getByRole('button',{name:/^Sign in$/i}).first().click();
+            await page.locator('#authEmail').fill(email);
+            await page.locator('#authPassword').fill(password);
+            await page.locator('#authSubmit').click();
+            await page.waitForFunction(()=>{
+              const app=document.querySelector('#appShell'),auth=document.querySelector('#authGate');
+              return app&&getComputedStyle(app).visibility!=='hidden'&&auth?.classList.contains('hidden');
+            },null,{timeout:30000});
+            log('synthetic owner sign-in and workspace entry');
+
+            // 5. Exercise every visible workspace navigation button. Verify every visible delegated button resolves.
+            await assertVisibleActionsResolved(page,'owner workspace initial');
+            const views=await page.locator('#nav button[data-view]').evaluateAll(nodes=>[...new Set(nodes.filter(n=>{const s=getComputedStyle(n);return !n.hidden&&s.display!=='none'&&s.visibility!=='hidden'}).map(n=>n.dataset.view).filter(Boolean))]);
+            assert.ok(views.length>=5,`too few owner navigation views: ${views.length}`);
+            const visited=[];
+            for(const view of views){
+              const btn=page.locator(`#nav button[data-view="${view}"]`).first();
+              if(!(await visible(btn)))continue;
+              await btn.click(); await page.waitForTimeout(120);
+              const active=await btn.evaluate(el=>el.classList.contains('active'));
+              assert.equal(active,true,`workspace navigation did not activate ${view}`);
+              await assertVisibleActionsResolved(page,`owner view ${view}`);
+              visited.push(view);
+            }
+            log('owner workspace navigation',{visitedCount:visited.length,visited});
+
+            // Verify non-navigation buttons are not dead without triggering consequential operations.
+            const buttonAudit=await page.evaluate(()=>{
+              const allow=new Set(window.BW?.events?.allowedActions||[]);
+              return [...document.querySelectorAll('button')].map(el=>{
+                const code=el.getAttribute('data-bw-onclick')||'';
+                const m=code.trim().match(/^([A-Za-z_$][\w$]*)\s*\(/); const action=m?.[1]||'';
+                return {text:(el.textContent||'').trim().replace(/\s+/g,' ').slice(0,80),hasCode:!!code,action,allowed:!code||(!!action&&allow.has(action)),defined:!code||(!!action&&typeof window[action]==='function')};
+              });
+            });
+            const broken=buttonAudit.filter(x=>x.hasCode&&(!x.allowed||!x.defined));
+            assert.deepEqual(broken,[],`workspace has dead delegated buttons: ${JSON.stringify(broken.slice(0,10))}`);
+            log('workspace button contract',{totalButtons:buttonAudit.length,delegated:buttonAudit.filter(x=>x.hasCode).length});
+
+            // 6. Queue protected cleanup for the synthetic production tenant.
+            const cleanup=await page.evaluate(async()=>{
+              const reader=window.BW.api.createClient({});
+              const me=await reader.request('/api/auth/me');
+              const csrf=String(me?.csrfToken||'');
+              if(!csrf)throw new Error('csrf token unavailable for synthetic cleanup');
+              const writer=window.BW.api.createClient({getCsrfToken:()=>csrf});
+              return writer.request('/api/account/deletion-request',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({confirmation:'DELETE MY ACCOUNT',reason:'Automated production release acceptance synthetic tenant cleanup'})});
+            });
+            assert.equal(cleanup?.ok,true,'synthetic tenant deletion request was not accepted');
+            log('synthetic tenant queued for protected deletion',{status:cleanup?.status||cleanup?.state||'accepted'});
+
+            assert.deepEqual(pageErrors,[],'owner journey page errors');
+          } finally {
+            await context.close();
+            await browser.close();
+          }
+
+          console.log('LIVE_ACCEPTANCE_RESULT '+JSON.stringify({ok:true,expectedSha:process.env.EXPECTED_SHA,email,checks:results.length,results},null,2));
+          NODE
+          node acceptance.mjs
