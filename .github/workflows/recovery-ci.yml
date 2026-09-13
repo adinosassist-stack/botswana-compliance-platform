@@ -62,6 +62,7 @@ jobs:
           node tests/v80-agentic-owner-centre.mjs
           node tests/v80-agentic-stage2.mjs
           node tests/v80-agentic-stage2-runtime.mjs
+          node tests/v81-delegated-authority-static.mjs
 
       - name: Production and historical regression qualification
         shell: bash
