@@ -75,3 +75,18 @@ The allowance is reserved when a unique WhatsApp outbox row is created, before p
 - [Meta WhatsApp webhooks overview](https://developers.facebook.com/documentation/business-messaging/whatsapp/webhooks/overview)
 - [Meta messages webhook reference](https://developers.facebook.com/documentation/business-messaging/whatsapp/webhooks/reference/messages)
 - [Meta Graph API changelog](https://developers.facebook.com/docs/graph-api/changelog/)
+
+
+## Finance and connection-test extension (v79.1)
+
+- Owners and managers can queue a real connection test from Notification settings after explicit consent.
+- The API returns `queued`, not `delivered`; delivery truth still comes only from the signed Meta status webhook.
+- Reconciliation exceptions can generate an urgent WhatsApp utility alert when the optional approved template below is mapped. If it is absent, the authoritative finance result remains in Thebe Desk and WhatsApp delivery is skipped safely.
+- This extension does not permit payment execution, journal posting, bulk marketing, or free-form unsolicited messages.
+
+| Optional internal key | Suggested Meta template | Body parameters in order |
+|---|---|---|
+| `finance_reconciliation_exception` | `bw_finance_reconciliation_exception` | `{{1}}` account name; `{{2}}` statement period; `{{3}}` absolute difference in BWP |
+
+Add the optional mapping beside the six required mappings:
+`"finance_reconciliation_exception":{"name":"bw_finance_reconciliation_exception","language":"en_US"}`.

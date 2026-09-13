@@ -1399,9 +1399,11 @@ const WHATSAPP_TEMPLATE_PARAMETER_KEYS=Object.freeze({
   daily_operations_summary_ready:["date","reportCount","coverage"],
   critical_business_risk:["title","category","severity"],
   control_assurance_stale:["controlKey","freshness","reason"],
-  performance_intelligence_alert:["date","locationName","signalType","severity","message"]
+  performance_intelligence_alert:["date","locationName","signalType","severity","message"],
+  finance_reconciliation_exception:["accountName","statementPeriod","differenceBwp"]
 });
-const WHATSAPP_REQUIRED_TEMPLATE_KEYS=Object.freeze(Object.keys(WHATSAPP_TEMPLATE_PARAMETER_KEYS));
+const WHATSAPP_REQUIRED_TEMPLATE_KEYS=Object.freeze(["obligation_due","compliance_schedule_due","daily_operations_summary_ready","critical_business_risk","control_assurance_stale","performance_intelligence_alert"]);
+const WHATSAPP_OPTIONAL_TEMPLATE_KEYS=Object.freeze(["finance_reconciliation_exception"]);
 function normalizeBotswanaWhatsappNumber(value){
   let n=String(value||"").trim().replace(/[\s().-]/g,"");
   if(/^7\d{7}$/.test(n))n=`+267${n}`;
@@ -1414,7 +1416,7 @@ function maskedBotswanaWhatsappNumber(value){
 function parseWhatsAppTemplateMap(env){
   const raw=safeJson(env.WHATSAPP_TEMPLATE_MAP_JSON,{}),out={};
   if(!raw||Array.isArray(raw)||typeof raw!=="object")return out;
-  for(const key of WHATSAPP_REQUIRED_TEMPLATE_KEYS){
+  for(const key of Object.keys(WHATSAPP_TEMPLATE_PARAMETER_KEYS)){
     const item=raw[key];if(!item||typeof item!=="object")continue;
     const name=String(item.name||""),language=String(item.language||"en_US");
     if(!/^[a-z0-9_]{1,512}$/.test(name)||!/^[a-z]{2,3}(?:_[A-Z]{2})?$/.test(language))continue;
@@ -1428,6 +1430,7 @@ function whatsappConnectorStatus(env){
   const webhookConfigured=strongSecret(env.WHATSAPP_APP_SECRET,16)&&strongSecret(env.WHATSAPP_VERIFY_TOKEN,16);
   return {configured:credentialsConfigured&&webhookConfigured&&!missingTemplates.length,credentialsConfigured,webhookConfigured,
     templateCount:Object.keys(templates).length,requiredTemplateCount:WHATSAPP_REQUIRED_TEMPLATE_KEYS.length,missingTemplates,
+    capabilities:{utilityAlerts:!missingTemplates.length,financeReconciliationAlerts:!!templates.finance_reconciliation_exception,deliveryReceipts:webhookConfigured,connectionTest:credentialsConfigured&&webhookConfigured&&!missingTemplates.length},
     graphVersion:/^v\d+\.\d+$/.test(String(env.WHATSAPP_GRAPH_VERSION||""))?String(env.WHATSAPP_GRAPH_VERSION):"v26.0"};
 }
 function whatsappTemplateText(value,key){
@@ -4615,7 +4618,7 @@ async function edgeScopedRateLimit(req,env,scope,subject=""){
   return result?.success===false?{ok:false,retryAfterSeconds:60}:{ok:true};
 }
 async function publicBearerRateLimit(req,env,scope,token){return edgeScopedRateLimit(req,env,scope,token)}
-const APP_RELEASE="v79.0.0";
+const APP_RELEASE="v79.1.0";
 const EXPECTED_SCHEMA_DELTA="044_v79_finance_reconciliation.sql";
 async function currentSchemaReady(env){
   if(!env.DB)return false;
@@ -4666,6 +4669,8 @@ function deploymentReadiness(env){
 export const __v76Test=Object.freeze({
   normalizeBotswanaWhatsappNumber,
   buildWhatsAppTemplateRequest,
+  whatsappConnectorStatus,
+  WHATSAPP_OPTIONAL_TEMPLATE_KEYS,
   verifyWhatsAppWebhookSignature,
   signWhatsAppWebhookForTest,
   shouldAdvanceWhatsAppStatus,
@@ -5224,7 +5229,7 @@ export default {
       if(req.method==="GET"&&!restrictedWorkspaceReadAllowed(url.pathname,a.role))return json({error:"workspace_role_read_forbidden"},403);
       if(!["GET","HEAD","OPTIONS"].includes(req.method)&&!restrictedWorkspaceMutationAllowed(url.pathname,req.method,a.role))return json({error:"workspace_role_mutation_forbidden"},403);
       if(!evidenceUploadsEnabled(env)&&evidenceMutationDisabled(url,req.method))return json({error:"evidence_uploads_temporarily_disabled",evidenceUploadsEnabled:false},503);
-      const financeResponse=await handleFinanceRequest({request:req,url,env,auth:a,json,readJson,id,writeAudit,roleAllowed,sha256Hex});
+      const financeResponse=await handleFinanceRequest({request:req,url,env,auth:a,json,readJson,id,writeAudit,roleAllowed,sha256Hex,enqueueTenantAlert,whatsappTemplateAvailable:key=>!!parseWhatsAppTemplateMap(env)[key]});
       if(financeResponse)return financeResponse;
       if(url.pathname==="/api/auth/me"&&req.method==="GET")return json({user:{id:a.user_id,email:a.email,displayName:a.display_name,role:a.role,tenantId:a.tenant_id,tenantName:a.tenant_name,onboardingComplete:!!a.onboarding_complete},csrfToken:a.csrf_token});
 
@@ -6956,6 +6961,17 @@ export default {
         ]);
         await writeAudit(env,a.tenant_id,a.user_id,"WHATSAPP_CONSENT_RECORDED",{consentVersion:WHATSAPP_CONSENT_VERSION,phoneLast4:phone.slice(-4)});
         return json({ok:true,active:true,phoneMasked:maskedBotswanaWhatsappNumber(phone),consentVersion:WHATSAPP_CONSENT_VERSION});
+      }
+      if(url.pathname==="/api/notification-channels/whatsapp/test"&&req.method==="POST"){
+        if(!roleAllowed(a,"owner","manager"))return json({error:"forbidden"},403);
+        const connector=whatsappConnectorStatus(env);if(!connector.configured)return json({error:"whatsapp_connector_not_configured",connector},409);
+        const consent=await env.DB.prepare("SELECT phone_e164,status FROM whatsapp_consents WHERE tenant_id=? AND user_id=? LIMIT 1").bind(a.tenant_id,a.user_id).first();
+        if(consent?.status!=="active"||!normalizeBotswanaWhatsappNumber(consent.phone_e164))return json({error:"whatsapp_consent_required"},409);
+        const testKey=`connection-test:${a.user_id}:${Date.now()}`;
+        const queued=await enqueueWhatsAppNotification(env,{tenantId:a.tenant_id,recipientRef:a.user_id,templateKey:"compliance_schedule_due",subject:"Thebe Desk WhatsApp connection test",payload:{scheduleType:"Thebe Desk connection confirmed"},dedupeKey:testKey});
+        if(!queued.ok)return json(queued,queued.error==="whatsapp_monthly_allowance_exhausted"?402:409);
+        await writeAudit(env,a.tenant_id,a.user_id,"WHATSAPP_CONNECTION_TEST_QUEUED",{notificationId:queued.id||null,phoneLast4:String(consent.phone_e164).slice(-4)});
+        return json({ok:true,status:"queued",notificationId:queued.id||null,message:"Connection test queued. Delivery is confirmed only by the signed WhatsApp webhook."},202);
       }
       if(url.pathname==="/api/notification-channels/whatsapp"&&req.method==="DELETE"){
         const row=await env.DB.prepare("SELECT id,status,phone_e164 FROM whatsapp_consents WHERE tenant_id=? AND user_id=? LIMIT 1").bind(a.tenant_id,a.user_id).first();

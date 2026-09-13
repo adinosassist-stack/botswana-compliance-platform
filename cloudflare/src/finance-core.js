@@ -50,7 +50,7 @@ async function financeSummary(env,tenantId){
   return {currency:"BWP",cashPositionMinor,accounts,imports:{count:Number(imports?.count||0),transactions:Number(imports?.transactions||0),lastImportAt:imports?.last_import_at||null},reconciliation:{unresolvedCount:Number(unresolved?.count||0),unresolvedExposureMinor:Number(unresolved?.exposure_minor||0),lastRun:lastRun||null,stale:!Number.isFinite(lastAt)||Date.now()-lastAt>7*86400000},authority:{canonical:true,providerNeutral:true,source:"finance_ledger",estimated:false}};
 }
 
-export async function handleFinanceRequest({request,url,env,auth,json,readJson,id,writeAudit,roleAllowed,sha256Hex}){
+export async function handleFinanceRequest({request,url,env,auth,json,readJson,id,writeAudit,roleAllowed,sha256Hex,enqueueTenantAlert=null,whatsappTemplateAvailable=()=>false}){
   if(!url.pathname.startsWith("/api/finance"))return null;
   if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
   if(url.pathname==="/api/finance/summary"&&request.method==="GET")return json(await financeSummary(env,auth.tenant_id));
@@ -112,7 +112,13 @@ export async function handleFinanceRequest({request,url,env,auth,json,readJson,i
     await env.DB.prepare("INSERT INTO finance_reconciliation_runs(id,tenant_id,account_id,statement_from,statement_to,opening_balance_minor,statement_closing_minor,book_closing_minor,difference_minor,currency,status,transaction_count,snapshot_hash,created_by_user_id) VALUES(?,?,?,?,?,?,?,?,?, 'BWP',?,?,?,?)").bind(runId,auth.tenant_id,accountId,from,to,opening,closing,bookClosing,difference,status,items.length,snapshotHash,auth.user_id).run();
     await appendLineage({env,tenantId:auth.tenant_id,userId:auth.user_id,eventType:"RECONCILIATION_COMPLETED",entityType:"finance_reconciliation",entityId:runId,payload:{accountId,statementFrom:from,statementTo:to,openingBalanceMinor:opening,statementClosingMinor:closing,bookClosingMinor:bookClosing,differenceMinor:difference,status,transactionCount:items.length,snapshotHash},sha256Hex,id});
     await writeAudit(env,auth.tenant_id,auth.user_id,"FINANCE_RECONCILIATION_COMPLETED",{runId,accountId,status,differenceMinor:difference,transactionCount:items.length,snapshotHash});
-    return json({ok:true,id:runId,status,openingBalanceMinor:opening,statementClosingMinor:closing,bookClosingMinor:bookClosing,differenceMinor:difference,transactionCount:items.length,snapshotHash,currency:"BWP"},201);
+    let whatsappAlert={eligible:false,queued:false};
+    if(status==="exception"&&enqueueTenantAlert&&whatsappTemplateAvailable("finance_reconciliation_exception")){
+      const accountName=String((await env.DB.prepare("SELECT name FROM finance_accounts WHERE id=? AND tenant_id=? LIMIT 1").bind(accountId,auth.tenant_id).first())?.name||"Finance account");
+      const alert=await enqueueTenantAlert(env,{tenantId:auth.tenant_id,templateKey:"finance_reconciliation_exception",subject:"Finance reconciliation needs review",payload:{accountName,statementPeriod:`${from} to ${to}`,differenceBwp:(Math.abs(difference)/100).toFixed(2)},dedupeKey:`finance-reconciliation:${runId}`,externalPriority:"urgent"});
+      whatsappAlert={eligible:true,queued:!!alert?.ok};
+    }
+    return json({ok:true,id:runId,status,openingBalanceMinor:opening,statementClosingMinor:closing,bookClosingMinor:bookClosing,differenceMinor:difference,transactionCount:items.length,snapshotHash,currency:"BWP",whatsappAlert},201);
   }
   if(url.pathname==="/api/finance/reconciliations"&&request.method==="GET"){
     const result=await env.DB.prepare("SELECT id,account_id,statement_from,statement_to,opening_balance_minor,statement_closing_minor,book_closing_minor,difference_minor,currency,status,transaction_count,snapshot_hash,created_at FROM finance_reconciliation_runs WHERE tenant_id=? ORDER BY created_at DESC,rowid DESC LIMIT 100").bind(auth.tenant_id).all();
