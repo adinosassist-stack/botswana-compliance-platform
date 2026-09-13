@@ -56,17 +56,17 @@ decision=evaluateDelegatedAuthority({agentKey:"management",actionKey:"task.creat
 assert.equal(decision.code,"delegation_expired");
 
 const externalGrant={...baseGrant,action_key:"reminder.send",external_side_effects:0,strong_auth_required:1};
-decision=evaluateDelegatedAuthority({agentKey:"management",actionKey:"reminder.send",actionDefinition:external,delegation:externalGrant,mode:"shadow",approvalState:"approved",strongAuth:true,now:new Date("2026-09-13T00:00:00Z")});
+decision=evaluateDelegatedAuthority({agentKey:"management",actionKey:"reminder.send",actionDefinition:external,delegation:externalGrant,mode:"shadow",approvalState:"approved",strongAuth:"server_verified",now:new Date("2026-09-13T00:00:00Z")});
 assert.equal(decision.code,"external_side_effect_not_delegated");
 
-decision=evaluateDelegatedAuthority({agentKey:"management",actionKey:"reminder.send",actionDefinition:external,delegation:{...externalGrant,external_side_effects:1},mode:"shadow",approvalState:"approved",strongAuth:false,now:new Date("2026-09-13T00:00:00Z")});
+decision=evaluateDelegatedAuthority({agentKey:"management",actionKey:"reminder.send",actionDefinition:external,delegation:{...externalGrant,external_side_effects:1},mode:"shadow",approvalState:"approved",strongAuth:true,now:new Date("2026-09-13T00:00:00Z")});
 assert.equal(decision.code,"strong_auth_required");
 
-decision=evaluateDelegatedAuthority({agentKey:"management",actionKey:"reminder.send",actionDefinition:external,delegation:{...externalGrant,external_side_effects:1},mode:"shadow",approvalState:"approved",strongAuth:true,now:new Date("2026-09-13T00:00:00Z")});
+decision=evaluateDelegatedAuthority({agentKey:"management",actionKey:"reminder.send",actionDefinition:external,delegation:{...externalGrant,external_side_effects:1},mode:"shadow",approvalState:"approved",strongAuth:"server_verified",now:new Date("2026-09-13T00:00:00Z")});
 assert.equal(decision.decision,"shadow_allow");
 assert.equal(decision.executionAllowed,false);
 
-decision=evaluateDelegatedAuthority({agentKey:"management",actionKey:"payment.execute",actionDefinition:highRisk,delegation:{...baseGrant,action_key:"payment.execute"},mode:"shadow",approvalState:"approved",strongAuth:true,now:new Date("2026-09-13T00:00:00Z")});
+decision=evaluateDelegatedAuthority({agentKey:"management",actionKey:"payment.execute",actionDefinition:highRisk,delegation:{...baseGrant,action_key:"payment.execute"},mode:"shadow",approvalState:"approved",strongAuth:"server_verified",now:new Date("2026-09-13T00:00:00Z")});
 assert.equal(decision.decision,"human_only");
 assert.equal(decision.executionAllowed,false);
 
@@ -76,6 +76,11 @@ assert.match(migration,/max_autonomy_level INTEGER NOT NULL CHECK\(max_autonomy_
 assert.match(migration,/shadow_only INTEGER NOT NULL DEFAULT 1 CHECK\(shadow_only=1\)/);
 assert.match(migration,/mode TEXT NOT NULL DEFAULT 'shadow' CHECK\(mode='shadow'\)/);
 assert.match(migration,/UNIQUE\(tenant_id,idempotency_key\)/);
+assert.match(migration,/agent_delegations_one_active_idx/);
+assert.match(migration,/agent_action_intents_run_tenant_guard/);
+assert.match(migration,/agent_action_intents_proposal_tenant_guard/);
+assert.match(migration,/agent_action_intents_delegation_tenant_guard/);
+assert.match(migration,/agent_delegation_events_tenant_guard/);
 
 const entry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
 const authority=fs.readFileSync("cloudflare/src/agentic-authority-core.js","utf8");
