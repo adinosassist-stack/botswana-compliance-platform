@@ -9,12 +9,15 @@ const core=read('cloudflare/src/agentic-core.js');
 let checks=0;
 const ok=(value,message)=>{assert.ok(value,message);checks++};
 
-ok(js.includes('const RELEASE="20260913c";'),'browser release advanced for agentic UI');
+ok(js.includes('const RELEASE="20260913d";'),'browser release advanced for outcome-informed agentic UI');
 ok(sw.includes('function criticalRuntimeAsset(url){return url.origin===self.location.origin&&url.pathname.startsWith("/js/")}')&&sw.includes('fetch(request,{cache:"no-store"})'),'JS runtime assets are served network-first instead of relying on a query-string cache key');
 ok(html.includes('id="ownerAgenticStyles"')&&html.includes('.owner-agentic-panel{'),'responsive agentic panel styles are present');
 ok(js.includes('agentic.id="ownerAgenticPanel"')&&js.includes('agenticBody.id="ownerAgenticBody"'),'Owner Command Centre mounts governed agentic panel');
 ok(js.includes('Observe → reason → simulate → recommend → approve'),'UI communicates the bounded Stage 1 loop');
 ok(js.includes('Stage 1 · execution disabled')&&js.includes('Approval records intent for audit; it does not execute an action.'),'UI makes non-execution boundary explicit');
+ok(js.includes('statusPayload?.outcomeLearning?.enabled')&&js.includes('Outcome-informed ordering'),'UI only shows learning disclosure when the governed API reports it enabled');
+ok(js.includes('Recent recorded outcomes can only reorder recommendations within the same priority level.'),'UI states the strict priority-class learning boundary');
+ok(js.includes('This is non-causal and cannot change risk, approvals or execution authority.'),'UI states that learning is non-causal and cannot expand authority');
 ok(js.includes('request("/api/agentic/status")')&&js.includes('request("/api/agentic/runs")'),'UI reads governed status and persisted runs');
 ok(js.includes('request("/api/agentic/plan"')&&js.includes('method:"POST"'),'plan generation uses the reviewed Stage 1 planning endpoint');
 ok(js.includes('/api/agentic/proposals/${encodeURIComponent(proposalId)}/${decision}')&&js.includes('"Record approval"')&&js.includes('"Reject"'),'proposal decisions use reviewed approve/reject endpoints');
