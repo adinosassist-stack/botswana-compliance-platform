@@ -32,17 +32,29 @@ jobs:
           const browser=await chromium.launch({headless:true});
           const page=await browser.newPage();
           const stamp=Date.now().toString(36);
+          let registerResponse=null;
+          page.on('response',async response=>{
+            if(/\/api\/auth\/register(?:\?|$)|__thebe_api.*auth.*register/.test(response.url())){
+              let body='';try{body=(await response.text()).slice(0,500)}catch{}
+              registerResponse={status:response.status(),url:response.url(),body};
+              console.log('REGISTER_RESPONSE',JSON.stringify(registerResponse));
+            }
+          });
           await page.goto('https://thebedesk.com/register-direct.html',{waitUntil:'networkidle'});
+          const formUrl=page.url();
           await page.locator('#companyName').fill(`Release Probe ${stamp}`);
           await page.locator('#email').fill(`release-probe-${stamp}@example.com`);
           await page.locator('#password').fill(`ReleaseProbe-${stamp}-SafePass-2026!`);
           await page.locator('#submitBtn').click();
-          for(let i=0;i<30;i++){
+          let finalState={};
+          for(let i=0;i<40;i++){
             await page.waitForTimeout(500);
-            const out=await page.evaluate(()=>({url:location.href,status:document.querySelector('#status')?.textContent||'',button:document.querySelector('#submitBtn')?.textContent||'',disabled:!!document.querySelector('#submitBtn')?.disabled}));
-            console.log('REGISTRATION_STATUS',JSON.stringify(out));
-            if(out.url!=='https://thebedesk.com/register-direct.html'||out.status)break;
+            finalState=await page.evaluate(()=>({url:location.href,status:document.querySelector('#status')?.textContent||'',button:document.querySelector('#submitBtn')?.textContent||'',disabled:!!document.querySelector('#submitBtn')?.disabled}));
+            console.log('REGISTRATION_STATUS',i,JSON.stringify(finalState));
+            if(registerResponse||finalState.status||finalState.url!==formUrl)break;
           }
+          console.log('REGISTRATION_FINAL',JSON.stringify({formUrl,finalState,registerResponse}));
           await browser.close();
+          if(!registerResponse||registerResponse.status<200||registerResponse.status>=300)process.exitCode=2;
           NODE
           node probe.mjs
