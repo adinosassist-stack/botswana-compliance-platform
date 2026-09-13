@@ -1,0 +1,8 @@
+{
+  "purpose": "Production release marker for the brand-preserving Workspace UI/UX 10 refinement",
+  "source_main_sha": "8b17783334bc9b73ef9c3bfa5a6407a6108c6623",
+  "requested_local_time": "2026-09-13T04:08:00+02:00",
+  "deployment_path": "Recovery CI -> BF-07 Supply-Chain Seal -> Thebe Desk Production Deploy",
+  "brand_contract": "Preserve current live blue/white Thebe Desk branding; no green or charcoal rebrand",
+  "application_behavior_changed_by_marker": false
+}
