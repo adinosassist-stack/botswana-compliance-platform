@@ -85,10 +85,10 @@ function actionStatus(decision){
   if(decision==="review_required")return "review_required";
   return "blocked";
 }
-function strongAuthPresent(request){
-  // Stage 1.5 never trusts a client assertion to create strong authentication.
-  // This only recognizes a server-added marker if a future auth layer sets it.
-  return request.headers.get("x-thebe-strong-auth")==="verified";
+function strongAuthPresent(){
+  // Stage 1.5 has no server-attested strong-auth integration yet. Never trust a
+  // client-controlled header or body field as proof of strong authentication.
+  return "none";
 }
 
 async function schemaReady(env){
@@ -124,6 +124,7 @@ async function status(env,auth){
     schemaReady:ready,
     executionEnabled:false,
     shadowOnly:true,
+    strongAuthIntegrationReady:false,
     activeDelegations,
     autonomyLevels:AUTONOMY_LEVELS,
     guarantees:[
@@ -132,7 +133,8 @@ async function status(env,auth){
       "tenant_scoped_delegations",
       "owner_approved_grants",
       "idempotent_shadow_intents",
-      "auditable_policy_decisions"
+      "auditable_policy_decisions",
+      "client_headers_cannot_attest_strong_auth"
     ]
   });
 }
@@ -154,6 +156,8 @@ async function createDelegation({request,env,auth}){
   if(required<AUTONOMY_LEVELS.BOUNDED_EXECUTE){
     return json({error:"delegation_not_required",message:"Read and prepare actions use the existing agent policy and do not need a bounded-execution grant."},409);
   }
+  const duplicate=await safeFirst(env,`SELECT id FROM agent_delegations WHERE tenant_id=? AND agent_key=? AND action_key=? AND status='active' LIMIT 1`,[auth.tenant_id,agentKey,actionKey]);
+  if(duplicate)return json({error:"active_delegation_exists",delegationId:duplicate.id},409);
   const maxAutonomyLevel=boundedInt(body?.maxAutonomyLevel,{min:required,max:AUTONOMY_LEVELS.BOUNDED_EXECUTE});
   if(maxAutonomyLevel===undefined)return json({error:"invalid_autonomy_level"},400);
   const maxDailyActions=boundedInt(body?.maxDailyActions,{min:1,max:1000,nullable:true});
@@ -166,21 +170,25 @@ async function createDelegation({request,env,auth}){
   if(validFrom&&expiresAt&&new Date(expiresAt)<=new Date(validFrom))return json({error:"invalid_delegation_window"},400);
 
   const externalSideEffects=definition.externalSideEffect&&body?.externalSideEffects===true?1:0;
-  // External actions are always strong-auth + human-confirmation candidates in
-  // Stage 1.5. The schema remains shadow-only regardless of these settings.
   const strongAuthRequired=externalSideEffects?1:(body?.strongAuthRequired===true?1:0);
   const humanConfirmationRequired=1;
   const delegationId=id();
-  await env.DB.batch([
-    env.DB.prepare(`INSERT INTO agent_delegations(id,tenant_id,agent_key,action_key,status,max_autonomy_level,external_side_effects,strong_auth_required,
-      human_confirmation_required,max_daily_actions,max_amount_minor,shadow_only,valid_from,expires_at,created_by_user_id,approved_by_user_id)
-      VALUES(?,?,?,?, 'active',?,?,?,?,?,?,1,?,?,?,?,?)`).bind(
-        delegationId,auth.tenant_id,agentKey,actionKey,maxAutonomyLevel,externalSideEffects,strongAuthRequired,humanConfirmationRequired,
-        maxDailyActions,maxAmountMinor,validFrom,expiresAt,auth.user_id,auth.user_id
-      ),
-    env.DB.prepare(`INSERT INTO agent_delegation_events(id,tenant_id,delegation_id,event_type,actor_user_id,detail_json)
-      VALUES(?,?,?,'CREATED',?,?)`).bind(id(),auth.tenant_id,delegationId,auth.user_id,JSON.stringify({agentKey,actionKey,maxAutonomyLevel,shadowOnly:true}))
-  ]);
+  try{
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO agent_delegations(id,tenant_id,agent_key,action_key,status,max_autonomy_level,external_side_effects,strong_auth_required,
+        human_confirmation_required,max_daily_actions,max_amount_minor,shadow_only,valid_from,expires_at,created_by_user_id,approved_by_user_id)
+        VALUES(?,?,?,?, 'active',?,?,?,?,?,?,1,?,?,?,?,?)`).bind(
+          delegationId,auth.tenant_id,agentKey,actionKey,maxAutonomyLevel,externalSideEffects,strongAuthRequired,humanConfirmationRequired,
+          maxDailyActions,maxAmountMinor,validFrom,expiresAt,auth.user_id,auth.user_id
+        ),
+      env.DB.prepare(`INSERT INTO agent_delegation_events(id,tenant_id,delegation_id,event_type,actor_user_id,detail_json)
+        VALUES(?,?,?,'CREATED',?,?)`).bind(id(),auth.tenant_id,delegationId,auth.user_id,JSON.stringify({agentKey,actionKey,maxAutonomyLevel,shadowOnly:true}))
+    ]);
+  }catch{
+    const current=await safeFirst(env,`SELECT id FROM agent_delegations WHERE tenant_id=? AND agent_key=? AND action_key=? AND status='active' LIMIT 1`,[auth.tenant_id,agentKey,actionKey]);
+    if(current)return json({error:"active_delegation_exists",delegationId:current.id},409);
+    return json({error:"delegation_create_failed"},500);
+  }
   const row=await env.DB.prepare(`SELECT * FROM agent_delegations WHERE id=? AND tenant_id=? LIMIT 1`).bind(delegationId,auth.tenant_id).first();
   return json({ok:true,delegation:normalizeDelegation(row),execution:{enabled:false,shadowOnly:true}},201);
 }
@@ -225,11 +233,24 @@ async function shadowEvaluate({request,env,auth}){
   if(!agent.allowedRoles.includes(role)||!definition.roles.includes(role))return json({error:"role_forbidden"},403);
   const amountMinor=boundedInt(body?.amountMinor,{min:0,max:Number.MAX_SAFE_INTEGER,nullable:false});
   if(amountMinor===undefined)return json({error:"invalid_amount_minor"},400);
+
+  const runId=body?.runId?text(body.runId,120):null;
+  const proposalId=body?.proposalId?text(body.proposalId,120):null;
+  if(runId){
+    const run=await safeFirst(env,"SELECT id FROM agentic_runs WHERE id=? AND tenant_id=? LIMIT 1",[runId,auth.tenant_id]);
+    if(!run)return json({error:"run_not_found"},404);
+  }
+  if(proposalId){
+    const proposal=await safeFirst(env,"SELECT id FROM agentic_proposals WHERE id=? AND tenant_id=? LIMIT 1",[proposalId,auth.tenant_id]);
+    if(!proposal)return json({error:"proposal_not_found"},404);
+  }
+
   const grant=await activeDelegation(env,auth.tenant_id,agentKey,actionKey);
   const usage=grant?await safeFirst(env,`SELECT COUNT(*) count FROM agent_action_intents
     WHERE tenant_id=? AND delegation_id=? AND created_at>=date('now') AND decision='shadow_allow'`,[auth.tenant_id,grant.id]):null;
   const approvalState=body?.humanConfirmed===true?"approved":"none";
   const decision=evaluateDelegatedAuthority({
+    agentKey,
     actionKey,
     actionDefinition:definition,
     delegation:grant,
@@ -237,21 +258,27 @@ async function shadowEvaluate({request,env,auth}){
     globalExecutionEnabled:false,
     amountMinor,
     dailyActionCount:Number(usage?.count||0),
-    strongAuth:strongAuthPresent(request),
+    strongAuth:strongAuthPresent(),
     approvalState
   });
   const canonical=JSON.stringify({agentKey,actionKey,amountMinor,humanConfirmed:body?.humanConfirmed===true,metadata:body?.metadata&&typeof body.metadata==="object"&&!Array.isArray(body.metadata)?body.metadata:{}});
   const intentId=id(),payloadHash=await sha256Hex(canonical),status=actionStatus(decision.decision);
-  await env.DB.batch([
-    env.DB.prepare(`INSERT INTO agent_action_intents(id,tenant_id,run_id,proposal_id,agent_key,action_key,requested_by_user_id,delegation_id,mode,decision,decision_code,
-      required_autonomy_level,amount_minor,payload_hash,idempotency_key,status)
-      VALUES(?,?,?,?,?,?,?,?, 'shadow',?,?,?,?,?,?,?)`).bind(
-        intentId,auth.tenant_id,body?.runId||null,body?.proposalId||null,agentKey,actionKey,auth.user_id,grant?.id||null,
-        decision.decision,decision.code,decision.requiredAutonomyLevel,amountMinor,payloadHash,idem,status
-      ),
-    ...(grant?[env.DB.prepare(`INSERT INTO agent_delegation_events(id,tenant_id,delegation_id,event_type,actor_user_id,detail_json)
-      VALUES(?,?,?,'SHADOW_EVALUATED',?,?)`).bind(id(),auth.tenant_id,grant.id,auth.user_id,JSON.stringify({intentId,actionKey,decision:decision.decision,code:decision.code}))]:[])
-  ]);
+  try{
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO agent_action_intents(id,tenant_id,run_id,proposal_id,agent_key,action_key,requested_by_user_id,delegation_id,mode,decision,decision_code,
+        required_autonomy_level,amount_minor,payload_hash,idempotency_key,status)
+        VALUES(?,?,?,?,?,?,?,?, 'shadow',?,?,?,?,?,?,?)`).bind(
+          intentId,auth.tenant_id,runId,proposalId,agentKey,actionKey,auth.user_id,grant?.id||null,
+          decision.decision,decision.code,decision.requiredAutonomyLevel,amountMinor,payloadHash,idem,status
+        ),
+      ...(grant?[env.DB.prepare(`INSERT INTO agent_delegation_events(id,tenant_id,delegation_id,event_type,actor_user_id,detail_json)
+        VALUES(?,?,?,'SHADOW_EVALUATED',?,?)`).bind(id(),auth.tenant_id,grant.id,auth.user_id,JSON.stringify({intentId,actionKey,decision:decision.decision,code:decision.code}))]:[])
+    ]);
+  }catch{
+    const replay=await safeFirst(env,`SELECT id,decision,decision_code,status,created_at FROM agent_action_intents WHERE tenant_id=? AND idempotency_key=? LIMIT 1`,[auth.tenant_id,idem]);
+    if(replay)return json({ok:true,replayed:true,intent:replay,execution:{performed:false,enabled:false}},200);
+    return json({error:"shadow_intent_create_failed"},500);
+  }
   return json({ok:true,replayed:false,intent:{id:intentId,status,agentKey,actionKey,amountMinor,payloadHash},decision,execution:{performed:false,enabled:false,shadowOnly:true}},201);
 }
 
