@@ -70,6 +70,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          npm run test:api
           node tests/v82-final-build-redteam.mjs
           node tests/ui-functionality-static.mjs
           node tests/v78-12146-ui-runtime-wiring-adversarial.mjs
