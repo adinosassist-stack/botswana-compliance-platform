@@ -1,60 +1,87 @@
-# Launch Status — V78 1.21.94 External provider response bounding hardening candidate
-- **HTTP admission boundary:** v1.21.83 makes Node own the HTTP server explicitly, rejects protected mutation `Expect: 100-continue` requests before body upload, rejects unsupported expectations, and caps headers at 16 KiB / 100 parsed headers.
-- **Brute-force remediation:** BF-01 through BF-06 are closed in v1.21.85: privileged destructive secrets are strength-checked/constant-time/budgeted, registration is enumeration-resistant and Turnstile-protected in production, Worker auth throttles use sliding accounting, and Node raw header counts fail closed with HTTP 431 before Express.
-- **Registration enumeration timing hardening:** v1.21.87 removes the residual fast-path account timing signal by hashing before account lookup and applying a bounded minimum response floor plus jitter to all generic post-Turnstile registration outcomes.
-- **OAuth redirect configuration hardening:** v1.21.88 requires HTTPS, exact `PUBLIC_ORIGIN`, exact provider callback path, and no query/fragment drift in both Node and Worker readiness/runtime paths.
-- **Social account-link CSRF hardening:** v1.21.89 disables legacy authenticated GET link initiation; account linking starts only through an authenticated CSRF-protected POST.
-- **OAuth state cookie host binding:** v1.21.98 preserves `__Host-` state cookies for production OAuth flows and clears validated cancellation state consistently.
-- **Outbound scanner endpoint hardening:** v1.21.90 restricts evidence scanning to credential-free public HTTPS endpoints and rejects localhost, private, link-local, carrier-grade NAT and local/ULA IPv6 targets.
-- **Password-reset fragment hardening:** v1.21.91 keeps reset secrets out of the HTTP request query, uses fragment-only delivery, and strips the fragment from browser history immediately after capture.
-- **External provider response bounding:** v1.21.93 caps streamed OAuth/Turnstile/provider JSON, DPO XML and evidence-scanner responses before full allocation, including both declared-length and streaming-overrun rejection.
-- **Node OAuth callback continuity hardening:** v1.21.92 uses `SameSite=Lax` for the authenticated Node session so Google/Facebook account-link callbacks can revalidate the initiating session; mutations remain Origin + CSRF protected and OAuth state equality is constant-time.
-- **Payment authentication/configuration hardening:** v1.21.86 requires separate strong `PAYMENT_WEBHOOK_SECRET` and `BILLING_WEBHOOK_SECRET` values, edge-throttles payment webhook authentication before body processing, durably budgets internal payment verification/refund secret attempts, and expands the platform-owned secret generator.
-- **Release-boundary hardening:** v1.21.85 pins the Node container image by immutable multi-platform digest, requires `npm ci` from the real lockfile with lifecycle scripts disabled, makes SBOM output deterministic, rejects non-registry/unintegrity-locked packages, disables `workers.dev` and public Preview URLs in the production Worker profile, and adds a deterministic release packager. BF-07 remains open until registry-backed lock/audit evidence exists.
-- **Production-mode integrity boundary:** v1.21.82 remains retained and makes `APP_ENV` the single Node production authority. OAuth state HMAC uses validated `config.SESSION_SECRET` even when supplied through `SESSION_SECRET_FILE`; OAuth state cookies are `Secure` in `APP_ENV=production`; development console email cannot receive password-reset links in production.
+# Thebe Desk Launch Status — 2026-09-13
 
-## Software release status
-- **Supply-chain blocker:** BF-07 remains open. A genuine npm `package-lock.json`, generated CycloneDX `sbom.cdx.json`, and passing high-severity dependency audit are mandatory before final release sealing. This build deliberately refuses a synthetic lockfile.
-- **Code/security remediation: BF-01 through BF-06 CLOSED; final package gate: HOLD (BF-07)** — current source and deployable artifact are aligned at v1.21.98 with credential-snapshot-bound password login, compare-and-set PBKDF2 rehash, generation-safe session revocation, opaque session inventory, per-device sign-out, database-owned webhook/purge claims, authorization freshness, atomic reporting revisions, restore verification and bounded-body hardening.
-- **Schema requirement: current v1.21.101 schema** — a fresh D1 database loads `cloudflare/schema.sql`; an existing D1 database must be upgraded through delta `043_v78_session_inventory_hardening.sql`. `/api/ready` verifies the current schema probe before reporting ready.
-- **Public go-live: CONDITIONAL** — the external production gates below still require real credentials/resources/approvals and must not be inferred from a green source test.
+## Executive status
 
-## Implemented in the primary Cloudflare profile
-- Worker-native registration/login, 12-character minimum password policy, secure sessions and CSRF/origin checks
-- Server-derived tenant isolation and RBAC
-- D1 migrations and tenant-scoped persistence
-- R2 evidence quarantine, SHA-256 integrity, scan gate and authorized downloads
-- Append-only authoritative audit/control lineage protections
-- Trial/subscription/entitlement and payment-verification controls
-- Daily Operations and bounded AI performance summaries
-- Read-only Business Protection Copilot with tenant-scoped, minimized context
-- CIPA evidence reconciliation without an unverified live-sync claim
-- D1 free-tier quota failure boundary: bounded 503 + Retry-After
-- Free-first deployment metadata aligned across `wrangler.toml`, release profile and runbooks
-- Full historical release-regression chain
+- **Repository main:** `7cb96f9b9ae8ca3202a883f2bece8b4f232179ef`.
+- **Last successfully deployed production release:** `f97d8fa01a8363da82bdd1d26f78090eafa0d9ce`.
+- **Live runtime:** Thebe Desk V78 `1.21.101` on `https://thebedesk.com`.
+- **Core production readiness:** **PASS**. The fresh Phase 0 audit proved `/api/live`, `/api/ready`, D1, R2, Workers AI, schema readiness, required core configuration and production security headers.
+- **Registration abuse control:** **PASS**. Registration now uses the signed first-party `thebe_proof` challenge with same-origin issuance, IP binding, proof-of-work, honeypot and replay rejection. Turnstile remains as legacy compatibility configuration but is not the active registration gate.
+- **Production data inventory at the latest live audit:** 0 users, 0 tenants, 0 memberships, 0 operating locations, 0 employees and 0 daily employee reports.
+- **Phase 0 launch decision:** **HOLD only on external identity/email integrations**. Google OAuth, Facebook OAuth and password-reset email are the remaining required launch integrations.
+- **Current main deployment state:** the OAuth/email deployment-contract hardening is merged but intentionally **not deployed** because no `[deploy]` marker was used and the external credentials are not yet configured.
 
-## External go-live gates
-- Production D1/R2 resources created and all migrations applied
-- Malware scanner service connected and tested with benign + recognized test-signature files
-- Production secret manager / Worker secrets configured
-- Domain/DNS/TLS active and `PUBLIC_ORIGIN` exact
-- DPO merchant credentials and real sandbox/production reconciliation verified before paid launch
-- Live Resend email (`RESEND_API_KEY` + verified `EMAIL_FROM`) and OAuth credentials validated
-- Meta WhatsApp business credentials/templates + real-device test before enabling that channel
-- CIPA-authorized endpoint/auth/scopes/schema + live reconciliation test before claiming registry sync
-- D1/Workers usage monitoring with an upgrade trigger before Free ceilings threaten availability
-- Independent vulnerability scan / professional security test before sensitive evidence scale-up
-- Privacy notice, terms, retention policy and Botswana professional rule review approved
-- Support/incident contacts and operational ownership assigned
+## Closed production gates
+
+- BF-01 through BF-06 security findings are closed.
+- BF-07 supply-chain controls are implemented: genuine lockfile/SBOM/dependency evidence, exact-SHA qualification and sealed provenance are enforced by the release path. The last deployed production SHA passed Recovery CI and BF-07 before deployment.
+- Production deploys are exact-SHA bound, refuse stale/non-main targets, restore the exact BF-07 evidence and re-run the launch gate before Cloudflare promotion.
+- Production D1 is on the current `043_v78_session_inventory_hardening.sql` schema boundary; `/api/ready` verifies schema readiness.
+- D1 inventory audit queries are split into bounded per-table queries and complete successfully.
+- Cloudflare DB, R2 evidence and Workers AI bindings are present and healthy.
+- `AI_FEATURES_DEFAULT=on` is active for Phase 0.
+- Security headers pass for HSTS, nosniff, frame denial, referrer policy, CSP, COOP and CORP.
+- First-party registration proof is live with hardened difficulty and bounded expiry.
+- Payments remain fail-closed with `PAYMENT_PROVIDER=none`.
+- Evidence uploads remain fail-closed with `EVIDENCE_UPLOADS_ENABLED=false`.
+
+## Remaining blocking launch integrations
+
+### Google OAuth
+
+The GitHub `production` environment and provider configuration must supply:
+
+- Variable: `GOOGLE_OAUTH_CLIENT_ID`
+- Secret: `GOOGLE_OAUTH_CLIENT_SECRET`
+- Exact authorized redirect URI: `https://thebedesk.com/api/auth/oauth/google/callback`
+
+The post-deploy gate requires `/api/auth/oauth/google/start` to redirect to `accounts.google.com`.
+
+### Facebook OAuth
+
+The GitHub `production` environment and Meta/Facebook provider configuration must supply:
+
+- Variable: `FACEBOOK_APP_ID`
+- Secret: `FACEBOOK_APP_SECRET`
+- Exact authorized redirect URI: `https://thebedesk.com/api/auth/oauth/facebook/callback`
+
+The post-deploy gate requires `/api/auth/oauth/facebook/start` to redirect to `www.facebook.com`.
+
+### Password-reset email
+
+The GitHub `production` environment and Resend account must supply:
+
+- Secret: `RESEND_API_KEY`
+- Variable: `EMAIL_FROM` using a verified sender/domain
+
+Placeholder senders such as `example.com` or `example.invalid` fail the production renderer/preflight.
+
+## Deliberately disabled — not Phase 0 blockers
+
+- **Paid checkout:** `PAYMENT_PROVIDER=none`. DPO credentials and reconciliation are required only before paid checkout is enabled.
+- **Evidence file uploads:** disabled. No malware-scanner provider is required while uploads remain disabled; upload/mutation routes must continue to fail closed. A scanner becomes mandatory before accepting evidence bytes.
+- **WhatsApp notifications:** optional until Meta credentials/templates are approved and the channel is explicitly enabled.
+- **CIPA live registry sync:** not claimed. Existing CIPA evidence/reconciliation behavior must remain truthful until an authorized endpoint, scopes and live reconciliation test exist.
+- **Orange Money:** remains blocked pending its separate readiness review.
+
+## Exact next release sequence
+
+1. Create/verify the production Google OAuth client, Facebook app credentials and Resend sender/domain outside the repository.
+2. Add `GOOGLE_OAUTH_CLIENT_ID`, `FACEBOOK_APP_ID` and `EMAIL_FROM` as GitHub `production` environment variables.
+3. Add `GOOGLE_OAUTH_CLIENT_SECRET`, `FACEBOOK_APP_SECRET` and `RESEND_API_KEY` as GitHub `production` environment secrets. Never commit their values.
+4. Seal the exact current `main` SHA through BF-07 and Recovery CI before promotion. An explicit reviewed `[deploy]` release commit may be used to start the automatic path.
+5. Deploy the exact qualified SHA. The workflow will render/preflight the integration configuration, inject secrets through an ephemeral Wrangler secrets file and then verify live readiness, first-party registration proof and both OAuth provider redirects.
+6. Run a fresh `[launch-audit]` against the exact current `main` SHA.
+7. Complete real registration, login, Google/Facebook sign-in and password-reset delivery smoke tests before declaring Phase 0 commercially open.
+
+## 9/10 SaaS hardening after the launch blockers
+
+- Protect `main` with repository rules/branch protection and require reviewed PRs plus relevant CI before merge. The repository currently reports `main` as unprotected, so this remains a governance maturity gap even though the release workflow itself is strongly exact-SHA gated.
+- Add production observability/SLO ownership and alerting for auth failure rate, D1 quota pressure, latency, Worker errors and external-provider failures.
+- Add independent vulnerability testing before scaling sensitive evidence workflows.
+- Keep privacy notice, terms, retention policy, incident contacts and Botswana professional/compliance review current before broad customer scale.
+- After launch stability is proven, resume product-depth work on the Decision Engine, Simulation Engine and Benchmark Network rather than expanding into unrelated modules.
 
 ## Optional alternate profile
+
 Node/Express + PostgreSQL/S3-compatible storage remains an alternate deployment path only. It is not a dependency of the primary Cloudflare launch.
-
-- **Node/Postgres malware scan callbacks:** scan jobs are uniquely identified, HMAC-bound, one-time consumable, and guarded against stale replay, duplicate completion and queue-failure races. Node readiness requires `031_v78_durable_auth_rate_limit.sql`, which includes and succeeds the malware-scan migration floor.
-
-- v1.21.77 Public edge abuse hardening: WhatsApp webhook POST throttling occurs before bounded body/HMAC work; passport receipt codes are exact-format validated and edge-throttled before D1 lookup.
-- v1.21.79 Request-encoding abuse hardening: Node JSON parsers disable automatic compression inflation, and Cloudflare mutating API/public JSON entry points reject non-identity `Content-Encoding` before body reads/parsing.
-- v1.21.80 Cloudflare account-throttle hardening: password login combines a source-IP D1 budget with a separate HMAC-keyed normalized-email budget that is independent of source IP; raw email addresses are not stored in the limiter ledger.
-- v1.21.81 Password-reset account-throttle hardening: Node/Postgres and Cloudflare both enforce source-IP-independent normalized-email reset-request budgets before account lookup. Node returns the existing generic reset response when the account budget is exhausted, and Cloudflare now uses the same generic body for its account-throttle path; raw email addresses remain absent from limiter storage.
-
-- v1.21.82 Node production-mode integrity hardening: removed the OAuth state literal development-key fallback, bound OAuth signing to the validated secret-file-aware session secret, made the OAuth state cookie Secure flag follow `APP_ENV`, disabled development email fallback in `APP_ENV=production`, and bounded malformed OAuth state before timing-safe signature verification.
