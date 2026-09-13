@@ -1,0 +1,102 @@
+name: Apply UI hotfix
+
+on:
+  push:
+    branches: ['recovery/ui-navigation-hotfix-20260913']
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[ui-hotfix-applied]') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+      - name: Patch production HTML injection safely
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path=Path('cloudflare/src/production-entry.js')
+          text=path.read_text()
+          old=r'''function injectLogoFavicon(html){
+            const source=String(html||"");
+            if(!/<\/head>/i.test(source))return source;
+            const withoutOldIcons=source.replace(ICON_LINK_RE,"");
+            const faviconMarkup=`<link rel="icon" type="image/png" sizes="512x512" href="${THEBE_LOGO_FAVICON}" />\n<link rel="apple-touch-icon" href="${THEBE_LOGO_FAVICON}" />\n`;
+            return withoutOldIcons.replace(/<\/head>/i,`${faviconMarkup}</head>`);
+          }
+
+          function injectOwnerCommandCentreAssets(html){
+            let source=String(html||"");
+            if(!/<\/head>/i.test(source)||!/<\/body>/i.test(source))return source;
+            const cssHref=`/assets/owner-command-centre.css?v=${OWNER_COMMAND_CENTRE_RELEASE}`;
+            const jsSrc=`/js/owner-command-centre.js?v=${OWNER_COMMAND_CENTRE_RELEASE}`;
+            const personalizationCssHref=`/assets/executive-personalization.css?v=${EXECUTIVE_PERSONALIZATION_RELEASE}`;
+            const personalizationJsSrc=`/js/executive-personalization.js?v=${EXECUTIVE_PERSONALIZATION_RELEASE}`;
+            const bridgeCssHref=`/assets/business-data-bridge.css?v=${BUSINESS_DATA_BRIDGE_RELEASE}`;
+            const bridgeJsSrc=`/js/business-data-bridge.js?v=${BUSINESS_DATA_BRIDGE_RELEASE}`;
+            if(!source.includes("/assets/owner-command-centre.css"))source=source.replace(/<\/head>/i,`<link rel="stylesheet" href="${cssHref}" />\n</head>`);
+            if(!source.includes("/assets/executive-personalization.css"))source=source.replace(/<\/head>/i,`<link rel="stylesheet" href="${personalizationCssHref}" />\n</head>`);
+            if(!source.includes("/assets/business-data-bridge.css"))source=source.replace(/<\/head>/i,`<link rel="stylesheet" href="${bridgeCssHref}" />\n</head>`);
+            if(!source.includes("/js/owner-command-centre.js"))source=source.replace(/<\/body>/i,`<script src="${jsSrc}" defer></script>\n</body>`);
+            if(!source.includes("/js/executive-personalization.js"))source=source.replace(/<\/body>/i,`<script src="${personalizationJsSrc}" defer></script>\n</body>`);
+            if(!source.includes("/js/business-data-bridge.js"))source=source.replace(/<\/body>/i,`<script src="${bridgeJsSrc}" defer></script>\n</body>`);
+            return source;
+          }'''
+          new=r'''function injectBeforeFinalClosingTag(html,tag,markup){
+            const source=String(html||"");
+            const closing=`</${String(tag||"").toLowerCase()}>`;
+            const index=source.toLowerCase().lastIndexOf(closing);
+            if(index<0)return source;
+            return source.slice(0,index)+String(markup||"")+source.slice(index);
+          }
+
+          function injectLogoFavicon(html){
+            const source=String(html||"");
+            if(!source.toLowerCase().includes("</head>"))return source;
+            const withoutOldIcons=source.replace(ICON_LINK_RE,"");
+            const faviconMarkup=`<link rel="icon" type="image/png" sizes="512x512" href="${THEBE_LOGO_FAVICON}" />\n<link rel="apple-touch-icon" href="${THEBE_LOGO_FAVICON}" />\n`;
+            return injectBeforeFinalClosingTag(withoutOldIcons,"head",faviconMarkup);
+          }
+
+          function injectOwnerCommandCentreAssets(html){
+            let source=String(html||"");
+            const lower=source.toLowerCase();
+            if(!lower.includes("</head>")||!lower.includes("</body>"))return source;
+            const cssHref=`/assets/owner-command-centre.css?v=${OWNER_COMMAND_CENTRE_RELEASE}`;
+            const jsSrc=`/js/owner-command-centre.js?v=${OWNER_COMMAND_CENTRE_RELEASE}`;
+            const personalizationCssHref=`/assets/executive-personalization.css?v=${EXECUTIVE_PERSONALIZATION_RELEASE}`;
+            const personalizationJsSrc=`/js/executive-personalization.js?v=${EXECUTIVE_PERSONALIZATION_RELEASE}`;
+            const bridgeCssHref=`/assets/business-data-bridge.css?v=${BUSINESS_DATA_BRIDGE_RELEASE}`;
+            const bridgeJsSrc=`/js/business-data-bridge.js?v=${BUSINESS_DATA_BRIDGE_RELEASE}`;
+            if(!source.includes("/assets/owner-command-centre.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${cssHref}" />\n`);
+            if(!source.includes("/assets/executive-personalization.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${personalizationCssHref}" />\n`);
+            if(!source.includes("/assets/business-data-bridge.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${bridgeCssHref}" />\n`);
+            if(!source.includes("/js/owner-command-centre.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${jsSrc}" defer></script>\n`);
+            if(!source.includes("/js/executive-personalization.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${personalizationJsSrc}" defer></script>\n`);
+            if(!source.includes("/js/business-data-bridge.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${bridgeJsSrc}" defer></script>\n`);
+            return source;
+          }'''
+          if new in text:
+              print('Hotfix already present')
+          else:
+              if old not in text:
+                  raise SystemExit('Expected injection block not found; refusing broad rewrite')
+              path.write_text(text.replace(old,new,1))
+          PY
+          if git diff --quiet -- cloudflare/src/production-entry.js; then
+            echo 'No source change required'
+            exit 0
+          fi
+          git diff --check
+          git config user.name 'thebe-release-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add cloudflare/src/production-entry.js
+          git commit -m '[ui-hotfix-applied] fix final document asset injection'
+          git push origin HEAD:recovery/ui-navigation-hotfix-20260913
