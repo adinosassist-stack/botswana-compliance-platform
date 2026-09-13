@@ -56,6 +56,7 @@ jobs:
           set -euo pipefail
           node tests/v79-finance-reconciliation.mjs
           node tests/v79-whatsapp-finance-connection.mjs
+          node tests/v81-finance-connections.mjs
           node tests/v80-agentic-foundation.mjs
           node tests/v80-agentic-runtime.mjs
           node tests/v80-agentic-owner-centre.mjs
