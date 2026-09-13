@@ -1,0 +1,36 @@
+name: One-shot postdeploy finance probe
+
+on:
+  push:
+    branches: ['fix/bf07-finance-route-inventory-20260913']
+    paths: ['.github/workflows/postdeploy-live-finance-probe.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Verify settled production edge
+        shell: bash
+        run: |
+          set -euo pipefail
+          live="$(curl --fail-with-body --silent --show-error --retry 4 --retry-all-errors --max-time 20 'https://thebedesk.com/api/live')"
+          ready="$(curl --fail-with-body --silent --show-error --retry 4 --retry-all-errors --max-time 20 'https://thebedesk.com/api/ready')"
+          finance_tmp="$(mktemp)"
+          finance_status="$(curl --silent --show-error --retry 4 --retry-all-errors --max-time 20 --output "$finance_tmp" --write-out '%{http_code}' 'https://thebedesk.com/api/finance/summary')"
+          finance_body="$(cat "$finance_tmp")"
+          rm -f "$finance_tmp"
+          LIVE_JSON="$live" READY_JSON="$ready" FINANCE_STATUS="$finance_status" FINANCE_BODY="$finance_body" node <<'NODE'
+          const live=JSON.parse(process.env.LIVE_JSON);
+          const ready=JSON.parse(process.env.READY_JSON);
+          if(live.ok!==true)throw new Error('live endpoint unhealthy');
+          if(ready.ok!==true||ready.schemaReady!==true||ready.requiredConfigReady!==true)throw new Error('ready endpoint unhealthy');
+          if(ready.version!=='v78.1.21.101')throw new Error(`unexpected version ${ready.version}`);
+          if(ready.expectedSchemaDelta!=='044_v79_finance_reconciliation.sql')throw new Error(`stale schema label ${ready.expectedSchemaDelta}`);
+          const status=Number(process.env.FINANCE_STATUS);
+          if(![401,403].includes(status))throw new Error(`finance route did not fail closed for anonymous request: status=${status} body=${process.env.FINANCE_BODY}`);
+          console.log(`Settled production verified: version=${ready.version} schema=${ready.expectedSchemaDelta} financeAnonymous=${status}`);
+          NODE
