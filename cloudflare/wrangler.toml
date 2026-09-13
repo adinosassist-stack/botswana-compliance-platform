@@ -11,6 +11,9 @@ custom_domain = true
 
 [secrets]
 required = ["SESSION_SECRET", "AUDIT_INTEGRITY_SECRET", "OPERATIONS_SECRET", "AUTOMATION_SECRET", "TURNSTILE_SECRET_KEY", "PAYMENT_WEBHOOK_SECRET", "BILLING_WEBHOOK_SECRET"]
+# Optional integrations are configured only when enabled; do not add them to the
+# launch-required contract. Examples: RESEND_API_KEY, GOOGLE_OAUTH_CLIENT_SECRET,
+# FACEBOOK_APP_SECRET.
 
 [vars]
 APP_ENV = "production"
