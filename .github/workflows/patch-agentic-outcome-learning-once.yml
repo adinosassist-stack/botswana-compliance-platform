@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   patch:
-    if: ${{ !contains(github.event.head_commit.message, '[outcome-learning-wired]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -18,105 +17,19 @@ jobs:
         with:
           persist-credentials: true
           fetch-depth: 0
-      - name: Apply bounded planner integration
+      - name: Harden outcome-learning query
         shell: bash
         run: |
           set -euo pipefail
-          node <<'NODE'
-          const fs=require('node:fs');
-          const path='cloudflare/src/agentic-core.js';
-          let source=fs.readFileSync(path,'utf8');
-          function replaceOnce(find,replacement,label){
-            if(source.includes(replacement))return;
-            if(!source.includes(find))throw new Error(`patch anchor missing: ${label}`);
-            source=source.replace(find,replacement);
-          }
-
-          replaceOnce(
-            'const MAX_BODY_BYTES=8192;',
-            'import {associationForProposal,buildOutcomeAssociations,rankOutcomeInformedProposals} from "./agentic-learning.js";\n\nconst MAX_BODY_BYTES=8192;',
-            'learning import'
-          );
-
-          replaceOnce(
-            'async function appendEvent(env,{tenantId,runId,proposalId=null,eventType,actorUserId,detail={}}){',
-            `async function loadOutcomeAssociations(env,tenantId){
-              try{
-                const rows=await env.DB.prepare(\`SELECT ref.value source_ref,
-                  COUNT(*) evidence_count,
-                  SUM(CASE WHEN o.outcome_status IN ('improved','resolved') THEN 1 ELSE 0 END) positive_count,
-                  SUM(CASE WHEN o.outcome_status='worsened' THEN 1 ELSE 0 END) negative_count,
-                  SUM(CASE WHEN o.outcome_status='unchanged' THEN 1 ELSE 0 END) unchanged_count
-                  FROM agentic_outcomes o
-                  JOIN agentic_proposals p ON p.id=o.proposal_id AND p.tenant_id=o.tenant_id
-                  JOIN json_each(p.source_refs_json) ref
-                  WHERE o.tenant_id=?
-                    AND o.outcome_status IN ('improved','resolved','worsened','unchanged')
-                    AND o.created_at>=datetime('now','-180 days')
-                    AND o.id=(SELECT o2.id FROM agentic_outcomes o2
-                      WHERE o2.tenant_id=o.tenant_id AND o2.proposal_id=o.proposal_id
-                        AND o2.outcome_status IN ('improved','resolved','worsened','unchanged')
-                      ORDER BY o2.created_at DESC,o2.id DESC LIMIT 1)
-                  GROUP BY ref.value
-                  ORDER BY evidence_count DESC,source_ref ASC
-                  LIMIT 64\`).bind(tenantId).all();
-                return buildOutcomeAssociations(rows.results||[]);
-              }catch{return {}}
-            }
-
-            async function appendEvent(env,{tenantId,runId,proposalId=null,eventType,actorUserId,detail={}}){`,
-            'outcome association loader'
-          );
-
-          replaceOnce(
-            '  const proposals=normalizeProposals(advisor.result?.actions);',
-            `  const normalizedProposals=normalizeProposals(advisor.result?.actions);
-              const outcomeAssociations=await loadOutcomeAssociations(env,auth.tenant_id);
-              const proposals=rankOutcomeInformedProposals(normalizedProposals,outcomeAssociations);
-              observation.learning={
-                type:"non_causal_outcome_association",
-                causal:false,
-                evidenceWindowDays:180,
-                minimumEvidencePerSource:3,
-                sourceCount:Object.keys(outcomeAssociations).length,
-                authorityEffect:"none",
-                executionEffect:"none"
-              };`,
-            'plan ranking'
-          );
-
-          replaceOnce(
-            '  await appendEvent(env,{tenantId:auth.tenant_id,runId,eventType:"PLAN_GENERATED",actorUserId:auth.user_id,detail:{goal,generationMode:advisor.generationMode,proposalCount:proposals.length}});',
-            '  await appendEvent(env,{tenantId:auth.tenant_id,runId,eventType:"PLAN_GENERATED",actorUserId:auth.user_id,detail:{goal,generationMode:advisor.generationMode,proposalCount:proposals.length,outcomeInformedRanking:true,learningSourceCount:Object.keys(outcomeAssociations).length,authorityEffect:"none"}});',
-            'plan event learning audit'
-          );
-
-          replaceOnce(
-            '    proposals:(saved.results||[]).map(row=>({...row,sourceRefs:JSON.parse(row.source_refs_json||"[]"),source_refs_json:undefined})),',
-            `    proposals:(saved.results||[]).map(row=>{
-                const proposal={...row,sourceRefs:JSON.parse(row.source_refs_json||"[]"),source_refs_json:undefined};
-                return {...proposal,outcomeLearning:associationForProposal(proposal,outcomeAssociations)};
-              }),`,
-            'response learning evidence'
-          );
-
-          replaceOnce(
-            '    approvalRecordsEnabled:true,',
-            '    approvalRecordsEnabled:true,\n    outcomeLearning:{enabled:true,type:"non_causal_association",minimumEvidencePerSource:3,priorityClassOverride:false,riskAuthorityEffect:false,executionAuthorityEffect:false},',
-            'status learning disclosure'
-          );
-
-          fs.writeFileSync(path,source);
-          NODE
-
+          node scripts/patch-agentic-outcome-query.mjs
           node --check cloudflare/src/agentic-core.js
           git diff --check
+          if git diff --quiet; then
+            echo 'Outcome-learning query already hardened.'
+            exit 0
+          fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add cloudflare/src/agentic-core.js
-          if git diff --cached --quiet; then
-            echo 'Planner already wired.'
-            exit 0
-          fi
-          git commit -m '[outcome-learning-wired] wire deterministic outcome ranking'
+          git commit -m '[outcome-learning-query-hardened] use latest de-duplicated outcome evidence'
           git push origin HEAD:chatgpt/agentic-outcome-informed-decisions-20260913
