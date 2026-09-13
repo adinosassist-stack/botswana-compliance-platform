@@ -21,3 +21,213 @@
 @media(max-width:1050px){.owner-decision-grid{grid-template-columns:1fr}.owner-signal-list{grid-template-columns:1fr 1fr}.owner-input-grid{grid-template-columns:1fr 1fr}.owner-sales-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.owner-sales-forms,.owner-sales-lists{grid-template-columns:1fr}}
 @media(max-width:700px){.owner-command-centre{border-radius:16px;margin:13px 0}.owner-command-head{display:block;padding:16px}.owner-command-head .btn{margin-top:11px;width:100%}.owner-command-summary{padding:15px 16px 3px;font-size:16px}.owner-source-note{padding:8px 16px 3px}.owner-signal-list{grid-template-columns:1fr;padding:12px 16px 16px}.owner-decision-grid{padding:0 16px 16px}.owner-action{grid-template-columns:28px minmax(0,1fr)}.owner-action .btn{grid-column:2;width:fit-content}.owner-sales-workspace,.owner-inputs{margin:0 16px 16px}.owner-sales-body{padding:12px}.owner-sales-intro{display:block}.owner-sales-intro .owner-input-status{display:block;margin-top:6px}.owner-sales-metrics{grid-template-columns:1fr 1fr}.owner-sales-form-grid,.owner-input-grid{grid-template-columns:1fr}.owner-sales-form-actions{display:grid;grid-template-columns:1fr}.owner-sales-form-actions .btn{width:100%}.owner-sim-comparison{grid-template-columns:1fr}.owner-sim-arrow{transform:rotate(90deg);justify-self:center}}
 @media(max-width:430px){.owner-sales-metrics{grid-template-columns:1fr}.owner-sales-list-head{display:block}.owner-sales-list-head .badge{margin-top:5px;display:inline-flex}}
+
+/* ========================================================================== */
+/* Workspace UI/UX 10 — unified Fluent/finance-grade business workspace.       */
+/* Scoped to #appShell so the public marketing site keeps its own identity.    */
+/* ========================================================================== */
+#appShell{
+  --ws-bg:#f5f7f6;
+  --ws-surface:#ffffff;
+  --ws-surface-soft:#f8faf9;
+  --ws-surface-strong:#eef3f0;
+  --ws-ink:#17201b;
+  --ws-muted:#69756f;
+  --ws-line:#dfe6e2;
+  --ws-line-soft:#e9eeeb;
+  --ws-accent:#176b4f;
+  --ws-accent-strong:#0f5a41;
+  --ws-accent-soft:#e8f3ee;
+  --ws-sidebar:#111713;
+  --ws-sidebar-soft:#1b241f;
+  --ws-sidebar-line:#29342e;
+  --ws-danger:#b42318;
+  --ws-warning:#9a6200;
+  --ws-blue:#245f9c;
+  --ws-radius:14px;
+  --ws-radius-lg:18px;
+  --ws-shadow:0 1px 2px rgba(20,31,25,.035),0 10px 28px rgba(20,31,25,.035);
+  --ws-shadow-hover:0 3px 8px rgba(20,31,25,.045),0 16px 34px rgba(20,31,25,.055);
+  --ws-focus:0 0 0 3px rgba(23,107,79,.16);
+  background:var(--ws-bg)!important;
+  color:var(--ws-ink)!important;
+  letter-spacing:-.004em;
+}
+#appShell.shell{grid-template-columns:244px minmax(0,1fr)!important;min-height:100dvh!important;width:100%!important;max-width:none!important;margin:0!important}
+#appShell main{min-width:0!important;width:100%!important;max-width:1600px!important;margin:0 auto!important;padding:22px clamp(20px,2.4vw,38px) 44px!important}
+
+/* Navigation: compact, predictable and visually quiet until attention is needed. */
+#appShell>aside,#appShell #workspaceSidebar{background:var(--ws-sidebar)!important;border-right:1px solid var(--ws-sidebar-line)!important;padding:15px 12px 14px!important}
+#appShell .brand{min-height:46px!important;margin:0 5px 13px!important;padding:7px 8px!important;border-radius:11px!important;color:#f7faf8!important;display:flex!important;align-items:center!important;gap:9px!important;font-size:16px!important;font-weight:760!important;letter-spacing:-.018em!important}
+#appShell .brand img{width:28px!important;height:28px!important;object-fit:contain!important}
+#appShell .brand:hover{background:rgba(255,255,255,.045)!important}
+#appShell .nav{padding-right:1px!important}
+#appShell .navgroup{margin:15px 10px 6px!important;color:#75837b!important;font-size:9.5px!important;font-weight:800!important;text-transform:uppercase!important;letter-spacing:.1em!important}
+#appShell .nav button,#appShell .nav-access-group>summary,#appShell .nav-specialist-tools>summary{min-height:40px!important;border:1px solid transparent!important;border-radius:10px!important;margin:2px 0!important;padding:8px 9px!important;color:#b9c3bd!important;font-size:12.8px!important;font-weight:640!important;line-height:1.25!important;gap:9px!important;transition:background .14s ease,border-color .14s ease,color .14s ease,transform .14s ease!important}
+#appShell .nav button:hover,#appShell .nav-access-group>summary:hover,#appShell .nav-specialist-tools>summary:hover{background:rgba(255,255,255,.045)!important;color:#f4f7f5!important;border-color:rgba(255,255,255,.035)!important}
+#appShell .nav button.active{position:relative;background:#f3f7f5!important;color:#17201b!important;border-color:#f3f7f5!important;box-shadow:0 5px 18px rgba(0,0,0,.13)!important;font-weight:760!important}
+#appShell .nav button.active:before{content:"";position:absolute;left:-7px;top:9px;bottom:9px;width:3px;border-radius:999px;background:#61b18f}
+#appShell .nav-primary-icon.nav-svg-icon{display:grid!important;place-items:center!important;width:25px!important;min-width:25px!important;height:25px!important;border-radius:7px!important;background:rgba(255,255,255,.055)!important;color:#9eaaa3!important}
+#appShell .nav button.active .nav-primary-icon.nav-svg-icon{background:#e4eee9!important;color:#176b4f!important}
+#appShell .nav-svg-icon svg{width:15px!important;height:15px!important;stroke:currentColor!important;stroke-width:1.75!important;fill:none!important}
+#appShell .alertcount{margin-left:auto!important;min-width:19px!important;height:19px!important;display:inline-grid!important;place-items:center!important;padding:0 5px!important;border-radius:999px!important;background:#b42318!important;color:#fff!important;font-size:9.5px!important;font-weight:850!important}
+#appShell .sidebarfoot{margin-top:auto!important;padding:11px 8px 0!important;border-top:1px solid var(--ws-sidebar-line)!important;color:#839087!important}
+#appShell .sidebarfoot b{color:#bdc7c1!important;font-size:11.5px!important}.sidebarfoot span{font-size:10.5px!important;line-height:1.45!important}
+#appShell .sidebar-website-link{min-height:38px!important;margin-top:9px!important;border:1px solid #303c35!important;border-radius:9px!important;background:#18201c!important;color:#bdc7c1!important;padding:8px 9px!important}
+
+/* Header: Microsoft-like working area discipline with a compact sticky command row. */
+#appShell .top{position:sticky!important;top:0!important;z-index:18!important;min-height:62px!important;margin:0 calc(clamp(20px,2.4vw,38px)*-1) 18px!important;padding:9px clamp(20px,2.4vw,38px)!important;background:rgba(245,247,246,.92)!important;border-bottom:1px solid rgba(218,226,221,.92)!important;backdrop-filter:blur(18px) saturate(1.12)!important;-webkit-backdrop-filter:blur(18px) saturate(1.12)!important;box-shadow:0 5px 16px rgba(20,31,25,.018)!important}
+#appShell .top>div:first-child{min-width:0!important}
+#appShell .top h1,#appShell .top h2{margin:0!important;color:var(--ws-ink)!important;font-size:clamp(21px,1.8vw,27px)!important;line-height:1.12!important;letter-spacing:-.035em!important;font-weight:780!important}
+#appShell .top .muted{margin-top:4px!important;color:var(--ws-muted)!important;font-size:12.5px!important;line-height:1.4!important}
+#appShell .companyswitch{min-height:40px!important;padding:4px 7px 4px 10px!important;border:1px solid var(--ws-line)!important;border-radius:11px!important;background:rgba(255,255,255,.92)!important;box-shadow:0 1px 2px rgba(20,31,25,.03)!important}
+#appShell .companyswitch select{min-width:160px!important;max-width:260px!important;padding:6px 24px 6px 5px!important;background:transparent!important;font-size:12.5px!important;font-weight:700!important}
+
+/* Typography and hierarchy. */
+#appShell h1,#appShell h2,#appShell h3,#appShell h4{color:var(--ws-ink);text-wrap:balance}
+#appShell h2{font-size:19px!important;line-height:1.25!important;letter-spacing:-.024em!important}
+#appShell h3{font-size:14.5px!important;line-height:1.3!important;letter-spacing:-.012em!important}
+#appShell .muted{color:var(--ws-muted)!important}
+#appShell .small{font-size:11.8px!important;line-height:1.48!important}
+#appShell .section-eyebrow,#appShell .kpi{color:#718078!important;font-size:10px!important;font-weight:830!important;letter-spacing:.085em!important;text-transform:uppercase!important}
+
+/* Cards: consistent radius, border and elevation. */
+#appShell .grid{gap:13px!important}
+#appShell .card,#appShell .eventcard,#appShell .sourcebox,#appShell .metricmini,#appShell .evidencepack,#appShell .setupmeter{border:1px solid var(--ws-line)!important;border-radius:var(--ws-radius)!important;background:var(--ws-surface)!important;box-shadow:var(--ws-shadow)!important}
+#appShell .card{padding:16px!important}
+#appShell .card>h2,#appShell .card>h3{margin-bottom:10px!important}
+#appShell .eventcard{transition:transform .14s ease,border-color .14s ease,box-shadow .14s ease!important}
+#appShell .eventcard:hover{transform:translateY(-1px)!important;border-color:#cad5cf!important;box-shadow:var(--ws-shadow-hover)!important}
+#appShell .score{font-size:34px!important;font-weight:780!important;letter-spacing:-.045em!important}
+#appShell .progress,#appShell .gauge{height:7px!important;background:#e8edea!important;border-radius:999px!important}
+#appShell .progress span,#appShell .gauge span{border-radius:999px!important;background:var(--ws-accent)!important}
+
+/* QuickBooks-like “what needs attention / create action” surface. */
+#appShell .home-common-tools{margin:0 0 15px!important;border:1px solid var(--ws-line)!important;border-radius:var(--ws-radius-lg)!important;background:var(--ws-surface)!important;box-shadow:var(--ws-shadow)!important;overflow:hidden!important}
+#appShell .home-common-tools>summary{min-height:54px!important;padding:12px 15px!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;list-style:none!important;cursor:pointer!important;background:#fbfcfb!important}
+#appShell .home-common-tools>summary::-webkit-details-marker{display:none!important}
+#appShell .home-common-tools>summary b{display:block!important;font-size:13.5px!important;color:var(--ws-ink)!important}
+#appShell .home-common-tools>summary small{display:block!important;margin-top:2px!important;color:var(--ws-muted)!important;font-size:11px!important;font-weight:520!important}
+#appShell .home-common-tools>summary:after{content:"⌄";display:grid;place-items:center;width:26px;height:26px;border:1px solid var(--ws-line);border-radius:8px;background:#fff;color:#59665f;font-size:14px;transition:transform .15s ease}
+#appShell .home-common-tools[open]>summary:after{transform:rotate(180deg)}
+#appShell .home-common-tools-body{border-top:1px solid var(--ws-line-soft)!important;padding:13px 15px 15px!important}
+#appShell .workspace-pulse{display:flex!important;gap:7px!important;flex-wrap:wrap!important;margin-bottom:11px!important}
+#appShell .workspace-pulse span{display:inline-flex!important;align-items:center!important;gap:5px!important;min-height:28px!important;padding:5px 8px!important;border:1px solid var(--ws-line)!important;border-radius:999px!important;background:#f8faf9!important;color:#647168!important;font-size:10.8px!important}
+#appShell .workspace-pulse b{color:var(--ws-ink)!important}
+#appShell .workspace-quick-actions{gap:8px!important}
+
+/* Dashboard details: progressive disclosure keeps Home calm. */
+#appShell .dashboard-details{margin:0 0 15px!important;border:1px solid var(--ws-line)!important;border-radius:var(--ws-radius-lg)!important;background:var(--ws-surface)!important;box-shadow:var(--ws-shadow)!important;overflow:hidden!important}
+#appShell .dashboard-details>summary{min-height:54px!important;padding:12px 15px!important;cursor:pointer!important;list-style:none!important;background:#fbfcfb!important}
+#appShell .dashboard-details>summary::-webkit-details-marker{display:none!important}
+#appShell .dashboard-details-summary span{font-size:13.5px!important;font-weight:760!important;color:var(--ws-ink)!important}
+#appShell .dashboard-details-summary small{display:block!important;margin-top:2px!important;color:var(--ws-muted)!important;font-size:11px!important;font-weight:520!important}
+#appShell .dashboard-details-body{padding:14px 15px 16px!important;border-top:1px solid var(--ws-line-soft)!important}
+#appShell .dashboard-section-head{display:flex!important;justify-content:space-between!important;align-items:flex-start!important;gap:14px!important;margin:6px 0 12px!important}
+#appShell .dashboard-section-head h2{margin:2px 0 4px!important}
+#appShell .live-status{min-height:28px!important;padding:5px 9px!important;border:1px solid #cfe0d7!important;border-radius:999px!important;background:#f4faf6!important;color:#27654d!important;font-size:10.5px!important;font-weight:760!important;white-space:nowrap!important}
+
+/* Forms and controls: denser than consumer UI, but comfortably touchable. */
+#appShell input,#appShell select,#appShell textarea{min-height:38px!important;border:1px solid #d6ded9!important;border-radius:10px!important;background:#fff!important;color:var(--ws-ink)!important;padding:8px 10px!important;font-size:12.8px!important;box-shadow:0 1px 1px rgba(20,31,25,.015)!important}
+#appShell textarea{min-height:88px!important;line-height:1.45!important}
+#appShell input:hover,#appShell select:hover,#appShell textarea:hover{border-color:#bbc8c1!important}
+#appShell input:focus,#appShell select:focus,#appShell textarea:focus{outline:0!important;border-color:#76a792!important;box-shadow:var(--ws-focus)!important}
+#appShell label{margin-bottom:5px!important;color:#536159!important;font-size:11.2px!important;font-weight:720!important}
+#appShell .formgrid{gap:10px!important}
+
+/* Buttons: one clear primary action, calmer secondary controls. */
+#appShell .btn{min-height:38px!important;border-radius:10px!important;padding:8px 12px!important;background:var(--ws-accent)!important;color:#fff!important;font-size:12.2px!important;font-weight:760!important;line-height:1.2!important;box-shadow:none!important;transition:transform .12s ease,background .12s ease,border-color .12s ease,box-shadow .12s ease!important}
+#appShell .btn:hover{background:var(--ws-accent-strong)!important;transform:translateY(-1px)!important;box-shadow:0 5px 12px rgba(15,90,65,.14)!important}
+#appShell .btn:active{transform:translateY(0)!important}
+#appShell .btn.alt{background:#fff!important;color:#26322b!important;border:1px solid #d6ded9!important;box-shadow:0 1px 1px rgba(20,31,25,.02)!important}
+#appShell .btn.alt:hover{background:#f8faf9!important;border-color:#bcc9c2!important;box-shadow:0 4px 10px rgba(20,31,25,.045)!important}
+#appShell .btn.soft{background:var(--ws-accent-soft)!important;color:var(--ws-accent-strong)!important;border:1px solid #d5e7df!important}
+#appShell .btn.soft:hover{background:#deeee7!important}
+#appShell .btn.danger{background:var(--ws-danger)!important}
+#appShell button:focus-visible,#appShell a:focus-visible,#appShell input:focus-visible,#appShell select:focus-visible,#appShell textarea:focus-visible,#appShell summary:focus-visible{outline:0!important;box-shadow:var(--ws-focus)!important}
+
+/* Tables and dense business information. */
+#appShell table{border-collapse:separate!important;border-spacing:0!important;width:100%!important}
+#appShell th{padding:9px 9px!important;border-bottom:1px solid var(--ws-line)!important;background:#f8faf9!important;color:#69766f!important;font-size:10.5px!important;font-weight:800!important;text-transform:uppercase!important;letter-spacing:.055em!important}
+#appShell td{padding:10px 9px!important;border-bottom:1px solid var(--ws-line-soft)!important;color:#2d3932!important;font-size:12.3px!important;line-height:1.42!important}
+#appShell tbody tr:hover td{background:#fbfcfb!important}
+#appShell tr:last-child td{border-bottom:0!important}
+
+/* Status language stays readable without dominating the page. */
+#appShell .badge,#appShell .publishstate,#appShell .tag,#appShell .pill,#appShell .rolechip{border-radius:999px!important;font-weight:760!important;letter-spacing:.01em!important}
+#appShell .badge{padding:4px 7px!important;font-size:9.8px!important}
+#appShell .badge.good{background:#e8f5ee!important;color:#1e6849!important}.badge.warn{background:#fff4df!important;color:#875a0e!important}.badge.bad{background:#faecea!important;color:#9e2e25!important}.badge.info{background:#edf3fb!important;color:#315f91!important}
+#appShell .notice,#appShell .callout,#appShell .rulewarn,#appShell .rulebad,#appShell .conflict,#appShell .verifiedsrc{border-radius:12px!important;box-shadow:none!important;font-size:12.3px!important;line-height:1.48!important}
+
+/* Command Centre promoted to the premium centerpiece of Home. */
+#appShell .owner-command-centre{margin:14px 0 15px!important;border-color:#dbe4df!important;border-radius:20px!important;box-shadow:0 1px 2px rgba(20,31,25,.03),0 16px 42px rgba(20,31,25,.045)!important}
+#appShell .owner-command-head{padding:17px 18px 14px!important;background:linear-gradient(180deg,#fbfcfb 0%,#fff 100%)!important}
+#appShell .owner-command-head h3{font-size:20px!important;letter-spacing:-.03em!important}
+#appShell .owner-command-summary{padding:16px 18px 4px!important;font-size:16.5px!important;line-height:1.46!important;letter-spacing:-.012em!important}
+#appShell .owner-source-note{padding:8px 18px 4px!important}
+#appShell .owner-signal-list{gap:9px!important;padding:11px 18px 16px!important}
+#appShell .owner-signal{padding:13px 14px!important;border-radius:13px!important}
+#appShell .owner-decision-grid{gap:11px!important;padding:0 18px 16px!important}
+#appShell .owner-panel{padding:14px!important;border-radius:14px!important}
+#appShell .owner-sales-workspace,#appShell .owner-inputs{margin:0 18px 16px!important;border-radius:13px!important}
+
+/* Desktop density: maximize usable business space without feeling cramped. */
+@media(min-width:1280px){
+  #appShell .g4{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+  #appShell .g3{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  #appShell .card{padding:15px!important}
+}
+@media(max-width:1180px){
+  #appShell.shell{grid-template-columns:226px minmax(0,1fr)!important}
+  #appShell main{padding-left:20px!important;padding-right:20px!important}
+  #appShell .top{margin-left:-20px!important;margin-right:-20px!important;padding-left:20px!important;padding-right:20px!important}
+  #appShell .g4{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+
+/* Tablet / mobile: content first, navigation second, comfortable touch targets. */
+@media(max-width:860px){
+  #appShell.shell{display:block!important}
+  #appShell main{max-width:none!important;padding:11px 10px calc(88px + env(safe-area-inset-bottom))!important}
+  #appShell .top{min-height:54px!important;margin:-11px -10px 11px!important;padding:8px 10px!important;gap:7px!important}
+  #appShell .top h1,#appShell .top h2{font-size:18px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+  #appShell .top .muted{display:none!important}
+  #appShell .companyswitch{min-height:36px!important;max-width:48vw!important}
+  #appShell .companyswitch select{min-width:0!important;max-width:100%!important;font-size:11.5px!important}
+  #appShell .grid{gap:10px!important}
+  #appShell .g4,#appShell .g3,#appShell .g2{grid-template-columns:1fr!important}
+  #appShell .card{padding:13px!important;border-radius:13px!important}
+  #appShell #workspaceSidebar{width:min(88vw,340px)!important;padding:12px 9px calc(16px + env(safe-area-inset-bottom))!important;box-shadow:20px 0 56px rgba(5,10,7,.32)!important}
+  #appShell #workspaceSidebar .nav .nav-primary{min-height:44px!important;padding:9px 10px!important;font-size:13px!important}
+  #appShell .home-common-tools>summary,#appShell .dashboard-details>summary{min-height:50px!important;padding:10px 12px!important}
+  #appShell .home-common-tools-body,#appShell .dashboard-details-body{padding:11px 12px 13px!important}
+  #appShell .owner-command-centre{border-radius:15px!important;margin:11px 0!important}
+  #appShell .owner-command-head{padding:14px!important}
+  #appShell .owner-command-summary{padding:13px 14px 3px!important;font-size:15.5px!important}
+  #appShell .owner-source-note{padding:7px 14px 3px!important}
+  #appShell .owner-signal-list{padding:10px 14px 14px!important}
+  #appShell .owner-decision-grid{padding:0 14px 14px!important}
+  #appShell .owner-sales-workspace,#appShell .owner-inputs{margin:0 14px 14px!important}
+  #appShell .dashboard-section-head{display:block!important}
+  #appShell .live-status{display:inline-flex!important;margin-top:8px!important}
+  #appShell .btn{min-height:40px!important}
+  #appShell input,#appShell select,#appShell textarea{min-height:41px!important;font-size:13px!important}
+  #appShell .mobilebar{left:7px!important;right:7px!important;bottom:7px!important;min-height:60px!important;padding:5px!important;border:1px solid rgba(210,219,214,.9)!important;border-radius:17px!important;background:rgba(255,255,255,.95)!important;backdrop-filter:blur(18px)!important;-webkit-backdrop-filter:blur(18px)!important;box-shadow:0 10px 34px rgba(20,31,25,.16)!important}
+  #appShell .mobilebar button{min-height:48px!important;border-radius:12px!important;color:#68736d!important;font-size:9.5px!important;font-weight:720!important;background:transparent!important}
+  #appShell .mobilebar button span{font-size:17px!important;color:#526159!important}
+  #appShell .mobilebar button.active,#appShell .mobilebar button[aria-current="page"]{background:#eaf3ee!important;color:#155e45!important}
+}
+@media(max-width:480px){
+  #appShell .actions{gap:6px!important}
+  #appShell .actions .btn{flex:1 1 auto!important}
+  #appShell .workspace-pulse{gap:5px!important}
+  #appShell .workspace-pulse span{font-size:10px!important}
+  #appShell .owner-sales-metrics{grid-template-columns:1fr!important}
+  #appShell .owner-signal-list{grid-template-columns:1fr!important}
+  #appShell .owner-decision-grid{grid-template-columns:1fr!important}
+  #appShell .modalbox{border-radius:16px!important;padding:16px!important;max-height:92dvh!important}
+}
+
+/* Motion is purposeful, never decorative. */
+@media(prefers-reduced-motion:reduce){
+  #appShell *,#appShell *:before,#appShell *:after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}
+}
