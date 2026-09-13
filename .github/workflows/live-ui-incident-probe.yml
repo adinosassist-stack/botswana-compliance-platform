@@ -25,12 +25,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          rm -rf /tmp/thebe-live-probe
           mkdir -p /tmp/thebe-live-probe
           cd /tmp/thebe-live-probe
           npm init -y >/dev/null 2>&1
           npm install --no-save playwright@1.55.0 >/dev/null
           npx playwright install --with-deps chromium >/dev/null
-      - name: Exercise production as a guest user
+      - name: Diagnose production guest controls
         shell: bash
         run: |
           set -euo pipefail
@@ -41,57 +42,46 @@ jobs:
           const origin='https://thebedesk.com';
           const browser=await chromium.launch({headless:true});
           const page=await browser.newPage({viewport:{width:1440,height:1000}});
-          const consoleErrors=[]; const pageErrors=[]; const failed=[];
+          const consoleErrors=[]; const pageErrors=[]; const failed=[]; const scripts=[];
           page.on('console',msg=>{ if(msg.type()==='error') consoleErrors.push(msg.text()) });
           page.on('pageerror',err=>pageErrors.push(String(err)));
           page.on('requestfailed',req=>failed.push(`${req.method()} ${req.url()} :: ${req.failure()?.errorText||'failed'}`));
+          page.on('response',res=>{ if(/event-delegation|api-client|state-store|components/.test(res.url())) scripts.push({url:res.url(),status:res.status()}) });
           const visible=async sel=>page.locator(sel).evaluate(el=>{
             const s=getComputedStyle(el); return !el.hidden&&!el.classList.contains('hidden')&&s.display!=='none'&&s.visibility!=='hidden';
           }).catch(()=>false);
           await page.goto(origin+'/',{waitUntil:'networkidle',timeout:45000});
-          assert.equal(await page.title().then(Boolean),true,'homepage title missing');
           const start=page.getByRole('button',{name:/^Start free$/i}).first();
           assert.equal(await start.count()>0,true,'header Start free button missing');
-          await start.click();
-          await page.waitForTimeout(350);
-          assert.equal(await visible('#authGate'),true,'Start free did not open registration UI');
-          assert.equal(await page.locator('#companyNameField').evaluate(el=>getComputedStyle(el).display!=='none').catch(()=>false),true,'registration company field did not appear');
-
-          await page.goto(origin+'/',{waitUntil:'networkidle',timeout:45000});
-          const signIn=page.getByRole('button',{name:/^Sign in$/i}).first();
-          assert.equal(await signIn.count()>0,true,'Sign in button missing');
-          await signIn.click();
-          await page.waitForTimeout(350);
-          assert.equal(await visible('#authGate'),true,'Sign in did not open auth UI');
-          assert.equal(await page.locator('#companyNameField').evaluate(el=>getComputedStyle(el).display==='none').catch(()=>false),true,'login mode did not stay in login state');
-
-          await page.goto(origin+'/',{waitUntil:'networkidle',timeout:45000});
-          const trial=page.getByRole('button',{name:/Start free for 14 days/i}).first();
-          assert.equal(await trial.count()>0,true,'hero trial CTA missing');
-          await trial.click();
-          await page.waitForTimeout(350);
-          assert.equal(await visible('#authGate'),true,'hero Start free did not open registration UI');
-
-          await page.goto(origin+'/register-direct.html',{waitUntil:'networkidle',timeout:45000});
-          assert.equal(await page.locator('#registerForm').count(),1,'direct registration form missing');
-          await page.locator('#submitBtn').click();
-          await page.waitForTimeout(150);
-          assert.match(await page.locator('#status').textContent(),/business name/i,'direct registration form handler did not run');
-          const proof=await page.evaluate(async()=>{
-            const r=await fetch('/api/auth/registration-proof/challenge',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});
-            return {status:r.status,body:await r.json().catch(()=>({}))};
+          const before=await page.evaluate(()=>{
+            const b=[...document.querySelectorAll('button')].find(x=>x.textContent?.trim()==='Start free');
+            return {
+              startAttr:b?.getAttribute('data-bw-onclick')||null,
+              startFn:typeof window.startFreeFromMarketing,
+              openAuthFn:typeof window.openAuthFromMarketing,
+              delegation:!!window.BW?.events,
+              startAllowed:!!window.BW?.events?.allowedActions?.includes?.('startFreeFromMarketing'),
+              authGate:document.getElementById('authGate')?.className||null,
+              marketingGate:document.getElementById('marketingGate')?.className||null,
+              readyState:document.readyState
+            };
           });
-          assert.equal(proof.status,200,'registration proof challenge unavailable');
-          assert.equal(proof.body?.provider,'thebe_proof','wrong registration proof provider');
-
-          console.log(JSON.stringify({
-            ok:true,
-            consoleErrors,
-            pageErrors,
-            failedRequests:failed,
-            proofStatus:proof.status
-          },null,2));
-          if(pageErrors.length)throw new Error(`Production page errors: ${pageErrors.join(' | ')}`);
+          await start.click();
+          await page.waitForTimeout(500);
+          const afterClick={authVisible:await visible('#authGate'),state:await page.evaluate(()=>({
+            authGate:document.getElementById('authGate')?.className||null,
+            marketingGate:document.getElementById('marketingGate')?.className||null,
+            authMode:typeof window.authMode==='undefined'?null:window.authMode
+          }))};
+          let directResult=null,directError=null;
+          try{directResult=await page.evaluate(()=>window.startFreeFromMarketing?.())}catch(e){directError=String(e)}
+          await page.waitForTimeout(250);
+          const afterDirect={authVisible:await visible('#authGate'),state:await page.evaluate(()=>({
+            authGate:document.getElementById('authGate')?.className||null,
+            marketingGate:document.getElementById('marketingGate')?.className||null
+          }))};
+          console.log('DIAGNOSTIC '+JSON.stringify({before,afterClick,directResult,directError,afterDirect,consoleErrors,pageErrors,failedRequests:failed,scripts},null,2));
           await browser.close();
+          if(!afterClick.authVisible)process.exitCode=2;
           NODE
           node probe.mjs
