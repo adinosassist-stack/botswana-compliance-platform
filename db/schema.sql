@@ -12,16 +12,17 @@ create table if not exists audit_events(seq bigserial primary key,id uuid not nu
 create index if not exists audit_tenant_time_idx on audit_events(tenant_id,occurred_at desc);
 
 create table if not exists subscriptions(tenant_id uuid primary key references tenants(id) on delete cascade,status text not null check(status in('trialing','active','past_due','paused','canceled','expired')),trial_ends_at timestamptz,current_period_ends_at timestamptz,provider text,provider_customer_id text,provider_subscription_id text,created_at timestamptz not null default now(),updated_at timestamptz not null default now());
+-- Node/Postgres lineage: tenant/user identities are UUIDs. Decision IDs remain opaque text.
 CREATE TABLE IF NOT EXISTS management_rereview_queue(
   id TEXT PRIMARY KEY,
-  tenant_id TEXT NOT NULL,
+  tenant_id UUID NOT NULL,
   decision_id TEXT NOT NULL,
   source_type TEXT NOT NULL CHECK(source_type IN ('obligation','company_action','hr_case','tender_review')),
   source_id TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','claimed','resolved','superseded')),
   reason TEXT NOT NULL,
   changed_json TEXT NOT NULL DEFAULT '[]',
-  reviewer_user_id TEXT,
+  reviewer_user_id UUID,
   response_due_at TEXT NOT NULL,
   opened_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   claimed_at TEXT,
@@ -29,9 +30,7 @@ CREATE TABLE IF NOT EXISTS management_rereview_queue(
   resolved_by_decision_id TEXT,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
-  FOREIGN KEY(decision_id) REFERENCES management_review_decisions(id) ON DELETE CASCADE,
   FOREIGN KEY(reviewer_user_id) REFERENCES users(id) ON DELETE SET NULL,
-  FOREIGN KEY(resolved_by_decision_id) REFERENCES management_review_decisions(id) ON DELETE SET NULL,
   UNIQUE(tenant_id,decision_id)
 );
 CREATE INDEX IF NOT EXISTS management_rereview_queue_status_idx ON management_rereview_queue(tenant_id,status,response_due_at);
