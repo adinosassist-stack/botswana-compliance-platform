@@ -93,55 +93,71 @@
     const shell=ensurePriorityShell(centre);
     if(!shell)return;
     const action=firstActionData(centre);
-    if(!action){shell.hidden=true;return}
+    if(!action){
+      if(!shell.hidden)shell.hidden=true;
+      shell.dataset.signature="";
+      shell._thebeActionRow=null;
+      return;
+    }
 
-    shell.hidden=false;
-    shell.replaceChildren();
     const risk=strongestRisk(centre);
     const evidence=visibleEvidenceCount(centre);
-    const meta=document.createElement("div");
-    meta.className="owner-daily-priority-meta";
-    meta.append(
-      text("span",role()==="manager"?"Management priority today":"Your priority today","section-eyebrow"),
-      text("span",risk?"Needs attention":"Next best action","owner-priority-chip")
-    );
+    const actionLabel=action.sourceButton?.textContent?.trim()||"";
+    const signature=[
+      role(),action.title,action.detail,actionLabel,evidence,
+      risk?.label||"",risk?.value||"",risk?.title||""
+    ].join("|");
+    const needsRender=shell.dataset.signature!==signature||shell._thebeActionRow!==action.row;
 
-    const copy=document.createElement("div");
-    copy.className="owner-daily-priority-copy";
-    copy.append(text("h4",action.title),text("p",action.detail,"muted"));
-    if(risk?.title){
-      copy.append(text(
-        "div",
-        `${risk.label}${risk.value?` · ${risk.value}`:""}: ${risk.title}`,
-        "owner-priority-reason"
+    if(needsRender){
+      shell.replaceChildren();
+      const meta=document.createElement("div");
+      meta.className="owner-daily-priority-meta";
+      meta.append(
+        text("span",role()==="manager"?"Management priority today":"Your priority today","section-eyebrow"),
+        text("span",risk?"Needs attention":"Next best action","owner-priority-chip")
+      );
+
+      const copy=document.createElement("div");
+      copy.className="owner-daily-priority-copy";
+      copy.append(text("h4",action.title),text("p",action.detail,"muted"));
+      if(risk?.title){
+        copy.append(text(
+          "div",
+          `${risk.label}${risk.value?` · ${risk.value}`:""}: ${risk.title}`,
+          "owner-priority-reason"
+        ));
+      }
+
+      const controls=document.createElement("div");
+      controls.className="owner-daily-priority-controls";
+      if(action.sourceButton){
+        controls.append(button(
+          actionLabel||"Open action",
+          ()=>action.sourceButton.click(),
+          "btn"
+        ));
+      }
+      controls.append(text(
+        "span",
+        evidence?`Based on ${evidence} visible source${evidence===1?"":"s"}.`:"Evidence is still building.",
+        "owner-priority-evidence"
       ));
-    }
 
-    const controls=document.createElement("div");
-    controls.className="owner-daily-priority-controls";
-    if(action.sourceButton){
-      controls.append(button(
-        action.sourceButton.textContent?.trim()||"Open action",
-        ()=>action.sourceButton.click(),
-        "btn"
-      ));
+      shell.append(meta,copy,controls);
+      shell.dataset.signature=signature;
+      shell._thebeActionRow=action.row;
     }
-    controls.append(text(
-      "span",
-      evidence?`Based on ${evidence} visible source${evidence===1?"":"s"}.`:"Evidence is still building.",
-      "owner-priority-evidence"
-    ));
-
-    shell.append(meta,copy,controls);
+    if(shell.hidden)shell.hidden=false;
     centre.classList.add("executive-personalized");
 
     const panel=q("#ownerActionPanel",centre);
-    const remaining=qa(".owner-action-list .owner-action",panel).length;
-    panel?.classList.toggle("owner-action-panel-exhausted",remaining<=1);
+    const totalActions=qa(".owner-action-list .owner-action",panel).length;
+    panel?.classList.toggle("owner-action-panel-exhausted",totalActions<=1);
     const heading=q(".owner-panel-head h4",panel);
-    if(heading&&remaining>1)heading.textContent="Next best actions";
+    if(heading&&totalActions>1&&heading.textContent!=="Next best actions")heading.textContent="Next best actions";
     const badge=q(".owner-panel-head .badge",panel);
-    if(badge&&remaining>1)badge.textContent="Up next";
+    if(badge&&totalActions>1&&badge.textContent!=="Up next")badge.textContent="Up next";
   }
 
   function signalByLabel(centre,label){
@@ -214,18 +230,26 @@
     const shell=ensureOnboardingShell(centre);
     if(!shell)return;
     const step=nextOnboardingStep(centre);
-    if(!step){shell.hidden=true;shell.replaceChildren();return}
-    shell.hidden=false;
-    shell.replaceChildren();
+    if(!step){
+      if(!shell.hidden)shell.hidden=true;
+      shell.dataset.signature="";
+      return;
+    }
 
-    const copy=document.createElement("div");
-    copy.className="owner-onboarding-copy";
-    copy.append(
-      text("div","Make tomorrow's brief smarter","section-eyebrow"),
-      text("h4",step.title),
-      text("p",step.detail,"muted")
-    );
-    shell.append(copy,button(step.label,step.action,"btn soft"));
+    const signature=[role(),step.title,step.detail,step.label].join("|");
+    if(shell.dataset.signature!==signature){
+      shell.replaceChildren();
+      const copy=document.createElement("div");
+      copy.className="owner-onboarding-copy";
+      copy.append(
+        text("div","Make tomorrow's brief smarter","section-eyebrow"),
+        text("h4",step.title),
+        text("p",step.detail,"muted")
+      );
+      shell.append(copy,button(step.label,step.action,"btn soft"));
+      shell.dataset.signature=signature;
+    }
+    if(shell.hidden)shell.hidden=false;
   }
 
   function enhance(){
