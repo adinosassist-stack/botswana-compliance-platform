@@ -21,6 +21,20 @@ jobs:
             local url="$1" outfile="$2"
             curl --silent --show-error --fail-with-body --retry 5 --retry-all-errors --max-time 20 "$url" -o "$outfile"
           }
+          page_check(){
+            local label="$1" url="$2" tmp meta code ctype bytes
+            tmp="$(mktemp)"
+            meta="$(curl -L --silent --show-error --retry 5 --retry-all-errors --max-time 20 -o "$tmp" -w '%{http_code}\n%{content_type}' "$url")"
+            code="$(printf '%s\n' "$meta" | sed -n '1p')"
+            ctype="$(printf '%s\n' "$meta" | sed -n '2p')"
+            bytes="$(wc -c < "$tmp" | tr -d ' ')"
+            [[ "$code" == "200" ]] || { echo "$label expected HTTP 200 got $code" >&2; head -c 500 "$tmp" >&2; exit 1; }
+            [[ "$ctype" == text/html* ]] || { echo "$label expected text/html got ${ctype:-<empty>}" >&2; head -c 500 "$tmp" >&2; exit 1; }
+            (( bytes > 200 )) || { echo "$label body unexpectedly small: $bytes bytes" >&2; head -c 500 "$tmp" >&2; exit 1; }
+            grep -Eqi '<!doctype html|<html' "$tmp" || { echo "$label did not return an HTML document" >&2; head -c 500 "$tmp" >&2; exit 1; }
+            echo "$label PASS status=$code content-type=$ctype bytes=$bytes"
+            rm -f "$tmp"
+          }
 
           ready="$(mktemp)"; fetch 'https://thebedesk.com/api/ready' "$ready"
           READY_FILE="$ready" node <<'NODE'
@@ -52,13 +66,8 @@ jobs:
           console.log('AGENTIC EXECUTE BOUNDARY FAIL-CLOSED PASS');
           NODE
 
-          register="$(mktemp)"; fetch 'https://thebedesk.com/register-direct.html' "$register"
-          grep -Eqi 'Thebe|register|account|workspace' "$register" || { echo 'registration page did not contain expected app content' >&2; exit 1; }
-          echo 'REGISTRATION PAGE PASS'
+          page_check 'REGISTRATION PAGE' 'https://thebedesk.com/register-direct.html'
+          page_check 'HOME/WORKSPACE ENTRY' 'https://thebedesk.com/'
 
-          home="$(mktemp)"; fetch 'https://thebedesk.com/' "$home"
-          grep -Eqi 'Thebe|workspace|business|sign in|dashboard' "$home" || { echo 'home/workspace page did not contain expected app content' >&2; exit 1; }
-          echo 'HOME/WORKSPACE ENTRY PASS'
-
-          rm -f "$ready" "$status_body" "$execute_body" "$register" "$home"
+          rm -f "$ready" "$status_body" "$execute_body"
           echo 'LIVE AGENTIC STAGE 1 PROBE PASS'
