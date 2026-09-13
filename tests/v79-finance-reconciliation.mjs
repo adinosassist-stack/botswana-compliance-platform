@@ -47,7 +47,7 @@ assert.match(launch,/Migration 044 is required before deploying the finance reco
 assert.match(launch,/through `046_v80_agentic_outcomes\.sql`/);
 assert.doesNotMatch(launch,/No new schema migration is required\./);
 assert.match(deploy,/Current reviewed schema delta: 046_v80_agentic_outcomes\.sql/);
-assert.match(cloudflareReadme,/upgrade delta `migrations\/045_v80_agentic_foundation\.sql`/);
+assert.match(cloudflareReadme,/upgrade delta `migrations\/046_v80_agentic_outcomes\.sql`/);
 for(const path of [
   "tests/v78-12167-session-generation-revocation-adversarial.mjs",
   "tests/v78-12157-authorization-reporting-concurrency-adversarial.mjs",
