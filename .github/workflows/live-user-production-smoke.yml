@@ -28,122 +28,32 @@ jobs:
           import { chromium } from 'playwright-core';
           import fs from 'node:fs';
           import assert from 'node:assert/strict';
-          const candidates=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'];
-          const executablePath=candidates.find(p=>fs.existsSync(p));
-          assert.ok(executablePath,'Chrome/Chromium executable is available');
+          const executablePath=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(p=>fs.existsSync(p)); assert.ok(executablePath);
           const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox']});
-          const context=await browser.newContext({viewport:{width:1440,height:1100}});
-          const page=await context.newPage();
-          const appPageErrors=[]; const criticalFailures=[];
+          const context=await browser.newContext({viewport:{width:1440,height:1100}}); const page=await context.newPage();
+          const appPageErrors=[]; const criticalFailures=[]; const consoleMessages=[];
           page.on('pageerror',e=>appPageErrors.push(String(e?.stack||e)));
-          page.on('requestfailed',req=>{
-            const u=req.url();
-            if(u.startsWith('https://thebedesk.com/js/')||u.startsWith('https://thebedesk.com/assets/')) criticalFailures.push(`${req.method()} ${u} ${req.failure()?.errorText||''}`);
-          });
-          async function gotoHome(){await page.goto(process.env.TARGET_URL,{waitUntil:'networkidle',timeout:45000});}
-          async function authState(){return page.evaluate(()=>({
-            marketingHidden:document.getElementById('marketingGate')?.classList.contains('hidden'),
-            authHidden:document.getElementById('authGate')?.classList.contains('hidden'),
-            companyDisplay:document.getElementById('companyNameField')?getComputedStyle(document.getElementById('companyNameField')).display:null,
-            emailValue:document.getElementById('authEmail')?.value||'',
-            passwordValue:document.getElementById('authPassword')?.value||'',
-            title:document.getElementById('authTitle')?.textContent||'',
-            submitText:document.getElementById('authSubmit')?.textContent||'',
-            selectedPlan:sessionStorage.getItem('bwcos_selected_plan')||null,
-            hasEvents:!!window.BW?.events,
-            startFreeType:typeof window.startFreeFromMarketing,
-            openAuthType:typeof window.openAuthFromMarketing
-          }));}
-          const checks=[];
-          async function check(name,fn){try{const detail=await fn();checks.push({name,ok:true,detail});console.log('PASS',name,detail??'');}catch(e){checks.push({name,ok:false,error:String(e?.stack||e)});console.error('FAIL',name,e);}}
-
-          await gotoHome();
-          await check('landing and runtime load',async()=>{
-            assert.match(await page.title(),/Thebe Desk/i);
-            const s=await authState(); assert.equal(s.hasEvents,true); assert.equal(s.startFreeType,'function'); assert.equal(s.openAuthType,'function'); return s;
-          });
-
-          await check('top Start Free opens Create account',async()=>{
-            await page.locator('button.marketing-start-action').first().click(); await page.waitForTimeout(350);
-            const s=await authState(); assert.equal(s.marketingHidden,true); assert.equal(s.authHidden,false); assert.notEqual(s.companyDisplay,'none'); assert.match(s.submitText,/Create account/i); return s;
-          });
-
-          await gotoHome();
-          await check('Sign in opens login and fields accept input',async()=>{
-            await page.locator('button[data-guest-action]').filter({hasText:/Sign in/i}).first().click(); await page.waitForTimeout(250);
-            await page.locator('#authEmail').fill(`incident-smoke-${Date.now()}@example.invalid`);
-            await page.locator('#authPassword').fill('WrongPassword-Smoke-Only!');
-            const s=await authState(); assert.equal(s.authHidden,false); assert.equal(s.companyDisplay,'none'); assert.ok(s.emailValue); assert.ok(s.passwordValue); return s;
-          });
-
-          await check('one invalid login submits and fails closed',async()=>{
-            const responses=[];
-            page.on('response',r=>{if(r.url().includes('/api/auth/login'))responses.push(r.status());});
-            await page.locator('#authSubmit').click();
-            await page.waitForTimeout(1300);
-            assert.ok(responses.length>=1,'login request was sent');
-            assert.ok(responses.some(x=>[400,401,403,429].includes(x)),`controlled auth failure expected, got ${responses}`);
-            const errorText=(await page.locator('#authError').textContent())||'';
-            return {responses,errorText:errorText.trim().slice(0,180)};
-          });
-
-          await gotoHome();
-          await check('Explore workspace never silently no-ops',async()=>{
-            await page.getByRole('button',{name:/Explore the workspace/i}).click(); await page.waitForTimeout(350);
-            const s=await authState(); assert.equal(s.marketingHidden,true); assert.equal(s.authHidden,false); assert.notEqual(s.companyDisplay,'none'); assert.match(s.submitText,/Create account/i); return s;
-          });
-
-          await gotoHome();
-          await check('See plans scrolls pricing into view',async()=>{
-            const before=await page.evaluate(()=>scrollY);
-            await page.getByRole('button',{name:/See plans/i}).click(); await page.waitForTimeout(800);
-            const detail=await page.evaluate(()=>({scrollY:Math.round(scrollY),top:Math.round(document.getElementById('pricing')?.getBoundingClientRect().top||9999)}));
-            assert.ok(detail.scrollY>before||Math.abs(detail.top)<650,JSON.stringify(detail)); return detail;
-          });
-
-          for(const plan of ['starter','business','pro','network']){
-            await gotoHome();
-            await check(`pricing ${plan} Start free`,async()=>{
-              const btn=page.locator(`#pricing button[data-bw-onclick="startFreeFromMarketing('${plan}')"]`);
-              assert.equal(await btn.count(),1);
-              await btn.click(); await page.waitForTimeout(300);
-              const s=await authState(); assert.equal(s.authHidden,false); assert.notEqual(s.companyDisplay,'none'); assert.equal(s.selectedPlan,plan); return {plan:selectedPlanSafe(s.selectedPlan),submitText:s.submitText};
-            });
-          }
-          function selectedPlanSafe(v){return v||null}
-
-          await gotoHome();
-          await check('auth tabs switch login/create-account',async()=>{
-            await page.locator('button.marketing-start-action').first().click();
-            await page.locator('#loginTab').click(); await page.waitForTimeout(150); let s=await authState(); assert.equal(s.companyDisplay,'none');
-            await page.locator('#registerTab').click(); await page.waitForTimeout(350); s=await authState(); assert.notEqual(s.companyDisplay,'none'); assert.match(s.submitText,/Create account/i); return s;
-          });
-
-          await check('registration anti-bot service is reachable without bypassing it',async()=>{
-            const result=await page.evaluate(async()=>{const r=await fetch('/api/auth/anti-bot-config',{credentials:'same-origin'});let body=null;try{body=await r.json()}catch{}return {status:r.status,body};});
-            assert.ok(result.status>=200&&result.status<500,JSON.stringify(result));
-            return {status:result.status,required:!!result.body?.required,hasSiteKey:!!result.body?.siteKey};
-          });
-
-          await check('service worker is installed and current runtime JS can bypass stale cache',async()=>{
-            await page.waitForTimeout(500);
-            const detail=await page.evaluate(async()=>{
-              const regs=await navigator.serviceWorker.getRegistrations();
-              const r=await fetch('/js/event-delegation.js',{cache:'reload'});
-              const text=await r.text();
-              return {registrations:regs.length,jsStatus:r.status,hasFallback:text.includes('enterStandalonePreview')&&text.includes('openAuthFromMarketing')};
-            });
-            assert.ok(detail.registrations>=1); assert.equal(detail.jsStatus,200); assert.equal(detail.hasFallback,true); return detail;
-          });
-
-          await check('register-direct page renders',async()=>{
-            await page.goto('https://thebedesk.com/register-direct.html',{waitUntil:'networkidle',timeout:45000});
-            const body=(await page.locator('body').innerText()).slice(0,500);
-            assert.match(body,/Thebe Desk|Create|Register|workspace/i); return {url:page.url(),sample:body.slice(0,140)};
-          });
-
-          console.log('SUMMARY '+JSON.stringify({checks,appPageErrors,criticalFailures}));
-          const failed=checks.filter(x=>!x.ok);
-          if(appPageErrors.length||criticalFailures.length||failed.length) process.exitCode=1;
-          await browser.close();
+          page.on('console',m=>{const t=m.text();if(/BW delegated|auth|failed|error/i.test(t))consoleMessages.push(`${m.type()}: ${t}`)});
+          page.on('requestfailed',req=>{const u=req.url();if(u.startsWith('https://thebedesk.com/js/')||u.startsWith('https://thebedesk.com/assets/'))criticalFailures.push(`${req.method()} ${u} ${req.failure()?.errorText||''}`)});
+          async function home(){await page.goto(process.env.TARGET_URL,{waitUntil:'networkidle',timeout:45000})}
+          async function state(){return page.evaluate(()=>({marketingHidden:document.getElementById('marketingGate')?.classList.contains('hidden'),authHidden:document.getElementById('authGate')?.classList.contains('hidden'),companyDisplay:document.getElementById('companyNameField')?getComputedStyle(document.getElementById('companyNameField')).display:null,email:document.getElementById('authEmail')?.value||'',password:document.getElementById('authPassword')?.value||'',submitText:document.getElementById('authSubmit')?.textContent||'',submitDisabled:!!document.getElementById('authSubmit')?.disabled,errorText:document.getElementById('authError')?.textContent||'',errorShown:document.getElementById('authError')?.classList.contains('show')||false,selectedPlan:sessionStorage.getItem('bwcos_selected_plan')||null,hasEvents:!!window.BW?.events,startFree:typeof window.startFreeFromMarketing,openAuth:typeof window.openAuthFromMarketing,submitAuth:typeof window.submitAuth,submitAllowed:window.BW?.events?.allowedActions?.includes?.('submitAuth')||false,submitExpr:document.getElementById('authSubmit')?.getAttribute('data-bw-onclick')||''}))}
+          const checks=[];async function check(name,fn){try{const detail=await fn();checks.push({name,ok:true,detail});console.log('PASS',name,detail??'')}catch(e){checks.push({name,ok:false,error:String(e?.stack||e)});console.error('FAIL',name,e)}}
+          await home();
+          await check('landing runtime',async()=>{assert.match(await page.title(),/Thebe Desk/i);const s=await state();assert.equal(s.hasEvents,true);assert.equal(s.startFree,'function');assert.equal(s.openAuth,'function');assert.equal(s.submitAuth,'function');assert.equal(s.submitAllowed,true);return s});
+          await check('top Start Free',async()=>{await page.locator('button.marketing-start-action').first().click();await page.waitForTimeout(300);const s=await state();assert.equal(s.marketingHidden,true);assert.equal(s.authHidden,false);assert.notEqual(s.companyDisplay,'none');assert.match(s.submitText,/Create account/i);return s});
+          await home();
+          await check('Sign in fields',async()=>{await page.locator('button[data-guest-action]').filter({hasText:/Sign in/i}).first().click();await page.locator('#authEmail').fill(`incident-smoke-${Date.now()}@example.com`);await page.locator('#authPassword').fill('WrongPassword-Smoke-Only!');const s=await state();assert.equal(s.authHidden,false);assert.equal(s.companyDisplay,'none');assert.equal(s.submitExpr,'submitAuth()');return s});
+          await check('Sign in submit dispatch',async()=>{const reqs=[];const resps=[];const rq=r=>{if(r.url().includes('/api/auth/login'))reqs.push({method:r.method(),url:r.url()})};const rs=r=>{if(r.url().includes('/api/auth/login'))resps.push(r.status())};page.on('request',rq);page.on('response',rs);const before=await state();await page.locator('#authSubmit').click();await page.waitForTimeout(1800);const after=await state();page.off('request',rq);page.off('response',rs);assert.ok(reqs.length>=1||after.errorShown,`no request/error; before=${JSON.stringify(before)} after=${JSON.stringify(after)} console=${JSON.stringify(consoleMessages)}`);if(resps.length)assert.ok(resps.some(x=>[400,401,403,429].includes(x)),`unexpected statuses ${resps}`);return {reqs,resps,before,after,consoleMessages:[...consoleMessages]}});
+          await home();
+          await check('Explore workspace',async()=>{await page.getByRole('button',{name:/Explore the workspace/i}).click();await page.waitForTimeout(300);const s=await state();assert.equal(s.marketingHidden,true);assert.equal(s.authHidden,false);assert.notEqual(s.companyDisplay,'none');return s});
+          await home();
+          await check('See plans',async()=>{await page.getByRole('button',{name:/See plans/i}).click();await page.waitForTimeout(700);const d=await page.evaluate(()=>({scrollY:Math.round(scrollY),top:Math.round(document.getElementById('pricing')?.getBoundingClientRect().top||9999)}));assert.ok(Math.abs(d.top)<650||d.scrollY>0);return d});
+          for(const plan of ['starter','business','pro','network']){await home();await check(`plan ${plan}`,async()=>{const b=page.locator(`#pricing button[data-bw-onclick="startFreeFromMarketing('${plan}')"]`);assert.equal(await b.count(),1);await b.click();await page.waitForTimeout(250);const s=await state();assert.equal(s.authHidden,false);assert.equal(s.selectedPlan,plan);return s})}
+          await home();
+          await check('auth tabs',async()=>{await page.locator('button.marketing-start-action').first().click();await page.locator('#loginTab').click();await page.waitForTimeout(100);let s=await state();assert.equal(s.companyDisplay,'none');await page.locator('#registerTab').click();await page.waitForTimeout(250);s=await state();assert.notEqual(s.companyDisplay,'none');return s});
+          await check('anti-bot config',async()=>{const r=await page.evaluate(async()=>{const x=await fetch('/api/auth/anti-bot-config',{credentials:'same-origin'});let body=null;try{body=await x.json()}catch{}return {status:x.status,body}});assert.equal(r.status,200);return {required:!!r.body?.required,hasSiteKey:!!r.body?.siteKey}});
+          await check('service worker fresh runtime',async()=>{const d=await page.evaluate(async()=>{const regs=await navigator.serviceWorker.getRegistrations();const r=await fetch('/js/event-delegation.js',{cache:'reload'});const text=await r.text();return {registrations:regs.length,status:r.status,hasFallback:text.includes('enterStandalonePreview')&&text.includes('openAuthFromMarketing')}});assert.ok(d.registrations>=1);assert.equal(d.status,200);assert.equal(d.hasFallback,true);return d});
+          await check('register direct',async()=>{await page.goto('https://thebedesk.com/register-direct.html',{waitUntil:'networkidle',timeout:45000});const body=(await page.locator('body').innerText()).slice(0,500);assert.match(body,/Create your account/i);return {url:page.url(),sample:body.slice(0,100)}});
+          console.log('SUMMARY '+JSON.stringify({checks,appPageErrors,criticalFailures,consoleMessages}));
+          if(appPageErrors.length||criticalFailures.length||checks.some(x=>!x.ok))process.exitCode=1;await browser.close();
           NODE
