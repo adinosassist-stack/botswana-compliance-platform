@@ -38,7 +38,8 @@ function containsSecretMaterial(value,depth=0){
   if(Array.isArray(value))return value.some(item=>containsSecretMaterial(item,depth+1));
   if(typeof value!=="object")return false;
   for(const [key,item] of Object.entries(value)){
-    if(SECRET_FIELD.test(String(key).replace(/[A-Z]/g,m=>`_${m.toLowerCase()}`)))return true;
+    const normalizedKey=String(key).replace(/[A-Z]/g,m=>`_${m.toLowerCase()}`);
+    if(normalizedKey!=="credential_storage"&&SECRET_FIELD.test(normalizedKey))return true;
     if(containsSecretMaterial(item,depth+1))return true;
   }
   return false;
