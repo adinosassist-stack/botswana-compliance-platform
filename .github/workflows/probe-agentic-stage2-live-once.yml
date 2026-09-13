@@ -1,0 +1,52 @@
+name: Probe live governed agentic Stage 2 once
+
+on:
+  push:
+    branches:
+      - probe/agentic-stage2-live-20260913
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify production source boundary and settled edge
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'const EXPECTED_SCHEMA_DELTA="046_v80_agentic_outcomes.sql";' cloudflare/src/worker.js
+          ! grep -q '/api/agentic/execute' cloudflare/src/agentic-core.js
+
+          fetch_json(){
+            local url="$1"; local out="$2"; local status
+            status="$(curl --silent --show-error --retry 5 --retry-all-errors --max-time 20 --output "$out" --write-out '%{http_code}' "$url")"
+            printf '%s' "$status"
+          }
+
+          live_status="$(fetch_json 'https://thebedesk.com/api/live' /tmp/live.json)"
+          ready_status="$(fetch_json 'https://thebedesk.com/api/ready' /tmp/ready.json)"
+          status_status="$(fetch_json 'https://thebedesk.com/api/agentic/status' /tmp/status.json)"
+          outcomes_status="$(fetch_json 'https://thebedesk.com/api/agentic/outcomes' /tmp/outcomes.json)"
+          execute_status="$(fetch_json 'https://thebedesk.com/api/agentic/execute' /tmp/execute.json)"
+
+          LIVE_STATUS="$live_status" READY_STATUS="$ready_status" STATUS_STATUS="$status_status" OUTCOMES_STATUS="$outcomes_status" EXECUTE_STATUS="$execute_status" node <<'NODE'
+          const fs=require('node:fs');
+          const parse=p=>JSON.parse(fs.readFileSync(p,'utf8'));
+          const live=parse('/tmp/live.json');
+          const ready=parse('/tmp/ready.json');
+          if(process.env.LIVE_STATUS!=='200'||live.ok!==true) throw new Error(`live failed status=${process.env.LIVE_STATUS}`);
+          if(process.env.READY_STATUS!=='200'||ready.ok!==true||ready.schemaReady!==true||ready.requiredConfigReady!==true) throw new Error(`ready failed status=${process.env.READY_STATUS}`);
+          if(ready.version!=='v78.1.21.101') throw new Error(`unexpected version ${ready.version}`);
+          if(ready.expectedSchemaDelta!=='046_v80_agentic_outcomes.sql') throw new Error(`unexpected schema ${ready.expectedSchemaDelta}`);
+          for(const [name,status] of [['agentic status',process.env.STATUS_STATUS],['agentic outcomes',process.env.OUTCOMES_STATUS]]){
+            if(!['401','403'].includes(status)) throw new Error(`${name} anonymous access did not fail closed: ${status}`);
+          }
+          if(!['401','403','404','405'].includes(process.env.EXECUTE_STATUS)) throw new Error(`execute surface unexpectedly available: ${process.env.EXECUTE_STATUS}`);
+          console.log(JSON.stringify({live,ready,anonymousAgenticStatus:Number(process.env.STATUS_STATUS),anonymousAgenticOutcomes:Number(process.env.OUTCOMES_STATUS),agenticExecute:Number(process.env.EXECUTE_STATUS),sourceExecuteRoute:false},null,2));
+          NODE
