@@ -226,30 +226,33 @@ function normalizeProposals(actions=[]){
 }
 
 async function loadOutcomeAssociations(env,tenantId){
-    try{
-      const rows=await env.DB.prepare(`SELECT ref.value source_ref,
-        COUNT(*) evidence_count,
-        SUM(CASE WHEN o.outcome_status IN ('improved','resolved') THEN 1 ELSE 0 END) positive_count,
-        SUM(CASE WHEN o.outcome_status='worsened' THEN 1 ELSE 0 END) negative_count,
-        SUM(CASE WHEN o.outcome_status='unchanged' THEN 1 ELSE 0 END) unchanged_count
-        FROM agentic_outcomes o
-        JOIN agentic_proposals p ON p.id=o.proposal_id AND p.tenant_id=o.tenant_id
-        JOIN json_each(p.source_refs_json) ref
-        WHERE o.tenant_id=?
-          AND o.outcome_status IN ('improved','resolved','worsened','unchanged')
-          AND o.created_at>=datetime('now','-180 days')
-          AND o.id=(SELECT o2.id FROM agentic_outcomes o2
-            WHERE o2.tenant_id=o.tenant_id AND o2.proposal_id=o.proposal_id
-              AND o2.outcome_status IN ('improved','resolved','worsened','unchanged')
-            ORDER BY o2.created_at DESC,o2.id DESC LIMIT 1)
-        GROUP BY ref.value
-        ORDER BY evidence_count DESC,source_ref ASC
-        LIMIT 64`).bind(tenantId).all();
-      return buildOutcomeAssociations(rows.results||[]);
-    }catch{return {}}
-  }
+  try{
+    const rows=await env.DB.prepare(`SELECT refs.source_ref source_ref,
+      COUNT(*) evidence_count,
+      SUM(CASE WHEN o.outcome_status IN ('improved','resolved') THEN 1 ELSE 0 END) positive_count,
+      SUM(CASE WHEN o.outcome_status='worsened' THEN 1 ELSE 0 END) negative_count,
+      SUM(CASE WHEN o.outcome_status='unchanged' THEN 1 ELSE 0 END) unchanged_count
+      FROM agentic_outcomes o
+      JOIN (
+        SELECT DISTINCT p0.id proposal_id,p0.tenant_id,ref.value source_ref
+        FROM agentic_proposals p0
+        JOIN json_each(p0.source_refs_json) ref
+        WHERE p0.tenant_id=?
+      ) refs ON refs.proposal_id=o.proposal_id AND refs.tenant_id=o.tenant_id
+      WHERE o.tenant_id=?
+        AND o.outcome_status IN ('improved','resolved','worsened','unchanged')
+        AND o.created_at>=datetime('now','-180 days')
+        AND o.id=(SELECT o2.id FROM agentic_outcomes o2
+          WHERE o2.tenant_id=o.tenant_id AND o2.proposal_id=o.proposal_id
+          ORDER BY o2.created_at DESC,o2.id DESC LIMIT 1)
+      GROUP BY refs.source_ref
+      ORDER BY evidence_count DESC,source_ref ASC
+      LIMIT 64`).bind(tenantId,tenantId).all();
+    return buildOutcomeAssociations(rows.results||[]);
+  }catch{return {}}
+}
 
-  async function appendEvent(env,{tenantId,runId,proposalId=null,eventType,actorUserId,detail={}}){
+async function appendEvent(env,{tenantId,runId,proposalId=null,eventType,actorUserId,detail={}}){
   await env.DB.prepare(`INSERT INTO agentic_events(id,tenant_id,run_id,proposal_id,event_type,actor_user_id,detail_json)
     VALUES(?,?,?,?,?,?,?)`).bind(id(),tenantId,runId,proposalId,eventType,actorUserId,JSON.stringify(detail)).run();
 }
