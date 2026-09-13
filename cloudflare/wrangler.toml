@@ -10,7 +10,7 @@ pattern = "thebedesk.com"
 custom_domain = true
 
 [secrets]
-required = ["SESSION_SECRET", "AUDIT_INTEGRITY_SECRET", "OPERATIONS_SECRET", "AUTOMATION_SECRET", "TURNSTILE_SECRET_KEY", "PAYMENT_WEBHOOK_SECRET", "BILLING_WEBHOOK_SECRET", "GOOGLE_OAUTH_CLIENT_SECRET", "FACEBOOK_APP_SECRET", "RESEND_API_KEY"]
+required = ["SESSION_SECRET", "AUDIT_INTEGRITY_SECRET", "OPERATIONS_SECRET", "AUTOMATION_SECRET", "TURNSTILE_SECRET_KEY", "PAYMENT_WEBHOOK_SECRET", "BILLING_WEBHOOK_SECRET"]
 
 [vars]
 APP_ENV = "production"
@@ -63,17 +63,15 @@ run_worker_first = ["/", "/index.html", "/robots.txt", "/sitemap.xml", "/cipa-co
 [triggers]
 crons = ["15 6 * * *", "15 16 * * *"]
 
-# Social OAuth launch configuration:
-# wrangler secret put GOOGLE_OAUTH_CLIENT_SECRET
-# wrangler secret put FACEBOOK_APP_SECRET
-# Configure GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_REDIRECT_URI.
-# Configure FACEBOOK_APP_ID and FACEBOOK_OAUTH_REDIRECT_URI.
-# Production callbacks must be exactly:
+# Social OAuth is optional for the Phase 0 launch and remains fail-closed until configured.
+# To enable Google: set GOOGLE_OAUTH_CLIENT_SECRET and GOOGLE_OAUTH_CLIENT_ID together.
+# To enable Facebook: set FACEBOOK_APP_SECRET and FACEBOOK_APP_ID together.
+# Production callbacks must remain exactly:
 # https://thebedesk.com/api/auth/oauth/google/callback
 # https://thebedesk.com/api/auth/oauth/facebook/callback
 
-# Transactional email / password reset:
-# Set RESEND_API_KEY with `wrangler secret put RESEND_API_KEY` and configure EMAIL_FROM to a verified sender before launch.
+# Transactional email / password reset is optional for the Phase 0 launch and remains fail-closed until configured.
+# To enable it, set RESEND_API_KEY and configure EMAIL_FROM to a verified sender together.
 # PUBLIC_APP_URL and PUBLIC_ORIGIN must resolve to the same final HTTPS app origin.
 # PUBLIC_ORIGIN is required for fail-closed browser-origin enforcement.
 
