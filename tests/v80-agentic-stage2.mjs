@@ -37,6 +37,7 @@ assert.deepEqual(simulation.cashStress,{recordedCashMinor:100000,reconciliationE
 assert.equal(simulation.operatingLoad.overdueComplianceCount,2);checks++;
 assert.equal(simulation.pressureScore,73);checks++;
 assert.equal(simulation.type,'deterministic_non_mutating');checks++;
-assert.ok(simulation.assumptions.every(x=>!/(authorize|execute payment)/i.test(x)));checks++;
+assert.ok(simulation.assumptions.some(x=>/does not authorize execution/i.test(x)));checks++;
+assert.ok(simulation.assumptions.some(x=>/No simulation output changes business records/i.test(x)));checks++;
 
 console.log(`V80 agentic Stage 2 static gate: ${checks}/${checks} PASS`);
