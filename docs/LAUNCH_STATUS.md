@@ -87,3 +87,5 @@ Placeholder senders such as `example.com` or `example.invalid` fail the producti
 ## Optional alternate profile
 
 Node/Express + PostgreSQL/S3-compatible storage remains an alternate deployment path only. It is not a dependency of the primary Cloudflare launch.
+
+Agentic schema requirement: `045_v80_agentic_foundation.sql`. Stage 1 agentic execution remains disabled; approvals record human intent only.

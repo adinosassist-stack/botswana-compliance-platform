@@ -93,3 +93,6 @@ Cloudflare Worker social sign-in now supports Google and Facebook directly. Conf
 - optional `FACEBOOK_GRAPH_VERSION`
 
 Google may link an existing local account only when Google reports a verified email. Facebook never links to an existing account by email alone; the user must sign in first and explicitly link it under Sign-in & Accounts.
+
+### Current upgrade delta
+The current existing-database upgrade delta `migrations/045_v80_agentic_foundation.sql` must be applied after all earlier numbered migrations. For a brand-new D1 database, load the current `schema.sql`.
