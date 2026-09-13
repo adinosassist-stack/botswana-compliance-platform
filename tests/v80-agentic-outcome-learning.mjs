@@ -45,10 +45,16 @@ const agent=fs.readFileSync(new URL('../cloudflare/src/agentic-core.js',import.m
 const advisorIndex=agent.indexOf('const advisor=await runAdvisor');
 const learningIndex=agent.indexOf('const outcomeAssociations=await loadOutcomeAssociations');
 assert.ok(advisorIndex>=0&&learningIndex>advisorIndex,'outcome associations must be loaded after model reasoning');
+assert.match(agent,/SELECT DISTINCT p0\.id proposal_id,p0\.tenant_id,ref\.value source_ref/);
+assert.match(agent,/WHERE p0\.tenant_id=\?/);
 assert.match(agent,/WHERE o\.tenant_id=\?/);
+assert.match(agent,/\.bind\(tenantId,tenantId\)\.all\(\)/);
 assert.match(agent,/o2\.tenant_id=o\.tenant_id AND o2\.proposal_id=o\.proposal_id/);
 assert.match(agent,/o\.created_at>=datetime\('now','-180 days'\)/);
 assert.match(agent,/ORDER BY o2\.created_at DESC,o2\.id DESC LIMIT 1/);
+const latestOutcomeSubquery=agent.match(/AND o\.id=\(SELECT o2\.id FROM agentic_outcomes o2([\s\S]*?)ORDER BY o2\.created_at DESC,o2\.id DESC LIMIT 1\)/)?.[1]||'';
+assert.ok(latestOutcomeSubquery,'latest overall outcome subquery must exist');
+assert.doesNotMatch(latestOutcomeSubquery,/outcome_status/,'latest overall outcome selection must not skip newer neutral outcomes');
 assert.match(agent,/priorityClassOverride:false/);
 assert.match(agent,/riskAuthorityEffect:false/);
 assert.match(agent,/executionAuthorityEffect:false/);
