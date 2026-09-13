@@ -1,5 +1,6 @@
 import base from "./production-entry.js";
 import {handleAgenticRequest} from "./agentic-core.js";
+import {handleAgenticAuthorityRequest} from "./agentic-authority-core.js";
 
 function logicalRequestPath(request){
   try{
@@ -16,9 +17,12 @@ function logicalRequestPath(request){
 
 export default {
   async fetch(request,env,ctx){
+    const logicalPath=logicalRequestPath(request);
+    const authorityResponse=await handleAgenticAuthorityRequest({request,logicalPath,env});
+    if(authorityResponse)return authorityResponse;
     const response=await handleAgenticRequest({
       request,
-      logicalPath:logicalRequestPath(request),
+      logicalPath,
       env,
       ctx,
       coreFetch:(innerRequest,innerEnv=env,innerCtx=ctx)=>base.fetch(innerRequest,innerEnv,innerCtx)
