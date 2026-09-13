@@ -1,17 +1,17 @@
-# Thebe Desk Launch Status — 2026-09-13
+# Thebe Desk Launch Status — 2026-09-14
 
 ## Executive status
 
-- **Repository main:** V81 delegated-authority foundation merged from qualified PR #58; release promotion is now proceeding through a fresh exact-SHA `[deploy]` gate.
-- **Last successfully deployed production release:** `f97d8fa01a8363da82bdd1d26f78090eafa0d9ce`.
-- **Live runtime:** Thebe Desk V78 `1.21.101` on `https://thebedesk.com` until the current V81 promotion completes.
+- **Repository main:** V81 delegated-authority foundation is merged and production migration `047_v81_delegated_authority.sql` has now been applied through the guarded exact-SHA production migration workflow. A fresh post-migration `[deploy]` promotion is the remaining release-closure step.
+- **Last fully closed production deployment record:** `f97d8fa01a8363da82bdd1d26f78090eafa0d9ce`; the V81 Worker candidate was subsequently uploaded successfully, but its first release attempt correctly failed closed until migration 047 was present.
+- **Live runtime:** Thebe Desk V78 `1.21.101` on `https://thebedesk.com`; the V81 wrapper is deployed and its post-migration readiness proof now passes.
 - **Schema requirement: current v1.21.101 schema** — the base Worker validates the consolidated core through `046_v80_agentic_outcomes.sql`; the V81 production wrapper independently requires `047_v81_delegated_authority.sql`, and `/api/ready` must report both `coreSchemaReady=true` and `agenticAuthoritySchemaReady=true` before the combined `schemaReady=true` state is accepted.
 - **Core production readiness:** **PASS in qualification**. Recovery CI validates the production hardening, finance/WhatsApp/agentic boundaries, historical regressions, supply-chain controls and production dependency audit before promotion.
 - **Registration abuse control:** **PASS**. Registration uses the signed first-party `thebe_proof` challenge with same-origin issuance, IP binding, proof-of-work, honeypot and replay rejection. Turnstile remains as legacy compatibility configuration but is not the active registration gate.
 - **V81 delegated authority:** **SHADOW ONLY**. The production entry is `agentic-entry.js`, which wraps the hardened `production-entry.js`; migration 047 records tenant-scoped grants/intents/events but autonomous execution remains disabled.
 - **Production data inventory at the latest live audit:** 0 users, 0 tenants, 0 memberships, 0 operating locations, 0 employees and 0 daily employee reports.
 - **Public go-live: CONDITIONAL** — code/core infrastructure are ready, but any external provider configuration still required by the production environment must pass the deployment preflight and post-deploy verification before public launch is declared complete.
-- **Current release action:** exact-SHA Recovery CI + BF-07 sealing + production workflow. No gate is bypassed.
+- **Current release action:** seal and deploy the exact post-migration main SHA through Recovery CI + BF-07 + production workflow. No gate is bypassed.
 
 ## Closed production gates
 
@@ -78,6 +78,14 @@ Placeholder senders such as `example.com` or `example.invalid` fail the producti
 
 ## V81 release promotion
 
-PR #58 was merged only after its V81 boundary tests, finance/WhatsApp/agentic qualification, full historical production regressions and genuine production dependency audit all passed. This release-promotion commit exists solely to trigger the repository's reviewed `[deploy]` path; it does not enable autonomous execution or weaken any production gate.
+PR #58 was merged only after its V81 boundary tests, finance/WhatsApp/agentic qualification, full historical production regressions and genuine production dependency audit all passed. The release remains shadow-only and does not enable autonomous execution.
+
+## Post-migration production checkpoint — 2026-09-14
+
+- Main migration authority SHA `fdfae1390bc487a5cad9db777fbf50ea2c611835` passed the guarded production migration workflow for `047_v81_delegated_authority.sql`.
+- The migration workflow passed its exact-current-main check, reviewed SQL pin, prerequisite and partial-state checks, post-migration object verification, foreign-key verification, and live V81 readiness proof.
+- Live readiness after migration reports the core and delegated-authority schema layers ready and accepts `047_v81_delegated_authority.sql` as the latest schema delta.
+- Exact-main Recovery CI also passes Finance, WhatsApp, V81 agentic qualification, historical production regression and the production dependency audit.
+- The next and only release-closure action is a fresh exact-SHA `[deploy]` promotion so BF-07 can seal the post-migration repository state and production automation can record a fully successful deployment.
 
 ## 9/10 SaaS hardening after the launch blockers
