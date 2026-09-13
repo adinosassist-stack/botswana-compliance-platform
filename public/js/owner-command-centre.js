@@ -23,14 +23,12 @@
   const canView=()=>["owner","manager"].includes(role());
   const canEdit=()=>role()==="owner";
   const gaboroneDate=()=>{try{return new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Gaborone",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date())}catch{return new Date().toISOString().slice(0,10)}};
-  const daysInMonth=date=>{const [y,m]=String(date).split("-").map(Number);return new Date(Date.UTC(y,m,0)).getUTCDate()};
   const text=(tag,value,className)=>{const node=document.createElement(tag);if(className)node.className=className;node.textContent=String(value??"");return node};
   const button=(label,fn,className="btn soft")=>{const b=document.createElement("button");b.type="button";b.className=className;b.textContent=label;b.addEventListener("click",fn);return b};
   const route=view=>{try{if(typeof global.showView==="function")global.showView(view)}catch{}};
-  const request=async(url,options={})=>{
-    if(typeof global.apiJson==="function")return global.apiJson(url,options);
-    const response=await fetch(url,{...options,credentials:"same-origin",headers:{accept:"application/json",...(options.headers||{})}});
-    const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data?.message||data?.error||`HTTP ${response.status}`);return data;
+  const request=(url,options={})=>{
+    if(typeof global.apiJson!=="function")throw new Error("The secure Thebe API transport is not available.");
+    return global.apiJson(url,options);
   };
 
   function activeCompanyFromState(state){
@@ -124,13 +122,13 @@
     const panel=q("#ownerActionPanel");if(!panel)return;panel.replaceChildren();const head=document.createElement("div");head.className="owner-panel-head";const hc=document.createElement("div");hc.append(text("div","Recommended action","section-eyebrow"),text("h4","What Thebe recommends now"));head.append(hc,text("span","Decision support","badge"));panel.append(head);const list=document.createElement("div");list.className="owner-action-list";
     let i=1;
     if(model.purchase&&model.monthEndBefore!==null&&model.cashFloor!==null&&model.monthEndBefore<model.cashFloor){list.append(actionRow(i++,`Delay or phase the ${money(model.purchase)} ${decisionInputs(latestStateEnvelope?.state||{}).plannedPurchaseLabel}.`,`In this scenario, delaying the purchase improves month-end cash by ${money(model.purchase)} and directly protects the cash buffer.`,"See simulation",()=>q("#ownerSimulationPanel")?.scrollIntoView({behavior:"smooth",block:"center"})))}
-    if(model.branch&&((model.branch.revenueChange??model.branch.customerChange)??0)<-10){list.append(actionRow(i++,`Review ${model.branch.locationName} before changing spend or staffing.`,`Its recent operating run-rate is materially below its learned baseline. Check source reports, customer volume and recorded blockers first.`,"Open reports",()=>route("dailyreports")))}
-    if(model.targetGapPct!==null&&model.targetGapPct>5){const gap=Math.max(0,model.targetGapBwp||0);list.append(actionRow(i++,`Close the ${money(gap)} projected revenue gap with measurable sales actions.`,`Thebe can quantify the gap now. A sales-pipeline layer is still needed before it can truthfully name dormant quotations, conversion rates or campaign reallocations.`,"Open business",()=>route("businesshub")))}
-    if(model.labourShare!==null&&model.labourShare>=30){list.append(actionRow(i++,"Review labour cost against workload and sales capacity.",`The current scenario ratio is ${pct(model.labourShare)}. Use rosters, overtime, vacancies and demand context; do not use this ratio alone for employment decisions.`,"People & operations",()=>route("peopleops")))}
+    if(model.branch&&((model.branch.revenueChange??model.branch.customerChange)??0)<-10&&i<=3){list.append(actionRow(i++,`Review ${model.branch.locationName} before changing spend or staffing.`,`Its recent operating run-rate is materially below its learned baseline. Check source reports, customer volume and recorded blockers first.`,"Open reports",()=>route("dailyreports")))}
+    if(model.targetGapPct!==null&&model.targetGapPct>5&&i<=3){const gap=Math.max(0,model.targetGapBwp||0);list.append(actionRow(i++,`Close the ${money(gap)} projected revenue gap with measurable sales actions.`,`Thebe can quantify the gap now. A sales-pipeline layer is still needed before it can truthfully name dormant quotations, conversion rates or campaign reallocations.`,"Open business",()=>route("businesshub")))}
+    if(model.labourShare!==null&&model.labourShare>=30&&i<=3){list.append(actionRow(i++,"Review labour cost against workload and sales capacity.",`The current scenario ratio is ${pct(model.labourShare)}. Use rosters, overtime, vacancies and demand context; do not use this ratio alone for employment decisions.`,"People & operations",()=>route("peopleops")))}
     if(i===1)list.append(actionRow(i++,"Keep collecting operational data and confirm your business targets.","No decision threshold is currently strong enough for a specific financial recommendation. Thebe will stay conservative rather than manufacture one.","Update assumptions",()=>{const d=q("#ownerDecisionInputs");if(d){d.open=true;d.scrollIntoView({behavior:"smooth",block:"center"})}}));
     panel.append(list);
   }
-  function renderSimulation(model,inputs){
+  function renderSimulation(model){
     const panel=q("#ownerSimulationPanel");if(!panel)return;panel.replaceChildren();const head=document.createElement("div");head.className="owner-panel-head";const hc=document.createElement("div");hc.append(text("div","Simulation","section-eyebrow"),text("h4","What happens if you act?"));head.append(hc,text("span","Scenario","badge"));panel.append(head);
     if(model.monthEndBefore!==null&&model.purchase){const comp=document.createElement("div");comp.className="owner-sim-comparison";const before=document.createElement("div");before.className="owner-sim-value";before.append(text("span","Month-end cash · current plan"),text("b",money(model.monthEndBefore)));const arrow=text("div","→","owner-sim-arrow");const after=document.createElement("div");after.className="owner-sim-value";after.append(text("span","If purchase is delayed"),text("b",money(model.monthEndAfter)));comp.append(before,arrow,after);panel.append(comp,text("div",`Cash improves by ${money(model.purchase)} in this scenario.`,"owner-sim-impact"),text("div",`Assumptions: ${model.operatingDays||"—"} operating days/month, reported revenue run-rate ${money(model.dailyReportedRevenue)}/day, monthly cash outflows ${model.outflows!==null?money(model.outflows):"not set"}. This is a management scenario, not a bank or accounting forecast.`,"owner-sim-caveat"));return}
     if(model.monthEndBefore!==null){const value=document.createElement("div");value.className="owner-sim-value";value.append(text("span","Projected month-end cash"),text("b",money(model.monthEndBefore)));panel.append(value,text("div","Add a planned purchase amount to compare the current plan with a delay/phase scenario.","owner-sim-caveat"));return}
@@ -150,7 +148,7 @@
   async function saveInputs(status){
     if(!canEdit()||!latestStateEnvelope?.state)return;
     try{
-      status.textContent="Saving…";const next=structuredClone?structuredClone(latestStateEnvelope.state):JSON.parse(JSON.stringify(latestStateEnvelope.state)),company=activeCompanyFromState(next);if(!company)throw new Error("Active company not found");company.profile=company.profile&&typeof company.profile==="object"?company.profile:{};
+      status.textContent="Saving…";const next=typeof global.structuredClone==="function"?global.structuredClone(latestStateEnvelope.state):JSON.parse(JSON.stringify(latestStateEnvelope.state)),company=activeCompanyFromState(next);if(!company)throw new Error("Active company not found");company.profile=company.profile&&typeof company.profile==="object"?company.profile:{};
       for(const [logical,key] of Object.entries(PROFILE_KEYS)){
         const input=q(`#owner-${logical}`);if(!input)continue;if(logical==="plannedPurchaseLabel"){company.profile[key]=String(input.value||"").trim().slice(0,80);continue}const raw=String(input.value||"").trim();company.profile[key]=raw===""?null:Number(raw);
       }
@@ -167,7 +165,7 @@
     const seq=++renderSeq,shell=createShell();if(!shell)return;if(!canView()){shell.hidden=true;return}shell.hidden=false;
     const summary=q("#ownerCommandSummary");if(summary)summary.textContent=force?"Refreshing your business brief…":"Building your business brief…";
     try{
-      const date=gaboroneDate(),[performance,stateEnvelope]=await Promise.all([request(`/api/daily-reporting/performance?date=${encodeURIComponent(date)}`),request("/api/state")]);if(seq!==renderSeq)return;latestStateEnvelope=stateEnvelope;const inputs=decisionInputs(stateEnvelope?.state||{}),model=deriveModel(performance,inputs,date);renderSummary(model);renderSources(model,inputs);renderSignals(model,inputs);renderActions(model);renderSimulation(model,inputs);renderInputs(inputs);
+      const date=gaboroneDate(),[performance,stateEnvelope]=await Promise.all([request(`/api/daily-reporting/performance?date=${encodeURIComponent(date)}`),request("/api/state")]);if(seq!==renderSeq)return;latestStateEnvelope=stateEnvelope;const inputs=decisionInputs(stateEnvelope?.state||{}),model=deriveModel(performance,inputs,date);renderSummary(model);renderSources(model,inputs);renderSignals(model,inputs);renderActions(model);renderSimulation(model);renderInputs(inputs);
     }catch(error){if(seq!==renderSeq)return;const box=q("#ownerCommandSummary");if(box){box.textContent="Business owner brief unavailable. Thebe will not substitute missing data with invented advice.";box.dataset.tone="risk"}const signals=q("#ownerSignalList");if(signals)signals.replaceChildren(signalCard({label:"Data status",value:"Unavailable",title:"The business briefing could not be calculated from authoritative sources.",detail:String(error?.message||"Retry the brief or open Daily Reports to confirm source data.").slice(0,220),tone:"risk",actionLabel:"Retry",action:()=>renderOwnerBrief(true)}));const actions=q("#ownerActionPanel");if(actions)actions.replaceChildren();const sim=q("#ownerSimulationPanel");if(sim)sim.replaceChildren();}
   }
   function scheduleRender(){setTimeout(()=>renderOwnerBrief(false),220)}
