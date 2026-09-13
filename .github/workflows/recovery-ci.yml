@@ -64,6 +64,7 @@ jobs:
           node tests/v80-agentic-stage2-runtime.mjs
           node tests/v81-delegated-authority-static.mjs
           node tests/v82-whatsapp-prepare.mjs
+          node tests/v82-whatsapp-owner-centre.mjs
 
       - name: Production and historical regression qualification
         shell: bash

@@ -204,3 +204,13 @@
   }
   global.BW=global.BW||{};global.BW.api=Object.freeze({ApiError,createClient});
 })(window);
+
+(function loadOwnerWhatsAppPrepare(global){
+  "use strict";
+  if(!global.document||global.document.querySelector('script[data-thebe-owner-whatsapp-prepare]'))return;
+  const script=global.document.createElement("script");
+  script.src="/js/owner-whatsapp-prepare.js";
+  script.defer=true;
+  script.dataset.thebeOwnerWhatsappPrepare="20260914a";
+  (global.document.head||global.document.documentElement).append(script);
+})(window);
