@@ -78,6 +78,7 @@ jobs:
           node tests/v78-12162-password-reset-email-delivery-adversarial.mjs
           node tests/v78-12188-oauth-redirect-config-hardening-adversarial.mjs
           node tests/v78-12194-oauth-state-cookie-hardening-adversarial.mjs
+          node tests/v82-phase0-launch-audit-deferred-integrations.mjs
 
       - name: Audit live production without creating customer data
         shell: bash
