@@ -15,8 +15,13 @@ grep -Eq '^workers_dev[[:space:]]*=[[:space:]]*false[[:space:]]*$' "$WRANGLER_TO
 grep -Eq '^preview_urls[[:space:]]*=[[:space:]]*false[[:space:]]*$' "$WRANGLER_TOML" || fail "preview_urls must be false"
 grep -Fq 'pattern = "thebedesk.com"' "$WRANGLER_TOML" || fail "thebedesk.com custom-domain route is missing"
 grep -Eq '^custom_domain[[:space:]]*=[[:space:]]*true[[:space:]]*$' "$WRANGLER_TOML" || fail "custom-domain routing must be enabled"
-for secret in SESSION_SECRET AUDIT_INTEGRITY_SECRET OPERATIONS_SECRET AUTOMATION_SECRET TURNSTILE_SECRET_KEY PAYMENT_WEBHOOK_SECRET BILLING_WEBHOOK_SECRET GOOGLE_OAUTH_CLIENT_SECRET FACEBOOK_APP_SECRET RESEND_API_KEY; do
+for secret in SESSION_SECRET AUDIT_INTEGRITY_SECRET OPERATIONS_SECRET AUTOMATION_SECRET TURNSTILE_SECRET_KEY PAYMENT_WEBHOOK_SECRET BILLING_WEBHOOK_SECRET; do
   grep -Fq "\"$secret\"" "$WRANGLER_TOML" || fail "required secret contract is missing $secret"
+done
+for optional_secret in GOOGLE_OAUTH_CLIENT_SECRET FACEBOOK_APP_SECRET RESEND_API_KEY; do
+  if grep -Eq "^required[[:space:]]*=.*\"${optional_secret}\"" "$WRANGLER_TOML"; then
+    fail "deferred optional secret must not be launch-required: $optional_secret"
+  fi
 done
 if grep -Eq '^required[[:space:]]*=.*EVIDENCE_SCAN_SECRET' "$WRANGLER_TOML"; then fail "EVIDENCE_SCAN_SECRET must not be required while evidence uploads are disabled"; fi
 grep -Eq '^keep_vars[[:space:]]*=[[:space:]]*true[[:space:]]*$' "$WRANGLER_TOML" || fail "keep_vars must be true so optional dashboard vars are not deleted by deploy"
@@ -24,9 +29,14 @@ grep -Eq '^APP_ENV[[:space:]]*=[[:space:]]*"production"[[:space:]]*$' "$WRANGLER
 grep -Eq '^AI_FEATURES_DEFAULT[[:space:]]*=[[:space:]]*"on"[[:space:]]*$' "$WRANGLER_TOML" || fail "AI_FEATURES_DEFAULT must be on for the Phase 0 production launch"
 grep -Eq '^PAYMENT_PROVIDER[[:space:]]*=[[:space:]]*"(none|dpo)"[[:space:]]*$' "$WRANGLER_TOML" || fail "PAYMENT_PROVIDER must be none or dpo; orange_money is blocked pending a reviewed readiness fix"
 
-for key in PUBLIC_APP_URL PUBLIC_ORIGIN TURNSTILE_SITE_KEY PLATFORM_ADMIN_EMAILS PLATFORM_REGULATORY_REVIEWERS GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_REDIRECT_URI FACEBOOK_APP_ID FACEBOOK_OAUTH_REDIRECT_URI EMAIL_FROM; do
+for key in PUBLIC_APP_URL PUBLIC_ORIGIN TURNSTILE_SITE_KEY PLATFORM_ADMIN_EMAILS PLATFORM_REGULATORY_REVIEWERS GOOGLE_OAUTH_REDIRECT_URI FACEBOOK_OAUTH_REDIRECT_URI; do
   grep -Eq "^[[:space:]]*${key}[[:space:]]*=[[:space:]]*\"[^\"]+\"[[:space:]]*$" "$WRANGLER_TOML" || fail "$key must be rendered into production config"
   if grep -Eq "^[[:space:]]*${key}[[:space:]]*=[[:space:]]*\"REPLACE_WITH_" "$WRANGLER_TOML"; then fail "$key still contains a placeholder"; fi
+done
+
+for optional_key in GOOGLE_OAUTH_CLIENT_ID FACEBOOK_APP_ID EMAIL_FROM; do
+  grep -Eq "^[[:space:]]*${optional_key}[[:space:]]*=[[:space:]]*\"[^\"]*\"[[:space:]]*$" "$WRANGLER_TOML" || fail "$optional_key must be rendered, even when deferred"
+  if grep -Eq "^[[:space:]]*${optional_key}[[:space:]]*=[[:space:]]*\"REPLACE_WITH_" "$WRANGLER_TOML"; then fail "$optional_key still contains a placeholder"; fi
 done
 
 grep -Eq '^[[:space:]]*EVIDENCE_SCAN_API_URL[[:space:]]*=[[:space:]]*"[^"]*"[[:space:]]*$' "$WRANGLER_TOML" || fail "EVIDENCE_SCAN_API_URL must be present in rendered production config"
@@ -45,8 +55,10 @@ FACEBOOK_REDIRECT=$(sed -n 's/^[[:space:]]*FACEBOOK_OAUTH_REDIRECT_URI[[:space:]
 EMAIL_FROM_VALUE=$(sed -n 's/^[[:space:]]*EMAIL_FROM[[:space:]]*=[[:space:]]*"\([^"]*\)"[[:space:]]*$/\1/p' "$WRANGLER_TOML")
 [ "$GOOGLE_REDIRECT" = "$PUBLIC_BASE/api/auth/oauth/google/callback" ] || fail "GOOGLE_OAUTH_REDIRECT_URI must equal the exact same-origin callback"
 [ "$FACEBOOK_REDIRECT" = "$PUBLIC_BASE/api/auth/oauth/facebook/callback" ] || fail "FACEBOOK_OAUTH_REDIRECT_URI must equal the exact same-origin callback"
-printf '%s\n' "$EMAIL_FROM_VALUE" | grep -Eq '@[^[:space:]<>]+\.[^[:space:]<>]+>?$' || fail "EMAIL_FROM must contain a real sender email address"
-printf '%s\n' "$EMAIL_FROM_VALUE" | grep -Eqi 'example\.invalid|example\.com|REPLACE_WITH' && fail "EMAIL_FROM must not be a placeholder" || true
+if [ -n "$EMAIL_FROM_VALUE" ]; then
+  printf '%s\n' "$EMAIL_FROM_VALUE" | grep -Eq '@[^[:space:]<>]+\.[^[:space:]<>]+>?$' || fail "EMAIL_FROM must contain a real sender email address when transactional email is enabled"
+  printf '%s\n' "$EMAIL_FROM_VALUE" | grep -Eqi 'example\.invalid|example\.com|REPLACE_WITH' && fail "EMAIL_FROM must not be a placeholder" || true
+fi
 
 grep -Fq 'binding = "DB"' "$WRANGLER_TOML" || fail "D1 DB binding is missing"
 grep -Fq 'database_name = "bw-compliance-os"' "$WRANGLER_TOML" || fail "production D1 database name is missing"

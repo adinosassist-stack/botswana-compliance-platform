@@ -200,10 +200,9 @@ jobs:
           set -euo pipefail
           required=(
             CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID D1_DATABASE_ID TURNSTILE_SITE_KEY
-            PLATFORM_ADMIN_EMAILS PLATFORM_REGULATORY_REVIEWERS GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_REDIRECT_URI
-            FACEBOOK_APP_ID FACEBOOK_OAUTH_REDIRECT_URI EMAIL_FROM SESSION_SECRET AUDIT_INTEGRITY_SECRET
+            PLATFORM_ADMIN_EMAILS PLATFORM_REGULATORY_REVIEWERS GOOGLE_OAUTH_REDIRECT_URI
+            FACEBOOK_OAUTH_REDIRECT_URI SESSION_SECRET AUDIT_INTEGRITY_SECRET
             OPERATIONS_SECRET AUTOMATION_SECRET TURNSTILE_SECRET_KEY PAYMENT_WEBHOOK_SECRET BILLING_WEBHOOK_SECRET
-            GOOGLE_OAUTH_CLIENT_SECRET FACEBOOK_APP_SECRET RESEND_API_KEY
           )
           for key in "${required[@]}"; do
             [[ -n "${!key:-}" ]] || { echo "Missing GitHub production environment value: $key" >&2; exit 1; }
@@ -212,6 +211,15 @@ jobs:
           [[ "$D1_DATABASE_ID" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]] || { echo 'D1_DATABASE_ID must be a provisioned D1 UUID' >&2; exit 1; }
           [[ "$GOOGLE_OAUTH_REDIRECT_URI" == 'https://thebedesk.com/api/auth/oauth/google/callback' ]] || { echo 'GOOGLE_OAUTH_REDIRECT_URI must use the exact production callback' >&2; exit 1; }
           [[ "$FACEBOOK_OAUTH_REDIRECT_URI" == 'https://thebedesk.com/api/auth/oauth/facebook/callback' ]] || { echo 'FACEBOOK_OAUTH_REDIRECT_URI must use the exact production callback' >&2; exit 1; }
+          if [[ -n "${GOOGLE_OAUTH_CLIENT_ID:-}" || -n "${GOOGLE_OAUTH_CLIENT_SECRET:-}" ]]; then
+            [[ -n "${GOOGLE_OAUTH_CLIENT_ID:-}" && -n "${GOOGLE_OAUTH_CLIENT_SECRET:-}" ]] || { echo 'Google OAuth must be configured with both client ID and client secret, or deferred completely' >&2; exit 1; }
+          fi
+          if [[ -n "${FACEBOOK_APP_ID:-}" || -n "${FACEBOOK_APP_SECRET:-}" ]]; then
+            [[ -n "${FACEBOOK_APP_ID:-}" && -n "${FACEBOOK_APP_SECRET:-}" ]] || { echo 'Facebook OAuth must be configured with both app ID and app secret, or deferred completely' >&2; exit 1; }
+          fi
+          if [[ -n "${EMAIL_FROM:-}" || -n "${RESEND_API_KEY:-}" ]]; then
+            [[ -n "${EMAIL_FROM:-}" && -n "${RESEND_API_KEY:-}" ]] || { echo 'Transactional email must be configured with both EMAIL_FROM and RESEND_API_KEY, or deferred completely' >&2; exit 1; }
+          fi
 
       - name: Diagnose Cloudflare authorization boundary
         shell: bash
@@ -226,14 +234,20 @@ jobs:
           SECRETS_FILE="$RUNNER_TEMP/thebe-worker-secrets.json"
           node <<'NODE'
           const fs = require('node:fs');
-          const names = [
+          const coreNames = [
             'SESSION_SECRET','AUDIT_INTEGRITY_SECRET','OPERATIONS_SECRET','AUTOMATION_SECRET',
-            'TURNSTILE_SECRET_KEY','PAYMENT_WEBHOOK_SECRET','BILLING_WEBHOOK_SECRET',
-            'GOOGLE_OAUTH_CLIENT_SECRET','FACEBOOK_APP_SECRET','RESEND_API_KEY'
+            'TURNSTILE_SECRET_KEY','PAYMENT_WEBHOOK_SECRET','BILLING_WEBHOOK_SECRET'
           ];
-          const out = Object.fromEntries(names.map(name => [name, process.env[name] || '']));
-          for (const [name, value] of Object.entries(out)) {
+          const optionalNames = ['GOOGLE_OAUTH_CLIENT_SECRET','FACEBOOK_APP_SECRET','RESEND_API_KEY'];
+          const out = {};
+          for (const name of coreNames) {
+            const value = process.env[name] || '';
             if (!value) throw new Error(`Missing required runtime secret ${name}`);
+            out[name] = value;
+          }
+          for (const name of optionalNames) {
+            const value = process.env[name] || '';
+            if (value) out[name] = value;
           }
           fs.writeFileSync(process.env.RUNNER_TEMP + '/thebe-worker-secrets.json', JSON.stringify(out), {mode: 0o600});
           NODE
@@ -275,9 +289,19 @@ jobs:
           live="$(curl --fail-with-body --silent --show-error --retry 5 --retry-all-errors --max-time 20 'https://thebedesk.com/api/live')"
           ready="$(curl --fail-with-body --silent --show-error --retry 5 --retry-all-errors --max-time 20 'https://thebedesk.com/api/ready')"
           proof="$(curl --fail-with-body --silent --show-error --retry 5 --retry-all-errors --max-time 20 --request POST --header 'content-type: application/json' --header 'origin: https://thebedesk.com' --data '{}' 'https://thebedesk.com/api/auth/registration-proof/challenge')"
-          google_location="$(curl --fail-with-body --silent --show-error --retry 5 --retry-all-errors --max-time 20 --output /dev/null --write-out '%{redirect_url}' 'https://thebedesk.com/api/auth/oauth/google/start')"
-          facebook_location="$(curl --fail-with-body --silent --show-error --retry 5 --retry-all-errors --max-time 20 --output /dev/null --write-out '%{redirect_url}' 'https://thebedesk.com/api/auth/oauth/facebook/start')"
-          LIVE_JSON="$live" READY_JSON="$ready" PROOF_JSON="$proof" GOOGLE_LOCATION="$google_location" FACEBOOK_LOCATION="$facebook_location" node <<'NODE'
+          google_enabled=false
+          facebook_enabled=false
+          google_location=""
+          facebook_location=""
+          if [[ -n "${GOOGLE_OAUTH_CLIENT_ID:-}" && -n "${GOOGLE_OAUTH_CLIENT_SECRET:-}" ]]; then
+            google_enabled=true
+            google_location="$(curl --fail-with-body --silent --show-error --retry 5 --retry-all-errors --max-time 20 --output /dev/null --write-out '%{redirect_url}' 'https://thebedesk.com/api/auth/oauth/google/start')"
+          fi
+          if [[ -n "${FACEBOOK_APP_ID:-}" && -n "${FACEBOOK_APP_SECRET:-}" ]]; then
+            facebook_enabled=true
+            facebook_location="$(curl --fail-with-body --silent --show-error --retry 5 --retry-all-errors --max-time 20 --output /dev/null --write-out '%{redirect_url}' 'https://thebedesk.com/api/auth/oauth/facebook/start')"
+          fi
+          LIVE_JSON="$live" READY_JSON="$ready" PROOF_JSON="$proof" GOOGLE_ENABLED="$google_enabled" FACEBOOK_ENABLED="$facebook_enabled" GOOGLE_LOCATION="$google_location" FACEBOOK_LOCATION="$facebook_location" node <<'NODE'
           const live = JSON.parse(process.env.LIVE_JSON);
           const ready = JSON.parse(process.env.READY_JSON);
           const proof = JSON.parse(process.env.PROOF_JSON);
@@ -297,11 +321,24 @@ jobs:
           if (!Number.isInteger(proof.expiresInSeconds) || proof.expiresInSeconds < 60 || proof.expiresInSeconds > 600) {
             throw new Error('first-party registration proof TTL is outside the hardened range');
           }
-          const google = new URL(process.env.GOOGLE_LOCATION);
-          const facebook = new URL(process.env.FACEBOOK_LOCATION);
-          if (google.protocol !== 'https:' || google.hostname !== 'accounts.google.com') throw new Error('Google OAuth start did not redirect to accounts.google.com');
-          if (facebook.protocol !== 'https:' || facebook.hostname !== 'www.facebook.com') throw new Error('Facebook OAuth start did not redirect to www.facebook.com');
-          console.log(`Production ready: version=${ready.version || 'unknown'} schema=${ready.expectedSchemaDelta || 'unknown'} registrationProof=thebe_proof oauth=google+facebook`);
+          const enabled = value => String(value).toLowerCase() === 'true';
+          if (enabled(process.env.GOOGLE_ENABLED)) {
+            const google = new URL(process.env.GOOGLE_LOCATION);
+            if (google.protocol !== 'https:' || google.hostname !== 'accounts.google.com') throw new Error('Google OAuth start did not redirect to accounts.google.com');
+          } else if (process.env.GOOGLE_LOCATION) {
+            throw new Error('Google OAuth produced a redirect while integration is deferred');
+          }
+          if (enabled(process.env.FACEBOOK_ENABLED)) {
+            const facebook = new URL(process.env.FACEBOOK_LOCATION);
+            if (facebook.protocol !== 'https:' || facebook.hostname !== 'www.facebook.com') throw new Error('Facebook OAuth start did not redirect to www.facebook.com');
+          } else if (process.env.FACEBOOK_LOCATION) {
+            throw new Error('Facebook OAuth produced a redirect while integration is deferred');
+          }
+          const integrations = [
+            enabled(process.env.GOOGLE_ENABLED) ? 'google' : 'google-deferred',
+            enabled(process.env.FACEBOOK_ENABLED) ? 'facebook' : 'facebook-deferred'
+          ].join('+');
+          console.log(`Production ready: version=${ready.version || 'unknown'} schema=${ready.expectedSchemaDelta || 'unknown'} registrationProof=thebe_proof oauth=${integrations}`);
           NODE
 
       - name: Record deployed SHA
