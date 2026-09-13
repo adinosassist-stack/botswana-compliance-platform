@@ -1,0 +1,58 @@
+name: One-shot finance CSP and release metadata alignment
+
+on:
+  push:
+    branches: ['chatgpt/finance-reconciliation-20260913']
+    paths: ['.github/workflows/align-finance-csp-release-once.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  align:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: chatgpt/finance-reconciliation-20260913
+          persist-credentials: true
+          fetch-depth: 1
+
+      - name: Align finance UI allowlist, route inventory and migration runbook
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs');
+          function replaceOne(path,from,to){
+            const before=fs.readFileSync(path,'utf8');
+            const count=before.split(from).length-1;
+            if(count!==1)throw new Error(`${path}: expected exactly one match, found ${count}`);
+            fs.writeFileSync(path,before.replace(from,to));
+          }
+          replaceOne('public/js/event-delegation.js',
+            "    'saveWhatsAppConsent',\n    'scrollToPricing',",
+            "    'saveWhatsAppConsent',\n    'testWhatsAppConnection',\n    'scrollToPricing',");
+          replaceOne('RELEASE_PROFILE.json',
+            '  "authenticated_route_branches": 253,',
+            '  "authenticated_route_branches": 254,');
+          replaceOne('tests/v78-12148-feature-security-csp-route-hardening-adversarial.mjs',
+            'const expectedAuthenticatedRoutes=["1.21.89","1.21.90","1.21.91","1.21.92","1.21.93","1.21.94","1.21.95","1.21.96","1.21.97","1.21.98","1.21.99","1.21.100","1.21.101"].includes(pkg.version)?253:',
+            'const expectedAuthenticatedRoutes=pkg.version==="1.21.101"?254:["1.21.89","1.21.90","1.21.91","1.21.92","1.21.93","1.21.94","1.21.95","1.21.96","1.21.97","1.21.98","1.21.99","1.21.100"].includes(pkg.version)?253:');
+          replaceOne('cloudflare/README.md',
+            'upgrade delta `migrations/043_v78_session_inventory_hardening.sql`**. For a brand-new D1 database, load the current `schema.sql`. For an existing database, back up first and apply only the pending release migrations through 043.',
+            'upgrade delta `migrations/044_v79_finance_reconciliation.sql`**. For a brand-new D1 database, load the current `schema.sql`. For an existing database, back up first and apply only the pending release migrations through 044.');
+          NODE
+          rm .github/workflows/align-finance-csp-release-once.yml
+          git diff --check
+          grep -F "'testWhatsAppConnection'" public/js/event-delegation.js >/dev/null
+          grep -F '"authenticated_route_branches": 254' RELEASE_PROFILE.json >/dev/null
+          grep -F 'pkg.version==="1.21.101"?254' tests/v78-12148-feature-security-csp-route-hardening-adversarial.mjs >/dev/null
+          grep -F 'migrations/044_v79_finance_reconciliation.sql' cloudflare/README.md >/dev/null
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/js/event-delegation.js RELEASE_PROFILE.json tests/v78-12148-feature-security-csp-route-hardening-adversarial.mjs cloudflare/README.md .github/workflows/align-finance-csp-release-once.yml
+          git commit -m 'fix(finance): align CSP allowlist and release inventory'
+          git push origin HEAD:chatgpt/finance-reconciliation-20260913
