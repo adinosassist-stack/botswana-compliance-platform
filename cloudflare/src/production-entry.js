@@ -6,7 +6,8 @@ const LEGACY_TURNSTILE_CONFIGURATION_ERROR="turnstile_configuration_error";
 const META_CSP_RE=/<meta\b(?=[^>]*\bhttp-equiv\s*=\s*["']Content-Security-Policy["'])[^>]*>/i;
 const ICON_LINK_RE=/<link\b(?=[^>]*\brel\s*=\s*["'](?:icon|shortcut icon|apple-touch-icon)["'])[^>]*>\s*/gi;
 const THEBE_LOGO_FAVICON="/assets/thebe-desk-favicon-512.png?v=20260912b";
-const OWNER_COMMAND_CENTRE_RELEASE="20260913a";
+const OWNER_COMMAND_CENTRE_RELEASE="20260913c";
+const EXECUTIVE_PERSONALIZATION_RELEASE="20260913c";
 const TURNSTILE_SECRET_HEALTH_TTL_MS=5*60*1000;
 const REGISTRATION_PROOF_TTL_MS=5*60*1000;
 const REGISTRATION_PROOF_DIFFICULTY=10;
@@ -102,8 +103,12 @@ function injectOwnerCommandCentreAssets(html){
   if(!/<\/head>/i.test(source)||!/<\/body>/i.test(source))return source;
   const cssHref=`/assets/owner-command-centre.css?v=${OWNER_COMMAND_CENTRE_RELEASE}`;
   const jsSrc=`/js/owner-command-centre.js?v=${OWNER_COMMAND_CENTRE_RELEASE}`;
+  const personalizationCssHref=`/assets/executive-personalization.css?v=${EXECUTIVE_PERSONALIZATION_RELEASE}`;
+  const personalizationJsSrc=`/js/executive-personalization.js?v=${EXECUTIVE_PERSONALIZATION_RELEASE}`;
   if(!source.includes("/assets/owner-command-centre.css"))source=source.replace(/<\/head>/i,`<link rel="stylesheet" href="${cssHref}" />\n</head>`);
+  if(!source.includes("/assets/executive-personalization.css"))source=source.replace(/<\/head>/i,`<link rel="stylesheet" href="${personalizationCssHref}" />\n</head>`);
   if(!source.includes("/js/owner-command-centre.js"))source=source.replace(/<\/body>/i,`<script src="${jsSrc}" defer></script>\n</body>`);
+  if(!source.includes("/js/executive-personalization.js"))source=source.replace(/<\/body>/i,`<script src="${personalizationJsSrc}" defer></script>\n</body>`);
   return source;
 }
 
@@ -340,6 +345,7 @@ async function fetchWithTurnstileCspRepair(request,env,ctx){
   headers.set("x-thebe-favicon","optimized-512");
   headers.set("x-thebe-registration-protection","first-party-proof-v1");
   headers.set("x-thebe-owner-brief",OWNER_COMMAND_CENTRE_RELEASE);
+  headers.set("x-thebe-executive-personalization",EXECUTIVE_PERSONALIZATION_RELEASE);
   return new Response(repaired,{status:response.status,statusText:response.statusText,headers});
 }
 

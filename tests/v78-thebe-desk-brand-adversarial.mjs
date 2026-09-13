@@ -16,6 +16,9 @@ const sw=read('public/sw.js');
 const profile=JSON.parse(read('RELEASE_PROFILE.json'));
 const ownerCss=read('public/assets/owner-command-centre.css');
 const workspaceUx=read('public/assets/workspace-ui-ux-10.css');
+const personalizationCss=read('public/assets/executive-personalization.css');
+const personalizationJs=read('public/js/executive-personalization.js');
+const productionEntry=read('cloudflare/src/production-entry.js');
 
 ok(home.includes(`<title>Botswana SME Compliance Software | ${brand}</title>`) && home.includes(`property="og:site_name" content="${brand}"`),'home title and Open Graph site identity use Thebe Desk');
 ok(home.includes(`"name":"${brand}"`) && /class="marketinglogo"[^>]*>[\s\S]*?alt="Thebe Desk logo symbol"[\s\S]*?>Thebe Desk<\/span>/.test(home) && /class="authbrand"[^>]*>[\s\S]*?alt="Thebe Desk logo symbol"[\s\S]*?>Thebe Desk<\/span>/.test(home),'structured data, marketing shell and auth shell use Thebe Desk');
@@ -63,5 +66,16 @@ ok(ownerCss.includes('content:"Today\'s executive briefing"') && ownerCss.includ
 ok(ownerCss.includes('.owner-source-note{order:4!important') && ownerCss.includes('.owner-sales-workspace{order:5!important') && ownerCss.includes('.owner-inputs{order:6!important'),'evidence, sales detail and assumptions remain supporting layers below the decision path');
 ok(ownerCss.includes('.owner-signal[data-tone="risk"]{order:-2!important') && ownerCss.includes('.owner-action .btn{background:#0b66d6!important'),'risk signals sort first and primary owner actions use the live Thebe blue accent');
 ok(!ownerCss.includes('#appShell .owner-action-index{background:#edf5f1') && !ownerCss.includes('#appShell .owner-command-centre{background:#111713'),'executive briefing does not introduce a green/charcoal workspace rebrand');
+
+// Personalized daily priority and contextual onboarding must remain role-safe, derived and non-invasive.
+ok(personalizationJs.includes('const RELEASE="20260913c"') && personalizationJs.includes('Management priority today') && personalizationJs.includes('Your priority today'),'personalization gives owner and manager role-aware daily-priority framing');
+ok(personalizationJs.includes('#ownerActionPanel .owner-action-list .owner-action') && personalizationJs.includes('action.sourceButton.click()'),'daily priority is derived from the existing evidence-ranked recommendation instead of inventing a parallel decision engine');
+ok(personalizationJs.includes('isOwner()&&revenueText.includes("no monthly target projection yet")') && personalizationJs.includes('isOwner()&&cashText.includes("Not configured")') && personalizationJs.includes('isOwner()&&labourText.includes("Not configured")'),'owner-only financial onboarding stays gated to the owner role');
+ok(personalizationJs.includes('revenueText.includes("needs more reporting history")') && personalizationJs.includes('salesText.includes("Record enough resolved quotations")'),'contextual onboarding focuses on missing reporting or sales evidence when those capabilities are not decision-ready');
+ok(!personalizationJs.includes('/api/state') && !personalizationJs.includes('fetch(') && !personalizationJs.includes('localStorage'),'personalization does not create a second data-write path, direct network transport or persistent profiling store');
+ok(personalizationCss.includes('background:var(--ws-accent-soft)') && personalizationCss.includes('color:var(--ws-accent-strong)') && !personalizationCss.includes('#176b4f') && !personalizationCss.includes('#111713'),'personalization preserves the live blue/white workspace brand');
+ok(personalizationCss.includes('.executive-personalized #ownerActionPanel .owner-action-list>.owner-action:first-child') && personalizationCss.includes('.owner-action-panel-exhausted'),'promoted top priority is not duplicated in the remaining recommendation list');
+ok(productionEntry.includes('OWNER_COMMAND_CENTRE_RELEASE="20260913c"') && productionEntry.includes('EXECUTIVE_PERSONALIZATION_RELEASE="20260913c"'),'production entry rotates the owner-brief and personalization cache versions together');
+ok(productionEntry.includes('/assets/executive-personalization.css') && productionEntry.includes('/js/executive-personalization.js') && productionEntry.includes('x-thebe-executive-personalization'),'production HTML injects and identifies the personalization assets');
 
 console.log(`Thebe Desk final-brand adversarial gate: ${pass}/${pass} PASS`);
