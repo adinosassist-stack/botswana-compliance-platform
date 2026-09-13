@@ -1,0 +1,82 @@
+name: Production browser CTA incident probe
+
+on:
+  push:
+    branches:
+      - hotfix/production-cta-auth-20260913
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser driver only
+        run: npm install --no-save --ignore-scripts playwright-core@1.55.0
+      - name: Probe live user journeys
+        env:
+          TARGET_URL: https://thebedesk.com/
+        run: |
+          node --input-type=module <<'NODE'
+          import { chromium } from 'playwright-core';
+          import fs from 'node:fs';
+          const executableCandidates=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'];
+          const executablePath=executableCandidates.find(p=>fs.existsSync(p));
+          if(!executablePath) throw new Error('No Chromium/Chrome executable found on runner');
+          const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox']});
+          const page=await browser.newPage({viewport:{width:1440,height:1100}});
+          const consoleErrors=[]; const pageErrors=[]; const failed=[];
+          page.on('console',msg=>{ if(msg.type()==='error') consoleErrors.push(msg.text()); });
+          page.on('pageerror',err=>pageErrors.push(String(err?.stack||err)));
+          page.on('requestfailed',req=>failed.push(`${req.method()} ${req.url()} :: ${req.failure()?.errorText||'failed'}`));
+          const target=process.env.TARGET_URL;
+          const result={target,checks:[],consoleErrors,pageErrors,requestFailures:failed};
+          async function record(name,fn){
+            try{const detail=await fn();result.checks.push({name,ok:true,detail});console.log(`PASS ${name}`,detail||'');}
+            catch(error){result.checks.push({name,ok:false,error:String(error?.stack||error)});console.error(`FAIL ${name}`,error);}
+          }
+          await page.goto(target,{waitUntil:'networkidle',timeout:45000});
+          await record('landing renders',async()=>({title:await page.title(),url:page.url()}));
+          await record('delegated event runtime loaded',async()=>await page.evaluate(()=>({hasBwEvents:!!window.BW?.events,hasStartFree:typeof window.startFreeFromMarketing,hasOpenAuth:typeof window.openAuthFromMarketing,allowedStart:window.BW?.events?.allowedActions?.includes?.('startFreeFromMarketing')||false})));
+          await record('Start free nav opens registration',async()=>{
+            await page.locator('button.marketing-start-action').first().click({timeout:10000});
+            await page.waitForTimeout(400);
+            return await page.evaluate(()=>({marketingHidden:document.getElementById('marketingGate')?.classList.contains('hidden'),authHidden:document.getElementById('authGate')?.classList.contains('hidden'),authMode:document.body?.dataset?.authMode||null,companyVisible:!!document.getElementById('authCompany')&&getComputedStyle(document.getElementById('authCompany')).display!=='none'}));
+          });
+          await page.goto(target,{waitUntil:'networkidle',timeout:45000});
+          await record('Sign in opens login',async()=>{
+            await page.locator('button[data-guest-action]').filter({hasText:'Sign in'}).click({timeout:10000});
+            await page.waitForTimeout(400);
+            return await page.evaluate(()=>({marketingHidden:document.getElementById('marketingGate')?.classList.contains('hidden'),authHidden:document.getElementById('authGate')?.classList.contains('hidden'),emailPresent:!!document.getElementById('authEmail')}));
+          });
+          await page.goto(target,{waitUntil:'networkidle',timeout:45000});
+          await record('Explore workspace enters preview',async()=>{
+            await page.getByRole('button',{name:/Explore the workspace/i}).click({timeout:10000});
+            await page.waitForTimeout(500);
+            return await page.evaluate(()=>({marketingHidden:document.getElementById('marketingGate')?.classList.contains('hidden'),workspaceVisible:document.getElementById('workspaceShell')?getComputedStyle(document.getElementById('workspaceShell')).display!=='none':null,url:location.href}));
+          });
+          await page.goto(target,{waitUntil:'networkidle',timeout:45000});
+          await record('Pricing CTA scrolls',async()=>{
+            await page.getByRole('button',{name:/See plans/i}).click({timeout:10000});
+            await page.waitForTimeout(500);
+            return await page.evaluate(()=>({hash:location.hash,pricingTop:Math.round(document.getElementById('pricing')?.getBoundingClientRect()?.top||0),scrollY:Math.round(scrollY)}));
+          });
+          await page.goto(target,{waitUntil:'networkidle',timeout:45000});
+          await record('Pricing Start free opens registration',async()=>{
+            await page.locator('#pricing button.marketing-start-action').first().click({timeout:10000});
+            await page.waitForTimeout(400);
+            return await page.evaluate(()=>({authHidden:document.getElementById('authGate')?.classList.contains('hidden'),selectedPlan:sessionStorage.getItem('bw_pending_plan')||sessionStorage.getItem('pendingPlan')||null}));
+          });
+          result.consoleErrors=consoleErrors; result.pageErrors=pageErrors; result.requestFailures=failed;
+          console.log('RESULT_JSON '+JSON.stringify(result));
+          await browser.close();
+          const failedChecks=result.checks.filter(x=>!x.ok);
+          if(failedChecks.length||pageErrors.length||consoleErrors.some(x=>/blocked|failed|error|undefined|not defined/i.test(x))) process.exit(1);
+          NODE
