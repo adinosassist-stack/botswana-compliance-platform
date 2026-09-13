@@ -1,3 +1,4 @@
+@import url("/assets/workspace-ui-ux-10.css?v=20260913b");
 /* Thebe Desk owner command centre — decision-first briefing layer. */
 .owner-command-centre{margin:18px 0 16px;border:1px solid #dfe7e2;border-radius:22px;background:#fff;box-shadow:0 12px 34px rgba(21,35,27,.055);overflow:hidden}
 .owner-command-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:20px 22px 16px;border-bottom:1px solid #edf1ee;background:linear-gradient(180deg,#fbfdfc 0%,#fff 100%)}
