@@ -13,12 +13,17 @@ function validDate(value){
 }
 
 function normalizeFinanceRow(row,index=0){
-  const postedOn=text(row?.postedOn||row?.date,10),description=text(row?.description,500),reference=text(row?.reference,160);
+  const postedOn=text(row?.postedOn||row?.date,10),description=text(row?.description,500),reference=text(row?.reference,160),sourceId=text(row?.sourceId||row?.externalId||row?.transactionId,160);
   const amountMinor=integer(row?.amountMinor);
   if(!validDate(postedOn))return {ok:false,error:"invalid_posted_on",index};
   if(!description)return {ok:false,error:"description_required",index};
   if(amountMinor===null||amountMinor===0)return {ok:false,error:"invalid_amount_minor",index};
-  return {ok:true,row:{postedOn,description,reference,amountMinor}};
+  return {ok:true,row:{postedOn,description,reference,amountMinor,sourceId}};
+}
+
+function sourceFingerprintBasis({tenantId,accountId,sourceType,provider,idempotencyKey,row,index}){
+  if(row.sourceId)return [tenantId,accountId,"source",sourceType,provider||"",row.sourceId];
+  return [tenantId,accountId,"batch",idempotencyKey,index,row.postedOn,row.amountMinor,row.reference,row.description];
 }
 
 async function appendLineage({env,tenantId,userId,eventType,entityType,entityId,payload,sha256Hex,id}){
@@ -81,16 +86,29 @@ export async function handleFinanceRequest({request,url,env,auth,json,readJson,i
     const existing=await env.DB.prepare("SELECT id,imported_count,duplicate_count,status FROM finance_import_batches WHERE tenant_id=? AND idempotency_key=? LIMIT 1").bind(auth.tenant_id,idempotencyKey).first();
     if(existing)return json({ok:true,id:existing.id,importedCount:Number(existing.imported_count||0),duplicateCount:Number(existing.duplicate_count||0),status:existing.status,replayed:true});
     const normalized=[];for(let i=0;i<rows.length;i++){const item=normalizeFinanceRow(rows[i],i);if(!item.ok)return json({error:item.error,row:i},400);normalized.push(item.row)}
-    const batchId=id(),provider=text(body.provider,60)||null;
-    await env.DB.prepare("INSERT INTO finance_import_batches(id,tenant_id,account_id,source_type,provider,idempotency_key,status,row_count,created_by_user_id) VALUES(?,?,?,?,?,?,'processing',?,?)").bind(batchId,auth.tenant_id,accountId,sourceType,provider,idempotencyKey,normalized.length,auth.user_id).run();
-    let imported=0,duplicates=0;
-    for(const row of normalized){
-      const fingerprint=await sha256Hex(JSON.stringify([auth.tenant_id,accountId,row.postedOn,row.amountMinor,row.reference,row.description]));
-      const result=await env.DB.prepare("INSERT OR IGNORE INTO finance_transactions(id,tenant_id,account_id,import_batch_id,posted_on,description,reference,amount_minor,currency,source_type,source_fingerprint) VALUES(?,?,?,?,?,?,?,?, 'BWP',?,?)")
-        .bind(id(),auth.tenant_id,accountId,batchId,row.postedOn,row.description,row.reference,row.amountMinor,sourceType,fingerprint).run();
-      if(Number(result.meta?.changes||0)===1)imported++;else duplicates++;
+    const batchId=id(),provider=text(body.provider,60)||null,packed=[];
+    for(let index=0;index<normalized.length;index++){
+      const row=normalized[index];
+      const fingerprint=await sha256Hex(JSON.stringify(sourceFingerprintBasis({tenantId:auth.tenant_id,accountId,sourceType,provider,idempotencyKey,row,index})));
+      packed.push({id:id(),tenantId:auth.tenant_id,accountId,batchId,postedOn:row.postedOn,description:row.description,reference:row.reference,amountMinor:row.amountMinor,sourceType,fingerprint});
     }
-    await env.DB.prepare("UPDATE finance_import_batches SET status='completed',imported_count=?,duplicate_count=?,completed_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND status='processing'").bind(imported,duplicates,batchId,auth.tenant_id).run();
+    const packedJson=JSON.stringify(packed);
+    try{
+      await env.DB.batch([
+        env.DB.prepare("INSERT INTO finance_import_batches(id,tenant_id,account_id,source_type,provider,idempotency_key,status,row_count,created_by_user_id) VALUES(?,?,?,?,?,?,'processing',?,?)").bind(batchId,auth.tenant_id,accountId,sourceType,provider,idempotencyKey,normalized.length,auth.user_id),
+        env.DB.prepare(`INSERT OR IGNORE INTO finance_transactions(id,tenant_id,account_id,import_batch_id,posted_on,description,reference,amount_minor,currency,source_type,source_fingerprint)
+          SELECT json_extract(value,'$.id'),json_extract(value,'$.tenantId'),json_extract(value,'$.accountId'),json_extract(value,'$.batchId'),json_extract(value,'$.postedOn'),json_extract(value,'$.description'),json_extract(value,'$.reference'),json_extract(value,'$.amountMinor'),'BWP',json_extract(value,'$.sourceType'),json_extract(value,'$.fingerprint') FROM json_each(?)`).bind(packedJson),
+        env.DB.prepare("UPDATE finance_import_batches SET status='completed',imported_count=(SELECT COUNT(*) FROM finance_transactions WHERE import_batch_id=?),duplicate_count=row_count-(SELECT COUNT(*) FROM finance_transactions WHERE import_batch_id=?),completed_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND status='processing'").bind(batchId,batchId,batchId,auth.tenant_id)
+      ]);
+    }catch(error){
+      if(/unique|constraint/i.test(String(error))){
+        const replay=await env.DB.prepare("SELECT id,imported_count,duplicate_count,status FROM finance_import_batches WHERE tenant_id=? AND idempotency_key=? LIMIT 1").bind(auth.tenant_id,idempotencyKey).first();
+        if(replay)return json({ok:true,id:replay.id,importedCount:Number(replay.imported_count||0),duplicateCount:Number(replay.duplicate_count||0),status:replay.status,replayed:true});
+      }
+      throw error;
+    }
+    const completed=await env.DB.prepare("SELECT imported_count,duplicate_count,status FROM finance_import_batches WHERE id=? AND tenant_id=? LIMIT 1").bind(batchId,auth.tenant_id).first();
+    const imported=Number(completed?.imported_count||0),duplicates=Number(completed?.duplicate_count||0);
     await appendLineage({env,tenantId:auth.tenant_id,userId:auth.user_id,eventType:"TRANSACTIONS_IMPORTED",entityType:"finance_import_batch",entityId:batchId,payload:{accountId,sourceType,provider,rowCount:normalized.length,importedCount:imported,duplicateCount:duplicates},sha256Hex,id});
     await writeAudit(env,auth.tenant_id,auth.user_id,"FINANCE_TRANSACTIONS_IMPORTED",{batchId,accountId,sourceType,provider,importedCount:imported,duplicateCount:duplicates});
     return json({ok:true,id:batchId,importedCount:imported,duplicateCount:duplicates,currency:"BWP"},201);
@@ -115,7 +133,7 @@ export async function handleFinanceRequest({request,url,env,auth,json,readJson,i
     let whatsappAlert={eligible:false,queued:false};
     if(status==="exception"&&enqueueTenantAlert&&whatsappTemplateAvailable("finance_reconciliation_exception")){
       const accountName=String((await env.DB.prepare("SELECT name FROM finance_accounts WHERE id=? AND tenant_id=? LIMIT 1").bind(accountId,auth.tenant_id).first())?.name||"Finance account");
-      const alert=await enqueueTenantAlert(env,{tenantId:auth.tenant_id,templateKey:"finance_reconciliation_exception",subject:"Finance reconciliation needs review",payload:{accountName,statementPeriod:`${from} to ${to}`,differenceBwp:(Math.abs(difference)/100).toFixed(2)},dedupeKey:`finance-reconciliation:${runId}`,externalPriority:"urgent"});
+      const alert=await enqueueTenantAlert(env,{tenantId:auth.tenant_id,templateKey:"finance_reconciliation_exception",subject:"Finance reconciliation needs review",payload:{accountName,statementPeriod:`${from} to ${to}`,differenceBwp:(Math.abs(difference)/100).toFixed(2)},dedupeKey:`finance-reconciliation:${accountId}:${from}:${to}:${snapshotHash}`,externalPriority:"urgent"});
       whatsappAlert={eligible:true,queued:!!alert?.ok};
     }
     return json({ok:true,id:runId,status,openingBalanceMinor:opening,statementClosingMinor:closing,bookClosingMinor:bookClosing,differenceMinor:difference,transactionCount:items.length,snapshotHash,currency:"BWP",whatsappAlert},201);
@@ -127,4 +145,4 @@ export async function handleFinanceRequest({request,url,env,auth,json,readJson,i
   return json({error:"not_found"},404);
 }
 
-export const __financeTest=Object.freeze({normalizeFinanceRow,validDate,ACCOUNT_TYPES,SOURCE_TYPES,MAX_IMPORT_ROWS});
+export const __financeTest=Object.freeze({normalizeFinanceRow,validDate,sourceFingerprintBasis,ACCOUNT_TYPES,SOURCE_TYPES,MAX_IMPORT_ROWS});
