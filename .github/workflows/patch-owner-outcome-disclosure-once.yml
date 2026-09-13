@@ -1,0 +1,35 @@
+name: Patch Owner outcome disclosure once
+
+on:
+  push:
+    branches:
+      - chatgpt/agentic-outcome-informed-decisions-20260913
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+      - name: Patch Owner Centre disclosure
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/patch-owner-outcome-disclosure.mjs
+          node --check public/js/owner-command-centre.js
+          git diff --check
+          if git diff --quiet; then
+            echo 'Owner Centre disclosure already present.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/js/owner-command-centre.js
+          git commit -m '[owner-learning-disclosure] show bounded outcome-informed ordering'
+          git push origin HEAD:chatgpt/agentic-outcome-informed-decisions-20260913
