@@ -1,3 +1,5 @@
+import {associationForProposal,buildOutcomeAssociations,rankOutcomeInformedProposals} from "./agentic-learning.js";
+
 const MAX_BODY_BYTES=8192;
 const MAX_PROPOSALS=8;
 const HIGH_RISK_TERMS=/\b(payment|payroll|salary|terminate|dismiss|fire|file|filing|submit|sign|signature|transfer|refund|debit|credit|journal|tax return|burs|cipa)\b/i;
@@ -223,7 +225,31 @@ function normalizeProposals(actions=[]){
   });
 }
 
-async function appendEvent(env,{tenantId,runId,proposalId=null,eventType,actorUserId,detail={}}){
+async function loadOutcomeAssociations(env,tenantId){
+    try{
+      const rows=await env.DB.prepare(`SELECT ref.value source_ref,
+        COUNT(*) evidence_count,
+        SUM(CASE WHEN o.outcome_status IN ('improved','resolved') THEN 1 ELSE 0 END) positive_count,
+        SUM(CASE WHEN o.outcome_status='worsened' THEN 1 ELSE 0 END) negative_count,
+        SUM(CASE WHEN o.outcome_status='unchanged' THEN 1 ELSE 0 END) unchanged_count
+        FROM agentic_outcomes o
+        JOIN agentic_proposals p ON p.id=o.proposal_id AND p.tenant_id=o.tenant_id
+        JOIN json_each(p.source_refs_json) ref
+        WHERE o.tenant_id=?
+          AND o.outcome_status IN ('improved','resolved','worsened','unchanged')
+          AND o.created_at>=datetime('now','-180 days')
+          AND o.id=(SELECT o2.id FROM agentic_outcomes o2
+            WHERE o2.tenant_id=o.tenant_id AND o2.proposal_id=o.proposal_id
+              AND o2.outcome_status IN ('improved','resolved','worsened','unchanged')
+            ORDER BY o2.created_at DESC,o2.id DESC LIMIT 1)
+        GROUP BY ref.value
+        ORDER BY evidence_count DESC,source_ref ASC
+        LIMIT 64`).bind(tenantId).all();
+      return buildOutcomeAssociations(rows.results||[]);
+    }catch{return {}}
+  }
+
+  async function appendEvent(env,{tenantId,runId,proposalId=null,eventType,actorUserId,detail={}}){
   await env.DB.prepare(`INSERT INTO agentic_events(id,tenant_id,run_id,proposal_id,event_type,actor_user_id,detail_json)
     VALUES(?,?,?,?,?,?,?)`).bind(id(),tenantId,runId,proposalId,eventType,actorUserId,JSON.stringify(detail)).run();
 }
@@ -234,7 +260,18 @@ async function createPlan({request,env,ctx,coreFetch,auth}){
   const runId=id(),observation=await observeWorkspace(env,auth.tenant_id);
   observation.simulation=deterministicSimulation(observation);
   const advisor=await runAdvisor({request,env,ctx,coreFetch,runId,observation});
-  const proposals=normalizeProposals(advisor.result?.actions);
+  const normalizedProposals=normalizeProposals(advisor.result?.actions);
+    const outcomeAssociations=await loadOutcomeAssociations(env,auth.tenant_id);
+    const proposals=rankOutcomeInformedProposals(normalizedProposals,outcomeAssociations);
+    observation.learning={
+      type:"non_causal_outcome_association",
+      causal:false,
+      evidenceWindowDays:180,
+      minimumEvidencePerSource:3,
+      sourceCount:Object.keys(outcomeAssociations).length,
+      authorityEffect:"none",
+      executionEffect:"none"
+    };
   const summary=text(advisor.result?.answer||"Governed plan generated.",3000);
   const confidence=["low","medium","high"].includes(String(advisor.result?.confidence))?String(advisor.result.confidence):"medium";
   await env.DB.batch([
@@ -243,14 +280,17 @@ async function createPlan({request,env,ctx,coreFetch,auth}){
     ...proposals.map(item=>env.DB.prepare(`INSERT INTO agentic_proposals(id,tenant_id,run_id,ordinal,title,reason,priority,risk,authority,execution_policy,source_refs_json,status)
       VALUES(?,?,?,?,?,?,?,?,?,?,?,'pending')`).bind(id(),auth.tenant_id,runId,item.ordinal,item.title,item.reason,item.priority,item.risk,item.authority,item.executionPolicy,JSON.stringify(item.sourceRefs)))
   ]);
-  await appendEvent(env,{tenantId:auth.tenant_id,runId,eventType:"PLAN_GENERATED",actorUserId:auth.user_id,detail:{goal,generationMode:advisor.generationMode,proposalCount:proposals.length}});
+  await appendEvent(env,{tenantId:auth.tenant_id,runId,eventType:"PLAN_GENERATED",actorUserId:auth.user_id,detail:{goal,generationMode:advisor.generationMode,proposalCount:proposals.length,outcomeInformedRanking:true,learningSourceCount:Object.keys(outcomeAssociations).length,authorityEffect:"none"}});
   const saved=await env.DB.prepare(`SELECT id,ordinal,title,reason,priority,risk,authority,execution_policy,source_refs_json,status,created_at
     FROM agentic_proposals WHERE tenant_id=? AND run_id=? ORDER BY ordinal`).bind(auth.tenant_id,runId).all();
   return json({
     ok:true,
     stage:"observe_reason_simulate_recommend",
     run:{id:runId,goal,status:"completed",generationMode:advisor.generationMode,confidence,summary,observation},
-    proposals:(saved.results||[]).map(row=>({...row,sourceRefs:JSON.parse(row.source_refs_json||"[]"),source_refs_json:undefined})),
+    proposals:(saved.results||[]).map(row=>{
+      const proposal={...row,sourceRefs:JSON.parse(row.source_refs_json||"[]"),source_refs_json:undefined};
+      return {...proposal,outcomeLearning:associationForProposal(proposal,outcomeAssociations)};
+    }),
     authority:{executionEnabled:false,humanApprovalRequired:true,prohibitedAutonomy:PROHIBITED_AUTONOMY}
   },201);
 }
@@ -317,6 +357,7 @@ export async function handleAgenticRequest({request,logicalPath,env,ctx,coreFetc
     stage:"observe_reason_simulate_recommend_measure",
     executionEnabled:false,
     approvalRecordsEnabled:true,
+    outcomeLearning:{enabled:true,type:"non_causal_association",minimumEvidencePerSource:3,priorityClassOverride:false,riskAuthorityEffect:false,executionAuthorityEffect:false},
     prohibitedAutonomy:PROHIBITED_AUTONOMY,
     principles:["grounded_workspace_observation","least_authority","human_approval","no_hidden_execution","auditable_decisions"]
   });
