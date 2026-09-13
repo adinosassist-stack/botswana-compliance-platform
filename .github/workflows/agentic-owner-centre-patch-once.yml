@@ -1,0 +1,41 @@
+name: Agentic Owner Command Centre patch once
+
+on:
+  push:
+    branches:
+      - chatgpt/agentic-owner-centre-20260913
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Apply surgical agentic UI integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/patch-agentic-owner-centre.mjs
+          node --check public/js/owner-command-centre.js
+          grep -Fq '/api/agentic/status' public/js/owner-command-centre.js
+          grep -Fq '/api/agentic/runs' public/js/owner-command-centre.js
+          grep -Fq '/api/agentic/plan' public/js/owner-command-centre.js
+          ! grep -Fq '/api/agentic/execute' public/js/owner-command-centre.js
+          grep -Fq 'Stage 1 · execution disabled' public/js/owner-command-centre.js
+          grep -Fq 'owner-agentic-panel' public/index.html
+          rm -f scripts/patch-agentic-owner-centre.mjs .github/workflows/agentic-owner-centre-patch-once.yml
+      - name: Commit integrated UI
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --check
+          git commit -m 'feat: integrate governed agentic plans into owner command centre'
+          git push origin HEAD:chatgpt/agentic-owner-centre-20260913
