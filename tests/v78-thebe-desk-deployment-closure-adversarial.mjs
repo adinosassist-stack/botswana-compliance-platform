@@ -87,7 +87,7 @@ ok(ownerBrief.includes('Move ${money(shift.move)} of monthly spend from ${shift.
 ok(ownerBrief.toLowerCase().includes('same-month collection')&&ownerBrief.includes('salesRevenueScenario')&&ownerBrief.includes('salesCashImpact'), 'sales-to-cash simulation requires an explicit collection assumption');
 ok(ownerBrief.includes('Do not enter phone numbers, identity numbers, banking details or other sensitive personal data'), 'sales capture explicitly minimizes unnecessary customer personal data');
 ok(ownerBrief.includes('Sales intelligence & quotations')&&ownerBrief.includes('Add quotation / opportunity')&&ownerBrief.includes('Campaign economics')&&ownerBrief.includes('Recent quotations')&&ownerBrief.includes('Campaign performance'), 'sales workspace supports quotation capture, follow-up and campaign review');
-ok(!projectedState.includes('salesIntelligence')&&ownerBriefCompact.includes('if(!canView()){shell.hidden=true;return}'), 'reviewer/auditor state projection and owner brief visibility do not expose sales records');
+ok(!projectedState.includes('salesIntelligence')&&ownerBriefCompact.includes('if(!canView()){shell.hidden=true;return;}'), 'reviewer/auditor state projection and owner brief visibility do not expose sales records');
 try{new Function(ownerBrief);ok(true,'owner command centre browser asset parses as JavaScript')}catch(error){ok(false,`owner command centre browser asset syntax error: ${error.message}`)}
 
 ok(wrangler.includes('MAX_UPLOAD_MB = "3.5"'), 'deployment metadata retains the bounded evidence cap for future scanner qualification');
