@@ -1,5 +1,6 @@
 import base from "./production-entry.js";
 import {handleAgenticAuthorityRequest} from "./agentic-authority-core.js";
+import {handleAgenticWhatsAppRequest} from "./agentic-whatsapp-core.js";
 
 const V81_SCHEMA_DELTA="047_v81_delegated_authority.sql";
 
@@ -55,6 +56,8 @@ async function enhanceReadiness(request,env,response){
 export default {
   async fetch(request,env,ctx){
     const logicalPath=logicalRequestPath(request);
+    const whatsappResponse=await handleAgenticWhatsAppRequest({request,logicalPath,env});
+    if(whatsappResponse)return whatsappResponse;
     const authorityResponse=await handleAgenticAuthorityRequest({request,logicalPath,env});
     if(authorityResponse)return authorityResponse;
     const response=await base.fetch(request,env,ctx);
