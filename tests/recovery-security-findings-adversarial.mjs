@@ -8,6 +8,7 @@ import { passwordResetTimingFloor as nodePasswordResetTimingFloor } from '../ser
 
 const worker=fs.readFileSync('cloudflare/src/worker.js','utf8');
 const productionEntry=fs.readFileSync('cloudflare/src/production-entry.js','utf8');
+const agenticEntry=fs.readFileSync('cloudflare/src/agentic-entry.js','utf8');
 const server=fs.readFileSync('server/server.js','utf8');
 const wrangler=fs.readFileSync('cloudflare/wrangler.toml','utf8');
 const scannerCfg=fs.readFileSync('cloudflare/scanner/wrangler.toml','utf8');
@@ -60,8 +61,11 @@ test('scanner surface is provider-neutral and fails closed before body work or e
   }finally{globalThis.fetch=original}
 });
 
-test('production launch has no configured scanner provider and evidence uploads remain disabled',()=>{
-  assert.match(wrangler,/main = "src\/production-entry\.js"/);
+test('production launch wrapper chain has no configured scanner provider and evidence uploads remain disabled',()=>{
+  assert.match(wrangler,/main = "src\/agentic-entry\.js"/);
+  assert.match(agenticEntry,/import base from "\.\/production-entry\.js"/);
+  assert.match(agenticEntry,/const response=await base\.fetch\(request,env,ctx\)/);
+  assert.match(agenticEntry,/return base\.scheduled\(event,env,ctx\)/);
   assert.match(productionEntry,/import worker from "\.\/worker\.js"/);
   assert.match(productionEntry,/worker\.fetch\(request,env,ctx\)/);
   assert.match(productionEntry,/worker\.scheduled\(event,env,ctx\)/);
