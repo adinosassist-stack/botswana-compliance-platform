@@ -259,7 +259,9 @@
     m=s.match(/^setTimeout\(([A-Za-z_$][\w$]*),\s*(\d{1,5})\)$/);
     if(m){if(!ALLOWED_ACTIONS.has(m[1])||typeof global[m[1]]!=="function")throw new Error("Blocked delegated timer action");global.setTimeout(()=>global[m[1]](),Math.min(5000,Number(m[2])));return}
     const call=parseCall(s,element,event);if(!call||typeof global[call.name]!=="function")throw new Error(`Blocked delegated action: ${s.slice(0,100)}`);
-    return global[call.name](...call.args);
+    const result=global[call.name](...call.args);
+    if(call.name==="enterStandalonePreview"&&result===false&&typeof global.openAuthFromMarketing==="function")return global.openAuthFromMarketing("register");
+    return result;
   }
   function runExpression(expression,element,event){
     if(!isAllowedExpression(expression))throw new Error("Blocked delegated event expression");
