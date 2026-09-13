@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
+import './v80-agentic-outcome-learning.mjs';
 import {__agenticFoundationTest} from '../cloudflare/src/agentic-core.js';
 
 const read=p=>fs.readFileSync(new URL(`../${p}`,import.meta.url),'utf8');
