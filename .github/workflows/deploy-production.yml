@@ -286,9 +286,40 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          live="$(curl --fail-with-body --silent --show-error --retry 5 --retry-all-errors --max-time 20 'https://thebedesk.com/api/live')"
-          ready="$(curl --fail-with-body --silent --show-error --retry 5 --retry-all-errors --max-time 20 'https://thebedesk.com/api/ready')"
-          proof="$(curl --fail-with-body --silent --show-error --retry 5 --retry-all-errors --max-time 20 --request POST --header 'content-type: application/json' --header 'origin: https://thebedesk.com' --data '{}' 'https://thebedesk.com/api/auth/registration-proof/challenge')"
+
+          wait_for_200_json() {
+            local label="$1" url="$2" attempts="$3" method="${4:-GET}"
+            local tmp status body compact
+            for ((attempt=1; attempt<=attempts; attempt++)); do
+              tmp="$(mktemp)"
+              if [[ "$method" == "POST" ]]; then
+                status="$(curl --silent --show-error --max-time 12 --request POST \
+                  --header 'content-type: application/json' --header 'origin: https://thebedesk.com' \
+                  --data '{}' --output "$tmp" --write-out '%{http_code}' "$url" || true)"
+              else
+                status="$(curl --silent --show-error --max-time 12 --output "$tmp" --write-out '%{http_code}' "$url" || true)"
+              fi
+              body="$(cat "$tmp")"
+              rm -f "$tmp"
+              if [[ "$status" == "200" ]]; then
+                printf '%s' "$body"
+                return 0
+              fi
+              compact="$(printf '%s' "$body" | tr '\n' ' ' | cut -c1-500)"
+              echo "$label stabilization attempt $attempt/$attempts status=${status:-curl_error} body=${compact:-<empty>}" >&2
+              if (( attempt < attempts )); then sleep 5; fi
+            done
+            echo "$label did not stabilize with HTTP 200 after $attempts bounded attempts" >&2
+            return 1
+          }
+
+          # Cloudflare custom-domain activation can briefly return edge 503s immediately
+          # after a successful Worker deployment. Wait boundedly for the edge to settle,
+          # then enforce the application-level readiness contract without weakening it.
+          live="$(wait_for_200_json 'api/live' 'https://thebedesk.com/api/live' 36 GET)"
+          ready="$(wait_for_200_json 'api/ready' 'https://thebedesk.com/api/ready' 18 GET)"
+          proof="$(wait_for_200_json 'registration-proof' 'https://thebedesk.com/api/auth/registration-proof/challenge' 12 POST)"
+
           google_enabled=false
           facebook_enabled=false
           google_location=""

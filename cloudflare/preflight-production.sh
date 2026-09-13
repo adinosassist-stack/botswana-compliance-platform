@@ -29,12 +29,12 @@ grep -Eq '^APP_ENV[[:space:]]*=[[:space:]]*"production"[[:space:]]*$' "$WRANGLER
 grep -Eq '^AI_FEATURES_DEFAULT[[:space:]]*=[[:space:]]*"on"[[:space:]]*$' "$WRANGLER_TOML" || fail "AI_FEATURES_DEFAULT must be on for the Phase 0 production launch"
 grep -Eq '^PAYMENT_PROVIDER[[:space:]]*=[[:space:]]*"(none|dpo)"[[:space:]]*$' "$WRANGLER_TOML" || fail "PAYMENT_PROVIDER must be none or dpo; orange_money is blocked pending a reviewed readiness fix"
 
-for key in PUBLIC_APP_URL PUBLIC_ORIGIN TURNSTILE_SITE_KEY PLATFORM_ADMIN_EMAILS PLATFORM_REGULATORY_REVIEWERS GOOGLE_OAUTH_REDIRECT_URI FACEBOOK_OAUTH_REDIRECT_URI; do
+for key in PUBLIC_APP_URL PUBLIC_ORIGIN TURNSTILE_SITE_KEY PLATFORM_ADMIN_EMAILS PLATFORM_REGULATORY_REVIEWERS; do
   grep -Eq "^[[:space:]]*${key}[[:space:]]*=[[:space:]]*\"[^\"]+\"[[:space:]]*$" "$WRANGLER_TOML" || fail "$key must be rendered into production config"
   if grep -Eq "^[[:space:]]*${key}[[:space:]]*=[[:space:]]*\"REPLACE_WITH_" "$WRANGLER_TOML"; then fail "$key still contains a placeholder"; fi
 done
 
-for optional_key in GOOGLE_OAUTH_CLIENT_ID FACEBOOK_APP_ID EMAIL_FROM; do
+for optional_key in GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_REDIRECT_URI FACEBOOK_APP_ID FACEBOOK_OAUTH_REDIRECT_URI EMAIL_FROM; do
   grep -Eq "^[[:space:]]*${optional_key}[[:space:]]*=[[:space:]]*\"[^\"]*\"[[:space:]]*$" "$WRANGLER_TOML" || fail "$optional_key must be rendered, even when deferred"
   if grep -Eq "^[[:space:]]*${optional_key}[[:space:]]*=[[:space:]]*\"REPLACE_WITH_" "$WRANGLER_TOML"; then fail "$optional_key still contains a placeholder"; fi
 done
@@ -50,11 +50,22 @@ PUBLIC_ORIGIN_VALUE=$(sed -n 's/^[[:space:]]*PUBLIC_ORIGIN[[:space:]]*=[[:space:
 [ "$PUBLIC_APP" = "$PUBLIC_ORIGIN_VALUE" ] || fail "PUBLIC_APP_URL and PUBLIC_ORIGIN must match exactly"
 printf '%s\n' "$PUBLIC_APP" | grep -Eq '^https://[A-Za-z0-9.-]+(:[0-9]{1,5})?/?$' || fail "PUBLIC_APP_URL/PUBLIC_ORIGIN must be a credential-free HTTPS origin"
 PUBLIC_BASE=${PUBLIC_APP%/}
+GOOGLE_CLIENT_ID_VALUE=$(sed -n 's/^[[:space:]]*GOOGLE_OAUTH_CLIENT_ID[[:space:]]*=[[:space:]]*"\([^"]*\)"[[:space:]]*$/\1/p' "$WRANGLER_TOML")
 GOOGLE_REDIRECT=$(sed -n 's/^[[:space:]]*GOOGLE_OAUTH_REDIRECT_URI[[:space:]]*=[[:space:]]*"\([^"]*\)"[[:space:]]*$/\1/p' "$WRANGLER_TOML")
+FACEBOOK_APP_ID_VALUE=$(sed -n 's/^[[:space:]]*FACEBOOK_APP_ID[[:space:]]*=[[:space:]]*"\([^"]*\)"[[:space:]]*$/\1/p' "$WRANGLER_TOML")
 FACEBOOK_REDIRECT=$(sed -n 's/^[[:space:]]*FACEBOOK_OAUTH_REDIRECT_URI[[:space:]]*=[[:space:]]*"\([^"]*\)"[[:space:]]*$/\1/p' "$WRANGLER_TOML")
 EMAIL_FROM_VALUE=$(sed -n 's/^[[:space:]]*EMAIL_FROM[[:space:]]*=[[:space:]]*"\([^"]*\)"[[:space:]]*$/\1/p' "$WRANGLER_TOML")
-[ "$GOOGLE_REDIRECT" = "$PUBLIC_BASE/api/auth/oauth/google/callback" ] || fail "GOOGLE_OAUTH_REDIRECT_URI must equal the exact same-origin callback"
-[ "$FACEBOOK_REDIRECT" = "$PUBLIC_BASE/api/auth/oauth/facebook/callback" ] || fail "FACEBOOK_OAUTH_REDIRECT_URI must equal the exact same-origin callback"
+
+if [ -n "$GOOGLE_CLIENT_ID_VALUE" ]; then
+  [ "$GOOGLE_REDIRECT" = "$PUBLIC_BASE/api/auth/oauth/google/callback" ] || fail "GOOGLE_OAUTH_REDIRECT_URI must equal the exact same-origin callback"
+else
+  [ -z "$GOOGLE_REDIRECT" ] || fail "GOOGLE_OAUTH_REDIRECT_URI must be empty while Google OAuth is deferred"
+fi
+if [ -n "$FACEBOOK_APP_ID_VALUE" ]; then
+  [ "$FACEBOOK_REDIRECT" = "$PUBLIC_BASE/api/auth/oauth/facebook/callback" ] || fail "FACEBOOK_OAUTH_REDIRECT_URI must equal the exact same-origin callback"
+else
+  [ -z "$FACEBOOK_REDIRECT" ] || fail "FACEBOOK_OAUTH_REDIRECT_URI must be empty while Facebook OAuth is deferred"
+fi
 if [ -n "$EMAIL_FROM_VALUE" ]; then
   printf '%s\n' "$EMAIL_FROM_VALUE" | grep -Eq '@[^[:space:]<>]+\.[^[:space:]<>]+>?$' || fail "EMAIL_FROM must contain a real sender email address when transactional email is enabled"
   printf '%s\n' "$EMAIL_FROM_VALUE" | grep -Eqi 'example\.invalid|example\.com|REPLACE_WITH' && fail "EMAIL_FROM must not be a placeholder" || true

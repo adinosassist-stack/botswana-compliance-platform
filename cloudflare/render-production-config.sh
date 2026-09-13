@@ -12,8 +12,10 @@ PLATFORM_ADMINS=${PLATFORM_ADMIN_EMAILS:-}
 PLATFORM_REVIEWERS=${PLATFORM_REGULATORY_REVIEWERS:-}
 SCAN_URL=${EVIDENCE_SCAN_API_URL:-}
 GOOGLE_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID:-}
+GOOGLE_CLIENT_SECRET=${GOOGLE_OAUTH_CLIENT_SECRET:-}
 GOOGLE_REDIRECT_URI=${GOOGLE_OAUTH_REDIRECT_URI:-}
 FACEBOOK_APP_ID_VALUE=${FACEBOOK_APP_ID:-}
+FACEBOOK_APP_SECRET_VALUE=${FACEBOOK_APP_SECRET:-}
 FACEBOOK_REDIRECT_URI=${FACEBOOK_OAUTH_REDIRECT_URI:-}
 EMAIL_FROM_VALUE=${EMAIL_FROM:-}
 
@@ -70,12 +72,28 @@ fi
 
 PUBLIC_BASE=${PUBLIC_APP%/}
 safe_optional_toml_value GOOGLE_OAUTH_CLIENT_ID "$GOOGLE_CLIENT_ID"
-safe_toml_value GOOGLE_OAUTH_REDIRECT_URI "$GOOGLE_REDIRECT_URI"
 safe_optional_toml_value FACEBOOK_APP_ID "$FACEBOOK_APP_ID_VALUE"
-safe_toml_value FACEBOOK_OAUTH_REDIRECT_URI "$FACEBOOK_REDIRECT_URI"
 safe_optional_toml_value EMAIL_FROM "$EMAIL_FROM_VALUE"
-[ "$GOOGLE_REDIRECT_URI" = "$PUBLIC_BASE/api/auth/oauth/google/callback" ] || fail "GOOGLE_OAUTH_REDIRECT_URI must equal $PUBLIC_BASE/api/auth/oauth/google/callback"
-[ "$FACEBOOK_REDIRECT_URI" = "$PUBLIC_BASE/api/auth/oauth/facebook/callback" ] || fail "FACEBOOK_OAUTH_REDIRECT_URI must equal $PUBLIC_BASE/api/auth/oauth/facebook/callback"
+
+# Deferred OAuth must be fully absent at Worker runtime. The base Worker treats a
+# callback URI as an intent to enable the provider, so retaining only the callback
+# would incorrectly make /api/ready report configuration_incomplete.
+GOOGLE_RUNTIME_REDIRECT_URI=""
+if [ -n "$GOOGLE_CLIENT_ID" ] || [ -n "$GOOGLE_CLIENT_SECRET" ]; then
+  [ -n "$GOOGLE_CLIENT_ID" ] && [ -n "$GOOGLE_CLIENT_SECRET" ] || fail "Google OAuth must provide both client ID and client secret, or be deferred completely"
+  safe_toml_value GOOGLE_OAUTH_REDIRECT_URI "$GOOGLE_REDIRECT_URI"
+  [ "$GOOGLE_REDIRECT_URI" = "$PUBLIC_BASE/api/auth/oauth/google/callback" ] || fail "GOOGLE_OAUTH_REDIRECT_URI must equal $PUBLIC_BASE/api/auth/oauth/google/callback"
+  GOOGLE_RUNTIME_REDIRECT_URI=$GOOGLE_REDIRECT_URI
+fi
+
+FACEBOOK_RUNTIME_REDIRECT_URI=""
+if [ -n "$FACEBOOK_APP_ID_VALUE" ] || [ -n "$FACEBOOK_APP_SECRET_VALUE" ]; then
+  [ -n "$FACEBOOK_APP_ID_VALUE" ] && [ -n "$FACEBOOK_APP_SECRET_VALUE" ] || fail "Facebook OAuth must provide both app ID and app secret, or be deferred completely"
+  safe_toml_value FACEBOOK_OAUTH_REDIRECT_URI "$FACEBOOK_REDIRECT_URI"
+  [ "$FACEBOOK_REDIRECT_URI" = "$PUBLIC_BASE/api/auth/oauth/facebook/callback" ] || fail "FACEBOOK_OAUTH_REDIRECT_URI must equal $PUBLIC_BASE/api/auth/oauth/facebook/callback"
+  FACEBOOK_RUNTIME_REDIRECT_URI=$FACEBOOK_REDIRECT_URI
+fi
+
 if [ -n "$EMAIL_FROM_VALUE" ]; then
   printf '%s\n' "$EMAIL_FROM_VALUE" | grep -Eq '@[^[:space:]<>]+\.[^[:space:]<>]+>?$' || fail "EMAIL_FROM must contain a real sender email address when transactional email is enabled"
   printf '%s\n' "$EMAIL_FROM_VALUE" | grep -Eqi 'example\.invalid|example\.com|REPLACE_WITH' && fail "EMAIL_FROM must not be a placeholder" || true
@@ -105,9 +123,9 @@ awk \
   -v platform_reviewers="$PLATFORM_REVIEWERS" \
   -v scan_url="$SCAN_URL" \
   -v google_client_id="$GOOGLE_CLIENT_ID" \
-  -v google_redirect_uri="$GOOGLE_REDIRECT_URI" \
+  -v google_redirect_uri="$GOOGLE_RUNTIME_REDIRECT_URI" \
   -v facebook_app_id="$FACEBOOK_APP_ID_VALUE" \
-  -v facebook_redirect_uri="$FACEBOOK_REDIRECT_URI" \
+  -v facebook_redirect_uri="$FACEBOOK_RUNTIME_REDIRECT_URI" \
   -v email_from="$EMAIL_FROM_VALUE" '
   function emit(k,v){ print k " = \"" v "\""; replaced[k]++ }
   /^[[:space:]]*database_id[[:space:]]*=[[:space:]]*"REPLACE_WITH_D1_DATABASE_ID"[[:space:]]*$/ { print "database_id = \"" id "\""; id_replaced++; next }
