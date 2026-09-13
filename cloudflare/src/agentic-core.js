@@ -95,6 +95,18 @@ async function observeWorkspace(env,tenantId){
   ]);
   let opsMetrics={};
   try{opsMetrics=JSON.parse(String(ops?.metrics_json||"{}"))}catch{}
+  const [performance,compliance]=await Promise.all([
+    safeFirst(env,`SELECT COUNT(*) open_count,
+      SUM(CASE WHEN severity='critical' THEN 1 ELSE 0 END) critical_count,
+      SUM(CASE WHEN severity='warning' THEN 1 ELSE 0 END) warning_count,
+      MAX(created_at) latest_signal_at
+      FROM performance_insights WHERE tenant_id=? AND status IN ('open','acknowledged')`,[tenantId]),
+    safeFirst(env,`SELECT
+      SUM(CASE WHEN status NOT IN ('completed','closed') AND due_at<CURRENT_TIMESTAMP THEN 1 ELSE 0 END) overdue_count,
+      SUM(CASE WHEN status NOT IN ('completed','closed') AND due_at>=CURRENT_TIMESTAMP AND due_at<datetime('now','+14 days') THEN 1 ELSE 0 END) due_14d_count,
+      MIN(CASE WHEN status NOT IN ('completed','closed') AND due_at>=CURRENT_TIMESTAMP THEN due_at END) next_due_at
+      FROM compliance_obligations WHERE tenant_id=?`,[tenantId])
+  ]);
   return {
     observedAt:new Date().toISOString(),
     finance:{
@@ -112,7 +124,39 @@ async function observeWorkspace(env,tenantId){
       latestSummaryDate:ops?.summary_date||null,
       latestSummaryMode:ops?.generation_mode||null,
       latestCoverage:Number(opsMetrics?.coverage||0)||null
+    },
+    performance:{
+      openSignals:Number(performance?.open_count||0),
+      criticalSignals:Number(performance?.critical_count||0),
+      warningSignals:Number(performance?.warning_count||0),
+      latestSignalAt:performance?.latest_signal_at||null
+    },
+    compliance:{
+      overdueCount:Number(compliance?.overdue_count||0),
+      dueWithin14Days:Number(compliance?.due_14d_count||0),
+      nextDueAt:compliance?.next_due_at||null
     }
+  };
+}
+
+function deterministicSimulation(observation){
+  const cash=Number(observation?.finance?.cashPositionMinor||0);
+  const reconciliationExposure=Math.max(0,Number(observation?.finance?.reconciliationExposureMinor||0));
+  const pending=Math.max(0,Number(observation?.operations?.pendingWorkflowCount||0));
+  const failed=Math.max(0,Number(observation?.operations?.failedWorkflowCount||0));
+  const overdue=Math.max(0,Number(observation?.compliance?.overdueCount||0));
+  const critical=Math.max(0,Number(observation?.performance?.criticalSignals||0));
+  return {
+    type:"deterministic_non_mutating",
+    currency:"BWP",
+    cashStress:{recordedCashMinor:cash,reconciliationExposureMinor:reconciliationExposure,exposureAdjustedCashMinor:cash-reconciliationExposure},
+    operatingLoad:{pendingWorkflowCount:pending,failedWorkflowCount:failed,overdueComplianceCount:overdue,criticalPerformanceSignals:critical},
+    pressureScore:Math.min(100,failed*20+overdue*15+critical*15+Math.min(pending,20)*2),
+    assumptions:[
+      "Reconciliation exposure is treated as downside uncertainty, not a forecasted loss.",
+      "Pressure score is a deterministic triage aid and not a financial, legal or employment decision.",
+      "No simulation output changes business records or authorizes execution."
+    ]
   };
 }
 
@@ -126,6 +170,12 @@ function deterministicFallback(observation){
   }
   if(!observation.finance.latestReconciliationAt){
     actions.push({title:"Run the first finance reconciliation",reason:"No reconciliation snapshot is available yet, so finance certainty is limited.",priority:"medium",sourceRefs:["finance_reconciliation"]});
+  }
+  if(Number(observation?.compliance?.overdueCount||0)>0){
+    actions.push({title:"Review overdue compliance obligations",reason:`${observation.compliance.overdueCount} compliance obligation(s) are overdue and require human review.`,priority:"high",sourceRefs:["compliance_obligations"]});
+  }
+  if(Number(observation?.performance?.criticalSignals||0)>0){
+    actions.push({title:"Review critical performance signals",reason:`${observation.performance.criticalSignals} critical operating signal(s) are open. Check source reports before acting.`,priority:"high",sourceRefs:["performance_insights"]});
   }
   if(!actions.length){
     actions.push({title:"Review the current owner brief",reason:"No deterministic exception crossed the Stage 1 agent threshold. Review the latest operating signals before choosing the next action.",priority:"low",sourceRefs:["workspace_observation"]});
@@ -182,6 +232,7 @@ async function createPlan({request,env,ctx,coreFetch,auth}){
   const body=await readJson(request);
   const goal=text(body?.goal||"Protect the business and identify the safest next actions.",500);
   const runId=id(),observation=await observeWorkspace(env,auth.tenant_id);
+  observation.simulation=deterministicSimulation(observation);
   const advisor=await runAdvisor({request,env,ctx,coreFetch,runId,observation});
   const proposals=normalizeProposals(advisor.result?.actions);
   const summary=text(advisor.result?.answer||"Governed plan generated.",3000);
@@ -224,6 +275,33 @@ async function decideProposal({env,auth,proposalId,decision}){
   return json({ok:true,id:proposalId,status:decision,execution:{performed:false,enabled:false,reason:"Stage 1 records governance decisions only."}});
 }
 
+async function listOutcomes(env,auth){
+  const rows=await env.DB.prepare(`SELECT o.id,o.run_id,o.proposal_id,o.outcome_status,o.metric_key,o.baseline_json,o.observed_json,o.note,o.created_at,
+    p.title proposal_title,p.status proposal_status
+    FROM agentic_outcomes o JOIN agentic_proposals p ON p.id=o.proposal_id AND p.tenant_id=o.tenant_id
+    WHERE o.tenant_id=? ORDER BY o.created_at DESC LIMIT 100`).bind(auth.tenant_id).all();
+  return json({items:(rows.results||[]).map(row=>({...row,baseline:JSON.parse(row.baseline_json||"{}"),observed:JSON.parse(row.observed_json||"{}"),baseline_json:undefined,observed_json:undefined})),executionEnabled:false});
+}
+
+async function recordOutcome({request,env,auth,proposalId}){
+  if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
+  const proposal=await env.DB.prepare(`SELECT id,run_id,status FROM agentic_proposals WHERE id=? AND tenant_id=? LIMIT 1`).bind(proposalId,auth.tenant_id).first();
+  if(!proposal)return json({error:"agentic_proposal_not_found"},404);
+  if(proposal.status==="pending")return json({error:"proposal_decision_required_before_outcome"},409);
+  const body=await readJson(request);
+  const outcomeStatus=String(body?.outcomeStatus||"");
+  const allowed=new Set(["observed","improved","unchanged","worsened","resolved","not_applicable"]);
+  if(!allowed.has(outcomeStatus))return json({error:"invalid_outcome_status"},400);
+  const metricKey=text(body?.metricKey||"",120)||null;
+  const note=text(body?.note||"",1000);
+  const baseline=body?.baseline&&typeof body.baseline==="object"&&!Array.isArray(body.baseline)?body.baseline:{};
+  const observed=body?.observed&&typeof body.observed==="object"&&!Array.isArray(body.observed)?body.observed:{};
+  const outcomeId=id();
+  await env.DB.prepare(`INSERT INTO agentic_outcomes(id,tenant_id,run_id,proposal_id,recorded_by_user_id,outcome_status,metric_key,baseline_json,observed_json,note)
+    VALUES(?,?,?,?,?,?,?,?,?,?)`).bind(outcomeId,auth.tenant_id,proposal.run_id,proposalId,auth.user_id,outcomeStatus,metricKey,JSON.stringify(baseline),JSON.stringify(observed),note).run();
+  return json({ok:true,id:outcomeId,proposalId,runId:proposal.run_id,outcomeStatus,measurementOnly:true,execution:{performed:false,enabled:false}},201);
+}
+
 export async function handleAgenticRequest({request,logicalPath,env,ctx,coreFetch}){
   const path=String(logicalPath||new URL(request.url).pathname);
   if(!path.startsWith("/api/agentic"))return null;
@@ -236,14 +314,17 @@ export async function handleAgenticRequest({request,logicalPath,env,ctx,coreFetc
   }
   if(path==="/api/agentic/status"&&request.method==="GET")return json({
     enabled:true,
-    stage:"observe_reason_simulate_recommend",
+    stage:"observe_reason_simulate_recommend_measure",
     executionEnabled:false,
     approvalRecordsEnabled:true,
     prohibitedAutonomy:PROHIBITED_AUTONOMY,
     principles:["grounded_workspace_observation","least_authority","human_approval","no_hidden_execution","auditable_decisions"]
   });
   if(path==="/api/agentic/runs"&&request.method==="GET")return listRuns(env,auth);
+  if(path==="/api/agentic/outcomes"&&request.method==="GET")return listOutcomes(env,auth);
   if(path==="/api/agentic/plan"&&request.method==="POST")return createPlan({request,env,ctx,coreFetch,auth});
+  const outcomeMatch=path.match(/^\/api\/agentic\/proposals\/([^/]+)\/outcome$/);
+  if(outcomeMatch&&request.method==="POST")return recordOutcome({request,env,auth,proposalId:outcomeMatch[1]});
   const decisionMatch=path.match(/^\/api\/agentic\/proposals\/([^/]+)\/(approve|reject)$/);
   if(decisionMatch&&request.method==="POST")return decideProposal({env,auth,proposalId:decisionMatch[1],decision:decisionMatch[2]==="approve"?"approved":"rejected"});
   return json({error:"not_found"},404);
@@ -252,6 +333,7 @@ export async function handleAgenticRequest({request,logicalPath,env,ctx,coreFetc
 export const __agenticFoundationTest=Object.freeze({
   classifyProposal,
   normalizeProposals,
+  deterministicSimulation,
   originAllowed,
   csrfAllowed,
   prohibitedAutonomy:PROHIBITED_AUTONOMY
