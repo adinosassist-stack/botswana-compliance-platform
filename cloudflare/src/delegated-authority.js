@@ -75,6 +75,7 @@ function result({allowed=false,decision="deny",code,reason,requiredLevel,delegat
 }
 
 export function evaluateDelegatedAuthority({
+  agentKey,
   actionKey,
   actionDefinition,
   delegation,
@@ -87,6 +88,7 @@ export function evaluateDelegatedAuthority({
   now=new Date()
 }={}){
   const key=String(actionKey||actionDefinition?.key||"");
+  const requestedAgent=String(agentKey||"");
   const requiredLevel=requiredAutonomyLevel(actionDefinition);
   const grant=normalizeDelegation(delegation);
 
@@ -103,10 +105,7 @@ export function evaluateDelegatedAuthority({
 
   if(!grant)return result({code:"delegation_required",reason:"Bounded execution requires an explicit tenant delegation.",requiredLevel});
   if(grant.status!=="active")return result({code:"delegation_inactive",reason:"The delegation is not active.",requiredLevel,delegation:grant});
-  if(grant.agentKey&&String(grant.agentKey)!==String(actionDefinition?.agents?.includes?.(grant.agentKey)?grant.agentKey:grant.agentKey)){
-    // Exact agent/action matching is enforced again by the request handler; keep
-    // this engine generic and fail closed on malformed grants.
-  }
+  if(requestedAgent&&grant.agentKey&&grant.agentKey!==requestedAgent)return result({code:"delegation_agent_mismatch",reason:"The delegation does not cover this agent.",requiredLevel,delegation:grant});
   if(grant.actionKey&&grant.actionKey!==key)return result({code:"delegation_action_mismatch",reason:"The delegation does not cover this action.",requiredLevel,delegation:grant});
   if(grant.maxAutonomyLevel<requiredLevel)return result({code:"delegation_level_insufficient",reason:"The delegation autonomy ceiling is below the action requirement.",requiredLevel,delegation:grant});
 
