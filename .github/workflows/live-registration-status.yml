@@ -1,0 +1,48 @@
+name: Live registration status
+on:
+  push:
+    branches: ['probe/live-ui-acceptance-20260913']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  status:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - run: |
+          set -euo pipefail
+          mkdir -p /tmp/reg && cd /tmp/reg
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+      - name: Submit synthetic registration and report UI outcome
+        run: |
+          set -euo pipefail
+          cd /tmp/reg
+          cat > probe.mjs <<'NODE'
+          import {chromium} from 'playwright';
+          const browser=await chromium.launch({headless:true});
+          const page=await browser.newPage();
+          const stamp=Date.now().toString(36);
+          await page.goto('https://thebedesk.com/register-direct.html',{waitUntil:'networkidle'});
+          await page.locator('#companyName').fill(`Release Probe ${stamp}`);
+          await page.locator('#email').fill(`release-probe-${stamp}@example.com`);
+          await page.locator('#password').fill(`ReleaseProbe-${stamp}-SafePass-2026!`);
+          await page.locator('#submitBtn').click();
+          for(let i=0;i<30;i++){
+            await page.waitForTimeout(500);
+            const out=await page.evaluate(()=>({url:location.href,status:document.querySelector('#status')?.textContent||'',button:document.querySelector('#submitBtn')?.textContent||'',disabled:!!document.querySelector('#submitBtn')?.disabled}));
+            console.log('REGISTRATION_STATUS',JSON.stringify(out));
+            if(out.url!=='https://thebedesk.com/register-direct.html'||out.status)break;
+          }
+          await browser.close();
+          NODE
+          node probe.mjs
