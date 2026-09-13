@@ -1,0 +1,35 @@
+name: One-shot migration-floor audit
+
+on:
+  push:
+    branches: ['chatgpt/finance-reconciliation-20260913']
+    paths: ['.github/workflows/audit-migration-floors-once.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: chatgpt/finance-reconciliation-20260913
+          persist-credentials: true
+          fetch-depth: 1
+
+      - name: Report all historical readiness-floor assertions and remove helper
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== MIGRATION FLOOR REFERENCES ==='
+          grep -RFn --include='*.mjs' 'latest_cloudflare_migration' tests || true
+          echo '=== END MIGRATION FLOOR REFERENCES ==='
+          rm .github/workflows/audit-migration-floors-once.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/audit-migration-floors-once.yml
+          git commit -m 'chore(ci): remove migration-floor audit helper'
+          git push origin HEAD:chatgpt/finance-reconciliation-20260913
