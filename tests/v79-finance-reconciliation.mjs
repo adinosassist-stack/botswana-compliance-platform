@@ -34,7 +34,7 @@ assert.match(worker,/SELECT 1 ok FROM finance_lineage/);
 assert.match(worker,/SELECT id FROM agentic_runs LIMIT 1/);
 assert.match(worker,/SELECT id FROM agentic_outcomes LIMIT 1/);
 const profile=JSON.parse(fs.readFileSync("RELEASE_PROFILE.json","utf8"));
-assert.equal(profile.latest_cloudflare_migration,"046_v80_agentic_outcomes.sql");
+assert.equal(profile.latest_cloudflare_migration,"047_v81_delegated_authority.sql");
 assert.equal(profile.finance_reconciliation_v79,true);
 assert.equal(profile.finance_provider_neutral,true);
 assert.equal(profile.finance_whatsapp_exception_alerts_optional,true);
@@ -43,11 +43,11 @@ assert.equal(profile.agentic_execution_enabled,false);
 assert.equal(profile.agentic_stage2_execution_enabled,false);
 assert.equal(profile.authenticated_route_branches,254);
 const launch=fs.readFileSync("docs/LAUNCH.md","utf8"),deploy=fs.readFileSync("cloudflare/deploy-free.sh","utf8"),cloudflareReadme=fs.readFileSync("cloudflare/README.md","utf8");
-assert.match(launch,/Migration 044 is required before deploying the finance reconciliation Worker/);
-assert.match(launch,/through `046_v80_agentic_outcomes\.sql`/);
+assert.match(launch,/Migration 044 remains the finance reconciliation prerequisite/);
+assert.match(launch,/through `047_v81_delegated_authority\.sql`/);
 assert.doesNotMatch(launch,/No new schema migration is required\./);
-assert.match(deploy,/Current reviewed schema delta: 046_v80_agentic_outcomes\.sql/);
-assert.match(cloudflareReadme,/upgrade delta `migrations\/046_v80_agentic_outcomes\.sql`/);
+assert.match(deploy,/Current reviewed schema delta: 047_v81_delegated_authority\.sql/);
+assert.match(cloudflareReadme,/upgrade delta `migrations\/047_v81_delegated_authority\.sql`/);
 for(const path of [
   "tests/v78-12167-session-generation-revocation-adversarial.mjs",
   "tests/v78-12157-authorization-reporting-concurrency-adversarial.mjs",
@@ -61,4 +61,4 @@ assert.match(routeGate,/pkg\.version==="1\.21\.101"\?254/);
 const owner=fs.readFileSync("public/js/owner-command-centre.js","utf8");
 assert.match(owner,/\/api\/finance\/summary/);
 assert.match(owner,/Canonical finance ledger/);
-console.log("v79 finance reconciliation integrity tests passed with reviewed schema successor");
+console.log("v79 finance reconciliation integrity tests passed with V81 release successor");
