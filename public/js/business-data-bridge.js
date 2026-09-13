@@ -62,7 +62,12 @@
     if(["0","false","no","n","inactive"].includes(raw))return false;
     return null;
   };
-  const isoDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(clean(value))&&!Number.isNaN(Date.parse(`${clean(value)}T00:00:00Z`));
+  const isoDate=value=>{
+    const raw=clean(value);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(raw))return false;
+    const parsed=new Date(`${raw}T00:00:00Z`);
+    return !Number.isNaN(parsed.getTime())&&parsed.toISOString().slice(0,10)===raw;
+  };
   const nowIso=()=>new Date().toISOString();
   const uid=prefix=>`${prefix}_${global.crypto?.randomUUID?.()||`${Date.now()}_${Math.random().toString(16).slice(2)}`}`;
   const clone=value=>typeof global.structuredClone==="function"?global.structuredClone(value):JSON.parse(JSON.stringify(value));
@@ -128,6 +133,9 @@
     if(headers.some(header=>!header))throw new Error("CSV contains a blank column heading.");
     if(new Set(headers).size!==headers.length)throw new Error("CSV contains duplicate column headings.");
     return rows.slice(1).map((cells,index)=>{
+      if(cells.length>headers.length&&cells.slice(headers.length).some(cell=>clean(cell)!=="")){
+        throw new Error(`Row ${index+2} contains more values than the header row.`);
+      }
       const record={__row:index+2};
       headers.forEach((header,column)=>{record[header]=cells[column]??""});
       return record;
@@ -152,6 +160,7 @@
     const campaignByName=new Map(sales.campaigns.map(item=>[key(item.name),String(item.id)]));
     const existing=new Map(sales.opportunities.map(item=>[quotationKey(item),item]));
     const normalized=[];
+    const seen=new Set();
     const errors=[];
     const warnings=[];
     let creates=0,updates=0;
@@ -181,6 +190,11 @@
         campaignId
       };
       const stable=quotationKey(normalizedRow);
+      if(seen.has(stable)){
+        errors.push(`Row ${row.__row}: duplicate quotation reference/location/date already appears in this CSV.`);
+        continue;
+      }
+      seen.add(stable);
       normalizedRow.__existingId=existing.get(stable)?.id||null;
       if(normalizedRow.__existingId)updates++;else creates++;
       normalized.push(normalizedRow);
@@ -199,6 +213,7 @@
     const sales=ensureSales(company);
     const existing=new Map(sales.campaigns.map(item=>[key(item.name),item]));
     const normalized=[];
+    const seen=new Set();
     const errors=[];
     const warnings=[];
     let creates=0,updates=0;
@@ -212,7 +227,13 @@
         errors.push(`Row ${row.__row}: invalid campaign name, spend or active value.`);
         continue;
       }
-      const match=existing.get(key(name));
+      const stable=key(name);
+      if(seen.has(stable)){
+        errors.push(`Row ${row.__row}: duplicate campaign name already appears in this CSV.`);
+        continue;
+      }
+      seen.add(stable);
+      const match=existing.get(stable);
       normalized.push({name,monthlySpendBwp:spend,active,__existingId:match?.id||null});
       if(match)updates++;else creates++;
     }
