@@ -36,7 +36,9 @@ js=replaceOnce(
 
 html=html.replace(/owner-command-centre\.js\?v=[^"']+/g,'owner-command-centre.js?v=20260913c');
 if(!html.includes('ownerAgenticStyles')){
-  html=replaceOnce(html,'</head>',css+'</head>','agentic style');
+  const headClose=html.indexOf('</head>');
+  if(headClose<0)throw new Error('agentic style: no head close found');
+  html=html.slice(0,headClose)+css+html.slice(headClose);
 }
 
 fs.writeFileSync(jsPath,js);
