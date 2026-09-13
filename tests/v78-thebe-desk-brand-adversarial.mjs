@@ -58,4 +58,10 @@ ok(ownerCss.startsWith('@import url("/assets/workspace-ui-ux-10.css?v=20260913b"
 ok(workspaceUx.includes('#appShell .owner-action-index') && workspaceUx.includes('background:var(--ws-accent-soft)!important') && workspaceUx.includes('color:var(--ws-accent-strong)!important'),'owner decision layer is visually unified with the live blue workspace brand');
 ok(workspaceUx.includes('@media(max-width:1000px)') && workspaceUx.includes('@media(prefers-reduced-motion:reduce)'),'workspace UX 10 retains responsive and reduced-motion behavior');
 
+// Executive Home Briefing must keep the decision path above supporting evidence and preserve the live brand.
+ok(ownerCss.includes('content:"Today\'s executive briefing"') && ownerCss.includes('.owner-command-summary{order:1!important') && ownerCss.includes('.owner-signal-list{order:2!important') && ownerCss.includes('.owner-decision-grid{order:3!important'),'executive home brief preserves briefing -> signals -> decisions reading order');
+ok(ownerCss.includes('.owner-source-note{order:4!important') && ownerCss.includes('.owner-sales-workspace{order:5!important') && ownerCss.includes('.owner-inputs{order:6!important'),'evidence, sales detail and assumptions remain supporting layers below the decision path');
+ok(ownerCss.includes('.owner-signal[data-tone="risk"]{order:-2!important') && ownerCss.includes('.owner-action .btn{background:#0b66d6!important'),'risk signals sort first and primary owner actions use the live Thebe blue accent');
+ok(!ownerCss.includes('#appShell .owner-action-index{background:#edf5f1') && !ownerCss.includes('#appShell .owner-command-centre{background:#111713'),'executive briefing does not introduce a green/charcoal workspace rebrand');
+
 console.log(`Thebe Desk final-brand adversarial gate: ${pass}/${pass} PASS`);

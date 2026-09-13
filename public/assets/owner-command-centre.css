@@ -22,3 +22,56 @@
 @media(max-width:1050px){.owner-decision-grid{grid-template-columns:1fr}.owner-signal-list{grid-template-columns:1fr 1fr}.owner-input-grid{grid-template-columns:1fr 1fr}.owner-sales-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.owner-sales-forms,.owner-sales-lists{grid-template-columns:1fr}}
 @media(max-width:700px){.owner-command-centre{border-radius:16px;margin:13px 0}.owner-command-head{display:block;padding:16px}.owner-command-head .btn{margin-top:11px;width:100%}.owner-command-summary{padding:15px 16px 3px;font-size:16px}.owner-source-note{padding:8px 16px 3px}.owner-signal-list{grid-template-columns:1fr;padding:12px 16px 16px}.owner-decision-grid{padding:0 16px 16px}.owner-action{grid-template-columns:28px minmax(0,1fr)}.owner-action .btn{grid-column:2;width:fit-content}.owner-sales-workspace,.owner-inputs{margin:0 16px 16px}.owner-sales-body{padding:12px}.owner-sales-intro{display:block}.owner-sales-intro .owner-input-status{display:block;margin-top:6px}.owner-sales-metrics{grid-template-columns:1fr 1fr}.owner-sales-form-grid,.owner-input-grid{grid-template-columns:1fr}.owner-sales-form-actions{display:grid;grid-template-columns:1fr}.owner-sales-form-actions .btn{width:100%}.owner-sim-comparison{grid-template-columns:1fr}.owner-sim-arrow{transform:rotate(90deg);justify-self:center}}
 @media(max-width:430px){.owner-sales-metrics{grid-template-columns:1fr}.owner-sales-list-head{display:block}.owner-sales-list-head .badge{margin-top:5px;display:inline-flex}}
+
+/* Executive Home Briefing — action-first hierarchy, live blue/white brand preserved. */
+#appShell .owner-command-centre{display:flex!important;flex-direction:column!important;margin-top:14px!important;border-color:#dfe4ea!important;border-radius:20px!important;background:#fff!important;box-shadow:0 1px 2px rgba(20,24,30,.025),0 18px 44px rgba(20,24,30,.05)!important}
+#appShell .owner-command-head{order:0!important;padding:18px 20px 15px!important;border-bottom:0!important;background:#fff!important}
+#appShell .owner-command-head .section-eyebrow{color:#7c828a!important}
+#appShell .owner-command-head h3{font-size:22px!important;color:#17191c!important}
+#appShell .owner-command-head p{max-width:72ch!important;color:#686d75!important}
+#appShell .owner-command-head .btn.alt{min-height:36px!important;border-color:#dfe3e8!important;background:#fff!important;color:#4f555d!important}
+#appShell .owner-command-summary{order:1!important;position:relative!important;max-width:none!important;margin:0 20px 10px!important;padding:31px 17px 15px!important;border:1px solid #dce9f8!important;border-radius:15px!important;background:#f7fbff!important;color:#252a31!important;font-size:17px!important;line-height:1.48!important;font-weight:690!important}
+#appShell .owner-command-summary:before{content:"Today's executive briefing";position:absolute;left:17px;top:11px;color:#0d5bc8;font-size:9.5px;font-weight:820;letter-spacing:.08em;text-transform:uppercase}
+#appShell .owner-command-summary[data-tone="risk"]{border-color:#ecd9cf!important;background:#fffaf7!important;color:#55352b!important}
+#appShell .owner-command-summary[data-tone="risk"]:before{color:#a04d35!important}
+#appShell .owner-command-summary[data-tone="positive"]{border-color:#d8e7fa!important;background:#f7fbff!important;color:#214d7f!important}
+#appShell .owner-signal-list{order:2!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;padding:0 20px 14px!important}
+#appShell .owner-signal{min-height:148px!important;padding:14px 15px!important;border-color:#e1e5ea!important;border-radius:14px!important;background:#fff!important;box-shadow:0 1px 2px rgba(20,24,30,.018)!important;transition:border-color .14s ease,box-shadow .14s ease,transform .14s ease!important}
+#appShell .owner-signal:hover{border-color:#cfd8e4!important;box-shadow:0 6px 18px rgba(20,24,30,.045)!important;transform:translateY(-1px)!important}
+#appShell .owner-signal[data-tone="risk"]{order:-2!important;border-color:#ecd7cd!important;background:#fffaf7!important}
+#appShell .owner-signal[data-tone="positive"]{order:1!important;border-color:#d7e7fa!important;background:#f8fbff!important}
+#appShell .owner-signal[data-tone="neutral"]{order:0!important;background:#fff!important}
+#appShell .owner-signal-label{color:#747b84!important;font-size:9.8px!important}
+#appShell .owner-signal-value{color:#343a42!important;font-size:12.5px!important}
+#appShell .owner-signal h4{color:#20242a!important;font-size:14.5px!important;line-height:1.38!important}
+#appShell .owner-signal p{color:#6a7078!important;font-size:12.3px!important}
+#appShell .owner-signal .btn.soft{min-height:32px!important;margin-top:11px!important;padding:7px 9px!important;background:#edf5ff!important;color:#0d5bc8!important;border-color:#dbeafe!important}
+#appShell .owner-decision-grid{order:3!important;grid-template-columns:minmax(0,1.28fr) minmax(300px,.72fr)!important;gap:12px!important;padding:0 20px 15px!important}
+#appShell .owner-panel{border-color:#e0e4e9!important;border-radius:15px!important;padding:15px!important;background:#fff!important}
+#appShell #ownerActionPanel{border-color:#d8e5f5!important;box-shadow:0 8px 26px rgba(11,102,214,.045)!important}
+#appShell #ownerActionPanel .owner-panel-head h4{font-size:16px!important}
+#appShell .owner-action{padding:11px 5px!important;border-top-color:#eceff3!important;border-radius:10px!important;transition:background .12s ease!important}
+#appShell .owner-action:hover{background:#fafcff!important}
+#appShell .owner-action-index{background:#edf5ff!important;color:#0d5bc8!important}
+#appShell .owner-action-copy b{color:#292e35!important}
+#appShell .owner-action-copy span{color:#6c727a!important}
+#appShell .owner-action .btn{background:#0b66d6!important;color:#fff!important;border-color:#0b66d6!important;box-shadow:none!important}
+#appShell .owner-action .btn:hover{background:#0d5bc8!important;border-color:#0d5bc8!important}
+#appShell .owner-sim-card{background:#fafbfc!important}
+#appShell .owner-sim-value{border-color:#e1e5ea!important;background:#fff!important}
+#appShell .owner-sim-impact{background:#edf5ff!important;color:#245c96!important}
+#appShell .owner-source-note{order:4!important;align-items:center!important;margin:0 20px 12px!important;padding:11px 0 0!important;border-top:1px solid #eceff2!important;gap:6px!important}
+#appShell .owner-source-note:before{content:"Evidence";margin-right:2px;color:#858b93;font-size:9.5px;font-weight:820;letter-spacing:.07em;text-transform:uppercase}
+#appShell .owner-source-pill{padding:4px 7px!important;border-color:#e1e5ea!important;background:#fafbfd!important;color:#68707a!important;font-size:10.5px!important}
+#appShell .owner-source-pill.reported:before{background:#0b66d6!important}
+#appShell .owner-source-pill.input:before{background:#a76108!important}
+#appShell .owner-source-pill.estimate:before{background:#5a78a6!important}
+#appShell .owner-sales-workspace{order:5!important;margin:0 20px 10px!important;border-color:#e2e5e9!important;background:#fafbfc!important}
+#appShell .owner-inputs{order:6!important;margin:0 20px 18px!important;border-color:#e2e5e9!important;background:#fafbfc!important}
+#appShell .owner-sales-workspace>summary,#appShell .owner-inputs>summary{min-height:44px!important;padding:11px 13px!important;color:#555c64!important;font-size:12px!important;font-weight:700!important}
+#appShell .owner-sales-workspace>summary:after,#appShell .owner-inputs>summary:after{color:#0b66d6!important}
+#appShell .owner-command-empty{position:relative!important;padding:31px 13px 12px!important;border-color:#dfe5ec!important;background:#fafcff!important;color:#68717b!important}
+#appShell .owner-command-empty:before{content:"Next step";position:absolute;left:13px;top:10px;color:#0d5bc8;font-size:9px;font-weight:820;letter-spacing:.08em;text-transform:uppercase}
+@media(max-width:1050px){#appShell .owner-decision-grid{grid-template-columns:1fr!important}}
+@media(max-width:700px){#appShell .owner-command-head{padding:15px!important}#appShell .owner-command-head .btn{width:auto!important;margin-top:10px!important}#appShell .owner-command-summary{margin:0 15px 10px!important;padding:30px 14px 13px!important;font-size:15.5px!important}#appShell .owner-command-summary:before{left:14px!important}#appShell .owner-signal-list{grid-template-columns:1fr!important;padding:0 15px 12px!important}#appShell .owner-signal{min-height:0!important}#appShell .owner-decision-grid{padding:0 15px 12px!important}#appShell .owner-source-note{margin:0 15px 10px!important}#appShell .owner-sales-workspace,#appShell .owner-inputs{margin-left:15px!important;margin-right:15px!important}.owner-action .btn{width:fit-content!important}}
+@media(prefers-reduced-motion:reduce){#appShell .owner-signal{transition:none!important}#appShell .owner-signal:hover{transform:none!important}}
