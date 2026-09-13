@@ -4619,9 +4619,9 @@ async function edgeScopedRateLimit(req,env,scope,subject=""){
 }
 async function publicBearerRateLimit(req,env,scope,token){return edgeScopedRateLimit(req,env,scope,token)}
 const APP_RELEASE="v78.1.21.101";
-const EXPECTED_SCHEMA_DELTA="045_v80_agentic_foundation.sql";
+const EXPECTED_SCHEMA_DELTA="046_v80_agentic_outcomes.sql";
 async function currentSchemaReady(env){
-  try{await env.DB.prepare("SELECT id FROM agentic_runs LIMIT 1").first()}catch{return false}
+  try{await env.DB.prepare("SELECT id FROM agentic_runs LIMIT 1").first();await env.DB.prepare("SELECT id FROM agentic_outcomes LIMIT 1").first()}catch{return false}
   if(!env.DB)return false;
   try{await env.DB.prepare("SELECT 1 ok FROM finance_lineage LIMIT 1").first();await env.DB.prepare("SELECT 1 ok FROM executive_control_replacement_governance LIMIT 1").first();await env.DB.prepare("SELECT 1 ok FROM auth_rate_limits LIMIT 1").first();await env.DB.prepare("SELECT processing_token,processing_started_at FROM deletion_requests LIMIT 1").first();await env.DB.prepare("SELECT payment_order_id,processing_token,processing_started_at,processing_attempts FROM payment_events LIMIT 1").first();await env.DB.prepare("SELECT 1 ok FROM deletion_tombstones LIMIT 1").first();await env.DB.prepare("SELECT 1 ok FROM platform_scheduled_runs LIMIT 1").first();await env.DB.prepare("SELECT 1 ok FROM api_idempotency LIMIT 1").first();await env.DB.prepare("SELECT session_generation FROM users LIMIT 1").first();await env.DB.prepare("SELECT session_generation,public_id FROM sessions LIMIT 1").first();const revisionTrigger=await env.DB.prepare("SELECT 1 ok FROM sqlite_master WHERE type='trigger' AND name='daily_employee_reports_revision_snapshot' LIMIT 1").first();const revisionIndex=await env.DB.prepare("SELECT 1 ok FROM sqlite_master WHERE type='index' AND name='daily_report_revisions_report_revision_uq' LIMIT 1").first();return !!revisionTrigger&&!!revisionIndex}catch{return false}
 }
