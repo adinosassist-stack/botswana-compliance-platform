@@ -28,16 +28,21 @@ jobs:
             'tests/v78-12154-idempotency-cross-layer-recovery-adversarial.mjs',
             'tests/v78-12152-tenant-lifecycle-purge-performance-adversarial.mjs',
           ]
-          marker='"044_v79_finance_reconciliation.sql"'
-          addition=',"045_v80_agentic_foundation.sql"'
           for name in files:
             p=Path(name); text=p.read_text()
             if '045_v80_agentic_foundation.sql' in text:
               continue
-            needle=marker+']'
-            if needle not in text:
+            replacements=[
+              ('"044_v79_finance_reconciliation.sql"]','"044_v79_finance_reconciliation.sql","045_v80_agentic_foundation.sql"]'),
+              ("'044_v79_finance_reconciliation.sql']","'044_v79_finance_reconciliation.sql','045_v80_agentic_foundation.sql']"),
+            ]
+            for old,new in replacements:
+              if old in text:
+                text=text.replace(old,new,1)
+                break
+            else:
               raise SystemExit(f'expected successor tail not found in {name}')
-            p.write_text(text.replace(needle,marker+addition+']',1))
+            p.write_text(text)
           Path('.github/workflows/agentic-successor-floor-patch-once.yml').unlink()
           PY
           node tests/v78-12157-authorization-reporting-concurrency-adversarial.mjs
