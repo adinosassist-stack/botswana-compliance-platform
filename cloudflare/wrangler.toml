@@ -21,6 +21,9 @@ DEPLOYMENT_PROFILE = "workers-free-first"
 AI_FEATURES_DEFAULT = "on"
 AI_REPORT_MODEL = "@cf/zai-org/glm-4.7-flash"
 PAYMENT_PROVIDER = "none"
+# DPO outbound hosts are HTTPS allowlisted in the Worker. The production default
+# is secure.3gdirectpay.com. Optional exact additions use DPO_ALLOWED_HOSTS.
+# DPO_ALLOWED_HOSTS = "secure.3gdirectpay.com"
 TRIAL_DAYS = "14"
 MAX_UPLOAD_MB = "3.5"
 EVIDENCE_UPLOADS_ENABLED = "false"
