@@ -5,14 +5,14 @@
 - **Production release: GREEN.** The exact Phase 0 release SHA `a99684e8311d4d831182118043ee328ed86bbe4f` passed Recovery CI, BF-07 sealing, the guarded Cloudflare production deployment, live readiness verification, and an independent exact-SHA post-deploy browser/runtime smoke.
 - **Repository main:** `a99684e8311d4d831182118043ee328ed86bbe4f`, matching the deployed release authority. There is no known application-code/deployment drift at this checkpoint.
 - **Live runtime:** Thebe Desk V78 `1.21.101` on `https://thebedesk.com` with the V81 delegated-authority wrapper active in **shadow-only** mode.
-- **Schema readiness:** `/api/ready` reports D1, R2, core schema and V81 delegated-authority schema ready, with `047_v81_delegated_authority.sql` as the latest schema delta.
+- **Schema requirement: current v1.21.101 schema** — `/api/ready` reports D1, R2, core schema and V81 delegated-authority schema ready, with `047_v81_delegated_authority.sql` as the latest schema delta.
 - **Recovery qualification:** PASS. Finance, WhatsApp, agentic/V81 boundaries, historical production regressions, supply-chain checks and the production dependency audit all passed on the exact release SHA before deployment.
 - **BF-07:** PASS. The exact release SHA was resolved from clean npm registry state, reconstructed from the committed lockfile, audited, SBOM/provenance bound, sealed and independently re-verified before deployment.
 - **Cloudflare deployment:** PASS. Authorization diagnostic, dry-run, exact candidate deployment and live readiness verification completed successfully.
 - **Post-deploy smoke:** PASS. Exact-SHA drift guard, public/security endpoints, registration proof, deferred-provider fail-closed behavior, V81 auth boundary and browser-level customer navigation all passed without creating customer records.
 - **Registration abuse control:** PASS. Registration uses the signed first-party `thebe_proof` challenge with bounded difficulty/expiry and hardened server validation.
 - **Production data inventory at the release audit:** 0 users, 0 tenants, 0 memberships, 0 operating locations, 0 employees and 0 daily employee reports.
-- **Technical Phase 0 status:** ready for controlled use under the deliberately limited Phase 0 feature envelope below. Optional external integrations remain deferred unless explicitly configured.
+- **Public go-live: CONDITIONAL** — the technical Phase 0 release is ready for controlled use under the deliberately limited feature envelope below; optional provider integrations remain deferred unless explicitly configured, and intentionally disabled paid checkout/evidence uploads must not be represented as active.
 
 ## Closed production gates
 
