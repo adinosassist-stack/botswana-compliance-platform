@@ -18,6 +18,8 @@ const ownerCss=read('public/assets/owner-command-centre.css');
 const workspaceUx=read('public/assets/workspace-ui-ux-10.css');
 const personalizationCss=read('public/assets/executive-personalization.css');
 const personalizationJs=read('public/js/executive-personalization.js');
+const bridgeCss=read('public/assets/business-data-bridge.css');
+const bridgeJs=read('public/js/business-data-bridge.js');
 const productionEntry=read('cloudflare/src/production-entry.js');
 
 ok(home.includes(`<title>Botswana SME Compliance Software | ${brand}</title>`) && home.includes(`property="og:site_name" content="${brand}"`),'home title and Open Graph site identity use Thebe Desk');
@@ -77,5 +79,23 @@ ok(personalizationCss.includes('background:var(--ws-accent-soft)') && personaliz
 ok(personalizationCss.includes('.executive-personalized #ownerActionPanel .owner-action-list>.owner-action:first-child') && personalizationCss.includes('.owner-action-panel-exhausted'),'promoted top priority is not duplicated in the remaining recommendation list');
 ok(productionEntry.includes('OWNER_COMMAND_CENTRE_RELEASE="20260913c"') && productionEntry.includes('EXECUTIVE_PERSONALIZATION_RELEASE="20260913c"'),'production entry rotates the owner-brief and personalization cache versions together');
 ok(productionEntry.includes('/assets/executive-personalization.css') && productionEntry.includes('/js/executive-personalization.js') && productionEntry.includes('x-thebe-executive-personalization'),'production HTML injects and identifies the personalization assets');
+
+// Business data bridge must make real SME data easier to ingest without bypassing tenant state, role or provenance controls.
+let bridgeParses=true;try{new Function(bridgeJs)}catch{bridgeParses=false}
+ok(bridgeParses,'business data bridge browser asset parses');
+ok(bridgeJs.includes('const MAX_FILE_BYTES=1024*1024') && bridgeJs.includes('const MAX_ROWS=500'),'CSV ingestion is bounded by explicit file-size and row limits');
+ok(bridgeJs.includes('file.text()') && bridgeJs.includes('Preview ready. Nothing has been saved yet.') && bridgeJs.includes('Apply import'),'raw CSV is previewed locally before an explicit apply action');
+ok(bridgeJs.includes('global.apiJson') && bridgeJs.includes('request("/api/state")') && bridgeJs.includes('version:envelope.version'),'imports use the centralized same-origin API transport and optimistic state versioning');
+ok(!bridgeJs.includes('fetch(') && !bridgeJs.includes('localStorage') && !bridgeJs.includes('sessionStorage') && !bridgeJs.includes('indexedDB'),'data bridge does not bypass API transport or create a browser persistence shadow store');
+ok(!bridgeJs.includes('.innerHTML') && !bridgeJs.includes('.outerHTML'),'data bridge does not introduce unsafe HTML assignment');
+ok(bridgeJs.includes('canImportSales=()=>["owner","manager"].includes(role())') && bridgeJs.includes('canImportFinance=()=>role()==="owner"'),'sales imports are owner/manager scoped while financial imports remain owner-only');
+ok(bridgeJs.includes('Only the business owner can import financial assumptions.') && bridgeJs.includes('type==="financial"&&!canImportFinance()'),'financial import gating is enforced in both planning and execution paths');
+ok(bridgeJs.includes('duplicate quotation reference/location/date') && bridgeJs.includes('duplicate campaign name') && bridgeJs.includes('contains more values than the header row'),'malformed and duplicate CSV records fail closed before mutation');
+ok(bridgeJs.includes('importSource:"csv"') && bridgeJs.includes('importBatchId:batchId') && bridgeJs.includes('company.dataImports=history.slice(0,MAX_IMPORT_HISTORY)'),'imported commercial data carries bounded provenance and import history');
+ok(bridgeJs.includes('existing record${plan.updates===1?" will":"s will"} be updated only after you explicitly apply this import.'),'existing-record updates are disclosed before apply rather than silently overwritten');
+ok(bridgeJs.includes('setTimeout(()=>global.ThebeOwnerCommandCentre?.refresh?.(),80)'),'successful imports refresh the existing decision engine instead of creating a separate dashboard');
+ok(bridgeCss.includes('background:#fff') && bridgeCss.includes('#0b66d6') && !bridgeCss.includes('#176b4f') && !bridgeCss.includes('#111713'),'business data bridge preserves the live blue/white visual identity');
+ok(bridgeCss.includes('@media(max-width:760px)') && bridgeCss.includes('@media(prefers-reduced-motion:reduce)'),'business data bridge remains mobile responsive and reduced-motion safe');
+ok(productionEntry.includes('BUSINESS_DATA_BRIDGE_RELEASE="20260913d"') && productionEntry.includes('/assets/business-data-bridge.css') && productionEntry.includes('/js/business-data-bridge.js') && productionEntry.includes('x-thebe-business-data-bridge'),'production entry cache-versions, injects and identifies the business data bridge assets');
 
 console.log(`Thebe Desk final-brand adversarial gate: ${pass}/${pass} PASS`);

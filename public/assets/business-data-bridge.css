@@ -1,0 +1,31 @@
+.business-data-bridge{margin:18px 0;border:1px solid #d9e4f3;border-radius:18px;background:#fff;box-shadow:0 10px 30px rgba(15,39,71,.05);overflow:hidden}
+.business-data-bridge>summary{cursor:pointer;list-style:none;padding:16px 18px;font-weight:700;color:#17324f;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.business-data-bridge>summary::-webkit-details-marker{display:none}
+.business-data-bridge>summary::after{content:"＋";font-size:18px;color:#0b66d6;font-weight:500}
+.business-data-bridge[open]>summary::after{content:"−"}
+.business-data-bridge-body{padding:0 18px 18px;display:grid;gap:14px}
+.business-data-bridge-body h4{margin:0;color:#17324f}
+.business-data-bridge-body p{margin:0}
+.data-bridge-controls{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.data-bridge-controls label{display:grid;gap:6px;font-size:13px;color:#47617d}
+.data-bridge-controls select,.data-bridge-controls input[type="file"]{width:100%;min-height:42px;border:1px solid #cad8ea;border-radius:12px;background:#fff;color:#17324f;padding:9px 10px;font:inherit}
+.data-bridge-controls input[type="file"]{padding:7px 9px}
+.data-bridge-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.data-bridge-actions .btn:disabled{opacity:.45;cursor:not-allowed}
+.data-bridge-preview{border:1px solid #dce6f2;border-radius:14px;background:#f9fbfe;padding:14px;display:grid;gap:12px}
+.data-bridge-preview[hidden]{display:none!important}
+.data-bridge-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.data-bridge-stat{border:1px solid #e2eaf4;border-radius:12px;background:#fff;padding:10px 11px;display:grid;gap:4px}
+.data-bridge-stat span{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#6d8094}
+.data-bridge-stat b{font-size:18px;color:#17324f}
+.data-bridge-messages{border-left:3px solid #0b66d6;background:#eef5ff;border-radius:10px;padding:10px 12px;display:grid;gap:5px;color:#294763}
+.data-bridge-messages.risk{border-left-color:#ba3d3d;background:#fff4f4;color:#7f2929}
+#businessDataBridgeStatus[data-tone="positive"]{color:#17633f}
+#businessDataBridgeStatus[data-tone="risk"]{color:#9b2f2f}
+@media(max-width:760px){
+  .data-bridge-controls{grid-template-columns:1fr}
+  .data-bridge-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .data-bridge-actions{align-items:stretch}
+  .data-bridge-actions .btn{flex:1 1 100%}
+}
+@media(prefers-reduced-motion:reduce){.business-data-bridge *{scroll-behavior:auto!important;transition:none!important}}
