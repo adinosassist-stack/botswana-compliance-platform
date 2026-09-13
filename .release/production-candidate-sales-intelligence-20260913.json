@@ -1,0 +1,7 @@
+{
+  "purpose": "Production release marker for evidence-backed sales intelligence",
+  "source_main_sha": "d38b4fe6e2f38d1ed2e3d8467b501b2c713d2015",
+  "requested_local_time": "2026-09-13T03:16:00+02:00",
+  "deployment_path": "Recovery CI -> BF-07 Supply-Chain Seal -> Thebe Desk Production Deploy",
+  "application_behavior_changed_by_marker": false
+}
