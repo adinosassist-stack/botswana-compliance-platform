@@ -39,6 +39,7 @@ jobs:
           cat > probe.mjs <<'NODE'
           import { chromium } from 'playwright';
           import assert from 'node:assert/strict';
+          import vm from 'node:vm';
           const origin='https://thebedesk.com';
           const browser=await chromium.launch({headless:true});
           const page=await browser.newPage({viewport:{width:1440,height:1000}});
@@ -51,36 +52,27 @@ jobs:
             const s=getComputedStyle(el); return !el.hidden&&!el.classList.contains('hidden')&&s.display!=='none'&&s.visibility!=='hidden';
           }).catch(()=>false);
           await page.goto(origin+'/',{waitUntil:'networkidle',timeout:45000});
+          const inline=await page.locator('script:not([src])').evaluateAll(nodes=>nodes.map((node,index)=>({index,type:node.type||'text/javascript',nonce:node.nonce||node.getAttribute('nonce')||'',text:node.textContent||''})));
+          const inlineDiagnostics=[];
+          for(const item of inline){
+            if(item.type&&item.type!=='text/javascript'&&item.type!=='application/javascript'){
+              inlineDiagnostics.push({index:item.index,type:item.type,nonce:!!item.nonce,length:item.text.length,parse:'skipped'});continue;
+            }
+            let parse='ok',stack='';
+            try{new vm.Script(item.text,{filename:`inline-${item.index}.js`})}catch(error){parse=String(error);stack=String(error.stack||'')}
+            const marker=item.text.indexOf('let turnstileWidgetId=');
+            inlineDiagnostics.push({index:item.index,type:item.type,nonce:!!item.nonce,length:item.text.length,parse,stack,marker,markerExcerpt:marker>=0?item.text.slice(Math.max(0,marker-300),marker+1800):'',tail:item.text.slice(-1200)});
+          }
           const start=page.getByRole('button',{name:/^Start free$/i}).first();
           assert.equal(await start.count()>0,true,'header Start free button missing');
           const before=await page.evaluate(()=>{
             const b=[...document.querySelectorAll('button')].find(x=>x.textContent?.trim()==='Start free');
-            return {
-              startAttr:b?.getAttribute('data-bw-onclick')||null,
-              startFn:typeof window.startFreeFromMarketing,
-              openAuthFn:typeof window.openAuthFromMarketing,
-              delegation:!!window.BW?.events,
-              startAllowed:!!window.BW?.events?.allowedActions?.includes?.('startFreeFromMarketing'),
-              authGate:document.getElementById('authGate')?.className||null,
-              marketingGate:document.getElementById('marketingGate')?.className||null,
-              readyState:document.readyState
-            };
+            return {startAttr:b?.getAttribute('data-bw-onclick')||null,startFn:typeof window.startFreeFromMarketing,openAuthFn:typeof window.openAuthFromMarketing,delegation:!!window.BW?.events,startAllowed:!!window.BW?.events?.allowedActions?.includes?.('startFreeFromMarketing'),authGate:document.getElementById('authGate')?.className||null,marketingGate:document.getElementById('marketingGate')?.className||null,readyState:document.readyState};
           });
           await start.click();
-          await page.waitForTimeout(500);
-          const afterClick={authVisible:await visible('#authGate'),state:await page.evaluate(()=>({
-            authGate:document.getElementById('authGate')?.className||null,
-            marketingGate:document.getElementById('marketingGate')?.className||null,
-            authMode:typeof window.authMode==='undefined'?null:window.authMode
-          }))};
-          let directResult=null,directError=null;
-          try{directResult=await page.evaluate(()=>window.startFreeFromMarketing?.())}catch(e){directError=String(e)}
-          await page.waitForTimeout(250);
-          const afterDirect={authVisible:await visible('#authGate'),state:await page.evaluate(()=>({
-            authGate:document.getElementById('authGate')?.className||null,
-            marketingGate:document.getElementById('marketingGate')?.className||null
-          }))};
-          console.log('DIAGNOSTIC '+JSON.stringify({before,afterClick,directResult,directError,afterDirect,consoleErrors,pageErrors,failedRequests:failed,scripts},null,2));
+          await page.waitForTimeout(400);
+          const afterClick={authVisible:await visible('#authGate'),state:await page.evaluate(()=>({authGate:document.getElementById('authGate')?.className||null,marketingGate:document.getElementById('marketingGate')?.className||null}))};
+          console.log('DIAGNOSTIC '+JSON.stringify({before,afterClick,consoleErrors,pageErrors,failedRequests:failed,scripts,inlineDiagnostics},null,2));
           await browser.close();
           if(!afterClick.authVisible)process.exitCode=2;
           NODE
