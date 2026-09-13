@@ -11,7 +11,8 @@ ok(["038_v78_scheduled_run_observability.sql","039_v78_mutation_idempotency.sql"
 ok(launch.includes(profile.latest_cloudflare_migration)&&deploy.includes(profile.latest_cloudflare_migration),"launch/deploy runbooks require current migration floor");
 ok(migration.includes("CREATE TABLE IF NOT EXISTS platform_scheduled_runs")&&schema.includes("CREATE TABLE IF NOT EXISTS platform_scheduled_runs"),"scheduled run ledger exists in migration and fresh schema");
 ok(worker.includes('SELECT 1 ok FROM platform_scheduled_runs LIMIT 1'),"readiness probes scheduled-run ledger");
-ok(profile.authenticated_route_branches===(["1.21.89","1.21.90","1.21.91","1.21.92","1.21.93","1.21.94","1.21.95","1.21.96","1.21.97","1.21.98","1.21.99","1.21.100","1.21.101"].includes(pkg.version)?253:252)&&routeAudit.includes(`release:"${pkg.version}"`),"route inventory metadata is current");
+const expectedAuthenticatedRoutes=pkg.version==="1.21.101"?254:(["1.21.89","1.21.90","1.21.91","1.21.92","1.21.93","1.21.94","1.21.95","1.21.96","1.21.97","1.21.98","1.21.99","1.21.100"].includes(pkg.version)?253:252);
+ok(profile.authenticated_route_branches===expectedAuthenticatedRoutes&&routeAudit.includes(`release:"${pkg.version}"`),"route inventory metadata is current");
 
 ok(worker.includes("async function readBytesBounded")&&worker.includes("async function readTextBounded"),"shared streaming body readers are present");
 ok(!/req\.(?:text|arrayBuffer|json|formData|blob)\(/.test(worker),"Worker routes do not bypass bounded inbound-body readers");
