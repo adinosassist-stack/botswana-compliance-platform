@@ -37,7 +37,7 @@ jobs:
           s=s.replace(old,new,1)
 
           marker='''function deterministicFallback(observation){'''
-          simulation='''function deterministicSimulation(observation){\n  const cash=Number(observation?.finance?.cashPositionMinor||0);\n  const reconciliationExposure=Math.max(0,Number(observation?.finance?.reconciliationExposureMinor||0));\n  const pending=Math.max(0,Number(observation?.operations?.pendingWorkflowCount||0));\n  const failed=Math.max(0,Number(observation?.operations?.failedWorkflowCount||0));\n  const overdue=Math.max(0,Number(observation?.compliance?.overdueCount||0));\n  const critical=Math.max(0,Number(observation?.performance?.criticalSignals||0));\n  return {\n    type:"deterministic_non_mutating",\n    currency:"BWP",\n    cashStress:{\n      recordedCashMinor:cash,\n      reconciliationExposureMinor:reconciliationExposure,\n      exposureAdjustedCashMinor:cash-reconciliationExposure\n    },\n    operatingLoad:{pendingWorkflowCount:pending,failedWorkflowCount:failed,overdueComplianceCount:overdue,criticalPerformanceSignals:critical},\n    pressureScore:Math.min(100,failed*20+overdue*15+critical*15+Math.min(pending,20)*2),\n    assumptions:[\n      "Reconciliation exposure is treated as downside uncertainty, not a forecasted loss.",\n      "Pressure score is a deterministic triage aid and not a financial, legal or employment decision.",\n      "No simulation output changes business records or authorizes execution."\n    ]\n  };\n}\n\n'''
+          simulation='''function deterministicSimulation(observation){\n  const cash=Number(observation?.finance?.cashPositionMinor||0);\n  const reconciliationExposure=Math.max(0,Number(observation?.finance?.reconciliationExposureMinor||0));\n  const pending=Math.max(0,Number(observation?.operations?.pendingWorkflowCount||0));\n  const failed=Math.max(0,Number(observation?.operations?.failedWorkflowCount||0));\n  const overdue=Math.max(0,Number(observation?.compliance?.overdueCount||0));\n  const critical=Math.max(0,Number(observation?.performance?.criticalSignals||0));\n  return {\n    type:"deterministic_non_mutating",\n    currency:"BWP",\n    cashStress:{recordedCashMinor:cash,reconciliationExposureMinor:reconciliationExposure,exposureAdjustedCashMinor:cash-reconciliationExposure},\n    operatingLoad:{pendingWorkflowCount:pending,failedWorkflowCount:failed,overdueComplianceCount:overdue,criticalPerformanceSignals:critical},\n    pressureScore:Math.min(100,failed*20+overdue*15+critical*15+Math.min(pending,20)*2),\n    assumptions:[\n      "Reconciliation exposure is treated as downside uncertainty, not a forecasted loss.",\n      "Pressure score is a deterministic triage aid and not a financial, legal or employment decision.",\n      "No simulation output changes business records or authorizes execution."\n    ]\n  };\n}\n\n'''
           if marker not in s: raise SystemExit('fallback marker missing')
           s=s.replace(marker,simulation+marker,1)
 
@@ -69,7 +69,7 @@ jobs:
           schema=Path('cloudflare/schema.sql')
           schema_text=schema.read_text()
           if 'CREATE TABLE IF NOT EXISTS agentic_outcomes' not in schema_text:
-            schema.write_text(schema_text.rstrip()+"\n\n"+migration+"\n")
+            schema.write_text(schema_text.rstrip()+"\n\n"+migration.rstrip()+"\n")
 
           worker=Path('cloudflare/src/worker.js')
           w=worker.read_text()
@@ -79,8 +79,8 @@ jobs:
           if old not in w: raise SystemExit('worker readiness point missing')
           worker.write_text(w.replace(old,new,1))
 
-          profile=Path('RELEASE_PROFILE.json')
           import json
+          profile=Path('RELEASE_PROFILE.json')
           data=json.loads(profile.read_text())
           data['latest_cloudflare_migration']='046_v80_agentic_outcomes.sql'
           data['v80_agentic_outcome_measurement']=True
@@ -91,7 +91,6 @@ jobs:
           for name in ['docs/LAUNCH.md','cloudflare/deploy-free.sh']:
             p=Path(name); t=p.read_text(); t=t.replace('045_v80_agentic_foundation.sql','046_v80_agentic_outcomes.sql'); p.write_text(t)
 
-          # Historical gates preserve their original floors while accepting reviewed migration 046 as a successor.
           for p in Path('tests').glob('*.mjs'):
             t=p.read_text()
             if '045_v80_agentic_foundation.sql' not in t or 'latest_cloudflare_migration' not in t or '046_v80_agentic_outcomes.sql' in t: continue
@@ -99,8 +98,7 @@ jobs:
             t=t.replace("'045_v80_agentic_foundation.sql']","'045_v80_agentic_foundation.sql','046_v80_agentic_outcomes.sql']")
             p.write_text(t)
 
-          wf=Path('.github/workflows/agentic-stage2-patch-once.yml')
-          wf.unlink()
+          Path('.github/workflows/agentic-stage2-patch-once.yml').unlink()
           PY
           node --check cloudflare/src/agentic-core.js
           node --check cloudflare/src/worker.js
