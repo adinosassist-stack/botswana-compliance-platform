@@ -3,6 +3,8 @@ const read=p=>fs.readFileSync(p,'utf8');
 const worker=read('cloudflare/src/worker.js');
 const wrangler=read('cloudflare/wrangler.toml');
 const productionEntry=read('cloudflare/src/production-entry.js');
+const ownerBrief=read('public/js/owner-command-centre.js');
+const ownerBriefCss=read('public/assets/owner-command-centre.css');
 const cloudflareReadme=read('cloudflare/README.md');
 const renderer=read('cloudflare/render-production-config.sh');
 const preflight=read('cloudflare/preflight-production.sh');
@@ -55,6 +57,23 @@ ok(productionEntry.includes('https://challenges.cloudflare.com')&&productionEntr
 ok(productionEntry.includes('missing-input-response')&&productionEntry.includes('invalid-input-secret')&&productionEntry.includes('turnstile_configuration_error'), 'production registration retains legacy Turnstile secret diagnostics without exposing the secret');
 ok(productionEntry.includes('human_verification_retry')&&productionEntry.includes('retryable:true'), 'production registration retains explicit retryable legacy challenge handling');
 ok(productionEntry.includes('/assets/thebe-desk-favicon-512.png?v=20260912b')&&productionEntry.includes('rel="icon"')&&productionEntry.includes('apple-touch-icon'), 'production HTML uses the optimized 512px Thebe Desk favicon asset with cache busting for maximum tab visibility');
+
+// Owner command centre: the first owner-facing screen must explain the business, not merely display metrics.
+ok(productionEntry.includes('injectOwnerCommandCentreAssets')&&productionEntry.includes('/assets/owner-command-centre.css')&&productionEntry.includes('/js/owner-command-centre.js')&&productionEntry.includes('x-thebe-owner-brief'), 'production HTML injects versioned same-origin owner command centre assets');
+ok(ownerBrief.includes('Business owner brief')&&ownerBrief.includes('What needs your attention today')&&ownerBrief.includes('What Thebe recommends now')&&ownerBrief.includes('What happens if you act?'), 'owner command centre presents signal, recommendation and simulation flow');
+ok(ownerBrief.includes('/api/daily-reporting/performance?date=')&&ownerBrief.includes('request("/api/state")'), 'owner brief uses authoritative performance intelligence plus tenant workspace state');
+ok(worker.includes('if(url.pathname==="/api/daily-reporting/performance"&&req.method==="GET")')&&worker.includes('performanceIntelligenceView(env,a.tenant_id,reportDate,locationId)'), 'owner performance source remains tenant-scoped server intelligence');
+ok(ownerBrief.includes('baseline7')&&ownerBrief.includes('baseline30')&&ownerBrief.includes('sampleDays'), 'owner brief compares recent location run-rate with learned historical baselines');
+ok(['decisionMonthlyRevenueTargetBwp','decisionCurrentCashBwp','decisionMinimumCashBufferBwp','decisionMonthlyCashOutflowsBwp','decisionMonthlyLabourCostBwp','decisionPlannedPurchaseBwp','decisionOperatingDaysPerMonth'].every(k=>ownerBrief.includes(k)), 'owner brief keeps financial targets and scenario assumptions explicit rather than inferred');
+ok(ownerBrief.includes('Owner-entered financial assumptions')&&ownerBrief.includes('Transparent Thebe projection')&&ownerBrief.includes('historical reporting day'), 'owner brief visually distinguishes reported facts, owner inputs and projections');
+ok(ownerBrief.includes('will not substitute missing data with invented advice')&&ownerBrief.includes('sales-pipeline layer is still needed before it can truthfully name dormant quotations, conversion rates or campaign reallocations'), 'owner brief fails closed against fabricated business recommendations');
+ok(ownerBrief.includes('currentCash+projectedMonthlyRevenue-outflows-(purchase||0)')&&ownerBrief.includes('monthEndAfter=monthEndBefore!==null&&purchase?monthEndBefore+purchase:monthEndBefore'), 'cash simulation exposes deterministic before/after purchase impact');
+ok(ownerBrief.includes('canView=()=>["owner","manager"].includes(role())')&&ownerBrief.includes('canEdit=()=>role()==="owner"'), 'owner command centre preserves management visibility and owner-only assumption editing');
+ok(ownerBrief.includes('request("/api/state",{method:"PUT"')&&ownerBrief.includes('version:latestStateEnvelope.version'), 'owner assumptions persist through the versioned tenant state boundary');
+ok(!ownerBrief.includes('.innerHTML=')&&!ownerBrief.includes('.outerHTML='), 'owner command centre avoids direct unsafe HTML assignment');
+ok(ownerBriefCss.includes('.owner-command-centre')&&ownerBriefCss.includes('@media(max-width:700px)')&&ownerBriefCss.includes('.owner-sim-comparison'), 'owner command centre has dedicated responsive decision and simulation styling');
+try{new Function(ownerBrief);ok(true,'owner command centre browser asset parses as JavaScript')}catch(error){ok(false,`owner command centre browser asset syntax error: ${error.message}`)}
+
 ok(wrangler.includes('MAX_UPLOAD_MB = "3.5"'), 'deployment metadata retains the bounded evidence cap for future scanner qualification');
 ok(worker.includes('const EVIDENCE_MAX_BYTES=3_500_000;'), 'production evidence boundary is exactly 3,500,000 bytes');
 ok(worker.includes('/api/evidence/presign')&&worker.includes('/api/evidence/integrity-upload')&&worker.includes('/api/evidence/upload'), 'all direct evidence upload entry routes retain the production cap');
