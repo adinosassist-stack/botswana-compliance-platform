@@ -5,7 +5,9 @@ const pkg=JSON.parse(read("package.json")),profile=JSON.parse(read("RELEASE_PROF
 let checks=0;function ok(v,m){checks++;if(!v)throw new Error(`FAIL ${m}`);console.log(`PASS ${m}`)}
 ok(["1.21.58","1.21.59","1.21.60","1.21.61","1.21.62","1.21.63","1.21.64","1.21.65","1.21.66","1.21.67","1.21.68","1.21.69","1.21.70","1.21.71","1.21.72","1.21.73","1.21.74","1.21.75","1.21.76","1.21.77","1.21.78","1.21.79","1.21.80","1.21.81","1.21.82","1.21.83","1.21.84","1.21.85","1.21.86","1.21.87","1.21.88","1.21.89","1.21.90","1.21.91","1.21.92","1.21.93","1.21.94","1.21.95","1.21.96","1.21.97","1.21.98","1.21.99","1.21.100","1.21.101"].includes(pkg.version),"package identifies v1.21.58");
 ok(profile.package_version===pkg.version&&profile.software_release_candidate===`v78.${pkg.version}`,"release profile aligned");
-ok(["041_v78_webhook_purge_claim_hardening.sql","042_v78_session_generation_revocation.sql","043_v78_session_inventory_hardening.sql","044_v79_finance_reconciliation.sql","045_v80_agentic_foundation.sql","046_v80_agentic_outcomes.sql"].includes(profile.latest_cloudflare_migration)&&worker.includes(`EXPECTED_SCHEMA_DELTA="${profile.latest_cloudflare_migration}"`),"migration 041 hardening remains below or at readiness floor");
+const reviewedMigrations=["041_v78_webhook_purge_claim_hardening.sql","042_v78_session_generation_revocation.sql","043_v78_session_inventory_hardening.sql","044_v79_finance_reconciliation.sql","045_v80_agentic_foundation.sql","046_v80_agentic_outcomes.sql","047_v81_delegated_authority.sql"];
+const coreSchemaFloor=profile.latest_cloudflare_migration==="047_v81_delegated_authority.sql"?"046_v80_agentic_outcomes.sql":profile.latest_cloudflare_migration;
+ok(reviewedMigrations.includes(profile.latest_cloudflare_migration)&&worker.includes(`EXPECTED_SCHEMA_DELTA="${coreSchemaFloor}"`),"migration 041 hardening remains below or at readiness floor");
 ok(sw.includes(pkg.version)&&launch.includes(profile.latest_cloudflare_migration)&&deploy.includes(profile.latest_cloudflare_migration),"deploy/cache/runbook identity aligned");
 ok(migration.includes("payment_order_id")&&migration.includes("processing_token")&&migration.includes("processing_started_at")&&migration.includes("processing_attempts"),"payment webhook durable claim migration exists");
 ok(migration.includes("deletion_requests ADD COLUMN processing_token")&&migration.includes("deletion_requests ADD COLUMN processing_started_at"),"tenant purge durable claim migration exists");
@@ -31,4 +33,4 @@ ok(profile.payment_webhook_scheduled_recovery===true&&profile.tenant_deletion_le
 ok(server.includes("select * from deletion_requests where id=$1 for update"),"Node/Postgres purge completion serializes concurrent workers with row lock");
 ok(server.includes("where id=$1 and status in ('requested','blocked') returning *"),"Node/Postgres deletion approval uses compare-and-set state transition");
 ok(server.includes("values($1,$2,'v2',$3,$4) on conflict(request_id) do nothing"),"Node/Postgres deletion tombstone records v2 purge workflow");
-console.log(`V78 1.21.58 webhook/purge claim gate: ${checks}/${checks} PASS`);
+console.log(`V78 1.21.58 webhook/purge claim gate: ${checks}/${checks} PASS through V81 release successor`);

@@ -11,10 +11,10 @@ const migration=read('cloudflare/migrations/046_v80_agentic_outcomes.sql');
 const profile=JSON.parse(read('RELEASE_PROFILE.json'));
 let checks=0;const ok=(v,m)=>{assert.ok(v,m);checks++};
 
-ok(profile.latest_cloudflare_migration==='046_v80_agentic_outcomes.sql','release profile points to migration 046');
+ok(profile.latest_cloudflare_migration==='047_v81_delegated_authority.sql','release profile advances to V81 delegated-authority migration 047');
 ok(profile.v80_agentic_outcome_measurement===true,'release profile records outcome measurement');
 ok(profile.agentic_stage2_execution_enabled===false&&profile.agentic_stage2_external_side_effects===false,'Stage 2 release profile keeps execution disabled');
-ok(worker.includes('const EXPECTED_SCHEMA_DELTA="046_v80_agentic_outcomes.sql";'),'Worker readiness expects schema 046');
+ok(worker.includes('const EXPECTED_SCHEMA_DELTA="046_v80_agentic_outcomes.sql";'),'core Worker readiness still expects schema 046 before the V81 wrapper adds its 047 gate');
 ok(worker.includes('SELECT id FROM agentic_outcomes LIMIT 1'),'Worker readiness probes outcome table');
 ok(migration.includes('CREATE TABLE IF NOT EXISTS agentic_outcomes'),'migration creates outcome ledger');
 ok(schema.includes('CREATE TABLE IF NOT EXISTS agentic_outcomes'),'fresh schema contains outcome ledger');
@@ -40,4 +40,4 @@ assert.equal(simulation.pressureScore,73);checks++;
 assert.equal(simulation.type,'deterministic_non_mutating');checks++;
 assert.ok(simulation.assumptions.some(x=>/No simulation output changes business records or authorizes execution\./i.test(x)));checks++;
 
-console.log(`V80 agentic Stage 2 static gate: ${checks}/${checks} PASS`);
+console.log(`V80 agentic Stage 2 static gate: ${checks}/${checks} PASS with V81 release successor`);

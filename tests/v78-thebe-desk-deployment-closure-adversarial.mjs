@@ -2,6 +2,7 @@ import fs from 'node:fs';
 const read=p=>fs.readFileSync(p,'utf8');
 const worker=read('cloudflare/src/worker.js');
 const wrangler=read('cloudflare/wrangler.toml');
+const agenticEntry=read('cloudflare/src/agentic-entry.js');
 const productionEntry=read('cloudflare/src/production-entry.js');
 const ownerBrief=read('public/js/owner-command-centre.js');
 const ownerBriefCompact=ownerBrief.replace(/\s+/g,'');
@@ -60,7 +61,7 @@ ok(productionDeploy.includes('--secrets-file')&&productionDeploy.includes('thebe
 ok(!productionDeploy.includes('d1 execute')&&!productionDeploy.includes('schema.sql'), 'production automation never replays or mutates the production D1 schema');
 ok(productionDeploy.includes('/api/live')&&productionDeploy.includes('/api/ready')&&productionDeploy.includes('/api/auth/registration-proof/challenge')&&productionDeploy.includes("proof.provider !== 'thebe_proof'")&&productionDeploy.includes('/api/auth/oauth/google/start')&&productionDeploy.includes('/api/auth/oauth/facebook/start')&&productionDeploy.includes('google-deferred')&&productionDeploy.includes('facebook-deferred'), 'production automation verifies core readiness and conditionally verifies configured OAuth starts after deploy');
 
-ok(wrangler.includes('main = "src/production-entry.js"')&&productionEntry.includes('import worker from "./worker.js"')&&productionEntry.includes('worker.fetch(request,env,ctx)')&&productionEntry.includes('worker.scheduled(event,env,ctx)'), 'production entrypoint wraps and delegates to the hardened base Worker');
+ok(wrangler.includes('main = "src/agentic-entry.js"')&&agenticEntry.includes('import base from "./production-entry.js"')&&agenticEntry.includes('const response=await base.fetch(request,env,ctx)')&&agenticEntry.includes('base.scheduled(event,env,ctx)')&&productionEntry.includes('import worker from "./worker.js"')&&productionEntry.includes('worker.fetch(request,env,ctx)')&&productionEntry.includes('worker.scheduled(event,env,ctx)'), 'V81 production wrapper delegates through the canonical hardened production entry to the base Worker');
 ok(productionEntry.includes('/api/auth/registration-proof/challenge')&&productionEntry.includes('provider:"thebe_proof"')&&productionEntry.includes('usedRegistrationProofs')&&productionEntry.includes('hasLeadingZeroBits'), 'production entrypoint retains signed first-party registration proof, replay rejection and proof-of-work');
 ok(productionEntry.includes('https://challenges.cloudflare.com')&&productionEntry.includes('Content-Security-Policy')&&productionEntry.includes('content-security-policy'), 'production entrypoint retains legacy Turnstile CSP compatibility while first-party proof protects registration');
 ok(productionEntry.includes('missing-input-response')&&productionEntry.includes('invalid-input-secret')&&productionEntry.includes('turnstile_configuration_error'), 'production registration retains legacy Turnstile secret diagnostics without exposing the secret');

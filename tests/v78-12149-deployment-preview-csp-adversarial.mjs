@@ -22,9 +22,9 @@ ok(worker.includes("validPasswordLength(password)")&&worker.includes("companyNam
 const headers=read("public/_headers");ok(headers.includes("X-Content-Type-Options: nosniff")&&headers.includes("Referrer-Policy: strict-origin-when-cross-origin")&&headers.includes("Permissions-Policy:"),"static assets must receive explicit security headers");
 ok(headers.includes("Strict-Transport-Security: max-age=31536000")&&worker.includes('"cross-origin-resource-policy":"same-origin"')&&worker.includes('"strict-transport-security":"max-age=31536000"'),"HSTS and same-origin resource policy must be explicit");
 ok(headers.includes("/js/*")&&headers.includes("max-age=300")&&fs.existsSync(path.join(root,"public/.assetsignore")),"static asset caching/ignore policy must be explicit");
-const productionEntry=read("cloudflare/src/production-entry.js"),wrangler=read("cloudflare/wrangler.toml");
-ok(wrangler.includes('main = "src/production-entry.js"'),"production Wrangler entry must route through CSP conflict repair");
+const agenticEntry=read("cloudflare/src/agentic-entry.js"),productionEntry=read("cloudflare/src/production-entry.js"),wrangler=read("cloudflare/wrangler.toml");
+ok(wrangler.includes('main = "src/agentic-entry.js"')&&agenticEntry.includes('import base from "./production-entry.js"')&&agenticEntry.includes('base.fetch(request,env,ctx)'),"production Wrangler entry must route through the V81 wrapper into CSP conflict repair");
 ok(productionEntry.includes('https://challenges.cloudflare.com')&&productionEntry.includes('content-security-policy')&&productionEntry.includes('Content-Security-Policy'),"production entry must only remove conflicting meta CSP when the server CSP explicitly allows Turnstile");
-ok(productionEntry.includes('worker.fetch(request,env,ctx)')&&productionEntry.includes('worker.scheduled(event,env,ctx)'),"production entry must preserve Worker fetch and scheduled behavior");
+ok(productionEntry.includes('worker.fetch(request,env,ctx)')&&productionEntry.includes('worker.scheduled(event,env,ctx)')&&agenticEntry.includes('base.scheduled(event,env,ctx)'),"V81 wrapper and production entry must preserve Worker fetch and scheduled behavior");
 
-console.log(`V78 1.21.49 deployment/preview/CSP adversarial gate: ${checks}/${checks} PASS`);
+console.log(`V78 1.21.49 deployment/preview/CSP adversarial gate: ${checks}/${checks} PASS through V81 production wrapper`);

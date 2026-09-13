@@ -12,8 +12,10 @@ const status=read("docs/LAUNCH_STATUS.md");
 const cfReadme=read("cloudflare/README.md");
 const deployFree=read("cloudflare/deploy-free.sh");
 const worker=read("cloudflare/src/worker.js");
+const agenticEntry=read("cloudflare/src/agentic-entry.js");
 const previewBuilder=read("scripts/build-release-preview.mjs");
 const migrations=fs.readdirSync(path.join(root,"cloudflare/migrations")).filter(x=>/^\d{3}_.*\.sql$/.test(x)).sort();
+const CORE_SCHEMA_DELTA="046_v80_agentic_outcomes.sql";
 
 let checks=0;
 function ok(cond,msg){checks++; if(!cond) throw new Error(`FAIL ${checks}: ${msg}`);}
@@ -53,10 +55,14 @@ ok(!deployFree.includes("SESSION_SECRET\\necho"),"fresh deploy helper must not c
 ok(deployFree.includes("--file=schema.sql"),"fresh deploy helper must load current full schema");
 ok(deployFree.includes("DO NOT replay schema.sql"),"deploy helper must warn existing databases not to replay full schema");
 ok(worker.includes(`const APP_RELEASE="v78.${pkg.version}"`),"Worker must expose exact current release identity");
-ok(worker.includes(`const EXPECTED_SCHEMA_DELTA="${profile.latest_cloudflare_migration}"`),"Worker must declare current schema delta");
-ok(worker.includes("async function currentSchemaReady(env)"),"Worker must probe current schema readiness");
-ok(worker.includes("error:\"schema_outdated\""),"/api/ready must fail closed for stale schema");
-ok(worker.includes("schemaReady:true"),"/api/ready must expose successful schema state");
+ok(worker.includes(`const EXPECTED_SCHEMA_DELTA="${CORE_SCHEMA_DELTA}"`),"base Worker must declare the core schema floor through migration 046");
+ok(agenticEntry.includes(`const V81_SCHEMA_DELTA="${profile.latest_cloudflare_migration}"`),"V81 production wrapper must declare the current release schema delta");
+ok(agenticEntry.includes("delegatedAuthoritySchemaReady")&&agenticEntry.includes("agenticAuthoritySchemaReady"),"V81 production wrapper must independently probe delegated-authority schema readiness");
+ok(worker.includes("async function currentSchemaReady(env)"),"Worker must probe current core schema readiness");
+ok(worker.includes("error:\"schema_outdated\""),"base /api/ready must fail closed for stale core schema");
+ok(agenticEntry.includes('if(!schemaReady&&!next.error)next.error="schema_outdated"'),"V81 /api/ready wrapper must fail closed when migration 047 is absent");
+ok(worker.includes("schemaReady:true"),"base /api/ready must expose successful core schema state");
+ok(agenticEntry.includes("coreSchemaReady")&&agenticEntry.includes("latestSchemaDelta:V81_SCHEMA_DELTA"),"V81 readiness response must distinguish core readiness from the release schema tip");
 ok(previewBuilder.includes(`process.argv[2]||"dist/THEBE_DESK_V81_RECOVERY_R1_${pkg.version.replaceAll(".","")}_`) && previewBuilder.includes("_Preview.html"),"npm build:preview must have a usable current/successor output");
 
-console.log(`V78 1.21.46 launch metadata coherence adversarial gate: ${checks}/${checks} PASS`);
+console.log(`V78 1.21.46 launch metadata coherence adversarial gate: ${checks}/${checks} PASS through V81 schema wrapper`);
