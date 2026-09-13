@@ -82,8 +82,8 @@ assert.match(migration,/agent_action_intents_proposal_tenant_guard/);
 assert.match(migration,/agent_action_intents_delegation_tenant_guard/);
 assert.match(migration,/agent_delegation_events_tenant_guard/);
 
-const migrationRunner=fs.readFileSync("scripts/migrate-production-d1-047.mjs","utf8");
-const migrationWorkflow=fs.readFileSync(".github/workflows/migrate-production-d1-047.yml","utf8");
+const migrationRunner=fs.readFileSync("scripts/migrate-production-v81-delegated-authority.mjs","utf8");
+const migrationWorkflow=fs.readFileSync(".github/workflows/migrate-production-v81-delegated-authority.yml","utf8");
 assert.match(migrationRunner,/expectedGitBlobSha = '207d070808f8ca44e75f49fca3c02f92de5b2091'/);
 assert.match(migrationRunner,/agentic_outcomes/);
 assert.match(migrationRunner,/partial migration detected/);
@@ -94,7 +94,7 @@ assert.match(migrationWorkflow,/\[migrate-047\]/);
 assert.match(migrationWorkflow,/environment: production/);
 assert.match(migrationWorkflow,/ref: \$\{\{ github\.sha \}\}/);
 assert.match(migrationWorkflow,/refusing stale migration target=/);
-assert.match(migrationWorkflow,/node scripts\/migrate-production-d1-047\.mjs/);
+assert.match(migrationWorkflow,/node scripts\/migrate-production-v81-delegated-authority\.mjs/);
 assert.match(migrationWorkflow,/agenticAuthoritySchemaReady !== true/);
 assert.match(migrationWorkflow,/047_v81_delegated_authority\.sql/);
 
