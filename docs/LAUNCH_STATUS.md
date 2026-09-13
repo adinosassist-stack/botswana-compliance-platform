@@ -5,9 +5,11 @@
 - **Repository main:** `7cb96f9b9ae8ca3202a883f2bece8b4f232179ef`.
 - **Last successfully deployed production release:** `f97d8fa01a8363da82bdd1d26f78090eafa0d9ce`.
 - **Live runtime:** Thebe Desk V78 `1.21.101` on `https://thebedesk.com`.
+- **Schema requirement: current v1.21.101 schema** — a fresh D1 loads `cloudflare/schema.sql`; an existing production D1 must be upgraded through `043_v78_session_inventory_hardening.sql`, and `/api/ready` must report `schemaReady=true`.
 - **Core production readiness:** **PASS**. The fresh Phase 0 audit proved `/api/live`, `/api/ready`, D1, R2, Workers AI, schema readiness, required core configuration and production security headers.
 - **Registration abuse control:** **PASS**. Registration now uses the signed first-party `thebe_proof` challenge with same-origin issuance, IP binding, proof-of-work, honeypot and replay rejection. Turnstile remains as legacy compatibility configuration but is not the active registration gate.
 - **Production data inventory at the latest live audit:** 0 users, 0 tenants, 0 memberships, 0 operating locations, 0 employees and 0 daily employee reports.
+- **Public go-live: CONDITIONAL** — code/core infrastructure are ready, but Google OAuth, Facebook OAuth and password-reset email remain required external launch integrations.
 - **Phase 0 launch decision:** **HOLD only on external identity/email integrations**. Google OAuth, Facebook OAuth and password-reset email are the remaining required launch integrations.
 - **Current main deployment state:** the OAuth/email deployment-contract hardening is merged but intentionally **not deployed** because no `[deploy]` marker was used and the external credentials are not yet configured.
 
