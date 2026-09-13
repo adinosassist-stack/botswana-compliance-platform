@@ -71,6 +71,7 @@ jobs:
         run: |
           set -euo pipefail
           node tests/v82-phase0-launch-audit-deferred-integrations.mjs
+          node tests/v82-node-postgres-lineage-hardening.mjs
           npm run check
           npm run lint:production
           npm run test:production-hardening
