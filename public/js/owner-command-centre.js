@@ -1,7 +1,7 @@
 (function initOwnerCommandCentre(global){
   "use strict";
 
-  const RELEASE="20260913c";
+  const RELEASE="20260913d";
   const MAX_OPPORTUNITIES=500;
   const MAX_CAMPAIGNS=50;
   const PROFILE_KEYS=Object.freeze({
@@ -554,6 +554,16 @@
       text("span",`${Array.isArray(statusPayload?.prohibitedAutonomy)?statusPayload.prohibitedAutonomy.length:0} high-impact autonomy classes remain prohibited.`)
     );
     body.append(boundary);
+
+    if(statusPayload?.outcomeLearning?.enabled){
+      const learning=document.createElement("div");
+      learning.className="owner-agentic-boundary";
+      learning.append(
+        text("span","Outcome-informed ordering","badge"),
+        text("span","Recent recorded outcomes can only reorder recommendations within the same priority level. This is non-causal and cannot change risk, approvals or execution authority.")
+      );
+      body.append(learning);
+    }
 
     const latestRun=agenticLatestPlan?.run||(Array.isArray(runsPayload?.items)?runsPayload.items[0]:null);
     if(!latestRun){
