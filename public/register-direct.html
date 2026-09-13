@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en-BW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#111516">
+<title>Create your Thebe Desk account</title>
+<style>
+:root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#131516;background:#f6f7f8}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px}.card{width:min(100%,520px);background:#fff;border:1px solid #e3e6e8;border-radius:20px;padding:28px;box-shadow:0 16px 48px rgba(0,0,0,.08)}h1{margin:0 0 8px;font-size:28px}.muted{color:#667078;font-size:14px;line-height:1.5;margin:0 0 24px}.field{margin:14px 0}label{display:block;font-size:12px;font-weight:700;margin-bottom:6px}input{width:100%;padding:12px;border:1px solid #d7dbde;border-radius:11px;font:inherit}button{width:100%;border:0;border-radius:11px;padding:13px 16px;background:#111516;color:white;font:inherit;font-weight:750;cursor:pointer;margin-top:8px}button:disabled{opacity:.6;cursor:wait}.status{margin-top:16px;padding:12px 14px;border-radius:11px;font-size:13px;line-height:1.45;display:none}.status.show{display:block}.status.bad{background:#fff0ef;border:1px solid #efc1bd;color:#8b1e16}.status.good{background:#eef8f2;border:1px solid #c7e4d2;color:#126b3d}.small{font-size:12px;color:#6b7176;margin-top:16px;text-align:center}.small a{color:#0f5f46}.trap{position:absolute!important;left:-10000px!important;width:1px!important;height:1px!important;opacity:0!important}
+</style>
+<body>
+<main class="card">
+<h1>Create your account</h1>
+<p class="muted">This registration route uses Thebe Desk's own first-party security proof. It does not use Cloudflare Turnstile or a CAPTCHA provider.</p>
+<form id="registerForm" novalidate>
+<div class="field"><label for="companyName">Business name</label><input id="companyName" name="companyName" autocomplete="organization" maxlength="160" required></div>
+<div class="field"><label for="email">Email</label><input id="email" name="email" type="email" autocomplete="email" maxlength="254" required></div>
+<div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="200" required><div class="small" style="text-align:left;margin-top:6px">Use at least 12 characters.</div></div>
+<input id="website" name="website" class="trap" tabindex="-1" autocomplete="off" aria-hidden="true">
+<button id="submitBtn" type="submit">Create account</button>
+<div id="status" class="status" role="status" aria-live="polite"></div>
+</form>
+<div class="small">Already have an account? <a href="/">Return to Thebe Desk sign in</a></div>
+</main>
+<script src="/js/register-direct.js?v=20260913a" defer></script>
