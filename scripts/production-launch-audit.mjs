@@ -98,11 +98,29 @@ const readyJson=await ready.json();
 assert(readyJson?.ok===true&&readyJson?.d1===true&&readyJson?.r2===true&&readyJson?.schemaReady===true&&readyJson?.requiredConfigReady===true,'/api/ready did not prove full core readiness');
 mark('/api/ready',true,`version=${safe(readyJson.version)} schemaReady=true configReady=true`);
 
-const anti=await publicFetch('/api/auth/anti-bot-config');
-assert(anti.status===200,`anti-bot config HTTP ${anti.status}`);
-const antiJson=await anti.json();
-assert(antiJson?.provider==='turnstile'&&antiJson?.required===true&&antiJson?.action==='register','Turnstile registration contract is not active');
-mark('Turnstile registration contract',true,'required');
+const registrationProof=await fetch(`${ORIGIN}/api/auth/registration-proof/challenge`,{
+  method:'POST',
+  redirect:'error',
+  headers:{
+    'user-agent':'ThebeDesk-Phase0-Launch-Audit/1.0',
+    'accept':'application/json',
+    'content-type':'application/json',
+    'origin':ORIGIN
+  },
+  body:'{}'
+});
+assert(registrationProof.status===200,`registration proof challenge HTTP ${registrationProof.status}`);
+assert(String(registrationProof.headers.get('cache-control')||'').toLowerCase().includes('no-store'),'registration proof challenge must be no-store');
+assert(String(registrationProof.headers.get('x-content-type-options')||'').toLowerCase()==='nosniff','registration proof challenge must set x-content-type-options=nosniff');
+const registrationProofJson=await registrationProof.json();
+const registrationProofToken=String(registrationProofJson?.token||'');
+const registrationProofDifficulty=Number(registrationProofJson?.difficulty);
+const registrationProofTtl=Number(registrationProofJson?.expiresInSeconds);
+assert(registrationProofJson?.provider==='thebe_proof'&&registrationProofJson?.required===true&&registrationProofJson?.action==='register','first-party registration proof contract is not active');
+assert(registrationProofToken.length>=80&&registrationProofToken.includes('.'),'registration proof challenge token is missing or malformed');
+assert(Number.isInteger(registrationProofDifficulty)&&registrationProofDifficulty>=8&&registrationProofDifficulty<=16,`registration proof difficulty is outside the hardened range: ${safe(registrationProofDifficulty)}`);
+assert(Number.isInteger(registrationProofTtl)&&registrationProofTtl>=60&&registrationProofTtl<=600,`registration proof TTL is outside the hardened range: ${safe(registrationProofTtl)}`);
+mark('first-party registration proof',true,`difficulty=${registrationProofDifficulty} ttl=${registrationProofTtl}s`);
 
 const root=await publicFetch('/');
 assert(root.status===200,`root page HTTP ${root.status}`);
