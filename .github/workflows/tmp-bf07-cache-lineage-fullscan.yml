@@ -1,0 +1,30 @@
+name: Temporary BF-07 cache lineage full scan
+
+on:
+  push:
+    branches:
+      - diag/bf07-cache-lineage-fullscan-20260914
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact diagnostic branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Enumerate every service-worker cache assertion in release tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== CACHE TOKEN REFERENCES IN TESTS ==='
+          grep -RInE "sw\.includes\(|service-worker cache|runtime/cache identities|cache identities" tests --include='*.mjs' || true
+          echo '=== OLD CACHE TOKENS IN TESTS ==='
+          grep -RInE "1\.21\.[0-9]+[-_][A-Za-z0-9._-]+" tests --include='*.mjs' || true
+          echo '=== CURRENT CACHE TOKEN REFERENCES ==='
+          grep -RInF "1.21.101-registration-owner-ui-hotfix-20260914" tests --include='*.mjs' || true
