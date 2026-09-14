@@ -3106,16 +3106,16 @@ async function finalizeTenantDeletion(env,dr,claimToken,{evidenceRecords=0,evide
     return env.DB.prepare(sql).bind(...Array(placeholders).fill(dr.tenant_id));
   });
   purgeStatements.push(
+    env.DB.prepare(`INSERT INTO deletion_tombstones(request_id,tenant_fingerprint,purge_version,evidence_records_purged,evidence_objects_purged,orphan_users_purged)
+      SELECT ?,?,'v2',?,?,? WHERE EXISTS(SELECT 1 FROM deletion_requests WHERE id=? AND tenant_id=? AND status='processing' AND processing_token=?)`)
+      .bind(dr.id,tenantFingerprint,evidenceRecords,evidenceObjects,uniqueUsers,dr.id,dr.tenant_id,claimToken),
     env.DB.prepare(`DELETE FROM users WHERE id IN (
       SELECT m.user_id FROM memberships m WHERE m.tenant_id=? AND NOT EXISTS (
         SELECT 1 FROM memberships other WHERE other.user_id=m.user_id AND other.tenant_id<>m.tenant_id
       )
     )`).bind(dr.tenant_id),
-    env.DB.prepare(`INSERT INTO deletion_tombstones(request_id,tenant_fingerprint,purge_version,evidence_records_purged,evidence_objects_purged,orphan_users_purged)
-      SELECT ?,?,'v2',?,?,? WHERE EXISTS(SELECT 1 FROM deletion_requests WHERE id=? AND tenant_id=? AND status='processing' AND processing_token=?)`)
-      .bind(dr.id,tenantFingerprint,evidenceRecords,evidenceObjects,uniqueUsers,dr.id,dr.tenant_id,claimToken),
-    env.DB.prepare("DELETE FROM tenants WHERE id=? AND EXISTS(SELECT 1 FROM deletion_requests WHERE id=? AND status='processing' AND processing_token=?)")
-      .bind(dr.tenant_id,dr.id,claimToken)
+    env.DB.prepare("DELETE FROM tenants WHERE id=? AND EXISTS(SELECT 1 FROM deletion_tombstones WHERE request_id=? AND tenant_fingerprint=?)")
+      .bind(dr.tenant_id,dr.id,tenantFingerprint)
   );
   await env.DB.batch(purgeStatements);
   const tombstone=await env.DB.prepare("SELECT request_id FROM deletion_tombstones WHERE request_id=? LIMIT 1").bind(dr.id).first();
