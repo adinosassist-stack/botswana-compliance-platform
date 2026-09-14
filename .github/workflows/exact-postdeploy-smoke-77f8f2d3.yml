@@ -1,0 +1,164 @@
+name: Exact post-deploy verification 77f8f2d3
+run-name: Exact live smoke 77f8f2d37a20eab4bd55c752f34f5421d441edab
+
+on:
+  push:
+    branches:
+      - verify/postdeploy-77f8f2d3-20260914
+    paths:
+      - .github/workflows/exact-postdeploy-smoke-77f8f2d3.yml
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Verify exact live production release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      EXPECTED_SHA: 77f8f2d37a20eab4bd55c752f34f5421d441edab
+      ORIGIN: https://thebedesk.com
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout verification commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Verify exact production authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid EXPECTED_SHA=$EXPECTED_SHA" >&2; exit 1; }
+          parent="$(git rev-parse HEAD^)"
+          [[ "$parent" == "$EXPECTED_SHA" ]] || { echo "verification branch parent=$parent expected=$EXPECTED_SHA" >&2; exit 1; }
+          main_sha="$(curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/branches/main" \
+            | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).commit.sha))")"
+          [[ "$main_sha" == "$EXPECTED_SHA" ]] || { echo "main=$main_sha expected deployed=$EXPECTED_SHA" >&2; exit 1; }
+          git cat-file -e "$EXPECTED_SHA^{commit}"
+          echo "Exact production authority confirmed: $EXPECTED_SHA"
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22.23.2'
+          package-manager-cache: false
+
+      - name: Verify live HTTP and fail-closed contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const origin=process.env.ORIGIN;
+          const get=path=>fetch(origin+path,{redirect:'manual',headers:{accept:'application/json,text/html;q=0.9,*/*;q=0.8','user-agent':'ThebeDesk-Exact-PostDeploy-Smoke/1.0'}});
+
+          const root=await get('/');
+          assert.equal(root.status,200);
+          const html=await root.text();
+          assert.match(html,/Thebe Desk/i);
+          assert.match(String(root.headers.get('strict-transport-security')||''),/max-age=\d+/);
+          assert.equal(String(root.headers.get('x-content-type-options')||'').toLowerCase(),'nosniff');
+          assert.equal(String(root.headers.get('x-frame-options')||'').toUpperCase(),'DENY');
+          assert.match(String(root.headers.get('content-security-policy')||''),/default-src 'self'/);
+          console.log('PASS public root + security headers');
+
+          const live=await get('/api/live');
+          assert.equal(live.status,200); assert.equal((await live.json()).ok,true);
+          console.log('PASS /api/live');
+
+          const ready=await get('/api/ready');
+          assert.equal(ready.status,200);
+          const readiness=await ready.json();
+          for(const key of ['ok','d1','r2','schemaReady','requiredConfigReady','coreSchemaReady','agenticAuthoritySchemaReady']) assert.equal(readiness[key],true,`readiness ${key}`);
+          assert.equal(readiness.latestSchemaDelta,'047_v81_delegated_authority.sql');
+          console.log(`PASS /api/ready version=${readiness.version} latestSchema=${readiness.latestSchemaDelta}`);
+
+          const proof=await fetch(origin+'/api/auth/registration-proof/challenge',{method:'POST',redirect:'manual',headers:{accept:'application/json','content-type':'application/json',origin,'user-agent':'ThebeDesk-Exact-PostDeploy-Smoke/1.0'},body:'{}'});
+          assert.equal(proof.status,200);
+          const proofBody=await proof.json();
+          assert.equal(proofBody.provider,'thebe_proof'); assert.equal(proofBody.required,true); assert.equal(proofBody.action,'register');
+          assert.ok(typeof proofBody.token==='string'&&proofBody.token.length>=80&&proofBody.token.includes('.'));
+          assert.ok(Number.isInteger(proofBody.difficulty)&&proofBody.difficulty>=8&&proofBody.difficulty<=16);
+          assert.ok(Number.isInteger(proofBody.expiresInSeconds)&&proofBody.expiresInSeconds>=60&&proofBody.expiresInSeconds<=600);
+          console.log('PASS first-party registration proof');
+
+          const providers={google:'accounts.google.com',facebook:'www.facebook.com'};
+          for(const [provider,host] of Object.entries(providers)){
+            const response=await get(`/api/auth/oauth/${provider}/start`);
+            if(response.status===503){
+              assert.equal(response.headers.get('location'),null);
+              console.log(`PASS ${provider} OAuth deferred/fail-closed`);
+            }else{
+              assert.ok(response.status>=300&&response.status<400,`${provider} OAuth unexpected HTTP ${response.status}`);
+              const location=response.headers.get('location'); assert.ok(location,`${provider} OAuth redirect missing`);
+              const url=new URL(location); assert.equal(url.protocol,'https:'); assert.equal(url.hostname,host);
+              console.log(`PASS ${provider} OAuth configured redirect`);
+            }
+          }
+
+          const authority=await get('/api/agentic/authority/status');
+          assert.equal(authority.status,401); assert.equal((await authority.json()).error,'unauthenticated');
+          console.log('PASS V81 delegated-authority authentication boundary');
+
+          for(const path of ['/robots.txt','/sitemap.xml','/manifest.webmanifest']){
+            const response=await get(path); assert.equal(response.status,200,`${path} HTTP ${response.status}`);
+          }
+          console.log('PASS public SEO/PWA endpoints');
+          NODE
+
+      - name: Install browser driver only
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+
+      - name: Exercise live customer UI without submitting customer data
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import {chromium} from 'playwright-core';
+          import fs from 'node:fs';
+          import assert from 'node:assert/strict';
+          const executablePath=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(p=>fs.existsSync(p));
+          assert.ok(executablePath,'no Chromium-compatible browser found');
+          const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox']});
+          const page=await (await browser.newContext({viewport:{width:1440,height:1100}})).newPage();
+          const pageErrors=[]; const criticalFailures=[];
+          page.on('pageerror',error=>pageErrors.push(String(error?.stack||error)));
+          page.on('requestfailed',request=>{const url=request.url();if(url.startsWith(process.env.ORIGIN+'/js/')||url.startsWith(process.env.ORIGIN+'/assets/'))criticalFailures.push(`${request.method()} ${url} ${request.failure()?.errorText||''}`)});
+          const home=()=>page.goto(process.env.ORIGIN+'/',{waitUntil:'networkidle',timeout:45000});
+          const state=()=>page.evaluate(()=>({marketingHidden:document.getElementById('marketingGate')?.classList.contains('hidden'),authHidden:document.getElementById('authGate')?.classList.contains('hidden'),companyDisplay:document.getElementById('companyNameField')?getComputedStyle(document.getElementById('companyNameField')).display:null,submitText:document.getElementById('authSubmit')?.textContent||'',hasEvents:!!window.BW?.events,startFree:typeof window.startFreeFromMarketing,openAuth:typeof window.openAuthFromMarketing,submitAuth:typeof window.submitAuth}));
+
+          await home(); assert.match(await page.title(),/Thebe Desk/i); let s=await state();
+          assert.equal(s.hasEvents,true); assert.equal(s.startFree,'function'); assert.equal(s.openAuth,'function'); assert.equal(s.submitAuth,'function');
+          console.log('PASS landing runtime');
+
+          const start=page.locator('button.marketing-start-action').first(); assert.ok(await start.count()); await start.click(); await page.waitForTimeout(250); s=await state();
+          assert.equal(s.marketingHidden,true); assert.equal(s.authHidden,false); assert.notEqual(s.companyDisplay,'none'); assert.match(s.submitText,/Create account/i);
+          console.log('PASS Start Free -> registration UI');
+
+          await home(); const signIn=page.locator('button[data-guest-action]').filter({hasText:/Sign in/i}).first(); assert.ok(await signIn.count()); await signIn.click(); await page.waitForTimeout(150); s=await state();
+          assert.equal(s.authHidden,false); assert.equal(s.companyDisplay,'none'); console.log('PASS Sign in UI');
+
+          await home(); const explore=page.getByRole('button',{name:/Explore the workspace/i}); assert.ok(await explore.count()); await explore.first().click(); await page.waitForTimeout(250); s=await state();
+          assert.equal(s.authHidden,false); assert.notEqual(s.companyDisplay,'none'); console.log('PASS Explore workspace -> registration UI');
+
+          await home(); const seePlans=page.getByRole('button',{name:/See plans/i}); assert.ok(await seePlans.count()); await seePlans.first().click(); await page.waitForTimeout(500);
+          const pricing=await page.evaluate(()=>({scrollY:Math.round(scrollY),top:Math.round(document.getElementById('pricing')?.getBoundingClientRect().top||9999)})); assert.ok(Math.abs(pricing.top)<700||pricing.scrollY>0);
+          console.log('PASS See plans navigation');
+
+          await page.goto(process.env.ORIGIN+'/register-direct.html',{waitUntil:'networkidle',timeout:45000});
+          const body=(await page.locator('body').innerText()).slice(0,800); assert.match(body,/Create your account/i);
+          console.log('PASS direct registration page');
+          assert.deepEqual(pageErrors,[]); assert.deepEqual(criticalFailures,[]);
+          await browser.close();
+          console.log('EXACT_POSTDEPLOY_SMOKE_PASS');
+          NODE
