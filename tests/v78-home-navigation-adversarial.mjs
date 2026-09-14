@@ -19,6 +19,9 @@ const websiteFn=html.slice(html.indexOf('function returnToPublicWebsite()'),html
 ok('website exit does not log the user out',websiteFn.includes('showMarketing();')&&!websiteFn.includes('logoutUser('));
 ok('last permitted workspace view is retained',html.includes('let lastWorkspaceView="dashboard"')&&html.includes('lastWorkspaceView=id')&&html.includes('roleCanView(lastWorkspaceView,role)?lastWorkspaceView:roleLandingView(role)'));
 ok('signed-in marketing page offers Open workspace',html.includes('id="marketingWorkspaceBtn"')&&html.includes('id="marketingHeroWorkspaceBtn"')&&html.includes('function syncMarketingSessionActions()'));
+const pricingFn=html.slice(html.indexOf('function scrollToPricing()'),html.indexOf('function safeSessionGet('));
+ok('See plans scrolls the fixed marketing container explicitly',html.includes('data-bw-onclick="scrollToPricing()"')&&pricingFn.includes('gate.scrollTo({top,behavior:"auto"})')&&pricingFn.includes('gate.scrollTop+(targetRect.top-gateRect.top)-offset')&&pricingFn.includes('#marketingGate .marketingnav'));
+ok('See plans keeps a non-marketing fallback',pricingFn.includes('target.scrollIntoView({behavior:"auto",block:"start"})')&&pricingFn.includes('return true'));
 ok('guest-only controls hide during resumable session',html.includes("document.querySelectorAll('#marketingGate [data-guest-action]').forEach(el=>{el.hidden=canResume})"));
 
 // Pass 2 — authorization boundaries.

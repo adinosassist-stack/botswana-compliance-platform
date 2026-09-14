@@ -7999,7 +7999,20 @@ function returnToWorkspace(){
 }
 function openAuthFromMarketing(mode="register"){hideMarketing();showAuth();setAuthMode(mode);if(mode==="register")setTimeout(()=>authCompany.focus(),50);else setTimeout(()=>authEmail.focus(),50)}
 function backToMarketing(){authGate.classList.add("hidden");showMarketing()}
-function scrollToPricing(){document.getElementById("pricing")?.scrollIntoView({behavior:"smooth",block:"start"})}
+function scrollToPricing(){
+ const gate=document.getElementById("marketingGate"),target=document.getElementById("pricing");
+ if(!target)return false;
+ if(gate&&!gate.classList.contains("hidden")){
+  const gateRect=gate.getBoundingClientRect(),targetRect=target.getBoundingClientRect();
+  const sticky=document.querySelector("#marketingGate .marketingnav");
+  const offset=Math.max(0,Number(sticky?.offsetHeight||0)+8);
+  const top=Math.max(0,gate.scrollTop+(targetRect.top-gateRect.top)-offset);
+  gate.scrollTo({top,behavior:"auto"});
+  return true;
+ }
+ target.scrollIntoView({behavior:"auto",block:"start"});
+ return true;
+}
 function safeSessionGet(key){try{return sessionStorage.getItem(key)}catch(_){return null}}
 function safeSessionSet(key,value){try{sessionStorage.setItem(key,value);return true}catch(_){return false}}
 function startFreeFromMarketing(plan=null){
