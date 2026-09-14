@@ -1,0 +1,60 @@
+name: Temporary AI credit concurrency patch
+
+on:
+  push:
+    branches:
+      - fix/ai-credit-concurrency-audit-20260914
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact audit branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: fix/ai-credit-concurrency-audit-20260914
+          fetch-depth: 0
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+      - name: Apply bounded audit patch
+        run: python3 scripts/tmp-ai-credit-concurrency-patch.py
+      - name: Verify focused AI credit and syntax regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check cloudflare/src/worker.js
+          node tests/ai-margin-static.mjs
+          node tests/transactional-workflows-static.mjs
+          node tests/partner-authorization-static.mjs
+          git diff --check
+      - name: Ensure candidate diff is bounded
+        shell: bash
+        run: |
+          set -euo pipefail
+          changed="$(git diff --name-only HEAD | sort)"
+          printf '%s\n' "$changed"
+          expected=$'cloudflare/src/worker.js\ntests/ai-margin-static.mjs\n.github/workflows/tmp-ai-credit-concurrency-patch.yml\nscripts/tmp-ai-credit-concurrency-patch.py'
+          # Temp files are deleted by the patch script, so they appear as staged working-tree deletions until commit.
+          for path in $changed; do
+            case "$path" in
+              cloudflare/src/worker.js|tests/ai-margin-static.mjs|.github/workflows/tmp-ai-credit-concurrency-patch.yml|scripts/tmp-ai-credit-concurrency-patch.py) ;;
+              *) echo "Unexpected changed path: $path" >&2; exit 1 ;;
+            esac
+          done
+      - name: Commit clean audit candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Thebe Desk CI'
+          git config user.email 'thebe-desk-ci@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'Harden AI credit concurrency and wallet initialization'
+          git push origin HEAD:refs/heads/fix/ai-credit-concurrency-audit-20260914
