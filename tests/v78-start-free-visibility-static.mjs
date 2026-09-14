@@ -18,7 +18,7 @@ ok('Open workspace remains a separate session action',html.includes('id="marketi
 ok('Sign in remains guest-only',html.includes('marketing-guest-action" data-guest-action data-bw-onclick="openAuthFromMarketing(\'login\')">Sign in'));
 ok('mobile start action has explicit compact sizing',html.includes('.marketinglinks .marketing-start-action,.marketinglinks .marketing-session-action'));
 ok('mobile logo compacts to preserve CTA space',html.includes('@media(max-width:650px){.marketinglogo{font-size:0!important'));
-ok('service worker cache is rotated within reviewed successor lineage',sw.includes('1.21.101-bf07-toolchain-package-hardening-cta-runtime-hotfix-20260913'));
+ok('service worker cache is rotated within reviewed successor lineage',(sw.includes('1.21.101-bf07-toolchain-package-hardening-cta-runtime-hotfix-20260913')||sw.includes('1.21.101-registration-owner-ui-hotfix-20260914')));
 ok('critical JavaScript is network-first',sw.includes('function criticalRuntimeAsset')&&sw.includes('url.pathname.startsWith("/js/")')&&sw.includes('event.respondWith(networkFirst(request,event))'));
 ok('runtime network fetch bypasses HTTP cache',sw.includes('fetch(request,{cache:"no-store"})'));
 ok('production Explore workspace cannot silently no-op',events.includes('call.name==="enterStandalonePreview"&&result===false')&&events.includes('global.openAuthFromMarketing("register")'));

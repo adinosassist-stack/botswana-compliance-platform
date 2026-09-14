@@ -12,11 +12,12 @@ const sw=read('public/sw.js');
 let checks=0;const ok=(name,value)=>{assert.ok(value,name);checks++};
 
 ok('production PBKDF2 work factor is Worker-compatible',worker.includes('const PASSWORD_PBKDF2_ITERATIONS=100000;'));
+ok('stored PBKDF2 parser is capped to the same Workers runtime maximum',worker.includes('const PASSWORD_PBKDF2_MAX_ITERATIONS=100000;'));
 ok('rehash policy upgrades only weaker hashes and never downgrades stronger ones',worker.includes('parsed.iterations<PASSWORD_PBKDF2_ITERATIONS'));
 const current='pbkdf2$100000$i2iHNd1usm2v00FvnFVQrw==$IKniLUpx7tDt1h8eYCqRmLd/m1OcYh+mQbe+Xncc1Wk=';
-const stronger='pbkdf2$120000$i2iHNd1usm2v00FvnFVQrw==$IKniLUpx7tDt1h8eYCqRmLd/m1OcYh+mQbe+Xncc1Wk=';
+const unsupported='pbkdf2$120000$i2iHNd1usm2v00FvnFVQrw==$IKniLUpx7tDt1h8eYCqRmLd/m1OcYh+mQbe+Xncc1Wk=';
 ok('current hash remains current',__v782150Test.parsePasswordHash(current)?.iterations===100000&&!__v782150Test.passwordNeedsRehash(current));
-ok('stronger accepted hash is not downgraded',__v782150Test.parsePasswordHash(stronger)?.iterations===120000&&!__v782150Test.passwordNeedsRehash(stronger));
+ok('runtime-unsupported stronger hash fails closed before PBKDF2 derivation',__v782150Test.parsePasswordHash(unsupported)===null);
 ok('registration still creates an owner membership',worker.includes("INSERT INTO memberships(tenant_id,user_id,role,status) VALUES(?,?,'owner','active')"));
 ok('registration keeps IP global and account throttles',worker.includes('register-ip')&&worker.includes('register-platform')&&worker.includes('register-account'));
 ok('first-party registration protection remains fail closed',direct.includes('/api/auth/registration-proof/challenge')&&direct.includes('turnstileToken:proof'));
