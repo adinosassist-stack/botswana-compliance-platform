@@ -13,6 +13,8 @@ on:
 
 permissions:
   contents: read
+  actions: read
+  pull-requests: read
 
 concurrency:
   group: bf07-seal-${{ github.repository }}-${{ github.ref }}
@@ -34,9 +36,12 @@ jobs:
       - name: Checkout exact revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify exact release commit
+      - name: Verify exact release commit and provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
@@ -49,6 +54,58 @@ jobs:
           fi
           [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]] || { echo 'checkout HEAD does not match GITHUB_SHA' >&2; exit 1; }
           [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo 'checkout is not clean before BF-07 resolution' >&2; exit 1; }
+
+          release_message="$(git log -1 --format=%B "$GITHUB_SHA")"
+          [[ "$release_message" =~ ^\[deploy\]([[:space:]]|$) ]] || { echo 'release authority must begin with [deploy]' >&2; exit 1; }
+
+          read -r -a release_line <<< "$(git rev-list --parents -n 1 "$GITHUB_SHA")"
+          release_parent_count=$(( ${#release_line[@]} - 1 ))
+          [[ "$release_parent_count" == '1' ]] || { echo "release marker must have exactly one parent, got $release_parent_count" >&2; exit 1; }
+          parent_sha="${release_line[1]}"
+          [[ "$parent_sha" =~ ^[0-9a-f]{40}$ ]] || { echo 'release parent SHA is invalid' >&2; exit 1; }
+
+          release_tree="$(git rev-parse "$GITHUB_SHA^{tree}")"
+          parent_tree="$(git rev-parse "$parent_sha^{tree}")"
+          [[ "$release_tree" == "$parent_tree" ]] || { echo 'release marker must be metadata-only and preserve the qualified parent tree exactly' >&2; exit 1; }
+
+          read -r -a parent_line <<< "$(git rev-list --parents -n 1 "$parent_sha")"
+          parent_parent_count=$(( ${#parent_line[@]} - 1 ))
+          [[ "$parent_parent_count" == '2' ]] || { echo "qualified parent must be a two-parent merged PR commit, got $parent_parent_count parent(s)" >&2; exit 1; }
+
+          pulls_json="$(
+            curl --fail-with-body --silent --show-error \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/commits/$parent_sha/pulls?per_page=100"
+          )"
+          printf '%s' "$pulls_json" | PARENT_SHA="$parent_sha" python3 -c '
+import json, os, sys
+pulls = json.load(sys.stdin)
+parent = os.environ["PARENT_SHA"]
+match = next((pr for pr in pulls if pr.get("merged_at") and pr.get("base", {}).get("ref") == "main" and pr.get("merge_commit_sha") == parent), None)
+if not match:
+    raise SystemExit("qualified parent is not the merge commit of a merged pull request targeting main")
+print(f"Merged PR provenance confirmed: #{match.get(chr(110)+chr(117)+chr(109)+chr(98)+chr(101)+chr(114))}")
+'
+
+          recovery_json="$(
+            curl --fail-with-body --silent --show-error \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/recovery-ci.yml/runs?branch=main&per_page=100"
+          )"
+          printf '%s' "$recovery_json" | PARENT_SHA="$parent_sha" python3 -c '
+import json, os, sys
+body = json.load(sys.stdin)
+parent = os.environ["PARENT_SHA"]
+runs = body.get("workflow_runs", [])
+match = next((run for run in runs if run.get("head_sha") == parent and run.get("head_branch") == "main" and run.get("status") == "completed" and run.get("conclusion") == "success"), None)
+if not match:
+    raise SystemExit("qualified parent has no successful completed Recovery CI run on main")
+print(f"Parent Recovery CI provenance confirmed: run {match.get(chr(105)+chr(100))}")
+'
 
       - name: Setup pinned Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
