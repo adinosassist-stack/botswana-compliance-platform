@@ -7,12 +7,8 @@ on:
 permissions:
   contents: write
 
-env:
-  BRANCH: fix/registration-ui-navigation-owner-20260914
-
 jobs:
   build-fix:
-    if: ${{ !contains(github.event.head_commit.message, '[registration-hotfix-built]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -131,7 +127,7 @@ console.log(`v83 registration edge runtime: ${checks.length}/${checks.length} ch
           set -euo pipefail
           git config user.name 'Thebe Desk CI'
           git config user.email 'thebe-desk-ci@users.noreply.github.com'
-          git add cloudflare/src/worker.js .github/workflows/recovery-ci.yml tests/v83-registration-edge-runtime.mjs .github/workflows/tmp-registration-edge-fix-builder.yml
+          git add -A
           git diff --cached --check
           git commit -m '[registration-hotfix-built] Fix Workers registration runtime and owner access'
           git push origin HEAD:refs/heads/fix/registration-ui-navigation-owner-20260914
