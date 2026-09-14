@@ -23,5 +23,13 @@ ok(workflow.includes('AUDIT_SHA: ${{ github.event.workflow_run.head_sha || githu
 ok(workflow.includes('post-deploy smoke SHA mismatch')&&workflow.includes('refusing stale launch audit'), 'launch audit fails closed on trigger or current-main SHA drift');
 ok(workflow.includes('environment: production')&&workflow.includes('CLOUDFLARE_API_TOKEN')&&workflow.includes('D1_DATABASE_ID'), 'privileged Cloudflare and D1 audit remains isolated in the production environment');
 ok(workflow.includes("contains(github.event.head_commit.message, '[launch-audit]')"), 'explicit launch-audit push path remains available for operator-triggered rechecks');
+ok(audit.includes("import fs from 'node:fs'")&&audit.includes('MAX_LEGACY_ORPHAN_TENANTS=1'), 'launch audit records a bounded legacy orphan baseline without embedding tenant identifiers');
+ok(audit.includes("const orphanPredicate=`NOT EXISTS (SELECT 1 FROM memberships m WHERE m.tenant_id=t.id)`"), 'tenant integrity audit defines ownership by membership');
+ok(audit.includes("legacyAllowedDependencies=new Set(['memberships.tenant_id','subscriptions.tenant_id','audit_chain_state.tenant_id'])"), 'legacy orphan allowance is restricted to membership, subscription and audit-chain metadata');
+ok(audit.includes("body.matchAll(/\\b([A-Za-z0-9_]*tenant_id)\\b/gi)")&&audit.includes("dependencySelects.join(' UNION ALL ')"), 'tenant integrity audit derives a complete tenant-reference dependency sweep from schema');
+ok(audit.includes('assert(orphanUsers===0')&&audit.includes('assert(orphanTenants<=MAX_LEGACY_ORPHAN_TENANTS'), 'launch audit fails closed on orphan users or orphan tenant growth');
+ok(audit.includes('assert(orphanSubscriptions===orphanTenants')&&audit.includes('assert(orphanAuditChainState===orphanTenants'), 'known legacy orphan residue must preserve the exact bounded metadata shape');
+ok(audit.includes('assert(orphanBusinessDependencyRows===0')&&audit.includes("mark('tenant integrity baseline',true"), 'orphan-linked business data is forbidden and successful integrity state is explicit');
+ok(audit.includes('LEGACY_DATA_DEBT orphan_tenants=')&&audit.includes('no automatic deletion performed'), 'legacy residue is reported without destructive production cleanup');
 
-console.log(`Phase 0 deferred integration and post-deploy audit contract: ${pass}/14 PASS`);
+console.log(`Phase 0 deferred integration, post-deploy and tenant-integrity contract: ${pass}/22 PASS`);
