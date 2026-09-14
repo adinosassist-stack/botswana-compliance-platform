@@ -1,0 +1,83 @@
+name: Production tenant integrity diagnostic
+run-name: Production tenant integrity diagnostic ${{ github.sha }}
+
+on:
+  push:
+    branches: [diag/production-tenant-integrity-20260914]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-tenant-integrity-diagnostic
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    name: Read-only aggregate tenant integrity diagnostic
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: production
+    env:
+      EXPECTED_MAIN_SHA: 46e2674c09839abc5b1242e74db48b70a57f5365
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
+    steps:
+      - name: Checkout diagnostic branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify production authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          main_sha="$(git rev-parse refs/remotes/origin/main)"
+          [[ "$main_sha" == "$EXPECTED_MAIN_SHA" ]] || {
+            echo "main authority changed main=$main_sha expected=$EXPECTED_MAIN_SHA" >&2
+            exit 1
+          }
+          echo "PASS exact production authority $EXPECTED_MAIN_SHA"
+
+      - name: Query aggregate integrity only
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const token=String(process.env.CLOUDFLARE_API_TOKEN||'').trim();
+          const accountId=String(process.env.CLOUDFLARE_ACCOUNT_ID||'').trim();
+          const databaseId=String(process.env.D1_DATABASE_ID||'').trim();
+          if(!token||!/^[0-9a-fA-F]{32}$/.test(accountId)||!/^[0-9a-fA-F-]{36}$/.test(databaseId))throw new Error('production diagnostic configuration invalid');
+          const endpoint=`https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${databaseId}/query`;
+          async function scalar(label,sql){
+            const response=await fetch(endpoint,{method:'POST',headers:{Authorization:`Bearer ${token}`,Accept:'application/json','Content-Type':'application/json'},body:JSON.stringify({sql})});
+            const body=await response.json().catch(()=>null);
+            if(!response.ok||body?.success===false)throw new Error(`${label} query failed HTTP ${response.status}`);
+            const sets=Array.isArray(body?.result)?body.result:[];
+            if(!sets.length||sets.some(x=>x?.success===false))throw new Error(`${label} query result failed`);
+            const rows=sets.flatMap(x=>Array.isArray(x?.results)?x.results:[]);
+            const value=Number(rows?.[0]?.count);
+            if(!Number.isFinite(value))throw new Error(`${label} count missing`);
+            console.log(`AGGREGATE ${label}=${value}`);
+            return value;
+          }
+          const q={
+            tenants:`SELECT COUNT(*) AS count FROM tenants`,
+            memberships:`SELECT COUNT(*) AS count FROM memberships`,
+            users:`SELECT COUNT(*) AS count FROM users`,
+            orphan_tenants:`SELECT COUNT(*) AS count FROM tenants t WHERE NOT EXISTS (SELECT 1 FROM memberships m WHERE m.tenant_id=t.id)`,
+            orphan_tenants_with_subscriptions:`SELECT COUNT(*) AS count FROM tenants t WHERE NOT EXISTS (SELECT 1 FROM memberships m WHERE m.tenant_id=t.id) AND EXISTS (SELECT 1 FROM subscriptions s WHERE s.tenant_id=t.id)`,
+            orphan_tenants_with_sessions:`SELECT COUNT(*) AS count FROM tenants t WHERE NOT EXISTS (SELECT 1 FROM memberships m WHERE m.tenant_id=t.id) AND EXISTS (SELECT 1 FROM sessions s WHERE s.tenant_id=t.id)`,
+            orphan_tenants_with_app_state:`SELECT COUNT(*) AS count FROM tenants t WHERE NOT EXISTS (SELECT 1 FROM memberships m WHERE m.tenant_id=t.id) AND EXISTS (SELECT 1 FROM app_state a WHERE a.tenant_id=t.id)`,
+            orphan_tenants_with_deletion_requests:`SELECT COUNT(*) AS count FROM tenants t WHERE NOT EXISTS (SELECT 1 FROM memberships m WHERE m.tenant_id=t.id) AND EXISTS (SELECT 1 FROM deletion_requests d WHERE d.tenant_id=t.id)`,
+            orphan_tenants_with_legal_holds:`SELECT COUNT(*) AS count FROM tenants t WHERE NOT EXISTS (SELECT 1 FROM memberships m WHERE m.tenant_id=t.id) AND EXISTS (SELECT 1 FROM legal_holds h WHERE h.tenant_id=t.id AND h.active=1)`,
+            orphan_users:`SELECT COUNT(*) AS count FROM users u WHERE NOT EXISTS (SELECT 1 FROM memberships m WHERE m.user_id=u.id)`,
+            deletion_tombstones:`SELECT COUNT(*) AS count FROM deletion_tombstones`
+          };
+          const out={};
+          for(const [label,sql] of Object.entries(q))out[label]=await scalar(label,sql);
+          if(out.orphan_tenants>out.tenants||out.orphan_users>out.users)throw new Error('aggregate integrity arithmetic impossible');
+          console.log('DIAGNOSTIC_COMPLETE aggregate-only; no tenant ids, names, emails, or customer records were read');
+          NODE
