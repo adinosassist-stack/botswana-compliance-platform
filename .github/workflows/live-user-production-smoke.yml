@@ -45,6 +45,8 @@ jobs:
             echo "clean branch no longer starts at expected main" >&2
             exit 1
           }
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git cherry-pick "$TEST_COMMIT"
           git cherry-pick "$WORKER_COMMIT"
           changed="$(git diff --name-only "$EXPECTED_MAIN_SHA" HEAD | sort)"
