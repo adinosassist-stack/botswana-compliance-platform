@@ -13,5 +13,7 @@ if(/localStorage\s*\.\s*(getItem|setItem|removeItem|clear)/.test(html)) throw ne
 if(!html.includes('async function bootstrap()')) throw new Error('Missing auth bootstrap');
 if(html.includes('renderAll();applyRoleUi();bootstrap()')) throw new Error('Recursive bootstrap regression');
 if(!html.includes('id="addCompanyBtn"')||!html.includes('role==="owner"')) throw new Error('Company creation UI role gate missing');
-for(const x of ['tenant_id','sessions','audit_events','rule_versions','version bigint','upload_status','scan_status','subscriptions']) if(!schema.includes(x)) throw new Error('Missing schema control: '+x);
+for(const x of ['tenant_id','sessions','audit_events','rule_versions','upload_status','scan_status','subscriptions']) if(!schema.includes(x)) throw new Error('Missing schema control: '+x);
+if(!/create table if not exists app_state\([^;]*version integer not null default 1\)/i.test(schema)) throw new Error('Missing schema control: app_state numeric integer version contract');
+if(/create table if not exists app_state\([^;]*version bigint/i.test(schema)) throw new Error('Stale schema control: app_state.version must not be bigint');
 console.log('Security regression checks passed');
