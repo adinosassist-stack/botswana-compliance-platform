@@ -5,7 +5,7 @@ const workflow=read('.github/workflows/bf07-seal.yml'),resolver=read('scripts/re
 let pass=0;const ok=(c,m)=>{if(!c)throw new Error('FAIL: '+m);pass++;console.log('PASS',m)};
 ok(pkg.version==='1.21.101'&&profile.package_version===pkg.version&&profile.software_release_candidate===`v78.${pkg.version}`,'v1.21.101 release identity aligned');
 ok(profile.v121101_bf07_toolchain_package_hardening===true&&profile.bf07_packager_reruns_full_release_check===true&&profile.bf07_packager_stage_hash_verification===true,'release profile records toolchain/package hardening');
-ok(sw.includes('1.21.101-bf07-toolchain-package-hardening')&&worker.includes('const APP_RELEASE="v78.1.21.101"'),'runtime/cache identities aligned');
+ok(sw.includes('1.21.101-registration-owner-ui-hotfix-20260914')&&worker.includes('const APP_RELEASE="v78.1.21.101"'),'runtime/cache identities aligned to reviewed registration hotfix');
 ok(read('.nvmrc').trim()==='22.23.2'&&pkg.packageManager==='npm@10.9.8','Node/npm pair is exactly pinned');
 ok(pkg.scripts['check:bf07-toolchain']==='node scripts/bf07-toolchain-gate.mjs'&&pkg.scripts['release:check'].startsWith('npm run check:bf07-toolchain &&'),'release gate starts with active toolchain verification');
 {const chain=String(pkg.scripts.test||'');ok(chain.indexOf('test:v78-121101')>=0&&chain.indexOf('test:v78-121101')<chain.indexOf('test:v78-121100'),'v1.21.101 checks remain ordered before v1.21.100 in the full regression chain');}
