@@ -1,4 +1,4 @@
-name: Temporary remote Workers registration probe
+name: Temporary registration hotfix finalizer
 
 on:
   push:
@@ -6,74 +6,43 @@ on:
       - fix/registration-ui-navigation-owner-20260914
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  probe:
-    name: Verify registration hash and D1 batch on Cloudflare remote preview
+  finalize:
+    name: Finalize and verify registration hotfix
     runs-on: ubuntu-24.04
-    timeout-minutes: 12
-    environment: production
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
-      WRANGLER_SEND_METRICS: "false"
+    timeout-minutes: 15
     steps:
-      - name: Checkout exact branch
+      - name: Checkout exact hotfix branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: fix/registration-ui-navigation-owner-20260914
-          persist-credentials: false
+          fetch-depth: 0
       - name: Setup pinned Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: '.nvmrc'
           package-manager-cache: false
-      - name: Install exact Wrangler
-        run: npm ci --ignore-scripts
-      - name: Render isolated remote-preview config
+      - name: Apply final Worker ceiling, regression and cleanup patch
+        run: python3 scripts/tmp-finalize-registration-hotfix.py
+      - name: Run focused registration and historical regressions
         shell: bash
         run: |
           set -euo pipefail
-          [[ "$D1_DATABASE_ID" =~ ^[0-9a-fA-F-]{36}$ ]]
-          cat > scripts/tmp-registration-batch-wrangler.generated.jsonc <<EOF
-          {
-            "name": "thebe-registration-batch-probe",
-            "main": "tmp-registration-worker-probe.mjs",
-            "compatibility_date": "2026-09-03",
-            "workers_dev": true,
-            "preview_urls": false,
-            "d1_databases": [
-              {"binding":"DB","database_name":"bw-compliance-os","database_id":"$D1_DATABASE_ID"}
-            ]
-          }
-          EOF
-      - name: Run exact hash plus D1 batch in remote Workers runtime
+          node --check cloudflare/src/worker.js
+          node tests/v82-registration-owner-navigation-hardening.mjs
+          node tests/v78-12150-resilience-backup-rate-limit-adversarial.mjs
+          node tests/v78-start-free-visibility-static.mjs
+          node tests/v78-home-navigation-adversarial.mjs
+          git diff --check
+      - name: Commit qualified source candidate
         shell: bash
         run: |
           set -euo pipefail
-          log=/tmp/thebe-registration-batch-probe.log
-          npx wrangler dev --remote --config scripts/tmp-registration-batch-wrangler.generated.jsonc --ip 127.0.0.1 --port 8787 >"$log" 2>&1 &
-          pid=$!
-          cleanup(){ kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; }
-          trap cleanup EXIT
-          status=000
-          for i in $(seq 1 60); do
-            status=$(curl --silent --show-error --max-time 10 -o /tmp/probe.json -w '%{http_code}' http://127.0.0.1:8787/probe || true)
-            if [[ "$status" == "200" || "$status" == "500" ]]; then break; fi
-            if ! kill -0 "$pid" 2>/dev/null; then break; fi
-            sleep 1
-          done
-          echo "REMOTE_REGISTRATION_BATCH_STATUS=$status"
-          cat /tmp/probe.json 2>/dev/null || true
-          if [[ "$status" != "200" ]]; then cat "$log"; exit 1; fi
-          PROBE_JSON="$(cat /tmp/probe.json)" node <<'NODE'
-          const body=JSON.parse(process.env.PROBE_JSON);
-          if(body.ok!==true)throw new Error(`remote registration probe failed at ${body.failedStage||'unknown'}: ${body.errorName||''} ${body.errorMessage||''}`);
-          if(body.residualUsers!==0)throw new Error('synthetic registration user was not cleaned up');
-          if(body.hashPrefix!=='pbkdf2$100000$')throw new Error(`unexpected password hash prefix ${body.hashPrefix||''}`);
-          const required=['count_before','hash','exists_lookup','batch','verify'];
-          for(const stage of required)if(!body.stages?.includes(stage))throw new Error(`missing stage ${stage}`);
-          console.log(`REMOTE_REGISTRATION_HASH_BATCH_PASS changes=${JSON.stringify(body.batchChanges)}`);
-          NODE
+          git config user.name 'Thebe Desk CI'
+          git config user.email 'thebe-desk-ci@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'Fix Workers registration PBKDF2 ceiling and clean audit probes'
+          git push origin HEAD:refs/heads/fix/registration-ui-navigation-owner-20260914
