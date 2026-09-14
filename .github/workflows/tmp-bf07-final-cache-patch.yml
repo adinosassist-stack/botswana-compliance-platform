@@ -29,7 +29,6 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import re
 
           current = "sw.includes('1.21.101-registration-owner-ui-hotfix-20260914')"
           targets = {
@@ -55,10 +54,7 @@ jobs:
               pos = line.rfind(marker)
               if pos < 0:
                   raise SystemExit(f'{rel}: message boundary not found')
-              expression = line[:pos]
-              suffix = line[pos:]
-              # Add the reviewed current cache token as the final stronger-successor branch.
-              lines[i] = expression + '||' + current + suffix
+              lines[i] = line[:pos] + '||' + current + line[pos:]
               p.write_text(''.join(lines))
               print('PATCHED', rel)
           PY
@@ -86,8 +82,9 @@ jobs:
           git diff --cached --check
           changed="$(git diff --cached --name-only | sort)"
           expected="$(printf '%s\n' \
+            .github/workflows/tmp-bf07-final-cache-patch.yml \
             tests/v78-12178-prebody-abuse-hardening-adversarial.mjs \
-            tests/v78-12179-request-encoding-abuse-adversarial.mjs \
+            tests/v78-12179-request-encoding-abuse-hardening-adversarial.mjs \
             tests/v78-12180-cloudflare-account-throttle-adversarial.mjs \
             tests/v78-12181-password-reset-account-throttle-adversarial.mjs \
             tests/v78-12182-node-production-mode-integrity-adversarial.mjs \
