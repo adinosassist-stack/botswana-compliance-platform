@@ -73,13 +73,15 @@ const auditChain=await one('SELECT last_event_id,last_hash,event_count FROM audi
 if(auditChain){
   const eventCount=Number(auditChain.event_count||0);
   const rawLastEventId=auditChain.last_event_id;
-  const lastEventId=Number(rawLastEventId);
   const lastHash=String(auditChain.last_hash||'');
   assert(Number.isSafeInteger(eventCount)&&eventCount>=0,'legacy orphan audit-chain event_count is invalid');
   if(eventCount===0){
     assert((rawLastEventId===null||rawLastEventId===undefined)&&!lastHash,'zero-count legacy audit-chain metadata is inconsistent');
   }else{
-    assert(Number.isSafeInteger(lastEventId)&&lastEventId>0,'legacy orphan audit-chain last_event_id must be a positive integer');
+    if(rawLastEventId!==null&&rawLastEventId!==undefined){
+      const lastEventId=Number(rawLastEventId);
+      assert(Number.isSafeInteger(lastEventId)&&lastEventId>0,'non-null legacy orphan audit-chain last_event_id must be a positive integer');
+    }
     assert(/^[0-9a-f]{64}$/i.test(lastHash),'legacy orphan audit-chain last_hash is malformed');
   }
 }
