@@ -7,7 +7,7 @@ const root=process.cwd(),read=p=>fs.readFileSync(path.join(root,p),"utf8"),pkg=J
 let checks=0;const ok=(v,m)=>{checks++;if(!v)throw new Error(`FAIL ${checks}: ${m}`)};
 const source=read("cloudflare/src/worker.js"),wrangler=read("cloudflare/wrangler.toml"),policy=read("cloudflare/config/route-security-policy.json");
 ok(["1.21.50","1.21.51","1.21.52","1.21.53","1.21.54","1.21.55","1.21.56","1.21.57","1.21.58","1.21.59","1.21.60","1.21.61","1.21.62","1.21.63","1.21.64","1.21.65","1.21.66","1.21.67","1.21.68","1.21.69","1.21.70","1.21.71","1.21.72","1.21.73","1.21.74","1.21.75","1.21.76","1.21.77","1.21.78","1.21.79","1.21.80","1.21.81","1.21.82","1.21.83","1.21.84","1.21.85","1.21.86","1.21.87","1.21.88","1.21.89","1.21.90","1.21.91","1.21.92","1.21.93","1.21.94","1.21.95","1.21.96","1.21.97","1.21.98","1.21.99","1.21.100","1.21.101"].includes(pkg.version),"package must identify v1.21.50 or reviewed successor");
-ok(source.includes("PASSWORD_PBKDF2_MAX_ITERATIONS=300000")&&source.includes("parsePasswordHash(stored)"),"stored password hashes must be structurally and computationally bounded");
+ok(source.includes("PASSWORD_PBKDF2_MAX_ITERATIONS=100000")&&source.includes("parsePasswordHash(stored)"),"stored password hashes must be bounded to the Cloudflare Workers PBKDF2 runtime ceiling");
 ok(source.includes("passwordNeedsRehash(expectedPasswordHash)")&&source.includes("UPDATE users SET password_hash=? WHERE id=? AND password_hash=? AND session_generation=?"),"successful login must support compare-and-set transparent password hash upgrades");
 ok(wrangler.includes('name = "PUBLIC_RATE_LIMITER"')&&wrangler.includes('namespace_id = "78212150"')&&wrangler.includes("limit = 30")&&wrangler.includes("period = 60"),"public bearer endpoints must have a native Cloudflare rate limit binding");
 ok(source.includes('{key:"PUBLIC_RATE_LIMITER",required:true'),"production readiness must fail closed without the public rate limiter binding");
@@ -16,9 +16,10 @@ ok(source.includes("clientIp=String(req?.headers?.get(\"cf-connecting-ip\")")&&s
 ok(source.includes('requestId=req.headers.get("cf-ray")||crypto.randomUUID()')&&source.includes('"x-request-id":requestId'),"Worker failures must expose a correlation id");
 ok(fs.existsSync(path.join(root,"scripts/verify-d1-export.mjs"))&&pkg.scripts["check:d1-backup-shape"],"D1 backup shape verifier must be part of the release gate");
 ok(__v782150Test.SEO_GUIDE_SLUGS.length===new Set(__v782150Test.SEO_GUIDE_SLUGS).size,"SEO guide registry must not produce duplicate sitemap URLs");
-const valid=__v782150Test.parsePasswordHash("pbkdf2$120000$i2iHNd1usm2v00FvnFVQrw==$IKniLUpx7tDt1h8eYCqRmLd/m1OcYh+mQbe+Xncc1Wk=");
-ok(valid?.iterations===120000&&!__v782150Test.passwordNeedsRehash("pbkdf2$120000$i2iHNd1usm2v00FvnFVQrw==$IKniLUpx7tDt1h8eYCqRmLd/m1OcYh+mQbe+Xncc1Wk="),"current PBKDF2 hashes must parse without forced rehash");
-ok(__v782150Test.passwordNeedsRehash("pbkdf2$100000$i2iHNd1usm2v00FvnFVQrw==$IKniLUpx7tDt1h8eYCqRmLd/m1OcYh+mQbe+Xncc1Wk="),"older accepted PBKDF2 work factors must be marked for upgrade");
+const valid=__v782150Test.parsePasswordHash("pbkdf2$100000$i2iHNd1usm2v00FvnFVQrw==$IKniLUpx7tDt1h8eYCqRmLd/m1OcYh+mQbe+Xncc1Wk=");
+ok(valid?.iterations===100000&&!__v782150Test.passwordNeedsRehash("pbkdf2$100000$i2iHNd1usm2v00FvnFVQrw==$IKniLUpx7tDt1h8eYCqRmLd/m1OcYh+mQbe+Xncc1Wk="),"current production-compatible PBKDF2 hashes must parse without forced rehash");
+const unsupported=__v782150Test.parsePasswordHash("pbkdf2$120000$i2iHNd1usm2v00FvnFVQrw==$IKniLUpx7tDt1h8eYCqRmLd/m1OcYh+mQbe+Xncc1Wk=");
+ok(unsupported===null,"PBKDF2 hashes above the Workers runtime ceiling must fail closed before derivation");
 ok(__v782150Test.parsePasswordHash("pbkdf2$999999$i2iHNd1usm2v00FvnFVQrw==$IKniLUpx7tDt1h8eYCqRmLd/m1OcYh+mQbe+Xncc1Wk=")===null,"hostile excessive PBKDF2 work factors must be rejected before derivation");
 let limiterCalls=0,dbCalls=0;
 const env={SESSION_SECRET:"s".repeat(48),PUBLIC_ORIGIN:"https://app.example",PUBLIC_RATE_LIMITER:{async limit(){limiterCalls++;return {success:false}}},DB:{prepare(){dbCalls++;throw new Error("DB should not be reached after edge rate limiting")}}};

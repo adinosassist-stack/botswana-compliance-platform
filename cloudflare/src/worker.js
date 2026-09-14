@@ -72,9 +72,9 @@ const COMPANY_NAME_MAX_CHARS=160;
 const MAX_JSON_BODY_BYTES=1024*1024;
 // Cloudflare Workers currently caps PBKDF2 at 100,000 iterations. Keep the
 // stored format fail-closed at that runtime-supported maximum.
-const PASSWORD_PBKDF2_ITERATIONS=120000;
+const PASSWORD_PBKDF2_ITERATIONS=100000;
 const PASSWORD_PBKDF2_MIN_ITERATIONS=100000;
-const PASSWORD_PBKDF2_MAX_ITERATIONS=300000;
+const PASSWORD_PBKDF2_MAX_ITERATIONS=100000;
 const PASSWORD_SALT_BYTES=16;
 const PASSWORD_DIGEST_BYTES=32;
 const DUMMY_PASSWORD_HASH="pbkdf2$100000$i2iHNd1usm2v00FvnFVQrw==$IKniLUpx7tDt1h8eYCqRmLd/m1OcYh+mQbe+Xncc1Wk=";
@@ -187,7 +187,7 @@ async function hashPassword(password){
   const digest=await passwordDigest(password,salt,iterations);
   return `pbkdf2$${iterations}$${b64(salt)}$${b64(digest)}`;
 }
-function passwordNeedsRehash(stored){const parsed=parsePasswordHash(stored);return !!parsed&&parsed.iterations!==PASSWORD_PBKDF2_ITERATIONS}
+function passwordNeedsRehash(stored){const parsed=parsePasswordHash(stored);return !!parsed&&parsed.iterations<PASSWORD_PBKDF2_ITERATIONS}
 async function verifyPassword(password,stored){
   const parsed=parsePasswordHash(stored);if(!parsed)return false;
   try{const got=await passwordDigest(password,parsed.salt,parsed.iterations),expected=parsed.digest;

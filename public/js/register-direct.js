@@ -30,9 +30,17 @@ form?.addEventListener("submit",async event=>{
   const proof=await solveProof();
   btn.textContent="Creating account…";
   await api("/api/auth/register",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({companyName,email,password,turnstileToken:proof})});
-  setStatus("Account request accepted. Return to Thebe Desk and sign in with this email.","good");
-  btn.textContent="Account created";
-  setTimeout(()=>{location.href="/"},1800);
+  btn.textContent="Signing in…";
+  try{
+   await api("/api/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email,password})});
+   setStatus("Account created. Opening your workspace…","good");
+   location.href="/";
+   return;
+  }catch(loginError){
+   setStatus("Account created. Continue to Thebe Desk and sign in with this email.","good");
+   btn.textContent="Continue to sign in";
+   setTimeout(()=>{location.href="/"},1400);
+  }
  }catch(error){setStatus(error?.message||"Account creation could not complete. Try again.");btn.disabled=false;btn.textContent="Create account"}
 });
 })();
