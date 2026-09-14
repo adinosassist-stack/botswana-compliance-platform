@@ -28,10 +28,10 @@ function leadingZeroBits(buffer,bits){let remaining=Number(bits)||0;for(const va
 async function freshProof(){
   const {response,body}=await post('/api/auth/registration-proof/challenge',{});
   if(response.status!==200||!body?.token)throw new Error(`challenge failed status=${response.status} error=${body?.error||''}`);
-  const token=String(body.token),difficulty=Number(body.difficulty||0);
+  const proofToken=String(body.token),difficulty=Number(body.difficulty||0);
   for(let counter=0;counter<=500000;counter++){
-    const digest=crypto.createHash('sha256').update(`${token}:${counter}`).digest();
-    if(leadingZeroBits(digest,difficulty))return JSON.stringify({challenge:token,counter,honeypot:''});
+    const digest=crypto.createHash('sha256').update(`${proofToken}:${counter}`).digest();
+    if(leadingZeroBits(digest,difficulty))return JSON.stringify({challenge:proofToken,counter,honeypot:''});
   }
   throw new Error('proof solver exceeded counter bound');
 }
@@ -48,18 +48,42 @@ console.log(`REG_LIFECYCLE before users=${before.users} tenants=${before.tenants
 try{
   const proof=await freshProof();
   const registration=await post('/api/auth/register',{companyName,email,password,plan:'business',turnstileToken:proof});
-  console.log(`REG_LIFECYCLE register status=${registration.response.status} error=${String(registration.body?.error||'')} message=${String(registration.body?.message||'').slice(0,160)}`);
-  if(registration.response.status!==202||registration.body?.ok!==true)throw new Error(`registration failed status=${registration.response.status} error=${registration.body?.error||'unknown'}`);
+  const requestId=String(registration.response.headers.get('x-request-id')||registration.body?.requestId||'');
+  console.log(`REG_LIFECYCLE register status=${registration.response.status} error=${String(registration.body?.error||'')} requestId=${requestId} message=${String(registration.body?.message||'').slice(0,160)}`);
 
+  // Inspect persistence BEFORE interpreting the HTTP status or running cleanup. This distinguishes
+  // a pre-insert failure from a post-commit response/timing failure.
   const users=await query('SELECT id,email FROM users WHERE email=? LIMIT 2',[email]);
+  if(users.length){
+    userId=String(users[0].id||'');
+    const membership=await query(`SELECT m.tenant_id,m.role,m.status,t.name tenant_name,s.plan,s.status subscription_status
+      FROM memberships m JOIN tenants t ON t.id=m.tenant_id LEFT JOIN subscriptions s ON s.tenant_id=m.tenant_id
+      WHERE m.user_id=? LIMIT 2`,[userId]);
+    if(membership.length){
+      tenantId=String(membership[0].tenant_id||'');
+      console.log(`REG_LIFECYCLE precleanupPersisted=yes role=${membership[0].role} membership=${membership[0].status} plan=${membership[0].plan} subscription=${membership[0].subscription_status}`);
+    }else{
+      console.log('REG_LIFECYCLE precleanupPersisted=partial user=yes membership=no');
+    }
+  }else{
+    console.log('REG_LIFECYCLE precleanupPersisted=no');
+  }
+
+  if(registration.response.status!==202||registration.body?.ok!==true){
+    // If a 500 was returned after a committed registration, prove the created credentials work.
+    if(userId&&tenantId){
+      const recoveryLogin=await post('/api/auth/login',{email,password});
+      console.log(`REG_LIFECYCLE loginAfterRegisterError status=${recoveryLogin.response.status} error=${String(recoveryLogin.body?.error||'')} role=${String(recoveryLogin.body?.user?.role||'')}`);
+    }
+    throw new Error(`registration failed status=${registration.response.status} error=${registration.body?.error||'unknown'}`);
+  }
+
   if(users.length!==1)throw new Error(`expected one synthetic user after registration; found ${users.length}`);
-  userId=String(users[0].id||'');
   const membership=await query(`SELECT m.tenant_id,m.role,m.status,t.name tenant_name,s.plan,s.status subscription_status
     FROM memberships m JOIN tenants t ON t.id=m.tenant_id LEFT JOIN subscriptions s ON s.tenant_id=m.tenant_id
     WHERE m.user_id=? LIMIT 2`,[userId]);
   if(membership.length!==1)throw new Error(`expected one membership; found ${membership.length}`);
   tenantId=String(membership[0].tenant_id||'');
-  console.log(`REG_LIFECYCLE persisted role=${membership[0].role} membership=${membership[0].status} plan=${membership[0].plan} subscription=${membership[0].subscription_status}`);
   if(membership[0].role!=='owner'||membership[0].status!=='active'||membership[0].subscription_status!=='trialing')throw new Error('registration persisted an invalid owner/subscription state');
 
   const login=await post('/api/auth/login',{email,password});
@@ -75,7 +99,6 @@ try{
     if(!tenantId&&userId){const rows=await query('SELECT tenant_id FROM memberships WHERE user_id=? LIMIT 1',[userId]);tenantId=String(rows[0]?.tenant_id||'')}
     if(tenantId)await query('DELETE FROM tenants WHERE id=?',[tenantId]);
     if(userId)await query('DELETE FROM users WHERE id=?',[userId]);
-    // Defensive cleanup in case an unexpected partial insert escaped the batch.
     await query('DELETE FROM users WHERE email=?',[email]);
     const residualUsers=await query('SELECT count(*) count FROM users WHERE email=?',[email]);
     const residualTenants=tenantId?await query('SELECT count(*) count FROM tenants WHERE id=?',[tenantId]):[{count:0}];
