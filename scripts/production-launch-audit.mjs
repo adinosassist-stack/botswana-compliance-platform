@@ -1,6 +1,9 @@
+import fs from 'node:fs';
+
 const CF_API='https://api.cloudflare.com/client/v4';
 const ORIGIN='https://thebedesk.com';
 const SCRIPT='bw-compliance-os';
+const MAX_LEGACY_ORPHAN_TENANTS=1;
 
 const token=String(process.env.CLOUDFLARE_API_TOKEN||'').trim();
 const accountId=String(process.env.CLOUDFLARE_ACCOUNT_ID||'').trim();
@@ -47,19 +50,25 @@ function bindingValue(binding){
   return undefined;
 }
 
+async function d1Scalar(label,sql){
+  const statement=String(sql||'').trim();
+  assert(/^SELECT\b/i.test(statement),`refusing non-read-only D1 audit query for ${label}`);
+  const body=await cfJson(`/accounts/${accountId}/d1/database/${databaseId}/query`,{
+    method:'POST',
+    body:JSON.stringify({sql:statement})
+  });
+  const sets=Array.isArray(body?.result)?body.result:[];
+  assert(sets.length&&sets.every(x=>x?.success!==false),`D1 scalar query failed for ${label}`);
+  const rows=sets.flatMap(x=>Array.isArray(x?.results)?x.results:[]);
+  const count=Number(rows?.[0]?.count);
+  assert(Number.isFinite(count),`D1 scalar result missing for ${label}`);
+  return count;
+}
+
 async function d1Count(table){
   const allowed=new Set(['users','tenants','memberships','operating_locations','employees','daily_employee_reports']);
   assert(allowed.has(table),`refusing non-whitelisted inventory table ${table}`);
-  const body=await cfJson(`/accounts/${accountId}/d1/database/${databaseId}/query`,{
-    method:'POST',
-    body:JSON.stringify({sql:`SELECT COUNT(*) AS count FROM ${table}`})
-  });
-  const sets=Array.isArray(body?.result)?body.result:[];
-  assert(sets.length&&sets.every(x=>x?.success!==false),`D1 count query failed for ${table}`);
-  const rows=sets.flatMap(x=>Array.isArray(x?.results)?x.results:[]);
-  const count=Number(rows?.[0]?.count);
-  assert(Number.isFinite(count),`D1 count missing for ${table}`);
-  return count;
+  return d1Scalar(`inventory ${table}`,`SELECT COUNT(*) AS count FROM ${table}`);
 }
 
 console.log('=== Thebe Desk Phase 0 production launch audit ===');
@@ -198,6 +207,37 @@ const countEntries=[];
 for(const table of inventoryTables)countEntries.push([table,await d1Count(table)]);
 const counts=Object.fromEntries(countEntries);
 console.log(`INFO production inventory counts users=${counts.users} tenants=${counts.tenants} memberships=${counts.memberships} operating_locations=${counts.operating_locations} employees=${counts.employees} daily_employee_reports=${counts.daily_employee_reports}`);
+
+const orphanPredicate=`NOT EXISTS (SELECT 1 FROM memberships m WHERE m.tenant_id=t.id)`;
+const orphanTenants=await d1Scalar('orphan tenants',`SELECT COUNT(*) AS count FROM tenants t WHERE ${orphanPredicate}`);
+const orphanUsers=await d1Scalar('orphan users',`SELECT COUNT(*) AS count FROM users u WHERE NOT EXISTS (SELECT 1 FROM memberships m WHERE m.user_id=u.id)`);
+const orphanSubscriptions=await d1Scalar('orphan tenant subscriptions',`SELECT COUNT(*) AS count FROM subscriptions s WHERE EXISTS (SELECT 1 FROM tenants t WHERE t.id=s.tenant_id AND ${orphanPredicate})`);
+const orphanAuditChainState=await d1Scalar('orphan tenant audit chain state',`SELECT COUNT(*) AS count FROM audit_chain_state a WHERE EXISTS (SELECT 1 FROM tenants t WHERE t.id=a.tenant_id AND ${orphanPredicate})`);
+
+const schema=fs.readFileSync('cloudflare/schema.sql','utf8');
+const tableRe=/CREATE TABLE IF NOT EXISTS\s+([A-Za-z0-9_]+)\s*\((.*?)\);/gis;
+const legacyAllowedDependencies=new Set(['memberships.tenant_id','subscriptions.tenant_id','audit_chain_state.tenant_id']);
+const dependencySelects=[];
+for(const match of schema.matchAll(tableRe)){
+  const table=match[1],body=match[2];
+  assert(/^[A-Za-z0-9_]+$/.test(table),`unsafe schema table identifier ${safe(table)}`);
+  const tenantColumns=[...new Set([...body.matchAll(/\b([A-Za-z0-9_]*tenant_id)\b/gi)].map(x=>x[1]))];
+  for(const column of tenantColumns){
+    assert(/^[A-Za-z0-9_]+$/.test(column),`unsafe schema tenant column identifier ${safe(column)}`);
+    if(legacyAllowedDependencies.has(`${table}.${column}`))continue;
+    dependencySelects.push(`SELECT COUNT(*) AS count FROM ${table} r WHERE EXISTS (SELECT 1 FROM tenants t WHERE t.id=r.${column} AND ${orphanPredicate})`);
+  }
+}
+assert(dependencySelects.length>0,'tenant integrity dependency inventory is empty');
+const orphanBusinessDependencyRows=await d1Scalar('orphan tenant business dependency rows',`SELECT COALESCE(SUM(count),0) AS count FROM (${dependencySelects.join(' UNION ALL ')})`);
+
+assert(orphanUsers===0,`orphan users detected: ${orphanUsers}`);
+assert(orphanTenants<=MAX_LEGACY_ORPHAN_TENANTS,`orphan tenant count ${orphanTenants} exceeds legacy baseline ${MAX_LEGACY_ORPHAN_TENANTS}`);
+assert(orphanSubscriptions===orphanTenants,`orphan tenant subscription residue mismatch tenants=${orphanTenants} subscriptions=${orphanSubscriptions}`);
+assert(orphanAuditChainState===orphanTenants,`orphan tenant audit-chain residue mismatch tenants=${orphanTenants} auditChainState=${orphanAuditChainState}`);
+assert(orphanBusinessDependencyRows===0,`orphan tenants retain non-baseline business data rows=${orphanBusinessDependencyRows}`);
+mark('tenant integrity baseline',true,`orphanTenants=${orphanTenants}/${MAX_LEGACY_ORPHAN_TENANTS} orphanUsers=0 businessDependencyRows=0`);
+if(orphanTenants>0)console.log(`LEGACY_DATA_DEBT orphan_tenants=${orphanTenants}; bounded pre-fix residue only, no automatic deletion performed`);
 
 console.log('INFO payments intentionally closed: PAYMENT_PROVIDER=none');
 console.log('INFO evidence uploads intentionally closed: EVIDENCE_UPLOADS_ENABLED=false');
