@@ -68,7 +68,7 @@ function leadingZeroBits(hex){
 async function solveProof(tokenValue,difficulty){
   for(let counter=0;counter<10_000_000;counter+=1){
     const hash=crypto.createHash('sha256').update(`${tokenValue}:${counter}`).digest('hex');
-    if(leadingZeroBits(hash)>=difficulty)return {provider:'thebe_proof',token:tokenValue,counter,hash};
+    if(leadingZeroBits(hash)>=difficulty)return {challenge:tokenValue,counter,honeypot:''};
   }
   fail('registration proof search exhausted safety bound');
 }
