@@ -1,0 +1,68 @@
+name: Live registration lifecycle proof
+on:
+  push:
+    branches: [verify/live-user-smoke-20260913]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: thebe-desk-live-registration-lifecycle
+  cancel-in-progress: false
+jobs:
+  lifecycle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      ORIGIN: https://thebedesk.com
+      EXPECTED_PRODUCTION_SHA: d260b3e63d9907be5d8b4110f8dd8922ac3f4e48
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify production authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse refs/remotes/origin/main)" == "$EXPECTED_PRODUCTION_SHA" ]] || { echo "main moved" >&2; exit 1; }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22.23.2'
+          package-manager-cache: false
+      - run: npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+      - name: Register login purge and invalidate credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import crypto from 'node:crypto';
+          import {chromium} from 'playwright-core';
+          const origin=process.env.ORIGIN;
+          const exe=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(p=>fs.existsSync(p));
+          assert.ok(exe,'browser not found');
+          const browser=await chromium.launch({headless:true,executablePath:exe,args:['--no-sandbox']});
+          const context=await browser.newContext();
+          const page=await context.newPage();
+          const suffix=`${Date.now()}-${crypto.randomBytes(5).toString('hex')}`;
+          const email=`thebedesk-lifecycle-${suffix}@example.com`;
+          const password=`Td!Lifecycle-${crypto.randomBytes(18).toString('base64url')}`;
+          const companyName=`Thebe Desk Lifecycle ${suffix.slice(-8)}`;
+          let registered=false,cleaned=false,primary=null;
+          async function runtime(){await page.goto(origin+'/register-direct.html',{waitUntil:'networkidle',timeout:45000});await page.waitForFunction(()=>!!window.BW?.api?.createClient,{timeout:15000});await page.evaluate(()=>{window.__life={csrf:''}})}
+          async function op(name,args={}){return page.evaluate(async({name,args})=>{const s=window.__life||(window.__life={csrf:''});const c=window.BW.api.createClient({getCsrfToken:()=>s.csrf,onUnauthorized:()=>{},onError:()=>{},timeoutMs:25000,retries:0});const enc=new TextEncoder();const zero=(b,n)=>{let r=n;for(const v of b){if(r<=0)return true;const t=Math.min(8,r);if((v>>(8-t))!==0)return false;r-=t}return r<=0};async function proof(){const q=await c.request('/api/auth/registration-proof/challenge',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});const token=String(q?.token||''),difficulty=Number(q?.difficulty||0);if(!token||difficulty<8||difficulty>16)throw new Error('bad proof challenge');for(let i=0;i<=500000;i++){const d=new Uint8Array(await crypto.subtle.digest('SHA-256',enc.encode(`${token}:${i}`)));if(zero(d,difficulty))return JSON.stringify({challenge:token,counter:i,honeypot:''});if(i&&i%512===0)await new Promise(r=>setTimeout(r,0))}throw new Error('proof solve limit')}
+            if(name==='register')return c.request('/api/auth/register',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...args,turnstileToken:await proof()})});
+            if(name==='login'){const r=await c.request('/api/auth/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(args)});s.csrf=String(r?.csrfToken||'');return r}
+            if(name==='me')return c.request('/api/auth/me');
+            if(name==='request')return c.request('/api/account/deletion-request',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({confirmation:'DELETE MY ACCOUNT',reason:'Automated production lifecycle verification; synthetic account only.'})});
+            if(name==='approve')return c.request(`/api/account/deletion/${encodeURIComponent(args.id)}/approve`,{method:'POST',headers:{'content-type':'application/json'},body:'{}'});
+            if(name==='execute')return c.request(`/api/account/deletion/${encodeURIComponent(args.id)}/execute`,{method:'POST',headers:{'content-type':'application/json'},body:'{}'});
+            throw new Error('unknown op');},{name,args})}
+          async function login(){const r=await op('login',{email,password});assert.equal(r?.ok,true);assert.equal(String(r?.user?.email||'').toLowerCase(),email);assert.equal(r?.user?.role,'owner');assert.ok(String(r?.csrfToken||'').length>=16);return r}
+          async function purge(){const r=await op('request');assert.equal(r?.ok,true);assert.ok(r?.id);if(r.status==='blocked')throw new Error('legal hold blocked synthetic deletion');if(r.status==='requested'){const a=await op('approve',{id:r.id});assert.equal(a?.ok,true);assert.equal(a?.status,'approved')}else assert.ok(['approved','processing'].includes(String(r.status||'')));const e=await op('execute',{id:r.id});assert.equal(e?.ok,true);assert.equal(e?.status,'completed');assert.ok(Number(e?.orphanUsersPurged||0)>=1);cleaned=true;return e}
+          async function mustFail(){try{await op('login',{email,password});throw new Error('credential_resurrection')}catch(e){if(String(e?.message||'').includes('credential_resurrection'))throw e;assert.equal(Number(e?.status||0),401);assert.equal(String(e?.code||''),'invalid_credentials')}}
+          try{await runtime();const r=await op('register',{companyName,email,password});assert.equal(r?.ok,true);registered=true;console.log('PASS registration');await login();console.log('PASS login');const me=await op('me');assert.equal(String(me?.user?.email||'').toLowerCase(),email);assert.equal(me?.user?.role,'owner');console.log('PASS auth me');const del=await purge();console.log('PASS purge',JSON.stringify({status:del.status,orphanUsersPurged:del.orphanUsersPurged}));await mustFail();console.log('PASS credential invalidation')}catch(e){primary=e;console.error('PRIMARY_PROOF_FAILURE',String(e?.stack||e))}finally{if(registered&&!cleaned){try{await runtime();await login();await purge();console.log('PASS fail-safe cleanup')}catch(e){console.error('CLEANUP_FAILURE',String(e?.stack||e));primary=primary||e}}if(registered&&cleaned){try{await runtime();await mustFail();console.log('PASS final cleanup postcondition')}catch(e){primary=primary||e}}await browser.close()}
+          assert.equal(registered,true);assert.equal(cleaned,true);if(primary)throw primary;console.log('LIVE_REGISTRATION_LOGIN_CLEANUP_PASS');
+          NODE
