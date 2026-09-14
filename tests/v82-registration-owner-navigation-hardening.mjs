@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import {__v782150Test} from '../cloudflare/src/worker.js';
 
-// Release regression for the production registration, owner access and navigation hotfix.
+// Final release regression for the production registration, owner access and navigation hotfix.
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const worker=read('cloudflare/src/worker.js');
 const html=read('public/index.html');
