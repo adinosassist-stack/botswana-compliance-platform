@@ -19,10 +19,10 @@ ok(audit.includes('LAUNCH_INTEGRATIONS_READY_OR_DEFERRED'), 'successful launch a
 ok(!audit.includes('LAUNCH_INTEGRATIONS_READY Google OAuth + Facebook OAuth + Resend sender configuration present'), 'launch audit no longer requires optional integrations unconditionally');
 ok(workflow.includes('workflow_run:')&&workflow.includes('workflows: ["Thebe Desk Exact Post-Deploy Smoke"]'), 'privileged launch audit is automatically chained after exact post-deploy smoke');
 ok(workflow.includes("github.event.workflow_run.conclusion == 'success'")&&workflow.includes("github.event.workflow_run.head_branch == 'main'"), 'automatic launch audit refuses failed or non-main smoke triggers');
-ok(workflow.includes('AUDIT_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}')&&workflow.includes('ref: ${{ env.AUDIT_SHA }}'), 'launch audit binds checkout and authority to the exact deployed SHA');
-ok(workflow.includes('post-deploy smoke SHA mismatch')&&workflow.includes('refusing stale launch audit'), 'launch audit fails closed on trigger or current-main SHA drift');
+ok(workflow.includes('AUDIT_SHA: ${{ github.event.workflow_run.head_sha }}')&&workflow.includes('ref: ${{ env.AUDIT_SHA }}'), 'launch audit binds checkout and authority to the exact deployed SHA');
+ok(workflow.includes('post-deploy smoke SHA mismatch')&&workflow.includes('refusing stale launch audit')&&workflow.includes('refusing non-workflow_run launch audit trigger'), 'launch audit fails closed on trigger or current-main SHA drift');
 ok(workflow.includes('environment: production')&&workflow.includes('CLOUDFLARE_API_TOKEN')&&workflow.includes('D1_DATABASE_ID'), 'privileged Cloudflare and D1 audit remains isolated in the production environment');
-ok(workflow.includes("contains(github.event.head_commit.message, '[launch-audit]')"), 'explicit launch-audit push path remains available for operator-triggered rechecks');
+ok(!workflow.includes('\n  push:')&&!workflow.includes('[launch-audit]'), 'direct-push launch-audit production path is removed');
 ok(audit.includes("import fs from 'node:fs'")&&audit.includes('MAX_LEGACY_ORPHAN_TENANTS=1'), 'launch audit records a bounded legacy orphan baseline without embedding tenant identifiers');
 ok(audit.includes("const orphanPredicate=`NOT EXISTS (SELECT 1 FROM memberships m WHERE m.tenant_id=t.id)`"), 'tenant integrity audit defines ownership by membership');
 ok(audit.includes("legacyAllowedDependencies=new Set(['memberships.tenant_id','subscriptions.tenant_id','audit_chain_state.tenant_id'])"), 'legacy orphan allowance is restricted to membership, subscription and audit-chain metadata');
