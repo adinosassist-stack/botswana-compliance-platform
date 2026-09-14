@@ -115,3 +115,23 @@ jobs:
             exit 0
           fi
           node scripts/production-synthetic-lifecycle.mjs
+
+      - name: One-shot bounded legacy orphan cleanup
+        if: github.event_name == 'workflow_run'
+        env:
+          AUDIT_INTEGRITY_SECRET: ${{ secrets.AUDIT_INTEGRITY_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! git log -1 --pretty=%B | grep -Fq '[legacy-orphan-cleanup]'; then
+            echo 'Legacy orphan cleanup marker absent; keeping this step read-only.'
+            exit 0
+          fi
+          node scripts/production-legacy-orphan-cleanup.mjs
+
+      - name: Enforce permanent zero-orphan baseline
+        if: github.event_name == 'workflow_run'
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/production-zero-orphan-audit.mjs

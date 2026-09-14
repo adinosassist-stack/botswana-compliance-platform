@@ -2,15 +2,15 @@ import fs from 'node:fs';
 
 const cleanup=fs.readFileSync('scripts/production-legacy-orphan-cleanup.mjs','utf8');
 const zeroAudit=fs.readFileSync('scripts/production-zero-orphan-audit.mjs','utf8');
-const workflow=fs.readFileSync('.github/workflows/legacy-orphan-cleanup.yml','utf8');
+const workflow=fs.readFileSync('.github/workflows/production-launch-audit.yml','utf8');
 let pass=0;
 const ok=(condition,message)=>{if(!condition)throw new Error(`FAIL: ${message}`);pass++;console.log('PASS',message)};
 
-ok(workflow.includes('workflows: ["Thebe Desk Phase 0 Production Launch Audit"]')&&workflow.includes("github.event.workflow_run.conclusion == 'success'")&&workflow.includes("github.event.workflow_run.head_branch == 'main'"),'zero-orphan integrity gate is chained only after successful main launch audit');
-ok(workflow.includes('AUDIT_SHA: ${{ github.event.workflow_run.head_sha }}')&&workflow.includes('ref: ${{ env.AUDIT_SHA }}')&&workflow.includes('refusing stale integrity target'),'integrity workflow binds to exact current main authority');
-ok(workflow.includes("grep -Fq '[legacy-orphan-cleanup]'")&&workflow.includes('Legacy orphan cleanup marker absent; keeping this integrity run read-only.'),'destructive cleanup is one-shot marker gated');
+ok(workflow.includes('workflows: ["Thebe Desk Exact Post-Deploy Smoke"]')&&workflow.includes("github.event.workflow_run.conclusion == 'success'")&&workflow.includes("github.event.workflow_run.head_branch == 'main'"),'cleanup remains inside the authoritative successful-main post-deploy launch audit');
+ok(workflow.includes('AUDIT_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}')&&workflow.includes('ref: ${{ env.AUDIT_SHA }}')&&workflow.includes('refusing stale launch audit target'),'launch audit binds cleanup authority to exact current main SHA');
+ok(workflow.includes("grep -Fq '[legacy-orphan-cleanup]'")&&workflow.includes('Legacy orphan cleanup marker absent; keeping this step read-only.'),'destructive cleanup is one-shot marker gated');
 ok(workflow.includes('AUDIT_INTEGRITY_SECRET: ${{ secrets.AUDIT_INTEGRITY_SECRET }}')&&workflow.includes('node scripts/production-legacy-orphan-cleanup.mjs'),'cleanup secret is isolated to the destructive step');
-ok(workflow.includes('node scripts/production-zero-orphan-audit.mjs'),'permanent zero-orphan audit runs after the optional cleanup');
+ok(workflow.indexOf('node scripts/production-launch-audit.mjs')<workflow.indexOf('node scripts/production-legacy-orphan-cleanup.mjs')&&workflow.indexOf('node scripts/production-legacy-orphan-cleanup.mjs')<workflow.indexOf('node scripts/production-zero-orphan-audit.mjs'),'read-only launch audit precedes optional cleanup and permanent zero-orphan verification');
 
 ok(cleanup.includes("Date.parse('2026-09-14T10:33:32Z')")&&cleanup.includes('createdAt<=BASELINE_OBSERVED_AT'),'cleanup refuses any orphan newer than the recorded pre-fix baseline');
 ok(cleanup.includes('expected exactly one bounded legacy orphan')&&cleanup.includes('orphan unexpectedly has memberships'),'cleanup requires exactly one unowned legacy tenant');
