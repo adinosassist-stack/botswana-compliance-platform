@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
-      EXPECTED_MAIN_SHA: 0aa07d3c7a34d992d01a55ab07ad49ea1fc659a1
+      EXPECTED_MAIN_SHA: 612928ed2a251451cd0d763c3a55106357041df7
       CLEAN_BRANCH: fix/deletion-tombstone-order-clean-20260914
       TEST_COMMIT: d487d8ca48399090ea865239a0d8377d5b30a620
       WORKER_COMMIT: 90b270f91b47740b475780508f63f33a9aac814a
