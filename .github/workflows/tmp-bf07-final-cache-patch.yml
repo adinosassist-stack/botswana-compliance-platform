@@ -85,7 +85,7 @@ jobs:
           declare -A allowed=()
           allowed['.github/workflows/tmp-bf07-final-cache-patch.yml']=1
           allowed['tests/v78-12178-prebody-abuse-hardening-adversarial.mjs']=1
-          allowed['tests/v78-12179-request-encoding-abuse-hardening-adversarial.mjs']=1
+          allowed['tests/v78-12179-request-encoding-abuse-adversarial.mjs']=1
           allowed['tests/v78-12180-cloudflare-account-throttle-adversarial.mjs']=1
           allowed['tests/v78-12181-password-reset-account-throttle-adversarial.mjs']=1
           allowed['tests/v78-12182-node-production-mode-integrity-adversarial.mjs']=1
