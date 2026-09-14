@@ -1,4 +1,5 @@
-name: Live user production smoke
+name: Live registration lifecycle closure
+run-name: Live registration lifecycle closure ${{ github.sha }}
 
 on:
   push:
@@ -9,51 +10,215 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: thebe-desk-live-registration-lifecycle
+  cancel-in-progress: false
+
 jobs:
-  live-user-smoke:
-    runs-on: ubuntu-latest
-    timeout-minutes: 12
+  lifecycle:
+    name: Register login purge and prove invalidation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      ORIGIN: https://thebedesk.com
+      EXPECTED_PRODUCTION_SHA: d260b3e63d9907be5d8b4110f8dd8922ac3f4e48
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout verification branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: '22'
-      - name: Install browser driver only
-        run: npm install --no-save --ignore-scripts playwright-core@1.55.0
-      - name: Exercise live production as a user
-        env:
-          TARGET_URL: https://thebedesk.com/
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Refuse production drift
+        shell: bash
         run: |
+          set -euo pipefail
+          [[ "$EXPECTED_PRODUCTION_SHA" =~ ^[0-9a-f]{40}$ ]]
+          main_sha="$(git rev-parse refs/remotes/origin/main)"
+          [[ "$main_sha" == "$EXPECTED_PRODUCTION_SHA" ]] || {
+            echo "main moved: $main_sha expected=$EXPECTED_PRODUCTION_SHA; refusing live mutation" >&2
+            exit 1
+          }
+          echo "PASS production SHA authority $EXPECTED_PRODUCTION_SHA"
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22.23.2'
+          package-manager-cache: false
+
+      - name: Install browser driver only
+        shell: bash
+        run: npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+
+      - name: Execute live synthetic account lifecycle
+        shell: bash
+        run: |
+          set -euo pipefail
           node --input-type=module <<'NODE'
-          import { chromium } from 'playwright-core';
-          import fs from 'node:fs';
           import assert from 'node:assert/strict';
-          const executablePath=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(p=>fs.existsSync(p)); assert.ok(executablePath);
+          import fs from 'node:fs';
+          import crypto from 'node:crypto';
+          import {chromium} from 'playwright-core';
+
+          const origin=process.env.ORIGIN;
+          const executablePath=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(p=>fs.existsSync(p));
+          assert.ok(executablePath,'no Chromium-compatible browser found');
+
           const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox']});
-          const context=await browser.newContext({viewport:{width:1440,height:1100}}); const page=await context.newPage();
-          const appPageErrors=[]; const criticalFailures=[]; const consoleMessages=[];
-          page.on('pageerror',e=>appPageErrors.push(String(e?.stack||e)));
-          page.on('console',m=>{const t=m.text();if(/BW delegated|auth|failed|error/i.test(t))consoleMessages.push(`${m.type()}: ${t}`)});
-          page.on('requestfailed',req=>{const u=req.url();if(u.startsWith('https://thebedesk.com/js/')||u.startsWith('https://thebedesk.com/assets/'))criticalFailures.push(`${req.method()} ${u} ${req.failure()?.errorText||''}`)});
-          async function home(){await page.goto(process.env.TARGET_URL,{waitUntil:'networkidle',timeout:45000})}
-          async function state(){return page.evaluate(()=>({marketingHidden:document.getElementById('marketingGate')?.classList.contains('hidden'),authHidden:document.getElementById('authGate')?.classList.contains('hidden'),companyDisplay:document.getElementById('companyNameField')?getComputedStyle(document.getElementById('companyNameField')).display:null,email:document.getElementById('authEmail')?.value||'',password:document.getElementById('authPassword')?.value||'',submitText:document.getElementById('authSubmit')?.textContent||'',submitDisabled:!!document.getElementById('authSubmit')?.disabled,errorText:document.getElementById('authError')?.textContent||'',errorShown:document.getElementById('authError')?.classList.contains('show')||false,selectedPlan:sessionStorage.getItem('bwcos_selected_plan')||null,hasEvents:!!window.BW?.events,startFree:typeof window.startFreeFromMarketing,openAuth:typeof window.openAuthFromMarketing,submitAuth:typeof window.submitAuth,submitAllowed:window.BW?.events?.allowedActions?.includes?.('submitAuth')||false,submitExpr:document.getElementById('authSubmit')?.getAttribute('data-bw-onclick')||''}))}
-          const checks=[];async function check(name,fn){try{const detail=await fn();checks.push({name,ok:true,detail});console.log('PASS',name,detail??'')}catch(e){checks.push({name,ok:false,error:String(e?.stack||e)});console.error('FAIL',name,e)}}
-          await home();
-          await check('landing runtime',async()=>{assert.match(await page.title(),/Thebe Desk/i);const s=await state();assert.equal(s.hasEvents,true);assert.equal(s.startFree,'function');assert.equal(s.openAuth,'function');assert.equal(s.submitAuth,'function');assert.equal(s.submitAllowed,true);return s});
-          await check('top Start Free',async()=>{await page.locator('button.marketing-start-action').first().click();await page.waitForTimeout(300);const s=await state();assert.equal(s.marketingHidden,true);assert.equal(s.authHidden,false);assert.notEqual(s.companyDisplay,'none');assert.match(s.submitText,/Create account/i);return s});
-          await home();
-          await check('Sign in fields',async()=>{await page.locator('button[data-guest-action]').filter({hasText:/Sign in/i}).first().click();await page.locator('#authEmail').fill(`incident-smoke-${Date.now()}@example.com`);await page.locator('#authPassword').fill('WrongPassword-Smoke-Only!');const s=await state();assert.equal(s.authHidden,false);assert.equal(s.companyDisplay,'none');assert.equal(s.submitExpr,'submitAuth()');return s});
-          await check('Sign in submit dispatch',async()=>{const reqs=[];const resps=[];const rq=r=>{if(r.url().includes('/api/auth/login'))reqs.push({method:r.method(),url:r.url()})};const rs=r=>{if(r.url().includes('/api/auth/login'))resps.push(r.status())};page.on('request',rq);page.on('response',rs);const before=await state();await page.locator('#authSubmit').click();await page.waitForTimeout(1800);const after=await state();page.off('request',rq);page.off('response',rs);assert.ok(reqs.length>=1||after.errorShown,`no request/error; before=${JSON.stringify(before)} after=${JSON.stringify(after)} console=${JSON.stringify(consoleMessages)}`);if(resps.length)assert.ok(resps.some(x=>[400,401,403,429].includes(x)),`unexpected statuses ${resps}`);return {reqs,resps,before,after,consoleMessages:[...consoleMessages]}});
-          await home();
-          await check('Explore workspace',async()=>{await page.getByRole('button',{name:/Explore the workspace/i}).click();await page.waitForTimeout(300);const s=await state();assert.equal(s.marketingHidden,true);assert.equal(s.authHidden,false);assert.notEqual(s.companyDisplay,'none');return s});
-          await home();
-          await check('See plans',async()=>{await page.getByRole('button',{name:/See plans/i}).click();await page.waitForTimeout(700);const d=await page.evaluate(()=>({scrollY:Math.round(scrollY),top:Math.round(document.getElementById('pricing')?.getBoundingClientRect().top||9999)}));assert.ok(Math.abs(d.top)<650||d.scrollY>0);return d});
-          for(const plan of ['starter','business','pro','network']){await home();await check(`plan ${plan}`,async()=>{const b=page.locator(`#pricing button[data-bw-onclick="startFreeFromMarketing('${plan}')"]`);assert.equal(await b.count(),1);await b.click();await page.waitForTimeout(250);const s=await state();assert.equal(s.authHidden,false);assert.equal(s.selectedPlan,plan);return s})}
-          await home();
-          await check('auth tabs',async()=>{await page.locator('button.marketing-start-action').first().click();await page.locator('#loginTab').click();await page.waitForTimeout(100);let s=await state();assert.equal(s.companyDisplay,'none');await page.locator('#registerTab').click();await page.waitForTimeout(250);s=await state();assert.notEqual(s.companyDisplay,'none');return s});
-          await check('anti-bot config',async()=>{const r=await page.evaluate(async()=>{const x=await fetch('/api/auth/anti-bot-config',{credentials:'same-origin'});let body=null;try{body=await x.json()}catch{}return {status:x.status,body}});assert.equal(r.status,200);return {required:!!r.body?.required,hasSiteKey:!!r.body?.siteKey}});
-          await check('service worker fresh runtime',async()=>{const d=await page.evaluate(async()=>{const regs=await navigator.serviceWorker.getRegistrations();const r=await fetch('/js/event-delegation.js',{cache:'reload'});const text=await r.text();return {registrations:regs.length,status:r.status,hasFallback:text.includes('enterStandalonePreview')&&text.includes('openAuthFromMarketing')}});assert.ok(d.registrations>=1);assert.equal(d.status,200);assert.equal(d.hasFallback,true);return d});
-          await check('register direct',async()=>{await page.goto('https://thebedesk.com/register-direct.html',{waitUntil:'networkidle',timeout:45000});const body=(await page.locator('body').innerText()).slice(0,500);assert.match(body,/Create your account/i);return {url:page.url(),sample:body.slice(0,100)}});
-          console.log('SUMMARY '+JSON.stringify({checks,appPageErrors,criticalFailures,consoleMessages}));
-          if(appPageErrors.length||criticalFailures.length||checks.some(x=>!x.ok))process.exitCode=1;await browser.close();
+          const context=await browser.newContext({viewport:{width:1280,height:900}});
+          const page=await context.newPage();
+          const pageErrors=[];
+          page.on('pageerror',error=>pageErrors.push(String(error?.stack||error)));
+
+          const suffix=`${Date.now()}-${crypto.randomBytes(5).toString('hex')}`;
+          const email=`thebedesk-lifecycle-${suffix}@example.com`;
+          const companyName=`Thebe Desk Lifecycle ${suffix.slice(-8)}`;
+          const password=`Td!Lifecycle-${crypto.randomBytes(18).toString('base64url')}`;
+
+          let registered=false;
+          let cleanupConfirmed=false;
+          let primaryError=null;
+
+          async function openRuntime(){
+            await page.goto(origin+'/register-direct.html',{waitUntil:'networkidle',timeout:45000});
+            await page.waitForFunction(()=>!!window.BW?.api?.createClient,{timeout:15000});
+          }
+
+          async function call(operation,args={}){
+            return page.evaluate(async ({operation,args})=>{
+              const state=window.__lifecycleSmokeState||(window.__lifecycleSmokeState={csrf:''});
+              const client=window.BW.api.createClient({getCsrfToken:()=>state.csrf,onUnauthorized:()=>{},onError:()=>{},timeoutMs:25000,retries:0});
+
+              async function solveProof(){
+                const challenge=await client.request('/api/auth/registration-proof/challenge',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});
+                const token=String(challenge?.token||''),difficulty=Number(challenge?.difficulty||0);
+                if(!token||difficulty<8||difficulty>16)throw new Error('invalid registration proof challenge');
+                const encoder=new TextEncoder();
+                const leadingZeroBits=(bytes,bits)=>{let remaining=bits;for(const value of bytes){if(remaining<=0)return true;const take=Math.min(8,remaining);if((value>>(8-take))!==0)return false;remaining-=take}return remaining<=0};
+                for(let counter=0;counter<=500000;counter++){
+                  const digest=new Uint8Array(await crypto.subtle.digest('SHA-256',encoder.encode(`${token}:${counter}`)));
+                  if(leadingZeroBits(digest,difficulty))return JSON.stringify({challenge:token,counter,honeypot:''});
+                  if(counter&&counter%512===0)await new Promise(resolve=>setTimeout(resolve,0));
+                }
+                throw new Error('registration proof solve limit exceeded');
+              }
+
+              if(operation==='register'){
+                const turnstileToken=await solveProof();
+                return client.request('/api/auth/register',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...args,turnstileToken})});
+              }
+              if(operation==='login'){
+                const result=await client.request('/api/auth/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(args)});
+                state.csrf=String(result?.csrfToken||'');
+                return result;
+              }
+              if(operation==='me'){
+                const result=await client.request('/api/auth/me');
+                if(result?.csrfToken)state.csrf=String(result.csrfToken);
+                return result;
+              }
+              if(operation==='delete-request')return client.request('/api/account/deletion-request',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({confirmation:'DELETE MY ACCOUNT',reason:'Automated production registration lifecycle verification; synthetic account only.'})});
+              if(operation==='approve')return client.request(`/api/account/deletion/${encodeURIComponent(args.id)}/approve`,{method:'POST',headers:{'content-type':'application/json'},body:'{}'});
+              if(operation==='execute')return client.request(`/api/account/deletion/${encodeURIComponent(args.id)}/execute`,{method:'POST',headers:{'content-type':'application/json'},body:'{}'});
+              throw new Error(`unknown operation ${operation}`);
+            },{operation,args});
+          }
+
+          async function loginExpectSuccess(){
+            const login=await call('login',{email,password});
+            assert.equal(login?.ok,true,'login did not return ok=true');
+            assert.equal(String(login?.user?.email||'').toLowerCase(),email.toLowerCase(),'login email mismatch');
+            assert.equal(login?.user?.role,'owner','synthetic registrant is not owner');
+            assert.ok(String(login?.csrfToken||'').length>=16,'missing CSRF token');
+            return login;
+          }
+
+          async function deleteSyntheticTenant(){
+            const request=await call('delete-request');
+            assert.equal(request?.ok,true,'deletion request not accepted');
+            assert.ok(request?.id,'deletion request id missing');
+            if(request.status==='blocked')throw new Error('synthetic account unexpectedly blocked by legal hold');
+            if(request.status!=='approved'&&request.status!=='processing'){
+              const approved=await call('approve',{id:request.id});
+              assert.equal(approved?.ok,true,'deletion approval failed');
+              assert.equal(approved?.status,'approved','deletion approval status mismatch');
+            }
+            const executed=await call('execute',{id:request.id});
+            assert.equal(executed?.ok,true,'deletion execution failed');
+            assert.equal(executed?.status,'completed','deletion did not complete');
+            cleanupConfirmed=true;
+            return executed;
+          }
+
+          async function loginMustFailAfterCleanup(){
+            try{
+              await call('login',{email,password});
+              throw new Error('credential resurrection: login succeeded after purge');
+            }catch(error){
+              if(String(error?.message||'').includes('credential resurrection'))throw error;
+              assert.equal(Number(error?.status||0),401,`post-cleanup login status ${error?.status} code=${error?.code}`);
+              assert.equal(String(error?.code||''),'invalid_credentials',`post-cleanup login code ${error?.code}`);
+            }
+          }
+
+          async function meMustFailAfterCleanup(){
+            try{
+              await call('me');
+              throw new Error('session resurrection: auth/me succeeded after purge');
+            }catch(error){
+              if(String(error?.message||'').includes('session resurrection'))throw error;
+              assert.equal(Number(error?.status||0),401,`post-cleanup auth/me status ${error?.status} code=${error?.code}`);
+              assert.equal(String(error?.code||''),'unauthenticated',`post-cleanup auth/me code ${error?.code}`);
+            }
+          }
+
+          try{
+            await openRuntime();
+            const registration=await call('register',{companyName,email,password});
+            assert.equal(registration?.ok,true,'registration did not return ok=true');
+            registered=true;
+            console.log('PASS live synthetic registration');
+
+            await loginExpectSuccess();
+            console.log('PASS live synthetic login');
+
+            const me=await call('me');
+            assert.equal(String(me?.user?.email||'').toLowerCase(),email.toLowerCase(),'auth/me email mismatch');
+            assert.equal(me?.user?.role,'owner','auth/me role mismatch');
+            console.log('PASS authenticated session identity');
+
+            const deleted=await deleteSyntheticTenant();
+            console.log(`PASS synthetic tenant purge status=${deleted.status} orphanUsersPurged=${deleted.orphanUsersPurged ?? 'n/a'}`);
+
+            await loginMustFailAfterCleanup();
+            console.log('PASS post-purge credential invalidation');
+            await meMustFailAfterCleanup();
+            console.log('PASS post-purge session invalidation');
+          }catch(error){
+            primaryError=error;
+            console.error('PRIMARY_PROOF_FAILURE',String(error?.stack||error));
+          }finally{
+            if(registered&&!cleanupConfirmed){
+              console.log('Attempting fail-safe cleanup after primary proof failure');
+              try{
+                await openRuntime();
+                await loginExpectSuccess();
+                const deleted=await deleteSyntheticTenant();
+                console.log(`PASS fail-safe cleanup status=${deleted.status}`);
+              }catch(cleanupError){
+                console.error('CLEANUP_FAILURE',String(cleanupError?.stack||cleanupError));
+                console.error(`SYNTHETIC_ACCOUNT_REQUIRES_CLEANUP email=${email}`);
+                primaryError=primaryError||cleanupError;
+              }
+            }
+            await browser.close();
+          }
+
+          assert.deepEqual(pageErrors,[],'unexpected page errors');
+          assert.equal(registered,true,'synthetic account was never registered');
+          assert.equal(cleanupConfirmed,true,'synthetic account cleanup was not confirmed');
+          if(primaryError)throw primaryError;
+          console.log('LIVE_REGISTRATION_LOGIN_CLEANUP_PASS');
           NODE
