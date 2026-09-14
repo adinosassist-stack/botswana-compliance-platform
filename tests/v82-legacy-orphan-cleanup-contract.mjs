@@ -16,7 +16,7 @@ ok(cleanup.includes("Date.parse('2026-09-14T10:33:32Z')")&&cleanup.includes('cre
 ok(cleanup.includes('expected exactly one bounded legacy orphan')&&cleanup.includes('orphan unexpectedly has memberships'),'cleanup requires exactly one unowned legacy tenant');
 ok(cleanup.includes('external billing identifiers')&&cleanup.includes('legacy orphan retains audit history; refusing cleanup'),'cleanup refuses billing-linked or audit-history-bearing residue');
 ok(cleanup.includes("allowedResidue=new Set(['memberships.tenant_id','subscriptions.tenant_id','audit_chain_state.tenant_id'])")&&cleanup.includes('legacy orphan retains non-baseline tenant-linked rows'),'cleanup derives and rejects non-baseline tenant dependencies');
-ok(cleanup.includes("update(`tenant-deletion|${tenantId}`)")&&cleanup.includes("purge_version')==='legacy-orphan-v1'")&&cleanup.includes("VALUES(?,?,'legacy-orphan-v1',0,0,0,CURRENT_TIMESTAMP)"),'cleanup retains only a non-PII HMAC tombstone');
+ok(cleanup.includes("update(`tenant-deletion|${tenantId}`)")&&cleanup.includes("String(tombstone.purge_version)==='legacy-orphan-v1'")&&cleanup.includes("VALUES(?,?,'legacy-orphan-v1',0,0,0,CURRENT_TIMESTAMP)"),'cleanup retains only a non-PII HMAC tombstone');
 ok(cleanup.includes("DELETE FROM subscriptions WHERE tenant_id=?")&&cleanup.includes("DELETE FROM audit_chain_state WHERE tenant_id=?")&&cleanup.includes("DELETE FROM tenants WHERE id=? AND NOT EXISTS"),'cleanup mutation scope is restricted to bounded residue and the orphan tenant');
 ok(cleanup.includes("orphan tenant baseline is not zero after cleanup")&&cleanup.includes('afterTenants===beforeTenants-1'),'cleanup verifies exactly one tenant was removed and zero orphans remain');
 
