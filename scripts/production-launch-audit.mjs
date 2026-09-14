@@ -4,6 +4,7 @@ const CF_API='https://api.cloudflare.com/client/v4';
 const ORIGIN='https://thebedesk.com';
 const SCRIPT='bw-compliance-os';
 const MAX_LEGACY_ORPHAN_TENANTS=1;
+const D1_COMPOUND_SELECT_BATCH_SIZE=20;
 
 const token=String(process.env.CLOUDFLARE_API_TOKEN||'').trim();
 const accountId=String(process.env.CLOUDFLARE_ACCOUNT_ID||'').trim();
@@ -229,7 +230,17 @@ for(const match of schema.matchAll(tableRe)){
   }
 }
 assert(dependencySelects.length>0,'tenant integrity dependency inventory is empty');
-const orphanBusinessDependencyRows=await d1Scalar('orphan tenant business dependency rows',`SELECT COALESCE(SUM(count),0) AS count FROM (${dependencySelects.join(' UNION ALL ')})`);
+let orphanBusinessDependencyRows=0;
+let dependencyBatchCount=0;
+for(let offset=0;offset<dependencySelects.length;offset+=D1_COMPOUND_SELECT_BATCH_SIZE){
+  const batch=dependencySelects.slice(offset,offset+D1_COMPOUND_SELECT_BATCH_SIZE);
+  dependencyBatchCount++;
+  orphanBusinessDependencyRows+=await d1Scalar(
+    `orphan tenant business dependency rows batch ${dependencyBatchCount}`,
+    `SELECT COALESCE(SUM(count),0) AS count FROM (${batch.join(' UNION ALL ')})`
+  );
+}
+console.log(`INFO tenant integrity dependency sweep columns=${dependencySelects.length} batches=${dependencyBatchCount} maxBatch=${D1_COMPOUND_SELECT_BATCH_SIZE}`);
 
 assert(orphanUsers===0,`orphan users detected: ${orphanUsers}`);
 assert(orphanTenants<=MAX_LEGACY_ORPHAN_TENANTS,`orphan tenant count ${orphanTenants} exceeds legacy baseline ${MAX_LEGACY_ORPHAN_TENANTS}`);
