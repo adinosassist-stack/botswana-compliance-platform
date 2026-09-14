@@ -1,5 +1,5 @@
-name: Fix branch deletion ordering verifier
-run-name: Fix branch deletion ordering verifier ${{ github.sha }}
+name: Clean deletion fix branch verifier
+run-name: Clean deletion fix branch verifier ${{ github.sha }}
 
 on:
   push:
@@ -10,34 +10,57 @@ permissions:
   contents: write
 
 concurrency:
-  group: thebe-desk-fix-branch-deletion-ordering
+  group: thebe-desk-clean-deletion-fix
   cancel-in-progress: false
 
 jobs:
-  patch-test-commit:
-    name: Patch test and commit fix branch
+  qualify-clean-branch:
+    name: Cherry-pick and qualify clean deletion fix
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    env:
+      EXPECTED_MAIN_SHA: 0aa07d3c7a34d992d01a55ab07ad49ea1fc659a1
+      CLEAN_BRANCH: fix/deletion-tombstone-order-clean-20260914
+      TEST_COMMIT: d487d8ca48399090ea865239a0d8377d5b30a620
+      WORKER_COMMIT: 90b270f91b47740b475780508f63f33a9aac814a
     steps:
-      - name: Checkout fix branch
+      - name: Checkout clean branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: fix/deletion-tombstone-order-20260914
+          ref: fix/deletion-tombstone-order-clean-20260914
           fetch-depth: 0
           persist-credentials: true
+
+      - name: Refuse main drift and apply only reviewed commits
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main fix/deletion-tombstone-order-20260914
+          main_sha="$(git rev-parse origin/main)"
+          [[ "$main_sha" == "$EXPECTED_MAIN_SHA" ]] || {
+            echo "main moved: $main_sha expected=$EXPECTED_MAIN_SHA" >&2
+            exit 1
+          }
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_MAIN_SHA" ]] || {
+            echo "clean branch no longer starts at expected main" >&2
+            exit 1
+          }
+          git cherry-pick "$TEST_COMMIT"
+          git cherry-pick "$WORKER_COMMIT"
+          changed="$(git diff --name-only "$EXPECTED_MAIN_SHA" HEAD | sort)"
+          expected=$'cloudflare/src/worker.js\ntests/v78-deletion-tombstone-order-regression.mjs'
+          [[ "$changed" == "$expected" ]] || {
+            echo "unexpected clean-branch diff:" >&2
+            printf '%s\n' "$changed" >&2
+            exit 1
+          }
+          git diff --check "$EXPECTED_MAIN_SHA" HEAD
 
       - name: Setup pinned Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '22.23.2'
           package-manager-cache: false
-
-      - name: Apply exact ordering patch
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 scripts/patch-deletion-tombstone-order.py
-          git diff --check
 
       - name: Run deletion safety regression suite
         shell: bash
@@ -48,14 +71,8 @@ jobs:
           node tests/v78-12152-tenant-deletion-purge-runtime.mjs
           node tests/v78-12115-deletion-route-adversarial.mjs
 
-      - name: Commit tested patch to fix branch only
+      - name: Push qualified clean branch
         shell: bash
         run: |
           set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add cloudflare/src/worker.js
-          git diff --cached --check
-          git diff --cached --quiet && { echo 'No worker change produced'; exit 1; }
-          git commit -m 'fix: preserve deletion tombstone before user cascade'
-          git push origin HEAD:fix/deletion-tombstone-order-20260914
+          git push origin HEAD:"$CLEAN_BRANCH"
