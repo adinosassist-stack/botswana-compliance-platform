@@ -1,0 +1,194 @@
+name: Live registration lifecycle R3
+run-name: Live registration lifecycle R3 ${{ github.sha }}
+
+on:
+  push:
+    branches: [verify/live-registration-lifecycle-r3-20260914]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: thebe-desk-live-registration-lifecycle-r3
+  cancel-in-progress: false
+
+jobs:
+  lifecycle:
+    name: Register login purge and invalidate credentials
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      ORIGIN: https://thebedesk.com
+      EXPECTED_PRODUCTION_SHA: 0dc6506dc87fe68ba70054b2a33665fe556ad41a
+    steps:
+      - name: Checkout verification branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact production authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          main_sha="$(git rev-parse refs/remotes/origin/main)"
+          [[ "$main_sha" == "$EXPECTED_PRODUCTION_SHA" ]] || {
+            echo "main authority mismatch main=$main_sha expected=$EXPECTED_PRODUCTION_SHA" >&2
+            exit 1
+          }
+          echo "PASS exact production authority $EXPECTED_PRODUCTION_SHA"
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22.23.2'
+          package-manager-cache: false
+
+      - name: Exercise live production account lifecycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import crypto from 'node:crypto';
+
+          const origin=process.env.ORIGIN;
+          const suffix=`${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
+          const email=`thebedesk-lifecycle-${suffix}@example.com`;
+          const password=`Td!Lifecycle-${crypto.randomBytes(18).toString('base64url')}`;
+          const companyName=`Thebe Desk Lifecycle ${suffix.slice(-10)}`;
+          let registered=false, cleaned=false, cookie='', csrf='', primaryError=null;
+
+          function target(path){
+            const u=new URL('/',origin);
+            u.searchParams.set('__thebe_api_path',path);
+            return u.toString();
+          }
+          async function call(path,{method='GET',body,auth=false}={}){
+            const headers={accept:'application/json','user-agent':'ThebeDesk-Lifecycle-R3/1.0'};
+            if(method!=='GET'&&method!=='HEAD'){
+              headers.origin=origin;
+              headers['content-type']='application/json';
+              if(auth&&csrf)headers['x-csrf-token']=csrf;
+            }
+            if(auth&&cookie)headers.cookie=cookie;
+            const response=await fetch(target(path),{method,headers,body:body===undefined?undefined:JSON.stringify(body),redirect:'manual'});
+            const data=await response.json().catch(()=>({}));
+            return {status:response.status,headers:response.headers,data};
+          }
+          function leadingZeroBits(bytes,bits){let remaining=bits;for(const value of bytes){if(remaining<=0)return true;const take=Math.min(8,remaining);if((value>>(8-take))!==0)return false;remaining-=take}return remaining<=0}
+          async function solveProof(){
+            const q=await call('/api/auth/registration-proof/challenge',{method:'POST',body:{}});
+            assert.equal(q.status,200,'challenge status');
+            assert.equal(q.data?.provider,'thebe_proof','challenge provider');
+            const token=String(q.data?.token||''),difficulty=Number(q.data?.difficulty||0);
+            assert.ok(token&&difficulty>=8&&difficulty<=16,'challenge shape');
+            for(let counter=0;counter<=500000;counter++){
+              const digest=crypto.createHash('sha256').update(`${token}:${counter}`).digest();
+              if(leadingZeroBits(digest,difficulty))return JSON.stringify({challenge:token,counter,honeypot:''});
+            }
+            throw new Error('proof solve limit exceeded');
+          }
+          async function loginExpectSuccess(){
+            const r=await call('/api/auth/login',{method:'POST',body:{email,password}});
+            assert.equal(r.status,200,'login HTTP status');
+            assert.equal(r.data?.ok,true,'login ok');
+            assert.equal(String(r.data?.user?.email||'').toLowerCase(),email,'login email');
+            assert.equal(r.data?.user?.role,'owner','login owner role');
+            csrf=String(r.data?.csrfToken||'');
+            assert.ok(csrf.length>=16,'csrf token');
+            const setCookie=r.headers.get('set-cookie')||'';
+            cookie=setCookie.split(';')[0];
+            assert.match(cookie,/^(?:__Host-bw_session|bw_session)=/,'session cookie');
+            return r.data;
+          }
+          async function purge(){
+            const request=await call('/api/account/deletion-request',{method:'POST',auth:true,body:{confirmation:'DELETE MY ACCOUNT',reason:'Automated production registration lifecycle verification; synthetic account only.'}});
+            assert.ok([200,201].includes(request.status),'deletion request status');
+            assert.equal(request.data?.ok,true,'deletion request ok');
+            assert.ok(request.data?.id,'deletion request id');
+            if(request.data.status==='blocked')throw new Error('synthetic deletion blocked by legal hold');
+            if(request.data.status==='requested'){
+              const approved=await call(`/api/account/deletion/${encodeURIComponent(request.data.id)}/approve`,{method:'POST',auth:true,body:{}});
+              assert.equal(approved.status,200,'deletion approve HTTP');
+              assert.equal(approved.data?.ok,true,'deletion approve ok');
+              assert.equal(approved.data?.status,'approved','deletion approved state');
+            }else{
+              assert.ok(['approved','processing'].includes(String(request.data.status||'')),`unexpected deletion state ${request.data.status}`);
+            }
+            const executed=await call(`/api/account/deletion/${encodeURIComponent(request.data.id)}/execute`,{method:'POST',auth:true,body:{}});
+            assert.equal(executed.status,200,'deletion execute HTTP');
+            assert.equal(executed.data?.ok,true,'deletion execute ok');
+            assert.equal(executed.data?.status,'completed','deletion completed state');
+            assert.ok(Number(executed.data?.orphanUsersPurged||0)>=1,'synthetic owner purged');
+            cleaned=true;
+            return executed.data;
+          }
+          async function credentialsMustFail(){
+            const r=await call('/api/auth/login',{method:'POST',body:{email,password}});
+            assert.equal(r.status,401,'post-purge login HTTP');
+            assert.equal(r.data?.error,'invalid_credentials','post-purge login error');
+          }
+
+          try{
+            const probe=await call('/api/auth/register-transport-probe',{method:'POST',body:{}});
+            assert.equal(probe.status,200,'transport probe HTTP');
+            assert.equal(probe.data?.ok,true,'transport probe ok');
+            assert.equal(probe.data?.transport,'root_tunnel','root transport');
+            console.log('PASS LIVE supported auth transport');
+
+            const proof=await solveProof();
+            const registration=await call('/api/auth/register',{method:'POST',body:{companyName,email,password,turnstileToken:proof}});
+            assert.equal(registration.status,202,'registration HTTP');
+            assert.equal(registration.data?.ok,true,'registration accepted');
+            registered=true;
+            console.log('PASS LIVE registration');
+
+            await loginExpectSuccess();
+            console.log('PASS LIVE login');
+
+            const me=await call('/api/auth/me',{auth:true});
+            assert.equal(me.status,200,'auth/me HTTP');
+            assert.equal(String(me.data?.user?.email||'').toLowerCase(),email,'auth/me email');
+            assert.equal(me.data?.user?.role,'owner','auth/me owner role');
+            console.log('PASS LIVE auth/me owner identity');
+
+            const deleted=await purge();
+            console.log('PASS LIVE purge '+JSON.stringify({status:deleted.status,orphanUsersPurged:deleted.orphanUsersPurged}));
+
+            cookie=''; csrf='';
+            await credentialsMustFail();
+            console.log('PASS LIVE post-purge 401 invalid_credentials');
+          }catch(error){
+            primaryError=error;
+            console.error('PRIMARY_PROOF_FAILURE',String(error?.stack||error));
+          }finally{
+            if(registered&&!cleaned){
+              console.log('Attempting fail-safe cleanup');
+              try{
+                cookie='';csrf='';
+                await loginExpectSuccess();
+                const deleted=await purge();
+                console.log('PASS LIVE fail-safe cleanup '+JSON.stringify({status:deleted.status,orphanUsersPurged:deleted.orphanUsersPurged}));
+              }catch(cleanupError){
+                console.error('CLEANUP_FAILURE',String(cleanupError?.stack||cleanupError));
+                primaryError=primaryError||cleanupError;
+              }
+            }
+            if(registered&&cleaned){
+              try{
+                cookie='';csrf='';
+                await credentialsMustFail();
+                console.log('PASS LIVE final cleanup postcondition');
+              }catch(postError){
+                console.error('CLEANUP_POSTCONDITION_FAILURE',String(postError?.stack||postError));
+                primaryError=primaryError||postError;
+              }
+            }
+          }
+
+          assert.equal(registered,true,'synthetic account was never registered');
+          assert.equal(cleaned,true,'synthetic account cleanup was not confirmed');
+          if(primaryError)throw primaryError;
+          console.log('LIVE_REGISTRATION_LOGIN_CLEANUP_PASS');
+          NODE
