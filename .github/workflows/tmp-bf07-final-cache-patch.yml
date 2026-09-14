@@ -82,30 +82,18 @@ jobs:
           git diff --cached --check
           mapfile -t changed < <(git diff --cached --name-only)
           [[ "${#changed[@]}" -eq 7 ]] || { printf 'Expected 7 staged paths, got %s\n' "${#changed[@]}"; printf '%s\n' "${changed[@]}"; exit 1; }
-          allowed() {
-            case "$1" in
-              .github/workflows/tmp-bf07-final-cache-patch.yml|\
-              tests/v78-12178-prebody-abuse-hardening-adversarial.mjs|\
-              tests/v78-12179-request-encoding-abuse-hardening-adversarial.mjs|\
-              tests/v78-12180-cloudflare-account-throttle-adversarial.mjs|\
-              tests/v78-12181-password-reset-account-throttle-adversarial.mjs|\
-              tests/v78-12182-node-production-mode-integrity-adversarial.mjs|\
-              tests/v78-12183-http-expectation-envelope-adversarial.mjs) return 0 ;;
-              *) return 1 ;;
-            esac
-          }
+          declare -A allowed=()
+          allowed['.github/workflows/tmp-bf07-final-cache-patch.yml']=1
+          allowed['tests/v78-12178-prebody-abuse-hardening-adversarial.mjs']=1
+          allowed['tests/v78-12179-request-encoding-abuse-hardening-adversarial.mjs']=1
+          allowed['tests/v78-12180-cloudflare-account-throttle-adversarial.mjs']=1
+          allowed['tests/v78-12181-password-reset-account-throttle-adversarial.mjs']=1
+          allowed['tests/v78-12182-node-production-mode-integrity-adversarial.mjs']=1
+          allowed['tests/v78-12183-http-expectation-envelope-adversarial.mjs']=1
           for path in "${changed[@]}"; do
-            allowed "$path" || { echo "Unexpected staged path: $path"; exit 1; }
+            [[ -n "${allowed[$path]+x}" ]] || { echo "Unexpected staged path: $path"; exit 1; }
+            unset 'allowed[$path]'
           done
-          for required in \
-            .github/workflows/tmp-bf07-final-cache-patch.yml \
-            tests/v78-12178-prebody-abuse-hardening-adversarial.mjs \
-            tests/v78-12179-request-encoding-abuse-hardening-adversarial.mjs \
-            tests/v78-12180-cloudflare-account-throttle-adversarial.mjs \
-            tests/v78-12181-password-reset-account-throttle-adversarial.mjs \
-            tests/v78-12182-node-production-mode-integrity-adversarial.mjs \
-            tests/v78-12183-http-expectation-envelope-adversarial.mjs; do
-            printf '%s\n' "${changed[@]}" | grep -Fxq "$required" || { echo "Missing staged path: $required"; exit 1; }
-          done
+          [[ "${#allowed[@]}" -eq 0 ]] || { echo 'Missing required staged path(s)'; printf '%s\n' "${!allowed[@]}"; exit 1; }
           git commit -m 'Align final historical cache lineage with registration hotfix'
           git push origin HEAD:refs/heads/fix/bf07-final-cache-lineage-20260914
