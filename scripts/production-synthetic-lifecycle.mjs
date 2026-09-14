@@ -103,7 +103,7 @@ async function guardedCleanup(reason){
   const {userId,tenantId}=synthetic;
   const membershipCount=await count('SELECT COUNT(*) AS count FROM memberships WHERE user_id=?',[userId]);
   const tenantMembershipCount=await count('SELECT COUNT(*) AS count FROM memberships WHERE tenant_id=?',[tenantId]);
-  const evidenceCount=await count('SELECT COUNT(*) AS count FROM evidence_records WHERE tenant_id=?',[tenantId]);
+  const evidenceCount=await count('SELECT COUNT(*) AS count FROM evidence WHERE tenant_id=?',[tenantId]);
   const legalHoldCount=await count("SELECT COUNT(*) AS count FROM legal_holds WHERE tenant_id=? AND status='active' AND active=1",[tenantId]);
   assert(membershipCount===1&&tenantMembershipCount===1,'cleanup guard refused synthetic identity with unexpected memberships');
   assert(evidenceCount===0,'cleanup guard refused synthetic tenant containing evidence');
