@@ -46,12 +46,13 @@ jobs:
         run: |
           set -euo pipefail
           node --input-type=module <<'NODE'
+          import fs from 'node:fs';
           const token=String(process.env.CLOUDFLARE_API_TOKEN||'').trim();
           const accountId=String(process.env.CLOUDFLARE_ACCOUNT_ID||'').trim();
           const databaseId=String(process.env.D1_DATABASE_ID||'').trim();
           if(!token||!/^[0-9a-fA-F]{32}$/.test(accountId)||!/^[0-9a-fA-F-]{36}$/.test(databaseId))throw new Error('production diagnostic configuration invalid');
           const endpoint=`https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${databaseId}/query`;
-          async function scalar(label,sql){
+          async function scalar(label,sql,{quietZero=false}={}){
             const response=await fetch(endpoint,{method:'POST',headers:{Authorization:`Bearer ${token}`,Accept:'application/json','Content-Type':'application/json'},body:JSON.stringify({sql})});
             const body=await response.json().catch(()=>null);
             if(!response.ok||body?.success===false)throw new Error(`${label} query failed HTTP ${response.status}`);
@@ -60,7 +61,7 @@ jobs:
             const rows=sets.flatMap(x=>Array.isArray(x?.results)?x.results:[]);
             const value=Number(rows?.[0]?.count);
             if(!Number.isFinite(value))throw new Error(`${label} count missing`);
-            console.log(`AGGREGATE ${label}=${value}`);
+            if(!quietZero||value!==0)console.log(`AGGREGATE ${label}=${value}`);
             return value;
           }
           const q={
@@ -79,5 +80,22 @@ jobs:
           const out={};
           for(const [label,sql] of Object.entries(q))out[label]=await scalar(label,sql);
           if(out.orphan_tenants>out.tenants||out.orphan_users>out.users)throw new Error('aggregate integrity arithmetic impossible');
+
+          const schema=fs.readFileSync('cloudflare/schema.sql','utf8');
+          const tableRe=/CREATE TABLE IF NOT EXISTS\s+([A-Za-z0-9_]+)\s*\((.*?)\);/gis;
+          let dependencyRows=0,dependencyColumns=0;
+          for(const match of schema.matchAll(tableRe)){
+            const table=match[1],body=match[2];
+            if(!/^[A-Za-z0-9_]+$/.test(table))throw new Error('unsafe table identifier');
+            const cols=[...new Set([...body.matchAll(/\b([A-Za-z0-9_]*tenant_id)\b/gi)].map(x=>x[1]))];
+            for(const col of cols){
+              if(!/^[A-Za-z0-9_]+$/.test(col))throw new Error('unsafe column identifier');
+              dependencyColumns++;
+              const count=await scalar(`orphan_dependency_${table}_${col}`,`SELECT COUNT(*) AS count FROM ${table} r WHERE EXISTS (SELECT 1 FROM tenants t WHERE t.id=r.${col} AND NOT EXISTS (SELECT 1 FROM memberships m WHERE m.tenant_id=t.id))`,{quietZero:true});
+              dependencyRows+=count;
+            }
+          }
+          console.log(`AGGREGATE orphan_dependency_columns_scanned=${dependencyColumns}`);
+          console.log(`AGGREGATE orphan_dependency_rows_total=${dependencyRows}`);
           console.log('DIAGNOSTIC_COMPLETE aggregate-only; no tenant ids, names, emails, or customer records were read');
           NODE
