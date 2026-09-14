@@ -73,6 +73,7 @@ jobs:
           node tests/v82-phase0-launch-audit-deferred-integrations.mjs
           node tests/v82-postdeploy-smoke-governance.mjs
           node tests/v82-node-postgres-lineage-hardening.mjs
+          node tests/v82-release-provenance-governance.mjs
           npm run check
           npm run lint:production
           npm run test:production-hardening
