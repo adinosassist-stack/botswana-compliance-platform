@@ -13,6 +13,7 @@ const checks = [
   ['release marker must preserve the parent tree exactly', bf07.includes('release marker must be metadata-only and preserve the qualified parent tree exactly')],
   ['qualified parent must be a two-parent merge commit', bf07.includes('qualified parent must be a two-parent merged PR commit')],
   ['qualified parent must map to a merged PR on main', bf07.includes('/commits/$parent_sha/pulls?per_page=100') && bf07.includes('merge_commit_sha') && bf07.includes('targeting main')],
+  ['qualified parent merge commit must be GitHub-verified', bf07.includes('$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/commits/$parent_sha') && bf07.includes('verification.get("verified") is True') && bf07.includes('verification.get("reason")=="valid"') && bf07.includes('qualified parent merge commit is not GitHub-verified with a valid signature')],
   ['qualified parent must have successful Recovery CI', bf07.includes('/actions/workflows/recovery-ci.yml/runs?branch=main&per_page=100') && bf07.includes('qualified parent has no successful completed Recovery CI run on main')],
   ['production deploy still requires exact-SHA Recovery CI', deploy.includes("await successful('recovery-ci.yml', 'Recovery CI'")],
   ['production deploy still requires exact-SHA BF-07', deploy.includes("await successful('bf07-seal.yml', 'BF-07 Supply-Chain Seal'") || deploy.includes('Triggering BF-07 run')],
