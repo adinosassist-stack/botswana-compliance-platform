@@ -42,13 +42,18 @@ const readyBody=await bodyJson(ready);
 console.log(`READY status=${ready.status} body=${compact(readyBody)}`);
 
 let failures=0;
+const probeResults={};
 for(const [name,build] of Object.entries(transports)){
   const probe=await postJson(build('/api/auth/register-transport-probe'));
+  probeResults[name]=probe;
   console.log(`TRANSPORT ${name} probe status=${probe.status} body=${compact(probe.body)}`);
-  if(probe.status!==200||probe.body?.ok!==true)failures++;
 }
+// Root is the shipped client's preferred credential-mutation transport. Direct is the final fallback.
+// Shadow 404/405 is explicitly treated by api-client.js as a rejected optional route and skipped.
+if(probeResults.root.status!==200||probeResults.root.body?.ok!==true||probeResults.root.body?.transport!=='root_tunnel')failures++;
+if(probeResults.direct.status!==200||probeResults.direct.body?.ok!==true||probeResults.direct.body?.transport!=='direct')failures++;
+if(![200,404,405].includes(probeResults.shadow.status))failures++;
 
-// Root tunnel is the default non-idempotent transport used by the shipped registration client.
 const challenge=await postJson(transports.root('/api/auth/registration-proof/challenge'));
 console.log(`ROOT challenge status=${challenge.status} provider=${String(challenge.body?.provider||'')} difficulty=${Number(challenge.body?.difficulty||0)} error=${String(challenge.body?.error||'')}`);
 if(challenge.status!==200||!challenge.body?.token){
@@ -62,7 +67,6 @@ if(challenge.status!==200||!challenge.body?.token){
     turnstileToken:proof
   });
   console.log(`ROOT verified-invalid-register status=${invalid.status} error=${String(invalid.body?.error||'')} message=${String(invalid.body?.message||'').slice(0,180)}`);
-  // A valid proof must reach inner validation. This must be 400 invalid_registration and must not create data.
   if(invalid.status!==400||invalid.body?.error!=='invalid_registration')failures++;
 }
 
