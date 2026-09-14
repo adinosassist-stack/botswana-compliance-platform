@@ -25,7 +25,7 @@ jobs:
     name: Resolve BF-07 from clean npm registry state
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy]'))
+      (github.event_name == 'push' && startsWith(github.event.head_commit.message, '[deploy]'))
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
@@ -79,15 +79,7 @@ jobs:
               --header 'X-GitHub-Api-Version: 2022-11-28' \
               "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/commits/$parent_sha/pulls?per_page=100"
           )"
-          printf '%s' "$pulls_json" | PARENT_SHA="$parent_sha" python3 -c '
-import json, os, sys
-pulls = json.load(sys.stdin)
-parent = os.environ["PARENT_SHA"]
-match = next((pr for pr in pulls if pr.get("merged_at") and pr.get("base", {}).get("ref") == "main" and pr.get("merge_commit_sha") == parent), None)
-if not match:
-    raise SystemExit("qualified parent is not the merge commit of a merged pull request targeting main")
-print(f"Merged PR provenance confirmed: #{match.get(chr(110)+chr(117)+chr(109)+chr(98)+chr(101)+chr(114))}")
-'
+          printf '%s' "$pulls_json" | PARENT_SHA="$parent_sha" python3 -c 'import json,os,sys; pulls=json.load(sys.stdin); parent=os.environ["PARENT_SHA"]; match=next((pr for pr in pulls if pr.get("merged_at") and pr.get("base",{}).get("ref")=="main" and pr.get("merge_commit_sha")==parent),None); match or sys.exit("qualified parent is not the merge commit of a merged pull request targeting main"); print("Merged PR provenance confirmed: #{}".format(match.get("number")))'
 
           recovery_json="$(
             curl --fail-with-body --silent --show-error \
@@ -96,16 +88,7 @@ print(f"Merged PR provenance confirmed: #{match.get(chr(110)+chr(117)+chr(109)+c
               --header 'X-GitHub-Api-Version: 2022-11-28' \
               "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/recovery-ci.yml/runs?branch=main&per_page=100"
           )"
-          printf '%s' "$recovery_json" | PARENT_SHA="$parent_sha" python3 -c '
-import json, os, sys
-body = json.load(sys.stdin)
-parent = os.environ["PARENT_SHA"]
-runs = body.get("workflow_runs", [])
-match = next((run for run in runs if run.get("head_sha") == parent and run.get("head_branch") == "main" and run.get("status") == "completed" and run.get("conclusion") == "success"), None)
-if not match:
-    raise SystemExit("qualified parent has no successful completed Recovery CI run on main")
-print(f"Parent Recovery CI provenance confirmed: run {match.get(chr(105)+chr(100))}")
-'
+          printf '%s' "$recovery_json" | PARENT_SHA="$parent_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); parent=os.environ["PARENT_SHA"]; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==parent and run.get("head_branch")=="main" and run.get("status")=="completed" and run.get("conclusion")=="success"),None); match or sys.exit("qualified parent has no successful completed Recovery CI run on main"); print("Parent Recovery CI provenance confirmed: run {}".format(match.get("id")))'
 
       - name: Setup pinned Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
