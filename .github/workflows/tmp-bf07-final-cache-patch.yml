@@ -80,15 +80,32 @@ jobs:
           git config user.email 'thebe-desk-ci@users.noreply.github.com'
           git add -A
           git diff --cached --check
-          changed="$(git diff --cached --name-only | sort)"
-          expected="$(printf '%s\n' \
+          mapfile -t changed < <(git diff --cached --name-only)
+          [[ "${#changed[@]}" -eq 7 ]] || { printf 'Expected 7 staged paths, got %s\n' "${#changed[@]}"; printf '%s\n' "${changed[@]}"; exit 1; }
+          allowed() {
+            case "$1" in
+              .github/workflows/tmp-bf07-final-cache-patch.yml|\
+              tests/v78-12178-prebody-abuse-hardening-adversarial.mjs|\
+              tests/v78-12179-request-encoding-abuse-hardening-adversarial.mjs|\
+              tests/v78-12180-cloudflare-account-throttle-adversarial.mjs|\
+              tests/v78-12181-password-reset-account-throttle-adversarial.mjs|\
+              tests/v78-12182-node-production-mode-integrity-adversarial.mjs|\
+              tests/v78-12183-http-expectation-envelope-adversarial.mjs) return 0 ;;
+              *) return 1 ;;
+            esac
+          }
+          for path in "${changed[@]}"; do
+            allowed "$path" || { echo "Unexpected staged path: $path"; exit 1; }
+          done
+          for required in \
             .github/workflows/tmp-bf07-final-cache-patch.yml \
             tests/v78-12178-prebody-abuse-hardening-adversarial.mjs \
             tests/v78-12179-request-encoding-abuse-hardening-adversarial.mjs \
             tests/v78-12180-cloudflare-account-throttle-adversarial.mjs \
             tests/v78-12181-password-reset-account-throttle-adversarial.mjs \
             tests/v78-12182-node-production-mode-integrity-adversarial.mjs \
-            tests/v78-12183-http-expectation-envelope-adversarial.mjs | sort)"
-          [[ "$changed" == "$expected" ]] || { echo 'Unexpected staged files:'; printf '%s\n' "$changed"; exit 1; }
+            tests/v78-12183-http-expectation-envelope-adversarial.mjs; do
+            printf '%s\n' "${changed[@]}" | grep -Fxq "$required" || { echo "Missing staged path: $required"; exit 1; }
+          done
           git commit -m 'Align final historical cache lineage with registration hotfix'
           git push origin HEAD:refs/heads/fix/bf07-final-cache-lineage-20260914
