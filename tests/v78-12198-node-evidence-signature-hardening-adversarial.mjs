@@ -12,7 +12,7 @@ ok(sigRead>0&&db>sigRead,'signature verification occurs before evidence database
 ok(sig.includes('application/pdf')&&sig.includes('image/png')&&sig.includes('image/jpeg')&&sig.includes('wordprocessingml.document'),'Node signature helper covers every Node evidence MIME allowlist type');
 ok(sig.includes('evidence_signature_prefix_too_large'),'signature body reader fails closed if storage ignores the Range bound');
 ok(worker.includes('function fileSignatureMatches(contentType,buf)')&&worker.includes('if(!fileSignatureMatches(ct,buf))'),'Worker evidence magic-byte verification remains intact');
-ok(((sw.includes('1.21.98-node-evidence-signature-hardening')||(sw.includes('1.21.99-bf07-seal-pipeline-hardening')||(sw.includes('1.21.100-bf07-provenance-hardening')||sw.includes('1.21.101-bf07-toolchain-package-hardening'))))||(sw.includes('1.21.99-bf07-seal-pipeline-hardening')||(sw.includes('1.21.100-bf07-provenance-hardening')||sw.includes('1.21.101-bf07-toolchain-package-hardening')))),'service-worker cache identifies v1.21.98 successor');
+ok(sw.includes('1.21.101-registration-owner-ui-hotfix-20260914'),'service-worker cache identifies v1.21.98 reviewed successor');
 {const chain=String(pkg.scripts.test||'');ok(chain.indexOf('test:v78-12198')>=0&&chain.indexOf('test:v78-12198')<chain.indexOf('test:v78-12197'),'v1.21.98 remains ordered before v1.21.97 in the full regression chain');}
 ok(launch.includes('range-reads at most 4096 bytes')&&launch.includes('file magic bytes'),'operator documentation records committed-object signature boundary');
 console.log(`V78 1.21.98 Node evidence signature hardening adversarial: ${pass}/${pass} PASS`);
