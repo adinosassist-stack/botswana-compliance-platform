@@ -1,0 +1,63 @@
+name: Apply registration owner UI hotfix
+
+on:
+  push:
+    branches:
+      - fix/registration-ui-navigation-owner-20260914
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-registration-owner-ui-hotfix
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout patch branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: fix/registration-ui-navigation-owner-20260914
+          fetch-depth: 0
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+
+      - name: Apply scoped patch
+        run: node scripts/apply-registration-owner-ui-hotfix.mjs
+
+      - name: Verify targeted contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check cloudflare/src/worker.js
+          node --check public/js/api-client.js
+          node --check public/js/register-direct.js
+          node tests/v82-registration-owner-navigation-hardening.mjs
+          node tests/v78-12150-resilience-backup-rate-limit-adversarial.mjs
+          node tests/v78-home-navigation-adversarial.mjs
+          git diff --check
+
+      - name: Remove one-shot patch machinery
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f scripts/apply-registration-owner-ui-hotfix.mjs
+          rm -f .github/workflows/apply-registration-owner-ui-hotfix.yml
+
+      - name: Commit patched branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'thebe-desk-release-bot'
+          git config user.email 'thebe-desk-release-bot@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'Fix production registration and owner navigation'
+          git push origin HEAD:fix/registration-ui-navigation-owner-20260914
