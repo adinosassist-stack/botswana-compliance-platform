@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   audit:
-    name: Audit live registration and clean synthetic account
+    name: Audit live registration and clean synthetic data
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     environment: production
@@ -33,5 +33,7 @@ jobs:
         run: node scripts/tmp-live-registration-audit.mjs
       - name: Inspect production D1 registration prerequisites read-only
         run: node scripts/tmp-live-registration-d1-audit.mjs
-      - name: Exercise valid registration, owner login and guaranteed cleanup
+      - name: Exercise exact D1 registration writes with cleanup
+        run: node scripts/tmp-d1-registration-write-probe.mjs
+      - name: Exercise valid Worker registration, owner login and guaranteed cleanup
         run: node scripts/tmp-production-registration-lifecycle.mjs
