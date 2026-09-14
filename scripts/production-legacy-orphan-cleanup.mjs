@@ -67,9 +67,20 @@ if(subscription){
 }
 assert(await count('SELECT COUNT(*) AS count FROM subscriptions WHERE tenant_id=?',[tenantId])<=1,'legacy orphan has duplicate subscription residue');
 
+const auditEventCount=await count('SELECT COUNT(*) AS count FROM audit_events WHERE tenant_id=?',[tenantId]);
+assert(auditEventCount===0,'legacy orphan retains backing audit events; refusing cleanup');
 const auditChain=await one('SELECT last_event_id,last_hash,event_count FROM audit_chain_state WHERE tenant_id=?',[tenantId]);
 if(auditChain){
-  assert(Number(auditChain.event_count||0)===0&&!auditChain.last_event_id&&!auditChain.last_hash,'legacy orphan retains audit history; refusing cleanup');
+  const eventCount=Number(auditChain.event_count||0);
+  const lastEventId=String(auditChain.last_event_id||'');
+  const lastHash=String(auditChain.last_hash||'');
+  assert(Number.isSafeInteger(eventCount)&&eventCount>=0,'legacy orphan audit-chain event_count is invalid');
+  if(eventCount===0){
+    assert(!lastEventId&&!lastHash,'zero-count legacy audit-chain metadata is inconsistent');
+  }else{
+    assert(lastEventId.length>=8,'legacy orphan audit-chain last_event_id is malformed');
+    assert(/^[0-9a-f]{64}$/i.test(lastHash),'legacy orphan audit-chain last_hash is malformed');
+  }
 }
 assert(await count('SELECT COUNT(*) AS count FROM audit_chain_state WHERE tenant_id=?',[tenantId])<=1,'legacy orphan has duplicate audit-chain residue');
 
@@ -93,7 +104,7 @@ for(const [table,column] of dependencyChecks){
   dependencyRows+=await count(`SELECT COUNT(*) AS count FROM ${table} WHERE ${column}=?`,[tenantId]);
 }
 assert(dependencyRows===0,`legacy orphan retains non-baseline tenant-linked rows=${dependencyRows}`);
-mark('legacy orphan preflight',`pre-fix age proven; memberships=0 businessDependencyRows=0`);
+mark('legacy orphan preflight',`pre-fix age proven; memberships=0 auditEvents=0 businessDependencyRows=0`);
 
 const tenantFingerprint=fingerprint(tenantId);
 let tombstone=await one('SELECT request_id,purge_version FROM deletion_tombstones WHERE tenant_fingerprint=?',[tenantFingerprint]);
