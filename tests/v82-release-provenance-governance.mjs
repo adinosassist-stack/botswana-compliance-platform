@@ -1,8 +1,18 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const bf07 = readFileSync('.github/workflows/bf07-seal.yml', 'utf8');
 const deploy = readFileSync('.github/workflows/deploy-production.yml', 'utf8');
 const recovery = readFileSync('.github/workflows/recovery-ci.yml', 'utf8');
+const launchAudit = readFileSync('.github/workflows/production-launch-audit.yml', 'utf8');
+const retiredProductionMutationWorkflows = [
+  '.github/workflows/initialize-production-d1.yml',
+  '.github/workflows/migrate-production-d1-043.yml',
+  '.github/workflows/migrate-production-d1-044.yml',
+  '.github/workflows/migrate-production-d1-045.yml',
+  '.github/workflows/migrate-production-d1-046.yml',
+  '.github/workflows/migrate-production-v81-delegated-authority.yml',
+  '.github/workflows/recover-production-turnstile.yml'
+];
 
 const checks = [
   ['BF-07 can read Actions state', bf07.includes('actions: read')],
@@ -27,6 +37,8 @@ const checks = [
   ['every first-parent lineage merge must have successful Recovery CI', bf07.includes('first-parent release lineage has merge commit(s) without successful Recovery CI on main')],
   ['production deploy still requires exact-SHA Recovery CI', deploy.includes("await successful('recovery-ci.yml', 'Recovery CI'")],
   ['production deploy still requires exact-SHA BF-07', deploy.includes("await successful('bf07-seal.yml', 'BF-07 Supply-Chain Seal'") || deploy.includes('Triggering BF-07 run')],
+  ['privileged launch audit has no direct-push authority', launchAudit.includes('workflow_run:') && !launchAudit.includes('\n  push:') && !launchAudit.includes('[launch-audit]')],
+  ['retired production mutation workflows cannot be triggered', retiredProductionMutationWorkflows.every(path => !existsSync(path))],
   ['Recovery CI executes the release provenance governance regression', recovery.includes('node tests/v82-release-provenance-governance.mjs')]
 ];
 
