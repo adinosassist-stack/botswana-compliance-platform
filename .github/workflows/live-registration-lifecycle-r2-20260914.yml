@@ -1,0 +1,210 @@
+name: Live registration lifecycle R2
+run-name: Live registration lifecycle R2 ${{ github.sha }}
+
+on:
+  push:
+    branches: [verify/live-registration-lifecycle-r2-20260914]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: thebe-desk-live-registration-lifecycle-r2
+  cancel-in-progress: false
+
+jobs:
+  lifecycle:
+    name: Register login purge and invalidate credentials
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      ORIGIN: https://thebedesk.com
+      EXPECTED_PRODUCTION_SHA: d260b3e63d9907be5d8b4110f8dd8922ac3f4e48
+    steps:
+      - name: Checkout verification branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact production authority without network mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_PRODUCTION_SHA" =~ ^[0-9a-f]{40}$ ]]
+          main_sha="$(git rev-parse refs/remotes/origin/main)"
+          [[ "$main_sha" == "$EXPECTED_PRODUCTION_SHA" ]] || {
+            echo "main authority mismatch main=$main_sha expected=$EXPECTED_PRODUCTION_SHA" >&2
+            exit 1
+          }
+          echo "PASS exact production authority $EXPECTED_PRODUCTION_SHA"
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22.23.2'
+          package-manager-cache: false
+
+      - name: Install browser driver only
+        shell: bash
+        run: npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+
+      - name: Exercise live registration login cleanup lifecycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import crypto from 'node:crypto';
+          import {chromium} from 'playwright-core';
+
+          const origin=process.env.ORIGIN;
+          const executablePath=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(p=>fs.existsSync(p));
+          assert.ok(executablePath,'no Chromium-compatible browser found');
+          const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox']});
+          const context=await browser.newContext({viewport:{width:1280,height:900}});
+          const page=await context.newPage();
+          const pageErrors=[];
+          page.on('pageerror',error=>pageErrors.push(String(error?.stack||error)));
+
+          const suffix=`${Date.now()}-${crypto.randomBytes(5).toString('hex')}`;
+          const email=`thebedesk-lifecycle-${suffix}@example.com`;
+          const companyName=`Thebe Desk Lifecycle ${suffix.slice(-8)}`;
+          const password=`Td!Lifecycle-${crypto.randomBytes(18).toString('base64url')}`;
+          let registered=false;
+          let cleaned=false;
+          let primaryError=null;
+
+          async function openRuntime(){
+            await page.goto(origin+'/register-direct.html',{waitUntil:'networkidle',timeout:45000});
+            await page.waitForFunction(()=>!!window.BW?.api?.createClient,{timeout:15000});
+            await page.evaluate(()=>{window.__lifecycle={csrf:''}});
+          }
+
+          async function op(name,args={}){
+            return page.evaluate(async({name,args})=>{
+              const state=window.__lifecycle||(window.__lifecycle={csrf:''});
+              const client=window.BW.api.createClient({getCsrfToken:()=>state.csrf,onUnauthorized:()=>{},onError:()=>{},timeoutMs:25000,retries:0});
+              const encoder=new TextEncoder();
+              const leadingZeroBits=(bytes,bits)=>{let remaining=bits;for(const value of bytes){if(remaining<=0)return true;const take=Math.min(8,remaining);if((value>>(8-take))!==0)return false;remaining-=take}return remaining<=0};
+              async function registrationProof(){
+                const challenge=await client.request('/api/auth/registration-proof/challenge',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});
+                const token=String(challenge?.token||''),difficulty=Number(challenge?.difficulty||0);
+                if(!token||difficulty<8||difficulty>16)throw new Error('invalid registration proof challenge');
+                for(let counter=0;counter<=500000;counter++){
+                  const digest=new Uint8Array(await crypto.subtle.digest('SHA-256',encoder.encode(`${token}:${counter}`)));
+                  if(leadingZeroBits(digest,difficulty))return JSON.stringify({challenge:token,counter,honeypot:''});
+                  if(counter&&counter%512===0)await new Promise(resolve=>setTimeout(resolve,0));
+                }
+                throw new Error('registration proof solve limit exceeded');
+              }
+              if(name==='register')return client.request('/api/auth/register',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...args,turnstileToken:await registrationProof()})});
+              if(name==='login'){
+                const result=await client.request('/api/auth/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(args)});
+                state.csrf=String(result?.csrfToken||'');
+                return result;
+              }
+              if(name==='me')return client.request('/api/auth/me');
+              if(name==='delete-request')return client.request('/api/account/deletion-request',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({confirmation:'DELETE MY ACCOUNT',reason:'Automated production lifecycle verification; synthetic account only.'})});
+              if(name==='approve')return client.request(`/api/account/deletion/${encodeURIComponent(args.id)}/approve`,{method:'POST',headers:{'content-type':'application/json'},body:'{}'});
+              if(name==='execute')return client.request(`/api/account/deletion/${encodeURIComponent(args.id)}/execute`,{method:'POST',headers:{'content-type':'application/json'},body:'{}'});
+              throw new Error(`unknown operation ${name}`);
+            },{name,args});
+          }
+
+          async function loginExpectSuccess(){
+            const result=await op('login',{email,password});
+            assert.equal(result?.ok,true,'login did not return ok=true');
+            assert.equal(String(result?.user?.email||'').toLowerCase(),email,'login email mismatch');
+            assert.equal(result?.user?.role,'owner','synthetic registrant is not owner');
+            assert.ok(String(result?.csrfToken||'').length>=16,'login CSRF token missing');
+            return result;
+          }
+
+          async function purge(){
+            const request=await op('delete-request');
+            assert.equal(request?.ok,true,'deletion request not accepted');
+            assert.ok(request?.id,'deletion request id missing');
+            if(request.status==='blocked')throw new Error('synthetic tenant unexpectedly blocked by legal hold');
+            if(request.status==='requested'){
+              const approved=await op('approve',{id:request.id});
+              assert.equal(approved?.ok,true,'deletion approval failed');
+              assert.equal(approved?.status,'approved','deletion did not enter approved state');
+            }else{
+              assert.ok(['approved','processing'].includes(String(request.status||'')),`unexpected deletion state ${request.status}`);
+            }
+            const executed=await op('execute',{id:request.id});
+            assert.equal(executed?.ok,true,'deletion execution failed');
+            assert.equal(executed?.status,'completed','deletion did not complete');
+            assert.ok(Number(executed?.orphanUsersPurged||0)>=1,'synthetic owner was not purged');
+            cleaned=true;
+            return executed;
+          }
+
+          async function credentialsMustBeInvalid(){
+            try{
+              await op('login',{email,password});
+              throw new Error('credential_resurrection');
+            }catch(error){
+              if(String(error?.message||'').includes('credential_resurrection'))throw error;
+              assert.equal(Number(error?.status||0),401,`post-purge login status ${error?.status} code=${error?.code}`);
+              assert.equal(String(error?.code||''),'invalid_credentials',`post-purge login code ${error?.code}`);
+            }
+          }
+
+          try{
+            await openRuntime();
+            const registration=await op('register',{companyName,email,password});
+            assert.equal(registration?.ok,true,'registration not accepted');
+            registered=true;
+            console.log('PASS LIVE registration');
+
+            await loginExpectSuccess();
+            console.log('PASS LIVE login');
+
+            const me=await op('me');
+            assert.equal(String(me?.user?.email||'').toLowerCase(),email,'auth/me email mismatch');
+            assert.equal(me?.user?.role,'owner','auth/me role mismatch');
+            console.log('PASS LIVE auth/me owner identity');
+
+            const deleted=await purge();
+            console.log('PASS LIVE purge '+JSON.stringify({status:deleted.status,orphanUsersPurged:deleted.orphanUsersPurged}));
+
+            await credentialsMustBeInvalid();
+            console.log('PASS LIVE post-purge 401 invalid_credentials');
+          }catch(error){
+            primaryError=error;
+            console.error('PRIMARY_PROOF_FAILURE',String(error?.stack||error));
+          }finally{
+            if(registered&&!cleaned){
+              console.log('Attempting fail-safe cleanup');
+              try{
+                await openRuntime();
+                await loginExpectSuccess();
+                const deleted=await purge();
+                console.log('PASS LIVE fail-safe cleanup '+JSON.stringify({status:deleted.status,orphanUsersPurged:deleted.orphanUsersPurged}));
+              }catch(cleanupError){
+                console.error('CLEANUP_FAILURE',String(cleanupError?.stack||cleanupError));
+                primaryError=primaryError||cleanupError;
+              }
+            }
+            if(registered&&cleaned){
+              try{
+                await openRuntime();
+                await credentialsMustBeInvalid();
+                console.log('PASS LIVE final cleanup postcondition');
+              }catch(postError){
+                console.error('CLEANUP_POSTCONDITION_FAILURE',String(postError?.stack||postError));
+                primaryError=primaryError||postError;
+              }
+            }
+            await browser.close();
+          }
+
+          assert.deepEqual(pageErrors,[],'unexpected browser page errors');
+          assert.equal(registered,true,'synthetic account was never registered');
+          assert.equal(cleaned,true,'synthetic account cleanup was not confirmed');
+          if(primaryError)throw primaryError;
+          console.log('LIVE_REGISTRATION_LOGIN_CLEANUP_PASS');
+          NODE
