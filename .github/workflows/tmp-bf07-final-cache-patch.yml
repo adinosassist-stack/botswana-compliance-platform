@@ -1,0 +1,97 @@
+name: Temporary BF-07 final cache-lineage patch
+
+on:
+  push:
+    branches:
+      - fix/bf07-final-cache-lineage-20260914
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact fix branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: fix/bf07-final-cache-lineage-20260914
+          fetch-depth: 0
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+      - name: Patch exact historical cache assertions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          current = "sw.includes('1.21.101-registration-owner-ui-hotfix-20260914')"
+          targets = {
+            'tests/v78-12183-http-expectation-envelope-adversarial.mjs': 'service-worker cache identifies v1.21.83',
+            'tests/v78-12182-node-production-mode-integrity-adversarial.mjs': 'service-worker cache preserves v1.21.82 or reviewed successor',
+            'tests/v78-12181-password-reset-account-throttle-adversarial.mjs': 'service-worker cache preserves reset-account hardening or stronger successor',
+            'tests/v78-12180-cloudflare-account-throttle-adversarial.mjs': 'service-worker cache preserves account-throttle control or stronger successor',
+            'tests/v78-12179-request-encoding-abuse-adversarial.mjs': 'service-worker identity records request-encoding hardening',
+            'tests/v78-12178-prebody-abuse-hardening-adversarial.mjs': 'service-worker identity includes prebody hardening or reviewed stronger successor',
+          }
+          for rel, message in targets.items():
+              p = Path(rel)
+              text = p.read_text()
+              if current in text:
+                  raise SystemExit(f'{rel}: current cache token already present unexpectedly')
+              lines = text.splitlines(keepends=True)
+              matches = [i for i,line in enumerate(lines) if message in line and 'ok(' in line and 'sw.includes' in line]
+              if len(matches) != 1:
+                  raise SystemExit(f'{rel}: expected exactly one assertion line for {message!r}, found {len(matches)}')
+              i = matches[0]
+              line = lines[i]
+              marker = ',' + ('"' if f'"{message}"' in line else "'") + message
+              pos = line.rfind(marker)
+              if pos < 0:
+                  raise SystemExit(f'{rel}: message boundary not found')
+              expression = line[:pos]
+              suffix = line[pos:]
+              # Add the reviewed current cache token as the final stronger-successor branch.
+              lines[i] = expression + '||' + current + suffix
+              p.write_text(''.join(lines))
+              print('PATCHED', rel)
+          PY
+          git diff --check
+      - name: Install exact dependencies
+        run: npm ci --ignore-scripts
+      - name: Run affected historical tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run test:v78-12183
+          npm run test:v78-12182
+          npm run test:v78-12181
+          npm run test:v78-12180
+          npm run test:v78-12179
+          npm run test:v78-12178
+      - name: Remove temporary workflow and commit clean patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/tmp-bf07-final-cache-patch.yml
+          git config user.name 'Thebe Desk CI'
+          git config user.email 'thebe-desk-ci@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          changed="$(git diff --cached --name-only | sort)"
+          expected="$(printf '%s\n' \
+            tests/v78-12178-prebody-abuse-hardening-adversarial.mjs \
+            tests/v78-12179-request-encoding-abuse-adversarial.mjs \
+            tests/v78-12180-cloudflare-account-throttle-adversarial.mjs \
+            tests/v78-12181-password-reset-account-throttle-adversarial.mjs \
+            tests/v78-12182-node-production-mode-integrity-adversarial.mjs \
+            tests/v78-12183-http-expectation-envelope-adversarial.mjs | sort)"
+          [[ "$changed" == "$expected" ]] || { echo 'Unexpected staged files:'; printf '%s\n' "$changed"; exit 1; }
+          git commit -m 'Align final historical cache lineage with registration hotfix'
+          git push origin HEAD:refs/heads/fix/bf07-final-cache-lineage-20260914
