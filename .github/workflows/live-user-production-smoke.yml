@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 15
     env:
       ORIGIN: https://thebedesk.com
-      EXPECTED_PRODUCTION_SHA: d260b3e63d9907be5d8b4110f8dd8922ac3f4e48
+      EXPECTED_PRODUCTION_SHA: 0aa07d3c7a34d992d01a55ab07ad49ea1fc659a1
 
     steps:
       - name: Checkout verification branch
