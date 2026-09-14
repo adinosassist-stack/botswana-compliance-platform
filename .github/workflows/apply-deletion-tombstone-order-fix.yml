@@ -1,0 +1,132 @@
+name: Apply deletion tombstone ordering fix
+
+on:
+  push:
+    branches:
+      - fix/deletion-tombstone-order-20260914
+    paths:
+      - .github/workflows/apply-deletion-tombstone-order-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: fix/deletion-tombstone-order-20260914
+          fetch-depth: 0
+          persist-credentials: true
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22.23.2'
+          package-manager-cache: false
+
+      - name: Apply exact worker ordering fix and regression test
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('cloudflare/src/worker.js')
+          s=p.read_text()
+          start_marker="  purgeStatements.push(\n    env.DB.prepare(`DELETE FROM users WHERE id IN ("
+          end_marker="  );\n  await env.DB.batch(purgeStatements);"
+          start=s.find(start_marker)
+          if start < 0:
+              raise SystemExit('expected deletion purge block start not found')
+          end=s.find(end_marker,start)
+          if end < 0:
+              raise SystemExit('expected deletion purge block end not found')
+          if s.find(start_marker,start+1) >= 0:
+              raise SystemExit('deletion purge block start is not unique')
+          replacement="""  purgeStatements.push(
+    env.DB.prepare(`INSERT INTO deletion_tombstones(request_id,tenant_fingerprint,purge_version,evidence_records_purged,evidence_objects_purged,orphan_users_purged)
+      SELECT ?,?,'v2',?,?,? WHERE EXISTS(SELECT 1 FROM deletion_requests WHERE id=? AND tenant_id=? AND status='processing' AND processing_token=?)`)
+      .bind(dr.id,tenantFingerprint,evidenceRecords,evidenceObjects,uniqueUsers,dr.id,dr.tenant_id,claimToken),
+    env.DB.prepare(`DELETE FROM users WHERE id IN (
+      SELECT m.user_id FROM memberships m WHERE m.tenant_id=? AND NOT EXISTS (
+        SELECT 1 FROM memberships other WHERE other.user_id=m.user_id AND other.tenant_id<>m.tenant_id
+      )
+    )`).bind(dr.tenant_id),
+    env.DB.prepare("DELETE FROM tenants WHERE id=? AND EXISTS(SELECT 1 FROM deletion_tombstones WHERE request_id=? AND tenant_fingerprint=?)")
+      .bind(dr.tenant_id,dr.id,tenantFingerprint)
+  );
+"""
+          s=s[:start]+replacement+s[end+len("  );\n"):]
+          p.write_text(s)
+
+          t=Path('tests/v78-deletion-tombstone-order-regression.mjs')
+          t.write_text(r'''import fs from 'node:fs';
+          import {DatabaseSync} from 'node:sqlite';
+          const db=new DatabaseSync(':memory:');
+          db.exec('PRAGMA foreign_keys=ON;');
+          db.exec(fs.readFileSync('cloudflare/schema.sql','utf8'));
+          const run=(sql,...args)=>db.prepare(sql).run(...args);
+          const get=(sql,...args)=>db.prepare(sql).get(...args);
+          const ok=(v,m)=>{if(!v)throw new Error(`FAIL: ${m}`)};
+
+          run("INSERT INTO tenants(id,name) VALUES('t1','Synthetic')");
+          run("INSERT INTO users(id,email) VALUES('u1','synthetic@example.test')");
+          run("INSERT INTO memberships(tenant_id,user_id,role,status) VALUES('t1','u1','owner','active')");
+          run("INSERT INTO deletion_requests(id,tenant_id,user_id,requested_by_user_id,status,processing_token) VALUES('dr1','t1','u1','u1','processing','claim-1')");
+
+          const fingerprint='fp-t1';
+          db.exec('BEGIN');
+          try{
+            db.prepare(`INSERT INTO deletion_tombstones(request_id,tenant_fingerprint,purge_version,evidence_records_purged,evidence_objects_purged,orphan_users_purged)
+              SELECT ?,?,'v2',?,?,? WHERE EXISTS(SELECT 1 FROM deletion_requests WHERE id=? AND tenant_id=? AND status='processing' AND processing_token=?)`)
+              .run('dr1',fingerprint,0,0,1,'dr1','t1','claim-1');
+            db.prepare(`DELETE FROM users WHERE id IN (
+              SELECT m.user_id FROM memberships m WHERE m.tenant_id=? AND NOT EXISTS (
+                SELECT 1 FROM memberships other WHERE other.user_id=m.user_id AND other.tenant_id<>m.tenant_id
+              )
+            )`).run('t1');
+            db.prepare("DELETE FROM tenants WHERE id=? AND EXISTS(SELECT 1 FROM deletion_tombstones WHERE request_id=? AND tenant_fingerprint=?)")
+              .run('t1','dr1',fingerprint);
+            db.exec('COMMIT');
+          }catch(e){db.exec('ROLLBACK');throw e}
+
+          ok(!get("SELECT 1 x FROM users WHERE id='u1'"),'synthetic user removed');
+          ok(!get("SELECT 1 x FROM tenants WHERE id='t1'"),'synthetic tenant removed');
+          ok(!get("SELECT 1 x FROM deletion_requests WHERE id='dr1'"),'PII deletion request removed by cascade');
+          ok(!!get("SELECT 1 x FROM deletion_tombstones WHERE request_id='dr1' AND tenant_fingerprint='fp-t1'"),'minimal tombstone survives');
+
+          run("INSERT INTO tenants(id,name) VALUES('t2','Claim Lost')");
+          run("INSERT INTO users(id,email) VALUES('u2','claimlost@example.test')");
+          run("INSERT INTO memberships(tenant_id,user_id,role,status) VALUES('t2','u2','owner','active')");
+          run("INSERT INTO deletion_requests(id,tenant_id,user_id,requested_by_user_id,status,processing_token) VALUES('dr2','t2','u2','u2','processing','other-claim')");
+          const inserted=db.prepare(`INSERT INTO deletion_tombstones(request_id,tenant_fingerprint,purge_version,evidence_records_purged,evidence_objects_purged,orphan_users_purged)
+            SELECT ?,?,'v2',?,?,? WHERE EXISTS(SELECT 1 FROM deletion_requests WHERE id=? AND tenant_id=? AND status='processing' AND processing_token=?)`)
+            .run('dr2','fp-t2',0,0,1,'dr2','t2','stale-claim');
+          ok(inserted.changes===0,'stale processing claim cannot mint tombstone');
+          ok(!!get("SELECT 1 x FROM tenants WHERE id='t2'"),'claim-lost tenant preserved');
+          ok(!!get("SELECT 1 x FROM users WHERE id='u2'"),'claim-lost user preserved');
+          console.log('V78 deletion tombstone ordering regression: PASS');
+          ''')
+          PY
+
+      - name: Run targeted deletion safety checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check cloudflare/src/worker.js
+          node tests/v78-deletion-tombstone-order-regression.mjs
+          node tests/v78-12152-tenant-deletion-purge-runtime.mjs
+          node tests/v78-12115-deletion-route-adversarial.mjs
+
+      - name: Commit tested fix to fix branch only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add cloudflare/src/worker.js tests/v78-deletion-tombstone-order-regression.mjs
+          git diff --cached --check
+          git diff --cached --quiet && { echo 'No patch produced'; exit 1; }
+          git commit -m 'fix: preserve deletion tombstone before user cascade'
+          git push origin HEAD:fix/deletion-tombstone-order-20260914
