@@ -102,3 +102,16 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/production-launch-audit.mjs
+
+      - name: One-shot synthetic registration lifecycle closure
+        if: github.event_name == 'workflow_run'
+        env:
+          AUDIT_INTEGRITY_SECRET: ${{ secrets.AUDIT_INTEGRITY_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! git log -1 --pretty=%B | grep -Fq '[synthetic-lifecycle]'; then
+            echo 'Synthetic lifecycle marker absent; keeping production audit read-only.'
+            exit 0
+          fi
+          node scripts/production-synthetic-lifecycle.mjs
