@@ -81,6 +81,15 @@ jobs:
           )"
           printf '%s' "$pulls_json" | PARENT_SHA="$parent_sha" python3 -c 'import json,os,sys; pulls=json.load(sys.stdin); parent=os.environ["PARENT_SHA"]; match=next((pr for pr in pulls if pr.get("merged_at") and pr.get("base",{}).get("ref")=="main" and pr.get("merge_commit_sha")==parent),None); match or sys.exit("qualified parent is not the merge commit of a merged pull request targeting main"); print("Merged PR provenance confirmed: #{}".format(match.get("number")))'
 
+          parent_commit_json="$(
+            curl --fail-with-body --silent --show-error \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/commits/$parent_sha"
+          )"
+          printf '%s' "$parent_commit_json" | PARENT_SHA="$parent_sha" python3 -c 'import json,os,sys; commit=json.load(sys.stdin); parent=os.environ["PARENT_SHA"]; verification=commit.get("commit",{}).get("verification",{}); (commit.get("sha")==parent and verification.get("verified") is True and verification.get("reason")=="valid") or sys.exit("qualified parent merge commit is not GitHub-verified with a valid signature"); print("Parent merge signature verified by GitHub")'
+
           recovery_json="$(
             curl --fail-with-body --silent --show-error \
               --header 'Accept: application/vnd.github+json' \
