@@ -99,6 +99,66 @@ jobs:
           )"
           printf '%s' "$recovery_json" | PARENT_SHA="$parent_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); parent=os.environ["PARENT_SHA"]; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==parent and run.get("head_branch")=="main" and run.get("status")=="completed" and run.get("conclusion")=="success"),None); match or sys.exit("qualified parent has no successful completed Recovery CI run on main"); print("Parent Recovery CI provenance confirmed: run {}".format(match.get("id")))'
 
+          previous_release_sha=''
+          while IFS= read -r candidate_sha; do
+            candidate_message="$(git log -1 --format=%B "$candidate_sha")"
+            if [[ "$candidate_message" =~ ^\[deploy\]([[:space:]]|$) ]]; then
+              previous_release_sha="$candidate_sha"
+              break
+            fi
+          done < <(git rev-list --first-parent "${parent_sha}^1")
+          [[ "$previous_release_sha" =~ ^[0-9a-f]{40}$ ]] || { echo 'no prior [deploy] marker found on the qualified parent first-parent lineage' >&2; exit 1; }
+
+          prior_bf07_json="$(
+            curl --fail-with-body --silent --show-error \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/bf07-seal.yml/runs?branch=main&per_page=100"
+          )"
+          printf '%s' "$prior_bf07_json" | PREVIOUS_RELEASE_SHA="$previous_release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["PREVIOUS_RELEASE_SHA"]; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("status")=="completed" and run.get("conclusion")=="success"),None); match or sys.exit("nearest prior [deploy] marker has no successful BF-07 seal on main"); print("Prior BF-07 release baseline confirmed: run {}".format(match.get("id")))'
+
+          prior_deploy_json="$(
+            curl --fail-with-body --silent --show-error \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/deploy-production.yml/runs?branch=main&per_page=100"
+          )"
+          printf '%s' "$prior_deploy_json" | PREVIOUS_RELEASE_SHA="$previous_release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["PREVIOUS_RELEASE_SHA"]; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("status")=="completed" and run.get("conclusion")=="success"),None); match or sys.exit("nearest prior [deploy] marker has no successful production deployment on main"); print("Prior production release baseline confirmed: run {}".format(match.get("id")))'
+
+          mapfile -t lineage_shas < <(git rev-list --first-parent --reverse "$previous_release_sha..$parent_sha")
+          (( ${#lineage_shas[@]} >= 1 )) || { echo 'release lineage contains no qualifying commits after the prior deployed marker' >&2; exit 1; }
+          (( ${#lineage_shas[@]} <= 25 )) || { echo "release lineage exceeds the bounded 25-merge review window: ${#lineage_shas[@]}" >&2; exit 1; }
+
+          for lineage_sha in "${lineage_shas[@]}"; do
+            read -r -a lineage_line <<< "$(git rev-list --parents -n 1 "$lineage_sha")"
+            lineage_parent_count=$(( ${#lineage_line[@]} - 1 ))
+            [[ "$lineage_parent_count" == '2' ]] || { echo "unreviewed first-parent commit detected between deployed releases: $lineage_sha has $lineage_parent_count parent(s)" >&2; exit 1; }
+
+            lineage_pulls_json="$(
+              curl --fail-with-body --silent --show-error \
+                --header 'Accept: application/vnd.github+json' \
+                --header "Authorization: Bearer $GH_TOKEN" \
+                --header 'X-GitHub-Api-Version: 2022-11-28' \
+                "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/commits/$lineage_sha/pulls?per_page=100"
+            )"
+            printf '%s' "$lineage_pulls_json" | LINEAGE_SHA="$lineage_sha" python3 -c 'import json,os,sys; pulls=json.load(sys.stdin); sha=os.environ["LINEAGE_SHA"]; match=next((pr for pr in pulls if pr.get("merged_at") and pr.get("base",{}).get("ref")=="main" and pr.get("merge_commit_sha")==sha),None); match or sys.exit("first-parent release lineage contains a commit that is not an exact merged PR commit targeting main"); print("Lineage merged PR confirmed: #{}".format(match.get("number")))'
+
+            lineage_commit_json="$(
+              curl --fail-with-body --silent --show-error \
+                --header 'Accept: application/vnd.github+json' \
+                --header "Authorization: Bearer $GH_TOKEN" \
+                --header 'X-GitHub-Api-Version: 2022-11-28' \
+                "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/commits/$lineage_sha"
+            )"
+            printf '%s' "$lineage_commit_json" | LINEAGE_SHA="$lineage_sha" python3 -c 'import json,os,sys; commit=json.load(sys.stdin); sha=os.environ["LINEAGE_SHA"]; verification=commit.get("commit",{}).get("verification",{}); (commit.get("sha")==sha and verification.get("verified") is True and verification.get("reason")=="valid") or sys.exit("first-parent release lineage contains a merge commit without a valid GitHub-verified signature"); print("Lineage merge signature verified by GitHub")'
+          done
+
+          lineage_sha_list="${lineage_shas[*]}"
+          printf '%s' "$recovery_json" | LINEAGE_SHAS="$lineage_sha_list" python3 -c 'import json,os,sys; body=json.load(sys.stdin); lineage=os.environ["LINEAGE_SHAS"].split(); runs=body.get("workflow_runs",[]); missing=[sha for sha in lineage if not any(run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("status")=="completed" and run.get("conclusion")=="success" for run in runs)]; not missing or sys.exit("first-parent release lineage has merge commit(s) without successful Recovery CI on main: "+",".join(sha[:12] for sha in missing)); print("First-parent release lineage Recovery CI confirmed for {} merge(s)".format(len(lineage)))'
+          echo "First-parent release lineage confirmed from deployed baseline ${previous_release_sha:0:12} through parent ${parent_sha:0:12}"
+
       - name: Setup pinned Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
