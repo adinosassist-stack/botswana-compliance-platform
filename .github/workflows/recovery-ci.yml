@@ -71,7 +71,10 @@ jobs:
         run: |
           set -euo pipefail
           node --check scripts/production-synthetic-lifecycle.mjs
+          node --check scripts/production-legacy-orphan-cleanup.mjs
+          node --check scripts/production-zero-orphan-audit.mjs
           node tests/v82-production-synthetic-proof-contract.mjs
+          node tests/v82-legacy-orphan-cleanup-contract.mjs
           node tests/v82-phase0-launch-audit-deferred-integrations.mjs
           node tests/v82-postdeploy-smoke-governance.mjs
           node tests/v82-node-postgres-lineage-hardening.mjs
