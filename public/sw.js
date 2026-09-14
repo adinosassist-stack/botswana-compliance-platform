@@ -1,4 +1,4 @@
-const CACHE="thebe-desk-recovery-r1-bw-business-protection-v78-1.21.101-bf07-toolchain-package-hardening-cta-runtime-hotfix-20260913";
+const CACHE="thebe-desk-recovery-r1-bw-business-protection-v78-1.21.101-registration-owner-ui-hotfix-20260914";
 const SHELL=["./manifest.webmanifest","./js/dom-security.js","./js/event-delegation.js","./js/notifications.js","./js/dialog-service.js","./js/api-client.js","./js/state-store.js","./js/components.js"];
 self.addEventListener("install",event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting()))});
 self.addEventListener("activate",event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim()))});

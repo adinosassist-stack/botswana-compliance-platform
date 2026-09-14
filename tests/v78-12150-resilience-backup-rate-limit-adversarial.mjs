@@ -16,9 +16,10 @@ ok(source.includes("clientIp=String(req?.headers?.get(\"cf-connecting-ip\")")&&s
 ok(source.includes('requestId=req.headers.get("cf-ray")||crypto.randomUUID()')&&source.includes('"x-request-id":requestId'),"Worker failures must expose a correlation id");
 ok(fs.existsSync(path.join(root,"scripts/verify-d1-export.mjs"))&&pkg.scripts["check:d1-backup-shape"],"D1 backup shape verifier must be part of the release gate");
 ok(__v782150Test.SEO_GUIDE_SLUGS.length===new Set(__v782150Test.SEO_GUIDE_SLUGS).size,"SEO guide registry must not produce duplicate sitemap URLs");
-const valid=__v782150Test.parsePasswordHash("pbkdf2$120000$i2iHNd1usm2v00FvnFVQrw==$IKniLUpx7tDt1h8eYCqRmLd/m1OcYh+mQbe+Xncc1Wk=");
-ok(valid?.iterations===120000&&!__v782150Test.passwordNeedsRehash("pbkdf2$120000$i2iHNd1usm2v00FvnFVQrw==$IKniLUpx7tDt1h8eYCqRmLd/m1OcYh+mQbe+Xncc1Wk="),"current PBKDF2 hashes must parse without forced rehash");
-ok(__v782150Test.passwordNeedsRehash("pbkdf2$100000$i2iHNd1usm2v00FvnFVQrw==$IKniLUpx7tDt1h8eYCqRmLd/m1OcYh+mQbe+Xncc1Wk="),"older accepted PBKDF2 work factors must be marked for upgrade");
+const valid=__v782150Test.parsePasswordHash("pbkdf2$100000$i2iHNd1usm2v00FvnFVQrw==$IKniLUpx7tDt1h8eYCqRmLd/m1OcYh+mQbe+Xncc1Wk=");
+ok(valid?.iterations===100000&&!__v782150Test.passwordNeedsRehash("pbkdf2$100000$i2iHNd1usm2v00FvnFVQrw==$IKniLUpx7tDt1h8eYCqRmLd/m1OcYh+mQbe+Xncc1Wk="),"current production-compatible PBKDF2 hashes must parse without forced rehash");
+const stronger=__v782150Test.parsePasswordHash("pbkdf2$120000$i2iHNd1usm2v00FvnFVQrw==$IKniLUpx7tDt1h8eYCqRmLd/m1OcYh+mQbe+Xncc1Wk=");
+ok(stronger?.iterations===120000&&!__v782150Test.passwordNeedsRehash("pbkdf2$120000$i2iHNd1usm2v00FvnFVQrw==$IKniLUpx7tDt1h8eYCqRmLd/m1OcYh+mQbe+Xncc1Wk="),"stronger accepted PBKDF2 hashes must never be downgraded");
 ok(__v782150Test.parsePasswordHash("pbkdf2$999999$i2iHNd1usm2v00FvnFVQrw==$IKniLUpx7tDt1h8eYCqRmLd/m1OcYh+mQbe+Xncc1Wk=")===null,"hostile excessive PBKDF2 work factors must be rejected before derivation");
 let limiterCalls=0,dbCalls=0;
 const env={SESSION_SECRET:"s".repeat(48),PUBLIC_ORIGIN:"https://app.example",PUBLIC_RATE_LIMITER:{async limit(){limiterCalls++;return {success:false}}},DB:{prepare(){dbCalls++;throw new Error("DB should not be reached after edge rate limiting")}}};
