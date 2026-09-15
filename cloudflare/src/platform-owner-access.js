@@ -19,6 +19,15 @@ function logicalRequestPath(request){
   }catch{return ""}
 }
 
+function ownerLoginOriginAllowed(request,env){
+  const origin=String(request?.headers?.get?.("origin")||"").trim();
+  if(!origin)return true;
+  try{
+    const configured=new URL(String(env?.PUBLIC_ORIGIN||env?.PUBLIC_APP_URL||""));
+    return new URL(origin).origin===configured.origin;
+  }catch{return false}
+}
+
 function constantTimeEqual(left,right){
   if(!(left instanceof Uint8Array)||!(right instanceof Uint8Array)||left.length!==right.length)return false;
   let diff=0;
@@ -45,7 +54,7 @@ async function canonicalOwnerMembership(env,userId){
 }
 
 async function ensurePlatformOwnerAccess(env,userId){
-  let membership=await canonicalOwnerMembership(env,userId);
+  const membership=await canonicalOwnerMembership(env,userId);
   let tenantId=String(membership?.tenant_id||"");
   let repaired=false;
   if(!tenantId){
@@ -63,19 +72,28 @@ async function ensurePlatformOwnerAccess(env,userId){
   const sentinel=await env.DB.prepare("SELECT enabled,limit_value FROM entitlement_overrides WHERE tenant_id=? AND feature_key='core_compliance' AND reason=? LIMIT 1")
     .bind(tenantId,PLATFORM_OWNER_OVERRIDE_REASON).first();
   const wallet=await env.DB.prepare("SELECT balance,monthly_allowance FROM ai_credit_wallets WHERE tenant_id=? LIMIT 1").bind(tenantId).first();
+  const principal=await env.DB.prepare("SELECT role,active,email FROM platform_regulatory_principals WHERE user_id=? LIMIT 1").bind(userId).first();
   const accessReady=Number(sentinel?.enabled)===1&&Number(sentinel?.limit_value)>=2147483647&&Number(wallet?.monthly_allowance)>=PLATFORM_OWNER_AI_ALLOWANCE;
+  const principalReady=principal?.role==="admin"&&Number(principal?.active)===1&&String(principal?.email||"").toLowerCase()===PLATFORM_OWNER_EMAIL;
 
-  if(!accessReady){
-    await env.DB.batch([
-      env.DB.prepare("INSERT OR IGNORE INTO app_state(tenant_id,version,state_json,updated_at) VALUES(?,1,'{}',CURRENT_TIMESTAMP)").bind(tenantId),
-      env.DB.prepare(`INSERT OR REPLACE INTO entitlement_overrides(tenant_id,feature_key,enabled,limit_value,expires_at,reason,updated_at)
-        SELECT ?,feature_key,1,CASE WHEN feature_key='ai_monthly_credits' THEN ? ELSE 2147483647 END,NULL,?,CURRENT_TIMESTAMP
-        FROM (SELECT DISTINCT feature_key FROM plan_entitlements)`).bind(tenantId,PLATFORM_OWNER_AI_ALLOWANCE,PLATFORM_OWNER_OVERRIDE_REASON),
-      env.DB.prepare("INSERT OR IGNORE INTO ai_credit_wallets(tenant_id,balance,monthly_allowance,monthly_reset_at,lifetime_purchased,lifetime_used,updated_at) VALUES(?,?,?,datetime('now','start of month','+1 month'),0,0,CURRENT_TIMESTAMP)")
-        .bind(tenantId,PLATFORM_OWNER_AI_ALLOWANCE,PLATFORM_OWNER_AI_ALLOWANCE),
-      env.DB.prepare("UPDATE ai_credit_wallets SET balance=MAX(balance,?),monthly_allowance=MAX(monthly_allowance,?),monthly_reset_at=COALESCE(monthly_reset_at,datetime('now','start of month','+1 month')),updated_at=CURRENT_TIMESTAMP WHERE tenant_id=?")
-        .bind(PLATFORM_OWNER_AI_ALLOWANCE,PLATFORM_OWNER_AI_ALLOWANCE,tenantId)
-    ]);
+  if(!accessReady||!principalReady){
+    const statements=[];
+    if(!accessReady){
+      statements.push(
+        env.DB.prepare("INSERT OR IGNORE INTO app_state(tenant_id,version,state_json,updated_at) VALUES(?,1,'{}',CURRENT_TIMESTAMP)").bind(tenantId),
+        env.DB.prepare(`INSERT OR REPLACE INTO entitlement_overrides(tenant_id,feature_key,enabled,limit_value,expires_at,reason,updated_at)
+          SELECT ?,feature_key,1,CASE WHEN feature_key='ai_monthly_credits' THEN ? ELSE 2147483647 END,NULL,?,CURRENT_TIMESTAMP
+          FROM (SELECT DISTINCT feature_key FROM plan_entitlements)`).bind(tenantId,PLATFORM_OWNER_AI_ALLOWANCE,PLATFORM_OWNER_OVERRIDE_REASON),
+        env.DB.prepare("INSERT OR IGNORE INTO ai_credit_wallets(tenant_id,balance,monthly_allowance,monthly_reset_at,lifetime_purchased,lifetime_used,updated_at) VALUES(?,?,?,datetime('now','start of month','+1 month'),0,0,CURRENT_TIMESTAMP)")
+          .bind(tenantId,PLATFORM_OWNER_AI_ALLOWANCE,PLATFORM_OWNER_AI_ALLOWANCE),
+        env.DB.prepare("UPDATE ai_credit_wallets SET balance=MAX(balance,?),monthly_allowance=MAX(monthly_allowance,?),monthly_reset_at=COALESCE(monthly_reset_at,datetime('now','start of month','+1 month')),updated_at=CURRENT_TIMESTAMP WHERE tenant_id=?")
+          .bind(PLATFORM_OWNER_AI_ALLOWANCE,PLATFORM_OWNER_AI_ALLOWANCE,tenantId)
+      );
+    }
+    if(!principalReady){
+      statements.push(env.DB.prepare("INSERT OR REPLACE INTO platform_regulatory_principals(user_id,email,role,active,provisioned_at) VALUES(?,?,'admin',1,CURRENT_TIMESTAMP)").bind(userId,PLATFORM_OWNER_EMAIL));
+    }
+    if(statements.length)await env.DB.batch(statements);
     repaired=true;
   }
 
@@ -89,12 +107,19 @@ async function ensurePlatformOwnerAccess(env,userId){
 function withTenantId(request,body,tenantId){
   const headers=new Headers(request.headers);
   headers.set("content-type","application/json");
-  const init={method:request.method,headers,body:JSON.stringify({...body,tenantId}),redirect:request.redirect};
-  return new Request(request.url,init);
+  return new Request(request,{headers,body:JSON.stringify({...body,tenantId})});
+}
+
+export function withPlatformOwnerAdminEnv(env){
+  const runtimeEnv=Object.create(env||null);
+  const current=String(env?.PLATFORM_ADMIN_EMAILS||"").split(",").map(value=>value.trim().toLowerCase()).filter(Boolean);
+  if(!current.includes(PLATFORM_OWNER_EMAIL))current.push(PLATFORM_OWNER_EMAIL);
+  runtimeEnv.PLATFORM_ADMIN_EMAILS=current.join(",");
+  return runtimeEnv;
 }
 
 export async function preparePlatformOwnerLogin(request,env){
-  if(String(request?.method||"").toUpperCase()!=="POST"||logicalRequestPath(request)!=="/api/auth/login"||!env?.DB)return request;
+  if(String(request?.method||"").toUpperCase()!=="POST"||logicalRequestPath(request)!=="/api/auth/login"||!env?.DB||!ownerLoginOriginAllowed(request,env))return request;
   let body;
   try{body=await request.clone().json()}catch{return request}
   const email=String(body?.email||"").trim().toLowerCase();
@@ -115,5 +140,6 @@ export const __platformOwnerAccessTest=Object.freeze({
   PLATFORM_OWNER_AI_ALLOWANCE,
   PLATFORM_OWNER_OVERRIDE_REASON,
   verifyStoredPassword,
+  ownerLoginOriginAllowed,
   logicalRequestPath
 });
