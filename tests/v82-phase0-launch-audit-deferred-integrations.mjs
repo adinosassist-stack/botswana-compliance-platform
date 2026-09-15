@@ -41,6 +41,9 @@ ok(residueAudit.includes('BASELINE_DEPENDENCIES=new Set')&&residueAudit.includes
 ok(residueAudit.includes("'performance_alert_settings.tenant_id'")&&residueAudit.includes('function assertDefaultPerformanceSettings(row)')&&residueAudit.includes('performanceSettings.length===1')&&residueAudit.includes('candidate performance alert setting ${key} differs from system default')&&residueAudit.includes('notify_whatsapp:0')&&residueAudit.includes('coverage_drop_points:20')&&residueAudit.includes('metric_drop_percent:30')&&residueAudit.includes('improvement_percent:25')&&residueAudit.includes('incident_spike_count:2')&&residueAudit.includes('recurring_days:3')&&residueAudit.includes('min_baseline_days:3'), 'performance settings are baseline only when exactly one untouched system-default row exists');
 ok(residueAudit.includes('QUERY_CONCURRENCY=6')&&residueAudit.includes('await Promise.all(Array.from'), 'residue audit bounds independent D1 dependency checks');
 
+await import('./v82-synthetic-interruption-recovery-cohort-governance.mjs');
+console.log('PASS synthetic interruption recovery cohort governance chained');
+
 const productionAuditEnv=['CLOUDFLARE_API_TOKEN','CLOUDFLARE_ACCOUNT_ID','D1_DATABASE_ID'].every(name=>String(process.env[name]||'').trim());
 if(productionAuditEnv){
   await import('../scripts/production-synthetic-residue-audit.mjs');
