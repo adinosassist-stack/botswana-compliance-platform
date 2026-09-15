@@ -4,6 +4,19 @@
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
   Strict-Transport-Security: max-age=31536000
 
+/sw.js
+  Cache-Control: no-store, max-age=0, must-revalidate
+  Service-Worker-Allowed: /
+
+/recover.html
+  Cache-Control: no-store, max-age=0, must-revalidate
+
+/register-direct.html
+  Cache-Control: no-store, max-age=0, must-revalidate
+
+/js/recover-runtime.js
+  Cache-Control: no-store, max-age=0, must-revalidate
+
 /js/*
   Cache-Control: public, max-age=300, must-revalidate
 
