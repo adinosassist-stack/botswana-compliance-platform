@@ -1,6 +1,7 @@
 import base from "./production-entry.js";
 import {handleAgenticAuthorityRequest} from "./agentic-authority-core.js";
 import {handleAgenticWhatsAppRequest} from "./agentic-whatsapp-core.js";
+import {preparePlatformOwnerLogin} from "./platform-owner-access.js";
 
 const V81_SCHEMA_DELTA="047_v81_delegated_authority.sql";
 
@@ -60,8 +61,9 @@ export default {
     if(whatsappResponse)return whatsappResponse;
     const authorityResponse=await handleAgenticAuthorityRequest({request,logicalPath,env});
     if(authorityResponse)return authorityResponse;
-    const response=await base.fetch(request,env,ctx);
-    return enhanceReadiness(request,env,response);
+    const preparedRequest=await preparePlatformOwnerLogin(request,env);
+    const response=await base.fetch(preparedRequest,env,ctx);
+    return enhanceReadiness(preparedRequest,env,response);
   },
   async scheduled(event,env,ctx){
     return base.scheduled(event,env,ctx);
