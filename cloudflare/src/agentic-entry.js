@@ -61,10 +61,10 @@ export default {
     if(whatsappResponse)return whatsappResponse;
     const authorityResponse=await handleAgenticAuthorityRequest({request,logicalPath,env});
     if(authorityResponse)return authorityResponse;
-    const runtimeEnv=withPlatformOwnerAdminEnv(env);
-    const preparedRequest=await preparePlatformOwnerLogin(request,runtimeEnv);
-    const response=await base.fetch(preparedRequest,runtimeEnv,ctx);
-    return enhanceReadiness(preparedRequest,runtimeEnv,response);
+    env=withPlatformOwnerAdminEnv(env);
+    request=await preparePlatformOwnerLogin(request,env);
+    const response=await base.fetch(request,env,ctx);
+    return enhanceReadiness(request,env,response);
   },
   async scheduled(event,env,ctx){
     return base.scheduled(event,env,ctx);
