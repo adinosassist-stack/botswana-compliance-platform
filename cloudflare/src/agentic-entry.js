@@ -4,6 +4,8 @@ import {handleAgenticWhatsAppRequest} from "./agentic-whatsapp-core.js";
 import {preparePlatformOwnerLogin,withPlatformOwnerAdminEnv} from "./platform-owner-access.js";
 
 const V81_SCHEMA_DELTA="047_v81_delegated_authority.sql";
+const COLD_START_REDUNDANT_RENDER="if(!options?.skipDataRefresh)queueMicrotask(()=>renderAll())";
+const COLD_START_GUARDED_RENDER="if(!options?.skipDataRefresh&&!options?.roleRedirect)queueMicrotask(()=>renderAll())";
 
 function logicalRequestPath(request){
   try{
@@ -27,6 +29,21 @@ async function delegatedAuthoritySchemaReady(env){
       (SELECT COUNT(*) FROM agent_delegation_events) event_count`).first();
     return true;
   }catch{return false}
+}
+
+async function hardenAuthenticatedColdStart(request,response){
+  if(String(request?.method||"").toUpperCase()!=="GET")return response;
+  const type=String(response?.headers?.get?.("content-type")||"").toLowerCase();
+  if(!type.includes("text/html"))return response;
+  let html;
+  try{html=await response.clone().text()}catch{return response}
+  if(!html.includes(COLD_START_REDUNDANT_RENDER))return response;
+  const hardened=html.replace(COLD_START_REDUNDANT_RENDER,COLD_START_GUARDED_RENDER);
+  const headers=new Headers(response.headers);
+  headers.delete("content-length");
+  headers.delete("etag");
+  headers.set("x-thebe-cold-start-guard","role-redirect-v1");
+  return new Response(hardened,{status:response.status,statusText:response.statusText,headers});
 }
 
 async function enhanceReadiness(request,env,response){
@@ -64,6 +81,8 @@ export default {
     env=withPlatformOwnerAdminEnv(env);
     request=await preparePlatformOwnerLogin(request,env);
     const response=await base.fetch(request,env,ctx);
+    const hardenedResponse=await hardenAuthenticatedColdStart(request,response);
+    if(hardenedResponse!==response)return enhanceReadiness(request,env,hardenedResponse);
     return enhanceReadiness(request,env,response);
   },
   async scheduled(event,env,ctx){
@@ -71,4 +90,4 @@ export default {
   }
 };
 
-export {delegatedAuthoritySchemaReady,enhanceReadiness,logicalRequestPath,V81_SCHEMA_DELTA};
+export {delegatedAuthoritySchemaReady,enhanceReadiness,hardenAuthenticatedColdStart,logicalRequestPath,V81_SCHEMA_DELTA};
