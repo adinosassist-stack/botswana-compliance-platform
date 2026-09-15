@@ -23,7 +23,6 @@ ok(html.includes('src="js/event-delegation.js"'),"delegated event runtime must b
 ok(read("public/js/event-delegation.js").includes("ALLOWED_ACTIONS")&&read("public/js/event-delegation.js").includes("isAllowedExpression"),"delegated event runtime must use an explicit action allowlist and expression validator");
 ok(worker.includes("script-src-attr 'none'"),"production CSP must disable native inline event-handler execution");
 
-
 ok(html.includes('meta name="bw-runtime-mode" content="production"'),"production runtime mode must be explicit");
 ok(!html.includes("const PREVIEW_API="),"preview fixtures must not live in the application shell");
 ok(preview.includes("global.BW?.previewData"),"preview transport must consume external generated fixture data");
@@ -32,7 +31,10 @@ ok(state.includes("deepFreeze")&&state.includes("State updater must return a new
 ok(!/\bstate\.[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\s*=/.test(html),"application shell must not directly assign state properties");
 ok(!/\bstore\.[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\s*=/.test(html),"application shell must not directly assign store properties");
 ok(api.includes('credentials:"same-origin"')&&api.includes('x-csrf-token')&&api.includes("AbortController")&&api.includes("429,502,503,504"),"API client must enforce credentials, CSRF, timeouts and bounded retry");
-ok(sw.includes('url.pathname.startsWith("/api/")')&&sw.includes('request.mode==="navigate"')&&sw.includes('fetch(request,{cache:"no-store"})')&&!sw.includes('fallbackKey:"./"')&&!sw.includes('fallbackKey: "./"'),"service worker must bypass API and use network-only application navigation without cached-root fallback");
+const legacyServiceWorkerBoundary=sw.includes('url.pathname.startsWith("/api/")')&&sw.includes('request.mode==="navigate"')&&sw.includes('fetch(request,{cache:"no-store"})')&&!sw.includes('fallbackKey:"./"')&&!sw.includes('fallbackKey: "./"');
+const decommissionedServiceWorkerBoundary=sw.includes('self.registration.unregister()')&&!sw.includes('addEventListener("fetch"')&&!sw.includes('clients.openWindow')&&!sw.includes('location.reload')&&!sw.includes('location.assign')&&!sw.includes('location.replace');
+ok(legacyServiceWorkerBoundary||decommissionedServiceWorkerBoundary,"service worker must either bypass API with network-only navigation or be fully decommissioned without fetch interception/navigation side effects");
+ok(!decommissionedServiceWorkerBoundary||(dom.includes("getRegistrations()")&&dom.includes("registration=>registration.unregister()")&&dom.includes('startsWith("thebe-desk-")')),"decommissioned service worker requires bounded normal-startup registration/cache cleanup");
 ok(worker.includes("APP_SECURITY_HEADERS")&&worker.includes('frame-ancestors \'none\'')&&worker.includes('x-frame-options":"DENY"'),"Worker must apply browser security headers");
 ok(!worker.includes("const BOTSWANA_FOUNDATION_PACK_V1={"),"Worker must not embed a hand-maintained foundation pack copy");
 ok(worker.startsWith('import {BOTSWANA_FOUNDATION_PACK_V1,BOTSWANA_FOUNDATION_PACK_V1_HASH}'),"Worker must use the generated foundation-pack module");

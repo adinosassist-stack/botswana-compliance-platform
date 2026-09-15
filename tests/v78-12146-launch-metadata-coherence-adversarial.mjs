@@ -22,7 +22,9 @@ function ok(cond,msg){checks++; if(!cond) throw new Error(`FAIL ${checks}: ${msg
 
 ok(/^1\.21\.(?:4[6-9]|[5-9]\d|\d{3,})$/.test(pkg.version),"package version must retain or supersede the 1.21.46 release line");
 ok(profile.package_version===pkg.version,"release profile package version must match package.json");
-ok(sw.includes(`bw-business-protection-v78-${pkg.version}`),"service-worker cache must match the current package version");
+const historicalServiceWorker=sw.includes(`bw-business-protection-v78-${pkg.version}`);
+const retiredServiceWorker=sw.includes('LEGACY_CACHE_PREFIX="thebe-desk-"')&&sw.includes('self.registration.unregister()')&&!sw.includes('addEventListener("fetch"')&&!sw.includes('clients.openWindow');
+ok(historicalServiceWorker||retiredServiceWorker,"service-worker cache must match the current package version or be safely retired");
 ok(readme.startsWith(`# Thebe Desk — v${pkg.version}`),"README must advertise the current deployable release first");
 ok(profile.social_oauth_worker_port_complete===true,"release profile must not retain the superseded false OAuth port flag");
 ok(profile.cloudflare_social_oauth_port_complete===true,"Cloudflare OAuth completion flag must remain true");

@@ -10,7 +10,8 @@ let checks=0;
 const ok=(value,message)=>{assert.ok(value,message);checks++};
 
 ok(js.includes('const RELEASE="20260913d";'),'browser release advanced for outcome-informed agentic UI');
-ok(sw.includes('function criticalRuntimeAsset(url){return url.origin===self.location.origin&&url.pathname.startsWith("/js/")}')&&sw.includes('fetch(request,{cache:"no-store"})'),'JS runtime assets are served network-first instead of relying on a query-string cache key');
+const runtimeAssetsSafe=(sw.includes('function criticalRuntimeAsset(url){return url.origin===self.location.origin&&url.pathname.startsWith("/js/")}')&&sw.includes('fetch(request,{cache:"no-store"})'))||(sw.includes('self.registration.unregister()')&&!sw.includes('addEventListener("fetch"'));
+ok(runtimeAssetsSafe,'JS runtime assets must be network-first under the legacy worker or fully outside service-worker interception under the decommissioned model');
 ok(html.includes('id="ownerAgenticStyles"')&&html.includes('.owner-agentic-panel{'),'responsive agentic panel styles are present');
 ok(js.includes('agentic.id="ownerAgenticPanel"')&&js.includes('agenticBody.id="ownerAgenticBody"'),'Owner Command Centre mounts governed agentic panel');
 ok(js.includes('Observe → reason → simulate → recommend → approve'),'UI communicates the bounded Stage 1 loop');

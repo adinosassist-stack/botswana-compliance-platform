@@ -5,6 +5,7 @@ const pkg=JSON.parse(fs.readFileSync(new URL('../package.json',import.meta.url),
 const sw=fs.readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
 const events=fs.readFileSync(new URL('../public/js/event-delegation.js',import.meta.url),'utf8');
 const checks=[]; const ok=(name,cond)=>{assert.ok(cond,name);checks.push(name)};
+const retiredWorker=sw.includes(`RETIREMENT_RELEASE="${pkg.version}"`)&&sw.includes('self.registration.unregister()')&&!sw.includes('addEventListener("fetch"')&&!sw.includes('clients.openWindow')&&!sw.includes('location.reload')&&!sw.includes('location.assign')&&!sw.includes('location.replace');
 ok('release version is 1.21.x',pkg.version.startsWith('1.21.')&&Number(pkg.version.split('.')[2]||0)>=20);
 ok('header exposes persistent Start free',html.includes('class="btn marketing-start-action" type="button" data-bw-onclick="startFreeFromMarketing()">Start free</button>'));
 ok('hero exposes persistent 14-day Start free',html.includes('data-bw-onclick="startFreeFromMarketing()">Start free for 14 days</button>'));
@@ -18,8 +19,8 @@ ok('Open workspace remains a separate session action',html.includes('id="marketi
 ok('Sign in remains guest-only',html.includes('marketing-guest-action" data-guest-action data-bw-onclick="openAuthFromMarketing(\'login\')">Sign in'));
 ok('mobile start action has explicit compact sizing',html.includes('.marketinglinks .marketing-start-action,.marketinglinks .marketing-session-action'));
 ok('mobile logo compacts to preserve CTA space',html.includes('@media(max-width:650px){.marketinglogo{font-size:0!important'));
-ok('service worker cache is rotated within reviewed successor lineage',(sw.includes('1.21.101-bf07-toolchain-package-hardening-cta-runtime-hotfix-20260913')||sw.includes('1.21.101-registration-owner-ui-hotfix-20260914')));
-ok('critical JavaScript is network-first',sw.includes('function criticalRuntimeAsset')&&sw.includes('url.pathname.startsWith("/js/")')&&sw.includes('event.respondWith(networkFirst(request,event))'));
-ok('runtime network fetch bypasses HTTP cache',sw.includes('fetch(request,{cache:"no-store"})'));
+ok('service worker cache is rotated within reviewed successor lineage or safely retired',(sw.includes('1.21.101-bf07-toolchain-package-hardening-cta-runtime-hotfix-20260913')||sw.includes('1.21.101-registration-owner-ui-hotfix-20260914')||retiredWorker));
+ok('critical JavaScript is network-first or outside service-worker interception',(sw.includes('function criticalRuntimeAsset')&&sw.includes('url.pathname.startsWith("/js/")')&&sw.includes('event.respondWith(networkFirst(request,event))'))||retiredWorker);
+ok('runtime network fetch bypasses HTTP cache or service worker is retired',sw.includes('fetch(request,{cache:"no-store"})')||retiredWorker);
 ok('production Explore workspace cannot silently no-op',events.includes('call.name==="enterStandalonePreview"&&result===false')&&events.includes('global.openAuthFromMarketing("register")'));
 console.log(`v78 Start free visibility: ${checks.length}/${checks.length} checks passed`);
