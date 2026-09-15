@@ -43,9 +43,9 @@ function sameFingerprintSet(actual,expected){
   return a.length===b.length&&a.every((value,index)=>value===b[index]);
 }
 
-function importContentFingerprintBasis({tenantId,accountId,sourceType,provider,rows}){
-  const canonicalRows=(rows||[]).map(row=>JSON.stringify([text(row?.postedOn,10),integer(row?.amountMinor),text(row?.reference,160),text(row?.description,500),text(row?.sourceId,160)])).sort();
-  return [String(tenantId||""),String(accountId||""),String(sourceType||""),String(provider||""),canonicalRows];
+function importContentFingerprintBasis({tenantId,accountId,rows}){
+  const canonicalRows=(rows||[]).map(row=>JSON.stringify([text(row?.postedOn,10),integer(row?.amountMinor),text(row?.reference,160),text(row?.description,500)])).sort();
+  return [String(tenantId||""),String(accountId||""),"user_import",canonicalRows];
 }
 
 function importContentLockKey(contentFingerprint){return `${IMPORT_CONTENT_LOCK_PREFIX}${String(contentFingerprint||"")}`}
@@ -60,18 +60,17 @@ async function registeredDuplicateImportContent({env,tenantId,contentFingerprint
 async function findDuplicateImportContent({env,tenantId,userId,accountId,sourceType,provider,rows,contentFingerprint,sha256Hex,id}){
   const registered=await registeredDuplicateImportContent({env,tenantId,contentFingerprint});
   if(registered)return registered;
-  if((rows||[]).some(row=>text(row?.sourceId,160)))return null;
   const candidates=await env.DB.prepare(`SELECT b.id FROM finance_import_batches b
-    WHERE b.tenant_id=? AND b.account_id=? AND b.source_type=? AND COALESCE(b.provider,'')=? AND b.row_count=? AND b.status='completed' AND b.imported_count=b.row_count
+    WHERE b.tenant_id=? AND b.account_id=? AND b.source_type IN ('manual','csv') AND b.row_count=? AND b.status='completed' AND b.imported_count=b.row_count
       AND NOT EXISTS (SELECT 1 FROM finance_import_batches l WHERE l.tenant_id=b.tenant_id AND l.id=?||b.id)
-    ORDER BY b.created_at DESC,b.id DESC LIMIT ?`).bind(tenantId,accountId,sourceType,provider||"",rows.length,IMPORT_CONTENT_LOCK_ID_PREFIX,MAX_LEGACY_CONTENT_CANDIDATES+1).all();
+    ORDER BY b.created_at DESC,b.id DESC LIMIT ?`).bind(tenantId,accountId,rows.length,IMPORT_CONTENT_LOCK_ID_PREFIX,MAX_LEGACY_CONTENT_CANDIDATES+1).all();
   const items=candidates.results||[];
   if(items.length>MAX_LEGACY_CONTENT_CANDIDATES)return {reviewRequired:true};
   for(const candidate of items){
     const tx=await env.DB.prepare("SELECT posted_on,description,reference,amount_minor FROM finance_transactions WHERE tenant_id=? AND import_batch_id=? ORDER BY id").bind(tenantId,candidate.id).all();
     const prior=(tx.results||[]).map(row=>({postedOn:row.posted_on,description:row.description,reference:row.reference,amountMinor:Number(row.amount_minor),sourceId:""}));
     if(prior.length!==rows.length)continue;
-    const priorFingerprint=await sha256Hex(JSON.stringify(importContentFingerprintBasis({tenantId,accountId,sourceType,provider,rows:prior})));
+    const priorFingerprint=await sha256Hex(JSON.stringify(importContentFingerprintBasis({tenantId,accountId,rows:prior})));
     if(priorFingerprint!==contentFingerprint)continue;
     try{
       await env.DB.prepare("INSERT INTO finance_import_batches(id,tenant_id,account_id,source_type,provider,idempotency_key,status,row_count,imported_count,duplicate_count,created_by_user_id,completed_at) VALUES(?,?,?,?,?,?,'failed',0,0,0,?,CURRENT_TIMESTAMP)").bind(importContentLockId(candidate.id),tenantId,accountId,sourceType,provider,importContentLockKey(contentFingerprint),userId).run();
@@ -345,7 +344,7 @@ export async function handleFinanceRequest({request,url,env,auth,json,readJson,i
       const row=normalized[index];
       expectedFingerprints.push(await sha256Hex(JSON.stringify(sourceFingerprintBasis({tenantId:auth.tenant_id,accountId,sourceType,provider:fingerprintProvider,idempotencyKey,row,index}))));
     }
-    const contentFingerprint=sourceType==="adapter"?null:await sha256Hex(JSON.stringify(importContentFingerprintBasis({tenantId:auth.tenant_id,accountId,sourceType,provider,rows:normalized})));
+    const contentFingerprint=sourceType==="adapter"?null:await sha256Hex(JSON.stringify(importContentFingerprintBasis({tenantId:auth.tenant_id,accountId,rows:normalized})));
     const existing=await env.DB.prepare("SELECT id,account_id,source_type,provider,row_count,imported_count,duplicate_count,status FROM finance_import_batches WHERE tenant_id=? AND idempotency_key=? LIMIT 1").bind(auth.tenant_id,idempotencyKey).first();
     if(existing){
       const replayMatches=await verifyExistingImportRequest({env,tenantId:auth.tenant_id,existing,accountId,sourceType,provider,expectedRowCount:normalized.length,expectedFingerprints});
