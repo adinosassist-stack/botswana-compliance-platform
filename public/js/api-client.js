@@ -42,7 +42,7 @@
   function autoIdempotency(method,target){try{const path=new URL(target).pathname,key=`${method} ${path}`;return AUTO_IDEMPOTENT_MUTATIONS.has(key)||(method==="POST"&&(/^\/api\/company-actions\/[^/]+\/advance$/.test(path)||/^\/api\/licences\/[^/]+\/renew$/.test(path)))}catch{return false}}
   function friendlyMessage(status,data){
     const code=String(data?.error||"");
-    const known={csrf_failed:"Your session security token changed. Refresh and try again.",origin_failed:"This request was blocked because it came from an unexpected origin.",unauthenticated:"Your session has expired. Please sign in again.",invalid_credentials:"Email or password is incorrect.",forbidden:"Your role does not have permission for that action.",workspace_role_forbidden:"Your account role cannot access this workspace action.",workspace_role_read_forbidden:"Your role cannot view that information.",workspace_role_mutation_forbidden:"Your role cannot change that information.",invalid_registration:"Check your company name, email and password. Company name must be at least 2 characters and the password must be at least 12 characters.",human_verification_failed:"Human verification failed or expired. Complete the verification and try again.",registration_protection_failed:"Registration protection expired or could not be verified. Click Create account again to generate a fresh secure proof.",database_daily_limit_reached:"The database has reached its daily service limit. Try again after the limit resets."};
+    const known={csrf_failed:"Your session security token changed. Refresh and try again.",origin_failed:"This request was blocked because it came from an unexpected origin.",unauthenticated:"Your session has expired. Please sign in again.",invalid_credentials:"Email or password is incorrect.",registration_not_confirmed:"We couldn't confirm this account with the password you entered. If you've used this email before, sign in with the password already on the account or use Forgot password.",forbidden:"Your role does not have permission for that action.",workspace_role_forbidden:"Your account role cannot access this workspace action.",workspace_role_read_forbidden:"Your role cannot view that information.",workspace_role_mutation_forbidden:"Your role cannot change that information.",invalid_registration:"Check your company name, email and password. Company name must be at least 2 characters and the password must be at least 12 characters.",human_verification_failed:"Human verification failed or expired. Complete the verification and try again.",registration_protection_failed:"Registration protection expired or could not be verified. Click Create account again to generate a fresh secure proof.",database_daily_limit_reached:"The database has reached its daily service limit. Try again after the limit resets."};
     return known[code]||String(data?.message||data?.error||((status>=500)?"The service could not complete the request. Please retry.":`Request failed (${status||"network"}).`));
   }
   function registrationValidationMessage(target,method,body){
@@ -56,8 +56,15 @@
       return "";
     }catch{return ""}
   }
+  function authBodyCredentials(body){
+    try{
+      if(typeof body!=="string")return null;
+      const data=JSON.parse(body),email=String(data?.email||"").trim().toLowerCase(),password=String(data?.password||""),tenantId=String(data?.tenantId||"").trim();
+      return email&&password?{email,password,tenantId}:null;
+    }catch{return null}
+  }
   function createClient({getCsrfToken=()=>"",onUnauthorized=()=>{},onError=()=>{},timeoutMs=18000,retries=1}={}){
-    let preferredTransport="root";
+    let preferredTransport="root",pendingRegistrationLogin=null;
     function apiUrl(value){
       const base=global.location?.href||"https://invalid.local/",target=new URL(String(value||""),base);
       if(!global.location?.origin||target.origin!==global.location.origin)throw new ApiError("Blocked cross-origin application API request.",{code:"cross_origin_api_blocked"});
@@ -148,8 +155,30 @@
       if(firstNetworkError)throw firstNetworkError;
       throw new ApiError("Thebe Desk sign-in service route is unavailable. Refresh and try again.",{status:0,code:"auth_transport_unavailable",requestId});
     }
+    async function confirmRegistration(logicalTarget,credentials,requestId){
+      const loginTarget=new URL("/api/auth/login",logicalTarget).href,controller=new AbortController(),timer=setTimeout(()=>controller.abort("timeout"),timeoutMs);
+      const headers=new Headers({"accept":"application/json","content-type":"application/json","x-client-request-id":`${requestId}-registration-confirm`});
+      try{
+        const result=await fetchApi(transportApiUrl(loginTarget,preferredTransport),{body:JSON.stringify({email:credentials.email,password:credentials.password})},"POST",headers,controller.signal);
+        if(result.response.ok)return {kind:"success",data:result.data};
+        if(result.response.status===409&&String(result.data?.error||"")==="workspace_selection_required"){
+          return {kind:"workspace",error:new ApiError(friendlyMessage(result.response.status,result.data),{status:result.response.status,code:"workspace_selection_required",requestId,data:result.data})};
+        }
+        if(result.response.status===401&&String(result.data?.error||"")==="invalid_credentials")return {kind:"invalid"};
+        return {kind:"retry"};
+      }catch{return {kind:"retry"}}
+      finally{clearTimeout(timer)}
+    }
     async function request(url,options={}){
-      const logicalTarget=apiUrl(url),method=String(options.method||"GET").toUpperCase(),idempotent=["GET","HEAD"].includes(method),authCredentialMutation=isAuthCredentialMutation(logicalTarget,method),requestId=global.crypto?.randomUUID?.()||`${Date.now()}-${Math.random()}`;
+      const logicalTarget=apiUrl(url),method=String(options.method||"GET").toUpperCase(),idempotent=["GET","HEAD"].includes(method),authCredentialMutation=isAuthCredentialMutation(logicalTarget,method),requestId=global.crypto?.randomUUID?.()||`${Date.now()}-${Math.random()}`,authPath=authCredentialMutation?new URL(logicalTarget).pathname:"";
+      if(method==="POST"&&authPath==="/api/auth/login"&&pendingRegistrationLogin){
+        const credentials=authBodyCredentials(options.body),pending=pendingRegistrationLogin;
+        pendingRegistrationLogin=null;
+        if(credentials&&!credentials.tenantId&&credentials.email===pending.email&&credentials.password===pending.password){
+          if(pending.error)throw pending.error;
+          return pending.data;
+        }
+      }
       const registrationError=registrationValidationMessage(logicalTarget,method,options.body);if(registrationError)throw new ApiError(registrationError,{status:400,code:"invalid_registration",requestId});
       const requestedIdempotency=options.idempotencyKey??autoIdempotency(method,logicalTarget),idempotencyKey=requestedIdempotency===true?(global.crypto?.randomUUID?.()||requestId):String(requestedIdempotency||"").trim();
       const safeRetry=idempotent||!!idempotencyKey,attempts=safeRetry?Math.max(1,retries+1):1;
@@ -170,6 +199,25 @@
             result=await fetchApi(transportApiUrl(logicalTarget,preferredTransport),fetchOptions,method,headers,controller.signal);
           }
           clearTimeout(timer);const {response,data}=result;
+          if(response.ok&&authPath==="/api/auth/register"){
+            const credentials=authBodyCredentials(options.body);
+            if(credentials){
+              const confirmation=await confirmRegistration(logicalTarget,credentials,requestId);
+              if(confirmation.kind==="success"){
+                pendingRegistrationLogin={email:credentials.email,password:credentials.password,data:confirmation.data,error:null};
+                return {...data,credentialConfirmed:true};
+              }
+              if(confirmation.kind==="workspace"){
+                pendingRegistrationLogin={email:credentials.email,password:credentials.password,data:null,error:confirmation.error};
+                return data;
+              }
+              if(confirmation.kind==="invalid"){
+                const confirmationData={error:"registration_not_confirmed"};
+                throw new ApiError(friendlyMessage(409,confirmationData),{status:409,code:"registration_not_confirmed",requestId,data:confirmationData});
+              }
+            }
+            return data;
+          }
           if(response.status===401){try{onUnauthorized()}catch{}}
           if(response.ok)return data;
           const routeChanged=authCredentialMutation&&transportRouteRejected(response);
