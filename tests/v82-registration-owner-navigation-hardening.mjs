@@ -41,12 +41,16 @@ ok('registration protection error is user-readable',api.includes('registration_p
 
 ok('platform owner repair is scoped to the explicit owner email',ownerAccess.includes('PLATFORM_OWNER_EMAIL="thebedesk@gmail.com"'));
 ok('platform owner access cannot run until the stored password verifies',ownerAccess.indexOf('verifyStoredPassword(password,user.password_hash)')<ownerAccess.indexOf('ensurePlatformOwnerAccess(env,user.id)'));
+ok('platform owner repair is same-origin constrained before any mutation',ownerAccess.includes('ownerLoginOriginAllowed(request,env)'));
 ok('platform owner repair never rewrites user credentials',!ownerAccess.includes('UPDATE users'));
 ok('platform owner membership is repaired to active owner when needed',ownerAccess.includes("UPDATE memberships SET role='owner',status='active'"));
 ok('platform owner gets permanent server-side feature overrides',ownerAccess.includes('platform_owner_internal_full_access')&&ownerAccess.includes('INSERT OR REPLACE INTO entitlement_overrides'));
 ok('platform owner receives bounded internal AI operating allowance without customer payment',ownerAccess.includes('PLATFORM_OWNER_AI_ALLOWANCE=10000')&&ownerAccess.includes('ai_credit_wallets')&&!ownerAccess.includes('payment_orders'));
+ok('platform owner is provisioned as the explicit platform admin',ownerAccess.includes("platform_regulatory_principals")&&ownerAccess.includes("'admin',1,CURRENT_TIMESTAMP"));
+ok('platform admin environment includes the explicit owner account',ownerAccess.includes('withPlatformOwnerAdminEnv')&&ownerAccess.includes('PLATFORM_ADMIN_EMAILS'));
 ok('platform owner login is rewritten only after verified repair to select the canonical tenant',ownerAccess.includes('return withTenantId(request,body,tenantId)'));
-ok('production agentic wrapper prepares owner login before canonical base authentication',agenticEntry.indexOf('preparePlatformOwnerLogin(request,env)')<agenticEntry.indexOf('base.fetch(preparedRequest,env,ctx)'));
+ok('production agentic wrapper prepares owner login before canonical base authentication',agenticEntry.indexOf('preparePlatformOwnerLogin(request,runtimeEnv)')<agenticEntry.indexOf('base.fetch(preparedRequest,runtimeEnv,ctx)'));
+ok('production wrapper applies the explicit platform-admin environment to canonical authorization',agenticEntry.includes('withPlatformOwnerAdminEnv(env)')&&agenticEntry.includes('base.fetch(preparedRequest,runtimeEnv,ctx)'));
 ok('platform owner repair does not advance the D1 schema lineage',!fs.existsSync(new URL('../cloudflare/migrations/048_v82_platform_owner_access.sql',import.meta.url)));
 
 ok('platform specialist tools start hidden',html.includes('<details class="nav-specialist-tools" hidden>')&&html.includes('.nav-specialist-tools[hidden]{display:none!important}'));
