@@ -1,0 +1,54 @@
+name: Temporary branch patch - release authority regression
+
+on:
+  push:
+    branches:
+      - chatgpt/release-branch-authority-20260915
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: chatgpt/release-branch-authority-20260915
+          fetch-depth: 0
+      - name: Patch only retired release-marker assertions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          p=Path('tests/v78-thebe-desk-deployment-closure-adversarial.mjs')
+          s=p.read_text()
+          old="const bf07Workflow=read('.github/workflows/bf07-seal.yml');\nconst provenanceCore=read('scripts/bf07-provenance-core.mjs');"
+          new="const bf07Workflow=read('.github/workflows/bf07-seal.yml');\nconst releaseAuthority=read('.github/workflows/release-production.yml');\nconst provenanceCore=read('scripts/bf07-provenance-core.mjs');"
+          if old not in s: raise SystemExit('missing BF-07 import anchor')
+          s=s.replace(old,new,1)
+          old_block="""ok(bf07Workflow.includes('push:')&&bf07Workflow.includes('branches: [main]')&&bf07Workflow.includes(\"startsWith(github.event.head_commit.message, '[deploy]')\"), 'automatic BF-07 release sealing is restricted to explicit [deploy]-prefixed commits on main');
+ok(bf07Workflow.includes('EXPECTED_SHA: ${{ inputs.expected_sha }}')&&bf07Workflow.includes('[[ \"$EXPECTED_SHA\" =~ ^[0-9a-f]{40}$ ]]')&&bf07Workflow.includes('[[ \"$EXPECTED_SHA\" == \"$GITHUB_SHA\" ]]')&&bf07Workflow.includes('dispatch SHA mismatch'), 'manual BF-07 release path preserves explicit full-SHA confirmation');
+ok(bf07Workflow.includes('[[ \"$GITHUB_REF\" == \\'refs/heads/main\\' ]]')&&bf07Workflow.includes('[[ \"$GITHUB_SHA\" =~ ^[0-9a-f]{40}$ ]]'), 'automatic BF-07 release path binds the explicit main release marker to the exact pushed SHA');"""
+          new_block="""ok(releaseAuthority.includes(\"- 'release/prod-*'\")&&releaseAuthority.includes('actions: write')&&!releaseAuthority.includes('environment: production')&&!releaseAuthority.includes('secrets.'), 'release authority is isolated to exact-SHA release branches and cannot access production secrets');
+ok(releaseAuthority.includes('expected_ref=\"refs/heads/release/prod-$release_sha\"')&&releaseAuthority.includes('[[ \"$release_sha\" == \"$main_sha\" ]]'), 'release authority branch name and target are bound to exact current main');
+ok(releaseAuthority.includes('/actions/workflows/bf07-seal.yml/dispatches')&&releaseAuthority.includes('\"ref\":\"main\"')&&releaseAuthority.includes('\"expected_sha\":os.environ[\"RELEASE_SHA\"]'), 'release authority dispatches BF-07 on main for the exact reviewed merge SHA');
+ok(bf07Workflow.includes('workflow_dispatch:')&&!bf07Workflow.includes('\\n  push:'), 'BF-07 sealing is dispatch-only and cannot be activated by a direct main push');
+ok(bf07Workflow.includes('EXPECTED_SHA: ${{ inputs.expected_sha }}')&&bf07Workflow.includes('[[ \"$EXPECTED_SHA\" =~ ^[0-9a-f]{40}$ ]]')&&bf07Workflow.includes('[[ \"$EXPECTED_SHA\" == \"$candidate_sha\" ]]')&&bf07Workflow.includes('[[ \"$GITHUB_REF\" == \'refs/heads/main\' ]]')&&bf07Workflow.includes('release candidate is not exact current main'), 'BF-07 dispatch binds the exact full-SHA reviewed merge to current main');"""
+          if old_block not in s: raise SystemExit('missing legacy release-marker assertion block')
+          p.write_text(s.replace(old_block,new_block,1))
+          PY
+          git diff --check
+          git diff -- tests/v78-thebe-desk-deployment-closure-adversarial.mjs
+      - name: Commit branch-only test patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tests/v78-thebe-desk-deployment-closure-adversarial.mjs
+          git commit -m 'test: update deployment closure for release authority'
+          git push origin HEAD:chatgpt/release-branch-authority-20260915
