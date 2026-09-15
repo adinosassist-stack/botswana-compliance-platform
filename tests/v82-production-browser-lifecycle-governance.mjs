@@ -56,10 +56,11 @@ syntax('cloudflare/src/agentic-entry.js','authenticated cold-start wrapper parse
 must(agenticEntry,/SYNTHETIC_BOOT_TRACE_PARAMS=new Set\(\["desktop-owner-proof","authenticated-mobile-proof"\]\)/,'edge boot tracing is restricted to the synthetic desktop/mobile proof query markers');
 must(agenticEntry,/if\(url\.pathname!=="\/"\)return false/,'edge boot tracing is restricted to the root application document');
 must(agenticEntry,/if\(!syntheticBootTraceRequested\(request\)\)return source/,'normal customer HTML bypasses synthetic boot tracing');
-must(agenticEntry,/THEBE_SYNTHETIC_BOOT.*auth_me_start/,'synthetic trace marks authenticated-me request start');
-must(agenticEntry,/THEBE_SYNTHETIC_BOOT.*auth_me_complete/,'synthetic trace marks authenticated-me resolution');
-must(agenticEntry,/THEBE_SYNTHETIC_BOOT.*state_start/,'synthetic trace marks state request start');
-must(agenticEntry,/THEBE_SYNTHETIC_BOOT.*state_complete/,'synthetic trace marks state resolution');
+must(agenticEntry,/SYNTHETIC_BOOT_TRACE_PREFIX="THEBE_SYNTHETIC_BOOT"/,'synthetic trace uses the dedicated boot-trace prefix');
+must(agenticEntry,/auth_me_start/,'synthetic trace marks authenticated-me request start');
+must(agenticEntry,/auth_me_complete/,'synthetic trace marks authenticated-me resolution');
+must(agenticEntry,/state_start/,'synthetic trace marks state request start');
+must(agenticEntry,/state_complete/,'synthetic trace marks state resolution');
 must(agenticEntry,/x-thebe-synthetic-boot-trace","auth-state-v1/,'synthetic traced documents carry an explicit non-secret diagnostic response marker');
 
 must(lifecycle,/const browserProof=globalThis\.__thebeSyntheticBrowserProof/,'canonical lifecycle discovers the browser proof hook');
