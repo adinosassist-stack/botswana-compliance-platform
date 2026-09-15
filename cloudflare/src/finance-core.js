@@ -34,6 +34,12 @@ function sourceFingerprintBasis({tenantId,accountId,sourceType,provider,idempote
   return [tenantId,accountId,"batch",idempotencyKey,index,row.postedOn,row.amountMinor,row.reference,row.description];
 }
 
+function sameFingerprintSet(actual,expected){
+  const normalize=values=>[...new Set((values||[]).map(value=>String(value||"")))].filter(Boolean).sort();
+  const a=normalize(actual),b=normalize(expected);
+  return a.length===b.length&&a.every((value,index)=>value===b[index]);
+}
+
 function containsSecretMaterial(value,depth=0){
   if(depth>4||value===null||value===undefined)return false;
   if(Array.isArray(value))return value.some(item=>containsSecretMaterial(item,depth+1));
@@ -170,6 +176,14 @@ async function recordAdapterSyncCompletion({env,auth,connection,idempotencyKey,b
   await writeAudit(env,auth.tenant_id,auth.user_id,"FINANCE_CONNECTION_SYNC_COMPLETED",{connectionId:connection.id,providerKey:connection.providerKey,batchId,rowCount,importedCount,duplicateCount});
 }
 
+async function verifyExistingImportRequest({env,tenantId,existing,accountId,sourceType,provider,expectedRowCount,expectedFingerprints}){
+  const actualProvider=existing?.provider===null||existing?.provider===undefined?"":String(existing.provider);
+  const expectedProvider=provider===null||provider===undefined?"":String(provider);
+  if(String(existing?.account_id||"")!==accountId||String(existing?.source_type||"")!==sourceType||actualProvider!==expectedProvider||Number(existing?.row_count)!==expectedRowCount)return false;
+  const rows=await env.DB.prepare("SELECT source_fingerprint FROM finance_transactions WHERE tenant_id=? AND import_batch_id=? ORDER BY source_fingerprint").bind(tenantId,existing.id).all();
+  return sameFingerprintSet((rows.results||[]).map(row=>row.source_fingerprint),expectedFingerprints);
+}
+
 function connectionActionPath(pathname){
   const match=String(pathname||"").match(/^\/api\/finance\/connections\/([^/]+)\/(activate|pause|resume|revoke)$/);
   return match?{connectionId:text(match[1],64),action:match[2]}:null;
@@ -279,17 +293,23 @@ export async function handleFinanceRequest({request,url,env,auth,json,readJson,i
       if(!checked.ok)return json({error:checked.error},checked.status);
       adapterConnection=checked.connection;
     }
-    const existing=await env.DB.prepare("SELECT id,row_count,imported_count,duplicate_count,status FROM finance_import_batches WHERE tenant_id=? AND idempotency_key=? LIMIT 1").bind(auth.tenant_id,idempotencyKey).first();
+    const normalized=[];for(let i=0;i<rows.length;i++){const item=normalizeFinanceRow(rows[i],i);if(!item.ok)return json({error:item.error,row:i},400);normalized.push(item.row)}
+    const fingerprintProvider=adapterConnection?`${provider}:${adapterConnection.id}`:provider,expectedFingerprints=[];
+    for(let index=0;index<normalized.length;index++){
+      const row=normalized[index];
+      expectedFingerprints.push(await sha256Hex(JSON.stringify(sourceFingerprintBasis({tenantId:auth.tenant_id,accountId,sourceType,provider:fingerprintProvider,idempotencyKey,row,index}))));
+    }
+    const existing=await env.DB.prepare("SELECT id,account_id,source_type,provider,row_count,imported_count,duplicate_count,status FROM finance_import_batches WHERE tenant_id=? AND idempotency_key=? LIMIT 1").bind(auth.tenant_id,idempotencyKey).first();
     if(existing){
+      const replayMatches=await verifyExistingImportRequest({env,tenantId:auth.tenant_id,existing,accountId,sourceType,provider,expectedRowCount:normalized.length,expectedFingerprints});
+      if(!replayMatches)return json({error:"idempotency_key_conflict"},409);
       if(adapterConnection)await recordAdapterSyncCompletion({env,auth,connection:adapterConnection,idempotencyKey,batchId:existing.id,rowCount:Number(existing.row_count||0),importedCount:Number(existing.imported_count||0),duplicateCount:Number(existing.duplicate_count||0),id,sha256Hex,writeAudit});
       return json({ok:true,id:existing.id,importedCount:Number(existing.imported_count||0),duplicateCount:Number(existing.duplicate_count||0),status:existing.status,replayed:true,connectionId:adapterConnection?.id||undefined});
     }
-    const normalized=[];for(let i=0;i<rows.length;i++){const item=normalizeFinanceRow(rows[i],i);if(!item.ok)return json({error:item.error,row:i},400);normalized.push(item.row)}
-    const batchId=id(),packed=[],fingerprintProvider=adapterConnection?`${provider}:${adapterConnection.id}`:provider;
+    const batchId=id(),packed=[];
     for(let index=0;index<normalized.length;index++){
       const row=normalized[index];
-      const fingerprint=await sha256Hex(JSON.stringify(sourceFingerprintBasis({tenantId:auth.tenant_id,accountId,sourceType,provider:fingerprintProvider,idempotencyKey,row,index})));
-      packed.push({id:id(),tenantId:auth.tenant_id,accountId,batchId,postedOn:row.postedOn,description:row.description,reference:row.reference,amountMinor:row.amountMinor,sourceType,fingerprint});
+      packed.push({id:id(),tenantId:auth.tenant_id,accountId,batchId,postedOn:row.postedOn,description:row.description,reference:row.reference,amountMinor:row.amountMinor,sourceType,fingerprint:expectedFingerprints[index]});
     }
     const packedJson=JSON.stringify(packed);
     try{
@@ -301,8 +321,10 @@ export async function handleFinanceRequest({request,url,env,auth,json,readJson,i
       ]);
     }catch(error){
       if(/unique|constraint/i.test(String(error))){
-        const replay=await env.DB.prepare("SELECT id,row_count,imported_count,duplicate_count,status FROM finance_import_batches WHERE tenant_id=? AND idempotency_key=? LIMIT 1").bind(auth.tenant_id,idempotencyKey).first();
+        const replay=await env.DB.prepare("SELECT id,account_id,source_type,provider,row_count,imported_count,duplicate_count,status FROM finance_import_batches WHERE tenant_id=? AND idempotency_key=? LIMIT 1").bind(auth.tenant_id,idempotencyKey).first();
         if(replay){
+          const replayMatches=await verifyExistingImportRequest({env,tenantId:auth.tenant_id,existing:replay,accountId,sourceType,provider,expectedRowCount:normalized.length,expectedFingerprints});
+          if(!replayMatches)return json({error:"idempotency_key_conflict"},409);
           if(adapterConnection)await recordAdapterSyncCompletion({env,auth,connection:adapterConnection,idempotencyKey,batchId:replay.id,rowCount:Number(replay.row_count||0),importedCount:Number(replay.imported_count||0),duplicateCount:Number(replay.duplicate_count||0),id,sha256Hex,writeAudit});
           return json({ok:true,id:replay.id,importedCount:Number(replay.imported_count||0),duplicateCount:Number(replay.duplicate_count||0),status:replay.status,replayed:true,connectionId:adapterConnection?.id||undefined});
         }
@@ -348,5 +370,5 @@ export async function handleFinanceRequest({request,url,env,auth,json,readJson,i
   return json({error:"not_found"},404);
 }
 
-export const __financeTest=Object.freeze({normalizeFinanceRow,validDate,sourceFingerprintBasis,ACCOUNT_TYPES,SOURCE_TYPES,MAX_IMPORT_ROWS});
+export const __financeTest=Object.freeze({normalizeFinanceRow,validDate,sourceFingerprintBasis,sameFingerprintSet,ACCOUNT_TYPES,SOURCE_TYPES,MAX_IMPORT_ROWS});
 export const __financeConnectionTest=Object.freeze({PROVIDER_DEFINITIONS,CONNECTION_STATUSES,containsSecretMaterial,providerCatalog,connectionActionPath,connectionSyncRunsPath,connectionFromLineage,MAX_CONNECTIONS});
