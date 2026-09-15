@@ -80,8 +80,9 @@ export default {
     if(authorityResponse)return authorityResponse;
     env=withPlatformOwnerAdminEnv(env);
     request=await preparePlatformOwnerLogin(request,env);
-    let response=await base.fetch(request,env,ctx);
-    response=await hardenAuthenticatedColdStart(request,response);
+    const response=await base.fetch(request,env,ctx);
+    const hardenedResponse=await hardenAuthenticatedColdStart(request,response);
+    if(hardenedResponse!==response)return enhanceReadiness(request,env,hardenedResponse);
     return enhanceReadiness(request,env,response);
   },
   async scheduled(event,env,ctx){
