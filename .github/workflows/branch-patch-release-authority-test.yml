@@ -44,7 +44,7 @@ jobs:
                   out.append("ok(bf07Workflow.includes('workflow_dispatch:')&&!bf07Workflow.includes('\\n  push:')&&bf07Workflow.includes('[[ \"$EXPECTED_SHA\" == \"$candidate_sha\" ]]')&&bf07Workflow.includes('dispatch SHA mismatch'), 'BF-07 is dispatch-only and preserves explicit exact-SHA confirmation');")
                   replaced+=1
               elif 'automatic BF-07 release path binds the explicit main release marker to the exact pushed SHA' in line:
-                  out.append("ok(bf07Workflow.includes('[[ \"$GITHUB_REF\" == \'refs/heads/main\' ]]')&&bf07Workflow.includes('release candidate is not exact current main'), 'BF-07 dispatch binds the reviewed merge to exact current main');")
+                  out.append("ok(bf07Workflow.includes('BF-07 dispatch must run from main')&&bf07Workflow.includes('release candidate is not exact current main'), 'BF-07 dispatch binds the reviewed merge to exact current main');")
                   replaced+=1
               else:
                   out.append(line)
