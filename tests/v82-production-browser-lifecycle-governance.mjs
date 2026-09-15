@@ -6,6 +6,7 @@ const wrapper=fs.readFileSync('scripts/production-synthetic-browser-wrapper.mjs'
 const lifecycle=fs.readFileSync('scripts/production-synthetic-lifecycle.mjs','utf8');
 const interruptionRecovery=fs.readFileSync('scripts/production-synthetic-interruption-recovery.mjs','utf8');
 const components=fs.readFileSync('public/js/components.js','utf8');
+const agenticEntry=fs.readFileSync('cloudflare/src/agentic-entry.js','utf8');
 const launch=fs.readFileSync('.github/workflows/production-launch-audit.yml','utf8');
 const recovery=fs.readFileSync('.github/workflows/recovery-ci.yml','utf8');
 
@@ -37,9 +38,29 @@ must(wrapper,/withDeadline\('desktop post-reload diagnostic',[\s\S]*DIAGNOSTIC_E
 must(wrapper,/withDeadline\('desktop workspace reveal',[\s\S]*WORKSPACE_EXTERNAL_DEADLINE_MS\)/,'desktop workspace reveal is externally bounded');
 must(wrapper,/API_BREADCRUMB_PATHS=new Set\(\['\/api\/auth\/me','\/api\/state','\/api\/audit','\/api\/billing\/status'\]\)/,'browser proof records only bounded startup API breadcrumbs');
 must(wrapper,/function logicalApiPath\(raw\)/,'browser proof normalizes direct, tunnel and shadow API routes for diagnostics');
+must(wrapper,/function apiTransport\(raw\)/,'browser proof classifies API transport without logging query data');
+must(wrapper,/page\.on\('request',request=>/,'browser proof records safe API request-start breadcrumbs');
+must(wrapper,/transport=\$\{apiTransport\(request\.url\(\)\)\}/,'request-start breadcrumb records only logical transport class');
+must(wrapper,/type=\$\{type\}/,'response breadcrumb records bounded content type');
+must(wrapper,/SYNTHETIC_BOOT_TRACE_PREFIX='THEBE_SYNTHETIC_BOOT '/,'browser proof accepts only the dedicated synthetic boot trace prefix');
+must(wrapper,/page\.on\('console',message=>/,'browser proof captures synthetic-only boot stage markers');
+must(wrapper,/page\.on\('crash',/,'browser proof records renderer crash separately from cleanup');
+must(wrapper,/page\.on\('close',/,'browser proof records page close separately from cleanup');
+must(wrapper,/browser\.on\('disconnected',/,'browser proof records browser disconnection with active stage');
+must(wrapper,/clientMe=\$\{d\?\.clientMe\?\.ok\?`ok\/\$\{safe\(d\?\.clientMe\?\.role\|\|'role-missing'\)\}`/,'workspace diagnostic records the non-secret role returned by the client transport');
 must(wrapper,/api breadcrumb/,'browser proof emits non-secret API stage breadcrumbs');
 mustNot(wrapper,/api breadcrumb[^\n]*(email|password|cookie|csrf|token)/i,'API breadcrumbs do not log credentials or session secrets');
 must(wrapper,/withDeadline\('browser close',[\s\S]*BROWSER_CLOSE_DEADLINE_MS\)/,'browser teardown is externally bounded');
+
+syntax('cloudflare/src/agentic-entry.js','authenticated cold-start wrapper parses');
+must(agenticEntry,/SYNTHETIC_BOOT_TRACE_PARAMS=new Set\(\["desktop-owner-proof","authenticated-mobile-proof"\]\)/,'edge boot tracing is restricted to the synthetic desktop/mobile proof query markers');
+must(agenticEntry,/if\(url\.pathname!=="\/"\)return false/,'edge boot tracing is restricted to the root application document');
+must(agenticEntry,/if\(!syntheticBootTraceRequested\(request\)\)return source/,'normal customer HTML bypasses synthetic boot tracing');
+must(agenticEntry,/THEBE_SYNTHETIC_BOOT.*auth_me_start/,'synthetic trace marks authenticated-me request start');
+must(agenticEntry,/THEBE_SYNTHETIC_BOOT.*auth_me_complete/,'synthetic trace marks authenticated-me resolution');
+must(agenticEntry,/THEBE_SYNTHETIC_BOOT.*state_start/,'synthetic trace marks state request start');
+must(agenticEntry,/THEBE_SYNTHETIC_BOOT.*state_complete/,'synthetic trace marks state resolution');
+must(agenticEntry,/x-thebe-synthetic-boot-trace","auth-state-v1/,'synthetic traced documents carry an explicit non-secret diagnostic response marker');
 
 must(lifecycle,/const browserProof=globalThis\.__thebeSyntheticBrowserProof/,'canonical lifecycle discovers the browser proof hook');
 must(lifecycle,/await browserProof\(Object\.freeze\(\{email,password,companyName\}\)\)/,'canonical lifecycle supplies only its generated synthetic identity to browser proof');
