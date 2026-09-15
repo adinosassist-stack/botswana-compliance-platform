@@ -45,7 +45,7 @@ const checks = [
   ['production deploy still requires exact-SHA BF-07', deploy.includes("await successful('bf07-seal.yml', 'BF-07 Supply-Chain Seal'") || deploy.includes('Triggering BF-07 run')],
   ['privileged launch audit has no direct-push authority', launchAudit.includes('workflow_run:') && !launchAudit.includes('\n  push:') && !launchAudit.includes('[launch-audit]')],
   ['retired production mutation workflows cannot be triggered', retiredProductionMutationWorkflows.every(path => !existsSync(path))],
-  ['bootstrap manifest is inert until a PR-only release increments it', releaseManifest.schema === 1 && releaseManifest.release === 'production' && releaseManifest.sequence === 0 && /^[0-9a-f]{40}$/.test(releaseManifest.sourceSha)],
+  ['production release manifest is valid in bootstrap or promoted state', releaseManifest.schema === 1 && releaseManifest.release === 'production' && Number.isSafeInteger(releaseManifest.sequence) && releaseManifest.sequence >= 0 && /^[0-9a-f]{40}$/.test(releaseManifest.sourceSha)],
   ['Recovery CI executes the release provenance governance regression', recovery.includes('node tests/v82-release-provenance-governance.mjs')]
 ];
 
