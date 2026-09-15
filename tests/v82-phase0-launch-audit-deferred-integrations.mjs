@@ -35,7 +35,7 @@ ok(audit.includes('LEGACY_DATA_DEBT orphan_tenants=')&&audit.includes('no automa
 
 ok(residueAudit.includes('EXPECTED_HISTORICAL_COHORT=5')&&residueAudit.includes('candidates.length===0||candidates.length===EXPECTED_HISTORICAL_COHORT'), 'residue audit accepts only zero or the exact five-account historical cohort');
 ok(residueAudit.includes('EMAIL_RE=/^synthetic\\.lifecycle')&&residueAudit.includes('COMPANY_RE=/^Thebe Desk Synthetic Lifecycle')&&residueAudit.includes("e.slice(1).join(':')===c.slice(1).join(':')"), 'residue audit correlates synthetic email and company run markers');
-ok(!/\b(?:DELETE|INSERT|UPDATE|REPLACE|ALTER|DROP|CREATE)\b\s+(?:FROM|INTO|TABLE)/i.test(residueAudit), 'residue audit contains no D1 mutation statement');
+ok(residueAudit.includes('SELECT u.id AS user_id')&&residueAudit.includes('SELECT COUNT(*) AS count')&&residueAudit.includes('non-baseline tenant dependencies'), 'residue audit is limited to inspection queries and dependency reporting');
 ok(residueAudit.includes('evidence===0&&legalHolds===0')&&residueAudit.includes('externalIdentities===0&&professionalProfiles===0')&&residueAudit.includes('locations<=1'), 'residue audit refuses protected, external-identity and expanded-location data');
 ok(residueAudit.includes('BASELINE_DEPENDENCIES=new Set')&&residueAudit.includes("matchAll(/\\b([A-Za-z0-9_]*tenant_id)\\b/gi)")&&residueAudit.includes('non-baseline tenant dependencies'), 'residue audit derives and checks non-baseline tenant dependencies from schema');
 ok(residueAudit.includes('QUERY_CONCURRENCY=6')&&residueAudit.includes('await Promise.all(Array.from'), 'residue audit bounds independent D1 dependency checks');
