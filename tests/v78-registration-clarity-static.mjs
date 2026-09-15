@@ -4,6 +4,7 @@ const html=fs.readFileSync(new URL('../public/index.html',import.meta.url),'utf8
 const pkg=JSON.parse(fs.readFileSync(new URL('../package.json',import.meta.url),'utf8'));
 const sw=fs.readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
 const api=fs.readFileSync(new URL('../public/js/api-client.js',import.meta.url),'utf8');
+const direct=fs.readFileSync(new URL('../public/js/register-direct.js',import.meta.url),'utf8');
 const checks=[];
 const ok=(name,cond)=>{assert.ok(cond,name);checks.push(name)};
 ok('package bumped for registration clarity',pkg.version.startsWith('1.21.')&&Number(pkg.version.split('.')[2]||0)>=20);
@@ -25,8 +26,12 @@ ok('auth tabs retain both Sign in and Create account',html.includes('id="loginTa
 ok('back control clearly returns to website',html.includes('← Back to website'));
 ok('registration keeps company plan selection',html.includes('payload.companyName=authCompany.value.trim()')&&html.includes('payload.plan=safeSessionGet("bwcos_selected_plan")'));
 ok('registration success is credential-confirmed before the UI treats it as usable',api.includes('async function confirmRegistration(')&&api.includes('response.ok&&authPath==="/api/auth/register"')&&api.includes('credentialConfirmed:true'));
-ok('confirmed registration reuses the first authenticated login result',api.includes('pendingRegistrationLogin')&&api.includes('credentials.email===pending.email&&credentials.password===pending.password'));
+ok('confirmed registration reuses the authenticated result only briefly',api.includes('pendingRegistrationLogin={email:credentials.email,data:confirmation.data,error:null,expiresAt:Date.now()+5000}')&&api.includes('Date.now()<=pending.expiresAt'));
+ok('pending registration reuse does not retain the plaintext password',!api.includes('pendingRegistrationLogin={email:credentials.email,password:credentials.password'));
 ok('duplicate or otherwise unconfirmed credentials get neutral recovery guidance',api.includes('registration_not_confirmed')&&api.includes("If you've used this email before, sign in with the password already on the account or use Forgot password."));
+ok('confirmation transport failures fail closed instead of becoming registration success',api.includes('registration_confirmation_unavailable')&&api.includes('throw new ApiError(friendlyMessage(503,confirmationData)'));
 ok('workspace-selection sign in remains preserved after registration confirmation',api.includes('confirmation.kind==="workspace"')&&api.includes('workspace_selection_required'));
+ok('direct registration does not claim account creation after an unconfirmed login',!direct.includes('Account created. Continue to Thebe Desk')&&!direct.includes('Account created. Opening your workspace'));
+ok('direct registration names only confirmed account access as success',direct.includes('Account access confirmed. Opening your workspace')&&direct.includes('workspace_selection_required'));
 ok('service worker cache lineage remains available while the worker is retired',sw.includes(`bw-business-protection-v78-${pkg.version}`)||sw.includes('HISTORICAL_RELEASE_LINEAGE'));
 console.log(`v78 registration clarity: ${checks.length}/${checks.length} checks passed`);
