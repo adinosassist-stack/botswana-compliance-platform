@@ -9,10 +9,10 @@ assert.equal(__financeTest.sameFingerprintSet([],['a']),false,'missing stored fi
 
 const finance=fs.readFileSync('cloudflare/src/finance-core.js','utf8');
 assert.match(finance,/async function verifyExistingImportRequest\(/,'finance core has an exact replay verifier');
-assert.match(finance,/existing\.account_id/,'replay verifier binds the account');
-assert.match(finance,/existing\.source_type/,'replay verifier binds the source type');
-assert.match(finance,/existing\.provider/,'replay verifier binds the provider');
-assert.match(finance,/existing\.row_count/,'replay verifier binds the declared row count');
+assert.match(finance,/existing\?\.account_id/,'replay verifier binds the account');
+assert.match(finance,/existing\?\.source_type/,'replay verifier binds the source type');
+assert.match(finance,/existing\?\.provider/,'replay verifier binds the provider');
+assert.match(finance,/existing\?\.row_count/,'replay verifier binds the declared row count');
 assert.match(finance,/SELECT source_fingerprint FROM finance_transactions WHERE tenant_id=\? AND import_batch_id=\?/,'replay verifier reads the immutable stored transaction fingerprints');
 assert.ok((finance.match(/verifyExistingImportRequest\(/g)||[]).length>=3,'both normal replay and unique-race replay use the exact request verifier');
 assert.ok((finance.match(/idempotency_key_conflict/g)||[]).length>=2,'payload mismatch fails closed in both replay paths');
