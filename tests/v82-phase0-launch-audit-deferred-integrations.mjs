@@ -38,6 +38,7 @@ ok(residueAudit.includes('EMAIL_RE=/^synthetic\\.lifecycle')&&residueAudit.inclu
 ok(residueAudit.includes('SELECT u.id AS user_id')&&residueAudit.includes('SELECT COUNT(*) AS count')&&residueAudit.includes('non-baseline tenant dependencies'), 'residue audit is limited to inspection queries and dependency reporting');
 ok(residueAudit.includes('evidence===0&&legalHolds===0')&&residueAudit.includes('externalIdentities===0&&professionalProfiles===0')&&residueAudit.includes('locations<=1'), 'residue audit refuses protected, external-identity and expanded-location data');
 ok(residueAudit.includes('BASELINE_DEPENDENCIES=new Set')&&residueAudit.includes("matchAll(/\\b([A-Za-z0-9_]*tenant_id)\\b/gi)")&&residueAudit.includes('non-baseline tenant dependencies'), 'residue audit derives and checks non-baseline tenant dependencies from schema');
+ok(residueAudit.includes("'performance_alert_settings.tenant_id'")&&residueAudit.includes('function assertDefaultPerformanceSettings(row)')&&residueAudit.includes('performanceSettings.length===1')&&residueAudit.includes('candidate performance alert setting ${key} differs from system default')&&residueAudit.includes('notify_whatsapp:0')&&residueAudit.includes('coverage_drop_points:20')&&residueAudit.includes('metric_drop_percent:30')&&residueAudit.includes('improvement_percent:25')&&residueAudit.includes('incident_spike_count:2')&&residueAudit.includes('recurring_days:3')&&residueAudit.includes('min_baseline_days:3'), 'performance settings are baseline only when exactly one untouched system-default row exists');
 ok(residueAudit.includes('QUERY_CONCURRENCY=6')&&residueAudit.includes('await Promise.all(Array.from'), 'residue audit bounds independent D1 dependency checks');
 
 const productionAuditEnv=['CLOUDFLARE_API_TOKEN','CLOUDFLARE_ACCOUNT_ID','D1_DATABASE_ID'].every(name=>String(process.env[name]||'').trim());
@@ -46,4 +47,4 @@ if(productionAuditEnv){
   console.log('PASS production-only historical synthetic residue audit completed');
 }
 
-console.log(`Phase 0 deferred integration, post-deploy, tenant-integrity and residue-audit contract: ${pass}/28 PASS`);
+console.log(`Phase 0 deferred integration, post-deploy, tenant-integrity and residue-audit contract: ${pass}/29 PASS`);

@@ -23,7 +23,8 @@ const BASELINE_DEPENDENCIES=new Set([
   'ai_cost_controls.tenant_id',
   'tenant_usage_counters.tenant_id',
   'entitlement_overrides.tenant_id',
-  'audit_chain_state.tenant_id'
+  'audit_chain_state.tenant_id',
+  'performance_alert_settings.tenant_id'
 ]);
 
 function fail(message){throw new Error(`Synthetic residue audit failed: ${message}`)}
@@ -53,6 +54,29 @@ function parseMarker(email,tenantName){
   return {runId:e[1],attempt:e[2],key:e.slice(1).join(':')};
 }
 
+function assertDefaultPerformanceSettings(row){
+  assert(row&&typeof row==='object','candidate is missing performance alert settings');
+  const expected={
+    enabled:1,
+    notify_deterioration:1,
+    notify_improvement:1,
+    notify_reporting_gap:1,
+    notify_incidents:1,
+    notify_in_app:1,
+    notify_email:0,
+    notify_whatsapp:0,
+    coverage_drop_points:20,
+    metric_drop_percent:30,
+    improvement_percent:25,
+    incident_spike_count:2,
+    recurring_days:3,
+    min_baseline_days:3
+  };
+  for(const [key,value] of Object.entries(expected)){
+    assert(Number(row[key])===value,`candidate performance alert setting ${key} differs from system default`);
+  }
+}
+
 function dependencyInventory(){
   const schema=fs.readFileSync('cloudflare/schema.sql','utf8');
   const tableRe=/CREATE TABLE IF NOT EXISTS\s+([A-Za-z0-9_]+)\s*\((.*?)\);/gis;const out=[];
@@ -75,7 +99,7 @@ const markers=new Set(),tenantIds=[];
 for(const candidate of candidates){
   const marker=parseMarker(candidate.email,candidate.tenant_name);assert(!markers.has(marker.key),'duplicate synthetic run/attempt/nonce marker');markers.add(marker.key);
   assert(candidate.role==='owner'&&candidate.status==='active','candidate is not an active owner membership');
-  const [userMemberships,tenantMemberships,subscriptions,evidence,legalHolds,externalIdentities,professionalProfiles,locations]=await Promise.all([
+  const [userMemberships,tenantMemberships,subscriptions,evidence,legalHolds,externalIdentities,professionalProfiles,locations,performanceSettings]=await Promise.all([
     count('SELECT COUNT(*) AS count FROM memberships WHERE user_id=?',[candidate.user_id]),
     count('SELECT COUNT(*) AS count FROM memberships WHERE tenant_id=?',[candidate.tenant_id]),
     count('SELECT COUNT(*) AS count FROM subscriptions WHERE tenant_id=?',[candidate.tenant_id]),
@@ -83,15 +107,19 @@ for(const candidate of candidates){
     count("SELECT COUNT(*) AS count FROM legal_holds WHERE tenant_id=? AND status='active' AND active=1",[candidate.tenant_id]),
     count('SELECT COUNT(*) AS count FROM external_identities WHERE user_id=?',[candidate.user_id]),
     count('SELECT COUNT(*) AS count FROM professional_profiles WHERE user_id=?',[candidate.user_id]),
-    count('SELECT COUNT(*) AS count FROM operating_locations WHERE tenant_id=?',[candidate.tenant_id])
+    count('SELECT COUNT(*) AS count FROM operating_locations WHERE tenant_id=?',[candidate.tenant_id]),
+    rows(`SELECT enabled,notify_deterioration,notify_improvement,notify_reporting_gap,notify_incidents,notify_in_app,notify_email,notify_whatsapp,coverage_drop_points,metric_drop_percent,improvement_percent,incident_spike_count,recurring_days,min_baseline_days
+      FROM performance_alert_settings WHERE tenant_id=?`,[candidate.tenant_id])
   ]);
   assert(userMemberships===1&&tenantMemberships===1,'candidate membership topology is not one user to one tenant');
   assert(subscriptions===1,'candidate does not have exactly one registration-created subscription');
   assert(evidence===0&&legalHolds===0,'candidate contains protected evidence or an active legal hold');
   assert(externalIdentities===0&&professionalProfiles===0,'candidate has external/professional identity data');
   assert(locations<=1,'candidate has more than one operating location');
+  assert(performanceSettings.length===1,'candidate does not have exactly one performance alert settings row');
+  assertDefaultPerformanceSettings(performanceSettings[0]);
   tenantIds.push(String(candidate.tenant_id));
-  mark('synthetic residue marker',`run=${marker.runId} attempt=${marker.attempt}; topology protected-data checks passed`);
+  mark('synthetic residue marker',`run=${marker.runId} attempt=${marker.attempt}; topology, protected-data and default performance-settings checks passed`);
 }
 
 const inventory=dependencyInventory(),selected=inventory.filter(x=>!BASELINE_DEPENDENCIES.has(x.key));
@@ -101,4 +129,4 @@ await Promise.all(Array.from({length:Math.min(QUERY_CONCURRENCY,selected.length|
 const nonzero=selected.map((d,i)=>({...d,count:counts[i]||0})).filter(x=>x.count>0);
 for(const item of nonzero)console.log(`INFO synthetic non-baseline dependency ${item.key}=${item.count}`);
 assert(nonzero.length===0,`historical synthetic cohort contains non-baseline tenant dependencies: ${nonzero.slice(0,12).map(x=>`${x.key}=${x.count}`).join(', ')}`);
-mark('historical synthetic residue cohort',`exact candidates=${candidates.length}; unique markers=${markers.size}; non-baseline dependency columns checked=${selected.length}; unsafe rows=0`);
+mark('historical synthetic residue cohort',`exact candidates=${candidates.length}; unique markers=${markers.size}; default performance settings=${candidates.length}; non-baseline dependency columns checked=${selected.length}; unsafe rows=0`);
