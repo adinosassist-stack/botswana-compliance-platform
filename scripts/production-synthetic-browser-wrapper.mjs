@@ -2,11 +2,9 @@ import fs from 'node:fs';
 import {chromium} from 'playwright-core';
 
 const ORIGIN='https://thebedesk.com';
-const realFetch=globalThis.fetch.bind(globalThis);
 const desktopAgent='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36';
 const mobileAgent='Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Mobile Safari/537.36';
 const executablePath=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(p=>fs.existsSync(p));
-let captured=null;
 let browserProofComplete=false;
 
 function assert(condition,message){if(!condition)throw new Error(`Synthetic browser proof failed: ${message}`)}
@@ -83,7 +81,7 @@ async function runBrowserProof(credentials){
     assert(desktopResponsive===true,'desktop owner workspace stopped responding after navigation');
     assert(pageErrors.length===0,`desktop page errors: ${safe(pageErrors.join(' | '))}`);
     assert(criticalFailures.length===0,`desktop critical assets failed: ${safe(criticalFailures.join(' | '))}`);
-    mark('desktop registration pass 3',`captured synthetic owner reached workspace and ${desktopView||'workspace'} navigation stayed responsive`);
+    mark('desktop registration pass 3',`canonical synthetic owner reached workspace and ${desktopView||'workspace'} navigation stayed responsive`);
     await desktop.close();
 
     const mobile=await browser.newContext({viewport:{width:390,height:844},screen:{width:390,height:844},isMobile:true,hasTouch:true,deviceScaleFactor:2,userAgent:mobileAgent});
@@ -117,24 +115,11 @@ async function runBrowserProof(credentials){
   }
 }
 
-globalThis.fetch=async(input,init={})=>{
-  const url=typeof input==='string'?input:String(input?.url||input||'');
-  if(url===`${ORIGIN}/api/auth/register`&&String(init?.method||'GET').toUpperCase()==='POST'){
-    try{
-      const body=JSON.parse(String(init?.body||'{}'));
-      if(body?.email&&body?.password&&body?.companyName)captured={email:String(body.email),password:String(body.password),companyName:String(body.companyName)};
-    }catch{}
-  }
-  const response=await realFetch(input,init);
-  if(!browserProofComplete&&captured&&url===`${ORIGIN}/api/auth/login`&&String(init?.method||'GET').toUpperCase()==='POST'&&response.status===200){
-    let loginBody=null;try{loginBody=JSON.parse(String(init?.body||'{}'))}catch{}
-    if(loginBody?.email===captured.email&&loginBody?.password===captured.password){
-      mark('desktop registration pass 2','canonical production registration completed and owner login returned 200; proving that same identity in browsers');
-      await runBrowserProof(captured);
-      browserProofComplete=true;
-    }
-  }
-  return response;
+globalThis.__thebeSyntheticBrowserProof=async credentials=>{
+  assert(credentials&&credentials.email&&credentials.password&&credentials.companyName,'canonical synthetic credentials were not supplied to browser proof');
+  mark('desktop registration pass 2','canonical production registration completed and owner login returned 200; proving that same identity in browsers');
+  await runBrowserProof(credentials);
+  browserProofComplete=true;
 };
 
 try{
@@ -142,5 +127,5 @@ try{
   assert(browserProofComplete,'canonical lifecycle finished without completing desktop/mobile browser proof');
   mark('synthetic browser wrapper','desktop 3-pass registration boundary + authenticated mobile continuation completed before canonical cleanup');
 }finally{
-  globalThis.fetch=realFetch;
+  delete globalThis.__thebeSyntheticBrowserProof;
 }

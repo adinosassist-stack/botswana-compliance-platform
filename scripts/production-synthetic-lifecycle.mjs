@@ -182,6 +182,12 @@ try{
   const cookie=cookieFrom(login.response);
   mark('live login','200 with owner session cookie + CSRF token');
 
+  const browserProof=globalThis.__thebeSyntheticBrowserProof;
+  if(typeof browserProof==='function'){
+    await browserProof(Object.freeze({email,password,companyName}));
+    mark('browser-backed registration continuity','desktop/mobile proof returned control to canonical lifecycle');
+  }
+
   const deletion=await publicJson('/api/account/deletion-request',{
     body:{confirmation:'DELETE MY ACCOUNT',reason:'Automated production synthetic lifecycle closure'},
     headers:{cookie,'x-csrf-token':csrf}
