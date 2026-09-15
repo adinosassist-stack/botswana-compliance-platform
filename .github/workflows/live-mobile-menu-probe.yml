@@ -1,0 +1,144 @@
+name: Live mobile menu probe
+run-name: Live mobile menu probe Release 11
+
+on:
+  push:
+    branches:
+      - verify/mobile-menu-release11-20260915
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Exercise live Android mobile menu
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      ORIGIN: https://thebedesk.com
+      EXPECTED_PRODUCTION_SHA: 9f5e0ac308d3e6c770906a2a73452bc3315f7566
+    steps:
+      - name: Checkout diagnostic authority
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+      - name: Install browser driver only
+        shell: bash
+        run: npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+      - name: Exercise live drawer open scroll close path
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import {chromium} from 'playwright-core';
+          import fs from 'node:fs';
+          import assert from 'node:assert/strict';
+
+          const executablePath=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(p=>fs.existsSync(p));
+          assert.ok(executablePath,'no Chromium-compatible browser found');
+          const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox']});
+          const context=await browser.newContext({
+            viewport:{width:390,height:844},
+            screen:{width:390,height:844},
+            isMobile:true,
+            hasTouch:true,
+            deviceScaleFactor:2,
+            userAgent:'Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Mobile Safari/537.36'
+          });
+          const page=await context.newPage();
+          const pageErrors=[];
+          const criticalFailures=[];
+          page.on('pageerror',error=>pageErrors.push(String(error?.stack||error)));
+          page.on('requestfailed',request=>{
+            const url=request.url();
+            if(url.startsWith(process.env.ORIGIN+'/js/')||url.startsWith(process.env.ORIGIN+'/assets/')) criticalFailures.push(`${request.method()} ${url} ${request.failure()?.errorText||''}`);
+          });
+
+          const response=await page.goto(process.env.ORIGIN+'/?menu-probe='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});
+          assert.equal(response?.status(),200,'live mobile root must return 200');
+          await page.waitForFunction(()=>{
+            const gate=document.getElementById('marketingGate');
+            return gate&&!gate.classList.contains('hidden')&&typeof window.openMobileWorkspaceMenu==='function';
+          },null,{timeout:30000});
+
+          // Reveal the already-loaded workspace chrome only inside this disposable browser page.
+          // This does not authenticate, mutate production data, or bypass any API authorization.
+          await page.evaluate(()=>{
+            document.getElementById('marketingGate')?.classList.add('hidden');
+            document.getElementById('authGate')?.classList.add('hidden');
+            const shell=document.getElementById('appShell');
+            if(shell){shell.style.visibility='visible';shell.removeAttribute('aria-hidden')}
+          });
+
+          const menu=page.locator('#mobileMenuButton');
+          await menu.waitFor({state:'visible',timeout:10000});
+          assert.equal(await menu.getAttribute('aria-expanded'),'false','menu must start closed');
+          await menu.tap({timeout:10000});
+          await page.waitForFunction(()=>document.body.classList.contains('mobile-nav-open'),null,{timeout:5000});
+          await page.waitForTimeout(350);
+
+          const opened=await page.evaluate(()=>{
+            const body=getComputedStyle(document.body);
+            const side=document.getElementById('workspaceSidebar');
+            const nav=side?.querySelector(':scope > .nav');
+            const sideStyle=side?getComputedStyle(side):null;
+            const navStyle=nav?getComputedStyle(nav):null;
+            return {
+              expanded:document.getElementById('mobileMenuButton')?.getAttribute('aria-expanded'),
+              closeExists:!!document.getElementById('mobileNavClose'),
+              backdropExists:!!document.getElementById('mobileNavBackdrop'),
+              bodyTouch:body.touchAction,
+              sidebarTransform:sideStyle?.transform||'',
+              navTouch:navStyle?.touchAction||'',
+              navOverflowY:navStyle?.overflowY||'',
+              navClientHeight:nav?.clientHeight||0,
+              navScrollHeight:nav?.scrollHeight||0,
+              bodyOpen:document.body.classList.contains('mobile-nav-open')
+            };
+          });
+          assert.equal(opened.bodyOpen,true,'menu body state did not open');
+          assert.equal(opened.expanded,'true','menu aria-expanded did not update');
+          assert.equal(opened.closeExists,true,'mobile menu close control missing');
+          assert.equal(opened.backdropExists,true,'mobile menu backdrop missing');
+          assert.notEqual(opened.bodyTouch,'none','opening menu disables all touch handling');
+          assert.match(opened.navTouch,/pan-y|auto/i,'drawer nav does not retain vertical touch scrolling');
+          assert.match(opened.navOverflowY,/auto|scroll/i,'drawer nav is not vertically scrollable');
+          assert.ok(opened.navScrollHeight>=opened.navClientHeight,'drawer nav dimensions are invalid');
+          assert.notMatch=open=>open;
+          assert.notEqual(opened.sidebarTransform,'matrix(1, 0, 0, 1, -360, 0)','sidebar remained fully translated offscreen');
+
+          const scrollResult=await page.evaluate(()=>{
+            const nav=document.querySelector('#workspaceSidebar > .nav');
+            if(!nav)return {before:-1,after:-1,max:-1};
+            const before=nav.scrollTop;
+            const max=Math.max(0,nav.scrollHeight-nav.clientHeight);
+            nav.scrollTop=Math.min(max,Math.max(80,Math.floor(max/2)));
+            return {before,after:nav.scrollTop,max};
+          });
+          if(scrollResult.max>0) assert.ok(scrollResult.after>scrollResult.before,'drawer could not scroll after opening');
+
+          const close=page.locator('#mobileNavClose');
+          await close.tap({timeout:10000});
+          await page.waitForFunction(()=>!document.body.classList.contains('mobile-nav-open'),null,{timeout:5000});
+          assert.equal(await menu.getAttribute('aria-expanded'),'false','close control did not reset menu state');
+
+          await menu.tap({timeout:10000});
+          await page.waitForFunction(()=>document.body.classList.contains('mobile-nav-open'),null,{timeout:5000});
+          const backdrop=page.locator('#mobileNavBackdrop');
+          await backdrop.tap({position:{x:380,y:420},timeout:10000});
+          await page.waitForFunction(()=>!document.body.classList.contains('mobile-nav-open'),null,{timeout:5000});
+
+          const responsive=await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>setTimeout(()=>resolve(true),60))));
+          assert.equal(responsive,true,'page event loop did not remain responsive after menu interactions');
+          assert.deepEqual(pageErrors,[],'page errors occurred during mobile menu interaction');
+          assert.deepEqual(criticalFailures,[],'critical assets failed during mobile menu interaction');
+
+          console.log('LIVE_MOBILE_MENU_PROBE_PASS',JSON.stringify({opened,scrollResult}));
+          await browser.close();
+          NODE
