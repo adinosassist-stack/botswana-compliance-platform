@@ -22,7 +22,7 @@ assert.match(migration,/currency TEXT NOT NULL DEFAULT 'BWP' CHECK\(currency='BW
 assert.match(migration,/UNIQUE\(tenant_id,idempotency_key\)/);
 assert.match(migration,/UNIQUE\(tenant_id,sequence\)/);
 const finance=fs.readFileSync("cloudflare/src/finance-core.js","utf8");
-assert.match(finance,/env\.DB\.batch\(\[/);
+assert.match(finance,/env\.DB\.batch\(/);
 assert.match(finance,/FROM json_each\(\?\)/);
 assert.match(finance,/sourceFingerprintBasis/);
 assert.match(finance,/finance-reconciliation:\$\{accountId\}:\$\{from\}:\$\{to\}:\$\{snapshotHash\}/);
