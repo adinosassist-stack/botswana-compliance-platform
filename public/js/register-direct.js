@@ -17,6 +17,26 @@ async function solveProof(){
  }
  throw new Error("Registration protection could not complete. Reload and try again.")
 }
+async function requestPasswordRecovery(email){
+ try{
+  await api("/api/auth/password-reset/request",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email})});
+  return true;
+ }catch{return false}
+}
+async function showSecureExistingAccountRecovery(email){
+ btn.textContent="Securing account recovery…";
+ const requested=await requestPasswordRecovery(email);
+ if(requested)setStatus("This email may already have an account. Registration never replaces an existing password. If the account exists, password recovery instructions have been requested. Use the email link, then sign in.");
+ else setStatus("This email may already have an account. Registration never replaces an existing password. Use Forgot password on Thebe Desk, then sign in.");
+ btn.disabled=false;btn.textContent="Create account";
+}
+async function finishWorkspaceSelection(loginError,email,password){
+ const workspaces=Array.isArray(loginError?.data?.workspaces)?loginError.data.workspaces:[];
+ const preferred=workspaces.find(item=>String(item?.role||"")==="owner")||workspaces[0];
+ const tenantId=String(preferred?.tenantId||"").trim();
+ if(!tenantId)throw loginError;
+ await api("/api/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email,password,tenantId})});
+}
 form?.addEventListener("submit",async event=>{
  event.preventDefault();status.className="status";
  const companyName=String(document.getElementById("companyName")?.value||"").trim();
@@ -38,13 +58,26 @@ form?.addEventListener("submit",async event=>{
    return;
   }catch(loginError){
    if(loginError?.code==="workspace_selection_required"){
-    setStatus("Account access confirmed. Opening Thebe Desk so you can choose the workspace to open.","good");
-    setTimeout(()=>{location.href="/"},900);
-    return;
+    try{
+     btn.textContent="Opening owner workspace…";
+     await finishWorkspaceSelection(loginError,email,password);
+     setStatus("Account access confirmed. Opening your owner workspace…","good");
+     location.href="/";
+     return;
+    }catch(selectionError){
+     if(selectionError?.code==="invalid_credentials"){await showSecureExistingAccountRecovery(email);return}
+     setStatus(selectionError?.message||"We couldn't open the selected workspace securely. Sign in from Thebe Desk and choose your workspace.");
+     btn.disabled=false;btn.textContent="Create account";
+     return;
+    }
    }
+   if(loginError?.code==="invalid_credentials"){await showSecureExistingAccountRecovery(email);return}
    setStatus(loginError?.message||"We couldn't confirm the account securely. Return to Thebe Desk sign in or use Forgot password if needed.");
    btn.disabled=false;btn.textContent="Create account";
   }
- }catch(error){setStatus(error?.message||"Account creation could not complete. Try again.");btn.disabled=false;btn.textContent="Create account"}
+ }catch(error){
+  if(error?.code==="registration_not_confirmed"){await showSecureExistingAccountRecovery(email);return}
+  setStatus(error?.message||"Account creation could not complete. Try again.");btn.disabled=false;btn.textContent="Create account";
+ }
 });
 })();
