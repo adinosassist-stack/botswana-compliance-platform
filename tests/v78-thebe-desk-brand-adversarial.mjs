@@ -27,7 +27,9 @@ ok(home.includes(`"name":"${brand}"`) && /class="marketinglogo"[^>]*>[\s\S]*?alt
 ok(home.includes(`aria-label="Back to ${brand} website"`) && /class="brand workspace-brand-link"[\s\S]*?>Thebe Desk<\/span><\/button>/.test(home),'workspace return identity uses Thebe Desk');
 ok(manifest.name===brand && manifest.short_name===brand,'PWA install identity is Thebe Desk');
 ok(manifest.icons.every(x=>String(x.src).includes('thebe-desk-icon-')),'PWA manifest no longer advertises legacy-branded icon paths');
-ok(sw.includes('thebe-desk-')&&sw.includes('recovery-r1'),'service-worker cache is rotated for Thebe Desk recovery deployment');
+const historicalRecoveryCache=sw.includes('thebe-desk-')&&sw.includes('recovery-r1');
+const retiredServiceWorker=sw.includes('LEGACY_CACHE_PREFIX="thebe-desk-"')&&sw.includes('self.registration.unregister()')&&!sw.includes('addEventListener("fetch"')&&!sw.includes('clients.openWindow');
+ok(historicalRecoveryCache||retiredServiceWorker,'service-worker state is either rotated for recovery or safely retired for Thebe Desk without request interception/window creation');
 ok(worker.includes(`Reset your ${brand} password`) && worker.includes(`Botswana SME Compliance Software | ${brand}`),'Worker email and SEO surfaces use Thebe Desk');
 ok(server.includes(`Reset your ${brand} password`),'Node fallback email surface uses Thebe Desk');
 ok(profile.product_name===brand && profile.final_public_brand===brand && profile.thebe_desk_brand_finalized===true,'release profile records Thebe Desk as final public brand');
