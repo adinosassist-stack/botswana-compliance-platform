@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   mobile-live:
-    name: Verify live Android-sized startup and registration UI
+    name: Verify live Android-sized startup, menu and registration UI
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == 'main'
@@ -35,7 +35,7 @@ jobs:
       - name: Install browser driver only
         shell: bash
         run: npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
-      - name: Exercise live mobile startup and registration surface
+      - name: Exercise live mobile startup, menu and registration surface
         shell: bash
         run: |
           set -euo pipefail
@@ -77,6 +77,69 @@ jobs:
           assert.equal(state.previewDisplay,'none','standalone preview marker is visible in production');
           assert.equal(state.marketingHidden,false,'marketing surface did not become visible on mobile');
           assert.doesNotMatch(state.bodyText,/STANDALONE PREVIEW · NO LIVE SUBMISSIONS/i,'preview text leaked into visible mobile production content');
+
+          await page.waitForFunction(()=>typeof window.openMobileWorkspaceMenu==='function'&&document.getElementById('mobileMenuButton'),null,{timeout:10000});
+          await page.evaluate(()=>{
+            const marketing=document.getElementById('marketingGate');
+            const auth=document.getElementById('authGate');
+            const shell=document.getElementById('appShell');
+            window.__mobileSmokeRestore={
+              marketingHidden:marketing?.classList.contains('hidden')??false,
+              authHidden:auth?.classList.contains('hidden')??true,
+              shellVisibility:shell?.style.visibility||''
+            };
+            marketing?.classList.add('hidden');
+            auth?.classList.add('hidden');
+            if(shell)shell.style.visibility='visible';
+          });
+          const menu=page.locator('#mobileMenuButton');
+          await menu.waitFor({state:'visible',timeout:10000});
+          await menu.tap({timeout:10000});
+          await page.waitForFunction(()=>document.body.classList.contains('mobile-nav-open'),null,{timeout:5000});
+          await page.waitForTimeout(250);
+          const menuState=await page.evaluate(()=>{
+            const side=document.getElementById('workspaceSidebar');
+            const nav=side?.querySelector(':scope > .nav');
+            return {
+              expanded:document.getElementById('mobileMenuButton')?.getAttribute('aria-expanded'),
+              bodyTouch:getComputedStyle(document.body).touchAction,
+              navTouch:nav?getComputedStyle(nav).touchAction:'',
+              navOverflowY:nav?getComputedStyle(nav).overflowY:'',
+              navClientHeight:nav?.clientHeight||0,
+              navScrollHeight:nav?.scrollHeight||0,
+              closeExists:!!document.getElementById('mobileNavClose')
+            };
+          });
+          assert.equal(menuState.expanded,'true','mobile menu did not enter expanded state');
+          assert.notEqual(menuState.bodyTouch,'none','mobile menu disabled all touch handling');
+          assert.match(menuState.navTouch,/pan-y|auto/i,'mobile drawer lost vertical touch scrolling');
+          assert.match(menuState.navOverflowY,/auto|scroll/i,'mobile drawer is not vertically scrollable');
+          assert.equal(menuState.closeExists,true,'mobile drawer close control missing');
+          const scrollResult=await page.evaluate(()=>{
+            const nav=document.querySelector('#workspaceSidebar > .nav');
+            if(!nav)return {before:-1,after:-1,max:-1};
+            const before=nav.scrollTop;
+            const max=Math.max(0,nav.scrollHeight-nav.clientHeight);
+            nav.scrollTop=Math.min(max,Math.max(80,Math.floor(max/2)));
+            return {before,after:nav.scrollTop,max};
+          });
+          if(scrollResult.max>0)assert.ok(scrollResult.after>scrollResult.before,'mobile drawer could not scroll');
+          await page.locator('#mobileNavClose').tap({timeout:10000});
+          await page.waitForFunction(()=>!document.body.classList.contains('mobile-nav-open'),null,{timeout:5000});
+          assert.equal(await menu.getAttribute('aria-expanded'),'false','mobile menu did not close cleanly');
+          const responsive=await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>setTimeout(()=>resolve(true),60))));
+          assert.equal(responsive,true,'mobile page stopped responding after menu interaction');
+          await page.evaluate(()=>{
+            const restore=window.__mobileSmokeRestore||{};
+            const marketing=document.getElementById('marketingGate');
+            const auth=document.getElementById('authGate');
+            const shell=document.getElementById('appShell');
+            marketing?.classList.toggle('hidden',!!restore.marketingHidden);
+            auth?.classList.toggle('hidden',!!restore.authHidden);
+            if(shell)shell.style.visibility=restore.shellVisibility||'hidden';
+            delete window.__mobileSmokeRestore;
+          });
+
           const start=page.locator('button.marketing-start-action').first();
           assert.ok(await start.count(),'Start Free action missing on mobile');
           await start.click();
