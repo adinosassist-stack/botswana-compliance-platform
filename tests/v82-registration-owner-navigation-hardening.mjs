@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import {__v782150Test} from '../cloudflare/src/worker.js';
-import {__platformOwnerAccessTest} from '../cloudflare/src/platform-owner-access.js';
+import {__platformOwnerAccessTest,withPlatformOwnerAdminEnv} from '../cloudflare/src/platform-owner-access.js';
 
 // Final release regression for the production registration, owner access and navigation hotfix.
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
@@ -11,6 +11,7 @@ const api=read('public/js/api-client.js');
 const direct=read('public/js/register-direct.js');
 const ownerAccess=read('cloudflare/src/platform-owner-access.js');
 const agenticEntry=read('cloudflare/src/agentic-entry.js');
+const productionEntry=read('cloudflare/src/production-entry.js');
 const sw=read('public/sw.js');
 let checks=0;const ok=(name,value)=>{assert.ok(value,name);checks++};
 
@@ -51,6 +52,14 @@ ok('platform admin environment includes the explicit owner account',ownerAccess.
 ok('platform owner login is rewritten only after verified repair to select the canonical tenant',ownerAccess.includes('return withTenantId(request,body,tenantId)'));
 ok('production agentic wrapper prepares owner login before canonical base authentication',agenticEntry.indexOf('preparePlatformOwnerLogin(request,env)')<agenticEntry.indexOf('base.fetch(request,env,ctx)'));
 ok('production wrapper applies the explicit platform-admin environment to canonical authorization',agenticEntry.includes('env=withPlatformOwnerAdminEnv(env)')&&agenticEntry.includes('base.fetch(request,env,ctx)'));
+const sourceEnv={PUBLIC_ORIGIN:'https://thebedesk.com',PUBLIC_APP_URL:'https://thebedesk.com',SESSION_SECRET:'session-secret-placeholder',DB:{binding:'d1'},PLATFORM_ADMIN_EMAILS:'existing@example.com'};
+const ownerEnv=withPlatformOwnerAdminEnv(sourceEnv);
+const proofVerifiedEnv=Object.assign({},ownerEnv,{APP_ENV:'registration-proof-verified',TURNSTILE_SECRET_KEY:''});
+ok('owner admin environment preserves production origin as an own downstream-copyable binding',Object.hasOwn(ownerEnv,'PUBLIC_ORIGIN')&&ownerEnv.PUBLIC_ORIGIN==='https://thebedesk.com');
+ok('registration proof handoff retains production origin through the downstream verified environment clone',proofVerifiedEnv.PUBLIC_ORIGIN==='https://thebedesk.com'&&proofVerifiedEnv.PUBLIC_APP_URL==='https://thebedesk.com');
+ok('registration proof handoff retains D1 and session bindings through the owner wrapper',proofVerifiedEnv.DB===sourceEnv.DB&&proofVerifiedEnv.SESSION_SECRET===sourceEnv.SESSION_SECRET);
+ok('production registration still enforces canonical origin in the base Worker',worker.includes('if(!requestOriginAllowed(req,env))return json({error:"origin_failed"},403)'));
+ok('registration proof wrapper still delegates to the base Worker only after proof verification',productionEntry.includes('const proof=await verifyRegistrationProof(request,env,body?.turnstileToken)')&&productionEntry.includes('return worker.fetch(request,verifiedEnv,ctx)'));
 ok('platform owner repair does not advance the D1 schema lineage',!fs.existsSync(new URL('../cloudflare/migrations/048_v82_platform_owner_access.sql',import.meta.url)));
 
 ok('platform specialist tools start hidden',html.includes('<details class="nav-specialist-tools" hidden>')&&html.includes('.nav-specialist-tools[hidden]{display:none!important}'));
