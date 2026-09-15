@@ -24,7 +24,9 @@ ok(profile.package_version===pkg.version,"profile package version aligned");
 ok(profile.software_release_candidate===`v78.${pkg.version}`,"profile release candidate aligned");
 ok(worker.includes(`const APP_RELEASE="v78.${pkg.version}"`),"Cloudflare Worker release aligned");
 ok(server.includes(`const APP_VERSION="${pkg.version}"`),"Node fallback release aligned");
-ok(sw.includes(`bw-business-protection-v78-${pkg.version}-`),"service worker release cache aligned");
+const historicalServiceWorker=sw.includes(`bw-business-protection-v78-${pkg.version}-`);
+const retiredServiceWorker=sw.includes('LEGACY_CACHE_PREFIX="thebe-desk-"')&&sw.includes('self.registration.unregister()')&&!sw.includes('addEventListener("fetch"')&&!sw.includes('clients.openWindow')&&!sw.includes('location.reload')&&!sw.includes('location.assign')&&!sw.includes('location.replace');
+ok(historicalServiceWorker||retiredServiceWorker,"service worker release cache aligned or safely retired");
 
 ok(!/<script\s+src=["']js\/preview-(?:data|api)\.js["']/i.test(html),"preview modules are not loaded by production HTML");
 ok(builder.includes('previewOnlyScripts=["preview-data.js","preview-api.js"]'),"preview builder owns preview-only module list");
