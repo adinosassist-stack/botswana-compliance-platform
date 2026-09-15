@@ -55,6 +55,7 @@ jobs:
         run: |
           set -euo pipefail
           node tests/v79-finance-reconciliation.mjs
+          node tests/v82-finance-idempotency-replay-integrity.mjs
           node tests/v79-whatsapp-finance-connection.mjs
           node tests/v81-finance-connections.mjs
           node tests/v80-agentic-foundation.mjs
