@@ -13,6 +13,7 @@ const preflight=read('cloudflare/preflight-production.sh');
 const deploy=read('cloudflare/deploy-free.sh');
 const productionDeploy=read('.github/workflows/deploy-production.yml');
 const bf07Workflow=read('.github/workflows/bf07-seal.yml');
+const releaseAuthority=read('.github/workflows/release-production.yml');
 const provenanceCore=read('scripts/bf07-provenance-core.mjs');
 const projectedState=worker.slice(worker.indexOf('function projectWorkspaceStateForRole'),worker.indexOf('function mergeManagerWorkspaceState'));
 let pass=0;const ok=(c,m)=>{if(!c)throw new Error('FAIL: '+m);pass++;console.log('PASS',m)};
@@ -40,9 +41,11 @@ ok(wrangler.includes('EVIDENCE_UPLOADS_ENABLED = "false"')&&preflight.includes('
 ok(deploy.includes('requiredConfigReady=true')&&deploy.includes('evidence upload/mutation routes fail closed'), 'runbook closes runtime readiness and verifies evidence mutations remain disabled');
 ok(!deploy.includes('Configure PLATFORM_ADMIN_EMAILS, PLATFORM_REGULATORY_REVIEWERS, PUBLIC_APP_URL and PUBLIC_ORIGIN for this Worker'), 'old ambiguous dashboard-only readiness instruction is removed');
 
-ok(bf07Workflow.includes('push:')&&bf07Workflow.includes('branches: [main]')&&bf07Workflow.includes("startsWith(github.event.head_commit.message, '[deploy]')"), 'automatic BF-07 release sealing is restricted to explicit [deploy]-prefixed commits on main');
-ok(bf07Workflow.includes('EXPECTED_SHA: ${{ inputs.expected_sha }}')&&bf07Workflow.includes('[[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]')&&bf07Workflow.includes('[[ "$EXPECTED_SHA" == "$GITHUB_SHA" ]]')&&bf07Workflow.includes('dispatch SHA mismatch'), 'manual BF-07 release path preserves explicit full-SHA confirmation');
-ok(bf07Workflow.includes('[[ "$GITHUB_REF" == \'refs/heads/main\' ]]')&&bf07Workflow.includes('[[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]'), 'automatic BF-07 release path binds the explicit main release marker to the exact pushed SHA');
+ok(releaseAuthority.includes("- 'release/prod-*'")&&releaseAuthority.includes('actions: write')&&!releaseAuthority.includes('environment: production')&&!releaseAuthority.includes('secrets.'), 'release authority is isolated to exact-SHA release branches and cannot access production secrets');
+ok(releaseAuthority.includes('expected_ref="refs/heads/release/prod-$release_sha"')&&releaseAuthority.includes('release authority is stale/non-main'), 'release authority branch name and target are bound to exact current main');
+ok(releaseAuthority.includes('/actions/workflows/bf07-seal.yml/dispatches')&&releaseAuthority.includes('"ref":"main"')&&releaseAuthority.includes('"expected_sha":os.environ["RELEASE_SHA"]'), 'release authority dispatches BF-07 on main for the exact reviewed merge SHA');
+ok(bf07Workflow.includes('workflow_dispatch:')&&!bf07Workflow.includes('\n  push:')&&bf07Workflow.includes('[[ "$EXPECTED_SHA" == "$candidate_sha" ]]')&&bf07Workflow.includes('dispatch SHA mismatch'), 'BF-07 is dispatch-only and preserves explicit exact-SHA confirmation');
+ok(bf07Workflow.includes('BF-07 dispatch must run from main')&&bf07Workflow.includes('release candidate is not exact current main'), 'BF-07 dispatch binds the reviewed merge to exact current main');
 ok(productionDeploy.includes('workflows: ["BF-07 Supply-Chain Seal"]')&&productionDeploy.includes('recovery-ci.yml')&&productionDeploy.includes('bf07-seal.yml'), 'production automation requires exact-SHA qualification by both Recovery CI and BF-07');
 ok(productionDeploy.includes("await successful('recovery-ci.yml', 'Recovery CI', {wait: eventName === 'workflow_run'})")&&productionDeploy.includes('await sleep(10_000)'), 'automatic production promotion waits boundedly for exact-SHA Recovery CI to finish');
 ok(productionDeploy.includes('refusing stale/non-main deploy')&&productionDeploy.includes('git rev-parse origin/main'), 'production automation refuses stale or non-main deployment targets');
