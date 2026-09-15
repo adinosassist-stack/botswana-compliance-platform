@@ -67,8 +67,6 @@ jobs:
             return gate&&!gate.classList.contains('hidden')&&typeof window.openMobileWorkspaceMenu==='function';
           },null,{timeout:30000});
 
-          // Reveal the already-loaded workspace chrome only inside this disposable browser page.
-          // This does not authenticate, mutate production data, or bypass any API authorization.
           await page.evaluate(()=>{
             document.getElementById('marketingGate')?.classList.add('hidden');
             document.getElementById('authGate')?.classList.add('hidden');
@@ -89,19 +87,27 @@ jobs:
             const nav=side?.querySelector(':scope > .nav');
             const sideStyle=side?getComputedStyle(side):null;
             const navStyle=nav?getComputedStyle(nav):null;
+            const guard=document.getElementById('bw-mobile-runtime-hardening');
+            const eventScript=[...document.scripts].find(script=>(script.src||'').includes('event-delegation.js'));
             return {
               expanded:document.getElementById('mobileMenuButton')?.getAttribute('aria-expanded'),
               closeExists:!!document.getElementById('mobileNavClose'),
               backdropExists:!!document.getElementById('mobileNavBackdrop'),
               bodyTouch:body.touchAction,
+              bodyStyle:document.body.getAttribute('style')||'',
               sidebarTransform:sideStyle?.transform||'',
               navTouch:navStyle?.touchAction||'',
               navOverflowY:navStyle?.overflowY||'',
               navClientHeight:nav?.clientHeight||0,
               navScrollHeight:nav?.scrollHeight||0,
-              bodyOpen:document.body.classList.contains('mobile-nav-open')
+              bodyOpen:document.body.classList.contains('mobile-nav-open'),
+              hardeningStyleExists:!!guard,
+              hardeningStyleText:guard?.textContent||'',
+              eventDelegationScript:eventScript?.src||'',
+              eventsReady:!!window.BW?.events
             };
           });
+          console.log('LIVE_MOBILE_MENU_STATE',JSON.stringify(opened));
           assert.equal(opened.bodyOpen,true,'menu body state did not open');
           assert.equal(opened.expanded,'true','menu aria-expanded did not update');
           assert.equal(opened.closeExists,true,'mobile menu close control missing');
@@ -110,7 +116,6 @@ jobs:
           assert.match(opened.navTouch,/pan-y|auto/i,'drawer nav does not retain vertical touch scrolling');
           assert.match(opened.navOverflowY,/auto|scroll/i,'drawer nav is not vertically scrollable');
           assert.ok(opened.navScrollHeight>=opened.navClientHeight,'drawer nav dimensions are invalid');
-          assert.notMatch=open=>open;
           assert.notEqual(opened.sidebarTransform,'matrix(1, 0, 0, 1, -360, 0)','sidebar remained fully translated offscreen');
 
           const scrollResult=await page.evaluate(()=>{
