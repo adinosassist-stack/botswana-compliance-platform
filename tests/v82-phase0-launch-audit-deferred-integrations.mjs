@@ -2,6 +2,7 @@ import fs from 'node:fs';
 
 const audit=fs.readFileSync('scripts/production-launch-audit.mjs','utf8');
 const workflow=fs.readFileSync('.github/workflows/production-launch-audit.yml','utf8');
+const residueAudit=fs.readFileSync('scripts/production-synthetic-residue-audit.mjs','utf8');
 let pass=0;
 const ok=(condition,message)=>{
   if(!condition)throw new Error(`FAIL: ${message}`);
@@ -32,4 +33,17 @@ ok(audit.includes('assert(orphanSubscriptions===orphanTenants')&&audit.includes(
 ok(audit.includes('assert(orphanBusinessDependencyRows===0')&&audit.includes("mark('tenant integrity baseline',true"), 'orphan-linked business data is forbidden and successful integrity state is explicit');
 ok(audit.includes('LEGACY_DATA_DEBT orphan_tenants=')&&audit.includes('no automatic deletion performed'), 'legacy residue is reported without destructive production cleanup');
 
-console.log(`Phase 0 deferred integration, post-deploy and tenant-integrity contract: ${pass}/22 PASS`);
+ok(residueAudit.includes('EXPECTED_HISTORICAL_COHORT=5')&&residueAudit.includes('candidates.length===0||candidates.length===EXPECTED_HISTORICAL_COHORT'), 'residue audit accepts only zero or the exact five-account historical cohort');
+ok(residueAudit.includes('EMAIL_RE=/^synthetic\\.lifecycle')&&residueAudit.includes('COMPANY_RE=/^Thebe Desk Synthetic Lifecycle')&&residueAudit.includes("e.slice(1).join(':')===c.slice(1).join(':')"), 'residue audit correlates synthetic email and company run markers');
+ok(!/\b(?:DELETE|INSERT|UPDATE|REPLACE|ALTER|DROP|CREATE)\b\s+(?:FROM|INTO|TABLE)/i.test(residueAudit), 'residue audit contains no D1 mutation statement');
+ok(residueAudit.includes('evidence===0&&legalHolds===0')&&residueAudit.includes('externalIdentities===0&&professionalProfiles===0')&&residueAudit.includes('locations<=1'), 'residue audit refuses protected, external-identity and expanded-location data');
+ok(residueAudit.includes('BASELINE_DEPENDENCIES=new Set')&&residueAudit.includes("matchAll(/\\b([A-Za-z0-9_]*tenant_id)\\b/gi)")&&residueAudit.includes('non-baseline tenant dependencies'), 'residue audit derives and checks non-baseline tenant dependencies from schema');
+ok(residueAudit.includes('QUERY_CONCURRENCY=6')&&residueAudit.includes('await Promise.all(Array.from'), 'residue audit bounds independent D1 dependency checks');
+
+const productionAuditEnv=['CLOUDFLARE_API_TOKEN','CLOUDFLARE_ACCOUNT_ID','D1_DATABASE_ID'].every(name=>String(process.env[name]||'').trim());
+if(productionAuditEnv){
+  await import('../scripts/production-synthetic-residue-audit.mjs');
+  console.log('PASS production-only historical synthetic residue audit completed');
+}
+
+console.log(`Phase 0 deferred integration, post-deploy, tenant-integrity and residue-audit contract: ${pass}/28 PASS`);
