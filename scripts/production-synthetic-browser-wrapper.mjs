@@ -14,16 +14,60 @@ function safe(value){return String(value??'').replace(/[\u0000-\u001f\u007f]+/g,
 function mark(label,detail=''){console.log(`PASS ${label}${detail?`: ${detail}`:''}`)}
 assert(executablePath,'no Chromium-compatible browser found');
 
-async function assertWorkspace(page,label){
-  await page.waitForFunction(()=>{
-    const shell=document.getElementById('appShell');
-    const marketing=document.getElementById('marketingGate');
-    const auth=document.getElementById('authGate');
-    if(!shell)return false;
-    const style=getComputedStyle(shell);
-    return !shell.classList.contains('hidden')&&style.display!=='none'&&style.visibility!=='hidden'&&
-      !!document.getElementById('workspaceSidebar')&&marketing?.classList.contains('hidden')&&auth?.classList.contains('hidden');
-  },null,{timeout:30000});
+async function probeWorkspaceBootstrap(page,pageErrors=[]){
+  const cookies=await page.context().cookies(ORIGIN);
+  const sessionCookiePresent=cookies.some(cookie=>cookie.name==='__Host-bw_session'||cookie.name==='bw_session');
+  const result=await page.evaluate(async timeoutMs=>{
+    const direct=async path=>{
+      const controller=new AbortController();const timer=setTimeout(()=>controller.abort('synthetic-bootstrap-diagnostic-timeout'),timeoutMs);
+      try{
+        const response=await fetch(path,{method:'GET',credentials:'same-origin',headers:{accept:'application/json'},signal:controller.signal,redirect:'error'});
+        let body=null;try{body=await response.json()}catch{}
+        return {status:response.status,error:body?.error||null,role:body?.user?.role||null,companies:Array.isArray(body?.state?.companies)?body.state.companies.length:null};
+      }catch(error){return {status:0,error:String(error?.name||'network_error'),role:null,companies:null}}
+      finally{clearTimeout(timer)}
+    };
+    const client=async path=>{
+      try{
+        const factory=globalThis.BW?.api?.createClient;
+        if(typeof factory!=='function')return {ok:false,error:'api_client_missing',role:null,companies:null};
+        const data=await factory({timeoutMs,retries:0}).request(path);
+        return {ok:true,error:null,role:data?.user?.role||null,companies:Array.isArray(data?.state?.companies)?data.state.companies.length:null};
+      }catch(error){return {ok:false,error:String(error?.code||error?.name||'client_error'),role:null,companies:null}}
+    };
+    const [directMe,directState,clientMe,clientState]=await Promise.all([
+      direct('/api/auth/me'),direct('/api/state'),client('/api/auth/me'),client('/api/state')
+    ]);
+    const shell=document.getElementById('appShell'),marketing=document.getElementById('marketingGate'),auth=document.getElementById('authGate');
+    return {
+      directMe,directState,clientMe,clientState,
+      gates:{
+        shell:!!shell,
+        shellVisibility:shell?getComputedStyle(shell).visibility:'missing',
+        marketingHidden:!!marketing?.classList.contains('hidden'),
+        authHidden:!!auth?.classList.contains('hidden'),
+        sidebar:!!document.getElementById('workspaceSidebar')
+      }
+    };
+  },Math.min(BROWSER_FETCH_TIMEOUT_MS,8000));
+  return {...result,sessionCookiePresent,pageError:pageErrors.length?safe(pageErrors[0]):''};
+}
+
+async function assertWorkspace(page,label,pageErrors=[]){
+  try{
+    await page.waitForFunction(()=>{
+      const shell=document.getElementById('appShell');
+      const marketing=document.getElementById('marketingGate');
+      const auth=document.getElementById('authGate');
+      if(!shell)return false;
+      const style=getComputedStyle(shell);
+      return !shell.classList.contains('hidden')&&style.display!=='none'&&style.visibility!=='hidden'&&
+        !!document.getElementById('workspaceSidebar')&&marketing?.classList.contains('hidden')&&auth?.classList.contains('hidden');
+    },null,{timeout:30000});
+  }catch(error){
+    const d=await probeWorkspaceBootstrap(page,pageErrors).catch(probeError=>({sessionCookiePresent:false,directMe:{status:0,error:'probe_failed'},directState:{status:0,error:'probe_failed'},clientMe:{ok:false,error:'probe_failed'},clientState:{ok:false,error:'probe_failed'},gates:{},pageError:safe(probeError?.message||probeError)}));
+    throw new Error(`Synthetic browser proof failed: ${label} workspace bootstrap timeout sessionCookie=${d.sessionCookiePresent?'present':'absent'} directMe=${d.directMe?.status||0}/${safe(d.directMe?.error||d.directMe?.role||'ok')} directState=${d.directState?.status||0}/${safe(d.directState?.error||`companies=${d.directState?.companies}`)} clientMe=${d.clientMe?.ok?'ok':safe(d.clientMe?.error||'failed')} clientState=${d.clientState?.ok?`ok/companies=${d.clientState?.companies}`:safe(d.clientState?.error||'failed')} gates=${safe(JSON.stringify(d.gates||{}))}${d.pageError?` pageError=${safe(d.pageError)}`:''}`);
+  }
   const state=await page.evaluate(()=>({
     standalone:document.body.classList.contains('standalone-preview'),
     shell:!!document.getElementById('appShell'),sidebar:!!document.getElementById('workspaceSidebar')
@@ -90,7 +134,7 @@ async function runBrowserProof(credentials){
     await page.goto(`${ORIGIN}/?desktop-owner-proof=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:45000});
     await loginInBrowser(page,credentials);
     await page.reload({waitUntil:'domcontentloaded',timeout:45000});
-    await assertWorkspace(page,'desktop');
+    await assertWorkspace(page,'desktop',pageErrors);
     const desktopNav=page.locator('#workspaceSidebar [data-view]:visible');
     const desktopNavCount=await desktopNav.count();assert(desktopNavCount>0,'desktop owner workspace has no visible data-view navigation');
     const firstDesktopNav=desktopNav.first();const desktopView=await firstDesktopNav.getAttribute('data-view');await firstDesktopNav.click({timeout:10000});
@@ -104,10 +148,12 @@ async function runBrowserProof(credentials){
     const mobile=await browser.newContext({viewport:{width:390,height:844},screen:{width:390,height:844},isMobile:true,hasTouch:true,deviceScaleFactor:2,userAgent:mobileAgent});
     const mobilePage=await mobile.newPage();
     mobilePage.setDefaultTimeout(15000);mobilePage.setDefaultNavigationTimeout(45000);
+    const mobilePageErrors=[];
+    mobilePage.on('pageerror',e=>mobilePageErrors.push(String(e?.stack||e)));
     await mobilePage.goto(`${ORIGIN}/?authenticated-mobile-proof=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:45000});
     await loginInBrowser(mobilePage,credentials);
     await mobilePage.reload({waitUntil:'domcontentloaded',timeout:45000});
-    await assertWorkspace(mobilePage,'mobile');
+    await assertWorkspace(mobilePage,'mobile',mobilePageErrors);
     const menu=mobilePage.locator('#mobileMenuButton');await menu.waitFor({state:'visible',timeout:10000});await menu.tap({timeout:10000});
     await mobilePage.waitForFunction(()=>document.body.classList.contains('mobile-nav-open'),null,{timeout:5000});
     const menuState=await mobilePage.evaluate(()=>{const nav=document.querySelector('#workspaceSidebar > .nav');return {expanded:document.getElementById('mobileMenuButton')?.getAttribute('aria-expanded'),bodyTouch:getComputedStyle(document.body).touchAction,navTouch:nav?getComputedStyle(nav).touchAction:'',overflow:nav?getComputedStyle(nav).overflowY:'',max:nav?Math.max(0,nav.scrollHeight-nav.clientHeight):0}});
