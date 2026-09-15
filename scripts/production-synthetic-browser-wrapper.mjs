@@ -3,7 +3,8 @@ import {chromium} from 'playwright-core';
 
 const ORIGIN='https://thebedesk.com';
 const BROWSER_FETCH_TIMEOUT_MS=15000;
-const BROWSER_PROOF_WATCHDOG_MS=120000;
+const BROWSER_NAVIGATION_TIMEOUT_MS=30000;
+const BROWSER_PROOF_WATCHDOG_MS=240000;
 const desktopAgent='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36';
 const mobileAgent='Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Mobile Safari/537.36';
 const executablePath=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(p=>fs.existsSync(p));
@@ -12,6 +13,8 @@ let browserProofComplete=false;
 function assert(condition,message){if(!condition)throw new Error(`Synthetic browser proof failed: ${message}`)}
 function safe(value){return String(value??'').replace(/[\u0000-\u001f\u007f]+/g,' ').replace(/\s+/g,' ').slice(0,300)}
 function mark(label,detail=''){console.log(`PASS ${label}${detail?`: ${detail}`:''}`)}
+function info(label,detail=''){console.log(`INFO ${label}${detail?`: ${detail}`:''}`)}
+function cookieState(value){return value===true?'present':value===false?'absent':'unknown'}
 assert(executablePath,'no Chromium-compatible browser found');
 
 async function probeWorkspaceBootstrap(page,pageErrors=[]){
@@ -53,6 +56,21 @@ async function probeWorkspaceBootstrap(page,pageErrors=[]){
   return {...result,sessionCookiePresent,pageError:pageErrors.length?safe(pageErrors[0]):''};
 }
 
+function summarizeProbe(d){
+  return `sessionCookie=${cookieState(d?.sessionCookiePresent)} directMe=${d?.directMe?.status||0}/${safe(d?.directMe?.error||d?.directMe?.role||'ok')} directState=${d?.directState?.status||0}/${safe(d?.directState?.error||`companies=${d?.directState?.companies}`)} clientMe=${d?.clientMe?.ok?'ok':safe(d?.clientMe?.error||'failed')} clientState=${d?.clientState?.ok?`ok/companies=${d?.clientState?.companies}`:safe(d?.clientState?.error||'failed')} gates=${safe(JSON.stringify(d?.gates||{}))}${d?.pageError?` pageError=${safe(d.pageError)}`:''}`;
+}
+
+async function observeWorkspaceBootstrap(page,label,pageErrors=[]){
+  try{
+    const d=await probeWorkspaceBootstrap(page,pageErrors);
+    info(`${label} workspace bootstrap`,summarizeProbe(d));
+    return d;
+  }catch(error){
+    info(`${label} workspace bootstrap`,`probe_error=${safe(error?.message||error)}`);
+    return null;
+  }
+}
+
 async function assertWorkspace(page,label,pageErrors=[]){
   try{
     await page.waitForFunction(()=>{
@@ -65,8 +83,8 @@ async function assertWorkspace(page,label,pageErrors=[]){
         !!document.getElementById('workspaceSidebar')&&marketing?.classList.contains('hidden')&&auth?.classList.contains('hidden');
     },null,{timeout:30000});
   }catch(error){
-    const d=await probeWorkspaceBootstrap(page,pageErrors).catch(probeError=>({sessionCookiePresent:false,directMe:{status:0,error:'probe_failed'},directState:{status:0,error:'probe_failed'},clientMe:{ok:false,error:'probe_failed'},clientState:{ok:false,error:'probe_failed'},gates:{},pageError:safe(probeError?.message||probeError)}));
-    throw new Error(`Synthetic browser proof failed: ${label} workspace bootstrap timeout sessionCookie=${d.sessionCookiePresent?'present':'absent'} directMe=${d.directMe?.status||0}/${safe(d.directMe?.error||d.directMe?.role||'ok')} directState=${d.directState?.status||0}/${safe(d.directState?.error||`companies=${d.directState?.companies}`)} clientMe=${d.clientMe?.ok?'ok':safe(d.clientMe?.error||'failed')} clientState=${d.clientState?.ok?`ok/companies=${d.clientState?.companies}`:safe(d.clientState?.error||'failed')} gates=${safe(JSON.stringify(d.gates||{}))}${d.pageError?` pageError=${safe(d.pageError)}`:''}`);
+    const d=await probeWorkspaceBootstrap(page,pageErrors).catch(probeError=>({sessionCookiePresent:null,directMe:{status:0,error:'probe_failed'},directState:{status:0,error:'probe_failed'},clientMe:{ok:false,error:'probe_failed'},clientState:{ok:false,error:'probe_failed'},gates:{},pageError:safe(probeError?.message||probeError)}));
+    throw new Error(`Synthetic browser proof failed: ${label} workspace bootstrap timeout ${summarizeProbe(d)}`);
   }
   const state=await page.evaluate(()=>({
     standalone:document.body.classList.contains('standalone-preview'),
@@ -95,21 +113,28 @@ async function loginInBrowser(page,credentials){
 
 async function runBrowserProof(credentials){
   const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox']});
-  const watchdog=setTimeout(()=>{browser.close().catch(()=>{})},BROWSER_PROOF_WATCHDOG_MS);
+  let activeStage='browser launch';
+  const watchdog=setTimeout(()=>{
+    console.error(`FAIL synthetic browser watchdog stage=${safe(activeStage)} limitMs=${BROWSER_PROOF_WATCHDOG_MS}`);
+    browser.close().catch(()=>{});
+  },BROWSER_PROOF_WATCHDOG_MS);
   try{
+    activeStage='desktop context';
     const desktop=await browser.newContext({viewport:{width:1440,height:1100},screen:{width:1440,height:1100},userAgent:desktopAgent});
     const page=await desktop.newPage();
-    page.setDefaultTimeout(15000);page.setDefaultNavigationTimeout(45000);
+    page.setDefaultTimeout(15000);page.setDefaultNavigationTimeout(BROWSER_NAVIGATION_TIMEOUT_MS);
     const pageErrors=[];const criticalFailures=[];
     page.on('pageerror',e=>pageErrors.push(String(e?.stack||e)));
     page.on('requestfailed',r=>{const url=r.url();if(url.startsWith(ORIGIN+'/js/')||url.startsWith(ORIGIN+'/assets/'))criticalFailures.push(`${r.method()} ${url} ${r.failure()?.errorText||''}`)});
-    const response=await page.goto(`${ORIGIN}/register-direct.html?desktop-registration-proof=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:45000});
+    activeStage='desktop registration route';
+    const response=await page.goto(`${ORIGIN}/register-direct.html?desktop-registration-proof=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:BROWSER_NAVIGATION_TIMEOUT_MS});
     assert(response?.status()===200,'desktop registration route did not return 200');
     assert(/Create your account/i.test((await page.locator('body').innerText()).slice(0,1000)),'desktop registration heading missing');
     for(const id of ['#companyName','#email','#password','#submitBtn','#status'])assert(await page.locator(id).count(),`desktop registration control missing ${id}`);
     await page.locator('#companyName').fill('A');await page.locator('#email').fill('bad');await page.locator('#password').fill('short');await page.locator('#submitBtn').click();
     await page.waitForFunction(()=>document.getElementById('status')?.classList.contains('show'),null,{timeout:5000});
     assert(/business name/i.test(await page.locator('#status').innerText()),'desktop invalid registration did not fail closed');
+    activeStage='desktop registration proof';
     const proof=await page.evaluate(async timeoutMs=>{
       const encoder=new TextEncoder();
       const leading=(bytes,bits)=>{let remaining=Number(bits)||0;for(const value of bytes){if(remaining<=0)return true;const take=Math.min(8,remaining);if((value>>(8-take))!==0)return false;remaining-=take}return remaining<=0};
@@ -131,9 +156,21 @@ async function runBrowserProof(credentials){
     assert(proof.ok&&Number.isInteger(proof.difficulty)&&proof.difficulty>=8&&proof.difficulty<=16,'desktop browser could not solve first-party registration proof');
     mark('desktop registration pass 1',`live form validation + browser proof solved at difficulty=${proof.difficulty}`);
 
-    await page.goto(`${ORIGIN}/?desktop-owner-proof=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:45000});
+    activeStage='desktop owner root navigation';
+    info('desktop synthetic stage','opening owner root');
+    await page.goto(`${ORIGIN}/?desktop-owner-proof=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:BROWSER_NAVIGATION_TIMEOUT_MS});
+    activeStage='desktop owner browser login';
+    info('desktop synthetic stage','submitting owner login');
     await loginInBrowser(page,credentials);
-    await page.reload({waitUntil:'domcontentloaded',timeout:45000});
+    mark('desktop browser login','owner login returned 200');
+    activeStage='desktop pre-reload diagnostic';
+    await observeWorkspaceBootstrap(page,'desktop pre-reload',pageErrors);
+    activeStage='desktop authenticated reload';
+    info('desktop synthetic stage','reloading authenticated owner root');
+    await page.reload({waitUntil:'domcontentloaded',timeout:BROWSER_NAVIGATION_TIMEOUT_MS});
+    activeStage='desktop post-reload diagnostic';
+    await observeWorkspaceBootstrap(page,'desktop post-reload',pageErrors);
+    activeStage='desktop workspace reveal';
     await assertWorkspace(page,'desktop',pageErrors);
     const desktopNav=page.locator('#workspaceSidebar [data-view]:visible');
     const desktopNavCount=await desktopNav.count();assert(desktopNavCount>0,'desktop owner workspace has no visible data-view navigation');
@@ -145,14 +182,24 @@ async function runBrowserProof(credentials){
     mark('desktop registration pass 3',`canonical synthetic owner reached workspace and ${desktopView||'workspace'} navigation stayed responsive`);
     await desktop.close();
 
+    activeStage='mobile context';
     const mobile=await browser.newContext({viewport:{width:390,height:844},screen:{width:390,height:844},isMobile:true,hasTouch:true,deviceScaleFactor:2,userAgent:mobileAgent});
     const mobilePage=await mobile.newPage();
-    mobilePage.setDefaultTimeout(15000);mobilePage.setDefaultNavigationTimeout(45000);
+    mobilePage.setDefaultTimeout(15000);mobilePage.setDefaultNavigationTimeout(BROWSER_NAVIGATION_TIMEOUT_MS);
     const mobilePageErrors=[];
     mobilePage.on('pageerror',e=>mobilePageErrors.push(String(e?.stack||e)));
-    await mobilePage.goto(`${ORIGIN}/?authenticated-mobile-proof=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:45000});
+    activeStage='mobile owner root navigation';
+    await mobilePage.goto(`${ORIGIN}/?authenticated-mobile-proof=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:BROWSER_NAVIGATION_TIMEOUT_MS});
+    activeStage='mobile owner browser login';
     await loginInBrowser(mobilePage,credentials);
-    await mobilePage.reload({waitUntil:'domcontentloaded',timeout:45000});
+    mark('mobile browser login','same owner login returned 200');
+    activeStage='mobile pre-reload diagnostic';
+    await observeWorkspaceBootstrap(mobilePage,'mobile pre-reload',mobilePageErrors);
+    activeStage='mobile authenticated reload';
+    await mobilePage.reload({waitUntil:'domcontentloaded',timeout:BROWSER_NAVIGATION_TIMEOUT_MS});
+    activeStage='mobile post-reload diagnostic';
+    await observeWorkspaceBootstrap(mobilePage,'mobile post-reload',mobilePageErrors);
+    activeStage='mobile workspace reveal';
     await assertWorkspace(mobilePage,'mobile',mobilePageErrors);
     const menu=mobilePage.locator('#mobileMenuButton');await menu.waitFor({state:'visible',timeout:10000});await menu.tap({timeout:10000});
     await mobilePage.waitForFunction(()=>document.body.classList.contains('mobile-nav-open'),null,{timeout:5000});
@@ -174,6 +221,7 @@ async function runBrowserProof(credentials){
     assert(mobileResponsive===true,'authenticated mobile workspace stopped responding after navigation');
     mark('authenticated mobile continuation',`same owner identity opened/scrolled drawer and ${mobileView||'workspace'} navigation stayed responsive`);
     await mobile.close();
+    activeStage='browser proof complete';
   }finally{
     clearTimeout(watchdog);
     await browser.close().catch(()=>{});
