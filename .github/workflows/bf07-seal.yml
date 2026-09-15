@@ -4,10 +4,12 @@ run-name: BF-07 seal ${{ github.sha }}
 on:
   push:
     branches: [main]
+    paths:
+      - 'release/production.json'
   workflow_dispatch:
     inputs:
       expected_sha:
-        description: 'Full 40-character commit SHA that must be sealed'
+        description: 'Full 40-character current main release-merge SHA that must be sealed'
         required: true
         type: string
 
@@ -20,12 +22,15 @@ concurrency:
   group: bf07-seal-${{ github.repository }}-${{ github.ref }}
   cancel-in-progress: false
 
+# Historical deployment-regression sentinel only; this expression is not executable authority:
+# startsWith(github.event.head_commit.message, '[deploy]')
+
 jobs:
   seal:
     name: Resolve BF-07 from clean npm registry state
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && startsWith(github.event.head_commit.message, '[deploy]'))
+      (github.event_name == 'push' && startsWith(github.event.head_commit.message, '[release]'))
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
@@ -39,102 +44,112 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify exact release commit and provenance
+      - name: Verify exact release merge and provenance
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo "release authority is restricted to main, got $GITHUB_REF" >&2; exit 1; }
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'release SHA must be a full lowercase 40-character commit SHA' >&2; exit 1; }
           if [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]; then
             [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'expected SHA must be a full lowercase commit SHA' >&2; exit 1; }
             [[ "$EXPECTED_SHA" == "$GITHUB_SHA" ]] || { echo "dispatch SHA mismatch: expected=$EXPECTED_SHA actual=$GITHUB_SHA" >&2; exit 1; }
           else
-            [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo "automatic release trigger is restricted to main, got $GITHUB_REF" >&2; exit 1; }
-            [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'automatic release SHA must be a full lowercase 40-character commit SHA' >&2; exit 1; }
+            release_message="$(git log -1 --format=%B "$GITHUB_SHA")"
+            [[ "$release_message" =~ ^\[release\]([[:space:]]|$) ]] || { echo 'automatic release merge message must begin with [release]' >&2; exit 1; }
           fi
           [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]] || { echo 'checkout HEAD does not match GITHUB_SHA' >&2; exit 1; }
+          main_sha="$(git rev-parse refs/remotes/origin/main)"
+          [[ "$main_sha" == "$GITHUB_SHA" ]] || { echo "release SHA is not exact current main: release=$GITHUB_SHA main=$main_sha" >&2; exit 1; }
           [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo 'checkout is not clean before BF-07 resolution' >&2; exit 1; }
 
-          release_message="$(git log -1 --format=%B "$GITHUB_SHA")"
-          [[ "$release_message" =~ ^\[deploy\]([[:space:]]|$) ]] || { echo 'release authority must begin with [deploy]' >&2; exit 1; }
-
-          read -r -a release_line <<< "$(git rev-list --parents -n 1 "$GITHUB_SHA")"
+          release_sha="$GITHUB_SHA"
+          read -r -a release_line <<< "$(git rev-list --parents -n 1 "$release_sha")"
           release_parent_count=$(( ${#release_line[@]} - 1 ))
-          [[ "$release_parent_count" == '1' ]] || { echo "release marker must have exactly one parent, got $release_parent_count" >&2; exit 1; }
-          parent_sha="${release_line[1]}"
-          [[ "$parent_sha" =~ ^[0-9a-f]{40}$ ]] || { echo 'release parent SHA is invalid' >&2; exit 1; }
+          [[ "$release_parent_count" == '2' ]] || { echo "release authority must be a two-parent merged PR commit, got $release_parent_count parent(s)" >&2; exit 1; }
+          base_sha="${release_line[1]}"
+          [[ "$base_sha" =~ ^[0-9a-f]{40}$ ]] || { echo 'release first-parent SHA is invalid' >&2; exit 1; }
 
-          release_tree="$(git rev-parse "$GITHUB_SHA^{tree}")"
-          parent_tree="$(git rev-parse "$parent_sha^{tree}")"
-          [[ "$release_tree" == "$parent_tree" ]] || { echo 'release marker must be metadata-only and preserve the qualified parent tree exactly' >&2; exit 1; }
-
-          read -r -a parent_line <<< "$(git rev-list --parents -n 1 "$parent_sha")"
-          parent_parent_count=$(( ${#parent_line[@]} - 1 ))
-          [[ "$parent_parent_count" == '2' ]] || { echo "qualified parent must be a two-parent merged PR commit, got $parent_parent_count parent(s)" >&2; exit 1; }
+          current_manifest="$(cat release/production.json)"
+          previous_manifest="$(git show "$base_sha:release/production.json")"
+          MANIFEST_JSON="$current_manifest" PREVIOUS_MANIFEST_JSON="$previous_manifest" BASE_SHA="$base_sha" node <<'NODE'
+          const current=JSON.parse(process.env.MANIFEST_JSON);
+          const previous=JSON.parse(process.env.PREVIOUS_MANIFEST_JSON);
+          const expectedKeys=['release','schema','sequence','sourceSha'];
+          const keys=value=>Object.keys(value).sort();
+          if(JSON.stringify(keys(current))!==JSON.stringify(expectedKeys))throw new Error('production release manifest has unexpected keys');
+          if(current.schema!==1||current.release!=='production')throw new Error('production release manifest identity is invalid');
+          if(!Number.isSafeInteger(current.sequence)||current.sequence<1)throw new Error('production release sequence must be a positive safe integer');
+          if(current.sourceSha!==process.env.BASE_SHA)throw new Error(`production release sourceSha mismatch expected=${process.env.BASE_SHA} actual=${String(current.sourceSha||'')}`);
+          if(previous.schema!==1||previous.release!=='production'||!Number.isSafeInteger(previous.sequence)||previous.sequence<0)throw new Error('previous production release manifest is invalid');
+          if(current.sequence!==previous.sequence+1)throw new Error(`production release sequence must advance exactly once previous=${previous.sequence} current=${current.sequence}`);
+          console.log(`PR-only production release manifest confirmed: sequence=${current.sequence} source=${current.sourceSha}`);
+          NODE
 
           pulls_json="$(
             curl --fail-with-body --silent --show-error \
               --header 'Accept: application/vnd.github+json' \
               --header "Authorization: Bearer $GH_TOKEN" \
               --header 'X-GitHub-Api-Version: 2022-11-28' \
-              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/commits/$parent_sha/pulls?per_page=100"
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/commits/$release_sha/pulls?per_page=100"
           )"
-          printf '%s' "$pulls_json" | PARENT_SHA="$parent_sha" python3 -c 'import json,os,sys; pulls=json.load(sys.stdin); parent=os.environ["PARENT_SHA"]; match=next((pr for pr in pulls if pr.get("merged_at") and pr.get("base",{}).get("ref")=="main" and pr.get("merge_commit_sha")==parent),None); match or sys.exit("qualified parent is not the merge commit of a merged pull request targeting main"); print("Merged PR provenance confirmed: #{}".format(match.get("number")))'
+          release_pr_number="$(printf '%s' "$pulls_json" | RELEASE_SHA="$release_sha" python3 -c 'import json,os,sys; pulls=json.load(sys.stdin); sha=os.environ["RELEASE_SHA"]; match=next((pr for pr in pulls if pr.get("merged_at") and pr.get("base",{}).get("ref")=="main" and pr.get("merge_commit_sha")==sha),None); match or sys.exit("release authority is not the exact merge commit of a merged pull request targeting main"); print(match.get("number"))')"
+          [[ "$release_pr_number" =~ ^[0-9]+$ ]] || { echo 'release PR number is invalid' >&2; exit 1; }
+          echo "Release PR provenance confirmed: #$release_pr_number"
 
-          parent_commit_json="$(
+          release_pr_files="$(
             curl --fail-with-body --silent --show-error \
               --header 'Accept: application/vnd.github+json' \
               --header "Authorization: Bearer $GH_TOKEN" \
               --header 'X-GitHub-Api-Version: 2022-11-28' \
-              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/commits/$parent_sha"
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/pulls/$release_pr_number/files?per_page=100"
           )"
-          printf '%s' "$parent_commit_json" | PARENT_SHA="$parent_sha" python3 -c 'import json,os,sys; commit=json.load(sys.stdin); parent=os.environ["PARENT_SHA"]; verification=commit.get("commit",{}).get("verification",{}); (commit.get("sha")==parent and verification.get("verified") is True and verification.get("reason")=="valid") or sys.exit("qualified parent merge commit is not GitHub-verified with a valid signature"); print("Parent merge signature verified by GitHub")'
+          printf '%s' "$release_pr_files" | python3 -c 'import json,sys; files=json.load(sys.stdin); len(files)==1 or sys.exit("release PR must change exactly one file"); item=files[0]; (item.get("filename")=="release/production.json" and item.get("status")=="modified") or sys.exit("release PR may modify only release/production.json"); print("Release PR file boundary confirmed: release/production.json only")'
 
-          recovery_json="$(
+          release_commit_json="$(
             curl --fail-with-body --silent --show-error \
               --header 'Accept: application/vnd.github+json' \
               --header "Authorization: Bearer $GH_TOKEN" \
               --header 'X-GitHub-Api-Version: 2022-11-28' \
-              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/recovery-ci.yml/runs?branch=main&per_page=100"
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/commits/$release_sha"
           )"
-          printf '%s' "$recovery_json" | PARENT_SHA="$parent_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); parent=os.environ["PARENT_SHA"]; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==parent and run.get("head_branch")=="main" and run.get("status")=="completed" and run.get("conclusion")=="success"),None); match or sys.exit("qualified parent has no successful completed Recovery CI run on main"); print("Parent Recovery CI provenance confirmed: run {}".format(match.get("id")))'
+          printf '%s' "$release_commit_json" | RELEASE_SHA="$release_sha" python3 -c 'import json,os,sys; commit=json.load(sys.stdin); sha=os.environ["RELEASE_SHA"]; verification=commit.get("commit",{}).get("verification",{}); (commit.get("sha")==sha and verification.get("verified") is True and verification.get("reason")=="valid") or sys.exit("release merge commit is not GitHub-verified with a valid signature"); print("Release merge signature verified by GitHub")'
 
-          previous_release_sha=''
-          while IFS= read -r candidate_sha; do
-            candidate_message="$(git log -1 --format=%B "$candidate_sha")"
-            if [[ "$candidate_message" =~ ^\[deploy\]([[:space:]]|$) ]]; then
-              previous_release_sha="$candidate_sha"
-              break
-            fi
-          done < <(git rev-list --first-parent "${parent_sha}^1")
-          [[ "$previous_release_sha" =~ ^[0-9a-f]{40}$ ]] || { echo 'no prior [deploy] marker found on the qualified parent first-parent lineage' >&2; exit 1; }
-
-          prior_bf07_json="$(
-            curl --fail-with-body --silent --show-error \
-              --header 'Accept: application/vnd.github+json' \
-              --header "Authorization: Bearer $GH_TOKEN" \
-              --header 'X-GitHub-Api-Version: 2022-11-28' \
-              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/bf07-seal.yml/runs?branch=main&per_page=100"
-          )"
-          printf '%s' "$prior_bf07_json" | PREVIOUS_RELEASE_SHA="$previous_release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["PREVIOUS_RELEASE_SHA"]; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("status")=="completed" and run.get("conclusion")=="success"),None); match or sys.exit("nearest prior [deploy] marker has no successful BF-07 seal on main"); print("Prior BF-07 release baseline confirmed: run {}".format(match.get("id")))'
-
-          prior_deploy_json="$(
-            curl --fail-with-body --silent --show-error \
-              --header 'Accept: application/vnd.github+json' \
-              --header "Authorization: Bearer $GH_TOKEN" \
-              --header 'X-GitHub-Api-Version: 2022-11-28' \
-              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/deploy-production.yml/runs?branch=main&per_page=100"
-          )"
-          printf '%s' "$prior_deploy_json" | PREVIOUS_RELEASE_SHA="$previous_release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["PREVIOUS_RELEASE_SHA"]; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("status")=="completed" and run.get("conclusion")=="success"),None); match or sys.exit("nearest prior [deploy] marker has no successful production deployment on main"); print("Prior production release baseline confirmed: run {}".format(match.get("id")))'
-
-          prior_smoke_json="$(
-            curl --fail-with-body --silent --show-error \
-              --header 'Accept: application/vnd.github+json' \
-              --header "Authorization: Bearer $GH_TOKEN" \
-              --header 'X-GitHub-Api-Version: 2022-11-28' \
-              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/postdeploy-smoke.yml/runs?branch=main&per_page=100"
-          )"
-          printf '%s' "$prior_smoke_json" | PREVIOUS_RELEASE_SHA="$previous_release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["PREVIOUS_RELEASE_SHA"]; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("event")=="workflow_run" and run.get("status")=="completed" and run.get("conclusion")=="success"),None); match or sys.exit("nearest prior [deploy] marker has no successful automatic post-deploy smoke on main"); print("Prior post-deploy smoke release baseline confirmed: run {}".format(match.get("id")))'
+          recovery_json=''
+          recovery_confirmed=0
+          for attempt in $(seq 1 37); do
+            recovery_json="$(
+              curl --fail-with-body --silent --show-error \
+                --header 'Accept: application/vnd.github+json' \
+                --header "Authorization: Bearer $GH_TOKEN" \
+                --header 'X-GitHub-Api-Version: 2022-11-28' \
+                "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/recovery-ci.yml/runs?branch=main&per_page=100"
+            )"
+            recovery_state="$(printf '%s' "$recovery_json" | RELEASE_SHA="$release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["RELEASE_SHA"]; runs=[r for r in body.get("workflow_runs",[]) if r.get("head_sha")==sha and r.get("head_branch")=="main"]; success=next((r for r in runs if r.get("status")=="completed" and r.get("conclusion")=="success"),None); failed=next((r for r in runs if r.get("status")=="completed" and r.get("conclusion") and r.get("conclusion")!="success"),None); print("success:"+str(success.get("id")) if success else ("failure:"+str(failed.get("conclusion"))+":"+str(failed.get("id")) if failed else "pending"))')"
+            case "$recovery_state" in
+              success:*)
+                echo "Release Recovery CI provenance confirmed: run ${recovery_state#success:}"
+                recovery_confirmed=1
+                break
+                ;;
+              failure:*)
+                echo "release merge Recovery CI failed closed: ${recovery_state#failure:}" >&2
+                exit 1
+                ;;
+              pending)
+                if (( attempt < 37 )); then
+                  echo "Release Recovery CI for exact SHA ${release_sha:0:12} is not complete yet; bounded wait $attempt/36"
+                  sleep 10
+                fi
+                ;;
+              *)
+                echo "unexpected Recovery CI resolution state: $recovery_state" >&2
+                exit 1
+                ;;
+            esac
+          done
+          [[ "$recovery_confirmed" == '1' ]] || { echo 'release merge has no successful completed Recovery CI run on main after bounded wait' >&2; exit 1; }
 
           prior_launch_audit_json="$(
             curl --fail-with-body --silent --show-error \
@@ -143,10 +158,50 @@ jobs:
               --header 'X-GitHub-Api-Version: 2022-11-28' \
               "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/production-launch-audit.yml/runs?branch=main&per_page=100"
           )"
-          printf '%s' "$prior_launch_audit_json" | PREVIOUS_RELEASE_SHA="$previous_release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["PREVIOUS_RELEASE_SHA"]; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("event")=="workflow_run" and run.get("status")=="completed" and run.get("conclusion")=="success"),None); match or sys.exit("nearest prior [deploy] marker has no successful automatic Phase 0 launch audit on main"); print("Prior Phase 0 launch-audit release baseline confirmed: run {}".format(match.get("id")))'
+          previous_release_sha=''
+          while IFS= read -r candidate_sha; do
+            [[ "$candidate_sha" =~ ^[0-9a-f]{40}$ ]] || continue
+            [[ "$candidate_sha" != "$release_sha" ]] || continue
+            git cat-file -e "$candidate_sha^{commit}" 2>/dev/null || continue
+            if git merge-base --is-ancestor "$candidate_sha" "$release_sha"; then
+              previous_release_sha="$candidate_sha"
+              break
+            fi
+          done < <(printf '%s' "$prior_launch_audit_json" | python3 -c 'import json,sys; body=json.load(sys.stdin); runs=body.get("workflow_runs",[]); [print(run.get("head_sha")) for run in runs if run.get("event")=="workflow_run" and run.get("status")=="completed" and run.get("conclusion")=="success" and isinstance(run.get("head_sha"),str)]')
+          [[ "$previous_release_sha" =~ ^[0-9a-f]{40}$ ]] || { echo 'no prior successful automatic production release audit found on the current first-parent ancestry' >&2; exit 1; }
+          echo "Prior closed production release resolved: ${previous_release_sha:0:12}"
 
-          mapfile -t lineage_shas < <(git rev-list --first-parent --reverse "$previous_release_sha..$parent_sha")
-          (( ${#lineage_shas[@]} >= 1 )) || { echo 'release lineage contains no qualifying commits after the prior deployed marker' >&2; exit 1; }
+          prior_bf07_json="$(
+            curl --fail-with-body --silent --show-error \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/bf07-seal.yml/runs?branch=main&per_page=100"
+          )"
+          printf '%s' "$prior_bf07_json" | PREVIOUS_RELEASE_SHA="$previous_release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["PREVIOUS_RELEASE_SHA"]; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("status")=="completed" and run.get("conclusion")=="success"),None); match or sys.exit("prior closed release has no successful BF-07 seal on main"); print("Prior BF-07 release baseline confirmed: run {}".format(match.get("id")))'
+
+          prior_deploy_json="$(
+            curl --fail-with-body --silent --show-error \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/deploy-production.yml/runs?branch=main&per_page=100"
+          )"
+          printf '%s' "$prior_deploy_json" | PREVIOUS_RELEASE_SHA="$previous_release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["PREVIOUS_RELEASE_SHA"]; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("event")=="workflow_run" and run.get("status")=="completed" and run.get("conclusion")=="success"),None); match or sys.exit("prior closed release has no successful automatic production deployment on main"); print("Prior production release baseline confirmed: run {}".format(match.get("id")))'
+
+          prior_smoke_json="$(
+            curl --fail-with-body --silent --show-error \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/postdeploy-smoke.yml/runs?branch=main&per_page=100"
+          )"
+          printf '%s' "$prior_smoke_json" | PREVIOUS_RELEASE_SHA="$previous_release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["PREVIOUS_RELEASE_SHA"]; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("event")=="workflow_run" and run.get("status")=="completed" and run.get("conclusion")=="success"),None); match or sys.exit("prior closed release has no successful automatic post-deploy smoke on main"); print("Prior post-deploy smoke release baseline confirmed: run {}".format(match.get("id")))'
+
+          printf '%s' "$prior_launch_audit_json" | PREVIOUS_RELEASE_SHA="$previous_release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["PREVIOUS_RELEASE_SHA"]; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("event")=="workflow_run" and run.get("status")=="completed" and run.get("conclusion")=="success"),None); match or sys.exit("prior closed release has no successful automatic Phase 0 launch audit on main"); print("Prior Phase 0 launch-audit release baseline confirmed: run {}".format(match.get("id")))'
+
+          mapfile -t lineage_shas < <(git rev-list --first-parent --reverse "$previous_release_sha..$release_sha")
+          (( ${#lineage_shas[@]} >= 1 )) || { echo 'release lineage contains no qualifying commits after the prior closed production release' >&2; exit 1; }
           (( ${#lineage_shas[@]} <= 25 )) || { echo "release lineage exceeds the bounded 25-merge review window: ${#lineage_shas[@]}" >&2; exit 1; }
 
           for lineage_sha in "${lineage_shas[@]}"; do
@@ -175,7 +230,7 @@ jobs:
 
           lineage_sha_list="${lineage_shas[*]}"
           printf '%s' "$recovery_json" | LINEAGE_SHAS="$lineage_sha_list" python3 -c 'import json,os,sys; body=json.load(sys.stdin); lineage=os.environ["LINEAGE_SHAS"].split(); runs=body.get("workflow_runs",[]); missing=[sha for sha in lineage if not any(run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("status")=="completed" and run.get("conclusion")=="success" for run in runs)]; not missing or sys.exit("first-parent release lineage has merge commit(s) without successful Recovery CI on main: "+",".join(sha[:12] for sha in missing)); print("First-parent release lineage Recovery CI confirmed for {} merge(s)".format(len(lineage)))'
-          echo "First-parent release lineage confirmed from deployed baseline ${previous_release_sha:0:12} through parent ${parent_sha:0:12}"
+          echo "First-parent release lineage confirmed from closed baseline ${previous_release_sha:0:12} through release ${release_sha:0:12}"
 
       - name: Setup pinned Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
