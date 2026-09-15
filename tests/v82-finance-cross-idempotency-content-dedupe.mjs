@@ -18,7 +18,7 @@ assert.equal(__financeTest.IMPORT_CONTENT_LOCK_PREFIX,"__thebe_finance_content_v
 assert.equal(__financeTest.MAX_LEGACY_CONTENT_CANDIDATES,100);
 
 const finance=fs.readFileSync("cloudflare/src/finance-core.js","utf8");
-assert.match(finance,/idempotencyKey\.startsWith\(IMPORT_CONTENT_LOCK_PREFIX\)/,"reserved content-lock namespace must be blocked from callers");
+assert.match(finance,/reservedImportIdempotencyKey\(idempotencyKey\)/,"reserved internal finance idempotency namespaces must be blocked from callers");
 assert.match(finance,/allowDuplicateContent===true/,"duplicate override must be explicit");
 assert.match(finance,/roleAllowed\(auth,"owner"\)/,"duplicate override must be owner-only");
 assert.match(finance,/duplicate_override_reason_required/,"duplicate override must require an audit reason");
