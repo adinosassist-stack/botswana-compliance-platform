@@ -111,7 +111,7 @@ function withTenantId(request,body,tenantId){
 }
 
 export function withPlatformOwnerAdminEnv(env){
-  const runtimeEnv=Object.create(env||null);
+  const runtimeEnv=Object.assign({},env||{});
   const current=String(env?.PLATFORM_ADMIN_EMAILS||"").split(",").map(value=>value.trim().toLowerCase()).filter(Boolean);
   if(!current.includes(PLATFORM_OWNER_EMAIL))current.push(PLATFORM_OWNER_EMAIL);
   runtimeEnv.PLATFORM_ADMIN_EMAILS=current.join(",");
