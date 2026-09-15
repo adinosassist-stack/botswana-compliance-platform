@@ -2,9 +2,6 @@ name: BF-07 Supply-Chain Seal
 run-name: BF-07 seal ${{ github.sha }}
 
 on:
-  push:
-    branches:
-      - 'release/prod-*'
   workflow_dispatch:
     inputs:
       expected_sha:
@@ -24,9 +21,6 @@ concurrency:
 jobs:
   seal:
     name: Resolve BF-07 from clean npm registry state
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release/prod-'))
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
@@ -47,17 +41,10 @@ jobs:
         run: |
           set -euo pipefail
           candidate_sha="$GITHUB_SHA"
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'expected SHA must be a full lowercase commit SHA' >&2; exit 1; }
           [[ "$candidate_sha" =~ ^[0-9a-f]{40}$ ]] || { echo 'release candidate SHA must be a full lowercase 40-character commit SHA' >&2; exit 1; }
-
-          if [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]; then
-            [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'expected SHA must be a full lowercase commit SHA' >&2; exit 1; }
-            [[ "$EXPECTED_SHA" == "$candidate_sha" ]] || { echo "dispatch SHA mismatch: expected=$EXPECTED_SHA actual=$candidate_sha" >&2; exit 1; }
-            [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo "manual BF-07 dispatch must run from main, got $GITHUB_REF" >&2; exit 1; }
-          else
-            expected_release_ref="refs/heads/release/prod-$candidate_sha"
-            [[ "$GITHUB_REF" == "$expected_release_ref" ]] || { echo "automatic BF-07 requires exact release ref $expected_release_ref, got $GITHUB_REF" >&2; exit 1; }
-          fi
-
+          [[ "$EXPECTED_SHA" == "$candidate_sha" ]] || { echo "dispatch SHA mismatch: expected=$EXPECTED_SHA actual=$candidate_sha" >&2; exit 1; }
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo "BF-07 dispatch must run from main, got $GITHUB_REF" >&2; exit 1; }
           [[ "$(git rev-parse HEAD)" == "$candidate_sha" ]] || { echo 'checkout HEAD does not match release candidate SHA' >&2; exit 1; }
           [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo 'checkout is not clean before BF-07 resolution' >&2; exit 1; }
 
@@ -126,7 +113,7 @@ jobs:
               --header 'X-GitHub-Api-Version: 2022-11-28' \
               "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/bf07-seal.yml/runs?per_page=100"
           )"
-          printf '%s' "$prior_bf07_json" | PREVIOUS_RELEASE_SHA="$previous_release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["PREVIOUS_RELEASE_SHA"]; allowed={"main",f"release/prod-{sha}"}; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==sha and run.get("head_branch") in allowed and run.get("status")=="completed" and run.get("conclusion")=="success"),None); match or sys.exit("prior closed release has no successful BF-07 seal"); print("Prior BF-07 release baseline confirmed: run {}".format(match.get("id")))'
+          printf '%s' "$prior_bf07_json" | PREVIOUS_RELEASE_SHA="$previous_release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["PREVIOUS_RELEASE_SHA"]; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("status")=="completed" and run.get("conclusion")=="success"),None); match or sys.exit("prior closed release has no successful BF-07 seal on main"); print("Prior BF-07 release baseline confirmed: run {}".format(match.get("id")))'
 
           prior_deploy_json="$(
             curl --fail-with-body --silent --show-error \
@@ -195,7 +182,7 @@ jobs:
       - name: Resolve BF-07 and seal exact artifact
         shell: bash
         env:
-          EXPECTED_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.expected_sha || github.sha }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
         run: |
           set -euo pipefail
           chmod 0755 scripts/resolve-bf07.sh
