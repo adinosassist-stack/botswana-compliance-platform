@@ -28,5 +28,5 @@ ok('owner platform screens require positive platform-admin status',html.includes
 ok('owner view matrix conditionally includes platform-only buttons',html.includes('const platformAdminViews=platformRegulatoryAccess?')&&html.includes('new Set([...allCustomer,...platformAdminViews])'));
 ok('logout clears platform UI privilege',html.includes('async function logoutUser(){platformRegulatoryAccess=false;'));
 ok('no company-name privilege shortcut was introduced',!html.includes('Lovely Group')&&!html.includes('Lovey Group')&&!worker.includes('Lovely Group')&&!worker.includes('Lovey Group'));
-ok('service worker cache is rotated for fixed UI/runtime assets',sw.includes('registration-owner-ui-hotfix-20260914'));
+ok('service worker cache advances the registration hotfix lineage with a distinct mobile recovery generation',sw.includes('1.21.101-registration-owner-ui-hotfix-20260914')&&sw.includes('mobile-startup-recovery-20260915'));
 console.log(`V82 registration/owner/navigation hardening: ${checks}/${checks} PASS`);
