@@ -21,7 +21,7 @@ jobs:
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     environment: production
     env:
       AUDIT_SHA: ${{ github.event.workflow_run.head_sha }}
@@ -98,7 +98,7 @@ jobs:
           set -euo pipefail
           node scripts/production-launch-audit.mjs
 
-      - name: One-shot synthetic registration lifecycle closure
+      - name: One-shot browser-backed synthetic registration lifecycle closure
         if: github.event_name == 'workflow_run'
         env:
           AUDIT_INTEGRITY_SECRET: ${{ secrets.AUDIT_INTEGRITY_SECRET }}
@@ -109,7 +109,8 @@ jobs:
             echo 'Synthetic lifecycle marker absent; keeping production audit read-only.'
             exit 0
           fi
-          node scripts/production-synthetic-lifecycle.mjs
+          npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+          node scripts/production-synthetic-browser-wrapper.mjs
 
       - name: One-shot bounded legacy orphan cleanup
         if: github.event_name == 'workflow_run'
