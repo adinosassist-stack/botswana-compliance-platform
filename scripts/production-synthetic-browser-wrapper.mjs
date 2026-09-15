@@ -5,6 +5,11 @@ const ORIGIN='https://thebedesk.com';
 const BROWSER_FETCH_TIMEOUT_MS=15000;
 const BROWSER_NAVIGATION_TIMEOUT_MS=30000;
 const BROWSER_PROOF_WATCHDOG_MS=240000;
+const RELOAD_EXTERNAL_DEADLINE_MS=45000;
+const DIAGNOSTIC_EXTERNAL_DEADLINE_MS=12000;
+const WORKSPACE_EXTERNAL_DEADLINE_MS=40000;
+const BROWSER_CLOSE_DEADLINE_MS=5000;
+const API_BREADCRUMB_PATHS=new Set(['/api/auth/me','/api/state','/api/audit','/api/billing/status']);
 const desktopAgent='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36';
 const mobileAgent='Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Mobile Safari/537.36';
 const executablePath=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(p=>fs.existsSync(p));
@@ -15,6 +20,39 @@ function safe(value){return String(value??'').replace(/[\u0000-\u001f\u007f]+/g,
 function mark(label,detail=''){console.log(`PASS ${label}${detail?`: ${detail}`:''}`)}
 function info(label,detail=''){console.log(`INFO ${label}${detail?`: ${detail}`:''}`)}
 function cookieState(value){return value===true?'present':value===false?'absent':'unknown'}
+function withDeadline(label,promise,ms){
+  let timer;
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(`${label} external deadline ${ms}ms exceeded`)),ms)})
+  ]).finally(()=>clearTimeout(timer));
+}
+function logicalApiPath(raw){
+  try{
+    const url=new URL(raw);
+    if(url.origin!==ORIGIN)return '';
+    if(url.pathname==='/'){
+      const tunneled=url.searchParams.get('__thebe_api_path');
+      if(tunneled&&String(tunneled).startsWith('/api/'))return String(tunneled);
+    }
+    if(url.pathname==='/__thebe_api')return '/api';
+    if(url.pathname.startsWith('/__thebe_api/'))return `/api/${url.pathname.slice('/__thebe_api/'.length)}`;
+    if(url.pathname.startsWith('/api/'))return url.pathname;
+    return '';
+  }catch{return ''}
+}
+function attachApiBreadcrumbs(page,label){
+  page.on('response',response=>{
+    const path=logicalApiPath(response.url());
+    if(!API_BREADCRUMB_PATHS.has(path))return;
+    info(`${label} api breadcrumb`,`${response.request().method()} ${path} ${response.status()}`);
+  });
+  page.on('requestfailed',request=>{
+    const path=logicalApiPath(request.url());
+    if(!API_BREADCRUMB_PATHS.has(path))return;
+    info(`${label} api breadcrumb`,`${request.method()} ${path} failed`);
+  });
+}
 assert(executablePath,'no Chromium-compatible browser found');
 
 async function probeWorkspaceBootstrap(page,pageErrors=[]){
@@ -83,7 +121,7 @@ async function assertWorkspace(page,label,pageErrors=[]){
         !!document.getElementById('workspaceSidebar')&&marketing?.classList.contains('hidden')&&auth?.classList.contains('hidden');
     },null,{timeout:30000});
   }catch(error){
-    const d=await probeWorkspaceBootstrap(page,pageErrors).catch(probeError=>({sessionCookiePresent:null,directMe:{status:0,error:'probe_failed'},directState:{status:0,error:'probe_failed'},clientMe:{ok:false,error:'probe_failed'},clientState:{ok:false,error:'probe_failed'},gates:{},pageError:safe(probeError?.message||probeError)}));
+    const d=await withDeadline(`${label} timeout diagnostic`,probeWorkspaceBootstrap(page,pageErrors),DIAGNOSTIC_EXTERNAL_DEADLINE_MS).catch(probeError=>({sessionCookiePresent:null,directMe:{status:0,error:'probe_failed'},directState:{status:0,error:'probe_failed'},clientMe:{ok:false,error:'probe_failed'},clientState:{ok:false,error:'probe_failed'},gates:{},pageError:safe(probeError?.message||probeError)}));
     throw new Error(`Synthetic browser proof failed: ${label} workspace bootstrap timeout ${summarizeProbe(d)}`);
   }
   const state=await page.evaluate(()=>({
@@ -123,6 +161,7 @@ async function runBrowserProof(credentials){
     const desktop=await browser.newContext({viewport:{width:1440,height:1100},screen:{width:1440,height:1100},userAgent:desktopAgent});
     const page=await desktop.newPage();
     page.setDefaultTimeout(15000);page.setDefaultNavigationTimeout(BROWSER_NAVIGATION_TIMEOUT_MS);
+    attachApiBreadcrumbs(page,'desktop');
     const pageErrors=[];const criticalFailures=[];
     page.on('pageerror',e=>pageErrors.push(String(e?.stack||e)));
     page.on('requestfailed',r=>{const url=r.url();if(url.startsWith(ORIGIN+'/js/')||url.startsWith(ORIGIN+'/assets/'))criticalFailures.push(`${r.method()} ${url} ${r.failure()?.errorText||''}`)});
@@ -164,14 +203,14 @@ async function runBrowserProof(credentials){
     await loginInBrowser(page,credentials);
     mark('desktop browser login','owner login returned 200');
     activeStage='desktop pre-reload diagnostic';
-    await observeWorkspaceBootstrap(page,'desktop pre-reload',pageErrors);
+    await withDeadline('desktop pre-reload diagnostic',observeWorkspaceBootstrap(page,'desktop pre-reload',pageErrors),DIAGNOSTIC_EXTERNAL_DEADLINE_MS);
     activeStage='desktop authenticated reload';
     info('desktop synthetic stage','reloading authenticated owner root');
-    await page.reload({waitUntil:'domcontentloaded',timeout:BROWSER_NAVIGATION_TIMEOUT_MS});
+    await withDeadline('desktop authenticated reload',page.reload({waitUntil:'domcontentloaded',timeout:BROWSER_NAVIGATION_TIMEOUT_MS}),RELOAD_EXTERNAL_DEADLINE_MS);
     activeStage='desktop post-reload diagnostic';
-    await observeWorkspaceBootstrap(page,'desktop post-reload',pageErrors);
+    await withDeadline('desktop post-reload diagnostic',observeWorkspaceBootstrap(page,'desktop post-reload',pageErrors),DIAGNOSTIC_EXTERNAL_DEADLINE_MS);
     activeStage='desktop workspace reveal';
-    await assertWorkspace(page,'desktop',pageErrors);
+    await withDeadline('desktop workspace reveal',assertWorkspace(page,'desktop',pageErrors),WORKSPACE_EXTERNAL_DEADLINE_MS);
     const desktopNav=page.locator('#workspaceSidebar [data-view]:visible');
     const desktopNavCount=await desktopNav.count();assert(desktopNavCount>0,'desktop owner workspace has no visible data-view navigation');
     const firstDesktopNav=desktopNav.first();const desktopView=await firstDesktopNav.getAttribute('data-view');await firstDesktopNav.click({timeout:10000});
@@ -186,6 +225,7 @@ async function runBrowserProof(credentials){
     const mobile=await browser.newContext({viewport:{width:390,height:844},screen:{width:390,height:844},isMobile:true,hasTouch:true,deviceScaleFactor:2,userAgent:mobileAgent});
     const mobilePage=await mobile.newPage();
     mobilePage.setDefaultTimeout(15000);mobilePage.setDefaultNavigationTimeout(BROWSER_NAVIGATION_TIMEOUT_MS);
+    attachApiBreadcrumbs(mobilePage,'mobile');
     const mobilePageErrors=[];
     mobilePage.on('pageerror',e=>mobilePageErrors.push(String(e?.stack||e)));
     activeStage='mobile owner root navigation';
@@ -194,13 +234,13 @@ async function runBrowserProof(credentials){
     await loginInBrowser(mobilePage,credentials);
     mark('mobile browser login','same owner login returned 200');
     activeStage='mobile pre-reload diagnostic';
-    await observeWorkspaceBootstrap(mobilePage,'mobile pre-reload',mobilePageErrors);
+    await withDeadline('mobile pre-reload diagnostic',observeWorkspaceBootstrap(mobilePage,'mobile pre-reload',mobilePageErrors),DIAGNOSTIC_EXTERNAL_DEADLINE_MS);
     activeStage='mobile authenticated reload';
-    await mobilePage.reload({waitUntil:'domcontentloaded',timeout:BROWSER_NAVIGATION_TIMEOUT_MS});
+    await withDeadline('mobile authenticated reload',mobilePage.reload({waitUntil:'domcontentloaded',timeout:BROWSER_NAVIGATION_TIMEOUT_MS}),RELOAD_EXTERNAL_DEADLINE_MS);
     activeStage='mobile post-reload diagnostic';
-    await observeWorkspaceBootstrap(mobilePage,'mobile post-reload',mobilePageErrors);
+    await withDeadline('mobile post-reload diagnostic',observeWorkspaceBootstrap(mobilePage,'mobile post-reload',mobilePageErrors),DIAGNOSTIC_EXTERNAL_DEADLINE_MS);
     activeStage='mobile workspace reveal';
-    await assertWorkspace(mobilePage,'mobile',mobilePageErrors);
+    await withDeadline('mobile workspace reveal',assertWorkspace(mobilePage,'mobile',mobilePageErrors),WORKSPACE_EXTERNAL_DEADLINE_MS);
     const menu=mobilePage.locator('#mobileMenuButton');await menu.waitFor({state:'visible',timeout:10000});await menu.tap({timeout:10000});
     await mobilePage.waitForFunction(()=>document.body.classList.contains('mobile-nav-open'),null,{timeout:5000});
     const menuState=await mobilePage.evaluate(()=>{const nav=document.querySelector('#workspaceSidebar > .nav');return {expanded:document.getElementById('mobileMenuButton')?.getAttribute('aria-expanded'),bodyTouch:getComputedStyle(document.body).touchAction,navTouch:nav?getComputedStyle(nav).touchAction:'',overflow:nav?getComputedStyle(nav).overflowY:'',max:nav?Math.max(0,nav.scrollHeight-nav.clientHeight):0}});
@@ -224,7 +264,7 @@ async function runBrowserProof(credentials){
     activeStage='browser proof complete';
   }finally{
     clearTimeout(watchdog);
-    await browser.close().catch(()=>{});
+    await withDeadline('browser close',browser.close().catch(()=>{}),BROWSER_CLOSE_DEADLINE_MS).catch(error=>info('browser close',safe(error?.message||error)));
   }
 }
 
