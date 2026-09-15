@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import {chromium} from 'playwright-core';
 
 const ORIGIN='https://thebedesk.com';
+const BROWSER_FETCH_TIMEOUT_MS=15000;
+const BROWSER_PROOF_WATCHDOG_MS=120000;
 const desktopAgent='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36';
 const mobileAgent='Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Mobile Safari/537.36';
 const executablePath=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(p=>fs.existsSync(p));
@@ -31,19 +33,29 @@ async function assertWorkspace(page,label){
 }
 
 async function loginInBrowser(page,credentials){
-  const result=await page.evaluate(async({email,password})=>{
-    const response=await fetch('/api/auth/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email,password})});
-    let body=null;try{body=await response.json()}catch{}
-    return {status:response.status,ok:body?.ok===true,role:body?.user?.role||null};
-  },credentials);
-  assert(result.status===200&&result.ok&&result.role==='owner',`browser owner login failed HTTP ${result.status}`);
+  const result=await page.evaluate(async({email,password,timeoutMs})=>{
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort('synthetic-browser-login-timeout'),timeoutMs);
+    try{
+      const response=await fetch('/api/auth/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email,password}),signal:controller.signal});
+      let body=null;try{body=await response.json()}catch{}
+      return {status:response.status,ok:body?.ok===true,role:body?.user?.role||null,error:null};
+    }catch(error){
+      return {status:0,ok:false,role:null,error:String(error?.name||error||'browser login failed')};
+    }finally{
+      clearTimeout(timer);
+    }
+  },{...credentials,timeoutMs:BROWSER_FETCH_TIMEOUT_MS});
+  assert(result.status===200&&result.ok&&result.role==='owner',`browser owner login failed HTTP ${result.status}${result.error?` ${safe(result.error)}`:''}`);
 }
 
 async function runBrowserProof(credentials){
   const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox']});
+  const watchdog=setTimeout(()=>{browser.close().catch(()=>{})},BROWSER_PROOF_WATCHDOG_MS);
   try{
     const desktop=await browser.newContext({viewport:{width:1440,height:1100},screen:{width:1440,height:1100},userAgent:desktopAgent});
     const page=await desktop.newPage();
+    page.setDefaultTimeout(15000);page.setDefaultNavigationTimeout(45000);
     const pageErrors=[];const criticalFailures=[];
     page.on('pageerror',e=>pageErrors.push(String(e?.stack||e)));
     page.on('requestfailed',r=>{const url=r.url();if(url.startsWith(ORIGIN+'/js/')||url.startsWith(ORIGIN+'/assets/'))criticalFailures.push(`${r.method()} ${url} ${r.failure()?.errorText||''}`)});
@@ -54,19 +66,24 @@ async function runBrowserProof(credentials){
     await page.locator('#companyName').fill('A');await page.locator('#email').fill('bad');await page.locator('#password').fill('short');await page.locator('#submitBtn').click();
     await page.waitForFunction(()=>document.getElementById('status')?.classList.contains('show'),null,{timeout:5000});
     assert(/business name/i.test(await page.locator('#status').innerText()),'desktop invalid registration did not fail closed');
-    const proof=await page.evaluate(async()=>{
+    const proof=await page.evaluate(async timeoutMs=>{
       const encoder=new TextEncoder();
       const leading=(bytes,bits)=>{let remaining=Number(bits)||0;for(const value of bytes){if(remaining<=0)return true;const take=Math.min(8,remaining);if((value>>(8-take))!==0)return false;remaining-=take}return remaining<=0};
-      const response=await fetch('/api/auth/registration-proof/challenge',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});
-      const body=await response.json();
-      if(response.status!==200||body?.provider!=='thebe_proof'||body?.required!==true)return {ok:false,status:response.status};
-      for(let counter=0;counter<=500000;counter++){
-        const digest=new Uint8Array(await crypto.subtle.digest('SHA-256',encoder.encode(`${body.token}:${counter}`)));
-        if(leading(digest,body.difficulty))return {ok:true,status:response.status,difficulty:body.difficulty,counter};
-        if(counter&&counter%512===0)await new Promise(resolve=>setTimeout(resolve,0));
+      const controller=new AbortController();const timer=setTimeout(()=>controller.abort('synthetic-browser-proof-timeout'),timeoutMs);
+      try{
+        const response=await fetch('/api/auth/registration-proof/challenge',{method:'POST',headers:{'content-type':'application/json'},body:'{}',signal:controller.signal});
+        const body=await response.json();
+        if(response.status!==200||body?.provider!=='thebe_proof'||body?.required!==true)return {ok:false,status:response.status};
+        for(let counter=0;counter<=500000;counter++){
+          const digest=new Uint8Array(await crypto.subtle.digest('SHA-256',encoder.encode(`${body.token}:${counter}`)));
+          if(leading(digest,body.difficulty))return {ok:true,status:response.status,difficulty:body.difficulty,counter};
+          if(counter&&counter%512===0)await new Promise(resolve=>setTimeout(resolve,0));
+        }
+        return {ok:false,status:response.status,difficulty:body.difficulty};
+      }finally{
+        clearTimeout(timer);
       }
-      return {ok:false,status:response.status,difficulty:body.difficulty};
-    });
+    },BROWSER_FETCH_TIMEOUT_MS);
     assert(proof.ok&&Number.isInteger(proof.difficulty)&&proof.difficulty>=8&&proof.difficulty<=16,'desktop browser could not solve first-party registration proof');
     mark('desktop registration pass 1',`live form validation + browser proof solved at difficulty=${proof.difficulty}`);
 
@@ -86,6 +103,7 @@ async function runBrowserProof(credentials){
 
     const mobile=await browser.newContext({viewport:{width:390,height:844},screen:{width:390,height:844},isMobile:true,hasTouch:true,deviceScaleFactor:2,userAgent:mobileAgent});
     const mobilePage=await mobile.newPage();
+    mobilePage.setDefaultTimeout(15000);mobilePage.setDefaultNavigationTimeout(45000);
     await mobilePage.goto(`${ORIGIN}/?authenticated-mobile-proof=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:45000});
     await loginInBrowser(mobilePage,credentials);
     await mobilePage.reload({waitUntil:'domcontentloaded',timeout:45000});
@@ -111,7 +129,8 @@ async function runBrowserProof(credentials){
     mark('authenticated mobile continuation',`same owner identity opened/scrolled drawer and ${mobileView||'workspace'} navigation stayed responsive`);
     await mobile.close();
   }finally{
-    await browser.close();
+    clearTimeout(watchdog);
+    await browser.close().catch(()=>{});
   }
 }
 
