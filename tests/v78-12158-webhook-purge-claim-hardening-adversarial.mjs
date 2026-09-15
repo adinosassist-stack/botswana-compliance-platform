@@ -8,7 +8,9 @@ ok(profile.package_version===pkg.version&&profile.software_release_candidate===`
 const reviewedMigrations=["041_v78_webhook_purge_claim_hardening.sql","042_v78_session_generation_revocation.sql","043_v78_session_inventory_hardening.sql","044_v79_finance_reconciliation.sql","045_v80_agentic_foundation.sql","046_v80_agentic_outcomes.sql","047_v81_delegated_authority.sql"];
 const coreSchemaFloor=profile.latest_cloudflare_migration==="047_v81_delegated_authority.sql"?"046_v80_agentic_outcomes.sql":profile.latest_cloudflare_migration;
 ok(reviewedMigrations.includes(profile.latest_cloudflare_migration)&&worker.includes(`EXPECTED_SCHEMA_DELTA="${coreSchemaFloor}"`),"migration 041 hardening remains below or at readiness floor");
-ok(sw.includes(pkg.version)&&launch.includes(profile.latest_cloudflare_migration)&&deploy.includes(profile.latest_cloudflare_migration),"deploy/cache/runbook identity aligned");
+const historicalCacheIdentity=sw.includes(pkg.version);
+const retiredWorkerIdentity=sw.includes('LEGACY_CACHE_PREFIX="thebe-desk-"')&&sw.includes('self.registration.unregister()')&&!sw.includes('addEventListener("fetch"')&&!sw.includes('clients.openWindow')&&!sw.includes('location.reload')&&!sw.includes('location.assign')&&!sw.includes('location.replace');
+ok((historicalCacheIdentity||retiredWorkerIdentity)&&launch.includes(profile.latest_cloudflare_migration)&&deploy.includes(profile.latest_cloudflare_migration),"deploy/cache/runbook identity aligned");
 ok(migration.includes("payment_order_id")&&migration.includes("processing_token")&&migration.includes("processing_started_at")&&migration.includes("processing_attempts"),"payment webhook durable claim migration exists");
 ok(migration.includes("deletion_requests ADD COLUMN processing_token")&&migration.includes("deletion_requests ADD COLUMN processing_started_at"),"tenant purge durable claim migration exists");
 ok(schema.includes("payment_events_recovery_idx")&&schema.includes("deletion_processing_recovery_idx"),"fresh schema includes recovery indexes");
