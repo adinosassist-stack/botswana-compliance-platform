@@ -32,7 +32,7 @@ ok(state.includes("deepFreeze")&&state.includes("State updater must return a new
 ok(!/\bstate\.[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\s*=/.test(html),"application shell must not directly assign state properties");
 ok(!/\bstore\.[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\s*=/.test(html),"application shell must not directly assign store properties");
 ok(api.includes('credentials:"same-origin"')&&api.includes('x-csrf-token')&&api.includes("AbortController")&&api.includes("429,502,503,504"),"API client must enforce credentials, CSRF, timeouts and bounded retry");
-ok(sw.includes('url.pathname.startsWith("/api/")')&&sw.includes('request.mode==="navigate"')&&sw.includes("fetch(request).then"),"service worker must bypass API and use network-first navigation");
+ok(sw.includes('url.pathname.startsWith("/api/")')&&sw.includes('request.mode==="navigate"')&&sw.includes('fetch(request,{cache:"no-store"})')&&!sw.includes('fallbackKey:"./"')&&!sw.includes('fallbackKey: "./"'),"service worker must bypass API and use network-only application navigation without cached-root fallback");
 ok(worker.includes("APP_SECURITY_HEADERS")&&worker.includes('frame-ancestors \'none\'')&&worker.includes('x-frame-options":"DENY"'),"Worker must apply browser security headers");
 ok(!worker.includes("const BOTSWANA_FOUNDATION_PACK_V1={"),"Worker must not embed a hand-maintained foundation pack copy");
 ok(worker.startsWith('import {BOTSWANA_FOUNDATION_PACK_V1,BOTSWANA_FOUNDATION_PACK_V1_HASH}'),"Worker must use the generated foundation-pack module");
