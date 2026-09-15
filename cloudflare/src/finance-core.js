@@ -11,6 +11,8 @@ const MAX_IMPORT_ROWS=1000;
 const MAX_CONNECTIONS=100;
 const IMPORT_CONTENT_LOCK_PREFIX="__thebe_finance_content_v1:";
 const IMPORT_CONTENT_LOCK_ID_PREFIX="finance-content-lock:";
+const IMPORT_REQUEST_LOCK_PREFIX="__thebe_finance_request_v1:";
+const IMPORT_REQUEST_LOCK_ID_PREFIX="finance-request-lock:";
 const MAX_LEGACY_CONTENT_CANDIDATES=100;
 const SECRET_FIELD=/(?:^|_)(?:access_?token|refresh_?token|token|secret|password|api_?key|client_?secret|credentials?)(?:$|_)/i;
 const text=(value,max=240)=>String(value??"").trim().slice(0,max);
@@ -43,14 +45,46 @@ function sameFingerprintSet(actual,expected){
   return a.length===b.length&&a.every((value,index)=>value===b[index]);
 }
 
+function ledgerRowBasis(row){
+  return [text(row?.postedOn??row?.posted_on,10),integer(row?.amountMinor??row?.amount_minor),text(row?.reference,160),text(row?.description,500)];
+}
+
+function sameLedgerRow(actual,expected){return JSON.stringify(ledgerRowBasis(actual))===JSON.stringify(ledgerRowBasis(expected))}
+
 function importContentFingerprintBasis({tenantId,accountId,rows}){
-  const canonicalRows=(rows||[]).map(row=>JSON.stringify([text(row?.postedOn,10),integer(row?.amountMinor),text(row?.reference,160),text(row?.description,500)])).sort();
+  const canonicalRows=(rows||[]).map(row=>JSON.stringify(ledgerRowBasis(row))).sort();
   return [String(tenantId||""),String(accountId||""),"user_import",canonicalRows];
+}
+
+function importRequestFingerprintBasis({tenantId,accountId,sourceType,provider,connectionId,rows}){
+  const canonicalRows=(rows||[]).map(row=>JSON.stringify([text(row?.sourceId,160),...ledgerRowBasis(row)])).sort();
+  return [String(tenantId||""),String(accountId||""),String(sourceType||""),String(provider||""),String(connectionId||""),canonicalRows];
+}
+
+function adapterBatchSourceIdentityConflict(rows,fingerprints){
+  const seen=new Map();
+  for(let index=0;index<(rows||[]).length;index++){
+    const row=rows[index];
+    if(!text(row?.sourceId,160))continue;
+    const fingerprint=String(fingerprints?.[index]||""),signature=JSON.stringify(ledgerRowBasis(row));
+    if(seen.has(fingerprint)&&seen.get(fingerprint).signature!==signature)return {fingerprint,sourceId:text(row.sourceId,160),index,previousIndex:seen.get(fingerprint).index};
+    if(!seen.has(fingerprint))seen.set(fingerprint,{signature,index});
+  }
+  return null;
+}
+
+function sameTransactionEntries(actual,expectedFingerprints,expectedRows){
+  const a=(actual||[]).map(row=>JSON.stringify([String(row?.source_fingerprint||""),...ledgerRowBasis(row)])).sort();
+  const b=(expectedRows||[]).map((row,index)=>JSON.stringify([String(expectedFingerprints?.[index]||""),...ledgerRowBasis(row)])).sort();
+  return a.length===b.length&&a.every((value,index)=>value===b[index]);
 }
 
 function importContentLockKey(contentFingerprint){return `${IMPORT_CONTENT_LOCK_PREFIX}${String(contentFingerprint||"")}`}
 function importContentLockId(batchId){return `${IMPORT_CONTENT_LOCK_ID_PREFIX}${String(batchId||"")}`}
 function batchIdFromContentLock(lockId){const value=String(lockId||"");return value.startsWith(IMPORT_CONTENT_LOCK_ID_PREFIX)?value.slice(IMPORT_CONTENT_LOCK_ID_PREFIX.length):null}
+function importRequestLockKey(bindingFingerprint){return `${IMPORT_REQUEST_LOCK_PREFIX}${String(bindingFingerprint||"")}`}
+function importRequestLockId(batchId){return `${IMPORT_REQUEST_LOCK_ID_PREFIX}${String(batchId||"")}`}
+function reservedImportIdempotencyKey(value){const key=String(value||"");return key.startsWith(IMPORT_CONTENT_LOCK_PREFIX)||key.startsWith(IMPORT_REQUEST_LOCK_PREFIX)}
 
 async function registeredDuplicateImportContent({env,tenantId,contentFingerprint}){
   const lock=await env.DB.prepare("SELECT id FROM finance_import_batches WHERE tenant_id=? AND idempotency_key=? LIMIT 1").bind(tenantId,importContentLockKey(contentFingerprint)).first();
@@ -217,12 +251,36 @@ async function recordAdapterSyncCompletion({env,auth,connection,idempotencyKey,b
   await writeAudit(env,auth.tenant_id,auth.user_id,"FINANCE_CONNECTION_SYNC_COMPLETED",{connectionId:connection.id,providerKey:connection.providerKey,batchId,rowCount,importedCount,duplicateCount});
 }
 
-async function verifyExistingImportRequest({env,tenantId,existing,accountId,sourceType,provider,expectedRowCount,expectedFingerprints}){
+async function findAdapterSourceIdentityConflict({env,tenantId,accountId,rows,expectedFingerprints}){
+  const local=adapterBatchSourceIdentityConflict(rows,expectedFingerprints);
+  if(local)return local;
+  const expected=new Map();
+  for(let index=0;index<(rows||[]).length;index++){
+    const row=rows[index],sourceId=text(row?.sourceId,160);
+    if(!sourceId)continue;
+    const fingerprint=String(expectedFingerprints?.[index]||"");
+    if(!expected.has(fingerprint))expected.set(fingerprint,{row,sourceId,index});
+  }
+  if(!expected.size)return null;
+  const found=await env.DB.prepare(`SELECT t.source_fingerprint,t.posted_on,t.description,t.reference,t.amount_minor FROM finance_transactions t
+    JOIN json_each(?) wanted ON wanted.value=t.source_fingerprint
+    WHERE t.tenant_id=? AND t.account_id=?`).bind(JSON.stringify([...expected.keys()]),tenantId,accountId).all();
+  for(const stored of found.results||[]){
+    const item=expected.get(String(stored.source_fingerprint||""));
+    if(item&&!sameLedgerRow(stored,item.row))return {fingerprint:String(stored.source_fingerprint||""),sourceId:item.sourceId,index:item.index};
+  }
+  return null;
+}
+
+async function verifyExistingImportRequest({env,tenantId,existing,accountId,sourceType,provider,expectedRowCount,expectedFingerprints,expectedRows,expectedRequestLockKey}){
   const actualProvider=existing?.provider===null||existing?.provider===undefined?"":String(existing.provider);
   const expectedProvider=provider===null||provider===undefined?"":String(provider);
   if(String(existing?.account_id||"")!==accountId||String(existing?.source_type||"")!==sourceType||actualProvider!==expectedProvider||Number(existing?.row_count)!==expectedRowCount)return false;
-  const rows=await env.DB.prepare("SELECT source_fingerprint FROM finance_transactions WHERE tenant_id=? AND import_batch_id=? ORDER BY source_fingerprint").bind(tenantId,existing.id).all();
-  return sameFingerprintSet((rows.results||[]).map(row=>row.source_fingerprint),expectedFingerprints);
+  const binding=await env.DB.prepare("SELECT idempotency_key FROM finance_import_batches WHERE tenant_id=? AND id=? LIMIT 1").bind(tenantId,importRequestLockId(existing.id)).first();
+  if(binding)return String(binding.idempotency_key||"")===expectedRequestLockKey;
+  if(Number(existing?.imported_count)!==expectedRowCount)return false;
+  const rows=await env.DB.prepare("SELECT source_fingerprint,posted_on,description,reference,amount_minor FROM finance_transactions WHERE tenant_id=? AND import_batch_id=? ORDER BY source_fingerprint").bind(tenantId,existing.id).all();
+  return sameTransactionEntries(rows.results||[],expectedFingerprints,expectedRows);
 }
 
 function connectionActionPath(pathname){
@@ -325,7 +383,7 @@ export async function handleFinanceRequest({request,url,env,auth,json,readJson,i
     if(!SOURCE_TYPES.has(sourceType)||sourceType==="adapter"&&!provider)return json({error:"invalid_source_type"},400);
     if(sourceType==="adapter"&&containsSecretMaterial(body))return json({error:"finance_connection_secret_material_forbidden"},400);
     if(!idempotencyKey)return json({error:"idempotency_key_required"},400);
-    if(idempotencyKey.startsWith(IMPORT_CONTENT_LOCK_PREFIX))return json({error:"reserved_idempotency_key"},400);
+    if(reservedImportIdempotencyKey(idempotencyKey))return json({error:"reserved_idempotency_key"},400);
     if(allowDuplicateContent&&!roleAllowed(auth,"owner"))return json({error:"duplicate_content_override_forbidden"},403);
     if(allowDuplicateContent&&duplicateOverrideReason.length<8)return json({error:"duplicate_override_reason_required"},400);
     if(!rows||!rows.length||rows.length>MAX_IMPORT_ROWS)return json({error:"invalid_import_rows",maxRows:MAX_IMPORT_ROWS},400);
@@ -345,12 +403,22 @@ export async function handleFinanceRequest({request,url,env,auth,json,readJson,i
       expectedFingerprints.push(await sha256Hex(JSON.stringify(sourceFingerprintBasis({tenantId:auth.tenant_id,accountId,sourceType,provider:fingerprintProvider,idempotencyKey,row,index}))));
     }
     const contentFingerprint=sourceType==="adapter"?null:await sha256Hex(JSON.stringify(importContentFingerprintBasis({tenantId:auth.tenant_id,accountId,rows:normalized})));
+    const requestFingerprint=await sha256Hex(JSON.stringify(importRequestFingerprintBasis({tenantId:auth.tenant_id,accountId,sourceType,provider,connectionId:adapterConnection?.id||connectionId||"",rows:normalized})));
+    const requestBindingFingerprint=await sha256Hex(JSON.stringify([idempotencyKey,requestFingerprint]));
+    const expectedRequestLockKey=importRequestLockKey(requestBindingFingerprint);
     const existing=await env.DB.prepare("SELECT id,account_id,source_type,provider,row_count,imported_count,duplicate_count,status FROM finance_import_batches WHERE tenant_id=? AND idempotency_key=? LIMIT 1").bind(auth.tenant_id,idempotencyKey).first();
     if(existing){
-      const replayMatches=await verifyExistingImportRequest({env,tenantId:auth.tenant_id,existing,accountId,sourceType,provider,expectedRowCount:normalized.length,expectedFingerprints});
+      const replayMatches=await verifyExistingImportRequest({env,tenantId:auth.tenant_id,existing,accountId,sourceType,provider,expectedRowCount:normalized.length,expectedFingerprints,expectedRows:normalized,expectedRequestLockKey});
       if(!replayMatches)return json({error:"idempotency_key_conflict"},409);
       if(adapterConnection)await recordAdapterSyncCompletion({env,auth,connection:adapterConnection,idempotencyKey,batchId:existing.id,rowCount:Number(existing.row_count||0),importedCount:Number(existing.imported_count||0),duplicateCount:Number(existing.duplicate_count||0),id,sha256Hex,writeAudit});
       return json({ok:true,id:existing.id,importedCount:Number(existing.imported_count||0),duplicateCount:Number(existing.duplicate_count||0),status:existing.status,replayed:true,connectionId:adapterConnection?.id||undefined});
+    }
+    if(sourceType==="adapter"){
+      const sourceConflict=await findAdapterSourceIdentityConflict({env,tenantId:auth.tenant_id,accountId,rows:normalized,expectedFingerprints});
+      if(sourceConflict){
+        await writeAudit(env,auth.tenant_id,auth.user_id,"FINANCE_SOURCE_IDENTITY_CONFLICT",{accountId,provider,connectionId:adapterConnection?.id||null,sourceFingerprint:sourceConflict.fingerprint});
+        return json({error:"finance_source_identity_conflict",sourceId:sourceConflict.sourceId||undefined},409);
+      }
     }
     if(contentFingerprint&&!allowDuplicateContent){
       const duplicateContent=await findDuplicateImportContent({env,tenantId:auth.tenant_id,userId:auth.user_id,accountId,sourceType,provider,rows:normalized,contentFingerprint,sha256Hex,id});
@@ -367,11 +435,19 @@ export async function handleFinanceRequest({request,url,env,auth,json,readJson,i
     }
     const packedJson=JSON.stringify(packed);
     try{
-      const statements=[env.DB.prepare("INSERT INTO finance_import_batches(id,tenant_id,account_id,source_type,provider,idempotency_key,status,row_count,created_by_user_id) VALUES(?,?,?,?,?,?,'processing',?,?)").bind(batchId,auth.tenant_id,accountId,sourceType,provider,idempotencyKey,normalized.length,auth.user_id)];
+      const statements=[
+        env.DB.prepare("INSERT INTO finance_import_batches(id,tenant_id,account_id,source_type,provider,idempotency_key,status,row_count,created_by_user_id) VALUES(?,?,?,?,?,?,'processing',?,?)").bind(batchId,auth.tenant_id,accountId,sourceType,provider,idempotencyKey,normalized.length,auth.user_id),
+        env.DB.prepare("INSERT INTO finance_import_batches(id,tenant_id,account_id,source_type,provider,idempotency_key,status,row_count,imported_count,duplicate_count,created_by_user_id) VALUES(?,?,?,?,?,?,'failed',0,0,0,?)").bind(importRequestLockId(batchId),auth.tenant_id,accountId,sourceType,provider,expectedRequestLockKey,auth.user_id)
+      ];
       if(contentFingerprint&&!allowDuplicateContent)statements.push(env.DB.prepare("INSERT INTO finance_import_batches(id,tenant_id,account_id,source_type,provider,idempotency_key,status,row_count,imported_count,duplicate_count,created_by_user_id) VALUES(?,?,?,?,?,?,'failed',0,0,0,?)").bind(importContentLockId(batchId),auth.tenant_id,accountId,sourceType,provider,importContentLockKey(contentFingerprint),auth.user_id));
+      const transactionInsert=sourceType==="adapter"
+        ? env.DB.prepare(`INSERT INTO finance_transactions(id,tenant_id,account_id,import_batch_id,posted_on,description,reference,amount_minor,currency,source_type,source_fingerprint)
+          SELECT json_extract(value,'$.id'),json_extract(value,'$.tenantId'),json_extract(value,'$.accountId'),json_extract(value,'$.batchId'),json_extract(value,'$.postedOn'),json_extract(value,'$.description'),json_extract(value,'$.reference'),json_extract(value,'$.amountMinor'),'BWP',json_extract(value,'$.sourceType'),json_extract(value,'$.fingerprint') FROM json_each(?) WHERE true
+          ON CONFLICT(tenant_id,account_id,source_fingerprint) DO UPDATE SET description=CASE WHEN finance_transactions.posted_on=excluded.posted_on AND finance_transactions.description=excluded.description AND finance_transactions.reference=excluded.reference AND finance_transactions.amount_minor=excluded.amount_minor AND finance_transactions.currency=excluded.currency AND finance_transactions.source_type=excluded.source_type THEN finance_transactions.description ELSE NULL END`).bind(packedJson)
+        : env.DB.prepare(`INSERT OR IGNORE INTO finance_transactions(id,tenant_id,account_id,import_batch_id,posted_on,description,reference,amount_minor,currency,source_type,source_fingerprint)
+          SELECT json_extract(value,'$.id'),json_extract(value,'$.tenantId'),json_extract(value,'$.accountId'),json_extract(value,'$.batchId'),json_extract(value,'$.postedOn'),json_extract(value,'$.description'),json_extract(value,'$.reference'),json_extract(value,'$.amountMinor'),'BWP',json_extract(value,'$.sourceType'),json_extract(value,'$.fingerprint') FROM json_each(?)`).bind(packedJson);
       statements.push(
-        env.DB.prepare(`INSERT OR IGNORE INTO finance_transactions(id,tenant_id,account_id,import_batch_id,posted_on,description,reference,amount_minor,currency,source_type,source_fingerprint)
-          SELECT json_extract(value,'$.id'),json_extract(value,'$.tenantId'),json_extract(value,'$.accountId'),json_extract(value,'$.batchId'),json_extract(value,'$.postedOn'),json_extract(value,'$.description'),json_extract(value,'$.reference'),json_extract(value,'$.amountMinor'),'BWP',json_extract(value,'$.sourceType'),json_extract(value,'$.fingerprint') FROM json_each(?)`).bind(packedJson),
+        transactionInsert,
         env.DB.prepare("UPDATE finance_import_batches SET status='completed',imported_count=(SELECT COUNT(*) FROM finance_transactions WHERE import_batch_id=?),duplicate_count=row_count-(SELECT COUNT(*) FROM finance_transactions WHERE import_batch_id=?),completed_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND status='processing'").bind(batchId,batchId,batchId,auth.tenant_id)
       );
       await env.DB.batch(statements);
@@ -379,10 +455,17 @@ export async function handleFinanceRequest({request,url,env,auth,json,readJson,i
       if(/unique|constraint/i.test(String(error))){
         const replay=await env.DB.prepare("SELECT id,account_id,source_type,provider,row_count,imported_count,duplicate_count,status FROM finance_import_batches WHERE tenant_id=? AND idempotency_key=? LIMIT 1").bind(auth.tenant_id,idempotencyKey).first();
         if(replay){
-          const replayMatches=await verifyExistingImportRequest({env,tenantId:auth.tenant_id,existing:replay,accountId,sourceType,provider,expectedRowCount:normalized.length,expectedFingerprints});
+          const replayMatches=await verifyExistingImportRequest({env,tenantId:auth.tenant_id,existing:replay,accountId,sourceType,provider,expectedRowCount:normalized.length,expectedFingerprints,expectedRows:normalized,expectedRequestLockKey});
           if(!replayMatches)return json({error:"idempotency_key_conflict"},409);
           if(adapterConnection)await recordAdapterSyncCompletion({env,auth,connection:adapterConnection,idempotencyKey,batchId:replay.id,rowCount:Number(replay.row_count||0),importedCount:Number(replay.imported_count||0),duplicateCount:Number(replay.duplicate_count||0),id,sha256Hex,writeAudit});
           return json({ok:true,id:replay.id,importedCount:Number(replay.imported_count||0),duplicateCount:Number(replay.duplicate_count||0),status:replay.status,replayed:true,connectionId:adapterConnection?.id||undefined});
+        }
+        if(sourceType==="adapter"){
+          const sourceConflict=await findAdapterSourceIdentityConflict({env,tenantId:auth.tenant_id,accountId,rows:normalized,expectedFingerprints});
+          if(sourceConflict){
+            await writeAudit(env,auth.tenant_id,auth.user_id,"FINANCE_SOURCE_IDENTITY_CONFLICT",{accountId,provider,connectionId:adapterConnection?.id||null,sourceFingerprint:sourceConflict.fingerprint,raceDetected:true});
+            return json({error:"finance_source_identity_conflict",sourceId:sourceConflict.sourceId||undefined,raceDetected:true},409);
+          }
         }
         if(contentFingerprint&&!allowDuplicateContent){
           const duplicateContent=await registeredDuplicateImportContent({env,tenantId:auth.tenant_id,contentFingerprint});
@@ -397,8 +480,8 @@ export async function handleFinanceRequest({request,url,env,auth,json,readJson,i
     const completed=await env.DB.prepare("SELECT imported_count,duplicate_count,status FROM finance_import_batches WHERE id=? AND tenant_id=? LIMIT 1").bind(batchId,auth.tenant_id).first();
     const imported=Number(completed?.imported_count||0),duplicates=Number(completed?.duplicate_count||0);
     if(adapterConnection)await recordAdapterSyncCompletion({env,auth,connection:adapterConnection,idempotencyKey,batchId,rowCount:normalized.length,importedCount:imported,duplicateCount:duplicates,id,sha256Hex,writeAudit});
-    await appendLineage({env,tenantId:auth.tenant_id,userId:auth.user_id,eventType:"TRANSACTIONS_IMPORTED",entityType:"finance_import_batch",entityId:batchId,payload:{accountId,sourceType,provider,connectionId:adapterConnection?.id||null,rowCount:normalized.length,importedCount:imported,duplicateCount:duplicates,contentFingerprint:contentFingerprint||null,duplicateContentOverride:allowDuplicateContent,duplicateOverrideReason:allowDuplicateContent?duplicateOverrideReason:null},sha256Hex,id});
-    await writeAudit(env,auth.tenant_id,auth.user_id,"FINANCE_TRANSACTIONS_IMPORTED",{batchId,accountId,sourceType,provider,connectionId:adapterConnection?.id||null,importedCount:imported,duplicateCount:duplicates,contentFingerprint:contentFingerprint||null,duplicateContentOverride:allowDuplicateContent,duplicateOverrideReason:allowDuplicateContent?duplicateOverrideReason:null});
+    await appendLineage({env,tenantId:auth.tenant_id,userId:auth.user_id,eventType:"TRANSACTIONS_IMPORTED",entityType:"finance_import_batch",entityId:batchId,payload:{accountId,sourceType,provider,connectionId:adapterConnection?.id||null,rowCount:normalized.length,importedCount:imported,duplicateCount:duplicates,contentFingerprint:contentFingerprint||null,requestFingerprint,duplicateContentOverride:allowDuplicateContent,duplicateOverrideReason:allowDuplicateContent?duplicateOverrideReason:null},sha256Hex,id});
+    await writeAudit(env,auth.tenant_id,auth.user_id,"FINANCE_TRANSACTIONS_IMPORTED",{batchId,accountId,sourceType,provider,connectionId:adapterConnection?.id||null,importedCount:imported,duplicateCount:duplicates,contentFingerprint:contentFingerprint||null,requestFingerprint,duplicateContentOverride:allowDuplicateContent,duplicateOverrideReason:allowDuplicateContent?duplicateOverrideReason:null});
     return json({ok:true,id:batchId,importedCount:imported,duplicateCount:duplicates,currency:"BWP",connectionId:adapterConnection?.id||undefined},201);
   }
   if(url.pathname==="/api/finance/transactions"&&request.method==="GET"){
@@ -433,5 +516,5 @@ export async function handleFinanceRequest({request,url,env,auth,json,readJson,i
   return json({error:"not_found"},404);
 }
 
-export const __financeTest=Object.freeze({normalizeFinanceRow,validDate,sourceFingerprintBasis,sameFingerprintSet,importContentFingerprintBasis,ACCOUNT_TYPES,SOURCE_TYPES,MAX_IMPORT_ROWS,IMPORT_CONTENT_LOCK_PREFIX,MAX_LEGACY_CONTENT_CANDIDATES});
+export const __financeTest=Object.freeze({normalizeFinanceRow,validDate,sourceFingerprintBasis,sameFingerprintSet,ledgerRowBasis,sameLedgerRow,importContentFingerprintBasis,importRequestFingerprintBasis,adapterBatchSourceIdentityConflict,sameTransactionEntries,reservedImportIdempotencyKey,ACCOUNT_TYPES,SOURCE_TYPES,MAX_IMPORT_ROWS,IMPORT_CONTENT_LOCK_PREFIX,IMPORT_REQUEST_LOCK_PREFIX,MAX_LEGACY_CONTENT_CANDIDATES});
 export const __financeConnectionTest=Object.freeze({PROVIDER_DEFINITIONS,CONNECTION_STATUSES,containsSecretMaterial,providerCatalog,connectionActionPath,connectionSyncRunsPath,connectionFromLineage,MAX_CONNECTIONS});
