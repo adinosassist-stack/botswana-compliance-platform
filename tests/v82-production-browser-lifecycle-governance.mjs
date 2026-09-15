@@ -6,6 +6,7 @@ const wrapper=fs.readFileSync('scripts/production-synthetic-browser-wrapper.mjs'
 const lifecycle=fs.readFileSync('scripts/production-synthetic-lifecycle.mjs','utf8');
 const interruptionRecovery=fs.readFileSync('scripts/production-synthetic-interruption-recovery.mjs','utf8');
 const components=fs.readFileSync('public/js/components.js','utf8');
+const html=fs.readFileSync('public/index.html','utf8');
 const agenticEntry=fs.readFileSync('cloudflare/src/agentic-entry.js','utf8');
 const launch=fs.readFileSync('.github/workflows/production-launch-audit.yml','utf8');
 const recovery=fs.readFileSync('.github/workflows/recovery-ci.yml','utf8');
@@ -57,6 +58,15 @@ must(agenticEntry,/SYNTHETIC_BOOT_TRACE_PARAMS=new Set\(\["desktop-owner-proof",
 must(agenticEntry,/if\(url\.pathname!=="\/"\)return false/,'edge boot tracing is restricted to the root application document');
 must(agenticEntry,/if\(!syntheticBootTraceRequested\(request\)\)return source/,'normal customer HTML bypasses synthetic boot tracing');
 must(agenticEntry,/SYNTHETIC_BOOT_TRACE_PREFIX="THEBE_SYNTHETIC_BOOT"/,'synthetic trace uses the dedicated boot-trace prefix');
+must(agenticEntry,/SYNTHETIC_AUTH_ME_BOOT_SOURCE='const info=await productionApiClient\.request\("\/api\/auth\/me"\);currentUser='/,'auth trace is anchored to the workspace bootstrap assignment rather than any auth-me call');
+must(agenticEntry,/SYNTHETIC_STATE_BOOT_SOURCE='const st=await apiFetch\("\/api\/state"\);serverStateVersion=st\.version\|\|1;let nextStore;'/,'state trace is anchored to the workspace bootstrap state sequence');
+must(agenticEntry,/function uniqueSourceAnchor\(source,needle\)/,'synthetic trace requires a unique bootstrap source anchor');
+must(agenticEntry,/if\(!uniqueSourceAnchor\(source,SYNTHETIC_AUTH_ME_BOOT_SOURCE\)\|\|!uniqueSourceAnchor\(source,SYNTHETIC_STATE_BOOT_SOURCE\)\)return source/,'synthetic trace fails closed if either bootstrap anchor is absent or ambiguous');
+const authBootAnchor='const info=await productionApiClient.request("/api/auth/me");currentUser=';
+const stateBootAnchor='const st=await apiFetch("/api/state");serverStateVersion=st.version||1;let nextStore;';
+assert.equal(html.split(authBootAnchor).length-1,1,'FAIL workspace auth bootstrap anchor must be unique in source');console.log('PASS workspace auth bootstrap anchor is unique in source');
+assert.equal(html.split(stateBootAnchor).length-1,1,'FAIL workspace state bootstrap anchor must be unique in source');console.log('PASS workspace state bootstrap anchor is unique in source');
+must(html,/async function verifiedContext\(\)\{const info=await productionApiClient\.request\("\/api\/auth\/me"\);/,'source contains a separate feature auth-me call that must not receive the cold-start trace');
 must(agenticEntry,/auth_me_start/,'synthetic trace marks authenticated-me request start');
 must(agenticEntry,/auth_me_complete/,'synthetic trace marks authenticated-me resolution');
 must(agenticEntry,/state_start/,'synthetic trace marks state request start');
