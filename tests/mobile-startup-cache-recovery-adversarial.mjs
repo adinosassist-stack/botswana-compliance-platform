@@ -5,6 +5,7 @@ const sw=fs.readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
 const headers=fs.readFileSync(new URL('../public/_headers',import.meta.url),'utf8');
 const recover=fs.readFileSync(new URL('../public/recover.html',import.meta.url),'utf8');
 const recoverRuntime=fs.readFileSync(new URL('../public/js/recover-runtime.js',import.meta.url),'utf8');
+const events=fs.readFileSync(new URL('../public/js/event-delegation.js',import.meta.url),'utf8');
 const index=fs.readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
 
 assert.match(sw,/mobile-startup-recovery-20260915/,'service worker cache generation must be advanced');
@@ -27,4 +28,11 @@ assert.match(index,/<meta name="bw-runtime-mode" content="production"\s*\/>/,'pr
 assert.match(index,/\.previewmode\{display:none/,'preview marker must be hidden by default');
 assert.doesNotMatch(index,/<body[^>]*class="[^"]*standalone-preview/,'production body must not start in standalone preview mode');
 
-console.log('PASS mobile startup/cache recovery adversarial gate');
+assert.match(events,/bw-mobile-runtime-hardening/,'mobile runtime must install an explicit hardening boundary');
+assert.match(events,/touch-action:pan-y!important/,'mobile workspace drawer must retain vertical touch scrolling');
+assert.match(events,/body\.mobile-nav-open\{overflow:hidden!important;touch-action:auto!important\}/,'open mobile drawer must not disable all body touch handling');
+assert.match(events,/backdrop-filter:none!important/,'mobile backdrop must avoid expensive blur during drawer interaction');
+assert.match(events,/el\.style\.setProperty\("display","none","important"\)/,'production runtime must force-hide the standalone preview marker');
+assert.match(events,/doc\.body\?\.classList\.remove\("standalone-preview"\)/,'production runtime must remove stale standalone-preview state');
+
+console.log('PASS mobile startup/cache/menu recovery adversarial gate');
