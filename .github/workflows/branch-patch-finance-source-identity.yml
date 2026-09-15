@@ -1,0 +1,41 @@
+name: Temporary branch patch - finance source identity
+
+on:
+  push:
+    branches:
+      - chatgpt/finance-source-identity-integrity-20260915
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: chatgpt/finance-source-identity-integrity-20260915
+          fetch-depth: 0
+      - name: Patch and verify adapter source identity integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/_branch_patch_finance_source_identity.py
+          git diff --check
+          node --check cloudflare/src/finance-core.js
+          node tests/v79-finance-reconciliation.mjs
+          node tests/v82-finance-idempotency-replay-integrity.mjs
+          node tests/v82-finance-cross-idempotency-content-dedupe.mjs
+          node tests/v82-finance-adapter-source-identity-integrity.mjs
+          node tests/v81-finance-connections.mjs
+      - name: Commit hardened finance source identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add cloudflare/src/finance-core.js
+          git commit -m 'finance: fail closed on adapter source identity drift'
+          git push origin HEAD:chatgpt/finance-source-identity-integrity-20260915
