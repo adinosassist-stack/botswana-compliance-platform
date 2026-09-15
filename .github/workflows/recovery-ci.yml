@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: recovery-ci-${{ github.repository }}-${{ github.ref }}
@@ -25,7 +26,36 @@ jobs:
       - name: Checkout exact revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
+
+      - name: Enforce PR-only current-main provenance
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'main SHA must be a full lowercase commit SHA' >&2; exit 1; }
+          read -r -a line <<< "$(git rev-list --parents -n 1 "$GITHUB_SHA")"
+          parent_count=$(( ${#line[@]} - 1 ))
+          [[ "$parent_count" == '2' ]] || { echo "main qualification requires a two-parent merged PR commit, got $parent_count parent(s)" >&2; exit 1; }
+          pulls_json="$(
+            curl --fail-with-body --silent --show-error \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls?per_page=100"
+          )"
+          printf '%s' "$pulls_json" | SHA="$GITHUB_SHA" python3 -c 'import json,os,sys; pulls=json.load(sys.stdin); sha=os.environ["SHA"]; match=next((pr for pr in pulls if pr.get("merged_at") and pr.get("base",{}).get("ref")=="main" and pr.get("merge_commit_sha")==sha),None); match or sys.exit("current-main commit is not the exact merge commit of a merged pull request targeting main"); print("PR-only main provenance confirmed: #{}".format(match.get("number")))'
+          commit_json="$(
+            curl --fail-with-body --silent --show-error \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA"
+          )"
+          printf '%s' "$commit_json" | SHA="$GITHUB_SHA" python3 -c 'import json,os,sys; commit=json.load(sys.stdin); sha=os.environ["SHA"]; verification=commit.get("commit",{}).get("verification",{}); (commit.get("sha")==sha and verification.get("verified") is True and verification.get("reason")=="valid") or sys.exit("current-main merge commit is not GitHub-verified with a valid signature"); print("Current-main merge signature verified by GitHub")'
 
       - name: Setup pinned Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -75,9 +105,11 @@ jobs:
         run: |
           set -euo pipefail
           node --check scripts/production-synthetic-lifecycle.mjs
+          node --check scripts/production-synthetic-browser-wrapper.mjs
           node --check scripts/production-legacy-orphan-cleanup.mjs
           node --check scripts/production-zero-orphan-audit.mjs
           node tests/v82-production-synthetic-proof-contract.mjs
+          node tests/v82-production-browser-lifecycle-governance.mjs
           node tests/v82-legacy-orphan-cleanup-contract.mjs
           node tests/v82-phase0-launch-audit-deferred-integrations.mjs
           node tests/v82-postdeploy-smoke-governance.mjs
