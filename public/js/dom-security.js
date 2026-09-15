@@ -1,6 +1,38 @@
 (function bootstrapBwDom(global){
   "use strict";
 
+  // Production browser-recovery boundary. Older Thebe Desk releases used a
+  // persistent service worker/cache shell. On browsers that retain that origin
+  // state (notably desktop Chrome), stale workers can race the live document
+  // and make startup unstable. Decommission those workers without reloading,
+  // navigating, or opening a new window. Run immediately for old registrations
+  // and once again after DOMContentLoaded so a legacy inline register() call in
+  // the current document cannot leave a new persistent worker behind.
+  function installLegacyBrowserRuntimeDecommission(){
+    const nav=global.navigator;
+    const cleanup=async()=>{
+      try{
+        if(nav?.serviceWorker?.getRegistrations){
+          const registrations=await nav.serviceWorker.getRegistrations();
+          await Promise.all(registrations.map(registration=>registration.unregister().catch(()=>false)));
+        }
+        if(global.caches?.keys&&global.caches?.delete){
+          const keys=await global.caches.keys();
+          await Promise.all(keys.filter(key=>String(key).startsWith("thebe-desk-")).map(key=>global.caches.delete(key).catch(()=>false)));
+        }
+      }catch(error){
+        console.warn("thebe_browser_runtime_decommission_failed",error);
+      }
+    };
+    void cleanup();
+    const doc=global.document;
+    if(!doc)return;
+    const afterDocument=()=>global.setTimeout?.(()=>{void cleanup()},0);
+    if(doc.readyState==="loading")doc.addEventListener("DOMContentLoaded",afterDocument,{once:true});
+    else afterDocument();
+  }
+  installLegacyBrowserRuntimeDecommission();
+
   // Root/public-gate visibility hardening: the shared HTML shell marks the
   // Compliance Passport surface as `hidden`, but older CSS did not define a
   // matching reporter-portal hidden rule. Enforce the class state directly on
