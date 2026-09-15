@@ -1,0 +1,98 @@
+name: Mobile post-deploy smoke
+run-name: Mobile post-deploy smoke ${{ github.event.workflow_run.head_sha }}
+
+on:
+  workflow_run:
+    workflows: ["Thebe Desk Production Deploy"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  mobile-live:
+    name: Verify live Android-sized startup and registration UI
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
+      ORIGIN: https://thebedesk.com
+    steps:
+      - name: Checkout exact deployed authority
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+      - name: Install browser driver only
+        shell: bash
+        run: npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+      - name: Exercise live mobile startup and registration surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import {chromium} from 'playwright-core';
+          import fs from 'node:fs';
+          import assert from 'node:assert/strict';
+          const executablePath=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(p=>fs.existsSync(p));
+          assert.ok(executablePath,'no Chromium-compatible browser found');
+          const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox']});
+          const context=await browser.newContext({
+            viewport:{width:390,height:844},
+            screen:{width:390,height:844},
+            isMobile:true,
+            hasTouch:true,
+            deviceScaleFactor:2,
+            userAgent:'Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Mobile Safari/537.36'
+          });
+          const page=await context.newPage();
+          const pageErrors=[];const criticalFailures=[];
+          page.on('pageerror',error=>pageErrors.push(String(error?.stack||error)));
+          page.on('requestfailed',request=>{const url=request.url();if(url.startsWith(process.env.ORIGIN+'/js/')||url.startsWith(process.env.ORIGIN+'/assets/'))criticalFailures.push(`${request.method()} ${url} ${request.failure()?.errorText||''}`)});
+          const response=await page.goto(process.env.ORIGIN+'/?mobile-smoke='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});
+          assert.equal(response?.status(),200,'mobile root must return HTTP 200');
+          await page.waitForFunction(()=>{
+            const gate=document.getElementById('marketingGate');
+            return gate&&!gate.classList.contains('hidden');
+          },null,{timeout:30000});
+          const state=await page.evaluate(()=>({
+            title:document.title,
+            standalone:document.body.classList.contains('standalone-preview'),
+            previewDisplay:getComputedStyle(document.querySelector('.previewmode')).display,
+            marketingHidden:document.getElementById('marketingGate')?.classList.contains('hidden'),
+            authHidden:document.getElementById('authGate')?.classList.contains('hidden'),
+            bodyText:(document.body.innerText||'').slice(0,500)
+          }));
+          assert.match(state.title,/Thebe Desk/i);
+          assert.equal(state.standalone,false,'production mobile root entered standalone preview mode');
+          assert.equal(state.previewDisplay,'none','standalone preview marker is visible in production');
+          assert.equal(state.marketingHidden,false,'marketing surface did not become visible on mobile');
+          assert.doesNotMatch(state.bodyText,/STANDALONE PREVIEW · NO LIVE SUBMISSIONS/i,'preview text leaked into visible mobile production content');
+          const start=page.locator('button.marketing-start-action').first();
+          assert.ok(await start.count(),'Start Free action missing on mobile');
+          await start.click();
+          await page.waitForFunction(()=>!document.getElementById('authGate')?.classList.contains('hidden'),null,{timeout:10000});
+          const authState=await page.evaluate(()=>({
+            authHidden:document.getElementById('authGate')?.classList.contains('hidden'),
+            companyDisplay:document.getElementById('companyNameField')?getComputedStyle(document.getElementById('companyNameField')).display:null,
+            submitText:document.getElementById('authSubmit')?.textContent||''
+          }));
+          assert.equal(authState.authHidden,false);
+          assert.notEqual(authState.companyDisplay,'none');
+          assert.match(authState.submitText,/Create account/i);
+          await page.goto(process.env.ORIGIN+'/register-direct.html?mobile-smoke='+Date.now(),{waitUntil:'domcontentloaded',timeout:30000});
+          assert.match((await page.locator('body').innerText()).slice(0,800),/Create your account/i);
+          assert.deepEqual(pageErrors,[],'mobile page errors detected');
+          assert.deepEqual(criticalFailures,[],'mobile critical asset failures detected');
+          await browser.close();
+          console.log('MOBILE_POSTDEPLOY_SMOKE_PASS');
+          NODE
