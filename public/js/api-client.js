@@ -42,7 +42,7 @@
   function autoIdempotency(method,target){try{const path=new URL(target).pathname,key=`${method} ${path}`;return AUTO_IDEMPOTENT_MUTATIONS.has(key)||(method==="POST"&&(/^\/api\/company-actions\/[^/]+\/advance$/.test(path)||/^\/api\/licences\/[^/]+\/renew$/.test(path)))}catch{return false}}
   function friendlyMessage(status,data){
     const code=String(data?.error||"");
-    const known={csrf_failed:"Your session security token changed. Refresh and try again.",origin_failed:"This request was blocked because it came from an unexpected origin.",unauthenticated:"Your session has expired. Please sign in again.",invalid_credentials:"Email or password is incorrect.",registration_not_confirmed:"We couldn't confirm this account with the password you entered. If you've used this email before, sign in with the password already on the account or use Forgot password.",forbidden:"Your role does not have permission for that action.",workspace_role_forbidden:"Your account role cannot access this workspace action.",workspace_role_read_forbidden:"Your role cannot view that information.",workspace_role_mutation_forbidden:"Your role cannot change that information.",invalid_registration:"Check your company name, email and password. Company name must be at least 2 characters and the password must be at least 12 characters.",human_verification_failed:"Human verification failed or expired. Complete the verification and try again.",registration_protection_failed:"Registration protection expired or could not be verified. Click Create account again to generate a fresh secure proof.",database_daily_limit_reached:"The database has reached its daily service limit. Try again after the limit resets."};
+    const known={csrf_failed:"Your session security token changed. Refresh and try again.",origin_failed:"This request was blocked because it came from an unexpected origin.",unauthenticated:"Your session has expired. Please sign in again.",invalid_credentials:"Email or password is incorrect.",registration_not_confirmed:"We couldn't confirm this account with the password you entered. If you've used this email before, sign in with the password already on the account or use Forgot password.",registration_confirmation_unavailable:"We couldn't securely confirm that registration produced a usable account. Try again. If you've used this email before, sign in with the password already on the account or use Forgot password.",forbidden:"Your role does not have permission for that action.",workspace_role_forbidden:"Your account role cannot access this workspace action.",workspace_role_read_forbidden:"Your role cannot view that information.",workspace_role_mutation_forbidden:"Your role cannot change that information.",invalid_registration:"Check your company name, email and password. Company name must be at least 2 characters and the password must be at least 12 characters.",human_verification_failed:"Human verification failed or expired. Complete the verification and try again.",registration_protection_failed:"Registration protection expired or could not be verified. Click Create account again to generate a fresh secure proof.",database_daily_limit_reached:"The database has reached its daily service limit. Try again after the limit resets."};
     return known[code]||String(data?.message||data?.error||((status>=500)?"The service could not complete the request. Please retry.":`Request failed (${status||"network"}).`));
   }
   function registrationValidationMessage(target,method,body){
@@ -174,7 +174,7 @@
       if(method==="POST"&&authPath==="/api/auth/login"&&pendingRegistrationLogin){
         const credentials=authBodyCredentials(options.body),pending=pendingRegistrationLogin;
         pendingRegistrationLogin=null;
-        if(credentials&&!credentials.tenantId&&credentials.email===pending.email&&credentials.password===pending.password){
+        if(credentials&&!credentials.tenantId&&credentials.email===pending.email&&Date.now()<=pending.expiresAt){
           if(pending.error)throw pending.error;
           return pending.data;
         }
@@ -204,17 +204,19 @@
             if(credentials){
               const confirmation=await confirmRegistration(logicalTarget,credentials,requestId);
               if(confirmation.kind==="success"){
-                pendingRegistrationLogin={email:credentials.email,password:credentials.password,data:confirmation.data,error:null};
+                pendingRegistrationLogin={email:credentials.email,data:confirmation.data,error:null,expiresAt:Date.now()+5000};
                 return {...data,credentialConfirmed:true};
               }
               if(confirmation.kind==="workspace"){
-                pendingRegistrationLogin={email:credentials.email,password:credentials.password,data:null,error:confirmation.error};
+                pendingRegistrationLogin={email:credentials.email,data:null,error:confirmation.error,expiresAt:Date.now()+5000};
                 return data;
               }
               if(confirmation.kind==="invalid"){
                 const confirmationData={error:"registration_not_confirmed"};
                 throw new ApiError(friendlyMessage(409,confirmationData),{status:409,code:"registration_not_confirmed",requestId,data:confirmationData});
               }
+              const confirmationData={error:"registration_confirmation_unavailable"};
+              throw new ApiError(friendlyMessage(503,confirmationData),{status:503,code:"registration_confirmation_unavailable",requestId,data:confirmationData});
             }
             return data;
           }
