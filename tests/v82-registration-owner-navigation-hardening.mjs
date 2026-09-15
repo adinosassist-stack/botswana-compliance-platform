@@ -8,6 +8,7 @@ const worker=read('cloudflare/src/worker.js');
 const html=read('public/index.html');
 const api=read('public/js/api-client.js');
 const direct=read('public/js/register-direct.js');
+const ownerAccess=read('cloudflare/migrations/048_v82_platform_owner_access.sql');
 const sw=read('public/sw.js');
 let checks=0;const ok=(name,value)=>{assert.ok(value,name);checks++};
 
@@ -22,7 +23,14 @@ ok('registration still creates an owner membership',worker.includes("INSERT INTO
 ok('registration keeps IP global and account throttles',worker.includes('register-ip')&&worker.includes('register-platform')&&worker.includes('register-account'));
 ok('first-party registration protection remains fail closed',direct.includes('/api/auth/registration-proof/challenge')&&direct.includes('turnstileToken:proof'));
 ok('direct registration verifies usability by logging in after creation',direct.includes('btn.textContent="Signing in…"')&&direct.includes('await api("/api/auth/login"'));
+ok('existing registration uses password recovery instead of replacing credentials',direct.includes('/api/auth/password-reset/request')&&direct.includes('Registration never replaces an existing password'));
+ok('owner workspace selection is completed with an explicit tenant login',direct.includes('finishWorkspaceSelection')&&direct.includes('tenantId')&&direct.includes('Opening owner workspace'));
 ok('registration protection error is user-readable',api.includes('registration_protection_failed:"Registration protection expired'));
+ok('platform owner repair is scoped to the explicit owner email',ownerAccess.includes("lower(u.email)='thebedesk@gmail.com'"));
+ok('platform owner repair never rewrites password credentials',!ownerAccess.includes('password_hash')&&!ownerAccess.includes('UPDATE users'));
+ok('platform owner membership is repaired to active owner',ownerAccess.includes("SET role='owner',status='active'"));
+ok('platform owner gets permanent server-side feature overrides',ownerAccess.includes("platform_owner_internal_full_access")&&ownerAccess.includes('INSERT OR REPLACE INTO entitlement_overrides'));
+ok('platform owner receives internal AI operating allowance without customer payment',ownerAccess.includes('ai_credit_wallets')&&ownerAccess.includes('10000')&&!ownerAccess.includes('payment_orders'));
 ok('platform specialist tools start hidden',html.includes('<details class="nav-specialist-tools" hidden>')&&html.includes('.nav-specialist-tools[hidden]{display:none!important}'));
 ok('owner platform screens require positive platform-admin status',html.includes('let platformRegulatoryAccess=false')&&html.includes('platformRegulatoryAccess=status?.role==="admin"'));
 ok('owner view matrix conditionally includes platform-only buttons',html.includes('const platformAdminViews=platformRegulatoryAccess?')&&html.includes('new Set([...allCustomer,...platformAdminViews])'));
