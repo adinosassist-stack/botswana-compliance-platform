@@ -33,13 +33,17 @@ form?.addEventListener("submit",async event=>{
   btn.textContent="Signing in…";
   try{
    await api("/api/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email,password})});
-   setStatus("Account created. Opening your workspace…","good");
+   setStatus("Account access confirmed. Opening your workspace…","good");
    location.href="/";
    return;
   }catch(loginError){
-   setStatus("Account created. Continue to Thebe Desk and sign in with this email.","good");
-   btn.textContent="Continue to sign in";
-   setTimeout(()=>{location.href="/"},1400);
+   if(loginError?.code==="workspace_selection_required"){
+    setStatus("Account access confirmed. Opening Thebe Desk so you can choose the workspace to open.","good");
+    setTimeout(()=>{location.href="/"},900);
+    return;
+   }
+   setStatus(loginError?.message||"We couldn't confirm the account securely. Return to Thebe Desk sign in or use Forgot password if needed.");
+   btn.disabled=false;btn.textContent="Create account";
   }
  }catch(error){setStatus(error?.message||"Account creation could not complete. Try again.");btn.disabled=false;btn.textContent="Create account"}
 });
