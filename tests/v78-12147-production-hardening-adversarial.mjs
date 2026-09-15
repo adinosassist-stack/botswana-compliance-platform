@@ -24,9 +24,11 @@ ok(fs.existsSync(path.join(root,"preview/preview-api.json"))&&read("preview/prev
 ok(html.includes('meta name="bw-runtime-mode" content="production"'),"production must not infer preview mode from file/protocol");
 ok(!loadedScripts.some(x=>/preview-(?:data|api)\.js$/.test(x)),"production shell must not load preview fixtures or preview transport");
 // Performance and service worker
-ok(sw.includes('request.mode==="navigate"')&&sw.includes('url.pathname.startsWith("/api/")'),"service worker must network-first navigation and bypass API");
-ok(sw.includes("event.waitUntil(caches.open(CACHE).then(cache=>cache.put(request,response.clone())))"),"static asset cache updates must be batched asynchronously");
-ok(sw.includes("./js/event-delegation.js")&&!sw.includes("./js/preview-api.js")&&!sw.includes("./js/preview-data.js"),"production service-worker shell must cache delegated runtime and exclude preview-only modules");
+const legacyActiveServiceWorker=sw.includes('request.mode==="navigate"')&&sw.includes('url.pathname.startsWith("/api/")')&&sw.includes('fetch(request,{cache:"no-store"})');
+const decommissionedServiceWorker=sw.includes('self.registration.unregister()')&&!sw.includes('addEventListener("fetch"')&&!sw.includes('clients.openWindow')&&!sw.includes('location.reload')&&!sw.includes('location.assign')&&!sw.includes('location.replace');
+ok(legacyActiveServiceWorker||decommissionedServiceWorker,"service worker must either use network-first navigation/API bypass or be fully decommissioned without interception/navigation side effects");
+ok(decommissionedServiceWorker||sw.includes("event.waitUntil(caches.open(CACHE).then(cache=>cache.put(request,response.clone())))"),"active service worker must batch static cache updates asynchronously; decommissioned worker must perform no request caching");
+ok(decommissionedServiceWorker||(sw.includes("./js/event-delegation.js")&&!sw.includes("./js/preview-api.js")&&!sw.includes("./js/preview-data.js")),"active production service-worker shell must cache delegated runtime and exclude preview modules; decommissioned worker must cache no application shell");
 // Accessibility: actual page markup only (scripts/templates excluded)
 for(const tag of stripScripts.matchAll(/<(input|select|textarea)\b[^>]*>/gi)){
  const raw=tag[0];if(/type=["']hidden["']/i.test(raw))continue;const id=(raw.match(/\bid=["']([^"']+)["']/i)||[])[1];const labelled=/\baria-(?:label|labelledby)=/i.test(raw)||(id&&new RegExp(`<label\\b[^>]*\\bfor=["']${id.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}["']`,`i`).test(stripScripts));ok(!!labelled,`form control ${id||raw.slice(0,40)} must have an accessible name`)
