@@ -1,0 +1,67 @@
+name: Thebe Desk Production Release Authority
+run-name: Release authority ${{ github.sha }}
+
+on:
+  push:
+    branches:
+      - 'release/prod-*'
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: thebe-desk-release-authority-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    name: Dispatch BF-07 for exact current main merge
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact release authority
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact release branch and current main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_sha="$GITHUB_SHA"
+          [[ "$release_sha" =~ ^[0-9a-f]{40}$ ]] || { echo 'release SHA must be a full lowercase 40-character commit SHA' >&2; exit 1; }
+          expected_ref="refs/heads/release/prod-$release_sha"
+          [[ "$GITHUB_REF" == "$expected_ref" ]] || { echo "release branch must be named exactly release/prod-$release_sha, got $GITHUB_REF" >&2; exit 1; }
+          [[ "$(git rev-parse HEAD)" == "$release_sha" ]] || { echo 'release checkout does not match GITHUB_SHA' >&2; exit 1; }
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo 'release authority checkout is not clean' >&2; exit 1; }
+          main_sha="$(
+            curl --fail-with-body --silent --show-error \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main" \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])'
+          )"
+          [[ "$release_sha" == "$main_sha" ]] || { echo "release authority is stale/non-main: release=$release_sha current-main=$main_sha" >&2; exit 1; }
+          echo "Exact production release authority confirmed: $release_sha"
+
+      - name: Dispatch BF-07 on main for exact SHA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload="$(RELEASE_SHA="$GITHUB_SHA" python3 -c 'import json,os; print(json.dumps({"ref":"main","inputs":{"expected_sha":os.environ["RELEASE_SHA"]}}))')"
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header 'Accept: application/vnd.github+json' \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header 'X-GitHub-Api-Version: 2022-11-28' \
+            --header 'Content-Type: application/json' \
+            --data "$payload" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/bf07-seal.yml/dispatches"
+          echo "BF-07 dispatch accepted for exact main SHA $GITHUB_SHA"
