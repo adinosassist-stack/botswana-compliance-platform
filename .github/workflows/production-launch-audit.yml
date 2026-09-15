@@ -109,6 +109,7 @@ jobs:
             echo 'Synthetic lifecycle marker absent; keeping production audit read-only.'
             exit 0
           fi
+          node scripts/production-synthetic-interruption-recovery.mjs
           npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
           node scripts/production-synthetic-browser-wrapper.mjs
 
