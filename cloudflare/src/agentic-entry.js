@@ -8,8 +8,8 @@ const COLD_START_REDUNDANT_RENDER="if(!options?.skipDataRefresh)queueMicrotask((
 const COLD_START_GUARDED_RENDER="if(!options?.skipDataRefresh&&!options?.roleRedirect)queueMicrotask(()=>renderAll())";
 const SYNTHETIC_BOOT_TRACE_PREFIX="THEBE_SYNTHETIC_BOOT";
 const SYNTHETIC_BOOT_TRACE_PARAMS=new Set(["desktop-owner-proof","authenticated-mobile-proof"]);
-const SYNTHETIC_AUTH_ME_SOURCE='const info=await productionApiClient.request("/api/auth/me");';
-const SYNTHETIC_STATE_SOURCE='const st=await apiFetch("/api/state");';
+const SYNTHETIC_AUTH_ME_BOOT_SOURCE='const info=await productionApiClient.request("/api/auth/me");currentUser=';
+const SYNTHETIC_STATE_BOOT_SOURCE='const st=await apiFetch("/api/state");serverStateVersion=st.version||1;let nextStore;';
 
 function logicalRequestPath(request){
   try{
@@ -33,18 +33,23 @@ function syntheticBootTraceRequested(request){
   }catch{return false}
 }
 
+function uniqueSourceAnchor(source,needle){
+  const first=source.indexOf(needle);
+  return first>=0&&first===source.lastIndexOf(needle);
+}
+
 function injectSyntheticBootTrace(request,html){
   const source=String(html||"");
   if(!syntheticBootTraceRequested(request))return source;
-  if(!source.includes(SYNTHETIC_AUTH_ME_SOURCE)||!source.includes(SYNTHETIC_STATE_SOURCE))return source;
+  if(!uniqueSourceAnchor(source,SYNTHETIC_AUTH_ME_BOOT_SOURCE)||!uniqueSourceAnchor(source,SYNTHETIC_STATE_BOOT_SOURCE))return source;
   return source
     .replace(
-      SYNTHETIC_AUTH_ME_SOURCE,
-      `console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} auth_me_start");${SYNTHETIC_AUTH_ME_SOURCE}console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} auth_me_complete");`
+      SYNTHETIC_AUTH_ME_BOOT_SOURCE,
+      `console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} auth_me_start");const info=await productionApiClient.request("/api/auth/me");console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} auth_me_complete");currentUser=`
     )
     .replace(
-      SYNTHETIC_STATE_SOURCE,
-      `console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} state_start");${SYNTHETIC_STATE_SOURCE}console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} state_complete");`
+      SYNTHETIC_STATE_BOOT_SOURCE,
+      `console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} state_start");const st=await apiFetch("/api/state");console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} state_complete");serverStateVersion=st.version||1;let nextStore;`
     );
 }
 
