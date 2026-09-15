@@ -1,6 +1,8 @@
 import fs from 'node:fs';
+import {spawnSync} from 'node:child_process';
 
-const recovery=fs.readFileSync('scripts/production-synthetic-interruption-recovery.mjs','utf8');
+const recoveryPath='scripts/production-synthetic-interruption-recovery.mjs';
+const recovery=fs.readFileSync(recoveryPath,'utf8');
 let pass=0;
 const ok=(condition,message)=>{
   if(!condition)throw new Error(`FAIL: ${message}`);
@@ -8,6 +10,8 @@ const ok=(condition,message)=>{
   console.log('PASS',message);
 };
 
+const syntax=spawnSync(process.execPath,['--check',recoveryPath],{encoding:'utf8'});
+ok(syntax.status===0,`synthetic interruption recovery parses cleanly${syntax.stderr?`: ${syntax.stderr.trim()}`:''}`);
 ok(recovery.includes("const MAX_SYNTHETIC_COHORT=5")&&recovery.includes("EXPECTED_HISTORICAL_RUN_ATTEMPTS=new Set")&&recovery.includes("'34972933934:1'")&&recovery.includes("'34972933934:2'")&&recovery.includes("'34980328632:1'")&&recovery.includes("'34995082365:1'")&&recovery.includes("'34997904456:1'"), 'five-account authority is bound to the exact proven historical run/attempt cohort');
 ok(recovery.includes("EMAIL_RE=/^synthetic\\.lifecycle\\.(\\d+)\\.(\\d+)\\.([0-9a-f]{12})@example\\.invalid$/")&&recovery.includes("COMPANY_RE=/^Thebe Desk Synthetic Lifecycle (\\d+)-(\\d+)-([0-9a-f]{12})$/"), 'strict synthetic marker patterns are not broadened');
 ok(recovery.includes("'performance_alert_settings.tenant_id'")&&recovery.includes('function assertDefaultPerformanceSettings(row)')&&recovery.includes('performanceSettings.length===1')&&recovery.includes('candidate performance alert setting ${key} differs from system default')&&recovery.includes('notify_whatsapp:0')&&recovery.includes('coverage_drop_points:20')&&recovery.includes('metric_drop_percent:30')&&recovery.includes('improvement_percent:25')&&recovery.includes('incident_spike_count:2')&&recovery.includes('recurring_days:3')&&recovery.includes('min_baseline_days:3'), 'system performance settings are baseline only when exactly one untouched default row exists');
@@ -29,4 +33,4 @@ ok(recovery.includes("rawCandidates.length<=MAX_SYNTHETIC_COHORT")&&recovery.inc
 ok(recovery.includes("assert(leftovers===0")&&recovery.includes("assert(orphanUsers===0")&&recovery.includes("SYNTHETIC_INTERRUPTION_RECOVERY_PASS"), 'recovery requires zero strict synthetic residue and zero orphan users at closure');
 ok(!recovery.includes('[legacy-orphan-cleanup]')&&!recovery.includes('legacy-orphan-cleanup'), 'synthetic recovery does not acquire legacy orphan cleanup authority');
 
-console.log(`Synthetic interruption recovery cohort governance: ${pass}/15 PASS`);
+console.log(`Synthetic interruption recovery cohort governance: ${pass}/16 PASS`);
