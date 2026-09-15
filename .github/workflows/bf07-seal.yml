@@ -22,6 +22,9 @@ concurrency:
   group: bf07-seal-${{ github.repository }}-${{ github.ref }}
   cancel-in-progress: false
 
+# Historical deployment-regression sentinel only; this expression is not executable authority:
+# startsWith(github.event.head_commit.message, '[deploy]')
+
 jobs:
   seal:
     name: Resolve BF-07 from clean npm registry state
