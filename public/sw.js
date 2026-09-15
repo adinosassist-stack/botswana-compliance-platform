@@ -1,4 +1,4 @@
-const CACHE="thebe-desk-recovery-r1-v78-1.21.101-mobile-startup-recovery-20260915-v1";
+const CACHE="thebe-desk-recovery-r1-v78-1.21.101-registration-owner-ui-hotfix-20260914-mobile-startup-recovery-20260915-v1";
 const SHELL=["./manifest.webmanifest","./js/dom-security.js","./js/event-delegation.js","./js/notifications.js","./js/dialog-service.js","./js/api-client.js","./js/state-store.js","./js/components.js"];
 
 self.addEventListener("install",event=>{
