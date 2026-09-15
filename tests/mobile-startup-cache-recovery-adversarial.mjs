@@ -46,6 +46,10 @@ assert.doesNotMatch(index,/<body[^>]*class="[^"]*standalone-preview/,'production
 assert.match(events,/bw-mobile-runtime-hardening/,'mobile runtime must install an explicit hardening boundary');
 assert.match(events,/touch-action:pan-y!important/,'mobile workspace drawer must retain vertical touch scrolling');
 assert.match(events,/body\.mobile-nav-open\{overflow:hidden!important;touch-action:auto!important\}/,'open mobile drawer must not disable all body touch handling');
+assert.match(events,/body\.style\.setProperty\("touch-action","auto","important"\)/,'open mobile drawer must enforce touch handling at inline-important priority');
+assert.match(events,/new global\.MutationObserver\(syncMobileTouch\)\.observe\(body,\{attributes:true,attributeFilter:\["class"\]\}\)/,'mobile runtime must resynchronize touch handling whenever drawer state changes');
+assert.match(events,/previousTouchValue=body\.style\.getPropertyValue\("touch-action"\)/,'touch guard must preserve any prior inline touch-action value');
+assert.match(events,/body\.style\.removeProperty\("touch-action"\)/,'touch guard must restore an empty prior touch-action state after close');
 assert.match(events,/backdrop-filter:none!important/,'mobile backdrop must avoid expensive blur during drawer interaction');
 assert.match(events,/el\.style\.setProperty\("display","none","important"\)/,'production runtime must force-hide the standalone preview marker');
 assert.match(events,/doc\.body\?\.classList\.remove\("standalone-preview"\)/,'production runtime must remove stale standalone-preview state');
