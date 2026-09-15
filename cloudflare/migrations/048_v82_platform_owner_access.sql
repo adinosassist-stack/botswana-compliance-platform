@@ -53,8 +53,9 @@ LIMIT 1;
 INSERT OR REPLACE INTO entitlement_overrides(
   tenant_id,feature_key,enabled,limit_value,expires_at,reason,updated_at
 )
-SELECT canonical.tenant_id,features.feature_key,1,2147483647,NULL,
-       'platform_owner_internal_full_access',CURRENT_TIMESTAMP
+SELECT canonical.tenant_id,features.feature_key,1,
+       CASE WHEN features.feature_key='ai_monthly_credits' THEN 10000 ELSE 2147483647 END,
+       NULL,'platform_owner_internal_full_access',CURRENT_TIMESTAMP
 FROM (
   SELECT m.tenant_id
   FROM memberships m
