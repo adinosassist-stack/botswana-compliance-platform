@@ -1,0 +1,50 @@
+name: Release 31 authenticated state reload static trace
+
+on:
+  push:
+    branches:
+      - diag/release31-state-reload-20260916
+
+permissions:
+  contents: read
+
+jobs:
+  trace:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 3b39936093956c8b7ed2bdcb2415aa336e094ae6
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Prove exact source and print targeted contexts
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == '3b39936093956c8b7ed2bdcb2415aa336e094ae6' ]]
+          python3 - <<'PY'
+          from pathlib import Path
+          targets={
+            'public/index.html':['state_start','/api/state','apiFetch','root_tunnel','auth_me_start','auth_me_complete'],
+            'cloudflare/src/worker.js':['/api/state','normalizeApiTransport','async function auth','function auth','stateResponse','getState'],
+            'scripts/production-synthetic-browser-wrapper.mjs':['workspace reveal','post-reload','api breadcrumb','state_start']
+          }
+          for file,patterns in targets.items():
+            p=Path(file)
+            if not p.exists():
+              print(f'### MISSING {file}')
+              continue
+            lines=p.read_text(errors='replace').splitlines()
+            print(f'\n===== {file} lines={len(lines)} =====')
+            seen=[]
+            for pat in patterns:
+              matches=[i for i,s in enumerate(lines) if pat in s]
+              print(f'\n--- pattern {pat!r}: {[i+1 for i in matches[:20]]} ---')
+              for i in matches[:8]:
+                lo=max(0,i-18); hi=min(len(lines),i+35)
+                key=(lo,hi)
+                if key in seen: continue
+                seen.append(key)
+                for n in range(lo,hi): print(f'{n+1:06d}: {lines[n]}')
+                print('--- end context ---')
+          PY
