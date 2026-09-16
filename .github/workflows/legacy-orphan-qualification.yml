@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   qualify:
-    name: quality zero-orphan clean safety
+    name: Qualify zero-orphan cleanup safety
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -34,12 +34,3 @@ jobs:
 
       - name: Verify cleanup and zero-baseline contract
         run: node tests/v82-legacy-orphan-cleanup-contract.mjs
-
-  compatibility-context:
-    name: quality zero-orphan cleanup safety
-    needs: qualify
-    runs-on: ubuntu-24.04
-    timeout-minutes: 2
-    steps:
-      - name: Preserve prior required-check context
-        run: echo 'Canonical zero-orphan qualification passed under quality zero-orphan clean safety.'
