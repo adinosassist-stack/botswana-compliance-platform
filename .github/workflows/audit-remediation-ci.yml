@@ -82,66 +82,82 @@ jobs:
           npm run test:feature-hardening
           npm run test:static
 
-      - name: Registration owner navigation regression
+      - name: Registration, brand and deployment regressions
         shell: bash
-        run: node tests/v82-registration-owner-navigation-hardening.mjs
+        run: |
+          set -euo pipefail
+          node tests/v82-registration-owner-navigation-hardening.mjs
+          npm run test:thebe-desk-brand
+          npm run test:thebe-desk-deployment
 
-      - name: Thebe Desk brand regression
-        shell: bash
-        run: npm run test:thebe-desk-brand
-
-      - name: Thebe Desk deployment regression
-        shell: bash
-        run: npm run test:thebe-desk-deployment
-
-      - name: Session inventory regression
+      - name: Session and OAuth regressions 12168-12162
         shell: bash
         run: |
           set -euo pipefail
           node tests/v78-12168-session-inventory-hardening-adversarial.mjs
           node --no-warnings tests/v78-12168-session-inventory-runtime.mjs
-
-      - name: Session generation revocation regression
-        shell: bash
-        run: |
-          set -euo pipefail
           node tests/v78-12167-session-generation-revocation-adversarial.mjs
           node --no-warnings tests/v78-12167-session-generation-revocation-runtime.mjs
-
-      - name: Auth unlink concurrency regression
-        shell: bash
-        run: |
-          set -euo pipefail
           node tests/v78-12166-auth-method-unlink-concurrency-adversarial.mjs
           node --no-warnings tests/v78-12166-auth-method-unlink-runtime.mjs
-
-      - name: OAuth identity ownership regression
-        shell: bash
-        run: |
-          set -euo pipefail
           node tests/v78-12165-oauth-identity-ownership-adversarial.mjs
           node --no-warnings tests/v78-12165-oauth-identity-ownership-runtime.mjs
-
-      - name: OAuth redirect navigation regression
-        shell: bash
-        run: |
-          set -euo pipefail
           node tests/v78-12164-oauth-redirect-hardening-adversarial.mjs
           node --no-warnings tests/v78-12164-oauth-navigation-runtime.mjs
-
-      - name: Public origin regression
-        shell: bash
-        run: |
-          set -euo pipefail
           node tests/v78-12163-public-origin-fail-closed-adversarial.mjs
           node --no-warnings tests/v78-12163-public-origin-runtime.mjs
+          node tests/v78-12162-password-reset-email-delivery-adversarial.mjs
+          node --no-warnings tests/v78-12162-password-reset-email-runtime.mjs
 
-      - name: Password reset delivery regression
+      - name: Password and reporting regressions 12161-12157
         shell: bash
         run: |
           set -euo pipefail
-          node tests/v78-12162-password-reset-email-delivery-adversarial.mjs
-          node --no-warnings tests/v78-12162-password-reset-email-runtime.mjs
+          node tests/v78-12161-password-reset-issuance-hardening-adversarial.mjs
+          node --no-warnings tests/v78-12161-password-reset-issuance-runtime.mjs
+          node tests/v78-12160-password-reset-resource-hardening-adversarial.mjs
+          node --no-warnings tests/v78-12160-password-reset-resource-runtime.mjs
+          node tests/v78-12159-password-reset-single-consumption-adversarial.mjs
+          node --no-warnings tests/v78-12159-password-reset-runtime.mjs
+          node tests/v78-12158-webhook-purge-claim-hardening-adversarial.mjs
+          node --no-warnings tests/v78-12158-webhook-purge-claim-runtime.mjs
+          node tests/v78-12157-authorization-reporting-concurrency-adversarial.mjs
+          node --no-warnings tests/v78-12157-reporting-auth-runtime.mjs
+
+      - name: Concurrency and purge regressions 12156-12152
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/v78-12156-concurrency-transition-hardening-adversarial.mjs
+          node tests/v78-12156-business-event-claim-runtime.mjs
+          node tests/v78-12155-replay-resource-hardening-adversarial.mjs
+          node tests/v78-12152-tenant-lifecycle-purge-performance-adversarial.mjs
+          node --no-warnings tests/v78-12152-tenant-deletion-purge-runtime.mjs
+
+      - name: Deployment and CSP regressions 12151-12147
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/v78-12151-accessible-dialog-external-io-payment-hardening-adversarial.mjs
+          node tests/v78-12150-resilience-backup-rate-limit-adversarial.mjs
+          node tests/v78-12149-deployment-preview-csp-adversarial.mjs
+          node tests/v78-12149-auth-input-runtime.mjs
+          node tests/v78-12148-feature-security-csp-route-hardening-adversarial.mjs
+          node tests/v78-12147-csp-nonce-runtime.mjs
+          node tests/v78-12147-launch-readiness-runtime.mjs
+          node tests/v78-12147-feature-security-adversarial.mjs
+          node tests/v78-12147-protected-surface-runtime.mjs
+          node tests/v78-12147-production-hardening-adversarial.mjs
+
+      - name: Launch metadata and control regressions 12146-12145
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/v78-12146-launch-metadata-coherence-adversarial.mjs
+          node tests/v78-12146-launch-readiness-runtime.mjs
+          node tests/v78-12145-control-replacement-governance-adversarial.mjs
+          node tests/v78-12145-control-replacement-governance-runtime.mjs
+          node tests/v78-12146-ui-runtime-wiring-adversarial.mjs
 
       - name: Full historical release regressions
         shell: bash
