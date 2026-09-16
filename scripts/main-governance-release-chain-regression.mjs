@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { isAbsolute } from 'node:path';
 
 const bf07 = readFileSync('.github/workflows/bf07-seal.yml', 'utf8');
 const deploy = readFileSync('.github/workflows/deploy-production.yml', 'utf8');
+const renderer = readFileSync('cloudflare/render-production-config.sh', 'utf8');
 
 function qualifiedGovernanceRun(runs, sha) {
   const exact = runs.filter(run =>
@@ -121,6 +124,7 @@ const beforeMutation = deploy.slice(0, deployMutation);
 const mutationSegment = deploy.slice(deployMutation, deployVerify);
 assert.ok(!beforeMutation.includes('thebe-worker-secrets.json'), 'real runtime secret file must not exist before the final mutation step');
 assert.ok(beforeMutation.includes('thebe-worker-secrets-dry-run.json'), 'dry-run must use a placeholder-only secret file');
+assert.ok(beforeMutation.includes('PROD_CONFIG="$RUNNER_TEMP/thebe-wrangler-production.toml"'), 'rendered production config must remain outside the candidate workspace');
 assert.ok(!deploy.includes('- name: Build ephemeral runtime secrets file'), 'real runtime secrets must not be materialized in a standalone pre-deploy step');
 assert.ok(!deploy.includes('node scripts/cloudflare-auth-diagnostic.mjs'), 'Cloudflare token must not be exposed to a repository-controlled diagnostic script');
 assert.ok(mutationSegment.includes('thebe-worker-secrets.json'), 'final mutation step must materialize the runtime secret file locally');
@@ -136,5 +140,36 @@ assert.ok(!readinessSegment.includes('GOOGLE_OAUTH_CLIENT_SECRET'), 'post-deploy
 assert.ok(!readinessSegment.includes('FACEBOOK_APP_SECRET'), 'post-deploy readiness must use non-secret OAuth enablement state');
 assert.ok(readinessSegment.includes('steps.deploy_mutation.outputs.google_enabled'), 'Google readiness must bind to validated non-secret mutation output');
 assert.ok(readinessSegment.includes('steps.deploy_mutation.outputs.facebook_enabled'), 'Facebook readiness must bind to validated non-secret mutation output');
+
+const rendered = execFileSync('sh', ['cloudflare/render-production-config.sh', 'cloudflare/wrangler.toml'], {
+  encoding: 'utf8',
+  env: {
+    ...process.env,
+    D1_DATABASE_ID: '11111111-2222-3333-4444-555555555555',
+    PAYMENT_PROVIDER_OVERRIDE: 'none',
+    PUBLIC_APP_URL: 'https://thebedesk.com',
+    PUBLIC_ORIGIN: 'https://thebedesk.com',
+    TURNSTILE_SITE_KEY: 'test-turnstile-site-key',
+    PLATFORM_ADMIN_EMAILS: 'admin@example.org',
+    PLATFORM_REGULATORY_REVIEWERS: 'reviewer@example.org',
+    EVIDENCE_SCAN_API_URL: '',
+    GOOGLE_OAUTH_CLIENT_ID: '',
+    GOOGLE_OAUTH_CLIENT_SECRET: '',
+    GOOGLE_OAUTH_REDIRECT_URI: 'https://thebedesk.com/api/auth/oauth/google/callback',
+    FACEBOOK_APP_ID: '',
+    FACEBOOK_APP_SECRET: '',
+    FACEBOOK_OAUTH_REDIRECT_URI: 'https://thebedesk.com/api/auth/oauth/facebook/callback',
+    EMAIL_FROM: ''
+  }
+});
+const renderedMain = rendered.match(/^main\s*=\s*"([^"]+)"\s*$/m)?.[1];
+const renderedAssets = rendered.match(/^directory\s*=\s*"([^"]+)"\s*$/m)?.[1];
+assert.ok(renderedMain && isAbsolute(renderedMain), 'runner-temp Wrangler config must receive an absolute Worker entrypoint');
+assert.ok(renderedAssets && isAbsolute(renderedAssets), 'runner-temp Wrangler config must receive an absolute assets directory');
+assert.ok(existsSync(renderedMain), `rendered absolute Worker entrypoint must exist: ${renderedMain}`);
+assert.ok(existsSync(renderedAssets), `rendered absolute assets directory must exist: ${renderedAssets}`);
+assert.ok(renderedMain.endsWith('/cloudflare/src/release-governance-entry.js'), 'rendered Worker entrypoint must remain the canonical release-governance entry');
+assert.ok(renderer.includes('MAIN_ENTRY="$TEMPLATE_DIR/src/release-governance-entry.js"'), 'renderer must bind the canonical Worker entrypoint to the template directory');
+assert.ok(renderer.includes('ASSETS_DIRECTORY=$(CDPATH= cd -- "$TEMPLATE_DIR/../public" && pwd)'), 'renderer must bind public assets to the template-relative canonical directory');
 
 console.log('Main governance release-chain regression: PASS');
