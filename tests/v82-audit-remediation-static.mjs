@@ -43,8 +43,9 @@ assert.match(production,/verifyRegistrationProof\(request,env,body\?\.turnstileT
 assert.match(directRegistration,/\/api\/auth\/registration-proof\/challenge/,'direct registration client must request first-party proof');
 assert.match(directRegistration,/honeypot:/,'direct registration proof must preserve honeypot');
 
-assert.match(oauthUi,/oauth-google-disabled/,'Google controls must fail closed');
-assert.match(oauthUi,/oauth-facebook-disabled/,'Facebook controls must fail closed');
+assert.match(oauthUi,/`oauth-\$\{provider\}-disabled`/,'OAuth provider controls must expose a generic fail-closed disabled state');
+assert.match(oauthUi,/setProvider\("google",false\)/,'Google controls must fail closed before availability is proven');
+assert.match(oauthUi,/setProvider\("facebook",false\)/,'Facebook controls must fail closed before availability is proven');
 assert.match(oauthUi,/\/api\/auth\/oauth\/providers/,'OAuth UI must bind to server availability');
 assert.match(oauthUi,/\/api\/auth\/registration-policy/,'public registration UI must bind to server activation policy');
 assert.match(oauthUi,/element\.hidden=true/,'availability controls must use CSP-safe hidden state');
