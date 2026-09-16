@@ -77,7 +77,13 @@ const requiredDeployFragments = [
   '- name: Prepare pinned Wrangler CLI outside candidate workspace',
   '- name: Render, preflight and dry-run Cloudflare production candidate without real secrets',
   'refusing stale deployment at secret-bearing mutation boundary',
-  'main advanced after runtime secret preparation; refusing deploy'
+  'main advanced after runtime secret preparation; refusing deploy',
+  "probe_json 'token verification'",
+  "probe_json 'Worker service metadata'",
+  "probe_json 'D1 binding'",
+  "probe_json 'R2 binding'",
+  "probe_json 'Workers AI binding'",
+  "probe_json 'Workers custom-domain visibility'"
 ];
 for (const fragment of requiredDeployFragments) {
   assert.ok(deploy.includes(fragment), `deployment lost governance invariant: ${fragment}`);
@@ -99,7 +105,6 @@ const jobPreamble = deploy.slice(jobsIndex, firstStepsIndex);
 assert.ok(!jobPreamble.includes('${{ secrets.'), 'production secrets must never be exported at job scope');
 
 const secretAllowedSteps = new Set([
-  'Validate production environment inputs',
   'Diagnose Cloudflare authorization boundary',
   'Deploy exact candidate to Cloudflare'
 ]);
@@ -124,11 +129,12 @@ assert.ok(mutationSegment.includes('$RUNNER_TEMP/wrangler-cli/node_modules/wrang
 assert.ok(!mutationSegment.includes('npx '), 'secret-bearing mutation step must not resolve or install npm packages');
 assert.ok(!mutationSegment.includes('sh cloudflare/'), 'secret-bearing mutation step must not execute repository-controlled shell helpers');
 assert.ok(mutationSegment.includes("grep -Eq '^[[:space:]]*\\[build\\]|^[[:space:]]*command[[:space:]]*='"), 'secret-bearing mutation must reject candidate-controlled Wrangler build commands');
+assert.ok(mutationSegment.includes('id: deploy_mutation') || deploy.slice(deployMutation - 120, deployMutation).includes('id: deploy_mutation'), 'secret-bearing mutation step must publish only non-secret enablement outputs');
 
 const readinessSegment = deploy.slice(deployVerify);
 assert.ok(!readinessSegment.includes('GOOGLE_OAUTH_CLIENT_SECRET'), 'post-deploy readiness must use non-secret OAuth enablement state');
 assert.ok(!readinessSegment.includes('FACEBOOK_APP_SECRET'), 'post-deploy readiness must use non-secret OAuth enablement state');
-assert.ok(readinessSegment.includes('steps.production_env.outputs.google_enabled'), 'Google readiness must bind to validated non-secret enablement output');
-assert.ok(readinessSegment.includes('steps.production_env.outputs.facebook_enabled'), 'Facebook readiness must bind to validated non-secret enablement output');
+assert.ok(readinessSegment.includes('steps.deploy_mutation.outputs.google_enabled'), 'Google readiness must bind to validated non-secret mutation output');
+assert.ok(readinessSegment.includes('steps.deploy_mutation.outputs.facebook_enabled'), 'Facebook readiness must bind to validated non-secret mutation output');
 
 console.log('Main governance release-chain regression: PASS');
