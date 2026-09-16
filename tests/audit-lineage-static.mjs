@@ -10,6 +10,8 @@ const checks=[
  ["lineage sequence unique",s.includes("control_lineage_snapshot_seq_unique")],
  ["correct actor column",w.includes("actor_user_id,event_type")&&!w.includes("INSERT INTO audit_events(tenant_id,user_id")],
  ["no silent audit catch",!w.includes("async function auditEvent(env,tenantId,userId,eventType,eventData={}){\\n  try{")],
+ ["audit writer throws after terminal failure",w.includes('throw new Error("audit_write_failed")')&&!w.includes('return {ok:false,error:"audit_write_failed"}')],
+ ["daily report audit failure is not swallowed",!/appendAuditEvent\(env,\{tenantId:access\.tenant_id[\s\S]{0,500}\}\)\.catch\(\(\)=>\{\}\)/.test(w)],
  ["server audit hmac chain",w.includes("appendAuditEvent")&&w.includes("AUDIT_INTEGRITY_SECRET")&&w.includes("hmacHex(integritySecret")],
  ["chunked audit verify",w.includes("LIMIT 500")&&w.includes("afterSeq")],
  ["audit verify",w.includes("verifyAuditChain")],

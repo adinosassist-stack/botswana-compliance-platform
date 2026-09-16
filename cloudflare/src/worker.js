@@ -715,7 +715,7 @@ async function appendAuditEvent(env,{tenantId,actorUserId=null,eventType,entityT
           await env.DB.prepare("INSERT INTO audit_write_failures(id,tenant_id,actor_user_id,event_type,error_message,event_data) VALUES(?,?,?,?,?,?)")
             .bind(id(),tenantId,actorUserId,eventType,String(e).slice(0,500),stableJson(eventData||{})).run();
         }catch{}
-        return {ok:false,error:"audit_write_failed"};
+        throw new Error("audit_write_failed");
       }
       await new Promise(r=>setTimeout(r,5*(attempt+1)));
     }
@@ -5178,7 +5178,7 @@ export default {
         reportId=inserted.id;revision=Number(inserted.revision_count||0);created=true;
       }
       await env.DB.prepare("UPDATE employee_reporting_access SET last_used_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=?").bind(access.access_id,access.tenant_id).run();
-      if(created||changed)await appendAuditEvent(env,{tenantId:access.tenant_id,actorUserId:null,eventType:created?"DAILY_REPORT_SUBMITTED":"DAILY_REPORT_UPDATED",entityType:"employee",entityId:access.employee_id,eventData:{reportId,reportDate,locationId:access.location_id,revision}}).catch(()=>{});
+      if(created||changed)await appendAuditEvent(env,{tenantId:access.tenant_id,actorUserId:null,eventType:created?"DAILY_REPORT_SUBMITTED":"DAILY_REPORT_UPDATED",entityType:"employee",entityId:access.employee_id,eventData:{reportId,reportDate,locationId:access.location_id,revision}});
       return json({ok:true,reportId,reportDate,revision,submittedAt:new Date().toISOString(),message:created?"Daily report submitted.":"Report updated."},created?201:200,PASSPORT_PUBLIC_HEADERS);
     }
 

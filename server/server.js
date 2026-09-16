@@ -94,7 +94,7 @@ function safeExternalServiceUrl(value){
   try{const u=new URL(String(value||"").trim());if(u.protocol!=="https:"||u.username||u.password||u.origin==="null"||unsafeServiceHostname(u.hostname))return null;u.hash="";return u;}catch{return null}
 }
 const APP_VERSION="1.21.101";
-const EXPECTED_NODE_MIGRATION="031_v78_durable_auth_rate_limit.sql";
+const EXPECTED_NODE_MIGRATION="032_v82_workspace_version_numeric_contract.sql";
 const metrics={startedAt:Date.now(),requests:0,errors:0,authFailures:0,uploadsAuthorized:0,scanJobs:0,scanClean:0,scanInfected:0,subscriptionBlocks:0};
 const { Pool }=pg;const scrypt=promisify(crypto.scrypt);const pool=new Pool({connectionString:config.DATABASE_URL,max:10,idleTimeoutMillis:30000,connectionTimeoutMillis:5000,statement_timeout:15000});
 const app=express();const __dirname=path.dirname(fileURLToPath(import.meta.url));const publicDir=path.resolve(__dirname,"../public");const isProd=config.APP_ENV==="production";
