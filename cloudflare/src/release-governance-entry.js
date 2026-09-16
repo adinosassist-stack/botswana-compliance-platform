@@ -3,6 +3,7 @@ import releaseMetadata from "../../release/production.json" with {type:"json"};
 
 const VALID_REGISTRATION_MODES=new Set(["hold","cohort","open"]);
 const OAUTH_VISIBILITY_SCRIPT="/js/oauth-availability.js?v=20260916a";
+const SYNTHETIC_EMAIL_RE=/^synthetic\.lifecycle\.\d+\.\d+\.[0-9a-f]{12}@example\.invalid$/;
 
 function json(data,status=200,headers={}){
   return new Response(JSON.stringify(data),{status,headers:{
@@ -63,15 +64,41 @@ function releaseProvenance(env){
   };
 }
 
+function timingSafeText(left,right){
+  const a=String(left||""),b=String(right||"");
+  if(a.length!==b.length)return false;
+  let diff=0;
+  for(let i=0;i<a.length;i++)diff|=a.charCodeAt(i)^b.charCodeAt(i);
+  return diff===0;
+}
+
+async function hmacHex(secret,value){
+  const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
+  const signature=await crypto.subtle.sign("HMAC",key,new TextEncoder().encode(value));
+  return [...new Uint8Array(signature)].map(byte=>byte.toString(16).padStart(2,"0")).join("");
+}
+
+async function signedSyntheticRegistrationAllowed(request,env,email){
+  if(!SYNTHETIC_EMAIL_RE.test(email))return false;
+  const secret=String(env?.AUDIT_INTEGRITY_SECRET||"");
+  if(secret.length<32)return false;
+  const supplied=String(request.headers.get("x-thebe-registration-audit")||"").trim().toLowerCase();
+  if(!/^[0-9a-f]{64}$/.test(supplied))return false;
+  const expected=await hmacHex(secret,`registration-override:${email}`);
+  return timingSafeText(supplied,expected);
+}
+
 async function registrationGate(request,env){
   const mode=registrationMode(env);
   if(mode==="invalid")return json({error:"registration_policy_invalid",message:"Registration is unavailable while the activation policy is being repaired."},503,{"retry-after":"300"});
-  if(mode==="hold")return json({error:"registration_on_hold",message:"New customer activation is temporarily on hold while launch verification is completed.",registrationMode:mode},503,{"retry-after":"300"});
   if(mode==="open")return null;
 
   let body={};
   try{body=await request.clone().json()}catch{}
   const email=String(body?.email||"").trim().toLowerCase();
+  if(await signedSyntheticRegistrationAllowed(request,env,email))return null;
+
+  if(mode==="hold")return json({error:"registration_on_hold",message:"New customer activation is temporarily on hold while launch verification is completed.",registrationMode:mode},503,{"retry-after":"300"});
   const cohort=registrationCohort(env);
   if(email&&cohort.has(email))return null;
   return json({error:"registration_not_in_cohort",message:"Registration is currently limited to the approved launch cohort.",registrationMode:mode},403);
@@ -153,5 +180,6 @@ export {
   registrationCohort,
   registrationGate,
   registrationMode,
-  releaseProvenance
+  releaseProvenance,
+  signedSyntheticRegistrationAllowed
 };
