@@ -34,8 +34,6 @@ jobs:
     env:
       TARGET_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.expected_sha }}
       CI: 'true'
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
       PUBLIC_APP_URL: https://thebedesk.com
       PUBLIC_ORIGIN: https://thebedesk.com
@@ -49,16 +47,6 @@ jobs:
       FACEBOOK_APP_ID: ${{ vars.FACEBOOK_APP_ID }}
       FACEBOOK_OAUTH_REDIRECT_URI: https://thebedesk.com/api/auth/oauth/facebook/callback
       EMAIL_FROM: ${{ vars.EMAIL_FROM }}
-      SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
-      AUDIT_INTEGRITY_SECRET: ${{ secrets.AUDIT_INTEGRITY_SECRET }}
-      OPERATIONS_SECRET: ${{ secrets.OPERATIONS_SECRET }}
-      AUTOMATION_SECRET: ${{ secrets.AUTOMATION_SECRET }}
-      TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
-      PAYMENT_WEBHOOK_SECRET: ${{ secrets.PAYMENT_WEBHOOK_SECRET }}
-      BILLING_WEBHOOK_SECRET: ${{ secrets.BILLING_WEBHOOK_SECRET }}
-      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
-      FACEBOOK_APP_SECRET: ${{ secrets.FACEBOOK_APP_SECRET }}
-      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
 
     steps:
       - name: Checkout exact candidate revision
@@ -203,6 +191,20 @@ jobs:
           npm audit --omit=dev --audit-level=high
 
       - name: Validate production environment inputs
+        id: production_env
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          AUDIT_INTEGRITY_SECRET: ${{ secrets.AUDIT_INTEGRITY_SECRET }}
+          OPERATIONS_SECRET: ${{ secrets.OPERATIONS_SECRET }}
+          AUTOMATION_SECRET: ${{ secrets.AUTOMATION_SECRET }}
+          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
+          PAYMENT_WEBHOOK_SECRET: ${{ secrets.PAYMENT_WEBHOOK_SECRET }}
+          BILLING_WEBHOOK_SECRET: ${{ secrets.BILLING_WEBHOOK_SECRET }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          FACEBOOK_APP_SECRET: ${{ secrets.FACEBOOK_APP_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
         shell: bash
         run: |
           set -euo pipefail
@@ -219,27 +221,163 @@ jobs:
           [[ "$D1_DATABASE_ID" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]] || { echo 'D1_DATABASE_ID must be a provisioned D1 UUID' >&2; exit 1; }
           [[ "$GOOGLE_OAUTH_REDIRECT_URI" == 'https://thebedesk.com/api/auth/oauth/google/callback' ]] || { echo 'GOOGLE_OAUTH_REDIRECT_URI must use the exact production callback' >&2; exit 1; }
           [[ "$FACEBOOK_OAUTH_REDIRECT_URI" == 'https://thebedesk.com/api/auth/oauth/facebook/callback' ]] || { echo 'FACEBOOK_OAUTH_REDIRECT_URI must use the exact production callback' >&2; exit 1; }
+
+          google_enabled=false
+          facebook_enabled=false
+          email_enabled=false
           if [[ -n "${GOOGLE_OAUTH_CLIENT_ID:-}" || -n "${GOOGLE_OAUTH_CLIENT_SECRET:-}" ]]; then
             [[ -n "${GOOGLE_OAUTH_CLIENT_ID:-}" && -n "${GOOGLE_OAUTH_CLIENT_SECRET:-}" ]] || { echo 'Google OAuth must be configured with both client ID and client secret, or deferred completely' >&2; exit 1; }
+            google_enabled=true
           fi
           if [[ -n "${FACEBOOK_APP_ID:-}" || -n "${FACEBOOK_APP_SECRET:-}" ]]; then
             [[ -n "${FACEBOOK_APP_ID:-}" && -n "${FACEBOOK_APP_SECRET:-}" ]] || { echo 'Facebook OAuth must be configured with both app ID and app secret, or deferred completely' >&2; exit 1; }
+            facebook_enabled=true
           fi
           if [[ -n "${EMAIL_FROM:-}" || -n "${RESEND_API_KEY:-}" ]]; then
             [[ -n "${EMAIL_FROM:-}" && -n "${RESEND_API_KEY:-}" ]] || { echo 'Transactional email must be configured with both EMAIL_FROM and RESEND_API_KEY, or deferred completely' >&2; exit 1; }
+            email_enabled=true
           fi
+          printf 'google_enabled=%s\nfacebook_enabled=%s\nemail_enabled=%s\n' "$google_enabled" "$facebook_enabled" "$email_enabled" >> "$GITHUB_OUTPUT"
 
       - name: Diagnose Cloudflare authorization boundary
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         shell: bash
         run: |
           set -euo pipefail
-          node scripts/cloudflare-auth-diagnostic.mjs
+          API='https://api.cloudflare.com/client/v4'
+          workers_json="$(curl --fail-with-body --silent --show-error \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            --header 'Content-Type: application/json' \
+            "$API/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts")"
+          printf '%s' "$workers_json" | python3 -c 'import json,sys; body=json.load(sys.stdin); body.get("success") is True or sys.exit("Cloudflare Workers authorization check failed")'
+          d1_json="$(curl --fail-with-body --silent --show-error \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            --header 'Content-Type: application/json' \
+            "$API/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$D1_DATABASE_ID")"
+          printf '%s' "$d1_json" | D1_DATABASE_ID="$D1_DATABASE_ID" python3 -c 'import json,os,sys; body=json.load(sys.stdin); result=body.get("result") or {}; (body.get("success") is True and result.get("uuid")==os.environ["D1_DATABASE_ID"]) or sys.exit("Cloudflare D1 authorization/database check failed")'
+          echo 'Cloudflare Workers and D1 authorization boundaries verified.'
 
-      - name: Build ephemeral runtime secrets file
+      - name: Prepare pinned Wrangler CLI outside candidate workspace
         shell: bash
         run: |
           set -euo pipefail
+          WRANGLER_ROOT="$RUNNER_TEMP/wrangler-cli"
+          NPM_HOME="$RUNNER_TEMP/npm-home"
+          rm -rf "$WRANGLER_ROOT" "$NPM_HOME"
+          mkdir -p "$WRANGLER_ROOT" "$NPM_HOME"
+          (
+            cd "$RUNNER_TEMP"
+            HOME="$NPM_HOME" \
+            NPM_CONFIG_USERCONFIG=/dev/null \
+            NPM_CONFIG_REGISTRY=https://registry.npmjs.org/ \
+            NPM_CONFIG_IGNORE_SCRIPTS=true \
+            npm install --prefix "$WRANGLER_ROOT" --no-audit --no-fund --no-save --package-lock=false wrangler@4.127.1
+          )
+          WRANGLER_JS="$WRANGLER_ROOT/node_modules/wrangler/bin/wrangler.js"
+          test -f "$WRANGLER_JS"
+          version="$(node "$WRANGLER_JS" --version)"
+          [[ "$version" == *'4.127.1'* ]] || { echo "unexpected Wrangler version: $version" >&2; exit 1; }
+
+      - name: Render, preflight and dry-run Cloudflare production candidate without real secrets
+        id: candidate_config
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROD_CONFIG="$RUNNER_TEMP/thebe-wrangler-production.toml"
+          DRYRUN_SECRETS="$RUNNER_TEMP/thebe-worker-secrets-dry-run.json"
+          WRANGLER_JS="$RUNNER_TEMP/wrangler-cli/node_modules/wrangler/bin/wrangler.js"
+          cleanup(){ rm -f "$DRYRUN_SECRETS"; }
+          trap cleanup EXIT
+
+          sh cloudflare/render-production-config.sh cloudflare/wrangler.toml > "$PROD_CONFIG"
+          chmod 600 "$PROD_CONFIG"
+          sh cloudflare/preflight-production.sh "$PROD_CONFIG"
+          if grep -Eq '^[[:space:]]*\[build\]|^[[:space:]]*command[[:space:]]*=' "$PROD_CONFIG"; then
+            echo 'Production Wrangler config must not contain candidate-controlled build commands.' >&2
+            exit 1
+          fi
+
+          node <<'NODE'
+          const fs = require('node:fs');
+          const names = [
+            'SESSION_SECRET','AUDIT_INTEGRITY_SECRET','OPERATIONS_SECRET','AUTOMATION_SECRET',
+            'TURNSTILE_SECRET_KEY','PAYMENT_WEBHOOK_SECRET','BILLING_WEBHOOK_SECRET',
+            'GOOGLE_OAUTH_CLIENT_SECRET','FACEBOOK_APP_SECRET','RESEND_API_KEY'
+          ];
+          const out = Object.fromEntries(names.map(name => [name, `dry-run-placeholder-${name.toLowerCase()}`]));
+          fs.writeFileSync(process.env.RUNNER_TEMP + '/thebe-worker-secrets-dry-run.json', JSON.stringify(out), {mode: 0o600});
+          NODE
+          test -s "$DRYRUN_SECRETS"
+          node "$WRANGLER_JS" deploy --dry-run --outdir "$RUNNER_TEMP/wrangler-dry-run" --secrets-file "$DRYRUN_SECRETS" --config "$PROD_CONFIG"
+          config_sha256="$(sha256sum "$PROD_CONFIG" | awk '{print $1}')"
+          [[ "$config_sha256" =~ ^[0-9a-f]{64}$ ]] || { echo 'invalid rendered production config digest' >&2; exit 1; }
+          printf 'config_sha256=%s\n' "$config_sha256" >> "$GITHUB_OUTPUT"
+          cleanup
+          trap - EXIT
+
+      - name: Reconfirm exact current main at deployment boundary
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]] || { echo 'deployment checkout moved after qualification' >&2; exit 1; }
+          live_main_sha="$(
+            curl --fail-with-body --silent --show-error \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main" \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])'
+          )"
+          [[ "$live_main_sha" == "$TARGET_SHA" ]] || { echo "refusing stale deployment at mutation boundary: target=$TARGET_SHA current-main=$live_main_sha" >&2; exit 1; }
+          actual_config_sha256="$(sha256sum "$RUNNER_TEMP/thebe-wrangler-production.toml" | awk '{print $1}')"
+          [[ "$actual_config_sha256" == '${{ steps.candidate_config.outputs.config_sha256 }}' ]] || { echo 'rendered production config changed after dry-run qualification' >&2; exit 1; }
+
+      - name: Deploy exact candidate to Cloudflare
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          AUDIT_INTEGRITY_SECRET: ${{ secrets.AUDIT_INTEGRITY_SECRET }}
+          OPERATIONS_SECRET: ${{ secrets.OPERATIONS_SECRET }}
+          AUTOMATION_SECRET: ${{ secrets.AUTOMATION_SECRET }}
+          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
+          PAYMENT_WEBHOOK_SECRET: ${{ secrets.PAYMENT_WEBHOOK_SECRET }}
+          BILLING_WEBHOOK_SECRET: ${{ secrets.BILLING_WEBHOOK_SECRET }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          FACEBOOK_APP_SECRET: ${{ secrets.FACEBOOK_APP_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROD_CONFIG="$RUNNER_TEMP/thebe-wrangler-production.toml"
           SECRETS_FILE="$RUNNER_TEMP/thebe-worker-secrets.json"
+          WRANGLER_JS="$RUNNER_TEMP/wrangler-cli/node_modules/wrangler/bin/wrangler.js"
+          cleanup(){ rm -f "$SECRETS_FILE" "$PROD_CONFIG"; }
+          trap cleanup EXIT
+
+          test -f "$WRANGLER_JS"
+          actual_config_sha256="$(sha256sum "$PROD_CONFIG" | awk '{print $1}')"
+          [[ "$actual_config_sha256" == '${{ steps.candidate_config.outputs.config_sha256 }}' ]] || { echo 'rendered production config changed before mutation' >&2; exit 1; }
+          if grep -Eq '^[[:space:]]*\[build\]|^[[:space:]]*command[[:space:]]*=' "$PROD_CONFIG"; then
+            echo 'Refusing secret-bearing deploy with candidate-controlled build commands.' >&2
+            exit 1
+          fi
+
+          live_main_sha="$(
+            curl --fail-with-body --silent --show-error \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main" \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])'
+          )"
+          [[ "$live_main_sha" == "$TARGET_SHA" ]] || { echo "refusing stale deployment at secret-bearing mutation boundary: target=$TARGET_SHA current-main=$live_main_sha" >&2; exit 1; }
+
           node <<'NODE'
           const fs = require('node:fs');
           const coreNames = [
@@ -261,27 +399,6 @@ jobs:
           NODE
           test -s "$SECRETS_FILE"
 
-      - name: Render, preflight and dry-run Cloudflare production candidate
-        shell: bash
-        run: |
-          set -euo pipefail
-          PROD_CONFIG='cloudflare/.wrangler-production.ci.toml'
-          SECRETS_FILE="$RUNNER_TEMP/thebe-worker-secrets.json"
-          trap 'rm -f "$PROD_CONFIG"' EXIT
-          sh cloudflare/render-production-config.sh cloudflare/wrangler.toml > "$PROD_CONFIG"
-          chmod 600 "$PROD_CONFIG"
-          sh cloudflare/preflight-production.sh "$PROD_CONFIG"
-          npx --yes wrangler@4.127.1 deploy --dry-run --outdir "$RUNNER_TEMP/wrangler-dry-run" --secrets-file "$SECRETS_FILE" --config "$PROD_CONFIG"
-          rm -f "$PROD_CONFIG"
-          trap - EXIT
-
-      - name: Reconfirm exact current main at deployment boundary
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]] || { echo 'deployment checkout moved after qualification' >&2; exit 1; }
           live_main_sha="$(
             curl --fail-with-body --silent --show-error \
               --header 'Accept: application/vnd.github+json' \
@@ -290,24 +407,15 @@ jobs:
               "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main" \
             | python3 -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])'
           )"
-          [[ "$live_main_sha" == "$TARGET_SHA" ]] || { echo "refusing stale deployment at mutation boundary: target=$TARGET_SHA current-main=$live_main_sha" >&2; exit 1; }
-
-      - name: Deploy exact candidate to Cloudflare
-        shell: bash
-        run: |
-          set -euo pipefail
-          PROD_CONFIG='cloudflare/.wrangler-production.ci.toml'
-          SECRETS_FILE="$RUNNER_TEMP/thebe-worker-secrets.json"
-          cleanup(){ rm -f "$PROD_CONFIG" "$SECRETS_FILE"; }
-          trap cleanup EXIT
-          sh cloudflare/render-production-config.sh cloudflare/wrangler.toml > "$PROD_CONFIG"
-          chmod 600 "$PROD_CONFIG"
-          sh cloudflare/preflight-production.sh "$PROD_CONFIG"
-          npx --yes wrangler@4.127.1 deploy --secrets-file "$SECRETS_FILE" --config "$PROD_CONFIG"
+          [[ "$live_main_sha" == "$TARGET_SHA" ]] || { echo "main advanced after runtime secret preparation; refusing deploy target=$TARGET_SHA current-main=$live_main_sha" >&2; exit 1; }
+          node "$WRANGLER_JS" deploy --secrets-file "$SECRETS_FILE" --config "$PROD_CONFIG"
           cleanup
           trap - EXIT
 
       - name: Verify live production readiness
+        env:
+          GOOGLE_ENABLED: ${{ steps.production_env.outputs.google_enabled }}
+          FACEBOOK_ENABLED: ${{ steps.production_env.outputs.facebook_enabled }}
         shell: bash
         run: |
           set -euo pipefail
@@ -338,23 +446,18 @@ jobs:
             return 1
           }
 
-          # Cloudflare custom-domain activation can briefly return edge 503s immediately
-          # after a successful Worker deployment. Wait boundedly for the edge to settle,
-          # then enforce the application-level readiness contract without weakening it.
           live="$(wait_for_200_json 'api/live' 'https://thebedesk.com/api/live' 36 GET)"
           ready="$(wait_for_200_json 'api/ready' 'https://thebedesk.com/api/ready' 18 GET)"
           proof="$(wait_for_200_json 'registration-proof' 'https://thebedesk.com/api/auth/registration-proof/challenge' 12 POST)"
 
-          google_enabled=false
-          facebook_enabled=false
+          google_enabled="${GOOGLE_ENABLED:-false}"
+          facebook_enabled="${FACEBOOK_ENABLED:-false}"
           google_location=""
           facebook_location=""
-          if [[ -n "${GOOGLE_OAUTH_CLIENT_ID:-}" && -n "${GOOGLE_OAUTH_CLIENT_SECRET:-}" ]]; then
-            google_enabled=true
+          if [[ "$google_enabled" == 'true' ]]; then
             google_location="$(curl --fail-with-body --silent --show-error --retry 5 --retry-all-errors --max-time 20 --output /dev/null --write-out '%{redirect_url}' 'https://thebedesk.com/api/auth/oauth/google/start')"
           fi
-          if [[ -n "${FACEBOOK_APP_ID:-}" && -n "${FACEBOOK_APP_SECRET:-}" ]]; then
-            facebook_enabled=true
+          if [[ "$facebook_enabled" == 'true' ]]; then
             facebook_location="$(curl --fail-with-body --silent --show-error --retry 5 --retry-all-errors --max-time 20 --output /dev/null --write-out '%{redirect_url}' 'https://thebedesk.com/api/auth/oauth/facebook/start')"
           fi
           LIVE_JSON="$live" READY_JSON="$ready" PROOF_JSON="$proof" GOOGLE_ENABLED="$google_enabled" FACEBOOK_ENABLED="$facebook_enabled" GOOGLE_LOCATION="$google_location" FACEBOOK_LOCATION="$facebook_location" node <<'NODE'
