@@ -61,7 +61,16 @@ jobs:
           fi
           [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]] || { echo 'checkout HEAD does not match GITHUB_SHA' >&2; exit 1; }
           main_sha="$(git rev-parse refs/remotes/origin/main)"
-          [[ "$main_sha" == "$GITHUB_SHA" ]] || { echo "release SHA is not exact current main: release=$GITHUB_SHA main=$main_sha" >&2; exit 1; }
+          [[ "$main_sha" == "$GITHUB_SHA" ]] || { echo "release SHA is not checkout current main: release=$GITHUB_SHA main=$main_sha" >&2; exit 1; }
+          live_main_sha="$(
+            curl --fail-with-body --silent --show-error \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main" \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])'
+          )"
+          [[ "$live_main_sha" == "$GITHUB_SHA" ]] || { echo "release SHA is stale/non-main at BF-07 qualification boundary: release=$GITHUB_SHA current-main=$live_main_sha" >&2; exit 1; }
           [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo 'checkout is not clean before BF-07 resolution' >&2; exit 1; }
 
           release_sha="$GITHUB_SHA"
@@ -115,6 +124,40 @@ jobs:
               "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/commits/$release_sha"
           )"
           printf '%s' "$release_commit_json" | RELEASE_SHA="$release_sha" python3 -c 'import json,os,sys; commit=json.load(sys.stdin); sha=os.environ["RELEASE_SHA"]; verification=commit.get("commit",{}).get("verification",{}); (commit.get("sha")==sha and verification.get("verified") is True and verification.get("reason")=="valid") or sys.exit("release merge commit is not GitHub-verified with a valid signature"); print("Release merge signature verified by GitHub")'
+
+          governance_confirmed=0
+          for attempt in $(seq 1 37); do
+            governance_json="$(
+              curl --fail-with-body --silent --show-error \
+                --header 'Accept: application/vnd.github+json' \
+                --header "Authorization: Bearer $GH_TOKEN" \
+                --header 'X-GitHub-Api-Version: 2022-11-28' \
+                "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/main-governance-guard.yml/runs?branch=main&per_page=100"
+            )"
+            governance_state="$(printf '%s' "$governance_json" | RELEASE_SHA="$release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["RELEASE_SHA"]; runs=[r for r in body.get("workflow_runs",[]) if r.get("head_sha")==sha and r.get("head_branch")=="main" and r.get("event")=="push"]; success=next((r for r in runs if r.get("status")=="completed" and r.get("conclusion")=="success"),None); failed=next((r for r in runs if r.get("status")=="completed" and r.get("conclusion") and r.get("conclusion")!="success"),None); print("success:"+str(success.get("id")) if success else ("failure:"+str(failed.get("conclusion"))+":"+str(failed.get("id")) if failed else "pending"))')"
+            case "$governance_state" in
+              success:*)
+                echo "Main Governance Guard exact-SHA provenance confirmed: run ${governance_state#success:}"
+                governance_confirmed=1
+                break
+                ;;
+              failure:*)
+                echo "Main Governance Guard failed closed for exact release SHA: ${governance_state#failure:}" >&2
+                exit 1
+                ;;
+              pending)
+                if (( attempt < 37 )); then
+                  echo "Main Governance Guard for exact SHA ${release_sha:0:12} is not complete yet; bounded wait $attempt/36"
+                  sleep 10
+                fi
+                ;;
+              *)
+                echo "unexpected Main Governance Guard resolution state: $governance_state" >&2
+                exit 1
+                ;;
+            esac
+          done
+          [[ "$governance_confirmed" == '1' ]] || { echo 'release merge has no successful completed push-event Main Governance Guard run on main after bounded wait' >&2; exit 1; }
 
           recovery_json=''
           recovery_confirmed=0
@@ -252,6 +295,23 @@ jobs:
           set -euo pipefail
           chmod 0755 scripts/resolve-bf07.sh
           ./scripts/resolve-bf07.sh
+
+      - name: Reconfirm exact current main at seal boundary
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]] || { echo 'BF-07 checkout moved before seal publication' >&2; exit 1; }
+          live_main_sha="$(
+            curl --fail-with-body --silent --show-error \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main" \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])'
+          )"
+          [[ "$live_main_sha" == "$GITHUB_SHA" ]] || { echo "refusing to publish stale BF-07 seal: sealed=$GITHUB_SHA current-main=$live_main_sha" >&2; exit 1; }
 
       - name: Upload sealed artifact and BF-07 evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
