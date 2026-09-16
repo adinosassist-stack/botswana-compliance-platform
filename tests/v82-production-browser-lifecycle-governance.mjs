@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {spawnSync} from 'node:child_process';
 
+const holdWrapper=fs.readFileSync('scripts/production-synthetic-hold-wrapper.mjs','utf8');
 const wrapper=fs.readFileSync('scripts/production-synthetic-browser-wrapper.mjs','utf8');
 const lifecycle=fs.readFileSync('scripts/production-synthetic-lifecycle.mjs','utf8');
 const interruptionRecovery=fs.readFileSync('scripts/production-synthetic-interruption-recovery.mjs','utf8');
@@ -14,6 +15,14 @@ const recovery=fs.readFileSync('.github/workflows/recovery-ci.yml','utf8');
 function must(source,pattern,label){if(!pattern.test(source))throw new Error(`FAIL ${label}`);console.log(`PASS ${label}`)}
 function mustNot(source,pattern,label){if(pattern.test(source))throw new Error(`FAIL ${label}`);console.log(`PASS ${label}`)}
 function syntax(path,label){const r=spawnSync(process.execPath,['--check',path],{encoding:'utf8'});if(r.status!==0)throw new Error(`FAIL ${label}: ${r.stderr||r.stdout}`);console.log(`PASS ${label}`)}
+
+syntax('scripts/production-synthetic-hold-wrapper.mjs','signed HOLD wrapper parses');
+must(holdWrapper,/AUDIT_INTEGRITY_SECRET/,'signed HOLD wrapper requires audit integrity authority');
+must(holdWrapper,/SYNTHETIC_EMAIL_RE=/,'signed HOLD wrapper is restricted to the synthetic lifecycle identity');
+must(holdWrapper,/createHmac\('sha256',auditSecret\)/,'signed HOLD wrapper authenticates the exact synthetic registration');
+must(holdWrapper,/x-thebe-registration-audit/,'signed HOLD wrapper uses the dedicated audit-only registration header');
+must(holdWrapper,/await import\('\.\/production-synthetic-browser-wrapper\.mjs'\)/,'signed HOLD wrapper delegates to browser-backed lifecycle proof');
+mustNot(holdWrapper,/DELETE FROM|deletion_tombstones|Cloudflare API/,'signed HOLD wrapper cannot perform destructive cleanup directly');
 
 must(wrapper,/await import\('\.\/production-synthetic-lifecycle\.mjs'\)/,'browser proof delegates canonical mutation and cleanup authority');
 mustNot(wrapper,/globalThis\.fetch\s*=/,'browser wrapper does not intercept canonical lifecycle fetch or cleanup control');
@@ -112,16 +121,16 @@ must(components,/status:408/,'billing budget returns a bounded non-success respo
 
 must(launch,/playwright-core@1\.55\.0/,'production launch audit pins the browser driver');
 must(launch,/node scripts\/production-synthetic-interruption-recovery\.mjs/,'production launch audit recovers strictly bounded interrupted synthetic residue before creating another account');
-must(launch,/node scripts\/production-synthetic-browser-wrapper\.mjs/,'production launch audit runs browser wrapper');
+must(launch,/node scripts\/production-synthetic-hold-wrapper\.mjs/,'production launch audit runs signed HOLD lifecycle wrapper');
 must(launch,/\[synthetic-lifecycle\]/,'browser lifecycle stays behind the explicit production marker');
 must(launch,/node scripts\/production-zero-orphan-audit\.mjs/,'permanent zero-orphan audit remains in the production chain');
 const workflowRecoveryIndex=launch.indexOf('node scripts/production-synthetic-interruption-recovery.mjs');
-const workflowBrowserIndex=launch.indexOf('node scripts/production-synthetic-browser-wrapper.mjs');
+const workflowBrowserIndex=launch.indexOf('node scripts/production-synthetic-hold-wrapper.mjs');
 const orphanIndex=launch.indexOf('node scripts/production-zero-orphan-audit.mjs');
-if(workflowRecoveryIndex<0||workflowBrowserIndex<0||workflowRecoveryIndex>=workflowBrowserIndex)throw new Error('FAIL interrupted synthetic recovery must run before a new browser lifecycle');
-console.log('PASS interrupted synthetic recovery precedes new browser lifecycle');
-if(workflowBrowserIndex<0||orphanIndex<0||workflowBrowserIndex>=orphanIndex)throw new Error('FAIL zero-orphan audit must run after browser lifecycle cleanup');
-console.log('PASS zero-orphan audit follows browser lifecycle cleanup');
+if(workflowRecoveryIndex<0||workflowBrowserIndex<0||workflowRecoveryIndex>=workflowBrowserIndex)throw new Error('FAIL interrupted synthetic recovery must run before a new signed HOLD browser lifecycle');
+console.log('PASS interrupted synthetic recovery precedes signed HOLD browser lifecycle');
+if(workflowBrowserIndex<0||orphanIndex<0||workflowBrowserIndex>=orphanIndex)throw new Error('FAIL zero-orphan audit must run after signed HOLD browser lifecycle cleanup');
+console.log('PASS zero-orphan audit follows signed HOLD browser lifecycle cleanup');
 
 must(recovery,/node --check scripts\/production-synthetic-browser-wrapper\.mjs/,'Recovery CI syntax-checks the browser wrapper');
 must(recovery,/node tests\/v82-production-browser-lifecycle-governance\.mjs/,'Recovery CI enforces browser lifecycle governance');

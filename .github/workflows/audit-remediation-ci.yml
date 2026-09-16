@@ -1,0 +1,195 @@
+name: Audit remediation CI
+run-name: Audit remediation CI ${{ github.event.pull_request.head.sha }}
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: audit-remediation-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  controls:
+    name: Audit remediation controls
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Checkout exact PR head revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Prove exact PR head checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'pull request head must be a full lowercase SHA' >&2; exit 1; }
+          actual="$(git rev-parse HEAD)"
+          [[ "$actual" == "$EXPECTED_HEAD_SHA" ]] || { echo "PR head checkout mismatch expected=$EXPECTED_HEAD_SHA actual=$actual" >&2; exit 1; }
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo 'exact PR head checkout is not clean' >&2; exit 1; }
+          echo "Exact PR head confirmed: $actual"
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+
+      - name: Install exact dependencies
+        shell: bash
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Remediation syntax and focused governance
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check cloudflare/src/release-governance-entry.js
+          node --check public/js/oauth-availability.js
+          node --check scripts/production-mobile-postdeploy-smoke.mjs
+          node --check scripts/production-synthetic-hold-wrapper.mjs
+          node --check tests/v82-audit-remediation-static.mjs
+          node tests/v82-audit-remediation-static.mjs
+          node tests/v82-phase0-launch-audit-deferred-integrations.mjs
+
+      - name: Signed HOLD browser lifecycle governance
+        shell: bash
+        run: node tests/v82-production-browser-lifecycle-governance.mjs
+
+      - name: Synthetic proof and cleanup contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/production-synthetic-lifecycle.mjs
+          node --check scripts/production-synthetic-browser-wrapper.mjs
+          node --check scripts/production-legacy-orphan-cleanup.mjs
+          node --check scripts/production-zero-orphan-audit.mjs
+          node tests/v82-production-synthetic-proof-contract.mjs
+          node tests/v82-legacy-orphan-cleanup-contract.mjs
+
+      - name: Post-deploy and release provenance governance
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/v82-postdeploy-smoke-governance.mjs
+          node tests/v82-node-postgres-lineage-hardening.mjs
+          node tests/v82-release-provenance-governance.mjs
+
+      - name: Frontend and production lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run check
+          npm run lint:production
+
+      - name: Production hardening regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run test:production-hardening
+          npm run test:feature-hardening
+          npm run test:static
+
+      - name: Registration, brand and deployment regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/v82-registration-owner-navigation-hardening.mjs
+          npm run test:thebe-desk-brand
+          npm run test:thebe-desk-deployment
+
+      - name: Session and OAuth regressions 12168-12162
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/v78-12168-session-inventory-hardening-adversarial.mjs
+          node --no-warnings tests/v78-12168-session-inventory-runtime.mjs
+          node tests/v78-12167-session-generation-revocation-adversarial.mjs
+          node --no-warnings tests/v78-12167-session-generation-revocation-runtime.mjs
+          node tests/v78-12166-auth-method-unlink-concurrency-adversarial.mjs
+          node --no-warnings tests/v78-12166-auth-method-unlink-runtime.mjs
+          node tests/v78-12165-oauth-identity-ownership-adversarial.mjs
+          node --no-warnings tests/v78-12165-oauth-identity-ownership-runtime.mjs
+          node tests/v78-12164-oauth-redirect-hardening-adversarial.mjs
+          node --no-warnings tests/v78-12164-oauth-navigation-runtime.mjs
+          node tests/v78-12163-public-origin-fail-closed-adversarial.mjs
+          node --no-warnings tests/v78-12163-public-origin-runtime.mjs
+          node tests/v78-12162-password-reset-email-delivery-adversarial.mjs
+          node --no-warnings tests/v78-12162-password-reset-email-runtime.mjs
+
+      - name: Password and reporting regressions 12161-12157
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/v78-12161-password-reset-issuance-hardening-adversarial.mjs
+          node --no-warnings tests/v78-12161-password-reset-issuance-runtime.mjs
+          node tests/v78-12160-password-reset-resource-hardening-adversarial.mjs
+          node --no-warnings tests/v78-12160-password-reset-resource-runtime.mjs
+          node tests/v78-12159-password-reset-single-consumption-adversarial.mjs
+          node --no-warnings tests/v78-12159-password-reset-runtime.mjs
+          node tests/v78-12158-webhook-purge-claim-hardening-adversarial.mjs
+          node --no-warnings tests/v78-12158-webhook-purge-claim-runtime.mjs
+          node tests/v78-12157-authorization-reporting-concurrency-adversarial.mjs
+          node --no-warnings tests/v78-12157-reporting-auth-runtime.mjs
+
+      - name: Concurrency and purge regressions 12156-12152
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/v78-12156-concurrency-transition-hardening-adversarial.mjs
+          node tests/v78-12156-business-event-claim-runtime.mjs
+          node tests/v78-12155-replay-resource-hardening-adversarial.mjs
+          node tests/v78-12152-tenant-lifecycle-purge-performance-adversarial.mjs
+          node --no-warnings tests/v78-12152-tenant-deletion-purge-runtime.mjs
+
+      - name: Deployment and CSP regressions 12151-12147
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/v78-12151-accessible-dialog-external-io-payment-hardening-adversarial.mjs
+          node tests/v78-12150-resilience-backup-rate-limit-adversarial.mjs
+          node tests/v78-12149-deployment-preview-csp-adversarial.mjs
+          node tests/v78-12149-auth-input-runtime.mjs
+          node tests/v78-12148-feature-security-csp-route-hardening-adversarial.mjs
+          node tests/v78-12147-csp-nonce-runtime.mjs
+          node tests/v78-12147-launch-readiness-runtime.mjs
+          node tests/v78-12147-feature-security-adversarial.mjs
+          node tests/v78-12147-protected-surface-runtime.mjs
+          node tests/v78-12147-production-hardening-adversarial.mjs
+
+      - name: Launch metadata and control regressions 12146-12145
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/v78-12146-launch-metadata-coherence-adversarial.mjs
+          node tests/v78-12146-launch-readiness-runtime.mjs
+          node tests/v78-12145-control-replacement-governance-adversarial.mjs
+          node tests/v78-12145-control-replacement-governance-runtime.mjs
+          node tests/v78-12146-ui-runtime-wiring-adversarial.mjs
+
+      - name: Full historical release regressions
+        shell: bash
+        run: npm run test:release-regressions
+
+      - name: D1 recovery and backup regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run check:d1-backup-shape
+          npm run check:d1-backup-restore
+          npm run check:d1-recovery-drill
+
+      - name: Release and artifact regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run check:dependency-policy
+          npm run check:bundle-budget
+          npm run check:artifact-boundary
+          npm run check:supply-chain

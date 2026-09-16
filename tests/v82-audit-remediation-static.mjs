@@ -1,0 +1,90 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+
+const read=path=>fs.readFileSync(path,'utf8');
+const wrangler=read('cloudflare/wrangler.toml');
+const governance=read('cloudflare/src/release-governance-entry.js');
+const production=read('cloudflare/src/production-entry.js');
+const directRegistration=read('public/js/register-direct.js');
+const oauthUi=read('public/js/oauth-availability.js');
+const syntheticHold=read('scripts/production-synthetic-hold-wrapper.mjs');
+const mobileSmoke=read('scripts/production-mobile-postdeploy-smoke.mjs');
+const remediationWorkflow=read('.github/workflows/audit-remediation-ci.yml');
+const launchWorkflow=read('.github/workflows/production-launch-audit.yml');
+const mobileWorkflow=read('.github/workflows/mobile-postdeploy-smoke.yml');
+const replayWorkflow=read('.github/workflows/production-audit-replay.yml');
+const release=JSON.parse(read('release/production.json'));
+
+assert.match(wrangler,/^main\s*=\s*"src\/release-governance-entry\.js"/m,'production must enter through release governance');
+assert.match(wrangler,/^REGISTRATION_MODE\s*=\s*"hold"/m,'customer activation must remain HOLD until reviewed');
+assert.match(wrangler,/^REGISTRATION_COHORT_EMAILS\s*=\s*""/m,'launch cohort must default empty');
+
+assert.match(governance,/VALID_REGISTRATION_MODES=new Set\(\["hold","cohort","open"\]\)/,'registration states must be explicit');
+assert.match(governance,/error:"registration_on_hold"/,'HOLD must be enforced server-side');
+assert.match(governance,/error:"registration_not_in_cohort"/,'cohort allow-list must be enforced server-side');
+assert.match(governance,/SYNTHETIC_EMAIL_RE=\/\^synthetic\\\.lifecycle/,'synthetic HOLD override must be identity-bound');
+assert.match(governance,/AUDIT_INTEGRITY_SECRET/,'synthetic HOLD override must require audit secret');
+assert.match(governance,/registration-override:\$\{email\}/,'synthetic HOLD override must be signed for the exact email');
+assert.match(governance,/x-thebe-registration-audit/,'synthetic HOLD override header must be explicit');
+assert.match(governance,/MAX_REGISTRATION_POLICY_BODY_BYTES=16\*1024/,'registration policy wrapper must preserve the canonical 16 KiB body boundary');
+assert.match(governance,/reader\.read\(\)/,'registration policy wrapper must enforce the bound while streaming the clone');
+assert.match(governance,/error:"payload_too_large"/,'oversized registration policy bodies must fail closed');
+assert.doesNotMatch(governance,/request\.clone\(\)\.json\(\)/,'registration governance must not reintroduce unbounded JSON parsing');
+assert.match(governance,/path==="\/api\/version"/,'immutable release provenance endpoint missing');
+assert.match(governance,/"x-thebe-source-sha"/,'source SHA response header missing');
+assert.match(governance,/"x-thebe-release-sequence"/,'release sequence response header missing');
+assert.match(governance,/path==="\/api\/auth\/oauth\/providers"/,'OAuth availability endpoint missing');
+assert.match(governance,/path==="\/api\/auth\/registration-policy"/,'registration policy endpoint missing');
+assert.match(governance,/oauthProviders:oauthProviders\(env\)/,'readiness must expose OAuth availability');
+assert.match(governance,/oauth-availability\.js/,'HTML must inject availability gating');
+
+assert.match(production,/\/api\/auth\/registration-proof\/challenge/,'production wrapper must own first-party proof challenge');
+assert.match(production,/verifyRegistrationProof\(request,env,body\?\.turnstileToken\)/,'production wrapper must verify proof before registration');
+assert.match(directRegistration,/\/api\/auth\/registration-proof\/challenge/,'direct registration client must request first-party proof');
+assert.match(directRegistration,/honeypot:/,'direct registration proof must preserve honeypot');
+
+assert.match(oauthUi,/`oauth-\$\{provider\}-disabled`/,'OAuth provider controls must expose a generic fail-closed disabled state');
+assert.match(oauthUi,/setProvider\("google",false\)/,'Google controls must fail closed before availability is proven');
+assert.match(oauthUi,/setProvider\("facebook",false\)/,'Facebook controls must fail closed before availability is proven');
+assert.match(oauthUi,/\/api\/auth\/oauth\/providers/,'OAuth UI must bind to server availability');
+assert.match(oauthUi,/\/api\/auth\/registration-policy/,'public registration UI must bind to server activation policy');
+assert.match(oauthUi,/element\.hidden=true/,'availability controls must use CSP-safe hidden state');
+assert.match(oauthUi,/registrationHoldNotice/,'direct registration must expose a HOLD notice');
+assert.doesNotMatch(oauthUi,/createElement\("style"\)/,'availability gating must not rely on CSP-blocked inline style injection');
+
+assert.match(syntheticHold,/SYNTHETIC_EMAIL_RE=/,'synthetic lifecycle wrapper must reject arbitrary registration identities');
+assert.match(syntheticHold,/createHmac\('sha256',auditSecret\)/,'synthetic lifecycle wrapper must sign the registration override');
+assert.match(syntheticHold,/x-thebe-registration-audit/,'synthetic lifecycle wrapper must send only the audit override header');
+assert.match(syntheticHold,/await import\('\.\/production-synthetic-browser-wrapper\.mjs'\)/,'signed HOLD wrapper must preserve browser-backed lifecycle proof');
+
+assert.match(mobileSmoke,/viewport:\{width:390,height:844\}/,'mobile smoke must retain Android-sized viewport');
+assert.match(mobileSmoke,/MOBILE_POSTDEPLOY_SMOKE_PASS/,'mobile smoke must have an explicit success marker');
+assert.match(mobileSmoke,/unavailable Google sign-in control must be hidden directly/,'mobile smoke must prove deferred Google control is directly hidden');
+assert.match(mobileSmoke,/unavailable Facebook sign-in control must be hidden directly/,'mobile smoke must prove deferred Facebook control is directly hidden');
+assert.match(mobileSmoke,/HOLD must hide public registration CTA/,'mobile smoke must prove HOLD closes the public registration CTA');
+assert.match(mobileSmoke,/direct registration form must fail closed during HOLD/,'mobile smoke must prove direct registration fails closed during HOLD');
+assert.match(mobileWorkflow,/node scripts\/production-mobile-postdeploy-smoke\.mjs/,'automatic mobile audit must execute reusable source script');
+assert.match(launchWorkflow,/node scripts\/production-synthetic-hold-wrapper\.mjs/,'automatic Phase 0 lifecycle must respect customer HOLD');
+
+assert.match(remediationWorkflow,/run-name: Audit remediation CI \$\{\{ github\.event\.pull_request\.head\.sha \}\}/,'remediation CI run identity must name the exact PR head');
+assert.match(remediationWorkflow,/EXPECTED_HEAD_SHA: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/,'remediation CI must bind expected SHA to the PR head');
+assert.match(remediationWorkflow,/ref: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/,'remediation CI checkout must explicitly use the PR head SHA');
+assert.match(remediationWorkflow,/PR head checkout mismatch/,'remediation CI must fail if checkout differs from exact PR head');
+
+assert.match(replayWorkflow,/workflow_dispatch:/,'skipped production audits must have an explicit replay path');
+assert.match(replayWorkflow,/target_sha:/,'replay path must bind to an exact target SHA');
+assert.match(replayWorkflow,/refusing stale replay/,'replay must refuse a stale non-main target');
+assert.match(replayWorkflow,/require_success deploy-production\.yml/,'replay must require successful production deployment evidence');
+assert.match(replayWorkflow,/require_success postdeploy-smoke\.yml/,'replay must require successful exact post-deploy smoke evidence');
+assert.match(replayWorkflow,/node scripts\/production-launch-audit\.mjs/,'replay must execute the Phase 0 production audit');
+assert.match(replayWorkflow,/node scripts\/production-mobile-postdeploy-smoke\.mjs/,'replay must execute the mobile production audit');
+assert.match(replayWorkflow,/LIVE_PROVENANCE_PASS/,'replay must prove live release provenance');
+assert.match(replayWorkflow,/Mandatory signed synthetic registration lifecycle closure/,'replay must make synthetic lifecycle closure mandatory');
+assert.match(replayWorkflow,/production-synthetic-hold-wrapper\.mjs/,'replay must execute signed synthetic lifecycle closure');
+assert.doesNotMatch(replayWorkflow,/run_synthetic_lifecycle/,'release closure must not be skippable with a boolean input');
+
+assert.equal(release.release,'production','release authority must be production');
+assert.ok(Number.isInteger(release.sequence)&&release.sequence>0,'release sequence must be a positive integer');
+assert.match(String(release.sourceSha),/^[0-9a-f]{40}$/,'release source SHA must be immutable full SHA');
+
+console.log(`AUDIT_REMEDIATION_STATIC_PASS sequence=${release.sequence} sourceSha=${release.sourceSha}`);
