@@ -81,6 +81,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          node tests/v82-audit-remediation-static.mjs
           node tests/v78-role-isolation-static.mjs
           node tests/v78-12114-role-api-adversarial.mjs
           node tests/v78-ai-copilot-motion-security.mjs
@@ -111,7 +112,7 @@ jobs:
           fi
           node scripts/production-synthetic-interruption-recovery.mjs
           npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
-          node scripts/production-synthetic-browser-wrapper.mjs
+          node scripts/production-synthetic-hold-wrapper.mjs
 
       - name: One-shot bounded legacy orphan cleanup
         if: github.event_name == 'workflow_run'
