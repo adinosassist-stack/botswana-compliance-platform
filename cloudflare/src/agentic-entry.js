@@ -6,6 +6,10 @@ import {preparePlatformOwnerLogin,withPlatformOwnerAdminEnv} from "./platform-ow
 const V81_SCHEMA_DELTA="047_v81_delegated_authority.sql";
 const COLD_START_REDUNDANT_RENDER="if(!options?.skipDataRefresh)queueMicrotask(()=>renderAll())";
 const COLD_START_GUARDED_RENDER="if(!options?.skipDataRefresh&&!options?.roleRedirect)queueMicrotask(()=>renderAll())";
+const SYNTHETIC_BOOT_TRACE_PREFIX="THEBE_SYNTHETIC_BOOT";
+const SYNTHETIC_BOOT_TRACE_PARAMS=new Set(["desktop-owner-proof","authenticated-mobile-proof"]);
+const SYNTHETIC_AUTH_ME_BOOT_SOURCE='const info=await productionApiClient.request("/api/auth/me");currentUser=';
+const SYNTHETIC_STATE_BOOT_SOURCE='const st=await apiFetch("/api/state");serverStateVersion=st.version||1;let nextStore;';
 
 function logicalRequestPath(request){
   try{
@@ -18,6 +22,35 @@ function logicalRequestPath(request){
     if(url.pathname==="/__thebe_api")return "/api";
     return url.pathname;
   }catch{return ""}
+}
+
+function syntheticBootTraceRequested(request){
+  try{
+    if(String(request?.method||"").toUpperCase()!=="GET")return false;
+    const url=new URL(request.url);
+    if(url.pathname!=="/")return false;
+    return [...SYNTHETIC_BOOT_TRACE_PARAMS].some(name=>url.searchParams.has(name));
+  }catch{return false}
+}
+
+function uniqueSourceAnchor(source,needle){
+  const first=source.indexOf(needle);
+  return first>=0&&first===source.lastIndexOf(needle);
+}
+
+function injectSyntheticBootTrace(request,html){
+  const source=String(html||"");
+  if(!syntheticBootTraceRequested(request))return source;
+  if(!uniqueSourceAnchor(source,SYNTHETIC_AUTH_ME_BOOT_SOURCE)||!uniqueSourceAnchor(source,SYNTHETIC_STATE_BOOT_SOURCE))return source;
+  return source
+    .replace(
+      SYNTHETIC_AUTH_ME_BOOT_SOURCE,
+      `console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} auth_me_start");const info=await productionApiClient.request("/api/auth/me");console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} auth_me_complete");currentUser=`
+    )
+    .replace(
+      SYNTHETIC_STATE_BOOT_SOURCE,
+      `console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} state_start");const st=await apiFetch("/api/state");console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} state_complete");serverStateVersion=st.version||1;let nextStore;`
+    );
 }
 
 async function delegatedAuthoritySchemaReady(env){
@@ -38,11 +71,13 @@ async function hardenAuthenticatedColdStart(request,response){
   let html;
   try{html=await response.clone().text()}catch{return response}
   if(!html.includes(COLD_START_REDUNDANT_RENDER))return response;
-  const hardened=html.replace(COLD_START_REDUNDANT_RENDER,COLD_START_GUARDED_RENDER);
+  const guarded=html.replace(COLD_START_REDUNDANT_RENDER,COLD_START_GUARDED_RENDER);
+  const hardened=injectSyntheticBootTrace(request,guarded);
   const headers=new Headers(response.headers);
   headers.delete("content-length");
   headers.delete("etag");
   headers.set("x-thebe-cold-start-guard","role-redirect-v1");
+  if(hardened!==guarded)headers.set("x-thebe-synthetic-boot-trace","auth-state-v1");
   return new Response(hardened,{status:response.status,statusText:response.statusText,headers});
 }
 
@@ -90,4 +125,4 @@ export default {
   }
 };
 
-export {delegatedAuthoritySchemaReady,enhanceReadiness,hardenAuthenticatedColdStart,logicalRequestPath,V81_SCHEMA_DELTA};
+export {delegatedAuthoritySchemaReady,enhanceReadiness,hardenAuthenticatedColdStart,injectSyntheticBootTrace,logicalRequestPath,syntheticBootTraceRequested,V81_SCHEMA_DELTA};
