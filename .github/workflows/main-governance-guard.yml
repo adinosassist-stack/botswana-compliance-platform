@@ -1,0 +1,185 @@
+name: Main Governance Guard
+run-name: Main governance guard ${{ github.event_name == 'workflow_dispatch' && inputs.expected_sha || github.sha }}
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/main-governance-guard.yml'
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: 'Full 40-character current main SHA that must be verified'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: main-governance-guard-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  selftest:
+    name: Adversarial guard predicate self-test
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Exercise allow/deny fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          def authorized(pulls, sha, first, second):
+              matches = [
+                  pr for pr in pulls
+                  if pr.get('merged_at')
+                  and pr.get('base', {}).get('ref') == 'main'
+                  and pr.get('merge_commit_sha') == sha
+                  and pr.get('base', {}).get('sha') == first
+                  and pr.get('head', {}).get('sha') == second
+              ]
+              return len(matches) == 1
+
+          sha='a'*40; first='b'*40; second='c'*40
+          good={'number':1,'merged_at':'2026-09-16T00:00:00Z','merge_commit_sha':sha,'base':{'ref':'main','sha':first},'head':{'sha':second}}
+          cases=[
+              ('exact merged PR', [good], True),
+              ('no PR', [], False),
+              ('open PR', [{**good,'merged_at':None}], False),
+              ('wrong base branch', [{**good,'base':{'ref':'develop','sha':first}}], False),
+              ('wrong merge SHA', [{**good,'merge_commit_sha':'d'*40}], False),
+              ('wrong first parent', [{**good,'base':{'ref':'main','sha':'d'*40}}], False),
+              ('wrong second parent', [{**good,'head':{'sha':'d'*40}}], False),
+              ('ambiguous duplicate', [good,{**good,'number':2}], False),
+          ]
+          for name,pulls,expected in cases:
+              actual=authorized(pulls,sha,first,second)
+              if actual != expected:
+                  raise SystemExit(f'{name}: expected {expected}, got {actual}')
+              print(f'PASS {name}: {actual}')
+          print('Adversarial predicate fixtures PASS')
+          PY
+
+  guard:
+    name: Verify PR-only exact-main provenance
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
+      pull-requests: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      TARGET_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.expected_sha || github.sha }}
+      PUSH_BEFORE: ${{ github.event.before }}
+    steps:
+      - name: Checkout exact candidate revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.expected_sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact-main merged-PR authority
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo "main governance is restricted to refs/heads/main, got $GITHUB_REF" >&2; exit 1; }
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'TARGET_SHA must be a full lowercase 40-character commit SHA' >&2; exit 1; }
+          if [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]; then
+            [[ "$TARGET_SHA" == "$GITHUB_SHA" ]] || { echo "dispatch SHA mismatch expected=$TARGET_SHA workflow=$GITHUB_SHA" >&2; exit 1; }
+          fi
+
+          head_sha="$(git rev-parse HEAD)"
+          local_main_sha="$(git rev-parse refs/remotes/origin/main)"
+          api_main_sha="$(
+            curl --fail-with-body --silent --show-error \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main" \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])'
+          )"
+          [[ "$head_sha" == "$TARGET_SHA" ]] || { echo "checkout mismatch expected=$TARGET_SHA actual=$head_sha" >&2; exit 1; }
+          [[ "$local_main_sha" == "$TARGET_SHA" ]] || { echo "local main mismatch target=$TARGET_SHA local-main=$local_main_sha" >&2; exit 1; }
+          [[ "$api_main_sha" == "$TARGET_SHA" ]] || { echo "stale/non-main governance target=$TARGET_SHA current-main=$api_main_sha" >&2; exit 1; }
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo 'checkout is not clean during main governance verification' >&2; exit 1; }
+
+          read -r -a commit_line <<< "$(git rev-list --parents -n 1 "$TARGET_SHA")"
+          parent_count=$(( ${#commit_line[@]} - 1 ))
+          if [[ "$parent_count" != '2' ]]; then
+            echo "direct/squash/rebase commit rejected on main: $TARGET_SHA has $parent_count parent(s), expected a two-parent PR merge" >&2
+            if [[ "$GITHUB_EVENT_NAME" == 'push' && "$PUSH_BEFORE" =~ ^[0-9a-f]{40}$ && "$PUSH_BEFORE" != '0000000000000000000000000000000000000000' ]]; then
+              current_sha="$(
+                curl --fail-with-body --silent --show-error \
+                  --header 'Accept: application/vnd.github+json' \
+                  --header "Authorization: Bearer $GH_TOKEN" \
+                  --header 'X-GitHub-Api-Version: 2022-11-28' \
+                  "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main" \
+                | python3 -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])'
+              )"
+              if [[ "$current_sha" == "$TARGET_SHA" ]]; then
+                payload="$(PUSH_BEFORE="$PUSH_BEFORE" python3 -c 'import json,os; print(json.dumps({"sha":os.environ["PUSH_BEFORE"],"force":True}))')"
+                rollback_json="$(
+                  curl --fail-with-body --silent --show-error \
+                    --request PATCH \
+                    --header 'Accept: application/vnd.github+json' \
+                    --header "Authorization: Bearer $GH_TOKEN" \
+                    --header 'X-GitHub-Api-Version: 2022-11-28' \
+                    --header 'Content-Type: application/json' \
+                    --data "$payload" \
+                    "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/git/refs/heads/main"
+                )"
+                restored_sha="$(printf '%s' "$rollback_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["object"]["sha"])')"
+                [[ "$restored_sha" == "$PUSH_BEFORE" ]] || { echo "automatic rollback did not restore expected prior main: expected=$PUSH_BEFORE actual=$restored_sha" >&2; exit 1; }
+                echo "Unauthorized one-parent main update rolled back to $PUSH_BEFORE" >&2
+              else
+                echo "Main advanced while guard was running; refusing automatic rollback of newer SHA $current_sha" >&2
+              fi
+            fi
+            exit 1
+          fi
+          first_parent="${commit_line[1]}"
+          second_parent="${commit_line[2]}"
+          [[ "$first_parent" =~ ^[0-9a-f]{40}$ && "$second_parent" =~ ^[0-9a-f]{40}$ ]] || { echo 'merge parent SHA is invalid' >&2; exit 1; }
+
+          pr_json=''
+          for attempt in $(seq 1 12); do
+            pulls_json="$(
+              curl --fail-with-body --silent --show-error \
+                --header 'Accept: application/vnd.github+json' \
+                --header "Authorization: Bearer $GH_TOKEN" \
+                --header 'X-GitHub-Api-Version: 2022-11-28' \
+                "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/commits/$TARGET_SHA/pulls?per_page=100"
+            )"
+            if pr_json="$(printf '%s' "$pulls_json" | TARGET_SHA="$TARGET_SHA" FIRST_PARENT="$first_parent" SECOND_PARENT="$second_parent" python3 -c 'import json,os,sys; pulls=json.load(sys.stdin); sha=os.environ["TARGET_SHA"]; first=os.environ["FIRST_PARENT"]; second=os.environ["SECOND_PARENT"]; matches=[pr for pr in pulls if pr.get("merged_at") and pr.get("base",{}).get("ref")=="main" and pr.get("merge_commit_sha")==sha and pr.get("base",{}).get("sha")==first and pr.get("head",{}).get("sha")==second]; len(matches)==1 or sys.exit(1); print(json.dumps(matches[0]))')"; then
+              break
+            fi
+            pr_json=''
+            if (( attempt < 12 )); then
+              echo "Merged-PR association for exact SHA is not visible yet; bounded wait $attempt/11"
+              sleep 5
+            fi
+          done
+          [[ -n "$pr_json" ]] || { echo 'exact main commit is not uniquely attributable to one merged PR with matching base/head parents' >&2; exit 1; }
+          pr_number="$(printf '%s' "$pr_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["number"])')"
+          [[ "$pr_number" =~ ^[0-9]+$ ]] || { echo 'resolved PR number is invalid' >&2; exit 1; }
+
+          commit_json="$(
+            curl --fail-with-body --silent --show-error \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/commits/$TARGET_SHA"
+          )"
+          printf '%s' "$commit_json" | TARGET_SHA="$TARGET_SHA" python3 -c 'import json,os,sys; commit=json.load(sys.stdin); sha=os.environ["TARGET_SHA"]; verification=commit.get("commit",{}).get("verification",{}); (commit.get("sha")==sha and verification.get("verified") is True and verification.get("reason")=="valid") or sys.exit("main merge commit is not GitHub-verified with a valid signature"); print("GitHub-verified merge signature confirmed")'
+
+          echo "Main governance PASS: exact current main $TARGET_SHA is merged PR #$pr_number with matching first/second parents and valid GitHub verification."
