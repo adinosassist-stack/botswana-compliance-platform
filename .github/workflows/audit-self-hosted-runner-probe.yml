@@ -1,0 +1,14 @@
+name: Audit self-hosted runner probe
+on:
+  push:
+    branches:
+      - chatgpt/audit-blob-transfer-probe-20260916
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: self-hosted
+    timeout-minutes: 2
+    steps:
+      - name: Prove self-hosted runner allocation
+        run: echo self-hosted-runner-allocated
