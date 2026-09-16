@@ -338,6 +338,9 @@ jobs:
             return 1
           }
 
+          # Cloudflare custom-domain activation can briefly return edge 503s immediately
+          # after a successful Worker deployment. Wait boundedly for the edge to settle,
+          # then enforce the application-level readiness contract without weakening it.
           live="$(wait_for_200_json 'api/live' 'https://thebedesk.com/api/live' 36 GET)"
           ready="$(wait_for_200_json 'api/ready' 'https://thebedesk.com/api/ready' 18 GET)"
           proof="$(wait_for_200_json 'registration-proof' 'https://thebedesk.com/api/auth/registration-proof/challenge' 12 POST)"
