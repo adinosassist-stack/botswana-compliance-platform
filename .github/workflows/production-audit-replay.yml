@@ -5,14 +5,9 @@ on:
   workflow_dispatch:
     inputs:
       target_sha:
-        description: Exact deployed main SHA to audit
+        description: Exact current main release SHA whose successful production deploy is being audited
         required: true
         type: string
-      run_synthetic_lifecycle:
-        description: Run signed registration to workspace to deletion cleanup proof
-        required: true
-        default: false
-        type: boolean
 
 permissions:
   contents: read
@@ -132,8 +127,7 @@ jobs:
           console.log(`LIVE_PROVENANCE_PASS sourceSha=${body.sourceSha} sequence=${body.releaseSequence}`);
           NODE
 
-      - name: Optional signed synthetic registration lifecycle closure
-        if: ${{ inputs.run_synthetic_lifecycle }}
+      - name: Mandatory signed synthetic registration lifecycle closure
         env:
           AUDIT_INTEGRITY_SECRET: ${{ secrets.AUDIT_INTEGRITY_SECRET }}
         shell: bash

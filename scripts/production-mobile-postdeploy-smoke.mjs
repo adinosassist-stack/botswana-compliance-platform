@@ -102,34 +102,59 @@ try{
     delete window.__mobileSmokeRestore;
   });
 
+  const capabilities=await page.evaluate(async()=>{
+    const [providerResponse,policyResponse]=await Promise.all([
+      fetch('/api/auth/oauth/providers',{headers:{accept:'application/json'},cache:'no-store'}),
+      fetch('/api/auth/registration-policy',{headers:{accept:'application/json'},cache:'no-store'})
+    ]);
+    return {
+      providers:providerResponse.ok?await providerResponse.json():{google:false,facebook:false},
+      policy:policyResponse.ok?await policyResponse.json():{mode:'invalid'}
+    };
+  });
+  const expectedMode=['hold','cohort','open'].includes(String(capabilities.policy?.mode))?String(capabilities.policy.mode):'invalid';
+  await page.waitForFunction(mode=>document.documentElement.classList.contains(`registration-${mode}`),expectedMode,{timeout:10000});
+
+  const providerState=await page.evaluate(()=>({
+    googleHidden:document.querySelector('.social-auth-btn.google,#googleAuthButton')?.hidden??true,
+    facebookHidden:document.querySelector('.social-auth-btn.facebook,#facebookAuthButton')?.hidden??true,
+    registerTabHidden:document.getElementById('registerTab')?.hidden??false
+  }));
+  if(capabilities.providers.google!==true)assert.equal(providerState.googleHidden,true,'unavailable Google sign-in control must be hidden directly, not only by parent layout');
+  if(capabilities.providers.facebook!==true)assert.equal(providerState.facebookHidden,true,'unavailable Facebook sign-in control must be hidden directly, not only by parent layout');
+
   const start=page.locator('button.marketing-start-action').first();
   assert.ok(await start.count(),'Start Free action missing on mobile');
-  await start.click();
-  await page.waitForFunction(()=>!document.getElementById('authGate')?.classList.contains('hidden'),null,{timeout:10000});
-  await page.waitForTimeout(150);
-  const authState=await page.evaluate(()=>({
-    authHidden:document.getElementById('authGate')?.classList.contains('hidden'),
-    companyDisplay:document.getElementById('companyNameField')?getComputedStyle(document.getElementById('companyNameField')).display:null,
-    submitText:document.getElementById('authSubmit')?.textContent||'',
-    googleDisplay:document.querySelector('.social-auth-btn.google')?getComputedStyle(document.querySelector('.social-auth-btn.google')).display:null,
-    facebookDisplay:document.querySelector('.social-auth-btn.facebook')?getComputedStyle(document.querySelector('.social-auth-btn.facebook')).display:null
-  }));
-  assert.equal(authState.authHidden,false);
-  assert.notEqual(authState.companyDisplay,'none');
-  assert.match(authState.submitText,/Create account/i);
-
-  const providers=await page.evaluate(async()=>{
-    const response=await fetch('/api/auth/oauth/providers',{headers:{accept:'application/json'},cache:'no-store'});
-    return response.ok?response.json():{google:false,facebook:false};
-  });
-  if(providers.google!==true)assert.equal(authState.googleDisplay,'none','unavailable Google sign-in control must be hidden');
-  if(providers.facebook!==true)assert.equal(authState.facebookDisplay,'none','unavailable Facebook sign-in control must be hidden');
+  if(expectedMode==='hold'||expectedMode==='invalid'){
+    assert.equal(await start.evaluate(element=>element.hidden),true,'HOLD must hide public registration CTA');
+    if(await page.locator('#registerTab').count())assert.equal(providerState.registerTabHidden,true,'HOLD must hide registration tab');
+  }else{
+    await start.click();
+    await page.waitForFunction(()=>!document.getElementById('authGate')?.classList.contains('hidden'),null,{timeout:10000});
+    await page.waitForTimeout(150);
+    const authState=await page.evaluate(()=>({
+      authHidden:document.getElementById('authGate')?.classList.contains('hidden'),
+      companyDisplay:document.getElementById('companyNameField')?getComputedStyle(document.getElementById('companyNameField')).display:null,
+      submitText:document.getElementById('authSubmit')?.textContent||''
+    }));
+    assert.equal(authState.authHidden,false);
+    assert.notEqual(authState.companyDisplay,'none');
+    assert.match(authState.submitText,/Create account/i);
+  }
 
   await page.goto(ORIGIN+'/register-direct.html?mobile-smoke='+Date.now(),{waitUntil:'domcontentloaded',timeout:30000});
-  assert.match((await page.locator('body').innerText()).slice(0,800),/Create your account/i);
+  await page.waitForFunction(mode=>document.documentElement.classList.contains(`registration-${mode}`),expectedMode,{timeout:10000});
+  if(expectedMode==='hold'||expectedMode==='invalid'){
+    assert.equal(await page.locator('#registerForm').isHidden(),true,'direct registration form must fail closed during HOLD');
+    assert.match((await page.locator('body').innerText()).slice(0,1200),/registration is temporarily (?:on hold|unavailable)/i,'direct registration page must explain HOLD state');
+  }else{
+    assert.equal(await page.locator('#registerForm').isVisible(),true,'registration form must remain available for cohort/open modes');
+    assert.match((await page.locator('body').innerText()).slice(0,800),/Create your account/i);
+  }
+
   assert.deepEqual(pageErrors,[],'mobile page errors detected');
   assert.deepEqual(criticalFailures,[],'mobile critical asset failures detected');
-  console.log('MOBILE_POSTDEPLOY_SMOKE_PASS');
+  console.log(`MOBILE_POSTDEPLOY_SMOKE_PASS registrationMode=${expectedMode}`);
 }finally{
   await browser.close();
 }

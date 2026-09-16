@@ -2,8 +2,9 @@ import base from "./agentic-entry.js";
 import releaseMetadata from "../../release/production.json" with {type:"json"};
 
 const VALID_REGISTRATION_MODES=new Set(["hold","cohort","open"]);
-const OAUTH_VISIBILITY_SCRIPT="/js/oauth-availability.js?v=20260916a";
+const OAUTH_VISIBILITY_SCRIPT="/js/oauth-availability.js?v=20260916b";
 const SYNTHETIC_EMAIL_RE=/^synthetic\.lifecycle\.\d+\.\d+\.[0-9a-f]{12}@example\.invalid$/;
+const MAX_REGISTRATION_POLICY_BODY_BYTES=16*1024;
 
 function json(data,status=200,headers={}){
   return new Response(JSON.stringify(data),{status,headers:{
@@ -88,17 +89,50 @@ async function signedSyntheticRegistrationAllowed(request,env,email){
   return timingSafeText(supplied,expected);
 }
 
+async function readJsonBoundedClone(request,maxBytes=MAX_REGISTRATION_POLICY_BODY_BYTES){
+  const clone=request.clone();
+  const declared=Number(clone.headers.get("content-length")||0);
+  if(Number.isFinite(declared)&&declared>maxBytes)return {body:{},tooLarge:true};
+  if(!clone.body)return {body:{},tooLarge:false};
+  const reader=clone.body.getReader(),chunks=[];let total=0;
+  try{
+    while(true){
+      const {done,value}=await reader.read();
+      if(done)break;
+      if(!value)continue;
+      total+=value.byteLength;
+      if(total>maxBytes){
+        try{await reader.cancel("payload_too_large")}catch{}
+        return {body:{},tooLarge:true};
+      }
+      chunks.push(value);
+    }
+  }finally{try{reader.releaseLock()}catch{}}
+  if(!chunks.length)return {body:{},tooLarge:false};
+  const merged=new Uint8Array(total);let offset=0;
+  for(const chunk of chunks){merged.set(chunk,offset);offset+=chunk.byteLength}
+  try{return {body:JSON.parse(new TextDecoder().decode(merged)),tooLarge:false}}
+  catch{return {body:{},tooLarge:false}}
+}
+
+function registrationHoldResponse(mode="hold"){
+  return json({error:"registration_on_hold",message:"New customer activation is temporarily on hold while launch verification is completed.",registrationMode:mode},503,{"retry-after":"300"});
+}
+
 async function registrationGate(request,env){
   const mode=registrationMode(env);
   if(mode==="invalid")return json({error:"registration_policy_invalid",message:"Registration is unavailable while the activation policy is being repaired."},503,{"retry-after":"300"});
   if(mode==="open")return null;
 
-  let body={};
-  try{body=await request.clone().json()}catch{}
-  const email=String(body?.email||"").trim().toLowerCase();
+  const hasAuditOverride=!!String(request.headers.get("x-thebe-registration-audit")||"").trim();
+  if(mode==="hold"&&!hasAuditOverride)return registrationHoldResponse(mode);
+
+  const parsed=await readJsonBoundedClone(request);
+  if(parsed.tooLarge)return json({error:"payload_too_large",message:"Registration request body is too large."},413);
+  const email=String(parsed.body?.email||"").trim().toLowerCase();
   if(await signedSyntheticRegistrationAllowed(request,env,email))return null;
 
-  if(mode==="hold")return json({error:"registration_on_hold",message:"New customer activation is temporarily on hold while launch verification is completed.",registrationMode:mode},503,{"retry-after":"300"});
+  if(mode==="hold")return registrationHoldResponse(mode);
   const cohort=registrationCohort(env);
   if(email&&cohort.has(email))return null;
   return json({error:"registration_not_in_cohort",message:"Registration is currently limited to the approved launch cohort.",registrationMode:mode},403);
@@ -140,7 +174,7 @@ async function decorateResponse(request,env,response){
           const headers=new Headers(next.headers);
           headers.delete("content-length");
           headers.delete("etag");
-          headers.set("x-thebe-oauth-ui","availability-gated-v1");
+          headers.set("x-thebe-oauth-ui","availability-gated-v2");
           next=new Response(injected,{status:next.status,statusText:next.statusText,headers});
         }
       }catch{}
@@ -177,6 +211,7 @@ export {
   injectOauthAvailabilityScript,
   logicalRequestPath,
   oauthProviders,
+  readJsonBoundedClone,
   registrationCohort,
   registrationGate,
   registrationMode,
