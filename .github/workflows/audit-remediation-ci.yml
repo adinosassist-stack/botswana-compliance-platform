@@ -82,6 +82,18 @@ jobs:
           npm run test:feature-hardening
           npm run test:static
 
+      - name: Registration owner navigation regression
+        shell: bash
+        run: node tests/v82-registration-owner-navigation-hardening.mjs
+
+      - name: Thebe Desk brand regression
+        shell: bash
+        run: npm run test:thebe-desk-brand
+
+      - name: Thebe Desk deployment regression
+        shell: bash
+        run: npm run test:thebe-desk-deployment
+
       - name: Full historical release regressions
         shell: bash
         run: npm run test:release-regressions
