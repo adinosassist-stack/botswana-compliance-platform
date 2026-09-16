@@ -1,0 +1,153 @@
+name: Production audit replay
+run-name: Production audit replay ${{ inputs.target_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: Exact deployed main SHA to audit
+        required: true
+        type: string
+      run_synthetic_lifecycle:
+        description: Run signed registration to workspace to deletion cleanup proof
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: thebe-desk-production-audit-replay-${{ inputs.target_sha }}
+  cancel-in-progress: false
+
+jobs:
+  replay:
+    name: Replay skipped production launch and mobile audits
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    environment: production
+    env:
+      AUDIT_SHA: ${{ inputs.target_sha }}
+      ORIGIN: https://thebedesk.com
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
+
+    steps:
+      - name: Validate exact audit target
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$AUDIT_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "target_sha must be a full 40-character SHA" >&2; exit 1; }
+
+      - name: Checkout exact deployed authority
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.AUDIT_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Prove current main and successful deployment ancestry
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="$(git rev-parse HEAD)"
+          [[ "$target" == "$AUDIT_SHA" ]] || { echo "checkout mismatch target=$target expected=$AUDIT_SHA" >&2; exit 1; }
+          main_sha="$(curl --fail-with-body --silent --show-error \
+            --header 'Accept: application/vnd.github+json' \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header 'X-GitHub-Api-Version: 2022-11-28' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main" \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])')"
+          [[ "$target" == "$main_sha" ]] || { echo "refusing stale replay target=$target current-main=$main_sha" >&2; exit 1; }
+
+          require_success() {
+            workflow="$1"
+            label="$2"
+            payload="$(curl --fail-with-body --silent --show-error \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/runs?head_sha=$AUDIT_SHA&status=completed&per_page=100")"
+            python3 - "$label" "$AUDIT_SHA" <<'PY' <<<"$payload"
+import json,sys
+label=sys.argv[1]; sha=sys.argv[2]
+data=json.load(sys.stdin)
+runs=data.get('workflow_runs') or []
+ok=[r for r in runs if r.get('head_sha')==sha and r.get('conclusion')=='success']
+if not ok:
+    raise SystemExit(f'missing successful {label} run for exact SHA {sha}')
+print(f'Exact SHA evidence confirmed: {label} run={ok[0].get("id")}')
+PY
+          }
+          require_success deploy-production.yml "production deploy"
+          require_success postdeploy-smoke.yml "exact post-deploy smoke"
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo 'checkout is not clean' >&2; exit 1; }
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+
+      - name: Install exact dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="$(node -p "String(require('./package.json').packageManager).replace(/^npm@/,'')")"
+          actual="$(npm --version)"
+          [[ "$actual" == "$expected" ]] || { echo "npm mismatch expected=$expected actual=$actual" >&2; exit 1; }
+          npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Run source and Phase 0 governance regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/v82-audit-remediation-static.mjs
+          node tests/v82-phase0-launch-audit-deferred-integrations.mjs
+          node tests/v81-auth-workspace-selection-adversarial.mjs
+          node tests/v78-12194-oauth-state-cookie-hardening-adversarial.mjs
+          node tests/v78-role-isolation-static.mjs
+
+      - name: Replay live Phase 0 production launch audit
+        shell: bash
+        run: node scripts/production-launch-audit.mjs
+
+      - name: Replay live mobile post-deploy audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+          node scripts/production-mobile-postdeploy-smoke.mjs
+
+      - name: Prove immutable live release provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import assert from 'node:assert/strict';
+          const expected=JSON.parse(fs.readFileSync('release/production.json','utf8'));
+          const response=await fetch('https://thebedesk.com/api/version',{headers:{accept:'application/json'},cache:'no-store'});
+          assert.equal(response.status,200,'/api/version must return 200');
+          const body=await response.json();
+          assert.equal(body.sourceSha,expected.sourceSha,'live source SHA differs from release authority');
+          assert.equal(body.releaseSequence,expected.sequence,'live release sequence differs from release authority');
+          assert.equal(body.runtimeEntry,'release-governance-entry','live runtime entry is not governed');
+          console.log(`LIVE_PROVENANCE_PASS sourceSha=${body.sourceSha} sequence=${body.releaseSequence}`);
+          NODE
+
+      - name: Optional signed synthetic registration lifecycle closure
+        if: ${{ inputs.run_synthetic_lifecycle }}
+        env:
+          AUDIT_INTEGRITY_SECRET: ${{ secrets.AUDIT_INTEGRITY_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/production-synthetic-interruption-recovery.mjs
+          node scripts/production-synthetic-hold-wrapper.mjs
+          node scripts/production-zero-orphan-audit.mjs
