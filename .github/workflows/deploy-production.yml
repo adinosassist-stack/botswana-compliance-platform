@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       expected_sha:
-        description: 'Full 40-character main commit SHA to deploy; it must already have successful Recovery CI and BF-07 runs'
+        description: 'Full 40-character main commit SHA to deploy; it must already have successful Main Governance Guard, Recovery CI and BF-07 runs'
         required: true
         type: string
 
@@ -104,7 +104,7 @@ jobs:
           actual="$(npm --version)"
           [[ "$actual" == "$expected" ]] || { echo "npm mismatch expected=$expected actual=$actual" >&2; exit 1; }
 
-      - name: Require successful Recovery CI and BF-07 for exact SHA
+      - name: Require successful Main Governance Guard, Recovery CI and BF-07 for exact SHA
         id: qualification
         env:
           GH_TOKEN: ${{ github.token }}
@@ -123,14 +123,18 @@ jobs:
             'x-github-api-version': '2022-11-28'
           };
           const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-          async function successful(workflow, label, {wait = false} = {}) {
+          async function successful(workflow, label, {wait = false, requiredEvent = null} = {}) {
             const attempts = wait ? 37 : 1;
             for (let attempt = 1; attempt <= attempts; attempt += 1) {
               const url = `https://api.github.com/repos/${owner}/${repo}/actions/workflows/${workflow}/runs?branch=main&per_page=100`;
               const response = await fetch(url, {headers});
               if (!response.ok) throw new Error(`${label} lookup failed: HTTP ${response.status}`);
               const body = await response.json();
-              const exactRuns = (body.workflow_runs || []).filter(r => r.head_sha === sha);
+              const exactRuns = (body.workflow_runs || []).filter(r =>
+                r.head_sha === sha &&
+                r.head_branch === 'main' &&
+                (!requiredEvent || r.event === requiredEvent)
+              );
               const passed = exactRuns.find(r => r.status === 'completed' && r.conclusion === 'success');
               if (passed) {
                 console.log(`${label} qualified exact SHA ${sha} with run ${passed.id}`);
@@ -144,6 +148,10 @@ jobs:
             }
             throw new Error(`${label} has no successful completed run for exact SHA ${sha}`);
           }
+          await successful('main-governance-guard.yml', 'Main Governance Guard', {
+            wait: eventName === 'workflow_run',
+            requiredEvent: 'push'
+          });
           await successful('recovery-ci.yml', 'Recovery CI', {wait: eventName === 'workflow_run'});
           let bf07Run;
           if (eventName === 'workflow_dispatch') {
@@ -266,6 +274,23 @@ jobs:
           npx --yes wrangler@4.127.1 deploy --dry-run --outdir "$RUNNER_TEMP/wrangler-dry-run" --secrets-file "$SECRETS_FILE" --config "$PROD_CONFIG"
           rm -f "$PROD_CONFIG"
           trap - EXIT
+
+      - name: Reconfirm exact current main at deployment boundary
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]] || { echo 'deployment checkout moved after qualification' >&2; exit 1; }
+          live_main_sha="$(
+            curl --fail-with-body --silent --show-error \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main" \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])'
+          )"
+          [[ "$live_main_sha" == "$TARGET_SHA" ]] || { echo "refusing stale deployment at mutation boundary: target=$TARGET_SHA current-main=$live_main_sha" >&2; exit 1; }
 
       - name: Deploy exact candidate to Cloudflare
         shell: bash
