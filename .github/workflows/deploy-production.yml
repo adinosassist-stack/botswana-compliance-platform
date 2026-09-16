@@ -190,54 +190,20 @@ jobs:
           npm run launch:gate
           npm audit --omit=dev --audit-level=high
 
-      - name: Validate production environment inputs
-        id: production_env
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
-          AUDIT_INTEGRITY_SECRET: ${{ secrets.AUDIT_INTEGRITY_SECRET }}
-          OPERATIONS_SECRET: ${{ secrets.OPERATIONS_SECRET }}
-          AUTOMATION_SECRET: ${{ secrets.AUTOMATION_SECRET }}
-          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
-          PAYMENT_WEBHOOK_SECRET: ${{ secrets.PAYMENT_WEBHOOK_SECRET }}
-          BILLING_WEBHOOK_SECRET: ${{ secrets.BILLING_WEBHOOK_SECRET }}
-          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
-          FACEBOOK_APP_SECRET: ${{ secrets.FACEBOOK_APP_SECRET }}
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      - name: Validate non-secret production environment inputs
         shell: bash
         run: |
           set -euo pipefail
           required=(
-            CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID D1_DATABASE_ID TURNSTILE_SITE_KEY
-            PLATFORM_ADMIN_EMAILS PLATFORM_REGULATORY_REVIEWERS GOOGLE_OAUTH_REDIRECT_URI
-            FACEBOOK_OAUTH_REDIRECT_URI SESSION_SECRET AUDIT_INTEGRITY_SECRET
-            OPERATIONS_SECRET AUTOMATION_SECRET TURNSTILE_SECRET_KEY PAYMENT_WEBHOOK_SECRET BILLING_WEBHOOK_SECRET
+            D1_DATABASE_ID TURNSTILE_SITE_KEY PLATFORM_ADMIN_EMAILS PLATFORM_REGULATORY_REVIEWERS
+            GOOGLE_OAUTH_REDIRECT_URI FACEBOOK_OAUTH_REDIRECT_URI
           )
           for key in "${required[@]}"; do
             [[ -n "${!key:-}" ]] || { echo "Missing GitHub production environment value: $key" >&2; exit 1; }
           done
-          [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[0-9a-fA-F]{32}$ ]] || { echo 'CLOUDFLARE_ACCOUNT_ID must be a 32-character account identifier' >&2; exit 1; }
           [[ "$D1_DATABASE_ID" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]] || { echo 'D1_DATABASE_ID must be a provisioned D1 UUID' >&2; exit 1; }
           [[ "$GOOGLE_OAUTH_REDIRECT_URI" == 'https://thebedesk.com/api/auth/oauth/google/callback' ]] || { echo 'GOOGLE_OAUTH_REDIRECT_URI must use the exact production callback' >&2; exit 1; }
           [[ "$FACEBOOK_OAUTH_REDIRECT_URI" == 'https://thebedesk.com/api/auth/oauth/facebook/callback' ]] || { echo 'FACEBOOK_OAUTH_REDIRECT_URI must use the exact production callback' >&2; exit 1; }
-
-          google_enabled=false
-          facebook_enabled=false
-          email_enabled=false
-          if [[ -n "${GOOGLE_OAUTH_CLIENT_ID:-}" || -n "${GOOGLE_OAUTH_CLIENT_SECRET:-}" ]]; then
-            [[ -n "${GOOGLE_OAUTH_CLIENT_ID:-}" && -n "${GOOGLE_OAUTH_CLIENT_SECRET:-}" ]] || { echo 'Google OAuth must be configured with both client ID and client secret, or deferred completely' >&2; exit 1; }
-            google_enabled=true
-          fi
-          if [[ -n "${FACEBOOK_APP_ID:-}" || -n "${FACEBOOK_APP_SECRET:-}" ]]; then
-            [[ -n "${FACEBOOK_APP_ID:-}" && -n "${FACEBOOK_APP_SECRET:-}" ]] || { echo 'Facebook OAuth must be configured with both app ID and app secret, or deferred completely' >&2; exit 1; }
-            facebook_enabled=true
-          fi
-          if [[ -n "${EMAIL_FROM:-}" || -n "${RESEND_API_KEY:-}" ]]; then
-            [[ -n "${EMAIL_FROM:-}" && -n "${RESEND_API_KEY:-}" ]] || { echo 'Transactional email must be configured with both EMAIL_FROM and RESEND_API_KEY, or deferred completely' >&2; exit 1; }
-            email_enabled=true
-          fi
-          printf 'google_enabled=%s\nfacebook_enabled=%s\nemail_enabled=%s\n' "$google_enabled" "$facebook_enabled" "$email_enabled" >> "$GITHUB_OUTPUT"
 
       - name: Diagnose Cloudflare authorization boundary
         env:
@@ -247,17 +213,71 @@ jobs:
         run: |
           set -euo pipefail
           API='https://api.cloudflare.com/client/v4'
-          workers_json="$(curl --fail-with-body --silent --show-error \
-            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-            --header 'Content-Type: application/json' \
-            "$API/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts")"
-          printf '%s' "$workers_json" | python3 -c 'import json,sys; body=json.load(sys.stdin); body.get("success") is True or sys.exit("Cloudflare Workers authorization check failed")'
-          d1_json="$(curl --fail-with-body --silent --show-error \
-            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-            --header 'Content-Type: application/json' \
-            "$API/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$D1_DATABASE_ID")"
-          printf '%s' "$d1_json" | D1_DATABASE_ID="$D1_DATABASE_ID" python3 -c 'import json,os,sys; body=json.load(sys.stdin); result=body.get("result") or {}; (body.get("success") is True and result.get("uuid")==os.environ["D1_DATABASE_ID"]) or sys.exit("Cloudflare D1 authorization/database check failed")'
-          echo 'Cloudflare Workers and D1 authorization boundaries verified.'
+          [[ -n "$CLOUDFLARE_API_TOKEN" ]] || { echo 'CLOUDFLARE_API_TOKEN is empty' >&2; exit 1; }
+          [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[0-9a-fA-F]{32}$ ]] || { echo 'CLOUDFLARE_ACCOUNT_ID must be a 32-character account identifier' >&2; exit 1; }
+
+          probe_json() {
+            local label="$1" path="$2" allow_worker_missing="${3:-false}"
+            local tmp status
+            tmp="$(mktemp)"
+            status="$(curl --silent --show-error --max-time 20 \
+              --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              --header 'Accept: application/json' \
+              --output "$tmp" --write-out '%{http_code}' "$API$path" || true)"
+            LABEL="$label" STATUS="$status" ALLOW_WORKER_MISSING="$allow_worker_missing" python3 - "$tmp" <<'PY'
+          import json, os, sys
+          path = sys.argv[1]
+          label = os.environ['LABEL']
+          raw_status = os.environ.get('STATUS', '')
+          allow_missing = os.environ.get('ALLOW_WORKER_MISSING') == 'true'
+          try:
+              status = int(raw_status)
+          except ValueError:
+              raise SystemExit(f'{label}: invalid HTTP status {raw_status!r}')
+          try:
+              with open(path, encoding='utf-8') as handle:
+                  body = json.load(handle)
+          except Exception as exc:
+              raise SystemExit(f'{label}: invalid JSON response: {exc}')
+          errors = body.get('errors') if isinstance(body, dict) else []
+          errors = errors if isinstance(errors, list) else []
+          worker_missing = allow_missing and status == 404 and any(
+              isinstance(error, dict) and error.get('code') == 10090 for error in errors
+          )
+          ok = (200 <= status < 300 and body.get('success') is not False) or worker_missing
+          if not ok:
+              summary = ' | '.join(
+                  f"{error.get('code', 'unknown')}:{str(error.get('message', 'unknown'))[:180]}"
+                  for error in errors if isinstance(error, dict)
+              ) or 'none'
+              raise SystemExit(f'{label}: HTTP {status}; errors={summary}')
+          print(f'{label}: HTTP {status}; authorized=true' + ('; allowed_first_deploy_absence=true' if worker_missing else ''))
+          PY
+            rm -f "$tmp"
+          }
+
+          if [[ "$CLOUDFLARE_API_TOKEN" == cfat_* ]]; then
+            VERIFY_PATH="/accounts/$CLOUDFLARE_ACCOUNT_ID/tokens/verify"
+          else
+            VERIFY_PATH='/user/tokens/verify'
+          fi
+          probe_json 'token verification' "$VERIFY_PATH"
+          probe_json 'account scope' "/accounts/$CLOUDFLARE_ACCOUNT_ID"
+          probe_json 'Worker service metadata' "/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/services/bw-compliance-os" true
+          probe_json 'Workers scripts scope' "/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts"
+          probe_json 'D1 binding' "/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$D1_DATABASE_ID"
+          probe_json 'R2 binding' "/accounts/$CLOUDFLARE_ACCOUNT_ID/r2/buckets/bw-compliance-evidence"
+          probe_json 'Workers AI binding' "/accounts/$CLOUDFLARE_ACCOUNT_ID/ai/models/search?per_page=1"
+          probe_json 'Workers custom-domain visibility' "/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/domains"
+          echo 'Cloudflare token, account, Worker, D1, R2, AI and custom-domain authorization boundaries verified.'
+
+          for edge_path in /api/live /api/ready /api/auth/anti-bot-config; do
+            tmp="$(mktemp)"
+            status="$(curl --silent --show-error --max-time 12 --output "$tmp" --write-out '%{http_code}' "https://thebedesk.com$edge_path" || true)"
+            body="$(tr '\n' ' ' < "$tmp" | cut -c1-300)"
+            rm -f "$tmp"
+            echo "Public edge $edge_path fingerprint: HTTP ${status:-curl_error}; body=${body:-<empty>}"
+          done
 
       - name: Prepare pinned Wrangler CLI outside candidate workspace
         shell: bash
@@ -337,6 +357,7 @@ jobs:
           [[ "$actual_config_sha256" == '${{ steps.candidate_config.outputs.config_sha256 }}' ]] || { echo 'rendered production config changed after dry-run qualification' >&2; exit 1; }
 
       - name: Deploy exact candidate to Cloudflare
+        id: deploy_mutation
         env:
           GH_TOKEN: ${{ github.token }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -359,6 +380,31 @@ jobs:
           WRANGLER_JS="$RUNNER_TEMP/wrangler-cli/node_modules/wrangler/bin/wrangler.js"
           cleanup(){ rm -f "$SECRETS_FILE" "$PROD_CONFIG"; }
           trap cleanup EXIT
+
+          required_secrets=(
+            CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID SESSION_SECRET AUDIT_INTEGRITY_SECRET
+            OPERATIONS_SECRET AUTOMATION_SECRET TURNSTILE_SECRET_KEY PAYMENT_WEBHOOK_SECRET BILLING_WEBHOOK_SECRET
+          )
+          for key in "${required_secrets[@]}"; do
+            [[ -n "${!key:-}" ]] || { echo "Missing required production secret: $key" >&2; exit 1; }
+          done
+          [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[0-9a-fA-F]{32}$ ]] || { echo 'CLOUDFLARE_ACCOUNT_ID must be a 32-character account identifier' >&2; exit 1; }
+
+          google_enabled=false
+          facebook_enabled=false
+          email_enabled=false
+          if [[ -n "${GOOGLE_OAUTH_CLIENT_ID:-}" || -n "${GOOGLE_OAUTH_CLIENT_SECRET:-}" ]]; then
+            [[ -n "${GOOGLE_OAUTH_CLIENT_ID:-}" && -n "${GOOGLE_OAUTH_CLIENT_SECRET:-}" ]] || { echo 'Google OAuth must be configured with both client ID and client secret, or deferred completely' >&2; exit 1; }
+            google_enabled=true
+          fi
+          if [[ -n "${FACEBOOK_APP_ID:-}" || -n "${FACEBOOK_APP_SECRET:-}" ]]; then
+            [[ -n "${FACEBOOK_APP_ID:-}" && -n "${FACEBOOK_APP_SECRET:-}" ]] || { echo 'Facebook OAuth must be configured with both app ID and app secret, or deferred completely' >&2; exit 1; }
+            facebook_enabled=true
+          fi
+          if [[ -n "${EMAIL_FROM:-}" || -n "${RESEND_API_KEY:-}" ]]; then
+            [[ -n "${EMAIL_FROM:-}" && -n "${RESEND_API_KEY:-}" ]] || { echo 'Transactional email must be configured with both EMAIL_FROM and RESEND_API_KEY, or deferred completely' >&2; exit 1; }
+            email_enabled=true
+          fi
 
           test -f "$WRANGLER_JS"
           actual_config_sha256="$(sha256sum "$PROD_CONFIG" | awk '{print $1}')"
@@ -409,13 +455,14 @@ jobs:
           )"
           [[ "$live_main_sha" == "$TARGET_SHA" ]] || { echo "main advanced after runtime secret preparation; refusing deploy target=$TARGET_SHA current-main=$live_main_sha" >&2; exit 1; }
           node "$WRANGLER_JS" deploy --secrets-file "$SECRETS_FILE" --config "$PROD_CONFIG"
+          printf 'google_enabled=%s\nfacebook_enabled=%s\nemail_enabled=%s\n' "$google_enabled" "$facebook_enabled" "$email_enabled" >> "$GITHUB_OUTPUT"
           cleanup
           trap - EXIT
 
       - name: Verify live production readiness
         env:
-          GOOGLE_ENABLED: ${{ steps.production_env.outputs.google_enabled }}
-          FACEBOOK_ENABLED: ${{ steps.production_env.outputs.facebook_enabled }}
+          GOOGLE_ENABLED: ${{ steps.deploy_mutation.outputs.google_enabled }}
+          FACEBOOK_ENABLED: ${{ steps.deploy_mutation.outputs.facebook_enabled }}
         shell: bash
         run: |
           set -euo pipefail
