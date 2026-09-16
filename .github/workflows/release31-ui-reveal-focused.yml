@@ -1,0 +1,47 @@
+name: Release 31 UI reveal focused trace
+run-name: Release 31 UI reveal focused trace
+
+on:
+  push:
+    branches:
+      - diag/release31-ui-reveal-static-20260916
+
+permissions:
+  contents: read
+
+jobs:
+  trace:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout diagnostic branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Print focused reveal flow
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          lines=Path('public/index.html').read_text(encoding='utf-8').splitlines()
+          needles=['loadServerState','/api/billing/status','renderAll(','appShell.style.visibility','marketingGate','authGate','loadBilling','billingStatus','bootstrapAuthenticated','workspaceReady']
+          hits=[]
+          for needle in needles:
+            for i,line in enumerate(lines):
+              if needle in line:
+                hits.append((i,needle))
+          print('HITS')
+          for i,n in hits:
+            print(f'{i+1}: {n}: {lines[i].strip()[:500]}')
+          print('WINDOWS')
+          emitted=[]
+          for i,n in hits:
+            if n not in ('loadServerState','/api/billing/status','appShell.style.visibility','loadBilling','renderAll('): continue
+            a=max(0,i-18); b=min(len(lines),i+32)
+            if any(abs(a-x)<8 for x in emitted): continue
+            emitted.append(a)
+            print(f'--- {n} {a+1}:{b} ---')
+            for j in range(a,b): print(f'{j+1:06d}: {lines[j]}')
+          PY
