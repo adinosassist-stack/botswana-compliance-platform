@@ -1,0 +1,30 @@
+name: Release 31 API transport regression lineage
+
+on:
+  push:
+    branches:
+      - diag/release31-state-reload-20260916
+
+permissions:
+  contents: read
+
+jobs:
+  trace:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 3b39936093956c8b7ed2bdcb2415aa336e094ae6
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Inventory root shadow direct transport contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == '3b39936093956c8b7ed2bdcb2415aa336e094ae6' ]]
+          echo '=== source/test references ==='
+          grep -RInE --exclude-dir=.git --exclude=package-lock.json 'preferredTransport|root_tunnel|shadow_path|__thebe_api_path|API_SHADOW_PREFIX|transportCandidates|api_transport' public cloudflare tests scripts .github | head -n 600 || true
+          echo '=== history for api-client transport ==='
+          git log --all --date=iso --format='%H %ad %s' -- public/js/api-client.js | head -n 80
+          echo '=== commits adding root preference ==='
+          git log --all -S'preferredTransport="root"' --format='%H %ad %s' --date=iso -- public/js/api-client.js | head -n 40
