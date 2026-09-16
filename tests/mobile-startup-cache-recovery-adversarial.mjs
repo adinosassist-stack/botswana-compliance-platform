@@ -27,17 +27,17 @@ assert.match(recoverRuntime,/caches\.delete\(key\)/,'recovery runtime must clear
 assert.match(recoverRuntime,/location\.replace/,'manual recovery runtime may reopen the live root once after explicit recovery');
 
 // Normal production startup must clean old Chrome/PWA state without any reload,
-// popup, or navigation side effect. It runs once immediately and again after
-// DOMContentLoaded so the historical inline register() call cannot persist.
+// popup, navigation, or new service-worker registration side effect. Cleanup
+// still runs immediately and after DOMContentLoaded for retained legacy state.
 assert.match(domSecurity,/installLegacyBrowserRuntimeDecommission/,'normal startup must install legacy browser-runtime cleanup');
 assert.match(domSecurity,/getRegistrations\(\)/,'normal startup must enumerate stale service-worker registrations');
 assert.match(domSecurity,/registration=>registration\.unregister\(\)/,'normal startup must unregister stale service workers');
 assert.match(domSecurity,/startsWith\("thebe-desk-"\)/,'normal startup cache cleanup must be limited to Thebe Desk caches');
-assert.match(domSecurity,/DOMContentLoaded/,'cleanup must repeat after document startup to catch a legacy inline registration');
+assert.match(domSecurity,/DOMContentLoaded/,'cleanup must repeat after document startup to catch delayed retained legacy state');
 assert.doesNotMatch(domSecurity,/window\.open|clients\.openWindow|location\.(?:reload|assign|replace)/,'normal startup cleanup must never create tabs or navigate/reload');
 const domSecurityPosition=index.indexOf('js/dom-security.js');
-const legacyRegisterPosition=index.indexOf('navigator.serviceWorker.register');
-assert.ok(domSecurityPosition>=0&&legacyRegisterPosition>domSecurityPosition,'browser-runtime decommission must load before the historical service-worker registration call');
+assert.ok(domSecurityPosition>=0,'browser-runtime decommission must load in production');
+assert.doesNotMatch(index,/navigator\.serviceWorker\.register|serviceWorker\.register/,'retired service worker must not be re-registered by the production document');
 
 assert.match(index,/<meta name="bw-runtime-mode" content="production"\s*\/>/,'production root must remain explicitly production mode');
 assert.match(index,/\.previewmode\{display:none/,'preview marker must be hidden by default');
