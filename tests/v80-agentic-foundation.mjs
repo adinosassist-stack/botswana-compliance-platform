@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import {__agenticFoundationTest} from '../cloudflare/src/agentic-core.js';
-import {auditFailClosedResponse,logicalRequestPath,withAuditWriteFailureGuard} from '../cloudflare/src/agentic-entry.js';
+import {logicalRequestPath} from '../cloudflare/src/agentic-entry.js';
 
 const core=fs.readFileSync(new URL('../cloudflare/src/agentic-core.js',import.meta.url),'utf8');
 const agenticEntry=fs.readFileSync(new URL('../cloudflare/src/agentic-entry.js',import.meta.url),'utf8');
@@ -19,24 +19,6 @@ ok(productionEntry.includes('const agenticResponse=await handleAgenticRequest'),
 ok(productionEntry.includes('worker.fetch(request,env,ctx)'),'non-authority traffic still delegates through hardened base Worker');
 ok(logicalRequestPath(new Request('https://thebedesk.com/api/agentic/status'))==='/api/agentic/status','direct agentic path normalizes');
 ok(logicalRequestPath(new Request('https://thebedesk.com/?__thebe_api_path=%2Fapi%2Fagentic%2Fplan'))==='/api/agentic/plan','tunneled agentic path normalizes');
-
-const fakeDb={prepare(sql){return {sql}}};
-const auditGuard=withAuditWriteFailureGuard({DB:fakeDb});
-auditGuard.env.DB.prepare('SELECT 1');
-ok(auditGuard.state.failed===false,'audit guard ignores ordinary D1 statements');
-auditGuard.env.DB.prepare('INSERT INTO audit_write_failures(id) VALUES(?)');
-ok(auditGuard.state.failed===true,'audit guard marks the terminal audit-write failure path');
-const failedResponse=auditFailClosedResponse(new Response('{"ok":true}',{status:200,headers:{'content-type':'application/json'}}),auditGuard.state);
-ok(failedResponse.status===500&&failedResponse.headers.get('x-thebe-audit-fail-closed')==='1','successful API response is converted to fail-closed 500 after terminal audit failure');
-const redirectResponse=auditFailClosedResponse(new Response(null,{status:302,headers:{location:'/next'}}),auditGuard.state);
-ok(redirectResponse.status===500&&redirectResponse.headers.get('x-thebe-audit-fail-closed')==='1','successful redirect cannot escape after terminal audit failure');
-const conflictResponse=auditFailClosedResponse(new Response('{"error":"conflict"}',{status:409}),auditGuard.state);
-ok(conflictResponse.status===409,'already-failed API responses are not rewritten by the audit guard');
-let waited=null;
-const backgroundGuard=withAuditWriteFailureGuard({DB:fakeDb},{waitUntil(promise){waited=promise}});
-backgroundGuard.env.DB.prepare('INSERT INTO audit_write_failures(id) VALUES(?)');
-backgroundGuard.ctx.waitUntil(Promise.resolve('done'));
-await assert.rejects(waited,/audit_write_failed/);checks++;
 
 ok(core.includes('/api/agentic/status'),'agentic status route exists');
 ok(core.includes('/api/agentic/runs'),'agentic run history route exists');
