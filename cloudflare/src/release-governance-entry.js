@@ -34,7 +34,7 @@ function registrationMode(env){
 }
 
 function registrationCohort(env){
-  return new Set(String(env?.REGISTRATION_COHORT_EMAILS||"")
+  return new Set(String(env?.REGISTRATION_COHORT_EMAILS_SECRET||"")
     .split(",")
     .map(value=>value.trim().toLowerCase())
     .filter(Boolean));
@@ -134,6 +134,7 @@ async function registrationGate(request,env){
 
   if(mode==="hold")return registrationHoldResponse(mode);
   const cohort=registrationCohort(env);
+  if(!cohort.size)return json({error:"registration_policy_invalid",message:"Registration is unavailable while the activation policy is being repaired."},503,{"retry-after":"300"});
   if(email&&cohort.has(email))return null;
   return json({error:"registration_not_in_cohort",message:"Registration is currently limited to the approved launch cohort.",registrationMode:mode},403);
 }
