@@ -6,6 +6,7 @@ import {preparePlatformOwnerLogin,withPlatformOwnerAdminEnv} from "./platform-ow
 const V81_SCHEMA_DELTA="047_v81_delegated_authority.sql";
 const COLD_START_REDUNDANT_RENDER="if(!options?.skipDataRefresh)queueMicrotask(()=>renderAll())";
 const COLD_START_GUARDED_RENDER="if(!options?.skipDataRefresh&&!options?.roleRedirect)queueMicrotask(()=>renderAll())";
+const AUDIT_WRITE_FAILURE_INSERT=/^\s*INSERT\s+INTO\s+audit_write_failures\s*\(/i;
 
 function logicalRequestPath(request){
   try{
@@ -18,6 +19,45 @@ function logicalRequestPath(request){
     if(url.pathname==="/__thebe_api")return "/api";
     return url.pathname;
   }catch{return ""}
+}
+
+function bindMethod(target,value){return typeof value==="function"?value.bind(target):value}
+function withAuditWriteFailureGuard(env,ctx=null){
+  const state={failed:false};
+  let guardedEnv=env;
+  if(env?.DB&&typeof env.DB.prepare==="function"){
+    const db=env.DB;
+    const guardedDb=new Proxy(db,{get(target,prop){
+      if(prop==="prepare")return sql=>{
+        if(AUDIT_WRITE_FAILURE_INSERT.test(String(sql||"")))state.failed=true;
+        return target.prepare(sql);
+      };
+      return bindMethod(target,Reflect.get(target,prop,target));
+    }});
+    guardedEnv=Object.assign({},env,{DB:guardedDb});
+  }
+  let guardedCtx=ctx;
+  if(ctx&&typeof ctx.waitUntil==="function"){
+    guardedCtx=new Proxy(ctx,{get(target,prop){
+      if(prop==="waitUntil")return promise=>target.waitUntil(Promise.resolve(promise).then(value=>{
+        if(state.failed)throw new Error("audit_write_failed");
+        return value;
+      }));
+      return bindMethod(target,Reflect.get(target,prop,target));
+    }});
+  }
+  return {env:guardedEnv,ctx:guardedCtx,state};
+}
+
+function auditFailClosedResponse(response,state){
+  if(!state?.failed||!response?.ok)return response;
+  const headers=new Headers(response.headers);
+  headers.delete("content-length");
+  headers.delete("etag");
+  headers.set("content-type","application/json; charset=utf-8");
+  headers.set("cache-control","no-store");
+  headers.set("x-thebe-audit-fail-closed","1");
+  return new Response(JSON.stringify({error:"audit_write_failed"}),{status:500,headers});
 }
 
 async function delegatedAuthoritySchemaReady(env){
@@ -71,23 +111,40 @@ async function enhanceReadiness(request,env,response){
   });
 }
 
-export default {
-  async fetch(request,env,ctx){
-    const logicalPath=logicalRequestPath(request);
-    const whatsappResponse=await handleAgenticWhatsAppRequest({request,logicalPath,env});
-    if(whatsappResponse)return whatsappResponse;
-    const authorityResponse=await handleAgenticAuthorityRequest({request,logicalPath,env});
-    if(authorityResponse)return authorityResponse;
-    env=withPlatformOwnerAdminEnv(env);
-    request=await preparePlatformOwnerLogin(request,env);
-    const response=await base.fetch(request,env,ctx);
-    const hardenedResponse=await hardenAuthenticatedColdStart(request,response);
-    if(hardenedResponse!==response)return enhanceReadiness(request,env,hardenedResponse);
-    return enhanceReadiness(request,env,response);
-  },
-  async scheduled(event,env,ctx){
-    return base.scheduled(event,env,ctx);
-  }
+async function fetchAgenticEntry(request,env,ctx){
+  const logicalPath=logicalRequestPath(request);
+  const whatsappResponse=await handleAgenticWhatsAppRequest({request,logicalPath,env});
+  if(whatsappResponse)return whatsappResponse;
+  const authorityResponse=await handleAgenticAuthorityRequest({request,logicalPath,env});
+  if(authorityResponse)return authorityResponse;
+  env=withPlatformOwnerAdminEnv(env);
+  request=await preparePlatformOwnerLogin(request,env);
+  const response=await base.fetch(request,env,ctx);
+  const hardenedResponse=await hardenAuthenticatedColdStart(request,response);
+  if(hardenedResponse!==response)return enhanceReadiness(request,env,hardenedResponse);
+  return enhanceReadiness(request,env,response);
+}
+
+export {
+  auditFailClosedResponse,
+  delegatedAuthoritySchemaReady,
+  enhanceReadiness,
+  hardenAuthenticatedColdStart,
+  logicalRequestPath,
+  V81_SCHEMA_DELTA,
+  withAuditWriteFailureGuard
 };
 
-export {delegatedAuthoritySchemaReady,enhanceReadiness,hardenAuthenticatedColdStart,logicalRequestPath,V81_SCHEMA_DELTA};
+export default {
+  async fetch(request,env,ctx){
+    const guard=withAuditWriteFailureGuard(env,ctx);env=guard.env;ctx=guard.ctx;
+    const response=await fetchAgenticEntry(request,env,ctx);
+    return auditFailClosedResponse(response,guard.state);
+  },
+  async scheduled(event,env,ctx){
+    const guard=withAuditWriteFailureGuard(env,ctx);env=guard.env;ctx=guard.ctx;
+    const result=await base.scheduled(event,env,ctx);
+    if(guard.state.failed)throw new Error("audit_write_failed");
+    return result;
+  }
+};
