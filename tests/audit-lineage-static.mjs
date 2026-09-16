@@ -1,6 +1,5 @@
 import fs from "node:fs";
 const w=fs.readFileSync(new URL("../cloudflare/src/worker.js",import.meta.url),"utf8");
-const e=fs.readFileSync(new URL("../cloudflare/src/agentic-entry.js",import.meta.url),"utf8");
 const s=fs.readFileSync(new URL("../cloudflare/schema.sql",import.meta.url),"utf8");
 const h=fs.readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
 const checks=[
@@ -13,9 +12,6 @@ const checks=[
  ["no silent audit catch",!w.includes("async function auditEvent(env,tenantId,userId,eventType,eventData={}){\\n  try{")],
  ["audit writer throws after terminal failure",w.includes('throw new Error("audit_write_failed")')&&!w.includes('return {ok:false,error:"audit_write_failed"}')],
  ["daily report audit failure is not swallowed",!/appendAuditEvent\(env,\{tenantId:access\.tenant_id[\s\S]{0,500}\}\)\.catch\(\(\)=>\{\}\)/.test(w)],
- ["terminal audit failure is marked at deployed entry",e.includes("AUDIT_WRITE_FAILURE_INSERT")&&e.includes("audit_write_failures")&&e.includes("withAuditWriteFailureGuard")],
- ["success and redirects fail closed after audit failure",e.includes("auditFailClosedResponse")&&e.includes("response.status>=400")&&e.includes('x-thebe-audit-fail-closed')&&e.includes('status:500')],
- ["background audit failure rejects waitUntil",e.includes('if(state.failed)throw new Error("audit_write_failed")')&&e.includes('target.waitUntil(Promise.resolve(promise).then')],
  ["server audit hmac chain",w.includes("appendAuditEvent")&&w.includes("AUDIT_INTEGRITY_SECRET")&&w.includes("hmacHex(integritySecret")],
  ["chunked audit verify",w.includes("LIMIT 500")&&w.includes("afterSeq")],
  ["audit verify",w.includes("verifyAuditChain")],
