@@ -48,6 +48,14 @@ safe_optional_toml_value() {
 }
 
 [ -f "$TEMPLATE" ] || fail "wrangler.toml template not found"
+TEMPLATE_DIR=$(CDPATH= cd -- "$(dirname -- "$TEMPLATE")" && pwd)
+MAIN_ENTRY="$TEMPLATE_DIR/src/release-governance-entry.js"
+ASSETS_DIRECTORY=$(CDPATH= cd -- "$TEMPLATE_DIR/../public" && pwd)
+[ -f "$MAIN_ENTRY" ] || fail "release governance entrypoint not found beside the Wrangler template"
+[ -d "$ASSETS_DIRECTORY" ] || fail "public assets directory not found beside the Wrangler template"
+safe_toml_value MAIN_ENTRY "$MAIN_ENTRY"
+safe_toml_value ASSETS_DIRECTORY "$ASSETS_DIRECTORY"
+
 printf '%s\n' "$D1_ID" | grep -Eq '^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$' || fail "D1_DATABASE_ID must be the provisioned D1 UUID"
 
 case "$PAYMENT_MODE" in
@@ -103,10 +111,14 @@ TOTAL_IDS=$(grep -Ec '^[[:space:]]*database_id[[:space:]]*=' "$TEMPLATE" || true
 PLACEHOLDERS=$(grep -Ec '^[[:space:]]*database_id[[:space:]]*=[[:space:]]*"REPLACE_WITH_D1_DATABASE_ID"[[:space:]]*$' "$TEMPLATE" || true)
 PAYMENT_LINES=$(grep -Ec '^[[:space:]]*PAYMENT_PROVIDER[[:space:]]*=' "$TEMPLATE" || true)
 SAFE_PAYMENT_DEFAULTS=$(grep -Ec '^[[:space:]]*PAYMENT_PROVIDER[[:space:]]*=[[:space:]]*"none"[[:space:]]*$' "$TEMPLATE" || true)
+MAIN_LINES=$(grep -Ec '^[[:space:]]*main[[:space:]]*=[[:space:]]*"src/release-governance-entry\.js"[[:space:]]*$' "$TEMPLATE" || true)
+ASSET_DIR_LINES=$(grep -Ec '^[[:space:]]*directory[[:space:]]*=[[:space:]]*"\.\./public"[[:space:]]*$' "$TEMPLATE" || true)
 [ "$TOTAL_IDS" -eq 1 ] || fail "template must contain exactly one D1 database_id"
 [ "$PLACEHOLDERS" -eq 1 ] || fail "template must contain exactly one D1 database_id placeholder"
 [ "$PAYMENT_LINES" -eq 1 ] || fail "template must contain exactly one PAYMENT_PROVIDER"
 [ "$SAFE_PAYMENT_DEFAULTS" -eq 1 ] || fail "template PAYMENT_PROVIDER must default to none"
+[ "$MAIN_LINES" -eq 1 ] || fail "template must contain exactly one canonical release governance entrypoint"
+[ "$ASSET_DIR_LINES" -eq 1 ] || fail "template must contain exactly one canonical public assets directory"
 
 for key in PUBLIC_APP_URL PUBLIC_ORIGIN TURNSTILE_SITE_KEY PLATFORM_ADMIN_EMAILS PLATFORM_REGULATORY_REVIEWERS EVIDENCE_SCAN_API_URL GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_REDIRECT_URI FACEBOOK_APP_ID FACEBOOK_OAUTH_REDIRECT_URI EMAIL_FROM; do
   count=$(grep -Ec "^[[:space:]]*${key}[[:space:]]*=[[:space:]]*\"REPLACE_WITH_${key}\"[[:space:]]*$" "$TEMPLATE" || true)
@@ -126,8 +138,12 @@ awk \
   -v google_redirect_uri="$GOOGLE_RUNTIME_REDIRECT_URI" \
   -v facebook_app_id="$FACEBOOK_APP_ID_VALUE" \
   -v facebook_redirect_uri="$FACEBOOK_RUNTIME_REDIRECT_URI" \
-  -v email_from="$EMAIL_FROM_VALUE" '
+  -v email_from="$EMAIL_FROM_VALUE" \
+  -v main_entry="$MAIN_ENTRY" \
+  -v assets_directory="$ASSETS_DIRECTORY" '
   function emit(k,v){ print k " = \"" v "\""; replaced[k]++ }
+  /^[[:space:]]*main[[:space:]]*=[[:space:]]*"src\/release-governance-entry\.js"[[:space:]]*$/ { print "main = \"" main_entry "\""; main_replaced++; next }
+  /^[[:space:]]*directory[[:space:]]*=[[:space:]]*"\.\.\/public"[[:space:]]*$/ { print "directory = \"" assets_directory "\""; assets_replaced++; next }
   /^[[:space:]]*database_id[[:space:]]*=[[:space:]]*"REPLACE_WITH_D1_DATABASE_ID"[[:space:]]*$/ { print "database_id = \"" id "\""; id_replaced++; next }
   /^[[:space:]]*PAYMENT_PROVIDER[[:space:]]*=[[:space:]]*"none"[[:space:]]*$/ { print "PAYMENT_PROVIDER = \"" payment "\""; payment_replaced++; next }
   /^[[:space:]]*PUBLIC_APP_URL[[:space:]]*=/ { emit("PUBLIC_APP_URL",public_app); next }
@@ -143,7 +159,7 @@ awk \
   /^[[:space:]]*EMAIL_FROM[[:space:]]*=/ { emit("EMAIL_FROM",email_from); next }
   { print }
   END {
-    if (id_replaced != 1 || payment_replaced != 1) exit 42
+    if (id_replaced != 1 || payment_replaced != 1 || main_replaced != 1 || assets_replaced != 1) exit 42
     keys[1]="PUBLIC_APP_URL";keys[2]="PUBLIC_ORIGIN";keys[3]="TURNSTILE_SITE_KEY";keys[4]="PLATFORM_ADMIN_EMAILS";keys[5]="PLATFORM_REGULATORY_REVIEWERS";keys[6]="EVIDENCE_SCAN_API_URL";keys[7]="GOOGLE_OAUTH_CLIENT_ID";keys[8]="GOOGLE_OAUTH_REDIRECT_URI";keys[9]="FACEBOOK_APP_ID";keys[10]="FACEBOOK_OAUTH_REDIRECT_URI";keys[11]="EMAIL_FROM"
     for(i=1;i<=11;i++)if(replaced[keys[i]]!=1)exit 43
   }
