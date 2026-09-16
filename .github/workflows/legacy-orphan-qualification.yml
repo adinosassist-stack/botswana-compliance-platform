@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   qualify:
-    name: Qualify zero-orphan cleanup safety
+    name: quality zero-orphan cleanup safety
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
