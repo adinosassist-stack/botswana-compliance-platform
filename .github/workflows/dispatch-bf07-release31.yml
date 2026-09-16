@@ -1,0 +1,61 @@
+name: Dispatch BF-07 release 31
+
+on:
+  push:
+    branches:
+      - ops/dispatch-bf07-release31-20260916
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact current main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify release 31 exact main and completed Recovery
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: 3b39936093956c8b7ed2bdcb2415aa336e094ae6
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SHA" ]]
+          python3 - <<'PY'
+          import json
+          with open('release/production.json') as f: m=json.load(f)
+          assert m == {
+            'schema':1,
+            'release':'production',
+            'sequence':31,
+            'sourceSha':'515534accc6dc04ad10b0928c929251b589c4714'
+          }, m
+          PY
+          recovery="$(curl --fail-with-body --silent --show-error \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/recovery-ci.yml/runs?branch=main&per_page=100")"
+          printf '%s' "$recovery" | EXPECTED_SHA="$EXPECTED_SHA" python3 -c 'import json,os,sys; b=json.load(sys.stdin); s=os.environ["EXPECTED_SHA"]; r=next((x for x in b.get("workflow_runs",[]) if x.get("head_sha")==s and x.get("head_branch")=="main" and x.get("status")=="completed" and x.get("conclusion")=="success"),None); r or sys.exit("exact release Recovery CI is not green"); print("Recovery run",r.get("id"),"confirmed")'
+
+      - name: Dispatch exact BF-07 workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: 3b39936093956c8b7ed2bdcb2415aa336e094ae6
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error -X POST \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/bf07-seal.yml/dispatches" \
+            -d "{\"ref\":\"main\",\"inputs\":{\"expected_sha\":\"$EXPECTED_SHA\"}}"
+          echo "BF-07 dispatch accepted for $EXPECTED_SHA"
