@@ -1,0 +1,64 @@
+name: Release 31 UI reveal static trace
+run-name: Release 31 UI reveal static trace
+
+on:
+  push:
+    branches:
+      - diag/release31-ui-reveal-static-20260916
+
+permissions:
+  contents: read
+
+jobs:
+  trace:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout diagnostic branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify exact production authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse origin/main)" == '3b39936093956c8b7ed2bdcb2415aa336e094ae6' ]]
+      - name: Print API client transport implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          nl -ba public/js/api-client.js | sed -n '1,280p'
+      - name: Print focused workspace reveal source windows
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('public/index.html')
+          lines=p.read_text(encoding='utf-8').splitlines()
+          needles=[
+            'async function loadServerState',
+            'function loadServerState',
+            '/api/billing/status',
+            'loadBilling',
+            'appShell',
+            'marketingGate',
+            'authGate',
+            'renderAll(',
+            'loadServerState()',
+            'style.visibility',
+          ]
+          printed=[]
+          for needle in needles:
+            hits=[i for i,line in enumerate(lines) if needle in line]
+            print(f'=== NEEDLE {needle!r} HITS {[(i+1) for i in hits[:20]]} ===')
+            for i in hits[:8]:
+              start=max(0,i-45); end=min(len(lines),i+95)
+              key=(start,end)
+              if key in printed: continue
+              printed.append(key)
+              print(f'--- WINDOW {start+1}:{end} ---')
+              for n in range(start,end):
+                print(f'{n+1:06d}: {lines[n]}')
+          PY
