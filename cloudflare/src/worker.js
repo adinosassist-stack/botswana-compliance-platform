@@ -241,6 +241,13 @@ function configuredPublicOrigin(env){
   const origin=normalizeHttpsOrigin(env.PUBLIC_ORIGIN),app=validPublicAppUrl(env.PUBLIC_APP_URL);if(!origin||!app)return null;
   try{return new URL(app).origin===origin?origin:null}catch{return null}
 }
+function publicSignupMode(env){
+  const mode=String(env.PUBLIC_SIGNUP_MODE||"hold").trim().toLowerCase();
+  return mode==="public"?"public":"hold";
+}
+function publicLaunchCapabilities(env){
+  return {signupMode:publicSignupMode(env),oauth:{google:!!oauthProviderConfig(env,"google"),facebook:!!oauthProviderConfig(env,"facebook")},passwordReset:!!(strongSecret(env.RESEND_API_KEY,20)&&String(env.EMAIL_FROM||"").includes("@"))};
+}
 function fetchMetadataAllowsBrowserMutation(req){
   const site=String(req.headers.get("sec-fetch-site")||"").trim().toLowerCase();
   if(!site)return true;
@@ -4827,7 +4834,7 @@ async function prunePlatformScheduledRuns(env){
 }
 
 export const __seoTest=Object.freeze({configuredSeoOrigin,seoCanonicalUrl,seoAssetUrl,seoRobotsResponse,seoSitemapResponse,seoPageUrl,SEO_GUIDE_SLUGS});
-export const __v782163Test=Object.freeze({normalizeHttpsOrigin,configuredPublicOrigin,requestOriginAllowed,deploymentReadiness});
+export const __v782163Test=Object.freeze({normalizeHttpsOrigin,configuredPublicOrigin,requestOriginAllowed,deploymentReadiness,publicSignupMode,publicLaunchCapabilities});
 export const __v782120Test=Object.freeze({safeNextPath,restrictedWorkspaceMutationAllowed,restrictedWorkspaceReadAllowed});
 export const __v782150Test=Object.freeze({parsePasswordHash,passwordNeedsRehash,SEO_GUIDE_SLUGS});
 export const __v782151Test=Object.freeze({trustedDpoUrl,validPublicAppUrl,providerConfigState,externalFetch});
@@ -4877,9 +4884,11 @@ export default {
       let body={};try{body=JSON.parse(raw)}catch{return json({error:"invalid_json"},400)}
       try{return json({ok:true,...await processWhatsAppWebhookBody(env,body)})}catch{return json({error:"whatsapp_webhook_processing_failed"},500)}
     }
+    if(url.pathname==="/api/auth/launch-capabilities"&&req.method==="GET")return json(publicLaunchCapabilities(env),200,{"cache-control":"no-store"});
     if(url.pathname==="/api/auth/anti-bot-config"&&req.method==="GET")return json({provider:"turnstile",siteKey:String(env.TURNSTILE_SITE_KEY||""),action:"register",required:String(env.APP_ENV||"production")==="production"});
     if(url.pathname==="/api/auth/register"&&req.method==="POST"){
       if(!requestOriginAllowed(req,env))return json({error:"origin_failed"},403);
+      if(publicSignupMode(env)!=="public")return json({error:"registration_closed",signupMode:"hold",message:"Public registration is temporarily closed while the founding cohort is controlled."},503,{"retry-after":"3600"});
       const ipLimit=await authRateLimit(env,req,"register-ip",{limit:6,windowSeconds:900});if(!ipLimit.ok)return rateLimitResponse(ipLimit);
       const globalLimit=await authSubjectRateLimit(env,"register-platform","platform",{limit:100,windowSeconds:3600});if(!globalLimit.ok)return rateLimitResponse(globalLimit);
       const body=await readJson(req,{maxBytes:16*1024});const email=String(body.email||"").trim().toLowerCase(),password=String(body.password||""),companyName=String(body.companyName||"").trim();
