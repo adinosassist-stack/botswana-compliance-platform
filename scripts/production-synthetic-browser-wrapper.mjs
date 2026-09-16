@@ -10,6 +10,7 @@ const DIAGNOSTIC_EXTERNAL_DEADLINE_MS=12000;
 const WORKSPACE_EXTERNAL_DEADLINE_MS=40000;
 const BROWSER_CLOSE_DEADLINE_MS=5000;
 const API_BREADCRUMB_PATHS=new Set(['/api/auth/me','/api/state','/api/audit','/api/billing/status']);
+const SYNTHETIC_BOOT_TRACE_PREFIX='THEBE_SYNTHETIC_BOOT ';
 const desktopAgent='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36';
 const mobileAgent='Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Mobile Safari/537.36';
 const executablePath=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(p=>fs.existsSync(p));
@@ -41,17 +42,39 @@ function logicalApiPath(raw){
     return '';
   }catch{return ''}
 }
+function apiTransport(raw){
+  try{
+    const url=new URL(raw);
+    if(url.pathname==='/'&&url.searchParams.has('__thebe_api_path'))return 'root_tunnel';
+    if(url.pathname==='/__thebe_api'||url.pathname.startsWith('/__thebe_api/'))return 'shadow_path';
+    if(url.pathname==='/api'||url.pathname.startsWith('/api/'))return 'direct';
+    return 'other';
+  }catch{return 'invalid'}
+}
 function attachApiBreadcrumbs(page,label){
+  page.on('request',request=>{
+    const path=logicalApiPath(request.url());
+    if(!API_BREADCRUMB_PATHS.has(path))return;
+    info(`${label} api breadcrumb`,`${request.method()} ${path} start transport=${apiTransport(request.url())}`);
+  });
   page.on('response',response=>{
     const path=logicalApiPath(response.url());
     if(!API_BREADCRUMB_PATHS.has(path))return;
-    info(`${label} api breadcrumb`,`${response.request().method()} ${path} ${response.status()}`);
+    const type=safe(String(response.headers()['content-type']||'content-type-missing').split(';',1)[0]);
+    info(`${label} api breadcrumb`,`${response.request().method()} ${path} ${response.status()} transport=${apiTransport(response.url())} type=${type}`);
   });
   page.on('requestfailed',request=>{
     const path=logicalApiPath(request.url());
     if(!API_BREADCRUMB_PATHS.has(path))return;
-    info(`${label} api breadcrumb`,`${request.method()} ${path} failed`);
+    info(`${label} api breadcrumb`,`${request.method()} ${path} failed transport=${apiTransport(request.url())}`);
   });
+  page.on('console',message=>{
+    const text=String(message.text()||'');
+    if(!text.startsWith(SYNTHETIC_BOOT_TRACE_PREFIX))return;
+    info(`${label} boot trace`,safe(text.slice(SYNTHETIC_BOOT_TRACE_PREFIX.length)));
+  });
+  page.on('crash',()=>info(`${label} page lifecycle`,'crash'));
+  page.on('close',()=>info(`${label} page lifecycle`,'close'));
 }
 assert(executablePath,'no Chromium-compatible browser found');
 
@@ -95,7 +118,7 @@ async function probeWorkspaceBootstrap(page,pageErrors=[]){
 }
 
 function summarizeProbe(d){
-  return `sessionCookie=${cookieState(d?.sessionCookiePresent)} directMe=${d?.directMe?.status||0}/${safe(d?.directMe?.error||d?.directMe?.role||'ok')} directState=${d?.directState?.status||0}/${safe(d?.directState?.error||`companies=${d?.directState?.companies}`)} clientMe=${d?.clientMe?.ok?'ok':safe(d?.clientMe?.error||'failed')} clientState=${d?.clientState?.ok?`ok/companies=${d?.clientState?.companies}`:safe(d?.clientState?.error||'failed')} gates=${safe(JSON.stringify(d?.gates||{}))}${d?.pageError?` pageError=${safe(d.pageError)}`:''}`;
+  return `sessionCookie=${cookieState(d?.sessionCookiePresent)} directMe=${d?.directMe?.status||0}/${safe(d?.directMe?.error||d?.directMe?.role||'ok')} directState=${d?.directState?.status||0}/${safe(d?.directState?.error||`companies=${d?.directState?.companies}`)} clientMe=${d?.clientMe?.ok?`ok/${safe(d?.clientMe?.role||'role-missing')}`:safe(d?.clientMe?.error||'failed')} clientState=${d?.clientState?.ok?`ok/companies=${d?.clientState?.companies}`:safe(d?.clientState?.error||'failed')} gates=${safe(JSON.stringify(d?.gates||{}))}${d?.pageError?` pageError=${safe(d.pageError)}`:''}`;
 }
 
 async function observeWorkspaceBootstrap(page,label,pageErrors=[]){
@@ -152,6 +175,7 @@ async function loginInBrowser(page,credentials){
 async function runBrowserProof(credentials){
   const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox']});
   let activeStage='browser launch';
+  browser.on('disconnected',()=>info('browser lifecycle',`disconnected stage=${safe(activeStage)}`));
   const watchdog=setTimeout(()=>{
     console.error(`FAIL synthetic browser watchdog stage=${safe(activeStage)} limitMs=${BROWSER_PROOF_WATCHDOG_MS}`);
     browser.close().catch(()=>{});
