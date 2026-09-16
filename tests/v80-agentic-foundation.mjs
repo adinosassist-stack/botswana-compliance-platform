@@ -4,13 +4,16 @@ import {__agenticFoundationTest} from '../cloudflare/src/agentic-core.js';
 import {logicalRequestPath} from '../cloudflare/src/agentic-entry.js';
 
 const core=fs.readFileSync(new URL('../cloudflare/src/agentic-core.js',import.meta.url),'utf8');
+const releaseGovernanceEntry=fs.readFileSync(new URL('../cloudflare/src/release-governance-entry.js',import.meta.url),'utf8');
 const agenticEntry=fs.readFileSync(new URL('../cloudflare/src/agentic-entry.js',import.meta.url),'utf8');
 const productionEntry=fs.readFileSync(new URL('../cloudflare/src/production-entry.js',import.meta.url),'utf8');
 const migration=fs.readFileSync(new URL('../cloudflare/migrations/045_v80_agentic_foundation.sql',import.meta.url),'utf8');
 const wrangler=fs.readFileSync(new URL('../cloudflare/wrangler.toml',import.meta.url),'utf8');
 let checks=0;const ok=(value,message)=>{assert.ok(value,message);checks++};
 
-ok(wrangler.includes('main = "src/agentic-entry.js"'),'V81 wrapper is the deployed production entrypoint');
+ok(wrangler.includes('main = "src/release-governance-entry.js"'),'release governance wrapper is the deployed production entrypoint');
+ok(releaseGovernanceEntry.includes('import base from "./agentic-entry.js"'),'release governance delegates to V81 agentic wrapper');
+ok(releaseGovernanceEntry.includes('const response=await base.fetch(request,env,ctx)'),'release governance preserves downstream production dispatch');
 ok(agenticEntry.includes('import base from "./production-entry.js"'),'V81 wrapper delegates to canonical hardened production entry');
 ok(agenticEntry.includes('return enhanceReadiness(request,env,response)'),'V81 wrapper only augments authority routing and schema readiness around the production stack');
 ok(!agenticEntry.includes('handleAgenticRequest'),'V81 wrapper does not double-dispatch governed V80 agentic routes');
@@ -51,4 +54,4 @@ ok(migration.includes("execution_policy TEXT NOT NULL CHECK(execution_policy IN 
 ok(!migration.includes('agentic_execution'),'migration creates no execution queue');
 ok(!migration.includes('payment_id')&&!migration.includes('journal_id'),'agentic schema has no payment or journal side-effect linkage');
 
-console.log(`V80 agentic foundation gate: ${checks}/${checks} PASS through V81 production wrapper`);
+console.log(`V80 agentic foundation gate: ${checks}/${checks} PASS through release governance -> V81 -> production entry chain`);
