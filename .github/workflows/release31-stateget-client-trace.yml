@@ -1,0 +1,43 @@
+name: Release 31 stateGet and client trace
+
+on:
+  push:
+    branches:
+      - diag/release31-state-reload-20260916
+
+permissions:
+  contents: read
+
+jobs:
+  trace:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 3b39936093956c8b7ed2bdcb2415aa336e094ae6
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Print exact state and client contexts
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == '3b39936093956c8b7ed2bdcb2415aa336e094ae6' ]]
+          python3 - <<'PY'
+          from pathlib import Path
+          def contexts(path, pats, radius=35):
+              lines=Path(path).read_text(errors='replace').splitlines()
+              print(f'===== {path} lines={len(lines)} =====')
+              seen=set()
+              for pat in pats:
+                  ms=[i for i,s in enumerate(lines) if pat in s]
+                  print(f'--- {pat!r}: {[i+1 for i in ms]} ---')
+                  for i in ms:
+                      lo=max(0,i-radius); hi=min(len(lines),i+radius+1)
+                      key=(lo,hi)
+                      if key in seen: continue
+                      seen.add(key)
+                      for n in range(lo,hi): print(f'{n+1:06d}: {lines[n]}')
+                      print('--- end ---')
+          contexts('cloudflare/src/worker.js',['stateGet','workspaceSessionRole','const a=await auth','a=await auth','restrictedWorkspaceReadAllowed'],45)
+          contexts('public/index.html',['productionApiClient=','runtimeApiClient=','createClient({','const productionApiClient','let productionApiClient'],30)
+          PY
