@@ -1,0 +1,135 @@
+name: Release 31 exact launch audit closure
+
+on:
+  push:
+    branches:
+      - ops/launch-audit-release31-20260916
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  EXPECTED_SHA: 3b39936093956c8b7ed2bdcb2415aa336e094ae6
+  DESKTOP_SMOKE_RUN: '35112287623'
+  MOBILE_PROOF_RUN: '35112207158'
+
+jobs:
+  audit:
+    name: Execute canonical Phase 0 launch-audit body on exact release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: production
+    env:
+      AUDIT_SHA: 3b39936093956c8b7ed2bdcb2415aa336e094ae6
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
+      AUDIT_INTEGRITY_SECRET: ${{ secrets.AUDIT_INTEGRITY_SECRET }}
+
+    steps:
+      - name: Checkout exact audit authority
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 3b39936093956c8b7ed2bdcb2415aa336e094ae6
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact main, smoke provenance and release marker
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SHA" ]]
+          [[ "$(git rev-parse origin/main)" == "$EXPECTED_SHA" ]]
+          git log -1 --pretty=%B | grep -Fq '[synthetic-lifecycle]'
+          python3 - <<'PY'
+          import json
+          with open('release/production.json') as f: m=json.load(f)
+          assert m == {'schema':1,'release':'production','sequence':31,'sourceSha':'515534accc6dc04ad10b0928c929251b589c4714'},m
+          PY
+          for pair in "$DESKTOP_SMOKE_RUN:main:$EXPECTED_SHA" "$MOBILE_PROOF_RUN:ops/postdeploy-release31-20260916:7899bcce5ec924f63378522065d5c5d7a2a41449"; do
+            IFS=: read -r run branch sha <<< "$pair"
+            body="$(curl --fail-with-body --silent --show-error \
+              -H 'Accept: application/vnd.github+json' \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/runs/$run")"
+            printf '%s' "$body" | RUN="$run" BRANCH="$branch" SHA="$sha" python3 -c 'import json,os,sys; r=json.load(sys.stdin); assert str(r.get("id"))==os.environ["RUN"]; assert r.get("head_branch")==os.environ["BRANCH"]; assert r.get("head_sha")==os.environ["SHA"]; assert r.get("status")=="completed" and r.get("conclusion")=="success"; print("Qualified evidence run",r.get("id"),r.get("name"))'
+          done
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+
+      - name: Verify pinned npm and install exact dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="$(node -p "String(require('./package.json').packageManager).replace(/^npm@/,'')")"
+          actual="$(npm --version)"
+          [[ "$actual" == "$expected" ]] || { echo "npm mismatch expected=$expected actual=$actual" >&2; exit 1; }
+          npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Prepare canonical run-block extractor
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/extract-launch-step.py" <<'PY'
+          import sys
+          from pathlib import Path
+          marker='      - name: '+sys.argv[1]
+          lines=Path('.github/workflows/production-launch-audit.yml').read_text().splitlines()
+          try: i=lines.index(marker)
+          except ValueError: raise SystemExit('launch-audit step not found: '+sys.argv[1])
+          j=i+1
+          while j < len(lines) and lines[j].strip() != 'run: |': j += 1
+          if j == len(lines): raise SystemExit('run block not found: '+sys.argv[1])
+          j += 1
+          out=[]
+          while j < len(lines):
+              line=lines[j]
+              if line and not line.startswith('          '): break
+              out.append(line[10:] if len(line)>=10 else '')
+              j += 1
+          if not out: raise SystemExit('empty run block: '+sys.argv[1])
+          print('\n'.join(out))
+          PY
+
+      - name: Focused authentication role and AI regression audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 "$RUNNER_TEMP/extract-launch-step.py" 'Focused authentication, role and AI regression audit' > "$RUNNER_TEMP/focused.sh"
+          bash "$RUNNER_TEMP/focused.sh"
+
+      - name: Audit live production without creating customer data
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 "$RUNNER_TEMP/extract-launch-step.py" 'Audit live production without creating customer data' > "$RUNNER_TEMP/live-audit.sh"
+          bash "$RUNNER_TEMP/live-audit.sh"
+
+      - name: One-shot browser-backed synthetic registration lifecycle closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 "$RUNNER_TEMP/extract-launch-step.py" 'One-shot browser-backed synthetic registration lifecycle closure' > "$RUNNER_TEMP/synthetic.sh"
+          grep -Fq 'production-synthetic-browser-wrapper.mjs' "$RUNNER_TEMP/synthetic.sh"
+          bash "$RUNNER_TEMP/synthetic.sh"
+
+      - name: One-shot bounded legacy orphan cleanup boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 "$RUNNER_TEMP/extract-launch-step.py" 'One-shot bounded legacy orphan cleanup' > "$RUNNER_TEMP/legacy.sh"
+          bash "$RUNNER_TEMP/legacy.sh"
+
+      - name: Enforce permanent zero-orphan baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 "$RUNNER_TEMP/extract-launch-step.py" 'Enforce permanent zero-orphan baseline' > "$RUNNER_TEMP/zero-orphan.sh"
+          bash "$RUNNER_TEMP/zero-orphan.sh"
