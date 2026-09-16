@@ -1,4 +1,5 @@
 name: Audit remediation CI
+run-name: Audit remediation CI ${{ github.event.pull_request.head.sha }}
 
 on:
   pull_request:
@@ -15,12 +16,25 @@ jobs:
     name: Audit remediation controls
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
     steps:
-      - name: Checkout exact revision
+      - name: Checkout exact PR head revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Prove exact PR head checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'pull request head must be a full lowercase SHA' >&2; exit 1; }
+          actual="$(git rev-parse HEAD)"
+          [[ "$actual" == "$EXPECTED_HEAD_SHA" ]] || { echo "PR head checkout mismatch expected=$EXPECTED_HEAD_SHA actual=$actual" >&2; exit 1; }
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo 'exact PR head checkout is not clean' >&2; exit 1; }
+          echo "Exact PR head confirmed: $actual"
 
       - name: Setup pinned Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0

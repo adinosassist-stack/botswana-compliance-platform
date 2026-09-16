@@ -9,6 +9,7 @@ const directRegistration=read('public/js/register-direct.js');
 const oauthUi=read('public/js/oauth-availability.js');
 const syntheticHold=read('scripts/production-synthetic-hold-wrapper.mjs');
 const mobileSmoke=read('scripts/production-mobile-postdeploy-smoke.mjs');
+const remediationWorkflow=read('.github/workflows/audit-remediation-ci.yml');
 const launchWorkflow=read('.github/workflows/production-launch-audit.yml');
 const mobileWorkflow=read('.github/workflows/mobile-postdeploy-smoke.yml');
 const replayWorkflow=read('.github/workflows/production-audit-replay.yml');
@@ -63,6 +64,11 @@ assert.match(mobileSmoke,/HOLD must hide public registration CTA/,'mobile smoke 
 assert.match(mobileSmoke,/direct registration form must fail closed during HOLD/,'mobile smoke must prove direct registration fails closed during HOLD');
 assert.match(mobileWorkflow,/node scripts\/production-mobile-postdeploy-smoke\.mjs/,'automatic mobile audit must execute reusable source script');
 assert.match(launchWorkflow,/node scripts\/production-synthetic-hold-wrapper\.mjs/,'automatic Phase 0 lifecycle must respect customer HOLD');
+
+assert.match(remediationWorkflow,/run-name: Audit remediation CI \$\{\{ github\.event\.pull_request\.head\.sha \}\}/,'remediation CI run identity must name the exact PR head');
+assert.match(remediationWorkflow,/EXPECTED_HEAD_SHA: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/,'remediation CI must bind expected SHA to the PR head');
+assert.match(remediationWorkflow,/ref: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/,'remediation CI checkout must explicitly use the PR head SHA');
+assert.match(remediationWorkflow,/PR head checkout mismatch/,'remediation CI must fail if checkout differs from exact PR head');
 
 assert.match(replayWorkflow,/workflow_dispatch:/,'skipped production audits must have an explicit replay path');
 assert.match(replayWorkflow,/target_sha:/,'replay path must bind to an exact target SHA');
