@@ -1,5 +1,5 @@
 import base from "./agentic-entry.js";
-import releaseMetadata from "../../release/production.json";
+import releaseMetadata from "../../release/production.json" with {type:"json"};
 
 const VALID_REGISTRATION_MODES=new Set(["hold","cohort","open"]);
 const OAUTH_VISIBILITY_SCRIPT="/js/oauth-availability.js?v=20260916a";
