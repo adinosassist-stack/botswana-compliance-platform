@@ -2558,17 +2558,17 @@ main{
     <div class="stack">
       <div id="companyNameField" style="display:none"><label for="authCompany">Company name</label><input id="authCompany" autocomplete="organization" placeholder="Your company"></div>
       <div><label>Email</label>
-<div class="social-auth-stack" aria-label="Social sign in">
-  <button type="button" class="social-auth-btn google" data-bw-onclick="startOAuth('google')">
+<div class="social-auth-stack" id="socialAuthStack" aria-label="Social sign in">
+  <button type="button" id="googleAuthButton" class="social-auth-btn google" data-bw-onclick="startOAuth('google')">
     <span class="social-mark" aria-hidden="true">G</span>
     <span id="googleAuthText">Continue with Google</span>
   </button>
-  <button type="button" class="social-auth-btn facebook" data-bw-onclick="startOAuth('facebook')">
+  <button type="button" id="facebookAuthButton" class="social-auth-btn facebook" data-bw-onclick="startOAuth('facebook')">
     <span class="social-mark" aria-hidden="true">f</span>
     <span id="facebookAuthText">Continue with Facebook</span>
   </button>
 </div>
-<div class="auth-divider"><span>or continue with email</span></div>
+<div class="auth-divider" id="socialAuthDivider"><span>or continue with email</span></div>
 <input id="authEmail" type="email" autocomplete="email" placeholder="you@company.co.bw" aria-label="Email"></div>
       <div><label for="authPassword">Password</label><input id="authPassword" type="password" autocomplete="current-password" placeholder="Minimum 12 characters"></div>
       <div id="workspaceChoiceField" hidden><label for="authWorkspace">Workspace</label><select id="authWorkspace" aria-label="Choose workspace"></select><div class="muted small" style="margin-top:5px">Your account belongs to more than one workspace. Choose the business and role you want to enter.</div></div>
@@ -6578,7 +6578,21 @@ function animateNumber(el,to,suffix=""){
 }
 
 
-function startOAuth(provider){if(!["google","facebook"].includes(provider))return;if(STANDALONE_PREVIEW||location.protocol==="file:"){notifyUser("Social sign-in requires the deployed OAuth backend. Use email sign-in or Preview workspace in the standalone HTML.");return}const next=encodeURIComponent(window.location.pathname+window.location.search);window.location.assign(`/api/auth/oauth/${provider}/start?next=${next}`)}
+let launchCapabilities={signupMode:"hold",oauth:{google:false,facebook:false},passwordReset:false};
+function applyLaunchCapabilities(){
+ const oauth=launchCapabilities?.oauth||{};
+ const google=document.getElementById("googleAuthButton"),facebook=document.getElementById("facebookAuthButton"),stack=document.getElementById("socialAuthStack"),divider=document.getElementById("socialAuthDivider"),registerTab=document.getElementById("registerTab");
+ if(google)google.hidden=!oauth.google;if(facebook)facebook.hidden=!oauth.facebook;
+ const anyOauth=!!(oauth.google||oauth.facebook);if(stack)stack.hidden=!anyOauth;if(divider)divider.hidden=!anyOauth;
+ const publicSignup=launchCapabilities?.signupMode==="public";if(registerTab)registerTab.hidden=!publicSignup;
+ document.querySelectorAll(".marketing-start-action").forEach(button=>{if(!publicSignup&&!isWorkspaceRole(currentWorkspaceRole()))button.textContent="Apply for founding cohort"});
+}
+async function loadLaunchCapabilities(){
+ if(STANDALONE_PREVIEW){launchCapabilities={signupMode:"public",oauth:{google:false,facebook:false},passwordReset:false};applyLaunchCapabilities();return launchCapabilities}
+ try{launchCapabilities=await productionApiClient.request("/api/auth/launch-capabilities")}catch{launchCapabilities={signupMode:"hold",oauth:{google:false,facebook:false},passwordReset:false}}
+ applyLaunchCapabilities();return launchCapabilities;
+}
+function startOAuth(provider){if(!["google","facebook"].includes(provider))return;if(!launchCapabilities?.oauth?.[provider]){notifyUser("That social sign-in provider is not currently available. Use email sign-in.");return}if(STANDALONE_PREVIEW||location.protocol==="file:"){notifyUser("Social sign-in requires the deployed OAuth backend. Use email sign-in or Preview workspace in the standalone HTML.");return}const next=encodeURIComponent(window.location.pathname+window.location.search);window.location.assign(`/api/auth/oauth/${provider}/start?next=${next}`)}
 
 
 const RUNTIME_MODE=(document.querySelector('meta[name="bw-runtime-mode"]')?.content||"production").toLowerCase();
@@ -8027,6 +8041,7 @@ function startFreeFromMarketing(plan=null){
   if(roleCanView("billing",role))showView("billing");
   return false;
  }
+ if(launchCapabilities?.signupMode!=="public"){notifyUser("Public registration is temporarily closed while the founding cohort is controlled. Contact Thebe Desk to apply.");return false}
  if(plan){selectedPublicPlan=plan;safeSessionSet("bwcos_selected_plan",plan)}
  openAuthFromMarketing("register");
  return false;
@@ -8179,7 +8194,7 @@ function openModal(id){const modal=document.getElementById(id);if(!modal)return;
 function closeModal(id){const modal=document.getElementById(id);if(!modal)return;modal.classList.remove("open");modal.setAttribute("aria-hidden","true");if(lastModalFocus?.focus)lastModalFocus.focus();lastModalFocus=null}
 document.addEventListener("keydown",e=>{const modal=document.querySelector(".modal.open");if(!modal)return;if(e.key==="Escape"){e.preventDefault();closeModal(modal.id);return}if(e.key!=="Tab")return;const items=modalFocusable(modal);if(!items.length){e.preventDefault();return}const first=items[0],last=items[items.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}});
 document.getElementById("nav").addEventListener("click",e=>{let b=e.target.closest("button[data-view]");if(b)showView(b.dataset.view)});
-async function bootstrap(){marketingGate.classList.add("hidden");authGate.classList.add("hidden");appShell.style.visibility="hidden";syncMobileRoleNav("");if(await handleDailyReporterPortal())return;if(await handlePublicPassportFragment())return;if(STANDALONE_PREVIEW){showMarketing();return}try{await loadServerState()}catch(err){csrfToken="";currentUser=null;showMarketing()}}
+async function bootstrap(){marketingGate.classList.add("hidden");authGate.classList.add("hidden");appShell.style.visibility="hidden";syncMobileRoleNav("");await loadLaunchCapabilities();if(await handleDailyReporterPortal())return;if(await handlePublicPassportFragment())return;if(STANDALONE_PREVIEW){showMarketing();return}try{await loadServerState()}catch(err){csrfToken="";currentUser=null;showMarketing()}}
 
 document.getElementById("authPassword").addEventListener("keydown",e=>{if(e.key==="Enter")submitAuth()});
 document.getElementById("authEmail").addEventListener("input",clearWorkspaceChoice);
