@@ -1,5 +1,6 @@
 import fs from "node:fs";
 const w=fs.readFileSync(new URL("../cloudflare/src/worker.js",import.meta.url),"utf8");
+const e=fs.readFileSync(new URL("../cloudflare/src/agentic-entry.js",import.meta.url),"utf8");
 const s=fs.readFileSync(new URL("../cloudflare/schema.sql",import.meta.url),"utf8");
 const h=fs.readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
 const checks=[
@@ -10,6 +11,9 @@ const checks=[
  ["lineage sequence unique",s.includes("control_lineage_snapshot_seq_unique")],
  ["correct actor column",w.includes("actor_user_id,event_type")&&!w.includes("INSERT INTO audit_events(tenant_id,user_id")],
  ["no silent audit catch",!w.includes("async function auditEvent(env,tenantId,userId,eventType,eventData={}){\\n  try{")],
+ ["terminal audit failure is marked at deployed entry",e.includes("AUDIT_WRITE_FAILURE_INSERT")&&e.includes("audit_write_failures")&&e.includes("withAuditWriteFailureGuard")],
+ ["successful response fails closed after audit failure",e.includes("auditFailClosedResponse")&&e.includes('x-thebe-audit-fail-closed')&&e.includes('status:500')],
+ ["background audit failure rejects waitUntil",e.includes('if(state.failed)throw new Error("audit_write_failed")')&&e.includes('target.waitUntil(Promise.resolve(promise).then')],
  ["server audit hmac chain",w.includes("appendAuditEvent")&&w.includes("AUDIT_INTEGRITY_SECRET")&&w.includes("hmacHex(integritySecret")],
  ["chunked audit verify",w.includes("LIMIT 500")&&w.includes("afterSeq")],
  ["audit verify",w.includes("verifyAuditChain")],
