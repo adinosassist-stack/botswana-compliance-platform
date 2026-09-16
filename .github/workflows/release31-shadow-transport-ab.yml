@@ -1,0 +1,145 @@
+name: Release 31 shadow transport A/B proof
+
+on:
+  push:
+    branches:
+      - diag/release31-shadow-transport-ab-20260916
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_SHA: 3b39936093956c8b7ed2bdcb2415aa336e094ae6
+
+jobs:
+  prove:
+    name: Prove authenticated reload over existing shadow transport
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
+      AUDIT_INTEGRITY_SECRET: ${{ secrets.AUDIT_INTEGRITY_SECRET }}
+
+    steps:
+      - name: Checkout exact deployed release
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 3b39936093956c8b7ed2bdcb2415aa336e094ae6
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact current production authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SHA" ]]
+          [[ "$(git rev-parse origin/main)" == "$EXPECTED_SHA" ]]
+          python3 - <<'PY'
+          import json
+          with open('release/production.json') as f: m=json.load(f)
+          assert m == {
+            'schema':1,
+            'release':'production',
+            'sequence':31,
+            'sourceSha':'515534accc6dc04ad10b0928c929251b589c4714'
+          },m
+          PY
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+
+      - name: Install exact dependencies and browser driver
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="$(node -p "String(require('./package.json').packageManager).replace(/^npm@/,'')")"
+          actual="$(npm --version)"
+          [[ "$actual" == "$expected" ]]
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+
+      - name: Recover any bounded interrupted synthetic residue
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/production-synthetic-interruption-recovery.mjs
+
+      - name: Build temporary canonical wrapper with root GETs rewritten to shadow path
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp scripts/production-synthetic-browser-wrapper.mjs scripts/.shadow-transport-ab.mjs
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/.shadow-transport-ab.mjs')
+          s=p.read_text()
+          helper=r'''
+async function installShadowTransport(page){
+  await page.addInitScript(()=>{
+    const nativeFetch=globalThis.fetch.bind(globalThis);
+    globalThis.fetch=(input,init)=>{
+      try{
+        const raw=input instanceof Request?input.url:String(input);
+        const url=new URL(raw,location.href);
+        const method=String(init?.method||(input instanceof Request?input.method:'GET')||'GET').toUpperCase();
+        if(method==='GET'&&url.origin===location.origin&&url.pathname==='/'&&url.searchParams.has('__thebe_api_path')){
+          const logical=String(url.searchParams.get('__thebe_api_path')||'');
+          if(logical==='/api'||logical.startsWith('/api/')){
+            const shadow=new URL(logical==='/api'?'/__thebe_api':`/__thebe_api${logical.slice(4)}`,url.origin);
+            const logicalQuery=url.searchParams.get('__thebe_api_query');
+            if(logicalQuery)shadow.search=logicalQuery.startsWith('?')?logicalQuery:`?${logicalQuery}`;
+            if(input instanceof Request){
+              const replacement=new Request(shadow.href,{
+                method:input.method,
+                headers:input.headers,
+                credentials:input.credentials,
+                cache:input.cache,
+                redirect:input.redirect,
+                referrer:input.referrer,
+                referrerPolicy:input.referrerPolicy,
+                integrity:input.integrity,
+                keepalive:input.keepalive,
+                mode:input.mode,
+                signal:input.signal
+              });
+              return nativeFetch(replacement,init);
+            }
+            return nativeFetch(shadow.href,init);
+          }
+        }
+      }catch{}
+      return nativeFetch(input,init);
+    };
+  });
+}
+'''
+          marker='async function runBrowserProof(credentials){'
+          assert marker in s
+          s=s.replace(marker,helper+'\n'+marker,1)
+          d='    const page=await desktop.newPage();'
+          m='    const mobilePage=await mobile.newPage();'
+          assert s.count(d)==1 and s.count(m)==1
+          s=s.replace(d,d+'\n    await installShadowTransport(page);',1)
+          s=s.replace(m,m+'\n    await installShadowTransport(mobilePage);',1)
+          p.write_text(s)
+          PY
+          grep -Fq 'installShadowTransport(page)' scripts/.shadow-transport-ab.mjs
+          grep -Fq 'installShadowTransport(mobilePage)' scripts/.shadow-transport-ab.mjs
+          node --check scripts/.shadow-transport-ab.mjs
+
+      - name: Run canonical synthetic lifecycle with shadow-only browser A/B
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/.shadow-transport-ab.mjs
+
+      - name: Remove temporary diagnostic wrapper
+        if: always()
+        shell: bash
+        run: rm -f scripts/.shadow-transport-ab.mjs
