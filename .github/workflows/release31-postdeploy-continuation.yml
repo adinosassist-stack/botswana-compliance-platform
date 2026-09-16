@@ -1,0 +1,124 @@
+name: Release 31 exact post-deploy continuation
+
+on:
+  push:
+    branches:
+      - ops/postdeploy-release31-20260916
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  desktop-dispatch:
+    name: Dispatch canonical desktop post-deploy smoke
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact current main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact release and successful deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: 3b39936093956c8b7ed2bdcb2415aa336e094ae6
+          EXPECTED_DEPLOY_RUN: '35096958079'
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SHA" ]]
+          [[ "$(git rev-parse origin/main)" == "$EXPECTED_SHA" ]]
+          python3 - <<'PY'
+          import json
+          with open('release/production.json') as f: m=json.load(f)
+          assert m == {
+            'schema':1,
+            'release':'production',
+            'sequence':31,
+            'sourceSha':'515534accc6dc04ad10b0928c929251b589c4714'
+          }, m
+          PY
+          deploy="$(curl --fail-with-body --silent --show-error \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/runs/$EXPECTED_DEPLOY_RUN")"
+          printf '%s' "$deploy" | EXPECTED_SHA="$EXPECTED_SHA" EXPECTED_DEPLOY_RUN="$EXPECTED_DEPLOY_RUN" python3 -c 'import json,os,sys; r=json.load(sys.stdin); assert str(r.get("id"))==os.environ["EXPECTED_DEPLOY_RUN"]; assert r.get("head_sha")==os.environ["EXPECTED_SHA"]; assert r.get("head_branch")=="main"; assert r.get("status")=="completed" and r.get("conclusion")=="success"; print("Exact production deploy confirmed",r.get("id"))'
+
+      - name: Dispatch canonical desktop smoke for exact SHA
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: 3b39936093956c8b7ed2bdcb2415aa336e094ae6
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error -X POST \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/postdeploy-smoke.yml/dispatches" \
+            -d "{\"ref\":\"main\",\"inputs\":{\"expected_sha\":\"$EXPECTED_SHA\"}}"
+          echo "Canonical desktop post-deploy smoke dispatched for $EXPECTED_SHA"
+
+  mobile-proof:
+    name: Run canonical mobile smoke body on exact deployed SHA
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact deployed authority
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 3b39936093956c8b7ed2bdcb2415aa336e094ae6
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == '3b39936093956c8b7ed2bdcb2415aa336e094ae6' ]]
+          [[ "$(git rev-parse origin/main)" == '3b39936093956c8b7ed2bdcb2415aa336e094ae6' ]]
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+
+      - name: Install browser driver only
+        shell: bash
+        run: npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+
+      - name: Execute exact canonical mobile smoke command
+        env:
+          EXPECTED_SHA: 3b39936093956c8b7ed2bdcb2415aa336e094ae6
+          ORIGIN: https://thebedesk.com
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' > "$RUNNER_TEMP/mobile-smoke.sh"
+          from pathlib import Path
+          lines=Path('.github/workflows/mobile-postdeploy-smoke.yml').read_text().splitlines()
+          marker='      - name: Exercise live mobile startup, menu and registration surface'
+          try:
+              i=lines.index(marker)
+          except ValueError:
+              raise SystemExit('canonical mobile smoke step not found')
+          j=i+1
+          while j < len(lines) and lines[j].strip() != 'run: |':
+              j += 1
+          if j == len(lines): raise SystemExit('canonical mobile smoke run block not found')
+          j += 1
+          out=[]
+          while j < len(lines):
+              line=lines[j]
+              if line and not line.startswith('          '): break
+              out.append(line[10:] if len(line)>=10 else '')
+              j += 1
+          if not out: raise SystemExit('canonical mobile smoke run block empty')
+          print('\n'.join(out))
+          PY
+          grep -Fq 'MOBILE_POSTDEPLOY_SMOKE_PASS' "$RUNNER_TEMP/mobile-smoke.sh"
+          bash "$RUNNER_TEMP/mobile-smoke.sh"
