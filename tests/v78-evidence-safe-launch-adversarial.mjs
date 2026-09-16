@@ -7,8 +7,8 @@ const wrangler = fs.readFileSync('cloudflare/wrangler.toml', 'utf8');
 const worker = fs.readFileSync('cloudflare/src/worker.js', 'utf8');
 const url = path => new URL(`https://thebedesk.com${path}`);
 
-test('production activates evidence uploads while the emergency kill switch remains available', () => {
-  assert.match(wrangler, /EVIDENCE_UPLOADS_ENABLED = "true"/);
+test('production keeps evidence uploads disabled until scanner integration is explicitly qualified', () => {
+  assert.match(wrangler, /EVIDENCE_UPLOADS_ENABLED = "false"/);
   assert.equal(boundary.evidenceUploadsEnabled({ EVIDENCE_UPLOADS_ENABLED: 'false' }), false);
   assert.equal(boundary.evidenceUploadsEnabled({}), false);
   assert.equal(boundary.evidenceUploadsEnabled({ EVIDENCE_UPLOADS_ENABLED: 'TRUE' }), true);
