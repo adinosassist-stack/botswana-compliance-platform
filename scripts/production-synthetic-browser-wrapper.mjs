@@ -122,6 +122,10 @@ function summarizeProbe(d){
 }
 
 async function observeWorkspaceBootstrap(page,label,pageErrors=[]){
+  if(String(label||'').includes('post-reload')){
+    info(`${label} workspace bootstrap`,'passive API/boot breadcrumbs only; no diagnostic API requests issued');
+    return null;
+  }
   try{
     const d=await probeWorkspaceBootstrap(page,pageErrors);
     info(`${label} workspace bootstrap`,summarizeProbe(d));
