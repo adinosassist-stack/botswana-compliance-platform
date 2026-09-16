@@ -1,0 +1,88 @@
+name: Apply retired service-worker re-registration fix
+
+on:
+  push:
+    branches:
+      - ops/apply-retired-sw-fix-20260916
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact target branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: fix/retired-service-worker-reregister-race-20260916
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Verify exact source boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_head='cafab3a2863b117f76329cd0016f1cf896e20c88'
+          [[ "$(git rev-parse HEAD)" == "$expected_head" ]]
+          [[ "$(git hash-object public/index.html)" == '41b60c9d13efe79e96d5859ee6c08bccf7ed0e5b' ]]
+          [[ "$(git hash-object tests/mobile-startup-cache-recovery-adversarial.mjs)" == 'f018004be28814e4c6bdbd78a26491ed498b5ef1' ]]
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]]
+
+      - name: Apply exact two-file decommission patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          idx=Path('public/index.html')
+          s=idx.read_text()
+          old='if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js").catch(()=>{})}'
+          if s.count(old) != 1:
+              raise SystemExit(f'index registration anchor count={s.count(old)}')
+          s=s.replace(old,'')
+          idx.write_text(s)
+
+          test=Path('tests/mobile-startup-cache-recovery-adversarial.mjs')
+          s=test.read_text()
+          old_comment='''// Normal production startup must clean old Chrome/PWA state without any reload,\n// popup, or navigation side effect. It runs once immediately and again after\n// DOMContentLoaded so the historical inline register() call cannot persist.\n'''
+          new_comment='''// Normal production startup must clean old Chrome/PWA state without any reload,\n// popup, navigation, or new service-worker registration side effect. Cleanup\n// still runs immediately and after DOMContentLoaded for retained legacy state.\n'''
+          if s.count(old_comment) != 1:
+              raise SystemExit(f'test comment anchor count={s.count(old_comment)}')
+          s=s.replace(old_comment,new_comment)
+          old_assert='''const domSecurityPosition=index.indexOf('js/dom-security.js');\nconst legacyRegisterPosition=index.indexOf('navigator.serviceWorker.register');\nassert.ok(domSecurityPosition>=0&&legacyRegisterPosition>domSecurityPosition,'browser-runtime decommission must load before the historical service-worker registration call');\n'''
+          new_assert='''const domSecurityPosition=index.indexOf('js/dom-security.js');\nassert.ok(domSecurityPosition>=0,'browser-runtime decommission must load in production');\nassert.doesNotMatch(index,/navigator\\.serviceWorker\\.register|serviceWorker\\.register/,'retired service worker must not be re-registered by the production document');\n'''
+          if s.count(old_assert) != 1:
+              raise SystemExit(f'test assertion anchor count={s.count(old_assert)}')
+          s=s.replace(old_assert,new_assert)
+          s=s.replace("'cleanup must repeat after document startup to catch a legacy inline registration'","'cleanup must repeat after document startup to catch delayed retained legacy state'")
+          test.write_text(s)
+          PY
+
+      - name: Verify exact patch and regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t changed < <(git diff --name-only)
+          [[ ${#changed[@]} -eq 2 ]]
+          [[ "${changed[0]}" == 'public/index.html' ]]
+          [[ "${changed[1]}" == 'tests/mobile-startup-cache-recovery-adversarial.mjs' ]]
+          [[ "$(git hash-object public/index.html)" == 'ec2dc23ae2613150c23e005d3b9cedc3cb459bea' ]]
+          [[ "$(git hash-object tests/mobile-startup-cache-recovery-adversarial.mjs)" == 'f217676c0fa36b148dcb2b431faad980ecf5bd02' ]]
+          ! grep -Eq 'navigator\.serviceWorker\.register|serviceWorker\.register' public/index.html
+          node tests/mobile-startup-cache-recovery-adversarial.mjs
+          node tests/v82-authenticated-cold-start-render.mjs
+          node tests/v82-production-browser-lifecycle-governance.mjs
+          node tests/audit-lineage-static.mjs
+
+      - name: Commit and push exact fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/index.html tests/mobile-startup-cache-recovery-adversarial.mjs
+          git commit -m 'Stop re-registering retired service worker on production startup'
+          [[ "$(git diff HEAD^ --name-only | wc -l | tr -d ' ')" == '2' ]]
+          git push origin HEAD:fix/retired-service-worker-reregister-race-20260916
