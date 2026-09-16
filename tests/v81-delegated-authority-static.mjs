@@ -92,14 +92,17 @@ assert.match(migrationRunner,/time_travel\/bookmark/);
 assert.match(migrationRunner,/PRAGMA foreign_key_check/);
 for(const objectName of ["agent_delegations","agent_action_intents","agent_delegation_events","agent_delegations_one_active_idx","agent_action_intents_run_tenant_guard","agent_delegation_events_tenant_guard"])assert.match(migrationRunner,new RegExp(objectName));
 
+const releaseGovernance=fs.readFileSync("cloudflare/src/release-governance-entry.js","utf8");
 const entry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
 const authority=fs.readFileSync("cloudflare/src/agentic-authority-core.js","utf8");
 const wrangler=fs.readFileSync("cloudflare/wrangler.toml","utf8");
+assert.match(releaseGovernance,/import base from "\.\/agentic-entry\.js"/);
+assert.match(releaseGovernance,/const response=await base\.fetch\(request,env,ctx\)/);
 assert.match(entry,/handleAgenticAuthorityRequest/);
 assert.match(entry,/agenticAuthoritySchemaReady/);
 assert.match(entry,/latestSchemaDelta:V81_SCHEMA_DELTA/);
 assert.doesNotMatch(entry,/handleAgenticRequest/);
-assert.match(wrangler,/main = "src\/agentic-entry\.js"/);
+assert.match(wrangler,/main = "src\/release-governance-entry\.js"/);
 assert.match(authority,/executionEnabled:false/);
 assert.match(authority,/shadowOnly:true/);
 assert.match(authority,/owner_required/);
@@ -107,4 +110,4 @@ assert.match(authority,/idempotency_key_required/);
 assert.doesNotMatch(authority,/allow_execute\(/);
 assert.doesNotMatch(authority,/fetch\([^)]*https?:\/\//);
 
-console.log("v81 delegated authority shadow-mode tests passed with production wrapper wiring, guarded migration 047 runner retained, and completed production trigger retired");
+console.log("v81 delegated authority shadow-mode tests passed through release governance -> V81 production wrapper wiring, guarded migration 047 runner retained, and completed production trigger retired");
