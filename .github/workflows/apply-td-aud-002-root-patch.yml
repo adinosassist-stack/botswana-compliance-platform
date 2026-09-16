@@ -1,0 +1,75 @@
+name: Apply TD-AUD-002 root patch
+
+on:
+  push:
+    branches:
+      - chatgpt/audit-blob-transfer-probe-20260916
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      TARGET_BRANCH: chatgpt/audit-node-migration-floor-20260915
+      EXPECTED_HEAD: 2e6be7ac48b5cccec343b222f6601887f8356d2b
+      EXPECTED_WORKER_BEFORE: 6c48c19fa2be6bd083a0ae10d5b027d3d96fb706
+      EXPECTED_WORKER_AFTER: ca4adfd9f2607206b0b66e9fa2607a8a8e3e1016
+    steps:
+      - name: Checkout exact target branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Verify source authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_HEAD" ]]
+          [[ "$(git hash-object cloudflare/src/worker.js)" == "$EXPECTED_WORKER_BEFORE" ]]
+          [[ -z "$(git status --porcelain)" ]]
+
+      - name: Apply exact audited Worker patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('cloudflare/src/worker.js')
+          s=p.read_text()
+          old1='return {ok:false,error:"audit_write_failed"};'
+          new1='throw new Error("audit_write_failed");'
+          old2='if(created||changed)await appendAuditEvent(env,{tenantId:access.tenant_id,actorUserId:null,eventType:created?"DAILY_REPORT_SUBMITTED":"DAILY_REPORT_UPDATED",entityType:"employee",entityId:access.employee_id,eventData:{reportId,reportDate,locationId:access.location_id,revision}}).catch(()=>{});'
+          new2='if(created||changed)await appendAuditEvent(env,{tenantId:access.tenant_id,actorUserId:null,eventType:created?"DAILY_REPORT_SUBMITTED":"DAILY_REPORT_UPDATED",entityType:"employee",entityId:access.employee_id,eventData:{reportId,reportDate,locationId:access.location_id,revision}});'
+          if s.count(old1)!=1 or s.count(old2)!=1:
+              raise SystemExit('audited source patterns do not match exactly once')
+          if new1 in s or new2 in s:
+              raise SystemExit('target replacement already present unexpectedly')
+          s=s.replace(old1,new1,1).replace(old2,new2,1)
+          p.write_text(s)
+          PY
+
+      - name: Verify exact patched blob and diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git hash-object cloudflare/src/worker.js)" == "$EXPECTED_WORKER_AFTER" ]]
+          [[ "$(git diff --name-only)" == "cloudflare/src/worker.js" ]]
+          [[ "$(git diff --numstat)" == $'2\t2\tcloudflare/src/worker.js' ]]
+          node --check cloudflare/src/worker.js
+
+      - name: Commit exact root fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add cloudflare/src/worker.js
+          git commit -m "Fix TD-AUD-002 Worker audit failure propagation"
+          [[ "$(git diff HEAD^ HEAD --name-only)" == "cloudflare/src/worker.js" ]]
+          [[ "$(git hash-object cloudflare/src/worker.js)" == "$EXPECTED_WORKER_AFTER" ]]
+          git push origin "HEAD:$TARGET_BRANCH"
