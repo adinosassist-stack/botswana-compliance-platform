@@ -94,6 +94,55 @@ jobs:
         shell: bash
         run: npm run test:thebe-desk-deployment
 
+      - name: Session inventory regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/v78-12168-session-inventory-hardening-adversarial.mjs
+          node --no-warnings tests/v78-12168-session-inventory-runtime.mjs
+
+      - name: Session generation revocation regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/v78-12167-session-generation-revocation-adversarial.mjs
+          node --no-warnings tests/v78-12167-session-generation-revocation-runtime.mjs
+
+      - name: Auth unlink concurrency regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/v78-12166-auth-method-unlink-concurrency-adversarial.mjs
+          node --no-warnings tests/v78-12166-auth-method-unlink-runtime.mjs
+
+      - name: OAuth identity ownership regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/v78-12165-oauth-identity-ownership-adversarial.mjs
+          node --no-warnings tests/v78-12165-oauth-identity-ownership-runtime.mjs
+
+      - name: OAuth redirect navigation regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/v78-12164-oauth-redirect-hardening-adversarial.mjs
+          node --no-warnings tests/v78-12164-oauth-navigation-runtime.mjs
+
+      - name: Public origin regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/v78-12163-public-origin-fail-closed-adversarial.mjs
+          node --no-warnings tests/v78-12163-public-origin-runtime.mjs
+
+      - name: Password reset delivery regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/v78-12162-password-reset-email-delivery-adversarial.mjs
+          node --no-warnings tests/v78-12162-password-reset-email-runtime.mjs
+
       - name: Full historical release regressions
         shell: bash
         run: npm run test:release-regressions
