@@ -8180,7 +8180,7 @@ function closeModal(id){const modal=document.getElementById(id);if(!modal)return
 document.addEventListener("keydown",e=>{const modal=document.querySelector(".modal.open");if(!modal)return;if(e.key==="Escape"){e.preventDefault();closeModal(modal.id);return}if(e.key!=="Tab")return;const items=modalFocusable(modal);if(!items.length){e.preventDefault();return}const first=items[0],last=items[items.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}});
 document.getElementById("nav").addEventListener("click",e=>{let b=e.target.closest("button[data-view]");if(b)showView(b.dataset.view)});
 async function bootstrap(){marketingGate.classList.add("hidden");authGate.classList.add("hidden");appShell.style.visibility="hidden";syncMobileRoleNav("");if(await handleDailyReporterPortal())return;if(await handlePublicPassportFragment())return;if(STANDALONE_PREVIEW){showMarketing();return}try{await loadServerState()}catch(err){csrfToken="";currentUser=null;showMarketing()}}
-if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js").catch(()=>{})}
+
 document.getElementById("authPassword").addEventListener("keydown",e=>{if(e.key==="Enter")submitAuth()});
 document.getElementById("authEmail").addEventListener("input",clearWorkspaceChoice);
 document.getElementById("authPassword").addEventListener("input",clearWorkspaceChoice);
