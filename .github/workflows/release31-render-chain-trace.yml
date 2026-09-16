@@ -1,0 +1,51 @@
+name: Release 31 authenticated render chain trace
+
+on:
+  push:
+    branches:
+      - diag/release31-render-chain-20260916
+
+permissions:
+  contents: read
+
+jobs:
+  trace:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 3b39936093956c8b7ed2bdcb2415aa336e094ae6
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Print exact render chain definitions
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == '3b39936093956c8b7ed2bdcb2415aa336e094ae6' ]]
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('public/index.html')
+          lines=p.read_text(errors='replace').splitlines()
+          pats=[
+            'function renderAll',
+            'function applyRoleUi',
+            'function showView',
+            'function hideAuth',
+            'async function loadServerState',
+            'queueMicrotask(()=>renderAll())',
+            'appShell.style.visibility',
+            'function replaceWorkspaceStore',
+            'function renderBilling',
+          ]
+          seen=set()
+          for pat in pats:
+            ms=[i for i,s in enumerate(lines) if pat in s]
+            print(f'\n===== {pat!r}: {[i+1 for i in ms]} =====')
+            for i in ms:
+              lo=max(0,i-35); hi=min(len(lines),i+90)
+              key=(lo,hi)
+              if key in seen: continue
+              seen.add(key)
+              for n in range(lo,hi): print(f'{n+1:06d}: {lines[n]}')
+              print('===== END =====')
+          PY
