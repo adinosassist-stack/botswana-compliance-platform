@@ -50,7 +50,7 @@ function withAuditWriteFailureGuard(env,ctx=null){
 }
 
 function auditFailClosedResponse(response,state){
-  if(!state?.failed||!response?.ok)return response;
+  if(!state?.failed||!response||response.status>=400)return response;
   const headers=new Headers(response.headers);
   headers.delete("content-length");
   headers.delete("etag");
