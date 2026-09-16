@@ -14,7 +14,7 @@ jobs:
   controls:
     name: Audit remediation controls
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout exact revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -48,6 +48,25 @@ jobs:
         shell: bash
         run: node tests/v82-production-browser-lifecycle-governance.mjs
 
+      - name: Synthetic proof and cleanup contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/production-synthetic-lifecycle.mjs
+          node --check scripts/production-synthetic-browser-wrapper.mjs
+          node --check scripts/production-legacy-orphan-cleanup.mjs
+          node --check scripts/production-zero-orphan-audit.mjs
+          node tests/v82-production-synthetic-proof-contract.mjs
+          node tests/v82-legacy-orphan-cleanup-contract.mjs
+
+      - name: Post-deploy and release provenance governance
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/v82-postdeploy-smoke-governance.mjs
+          node tests/v82-node-postgres-lineage-hardening.mjs
+          node tests/v82-release-provenance-governance.mjs
+
       - name: Frontend and production lint
         shell: bash
         run: |
@@ -62,6 +81,18 @@ jobs:
           npm run test:production-hardening
           npm run test:feature-hardening
           npm run test:static
+
+      - name: Full historical release regressions
+        shell: bash
+        run: npm run test:release-regressions
+
+      - name: D1 recovery and backup regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run check:d1-backup-shape
+          npm run check:d1-backup-restore
+          npm run check:d1-recovery-drill
 
       - name: Release and artifact regressions
         shell: bash
