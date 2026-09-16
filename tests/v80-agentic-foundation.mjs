@@ -28,6 +28,8 @@ auditGuard.env.DB.prepare('INSERT INTO audit_write_failures(id) VALUES(?)');
 ok(auditGuard.state.failed===true,'audit guard marks the terminal audit-write failure path');
 const failedResponse=auditFailClosedResponse(new Response('{"ok":true}',{status:200,headers:{'content-type':'application/json'}}),auditGuard.state);
 ok(failedResponse.status===500&&failedResponse.headers.get('x-thebe-audit-fail-closed')==='1','successful API response is converted to fail-closed 500 after terminal audit failure');
+const redirectResponse=auditFailClosedResponse(new Response(null,{status:302,headers:{location:'/next'}}),auditGuard.state);
+ok(redirectResponse.status===500&&redirectResponse.headers.get('x-thebe-audit-fail-closed')==='1','successful redirect cannot escape after terminal audit failure');
 const conflictResponse=auditFailClosedResponse(new Response('{"error":"conflict"}',{status:409}),auditGuard.state);
 ok(conflictResponse.status===409,'already-failed API responses are not rewritten by the audit guard');
 let waited=null;
