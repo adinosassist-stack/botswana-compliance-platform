@@ -5,6 +5,7 @@ const read=path=>fs.readFileSync(path,'utf8');
 const wrangler=read('cloudflare/wrangler.toml');
 const governance=read('cloudflare/src/release-governance-entry.js');
 const production=read('cloudflare/src/production-entry.js');
+const directRegistrationHtml=read('public/register-direct.html');
 const directRegistration=read('public/js/register-direct.js');
 const oauthUi=read('public/js/oauth-availability.js');
 const syntheticHold=read('scripts/production-synthetic-hold-wrapper.mjs');
@@ -42,6 +43,9 @@ assert.match(production,/\/api\/auth\/registration-proof\/challenge/,'production
 assert.match(production,/verifyRegistrationProof\(request,env,body\?\.turnstileToken\)/,'production wrapper must verify proof before registration');
 assert.match(directRegistration,/\/api\/auth\/registration-proof\/challenge/,'direct registration client must request first-party proof');
 assert.match(directRegistration,/honeypot:/,'direct registration proof must preserve honeypot');
+assert.match(directRegistrationHtml,/\/js\/oauth-availability\.js/,'direct registration page must load activation-policy gating explicitly');
+assert.match(directRegistrationHtml,/<\/body>\s*<\/html>\s*$/,'direct registration document must be structurally complete so governance decoration cannot be skipped');
+assert.ok(directRegistrationHtml.includes('html:not(.registration-open):not(.registration-cohort) #registerForm{display:none}'),'direct registration form must fail closed before activation policy resolves');
 
 assert.match(oauthUi,/`oauth-\$\{provider\}-disabled`/,'OAuth provider controls must expose a generic fail-closed disabled state');
 assert.match(oauthUi,/setProvider\("google",false\)/,'Google controls must fail closed before availability is proven');
