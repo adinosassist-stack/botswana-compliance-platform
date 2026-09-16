@@ -28,17 +28,17 @@ function failClosed(){
   setProvider("facebook",false);
 }
 
+function apiClient(){
+  const factory=window.BW?.api?.createClient;
+  return typeof factory==="function"?factory({timeoutMs:8000,retries:0}):null;
+}
+
 async function refresh(){
   failClosed();
   try{
-    const response=await fetch("/api/auth/oauth/providers",{
-      method:"GET",
-      credentials:"same-origin",
-      headers:{accept:"application/json"},
-      cache:"no-store"
-    });
-    if(!response.ok)return;
-    const body=await response.json();
+    const client=apiClient();
+    if(!client)return;
+    const body=await client.request("/api/auth/oauth/providers",{method:"GET",cache:"no-store"});
     setProvider("google",body?.google===true);
     setProvider("facebook",body?.facebook===true);
   }catch{}
