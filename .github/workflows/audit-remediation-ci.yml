@@ -1,0 +1,41 @@
+name: Audit remediation CI
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: audit-remediation-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  controls:
+    name: Audit remediation controls
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+
+      - name: Syntax and governance contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check cloudflare/src/release-governance-entry.js
+          node --check public/js/oauth-availability.js
+          node --check scripts/production-mobile-postdeploy-smoke.mjs
+          node --check scripts/production-synthetic-hold-wrapper.mjs
+          node --check tests/v82-audit-remediation-static.mjs
+          node tests/v82-audit-remediation-static.mjs
+          node tests/v82-phase0-launch-audit-deferred-integrations.mjs
