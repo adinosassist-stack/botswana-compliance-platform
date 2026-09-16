@@ -18,9 +18,11 @@ const release=JSON.parse(read('release/production.json'));
 
 assert.match(wrangler,/^main\s*=\s*"src\/release-governance-entry\.js"/m,'production must enter through release governance');
 assert.match(wrangler,/^REGISTRATION_MODE\s*=\s*"hold"/m,'customer activation must remain HOLD until reviewed');
-assert.match(wrangler,/^REGISTRATION_COHORT_EMAILS\s*=\s*""/m,'launch cohort must default empty');
+assert.doesNotMatch(wrangler,/^REGISTRATION_COHORT_EMAILS\s*=/m,'customer cohort identities must not be committed in public Wrangler vars');
 
 assert.match(governance,/VALID_REGISTRATION_MODES=new Set\(\["hold","cohort","open"\]\)/,'registration states must be explicit');
+assert.match(governance,/REGISTRATION_COHORT_EMAILS_SECRET/,'launch cohort must come from a secret-backed runtime binding');
+assert.match(governance,/if\(!cohort\.size\)return json\(\{error:"registration_policy_invalid"/,'empty cohort configuration must fail closed');
 assert.match(governance,/error:"registration_on_hold"/,'HOLD must be enforced server-side');
 assert.match(governance,/error:"registration_not_in_cohort"/,'cohort allow-list must be enforced server-side');
 assert.match(governance,/SYNTHETIC_EMAIL_RE=\/\^synthetic\\\.lifecycle/,'synthetic HOLD override must be identity-bound');

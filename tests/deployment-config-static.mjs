@@ -1,6 +1,7 @@
 import fs from "node:fs";
 const wr=fs.readFileSync(new URL("../cloudflare/wrangler.toml",import.meta.url),"utf8");
 const w=fs.readFileSync(new URL("../cloudflare/src/worker.js",import.meta.url),"utf8");
+const releaseEntry=fs.readFileSync(new URL("../cloudflare/src/release-governance-entry.js",import.meta.url),"utf8");
 const deploy=fs.readFileSync(new URL("../cloudflare/deploy-free.sh",import.meta.url),"utf8");
 const renderer=fs.readFileSync(new URL("../cloudflare/render-production-config.sh",import.meta.url),"utf8");
 const preflight=fs.readFileSync(new URL("../cloudflare/preflight-production.sh",import.meta.url),"utf8");
@@ -16,6 +17,10 @@ const checks=[
  ["single vars table",vars===1],
  ["free-first deployment",wr.includes('DEPLOYMENT_PROFILE = "workers-free-first"')],
  ["safe launch disables paid checkout by default",wr.includes('PAYMENT_PROVIDER = "none"')&&!wr.includes('PAYMENT_PROVIDER = "dpo"')],
+ ["registration remains on hold by default",wr.includes('REGISTRATION_MODE = "hold"')],
+ ["cohort identities are never stored in public Wrangler vars",!/^REGISTRATION_COHORT_EMAILS\s*=/m.test(wr)],
+ ["cohort membership is read only from the secret-backed runtime binding",releaseEntry.includes('env?.REGISTRATION_COHORT_EMAILS_SECRET')&&!releaseEntry.includes('env?.REGISTRATION_COHORT_EMAILS||')],
+ ["empty cohort configuration fails closed",releaseEntry.includes('if(!cohort.size)return json({error:"registration_policy_invalid"')],
  ["audit secret documented",wr.includes("AUDIT_INTEGRITY_SECRET")],
  ["dedicated audit secret used",w.includes("env.AUDIT_INTEGRITY_SECRET")&&!w.includes("AUDIT_INTEGRITY_SECRET||env.SESSION_SECRET")],
  ["runtime version current",/version:"v(?:58(?:\.1)?|59|[6-9][0-9])",runtime:"cloudflare-worker"/.test(w)],
