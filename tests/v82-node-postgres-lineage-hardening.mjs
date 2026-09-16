@@ -6,6 +6,8 @@ const migration32=fs.readFileSync('db/migrations/032_v82_workspace_version_numer
 const schema=fs.readFileSync('db/schema.sql','utf8');
 const api=fs.readFileSync('scripts/api-integration-test.mjs','utf8');
 const security=fs.readFileSync('scripts/security-test.mjs','utf8');
+const server=fs.readFileSync('server/server.js','utf8');
+const profile=JSON.parse(fs.readFileSync('RELEASE_PROFILE.json','utf8'));
 let checks=0;
 const ok=(condition,message)=>{assert.ok(condition,message);checks++;console.log('PASS',message)};
 
@@ -22,6 +24,8 @@ ok(!/REFERENCES management_review_decisions\(/.test(schema),'fresh schema does n
 ok(/data_type='bigint'/.test(migration32),'upgrade migration targets legacy bigint workspace versions only');
 ok(/version > 2147483647 OR version < 1/.test(migration32),'workspace-version migration refuses unsafe legacy values');
 ok(/ALTER TABLE app_state ALTER COLUMN version TYPE integer USING version::integer/.test(migration32),'workspace-version migration performs explicit safe integer conversion');
+ok(profile.latest_node_migration==='032_v82_workspace_version_numeric_contract.sql','release profile identifies migration 032 as the current Node readiness floor');
+ok(server.includes('EXPECTED_NODE_MIGRATION="032_v82_workspace_version_numeric_contract.sql"'),'Node readiness fails closed on the workspace-version numeric-contract migration');
 
 ok(/reg\.status!==202/.test(api),'integration lifecycle expects hardened asynchronous registration contract');
 ok(/registration must not create an authenticated session/.test(api),'integration lifecycle rejects registration-created sessions');

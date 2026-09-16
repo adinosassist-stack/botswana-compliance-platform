@@ -1000,7 +1000,7 @@
   "node_evidence_completion_compare_and_set": true,
   "node_scan_queue_failure_compare_and_set": true,
   "node_readiness_exact_migration_probe": true,
-  "latest_node_migration": "031_v78_durable_auth_rate_limit.sql",
+  "latest_node_migration": "032_v82_workspace_version_numeric_contract.sql",
   "v12175_durable_auth_rate_limit_hardening": true,
   "node_auth_rate_limits_postgres_durable": true,
   "node_login_ip_rate_limit": true,
