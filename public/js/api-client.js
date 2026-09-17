@@ -6,6 +6,7 @@
   const API_SHADOW_PREFIX="/__thebe_api";
   const AUTH_TRANSPORT_PROBE_PATH="/api/auth/register-transport-probe";
   const AUTH_TRANSPORT_PROBE_RELEASE="20260906-registration-post-capability-v1";
+  const IDEMPOTENT_TRANSPORT_CANDIDATE_MAX_MS=3000;
   class ApiError extends Error{constructor(message,{status=0,code="request_failed",requestId="",data=null}={}){super(message);this.name="ApiError";this.status=status;this.code=code;this.requestId=requestId;this.data=data}}
   const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   const AUTO_IDEMPOTENT_MUTATIONS=new Set([
@@ -129,7 +130,7 @@
         if(signal?.aborted)throw parentAbortError(signal);
         const candidate=candidates[index],remaining=Math.max(0,deadline-Date.now()),candidatesLeft=candidates.length-index;
         if(remaining<=0)throw parentAbortError(signal);
-        const candidateBudget=Math.min(remaining,Math.max(50,Math.floor(remaining/candidatesLeft)));
+        const candidateBudget=Math.min(remaining,IDEMPOTENT_TRANSPORT_CANDIDATE_MAX_MS,Math.max(50,Math.floor(remaining/candidatesLeft)));
         const candidateController=new AbortController();
         let rejectCandidateDeadline=()=>{};
         const abortFromParent=()=>{
@@ -267,7 +268,7 @@
         }catch(error){
           clearTimeout(timer);
           const err=error instanceof ApiError?error:new ApiError(error?.name==="AbortError"?"The request timed out. Please retry.":"Network connection failed. Check connectivity and retry.",{status:0,code:error?.name==="AbortError"?"timeout":"network_error",requestId});
-          if(safeRetry&&attempt+1<attempts&&!(error instanceof ApiError)){lastError=err;await sleep(200*(attempt+1));continue}
+          if(!idempotent&&safeRetry&&attempt+1<attempts&&!(error instanceof ApiError)){lastError=err;await sleep(200*(attempt+1));continue}
           try{console.error("BW API request failed",{url:logicalTarget,method,status:err.status,code:err.code,requestId});onError(err,{url:logicalTarget,method,requestId})}catch{}
           throw err;
         }
