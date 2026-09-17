@@ -36,7 +36,11 @@ export async function applyClientRuntimeIdentity(request,response){
     return new Response(method==="HEAD"?null:response.body,{status:response.status,statusText:response.statusText,headers});
   }
 
-  if(!["/","/index.html","/auth.html"].includes(url.pathname))return response;
+  // Cloudflare Static Assets canonicalizes auth.html to /auth. The release
+  // governance worker therefore fetches /auth internally for the public
+  // /auth/ surface. Preserve the same runtime identity on both canonical and
+  // legacy asset paths so the delivered browser client is release-bound.
+  if(!["/","/index.html","/auth","/auth.html"].includes(url.pathname))return response;
   const type=String(headers.get("content-type")||"").toLowerCase();
   if(!type.includes("text/html"))return response;
   headers.delete("content-length");
