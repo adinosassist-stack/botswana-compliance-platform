@@ -99,7 +99,10 @@
 
     if(doc.readyState==="loading")doc.addEventListener("DOMContentLoaded",schedule,{once:true});
     else schedule();
-    global.addEventListener?.("error",()=>global.setTimeout?.(()=>recoverIfBlank("window_error"),0),true);
+    global.addEventListener?.("error",event=>{
+      if(!event?.error&&!(typeof event?.message==="string"&&event.message))return;
+      global.setTimeout?.(()=>recoverIfBlank("window_error"),0);
+    },true);
     global.addEventListener?.("unhandledrejection",()=>global.setTimeout?.(()=>recoverIfBlank("unhandled_rejection"),0));
   }
   installStartupSurfaceFailSafe();
