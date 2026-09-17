@@ -55,8 +55,10 @@ jobs:
           node --check scripts/production-mobile-postdeploy-smoke.mjs
           node --check scripts/production-synthetic-hold-wrapper.mjs
           node --check tests/v82-audit-remediation-static.mjs
+          node --check tests/v83-surface-boundary-static.mjs
           node tests/v82-audit-remediation-static.mjs
           node tests/v82-phase0-launch-audit-deferred-integrations.mjs
+          node tests/v83-surface-boundary-static.mjs
 
       - name: Signed HOLD browser lifecycle governance
         shell: bash
