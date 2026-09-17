@@ -13,6 +13,7 @@ const releaseGovernanceEntry=fs.readFileSync('cloudflare/src/release-governance-
 const server=fs.readFileSync('server/server.js','utf8');
 const wrangler=fs.readFileSync('cloudflare/wrangler.toml','utf8');
 const scannerCfg=fs.readFileSync('cloudflare/scanner/wrangler.toml','utf8');
+const domSecurity=fs.readFileSync('public/js/dom-security.js','utf8');
 
 const TIMING_FLOOR_TEST_MS=50;
 const TIMER_RESOLUTION_TOLERANCE_MS=2;
@@ -60,6 +61,20 @@ test('scanner surface is provider-neutral and fails closed before body work or e
     assert.equal(__scannerTest.enabled,false);
     assert.equal(__scannerTest.provider,null);
   }finally{globalThis.fetch=original}
+});
+
+test('startup availability recovery exposes only the public shell when bootstrap leaves every surface hidden',()=>{
+  const start=domSecurity.indexOf('function installStartupSurfaceFailSafe()');
+  assert.ok(start>=0,'startup surface fail-safe must be installed');
+  const block=domSecurity.slice(start,start+4200);
+  assert.match(block,/global\.__THEBE_STARTUP_SURFACE_FAILSAFE__===true/);
+  assert.match(block,/"marketingGate","authGate","appShell","roleAccessPortal","reporterPortal","publicPassportGate"/);
+  assert.match(block,/marketing\.classList\.remove\("hidden"\)/);
+  assert.match(block,/marketing\.style\.visibility="visible"/);
+  assert.match(block,/app\.style\.visibility="hidden"/);
+  assert.match(block,/recoverIfBlank\("startup_timeout"\)/);
+  assert.match(block,/recoverIfBlank\("startup_timeout_extended"\)/);
+  assert.doesNotMatch(block,/app\.style\.visibility="visible"/,'fail-safe must never expose authenticated workspace content');
 });
 
 test('production launch wrapper chain has no configured scanner provider and evidence uploads remain disabled',()=>{
