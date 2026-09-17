@@ -60,7 +60,10 @@ jobs:
 
       - name: Signed HOLD browser lifecycle governance
         shell: bash
-        run: node tests/v82-production-browser-lifecycle-governance.mjs
+        run: |
+          set -euo pipefail
+          node tests/v82-idempotent-transport-fallback-runtime.mjs
+          node tests/v82-production-browser-lifecycle-governance.mjs
 
       - name: Synthetic proof and cleanup contracts
         shell: bash
@@ -128,7 +131,7 @@ jobs:
         run: |
           set -euo pipefail
           node tests/v78-12161-password-reset-issuance-hardening-adversarial.mjs
-          node --no-warnings tests/v78-12161-password-reset-issuance-runtime.mjs
+          node --no-warnings tests/v78-12161-password-reset-email-runtime.mjs
           node tests/v78-12160-password-reset-resource-hardening-adversarial.mjs
           node --no-warnings tests/v78-12160-password-reset-resource-runtime.mjs
           node tests/v78-12159-password-reset-single-consumption-adversarial.mjs
