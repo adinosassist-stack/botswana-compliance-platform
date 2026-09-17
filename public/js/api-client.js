@@ -112,17 +112,34 @@
       else{const text=await response.text().catch(()=>"");data=text?{message:text.slice(0,600)}:{}}
       return {response,data};
     }
+    function parentAbortError(signal){
+      const error=new Error(String(signal?.reason||"The request was aborted."));
+      error.name="AbortError";
+      return error;
+    }
     async function probeIdempotentTransports(logicalTarget,fetchOptions,method,headers,signal,requestId){
       let firstNetworkError=null;
-      for(const candidate of transportCandidates(logicalTarget)){
+      const candidates=transportCandidates(logicalTarget),deadline=Date.now()+Math.max(1,Number(timeoutMs)||1);
+      for(let index=0;index<candidates.length;index++){
+        if(signal?.aborted)throw parentAbortError(signal);
+        const candidate=candidates[index],remaining=Math.max(0,deadline-Date.now()),candidatesLeft=candidates.length-index;
+        if(remaining<=0)throw parentAbortError(signal);
+        const candidateBudget=Math.max(50,Math.min(remaining,Math.floor(remaining/candidatesLeft)));
+        const candidateController=new AbortController();
+        const abortFromParent=()=>candidateController.abort(signal?.reason||"timeout");
+        if(signal?.aborted)abortFromParent();else signal?.addEventListener?.("abort",abortFromParent,{once:true});
+        const candidateTimer=setTimeout(()=>candidateController.abort("transport-timeout"),candidateBudget);
         try{
-          const result=await fetchApi(candidate.url,fetchOptions,method,headers,signal);
+          const result=await fetchApi(candidate.url,fetchOptions,method,headers,candidateController.signal);
           if(transportRouteRejected(result.response))continue;
           preferredTransport=candidate.name;
           return result;
         }catch(error){
-          if(error?.name==="AbortError")throw error;
+          if(signal?.aborted)throw parentAbortError(signal);
           if(!firstNetworkError)firstNetworkError=error;
+        }finally{
+          clearTimeout(candidateTimer);
+          signal?.removeEventListener?.("abort",abortFromParent);
         }
       }
       if(firstNetworkError)throw firstNetworkError;
