@@ -4,6 +4,10 @@ import {durableRegistrationChallengeGate,validateAndClaimRegistrationProof} from
 
 const VALID_REGISTRATION_MODES=new Set(["hold","cohort","open"]);
 const OAUTH_VISIBILITY_SCRIPT="/js/oauth-availability.js?v=20260916b";
+const WORKSPACE_BOUNDARY_SCRIPT="/js/surface-boundaries.js?v=20260917-stabilize";
+const PUBLIC_HOME_ASSET="/home.html";
+const AUTH_PORTAL_ASSET="/auth.html";
+const SYNTHETIC_LEGACY_ROOT_PARAMS=new Set(["desktop-owner-proof","authenticated-mobile-proof"]);
 const SYNTHETIC_EMAIL_RE=/^synthetic\.lifecycle\.\d+\.\d+\.[0-9a-f]{12}@example\.invalid$/;
 const MAX_REGISTRATION_POLICY_BODY_BYTES=16*1024;
 const REGISTRATION_PATH="/api/auth/register";
@@ -29,6 +33,26 @@ function logicalRequestPath(request){
     if(url.pathname==="/__thebe_api")return "/api";
     return url.pathname;
   }catch{return ""}
+}
+
+function syntheticLegacyRootRequested(request){
+  try{
+    const url=new URL(request.url);
+    if(url.pathname!=="/")return false;
+    for(const key of SYNTHETIC_LEGACY_ROOT_PARAMS)if(url.searchParams.has(key))return true;
+    return false;
+  }catch{return false}
+}
+
+function rewriteSurfaceRequest(request,pathname,{clearSearch=false}={}){
+  const url=new URL(request.url);url.pathname=pathname;if(clearSearch)url.search="";
+  return new Request(url.toString(),request);
+}
+
+function trailingSlashRedirect(request,pathname){
+  const current=new URL(request.url),target=new URL(request.url);target.pathname=pathname;
+  if(pathname==="/auth/"||pathname==="/app/")target.search=current.search;
+  return Response.redirect(target.toString(),302);
 }
 
 function registrationMode(env){
@@ -154,12 +178,45 @@ async function registrationGate(request,env){
   return json({error:"registration_not_in_cohort",message:"Registration is currently limited to the approved launch cohort.",registrationMode:mode},403);
 }
 
-function injectOauthAvailabilityScript(html){
+function injectScriptOnce(html,src){
   const source=String(html||"");
-  if(!source.toLowerCase().includes("</body>")||source.includes("/js/oauth-availability.js"))return source;
-  const tag=`<script src="${OAUTH_VISIBILITY_SCRIPT}" defer></script>\n`;
+  const bare=String(src||"").split("?",1)[0];
+  if(!source.toLowerCase().includes("</body>")||source.includes(bare))return source;
+  const tag=`<script src="${src}" defer></script>\n`;
   const index=source.toLowerCase().lastIndexOf("</body>");
   return source.slice(0,index)+tag+source.slice(index);
+}
+
+function normalizeWorkspaceAssetUrls(html){
+  return String(html||"")
+    .replaceAll('src="js/','src="/js/')
+    .replaceAll("src='js/","src='/js/")
+    .replaceAll('href="assets/','href="/assets/')
+    .replaceAll("href='assets/","href='/assets/")
+    .replaceAll('src="assets/','src="/assets/')
+    .replaceAll("src='assets/","src='/assets/")
+    .replaceAll('href="manifest.webmanifest"','href="/manifest.webmanifest"')
+    .replaceAll("href='manifest.webmanifest'","href='/manifest.webmanifest'");
+}
+
+function injectOauthAvailabilityScript(html){return injectScriptOnce(html,OAUTH_VISIBILITY_SCRIPT)}
+function injectWorkspaceBoundaryScript(html){return injectScriptOnce(html,WORKSPACE_BOUNDARY_SCRIPT)}
+
+function workspaceUnavailableResponse(){
+  return new Response("Thebe Desk workspace is temporarily unavailable. The public site remains available at https://thebedesk.com/.",{status:503,headers:{"content-type":"text/plain; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff","x-frame-options":"DENY","retry-after":"30"}});
+}
+
+async function workspaceSurfaceResponse(request,env,ctx){
+  const probeUrl=new URL("/api/auth/me",request.url);
+  const probeHeaders=new Headers(request.headers);probeHeaders.set("accept","application/json");
+  const probe=await base.fetch(new Request(probeUrl.toString(),{method:"GET",headers:probeHeaders,redirect:"manual"}),env,ctx);
+  if(probe.status===401||probe.status===403){
+    const current=new URL(request.url),target=new URL("/auth/",request.url);target.searchParams.set("mode","login");target.searchParams.set("next",current.pathname+current.search);
+    return Response.redirect(target.toString(),302);
+  }
+  if(!probe.ok)return workspaceUnavailableResponse();
+  const shellRequest=rewriteSurfaceRequest(request,"/",{clearSearch:false});
+  return base.fetch(shellRequest,env,ctx);
 }
 
 async function decorateResponse(request,env,response){
@@ -185,12 +242,18 @@ async function decorateResponse(request,env,response){
     if(type.includes("text/html")){
       try{
         const html=await next.clone().text();
-        const injected=injectOauthAvailabilityScript(html);
+        const appSurface=path==="/app"||path==="/app/";
+        const legacySyntheticRoot=path==="/"&&syntheticLegacyRootRequested(request);
+        let injected=html;
+        if(appSurface)injected=normalizeWorkspaceAssetUrls(injected);
+        if(appSurface||legacySyntheticRoot)injected=injectOauthAvailabilityScript(injected);
+        if(appSurface)injected=injectWorkspaceBoundaryScript(injected);
         if(injected!==html){
           const headers=new Headers(next.headers);
           headers.delete("content-length");
           headers.delete("etag");
-          headers.set("x-thebe-oauth-ui","availability-gated-v2");
+          if(appSurface||legacySyntheticRoot)headers.set("x-thebe-oauth-ui","availability-gated-v2");
+          if(appSurface)headers.set("x-thebe-surface-boundary","workspace-v1");
           next=new Response(injected,{status:next.status,statusText:next.statusText,headers});
         }
       }catch{}
@@ -202,22 +265,41 @@ async function decorateResponse(request,env,response){
   if(provenance.sourceSha)headers.set("x-thebe-source-sha",provenance.sourceSha);
   if(provenance.releaseSequence>0)headers.set("x-thebe-release-sequence",String(provenance.releaseSequence));
   headers.set("x-thebe-registration-mode",provenance.registrationMode);
+  if(path==="/")headers.set("x-thebe-surface",syntheticLegacyRootRequested(request)?"workspace-synthetic":"public");
+  if(path==="/auth"||path==="/auth/"){headers.set("x-thebe-surface","auth");headers.set("x-robots-tag","noindex, nofollow");headers.set("cache-control","no-store")}
+  if(path==="/app"||path==="/app/"){headers.set("x-thebe-surface","app");headers.set("x-robots-tag","noindex, nofollow");headers.set("cache-control","no-store")}
   return new Response(next.body,{status:next.status,statusText:next.statusText,headers});
 }
 
 export default {
   async fetch(request,env,ctx){
-    const path=logicalRequestPath(request);
-    if(request.method==="GET"&&path==="/api/version")return json({ok:true,...releaseProvenance(env)});
-    if(request.method==="GET"&&path==="/api/auth/oauth/providers")return json({ok:true,...oauthProviders(env)});
-    if(request.method==="GET"&&path==="/api/auth/registration-policy")return json({ok:true,mode:registrationMode(env)});
+    const path=logicalRequestPath(request),method=request.method;
 
-    if(request.method==="POST"&&path===REGISTRATION_PROOF_CHALLENGE_PATH){
+    if(["GET","HEAD"].includes(method)&&path==="/"&&!syntheticLegacyRootRequested(request)){
+      const response=await base.fetch(rewriteSurfaceRequest(request,PUBLIC_HOME_ASSET,{clearSearch:true}),env,ctx);
+      return decorateResponse(request,env,response);
+    }
+    if(["GET","HEAD"].includes(method)&&path==="/auth")return trailingSlashRedirect(request,"/auth/");
+    if(["GET","HEAD"].includes(method)&&path==="/auth/"){
+      const response=await base.fetch(rewriteSurfaceRequest(request,AUTH_PORTAL_ASSET,{clearSearch:true}),env,ctx);
+      return decorateResponse(request,env,response);
+    }
+    if(["GET","HEAD"].includes(method)&&path==="/app")return trailingSlashRedirect(request,"/app/");
+    if(["GET","HEAD"].includes(method)&&path==="/app/"){
+      const response=await workspaceSurfaceResponse(request,env,ctx);
+      return decorateResponse(request,env,response);
+    }
+
+    if(method==="GET"&&path==="/api/version")return json({ok:true,...releaseProvenance(env)});
+    if(method==="GET"&&path==="/api/auth/oauth/providers")return json({ok:true,...oauthProviders(env)});
+    if(method==="GET"&&path==="/api/auth/registration-policy")return json({ok:true,mode:registrationMode(env)});
+
+    if(method==="POST"&&path===REGISTRATION_PROOF_CHALLENGE_PATH){
       const blocked=await durableRegistrationChallengeGate(request,env);
       if(blocked)return decorateResponse(request,env,blocked);
     }
 
-    if(request.method==="POST"&&path===REGISTRATION_PATH){
+    if(method==="POST"&&path===REGISTRATION_PATH){
       const blocked=await registrationGate(request,env);
       if(blocked)return decorateResponse(request,env,blocked);
 
@@ -240,7 +322,9 @@ export default {
 
 export {
   injectOauthAvailabilityScript,
+  injectWorkspaceBoundaryScript,
   logicalRequestPath,
+  normalizeWorkspaceAssetUrls,
   oauthProviders,
   readJsonBoundedClone,
   registrationCohort,
@@ -248,5 +332,7 @@ export {
   registrationMode,
   registrationProtectionFailure,
   releaseProvenance,
-  signedSyntheticRegistrationAllowed
+  signedSyntheticRegistrationAllowed,
+  syntheticLegacyRootRequested,
+  workspaceSurfaceResponse
 };
