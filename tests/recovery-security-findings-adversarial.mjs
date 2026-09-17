@@ -77,6 +77,23 @@ test('startup availability recovery exposes only the public shell when bootstrap
   assert.doesNotMatch(block,/app\.style\.visibility="visible"/,'fail-safe must never expose authenticated workspace content');
 });
 
+test('plain root is pinned to the real public homepage until the visitor explicitly chooses an auth or workspace action',()=>{
+  const start=domSecurity.indexOf('function installPublicRootLandingGuard()');
+  assert.ok(start>=0,'public root landing guard must be installed');
+  const block=domSecurity.slice(start,start+6200);
+  assert.match(block,/global\.__THEBE_PUBLIC_ROOT_LANDING_GUARD__===true/);
+  assert.match(block,/path!=="\/"\|\|specialPublicFlow/);
+  assert.match(block,/hash\.startsWith\("#report="\)\|\|hash\.startsWith\("#passport="\)/);
+  assert.match(block,/marketing-start-action/);
+  assert.match(block,/\[data-guest-action\]/);
+  assert.match(block,/marketing-session-action/);
+  assert.match(block,/marketing\.classList\.remove\("hidden"\)/);
+  assert.match(block,/rolePortal\.style\.display="none"/);
+  assert.match(block,/app\.style\.visibility="hidden"/);
+  assert.match(block,/global\.syncMarketingSessionActions\?\.\(\)/);
+  assert.doesNotMatch(block,/app\.style\.visibility="visible"/,'root guard must never expose authenticated workspace content automatically');
+});
+
 test('production launch wrapper chain has no configured scanner provider and evidence uploads remain disabled',()=>{
   assert.match(wrangler,/main = "src\/release-governance-entry\.js"/);
   assert.match(releaseGovernanceEntry,/import base from "\.\/agentic-entry\.js"/);
