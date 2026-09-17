@@ -4,6 +4,7 @@ import {spawnSync} from 'node:child_process';
 
 const holdWrapper=fs.readFileSync('scripts/production-synthetic-hold-wrapper.mjs','utf8');
 const wrapper=fs.readFileSync('scripts/production-synthetic-browser-wrapper.mjs','utf8');
+const fullUserWrapper=fs.readFileSync('scripts/production-synthetic-full-user-wrapper.mjs','utf8');
 const lifecycle=fs.readFileSync('scripts/production-synthetic-lifecycle.mjs','utf8');
 const interruptionRecovery=fs.readFileSync('scripts/production-synthetic-interruption-recovery.mjs','utf8');
 const components=fs.readFileSync('public/js/components.js','utf8');
@@ -61,6 +62,20 @@ must(wrapper,/clientMe=\$\{d\?\.clientMe\?\.ok\?`ok\/\$\{safe\(d\?\.clientMe\?\.
 must(wrapper,/api breadcrumb/,'browser proof emits non-secret API stage breadcrumbs');
 mustNot(wrapper,/api breadcrumb[^\n]*(email|password|cookie|csrf|token)/i,'API breadcrumbs do not log credentials or session secrets');
 must(wrapper,/withDeadline\('browser close',[\s\S]*BROWSER_CLOSE_DEADLINE_MS\)/,'browser teardown is externally bounded');
+
+syntax('scripts/production-synthetic-full-user-wrapper.mjs','mandatory full-user wrapper parses');
+must(fullUserWrapper,/await import\('\.\/production-synthetic-hold-wrapper\.mjs'\)/,'full-user wrapper preserves signed HOLD and canonical cleanup authority');
+must(fullUserWrapper,/Object\.defineProperty\(globalThis,'__thebeSyntheticBrowserProof'/,'full-user wrapper composes with the canonical browser proof hook');
+must(fullUserWrapper,/await originalProof\(credentials\);[\s\S]*await runFullUserJourney\(credentials\)/,'canonical browser proof runs before the exhaustive full-user journey');
+must(fullUserWrapper,/MIN_OWNER_VIEW_COUNT=40/,'full-user proof fails closed on suspiciously incomplete owner navigation');
+must(fullUserWrapper,/roleCanView/,'full-user proof derives the matrix from role-visible navigation');
+must(fullUserWrapper,/showView\(targetView,\{skipDataRefresh:true\}\)/,'full-user proof activates every role-visible view without triggering mutations');
+must(fullUserWrapper,/response\.status\(\)>=500/,'full-user proof rejects same-origin API server failures');
+must(fullUserWrapper,/pageErrors\.length===0/,'full-user proof rejects browser page errors');
+must(fullUserWrapper,/assetFailures\.length===0/,'full-user proof rejects critical asset failures');
+must(fullUserWrapper,/apiServerFailures\.length===0/,'full-user proof rejects collected API 5xx responses');
+must(fullUserWrapper,/full-user owner view matrix/,'full-user proof reports exhaustive owner view completion');
+mustNot(fullUserWrapper,/DELETE FROM|deletion_tombstones|Cloudflare API|CLOUDFLARE_API_TOKEN|D1_DATABASE_ID/,'full-user wrapper has no direct destructive or D1 authority');
 
 syntax('cloudflare/src/agentic-entry.js','authenticated cold-start wrapper parses');
 must(agenticEntry,/SYNTHETIC_BOOT_TRACE_PARAMS=new Set\(\["desktop-owner-proof","authenticated-mobile-proof"\]\)/,'edge boot tracing is restricted to the synthetic desktop/mobile proof query markers');
@@ -121,16 +136,16 @@ must(components,/status:408/,'billing budget returns a bounded non-success respo
 
 must(launch,/playwright-core@1\.55\.0/,'production launch audit pins the browser driver');
 must(launch,/node scripts\/production-synthetic-interruption-recovery\.mjs/,'production launch audit recovers strictly bounded interrupted synthetic residue before creating another account');
-must(launch,/node scripts\/production-synthetic-hold-wrapper\.mjs/,'production launch audit runs signed HOLD lifecycle wrapper');
-must(launch,/\[synthetic-lifecycle\]/,'browser lifecycle stays behind the explicit production marker');
+must(launch,/node scripts\/production-synthetic-full-user-wrapper\.mjs/,'production launch audit runs the mandatory exhaustive full-user lifecycle wrapper');
+mustNot(launch,/\[synthetic-lifecycle\]/,'production full-user lifecycle cannot be silently skipped by a release-message marker');
 must(launch,/node scripts\/production-zero-orphan-audit\.mjs/,'permanent zero-orphan audit remains in the production chain');
 const workflowRecoveryIndex=launch.indexOf('node scripts/production-synthetic-interruption-recovery.mjs');
-const workflowBrowserIndex=launch.indexOf('node scripts/production-synthetic-hold-wrapper.mjs');
+const workflowBrowserIndex=launch.indexOf('node scripts/production-synthetic-full-user-wrapper.mjs');
 const orphanIndex=launch.indexOf('node scripts/production-zero-orphan-audit.mjs');
-if(workflowRecoveryIndex<0||workflowBrowserIndex<0||workflowRecoveryIndex>=workflowBrowserIndex)throw new Error('FAIL interrupted synthetic recovery must run before a new signed HOLD browser lifecycle');
-console.log('PASS interrupted synthetic recovery precedes signed HOLD browser lifecycle');
-if(workflowBrowserIndex<0||orphanIndex<0||workflowBrowserIndex>=orphanIndex)throw new Error('FAIL zero-orphan audit must run after signed HOLD browser lifecycle cleanup');
-console.log('PASS zero-orphan audit follows signed HOLD browser lifecycle cleanup');
+if(workflowRecoveryIndex<0||workflowBrowserIndex<0||workflowRecoveryIndex>=workflowBrowserIndex)throw new Error('FAIL interrupted synthetic recovery must run before the mandatory full-user lifecycle');
+console.log('PASS interrupted synthetic recovery precedes mandatory full-user lifecycle');
+if(workflowBrowserIndex<0||orphanIndex<0||workflowBrowserIndex>=orphanIndex)throw new Error('FAIL zero-orphan audit must run after mandatory full-user lifecycle cleanup');
+console.log('PASS zero-orphan audit follows mandatory full-user lifecycle cleanup');
 
 must(recovery,/node --check scripts\/production-synthetic-browser-wrapper\.mjs/,'Recovery CI syntax-checks the browser wrapper');
 must(recovery,/node tests\/v82-production-browser-lifecycle-governance\.mjs/,'Recovery CI enforces browser lifecycle governance');
