@@ -82,7 +82,7 @@ assert.match(mobileSmoke,/unavailable Facebook sign-in control must be hidden di
 assert.match(mobileSmoke,/HOLD must hide public registration CTA/,'mobile smoke must prove HOLD closes the public registration CTA');
 assert.match(mobileSmoke,/direct registration form must fail closed during HOLD/,'mobile smoke must prove direct registration fails closed during HOLD');
 assert.match(mobileWorkflow,/node scripts\/production-mobile-postdeploy-smoke\.mjs/,'automatic mobile audit must execute reusable source script');
-assert.match(launchWorkflow,/node scripts\/production-synthetic-hold-wrapper\.mjs/,'automatic Phase 0 lifecycle must respect customer HOLD');
+assert.match(launchWorkflow,/node scripts\/production-synthetic-full-user-wrapper\.mjs/,'automatic Phase 0 lifecycle must execute the mandatory full-user wrapper');
 
 assert.match(remediationWorkflow,/run-name: Audit remediation CI \$\{\{ github\.event\.pull_request\.head\.sha \}\}/,'remediation CI run identity must name the exact PR head');
 assert.match(remediationWorkflow,/EXPECTED_HEAD_SHA: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/,'remediation CI must bind expected SHA to the PR head');
