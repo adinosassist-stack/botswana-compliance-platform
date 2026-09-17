@@ -105,7 +105,7 @@ async function readJsonBoundedClone(request,maxBytes=MAX_REGISTRATION_POLICY_BOD
       if(!value)continue;
       total+=value.byteLength;
       if(total>maxBytes){
-        try{await reader.cancel("payload_too_large")}catch{}
+        try{reader.cancel("payload_too_large").catch(()=>{})}catch{}
         return {body:{},tooLarge:true};
       }
       chunks.push(value);
