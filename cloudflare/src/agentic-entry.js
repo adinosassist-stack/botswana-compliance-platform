@@ -2,6 +2,7 @@ import base from "./production-entry.js";
 import {handleAgenticAuthorityRequest} from "./agentic-authority-core.js";
 import {handleAgenticWhatsAppRequest} from "./agentic-whatsapp-core.js";
 import {preparePlatformOwnerLogin,withPlatformOwnerAdminEnv} from "./platform-owner-access.js";
+import {applyClientRuntimeIdentity} from "./client-runtime-identity.js";
 
 const V81_SCHEMA_DELTA="047_v81_delegated_authority.sql";
 const COLD_START_REDUNDANT_RENDER="if(!options?.skipDataRefresh)queueMicrotask(()=>renderAll())";
@@ -116,9 +117,10 @@ export default {
     env=withPlatformOwnerAdminEnv(env);
     request=await preparePlatformOwnerLogin(request,env);
     const response=await base.fetch(request,env,ctx);
-    const hardenedResponse=await hardenAuthenticatedColdStart(request,response);
-    if(hardenedResponse!==response)return enhanceReadiness(request,env,hardenedResponse);
-    return enhanceReadiness(request,env,response);
+    const runtimeResponse=await applyClientRuntimeIdentity(request,response);
+    const hardenedResponse=await hardenAuthenticatedColdStart(request,runtimeResponse);
+    if(hardenedResponse!==runtimeResponse)return enhanceReadiness(request,env,hardenedResponse);
+    return enhanceReadiness(request,env,runtimeResponse);
   },
   async scheduled(event,env,ctx){
     return base.scheduled(event,env,ctx);

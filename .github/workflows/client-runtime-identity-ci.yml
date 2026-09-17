@@ -1,0 +1,50 @@
+name: Thebe Desk Client Runtime Identity CI
+run-name: Client runtime identity ${{ github.event.pull_request.head.sha }}
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify API client runtime identity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          persist-credentials: false
+
+      - name: Verify exact checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          [[ "$actual" == "$EXPECTED_HEAD_SHA" ]] || { echo "PR head mismatch actual=$actual expected=$EXPECTED_HEAD_SHA" >&2; exit 1; }
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+
+      - name: Install exact dependencies
+        shell: bash
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Verify runtime identity and transport fallback
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check cloudflare/src/client-runtime-identity.js
+          node --check cloudflare/src/agentic-entry.js
+          node --check scripts/production-client-runtime-proof.mjs
+          node tests/v82-client-runtime-identity.mjs
+          node tests/v82-idempotent-transport-fallback-runtime.mjs
