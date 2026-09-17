@@ -15,7 +15,7 @@ required = ["SESSION_SECRET", "AUDIT_INTEGRITY_SECRET", "OPERATIONS_SECRET", "AU
 [vars]
 APP_ENV = "production"
 DEPLOYMENT_PROFILE = "workers-free-first"
-REGISTRATION_MODE = "hold"
+REGISTRATION_MODE = "open"
 AI_FEATURES_DEFAULT = "on"
 AI_REPORT_MODEL = "@cf/zai-org/glm-4.7-flash"
 PAYMENT_PROVIDER = "none"
@@ -64,8 +64,8 @@ run_worker_first = ["/", "/index.html", "/robots.txt", "/sitemap.xml", "/cipa-co
 [triggers]
 crons = ["15 6 * * *", "15 16 * * *"]
 
-# Customer activation is deliberately fail-closed while launch audit closure is pending.
-# Change REGISTRATION_MODE only through reviewed release governance: hold -> cohort -> open.
+# Public registration is owner-authorized through the reviewed activation release.
+# Change REGISTRATION_MODE only through reviewed release governance; hold remains the rollback mode.
 # When REGISTRATION_MODE="cohort", approved customer emails must be supplied only through the
 # REGISTRATION_COHORT_EMAILS_SECRET Worker secret. Never commit cohort identities to this file.
 # An empty or missing cohort secret fails closed at runtime.

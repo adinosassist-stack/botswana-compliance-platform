@@ -17,7 +17,7 @@ const checks=[
  ["single vars table",vars===1],
  ["free-first deployment",wr.includes('DEPLOYMENT_PROFILE = "workers-free-first"')],
  ["safe launch disables paid checkout by default",wr.includes('PAYMENT_PROVIDER = "none"')&&!wr.includes('PAYMENT_PROVIDER = "dpo"')],
- ["registration remains on hold by default",wr.includes('REGISTRATION_MODE = "hold"')],
+ ["production explicitly enables owner-authorized public registration",wr.includes('REGISTRATION_MODE = "open"')],
  ["cohort identities are never stored in public Wrangler vars",!/^REGISTRATION_COHORT_EMAILS\s*=/m.test(wr)],
  ["cohort membership is read only from the secret-backed runtime binding",releaseEntry.includes('env?.REGISTRATION_COHORT_EMAILS_SECRET')&&!releaseEntry.includes('env?.REGISTRATION_COHORT_EMAILS||')],
  ["empty cohort configuration fails closed",releaseEntry.includes('if(!cohort.size)return json({error:"registration_policy_invalid"')],
