@@ -5,6 +5,7 @@ import entry, {registrationGate, registrationMode} from '../cloudflare/src/relea
 const read=path=>fs.readFileSync(path,'utf8');
 const wrangler=read('cloudflare/wrangler.toml');
 const governance=read('cloudflare/src/release-governance-entry.js');
+const registrationBoundary=read('cloudflare/src/registration-boundary.js');
 const production=read('cloudflare/src/production-entry.js');
 const directRegistrationHtml=read('public/register-direct.html');
 const directRegistration=read('public/js/register-direct.js');
@@ -34,6 +35,16 @@ assert.match(governance,/MAX_REGISTRATION_POLICY_BODY_BYTES=16\*1024/,'registrat
 assert.match(governance,/reader\.read\(\)/,'registration policy wrapper must enforce the bound while streaming the clone');
 assert.match(governance,/error:"payload_too_large"/,'oversized registration policy bodies must fail closed');
 assert.doesNotMatch(governance,/request\.clone\(\)\.json\(\)/,'registration governance must not reintroduce unbounded JSON parsing');
+const registrationGateSource=governance.slice(governance.indexOf('async function registrationGate'),governance.indexOf('function injectOauthAvailabilityScript'));
+assert.ok(registrationGateSource.indexOf('const parsed=await readJsonBoundedClone(request);')<registrationGateSource.indexOf('if(mode==="open")return null;'),'open registration must cross the 16 KiB body boundary before delegation');
+assert.match(governance,/durableRegistrationChallengeGate\(request,env\)/,'proof challenge must cross the durable release-boundary throttle');
+assert.match(governance,/validateAndClaimRegistrationProof\(request,env,parsed\.body\?\.turnstileToken\)/,'registration must atomically claim a durable proof before inner registration');
+assert.match(registrationBoundary,/registration_proof_challenge_ip/,'challenge limiter must use a dedicated durable scope');
+assert.match(registrationBoundary,/INSERT INTO auth_rate_limits\(key_hash,scope,count,window_start,expires_at\)/,'challenge limiter must persist in the D1 auth ledger');
+assert.match(registrationBoundary,/INSERT OR IGNORE INTO auth_rate_limits\(key_hash,scope,count,window_start,expires_at\)/,'proof replay claim must be atomic across worker isolates');
+assert.match(registrationBoundary,/registration_proof_replay/,'proof replay claim must use an isolated ledger scope');
+assert.match(registrationBoundary,/registration-boundary-replay-v1/,'replay ledger keys must be HMAC-derived');
+assert.doesNotMatch(registrationBoundary,/new Map\(/,'release-boundary registration controls must not depend on isolate-local maps');
 assert.match(governance,/path==="\/api\/version"/,'immutable release provenance endpoint missing');
 assert.match(governance,/"x-thebe-source-sha"/,'source SHA response header missing');
 assert.match(governance,/"x-thebe-release-sequence"/,'release sequence response header missing');
@@ -101,6 +112,13 @@ const registrationRequest=()=>new Request('https://thebedesk.com/api/auth/regist
 });
 assert.equal(await registrationGate(registrationRequest(), {REGISTRATION_MODE:'open'}), null,
   'public registration must not require a cohort secret');
+const oversizedOpenRequest=new Request('https://thebedesk.com/api/auth/register', {
+  method:'POST',
+  headers:{'content-type':'application/json'},
+  body:JSON.stringify({padding:'x'.repeat(17*1024)})
+});
+const oversizedOpenResponse=await registrationGate(oversizedOpenRequest,{REGISTRATION_MODE:'open'});
+assert.equal(oversizedOpenResponse.status,413,'open registration must reject bodies above 16 KiB before proof parsing');
 for(const mode of ['hold','invalid','cohort']){
   const response=await registrationGate(registrationRequest(), {REGISTRATION_MODE:mode});
   assert.equal(response.status,503, `${mode} without an approved cohort must fail closed`);

@@ -1,10 +1,13 @@
 import base from "./agentic-entry.js";
 import releaseMetadata from "../../release/production.json" with {type:"json"};
+import {durableRegistrationChallengeGate,validateAndClaimRegistrationProof} from "./registration-boundary.js";
 
 const VALID_REGISTRATION_MODES=new Set(["hold","cohort","open"]);
 const OAUTH_VISIBILITY_SCRIPT="/js/oauth-availability.js?v=20260916b";
 const SYNTHETIC_EMAIL_RE=/^synthetic\.lifecycle\.\d+\.\d+\.[0-9a-f]{12}@example\.invalid$/;
 const MAX_REGISTRATION_POLICY_BODY_BYTES=16*1024;
+const REGISTRATION_PATH="/api/auth/register";
+const REGISTRATION_PROOF_CHALLENGE_PATH="/api/auth/registration-proof/challenge";
 
 function json(data,status=200,headers={}){
   return new Response(JSON.stringify(data),{status,headers:{
@@ -102,7 +105,7 @@ async function readJsonBoundedClone(request,maxBytes=MAX_REGISTRATION_POLICY_BOD
       if(!value)continue;
       total+=value.byteLength;
       if(total>maxBytes){
-        try{await reader.cancel("payload_too_large")}catch{}
+        try{reader.cancel("payload_too_large").catch(()=>{})}catch{}
         return {body:{},tooLarge:true};
       }
       chunks.push(value);
@@ -119,16 +122,28 @@ function registrationHoldResponse(mode="hold"){
   return json({error:"registration_on_hold",message:"New customer activation is temporarily on hold while launch verification is completed.",registrationMode:mode},503,{"retry-after":"300"});
 }
 
+function registrationProtectionFailure(status=403){
+  const unavailable=status===503;
+  return json({
+    error:unavailable?"registration_protection_unavailable":"registration_protection_failed",
+    message:unavailable
+      ?"Registration protection is temporarily unavailable. Please try again shortly."
+      :"Registration protection expired or could not be verified. Click Create account again to generate a fresh secure proof.",
+    retryable:true
+  },status,unavailable?{"retry-after":"60"}:{});
+}
+
 async function registrationGate(request,env){
   const mode=registrationMode(env);
   if(mode==="invalid")return json({error:"registration_policy_invalid",message:"Registration is unavailable while the activation policy is being repaired."},503,{"retry-after":"300"});
-  if(mode==="open")return null;
 
   const hasAuditOverride=!!String(request.headers.get("x-thebe-registration-audit")||"").trim();
   if(mode==="hold"&&!hasAuditOverride)return registrationHoldResponse(mode);
 
   const parsed=await readJsonBoundedClone(request);
   if(parsed.tooLarge)return json({error:"payload_too_large",message:"Registration request body is too large."},413);
+  if(mode==="open")return null;
+
   const email=String(parsed.body?.email||"").trim().toLowerCase();
   if(await signedSyntheticRegistrationAllowed(request,env,email))return null;
 
@@ -196,10 +211,25 @@ export default {
     if(request.method==="GET"&&path==="/api/version")return json({ok:true,...releaseProvenance(env)});
     if(request.method==="GET"&&path==="/api/auth/oauth/providers")return json({ok:true,...oauthProviders(env)});
     if(request.method==="GET"&&path==="/api/auth/registration-policy")return json({ok:true,mode:registrationMode(env)});
-    if(request.method==="POST"&&path==="/api/auth/register"){
-      const blocked=await registrationGate(request,env);
+
+    if(request.method==="POST"&&path===REGISTRATION_PROOF_CHALLENGE_PATH){
+      const blocked=await durableRegistrationChallengeGate(request,env);
       if(blocked)return decorateResponse(request,env,blocked);
     }
+
+    if(request.method==="POST"&&path===REGISTRATION_PATH){
+      const blocked=await registrationGate(request,env);
+      if(blocked)return decorateResponse(request,env,blocked);
+
+      const parsed=await readJsonBoundedClone(request);
+      if(parsed.tooLarge)return decorateResponse(request,env,json({error:"payload_too_large",message:"Registration request body is too large."},413));
+      const proof=await validateAndClaimRegistrationProof(request,env,parsed.body?.turnstileToken);
+      if(!proof.ok){
+        const status=proof.reason==="replay_ledger_unavailable"?503:403;
+        return decorateResponse(request,env,registrationProtectionFailure(status));
+      }
+    }
+
     const response=await base.fetch(request,env,ctx);
     return decorateResponse(request,env,response);
   },
@@ -216,6 +246,7 @@ export {
   registrationCohort,
   registrationGate,
   registrationMode,
+  registrationProtectionFailure,
   releaseProvenance,
   signedSyntheticRegistrationAllowed
 };
