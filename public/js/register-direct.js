@@ -54,7 +54,7 @@ form?.addEventListener("submit",async event=>{
   try{
    await api("/api/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email,password})});
    setStatus("Account access confirmed. Opening your workspace…","good");
-   location.href="/";
+   location.href="/app/";
    return;
   }catch(loginError){
    if(loginError?.code==="workspace_selection_required"){
@@ -62,7 +62,7 @@ form?.addEventListener("submit",async event=>{
      btn.textContent="Opening owner workspace…";
      await finishWorkspaceSelection(loginError,email,password);
      setStatus("Account access confirmed. Opening your owner workspace…","good");
-     location.href="/";
+     location.href="/app/";
      return;
     }catch(selectionError){
      if(selectionError?.code==="invalid_credentials"){await showSecureExistingAccountRecovery(email);return}

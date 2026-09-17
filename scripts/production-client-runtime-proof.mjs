@@ -23,16 +23,17 @@ try{
     }catch{}
   });
 
-  const root=await page.goto(`${ORIGIN}/?client-runtime-proof=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:30000});
-  assert(root?.status()===200,`root returned HTTP ${root?.status()||0}`);
-  const expected=String((await root.allHeaders())['x-thebe-client-release']||'');
-  const implementation=String((await root.allHeaders())['x-thebe-client-implementation']||'');
+  const auth=await page.goto(`${ORIGIN}/auth/?client-runtime-proof=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:30000});
+  assert(auth?.status()===200,`auth surface returned HTTP ${auth?.status()||0}`);
+  assert(new URL(page.url()).pathname==='/auth/',`auth proof landed on unexpected path ${safe(page.url())}`);
+  const expected=String((await auth.allHeaders())['x-thebe-client-release']||'');
+  const implementation=String((await auth.allHeaders())['x-thebe-client-implementation']||'');
   assert(implementation===EXPECTED_IMPLEMENTATION,`unexpected implementation ${implementation||'missing'}`);
   assert(new RegExp(`^${EXPECTED_IMPLEMENTATION}-[0-9a-f]{12}$`).test(expected),`invalid runtime release ${expected||'missing'}`);
 
   await page.waitForFunction(()=>typeof window.BW?.api?.createClient==='function',null,{timeout:15000});
   const domSrc=await page.locator('script[src*="/js/api-client.js"]').first().getAttribute('src');
-  assert(domSrc,'API client script tag missing');
+  assert(domSrc,'API client script tag missing on auth surface');
   const domVersion=new URL(domSrc,ORIGIN).searchParams.get('v');
   assert(domVersion===expected,`DOM API client version ${domVersion||'missing'} does not match response ${expected}`);
 
@@ -52,7 +53,7 @@ try{
   assert(expected.endsWith(sourceSha.slice(0,12)),`runtime ${expected} is not bound to source ${sourceSha}`);
   assert(pageErrors.length===0,`page errors: ${safe(pageErrors.join(' | '))}`);
 
-  console.log(`CLIENT_RUNTIME_PROOF_PASS release=${expected} source=${sourceSha}`);
+  console.log(`CLIENT_RUNTIME_PROOF_PASS release=${expected} source=${sourceSha} surface=/auth/`);
   await context.close();
 }finally{
   await browser.close().catch(()=>{});

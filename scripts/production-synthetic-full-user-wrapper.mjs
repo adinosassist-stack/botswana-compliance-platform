@@ -77,12 +77,26 @@ async function runFullUserJourney(credentials){
       if(path&&response.status()>=500)apiServerFailures.push(`${response.request().method()} ${path} HTTP ${response.status()}`);
     });
 
-    const root=await page.goto(`${ORIGIN}/?full-user-proof=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:NAVIGATION_TIMEOUT_MS});
-    assert(root?.status()===200,`root returned HTTP ${root?.status()||0}`);
+    const publicRoot=await page.goto(`${ORIGIN}/?full-user-public-proof=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:NAVIGATION_TIMEOUT_MS});
+    assert(publicRoot?.status()===200,`public root returned HTTP ${publicRoot?.status()||0}`);
+    const publicState=await page.evaluate(()=>({hero:(document.querySelector('.hero h1')?.textContent||'').trim(),hasWorkspace:!!document.getElementById('appShell'),hasAuthForm:!!document.getElementById('authForm')}));
+    assert(/business risk/i.test(publicState.hero),'public root hero missing');
+    assert(!publicState.hasWorkspace&&!publicState.hasAuthForm,'public root leaked workspace or authentication shell');
+    mark('full-user public boundary','plain root rendered the public-only homepage');
+
+    const auth=await page.goto(`${ORIGIN}/auth/?mode=login&full-user-proof=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:NAVIGATION_TIMEOUT_MS});
+    assert(auth?.status()===200,`auth surface returned HTTP ${auth?.status()||0}`);
+    assert(await page.locator('#authForm').count(),'auth surface form missing');
+    assert(!(await page.locator('#appShell').count()),'auth surface leaked workspace shell');
     await login(page,credentials);
+    mark('full-user isolated auth','synthetic owner authenticated from the dedicated auth surface');
+
+    const app=await page.goto(`${ORIGIN}/app/?full-user-proof=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:NAVIGATION_TIMEOUT_MS});
+    assert(app?.status()===200,`app surface returned HTTP ${app?.status()||0}`);
+    await waitForWorkspace(page);
     await page.reload({waitUntil:'domcontentloaded',timeout:NAVIGATION_TIMEOUT_MS});
     await waitForWorkspace(page);
-    mark('full-user workspace bootstrap','synthetic owner reached the authenticated workspace after reload');
+    mark('full-user workspace bootstrap','synthetic owner reached the authenticated /app/ workspace after reload');
 
     const views=await page.evaluate(()=>{
       const roleCheck=typeof globalThis.roleCanView==='function'?globalThis.roleCanView:null;
@@ -146,7 +160,7 @@ Object.defineProperty(globalThis,'__thebeSyntheticBrowserProof',{
 try{
   await import('./production-synthetic-hold-wrapper.mjs');
   assert(intercepted,'canonical browser lifecycle did not install its proof hook');
-  mark('mandatory full-user synthetic wrapper','canonical registration/reload/mobile proof + exhaustive owner view matrix completed before cleanup');
+  mark('mandatory full-user synthetic wrapper','canonical registration/reload/mobile proof + separated public/auth/app journey + exhaustive owner view matrix completed before cleanup');
 }finally{
   if(priorDescriptor)Object.defineProperty(globalThis,'__thebeSyntheticBrowserProof',priorDescriptor);
   else delete globalThis.__thebeSyntheticBrowserProof;

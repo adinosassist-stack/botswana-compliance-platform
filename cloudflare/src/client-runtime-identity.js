@@ -36,7 +36,7 @@ export async function applyClientRuntimeIdentity(request,response){
     return new Response(method==="HEAD"?null:response.body,{status:response.status,statusText:response.statusText,headers});
   }
 
-  if(!["/","/index.html"].includes(url.pathname))return response;
+  if(!["/","/index.html","/auth.html"].includes(url.pathname))return response;
   const type=String(headers.get("content-type")||"").toLowerCase();
   if(!type.includes("text/html"))return response;
   headers.delete("content-length");
