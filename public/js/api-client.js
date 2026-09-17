@@ -117,6 +117,11 @@
       error.name="AbortError";
       return error;
     }
+    function transportTimeoutError(){
+      const error=new Error("The transport candidate timed out.");
+      error.name="AbortError";
+      return error;
+    }
     async function probeIdempotentTransports(logicalTarget,fetchOptions,method,headers,signal,requestId){
       let firstNetworkError=null;
       const candidates=transportCandidates(logicalTarget),deadline=Date.now()+Math.max(1,Number(timeoutMs)||1);
@@ -124,13 +129,26 @@
         if(signal?.aborted)throw parentAbortError(signal);
         const candidate=candidates[index],remaining=Math.max(0,deadline-Date.now()),candidatesLeft=candidates.length-index;
         if(remaining<=0)throw parentAbortError(signal);
-        const candidateBudget=Math.max(50,Math.min(remaining,Math.floor(remaining/candidatesLeft)));
+        const candidateBudget=Math.min(remaining,Math.max(50,Math.floor(remaining/candidatesLeft)));
         const candidateController=new AbortController();
-        const abortFromParent=()=>candidateController.abort(signal?.reason||"timeout");
+        let rejectCandidateDeadline=()=>{};
+        const abortFromParent=()=>{
+          candidateController.abort(signal?.reason||"timeout");
+          rejectCandidateDeadline(parentAbortError(signal));
+        };
+        const candidateDeadline=new Promise((_,reject)=>{
+          rejectCandidateDeadline=reject;
+        });
         if(signal?.aborted)abortFromParent();else signal?.addEventListener?.("abort",abortFromParent,{once:true});
-        const candidateTimer=setTimeout(()=>candidateController.abort("transport-timeout"),candidateBudget);
+        const candidateTimer=setTimeout(()=>{
+          candidateController.abort("transport-timeout");
+          rejectCandidateDeadline(transportTimeoutError());
+        },candidateBudget);
         try{
-          const result=await fetchApi(candidate.url,fetchOptions,method,headers,candidateController.signal);
+          const result=await Promise.race([
+            fetchApi(candidate.url,fetchOptions,method,headers,candidateController.signal),
+            candidateDeadline
+          ]);
           if(transportRouteRejected(result.response))continue;
           preferredTransport=candidate.name;
           return result;
@@ -140,6 +158,7 @@
         }finally{
           clearTimeout(candidateTimer);
           signal?.removeEventListener?.("abort",abortFromParent);
+          rejectCandidateDeadline=()=>{};
         }
       }
       if(firstNetworkError)throw firstNetworkError;
