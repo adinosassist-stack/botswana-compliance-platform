@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
+import entry, {registrationGate, registrationMode} from '../cloudflare/src/release-governance-entry.js';
 
 const read=path=>fs.readFileSync(path,'utf8');
 const wrangler=read('cloudflare/wrangler.toml');
@@ -17,7 +18,7 @@ const replayWorkflow=read('.github/workflows/production-audit-replay.yml');
 const release=JSON.parse(read('release/production.json'));
 
 assert.match(wrangler,/^main\s*=\s*"src\/release-governance-entry\.js"/m,'production must enter through release governance');
-assert.match(wrangler,/^REGISTRATION_MODE\s*=\s*"hold"/m,'customer activation must remain HOLD until reviewed');
+assert.match(wrangler,/^REGISTRATION_MODE\s*=\s*"open"/m,'reviewed production activation must enable public registration');
 assert.doesNotMatch(wrangler,/^REGISTRATION_COHORT_EMAILS\s*=/m,'customer cohort identities must not be committed in public Wrangler vars');
 
 assert.match(governance,/VALID_REGISTRATION_MODES=new Set\(\["hold","cohort","open"\]\)/,'registration states must be explicit');
@@ -92,5 +93,26 @@ assert.doesNotMatch(replayWorkflow,/run_synthetic_lifecycle/,'release closure mu
 assert.equal(release.release,'production','release authority must be production');
 assert.ok(Number.isInteger(release.sequence)&&release.sequence>0,'release sequence must be a positive integer');
 assert.match(String(release.sourceSha),/^[0-9a-f]{40}$/,'release source SHA must be immutable full SHA');
+
+// Public activation removes only the cohort gate; the production proof boundary still applies.
+assert.equal(registrationMode({}), 'hold', 'missing activation configuration must retain safe rollback default');
+const registrationRequest=()=>new Request('https://thebedesk.com/api/auth/register', {
+  method:'POST', headers:{'content-type':'application/json'}, body:'{}'
+});
+assert.equal(await registrationGate(registrationRequest(), {REGISTRATION_MODE:'open'}), null,
+  'public registration must not require a cohort secret');
+for(const mode of ['hold','invalid','cohort']){
+  const response=await registrationGate(registrationRequest(), {REGISTRATION_MODE:mode});
+  assert.equal(response.status,503, `${mode} without an approved cohort must fail closed`);
+}
+for(const path of ['/api/auth/register','/__thebe_api/auth/register','/?__thebe_api_path=/api/auth/register']){
+  const response=await entry.fetch(new Request(`https://thebedesk.com${path}`, {
+    method:'POST', headers:{'content-type':'application/json'}, body:'{}'
+  }), {REGISTRATION_MODE:'open'}, {});
+  assert.equal(response.status,403, 'open mode must retain registration proof protection on every transport');
+  assert.equal((await response.json()).error,'registration_protection_failed');
+}
+const policy=await entry.fetch(new Request('https://thebedesk.com/api/auth/registration-policy'), {REGISTRATION_MODE:'open'}, {});
+assert.deepEqual(await policy.json(), {ok:true,mode:'open'});
 
 console.log(`AUDIT_REMEDIATION_STATIC_PASS sequence=${release.sequence} sourceSha=${release.sourceSha}`);
