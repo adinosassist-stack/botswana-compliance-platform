@@ -16,31 +16,57 @@ try{
   const scriptResponses=[];
   const pageErrors=[];
   page.on('pageerror',error=>pageErrors.push(safe(error?.stack||error)));
-  page.on('response',response=>{
+  page.on('response',async response=>{
     try{
       const url=new URL(response.url());
-      if(url.origin===ORIGIN&&url.pathname==='/js/api-client.js')scriptResponses.push({url:url.href,status:response.status()});
+      if(url.origin===ORIGIN&&url.pathname==='/js/api-client.js'){
+        const headers=await response.allHeaders();
+        scriptResponses.push({
+          url:url.href,
+          status:response.status(),
+          release:String(headers['x-thebe-client-release']||''),
+          implementation:String(headers['x-thebe-client-implementation']||'')
+        });
+      }
     }catch{}
   });
 
   const root=await page.goto(`${ORIGIN}/?client-runtime-proof=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:30000});
   assert(root?.status()===200,`root returned HTTP ${root?.status()||0}`);
-  const expected=String((await root.allHeaders())['x-thebe-client-release']||'');
-  const implementation=String((await root.allHeaders())['x-thebe-client-implementation']||'');
+  const rootHeaders=await root.allHeaders();
+  const expected=String(rootHeaders['x-thebe-client-release']||'');
+  const implementation=String(rootHeaders['x-thebe-client-implementation']||'');
   assert(implementation===EXPECTED_IMPLEMENTATION,`unexpected implementation ${implementation||'missing'}`);
   assert(new RegExp(`^${EXPECTED_IMPLEMENTATION}-[0-9a-f]{12}$`).test(expected),`invalid runtime release ${expected||'missing'}`);
 
+  // The public-root guard may not retain the originating <script> node in the DOM.
+  // Runtime authority therefore comes from the browser's actual network/resource
+  // observations plus the initialized API object, not from persistent markup.
   await page.waitForFunction(()=>typeof window.BW?.api?.createClient==='function',null,{timeout:15000});
-  const domSrc=await page.locator('script[src*="/js/api-client.js"]').first().getAttribute('src');
-  assert(domSrc,'API client script tag missing');
-  const domVersion=new URL(domSrc,ORIGIN).searchParams.get('v');
-  assert(domVersion===expected,`DOM API client version ${domVersion||'missing'} does not match response ${expected}`);
+  if(scriptResponses.length===0){
+    const signIn=page.locator('#marketingGate [data-guest-action]').first();
+    if(await signIn.count()){
+      await signIn.click({timeout:10000});
+      await page.waitForFunction(()=>!document.getElementById('authGate')?.classList.contains('hidden'),null,{timeout:10000});
+    }
+  }
+  await page.waitForFunction(()=>performance.getEntriesByType('resource').some(entry=>{
+    try{return new URL(entry.name).pathname==='/js/api-client.js'}catch{return false}
+  }),null,{timeout:10000});
 
-  await page.waitForFunction(()=>[...document.scripts].some(script=>String(script.src||'').includes('/js/api-client.js')),null,{timeout:5000});
-  assert(scriptResponses.length>=1,'browser did not observe an API client network response');
-  const loaded=new URL(scriptResponses.at(-1).url);
-  assert(scriptResponses.at(-1).status===200,`API client returned HTTP ${scriptResponses.at(-1).status}`);
+  const resourceUrls=await page.evaluate(()=>performance.getEntriesByType('resource')
+    .map(entry=>String(entry.name||''))
+    .filter(name=>{try{return new URL(name).pathname==='/js/api-client.js'}catch{return false}}));
+  assert(resourceUrls.length>=1,'browser performance timeline did not observe API client resource');
+  const loaded=new URL(resourceUrls.at(-1));
   assert(loaded.searchParams.get('v')===expected,`browser loaded ${loaded.searchParams.get('v')||'unversioned'} instead of ${expected}`);
+  assert(scriptResponses.length>=1,'browser response stream did not observe API client network response');
+  const observed=scriptResponses.at(-1);
+  assert(observed.status===200,`API client returned HTTP ${observed.status}`);
+  const observedUrl=new URL(observed.url);
+  assert(observedUrl.searchParams.get('v')===expected,`network response loaded ${observedUrl.searchParams.get('v')||'unversioned'} instead of ${expected}`);
+  if(observed.release)assert(observed.release===expected,`API client response identity ${observed.release} does not match root ${expected}`);
+  if(observed.implementation)assert(observed.implementation===implementation,`API client response implementation ${observed.implementation} does not match root ${implementation}`);
 
   const version=await page.evaluate(async()=>{
     const response=await fetch('/api/version',{credentials:'same-origin',cache:'no-store'});
@@ -52,7 +78,7 @@ try{
   assert(expected.endsWith(sourceSha.slice(0,12)),`runtime ${expected} is not bound to source ${sourceSha}`);
   assert(pageErrors.length===0,`page errors: ${safe(pageErrors.join(' | '))}`);
 
-  console.log(`CLIENT_RUNTIME_PROOF_PASS release=${expected} source=${sourceSha}`);
+  console.log(`CLIENT_RUNTIME_PROOF_PASS release=${expected} source=${sourceSha} resource=${loaded.pathname}?v=${loaded.searchParams.get('v')}`);
   await context.close();
 }finally{
   await browser.close().catch(()=>{});
