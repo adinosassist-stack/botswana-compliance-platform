@@ -57,7 +57,9 @@
   // The canonical root URL is the public website. Session detection may update
   // which actions are offered in the public header, but it must not replace the
   // homepage with a workspace/role portal before the visitor explicitly asks to
-  // sign in, start registration, or open an existing workspace. Public reporter
+  // sign in, start registration, or open an existing workspace. A previously
+  // authenticated workspace session may release the guard only after the app's
+  // verified role state exposes its resumable workspace action. Public reporter
   // and passport deep links keep their dedicated surfaces.
   function installPublicRootLandingGuard(){
     const doc=global.document;
@@ -74,8 +76,20 @@
       if(event?.target?.closest?.(explicitActionSelector))released=true;
     },true);
 
+    const hasVerifiedWorkspaceSession=()=>{
+      try{global.syncMarketingSessionActions?.()}catch{}
+      return [...doc.querySelectorAll("#marketingGate .marketing-session-action")].some(el=>el.hidden===false);
+    };
+    const releaseForVerifiedWorkspaceSession=reason=>{
+      if(released||!hasVerifiedWorkspaceSession())return false;
+      released=true;
+      console.debug?.("thebe_public_root_guard_released",{reason:"verified_workspace_session",trigger:reason});
+      return true;
+    };
+
     const enforcePublicRoot=reason=>{
       if(released)return false;
+      if(releaseForVerifiedWorkspaceSession(reason))return false;
       const marketing=doc.getElementById("marketingGate");
       if(!marketing)return false;
       const auth=doc.getElementById("authGate");
