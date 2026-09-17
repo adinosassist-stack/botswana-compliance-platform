@@ -54,6 +54,70 @@
   }
   installPublicPassportVisibilityGuard();
 
+  // The canonical root URL is the public website. Session detection may update
+  // which actions are offered in the public header, but it must not replace the
+  // homepage with a workspace/role portal before the visitor explicitly asks to
+  // sign in, start registration, or open an existing workspace. Public reporter
+  // and passport deep links keep their dedicated surfaces.
+  function installPublicRootLandingGuard(){
+    const doc=global.document;
+    if(!doc||global.__THEBE_PUBLIC_ROOT_LANDING_GUARD__===true)return;
+    const path=String(global.location?.pathname||"/");
+    const hash=String(global.location?.hash||"");
+    const specialPublicFlow=hash.startsWith("#report=")||hash.startsWith("#passport=");
+    if(path!=="/"||specialPublicFlow)return;
+    global.__THEBE_PUBLIC_ROOT_LANDING_GUARD__=true;
+
+    let released=false;
+    const explicitActionSelector="#marketingGate .marketing-start-action,#marketingGate [data-guest-action],#marketingGate .marketing-session-action";
+    doc.addEventListener("click",event=>{
+      if(event?.target?.closest?.(explicitActionSelector))released=true;
+    },true);
+
+    const enforcePublicRoot=reason=>{
+      if(released)return false;
+      const marketing=doc.getElementById("marketingGate");
+      if(!marketing)return false;
+      const auth=doc.getElementById("authGate");
+      const app=doc.getElementById("appShell");
+      const rolePortal=doc.getElementById("roleAccessPortal");
+      const reporter=doc.getElementById("reporterPortal");
+      const passport=doc.getElementById("publicPassportGate");
+
+      if(marketing.classList.contains("hidden"))marketing.classList.remove("hidden");
+      if(marketing.hidden)marketing.hidden=false;
+      if(marketing.style?.display==="none")marketing.style.display="";
+      if(marketing.style&&marketing.style.visibility!=="visible")marketing.style.visibility="visible";
+      if(auth&&!auth.classList.contains("hidden"))auth.classList.add("hidden");
+      if(app?.style&&app.style.visibility!=="hidden")app.style.visibility="hidden";
+      if(rolePortal?.style&&rolePortal.style.display!=="none")rolePortal.style.display="none";
+      if(reporter?.style&&reporter.style.display!=="none")reporter.style.display="none";
+      if(passport&&!passport.classList.contains("hidden"))passport.classList.add("hidden");
+      syncPublicPassportVisibility(passport);
+      try{global.syncMarketingSessionActions?.()}catch{}
+      console.debug?.("thebe_public_root_homepage_enforced",{reason});
+      return true;
+    };
+
+    const install=()=>{
+      enforcePublicRoot("dom_ready");
+      const targets=["marketingGate","authGate","appShell","roleAccessPortal","reporterPortal","publicPassportGate"]
+        .map(id=>doc.getElementById(id)).filter(Boolean);
+      if(global.MutationObserver&&targets.length){
+        const observer=new MutationObserver(()=>enforcePublicRoot("surface_mutation"));
+        targets.forEach(target=>observer.observe(target,{attributes:true,attributeFilter:["class","style","hidden"]}));
+      }
+      global.setTimeout?.(()=>enforcePublicRoot("startup_0"),0);
+      global.setTimeout?.(()=>enforcePublicRoot("startup_250"),250);
+      global.setTimeout?.(()=>enforcePublicRoot("startup_1200"),1200);
+      global.setTimeout?.(()=>enforcePublicRoot("startup_4000"),4000);
+    };
+
+    if(doc.readyState==="loading")doc.addEventListener("DOMContentLoaded",install,{once:true});
+    else install();
+  }
+  installPublicRootLandingGuard();
+
   // Startup availability boundary. The main application bootstrap deliberately
   // hides all shells while it probes the production session. If that request
   // stalls, a browser can otherwise remain on a completely white page. Keep
