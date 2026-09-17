@@ -60,7 +60,10 @@ jobs:
 
       - name: Signed HOLD browser lifecycle governance
         shell: bash
-        run: node tests/v82-production-browser-lifecycle-governance.mjs
+        run: |
+          set -euo pipefail
+          node tests/v82-idempotent-transport-fallback-runtime.mjs
+          node tests/v82-production-browser-lifecycle-governance.mjs
 
       - name: Synthetic proof and cleanup contracts
         shell: bash
