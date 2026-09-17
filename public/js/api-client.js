@@ -64,7 +64,7 @@
     }catch{return null}
   }
   function createClient({getCsrfToken=()=>"",onUnauthorized=()=>{},onError=()=>{},timeoutMs=18000,retries=1}={}){
-    let preferredTransport="root",pendingRegistrationLogin=null;
+    let preferredTransport="direct",pendingRegistrationLogin=null;
     function apiUrl(value){
       const base=global.location?.href||"https://invalid.local/",target=new URL(String(value||""),base);
       if(!global.location?.origin||target.origin!==global.location.origin)throw new ApiError("Blocked cross-origin application API request.",{code:"cross_origin_api_blocked"});
