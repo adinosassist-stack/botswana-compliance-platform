@@ -14,6 +14,7 @@ const server=fs.readFileSync('server/server.js','utf8');
 const wrangler=fs.readFileSync('cloudflare/wrangler.toml','utf8');
 const scannerCfg=fs.readFileSync('cloudflare/scanner/wrangler.toml','utf8');
 const domSecurity=fs.readFileSync('public/js/dom-security.js','utf8');
+const apiClient=fs.readFileSync('public/js/api-client.js','utf8');
 const indexHtml=fs.readFileSync('public/index.html','utf8');
 
 const TIMING_FLOOR_TEST_MS=50;
@@ -100,6 +101,16 @@ test('plain root stays public for guests and releases only after the application
   assert.match(block,/rolePortal\.style\.display="none"/);
   assert.match(block,/app\.style\.visibility="hidden"/);
   assert.doesNotMatch(block,/app\.style\.visibility="visible"/,'root guard must never expose authenticated workspace content automatically');
+});
+
+test('production API client prefers canonical direct transport while retaining root and shadow fallbacks',()=>{
+  assert.match(apiClient,/let preferredTransport="direct",pendingRegistrationLogin=null/);
+  assert.match(apiClient,/const all=\["root","shadow","direct"\]\.map/);
+  assert.match(apiClient,/const preferred=all\.find\(x=>x\.name===preferredTransport\)\|\|all\[0\]/);
+  assert.match(apiClient,/return \[preferred,\.\.\.all\.filter\(x=>x!==preferred\)\]/);
+  assert.match(apiClient,/if\(transport==="direct"\)return logicalTarget/);
+  assert.match(apiClient,/if\(transport==="shadow"\)return shadowTransportApiUrl\(logicalTarget\)/);
+  assert.match(apiClient,/return rootTransportApiUrl\(logicalTarget\)/);
 });
 
 test('production launch wrapper chain has no configured scanner provider and evidence uploads remain disabled',()=>{
