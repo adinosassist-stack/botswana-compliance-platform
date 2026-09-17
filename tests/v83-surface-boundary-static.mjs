@@ -40,8 +40,10 @@ has(authRuntime,'/api/auth/registration-proof/challenge','auth runtime preserves
 lacks(authRuntime,'/api/state','auth runtime cannot bootstrap private workspace state');
 has(authRuntime,'location.replace(next)','successful authentication leaves the auth surface');
 
-has(governance,'const PUBLIC_HOME_ASSET="/home.html"','worker has an explicit public-only root asset');
-has(governance,'const AUTH_PORTAL_ASSET="/auth.html"','worker has an explicit auth-only asset');
+has(governance,'const PUBLIC_HOME_ASSET="/home"','worker fetches the canonical public asset path without triggering Static Assets HTML redirects');
+has(governance,'const AUTH_PORTAL_ASSET="/auth"','worker fetches the canonical auth asset path without triggering Static Assets HTML redirects');
+lacks(governance,'const PUBLIC_HOME_ASSET="/home.html"','public surface must not fetch the redirecting .html asset path');
+lacks(governance,'const AUTH_PORTAL_ASSET="/auth.html"','auth surface must not fetch the redirecting .html asset path');
 has(governance,'path==="/"&&!syntheticLegacyRootRequested(request)','plain root is separated from the legacy workspace document');
 has(governance,'path==="/auth/"','dedicated auth route is worker-owned');
 has(governance,'path==="/app/"','dedicated workspace route is worker-owned');
@@ -56,6 +58,7 @@ has(governance,'headers.set("x-thebe-surface","auth")','worker labels the auth s
 has(governance,'headers.set("x-thebe-surface","app")','worker labels the app surface explicitly');
 has(governance,'SYNTHETIC_LEGACY_ROOT_PARAMS','legacy root compatibility is explicitly bounded to synthetic proof markers');
 
+has(wrangler,'html_handling = "auto-trailing-slash"','existing SEO pretty-route behavior remains unchanged globally');
 has(wrangler,'"/auth", "/auth/*", "/app", "/app/*"','Cloudflare worker-first routing covers auth and app boundaries');
 has(boundaryRuntime,"if(location.pathname!==\"/app\"&&location.pathname!==\"/app/\")return",'workspace boundary runtime cannot affect the public or auth routes');
 has(boundaryRuntime,'window.returnToPublicWebsite','workspace public-exit action is routed to the real public site');
