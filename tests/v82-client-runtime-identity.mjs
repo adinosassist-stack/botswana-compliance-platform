@@ -19,14 +19,16 @@ const rewritten=runtimeScriptUrl(old);
 assert.ok(rewritten.includes(`/js/api-client.js?v=${clientRuntimeRelease()}`),'api-client query must be replaced with release-derived runtime identity');
 assert.ok(!rewritten.includes('stale-release'),'stale runtime query must be removed');
 
-const request=new Request('https://thebedesk.com/auth.html?runtime-test=1');
-const response=new Response(old,{status:200,headers:{'content-type':'text/html; charset=utf-8','etag':'stale'}});
-const decorated=await applyClientRuntimeIdentity(request,response);
-assert.equal(decorated.headers.get('x-thebe-client-release'),clientRuntimeRelease(),'auth HTML response must expose runtime identity');
-assert.equal(decorated.headers.get('x-thebe-client-implementation'),CLIENT_TRANSPORT_IMPLEMENTATION,'auth HTML response must expose implementation identity');
-assert.match(decorated.headers.get('cache-control')||'',/no-store/,'auth HTML response must be non-cacheable');
-assert.equal(decorated.headers.get('etag'),null,'runtime-versioned auth HTML must not retain stale ETag');
-assert.ok((await decorated.text()).includes(`/js/api-client.js?v=${clientRuntimeRelease()}`),'auth HTML response must load the exact runtime identity');
+for(const path of ['/auth','/auth.html']){
+  const request=new Request(`https://thebedesk.com${path}?runtime-test=1`);
+  const response=new Response(old,{status:200,headers:{'content-type':'text/html; charset=utf-8','etag':'stale'}});
+  const decorated=await applyClientRuntimeIdentity(request,response);
+  assert.equal(decorated.headers.get('x-thebe-client-release'),clientRuntimeRelease(),`${path} auth HTML response must expose runtime identity`);
+  assert.equal(decorated.headers.get('x-thebe-client-implementation'),CLIENT_TRANSPORT_IMPLEMENTATION,`${path} auth HTML response must expose implementation identity`);
+  assert.match(decorated.headers.get('cache-control')||'',/no-store/,`${path} auth HTML response must be non-cacheable`);
+  assert.equal(decorated.headers.get('etag'),null,`${path} runtime-versioned auth HTML must not retain stale ETag`);
+  assert.ok((await decorated.text()).includes(`/js/api-client.js?v=${clientRuntimeRelease()}`),`${path} auth HTML response must load the exact runtime identity`);
+}
 
 const workspaceResponse=await applyClientRuntimeIdentity(
   new Request('https://thebedesk.com/?workspace-shell=1'),
@@ -34,12 +36,14 @@ const workspaceResponse=await applyClientRuntimeIdentity(
 );
 assert.equal(workspaceResponse.headers.get('x-thebe-client-release'),clientRuntimeRelease(),'internal workspace shell must preserve runtime identity');
 
-const publicHome=await applyClientRuntimeIdentity(
-  new Request('https://thebedesk.com/home.html'),
-  new Response('<html><body>public</body></html>',{status:200,headers:{'content-type':'text/html; charset=utf-8'}})
-);
-assert.equal(publicHome.headers.get('x-thebe-client-release'),null,'public-only home asset must not carry private app client identity');
-assert.equal(await publicHome.text(),'<html><body>public</body></html>','public-only home asset must remain untouched');
+for(const path of ['/home','/home.html']){
+  const publicHome=await applyClientRuntimeIdentity(
+    new Request(`https://thebedesk.com${path}`),
+    new Response('<html><body>public</body></html>',{status:200,headers:{'content-type':'text/html; charset=utf-8'}})
+  );
+  assert.equal(publicHome.headers.get('x-thebe-client-release'),null,`${path} public-only home asset must not carry private app client identity`);
+  assert.equal(await publicHome.text(),'<html><body>public</body></html>',`${path} public-only home asset must remain untouched`);
+}
 
 const assetResponse=await applyClientRuntimeIdentity(
   new Request('https://thebedesk.com/js/api-client.js'),
