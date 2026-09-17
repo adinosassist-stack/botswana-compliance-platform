@@ -14,6 +14,7 @@ const server=fs.readFileSync('server/server.js','utf8');
 const wrangler=fs.readFileSync('cloudflare/wrangler.toml','utf8');
 const scannerCfg=fs.readFileSync('cloudflare/scanner/wrangler.toml','utf8');
 const domSecurity=fs.readFileSync('public/js/dom-security.js','utf8');
+const indexHtml=fs.readFileSync('public/index.html','utf8');
 
 const TIMING_FLOOR_TEST_MS=50;
 const TIMER_RESOLUTION_TOLERANCE_MS=2;
@@ -77,20 +78,27 @@ test('startup availability recovery exposes only the public shell when bootstrap
   assert.doesNotMatch(block,/app\.style\.visibility="visible"/,'fail-safe must never expose authenticated workspace content');
 });
 
-test('plain root is pinned to the real public homepage until the visitor explicitly chooses an auth or workspace action',()=>{
+test('plain root stays public for guests and releases only after the application proves a workspace session',()=>{
   const start=domSecurity.indexOf('function installPublicRootLandingGuard()');
   assert.ok(start>=0,'public root landing guard must be installed');
-  const block=domSecurity.slice(start,start+6200);
+  const block=domSecurity.slice(start,start+7600);
   assert.match(block,/global\.__THEBE_PUBLIC_ROOT_LANDING_GUARD__===true/);
   assert.match(block,/path!=="\/"\|\|specialPublicFlow/);
   assert.match(block,/hash\.startsWith\("#report="\)\|\|hash\.startsWith\("#passport="\)/);
   assert.match(block,/marketing-start-action/);
   assert.match(block,/\[data-guest-action\]/);
   assert.match(block,/marketing-session-action/);
+  assert.match(block,/const hasVerifiedWorkspaceSession=/);
+  assert.match(block,/global\.syncMarketingSessionActions\?\.\(\)/);
+  assert.match(block,/\.some\(el=>el\.hidden===false\)/);
+  assert.match(block,/const releaseForVerifiedWorkspaceSession=/);
+  assert.match(block,/reason:"verified_workspace_session"/);
+  assert.match(block,/if\(releaseForVerifiedWorkspaceSession\(reason\)\)return false/);
+  assert.match(indexHtml,/function syncMarketingSessionActions\(\)\{\s*const canResume=isWorkspaceRole\(currentUser\?\.role\)/);
+  assert.match(indexHtml,/if\(!isWorkspaceRole\(currentUser\?\.role\)\)\{showRestrictedRolePortal\(currentUser\?\.role\);return\}/);
   assert.match(block,/marketing\.classList\.remove\("hidden"\)/);
   assert.match(block,/rolePortal\.style\.display="none"/);
   assert.match(block,/app\.style\.visibility="hidden"/);
-  assert.match(block,/global\.syncMarketingSessionActions\?\.\(\)/);
   assert.doesNotMatch(block,/app\.style\.visibility="visible"/,'root guard must never expose authenticated workspace content automatically');
 });
 
