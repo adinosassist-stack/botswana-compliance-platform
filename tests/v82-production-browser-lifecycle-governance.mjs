@@ -69,7 +69,8 @@ must(fullUserWrapper,/Object\.defineProperty\(globalThis,'__thebeSyntheticBrowse
 must(fullUserWrapper,/await originalProof\(credentials\);[\s\S]*await runFullUserJourney\(credentials\)/,'canonical browser proof runs before the exhaustive full-user journey');
 must(fullUserWrapper,/MIN_OWNER_VIEW_COUNT=40/,'full-user proof fails closed on suspiciously incomplete owner navigation');
 must(fullUserWrapper,/roleCanView/,'full-user proof derives the matrix from role-visible navigation');
-must(fullUserWrapper,/showView\(targetView,\{skipDataRefresh:true\}\)/,'full-user proof activates every role-visible view without triggering mutations');
+must(fullUserWrapper,/const show=globalThis\.showView;/,'full-user proof resolves the canonical view activation function');
+must(fullUserWrapper,/show\(targetView,\{skipDataRefresh:true\}\)/,'full-user proof activates every role-visible view without triggering mutations');
 must(fullUserWrapper,/response\.status\(\)>=500/,'full-user proof rejects same-origin API server failures');
 must(fullUserWrapper,/pageErrors\.length===0/,'full-user proof rejects browser page errors');
 must(fullUserWrapper,/assetFailures\.length===0/,'full-user proof rejects critical asset failures');
