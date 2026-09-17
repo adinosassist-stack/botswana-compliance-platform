@@ -76,7 +76,7 @@ has(fullUser,'`${ORIGIN}/auth/?mode=login','mandatory full-user proof exercises 
 has(fullUser,'`${ORIGIN}/app/?full-user-proof=','mandatory full-user proof exercises the dedicated app surface');
 has(fullUser,'plain root rendered the public-only homepage','mandatory full-user proof verifies public separation');
 has(mobile,'plain mobile root leaked the workspace shell','mobile smoke explicitly fails on workspace leakage into public root');
-has(mobile,"url.pathname==='/auth/'","mobile smoke proves public-to-auth navigation');
+has(mobile,"url.pathname==='/auth/'",'mobile smoke proves public-to-auth navigation');
 has(mobile,"ORIGIN+'/app/?mobile-boundary='",'mobile smoke proves anonymous app routing');
 has(postdeploy,"assert.equal(root.headers.get('x-thebe-surface'),'public')",'postdeploy HTTP smoke proves the live public surface marker');
 has(postdeploy,"assert.equal(auth.headers.get('x-thebe-surface'),'auth')",'postdeploy HTTP smoke proves the live auth surface marker');
