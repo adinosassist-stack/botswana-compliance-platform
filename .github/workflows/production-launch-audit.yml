@@ -99,20 +99,16 @@ jobs:
           set -euo pipefail
           node scripts/production-launch-audit.mjs
 
-      - name: One-shot browser-backed synthetic registration lifecycle closure
+      - name: Mandatory browser-backed synthetic full-user lifecycle closure
         if: github.event_name == 'workflow_run'
         env:
           AUDIT_INTEGRITY_SECRET: ${{ secrets.AUDIT_INTEGRITY_SECRET }}
         shell: bash
         run: |
           set -euo pipefail
-          if ! git log -1 --pretty=%B | grep -Fq '[synthetic-lifecycle]'; then
-            echo 'Synthetic lifecycle marker absent; keeping production audit read-only.'
-            exit 0
-          fi
           node scripts/production-synthetic-interruption-recovery.mjs
           npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
-          node scripts/production-synthetic-hold-wrapper.mjs
+          node scripts/production-synthetic-full-user-wrapper.mjs
 
       - name: One-shot bounded legacy orphan cleanup
         if: github.event_name == 'workflow_run'
