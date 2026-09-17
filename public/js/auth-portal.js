@@ -15,7 +15,7 @@ function selectedPlan(){const plan=String(params.get("plan")||"business");return
 function setStatus(message,type="bad"){status.textContent=String(message||"");status.className=`status show${type==="good"?" good":""}`}
 function clearStatus(){status.textContent="";status.className="status"}
 function setMode(nextMode){
- mode=nextMode==="register"?"register":"login";clearStatus();workspaceField.hidden=true;workspace.innerHTML="";
+ mode=nextMode==="register"?"register":"login";clearStatus();workspaceField.hidden=true;workspace.replaceChildren();
  const registering=mode==="register";
  companyField.hidden=!registering;password.autocomplete=registering?"new-password":"current-password";
  heading.textContent=registering?"Create your account":"Sign in";
@@ -41,7 +41,7 @@ async function solveRegistrationProof(){
 function showWorkspaceChoices(error){
  const choices=Array.isArray(error?.data?.workspaces)?error.data.workspaces:[];
  if(!choices.length)return false;
- workspace.innerHTML="";
+ workspace.replaceChildren();
  for(const item of choices){const option=document.createElement("option");option.value=String(item?.tenantId||"");option.textContent=String(item?.tenantName||item?.name||item?.companyName||"Workspace");workspace.append(option)}
  workspaceField.hidden=false;setStatus("Choose the workspace you want to open.","good");return true;
 }
