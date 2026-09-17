@@ -5,8 +5,8 @@ import {durableRegistrationChallengeGate,validateAndClaimRegistrationProof} from
 const VALID_REGISTRATION_MODES=new Set(["hold","cohort","open"]);
 const OAUTH_VISIBILITY_SCRIPT="/js/oauth-availability.js?v=20260916b";
 const WORKSPACE_BOUNDARY_SCRIPT="/js/surface-boundaries.js?v=20260917-stabilize";
-const PUBLIC_HOME_ASSET="/home.html";
-const AUTH_PORTAL_ASSET="/auth.html";
+const PUBLIC_HOME_ASSET="/home";
+const AUTH_PORTAL_ASSET="/auth";
 const SYNTHETIC_LEGACY_ROOT_PARAMS=new Set(["desktop-owner-proof","authenticated-mobile-proof"]);
 const SYNTHETIC_EMAIL_RE=/^synthetic\.lifecycle\.\d+\.\d+\.[0-9a-f]{12}@example\.invalid$/;
 const MAX_REGISTRATION_POLICY_BODY_BYTES=16*1024;
