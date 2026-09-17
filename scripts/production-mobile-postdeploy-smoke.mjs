@@ -32,13 +32,26 @@ try{
     previewDisplay:getComputedStyle(document.querySelector('.previewmode')).display,
     marketingHidden:document.getElementById('marketingGate')?.classList.contains('hidden'),
     authHidden:document.getElementById('authGate')?.classList.contains('hidden'),
-    bodyText:(document.body.innerText||'').slice(0,500)
+    rolePortalDisplay:getComputedStyle(document.getElementById('roleAccessPortal')).display,
+    heroText:document.querySelector('#marketingGate .marketinghero h1')?.textContent||'',
+    bodyText:(document.body.innerText||'').slice(0,900)
   }));
   assert.match(state.title,/Thebe Desk/i);
   assert.equal(state.standalone,false,'production mobile root entered standalone preview mode');
   assert.equal(state.previewDisplay,'none','standalone preview marker is visible in production');
   assert.equal(state.marketingHidden,false,'marketing surface did not become visible on mobile');
+  assert.equal(state.rolePortalDisplay,'none','plain mobile root exposed the role-access portal instead of the public homepage');
+  assert.match(state.heroText,/See business risk before it becomes a penalty, dispute or loss\./i,'public homepage hero is missing on mobile root');
+  assert.doesNotMatch(state.bodyText,/This account does not open the leadership workspace\./i,'role-access message replaced the public homepage');
   assert.doesNotMatch(state.bodyText,/STANDALONE PREVIEW · NO LIVE SUBMISSIONS/i,'preview text leaked into visible mobile production content');
+
+  // Release the public-root landing guard through the same explicit user action
+  // that real visitors use. The remainder of this section intentionally exposes
+  // the workspace shell only for a non-mutating responsive-menu smoke test.
+  const signIn=page.locator('#marketingGate [data-guest-action]').first();
+  assert.ok(await signIn.count(),'Sign in action missing on mobile public homepage');
+  await signIn.tap({timeout:10000});
+  await page.waitForFunction(()=>!document.getElementById('authGate')?.classList.contains('hidden'),null,{timeout:10000});
 
   await page.waitForFunction(()=>typeof window.openMobileWorkspaceMenu==='function'&&document.getElementById('mobileMenuButton'),null,{timeout:10000});
   await page.evaluate(()=>{
@@ -100,7 +113,9 @@ try{
     auth?.classList.toggle('hidden',!!restore.authHidden);
     if(shell)shell.style.visibility=restore.shellVisibility||'hidden';
     delete window.__mobileSmokeRestore;
+    window.showMarketing?.();
   });
+  await page.waitForFunction(()=>!document.getElementById('marketingGate')?.classList.contains('hidden'),null,{timeout:5000});
 
   const capabilities=await page.evaluate(async()=>{
     const [providerResponse,policyResponse]=await Promise.all([
