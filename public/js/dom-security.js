@@ -54,6 +54,56 @@
   }
   installPublicPassportVisibilityGuard();
 
+  // Startup availability boundary. The main application bootstrap deliberately
+  // hides all shells while it probes the production session. If that request
+  // stalls, a browser can otherwise remain on a completely white page. Keep
+  // authenticated content fail-closed, but recover the public marketing shell
+  // whenever no legitimate surface becomes visible within a bounded interval.
+  function installStartupSurfaceFailSafe(){
+    const doc=global.document;
+    if(!doc||global.__THEBE_STARTUP_SURFACE_FAILSAFE__===true)return;
+    global.__THEBE_STARTUP_SURFACE_FAILSAFE__=true;
+
+    const isVisible=element=>{
+      if(!element||element.hidden||element.classList?.contains("hidden"))return false;
+      if(element.style?.display==="none"||element.style?.visibility==="hidden")return false;
+      try{
+        const style=global.getComputedStyle?.(element);
+        if(style&&(style.display==="none"||style.visibility==="hidden"))return false;
+      }catch{}
+      return true;
+    };
+
+    const hasVisibleSurface=()=>{
+      const ids=["marketingGate","authGate","appShell","roleAccessPortal","reporterPortal","publicPassportGate"];
+      return ids.some(id=>isVisible(doc.getElementById(id)));
+    };
+
+    const recoverIfBlank=reason=>{
+      if(hasVisibleSurface())return false;
+      const marketing=doc.getElementById("marketingGate");
+      if(!marketing)return false;
+      marketing.classList.remove("hidden");
+      marketing.hidden=false;
+      if(marketing.style){marketing.style.display="";marketing.style.visibility="visible"}
+      const app=doc.getElementById("appShell");
+      if(app?.style)app.style.visibility="hidden";
+      console.warn("thebe_startup_blank_surface_recovered",{reason});
+      return true;
+    };
+
+    const schedule=()=>{
+      global.setTimeout?.(()=>recoverIfBlank("startup_timeout"),4000);
+      global.setTimeout?.(()=>recoverIfBlank("startup_timeout_extended"),12000);
+    };
+
+    if(doc.readyState==="loading")doc.addEventListener("DOMContentLoaded",schedule,{once:true});
+    else schedule();
+    global.addEventListener?.("error",()=>global.setTimeout?.(()=>recoverIfBlank("window_error"),0),true);
+    global.addEventListener?.("unhandledrejection",()=>global.setTimeout?.(()=>recoverIfBlank("unhandled_rejection"),0));
+  }
+  installStartupSurfaceFailSafe();
+
   const BLOCKED_TAGS=new Set(["SCRIPT","IFRAME","OBJECT","EMBED","BASE","META","LINK","IMG","SVG","MATH","VIDEO","AUDIO","SOURCE","TRACK"]);
   const URL_ATTRS=new Set(["href","src","action","formaction","poster","xlink:href"]);
   const BLOCKED_ATTRS=new Set(["srcdoc","http-equiv","nonce"]);
