@@ -246,7 +246,7 @@ async function runBrowserProof(credentials){
     await withDeadline('desktop pre-reload diagnostic',observeWorkspaceBootstrap(page,'desktop pre-reload',pageErrors),DIAGNOSTIC_EXTERNAL_DEADLINE_MS);
     activeStage='desktop authenticated reload';
     info('desktop synthetic stage','reloading authenticated /app/ workspace');
-    await withDeadline('desktop authenticated reload',page.reload({waitUntil:'domcontentloaded',timeout:BROWSER_NAVIGATION_TIMEOUT_MS}),RELOAD_EXTERNAL_DEADLINE_MS);
+    await withDeadline('desktop authenticated reload',page.reload({waitUntil:'commit',timeout:BROWSER_NAVIGATION_TIMEOUT_MS}),RELOAD_EXTERNAL_DEADLINE_MS);
     activeStage='desktop post-reload diagnostic';
     await withDeadline('desktop post-reload diagnostic',observeWorkspaceBootstrap(page,'desktop post-reload',pageErrors),DIAGNOSTIC_EXTERNAL_DEADLINE_MS);
     activeStage='desktop workspace reveal';
@@ -280,7 +280,7 @@ async function runBrowserProof(credentials){
     await withDeadline('mobile pre-reload diagnostic',observeWorkspaceBootstrap(mobilePage,'mobile pre-reload',mobilePageErrors),DIAGNOSTIC_EXTERNAL_DEADLINE_MS);
     activeStage='mobile authenticated reload';
     info('mobile synthetic stage','reloading authenticated /app/ workspace');
-    await withDeadline('mobile authenticated reload',mobilePage.reload({waitUntil:'domcontentloaded',timeout:BROWSER_NAVIGATION_TIMEOUT_MS}),RELOAD_EXTERNAL_DEADLINE_MS);
+    await withDeadline('mobile authenticated reload',mobilePage.reload({waitUntil:'commit',timeout:BROWSER_NAVIGATION_TIMEOUT_MS}),RELOAD_EXTERNAL_DEADLINE_MS);
     activeStage='mobile post-reload diagnostic';
     await withDeadline('mobile post-reload diagnostic',observeWorkspaceBootstrap(mobilePage,'mobile post-reload',mobilePageErrors),DIAGNOSTIC_EXTERNAL_DEADLINE_MS);
     activeStage='mobile workspace reveal';

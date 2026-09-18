@@ -45,6 +45,9 @@ mustNot(wrapper,/DELETE FROM|deletion_tombstones|Cloudflare API/,'browser wrappe
 must(wrapper,/function withDeadline\(label,promise,ms\)/,'browser proof has a Node-side external stage deadline');
 must(wrapper,/withDeadline\('desktop authenticated reload',[\s\S]*RELOAD_EXTERNAL_DEADLINE_MS\)/,'desktop authenticated reload is externally bounded');
 must(wrapper,/withDeadline\('mobile authenticated reload',[\s\S]*RELOAD_EXTERNAL_DEADLINE_MS\)/,'mobile authenticated reload is externally bounded');
+must(wrapper,/page\.reload\(\{waitUntil:'commit',timeout:BROWSER_NAVIGATION_TIMEOUT_MS\}\)/,'desktop reload waits only for committed navigation before workspace usability proof');
+must(wrapper,/mobilePage\.reload\(\{waitUntil:'commit',timeout:BROWSER_NAVIGATION_TIMEOUT_MS\}\)/,'mobile reload waits only for committed navigation before workspace usability proof');
+mustNot(wrapper,/reload\(\{waitUntil:'domcontentloaded'/,'authenticated reload proof does not depend on DOMContentLoaded');
 must(wrapper,/withDeadline\('desktop post-reload diagnostic',[\s\S]*DIAGNOSTIC_EXTERNAL_DEADLINE_MS\)/,'desktop post-reload diagnostics are externally bounded');
 const observationSource=wrapper.slice(wrapper.indexOf('async function observeWorkspaceBootstrap'),wrapper.indexOf('async function assertWorkspace'));
 must(observationSource,/page\.context\(\)\.cookies\(ORIGIN\)/,'normal bootstrap observation reads session state without issuing API requests');
