@@ -30,6 +30,16 @@ mustNot(wrapper,/globalThis\.fetch\s*=/,'browser wrapper does not intercept cano
 must(wrapper,/globalThis\.__thebeSyntheticBrowserProof=async credentials/,'browser proof is exposed as an explicit lifecycle hook');
 must(wrapper,/delete globalThis\.__thebeSyntheticBrowserProof/,'browser proof hook is removed after lifecycle execution');
 must(wrapper,/\/api\/auth\/login/,'browser proof independently authenticates the canonical owner');
+must(wrapper,/async function probeAuthSurfaceState\(page,label,path\)/,'browser proof has an isolated auth-surface state diagnostic');
+must(wrapper,/auth-state-probe-timeout/,'auth-surface state diagnostic has a browser-local timeout');
+must(wrapper,/\`\$\{label\} external probe\`[\s\S]*10000/,'auth-surface state diagnostic also has an external Node deadline');
+must(wrapper,/probeAuthSurfaceState\(page,'root_tunnel','\/\?__thebe_api_path=%2Fapi%2Fstate'\)/,'auth surface probes root-tunnel workspace state');
+must(wrapper,/probeAuthSurfaceState\(page,'direct','\/api\/state'\)/,'auth surface probes direct workspace state');
+const browserLoginMarkIndex=wrapper.indexOf("mark('desktop browser login'");
+const authStateProbeIndex=wrapper.indexOf("probeAuthSurfaceState(page,'root_tunnel'");
+const desktopAppNavigationIndex=wrapper.indexOf("activeStage='desktop app navigation'");
+assert.ok(browserLoginMarkIndex>=0&&authStateProbeIndex>browserLoginMarkIndex&&desktopAppNavigationIndex>authStateProbeIndex,'FAIL auth-surface state diagnostics must run after browser login and before app navigation');
+console.log('PASS auth-surface state diagnostics run before workspace document load');
 must(wrapper,/register-direct\.html/,'desktop pass exercises the live direct-registration route');
 must(wrapper,/registration-proof\/challenge/,'desktop pass exercises first-party registration protection');
 must(wrapper,/desktop registration pass 1/,'desktop pass 1 is explicitly reported');
