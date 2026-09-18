@@ -36,7 +36,7 @@ jobs:
     env:
       CI: 'true'
       EXPECTED_SHA: ${{ inputs.expected_sha }}
-      MAX_RELEASE_LINEAGE_MERGES: '50'
+      MAX_RELEASE_LINEAGE_MERGES: '100'
 
     steps:
       - name: Checkout exact revision
