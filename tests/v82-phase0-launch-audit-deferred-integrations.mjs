@@ -3,6 +3,7 @@ import fs from 'node:fs';
 const audit=fs.readFileSync('scripts/production-launch-audit.mjs','utf8');
 const workflow=fs.readFileSync('.github/workflows/production-launch-audit.yml','utf8');
 const residueAudit=fs.readFileSync('scripts/production-synthetic-residue-audit.mjs','utf8');
+const browserWrapper=fs.readFileSync('scripts/production-synthetic-browser-wrapper.mjs','utf8');
 let pass=0;
 const ok=(condition,message)=>{
   if(!condition)throw new Error(`FAIL: ${message}`);
@@ -23,6 +24,8 @@ ok(workflow.includes("github.event.workflow_run.conclusion == 'success'")&&workf
 ok(workflow.includes('AUDIT_SHA: ${{ github.event.workflow_run.head_sha }}')&&workflow.includes('ref: ${{ env.AUDIT_SHA }}'), 'launch audit binds checkout and authority to the exact deployed SHA');
 ok(workflow.includes('post-deploy smoke SHA mismatch')&&workflow.includes('refusing stale launch audit')&&workflow.includes('refusing non-workflow_run launch audit trigger'), 'launch audit fails closed on trigger or current-main SHA drift');
 ok(workflow.includes('environment: production')&&workflow.includes('CLOUDFLARE_API_TOKEN')&&workflow.includes('D1_DATABASE_ID'), 'privileged Cloudflare and D1 audit remains isolated in the production environment');
+ok(browserWrapper.includes("opening dedicated auth surface")&&browserWrapper.includes("/auth/?mode=login&next=/app/")&&browserWrapper.includes("opening authenticated /app/ workspace"), 'canonical desktop synthetic lifecycle authenticates through the dedicated auth surface and enters /app/');
+ok(browserWrapper.includes("mobile auth surface navigation")&&browserWrapper.includes("mobile authenticated /app/ route did not return 200")&&browserWrapper.includes("reloading authenticated /app/ workspace"), 'canonical mobile synthetic lifecycle reloads the authenticated /app/ boundary instead of legacy root');
 ok(!workflow.includes('\n  push:')&&!workflow.includes('[launch-audit]'), 'direct-push launch-audit production path is removed');
 ok(audit.includes("import fs from 'node:fs'")&&audit.includes('MAX_LEGACY_ORPHAN_TENANTS=1'), 'launch audit records a bounded legacy orphan baseline without embedding tenant identifiers');
 ok(audit.includes("const orphanPredicate=`NOT EXISTS (SELECT 1 FROM memberships m WHERE m.tenant_id=t.id)`"), 'tenant integrity audit defines ownership by membership');
@@ -50,4 +53,4 @@ if(productionAuditEnv){
   console.log('PASS production-only historical synthetic residue audit completed');
 }
 
-console.log(`Phase 0 deferred integration, post-deploy, tenant-integrity and residue-audit contract: ${pass}/29 PASS`);
+console.log(`Phase 0 deferred integration, post-deploy, tenant-integrity and residue-audit contract: ${pass}/31 PASS`);
