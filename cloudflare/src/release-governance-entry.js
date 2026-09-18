@@ -3,6 +3,7 @@ import releaseMetadata from "../../release/production.json" with {type:"json"};
 import {durableRegistrationChallengeGate,validateAndClaimRegistrationProof} from "./registration-boundary.js";
 
 const VALID_REGISTRATION_MODES=new Set(["hold","cohort","open"]);
+const WORKSPACE_SURFACE_ROLES=new Set(["owner","manager","reviewer","auditor"]);
 const OAUTH_VISIBILITY_SCRIPT="/js/oauth-availability.js?v=20260916b";
 const WORKSPACE_BOUNDARY_SCRIPT="/js/surface-boundaries.js?v=20260918-no-layout-read";
 const PUBLIC_HOME_ASSET="/home";
@@ -251,7 +252,13 @@ async function workspaceSurfaceResponse(request,env,ctx){
   }
   if(!probe.ok)return workspaceUnavailableResponse();
 
-  const initialState=request.method==="GET"?await prefetchedWorkspaceState(request,env,ctx):null;
+  let probeRole="";
+  try{
+    const probeBody=await probe.clone().json();
+    probeRole=String(probeBody?.user?.role||"");
+  }catch{}
+  const workspaceRole=WORKSPACE_SURFACE_ROLES.has(probeRole);
+  const initialState=request.method==="GET"&&workspaceRole?await prefetchedWorkspaceState(request,env,ctx):null;
   const shellRequest=rewriteSurfaceRequest(request,"/",{clearSearch:false});
   const shell=await base.fetch(shellRequest,env,ctx);
   if(!initialState||request.method!=="GET"||!String(shell.headers.get("content-type")||"").toLowerCase().includes("text/html"))return shell;
