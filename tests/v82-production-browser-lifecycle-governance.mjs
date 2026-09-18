@@ -109,10 +109,10 @@ must(agenticEntry,/SYNTHETIC_BOOT_TRACE_PREFIX="THEBE_SYNTHETIC_BOOT"/,'syntheti
 must(agenticEntry,/SYNTHETIC_AUTH_ME_BOOT_SOURCE='const info=await productionApiClient\.request\("\/api\/auth\/me"\);currentUser='/,'auth trace is anchored to the workspace bootstrap assignment rather than any auth-me call');
 must(agenticEntry,/SYNTHETIC_STATE_BOOT_SOURCE='const st=consumeInitialWorkspaceState\(\)\|\|await apiFetch\("\/api\/state"\);serverStateVersion=st\.version\|\|1;let nextStore;'/,'state trace is anchored to the embedded-state bootstrap with canonical API fallback');
 must(agenticEntry,/SYNTHETIC_STORE_BOOT_SOURCE='nextStore\.activeRole=currentUser\.role;nextStore\.audit=\[\];replaceWorkspaceStore\(nextStore\);'/,'store trace is anchored before optional audit hydration');
-must(agenticEntry,/SYNTHETIC_RENDER_BOOT_SOURCE='renderAll\(\);applyRoleUi\(\);hideAuth\(\);void loadBilling\(\);logEvent\("APP_OPENED"/,'render trace is anchored to the authenticated reveal sequence');
+must(agenticEntry,/SYNTHETIC_RENDER_BOOT_SOURCE='renderAll\\(\\);applyRoleUi\\(\\);hideAuth\\(\\);logEvent\\("APP_OPENED"/,'render trace is anchored to the authenticated reveal sequence without optional startup hydration');
 must(agenticEntry,/SYNTHETIC_LANDING_BOOT_SOURCE='const landing=roleLandingView\(currentUser\.role\);if\(landing&&roleCanView\(landing\)\)showView\(landing,\{roleRedirect:true\}\);'/,'landing trace is anchored to the initial role landing view');
 must(agenticEntry,/function uniqueSourceAnchor\(source,needle\)/,'synthetic trace requires a unique bootstrap source anchor');
-must(agenticEntry,/uniqueSourceAnchor\(source,SYNTHETIC_AUTH_ME_BOOT_SOURCE\)[\s\S]*uniqueSourceAnchor\(source,SYNTHETIC_STATE_BOOT_SOURCE\)[\s\S]*uniqueSourceAnchor\(source,SYNTHETIC_STORE_BOOT_SOURCE\)[\s\S]*uniqueSourceAnchor\(source,SYNTHETIC_RENDER_BOOT_SOURCE\)[\s\S]*uniqueSourceAnchor\(source,SYNTHETIC_AUDIT_BOOT_SOURCE\)[\s\S]*uniqueSourceAnchor\(source,SYNTHETIC_LANDING_BOOT_SOURCE\)/,'synthetic trace fails closed unless every bootstrap/render/deferred-audit anchor is uniquely present');
+must(agenticEntry,/uniqueSourceAnchor\\(source,SYNTHETIC_AUTH_ME_BOOT_SOURCE\\)[\\s\\S]*uniqueSourceAnchor\\(source,SYNTHETIC_STATE_BOOT_SOURCE\\)[\\s\\S]*uniqueSourceAnchor\\(source,SYNTHETIC_STORE_BOOT_SOURCE\\)[\\s\\S]*uniqueSourceAnchor\\(source,SYNTHETIC_RENDER_BOOT_SOURCE\\)[\\s\\S]*uniqueSourceAnchor\\(source,SYNTHETIC_LANDING_BOOT_SOURCE\\)[\\s\\S]*uniqueSourceAnchor\\(source,SYNTHETIC_READY_BOOT_SOURCE\\)/,'synthetic trace fails closed unless every bootstrap/render/readiness anchor is uniquely present');
 const authBootAnchor='const info=await productionApiClient.request("/api/auth/me");currentUser=';
 const stateBootAnchor='const st=consumeInitialWorkspaceState()||await apiFetch("/api/state");serverStateVersion=st.version||1;let nextStore;';
 assert.equal(html.split(authBootAnchor).length-1,1,'FAIL workspace auth bootstrap anchor must be unique in source');console.log('PASS workspace auth bootstrap anchor is unique in source');
@@ -122,7 +122,7 @@ must(agenticEntry,/auth_me_start/,'synthetic trace marks authenticated-me reques
 must(agenticEntry,/auth_me_complete/,'synthetic trace marks authenticated-me resolution');
 must(agenticEntry,/state_start/,'synthetic trace marks state request start');
 must(agenticEntry,/state_complete/,'synthetic trace marks state resolution');
-must(agenticEntry,/audit_deferred/,'synthetic trace marks audit hydration as post-reveal deferred work');
+mustNot(agenticEntry,/audit_deferred/,'synthetic cold-start trace starts no audit hydration automatically');
 mustNot(agenticEntry,/audit_start/,'synthetic trace no longer models audit as a blocking cold-start stage');
 mustNot(agenticEntry,/audit_complete/,'synthetic trace does not require optional audit hydration to resolve before reveal');
 must(agenticEntry,/store_start/,'synthetic trace marks workspace store replacement start');
@@ -133,7 +133,9 @@ must(agenticEntry,/role_ui_complete/,'synthetic trace marks role UI completion')
 must(agenticEntry,/reveal_complete/,'synthetic trace marks workspace reveal completion');
 must(agenticEntry,/landing_start/,'synthetic trace marks landing-view activation start');
 must(agenticEntry,/landing_complete/,'synthetic trace marks landing-view activation completion');
-must(agenticEntry,/x-thebe-synthetic-boot-trace","auth-state-render-v3/,'synthetic traced documents carry an explicit non-secret nonblocking render diagnostic response marker');
+must(agenticEntry,/workspace_ready_start/,'synthetic trace marks synchronous workspace-readiness callbacks start');
+must(agenticEntry,/workspace_ready_complete/,'synthetic trace marks synchronous workspace-readiness callbacks completion');
+must(agenticEntry,/x-thebe-synthetic-boot-trace","auth-state-render-v4/,'synthetic traced documents carry an explicit non-secret active-view cold-start diagnostic response marker');
 
 syntax('scripts/production-synthetic-lifecycle.mjs','canonical synthetic lifecycle parses');
 must(lifecycle,/async function probeAuthenticatedStateRoute\(cookie,label,path\)/,'canonical lifecycle has a bounded authenticated state-route diagnostic');
