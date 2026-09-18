@@ -8203,8 +8203,8 @@ function openModal(id){const modal=document.getElementById(id);if(!modal)return;
 function closeModal(id){const modal=document.getElementById(id);if(!modal)return;modal.classList.remove("open");modal.setAttribute("aria-hidden","true");if(lastModalFocus?.focus)lastModalFocus.focus();lastModalFocus=null}
 document.addEventListener("keydown",e=>{const modal=document.querySelector(".modal.open");if(!modal)return;if(e.key==="Escape"){e.preventDefault();closeModal(modal.id);return}if(e.key!=="Tab")return;const items=modalFocusable(modal);if(!items.length){e.preventDefault();return}const first=items[0],last=items[items.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}});
 document.getElementById("nav").addEventListener("click",e=>{let b=e.target.closest("button[data-view]");if(b)showView(b.dataset.view)});
-function concealWorkspaceShell(){appShell.style.display="none";concealWorkspaceShell()}
-function revealWorkspaceShell(){appShell.style.display="";revealWorkspaceShell()}
+function concealWorkspaceShell(){appShell.style.display="none";appShell.style.visibility="hidden"}
+function revealWorkspaceShell(){appShell.style.display="";appShell.style.visibility="visible"}
 window.__THEBE_WORKSPACE_READY__=false;
 window.whenThebeWorkspaceReady=function(callback){
  if(typeof callback!=="function")return;
