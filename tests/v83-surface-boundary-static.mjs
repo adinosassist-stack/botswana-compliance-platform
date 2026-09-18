@@ -72,7 +72,6 @@ lacks(boundaryRuntime,'observer.observe(document.body','workspace boundary never
 lacks(boundaryRuntime,'getComputedStyle(','workspace boundary avoids forced style/layout reads during bootstrap');
 has(boundaryRuntime,'const explicitlyShown=node=>!!node&&node.hidden!==true&&!node.classList.contains("hidden")&&node.style.display!=="none"','workspace boundary uses explicit authored visibility state');
 has(governance,'/js/surface-boundaries.js?v=20260918-no-layout-read','workspace route cache-busts the no-layout-read boundary runtime');
-has(governance,'/js/surface-boundaries.js?v=20260918-targeted-observer','workspace route cache-busts the targeted boundary runtime');
 
 has(legacy,'id="appShell"','legacy document remains the qualified private workspace source');
 has(legacy,'id="workspaceSidebar"','legacy workspace navigation remains intact');
