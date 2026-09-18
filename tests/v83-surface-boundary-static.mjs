@@ -49,6 +49,11 @@ has(governance,'path==="/auth/"','dedicated auth route is worker-owned');
 has(governance,'path==="/app/"','dedicated workspace route is worker-owned');
 has(governance,'new URL("/api/auth/me",request.url)','workspace route probes authentication server-side before serving the shell');
 has(governance,'if(probe.status===401||probe.status===403)','anonymous workspace access fails closed into authentication');
+has(governance,'const initialState=request.method==="GET"?await prefetchedWorkspaceState(request,env,ctx):null','authenticated app route prefetches initial workspace state only for GET shell responses');
+has(governance,'new URL("/api/state",request.url)','initial workspace state comes from the canonical authenticated state endpoint');
+has(governance,'.replaceAll("<","\\u003c")','embedded workspace JSON escapes script-closing input');
+has(governance,'id="thebe-initial-workspace-state"','authenticated app shell carries inert initial state JSON only after server authorization');
+has(governance,'headers.set("x-thebe-initial-state","embedded-v1")','embedded-state responses are explicitly marked');
 has(governance,'normalizeWorkspaceAssetUrls','workspace HTML normalizes legacy relative assets for the /app/ URL');
 has(governance,".replaceAll('src=\"js/','src=\"/js/')",'workspace scripts resolve from the site root under /app/');
 has(governance,".replaceAll('href=\"manifest.webmanifest\"','href=\"/manifest.webmanifest\"')",'workspace manifest resolves from the site root under /app/');
@@ -76,6 +81,9 @@ has(governance,'/js/surface-boundaries.js?v=20260918-no-layout-read','workspace 
 has(legacy,'id="appShell"','legacy document remains the qualified private workspace source');
 has(legacy,'id="workspaceSidebar"','legacy workspace navigation remains intact');
 has(legacy,'async function loadServerState','legacy workspace state loader remains intact behind /app/');
+has(legacy,'function consumeInitialWorkspaceState()','workspace client has a one-shot embedded-state consumer');
+has(legacy,'const raw=node.textContent||"";node.remove();','embedded state is removed from the DOM immediately after consumption');
+has(legacy,'consumeInitialWorkspaceState()||await apiFetch("/api/state")','workspace keeps the canonical browser state request as fallback when embedding is unavailable');
 has(directRegistration,'location.href="/app/"','successful direct registration enters the authenticated app route, not public root');
 lacks(directRegistration,'location.href="/"','direct registration cannot accidentally return authenticated users to public root');
 
