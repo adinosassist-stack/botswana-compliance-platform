@@ -184,6 +184,40 @@ async function loginInBrowser(page,credentials){
   assert(result.status===200&&result.ok&&result.role==='owner',`browser owner login failed HTTP ${result.status}${result.error?` ${safe(result.error)}`:''}`);
 }
 
+async function probeAuthSurfaceState(page,label,path){
+  const started=Date.now();
+  const result=await withDeadline(
+    `${label} external probe`,
+    page.evaluate(async({path,timeoutMs})=>{
+      const controller=new AbortController();
+      const timer=setTimeout(()=>controller.abort('auth-state-probe-timeout'),timeoutMs);
+      const started=performance.now();
+      try{
+        const response=await fetch(path,{
+          method:'GET',
+          credentials:'same-origin',
+          redirect:'error',
+          headers:{accept:'application/json'},
+          signal:controller.signal
+        });
+        const text=await response.text();
+        let body=null;try{body=text?JSON.parse(text):null}catch{}
+        return {
+          status:response.status,
+          ok:response.ok&&body&&Number.isFinite(Number(body.version)),
+          elapsedMs:Math.round(performance.now()-started),
+          error:body?.error||(!response.ok?`http_${response.status}`:body?'state_version_missing':'invalid_json')
+        };
+      }catch(error){
+        return {status:0,ok:false,elapsedMs:Math.round(performance.now()-started),error:String(error?.name||'network_error')};
+      }finally{clearTimeout(timer)}
+    },{path,timeoutMs:6000}),
+    10000
+  );
+  info('desktop auth-surface state probe',`transport=${label} status=${result.status} elapsedMs=${result.elapsedMs} outerMs=${Date.now()-started} result=${result.ok?'ok':safe(result.error)}`);
+  return result;
+}
+
 async function runBrowserProof(credentials){
   const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox']});
   let activeStage='browser launch';
@@ -238,6 +272,12 @@ async function runBrowserProof(credentials){
     info('desktop synthetic stage','submitting owner login');
     await loginInBrowser(page,credentials);
     mark('desktop browser login','owner login returned 200');
+    activeStage='desktop auth-surface root state probe';
+    const authRootState=await probeAuthSurfaceState(page,'root_tunnel','/?__thebe_api_path=%2Fapi%2Fstate');
+    assert(authRootState.ok,`desktop auth-surface root-tunnel state probe failed HTTP ${authRootState.status} ${safe(authRootState.error)}`);
+    activeStage='desktop auth-surface direct state probe';
+    const authDirectState=await probeAuthSurfaceState(page,'direct','/api/state');
+    assert(authDirectState.ok,`desktop auth-surface direct state probe failed HTTP ${authDirectState.status} ${safe(authDirectState.error)}`);
     activeStage='desktop app navigation';
     info('desktop synthetic stage','opening authenticated /app/ workspace');
     const desktopApp=await page.goto(`${ORIGIN}/app/?desktop-owner-proof=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:BROWSER_NAVIGATION_TIMEOUT_MS});
