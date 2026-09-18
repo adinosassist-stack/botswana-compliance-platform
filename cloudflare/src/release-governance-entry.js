@@ -10,6 +10,7 @@ const AUTH_PORTAL_ASSET="/auth";
 const SYNTHETIC_LEGACY_ROOT_PARAMS=new Set(["desktop-owner-proof","authenticated-mobile-proof"]);
 const SYNTHETIC_EMAIL_RE=/^synthetic\.lifecycle\.\d+\.\d+\.[0-9a-f]{12}@example\.invalid$/;
 const MAX_REGISTRATION_POLICY_BODY_BYTES=16*1024;
+const MAX_EMBEDDED_WORKSPACE_STATE_BYTES=512*1024;
 const REGISTRATION_PATH="/api/auth/register";
 const REGISTRATION_PROOF_CHALLENGE_PATH="/api/auth/registration-proof/challenge";
 
@@ -204,7 +205,7 @@ function injectWorkspaceBoundaryScript(html){return injectScriptOnce(html,WORKSP
 
 function safeEmbeddedJson(value){
   const json=JSON.stringify(value);
-  if(typeof json!=="string")return "";
+  if(typeof json!=="string"||new TextEncoder().encode(json).byteLength>MAX_EMBEDDED_WORKSPACE_STATE_BYTES)return "";
   return json
     .replaceAll("&","\\u0026")
     .replaceAll("<","\\u003c")
@@ -256,8 +257,8 @@ async function workspaceSurfaceResponse(request,env,ctx){
   if(!initialState||request.method!=="GET"||!String(shell.headers.get("content-type")||"").toLowerCase().includes("text/html"))return shell;
 
   try{
-    const html=await shell.text(),injected=injectInitialWorkspaceState(html,initialState);
-    if(injected===html)return new Response(html,{status:shell.status,statusText:shell.statusText,headers:shell.headers});
+    const html=await shell.clone().text(),injected=injectInitialWorkspaceState(html,initialState);
+    if(injected===html)return shell;
     const headers=new Headers(shell.headers);
     headers.delete("content-length");headers.delete("etag");
     headers.set("cache-control","no-store");
