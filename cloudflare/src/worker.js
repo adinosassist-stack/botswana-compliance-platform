@@ -336,6 +336,29 @@ function projectWorkspaceStateForRole(input,role){
   }):[];
   return {activeCompanyId:state.activeCompanyId||companies[0]?.id||null,activeRole:role,companies,audit:[]};
 }
+function initialOwnerWorkspaceState(companyName="My Business"){
+  const companyId=`co_${id()}`,name=String(companyName||"My Business").trim()||"My Business";
+  return {
+    activeCompanyId:companyId,
+    activeRole:"owner",
+    companies:[{
+      id:companyId,
+      profile:{
+        name,incorporationDate:"",entityType:"",industry:"Other",employees:0,town:"",
+        vat:false,vatStatus:"unknown",vatCategory:"",paye:false,payeStatus:"unknown",
+        trade:false,tradeStatus:"unknown",data:false,tender:false,premises:false,
+        tradeAnniversary:"",cipaMonth:"",cipaUin:"",cipaStatus:"",registeredOffice:"",
+        citizenOwned:true,turnover:null,annualTaxableSupplies:null,highestMonthlyEmployeePay:null,
+        manufacturing:false,mfgActivity:"",mfgFactory:false,mfgAnniversary:"",
+        firstProtectionCheckStatus:"not_started",firstProtectionCheckAt:null
+      },
+      evidence:[],completed:{},cases:[],employees:[],
+      privacy:{controls:{},activities:[]},reviews:[],fixedTerms:[],bwReadiness:{}
+    }],
+    audit:[]
+  };
+}
+
 function mergeManagerWorkspaceState(current,incoming){
   const base=current&&typeof current==="object"?current:{},next=incoming&&typeof incoming==="object"?incoming:{};
   const currentCompanies=Array.isArray(base.companies)?base.companies:[],incomingById=new Map((Array.isArray(next.companies)?next.companies:[]).map(c=>[String(c?.id||""),c]));
@@ -4888,12 +4911,13 @@ export default {
       if(!(await verifyTurnstileRegistration(req,env,body.turnstileToken)))return json({error:"human_verification_failed"},403);
       const generic={ok:true,message:"Registration received. Sign in with this email to continue if the account is ready."},registrationStartedAt=Date.now(),ph=await hashPassword(password);
       const exists=await env.DB.prepare("SELECT 1 ok FROM users WHERE email=? LIMIT 1").bind(email).first();if(exists){await registrationTimingFloor(registrationStartedAt);return json(generic,202)}
-      const userId=id(),tenantId=id();
+      const userId=id(),tenantId=id(),initialState=initialOwnerWorkspaceState(companyName);
       try{await env.DB.batch([
         env.DB.prepare("INSERT INTO tenants(id,name) VALUES(?,?)").bind(tenantId,companyName),
         env.DB.prepare("INSERT INTO users(id,email,display_name,password_hash) VALUES(?,?,?,?)").bind(userId,email,email.split("@")[0],ph),
         env.DB.prepare("INSERT INTO memberships(tenant_id,user_id,role,status) VALUES(?,?,'owner','active')").bind(tenantId,userId),
-        env.DB.prepare("INSERT INTO subscriptions(tenant_id,plan,status,trial_ends_at) VALUES(?,?,'trialing',datetime('now','+14 days'))").bind(tenantId,SELF_SERVE_PLAN_IDS.has(String(body.plan||"").toLowerCase())?String(body.plan).toLowerCase():"business")
+        env.DB.prepare("INSERT INTO subscriptions(tenant_id,plan,status,trial_ends_at) VALUES(?,?,'trialing',datetime('now','+14 days'))").bind(tenantId,SELF_SERVE_PLAN_IDS.has(String(body.plan||"").toLowerCase())?String(body.plan).toLowerCase():"business"),
+        env.DB.prepare("INSERT INTO app_state(tenant_id,version,state_json,updated_at) VALUES(?,1,?,CURRENT_TIMESTAMP)").bind(tenantId,JSON.stringify(initialState))
       ]);await registrationTimingFloor(registrationStartedAt);return json(generic,202)}catch(e){if(/unique|constraint/i.test(String(e?.message||e))){await registrationTimingFloor(registrationStartedAt);return json(generic,202)}throw e}
     }
     if(url.pathname==="/api/auth/login"&&req.method==="POST"){
