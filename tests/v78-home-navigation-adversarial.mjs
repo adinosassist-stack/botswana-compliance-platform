@@ -38,7 +38,7 @@ ok('session-only and guest-only controls use hidden state',html.includes('.marke
 ok('mobile workspace navigation remains separately role-filtered',html.includes('function syncMobileRoleNav(role=currentWorkspaceRole())'));
 ok('service worker cache is bumped for the navigation release',sw.includes(`bw-business-protection-v78-${pkg.version}`)&&!sw.includes("bwcos-v10"));
 ok('PWA manifest uses current product naming',manifest.name==='Thebe Desk'&&manifest.short_name==='Thebe Desk');
-ok('website return keeps app hidden while public page is shown',html.includes('marketingGate.classList.remove("hidden");authGate.classList.add("hidden");appShell.style.visibility="hidden"'));
+ok('website return keeps app hidden while public page is shown',html.includes('marketingGate.classList.remove("hidden");authGate.classList.add("hidden");concealWorkspaceShell()')&&html.includes('function concealWorkspaceShell(){appShell.style.display="none";appShell.style.visibility="hidden"}'));
 
 // Pass 4 — production HTML must never inject runtime assets into HTML strings embedded in app JavaScript.
 ok('production injection targets the final document closing tag',productionEntry.includes('lastIndexOf(closing)')&&productionEntry.includes('injectBeforeFinalClosingTag(source,"body"')&&!productionEntry.includes('source.replace(/<\\/body>/i'));
