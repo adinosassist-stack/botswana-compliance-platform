@@ -52,6 +52,9 @@ has(governance,'if(probe.status===401||probe.status===403)','anonymous workspace
 has(governance,'const initialState=request.method==="GET"?await prefetchedWorkspaceState(request,env,ctx):null','authenticated app route prefetches initial workspace state only for GET shell responses');
 has(governance,'new URL("/api/state",request.url)','initial workspace state comes from the canonical authenticated state endpoint');
 has(governance,'.replaceAll("<","\\u003c")','embedded workspace JSON escapes script-closing input');
+has(governance,'MAX_EMBEDDED_WORKSPACE_STATE_BYTES=512*1024','embedded workspace state has a bounded response-size budget');
+has(governance,'new TextEncoder().encode(json).byteLength>MAX_EMBEDDED_WORKSPACE_STATE_BYTES','oversized embedded state fails back to the canonical browser state request');
+has(governance,'const html=await shell.clone().text()','workspace embedding preserves the original shell response for fail-safe fallback');
 has(governance,'id="thebe-initial-workspace-state"','authenticated app shell carries inert initial state JSON only after server authorization');
 has(governance,'headers.set("x-thebe-initial-state","embedded-v1")','embedded-state responses are explicitly marked');
 has(governance,'normalizeWorkspaceAssetUrls','workspace HTML normalizes legacy relative assets for the /app/ URL');
