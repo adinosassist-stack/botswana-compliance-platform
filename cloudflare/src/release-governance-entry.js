@@ -202,6 +202,40 @@ function normalizeWorkspaceAssetUrls(html){
 function injectOauthAvailabilityScript(html){return injectScriptOnce(html,OAUTH_VISIBILITY_SCRIPT)}
 function injectWorkspaceBoundaryScript(html){return injectScriptOnce(html,WORKSPACE_BOUNDARY_SCRIPT)}
 
+function safeEmbeddedJson(value){
+  const json=JSON.stringify(value);
+  if(typeof json!=="string")return "";
+  return json
+    .replaceAll("&","\\u0026")
+    .replaceAll("<","\\u003c")
+    .replaceAll(">","\\u003e")
+    .replaceAll("\u2028","\\u2028")
+    .replaceAll("\u2029","\\u2029");
+}
+
+function injectInitialWorkspaceState(html,payload){
+  const source=String(html||"");
+  if(!payload||source.includes('id="thebe-initial-workspace-state"'))return source;
+  const serialized=safeEmbeddedJson(payload);
+  if(!serialized||!source.toLowerCase().includes("</body>"))return source;
+  const tag=`<script type="application/json" id="thebe-initial-workspace-state">${serialized}</script>\n`;
+  const index=source.toLowerCase().lastIndexOf("</body>");
+  return source.slice(0,index)+tag+source.slice(index);
+}
+
+async function prefetchedWorkspaceState(request,env,ctx){
+  try{
+    const stateUrl=new URL("/api/state",request.url);
+    const stateHeaders=new Headers(request.headers);stateHeaders.set("accept","application/json");
+    const response=await base.fetch(new Request(stateUrl.toString(),{method:"GET",headers:stateHeaders,redirect:"manual"}),env,ctx);
+    if(!response.ok||!String(response.headers.get("content-type")||"").toLowerCase().includes("application/json"))return null;
+    const body=await response.json();
+    const version=Number(body?.version);
+    if(!Number.isSafeInteger(version)||version<1||!body?.state||typeof body.state!=="object"||Array.isArray(body.state))return null;
+    return {version,state:body.state};
+  }catch{return null}
+}
+
 function workspaceUnavailableResponse(){
   return new Response("Thebe Desk workspace is temporarily unavailable. The public site remains available at https://thebedesk.com/.",{status:503,headers:{"content-type":"text/plain; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff","x-frame-options":"DENY","retry-after":"30"}});
 }
@@ -215,8 +249,21 @@ async function workspaceSurfaceResponse(request,env,ctx){
     return Response.redirect(target.toString(),302);
   }
   if(!probe.ok)return workspaceUnavailableResponse();
+
+  const initialState=request.method==="GET"?await prefetchedWorkspaceState(request,env,ctx):null;
   const shellRequest=rewriteSurfaceRequest(request,"/",{clearSearch:false});
-  return base.fetch(shellRequest,env,ctx);
+  const shell=await base.fetch(shellRequest,env,ctx);
+  if(!initialState||request.method!=="GET"||!String(shell.headers.get("content-type")||"").toLowerCase().includes("text/html"))return shell;
+
+  try{
+    const html=await shell.text(),injected=injectInitialWorkspaceState(html,initialState);
+    if(injected===html)return new Response(html,{status:shell.status,statusText:shell.statusText,headers:shell.headers});
+    const headers=new Headers(shell.headers);
+    headers.delete("content-length");headers.delete("etag");
+    headers.set("cache-control","no-store");
+    headers.set("x-thebe-initial-state","embedded-v1");
+    return new Response(injected,{status:shell.status,statusText:shell.statusText,headers});
+  }catch{return shell}
 }
 
 async function decorateResponse(request,env,response){
