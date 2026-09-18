@@ -68,6 +68,12 @@ ok(workspaceUx.includes('#appShell .owner-action-index') && workspaceUx.includes
 ok(workspaceUx.includes('@media(max-width:1000px)') && workspaceUx.includes('@media(prefers-reduced-motion:reduce)'),'workspace UX 10 retains responsive and reduced-motion behavior');
 
 ok(home.includes('/assets/workspace-ui-ux-10.css?v=20260918a') && home.includes('--accent:#0b66d6;--soft:#edf5ff;'),'authenticated shell loads the established blue workspace layer at first paint');
+const blueAuthority=home.indexOf('id="thebe-blue-brand-authority"');
+ok(blueAuthority>home.lastIndexOf('/* v16 acquisition + monetization UX */'),'final blue brand authority loads after the legacy green acquisition layer');
+const blueAuthorityCss=home.slice(blueAuthority);
+ok(blueAuthorityCss.includes(':root{--accent:#0b66d6;--soft:#edf5ff;--sidebar:#0f172a;--sidebar2:#111827}'),'final authority pins primary brand tokens to Thebe blue/navy rather than the temporary green palette');
+ok(blueAuthorityCss.includes('.marketinggate .btn,.authgate .btn{background:#0b66d6;') && blueAuthorityCss.includes('.heroeyebrow,.featureicon,.recommended{background:#edf5ff;color:#0d5bc8}'),'marketing and registration fallback actions inherit Thebe blue');
+ok(blueAuthorityCss.includes('#appShell .brand:before{display:none!important;content:none!important}'),'legacy TD pseudo-logo cannot leak into the restored workspace brand');
 ok(publicHome.includes('name="theme-color" content="#0B66D6"') && publicHome.includes('--accent:#0b66d6;') && publicHome.includes('--accent2:#0d5bc8;'),'public homepage uses Thebe blue primary branding');
 ok(!publicHome.includes('--green:#0f5f46;') && !publicHome.includes('--green2:#0a4c38;'),'public homepage does not retain the temporary green primary brand tokens');
 ok(authPortal.includes('name="theme-color" content="#0B66D6"') && authPortal.includes('--accent:#0b66d6;') && authPortal.includes('linear-gradient(145deg,#0b66d6 0%,#0d3f88 100%)'),'authentication portal uses the same blue brand system');
