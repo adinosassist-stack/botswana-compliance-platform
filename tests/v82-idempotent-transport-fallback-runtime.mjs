@@ -5,7 +5,8 @@ import vm from 'node:vm';
 const source=fs.readFileSync('public/js/api-client.js','utf8');
 const calls=[];
 let rootAbortCount=0;
-let requestCounter=0;
+let stateCounter=0;
+let fallbackCounter=0;
 
 function jsonResponse(data,status=200){
   return {
@@ -20,19 +21,20 @@ function jsonResponse(data,status=200){
 async function mockedFetch(raw,{signal}={}){
   const url=new URL(String(raw));
   calls.push(url.href);
-  if(url.searchParams.get('__thebe_api_path')==='/api/state'){
+  if(url.pathname==='/api/state'){
+    stateCounter+=1;
+    return jsonResponse({version:stateCounter,state:{ok:true}});
+  }
+  if(url.searchParams.get('__thebe_api_path')==='/api/fallback-probe'){
     return new Promise(()=>{
       const observeAbort=()=>{rootAbortCount+=1};
       if(signal?.aborted){observeAbort();return}
       signal?.addEventListener('abort',observeAbort,{once:true});
-      // Deliberately ignore the AbortSignal and never resolve/reject. Real browsers,
-      // intermediaries, or platform fetch implementations can leave a request in
-      // this state after abort; fallback must not depend on fetch settling.
     });
   }
-  if(url.pathname==='/__thebe_api/state'){
-    requestCounter+=1;
-    return jsonResponse({version:requestCounter,state:{ok:true}});
+  if(url.pathname==='/__thebe_api/fallback-probe'){
+    fallbackCounter+=1;
+    return jsonResponse({version:fallbackCounter,state:{ok:true}});
   }
   throw new Error(`unexpected transport ${url.href}`);
 }
@@ -50,28 +52,36 @@ const document={
 const window={
   document,
   location:{href:'https://thebedesk.com/',origin:'https://thebedesk.com',replace(){throw new Error('unexpected canonical redirect')}},
-  crypto:{randomUUID(){return `test-${requestCounter}-${calls.length}`}}
+  crypto:{randomUUID(){return `test-${stateCounter}-${fallbackCounter}-${calls.length}`}}
 };
 const context={window,URL,Headers,AbortController,FormData,setTimeout,clearTimeout,console,fetch:mockedFetch,Error,Date,Math,Object,String,Number,JSON,Promise};
 vm.runInNewContext(source,context,{filename:'public/js/api-client.js'});
 
 assert.ok(window.BW?.api?.createClient,'production API client did not initialize');
-const client=window.BW.api.createClient({timeoutMs:240,retries:0});
-const started=Date.now();
-const first=await client.request('/api/state');
-const elapsed=Date.now()-started;
 
-assert.equal(first.version,1,'shadow fallback did not return the state response');
+const stateClient=window.BW.api.createClient({timeoutMs:240,retries:0});
+const stateStart=calls.length;
+const state=await stateClient.request('/api/state');
+assert.equal(state.version,1,'direct state read did not return the workspace state');
+assert.equal(new URL(calls[stateStart]).pathname,'/api/state','cold workspace state must use the direct API route first');
+assert.ok(!calls.slice(stateStart).some(url=>new URL(url).searchParams.get('__thebe_api_path')==='/api/state'),'cold workspace state unexpectedly entered the root tunnel');
+
+const fallbackClient=window.BW.api.createClient({timeoutMs:240,retries:0});
+const fallbackStart=calls.length;
+const started=Date.now();
+const fallback=await fallbackClient.request('/api/fallback-probe');
+const elapsed=Date.now()-started;
+assert.equal(fallback.version,1,'shadow fallback did not return the probe response');
 assert.equal(rootAbortCount,1,'hung root transport was not locally aborted exactly once');
-assert.ok(calls[0].includes('__thebe_api_path=%2Fapi%2Fstate'),'root tunnel was not attempted first');
-assert.equal(new URL(calls[1]).pathname,'/__thebe_api/state','shadow fallback was not attempted after the abort-insensitive hung root transport');
+assert.ok(calls[fallbackStart].includes('__thebe_api_path=%2Fapi%2Ffallback-probe'),'generic idempotent read no longer starts with the preferred root tunnel');
+assert.equal(new URL(calls[fallbackStart+1]).pathname,'/__thebe_api/fallback-probe','shadow fallback was not attempted after the hung root transport');
 assert.ok(elapsed<220,`fallback consumed the full request deadline (${elapsed}ms)`);
 
 const beforeSecond=calls.length;
-const second=await client.request('/api/state');
-assert.equal(second.version,2,'second state read did not succeed');
-assert.equal(new URL(calls[beforeSecond]).pathname,'/__thebe_api/state','successful shadow transport was not promoted to preferred transport');
+const second=await fallbackClient.request('/api/fallback-probe');
+assert.equal(second.version,2,'second fallback read did not succeed');
+assert.equal(new URL(calls[beforeSecond]).pathname,'/__thebe_api/fallback-probe','successful shadow transport was not promoted to preferred transport');
 assert.equal(rootAbortCount,1,'preferred shadow transport unexpectedly retried the hung root route');
 assert.equal(appended.length,1,'owner WhatsApp loader contract changed unexpectedly');
 
-console.log('Idempotent transport fallback runtime (abort-insensitive fetch): PASS');
+console.log('Idempotent transport fallback runtime: direct-first workspace state + bounded generic fallback PASS');
