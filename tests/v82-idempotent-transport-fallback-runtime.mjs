@@ -21,9 +21,12 @@ function jsonResponse(data,status=200){
 async function mockedFetch(raw,{signal}={}){
   const url=new URL(String(raw));
   calls.push(url.href);
-  if(url.pathname==='/api/state'){
+  if(url.searchParams.get('__thebe_api_path')==='/api/state'){
     stateCounter+=1;
     return jsonResponse({version:stateCounter,state:{ok:true}});
+  }
+  if(url.pathname==='/api/state'){
+    throw new Error('workspace state must not bypass the preferred transport');
   }
   if(url.searchParams.get('__thebe_api_path')==='/api/fallback-probe'){
     return new Promise(()=>{
@@ -62,9 +65,9 @@ assert.ok(window.BW?.api?.createClient,'production API client did not initialize
 const stateClient=window.BW.api.createClient({timeoutMs:240,retries:0});
 const stateStart=calls.length;
 const state=await stateClient.request('/api/state');
-assert.equal(state.version,1,'direct state read did not return the workspace state');
-assert.equal(new URL(calls[stateStart]).pathname,'/api/state','cold workspace state must use the direct API route first');
-assert.ok(!calls.slice(stateStart).some(url=>new URL(url).searchParams.get('__thebe_api_path')==='/api/state'),'cold workspace state unexpectedly entered the root tunnel');
+assert.equal(state.version,1,'preferred state read did not return the workspace state');
+assert.ok(calls[stateStart].includes('__thebe_api_path=%2Fapi%2Fstate'),'cold workspace state must start with the preferred root tunnel');
+assert.ok(!calls.slice(stateStart).some(raw=>new URL(raw).pathname==='/api/state'),'cold workspace state unexpectedly bypassed transport fallback with the direct route');
 
 const fallbackClient=window.BW.api.createClient({timeoutMs:240,retries:0});
 const fallbackStart=calls.length;
@@ -84,4 +87,4 @@ assert.equal(new URL(calls[beforeSecond]).pathname,'/__thebe_api/fallback-probe'
 assert.equal(rootAbortCount,1,'preferred shadow transport unexpectedly retried the hung root route');
 assert.equal(appended.length,1,'owner WhatsApp loader contract changed unexpectedly');
 
-console.log('Idempotent transport fallback runtime: direct-first workspace state + bounded generic fallback PASS');
+console.log('Idempotent transport fallback runtime: preferred workspace state transport + bounded generic fallback PASS');
