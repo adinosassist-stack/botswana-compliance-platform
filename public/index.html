@@ -7927,7 +7927,7 @@ async function handlePublicPassportFragment(){
 function leavePublicPassport(){document.getElementById("publicPassportGate")?.classList.add("hidden");showMarketing()}
 
 let lastWorkspaceView="dashboard";
-function showView(id,options={}){if(!roleCanView(id)){console.warn("Role denied view",id,currentWorkspaceRole());if(!options?.silent){let sr=document.getElementById("srStatus");if(sr)sr.textContent="This area is not available for your role."}return false}const target=document.getElementById(id);if(!target){console.warn("Unknown view",id);return false}lastWorkspaceView=id;document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));target.classList.add("active");document.querySelectorAll(".nav button").forEach(b=>{let active=b.dataset.view===id;b.classList.toggle("active",active);if(active)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});const nb=document.querySelector(`[data-view="${id}"]`),meta=(typeof COMMAND_META!=="undefined"?COMMAND_META[id]:null);document.getElementById("pageTitle").textContent=meta?.[0]||nb?.textContent?.trim()||"BW Compliance OS";updateMobileNav(id);let sr=document.getElementById("srStatus");if(sr)sr.textContent="Opened "+document.getElementById("pageTitle").textContent;window.scrollTo({top:0,behavior:prefersReducedMotion()?"auto":"smooth"});setTimeout(animateViewItems,20);if(!options?.skipDataRefresh)queueMicrotask(()=>renderAll());return true}
+function showView(id,options={}){if(!roleCanView(id)){console.warn("Role denied view",id,currentWorkspaceRole());if(!options?.silent){let sr=document.getElementById("srStatus");if(sr)sr.textContent="This area is not available for your role."}return false}const target=document.getElementById(id);if(!target){console.warn("Unknown view",id);return false}lastWorkspaceView=id;document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));target.classList.add("active");document.querySelectorAll(".nav button").forEach(b=>{let active=b.dataset.view===id;b.classList.toggle("active",active);if(active)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});const nb=document.querySelector(`[data-view="${id}"]`),meta=(typeof COMMAND_META!=="undefined"?COMMAND_META[id]:null);document.getElementById("pageTitle").textContent=meta?.[0]||nb?.textContent?.trim()||"BW Compliance OS";updateMobileNav(id);let sr=document.getElementById("srStatus");if(sr)sr.textContent="Opened "+document.getElementById("pageTitle").textContent;window.scrollTo({top:0,behavior:prefersReducedMotion()?"auto":"smooth"});setTimeout(animateViewItems,20);if(!options?.skipDataRefresh)queueMicrotask(()=>renderAll());if(!STANDALONE_PREVIEW&&!options?.skipDataRefresh&&!options?.roleRedirect){if(id==="billing")queueMicrotask(()=>void loadBilling());if(id==="audit")queueMicrotask(()=>void hydrateWorkspaceAudit())}return true}
 
 let wizardStep=0;
 let firstValueTopTarget="workhub";
@@ -8209,7 +8209,7 @@ async function loadServerState(){
  const st=consumeInitialWorkspaceState()||await apiFetch("/api/state");serverStateVersion=st.version||1;let nextStore;
  if(st.state&&st.state.companies?.length){nextStore=structuredClone(st.state)}else if(currentUser.role==="owner"){nextStore=blankWorkspaceState(currentUser.tenantName||"My Business",currentUser.role)}else{throw new Error("The account owner must finish initial workspace setup before this role can enter.")}
  nextStore.activeRole=currentUser.role;nextStore.audit=[];replaceWorkspaceStore(nextStore);
- renderAll();applyRoleUi();hideAuth();void loadBilling();logEvent("APP_OPENED",{ruleset:"BW-2026.08.30-launch"});void hydrateWorkspaceAudit();const landing=roleLandingView(currentUser.role);if(landing&&roleCanView(landing))showView(landing,{roleRedirect:true});handleOAuthResult();handleResetLink();
+ renderAll();applyRoleUi();hideAuth();logEvent("APP_OPENED",{ruleset:"BW-2026.08.30-launch"});const landing=roleLandingView(currentUser.role);if(landing&&roleCanView(landing))showView(landing,{roleRedirect:true});handleOAuthResult();handleResetLink();
  if(currentUser.role==="owner"&&currentUser.onboardingComplete===false&&safeSessionGet("bw_onboarding_dismissed")!=="1")setTimeout(()=>openOnboarding(),180);
  if(currentUser.role==="owner"&&currentUser.onboardingComplete===true&&state?.profile?.firstProtectionCheckStatus==="pending")setTimeout(()=>{document.getElementById("firstValuePanel")?.classList.add("show");renderFirstValueFailure("The previous first protection check did not finish. Run it again to generate server-backed actions.")},220);
 }
@@ -8286,18 +8286,23 @@ bootstrap();
     const a=document.getElementById('workspacePulseActions'),n=document.getElementById('workspacePulseAlerts'),p=document.getElementById('workspacePulseSetup');
     if(a)a.textContent=textOf('openActions');if(n)n.textContent=textOf('navAlerts','0');if(p)p.textContent=textOf('setupPercent','0%');
   };
-  window.stabilizeWorkspaceTables=function(root=document){
-    root.querySelectorAll?.('.view table').forEach(table=>{if(table.parentElement?.classList.contains('table-scroll'))return;const wrap=document.createElement('div');wrap.className='table-scroll';wrap.setAttribute('role','region');wrap.setAttribute('aria-label','Scrollable data table');table.parentNode.insertBefore(wrap,table);wrap.appendChild(table)});
+  function workspaceTableTargets(root){
+    if(!root)return [];
+    if(root.matches?.('table'))return [root];
+    return [...(root.querySelectorAll?.('table')||[])];
+  }
+  window.stabilizeWorkspaceTables=function(root=document.querySelector('#mainContent .view.active')){
+    workspaceTableTargets(root).forEach(table=>{if(table.parentElement?.classList.contains('table-scroll'))return;const wrap=document.createElement('div');wrap.className='table-scroll';wrap.setAttribute('role','region');wrap.setAttribute('aria-label','Scrollable data table');table.parentNode.insertBefore(wrap,table);wrap.appendChild(table)});
   };
   const observeIds=['openActions','navAlerts','setupPercent'];
   window.whenThebeWorkspaceReady(()=>{
     renderWorkspacePulse();stabilizeWorkspaceTables();
     observeIds.forEach(id=>{const el=document.getElementById(id);if(el)new MutationObserver(renderWorkspacePulse).observe(el,{childList:true,subtree:true,characterData:true})});
-    const main=document.getElementById('mainContent');if(main)new MutationObserver(m=>{let needs=false;m.forEach(x=>x.addedNodes.forEach(n=>{if(n.nodeType===1&&(n.matches?.('table')||n.querySelector?.('table')))needs=true}));if(needs)stabilizeWorkspaceTables(main)}).observe(main,{childList:true,subtree:true});
+    const main=document.getElementById('mainContent');if(main)new MutationObserver(m=>{m.forEach(x=>x.addedNodes.forEach(n=>{if(n.nodeType===1)stabilizeWorkspaceTables(n)}))}).observe(main,{childList:true,subtree:true});
     setTimeout(()=>{renderWorkspacePulse();stabilizeWorkspaceTables()},350);
   });
   const priorRenderAll=window.renderAll;if(typeof priorRenderAll==='function')window.renderAll=function(){const out=priorRenderAll.apply(this,arguments);setTimeout(()=>{renderWorkspacePulse();stabilizeWorkspaceTables()},80);return out};
-  const priorShowView=window.showView;if(typeof priorShowView==='function')window.showView=function(){const out=priorShowView.apply(this,arguments);setTimeout(()=>stabilizeWorkspaceTables(document.getElementById('mainContent')||document),30);return out};
+  const priorShowView=window.showView;if(typeof priorShowView==='function')window.showView=function(id){const out=priorShowView.apply(this,arguments);setTimeout(()=>stabilizeWorkspaceTables(document.getElementById(id)),30);return out};
 })();
 </script>
 
@@ -8398,8 +8403,10 @@ bootstrap();
   window.openMobileWorkspaceMenu=openMobileWorkspaceMenu;
   window.closeMobileWorkspaceMenu=closeMobileWorkspaceMenu;
 
-  function wrapTables(){
-    document.querySelectorAll("main table").forEach(table=>{
+  function wrapTables(root=document.querySelector("#mainContent .view.active")){
+    if(!root)return;
+    const tables=root.matches?.("table")?[root]:[...(root.querySelectorAll?.("table")||[])];
+    tables.forEach(table=>{
       if(table.parentElement?.classList.contains("mobile-table-wrap"))return;
       const wrap=document.createElement("div");wrap.className="mobile-table-wrap";wrap.setAttribute("role","region");wrap.setAttribute("aria-label","Scrollable table");wrap.tabIndex=0;
       table.parentNode.insertBefore(wrap,table);wrap.appendChild(table);
@@ -8409,7 +8416,7 @@ bootstrap();
     document.querySelectorAll("#mobileBar [data-mobile-view]").forEach(btn=>btn.classList.toggle("active",btn.dataset.mobileView===view));
   }
   function bindNavigation(){
-    sidebar()?.querySelectorAll("button[data-view]").forEach(btn=>btn.addEventListener("click",()=>{syncMobileActive(btn.dataset.view);if(isMobile())closeMobileWorkspaceMenu()}));
+    sidebar()?.querySelectorAll("button[data-view]").forEach(btn=>btn.addEventListener("click",()=>{syncMobileActive(btn.dataset.view);setTimeout(()=>wrapTables(document.getElementById(btn.dataset.view)),0);if(isMobile())closeMobileWorkspaceMenu()}));
     document.querySelectorAll(".nav-access-group").forEach(group=>group.addEventListener("toggle",()=>{
       if(!isMobile()||!group.open)return;
       document.querySelectorAll(".nav-access-group").forEach(other=>{if(other!==group)other.open=false});
