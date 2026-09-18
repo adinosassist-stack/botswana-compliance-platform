@@ -45,6 +45,16 @@ mustNot(wrapper,/DELETE FROM|deletion_tombstones|Cloudflare API/,'browser wrappe
 must(wrapper,/function withDeadline\(label,promise,ms\)/,'browser proof has a Node-side external stage deadline');
 must(wrapper,/withDeadline\('desktop authenticated reload',[\s\S]*RELOAD_EXTERNAL_DEADLINE_MS\)/,'desktop authenticated reload is externally bounded');
 must(wrapper,/withDeadline\('mobile authenticated reload',[\s\S]*RELOAD_EXTERNAL_DEADLINE_MS\)/,'mobile authenticated reload is externally bounded');
+must(wrapper,/withDeadline\('desktop initial workspace reveal',assertWorkspace\(page,'desktop initial',[\s\S]*WORKSPACE_EXTERNAL_DEADLINE_MS\)/,'desktop initial workspace must become usable before reload');
+must(wrapper,/withDeadline\('mobile initial workspace reveal',assertWorkspace\(mobilePage,'mobile initial',[\s\S]*WORKSPACE_EXTERNAL_DEADLINE_MS\)/,'mobile initial workspace must become usable before reload');
+const desktopInitialIndex=wrapper.indexOf("desktop initial workspace reveal");
+const desktopReloadIndex=wrapper.indexOf("desktop authenticated reload");
+const mobileInitialIndex=wrapper.indexOf("mobile initial workspace reveal");
+const mobileReloadIndex=wrapper.indexOf("mobile authenticated reload");
+if(desktopInitialIndex<0||desktopReloadIndex<0||desktopInitialIndex>=desktopReloadIndex)throw new Error('FAIL desktop reload must occur only after initial workspace reveal');
+console.log('PASS desktop reload follows initial workspace reveal');
+if(mobileInitialIndex<0||mobileReloadIndex<0||mobileInitialIndex>=mobileReloadIndex)throw new Error('FAIL mobile reload must occur only after initial workspace reveal');
+console.log('PASS mobile reload follows initial workspace reveal');
 must(wrapper,/page\.reload\(\{waitUntil:'commit',timeout:BROWSER_NAVIGATION_TIMEOUT_MS\}\)/,'desktop reload waits only for committed navigation before workspace usability proof');
 must(wrapper,/mobilePage\.reload\(\{waitUntil:'commit',timeout:BROWSER_NAVIGATION_TIMEOUT_MS\}\)/,'mobile reload waits only for committed navigation before workspace usability proof');
 mustNot(wrapper,/reload\(\{waitUntil:'domcontentloaded'/,'authenticated reload proof does not depend on DOMContentLoaded');
