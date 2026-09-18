@@ -8203,7 +8203,18 @@ function openModal(id){const modal=document.getElementById(id);if(!modal)return;
 function closeModal(id){const modal=document.getElementById(id);if(!modal)return;modal.classList.remove("open");modal.setAttribute("aria-hidden","true");if(lastModalFocus?.focus)lastModalFocus.focus();lastModalFocus=null}
 document.addEventListener("keydown",e=>{const modal=document.querySelector(".modal.open");if(!modal)return;if(e.key==="Escape"){e.preventDefault();closeModal(modal.id);return}if(e.key!=="Tab")return;const items=modalFocusable(modal);if(!items.length){e.preventDefault();return}const first=items[0],last=items[items.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}});
 document.getElementById("nav").addEventListener("click",e=>{let b=e.target.closest("button[data-view]");if(b)showView(b.dataset.view)});
-async function bootstrap(){marketingGate.classList.add("hidden");authGate.classList.add("hidden");appShell.style.visibility="hidden";syncMobileRoleNav("");if(await handleDailyReporterPortal())return;if(await handlePublicPassportFragment())return;if(STANDALONE_PREVIEW){showMarketing();return}try{await loadServerState()}catch(err){csrfToken="";currentUser=null;showMarketing()}}
+window.__THEBE_WORKSPACE_READY__=false;
+window.whenThebeWorkspaceReady=function(callback){
+ if(typeof callback!=="function")return;
+ if(window.__THEBE_WORKSPACE_READY__===true){queueMicrotask(callback);return}
+ window.addEventListener("thebe:workspace-ready",callback,{once:true});
+};
+function markWorkspaceReady(){
+ if(window.__THEBE_WORKSPACE_READY__===true)return;
+ window.__THEBE_WORKSPACE_READY__=true;
+ window.dispatchEvent(new Event("thebe:workspace-ready"));
+}
+async function bootstrap(){marketingGate.classList.add("hidden");authGate.classList.add("hidden");appShell.style.visibility="hidden";syncMobileRoleNav("");if(await handleDailyReporterPortal())return;if(await handlePublicPassportFragment())return;if(STANDALONE_PREVIEW){showMarketing();return}try{await loadServerState();if(isWorkspaceRole(currentUser?.role))markWorkspaceReady()}catch(err){csrfToken="";currentUser=null;showMarketing()}}
 
 document.getElementById("authPassword").addEventListener("keydown",e=>{if(e.key==="Enter")submitAuth()});
 document.getElementById("authEmail").addEventListener("input",clearWorkspaceChoice);
@@ -8242,7 +8253,7 @@ bootstrap();
     document.querySelectorAll('[data-hub-disclosure]').forEach(details=>{const usable=[...details.querySelectorAll('[data-hub-target]')].some(card=>!card.hidden);details.hidden=!usable;if(!usable)details.open=false});
     document.querySelectorAll('.simplified-hub').forEach(hub=>{const usable=[...hub.querySelectorAll('[data-hub-target]')].some(card=>!card.hidden);hub.classList.toggle('hub-empty',!usable)});
   };
-  window.addEventListener('DOMContentLoaded',()=>setTimeout(window.refreshSimplifiedHubAccess,40));
+  window.whenThebeWorkspaceReady(()=>setTimeout(window.refreshSimplifiedHubAccess,40));
   const priorShowView=window.showView;
   if(typeof priorShowView==='function')window.showView=function(id){const out=priorShowView.apply(this,arguments);if(typeof recordRecentTool==='function')recordRecentTool(id);setTimeout(window.refreshSimplifiedHubAccess,10);return out};
 })();
@@ -8260,7 +8271,7 @@ bootstrap();
     root.querySelectorAll?.('.view table').forEach(table=>{if(table.parentElement?.classList.contains('table-scroll'))return;const wrap=document.createElement('div');wrap.className='table-scroll';wrap.setAttribute('role','region');wrap.setAttribute('aria-label','Scrollable data table');table.parentNode.insertBefore(wrap,table);wrap.appendChild(table)});
   };
   const observeIds=['openActions','navAlerts','setupPercent'];
-  window.addEventListener('DOMContentLoaded',()=>{
+  window.whenThebeWorkspaceReady(()=>{
     renderWorkspacePulse();stabilizeWorkspaceTables();
     observeIds.forEach(id=>{const el=document.getElementById(id);if(el)new MutationObserver(renderWorkspacePulse).observe(el,{childList:true,subtree:true,characterData:true})});
     const main=document.getElementById('mainContent');if(main)new MutationObserver(m=>{let needs=false;m.forEach(x=>x.addedNodes.forEach(n=>{if(n.nodeType===1&&(n.matches?.('table')||n.querySelector?.('table')))needs=true}));if(needs)stabilizeWorkspaceTables(main)}).observe(main,{childList:true,subtree:true});
@@ -8321,7 +8332,7 @@ bootstrap();
  async function resetDemo(){const ok=await BW.dialog.confirm({title:"Reset Sites demo?",message:"This clears only tenant-scoped Sites Phase 0 session data in this browser. It does not change authoritative business records.",confirmLabel:"Reset demo",danger:true});if(!ok)return;await mutate("Sites demo reset for this browser session.",async ctx=>{for(const site of readSites(ctx,{seed:false}))try{sessionStorage.removeItem(tasksKey(ctx,site.id))}catch{}sessionStorage.removeItem(sitesKey(ctx));selectedSiteId="";readSites(ctx)})}
  document.addEventListener("click",e=>{const site=e.target.closest?.("[data-site-id]");if(site){selectedSiteId=site.dataset.siteId||"";void renderVerified();return}const task=e.target.closest?.(".siteTaskToggle[data-task-id]");if(task){void toggleTask(task.dataset.taskId);return}if(e.target.closest?.("#siteTaskAddBtn")){void addTask();return}if(e.target.closest?.("#sitesResetDemo")){void resetDemo();return}if(e.target.closest?.("#sitesAddDemo")){void createSite();return}});
  const priorShowView=window.showView;if(typeof priorShowView==="function")window.showView=function(id){const out=priorShowView.apply(this,arguments);if(out&&id==="sites")queueMicrotask(()=>void renderVerified());return out};
- window.__renderV81SitesRecovery=renderVerified;setTimeout(()=>{if(document.getElementById("sites")?.classList.contains("active"))void renderVerified()},500);
+ window.__renderV81SitesRecovery=renderVerified;window.whenThebeWorkspaceReady(()=>setTimeout(()=>{if(document.getElementById("sites")?.classList.contains("active"))void renderVerified()},500));
 })();
 </script>
 
@@ -8331,7 +8342,7 @@ bootstrap();
   function openGroupForView(view){const btn=document.querySelector('#nav button[data-view="'+esc(view)+'"]');const group=btn?.closest('details.nav-access-group,details.nav-specialist-tools');if(group)group.open=true}
   function syncGroupVisibility(){document.querySelectorAll('#nav details.nav-access-group').forEach(group=>{const visible=[...group.querySelectorAll('button[data-view]')].filter(b=>b.style.display!=="none");group.style.display=visible.length?"":"none";const count=group.querySelector('.nav-access-count');if(count)count.textContent=String(visible.length)});const more=document.querySelector('#nav .nav-specialist-tools');if(more){const count=more.querySelector('.nav-specialist-count');if(count)count.textContent='3';more.dataset.totalTools='3'}}
   const priorShow=window.showView;if(typeof priorShow==='function')window.showView=function(id){const out=priorShow.apply(this,arguments);if(out)openGroupForView(id);setTimeout(syncGroupVisibility,0);return out};
-  window.addEventListener('DOMContentLoaded',()=>{syncGroupVisibility();const active=document.querySelector('#nav button[data-view].active');if(active)openGroupForView(active.dataset.view);setTimeout(syncGroupVisibility,100)},{once:true});
+  window.whenThebeWorkspaceReady(()=>{syncGroupVisibility();const active=document.querySelector('#nav button[data-view].active');if(active)openGroupForView(active.dataset.view);setTimeout(syncGroupVisibility,100)});
 })();
 </script>
 
@@ -8386,7 +8397,7 @@ bootstrap();
     }));
   }
   function install(){ensureChrome();wrapTables();bindNavigation();syncMobileActive("dashboard")}
-  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",install,{once:true});else install();
+  window.whenThebeWorkspaceReady(install);
   document.addEventListener("keydown",event=>{if(event.key==="Escape"&&document.body.classList.contains("mobile-nav-open"))closeMobileWorkspaceMenu()});
   window.addEventListener("resize",()=>{if(!isMobile())closeMobileWorkspaceMenu()},{passive:true});
   window.addEventListener("orientationchange",closeMobileWorkspaceMenu,{passive:true});
