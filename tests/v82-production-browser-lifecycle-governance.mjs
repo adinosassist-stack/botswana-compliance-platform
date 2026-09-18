@@ -46,6 +46,12 @@ must(wrapper,/function withDeadline\(label,promise,ms\)/,'browser proof has a No
 must(wrapper,/withDeadline\('desktop authenticated reload',[\s\S]*RELOAD_EXTERNAL_DEADLINE_MS\)/,'desktop authenticated reload is externally bounded');
 must(wrapper,/withDeadline\('mobile authenticated reload',[\s\S]*RELOAD_EXTERNAL_DEADLINE_MS\)/,'mobile authenticated reload is externally bounded');
 must(wrapper,/withDeadline\('desktop post-reload diagnostic',[\s\S]*DIAGNOSTIC_EXTERNAL_DEADLINE_MS\)/,'desktop post-reload diagnostics are externally bounded');
+const observationSource=wrapper.slice(wrapper.indexOf('async function observeWorkspaceBootstrap'),wrapper.indexOf('async function assertWorkspace'));
+must(observationSource,/page\.context\(\)\.cookies\(ORIGIN\)/,'normal bootstrap observation reads session state without issuing API requests');
+must(observationSource,/passive observation sessionCookie=/,'normal bootstrap observation records bounded passive DOM/session state');
+mustNot(observationSource,/probeWorkspaceBootstrap\(/,'normal pre/post-reload observation cannot inject diagnostic auth/state API traffic');
+must(wrapper,/desktop pre-reload diagnostic',[\s\S]*observeWorkspaceBootstrap\(page,'desktop pre-reload'/,'desktop pre-reload path uses passive observation');
+must(wrapper,/mobile pre-reload diagnostic',[\s\S]*observeWorkspaceBootstrap\(mobilePage,'mobile pre-reload'/,'mobile pre-reload path uses passive observation');
 must(wrapper,/withDeadline\('desktop workspace reveal',[\s\S]*WORKSPACE_EXTERNAL_DEADLINE_MS\)/,'desktop workspace reveal is externally bounded');
 must(wrapper,/API_BREADCRUMB_PATHS=new Set\(\['\/api\/auth\/me','\/api\/state','\/api\/audit','\/api\/billing\/status'\]\)/,'browser proof records only bounded startup API breadcrumbs');
 must(wrapper,/function logicalApiPath\(raw\)/,'browser proof normalizes direct, tunnel and shadow API routes for diagnostics');

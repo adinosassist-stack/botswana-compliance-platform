@@ -122,16 +122,24 @@ function summarizeProbe(d){
 }
 
 async function observeWorkspaceBootstrap(page,label,pageErrors=[]){
-  if(String(label||'').includes('post-reload')){
-    info(`${label} workspace bootstrap`,'passive API/boot breadcrumbs only; no diagnostic API requests issued');
-    return null;
-  }
   try{
-    const d=await probeWorkspaceBootstrap(page,pageErrors);
-    info(`${label} workspace bootstrap`,summarizeProbe(d));
-    return d;
+    const cookies=await page.context().cookies(ORIGIN);
+    const sessionCookiePresent=cookies.some(cookie=>cookie.name==='__Host-bw_session'||cookie.name==='bw_session');
+    const gates=await page.evaluate(()=>{
+      const shell=document.getElementById('appShell'),marketing=document.getElementById('marketingGate'),auth=document.getElementById('authGate');
+      return {
+        shell:!!shell,
+        shellVisibility:shell?getComputedStyle(shell).visibility:'missing',
+        marketingHidden:!!marketing?.classList.contains('hidden'),
+        authHidden:!!auth?.classList.contains('hidden'),
+        sidebar:!!document.getElementById('workspaceSidebar')
+      };
+    });
+    const pageError=pageErrors.length?safe(pageErrors[0]):'';
+    info(`${label} workspace bootstrap`,`passive observation sessionCookie=${cookieState(sessionCookiePresent)} gates=${safe(JSON.stringify(gates))}${pageError?` pageError=${pageError}`:''}; no diagnostic API requests issued`);
+    return {sessionCookiePresent,gates,pageError};
   }catch(error){
-    info(`${label} workspace bootstrap`,`probe_error=${safe(error?.message||error)}`);
+    info(`${label} workspace bootstrap`,`passive_observation_error=${safe(error?.message||error)}`);
     return null;
   }
 }
