@@ -244,6 +244,8 @@ async function runBrowserProof(credentials){
     assert(desktopApp?.status()===200,'desktop authenticated /app/ route did not return 200');
     activeStage='desktop pre-reload diagnostic';
     await withDeadline('desktop pre-reload diagnostic',observeWorkspaceBootstrap(page,'desktop pre-reload',pageErrors),DIAGNOSTIC_EXTERNAL_DEADLINE_MS);
+    activeStage='desktop initial workspace reveal';
+    await withDeadline('desktop initial workspace reveal',assertWorkspace(page,'desktop initial',pageErrors),WORKSPACE_EXTERNAL_DEADLINE_MS);
     activeStage='desktop authenticated reload';
     info('desktop synthetic stage','reloading authenticated /app/ workspace');
     await withDeadline('desktop authenticated reload',page.reload({waitUntil:'commit',timeout:BROWSER_NAVIGATION_TIMEOUT_MS}),RELOAD_EXTERNAL_DEADLINE_MS);
@@ -278,6 +280,8 @@ async function runBrowserProof(credentials){
     assert(mobileApp?.status()===200,'mobile authenticated /app/ route did not return 200');
     activeStage='mobile pre-reload diagnostic';
     await withDeadline('mobile pre-reload diagnostic',observeWorkspaceBootstrap(mobilePage,'mobile pre-reload',mobilePageErrors),DIAGNOSTIC_EXTERNAL_DEADLINE_MS);
+    activeStage='mobile initial workspace reveal';
+    await withDeadline('mobile initial workspace reveal',assertWorkspace(mobilePage,'mobile initial',mobilePageErrors),WORKSPACE_EXTERNAL_DEADLINE_MS);
     activeStage='mobile authenticated reload';
     info('mobile synthetic stage','reloading authenticated /app/ workspace');
     await withDeadline('mobile authenticated reload',mobilePage.reload({waitUntil:'commit',timeout:BROWSER_NAVIGATION_TIMEOUT_MS}),RELOAD_EXTERNAL_DEADLINE_MS);
