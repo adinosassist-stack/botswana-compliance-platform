@@ -9,6 +9,8 @@ const brand='Thebe Desk';
 const retired=/BW Business Protection(?: OS)?|BW Protection/;
 
 const home=read('public/index.html');
+const publicHome=read('public/home.html');
+const authPortal=read('public/auth.html');
 const manifest=JSON.parse(read('public/manifest.webmanifest'));
 const worker=read('cloudflare/src/worker.js');
 const server=read('server/server.js');
@@ -64,6 +66,12 @@ ok(workspaceUx.includes('#appShell') && !workspaceUx.includes('.marketinggate{')
 ok(ownerCss.startsWith('@import url("/assets/workspace-ui-ux-10.css?v=20260913b");'),'owner command centre loads the cache-versioned workspace UX refinement before component rules');
 ok(workspaceUx.includes('#appShell .owner-action-index') && workspaceUx.includes('background:var(--ws-accent-soft)!important') && workspaceUx.includes('color:var(--ws-accent-strong)!important'),'owner decision layer is visually unified with the live blue workspace brand');
 ok(workspaceUx.includes('@media(max-width:1000px)') && workspaceUx.includes('@media(prefers-reduced-motion:reduce)'),'workspace UX 10 retains responsive and reduced-motion behavior');
+
+ok(home.includes('/assets/workspace-ui-ux-10.css?v=20260918a') && home.includes('--accent:#0b66d6;--soft:#edf5ff;'),'authenticated shell loads the established blue workspace layer at first paint');
+ok(publicHome.includes('name="theme-color" content="#0B66D6"') && publicHome.includes('--accent:#0b66d6;') && publicHome.includes('--accent2:#0d5bc8;'),'public homepage uses Thebe blue primary branding');
+ok(!publicHome.includes('--green:#0f5f46;') && !publicHome.includes('--green2:#0a4c38;'),'public homepage does not retain the temporary green primary brand tokens');
+ok(authPortal.includes('name="theme-color" content="#0B66D6"') && authPortal.includes('--accent:#0b66d6;') && authPortal.includes('linear-gradient(145deg,#0b66d6 0%,#0d3f88 100%)'),'authentication portal uses the same blue brand system');
+ok(!authPortal.includes('--green:#0f5f46;') && !authPortal.includes('--green2:#0a4c38;'),'authentication portal does not retain the temporary green primary brand tokens');
 
 // Executive Home Briefing must keep the decision path above supporting evidence and preserve the live brand.
 ok(ownerCss.includes('content:"Today\'s executive briefing"') && ownerCss.includes('.owner-command-summary{order:1!important') && ownerCss.includes('.owner-signal-list{order:2!important') && ownerCss.includes('.owner-decision-grid{order:3!important'),'executive home brief preserves briefing -> signals -> decisions reading order');
