@@ -13,9 +13,10 @@ const install=()=>{
 let observer=null;
 const enforce=()=>{
  const auth=document.getElementById("authGate"),marketing=document.getElementById("marketingGate"),shell=document.getElementById("appShell");
- const authVisible=auth&&!auth.classList.contains("hidden")&&getComputedStyle(auth).display!=="none";
- const marketingVisible=marketing&&!marketing.classList.contains("hidden")&&getComputedStyle(marketing).display!=="none";
- const shellVisible=shell&&getComputedStyle(shell).visibility!=="hidden"&&getComputedStyle(shell).display!=="none";
+ const explicitlyShown=node=>!!node&&node.hidden!==true&&!node.classList.contains("hidden")&&node.style.display!=="none";
+ const authVisible=explicitlyShown(auth);
+ const marketingVisible=explicitlyShown(marketing);
+ const shellVisible=!!shell&&shell.hidden!==true&&shell.style.display!=="none"&&shell.style.visibility!=="hidden";
  if(authVisible){observer?.disconnect();go(authUrl());return true}
  if(marketingVisible&&!shellVisible){observer?.disconnect();go(publicUrl());return true}
  return false;

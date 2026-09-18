@@ -69,7 +69,9 @@ has(boundaryRuntime,'document.getElementById("authGate"),\n  document.getElement
 has(boundaryRuntime,'for(const node of boundaryNodes)observer.observe(node,{attributes:true,attributeFilter:["class","style"]})','workspace boundary uses targeted non-subtree attribute observation');
 lacks(boundaryRuntime,'observer.observe(root,{subtree:true','workspace boundary does not observe the full document subtree');
 lacks(boundaryRuntime,'observer.observe(document.body','workspace boundary never attaches a global body observer');
-has(governance,'/js/surface-boundaries.js?v=20260918-targeted-observer','workspace route cache-busts the targeted boundary runtime');
+lacks(boundaryRuntime,'getComputedStyle(','workspace boundary avoids forced style/layout reads during bootstrap');
+has(boundaryRuntime,'const explicitlyShown=node=>!!node&&node.hidden!==true&&!node.classList.contains("hidden")&&node.style.display!=="none"','workspace boundary uses explicit authored visibility state');
+has(governance,'/js/surface-boundaries.js?v=20260918-no-layout-read','workspace route cache-busts the no-layout-read boundary runtime');
 
 has(legacy,'id="appShell"','legacy document remains the qualified private workspace source');
 has(legacy,'id="workspaceSidebar"','legacy workspace navigation remains intact');
