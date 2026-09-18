@@ -227,14 +227,23 @@ function injectInitialWorkspaceState(html,payload){
 
 async function prefetchedWorkspaceState(request,env,ctx){
   try{
+    const headers=new Headers(request.headers);headers.set("accept","application/json");
     const stateUrl=new URL("/api/state",request.url);
-    const stateHeaders=new Headers(request.headers);stateHeaders.set("accept","application/json");
-    const response=await base.fetch(new Request(stateUrl.toString(),{method:"GET",headers:stateHeaders,redirect:"manual"}),env,ctx);
-    if(!response.ok||!String(response.headers.get("content-type")||"").toLowerCase().includes("application/json"))return null;
-    const body=await response.json();
-    const version=Number(body?.version);
+    const stateResponse=await base.fetch(new Request(stateUrl.toString(),{method:"GET",headers,redirect:"manual"}),env,ctx);
+    if(!stateResponse.ok||!String(stateResponse.headers.get("content-type")||"").toLowerCase().includes("application/json"))return null;
+    const body=await stateResponse.json(),version=Number(body?.version);
     if(!Number.isSafeInteger(version)||version<1||!body?.state||typeof body.state!=="object"||Array.isArray(body.state))return null;
-    return {version,state:body.state};
+
+    let audit=[];
+    try{
+      const auditUrl=new URL("/api/audit",request.url);
+      const auditResponse=await base.fetch(new Request(auditUrl.toString(),{method:"GET",headers,redirect:"manual"}),env,ctx);
+      if(auditResponse.ok&&String(auditResponse.headers.get("content-type")||"").toLowerCase().includes("application/json")){
+        const auditBody=await auditResponse.json();
+        if(Array.isArray(auditBody?.items))audit=auditBody.items;
+      }
+    }catch{}
+    return {version,state:body.state,audit};
   }catch{return null}
 }
 
