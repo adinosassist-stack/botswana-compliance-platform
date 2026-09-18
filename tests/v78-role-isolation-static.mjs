@@ -12,7 +12,7 @@ ok('employee is not a normal workspace membership role', schema.includes("CHECK(
 ok('frontend recognizes only four workspace roles', html.includes('const WORKSPACE_ROLES=new Set(["owner","manager","reviewer","auditor"])'));
 ok('employee reporter role is explicitly documented in UI', html.includes('<b>Employee / Reporter</b>') && html.includes('Own assigned daily-report form only'));
 ok('unsupported role portal exists', html.includes('id="roleAccessPortal"') && html.includes('does not open the leadership workspace'));
-ok('unsupported role stops before state fetch', html.indexOf('if(!isWorkspaceRole(currentUser?.role)){showRestrictedRolePortal') < html.indexOf('const st=await apiFetch("/api/state")'));
+ok('unsupported role stops before state fetch', html.indexOf('if(!isWorkspaceRole(currentUser?.role)){showRestrictedRolePortal') < html.indexOf('const st=consumeInitialWorkspaceState()||await apiFetch("/api/state")'));
 ok('unknown roles get zero workspace views', html.includes('if(r==="auditor")return new Set(AUDIT_ALLOWED);\n return new Set();'));
 ok('reviewer cannot open leadership dashboard', html.includes('const REVIEW_ALLOWED=new Set([') && !html.match(/const REVIEW_ALLOWED=new Set\(\[[^\]]*"dashboard"/s));
 ok('auditor cannot open leadership dashboard', html.includes('const AUDIT_ALLOWED=new Set([') && !html.match(/const AUDIT_ALLOWED=new Set\(\[[^\]]*"dashboard"/s));
