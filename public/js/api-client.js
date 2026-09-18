@@ -95,7 +95,12 @@
     }
     function transportCandidates(logicalTarget){
       if(!isLogicalApiTarget(logicalTarget))return [{name:"direct",url:logicalTarget}];
+      const target=new URL(logicalTarget);
       const all=["root","shadow","direct"].map(name=>({name,url:transportApiUrl(logicalTarget,name)}));
+      if(target.pathname==="/api/state"){
+        const direct=all.find(x=>x.name==="direct");
+        return [direct,...all.filter(x=>x!==direct)];
+      }
       const preferred=all.find(x=>x.name===preferredTransport)||all[0];
       return [preferred,...all.filter(x=>x!==preferred)];
     }
