@@ -25,8 +25,12 @@ observer=new MutationObserver(()=>{enforce()});
 const begin=()=>{
  install();
  if(enforce())return;
- const root=document.body;
- if(root)observer.observe(root,{subtree:true,attributes:true,attributeFilter:["class","style"]});
+ const boundaryNodes=[
+  document.getElementById("authGate"),
+  document.getElementById("marketingGate"),
+  document.getElementById("appShell")
+ ].filter(Boolean);
+ for(const node of boundaryNodes)observer.observe(node,{attributes:true,attributeFilter:["class","style"]});
  requestAnimationFrame(()=>enforce());
 };
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",begin,{once:true});else begin();
