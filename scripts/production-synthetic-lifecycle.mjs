@@ -80,6 +80,50 @@ function cookieFrom(response){
 }
 function fingerprint(tenantId){return crypto.createHmac('sha256',auditSecret).update(`tenant-deletion|${tenantId}`).digest('hex')}
 
+async function probeAuthenticatedStateRoute(cookie,label,path){
+  const controller=new AbortController(),started=Date.now();
+  const timer=setTimeout(()=>controller.abort('state-route-probe-timeout'),8000);
+  try{
+    const response=await fetch(`${ORIGIN}${path}`,{
+      method:'GET',
+      redirect:'error',
+      signal:controller.signal,
+      headers:{
+        'user-agent':agent,
+        'accept':'application/json',
+        'origin':ORIGIN,
+        'sec-fetch-site':'same-origin',
+        cookie
+      }
+    });
+    const text=await response.text();
+    let body=null;try{body=text?JSON.parse(text):null}catch{}
+    return {
+      label,
+      status:response.status,
+      ok:response.ok&&body&&Number.isFinite(Number(body.version)),
+      elapsedMs:Date.now()-started,
+      error:body?.error||(!response.ok?`http_${response.status}`:body?'state_version_missing':'invalid_json')
+    };
+  }catch(error){
+    return {label,status:0,ok:false,elapsedMs:Date.now()-started,error:String(error?.name||'network_error')};
+  }finally{clearTimeout(timer)}
+}
+
+async function probeAuthenticatedStateRoutes(cookie){
+  const probes=[
+    ['root_tunnel','/?__thebe_api_path=%2Fapi%2Fstate'],
+    ['shadow_path','/__thebe_api/state'],
+    ['direct','/api/state']
+  ];
+  const results=[];
+  for(const [label,path] of probes)results.push(await probeAuthenticatedStateRoute(cookie,label,path));
+  for(const result of results){
+    console.log(`INFO authenticated state route probe: transport=${result.label} status=${result.status} elapsedMs=${result.elapsedMs} result=${result.ok?'ok':safe(result.error)}`);
+  }
+  return results;
+}
+
 let synthetic=null;
 let deletionRequestId=null;
 let cleanupComplete=false;
@@ -181,6 +225,8 @@ try{
   assert(csrf.length>=16,'login response missing CSRF token');
   const cookie=cookieFrom(login.response);
   mark('live login','200 with owner session cookie + CSRF token');
+
+  await probeAuthenticatedStateRoutes(cookie);
 
   const browserProof=globalThis.__thebeSyntheticBrowserProof;
   if(typeof browserProof==='function'){
