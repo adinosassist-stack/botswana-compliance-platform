@@ -59,4 +59,4 @@ if(productionAuditEnv){
   console.log('PASS production-only historical synthetic residue audit completed');
 }
 
-console.log(`Phase 0 deferred integration, post-deploy, tenant-integrity and residue-audit contract: ${pass}/35 PASS`);
+console.log(`Phase 0 deferred integration, post-deploy, tenant-integrity and residue-audit contract: ${pass}/36 PASS`);
