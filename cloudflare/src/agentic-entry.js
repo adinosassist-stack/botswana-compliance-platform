@@ -11,8 +11,9 @@ const SYNTHETIC_BOOT_TRACE_PREFIX="THEBE_SYNTHETIC_BOOT";
 const SYNTHETIC_BOOT_TRACE_PARAMS=new Set(["desktop-owner-proof","authenticated-mobile-proof"]);
 const SYNTHETIC_AUTH_ME_BOOT_SOURCE='const info=await productionApiClient.request("/api/auth/me");currentUser=';
 const SYNTHETIC_STATE_BOOT_SOURCE='const st=consumeInitialWorkspaceState()||await apiFetch("/api/state");serverStateVersion=st.version||1;let nextStore;';
-const SYNTHETIC_STORE_BOOT_SOURCE='nextStore.activeRole=currentUser.role;try{let a=await apiFetch("/api/audit");nextStore.audit=a.items||[]}catch{nextStore.audit=[]}replaceWorkspaceStore(nextStore);';
+const SYNTHETIC_STORE_BOOT_SOURCE='nextStore.activeRole=currentUser.role;nextStore.audit=[];replaceWorkspaceStore(nextStore);';
 const SYNTHETIC_RENDER_BOOT_SOURCE='renderAll();applyRoleUi();hideAuth();void loadBilling();logEvent("APP_OPENED",{ruleset:"BW-2026.08.30-launch"});';
+const SYNTHETIC_AUDIT_BOOT_SOURCE='void hydrateWorkspaceAudit();';
 const SYNTHETIC_LANDING_BOOT_SOURCE='const landing=roleLandingView(currentUser.role);if(landing&&roleCanView(landing))showView(landing,{roleRedirect:true});';
 
 function logicalRequestPath(request){
@@ -49,6 +50,7 @@ function injectSyntheticBootTrace(request,html){
     !uniqueSourceAnchor(source,SYNTHETIC_STATE_BOOT_SOURCE)||
     !uniqueSourceAnchor(source,SYNTHETIC_STORE_BOOT_SOURCE)||
     !uniqueSourceAnchor(source,SYNTHETIC_RENDER_BOOT_SOURCE)||
+    !uniqueSourceAnchor(source,SYNTHETIC_AUDIT_BOOT_SOURCE)||
     !uniqueSourceAnchor(source,SYNTHETIC_LANDING_BOOT_SOURCE))return source;
   return source
     .replace(
@@ -61,11 +63,15 @@ function injectSyntheticBootTrace(request,html){
     )
     .replace(
       SYNTHETIC_STORE_BOOT_SOURCE,
-      `console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} audit_start");nextStore.activeRole=currentUser.role;try{let a=await apiFetch("/api/audit");nextStore.audit=a.items||[]}catch{nextStore.audit=[]}console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} audit_complete");console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} store_start");replaceWorkspaceStore(nextStore);console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} store_complete");`
+      `console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} store_start");nextStore.activeRole=currentUser.role;nextStore.audit=[];replaceWorkspaceStore(nextStore);console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} store_complete");`
     )
     .replace(
       SYNTHETIC_RENDER_BOOT_SOURCE,
       `console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} render_start");renderAll();console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} render_complete");applyRoleUi();console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} role_ui_complete");hideAuth();console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} reveal_complete");void loadBilling();logEvent("APP_OPENED",{ruleset:"BW-2026.08.30-launch"});console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} app_open_logged");`
+    )
+    .replace(
+      SYNTHETIC_AUDIT_BOOT_SOURCE,
+      `console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} audit_deferred");void hydrateWorkspaceAudit();`
     )
     .replace(
       SYNTHETIC_LANDING_BOOT_SOURCE,
@@ -97,7 +103,7 @@ async function hardenAuthenticatedColdStart(request,response){
   headers.delete("content-length");
   headers.delete("etag");
   headers.set("x-thebe-cold-start-guard","role-redirect-v1");
-  if(hardened!==guarded)headers.set("x-thebe-synthetic-boot-trace","auth-state-render-v2");
+  if(hardened!==guarded)headers.set("x-thebe-synthetic-boot-trace","auth-state-render-v3");
   return new Response(hardened,{status:response.status,statusText:response.statusText,headers});
 }
 
