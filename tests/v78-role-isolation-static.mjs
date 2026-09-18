@@ -22,8 +22,8 @@ ok('reviewer/auditor land on work instead of leadership home', html.includes('if
 ok('billing loads only for owner', html.includes('if(currentWorkspaceRole()!=="owner"){billingInfo=null'));
 ok('rendering is role scoped and hidden async modules do not fetch', html.includes('const run=(view,fn)=>{if(!roleCanView(view)||typeof fn!=="function")return;')&&html.includes('if(isAsync&&!target?.classList.contains("active"))return'));
 ok('mobile navigation is filtered by the same role matrix', html.includes('function syncMobileRoleNav(role=currentWorkspaceRole())') && html.includes('btn.style.display=roleCanView(target,role)?"":"none"'));
-ok('employee/restricted portal removes mobile workspace navigation', html.includes('appShell.style.visibility="hidden";syncMobileRoleNav(role);'));
-ok('employee reporter route removes mobile workspace navigation', html.includes('appShell.style.visibility="hidden";syncMobileRoleNav("");const rolePortal=document.getElementById("roleAccessPortal")'));
+ok('employee/restricted portal removes mobile workspace navigation', html.includes('concealWorkspaceShell();syncMobileRoleNav(role);')&&html.includes('function concealWorkspaceShell(){appShell.style.display="none";appShell.style.visibility="hidden"}'));
+ok('employee reporter route removes mobile workspace navigation', html.includes('concealWorkspaceShell();syncMobileRoleNav("");const rolePortal=document.getElementById("roleAccessPortal")'));
 
 ok('worker denies non-workspace session roles before tenant APIs', worker.includes('if(!workspaceSessionRole(a)&&!selfServiceApi(url.pathname,req.method))return json({error:"workspace_role_forbidden"},403)'));
 ok('worker state is projected by role', worker.includes('state:projectWorkspaceStateForRole(raw,a.role)'));
