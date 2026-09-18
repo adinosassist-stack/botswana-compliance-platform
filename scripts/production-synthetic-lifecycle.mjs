@@ -182,6 +182,28 @@ try{
   const cookie=cookieFrom(login.response);
   mark('live login','200 with owner session cookie + CSRF token');
 
+  const stateProbeController=new AbortController();
+  const stateProbeTimer=setTimeout(()=>stateProbeController.abort('synthetic-state-probe-timeout'),8000);
+  try{
+    const stateProbeUrl=new URL('/',ORIGIN);
+    stateProbeUrl.searchParams.set('__thebe_api_path','/api/state');
+    const stateProbeResponse=await fetch(stateProbeUrl,{
+      method:'GET',
+      redirect:'error',
+      headers:{'user-agent':agent,'accept':'application/json','origin':ORIGIN,'sec-fetch-site':'same-origin',cookie},
+      signal:stateProbeController.signal
+    });
+    const stateProbeText=await stateProbeResponse.text();
+    let stateProbeJson=null;try{stateProbeJson=stateProbeText?JSON.parse(stateProbeText):null}catch{}
+    assert(stateProbeResponse.status===200,`authenticated root-tunnel state probe HTTP ${stateProbeResponse.status}: ${safe(stateProbeText)}`);
+    assert(Number(stateProbeJson?.version)>=1&&stateProbeJson?.state&&typeof stateProbeJson.state==='object','authenticated root-tunnel state probe returned an invalid workspace payload');
+    mark('authenticated root-tunnel state probe',`HTTP 200 version=${stateProbeJson.version}`);
+  }catch(error){
+    fail(`authenticated root-tunnel state probe failed: ${safe(error?.message||error)}`);
+  }finally{
+    clearTimeout(stateProbeTimer);
+  }
+
   const browserProof=globalThis.__thebeSyntheticBrowserProof;
   if(typeof browserProof==='function'){
     await browserProof(Object.freeze({email,password,companyName}));
