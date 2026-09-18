@@ -4,6 +4,7 @@ const audit=fs.readFileSync('scripts/production-launch-audit.mjs','utf8');
 const workflow=fs.readFileSync('.github/workflows/production-launch-audit.yml','utf8');
 const residueAudit=fs.readFileSync('scripts/production-synthetic-residue-audit.mjs','utf8');
 const browserWrapper=fs.readFileSync('scripts/production-synthetic-browser-wrapper.mjs','utf8');
+const workspaceHtml=fs.readFileSync('public/index.html','utf8');
 let pass=0;
 const ok=(condition,message)=>{
   if(!condition)throw new Error(`FAIL: ${message}`);
@@ -26,6 +27,7 @@ ok(workflow.includes('post-deploy smoke SHA mismatch')&&workflow.includes('refus
 ok(workflow.includes('environment: production')&&workflow.includes('CLOUDFLARE_API_TOKEN')&&workflow.includes('D1_DATABASE_ID'), 'privileged Cloudflare and D1 audit remains isolated in the production environment');
 ok(browserWrapper.includes("opening dedicated auth surface")&&browserWrapper.includes("/auth/?mode=login&next=/app/")&&browserWrapper.includes("opening authenticated /app/ workspace"), 'canonical desktop synthetic lifecycle authenticates through the dedicated auth surface and enters /app/');
 ok(browserWrapper.includes("mobile auth surface navigation")&&browserWrapper.includes("mobile authenticated /app/ route did not return 200")&&browserWrapper.includes("reloading authenticated /app/ workspace"), 'canonical mobile synthetic lifecycle reloads the authenticated /app/ boundary instead of legacy root');
+ok(workspaceHtml.includes('renderAll();applyRoleUi();hideAuth();void loadBilling();logEvent("APP_OPENED"')&&!workspaceHtml.includes('await loadBilling();hideAuth()'), 'authenticated workspace reveal is not blocked by optional billing hydration');
 ok(!workflow.includes('\n  push:')&&!workflow.includes('[launch-audit]'), 'direct-push launch-audit production path is removed');
 ok(audit.includes("import fs from 'node:fs'")&&audit.includes('MAX_LEGACY_ORPHAN_TENANTS=1'), 'launch audit records a bounded legacy orphan baseline without embedding tenant identifiers');
 ok(audit.includes("const orphanPredicate=`NOT EXISTS (SELECT 1 FROM memberships m WHERE m.tenant_id=t.id)`"), 'tenant integrity audit defines ownership by membership');
