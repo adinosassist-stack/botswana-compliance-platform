@@ -8194,15 +8194,22 @@ function consumeInitialWorkspaceState(){
   return {version,state:data.state};
  }catch{return null}
 }
+async function hydrateWorkspaceAudit(){
+ try{
+  const a=await apiFetch("/api/audit"),items=Array.isArray(a?.items)?a.items:[];
+  updateWorkspaceMeta({audit:items});
+  if(document.getElementById("audit")?.classList.contains("active"))renderAudit();
+ }catch{}
+}
 async function loadServerState(){
  if(STANDALONE_PREVIEW){
   const role=isWorkspaceRole(currentUser?.role)?currentUser.role:"owner";currentUser={id:currentUser?.id||"preview-user",email:currentUser?.email||"owner@preview.local",displayName:currentUser?.displayName||"Preview user",role,tenantId:currentUser?.tenantId||"preview-tenant",tenantName:currentUser?.tenantName||"Preview Business",onboardingComplete:true};csrfToken="preview-csrf";serverStateVersion=1;const nextStore=structuredClone(DEFAULT_STATE);nextStore.activeRole=role;replaceWorkspaceStore(nextStore);renderAll();applyRoleUi();hideAuth();const landing=roleLandingView(role);if(landing&&roleCanView(landing))showView(landing,{roleRedirect:true});else showView("dashboard",{roleRedirect:true});const chip=document.querySelector(".prodchip");if(chip)chip.textContent=`PREVIEW · ${role.toUpperCase()}`;return
  }
  const info=await productionApiClient.request("/api/auth/me");currentUser={...(currentUser||{}),...(info.user||{})};csrfToken=info.csrfToken||csrfToken;if(!isWorkspaceRole(currentUser?.role)){showRestrictedRolePortal(currentUser?.role);return}
  const st=consumeInitialWorkspaceState()||await apiFetch("/api/state");serverStateVersion=st.version||1;let nextStore;
- if(st.state&&st.state.companies?.length){nextStore=structuredClone(st.state)}else if(currentUser.role==="owner"){nextStore=blankWorkspaceState(currentUser.tenantName||"My Business",currentUser.role);let init=await apiFetch("/api/state",{method:"PUT",body:JSON.stringify({state:nextStore,version:serverStateVersion})});serverStateVersion=init.version||serverStateVersion}else{throw new Error("The account owner must finish initial workspace setup before this role can enter.")}
- nextStore.activeRole=currentUser.role;try{let a=await apiFetch("/api/audit");nextStore.audit=a.items||[]}catch{nextStore.audit=[]}replaceWorkspaceStore(nextStore);
- renderAll();applyRoleUi();hideAuth();void loadBilling();logEvent("APP_OPENED",{ruleset:"BW-2026.08.30-launch"});const landing=roleLandingView(currentUser.role);if(landing&&roleCanView(landing))showView(landing,{roleRedirect:true});handleOAuthResult();handleResetLink();
+ if(st.state&&st.state.companies?.length){nextStore=structuredClone(st.state)}else if(currentUser.role==="owner"){nextStore=blankWorkspaceState(currentUser.tenantName||"My Business",currentUser.role)}else{throw new Error("The account owner must finish initial workspace setup before this role can enter.")}
+ nextStore.activeRole=currentUser.role;nextStore.audit=[];replaceWorkspaceStore(nextStore);
+ renderAll();applyRoleUi();hideAuth();void loadBilling();logEvent("APP_OPENED",{ruleset:"BW-2026.08.30-launch"});void hydrateWorkspaceAudit();const landing=roleLandingView(currentUser.role);if(landing&&roleCanView(landing))showView(landing,{roleRedirect:true});handleOAuthResult();handleResetLink();
  if(currentUser.role==="owner"&&currentUser.onboardingComplete===false&&safeSessionGet("bw_onboarding_dismissed")!=="1")setTimeout(()=>openOnboarding(),180);
  if(currentUser.role==="owner"&&currentUser.onboardingComplete===true&&state?.profile?.firstProtectionCheckStatus==="pending")setTimeout(()=>{document.getElementById("firstValuePanel")?.classList.add("show");renderFirstValueFailure("The previous first protection check did not finish. Run it again to generate server-backed actions.")},220);
 }
