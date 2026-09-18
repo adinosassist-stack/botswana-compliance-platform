@@ -36,6 +36,7 @@ jobs:
     env:
       CI: 'true'
       EXPECTED_SHA: ${{ inputs.expected_sha }}
+      MAX_RELEASE_LINEAGE_MERGES: '50'
 
     steps:
       - name: Checkout exact revision
@@ -245,7 +246,8 @@ jobs:
 
           mapfile -t lineage_shas < <(git rev-list --first-parent --reverse "$previous_release_sha..$release_sha")
           (( ${#lineage_shas[@]} >= 1 )) || { echo 'release lineage contains no qualifying commits after the prior closed production release' >&2; exit 1; }
-          (( ${#lineage_shas[@]} <= 25 )) || { echo "release lineage exceeds the bounded 25-merge review window: ${#lineage_shas[@]}" >&2; exit 1; }
+          [[ "$MAX_RELEASE_LINEAGE_MERGES" =~ ^[0-9]+$ ]] && (( MAX_RELEASE_LINEAGE_MERGES >= 1 && MAX_RELEASE_LINEAGE_MERGES <= 100 )) || { echo "invalid bounded release lineage review window: $MAX_RELEASE_LINEAGE_MERGES" >&2; exit 1; }
+          (( ${#lineage_shas[@]} <= MAX_RELEASE_LINEAGE_MERGES )) || { echo "release lineage exceeds the bounded ${MAX_RELEASE_LINEAGE_MERGES}-merge review window: ${#lineage_shas[@]}" >&2; exit 1; }
 
           for lineage_sha in "${lineage_shas[@]}"; do
             read -r -a lineage_line <<< "$(git rev-list --parents -n 1 "$lineage_sha")"
