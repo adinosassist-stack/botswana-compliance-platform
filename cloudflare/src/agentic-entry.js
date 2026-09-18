@@ -10,7 +10,7 @@ const COLD_START_GUARDED_RENDER="if(!options?.skipDataRefresh&&!options?.roleRed
 const SYNTHETIC_BOOT_TRACE_PREFIX="THEBE_SYNTHETIC_BOOT";
 const SYNTHETIC_BOOT_TRACE_PARAMS=new Set(["desktop-owner-proof","authenticated-mobile-proof"]);
 const SYNTHETIC_AUTH_ME_BOOT_SOURCE='const info=await productionApiClient.request("/api/auth/me");currentUser=';
-const SYNTHETIC_STATE_BOOT_SOURCE='const st=await apiFetch("/api/state");serverStateVersion=st.version||1;let nextStore;';
+const SYNTHETIC_STATE_BOOT_SOURCE='const st=consumeInitialWorkspaceState()||await apiFetch("/api/state");serverStateVersion=st.version||1;let nextStore;';
 const SYNTHETIC_STORE_BOOT_SOURCE='nextStore.activeRole=currentUser.role;try{let a=await apiFetch("/api/audit");nextStore.audit=a.items||[]}catch{nextStore.audit=[]}replaceWorkspaceStore(nextStore);';
 const SYNTHETIC_RENDER_BOOT_SOURCE='renderAll();applyRoleUi();hideAuth();void loadBilling();logEvent("APP_OPENED",{ruleset:"BW-2026.08.30-launch"});';
 const SYNTHETIC_LANDING_BOOT_SOURCE='const landing=roleLandingView(currentUser.role);if(landing&&roleCanView(landing))showView(landing,{roleRedirect:true});';
@@ -57,7 +57,7 @@ function injectSyntheticBootTrace(request,html){
     )
     .replace(
       SYNTHETIC_STATE_BOOT_SOURCE,
-      `console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} state_start");const st=await apiFetch("/api/state");console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} state_complete");serverStateVersion=st.version||1;let nextStore;`
+      `console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} state_start");const st=consumeInitialWorkspaceState()||await apiFetch("/api/state");console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} state_complete");serverStateVersion=st.version||1;let nextStore;`
     )
     .replace(
       SYNTHETIC_STORE_BOOT_SOURCE,
