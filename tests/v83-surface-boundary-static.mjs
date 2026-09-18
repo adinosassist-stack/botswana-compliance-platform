@@ -65,6 +65,11 @@ has(boundaryRuntime,'window.returnToPublicWebsite','workspace public-exit action
 has(boundaryRuntime,'window.showAuth','expired workspace auth is routed to the dedicated auth surface');
 has(boundaryRuntime,'if(enforce())return','workspace boundary immediately checks legacy state on installation');
 has(boundaryRuntime,'requestAnimationFrame(()=>enforce())','workspace boundary rechecks the initial bootstrap frame');
+has(boundaryRuntime,'document.getElementById("authGate"),\n  document.getElementById("marketingGate"),\n  document.getElementById("appShell")','workspace boundary observes only the three route-boundary elements');
+has(boundaryRuntime,'for(const node of boundaryNodes)observer.observe(node,{attributes:true,attributeFilter:["class","style"]})','workspace boundary uses targeted non-subtree attribute observation');
+lacks(boundaryRuntime,'observer.observe(root,{subtree:true','workspace boundary does not observe the full document subtree');
+lacks(boundaryRuntime,'observer.observe(document.body','workspace boundary never attaches a global body observer');
+has(governance,'/js/surface-boundaries.js?v=20260918-targeted-observer','workspace route cache-busts the targeted boundary runtime');
 
 has(legacy,'id="appShell"','legacy document remains the qualified private workspace source');
 has(legacy,'id="workspaceSidebar"','legacy workspace navigation remains intact');
