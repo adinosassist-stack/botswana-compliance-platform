@@ -218,60 +218,6 @@ async function probeAuthSurfaceState(page,label,path){
   return result;
 }
 
-async function probeAppScriptIsolation(browser,cookies,label,blockedPaths){
-  const context=await browser.newContext({viewport:{width:1440,height:1100},screen:{width:1440,height:1100},userAgent:desktopAgent});
-  let page=null;
-  try{
-    await context.addCookies(cookies);
-    page=await context.newPage();
-    page.setDefaultTimeout(12000);page.setDefaultNavigationTimeout(BROWSER_NAVIGATION_TIMEOUT_MS);
-    attachApiBreadcrumbs(page,`desktop isolation ${label}`);
-    const blocked=new Set(blockedPaths);
-    if(blocked.size){
-      await page.route('**/*',async route=>{
-        const request=route.request();
-        try{
-          const url=new URL(request.url());
-          if(url.origin===ORIGIN&&blocked.has(url.pathname))return route.abort('blockedbyclient');
-        }catch{}
-        return route.continue();
-      });
-    }
-    const stateResponse=page.waitForResponse(response=>
-      response.request().method()==='GET'&&logicalApiPath(response.url())==='/api/state',
-      {timeout:8000}
-    ).then(response=>({ok:response.status()===200,status:response.status(),transport:apiTransport(response.url())}))
-      .catch(error=>({ok:false,status:0,transport:'none',error:String(error?.name||'timeout')}));
-    const nav=await page.goto(`${ORIGIN}/app/?desktop-owner-proof=${Date.now()}&script-isolation=${encodeURIComponent(label)}`,{
-      waitUntil:'domcontentloaded',timeout:BROWSER_NAVIGATION_TIMEOUT_MS
-    });
-    const state=await withDeadline(`desktop app-script isolation ${label} state`,stateResponse,10000)
-      .catch(error=>({ok:false,status:0,transport:'none',error:safe(error?.message||error)}));
-    let revealed=false;
-    if(state.ok){
-      revealed=await withDeadline(
-        `desktop app-script isolation ${label} reveal`,
-        page.waitForFunction(()=>{
-          const shell=document.getElementById('appShell');
-          const marketing=document.getElementById('marketingGate');
-          const auth=document.getElementById('authGate');
-          if(!shell)return false;
-          return !shell.classList.contains('hidden')&&shell.style.display!=='none'&&shell.style.visibility!=='hidden'&&
-            !!document.getElementById('workspaceSidebar')&&marketing?.classList.contains('hidden')&&auth?.classList.contains('hidden');
-        },null,{timeout:5000}).then(()=>true).catch(()=>false),
-        7000
-      ).catch(()=>false);
-    }
-    info('desktop app-script isolation',`case=${safe(label)} blocked=${safe(blockedPaths.join(',')||'none')} nav=${nav?.status()||0} state=${state.status||0} transport=${safe(state.transport||'none')} reveal=${revealed?'yes':'no'}`);
-    return {label,navStatus:nav?.status()||0,stateStatus:state.status||0,stateTransport:state.transport||'none',revealed};
-  }catch(error){
-    info('desktop app-script isolation',`case=${safe(label)} blocked=${safe(blockedPaths.join(',')||'none')} result=${safe(error?.message||error)}`);
-    return {label,navStatus:0,stateStatus:0,stateTransport:'none',revealed:false};
-  }finally{
-    await withDeadline(`desktop app-script isolation ${label} close`,context.close().catch(()=>{}),BROWSER_CLOSE_DEADLINE_MS).catch(()=>{});
-  }
-}
-
 async function runBrowserProof(credentials){
   const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox']});
   let activeStage='browser launch';
@@ -332,11 +278,6 @@ async function runBrowserProof(credentials){
     activeStage='desktop auth-surface direct state probe';
     const authDirectState=await probeAuthSurfaceState(page,'direct','/api/state');
     assert(authDirectState.ok,`desktop auth-surface direct state probe failed HTTP ${authDirectState.status} ${safe(authDirectState.error)}`);
-    activeStage='desktop app-script isolation diagnostics';
-    const isolationCookies=await desktop.cookies(ORIGIN);
-    await probeAppScriptIsolation(browser,isolationCookies,'block-boundary',['/js/surface-boundaries.js']);
-    await probeAppScriptIsolation(browser,isolationCookies,'block-oauth',['/js/oauth-availability.js']);
-    await probeAppScriptIsolation(browser,isolationCookies,'block-both',['/js/surface-boundaries.js','/js/oauth-availability.js']);
     activeStage='desktop app navigation';
     info('desktop synthetic stage','opening authenticated /app/ workspace');
     const desktopApp=await page.goto(`${ORIGIN}/app/?desktop-owner-proof=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:BROWSER_NAVIGATION_TIMEOUT_MS});
