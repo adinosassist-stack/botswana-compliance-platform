@@ -2604,7 +2604,7 @@ main{
   </div>
 </div>
 <div class="previewmode" data-nosnippet>STANDALONE PREVIEW · NO LIVE SUBMISSIONS</div>
-<div class="shell" id="appShell" style="visibility:hidden" data-nosnippet>
+<div class="shell" id="appShell" style="display:none;visibility:hidden" data-nosnippet>
 <aside id="workspaceSidebar" aria-label="Workspace navigation">
   <button class="brand workspace-brand-link" type="button" data-bw-onclick="returnToPublicWebsite()" aria-label="Back to Thebe Desk website" title="Back to website"><img src="/assets/thebe-desk-logo-symbol.png" alt="Thebe Desk logo symbol"><span>Thebe Desk</span></button>
   <div class="nav" id="nav">
@@ -5996,7 +5996,7 @@ function syncMobileRoleNav(role=currentWorkspaceRole()){
  });
 }
 function showRestrictedRolePortal(role=currentWorkspaceRole()){
- marketingGate.classList.add("hidden");authGate.classList.add("hidden");appShell.style.visibility="hidden";syncMobileRoleNav(role);
+ marketingGate.classList.add("hidden");authGate.classList.add("hidden");concealWorkspaceShell();syncMobileRoleNav(role);
  const portal=document.getElementById("roleAccessPortal");if(portal)portal.style.display="block";
  const reporter=document.getElementById("reporterPortal");if(reporter)reporter.style.display="none";
  console.warn("Workspace access denied for role",role);
@@ -6618,7 +6618,7 @@ const productionApiClient=BW.api.createClient({getCsrfToken:()=>csrfToken,onUnau
 const publicApiClient=BW.api.createClient({getCsrfToken:()=>"",onUnauthorized:()=>{},onError:(err,ctx)=>console.error("BW public API request failed",{code:err.code,status:err.status,...ctx})});
 const runtimeApiClient=STANDALONE_PREVIEW?Object.freeze({request:(url,opts={})=>BW.preview.request(url,opts)}):productionApiClient;
 async function apiJson(url,opts={}){return runtimeApiClient.request(url,opts)}
-function enterStandalonePreview(){if(!STANDALONE_PREVIEW)return false;document.body.classList.add("standalone-preview");const next=structuredClone(DEFAULT_STATE);next.activeRole="owner";replaceWorkspaceStore(next);currentUser={id:"preview-user",email:"preview@local",role:"owner"};marketingGate.classList.add("hidden");authGate.classList.add("hidden");appShell.style.visibility="visible";syncMobileRoleNav("owner");renderAll();applyRoleUi();showView("dashboard");const chip=document.querySelector(".prodchip");if(chip)chip.textContent="PREVIEW MODE";return true}
+function enterStandalonePreview(){if(!STANDALONE_PREVIEW)return false;document.body.classList.add("standalone-preview");const next=structuredClone(DEFAULT_STATE);next.activeRole="owner";replaceWorkspaceStore(next);currentUser={id:"preview-user",email:"preview@local",role:"owner"};marketingGate.classList.add("hidden");authGate.classList.add("hidden");revealWorkspaceShell();syncMobileRoleNav("owner");renderAll();applyRoleUi();showView("dashboard");const chip=document.querySelector(".prodchip");if(chip)chip.textContent="PREVIEW MODE";return true}
 
 
 // v73 — daily operations reporting UI.
@@ -6690,7 +6690,7 @@ async function saveOpsReportingSettings(){const enabled=document.getElementById(
 
 function updateReporterNetworkStatus(){const st=document.getElementById("reporterDraftStatus");if(!st)return;st.textContent=navigator.onLine?"Entries stay on this page until sent. Sensitive report text is not persisted in browser storage.":"Offline — keep this page open. Your entries remain here; retry when connectivity returns."}
 window.addEventListener("online",updateReporterNetworkStatus);window.addEventListener("offline",updateReporterNetworkStatus);
-async function handleDailyReporterPortal(){const hash=location.hash||"";if(!hash.startsWith("#report="))return false;dailyReporterToken=decodeURIComponent(hash.slice(8));marketingGate.classList.add("hidden");authGate.classList.add("hidden");appShell.style.visibility="hidden";syncMobileRoleNav("");const rolePortal=document.getElementById("roleAccessPortal");if(rolePortal)rolePortal.style.display="none";const portal=document.getElementById("reporterPortal");portal.style.display="block";try{let data;if(STANDALONE_PREVIEW)data={employee:{name:"Demo Employee",roleTitle:"Operations Assistant"},location:{name:"Head Office",town:"Gaborone"},companyName:"Demo Company",reportDate:browserGaboroneDate()};else{data=await publicApiClient.request("/public/daily-reporting/access",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({token:dailyReporterToken})})};setText("reporterEmployeeName",`${data.employee.name}${data.employee.roleTitle?` · ${data.employee.roleTitle}`:""}`);setText("reporterLocationName",`${data.location.name}${data.location.town?` · ${data.location.town}`:""}`);setText("reporterCompanyName",data.companyName);document.getElementById("reporterDate").value=data.reportDate||browserGaboroneDate();updateReporterNetworkStatus()}catch(e){const er=document.getElementById("reporterPortalError");er.textContent=e.message;er.style.display="block";document.getElementById("reporterDailyForm").style.display="none"}return true}
+async function handleDailyReporterPortal(){const hash=location.hash||"";if(!hash.startsWith("#report="))return false;dailyReporterToken=decodeURIComponent(hash.slice(8));marketingGate.classList.add("hidden");authGate.classList.add("hidden");concealWorkspaceShell();syncMobileRoleNav("");const rolePortal=document.getElementById("roleAccessPortal");if(rolePortal)rolePortal.style.display="none";const portal=document.getElementById("reporterPortal");portal.style.display="block";try{let data;if(STANDALONE_PREVIEW)data={employee:{name:"Demo Employee",roleTitle:"Operations Assistant"},location:{name:"Head Office",town:"Gaborone"},companyName:"Demo Company",reportDate:browserGaboroneDate()};else{data=await publicApiClient.request("/public/daily-reporting/access",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({token:dailyReporterToken})})};setText("reporterEmployeeName",`${data.employee.name}${data.employee.roleTitle?` · ${data.employee.roleTitle}`:""}`);setText("reporterLocationName",`${data.location.name}${data.location.town?` · ${data.location.town}`:""}`);setText("reporterCompanyName",data.companyName);document.getElementById("reporterDate").value=data.reportDate||browserGaboroneDate();updateReporterNetworkStatus()}catch(e){const er=document.getElementById("reporterPortalError");er.textContent=e.message;er.style.display="block";document.getElementById("reporterDailyForm").style.display="none"}return true}
 async function submitDailyReporterForm(){const btn=document.getElementById("reporterSubmitBtn"),success=document.getElementById("reporterPortalSuccess"),error=document.getElementById("reporterPortalError");success.style.display="none";error.style.display="none";const payload={token:dailyReporterToken,reportDate:document.getElementById("reporterDate").value,workSummary:document.getElementById("reporterWorkSummary").value,wins:document.getElementById("reporterWins").value,blockers:document.getElementById("reporterBlockers").value,incidents:document.getElementById("reporterIncidents").value,nextPlan:document.getElementById("reporterNextPlan").value,needsAttention:document.getElementById("reporterNeedsAttention").checked,kpis:{tasksCompleted:document.getElementById("reporterTasks").value,customersHandled:document.getElementById("reporterCustomers").value,revenueBwp:document.getElementById("reporterRevenue").value,incidentsCount:document.getElementById("reporterIncidentCount").value,customLabel:document.getElementById("reporterCustomLabel").value,customValue:document.getElementById("reporterCustomValue").value}};if(!payload.workSummary.trim()&&!payload.wins.trim()&&!payload.blockers.trim()&&!payload.incidents.trim()&&!payload.nextPlan.trim()){error.textContent="Add at least one report note before sending.";error.style.display="block";return}btn.disabled=true;btn.textContent="Sending…";try{let data;if(STANDALONE_PREVIEW)data={message:"Preview report accepted."};else{data=await publicApiClient.request("/public/daily-reporting/submit",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)})};success.textContent=`${data.message||"Daily report submitted."} You can update the same reporting date if you need to correct something.`;success.style.display="block";updateReporterNetworkStatus();window.scrollTo({top:0,behavior:"smooth"})}catch(e){error.textContent=e.message;error.style.display="block"}finally{btn.disabled=false;btn.textContent="Send daily report"}}
 
 async function renderSocialAccounts(){
@@ -7909,7 +7909,7 @@ function publicPassportHashToken(){
 async function handlePublicPassportFragment(){
   const token=publicPassportHashToken();if(!token)return false;
   history.replaceState(null,"",location.pathname+location.search);
-  marketingGate.classList.add("hidden");authGate.classList.add("hidden");appShell.style.visibility="hidden";syncMobileRoleNav("");
+  marketingGate.classList.add("hidden");authGate.classList.add("hidden");concealWorkspaceShell();syncMobileRoleNav("");
   const gate=document.getElementById("publicPassportGate"),box=document.getElementById("publicPassportResult");
   if(!gate||!box){console.error("Public passport verification surface is unavailable.");showMarketing();return true}
   gate.classList.remove("hidden");
@@ -8007,7 +8007,7 @@ function syncMarketingSessionActions(){
  document.querySelectorAll('#marketingGate [data-guest-action]').forEach(el=>{el.hidden=canResume});
  document.querySelectorAll('#marketingGate .marketing-session-action').forEach(el=>{el.hidden=!canResume});
 }
-function showMarketing(){const rp=document.getElementById("roleAccessPortal");if(rp)rp.style.display="none";marketingGate.classList.remove("hidden");authGate.classList.add("hidden");appShell.style.visibility="hidden";syncMobileRoleNav("");syncMarketingSessionActions()}
+function showMarketing(){const rp=document.getElementById("roleAccessPortal");if(rp)rp.style.display="none";marketingGate.classList.remove("hidden");authGate.classList.add("hidden");concealWorkspaceShell();syncMobileRoleNav("");syncMarketingSessionActions()}
 function hideMarketing(){marketingGate.classList.add("hidden")}
 function returnToPublicWebsite(){
  const active=document.querySelector('.view.active')?.id;if(active&&roleCanView(active))lastWorkspaceView=active;
@@ -8017,7 +8017,7 @@ function returnToPublicWebsite(){
 }
 function returnToWorkspace(){
  const role=currentWorkspaceRole();if(!isWorkspaceRole(role)){openAuthFromMarketing('login');return false}
- marketingGate.classList.add('hidden');authGate.classList.add('hidden');const rp=document.getElementById('roleAccessPortal');if(rp)rp.style.display='none';appShell.style.visibility='visible';syncMobileRoleNav(role);applyRoleUi();
+ marketingGate.classList.add('hidden');authGate.classList.add('hidden');const rp=document.getElementById('roleAccessPortal');if(rp)rp.style.display='none';revealWorkspaceShell();syncMobileRoleNav(role);applyRoleUi();
  const target=roleCanView(lastWorkspaceView,role)?lastWorkspaceView:roleLandingView(role);if(target)showView(target,{roleRedirect:true});
  return true;
 }
@@ -8147,8 +8147,8 @@ function setAuthMode(mode){
  authPassword.autocomplete=registering?"new-password":"current-password";
  clearWorkspaceChoice();authError.classList.remove("show");ensureRegistrationChallenge()
 }
-function showAuth(){marketingGate.classList.add("hidden");authGate.classList.remove("hidden");appShell.style.visibility="hidden";syncMobileRoleNav("")}
-function hideAuth(){marketingGate.classList.add("hidden");authGate.classList.add("hidden");appShell.style.visibility="visible";syncMobileRoleNav(currentWorkspaceRole())}
+function showAuth(){marketingGate.classList.add("hidden");authGate.classList.remove("hidden");concealWorkspaceShell();syncMobileRoleNav("")}
+function hideAuth(){marketingGate.classList.add("hidden");authGate.classList.add("hidden");revealWorkspaceShell();syncMobileRoleNav(currentWorkspaceRole())}
 let authSubmissionInFlight=false;
 async function submitAuth(){
  if(authSubmissionInFlight)return;
@@ -8203,6 +8203,8 @@ function openModal(id){const modal=document.getElementById(id);if(!modal)return;
 function closeModal(id){const modal=document.getElementById(id);if(!modal)return;modal.classList.remove("open");modal.setAttribute("aria-hidden","true");if(lastModalFocus?.focus)lastModalFocus.focus();lastModalFocus=null}
 document.addEventListener("keydown",e=>{const modal=document.querySelector(".modal.open");if(!modal)return;if(e.key==="Escape"){e.preventDefault();closeModal(modal.id);return}if(e.key!=="Tab")return;const items=modalFocusable(modal);if(!items.length){e.preventDefault();return}const first=items[0],last=items[items.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}});
 document.getElementById("nav").addEventListener("click",e=>{let b=e.target.closest("button[data-view]");if(b)showView(b.dataset.view)});
+function concealWorkspaceShell(){appShell.style.display="none";concealWorkspaceShell()}
+function revealWorkspaceShell(){appShell.style.display="";revealWorkspaceShell()}
 window.__THEBE_WORKSPACE_READY__=false;
 window.whenThebeWorkspaceReady=function(callback){
  if(typeof callback!=="function")return;
@@ -8214,7 +8216,7 @@ function markWorkspaceReady(){
  window.__THEBE_WORKSPACE_READY__=true;
  window.dispatchEvent(new Event("thebe:workspace-ready"));
 }
-async function bootstrap(){marketingGate.classList.add("hidden");authGate.classList.add("hidden");appShell.style.visibility="hidden";syncMobileRoleNav("");if(await handleDailyReporterPortal())return;if(await handlePublicPassportFragment())return;if(STANDALONE_PREVIEW){showMarketing();return}try{await loadServerState();if(isWorkspaceRole(currentUser?.role))markWorkspaceReady()}catch(err){csrfToken="";currentUser=null;showMarketing()}}
+async function bootstrap(){marketingGate.classList.add("hidden");authGate.classList.add("hidden");concealWorkspaceShell();syncMobileRoleNav("");if(await handleDailyReporterPortal())return;if(await handlePublicPassportFragment())return;if(STANDALONE_PREVIEW){showMarketing();return}try{await loadServerState();if(isWorkspaceRole(currentUser?.role))markWorkspaceReady()}catch(err){csrfToken="";currentUser=null;showMarketing()}}
 
 document.getElementById("authPassword").addEventListener("keydown",e=>{if(e.key==="Enter")submitAuth()});
 document.getElementById("authEmail").addEventListener("input",clearWorkspaceChoice);
