@@ -5297,7 +5297,7 @@ function renderAll(){
  applyRoleUi();
  const run=(view,fn)=>{if(!roleCanView(view)||typeof fn!=="function")return;const target=document.getElementById(view),isAsync=fn.constructor?.name==="AsyncFunction";if(isAsync&&!target?.classList.contains("active"))return;try{const result=fn();if(result&&typeof result.catch==="function")result.catch(error=>reportClientError(error,`render:${view}`))}catch(error){reportClientError(error,`render:${view}`)}};
  if(roleCanView("dashboard")){renderGlobalConflict();setupProgress();renderDeadlines();renderOnboardingBanner();if(document.getElementById("dashboard")?.classList.contains("active")){renderDailyOperatingBrief();if(["owner","manager"].includes(currentWorkspaceRole()))renderExecutiveExceptions()}}
- run("security",renderSecurity);run("obligations",renderObligations);run("calendar",renderCalendar);run("workhub",renderWorkHub);run("peopleops",renderPeopleOperationsHub);run("businesshub",renderBusinessHub);run("evidencehub",renderDocumentsProofHub);run("tenderhub",renderTenderHub);run("automationhub",renderAutomationHub);run("accounthub",renderSettingsHub);run("vault",renderVault);run("employer",renderEmployees);run("employees",renderEmployeeRegister);run("dailyreports",renderDailyOperations);run("privacy",renderPrivacy);run("tender",renderTender);run("manufacturing",renderManufacturing);run("sources",renderSourceRegistry);run("taxprofile",renderTaxProfile);run("bwreadiness",renderBwReadiness);run("corporate",renderCorporate);run("employmentcontrols",renderEmploymentControls);run("publishing",renderPublishing);run("documents",renderDocs);run("changes",renderChanges);renderCompanies();run("audit",renderAudit);run("rules",renderRuleLibrary);run("employer",renderCases);run("expert",renderExpert);run("profile",fillProfile);run("accountsocial",renderSocialAccounts);run("accountsecurity",renderAccountSecurity);if(roleCanView("accountdata")||roleCanView("datadeletion"))renderDeletionStatus();run("aicontrols",renderAiCredits);run("aicontrols",renderAiCostControls);run("tenderready",renderTenderReady);if((document.getElementById("employershield")?.classList.contains("active")||document.getElementById("protectionengine")?.classList.contains("active"))&&(roleCanView("employershield")||roleCanView("protectionengine"))){renderEmployeesForHr();renderHrCases()}run("companysecretary",renderCompanyActions);run("licenceos",renderLicences);run("partnerportal",renderPartnerPortal);run("compliancepassport",renderPassport);if(["owner","manager"].includes(currentWorkspaceRole()))run("compliancepassport",renderPassportShares);run("workflowhub",renderWorkflowRules);run("notifications",renderNotifications);run("notifications",renderNotificationDeadLetters);run("recurringautomation",renderSchedules);run("partnerportal",renderPartnerInvites);run("partnerportal",renderPartnerAccess);run("servicesmarketplace",renderProfessionalServices);run("payments",renderPayments);run("payments",renderPaymentProviders);run("payments",renderPaymentReconciliation);run("entitlements",renderEntitlements);run("regulatoryintel",renderRegulatoryIntelligence);if(["sources","rules","publishing","regulatorygovernance"].some(v=>roleCanView(v)&&document.getElementById(v)?.classList.contains("active")))renderPlatformRegulatoryGovernance();run("regulatoryobligations",renderComplianceObligations);run("inspectionreadiness",renderInspectionReadiness);run("datadeletion",renderDeletion);run("evidenceintegrity",renderEvidenceIntegrity);run("protectionengine",renderProtectionEngine);run("controlcenter",renderControlCenter);run("riskengine",renderRiskEvents);run("portfolioRisk",renderPortfolioRisk);run("partneractioncenter",renderPartnerActionCenter);setTimeout(animateViewItems,30);
+ run("security",renderSecurity);run("obligations",renderObligations);run("calendar",renderCalendar);run("workhub",renderWorkHub);run("peopleops",renderPeopleOperationsHub);run("businesshub",renderBusinessHub);run("evidencehub",renderDocumentsProofHub);run("tenderhub",renderTenderHub);run("automationhub",renderAutomationHub);run("accounthub",renderSettingsHub);run("vault",renderVault);run("employer",renderEmployees);run("employees",renderEmployeeRegister);run("dailyreports",renderDailyOperations);run("privacy",renderPrivacy);run("tender",renderTender);run("manufacturing",renderManufacturing);run("sources",renderSourceRegistry);run("taxprofile",renderTaxProfile);run("bwreadiness",renderBwReadiness);run("corporate",renderCorporate);run("employmentcontrols",renderEmploymentControls);run("publishing",renderPublishing);run("documents",renderDocs);run("changes",renderChanges);renderCompanies();run("audit",renderAudit);run("rules",renderRuleLibrary);run("employer",renderCases);run("expert",renderExpert);run("profile",fillProfile);run("accountsocial",renderSocialAccounts);run("accountsecurity",renderAccountSecurity);if(roleCanView("accountdata")||roleCanView("datadeletion"))renderDeletionStatus();run("aicontrols",renderAiCredits);run("aicontrols",renderAiCostControls);run("tenderready",renderTenderReady);if((document.getElementById("employershield")?.classList.contains("active")||document.getElementById("protectionengine")?.classList.contains("active"))&&(roleCanView("employershield")||roleCanView("protectionengine"))){renderEmployeesForHr();renderHrCases()}run("companysecretary",renderCompanyActions);run("licenceos",renderLicences);run("partnerportal",renderPartnerPortal);run("compliancepassport",renderPassport);if(["owner","manager"].includes(currentWorkspaceRole()))run("compliancepassport",renderPassportShares);run("workflowhub",renderWorkflowRules);run("notifications",renderNotifications);run("notifications",renderNotificationDeadLetters);run("recurringautomation",renderSchedules);run("partnerportal",renderPartnerInvites);run("partnerportal",renderPartnerAccess);run("servicesmarketplace",renderProfessionalServices);run("payments",renderPayments);run("payments",renderPaymentProviders);run("payments",renderPaymentReconciliation);run("entitlements",renderEntitlements);run("regulatoryintel",renderRegulatoryIntelligence);if(["sources","rules","publishing","regulatorygovernance"].some(v=>roleCanView(v)&&document.getElementById(v)?.classList.contains("active")))renderPlatformRegulatoryGovernance();run("regulatoryobligations",renderComplianceObligations);run("inspectionreadiness",renderInspectionReadiness);run("datadeletion",renderDeletion);run("evidenceintegrity",renderEvidenceIntegrity);run("protectionengine",renderProtectionEngine);run("controlcenter",renderControlCenter);run("controllineage",renderControlLineageOptions);run("riskengine",renderRiskEvents);run("portfolioRisk",renderPortfolioRisk);run("partneractioncenter",renderPartnerActionCenter);setTimeout(animateViewItems,30);
 }
 function addDays(d,n){let x=new Date(d);x.setDate(x.getDate()+n);return x}
 function endOfMonth(y,m){return new Date(y,m+1,0)}
@@ -5962,7 +5962,6 @@ function save(){
 function logEvent(type,data={}){
  /* UI activity is not authoritative audit history. Server mutation endpoints write the sealed ledger. */
 }
-function switchRole(role){/* Production role is derived from authenticated membership. */}
 const WORKSPACE_ROLES=new Set(["owner","manager","reviewer","auditor"]);
 const MANAGER_BLOCKED=new Set(["security","payments","entitlements","billing","integrations","profile","taxprofile","datadeletion","accountdata"]);
 const REVIEW_ALLOWED=new Set(["workhub","obligations","calendar","statutorycalendar","changes","evidencehub","vault","evidenceintegrity","documents","expert","audit","auditintegrity","inspectionreadiness","assurancefreshness","controllineage","regulatoryintel","regulatoryobligations","compliancepassport","accounthub","accountsocial","accountsecurity"]);
@@ -6565,13 +6564,6 @@ function escapeHtml(s){return BW.dom.escapeHtml(s)}
 function safeId(s){return BW.dom.safeId(s)}
 function safeExternalUrl(value){return BW.dom.safeExternalUrl(value)}
 
-function quickNavigate(value){
-  const q=String(value||'').trim().toLowerCase();
-  if(!q)return;
-  const buttons=[...document.querySelectorAll('.nav button[data-view]')].filter(b=>b.style.display!=='none');
-  const match=buttons.find(b=>b.textContent.trim().toLowerCase().includes(q)||b.dataset.view.toLowerCase().includes(q));
-  if(match&&q.length>=2){showView(match.dataset.view);document.getElementById('quickNav').value=''}
-}
 
 
 function prefersReducedMotion(){return !!(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches)}
@@ -6974,12 +6966,15 @@ async function advanceHrCase(id,status){
 async function renderHrCases(){
   const list=document.getElementById("hrCaseList");if(!list)return;
   try{
-    const r=await apiJson("/api/hr/cases");
+    const [r,evidence]=await Promise.all([apiJson("/api/hr/cases"),apiJson("/api/evidence/integrity")]);
     const items=r.items||[];
     document.getElementById("openHrCases").textContent=items.filter(x=>x.status!=="closed").length;
     document.getElementById("highRiskHrCases").textContent=items.filter(x=>["high","critical"].includes(x.risk_level)).length;
     document.getElementById("reviewHrCases").textContent=items.filter(x=>Number(x.professional_review_required)===1&&x.status!=="closed").length;
     list.safeHTML=items.map(x=>`<div class="item"><div class="between row"><div><b>${escapeHtml(x.case_type)}</b><div class="muted small">${escapeHtml(x.risk_level)} risk · ${escapeHtml(x.status)}</div><div class="small">${escapeHtml(x.summary||"")}</div></div><div>${x.status==="open"?`<button class="btn alt" data-bw-onclick="advanceHrCase('${x.id}','evidence')">Evidence</button>`:""}${x.status==="evidence"?`<button class="btn alt" data-bw-onclick="advanceHrCase('${x.id}','review')">Review</button>`:""}${x.status==="review"?`<button class="btn soft" data-bw-onclick="showView('workhub');setTimeout(focusManagementReviewInbox,120)">Review inbox</button>`:""}${x.status==="approved"?`<button class="btn" data-bw-onclick="advanceHrCase('${x.id}','closed')">Close</button>`:""}<button class="btn alt" data-bw-onclick="createEmploymentDefensePack('${x.id}')">Defense Pack</button></div></div></div>`).join("")||'<div class="muted small">No HR cases yet.</div>';
+    const caseSelect=document.getElementById("defenseCaseSelect"),evidenceSelect=document.getElementById("defenseEvidenceSelect");
+    if(caseSelect)caseSelect.safeHTML=items.filter(x=>x.status!=="closed").map(x=>`<option value="${escapeHtml(x.id)}">${escapeHtml(x.case_type)} · ${escapeHtml(x.risk_level)} · ${escapeHtml(x.status)}</option>`).join("");
+    if(evidenceSelect)evidenceSelect.safeHTML=(evidence.items||[]).filter(x=>x.review_status==="approved").map(x=>`<option value="${escapeHtml(x.id)}">${escapeHtml(x.name||x.id)}</option>`).join("");
   }catch(e){list.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
 }
 
@@ -7423,12 +7418,6 @@ async function runScan(){
   }
 }
 
-async function advanceObligation(id,status){
-  try{
-    await apiJson(`/api/obligations/${id}/advance`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({status})});
-    await renderComplianceObligations();await renderUnifiedNextActions();
-  }catch(e){notifyUser(e.message)}
-}
 async function renderComplianceObligations(){
   const box=document.getElementById("regObligationList");if(!box)return;
   try{
@@ -7746,11 +7735,13 @@ async function verifyAuditIntegrity(){
     box.safeHTML=`<div class="item"><b>${escapeHtml(r.status||"unknown")}</b><div class="muted small">${r.firstInvalidSeq?`First invalid sequence: ${r.firstInvalidSeq}`:"No chained-event mismatch detected."}</div>${r.lastHash?`<div class="audit">${escapeHtml(r.lastHash.slice(0,32))}…</div>`:""}</div>`;
   }catch(e){box.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
 }
-async function populateLineageControls(){
+async function renderControlLineageOptions(){
   const sel=document.getElementById("lineageControlSelect");if(!sel)return;
   try{
-    const r=await apiJson("/api/control-center");sel.safeHTML=(r.items||[]).map(x=>`<option value="${escapeHtml(x.control_key)}">${escapeHtml(x.name)}</option>`).join("");
-  }catch(e){}
+    const current=sel.value,r=await apiJson("/api/control-center"),items=r.items||[];
+    sel.safeHTML=items.map(x=>`<option value="${escapeHtml(x.control_key)}">${escapeHtml(x.name)}</option>`).join("");
+    if(current&&items.some(x=>x.control_key===current))sel.value=current;
+  }catch(e){sel.safeHTML=""}
 }
 async function loadControlLineage(){
   const sel=document.getElementById("lineageControlSelect"),box=document.getElementById("lineageDetail");if(!sel||!box||!sel.value)return;
@@ -7817,14 +7808,6 @@ async function renderDefensePacks(){
 }
 
 
-async function populateDefenseEvidenceSelectors(){
-  const cs=document.getElementById("defenseCaseSelect"),es=document.getElementById("defenseEvidenceSelect");if(!cs||!es)return;
-  try{
-    const [c,e]=await Promise.all([apiJson("/api/hr/cases"),apiJson("/api/evidence/integrity")]);
-    cs.safeHTML=(c.items||[]).filter(x=>x.status!=="closed").map(x=>`<option value="${x.id}">${escapeHtml(x.case_type)} · ${escapeHtml(x.risk_level)} · ${escapeHtml(x.status)}</option>`).join("");
-    es.safeHTML=(e.items||[]).filter(x=>x.review_status==="approved").map(x=>`<option value="${x.id}">${escapeHtml(x.name||x.id)}</option>`).join("");
-  }catch(e){}
-}
 async function linkDefenseEvidence(){
   const caseId=document.getElementById("defenseCaseSelect")?.value,evidenceId=document.getElementById("defenseEvidenceSelect")?.value,relationship=document.getElementById("defenseEvidenceRelationship")?.value||"supporting";
   if(!caseId||!evidenceId){notifyUser("Choose an open HR case and approved evidence.");return}
@@ -8055,7 +8038,6 @@ function startFreeFromMarketing(plan=null){
  openAuthFromMarketing("register");
  return false;
 }
-function selectPlanAndRegister(plan){return startFreeFromMarketing(plan)}
 function planLabel(p){return p==="starter"?"Monitor":p==="business"?"Protect":p==="pro"?"Control":p==="network"?"Network":p==="partner"?"Partner":"Protect"}
 function moneyPlan(p){return p==="starter"?"P149":p==="business"?"P349":p==="pro"?"P699":p==="network"?"P1,299":p==="partner"?"P2,499":"P349"}
 async function loadBilling(){
@@ -8292,7 +8274,7 @@ bootstrap();
     return [...(root.querySelectorAll?.('table')||[])];
   }
   window.stabilizeWorkspaceTables=function(root=document.querySelector('#mainContent .view.active')){
-    workspaceTableTargets(root).forEach(table=>{if(table.parentElement?.classList.contains('table-scroll'))return;const wrap=document.createElement('div');wrap.className='table-scroll';wrap.setAttribute('role','region');wrap.setAttribute('aria-label','Scrollable data table');table.parentNode.insertBefore(wrap,table);wrap.appendChild(table)});
+    workspaceTableTargets(root).forEach(table=>{if(table.parentElement?.classList.contains('table-scroll'))return;const wrap=document.createElement('div');wrap.className='table-scroll mobile-table-wrap';wrap.setAttribute('role','region');wrap.setAttribute('aria-label','Scrollable data table');wrap.tabIndex=0;table.parentNode.insertBefore(wrap,table);wrap.appendChild(table)});
   };
   const observeIds=['openActions','navAlerts','setupPercent'];
   window.whenThebeWorkspaceReady(()=>{
@@ -8403,26 +8385,17 @@ bootstrap();
   window.openMobileWorkspaceMenu=openMobileWorkspaceMenu;
   window.closeMobileWorkspaceMenu=closeMobileWorkspaceMenu;
 
-  function wrapTables(root=document.querySelector("#mainContent .view.active")){
-    if(!root)return;
-    const tables=root.matches?.("table")?[root]:[...(root.querySelectorAll?.("table")||[])];
-    tables.forEach(table=>{
-      if(table.parentElement?.classList.contains("mobile-table-wrap"))return;
-      const wrap=document.createElement("div");wrap.className="mobile-table-wrap";wrap.setAttribute("role","region");wrap.setAttribute("aria-label","Scrollable table");wrap.tabIndex=0;
-      table.parentNode.insertBefore(wrap,table);wrap.appendChild(table);
-    });
-  }
   function syncMobileActive(view){
     document.querySelectorAll("#mobileBar [data-mobile-view]").forEach(btn=>btn.classList.toggle("active",btn.dataset.mobileView===view));
   }
   function bindNavigation(){
-    sidebar()?.querySelectorAll("button[data-view]").forEach(btn=>btn.addEventListener("click",()=>{syncMobileActive(btn.dataset.view);setTimeout(()=>wrapTables(document.getElementById(btn.dataset.view)),0);if(isMobile())closeMobileWorkspaceMenu()}));
+    sidebar()?.querySelectorAll("button[data-view]").forEach(btn=>btn.addEventListener("click",()=>{syncMobileActive(btn.dataset.view);if(isMobile())closeMobileWorkspaceMenu()}));
     document.querySelectorAll(".nav-access-group").forEach(group=>group.addEventListener("toggle",()=>{
       if(!isMobile()||!group.open)return;
       document.querySelectorAll(".nav-access-group").forEach(other=>{if(other!==group)other.open=false});
     }));
   }
-  function install(){ensureChrome();wrapTables();bindNavigation();syncMobileActive("dashboard")}
+  function install(){ensureChrome();bindNavigation();syncMobileActive("dashboard")}
   window.whenThebeWorkspaceReady(install);
   document.addEventListener("keydown",event=>{if(event.key==="Escape"&&document.body.classList.contains("mobile-nav-open"))closeMobileWorkspaceMenu()});
   window.addEventListener("resize",()=>{if(!isMobile())closeMobileWorkspaceMenu()},{passive:true});

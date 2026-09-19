@@ -11,7 +11,7 @@ const checks=[
  ["service checkout",w.includes("/api/payments/service-checkout")],
  ["verified webhook",w.includes("/api/webhooks/payment")&&w.includes("PAYMENT_WEBHOOK_SECRET")],
  ["idempotent events",s.includes("UNIQUE(provider,provider_event_id)")],
- ["direct settlement disabled",w.includes("direct_settlement_disabled_use_provider_verification")],
+ ["direct settlement disabled",!w.includes("async function settlePaymentOrder")&&w.includes("async function verifyAndSettlePaymentOrder(env,orderId,triggerType)")&&w.includes("const verification=await verifyPaymentOrder(env,orderId,triggerType);")&&w.includes("const settlement=await applyVerifiedPaymentOrder(env,orderId,verification);")],
  ["DPO verify token",w.includes("<Request>verifyToken</Request>")&&w.includes("TransactionToken")],
  ["verified paid only",w.includes('result===DPO_PAID_CODE')&&w.includes('status="verified_paid"')],
  ["amount currency match",w.includes('currency!=="BWP"')&&w.includes("moneyEquals(amount,order.amount_bwp)")],
