@@ -130,7 +130,7 @@ jobs:
           npm run check:supply-chain
 
       - name: Genuine production dependency audit
-        run: npm audit --omit=dev --audit-level=high
+        run: npm run audit:dependencies
 
   node-postgres:
     name: Node/Postgres migration and API lifecycle
