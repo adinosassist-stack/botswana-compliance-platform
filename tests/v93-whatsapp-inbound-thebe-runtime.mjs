@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import worker,{__v76Test} from "../cloudflare/src/worker.js";
 import {classifyWhatsAppInboundCommand,normalizeWhatsAppInboundNumber,processWhatsAppInboundMessages} from "../cloudflare/src/whatsapp-inbound-core.js";
 
 assert.equal(normalizeWhatsAppInboundNumber("71 234 567"),"+26771234567");
@@ -51,6 +52,30 @@ function mockDb({bindings=[{tenant_id:"tenant-A",user_id:"u1",role:"owner"}]}={}
   const run=DB.calls.find(call=>call.sql.includes("INSERT INTO agentic_runs"));
   assert.ok(run.bindings.some(value=>String(value).includes('"channel":"whatsapp_inbound"')),"inbound state must be recorded in the governed agent run");
   assert.equal(DB.calls.some(call=>String(call.sql).includes("notification_outbox")),false,"inbound preparation must not enqueue a WhatsApp send");
+}
+
+{
+  const DB=mockDb();
+  const secret="inbound-webhook-secret-long-enough";
+  const raw=JSON.stringify({
+    object:"whatsapp_business_account",
+    entry:[{changes:[{value:{
+      metadata:{phone_number_id:"12345"},
+      messages:[{id:"wamid.webhook.finance.1",from:"26771234567",type:"text",timestamp:"1789862400",text:{body:"Thebe finance"}}]
+    }}]}]
+  });
+  const signature=await __v76Test.signWhatsAppWebhookForTest(secret,raw);
+  const response=await worker.fetch(new Request("https://thebedesk.com/api/webhooks/whatsapp",{
+    method:"POST",
+    headers:{"x-hub-signature-256":signature,"content-type":"application/json"},
+    body:raw
+  }),{DB,WHATSAPP_APP_SECRET:secret,WHATSAPP_PHONE_NUMBER_ID:"12345"},{});
+  assert.equal(response.status,200);
+  const body=await response.json();
+  assert.equal(body.received,0,"inbound messages must not be miscounted as delivery statuses");
+  assert.equal(body.inbound.received,1);
+  assert.equal(body.inbound.prepared,1);
+  assert.equal(body.inbound.replayed,0);
 }
 
 {
