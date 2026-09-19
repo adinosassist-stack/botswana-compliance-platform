@@ -113,6 +113,28 @@ function mockDb({bindings=[{tenant_id:"tenant-A",user_id:"u1",role:"owner"}]}={}
   assert.equal(DB.calls.some(call=>call.sql.includes("INSERT INTO agentic_runs")),false,"unrecognized free-form text must not reach the agent persistence path");
 }
 
+{
+  const DB=mockDb();
+  const result=await processWhatsAppInboundMessages({DB},[{
+    phoneNumberId:"12345",
+    message:{id:"wamid.no-config.1",from:"26771234567",type:"text",timestamp:"1789862400",text:{body:"finance"}}
+  }]);
+  assert.equal(result.wrongNumber,1);
+  assert.equal(result.prepared,0);
+  assert.equal(DB.calls.length,0,"missing configured WhatsApp phone-number ID must fail closed before account lookup");
+}
+
+{
+  const DB=mockDb();
+  const result=await processWhatsAppInboundMessages({DB,WHATSAPP_PHONE_NUMBER_ID:"12345"},[{
+    phoneNumberId:"",
+    message:{id:"wamid.no-metadata.1",from:"26771234567",type:"text",timestamp:"1789862400",text:{body:"finance"}}
+  }]);
+  assert.equal(result.wrongNumber,1);
+  assert.equal(result.prepared,0);
+  assert.equal(DB.calls.length,0,"missing webhook phone-number metadata must fail closed before account lookup");
+}
+
 const inboundSource=fs.readFileSync("cloudflare/src/whatsapp-inbound-core.js","utf8");
 const workerSource=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const agenticSource=fs.readFileSync("cloudflare/src/agentic-whatsapp-core.js","utf8");
