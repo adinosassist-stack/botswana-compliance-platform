@@ -1,5 +1,6 @@
 import {AGENT_ACTION_CATALOG,THEBE_AGENTS} from "./agent-policy.js";
 import {evaluateDelegatedAuthority} from "./delegated-authority.js";
+import {evaluateAgentRuntimeGuard} from "./agent-runtime-guard.js";
 
 const MAX_BODY_BYTES=4096;
 const ACTION_KEY_BY_PURPOSE=Object.freeze({
@@ -232,6 +233,25 @@ export async function prepareWhatsAppPurposeForPrincipal({env,auth,purpose,idemp
   if(!agent||!definition||definition.level!==2||definition.humanReviewRequired!==true)return {status:503,body:{error:"whatsapp_prepare_policy_unavailable"}};
   const role=String(auth?.role||"").toLowerCase();
   if(!auth?.tenant_id||!auth?.user_id||!agent.allowedRoles.includes(role)||!definition.roles.includes(role))return {status:403,body:{error:"role_forbidden"}};
+
+  const runtimeDecision=evaluateAgentRuntimeGuard({
+    agentKey:spec.agentKey,
+    actionKey:spec.actionKey,
+    actorRole:role,
+    tenantScoped:true,
+    tenantId:String(auth.tenant_id),
+    actorTenantId:String(auth.tenant_id),
+    targetTenantId:String(auth.tenant_id),
+    agentStatus:String(env?.AGENT_RUNTIME_ENABLED||"1")==="0"?"disabled":"enabled",
+    killSwitchActive:["1","true","on"].includes(String(env?.AGENT_RUNTIME_KILL_SWITCH||"").trim().toLowerCase()),
+    budgetStatus:String(env?.AGENT_RUNTIME_BUDGET_STATUS||"within_limit"),
+    mode:"shadow",
+    globalExecutionEnabled:false,
+    phase:"phase1"
+  });
+  if(runtimeDecision.allowed!==true||runtimeDecision.executionAllowed!==false){
+    return {status:409,body:{error:"whatsapp_prepare_runtime_guard_denied",decision:{code:runtimeDecision.code,guardVersion:runtimeDecision.guardVersion}}};
+  }
 
   const idem=text(idempotencyKey,200);
   if(idem.length<8)return {status:400,body:{error:"idempotency_key_required"}};
