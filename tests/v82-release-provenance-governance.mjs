@@ -20,7 +20,7 @@ const checks = [
   ['BF-07 can read pull-request provenance', bf07.includes('pull-requests: read')],
   ['BF-07 fetches enough Git history for lineage checks', bf07.includes('fetch-depth: 0')],
   ['automatic BF-07 is scoped to main release manifest changes', bf07.includes("branches: [main]") && bf07.includes("'release/production.json'")],
-  ['automatic release authority requires a strict [release] merge prefix', bf07.includes('automatic release merge message must begin with [release]') && bf07.includes('^\\[release\\]([[:space:]]|$)')],
+  ['automatic release authority is manifest-scoped and independent of merge-message formatting', bf07.includes("github.event_name == 'workflow_dispatch' ||") && bf07.includes("github.event_name == 'push'") && !bf07.includes("startsWith(github.event.head_commit.message, '[release]')") && !bf07.includes('automatic release merge message must begin with [release]') && !bf07.includes('release_message="$(git log -1 --format=%B "$GITHUB_SHA")"')],
   ['release authority must itself be a two-parent merged PR commit', bf07.includes('release authority must be a two-parent merged PR commit')],
   ['release manifest binds to exact first parent', bf07.includes('current.sourceSha!==process.env.BASE_SHA') && bf07.includes('production release sourceSha mismatch')],
   ['release manifest sequence advances exactly once', bf07.includes('current.sequence!==previous.sequence+1') && bf07.includes('production release sequence must advance exactly once')],
