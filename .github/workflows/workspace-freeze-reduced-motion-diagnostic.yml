@@ -59,3 +59,5 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/production-synthetic-full-user-wrapper.mjs
+
+# diagnostic-trigger-20260919-seq90
