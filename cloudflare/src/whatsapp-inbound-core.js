@@ -46,8 +46,8 @@ export async function processWhatsAppInboundMessages(env,items){
   const summary={received:selected.length,prepared:0,replayed:0,unlinked:0,ambiguous:0,unsupported:0,unrecognized:0,wrongNumber:0,blocked:0};
   const principalCache=new Map();
   for(const item of selected){
-    const message=item?.message||{},phoneNumberId=clean(item?.phoneNumberId,40);
-    if(phoneNumberId&&String(env.WHATSAPP_PHONE_NUMBER_ID||"")&&phoneNumberId!==String(env.WHATSAPP_PHONE_NUMBER_ID)){summary.wrongNumber++;continue}
+    const message=item?.message||{},phoneNumberId=clean(item?.phoneNumberId,40),configuredPhoneNumberId=clean(env.WHATSAPP_PHONE_NUMBER_ID,40);
+    if(!configuredPhoneNumberId||!phoneNumberId||phoneNumberId!==configuredPhoneNumberId){summary.wrongNumber++;continue}
     const providerMessageId=clean(message?.id,200),sender=normalizeWhatsAppInboundNumber(message?.from);
     if(!providerMessageId||!sender||String(message?.type||"")!=="text"||typeof message?.text?.body!=="string"){summary.unsupported++;continue}
     let binding=principalCache.get(sender);
