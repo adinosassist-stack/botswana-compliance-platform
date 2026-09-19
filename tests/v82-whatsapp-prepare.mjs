@@ -13,6 +13,7 @@ assert.deepEqual(Object.keys(purposes).sort(),["compliance_followup","finance_ex
 for(const [purpose,spec] of Object.entries(purposes)){
   const action=AGENT_ACTION_CATALOG[spec.actionKey];
   ok(!!action,`${purpose} maps to registered action`);
+  assert.equal(spec.agentKey,"thebe",`${purpose} must route through the canonical Thebe agent`);checks++;
   assert.equal(action.level,2);checks++;
   assert.equal(action.humanReviewRequired,true);checks++;
   assert.equal(action.externalSideEffect,false);checks++;
