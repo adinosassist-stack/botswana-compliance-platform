@@ -1,4 +1,4 @@
-import {AGENT_ACTION_CATALOG,THEBE_AGENTS,agentCanRouteAction,resolveAgentKey} from "./agent-policy.js";
+import {AGENT_ACTION_CATALOG,THEBE_AGENTS,THEBE_CAPABILITIES,agentCanRouteAction,resolveAgentKey} from "./agent-policy.js";
 import {AUTONOMY_LEVELS,DELEGATED_AUTHORITY_VERSION,evaluateDelegatedAuthority,isNeverAutonomousAction,normalizeDelegation,requiredAutonomyLevel} from "./delegated-authority.js";
 
 const MAX_BODY_BYTES=8192;
@@ -107,12 +107,20 @@ async function schemaReady(env){
   }catch{return false}
 }
 
+function delegationForApi(row){
+  const normalized=normalizeDelegation(row);
+  if(!normalized)return null;
+  const legacyAgentKey=normalized.agentKey&&normalized.agentKey!=="thebe"?normalized.agentKey:null;
+  const action=AGENT_ACTION_CATALOG[normalized.actionKey];
+  return Object.freeze({...normalized,agentKey:"thebe",legacyAgentKey,capability:action?.capability||"core"});
+}
+
 async function listDelegations(env,auth){
   const rows=await safeAll(env,`SELECT id,agent_key,action_key,status,max_autonomy_level,external_side_effects,strong_auth_required,
     human_confirmation_required,max_daily_actions,max_amount_minor,shadow_only,valid_from,expires_at,created_at,updated_at
     FROM agent_delegations WHERE tenant_id=? ORDER BY created_at DESC LIMIT 100`,[auth.tenant_id]);
   if(!rows)return json({error:"authority_schema_not_ready"},503);
-  return json({items:(rows.results||[]).map(normalizeDelegation),executionEnabled:false,mode:"shadow_only"});
+  return json({items:(rows.results||[]).map(delegationForApi),agentKey:"thebe",executionEnabled:false,mode:"shadow_only"});
 }
 
 async function status(env,auth){
@@ -133,6 +141,8 @@ async function status(env,auth){
     shadowOnly:true,
     strongAuthIntegrationReady:false,
     activeDelegations,
+    agent:{key:"thebe",label:THEBE_AGENTS.thebe.label},
+    capabilities:Object.values(THEBE_CAPABILITIES).map(({key,label,enabled})=>({key,label,enabled})),
     autonomyLevels:AUTONOMY_LEVELS,
     guarantees:[
       "no_external_side_effect_execution",
@@ -197,7 +207,7 @@ async function createDelegation({request,env,auth}){
     return json({error:"delegation_create_failed"},500);
   }
   const row=await env.DB.prepare(`SELECT * FROM agent_delegations WHERE id=? AND tenant_id=? LIMIT 1`).bind(delegationId,auth.tenant_id).first();
-  return json({ok:true,delegation:normalizeDelegation(row),execution:{enabled:false,shadowOnly:true}},201);
+  return json({ok:true,delegation:delegationForApi(row),execution:{enabled:false,shadowOnly:true}},201);
 }
 
 async function mutateDelegation({env,auth,delegationId,command}){
