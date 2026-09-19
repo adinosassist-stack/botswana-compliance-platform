@@ -225,6 +225,68 @@ async function replayIntent(env,tenantId,idempotencyKey){
     WHERE ai.tenant_id=? AND ai.idempotency_key=? LIMIT 1`).bind(tenantId,idempotencyKey).first();
 }
 
+export async function prepareWhatsAppPurposeForPrincipal({env,auth,purpose,idempotencyKey,source="app",sourceContext=null}){
+  const normalizedPurpose=text(purpose,80),spec=ACTION_KEY_BY_PURPOSE[normalizedPurpose];
+  if(!spec)return {status:400,body:{error:"unsupported_whatsapp_prepare_purpose",supported:Object.keys(ACTION_KEY_BY_PURPOSE)}};
+  const agent=THEBE_AGENTS[spec.agentKey],definition=AGENT_ACTION_CATALOG[spec.actionKey];
+  if(!agent||!definition||definition.level!==2||definition.humanReviewRequired!==true)return {status:503,body:{error:"whatsapp_prepare_policy_unavailable"}};
+  const role=String(auth?.role||"").toLowerCase();
+  if(!auth?.tenant_id||!auth?.user_id||!agent.allowedRoles.includes(role)||!definition.roles.includes(role))return {status:403,body:{error:"role_forbidden"}};
+
+  const idem=text(idempotencyKey,200);
+  if(idem.length<8)return {status:400,body:{error:"idempotency_key_required"}};
+  const sourceName=String(source||"app")==="whatsapp_inbound"?"whatsapp_inbound":"app";
+  const providerMessageId=sourceName==="whatsapp_inbound"?text(sourceContext?.providerMessageId,200):"";
+  if(sourceName==="whatsapp_inbound"&&!providerMessageId)return {status:400,body:{error:"whatsapp_inbound_source_invalid"}};
+  const requestIdentity={purpose:normalizedPurpose,agentKey:spec.agentKey,actionKey:spec.actionKey};
+  if(sourceName==="whatsapp_inbound"){
+    requestIdentity.source=sourceName;
+    requestIdentity.providerMessageId=providerMessageId;
+    requestIdentity.userId=String(auth.user_id);
+  }
+  const requestHash=await sha256Hex(JSON.stringify(requestIdentity));
+  const existing=await replayIntent(env,auth.tenant_id,idem);
+  if(existing){
+    if(String(existing.action_key)!==spec.actionKey||String(existing.payload_hash)!==requestHash)return {status:409,body:{error:"idempotency_key_conflict"}};
+    return {status:200,body:{ok:true,replayed:true,purpose:normalizedPurpose,intent:publicIntent(existing),messagePreview:String(existing.summary||""),snapshot:parseObservation(existing.observation_json),policy:{humanReviewRequired:true,prepareOnly:true},execution:{performed:false,enabled:false,providerSend:false,recipientTargeting:false}}};
+  }
+
+  let snapshot;try{snapshot=await snapshotForPurpose(env,auth.tenant_id,normalizedPurpose)}catch{return {status:503,body:{error:"whatsapp_prepare_data_unavailable"}}}
+  const messagePreview=buildDraft(normalizedPurpose,snapshot);
+  const decision=evaluateDelegatedAuthority({agentKey:spec.agentKey,actionKey:spec.actionKey,actionDefinition:definition,delegation:null,mode:"shadow",globalExecutionEnabled:false});
+  if(decision.allowed!==true||decision.executionAllowed!==false)return {status:409,body:{error:"whatsapp_prepare_policy_denied",decision}};
+
+  const observation=sourceName==="whatsapp_inbound"
+    ? {...snapshot,channel:"whatsapp_inbound",inbound:{providerMessageId,receivedAt:text(sourceContext?.receivedAt,80)||null,purpose:normalizedPurpose}}
+    : snapshot;
+  const runId=id(),intentId=id();
+  try{
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO agentic_runs(id,tenant_id,requested_by_user_id,goal,status,generation_mode,confidence,observation_json,summary)
+        VALUES(?,?,?,?, 'completed','deterministic_fallback','medium',?,?)`).bind(runId,auth.tenant_id,auth.user_id,`${sourceName==="whatsapp_inbound"?"Prepare inbound":"Prepare"} ${spec.label} for WhatsApp human review.`,JSON.stringify(observation),messagePreview),
+      env.DB.prepare(`INSERT INTO agent_action_intents(id,tenant_id,run_id,proposal_id,agent_key,action_key,requested_by_user_id,delegation_id,mode,decision,decision_code,
+        required_autonomy_level,amount_minor,payload_hash,idempotency_key,status)
+        VALUES(?,?,?,NULL,?,?,?,NULL,'shadow',?,?,?,0,?,?,'review_required')`).bind(intentId,auth.tenant_id,runId,spec.agentKey,spec.actionKey,auth.user_id,decision.decision,decision.code,decision.requiredAutonomyLevel,requestHash,idem),
+      env.DB.prepare(`INSERT INTO agentic_events(id,tenant_id,run_id,proposal_id,event_type,actor_user_id,detail_json)
+        VALUES(?,?,?,NULL,'PLAN_GENERATED',?,?)`).bind(id(),auth.tenant_id,runId,auth.user_id,JSON.stringify({channel:sourceName==="whatsapp_inbound"?"whatsapp_inbound":"whatsapp",purpose:normalizedPurpose,actionKey:spec.actionKey,providerMessageId:providerMessageId||undefined,prepareOnly:true,providerSend:false,recipientTargeting:false}))
+    ]);
+  }catch{
+    const replay=await replayIntent(env,auth.tenant_id,idem);
+    if(replay&&String(replay.action_key)===spec.actionKey&&String(replay.payload_hash)===requestHash){
+      return {status:200,body:{ok:true,replayed:true,purpose:normalizedPurpose,intent:publicIntent(replay),messagePreview:String(replay.summary||""),snapshot:parseObservation(replay.observation_json),policy:{humanReviewRequired:true,prepareOnly:true},execution:{performed:false,enabled:false,providerSend:false,recipientTargeting:false}}};
+    }
+    return {status:500,body:{error:"whatsapp_prepare_failed"}};
+  }
+
+  return {status:201,body:{
+    ok:true,replayed:false,purpose:normalizedPurpose,
+    intent:{id:intentId,runId,agentKey:spec.agentKey,actionKey:spec.actionKey,decision:decision.decision,decisionCode:decision.code,status:"review_required"},
+    messagePreview,snapshot:observation,
+    policy:{humanReviewRequired:true,prepareOnly:true,sourceRefs:snapshot.sourceRefs||[]},
+    execution:{performed:false,enabled:false,providerSend:false,recipientTargeting:false}
+  }};
+}
+
 async function prepareDraft({request,env,auth}){
   let body;try{body=await readJson(request)}catch(error){
     const status=error.message==="request_too_large"?413:error.message==="unsupported_content_encoding"?415:400;
@@ -232,53 +294,14 @@ async function prepareDraft({request,env,auth}){
   }
   const unexpected=Object.keys(body||{}).find(key=>!ALLOWED_BODY_KEYS.has(key));
   if(unexpected)return json({error:"unsupported_field",field:unexpected},400);
-  const purpose=text(body?.purpose,80),spec=ACTION_KEY_BY_PURPOSE[purpose];
-  if(!spec)return json({error:"unsupported_whatsapp_prepare_purpose",supported:Object.keys(ACTION_KEY_BY_PURPOSE)},400);
-  const agent=THEBE_AGENTS[spec.agentKey],definition=AGENT_ACTION_CATALOG[spec.actionKey];
-  if(!agent||!definition||definition.level!==2||definition.humanReviewRequired!==true)return json({error:"whatsapp_prepare_policy_unavailable"},503);
-  const role=String(auth.role||"").toLowerCase();
-  if(!agent.allowedRoles.includes(role)||!definition.roles.includes(role))return json({error:"role_forbidden"},403);
-
-  const idem=text(request.headers.get("idempotency-key"),200);
-  if(idem.length<8)return json({error:"idempotency_key_required"},400);
-  const requestHash=await sha256Hex(JSON.stringify({purpose,agentKey:spec.agentKey,actionKey:spec.actionKey}));
-  const existing=await replayIntent(env,auth.tenant_id,idem);
-  if(existing){
-    if(String(existing.action_key)!==spec.actionKey||String(existing.payload_hash)!==requestHash)return json({error:"idempotency_key_conflict"},409);
-    return json({ok:true,replayed:true,purpose,intent:publicIntent(existing),messagePreview:String(existing.summary||""),snapshot:parseObservation(existing.observation_json),policy:{humanReviewRequired:true,prepareOnly:true},execution:{performed:false,enabled:false,providerSend:false,recipientTargeting:false}},200);
-  }
-
-  let snapshot;try{snapshot=await snapshotForPurpose(env,auth.tenant_id,purpose)}catch{return json({error:"whatsapp_prepare_data_unavailable"},503)}
-  const messagePreview=buildDraft(purpose,snapshot);
-  const decision=evaluateDelegatedAuthority({agentKey:spec.agentKey,actionKey:spec.actionKey,actionDefinition:definition,delegation:null,mode:"shadow",globalExecutionEnabled:false});
-  if(decision.allowed!==true||decision.executionAllowed!==false)return json({error:"whatsapp_prepare_policy_denied",decision},409);
-
-  const runId=id(),intentId=id();
-  try{
-    await env.DB.batch([
-      env.DB.prepare(`INSERT INTO agentic_runs(id,tenant_id,requested_by_user_id,goal,status,generation_mode,confidence,observation_json,summary)
-        VALUES(?,?,?,?, 'completed','deterministic_fallback','medium',?,?)`).bind(runId,auth.tenant_id,auth.user_id,`Prepare ${spec.label} for WhatsApp human review.`,JSON.stringify(snapshot),messagePreview),
-      env.DB.prepare(`INSERT INTO agent_action_intents(id,tenant_id,run_id,proposal_id,agent_key,action_key,requested_by_user_id,delegation_id,mode,decision,decision_code,
-        required_autonomy_level,amount_minor,payload_hash,idempotency_key,status)
-        VALUES(?,?,?,NULL,?,?,?,NULL,'shadow',?,?,?,0,?,?,'review_required')`).bind(intentId,auth.tenant_id,runId,spec.agentKey,spec.actionKey,auth.user_id,decision.decision,decision.code,decision.requiredAutonomyLevel,requestHash,idem),
-      env.DB.prepare(`INSERT INTO agentic_events(id,tenant_id,run_id,proposal_id,event_type,actor_user_id,detail_json)
-        VALUES(?,?,?,NULL,'PLAN_GENERATED',?,?)`).bind(id(),auth.tenant_id,runId,auth.user_id,JSON.stringify({channel:"whatsapp",purpose,actionKey:spec.actionKey,prepareOnly:true,providerSend:false,recipientTargeting:false}))
-    ]);
-  }catch{
-    const replay=await replayIntent(env,auth.tenant_id,idem);
-    if(replay&&String(replay.action_key)===spec.actionKey&&String(replay.payload_hash)===requestHash){
-      return json({ok:true,replayed:true,purpose,intent:publicIntent(replay),messagePreview:String(replay.summary||""),snapshot:parseObservation(replay.observation_json),policy:{humanReviewRequired:true,prepareOnly:true},execution:{performed:false,enabled:false,providerSend:false,recipientTargeting:false}},200);
-    }
-    return json({error:"whatsapp_prepare_failed"},500);
-  }
-
-  return json({
-    ok:true,replayed:false,purpose,
-    intent:{id:intentId,runId,agentKey:spec.agentKey,actionKey:spec.actionKey,decision:decision.decision,decisionCode:decision.code,status:"review_required"},
-    messagePreview,snapshot,
-    policy:{humanReviewRequired:true,prepareOnly:true,sourceRefs:snapshot.sourceRefs||[]},
-    execution:{performed:false,enabled:false,providerSend:false,recipientTargeting:false}
-  },201);
+  const result=await prepareWhatsAppPurposeForPrincipal({
+    env,
+    auth,
+    purpose:text(body?.purpose,80),
+    idempotencyKey:text(request.headers.get("idempotency-key"),200),
+    source:"app"
+  });
+  return json(result.body,result.status);
 }
 
 export async function handleAgenticWhatsAppRequest({request,logicalPath,env}){
