@@ -163,7 +163,7 @@
     "test:v78-12183": "node tests/v78-12183-http-expectation-envelope-adversarial.mjs && node --no-warnings tests/v78-12183-http-expectation-envelope-runtime.mjs",
     "test:v78-12184": "node tests/v78-12184-brute-force-remediation-adversarial.mjs && node --no-warnings tests/v78-12184-brute-force-remediation-runtime.mjs",
     "check:supply-chain": "node scripts/supply-chain-gate.mjs",
-    "audit:dependencies": "npm audit --audit-level=high",
+    "audit:dependencies": "node scripts/dependency-audit.mjs",
     "check:artifact-boundary": "node scripts/artifact-boundary-gate.mjs",
     "test:v78-12185": "node tests/v78-12185-release-boundary-hardening-adversarial.mjs",
     "release:package": "node scripts/package-release.mjs",
