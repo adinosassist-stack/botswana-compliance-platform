@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import {
   AGENT_ACTION_CATALOG,
   THEBE_AGENTS,
@@ -81,5 +82,10 @@ for(const key of ["business_health.read","compliance_status.read","tender_readin
 const legacyFinanceActions=listPhase1AgentActions("finance","owner");
 assert.ok(legacyFinanceActions.length>0);
 assert.ok(legacyFinanceActions.every(x=>x.legacyAgents.includes("finance")),"legacy finance alias must stay bounded to its historical capability");
+
+const authoritySource=fs.readFileSync("cloudflare/src/agentic-authority-core.js","utf8");
+assert.match(authoritySource,/agent_key='thebe' AND action_key=\?/,"new canonical delegations must be de-duplicated without collapsing legacy grants");
+assert.match(authoritySource,/agent_key IN \('thebe',\?\) AND action_key=\?/,"legacy requests may inherit only their own legacy grant or a canonical Thebe grant");
+assert.doesNotMatch(authoritySource,/WHERE tenant_id=\? AND action_key=\? AND status='active'/,"delegation lookup must never ignore the agent compatibility boundary");
 
 console.log("v85 single Thebe agent capability architecture checks passed");
