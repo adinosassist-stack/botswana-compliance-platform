@@ -7,6 +7,8 @@ const BROWSER_NAVIGATION_TIMEOUT_MS=30000;
 const BROWSER_PROOF_WATCHDOG_MS=240000;
 const RELOAD_EXTERNAL_DEADLINE_MS=45000;
 const DIAGNOSTIC_EXTERNAL_DEADLINE_MS=12000;
+const WORKSPACE_AUTHORED_VISIBILITY_WAIT_MS=22000;
+const WORKSPACE_COMPUTED_VISIBILITY_DEADLINE_MS=6000;
 const WORKSPACE_EXTERNAL_DEADLINE_MS=40000;
 const BROWSER_CLOSE_DEADLINE_MS=5000;
 const API_BREADCRUMB_PATHS=new Set(['/api/auth/me','/api/state','/api/audit','/api/billing/status']);
@@ -28,6 +30,10 @@ function withDeadline(label,promise,ms){
     new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(`${label} external deadline ${ms}ms exceeded`)),ms)})
   ]).finally(()=>clearTimeout(timer));
 }
+assert(
+  WORKSPACE_AUTHORED_VISIBILITY_WAIT_MS+Math.max(DIAGNOSTIC_EXTERNAL_DEADLINE_MS,WORKSPACE_COMPUTED_VISIBILITY_DEADLINE_MS)+2000<WORKSPACE_EXTERNAL_DEADLINE_MS,
+  'workspace visibility diagnostics must finish before the outer workspace deadline'
+);
 function logicalApiPath(raw){
   try{
     const url=new URL(raw);
@@ -106,8 +112,12 @@ async function probeWorkspaceBootstrap(page,pageErrors=[]){
     return {
       directMe,directState,clientMe,clientState,
       gates:{
+        workspaceReady:globalThis.__THEBE_WORKSPACE_READY__===true,
         shell:!!shell,
-        shellVisibility:shell?getComputedStyle(shell).visibility:'missing',
+        shellHiddenAttribute:shell?.hidden===true,
+        shellHiddenClass:!!shell?.classList.contains('hidden'),
+        shellDisplay:shell?.style.display??'missing',
+        shellVisibility:shell?.style.visibility??'missing',
         marketingHidden:!!marketing?.classList.contains('hidden'),
         authHidden:!!auth?.classList.contains('hidden'),
         sidebar:!!document.getElementById('workspaceSidebar')
@@ -128,8 +138,12 @@ async function observeWorkspaceBootstrap(page,label,pageErrors=[]){
     const gates=await page.evaluate(()=>{
       const shell=document.getElementById('appShell'),marketing=document.getElementById('marketingGate'),auth=document.getElementById('authGate');
       return {
+        workspaceReady:globalThis.__THEBE_WORKSPACE_READY__===true,
         shell:!!shell,
-        shellVisibility:shell?getComputedStyle(shell).visibility:'missing',
+        shellHiddenAttribute:shell?.hidden===true,
+        shellHiddenClass:!!shell?.classList.contains('hidden'),
+        shellDisplay:shell?.style.display??'missing',
+        shellVisibility:shell?.style.visibility??'missing',
         marketingHidden:!!marketing?.classList.contains('hidden'),
         authHidden:!!auth?.classList.contains('hidden'),
         sidebar:!!document.getElementById('workspaceSidebar')
@@ -151,14 +165,27 @@ async function assertWorkspace(page,label,pageErrors=[]){
       const marketing=document.getElementById('marketingGate');
       const auth=document.getElementById('authGate');
       if(!shell)return false;
-      const style=getComputedStyle(shell);
-      return !shell.classList.contains('hidden')&&style.display!=='none'&&style.visibility!=='hidden'&&
-        !!document.getElementById('workspaceSidebar')&&marketing?.classList.contains('hidden')&&auth?.classList.contains('hidden');
-    },null,{timeout:30000});
+      return globalThis.__THEBE_WORKSPACE_READY__===true&&
+        shell.hidden!==true&&!shell.classList.contains('hidden')&&
+        shell.style.display!=='none'&&shell.style.visibility!=='hidden'&&
+        !!document.getElementById('workspaceSidebar')&&
+        marketing?.classList.contains('hidden')&&auth?.classList.contains('hidden');
+    },null,{timeout:WORKSPACE_AUTHORED_VISIBILITY_WAIT_MS,polling:100});
   }catch(error){
     const d=await withDeadline(`${label} timeout diagnostic`,probeWorkspaceBootstrap(page,pageErrors),DIAGNOSTIC_EXTERNAL_DEADLINE_MS).catch(probeError=>({sessionCookiePresent:null,directMe:{status:0,error:'probe_failed'},directState:{status:0,error:'probe_failed'},clientMe:{ok:false,error:'probe_failed'},clientState:{ok:false,error:'probe_failed'},gates:{},pageError:safe(probeError?.message||probeError)}));
-    throw new Error(`Synthetic browser proof failed: ${label} workspace bootstrap timeout ${summarizeProbe(d)}`);
+    throw new Error(`Synthetic browser proof failed: ${label} workspace authored-readiness timeout ${summarizeProbe(d)}`);
   }
+  const rendered=await withDeadline(
+    `${label} computed visibility confirmation`,
+    page.evaluate(()=>{
+      const shell=document.getElementById('appShell');
+      if(!shell)return {display:'missing',visibility:'missing',opacity:'missing',rects:0};
+      const style=getComputedStyle(shell);
+      return {display:style.display,visibility:style.visibility,opacity:style.opacity,rects:shell.getClientRects().length};
+    }),
+    WORKSPACE_COMPUTED_VISIBILITY_DEADLINE_MS
+  );
+  assert(rendered.display!=='none'&&rendered.visibility!=='hidden'&&rendered.opacity!=='0'&&rendered.rects>0,`${label} workspace is authored ready but not rendered ${safe(JSON.stringify(rendered))}`);
   const state=await page.evaluate(()=>({
     standalone:document.body.classList.contains('standalone-preview'),
     shell:!!document.getElementById('appShell'),sidebar:!!document.getElementById('workspaceSidebar')
