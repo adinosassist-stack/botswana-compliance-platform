@@ -186,6 +186,9 @@ async function directWorkspaceDiagnostic(page,label){
     7000
   );
   info('desktop direct diagnostic renderer state',safe(JSON.stringify(state)));
+  if(state.ready&&state.shell&&state.authoredDisplay!=='none'&&state.authoredVisibility!=='hidden'&&state.computedDisplay!=='none'&&state.computedVisibility!=='hidden'&&state.opacity!=='0'&&state.rects>0&&state.marketingHidden&&state.authHidden&&state.sidebar){
+    throw new Error('DIAGNOSTIC_MUTATION_OBSERVER_BYPASS_RESTORED_RENDERER');
+  }
   assert(
     state.ready&&state.shell&&state.hiddenAttribute!==true&&!state.hiddenClass&&
     state.authoredDisplay!=='none'&&state.authoredVisibility!=='hidden'&&
@@ -345,6 +348,18 @@ async function runBrowserProof(credentials){
     assert(authDirectState.ok,`desktop auth-surface direct state probe failed HTTP ${authDirectState.status} ${safe(authDirectState.error)}`);
     await page.evaluate(()=>sessionStorage.setItem('bw_onboarding_dismissed','1'));
     info('desktop diagnostic','fresh-owner onboarding auto-open suppressed for isolation');
+    await page.addInitScript(()=>{
+      const NativeMutationObserver=globalThis.MutationObserver;
+      globalThis.__THEBE_NATIVE_MUTATION_OBSERVER__=NativeMutationObserver;
+      globalThis.__THEBE_MUTATION_OBSERVER_BYPASS__=true;
+      globalThis.MutationObserver=class DiagnosticNoopMutationObserver{
+        constructor(callback){this.callback=callback}
+        observe(){}
+        disconnect(){}
+        takeRecords(){return []}
+      };
+    });
+    info('desktop diagnostic','MutationObserver disabled for next /app/ document');
     activeStage='desktop app navigation';
     info('desktop synthetic stage','opening authenticated /app/ workspace');
     const desktopApp=await page.goto(`${ORIGIN}/app/?desktop-owner-proof=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:BROWSER_NAVIGATION_TIMEOUT_MS});
