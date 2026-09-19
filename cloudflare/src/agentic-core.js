@@ -319,15 +319,19 @@ async function decideProposal({env,auth,proposalId,decision}){
   if(proposal.status!=="pending")return json({error:"agentic_proposal_already_decided",status:proposal.status},409);
   if(decision==="approved"&&!roleAllowed(auth,"owner"))return json({error:"owner_approval_required"},403);
   if(decision==="rejected"&&!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
-  const update=await env.DB.prepare(`UPDATE agentic_proposals SET status=?,decided_by_user_id=?,decision_at=CURRENT_TIMESTAMP
-    WHERE id=? AND tenant_id=? AND status='pending'`).bind(decision,auth.user_id,proposalId,auth.tenant_id).run();
-  const changed=Number(update?.meta?.changes??update?.changes??0);
+  const eventType=decision==="approved"?"PROPOSAL_APPROVED":"PROPOSAL_REJECTED";
+  const results=await env.DB.batch([
+    env.DB.prepare(`UPDATE agentic_proposals SET status=?,decided_by_user_id=?,decision_at=CURRENT_TIMESTAMP
+      WHERE id=? AND tenant_id=? AND status='pending'`).bind(decision,auth.user_id,proposalId,auth.tenant_id),
+    env.DB.prepare(`INSERT INTO agentic_events(id,tenant_id,run_id,proposal_id,event_type,actor_user_id,detail_json)
+      SELECT ?,?,?,?,?,?,? WHERE changes()=1`).bind(id(),auth.tenant_id,proposal.run_id,proposalId,eventType,auth.user_id,JSON.stringify({executionEnabled:false}))
+  ]);
+  const changed=Number(results?.[0]?.meta?.changes??results?.[0]?.changes??0);
   if(changed!==1){
     const current=await env.DB.prepare(`SELECT status FROM agentic_proposals WHERE id=? AND tenant_id=? LIMIT 1`).bind(proposalId,auth.tenant_id).first();
     if(!current)return json({error:"agentic_proposal_not_found"},404);
     return json({error:"agentic_proposal_already_decided",status:current.status},409);
   }
-  await appendEvent(env,{tenantId:auth.tenant_id,runId:proposal.run_id,proposalId,eventType:decision==="approved"?"PROPOSAL_APPROVED":"PROPOSAL_REJECTED",actorUserId:auth.user_id,detail:{executionEnabled:false}});
   return json({ok:true,id:proposalId,status:decision,execution:{performed:false,enabled:false,reason:"Stage 1 records governance decisions only."}});
 }
 
