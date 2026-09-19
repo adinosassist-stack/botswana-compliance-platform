@@ -8212,6 +8212,10 @@ window.whenThebeWorkspaceReady=function(callback){
 };
 function markWorkspaceReady(){
  if(window.__THEBE_WORKSPACE_READY__===true)return;
+ marketingGate.classList.add("hidden");
+ authGate.classList.add("hidden");
+ revealWorkspaceShell();
+ syncMobileRoleNav(currentWorkspaceRole());
  window.__THEBE_WORKSPACE_READY__=true;
  window.dispatchEvent(new Event("thebe:workspace-ready"));
 }
