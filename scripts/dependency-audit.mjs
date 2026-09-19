@@ -19,7 +19,7 @@ export function classifyNpmAudit(result){
   const hasVulnerabilityReport=!!parsed&&typeof parsed==='object'&&
     !!parsed.metadata?.vulnerabilities&&typeof parsed.metadata.vulnerabilities==='object'&&
     !!parsed.vulnerabilities&&typeof parsed.vulnerabilities==='object';
-  if(result?.status===0)return {kind:'pass',parsed,stdout,stderr,status:0};
+  if(result?.status===0&&hasVulnerabilityReport)return {kind:'pass',parsed,stdout,stderr,status:0};
   if(hasVulnerabilityReport)return {kind:'vulnerabilities',parsed,stdout,stderr,status:Number(result?.status||1)};
   return {kind:'infrastructure',parsed,stdout,stderr,status:Number(result?.status||1)};
 }
@@ -121,39 +121,106 @@ function vulnerabilitySummary(parsed){
   return ['critical','high','moderate','low','info'].map(k=>`${k}=${Number(counts[k]||0)}`).join(' ');
 }
 
-async function main(){
+function fallbackSeverity(advisory){
+  if(String(advisory?.type||'').toLowerCase()==='malware')return 'critical';
+  const severity=String(advisory?.severity||'').toLowerCase();
+  if(severity==='critical')return 'critical';
+  return 'high';
+}
+
+export function fallbackAuditReport({components=[],advisories=[]}={}){
+  const counts={info:0,low:0,moderate:0,high:0,critical:0,total:0};
+  const vulnerabilities={};
+  advisories.forEach((advisory,index)=>{
+    const severity=fallbackSeverity(advisory);
+    counts[severity]++;counts.total++;
+    const id=String(advisory?.ghsa_id||advisory?.cve_id||`fallback-${index+1}`);
+    vulnerabilities[id]={
+      name:id,
+      severity,
+      isDirect:false,
+      via:[{
+        source:id,
+        name:id,
+        dependency:id,
+        title:safe(advisory?.summary||advisory?.description||'GitHub Advisory Database match',500),
+        url:String(advisory?.html_url||''),
+        severity
+      }],
+      effects:[],
+      range:'locked-version-match',
+      nodes:[],
+      fixAvailable:false
+    };
+  });
+  return {
+    auditReportVersion:2,
+    source:'github-advisory-fallback',
+    vulnerabilities,
+    metadata:{
+      vulnerabilities:counts,
+      dependencies:{prod:components.length,dev:0,optional:0,peer:0,peerOptional:0,total:components.length}
+    }
+  };
+}
+
+function emitJson(value){
+  process.stdout.write(JSON.stringify(value,null,2)+'\n');
+}
+
+async function main({jsonMode=false}={}){
   const npmResult=spawnSync('npm',['audit','--omit=dev','--json','--audit-level=high'],{
     cwd:process.cwd(),encoding:'utf8',maxBuffer:20*1024*1024,env:process.env
   });
   if(npmResult.error)throw npmResult.error;
   const classified=classifyNpmAudit(npmResult);
   if(classified.kind==='pass'){
-    console.log(`Dependency audit passed via npm registry: ${vulnerabilitySummary(classified.parsed)}`);
+    if(jsonMode)emitJson(classified.parsed);
+    else console.log(`Dependency audit passed via npm registry: ${vulnerabilitySummary(classified.parsed)}`);
     return;
   }
   if(classified.kind==='vulnerabilities'){
-    if(classified.stdout)process.stdout.write(classified.stdout.endsWith('\n')?classified.stdout:`${classified.stdout}\n`);
-    if(classified.stderr)process.stderr.write(classified.stderr.endsWith('\n')?classified.stderr:`${classified.stderr}\n`);
-    throw new Error('Dependency audit found vulnerabilities at or above the configured npm audit threshold');
+    if(jsonMode)emitJson(classified.parsed);
+    else{
+      if(classified.stdout)process.stdout.write(classified.stdout.endsWith('\n')?classified.stdout:`${classified.stdout}\n`);
+      if(classified.stderr)process.stderr.write(classified.stderr.endsWith('\n')?classified.stderr:`${classified.stderr}\n`);
+    }
+    process.exitCode=1;
+    return;
   }
 
   console.warn(`npm audit service failed; using fail-closed GitHub Advisory Database fallback. npm status=${classified.status} stderr=${safe(classified.stderr,1500)}`);
   const {lock}=validateLockAndBuildSbom(process.cwd());
   const components=productionLockedComponents(lock);
   const fallback=await auditLockedComponentsWithGitHub({components});
+  const report=fallbackAuditReport({components,advisories:fallback.advisories});
+  if(jsonMode)emitJson(report);
   if(fallback.advisories.length){
-    for(const advisory of fallback.advisories){
-      console.error(`ADVISORY ${safe(advisory?.ghsa_id||advisory?.cve_id||'unknown',120)} severity=${safe(advisory?.severity||advisory?.type||'unknown',40)} ${safe(advisory?.html_url||'',240)}`);
+    if(!jsonMode){
+      for(const advisory of fallback.advisories){
+        console.error(`ADVISORY ${safe(advisory?.ghsa_id||advisory?.cve_id||'unknown',120)} severity=${safe(advisory?.severity||advisory?.type||'unknown',40)} ${safe(advisory?.html_url||'',240)}`);
+      }
     }
-    throw new Error(`Dependency audit fallback found ${fallback.advisories.length} high/critical reviewed or malware advisory match(es)`);
+    process.exitCode=1;
+    return;
   }
-  console.log(`Dependency audit fallback passed: ${fallback.checked} exact production registry-locked npm components checked against GitHub reviewed high/critical and malware advisories`);
+  if(!jsonMode)console.log(`Dependency audit fallback passed: ${fallback.checked} exact production registry-locked npm components checked against GitHub reviewed high/critical and malware advisories`);
 }
 
 const isMain=process.argv[1]&&pathToFileURL(process.argv[1]).href===import.meta.url;
 if(isMain){
-  main().catch(error=>{
-    console.error(`Dependency audit failed: ${safe(error?.stack||error?.message||error,5000)}`);
+  const unknown=process.argv.slice(2).filter(arg=>arg!=='--json');
+  const jsonMode=process.argv.includes('--json');
+  if(unknown.length){
+    const failure={auditReportVersion:2,error:{code:'INVALID_AUDIT_ARGUMENT',summary:`Unknown dependency audit argument(s): ${unknown.join(', ')}`}};
+    if(jsonMode)emitJson(failure);else console.error(failure.error.summary);
     process.exitCode=1;
-  });
+  }else{
+    main({jsonMode}).catch(error=>{
+      const summary=safe(error?.stack||error?.message||error,5000);
+      if(jsonMode)emitJson({auditReportVersion:2,error:{code:'DEPENDENCY_AUDIT_FAILED',summary}});
+      else console.error(`Dependency audit failed: ${summary}`);
+      process.exitCode=1;
+    });
+  }
 }

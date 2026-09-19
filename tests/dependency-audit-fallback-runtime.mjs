@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
-import {auditLockedComponentsWithGitHub,buildAffectChunks,classifyNpmAudit,productionLockedComponents} from '../scripts/dependency-audit.mjs';
+import {auditLockedComponentsWithGitHub,buildAffectChunks,classifyNpmAudit,fallbackAuditReport,productionLockedComponents} from '../scripts/dependency-audit.mjs';
 
 assert.equal(classifyNpmAudit({status:0,stdout:'{"metadata":{"vulnerabilities":{}},"vulnerabilities":{}}',stderr:''}).kind,'pass');
+assert.equal(classifyNpmAudit({status:0,stdout:'{}',stderr:''}).kind,'infrastructure');
 assert.equal(classifyNpmAudit({
   status:1,
   stdout:'{"metadata":{"vulnerabilities":{"high":1}},"vulnerabilities":{"x":{"severity":"high"}}}',
@@ -70,3 +71,10 @@ await assert.rejects(
 );
 
 console.log('Dependency audit fallback runtime: PASS');
+
+const cleanEvidence=fallbackAuditReport({components,advisories:[]});
+assert.equal(cleanEvidence.metadata.vulnerabilities.high,0);
+assert.equal(cleanEvidence.metadata.vulnerabilities.critical,0);
+assert.equal(cleanEvidence.metadata.dependencies.prod,components.length);
+const malwareEvidence=fallbackAuditReport({components,advisories:[{ghsa_id:'GHSA-malware-test',type:'malware',html_url:'https://github.com/advisories/GHSA-malware-test'}]});
+assert.equal(malwareEvidence.metadata.vulnerabilities.critical,1,'malware must block BF-07 as critical fallback evidence');
