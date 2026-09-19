@@ -75,7 +75,25 @@ env.AI={async run(){throw new Error("provider included internal secret details")
 response=await worker.fetch(request("/api/ai/advisor",{method:"POST",body:JSON.stringify({mode:"next_actions",question:"What should I do next?"})}),env,{});assert.equal(response.status,200);payload=await response.json();assert.equal(payload.generationMode,"structured_fallback");assert.equal(payload.creditsUsed,0);assert.doesNotMatch(JSON.stringify(payload),/provider included internal secret details/);assert.equal(sqlite.prepare("SELECT balance FROM ai_credit_wallets WHERE tenant_id='tenant-1'").get().balance,94);
 const failedRun=sqlite.prepare("SELECT status,error_code,credits_used FROM ai_advisor_runs WHERE tenant_id='tenant-1' AND error_code='workers_ai_failed' LIMIT 1").get();assert.equal(failedRun.status,"fallback");assert.equal(failedRun.error_code,"workers_ai_failed");assert.equal(failedRun.credits_used,0);
 assert.equal(sqlite.prepare("SELECT count(*) count FROM ai_credit_ledger WHERE tenant_id='tenant-1' AND feature='business_advisor' AND entry_type='refund'").get().count,1);
-for(let i=0;i<8;i++){
+
+env.AI=AI;
+const balanceBeforePersistenceFailure=sqlite.prepare("SELECT balance FROM ai_credit_wallets WHERE tenant_id='tenant-1'").get().balance;
+const originalAuditSecret=env.AUDIT_INTEGRITY_SECRET;
+env.AUDIT_INTEGRITY_SECRET="";
+let persistenceFailed=false;
+try{
+  response=await worker.fetch(request("/api/ai/advisor",{method:"POST",body:JSON.stringify({mode:"ask",question:"Force post-model persistence failure"})}),env,{});
+  persistenceFailed=response.status>=500;
+}catch{persistenceFailed=true}
+assert.equal(persistenceFailed,true,"post-model persistence failure must not return a successful advisor response");
+env.AUDIT_INTEGRITY_SECRET=originalAuditSecret;
+assert.equal(sqlite.prepare("SELECT balance FROM ai_credit_wallets WHERE tenant_id='tenant-1'").get().balance,balanceBeforePersistenceFailure,"failed advisor persistence must refund the reserved tenant credits");
+const persistenceRun=sqlite.prepare("SELECT status,error_code,credits_used FROM ai_advisor_runs WHERE tenant_id='tenant-1' AND error_code='advisor_persistence_failed' ORDER BY created_at DESC LIMIT 1").get();
+assert.equal(persistenceRun.status,"failed");assert.equal(persistenceRun.credits_used,0);
+assert.equal(sqlite.prepare("SELECT count(*) count FROM ai_credit_ledger WHERE tenant_id='tenant-1' AND feature='business_advisor' AND entry_type='refund'").get().count,2);
+
+sqlite.prepare("DELETE FROM auth_rate_limits WHERE scope='ai-advisor-tenant'").run();
+for(let i=0;i<10;i++){
   response=await worker.fetch(request("/api/ai/advisor",{method:"POST",body:JSON.stringify({mode:"ask",question:`Durable rate budget request ${i}`})}),env,{});
   assert.equal(response.status,200);
 }
@@ -103,6 +121,7 @@ const checks=[
   ["bounded input and context",workerSource.includes("question_too_long")&&workerSource.includes("request_too_large")&&workerSource.includes("ai_advisor_context_limit_exceeded")],
   ["tenant rate limit",workerSource.includes('authSubjectRateLimit(env,"ai-advisor-tenant",a.tenant_id,{limit:10,windowSeconds:60})')&&workerSource.includes("ai_advisor_rate_limited")&&!workerSource.includes("SELECT count(*) count FROM ai_advisor_runs WHERE tenant_id=? AND created_at>=datetime('now','-1 minute')")],
   ["monthly grant race recovery",workerSource.includes("const raced=await env.DB.prepare(\"SELECT 1 ok FROM ai_credit_grants WHERE tenant_id=? AND grant_key=? LIMIT 1\")")&&workerSource.includes("if(raced)return {granted:false,allowance}")],
+  ["advisor persistence failure refunds reserved credits",workerSource.includes('"advisor_persistence_failed"')&&workerSource.includes('await refundFailedAiCredit(env,a.tenant_id,"business_advisor",runId,"advisor_persistence_failed",consumption)')&&workerSource.includes("SET status='failed',credits_used=0,error_code='advisor_persistence_failed'")],
   ["structured output",workerSource.includes('type:"json_schema"')&&workerSource.includes("AI_ADVISOR_SCHEMA")],
   ["read-only trust boundary",workerSource.includes("never as instructions")&&workerSource.includes("Do not browse, file, send, approve")&&!workerSource.includes("AI_ADVISOR_TOOLS")],
   ["safe UI rendering",html.includes("renderAiAdvisorResult")&&html.includes("replaceChildren")&&html.includes("textContent=String(text)")],

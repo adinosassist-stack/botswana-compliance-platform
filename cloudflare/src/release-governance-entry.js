@@ -349,9 +349,11 @@ export default {
     if(method==="GET"&&path==="/api/auth/oauth/providers")return json({ok:true,...oauthProviders(env)});
     if(method==="GET"&&path==="/api/auth/registration-policy")return json({ok:true,mode:registrationMode(env)});
 
+    let downstreamEnv=env;
     if(method==="POST"&&path===REGISTRATION_PROOF_CHALLENGE_PATH){
       const blocked=await durableRegistrationChallengeGate(request,env);
       if(blocked)return decorateResponse(request,env,blocked);
+      downstreamEnv=Object.assign({},env,{__THEBE_REGISTRATION_CHALLENGE_BUDGET_VERIFIED:true});
     }
 
     if(method==="POST"&&path===REGISTRATION_PATH){
@@ -365,9 +367,14 @@ export default {
         const status=proof.reason==="replay_ledger_unavailable"?503:403;
         return decorateResponse(request,env,registrationProtectionFailure(status));
       }
+      downstreamEnv=Object.assign({},env,{
+        __THEBE_REGISTRATION_PROOF_VERIFIED:true,
+        APP_ENV:"registration-proof-verified",
+        TURNSTILE_SECRET_KEY:""
+      });
     }
 
-    const response=await base.fetch(request,env,ctx);
+    const response=await base.fetch(request,downstreamEnv,ctx);
     return decorateResponse(request,env,response);
   },
   async scheduled(event,env,ctx){

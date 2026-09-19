@@ -14,7 +14,7 @@ let checks=0;const ok=(value,message)=>{assert.ok(value,message);checks++};
 
 ok(wrangler.includes('main = "src/release-governance-entry.js"'),'release governance wrapper is the deployed production entrypoint');
 ok(releaseGovernanceEntry.includes('import base from "./agentic-entry.js"'),'release governance delegates to V81 agentic wrapper');
-ok(releaseGovernanceEntry.includes('const response=await base.fetch(request,env,ctx)'),'release governance preserves downstream production dispatch');
+ok(releaseGovernanceEntry.includes('const response=await base.fetch(request,downstreamEnv,ctx)')&&releaseGovernanceEntry.includes('let downstreamEnv=env'),'release governance preserves downstream production dispatch while allowing server-only registration handoff state');
 ok(agenticEntry.includes('import base from "./production-entry.js"'),'V81 wrapper delegates to canonical hardened production entry');
 ok(agenticEntry.includes('import {applyClientRuntimeIdentity} from "./client-runtime-identity.js"'),'V81 wrapper imports isolated client runtime identity decoration');
 ok(agenticEntry.includes('const runtimeResponse=await applyClientRuntimeIdentity(request,response)'),'V81 wrapper applies client runtime identity only after canonical production dispatch');
