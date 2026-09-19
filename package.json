@@ -210,6 +210,6 @@
   },
   "packageManager": "npm@10.9.8",
   "devDependencies": {
-    "wrangler": "4.127.1"
+    "wrangler": "4.135.0"
   }
 }
