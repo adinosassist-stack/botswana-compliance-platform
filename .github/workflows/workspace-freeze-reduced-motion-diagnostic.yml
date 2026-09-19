@@ -1,0 +1,58 @@
+name: Workspace Freeze Reduced Motion Diagnostic
+run-name: Reduced-motion live synthetic ${{ github.sha }}
+
+on:
+  push:
+    branches:
+      - chatgpt/diagnose-workspace-freeze-reduced-motion-20260919
+
+permissions:
+  contents: read
+
+concurrency:
+  group: workspace-freeze-reduced-motion-diagnostic
+  cancel-in-progress: false
+
+jobs:
+  diagnostic:
+    name: Run live synthetic with reduced motion
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: production
+    env:
+      AUDIT_INTEGRITY_SECRET: ${{ secrets.AUDIT_INTEGRITY_SECRET }}
+    steps:
+      - name: Checkout diagnostic branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+
+      - name: Install exact dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="$(node -p "String(require('./package.json').packageManager).replace(/^npm@/,'')")"
+          actual="$(npm --version)"
+          [[ "$actual" == "$expected" ]] || { echo "npm mismatch expected=$expected actual=$actual" >&2; exit 1; }
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+
+      - name: Prove cleanup precondition
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${AUDIT_INTEGRITY_SECRET:-}" ]] || { echo "AUDIT_INTEGRITY_SECRET unavailable" >&2; exit 1; }
+          node scripts/production-synthetic-interruption-recovery.mjs
+
+      - name: Run reduced-motion live synthetic
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/production-synthetic-full-user-wrapper.mjs
