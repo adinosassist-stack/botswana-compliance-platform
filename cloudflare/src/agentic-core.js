@@ -1,4 +1,5 @@
 import {associationForProposal,buildOutcomeAssociations,rankOutcomeInformedProposals} from "./agentic-learning.js";
+import {buildSingleAgentOrchestration,verifyOrchestratedProposals} from "./agent-orchestration.js";
 
 const MAX_BODY_BYTES=8192;
 const MAX_PROPOSALS=8;
@@ -192,8 +193,8 @@ function deterministicFallback(observation){
   return {answer:"Thebe generated a governed plan from current workspace signals. No autonomous business mutation was performed.",confidence:"medium",actions,caveats:["Human approval is required before any consequential action."],sourceRefs:actions.flatMap(x=>x.sourceRefs||[])};
 }
 
-async function runAdvisor({request,env,ctx,coreFetch,runId,observation}){
-  const question=text(`Create the safest next-action plan from this observation. Treat the numbers as application-calculated facts. Do not instruct autonomous payment, payroll, filing, signing, journal posting, refund, discipline or termination. OBSERVATION ${JSON.stringify(observation)}`,950);
+async function runAdvisor({request,env,ctx,coreFetch,runId,observation,orchestration}){
+  const question=text(`Create the safest next-action plan from this observation and bounded capability work plan. Treat the numbers as application-calculated facts. Every recommendation must stay within the listed capability work units and cite one or more allowed sourceRefs. Do not instruct autonomous payment, payroll, filing, signing, journal posting, refund, discipline or termination. CAPABILITY_WORK_UNITS ${JSON.stringify(orchestration?.workUnits||[])} ALLOWED_SOURCE_REFS ${JSON.stringify(orchestration?.allowedSourceRefs||[])} OBSERVATION ${JSON.stringify(observation)}`,2400);
   const target=new URL("/api/ai/advisor",request.url);
   const headers=new Headers({"content-type":"application/json","accept":"application/json","idempotency-key":`agentic-plan-${runId}`});
   const cookieHeader=request.headers.get("cookie");if(cookieHeader)headers.set("cookie",cookieHeader);
@@ -269,19 +270,23 @@ async function createPlan({request,env,ctx,coreFetch,auth}){
   const goal=text(body?.goal||"Protect the business and identify the safest next actions.",500);
   const runId=id(),observation=await observeWorkspace(env,auth.tenant_id);
   observation.simulation=deterministicSimulation(observation);
-  const advisor=await runAdvisor({request,env,ctx,coreFetch,runId,observation});
+  const orchestration=buildSingleAgentOrchestration({goal,observation});
+  observation.orchestration=orchestration;
+  const advisor=await runAdvisor({request,env,ctx,coreFetch,runId,observation,orchestration});
   const normalizedProposals=normalizeProposals(advisor.result?.actions);
-    const outcomeAssociations=await loadOutcomeAssociations(env,auth.tenant_id);
-    const proposals=rankOutcomeInformedProposals(normalizedProposals,outcomeAssociations);
-    observation.learning={
-      type:"non_causal_outcome_association",
-      causal:false,
-      evidenceWindowDays:180,
-      minimumEvidencePerSource:3,
-      sourceCount:Object.keys(outcomeAssociations).length,
-      authorityEffect:"none",
-      executionEffect:"none"
-    };
+  const verified=verifyOrchestratedProposals(normalizedProposals,orchestration);
+  const outcomeAssociations=await loadOutcomeAssociations(env,auth.tenant_id);
+  const proposals=rankOutcomeInformedProposals(verified.proposals,outcomeAssociations);
+  observation.verification=verified.summary;
+  observation.learning={
+    type:"non_causal_outcome_association",
+    causal:false,
+    evidenceWindowDays:180,
+    minimumEvidencePerSource:3,
+    sourceCount:Object.keys(outcomeAssociations).length,
+    authorityEffect:"none",
+    executionEffect:"none"
+  };
   const summary=text(advisor.result?.answer||"Governed plan generated.",3000);
   const confidence=["low","medium","high"].includes(String(advisor.result?.confidence))?String(advisor.result.confidence):"medium";
   await env.DB.batch([
@@ -290,17 +295,18 @@ async function createPlan({request,env,ctx,coreFetch,auth}){
     ...proposals.map(item=>env.DB.prepare(`INSERT INTO agentic_proposals(id,tenant_id,run_id,ordinal,title,reason,priority,risk,authority,execution_policy,source_refs_json,status)
       VALUES(?,?,?,?,?,?,?,?,?,?,?,'pending')`).bind(id(),auth.tenant_id,runId,item.ordinal,item.title,item.reason,item.priority,item.risk,item.authority,item.executionPolicy,JSON.stringify(item.sourceRefs)))
   ]);
-  await appendEvent(env,{tenantId:auth.tenant_id,runId,eventType:"PLAN_GENERATED",actorUserId:auth.user_id,detail:{goal,generationMode:advisor.generationMode,proposalCount:proposals.length,outcomeInformedRanking:true,learningSourceCount:Object.keys(outcomeAssociations).length,authorityEffect:"none"}});
+  await appendEvent(env,{tenantId:auth.tenant_id,runId,eventType:"PLAN_GENERATED",actorUserId:auth.user_id,detail:{goal,generationMode:advisor.generationMode,proposalCount:proposals.length,outcomeInformedRanking:true,learningSourceCount:Object.keys(outcomeAssociations).length,orchestrationVersion:orchestration.version,workUnitCount:orchestration.workUnits.length,allProposalsGrounded:verified.summary.allGrounded,authorityEffect:"none"}});
   const saved=await env.DB.prepare(`SELECT id,ordinal,title,reason,priority,risk,authority,execution_policy,source_refs_json,status,created_at
     FROM agentic_proposals WHERE tenant_id=? AND run_id=? ORDER BY ordinal`).bind(auth.tenant_id,runId).all();
   return json({
     ok:true,
-    stage:"observe_reason_simulate_recommend",
+    stage:"observe_decompose_route_reason_verify_recommend",
     run:{id:runId,goal,status:"completed",generationMode:advisor.generationMode,confidence,summary,observation},
     proposals:(saved.results||[]).map(row=>{
       const proposal={...row,sourceRefs:JSON.parse(row.source_refs_json||"[]"),source_refs_json:undefined};
       return {...proposal,outcomeLearning:associationForProposal(proposal,outcomeAssociations)};
     }),
+    architecture:{agentKey:"thebe",singleAgent:true,orchestrationVersion:orchestration.version,fanOut:orchestration.fanOut,session:orchestration.session},
     authority:{executionEnabled:false,humanApprovalRequired:true,prohibitedAutonomy:PROHIBITED_AUTONOMY}
   },201);
 }
