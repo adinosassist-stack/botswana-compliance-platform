@@ -8292,7 +8292,7 @@ bootstrap();
     return [...(root.querySelectorAll?.('table')||[])];
   }
   window.stabilizeWorkspaceTables=function(root=document.querySelector('#mainContent .view.active')){
-    workspaceTableTargets(root).forEach(table=>{if(table.parentElement?.classList.contains('table-scroll'))return;const wrap=document.createElement('div');wrap.className='table-scroll';wrap.setAttribute('role','region');wrap.setAttribute('aria-label','Scrollable data table');table.parentNode.insertBefore(wrap,table);wrap.appendChild(table)});
+    workspaceTableTargets(root).forEach(table=>{if(table.parentElement?.classList.contains('table-scroll')||table.parentElement?.classList.contains('mobile-table-wrap'))return;const wrap=document.createElement('div');wrap.className='table-scroll';wrap.setAttribute('role','region');wrap.setAttribute('aria-label','Scrollable data table');table.parentNode.insertBefore(wrap,table);wrap.appendChild(table)});
   };
   const observeIds=['openActions','navAlerts','setupPercent'];
   window.whenThebeWorkspaceReady(()=>{
@@ -8407,7 +8407,7 @@ bootstrap();
     if(!root)return;
     const tables=root.matches?.("table")?[root]:[...(root.querySelectorAll?.("table")||[])];
     tables.forEach(table=>{
-      if(table.parentElement?.classList.contains("mobile-table-wrap"))return;
+      if(table.parentElement?.classList.contains("mobile-table-wrap")||table.parentElement?.classList.contains("table-scroll"))return;
       const wrap=document.createElement("div");wrap.className="mobile-table-wrap";wrap.setAttribute("role","region");wrap.setAttribute("aria-label","Scrollable table");wrap.tabIndex=0;
       table.parentNode.insertBefore(wrap,table);wrap.appendChild(table);
     });
