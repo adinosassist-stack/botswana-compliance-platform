@@ -5,6 +5,7 @@ const wrangler=read('cloudflare/wrangler.toml');
 const releaseGovernanceEntry=read('cloudflare/src/release-governance-entry.js');
 const agenticEntry=read('cloudflare/src/agentic-entry.js');
 const productionEntry=read('cloudflare/src/production-entry.js');
+const registrationBoundary=read('cloudflare/src/registration-boundary.js');
 const ownerBrief=read('public/js/owner-command-centre.js');
 const ownerBriefCompact=ownerBrief.replace(/\s+/g,'');
 const ownerBriefCss=read('public/assets/owner-command-centre.css');
@@ -64,7 +65,7 @@ ok(productionDeploy.includes('/api/live')&&productionDeploy.includes('/api/ready
 
 ok(wrangler.includes('main = "src/release-governance-entry.js"')&&releaseGovernanceEntry.includes('import base from "./agentic-entry.js"')&&releaseGovernanceEntry.includes('const response=await base.fetch(request,env,ctx)')&&releaseGovernanceEntry.includes('return base.scheduled(event,env,ctx)')&&agenticEntry.includes('import base from "./production-entry.js"')&&agenticEntry.includes('const response=await base.fetch(request,env,ctx)')&&agenticEntry.includes('base.scheduled(event,env,ctx)')&&productionEntry.includes('import worker from "./worker.js"')&&productionEntry.includes('worker.fetch(request,env,ctx)')&&productionEntry.includes('worker.scheduled(event,env,ctx)'), 'production release governance delegates through agentic and canonical hardened production entries to the base Worker');
 ok(releaseGovernanceEntry.includes('REGISTRATION_MODE')&&releaseGovernanceEntry.includes('registrationGate(request,env)')&&releaseGovernanceEntry.includes('/api/version')&&releaseGovernanceEntry.includes('x-thebe-source-sha'), 'release governance entry enforces activation policy and exposes immutable runtime provenance');
-ok(productionEntry.includes('/api/auth/registration-proof/challenge')&&productionEntry.includes('provider:"thebe_proof"')&&productionEntry.includes('usedRegistrationProofs')&&productionEntry.includes('hasLeadingZeroBits'), 'production entrypoint retains signed first-party registration proof, replay rejection and proof-of-work');
+ok(productionEntry.includes('/api/auth/registration-proof/challenge')&&productionEntry.includes('provider:"thebe_proof"')&&productionEntry.includes('durableRegistrationChallengeGate')&&productionEntry.includes('validateAndClaimRegistrationProof')&&registrationBoundary.includes('proof_replayed')&&registrationBoundary.includes('hasLeadingZeroBits')&&registrationBoundary.includes('INSERT OR IGNORE INTO auth_rate_limits'), 'production entrypoint retains signed first-party registration proof, durable replay rejection and proof-of-work');
 ok(productionEntry.includes('https://challenges.cloudflare.com')&&productionEntry.includes('Content-Security-Policy')&&productionEntry.includes('content-security-policy'), 'production entrypoint retains legacy Turnstile CSP compatibility while first-party proof protects registration');
 ok(productionEntry.includes('missing-input-response')&&productionEntry.includes('invalid-input-secret')&&productionEntry.includes('turnstile_configuration_error'), 'production registration retains legacy Turnstile secret diagnostics without exposing the secret');
 ok(productionEntry.includes('human_verification_retry')&&productionEntry.includes('retryable:true'), 'production registration retains explicit retryable legacy challenge handling');
