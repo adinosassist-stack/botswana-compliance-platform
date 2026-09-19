@@ -5,6 +5,7 @@ const workflow=fs.readFileSync('.github/workflows/production-launch-audit.yml','
 const residueAudit=fs.readFileSync('scripts/production-synthetic-residue-audit.mjs','utf8');
 const browserWrapper=fs.readFileSync('scripts/production-synthetic-browser-wrapper.mjs','utf8');
 const workspaceHtml=fs.readFileSync('public/index.html','utf8');
+const worker=fs.readFileSync('cloudflare/src/worker.js','utf8');
 let pass=0;
 const ok=(condition,message)=>{
   if(!condition)throw new Error(`FAIL: ${message}`);
@@ -34,6 +35,8 @@ ok(workspaceHtml.includes("root=document.querySelector('#mainContent .view.activ
 ok(workspaceHtml.includes('if(!options?.skipDataRefresh&&!options?.roleRedirect)queueMicrotask(()=>renderAll())')&&!workspaceHtml.includes('setTimeout(animateViewItems,20);if(!options?.skipDataRefresh)queueMicrotask(()=>renderAll())'), 'initial role redirect does not queue a redundant full-workspace render after authenticated reveal');
 ok(workspaceHtml.includes("const active=main.querySelector('.view.active');if(!active)return")&&workspaceHtml.includes("n===active||active.contains(n)"), 'table mutation observer ignores hidden-view render mutations after readiness');
 ok(workspaceHtml.includes("classList.contains('table-scroll')||table.parentElement?.classList.contains('mobile-table-wrap')")&&workspaceHtml.includes('classList.contains("mobile-table-wrap")||table.parentElement?.classList.contains("table-scroll")'), 'desktop and mobile table wrappers treat either existing wrapper as terminal and cannot recursively nest each other');
+ok(!['advanceObligation','populateDefenseEvidenceSelectors','populateLineageControls','quickNavigate','selectPlanAndRegister','switchRole'].some(name=>new RegExp(`\\bfunction\\s+${name}\\s*\\(`).test(workspaceHtml)||new RegExp(`\\basync\\s+function\\s+${name}\\s*\\(`).test(workspaceHtml)), 'unreachable browser compatibility and superseded helper functions are removed');
+ok(!['applyPaidCreditOrder','executiveControlReplacementGovernanceLatest','queueRegulatoryRollout','reportRowSnapshot','requireRegulatoryReviewer','settlePaymentOrder'].some(name=>new RegExp(`\\bfunction\\s+${name}\\s*\\(`).test(worker)||new RegExp(`\\basync\\s+function\\s+${name}\\s*\\(`).test(worker)), 'unreachable worker settlement, rollout, snapshot and reviewer helpers are removed');
 ok(workspaceHtml.includes('window.__THEBE_WORKSPACE_READY__=false')&&workspaceHtml.includes('window.whenThebeWorkspaceReady=function(callback)')&&workspaceHtml.includes('window.dispatchEvent(new Event("thebe:workspace-ready"))')&&workspaceHtml.includes('await loadServerState();if(isWorkspaceRole(currentUser?.role))markWorkspaceReady()'), 'workspace readiness is emitted only after authoritative authenticated bootstrap completes');
 ok(workspaceHtml.includes('id="appShell" style="display:none;visibility:hidden"')&&workspaceHtml.includes('function concealWorkspaceShell(){appShell.style.display="none";appShell.style.visibility="hidden"}')&&workspaceHtml.includes('function revealWorkspaceShell(){appShell.style.display="";appShell.style.visibility="visible"}'), 'workspace shell is removed from layout while authenticated state bootstrap is unresolved');
 ok(workspaceHtml.includes('async function bootstrap(){marketingGate.classList.add("hidden");authGate.classList.add("hidden");concealWorkspaceShell();')&&workspaceHtml.includes('function hideAuth(){marketingGate.classList.add("hidden");authGate.classList.add("hidden");revealWorkspaceShell();'), 'bootstrap concealment stays fail-closed until the authenticated reveal path');
@@ -65,4 +68,4 @@ if(productionAuditEnv){
   console.log('PASS production-only historical synthetic residue audit completed');
 }
 
-console.log(`Phase 0 deferred integration, post-deploy, tenant-integrity and residue-audit contract: ${pass}/42 PASS`);
+console.log(`Phase 0 deferred integration, post-deploy, tenant-integrity and residue-audit contract: ${pass}/44 PASS`);
