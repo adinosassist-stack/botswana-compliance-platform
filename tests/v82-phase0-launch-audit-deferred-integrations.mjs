@@ -29,10 +29,13 @@ ok(workflow.includes('post-deploy smoke SHA mismatch')&&workflow.includes('refus
 ok(workflow.includes('environment: production')&&workflow.includes('CLOUDFLARE_API_TOKEN')&&workflow.includes('D1_DATABASE_ID'), 'privileged Cloudflare and D1 audit remains isolated in the production environment');
 ok(browserWrapper.includes("opening dedicated auth surface")&&browserWrapper.includes("/auth/?mode=login&next=/app/")&&browserWrapper.includes("opening authenticated /app/ workspace"), 'canonical desktop synthetic lifecycle authenticates through the dedicated auth surface and enters /app/');
 ok(browserWrapper.includes("mobile auth surface navigation")&&browserWrapper.includes("mobile authenticated /app/ route did not return 200")&&browserWrapper.includes("reloading authenticated /app/ workspace"), 'canonical mobile synthetic lifecycle reloads the authenticated /app/ boundary instead of legacy root');
-const assertWorkspaceSource=browserWrapper.slice(browserWrapper.indexOf('async function assertWorkspace'),browserWrapper.indexOf('async function loginInBrowser'));
+const assertWorkspaceSource=browserWrapper.slice(browserWrapper.indexOf('function workspaceAuthoredState'),browserWrapper.indexOf('async function loginInBrowser'));
 ok(
   assertWorkspaceSource.includes('WORKSPACE_AUTHORED_VISIBILITY_WAIT_MS')&&
-  assertWorkspaceSource.includes('polling:100')&&
+  assertWorkspaceSource.includes('WORKSPACE_AUTHORED_EVALUATION_DEADLINE_MS')&&
+  assertWorkspaceSource.includes('WORKSPACE_POLL_INTERVAL_MS')&&
+  assertWorkspaceSource.includes('page.evaluate(workspaceAuthoredState)')&&
+  !assertWorkspaceSource.includes('page.waitForFunction(')&&
   assertWorkspaceSource.includes('globalThis.__THEBE_WORKSPACE_READY__===true')&&
   assertWorkspaceSource.includes("shell.style.display!=='none'&&shell.style.visibility!=='hidden'")&&
   assertWorkspaceSource.includes('computed visibility confirmation')&&
@@ -40,7 +43,7 @@ ok(
   browserWrapper.includes("shellDisplay:shell?.style.display??'missing'")&&
   browserWrapper.includes("shellVisibility:shell?.style.visibility??'missing'")&&
   browserWrapper.includes("workspace visibility diagnostics must finish before the outer workspace deadline"),
-  'browser workspace proof avoids repeated forced-layout reads during bootstrap while retaining one bounded post-ready rendered-visibility confirmation'
+  'browser workspace proof uses externally bounded readiness polling without repeated forced-layout reads and retains one bounded post-ready rendered-visibility confirmation'
 );
 ok(workspaceHtml.includes('renderAll();applyRoleUi();hideAuth();logEvent("APP_OPENED"')&&!workspaceHtml.includes('hideAuth();void loadBilling()'), 'authenticated workspace reveal starts no optional billing request');
 ok(!workspaceHtml.includes('let init=await apiFetch("/api/state",{method:"PUT"')&&workspaceHtml.includes('else if(currentUser.role==="owner"){nextStore=blankWorkspaceState('), 'new-owner cold start renders blank state without a blocking startup write');
