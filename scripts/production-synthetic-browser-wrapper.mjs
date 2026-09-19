@@ -11,6 +11,8 @@ const WORKSPACE_AUTHORED_VISIBILITY_WAIT_MS=22000;
 const WORKSPACE_AUTHORED_EVALUATION_DEADLINE_MS=2500;
 const WORKSPACE_POLL_INTERVAL_MS=125;
 const WORKSPACE_COMPUTED_VISIBILITY_DEADLINE_MS=6000;
+const ONBOARDING_MODAL_WAIT_MS=2500;
+const ONBOARDING_MODAL_ACTION_MS=5000;
 const WORKSPACE_EXTERNAL_DEADLINE_MS=40000;
 const BROWSER_CLOSE_DEADLINE_MS=5000;
 const API_BREADCRUMB_PATHS=new Set(['/api/auth/me','/api/state','/api/audit','/api/billing/status']);
@@ -236,6 +238,20 @@ async function assertWorkspace(page,label,pageErrors=[]){
   assert(state.shell&&state.sidebar,`${label} workspace shell/sidebar missing`);
 }
 
+async function dismissFirstRunOnboardingIfPresent(page,label){
+  const modal=page.locator('#onboardModal.open');
+  try{
+    await modal.waitFor({state:'visible',timeout:ONBOARDING_MODAL_WAIT_MS});
+  }catch{
+    return false;
+  }
+  const finishLater=modal.locator('button[data-bw-onclick="dismissOnboarding()"]');
+  await finishLater.waitFor({state:'visible',timeout:ONBOARDING_MODAL_ACTION_MS});
+  await finishLater.click({timeout:ONBOARDING_MODAL_ACTION_MS});
+  await page.locator('#onboardModal').waitFor({state:'hidden',timeout:ONBOARDING_MODAL_ACTION_MS});
+  mark(label+' onboarding','first-run Quick start was visible and dismissed through the real Finish later control');
+  return true;
+}
 async function loginInBrowser(page,credentials){
   const result=await page.evaluate(async({email,password,timeoutMs})=>{
     const controller=new AbortController();
@@ -355,6 +371,8 @@ async function runBrowserProof(credentials){
     await withDeadline('desktop pre-reload diagnostic',observeWorkspaceBootstrap(page,'desktop pre-reload',pageErrors),DIAGNOSTIC_EXTERNAL_DEADLINE_MS);
     activeStage='desktop initial workspace reveal';
     await withDeadline('desktop initial workspace reveal',assertWorkspace(page,'desktop initial',pageErrors),WORKSPACE_EXTERNAL_DEADLINE_MS);
+    activeStage='desktop first-run onboarding';
+    await dismissFirstRunOnboardingIfPresent(page,'desktop initial');
     activeStage='desktop authenticated reload';
     info('desktop synthetic stage','reloading authenticated /app/ workspace');
     await withDeadline('desktop authenticated reload',page.reload({waitUntil:'commit',timeout:BROWSER_NAVIGATION_TIMEOUT_MS}),RELOAD_EXTERNAL_DEADLINE_MS);
@@ -362,6 +380,8 @@ async function runBrowserProof(credentials){
     await withDeadline('desktop post-reload diagnostic',observeWorkspaceBootstrap(page,'desktop post-reload',pageErrors),DIAGNOSTIC_EXTERNAL_DEADLINE_MS);
     activeStage='desktop workspace reveal';
     await withDeadline('desktop workspace reveal',assertWorkspace(page,'desktop',pageErrors),WORKSPACE_EXTERNAL_DEADLINE_MS);
+    activeStage='desktop onboarding guard';
+    await dismissFirstRunOnboardingIfPresent(page,'desktop');
     const desktopNav=page.locator('#workspaceSidebar [data-view]:visible');
     const desktopNavCount=await desktopNav.count();assert(desktopNavCount>0,'desktop owner workspace has no visible data-view navigation');
     const firstDesktopNav=desktopNav.first();const desktopView=await firstDesktopNav.getAttribute('data-view');await firstDesktopNav.click({timeout:10000});
@@ -391,6 +411,8 @@ async function runBrowserProof(credentials){
     await withDeadline('mobile pre-reload diagnostic',observeWorkspaceBootstrap(mobilePage,'mobile pre-reload',mobilePageErrors),DIAGNOSTIC_EXTERNAL_DEADLINE_MS);
     activeStage='mobile initial workspace reveal';
     await withDeadline('mobile initial workspace reveal',assertWorkspace(mobilePage,'mobile initial',mobilePageErrors),WORKSPACE_EXTERNAL_DEADLINE_MS);
+    activeStage='mobile first-run onboarding';
+    await dismissFirstRunOnboardingIfPresent(mobilePage,'mobile initial');
     activeStage='mobile authenticated reload';
     info('mobile synthetic stage','reloading authenticated /app/ workspace');
     await withDeadline('mobile authenticated reload',mobilePage.reload({waitUntil:'commit',timeout:BROWSER_NAVIGATION_TIMEOUT_MS}),RELOAD_EXTERNAL_DEADLINE_MS);
@@ -398,6 +420,8 @@ async function runBrowserProof(credentials){
     await withDeadline('mobile post-reload diagnostic',observeWorkspaceBootstrap(mobilePage,'mobile post-reload',mobilePageErrors),DIAGNOSTIC_EXTERNAL_DEADLINE_MS);
     activeStage='mobile workspace reveal';
     await withDeadline('mobile workspace reveal',assertWorkspace(mobilePage,'mobile',mobilePageErrors),WORKSPACE_EXTERNAL_DEADLINE_MS);
+    activeStage='mobile onboarding guard';
+    await dismissFirstRunOnboardingIfPresent(mobilePage,'mobile');
     const menu=mobilePage.locator('#mobileMenuButton');await menu.waitFor({state:'visible',timeout:10000});await menu.tap({timeout:10000});
     await mobilePage.waitForFunction(()=>document.body.classList.contains('mobile-nav-open'),null,{timeout:5000});
     const menuState=await mobilePage.evaluate(()=>{const nav=document.querySelector('#workspaceSidebar > .nav');return {expanded:document.getElementById('mobileMenuButton')?.getAttribute('aria-expanded'),bodyTouch:getComputedStyle(document.body).touchAction,navTouch:nav?getComputedStyle(nav).touchAction:'',overflow:nav?getComputedStyle(nav).overflowY:'',max:nav?Math.max(0,nav.scrollHeight-nav.clientHeight):0}});
