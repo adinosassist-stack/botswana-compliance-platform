@@ -47,7 +47,10 @@ jobs:
           set -euo pipefail
           npm install --package-lock-only --ignore-scripts --no-audit --no-fund
           git diff --exit-code -- package.json
-          git diff --quiet -- package-lock.json && { echo 'package-lock.json did not change' >&2; exit 1; }
+          if git diff --quiet -- package-lock.json; then
+            echo 'package-lock.json did not change' >&2
+            exit 1
+          fi
 
       - name: Verify patched Wrangler Miniflare Sharp path
         shell: bash
