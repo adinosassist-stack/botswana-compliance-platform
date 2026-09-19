@@ -1,5 +1,6 @@
 import {BOTSWANA_FOUNDATION_PACK_V1,BOTSWANA_FOUNDATION_PACK_V1_HASH} from "./generated/foundation-pack-v1.js";
 import {handleFinanceRequest} from "./finance-core.js";
+import {processWhatsAppInboundMessages} from "./whatsapp-inbound-core.js";
 const APP_SECURITY_HEADERS=Object.freeze({
   "x-content-type-options":"nosniff",
   "x-frame-options":"DENY",
@@ -1483,11 +1484,15 @@ function shouldAdvanceWhatsAppStatus(current,next){
   if(current==="failed")return false;if(next==="failed")return true;return whatsappStatusRank(next)>=whatsappStatusRank(current);
 }
 async function processWhatsAppWebhookBody(env,body){
-  const statuses=[];
+  const statuses=[],messages=[];
   for(const entry of Array.isArray(body?.entry)?body.entry:[]){
+    for(const change of Array.isArray(entry?.changes)?entry.value:[]){
+      // unreachable guard retained only if a malformed change array is supplied
+    }
     for(const change of Array.isArray(entry?.changes)?entry.changes:[]){
-      const phoneNumberId=String(change?.value?.metadata?.phone_number_id||"");
-      for(const status of Array.isArray(change?.value?.statuses)?change.value.statuses:[])statuses.push({status,phoneNumberId});
+      const value=change?.value||{},phoneNumberId=String(value?.metadata?.phone_number_id||"");
+      for(const status of Array.isArray(value?.statuses)?value.statuses:[])statuses.push({status,phoneNumberId});
+      for(const message of Array.isArray(value?.messages)?value.messages:[])messages.push({message,phoneNumberId});
     }
   }
   let recorded=0,updated=0,failed=0,unknown=0;
@@ -1518,7 +1523,10 @@ async function processWhatsAppWebhookBody(env,body){
     await env.DB.prepare("UPDATE notification_outbox SET provider_status=?,provider_status_at=? WHERE id=?")
       .bind(nextStatus,providerTimestamp,notification.id).run();updated++;
   }
-  return {received:statuses.length,recorded,updated,failed,unknown};
+  const base={received:statuses.length,recorded,updated,failed,unknown};
+  if(!messages.length)return base;
+  const inbound=await processWhatsAppInboundMessages(env,messages);
+  return {...base,inbound};
 }
 async function whatsappRecipients(env,tenantId){
   const r=await env.DB.prepare(`SELECT u.id user_id,c.phone_e164 FROM memberships m JOIN users u ON u.id=m.user_id
