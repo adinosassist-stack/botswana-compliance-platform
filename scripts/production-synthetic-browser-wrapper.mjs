@@ -255,7 +255,7 @@ async function runBrowserProof(credentials){
   },BROWSER_PROOF_WATCHDOG_MS);
   try{
     activeStage='desktop context';
-    const desktop=await browser.newContext({viewport:{width:1440,height:1100},screen:{width:1440,height:1100},userAgent:desktopAgent,reducedMotion:'reduce'});
+    const desktop=await browser.newContext({viewport:{width:1440,height:1100},screen:{width:1440,height:1100},userAgent:desktopAgent});
     const page=await desktop.newPage();
     page.setDefaultTimeout(15000);page.setDefaultNavigationTimeout(BROWSER_NAVIGATION_TIMEOUT_MS);
     attachApiBreadcrumbs(page,'desktop');
@@ -305,6 +305,8 @@ async function runBrowserProof(credentials){
     activeStage='desktop auth-surface direct state probe';
     const authDirectState=await probeAuthSurfaceState(page,'direct','/api/state');
     assert(authDirectState.ok,`desktop auth-surface direct state probe failed HTTP ${authDirectState.status} ${safe(authDirectState.error)}`);
+    await page.evaluate(()=>sessionStorage.setItem('bw_onboarding_dismissed','1'));
+    info('desktop diagnostic','fresh-owner onboarding auto-open suppressed for isolation');
     activeStage='desktop app navigation';
     info('desktop synthetic stage','opening authenticated /app/ workspace');
     const desktopApp=await page.goto(`${ORIGIN}/app/?desktop-owner-proof=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:BROWSER_NAVIGATION_TIMEOUT_MS});
