@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-WRANGLER_VERSION="4.127.1"
+WRANGLER_VERSION="4.135.0"
 W="npx --yes wrangler@${WRANGLER_VERSION}"
 DOMAIN="https://thebedesk.com"
 

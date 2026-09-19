@@ -799,7 +799,7 @@
   "v12148_feature_security_csp_route_hardening": true,
   "preview_assets_outside_public": true,
   "html_style_element_nonce_csp": true,
-  "wrangler_cli_version": "4.127.1",
+  "wrangler_cli_version": "4.135.0",
   "deploy_runbook_migration_current": "041_v78_webhook_purge_claim_hardening.sql",
   "v12149_deployment_preview_csp_hardening": true,
   "static_assets_security_headers": true,

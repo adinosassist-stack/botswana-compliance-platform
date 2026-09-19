@@ -10,7 +10,7 @@ The public production origin is `https://thebedesk.com`. `workers.dev` and Worke
 
 ## Fresh-resource order
 
-1. Authenticate the pinned Wrangler CLI (`4.127.1`) to the intended Cloudflare account.
+1. Authenticate the pinned Wrangler CLI (`4.135.0`) to the intended Cloudflare account.
 2. Create a new D1 database named `bw-compliance-os` and privately record its UUID.
 3. Create a new private R2 bucket named `bw-compliance-evidence`.
 4. Create a new Invisible Turnstile widget for `thebedesk.com`; privately retain its site key and secret.

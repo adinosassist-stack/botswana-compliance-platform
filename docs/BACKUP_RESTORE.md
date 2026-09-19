@@ -7,7 +7,7 @@ A production backup is complete only when **both D1 metadata/state and R2 eviden
 From the project root, using the reviewed Wrangler version:
 
 ```bash
-npx wrangler@4.127.1 d1 export bw-compliance-os --remote --config cloudflare/wrangler.toml --output ./backups/d1-YYYYMMDD-HHMM.sql
+npx wrangler@4.135.0 d1 export bw-compliance-os --remote --config cloudflare/wrangler.toml --output ./backups/d1-YYYYMMDD-HHMM.sql
 node scripts/verify-d1-export.mjs ./backups/d1-YYYYMMDD-HHMM.sql --require-data
 node --no-warnings scripts/verify-d1-restore.mjs ./backups/d1-YYYYMMDD-HHMM.sql --require-data
 node --no-warnings scripts/d1-recovery-drill.mjs ./backups/d1-YYYYMMDD-HHMM.sql ./backups/d1-recovery-drill-YYYYMMDD-HHMM.json

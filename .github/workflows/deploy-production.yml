@@ -293,12 +293,12 @@ jobs:
             NPM_CONFIG_USERCONFIG=/dev/null \
             NPM_CONFIG_REGISTRY=https://registry.npmjs.org/ \
             NPM_CONFIG_IGNORE_SCRIPTS=true \
-            npm install --prefix "$WRANGLER_ROOT" --no-audit --no-fund --no-save --package-lock=false wrangler@4.127.1
+            npm install --prefix "$WRANGLER_ROOT" --no-audit --no-fund --no-save --package-lock=false wrangler@4.135.0
           )
           WRANGLER_JS="$WRANGLER_ROOT/node_modules/wrangler/bin/wrangler.js"
           test -f "$WRANGLER_JS"
           version="$(node "$WRANGLER_JS" --version)"
-          [[ "$version" == *'4.127.1'* ]] || { echo "unexpected Wrangler version: $version" >&2; exit 1; }
+          [[ "$version" == *'4.135.0'* ]] || { echo "unexpected Wrangler version: $version" >&2; exit 1; }
 
       - name: Render, preflight and dry-run Cloudflare production candidate without real secrets
         id: candidate_config

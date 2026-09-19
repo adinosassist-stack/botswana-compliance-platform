@@ -1,7 +1,7 @@
 {
   "bomFormat": "CycloneDX",
   "specVersion": "1.5",
-  "serialNumber": "urn:uuid:eb814a64-dbf3-51db-af42-deb641d80a4e",
+  "serialNumber": "urn:uuid:24c958b3-d3c5-5407-a3bf-b4b7f3014b12",
   "version": 1,
   "metadata": {
     "component": {
@@ -14,7 +14,7 @@
     "properties": [
       {
         "name": "bw.release.lock.sha256",
-        "value": "eb814a64dbf3d1dbef42deb641d80a4e01819d03cb71dfe8ce10eb5eeaf57d2e"
+        "value": "24c958b3d3c55407e3bfb4b7f3014b12de0cba6546d17300b0e7d91033f169df"
       },
       {
         "name": "bw.release.package-manager",
@@ -432,13 +432,13 @@
     {
       "type": "library",
       "name": "@cloudflare/workerd-darwin-64",
-      "version": "1.20260828.1",
-      "bom-ref": "pkg:npm/%40cloudflare/workerd-darwin-64@1.20260828.1",
-      "purl": "pkg:npm/%40cloudflare/workerd-darwin-64@1.20260828.1",
+      "version": "1.20260918.1",
+      "bom-ref": "pkg:npm/%40cloudflare/workerd-darwin-64@1.20260918.1",
+      "purl": "pkg:npm/%40cloudflare/workerd-darwin-64@1.20260918.1",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "09577ec4f86a5044a0f1786ad3d4d9c74c25e054a2adf2463b3bdb3f3db21e1048be634714542448ddeb91def01309e1410937ed78b4fda0faca43cb25b98689"
+          "content": "1f9126e967748e3c5a968621daba7e58b065d9e59b924ee748fd6cbc6b7a2b5452bffacd56a98a7698d93c94c149abce99e6066bcf2abed396c12fb7dce1d3a9"
         }
       ],
       "licenses": [
@@ -452,13 +452,13 @@
     {
       "type": "library",
       "name": "@cloudflare/workerd-darwin-arm64",
-      "version": "1.20260828.1",
-      "bom-ref": "pkg:npm/%40cloudflare/workerd-darwin-arm64@1.20260828.1",
-      "purl": "pkg:npm/%40cloudflare/workerd-darwin-arm64@1.20260828.1",
+      "version": "1.20260918.1",
+      "bom-ref": "pkg:npm/%40cloudflare/workerd-darwin-arm64@1.20260918.1",
+      "purl": "pkg:npm/%40cloudflare/workerd-darwin-arm64@1.20260918.1",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "e470cf5d1335e76bd4e49bde072185937e17e7b4d5c88b1fa7871a6dea407f8e430b430abe6e76b9c26a0235b587c6ef5b85fecd1c3d194df938717d1440bd5b"
+          "content": "091f49459110a3dddf3600551780dfd87dbf5583b89fbaf14ac792c0256fddb25011bd21b800d44828f614ae22a716abf13a0e101e306b0cb0d2f268e54feb41"
         }
       ],
       "licenses": [
@@ -472,13 +472,13 @@
     {
       "type": "library",
       "name": "@cloudflare/workerd-linux-64",
-      "version": "1.20260828.1",
-      "bom-ref": "pkg:npm/%40cloudflare/workerd-linux-64@1.20260828.1",
-      "purl": "pkg:npm/%40cloudflare/workerd-linux-64@1.20260828.1",
+      "version": "1.20260918.1",
+      "bom-ref": "pkg:npm/%40cloudflare/workerd-linux-64@1.20260918.1",
+      "purl": "pkg:npm/%40cloudflare/workerd-linux-64@1.20260918.1",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "310d4b97d3fb17bd871d42a2cdb6fb0650df6d8f1f46834ca5b22966853ab8ab129277852025922afe9496053d11067ec348bb4cc6b5da252027c976f5e448f4"
+          "content": "510da79d8deaa572f343cd1fae658efbc1efb6ac9669020b7bc418670a5e99d8d3facab00b3e03cfed3f595905728d2fff4e24208aa291578b4d8ffb80486693"
         }
       ],
       "licenses": [
@@ -492,13 +492,13 @@
     {
       "type": "library",
       "name": "@cloudflare/workerd-linux-arm64",
-      "version": "1.20260828.1",
-      "bom-ref": "pkg:npm/%40cloudflare/workerd-linux-arm64@1.20260828.1",
-      "purl": "pkg:npm/%40cloudflare/workerd-linux-arm64@1.20260828.1",
+      "version": "1.20260918.1",
+      "bom-ref": "pkg:npm/%40cloudflare/workerd-linux-arm64@1.20260918.1",
+      "purl": "pkg:npm/%40cloudflare/workerd-linux-arm64@1.20260918.1",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "1414da510d71714f63729e0ec813dc1fcc7442216f7358ae64bd86903f33a76ab55b24d51d83a9b510d0514f9cb878edd2b4361082953c18da84fc5f6b48e807"
+          "content": "e2b89be7531a2cd5b0794214c4cfd78f9e7c339426c99a0149fd1f7effa561a879553aefc277b3dd71b15fbda91259c128744ebc03ce8b99ac4394ecf09488d0"
         }
       ],
       "licenses": [
@@ -512,13 +512,13 @@
     {
       "type": "library",
       "name": "@cloudflare/workerd-windows-64",
-      "version": "1.20260828.1",
-      "bom-ref": "pkg:npm/%40cloudflare/workerd-windows-64@1.20260828.1",
-      "purl": "pkg:npm/%40cloudflare/workerd-windows-64@1.20260828.1",
+      "version": "1.20260918.1",
+      "bom-ref": "pkg:npm/%40cloudflare/workerd-windows-64@1.20260918.1",
+      "purl": "pkg:npm/%40cloudflare/workerd-windows-64@1.20260918.1",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "cafafbee10bb7546ef2b92be482834eb69243eadecc7e76b5753dc807b25cc70d870906d4f45775fcd2a2c4e3d2d6d6fab6b2f69e366b15412faf1eca96bbc71"
+          "content": "b004eb331e528586209a0506adc4e6bec15224116e37de4d1245f7c706f5aa4f30d40ea1e4dd75b1e6bbc8dd887a26f03f23e65ca8d63635ce9e8d2164033bd5"
         }
       ],
       "licenses": [
@@ -1112,13 +1112,13 @@
     {
       "type": "library",
       "name": "@img/sharp-darwin-arm64",
-      "version": "0.35.2",
-      "bom-ref": "pkg:npm/%40img/sharp-darwin-arm64@0.35.2",
-      "purl": "pkg:npm/%40img/sharp-darwin-arm64@0.35.2",
+      "version": "0.35.4",
+      "bom-ref": "pkg:npm/%40img/sharp-darwin-arm64@0.35.4",
+      "purl": "pkg:npm/%40img/sharp-darwin-arm64@0.35.4",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "78489e1ec324b005b82223b93736ae112465d83daacf727f93053152b49f574e80f777846917cca475f251bd6602aad1ee2f14f40d0646a13da639fabb5263a6"
+          "content": "5217e5e15e2584fda76d4545f7e8721f5fa5ba3f3a7f581415ea3c00b63116850ba14f86f3b0f8dc17de30ff171ec93d6e8c409c263f6dfd841f0840eccb86b0"
         }
       ],
       "licenses": [
@@ -1132,13 +1132,13 @@
     {
       "type": "library",
       "name": "@img/sharp-darwin-x64",
-      "version": "0.35.2",
-      "bom-ref": "pkg:npm/%40img/sharp-darwin-x64@0.35.2",
-      "purl": "pkg:npm/%40img/sharp-darwin-x64@0.35.2",
+      "version": "0.35.4",
+      "bom-ref": "pkg:npm/%40img/sharp-darwin-x64@0.35.4",
+      "purl": "pkg:npm/%40img/sharp-darwin-x64@0.35.4",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "05a92db863c278724c011a68751f232b8b8a899acf032f56adf416d2c748dfb725ada72af01a74d40612dd26608b9152ff2e6dc1af6de3e2c8baec508ea46b5b"
+          "content": "8569e25d8ddb1b9a8aa642ab0303dee32f954cf99fd3ce984009e4c5687bb80d58ae5468b9619ad0cd0cc63dd98e75c592feff4c3d5b4f2f651942b6eaf46f5b"
         }
       ],
       "licenses": [
@@ -1152,13 +1152,13 @@
     {
       "type": "library",
       "name": "@img/sharp-freebsd-wasm32",
-      "version": "0.35.2",
-      "bom-ref": "pkg:npm/%40img/sharp-freebsd-wasm32@0.35.2",
-      "purl": "pkg:npm/%40img/sharp-freebsd-wasm32@0.35.2",
+      "version": "0.35.4",
+      "bom-ref": "pkg:npm/%40img/sharp-freebsd-wasm32@0.35.4",
+      "purl": "pkg:npm/%40img/sharp-freebsd-wasm32@0.35.4",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "62803176777c84f524bcb1ddddb598f9803c9f0df133f472468a58b9c36c5875526a7f0d2d53375f6be896c7e844371775424f83ab576a149dec75cf2bb9519f"
+          "content": "948b0ac3f054fa48c1e1e663c6b62b666c0e2588b7023aefeba8809419943f229cdc7a679687af075837c31183f4fff905b4356eb04697ae55451ac2bd00c4a8"
         }
       ],
       "licenses": [
@@ -1172,13 +1172,13 @@
     {
       "type": "library",
       "name": "@img/sharp-libvips-darwin-arm64",
-      "version": "1.3.1",
-      "bom-ref": "pkg:npm/%40img/sharp-libvips-darwin-arm64@1.3.1",
-      "purl": "pkg:npm/%40img/sharp-libvips-darwin-arm64@1.3.1",
+      "version": "1.3.3",
+      "bom-ref": "pkg:npm/%40img/sharp-libvips-darwin-arm64@1.3.3",
+      "purl": "pkg:npm/%40img/sharp-libvips-darwin-arm64@1.3.3",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "e15fccdeba113136238b0658f4839540e13c3b2782c45024626c990eb665e75b8e2a389b9b7a1e109e160262f1bad01fcc56c2f63a9488fb3681b9c67e51feee"
+          "content": "b2e4c13d30c6ac8f56a1d71c683770648b5349a0580129419353527c49521eb51fceedeccc6ea5bc8179f3e5a216f9dfcee2bc641152e73134d0fc6ac674623e"
         }
       ],
       "licenses": [
@@ -1192,13 +1192,13 @@
     {
       "type": "library",
       "name": "@img/sharp-libvips-darwin-x64",
-      "version": "1.3.1",
-      "bom-ref": "pkg:npm/%40img/sharp-libvips-darwin-x64@1.3.1",
-      "purl": "pkg:npm/%40img/sharp-libvips-darwin-x64@1.3.1",
+      "version": "1.3.3",
+      "bom-ref": "pkg:npm/%40img/sharp-libvips-darwin-x64@1.3.3",
+      "purl": "pkg:npm/%40img/sharp-libvips-darwin-x64@1.3.3",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "734fc3c48b6926fdbe746860c9c241060a2d76aaee1980ef03bf5dadd874303d5d169cbb27327f3e55f08b51f8ac57f4793cbcb606c8f756870e764871e6378d"
+          "content": "155259e662133286e65c8cff84f0d3c341229ed4d6e47dd67ebc702ea12a8e2222865bbe8554721ab150eb4c65d0bc67ec1b77cdda5ebcf6908b41c4ceacfd7f"
         }
       ],
       "licenses": [
@@ -1212,13 +1212,13 @@
     {
       "type": "library",
       "name": "@img/sharp-libvips-linux-arm",
-      "version": "1.3.1",
-      "bom-ref": "pkg:npm/%40img/sharp-libvips-linux-arm@1.3.1",
-      "purl": "pkg:npm/%40img/sharp-libvips-linux-arm@1.3.1",
+      "version": "1.3.3",
+      "bom-ref": "pkg:npm/%40img/sharp-libvips-linux-arm@1.3.3",
+      "purl": "pkg:npm/%40img/sharp-libvips-linux-arm@1.3.3",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "6861b2f5a5b35e01c11bb1cdc903d6a2b66d865a7bfb1e9f0d1a0f0106c63b74e172db6e4f2288c7736e4876facdbe2004dabaff2367f5fd5ccbd9c5292fd59a"
+          "content": "deb6d4e2fa975dcde163f3a25dd979db166f4f4175c849e059fbeab9db4f260fca93289a430d8346c16b373a662ef7dabdbc0eab7a979f7e863fca1b1d150b40"
         }
       ],
       "licenses": [
@@ -1232,13 +1232,13 @@
     {
       "type": "library",
       "name": "@img/sharp-libvips-linux-arm64",
-      "version": "1.3.1",
-      "bom-ref": "pkg:npm/%40img/sharp-libvips-linux-arm64@1.3.1",
-      "purl": "pkg:npm/%40img/sharp-libvips-linux-arm64@1.3.1",
+      "version": "1.3.3",
+      "bom-ref": "pkg:npm/%40img/sharp-libvips-linux-arm64@1.3.3",
+      "purl": "pkg:npm/%40img/sharp-libvips-linux-arm64@1.3.3",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "2739de7e670af63d4928fcfc02440387cf648e88ee6f27ce6ac5813ca7f330884fc2c803cbd7afa44fe76894d75d79a0852d6217047cbbf913c21fc8dbff860b"
+          "content": "d0368bd00e97bbab104901707b88950ab2965367024c8b6746c62c09dc40326f4d17ab70000f412a7a2acb886acf8f9acd0d091ee036eaa8942ac7f55c9fefe4"
         }
       ],
       "licenses": [
@@ -1252,13 +1252,13 @@
     {
       "type": "library",
       "name": "@img/sharp-libvips-linux-ppc64",
-      "version": "1.3.1",
-      "bom-ref": "pkg:npm/%40img/sharp-libvips-linux-ppc64@1.3.1",
-      "purl": "pkg:npm/%40img/sharp-libvips-linux-ppc64@1.3.1",
+      "version": "1.3.3",
+      "bom-ref": "pkg:npm/%40img/sharp-libvips-linux-ppc64@1.3.3",
+      "purl": "pkg:npm/%40img/sharp-libvips-linux-ppc64@1.3.3",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "d4493018d09993a896342316aabbdd27eaf58f43d3d73233eb408d3e16272652bfcf2796aa5b0f6487bea1c055a8f17c93f4ac79efcd0a4fad13d472ae4a3a9e"
+          "content": "71d9f53af501c2c5e16c2d334b32673737f9319fe64eba1b6b00ef357053c5ef15b6a2809b4b11b8463612fce8bdbff0f49324e13bd1c6ab7599e912b89cfae3"
         }
       ],
       "licenses": [
@@ -1272,13 +1272,13 @@
     {
       "type": "library",
       "name": "@img/sharp-libvips-linux-riscv64",
-      "version": "1.3.1",
-      "bom-ref": "pkg:npm/%40img/sharp-libvips-linux-riscv64@1.3.1",
-      "purl": "pkg:npm/%40img/sharp-libvips-linux-riscv64@1.3.1",
+      "version": "1.3.3",
+      "bom-ref": "pkg:npm/%40img/sharp-libvips-linux-riscv64@1.3.3",
+      "purl": "pkg:npm/%40img/sharp-libvips-linux-riscv64@1.3.3",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "2256b2b3ec366d7767c73c6d41d99747adaef28f0661adde2f8f86afed4a884e31a5eacc654b2545a54f270c0f93394712319f5c07d15406bfec2602b52aac07"
+          "content": "1e33d5c7bc8acfed25a9d843953c35b6df74c1a981a318625e9be5d5766924b8871f8442279c834ea1fe56560fbf67f016cf3d245c3873521ec5839c4148b821"
         }
       ],
       "licenses": [
@@ -1292,13 +1292,13 @@
     {
       "type": "library",
       "name": "@img/sharp-libvips-linux-s390x",
-      "version": "1.3.1",
-      "bom-ref": "pkg:npm/%40img/sharp-libvips-linux-s390x@1.3.1",
-      "purl": "pkg:npm/%40img/sharp-libvips-linux-s390x@1.3.1",
+      "version": "1.3.3",
+      "bom-ref": "pkg:npm/%40img/sharp-libvips-linux-s390x@1.3.3",
+      "purl": "pkg:npm/%40img/sharp-libvips-linux-s390x@1.3.3",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "55f0705474136d1a23e1796903f28b67b96d80ca73fb85927a317343e1a7a089a3a353ed109e7d401daa475c5011e44f60890dacf226d8be1c20232fcf80b67b"
+          "content": "9de58b87edf208d4e1c677f2ddce016d505e1a0b7d69fb67a3e5db4f9ea22b6f1181e0ecdd43855af88b5a552ed1b02b6156096850caf9146885b89c50d0a6f1"
         }
       ],
       "licenses": [
@@ -1312,13 +1312,13 @@
     {
       "type": "library",
       "name": "@img/sharp-libvips-linux-x64",
-      "version": "1.3.1",
-      "bom-ref": "pkg:npm/%40img/sharp-libvips-linux-x64@1.3.1",
-      "purl": "pkg:npm/%40img/sharp-libvips-linux-x64@1.3.1",
+      "version": "1.3.3",
+      "bom-ref": "pkg:npm/%40img/sharp-libvips-linux-x64@1.3.3",
+      "purl": "pkg:npm/%40img/sharp-libvips-linux-x64@1.3.3",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "f9cf2e920c14eb60d2e789c2023c3b91e39f1d4926af407940711d70ea919e8745fcc35725b548f04a29a23e01ff41fc02cafae48f80e009ab9fb6bce7f99de8"
+          "content": "e2f2a6bc0b2df67ae8c1caaab8a140c992540e8954688a7cb9188dd2658582e275229942f7fa62b57b659e7954e1a6bf789c3727b8baed5fa9c142fec1919db0"
         }
       ],
       "licenses": [
@@ -1332,13 +1332,13 @@
     {
       "type": "library",
       "name": "@img/sharp-libvips-linuxmusl-arm64",
-      "version": "1.3.1",
-      "bom-ref": "pkg:npm/%40img/sharp-libvips-linuxmusl-arm64@1.3.1",
-      "purl": "pkg:npm/%40img/sharp-libvips-linuxmusl-arm64@1.3.1",
+      "version": "1.3.3",
+      "bom-ref": "pkg:npm/%40img/sharp-libvips-linuxmusl-arm64@1.3.3",
+      "purl": "pkg:npm/%40img/sharp-libvips-linuxmusl-arm64@1.3.3",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "aa529bfe9c1b9008b558cb09ad81e4ec2b83addd76b36ed4d909d1845614a0936b4429a4a2c313b6db9115ab7f0c30772250e6e6a1354c9819e090e71d7f0b77"
+          "content": "63d91068b32e3680746cf60e39d71931ab1e36b1693e874859632bc7e099cb275fdb19faf23f5661ceac59646b0f0364cc24232987dcebc2fb8ca8c69473226f"
         }
       ],
       "licenses": [
@@ -1352,13 +1352,13 @@
     {
       "type": "library",
       "name": "@img/sharp-libvips-linuxmusl-x64",
-      "version": "1.3.1",
-      "bom-ref": "pkg:npm/%40img/sharp-libvips-linuxmusl-x64@1.3.1",
-      "purl": "pkg:npm/%40img/sharp-libvips-linuxmusl-x64@1.3.1",
+      "version": "1.3.3",
+      "bom-ref": "pkg:npm/%40img/sharp-libvips-linuxmusl-x64@1.3.3",
+      "purl": "pkg:npm/%40img/sharp-libvips-linuxmusl-x64@1.3.3",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "c8edb51f0a1454b37c41afbf4818d02cc6300560152637863cd7be85cd0e51e31e89f12d26abb96b57381dac84d673690e287dcb7fca92896d7e40e876628096"
+          "content": "7e3f0cbf41c77c3d51afee08ebcfb76a02729f10d6b4116089c4db48e6fd0647baa48c3319c27e457ff21e39a210614c09abd8fddc6f7a6eccc8d68917ec038b"
         }
       ],
       "licenses": [
@@ -1372,13 +1372,13 @@
     {
       "type": "library",
       "name": "@img/sharp-linux-arm",
-      "version": "0.35.2",
-      "bom-ref": "pkg:npm/%40img/sharp-linux-arm@0.35.2",
-      "purl": "pkg:npm/%40img/sharp-linux-arm@0.35.2",
+      "version": "0.35.4",
+      "bom-ref": "pkg:npm/%40img/sharp-linux-arm@0.35.4",
+      "purl": "pkg:npm/%40img/sharp-linux-arm@0.35.4",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "484e24cc5da67a99facfee84ecbea5b15f05cee2cbe883d07725fc662c113801bf1bcb5dfa13ff9bb16c14fc2276dac5d7d82f6a3b82f65e93c4055cb00e12ec"
+          "content": "ece012f2023411178a1953761ecb0794ceae989831179548df1374a7d140f75a7f60efa8bb986236084b759e41107cedc1a68ae7e6cb2917fcc7fa362f69e4f4"
         }
       ],
       "licenses": [
@@ -1392,13 +1392,13 @@
     {
       "type": "library",
       "name": "@img/sharp-linux-arm64",
-      "version": "0.35.2",
-      "bom-ref": "pkg:npm/%40img/sharp-linux-arm64@0.35.2",
-      "purl": "pkg:npm/%40img/sharp-linux-arm64@0.35.2",
+      "version": "0.35.4",
+      "bom-ref": "pkg:npm/%40img/sharp-linux-arm64@0.35.4",
+      "purl": "pkg:npm/%40img/sharp-linux-arm64@0.35.4",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "69fd763e7774646bb61df3fc35ac81d2493a782fe5adf6d013a1e54788c3fb7e30749d55c3d4c5e93327e99bdf7d3f9682a56c9748516e636fcf6bbfdb7566c0"
+          "content": "0dee23a449c053c1dde684f48f51b7b8be19bd3ba2a55327ed80babcf689872ebfec4c0469ed12540a01ad431841b90b1839bce6d6955b0b8f7356b8e0b4f309"
         }
       ],
       "licenses": [
@@ -1412,13 +1412,13 @@
     {
       "type": "library",
       "name": "@img/sharp-linux-ppc64",
-      "version": "0.35.2",
-      "bom-ref": "pkg:npm/%40img/sharp-linux-ppc64@0.35.2",
-      "purl": "pkg:npm/%40img/sharp-linux-ppc64@0.35.2",
+      "version": "0.35.4",
+      "bom-ref": "pkg:npm/%40img/sharp-linux-ppc64@0.35.4",
+      "purl": "pkg:npm/%40img/sharp-linux-ppc64@0.35.4",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "8584819bbcdc36d0c2a330b1407619262bbaddbfdb5ec81166e3b1088059b12b4c33d55aa78ee214775b5f8902bd0b1b94f07f93e7258442e975024740b487be"
+          "content": "da861925e225e2409c306938a2e6558e7902b45ae940594d12d27a19bc7384741c8701f4347fea11bf729263a5dbd76ac0cabe26115d667fb56a4d852a123d7d"
         }
       ],
       "licenses": [
@@ -1432,13 +1432,13 @@
     {
       "type": "library",
       "name": "@img/sharp-linux-riscv64",
-      "version": "0.35.2",
-      "bom-ref": "pkg:npm/%40img/sharp-linux-riscv64@0.35.2",
-      "purl": "pkg:npm/%40img/sharp-linux-riscv64@0.35.2",
+      "version": "0.35.4",
+      "bom-ref": "pkg:npm/%40img/sharp-linux-riscv64@0.35.4",
+      "purl": "pkg:npm/%40img/sharp-linux-riscv64@0.35.4",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "a90b7429cd77f87a1a9ff030abfa8c490c372fe448d4d0913e00f971427fd56492988a32b0b39cef68e544cdc4d0e1cdf58af7d778e0790d93fb35be174dd014"
+          "content": "70f6cd0a1a1151101675e6c320749e9f1469804772ec990fc9d4a7531466f55bca0fb9b4ff155a47ff05ce5bbcd699399c712f1c7f3b519500edc4edc276c948"
         }
       ],
       "licenses": [
@@ -1452,13 +1452,13 @@
     {
       "type": "library",
       "name": "@img/sharp-linux-s390x",
-      "version": "0.35.2",
-      "bom-ref": "pkg:npm/%40img/sharp-linux-s390x@0.35.2",
-      "purl": "pkg:npm/%40img/sharp-linux-s390x@0.35.2",
+      "version": "0.35.4",
+      "bom-ref": "pkg:npm/%40img/sharp-linux-s390x@0.35.4",
+      "purl": "pkg:npm/%40img/sharp-linux-s390x@0.35.4",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "1387cb2df44fcc32e511e0da4f323df0e14b72ffbe58be4284b2ccc0fa15774088a1942aba905235b3a2b0f2f96a6f57b1b43d4fce3e8a232952f6c5b64ba76c"
+          "content": "458d09158f0577a4689c206d1f3f83bda75a3e45c3488d40527eb258bf538a9aa4675bd8f30f1ebea760c83167926e3f2b5bded53bd989a78f3f9a12778f9655"
         }
       ],
       "licenses": [
@@ -1472,13 +1472,13 @@
     {
       "type": "library",
       "name": "@img/sharp-linux-x64",
-      "version": "0.35.2",
-      "bom-ref": "pkg:npm/%40img/sharp-linux-x64@0.35.2",
-      "purl": "pkg:npm/%40img/sharp-linux-x64@0.35.2",
+      "version": "0.35.4",
+      "bom-ref": "pkg:npm/%40img/sharp-linux-x64@0.35.4",
+      "purl": "pkg:npm/%40img/sharp-linux-x64@0.35.4",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "822d331492512ecc1f099987b497629173ce739bbba9a992392dcd1de74ba8b7785bc43436a8dd06be934d1220b1f163a9f4ec1c581d7ef27d2f0a9281c1e200"
+          "content": "f6abef100ba4f24f3d4df594a17da1b568db00c5fca7e3710a9a63a5c83993ac4cb2384140f4eca08877ea1f5075ee1646e1a925e6273a3768b039ff727bfe38"
         }
       ],
       "licenses": [
@@ -1492,13 +1492,13 @@
     {
       "type": "library",
       "name": "@img/sharp-linuxmusl-arm64",
-      "version": "0.35.2",
-      "bom-ref": "pkg:npm/%40img/sharp-linuxmusl-arm64@0.35.2",
-      "purl": "pkg:npm/%40img/sharp-linuxmusl-arm64@0.35.2",
+      "version": "0.35.4",
+      "bom-ref": "pkg:npm/%40img/sharp-linuxmusl-arm64@0.35.4",
+      "purl": "pkg:npm/%40img/sharp-linuxmusl-arm64@0.35.4",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "b2259b396d6ee8716714bae9d3068ac96ed511fee362f70359dad71056bc02474042012fbaee45cfcfd8ef4c3d11ea807700ed7d4d35d818441c7683aaf40dce"
+          "content": "281e63c697d6413af49dcdf1747b560a175b89f1eb046b1dd9233ad84cb1ae5f1a7e2926f9fe6a18153be522486414ff4b5302f17c9a71d95704c496aba39444"
         }
       ],
       "licenses": [
@@ -1512,13 +1512,13 @@
     {
       "type": "library",
       "name": "@img/sharp-linuxmusl-x64",
-      "version": "0.35.2",
-      "bom-ref": "pkg:npm/%40img/sharp-linuxmusl-x64@0.35.2",
-      "purl": "pkg:npm/%40img/sharp-linuxmusl-x64@0.35.2",
+      "version": "0.35.4",
+      "bom-ref": "pkg:npm/%40img/sharp-linuxmusl-x64@0.35.4",
+      "purl": "pkg:npm/%40img/sharp-linuxmusl-x64@0.35.4",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "601a8c31c8c38b84066224a7e2f34e601866942e33e405ea90e514a88d9ed00140e2eacdbf811280e830365dcafb87ad42185ad2dc17973785db46db50b9bd62"
+          "content": "7fe79925921034411ddba44f496fbbe9c87039fd57b40d98fcefb9a1c5722e588791e8a1ddefa384b54174d4dddab4b721b3572bcfae83ddd57f9657b45e4bc6"
         }
       ],
       "licenses": [
@@ -1532,26 +1532,26 @@
     {
       "type": "library",
       "name": "@img/sharp-wasm32",
-      "version": "0.35.2",
-      "bom-ref": "pkg:npm/%40img/sharp-wasm32@0.35.2",
-      "purl": "pkg:npm/%40img/sharp-wasm32@0.35.2",
+      "version": "0.35.4",
+      "bom-ref": "pkg:npm/%40img/sharp-wasm32@0.35.4",
+      "purl": "pkg:npm/%40img/sharp-wasm32@0.35.4",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "32bbf8250358550f78c47fa3cd9f6bfa0a3095e37c9afd854e0293f8f23a6f1e42d06f1374d62776ed7ad698368bbba8070c72d8898f307ac938cd8b65e7fb07"
+          "content": "cd09e5e0ac29ed0e8d1ec10db54d93ff4d198bec37010370cf7f94693c95072d85a57af35f31a39dda4aeb5a278598d1b51a505f10937aac35f5b5725ce87b8c"
         }
       ]
     },
     {
       "type": "library",
       "name": "@img/sharp-webcontainers-wasm32",
-      "version": "0.35.2",
-      "bom-ref": "pkg:npm/%40img/sharp-webcontainers-wasm32@0.35.2",
-      "purl": "pkg:npm/%40img/sharp-webcontainers-wasm32@0.35.2",
+      "version": "0.35.4",
+      "bom-ref": "pkg:npm/%40img/sharp-webcontainers-wasm32@0.35.4",
+      "purl": "pkg:npm/%40img/sharp-webcontainers-wasm32@0.35.4",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "40d576ee9c6cf70a40a448827ef1ccd510e83f5c35fb62ab5165833c4844c20fa56adbceadfba15ab1d664ac1d485c14ea38779b28f0ff238246c508b8e7edde"
+          "content": "1127cd932c2609f3cdc9a663c68a1d74942243e97f9d3a4610e1ad87188b9c81d70bf0a67018b19dfc1495e5fd982cfda2fad452f28c6a9fe99bc4586f37f068"
         }
       ],
       "licenses": [
@@ -1565,39 +1565,39 @@
     {
       "type": "library",
       "name": "@img/sharp-win32-arm64",
-      "version": "0.35.2",
-      "bom-ref": "pkg:npm/%40img/sharp-win32-arm64@0.35.2",
-      "purl": "pkg:npm/%40img/sharp-win32-arm64@0.35.2",
+      "version": "0.35.4",
+      "bom-ref": "pkg:npm/%40img/sharp-win32-arm64@0.35.4",
+      "purl": "pkg:npm/%40img/sharp-win32-arm64@0.35.4",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "06255161cfedebf565dded61071d21ba01b8a0df4fc9d7f87e0312a714d0266c06520fd8a174d61e215e4729877c267389fc6ee05e2ba64fc8ebb0f42d0db4c1"
+          "content": "88d765057f602d5bea7b6237b8825220a4eaeb07243ff0d8c59b5cab19b4f71e468b6e039c50663c05999abeb467260c1b4c65ce8ea0a06dfaef46abf915ef47"
         }
       ]
     },
     {
       "type": "library",
       "name": "@img/sharp-win32-ia32",
-      "version": "0.35.2",
-      "bom-ref": "pkg:npm/%40img/sharp-win32-ia32@0.35.2",
-      "purl": "pkg:npm/%40img/sharp-win32-ia32@0.35.2",
+      "version": "0.35.4",
+      "bom-ref": "pkg:npm/%40img/sharp-win32-ia32@0.35.4",
+      "purl": "pkg:npm/%40img/sharp-win32-ia32@0.35.4",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "618121c7d3c89820bb4f4b48f090cc8b80c1f4bc0b097094e4e58d6045c0c61e50d5284a9320ba6f2c73a012778041439c7da541c916b837bbd06ee60765c9a2"
+          "content": "92a46c6da6b9092e8a1e5a719cded6844eaf000ba05f2641bada5176f0d67ad96fe90bf837d59372b5b317bb577c1f53eccb2869da9d23c866c0baba5252efb7"
         }
       ]
     },
     {
       "type": "library",
       "name": "@img/sharp-win32-x64",
-      "version": "0.35.2",
-      "bom-ref": "pkg:npm/%40img/sharp-win32-x64@0.35.2",
-      "purl": "pkg:npm/%40img/sharp-win32-x64@0.35.2",
+      "version": "0.35.4",
+      "bom-ref": "pkg:npm/%40img/sharp-win32-x64@0.35.4",
+      "purl": "pkg:npm/%40img/sharp-win32-x64@0.35.4",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "8a6a0ec8172833f8a252be09e953e908d8cf9e3bcffc692cf79f3df3207c62aa0619898761b3b20ae36ff45321160b5a8871466c75bc6f12aa455e958ed5d385"
+          "content": "5ed9a762105cace46c2785c99e0cb3aff1163f485164b019445680a5d2aebe2caa17bf3eca5c61db2d3a666b542c030e9ce6c9dee72937401cc125a7328c1346"
         }
       ]
     },
@@ -2964,13 +2964,13 @@
     {
       "type": "library",
       "name": "miniflare",
-      "version": "5.20260828.0-alpha",
-      "bom-ref": "pkg:npm/miniflare@5.20260828.0-alpha",
-      "purl": "pkg:npm/miniflare@5.20260828.0-alpha",
+      "version": "5.20260918.0-alpha",
+      "bom-ref": "pkg:npm/miniflare@5.20260918.0-alpha",
+      "purl": "pkg:npm/miniflare@5.20260918.0-alpha",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "ea76f185911ccff5044f76353a760fb2b0148d49ae16889bdf29d4aad791767d589c3c6c2e0f1cc2064964293d426b4e986cd7c335f3804fddfc2d1d2403ed57"
+          "content": "bf221eb3bc96fce4f31edcf81a1701093a2165faa4d9e40d888927819d3b55103942edb868d816fd3ac5c253e430b32358343c4782490411d1fca5fe962483b6"
         }
       ],
       "licenses": [
@@ -3604,13 +3604,13 @@
     {
       "type": "library",
       "name": "sharp",
-      "version": "0.35.2",
-      "bom-ref": "pkg:npm/sharp@0.35.2",
-      "purl": "pkg:npm/sharp@0.35.2",
+      "version": "0.35.4",
+      "bom-ref": "pkg:npm/sharp@0.35.4",
+      "purl": "pkg:npm/sharp@0.35.4",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "155b458ed042322252eb26f9097ed2a29e39585329786c3aa112ae2675d881ffdfd66b3f0fb2c4fd95123719d6eeb67f75bb25416624a2a14718f68306d68ae3"
+          "content": "9fefbc5d6723fa308eaf620e97b87c2db2a71810d8e1a3db9a9acc38d04d15d9f42265eaa4656fe739620ecd15f476e66c240ba5bba8d9e8fdac0a0e413bcc0c"
         }
       ],
       "licenses": [
@@ -3904,13 +3904,13 @@
     {
       "type": "library",
       "name": "workerd",
-      "version": "1.20260828.1",
-      "bom-ref": "pkg:npm/workerd@1.20260828.1",
-      "purl": "pkg:npm/workerd@1.20260828.1",
+      "version": "1.20260918.1",
+      "bom-ref": "pkg:npm/workerd@1.20260918.1",
+      "purl": "pkg:npm/workerd@1.20260918.1",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "a41f72bedd249306430066479a9639f6bd28de13340f3756e8124446ac193a1ba7677b2c3b20d2810c4e41eaf6712656e1808578e4c8418375ab084ae70bff0b"
+          "content": "36c8df42504d4348849e2bff4933b2e336e9f2ce64eb43f32f54deaf4d84838e1aadb0e11ed7fa50eb34dc4df55c346698117148890066e0b295ddd1287d70a8"
         }
       ],
       "licenses": [
@@ -3924,13 +3924,13 @@
     {
       "type": "library",
       "name": "wrangler",
-      "version": "4.127.1",
-      "bom-ref": "pkg:npm/wrangler@4.127.1",
-      "purl": "pkg:npm/wrangler@4.127.1",
+      "version": "4.135.0",
+      "bom-ref": "pkg:npm/wrangler@4.135.0",
+      "purl": "pkg:npm/wrangler@4.135.0",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "3b3b22360688f22ebcd4bffe2a700a73eb846790f9ef12b926e36f08ea51288085e3fe50dc2bb5a131ae5224ff7f718352a41bde0cd7353d2d7ce1c6304b649f"
+          "content": "5ab3414127c81ba61c20b25ca1d62be6dcbcbe09331ac57c617fa47ddfae679fc177c7145b41a750844a0157e7e6460aaa1d66fc13dc8e2f61d5dee613c7ae17"
         }
       ]
     },
