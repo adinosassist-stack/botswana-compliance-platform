@@ -255,7 +255,7 @@ async function runBrowserProof(credentials){
   },BROWSER_PROOF_WATCHDOG_MS);
   try{
     activeStage='desktop context';
-    const desktop=await browser.newContext({viewport:{width:1440,height:1100},screen:{width:1440,height:1100},userAgent:desktopAgent});
+    const desktop=await browser.newContext({viewport:{width:1440,height:1100},screen:{width:1440,height:1100},userAgent:desktopAgent,reducedMotion:'reduce'});
     const page=await desktop.newPage();
     page.setDefaultTimeout(15000);page.setDefaultNavigationTimeout(BROWSER_NAVIGATION_TIMEOUT_MS);
     attachApiBreadcrumbs(page,'desktop');
