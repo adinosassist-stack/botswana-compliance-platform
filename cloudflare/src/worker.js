@@ -1486,9 +1486,6 @@ function shouldAdvanceWhatsAppStatus(current,next){
 async function processWhatsAppWebhookBody(env,body){
   const statuses=[],messages=[];
   for(const entry of Array.isArray(body?.entry)?body.entry:[]){
-    for(const change of Array.isArray(entry?.changes)?entry.value:[]){
-      // unreachable guard retained only if a malformed change array is supplied
-    }
     for(const change of Array.isArray(entry?.changes)?entry.changes:[]){
       const value=change?.value||{},phoneNumberId=String(value?.metadata?.phone_number_id||"");
       for(const status of Array.isArray(value?.statuses)?value.statuses:[])statuses.push({status,phoneNumberId});
