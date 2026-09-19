@@ -185,7 +185,7 @@ async function assertWorkspace(page,label,pageErrors=[]){
     }),
     WORKSPACE_COMPUTED_VISIBILITY_DEADLINE_MS
   );
-  assert(rendered.display!=='none'&&rendered.visibility!=='hidden'&&rendered.opacity!=='0'&&rendered.rects>0,`${label} workspace is authored ready but not rendered ${safe(JSON.stringify(rendered))"}`);
+  assert(rendered.display!=='none'&&rendered.visibility!=='hidden'&&rendered.opacity!=='0'&&rendered.rects>0,`${label} workspace is authored ready but not rendered ${safe(JSON.stringify(rendered))}`);
   const state=await page.evaluate(()=>({
     standalone:document.body.classList.contains('standalone-preview'),
     shell:!!document.getElementById('appShell'),sidebar:!!document.getElementById('workspaceSidebar')
