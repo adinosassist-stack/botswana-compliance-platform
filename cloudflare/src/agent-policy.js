@@ -62,7 +62,7 @@ export function resolveAgentKey(agentKey){
 }
 
 function action({
-  key,level,roles,description,phase1Enabled,
+  key,level,roles,description,phase1Enabled,boundedExecutionEnabled=false,
   capability="core",legacyAgents=[],
   humanReviewRequired=false,explicitApprovalRequired=false,strongAuthRequired=false,
   externalSideEffect=false,sensitiveDomain=null,authoritativeSource=null
@@ -75,6 +75,7 @@ function action({
     roles:Object.freeze([...roles]),
     description,
     phase1Enabled:Boolean(phase1Enabled),
+    boundedExecutionEnabled:Boolean(boundedExecutionEnabled),
     humanReviewRequired:Boolean(humanReviewRequired),
     explicitApprovalRequired:Boolean(explicitApprovalRequired),
     strongAuthRequired:Boolean(strongAuthRequired),
@@ -105,7 +106,7 @@ export const AGENT_ACTION_CATALOG = Object.freeze({
   "journal_entry.prepare": action({key:"journal_entry.prepare",level:AGENT_ACTION_LEVELS.PREPARE,roles:["owner","manager","reviewer"],description:"Reserved journal-entry draft action; disabled until ledger evidence-linking and accountant review controls are production-ready.",phase1Enabled:false,capability:"finance",legacyAgents:["finance"],humanReviewRequired:true,sensitiveDomain:"finance_ledger",authoritativeSource:"reconciled_finance_core"}),
   "filing_draft.prepare": action({key:"filing_draft.prepare",level:AGENT_ACTION_LEVELS.PREPARE,roles:["owner","manager","reviewer"],description:"Reserved filing-draft action; disabled until country-rule and form-specific validation is complete.",phase1Enabled:false,capability:"compliance",legacyAgents:["compliance"],humanReviewRequired:true,sensitiveDomain:"regulatory_filing",authoritativeSource:"country_rules_and_verified_workspace_records"}),
   "payroll_draft.prepare": action({key:"payroll_draft.prepare",level:AGENT_ACTION_LEVELS.PREPARE,roles:["owner","manager"],description:"Reserved payroll-draft action; disabled because payroll remains outside the launch Finance Core boundary.",phase1Enabled:false,capability:"finance",legacyAgents:["finance"],humanReviewRequired:true,sensitiveDomain:"payroll",authoritativeSource:"approved_payroll_integration"}),
-  "task.create": action({key:"task.create",level:AGENT_ACTION_LEVELS.CONTROLLED_EXECUTE,roles:["owner","manager"],description:"Create an internal task through controlled execution.",phase1Enabled:false,capability:"core",legacyAgents:["management","compliance","tender","operations","finance"]}),
+  "task.create": action({key:"task.create",level:AGENT_ACTION_LEVELS.CONTROLLED_EXECUTE,roles:["owner","manager"],description:"Create an internal task through controlled execution.",phase1Enabled:false,boundedExecutionEnabled:true,capability:"core",legacyAgents:["management","compliance","tender","operations","finance"]}),
   "document.request": action({key:"document.request",level:AGENT_ACTION_LEVELS.CONTROLLED_EXECUTE,roles:["owner","manager"],description:"Send a controlled document request.",phase1Enabled:false,capability:"compliance",legacyAgents:["compliance","tender","finance"],externalSideEffect:true}),
   "reminder.send": action({key:"reminder.send",level:AGENT_ACTION_LEVELS.CONTROLLED_EXECUTE,roles:["owner","manager"],description:"Send a controlled reminder through an approved notification channel.",phase1Enabled:false,capability:"core",legacyAgents:["management","compliance","tender","operations","finance"],externalSideEffect:true}),
   "approval.create": action({key:"approval.create",level:AGENT_ACTION_LEVELS.CONTROLLED_EXECUTE,roles:["owner","manager"],description:"Create an internal approval request without performing the underlying high-risk action.",phase1Enabled:false,capability:"core",legacyAgents:["management","compliance","tender","operations","finance"]}),
@@ -135,14 +136,35 @@ export function evaluateAgentAction({agentKey,actionKey,actorRole,tenantScoped=f
   const role=String(actorRole||"").trim().toLowerCase();
   if(!agentCanRouteAction(agentKey,definition))return deny("agent_action_mismatch","This request is not authorised for the action's capability.",definition);
   if(!agent.allowedRoles.includes(role)||!definition.roles.includes(role))return deny("role_forbidden","The current role is not authorised for this agent action.",definition);
-  if(phase!=="phase1"||definition.phase1Enabled!==true)return deny("action_not_enabled","The action is not enabled in the current launch phase.",definition);
+  const launchPhase=String(phase||"phase1");
+  const phase1Allowed=launchPhase==="phase1"&&definition.phase1Enabled===true;
+  const boundedAllowed=launchPhase==="bounded_v1"&&definition.boundedExecutionEnabled===true&&definition.level===AGENT_ACTION_LEVELS.CONTROLLED_EXECUTE;
+  if(!phase1Allowed&&!boundedAllowed)return deny("action_not_enabled","The action is not enabled in the current launch phase.",definition);
   if(definition.level===AGENT_ACTION_LEVELS.HIGH_RISK){
     if(definition.explicitApprovalRequired&&approvalState!=="approved")return deny("explicit_approval_required","Explicit human approval is required.",definition);
     if(definition.strongAuthRequired&&strongAuth!==true)return deny("strong_auth_required","Strong authentication is required.",definition);
   }
-  if(definition.externalSideEffect)return deny("external_side_effect_not_enabled","Phase 1 agents cannot perform external side effects.",definition);
+  if(definition.externalSideEffect)return deny("external_side_effect_not_enabled","The current agent launch phase cannot perform external side effects.",definition);
   const prepareOnly=definition.level===AGENT_ACTION_LEVELS.PREPARE;
-  return Object.freeze({allowed:true,decision:prepareOnly?"prepare_only":"allow_read",code:prepareOnly?"human_review_required":"allowed",reason:prepareOnly?"The agent may create a bounded draft, but a human must review it before any downstream action.":"The read is permitted within the authenticated tenant and role scope.",policyVersion:AGENT_POLICY_VERSION,agentKey:"thebe",capability:definition.capability,action:definition,humanReviewRequired:prepareOnly||definition.humanReviewRequired,explicitApprovalRequired:definition.explicitApprovalRequired,strongAuthRequired:definition.strongAuthRequired,externalSideEffect:false});
+  const boundedExecute=launchPhase==="bounded_v1"&&definition.level===AGENT_ACTION_LEVELS.CONTROLLED_EXECUTE;
+  return Object.freeze({
+    allowed:true,
+    decision:boundedExecute?"controlled_execute":prepareOnly?"prepare_only":"allow_read",
+    code:boundedExecute?"bounded_execution_policy":prepareOnly?"human_review_required":"allowed",
+    reason:boundedExecute
+      ?"The action is eligible for deterministic bounded execution, subject to delegated authority and the runtime guard."
+      :prepareOnly
+        ?"The agent may create a bounded draft, but a human must review it before any downstream action."
+        :"The read is permitted within the authenticated tenant and role scope.",
+    policyVersion:AGENT_POLICY_VERSION,
+    agentKey:"thebe",
+    capability:definition.capability,
+    action:definition,
+    humanReviewRequired:prepareOnly||definition.humanReviewRequired,
+    explicitApprovalRequired:definition.explicitApprovalRequired,
+    strongAuthRequired:definition.strongAuthRequired,
+    externalSideEffect:false
+  });
 }
 
 export function listPhase1AgentActions(agentKey,actorRole){
