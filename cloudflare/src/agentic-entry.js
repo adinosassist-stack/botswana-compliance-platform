@@ -98,9 +98,10 @@ async function hardenAuthenticatedColdStart(request,response){
   try{html=await response.clone().text()}catch{return response}
   const hasLegacyRender=html.includes(COLD_START_REDUNDANT_RENDER);
   const hasGuardedRender=html.includes(COLD_START_GUARDED_RENDER);
-  if(!hasLegacyRender&&!hasGuardedRender)return response;
+  const traceRequested=syntheticBootTraceRequested(request);
+  if(!hasLegacyRender&&(!hasGuardedRender||!traceRequested))return response;
   const guarded=hasLegacyRender?html.replace(COLD_START_REDUNDANT_RENDER,COLD_START_GUARDED_RENDER):html;
-  const hardened=injectSyntheticBootTrace(request,guarded);
+  const hardened=traceRequested?injectSyntheticBootTrace(request,guarded):guarded;
   const headers=new Headers(response.headers);
   headers.delete("content-length");
   headers.delete("etag");
