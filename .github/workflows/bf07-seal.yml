@@ -30,7 +30,7 @@ jobs:
     name: Resolve BF-07 from clean npm registry state
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && startsWith(github.event.head_commit.message, '[release]'))
+      github.event_name == 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
@@ -56,10 +56,10 @@ jobs:
           if [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]; then
             [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'expected SHA must be a full lowercase commit SHA' >&2; exit 1; }
             [[ "$EXPECTED_SHA" == "$GITHUB_SHA" ]] || { echo "dispatch SHA mismatch: expected=$EXPECTED_SHA actual=$GITHUB_SHA" >&2; exit 1; }
-          else
-            release_message="$(git log -1 --format=%B "$GITHUB_SHA")"
-            [[ "$release_message" =~ ^\[release\]([[:space:]]|$) ]] || { echo 'automatic release merge message must begin with [release]' >&2; exit 1; }
           fi
+          # Automatic push authority is established below from the exact current-main
+          # merged PR, manifest-only boundary, signed merge and successful CI provenance.
+          # Commit-message formatting is deliberately not part of release authority.
           [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]] || { echo 'checkout HEAD does not match GITHUB_SHA' >&2; exit 1; }
           main_sha="$(git rev-parse refs/remotes/origin/main)"
           [[ "$main_sha" == "$GITHUB_SHA" ]] || { echo "release SHA is not checkout current main: release=$GITHUB_SHA main=$main_sha" >&2; exit 1; }
