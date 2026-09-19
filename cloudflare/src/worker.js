@@ -2286,9 +2286,21 @@ async function runAiAdvisor(env,a,{mode,question}){
   const selectedRefs=[...new Set([...(result.sourceRefs||[]),...(result.actions||[]).flatMap(x=>x.sourceRefs||[])])].filter(x=>bundle.allowedRefs.has(x)).slice(0,30);
   const references=bundle.referenceCatalog.filter(x=>selectedRefs.includes(x.ref));
   const outputHash=await sha256Hex(stableJson(result));
-  await env.DB.prepare(`INSERT INTO ai_advisor_runs(id,tenant_id,user_id,mode,status,generation_mode,model,context_counts_json,source_count,credits_used,output_hash,error_code,completed_at)
-    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)`).bind(runId,a.tenant_id,a.user_id,mode,status,generationMode,usedModel,JSON.stringify(bundle.counts),references.length,creditsUsed,outputHash,errorCode).run();
-  await writeAudit(env,a.tenant_id,a.user_id,"AI_BUSINESS_ADVISOR_RUN",{runId,mode,generationMode,contextCounts:bundle.counts,contextBytes:bundle.bytes,sourceCount:references.length,creditsUsed});
+  try{
+    await env.DB.prepare(`INSERT INTO ai_advisor_runs(id,tenant_id,user_id,mode,status,generation_mode,model,context_counts_json,source_count,credits_used,output_hash,error_code,completed_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)`).bind(runId,a.tenant_id,a.user_id,mode,status,generationMode,usedModel,JSON.stringify(bundle.counts),references.length,creditsUsed,outputHash,errorCode).run();
+    await writeAudit(env,a.tenant_id,a.user_id,"AI_BUSINESS_ADVISOR_RUN",{runId,mode,generationMode,contextCounts:bundle.counts,contextBytes:bundle.bytes,sourceCount:references.length,creditsUsed});
+  }catch(persistenceError){
+    if(creditsUsed>0&&consumption?.ok){
+      try{
+        await refundFailedAiCredit(env,a.tenant_id,"business_advisor",runId,"advisor_persistence_failed",consumption);
+        creditsUsed=0;
+        await env.DB.prepare("UPDATE ai_advisor_runs SET status='failed',credits_used=0,error_code='advisor_persistence_failed',completed_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=?")
+          .bind(runId,a.tenant_id).run().catch(()=>{});
+      }catch{}
+    }
+    throw persistenceError;
+  }
   return {runId,generationMode,model:usedModel,creditsUsed,contextCounts:bundle.counts,references,...result};
 }
 // v74 — auditable performance learning and notification engine.
