@@ -21,6 +21,7 @@
 
   let activePreview=null;
   let scheduled=false;
+  let ensurePanelPromise=null;
 
   const q=(selector,root=document)=>root.querySelector(selector);
   const text=(tag,value,className="")=>{
@@ -486,78 +487,83 @@
   }
 
   async function ensurePanel(){
-    const body=q("#ownerSalesBody");
-    if(!body||!canImportSales())return;
-    if(q("#businessDataBridge",body))return;
+    if(ensurePanelPromise)return ensurePanelPromise;
+    ensurePanelPromise=(async()=>{
+      const body=q("#ownerSalesBody");
+      if(!body||!canImportSales())return;
+      if(q("#businessDataBridge",body))return;
 
-    const card=document.createElement("details");
-    card.id="businessDataBridge";
-    card.className="business-data-bridge";
-    card.dataset.release=RELEASE;
-    card.append(text("summary","Import business data (.csv)"));
+      const card=document.createElement("details");
+      card.id="businessDataBridge";
+      card.className="business-data-bridge";
+      card.dataset.release=RELEASE;
+      card.append(text("summary","Import business data (.csv)"));
 
-    const inner=document.createElement("div");
-    inner.className="business-data-bridge-body";
-    inner.append(
-      text("div","Business data bridge","section-eyebrow"),
-      text("h4","Bring existing business records into Thebe without retyping them."),
-      text("p","CSV files are read in your browser first. Thebe shows what will be created or updated before any recognized business fields are saved. Raw files are not stored.","muted")
-    );
+      const inner=document.createElement("div");
+      inner.className="business-data-bridge-body";
+      inner.append(
+        text("div","Business data bridge","section-eyebrow"),
+        text("h4","Bring existing business records into Thebe without retyping them."),
+        text("p","CSV files are read in your browser first. Thebe shows what will be created or updated before any recognized business fields are saved. Raw files are not stored.","muted")
+      );
 
-    const controls=document.createElement("div");
-    controls.className="data-bridge-controls";
-    const typeWrap=document.createElement("label");
-    typeWrap.append(text("span","Import type"));
-    const typeSelect=document.createElement("select");
-    typeSelect.id="businessDataBridgeType";
-    [
-      ["quotations","Quotations / opportunities"],
-      ["campaigns","Campaign spend"],
-      ...(canImportFinance()?[["financial","Financial snapshot assumptions"]]:[])
-    ].forEach(([value,label])=>{
-      const option=document.createElement("option");option.value=value;option.textContent=label;typeSelect.append(option);
-    });
-    typeWrap.append(typeSelect);
+      const controls=document.createElement("div");
+      controls.className="data-bridge-controls";
+      const typeWrap=document.createElement("label");
+      typeWrap.append(text("span","Import type"));
+      const typeSelect=document.createElement("select");
+      typeSelect.id="businessDataBridgeType";
+      [
+        ["quotations","Quotations / opportunities"],
+        ["campaigns","Campaign spend"],
+        ...(canImportFinance()?[["financial","Financial snapshot assumptions"]]:[])
+      ].forEach(([value,label])=>{
+        const option=document.createElement("option");option.value=value;option.textContent=label;typeSelect.append(option);
+      });
+      typeWrap.append(typeSelect);
 
-    const fileWrap=document.createElement("label");
-    fileWrap.append(text("span","CSV file"));
-    const fileInput=document.createElement("input");
-    fileInput.id="businessDataBridgeFile";
-    fileInput.type="file";
-    fileInput.accept=".csv,text/csv";
-    fileWrap.append(fileInput);
-    controls.append(typeWrap,fileWrap);
-    inner.append(controls);
+      const fileWrap=document.createElement("label");
+      fileWrap.append(text("span","CSV file"));
+      const fileInput=document.createElement("input");
+      fileInput.id="businessDataBridgeFile";
+      fileInput.type="file";
+      fileInput.accept=".csv,text/csv";
+      fileWrap.append(fileInput);
+      controls.append(typeWrap,fileWrap);
+      inner.append(controls);
 
-    const actions=document.createElement("div");
-    actions.className="data-bridge-actions";
-    actions.append(
-      button("Download template",()=>downloadTemplate(String(typeSelect.value||"quotations")),"btn alt"),
-      button("Preview import",previewSelectedFile,"btn soft")
-    );
-    const apply=button("Apply import",applyImport,"btn");
-    apply.id="businessDataBridgeApply";
-    apply.disabled=true;
-    actions.append(apply);
-    inner.append(actions);
+      const actions=document.createElement("div");
+      actions.className="data-bridge-actions";
+      actions.append(
+        button("Download template",()=>downloadTemplate(String(typeSelect.value||"quotations")),"btn alt"),
+        button("Preview import",previewSelectedFile,"btn soft")
+      );
+      const apply=button("Apply import",applyImport,"btn");
+      apply.id="businessDataBridgeApply";
+      apply.disabled=true;
+      actions.append(apply);
+      inner.append(actions);
 
-    const status=text("span","Choose a template or select an existing CSV export.","owner-input-status");
-    status.id="businessDataBridgeStatus";
-    inner.append(status);
-    const preview=document.createElement("div");
-    preview.id="businessDataBridgePreview";
-    preview.className="data-bridge-preview";
-    preview.hidden=true;
-    inner.append(preview);
+      const status=text("span","Choose a template or select an existing CSV export.","owner-input-status");
+      status.id="businessDataBridgeStatus";
+      inner.append(status);
+      const preview=document.createElement("div");
+      preview.id="businessDataBridgePreview";
+      preview.className="data-bridge-preview";
+      preview.hidden=true;
+      inner.append(preview);
 
-    try{
-      const envelope=await request("/api/state");
-      renderLastImport(activeCompany(envelope?.state||{}),inner);
-    }catch{}
+      card.append(inner);
+      const intro=q(".owner-sales-intro",body);
+      if(intro)intro.insertAdjacentElement("afterend",card);else body.prepend(card);
 
-    card.append(inner);
-    const intro=q(".owner-sales-intro",body);
-    if(intro)intro.insertAdjacentElement("afterend",card);else body.prepend(card);
+      try{
+        const envelope=await request("/api/state");
+        renderLastImport(activeCompany(envelope?.state||{}),inner);
+      }catch{}
+    })();
+    try{return await ensurePanelPromise}
+    finally{ensurePanelPromise=null}
   }
 
   function schedule(){
