@@ -15,9 +15,9 @@ const builder=read("scripts/build-release-preview.mjs");ok(builder.includes('new
 const worker=read("cloudflare/src/worker.js");ok(worker.includes("nonceInlineStyles")&&worker.includes("nonceHtmlExecutableBlocks"),"Worker must nonce inline style blocks");
 ok(worker.includes("style-src-elem 'self' 'nonce-${nonce}'")&&worker.includes("style-src-attr 'unsafe-inline'"),"HTML CSP must isolate style elements from legacy style attributes");
 const node=read("server/server.js");ok(node.includes("nonceInlineStyles")&&node.includes("style-src-elem 'self' 'nonce-${nonce}'"),"Node fallback must mirror style nonce CSP");
-const deploy=read("cloudflare/deploy-free.sh");ok(deploy.includes('WRANGLER_VERSION="4.127.1"')&&deploy.includes('wrangler@${WRANGLER_VERSION}'),"deployment helper must pin Wrangler 4.127.1");
+const deploy=read("cloudflare/deploy-free.sh");ok(deploy.includes('WRANGLER_VERSION="4.135.0"')&&deploy.includes('wrangler@${WRANGLER_VERSION}'),"deployment helper must pin Wrangler 4.135.0");
 ok(deploy.includes(`V78 ${pkg.version}`)&&deploy.includes(profile.latest_cloudflare_migration)&&!deploy.includes("through 035"),"deployment helper must use current release/migration");
-ok(pkg.devDependencies?.wrangler==="4.127.1"&&["npm@10.9.2","npm@10.9.8"].includes(pkg.packageManager),"toolchain policy must be pinned");
+ok(pkg.devDependencies?.wrangler==="4.135.0"&&["npm@10.9.2","npm@10.9.8"].includes(pkg.packageManager),"toolchain policy must be pinned");
 ok(profile.preview_assets_outside_public===true&&profile.html_style_element_nonce_csp===true,"release profile must record new hardening controls");
 ok(fs.existsSync(path.join(root,"scripts/bundle-budget.mjs"))&&pkg.scripts["check:bundle-budget"],"bundle/static-asset budget gate must be part of the release toolchain");
 ok(worker.includes("const PASSWORD_MAX_CHARS=200")&&worker.includes("const EMAIL_MAX_CHARS=254")&&worker.includes("const COMPANY_NAME_MAX_CHARS=160"),"Worker authentication inputs must be explicitly bounded");
