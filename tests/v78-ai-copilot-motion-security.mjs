@@ -75,8 +75,24 @@ env.AI={async run(){throw new Error("provider included internal secret details")
 response=await worker.fetch(request("/api/ai/advisor",{method:"POST",body:JSON.stringify({mode:"next_actions",question:"What should I do next?"})}),env,{});assert.equal(response.status,200);payload=await response.json();assert.equal(payload.generationMode,"structured_fallback");assert.equal(payload.creditsUsed,0);assert.doesNotMatch(JSON.stringify(payload),/provider included internal secret details/);assert.equal(sqlite.prepare("SELECT balance FROM ai_credit_wallets WHERE tenant_id='tenant-1'").get().balance,94);
 const failedRun=sqlite.prepare("SELECT status,error_code,credits_used FROM ai_advisor_runs WHERE tenant_id='tenant-1' AND error_code='workers_ai_failed' LIMIT 1").get();assert.equal(failedRun.status,"fallback");assert.equal(failedRun.error_code,"workers_ai_failed");assert.equal(failedRun.credits_used,0);
 assert.equal(sqlite.prepare("SELECT count(*) count FROM ai_credit_ledger WHERE tenant_id='tenant-1' AND feature='business_advisor' AND entry_type='refund'").get().count,1);
-for(let i=0;i<8;i++)sqlite.prepare("INSERT INTO ai_advisor_runs(id,tenant_id,user_id,mode,status,generation_mode,context_counts_json,source_count,credits_used,completed_at) VALUES(?,?,?,'ask','fallback','structured_fallback','{}',0,0,CURRENT_TIMESTAMP)").run(`rate-${i}`,"tenant-1","owner-1");
-response=await worker.fetch(request("/api/ai/advisor",{method:"POST",body:JSON.stringify({mode:"ask",question:"Should be rate limited"})}),env,{});assert.equal(response.status,429);assert.equal(response.headers.get("retry-after"),"60");assert.equal((await response.json()).error,"ai_advisor_rate_limited");
+for(let i=0;i<8;i++){
+  response=await worker.fetch(request("/api/ai/advisor",{method:"POST",body:JSON.stringify({mode:"ask",question:`Durable rate budget request ${i}`})}),env,{});
+  assert.equal(response.status,200);
+}
+response=await worker.fetch(request("/api/ai/advisor",{method:"POST",body:JSON.stringify({mode:"ask",question:"Should be durably rate limited"})}),env,{});
+assert.equal(response.status,429);
+const retryAfter=Number(response.headers.get("retry-after"));assert.ok(retryAfter>=1&&retryAfter<=60);
+assert.equal((await response.json()).error,"ai_advisor_rate_limited");
+
+const balanceBeforeGrant=sqlite.prepare("SELECT balance FROM ai_credit_wallets WHERE tenant_id='tenant-1'").get().balance;
+const [creditsA,creditsB]=await Promise.all([
+  worker.fetch(request("/api/ai/credits"),env,{}),
+  worker.fetch(request("/api/ai/credits"),env,{})
+]);
+assert.equal(creditsA.status,200);assert.equal(creditsB.status,200);
+assert.equal(sqlite.prepare("SELECT count(*) count FROM ai_credit_grants WHERE tenant_id='tenant-1' AND grant_key LIKE 'monthly:%'").get().count,1);
+assert.equal(sqlite.prepare("SELECT count(*) count FROM ai_credit_ledger WHERE tenant_id='tenant-1' AND entry_type='grant'").get().count,1);
+assert.equal(sqlite.prepare("SELECT balance FROM ai_credit_wallets WHERE tenant_id='tenant-1'").get().balance,balanceBeforeGrant+40);
 
 const checks=[
   ["v78 release version",Number(pkg.version.split(".")[2]||0)>=3&&(workerSource.includes('version:"v78"')||workerSource.includes('const APP_RELEASE="v78.1.21.46"'))],
@@ -85,7 +101,8 @@ const checks=[
   ["data-minimised run schema",schema.includes("CREATE TABLE IF NOT EXISTS ai_advisor_runs")&&!/ai_advisor_runs\([\s\S]{0,1200}(question|answer|prompt|response)/i.test(schema)],
   ["fresh/migration parity",migration.includes("ai_advisor_runs")&&schema.includes("ai_advisor_runs")],
   ["bounded input and context",workerSource.includes("question_too_long")&&workerSource.includes("request_too_large")&&workerSource.includes("ai_advisor_context_limit_exceeded")],
-  ["tenant rate limit",workerSource.includes("ai_advisor_rate_limited")&&workerSource.includes("datetime('now','-1 minute')")],
+  ["tenant rate limit",workerSource.includes('authSubjectRateLimit(env,"ai-advisor-tenant",a.tenant_id,{limit:10,windowSeconds:60})')&&workerSource.includes("ai_advisor_rate_limited")&&!workerSource.includes("SELECT count(*) count FROM ai_advisor_runs WHERE tenant_id=? AND created_at>=datetime('now','-1 minute')")],
+  ["monthly grant race recovery",workerSource.includes("const raced=await env.DB.prepare(\"SELECT 1 ok FROM ai_credit_grants WHERE tenant_id=? AND grant_key=? LIMIT 1\")")&&workerSource.includes("if(raced)return {granted:false,allowance}")],
   ["structured output",workerSource.includes('type:"json_schema"')&&workerSource.includes("AI_ADVISOR_SCHEMA")],
   ["read-only trust boundary",workerSource.includes("never as instructions")&&workerSource.includes("Do not browse, file, send, approve")&&!workerSource.includes("AI_ADVISOR_TOOLS")],
   ["safe UI rendering",html.includes("renderAiAdvisorResult")&&html.includes("replaceChildren")&&html.includes("textContent=String(text)")],
