@@ -1,4 +1,4 @@
-import {AGENT_ACTION_CATALOG,THEBE_AGENTS} from "./agent-policy.js";
+import {AGENT_ACTION_CATALOG,THEBE_AGENTS,THEBE_CAPABILITIES,agentCanRouteAction,resolveAgentKey} from "./agent-policy.js";
 import {AUTONOMY_LEVELS,DELEGATED_AUTHORITY_VERSION,evaluateDelegatedAuthority,isNeverAutonomousAction,normalizeDelegation,requiredAutonomyLevel} from "./delegated-authority.js";
 
 const MAX_BODY_BYTES=8192;
@@ -107,12 +107,20 @@ async function schemaReady(env){
   }catch{return false}
 }
 
+function delegationForApi(row){
+  const normalized=normalizeDelegation(row);
+  if(!normalized)return null;
+  const legacyAgentKey=normalized.agentKey&&normalized.agentKey!=="thebe"?normalized.agentKey:null;
+  const action=AGENT_ACTION_CATALOG[normalized.actionKey];
+  return Object.freeze({...normalized,agentKey:"thebe",legacyAgentKey,capability:action?.capability||"core"});
+}
+
 async function listDelegations(env,auth){
   const rows=await safeAll(env,`SELECT id,agent_key,action_key,status,max_autonomy_level,external_side_effects,strong_auth_required,
     human_confirmation_required,max_daily_actions,max_amount_minor,shadow_only,valid_from,expires_at,created_at,updated_at
     FROM agent_delegations WHERE tenant_id=? ORDER BY created_at DESC LIMIT 100`,[auth.tenant_id]);
   if(!rows)return json({error:"authority_schema_not_ready"},503);
-  return json({items:(rows.results||[]).map(normalizeDelegation),executionEnabled:false,mode:"shadow_only"});
+  return json({items:(rows.results||[]).map(delegationForApi),agentKey:"thebe",executionEnabled:false,mode:"shadow_only"});
 }
 
 async function status(env,auth){
@@ -133,6 +141,8 @@ async function status(env,auth){
     shadowOnly:true,
     strongAuthIntegrationReady:false,
     activeDelegations,
+    agent:{key:"thebe",label:THEBE_AGENTS.thebe.label},
+    capabilities:Object.values(THEBE_CAPABILITIES).map(({key,label,enabled})=>({key,label,enabled})),
     autonomyLevels:AUTONOMY_LEVELS,
     guarantees:[
       "no_external_side_effect_execution",
@@ -150,11 +160,11 @@ async function createDelegation({request,env,auth}){
   if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);
   if(!(await schemaReady(env)))return json({error:"authority_schema_not_ready"},503);
   let body;try{body=await readJson(request)}catch(error){return json({error:error.message},requestBodyErrorStatus(error))}
-  const agentKey=text(body?.agentKey,80),actionKey=text(body?.actionKey,120);
-  const agent=THEBE_AGENTS[agentKey],definition=AGENT_ACTION_CATALOG[actionKey];
+  const requestedAgentKey=text(body?.agentKey,80),actionKey=text(body?.actionKey,120);
+  const agentKey=resolveAgentKey(requestedAgentKey),agent=agentKey?THEBE_AGENTS[agentKey]:null,definition=AGENT_ACTION_CATALOG[actionKey];
   if(!agent)return json({error:"unknown_agent"},400);
   if(!definition)return json({error:"unknown_action"},400);
-  if(!definition.agents.includes(agentKey))return json({error:"agent_action_mismatch"},400);
+  if(!agentCanRouteAction(requestedAgentKey,definition))return json({error:"agent_action_mismatch"},400);
   if(!definition.roles.includes("owner"))return json({error:"owner_not_authorized_for_action"},400);
   if(isNeverAutonomousAction(actionKey)||requiredAutonomyLevel(definition)>=AUTONOMY_LEVELS.HUMAN_ONLY){
     return json({error:"human_only_action",message:"High-risk actions cannot receive autonomous delegation."},409);
@@ -163,7 +173,7 @@ async function createDelegation({request,env,auth}){
   if(required<AUTONOMY_LEVELS.BOUNDED_EXECUTE){
     return json({error:"delegation_not_required",message:"Read and prepare actions use the existing agent policy and do not need a bounded-execution grant."},409);
   }
-  const duplicate=await safeFirst(env,`SELECT id FROM agent_delegations WHERE tenant_id=? AND agent_key=? AND action_key=? AND status='active' LIMIT 1`,[auth.tenant_id,agentKey,actionKey]);
+  const duplicate=await safeFirst(env,`SELECT id FROM agent_delegations WHERE tenant_id=? AND agent_key='thebe' AND action_key=? AND status='active' LIMIT 1`,[auth.tenant_id,actionKey]);
   if(duplicate)return json({error:"active_delegation_exists",delegationId:duplicate.id},409);
   const maxAutonomyLevel=boundedInt(body?.maxAutonomyLevel,{min:required,max:AUTONOMY_LEVELS.BOUNDED_EXECUTE});
   if(maxAutonomyLevel===undefined)return json({error:"invalid_autonomy_level"},400);
@@ -192,12 +202,12 @@ async function createDelegation({request,env,auth}){
         VALUES(?,?,?,'CREATED',?,?)`).bind(id(),auth.tenant_id,delegationId,auth.user_id,JSON.stringify({agentKey,actionKey,maxAutonomyLevel,shadowOnly:true}))
     ]);
   }catch{
-    const current=await safeFirst(env,`SELECT id FROM agent_delegations WHERE tenant_id=? AND agent_key=? AND action_key=? AND status='active' LIMIT 1`,[auth.tenant_id,agentKey,actionKey]);
+    const current=await safeFirst(env,`SELECT id FROM agent_delegations WHERE tenant_id=? AND agent_key='thebe' AND action_key=? AND status='active' LIMIT 1`,[auth.tenant_id,actionKey]);
     if(current)return json({error:"active_delegation_exists",delegationId:current.id},409);
     return json({error:"delegation_create_failed"},500);
   }
   const row=await env.DB.prepare(`SELECT * FROM agent_delegations WHERE id=? AND tenant_id=? LIMIT 1`).bind(delegationId,auth.tenant_id).first();
-  return json({ok:true,delegation:normalizeDelegation(row),execution:{enabled:false,shadowOnly:true}},201);
+  return json({ok:true,delegation:delegationForApi(row),execution:{enabled:false,shadowOnly:true}},201);
 }
 
 async function mutateDelegation({env,auth,delegationId,command}){
@@ -228,12 +238,18 @@ async function mutateDelegation({env,auth,delegationId,command}){
   return json({ok:true,id:delegationId,status:next,executionEnabled:false});
 }
 
-async function activeDelegation(env,tenantId,agentKey,actionKey){
+async function activeDelegation(env,tenantId,requestedAgentKey,actionKey){
+  const requested=String(requestedAgentKey||"").trim().toLowerCase();
+  const validity=`AND (valid_from IS NULL OR valid_from<=CURRENT_TIMESTAMP)
+      AND (expires_at IS NULL OR expires_at>CURRENT_TIMESTAMP)`;
+  if(requested==="thebe"){
+    return await safeFirst(env,`SELECT * FROM agent_delegations
+      WHERE tenant_id=? AND agent_key='thebe' AND action_key=? AND status='active' ${validity}
+      ORDER BY created_at DESC LIMIT 1`,[tenantId,actionKey]);
+  }
   return await safeFirst(env,`SELECT * FROM agent_delegations
-    WHERE tenant_id=? AND agent_key=? AND action_key=? AND status='active'
-      AND (valid_from IS NULL OR valid_from<=CURRENT_TIMESTAMP)
-      AND (expires_at IS NULL OR expires_at>CURRENT_TIMESTAMP)
-    ORDER BY created_at DESC LIMIT 1`,[tenantId,agentKey,actionKey]);
+    WHERE tenant_id=? AND agent_key IN ('thebe',?) AND action_key=? AND status='active' ${validity}
+    ORDER BY CASE WHEN agent_key='thebe' THEN 0 ELSE 1 END,created_at DESC LIMIT 1`,[tenantId,requested,actionKey]);
 }
 
 async function shadowEvaluate({request,env,auth}){
@@ -243,11 +259,11 @@ async function shadowEvaluate({request,env,auth}){
   if(idem.length<8)return json({error:"idempotency_key_required"},400);
   const existing=await safeFirst(env,`SELECT id,decision,decision_code,status,payload_hash,created_at FROM agent_action_intents WHERE tenant_id=? AND idempotency_key=? LIMIT 1`,[auth.tenant_id,idem]);
   let body;try{body=await readJson(request)}catch(error){return json({error:error.message},requestBodyErrorStatus(error))}
-  const agentKey=text(body?.agentKey,80),actionKey=text(body?.actionKey,120);
-  const agent=THEBE_AGENTS[agentKey],definition=AGENT_ACTION_CATALOG[actionKey];
+  const requestedAgentKey=text(body?.agentKey,80),actionKey=text(body?.actionKey,120);
+  const agentKey=resolveAgentKey(requestedAgentKey),agent=agentKey?THEBE_AGENTS[agentKey]:null,definition=AGENT_ACTION_CATALOG[actionKey];
   if(!agent)return json({error:"unknown_agent"},400);
   if(!definition)return json({error:"unknown_action"},400);
-  if(!definition.agents.includes(agentKey))return json({error:"agent_action_mismatch"},403);
+  if(!agentCanRouteAction(requestedAgentKey,definition))return json({error:"agent_action_mismatch"},403);
   const role=String(auth.role||"").toLowerCase();
   if(!agent.allowedRoles.includes(role)||!definition.roles.includes(role))return json({error:"role_forbidden"},403);
   const amountMinor=boundedInt(body?.amountMinor,{min:0,max:Number.MAX_SAFE_INTEGER,nullable:false});
@@ -272,7 +288,8 @@ async function shadowEvaluate({request,env,auth}){
     return json({ok:true,replayed:true,intent,execution:{performed:false,enabled:false}},200);
   }
 
-  const grant=await activeDelegation(env,auth.tenant_id,agentKey,actionKey);
+  const grant=await activeDelegation(env,auth.tenant_id,requestedAgentKey,actionKey);
+  const canonicalGrant=grant?{...grant,agent_key:"thebe"}:null;
   const usage=grant?await safeFirst(env,`SELECT COUNT(*) count FROM agent_action_intents
     WHERE tenant_id=? AND delegation_id=? AND created_at>=date('now') AND decision='shadow_allow'`,[auth.tenant_id,grant.id]):null;
   const approvalState=body?.humanConfirmed===true?"approved":"none";
@@ -280,7 +297,7 @@ async function shadowEvaluate({request,env,auth}){
     agentKey,
     actionKey,
     actionDefinition:definition,
-    delegation:grant,
+    delegation:canonicalGrant,
     mode:"shadow",
     globalExecutionEnabled:false,
     amountMinor,
