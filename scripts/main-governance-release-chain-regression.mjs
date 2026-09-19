@@ -70,6 +70,16 @@ const requiredBf07Fragments = [
 for (const fragment of requiredBf07Fragments) {
   assert.ok(bf07.includes(fragment), `BF-07 lost governance invariant: ${fragment}`);
 }
+assert.ok(
+  bf07.includes("github.event_name == 'workflow_dispatch' ||\n      github.event_name == 'push'"),
+  'BF-07 automatic release execution must be gated by the manifest-scoped main push, not merge-message formatting'
+);
+assert.ok(
+  !bf07.includes("startsWith(github.event.head_commit.message, '[release]')") &&
+  !bf07.includes('automatic release merge message must begin with [release]') &&
+  !bf07.includes('release_message="$(git log -1 --format=%B "$GITHUB_SHA")"'),
+  'BF-07 must not make release authority depend on mutable/default merge commit message formatting'
+);
 
 const requiredDeployFragments = [
   "await successful('main-governance-guard.yml', 'Main Governance Guard'",
