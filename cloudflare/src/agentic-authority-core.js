@@ -173,7 +173,7 @@ async function createDelegation({request,env,auth}){
   if(required<AUTONOMY_LEVELS.BOUNDED_EXECUTE){
     return json({error:"delegation_not_required",message:"Read and prepare actions use the existing agent policy and do not need a bounded-execution grant."},409);
   }
-  const duplicate=await safeFirst(env,`SELECT id FROM agent_delegations WHERE tenant_id=? AND action_key=? AND status='active' LIMIT 1`,[auth.tenant_id,actionKey]);
+  const duplicate=await safeFirst(env,`SELECT id FROM agent_delegations WHERE tenant_id=? AND agent_key='thebe' AND action_key=? AND status='active' LIMIT 1`,[auth.tenant_id,actionKey]);
   if(duplicate)return json({error:"active_delegation_exists",delegationId:duplicate.id},409);
   const maxAutonomyLevel=boundedInt(body?.maxAutonomyLevel,{min:required,max:AUTONOMY_LEVELS.BOUNDED_EXECUTE});
   if(maxAutonomyLevel===undefined)return json({error:"invalid_autonomy_level"},400);
@@ -202,7 +202,7 @@ async function createDelegation({request,env,auth}){
         VALUES(?,?,?,'CREATED',?,?)`).bind(id(),auth.tenant_id,delegationId,auth.user_id,JSON.stringify({agentKey,actionKey,maxAutonomyLevel,shadowOnly:true}))
     ]);
   }catch{
-    const current=await safeFirst(env,`SELECT id FROM agent_delegations WHERE tenant_id=? AND action_key=? AND status='active' LIMIT 1`,[auth.tenant_id,actionKey]);
+    const current=await safeFirst(env,`SELECT id FROM agent_delegations WHERE tenant_id=? AND agent_key='thebe' AND action_key=? AND status='active' LIMIT 1`,[auth.tenant_id,actionKey]);
     if(current)return json({error:"active_delegation_exists",delegationId:current.id},409);
     return json({error:"delegation_create_failed"},500);
   }
@@ -238,12 +238,18 @@ async function mutateDelegation({env,auth,delegationId,command}){
   return json({ok:true,id:delegationId,status:next,executionEnabled:false});
 }
 
-async function activeDelegation(env,tenantId,actionKey){
+async function activeDelegation(env,tenantId,requestedAgentKey,actionKey){
+  const requested=String(requestedAgentKey||"").trim().toLowerCase();
+  const validity=`AND (valid_from IS NULL OR valid_from<=CURRENT_TIMESTAMP)
+      AND (expires_at IS NULL OR expires_at>CURRENT_TIMESTAMP)`;
+  if(requested==="thebe"){
+    return await safeFirst(env,`SELECT * FROM agent_delegations
+      WHERE tenant_id=? AND agent_key='thebe' AND action_key=? AND status='active' ${validity}
+      ORDER BY created_at DESC LIMIT 1`,[tenantId,actionKey]);
+  }
   return await safeFirst(env,`SELECT * FROM agent_delegations
-    WHERE tenant_id=? AND action_key=? AND status='active'
-      AND (valid_from IS NULL OR valid_from<=CURRENT_TIMESTAMP)
-      AND (expires_at IS NULL OR expires_at>CURRENT_TIMESTAMP)
-    ORDER BY CASE WHEN agent_key='thebe' THEN 0 ELSE 1 END,created_at DESC LIMIT 1`,[tenantId,actionKey]);
+    WHERE tenant_id=? AND agent_key IN ('thebe',?) AND action_key=? AND status='active' ${validity}
+    ORDER BY CASE WHEN agent_key='thebe' THEN 0 ELSE 1 END,created_at DESC LIMIT 1`,[tenantId,requested,actionKey]);
 }
 
 async function shadowEvaluate({request,env,auth}){
@@ -282,7 +288,7 @@ async function shadowEvaluate({request,env,auth}){
     return json({ok:true,replayed:true,intent,execution:{performed:false,enabled:false}},200);
   }
 
-  const grant=await activeDelegation(env,auth.tenant_id,actionKey);
+  const grant=await activeDelegation(env,auth.tenant_id,requestedAgentKey,actionKey);
   const canonicalGrant=grant?{...grant,agent_key:"thebe"}:null;
   const usage=grant?await safeFirst(env,`SELECT COUNT(*) count FROM agent_action_intents
     WHERE tenant_id=? AND delegation_id=? AND created_at>=date('now') AND decision='shadow_allow'`,[auth.tenant_id,grant.id]):null;
