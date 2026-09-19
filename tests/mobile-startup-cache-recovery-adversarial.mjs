@@ -42,6 +42,13 @@ assert.doesNotMatch(index,/navigator\.serviceWorker\.register|serviceWorker\.reg
 assert.match(index,/<meta name="bw-runtime-mode" content="production"\s*\/>/,'production root must remain explicitly production mode');
 assert.match(index,/\.previewmode\{display:none/,'preview marker must be hidden by default');
 assert.doesNotMatch(index,/<body[^>]*class="[^"]*standalone-preview/,'production body must not start in standalone preview mode');
+const workspaceReadyBody=index.match(/function markWorkspaceReady\(\)\{([\s\S]*?)\n\}/)?.[1]||'';
+assert.ok(workspaceReadyBody,'workspace readiness function must exist');
+const revealAt=workspaceReadyBody.indexOf('revealWorkspaceShell()');
+const readyAt=workspaceReadyBody.indexOf('window.__THEBE_WORKSPACE_READY__=true');
+assert.ok(revealAt>=0&&readyAt>=0&&revealAt<readyAt,'workspace readiness must reveal the authenticated shell before publishing ready state');
+assert.match(workspaceReadyBody,/marketingGate\.classList\.add\("hidden"\)/,'workspace readiness must keep public marketing hidden');
+assert.match(workspaceReadyBody,/authGate\.classList\.add\("hidden"\)/,'workspace readiness must keep the auth surface hidden');
 
 assert.match(events,/bw-mobile-runtime-hardening/,'mobile runtime must install an explicit hardening boundary');
 assert.match(events,/touch-action:pan-y!important/,'mobile workspace drawer must retain vertical touch scrolling');
