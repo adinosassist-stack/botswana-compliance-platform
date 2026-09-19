@@ -1,10 +1,11 @@
 import base from "./production-entry.js";
 import {handleAgenticAuthorityRequest} from "./agentic-authority-core.js";
 import {handleAgenticWhatsAppRequest} from "./agentic-whatsapp-core.js";
+import {handleAgenticTaskExecutionRequest} from "./agentic-task-execution.js";
 import {preparePlatformOwnerLogin,withPlatformOwnerAdminEnv} from "./platform-owner-access.js";
 import {applyClientRuntimeIdentity} from "./client-runtime-identity.js";
 
-const V81_SCHEMA_DELTA="047_v81_delegated_authority.sql";
+const V81_SCHEMA_DELTA="048_v102_bounded_internal_task_execution.sql";
 const COLD_START_REDUNDANT_RENDER="if(!options?.skipDataRefresh)queueMicrotask(()=>renderAll())";
 const COLD_START_GUARDED_RENDER="if(!options?.skipDataRefresh&&!options?.roleRedirect)queueMicrotask(()=>renderAll())";
 const SYNTHETIC_BOOT_TRACE_PREFIX="THEBE_SYNTHETIC_BOOT";
@@ -85,7 +86,11 @@ async function delegatedAuthoritySchemaReady(env){
     await env.DB.prepare(`SELECT
       (SELECT COUNT(*) FROM agent_delegations) delegation_count,
       (SELECT COUNT(*) FROM agent_action_intents) intent_count,
-      (SELECT COUNT(*) FROM agent_delegation_events) event_count`).first();
+      (SELECT COUNT(*) FROM agent_delegation_events) event_count,
+      (SELECT COUNT(*) FROM agent_execution_grants) execution_grant_count,
+      (SELECT COUNT(*) FROM agent_task_requests) task_request_count,
+      (SELECT COUNT(*) FROM agent_internal_tasks) internal_task_count,
+      (SELECT COUNT(*) FROM agent_execution_receipts) execution_receipt_count`).first();
     return true;
   }catch{return false}
 }
@@ -140,6 +145,8 @@ export default {
     const logicalPath=logicalRequestPath(request);
     const whatsappResponse=await handleAgenticWhatsAppRequest({request,logicalPath,env});
     if(whatsappResponse)return whatsappResponse;
+    const taskExecutionResponse=await handleAgenticTaskExecutionRequest({request,logicalPath,env});
+    if(taskExecutionResponse)return taskExecutionResponse;
     const authorityResponse=await handleAgenticAuthorityRequest({request,logicalPath,env});
     if(authorityResponse)return authorityResponse;
     env=withPlatformOwnerAdminEnv(env);
