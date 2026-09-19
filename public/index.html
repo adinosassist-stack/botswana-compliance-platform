@@ -1206,6 +1206,7 @@ aside,.nav,.nav button,.top,.top>div,.top>.actions,.card,.view,.row,.between{min
 
 <style id="v78-onboarding-polish">
 .modal{z-index:70!important}
+#onboardModal{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
 #onboardModal .modalbox{max-width:720px}.onboarding-quickstart .wizardstep h3{margin:8px 0 8px}.onboarding-optional summary{cursor:pointer;font-weight:700}.onboarding-actions{justify-content:space-between}.onboarding-known{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 13px;border:1px solid #e0e7e3;background:#f8faf9;border-radius:13px;margin:12px 0}.onboarding-known b{font-size:14px}.onboarding-known span{font-size:12px;color:var(--muted)}.onboarding-explain{margin:0 0 14px;max-width:620px}.onboarding-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:12px}.onboarding-fact{display:flex;gap:10px;align-items:flex-start;border:1px solid #e0e7e3;background:#fbfcfb;border-radius:13px;padding:12px;cursor:pointer;min-height:70px}.onboarding-fact input{width:18px;height:18px;margin-top:1px}.onboarding-fact b{display:block;font-size:13px}.onboarding-fact small{display:block;color:var(--muted);font-size:11.5px;line-height:1.35;margin-top:2px}.first-value-panel{display:none;margin:0 0 16px;border:1px solid #cfe0d6;background:#f7fbf8;border-radius:18px;padding:18px}.first-value-panel.show{display:block}.first-value-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.first-value-head h2{margin:3px 0 4px;font-size:22px}.first-value-status{white-space:nowrap}.first-value-grid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(260px,.7fr);gap:12px;margin-top:14px}.first-value-list,.first-value-confirm{border:1px solid #e0e7e3;background:#fff;border-radius:14px;padding:13px}.first-value-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid #edf1ee}.first-value-item:last-child{border-bottom:0}.first-value-item b{display:block;font-size:13.5px}.first-value-item small{display:block;color:var(--muted);font-size:11.5px;line-height:1.35;margin-top:2px}.first-value-confirm .checkline{padding:8px 0}.first-value-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}@media(max-width:760px){.first-value-grid{grid-template-columns:1fr}.first-value-head{display:block}.first-value-status{display:inline-flex;margin-top:7px}}@media(max-width:650px){#welcomeSetupBanner .between{align-items:flex-start;gap:10px}#welcomeSetupBanner .btn{width:100%}.onboarding-quickstart .formgrid{grid-template-columns:1fr}.onboarding-actions .btn{min-width:44%}.onboarding-facts{grid-template-columns:1fr}.first-value-panel{padding:15px}.first-value-actions .btn{width:100%}}
 </style>
 <style id="v78-profile-progressive-simplification">
@@ -7914,6 +7915,22 @@ function showView(id,options={}){if(!roleCanView(id)){console.warn("Role denied 
 
 let wizardStep=0;
 let firstValueTopTarget="workhub";
+function scheduleOwnerOnboarding(){
+ const eligible=()=>currentUser?.role==="owner"&&currentUser?.onboardingComplete===false&&safeSessionGet("bw_onboarding_dismissed")!=="1";
+ if(!eligible())return false;
+ const afterReady=()=>{
+  const openWhenIdle=()=>{
+   if(!eligible()||window.__THEBE_WORKSPACE_READY__!==true)return;
+   openOnboarding();
+  };
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+   if(typeof requestIdleCallback==="function")requestIdleCallback(openWhenIdle,{timeout:1500});
+   else setTimeout(openWhenIdle,600);
+  }));
+ };
+ window.whenThebeWorkspaceReady(afterReady);
+ return true;
+}
 function openOnboarding(){
  if(currentWorkspaceRole()!=="owner"){let sr=document.getElementById("srStatus");if(sr)sr.textContent="Only the account owner can complete initial business setup.";return false}
  wizardStep=0;loadWizard();if(wizardInlineError){wizardInlineError.textContent="";wizardInlineError.classList.remove("show")}renderWizard();openModal("onboardModal")
@@ -8192,7 +8209,7 @@ async function loadServerState(){
  if(st.state&&st.state.companies?.length){nextStore=structuredClone(st.state)}else if(currentUser.role==="owner"){nextStore=blankWorkspaceState(currentUser.tenantName||"My Business",currentUser.role)}else{throw new Error("The account owner must finish initial workspace setup before this role can enter.")}
  nextStore.activeRole=currentUser.role;nextStore.audit=[];replaceWorkspaceStore(nextStore);
  renderAll();applyRoleUi();hideAuth();logEvent("APP_OPENED",{ruleset:"BW-2026.08.30-launch"});const landing=roleLandingView(currentUser.role);if(landing&&roleCanView(landing))showView(landing,{roleRedirect:true});handleOAuthResult();handleResetLink();
- if(currentUser.role==="owner"&&currentUser.onboardingComplete===false&&safeSessionGet("bw_onboarding_dismissed")!=="1")setTimeout(()=>openOnboarding(),180);
+ if(currentUser.role==="owner"&&currentUser.onboardingComplete===false)scheduleOwnerOnboarding();
  if(currentUser.role==="owner"&&currentUser.onboardingComplete===true&&state?.profile?.firstProtectionCheckStatus==="pending")setTimeout(()=>{document.getElementById("firstValuePanel")?.classList.add("show");renderFirstValueFailure("The previous first protection check did not finish. Run it again to generate server-backed actions.")},220);
 }
 
