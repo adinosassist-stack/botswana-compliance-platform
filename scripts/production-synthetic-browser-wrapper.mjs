@@ -158,6 +158,44 @@ async function observeWorkspaceBootstrap(page,label,pageErrors=[]){
   }
 }
 
+async function directWorkspaceDiagnostic(page,label){
+  await new Promise(resolve=>setTimeout(resolve,1500));
+  const cookies=await withDeadline(`${label} browser-process cookie probe`,page.context().cookies(ORIGIN),3000);
+  info('desktop direct diagnostic browser process',`cookies=${cookies.some(cookie=>cookie.name==='__Host-bw_session'||cookie.name==='bw_session')?'session-present':'session-absent'}`);
+  const state=await withDeadline(
+    `${label} renderer direct evaluation`,
+    page.evaluate(()=>{
+      const shell=document.getElementById('appShell'),marketing=document.getElementById('marketingGate'),auth=document.getElementById('authGate');
+      const style=shell?getComputedStyle(shell):null;
+      return {
+        ready:globalThis.__THEBE_WORKSPACE_READY__===true,
+        shell:!!shell,
+        hiddenAttribute:shell?.hidden===true,
+        hiddenClass:!!shell?.classList.contains('hidden'),
+        authoredDisplay:shell?.style.display??'missing',
+        authoredVisibility:shell?.style.visibility??'missing',
+        computedDisplay:style?.display??'missing',
+        computedVisibility:style?.visibility??'missing',
+        opacity:style?.opacity??'missing',
+        rects:shell?.getClientRects().length??0,
+        marketingHidden:!!marketing?.classList.contains('hidden'),
+        authHidden:!!auth?.classList.contains('hidden'),
+        sidebar:!!document.getElementById('workspaceSidebar')
+      };
+    }),
+    7000
+  );
+  info('desktop direct diagnostic renderer state',safe(JSON.stringify(state)));
+  assert(
+    state.ready&&state.shell&&state.hiddenAttribute!==true&&!state.hiddenClass&&
+    state.authoredDisplay!=='none'&&state.authoredVisibility!=='hidden'&&
+    state.computedDisplay!=='none'&&state.computedVisibility!=='hidden'&&
+    state.opacity!=='0'&&state.rects>0&&state.marketingHidden&&state.authHidden&&state.sidebar,
+    `${label} direct renderer state is not visibly ready ${safe(JSON.stringify(state))}`
+  );
+  return state;
+}
+
 async function assertWorkspace(page,label,pageErrors=[]){
   try{
     await page.waitForFunction(()=>{
@@ -313,8 +351,8 @@ async function runBrowserProof(credentials){
     assert(desktopApp?.status()===200,'desktop authenticated /app/ route did not return 200');
     activeStage='desktop pre-reload diagnostic';
     await withDeadline('desktop pre-reload diagnostic',observeWorkspaceBootstrap(page,'desktop pre-reload',pageErrors),DIAGNOSTIC_EXTERNAL_DEADLINE_MS);
-    activeStage='desktop initial workspace reveal';
-    await withDeadline('desktop initial workspace reveal',assertWorkspace(page,'desktop initial',pageErrors),WORKSPACE_EXTERNAL_DEADLINE_MS);
+    activeStage='desktop initial direct workspace evaluation';
+    await directWorkspaceDiagnostic(page,'desktop initial');
     activeStage='desktop authenticated reload';
     info('desktop synthetic stage','reloading authenticated /app/ workspace');
     await withDeadline('desktop authenticated reload',page.reload({waitUntil:'commit',timeout:BROWSER_NAVIGATION_TIMEOUT_MS}),RELOAD_EXTERNAL_DEADLINE_MS);
