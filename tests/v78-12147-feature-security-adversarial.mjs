@@ -22,7 +22,7 @@ ok(!html.includes('fetch(`/api/auth/${authMode}`'),"authentication must use the 
 ok(!html.includes('fetch("/api/auth/me"'),"session bootstrap must use the production API client");
 ok(!html.includes('fetch("/public/daily-reporting/access"')&&!html.includes('fetch("/public/daily-reporting/submit"')&&!html.includes('fetch("/public/passport/verify"'),"public JSON flows must not reimplement fetch/error handling");
 ok((html.match(/\bfetch\s*\(/g)||[]).length===0&&((api.match(/\bfetch\s*\(/g)||[]).length===2),"feature code must not bypass centralized transport; only the API client may call fetch");
-ok(html.includes('isAsync=fn.constructor?.name==="AsyncFunction"')&&html.includes('if(isAsync&&!target?.classList.contains("active"))return'),"hidden server-backed views must not fetch during global render");
+ok(html.includes('const shouldRender=view=>{if(!roleCanView(view))return false;')&&html.includes('const run=(view,fn)=>{if(!shouldRender(view)||typeof fn!=="function")return;')&&html.includes('run("accountdata",renderDeletionStatus)')&&!html.includes('isAsync=fn.constructor?.name==="AsyncFunction"'),"hidden server-backed views must not fetch during global render");
 ok(html.includes("queueMicrotask(()=>renderAll())"),"navigation must refresh the newly active server-backed view");
 ok(api.includes("AbortController")&&api.includes('credentials:"same-origin"')&&api.includes("429,502,503,504"),"common API client must retain timeout, credential and retry protections");
 // Feature-specific validation and bounded list hardening

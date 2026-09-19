@@ -20,7 +20,7 @@ ok('reviewer/auditor do not receive people performance views', !html.match(/cons
 ok('direct view calls are role guarded', html.includes('function showView(id,options={}){if(!roleCanView(id))'));
 ok('reviewer/auditor land on work instead of leadership home', html.includes('if(role==="reviewer"||role==="auditor")return "workhub"'));
 ok('billing loads only for owner', html.includes('if(currentWorkspaceRole()!=="owner"){billingInfo=null'));
-ok('rendering is role scoped and hidden async modules do not fetch', html.includes('const run=(view,fn)=>{if(!roleCanView(view)||typeof fn!=="function")return;')&&html.includes('if(isAsync&&!target?.classList.contains("active"))return'));
+ok('rendering is role scoped and hidden modules do not fetch', html.includes('const shouldRender=view=>{if(!roleCanView(view))return false;')&&html.includes('const run=(view,fn)=>{if(!shouldRender(view)||typeof fn!=="function")return;')&&html.includes('run("accountdata",renderDeletionStatus)')&&!html.includes('if(isAsync&&!target?.classList.contains("active"))return'));
 ok('mobile navigation is filtered by the same role matrix', html.includes('function syncMobileRoleNav(role=currentWorkspaceRole())') && html.includes('btn.style.display=roleCanView(target,role)?"":"none"'));
 ok('employee/restricted portal removes mobile workspace navigation', html.includes('concealWorkspaceShell();syncMobileRoleNav(role);')&&html.includes('function concealWorkspaceShell(){appShell.style.display="none";appShell.style.visibility="hidden"}'));
 ok('employee reporter route removes mobile workspace navigation', html.includes('concealWorkspaceShell();syncMobileRoleNav("");const rolePortal=document.getElementById("roleAccessPortal")'));
