@@ -3,10 +3,10 @@ import {evaluateDelegatedAuthority} from "./delegated-authority.js";
 
 const MAX_BODY_BYTES=4096;
 const ACTION_KEY_BY_PURPOSE=Object.freeze({
-  owner_daily_brief:Object.freeze({agentKey:"management",actionKey:"management_brief.prepare",label:"Owner daily brief"}),
-  finance_exception:Object.freeze({agentKey:"finance",actionKey:"finance_brief.prepare",label:"Finance reconciliation follow-up"}),
-  compliance_followup:Object.freeze({agentKey:"compliance",actionKey:"compliance_action_plan.prepare",label:"Compliance follow-up"}),
-  operations_update:Object.freeze({agentKey:"operations",actionKey:"daily_operations_brief.prepare",label:"Operations update"})
+  owner_daily_brief:Object.freeze({agentKey:"thebe",capability:"core",actionKey:"management_brief.prepare",label:"Owner daily brief"}),
+  finance_exception:Object.freeze({agentKey:"thebe",capability:"finance",actionKey:"finance_brief.prepare",label:"Finance reconciliation follow-up"}),
+  compliance_followup:Object.freeze({agentKey:"thebe",capability:"compliance",actionKey:"compliance_action_plan.prepare",label:"Compliance follow-up"}),
+  operations_update:Object.freeze({agentKey:"thebe",capability:"operations",actionKey:"daily_operations_brief.prepare",label:"Operations update"})
 });
 const ALLOWED_BODY_KEYS=new Set(["purpose"]);
 
