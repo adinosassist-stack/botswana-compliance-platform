@@ -26,10 +26,11 @@ assert.match(wrangler,/^REGISTRATION_MODE\s*=\s*"open"/m,'reviewed production ac
 assert.doesNotMatch(wrangler,/^REGISTRATION_COHORT_EMAILS\s*=/m,'customer cohort identities must not be committed in public Wrangler vars');
 assert.equal(packageJson.scripts['audit:dependencies'],'node scripts/dependency-audit.mjs','dependency audit must run through the fail-closed canonical audit wrapper');
 assert.match(recoveryWorkflow,/name: Genuine production dependency audit\n\s+env:\n\s+GITHUB_TOKEN: \$\{\{ github\.token \}\}\n\s+run: npm run audit:dependencies/,'Recovery CI must call the canonical dependency audit wrapper with an ephemeral GitHub token for advisory fallback');
-assert.doesNotMatch(recoveryWorkflow,/npm audit --omit=dev/,'Recovery CI must not construct an incomplete quick-audit fallback tree');
-assert.match(dependencyAudit,/spawnSync\('npm',\['audit','--json','--audit-level=high'\]/,'canonical dependency audit must try the pinned npm advisory path first');
+assert.doesNotMatch(recoveryWorkflow,/run: npm audit /,'Recovery CI must not bypass the canonical dependency audit wrapper');
+assert.match(dependencyAudit,/spawnSync\('npm',\['audit','--omit=dev','--json','--audit-level=high'\]/,'canonical dependency audit must preserve the production-only npm audit scope');
 assert.match(dependencyAudit,/if\(classified\.kind==='vulnerabilities'\)[\s\S]*Dependency audit found vulnerabilities/,'a genuine npm vulnerability report must fail without falling through to an alternate source');
-assert.match(dependencyAudit,/validateLockAndBuildSbom\(process\.cwd\(\)\)/,'fallback must derive exact registry-locked packages from the BF-07 supply-chain authority');
+assert.match(dependencyAudit,/validateLockAndBuildSbom\(process\.cwd\(\)\)/,'fallback must validate the BF-07 supply-chain authority before advisory lookup');
+assert.match(dependencyAudit,/function productionLockedComponents\(lock\)[\s\S]*meta\.dev===true[\s\S]*const components=productionLockedComponents\(lock\)/,'fallback must mirror npm --omit=dev by excluding dev-only lock entries');
 assert.match(dependencyAudit,/\{type:'reviewed',severity:'high'\}[\s\S]*\{type:'reviewed',severity:'critical'\}[\s\S]*\{type:'malware',severity:''\}/,'fallback must cover reviewed high/critical advisories and malware');
 assert.match(dependencyAudit,/if\(!response\.ok\)throw new Error/,'advisory fallback must fail closed on upstream API errors');
 
