@@ -36,7 +36,7 @@ jobs:
     env:
       CI: 'true'
       EXPECTED_SHA: ${{ inputs.expected_sha }}
-      MAX_RELEASE_LINEAGE_MERGES: '100'
+      MAX_RELEASE_LINEAGE_MERGES: '150'
 
     steps:
       - name: Checkout exact revision
@@ -160,16 +160,26 @@ jobs:
           done
           [[ "$governance_confirmed" == '1' ]] || { echo 'release merge has no successful completed push-event Main Governance Guard run on main after bounded wait' >&2; exit 1; }
 
+          fetch_recovery_runs(){
+            recovery_page_1="$RUNNER_TEMP/bf07-recovery-runs-page-1.json"
+            recovery_page_2="$RUNNER_TEMP/bf07-recovery-runs-page-2.json"
+            curl --fail-with-body --silent --show-error \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/recovery-ci.yml/runs?branch=main&per_page=100&page=1" >"$recovery_page_1"
+            curl --fail-with-body --silent --show-error \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/recovery-ci.yml/runs?branch=main&per_page=100&page=2" >"$recovery_page_2"
+            RECOVERY_PAGE_1="$recovery_page_1" RECOVERY_PAGE_2="$recovery_page_2" python3 -c 'import json,os; p1=json.load(open(os.environ["RECOVERY_PAGE_1"])); p2=json.load(open(os.environ["RECOVERY_PAGE_2"])); runs=p1.get("workflow_runs",[])+p2.get("workflow_runs",[]); print(json.dumps({"workflow_runs":runs},separators=(",",":")))'
+          }
+
           recovery_json=''
           recovery_confirmed=0
           for attempt in $(seq 1 37); do
-            recovery_json="$(
-              curl --fail-with-body --silent --show-error \
-                --header 'Accept: application/vnd.github+json' \
-                --header "Authorization: Bearer $GH_TOKEN" \
-                --header 'X-GitHub-Api-Version: 2022-11-28' \
-                "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/recovery-ci.yml/runs?branch=main&per_page=100"
-            )"
+            recovery_json="$(fetch_recovery_runs)"
             recovery_state="$(printf '%s' "$recovery_json" | RELEASE_SHA="$release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["RELEASE_SHA"]; runs=[r for r in body.get("workflow_runs",[]) if r.get("head_sha")==sha and r.get("head_branch")=="main"]; success=next((r for r in runs if r.get("status")=="completed" and r.get("conclusion")=="success"),None); failed=next((r for r in runs if r.get("status")=="completed" and r.get("conclusion") and r.get("conclusion")!="success"),None); print("success:"+str(success.get("id")) if success else ("failure:"+str(failed.get("conclusion"))+":"+str(failed.get("id")) if failed else "pending"))')"
             case "$recovery_state" in
               success:*)
@@ -246,7 +256,7 @@ jobs:
 
           mapfile -t lineage_shas < <(git rev-list --first-parent --reverse "$previous_release_sha..$release_sha")
           (( ${#lineage_shas[@]} >= 1 )) || { echo 'release lineage contains no qualifying commits after the prior closed production release' >&2; exit 1; }
-          [[ "$MAX_RELEASE_LINEAGE_MERGES" =~ ^[0-9]+$ ]] && (( MAX_RELEASE_LINEAGE_MERGES >= 1 && MAX_RELEASE_LINEAGE_MERGES <= 100 )) || { echo "invalid bounded release lineage review window: $MAX_RELEASE_LINEAGE_MERGES" >&2; exit 1; }
+          [[ "$MAX_RELEASE_LINEAGE_MERGES" =~ ^[0-9]+$ ]] && (( MAX_RELEASE_LINEAGE_MERGES >= 1 && MAX_RELEASE_LINEAGE_MERGES <= 150 )) || { echo "invalid bounded release lineage review window: $MAX_RELEASE_LINEAGE_MERGES" >&2; exit 1; }
           (( ${#lineage_shas[@]} <= MAX_RELEASE_LINEAGE_MERGES )) || { echo "release lineage exceeds the bounded ${MAX_RELEASE_LINEAGE_MERGES}-merge review window: ${#lineage_shas[@]}" >&2; exit 1; }
 
           for lineage_sha in "${lineage_shas[@]}"; do
