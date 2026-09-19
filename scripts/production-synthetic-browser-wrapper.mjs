@@ -351,15 +351,19 @@ async function runBrowserProof(credentials){
     await page.addInitScript(()=>{
       const NativeMutationObserver=globalThis.MutationObserver;
       globalThis.__THEBE_NATIVE_MUTATION_OBSERVER__=NativeMutationObserver;
-      globalThis.__THEBE_MUTATION_OBSERVER_BYPASS__=true;
-      globalThis.MutationObserver=class DiagnosticNoopMutationObserver{
-        constructor(callback){this.callback=callback}
-        observe(){}
-        disconnect(){}
-        takeRecords(){return []}
+      globalThis.__THEBE_MUTATION_OBSERVER_BYPASS__='home-centre-group';
+      globalThis.MutationObserver=class DiagnosticFilteredMutationObserver{
+        constructor(callback){this.nativeObserver=new NativeMutationObserver(callback)}
+        observe(target,options){
+          const id=String(target?.id||'');
+          if(id==='homeDecisionCenter'||id==='dashboard')return;
+          this.nativeObserver.observe(target,options);
+        }
+        disconnect(){this.nativeObserver.disconnect()}
+        takeRecords(){return this.nativeObserver.takeRecords()}
       };
     });
-    info('desktop diagnostic','MutationObserver disabled for next /app/ document');
+    info('desktop diagnostic','MutationObserver blocked only for homeDecisionCenter/dashboard observers');
     activeStage='desktop app navigation';
     info('desktop synthetic stage','opening authenticated /app/ workspace');
     const desktopApp=await page.goto(`${ORIGIN}/app/?desktop-owner-proof=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:BROWSER_NAVIGATION_TIMEOUT_MS});
