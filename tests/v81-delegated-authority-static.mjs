@@ -98,7 +98,7 @@ const authority=fs.readFileSync("cloudflare/src/agentic-authority-core.js","utf8
 const core=fs.readFileSync("cloudflare/src/agentic-core.js","utf8");
 const wrangler=fs.readFileSync("cloudflare/wrangler.toml","utf8");
 assert.match(releaseGovernance,/import base from "\.\/agentic-entry\.js"/);
-assert.match(releaseGovernance,/const response=await base\.fetch\(request,env,ctx\)/);
+assert.match(releaseGovernance,/let downstreamEnv=env/);assert.match(releaseGovernance,/const response=await base\.fetch\(request,downstreamEnv,ctx\)/);
 assert.match(entry,/handleAgenticAuthorityRequest/);
 assert.match(entry,/agenticAuthoritySchemaReady/);
 assert.match(entry,/latestSchemaDelta:V81_SCHEMA_DELTA/);
@@ -114,7 +114,7 @@ assert.match(authority,/WHERE changes\(\)=1/);
 assert.match(authority,/delegation_state_conflict/);
 assert.match(authority,/unsupported_content_encoding/);
 assert.match(core,/unsupported_content_encoding/);
-assert.match(core,/const changed=Number\(update\?\.meta\?\.changes\?\?update\?\.changes\?\?0\)/);
+assert.match(core,/const results=await env\.DB\.batch\(\[/);assert.match(core,/WHERE changes\(\)=1/);assert.match(core,/const changed=Number\(results\?\.\[0\]\?\.meta\?\.changes\?\?results\?\.\[0\]\?\.changes\?\?0\)/);
 assert.match(core,/agentic_proposal_already_decided/);
 assert.match(core,/requestBodyErrorStatus\(error\)/);
 assert.doesNotMatch(authority,/allow_execute\(/);
