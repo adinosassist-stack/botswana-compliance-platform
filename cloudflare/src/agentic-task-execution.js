@@ -113,8 +113,11 @@ async function createExecutionGrant({request,env,auth}){
   let body;try{body=await readJson(request)}catch(error){return json({error:error.message},requestBodyErrorStatus(error))}
   const delegationId=text(body?.delegationId,120);
   if(!delegationId)return json({error:"delegation_id_required"},400);
-  const delegation=await safeFirst(env,`SELECT id,tenant_id,agent_key,action_key,status,max_autonomy_level,external_side_effects,human_confirmation_required
-    FROM agent_delegations WHERE id=? AND tenant_id=? LIMIT 1`,[delegationId,auth.tenant_id]);
+  const delegation=await safeFirst(env,`SELECT id,tenant_id,agent_key,action_key,status,max_autonomy_level,external_side_effects,human_confirmation_required,valid_from,expires_at
+    FROM agent_delegations WHERE id=? AND tenant_id=?
+      AND (valid_from IS NULL OR valid_from<=CURRENT_TIMESTAMP)
+      AND (expires_at IS NULL OR expires_at>CURRENT_TIMESTAMP)
+    LIMIT 1`,[delegationId,auth.tenant_id]);
   if(!delegation)return json({error:"delegation_not_found"},404);
   if(String(delegation.agent_key)!=="thebe"||String(delegation.action_key)!==ACTION_KEY)return json({error:"delegation_not_eligible"},409);
   if(String(delegation.status)!=="active"||Number(delegation.max_autonomy_level)<3||Number(delegation.external_side_effects)!==0||Number(delegation.human_confirmation_required)!==1){
