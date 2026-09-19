@@ -31,6 +31,8 @@ WHEN NOT EXISTS(
     AND d.max_autonomy_level>=3
     AND d.external_side_effects=0
     AND d.human_confirmation_required=1
+    AND (d.valid_from IS NULL OR d.valid_from<=CURRENT_TIMESTAMP)
+    AND (d.expires_at IS NULL OR d.expires_at>CURRENT_TIMESTAMP)
 )
 BEGIN
   SELECT RAISE(ABORT,'agent_execution_grant_invalid_delegation');
@@ -73,6 +75,8 @@ WHEN NOT EXISTS(
     AND i.action_key='task.create'
     AND i.delegation_id=NEW.delegation_id
     AND i.payload_hash=NEW.payload_hash
+    AND i.decision='review_required'
+    AND i.status='review_required'
 )
 BEGIN
   SELECT RAISE(ABORT,'agent_task_request_intent_mismatch');
@@ -152,6 +156,13 @@ OR NOT EXISTS(
     AND g.tenant_id=NEW.tenant_id
     AND g.action_key=NEW.action_key
     AND g.status='active'
+)
+OR NOT EXISTS(
+  SELECT 1 FROM agent_internal_tasks t
+  WHERE t.id=NEW.result_entity_id
+    AND t.tenant_id=NEW.tenant_id
+    AND t.source_intent_id=NEW.action_intent_id
+    AND t.execution_grant_id=NEW.execution_grant_id
 )
 BEGIN
   SELECT RAISE(ABORT,'agent_execution_receipt_authority_mismatch');
