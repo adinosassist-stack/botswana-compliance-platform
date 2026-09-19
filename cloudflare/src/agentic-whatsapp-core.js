@@ -1,5 +1,4 @@
 import {AGENT_ACTION_CATALOG,THEBE_AGENTS} from "./agent-policy.js";
-import {evaluateDelegatedAuthority} from "./delegated-authority.js";
 import {evaluateAgentRuntimeGuard} from "./agent-runtime-guard.js";
 
 const MAX_BODY_BYTES=4096;
@@ -273,8 +272,8 @@ export async function prepareWhatsAppPurposeForPrincipal({env,auth,purpose,idemp
 
   let snapshot;try{snapshot=await snapshotForPurpose(env,auth.tenant_id,normalizedPurpose)}catch{return {status:503,body:{error:"whatsapp_prepare_data_unavailable"}}}
   const messagePreview=buildDraft(normalizedPurpose,snapshot);
-  const decision=evaluateDelegatedAuthority({agentKey:spec.agentKey,actionKey:spec.actionKey,actionDefinition:definition,delegation:null,mode:"shadow",globalExecutionEnabled:false});
-  if(decision.allowed!==true||decision.executionAllowed!==false)return {status:409,body:{error:"whatsapp_prepare_policy_denied",decision}};
+  const decision=runtimeDecision.authority;
+  if(decision?.allowed!==true||decision.executionAllowed!==false)return {status:409,body:{error:"whatsapp_prepare_policy_denied",decision}};
 
   const observation=sourceName==="whatsapp_inbound"
     ? {...snapshot,channel:"whatsapp_inbound",inbound:{providerMessageId,receivedAt:text(sourceContext?.receivedAt,80)||null,purpose:normalizedPurpose}}

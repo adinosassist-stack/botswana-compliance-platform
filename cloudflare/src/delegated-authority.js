@@ -2,7 +2,7 @@
 // Stage 1.5 is intentionally shadow-only: this module can determine whether a
 // future bounded action would be permitted, but it cannot execute side effects.
 
-export const DELEGATED_AUTHORITY_VERSION = "2026-09-13.stage1_5-shadow";
+export const DELEGATED_AUTHORITY_VERSION = "2026-09-20.stage1_5-shadow-v2";
 
 export const AUTONOMY_LEVELS = Object.freeze({
   OBSERVE: 0,
@@ -78,6 +78,7 @@ export function evaluateDelegatedAuthority({
   agentKey,
   actionKey,
   actionDefinition,
+  tenantId=null,
   delegation,
   mode="shadow",
   globalExecutionEnabled=false,
@@ -89,6 +90,7 @@ export function evaluateDelegatedAuthority({
 }={}){
   const key=String(actionKey||actionDefinition?.key||"");
   const requestedAgent=String(agentKey||"");
+  const authenticatedTenant=String(tenantId||"").trim();
   const requiredLevel=requiredAutonomyLevel(actionDefinition);
   const grant=normalizeDelegation(delegation);
 
@@ -102,6 +104,9 @@ export function evaluateDelegatedAuthority({
   }
 
   if(!grant)return result({code:"delegation_required",reason:"Bounded execution requires an explicit tenant delegation.",requiredLevel});
+  if(authenticatedTenant&&(!grant.tenantId||grant.tenantId!==authenticatedTenant)){
+    return result({code:"delegation_tenant_mismatch",reason:"The delegation is not bound to the authenticated tenant.",requiredLevel,delegation:grant});
+  }
   if(grant.status!=="active")return result({code:"delegation_inactive",reason:"The delegation is not active.",requiredLevel,delegation:grant});
   if(requestedAgent&&grant.agentKey&&grant.agentKey!==requestedAgent)return result({code:"delegation_agent_mismatch",reason:"The delegation does not cover this agent.",requiredLevel,delegation:grant});
   if(grant.actionKey&&grant.actionKey!==key)return result({code:"delegation_action_mismatch",reason:"The delegation does not cover this action.",requiredLevel,delegation:grant});

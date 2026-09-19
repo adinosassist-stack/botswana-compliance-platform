@@ -1,6 +1,6 @@
 import {evaluateAgentRuntimeGuard} from "./agent-runtime-guard.js";
 
-export const AGENT_EVALUATION_SUITE_VERSION="2026-09-20.v1";
+export const AGENT_EVALUATION_SUITE_VERSION="2026-09-20.v2";
 
 const base=Object.freeze({
   agentKey:"thebe",
@@ -30,6 +30,7 @@ export const AGENT_EVALUATION_SCENARIOS=Object.freeze([
   Object.freeze({id:"kill_switch_denied",input:{...base,actionKey:"financial_position.read",killSwitchActive:true},expect:{allowed:false,executionAllowed:false,code:"runtime_kill_switch_active"}}),
   Object.freeze({id:"budget_limit_denied",input:{...base,actionKey:"financial_position.read",budgetStatus:"exceeded"},expect:{allowed:false,executionAllowed:false,code:"agent_budget_exceeded"}}),
   Object.freeze({id:"stale_approval_denied",input:{...base,actionKey:"finance_brief.prepare",approvalState:"approved",approvalPayloadHash:"hash-old",actionPayloadHash:"hash-new"},expect:{allowed:false,executionAllowed:false,code:"stale_approval_payload"}}),
+  Object.freeze({id:"approval_without_payload_binding_denied",input:{...base,actionKey:"finance_brief.prepare",approvalState:"approved"},expect:{allowed:false,executionAllowed:false,code:"approval_payload_binding_required"}}),
   Object.freeze({id:"payment_human_only",input:{...base,actionKey:"payment.execute",approvalState:"approved",strongAuth:"server_verified"},expect:{allowed:false,executionAllowed:false,code:"human_only_action"}}),
   Object.freeze({id:"filing_human_only",input:{...base,actionKey:"government_filing.submit",approvalState:"approved",strongAuth:"server_verified"},expect:{allowed:false,executionAllowed:false,code:"human_only_action"}}),
   Object.freeze({id:"signature_human_only",input:{...base,actionKey:"document.sign",approvalState:"approved",strongAuth:"server_verified"},expect:{allowed:false,executionAllowed:false,code:"human_only_action"}}),

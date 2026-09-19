@@ -7,6 +7,7 @@ assert.ok(AGENT_EVALUATION_SCENARIOS.length>=15,"evaluation suite must retain br
 assert.ok(AGENT_EVALUATION_SCENARIOS.some(item=>item.id.includes("prompt_injection")),"prompt-injection authority regression must be represented");
 assert.ok(AGENT_EVALUATION_SCENARIOS.some(item=>item.id.includes("cross_tenant")),"cross-tenant authority regression must be represented");
 assert.ok(AGENT_EVALUATION_SCENARIOS.some(item=>item.id.includes("stale_approval")),"stale approval regression must be represented");
+assert.ok(AGENT_EVALUATION_SCENARIOS.some(item=>item.id.includes("approval_without_payload_binding")),"missing approval binding regression must be represented");
 
 const report=runAgentEvaluationSuite();
 if(!report.pass){
@@ -19,15 +20,20 @@ assert.equal(report.executionEscapes,0);
 assert.equal(report.passed,report.total);
 
 const guardSource=fs.readFileSync("cloudflare/src/agent-runtime-guard.js","utf8");
+const delegatedSource=fs.readFileSync("cloudflare/src/delegated-authority.js","utf8");
 const whatsappSource=fs.readFileSync("cloudflare/src/agentic-whatsapp-core.js","utf8");
 assert.doesNotMatch(guardSource,/\bfetch\s*\(/,"runtime guard must not depend on network calls");
 assert.match(guardSource,/cross_tenant_forbidden/);
 assert.match(guardSource,/runtime_kill_switch_active/);
 assert.match(guardSource,/stale_approval_payload/);
+assert.match(guardSource,/approval_payload_binding_required/);
 assert.match(guardSource,/agent_budget_exceeded/);
+assert.match(delegatedSource,/delegation_tenant_mismatch/);
 assert.match(guardSource,/isNeverAutonomousAction/);
 assert.match(whatsappSource,/from "\.\/agent-runtime-guard\.js"/,"governed WhatsApp preparation must import the runtime guard");
+assert.doesNotMatch(whatsappSource,/from "\.\/delegated-authority\.js"/,"WhatsApp preparation must not duplicate delegated-authority evaluation outside the runtime guard");
 assert.match(whatsappSource,/evaluateAgentRuntimeGuard\(\{/,"governed WhatsApp preparation must pass through the runtime guard");
+assert.match(whatsappSource,/const decision=runtimeDecision\.authority;/,"WhatsApp preparation must reuse the runtime guard authority decision");
 assert.match(whatsappSource,/AGENT_RUNTIME_KILL_SWITCH/,"runtime kill switch must be wired into the live preparation path");
 
 console.log(`v95 agent evaluation harness: ${report.passed}/${report.total} scenarios PASS`);

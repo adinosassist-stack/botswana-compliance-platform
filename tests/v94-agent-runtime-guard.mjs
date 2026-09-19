@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {AGENT_ACTION_CATALOG} from "../cloudflare/src/agent-policy.js";
-import {NEVER_AUTONOMOUS_ACTIONS} from "../cloudflare/src/delegated-authority.js";
+import {evaluateDelegatedAuthority,NEVER_AUTONOMOUS_ACTIONS} from "../cloudflare/src/delegated-authority.js";
 import {AGENT_RUNTIME_GUARD_VERSION,evaluateAgentRuntimeGuard} from "../cloudflare/src/agent-runtime-guard.js";
 
 const base={
@@ -67,6 +67,49 @@ result=evaluateAgentRuntimeGuard({
 });
 assert.equal(result.allowed,false);
 assert.equal(result.code,"stale_approval_payload");
+
+result=evaluateAgentRuntimeGuard({
+  ...base,
+  actionKey:"finance_brief.prepare",
+  approvalState:"approved"
+});
+assert.equal(result.allowed,false);
+assert.equal(result.code,"approval_payload_binding_required");
+
+result=evaluateAgentRuntimeGuard({
+  ...base,
+  actionKey:"finance_brief.prepare",
+  approvalState:"approved",
+  approvalPayloadHash:"same-payload",
+  actionPayloadHash:"same-payload"
+});
+assert.equal(result.allowed,true);
+assert.equal(result.executionAllowed,false);
+
+const boundedAction=Object.freeze({
+  key:"bounded.test",
+  level:3,
+  humanReviewRequired:false,
+  externalSideEffect:false
+});
+result=evaluateDelegatedAuthority({
+  agentKey:"thebe",
+  actionKey:"bounded.test",
+  actionDefinition:boundedAction,
+  tenantId:"tenant-A",
+  delegation:{
+    id:"delegation-cross-tenant",
+    tenant_id:"tenant-B",
+    agent_key:"thebe",
+    action_key:"bounded.test",
+    status:"active",
+    max_autonomy_level:3,
+    shadow_only:1
+  },
+  mode:"shadow"
+});
+assert.equal(result.allowed,false);
+assert.equal(result.code,"delegation_tenant_mismatch");
 
 result=evaluateAgentRuntimeGuard({
   ...base,
