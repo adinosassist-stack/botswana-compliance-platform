@@ -435,9 +435,9 @@ async function runBrowserProof(credentials){
     }
     const mobileNav=mobilePage.locator('#workspaceSidebar [data-view]:visible');
     const mobileNavCount=await mobileNav.count();assert(mobileNavCount>0,'authenticated mobile drawer has no visible data-view navigation');
-    const target=mobileNav.first();const mobileView=await target.getAttribute('data-view');await target.tap({timeout:10000});await mobilePage.waitForTimeout(250);
-    if(await mobilePage.locator('#mobileNavClose').isVisible().catch(()=>false))await mobilePage.locator('#mobileNavClose').tap({timeout:5000});
-    await mobilePage.waitForFunction(()=>!document.body.classList.contains('mobile-nav-open'),null,{timeout:5000});
+    const target=mobileNav.first();const mobileView=await target.getAttribute('data-view');await target.tap({timeout:10000});
+    await mobilePage.waitForFunction(()=>!document.body.classList.contains('mobile-nav-open')&&document.getElementById('mobileMenuButton')?.getAttribute('aria-expanded')==='false',null,{timeout:5000});
+    await mobilePage.waitForTimeout(250);
     const mobileResponsive=await mobilePage.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>setTimeout(()=>resolve(true),60))));
     assert(mobileResponsive===true,'authenticated mobile workspace stopped responding after navigation');
     mark('authenticated mobile continuation',`same owner identity opened/scrolled drawer and ${mobileView||'workspace'} navigation stayed responsive`);
