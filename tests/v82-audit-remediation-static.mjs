@@ -13,6 +13,8 @@ const oauthUi=read('public/js/oauth-availability.js');
 const syntheticHold=read('scripts/production-synthetic-hold-wrapper.mjs');
 const mobileSmoke=read('scripts/production-mobile-postdeploy-smoke.mjs');
 const remediationWorkflow=read('.github/workflows/audit-remediation-ci.yml');
+const recoveryWorkflow=read('.github/workflows/recovery-ci.yml');
+const packageJson=JSON.parse(read('package.json'));
 const launchWorkflow=read('.github/workflows/production-launch-audit.yml');
 const mobileWorkflow=read('.github/workflows/mobile-postdeploy-smoke.yml');
 const replayWorkflow=read('.github/workflows/production-audit-replay.yml');
@@ -21,6 +23,9 @@ const release=JSON.parse(read('release/production.json'));
 assert.match(wrangler,/^main\s*=\s*"src\/release-governance-entry\.js"/m,'production must enter through release governance');
 assert.match(wrangler,/^REGISTRATION_MODE\s*=\s*"open"/m,'reviewed production activation must enable public registration');
 assert.doesNotMatch(wrangler,/^REGISTRATION_COHORT_EMAILS\s*=/m,'customer cohort identities must not be committed in public Wrangler vars');
+assert.equal(packageJson.scripts['audit:dependencies'],'npm audit --audit-level=high','dependency audit must cover the complete installed/locked tree instead of omitting development tooling');
+assert.match(recoveryWorkflow,/name: Genuine production dependency audit\n\s+run: npm run audit:dependencies/,'Recovery CI must call the canonical dependency audit script');
+assert.doesNotMatch(recoveryWorkflow,/npm audit --omit=dev/,'Recovery CI must not construct an incomplete quick-audit fallback tree');
 
 assert.match(governance,/VALID_REGISTRATION_MODES=new Set\(\["hold","cohort","open"\]\)/,'registration states must be explicit');
 assert.match(governance,/REGISTRATION_COHORT_EMAILS_SECRET/,'launch cohort must come from a secret-backed runtime binding');
