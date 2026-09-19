@@ -115,6 +115,7 @@ jobs:
           node tests/v82-postdeploy-smoke-governance.mjs
           node tests/v82-node-postgres-lineage-hardening.mjs
           node tests/v82-release-provenance-governance.mjs
+          node tests/dependency-audit-fallback-runtime.mjs
           npm run check
           npm run lint:production
           npm run test:production-hardening
@@ -130,6 +131,8 @@ jobs:
           npm run check:supply-chain
 
       - name: Genuine production dependency audit
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: npm run audit:dependencies
 
   node-postgres:
