@@ -85,6 +85,9 @@ function action({
 }
 
 export const AGENT_ACTION_CATALOG = Object.freeze({
+  // Action keys are untrusted request/model input. Inherited Object members
+  // must never resolve as action definitions in policy or authority handlers.
+  __proto__: null,
   "business_health.read": action({key:"business_health.read",level:AGENT_ACTION_LEVELS.READ,roles:["owner","manager"],description:"Read governed business-health indicators and recorded risks.",phase1Enabled:true,capability:"core",legacyAgents:["management"],authoritativeSource:"business_graph_and_deterministic_metrics"}),
   "compliance_status.read": action({key:"compliance_status.read",level:AGENT_ACTION_LEVELS.READ,roles:["owner","manager","reviewer"],description:"Read current verified obligations, status and approved source references.",phase1Enabled:true,capability:"compliance",legacyAgents:["compliance"],authoritativeSource:"country_rules_and_verified_workspace_records"}),
   "compliance_risk.explain": action({key:"compliance_risk.explain",level:AGENT_ACTION_LEVELS.READ,roles:["owner","manager","reviewer"],description:"Explain a recorded compliance risk and its evidence/source references.",phase1Enabled:true,capability:"compliance",legacyAgents:["compliance"],authoritativeSource:"country_rules_and_verified_workspace_records"}),
