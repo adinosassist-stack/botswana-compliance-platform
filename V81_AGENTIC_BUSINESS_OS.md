@@ -4,13 +4,17 @@
 
 Thebe Desk is evolving from an AI-enabled SME SaaS platform into a human-governed Agentic Business Operating System. The system must increasingly run routine business workflows while preserving owner authority, tenant isolation, financial truth, regulatory provenance, privacy and an auditable record of every decision.
 
-The V81 Stage 1.5 release is intentionally **shadow-only**. It models delegated authority and records policy decisions without executing external side effects.
+The production architecture exposes **one canonical Thebe agent**. Finance, Compliance & Tender Readiness, Operations & People, and future Receivables & Customer work are capability boundaries behind that agent. They are not independent user-facing agents.
+
+The V81 Stage 1.5 release remains intentionally **shadow-only** for delegated execution. It models authority and records policy decisions without executing external side effects.
 
 ## Existing foundation
 
-The current platform already provides:
+The current platform provides:
 
-- five governed agents: Management, Compliance, Tender Readiness, Daily Operations and Finance;
+- one governed Thebe agent as the canonical agent identity;
+- deterministic capability routing for Finance, Compliance & Tender Readiness, and Operations & People;
+- a reserved Receivables & Customer capability boundary that remains disabled until authoritative customer data, consent and execution controls are ready;
 - a deterministic action catalogue;
 - tenant and role checks;
 - finance reconciliation and provenance;
@@ -20,7 +24,9 @@ The current platform already provides:
 - outcome-informed ranking that does not increase authority;
 - explicit prohibition of autonomous payment, filing, signing, employment termination and journal posting.
 
-V81 extends this foundation rather than creating a second agent framework.
+Historical keys such as `management`, `compliance`, `tender`, `operations` and `finance` are compatibility aliases only. They resolve through the canonical Thebe policy boundary and must not create independent personalities, memory, permissions or execution loops.
+
+V81 extends the existing governance foundation rather than creating a second agent framework.
 
 ## Autonomy ladder
 
@@ -36,10 +42,12 @@ Stage 1.5 does not execute L3 actions. It evaluates them in shadow mode only.
 
 ## Delegated Authority Engine
 
-A delegation is tenant-specific, owner-approved and action-specific. It may contain:
+A delegation is tenant-specific, owner-approved and action-specific. New delegations use the canonical `thebe` agent key. Historical records may still contain a legacy agent key and are normalized by the compatibility layer before policy evaluation.
 
-- agent key;
-- action key;
+A delegation may contain:
+
+- canonical agent key;
+- action key and capability;
 - maximum autonomy level;
 - external-side-effect permission;
 - strong-auth requirement;
@@ -56,7 +64,7 @@ The Stage 1.5 database hard-locks every delegation to `shadow_only=1`. A future 
 `POST /api/agentic/authority/shadow` evaluates a candidate action against:
 
 1. authenticated tenant and role;
-2. registered agent/action pair;
+2. canonical Thebe/action/capability policy;
 3. high-risk permanent human-only boundary;
 4. active delegation;
 5. autonomy ceiling;
@@ -80,29 +88,51 @@ The following remain outside autonomous authority:
 - `financing.accept`
 - `journal_entry.post`
 
-Human approval may eventually trigger separate controlled workflows, but an agent may not grant itself authority for these actions.
+Human approval may eventually trigger separate controlled workflows, but Thebe may not grant itself authority for these actions.
+
+## Capability model
+
+### Core coordination
+
+Thebe owns the conversation, plan, explanation and governed routing. It does not duplicate deterministic business logic.
+
+### Finance
+
+Reads reconciled finance outputs, management accounts and finance data-quality controls. It may prepare bounded drafts, but cannot invent figures, post journals or move money.
+
+### Compliance & Tender Readiness
+
+Reads verified obligations, evidence and tender-readiness records. Tender work is a compliance capability, not a separate agent.
+
+### Operations & People
+
+Reads aggregate operational signals and prepares bounded operational follow-up. It must not perform employee surveillance or autonomous employment decisions.
+
+### Receivables & Customer
+
+Reserved and disabled until authoritative customer data, consent, communication and execution controls are production-ready.
 
 ## Rollout by customer maturity
 
 ### 0–24 paying businesses
 
-Thebe observes, explains and recommends. Focus on the Core Five: owner brief, sales follow-up, finance import/reconciliation, compliance actions and staff reporting.
+Thebe observes, explains and recommends across approved capabilities. Focus on owner brief, finance reconciliation, compliance actions, customer follow-up preparation and staff reporting.
 
 ### 25–49
 
-Thebe prepares actions. Shadow delegated-authority telemetry begins for candidate L3 actions.
+Thebe prepares bounded work. Shadow delegated-authority telemetry begins for candidate L3 actions.
 
 ### 50–149
 
-If retention, support, security and direct contribution gates pass, a small set of low-risk actions may be considered for real bounded execution in a future release. V81 itself remains shadow-only.
+If retention, support, security and direct-contribution gates pass, a small set of low-risk actions may be considered for real bounded execution in a future release. V81 itself remains shadow-only.
 
 ### 150–399
 
-Specialised agents may operate bounded internal workflows, subject to measured error rates, owner overrides, incident rate and rollback controls.
+Selected capability workflows may gain bounded execution only after action-specific evidence, owner override analysis, incident review and rollback controls are proven. This does not require creating separate user-facing agents.
 
 ### 400+
 
-Cross-agent orchestration may be introduced only after the single-agent bounded-execution model is proven.
+Internal parallel/fan-out execution may be considered for suitable complex tasks, but the product should retain one canonical Thebe agent unless a specialist requires materially different permissions, tools, long-running state or safety controls.
 
 ## Promotion gate from shadow to real execution
 
@@ -138,15 +168,15 @@ The agent programme must be judged on business outcomes, not prompt volume:
 
 ## Agent interaction model
 
-Long term:
+Canonical flow:
 
-`Business event -> governed observation -> specialised agent -> policy -> delegated authority -> action intent -> execution/approval -> outcome -> learning`
+`Business event -> Thebe -> capability routing -> deterministic policy -> delegated authority -> action intent -> execution/approval -> outcome -> learning`
 
 Outcome learning may reorder recommendations but must never silently increase permission, risk class, spend limit or execution authority.
 
 ## Interoperability
 
-Thebe should remain model- and provider-neutral. Future integration boundaries should be designed so internal tools can be exposed through standard agent/tool protocols where appropriate, while preserving Thebe's own tenant authorization, audit and policy layer. External agent protocols must never bypass delegated authority.
+Thebe remains model- and provider-neutral. Future integration boundaries should be designed so internal tools can be exposed through standard agent/tool protocols where appropriate, while preserving Thebe's tenant authorization, audit and policy layer. External agent protocols must never bypass delegated authority.
 
 ## Non-goals for V81 Stage 1.5
 
@@ -159,8 +189,9 @@ Thebe should remain model- and provider-neutral. Future integration boundaries s
 - no agent-created delegation grants;
 - no model-controlled permission escalation;
 - no hidden execution;
-- no cross-tenant learning that exposes customer data.
+- no cross-tenant learning that exposes customer data;
+- no reintroduction of separate user-facing domain agents without a new security and product justification.
 
 ## Release posture
 
-V81 Stage 1.5 is a **governance and telemetry release**. It prepares Thebe for the future in which agents run routine SME operations, without making the unsafe leap from recommendations to uncontrolled autonomy.
+V81 Stage 1.5 is a **governance and telemetry release**. It prepares Thebe for bounded routine SME workflows while preserving one canonical agent identity, deterministic capability controls and human authority.

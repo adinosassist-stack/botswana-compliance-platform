@@ -61,12 +61,6 @@ export function resolveAgentKey(agentKey){
   return Object.prototype.hasOwnProperty.call(LEGACY_AGENT_CAPABILITY,key)?"thebe":null;
 }
 
-export function requestedCapability(agentKey){
-  const key=String(agentKey||"").trim().toLowerCase();
-  if(key==="thebe")return null;
-  return LEGACY_AGENT_CAPABILITY[key]||null;
-}
-
 function action({
   key,level,roles,description,phase1Enabled,
   capability="core",legacyAgents=[],

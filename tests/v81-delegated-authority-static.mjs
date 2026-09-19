@@ -18,55 +18,55 @@ const controlled=AGENT_ACTION_CATALOG["task.create"];
 const external=AGENT_ACTION_CATALOG["reminder.send"];
 const highRisk=AGENT_ACTION_CATALOG["payment.execute"];
 const baseGrant={
-  id:"g1",tenant_id:"t1",agent_key:"management",action_key:"task.create",status:"active",
+  id:"g1",tenant_id:"t1",agent_key:"thebe",action_key:"task.create",status:"active",
   max_autonomy_level:3,external_side_effects:0,strong_auth_required:0,human_confirmation_required:1,
   max_daily_actions:10,max_amount_minor:null,shadow_only:1,valid_from:"2026-09-01T00:00:00.000Z",expires_at:"2027-01-01T00:00:00.000Z"
 };
 
-let decision=evaluateDelegatedAuthority({agentKey:"management",actionKey:"task.create",actionDefinition:controlled,mode:"shadow",now:new Date("2026-09-13T00:00:00Z")});
+let decision=evaluateDelegatedAuthority({agentKey:"thebe",actionKey:"task.create",actionDefinition:controlled,mode:"shadow",now:new Date("2026-09-13T00:00:00Z")});
 assert.equal(decision.allowed,false);
 assert.equal(decision.code,"delegation_required");
 
-decision=evaluateDelegatedAuthority({agentKey:"management",actionKey:"task.create",actionDefinition:controlled,delegation:{...baseGrant,status:"paused"},mode:"shadow",now:new Date("2026-09-13T00:00:00Z")});
+decision=evaluateDelegatedAuthority({agentKey:"thebe",actionKey:"task.create",actionDefinition:controlled,delegation:{...baseGrant,status:"paused"},mode:"shadow",now:new Date("2026-09-13T00:00:00Z")});
 assert.equal(decision.code,"delegation_inactive");
 
-decision=evaluateDelegatedAuthority({agentKey:"operations",actionKey:"task.create",actionDefinition:controlled,delegation:baseGrant,mode:"shadow",now:new Date("2026-09-13T00:00:00Z")});
-assert.equal(decision.code,"delegation_agent_mismatch");
-
 decision=evaluateDelegatedAuthority({agentKey:"management",actionKey:"task.create",actionDefinition:controlled,delegation:baseGrant,mode:"shadow",now:new Date("2026-09-13T00:00:00Z")});
+assert.equal(decision.code,"delegation_agent_mismatch","lower-level delegated-authority evaluation must reject a legacy key until the authority compatibility layer canonicalizes it");
+
+decision=evaluateDelegatedAuthority({agentKey:"thebe",actionKey:"task.create",actionDefinition:controlled,delegation:baseGrant,mode:"shadow",now:new Date("2026-09-13T00:00:00Z")});
 assert.equal(decision.decision,"review_required");
 assert.equal(decision.code,"human_confirmation_required");
 
-decision=evaluateDelegatedAuthority({agentKey:"management",actionKey:"task.create",actionDefinition:controlled,delegation:baseGrant,mode:"shadow",approvalState:"approved",now:new Date("2026-09-13T00:00:00Z")});
+decision=evaluateDelegatedAuthority({agentKey:"thebe",actionKey:"task.create",actionDefinition:controlled,delegation:baseGrant,mode:"shadow",approvalState:"approved",now:new Date("2026-09-13T00:00:00Z")});
 assert.equal(decision.allowed,true);
 assert.equal(decision.decision,"shadow_allow");
 assert.equal(decision.executionAllowed,false);
 
-decision=evaluateDelegatedAuthority({agentKey:"management",actionKey:"task.create",actionDefinition:controlled,delegation:baseGrant,mode:"execute",approvalState:"approved",globalExecutionEnabled:true,now:new Date("2026-09-13T00:00:00Z")});
+decision=evaluateDelegatedAuthority({agentKey:"thebe",actionKey:"task.create",actionDefinition:controlled,delegation:baseGrant,mode:"execute",approvalState:"approved",globalExecutionEnabled:true,now:new Date("2026-09-13T00:00:00Z")});
 assert.equal(decision.allowed,false);
 assert.equal(decision.code,"shadow_only_grant");
 
-decision=evaluateDelegatedAuthority({agentKey:"management",actionKey:"task.create",actionDefinition:controlled,delegation:{...baseGrant,max_daily_actions:2},mode:"shadow",approvalState:"approved",dailyActionCount:2,now:new Date("2026-09-13T00:00:00Z")});
+decision=evaluateDelegatedAuthority({agentKey:"thebe",actionKey:"task.create",actionDefinition:controlled,delegation:{...baseGrant,max_daily_actions:2},mode:"shadow",approvalState:"approved",dailyActionCount:2,now:new Date("2026-09-13T00:00:00Z")});
 assert.equal(decision.code,"daily_action_limit_reached");
 
-decision=evaluateDelegatedAuthority({agentKey:"management",actionKey:"task.create",actionDefinition:controlled,delegation:{...baseGrant,max_amount_minor:5000},mode:"shadow",approvalState:"approved",amountMinor:5001,now:new Date("2026-09-13T00:00:00Z")});
+decision=evaluateDelegatedAuthority({agentKey:"thebe",actionKey:"task.create",actionDefinition:controlled,delegation:{...baseGrant,max_amount_minor:5000},mode:"shadow",approvalState:"approved",amountMinor:5001,now:new Date("2026-09-13T00:00:00Z")});
 assert.equal(decision.code,"amount_limit_exceeded");
 
-decision=evaluateDelegatedAuthority({agentKey:"management",actionKey:"task.create",actionDefinition:controlled,delegation:{...baseGrant,expires_at:"2026-09-12T00:00:00.000Z"},mode:"shadow",approvalState:"approved",now:new Date("2026-09-13T00:00:00Z")});
+decision=evaluateDelegatedAuthority({agentKey:"thebe",actionKey:"task.create",actionDefinition:controlled,delegation:{...baseGrant,expires_at:"2026-09-12T00:00:00.000Z"},mode:"shadow",approvalState:"approved",now:new Date("2026-09-13T00:00:00Z")});
 assert.equal(decision.code,"delegation_expired");
 
 const externalGrant={...baseGrant,action_key:"reminder.send",external_side_effects:0,strong_auth_required:1};
-decision=evaluateDelegatedAuthority({agentKey:"management",actionKey:"reminder.send",actionDefinition:external,delegation:externalGrant,mode:"shadow",approvalState:"approved",strongAuth:"server_verified",now:new Date("2026-09-13T00:00:00Z")});
+decision=evaluateDelegatedAuthority({agentKey:"thebe",actionKey:"reminder.send",actionDefinition:external,delegation:externalGrant,mode:"shadow",approvalState:"approved",strongAuth:"server_verified",now:new Date("2026-09-13T00:00:00Z")});
 assert.equal(decision.code,"external_side_effect_not_delegated");
 
-decision=evaluateDelegatedAuthority({agentKey:"management",actionKey:"reminder.send",actionDefinition:external,delegation:{...externalGrant,external_side_effects:1},mode:"shadow",approvalState:"approved",strongAuth:true,now:new Date("2026-09-13T00:00:00Z")});
+decision=evaluateDelegatedAuthority({agentKey:"thebe",actionKey:"reminder.send",actionDefinition:external,delegation:{...externalGrant,external_side_effects:1},mode:"shadow",approvalState:"approved",strongAuth:true,now:new Date("2026-09-13T00:00:00Z")});
 assert.equal(decision.code,"strong_auth_required");
 
-decision=evaluateDelegatedAuthority({agentKey:"management",actionKey:"reminder.send",actionDefinition:external,delegation:{...externalGrant,external_side_effects:1},mode:"shadow",approvalState:"approved",strongAuth:"server_verified",now:new Date("2026-09-13T00:00:00Z")});
+decision=evaluateDelegatedAuthority({agentKey:"thebe",actionKey:"reminder.send",actionDefinition:external,delegation:{...externalGrant,external_side_effects:1},mode:"shadow",approvalState:"approved",strongAuth:"server_verified",now:new Date("2026-09-13T00:00:00Z")});
 assert.equal(decision.decision,"shadow_allow");
 assert.equal(decision.executionAllowed,false);
 
-decision=evaluateDelegatedAuthority({agentKey:"management",actionKey:"payment.execute",actionDefinition:highRisk,delegation:{...baseGrant,action_key:"payment.execute"},mode:"shadow",approvalState:"approved",strongAuth:"server_verified",now:new Date("2026-09-13T00:00:00Z")});
+decision=evaluateDelegatedAuthority({agentKey:"thebe",actionKey:"payment.execute",actionDefinition:highRisk,delegation:{...baseGrant,action_key:"payment.execute"},mode:"shadow",approvalState:"approved",strongAuth:"server_verified",now:new Date("2026-09-13T00:00:00Z")});
 assert.equal(decision.decision,"human_only");
 assert.equal(decision.executionAllowed,false);
 
