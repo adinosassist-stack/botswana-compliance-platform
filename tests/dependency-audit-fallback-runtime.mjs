@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {auditLockedComponentsWithGitHub,buildAffectChunks,classifyNpmAudit} from '../scripts/dependency-audit.mjs';
+import {auditLockedComponentsWithGitHub,buildAffectChunks,classifyNpmAudit,productionLockedComponents} from '../scripts/dependency-audit.mjs';
 
 assert.equal(classifyNpmAudit({status:0,stdout:'{"metadata":{"vulnerabilities":{}},"vulnerabilities":{}}',stderr:''}).kind,'pass');
 assert.equal(classifyNpmAudit({
@@ -8,6 +8,20 @@ assert.equal(classifyNpmAudit({
   stderr:''
 }).kind,'vulnerabilities');
 assert.equal(classifyNpmAudit({status:1,stdout:'{"error":{"code":"E400"}}',stderr:'audit endpoint returned an error'}).kind,'infrastructure');
+
+const productionComponents=productionLockedComponents({
+  packages:{
+    '':{name:'test-app',version:'1.0.0'},
+    'node_modules/express':{version:'5.1.0'},
+    'node_modules/sharp':{version:'0.35.2',dev:true},
+    'node_modules/shared':{version:'2.0.0',dev:true},
+    'node_modules/a/node_modules/shared':{version:'2.0.0'}
+  }
+});
+assert.deepEqual(productionComponents,[
+  {name:'express',version:'5.1.0'},
+  {name:'shared',version:'2.0.0'}
+],'production fallback must exclude dev-only lock entries but retain a package/version that also has a production occurrence');
 
 const components=[
   {name:'express',version:'5.1.0'},
