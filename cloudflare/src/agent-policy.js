@@ -4,7 +4,7 @@
 // Models may propose work, but they may never grant themselves permissions or
 // bypass the action catalogue, human review, tenant scope, or delegated authority.
 
-export const AGENT_POLICY_VERSION = "2026-09-19.single-agent-capabilities";
+export const AGENT_POLICY_VERSION = "2026-09-20.single-agent-capabilities-v2";
 
 export const AGENT_ACTION_LEVELS = Object.freeze({ READ: 1, PREPARE: 2, CONTROLLED_EXECUTE: 3, HIGH_RISK: 4 });
 
