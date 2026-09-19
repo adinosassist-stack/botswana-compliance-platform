@@ -10,7 +10,7 @@ export const BF07_POLICY_FILES=[
   'scripts/bf07-evidence-core.mjs','scripts/write-bf07-evidence.mjs','scripts/bf07-evidence-gate.mjs',
   'scripts/bf07-provenance-core.mjs','scripts/write-bf07-provenance.mjs','scripts/bf07-provenance-gate.mjs',
   'scripts/bf07-release-provenance-core.mjs','scripts/write-bf07-release-provenance.mjs','scripts/bf07-release-provenance-gate.mjs',
-  'scripts/resolve-bf07.sh','scripts/launch-gate.mjs','scripts/package-release.mjs','scripts/artifact-boundary-gate.mjs'
+  'scripts/resolve-bf07.sh','scripts/dependency-audit.mjs','scripts/launch-gate.mjs','scripts/package-release.mjs','scripts/artifact-boundary-gate.mjs'
 ];
 
 function readJson(file,label){
