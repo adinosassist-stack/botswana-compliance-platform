@@ -65,6 +65,8 @@ function csrfAllowed(request,auth){
 function roleAllowed(auth,...roles){return roles.includes(String(auth?.role||"").toLowerCase())}
 
 async function readJson(request){
+  const encoding=String(request.headers.get("content-encoding")||"").trim().toLowerCase();
+  if(encoding&&encoding!=="identity")throw new Error("unsupported_content_encoding");
   const declared=Number(request.headers.get("content-length")||0);
   if(Number.isFinite(declared)&&declared>MAX_BODY_BYTES)throw new Error("request_too_large");
   const raw=await request.text();
@@ -73,6 +75,11 @@ async function readJson(request){
   try{return JSON.parse(raw)}catch{throw new Error("invalid_json")}
 }
 
+function requestBodyErrorStatus(error){
+  if(error?.message==="request_too_large")return 413;
+  if(error?.message==="unsupported_content_encoding")return 415;
+  return 400;
+}
 async function safeFirst(env,sql,bindings=[]){
   try{return await env.DB.prepare(sql).bind(...bindings).first()}catch{return null}
 }
@@ -258,7 +265,7 @@ async function appendEvent(env,{tenantId,runId,proposalId=null,eventType,actorUs
 }
 
 async function createPlan({request,env,ctx,coreFetch,auth}){
-  const body=await readJson(request);
+  let body;try{body=await readJson(request)}catch(error){return json({error:error.message},requestBodyErrorStatus(error))}
   const goal=text(body?.goal||"Protect the business and identify the safest next actions.",500);
   const runId=id(),observation=await observeWorkspace(env,auth.tenant_id);
   observation.simulation=deterministicSimulation(observation);
@@ -312,8 +319,14 @@ async function decideProposal({env,auth,proposalId,decision}){
   if(proposal.status!=="pending")return json({error:"agentic_proposal_already_decided",status:proposal.status},409);
   if(decision==="approved"&&!roleAllowed(auth,"owner"))return json({error:"owner_approval_required"},403);
   if(decision==="rejected"&&!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
-  await env.DB.prepare(`UPDATE agentic_proposals SET status=?,decided_by_user_id=?,decision_at=CURRENT_TIMESTAMP
+  const update=await env.DB.prepare(`UPDATE agentic_proposals SET status=?,decided_by_user_id=?,decision_at=CURRENT_TIMESTAMP
     WHERE id=? AND tenant_id=? AND status='pending'`).bind(decision,auth.user_id,proposalId,auth.tenant_id).run();
+  const changed=Number(update?.meta?.changes??update?.changes??0);
+  if(changed!==1){
+    const current=await env.DB.prepare(`SELECT status FROM agentic_proposals WHERE id=? AND tenant_id=? LIMIT 1`).bind(proposalId,auth.tenant_id).first();
+    if(!current)return json({error:"agentic_proposal_not_found"},404);
+    return json({error:"agentic_proposal_already_decided",status:current.status},409);
+  }
   await appendEvent(env,{tenantId:auth.tenant_id,runId:proposal.run_id,proposalId,eventType:decision==="approved"?"PROPOSAL_APPROVED":"PROPOSAL_REJECTED",actorUserId:auth.user_id,detail:{executionEnabled:false}});
   return json({ok:true,id:proposalId,status:decision,execution:{performed:false,enabled:false,reason:"Stage 1 records governance decisions only."}});
 }
@@ -331,7 +344,7 @@ async function recordOutcome({request,env,auth,proposalId}){
   const proposal=await env.DB.prepare(`SELECT id,run_id,status FROM agentic_proposals WHERE id=? AND tenant_id=? LIMIT 1`).bind(proposalId,auth.tenant_id).first();
   if(!proposal)return json({error:"agentic_proposal_not_found"},404);
   if(proposal.status==="pending")return json({error:"proposal_decision_required_before_outcome"},409);
-  const body=await readJson(request);
+  let body;try{body=await readJson(request)}catch(error){return json({error:error.message},requestBodyErrorStatus(error))}
   const outcomeStatus=String(body?.outcomeStatus||"");
   const allowed=new Set(["observed","improved","unchanged","worsened","resolved","not_applicable"]);
   if(!allowed.has(outcomeStatus))return json({error:"invalid_outcome_status"},400);
