@@ -5962,7 +5962,6 @@ function save(){
 function logEvent(type,data={}){
  /* UI activity is not authoritative audit history. Server mutation endpoints write the sealed ledger. */
 }
-function switchRole(role){/* Production role is derived from authenticated membership. */}
 const WORKSPACE_ROLES=new Set(["owner","manager","reviewer","auditor"]);
 const MANAGER_BLOCKED=new Set(["security","payments","entitlements","billing","integrations","profile","taxprofile","datadeletion","accountdata"]);
 const REVIEW_ALLOWED=new Set(["workhub","obligations","calendar","statutorycalendar","changes","evidencehub","vault","evidenceintegrity","documents","expert","audit","auditintegrity","inspectionreadiness","assurancefreshness","controllineage","regulatoryintel","regulatoryobligations","compliancepassport","accounthub","accountsocial","accountsecurity"]);
@@ -6565,13 +6564,6 @@ function escapeHtml(s){return BW.dom.escapeHtml(s)}
 function safeId(s){return BW.dom.safeId(s)}
 function safeExternalUrl(value){return BW.dom.safeExternalUrl(value)}
 
-function quickNavigate(value){
-  const q=String(value||'').trim().toLowerCase();
-  if(!q)return;
-  const buttons=[...document.querySelectorAll('.nav button[data-view]')].filter(b=>b.style.display!=='none');
-  const match=buttons.find(b=>b.textContent.trim().toLowerCase().includes(q)||b.dataset.view.toLowerCase().includes(q));
-  if(match&&q.length>=2){showView(match.dataset.view);document.getElementById('quickNav').value=''}
-}
 
 
 function prefersReducedMotion(){return !!(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches)}
@@ -7423,12 +7415,6 @@ async function runScan(){
   }
 }
 
-async function advanceObligation(id,status){
-  try{
-    await apiJson(`/api/obligations/${id}/advance`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({status})});
-    await renderComplianceObligations();await renderUnifiedNextActions();
-  }catch(e){notifyUser(e.message)}
-}
 async function renderComplianceObligations(){
   const box=document.getElementById("regObligationList");if(!box)return;
   try{
@@ -7746,12 +7732,6 @@ async function verifyAuditIntegrity(){
     box.safeHTML=`<div class="item"><b>${escapeHtml(r.status||"unknown")}</b><div class="muted small">${r.firstInvalidSeq?`First invalid sequence: ${r.firstInvalidSeq}`:"No chained-event mismatch detected."}</div>${r.lastHash?`<div class="audit">${escapeHtml(r.lastHash.slice(0,32))}…</div>`:""}</div>`;
   }catch(e){box.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
 }
-async function populateLineageControls(){
-  const sel=document.getElementById("lineageControlSelect");if(!sel)return;
-  try{
-    const r=await apiJson("/api/control-center");sel.safeHTML=(r.items||[]).map(x=>`<option value="${escapeHtml(x.control_key)}">${escapeHtml(x.name)}</option>`).join("");
-  }catch(e){}
-}
 async function loadControlLineage(){
   const sel=document.getElementById("lineageControlSelect"),box=document.getElementById("lineageDetail");if(!sel||!box||!sel.value)return;
   try{
@@ -7817,14 +7797,6 @@ async function renderDefensePacks(){
 }
 
 
-async function populateDefenseEvidenceSelectors(){
-  const cs=document.getElementById("defenseCaseSelect"),es=document.getElementById("defenseEvidenceSelect");if(!cs||!es)return;
-  try{
-    const [c,e]=await Promise.all([apiJson("/api/hr/cases"),apiJson("/api/evidence/integrity")]);
-    cs.safeHTML=(c.items||[]).filter(x=>x.status!=="closed").map(x=>`<option value="${x.id}">${escapeHtml(x.case_type)} · ${escapeHtml(x.risk_level)} · ${escapeHtml(x.status)}</option>`).join("");
-    es.safeHTML=(e.items||[]).filter(x=>x.review_status==="approved").map(x=>`<option value="${x.id}">${escapeHtml(x.name||x.id)}</option>`).join("");
-  }catch(e){}
-}
 async function linkDefenseEvidence(){
   const caseId=document.getElementById("defenseCaseSelect")?.value,evidenceId=document.getElementById("defenseEvidenceSelect")?.value,relationship=document.getElementById("defenseEvidenceRelationship")?.value||"supporting";
   if(!caseId||!evidenceId){notifyUser("Choose an open HR case and approved evidence.");return}
@@ -8055,7 +8027,6 @@ function startFreeFromMarketing(plan=null){
  openAuthFromMarketing("register");
  return false;
 }
-function selectPlanAndRegister(plan){return startFreeFromMarketing(plan)}
 function planLabel(p){return p==="starter"?"Monitor":p==="business"?"Protect":p==="pro"?"Control":p==="network"?"Network":p==="partner"?"Partner":"Protect"}
 function moneyPlan(p){return p==="starter"?"P149":p==="business"?"P349":p==="pro"?"P699":p==="network"?"P1,299":p==="partner"?"P2,499":"P349"}
 async function loadBilling(){
