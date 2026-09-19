@@ -278,6 +278,12 @@ async function executeTask({env,auth,requestId}){
     phase:"bounded_v1"
   });
   if(decision.allowed!==true||decision.executionAllowed!==true){
+    try{
+      await env.DB.prepare(`INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data)
+        VALUES(?,?,'AGENT_TASK_EXECUTION_DENIED','agent_task_request',?,?)`).bind(
+          auth.tenant_id,auth.user_id,requestId,JSON.stringify({intentId:row.intent_id,executionGrantId:row.execution_grant_id,code:decision.code,guardVersion:decision.guardVersion})
+        ).run();
+    }catch{}
     return json({error:"task_execution_denied",decision:{code:decision.code,reason:decision.reason,guardVersion:decision.guardVersion}},409);
   }
 
@@ -310,7 +316,12 @@ async function executeTask({env,auth,requestId}){
     return json({error:"task_execution_failed"},500);
   }
 
-  return json({ok:true,replayed:false,task:{id:taskId,title:payload.title,description:payload.description,priority:payload.priority,dueAt:payload.dueAt,status:"open"},receiptId,guard:{version:decision.guardVersion,code:decision.code}},201);
+  const verified=await safeFirst(env,`SELECT t.id task_id,t.title,t.description,t.priority,t.due_at,t.status,t.created_at,r.id receipt_id
+    FROM agent_internal_tasks t JOIN agent_execution_receipts r ON r.result_entity_id=t.id AND r.tenant_id=t.tenant_id
+    WHERE t.id=? AND t.tenant_id=? AND t.source_request_id=? AND r.action_intent_id=? LIMIT 1`,[taskId,auth.tenant_id,requestId,row.intent_id]);
+  if(!verified)return json({error:"task_execution_verification_failed",taskId,receiptId},500);
+
+  return json({ok:true,replayed:false,task:{id:verified.task_id,title:verified.title,description:verified.description,priority:verified.priority,dueAt:verified.due_at,status:verified.status,createdAt:verified.created_at},receiptId:verified.receipt_id,guard:{version:decision.guardVersion,code:decision.code},verified:true},201);
 }
 
 async function listTasks(env,auth){
