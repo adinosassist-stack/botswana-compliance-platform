@@ -105,6 +105,9 @@ assert.ok(normalized.payload.dueAt.endsWith("Z"));
 assert.equal(__agenticTaskExecutionTest.normalizeTaskPayload({title:""}).error,"task_title_required");
 assert.equal(__agenticTaskExecutionTest.normalizeTaskPayload({title:"x",priority:9}).error,"invalid_task_priority");
 assert.equal(__agenticTaskExecutionTest.normalizeTaskPayload({title:"x",dueAt:"not-a-date"}).error,"invalid_task_due_at");
+assert.equal(__agenticTaskExecutionTest.globalExecutionEnabled({}),false);
+assert.equal(__agenticTaskExecutionTest.globalExecutionEnabled({AGENT_BOUNDED_TASK_EXECUTION_ENABLED:"1"}),true);
+assert.equal(__agenticTaskExecutionTest.runtimeKillSwitch({AGENT_RUNTIME_KILL_SWITCH:"true"}),true);
 
 const canonical=__agenticTaskExecutionTest.canonicalIntentPayload({
   payload:{title:"Task",description:null,priority:2,dueAt:null},
@@ -126,6 +129,18 @@ assert.match(migration,/agent_task_requests_intent_guard/);
 assert.match(migration,/agent_execution_receipts_tenant_guard/);
 assert.doesNotMatch(migration,/payment\.execute/);
 assert.doesNotMatch(migration,/government_filing\.submit/);
+assert.match(migration,/d\.expires_at IS NULL OR d\.expires_at>CURRENT_TIMESTAMP/);
+assert.match(migration,/t\.tenant_id=NEW\.tenant_id/);
+
+const migrationRunner=fs.readFileSync("scripts/migrate-production-v102-bounded-task-execution.mjs","utf8");
+assert.match(migrationRunner,/expectedGitBlobSha='c716b937a63e91a127bda5b3425cbd0b1e17c969'/);
+assert.match(migrationRunner,/time_travel\/bookmark/);
+assert.match(migrationRunner,/PRAGMA foreign_key_check/);
+
+const migrationWorkflow=fs.readFileSync(".github/workflows/migrate-production-v102-bounded-task-execution.yml","utf8");
+assert.match(migrationWorkflow,/contains\(github\.event\.head_commit\.message, '\[migrate-048\]'\)/);
+assert.match(migrationWorkflow,/environment: production/);
+assert.match(migrationWorkflow,/migrate-production-v102-bounded-task-execution\.mjs/);
 
 const source=fs.readFileSync("cloudflare/src/agentic-task-execution.js","utf8");
 assert.match(source,/AGENT_BOUNDED_TASK_EXECUTION_ENABLED/);
