@@ -12,7 +12,7 @@ ok('wizard bounds stop at step 1',html.includes('Math.min(1,wizardStep+dir)'));
 ok('final quick-start action shows first check',html.includes('wizardStep===1?\"Show my first check\":\"Next\"'));
 ok('optional detailed fields retained',html.includes('Add optional details')&&html.includes('id=\"wIncorporationDate\"')&&html.includes('id=\"wTurnover\"')&&html.includes('id=\"wVatCategory\"'));
 ok('setup banner is explicitly two-minute setup',html.includes('Finish your 2-minute setup'));
-ok('new incomplete owner auto-opens onboarding',html.includes('currentUser.role===\"owner\"&&currentUser.onboardingComplete===false')&&html.includes('setTimeout(()=>openOnboarding(),180)'));
+ok('new incomplete owner auto-opens onboarding after first paint',html.includes('currentUser.role===\"owner\"&&currentUser.onboardingComplete===false')&&html.includes('scheduleOwnerOnboarding()')&&html.includes('requestAnimationFrame(()=>requestAnimationFrame(()=>')&&html.includes('requestIdleCallback(openWhenIdle,{timeout:1500})'));
 ok('non-owner does not auto-open owner onboarding',html.includes('currentUser.role===\"owner\"&&currentUser.onboardingComplete===false'));
 ok('onboarding dismissal is session-scoped',html.includes('bw_onboarding_dismissed')&&html.includes('function dismissOnboarding()'));
 ok('minimum legal entity is required before completion',html.includes('Choose the legal entity type so BW can select entity-specific work without guessing.'));
