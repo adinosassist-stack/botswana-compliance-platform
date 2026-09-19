@@ -12,6 +12,7 @@
   const PURPOSE_KEYS=new Set(PURPOSES.map(item=>item.key));
 
   let capabilityReady=false;
+  let capabilityRefreshPromise=null;
   let busy=false;
   let currentDraft="";
   let refreshToken=0;
@@ -83,29 +84,34 @@
   }
 
   async function refreshCapability(){
-    const token=++refreshToken;
-    capabilityReady=false;
-    setControls();
-    if(!roleAllowed()){
-      setStatus("Owner or Manager access is required.");
-      return false;
-    }
-    setStatus("Checking governed WhatsApp preparation…");
-    try{
-      const payload=await request("/api/agentic/whatsapp/status");
-      if(token!==refreshToken)return false;
-      if(!validateCapability(payload))throw new Error("WhatsApp preparation is not safely available.");
-      capabilityReady=true;
-      setStatus("Prepare only · human review required · automatic sending disabled");
-      setControls();
-      return true;
-    }catch(error){
-      if(token!==refreshToken)return false;
+    if(capabilityRefreshPromise)return capabilityRefreshPromise;
+    capabilityRefreshPromise=(async()=>{
+      const token=++refreshToken;
       capabilityReady=false;
-      setStatus(String(error?.message||"WhatsApp preparation unavailable").slice(0,180));
       setControls();
-      return false;
-    }
+      if(!roleAllowed()){
+        setStatus("Owner or Manager access is required.");
+        return false;
+      }
+      setStatus("Checking governed WhatsApp preparation…");
+      try{
+        const payload=await request("/api/agentic/whatsapp/status");
+        if(token!==refreshToken)return false;
+        if(!validateCapability(payload))throw new Error("WhatsApp preparation is not safely available.");
+        capabilityReady=true;
+        setStatus("Prepare only · human review required · automatic sending disabled");
+        setControls();
+        return true;
+      }catch(error){
+        if(token!==refreshToken)return false;
+        capabilityReady=false;
+        setStatus(String(error?.message||"WhatsApp preparation unavailable").slice(0,180));
+        setControls();
+        return false;
+      }
+    })();
+    try{return await capabilityRefreshPromise}
+    finally{capabilityRefreshPromise=null}
   }
 
   async function prepareDraft(){
@@ -253,7 +259,7 @@
       anchor.insertAdjacentElement("afterend",panel);
     }
     panel.hidden=!roleAllowed();
-    if(roleAllowed()&&!capabilityReady&&!busy)refreshCapability();
+    if(roleAllowed()&&!capabilityReady&&!capabilityRefreshPromise&&!busy)void refreshCapability();
     return true;
   }
 
