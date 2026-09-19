@@ -1,0 +1,103 @@
+name: Temporary toolchain lock refresh
+
+on:
+  push:
+    branches:
+      - chatgpt/wrangler-sharp-remediation-20260919
+
+permissions:
+  contents: write
+
+concurrency:
+  group: temporary-toolchain-lock-refresh-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CI: 'true'
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+
+      - name: Verify pinned Node and npm
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_node="v$(cat .nvmrc)"
+          expected_npm="$(node -p "String(require('./package.json').packageManager).replace(/^npm@/,'')")"
+          [[ "$(node --version)" == "$expected_node" ]] || { echo "Node mismatch expected=$expected_node actual=$(node --version)" >&2; exit 1; }
+          [[ "$(npm --version)" == "$expected_npm" ]] || { echo "npm mismatch expected=$expected_npm actual=$(npm --version)" >&2; exit 1; }
+
+      - name: Regenerate lockfile with npm
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          git diff --exit-code -- package.json
+          git diff --quiet -- package-lock.json && { echo 'package-lock.json did not change' >&2; exit 1; }
+
+      - name: Verify patched Wrangler Miniflare Sharp path
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const lock=require('./package-lock.json');
+          const packages=lock.packages||{};
+          const required={
+            'node_modules/wrangler':'4.135.0',
+            'node_modules/miniflare':'5.20260918.0-alpha',
+            'node_modules/sharp':'0.35.4'
+          };
+          for(const [path,version] of Object.entries(required)){
+            if(packages[path]?.version!==version) throw new Error(`${path} expected ${version}, got ${packages[path]?.version||'missing'}`);
+          }
+          const vulnerable=Object.entries(packages).filter(([path,pkg])=>/(^|\/)sharp$/.test(path.replace(/^node_modules\//,''))&&pkg?.version==='0.35.2');
+          if(vulnerable.length) throw new Error('vulnerable sharp@0.35.2 remains in lockfile');
+          console.log('Wrangler/Miniflare/Sharp patched path verified');
+          NODE
+          if git grep -n '4\.127\.1' -- .; then
+            echo 'stale Wrangler 4.127.1 reference remains' >&2
+            exit 1
+          fi
+          if git grep -n '0\.35\.2' -- package-lock.json; then
+            echo 'vulnerable sharp 0.35.2 remains in package-lock.json' >&2
+            exit 1
+          fi
+
+      - name: Clean install and audit full dependency graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf node_modules
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm audit --audit-level=high
+          npm run audit:dependencies
+          npm run check:bf07-toolchain
+          npm run test:v78-121101
+
+      - name: Commit genuine lockfile and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/toolchain-lock-refresh-temporary.yml
+          git add package-lock.json
+          changed="$(git diff --cached --name-only | sort)"
+          expected="$(printf '%s\n' '.github/workflows/toolchain-lock-refresh-temporary.yml' 'package-lock.json' | sort)"
+          [[ "$changed" == "$expected" ]] || { echo "unexpected generated commit files:" >&2; printf '%s\n' "$changed" >&2; exit 1; }
+          git commit -m 'Regenerate lock for Wrangler 4.135.0'
+          git push origin HEAD:${GITHUB_REF_NAME}
