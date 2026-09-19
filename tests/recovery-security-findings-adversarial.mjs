@@ -105,7 +105,10 @@ test('plain root stays public for guests and releases only after the application
 test('production launch wrapper chain has no configured scanner provider and evidence uploads remain disabled',()=>{
   assert.match(wrangler,/main = "src\/release-governance-entry\.js"/);
   assert.match(releaseGovernanceEntry,/import base from "\.\/agentic-entry\.js"/);
-  assert.match(releaseGovernanceEntry,/const response=await base\.fetch\(request,env,ctx\)/);
+  assert.match(releaseGovernanceEntry,/let downstreamEnv=env/);
+  assert.match(releaseGovernanceEntry,/__THEBE_REGISTRATION_PROOF_VERIFIED:true/);
+  assert.match(releaseGovernanceEntry,/__THEBE_REGISTRATION_CHALLENGE_BUDGET_VERIFIED:true/);
+  assert.match(releaseGovernanceEntry,/const response=await base\.fetch\(request,downstreamEnv,ctx\)/);
   assert.match(releaseGovernanceEntry,/return base\.scheduled\(event,env,ctx\)/);
   assert.match(agenticEntry,/import base from "\.\/production-entry\.js"/);
   assert.match(agenticEntry,/const response=await base\.fetch\(request,env,ctx\)/);
