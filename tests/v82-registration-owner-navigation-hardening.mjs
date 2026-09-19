@@ -12,6 +12,7 @@ const direct=read('public/js/register-direct.js');
 const ownerAccess=read('cloudflare/src/platform-owner-access.js');
 const agenticEntry=read('cloudflare/src/agentic-entry.js');
 const productionEntry=read('cloudflare/src/production-entry.js');
+const registrationBoundary=read('cloudflare/src/registration-boundary.js');
 const sw=read('public/sw.js');
 let checks=0;const ok=(name,value)=>{assert.ok(value,name);checks++};
 
@@ -60,6 +61,10 @@ ok('registration proof handoff retains production origin through the downstream 
 ok('registration proof handoff retains D1 and session bindings through the owner wrapper',proofVerifiedEnv.DB===sourceEnv.DB&&proofVerifiedEnv.SESSION_SECRET===sourceEnv.SESSION_SECRET);
 ok('production registration still enforces canonical origin in the base Worker',worker.includes('if(!requestOriginAllowed(req,env))return json({error:"origin_failed"},403)'));
 ok('registration proof wrapper still delegates to the base Worker only after proof verification',productionEntry.includes('const proof=await verifyRegistrationProof(request,env,body?.turnstileToken)')&&productionEntry.includes('return worker.fetch(request,verifiedEnv,ctx)'));
+ok('registration proof production wrapper uses the durable registration boundary',productionEntry.includes('from "./registration-boundary.js"')&&productionEntry.includes('durableRegistrationChallengeGate(request,env)')&&productionEntry.includes('const verifyRegistrationProof=validateAndClaimRegistrationProof;'));
+ok('registration replay and challenge budgets are not kept in per-isolate maps',!productionEntry.includes('usedRegistrationProofs=new Map()')&&!productionEntry.includes('registrationChallengeBudget=new Map()')&&!productionEntry.includes('allowChallengeIssue(')&&!productionEntry.includes('pruneChallengeState('));
+ok('registration proof replay is claimed durably in D1',registrationBoundary.includes('INSERT OR IGNORE INTO auth_rate_limits')&&registrationBoundary.includes('"registration_proof_replay"')&&registrationBoundary.includes('proof_replayed'));
+ok('registration challenge rate budget is durable and fails closed when unavailable',registrationBoundary.includes('"registration_proof_challenge_ip"')&&registrationBoundary.includes('registration_protection_unavailable')&&registrationBoundary.includes('if(!secret||!env?.DB)return {ok:false,unavailable:true'));
 ok('platform owner repair does not advance the D1 schema lineage',!fs.existsSync(new URL('../cloudflare/migrations/048_v82_platform_owner_access.sql',import.meta.url)));
 
 ok('platform specialist tools start hidden',html.includes('<details class="nav-specialist-tools" hidden>')&&html.includes('.nav-specialist-tools[hidden]{display:none!important}'));

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {handleAgenticRequest} from '../cloudflare/src/agentic-core.js';
 
-function mockDb({role='owner',proposal={id:'p1',run_id:'r1',status:'pending'}}={}){
+function mockDb({role='owner',proposal={id:'p1',run_id:'r1',status:'pending'},decisionChanges=1,currentStatus='rejected'}={}){
   const calls=[];
   const DB={
     calls,
@@ -12,11 +12,12 @@ function mockDb({role='owner',proposal={id:'p1',run_id:'r1',status:'pending'}}={
         async first(){
           call.kind='first';
           if(sql.includes('FROM sessions s'))return {user_id:'u1',tenant_id:'tenant-A',csrf_token:'csrf-A',role,email:'owner@example.com'};
+          if(sql.startsWith('SELECT status FROM agentic_proposals'))return {status:currentStatus};
           if(sql.includes('FROM agentic_proposals WHERE id=? AND tenant_id=?'))return proposal;
           return null;
         },
         async all(){call.kind='all';return {results:[]}},
-        async run(){call.kind='run';return {success:true,meta:{changes:1}}}
+        async run(){call.kind='run';return {success:true,meta:{changes:sql.startsWith('UPDATE agentic_proposals')?decisionChanges:1}}}
       };
     },
     async batch(statements){calls.push({sql:'__batch__',bindings:[],kind:'batch',count:statements.length});return statements.map(()=>({success:true}))}
@@ -99,6 +100,33 @@ const call=async({path,method='GET',headers,DB=mockDb(),role,proposal}={})=>{
   assert.equal(response.status,200);
   assert.equal(body.status,'rejected');
   assert.equal(body.execution.performed,false);
+}
+
+{
+  const DB=mockDb({role:'owner',decisionChanges:0,currentStatus:'rejected'});
+  const {response,body}=await call({path:'/api/agentic/proposals/p1/approve',method:'POST',headers:authedHeaders(),DB});
+  assert.equal(response.status,409);
+  assert.equal(body.error,'agentic_proposal_already_decided');
+  assert.equal(body.status,'rejected');
+  assert.equal(DB.calls.some(x=>x.sql.includes('INSERT INTO agentic_events')),false,'lost proposal-decision races must not emit false audit events');
+}
+
+{
+  const DB=mockDb();
+  const headers=authedHeaders();headers.set('content-type','application/json');headers.set('content-encoding','gzip');
+  const request=new Request('https://thebedesk.com/api/agentic/plan',{method:'POST',headers,body:'{}'});
+  const response=await handleAgenticRequest({request,logicalPath:'/api/agentic/plan',env:envFor(DB),ctx:{},coreFetch:async()=>new Response('{}',{status:500})});
+  assert.equal(response.status,415);
+  assert.equal((await response.json()).error,'unsupported_content_encoding');
+}
+
+{
+  const DB=mockDb();
+  const headers=authedHeaders();headers.set('content-type','application/json');
+  const request=new Request('https://thebedesk.com/api/agentic/plan',{method:'POST',headers,body:'{'});
+  const response=await handleAgenticRequest({request,logicalPath:'/api/agentic/plan',env:envFor(DB),ctx:{},coreFetch:async()=>new Response('{}',{status:500})});
+  assert.equal(response.status,400);
+  assert.equal((await response.json()).error,'invalid_json');
 }
 
 {

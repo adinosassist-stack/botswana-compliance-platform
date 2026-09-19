@@ -95,6 +95,7 @@ for(const objectName of ["agent_delegations","agent_action_intents","agent_deleg
 const releaseGovernance=fs.readFileSync("cloudflare/src/release-governance-entry.js","utf8");
 const entry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
 const authority=fs.readFileSync("cloudflare/src/agentic-authority-core.js","utf8");
+const core=fs.readFileSync("cloudflare/src/agentic-core.js","utf8");
 const wrangler=fs.readFileSync("cloudflare/wrangler.toml","utf8");
 assert.match(releaseGovernance,/import base from "\.\/agentic-entry\.js"/);
 assert.match(releaseGovernance,/const response=await base\.fetch\(request,env,ctx\)/);
@@ -107,6 +108,15 @@ assert.match(authority,/executionEnabled:false/);
 assert.match(authority,/shadowOnly:true/);
 assert.match(authority,/owner_required/);
 assert.match(authority,/idempotency_key_required/);
+assert.match(authority,/idempotency_key_conflict/);
+assert.match(authority,/payload_hash/);
+assert.match(authority,/WHERE changes\(\)=1/);
+assert.match(authority,/delegation_state_conflict/);
+assert.match(authority,/unsupported_content_encoding/);
+assert.match(core,/unsupported_content_encoding/);
+assert.match(core,/const changed=Number\(update\?\.meta\?\.changes\?\?update\?\.changes\?\?0\)/);
+assert.match(core,/agentic_proposal_already_decided/);
+assert.match(core,/requestBodyErrorStatus\(error\)/);
 assert.doesNotMatch(authority,/allow_execute\(/);
 assert.doesNotMatch(authority,/fetch\([^)]*https?:\/\//);
 
