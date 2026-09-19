@@ -1,7 +1,7 @@
 import {AGENT_ACTION_CATALOG,evaluateAgentAction} from "./agent-policy.js";
 import {evaluateDelegatedAuthority,isNeverAutonomousAction} from "./delegated-authority.js";
 
-export const AGENT_RUNTIME_GUARD_VERSION="2026-09-20.pre-execution-v1";
+export const AGENT_RUNTIME_GUARD_VERSION="2026-09-20.pre-execution-v2";
 
 function frozen(value){return Object.freeze(value)}
 function deny(code,reason,{action=null,policy=null,authority=null}={}){
@@ -58,14 +58,18 @@ export function evaluateAgentRuntimeGuard({
   if(killSwitchActive===true)return deny("runtime_kill_switch_active","The tenant or platform agent kill switch is active.",{action:definition});
   if(String(budgetStatus)!=="within_limit")return deny("agent_budget_exceeded","The applicable agent/model/action budget is not within its allowed limit.",{action:definition});
 
-  const approvedHash=String(approvalPayloadHash||"").trim();
-  const currentHash=String(actionPayloadHash||"").trim();
-  if(String(approvalState)==="approved"&&approvedHash&&currentHash&&approvedHash!==currentHash){
-    return deny("stale_approval_payload","Approval is bound to a different action payload; re-approval is required.",{action:definition});
-  }
-
   if(isNeverAutonomousAction(key)){
     return deny("human_only_action","This action is permanently human-only and cannot be made autonomous by a model or delegation.",{action:definition});
+  }
+
+  const approval=String(approvalState||"none");
+  const approvedHash=String(approvalPayloadHash||"").trim();
+  const currentHash=String(actionPayloadHash||"").trim();
+  if(approval==="approved"&&(!approvedHash||!currentHash)){
+    return deny("approval_payload_binding_required","Approved actions must carry both the approved payload hash and the current action payload hash.",{action:definition});
+  }
+  if(approval==="approved"&&approvedHash!==currentHash){
+    return deny("stale_approval_payload","Approval is bound to a different action payload; re-approval is required.",{action:definition});
   }
 
   const policy=evaluateAgentAction({
@@ -83,6 +87,7 @@ export function evaluateAgentRuntimeGuard({
     agentKey,
     actionKey:key,
     actionDefinition:definition,
+    tenantId:scopedTenant,
     delegation,
     mode,
     globalExecutionEnabled,
