@@ -181,8 +181,10 @@ function registrationOriginAllowed(request,env){
 
 async function createRegistrationProofChallenge(request,env){
   if(!registrationOriginAllowed(request,env))return jsonResponse({error:"origin_failed"},403);
-  const challengeGate=await durableRegistrationChallengeGate(request,env);
-  if(challengeGate)return challengeGate;
+  if(env?.__THEBE_REGISTRATION_CHALLENGE_BUDGET_VERIFIED!==true){
+    const challengeGate=await durableRegistrationChallengeGate(request,env);
+    if(challengeGate)return challengeGate;
+  }
   const secret=registrationProofSecret(env);
   if(!secret)return jsonResponse({error:"registration_protection_unavailable",message:"Registration protection is temporarily unavailable."},503,{"retry-after":"60"});
   const now=Date.now(),bytes=crypto.getRandomValues(new Uint8Array(18));
@@ -251,6 +253,9 @@ async function fetchWithTurnstileCspRepair(request,env,ctx){
 
   const registrationRequest=isRegistrationRequest(request);
   if(registrationRequest){
+    if(env?.__THEBE_REGISTRATION_PROOF_VERIFIED===true){
+      return worker.fetch(request,env,ctx);
+    }
     let body={};
     try{body=await request.clone().json()}catch{}
     const proof=await verifyRegistrationProof(request,env,body?.turnstileToken);
@@ -261,7 +266,7 @@ async function fetchWithTurnstileCspRepair(request,env,ctx){
         retryable:true
       },403);
     }
-    const verifiedEnv=Object.assign({},env,{APP_ENV:"registration-proof-verified",TURNSTILE_SECRET_KEY:""});
+    const verifiedEnv=Object.assign({},env,{__THEBE_REGISTRATION_PROOF_VERIFIED:true,APP_ENV:"registration-proof-verified",TURNSTILE_SECRET_KEY:""});
     return worker.fetch(request,verifiedEnv,ctx);
   }
 
