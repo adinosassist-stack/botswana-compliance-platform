@@ -8,6 +8,8 @@ const BROWSER_PROOF_WATCHDOG_MS=240000;
 const RELOAD_EXTERNAL_DEADLINE_MS=45000;
 const DIAGNOSTIC_EXTERNAL_DEADLINE_MS=12000;
 const WORKSPACE_AUTHORED_VISIBILITY_WAIT_MS=22000;
+const WORKSPACE_AUTHORED_EVALUATION_DEADLINE_MS=2500;
+const WORKSPACE_POLL_INTERVAL_MS=125;
 const WORKSPACE_COMPUTED_VISIBILITY_DEADLINE_MS=6000;
 const WORKSPACE_EXTERNAL_DEADLINE_MS=40000;
 const BROWSER_CLOSE_DEADLINE_MS=5000;
@@ -158,22 +160,62 @@ async function observeWorkspaceBootstrap(page,label,pageErrors=[]){
   }
 }
 
+function workspaceAuthoredState(){
+  const shell=document.getElementById('appShell');
+  const marketing=document.getElementById('marketingGate');
+  const auth=document.getElementById('authGate');
+  return {
+    ready:!!shell&&globalThis.__THEBE_WORKSPACE_READY__===true&&
+      shell.hidden!==true&&!shell.classList.contains('hidden')&&
+      shell.style.display!=='none'&&shell.style.visibility!=='hidden'&&
+      !!document.getElementById('workspaceSidebar')&&
+      marketing?.classList.contains('hidden')===true&&auth?.classList.contains('hidden')===true,
+    workspaceReady:globalThis.__THEBE_WORKSPACE_READY__===true,
+    shell:!!shell,
+    shellHiddenAttribute:shell?.hidden===true,
+    shellHiddenClass:!!shell?.classList.contains('hidden'),
+    shellDisplay:shell?.style.display??'missing',
+    shellVisibility:shell?.style.visibility??'missing',
+    marketingHidden:!!marketing?.classList.contains('hidden'),
+    authHidden:!!auth?.classList.contains('hidden'),
+    sidebar:!!document.getElementById('workspaceSidebar')
+  };
+}
+
+async function readWorkspaceAuthoredState(page,label){
+  return withDeadline(
+    `${label} authored readiness evaluation`,
+    page.evaluate(workspaceAuthoredState),
+    WORKSPACE_AUTHORED_EVALUATION_DEADLINE_MS
+  );
+}
+
+async function waitForWorkspaceAuthoredState(page,label){
+  const deadline=Date.now()+WORKSPACE_AUTHORED_VISIBILITY_WAIT_MS;
+  let lastState=null,lastError=null;
+  while(Date.now()<deadline){
+    try{
+      lastState=await readWorkspaceAuthoredState(page,label);
+      if(lastState?.ready===true)return lastState;
+      lastError=null;
+    }catch(error){
+      lastError=error;
+      break;
+    }
+    const remaining=deadline-Date.now();
+    if(remaining<=0)break;
+    await new Promise(resolve=>setTimeout(resolve,Math.min(WORKSPACE_POLL_INTERVAL_MS,remaining)));
+  }
+  const detail=lastState?` state=${safe(JSON.stringify(lastState))}`:(lastError?` evaluator=${safe(lastError?.message||lastError)}`:'');
+  throw new Error(`${label} workspace authored-readiness timeout${detail}`);
+}
+
 async function assertWorkspace(page,label,pageErrors=[]){
   try{
-    await page.waitForFunction(()=>{
-      const shell=document.getElementById('appShell');
-      const marketing=document.getElementById('marketingGate');
-      const auth=document.getElementById('authGate');
-      if(!shell)return false;
-      return globalThis.__THEBE_WORKSPACE_READY__===true&&
-        shell.hidden!==true&&!shell.classList.contains('hidden')&&
-        shell.style.display!=='none'&&shell.style.visibility!=='hidden'&&
-        !!document.getElementById('workspaceSidebar')&&
-        marketing?.classList.contains('hidden')&&auth?.classList.contains('hidden');
-    },null,{timeout:WORKSPACE_AUTHORED_VISIBILITY_WAIT_MS,polling:100});
+    await waitForWorkspaceAuthoredState(page,label);
   }catch(error){
     const d=await withDeadline(`${label} timeout diagnostic`,probeWorkspaceBootstrap(page,pageErrors),DIAGNOSTIC_EXTERNAL_DEADLINE_MS).catch(probeError=>({sessionCookiePresent:null,directMe:{status:0,error:'probe_failed'},directState:{status:0,error:'probe_failed'},clientMe:{ok:false,error:'probe_failed'},clientState:{ok:false,error:'probe_failed'},gates:{},pageError:safe(probeError?.message||probeError)}));
-    throw new Error(`Synthetic browser proof failed: ${label} workspace authored-readiness timeout ${summarizeProbe(d)}`);
+    throw new Error(`Synthetic browser proof failed: ${safe(error?.message||error)} ${summarizeProbe(d)}`);
   }
   const rendered=await withDeadline(
     `${label} computed visibility confirmation`,
