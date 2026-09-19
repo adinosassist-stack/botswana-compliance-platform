@@ -92,22 +92,22 @@ SBOM_B="$(hash_file sbom.cdx.json)"
 [[ "$(hash_file package-lock.json)" == "$LOCK_SHA" ]] || fail 'Supply-chain gate mutated package-lock.json'
 pass "CycloneDX SBOM is byte-stable across repeated generation (sha256=$SBOM_A)"
 
-info '6/10 Generate production-only high-severity npm audit evidence'
+info '6/10 Generate production-only high-severity dependency audit evidence'
 set +e
-npm audit --omit=dev --audit-level=high --json > audit-report.json.tmp
+node scripts/dependency-audit.mjs --json > audit-report.json.tmp
 AUDIT_RC=$?
 set -e
 mv audit-report.json.tmp audit-report.json
 node - <<'NODE'
 const fs=require('fs');
 const r=JSON.parse(fs.readFileSync('audit-report.json','utf8'));
-if(r.error) throw new Error(`npm audit error: ${r.error.summary||r.error.code||'unknown'}`);
-const v=r.metadata?.vulnerabilities;if(!v)throw new Error('npm audit report missing vulnerability metadata');
+if(r.error) throw new Error(`dependency audit error: ${r.error.summary||r.error.code||'unknown'}`);
+const v=r.metadata?.vulnerabilities;if(!v)throw new Error('dependency audit report missing vulnerability metadata');
 if(Number(v.high||0)!==0||Number(v.critical||0)!==0)throw new Error(`high/critical vulnerabilities remain: high=${v.high||0}, critical=${v.critical||0}`);
-console.log(`npm audit policy passed: high=${v.high||0}, critical=${v.critical||0}, total=${v.total||0}`);
+console.log(`dependency audit policy passed: high=${v.high||0}, critical=${v.critical||0}, total=${v.total||0}`);
 NODE
-[[ "$AUDIT_RC" -eq 0 ]] || fail "npm audit --omit=dev --audit-level=high failed with exit $AUDIT_RC"
-[[ "$(hash_file package-lock.json)" == "$LOCK_SHA" ]] || fail 'npm audit mutated package-lock.json'
+[[ "$AUDIT_RC" -eq 0 ]] || fail "dependency audit failed with exit $AUDIT_RC"
+[[ "$(hash_file package-lock.json)" == "$LOCK_SHA" ]] || fail 'dependency audit mutated package-lock.json'
 pass 'Production dependency audit report saved and high/critical policy passed'
 
 info '7/10 Bind dependency evidence, policy source, and execution provenance'
@@ -138,7 +138,7 @@ cp "$SEALED_ZIP" "$VERIFY_ARCHIVE_COPY"
 [[ "$(hash_file "$VERIFY_ARCHIVE_COPY")" == "$EXPECTED_ZIP_SHA" ]] || fail 'Verification snapshot does not match sealed archive hash captured before independent verification'
 [[ "$(hash_file "$SEALED_SHA")" == "$EXPECTED_SIDECAR_SHA" ]] || fail 'Release sidecar changed before independent verification'
 ARCHIVE_LIST="$(unzip -Z1 "$VERIFY_ARCHIVE_COPY")"
-for required in package-lock.json sbom.cdx.json audit-report.json bf07-evidence.json bf07-provenance.json .nvmrc scripts/resolve-bf07.sh scripts/bf07-evidence-gate.mjs scripts/bf07-provenance-gate.mjs scripts/bf07-release-provenance-core.mjs scripts/write-bf07-release-provenance.mjs scripts/bf07-release-provenance-gate.mjs .github/workflows/bf07-seal.yml; do
+for required in package-lock.json sbom.cdx.json audit-report.json bf07-evidence.json bf07-provenance.json .nvmrc scripts/resolve-bf07.sh scripts/dependency-audit.mjs scripts/bf07-evidence-gate.mjs scripts/bf07-provenance-gate.mjs scripts/bf07-release-provenance-core.mjs scripts/write-bf07-release-provenance.mjs scripts/bf07-release-provenance-gate.mjs .github/workflows/bf07-seal.yml; do
   grep -Fxq "$required" <<<"$ARCHIVE_LIST" || fail "Sealed archive is missing $required"
 done
 while IFS= read -r entry; do
@@ -168,7 +168,7 @@ VERIFY_CACHE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/bf07-verify-cache.XXXXXX")"
   npm run check:supply-chain >/dev/null
   npm run check:bf07-evidence >/dev/null
   npm run check:bf07-provenance >/dev/null
-  npm audit --omit=dev --audit-level=high >/dev/null
+  node scripts/dependency-audit.mjs >/dev/null
   npm run launch:gate >/dev/null
   set +x
 )
