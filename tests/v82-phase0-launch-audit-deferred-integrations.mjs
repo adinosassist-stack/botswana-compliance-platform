@@ -6,6 +6,7 @@ const residueAudit=fs.readFileSync('scripts/production-synthetic-residue-audit.m
 const browserWrapper=fs.readFileSync('scripts/production-synthetic-browser-wrapper.mjs','utf8');
 const workspaceHtml=fs.readFileSync('public/index.html','utf8');
 const worker=fs.readFileSync('cloudflare/src/worker.js','utf8');
+const agenticEntry=fs.readFileSync('cloudflare/src/agentic-entry.js','utf8');
 let pass=0;
 const ok=(condition,message)=>{
   if(!condition)throw new Error(`FAIL: ${message}`);
@@ -33,6 +34,8 @@ ok(!workspaceHtml.includes('let init=await apiFetch("/api/state",{method:"PUT"')
 ok(workspaceHtml.includes('async function hydrateWorkspaceAudit()')&&workspaceHtml.includes('if(id==="billing")queueMicrotask(()=>void loadBilling())')&&workspaceHtml.includes('if(id==="audit")queueMicrotask(()=>void hydrateWorkspaceAudit())')&&!workspaceHtml.includes('logEvent("APP_OPENED",{ruleset:"BW-2026.08.30-launch"});void hydrateWorkspaceAudit()'), 'billing and audit hydration are lazy to their requested views and absent from cold start');
 ok(workspaceHtml.includes("root=document.querySelector('#mainContent .view.active')")&&!workspaceHtml.includes("root=document.getElementById('mainContent')")&&!workspaceHtml.includes('setTimeout(()=>stabilizeWorkspaceTables(document.getElementById(\'mainContent\')||document),30)'), 'post-render table enhancement is scoped to the active/requested view instead of all hidden workspace views');
 ok(workspaceHtml.includes('if(!options?.skipDataRefresh&&!options?.roleRedirect)queueMicrotask(()=>renderAll())')&&!workspaceHtml.includes('setTimeout(animateViewItems,20);if(!options?.skipDataRefresh)queueMicrotask(()=>renderAll())'), 'initial role redirect does not queue a redundant full-workspace render after authenticated reveal');
+ok(workspaceHtml.includes('active=!!target?.classList.contains("active"),coldLanding=window.__THEBE_WORKSPACE_READY__!==true&&view===roleLandingView(currentUser?.role);if(!active&&!coldLanding)return'), 'workspace render fan-out is lazy to the active or cold-start landing view');
+ok(agenticEntry.includes('const hasLegacyRender=html.includes(COLD_START_REDUNDANT_RENDER);')&&agenticEntry.includes('const hasGuardedRender=html.includes(COLD_START_GUARDED_RENDER);')&&agenticEntry.includes('const guarded=hasLegacyRender?html.replace(COLD_START_REDUNDANT_RENDER,COLD_START_GUARDED_RENDER):html;'), 'synthetic boot tracing remains available after the guarded render is committed into source');
 ok(workspaceHtml.includes("const active=main.querySelector('.view.active');if(!active)return")&&workspaceHtml.includes("n===active||active.contains(n)"), 'table mutation observer ignores hidden-view render mutations after readiness');
 ok(workspaceHtml.includes("wrap.className='table-scroll mobile-table-wrap'")&&workspaceHtml.includes("wrap.tabIndex=0")&&!workspaceHtml.includes('function wrapTables(root=document.querySelector("#mainContent .view.active"))'), 'workspace uses one canonical accessible table wrapper and the duplicate mobile wrapper engine is removed');
 ok(!['advanceObligation','populateDefenseEvidenceSelectors','populateLineageControls','quickNavigate','selectPlanAndRegister','switchRole'].some(name=>new RegExp(`\\bfunction\\s+${name}\\s*\\(`).test(workspaceHtml)||new RegExp(`\\basync\\s+function\\s+${name}\\s*\\(`).test(workspaceHtml)), 'unreachable browser compatibility and superseded helper functions are removed');
@@ -70,4 +73,4 @@ if(productionAuditEnv){
   console.log('PASS production-only historical synthetic residue audit completed');
 }
 
-console.log(`Phase 0 deferred integration, post-deploy, tenant-integrity and residue-audit contract: ${pass}/46 PASS`);
+console.log(`Phase 0 deferred integration, post-deploy, tenant-integrity and residue-audit contract: ${pass}/48 PASS`);
