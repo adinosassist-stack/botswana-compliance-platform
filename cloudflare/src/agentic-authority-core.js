@@ -56,12 +56,19 @@ function csrfAllowed(request,auth){
   return !!supplied&&!!expected&&supplied===expected;
 }
 async function readJson(request){
+  const encoding=String(request.headers.get("content-encoding")||"").trim().toLowerCase();
+  if(encoding&&encoding!=="identity")throw new Error("unsupported_content_encoding");
   const declared=Number(request.headers.get("content-length")||0);
   if(Number.isFinite(declared)&&declared>MAX_BODY_BYTES)throw new Error("request_too_large");
   const raw=await request.text();
   if(new TextEncoder().encode(raw).byteLength>MAX_BODY_BYTES)throw new Error("request_too_large");
   if(!raw)return {};
   try{return JSON.parse(raw)}catch{throw new Error("invalid_json")}
+}
+function requestBodyErrorStatus(error){
+  if(error?.message==="request_too_large")return 413;
+  if(error?.message==="unsupported_content_encoding")return 415;
+  return 400;
 }
 async function safeAll(env,sql,bindings=[]){
   try{return await env.DB.prepare(sql).bind(...bindings).all()}catch{return null}
@@ -142,7 +149,7 @@ async function status(env,auth){
 async function createDelegation({request,env,auth}){
   if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);
   if(!(await schemaReady(env)))return json({error:"authority_schema_not_ready"},503);
-  let body;try{body=await readJson(request)}catch(error){return json({error:error.message},error.message==="request_too_large"?413:400)}
+  let body;try{body=await readJson(request)}catch(error){return json({error:error.message},requestBodyErrorStatus(error))}
   const agentKey=text(body?.agentKey,80),actionKey=text(body?.actionKey,120);
   const agent=THEBE_AGENTS[agentKey],definition=AGENT_ACTION_CATALOG[actionKey];
   if(!agent)return json({error:"unknown_agent"},400);
@@ -199,12 +206,25 @@ async function mutateDelegation({env,auth,delegationId,command}){
   const row=await env.DB.prepare(`SELECT id,status FROM agent_delegations WHERE id=? AND tenant_id=? LIMIT 1`).bind(delegationId,auth.tenant_id).first();
   if(!row)return json({error:"delegation_not_found"},404);
   const next=command==="pause"?"paused":"revoked";
-  if(row.status==="revoked")return json({error:"delegation_already_revoked"},409);
-  await env.DB.batch([
-    env.DB.prepare(`UPDATE agent_delegations SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=?`).bind(next,delegationId,auth.tenant_id),
+  const allowedCurrent=command==="pause"?new Set(["active"]):new Set(["active","paused"]);
+  if(!allowedCurrent.has(String(row.status||""))){
+    const error=row.status==="revoked"?"delegation_already_revoked":"delegation_state_conflict";
+    return json({error,status:row.status},409);
+  }
+  const updateSql=command==="pause"
+    ?`UPDATE agent_delegations SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND status='active'`
+    :`UPDATE agent_delegations SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND status IN ('active','paused')`;
+  const results=await env.DB.batch([
+    env.DB.prepare(updateSql).bind(next,delegationId,auth.tenant_id),
     env.DB.prepare(`INSERT INTO agent_delegation_events(id,tenant_id,delegation_id,event_type,actor_user_id,detail_json)
-      VALUES(?,?,?,?,?,'{}')`).bind(id(),auth.tenant_id,delegationId,next==="paused"?"PAUSED":"REVOKED",auth.user_id)
+      SELECT ?,?,?,?,?,'{}' WHERE changes()=1`).bind(id(),auth.tenant_id,delegationId,next==="paused"?"PAUSED":"REVOKED",auth.user_id)
   ]);
+  const changed=Number(results?.[0]?.meta?.changes??results?.[0]?.changes??0);
+  if(changed!==1){
+    const current=await env.DB.prepare(`SELECT status FROM agent_delegations WHERE id=? AND tenant_id=? LIMIT 1`).bind(delegationId,auth.tenant_id).first();
+    if(!current)return json({error:"delegation_not_found"},404);
+    return json({error:current.status==="revoked"?"delegation_already_revoked":"delegation_state_conflict",status:current.status},409);
+  }
   return json({ok:true,id:delegationId,status:next,executionEnabled:false});
 }
 
@@ -221,9 +241,8 @@ async function shadowEvaluate({request,env,auth}){
   if(!(await schemaReady(env)))return json({error:"authority_schema_not_ready"},503);
   const idem=text(request.headers.get("idempotency-key"),200);
   if(idem.length<8)return json({error:"idempotency_key_required"},400);
-  const existing=await safeFirst(env,`SELECT id,decision,decision_code,status,created_at FROM agent_action_intents WHERE tenant_id=? AND idempotency_key=? LIMIT 1`,[auth.tenant_id,idem]);
-  if(existing)return json({ok:true,replayed:true,intent:existing,execution:{performed:false,enabled:false}},200);
-  let body;try{body=await readJson(request)}catch(error){return json({error:error.message},error.message==="request_too_large"?413:400)}
+  const existing=await safeFirst(env,`SELECT id,decision,decision_code,status,payload_hash,created_at FROM agent_action_intents WHERE tenant_id=? AND idempotency_key=? LIMIT 1`,[auth.tenant_id,idem]);
+  let body;try{body=await readJson(request)}catch(error){return json({error:error.message},requestBodyErrorStatus(error))}
   const agentKey=text(body?.agentKey,80),actionKey=text(body?.actionKey,120);
   const agent=THEBE_AGENTS[agentKey],definition=AGENT_ACTION_CATALOG[actionKey];
   if(!agent)return json({error:"unknown_agent"},400);
@@ -244,6 +263,14 @@ async function shadowEvaluate({request,env,auth}){
     const proposal=await safeFirst(env,"SELECT id FROM agentic_proposals WHERE id=? AND tenant_id=? LIMIT 1",[proposalId,auth.tenant_id]);
     if(!proposal)return json({error:"proposal_not_found"},404);
   }
+  const metadata=body?.metadata&&typeof body.metadata==="object"&&!Array.isArray(body.metadata)?body.metadata:{};
+  const canonical=JSON.stringify({agentKey,actionKey,amountMinor,humanConfirmed:body?.humanConfirmed===true,runId,proposalId,metadata});
+  const payloadHash=await sha256Hex(canonical);
+  if(existing){
+    if(String(existing.payload_hash||"")!==payloadHash)return json({error:"idempotency_key_conflict"},409);
+    const {payload_hash,...intent}=existing;
+    return json({ok:true,replayed:true,intent,execution:{performed:false,enabled:false}},200);
+  }
 
   const grant=await activeDelegation(env,auth.tenant_id,agentKey,actionKey);
   const usage=grant?await safeFirst(env,`SELECT COUNT(*) count FROM agent_action_intents
@@ -261,8 +288,7 @@ async function shadowEvaluate({request,env,auth}){
     strongAuth:strongAuthPresent(),
     approvalState
   });
-  const canonical=JSON.stringify({agentKey,actionKey,amountMinor,humanConfirmed:body?.humanConfirmed===true,metadata:body?.metadata&&typeof body.metadata==="object"&&!Array.isArray(body.metadata)?body.metadata:{}});
-  const intentId=id(),payloadHash=await sha256Hex(canonical),status=actionStatus(decision.decision);
+  const intentId=id(),status=actionStatus(decision.decision);
   try{
     await env.DB.batch([
       env.DB.prepare(`INSERT INTO agent_action_intents(id,tenant_id,run_id,proposal_id,agent_key,action_key,requested_by_user_id,delegation_id,mode,decision,decision_code,
@@ -275,8 +301,12 @@ async function shadowEvaluate({request,env,auth}){
         VALUES(?,?,?,'SHADOW_EVALUATED',?,?)`).bind(id(),auth.tenant_id,grant.id,auth.user_id,JSON.stringify({intentId,actionKey,decision:decision.decision,code:decision.code}))]:[])
     ]);
   }catch{
-    const replay=await safeFirst(env,`SELECT id,decision,decision_code,status,created_at FROM agent_action_intents WHERE tenant_id=? AND idempotency_key=? LIMIT 1`,[auth.tenant_id,idem]);
-    if(replay)return json({ok:true,replayed:true,intent:replay,execution:{performed:false,enabled:false}},200);
+    const replay=await safeFirst(env,`SELECT id,decision,decision_code,status,payload_hash,created_at FROM agent_action_intents WHERE tenant_id=? AND idempotency_key=? LIMIT 1`,[auth.tenant_id,idem]);
+    if(replay){
+      if(String(replay.payload_hash||"")!==payloadHash)return json({error:"idempotency_key_conflict"},409);
+      const {payload_hash,...intent}=replay;
+      return json({ok:true,replayed:true,intent,execution:{performed:false,enabled:false}},200);
+    }
     return json({error:"shadow_intent_create_failed"},500);
   }
   return json({ok:true,replayed:false,intent:{id:intentId,status,agentKey,actionKey,amountMinor,payloadHash},decision,execution:{performed:false,enabled:false,shadowOnly:true}},201);
