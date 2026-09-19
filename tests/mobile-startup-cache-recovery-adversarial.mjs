@@ -49,6 +49,11 @@ const readyAt=workspaceReadyBody.indexOf('window.__THEBE_WORKSPACE_READY__=true'
 assert.ok(revealAt>=0&&readyAt>=0&&revealAt<readyAt,'workspace readiness must reveal the authenticated shell before publishing ready state');
 assert.match(workspaceReadyBody,/marketingGate\.classList\.add\("hidden"\)/,'workspace readiness must keep public marketing hidden');
 assert.match(workspaceReadyBody,/authGate\.classList\.add\("hidden"\)/,'workspace readiness must keep the auth surface hidden');
+assert.doesNotMatch(index,/setTimeout\(\(\)=>openOnboarding\(\),180\)/,'first-run onboarding must not interrupt the critical workspace paint with the legacy 180ms timer');
+assert.match(index,/function scheduleOwnerOnboarding\(\)/,'first-run onboarding must use an explicit post-paint scheduler');
+assert.match(index,/requestAnimationFrame\(\(\)=>requestAnimationFrame\(\(\)=>/,'first-run onboarding must allow at least two workspace paint frames before scheduling setup');
+assert.match(index,/requestIdleCallback\(openWhenIdle,\{timeout:1500\}\)/,'first-run onboarding should prefer a bounded browser idle slot');
+assert.match(index,/#onboardModal\{backdrop-filter:none!important;-webkit-backdrop-filter:none!important\}/,'first-run onboarding must not composite an expensive backdrop blur over the initial workspace');
 
 assert.match(events,/bw-mobile-runtime-hardening/,'mobile runtime must install an explicit hardening boundary');
 assert.match(events,/touch-action:pan-y!important/,'mobile workspace drawer must retain vertical touch scrolling');
