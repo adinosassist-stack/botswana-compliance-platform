@@ -8,6 +8,7 @@ const recoverRuntime=fs.readFileSync(new URL('../public/js/recover-runtime.js',i
 const domSecurity=fs.readFileSync(new URL('../public/js/dom-security.js',import.meta.url),'utf8');
 const events=fs.readFileSync(new URL('../public/js/event-delegation.js',import.meta.url),'utf8');
 const index=fs.readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
+const businessDataBridge=fs.readFileSync(new URL('../public/js/business-data-bridge.js',import.meta.url),'utf8');
 
 // Legacy PWA workers must converge to a no-interception, no-navigation state.
 assert.match(sw,/LEGACY_CACHE_PREFIX="thebe-desk-"/,'service worker must scope cleanup to Thebe Desk caches');
@@ -54,6 +55,15 @@ assert.match(index,/function scheduleOwnerOnboarding\(\)/,'first-run onboarding 
 assert.match(index,/requestAnimationFrame\(\(\)=>requestAnimationFrame\(\(\)=>/,'first-run onboarding must allow at least two workspace paint frames before scheduling setup');
 assert.match(index,/requestIdleCallback\(openWhenIdle,\{timeout:1500\}\)/,'first-run onboarding should prefer a bounded browser idle slot');
 assert.match(index,/#onboardModal\{backdrop-filter:none!important;-webkit-backdrop-filter:none!important\}/,'first-run onboarding must not composite an expensive backdrop blur over the initial workspace');
+
+const bridgePanelBody=businessDataBridge.match(/async function ensurePanel\(\)\{([\s\S]*?)\n  \}\n\n  function schedule/)?.[1]||'';
+assert.ok(bridgePanelBody,'business data bridge panel initializer must exist');
+assert.match(businessDataBridge,/let ensurePanelPromise=null;/,'business data bridge must retain an explicit single-flight panel initializer');
+assert.match(bridgePanelBody,/if\(ensurePanelPromise\)return ensurePanelPromise;/,'business data bridge must reuse the in-flight panel initializer');
+const bridgeInsertAt=Math.max(bridgePanelBody.indexOf('intro.insertAdjacentElement("afterend",card)'),bridgePanelBody.indexOf('body.prepend(card)'));
+const bridgeStateReadAt=bridgePanelBody.indexOf('await request("/api/state")');
+assert.ok(bridgeInsertAt>=0&&bridgeStateReadAt>bridgeInsertAt,'business data bridge must insert its unique panel before awaiting state so observer callbacks see the guard');
+assert.match(bridgePanelBody,/finally\{ensurePanelPromise=null\}/,'business data bridge must release its single-flight guard after initialization');
 
 assert.match(events,/bw-mobile-runtime-hardening/,'mobile runtime must install an explicit hardening boundary');
 assert.match(events,/touch-action:pan-y!important/,'mobile workspace drawer must retain vertical touch scrolling');
