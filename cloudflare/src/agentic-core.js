@@ -1,4 +1,5 @@
-import {associationForProposal,buildOutcomeAssociations,rankOutcomeInformedProposals} from "./agentic-learning.js";\nimport {buildSingleAgentOrchestration,verifyOrchestratedProposals} from "./agent-orchestration.js";
+import {associationForProposal,buildOutcomeAssociations,rankOutcomeInformedProposals} from "./agentic-learning.js";
+import {buildSingleAgentOrchestration,verifyOrchestratedProposals} from "./agent-orchestration.js";
 
 const MAX_BODY_BYTES=8192;
 const MAX_PROPOSALS=8;
@@ -192,8 +193,8 @@ function deterministicFallback(observation){
   return {answer:"Thebe generated a governed plan from current workspace signals. No autonomous business mutation was performed.",confidence:"medium",actions,caveats:["Human approval is required before any consequential action."],sourceRefs:actions.flatMap(x=>x.sourceRefs||[])};
 }
 
-async function runAdvisor({request,env,ctx,coreFetch,runId,observation}){
-  const question=text(`Create the safest next-action plan from this observation. Treat the numbers as application-calculated facts. Do not instruct autonomous payment, payroll, filing, signing, journal posting, refund, discipline or termination. OBSERVATION ${JSON.stringify(observation)}`,950);
+async function runAdvisor({request,env,ctx,coreFetch,runId,observation,orchestration}){
+  const question=text(`Create the safest next-action plan from this observation and bounded capability work plan. Treat the numbers as application-calculated facts. Every recommendation must stay within the listed capability work units and cite one or more allowed sourceRefs. Do not instruct autonomous payment, payroll, filing, signing, journal posting, refund, discipline or termination. CAPABILITY_WORK_UNITS ${JSON.stringify(orchestration?.workUnits||[])} ALLOWED_SOURCE_REFS ${JSON.stringify(orchestration?.allowedSourceRefs||[])} OBSERVATION ${JSON.stringify(observation)}`,2400);
   const target=new URL("/api/ai/advisor",request.url);
   const headers=new Headers({"content-type":"application/json","accept":"application/json","idempotency-key":`agentic-plan-${runId}`});
   const cookieHeader=request.headers.get("cookie");if(cookieHeader)headers.set("cookie",cookieHeader);
@@ -305,7 +306,8 @@ async function createPlan({request,env,ctx,coreFetch,auth}){
       const proposal={...row,sourceRefs:JSON.parse(row.source_refs_json||"[]"),source_refs_json:undefined};
       return {...proposal,outcomeLearning:associationForProposal(proposal,outcomeAssociations)};
     }),
-    architecture:{agentKey:"thebe",singleAgent:true,orchestrationVersion:orchestration.version,fanOut:orchestration.fanOut,session:orchestration.session},\n    authority:{executionEnabled:false,humanApprovalRequired:true,prohibitedAutonomy:PROHIBITED_AUTONOMY}
+    architecture:{agentKey:"thebe",singleAgent:true,orchestrationVersion:orchestration.version,fanOut:orchestration.fanOut,session:orchestration.session},
+    authority:{executionEnabled:false,humanApprovalRequired:true,prohibitedAutonomy:PROHIBITED_AUTONOMY}
   },201);
 }
 
