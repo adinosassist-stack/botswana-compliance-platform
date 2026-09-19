@@ -733,7 +733,7 @@
   "control_replacement_no_people_scoring": true,
   "control_replacement_no_second_notification_stream": true,
   "control_replacement_fail_closed": true,
-  "latest_cloudflare_migration": "047_v81_delegated_authority.sql",
+  "latest_cloudflare_migration": "048_v102_bounded_internal_task_execution.sql",
   "agentic_foundation_v80": true,
   "agentic_execution_enabled": false,
   "agentic_human_approval_required": true,
@@ -1146,5 +1146,10 @@
   "cloudflare_keep_vars_for_optional_dashboard_config": true,
   "v80_agentic_outcome_measurement": true,
   "agentic_stage2_execution_enabled": false,
-  "agentic_stage2_external_side_effects": false
+  "agentic_stage2_external_side_effects": false,
+  "bounded_internal_task_execution_v102": true,
+  "bounded_internal_task_execution_default_enabled": false,
+  "bounded_internal_task_execution_external_side_effects": false,
+  "bounded_internal_task_execution_owner_approval_required": true,
+  "bounded_internal_task_execution_runtime_guard_required": true
 }
