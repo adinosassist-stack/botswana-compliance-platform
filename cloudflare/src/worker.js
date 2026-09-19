@@ -484,10 +484,6 @@ async function currentPlan(env,tenantId){
   const r=await env.DB.prepare("SELECT plan,status FROM subscriptions WHERE tenant_id=? LIMIT 1").bind(tenantId).first();
   return r||{plan:"starter",status:"trialing"};
 }
-async function applyPaidCreditOrder(env,tenantId,orderId){
-  return {ok:false,error:"legacy_ai_credit_settlement_disabled_use_payment_orders",tenantId,orderId};
-}
-
 const AI_CREDIT_COSTS={
   tender_analysis:25,
   policy_draft:8,
@@ -1240,10 +1236,6 @@ async function applySuccessfulRefund(env,order,refundId){
   return {ok:true,reversalStatus};
 }
 
-async function settlePaymentOrder(env,orderId,provider,providerPaymentId){
-  return {ok:false,error:"direct_settlement_disabled_use_provider_verification",orderId,provider,providerPaymentId:providerPaymentId||null};
-}
-
 
 function xmlEscape(v){
   return String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&apos;");
@@ -1406,9 +1398,6 @@ async function incrementUsage(env,tenantId,counterKey,periodKey="lifetime",amoun
 }
 
 
-async function requireRegulatoryReviewer(a){
-  return roleAllowed(a,"owner","reviewer");
-}
 async function ruleSourcesApproved(env,sourceIds){
   if(!Array.isArray(sourceIds)||!sourceIds.length)return {ok:false,error:"approved_source_required"};
   const qs=sourceIds.map(()=>"?").join(",");
@@ -1616,9 +1605,6 @@ async function reporterAccessFromToken(env,token){
     JOIN operating_locations l ON l.id=a.location_id AND l.tenant_id=a.tenant_id
     JOIN tenants t ON t.id=a.tenant_id
     WHERE a.token_hash=? AND a.status='active' AND a.expires_at>CURRENT_TIMESTAMP AND e.status='active' AND l.active=1 LIMIT 1`).bind(hash).first();
-}
-function reportRowSnapshot(row){
-  return {workSummary:row.work_summary,wins:row.wins,blockers:row.blockers,incidents:row.incidents,nextPlan:row.next_plan,kpis:safeJson(row.kpi_json,{}),needsAttention:!!row.needs_attention,updatedAt:row.updated_at};
 }
 function dailyReportPayloadMatches(row,payload){
   if(!row)return false;
@@ -2063,7 +2049,6 @@ async function executiveControlPreventivePatternRows(env,tenantId){return env.DB
 // v78 1.21.45 — control replacement governance. A weak control must be explicitly retired and replaced; the governance record is control-level, never a people score.
 function executiveControlReplacementGovernanceView(row){if(!row)return null;const dueMs=Date.parse(String(row.implementation_due_at||""));return {id:row.id,preventivePatternId:row.preventive_pattern_id,interventionId:row.intervention_id,status:row.status,retiredControl:row.retired_control,replacementControl:row.replacement_control,strongerReason:row.stronger_reason,transitionRisk:row.transition_risk,transitionMitigation:row.transition_mitigation,ownerUserId:row.owner_user_id||null,ownerName:row.owner_name_snapshot,implementationDueAt:row.implementation_due_at,overdue:String(row.status)==="planned"&&Number.isFinite(dueMs)&&dueMs<Date.now(),replacementCorrectiveActionId:row.replacement_corrective_action_id||null,retirementEvidence:row.retirement_evidence||null,retirementNote:row.retirement_note||null,retiredAt:row.retired_at||null,verifiedAt:row.verified_at||null,openedAt:row.opened_at,oldControlNoLongerReliedUpon:["retired","verified"].includes(String(row.status)),controlDesignGovernanceOnly:true,noPeopleScore:true};}
 async function executiveControlReplacementGovernanceRows(env,tenantId){return env.DB.prepare(`SELECT * FROM executive_control_replacement_governance WHERE tenant_id=? ORDER BY opened_at DESC,rowid DESC LIMIT 100`).bind(tenantId).all();}
-async function executiveControlReplacementGovernanceLatest(env,tenantId,patternId){return env.DB.prepare(`SELECT * FROM executive_control_replacement_governance WHERE tenant_id=? AND preventive_pattern_id=? ORDER BY CASE status WHEN 'planned' THEN 1 WHEN 'retired' THEN 2 ELSE 3 END,opened_at DESC,rowid DESC LIMIT 1`).bind(tenantId,patternId).first();}
 async function ensureExecutiveControlPreventivePattern(env,tenantId,interventionId,stats){
   let row=await env.DB.prepare('SELECT * FROM executive_control_preventive_patterns WHERE tenant_id=? AND intervention_id=? LIMIT 1').bind(tenantId,interventionId).first();if(!stats?.replacementRequired)return row;const sid=row?.id||id(),payload=JSON.stringify({triggerCounts:stats.triggerCounts,preventiveActionCount:stats.preventiveActionCount,failedEffectivenessCount:stats.failedEffectivenessCount,supersededActionCount:stats.supersededActionCount,repeatedTriggerKind:stats.repeatedTriggerKind,repeatedTriggerCount:stats.repeatedTriggerCount});
   if(!row){await env.DB.prepare(`INSERT INTO executive_control_preventive_patterns(id,tenant_id,intervention_id,status,lookback_days,preventive_action_count,failed_effectiveness_count,superseded_action_count,repeated_trigger_kind,repeated_trigger_count,severity,reason,stats_json) VALUES(?,?,?,'replacement_required',180,?,?,?,?,?,?,?,?)`).bind(sid,tenantId,interventionId,stats.preventiveActionCount,stats.failedEffectivenessCount,stats.supersededActionCount,stats.repeatedTriggerKind,stats.repeatedTriggerCount,stats.severity,stats.reason,payload).run();await writeAudit(env,tenantId,null,'EXECUTIVE_CONTROL_PREVENTIVE_PATTERN_DETECTED',{preventivePatternId:sid,interventionId,lookbackDays:180,preventiveActionCount:stats.preventiveActionCount,failedEffectivenessCount:stats.failedEffectivenessCount,supersededActionCount:stats.supersededActionCount,repeatedTriggerKind:stats.repeatedTriggerKind,repeatedTriggerCount:stats.repeatedTriggerCount,severity:stats.severity,reason:stats.reason,controlDesignSignalOnly:true,noEmployeeScore:true,noManagerRanking:true,noDisciplinaryInference:true,noExternalNotificationCreated:true});}
@@ -4116,7 +4101,6 @@ async function regulatorySourceFingerprint(env,sourceIds){
   }))));
 }
 async function openConflictForSources(env,sourceIds){if(!Array.isArray(sourceIds)||!sourceIds.length)return null;const qs=sourceIds.map(()=>"?").join(",");const normalized=await env.DB.prepare(`SELECT c.id,c.topic_key FROM regulatory_conflicts c JOIN regulatory_conflict_sources s ON s.conflict_id=c.id WHERE c.status='open' AND s.source_id IN (${qs}) LIMIT 1`).bind(...sourceIds).first();if(normalized)return normalized;const legacy=await env.DB.prepare("SELECT id,topic_key,source_ids_json FROM regulatory_conflicts WHERE status='open' LIMIT 500").all();return (legacy.results||[]).find(c=>safeJson(c.source_ids_json,[]).some(x=>sourceIds.includes(x)))||null;}
-async function queueRegulatoryRollout(env,ruleId){const existing=await env.DB.prepare("SELECT id FROM regulatory_rollout_runs WHERE rule_id=? AND status IN ('queued','running') ORDER BY created_at DESC LIMIT 1").bind(ruleId).first();if(existing)return existing.id;const runId=id();await env.DB.prepare("INSERT INTO regulatory_rollout_runs(id,rule_id,status,next_run_at) VALUES(?,?,'queued',CURRENT_TIMESTAMP)").bind(runId,ruleId).run();return runId;}
 async function processRegulatoryRollout(env,runId,limit=100){const run=await env.DB.prepare("SELECT * FROM regulatory_rollout_runs WHERE id=? LIMIT 1").bind(runId).first();if(!run||!["queued","running"].includes(run.status))return {ok:false,error:"rollout_not_runnable"};const rule=await env.DB.prepare("SELECT * FROM regulatory_rules WHERE id=? AND status='published' LIMIT 1").bind(run.rule_id).first();if(!rule)return {ok:false,error:"published_rule_not_found"};await env.DB.prepare("UPDATE regulatory_rollout_runs SET status='running',started_at=COALESCE(started_at,CURRENT_TIMESTAMP) WHERE id=?").bind(runId).run();const cursor=String(run.cursor_tenant_id||""),page=await env.DB.prepare("SELECT id FROM tenants WHERE id>? ORDER BY id LIMIT ?").bind(cursor,limit).all();let evaluated=0,created=0,failed=0,last=cursor;for(const t of page.results||[]){last=t.id;try{const result=await evaluateRuleForTenant(env,rule,t.id);evaluated++;created+=Number(result.obligationsCreated||0);await env.DB.prepare("UPDATE regulatory_rollout_failures SET resolved_at=CURRENT_TIMESTAMP WHERE rollout_id=? AND tenant_id=? AND resolved_at IS NULL").bind(runId,t.id).run();}catch(e){failed++;await env.DB.prepare(`INSERT INTO regulatory_rollout_failures(id,rollout_id,tenant_id,error_message,attempts,last_attempt_at) VALUES(?,?,?,?,1,CURRENT_TIMESTAMP) ON CONFLICT(rollout_id,tenant_id) DO UPDATE SET error_message=excluded.error_message,attempts=regulatory_rollout_failures.attempts+1,last_attempt_at=CURRENT_TIMESTAMP,resolved_at=NULL`).bind(id(),runId,t.id,String(e).slice(0,500)).run();}}const done=(page.results||[]).length<limit,status=done?"completed":"queued";await env.DB.prepare(`UPDATE regulatory_rollout_runs SET cursor_tenant_id=?,tenants_evaluated=tenants_evaluated+?,obligations_created=obligations_created+?,tenants_failed=tenants_failed+?,status=?,completed_at=CASE WHEN ?='completed' THEN CURRENT_TIMESTAMP ELSE completed_at END,next_run_at=CASE WHEN ?='completed' THEN NULL ELSE datetime('now','+1 minute') END WHERE id=?`).bind(last,evaluated,created,failed,status,status,status,runId).run();return {ok:true,runId,evaluated,obligationsCreated:created,failed,completed:done,lastCursor:last};}
 async function retryRegulatoryRolloutFailures(env,limit=25){
   const failures=await env.DB.prepare(`SELECT f.id,f.rollout_id,f.tenant_id,f.attempts,r.rule_id FROM regulatory_rollout_failures f JOIN regulatory_rollout_runs r ON r.id=f.rollout_id WHERE f.resolved_at IS NULL AND f.attempts<5 ORDER BY f.last_attempt_at LIMIT ?`).bind(limit).all();let resolved=0,failed=0;for(const f of failures.results||[]){try{const rule=await env.DB.prepare("SELECT * FROM regulatory_rules WHERE id=? AND status='published' LIMIT 1").bind(f.rule_id).first();if(!rule)throw new Error("published_rule_not_found");await evaluateRuleForTenant(env,rule,f.tenant_id);await env.DB.prepare("UPDATE regulatory_rollout_failures SET resolved_at=CURRENT_TIMESTAMP,last_attempt_at=CURRENT_TIMESTAMP WHERE id=?").bind(f.id).run();resolved++;}catch(e){failed++;await env.DB.prepare("UPDATE regulatory_rollout_failures SET attempts=attempts+1,error_message=?,last_attempt_at=CURRENT_TIMESTAMP WHERE id=?").bind(String(e).slice(0,500),f.id).run();}}return {resolved,failed};
