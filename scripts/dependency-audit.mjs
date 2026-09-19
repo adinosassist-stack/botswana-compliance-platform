@@ -24,6 +24,21 @@ export function classifyNpmAudit(result){
   return {kind:'infrastructure',parsed,stdout,stderr,status:Number(result?.status||1)};
 }
 
+function componentNameFromLockPath(pkgPathKey){
+  return String(pkgPathKey||'').split('node_modules/').pop();
+}
+
+export function productionLockedComponents(lock){
+  const found=new Map();
+  for(const [pkgPathKey,meta] of Object.entries(lock?.packages||{})){
+    if(!pkgPathKey||!meta?.version||meta.dev===true)continue;
+    const name=componentNameFromLockPath(pkgPathKey),version=String(meta.version);
+    if(!name||!version)continue;
+    found.set(`${name}@${version}`,{name,version});
+  }
+  return [...found.values()].sort((a,b)=>`${a.name}@${a.version}`.localeCompare(`${b.name}@${b.version}`));
+}
+
 export function buildAffectChunks(components,budget=AFFECT_QUERY_BUDGET){
   const specs=[...new Set((components||[]).map(c=>`${c.name}@${c.version}`))].sort();
   const chunks=[];let current=[],size=0;
@@ -107,7 +122,7 @@ function vulnerabilitySummary(parsed){
 }
 
 async function main(){
-  const npmResult=spawnSync('npm',['audit','--json','--audit-level=high'],{
+  const npmResult=spawnSync('npm',['audit','--omit=dev','--json','--audit-level=high'],{
     cwd:process.cwd(),encoding:'utf8',maxBuffer:20*1024*1024,env:process.env
   });
   if(npmResult.error)throw npmResult.error;
@@ -123,7 +138,8 @@ async function main(){
   }
 
   console.warn(`npm audit service failed; using fail-closed GitHub Advisory Database fallback. npm status=${classified.status} stderr=${safe(classified.stderr,1500)}`);
-  const {components}=validateLockAndBuildSbom(process.cwd());
+  const {lock}=validateLockAndBuildSbom(process.cwd());
+  const components=productionLockedComponents(lock);
   const fallback=await auditLockedComponentsWithGitHub({components});
   if(fallback.advisories.length){
     for(const advisory of fallback.advisories){
@@ -131,7 +147,7 @@ async function main(){
     }
     throw new Error(`Dependency audit fallback found ${fallback.advisories.length} high/critical reviewed or malware advisory match(es)`);
   }
-  console.log(`Dependency audit fallback passed: ${fallback.checked} exact registry-locked npm components checked against GitHub reviewed high/critical and malware advisories`);
+  console.log(`Dependency audit fallback passed: ${fallback.checked} exact production registry-locked npm components checked against GitHub reviewed high/critical and malware advisories`);
 }
 
 const isMain=process.argv[1]&&pathToFileURL(process.argv[1]).href===import.meta.url;
