@@ -20,7 +20,10 @@ function mockDb({role='owner',proposal={id:'p1',run_id:'r1',status:'pending'},de
         async run(){call.kind='run';return {success:true,meta:{changes:sql.startsWith('UPDATE agentic_proposals')?decisionChanges:1}}}
       };
     },
-    async batch(statements){calls.push({sql:'__batch__',bindings:[],kind:'batch',count:statements.length});return statements.map(()=>({success:true}))}
+    async batch(statements){
+      calls.push({sql:'__batch__',bindings:[],kind:'batch',count:statements.length});
+      return statements.map((_,index)=>({success:true,meta:{changes:index===0?decisionChanges:(decisionChanges===1?1:0)}}));
+    }
   };
   return DB;
 }
@@ -91,6 +94,7 @@ const call=async({path,method='GET',headers,DB=mockDb(),role,proposal}={})=>{
   assert.ok(update,'owner approval records the decision');
   assert.deepEqual(update.bindings,['approved','u1','p1','tenant-A']);
   assert.ok(DB.calls.some(x=>x.sql.includes('INSERT INTO agentic_events')),'approval creates an audit event');
+  assert.ok(DB.calls.some(x=>x.kind==='batch'&&x.count===2),'proposal decision and audit event must commit in one D1 batch');
   assert.equal(DB.calls.some(x=>/execute|payment|journal|payroll/i.test(x.sql)&&!x.sql.includes('agentic_proposals')),false,'approval must not dispatch a side-effect query');
 }
 
@@ -108,7 +112,7 @@ const call=async({path,method='GET',headers,DB=mockDb(),role,proposal}={})=>{
   assert.equal(response.status,409);
   assert.equal(body.error,'agentic_proposal_already_decided');
   assert.equal(body.status,'rejected');
-  assert.equal(DB.calls.some(x=>x.sql.includes('INSERT INTO agentic_events')),false,'lost proposal-decision races must not emit false audit events');
+  assert.ok(DB.calls.some(x=>x.sql.includes('INSERT INTO agentic_events')&&x.sql.includes('WHERE changes()=1')),'lost proposal-decision races keep the audit insert conditional on the compare-and-set winner');
 }
 
 {
