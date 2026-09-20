@@ -387,9 +387,14 @@ jobs:
             OPERATIONS_SECRET AUTOMATION_SECRET TURNSTILE_SECRET_KEY PAYMENT_WEBHOOK_SECRET BILLING_WEBHOOK_SECRET
             OPENAI_API_KEY
           )
+          missing_secrets=()
           for key in "${required_secrets[@]}"; do
-            [[ -n "${!key:-}" ]] || { echo "Missing required production secret: $key" >&2; exit 1; }
+            [[ -n "${!key:-}" ]] || missing_secrets+=("$key")
           done
+          if (( ${#missing_secrets[@]} > 0 )); then
+            printf 'Missing required production secret(s): %s\n' "${missing_secrets[*]}" >&2
+            exit 1
+          fi
           [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[0-9a-fA-F]{32}$ ]] || { echo 'CLOUDFLARE_ACCOUNT_ID must be a 32-character account identifier' >&2; exit 1; }
 
           google_enabled=false
