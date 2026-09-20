@@ -19,6 +19,12 @@ REGISTRATION_MODE = "open"
 AI_FEATURES_DEFAULT = "on"
 AI_REPORT_MODEL = "@cf/zai-org/glm-4.7-flash"
 AGENT_BOUNDED_TASK_EXECUTION_MODE = "platform_admin_canary"
+THEBE_LIVE_VOICE_ENABLED = "false"
+THEBE_LIVE_VOICE_MAX_STARTS_PER_HOUR = "6"
+THEBE_LIVE_VOICE_MAX_USER_STARTS_PER_HOUR = "4"
+THEBE_LIVE_VOICE_MAX_SESSION_SECONDS = "600"
+THEBE_LIVE_VOICE_UPSTREAM_TIMEOUT_MS = "12000"
+THEBE_LIVE_VOICE_FAILURE_CIRCUIT_THRESHOLD = "3"
 PAYMENT_PROVIDER = "none"
 TRIAL_DAYS = "14"
 MAX_UPLOAD_MB = "3.5"
@@ -83,6 +89,12 @@ crons = ["15 6 * * *", "15 16 * * *"]
 # PUBLIC_APP_URL and PUBLIC_ORIGIN must resolve to the same final HTTPS app origin.
 # PUBLIC_ORIGIN is required for fail-closed browser-origin enforcement.
 
+# GPT-Live-1 voice foundation
+# Production remains explicitly disabled until OPENAI_API_KEY is installed as a Worker secret
+# and THEBE_LIVE_VOICE_ENABLED is changed through a separately reviewed activation release.
+# The default controls cap workspace/user session starts, bound each browser session to 10 minutes,
+# time out upstream session creation, and open a short failure circuit after repeated provider errors.
+# Set with: npx wrangler secret put OPENAI_API_KEY
 # Bounded task execution canary
 # Only authenticated workspace owners whose email is already present in PLATFORM_ADMIN_EMAILS
 # can execute the internal task.create lane. All other customer sessions fail closed.
