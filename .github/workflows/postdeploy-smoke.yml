@@ -138,6 +138,10 @@ jobs:
           assert.equal(authority.status,401); assert.equal((await authority.json()).error,'unauthenticated');
           console.log('PASS V81 delegated-authority authentication boundary');
 
+          const liveVoice=await get('/api/agentic/live/status');
+          assert.equal(liveVoice.status,401); assert.equal((await liveVoice.json()).error,'unauthenticated');
+          console.log('PASS GPT-Live voice authentication boundary');
+
           for(const path of ['/robots.txt','/sitemap.xml','/manifest.webmanifest']){
             const response=await get(path); assert.equal(response.status,200,`${path} HTTP ${response.status}`);
           }
