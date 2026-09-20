@@ -389,6 +389,13 @@ jobs:
           for key in "${required_secrets[@]}"; do
             [[ -n "${!key:-}" ]] || { echo "Missing required production secret: $key" >&2; exit 1; }
           done
+          live_voice_enabled="$(sed -n 's/^[[:space:]]*THEBE_LIVE_VOICE_ENABLED[[:space:]]*=[[:space:]]*"\([^"]*\)"[[:space:]]*$/\1/p' "$PROD_CONFIG")"
+          if [[ "$live_voice_enabled" == 'true' ]]; then
+            [[ -n "${OPENAI_API_KEY:-}" ]] || { echo 'OPENAI_API_KEY is required when THEBE_LIVE_VOICE_ENABLED=true' >&2; exit 1; }
+          elif [[ "$live_voice_enabled" != 'false' ]]; then
+            echo "Invalid THEBE_LIVE_VOICE_ENABLED value: ${live_voice_enabled:-<missing>}" >&2
+            exit 1
+          fi
           [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[0-9a-fA-F]{32}$ ]] || { echo 'CLOUDFLARE_ACCOUNT_ID must be a 32-character account identifier' >&2; exit 1; }
 
           google_enabled=false
