@@ -69,6 +69,13 @@ assert.equal(liveTest.liveGate(readyEnv,{tenantStarts:6,userStarts:0,recentFailu
 assert.equal(liveTest.liveGate(readyEnv,{tenantStarts:0,userStarts:4,recentFailures:0}).code,"user_session_rate_limited");
 assert.equal(liveTest.liveGate(readyEnv,{tenantStarts:0,userStarts:0,recentFailures:3}).code,"live_failure_circuit_open");
 
+assert.equal(liveTest.validGovernedPlanPayload({ok:true,run:{id:"run-1",status:"completed"},proposals:[]}),true);
+assert.equal(liveTest.validGovernedPlanPayload({ok:true,run:{id:null,status:"completed"},proposals:[]}),false);
+assert.equal(liveTest.validGovernedPlanPayload({ok:true,run:{id:"run-1",status:"completed"}}),false);
+assert.equal(liveTest.validGovernedPlanPayload(null),false);
+assert.match(backend,/governed_backend_invalid_response/);
+assert.match(backend,/delegated_business_work_invalid_response/);
+
 assert.match(client,/RTCPeerConnection/);
 assert.match(client,/navigator\.mediaDevices\?\.getUserMedia/);
 assert.match(client,/createDataChannel\("oai-events"\)/);
