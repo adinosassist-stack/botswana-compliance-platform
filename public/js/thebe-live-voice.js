@@ -479,8 +479,8 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260920b";
-  const STORE_KEY="thebe_ai_dock_collapsed";
+  const DOCK_RELEASE="20260920c";
+  const STORE_KEY="thebe_ai_dock_collapsed_v2";
   const MAX_QUESTION=1000;
   let dock=null,pill=null,orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,input=null,sendButton=null,attentionButton=null;
   let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",collapsed=false;
@@ -532,7 +532,18 @@
     const visible=shellVisible();
     dock.hidden=!visible||collapsed;
     pill.hidden=!visible||!collapsed;
+    dock.dataset.workspaceVisible=visible?"1":"0";
+    pill.dataset.workspaceVisible=visible?"1":"0";
     document.body.classList.toggle("thebe-ai-dock-open",visible&&!collapsed);
+  }
+  function recoverVisibility(){
+    if(!dock||!pill)return;
+    syncVisibility();
+    if(shellVisible()&&!collapsed){
+      dock.hidden=false;
+      pill.hidden=true;
+      document.body.classList.add("thebe-ai-dock-open");
+    }
   }
   function setPhase(phase,label,sub){
     voicePhase=phase||"idle";
@@ -622,7 +633,8 @@
   }
   function mount(){
     if(document.getElementById("thebeAiDock"))return;
-    collapsed=safeSessionGet(STORE_KEY)==="1"||(safeSessionGet(STORE_KEY)===null&&innerWidth<760);
+    const storedCollapse=safeSessionGet(STORE_KEY);
+    collapsed=storedCollapse==="1"||(storedCollapse===null&&innerWidth<680);
 
     dock=el("section","thebe-ai-dock");
     dock.id="thebeAiDock";
@@ -701,6 +713,10 @@
     const alerts=document.getElementById("navAlerts");
     if(alerts)new MutationObserver(syncAttention).observe(alerts,{childList:true,characterData:true,subtree:true});
     global.addEventListener("resize",syncVisibility,{passive:true});
+    global.addEventListener("pageshow",recoverVisibility,{passive:true});
+    global.addEventListener("focus",recoverVisibility,{passive:true});
+    global.addEventListener("thebe:workspace-ready",recoverVisibility);
+    if(typeof global.whenThebeWorkspaceReady==="function")global.whenThebeWorkspaceReady(recoverVisibility);
   }
 
   global.addEventListener("thebe-live-state",event=>{
@@ -763,7 +779,10 @@
 
   function boot(){
     mount();
-    setTimeout(syncVisibility,0);
+    setTimeout(recoverVisibility,0);
+    setTimeout(recoverVisibility,350);
+    setTimeout(recoverVisibility,1200);
+    setTimeout(recoverVisibility,3000);
   }
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});else boot();
 
@@ -772,6 +791,6 @@
     open:()=>setCollapsed(false),
     close:()=>setCollapsed(true),
     ask:(question,mode="ask")=>ask(mode,question),
-    state:()=>({collapsed,voicePhase,textBusy,context:activeContext()})
+    state:()=>({collapsed,voicePhase,textBusy,workspaceVisible:shellVisible(),dockHidden:dock?.hidden??true,pillHidden:pill?.hidden??true,context:activeContext()})
   });
 })(window);
