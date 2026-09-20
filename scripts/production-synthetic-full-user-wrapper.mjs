@@ -148,6 +148,9 @@ async function runFullUserJourney(credentials){
     });
     const billingInactive=marketingVoiceStart?.data?.providerCode==='billing_not_active'||marketingVoiceStart?.data?.providerType==='billing_not_active';
     if(billingInactive){
+      for(let index=apiServerFailures.length-1;index>=0;index--){
+        if(/^POST \/api\/agentic\/live\/marketing\/session HTTP 502$/.test(apiServerFailures[index]))apiServerFailures.splice(index,1);
+      }
       mark('Thebe public voice sample','DEFERRED provider billing inactive; public marketing voice path reached OpenAI and failed with explicit billing_not_active');
       await page.waitForFunction(()=>globalThis.ThebeLiveVoice?.status?.().state==='idle',null,{timeout:20000}).catch(()=>{});
     }else{
