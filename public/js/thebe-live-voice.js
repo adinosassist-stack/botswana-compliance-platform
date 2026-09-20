@@ -1,9 +1,9 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260920a";
+  const RELEASE="20260920b";
   const MAX_TRANSCRIPT_CHARS=6000;
-  let pc=null,dc=null,media=null,remoteAudio=null,sessionId=null,closeTimer=null;
+  let pc=null,dc=null,media=null,remoteAudio=null,sessionId=null,closeTimer=null,sessionTimer=null;
   let inputTranscript="",outputTranscript="",state="idle",button=null,transcriptRevision=0;
   const activeDelegations=new Set();
 
@@ -151,6 +151,12 @@
         body:JSON.stringify({sdp:pc.localDescription?.sdp||offer.sdp})
       });
       sessionId=text(session?.session?.id,240)||null;
+      const maxSeconds=Math.max(60,Math.min(3600,Number(session?.session?.maxSeconds||status?.maxSessionSeconds||600)));
+      if(sessionTimer)clearTimeout(sessionTimer);
+      sessionTimer=setTimeout(()=>{
+        emit("thebe-live-session-limit",{sessionId,maxSeconds});
+        stop();
+      },maxSeconds*1000);
       const answerSdp=String(session?.transport?.sdp||"");
       if(!answerSdp)throw new Error("Thebe live session did not return a WebRTC answer.");
       await pc.setRemoteDescription({type:"answer",sdp:answerSdp});
@@ -168,6 +174,7 @@
     try{if(remoteAudio){remoteAudio.srcObject=null;remoteAudio.remove()}}catch{}
     pc=null;dc=null;media=null;remoteAudio=null;sessionId=null;
     if(closeTimer){clearTimeout(closeTimer);closeTimer=null}
+    if(sessionTimer){clearTimeout(sessionTimer);sessionTimer=null}
     activeDelegations.clear();
     setState(nextState);
   }
