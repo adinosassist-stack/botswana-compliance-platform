@@ -40,6 +40,8 @@ OPENAI_API_KEY=
 
 `OPENAI_API_KEY` must be provided as a deployment secret. Never place a real key in source control or browser code.
 
+For production, store the key in the GitHub `production` environment as the secret `OPENAI_API_KEY`. The governed production workflow forwards it into Wrangler's temporary secrets file only when configured; the key is never written to the repository. The production voice flag remains off until a separate activation release passes the promotion gate.
+
 The default preview guardrails permit at most 6 session starts per workspace per hour and 4 per user per hour, cap a browser session at 10 minutes, abort an upstream session-creation request after 12 seconds, and temporarily stop new sessions after 3 recent provider/session failures in 10 minutes.
 
 ## Routes
