@@ -1,32 +1,30 @@
-# Thebe Desk — GPT-Live-1 Voice Foundation
+# Thebe Desk — Live Voice (OpenAI Realtime GA)
 
 ## Purpose
 
-Thebe Live adds a real-time voice transport to the existing single canonical Thebe agent. It does not create a second agent, a second permission model, or a voice-only execution path.
+Thebe Live adds a low-latency voice interface to the existing single canonical Thebe agent. It does not create a second business agent, a second permission model, or a voice-only execution path.
 
 The architecture is:
 
-`Owner voice -> GPT-Live-1 -> client delegation -> governed Thebe backend -> capability routing -> deterministic policy -> approval/runtime guard -> result -> GPT-Live-1 commentary`
+`Owner voice -> OpenAI Realtime WebRTC -> function call -> governed Thebe backend -> capability routing -> deterministic policy -> approval/runtime guard -> function result -> spoken response`
 
-## Phase 0 posture
-
-The feature is disabled by default.
+## Production posture
 
 - Browser transport: WebRTC.
-- Live model: `gpt-live-1`.
-- Delegation mode: client delegation.
+- Realtime API: GA `POST /v1/realtime/calls`.
+- Voice model: `gpt-realtime-1.5`.
+- Business delegation: Realtime function tool `delegate_to_thebe_backend`.
 - API key: server side only.
-- Business work: delegated to the existing `/api/agentic/plan` flow.
+- Business work: delegated to the existing governed `/api/agentic/plan` flow.
 - Raw microphone audio: not stored by Thebe.
-- General live transcript: kept in browser memory by default.
-- Delegated business request text: may become the governed agentic run goal and therefore becomes part of the existing auditable run record.
-- Voice cannot create permissions or bypass tenant scope, delegated authority, the runtime kill switch, approvals or the Runtime Guard.
-- High-risk actions remain human-only.
-- A spoken interruption does not prove that backend work was cancelled.
+- Browser receives only the WebRTC answer/session metadata, never `OPENAI_API_KEY`.
+- Voice cannot create permissions or bypass tenant scope, delegated authority, the runtime kill switch, approvals, or the Runtime Guard.
+- High-risk actions remain human-controlled.
+- A spoken interruption invalidates a pending delegated result for speech purposes; stale results are returned to the model as stale and must not be presented as current.
 
 ## Server configuration
 
-Keep the feature disabled until production qualification is complete:
+The local/example environment remains off by default:
 
 ```
 THEBE_LIVE_VOICE_ENABLED=0
@@ -38,11 +36,23 @@ THEBE_LIVE_VOICE_FAILURE_CIRCUIT_THRESHOLD=3
 OPENAI_API_KEY=
 ```
 
-`OPENAI_API_KEY` must be provided as a deployment secret. Never place a real key in source control or browser code.
+Production activation is controlled by the reviewed Cloudflare config, where `THEBE_LIVE_VOICE_ENABLED=true`. `OPENAI_API_KEY` is required as a GitHub `production` environment secret and is injected only into the Worker secret set during the governed deploy. Never commit a real key or expose it to browser code.
 
-For production, store the key in the GitHub `production` environment as the secret `OPENAI_API_KEY`. The governed production workflow forwards it into Wrangler's temporary secrets file only when configured; the key is never written to the repository. The production voice flag remains off until a separate activation release passes the promotion gate.
+The production guardrails permit at most 6 session starts per workspace per hour and 4 per user per hour, cap each browser session at 10 minutes, abort upstream session creation after 12 seconds, and temporarily stop new sessions after 3 recent provider/session failures in 10 minutes.
 
-The default preview guardrails permit at most 6 session starts per workspace per hour and 4 per user per hour, cap a browser session at 10 minutes, abort an upstream session-creation request after 12 seconds, and temporarily stop new sessions after 3 recent provider/session failures in 10 minutes.
+## OpenAI Realtime session contract
+
+The trusted Worker creates the WebRTC call with a multipart request containing:
+
+- the browser SDP offer;
+- a Realtime session with `type: "realtime"`;
+- model `gpt-realtime-1.5`;
+- audio output enabled;
+- the single `delegate_to_thebe_backend` function tool;
+- `tool_choice: "auto"`;
+- a privacy-preserving `OpenAI-Safety-Identifier` derived from the authenticated tenant/user identity.
+
+The Realtime model may converse directly for general dialogue. For current company facts, finance, compliance, operations, customers, business analysis, or governed actions, it is instructed to call `delegate_to_thebe_backend`.
 
 ## Routes
 
@@ -54,28 +64,32 @@ All routes require an authenticated owner or manager. Mutating requests retain o
 
 ## Browser behavior
 
-The browser client is inert unless the server reports that live voice is enabled, configured and not paused by the agent runtime kill switch. When eligible, the Owner Command Centre receives a **Talk to Thebe** preview button.
+The browser client is inert unless the server reports that live voice is enabled, configured, within rate limits, and not paused by the runtime kill switch. When eligible, the Owner Command Centre receives a **Talk to Thebe** button.
 
 The browser:
 
 1. requests microphone access only after the user presses the button;
 2. creates the WebRTC peer connection and `oai-events` data channel;
-3. sends the SDP offer to Thebe's trusted server;
-4. receives only the WebRTC answer/session metadata;
-5. collects transcript deltas in bounded browser memory;
-6. on `session.delegation.created`, sends the captured business request to the governed Thebe backend;
-7. sends the verified backend result back to the live model with `session.commentary.append`.
-8. suppresses a delegated result if newer user transcript arrives before the backend finishes, so stale work is not spoken as current.
+3. sends the SDP offer only to Thebe's trusted Worker;
+4. receives the SDP answer and attaches the Realtime media stream;
+5. listens to standard Realtime events such as `session.created`, `response.done`, and `response.output_audio_transcript.delta`;
+6. detects completed `function_call` output for `delegate_to_thebe_backend`;
+7. sends the requested business task to the governed Thebe backend;
+8. returns the verified result with `conversation.item.create` using `function_call_output`, then sends `response.create`;
+9. marks a delegated result stale if the user starts speaking again before the backend completes.
 
-## Promotion gate
+No custom or private Realtime event types are required.
 
-Do not enable the production flag until:
+## Promotion and rollback gate
 
-- live session tests pass on current Chrome/Edge mobile and desktop;
-- microphone permission denial/recovery is tested;
-- rate/cost limits are accepted;
-- delegated request grounding is reviewed;
-- interruption semantics are tested;
-- no API key or raw transcript leaks to browser logs;
-- runtime kill switch blocks new sessions;
-- 3-pass adversarial review passes.
+Production activation requires:
+
+- the GitHub production `OPENAI_API_KEY` secret;
+- exact-SHA Recovery CI, audit, runtime identity, release-chain, and Node/Postgres lifecycle checks;
+- no browser-visible API key;
+- server-side session rate and failure-circuit controls;
+- microphone-denial and WebRTC failure recovery remaining fail-closed;
+- runtime kill switch continuing to block new sessions;
+- a production post-deploy readiness check.
+
+Rollback is immediate at the configuration layer by setting `THEBE_LIVE_VOICE_ENABLED=false` in a reviewed release. The OpenAI key can remain stored server-side during rollback.
