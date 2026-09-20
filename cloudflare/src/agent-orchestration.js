@@ -29,7 +29,7 @@ function unit({id,capability,objective,sourceRefs,priority="medium"}){
   });
 }
 
-export function buildSingleAgentOrchestration({goal="",observation={}}={}){
+export function buildSingleAgentOrchestration({goal="",observation={},additionalSourceRefs=[]}={}){
   const workUnits=[];
   const finance=observation?.finance||{};
   const operations=observation?.operations||{};
@@ -91,7 +91,8 @@ export function buildSingleAgentOrchestration({goal="",observation={}}={}){
   const bounded=workUnits.slice(0,MAX_WORK_UNITS);
   const allowedSourceRefs=unique([
     "workspace_observation",
-    ...bounded.flatMap(item=>item.sourceRefs)
+    ...bounded.flatMap(item=>item.sourceRefs),
+    ...(Array.isArray(additionalSourceRefs)?additionalSourceRefs:[])
   ]);
 
   return Object.freeze({
