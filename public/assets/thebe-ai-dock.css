@@ -1,0 +1,67 @@
+/* Thebe Desk persistent AI dock — Phase 0
+   Lightweight companion UI for the existing governed advisor + Live Voice runtime. */
+:root{
+  --thebe-dock-w:352px;
+  --thebe-dock-bg:rgba(255,255,255,.985);
+  --thebe-dock-ink:#16201c;
+  --thebe-dock-muted:#6b756f;
+  --thebe-dock-line:#e2e7e4;
+  --thebe-dock-accent:#176b4f;
+  --thebe-dock-soft:#eef6f2;
+  --thebe-dock-shadow:0 24px 80px rgba(14,28,21,.18),0 3px 12px rgba(14,28,21,.08);
+}
+.thebe-ai-dock[hidden],.thebe-ai-pill[hidden]{display:none!important}
+.thebe-ai-dock{
+  position:fixed;z-index:72;right:18px;top:78px;bottom:18px;width:min(var(--thebe-dock-w),calc(100vw - 36px));
+  display:flex;flex-direction:column;overflow:hidden;background:var(--thebe-dock-bg);color:var(--thebe-dock-ink);
+  border:1px solid var(--thebe-dock-line);border-radius:18px;box-shadow:var(--thebe-dock-shadow);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)
+}
+.thebe-ai-dock-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 14px 10px;border-bottom:1px solid var(--thebe-dock-line)}
+.thebe-ai-dock-title{display:flex;align-items:center;gap:9px;min-width:0}
+.thebe-ai-mark{display:grid;place-items:center;width:30px;height:30px;border-radius:10px;background:#15211c;color:#fff;font-size:10px;font-weight:900;letter-spacing:.05em;flex:0 0 auto}
+.thebe-ai-title-copy{min-width:0}.thebe-ai-title-copy b{display:block;font-size:14px;letter-spacing:-.015em}.thebe-ai-presence{display:flex;align-items:center;gap:6px;color:var(--thebe-dock-muted);font-size:10px;margin-top:1px}
+.thebe-ai-presence-dot{width:6px;height:6px;border-radius:50%;background:#42a77d;box-shadow:0 0 0 3px rgba(66,167,125,.12)}
+.thebe-ai-head-actions{display:flex;align-items:center;gap:6px}.thebe-ai-icon-btn{width:31px;height:31px;border:1px solid var(--thebe-dock-line);border-radius:9px;background:#fff;color:#5e6963;cursor:pointer;font:inherit}.thebe-ai-icon-btn:hover,.thebe-ai-icon-btn:focus-visible{background:#f5f8f6;color:#18231e;outline:2px solid rgba(23,107,79,.18);outline-offset:1px}
+.thebe-ai-attention{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:#fff3dc;color:#805308;font-size:10px;font-weight:800;border:0;cursor:pointer}
+.thebe-ai-attention:empty{display:none}
+
+.thebe-ai-dock-scroll{overflow:auto;overscroll-behavior:contain;padding:13px 14px 12px;display:flex;flex-direction:column;gap:13px}
+.thebe-ai-voice-card{border:1px solid var(--thebe-dock-line);border-radius:16px;padding:13px;background:linear-gradient(180deg,#fbfdfc,#f7faf8)}
+.thebe-ai-orb-button{display:block;width:104px;height:104px;margin:0 auto 8px;border:0;background:transparent;border-radius:50%;padding:0;cursor:pointer}
+.thebe-ai-orb-button:focus-visible{outline:3px solid rgba(23,107,79,.2);outline-offset:3px}
+.thebe-particle-orb{position:relative;width:104px;height:104px;border-radius:50%;isolation:isolate}
+.thebe-particle-orb:before,.thebe-particle-orb:after{content:"";position:absolute;inset:23px;border-radius:50%;border:1px solid rgba(23,107,79,.18);opacity:.5;transform:scale(.88)}
+.thebe-particle-orb:after{inset:14px;opacity:.24}
+.thebe-particle-core{position:absolute;left:50%;top:50%;width:24px;height:24px;border-radius:50%;transform:translate(-50%,-50%);background:radial-gradient(circle at 40% 35%,#e9fff5 0 18%,#72cda7 30%,#176b4f 72%,#0d4532 100%);box-shadow:0 0 0 8px rgba(23,107,79,.07),0 0 28px rgba(23,107,79,.26)}
+.thebe-particle{position:absolute;width:5px;height:5px;border-radius:50%;background:#5eb992;opacity:.48;transform:translate(-50%,-50%) scale(.8)}
+.thebe-particle:nth-of-type(1){left:50%;top:7%}.thebe-particle:nth-of-type(2){left:72%;top:13%}.thebe-particle:nth-of-type(3){left:90%;top:31%}.thebe-particle:nth-of-type(4){left:94%;top:54%}.thebe-particle:nth-of-type(5){left:84%;top:77%}.thebe-particle:nth-of-type(6){left:62%;top:92%}.thebe-particle:nth-of-type(7){left:38%;top:92%}.thebe-particle:nth-of-type(8){left:16%;top:77%}.thebe-particle:nth-of-type(9){left:6%;top:54%}.thebe-particle:nth-of-type(10){left:10%;top:31%}.thebe-particle:nth-of-type(11){left:28%;top:13%}.thebe-particle:nth-of-type(12){left:50%;top:24%;width:4px;height:4px}
+
+@keyframes thebe-particle-listen{0%,100%{transform:translate(-50%,-50%) scale(.7);opacity:.35}45%{transform:translate(-50%,-50%) scale(1.65);opacity:1}}
+@keyframes thebe-particle-speak{0%{transform:translate(-50%,-50%) scale(.65);opacity:.25}50%{transform:translate(-50%,-50%) scale(1.9);opacity:1}100%{transform:translate(-50%,-50%) scale(.75);opacity:.32}}
+@keyframes thebe-ring-out{0%{transform:scale(.72);opacity:.48}100%{transform:scale(1.7);opacity:0}}
+@keyframes thebe-think-core{0%,100%{transform:translate(-50%,-50%) scale(.88);filter:saturate(.85)}50%{transform:translate(-50%,-50%) scale(1.08);filter:saturate(1.2)}}
+.thebe-particle-orb[data-phase="listening"] .thebe-particle{animation:thebe-particle-listen .72s ease-in-out infinite}
+.thebe-particle-orb[data-phase="listening"] .thebe-particle:nth-of-type(3n){animation-delay:.12s}.thebe-particle-orb[data-phase="listening"] .thebe-particle:nth-of-type(3n+1){animation-delay:.24s}
+.thebe-particle-orb[data-phase="speaking"] .thebe-particle{animation:thebe-particle-speak .54s ease-in-out infinite}
+.thebe-particle-orb[data-phase="speaking"]:before,.thebe-particle-orb[data-phase="speaking"]:after{animation:thebe-ring-out 1.15s ease-out infinite}
+.thebe-particle-orb[data-phase="speaking"]:after{animation-delay:.45s}
+.thebe-particle-orb[data-phase="thinking"] .thebe-particle-core,.thebe-particle-orb[data-phase="connecting"] .thebe-particle-core{animation:thebe-think-core 1.05s ease-in-out infinite}
+.thebe-particle-orb[data-phase="thinking"] .thebe-particle{opacity:.32}.thebe-particle-orb[data-phase="error"] .thebe-particle-core{background:#a5453b;box-shadow:0 0 0 8px rgba(165,69,59,.08),0 0 26px rgba(165,69,59,.22)}
+.thebe-ai-voice-label{text-align:center;font-weight:750;font-size:13px}.thebe-ai-voice-sub{text-align:center;color:var(--thebe-dock-muted);font-size:11px;min-height:17px;margin-top:2px}
+.thebe-ai-voice-mount{display:flex;flex-direction:column;align-items:center;gap:5px;margin-top:9px}.thebe-ai-voice-mount .btn{min-height:35px;padding:7px 12px;font-size:11px;border-radius:10px}.thebe-ai-voice-mount #thebeLiveVoiceStatus{font-size:10px;text-align:center;max-width:280px}
+.thebe-ai-live-transcript{margin-top:9px;padding-top:9px;border-top:1px solid var(--thebe-dock-line);font-size:11px;line-height:1.45;color:#45514b}.thebe-ai-live-transcript[hidden]{display:none}.thebe-ai-live-line+ .thebe-ai-live-line{margin-top:5px}.thebe-ai-live-line b{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:#7a8580;margin-right:5px}
+
+.thebe-ai-quick{display:grid;grid-template-columns:1fr 1fr;gap:7px}.thebe-ai-quick button{border:1px solid var(--thebe-dock-line);background:#fff;border-radius:10px;padding:8px 9px;text-align:left;font:inherit;font-size:11px;color:#34413b;cursor:pointer}.thebe-ai-quick button:hover,.thebe-ai-quick button:focus-visible{background:var(--thebe-dock-soft);border-color:#cfe2d9;outline:0}.thebe-ai-quick button small{display:block;color:#8a948f;margin-top:2px;font-size:9px}
+.thebe-ai-response{border:1px solid var(--thebe-dock-line);border-radius:13px;background:#fff;padding:11px;font-size:12px;line-height:1.55;color:#2e3934;min-height:72px}
+.thebe-ai-response[data-state="thinking"]{color:var(--thebe-dock-muted)}.thebe-ai-response-title{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:#839089;font-weight:800;margin-bottom:5px}.thebe-ai-response-answer{white-space:pre-wrap}.thebe-ai-action{margin-top:8px;padding:8px 9px;border-radius:9px;background:#f7f9f8;border-left:3px solid #809089}.thebe-ai-action b{display:block;font-size:11px}.thebe-ai-action span{display:block;color:#6d7772;margin-top:2px;font-size:10px}.thebe-ai-boundary{margin-top:8px;color:#7b8580;font-size:9px}
+.thebe-ai-open-full{margin-top:9px;border:0;background:transparent;color:var(--thebe-dock-accent);font:inherit;font-size:10px;font-weight:800;padding:0;cursor:pointer}
+.thebe-ai-compose{display:flex;gap:7px;align-items:flex-end;padding:11px 12px 12px;border-top:1px solid var(--thebe-dock-line);background:#fff}.thebe-ai-compose textarea{flex:1;min-width:0;min-height:38px;max-height:106px;resize:none;border:1px solid #dbe1de;border-radius:11px;padding:9px 10px;font:inherit;font-size:12px;line-height:1.35;background:#fbfcfb;color:#1e2823}.thebe-ai-compose textarea:focus{outline:2px solid rgba(23,107,79,.15);border-color:#a9c9ba}.thebe-ai-send{width:38px;height:38px;flex:0 0 38px;border:0;border-radius:11px;background:#173d30;color:#fff;cursor:pointer;font-size:16px}.thebe-ai-send:disabled{opacity:.45;cursor:default}
+.thebe-ai-foot{font-size:9px;color:#8a948f;padding:0 13px 10px;background:#fff}
+.thebe-ai-pill{position:fixed;z-index:72;right:18px;bottom:18px;border:1px solid #d7dfdb;background:#15211c;color:#fff;border-radius:999px;padding:9px 13px;box-shadow:0 12px 35px rgba(11,25,18,.2);font:inherit;font-size:11px;font-weight:800;cursor:pointer}.thebe-ai-pill .thebe-ai-pill-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#76d4ae;margin-right:6px;vertical-align:1px}
+.thebe-ai-pill[data-attention]:after{content:attr(data-attention);display:inline-grid;place-items:center;min-width:17px;height:17px;padding:0 4px;border-radius:999px;background:#fff3dc;color:#744b00;margin-left:7px;font-size:9px}
+
+@media(min-width:1180px){body.thebe-ai-dock-open #appShell main{padding-right:calc(30px + var(--thebe-dock-w) + 22px)!important}}
+@media(max-width:1179px){.thebe-ai-dock{top:70px;bottom:14px;right:14px}.thebe-ai-pill{right:14px;bottom:82px}}
+@media(max-width:650px){.thebe-ai-dock{left:8px;right:8px;top:auto;bottom:78px;width:auto;max-height:72vh;border-radius:17px}.thebe-ai-dock-scroll{padding:11px 12px}.thebe-ai-orb-button,.thebe-particle-orb{width:88px;height:88px}.thebe-ai-pill{bottom:78px;right:10px}.thebe-ai-quick{grid-template-columns:1fr 1fr}}
+@media(prefers-reduced-motion:reduce){.thebe-particle-orb *,.thebe-particle-orb:before,.thebe-particle-orb:after{animation:none!important;transition:none!important}.thebe-particle-orb[data-phase="listening"] .thebe-particle,.thebe-particle-orb[data-phase="speaking"] .thebe-particle{opacity:.82!important;transform:translate(-50%,-50%) scale(1.15)!important}}
