@@ -501,9 +501,10 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260920e";
+  const DOCK_RELEASE="20260920f";
   const STORE_KEY="thebe_ai_dock_collapsed_v4";
   const MAX_QUESTION=1000;
+  const MOBILE_DOCK_MAX=650;
   let dock=null,pill=null,pillLabel=null,orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,input=null,sendButton=null,attentionButton=null,quick=null,foot=null;
   let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",collapsed=false;
 
@@ -520,6 +521,11 @@
   };
   function safeSessionGet(key){try{return sessionStorage.getItem(key)}catch{return null}}
   function safeSessionSet(key,value){try{sessionStorage.setItem(key,value)}catch{}}
+  function mobileDockMode(){
+    try{return global.matchMedia?.(`(max-width: ${MOBILE_DOCK_MAX}px)`)?.matches??global.innerWidth<=MOBILE_DOCK_MAX}
+    catch{return global.innerWidth<=MOBILE_DOCK_MAX}
+  }
+  function effectiveCollapsed(){return mobileDockMode()&&collapsed}
   function shellVisible(){
     const shell=document.getElementById("appShell");
     if(!shell)return false;
@@ -556,20 +562,27 @@
     return false;
   }
   function setCollapsed(next){
+    if(!mobileDockMode()){
+      collapsed=false;
+      syncVisibility();
+      return;
+    }
     collapsed=Boolean(next);
     safeSessionSet(STORE_KEY,collapsed?"1":"0");
     syncVisibility();
   }
   function syncVisibility(){
     if(!dock||!pill)return;
-    const surface=surfaceMode(),visible=surface!=="hidden",workspace=surface==="workspace";
-    dock.hidden=!visible||collapsed;
-    pill.hidden=!visible||!collapsed;
+    const surface=surfaceMode(),visible=surface!=="hidden",workspace=surface==="workspace",mobile=mobileDockMode(),isCollapsed=effectiveCollapsed();
+    dock.hidden=!visible||isCollapsed;
+    pill.hidden=!visible||!isCollapsed;
     dock.dataset.surface=surface;
     pill.dataset.surface=surface;
     dock.dataset.workspaceVisible=workspace?"1":"0";
     pill.dataset.workspaceVisible=workspace?"1":"0";
     if(attentionButton)attentionButton.hidden=!workspace;
+    const minimize=dock.querySelector(".thebe-ai-minimize");
+    if(minimize)minimize.hidden=!mobile;
     const presence=dock.querySelector(".thebe-ai-presence");
     if(presence){
       presence.replaceChildren(el("span","thebe-ai-presence-dot"),document.createTextNode(workspace?"Available across this workspace":"Public assistant · sign in for your workspace"));
@@ -584,13 +597,13 @@
     if(foot)foot.textContent=workspace
       ?"Advisory by default · governed actions still require the existing approval controls."
       :"Public sample · no workspace data · voice sample limited to 60 seconds.";
-    document.body.classList.toggle("thebe-ai-dock-open",workspace&&!collapsed);
+    document.body.classList.toggle("thebe-ai-dock-open",workspace&&!isCollapsed);
   }
   function recoverVisibility(){
     if(!dock||!pill)return;
     syncVisibility();
-    const surface=surfaceMode();
-    if(surface!=="hidden"&&!collapsed){
+    const surface=surfaceMode(),isCollapsed=effectiveCollapsed();
+    if(surface!=="hidden"&&!isCollapsed){
       dock.hidden=false;
       pill.hidden=true;
       document.body.classList.toggle("thebe-ai-dock-open",surface==="workspace");
@@ -770,7 +783,7 @@
   function mount(){
     if(document.getElementById("thebeAiDock"))return;
     const storedCollapse=safeSessionGet(STORE_KEY);
-    collapsed=storedCollapse==="1"||(storedCollapse===null&&(surfaceMode()==="public"||innerWidth<680));
+    collapsed=mobileDockMode()&&(storedCollapse==="1"||storedCollapse===null);
 
     dock=el("section","thebe-ai-dock");
     dock.id="thebeAiDock";
@@ -789,9 +802,9 @@
     const headActions=el("div","thebe-ai-head-actions");
     attentionButton=el("button","thebe-ai-attention","");
     attentionButton.type="button";
-    attentionButton.addEventListener("click",()=>{openView("workhub");if(innerWidth<900)setCollapsed(true)});
-    const minimize=el("button","thebe-ai-icon-btn","—");
-    minimize.type="button";minimize.setAttribute("aria-label","Minimise Thebe");
+    attentionButton.addEventListener("click",()=>{openView("workhub");if(mobileDockMode())setCollapsed(true)});
+    const minimize=el("button","thebe-ai-icon-btn thebe-ai-minimize","—");
+    minimize.type="button";minimize.setAttribute("aria-label","Minimise Thebe on mobile");
     minimize.addEventListener("click",()=>setCollapsed(true));
     headActions.append(attentionButton,minimize);head.append(title,headActions);
 
@@ -940,6 +953,6 @@
     open:()=>setCollapsed(false),
     close:()=>setCollapsed(true),
     ask:(question,mode="ask")=>ask(mode,question),
-    state:()=>({collapsed,voicePhase,textBusy,workspaceVisible:shellVisible(),dockHidden:dock?.hidden??true,pillHidden:pill?.hidden??true,context:activeContext()})
+    state:()=>({collapsed:effectiveCollapsed(),mobileCollapsedPreference:collapsed,mobile:mobileDockMode(),voicePhase,textBusy,workspaceVisible:shellVisible(),dockHidden:dock?.hidden??true,pillHidden:pill?.hidden??true,context:activeContext()})
   });
 })(window);
