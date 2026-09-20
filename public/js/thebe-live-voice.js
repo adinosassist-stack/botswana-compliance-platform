@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260920h";
+  const RELEASE="20260920i";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -11,9 +11,18 @@
   let inputTranscript="",outputTranscript="",state="idle",button=null,statusEl=null,transcriptRevision=0,maxSessionSeconds=600,lastError=null,closeRequested=false,sessionMode="workspace";
   const activeDelegations=new Set();
 
+  let publicTransport=null;
   const api=(url,options={})=>{
-    if(typeof global.apiJson!=="function")throw new Error("The secure Thebe API transport is not available.");
-    return global.apiJson(url,options);
+    if(typeof global.apiJson==="function")return global.apiJson(url,options);
+    if(!publicTransport&&typeof global.BW?.api?.createClient==="function"){
+      publicTransport=global.BW.api.createClient({
+        getCsrfToken:()=>"",
+        onUnauthorized:()=>{},
+        onError:()=>{}
+      });
+    }
+    if(publicTransport?.request)return publicTransport.request(url,options);
+    throw new Error("The secure Thebe API transport is not available.");
   };
   const text=(value,max=500)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
   const emit=(name,detail={})=>{
