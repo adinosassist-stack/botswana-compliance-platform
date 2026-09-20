@@ -137,7 +137,8 @@ assert.doesNotMatch(coreSource,/SELECT summary_date,generation_mode,metrics_json
 assert.match(coreSource,/buildAgentReadToolContext\(\{env,auth\}\)/);
 assert.match(coreSource,/additionalSourceRefs:readTools\.sourceRefs/);
 assert.match(coreSource,/READ_TOOLS/);
-assert.match(coreSource,/\/api\/agentic\/tools\/read\//);
+assert.match(coreSource,/readToolMatch=path\.match/);
+assert.match(coreSource,/executeAgentReadTool\(decodeURIComponent\(readToolMatch\[1\]\),\{env,auth\}\)/);
 assert.match(coreSource,/readTools:\{enabled:true,readOnly:true,mutationAllowed:false,policyBound:true,roleScoped:true\}/);
 
 console.log("v103 policy-bound agent read tools: PASS");
