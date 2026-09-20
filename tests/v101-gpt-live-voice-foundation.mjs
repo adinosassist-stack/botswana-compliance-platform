@@ -9,6 +9,7 @@ const entry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
 const env=fs.readFileSync(".env.example","utf8");
 const wrangler=fs.readFileSync("cloudflare/wrangler.toml","utf8");
+const deployWorkflow=fs.readFileSync(".github/workflows/deploy-production.yml","utf8");
 
 for(const path of ["cloudflare/src/agentic-live-voice.js","public/js/thebe-live-voice.js","cloudflare/src/agentic-entry.js","cloudflare/src/production-entry.js"]){
   execFileSync(process.execPath,["--check",path],{stdio:"pipe"});
@@ -80,5 +81,8 @@ assert.match(env,/THEBE_LIVE_VOICE_FAILURE_CIRCUIT_THRESHOLD=3/);
 assert.match(wrangler,/THEBE_LIVE_VOICE_ENABLED = "false"/);
 assert.match(wrangler,/THEBE_LIVE_VOICE_MAX_SESSION_SECONDS = "600"/);
 assert.match(env,/OPENAI_API_KEY=/);
+assert.ok(deployWorkflow.includes("OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}"));
+assert.ok(deployWorkflow.includes("const optionalNames = [\'GOOGLE_OAUTH_CLIENT_SECRET\',\'FACEBOOK_APP_SECRET\',\'RESEND_API_KEY\',\'OPENAI_API_KEY\'];"));
+assert.ok(deployWorkflow.includes("\'GOOGLE_OAUTH_CLIENT_SECRET\',\'FACEBOOK_APP_SECRET\',\'RESEND_API_KEY\',\'OPENAI_API_KEY\'"));
 
 console.log("v101 GPT-Live-1 voice foundation: PASS");
