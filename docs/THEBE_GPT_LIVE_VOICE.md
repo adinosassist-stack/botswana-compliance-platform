@@ -31,10 +31,16 @@ Keep the feature disabled until production qualification is complete:
 ```
 THEBE_LIVE_VOICE_ENABLED=0
 THEBE_LIVE_VOICE_MAX_STARTS_PER_HOUR=6
+THEBE_LIVE_VOICE_MAX_USER_STARTS_PER_HOUR=4
+THEBE_LIVE_VOICE_MAX_SESSION_SECONDS=600
+THEBE_LIVE_VOICE_UPSTREAM_TIMEOUT_MS=12000
+THEBE_LIVE_VOICE_FAILURE_CIRCUIT_THRESHOLD=3
 OPENAI_API_KEY=
 ```
 
 `OPENAI_API_KEY` must be provided as a deployment secret. Never place a real key in source control or browser code.
+
+The default preview guardrails permit at most 6 session starts per workspace per hour and 4 per user per hour, cap a browser session at 10 minutes, abort an upstream session-creation request after 12 seconds, and temporarily stop new sessions after 3 recent provider/session failures in 10 minutes.
 
 ## Routes
 
