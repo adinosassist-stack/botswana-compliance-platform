@@ -4,6 +4,8 @@ import fs from 'node:fs';
 
 const worker=fs.readFileSync('cloudflare/src/worker.js','utf8');
 const html=fs.readFileSync('public/index.html','utf8');
+const platformOwner=fs.readFileSync('cloudflare/src/platform-owner-access.js','utf8');
+const agenticEntry=fs.readFileSync('cloudflare/src/agentic-entry.js','utf8');
 
 test('password login verifies credentials before disclosing workspace memberships',()=>{
   const loginStart=worker.indexOf('if(url.pathname==="/api/auth/login"&&req.method==="POST")');
@@ -41,4 +43,14 @@ test('registration retains JIT Turnstile and attempts first sign-in automaticall
   assert.match(html,/const runtimeApiClient=STANDALONE_PREVIEW\?.*BW\.preview\.request.*:productionApiClient/);
   assert.match(html,/authPassword\.value=payload\.password/);
   assert.doesNotMatch(html,/Complete the human verification before creating the account/);
+});
+
+
+test('platform owner entitlement repair follows the selected owned workspace',()=>{
+  assert.match(platformOwner,/async function selectedOwnerMembership\(env,userId,tenantId\)/);
+  assert.match(platformOwner,/m\.user_id=\? AND m\.tenant_id=\? AND m\.role='owner' AND m\.status='active'/);
+  assert.match(platformOwner,/ensurePlatformOwnerAccess\(env,user\.id,requestedTenantId\)/);
+  assert.match(platformOwner,/path\.startsWith\("\/api\/daily-reporting\/"\)/);
+  assert.match(platformOwner,/lower\(u\.email\)=\? AND m\.role='owner' AND m\.status='active'/);
+  assert.match(agenticEntry,/repairPlatformOwnerWorkspaceAccess\(request,env\)/);
 });
