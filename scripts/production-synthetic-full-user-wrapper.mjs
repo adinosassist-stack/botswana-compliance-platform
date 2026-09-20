@@ -82,6 +82,20 @@ async function runFullUserJourney(credentials){
     const publicState=await page.evaluate(()=>({hero:(document.querySelector('.hero h1')?.textContent||'').trim(),hasWorkspace:!!document.getElementById('appShell'),hasAuthForm:!!document.getElementById('authForm')}));
     assert(/business risk/i.test(publicState.hero),'public root hero missing');
     assert(!publicState.hasWorkspace&&!publicState.hasAuthForm,'public root leaked workspace or authentication shell');
+    await page.waitForFunction(()=>{
+      const dock=document.getElementById('thebeAiDock'),pill=document.getElementById('thebeAiDockPill');
+      if(!dock||!pill)return false;
+      const target=dock.hidden?pill:dock,style=getComputedStyle(target),rect=target.getBoundingClientRect();
+      return style.display!=='none'&&style.visibility!=='hidden'&&rect.width>40&&rect.height>20&&target.dataset.surface==='public';
+    },null,{timeout:15000});
+    const publicDock=await page.evaluate(()=>({
+      release:String(globalThis.ThebeAiDock?.release||''),
+      dockHidden:document.getElementById('thebeAiDock')?.hidden??true,
+      pillHidden:document.getElementById('thebeAiDockPill')?.hidden??true,
+      surface:document.getElementById('thebeAiDock')?.dataset.surface||''
+    }));
+    assert(publicDock.surface==='public'&&(!publicDock.dockHidden||!publicDock.pillHidden),'public homepage did not expose a visible Thebe dock or launcher');
+    mark('Thebe public homepage visibility',`release=${publicDock.release} visible public dock/launcher confirmed`);
     mark('full-user public boundary','plain root rendered the public-only homepage');
 
     const auth=await page.goto(`${ORIGIN}/auth/?mode=login&full-user-proof=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:NAVIGATION_TIMEOUT_MS});

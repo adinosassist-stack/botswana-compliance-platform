@@ -479,8 +479,8 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260920c";
-  const STORE_KEY="thebe_ai_dock_collapsed_v2";
+  const DOCK_RELEASE="20260920d";
+  const STORE_KEY="thebe_ai_dock_collapsed_v3";
   const MAX_QUESTION=1000;
   let dock=null,pill=null,orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,input=null,sendButton=null,attentionButton=null;
   let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",collapsed=false;
@@ -503,6 +503,17 @@
     if(!shell)return false;
     const style=getComputedStyle(shell);
     return style.display!=="none"&&style.visibility!=="hidden";
+  }
+  function publicSurfaceVisible(){
+    const gate=document.getElementById("marketingGate");
+    if(!gate)return false;
+    const style=getComputedStyle(gate);
+    return !gate.classList.contains("hidden")&&style.display!=="none"&&style.visibility!=="hidden";
+  }
+  function surfaceMode(){
+    if(shellVisible())return "workspace";
+    if(publicSurfaceVisible())return "public";
+    return "hidden";
   }
   function activeContext(){
     const active=document.querySelector(".view.active");
@@ -529,20 +540,33 @@
   }
   function syncVisibility(){
     if(!dock||!pill)return;
-    const visible=shellVisible();
+    const surface=surfaceMode(),visible=surface!=="hidden",workspace=surface==="workspace";
     dock.hidden=!visible||collapsed;
     pill.hidden=!visible||!collapsed;
-    dock.dataset.workspaceVisible=visible?"1":"0";
-    pill.dataset.workspaceVisible=visible?"1":"0";
-    document.body.classList.toggle("thebe-ai-dock-open",visible&&!collapsed);
+    dock.dataset.surface=surface;
+    pill.dataset.surface=surface;
+    dock.dataset.workspaceVisible=workspace?"1":"0";
+    pill.dataset.workspaceVisible=workspace?"1":"0";
+    if(attentionButton)attentionButton.hidden=!workspace;
+    const presence=dock.querySelector(".thebe-ai-presence");
+    if(presence){
+      presence.replaceChildren(el("span","thebe-ai-presence-dot"),document.createTextNode(workspace?"Available across this workspace":"Public assistant · sign in for your workspace"));
+    }
+    if(voicePhase==="idle"){
+      if(workspace)setPhase("idle","Voice ready","Tap the particles or Talk to Thebe");
+      else if(surface==="public")setPhase("idle","Meet Thebe","Sign in to use secure workspace voice");
+    }
+    if(input)input.placeholder=workspace?"Ask Thebe anything…":"Ask about Thebe Desk…";
+    document.body.classList.toggle("thebe-ai-dock-open",workspace&&!collapsed);
   }
   function recoverVisibility(){
     if(!dock||!pill)return;
     syncVisibility();
-    if(shellVisible()&&!collapsed){
+    const surface=surfaceMode();
+    if(surface!=="hidden"&&!collapsed){
       dock.hidden=false;
       pill.hidden=true;
-      document.body.classList.add("thebe-ai-dock-open");
+      document.body.classList.toggle("thebe-ai-dock-open",surface==="workspace");
     }
   }
   function setPhase(phase,label,sub){
@@ -601,9 +625,23 @@
     open.addEventListener("click",()=>{openView("automationhub");if(innerWidth<900)setCollapsed(true)});
     responseBox.append(open);
   }
+  function showPublicSignIn(message){
+    responseMessage(message||"Sign in to use Thebe with your business workspace.");
+    if(!responseBox)return;
+    const actions=el("div","thebe-ai-public-actions");
+    const signIn=el("button","thebe-ai-public-signin","Sign in to Thebe Desk");
+    signIn.type="button";
+    signIn.addEventListener("click",()=>global.location.assign("/auth/?mode=login&next=%2Fapp%2F"));
+    actions.append(signIn);
+    responseBox.append(actions);
+  }
   async function ask(mode,question){
     const q=clean(question,MAX_QUESTION);
     if(textBusy||q.length<3)return;
+    if(!shellVisible()){
+      showPublicSignIn("Thebe is available here. Sign in to ask questions using your business data, compliance status and Owner Command Centre.");
+      return;
+    }
     textBusy=true;
     if(sendButton)sendButton.disabled=true;
     responseMessage("Reviewing the current workspace and this screen…","thinking");
@@ -668,6 +706,10 @@
     for(let i=0;i<12;i++)orb.append(el("i","thebe-particle"));
     orbButton.append(orb);
     orbButton.addEventListener("click",()=>{
+      if(!shellVisible()){
+        showPublicSignIn("Voice is available inside your secure Thebe Desk workspace. Sign in to continue.");
+        return;
+      }
       const live=document.getElementById("thebeLiveVoiceButton");
       if(live&&!live.disabled){live.click();return}
       responseMessage("Thebe Live Voice is not available for this workspace right now.","error");
@@ -710,6 +752,8 @@
 
     const shell=document.getElementById("appShell");
     if(shell)new MutationObserver(syncVisibility).observe(shell,{attributes:true,attributeFilter:["style","class"]});
+    const marketing=document.getElementById("marketingGate");
+    if(marketing)new MutationObserver(syncVisibility).observe(marketing,{attributes:true,attributeFilter:["style","class"]});
     const alerts=document.getElementById("navAlerts");
     if(alerts)new MutationObserver(syncAttention).observe(alerts,{childList:true,characterData:true,subtree:true});
     global.addEventListener("resize",syncVisibility,{passive:true});
