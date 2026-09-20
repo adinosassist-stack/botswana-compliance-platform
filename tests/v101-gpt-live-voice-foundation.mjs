@@ -122,7 +122,7 @@ assert.match(client,/Cash position/);
 assert.match(client,/response\.output_audio_transcript\.delta/);
 assert.match(dockCss,/thebe-particle-speak/);
 assert.match(dockCss,/--thebe-audio-scale/);
-assert.match(dockCss,/--thebe-audio-glow/);
+assert.match(dockCss,/--thebe-audio-ring/);\nassert.match(dockCss,/--thebe-audio-blur/);
 assert.match(dockCss,/thebe-ring-out/);
 assert.match(dockCss,/prefers-reduced-motion:reduce/);
 assert.match(dockCss,/body\.thebe-ai-dock-open/);
