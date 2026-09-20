@@ -76,6 +76,22 @@ function bodyErrorStatus(error){
   return 400;
 }
 
+function validPreparedTaskBackendPayload(value){
+  if(!value||typeof value!=="object"||Array.isArray(value))return false;
+  if(value.ok!==true)return false;
+  const request=value.request;
+  if(!request||typeof request!=="object"||Array.isArray(request))return false;
+  return cleanText(request.id,160).length>0&&String(request.status||"").trim()==="prepared";
+}
+
+function validGovernedPlanPayload(value){
+  if(!value||typeof value!=="object"||Array.isArray(value))return false;
+  if(value.ok!==true)return false;
+  const run=value.run;
+  if(!run||typeof run!=="object"||Array.isArray(run))return false;
+  return cleanText(run.id,160).length>0&&String(run.status||"").trim()==="completed"&&Array.isArray(value.proposals);
+}
+
 function liveEnabled(env){
   return envTrue(env?.THEBE_LIVE_VOICE_ENABLED);
 }
@@ -514,7 +530,7 @@ async function prepareInternalTaskFromVoice({request,env,auth,taskFetch,delegati
     return json({error:"governed_task_prepare_failed"},502);
   }
 
-  let prepared={};
+  let prepared=null;
   try{prepared=await response.json()}catch{}
   if(!response.ok){
     const code=cleanText(prepared?.error,120)||"task_prepare_rejected";
@@ -549,7 +565,14 @@ async function prepareInternalTaskFromVoice({request,env,auth,taskFetch,delegati
     },response.status>=500?502:200);
   }
 
-  const requestId=cleanText(prepared?.request?.id,160)||null;
+  if(!validPreparedTaskBackendPayload(prepared)){
+    await audit(env,auth,"THEBE_LIVE_TASK_PREPARE_FAILED",sessionId||delegationId,{
+      delegationId,taskPayloadHash,code:"task_backend_invalid_response",status:response.status
+    });
+    return json({error:"governed_task_prepare_invalid_response"},502);
+  }
+
+  const requestId=cleanText(prepared.request.id,160);
   const content=preparedTaskContent(task);
   await audit(env,auth,"THEBE_LIVE_TASK_PREPARED",sessionId||delegationId,{
     delegationId,
@@ -656,13 +679,19 @@ async function delegateBusinessWork({request,env,ctx,auth,coreFetch,taskFetch}){
     return json({error:"delegated_business_work_failed"},502);
   }
 
-  let plan={};
+  let plan=null;
   try{plan=await response.json()}catch{}
   if(!response.ok){
     await audit(env,auth,"THEBE_LIVE_DELEGATION_FAILED",sessionId||delegationId,{
       delegationId,taskHash,code:"governed_backend_rejected",status:response.status
     });
     return json({error:"delegated_business_work_failed",backendStatus:response.status},response.status>=500?502:response.status);
+  }
+  if(!validGovernedPlanPayload(plan)){
+    await audit(env,auth,"THEBE_LIVE_DELEGATION_FAILED",sessionId||delegationId,{
+      delegationId,taskHash,code:"governed_backend_invalid_response",status:response.status
+    });
+    return json({error:"delegated_business_work_invalid_response"},502);
   }
 
   const content=spokenResult(plan);
@@ -731,6 +760,8 @@ export const __agenticLiveVoiceTest=Object.freeze({
   normalizeTaskPriority,
   normalizeTaskDueAt,
   normalizeVoiceTask,
+  validPreparedTaskBackendPayload,
+  validGovernedPlanPayload,
   instructions,
   delegationTool,
   realtimeSessionConfig,

@@ -36,6 +36,12 @@ assert.equal(task.task.priority,1);
 assert.match(task.task.dueAt,/^2026-09-21T00:00:00\.000Z$/);
 assert.equal(liveTest.normalizeVoiceTask({title:""}).error,"voice_task_title_required");
 assert.equal(liveTest.normalizeVoiceTask({title:"Test",dueAt:"not-a-date"}).error,"voice_task_due_at_invalid");
+assert.equal(liveTest.validPreparedTaskBackendPayload({ok:true,request:{id:"req-1",status:"prepared"}}),true);
+assert.equal(liveTest.validPreparedTaskBackendPayload({ok:true,request:{id:null,status:"prepared"}}),false);
+assert.equal(liveTest.validPreparedTaskBackendPayload({ok:true,request:{id:"req-1",status:"approved"}}),false);
+assert.equal(liveTest.validPreparedTaskBackendPayload({ok:true}),false);
+assert.match(backend,/task_backend_invalid_response/);
+assert.match(backend,/governed_task_prepare_invalid_response/);
 
 const tool=liveTest.delegationTool();
 assert.equal(tool.name,"delegate_to_thebe_backend");
