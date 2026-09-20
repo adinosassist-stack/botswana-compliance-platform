@@ -21,6 +21,8 @@
   let stateWriteQueue=Promise.resolve();
   let agenticLatestPlan=null;
   let agenticBusy=false;
+  let agenticTaskBusy=false;
+  let agenticTaskDraft=null;
 
   const q=(selector,root=document)=>root.querySelector(selector);
   const num=value=>{
@@ -478,6 +480,339 @@
     }
   }
 
+  function activeTaskDelegation(authorityPayload){
+    const items=Array.isArray(authorityPayload?.items)?authorityPayload.items:[];
+    return items.find(item=>
+      String(item?.actionKey||"")==="task.create"
+      &&String(item?.status||"")==="active"
+      &&Number(item?.maxAutonomyLevel||0)>=3
+      &&item?.externalSideEffects===false
+      &&item?.humanConfirmationRequired===true
+    )||null;
+  }
+
+  function taskPriorityFromProposal(proposal){
+    const priority=String(proposal?.priority||"medium").toLowerCase();
+    return priority==="high"?1:priority==="low"?3:2;
+  }
+
+  function loadTaskDraftFromProposal(proposal){
+    agenticTaskDraft={
+      title:cleanText(proposal?.title||"Internal follow-up",160),
+      description:cleanText(proposal?.reason||"",1200),
+      priority:taskPriorityFromProposal(proposal),
+      dueAt:"",
+      proposalId:String(proposal?.id||"")||null,
+      runId:String(proposal?.run_id||proposal?.runId||"")||null
+    };
+    const status=agenticStatusNode();
+    if(status)status.textContent="Internal task draft loaded. Review it before preparing.";
+    renderAgenticGovernance(false);
+  }
+
+  async function runAgenticTaskMutation(progress,success,work){
+    if(agenticTaskBusy)return null;
+    agenticTaskBusy=true;
+    const status=agenticStatusNode();
+    if(status)status.textContent=progress;
+    try{
+      const result=await work();
+      if(status)status.textContent=success;
+      await renderAgenticGovernance(false);
+      return result;
+    }catch(error){
+      if(status)status.textContent=String(error?.message||"The bounded task action could not be completed.").slice(0,180);
+      return null;
+    }finally{
+      agenticTaskBusy=false;
+    }
+  }
+
+  async function createBoundedTaskDelegation(){
+    const expiresAt=new Date(Date.now()+30*86400000).toISOString();
+    return runAgenticTaskMutation(
+      "Creating bounded internal-task permission…",
+      "Task permission created. A separate execution grant is still required.",
+      ()=>request("/api/agentic/authority/delegations",{
+        method:"POST",
+        body:JSON.stringify({
+          agentKey:"thebe",
+          actionKey:"task.create",
+          maxAutonomyLevel:3,
+          maxDailyActions:5,
+          maxAmountMinor:0,
+          externalSideEffects:false,
+          strongAuthRequired:false,
+          expiresAt
+        })
+      })
+    );
+  }
+
+  async function createBoundedTaskGrant(delegationId){
+    return runAgenticTaskMutation(
+      "Recording the separate owner execution grant…",
+      "Execution grant recorded. The platform execution switch is unchanged.",
+      ()=>request("/api/agentic/task-execution/grants",{
+        method:"POST",
+        body:JSON.stringify({delegationId})
+      })
+    );
+  }
+
+  async function revokeBoundedTaskAuthority(grantId,delegationId){
+    return runAgenticTaskMutation(
+      "Revoking bounded internal-task authority…",
+      "Bounded internal-task authority revoked.",
+      async()=>{
+        if(grantId){
+          await request(`/api/agentic/task-execution/grants/${encodeURIComponent(grantId)}/revoke`,{method:"POST",body:"{}"});
+        }
+        if(delegationId){
+          await request(`/api/agentic/authority/delegations/${encodeURIComponent(delegationId)}/revoke`,{method:"POST",body:"{}"});
+        }
+        return {ok:true};
+      }
+    );
+  }
+
+  async function prepareBoundedTask({delegationId,title,description,priority,dueAt,runId=null,proposalId=null}){
+    const payload={delegationId,title,description,priority,dueAt:dueAt||null};
+    if(runId)payload.runId=runId;
+    if(proposalId)payload.proposalId=proposalId;
+    const result=await runAgenticTaskMutation(
+      "Preparing exact internal-task payload for owner review…",
+      "Task prepared. Review the exact payload and hash before approval.",
+      ()=>request("/api/agentic/task-execution/prepare",{
+        method:"POST",
+        idempotencyKey:newId("task_prepare"),
+        body:JSON.stringify(payload)
+      })
+    );
+    if(result?.ok)agenticTaskDraft=null;
+    return result;
+  }
+
+  async function approveBoundedTask(requestId){
+    return runAgenticTaskMutation(
+      "Binding owner approval to the exact task payload…",
+      "Exact task payload approved. No execution occurs unless all runtime gates allow it.",
+      ()=>request(`/api/agentic/task-execution/requests/${encodeURIComponent(requestId)}/approve`,{method:"POST",body:"{}"})
+    );
+  }
+
+  async function cancelBoundedTask(requestId){
+    return runAgenticTaskMutation(
+      "Cancelling the prepared task request…",
+      "Task request cancelled.",
+      ()=>request(`/api/agentic/task-execution/requests/${encodeURIComponent(requestId)}/cancel`,{method:"POST",body:"{}"})
+    );
+  }
+
+  async function executeBoundedTask(requestId){
+    return runAgenticTaskMutation(
+      "Revalidating Runtime Guard and executing the approved internal task…",
+      "Internal task executed and verified.",
+      ()=>request(`/api/agentic/task-execution/requests/${encodeURIComponent(requestId)}/execute`,{method:"POST",body:"{}"})
+    );
+  }
+
+  function boundedTaskRequestCard(item,{executionEnabled=false}={}){
+    const card=document.createElement("article");
+    card.className="owner-agentic-proposal";
+    const payload=item?.payload&&typeof item.payload==="object"?item.payload:{};
+    const taskStatus=String(item?.status||"unknown");
+    const top=document.createElement("div");
+    top.className="owner-agentic-proposal-head";
+    const copy=document.createElement("div");
+    copy.append(
+      text("span","Exact internal task payload","owner-agentic-kicker"),
+      text("h5",payload.title||"Prepared internal task")
+    );
+    const badges=document.createElement("div");
+    badges.className="owner-agentic-badges";
+    badges.append(text("span",taskStatus.toUpperCase(),`owner-agentic-status-badge ${taskStatus}`));
+    top.append(copy,badges);
+    card.append(top);
+    if(payload.description)card.append(text("p",payload.description,"owner-agentic-reason"));
+    const due=payload.dueAt?new Date(payload.dueAt).toLocaleString():"No due date";
+    card.append(
+      text("div",`Priority ${Number(payload.priority||2)} · ${due}`,"owner-agentic-policy"),
+      text("div",`Payload hash: ${String(item?.payloadHash||"").slice(0,20)}…`,"owner-agentic-policy")
+    );
+    const actions=document.createElement("div");
+    actions.className="owner-agentic-actions";
+    if(taskStatus==="prepared"&&role()==="owner"){
+      const approve=button("Approve exact task",()=>approveBoundedTask(item.id),"btn");
+      approve.disabled=agenticTaskBusy;
+      actions.append(approve);
+    }
+    if(["prepared","approved"].includes(taskStatus)&&role()==="owner"){
+      const cancel=button("Cancel",()=>cancelBoundedTask(item.id),"btn soft");
+      cancel.disabled=agenticTaskBusy;
+      actions.append(cancel);
+    }
+    if(taskStatus==="approved"){
+      if(executionEnabled&&role()==="owner"){
+        const execute=button("Execute approved internal task",()=>executeBoundedTask(item.id),"btn");
+        execute.disabled=agenticTaskBusy;
+        actions.append(execute);
+      }else{
+        actions.append(text("span","Approved · platform execution remains OFF","owner-input-status"));
+      }
+    }
+    if(actions.childNodes.length)card.append(actions);
+    return card;
+  }
+
+  function renderBoundedTaskControl({taskExecutionPayload,authorityPayload,taskRequestsPayload,taskListPayload}={}){
+    const section=document.createElement("section");
+    section.className="owner-agentic-run";
+    const ready=taskExecutionPayload?.schemaReady===true;
+    const executionEnabled=ready
+      &&taskExecutionPayload?.globalExecutionEnabled===true
+      &&taskExecutionPayload?.runtimeKillSwitch!==true;
+    const delegation=activeTaskDelegation(authorityPayload);
+    const activeGrant=Array.isArray(taskExecutionPayload?.activeGrants)?taskExecutionPayload.activeGrants[0]:null;
+
+    section.append(
+      text("span","Bounded internal task control","owner-agentic-kicker"),
+      text("h4","Prepare → review exact payload → approve → guarded execute"),
+      text("p","Only internal task.create is in this lane. The owner permission, separate execution grant, Runtime Guard, daily limit, kill switch and platform execution switch remain independent controls.")
+    );
+
+    const authority=document.createElement("div");
+    authority.className="owner-agentic-controls";
+    const authorityCopy=document.createElement("div");
+    if(!ready){
+      authorityCopy.append(text("b","Task execution schema unavailable."),text("span","No bounded task mutation is available."));
+    }else if(!delegation){
+      authorityCopy.append(
+        text("b","No bounded task permission."),
+        text("span","The owner may create a 30-day task.create permission capped at 5 internal tasks per day. It has no external side effects.")
+      );
+    }else if(!activeGrant){
+      authorityCopy.append(
+        text("b","Task permission exists; execution grant is absent."),
+        text("span","A separate owner-approved execution grant is required before Thebe can even prepare an executable task request.")
+      );
+    }else{
+      authorityCopy.append(
+        text("b",executionEnabled?"Bounded task lane is executable.":"Bounded task lane is configured but globally OFF."),
+        text("span",executionEnabled
+          ?"Approved internal tasks still pass the Runtime Guard immediately before execution."
+          :"You can prepare and approve task requests safely; the Execute control stays hidden until the platform switch is enabled.")
+      );
+    }
+    const authorityActions=document.createElement("div");
+    authorityActions.className="owner-agentic-control-buttons";
+    if(role()==="owner"&&ready&&!delegation){
+      const create=button("Create 30-day task permission",createBoundedTaskDelegation,"btn soft");
+      create.disabled=agenticTaskBusy;
+      authorityActions.append(create);
+    }
+    if(role()==="owner"&&ready&&delegation&&!activeGrant){
+      const grant=button("Approve separate execution grant",()=>createBoundedTaskGrant(delegation.id),"btn soft");
+      grant.disabled=agenticTaskBusy;
+      authorityActions.append(grant);
+    }
+    if(role()==="owner"&&delegation&&activeGrant){
+      const revoke=button("Revoke bounded task permission",()=>revokeBoundedTaskAuthority(activeGrant.id,delegation.id),"btn soft");
+      revoke.disabled=agenticTaskBusy;
+      authorityActions.append(revoke);
+    }
+    authority.append(authorityCopy,authorityActions);
+    section.append(authority);
+
+    if(delegation&&activeGrant){
+      const form=document.createElement("form");
+      form.className="owner-inputs-body";
+      form.setAttribute("aria-label","Prepare internal task for owner approval");
+      const draft=agenticTaskDraft||{};
+      const titleField=field("Task title",{id:"ownerAgentTaskTitle",value:draft.title||"",placeholder:"e.g. Review reconciliation exceptions"});
+      const descriptionWrap=document.createElement("div");
+      const descriptionLabel=text("label","Description");
+      descriptionLabel.htmlFor="ownerAgentTaskDescription";
+      const description=document.createElement("textarea");
+      description.id="ownerAgentTaskDescription";
+      description.rows=3;
+      description.maxLength=1200;
+      description.value=String(draft.description||"");
+      descriptionWrap.append(descriptionLabel,description);
+      const priorityField=selectField("Priority",{id:"ownerAgentTaskPriority",value:String(draft.priority||2),options:[
+        {value:"1",label:"High"},
+        {value:"2",label:"Normal"},
+        {value:"3",label:"Low"}
+      ]});
+      const dueField=field("Due date/time",{id:"ownerAgentTaskDue",type:"datetime-local",value:draft.dueAt||""});
+      const submit=document.createElement("button");
+      submit.type="submit";
+      submit.className="btn";
+      submit.textContent=agenticTaskBusy?"Working…":"Prepare task for exact approval";
+      submit.disabled=agenticTaskBusy;
+      form.append(titleField.wrap,descriptionWrap,priorityField.wrap,dueField.wrap,submit);
+      form.addEventListener("submit",event=>{
+        event.preventDefault();
+        const title=cleanText(titleField.input.value,160);
+        if(!title){
+          const status=agenticStatusNode();
+          if(status)status.textContent="Enter a task title before preparing.";
+          return;
+        }
+        let dueAt=null;
+        if(dueField.input.value){
+          const parsed=new Date(dueField.input.value);
+          if(Number.isNaN(parsed.getTime())){
+            const status=agenticStatusNode();
+            if(status)status.textContent="Enter a valid due date/time.";
+            return;
+          }
+          dueAt=parsed.toISOString();
+        }
+        prepareBoundedTask({
+          delegationId:delegation.id,
+          title,
+          description:cleanText(description.value,1200),
+          priority:Number(priorityField.select.value||2),
+          dueAt,
+          runId:draft.runId||null,
+          proposalId:draft.proposalId||null
+        });
+      });
+      section.append(form);
+    }
+
+    const requests=Array.isArray(taskRequestsPayload?.items)?taskRequestsPayload.items:[];
+    const reviewable=requests.filter(item=>["prepared","approved"].includes(String(item?.status||""))).slice(0,8);
+    if(reviewable.length){
+      section.append(text("h4","Needs owner review"));
+      const list=document.createElement("div");
+      list.className="owner-agentic-proposals";
+      reviewable.forEach(item=>list.append(boundedTaskRequestCard(item,{executionEnabled})));
+      section.append(list);
+    }
+
+    const tasks=Array.isArray(taskListPayload?.items)?taskListPayload.items:[];
+    if(tasks.length){
+      section.append(text("h4","Thebe-created internal tasks"));
+      const list=document.createElement("div");
+      list.className="owner-agentic-proposals";
+      tasks.slice(0,5).forEach(item=>{
+        const task=document.createElement("article");
+        task.className="owner-agentic-proposal";
+        task.append(
+          text("span",String(item?.status||"open").toUpperCase(),"owner-agentic-kicker"),
+          text("h5",item?.title||"Internal task"),
+          text("p",item?.description||"No description.","owner-agentic-reason"),
+          text("div",`Priority ${Number(item?.priority||2)} · ${item?.dueAt?new Date(item.dueAt).toLocaleString():"No due date"}`,"owner-agentic-policy")
+        );
+        list.append(task);
+      });
+      section.append(list);
+    }
+    return section;
+  }
+
   function agenticProposalCard(proposal){
     const card=document.createElement("article");
     card.className="owner-agentic-proposal";
@@ -521,10 +856,16 @@
       }
       if(actions.childNodes.length)card.append(actions);
     }
+    if(["owner","manager"].includes(role())&&["pending","approved"].includes(String(proposal?.status||"pending"))){
+      const taskActions=document.createElement("div");
+      taskActions.className="owner-agentic-actions";
+      taskActions.append(button("Use as internal task draft",()=>loadTaskDraftFromProposal(proposal),"btn soft"));
+      card.append(taskActions);
+    }
     return card;
   }
 
-  function renderAgenticSnapshot(statusPayload,runsPayload,taskExecutionPayload=null){
+  function renderAgenticSnapshot(statusPayload,runsPayload,taskExecutionPayload=null,authorityPayload=null,taskRequestsPayload=null,taskListPayload=null){
     const body=q("#ownerAgenticBody");
     if(!body)return;
     body.replaceChildren();
@@ -580,6 +921,10 @@
       body.append(learning);
     }
 
+    if(["owner","manager"].includes(role())){
+      body.append(renderBoundedTaskControl({taskExecutionPayload,authorityPayload,taskRequestsPayload,taskListPayload}));
+    }
+
     const latestRun=agenticLatestPlan?.run||(Array.isArray(runsPayload?.items)?runsPayload.items[0]:null);
     if(!latestRun){
       body.append(text("div","No governed plan has been generated for this workspace yet. Generate one to turn current finance and operating signals into auditable proposals.","owner-command-empty"));
@@ -621,12 +966,15 @@
     const status=agenticStatusNode();
     if(status)status.textContent="Refreshing governed plan…";
     try{
-      const [statusPayload,runsPayload,taskExecutionPayload]=await Promise.all([
+      const [statusPayload,runsPayload,taskExecutionPayload,authorityPayload,taskRequestsPayload,taskListPayload]=await Promise.all([
         request("/api/agentic/status"),
         request("/api/agentic/runs"),
-        request("/api/agentic/task-execution/status").catch(()=>null)
+        request("/api/agentic/task-execution/status").catch(()=>null),
+        request("/api/agentic/authority/delegations").catch(()=>({items:[]})),
+        request("/api/agentic/task-execution/requests").catch(()=>({items:[]})),
+        request("/api/agentic/task-execution/tasks").catch(()=>({items:[]}))
       ]);
-      renderAgenticSnapshot(statusPayload,runsPayload,taskExecutionPayload);
+      renderAgenticSnapshot(statusPayload,runsPayload,taskExecutionPayload,authorityPayload,taskRequestsPayload,taskListPayload);
       if(status){
         status.textContent=taskExecutionPayload?.schemaReady===true&&taskExecutionPayload?.globalExecutionEnabled===true&&taskExecutionPayload?.runtimeKillSwitch!==true
           ?"Bounded internal execution enabled"
