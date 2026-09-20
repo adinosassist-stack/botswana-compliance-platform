@@ -1,9 +1,10 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260920b";
+  const RELEASE="20260920c";
+  const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
-  let pc=null,dc=null,media=null,remoteAudio=null,sessionId=null,closeTimer=null,sessionTimer=null;
+  let pc=null,dc=null,media=null,remoteAudio=null,sessionId=null,sessionTimer=null;
   let inputTranscript="",outputTranscript="",state="idle",button=null,transcriptRevision=0,maxSessionSeconds=600;
   const activeDelegations=new Set();
 
@@ -34,49 +35,79 @@
   function transcriptDelta(event){
     const delta=String(event?.delta??event?.text??"");
     if(!delta)return;
-    if(event.type==="session.input_transcript.delta"){inputTranscript=cap(inputTranscript+delta);transcriptRevision+=1}
-    if(event.type==="session.output_transcript.delta")outputTranscript=cap(outputTranscript+delta);
+    if(event.type==="conversation.item.input_audio_transcription.delta"){
+      inputTranscript=cap(inputTranscript+delta);
+    }
+    if(event.type==="response.output_audio_transcript.delta"){
+      outputTranscript=cap(outputTranscript+delta);
+    }
   }
 
-  async function handleDelegation(event){
-    const delegationId=text(event?.delegation?.id,240);
-    if(event?.delegation?.target!=="client"||!delegationId||activeDelegations.has(delegationId))return;
-    activeDelegations.add(delegationId);
+  function sendFunctionOutput(callId,payload){
+    sendEvent({
+      type:"conversation.item.create",
+      item:{
+        type:"function_call_output",
+        call_id:callId,
+        output:JSON.stringify(payload)
+      }
+    });
+    sendEvent({type:"response.create"});
+  }
+
+  async function handleFunctionCall(item){
+    if(item?.type!=="function_call"||item?.name!==DELEGATION_TOOL)return;
+    const callId=text(item?.call_id||item?.id,240);
+    if(!callId||activeDelegations.has(callId))return;
+    activeDelegations.add(callId);
+    const revision=transcriptRevision;
+    let taskText="";
     try{
-      await new Promise(resolve=>setTimeout(resolve,60));
-      const revision=transcriptRevision;
-      const taskText=text(inputTranscript.slice(-2400),2400);
+      const args=JSON.parse(String(item?.arguments||"{}"));
+      taskText=text(args?.request,2400);
+    }catch{}
+    try{
       if(!taskText){
-        sendEvent({
-          type:"session.commentary.append",
-          event_id:global.crypto?.randomUUID?.()||String(Date.now()),
-          delegation_id:delegationId,
-          content:"I could not reliably capture the business request. Please repeat it."
+        sendFunctionOutput(callId,{
+          ok:false,
+          error:"delegation_request_missing",
+          message:"I could not reliably capture the business request. Ask the user to repeat it.",
+          executionPerformed:false
         });
         return;
       }
-      emit("thebe-live-delegation",{delegationId,sessionId,taskText});
+      emit("thebe-live-delegation",{delegationId:callId,sessionId,taskText});
       const result=await api("/api/agentic/live/delegation",{
         method:"POST",
-        body:JSON.stringify({delegationId,sessionId,taskText})
+        body:JSON.stringify({delegationId:callId,sessionId,taskText})
       });
       if(revision!==transcriptRevision){
-        emit("thebe-live-delegation-stale",{delegationId,sessionId,revision,currentRevision:transcriptRevision});
+        emit("thebe-live-delegation-stale",{delegationId:callId,sessionId,revision,currentRevision:transcriptRevision});
+        sendFunctionOutput(callId,{
+          ok:false,
+          stale:true,
+          message:"The user spoke again before the governed result was ready. Do not present the stale result; continue from the latest user input.",
+          executionPerformed:false
+        });
         return;
       }
-      if(result?.event)sendEvent(result.event);
+      sendFunctionOutput(callId,result?.toolOutput||{
+        ok:result?.ok===true,
+        content:text(result?.content||"The governed Thebe backend completed the request.",1800),
+        authority:result?.authority||{executionPerformed:false}
+      });
     }catch(error){
       try{
-        sendEvent({
-          type:"session.commentary.append",
-          event_id:global.crypto?.randomUUID?.()||String(Date.now()),
-          delegation_id:delegationId,
-          content:"The governed Thebe backend could not complete that request. No business action was executed."
+        sendFunctionOutput(callId,{
+          ok:false,
+          error:"governed_backend_unavailable",
+          message:"The governed Thebe backend could not complete that request. No business action was executed.",
+          executionPerformed:false
         });
       }catch{}
       emit("thebe-live-error",{message:text(error?.message||"Delegation failed",240)});
     }finally{
-      activeDelegations.delete(delegationId);
+      activeDelegations.delete(callId);
     }
   }
 
@@ -84,13 +115,17 @@
     let event;
     try{event=JSON.parse(String(raw||""))}catch{return}
     transcriptDelta(event);
-    if(event.type==="session.started"){
-      sessionId=text(event?.session?.id||event?.session_id||sessionId,240)||sessionId;
-      setState("connected");
+    if(event.type==="input_audio_buffer.speech_started")transcriptRevision+=1;
+    if(event.type==="session.created"||event.type==="session.updated"){
+      sessionId=text(event?.session?.id||sessionId,240)||sessionId;
     }
-    if(event.type==="session.delegation.created")handleDelegation(event);
-    if(event.type==="session.error")emit("thebe-live-error",{event});
-    if(event.type==="session.closed")cleanup("idle");
+    if(event.type==="response.done"){
+      const output=Array.isArray(event?.response?.output)?event.response.output:[];
+      for(const item of output){
+        if(item?.type==="function_call"&&item?.name===DELEGATION_TOOL)handleFunctionCall(item);
+      }
+    }
+    if(event.type==="error")emit("thebe-live-error",{event});
     emit("thebe-live-event",{event});
   }
 
@@ -140,6 +175,7 @@
       media.getTracks().forEach(track=>pc.addTrack(track,media));
 
       dc=pc.createDataChannel("oai-events");
+      dc.addEventListener("open",()=>setState("connected"));
       dc.addEventListener("message",event=>handleServerEvent(event.data));
       dc.addEventListener("close",()=>cleanup("idle"));
       dc.addEventListener("error",()=>emit("thebe-live-error",{message:"Thebe live data channel failed."}));
@@ -174,7 +210,6 @@
     try{media?.getTracks?.().forEach(track=>track.stop())}catch{}
     try{if(remoteAudio){remoteAudio.srcObject=null;remoteAudio.remove()}}catch{}
     pc=null;dc=null;media=null;remoteAudio=null;sessionId=null;
-    if(closeTimer){clearTimeout(closeTimer);closeTimer=null}
     if(sessionTimer){clearTimeout(sessionTimer);sessionTimer=null}
     activeDelegations.clear();
     setState(nextState);
@@ -182,45 +217,12 @@
 
   function stop(){
     if(state==="closing")return;
-    if(dc&&dc.readyState==="open"){
+    if(state==="connected"||state==="connecting"){
       setState("closing");
-      try{sendEvent({type:"session.close",event_id:global.crypto?.randomUUID?.()||String(Date.now())})}catch{}
-      closeTimer=setTimeout(()=>cleanup("idle"),2000);
+      setTimeout(()=>cleanup("idle"),50);
       return;
     }
     cleanup("idle");
-  }
-
-  function appendCommentary(delegationId,content){
-    const id=text(delegationId,240),message=text(content,1800);
-    if(!id||!message)throw new Error("Delegation id and commentary are required.");
-    sendEvent({
-      type:"session.commentary.append",
-      event_id:global.crypto?.randomUUID?.()||String(Date.now()),
-      delegation_id:id,
-      content:message
-    });
-  }
-
-  function appendThinking(delegationId,content){
-    const id=text(delegationId,240),message=text(content,1800);
-    if(!id||!message)throw new Error("Delegation id and context are required.");
-    sendEvent({
-      type:"session.thinking.append",
-      event_id:global.crypto?.randomUUID?.()||String(Date.now()),
-      delegation_id:id,
-      content:message
-    });
-  }
-
-  function appendInstructions(content){
-    const message=text(content,1800);
-    if(!message)throw new Error("Instruction content is required.");
-    sendEvent({
-      type:"session.instructions.append",
-      event_id:global.crypto?.randomUUID?.()||String(Date.now()),
-      content:message
-    });
   }
 
   async function maybeMount(){
@@ -262,9 +264,6 @@
     release:RELEASE,
     start,
     stop,
-    status:()=>({state,sessionId,inputTranscript,outputTranscript,transcriptRevision,maxSessionSeconds}),
-    appendCommentary,
-    appendThinking,
-    appendInstructions
+    status:()=>({state,sessionId,inputTranscript,outputTranscript,transcriptRevision,maxSessionSeconds})
   });
 })(window);
