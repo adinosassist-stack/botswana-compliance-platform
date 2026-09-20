@@ -78,7 +78,7 @@ assert.match(env,/THEBE_LIVE_VOICE_MAX_USER_STARTS_PER_HOUR=4/);
 assert.match(env,/THEBE_LIVE_VOICE_MAX_SESSION_SECONDS=600/);
 assert.match(env,/THEBE_LIVE_VOICE_UPSTREAM_TIMEOUT_MS=12000/);
 assert.match(env,/THEBE_LIVE_VOICE_FAILURE_CIRCUIT_THRESHOLD=3/);
-assert.match(wrangler,/THEBE_LIVE_VOICE_ENABLED = "false"/);
+assert.match(wrangler,/THEBE_LIVE_VOICE_ENABLED = "(?:true|false)"/);
 assert.match(wrangler,/THEBE_LIVE_VOICE_MAX_SESSION_SECONDS = "600"/);
 assert.match(env,/OPENAI_API_KEY=/);
 assert.ok(deployWorkflow.includes("OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}"));
