@@ -3,7 +3,7 @@
 
   const RELEASE="20260920a";
   const MAX_TRANSCRIPT_CHARS=6000;
-  let pc=null,dc=null,media=null,remoteAudio=null,sessionId=null;
+  let pc=null,dc=null,media=null,remoteAudio=null,sessionId=null,closeTimer=null;
   let inputTranscript="",outputTranscript="",state="idle",button=null;
   const activeDelegations=new Set();
 
@@ -18,8 +18,8 @@
   const setState=(next,detail={})=>{
     state=next;
     if(button){
-      button.textContent=next==="connected"?"End Thebe voice":next==="connecting"?"Connecting…":"Talk to Thebe";
-      button.disabled=next==="connecting";
+      button.textContent=next==="connected"?"End Thebe voice":next==="connecting"?"Connecting…":next==="closing"?"Ending…":"Talk to Thebe";
+      button.disabled=next==="connecting"||next==="closing";
       button.setAttribute("aria-pressed",next==="connected"?"true":"false");
     }
     emit("thebe-live-state",{state:next,sessionId,...detail});
@@ -39,8 +39,8 @@
   }
 
   async function handleDelegation(event){
-    const delegationId=text(event?.delegation_id||event?.delegationId,240);
-    if(!delegationId||activeDelegations.has(delegationId))return;
+    const delegationId=text(event?.delegation?.id,240);
+    if(event?.delegation?.target!=="client"||!delegationId||activeDelegations.has(delegationId))return;
     activeDelegations.add(delegationId);
     try{
       await new Promise(resolve=>setTimeout(resolve,60));
