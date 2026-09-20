@@ -105,8 +105,10 @@ async function runFullUserJourney(credentials){
     mark('Thebe desktop persistence',`release=${publicDock.release} full public dock fixed open; pill/minimise hidden`);
     const marketingCopy=await page.evaluate(()=>({
       quick:[...document.querySelectorAll('#thebeAiDock .thebe-ai-quick button')].map(x=>(x.textContent||'').trim()),
-      sub:(document.querySelector('#thebeAiDock .thebe-ai-voice-sub')?.textContent||'').trim()
+      sub:(document.querySelector('#thebeAiDock .thebe-ai-voice-sub')?.textContent||'').trim(),
+      sharedApiRuntime:typeof globalThis.BW?.api?.createClient==='function'
     }));
+    assert(marketingCopy.sharedApiRuntime,'public marketing page did not load the centralized BW API runtime required by voice');
     assert(marketingCopy.quick.some(x=>/What is Thebe Desk/i.test(x)),'public Thebe dock did not expose product explainer prompts');
     assert(/ask about Thebe Desk/i.test(marketingCopy.sub),'public Thebe dock did not advertise voice sampling');
     const marketingVoiceStart=await page.evaluate(async()=>{
