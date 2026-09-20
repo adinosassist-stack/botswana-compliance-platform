@@ -7,6 +7,8 @@ const WORKSPACE_TIMEOUT_MS=40000;
 const VIEW_TIMEOUT_MS=5000;
 const CLOSE_TIMEOUT_MS=5000;
 const MIN_OWNER_VIEW_COUNT=40;
+const dockRuntimeSource=fs.readFileSync(new URL('../public/js/thebe-live-voice.js',import.meta.url),'utf8');
+const EXPECTED_DOCK_RELEASE=dockRuntimeSource.match(/const DOCK_RELEASE="([^"]+)"/)?.[1]||'';
 const executablePath=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(path=>fs.existsSync(path));
 
 function assert(condition,message){if(!condition)throw new Error(`Synthetic full-user proof failed: ${message}`)}
@@ -194,7 +196,8 @@ async function runFullUserJourney(credentials){
       return state?.workspaceVisible===true&&state?.collapsed===false&&dock.hidden===false&&style.display!=='none'&&style.visibility!=='hidden'&&rect.width>250&&rect.height>250&&rect.right<=innerWidth+1;
     },null,{timeout:WORKSPACE_TIMEOUT_MS});
     const dockInitial=await page.evaluate(()=>({release:String(globalThis.ThebeAiDock?.release||''),state:globalThis.ThebeAiDock?.state?.()||null}));
-    assert(/^20260920[a-z]$/.test(dockInitial.release),`unexpected Thebe dock release ${safe(dockInitial.release||'missing')}`);
+    assert(EXPECTED_DOCK_RELEASE,`checked-out Thebe dock release identifier is missing`);
+    assert(dockInitial.release===EXPECTED_DOCK_RELEASE,`unexpected Thebe dock release ${safe(dockInitial.release||'missing')} expected ${safe(EXPECTED_DOCK_RELEASE)}`);
     assert(dockInitial.state?.workspaceVisible===true&&dockInitial.state?.dockHidden===false,'Thebe dock was not visibly mounted after owner workspace readiness');
 
     await page.evaluate(()=>globalThis.ThebeAiDock.close());
