@@ -25,6 +25,9 @@ THEBE_LIVE_VOICE_MAX_USER_STARTS_PER_HOUR = "4"
 THEBE_LIVE_VOICE_MAX_SESSION_SECONDS = "600"
 THEBE_LIVE_VOICE_UPSTREAM_TIMEOUT_MS = "12000"
 THEBE_LIVE_VOICE_FAILURE_CIRCUIT_THRESHOLD = "3"
+THEBE_MARKETING_VOICE_ENABLED = "true"
+THEBE_MARKETING_VOICE_MAX_STARTS_PER_HOUR = "6"
+THEBE_MARKETING_VOICE_MAX_SESSION_SECONDS = "60"
 PAYMENT_PROVIDER = "none"
 TRIAL_DAYS = "14"
 MAX_UPLOAD_MB = "3.5"
@@ -90,6 +93,7 @@ crons = ["15 6 * * *", "15 16 * * *"]
 # PUBLIC_ORIGIN is required for fail-closed browser-origin enforcement.
 
 # Thebe Live Voice — OpenAI Realtime GA activation
+# Public marketing voice is separately constrained to a short no-tools sample with no workspace data access.
 # Production voice is enabled only through this reviewed release and requires OPENAI_API_KEY.
 # The standard API key remains server-side; the browser receives only the WebRTC answer.
 # The default controls cap workspace/user session starts, bound each browser session to 10 minutes,
