@@ -89,11 +89,19 @@ async function loadExecutionGrant(env,tenantId,delegationId){
 
 async function status(env,auth){
   const ready=await schemaReady(env);
-  let activeGrants=0,openTasks=0;
+  let activeGrants=[],openTasks=0;
   if(ready){
-    const grant=await safeFirst(env,`SELECT COUNT(*) count FROM agent_execution_grants WHERE tenant_id=? AND action_key=? AND status='active'`,[auth.tenant_id,ACTION_KEY]);
+    const grants=await env.DB.prepare(`SELECT g.id,g.delegation_id,g.created_at
+      FROM agent_execution_grants g
+      JOIN agent_delegations d ON d.id=g.delegation_id AND d.tenant_id=g.tenant_id
+      WHERE g.tenant_id=? AND g.action_key=? AND g.status='active'
+        AND d.status='active'
+        AND (d.valid_from IS NULL OR d.valid_from<=CURRENT_TIMESTAMP)
+        AND (d.expires_at IS NULL OR d.expires_at>CURRENT_TIMESTAMP)
+      ORDER BY g.created_at DESC LIMIT 10`).bind(auth.tenant_id,ACTION_KEY).all();
     const tasks=await safeFirst(env,`SELECT COUNT(*) count FROM agent_internal_tasks WHERE tenant_id=? AND status='open'`,[auth.tenant_id]);
-    activeGrants=Number(grant?.count||0);openTasks=Number(tasks?.count||0);
+    activeGrants=(grants.results||[]).map(row=>({id:row.id,delegationId:row.delegation_id,createdAt:row.created_at}));
+    openTasks=Number(tasks?.count||0);
   }
   return json({
     enabled:true,
@@ -101,7 +109,8 @@ async function status(env,auth){
     actionKey:ACTION_KEY,
     globalExecutionEnabled:globalExecutionEnabled(env),
     runtimeKillSwitch:runtimeKillSwitch(env),
-    activeExecutionGrants:activeGrants,
+    activeExecutionGrants:activeGrants.length,
+    activeGrants,
     openTasks,
     guarantees:["task_create_only","no_external_side_effect","explicit_owner_approval","payload_hash_binding","idempotent_execution","runtime_guard_required"]
   });
