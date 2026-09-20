@@ -42,9 +42,9 @@
     const delegationId=text(event?.delegation?.id,240);
     if(event?.delegation?.target!=="client"||!delegationId||activeDelegations.has(delegationId))return;
     activeDelegations.add(delegationId);
-    const revision=transcriptRevision;
     try{
       await new Promise(resolve=>setTimeout(resolve,60));
+      const revision=transcriptRevision;
       const taskText=text(inputTranscript.slice(-2400),2400);
       if(!taskText){
         sendEvent({
