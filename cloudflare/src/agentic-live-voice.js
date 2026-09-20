@@ -215,9 +215,7 @@ function marketingRealtimeSessionConfig(){
       input:{turn_detection:{type:"semantic_vad"}},
       output:{voice:"marin"}
     },
-    instructions:marketingInstructions(),
-    tools:[],
-    tool_choice:"none"
+    instructions:marketingInstructions()
   };
 }
 
