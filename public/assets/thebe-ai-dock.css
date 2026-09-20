@@ -71,3 +71,38 @@
 .thebe-ai-public-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
 .thebe-ai-public-signin{border:0;border-radius:10px;padding:10px 12px;background:#0b66d6;color:#fff;font:inherit;font-weight:700;cursor:pointer}
 .thebe-ai-public-signin:hover{filter:brightness(.96)}
+
+/* Marketing dock refinement — monochrome floating assistant */
+@keyframes thebe-particle-idle{0%,100%{transform:translate(-50%,-50%) scale(.68);opacity:.28}50%{transform:translate(-50%,-50%) scale(1.25);opacity:.82}}
+@keyframes thebe-pill-pulse{0%,100%{transform:scale(.82);opacity:.45}50%{transform:scale(1.35);opacity:1}}
+.thebe-particle-orb:before,.thebe-particle-orb:after{border-color:rgba(0,0,0,.18)}
+.thebe-particle-core{background:radial-gradient(circle at 38% 32%,#fff 0 16%,#d9d9d9 26%,#1a1a1a 64%,#000 100%);box-shadow:0 0 0 var(--thebe-audio-ring) rgba(0,0,0,.06),0 0 var(--thebe-audio-blur) rgba(0,0,0,.22)}
+.thebe-particle{background:#111}
+.thebe-particle-orb[data-phase="idle"] .thebe-particle{animation:thebe-particle-idle 2.15s ease-in-out infinite}
+.thebe-particle-orb[data-phase="idle"] .thebe-particle:nth-of-type(2n){animation-delay:.22s}
+.thebe-particle-orb[data-phase="idle"] .thebe-particle:nth-of-type(3n){animation-delay:.44s}
+.thebe-particle-orb[data-phase="listening"] .thebe-particle,.thebe-particle-orb[data-phase="speaking"] .thebe-particle{background:#000}
+.thebe-particle-orb[data-phase="error"] .thebe-particle-core{background:#111;box-shadow:0 0 0 8px rgba(0,0,0,.06),0 0 26px rgba(0,0,0,.18)}
+.thebe-ai-presence-dot{background:#111;box-shadow:0 0 0 3px rgba(0,0,0,.08)}
+.thebe-ai-dock[data-surface="public"]{
+  top:auto;bottom:24px;right:24px;height:min(620px,calc(100vh - 48px));width:min(366px,calc(100vw - 48px));
+  border-color:#dedede;border-radius:22px;box-shadow:0 26px 90px rgba(0,0,0,.18),0 3px 12px rgba(0,0,0,.07);backdrop-filter:blur(22px)
+}
+.thebe-ai-dock[data-surface="public"] .thebe-ai-mark{background:#000;color:#fff;border-radius:50%}
+.thebe-ai-dock[data-surface="public"] .thebe-ai-voice-card{background:#fff;border-color:#dedede}
+.thebe-ai-dock[data-surface="public"] .thebe-ai-orb-button{width:116px;height:116px}
+.thebe-ai-dock[data-surface="public"] .thebe-particle-orb{width:116px;height:116px}
+.thebe-ai-dock[data-surface="public"] .thebe-ai-quick button:hover,.thebe-ai-dock[data-surface="public"] .thebe-ai-quick button:focus-visible{background:#f4f4f4;border-color:#cfcfcf}
+.thebe-ai-dock[data-surface="public"] .thebe-ai-send{background:#000}
+.thebe-ai-dock[data-surface="public"] .thebe-ai-voice-mount{display:none}
+.thebe-ai-dock[data-surface="public"] .thebe-ai-foot{background:#fff;color:#777}
+.thebe-ai-public-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.thebe-ai-public-signin,.thebe-ai-public-start,.thebe-ai-public-voice{border:1px solid #111;border-radius:10px;padding:9px 11px;font:inherit;font-size:10px;font-weight:800;cursor:pointer}
+.thebe-ai-public-signin,.thebe-ai-public-voice{background:#fff;color:#111}.thebe-ai-public-start{background:#111;color:#fff}
+.thebe-ai-pill[data-surface="public"]{top:auto;bottom:24px;right:24px;transform:none;background:#050505;color:#fff;border-color:#050505;padding:11px 15px;border-radius:999px;box-shadow:0 18px 55px rgba(0,0,0,.24)}
+.thebe-ai-pill[data-surface="public"] .thebe-ai-pill-dot{background:#fff;animation:thebe-pill-pulse 1.8s ease-in-out infinite}
+.thebe-ai-pill-label{vertical-align:middle}
+@media(max-width:650px){
+  .thebe-ai-dock[data-surface="public"]{left:10px;right:10px;bottom:76px;width:auto;height:auto;max-height:76vh}
+  .thebe-ai-pill[data-surface="public"]{right:12px;bottom:76px}
+}

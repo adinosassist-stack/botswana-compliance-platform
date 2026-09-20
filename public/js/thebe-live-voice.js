@@ -1,14 +1,14 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260920g";
+  const RELEASE="20260920h";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
   const DELEGATION_DRAIN_TIMEOUT_MS=12000;
   let pc=null,dc=null,media=null,remoteAudio=null,sessionId=null,sessionTimer=null,closeTimer=null,delegationDrainTimer=null;
   const audioMeters=[];
-  let inputTranscript="",outputTranscript="",state="idle",button=null,statusEl=null,transcriptRevision=0,maxSessionSeconds=600,lastError=null,closeRequested=false;
+  let inputTranscript="",outputTranscript="",state="idle",button=null,statusEl=null,transcriptRevision=0,maxSessionSeconds=600,lastError=null,closeRequested=false,sessionMode="workspace";
   const activeDelegations=new Set();
 
   const api=(url,options={})=>{
@@ -39,7 +39,7 @@
       else if(next==="closing")showStatus("Ending the voice session…");
       else if(next==="idle")showStatus("");
     }
-    emit("thebe-live-state",{state:next,sessionId,...detail});
+    emit("thebe-live-state",{state:next,sessionId,mode:sessionMode,...detail});
   };
 
   function rememberError(message,stage="runtime",detail={}){
@@ -59,7 +59,9 @@
     if(name==="NotAllowedError"||name==="PermissionDeniedError")return "Microphone permission is blocked. Allow microphone access for thebedesk.com, then try again.";
     if(name==="NotFoundError")return "No microphone was found on this device.";
     if(name==="NotReadableError")return "The microphone is busy or unavailable. Close other apps using it and try again.";
-    if(/429|rate.?limit/i.test(raw))return "Thebe voice has reached its temporary session limit. Try again later.";
+    if(/429|rate.?limit|marketing_session_rate_limited/i.test(raw))return sessionMode==="marketing"
+      ?"The public voice sample has reached its temporary limit. Please try again later or sign in to use your workspace."
+      :"Thebe voice has reached its temporary session limit. Try again later.";
     if(/401|403|unauth|forbidden/i.test(raw))return "Your session is not authorized for Thebe voice. Sign in again and retry.";
     if(/upstream|502|OpenAI|live_session_create_failed/i.test(raw))return "The voice provider rejected the session. Thebe recorded a safe diagnostic code for review.";
     return raw||"Thebe live voice could not start.";
@@ -302,23 +304,27 @@
     });
   }
 
-  async function start(){
-    if(state==="connecting"||state==="connected")return {state,sessionId};
+  async function start(options={}){
+    if(state==="connecting"||state==="connected")return {state,sessionId,mode:sessionMode};
     if(!global.isSecureContext)throw new Error("Thebe live voice requires HTTPS.");
     if(!global.RTCPeerConnection||!navigator.mediaDevices?.getUserMedia)throw new Error("This browser does not support Thebe live voice.");
 
-    const status=await api("/api/agentic/live/status");
+    sessionMode=String(options?.mode||"workspace")==="marketing"?"marketing":"workspace";
+    const requestApi=api;
+    const statusPath=sessionMode==="marketing"?"/api/agentic/live/marketing/status":"/api/agentic/live/status";
+    const status=await requestApi(statusPath);
     if(status?.sessionCreationAllowed!==true){
       const gate=text(status?.gateCode,120);
       if(status?.runtimeKillSwitch)throw new Error("Thebe live voice is paused by the runtime safety switch.");
-      if(gate==="tenant_session_rate_limited"||gate==="user_session_rate_limited")throw new Error("Thebe voice session limit has been reached temporarily.");
+      if(gate==="tenant_session_rate_limited"||gate==="user_session_rate_limited"||gate==="marketing_session_rate_limited")throw new Error("Thebe voice session limit has been reached temporarily.");
       if(gate==="live_failure_circuit_open")throw new Error("Thebe voice is temporarily paused after repeated provider failures.");
-      throw new Error("Thebe live voice is not enabled for this workspace.");
+      throw new Error(sessionMode==="marketing"?"The public Thebe voice sample is not available right now.":"Thebe live voice is not enabled for this workspace.");
     }
 
     setState("connecting");
     inputTranscript="";outputTranscript="";sessionId=null;transcriptRevision=0;lastError=null;
-    maxSessionSeconds=Math.max(60,Math.min(1800,Number(status?.maxSessionSeconds||600)));
+    const minimum=sessionMode==="marketing"?30:60;
+    maxSessionSeconds=Math.max(minimum,Math.min(1800,Number(status?.maxSessionSeconds||(sessionMode==="marketing"?60:600))));
     try{
       media=await navigator.mediaDevices.getUserMedia({audio:true});
       startAudioMeter(media,"input");
@@ -341,7 +347,12 @@
       media.getTracks().forEach(track=>pc.addTrack(track,media));
 
       dc=pc.createDataChannel("oai-events");
-      dc.addEventListener("open",()=>setState("connected"));
+      dc.addEventListener("open",()=>{
+        setState("connected");
+        if(sessionMode==="marketing"){
+          try{sendEvent({type:"response.create",response:{instructions:"Greet the visitor in one short sentence as Thebe, then invite them to ask what Thebe Desk does or to ask about a feature."}})}catch{}
+        }
+      });
       dc.addEventListener("message",event=>handleServerEvent(event.data));
       dc.addEventListener("close",()=>{
         if(state!=="closing")cleanup("idle",{message:lastError?.message||"Voice connection closed."});
@@ -351,7 +362,8 @@
       const offer=await pc.createOffer();
       await pc.setLocalDescription(offer);
       await waitForIce(pc);
-      const session=await api("/api/agentic/live/session",{
+      const sessionPath=sessionMode==="marketing"?"/api/agentic/live/marketing/session":"/api/agentic/live/session";
+      const session=await requestApi(sessionPath,{
         method:"POST",
         body:JSON.stringify({sdp:pc.localDescription?.sdp||offer.sdp})
       });
@@ -360,12 +372,12 @@
       if(!answerSdp)throw new Error("Thebe live session did not return a WebRTC answer.");
       await pc.setRemoteDescription({type:"answer",sdp:answerSdp});
       const serverLimit=Number(session?.limits?.maxSessionSeconds||maxSessionSeconds);
-      maxSessionSeconds=Math.max(60,Math.min(1800,Number.isFinite(serverLimit)?serverLimit:600));
+      maxSessionSeconds=Math.max(sessionMode==="marketing"?30:60,Math.min(1800,Number.isFinite(serverLimit)?serverLimit:(sessionMode==="marketing"?60:600)));
       sessionTimer=setTimeout(()=>{
         emit("thebe-live-session-limit",{sessionId,maxSessionSeconds});
         stop();
       },maxSessionSeconds*1000);
-      return {state:"connecting",sessionId,maxSessionSeconds};
+      return {state:"connecting",sessionId,maxSessionSeconds,mode:sessionMode};
     }catch(error){
       cleanup("idle",{preserveStatus:true});
       throw error;
@@ -458,11 +470,12 @@
     release:RELEASE,
     start,
     stop,
-    status:()=>({state,sessionId,inputTranscript,outputTranscript,transcriptRevision,maxSessionSeconds,lastError,pendingDelegations:activeDelegations.size,closeRequested}),
+    status:()=>({state,sessionId,mode:sessionMode,inputTranscript,outputTranscript,transcriptRevision,maxSessionSeconds,lastError,pendingDelegations:activeDelegations.size,closeRequested}),
     diagnostics:()=>({
       release:RELEASE,
       state,
       sessionId,
+      mode:sessionMode,
       secureContext:global.isSecureContext,
       peerConnectionState:pc?.connectionState||null,
       iceConnectionState:pc?.iceConnectionState||null,
@@ -479,10 +492,10 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260920d";
-  const STORE_KEY="thebe_ai_dock_collapsed_v3";
+  const DOCK_RELEASE="20260920e";
+  const STORE_KEY="thebe_ai_dock_collapsed_v4";
   const MAX_QUESTION=1000;
-  let dock=null,pill=null,orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,input=null,sendButton=null,attentionButton=null;
+  let dock=null,pill=null,pillLabel=null,orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,input=null,sendButton=null,attentionButton=null,quick=null,foot=null;
   let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",collapsed=false;
 
   const api=(url,options={})=>{
@@ -554,9 +567,14 @@
     }
     if(voicePhase==="idle"){
       if(workspace)setPhase("idle","Voice ready","Tap the particles or Talk to Thebe");
-      else if(surface==="public")setPhase("idle","Meet Thebe","Sign in to use secure workspace voice");
+      else if(surface==="public")setPhase("idle","Try Thebe voice","Tap the particles and ask about Thebe Desk");
     }
     if(input)input.placeholder=workspace?"Ask Thebe anything…":"Ask about Thebe Desk…";
+    if(pillLabel)pillLabel.textContent=workspace?"Thebe":"Ask Thebe";
+    renderQuickActions(surface);
+    if(foot)foot.textContent=workspace
+      ?"Advisory by default · governed actions still require the existing approval controls."
+      :"Public sample · no workspace data · voice sample limited to 60 seconds.";
     document.body.classList.toggle("thebe-ai-dock-open",workspace&&!collapsed);
   }
   function recoverVisibility(){
@@ -629,17 +647,88 @@
     responseMessage(message||"Sign in to use Thebe with your business workspace.");
     if(!responseBox)return;
     const actions=el("div","thebe-ai-public-actions");
-    const signIn=el("button","thebe-ai-public-signin","Sign in to Thebe Desk");
+    const signIn=el("button","thebe-ai-public-signin","Sign in");
     signIn.type="button";
     signIn.addEventListener("click",()=>global.location.assign("/auth/?mode=login&next=%2Fapp%2F"));
-    actions.append(signIn);
+    const start=el("button","thebe-ai-public-start","Start 14-day trial");
+    start.type="button";
+    start.addEventListener("click",()=>global.location.assign("/auth/?mode=register"));
+    actions.append(signIn,start);
     responseBox.append(actions);
+  }
+  function publishedPricing(){
+    const cards=[...document.querySelectorAll("#pricing .pricecard")].slice(0,4);
+    const values=cards.map(card=>{
+      const name=clean(card.querySelector("h3")?.textContent,40);
+      const price=clean(card.querySelector(".price")?.textContent,60);
+      return name&&price?`${name} ${price}`:"";
+    }).filter(Boolean);
+    return values.length?values.join(" · "):"Monitor P149/month · Protect P349/month · Control P699/month · Network P1,299/month";
+  }
+  function marketingAnswer(question){
+    const q=clean(question,MAX_QUESTION).toLowerCase();
+    if(/price|pricing|cost|plan|subscription|trial/.test(q)){
+      return `Thebe Desk has four published plans: ${publishedPricing()}. Every new workspace starts with a 14-day trial, so an SME can start lean and upgrade as it needs more locations, controls and AI capacity.`;
+    }
+    if(/cipa|burs|tax|vat|paye|licen[cs]e|compliance|regulat/.test(q)){
+      return "Thebe Desk keeps recurring Botswana compliance work visible in one place: CIPA company records and annual-return work, BURS tax obligations, employment compliance, business and industrial licences, tender deadlines, controls and inspection-ready evidence. It turns confirmed obligations into practical actions and keeps the supporting proof attached.";
+    }
+    if(/employee|employment|hr|disciplin|leave|employer/.test(q)){
+      return "Employer Shield organises employment contracts, fixed-term risk, warnings, disciplinary evidence, leave, grievances and high-risk decision gates around a defensible process. It is designed for employment-risk control and evidence rather than payroll processing.";
+    }
+    if(/tender|bid|passport|evidence|inspection|remediation/.test(q)){
+      return "Tender Control tracks bid-specific requirements, mandatory evidence and closing dates. Compliance Passport can share scoped, revocable proof, while remediation and inspection-readiness workflows turn control failures into owned cases and evidence packs.";
+    }
+    if(/ai|thebe ai|agent|voice|assistant/.test(q)){
+      return "Thebe AI is the decision-support layer inside Thebe Desk. In a signed-in workspace it can turn permitted business data into management briefs, explain risks and suggest next actions, while approvals, evidence and human judgement stay in control. This public dock is a safe sample and cannot access private workspace data.";
+    }
+    if(/account|finance|cash|reconcil|revenue|expense|bookkeep/.test(q)){
+      return "Accounting and financial intelligence brings bookkeeping outputs into the management picture so owners can understand revenue, expenses, cash position, payroll and tax readiness. Thebe Desk analyses the business picture without pretending to replace the accounting ledger.";
+    }
+    if(/what is|what does|feature|how does|tell me|explain|thebe desk/.test(q)){
+      return "Thebe Desk is Botswana SME compliance and business-risk software. It continuously helps owners and managers see what needs attention across compliance, employees, licences, tenders, evidence, operations and financial intelligence, then turns gaps into controlled next actions instead of scattered reminders and files.";
+    }
+    return "Ask me about Thebe Desk features, Botswana compliance workflows, Thebe AI, Employer Shield, tenders, evidence, financial intelligence or pricing. You can also tap the black-and-white particles to sample Thebe voice for up to one minute.";
+  }
+  function renderMarketingAnswer(question){
+    responseMessage(marketingAnswer(question));
+    if(!responseBox)return;
+    const actions=el("div","thebe-ai-public-actions");
+    const voice=el("button","thebe-ai-public-voice","Try voice");
+    voice.type="button";
+    voice.addEventListener("click",()=>orb?.parentElement?.click());
+    const start=el("button","thebe-ai-public-start","Start 14-day trial");
+    start.type="button";start.addEventListener("click",()=>global.location.assign("/auth/?mode=register"));
+    actions.append(voice,start);
+    responseBox.append(actions);
+  }
+  function renderQuickActions(surface){
+    if(!quick)return;
+    const mode=surface==="public"?"public":"workspace";
+    if(quick.dataset.mode===mode)return;
+    quick.dataset.mode=mode;
+    quick.replaceChildren();
+    if(mode==="public"){
+      quick.append(
+        quickButton("What is Thebe Desk?","30-second overview","ask","What is Thebe Desk and who is it for?"),
+        quickButton("Compliance","CIPA, BURS, licences","ask","How does Thebe Desk help with Botswana SME compliance?"),
+        quickButton("Thebe AI","Decision support","ask","What can Thebe AI do?"),
+        quickButton("Pricing","Plans & trial","ask","What does Thebe Desk cost?")
+      );
+      return;
+    }
+    quick.append(
+      quickButton("What changed?","Management brief","management_brief","Summarise what has changed or needs attention from the current workspace records. Be concise and distinguish confirmed facts from missing data."),
+      quickButton("Today’s priorities","Next actions","next_actions","What needs management attention today? Prioritise the most important current workspace items."),
+      quickButton("Cash position","Finance check","ask","Summarise the current cash position, collection risk and finance items needing attention. If finance data is incomplete, say exactly what is missing."),
+      quickButton("Explain risk","Grounded evidence","explain_risk","Explain the highest current business-protection risk and the evidence behind it.")
+    );
   }
   async function ask(mode,question){
     const q=clean(question,MAX_QUESTION);
     if(textBusy||q.length<3)return;
     if(!shellVisible()){
-      showPublicSignIn("Thebe is available here. Sign in to ask questions using your business data, compliance status and Owner Command Centre.");
+      renderMarketingAnswer(q);
       return;
     }
     textBusy=true;
@@ -672,7 +761,7 @@
   function mount(){
     if(document.getElementById("thebeAiDock"))return;
     const storedCollapse=safeSessionGet(STORE_KEY);
-    collapsed=storedCollapse==="1"||(storedCollapse===null&&innerWidth<680);
+    collapsed=storedCollapse==="1"||(storedCollapse===null&&(surfaceMode()==="public"||innerWidth<680));
 
     dock=el("section","thebe-ai-dock");
     dock.id="thebeAiDock";
@@ -706,8 +795,15 @@
     for(let i=0;i<12;i++)orb.append(el("i","thebe-particle"));
     orbButton.append(orb);
     orbButton.addEventListener("click",()=>{
+      const liveApi=global.ThebeLiveVoice;
       if(!shellVisible()){
-        showPublicSignIn("Voice is available inside your secure Thebe Desk workspace. Sign in to continue.");
+        if(!liveApi){responseMessage("The public voice sample is not available in this browser right now.","error");return}
+        const liveState=liveApi.status?.().state||"idle";
+        if(liveState==="connected"||liveState==="connecting"||liveState==="closing"){liveApi.stop();return}
+        responseMessage("Opening a short Thebe voice sample…","thinking");
+        liveApi.start({mode:"marketing"}).catch(error=>{
+          responseMessage(clean(error?.message||"The public voice sample could not start.",320),"error");
+        });
         return;
       }
       const live=document.getElementById("thebeLiveVoiceButton");
@@ -720,13 +816,8 @@
     transcriptBox=el("div","thebe-ai-live-transcript");transcriptBox.id="thebeAiDockTranscript";transcriptBox.hidden=true;
     voiceCard.append(orbButton,voiceLabel,voiceSub,voiceMount,transcriptBox);
 
-    const quick=el("div","thebe-ai-quick");
-    quick.append(
-      quickButton("What changed?","Management brief","management_brief","Summarise what has changed or needs attention from the current workspace records. Be concise and distinguish confirmed facts from missing data."),
-      quickButton("Today’s priorities","Next actions","next_actions","What needs management attention today? Prioritise the most important current workspace items."),
-      quickButton("Cash position","Finance check","ask","Summarise the current cash position, collection risk and finance items needing attention. If finance data is incomplete, say exactly what is missing."),
-      quickButton("Explain risk","Grounded evidence","explain_risk","Explain the highest current business-protection risk and the evidence behind it.")
-    );
+    quick=el("div","thebe-ai-quick");
+    renderQuickActions(surfaceMode());
 
     responseBox=el("div","thebe-ai-response");responseBox.id="thebeAiDockResponse";responseMessage("Ask a question, use a quick action, or speak to Thebe.");
 
@@ -739,12 +830,13 @@
     compose.addEventListener("submit",event=>{event.preventDefault();const value=input.value;input.value="";void ask("ask",value)});
     input.addEventListener("keydown",event=>{if(event.key==="Enter"&&!event.shiftKey){event.preventDefault();compose.requestSubmit()}});
 
-    const foot=el("div","thebe-ai-foot","Advisory by default · governed actions still require the existing approval controls.");
+    foot=el("div","thebe-ai-foot","Advisory by default · governed actions still require the existing approval controls.");
     dock.append(head,scroll,compose,foot);
 
     pill=el("button","thebe-ai-pill");
     pill.id="thebeAiDockPill";pill.type="button";pill.hidden=true;
-    pill.append(el("span","thebe-ai-pill-dot"),document.createTextNode("Thebe"));
+    pillLabel=el("span","thebe-ai-pill-label","Thebe");
+    pill.append(el("span","thebe-ai-pill-dot"),pillLabel);
     pill.addEventListener("click",()=>setCollapsed(false));
 
     document.body.append(dock,pill);
@@ -765,10 +857,14 @@
 
   global.addEventListener("thebe-live-state",event=>{
     const next=event?.detail?.state||"idle";
-    if(next==="connecting")setPhase("connecting","Connecting…","Opening the secure voice session");
-    else if(next==="connected")setPhase("ready","Voice connected","Speak naturally — you can interrupt Thebe");
-    else if(next==="closing")setPhase("thinking","Ending voice…","Closing the secure session");
-    else {setPhase("idle","Voice ready","Tap the particles or Talk to Thebe");voiceInput="";voiceOutput="";renderVoiceTranscript()}
+    const marketing=event?.detail?.mode==="marketing"||surfaceMode()==="public";
+    if(next==="connecting")setPhase("connecting","Connecting…",marketing?"Opening the 60-second sample":"Opening the secure voice session");
+    else if(next==="connected")setPhase("ready","Voice connected",marketing?"Ask me about Thebe Desk":"Speak naturally — you can interrupt Thebe");
+    else if(next==="closing")setPhase("thinking","Ending voice…","Closing the voice session");
+    else {
+      setPhase("idle",marketing?"Try Thebe voice":"Voice ready",marketing?"Tap the particles and ask about Thebe Desk":"Tap the particles or Talk to Thebe");
+      voiceInput="";voiceOutput="";renderVoiceTranscript()
+    }
   });
   global.addEventListener("thebe-live-event",event=>{
     const message=event?.detail?.event||{};

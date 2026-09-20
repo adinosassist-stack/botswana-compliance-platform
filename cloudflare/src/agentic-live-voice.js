@@ -19,6 +19,8 @@ const DEFAULT_MAX_SESSION_SECONDS=600;
 const DEFAULT_UPSTREAM_TIMEOUT_MS=12000;
 const DEFAULT_MAX_USER_STARTS_PER_HOUR=4;
 const DEFAULT_FAILURE_CIRCUIT_THRESHOLD=3;
+const DEFAULT_MARKETING_MAX_SESSION_SECONDS=60;
+const DEFAULT_MARKETING_MAX_STARTS_PER_HOUR=6;
 
 const json=(body,status=200)=>new Response(JSON.stringify(body),{
   status,
@@ -52,6 +54,8 @@ function boundedUserStarts(value){return boundedInt(value,{min:1,max:30,fallback
 function boundedSessionSeconds(value){return boundedInt(value,{min:60,max:1800,fallback:DEFAULT_MAX_SESSION_SECONDS})}
 function boundedUpstreamTimeoutMs(value){return boundedInt(value,{min:3000,max:30000,fallback:DEFAULT_UPSTREAM_TIMEOUT_MS})}
 function boundedFailureThreshold(value){return boundedInt(value,{min:1,max:20,fallback:DEFAULT_FAILURE_CIRCUIT_THRESHOLD})}
+function boundedMarketingSessionSeconds(value){return boundedInt(value,{min:30,max:120,fallback:DEFAULT_MARKETING_MAX_SESSION_SECONDS})}
+function boundedMarketingStarts(value){return boundedInt(value,{min:1,max:20,fallback:DEFAULT_MARKETING_MAX_STARTS_PER_HOUR})}
 
 async function sha256Hex(value){
   const bytes=new TextEncoder().encode(String(value??""));
@@ -110,6 +114,12 @@ function killSwitchActive(env){
 
 function liveAllowed(env){
   return liveEnabled(env)&&liveConfigured(env)&&runtimeEnabled(env)&&!killSwitchActive(env);
+}
+function marketingVoiceEnabled(env){
+  return liveEnabled(env)&&envTrue(env?.THEBE_MARKETING_VOICE_ENABLED);
+}
+function marketingVoiceAllowed(env){
+  return marketingVoiceEnabled(env)&&liveConfigured(env)&&runtimeEnabled(env)&&!killSwitchActive(env);
 }
 
 function instructions(){
@@ -178,6 +188,157 @@ function realtimeSessionConfig(){
     tools:[delegationTool()],
     tool_choice:"auto"
   };
+}
+
+function marketingInstructions(){
+  return [
+    "You are Thebe, the public voice guide for Thebe Desk, Botswana SME compliance software.",
+    "This is a short marketing demonstration on the public website. You have no access to any visitor account, workspace, company data, finance records, employees, evidence, documents, tools or governed actions.",
+    "Explain Thebe Desk clearly and conversationally. Keep most answers under 35 seconds unless the visitor asks for detail.",
+    "Thebe Desk helps Botswana SMEs keep recurring compliance work visible across CIPA company records, BURS tax obligations, employment compliance, business and industrial licences, tender readiness, inspections and evidence.",
+    "Key product features include Employer Shield, Regulatory Intelligence, Continuous Control Assurance, Remediation and Inspection Readiness, Tender Control, Compliance Passport, Thebe AI, and accounting and financial intelligence.",
+    "Thebe AI provides grounded decision support inside an authenticated workspace: management briefs, risk explanations and practical next actions while approvals, evidence and human judgement remain in control.",
+    "Current published plans are Monitor at P149 per month, Protect at P349 per month, Control at P699 per month, and Network at P1,299 per month. New workspaces start with a 14-day trial.",
+    "Do not invent legal, tax or regulatory conclusions. Explain product capabilities rather than giving professional legal or tax advice.",
+    "If asked to inspect a business, perform an action, create a task, access records, or make a decision using private data, explain that public sample mode cannot do that and invite the visitor to sign in or start a workspace.",
+    "Do not call tools. Do not claim you accessed private data. Do not claim an action was executed.",
+    "If the visitor asks what makes Thebe Desk different, emphasize continuous risk detection, controlled action, evidence of compliance, Botswana-specific workflows, and an owner-focused management view."
+  ].join(" ");
+}
+
+function marketingRealtimeSessionConfig(){
+  return {
+    type:"realtime",
+    model:LIVE_MODEL,
+    output_modalities:["audio"],
+    audio:{
+      input:{turn_detection:{type:"semantic_vad"}},
+      output:{voice:"marin"}
+    },
+    instructions:marketingInstructions(),
+    tools:[],
+    tool_choice:"none"
+  };
+}
+
+async function marketingSafetyIdentifier(request){
+  const ip=cleanText((request.headers.get("cf-connecting-ip")||request.headers.get("x-forwarded-for")||"").split(",")[0],120);
+  const ua=cleanText(request.headers.get("user-agent"),200);
+  return sha256Hex(`marketing:${ip||"unknown"}:${ua||"unknown"}`);
+}
+
+async function consumeMarketingStart(request,env){
+  const cache=globalThis.caches?.default;
+  if(!cache)return Object.freeze({allowed:false,code:"marketing_rate_limit_unavailable"});
+  const fingerprint=await marketingSafetyIdentifier(request);
+  const hour=new Date().toISOString().slice(0,13);
+  const key=new Request(`https://thebedesk-rate.invalid/marketing-voice/${fingerprint}/${hour}`);
+  let count=0;
+  try{
+    const existing=await cache.match(key);
+    if(existing){
+      const body=await existing.json();
+      count=Math.max(0,Number(body?.count)||0);
+    }
+  }catch{}
+  const max=boundedMarketingStarts(env?.THEBE_MARKETING_VOICE_MAX_STARTS_PER_HOUR);
+  if(count>=max)return Object.freeze({allowed:false,code:"marketing_session_rate_limited",retryAfterSeconds:3600,count,max});
+  const next=count+1;
+  try{
+    await cache.put(key,new Response(JSON.stringify({count:next}),{
+      headers:{"content-type":"application/json","cache-control":"public,max-age=3700"}
+    }));
+  }catch{
+    return Object.freeze({allowed:false,code:"marketing_rate_limit_unavailable"});
+  }
+  return Object.freeze({allowed:true,code:"marketing_voice_ready",count:next,max,fingerprint});
+}
+
+function marketingStatus(env){
+  const allowed=marketingVoiceAllowed(env);
+  return json({
+    enabled:marketingVoiceEnabled(env),
+    configured:liveConfigured(env),
+    sessionCreationAllowed:allowed,
+    gateCode:allowed?"marketing_voice_ready":"marketing_voice_unavailable",
+    version:THEBE_LIVE_VOICE_VERSION,
+    model:LIVE_MODEL,
+    transport:"webrtc",
+    mode:"marketing_sample",
+    maxSessionSeconds:boundedMarketingSessionSeconds(env?.THEBE_MARKETING_VOICE_MAX_SESSION_SECONDS),
+    maxStartsPerHour:boundedMarketingStarts(env?.THEBE_MARKETING_VOICE_MAX_STARTS_PER_HOUR),
+    transcriptPolicy:{rawAudioStoredByThebe:false,liveTranscriptServerStorage:false},
+    authority:{workspaceDataAccess:false,toolsAvailable:false,executionAuthority:false}
+  });
+}
+
+async function createMarketingSession({request,env}){
+  if(!marketingVoiceAllowed(env))return json({error:"marketing_voice_unavailable"},503);
+  let body;
+  try{body=await readBoundedJson(request)}
+  catch(error){return json({error:error.message},bodyErrorStatus(error))}
+  const sdp=String(body?.sdp||"");
+  if(!sdp||sdp.length>MAX_SDP_CHARS||!/^v=0(?:\r?\n|$)/.test(sdp))return json({error:"invalid_webrtc_offer"},400);
+
+  const rate=await consumeMarketingStart(request,env);
+  if(!rate.allowed){
+    const status=rate.code==="marketing_session_rate_limited"?429:503;
+    return json({error:rate.code,...(rate.retryAfterSeconds?{retryAfterSeconds:rate.retryAfterSeconds}:{})},status);
+  }
+
+  const upstreamTimeoutMs=boundedUpstreamTimeoutMs(env?.THEBE_LIVE_VOICE_UPSTREAM_TIMEOUT_MS);
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort("marketing_live_session_timeout"),upstreamTimeoutMs);
+  const form=new FormData();
+  form.set("sdp",sdp);
+  form.set("session",JSON.stringify(marketingRealtimeSessionConfig()));
+  let upstream;
+  try{
+    upstream=await fetch(OPENAI_REALTIME_CALLS_URL,{
+      method:"POST",
+      headers:{
+        "authorization":`Bearer ${String(env.OPENAI_API_KEY).trim()}`,
+        "accept":"application/sdp",
+        "OpenAI-Safety-Identifier":rate.fingerprint
+      },
+      signal:controller.signal,
+      body:form
+    });
+  }catch{
+    return json({error:"marketing_live_session_create_failed",code:controller.signal.aborted?"upstream_timeout":"upstream_unreachable"},502);
+  }finally{
+    clearTimeout(timeout);
+  }
+  if(!upstream.ok){
+    const providerRaw=String(await upstream.text()).slice(0,4096);
+    let providerCode=null,providerType=null;
+    try{
+      const parsed=JSON.parse(providerRaw);
+      providerCode=cleanText(parsed?.error?.code,120)||null;
+      providerType=cleanText(parsed?.error?.type,120)||null;
+    }catch{}
+    return json({error:"marketing_live_session_create_failed",code:"upstream_rejected",upstreamStatus:upstream.status,providerCode,providerType},502);
+  }
+
+  const answerSdp=String(await upstream.text());
+  const location=String(upstream.headers.get("location")||"");
+  const sessionId=cleanText(location.split("/").filter(Boolean).pop(),240)||crypto.randomUUID();
+  if(!answerSdp||answerSdp.length>MAX_SDP_CHARS||!/^v=0(?:\r?\n|$)/.test(answerSdp))return json({error:"marketing_live_session_invalid_response"},502);
+
+  return json({
+    ok:true,
+    version:THEBE_LIVE_VOICE_VERSION,
+    model:LIVE_MODEL,
+    mode:"marketing_sample",
+    session:{id:sessionId},
+    transport:{type:"webrtc",sdp:answerSdp},
+    delegation:{type:"none"},
+    limits:{
+      maxSessionSeconds:boundedMarketingSessionSeconds(env?.THEBE_MARKETING_VOICE_MAX_SESSION_SECONDS),
+      maxStartsPerHour:rate.max
+    },
+    authority:{workspaceDataAccess:false,toolsAvailable:false,executionAuthority:false}
+  },201);
 }
 
 async function audit(env,auth,eventType,entityId,detail={}){
@@ -727,6 +888,13 @@ export async function handleAgenticLiveVoiceRequest({request,logicalPath,env,ctx
   const path=String(logicalPath||new URL(request.url).pathname);
   if(!path.startsWith("/api/agentic/live"))return null;
 
+  if(path==="/api/agentic/live/marketing/status"&&request.method==="GET")return marketingStatus(env);
+  if(path==="/api/agentic/live/marketing/session"&&request.method==="POST"){
+    if(!String(request.headers.get("origin")||"").trim()||!originAllowed(request,env))return json({error:"origin_failed"},403);
+    return createMarketingSession({request,env});
+  }
+  if(path.startsWith("/api/agentic/live/marketing"))return json({error:"not_found"},404);
+
   const auth=await authenticate(request,env);
   if(!auth)return json({error:"unauthenticated"},401);
   if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
@@ -751,8 +919,12 @@ export const __agenticLiveVoiceTest=Object.freeze({
   boundedSessionSeconds,
   boundedUpstreamTimeoutMs,
   boundedFailureThreshold,
+  boundedMarketingSessionSeconds,
+  boundedMarketingStarts,
   liveGate,
   liveEnabled,
+  marketingVoiceEnabled,
+  marketingVoiceAllowed,
   liveConfigured,
   runtimeEnabled,
   killSwitchActive,
@@ -763,8 +935,10 @@ export const __agenticLiveVoiceTest=Object.freeze({
   validPreparedTaskBackendPayload,
   validGovernedPlanPayload,
   instructions,
+  marketingInstructions,
   delegationTool,
   realtimeSessionConfig,
+  marketingRealtimeSessionConfig,
   spokenResult,
   preparedTaskContent,
   taskPreparationNoopContent
