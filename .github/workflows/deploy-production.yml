@@ -385,6 +385,7 @@ jobs:
           required_secrets=(
             CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID SESSION_SECRET AUDIT_INTEGRITY_SECRET
             OPERATIONS_SECRET AUTOMATION_SECRET TURNSTILE_SECRET_KEY PAYMENT_WEBHOOK_SECRET BILLING_WEBHOOK_SECRET
+            OPENAI_API_KEY
           )
           for key in "${required_secrets[@]}"; do
             [[ -n "${!key:-}" ]] || { echo "Missing required production secret: $key" >&2; exit 1; }
@@ -429,9 +430,9 @@ jobs:
           const fs = require('node:fs');
           const coreNames = [
             'SESSION_SECRET','AUDIT_INTEGRITY_SECRET','OPERATIONS_SECRET','AUTOMATION_SECRET',
-            'TURNSTILE_SECRET_KEY','PAYMENT_WEBHOOK_SECRET','BILLING_WEBHOOK_SECRET'
+            'TURNSTILE_SECRET_KEY','PAYMENT_WEBHOOK_SECRET','BILLING_WEBHOOK_SECRET','OPENAI_API_KEY'
           ];
-          const optionalNames = ['GOOGLE_OAUTH_CLIENT_SECRET','FACEBOOK_APP_SECRET','RESEND_API_KEY','OPENAI_API_KEY'];
+          const optionalNames = ['GOOGLE_OAUTH_CLIENT_SECRET','FACEBOOK_APP_SECRET','RESEND_API_KEY'];
           const out = {};
           for (const name of coreNames) {
             const value = process.env[name] || '';
