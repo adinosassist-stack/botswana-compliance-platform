@@ -5,6 +5,7 @@ import {__agenticLiveVoiceTest as liveTest} from "../cloudflare/src/agentic-live
 
 const backend=fs.readFileSync("cloudflare/src/agentic-live-voice.js","utf8");
 const client=fs.readFileSync("public/js/thebe-live-voice.js","utf8");
+const dockCss=fs.readFileSync("public/assets/thebe-ai-dock.css","utf8");
 const entry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
 const env=fs.readFileSync(".env.example","utf8");
@@ -108,6 +109,18 @@ assert.match(client,/thebe-live-delegation-drain-timeout/);
 assert.match(client,/maybeSendSessionClose\(\)/);
 assert.match(client,/pendingDelegations:activeDelegations\.size/);
 assert.match(client,/thebeLiveVoiceStatus/);
+assert.match(client,/ThebeAiDock/);
+assert.match(client,/thebeAiDockVoiceMount/);
+assert.match(client,/thebe-live-delegation-result/);
+assert.match(client,/Current Thebe Desk screen/);
+assert.match(client,/What changed\?/);
+assert.match(client,/Cash position/);
+assert.match(client,/response\.output_audio_transcript\.delta/);
+assert.match(dockCss,/thebe-particle-speak/);
+assert.match(dockCss,/thebe-ring-out/);
+assert.match(dockCss,/prefers-reduced-motion:reduce/);
+assert.match(dockCss,/body\.thebe-ai-dock-open/);
+assert.match(production,/thebe-ai-dock\.css/);
 assert.match(client,/aria-live/);
 assert.match(client,/diagnostics:\(\)=>/);
 assert.match(client,/Microphone permission is blocked/);
