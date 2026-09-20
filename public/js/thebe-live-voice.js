@@ -162,11 +162,19 @@
     try{media?.getTracks?.().forEach(track=>track.stop())}catch{}
     try{if(remoteAudio){remoteAudio.srcObject=null;remoteAudio.remove()}}catch{}
     pc=null;dc=null;media=null;remoteAudio=null;sessionId=null;
+    if(closeTimer){clearTimeout(closeTimer);closeTimer=null}
     activeDelegations.clear();
     setState(nextState);
   }
 
   function stop(){
+    if(state==="closing")return;
+    if(dc&&dc.readyState==="open"){
+      setState("closing");
+      try{sendEvent({type:"session.close",event_id:global.crypto?.randomUUID?.()||String(Date.now())})}catch{}
+      closeTimer=setTimeout(()=>cleanup("idle"),2000);
+      return;
+    }
     cleanup("idle");
   }
 
