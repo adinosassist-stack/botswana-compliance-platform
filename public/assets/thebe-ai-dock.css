@@ -210,3 +210,9 @@
   :root{--thebe-dock-w:320px}
   .thebe-ai-dock[data-surface="public"] .thebe-ai-dock-scroll{padding:11px 12px 10px;gap:10px}
 }
+
+/* Public marketing identity: use the real Thebe Desk symbol instead of a temporary monogram. */
+.thebe-ai-dock[data-surface="public"] .thebe-ai-mark{
+  background:#fff url("/assets/thebe-desk-logo-symbol.png") center/22px 22px no-repeat;
+  border:1px solid #e5e5e1;color:transparent;font-size:0;border-radius:9px
+}

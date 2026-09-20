@@ -182,6 +182,10 @@ assert.match(home,/class="control-ribbon"/,"marketing hero must expose compact p
 assert.match(home,/class="workflow-strip"/,"marketing page must explain the operating rhythm without adding a tall section");
 assert.match(home,/id="thebe-ai"/,"marketing page must explain the persistent public Thebe dock");
 assert.doesNotMatch(home,/gradient\(/,"marketing homepage must remain gradient-free");
+assert.match(home,/data-thebe-prompt=/,"marketing Thebe examples must be actionable");
+assert.match(client,/function bindMarketingPrompts\(\)/,"public marketing prompts must bind into the persistent dock");
+assert.match(client,/surfaceMode\(\)!=="public"/,"marketing prompt bridge must stay scoped to the public surface");
+assert.match(dockCss,/thebe-desk-logo-symbol\.png/,"public dock must use the real Thebe Desk symbol");
 assert.match(production,/thebe-ai-dock\.css/);
 assert.match(production,/x-thebe-ai-dock/);
 assert.match(client,/aria-live/);
