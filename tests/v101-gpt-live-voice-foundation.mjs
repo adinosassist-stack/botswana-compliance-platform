@@ -92,6 +92,8 @@ assert.match(backend,/governed_backend_invalid_response/);
 assert.match(backend,/delegated_business_work_invalid_response/);
 
 assert.match(client,/RTCPeerConnection/);
+assert.match(client,/BW\?\.api\?\.createClient|BW\.api\.createClient/);
+assert.match(client,/publicTransport\.request/);
 assert.match(client,/navigator\.mediaDevices\?\.getUserMedia/);
 assert.match(client,/createDataChannel\("oai-events"\)/);
 assert.match(client,/conversation\.item\.input_audio_transcription\.delta/);
