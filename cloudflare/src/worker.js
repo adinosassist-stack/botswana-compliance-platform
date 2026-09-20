@@ -1615,7 +1615,7 @@ async function reporterAccessFromToken(env,token){
     JOIN employees e ON e.id=a.employee_id AND e.tenant_id=a.tenant_id
     JOIN operating_locations l ON l.id=a.location_id AND l.tenant_id=a.tenant_id
     JOIN tenants t ON t.id=a.tenant_id
-    WHERE a.token_hash=? AND a.status='active' AND a.expires_at>CURRENT_TIMESTAMP AND e.status='active' AND l.active=1 LIMIT 1`).bind(hash).first();
+    WHERE a.token_hash=? AND a.status='active' AND a.expires_at>CURRENT_TIMESTAMP AND lower(trim(coalesce(e.status,'')))='active' AND l.active=1 LIMIT 1`).bind(hash).first();
 }
 function dailyReportPayloadMatches(row,payload){
   if(!row)return false;
@@ -1630,7 +1630,7 @@ async function dailyOpsDashboard(env,tenantId,reportDate,locationId=null){
     env.DB.prepare("SELECT id,name,code,town,active FROM operating_locations WHERE tenant_id=? AND active=1 ORDER BY name").bind(tenantId).all(),
     env.DB.prepare(`SELECT a.id,a.employee_id,a.location_id,a.expires_at,a.last_used_at,e.full_name,e.role_title,l.name location_name
       FROM employee_reporting_access a JOIN employees e ON e.id=a.employee_id JOIN operating_locations l ON l.id=a.location_id
-      WHERE a.tenant_id=? AND a.status='active' AND a.expires_at>CURRENT_TIMESTAMP AND e.status='active' AND l.active=1 ORDER BY l.name,e.full_name`).bind(tenantId).all(),
+      WHERE a.tenant_id=? AND a.status='active' AND a.expires_at>CURRENT_TIMESTAMP AND lower(trim(coalesce(e.status,'')))='active' AND l.active=1 ORDER BY l.name,e.full_name`).bind(tenantId).all(),
     env.DB.prepare(`SELECT r.id,r.employee_id,r.location_id,r.report_date,r.work_summary,r.wins,r.blockers,r.incidents,r.next_plan,r.kpi_json,r.needs_attention,r.revision_count,r.submitted_at,r.updated_at,
       e.full_name,e.role_title,l.name location_name,l.code location_code
       FROM daily_employee_reports r JOIN employees e ON e.id=r.employee_id JOIN operating_locations l ON l.id=r.location_id
@@ -6606,7 +6606,7 @@ export default {
       if(url.pathname==="/api/daily-reporting/access"&&req.method==="POST"){
         if(!roleAllowed(a,"owner","manager"))return json({error:"forbidden"},403);const body=await readJson(req),employeeId=String(body.employeeId||""),locationId=String(body.locationId||"");
         const [emp,loc]=await Promise.all([env.DB.prepare("SELECT id,full_name,status FROM employees WHERE id=? AND tenant_id=? LIMIT 1").bind(employeeId,a.tenant_id).first(),env.DB.prepare("SELECT id,name,active FROM operating_locations WHERE id=? AND tenant_id=? LIMIT 1").bind(locationId,a.tenant_id).first()]);
-        if(!emp||emp.status!=="active")return json({error:"active_employee_required"},404);if(!loc||Number(loc.active)!==1)return json({error:"active_location_required"},404);
+        if(!emp||String(emp.status||"").trim().toLowerCase()!=="active")return json({error:"active_employee_required"},404);if(!loc||Number(loc.active)!==1)return json({error:"active_location_required"},404);
         const days=Math.max(7,Math.min(365,Number(body.expiresInDays||180))),token=randomReporterToken(),tokenHash=await sha256Hex(token),aid=id();
         await env.DB.batch([env.DB.prepare("UPDATE employee_reporting_access SET status='revoked',last_rotated_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND employee_id=? AND location_id=? AND status='active'").bind(a.tenant_id,employeeId,locationId),env.DB.prepare("INSERT INTO employee_reporting_access(id,tenant_id,employee_id,location_id,token_hash,status,expires_at) VALUES(?,?,?,?,?,'active',datetime('now',?))").bind(aid,a.tenant_id,employeeId,locationId,tokenHash,`+${days} days`)]);
         const origin=(validPublicAppUrl(env.PUBLIC_APP_URL)||`${url.origin}/`).replace(/\/+$/,"");const link=`${origin}/#report=${encodeURIComponent(token)}`;
@@ -6625,7 +6625,7 @@ export default {
         const allowedReasons=new Set(["leave","rest_day","field_assignment","training","connectivity","other"]),reasonCode=String(body.reasonCode||"other");
         if(!allowedReasons.has(reasonCode))return json({error:"invalid_exception_reason"},400);
         const note=boundedReportText(body.note,240);
-        const access=await env.DB.prepare(`SELECT a.id FROM employee_reporting_access a JOIN employees e ON e.id=a.employee_id JOIN operating_locations l ON l.id=a.location_id WHERE a.tenant_id=? AND a.employee_id=? AND a.location_id=? AND a.status='active' AND a.expires_at>CURRENT_TIMESTAMP AND e.status='active' AND l.active=1 LIMIT 1`).bind(a.tenant_id,employeeId,locationId).first();
+        const access=await env.DB.prepare(`SELECT a.id FROM employee_reporting_access a JOIN employees e ON e.id=a.employee_id JOIN operating_locations l ON l.id=a.location_id WHERE a.tenant_id=? AND a.employee_id=? AND a.location_id=? AND a.status='active' AND a.expires_at>CURRENT_TIMESTAMP AND lower(trim(coalesce(e.status,'')))='active' AND l.active=1 LIMIT 1`).bind(a.tenant_id,employeeId,locationId).first();
         if(!access)return json({error:"active_reporting_access_required"},404);
         const xid=id();
         await env.DB.prepare(`INSERT INTO daily_reporting_exceptions(id,tenant_id,employee_id,location_id,report_date,reason_code,note,created_by_user_id) VALUES(?,?,?,?,?,?,?,?)
