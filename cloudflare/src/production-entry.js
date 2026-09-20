@@ -11,6 +11,7 @@ const THEBE_LOGO_FAVICON="/assets/thebe-desk-favicon-512.png?v=20260912b";
 const OWNER_COMMAND_CENTRE_RELEASE="20260913c";
 const EXECUTIVE_PERSONALIZATION_RELEASE="20260913c";
 const BUSINESS_DATA_BRIDGE_RELEASE="20260913d";
+const THEBE_LIVE_VOICE_RELEASE="20260920a";
 const TURNSTILE_SECRET_HEALTH_TTL_MS=5*60*1000;
 const REGISTRATION_PROOF_TTL_MS=5*60*1000;
 const REGISTRATION_PROOF_DIFFICULTY=10;
@@ -114,12 +115,14 @@ function injectOwnerCommandCentreAssets(html){
   const personalizationJsSrc=`/js/executive-personalization.js?v=${EXECUTIVE_PERSONALIZATION_RELEASE}`;
   const bridgeCssHref=`/assets/business-data-bridge.css?v=${BUSINESS_DATA_BRIDGE_RELEASE}`;
   const bridgeJsSrc=`/js/business-data-bridge.js?v=${BUSINESS_DATA_BRIDGE_RELEASE}`;
+  const liveVoiceJsSrc=`/js/thebe-live-voice.js?v=${THEBE_LIVE_VOICE_RELEASE}`;
   if(!source.includes("/assets/owner-command-centre.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${cssHref}" />\n`);
   if(!source.includes("/assets/executive-personalization.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${personalizationCssHref}" />\n`);
   if(!source.includes("/assets/business-data-bridge.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${bridgeCssHref}" />\n`);
   if(!source.includes("/js/owner-command-centre.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${jsSrc}" defer></script>\n`);
   if(!source.includes("/js/executive-personalization.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${personalizationJsSrc}" defer></script>\n`);
   if(!source.includes("/js/business-data-bridge.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${bridgeJsSrc}" defer></script>\n`);
+  if(!source.includes("/js/thebe-live-voice.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${liveVoiceJsSrc}" defer></script>\n`);
   return source;
 }
 
