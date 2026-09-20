@@ -146,7 +146,12 @@ export default {
     const logicalPath=logicalRequestPath(request);
     const liveVoiceResponse=await handleAgenticLiveVoiceRequest({
       request,logicalPath,env,ctx,
-      coreFetch:(innerRequest,innerEnv=env,innerCtx=ctx)=>base.fetch(innerRequest,innerEnv,innerCtx)
+      coreFetch:(innerRequest,innerEnv=env,innerCtx=ctx)=>base.fetch(innerRequest,innerEnv,innerCtx),
+      taskFetch:(innerRequest,innerEnv=env)=>handleAgenticTaskExecutionRequest({
+        request:innerRequest,
+        logicalPath:logicalRequestPath(innerRequest),
+        env:innerEnv
+      })
     });
     if(liveVoiceResponse)return liveVoiceResponse;
     const whatsappResponse=await handleAgenticWhatsAppRequest({request,logicalPath,env});
