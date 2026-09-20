@@ -106,3 +106,10 @@
   .thebe-ai-dock[data-surface="public"]{left:10px;right:10px;bottom:76px;width:auto;height:auto;max-height:76vh}
   .thebe-ai-pill[data-surface="public"]{right:12px;bottom:76px}
 }
+
+/* Desktop persistence contract: Thebe remains a full dock above the mobile breakpoint. */
+@media(min-width:651px){
+  .thebe-ai-pill{display:none!important}
+  .thebe-ai-minimize{display:none!important}
+  .thebe-ai-dock[data-surface="public"],.thebe-ai-dock[data-surface="workspace"]{display:flex}
+}
