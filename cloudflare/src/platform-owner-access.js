@@ -182,7 +182,9 @@ export async function preparePlatformOwnerLogin(request,env){
   if(!(await verifyStoredPassword(password,user.password_hash)))return request;
 
   const requestedTenantId=String(body?.tenantId||"").trim();
-  const tenantId=await ensurePlatformOwnerAccess(env,user.id,requestedTenantId);
+  const tenantId=requestedTenantId
+    ?await ensurePlatformOwnerAccess(env,user.id,requestedTenantId)
+    :await ensurePlatformOwnerAccess(env,user.id);
   if(!tenantId)return request;
   return withTenantId(request,body,tenantId);
 }
