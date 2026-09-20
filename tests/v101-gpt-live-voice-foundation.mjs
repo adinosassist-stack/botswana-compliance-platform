@@ -6,6 +6,7 @@ import {__agenticLiveVoiceTest as liveTest} from "../cloudflare/src/agentic-live
 const backend=fs.readFileSync("cloudflare/src/agentic-live-voice.js","utf8");
 const client=fs.readFileSync("public/js/thebe-live-voice.js","utf8");
 const dockCss=fs.readFileSync("public/assets/thebe-ai-dock.css","utf8");
+const home=fs.readFileSync("public/home.html","utf8");
 const entry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
 const env=fs.readFileSync(".env.example","utf8");
@@ -171,6 +172,11 @@ assert.doesNotMatch(dockCss,/gradient\(/,"Thebe dock must not render gradients")
 assert.match(dockCss,/\.thebe-particle\{width:3px;height:3px;background:#0b66d6/);
 assert.match(dockCss,/top:72px;right:0;bottom:0;left:auto/);
 assert.match(dockCss,/width:min\(var\(--thebe-dock-w\),calc\(100vw - 24px\)\)/);
+assert.match(dockCss,/@media\(min-width:651px\) and \(max-width:1179px\)/);
+assert.match(dockCss,/--thebe-dock-w:320px/);
+assert.match(home,/padding-right:var\(--thebe-dock-w,380px\)/,"marketing composition must reserve the dock lane");
+assert.match(home,/\.pricinggrid\{grid-template-columns:repeat\(auto-fit,minmax\(190px,1fr\)\)\}/);
+assert.match(home,/@media\(min-width:651px\) and \(max-width:1350px\)/);
 assert.match(production,/thebe-ai-dock\.css/);
 assert.match(production,/x-thebe-ai-dock/);
 assert.match(client,/aria-live/);
