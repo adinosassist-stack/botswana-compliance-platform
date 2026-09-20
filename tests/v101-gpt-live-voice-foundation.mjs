@@ -6,6 +6,7 @@ import {__agenticLiveVoiceTest as liveTest} from "../cloudflare/src/agentic-live
 const backend=fs.readFileSync("cloudflare/src/agentic-live-voice.js","utf8");
 const client=fs.readFileSync("public/js/thebe-live-voice.js","utf8");
 const dockCss=fs.readFileSync("public/assets/thebe-ai-dock.css","utf8");
+const syntheticFullUser=fs.readFileSync("scripts/production-synthetic-full-user-wrapper.mjs","utf8");
 const home=fs.readFileSync("public/home.html","utf8");
 const entry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
@@ -196,6 +197,9 @@ const productionDockRelease=production.match(/const THEBE_AI_DOCK_RELEASE="([^"]
 assert.ok(clientRelease&&dockRelease&&productionLiveRelease&&productionDockRelease,"Thebe voice and dock release identifiers must be present");
 assert.equal(productionLiveRelease,clientRelease,"production must cache-bust the exact current Thebe Live Voice runtime");
 assert.equal(productionDockRelease,dockRelease,"production must cache-bust the exact current Thebe AI dock runtime");
+assert.match(syntheticFullUser,/EXPECTED_DOCK_RELEASE/);
+assert.match(syntheticFullUser,/dockInitial\.release===EXPECTED_DOCK_RELEASE/);
+assert.doesNotMatch(syntheticFullUser,/\^20260920\[a-z\]\$/,"synthetic launch proof must not hard-code one dock release date");
 assert.match(production,/\/js\/api-client\.js/);
 const apiRuntimeInject=production.indexOf('if(!source.includes("/js/api-client.js"))');
 const liveVoiceInject=production.indexOf('if(!source.includes("/js/thebe-live-voice.js"))');
