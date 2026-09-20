@@ -19,6 +19,9 @@ assert.ok(html.includes('Not expected today')&&html.includes('Restore expectatio
 assert.ok(html.includes('id="opsBranchPerformance"')&&html.includes('Factual roll-up'),'multi-location performance roll-up missing');
 assert.ok(worker.includes('Do not invent numbers, infer misconduct, rank employees, diagnose causes, or recommend disciplinary action.'),'AI employment guardrail missing');
 assert.ok(worker.includes('Performance figures below are factual roll-ups from employee submissions and are not automatic employee ratings.'),'structured summary employment guardrail missing');
+assert.ok(worker.includes("String(emp.status||\"\").trim().toLowerCase()!==\"active\""),'reporting link issuance must normalize legacy employee status casing');
+assert.ok(worker.includes("lower(trim(coalesce(e.status,'')))='active'"),'reporting token/dashboard scope must normalize legacy employee status casing');
+assert.ok(html.includes('(employees.items||[]).filter(x=>String(x.status||\"\").trim().toLowerCase()===\"active\")'),'reporting selector must exclude inactive employees while accepting legacy active casing');
 
 // Pass 2 — access, privacy, prompt-injection and AI cost controls.
 assert.ok(worker.includes('token_hash')&&!migration.includes('raw_token'),'reporting token must be stored hashed only');
