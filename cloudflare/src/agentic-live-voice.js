@@ -183,7 +183,6 @@ async function createSession({request,env,auth}){
       },
       body:JSON.stringify({
         session:{
-          type:"live",
           model:LIVE_MODEL,
           instructions:instructions(),
           delegation:{type:"client"}
