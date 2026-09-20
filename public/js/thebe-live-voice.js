@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260920c";
+  const RELEASE="20260920d";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   let pc=null,dc=null,media=null,remoteAudio=null,sessionId=null,sessionTimer=null;
@@ -61,10 +61,22 @@
     if(!callId||activeDelegations.has(callId))return;
     activeDelegations.add(callId);
     const revision=transcriptRevision;
-    let taskText="";
+    let taskText="",intent="analyze",task=null;
     try{
       const args=JSON.parse(String(item?.arguments||"{}"));
       taskText=text(args?.request,2400);
+      intent=String(args?.intent||"analyze").trim().toLowerCase()==="prepare_internal_task"
+        ?"prepare_internal_task"
+        :"analyze";
+      if(intent==="prepare_internal_task"&&args?.task&&typeof args.task==="object"&&!Array.isArray(args.task)){
+        const priority=String(args.task.priority||"medium").trim().toLowerCase();
+        task={
+          title:text(args.task.title,160),
+          description:text(args.task.description,1200)||null,
+          priority:["high","medium","low"].includes(priority)?priority:"medium",
+          dueAt:text(args.task.dueAt,80)||null
+        };
+      }
     }catch{}
     try{
       if(!taskText){
@@ -76,17 +88,22 @@
         });
         return;
       }
-      emit("thebe-live-delegation",{delegationId:callId,sessionId,taskText});
+      emit("thebe-live-delegation",{delegationId:callId,sessionId,taskText,intent});
       const result=await api("/api/agentic/live/delegation",{
         method:"POST",
-        body:JSON.stringify({delegationId:callId,sessionId,taskText})
+        body:JSON.stringify({delegationId:callId,sessionId,taskText,intent,task})
       });
       if(revision!==transcriptRevision){
-        emit("thebe-live-delegation-stale",{delegationId:callId,sessionId,revision,currentRevision:transcriptRevision});
+        const taskPrepared=result?.authority?.taskPrepared===true;
+        emit("thebe-live-delegation-stale",{delegationId:callId,sessionId,revision,currentRevision:transcriptRevision,taskPrepared,requestId:result?.requestId||null});
         sendFunctionOutput(callId,{
           ok:false,
           stale:true,
-          message:"The user spoke again before the governed result was ready. Do not present the stale result; continue from the latest user input.",
+          taskPrepared,
+          requestId:result?.requestId||null,
+          message:taskPrepared
+            ?"The user spoke again after a governed internal task draft was prepared. Do not claim cancellation. Tell the user the draft still exists pending owner approval, then continue from the latest user input."
+            :"The user spoke again before the governed result was ready. Do not present the stale result; continue from the latest user input.",
           executionPerformed:false
         });
         return;
