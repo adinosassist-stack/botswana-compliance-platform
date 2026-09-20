@@ -194,7 +194,10 @@ async function runFullUserJourney(credentials){
       return state?.workspaceVisible===true&&state?.collapsed===false&&dock.hidden===false&&style.display!=='none'&&style.visibility!=='hidden'&&rect.width>250&&rect.height>250&&rect.right<=innerWidth+1;
     },null,{timeout:WORKSPACE_TIMEOUT_MS});
     const dockInitial=await page.evaluate(()=>({release:String(globalThis.ThebeAiDock?.release||''),state:globalThis.ThebeAiDock?.state?.()||null}));
-    assert(/^20260920[a-z]$/.test(dockInitial.release),`unexpected Thebe dock release ${safe(dockInitial.release||'missing')}`);
+    const appHeaders=await app.allHeaders();
+    const expectedDockRelease=String(appHeaders['x-thebe-ai-dock']||'');
+    assert(/^\\d{8}[a-z]$/.test(dockInitial.release),`unexpected Thebe dock release ${safe(dockInitial.release||'missing')}`);
+    assert(expectedDockRelease&&dockInitial.release===expectedDockRelease,`Thebe dock release mismatch runtime=${safe(dockInitial.release||'missing')} server=${safe(expectedDockRelease||'missing')}`);
     assert(dockInitial.state?.workspaceVisible===true&&dockInitial.state?.dockHidden===false,'Thebe dock was not visibly mounted after owner workspace readiness');
 
     await page.evaluate(()=>globalThis.ThebeAiDock.close());
