@@ -1,12 +1,13 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260920d";
+  const RELEASE="20260920e";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
-  let pc=null,dc=null,media=null,remoteAudio=null,sessionId=null,sessionTimer=null,closeTimer=null;
-  let inputTranscript="",outputTranscript="",state="idle",button=null,statusEl=null,transcriptRevision=0,maxSessionSeconds=600,lastError=null;
+  const DELEGATION_DRAIN_TIMEOUT_MS=12000;
+  let pc=null,dc=null,media=null,remoteAudio=null,sessionId=null,sessionTimer=null,closeTimer=null,delegationDrainTimer=null;
+  let inputTranscript="",outputTranscript="",state="idle",button=null,statusEl=null,transcriptRevision=0,maxSessionSeconds=600,lastError=null,closeRequested=false;
   const activeDelegations=new Set();
 
   const api=(url,options={})=>{
@@ -93,6 +94,31 @@
     sendEvent({type:"response.create"});
   }
 
+  function sendSessionClose(){
+    if(state!=="closing"||closeTimer||!dc||dc.readyState!=="open")return;
+    closeRequested=false;
+    if(delegationDrainTimer){clearTimeout(delegationDrainTimer);delegationDrainTimer=null}
+    showStatus("Ending the voice session…");
+    try{
+      sendEvent({
+        type:"session.close",
+        event_id:global.crypto?.randomUUID?.()||String(Date.now())
+      });
+      closeTimer=setTimeout(()=>{
+        rememberError("The voice session did not confirm a graceful close; the local connection was ended.","close_timeout");
+        cleanup("idle",{preserveStatus:true});
+      },CLOSE_TIMEOUT_MS);
+    }catch(error){
+      rememberError(error?.message||"The voice session could not close cleanly.","close");
+      cleanup("idle",{preserveStatus:true});
+    }
+  }
+
+  function maybeSendSessionClose(){
+    if(state!=="closing"||!closeRequested||activeDelegations.size>0)return;
+    sendSessionClose();
+  }
+
   async function handleFunctionCall(item){
     if(item?.type!=="function_call"||item?.name!==DELEGATION_TOOL)return;
     const callId=text(item?.call_id||item?.id,240);
@@ -132,8 +158,14 @@
         method:"POST",
         body:JSON.stringify({delegationId:callId,sessionId,taskText,intent,task})
       });
+      const taskPrepared=result?.authority?.taskPrepared===true;
+      emit("thebe-live-delegation-complete",{delegationId:callId,sessionId,intent,taskPrepared,requestId:result?.requestId||null});
+      if(state==="idle"||(state==="closing"&&closeTimer)){
+        emit("thebe-live-delegation-after-close",{delegationId:callId,sessionId,intent,taskPrepared,requestId:result?.requestId||null});
+        if(taskPrepared)showStatus("Voice ended while a task draft finished. It still requires owner approval.","info");
+        return;
+      }
       if(revision!==transcriptRevision){
-        const taskPrepared=result?.authority?.taskPrepared===true;
         emit("thebe-live-delegation-stale",{delegationId:callId,sessionId,revision,currentRevision:transcriptRevision,taskPrepared,requestId:result?.requestId||null});
         sendFunctionOutput(callId,{
           ok:false,
@@ -152,19 +184,25 @@
         content:text(result?.content||"The governed Thebe backend completed the request.",1800),
         authority:result?.authority||{executionPerformed:false}
       });
-      showStatus("Thebe voice is connected. You can keep speaking.","success");
+      if(state==="connected")showStatus("Thebe voice is connected. You can keep speaking.","success");
+      else if(state==="closing")showStatus("Governed work finished. Ending voice…");
     }catch(error){
-      try{
-        sendFunctionOutput(callId,{
-          ok:false,
-          error:"governed_backend_unavailable",
-          message:"The governed Thebe backend could not complete that request. No business action was executed.",
-          executionPerformed:false
-        });
-      }catch{}
-      rememberError(error?.message||"Delegation failed","delegation");
+      if(state==="idle"||(state==="closing"&&closeTimer)){
+        emit("thebe-live-delegation-after-close",{delegationId:callId,sessionId,intent,error:text(error?.message||"Delegation failed",240)});
+      }else{
+        try{
+          sendFunctionOutput(callId,{
+            ok:false,
+            error:"governed_backend_unavailable",
+            message:"The governed Thebe backend could not complete that request. No business action was executed.",
+            executionPerformed:false
+          });
+        }catch{}
+        rememberError(error?.message||"Delegation failed","delegation");
+      }
     }finally{
       activeDelegations.delete(callId);
+      maybeSendSessionClose();
     }
   }
 
@@ -177,7 +215,7 @@
       if(state==="connected")showStatus("Listening…");
     }
     if(event.type==="input_audio_buffer.speech_stopped"&&state==="connected")showStatus("Thinking…");
-    if(event.type==="session.created"||event.type==="session.updated"){
+    if(event.type==="session.started"||event.type==="session.created"||event.type==="session.updated"){
       sessionId=text(event?.session?.id||sessionId,240)||sessionId;
     }
     if(event.type==="response.done"){
@@ -298,6 +336,8 @@
     pc=null;dc=null;media=null;remoteAudio=null;sessionId=null;
     if(sessionTimer){clearTimeout(sessionTimer);sessionTimer=null}
     if(closeTimer){clearTimeout(closeTimer);closeTimer=null}
+    if(delegationDrainTimer){clearTimeout(delegationDrainTimer);delegationDrainTimer=null}
+    closeRequested=false;
     activeDelegations.clear();
     setState(nextState,{preserveStatus:options.preserveStatus||Boolean(options.message)});
     if(options.message)showStatus(options.message,options.success?"success":"info");
@@ -307,19 +347,19 @@
     if(state==="closing")return;
     if(state==="connected"&&dc?.readyState==="open"){
       setState("closing");
-      try{
-        sendEvent({
-          type:"session.close",
-          event_id:global.crypto?.randomUUID?.()||String(Date.now())
-        });
-        closeTimer=setTimeout(()=>{
-          rememberError("The voice session did not confirm a graceful close; the local connection was ended.","close_timeout");
-          cleanup("idle",{preserveStatus:true});
-        },CLOSE_TIMEOUT_MS);
-      }catch(error){
-        rememberError(error?.message||"The voice session could not close cleanly.","close");
-        cleanup("idle",{preserveStatus:true});
+      closeRequested=true;
+      try{media?.getAudioTracks?.().forEach(track=>{track.enabled=false})}catch{}
+      if(activeDelegations.size>0){
+        showStatus("Finishing governed work before ending voice…");
+        delegationDrainTimer=setTimeout(()=>{
+          delegationDrainTimer=null;
+          if(state!=="closing"||!closeRequested)return;
+          emit("thebe-live-delegation-drain-timeout",{sessionId,pendingDelegations:activeDelegations.size});
+          sendSessionClose();
+        },DELEGATION_DRAIN_TIMEOUT_MS);
+        return;
       }
+      sendSessionClose();
       return;
     }
     cleanup("idle");
@@ -373,7 +413,7 @@
     release:RELEASE,
     start,
     stop,
-    status:()=>({state,sessionId,inputTranscript,outputTranscript,transcriptRevision,maxSessionSeconds,lastError}),
+    status:()=>({state,sessionId,inputTranscript,outputTranscript,transcriptRevision,maxSessionSeconds,lastError,pendingDelegations:activeDelegations.size,closeRequested}),
     diagnostics:()=>({
       release:RELEASE,
       state,
@@ -382,6 +422,8 @@
       peerConnectionState:pc?.connectionState||null,
       iceConnectionState:pc?.iceConnectionState||null,
       dataChannelState:dc?.readyState||null,
+      pendingDelegations:activeDelegations.size,
+      closeRequested,
       microphoneTracks:media?.getAudioTracks?.().map(track=>({readyState:track.readyState,enabled:track.enabled,muted:track.muted}))||[],
       lastError
     })
