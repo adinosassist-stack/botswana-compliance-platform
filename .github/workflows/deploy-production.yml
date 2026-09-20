@@ -324,7 +324,7 @@ jobs:
           const names = [
             'SESSION_SECRET','AUDIT_INTEGRITY_SECRET','OPERATIONS_SECRET','AUTOMATION_SECRET',
             'TURNSTILE_SECRET_KEY','PAYMENT_WEBHOOK_SECRET','BILLING_WEBHOOK_SECRET',
-            'GOOGLE_OAUTH_CLIENT_SECRET','FACEBOOK_APP_SECRET','RESEND_API_KEY'
+            'GOOGLE_OAUTH_CLIENT_SECRET','FACEBOOK_APP_SECRET','RESEND_API_KEY','OPENAI_API_KEY'
           ];
           const out = Object.fromEntries(names.map(name => [name, `dry-run-placeholder-${name.toLowerCase()}`]));
           fs.writeFileSync(process.env.RUNNER_TEMP + '/thebe-worker-secrets-dry-run.json', JSON.stringify(out), {mode: 0o600});
@@ -372,6 +372,7 @@ jobs:
           GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
           FACEBOOK_APP_SECRET: ${{ secrets.FACEBOOK_APP_SECRET }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         shell: bash
         run: |
           set -euo pipefail
@@ -430,7 +431,7 @@ jobs:
             'SESSION_SECRET','AUDIT_INTEGRITY_SECRET','OPERATIONS_SECRET','AUTOMATION_SECRET',
             'TURNSTILE_SECRET_KEY','PAYMENT_WEBHOOK_SECRET','BILLING_WEBHOOK_SECRET'
           ];
-          const optionalNames = ['GOOGLE_OAUTH_CLIENT_SECRET','FACEBOOK_APP_SECRET','RESEND_API_KEY'];
+          const optionalNames = ['GOOGLE_OAUTH_CLIENT_SECRET','FACEBOOK_APP_SECRET','RESEND_API_KEY','OPENAI_API_KEY'];
           const out = {};
           for (const name of coreNames) {
             const value = process.env[name] || '';
