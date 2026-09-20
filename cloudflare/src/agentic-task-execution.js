@@ -19,7 +19,22 @@ async function sha256Hex(value){
 }
 
 function envTrue(value){return ["1","true","on","yes"].includes(String(value??"").trim().toLowerCase())}
-function globalExecutionEnabled(env){return envTrue(env?.AGENT_BOUNDED_TASK_EXECUTION_ENABLED)}
+function executionMode(env){
+  if(envTrue(env?.AGENT_BOUNDED_TASK_EXECUTION_ENABLED))return "global";
+  const mode=String(env?.AGENT_BOUNDED_TASK_EXECUTION_MODE||"off").trim().toLowerCase();
+  return ["off","platform_admin_canary","global"].includes(mode)?mode:"off";
+}
+function platformAdminEmails(env){
+  return new Set(String(env?.PLATFORM_ADMIN_EMAILS||"").split(",").map(value=>value.trim().toLowerCase()).filter(Boolean));
+}
+function sessionExecutionEnabled(env,auth){
+  const mode=executionMode(env);
+  if(mode==="global")return true;
+  if(mode!=="platform_admin_canary")return false;
+  const email=String(auth?.email||"").trim().toLowerCase();
+  return roleAllowed(auth,"owner")&&!!email&&platformAdminEmails(env).has(email);
+}
+function globalExecutionEnabled(env){return executionMode(env)==="global"}
 function runtimeKillSwitch(env){return envTrue(env?.AGENT_RUNTIME_KILL_SWITCH)}
 function runtimeAgentStatus(env){return String(env?.AGENT_RUNTIME_ENABLED||"1")==="0"?"disabled":"enabled"}
 function runtimeBudgetStatus(env){return String(env?.AGENT_RUNTIME_BUDGET_STATUS||"within_limit")}
@@ -103,16 +118,21 @@ async function status(env,auth){
     activeGrants=(grants.results||[]).map(row=>({id:row.id,delegationId:row.delegation_id,createdAt:row.created_at}));
     openTasks=Number(tasks?.count||0);
   }
+  const mode=executionMode(env);
+  const sessionEnabled=sessionExecutionEnabled(env,auth);
   return json({
     enabled:true,
     schemaReady:ready,
     actionKey:ACTION_KEY,
-    globalExecutionEnabled:globalExecutionEnabled(env),
+    executionMode:mode,
+    sessionExecutionEnabled:sessionEnabled,
+    globalExecutionEnabled:mode==="global",
+    platformAdminCanary:mode==="platform_admin_canary",
     runtimeKillSwitch:runtimeKillSwitch(env),
     activeExecutionGrants:activeGrants.length,
     activeGrants,
     openTasks,
-    guarantees:["task_create_only","no_external_side_effect","explicit_owner_approval","payload_hash_binding","idempotent_execution","runtime_guard_required"]
+    guarantees:["task_create_only","no_external_side_effect","explicit_owner_approval","payload_hash_binding","idempotent_execution","runtime_guard_required","platform_admin_canary_is_owner_only"]
   });
 }
 
@@ -144,11 +164,11 @@ async function createExecutionGrant({request,env,auth}){
         VALUES(?,?,?,?,'active',?)`).bind(grantId,auth.tenant_id,delegationId,ACTION_KEY,auth.user_id),
       env.DB.prepare(`INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data)
         VALUES(?,?,'AGENT_EXECUTION_GRANT_CREATED','agent_execution_grant',?,?)`).bind(
-          auth.tenant_id,auth.user_id,grantId,JSON.stringify({delegationId,actionKey:ACTION_KEY,globalExecutionEnabled:globalExecutionEnabled(env)})
+          auth.tenant_id,auth.user_id,grantId,JSON.stringify({delegationId,actionKey:ACTION_KEY,executionMode:executionMode(env),sessionExecutionEnabled:sessionExecutionEnabled(env,auth)})
         )
     ]);
   }catch{return json({error:"execution_grant_create_failed"},500)}
-  return json({ok:true,executionGrant:{id:grantId,delegationId,actionKey:ACTION_KEY,status:"active"},globalExecutionEnabled:globalExecutionEnabled(env)},201);
+  return json({ok:true,executionGrant:{id:grantId,delegationId,actionKey:ACTION_KEY,status:"active"},executionMode:executionMode(env),sessionExecutionEnabled:sessionExecutionEnabled(env,auth)},201);
 }
 
 async function revokeExecutionGrant({env,auth,grantId}){
@@ -333,7 +353,7 @@ async function executeTask({env,auth,requestId}){
     actionPayloadHash:String(row.payload_hash||""),
     delegation:authority,
     mode:"execute",
-    globalExecutionEnabled:globalExecutionEnabled(env),
+    globalExecutionEnabled:sessionExecutionEnabled(env,auth),
     amountMinor:0,
     dailyActionCount:Number(usage?.count||0),
     phase:"bounded_v1"
@@ -342,7 +362,7 @@ async function executeTask({env,auth,requestId}){
     try{
       await env.DB.prepare(`INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data)
         VALUES(?,?,'AGENT_TASK_EXECUTION_DENIED','agent_task_request',?,?)`).bind(
-          auth.tenant_id,auth.user_id,requestId,JSON.stringify({intentId:row.intent_id,executionGrantId:row.execution_grant_id,code:decision.code,guardVersion:decision.guardVersion})
+          auth.tenant_id,auth.user_id,requestId,JSON.stringify({intentId:row.intent_id,executionGrantId:row.execution_grant_id,code:decision.code,guardVersion:decision.guardVersion,executionMode:executionMode(env)})
         ).run();
     }catch{}
     return json({error:"task_execution_denied",decision:{code:decision.code,reason:decision.reason,guardVersion:decision.guardVersion}},409);
@@ -364,7 +384,7 @@ async function executeTask({env,auth,requestId}){
         ),
       env.DB.prepare(`INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data)
         SELECT ?,?,'AGENT_TASK_EXECUTED','agent_internal_task',?,? WHERE changes()=1`).bind(
-          auth.tenant_id,auth.user_id,taskId,JSON.stringify({requestId,intentId:row.intent_id,executionGrantId:row.execution_grant_id,payloadHash:row.payload_hash,guardVersion:decision.guardVersion})
+          auth.tenant_id,auth.user_id,taskId,JSON.stringify({requestId,intentId:row.intent_id,executionGrantId:row.execution_grant_id,payloadHash:row.payload_hash,guardVersion:decision.guardVersion,executionMode:executionMode(env)})
         )
     ]);
     const changed=Number(results?.[0]?.meta?.changes??results?.[0]?.changes??0);
@@ -423,6 +443,9 @@ export async function handleAgenticTaskExecutionRequest({request,logicalPath,env
 export const __agenticTaskExecutionTest=Object.freeze({
   normalizeTaskPayload,
   canonicalIntentPayload,
+  executionMode,
+  platformAdminEmails,
+  sessionExecutionEnabled,
   globalExecutionEnabled,
   runtimeKillSwitch
 });

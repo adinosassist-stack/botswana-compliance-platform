@@ -19,7 +19,7 @@ assert.match(ui,/Use as internal task draft/);
 assert.match(ui,/request\("\/api\/agentic\/task-execution\/requests"\)/);
 assert.match(ui,/request\("\/api\/agentic\/task-execution\/tasks"\)/);
 assert.match(ui,/if\(executionEnabled&&role\(\)==="owner"\)/);
-assert.match(ui,/Execute control stays hidden until the platform switch is enabled/);
+assert.match(ui,/Execute control stays hidden until a reviewed platform execution mode permits it/);
 assert.doesNotMatch(ui,/AGENT_BOUNDED_TASK_EXECUTION_ENABLED/);
 assert.doesNotMatch(ui,/payment\.execute/);
 assert.doesNotMatch(ui,/government_filing\.submit/);

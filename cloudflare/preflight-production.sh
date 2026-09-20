@@ -27,6 +27,7 @@ if grep -Eq '^required[[:space:]]*=.*EVIDENCE_SCAN_SECRET' "$WRANGLER_TOML"; the
 grep -Eq '^keep_vars[[:space:]]*=[[:space:]]*true[[:space:]]*$' "$WRANGLER_TOML" || fail "keep_vars must be true so optional dashboard vars are not deleted by deploy"
 grep -Eq '^APP_ENV[[:space:]]*=[[:space:]]*"production"[[:space:]]*$' "$WRANGLER_TOML" || fail "APP_ENV must be production"
 grep -Eq '^AI_FEATURES_DEFAULT[[:space:]]*=[[:space:]]*"on"[[:space:]]*$' "$WRANGLER_TOML" || fail "AI_FEATURES_DEFAULT must be on for the Phase 0 production launch"
+grep -Eq '^AGENT_BOUNDED_TASK_EXECUTION_MODE[[:space:]]*=[[:space:]]*"platform_admin_canary"[[:space:]]*$' "$WRANGLER_TOML" || fail "bounded task execution must remain restricted to the reviewed platform-admin canary"
 grep -Eq '^PAYMENT_PROVIDER[[:space:]]*=[[:space:]]*"(none|dpo)"[[:space:]]*$' "$WRANGLER_TOML" || fail "PAYMENT_PROVIDER must be none or dpo; orange_money is blocked pending a reviewed readiness fix"
 
 for key in PUBLIC_APP_URL PUBLIC_ORIGIN TURNSTILE_SITE_KEY PLATFORM_ADMIN_EMAILS PLATFORM_REGULATORY_REVIEWERS; do

@@ -658,7 +658,7 @@
         execute.disabled=agenticTaskBusy;
         actions.append(execute);
       }else{
-        actions.append(text("span","Approved · platform execution remains OFF","owner-input-status"));
+        actions.append(text("span","Approved · execution unavailable for this session","owner-input-status"));
       }
     }
     if(actions.childNodes.length)card.append(actions);
@@ -669,9 +669,11 @@
     const section=document.createElement("section");
     section.className="owner-agentic-run";
     const ready=taskExecutionPayload?.schemaReady===true;
+    const executionMode=String(taskExecutionPayload?.executionMode||"off");
     const executionEnabled=ready
-      &&taskExecutionPayload?.globalExecutionEnabled===true
+      &&taskExecutionPayload?.sessionExecutionEnabled===true
       &&taskExecutionPayload?.runtimeKillSwitch!==true;
+    const canaryMode=executionMode==="platform_admin_canary";
     const delegation=activeTaskDelegation(authorityPayload);
     const activeGrant=Array.isArray(taskExecutionPayload?.activeGrants)?taskExecutionPayload.activeGrants[0]:null;
 
@@ -698,10 +700,14 @@
       );
     }else{
       authorityCopy.append(
-        text("b",executionEnabled?"Bounded task lane is executable.":"Bounded task lane is configured but globally OFF."),
+        text("b",executionEnabled
+          ?(canaryMode?"Platform-admin canary is executable for this owner session.":"Bounded task lane is executable.")
+          :(canaryMode?"Platform-admin canary is restricted for this session.":"Bounded task lane is configured but execution is OFF.")),
         text("span",executionEnabled
           ?"Approved internal tasks still pass the Runtime Guard immediately before execution."
-          :"You can prepare and approve task requests safely; the Execute control stays hidden until the platform switch is enabled.")
+          :(canaryMode
+            ?"Only authenticated platform-admin owners can execute during this canary; preparation, approval and revocation remain available under the normal controls."
+            :"You can prepare and approve task requests safely; the Execute control stays hidden until a reviewed platform execution mode permits it."))
       );
     }
     const authorityActions=document.createElement("div");
@@ -874,7 +880,8 @@
     controls.className="owner-agentic-controls";
     const copy=document.createElement("div");
     const boundedReady=taskExecutionPayload?.schemaReady===true;
-    const boundedOn=boundedReady&&taskExecutionPayload?.globalExecutionEnabled===true&&taskExecutionPayload?.runtimeKillSwitch!==true;
+    const boundedOn=boundedReady&&taskExecutionPayload?.sessionExecutionEnabled===true&&taskExecutionPayload?.runtimeKillSwitch!==true;
+    const boundedMode=String(taskExecutionPayload?.executionMode||"off");
     copy.append(
       text("b",boundedOn?"Governed planning and bounded internal execution are active.":"Governed planning is active."),
       text(
@@ -901,7 +908,9 @@
       ?"Bounded execution · unavailable"
       :(taskExecutionPayload?.runtimeKillSwitch===true
         ?"Bounded execution · kill switch"
-        :(taskExecutionPayload?.globalExecutionEnabled===true?"Bounded execution · ON":"Bounded execution · OFF"));
+        :(boundedOn
+          ?(boundedMode==="platform_admin_canary"?"Platform-admin canary · ON":"Bounded execution · ON")
+          :(boundedMode==="platform_admin_canary"?"Platform-admin canary · restricted":"Bounded execution · OFF")));
     boundary.append(
       text("span",executionLabel,"badge"),
       text(
@@ -976,8 +985,8 @@
       ]);
       renderAgenticSnapshot(statusPayload,runsPayload,taskExecutionPayload,authorityPayload,taskRequestsPayload,taskListPayload);
       if(status){
-        status.textContent=taskExecutionPayload?.schemaReady===true&&taskExecutionPayload?.globalExecutionEnabled===true&&taskExecutionPayload?.runtimeKillSwitch!==true
-          ?"Bounded internal execution enabled"
+        status.textContent=taskExecutionPayload?.schemaReady===true&&taskExecutionPayload?.sessionExecutionEnabled===true&&taskExecutionPayload?.runtimeKillSwitch!==true
+          ?(taskExecutionPayload?.executionMode==="platform_admin_canary"?"Platform-admin task canary enabled":"Bounded internal execution enabled")
           :"Bounded execution controlled";
       }
     }catch(error){
