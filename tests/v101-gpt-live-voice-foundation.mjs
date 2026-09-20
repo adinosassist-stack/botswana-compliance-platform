@@ -107,9 +107,8 @@ assert.ok(deployWorkflow.includes("OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 assert.match(deployWorkflow,/required_secrets=\([\s\S]*OPENAI_API_KEY[\s\S]*\)/);
 assert.ok(deployWorkflow.includes("'TURNSTILE_SECRET_KEY','PAYMENT_WEBHOOK_SECRET','BILLING_WEBHOOK_SECRET','OPENAI_API_KEY'"));
 assert.ok(deployWorkflow.includes("const optionalNames = ['GOOGLE_OAUTH_CLIENT_SECRET','FACEBOOK_APP_SECRET','RESEND_API_KEY'];"));
-assert.match(deployWorkflow,/Validate required production secret presence/);
-assert.match(deployWorkflow,/Missing GitHub production environment secret\(s\): %s/);
-assert.match(deployWorkflow,/Required production secret names are present; secret values remain masked/);
+assert.match(deployWorkflow,/missing_secrets=\(\)/);
+assert.match(deployWorkflow,/Missing required production secret\(s\): %s/);
 assert.match(postdeployWorkflow,/\/api\/agentic\/live\/status/);
 assert.match(postdeployWorkflow,/Thebe Live Voice authentication boundary/);
 assert.match(postdeployWorkflow,/assert\.equal\(liveVoice\.status,401\)/);
