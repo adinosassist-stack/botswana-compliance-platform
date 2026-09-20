@@ -182,7 +182,7 @@ export function buildResumeContext(checkpoint={}){
       priority:item.priority,
       risk:item.risk,
       authority:item.authority,
-      status:item.status,
+      reviewHistory:item.status==="approved"?"historically_approved_not_reusable":item.status==="rejected"?"historically_rejected":"no_reusable_approval",
       sourceRefs:item.sourceRefs
     })):[],
     freshObservationRequired:true,
