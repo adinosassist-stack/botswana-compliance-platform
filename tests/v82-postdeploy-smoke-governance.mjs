@@ -15,6 +15,10 @@ ok(workflow.includes('permissions:\n  contents: read'),'workflow keeps repositor
 ok(workflow.includes("assert.equal(authority.status,401)"),'V81 delegated-authority authentication boundary is live-smoked');
 ok(workflow.includes("response.status===503")&&workflow.includes("url.hostname,host"),'OAuth smoke accepts only explicit deferral or expected provider redirects');
 ok(workflow.includes('without submitting customer data')&&workflow.includes('register-direct.html'),'browser smoke exercises customer UI without account creation');
+ok(workflow.includes("readFileSync('cloudflare/src/agentic-entry.js','utf8')"),'post-deploy smoke derives schema expectation from the deployed runtime source');
+ok(workflow.includes('expectedSchemaDelta=schemaMatch[1]'),'schema delta source-of-truth is parsed before live readiness comparison');
+ok(workflow.includes('assert.equal(readiness.latestSchemaDelta,expectedSchemaDelta)'),'live readiness is compared to the exact deployed source schema delta');
+ok(!workflow.includes("assert.equal(readiness.latestSchemaDelta,'047_v81_delegated_authority.sql')"),'post-deploy smoke does not pin the retired 047 schema literal');
 ok(!workflow.includes('CLOUDFLARE_API_TOKEN')&&!workflow.includes('DATABASE_URL'),'post-deploy smoke requires no production secrets or database credentials');
 
-console.log(`Post-deploy smoke governance contract: ${pass}/11 PASS`);
+console.log(`Post-deploy smoke governance contract: ${pass}/15 PASS`);

@@ -70,7 +70,12 @@ jobs:
           set -euo pipefail
           node --input-type=module <<'NODE'
           import assert from 'node:assert/strict';
+          import fs from 'node:fs';
           const origin=process.env.ORIGIN;
+          const entrySource=fs.readFileSync('cloudflare/src/agentic-entry.js','utf8');
+          const schemaMatch=entrySource.match(/const V81_SCHEMA_DELTA="([^"]+)"/);
+          assert.ok(schemaMatch?.[1],'agentic schema delta source-of-truth missing');
+          const expectedSchemaDelta=schemaMatch[1];
           const get=path=>fetch(origin+path,{redirect:'manual',headers:{accept:'application/json,text/html;q=0.9,*/*;q=0.8','user-agent':'ThebeDesk-PostDeploy-Smoke/1.0'}});
 
           const root=await get('/');
@@ -103,7 +108,7 @@ jobs:
           assert.equal(ready.status,200);
           const readiness=await ready.json();
           for(const key of ['ok','d1','r2','schemaReady','requiredConfigReady','coreSchemaReady','agenticAuthoritySchemaReady'])assert.equal(readiness[key],true,`readiness ${key}`);
-          assert.equal(readiness.latestSchemaDelta,'047_v81_delegated_authority.sql');
+          assert.equal(readiness.latestSchemaDelta,expectedSchemaDelta);
           console.log(`PASS /api/ready version=${readiness.version} latestSchema=${readiness.latestSchemaDelta}`);
 
           const proof=await fetch(origin+'/api/auth/registration-proof/challenge',{method:'POST',redirect:'manual',headers:{accept:'application/json','content-type':'application/json',origin,'user-agent':'ThebeDesk-PostDeploy-Smoke/1.0'},body:'{}'});
