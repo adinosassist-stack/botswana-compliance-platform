@@ -98,6 +98,28 @@ async function runFullUserJourney(credentials){
     await waitForWorkspace(page);
     mark('full-user workspace bootstrap','synthetic owner reached the authenticated /app/ workspace after reload');
 
+    await page.waitForFunction(()=>{
+      const api=globalThis.ThebeAiDock,dock=document.getElementById('thebeAiDock'),pill=document.getElementById('thebeAiDockPill');
+      if(!api||!dock||!pill)return false;
+      const state=typeof api.state==='function'?api.state():null;
+      const style=getComputedStyle(dock),rect=dock.getBoundingClientRect();
+      return state?.workspaceVisible===true&&state?.collapsed===false&&dock.hidden===false&&style.display!=='none'&&style.visibility!=='hidden'&&rect.width>250&&rect.height>250&&rect.right<=innerWidth+1;
+    },null,{timeout:WORKSPACE_TIMEOUT_MS});
+    const dockInitial=await page.evaluate(()=>({release:String(globalThis.ThebeAiDock?.release||''),state:globalThis.ThebeAiDock?.state?.()||null}));
+    assert(/^20260920[a-z]$/.test(dockInitial.release),`unexpected Thebe dock release ${safe(dockInitial.release||'missing')}`);
+    assert(dockInitial.state?.workspaceVisible===true&&dockInitial.state?.dockHidden===false,'Thebe dock was not visibly mounted after owner workspace readiness');
+
+    await page.evaluate(()=>globalThis.ThebeAiDock.close());
+    await page.waitForFunction(()=>{
+      const dock=document.getElementById('thebeAiDock'),pill=document.getElementById('thebeAiDockPill');
+      if(!dock||!pill)return false;
+      const style=getComputedStyle(pill),rect=pill.getBoundingClientRect();
+      return dock.hidden===true&&pill.hidden===false&&style.display!=='none'&&style.visibility!=='hidden'&&rect.width>40&&rect.height>20&&rect.right<=innerWidth+1;
+    },null,{timeout:VIEW_TIMEOUT_MS});
+    await page.evaluate(()=>globalThis.ThebeAiDock.open());
+    await page.waitForFunction(()=>document.getElementById('thebeAiDock')?.hidden===false&&document.getElementById('thebeAiDockPill')?.hidden===true,null,{timeout:VIEW_TIMEOUT_MS});
+    mark('Thebe dock authenticated visibility',`release=${dockInitial.release} visible after workspace-ready; collapse/reopen path verified`);
+
     const views=await page.evaluate(()=>{
       const roleCheck=typeof globalThis.roleCanView==='function'?globalThis.roleCanView:null;
       const unique=[];
