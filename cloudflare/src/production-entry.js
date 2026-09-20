@@ -11,8 +11,8 @@ const THEBE_LOGO_FAVICON="/assets/thebe-desk-favicon-512.png?v=20260912b";
 const OWNER_COMMAND_CENTRE_RELEASE="20260913c";
 const EXECUTIVE_PERSONALIZATION_RELEASE="20260913c";
 const BUSINESS_DATA_BRIDGE_RELEASE="20260913d";
-const THEBE_LIVE_VOICE_RELEASE="20260920d";
-const THEBE_AI_DOCK_RELEASE="20260920a";
+const THEBE_LIVE_VOICE_RELEASE="20260920e";
+const THEBE_AI_DOCK_RELEASE="20260920b";
 const TURNSTILE_SECRET_HEALTH_TTL_MS=5*60*1000;
 const REGISTRATION_PROOF_TTL_MS=5*60*1000;
 const REGISTRATION_PROOF_DIFFICULTY=10;
@@ -290,6 +290,7 @@ async function fetchWithTurnstileCspRepair(request,env,ctx){
   headers.set("x-thebe-owner-brief",OWNER_COMMAND_CENTRE_RELEASE);
   headers.set("x-thebe-executive-personalization",EXECUTIVE_PERSONALIZATION_RELEASE);
   headers.set("x-thebe-business-data-bridge",BUSINESS_DATA_BRIDGE_RELEASE);
+  headers.set("x-thebe-ai-dock",THEBE_AI_DOCK_RELEASE);
   return new Response(repaired,{status:response.status,statusText:response.statusText,headers});
 }
 
