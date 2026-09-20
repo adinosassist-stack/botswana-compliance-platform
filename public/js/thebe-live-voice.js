@@ -85,7 +85,7 @@
     }
     if(event.type==="session.delegation.created")handleDelegation(event);
     if(event.type==="session.error")emit("thebe-live-error",{event});
-    if(event.type==="session.ended")cleanup("idle");
+    if(event.type==="session.closed")cleanup("idle");
     emit("thebe-live-event",{event});
   }
 
@@ -215,7 +215,7 @@
     button.textContent="Talk to Thebe";
     button.setAttribute("aria-pressed","false");
     button.addEventListener("click",async()=>{
-      if(state==="connected"||state==="connecting"){stop();return}
+      if(state==="connected"||state==="connecting"||state==="closing"){stop();return}
       try{await start()}catch(error){
         setState("idle");
         emit("thebe-live-error",{message:text(error?.message||"Thebe live voice could not start.",240)});
