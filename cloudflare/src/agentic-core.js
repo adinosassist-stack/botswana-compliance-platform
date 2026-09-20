@@ -1,5 +1,6 @@
 import {associationForProposal,buildOutcomeAssociations,rankOutcomeInformedProposals} from "./agentic-learning.js";
 import {buildSingleAgentOrchestration,verifyOrchestratedProposals} from "./agent-orchestration.js";
+import {buildContinuationCheckpoint,buildResumeContext,verifyContinuationCheckpoint} from "./agent-continuation.js";
 
 const MAX_BODY_BYTES=8192;
 const MAX_PROPOSALS=8;
@@ -193,8 +194,9 @@ function deterministicFallback(observation){
   return {answer:"Thebe generated a governed plan from current workspace signals. No autonomous business mutation was performed.",confidence:"medium",actions,caveats:["Human approval is required before any consequential action."],sourceRefs:actions.flatMap(x=>x.sourceRefs||[])};
 }
 
-async function runAdvisor({request,env,ctx,coreFetch,runId,observation,orchestration}){
-  const question=text(`Create the safest next-action plan from this observation and bounded capability work plan. Treat the numbers as application-calculated facts. Every recommendation must stay within the listed capability work units and cite one or more allowed sourceRefs. Do not instruct autonomous payment, payroll, filing, signing, journal posting, refund, discipline or termination. CAPABILITY_WORK_UNITS ${JSON.stringify(orchestration?.workUnits||[])} ALLOWED_SOURCE_REFS ${JSON.stringify(orchestration?.allowedSourceRefs||[])} OBSERVATION ${JSON.stringify(observation)}`,2400);
+async function runAdvisor({request,env,ctx,coreFetch,runId,observation,orchestration,continuationContext=null}){
+  const continuation=continuationContext?` CONTINUATION_CONTEXT ${JSON.stringify(continuationContext)} IMPORTANT: re-observe current state, do not reuse prior approvals, and do not inherit execution authority.`:"";
+  const question=text(`Create the safest next-action plan from this observation and bounded capability work plan. Treat the numbers as application-calculated facts. Every recommendation must stay within the listed capability work units and cite one or more allowed sourceRefs. Do not instruct autonomous payment, payroll, filing, signing, journal posting, refund, discipline or termination. CAPABILITY_WORK_UNITS ${JSON.stringify(orchestration?.workUnits||[])} ALLOWED_SOURCE_REFS ${JSON.stringify(orchestration?.allowedSourceRefs||[])}${continuation} OBSERVATION ${JSON.stringify(observation)}`,3600);
   const target=new URL("/api/ai/advisor",request.url);
   const headers=new Headers({"content-type":"application/json","accept":"application/json","idempotency-key":`agentic-plan-${runId}`});
   const cookieHeader=request.headers.get("cookie");if(cookieHeader)headers.set("cookie",cookieHeader);
@@ -265,14 +267,76 @@ async function appendEvent(env,{tenantId,runId,proposalId=null,eventType,actorUs
     VALUES(?,?,?,?,?,?,?)`).bind(id(),tenantId,runId,proposalId,eventType,actorUserId,JSON.stringify(detail)).run();
 }
 
-async function createPlan({request,env,ctx,coreFetch,auth}){
+function parseJsonObject(value){
+  try{const parsed=JSON.parse(String(value||"{}"));return parsed&&typeof parsed==="object"&&!Array.isArray(parsed)?parsed:{}}
+  catch{return {}}
+}
+
+function parseJsonArray(value){
+  try{const parsed=JSON.parse(String(value||"[]"));return Array.isArray(parsed)?parsed:[]}
+  catch{return []}
+}
+
+async function loadRunBundle(env,auth,runId){
+  const run=await safeFirst(env,`SELECT id,goal,status,generation_mode,confidence,summary,observation_json,created_at
+    FROM agentic_runs WHERE id=? AND tenant_id=? LIMIT 1`,[runId,auth.tenant_id]);
+  if(!run)return null;
+  const proposalRows=await env.DB.prepare(`SELECT id,ordinal,title,reason,priority,risk,authority,execution_policy,source_refs_json,status,created_at
+    FROM agentic_proposals WHERE tenant_id=? AND run_id=? ORDER BY ordinal`).bind(auth.tenant_id,runId).all();
+  const proposals=(proposalRows.results||[]).map(row=>({
+    ...row,
+    sourceRefs:parseJsonArray(row.source_refs_json),
+    source_refs_json:undefined
+  }));
+  return {run:{...run,observation:parseJsonObject(run.observation_json)},proposals};
+}
+
+async function loadContinuation(env,auth,runId){
+  const bundle=await loadRunBundle(env,auth,runId);
+  if(!bundle)return {error:"agentic_run_not_found",status:404};
+  const event=await safeFirst(env,`SELECT detail_json,created_at FROM agentic_events
+    WHERE tenant_id=? AND run_id=? AND event_type='RUN_CHECKPOINTED'
+    ORDER BY created_at DESC,id DESC LIMIT 1`,[auth.tenant_id,runId]);
+  if(event){
+    const checkpoint=parseJsonObject(event.detail_json);
+    const verified=await verifyContinuationCheckpoint(checkpoint);
+    if(verified.valid!==true)return {error:"agentic_checkpoint_invalid",status:409,code:verified.code};
+    return {bundle,checkpoint,synthesized:false};
+  }
+  const observation=bundle.run.observation||{};
+  const checkpoint=await buildContinuationCheckpoint({
+    runId:bundle.run.id,
+    goal:bundle.run.goal,
+    summary:bundle.run.summary,
+    confidence:bundle.run.confidence,
+    observation,
+    orchestration:observation.orchestration||{},
+    proposals:bundle.proposals,
+    createdAt:bundle.run.created_at,
+    source:"synthesized_from_run"
+  });
+  return {bundle,checkpoint,synthesized:true};
+}
+
+async function createPlan({request,env,ctx,coreFetch,auth,goalOverride=null,continuationFrom=null}){
   let body;try{body=await readJson(request)}catch(error){return json({error:error.message},requestBodyErrorStatus(error))}
-  const goal=text(body?.goal||"Protect the business and identify the safest next actions.",500);
+  const goal=text(goalOverride||body?.goal||"Protect the business and identify the safest next actions.",500);
   const runId=id(),observation=await observeWorkspace(env,auth.tenant_id);
   observation.simulation=deterministicSimulation(observation);
+  const continuationContext=continuationFrom?buildResumeContext(continuationFrom):null;
+  if(continuationContext){
+    observation.continuation={
+      version:continuationContext.continuationVersion,
+      parentRunId:continuationContext.parentRunId,
+      checkpointDigest:continuationContext.checkpointDigest,
+      freshObservationRequired:true,
+      approvalsReusable:false,
+      executionAuthorityInherited:false
+    };
+  }
   const orchestration=buildSingleAgentOrchestration({goal,observation});
   observation.orchestration=orchestration;
-  const advisor=await runAdvisor({request,env,ctx,coreFetch,runId,observation,orchestration});
+  const advisor=await runAdvisor({request,env,ctx,coreFetch,runId,observation,orchestration,continuationContext});
   const normalizedProposals=normalizeProposals(advisor.result?.actions);
   const verified=verifyOrchestratedProposals(normalizedProposals,orchestration);
   const outcomeAssociations=await loadOutcomeAssociations(env,auth.tenant_id);
@@ -289,26 +353,68 @@ async function createPlan({request,env,ctx,coreFetch,auth}){
   };
   const summary=text(advisor.result?.answer||"Governed plan generated.",3000);
   const confidence=["low","medium","high"].includes(String(advisor.result?.confidence))?String(advisor.result.confidence):"medium";
+  const savedProposals=proposals.map(item=>({...item,id:id(),status:"pending"}));
+  const checkpoint=await buildContinuationCheckpoint({
+    runId,goal,summary,confidence,observation,orchestration,proposals:savedProposals,
+    createdAt:new Date().toISOString(),source:"run_checkpoint"
+  });
+  const checkpointVerification=await verifyContinuationCheckpoint(checkpoint);
+  if(checkpointVerification.valid!==true)return json({error:"agentic_checkpoint_generation_failed",code:checkpointVerification.code},500);
   await env.DB.batch([
     env.DB.prepare(`INSERT INTO agentic_runs(id,tenant_id,requested_by_user_id,goal,status,generation_mode,confidence,observation_json,summary)
       VALUES(?,?,?,?, 'completed',?,?,?,?)`).bind(runId,auth.tenant_id,auth.user_id,goal,advisor.generationMode,confidence,JSON.stringify(observation),summary),
-    ...proposals.map(item=>env.DB.prepare(`INSERT INTO agentic_proposals(id,tenant_id,run_id,ordinal,title,reason,priority,risk,authority,execution_policy,source_refs_json,status)
-      VALUES(?,?,?,?,?,?,?,?,?,?,?,'pending')`).bind(id(),auth.tenant_id,runId,item.ordinal,item.title,item.reason,item.priority,item.risk,item.authority,item.executionPolicy,JSON.stringify(item.sourceRefs)))
+    ...savedProposals.map(item=>env.DB.prepare(`INSERT INTO agentic_proposals(id,tenant_id,run_id,ordinal,title,reason,priority,risk,authority,execution_policy,source_refs_json,status)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,'pending')`).bind(item.id,auth.tenant_id,runId,item.ordinal,item.title,item.reason,item.priority,item.risk,item.authority,item.executionPolicy,JSON.stringify(item.sourceRefs))),
+    env.DB.prepare(`INSERT INTO agentic_events(id,tenant_id,run_id,proposal_id,event_type,actor_user_id,detail_json)
+      VALUES(?,?,?,NULL,'PLAN_GENERATED',?,?)`).bind(id(),auth.tenant_id,runId,auth.user_id,JSON.stringify({
+        goal,generationMode:advisor.generationMode,proposalCount:savedProposals.length,outcomeInformedRanking:true,
+        learningSourceCount:Object.keys(outcomeAssociations).length,orchestrationVersion:orchestration.version,
+        workUnitCount:orchestration.workUnits.length,allProposalsGrounded:verified.summary.allGrounded,
+        parentRunId:continuationContext?.parentRunId||null,authorityEffect:"none"
+      })),
+    env.DB.prepare(`INSERT INTO agentic_events(id,tenant_id,run_id,proposal_id,event_type,actor_user_id,detail_json)
+      VALUES(?,?,?,NULL,'RUN_CHECKPOINTED',?,?)`).bind(id(),auth.tenant_id,runId,auth.user_id,JSON.stringify(checkpoint))
   ]);
-  await appendEvent(env,{tenantId:auth.tenant_id,runId,eventType:"PLAN_GENERATED",actorUserId:auth.user_id,detail:{goal,generationMode:advisor.generationMode,proposalCount:proposals.length,outcomeInformedRanking:true,learningSourceCount:Object.keys(outcomeAssociations).length,orchestrationVersion:orchestration.version,workUnitCount:orchestration.workUnits.length,allProposalsGrounded:verified.summary.allGrounded,authorityEffect:"none"}});
-  const saved=await env.DB.prepare(`SELECT id,ordinal,title,reason,priority,risk,authority,execution_policy,source_refs_json,status,created_at
-    FROM agentic_proposals WHERE tenant_id=? AND run_id=? ORDER BY ordinal`).bind(auth.tenant_id,runId).all();
   return json({
     ok:true,
-    stage:"observe_decompose_route_reason_verify_recommend",
+    stage:"observe_decompose_route_reason_verify_checkpoint_recommend",
     run:{id:runId,goal,status:"completed",generationMode:advisor.generationMode,confidence,summary,observation},
-    proposals:(saved.results||[]).map(row=>{
-      const proposal={...row,sourceRefs:JSON.parse(row.source_refs_json||"[]"),source_refs_json:undefined};
-      return {...proposal,outcomeLearning:associationForProposal(proposal,outcomeAssociations)};
-    }),
+    proposals:savedProposals.map(proposal=>({...proposal,outcomeLearning:associationForProposal(proposal,outcomeAssociations)})),
+    continuation:{
+      enabled:true,
+      checkpointVersion:checkpoint.version,
+      checkpointDigest:checkpoint.digest,
+      parentRunId:continuationContext?.parentRunId||null,
+      freshObservationRequired:true,
+      approvalsReusable:false,
+      executionAuthorityInherited:false
+    },
     architecture:{agentKey:"thebe",singleAgent:true,orchestrationVersion:orchestration.version,fanOut:orchestration.fanOut,session:orchestration.session},
     authority:{executionEnabled:false,humanApprovalRequired:true,prohibitedAutonomy:PROHIBITED_AUTONOMY}
   },201);
+}
+
+async function getContinuation(env,auth,runId){
+  const loaded=await loadContinuation(env,auth,runId);
+  if(loaded.error)return json({error:loaded.error,code:loaded.code},loaded.status);
+  return json({
+    ok:true,
+    run:{id:loaded.bundle.run.id,goal:loaded.bundle.run.goal,status:loaded.bundle.run.status,createdAt:loaded.bundle.run.created_at},
+    checkpoint:loaded.checkpoint,
+    resumeContext:buildResumeContext(loaded.checkpoint),
+    synthesized:loaded.synthesized,
+    guarantees:{freshObservationRequired:true,approvalsReusable:false,executionAuthorityInherited:false}
+  });
+}
+
+async function continueRun({request,env,ctx,coreFetch,auth,runId}){
+  const loaded=await loadContinuation(env,auth,runId);
+  if(loaded.error)return json({error:loaded.error,code:loaded.code},loaded.status);
+  return createPlan({
+    request,env,ctx,coreFetch,auth,
+    goalOverride:loaded.bundle.run.goal,
+    continuationFrom:loaded.checkpoint
+  });
 }
 
 async function listRuns(env,auth){
@@ -380,9 +486,10 @@ export async function handleAgenticRequest({request,logicalPath,env,ctx,coreFetc
   }
   if(path==="/api/agentic/status"&&request.method==="GET")return json({
     enabled:true,
-    stage:"observe_reason_simulate_recommend_measure",
+    stage:"observe_decompose_route_reason_verify_checkpoint_recommend_measure",
     executionEnabled:false,
     approvalRecordsEnabled:true,
+    continuation:{enabled:true,durableEventCheckpoint:true,freshObservationRequired:true,approvalsReusable:false,executionAuthorityInherited:false},
     outcomeLearning:{enabled:true,type:"non_causal_association",minimumEvidencePerSource:3,priorityClassOverride:false,riskAuthorityEffect:false,executionAuthorityEffect:false},
     prohibitedAutonomy:PROHIBITED_AUTONOMY,
     principles:["grounded_workspace_observation","least_authority","human_approval","no_hidden_execution","auditable_decisions"]
@@ -390,6 +497,10 @@ export async function handleAgenticRequest({request,logicalPath,env,ctx,coreFetc
   if(path==="/api/agentic/runs"&&request.method==="GET")return listRuns(env,auth);
   if(path==="/api/agentic/outcomes"&&request.method==="GET")return listOutcomes(env,auth);
   if(path==="/api/agentic/plan"&&request.method==="POST")return createPlan({request,env,ctx,coreFetch,auth});
+  const continuationMatch=path.match(/^\/api\/agentic\/runs\/([^/]+)\/continuation$/);
+  if(continuationMatch&&request.method==="GET")return getContinuation(env,auth,continuationMatch[1]);
+  const continueMatch=path.match(/^\/api\/agentic\/runs\/([^/]+)\/continue$/);
+  if(continueMatch&&request.method==="POST")return continueRun({request,env,ctx,coreFetch,auth,runId:continueMatch[1]});
   const outcomeMatch=path.match(/^\/api\/agentic\/proposals\/([^/]+)\/outcome$/);
   if(outcomeMatch&&request.method==="POST")return recordOutcome({request,env,auth,proposalId:outcomeMatch[1]});
   const decisionMatch=path.match(/^\/api\/agentic\/proposals\/([^/]+)\/(approve|reject)$/);
