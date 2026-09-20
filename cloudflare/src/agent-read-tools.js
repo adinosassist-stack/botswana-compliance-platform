@@ -92,7 +92,7 @@ async function financialPosition(env,tenantId){
 
 async function financeDataQuality(env,tenantId){
   const [imports,reconciliations,transactions]=await Promise.all([
-    safeFirst(env,"SELECT COUNT(*) import_batch_count, SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) completed_batch_count, SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) failed_batch_count, COALESCE(SUM(row_count),0) imported_row_count, COALESCE(SUM(duplicate_count),0) duplicate_row_count, MAX(completed_at) latest_completed_at FROM finance_import_batches WHERE tenant_id=? AND id NOT LIKE '__%'",[tenantId]),
+    safeFirst(env,"SELECT COUNT(*) import_batch_count, SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) completed_batch_count, SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) failed_batch_count, COALESCE(SUM(row_count),0) imported_row_count, COALESCE(SUM(duplicate_count),0) duplicate_row_count, MAX(completed_at) latest_completed_at FROM finance_import_batches WHERE tenant_id=? AND substr(id,1,2)<>'__'",[tenantId]),
     safeFirst(env,"SELECT COUNT(*) run_count, SUM(CASE WHEN status='reconciled' THEN 1 ELSE 0 END) reconciled_count, SUM(CASE WHEN status='exception' THEN 1 ELSE 0 END) exception_count, MAX(created_at) latest_run_at FROM finance_reconciliation_runs WHERE tenant_id=?",[tenantId]),
     safeFirst(env,"SELECT COUNT(*) transaction_count, SUM(CASE WHEN source_fingerprint IS NULL OR source_fingerprint='' THEN 1 ELSE 0 END) missing_fingerprint_count, MAX(created_at) latest_transaction_at FROM finance_transactions WHERE tenant_id=?",[tenantId])
   ]);
