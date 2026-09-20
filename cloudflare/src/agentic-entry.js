@@ -144,6 +144,11 @@ async function enhanceReadiness(request,env,response){
 export default {
   async fetch(request,env,ctx){
     const logicalPath=logicalRequestPath(request);
+    const liveVoiceResponse=await handleAgenticLiveVoiceRequest({
+      request,logicalPath,env,ctx,
+      coreFetch:(innerRequest,innerEnv=env,innerCtx=ctx)=>base.fetch(innerRequest,innerEnv,innerCtx)
+    });
+    if(liveVoiceResponse)return liveVoiceResponse;
     const whatsappResponse=await handleAgenticWhatsAppRequest({request,logicalPath,env});
     if(whatsappResponse)return whatsappResponse;
     const taskExecutionResponse=await handleAgenticTaskExecutionRequest({request,logicalPath,env});
