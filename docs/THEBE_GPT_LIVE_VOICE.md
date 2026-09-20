@@ -1,0 +1,72 @@
+# Thebe Desk — GPT-Live-1 Voice Foundation
+
+## Purpose
+
+Thebe Live adds a real-time voice transport to the existing single canonical Thebe agent. It does not create a second agent, a second permission model, or a voice-only execution path.
+
+The architecture is:
+
+`Owner voice -> GPT-Live-1 -> client delegation -> governed Thebe backend -> capability routing -> deterministic policy -> approval/runtime guard -> result -> GPT-Live-1 commentary`
+
+## Phase 0 posture
+
+The feature is disabled by default.
+
+- Browser transport: WebRTC.
+- Live model: `gpt-live-1`.
+- Delegation mode: client delegation.
+- API key: server side only.
+- Business work: delegated to the existing `/api/agentic/plan` flow.
+- Raw microphone audio: not stored by Thebe.
+- General live transcript: kept in browser memory by default.
+- Delegated business request text: may become the governed agentic run goal and therefore becomes part of the existing auditable run record.
+- Voice cannot create permissions or bypass tenant scope, delegated authority, the runtime kill switch, approvals or the Runtime Guard.
+- High-risk actions remain human-only.
+- A spoken interruption does not prove that backend work was cancelled.
+
+## Server configuration
+
+Keep the feature disabled until production qualification is complete:
+
+```
+THEBE_LIVE_VOICE_ENABLED=0
+THEBE_LIVE_VOICE_MAX_STARTS_PER_HOUR=6
+OPENAI_API_KEY=
+```
+
+`OPENAI_API_KEY` must be provided as a deployment secret. Never place a real key in source control or browser code.
+
+## Routes
+
+- `GET /api/agentic/live/status`
+- `POST /api/agentic/live/session`
+- `POST /api/agentic/live/delegation`
+
+All routes require an authenticated owner or manager. Mutating requests retain origin and CSRF checks.
+
+## Browser behavior
+
+The browser client is inert unless the server reports that live voice is enabled, configured and not paused by the agent runtime kill switch. When eligible, the Owner Command Centre receives a **Talk to Thebe** preview button.
+
+The browser:
+
+1. requests microphone access only after the user presses the button;
+2. creates the WebRTC peer connection and `oai-events` data channel;
+3. sends the SDP offer to Thebe's trusted server;
+4. receives only the WebRTC answer/session metadata;
+5. collects transcript deltas in bounded browser memory;
+6. on `session.delegation.created`, sends the captured business request to the governed Thebe backend;
+7. sends the verified backend result back to the live model with `session.commentary.append`.
+
+## Promotion gate
+
+Do not enable the production flag until:
+
+- live session tests pass on current Chrome/Edge mobile and desktop;
+- microphone permission denial/recovery is tested;
+- rate/cost limits are accepted;
+- delegated request grounding is reviewed;
+- interruption semantics are tested;
+- no API key or raw transcript leaks to browser logs;
+- runtime kill switch blocks new sessions;
+- 3-pass adversarial review passes.
