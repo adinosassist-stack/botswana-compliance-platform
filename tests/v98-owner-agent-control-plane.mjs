@@ -28,6 +28,6 @@ assert.doesNotMatch(source,/AGENT_BOUNDED_TASK_EXECUTION_ENABLED/);
 assert.doesNotMatch(source,/globalExecutionEnabled\s*[:=]\s*true/);
 assert.match(source,/if\(executionEnabled&&role\(\)==="owner"\)/);
 assert.match(source,/platform execution switch is unchanged/i);
-assert.match(source,/Execute control stays hidden until the platform switch is enabled/i);
+assert.match(source,/Execute control stays hidden until a reviewed platform execution mode permits it/i);
 
 console.log("v98 owner agent control-plane governed lifecycle: PASS");
