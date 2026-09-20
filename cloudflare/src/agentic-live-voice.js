@@ -2,10 +2,11 @@ import {
   authenticate,roleAllowed,originAllowed,csrfAllowed,safeFirst
 } from "./agentic-authority-core.js";
 
-export const THEBE_LIVE_VOICE_VERSION="2026-09-20.gpt-live-1-hardening-v2";
+export const THEBE_LIVE_VOICE_VERSION="2026-09-20.realtime-ga-activation-v1";
 
-const OPENAI_LIVE_SESSIONS_URL="https://api.openai.com/v1/live/sessions";
-const LIVE_MODEL="gpt-live-1";
+const OPENAI_REALTIME_CALLS_URL="https://api.openai.com/v1/realtime/calls";
+const LIVE_MODEL="gpt-realtime-1.5";
+const DELEGATION_TOOL_NAME="delegate_to_thebe_backend";
 const MAX_SESSION_BODY_BYTES=96*1024;
 const MAX_SDP_CHARS=72*1024;
 const MAX_DELEGATION_TEXT=2400;
@@ -96,13 +97,43 @@ function instructions(){
     "You are Thebe, the live voice interface for Thebe Desk.",
     "Speak calmly, concisely and professionally. Prefer short spoken answers and ask one focused question when the user's intent is unclear.",
     "You are the conversational voice layer, not an independent business agent.",
-    "For current company facts, finance, compliance, operations, customer work, business analysis, or any request that needs Thebe Desk data or tools, use client delegation instead of inventing an answer.",
+    "For current company facts, finance, compliance, operations, customer work, business analysis, or any request that needs Thebe Desk data or tools, call delegate_to_thebe_backend instead of inventing an answer.",
     "The application backend owns business rules, permissions, tenant scope, approvals, tools, audit records and execution.",
     "Never claim a business action succeeded unless a verified backend result explicitly says it succeeded.",
     "Never approve, authorize or execute payments, statutory filings, signatures, employment termination, financing acceptance or accounting journal posting.",
     "A spoken interruption changes the conversation but does not prove that backend work was cancelled.",
-    "When a delegated result arrives, summarize it naturally and preserve any approval, uncertainty or no-execution warning in that result."
+    "When a delegated tool result arrives, summarize it naturally and preserve any approval, uncertainty or no-execution warning in that result."
   ].join(" ");
+}
+
+function delegationTool(){
+  return Object.freeze({
+    type:"function",
+    name:DELEGATION_TOOL_NAME,
+    description:"Use this tool whenever the user asks for current Thebe Desk business data, finance, compliance, operations, customer work, business analysis, or governed business actions. The backend may analyze and propose next steps, but high-risk execution remains human-controlled.",
+    parameters:{
+      type:"object",
+      properties:{
+        request:{
+          type:"string",
+          description:"The user's business request, stated clearly and completely."
+        }
+      },
+      required:["request"],
+      additionalProperties:false
+    }
+  });
+}
+
+function realtimeSessionConfig(){
+  return {
+    type:"realtime",
+    model:LIVE_MODEL,
+    output_modalities:["audio"],
+    instructions:instructions(),
+    tools:[delegationTool()],
+    tool_choice:"auto"
+  };
 }
 
 async function audit(env,auth,eventType,entityId,detail={}){
@@ -155,7 +186,7 @@ async function status(env,auth){
     version:THEBE_LIVE_VOICE_VERSION,
     model:LIVE_MODEL,
     transport:"webrtc",
-    delegation:"client",
+    delegation:"function_tool",
     phase:"phase0_foundation",
     runtimeEnabled:runtimeEnabled(env),
     runtimeKillSwitch:killSwitchActive(env),
@@ -203,7 +234,7 @@ async function createSession({request,env,auth}){
   await audit(env,auth,"THEBE_LIVE_SESSION_REQUESTED",requestId,{
     model:LIVE_MODEL,
     transport:"webrtc",
-    delegation:"client",
+    delegation:"function_tool",
     voiceAuthority:"none"
   });
 
@@ -211,23 +242,20 @@ async function createSession({request,env,auth}){
   const upstreamTimeoutMs=boundedUpstreamTimeoutMs(env?.THEBE_LIVE_VOICE_UPSTREAM_TIMEOUT_MS);
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort("live_session_timeout"),upstreamTimeoutMs);
+  const safetyIdentifier=await sha256Hex(`${auth.tenant_id}:${auth.user_id}`);
+  const form=new FormData();
+  form.set("sdp",sdp);
+  form.set("session",JSON.stringify(realtimeSessionConfig()));
   try{
-    upstream=await fetch(OPENAI_LIVE_SESSIONS_URL,{
+    upstream=await fetch(OPENAI_REALTIME_CALLS_URL,{
       method:"POST",
       headers:{
         "authorization":`Bearer ${String(env.OPENAI_API_KEY).trim()}`,
-        "content-type":"application/json",
-        "accept":"application/json"
+        "accept":"application/sdp",
+        "OpenAI-Safety-Identifier":safetyIdentifier
       },
       signal:controller.signal,
-      body:JSON.stringify({
-        session:{
-          model:LIVE_MODEL,
-          instructions:instructions(),
-          delegation:{type:"client"}
-        },
-        transport:{type:"webrtc",sdp}
-      })
+      body:form
     });
   }catch(error){
     const code=controller.signal.aborted?"upstream_timeout":"upstream_unreachable";
@@ -237,16 +265,15 @@ async function createSession({request,env,auth}){
     clearTimeout(timeout);
   }
 
-  let data={};
-  try{data=await upstream.json()}catch{}
   if(!upstream.ok){
     await audit(env,auth,"THEBE_LIVE_SESSION_FAILED",requestId,{code:"upstream_rejected",status:upstream.status});
     return json({error:"live_session_create_failed",upstreamStatus:upstream.status},502);
   }
 
-  const sessionId=cleanText(data?.session?.id||data?.id,240);
-  const answerSdp=String(data?.transport?.sdp||"");
-  if(!sessionId||!answerSdp){
+  const answerSdp=String(await upstream.text());
+  const location=String(upstream.headers.get("location")||"");
+  const sessionId=cleanText(location.split("/").filter(Boolean).pop(),240)||requestId;
+  if(!answerSdp||answerSdp.length>MAX_SDP_CHARS||!/^v=0(?:\r?\n|$)/.test(answerSdp)){
     await audit(env,auth,"THEBE_LIVE_SESSION_FAILED",requestId,{code:"invalid_upstream_response"});
     return json({error:"live_session_invalid_response"},502);
   }
@@ -255,7 +282,7 @@ async function createSession({request,env,auth}){
     requestId,
     model:LIVE_MODEL,
     transport:"webrtc",
-    delegation:"client"
+    delegation:"function_tool"
   });
 
   return json({
@@ -264,7 +291,7 @@ async function createSession({request,env,auth}){
     model:LIVE_MODEL,
     session:{id:sessionId},
     transport:{type:"webrtc",sdp:answerSdp},
-    delegation:{type:"client"},
+    delegation:{type:"function_tool",name:DELEGATION_TOOL_NAME},
     limits:{
       maxSessionSeconds:boundedSessionSeconds(env?.THEBE_LIVE_VOICE_MAX_SESSION_SECONDS),
       maxStartsPerHour:boundedStarts(env?.THEBE_LIVE_VOICE_MAX_STARTS_PER_HOUR),
@@ -356,21 +383,23 @@ async function delegateBusinessWork({request,env,ctx,auth,coreFetch}){
     executionPerformed:false
   });
 
+  const authority={
+    executionPerformed:false,
+    permissionsExpanded:false,
+    runtimeGuardBypassed:false
+  };
   return json({
     ok:true,
     runId:plan?.run?.id||null,
     proposalIds:(Array.isArray(plan?.proposals)?plan.proposals:[]).map(item=>item?.id).filter(Boolean),
-    event:{
-      type:"session.commentary.append",
-      event_id:crypto.randomUUID(),
-      delegation_id:delegationId,
-      content
+    content,
+    toolOutput:{
+      ok:true,
+      runId:plan?.run?.id||null,
+      content,
+      authority
     },
-    authority:{
-      executionPerformed:false,
-      permissionsExpanded:false,
-      runtimeGuardBypassed:false
-    }
+    authority
   },201);
 }
 
@@ -408,5 +437,7 @@ export const __agenticLiveVoiceTest=Object.freeze({
   runtimeEnabled,
   killSwitchActive,
   instructions,
+  delegationTool,
+  realtimeSessionConfig,
   spokenResult
 });
