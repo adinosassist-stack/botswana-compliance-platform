@@ -39,7 +39,7 @@ check('performance memory rejects hidden employee scores',html.includes('does no
 check('reporting gap is not poor-performance evidence',html.includes('A reporting gap is not proof of absence or poor performance.'));
 check('branch rollup explicitly not appraisal',html.includes('they are not employee appraisal scores'));
 check('employee reporter portal remains isolated',html.includes('Company-wide dashboards, employee performance, HR cases, tenders, risk, billing, management AI and administration are not exposed to employee reporters.'));
-check('reporter token requires active employee and location',worker.includes("e.status='active' AND l.active=1 LIMIT 1"));
+check('reporter token requires active employee and location',worker.includes("lower(trim(coalesce(e.status,'')))='active' AND l.active=1 LIMIT 1"));
 check('daily dashboard owner manager only',worker.includes('if(url.pathname==="/api/daily-reporting/dashboard"&&req.method==="GET"){\n        if(!roleAllowed(a,"owner","manager"))'));
 check('employee list owner manager only',worker.includes('if(url.pathname==="/api/employees"&&req.method==="GET"){\n        if(!roleAllowed(a,"owner","manager"))'));
 check('reporting access owner manager only',worker.includes('if(url.pathname==="/api/daily-reporting/access"&&req.method==="GET"){\n        if(!roleAllowed(a,"owner","manager"))'));
