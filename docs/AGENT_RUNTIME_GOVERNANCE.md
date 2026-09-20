@@ -55,3 +55,31 @@ The suite currently covers:
 When Thebe introduces or changes a model/provider, model outputs that propose tool calls must be evaluated against the same deterministic guard before production use. A model/provider may improve recommendation quality, but it cannot increase authority.
 
 The production sequence must remain fail-closed. This change does not enable L3 bounded execution and does not alter the permanent human-only boundary for payments, statutory filings, signatures, employment termination, financing acceptance or journal posting.
+
+
+## Bounded internal task execution
+
+The first executable agent capability is intentionally narrow: `task.create`.
+
+It does not send messages, move money, submit filings, sign documents, alter employment status or call an external provider. The flow is:
+
+`prepare -> owner approval -> Runtime Guard -> bounded execution -> D1 verification -> receipt -> audit`
+
+The existing `agent_delegations` table remains shadow-only. Real execution authority is represented by a separate `agent_execution_grants` record that is tenant-bound, action-specific, owner-approved and revocable.
+
+Execution also remains behind the platform-level `AGENT_BOUNDED_TASK_EXECUTION_ENABLED` switch. The default is disabled. Deploying the code or applying migration 048 does not by itself activate bounded execution.
+
+Every task execution requires:
+
+- a current active `task.create` delegation;
+- a current active execution grant;
+- explicit owner approval bound to the exact stored payload hash;
+- matching authenticated tenant scope;
+- an enabled agent runtime and inactive kill switch;
+- budget state within limits;
+- daily delegated action limits not exceeded;
+- a Runtime Guard decision allowing execution;
+- an idempotent execution receipt;
+- authoritative D1 read-back verification after the transaction.
+
+Denied execution attempts are audited. Permanent human-only actions remain unchanged.

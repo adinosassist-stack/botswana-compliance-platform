@@ -1,7 +1,7 @@
 import {AGENT_ACTION_CATALOG,evaluateAgentAction} from "./agent-policy.js";
 import {evaluateDelegatedAuthority,isNeverAutonomousAction} from "./delegated-authority.js";
 
-export const AGENT_RUNTIME_GUARD_VERSION="2026-09-20.pre-execution-v2";
+export const AGENT_RUNTIME_GUARD_VERSION="2026-09-20.pre-execution-v3";
 
 function frozen(value){return Object.freeze(value)}
 function deny(code,reason,{action=null,policy=null,authority=null}={}){

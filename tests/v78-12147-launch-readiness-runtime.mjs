@@ -28,11 +28,11 @@ let res=await worker.fetch(new Request("https://app.example/api/ready"),env("cor
 if(res.status!==503||data.error!=="schema_outdated"||data.schemaReady!==false||data.expectedSchemaDelta!==CORE_SCHEMA_DELTA)throw new Error("base Worker core schema must fail closed at migration 046");
 
 res=await agenticWorker.fetch(new Request("https://app.example/api/ready"),env("core_stale"),{});data=await body(res);
-if(res.status!==503||data.error!=="schema_outdated"||data.schemaReady!==false||data.coreSchemaReady!==false||data.agenticAuthoritySchemaReady!==true||data.expectedSchemaDelta!==CORE_SCHEMA_DELTA||data.latestSchemaDelta!==profile.latest_cloudflare_migration)throw new Error("V81 wrapper must preserve core schema failure while reporting migration 047 as release tip");
+if(res.status!==503||data.error!=="schema_outdated"||data.schemaReady!==false||data.coreSchemaReady!==false||data.agenticAuthoritySchemaReady!==true||data.expectedSchemaDelta!==CORE_SCHEMA_DELTA||data.latestSchemaDelta!==profile.latest_cloudflare_migration)throw new Error("agentic wrapper must preserve core schema failure while reporting the authoritative latest migration tip");
 
 res=await agenticWorker.fetch(new Request("https://app.example/api/ready"),env("authority_stale"),{});data=await body(res);
-if(res.status!==503||data.error!=="schema_outdated"||data.schemaReady!==false||data.coreSchemaReady!==true||data.agenticAuthoritySchemaReady!==false||data.latestSchemaDelta!==profile.latest_cloudflare_migration)throw new Error("V81 authority schema must fail closed independently at migration 047");
+if(res.status!==503||data.error!=="schema_outdated"||data.schemaReady!==false||data.coreSchemaReady!==true||data.agenticAuthoritySchemaReady!==false||data.latestSchemaDelta!==profile.latest_cloudflare_migration)throw new Error("agentic authority schema must fail closed independently while reporting the authoritative latest migration tip");
 
 res=await agenticWorker.fetch(new Request("https://app.example/api/ready"),env("current"),{});data=await body(res);
-if(res.status!==200||data.ok!==true||data.schemaReady!==true||data.coreSchemaReady!==true||data.agenticAuthoritySchemaReady!==true||data.latestSchemaDelta!==profile.latest_cloudflare_migration||data.version!==`v78.${pkg.version}`)throw new Error("current core + V81 schemas with required config must be ready");
-console.log("V78 1.21.47 launch readiness runtime: 4/4 PASS through V81 schema wrapper");
+if(res.status!==200||data.ok!==true||data.schemaReady!==true||data.coreSchemaReady!==true||data.agenticAuthoritySchemaReady!==true||data.latestSchemaDelta!==profile.latest_cloudflare_migration||data.version!==`v78.${pkg.version}`)throw new Error("current core + agentic schemas with required config must be ready");
+console.log("V78 1.21.47 launch readiness runtime: 4/4 PASS through current agentic schema wrapper");

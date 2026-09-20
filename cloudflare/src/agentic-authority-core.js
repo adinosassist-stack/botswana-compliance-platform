@@ -357,3 +357,17 @@ export const __agenticAuthorityTest=Object.freeze({
   actionStatus,
   strongAuthPresent
 });
+
+export {
+  authenticate,
+  roleAllowed,
+  originAllowed,
+  csrfAllowed,
+  readJson,
+  requestBodyErrorStatus,
+  safeAll,
+  safeFirst,
+  validIso,
+  boundedInt,
+  strongAuthPresent
+};

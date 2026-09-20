@@ -11,7 +11,7 @@ const migration=read('cloudflare/migrations/046_v80_agentic_outcomes.sql');
 const profile=JSON.parse(read('RELEASE_PROFILE.json'));
 let checks=0;const ok=(v,m)=>{assert.ok(v,m);checks++};
 
-ok(profile.latest_cloudflare_migration==='047_v81_delegated_authority.sql','release profile advances to V81 delegated-authority migration 047');
+ok(profile.latest_cloudflare_migration==='048_v102_bounded_internal_task_execution.sql','release profile advances to bounded internal-task migration 048 while preserving V81 delegated-authority shadow semantics');
 ok(profile.v80_agentic_outcome_measurement===true,'release profile records outcome measurement');
 ok(profile.agentic_stage2_execution_enabled===false&&profile.agentic_stage2_external_side_effects===false,'Stage 2 release profile keeps execution disabled');
 ok(worker.includes('const EXPECTED_SCHEMA_DELTA="046_v80_agentic_outcomes.sql";'),'core Worker readiness still expects schema 046 before the V81 wrapper adds its 047 gate');
