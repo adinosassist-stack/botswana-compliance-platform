@@ -4,7 +4,7 @@
   const RELEASE="20260920a";
   const MAX_TRANSCRIPT_CHARS=6000;
   let pc=null,dc=null,media=null,remoteAudio=null,sessionId=null,closeTimer=null;
-  let inputTranscript="",outputTranscript="",state="idle",button=null;
+  let inputTranscript="",outputTranscript="",state="idle",button=null,transcriptRevision=0;
   const activeDelegations=new Set();
 
   const api=(url,options={})=>{
@@ -34,7 +34,7 @@
   function transcriptDelta(event){
     const delta=String(event?.delta??event?.text??"");
     if(!delta)return;
-    if(event.type==="session.input_transcript.delta")inputTranscript=cap(inputTranscript+delta);
+    if(event.type==="session.input_transcript.delta"){inputTranscript=cap(inputTranscript+delta);transcriptRevision+=1}
     if(event.type==="session.output_transcript.delta")outputTranscript=cap(outputTranscript+delta);
   }
 
@@ -42,9 +42,10 @@
     const delegationId=text(event?.delegation?.id,240);
     if(event?.delegation?.target!=="client"||!delegationId||activeDelegations.has(delegationId))return;
     activeDelegations.add(delegationId);
+    const revision=transcriptRevision;
     try{
       await new Promise(resolve=>setTimeout(resolve,60));
-      const taskText=text(inputTranscript,2400);
+      const taskText=text(inputTranscript.slice(-2400),2400);
       if(!taskText){
         sendEvent({
           type:"session.commentary.append",
@@ -59,6 +60,10 @@
         method:"POST",
         body:JSON.stringify({delegationId,sessionId,taskText})
       });
+      if(revision!==transcriptRevision){
+        emit("thebe-live-delegation-stale",{delegationId,sessionId,revision,currentRevision:transcriptRevision});
+        return;
+      }
       if(result?.event)sendEvent(result.event);
     }catch(error){
       try{
@@ -117,7 +122,7 @@
     }
 
     setState("connecting");
-    inputTranscript="";outputTranscript="";sessionId=null;
+    inputTranscript="";outputTranscript="";sessionId=null;transcriptRevision=0;
     try{
       media=await navigator.mediaDevices.getUserMedia({audio:true});
       remoteAudio=document.createElement("audio");
@@ -249,7 +254,7 @@
     release:RELEASE,
     start,
     stop,
-    status:()=>({state,sessionId,inputTranscript,outputTranscript}),
+    status:()=>({state,sessionId,inputTranscript,outputTranscript,transcriptRevision}),
     appendCommentary,
     appendThinking,
     appendInstructions
