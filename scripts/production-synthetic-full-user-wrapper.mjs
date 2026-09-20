@@ -137,9 +137,17 @@ async function runFullUserJourney(credentials){
     assert(syntheticAudio.ok,`synthetic marketing voice audio unavailable: ${safe(syntheticAudio.error)}`);
     const marketingVoiceStart=await page.evaluate(async()=>{
       try{return await globalThis.ThebeLiveVoice.start({mode:'marketing'})}
-      catch(error){return {error:String(error?.message||error)}}
+      catch(error){
+        return {
+          error:String(error?.message||error),
+          status:Number(error?.status||0),
+          code:String(error?.code||''),
+          data:error?.data||error?.body||null
+        };
+      }
     });
-    assert(!marketingVoiceStart?.error,`public marketing voice failed to start: ${safe(marketingVoiceStart?.error)}`);
+    assert(!marketingVoiceStart?.error,
+      `public marketing voice failed to start: ${safe(marketingVoiceStart?.error)} status=${marketingVoiceStart?.status||0} code=${safe(marketingVoiceStart?.code||'')} data=${safe(JSON.stringify(marketingVoiceStart?.data||null))}`);
     await page.waitForFunction(()=>globalThis.ThebeLiveVoice?.status?.().state==='connected',null,{timeout:20000});
     const marketingVoiceState=await page.evaluate(()=>globalThis.ThebeLiveVoice.status());
     assert(marketingVoiceState.mode==='marketing'&&marketingVoiceState.maxSessionSeconds<=60,'public voice sample did not use bounded marketing mode');
