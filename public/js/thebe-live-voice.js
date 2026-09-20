@@ -15,18 +15,6 @@
     if(typeof global.apiJson!=="function")throw new Error("The secure Thebe API transport is not available.");
     return global.apiJson(url,options);
   };
-  const publicApi=async(url,options={})=>{
-    const headers=new Headers(options.headers||{});
-    if(options.body&&!headers.has("content-type"))headers.set("content-type","application/json");
-    const response=await fetch(url,{...options,headers,credentials:"same-origin",cache:"no-store"});
-    let body=null;try{body=await response.json()}catch{}
-    if(!response.ok){
-      const error=new Error(text(body?.error||body?.message||`Request failed with HTTP ${response.status}`,320));
-      error.status=response.status;error.body=body;
-      throw error;
-    }
-    return body;
-  };
   const text=(value,max=500)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
   const emit=(name,detail={})=>{
     try{global.dispatchEvent(new CustomEvent(name,{detail}))}catch{}
@@ -322,7 +310,7 @@
     if(!global.RTCPeerConnection||!navigator.mediaDevices?.getUserMedia)throw new Error("This browser does not support Thebe live voice.");
 
     sessionMode=String(options?.mode||"workspace")==="marketing"?"marketing":"workspace";
-    const requestApi=sessionMode==="marketing"?publicApi:api;
+    const requestApi=api;
     const statusPath=sessionMode==="marketing"?"/api/agentic/live/marketing/status":"/api/agentic/live/status";
     const status=await requestApi(statusPath);
     if(status?.sessionCreationAllowed!==true){
