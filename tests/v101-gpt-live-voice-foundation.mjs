@@ -10,6 +10,7 @@ const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
 const env=fs.readFileSync(".env.example","utf8");
 const wrangler=fs.readFileSync("cloudflare/wrangler.toml","utf8");
 const deployWorkflow=fs.readFileSync(".github/workflows/deploy-production.yml","utf8");
+const postdeployWorkflow=fs.readFileSync(".github/workflows/postdeploy-smoke.yml","utf8");
 
 for(const path of ["cloudflare/src/agentic-live-voice.js","public/js/thebe-live-voice.js","cloudflare/src/agentic-entry.js","cloudflare/src/production-entry.js"]){
   execFileSync(process.execPath,["--check",path],{stdio:"pipe"});
@@ -106,5 +107,11 @@ assert.ok(deployWorkflow.includes("OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 assert.match(deployWorkflow,/required_secrets=\([\s\S]*OPENAI_API_KEY[\s\S]*\)/);
 assert.ok(deployWorkflow.includes("'TURNSTILE_SECRET_KEY','PAYMENT_WEBHOOK_SECRET','BILLING_WEBHOOK_SECRET','OPENAI_API_KEY'"));
 assert.ok(deployWorkflow.includes("const optionalNames = ['GOOGLE_OAUTH_CLIENT_SECRET','FACEBOOK_APP_SECRET','RESEND_API_KEY'];"));
+assert.match(deployWorkflow,/Validate required production secret presence/);
+assert.match(deployWorkflow,/Missing GitHub production environment secret\(s\): %s/);
+assert.match(deployWorkflow,/Required production secret names are present; secret values remain masked/);
+assert.match(postdeployWorkflow,/\/api\/agentic\/live\/status/);
+assert.match(postdeployWorkflow,/Thebe Live Voice authentication boundary/);
+assert.match(postdeployWorkflow,/assert\.equal\(liveVoice\.status,401\)/);
 
 console.log("v101 Thebe Live Voice Realtime GA activation: PASS");
