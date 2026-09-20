@@ -61,10 +61,11 @@ async function waitForWorkspace(page){
 }
 
 async function runFullUserJourney(credentials){
-  const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox']});
+  const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox','--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
   const pageErrors=[];const assetFailures=[];const apiServerFailures=[];
   try{
     const context=await browser.newContext({viewport:{width:1440,height:1100},screen:{width:1440,height:1100}});
+    await context.grantPermissions(['microphone'],{origin:ORIGIN});
     const page=await context.newPage();
     page.setDefaultTimeout(15000);page.setDefaultNavigationTimeout(NAVIGATION_TIMEOUT_MS);
     page.on('pageerror',error=>pageErrors.push(safe(error?.stack||error)));
@@ -96,6 +97,25 @@ async function runFullUserJourney(credentials){
     }));
     assert(publicDock.surface==='public'&&(!publicDock.dockHidden||!publicDock.pillHidden),'public homepage did not expose a visible Thebe dock or launcher');
     mark('Thebe public homepage visibility',`release=${publicDock.release} visible public dock/launcher confirmed`);
+    if(publicDock.dockHidden)await page.evaluate(()=>globalThis.ThebeAiDock?.open?.());
+    await page.waitForFunction(()=>document.getElementById('thebeAiDock')?.hidden===false,null,{timeout:5000});
+    const marketingCopy=await page.evaluate(()=>({
+      quick:[...document.querySelectorAll('#thebeAiDock .thebe-ai-quick button')].map(x=>(x.textContent||'').trim()),
+      sub:(document.querySelector('#thebeAiDock .thebe-ai-voice-sub')?.textContent||'').trim()
+    }));
+    assert(marketingCopy.quick.some(x=>/What is Thebe Desk/i.test(x)),'public Thebe dock did not expose product explainer prompts');
+    assert(/ask about Thebe Desk/i.test(marketingCopy.sub),'public Thebe dock did not advertise voice sampling');
+    const marketingVoiceStart=await page.evaluate(async()=>{
+      try{return await globalThis.ThebeLiveVoice.start({mode:'marketing'})}
+      catch(error){return {error:String(error?.message||error)}}
+    });
+    assert(!marketingVoiceStart?.error,`public marketing voice failed to start: ${safe(marketingVoiceStart?.error)}`);
+    await page.waitForFunction(()=>globalThis.ThebeLiveVoice?.status?.().state==='connected',null,{timeout:20000});
+    const marketingVoiceState=await page.evaluate(()=>globalThis.ThebeLiveVoice.status());
+    assert(marketingVoiceState.mode==='marketing'&&marketingVoiceState.maxSessionSeconds<=60,'public voice sample did not use bounded marketing mode');
+    await page.evaluate(()=>globalThis.ThebeLiveVoice.stop());
+    await page.waitForFunction(()=>globalThis.ThebeLiveVoice?.status?.().state==='idle',null,{timeout:20000});
+    mark('Thebe public voice sample','real WebRTC marketing session connected with fake microphone and closed cleanly');
     mark('full-user public boundary','plain root rendered the public-only homepage');
 
     const auth=await page.goto(`${ORIGIN}/auth/?mode=login&full-user-proof=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:NAVIGATION_TIMEOUT_MS});
