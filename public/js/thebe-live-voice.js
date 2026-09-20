@@ -503,7 +503,7 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260921a";
+  const DOCK_RELEASE="20260921b";
   const STORE_KEY="thebe_ai_dock_collapsed_v4";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=650;
@@ -782,6 +782,20 @@
     button.addEventListener("click",()=>ask(mode,question));
     return button;
   }
+  function bindMarketingPrompts(){
+    document.querySelectorAll("[data-thebe-prompt]").forEach(button=>{
+      if(button.dataset.thebePromptBound==="1")return;
+      button.dataset.thebePromptBound="1";
+      button.addEventListener("click",()=>{
+        const question=clean(button.getAttribute("data-thebe-prompt"),MAX_QUESTION);
+        if(question.length<3||surfaceMode()!=="public")return;
+        if(mobileDockMode())setCollapsed(false);
+        recoverVisibility();
+        if(input)input.value=question;
+        void ask("ask",question);
+      });
+    });
+  }
   function mount(){
     if(document.getElementById("thebeAiDock"))return;
     const storedCollapse=safeSessionGet(STORE_KEY);
@@ -864,7 +878,7 @@
     pill.addEventListener("click",()=>setCollapsed(false));
 
     document.body.append(dock,pill);
-    syncVisibility();syncAttention();
+    syncVisibility();syncAttention();bindMarketingPrompts();
 
     const shell=document.getElementById("appShell");
     if(shell)new MutationObserver(syncVisibility).observe(shell,{attributes:true,attributeFilter:["style","class"]});
