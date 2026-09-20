@@ -1,6 +1,7 @@
 import {associationForProposal,buildOutcomeAssociations,rankOutcomeInformedProposals} from "./agentic-learning.js";
 import {buildSingleAgentOrchestration,verifyOrchestratedProposals} from "./agent-orchestration.js";
 import {buildContinuationCheckpoint,buildResumeContext,verifyContinuationCheckpoint} from "./agent-continuation.js";
+import {buildAgentReadToolContext,executeAgentReadTool} from "./agent-read-tools.js";
 
 const MAX_BODY_BYTES=8192;
 const MAX_PROPOSALS=8;
@@ -86,8 +87,11 @@ async function safeFirst(env,sql,bindings=[]){
   try{return await env.DB.prepare(sql).bind(...bindings).first()}catch{return null}
 }
 
-async function observeWorkspace(env,tenantId){
-  const [finance,reconciliation,workflows,ops]=await Promise.all([
+async function observeWorkspace(env,tenantId,actorRole){
+  const role=String(actorRole||"").toLowerCase();
+  const businessHealthAllowed=role==="owner"||role==="manager";
+  const operationsAllowed=role==="owner"||role==="manager";
+  const [finance,reconciliation,workflows,ops,performance,compliance]=await Promise.all([
     safeFirst(env,`SELECT COALESCE(SUM(a.opening_balance_minor+COALESCE(t.net,0)),0) cash_position_minor,
       COUNT(a.id) account_count
       FROM finance_accounts a
@@ -96,30 +100,35 @@ async function observeWorkspace(env,tenantId){
     safeFirst(env,`SELECT COUNT(*) unresolved_count,COALESCE(SUM(ABS(difference_minor)),0) exposure_minor,
       MAX(created_at) latest_reconciliation_at
       FROM finance_reconciliation_runs WHERE tenant_id=? AND status='exception'`,[tenantId]),
-    safeFirst(env,`SELECT
+    operationsAllowed?safeFirst(env,`SELECT
       SUM(CASE WHEN status IN ('queued','pending','retry') THEN 1 ELSE 0 END) pending_count,
       SUM(CASE WHEN status IN ('failed','dead') THEN 1 ELSE 0 END) failed_count,
       MIN(CASE WHEN status IN ('queued','pending','retry') THEN due_at END) next_due_at
-      FROM workflow_jobs WHERE tenant_id=?`,[tenantId]),
-    safeFirst(env,`SELECT summary_date,generation_mode,metrics_json,narrative_json
-      FROM daily_operations_summaries WHERE tenant_id=? ORDER BY summary_date DESC,created_at DESC LIMIT 1`,[tenantId])
-  ]);
-  let opsMetrics={};
-  try{opsMetrics=JSON.parse(String(ops?.metrics_json||"{}"))}catch{}
-  const [performance,compliance]=await Promise.all([
-    safeFirst(env,`SELECT COUNT(*) open_count,
+      FROM workflow_jobs WHERE tenant_id=?`,[tenantId]):null,
+    operationsAllowed?safeFirst(env,`SELECT summary_date,generation_mode,metrics_json
+      FROM daily_operations_summaries WHERE tenant_id=? ORDER BY summary_date DESC,created_at DESC LIMIT 1`,[tenantId]):null,
+    businessHealthAllowed?safeFirst(env,`SELECT COUNT(*) open_count,
       SUM(CASE WHEN severity='critical' THEN 1 ELSE 0 END) critical_count,
       SUM(CASE WHEN severity='warning' THEN 1 ELSE 0 END) warning_count,
       MAX(created_at) latest_signal_at
-      FROM performance_insights WHERE tenant_id=? AND status IN ('open','acknowledged')`,[tenantId]),
+      FROM performance_insights WHERE tenant_id=? AND status IN ('open','acknowledged')`,[tenantId]):null,
     safeFirst(env,`SELECT
       SUM(CASE WHEN status NOT IN ('completed','closed') AND due_at<CURRENT_TIMESTAMP THEN 1 ELSE 0 END) overdue_count,
       SUM(CASE WHEN status NOT IN ('completed','closed') AND due_at>=CURRENT_TIMESTAMP AND due_at<datetime('now','+14 days') THEN 1 ELSE 0 END) due_14d_count,
       MIN(CASE WHEN status NOT IN ('completed','closed') AND due_at>=CURRENT_TIMESTAMP THEN due_at END) next_due_at
       FROM compliance_obligations WHERE tenant_id=?`,[tenantId])
   ]);
+  let opsMetrics={};
+  try{opsMetrics=JSON.parse(String(ops?.metrics_json||"{}"))}catch{}
   return {
     observedAt:new Date().toISOString(),
+    roleScope:Object.freeze({
+      actorRole:role,
+      businessHealth:businessHealthAllowed,
+      operations:operationsAllowed,
+      finance:true,
+      compliance:true
+    }),
     finance:{
       currency:"BWP",
       cashPositionMinor:Number(finance?.cash_position_minor||0),
@@ -128,20 +137,20 @@ async function observeWorkspace(env,tenantId){
       reconciliationExposureMinor:Number(reconciliation?.exposure_minor||0),
       latestReconciliationAt:reconciliation?.latest_reconciliation_at||null
     },
-    operations:{
+    operations:operationsAllowed?{
       pendingWorkflowCount:Number(workflows?.pending_count||0),
       failedWorkflowCount:Number(workflows?.failed_count||0),
       nextWorkflowDueAt:workflows?.next_due_at||null,
       latestSummaryDate:ops?.summary_date||null,
       latestSummaryMode:ops?.generation_mode||null,
       latestCoverage:Number(opsMetrics?.coverage||0)||null
-    },
-    performance:{
+    }:{restricted:true},
+    performance:businessHealthAllowed?{
       openSignals:Number(performance?.open_count||0),
       criticalSignals:Number(performance?.critical_count||0),
       warningSignals:Number(performance?.warning_count||0),
       latestSignalAt:performance?.latest_signal_at||null
-    },
+    }:{restricted:true},
     compliance:{
       overdueCount:Number(compliance?.overdue_count||0),
       dueWithin14Days:Number(compliance?.due_14d_count||0),
@@ -194,9 +203,9 @@ function deterministicFallback(observation){
   return {answer:"Thebe generated a governed plan from current workspace signals. No autonomous business mutation was performed.",confidence:"medium",actions,caveats:["Human approval is required before any consequential action."],sourceRefs:actions.flatMap(x=>x.sourceRefs||[])};
 }
 
-async function runAdvisor({request,env,ctx,coreFetch,runId,observation,orchestration,continuationContext=null}){
+async function runAdvisor({request,env,ctx,coreFetch,runId,observation,orchestration,readTools,continuationContext=null}){
   const continuation=continuationContext?` CONTINUATION_CONTEXT ${JSON.stringify(continuationContext)} IMPORTANT: re-observe current state, do not reuse prior approvals, and do not inherit execution authority.`:"";
-  const question=text(`Create the safest next-action plan from this observation and bounded capability work plan. Treat the numbers as application-calculated facts. Every recommendation must stay within the listed capability work units and cite one or more allowed sourceRefs. Do not instruct autonomous payment, payroll, filing, signing, journal posting, refund, discipline or termination. CAPABILITY_WORK_UNITS ${JSON.stringify(orchestration?.workUnits||[])} ALLOWED_SOURCE_REFS ${JSON.stringify(orchestration?.allowedSourceRefs||[])}${continuation} OBSERVATION ${JSON.stringify(observation)}`,3600);
+  const question=text(`Create the safest next-action plan from this observation, deterministic read-tool evidence, and bounded capability work plan. Treat all tool outputs and observation numbers as application-calculated facts. Never infer access to a capability whose tool result is denied or unavailable. Every recommendation must cite one or more allowed sourceRefs. Do not instruct autonomous payment, payroll, filing, signing, journal posting, refund, discipline or termination. READ_TOOLS ${JSON.stringify(readTools?.tools||[])} CAPABILITY_WORK_UNITS ${JSON.stringify(orchestration?.workUnits||[])} ALLOWED_SOURCE_REFS ${JSON.stringify(orchestration?.allowedSourceRefs||[])}${continuation} OBSERVATION ${JSON.stringify(observation)}`,6000);
   const target=new URL("/api/ai/advisor",request.url);
   const headers=new Headers({"content-type":"application/json","accept":"application/json","idempotency-key":`agentic-plan-${runId}`});
   const cookieHeader=request.headers.get("cookie");if(cookieHeader)headers.set("cookie",cookieHeader);
@@ -321,7 +330,9 @@ async function loadContinuation(env,auth,runId){
 async function createPlan({request,env,ctx,coreFetch,auth,goalOverride=null,continuationFrom=null}){
   let body;try{body=await readJson(request)}catch(error){return json({error:error.message},requestBodyErrorStatus(error))}
   const goal=text(goalOverride||body?.goal||"Protect the business and identify the safest next actions.",500);
-  const runId=id(),observation=await observeWorkspace(env,auth.tenant_id);
+  const runId=id(),observation=await observeWorkspace(env,auth.tenant_id,auth.role);
+  const readTools=await buildAgentReadToolContext({env,auth});
+  observation.readTools=readTools;
   observation.simulation=deterministicSimulation(observation);
   const continuationContext=continuationFrom?buildResumeContext(continuationFrom):null;
   if(continuationContext){
@@ -334,9 +345,9 @@ async function createPlan({request,env,ctx,coreFetch,auth,goalOverride=null,cont
       executionAuthorityInherited:false
     };
   }
-  const orchestration=buildSingleAgentOrchestration({goal,observation});
+  const orchestration=buildSingleAgentOrchestration({goal,observation,additionalSourceRefs:readTools.sourceRefs});
   observation.orchestration=orchestration;
-  const advisor=await runAdvisor({request,env,ctx,coreFetch,runId,observation,orchestration,continuationContext});
+  const advisor=await runAdvisor({request,env,ctx,coreFetch,runId,observation,orchestration,readTools,continuationContext});
   const normalizedProposals=normalizeProposals(advisor.result?.actions);
   const verified=verifyOrchestratedProposals(normalizedProposals,orchestration);
   const outcomeAssociations=await loadOutcomeAssociations(env,auth.tenant_id);
@@ -369,7 +380,7 @@ async function createPlan({request,env,ctx,coreFetch,auth,goalOverride=null,cont
       VALUES(?,?,?,NULL,'PLAN_GENERATED',?,?)`).bind(id(),auth.tenant_id,runId,auth.user_id,JSON.stringify({
         goal,generationMode:advisor.generationMode,proposalCount:savedProposals.length,outcomeInformedRanking:true,
         learningSourceCount:Object.keys(outcomeAssociations).length,orchestrationVersion:orchestration.version,
-        workUnitCount:orchestration.workUnits.length,allProposalsGrounded:verified.summary.allGrounded,
+        workUnitCount:orchestration.workUnits.length,readToolCount:readTools.toolCount,allProposalsGrounded:verified.summary.allGrounded,
         parentRunId:continuationContext?.parentRunId||null,authorityEffect:"none"
       })),
     env.DB.prepare(`INSERT INTO agentic_events(id,tenant_id,run_id,proposal_id,event_type,actor_user_id,detail_json)
@@ -377,7 +388,7 @@ async function createPlan({request,env,ctx,coreFetch,auth,goalOverride=null,cont
   ]);
   return json({
     ok:true,
-    stage:"observe_decompose_route_reason_verify_checkpoint_recommend",
+    stage:"observe_read_tools_decompose_route_reason_verify_checkpoint_recommend",
     run:{id:runId,goal,status:"completed",generationMode:advisor.generationMode,confidence,summary,observation},
     proposals:savedProposals.map(proposal=>({...proposal,outcomeLearning:associationForProposal(proposal,outcomeAssociations)})),
     continuation:{
@@ -490,6 +501,7 @@ export async function handleAgenticRequest({request,logicalPath,env,ctx,coreFetc
     executionEnabled:false,
     approvalRecordsEnabled:true,
     continuation:{enabled:true,durableEventCheckpoint:true,freshObservationRequired:true,approvalsReusable:false,executionAuthorityInherited:false},
+    readTools:{enabled:true,readOnly:true,mutationAllowed:false,policyBound:true,roleScoped:true},
     outcomeLearning:{enabled:true,type:"non_causal_association",minimumEvidencePerSource:3,priorityClassOverride:false,riskAuthorityEffect:false,executionAuthorityEffect:false},
     prohibitedAutonomy:PROHIBITED_AUTONOMY,
     principles:["grounded_workspace_observation","least_authority","human_approval","no_hidden_execution","auditable_decisions"]
@@ -497,6 +509,11 @@ export async function handleAgenticRequest({request,logicalPath,env,ctx,coreFetc
   if(path==="/api/agentic/runs"&&request.method==="GET")return listRuns(env,auth);
   if(path==="/api/agentic/outcomes"&&request.method==="GET")return listOutcomes(env,auth);
   if(path==="/api/agentic/plan"&&request.method==="POST")return createPlan({request,env,ctx,coreFetch,auth});
+  const readToolMatch=path.match(/^\/api\/agentic\/tools\/read\/([^/]+)$/);
+  if(readToolMatch&&request.method==="GET"){
+    const result=await executeAgentReadTool(decodeURIComponent(readToolMatch[1]),{env,auth});
+    return json(result,result.allowed===true?200:result.error==="unsupported_read_tool"?404:403);
+  }
   const continuationMatch=path.match(/^\/api\/agentic\/runs\/([^/]+)\/continuation$/);
   if(continuationMatch&&request.method==="GET")return getContinuation(env,auth,continuationMatch[1]);
   const continueMatch=path.match(/^\/api\/agentic\/runs\/([^/]+)\/continue$/);
