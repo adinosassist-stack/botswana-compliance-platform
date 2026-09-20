@@ -89,11 +89,19 @@ async function loadExecutionGrant(env,tenantId,delegationId){
 
 async function status(env,auth){
   const ready=await schemaReady(env);
-  let activeGrants=0,openTasks=0;
+  let activeGrants=[],openTasks=0;
   if(ready){
-    const grant=await safeFirst(env,`SELECT COUNT(*) count FROM agent_execution_grants WHERE tenant_id=? AND action_key=? AND status='active'`,[auth.tenant_id,ACTION_KEY]);
+    const grants=await env.DB.prepare(`SELECT g.id,g.delegation_id,g.created_at
+      FROM agent_execution_grants g
+      JOIN agent_delegations d ON d.id=g.delegation_id AND d.tenant_id=g.tenant_id
+      WHERE g.tenant_id=? AND g.action_key=? AND g.status='active'
+        AND d.status='active'
+        AND (d.valid_from IS NULL OR d.valid_from<=CURRENT_TIMESTAMP)
+        AND (d.expires_at IS NULL OR d.expires_at>CURRENT_TIMESTAMP)
+      ORDER BY g.created_at DESC LIMIT 10`).bind(auth.tenant_id,ACTION_KEY).all();
     const tasks=await safeFirst(env,`SELECT COUNT(*) count FROM agent_internal_tasks WHERE tenant_id=? AND status='open'`,[auth.tenant_id]);
-    activeGrants=Number(grant?.count||0);openTasks=Number(tasks?.count||0);
+    activeGrants=(grants.results||[]).map(row=>({id:row.id,delegationId:row.delegation_id,createdAt:row.created_at}));
+    openTasks=Number(tasks?.count||0);
   }
   return json({
     enabled:true,
@@ -101,7 +109,8 @@ async function status(env,auth){
     actionKey:ACTION_KEY,
     globalExecutionEnabled:globalExecutionEnabled(env),
     runtimeKillSwitch:runtimeKillSwitch(env),
-    activeExecutionGrants:activeGrants,
+    activeExecutionGrants:activeGrants.length,
+    activeGrants,
     openTasks,
     guarantees:["task_create_only","no_external_side_effect","explicit_owner_approval","payload_hash_binding","idempotent_execution","runtime_guard_required"]
   });
@@ -233,6 +242,58 @@ async function approveTask({env,auth,requestId}){
   return json({ok:true,id:requestId,status:"approved",payloadHash:String(current.payload_hash)});
 }
 
+async function listTaskRequests(env,auth){
+  if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
+  if(!(await schemaReady(env)))return json({error:"bounded_execution_schema_not_ready"},503);
+  const rows=await env.DB.prepare(`SELECT q.id,q.status,q.payload_json,q.payload_hash,q.approved_payload_hash,
+      q.delegation_id,q.execution_grant_id,q.approved_at,q.executed_at,q.created_at,
+      i.run_id,i.proposal_id
+    FROM agent_task_requests q
+    JOIN agent_action_intents i ON i.id=q.action_intent_id AND i.tenant_id=q.tenant_id
+    WHERE q.tenant_id=?
+    ORDER BY q.created_at DESC
+    LIMIT 50`).bind(auth.tenant_id).all();
+  return json({items:(rows.results||[]).map(row=>{
+    let payload={};
+    try{payload=JSON.parse(String(row.payload_json||"{}"))}catch{}
+    return {
+      id:row.id,
+      status:row.status,
+      payload,
+      payloadHash:row.payload_hash,
+      approvedPayloadHash:row.approved_payload_hash||null,
+      delegationId:row.delegation_id,
+      executionGrantId:row.execution_grant_id,
+      runId:row.run_id||null,
+      proposalId:row.proposal_id||null,
+      approvedAt:row.approved_at||null,
+      executedAt:row.executed_at||null,
+      createdAt:row.created_at
+    };
+  })});
+}
+
+async function cancelTask({env,auth,requestId}){
+  if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);
+  if(!(await schemaReady(env)))return json({error:"bounded_execution_schema_not_ready"},503);
+  const current=await safeFirst(env,`SELECT id,status,payload_hash FROM agent_task_requests WHERE id=? AND tenant_id=? LIMIT 1`,[requestId,auth.tenant_id]);
+  if(!current)return json({error:"task_request_not_found"},404);
+  if(current.status==="cancelled")return json({ok:true,id:requestId,status:"cancelled",replayed:true});
+  if(current.status==="executed")return json({error:"task_request_already_executed"},409);
+  if(!["prepared","approved"].includes(String(current.status||"")))return json({error:"task_request_not_cancellable",status:current.status},409);
+  const results=await env.DB.batch([
+    env.DB.prepare(`UPDATE agent_task_requests SET status='cancelled'
+      WHERE id=? AND tenant_id=? AND status IN ('prepared','approved')`).bind(requestId,auth.tenant_id),
+    env.DB.prepare(`INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data)
+      SELECT ?,?,'AGENT_TASK_CANCELLED','agent_task_request',?,? WHERE changes()=1`).bind(
+        auth.tenant_id,auth.user_id,requestId,JSON.stringify({previousStatus:String(current.status),payloadHash:String(current.payload_hash||"")})
+      )
+  ]);
+  const changed=Number(results?.[0]?.meta?.changes??results?.[0]?.changes??0);
+  if(changed!==1)return json({error:"task_request_cancel_conflict"},409);
+  return json({ok:true,id:requestId,status:"cancelled"});
+}
+
 async function executeTask({env,auth,requestId}){
   if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
   if(!(await schemaReady(env)))return json({error:"bounded_execution_schema_not_ready"},503);
@@ -348,6 +409,9 @@ export async function handleAgenticTaskExecutionRequest({request,logicalPath,env
   const revoke=path.match(/^\/api\/agentic\/task-execution\/grants\/([^/]+)\/revoke$/);
   if(revoke&&request.method==="POST")return revokeExecutionGrant({env,auth,grantId:revoke[1]});
   if(path==="/api/agentic/task-execution/prepare"&&request.method==="POST")return prepareTask({request,env,auth});
+  if(path==="/api/agentic/task-execution/requests"&&request.method==="GET")return listTaskRequests(env,auth);
+  const cancel=path.match(/^\/api\/agentic\/task-execution\/requests\/([^/]+)\/cancel$/);
+  if(cancel&&request.method==="POST")return cancelTask({env,auth,requestId:cancel[1]});
   const approve=path.match(/^\/api\/agentic\/task-execution\/requests\/([^/]+)\/approve$/);
   if(approve&&request.method==="POST")return approveTask({env,auth,requestId:approve[1]});
   const execute=path.match(/^\/api\/agentic\/task-execution\/requests\/([^/]+)\/execute$/);
