@@ -68,6 +68,8 @@
     if(name==="NotAllowedError"||name==="PermissionDeniedError")return "Microphone permission is blocked. Allow microphone access for thebedesk.com, then try again.";
     if(name==="NotFoundError")return "No microphone was found on this device.";
     if(name==="NotReadableError")return "The microphone is busy or unavailable. Close other apps using it and try again.";
+    const providerCode=String(error?.data?.providerCode||error?.body?.providerCode||"");
+    if(providerCode==="billing_not_active")return "The public voice sample is temporarily unavailable while API billing is being activated.";
     if(/429|rate.?limit|marketing_session_rate_limited/i.test(raw))return sessionMode==="marketing"
       ?"The public voice sample has reached its temporary limit. Please try again later or sign in to use your workspace."
       :"Thebe voice has reached its temporary session limit. Try again later.";
