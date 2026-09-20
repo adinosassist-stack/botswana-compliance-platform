@@ -57,6 +57,7 @@ The browser:
 5. collects transcript deltas in bounded browser memory;
 6. on `session.delegation.created`, sends the captured business request to the governed Thebe backend;
 7. sends the verified backend result back to the live model with `session.commentary.append`.
+8. suppresses a delegated result if newer user transcript arrives before the backend finishes, so stale work is not spoken as current.
 
 ## Promotion gate
 
