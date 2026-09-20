@@ -68,7 +68,7 @@ A fully absent mail integration is an accepted Phase 0 deferred state. Partial c
 - **WhatsApp provider sending:** provider execution remains disabled until Meta credentials/templates and explicit enablement are approved. Existing Phase 0 WhatsApp preparation/owner-centre behavior remains qualified.
 - **CIPA live registry sync:** not claimed until an authorized endpoint, scopes and live reconciliation proof exist.
 - **Orange Money:** remains outside the current Phase 0 release envelope pending its own readiness review.
-- **GPT-Live-1 voice:** governed WebRTC/client-delegation foundation is present in code, but production remains explicitly disabled. `OPENAI_API_KEY` is optional/absent from the Phase 0 required-secret contract, and activation requires a separate reviewed release.
+- **Thebe Live Voice:** activation release migrates the voice path to the OpenAI Realtime GA WebRTC contract, requires server-side `OPENAI_API_KEY`, and keeps all business work behind the governed single-agent backend. Production enablement is guarded by exact-SHA release checks, rate limits, a failure circuit, and the Runtime Guard.
 
 ## Exact release sequence
 
