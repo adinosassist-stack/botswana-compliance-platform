@@ -111,6 +111,30 @@ async function runFullUserJourney(credentials){
     assert(marketingCopy.sharedApiRuntime,'public marketing page did not load the centralized BW API runtime required by voice');
     assert(marketingCopy.quick.some(x=>/What is Thebe Desk/i.test(x)),'public Thebe dock did not expose product explainer prompts');
     assert(/ask about Thebe Desk/i.test(marketingCopy.sub),'public Thebe dock did not advertise voice sampling');
+    const syntheticAudio=await page.evaluate(async()=>{
+      try{
+        const AudioContextCtor=globalThis.AudioContext||globalThis.webkitAudioContext;
+        if(!AudioContextCtor)return {ok:false,error:'AudioContext unavailable'};
+        const context=new AudioContextCtor();
+        const oscillator=context.createOscillator();
+        const gain=context.createGain();
+        const destination=context.createMediaStreamDestination();
+        gain.gain.value=0.015;
+        oscillator.frequency.value=220;
+        oscillator.connect(gain);gain.connect(destination);oscillator.start();
+        const track=destination.stream.getAudioTracks()[0];
+        if(!track)return {ok:false,error:'synthetic audio track unavailable'};
+        globalThis.__thebeSyntheticVoiceAudio={context,oscillator,gain,destination,track};
+        const mediaDevices=navigator.mediaDevices;
+        if(!mediaDevices)return {ok:false,error:'mediaDevices unavailable'};
+        Object.defineProperty(mediaDevices,'getUserMedia',{
+          configurable:true,
+          value:async()=>new MediaStream([track.clone()])
+        });
+        return {ok:true,trackState:track.readyState,contextState:context.state};
+      }catch(error){return {ok:false,error:String(error?.message||error)}}
+    });
+    assert(syntheticAudio.ok,`synthetic marketing voice audio unavailable: ${safe(syntheticAudio.error)}`);
     const marketingVoiceStart=await page.evaluate(async()=>{
       try{return await globalThis.ThebeLiveVoice.start({mode:'marketing'})}
       catch(error){return {error:String(error?.message||error)}}
@@ -121,7 +145,14 @@ async function runFullUserJourney(credentials){
     assert(marketingVoiceState.mode==='marketing'&&marketingVoiceState.maxSessionSeconds<=60,'public voice sample did not use bounded marketing mode');
     await page.evaluate(()=>globalThis.ThebeLiveVoice.stop());
     await page.waitForFunction(()=>globalThis.ThebeLiveVoice?.status?.().state==='idle',null,{timeout:20000});
-    mark('Thebe public voice sample','real WebRTC marketing session connected with fake microphone and closed cleanly');
+    await page.evaluate(async()=>{
+      const audio=globalThis.__thebeSyntheticVoiceAudio;
+      try{audio?.oscillator?.stop()}catch{}
+      try{audio?.track?.stop()}catch{}
+      try{await audio?.context?.close?.()}catch{}
+      delete globalThis.__thebeSyntheticVoiceAudio;
+    });
+    mark('Thebe public voice sample','real WebRTC marketing session connected with synthetic browser audio and closed cleanly');
     mark('full-user public boundary','plain root rendered the public-only homepage');
 
     const auth=await page.goto(`${ORIGIN}/auth/?mode=login&full-user-proof=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:NAVIGATION_TIMEOUT_MS});
