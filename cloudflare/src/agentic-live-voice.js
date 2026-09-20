@@ -890,7 +890,7 @@ export async function handleAgenticLiveVoiceRequest({request,logicalPath,env,ctx
 
   if(path==="/api/agentic/live/marketing/status"&&request.method==="GET")return marketingStatus(env);
   if(path==="/api/agentic/live/marketing/session"&&request.method==="POST"){
-    if(!originAllowed(request,env))return json({error:"origin_failed"},403);
+    if(!String(request.headers.get("origin")||"").trim()||!originAllowed(request,env))return json({error:"origin_failed"},403);
     return createMarketingSession({request,env});
   }
   if(path.startsWith("/api/agentic/live/marketing"))return json({error:"not_found"},404);
