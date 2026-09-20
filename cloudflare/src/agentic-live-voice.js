@@ -2,7 +2,7 @@ import {
   authenticate,roleAllowed,originAllowed,csrfAllowed,safeFirst
 } from "./agentic-authority-core.js";
 
-export const THEBE_LIVE_VOICE_VERSION="2026-09-20.gpt-live-1-foundation-v1";
+export const THEBE_LIVE_VOICE_VERSION="2026-09-20.gpt-live-1-activation-v2";
 
 const OPENAI_LIVE_SESSIONS_URL="https://api.openai.com/v1/live/sessions";
 const LIVE_MODEL="gpt-live-1";
@@ -32,9 +32,27 @@ function cleanText(value,max=500){
     .slice(0,max);
 }
 
-function boundedStarts(value){
+function boundedStarts(value,fallback=6){
   const parsed=Number(value);
-  if(!Number.isInteger(parsed)||parsed<1||parsed>60)return 6;
+  if(!Number.isInteger(parsed)||parsed<1||parsed>60)return fallback;
+  return parsed;
+}
+
+function boundedSessionSeconds(value){
+  const parsed=Number(value);
+  if(!Number.isInteger(parsed)||parsed<60||parsed>3600)return 600;
+  return parsed;
+}
+
+function boundedTimeoutMs(value){
+  const parsed=Number(value);
+  if(!Number.isInteger(parsed)||parsed<3000||parsed>30000)return 12000;
+  return parsed;
+}
+
+function boundedCircuitThreshold(value){
+  const parsed=Number(value);
+  if(!Number.isInteger(parsed)||parsed<1||parsed>10)return 3;
   return parsed;
 }
 
@@ -107,20 +125,36 @@ async function audit(env,auth,eventType,entityId,detail={}){
     ).run();
 }
 
-async function recentSessionStarts(env,tenantId){
+async function recentSessionStarts(env,tenantId,userId=null){
+  const userClause=userId?" AND actor_user_id=?":"";
+  const bindings=userId?[tenantId,userId]:[tenantId];
   const row=await safeFirst(env,`SELECT COUNT(*) count FROM audit_events
     WHERE tenant_id=? AND event_type='THEBE_LIVE_SESSION_REQUESTED'
-      AND created_at>=datetime('now','-1 hour')`,[tenantId]);
+      AND created_at>=datetime('now','-1 hour')${userClause}`,bindings);
+  return Number(row?.count||0);
+}
+
+async function recentSessionFailures(env,tenantId){
+  const row=await safeFirst(env,`SELECT COUNT(*) count FROM audit_events
+    WHERE tenant_id=? AND event_type='THEBE_LIVE_SESSION_FAILED'
+      AND created_at>=datetime('now','-5 minutes')`,[tenantId]);
   return Number(row?.count||0);
 }
 
 async function status(env,auth){
-  const starts=await recentSessionStarts(env,auth.tenant_id);
-  const maxStarts=boundedStarts(env?.THEBE_LIVE_VOICE_MAX_STARTS_PER_HOUR);
+  const [starts,userStarts,failures]=await Promise.all([
+    recentSessionStarts(env,auth.tenant_id),
+    recentSessionStarts(env,auth.tenant_id,auth.user_id),
+    recentSessionFailures(env,auth.tenant_id)
+  ]);
+  const maxStarts=boundedStarts(env?.THEBE_LIVE_VOICE_MAX_STARTS_PER_HOUR,6);
+  const maxUserStarts=boundedStarts(env?.THEBE_LIVE_VOICE_MAX_USER_STARTS_PER_HOUR,4);
+  const circuitThreshold=boundedCircuitThreshold(env?.THEBE_LIVE_VOICE_FAILURE_CIRCUIT_THRESHOLD);
+  const circuitOpen=failures>=circuitThreshold;
   return json({
     enabled:liveEnabled(env),
     configured:liveConfigured(env),
-    sessionCreationAllowed:liveAllowed(env)&&starts<maxStarts,
+    sessionCreationAllowed:liveAllowed(env)&&starts<maxStarts&&userStarts<maxUserStarts&&!circuitOpen,
     version:THEBE_LIVE_VOICE_VERSION,
     model:LIVE_MODEL,
     transport:"webrtc",
@@ -130,6 +164,11 @@ async function status(env,auth){
     runtimeKillSwitch:killSwitchActive(env),
     startsThisHour:starts,
     maxStartsPerHour:maxStarts,
+    userStartsThisHour:userStarts,
+    maxUserStartsPerHour:maxUserStarts,
+    maxSessionSeconds:boundedSessionSeconds(env?.THEBE_LIVE_VOICE_MAX_SESSION_SECONDS),
+    upstreamTimeoutMs:boundedTimeoutMs(env?.THEBE_LIVE_VOICE_UPSTREAM_TIMEOUT_MS),
+    failureCircuit:{open:circuitOpen,recentFailures:failures,threshold:circuitThreshold,windowSeconds:300},
     secureContextRequired:true,
     transcriptPolicy:{
       rawAudioStoredByThebe:false,
@@ -151,9 +190,16 @@ async function createSession({request,env,auth}){
   if(!runtimeEnabled(env))return json({error:"agent_runtime_disabled"},503);
   if(killSwitchActive(env))return json({error:"agent_runtime_kill_switch_active"},503);
 
-  const maxStarts=boundedStarts(env?.THEBE_LIVE_VOICE_MAX_STARTS_PER_HOUR);
-  const starts=await recentSessionStarts(env,auth.tenant_id);
-  if(starts>=maxStarts)return json({error:"live_session_rate_limited",retryAfterSeconds:3600},429);
+  const maxStarts=boundedStarts(env?.THEBE_LIVE_VOICE_MAX_STARTS_PER_HOUR,6);
+  const maxUserStarts=boundedStarts(env?.THEBE_LIVE_VOICE_MAX_USER_STARTS_PER_HOUR,4);
+  const circuitThreshold=boundedCircuitThreshold(env?.THEBE_LIVE_VOICE_FAILURE_CIRCUIT_THRESHOLD);
+  const [starts,userStarts,failures]=await Promise.all([
+    recentSessionStarts(env,auth.tenant_id),
+    recentSessionStarts(env,auth.tenant_id,auth.user_id),
+    recentSessionFailures(env,auth.tenant_id)
+  ]);
+  if(failures>=circuitThreshold)return json({error:"live_session_failure_circuit_open",retryAfterSeconds:300},503);
+  if(starts>=maxStarts||userStarts>=maxUserStarts)return json({error:"live_session_rate_limited",retryAfterSeconds:3600},429);
 
   let body;
   try{body=await readBoundedJson(request)}
@@ -173,6 +219,9 @@ async function createSession({request,env,auth}){
   });
 
   let upstream;
+  const controller=new AbortController();
+  const upstreamTimeoutMs=boundedTimeoutMs(env?.THEBE_LIVE_VOICE_UPSTREAM_TIMEOUT_MS);
+  const timeout=setTimeout(()=>controller.abort("thebe_live_upstream_timeout"),upstreamTimeoutMs);
   try{
     upstream=await fetch(OPENAI_LIVE_SESSIONS_URL,{
       method:"POST",
@@ -181,6 +230,7 @@ async function createSession({request,env,auth}){
         "content-type":"application/json",
         "accept":"application/json"
       },
+      signal:controller.signal,
       body:JSON.stringify({
         session:{
           model:LIVE_MODEL,
@@ -190,9 +240,12 @@ async function createSession({request,env,auth}){
         transport:{type:"webrtc",sdp}
       })
     });
-  }catch{
-    await audit(env,auth,"THEBE_LIVE_SESSION_FAILED",requestId,{code:"upstream_unreachable"});
-    return json({error:"live_session_create_failed"},502);
+  }catch(error){
+    const timedOut=controller.signal.aborted===true;
+    await audit(env,auth,"THEBE_LIVE_SESSION_FAILED",requestId,{code:timedOut?"upstream_timeout":"upstream_unreachable"});
+    return json({error:timedOut?"live_session_upstream_timeout":"live_session_create_failed"},502);
+  }finally{
+    clearTimeout(timeout);
   }
 
   let data={};
@@ -220,7 +273,7 @@ async function createSession({request,env,auth}){
     ok:true,
     version:THEBE_LIVE_VOICE_VERSION,
     model:LIVE_MODEL,
-    session:{id:sessionId},
+    session:{id:sessionId,maxSeconds:boundedSessionSeconds(env?.THEBE_LIVE_VOICE_MAX_SESSION_SECONDS)},
     transport:{type:"webrtc",sdp:answerSdp},
     delegation:{type:"client"},
     authority:{
@@ -351,6 +404,9 @@ export async function handleAgenticLiveVoiceRequest({request,logicalPath,env,ctx
 export const __agenticLiveVoiceTest=Object.freeze({
   cleanText,
   boundedStarts,
+  boundedSessionSeconds,
+  boundedTimeoutMs,
+  boundedCircuitThreshold,
   liveEnabled,
   liveConfigured,
   runtimeEnabled,
