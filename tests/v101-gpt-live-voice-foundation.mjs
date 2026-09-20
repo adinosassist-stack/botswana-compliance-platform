@@ -15,7 +15,7 @@ for(const path of ["cloudflare/src/agentic-live-voice.js","public/js/thebe-live-
   execFileSync(process.execPath,["--check",path],{stdio:"pipe"});
 }
 
-assert.match(backend,/gpt-realtime-1\.5/);
+assert.match(backend,/gpt-realtime-2\.1/);
 assert.match(backend,/https:\/\/api\.openai\.com\/v1\/realtime\/calls/);
 assert.match(backend,/new FormData\(\)/);
 assert.match(backend,/OpenAI-Safety-Identifier/);
@@ -36,6 +36,8 @@ assert.match(backend,/No business action was executed from this voice delegation
 assert.doesNotMatch(backend,/\/v1\/live\/sessions/);
 assert.doesNotMatch(backend,/gpt-live-1/);
 assert.doesNotMatch(backend,/session\.commentary\.append/);
+assert.match(backend,/providerCode/);
+assert.match(backend,/providerType/);
 assert.doesNotMatch(backend,/payment\.execute.*allow/i);
 
 assert.equal(liveTest.boundedSessionSeconds(undefined),600);
@@ -46,8 +48,10 @@ assert.equal(liveTest.boundedUserStarts(undefined),4);
 assert.equal(liveTest.boundedFailureThreshold(undefined),3);
 const config=liveTest.realtimeSessionConfig();
 assert.equal(config.type,"realtime");
-assert.equal(config.model,"gpt-realtime-1.5");
+assert.equal(config.model,"gpt-realtime-2.1");
 assert.deepEqual(config.output_modalities,["audio"]);
+assert.equal(config.audio.input.turn_detection.type,"semantic_vad");
+assert.equal(config.audio.output.voice,"marin");
 assert.equal(config.tool_choice,"auto");
 assert.equal(config.tools.length,1);
 assert.equal(config.tools[0].name,"delegate_to_thebe_backend");
@@ -85,7 +89,13 @@ assert.doesNotMatch(client,/session\.delegation\.created/);
 assert.doesNotMatch(client,/session\.commentary\.append/);
 assert.doesNotMatch(client,/session\.thinking\.append/);
 assert.doesNotMatch(client,/session\.instructions\.append/);
-assert.doesNotMatch(client,/session\.close/);
+assert.match(client,/type:"session\.close"/);
+assert.match(client,/event\.type==="session\.closed"/);
+assert.match(client,/CLOSE_TIMEOUT_MS=15000/);
+assert.match(client,/thebeLiveVoiceStatus/);
+assert.match(client,/aria-live/);
+assert.match(client,/diagnostics:\(\)=>/);
+assert.match(client,/Microphone permission is blocked/);
 assert.doesNotMatch(client,/api\.openai\.com/);
 assert.doesNotMatch(client,/OPENAI_API_KEY/);
 
@@ -107,4 +117,4 @@ assert.match(deployWorkflow,/required_secrets=\([\s\S]*OPENAI_API_KEY[\s\S]*\)/)
 assert.ok(deployWorkflow.includes("'TURNSTILE_SECRET_KEY','PAYMENT_WEBHOOK_SECRET','BILLING_WEBHOOK_SECRET','OPENAI_API_KEY'"));
 assert.ok(deployWorkflow.includes("const optionalNames = ['GOOGLE_OAUTH_CLIENT_SECRET','FACEBOOK_APP_SECRET','RESEND_API_KEY'];"));
 
-console.log("v101 Thebe Live Voice Realtime GA activation: PASS");
+console.log("v101 Thebe Live Voice debug hardening: PASS");
