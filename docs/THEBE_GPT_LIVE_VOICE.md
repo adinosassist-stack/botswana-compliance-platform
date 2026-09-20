@@ -73,13 +73,13 @@ The browser:
 2. creates the WebRTC peer connection and `oai-events` data channel;
 3. sends the SDP offer only to Thebe's trusted Worker;
 4. receives the SDP answer and attaches the Realtime media stream;
-5. listens to standard Realtime events such as `session.created`, `response.done`, and `response.output_audio_transcript.delta`;
+5. listens to the current `session.started` lifecycle event (while tolerating older `session.created`), plus standard Realtime events such as `response.done` and `response.output_audio_transcript.delta`;
 6. detects completed `function_call` output for `delegate_to_thebe_backend`;
 7. sends the requested business task to the governed Thebe backend;
 8. returns the verified result with `conversation.item.create` using `function_call_output`, then sends `response.create`;
 9. marks a delegated result stale if the user starts speaking again before the backend completes;
 10. renders connection and failure status next to **Talk to Thebe**, including microphone, WebRTC, provider and rate-limit failures;
-11. ends sessions with `session.close` and waits for `session.closed` before tearing down media, with a bounded 15-second fallback.
+11. when the user ends voice, disables further microphone input and first drains any in-flight governed delegation for up to 12 seconds; then sends `session.close` and waits for `session.closed` before tearing down media, with a bounded 15-second finalization fallback. Late governed task results are never treated as cancelled; a prepared draft remains pending owner approval.
 
 The governed task-preparation flow remains unchanged: voice may prepare an internal task draft only when explicitly requested, but it cannot approve or execute that draft. No custom or private Realtime event types are required. Provider rejection details are reduced to safe status/code/type diagnostics; raw provider response bodies are not returned to the browser.
 
