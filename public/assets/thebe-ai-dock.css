@@ -203,3 +203,10 @@
   .thebe-ai-orb-button,.thebe-particle-orb{width:72px;height:72px}
   .thebe-ai-pill[data-surface="public"]{right:12px;bottom:76px;background:#0b66d6;border-color:#0b66d6}
 }
+
+
+/* Medium desktop/tablet refinement: keep the full dock, but give the marketing page enough reading width. */
+@media(min-width:651px) and (max-width:1179px){
+  :root{--thebe-dock-w:320px}
+  .thebe-ai-dock[data-surface="public"] .thebe-ai-dock-scroll{padding:11px 12px 10px;gap:10px}
+}
