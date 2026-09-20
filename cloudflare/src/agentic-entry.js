@@ -3,7 +3,7 @@ import {handleAgenticAuthorityRequest} from "./agentic-authority-core.js";
 import {handleAgenticWhatsAppRequest} from "./agentic-whatsapp-core.js";
 import {handleAgenticTaskExecutionRequest} from "./agentic-task-execution.js";
 import {handleAgenticLiveVoiceRequest} from "./agentic-live-voice.js";
-import {preparePlatformOwnerLogin,withPlatformOwnerAdminEnv} from "./platform-owner-access.js";
+import {preparePlatformOwnerLogin,repairPlatformOwnerWorkspaceAccess,withPlatformOwnerAdminEnv} from "./platform-owner-access.js";
 import {applyClientRuntimeIdentity} from "./client-runtime-identity.js";
 
 const V81_SCHEMA_DELTA="048_v102_bounded_internal_task_execution.sql";
@@ -161,6 +161,7 @@ export default {
     const authorityResponse=await handleAgenticAuthorityRequest({request,logicalPath,env});
     if(authorityResponse)return authorityResponse;
     env=withPlatformOwnerAdminEnv(env);
+    try{await repairPlatformOwnerWorkspaceAccess(request,env)}catch{}
     request=await preparePlatformOwnerLogin(request,env);
     const response=await base.fetch(request,env,ctx);
     const runtimeResponse=await applyClientRuntimeIdentity(request,response);
