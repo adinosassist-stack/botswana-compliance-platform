@@ -732,9 +732,11 @@
     const level=Math.max(0,Math.min(1,Number(event?.detail?.level)||0));
     const relevant=(voicePhase==="listening"&&channel==="input")||(voicePhase==="speaking"&&channel==="output");
     const scale=relevant?(1+level*.13):1;
-    const glow=relevant?(1+level*.8):1;
+    const ring=relevant?(8+level*5):8;
+    const blur=relevant?(28+level*20):28;
     orb.style.setProperty("--thebe-audio-scale",scale.toFixed(3));
-    orb.style.setProperty("--thebe-audio-glow",glow.toFixed(3));
+    orb.style.setProperty("--thebe-audio-ring",ring.toFixed(1)+"px");
+    orb.style.setProperty("--thebe-audio-blur",blur.toFixed(1)+"px");
   });
   global.addEventListener("thebe-live-delegation",()=>setPhase("thinking","Checking your business…","Using the governed Thebe backend"));
   global.addEventListener("thebe-live-delegation-result",event=>{
