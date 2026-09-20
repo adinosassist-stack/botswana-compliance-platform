@@ -1,7 +1,7 @@
 import base from "./production-entry.js";
 import {handleAgenticAuthorityRequest} from "./agentic-authority-core.js";
 import {handleAgenticWhatsAppRequest} from "./agentic-whatsapp-core.js";
-import {handleAgenticTaskExecutionRequest} from "./agentic-task-execution.js";
+import {handleAgenticTaskExecutionRequest} from "./agentic-task-execution.js";\nimport {handleAgenticLiveVoiceRequest} from "./agentic-live-voice.js";
 import {preparePlatformOwnerLogin,withPlatformOwnerAdminEnv} from "./platform-owner-access.js";
 import {applyClientRuntimeIdentity} from "./client-runtime-identity.js";
 
