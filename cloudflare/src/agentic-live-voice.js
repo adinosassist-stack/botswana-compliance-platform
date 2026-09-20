@@ -2,10 +2,10 @@ import {
   authenticate,roleAllowed,originAllowed,csrfAllowed,safeFirst
 } from "./agentic-authority-core.js";
 
-export const THEBE_LIVE_VOICE_VERSION="2026-09-20.realtime-ga-governed-task-prepare-v2";
+export const THEBE_LIVE_VOICE_VERSION="2026-09-20.realtime-ga-task-prepare-debug-v3";
 
 const OPENAI_REALTIME_CALLS_URL="https://api.openai.com/v1/realtime/calls";
-const LIVE_MODEL="gpt-realtime-1.5";
+const LIVE_MODEL="gpt-realtime-2.1";
 const DELEGATION_TOOL_NAME="delegate_to_thebe_backend";
 const MAX_SESSION_BODY_BYTES=96*1024;
 const MAX_SDP_CHARS=72*1024;
@@ -154,6 +154,10 @@ function realtimeSessionConfig(){
     type:"realtime",
     model:LIVE_MODEL,
     output_modalities:["audio"],
+    audio:{
+      input:{turn_detection:{type:"semantic_vad"}},
+      output:{voice:"marin"}
+    },
     instructions:instructions(),
     tools:[delegationTool()],
     tool_choice:"auto"
@@ -295,8 +299,26 @@ async function createSession({request,env,auth}){
   }
 
   if(!upstream.ok){
-    await audit(env,auth,"THEBE_LIVE_SESSION_FAILED",requestId,{code:"upstream_rejected",status:upstream.status});
-    return json({error:"live_session_create_failed",upstreamStatus:upstream.status},502);
+    const providerRaw=String(await upstream.text()).slice(0,4096);
+    let providerCode=null,providerType=null;
+    try{
+      const parsed=JSON.parse(providerRaw);
+      providerCode=cleanText(parsed?.error?.code,120)||null;
+      providerType=cleanText(parsed?.error?.type,120)||null;
+    }catch{}
+    await audit(env,auth,"THEBE_LIVE_SESSION_FAILED",requestId,{
+      code:"upstream_rejected",
+      status:upstream.status,
+      providerCode,
+      providerType
+    });
+    return json({
+      error:"live_session_create_failed",
+      code:"upstream_rejected",
+      upstreamStatus:upstream.status,
+      providerCode,
+      providerType
+    },502);
   }
 
   const answerSdp=String(await upstream.text());

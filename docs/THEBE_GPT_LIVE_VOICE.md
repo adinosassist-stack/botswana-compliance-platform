@@ -12,7 +12,7 @@ The architecture is:
 
 - Browser transport: WebRTC.
 - Realtime API: GA `POST /v1/realtime/calls`.
-- Voice model: `gpt-realtime-1.5`.
+- Voice model: `gpt-realtime-2.1`.
 - Business delegation: Realtime function tool `delegate_to_thebe_backend`.
 - API key: server side only.
 - Business work: delegated to the existing governed `/api/agentic/plan` flow.
@@ -46,8 +46,9 @@ The trusted Worker creates the WebRTC call with a multipart request containing:
 
 - the browser SDP offer;
 - a Realtime session with `type: "realtime"`;
-- model `gpt-realtime-1.5`;
-- audio output enabled;
+- model `gpt-realtime-2.1`;
+- audio output enabled with the `marin` voice;
+- semantic VAD for turn detection;
 - the single `delegate_to_thebe_backend` function tool;
 - `tool_choice: "auto"`;
 - a privacy-preserving `OpenAI-Safety-Identifier` derived from the authenticated tenant/user identity.
@@ -76,9 +77,11 @@ The browser:
 6. detects completed `function_call` output for `delegate_to_thebe_backend`;
 7. sends the requested business task to the governed Thebe backend;
 8. returns the verified result with `conversation.item.create` using `function_call_output`, then sends `response.create`;
-9. marks a delegated result stale if the user starts speaking again before the backend completes.
+9. marks a delegated result stale if the user starts speaking again before the backend completes;
+10. renders connection and failure status next to **Talk to Thebe**, including microphone, WebRTC, provider and rate-limit failures;
+11. ends sessions with `session.close` and waits for `session.closed` before tearing down media, with a bounded 15-second fallback.
 
-No custom or private Realtime event types are required.
+The governed task-preparation flow remains unchanged: voice may prepare an internal task draft only when explicitly requested, but it cannot approve or execute that draft. No custom or private Realtime event types are required. Provider rejection details are reduced to safe status/code/type diagnostics; raw provider response bodies are not returned to the browser.
 
 ## Promotion and rollback gate
 

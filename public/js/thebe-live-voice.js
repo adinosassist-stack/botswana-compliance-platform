@@ -4,8 +4,9 @@
   const RELEASE="20260920d";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
-  let pc=null,dc=null,media=null,remoteAudio=null,sessionId=null,sessionTimer=null;
-  let inputTranscript="",outputTranscript="",state="idle",button=null,transcriptRevision=0,maxSessionSeconds=600;
+  const CLOSE_TIMEOUT_MS=15000;
+  let pc=null,dc=null,media=null,remoteAudio=null,sessionId=null,sessionTimer=null,closeTimer=null;
+  let inputTranscript="",outputTranscript="",state="idle",button=null,statusEl=null,transcriptRevision=0,maxSessionSeconds=600,lastError=null;
   const activeDelegations=new Set();
 
   const api=(url,options={})=>{
@@ -16,6 +17,13 @@
   const emit=(name,detail={})=>{
     try{global.dispatchEvent(new CustomEvent(name,{detail}))}catch{}
   };
+  function showStatus(message,kind="info"){
+    if(!statusEl)return;
+    statusEl.textContent=text(message,320);
+    statusEl.dataset.kind=kind;
+    statusEl.hidden=!statusEl.textContent;
+  }
+
   const setState=(next,detail={})=>{
     state=next;
     if(button){
@@ -23,8 +31,38 @@
       button.disabled=next==="connecting"||next==="closing";
       button.setAttribute("aria-pressed",next==="connected"?"true":"false");
     }
+    if(!detail.preserveStatus){
+      if(next==="connecting")showStatus("Connecting securely to Thebe voice…");
+      else if(next==="connected")showStatus("Thebe voice is connected. You can speak now.","success");
+      else if(next==="closing")showStatus("Ending the voice session…");
+      else if(next==="idle")showStatus("");
+    }
     emit("thebe-live-state",{state:next,sessionId,...detail});
   };
+
+  function rememberError(message,stage="runtime",detail={}){
+    lastError=Object.freeze({
+      at:new Date().toISOString(),
+      stage,
+      message:text(message||"Thebe live voice error",320),
+      ...detail
+    });
+    showStatus(lastError.message,"error");
+    emit("thebe-live-error",lastError);
+  }
+
+  function friendlyStartError(error){
+    const name=String(error?.name||"");
+    const raw=text(error?.message||error||"Thebe live voice could not start.",320);
+    if(name==="NotAllowedError"||name==="PermissionDeniedError")return "Microphone permission is blocked. Allow microphone access for thebedesk.com, then try again.";
+    if(name==="NotFoundError")return "No microphone was found on this device.";
+    if(name==="NotReadableError")return "The microphone is busy or unavailable. Close other apps using it and try again.";
+    if(/429|rate.?limit/i.test(raw))return "Thebe voice has reached its temporary session limit. Try again later.";
+    if(/401|403|unauth|forbidden/i.test(raw))return "Your session is not authorized for Thebe voice. Sign in again and retry.";
+    if(/upstream|502|OpenAI|live_session_create_failed/i.test(raw))return "The voice provider rejected the session. Thebe recorded a safe diagnostic code for review.";
+    return raw||"Thebe live voice could not start.";
+  }
+
   const cap=value=>String(value||"").slice(-MAX_TRANSCRIPT_CHARS);
 
   function sendEvent(event){
@@ -88,6 +126,7 @@
         });
         return;
       }
+      showStatus(intent==="prepare_internal_task"?"Thebe is preparing the governed task draft…":"Thebe is checking your business data…");
       emit("thebe-live-delegation",{delegationId:callId,sessionId,taskText,intent});
       const result=await api("/api/agentic/live/delegation",{
         method:"POST",
@@ -113,6 +152,7 @@
         content:text(result?.content||"The governed Thebe backend completed the request.",1800),
         authority:result?.authority||{executionPerformed:false}
       });
+      showStatus("Thebe voice is connected. You can keep speaking.","success");
     }catch(error){
       try{
         sendFunctionOutput(callId,{
@@ -122,7 +162,7 @@
           executionPerformed:false
         });
       }catch{}
-      emit("thebe-live-error",{message:text(error?.message||"Delegation failed",240)});
+      rememberError(error?.message||"Delegation failed","delegation");
     }finally{
       activeDelegations.delete(callId);
     }
@@ -132,17 +172,35 @@
     let event;
     try{event=JSON.parse(String(raw||""))}catch{return}
     transcriptDelta(event);
-    if(event.type==="input_audio_buffer.speech_started")transcriptRevision+=1;
+    if(event.type==="input_audio_buffer.speech_started"){
+      transcriptRevision+=1;
+      if(state==="connected")showStatus("Listening…");
+    }
+    if(event.type==="input_audio_buffer.speech_stopped"&&state==="connected")showStatus("Thinking…");
     if(event.type==="session.created"||event.type==="session.updated"){
       sessionId=text(event?.session?.id||sessionId,240)||sessionId;
     }
     if(event.type==="response.done"){
       const output=Array.isArray(event?.response?.output)?event.response.output:[];
+      let delegated=false;
       for(const item of output){
-        if(item?.type==="function_call"&&item?.name===DELEGATION_TOOL)handleFunctionCall(item);
+        if(item?.type==="function_call"&&item?.name===DELEGATION_TOOL){
+          delegated=true;
+          handleFunctionCall(item);
+        }
       }
+      if(!delegated&&state==="connected")showStatus("Thebe voice is connected. You can keep speaking.","success");
     }
-    if(event.type==="error")emit("thebe-live-error",{event});
+    if(event.type==="session.closed"){
+      if(closeTimer){clearTimeout(closeTimer);closeTimer=null}
+      cleanup("idle",{message:"Voice session ended.",success:true});
+      return;
+    }
+    if(event.type==="error"){
+      const code=text(event?.error?.code||event?.code,120)||null;
+      const message=text(event?.error?.message||event?.message||"The realtime voice service reported an error.",320);
+      rememberError(code?message+" ("+code+")":message,"realtime",{code,eventId:text(event?.event_id,160)||null});
+    }
     emit("thebe-live-event",{event});
   }
 
@@ -170,11 +228,15 @@
 
     const status=await api("/api/agentic/live/status");
     if(status?.sessionCreationAllowed!==true){
-      throw new Error(status?.runtimeKillSwitch?"Thebe live voice is paused by the runtime safety switch.":"Thebe live voice is not enabled for this workspace.");
+      const gate=text(status?.gateCode,120);
+      if(status?.runtimeKillSwitch)throw new Error("Thebe live voice is paused by the runtime safety switch.");
+      if(gate==="tenant_session_rate_limited"||gate==="user_session_rate_limited")throw new Error("Thebe voice session limit has been reached temporarily.");
+      if(gate==="live_failure_circuit_open")throw new Error("Thebe voice is temporarily paused after repeated provider failures.");
+      throw new Error("Thebe live voice is not enabled for this workspace.");
     }
 
     setState("connecting");
-    inputTranscript="";outputTranscript="";sessionId=null;transcriptRevision=0;
+    inputTranscript="";outputTranscript="";sessionId=null;transcriptRevision=0;lastError=null;
     maxSessionSeconds=Math.max(60,Math.min(1800,Number(status?.maxSessionSeconds||600)));
     try{
       media=await navigator.mediaDevices.getUserMedia({audio:true});
@@ -185,6 +247,11 @@
       document.body.append(remoteAudio);
 
       pc=new RTCPeerConnection();
+      pc.addEventListener("connectionstatechange",()=>{
+        const next=pc?.connectionState||"unknown";
+        emit("thebe-live-peer-state",{connectionState:next,iceConnectionState:pc?.iceConnectionState||"unknown"});
+        if(next==="failed")rememberError("The WebRTC voice connection failed. Check your network and try again.","webrtc");
+      });
       pc.addEventListener("track",event=>{
         const stream=event.streams?.[0];
         if(stream)remoteAudio.srcObject=stream;
@@ -194,8 +261,10 @@
       dc=pc.createDataChannel("oai-events");
       dc.addEventListener("open",()=>setState("connected"));
       dc.addEventListener("message",event=>handleServerEvent(event.data));
-      dc.addEventListener("close",()=>cleanup("idle"));
-      dc.addEventListener("error",()=>emit("thebe-live-error",{message:"Thebe live data channel failed."}));
+      dc.addEventListener("close",()=>{
+        if(state!=="closing")cleanup("idle",{message:lastError?.message||"Voice connection closed."});
+      });
+      dc.addEventListener("error",()=>rememberError("Thebe live data channel failed.","data_channel"));
 
       const offer=await pc.createOffer();
       await pc.setLocalDescription(offer);
@@ -216,27 +285,41 @@
       },maxSessionSeconds*1000);
       return {state:"connecting",sessionId,maxSessionSeconds};
     }catch(error){
-      cleanup("idle");
+      cleanup("idle",{preserveStatus:true});
       throw error;
     }
   }
 
-  function cleanup(nextState="idle"){
+  function cleanup(nextState="idle",options={}){
     try{dc?.close()}catch{}
     try{pc?.close()}catch{}
     try{media?.getTracks?.().forEach(track=>track.stop())}catch{}
     try{if(remoteAudio){remoteAudio.srcObject=null;remoteAudio.remove()}}catch{}
     pc=null;dc=null;media=null;remoteAudio=null;sessionId=null;
     if(sessionTimer){clearTimeout(sessionTimer);sessionTimer=null}
+    if(closeTimer){clearTimeout(closeTimer);closeTimer=null}
     activeDelegations.clear();
-    setState(nextState);
+    setState(nextState,{preserveStatus:options.preserveStatus||Boolean(options.message)});
+    if(options.message)showStatus(options.message,options.success?"success":"info");
   }
 
   function stop(){
     if(state==="closing")return;
-    if(state==="connected"||state==="connecting"){
+    if(state==="connected"&&dc?.readyState==="open"){
       setState("closing");
-      setTimeout(()=>cleanup("idle"),50);
+      try{
+        sendEvent({
+          type:"session.close",
+          event_id:global.crypto?.randomUUID?.()||String(Date.now())
+        });
+        closeTimer=setTimeout(()=>{
+          rememberError("The voice session did not confirm a graceful close; the local connection was ended.","close_timeout");
+          cleanup("idle",{preserveStatus:true});
+        },CLOSE_TIMEOUT_MS);
+      }catch(error){
+        rememberError(error?.message||"The voice session could not close cleanly.","close");
+        cleanup("idle",{preserveStatus:true});
+      }
       return;
     }
     cleanup("idle");
@@ -254,14 +337,23 @@
     button.className="btn soft";
     button.textContent="Talk to Thebe";
     button.setAttribute("aria-pressed","false");
+
+    statusEl=document.createElement("span");
+    statusEl.id="thebeLiveVoiceStatus";
+    statusEl.className="muted";
+    statusEl.setAttribute("role","status");
+    statusEl.setAttribute("aria-live","polite");
+    statusEl.hidden=true;
+
     button.addEventListener("click",async()=>{
       if(state==="connected"||state==="connecting"||state==="closing"){stop();return}
       try{await start()}catch(error){
-        setState("idle");
-        emit("thebe-live-error",{message:text(error?.message||"Thebe live voice could not start.",240)});
+        const message=friendlyStartError(error);
+        cleanup("idle",{preserveStatus:true});
+        rememberError(message,"start",{name:text(error?.name,120)||null});
       }
     });
-    host.append(button);
+    host.append(button,statusEl);
   }
 
   function boot(){
@@ -281,6 +373,17 @@
     release:RELEASE,
     start,
     stop,
-    status:()=>({state,sessionId,inputTranscript,outputTranscript,transcriptRevision,maxSessionSeconds})
+    status:()=>({state,sessionId,inputTranscript,outputTranscript,transcriptRevision,maxSessionSeconds,lastError}),
+    diagnostics:()=>({
+      release:RELEASE,
+      state,
+      sessionId,
+      secureContext:global.isSecureContext,
+      peerConnectionState:pc?.connectionState||null,
+      iceConnectionState:pc?.iceConnectionState||null,
+      dataChannelState:dc?.readyState||null,
+      microphoneTracks:media?.getAudioTracks?.().map(track=>({readyState:track.readyState,enabled:track.enabled,muted:track.muted}))||[],
+      lastError
+    })
   });
 })(window);
