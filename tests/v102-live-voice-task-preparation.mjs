@@ -79,6 +79,9 @@ assert.match(client,/intent==="prepare_internal_task"/);
 assert.match(client,/taskPrepared=result\?\.authority\?\.taskPrepared===true/);
 assert.match(client,/draft still exists pending owner approval/i);
 assert.match(client,/Do not claim cancellation/i);
+assert.match(client,/thebe-live-delegation-complete/);
+assert.match(client,/thebe-live-delegation-after-close/);
+assert.match(client,/Voice ended while a task draft finished\. It still requires owner approval/);
 assert.match(client,/executionPerformed:false/);
 assert.match(client,/body:JSON\.stringify\(\{delegationId:callId,sessionId,taskText,intent,task\}\)/);
 
