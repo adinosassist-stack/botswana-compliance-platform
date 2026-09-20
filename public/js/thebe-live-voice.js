@@ -1,10 +1,10 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260920a";
+  const RELEASE="20260920b";
   const MAX_TRANSCRIPT_CHARS=6000;
-  let pc=null,dc=null,media=null,remoteAudio=null,sessionId=null,closeTimer=null;
-  let inputTranscript="",outputTranscript="",state="idle",button=null,transcriptRevision=0;
+  let pc=null,dc=null,media=null,remoteAudio=null,sessionId=null,closeTimer=null,sessionTimer=null;
+  let inputTranscript="",outputTranscript="",state="idle",button=null,transcriptRevision=0,maxSessionSeconds=600;
   const activeDelegations=new Set();
 
   const api=(url,options={})=>{
@@ -123,6 +123,7 @@
 
     setState("connecting");
     inputTranscript="";outputTranscript="";sessionId=null;transcriptRevision=0;
+    maxSessionSeconds=Math.max(60,Math.min(1800,Number(status?.maxSessionSeconds||600)));
     try{
       media=await navigator.mediaDevices.getUserMedia({audio:true});
       remoteAudio=document.createElement("audio");
@@ -154,7 +155,13 @@
       const answerSdp=String(session?.transport?.sdp||"");
       if(!answerSdp)throw new Error("Thebe live session did not return a WebRTC answer.");
       await pc.setRemoteDescription({type:"answer",sdp:answerSdp});
-      return {state:"connecting",sessionId};
+      const serverLimit=Number(session?.limits?.maxSessionSeconds||maxSessionSeconds);
+      maxSessionSeconds=Math.max(60,Math.min(1800,Number.isFinite(serverLimit)?serverLimit:600));
+      sessionTimer=setTimeout(()=>{
+        emit("thebe-live-session-limit",{sessionId,maxSessionSeconds});
+        stop();
+      },maxSessionSeconds*1000);
+      return {state:"connecting",sessionId,maxSessionSeconds};
     }catch(error){
       cleanup("idle");
       throw error;
@@ -168,6 +175,7 @@
     try{if(remoteAudio){remoteAudio.srcObject=null;remoteAudio.remove()}}catch{}
     pc=null;dc=null;media=null;remoteAudio=null;sessionId=null;
     if(closeTimer){clearTimeout(closeTimer);closeTimer=null}
+    if(sessionTimer){clearTimeout(sessionTimer);sessionTimer=null}
     activeDelegations.clear();
     setState(nextState);
   }
@@ -254,7 +262,7 @@
     release:RELEASE,
     start,
     stop,
-    status:()=>({state,sessionId,inputTranscript,outputTranscript,transcriptRevision}),
+    status:()=>({state,sessionId,inputTranscript,outputTranscript,transcriptRevision,maxSessionSeconds}),
     appendCommentary,
     appendThinking,
     appendInstructions
