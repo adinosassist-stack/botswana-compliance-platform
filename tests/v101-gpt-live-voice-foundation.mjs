@@ -1,11 +1,16 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import {execFileSync} from "node:child_process";
 
 const backend=fs.readFileSync("cloudflare/src/agentic-live-voice.js","utf8");
 const client=fs.readFileSync("public/js/thebe-live-voice.js","utf8");
 const entry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
 const env=fs.readFileSync(".env.example","utf8");
+
+for(const path of ["cloudflare/src/agentic-live-voice.js","public/js/thebe-live-voice.js","cloudflare/src/agentic-entry.js","cloudflare/src/production-entry.js"]){
+  execFileSync(process.execPath,["--check",path],{stdio:"pipe"});
+}
 
 assert.match(backend,/gpt-live-1/);
 assert.match(backend,/https:\/\/api\.openai\.com\/v1\/live\/sessions/);
