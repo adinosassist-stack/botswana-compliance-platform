@@ -1,12 +1,13 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260920f";
+  const RELEASE="20260920g";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
   const DELEGATION_DRAIN_TIMEOUT_MS=12000;
   let pc=null,dc=null,media=null,remoteAudio=null,sessionId=null,sessionTimer=null,closeTimer=null,delegationDrainTimer=null;
+  const audioMeters=[];
   let inputTranscript="",outputTranscript="",state="idle",button=null,statusEl=null,transcriptRevision=0,maxSessionSeconds=600,lastError=null,closeRequested=false;
   const activeDelegations=new Set();
 
@@ -65,6 +66,47 @@
   }
 
   const cap=value=>String(value||"").slice(-MAX_TRANSCRIPT_CHARS);
+
+  function stopAudioMeters(){
+    while(audioMeters.length){
+      const meter=audioMeters.pop();
+      try{cancelAnimationFrame(meter.raf)}catch{}
+      try{meter.source?.disconnect()}catch{}
+      try{meter.analyser?.disconnect()}catch{}
+      try{meter.context?.close()}catch{}
+    }
+    emit("thebe-live-audio-level",{channel:"all",level:0});
+  }
+
+  function startAudioMeter(stream,channel){
+    if(!stream)return;
+    const AudioContextCtor=global.AudioContext||global.webkitAudioContext;
+    if(!AudioContextCtor)return;
+    try{
+      const context=new AudioContextCtor();
+      const analyser=context.createAnalyser();
+      analyser.fftSize=256;
+      analyser.smoothingTimeConstant=.78;
+      const source=context.createMediaStreamSource(stream);
+      source.connect(analyser);
+      const samples=new Uint8Array(analyser.fftSize);
+      const meter={context,analyser,source,raf:0,channel};
+      const frame=()=>{
+        analyser.getByteTimeDomainData(samples);
+        let sum=0;
+        for(let i=0;i<samples.length;i++){
+          const centered=(samples[i]-128)/128;
+          sum+=centered*centered;
+        }
+        const rms=Math.sqrt(sum/samples.length);
+        const level=Math.max(0,Math.min(1,rms*5.5));
+        emit("thebe-live-audio-level",{channel,level});
+        meter.raf=requestAnimationFrame(frame);
+      };
+      audioMeters.push(meter);
+      meter.raf=requestAnimationFrame(frame);
+    }catch{}
+  }
 
   function sendEvent(event){
     if(!dc||dc.readyState!=="open")throw new Error("Thebe live data channel is not open.");
@@ -279,6 +321,7 @@
     maxSessionSeconds=Math.max(60,Math.min(1800,Number(status?.maxSessionSeconds||600)));
     try{
       media=await navigator.mediaDevices.getUserMedia({audio:true});
+      startAudioMeter(media,"input");
       remoteAudio=document.createElement("audio");
       remoteAudio.autoplay=true;
       remoteAudio.setAttribute("aria-hidden","true");
@@ -293,7 +336,7 @@
       });
       pc.addEventListener("track",event=>{
         const stream=event.streams?.[0];
-        if(stream)remoteAudio.srcObject=stream;
+        if(stream){remoteAudio.srcObject=stream;startAudioMeter(stream,"output")}
       });
       media.getTracks().forEach(track=>pc.addTrack(track,media));
 
@@ -330,6 +373,7 @@
   }
 
   function cleanup(nextState="idle",options={}){
+    stopAudioMeters();
     try{dc?.close()}catch{}
     try{pc?.close()}catch{}
     try{media?.getTracks?.().forEach(track=>track.stop())}catch{}
@@ -435,7 +479,7 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260920a";
+  const DOCK_RELEASE="20260920b";
   const STORE_KEY="thebe_ai_dock_collapsed";
   const MAX_QUESTION=1000;
   let dock=null,pill=null,orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,input=null,sendButton=null,attentionButton=null;
@@ -681,6 +725,16 @@
     }else if(message.type==="response.done"){
       setPhase("ready","Voice connected","Ready for your next request");
     }
+  });
+  global.addEventListener("thebe-live-audio-level",event=>{
+    if(!orb)return;
+    const channel=event?.detail?.channel||"all";
+    const level=Math.max(0,Math.min(1,Number(event?.detail?.level)||0));
+    const relevant=(voicePhase==="listening"&&channel==="input")||(voicePhase==="speaking"&&channel==="output");
+    const scale=relevant?(1+level*.13):1;
+    const glow=relevant?(1+level*.8):1;
+    orb.style.setProperty("--thebe-audio-scale",scale.toFixed(3));
+    orb.style.setProperty("--thebe-audio-glow",glow.toFixed(3));
   });
   global.addEventListener("thebe-live-delegation",()=>setPhase("thinking","Checking your business…","Using the governed Thebe backend"));
   global.addEventListener("thebe-live-delegation-result",event=>{
