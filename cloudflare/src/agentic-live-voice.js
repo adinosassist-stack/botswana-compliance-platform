@@ -2,7 +2,7 @@ import {
   authenticate,roleAllowed,originAllowed,csrfAllowed,safeFirst
 } from "./agentic-authority-core.js";
 
-export const THEBE_LIVE_VOICE_VERSION="2026-09-20.realtime-ga-activation-v1";
+export const THEBE_LIVE_VOICE_VERSION="2026-09-20.realtime-ga-governed-task-prepare-v2";
 
 const OPENAI_REALTIME_CALLS_URL="https://api.openai.com/v1/realtime/calls";
 const LIVE_MODEL="gpt-realtime-1.5";
@@ -11,6 +11,10 @@ const MAX_SESSION_BODY_BYTES=96*1024;
 const MAX_SDP_CHARS=72*1024;
 const MAX_DELEGATION_TEXT=2400;
 const MAX_DELEGATION_ID=240;
+const MAX_TASK_TITLE=160;
+const MAX_TASK_DESCRIPTION=1200;
+const VOICE_INTENT_ANALYZE="analyze";
+const VOICE_INTENT_PREPARE_INTERNAL_TASK="prepare_internal_task";
 const DEFAULT_MAX_SESSION_SECONDS=600;
 const DEFAULT_UPSTREAM_TIMEOUT_MS=12000;
 const DEFAULT_MAX_USER_STARTS_PER_HOUR=4;
@@ -98,11 +102,14 @@ function instructions(){
     "Speak calmly, concisely and professionally. Prefer short spoken answers and ask one focused question when the user's intent is unclear.",
     "You are the conversational voice layer, not an independent business agent.",
     "For current company facts, finance, compliance, operations, customer work, business analysis, or any request that needs Thebe Desk data or tools, call delegate_to_thebe_backend instead of inventing an answer.",
+    "If and only if the user explicitly asks to create, add or record an internal task, call delegate_to_thebe_backend with intent prepare_internal_task and a concise structured task. Do not use task preparation for vague follow-up, analysis or suggestions.",
+    "Preparing an internal task is not approval and is not execution. The owner must separately approve the prepared request in Thebe Desk before guarded execution can be attempted.",
     "The application backend owns business rules, permissions, tenant scope, approvals, tools, audit records and execution.",
     "Never claim a business action succeeded unless a verified backend result explicitly says it succeeded.",
     "Never approve, authorize or execute payments, statutory filings, signatures, employment termination, financing acceptance or accounting journal posting.",
-    "A spoken interruption changes the conversation but does not prove that backend work was cancelled.",
-    "When a delegated tool result arrives, summarize it naturally and preserve any approval, uncertainty or no-execution warning in that result."
+    "Never approve or execute an internal task from voice. Voice may only request a governed task draft.",
+    "A spoken interruption changes the conversation but does not prove that backend work was cancelled or that a prepared task draft disappeared.",
+    "When a delegated tool result arrives, summarize it naturally and preserve any approval, uncertainty, prepared-draft or no-execution warning in that result."
   ].join(" ");
 }
 
@@ -117,6 +124,23 @@ function delegationTool(){
         request:{
           type:"string",
           description:"The user's business request, stated clearly and completely."
+        },
+        intent:{
+          type:"string",
+          enum:[VOICE_INTENT_ANALYZE,VOICE_INTENT_PREPARE_INTERNAL_TASK],
+          description:"Use analyze for normal governed business work. Use prepare_internal_task only when the user explicitly asks to create, add or record an internal task."
+        },
+        task:{
+          type:"object",
+          description:"Structured internal-task draft. Supply only with prepare_internal_task.",
+          properties:{
+            title:{type:"string",description:"Short task title."},
+            description:{type:"string",description:"Optional task detail."},
+            priority:{type:"string",enum:["high","medium","low"],description:"Task priority."},
+            dueAt:{type:"string",description:"Optional ISO date or date-time."}
+          },
+          required:["title"],
+          additionalProperties:false
         }
       },
       required:["request"],
@@ -207,6 +231,11 @@ async function status(env,auth){
     authority:{
       voiceMayGrantPermissions:false,
       voiceMayBypassRuntimeGuard:false,
+      voiceMayPrepareInternalTask:true,
+      voiceMayApproveInternalTask:false,
+      voiceMayExecuteInternalTask:false,
+      taskPreparationRequiresExistingGrant:true,
+      taskExecutionRequiresSeparateOwnerApproval:true,
       delegatedBusinessWork:"governed_thebe_backend",
       highRiskActions:"human_only"
     }
@@ -314,6 +343,227 @@ function copiedHeaders(request){
   return headers;
 }
 
+function normalizeVoiceIntent(value){
+  return String(value||"").trim().toLowerCase()===VOICE_INTENT_PREPARE_INTERNAL_TASK
+    ?VOICE_INTENT_PREPARE_INTERNAL_TASK
+    :VOICE_INTENT_ANALYZE;
+}
+
+function normalizeTaskPriority(value){
+  const priority=String(value||"medium").trim().toLowerCase();
+  if(priority==="high")return 1;
+  if(priority==="low")return 3;
+  return 2;
+}
+
+function normalizeTaskDueAt(value){
+  const raw=cleanText(value,80);
+  if(!raw)return null;
+  const date=new Date(raw);
+  return Number.isFinite(date.getTime())?date.toISOString():undefined;
+}
+
+function normalizeVoiceTask(value={}){
+  const task=value&&typeof value==="object"&&!Array.isArray(value)?value:{};
+  const title=cleanText(task.title,MAX_TASK_TITLE);
+  if(!title)return Object.freeze({error:"voice_task_title_required"});
+  const dueAt=normalizeTaskDueAt(task.dueAt);
+  if(dueAt===undefined)return Object.freeze({error:"voice_task_due_at_invalid"});
+  return Object.freeze({
+    task:Object.freeze({
+      title,
+      description:cleanText(task.description,MAX_TASK_DESCRIPTION)||null,
+      priority:normalizeTaskPriority(task.priority),
+      dueAt
+    })
+  });
+}
+
+async function activeVoiceTaskAuthority(env,tenantId){
+  if(!env?.DB)return Object.freeze({ok:false,code:"bounded_execution_schema_not_ready"});
+  let rows;
+  try{
+    rows=await env.DB.prepare(`SELECT d.id delegation_id,g.id execution_grant_id
+      FROM agent_delegations d
+      JOIN agent_execution_grants g ON g.delegation_id=d.id AND g.tenant_id=d.tenant_id
+      WHERE d.tenant_id=? AND d.agent_key='thebe' AND d.action_key='task.create'
+        AND d.status='active' AND d.max_autonomy_level>=3
+        AND d.external_side_effects=0 AND d.human_confirmation_required=1
+        AND (d.valid_from IS NULL OR d.valid_from<=CURRENT_TIMESTAMP)
+        AND (d.expires_at IS NULL OR d.expires_at>CURRENT_TIMESTAMP)
+        AND g.status='active'
+      ORDER BY g.created_at DESC,g.id DESC
+      LIMIT 2`).bind(tenantId).all();
+  }catch{
+    return Object.freeze({ok:false,code:"bounded_execution_schema_not_ready"});
+  }
+  const items=rows?.results||[];
+  if(items.length===0)return Object.freeze({ok:false,code:"active_task_execution_grant_required"});
+  if(items.length!==1)return Object.freeze({ok:false,code:"ambiguous_task_execution_grant"});
+  return Object.freeze({
+    ok:true,
+    delegationId:String(items[0].delegation_id),
+    executionGrantId:String(items[0].execution_grant_id)
+  });
+}
+
+function preparedTaskContent(task){
+  return cleanText(`I prepared the internal task "${task.title}" for review. It is not approved or executed. The owner must approve it in Thebe Desk before any guarded execution can occur.`,1500);
+}
+
+function taskPreparationNoopContent(code){
+  if(code==="active_task_execution_grant_required"){
+    return "I could not prepare that task because this workspace does not have an active governed task-creation grant. No task was created or executed.";
+  }
+  if(code==="ambiguous_task_execution_grant"){
+    return "I could not prepare that task because more than one eligible task-creation grant is active. Resolve the grant configuration first. No task was created or executed.";
+  }
+  return "I could not prepare that task through the governed task workflow. No task was created or executed.";
+}
+
+async function prepareInternalTaskFromVoice({request,env,auth,taskFetch,delegationId,sessionId,task}){
+  const authority=await activeVoiceTaskAuthority(env,auth.tenant_id);
+  if(!authority.ok){
+    const content=taskPreparationNoopContent(authority.code);
+    await audit(env,auth,"THEBE_LIVE_TASK_PREPARE_DENIED",sessionId||delegationId,{
+      delegationId,
+      code:authority.code,
+      executionPerformed:false
+    });
+    return json({
+      ok:false,
+      mode:VOICE_INTENT_PREPARE_INTERNAL_TASK,
+      content,
+      toolOutput:{
+        ok:false,
+        content,
+        authority:{
+          taskPrepared:false,
+          approvalRequired:true,
+          executionPerformed:false,
+          voiceMayApprove:false,
+          voiceMayExecute:false,
+          runtimeGuardBypassed:false
+        }
+      },
+      authority:{
+        taskPrepared:false,
+        approvalRequired:true,
+        executionPerformed:false,
+        voiceMayApprove:false,
+        voiceMayExecute:false,
+        runtimeGuardBypassed:false
+      }
+    },200);
+  }
+  if(typeof taskFetch!=="function")return json({error:"governed_task_backend_unavailable"},503);
+
+  const taskPayloadHash=await sha256Hex(JSON.stringify(task));
+  const idempotencyHash=await sha256Hex(`${auth.tenant_id}:${sessionId||"no-session"}:${delegationId}:${taskPayloadHash}`);
+  const idempotencyKey=`voice-task-${idempotencyHash.slice(0,40)}`;
+  await audit(env,auth,"THEBE_LIVE_TASK_PREPARE_REQUESTED",sessionId||delegationId,{
+    delegationId,
+    taskPayloadHash,
+    executionGrantId:authority.executionGrantId,
+    transcriptStored:false,
+    executionPerformed:false
+  });
+
+  const target=new URL("/api/agentic/task-execution/prepare",request.url);
+  const headers=copiedHeaders(request);
+  headers.set("idempotency-key",idempotencyKey);
+  let response;
+  try{
+    response=await taskFetch(new Request(target.toString(),{
+      method:"POST",
+      headers,
+      body:JSON.stringify({
+        delegationId:authority.delegationId,
+        title:task.title,
+        description:task.description,
+        priority:task.priority,
+        dueAt:task.dueAt
+      })
+    }),env);
+  }catch{
+    await audit(env,auth,"THEBE_LIVE_TASK_PREPARE_FAILED",sessionId||delegationId,{
+      delegationId,taskPayloadHash,code:"task_backend_unreachable"
+    });
+    return json({error:"governed_task_prepare_failed"},502);
+  }
+
+  let prepared={};
+  try{prepared=await response.json()}catch{}
+  if(!response.ok){
+    const code=cleanText(prepared?.error,120)||"task_prepare_rejected";
+    await audit(env,auth,"THEBE_LIVE_TASK_PREPARE_FAILED",sessionId||delegationId,{
+      delegationId,taskPayloadHash,code,status:response.status
+    });
+    const content=taskPreparationNoopContent(code);
+    return json({
+      ok:false,
+      mode:VOICE_INTENT_PREPARE_INTERNAL_TASK,
+      content,
+      toolOutput:{
+        ok:false,
+        content,
+        authority:{
+          taskPrepared:false,
+          approvalRequired:true,
+          executionPerformed:false,
+          voiceMayApprove:false,
+          voiceMayExecute:false,
+          runtimeGuardBypassed:false
+        }
+      },
+      authority:{
+        taskPrepared:false,
+        approvalRequired:true,
+        executionPerformed:false,
+        voiceMayApprove:false,
+        voiceMayExecute:false,
+        runtimeGuardBypassed:false
+      }
+    },response.status>=500?502:200);
+  }
+
+  const requestId=cleanText(prepared?.request?.id,160)||null;
+  const content=preparedTaskContent(task);
+  await audit(env,auth,"THEBE_LIVE_TASK_PREPARED",sessionId||delegationId,{
+    delegationId,
+    taskPayloadHash,
+    requestId,
+    executionGrantId:authority.executionGrantId,
+    preparedStatus:cleanText(prepared?.request?.status,80)||"prepared",
+    executionPerformed:false
+  });
+
+  const resultAuthority={
+    taskPrepared:true,
+    approvalRequired:true,
+    executionPerformed:false,
+    permissionsExpanded:false,
+    voiceMayApprove:false,
+    voiceMayExecute:false,
+    runtimeGuardBypassed:false
+  };
+  return json({
+    ok:true,
+    mode:VOICE_INTENT_PREPARE_INTERNAL_TASK,
+    requestId,
+    task:{title:task.title,priority:task.priority,dueAt:task.dueAt},
+    content,
+    toolOutput:{
+      ok:true,
+      mode:VOICE_INTENT_PREPARE_INTERNAL_TASK,
+      requestId,
+      content,
+      authority:resultAuthority
+    },
+    authority:resultAuthority
+  },201);
+}
+
 function spokenResult(plan){
   const summary=cleanText(plan?.run?.summary||"Thebe completed the governed business review.",700);
   const proposals=(Array.isArray(plan?.proposals)?plan.proposals:[])
@@ -330,7 +580,7 @@ function spokenResult(plan){
   return cleanText(parts.join(" "),1500);
 }
 
-async function delegateBusinessWork({request,env,ctx,auth,coreFetch}){
+async function delegateBusinessWork({request,env,ctx,auth,coreFetch,taskFetch}){
   if(!liveAllowed(env))return json({error:"live_voice_unavailable"},503);
   if(typeof coreFetch!=="function")return json({error:"governed_backend_unavailable"},503);
 
@@ -341,13 +591,32 @@ async function delegateBusinessWork({request,env,ctx,auth,coreFetch}){
   const delegationId=cleanText(body?.delegationId,MAX_DELEGATION_ID);
   const taskText=cleanText(body?.taskText,MAX_DELEGATION_TEXT);
   const sessionId=cleanText(body?.sessionId,240)||null;
+  const intent=normalizeVoiceIntent(body?.intent);
   if(!delegationId)return json({error:"delegation_id_required"},400);
   if(!taskText)return json({error:"delegation_task_text_required"},400);
+
+  if(intent===VOICE_INTENT_PREPARE_INTERNAL_TASK){
+    const normalized=normalizeVoiceTask(body?.task);
+    if(normalized.error){
+      const content="I could not prepare that internal task because the task details were incomplete or invalid. Ask the user to restate the task. No task was created or executed.";
+      return json({
+        ok:false,
+        mode:intent,
+        content,
+        toolOutput:{ok:false,content,authority:{taskPrepared:false,approvalRequired:true,executionPerformed:false,voiceMayApprove:false,voiceMayExecute:false}},
+        authority:{taskPrepared:false,approvalRequired:true,executionPerformed:false,voiceMayApprove:false,voiceMayExecute:false}
+      },200);
+    }
+    return prepareInternalTaskFromVoice({
+      request,env,auth,taskFetch,delegationId,sessionId,task:normalized.task
+    });
+  }
 
   const taskHash=await sha256Hex(taskText);
   await audit(env,auth,"THEBE_LIVE_DELEGATION_REQUESTED",sessionId||delegationId,{
     delegationId,
     taskHash,
+    intent,
     transcriptStored:false,
     executionAuthorityInherited:false
   });
@@ -403,7 +672,7 @@ async function delegateBusinessWork({request,env,ctx,auth,coreFetch}){
   },201);
 }
 
-export async function handleAgenticLiveVoiceRequest({request,logicalPath,env,ctx,coreFetch}){
+export async function handleAgenticLiveVoiceRequest({request,logicalPath,env,ctx,coreFetch,taskFetch}){
   const path=String(logicalPath||new URL(request.url).pathname);
   if(!path.startsWith("/api/agentic/live"))return null;
 
@@ -419,7 +688,7 @@ export async function handleAgenticLiveVoiceRequest({request,logicalPath,env,ctx
   if(path==="/api/agentic/live/status"&&request.method==="GET")return status(env,auth);
   if(path==="/api/agentic/live/session"&&request.method==="POST")return createSession({request,env,auth});
   if(path==="/api/agentic/live/delegation"&&request.method==="POST"){
-    return delegateBusinessWork({request,env,ctx,auth,coreFetch});
+    return delegateBusinessWork({request,env,ctx,auth,coreFetch,taskFetch});
   }
   return json({error:"not_found"},404);
 }
@@ -436,8 +705,14 @@ export const __agenticLiveVoiceTest=Object.freeze({
   liveConfigured,
   runtimeEnabled,
   killSwitchActive,
+  normalizeVoiceIntent,
+  normalizeTaskPriority,
+  normalizeTaskDueAt,
+  normalizeVoiceTask,
   instructions,
   delegationTool,
   realtimeSessionConfig,
-  spokenResult
+  spokenResult,
+  preparedTaskContent,
+  taskPreparationNoopContent
 });
