@@ -94,8 +94,10 @@ assert.doesNotMatch(continuationSource,/executeTask|payment\.execute|government_
 const core=fs.readFileSync("cloudflare/src/agentic-core.js","utf8");
 assert.match(core,/from "\.\/agent-continuation\.js"/);
 assert.match(core,/RUN_CHECKPOINTED/);
-assert.match(core,/agentic\/runs\/\(\[\^\/\]\+\)\\\/continuation/);
-assert.match(core,/agentic\/runs\/\(\[\^\/\]\+\)\\\/continue/);
+assert.match(core,/continuationMatch=path\.match/);
+assert.match(core,/continueMatch=path\.match/);
+assert.match(core,/return getContinuation\(env,auth,continuationMatch\[1\]\)/);
+assert.match(core,/return continueRun\(\{request,env,ctx,coreFetch,auth,runId:continueMatch\[1\]\}\)/);
 assert.match(core,/freshObservationRequired:true/);
 assert.match(core,/approvalsReusable:false/);
 assert.match(core,/executionAuthorityInherited:false/);
