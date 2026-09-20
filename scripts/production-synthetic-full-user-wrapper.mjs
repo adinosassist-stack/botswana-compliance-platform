@@ -86,19 +86,23 @@ async function runFullUserJourney(credentials){
     await page.waitForFunction(()=>{
       const dock=document.getElementById('thebeAiDock'),pill=document.getElementById('thebeAiDockPill');
       if(!dock||!pill)return false;
-      const target=dock.hidden?pill:dock,style=getComputedStyle(target),rect=target.getBoundingClientRect();
-      return style.display!=='none'&&style.visibility!=='hidden'&&rect.width>40&&rect.height>20&&target.dataset.surface==='public';
+      const style=getComputedStyle(dock),rect=dock.getBoundingClientRect(),pillStyle=getComputedStyle(pill);
+      return !dock.hidden&&style.display!=='none'&&style.visibility!=='hidden'&&rect.width>280&&rect.height>300&&
+        pill.hidden&&pillStyle.display==='none'&&dock.dataset.surface==='public';
     },null,{timeout:15000});
     const publicDock=await page.evaluate(()=>({
       release:String(globalThis.ThebeAiDock?.release||''),
       dockHidden:document.getElementById('thebeAiDock')?.hidden??true,
       pillHidden:document.getElementById('thebeAiDockPill')?.hidden??true,
-      surface:document.getElementById('thebeAiDock')?.dataset.surface||''
+      pillDisplay:getComputedStyle(document.getElementById('thebeAiDockPill')).display,
+      minimizeDisplay:getComputedStyle(document.querySelector('#thebeAiDock .thebe-ai-minimize')).display,
+      surface:document.getElementById('thebeAiDock')?.dataset.surface||'',
+      mobile:Boolean(globalThis.ThebeAiDock?.state?.().mobile)
     }));
-    assert(publicDock.surface==='public'&&(!publicDock.dockHidden||!publicDock.pillHidden),'public homepage did not expose a visible Thebe dock or launcher');
-    mark('Thebe public homepage visibility',`release=${publicDock.release} visible public dock/launcher confirmed`);
-    if(publicDock.dockHidden)await page.evaluate(()=>globalThis.ThebeAiDock?.open?.());
-    await page.waitForFunction(()=>document.getElementById('thebeAiDock')?.hidden===false,null,{timeout:5000});
+    assert(publicDock.surface==='public'&&!publicDock.mobile&&!publicDock.dockHidden&&publicDock.pillHidden&&publicDock.pillDisplay==='none',
+      'desktop public homepage must keep the full Thebe dock visible and never render the pill');
+    assert(publicDock.minimizeDisplay==='none','desktop Thebe dock must not expose the mobile minimise control');
+    mark('Thebe desktop persistence',`release=${publicDock.release} full public dock fixed open; pill/minimise hidden`);
     const marketingCopy=await page.evaluate(()=>({
       quick:[...document.querySelectorAll('#thebeAiDock .thebe-ai-quick button')].map(x=>(x.textContent||'').trim()),
       sub:(document.querySelector('#thebeAiDock .thebe-ai-voice-sub')?.textContent||'').trim()
