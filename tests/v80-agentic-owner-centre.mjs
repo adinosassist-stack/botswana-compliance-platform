@@ -14,12 +14,12 @@ const runtimeAssetsSafe=(sw.includes('function criticalRuntimeAsset(url){return 
 ok(runtimeAssetsSafe,'JS runtime assets must be network-first under the legacy worker or fully outside service-worker interception under the decommissioned model');
 ok(html.includes('id="ownerAgenticStyles"')&&html.includes('.owner-agentic-panel{'),'responsive agentic panel styles are present');
 ok(js.includes('agentic.id="ownerAgenticPanel"')&&js.includes('agenticBody.id="ownerAgenticBody"'),'Owner Command Centre mounts governed agentic panel');
-ok(js.includes('Observe → reason → simulate → recommend → approve'),'UI communicates the bounded Stage 1 loop');
-ok(js.includes('Stage 1 · execution disabled')&&js.includes('Approval records intent for audit; it does not execute an action.'),'UI makes non-execution boundary explicit');
+ok(js.includes('Observe → reason → recommend → approve → bounded execute'),'UI communicates the governed bounded-execution loop');
+ok(js.includes('Bounded execution · OFF')&&js.includes('owner-approved grant')&&js.includes('Runtime Guard'),'UI makes bounded execution prerequisites explicit');
 ok(js.includes('statusPayload?.outcomeLearning?.enabled')&&js.includes('Outcome-informed ordering'),'UI only shows learning disclosure when the governed API reports it enabled');
 ok(js.includes('Recent recorded outcomes can only reorder recommendations within the same priority level.'),'UI states the strict priority-class learning boundary');
 ok(js.includes('This is non-causal and cannot change risk, approvals or execution authority.'),'UI states that learning is non-causal and cannot expand authority');
-ok(js.includes('request("/api/agentic/status")')&&js.includes('request("/api/agentic/runs")'),'UI reads governed status and persisted runs');
+ok(js.includes('request("/api/agentic/status")')&&js.includes('request("/api/agentic/runs")')&&js.includes('request("/api/agentic/task-execution/status")'),'UI reads governed planning, persisted runs and read-only bounded-execution status');
 ok(js.includes('request("/api/agentic/plan"')&&js.includes('method:"POST"'),'plan generation uses the reviewed Stage 1 planning endpoint');
 ok(js.includes('/api/agentic/proposals/${encodeURIComponent(proposalId)}/${decision}')&&js.includes('"Record approval"')&&js.includes('"Reject"'),'proposal decisions use reviewed approve/reject endpoints');
 ok(js.includes('if(role()==="owner")')&&js.includes('["owner","manager"].includes(role())'),'approval is owner-only while rejection remains owner/manager');

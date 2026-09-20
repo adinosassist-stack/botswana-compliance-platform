@@ -524,7 +524,7 @@
     return card;
   }
 
-  function renderAgenticSnapshot(statusPayload,runsPayload){
+  function renderAgenticSnapshot(statusPayload,runsPayload,taskExecutionPayload=null){
     const body=q("#ownerAgenticBody");
     if(!body)return;
     body.replaceChildren();
@@ -532,9 +532,16 @@
     const controls=document.createElement("div");
     controls.className="owner-agentic-controls";
     const copy=document.createElement("div");
+    const boundedReady=taskExecutionPayload?.schemaReady===true;
+    const boundedOn=boundedReady&&taskExecutionPayload?.globalExecutionEnabled===true&&taskExecutionPayload?.runtimeKillSwitch!==true;
     copy.append(
-      text("b","Governed planning is active."),
-      text("span","Thebe may observe, reason, simulate and recommend. Approval records intent for audit; it does not execute an action.")
+      text("b",boundedOn?"Governed planning and bounded internal execution are active.":"Governed planning is active."),
+      text(
+        "span",
+        boundedOn
+          ?"Thebe may observe, reason and recommend, and may execute only separately approved internal tasks through the Runtime Guard. High-impact actions remain human-only."
+          :"Thebe may observe, reason, simulate and recommend. Bounded execution stays unavailable unless the platform switch, owner-approved grant and Runtime Guard all permit it."
+      )
     );
     const buttons=document.createElement("div");
     buttons.className="owner-agentic-control-buttons";
@@ -549,9 +556,17 @@
 
     const boundary=document.createElement("div");
     boundary.className="owner-agentic-boundary";
+    const executionLabel=!boundedReady
+      ?"Bounded execution · unavailable"
+      :(taskExecutionPayload?.runtimeKillSwitch===true
+        ?"Bounded execution · kill switch"
+        :(taskExecutionPayload?.globalExecutionEnabled===true?"Bounded execution · ON":"Bounded execution · OFF"));
     boundary.append(
-      text("span","Stage 1 · execution disabled","badge"),
-      text("span",`${Array.isArray(statusPayload?.prohibitedAutonomy)?statusPayload.prohibitedAutonomy.length:0} high-impact autonomy classes remain prohibited.`)
+      text("span",executionLabel,"badge"),
+      text(
+        "span",
+        `Internal task lane: ${Number(taskExecutionPayload?.activeExecutionGrants||0)} active grant(s), ${Number(taskExecutionPayload?.openTasks||0)} open task(s). ${Array.isArray(statusPayload?.prohibitedAutonomy)?statusPayload.prohibitedAutonomy.length:0} high-impact autonomy classes remain prohibited.`
+      )
     );
     body.append(boundary);
 
@@ -606,12 +621,17 @@
     const status=agenticStatusNode();
     if(status)status.textContent="Refreshing governed plan…";
     try{
-      const [statusPayload,runsPayload]=await Promise.all([
+      const [statusPayload,runsPayload,taskExecutionPayload]=await Promise.all([
         request("/api/agentic/status"),
-        request("/api/agentic/runs")
+        request("/api/agentic/runs"),
+        request("/api/agentic/task-execution/status").catch(()=>null)
       ]);
-      renderAgenticSnapshot(statusPayload,runsPayload);
-      if(status)status.textContent="Execution remains disabled";
+      renderAgenticSnapshot(statusPayload,runsPayload,taskExecutionPayload);
+      if(status){
+        status.textContent=taskExecutionPayload?.schemaReady===true&&taskExecutionPayload?.globalExecutionEnabled===true&&taskExecutionPayload?.runtimeKillSwitch!==true
+          ?"Bounded internal execution enabled"
+          :"Bounded execution controlled";
+      }
     }catch(error){
       body.replaceChildren(text(
         "div",
@@ -705,10 +725,10 @@
     const agenticCopy=document.createElement("div");
     agenticCopy.append(
       text("div","Thebe AI · governed decisions","section-eyebrow"),
-      text("h4","Observe → reason → simulate → recommend → approve"),
-      text("p","Thebe can prepare auditable next-action proposals from tenant-scoped business data. Stage 1 cannot execute those proposals.","muted")
+      text("h4","Observe → reason → recommend → approve → bounded execute"),
+      text("p","Thebe prepares auditable next actions from tenant-scoped business data. A separate internal-task lane is only available when owner-approved grants, the platform switch and the Runtime Guard all allow it; high-impact actions remain human-only.","muted")
     );
-    const agenticStatus=text("span","Execution disabled","owner-input-status");
+    const agenticStatus=text("span","Execution controlled","owner-input-status");
     agenticStatus.id="ownerAgenticStatus";
     agenticHead.append(agenticCopy,agenticStatus);
     const agenticBody=document.createElement("div");
