@@ -10,7 +10,7 @@ pattern = "thebedesk.com"
 custom_domain = true
 
 [secrets]
-required = ["SESSION_SECRET", "AUDIT_INTEGRITY_SECRET", "OPERATIONS_SECRET", "AUTOMATION_SECRET", "TURNSTILE_SECRET_KEY", "PAYMENT_WEBHOOK_SECRET", "BILLING_WEBHOOK_SECRET"]
+required = ["SESSION_SECRET", "AUDIT_INTEGRITY_SECRET", "OPERATIONS_SECRET", "AUTOMATION_SECRET", "TURNSTILE_SECRET_KEY", "PAYMENT_WEBHOOK_SECRET", "BILLING_WEBHOOK_SECRET", "OPENAI_API_KEY"]
 
 [vars]
 APP_ENV = "production"
@@ -19,7 +19,7 @@ REGISTRATION_MODE = "open"
 AI_FEATURES_DEFAULT = "on"
 AI_REPORT_MODEL = "@cf/zai-org/glm-4.7-flash"
 AGENT_BOUNDED_TASK_EXECUTION_MODE = "platform_admin_canary"
-THEBE_LIVE_VOICE_ENABLED = "false"
+THEBE_LIVE_VOICE_ENABLED = "true"
 THEBE_LIVE_VOICE_MAX_STARTS_PER_HOUR = "6"
 THEBE_LIVE_VOICE_MAX_USER_STARTS_PER_HOUR = "4"
 THEBE_LIVE_VOICE_MAX_SESSION_SECONDS = "600"
@@ -89,12 +89,12 @@ crons = ["15 6 * * *", "15 16 * * *"]
 # PUBLIC_APP_URL and PUBLIC_ORIGIN must resolve to the same final HTTPS app origin.
 # PUBLIC_ORIGIN is required for fail-closed browser-origin enforcement.
 
-# GPT-Live-1 voice foundation
-# Production remains explicitly disabled until OPENAI_API_KEY is installed as a Worker secret
-# and THEBE_LIVE_VOICE_ENABLED is changed through a separately reviewed activation release.
+# Thebe Live Voice — OpenAI Realtime GA activation
+# Production voice is enabled only through this reviewed release and requires OPENAI_API_KEY.
+# The standard API key remains server-side; the browser receives only the WebRTC answer.
 # The default controls cap workspace/user session starts, bound each browser session to 10 minutes,
 # time out upstream session creation, and open a short failure circuit after repeated provider errors.
-# Set with: npx wrangler secret put OPENAI_API_KEY
+# OPENAI_API_KEY is supplied from the GitHub production environment into the Worker secret set.
 # Bounded task execution canary
 # Only authenticated workspace owners whose email is already present in PLATFORM_ADMIN_EMAILS
 # can execute the internal task.create lane. All other customer sessions fail closed.
