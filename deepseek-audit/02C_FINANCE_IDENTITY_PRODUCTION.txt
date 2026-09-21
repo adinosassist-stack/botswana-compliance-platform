@@ -1,0 +1,1757 @@
+PINNED SHA: 9fdfbfa5bf3995a466f2bb4f18d2a28587909d29
+
+
+===== ORIGINAL FILE: cloudflare/src/finance-core.js =====
+
+const ACCOUNT_TYPES=new Set(["bank","cash","mobile_money","clearing"]);
+const SOURCE_TYPES=new Set(["manual","csv","adapter"]);
+const CONNECTION_STATUSES=new Set(["not_configured","active","paused","error","revoked"]);
+const PROVIDER_DEFINITIONS=Object.freeze({
+  fnb_bw_business:Object.freeze({key:"fnb_bw_business",label:"FNB Botswana Business",connectionType:"bank_feed",readOnly:true,credentialStorage:"external",activationMode:"provider_onboarding_required"}),
+  xero:Object.freeze({key:"xero",label:"Xero",connectionType:"accounting_feed",readOnly:true,credentialStorage:"external",activationMode:"provider_onboarding_required"}),
+  generic_adapter:Object.freeze({key:"generic_adapter",label:"Approved read-only adapter",connectionType:"generic_adapter",readOnly:true,credentialStorage:"external",activationMode:"owner_attested_read_only"})
+});
+const ISO_DATE=/^\d{4}-\d{2}-\d{2}$/;
+const MAX_IMPORT_ROWS=1000;
+const MAX_CONNECTIONS=100;
+const IMPORT_CONTENT_LOCK_PREFIX="__thebe_finance_content_v1:";
+const IMPORT_CONTENT_LOCK_ID_PREFIX="finance-content-lock:";
+const IMPORT_REQUEST_LOCK_PREFIX="__thebe_finance_request_v1:";
+const IMPORT_REQUEST_LOCK_ID_PREFIX="finance-request-lock:";
+const MAX_LEGACY_CONTENT_CANDIDATES=100;
+const SECRET_FIELD=/(?:^|_)(?:access_?token|refresh_?token|token|secret|password|api_?key|client_?secret|credentials?)(?:$|_)/i;
+const text=(value,max=240)=>String(value??"").trim().slice(0,max);
+const integer=value=>Number.isSafeInteger(Number(value))?Number(value):null;
+
+function validDate(value){
+  const v=text(value,10);
+  if(!ISO_DATE.test(v))return false;
+  const d=new Date(v+"T00:00:00Z");
+  return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===v;
+}
+
+function normalizeFinanceRow(row,index=0){
+  const postedOn=text(row?.postedOn||row?.date,10),description=text(row?.description,500),reference=text(row?.reference,160),sourceId=text(row?.sourceId||row?.externalId||row?.transactionId,160);
+  const amountMinor=integer(row?.amountMinor);
+  if(!validDate(postedOn))return {ok:false,error:"invalid_posted_on",index};
+  if(!description)return {ok:false,error:"description_required",index};
+  if(amountMinor===null||amountMinor===0)return {ok:false,error:"invalid_amount_minor",index};
+  return {ok:true,row:{postedOn,description,reference,amountMinor,sourceId}};
+}
+
+function sourceFingerprintBasis({tenantId,accountId,sourceType,provider,idempotencyKey,row,index}){
+  if(row.sourceId)return [tenantId,accountId,"source",sourceType,provider||"",row.sourceId];
+  return [tenantId,accountId,"batch",idempotencyKey,index,row.postedOn,row.amountMinor,row.reference,row.description];
+}
+
+function sameFingerprintSet(actual,expected){
+  const normalize=values=>[...new Set((values||[]).map(value=>String(value||"")))].filter(Boolean).sort();
+  const a=normalize(actual),b=normalize(expected);
+  return a.length===b.length&&a.every((value,index)=>value===b[index]);
+}
+
+function ledgerRowBasis(row){
+  return [text(row?.postedOn??row?.posted_on,10),integer(row?.amountMinor??row?.amount_minor),text(row?.reference,160),text(row?.description,500)];
+}
+
+function sameLedgerRow(actual,expected){return JSON.stringify(ledgerRowBasis(actual))===JSON.stringify(ledgerRowBasis(expected))}
+
+function importContentFingerprintBasis({tenantId,accountId,rows}){
+  const canonicalRows=(rows||[]).map(row=>JSON.stringify(ledgerRowBasis(row))).sort();
+  return [String(tenantId||""),String(accountId||""),"user_import",canonicalRows];
+}
+
+function importRequestFingerprintBasis({tenantId,accountId,sourceType,provider,connectionId,rows}){
+  const canonicalRows=(rows||[]).map(row=>JSON.stringify([text(row?.sourceId,160),...ledgerRowBasis(row)])).sort();
+  return [String(tenantId||""),String(accountId||""),String(sourceType||""),String(provider||""),String(connectionId||""),canonicalRows];
+}
+
+function adapterBatchSourceIdentityConflict(rows,fingerprints){
+  const seen=new Map();
+  for(let index=0;index<(rows||[]).length;index++){
+    const row=rows[index];
+    if(!text(row?.sourceId,160))continue;
+    const fingerprint=String(fingerprints?.[index]||""),signature=JSON.stringify(ledgerRowBasis(row));
+    if(seen.has(fingerprint)&&seen.get(fingerprint).signature!==signature)return {fingerprint,sourceId:text(row.sourceId,160),index,previousIndex:seen.get(fingerprint).index};
+    if(!seen.has(fingerprint))seen.set(fingerprint,{signature,index});
+  }
+  return null;
+}
+
+function sameTransactionEntries(actual,expectedFingerprints,expectedRows){
+  const a=(actual||[]).map(row=>JSON.stringify([String(row?.source_fingerprint||""),...ledgerRowBasis(row)])).sort();
+  const b=(expectedRows||[]).map((row,index)=>JSON.stringify([String(expectedFingerprints?.[index]||""),...ledgerRowBasis(row)])).sort();
+  return a.length===b.length&&a.every((value,index)=>value===b[index]);
+}
+
+function importContentLockKey(contentFingerprint){return `${IMPORT_CONTENT_LOCK_PREFIX}${String(contentFingerprint||"")}`}
+function importContentLockId(batchId){return `${IMPORT_CONTENT_LOCK_ID_PREFIX}${String(batchId||"")}`}
+function batchIdFromContentLock(lockId){const value=String(lockId||"");return value.startsWith(IMPORT_CONTENT_LOCK_ID_PREFIX)?value.slice(IMPORT_CONTENT_LOCK_ID_PREFIX.length):null}
+function importRequestLockKey(bindingFingerprint){return `${IMPORT_REQUEST_LOCK_PREFIX}${String(bindingFingerprint||"")}`}
+function importRequestLockId(batchId){return `${IMPORT_REQUEST_LOCK_ID_PREFIX}${String(batchId||"")}`}
+function reservedImportIdempotencyKey(value){const key=String(value||"");return key.startsWith(IMPORT_CONTENT_LOCK_PREFIX)||key.startsWith(IMPORT_REQUEST_LOCK_PREFIX)}
+
+async function registeredDuplicateImportContent({env,tenantId,contentFingerprint}){
+  const lock=await env.DB.prepare("SELECT id FROM finance_import_batches WHERE tenant_id=? AND idempotency_key=? LIMIT 1").bind(tenantId,importContentLockKey(contentFingerprint)).first();
+  return lock?{batchId:batchIdFromContentLock(lock.id),legacy:false}:null;
+}
+
+async function findDuplicateImportContent({env,tenantId,userId,accountId,sourceType,provider,rows,contentFingerprint,sha256Hex,id}){
+  const registered=await registeredDuplicateImportContent({env,tenantId,contentFingerprint});
+  if(registered)return registered;
+  const candidates=await env.DB.prepare(`SELECT b.id FROM finance_import_batches b
+    WHERE b.tenant_id=? AND b.account_id=? AND b.source_type IN ('manual','csv') AND b.row_count=? AND b.status='completed' AND b.imported_count=b.row_count
+      AND NOT EXISTS (SELECT 1 FROM finance_import_batches l WHERE l.tenant_id=b.tenant_id AND l.id=?||b.id)
+    ORDER BY b.created_at DESC,b.id DESC LIMIT ?`).bind(tenantId,accountId,rows.length,IMPORT_CONTENT_LOCK_ID_PREFIX,MAX_LEGACY_CONTENT_CANDIDATES+1).all();
+  const items=candidates.results||[];
+  if(items.length>MAX_LEGACY_CONTENT_CANDIDATES)return {reviewRequired:true};
+  for(const candidate of items){
+    const tx=await env.DB.prepare("SELECT posted_on,description,reference,amount_minor FROM finance_transactions WHERE tenant_id=? AND import_batch_id=? ORDER BY id").bind(tenantId,candidate.id).all();
+    const prior=(tx.results||[]).map(row=>({postedOn:row.posted_on,description:row.description,reference:row.reference,amountMinor:Number(row.amount_minor),sourceId:""}));
+    if(prior.length!==rows.length)continue;
+    const priorFingerprint=await sha256Hex(JSON.stringify(importContentFingerprintBasis({tenantId,accountId,rows:prior})));
+    if(priorFingerprint!==contentFingerprint)continue;
+    try{
+      await env.DB.prepare("INSERT INTO finance_import_batches(id,tenant_id,account_id,source_type,provider,idempotency_key,status,row_count,imported_count,duplicate_count,created_by_user_id,completed_at) VALUES(?,?,?,?,?,?,'failed',0,0,0,?,CURRENT_TIMESTAMP)").bind(importContentLockId(candidate.id),tenantId,accountId,sourceType,provider,importContentLockKey(contentFingerprint),userId).run();
+    }catch(error){if(!/unique|constraint/i.test(String(error)))throw error}
+    const resolved=await registeredDuplicateImportContent({env,tenantId,contentFingerprint});
+    return resolved?{...resolved,legacy:true}:{batchId:candidate.id,legacy:true};
+  }
+  return null;
+}
+
+function containsSecretMaterial(value,depth=0){
+  if(depth>4||value===null||value===undefined)return false;
+  if(Array.isArray(value))return value.some(item=>containsSecretMaterial(item,depth+1));
+  if(typeof value!=="object")return false;
+  for(const [key,item] of Object.entries(value)){
+    const normalizedKey=String(key).replace(/[A-Z]/g,m=>`_${m.toLowerCase()}`);
+    if(normalizedKey!=="credential_storage"&&SECRET_FIELD.test(normalizedKey))return true;
+    if(containsSecretMaterial(item,depth+1))return true;
+  }
+  return false;
+}
+
+function providerCatalog(){
+  return Object.values(PROVIDER_DEFINITIONS).map(provider=>({key:provider.key,label:provider.label,connectionType:provider.connectionType,readOnly:true,credentialStorage:"external",activationMode:provider.activationMode,configuredByThebe:false}));
+}
+
+function lineagePayload(row){try{return JSON.parse(String(row?.payload_json||"{}"))}catch{return {}}}
+
+function connectionFromLineage(rows,latestSync=null){
+  let state=null;
+  for(const row of rows||[]){
+    const payload=lineagePayload(row),eventType=String(row?.event_type||"");
+    if(eventType==="CONNECTION_REGISTERED"){
+      if(state)continue;
+      state={
+        id:text(row?.entity_id,64),
+        accountId:text(payload.accountId,64),
+        providerKey:text(payload.providerKey,60),
+        connectionType:text(payload.connectionType,40),
+        displayName:text(payload.displayName,120),
+        status:"not_configured",
+        readOnly:payload.readOnly===true,
+        credentialStorage:text(payload.credentialStorage,20),
+        secretMaterialStored:payload.secretMaterialStored===false?false:true,
+        createdAt:row?.occurred_at||null,
+        updatedAt:row?.occurred_at||null,
+        lastSyncedAt:null,
+        lastSyncStatus:null,
+        lastErrorCode:null,
+        lastSequence:Number(row?.sequence||0)
+      };
+      continue;
+    }
+    if(!state||eventType!=="CONNECTION_STATUS_CHANGED")continue;
+    const next=text(payload.status,30),previous=text(payload.previousStatus,30);
+    state.lastSequence=Math.max(state.lastSequence,Number(row?.sequence||0));
+    if(state.status==="revoked")continue;
+    if(next==="revoked"){
+      state.status="revoked";state.updatedAt=row?.occurred_at||state.updatedAt;continue;
+    }
+    if(CONNECTION_STATUSES.has(next)&&state.status===previous){
+      state.status=next;state.updatedAt=row?.occurred_at||state.updatedAt;
+      state.lastErrorCode=next==="error"?text(payload.errorCode,120)||"connection_error":null;
+    }
+  }
+  if(state&&latestSync){
+    const payload=lineagePayload(latestSync);
+    state.lastSyncedAt=latestSync.occurred_at||null;
+    state.lastSyncStatus=text(payload.status,40)||"completed";
+    state.lastErrorCode=text(payload.errorCode,120)||state.lastErrorCode;
+    state.lastSequence=Math.max(state.lastSequence,Number(latestSync.sequence||0));
+  }
+  return state;
+}
+
+async function appendLineage({env,tenantId,userId,eventType,entityType,entityId,payload,sha256Hex,id}){
+  for(let attempt=0;attempt<3;attempt++){
+    const prior=await env.DB.prepare("SELECT sequence,event_hash FROM finance_lineage WHERE tenant_id=? ORDER BY sequence DESC LIMIT 1").bind(tenantId).first();
+    const sequence=Number(prior?.sequence||0)+1,previousHash=String(prior?.event_hash||"GENESIS");
+    const canonical=JSON.stringify({tenantId,sequence,eventType,entityType,entityId,payload,previousHash});
+    const eventHash=await sha256Hex(canonical);
+    try{
+      await env.DB.prepare("INSERT INTO finance_lineage(id,tenant_id,sequence,event_type,entity_type,entity_id,payload_json,previous_hash,event_hash,actor_user_id) VALUES(?,?,?,?,?,?,?,?,?,?)")
+        .bind(id(),tenantId,sequence,eventType,entityType,entityId,JSON.stringify(payload),previousHash,eventHash,userId).run();
+      return {sequence,eventHash};
+    }catch(error){if(!/unique|constraint/i.test(String(error)))throw error}
+  }
+  throw new Error("finance_lineage_contention");
+}
+
+async function appendLineageIfEntityUnchanged({env,tenantId,userId,eventType,entityType,entityId,payload,expectedEntitySequence,sha256Hex,id}){
+  for(let attempt=0;attempt<3;attempt++){
+    const prior=await env.DB.prepare("SELECT sequence,event_hash FROM finance_lineage WHERE tenant_id=? ORDER BY sequence DESC LIMIT 1").bind(tenantId).first();
+    const sequence=Number(prior?.sequence||0)+1,previousHash=String(prior?.event_hash||"GENESIS");
+    const canonical=JSON.stringify({tenantId,sequence,eventType,entityType,entityId,payload,previousHash});
+    const eventHash=await sha256Hex(canonical);
+    try{
+      const result=await env.DB.prepare(`INSERT INTO finance_lineage(id,tenant_id,sequence,event_type,entity_type,entity_id,payload_json,previous_hash,event_hash,actor_user_id)
+        SELECT ?,?,?,?,?,?,?,?,?,?
+        WHERE COALESCE((SELECT MAX(sequence) FROM finance_lineage WHERE tenant_id=? AND entity_type=? AND entity_id=? AND event_type IN ('CONNECTION_REGISTERED','CONNECTION_STATUS_CHANGED','CONNECTION_SYNC_COMPLETED')),0)=?`)
+        .bind(id(),tenantId,sequence,eventType,entityType,entityId,JSON.stringify(payload),previousHash,eventHash,userId,tenantId,entityType,entityId,Number(expectedEntitySequence||0)).run();
+      const changes=Number(result?.meta?.changes??result?.changes??0);
+      if(changes===1)return {sequence,eventHash};
+      return null;
+    }catch(error){if(!/unique|constraint/i.test(String(error)))throw error}
+  }
+  throw new Error("finance_lineage_contention");
+}
+
+async function financeSummary(env,tenantId){
+  const [balances,unresolved,lastRun,imports]=await Promise.all([
+    env.DB.prepare(`SELECT a.id,a.name,a.account_type,a.opening_balance_minor+COALESCE(SUM(t.amount_minor),0) balance_minor,COUNT(t.id) transaction_count
+      FROM finance_accounts a LEFT JOIN finance_transactions t ON t.account_id=a.id AND t.tenant_id=a.tenant_id
+      WHERE a.tenant_id=? AND a.status='active' GROUP BY a.id,a.name,a.account_type,a.opening_balance_minor ORDER BY a.name`).bind(tenantId).all(),
+    env.DB.prepare("SELECT COUNT(*) count,COALESCE(SUM(ABS(difference_minor)),0) exposure_minor FROM finance_reconciliation_runs WHERE tenant_id=? AND status='exception'").bind(tenantId).first(),
+    env.DB.prepare("SELECT id,status,statement_to,difference_minor,created_at FROM finance_reconciliation_runs WHERE tenant_id=? ORDER BY created_at DESC,rowid DESC LIMIT 1").bind(tenantId).first(),
+    env.DB.prepare("SELECT COUNT(*) count,COALESCE(SUM(imported_count),0) transactions,MAX(created_at) last_import_at FROM finance_import_batches WHERE tenant_id=? AND status='completed'").bind(tenantId).first()
+  ]);
+  const accounts=balances.results||[],cashPositionMinor=accounts.reduce((sum,x)=>sum+Number(x.balance_minor||0),0);
+  const lastAt=lastRun?.created_at?Date.parse(String(lastRun.created_at).replace(" ","T")+"Z"):NaN;
+  return {currency:"BWP",cashPositionMinor,accounts,imports:{count:Number(imports?.count||0),transactions:Number(imports?.transactions||0),lastImportAt:imports?.last_import_at||null},reconciliation:{unresolvedCount:Number(unresolved?.count||0),unresolvedExposureMinor:Number(unresolved?.exposure_minor||0),lastRun:lastRun||null,stale:!Number.isFinite(lastAt)||Date.now()-lastAt>7*86400000},authority:{canonical:true,providerNeutral:true,source:"finance_ledger",estimated:false}};
+}
+
+async function getFinanceConnection(env,tenantId,connectionId){
+  const [stateRows,syncRow]=await Promise.all([
+    env.DB.prepare("SELECT entity_id,event_type,payload_json,sequence,occurred_at,event_hash FROM finance_lineage WHERE tenant_id=? AND entity_type='finance_connection' AND entity_id=? AND event_type IN ('CONNECTION_REGISTERED','CONNECTION_STATUS_CHANGED') ORDER BY sequence ASC LIMIT 500").bind(tenantId,connectionId).all(),
+    env.DB.prepare("SELECT entity_id,event_type,payload_json,sequence,occurred_at,event_hash FROM finance_lineage WHERE tenant_id=? AND entity_type='finance_connection' AND entity_id=? AND event_type='CONNECTION_SYNC_COMPLETED' ORDER BY sequence DESC LIMIT 1").bind(tenantId,connectionId).first()
+  ]);
+  return connectionFromLineage(stateRows.results||[],syncRow||null);
+}
+
+async function listFinanceConnections(env,tenantId){
+  const stateRows=await env.DB.prepare("SELECT entity_id,event_type,payload_json,sequence,occurred_at,event_hash FROM finance_lineage WHERE tenant_id=? AND entity_type='finance_connection' AND event_type IN ('CONNECTION_REGISTERED','CONNECTION_STATUS_CHANGED') ORDER BY sequence ASC LIMIT 5000").bind(tenantId).all();
+  const groups=new Map();
+  for(const row of stateRows.results||[]){const key=String(row.entity_id||"");if(!groups.has(key))groups.set(key,[]);groups.get(key).push(row)}
+  const syncRows=await env.DB.prepare(`SELECT l.entity_id,l.event_type,l.payload_json,l.sequence,l.occurred_at,l.event_hash
+    FROM finance_lineage l JOIN (
+      SELECT entity_id,MAX(sequence) max_sequence FROM finance_lineage
+      WHERE tenant_id=? AND entity_type='finance_connection' AND event_type='CONNECTION_SYNC_COMPLETED' GROUP BY entity_id
+    ) latest ON latest.entity_id=l.entity_id AND latest.max_sequence=l.sequence
+    WHERE l.tenant_id=? AND l.entity_type='finance_connection' AND l.event_type='CONNECTION_SYNC_COMPLETED'`).bind(tenantId,tenantId).all();
+  const latestSync=new Map((syncRows.results||[]).map(row=>[String(row.entity_id||""),row]));
+  return [...groups.entries()].map(([connectionId,rows])=>connectionFromLineage(rows,latestSync.get(connectionId)||null)).filter(Boolean).sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||"")));
+}
+
+async function adapterConnectionForImport({env,tenantId,connectionId,accountId,provider}){
+  if(!connectionId)return {ok:false,error:"finance_connection_id_required",status:400};
+  const connection=await getFinanceConnection(env,tenantId,connectionId);
+  if(!connection)return {ok:false,error:"finance_connection_not_found",status:404};
+  if(connection.status!=="active")return {ok:false,error:"finance_connection_not_active",status:409,connection};
+  if(connection.readOnly!==true||connection.secretMaterialStored!==false||connection.credentialStorage!=="external")return {ok:false,error:"finance_connection_policy_violation",status:409,connection};
+  if(connection.accountId!==accountId)return {ok:false,error:"finance_connection_account_mismatch",status:409,connection};
+  if(connection.providerKey!==provider)return {ok:false,error:"finance_connection_provider_mismatch",status:409,connection};
+  return {ok:true,connection};
+}
+
+async function recordAdapterSyncCompletion({env,auth,connection,idempotencyKey,batchId,rowCount,importedCount,duplicateCount,id,sha256Hex,writeAudit}){
+  if(!connection)return;
+  const idempotencyKeyHash=await sha256Hex(JSON.stringify([connection.id,idempotencyKey]));
+  const prior=await env.DB.prepare("SELECT sequence FROM finance_lineage WHERE tenant_id=? AND entity_type='finance_connection' AND entity_id=? AND event_type='CONNECTION_SYNC_COMPLETED' AND json_extract(payload_json,'$.idempotencyKeyHash')=? LIMIT 1").bind(auth.tenant_id,connection.id,idempotencyKeyHash).first();
+  if(prior)return;
+  await appendLineage({env,tenantId:auth.tenant_id,userId:auth.user_id,eventType:"CONNECTION_SYNC_COMPLETED",entityType:"finance_connection",entityId:connection.id,payload:{providerKey:connection.providerKey,idempotencyKeyHash,batchId,rowCount,importedCount,duplicateCount,status:"completed"},sha256Hex,id});
+  await writeAudit(env,auth.tenant_id,auth.user_id,"FINANCE_CONNECTION_SYNC_COMPLETED",{connectionId:connection.id,providerKey:connection.providerKey,batchId,rowCount,importedCount,duplicateCount});
+}
+
+async function findAdapterSourceIdentityConflict({env,tenantId,accountId,rows,expectedFingerprints}){
+  const local=adapterBatchSourceIdentityConflict(rows,expectedFingerprints);
+  if(local)return local;
+  const expected=new Map();
+  for(let index=0;index<(rows||[]).length;index++){
+    const row=rows[index],sourceId=text(row?.sourceId,160);
+    if(!sourceId)continue;
+    const fingerprint=String(expectedFingerprints?.[index]||"");
+    if(!expected.has(fingerprint))expected.set(fingerprint,{row,sourceId,index});
+  }
+  if(!expected.size)return null;
+  const found=await env.DB.prepare(`SELECT t.source_fingerprint,t.posted_on,t.description,t.reference,t.amount_minor FROM finance_transactions t
+    JOIN json_each(?) wanted ON wanted.value=t.source_fingerprint
+    WHERE t.tenant_id=? AND t.account_id=?`).bind(JSON.stringify([...expected.keys()]),tenantId,accountId).all();
+  for(const stored of found.results||[]){
+    const item=expected.get(String(stored.source_fingerprint||""));
+    if(item&&!sameLedgerRow(stored,item.row))return {fingerprint:String(stored.source_fingerprint||""),sourceId:item.sourceId,index:item.index};
+  }
+  return null;
+}
+
+async function verifyExistingImportRequest({env,tenantId,existing,accountId,sourceType,provider,expectedRowCount,expectedFingerprints,expectedRows,expectedRequestLockKey}){
+  const actualProvider=existing?.provider===null||existing?.provider===undefined?"":String(existing.provider);
+  const expectedProvider=provider===null||provider===undefined?"":String(provider);
+  if(String(existing?.account_id||"")!==accountId||String(existing?.source_type||"")!==sourceType||actualProvider!==expectedProvider||Number(existing?.row_count)!==expectedRowCount)return false;
+  const binding=await env.DB.prepare("SELECT idempotency_key FROM finance_import_batches WHERE tenant_id=? AND id=? LIMIT 1").bind(tenantId,importRequestLockId(existing.id)).first();
+  if(binding)return String(binding.idempotency_key||"")===expectedRequestLockKey;
+  if(Number(existing?.imported_count)!==expectedRowCount)return false;
+  const rows=await env.DB.prepare("SELECT source_fingerprint,posted_on,description,reference,amount_minor FROM finance_transactions WHERE tenant_id=? AND import_batch_id=? ORDER BY source_fingerprint").bind(tenantId,existing.id).all();
+  return sameTransactionEntries(rows.results||[],expectedFingerprints,expectedRows);
+}
+
+function connectionActionPath(pathname){
+  const match=String(pathname||"").match(/^\/api\/finance\/connections\/([^/]+)\/(activate|pause|resume|revoke)$/);
+  return match?{connectionId:text(match[1],64),action:match[2]}:null;
+}
+
+function connectionSyncRunsPath(pathname){
+  const match=String(pathname||"").match(/^\/api\/finance\/connections\/([^/]+)\/sync-runs$/);
+  return match?{connectionId:text(match[1],64)}:null;
+}
+
+export async function handleFinanceRequest({request,url,env,auth,json,readJson,id,writeAudit,roleAllowed,sha256Hex,enqueueTenantAlert=null,whatsappTemplateAvailable=()=>false}){
+  if(!url.pathname.startsWith("/api/finance"))return null;
+  if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
+  if(url.pathname==="/api/finance/summary"&&request.method==="GET")return json(await financeSummary(env,auth.tenant_id));
+  if(url.pathname==="/api/finance/accounts"&&request.method==="GET"){
+    const rows=await env.DB.prepare("SELECT id,name,account_type,currency,opening_balance_minor,status,created_at FROM finance_accounts WHERE tenant_id=? ORDER BY name").bind(auth.tenant_id).all();
+    return json({items:rows.results||[],currency:"BWP"});
+  }
+  if(url.pathname==="/api/finance/accounts"&&request.method==="POST"){
+    const body=await readJson(request,{maxBytes:16*1024}),name=text(body.name,120),accountType=text(body.accountType,30),opening=integer(body.openingBalanceMinor??0);
+    if(name.length<2)return json({error:"account_name_required"},400);
+    if(!ACCOUNT_TYPES.has(accountType))return json({error:"invalid_account_type"},400);
+    if(opening===null)return json({error:"invalid_opening_balance_minor"},400);
+    const accountId=id();
+    try{await env.DB.prepare("INSERT INTO finance_accounts(id,tenant_id,name,account_type,currency,opening_balance_minor,created_by_user_id) VALUES(?,?,?,?, 'BWP',?,?)").bind(accountId,auth.tenant_id,name,accountType,opening,auth.user_id).run()}
+    catch(error){if(/unique|constraint/i.test(String(error)))return json({error:"finance_account_exists"},409);throw error}
+    await appendLineage({env,tenantId:auth.tenant_id,userId:auth.user_id,eventType:"ACCOUNT_CREATED",entityType:"finance_account",entityId:accountId,payload:{name,accountType,openingBalanceMinor:opening,currency:"BWP"},sha256Hex,id});
+    await writeAudit(env,auth.tenant_id,auth.user_id,"FINANCE_ACCOUNT_CREATED",{accountId,accountType,currency:"BWP"});
+    return json({ok:true,id:accountId,currency:"BWP"},201);
+  }
+  if(url.pathname==="/api/finance/connections"&&request.method==="GET"){
+    const items=await listFinanceConnections(env,auth.tenant_id);
+    return json({items,providers:providerCatalog(),policy:{readOnly:true,credentialStorage:"external",secretMaterialStored:false,providerWriteBack:false,moneyMovement:false,registry:"finance_lineage"}});
+  }
+  if(url.pathname==="/api/finance/connections"&&request.method==="POST"){
+    if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);
+    const body=await readJson(request,{maxBytes:16*1024});
+    if(containsSecretMaterial(body))return json({error:"finance_connection_secret_material_forbidden"},400);
+    if(Object.prototype.hasOwnProperty.call(body,"externalAccountRef")||Object.prototype.hasOwnProperty.call(body,"external_account_ref"))return json({error:"external_account_reference_not_accepted"},400);
+    const accountId=text(body.accountId,64),providerKey=text(body.providerKey||body.provider,60),provider=PROVIDER_DEFINITIONS[providerKey],displayName=text(body.displayName,120);
+    if(!provider)return json({error:"unsupported_finance_provider",providers:providerCatalog().map(item=>item.key)},400);
+    if(displayName.length<2)return json({error:"connection_display_name_required"},400);
+    const account=await env.DB.prepare("SELECT id FROM finance_accounts WHERE id=? AND tenant_id=? AND status='active' LIMIT 1").bind(accountId,auth.tenant_id).first();
+    if(!account)return json({error:"finance_account_not_found"},404);
+    const count=await env.DB.prepare("SELECT COUNT(DISTINCT entity_id) count FROM finance_lineage WHERE tenant_id=? AND entity_type='finance_connection' AND event_type='CONNECTION_REGISTERED'").bind(auth.tenant_id).first();
+    const connectionId=(await sha256Hex(JSON.stringify([auth.tenant_id,accountId,provider.key]))).slice(0,64),existing=await getFinanceConnection(env,auth.tenant_id,connectionId);
+    if(existing)return json({error:"finance_connection_exists",id:connectionId,status:existing.status},409);
+    if(Number(count?.count||0)>=MAX_CONNECTIONS)return json({error:"finance_connection_limit_reached",maxConnections:MAX_CONNECTIONS},409);
+    await appendLineage({env,tenantId:auth.tenant_id,userId:auth.user_id,eventType:"CONNECTION_REGISTERED",entityType:"finance_connection",entityId:connectionId,payload:{accountId,providerKey:provider.key,connectionType:provider.connectionType,displayName,status:"not_configured",readOnly:true,credentialStorage:"external",secretMaterialStored:false},sha256Hex,id});
+    await writeAudit(env,auth.tenant_id,auth.user_id,"FINANCE_CONNECTION_REGISTERED",{connectionId,accountId,providerKey:provider.key,status:"not_configured",readOnly:true,registry:"finance_lineage"});
+    return json({ok:true,id:connectionId,status:"not_configured",provider:{key:provider.key,label:provider.label,connectionType:provider.connectionType,activationMode:provider.activationMode},policy:{readOnly:true,credentialStorage:"external",secretMaterialStored:false,registry:"finance_lineage"}},201);
+  }
+  const syncRunsRoute=connectionSyncRunsPath(url.pathname);
+  if(syncRunsRoute&&request.method==="GET"){
+    const connection=await getFinanceConnection(env,auth.tenant_id,syncRunsRoute.connectionId);
+    if(!connection)return json({error:"finance_connection_not_found"},404);
+    const rows=await env.DB.prepare("SELECT payload_json,sequence,occurred_at,event_hash FROM finance_lineage WHERE tenant_id=? AND entity_type='finance_connection' AND entity_id=? AND event_type='CONNECTION_SYNC_COMPLETED' ORDER BY sequence DESC LIMIT 100").bind(auth.tenant_id,connection.id).all();
+    const items=(rows.results||[]).map(row=>{const payload=lineagePayload(row);return {sequence:Number(row.sequence||0),occurredAt:row.occurred_at||null,eventHash:row.event_hash||null,batchId:text(payload.batchId,64)||null,idempotencyKeyHash:text(payload.idempotencyKeyHash,64)||null,status:text(payload.status,40)||"completed",rowCount:Number(payload.rowCount||0),importedCount:Number(payload.importedCount||0),duplicateCount:Number(payload.duplicateCount||0)}});
+    return json({connection:{id:connection.id,providerKey:connection.providerKey,status:connection.status,readOnly:true},items});
+  }
+  const connectionAction=connectionActionPath(url.pathname);
+  if(connectionAction&&request.method==="POST"){
+    if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);
+    const body=await readJson(request,{maxBytes:8*1024});
+    if(containsSecretMaterial(body))return json({error:"finance_connection_secret_material_forbidden"},400);
+    const connection=await getFinanceConnection(env,auth.tenant_id,connectionAction.connectionId);
+    if(!connection)return json({error:"finance_connection_not_found"},404);
+    const provider=PROVIDER_DEFINITIONS[connection.providerKey];
+    let nextStatus=null;
+    if(connectionAction.action==="activate"){
+      if(connection.status==="revoked")return json({error:"finance_connection_revoked"},409);
+      if(connection.status==="active")return json({ok:true,id:connection.id,status:"active",replayed:true});
+      if(connection.providerKey!=="generic_adapter")return json({error:"provider_onboarding_required",providerKey:connection.providerKey,activationMode:provider?.activationMode||"provider_onboarding_required"},409);
+      if(connection.status!=="not_configured"&&connection.status!=="error")return json({error:"finance_connection_not_activatable",status:connection.status},409);
+      if(body.confirmReadOnly!==true||text(body.credentialStorage,20)!=="external")return json({error:"read_only_external_credential_attestation_required"},400);
+      nextStatus="active";
+    }else if(connectionAction.action==="pause"){
+      if(connection.status!=="active")return json({error:"finance_connection_not_active"},409);
+      nextStatus="paused";
+    }else if(connectionAction.action==="resume"){
+      if(connection.status!=="paused")return json({error:"finance_connection_not_paused"},409);
+      nextStatus="active";
+    }else if(connectionAction.action==="revoke"){
+      if(connection.status==="revoked")return json({ok:true,id:connection.id,status:"revoked",replayed:true});
+      nextStatus="revoked";
+    }
+    if(!CONNECTION_STATUSES.has(nextStatus))return json({error:"invalid_finance_connection_status"},400);
+    const appended=await appendLineageIfEntityUnchanged({env,tenantId:auth.tenant_id,userId:auth.user_id,eventType:"CONNECTION_STATUS_CHANGED",entityType:"finance_connection",entityId:connection.id,payload:{providerKey:connection.providerKey,previousStatus:connection.status,status:nextStatus,readOnly:true},expectedEntitySequence:connection.lastSequence,sha256Hex,id});
+    if(!appended){
+      const resolved=await getFinanceConnection(env,auth.tenant_id,connection.id);
+      if(resolved?.status===nextStatus)return json({ok:true,id:connection.id,status:nextStatus,providerKey:connection.providerKey,readOnly:true,replayed:true});
+      return json({error:"finance_connection_state_conflict",status:resolved?.status||connection.status},409);
+    }
+    const resolved=await getFinanceConnection(env,auth.tenant_id,connection.id);
+    if(!resolved||resolved.status!==nextStatus)return json({error:"finance_connection_state_conflict",status:resolved?.status||connection.status},409);
+    await writeAudit(env,auth.tenant_id,auth.user_id,"FINANCE_CONNECTION_STATUS_CHANGED",{connectionId:connection.id,providerKey:connection.providerKey,previousStatus:connection.status,status:nextStatus,readOnly:true,registry:"finance_lineage"});
+    return json({ok:true,id:connection.id,status:nextStatus,providerKey:connection.providerKey,readOnly:true});
+  }
+  if(url.pathname==="/api/finance/imports"&&request.method==="POST"){
+    const body=await readJson(request,{maxBytes:768*1024}),accountId=text(body.accountId,64),sourceType=text(body.sourceType||"manual",20),rows=Array.isArray(body.rows)?body.rows:null;
+    const idempotencyKey=text(request.headers.get("idempotency-key")||body.idempotencyKey,120),provider=text(body.provider,60)||null,connectionId=text(body.connectionId,64);
+    const allowDuplicateContent=body.allowDuplicateContent===true,duplicateOverrideReason=text(body.duplicateOverrideReason||body.duplicateReason,240);
+    if(!SOURCE_TYPES.has(sourceType)||sourceType==="adapter"&&!provider)return json({error:"invalid_source_type"},400);
+    if(sourceType==="adapter"&&containsSecretMaterial(body))return json({error:"finance_connection_secret_material_forbidden"},400);
+    if(!idempotencyKey)return json({error:"idempotency_key_required"},400);
+    if(reservedImportIdempotencyKey(idempotencyKey))return json({error:"reserved_idempotency_key"},400);
+    if(allowDuplicateContent&&!roleAllowed(auth,"owner"))return json({error:"duplicate_content_override_forbidden"},403);
+    if(allowDuplicateContent&&duplicateOverrideReason.length<8)return json({error:"duplicate_override_reason_required"},400);
+    if(!rows||!rows.length||rows.length>MAX_IMPORT_ROWS)return json({error:"invalid_import_rows",maxRows:MAX_IMPORT_ROWS},400);
+    const account=await env.DB.prepare("SELECT id FROM finance_accounts WHERE id=? AND tenant_id=? AND status='active' LIMIT 1").bind(accountId,auth.tenant_id).first();
+    if(!account)return json({error:"finance_account_not_found"},404);
+    let adapterConnection=null;
+    if(sourceType==="adapter"){
+      if(!PROVIDER_DEFINITIONS[provider])return json({error:"unsupported_finance_provider"},400);
+      const checked=await adapterConnectionForImport({env,tenantId:auth.tenant_id,connectionId,accountId,provider});
+      if(!checked.ok)return json({error:checked.error},checked.status);
+      adapterConnection=checked.connection;
+    }
+    const normalized=[];for(let i=0;i<rows.length;i++){const item=normalizeFinanceRow(rows[i],i);if(!item.ok)return json({error:item.error,row:i},400);normalized.push(item.row)}
+    const fingerprintProvider=adapterConnection?`${provider}:${adapterConnection.id}`:provider,expectedFingerprints=[];
+    for(let index=0;index<normalized.length;index++){
+      const row=normalized[index];
+      expectedFingerprints.push(await sha256Hex(JSON.stringify(sourceFingerprintBasis({tenantId:auth.tenant_id,accountId,sourceType,provider:fingerprintProvider,idempotencyKey,row,index}))));
+    }
+    const contentFingerprint=sourceType==="adapter"?null:await sha256Hex(JSON.stringify(importContentFingerprintBasis({tenantId:auth.tenant_id,accountId,rows:normalized})));
+    const requestFingerprint=await sha256Hex(JSON.stringify(importRequestFingerprintBasis({tenantId:auth.tenant_id,accountId,sourceType,provider,connectionId:adapterConnection?.id||connectionId||"",rows:normalized})));
+    const requestBindingFingerprint=await sha256Hex(JSON.stringify([idempotencyKey,requestFingerprint]));
+    const expectedRequestLockKey=importRequestLockKey(requestBindingFingerprint);
+    const existing=await env.DB.prepare("SELECT id,account_id,source_type,provider,row_count,imported_count,duplicate_count,status FROM finance_import_batches WHERE tenant_id=? AND idempotency_key=? LIMIT 1").bind(auth.tenant_id,idempotencyKey).first();
+    if(existing){
+      const replayMatches=await verifyExistingImportRequest({env,tenantId:auth.tenant_id,existing,accountId,sourceType,provider,expectedRowCount:normalized.length,expectedFingerprints,expectedRows:normalized,expectedRequestLockKey});
+      if(!replayMatches)return json({error:"idempotency_key_conflict"},409);
+      if(adapterConnection)await recordAdapterSyncCompletion({env,auth,connection:adapterConnection,idempotencyKey,batchId:existing.id,rowCount:Number(existing.row_count||0),importedCount:Number(existing.imported_count||0),duplicateCount:Number(existing.duplicate_count||0),id,sha256Hex,writeAudit});
+      return json({ok:true,id:existing.id,importedCount:Number(existing.imported_count||0),duplicateCount:Number(existing.duplicate_count||0),status:existing.status,replayed:true,connectionId:adapterConnection?.id||undefined});
+    }
+    if(sourceType==="adapter"){
+      const sourceConflict=await findAdapterSourceIdentityConflict({env,tenantId:auth.tenant_id,accountId,rows:normalized,expectedFingerprints});
+      if(sourceConflict){
+        await writeAudit(env,auth.tenant_id,auth.user_id,"FINANCE_SOURCE_IDENTITY_CONFLICT",{accountId,provider,connectionId:adapterConnection?.id||null,sourceFingerprint:sourceConflict.fingerprint});
+        return json({error:"finance_source_identity_conflict",sourceId:sourceConflict.sourceId||undefined},409);
+      }
+    }
+    if(contentFingerprint&&!allowDuplicateContent){
+      const duplicateContent=await findDuplicateImportContent({env,tenantId:auth.tenant_id,userId:auth.user_id,accountId,sourceType,provider,rows:normalized,contentFingerprint,sha256Hex,id});
+      if(duplicateContent?.reviewRequired)return json({error:"finance_import_content_review_required"},409);
+      if(duplicateContent){
+        await writeAudit(env,auth.tenant_id,auth.user_id,"FINANCE_DUPLICATE_IMPORT_BLOCKED",{accountId,sourceType,provider,existingImportBatchId:duplicateContent.batchId||null,legacyDetected:duplicateContent.legacy===true,contentFingerprint});
+        return json({error:"duplicate_import_content",existingImportBatchId:duplicateContent.batchId||undefined,legacyDetected:duplicateContent.legacy===true},409);
+      }
+    }
+    const batchId=id(),packed=[];
+    for(let index=0;index<normalized.length;index++){
+      const row=normalized[index];
+      packed.push({id:id(),tenantId:auth.tenant_id,accountId,batchId,postedOn:row.postedOn,description:row.description,reference:row.reference,amountMinor:row.amountMinor,sourceType,fingerprint:expectedFingerprints[index]});
+    }
+    const packedJson=JSON.stringify(packed);
+    try{
+      const statements=[
+        env.DB.prepare("INSERT INTO finance_import_batches(id,tenant_id,account_id,source_type,provider,idempotency_key,status,row_count,created_by_user_id) VALUES(?,?,?,?,?,?,'processing',?,?)").bind(batchId,auth.tenant_id,accountId,sourceType,provider,idempotencyKey,normalized.length,auth.user_id),
+        env.DB.prepare("INSERT INTO finance_import_batches(id,tenant_id,account_id,source_type,provider,idempotency_key,status,row_count,imported_count,duplicate_count,created_by_user_id) VALUES(?,?,?,?,?,?,'failed',0,0,0,?)").bind(importRequestLockId(batchId),auth.tenant_id,accountId,sourceType,provider,expectedRequestLockKey,auth.user_id)
+      ];
+      if(contentFingerprint&&!allowDuplicateContent)statements.push(env.DB.prepare("INSERT INTO finance_import_batches(id,tenant_id,account_id,source_type,provider,idempotency_key,status,row_count,imported_count,duplicate_count,created_by_user_id) VALUES(?,?,?,?,?,?,'failed',0,0,0,?)").bind(importContentLockId(batchId),auth.tenant_id,accountId,sourceType,provider,importContentLockKey(contentFingerprint),auth.user_id));
+      const transactionInsert=sourceType==="adapter"
+        ? env.DB.prepare(`INSERT INTO finance_transactions(id,tenant_id,account_id,import_batch_id,posted_on,description,reference,amount_minor,currency,source_type,source_fingerprint)
+          SELECT json_extract(value,'$.id'),json_extract(value,'$.tenantId'),json_extract(value,'$.accountId'),json_extract(value,'$.batchId'),json_extract(value,'$.postedOn'),json_extract(value,'$.description'),json_extract(value,'$.reference'),json_extract(value,'$.amountMinor'),'BWP',json_extract(value,'$.sourceType'),json_extract(value,'$.fingerprint') FROM json_each(?) WHERE true
+          ON CONFLICT(tenant_id,account_id,source_fingerprint) DO UPDATE SET description=CASE WHEN finance_transactions.posted_on=excluded.posted_on AND finance_transactions.description=excluded.description AND finance_transactions.reference=excluded.reference AND finance_transactions.amount_minor=excluded.amount_minor AND finance_transactions.currency=excluded.currency AND finance_transactions.source_type=excluded.source_type THEN finance_transactions.description ELSE NULL END`).bind(packedJson)
+        : env.DB.prepare(`INSERT OR IGNORE INTO finance_transactions(id,tenant_id,account_id,import_batch_id,posted_on,description,reference,amount_minor,currency,source_type,source_fingerprint)
+          SELECT json_extract(value,'$.id'),json_extract(value,'$.tenantId'),json_extract(value,'$.accountId'),json_extract(value,'$.batchId'),json_extract(value,'$.postedOn'),json_extract(value,'$.description'),json_extract(value,'$.reference'),json_extract(value,'$.amountMinor'),'BWP',json_extract(value,'$.sourceType'),json_extract(value,'$.fingerprint') FROM json_each(?)`).bind(packedJson);
+      statements.push(
+        transactionInsert,
+        env.DB.prepare("UPDATE finance_import_batches SET status='completed',imported_count=(SELECT COUNT(*) FROM finance_transactions WHERE import_batch_id=?),duplicate_count=row_count-(SELECT COUNT(*) FROM finance_transactions WHERE import_batch_id=?),completed_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND status='processing'").bind(batchId,batchId,batchId,auth.tenant_id)
+      );
+      await env.DB.batch(statements);
+    }catch(error){
+      if(/unique|constraint/i.test(String(error))){
+        const replay=await env.DB.prepare("SELECT id,account_id,source_type,provider,row_count,imported_count,duplicate_count,status FROM finance_import_batches WHERE tenant_id=? AND idempotency_key=? LIMIT 1").bind(auth.tenant_id,idempotencyKey).first();
+        if(replay){
+          const replayMatches=await verifyExistingImportRequest({env,tenantId:auth.tenant_id,existing:replay,accountId,sourceType,provider,expectedRowCount:normalized.length,expectedFingerprints,expectedRows:normalized,expectedRequestLockKey});
+          if(!replayMatches)return json({error:"idempotency_key_conflict"},409);
+          if(adapterConnection)await recordAdapterSyncCompletion({env,auth,connection:adapterConnection,idempotencyKey,batchId:replay.id,rowCount:Number(replay.row_count||0),importedCount:Number(replay.imported_count||0),duplicateCount:Number(replay.duplicate_count||0),id,sha256Hex,writeAudit});
+          return json({ok:true,id:replay.id,importedCount:Number(replay.imported_count||0),duplicateCount:Number(replay.duplicate_count||0),status:replay.status,replayed:true,connectionId:adapterConnection?.id||undefined});
+        }
+        if(sourceType==="adapter"){
+          const sourceConflict=await findAdapterSourceIdentityConflict({env,tenantId:auth.tenant_id,accountId,rows:normalized,expectedFingerprints});
+          if(sourceConflict){
+            await writeAudit(env,auth.tenant_id,auth.user_id,"FINANCE_SOURCE_IDENTITY_CONFLICT",{accountId,provider,connectionId:adapterConnection?.id||null,sourceFingerprint:sourceConflict.fingerprint,raceDetected:true});
+            return json({error:"finance_source_identity_conflict",sourceId:sourceConflict.sourceId||undefined,raceDetected:true},409);
+          }
+        }
+        if(contentFingerprint&&!allowDuplicateContent){
+          const duplicateContent=await registeredDuplicateImportContent({env,tenantId:auth.tenant_id,contentFingerprint});
+          if(duplicateContent){
+            await writeAudit(env,auth.tenant_id,auth.user_id,"FINANCE_DUPLICATE_IMPORT_BLOCKED",{accountId,sourceType,provider,existingImportBatchId:duplicateContent.batchId||null,legacyDetected:false,contentFingerprint,raceDetected:true});
+            return json({error:"duplicate_import_content",existingImportBatchId:duplicateContent.batchId||undefined,raceDetected:true},409);
+          }
+        }
+      }
+      throw error;
+    }
+    const completed=await env.DB.prepare("SELECT imported_count,duplicate_count,status FROM finance_import_batches WHERE id=? AND tenant_id=? LIMIT 1").bind(batchId,auth.tenant_id).first();
+    const imported=Number(completed?.imported_count||0),duplicates=Number(completed?.duplicate_count||0);
+    if(adapterConnection)await recordAdapterSyncCompletion({env,auth,connection:adapterConnection,idempotencyKey,batchId,rowCount:normalized.length,importedCount:imported,duplicateCount:duplicates,id,sha256Hex,writeAudit});
+    await appendLineage({env,tenantId:auth.tenant_id,userId:auth.user_id,eventType:"TRANSACTIONS_IMPORTED",entityType:"finance_import_batch",entityId:batchId,payload:{accountId,sourceType,provider,connectionId:adapterConnection?.id||null,rowCount:normalized.length,importedCount:imported,duplicateCount:duplicates,contentFingerprint:contentFingerprint||null,requestFingerprint,duplicateContentOverride:allowDuplicateContent,duplicateOverrideReason:allowDuplicateContent?duplicateOverrideReason:null},sha256Hex,id});
+    await writeAudit(env,auth.tenant_id,auth.user_id,"FINANCE_TRANSACTIONS_IMPORTED",{batchId,accountId,sourceType,provider,connectionId:adapterConnection?.id||null,importedCount:imported,duplicateCount:duplicates,contentFingerprint:contentFingerprint||null,requestFingerprint,duplicateContentOverride:allowDuplicateContent,duplicateOverrideReason:allowDuplicateContent?duplicateOverrideReason:null});
+    return json({ok:true,id:batchId,importedCount:imported,duplicateCount:duplicates,currency:"BWP",connectionId:adapterConnection?.id||undefined},201);
+  }
+  if(url.pathname==="/api/finance/transactions"&&request.method==="GET"){
+    const accountId=text(url.searchParams.get("accountId"),64),limit=Math.min(500,Math.max(1,Number(url.searchParams.get("limit")||100)));
+    const result=accountId?await env.DB.prepare("SELECT id,account_id,posted_on,description,reference,amount_minor,currency,source_type,created_at FROM finance_transactions WHERE tenant_id=? AND account_id=? ORDER BY posted_on DESC,created_at DESC LIMIT ?").bind(auth.tenant_id,accountId,limit).all():await env.DB.prepare("SELECT id,account_id,posted_on,description,reference,amount_minor,currency,source_type,created_at FROM finance_transactions WHERE tenant_id=? ORDER BY posted_on DESC,created_at DESC LIMIT ?").bind(auth.tenant_id,limit).all();
+    return json({items:result.results||[],currency:"BWP"});
+  }
+  if(url.pathname==="/api/finance/reconciliations"&&request.method==="POST"){
+    const body=await readJson(request,{maxBytes:32*1024}),accountId=text(body.accountId,64),from=text(body.statementFrom,10),to=text(body.statementTo,10),opening=integer(body.openingBalanceMinor),closing=integer(body.closingBalanceMinor);
+    if(!validDate(from)||!validDate(to)||from>to)return json({error:"invalid_statement_period"},400);
+    if(opening===null||closing===null)return json({error:"invalid_statement_balance_minor"},400);
+    const account=await env.DB.prepare("SELECT id FROM finance_accounts WHERE id=? AND tenant_id=? AND status='active' LIMIT 1").bind(accountId,auth.tenant_id).first();
+    if(!account)return json({error:"finance_account_not_found"},404);
+    const tx=await env.DB.prepare("SELECT id,posted_on,amount_minor,source_fingerprint FROM finance_transactions WHERE tenant_id=? AND account_id=? AND posted_on>=? AND posted_on<=? ORDER BY posted_on,id").bind(auth.tenant_id,accountId,from,to).all();
+    const items=tx.results||[],movement=items.reduce((sum,x)=>sum+Number(x.amount_minor||0),0),bookClosing=opening+movement,difference=closing-bookClosing,status=difference===0?"reconciled":"exception";
+    const snapshotHash=await sha256Hex(JSON.stringify({accountId,from,to,opening,closing,items:items.map(x=>[x.id,x.amount_minor,x.source_fingerprint])})),runId=id();
+    await env.DB.prepare("INSERT INTO finance_reconciliation_runs(id,tenant_id,account_id,statement_from,statement_to,opening_balance_minor,statement_closing_minor,book_closing_minor,difference_minor,currency,status,transaction_count,snapshot_hash,created_by_user_id) VALUES(?,?,?,?,?,?,?,?,?, 'BWP',?,?,?,?)").bind(runId,auth.tenant_id,accountId,from,to,opening,closing,bookClosing,difference,status,items.length,snapshotHash,auth.user_id).run();
+    await appendLineage({env,tenantId:auth.tenant_id,userId:auth.user_id,eventType:"RECONCILIATION_COMPLETED",entityType:"finance_reconciliation",entityId:runId,payload:{accountId,statementFrom:from,statementTo:to,openingBalanceMinor:opening,statementClosingMinor:closing,bookClosingMinor:bookClosing,differenceMinor:difference,status,transactionCount:items.length,snapshotHash},sha256Hex,id});
+    await writeAudit(env,auth.tenant_id,auth.user_id,"FINANCE_RECONCILIATION_COMPLETED",{runId,accountId,status,differenceMinor:difference,transactionCount:items.length,snapshotHash});
+    let whatsappAlert={eligible:false,queued:false};
+    if(status==="exception"&&enqueueTenantAlert&&whatsappTemplateAvailable("finance_reconciliation_exception")){
+      const accountName=String((await env.DB.prepare("SELECT name FROM finance_accounts WHERE id=? AND tenant_id=? LIMIT 1").bind(accountId,auth.tenant_id).first())?.name||"Finance account");
+      const alert=await enqueueTenantAlert(env,{tenantId:auth.tenant_id,templateKey:"finance_reconciliation_exception",subject:"Finance reconciliation needs review",payload:{accountName,statementPeriod:`${from} to ${to}`,differenceBwp:(Math.abs(difference)/100).toFixed(2)},dedupeKey:`finance-reconciliation:${accountId}:${from}:${to}:${snapshotHash}`,externalPriority:"urgent"});
+      whatsappAlert={eligible:true,queued:!!alert?.ok};
+    }
+    return json({ok:true,id:runId,status,openingBalanceMinor:opening,statementClosingMinor:closing,bookClosingMinor:bookClosing,differenceMinor:difference,transactionCount:items.length,snapshotHash,currency:"BWP",whatsappAlert},201);
+  }
+  if(url.pathname==="/api/finance/reconciliations"&&request.method==="GET"){
+    const result=await env.DB.prepare("SELECT id,account_id,statement_from,statement_to,opening_balance_minor,statement_closing_minor,book_closing_minor,difference_minor,currency,status,transaction_count,snapshot_hash,created_at FROM finance_reconciliation_runs WHERE tenant_id=? ORDER BY created_at DESC,rowid DESC LIMIT 100").bind(auth.tenant_id).all();
+    return json({items:result.results||[],currency:"BWP"});
+  }
+  return json({error:"not_found"},404);
+}
+
+export const __financeTest=Object.freeze({normalizeFinanceRow,validDate,sourceFingerprintBasis,sameFingerprintSet,ledgerRowBasis,sameLedgerRow,importContentFingerprintBasis,importRequestFingerprintBasis,adapterBatchSourceIdentityConflict,sameTransactionEntries,reservedImportIdempotencyKey,ACCOUNT_TYPES,SOURCE_TYPES,MAX_IMPORT_ROWS,IMPORT_CONTENT_LOCK_PREFIX,IMPORT_REQUEST_LOCK_PREFIX,MAX_LEGACY_CONTENT_CANDIDATES});
+export const __financeConnectionTest=Object.freeze({PROVIDER_DEFINITIONS,CONNECTION_STATUSES,containsSecretMaterial,providerCatalog,connectionActionPath,connectionSyncRunsPath,connectionFromLineage,MAX_CONNECTIONS});
+
+
+===== ORIGINAL FILE: cloudflare/src/client-runtime-identity.js =====
+
+import releaseMetadata from "../../release/production.json" with {type:"json"};
+
+export const CLIENT_TRANSPORT_IMPLEMENTATION="transport-fallback-race-v2";
+
+function releaseSourceSha(){
+  const sha=String(releaseMetadata?.sourceSha||"").trim().toLowerCase();
+  return /^[0-9a-f]{40}$/.test(sha)?sha:"unknown-source";
+}
+
+export function clientRuntimeRelease(){
+  const sha=releaseSourceSha();
+  const suffix=sha==="unknown-source"?sha:sha.slice(0,12);
+  return `${CLIENT_TRANSPORT_IMPLEMENTATION}-${suffix}`;
+}
+
+export function runtimeScriptUrl(source,runtimeRelease=clientRuntimeRelease()){
+  return String(source||"").replace(
+    /(<script\b[^>]*\bsrc=["'])(\/?js\/api-client\.js)(?:\?[^"']*)?(["'][^>]*>)/gi,
+    `$1$2?v=${runtimeRelease}$3`
+  );
+}
+
+export async function applyClientRuntimeIdentity(request,response){
+  const method=String(request?.method||"").toUpperCase();
+  if(!["GET","HEAD"].includes(method))return response;
+  let url;
+  try{url=new URL(request.url)}catch{return response}
+  const runtimeRelease=clientRuntimeRelease();
+  const headers=new Headers(response.headers);
+
+  if(url.pathname==="/js/api-client.js"){
+    headers.set("cache-control","no-store, max-age=0, must-revalidate");
+    headers.set("cdn-cache-control","no-store");
+    headers.set("x-thebe-client-release",runtimeRelease);
+    headers.set("x-thebe-client-implementation",CLIENT_TRANSPORT_IMPLEMENTATION);
+    return new Response(method==="HEAD"?null:response.body,{status:response.status,statusText:response.statusText,headers});
+  }
+
+  // Cloudflare Static Assets canonicalizes auth.html to /auth. The release
+  // governance worker therefore fetches /auth internally for the public
+  // /auth/ surface. Preserve the same runtime identity on both canonical and
+  // legacy asset paths so the delivered browser client is release-bound.
+  if(!["/","/index.html","/auth","/auth.html"].includes(url.pathname))return response;
+  const type=String(headers.get("content-type")||"").toLowerCase();
+  if(!type.includes("text/html"))return response;
+  headers.delete("content-length");
+  headers.delete("etag");
+  headers.set("cache-control","no-store, max-age=0, must-revalidate");
+  headers.set("cdn-cache-control","no-store");
+  headers.set("x-thebe-client-release",runtimeRelease);
+  headers.set("x-thebe-client-implementation",CLIENT_TRANSPORT_IMPLEMENTATION);
+  if(method==="HEAD")return new Response(null,{status:response.status,statusText:response.statusText,headers});
+  const html=await response.text();
+  const versioned=runtimeScriptUrl(html,runtimeRelease);
+  return new Response(versioned,{status:response.status,statusText:response.statusText,headers});
+}
+
+export {releaseSourceSha};
+
+
+===== ORIGINAL FILE: cloudflare/src/platform-owner-access.js =====
+
+import {__v782150Test} from "./worker.js";
+
+const PLATFORM_OWNER_EMAIL="thebedesk@gmail.com";
+const PLATFORM_OWNER_FALLBACK_TENANT_ID="tenant_thebedesk_platform_owner";
+const PLATFORM_OWNER_FALLBACK_TENANT_NAME="Thebe Desk";
+const PLATFORM_OWNER_AI_ALLOWANCE=10000;
+const PLATFORM_OWNER_OVERRIDE_REASON="platform_owner_internal_full_access";
+
+function logicalRequestPath(request){
+  try{
+    const url=new URL(request.url);
+    if(url.pathname==="/"){
+      const tunneled=url.searchParams.get("__thebe_api_path");
+      if(tunneled)return String(tunneled);
+    }
+    if(url.pathname.startsWith("/__thebe_api/"))return `/api/${url.pathname.slice("/__thebe_api/".length)}`;
+    if(url.pathname==="/__thebe_api")return "/api";
+    return url.pathname;
+  }catch{return ""}
+}
+
+function ownerLoginOriginAllowed(request,env){
+  const origin=String(request?.headers?.get?.("origin")||"").trim();
+  if(!origin)return true;
+  try{
+    const configured=new URL(String(env?.PUBLIC_ORIGIN||env?.PUBLIC_APP_URL||""));
+    return new URL(origin).origin===configured.origin;
+  }catch{return false}
+}
+
+function constantTimeEqual(left,right){
+  if(!(left instanceof Uint8Array)||!(right instanceof Uint8Array)||left.length!==right.length)return false;
+  let diff=0;
+  for(let i=0;i<left.length;i++)diff|=left[i]^right[i];
+  return diff===0;
+}
+
+async function verifyStoredPassword(password,stored){
+  const parsed=__v782150Test.parsePasswordHash(stored);
+  if(!parsed)return false;
+  try{
+    const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(String(password||"")),"PBKDF2",false,["deriveBits"]);
+    const bits=await crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",salt:parsed.salt,iterations:parsed.iterations},key,parsed.digest.length*8);
+    return constantTimeEqual(new Uint8Array(bits),parsed.digest);
+  }catch{return false}
+}
+
+async function canonicalOwnerMembership(env,userId){
+  return env.DB.prepare(`SELECT m.tenant_id,m.role,m.status,t.created_at
+    FROM memberships m JOIN tenants t ON t.id=m.tenant_id
+    WHERE m.user_id=?
+    ORDER BY CASE WHEN m.role='owner' AND m.status='active' THEN 0 ELSE 1 END,t.created_at ASC,m.tenant_id ASC
+    LIMIT 1`).bind(userId).first();
+}
+
+async function ensurePlatformOwnerAccess(env,userId){
+  const membership=await canonicalOwnerMembership(env,userId);
+  let tenantId=String(membership?.tenant_id||"");
+  let repaired=false;
+  if(!tenantId){
+    tenantId=PLATFORM_OWNER_FALLBACK_TENANT_ID;
+    await env.DB.batch([
+      env.DB.prepare("INSERT OR IGNORE INTO tenants(id,name,created_at) VALUES(?,?,CURRENT_TIMESTAMP)").bind(tenantId,PLATFORM_OWNER_FALLBACK_TENANT_NAME),
+      env.DB.prepare("INSERT OR IGNORE INTO memberships(tenant_id,user_id,role,status) VALUES(?,?,'owner','active')").bind(tenantId,userId)
+    ]);
+    repaired=true;
+  }else if(membership.role!=="owner"||membership.status!=="active"){
+    await env.DB.prepare("UPDATE memberships SET role='owner',status='active' WHERE tenant_id=? AND user_id=?").bind(tenantId,userId).run();
+    repaired=true;
+  }
+
+  const sentinel=await env.DB.prepare("SELECT enabled,limit_value FROM entitlement_overrides WHERE tenant_id=? AND feature_key='core_compliance' AND reason=? LIMIT 1")
+    .bind(tenantId,PLATFORM_OWNER_OVERRIDE_REASON).first();
+  const wallet=await env.DB.prepare("SELECT balance,monthly_allowance FROM ai_credit_wallets WHERE tenant_id=? LIMIT 1").bind(tenantId).first();
+  const principal=await env.DB.prepare("SELECT role,active,email FROM platform_regulatory_principals WHERE user_id=? LIMIT 1").bind(userId).first();
+  const accessReady=Number(sentinel?.enabled)===1&&Number(sentinel?.limit_value)>=2147483647&&Number(wallet?.monthly_allowance)>=PLATFORM_OWNER_AI_ALLOWANCE;
+  const principalReady=principal?.role==="admin"&&Number(principal?.active)===1&&String(principal?.email||"").toLowerCase()===PLATFORM_OWNER_EMAIL;
+
+  if(!accessReady||!principalReady){
+    const statements=[];
+    if(!accessReady){
+      statements.push(
+        env.DB.prepare("INSERT OR IGNORE INTO app_state(tenant_id,version,state_json,updated_at) VALUES(?,1,'{}',CURRENT_TIMESTAMP)").bind(tenantId),
+        env.DB.prepare(`INSERT OR REPLACE INTO entitlement_overrides(tenant_id,feature_key,enabled,limit_value,expires_at,reason,updated_at)
+          SELECT ?,feature_key,1,CASE WHEN feature_key='ai_monthly_credits' THEN ? ELSE 2147483647 END,NULL,?,CURRENT_TIMESTAMP
+          FROM (SELECT DISTINCT feature_key FROM plan_entitlements)`).bind(tenantId,PLATFORM_OWNER_AI_ALLOWANCE,PLATFORM_OWNER_OVERRIDE_REASON),
+        env.DB.prepare("INSERT OR IGNORE INTO ai_credit_wallets(tenant_id,balance,monthly_allowance,monthly_reset_at,lifetime_purchased,lifetime_used,updated_at) VALUES(?,?,?,datetime('now','start of month','+1 month'),0,0,CURRENT_TIMESTAMP)")
+          .bind(tenantId,PLATFORM_OWNER_AI_ALLOWANCE,PLATFORM_OWNER_AI_ALLOWANCE),
+        env.DB.prepare("UPDATE ai_credit_wallets SET balance=MAX(balance,?),monthly_allowance=MAX(monthly_allowance,?),monthly_reset_at=COALESCE(monthly_reset_at,datetime('now','start of month','+1 month')),updated_at=CURRENT_TIMESTAMP WHERE tenant_id=?")
+          .bind(PLATFORM_OWNER_AI_ALLOWANCE,PLATFORM_OWNER_AI_ALLOWANCE,tenantId)
+      );
+    }
+    if(!principalReady){
+      statements.push(env.DB.prepare("INSERT OR REPLACE INTO platform_regulatory_principals(user_id,email,role,active,provisioned_at) VALUES(?,?,'admin',1,CURRENT_TIMESTAMP)").bind(userId,PLATFORM_OWNER_EMAIL));
+    }
+    if(statements.length)await env.DB.batch(statements);
+    repaired=true;
+  }
+
+  if(repaired){
+    await env.DB.prepare("INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data,occurred_at) VALUES(?,?,'platform_owner_access_repaired','user',?,'{\"access\":\"internal_full\",\"credential_changed\":false}',CURRENT_TIMESTAMP)")
+      .bind(tenantId,userId,userId).run();
+  }
+  return tenantId;
+}
+
+function withTenantId(request,body,tenantId){
+  const headers=new Headers(request.headers);
+  headers.set("content-type","application/json");
+  return new Request(request,{headers,body:JSON.stringify({...body,tenantId})});
+}
+
+export function withPlatformOwnerAdminEnv(env){
+  const runtimeEnv=Object.assign({},env||{});
+  const current=String(env?.PLATFORM_ADMIN_EMAILS||"").split(",").map(value=>value.trim().toLowerCase()).filter(Boolean);
+  if(!current.includes(PLATFORM_OWNER_EMAIL))current.push(PLATFORM_OWNER_EMAIL);
+  runtimeEnv.PLATFORM_ADMIN_EMAILS=current.join(",");
+  return runtimeEnv;
+}
+
+export async function preparePlatformOwnerLogin(request,env){
+  if(String(request?.method||"").toUpperCase()!=="POST"||logicalRequestPath(request)!=="/api/auth/login"||!env?.DB||!ownerLoginOriginAllowed(request,env))return request;
+  let body;
+  try{body=await request.clone().json()}catch{return request}
+  const email=String(body?.email||"").trim().toLowerCase();
+  const password=String(body?.password||"");
+  if(email!==PLATFORM_OWNER_EMAIL||!password)return request;
+
+  const user=await env.DB.prepare("SELECT id,password_hash FROM users WHERE lower(email)=? LIMIT 1").bind(PLATFORM_OWNER_EMAIL).first();
+  if(!user?.id||!user?.password_hash)return request;
+  if(!(await verifyStoredPassword(password,user.password_hash)))return request;
+
+  const tenantId=await ensurePlatformOwnerAccess(env,user.id);
+  if(!tenantId)return request;
+  return withTenantId(request,body,tenantId);
+}
+
+export const __platformOwnerAccessTest=Object.freeze({
+  PLATFORM_OWNER_EMAIL,
+  PLATFORM_OWNER_AI_ALLOWANCE,
+  PLATFORM_OWNER_OVERRIDE_REASON,
+  verifyStoredPassword,
+  ownerLoginOriginAllowed,
+  logicalRequestPath
+});
+
+
+===== ORIGINAL FILE: cloudflare/src/production-entry.js =====
+
+import worker from "./worker.js";
+import {handleAgenticRequest} from "./agentic-core.js";
+import {durableRegistrationChallengeGate,registrationClientIp,registrationProofSecret,validateAndClaimRegistrationProof} from "./registration-boundary.js";
+
+const TURNSTILE_ORIGIN="https://challenges.cloudflare.com";
+const TURNSTILE_VERIFY_URL=`${TURNSTILE_ORIGIN}/turnstile/v0/siteverify`;
+const LEGACY_TURNSTILE_CONFIGURATION_ERROR="turnstile_configuration_error";
+const META_CSP_RE=/<meta\b(?=[^>]*\bhttp-equiv\s*=\s*["']Content-Security-Policy["'])[^>]*>/i;
+const ICON_LINK_RE=/<link\b(?=[^>]*\brel\s*=\s*["'](?:icon|shortcut icon|apple-touch-icon)["'])[^>]*>\s*/gi;
+const THEBE_LOGO_FAVICON="/assets/thebe-desk-favicon-512.png?v=20260912b";
+const OWNER_COMMAND_CENTRE_RELEASE="20260913c";
+const EXECUTIVE_PERSONALIZATION_RELEASE="20260913c";
+const BUSINESS_DATA_BRIDGE_RELEASE="20260913d";
+const THEBE_LIVE_VOICE_RELEASE="20260921c";
+const THEBE_PUBLIC_API_CLIENT_RELEASE="20260920a";
+const THEBE_AI_DOCK_RELEASE="20260921c";
+const TURNSTILE_SECRET_HEALTH_TTL_MS=5*60*1000;
+const REGISTRATION_PROOF_TTL_MS=5*60*1000;
+const REGISTRATION_PROOF_DIFFICULTY=10;
+let turnstileSecretHealthCache={checkedAt:0,result:null};
+
+const FIRST_PARTY_CLIENT_BLOCK=String.raw`
+let turnstileWidgetId=null,turnstileToken="",turnstileConfig=null,turnstileLoadPromise=null,turnstileExecutionResolve=null,turnstileExecutionReject=null;
+function loadTurnstileScript(){return Promise.resolve(null)}
+function settleTurnstileExecution(token,error=null){turnstileToken=String(token||"");if(error)throw error;return turnstileToken}
+function registrationProofLeadingZeroBits(bytes,bits){
+ let remaining=Number(bits)||0;
+ for(const value of bytes){
+  if(remaining<=0)return true;
+  const take=Math.min(8,remaining);
+  if((value>>(8-take))!==0)return false;
+  remaining-=take;
+ }
+ return remaining<=0
+}
+async function ensureRegistrationChallenge(){
+ if(STANDALONE_PREVIEW)return;
+ const field=document.getElementById("turnstileField");
+ if(field)field.hidden=true;
+ if(authMode!=="register"){turnstileToken="";turnstileConfig=null;return}
+ turnstileConfig={required:true,provider:"thebe_proof",action:"register"};
+ if(field&&!document.getElementById("registrationWebsite")){
+  const trap=document.createElement("input");
+  trap.id="registrationWebsite";
+  trap.name="website";
+  trap.type="text";
+  trap.tabIndex=-1;
+  trap.autocomplete="off";
+  trap.setAttribute("aria-hidden","true");
+  trap.style.position="absolute";
+  trap.style.left="-10000px";
+  trap.style.width="1px";
+  trap.style.height="1px";
+  trap.style.opacity="0";
+  field.appendChild(trap)
+ }
+}
+async function freshRegistrationTurnstileToken(){
+ await ensureRegistrationChallenge();
+ const challenge=await productionApiClient.request("/api/auth/registration-proof/challenge",{
+  method:"POST",
+  headers:{"content-type":"application/json"},
+  body:"{}"
+ });
+ const token=String(challenge?.token||"");
+ const difficulty=Number(challenge?.difficulty||0);
+ if(!token||difficulty<8||difficulty>16)throw new Error("Registration protection is not ready. Try again.");
+ const encoder=new TextEncoder();
+ for(let counter=0;counter<500000;counter++){
+  const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",encoder.encode(token+":"+counter)));
+  if(registrationProofLeadingZeroBits(digest,difficulty)){
+   turnstileToken=JSON.stringify({
+    challenge:token,
+    counter,
+    honeypot:String(document.getElementById("registrationWebsite")?.value||"")
+   });
+   return turnstileToken
+  }
+  if(counter>0&&counter%512===0)await new Promise(resolve=>setTimeout(resolve,0))
+ }
+ throw new Error("Registration protection took too long. Click Create account again.")
+}
+`;
+
+function turnstileCspReady(headers){
+  const csp=String(headers?.get?.("content-security-policy")||"");
+  return csp.includes(TURNSTILE_ORIGIN)&&csp.includes(`frame-src ${TURNSTILE_ORIGIN}`);
+}
+
+function stripConflictingMetaCsp(html){
+  return String(html||"").replace(META_CSP_RE,"");
+}
+
+function injectBeforeFinalClosingTag(html,tag,markup){
+  const source=String(html||"");
+  const closing=`</${String(tag||"").toLowerCase()}>`;
+  const index=source.toLowerCase().lastIndexOf(closing);
+  if(index<0)return source;
+  return source.slice(0,index)+String(markup||"")+source.slice(index);
+}
+
+function injectLogoFavicon(html){
+  const source=String(html||"");
+  if(!source.toLowerCase().includes("</head>"))return source;
+  const withoutOldIcons=source.replace(ICON_LINK_RE,"");
+  const faviconMarkup=`<link rel="icon" type="image/png" sizes="512x512" href="${THEBE_LOGO_FAVICON}" />\n<link rel="apple-touch-icon" href="${THEBE_LOGO_FAVICON}" />\n`;
+  return injectBeforeFinalClosingTag(withoutOldIcons,"head",faviconMarkup);
+}
+
+function injectPublicThebeAssets(html){
+  let source=String(html||"");
+  const lower=source.toLowerCase();
+  if(!lower.includes("</head>")||!lower.includes("</body>"))return source;
+  const liveVoiceJsSrc=`/js/thebe-live-voice.js?v=${THEBE_LIVE_VOICE_RELEASE}`;
+  const publicApiClientJsSrc=`/js/api-client.js?v=${THEBE_PUBLIC_API_CLIENT_RELEASE}`;
+  const aiDockCssHref=`/assets/thebe-ai-dock.css?v=${THEBE_AI_DOCK_RELEASE}`;
+  if(!source.includes("/assets/thebe-ai-dock.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${aiDockCssHref}" />\n`);
+  if(!source.includes("/js/api-client.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${publicApiClientJsSrc}" defer></script>\n`);
+  if(!source.includes("/js/thebe-live-voice.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${liveVoiceJsSrc}" defer></script>\n`);
+  return source;
+}
+
+function injectOwnerCommandCentreAssets(html){
+  let source=String(html||"");
+  const lower=source.toLowerCase();
+  if(!lower.includes("</head>")||!lower.includes("</body>"))return source;
+  const cssHref=`/assets/owner-command-centre.css?v=${OWNER_COMMAND_CENTRE_RELEASE}`;
+  const jsSrc=`/js/owner-command-centre.js?v=${OWNER_COMMAND_CENTRE_RELEASE}`;
+  const personalizationCssHref=`/assets/executive-personalization.css?v=${EXECUTIVE_PERSONALIZATION_RELEASE}`;
+  const personalizationJsSrc=`/js/executive-personalization.js?v=${EXECUTIVE_PERSONALIZATION_RELEASE}`;
+  const bridgeCssHref=`/assets/business-data-bridge.css?v=${BUSINESS_DATA_BRIDGE_RELEASE}`;
+  const bridgeJsSrc=`/js/business-data-bridge.js?v=${BUSINESS_DATA_BRIDGE_RELEASE}`;
+  const liveVoiceJsSrc=`/js/thebe-live-voice.js?v=${THEBE_LIVE_VOICE_RELEASE}`;
+  const publicApiClientJsSrc=`/js/api-client.js?v=${THEBE_PUBLIC_API_CLIENT_RELEASE}`;
+  const aiDockCssHref=`/assets/thebe-ai-dock.css?v=${THEBE_AI_DOCK_RELEASE}`;
+  if(!source.includes("/assets/owner-command-centre.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${cssHref}" />\n`);
+  if(!source.includes("/assets/executive-personalization.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${personalizationCssHref}" />\n`);
+  if(!source.includes("/assets/business-data-bridge.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${bridgeCssHref}" />\n`);
+  if(!source.includes("/assets/thebe-ai-dock.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${aiDockCssHref}" />\n`);
+  if(!source.includes("/js/api-client.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${publicApiClientJsSrc}" defer></script>\n`);
+  if(!source.includes("/js/owner-command-centre.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${jsSrc}" defer></script>\n`);
+  if(!source.includes("/js/executive-personalization.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${personalizationJsSrc}" defer></script>\n`);
+  if(!source.includes("/js/business-data-bridge.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${bridgeJsSrc}" defer></script>\n`);
+  if(!source.includes("/js/thebe-live-voice.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${liveVoiceJsSrc}" defer></script>\n`);
+  return source;
+}
+
+function injectFirstPartyRegistrationClient(html){
+  const source=String(html||"");
+  const start=source.indexOf("let turnstileWidgetId=");
+  if(start<0)return source;
+  const end=source.indexOf("function clearWorkspaceChoice(){",start);
+  if(end<0)return source;
+  return source.slice(0,start)+FIRST_PARTY_CLIENT_BLOCK+"\n"+source.slice(end);
+}
+
+function logicalRequestPath(request){
+  try{
+    const url=new URL(request.url);
+    if(url.pathname==="/"){
+      const tunneled=url.searchParams.get("__thebe_api_path");
+      if(tunneled)return String(tunneled);
+    }
+    if(url.pathname.startsWith("/__thebe_api/"))return `/api/${url.pathname.slice("/__thebe_api/".length)}`;
+    if(url.pathname==="/__thebe_api")return "/api";
+    return url.pathname;
+  }catch{return ""}
+}
+
+function isRegistrationRequest(request){
+  return String(request?.method||"").toUpperCase()==="POST"&&logicalRequestPath(request)==="/api/auth/register";
+}
+
+function isRegistrationProofChallengeRequest(request){
+  return String(request?.method||"").toUpperCase()==="POST"&&logicalRequestPath(request)==="/api/auth/registration-proof/challenge";
+}
+
+function jsonResponse(data,status,headers={}){
+  return new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff",...headers}});
+}
+
+function base64UrlEncodeText(value){
+  const bytes=new TextEncoder().encode(String(value));
+  let binary="";
+  for(const byte of bytes)binary+=String.fromCharCode(byte);
+  return btoa(binary).replaceAll("+","-").replaceAll("/","_").replaceAll("=","");
+}
+
+async function hmacHex(secret,value){
+  const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
+  const sig=await crypto.subtle.sign("HMAC",key,new TextEncoder().encode(value));
+  return [...new Uint8Array(sig)].map(byte=>byte.toString(16).padStart(2,"0")).join("");
+}
+
+function registrationOriginAllowed(request,env){
+  const origin=String(request.headers.get("origin")||"").trim();
+  if(!origin)return true;
+  try{
+    const configured=new URL(String(env?.PUBLIC_ORIGIN||env?.PUBLIC_APP_URL||""));
+    return new URL(origin).origin===configured.origin;
+  }catch{return false}
+}
+
+async function createRegistrationProofChallenge(request,env){
+  if(!registrationOriginAllowed(request,env))return jsonResponse({error:"origin_failed"},403);
+  if(env?.__THEBE_REGISTRATION_CHALLENGE_BUDGET_VERIFIED!==true){
+    const challengeGate=await durableRegistrationChallengeGate(request,env);
+    if(challengeGate)return challengeGate;
+  }
+  const secret=registrationProofSecret(env);
+  if(!secret)return jsonResponse({error:"registration_protection_unavailable",message:"Registration protection is temporarily unavailable."},503,{"retry-after":"60"});
+  const now=Date.now(),bytes=crypto.getRandomValues(new Uint8Array(18));
+  let nonce="";
+  for(const byte of bytes)nonce+=byte.toString(16).padStart(2,"0");
+  const ip=registrationClientIp(request);
+  const ipTag=(await hmacHex(secret,`registration-ip:${ip||"unknown"}`)).slice(0,24);
+  const payload={v:1,n:nonce,iat:now,exp:now+REGISTRATION_PROOF_TTL_MS,b:REGISTRATION_PROOF_DIFFICULTY,ip:ipTag};
+  const encoded=base64UrlEncodeText(JSON.stringify(payload));
+  const signature=await hmacHex(secret,`registration-challenge:${encoded}`);
+  return jsonResponse({provider:"thebe_proof",required:true,action:"register",token:`${encoded}.${signature}`,difficulty:REGISTRATION_PROOF_DIFFICULTY,expiresInSeconds:Math.floor(REGISTRATION_PROOF_TTL_MS/1000)},200);
+}
+
+const verifyRegistrationProof=validateAndClaimRegistrationProof;
+
+async function turnstileSecretHealth(env){
+  const secret=String(env?.TURNSTILE_SECRET_KEY||"").trim();
+  if(secret.length<20)return {ok:false,reason:"secret_missing_or_weak"};
+  const now=Date.now();
+  if(turnstileSecretHealthCache.result&&now-turnstileSecretHealthCache.checkedAt<TURNSTILE_SECRET_HEALTH_TTL_MS)return turnstileSecretHealthCache.result;
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort("turnstile_secret_health_timeout"),5000);
+  try{
+    const body=new URLSearchParams({secret});
+    const response=await fetch(TURNSTILE_VERIFY_URL,{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},body,signal:controller.signal,redirect:"error"});
+    if(!response.ok)return {ok:null,reason:`siteverify_http_${response.status}`};
+    const result=await response.json();
+    const errors=Array.isArray(result?.["error-codes"])?result["error-codes"].map(String):[];
+    const health=errors.includes("invalid-input-secret")||errors.includes("missing-input-secret")
+      ?{ok:false,reason:LEGACY_TURNSTILE_CONFIGURATION_ERROR}
+      :errors.includes("missing-input-response")
+        ?{ok:true,reason:"secret_accepted"}
+        :{ok:null,reason:errors[0]||"siteverify_unexpected_response"};
+    if(health.ok!==null)turnstileSecretHealthCache={checkedAt:now,result:health};
+    return health;
+  }catch{return {ok:null,reason:"siteverify_unavailable"}}
+  finally{clearTimeout(timer)}
+}
+
+async function rewriteRegistrationVerificationFailure(response){
+  if(response.status!==403)return response;
+  const type=String(response.headers.get("content-type")||"").toLowerCase();
+  if(!type.includes("application/json"))return response;
+  try{
+    const data=await response.clone().json();
+    if(data?.error!=="human_verification_failed")return response;
+    const headers=new Headers(response.headers);headers.set("cache-control","no-store");
+    return new Response(JSON.stringify({
+      error:"human_verification_retry",
+      message:"Human verification was rejected. If this repeats after a fresh challenge, confirm the Turnstile site key and secret key come from the same widget and that thebedesk.com is an allowed hostname.",
+      retryable:true
+    }),{status:403,statusText:response.statusText,headers});
+  }catch{return response}
+}
+
+async function fetchWithTurnstileCspRepair(request,env,ctx){
+  const agenticResponse=await handleAgenticRequest({
+    request,
+    logicalPath:logicalRequestPath(request),
+    env,
+    ctx,
+    coreFetch:(innerRequest,innerEnv=env,innerCtx=ctx)=>worker.fetch(innerRequest,innerEnv,innerCtx)
+  });
+  if(agenticResponse)return agenticResponse;
+
+  if(isRegistrationProofChallengeRequest(request))return createRegistrationProofChallenge(request,env);
+
+  const registrationRequest=isRegistrationRequest(request);
+  if(registrationRequest){
+    if(env?.__THEBE_REGISTRATION_PROOF_VERIFIED===true){
+      return worker.fetch(request,env,ctx);
+    }
+    let body={};
+    try{body=await request.clone().json()}catch{}
+    const proof=await verifyRegistrationProof(request,env,body?.turnstileToken);
+    if(!proof.ok){
+      return jsonResponse({
+        error:"registration_protection_failed",
+        message:"Registration protection expired or could not be verified. Click Create account again to generate a fresh secure proof.",
+        retryable:true
+      },403);
+    }
+    const verifiedEnv=Object.assign({},env,{__THEBE_REGISTRATION_PROOF_VERIFIED:true,APP_ENV:"registration-proof-verified",TURNSTILE_SECRET_KEY:""});
+    return worker.fetch(request,verifiedEnv,ctx);
+  }
+
+  let response=await worker.fetch(request,env,ctx);
+  if(request.method!=="GET")return response;
+  const type=String(response.headers.get("content-type")||"").toLowerCase();
+  if(!type.includes("text/html"))return response;
+  const html=await response.clone().text();
+  const path=logicalRequestPath(request);
+  const baseHtml=injectFirstPartyRegistrationClient(injectLogoFavicon(stripConflictingMetaCsp(html)));
+  const publicSurface=path==="/home"||path==="/home/";
+  const workspaceSurface=path==="/"||path==="/app"||path==="/app/";
+  const repaired=workspaceSurface?injectOwnerCommandCentreAssets(baseHtml):publicSurface?injectPublicThebeAssets(baseHtml):baseHtml;
+  if(repaired===html)return response;
+  const headers=new Headers(response.headers);
+  headers.set("x-thebe-csp-meta","server-header-authoritative");
+  headers.set("x-thebe-favicon","optimized-512");
+  headers.set("x-thebe-registration-protection","first-party-proof-v1");
+  if(workspaceSurface){
+    headers.set("x-thebe-owner-brief",OWNER_COMMAND_CENTRE_RELEASE);
+    headers.set("x-thebe-executive-personalization",EXECUTIVE_PERSONALIZATION_RELEASE);
+    headers.set("x-thebe-business-data-bridge",BUSINESS_DATA_BRIDGE_RELEASE);
+  }
+  if(workspaceSurface||publicSurface)headers.set("x-thebe-ai-dock",THEBE_AI_DOCK_RELEASE);
+  return new Response(repaired,{status:response.status,statusText:response.statusText,headers});
+}
+
+export {
+  createRegistrationProofChallenge,
+  injectFirstPartyRegistrationClient,
+  injectLogoFavicon,
+  injectOwnerCommandCentreAssets,
+  injectPublicThebeAssets,
+  isRegistrationRequest,
+  isRegistrationProofChallengeRequest,
+  rewriteRegistrationVerificationFailure,
+  stripConflictingMetaCsp,
+  turnstileCspReady,
+  turnstileSecretHealth,
+  verifyRegistrationProof
+};
+
+export default {
+  fetch:fetchWithTurnstileCspRepair,
+  async scheduled(event,env,ctx){
+    return worker.scheduled(event,env,ctx);
+  }
+};
+
+===== ORIGINAL FILE: cloudflare/src/registration-boundary.js =====
+
+const REGISTRATION_PROOF_TTL_MS=5*60*1000;
+const REGISTRATION_PROOF_MAX_COUNTER=500000;
+const REGISTRATION_CHALLENGE_WINDOW_MS=5*60*1000;
+const REGISTRATION_CHALLENGE_LIMIT=30;
+
+function json(data,status=200,headers={}){
+  return new Response(JSON.stringify(data),{status,headers:{
+    "content-type":"application/json; charset=utf-8",
+    "cache-control":"no-store",
+    "x-content-type-options":"nosniff",
+    ...headers
+  }});
+}
+
+function registrationProofSecret(env){
+  const value=String(env?.AUTOMATION_SECRET||env?.SESSION_SECRET||"").trim();
+  return value.length>=32?value:"";
+}
+
+function registrationClientIp(request){
+  return String(request.headers.get("cf-connecting-ip")||request.headers.get("x-forwarded-for")||"").split(",")[0].trim();
+}
+
+async function hmacHex(secret,value){
+  const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
+  const signature=await crypto.subtle.sign("HMAC",key,new TextEncoder().encode(value));
+  return [...new Uint8Array(signature)].map(byte=>byte.toString(16).padStart(2,"0")).join("");
+}
+
+function timingSafeText(left,right){
+  const a=String(left||""),b=String(right||"");
+  if(a.length!==b.length)return false;
+  let diff=0;
+  for(let i=0;i<a.length;i++)diff|=a.charCodeAt(i)^b.charCodeAt(i);
+  return diff===0;
+}
+
+function base64UrlDecodeText(value){
+  const raw=String(value||"").replaceAll("-","+").replaceAll("_","/");
+  const padded=raw+"=".repeat((4-raw.length%4)%4);
+  const binary=atob(padded);
+  const bytes=Uint8Array.from(binary,ch=>ch.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+async function sha256Bytes(value){
+  return new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(String(value))));
+}
+
+function hasLeadingZeroBits(bytes,bits){
+  let remaining=Number(bits)||0;
+  for(const value of bytes){
+    if(remaining<=0)return true;
+    const take=Math.min(8,remaining);
+    if((value>>(8-take))!==0)return false;
+    remaining-=take;
+  }
+  return remaining<=0;
+}
+
+async function consumeDurableRegistrationBudget(env,scope,material,{limit,windowMs}){
+  const secret=registrationProofSecret(env);
+  if(!secret||!env?.DB)return {ok:false,unavailable:true,retryAfter:60};
+  const now=Date.now();
+  const bucket=Math.floor(now/windowMs);
+  const keyHash=await hmacHex(secret+"|registration-boundary-rate-v1",`${scope}|${bucket}|${String(material||"unknown")}`);
+  const expiresAt=new Date((bucket+2)*windowMs).toISOString();
+  try{
+    await env.DB.prepare(`INSERT INTO auth_rate_limits(key_hash,scope,count,window_start,expires_at)
+      VALUES(?,?,1,?,?)
+      ON CONFLICT(key_hash) DO UPDATE SET count=auth_rate_limits.count+1`)
+      .bind(keyHash,scope,bucket,expiresAt).run();
+    const row=await env.DB.prepare("SELECT count FROM auth_rate_limits WHERE key_hash=? LIMIT 1").bind(keyHash).first();
+    const count=Number(row?.count||0);
+    return {
+      ok:count>0&&count<=limit,
+      unavailable:false,
+      retryAfter:Math.max(1,Math.ceil((((bucket+1)*windowMs)-now)/1000))
+    };
+  }catch{
+    return {ok:false,unavailable:true,retryAfter:60};
+  }
+}
+
+async function durableRegistrationChallengeGate(request,env){
+  const budget=await consumeDurableRegistrationBudget(
+    env,
+    "registration_proof_challenge_ip",
+    registrationClientIp(request)||"unknown",
+    {limit:REGISTRATION_CHALLENGE_LIMIT,windowMs:REGISTRATION_CHALLENGE_WINDOW_MS}
+  );
+  if(budget.unavailable){
+    return json({error:"registration_protection_unavailable",message:"Registration protection is temporarily unavailable."},503,{"retry-after":String(budget.retryAfter)});
+  }
+  if(!budget.ok){
+    return json({error:"rate_limited",message:"Too many registration protection requests. Try again shortly."},429,{"retry-after":String(budget.retryAfter)});
+  }
+  return null;
+}
+
+async function claimRegistrationNonce(env,secret,nonce,expiresAtMs){
+  if(!env?.DB)return {ok:false,reason:"replay_ledger_unavailable"};
+  const keyHash=await hmacHex(secret+"|registration-boundary-replay-v1",String(nonce));
+  const expiresAt=new Date(Number(expiresAtMs)).toISOString();
+  try{
+    const result=await env.DB.prepare(`INSERT OR IGNORE INTO auth_rate_limits(key_hash,scope,count,window_start,expires_at)
+      VALUES(?,?,1,?,?)`)
+      .bind(keyHash,"registration_proof_replay",Date.now(),expiresAt).run();
+    const changes=Number(result?.meta?.changes??result?.changes??0);
+    if(changes===1)return {ok:true,reason:"claimed"};
+    if(changes===0)return {ok:false,reason:"proof_replayed"};
+    return {ok:false,reason:"replay_ledger_unavailable"};
+  }catch{
+    return {ok:false,reason:"replay_ledger_unavailable"};
+  }
+}
+
+async function validateAndClaimRegistrationProof(request,env,serialized){
+  const secret=registrationProofSecret(env);
+  if(!secret)return {ok:false,reason:"secret_unavailable"};
+  let proof;
+  try{proof=JSON.parse(String(serialized||""))}catch{return {ok:false,reason:"proof_malformed"}}
+  if(String(proof?.honeypot||"").trim())return {ok:false,reason:"honeypot"};
+  const challenge=String(proof?.challenge||"");
+  const counter=Number(proof?.counter);
+  if(!challenge||!Number.isSafeInteger(counter)||counter<0||counter>REGISTRATION_PROOF_MAX_COUNTER)return {ok:false,reason:"proof_invalid"};
+  const split=challenge.lastIndexOf(".");
+  if(split<=0)return {ok:false,reason:"challenge_malformed"};
+  const encoded=challenge.slice(0,split),signature=challenge.slice(split+1);
+  const expectedSignature=await hmacHex(secret,`registration-challenge:${encoded}`);
+  if(!timingSafeText(signature,expectedSignature))return {ok:false,reason:"signature_invalid"};
+  let payload;
+  try{payload=JSON.parse(base64UrlDecodeText(encoded))}catch{return {ok:false,reason:"payload_invalid"}}
+  const now=Date.now();
+  if(payload?.v!==1||typeof payload?.n!=="string"||payload.n.length<20)return {ok:false,reason:"payload_invalid"};
+  if(!Number.isFinite(payload?.iat)||!Number.isFinite(payload?.exp)||payload.exp<=now||payload.iat>now+30_000||payload.exp-payload.iat>REGISTRATION_PROOF_TTL_MS+5_000)return {ok:false,reason:"challenge_expired"};
+  if(!Number.isInteger(payload?.b)||payload.b<8||payload.b>16)return {ok:false,reason:"difficulty_invalid"};
+  const ip=registrationClientIp(request);
+  const expectedIpTag=(await hmacHex(secret,`registration-ip:${ip||"unknown"}`)).slice(0,24);
+  if(!timingSafeText(String(payload.ip||""),expectedIpTag))return {ok:false,reason:"client_changed"};
+  const digest=await sha256Bytes(`${challenge}:${counter}`);
+  if(!hasLeadingZeroBits(digest,payload.b))return {ok:false,reason:"work_invalid"};
+  const claim=await claimRegistrationNonce(env,secret,payload.n,payload.exp);
+  if(!claim.ok)return claim;
+  return {ok:true,reason:"verified_and_claimed"};
+}
+
+export {
+  claimRegistrationNonce,
+  consumeDurableRegistrationBudget,
+  durableRegistrationChallengeGate,
+  registrationClientIp,
+  registrationProofSecret,
+  validateAndClaimRegistrationProof
+};
+
+
+===== ORIGINAL FILE: cloudflare/src/release-governance-entry.js =====
+
+import base from "./agentic-entry.js";
+import releaseMetadata from "../../release/production.json" with {type:"json"};
+import {durableRegistrationChallengeGate,validateAndClaimRegistrationProof} from "./registration-boundary.js";
+
+const VALID_REGISTRATION_MODES=new Set(["hold","cohort","open"]);
+const WORKSPACE_SURFACE_ROLES=new Set(["owner","manager","reviewer","auditor"]);
+const OAUTH_VISIBILITY_SCRIPT="/js/oauth-availability.js?v=20260916b";
+const WORKSPACE_BOUNDARY_SCRIPT="/js/surface-boundaries.js?v=20260918-no-layout-read";
+const PUBLIC_HOME_ASSET="/home";
+const AUTH_PORTAL_ASSET="/auth";
+const VOICE_SURFACE_PERMISSIONS_POLICY="camera=(), microphone=(self), geolocation=(), payment=()";
+const SYNTHETIC_LEGACY_ROOT_PARAMS=new Set(["desktop-owner-proof","authenticated-mobile-proof"]);
+const SYNTHETIC_EMAIL_RE=/^synthetic\.lifecycle\.\d+\.\d+\.[0-9a-f]{12}@example\.invalid$/;
+const MAX_REGISTRATION_POLICY_BODY_BYTES=16*1024;
+const MAX_EMBEDDED_WORKSPACE_STATE_BYTES=512*1024;
+const REGISTRATION_PATH="/api/auth/register";
+const REGISTRATION_PROOF_CHALLENGE_PATH="/api/auth/registration-proof/challenge";
+
+function json(data,status=200,headers={}){
+  return new Response(JSON.stringify(data),{status,headers:{
+    "content-type":"application/json; charset=utf-8",
+    "cache-control":"no-store",
+    "x-content-type-options":"nosniff",
+    ...headers
+  }});
+}
+
+function logicalRequestPath(request){
+  try{
+    const url=new URL(request.url);
+    if(url.pathname==="/"){
+      const tunneled=url.searchParams.get("__thebe_api_path");
+      if(tunneled)return String(tunneled);
+    }
+    if(url.pathname.startsWith("/__thebe_api/"))return `/api/${url.pathname.slice("/__thebe_api/".length)}`;
+    if(url.pathname==="/__thebe_api")return "/api";
+    return url.pathname;
+  }catch{return ""}
+}
+
+function syntheticLegacyRootRequested(request){
+  try{
+    const url=new URL(request.url);
+    if(url.pathname!=="/")return false;
+    for(const key of SYNTHETIC_LEGACY_ROOT_PARAMS)if(url.searchParams.has(key))return true;
+    return false;
+  }catch{return false}
+}
+
+function rewriteSurfaceRequest(request,pathname,{clearSearch=false}={}){
+  const url=new URL(request.url);url.pathname=pathname;if(clearSearch)url.search="";
+  return new Request(url.toString(),request);
+}
+
+function trailingSlashRedirect(request,pathname){
+  const current=new URL(request.url),target=new URL(request.url);target.pathname=pathname;
+  if(pathname==="/auth/"||pathname==="/app/")target.search=current.search;
+  return Response.redirect(target.toString(),302);
+}
+
+function voiceSurfacePermissionsPolicy(path,contentType){
+  const html=String(contentType||"").toLowerCase().includes("text/html");
+  if(!html)return null;
+  return path==="/"||path==="/app"||path==="/app/"?VOICE_SURFACE_PERMISSIONS_POLICY:null;
+}
+
+function registrationMode(env){
+  const configured=String(env?.REGISTRATION_MODE||"hold").trim().toLowerCase();
+  return VALID_REGISTRATION_MODES.has(configured)?configured:"invalid";
+}
+
+function registrationCohort(env){
+  return new Set(String(env?.REGISTRATION_COHORT_EMAILS_SECRET||"")
+    .split(",")
+    .map(value=>value.trim().toLowerCase())
+    .filter(Boolean));
+}
+
+function oauthProviders(env){
+  const google=!!(
+    String(env?.GOOGLE_OAUTH_CLIENT_ID||"").trim()&&
+    String(env?.GOOGLE_OAUTH_CLIENT_SECRET||"").trim()&&
+    String(env?.GOOGLE_OAUTH_REDIRECT_URI||"").trim()
+  );
+  const facebook=!!(
+    String(env?.FACEBOOK_APP_ID||"").trim()&&
+    String(env?.FACEBOOK_APP_SECRET||"").trim()&&
+    String(env?.FACEBOOK_OAUTH_REDIRECT_URI||"").trim()
+  );
+  return {google,facebook};
+}
+
+function releaseProvenance(env){
+  return {
+    version:String(env?.APP_RELEASE||"v78.1.21.101"),
+    release:String(releaseMetadata?.release||"production"),
+    releaseSequence:Number(releaseMetadata?.sequence||0),
+    sourceSha:String(releaseMetadata?.sourceSha||""),
+    runtimeEntry:"release-governance-entry",
+    registrationMode:registrationMode(env)
+  };
+}
+
+function timingSafeText(left,right){
+  const a=String(left||""),b=String(right||"");
+  if(a.length!==b.length)return false;
+  let diff=0;
+  for(let i=0;i<a.length;i++)diff|=a.charCodeAt(i)^b.charCodeAt(i);
+  return diff===0;
+}
+
+async function hmacHex(secret,value){
+  const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
+  const signature=await crypto.subtle.sign("HMAC",key,new TextEncoder().encode(value));
+  return [...new Uint8Array(signature)].map(byte=>byte.toString(16).padStart(2,"0")).join("");
+}
+
+async function signedSyntheticRegistrationAllowed(request,env,email){
+  if(!SYNTHETIC_EMAIL_RE.test(email))return false;
+  const secret=String(env?.AUDIT_INTEGRITY_SECRET||"");
+  if(secret.length<32)return false;
+  const supplied=String(request.headers.get("x-thebe-registration-audit")||"").trim().toLowerCase();
+  if(!/^[0-9a-f]{64}$/.test(supplied))return false;
+  const expected=await hmacHex(secret,`registration-override:${email}`);
+  return timingSafeText(supplied,expected);
+}
+
+async function readJsonBoundedClone(request,maxBytes=MAX_REGISTRATION_POLICY_BODY_BYTES){
+  const clone=request.clone();
+  const declared=Number(clone.headers.get("content-length")||0);
+  if(Number.isFinite(declared)&&declared>maxBytes)return {body:{},tooLarge:true};
+  if(!clone.body)return {body:{},tooLarge:false};
+  const reader=clone.body.getReader(),chunks=[];let total=0;
+  try{
+    while(true){
+      const {done,value}=await reader.read();
+      if(done)break;
+      if(!value)continue;
+      total+=value.byteLength;
+      if(total>maxBytes){
+        try{reader.cancel("payload_too_large").catch(()=>{})}catch{}
+        return {body:{},tooLarge:true};
+      }
+      chunks.push(value);
+    }
+  }finally{try{reader.releaseLock()}catch{}}
+  if(!chunks.length)return {body:{},tooLarge:false};
+  const merged=new Uint8Array(total);let offset=0;
+  for(const chunk of chunks){merged.set(chunk,offset);offset+=chunk.byteLength}
+  try{return {body:JSON.parse(new TextDecoder().decode(merged)),tooLarge:false}}
+  catch{return {body:{},tooLarge:false}}
+}
+
+function registrationHoldResponse(mode="hold"){
+  return json({error:"registration_on_hold",message:"New customer activation is temporarily on hold while launch verification is completed.",registrationMode:mode},503,{"retry-after":"300"});
+}
+
+function registrationProtectionFailure(status=403){
+  const unavailable=status===503;
+  return json({
+    error:unavailable?"registration_protection_unavailable":"registration_protection_failed",
+    message:unavailable
+      ?"Registration protection is temporarily unavailable. Please try again shortly."
+      :"Registration protection expired or could not be verified. Click Create account again to generate a fresh secure proof.",
+    retryable:true
+  },status,unavailable?{"retry-after":"60"}:{});
+}
+
+async function registrationGate(request,env){
+  const mode=registrationMode(env);
+  if(mode==="invalid")return json({error:"registration_policy_invalid",message:"Registration is unavailable while the activation policy is being repaired."},503,{"retry-after":"300"});
+
+  const hasAuditOverride=!!String(request.headers.get("x-thebe-registration-audit")||"").trim();
+  if(mode==="hold"&&!hasAuditOverride)return registrationHoldResponse(mode);
+
+  const parsed=await readJsonBoundedClone(request);
+  if(parsed.tooLarge)return json({error:"payload_too_large",message:"Registration request body is too large."},413);
+  if(mode==="open")return null;
+
+  const email=String(parsed.body?.email||"").trim().toLowerCase();
+  if(await signedSyntheticRegistrationAllowed(request,env,email))return null;
+
+  if(mode==="hold")return registrationHoldResponse(mode);
+  const cohort=registrationCohort(env);
+  if(!cohort.size)return json({error:"registration_policy_invalid",message:"Registration is unavailable while the activation policy is being repaired."},503,{"retry-after":"300"});
+  if(email&&cohort.has(email))return null;
+  return json({error:"registration_not_in_cohort",message:"Registration is currently limited to the approved launch cohort.",registrationMode:mode},403);
+}
+
+function injectScriptOnce(html,src){
+  const source=String(html||"");
+  const bare=String(src||"").split("?",1)[0];
+  if(!source.toLowerCase().includes("</body>")||source.includes(bare))return source;
+  const tag=`<script src="${src}" defer></script>\n`;
+  const index=source.toLowerCase().lastIndexOf("</body>");
+  return source.slice(0,index)+tag+source.slice(index);
+}
+
+function normalizeWorkspaceAssetUrls(html){
+  return String(html||"")
+    .replaceAll('src="js/','src="/js/')
+    .replaceAll("src='js/","src='/js/")
+    .replaceAll('href="assets/','href="/assets/')
+    .replaceAll("href='assets/","href='/assets/")
+    .replaceAll('src="assets/','src="/assets/')
+    .replaceAll("src='assets/","src='/assets/")
+    .replaceAll('href="manifest.webmanifest"','href="/manifest.webmanifest"')
+    .replaceAll("href='manifest.webmanifest'","href='/manifest.webmanifest'");
+}
+
+function injectOauthAvailabilityScript(html){return injectScriptOnce(html,OAUTH_VISIBILITY_SCRIPT)}
+function injectWorkspaceBoundaryScript(html){return injectScriptOnce(html,WORKSPACE_BOUNDARY_SCRIPT)}
+
+function safeEmbeddedJson(value){
+  const json=JSON.stringify(value);
+  if(typeof json!=="string"||new TextEncoder().encode(json).byteLength>MAX_EMBEDDED_WORKSPACE_STATE_BYTES)return "";
+  return json
+    .replaceAll("&","\\u0026")
+    .replaceAll("<","\\u003c")
+    .replaceAll(">","\\u003e")
+    .replaceAll("\u2028","\\u2028")
+    .replaceAll("\u2029","\\u2029");
+}
+
+function injectInitialWorkspaceState(html,payload){
+  const source=String(html||"");
+  if(!payload||source.includes('id="thebe-initial-workspace-state"'))return source;
+  const serialized=safeEmbeddedJson(payload);
+  if(!serialized||!source.toLowerCase().includes("</body>"))return source;
+  const tag=`<script type="application/json" id="thebe-initial-workspace-state">${serialized}</script>\n`;
+  const index=source.toLowerCase().lastIndexOf("</body>");
+  return source.slice(0,index)+tag+source.slice(index);
+}
+
+async function prefetchedWorkspaceState(request,env,ctx){
+  try{
+    const stateUrl=new URL("/api/state",request.url);
+    const stateHeaders=new Headers(request.headers);stateHeaders.set("accept","application/json");
+    const response=await base.fetch(new Request(stateUrl.toString(),{method:"GET",headers:stateHeaders,redirect:"manual"}),env,ctx);
+    if(!response.ok||!String(response.headers.get("content-type")||"").toLowerCase().includes("application/json"))return null;
+    const body=await response.json();
+    const version=Number(body?.version);
+    if(!Number.isSafeInteger(version)||version<1||!body?.state||typeof body.state!=="object"||Array.isArray(body.state))return null;
+    return {version,state:body.state};
+  }catch{return null}
+}
+
+function workspaceUnavailableResponse(){
+  return new Response("Thebe Desk workspace is temporarily unavailable. The public site remains available at https://thebedesk.com/.",{status:503,headers:{"content-type":"text/plain; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff","x-frame-options":"DENY","retry-after":"30"}});
+}
+
+async function workspaceSurfaceResponse(request,env,ctx){
+  const probeUrl=new URL("/api/auth/me",request.url);
+  const probeHeaders=new Headers(request.headers);probeHeaders.set("accept","application/json");
+  const probe=await base.fetch(new Request(probeUrl.toString(),{method:"GET",headers:probeHeaders,redirect:"manual"}),env,ctx);
+  if(probe.status===401||probe.status===403){
+    const current=new URL(request.url),target=new URL("/auth/",request.url);target.searchParams.set("mode","login");target.searchParams.set("next",current.pathname+current.search);
+    return Response.redirect(target.toString(),302);
+  }
+  if(!probe.ok)return workspaceUnavailableResponse();
+
+  let probeRole="";
+  try{
+    const probeBody=await probe.clone().json();
+    probeRole=String(probeBody?.user?.role||"");
+  }catch{}
+  const workspaceRole=WORKSPACE_SURFACE_ROLES.has(probeRole);
+  const initialState=request.method==="GET"&&workspaceRole?await prefetchedWorkspaceState(request,env,ctx):null;
+  const shellRequest=rewriteSurfaceRequest(request,"/",{clearSearch:false});
+  const shell=await base.fetch(shellRequest,env,ctx);
+  if(!initialState||request.method!=="GET"||!String(shell.headers.get("content-type")||"").toLowerCase().includes("text/html"))return shell;
+
+  try{
+    const html=await shell.clone().text(),injected=injectInitialWorkspaceState(html,initialState);
+    if(injected===html)return shell;
+    const headers=new Headers(shell.headers);
+    headers.delete("content-length");headers.delete("etag");
+    headers.set("cache-control","no-store");
+    headers.set("x-thebe-initial-state","embedded-v1");
+    return new Response(injected,{status:shell.status,statusText:shell.statusText,headers});
+  }catch{return shell}
+}
+
+async function decorateResponse(request,env,response){
+  const path=logicalRequestPath(request);
+  let next=response;
+  if(request.method==="GET"&&path==="/api/ready"){
+    try{
+      const body=await response.clone().json();
+      const headers=new Headers(response.headers);
+      headers.delete("content-length");
+      headers.set("content-type","application/json; charset=utf-8");
+      headers.set("cache-control","no-store");
+      next=new Response(JSON.stringify({
+        ...body,
+        provenance:releaseProvenance(env),
+        oauthProviders:oauthProviders(env)
+      }),{status:response.status,statusText:response.statusText,headers});
+    }catch{}
+  }
+
+  if(request.method==="GET"){
+    const type=String(next.headers.get("content-type")||"").toLowerCase();
+    if(type.includes("text/html")){
+      try{
+        const html=await next.clone().text();
+        const appSurface=path==="/app"||path==="/app/";
+        const legacySyntheticRoot=path==="/"&&syntheticLegacyRootRequested(request);
+        let injected=html;
+        if(appSurface)injected=normalizeWorkspaceAssetUrls(injected);
+        if(appSurface||legacySyntheticRoot)injected=injectOauthAvailabilityScript(injected);
+        if(appSurface)injected=injectWorkspaceBoundaryScript(injected);
+        if(injected!==html){
+          const headers=new Headers(next.headers);
+          headers.delete("content-length");
+          headers.delete("etag");
+          if(appSurface||legacySyntheticRoot)headers.set("x-thebe-oauth-ui","availability-gated-v2");
+          if(appSurface)headers.set("x-thebe-surface-boundary","workspace-v1");
+          next=new Response(injected,{status:next.status,statusText:next.statusText,headers});
+        }
+      }catch{}
+    }
+  }
+
+  const headers=new Headers(next.headers);
+  const voicePolicy=voiceSurfacePermissionsPolicy(path,headers.get("content-type"));
+  if(voicePolicy)headers.set("permissions-policy",voicePolicy);
+  const provenance=releaseProvenance(env);
+  if(provenance.sourceSha)headers.set("x-thebe-source-sha",provenance.sourceSha);
+  if(provenance.releaseSequence>0)headers.set("x-thebe-release-sequence",String(provenance.releaseSequence));
+  headers.set("x-thebe-registration-mode",provenance.registrationMode);
+  if(path==="/")headers.set("x-thebe-surface",syntheticLegacyRootRequested(request)?"workspace-synthetic":"public");
+  if(path==="/auth"||path==="/auth/"){headers.set("x-thebe-surface","auth");headers.set("x-robots-tag","noindex, nofollow");headers.set("cache-control","no-store")}
+  if(path==="/app"||path==="/app/"){headers.set("x-thebe-surface","app");headers.set("x-robots-tag","noindex, nofollow");headers.set("cache-control","no-store")}
+  return new Response(next.body,{status:next.status,statusText:next.statusText,headers});
+}
+
+export default {
+  async fetch(request,env,ctx){
+    const path=logicalRequestPath(request),method=request.method;
+
+    if(["GET","HEAD"].includes(method)&&path==="/"&&!syntheticLegacyRootRequested(request)){
+      const response=await base.fetch(rewriteSurfaceRequest(request,PUBLIC_HOME_ASSET,{clearSearch:true}),env,ctx);
+      return decorateResponse(request,env,response);
+    }
+    if(["GET","HEAD"].includes(method)&&path==="/auth")return trailingSlashRedirect(request,"/auth/");
+    if(["GET","HEAD"].includes(method)&&path==="/auth/"){
+      const response=await base.fetch(rewriteSurfaceRequest(request,AUTH_PORTAL_ASSET,{clearSearch:true}),env,ctx);
+      return decorateResponse(request,env,response);
+    }
+    if(["GET","HEAD"].includes(method)&&path==="/app")return trailingSlashRedirect(request,"/app/");
+    if(["GET","HEAD"].includes(method)&&path==="/app/"){
+      const response=await workspaceSurfaceResponse(request,env,ctx);
+      return decorateResponse(request,env,response);
+    }
+
+    if(method==="GET"&&path==="/api/version")return json({ok:true,...releaseProvenance(env)});
+    if(method==="GET"&&path==="/api/auth/oauth/providers")return json({ok:true,...oauthProviders(env)});
+    if(method==="GET"&&path==="/api/auth/registration-policy")return json({ok:true,mode:registrationMode(env)});
+
+    let downstreamEnv=env;
+    if(method==="POST"&&path===REGISTRATION_PROOF_CHALLENGE_PATH){
+      const blocked=await durableRegistrationChallengeGate(request,env);
+      if(blocked)return decorateResponse(request,env,blocked);
+      downstreamEnv=Object.assign({},env,{__THEBE_REGISTRATION_CHALLENGE_BUDGET_VERIFIED:true});
+    }
+
+    if(method==="POST"&&path===REGISTRATION_PATH){
+      const blocked=await registrationGate(request,env);
+      if(blocked)return decorateResponse(request,env,blocked);
+
+      const parsed=await readJsonBoundedClone(request);
+      if(parsed.tooLarge)return decorateResponse(request,env,json({error:"payload_too_large",message:"Registration request body is too large."},413));
+      const proof=await validateAndClaimRegistrationProof(request,env,parsed.body?.turnstileToken);
+      if(!proof.ok){
+        const status=proof.reason==="replay_ledger_unavailable"?503:403;
+        return decorateResponse(request,env,registrationProtectionFailure(status));
+      }
+      downstreamEnv=Object.assign({},env,{
+        __THEBE_REGISTRATION_PROOF_VERIFIED:true,
+        APP_ENV:"registration-proof-verified",
+        TURNSTILE_SECRET_KEY:""
+      });
+    }
+
+    const response=await base.fetch(request,downstreamEnv,ctx);
+    return decorateResponse(request,env,response);
+  },
+  async scheduled(event,env,ctx){
+    return base.scheduled(event,env,ctx);
+  }
+};
+
+export {
+  injectOauthAvailabilityScript,
+  injectWorkspaceBoundaryScript,
+  logicalRequestPath,
+  normalizeWorkspaceAssetUrls,
+  oauthProviders,
+  readJsonBoundedClone,
+  registrationCohort,
+  registrationGate,
+  registrationMode,
+  registrationProtectionFailure,
+  releaseProvenance,
+  signedSyntheticRegistrationAllowed,
+  syntheticLegacyRootRequested,
+  voiceSurfacePermissionsPolicy,
+  workspaceSurfaceResponse
+};
+
+
+===== ORIGINAL FILE: cloudflare/src/whatsapp-inbound-core.js =====
+
+import {prepareWhatsAppPurposeForPrincipal} from "./agentic-whatsapp-core.js";
+
+const MAX_INBOUND_MESSAGES=100;
+const clean=(value,max=500)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
+
+export function normalizeWhatsAppInboundNumber(value){
+  let number=clean(value,32).replace(/[\s().-]/g,"");
+  if(/^7\d{7}$/.test(number))number=`+267${number}`;
+  else if(/^2677\d{7}$/.test(number))number=`+${number}`;
+  return /^\+2677\d{7}$/.test(number)?number:null;
+}
+
+export function classifyWhatsAppInboundCommand(value){
+  let command=clean(value,160).toLowerCase().replace(/[^a-z0-9]+/g," ").replace(/\s+/g," ").trim();
+  command=command.replace(/^(?:hey\s+)?thebe\s+/,"");
+  const groups=[
+    ["owner_daily_brief",new Set(["brief","daily brief","owner brief","business brief","business status","status","overview"])],
+    ["finance_exception",new Set(["finance","finance brief","reconciliation","reconcile","cash position"])],
+    ["compliance_followup",new Set(["compliance","compliance follow up","deadline","deadlines","burs","cipa","licence","license"])],
+    ["operations_update",new Set(["operations","operations update","workflow","workflows","daily operations"])]
+  ];
+  for(const [purpose,commands] of groups)if(commands.has(command))return purpose;
+  return null;
+}
+
+async function linkedPrincipal(env,phoneE164){
+  const rows=await env.DB.prepare(`SELECT c.tenant_id,c.user_id,m.role
+    FROM whatsapp_consents c
+    JOIN memberships m ON m.tenant_id=c.tenant_id AND m.user_id=c.user_id AND m.status='active'
+    JOIN notification_preferences p ON p.user_id=c.user_id AND p.whatsapp_enabled=1
+    WHERE c.phone_e164=? AND c.status='active' AND m.role IN ('owner','manager')
+    ORDER BY c.tenant_id,c.user_id LIMIT 3`).bind(phoneE164).all();
+  const matches=rows.results||[];
+  if(matches.length===0)return {state:"unlinked"};
+  if(matches.length!==1)return {state:"ambiguous"};
+  return {state:"linked",principal:{tenant_id:String(matches[0].tenant_id),user_id:String(matches[0].user_id),role:String(matches[0].role).toLowerCase()}};
+}
+
+function receivedAt(timestamp){
+  const seconds=Number(timestamp);
+  return Number.isFinite(seconds)&&seconds>0?new Date(seconds*1000).toISOString():new Date().toISOString();
+}
+
+export async function processWhatsAppInboundMessages(env,items){
+  const selected=(Array.isArray(items)?items:[]).slice(0,MAX_INBOUND_MESSAGES);
+  const summary={received:selected.length,prepared:0,replayed:0,unlinked:0,ambiguous:0,unsupported:0,unrecognized:0,wrongNumber:0,blocked:0};
+  const principalCache=new Map();
+  for(const item of selected){
+    const message=item?.message||{},phoneNumberId=clean(item?.phoneNumberId,40),configuredPhoneNumberId=clean(env.WHATSAPP_PHONE_NUMBER_ID,40);
+    if(!configuredPhoneNumberId||!phoneNumberId||phoneNumberId!==configuredPhoneNumberId){summary.wrongNumber++;continue}
+    const providerMessageId=clean(message?.id,200),sender=normalizeWhatsAppInboundNumber(message?.from);
+    if(!providerMessageId||!sender||String(message?.type||"")!=="text"||typeof message?.text?.body!=="string"){summary.unsupported++;continue}
+    let binding=principalCache.get(sender);
+    if(!binding){binding=await linkedPrincipal(env,sender);principalCache.set(sender,binding)}
+    if(binding.state==="unlinked"){summary.unlinked++;continue}
+    if(binding.state==="ambiguous"){summary.ambiguous++;continue}
+    const purpose=classifyWhatsAppInboundCommand(message.text.body);
+    if(!purpose){summary.unrecognized++;continue}
+    const result=await prepareWhatsAppPurposeForPrincipal({
+      env,
+      auth:binding.principal,
+      purpose,
+      idempotencyKey:`whatsapp_inbound_${providerMessageId}`,
+      source:"whatsapp_inbound",
+      sourceContext:{providerMessageId,receivedAt:receivedAt(message?.timestamp)}
+    });
+    if(result.status>=500)throw new Error("whatsapp_inbound_prepare_failed");
+    if(result.body?.ok===true){
+      summary.prepared++;
+      if(result.body.replayed===true)summary.replayed++;
+      continue;
+    }
+    summary.blocked++;
+  }
+  return summary;
+}
+
+export const __whatsappInboundTest=Object.freeze({linkedPrincipal,receivedAt,MAX_INBOUND_MESSAGES});
