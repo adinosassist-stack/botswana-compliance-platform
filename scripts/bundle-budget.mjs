@@ -23,7 +23,8 @@ ok(html.length<1_200_000,`canonical application HTML budget exceeded (${kb(html.
 ok(htmlGzip.length<300_000,`canonical application HTML gzip budget exceeded (${kb(htmlGzip.length)} KiB)`);
 ok(deployedHtml.length<350_000,`deployed application HTML budget exceeded (${kb(deployedHtml.length)} KiB)`);
 ok(deployedHtmlGzip.length<300_000,`deployed application HTML gzip budget exceeded (${kb(deployedHtmlGzip.length)} KiB)`);
-ok(workspaceRuntime.length<550_000,`workspace runtime budget exceeded (${kb(workspaceRuntime.length)} KiB)`);\nok(workspaceStyles.length<300_000,`workspace styles budget exceeded (${kb(workspaceStyles.length)} KiB)`);
+ok(workspaceRuntime.length<550_000,`workspace runtime budget exceeded (${kb(workspaceRuntime.length)} KiB)`);
+ok(workspaceStyles.length<300_000,`workspace styles budget exceeded (${kb(workspaceStyles.length)} KiB)`);
 const walk=dir=>fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>{const p=path.join(dir,e.name);return e.isDirectory()?walk(p):[p]});
 const staticFiles=walk(path.join(root,"public")).filter(p=>!p.endsWith(`${path.sep}_headers`)&&!p.endsWith(`${path.sep}.assetsignore`));
 ok(staticFiles.length<2_000,`static asset count safety budget exceeded (${staticFiles.length})`);
