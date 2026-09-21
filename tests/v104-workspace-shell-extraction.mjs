@@ -40,7 +40,7 @@ assert.match(production,/path===WORKSPACE_RUNTIME_ASSET/);
 assert.match(production,/repairedRuntime=injectFirstPartyRegistrationClient\(runtime\)/);
 assert.match(production,/x-thebe-registration-protection","first-party-proof-v1"/);
 
-assert.match(budget,/deployedHtml\.length<350_000/);
+assert.match(budget,/deployedHtml\.length<160_000/);
 assert.match(budget,/normalizedInline===runtimeText/);
 assert.match(budget,/workspaceRuntime\.length<550_000/);
 assert.match(budget,/workspaceStyles\.length<220_000/);
