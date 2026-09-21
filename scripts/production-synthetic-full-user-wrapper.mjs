@@ -194,6 +194,14 @@ async function runFullUserJourney(credentials){
     assert(delegatedRuntime.ready,'delegated data-bw action runtime did not load on /app/');
     assert(delegatedRuntime.coreScripts.length===7,`expected 7 root-level workspace core scripts, got ${delegatedRuntime.coreScripts.length}`);
     assert(delegatedRuntime.badNestedAssets.length===0,`workspace requested nested /app assets: ${safe(delegatedRuntime.badNestedAssets.join(', '))}`);
+    const firstRunModal=page.locator('#onboardModal.open');
+    if(await firstRunModal.count()){
+      const finishLater=page.locator('#onboardModal button:has-text("Finish later"):visible').first();
+      assert(await finishLater.count(),'visible Finish later control missing');
+      await finishLater.click();
+      await page.waitForFunction(()=>!document.getElementById('onboardModal')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});
+      mark('workspace onboarding button','Finish later closed the first-run dialog through the real click path');
+    }
     await page.evaluate(()=>globalThis.showView?.('dashboard',{skipDataRefresh:true}));
     await page.waitForFunction(()=>document.getElementById('dashboard')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
     const delegatedWorkButton=page.locator("[data-bw-onclick=\"showView('workhub')\"]:visible").first();
