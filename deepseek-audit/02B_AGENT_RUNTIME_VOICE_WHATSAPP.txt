@@ -1,0 +1,2679 @@
+PINNED SHA: 9fdfbfa5bf3995a466f2bb4f18d2a28587909d29
+
+
+===== ORIGINAL FILE: cloudflare/src/agentic-core.js =====
+
+import {associationForProposal,buildOutcomeAssociations,rankOutcomeInformedProposals} from "./agentic-learning.js";
+import {buildSingleAgentOrchestration,verifyOrchestratedProposals} from "./agent-orchestration.js";
+import {buildContinuationCheckpoint,buildResumeContext,verifyContinuationCheckpoint} from "./agent-continuation.js";
+import {buildAgentReadToolContext,executeAgentReadTool} from "./agent-read-tools.js";
+
+const MAX_BODY_BYTES=8192;
+const MAX_PROPOSALS=8;
+const HIGH_RISK_TERMS=/\b(payment|payroll|salary|terminate|dismiss|fire|file|filing|submit|sign|signature|transfer|refund|debit|credit|journal|tax return|burs|cipa)\b/i;
+const CONTROLLED_ACTION_TERMS=/\b(send|notify|remind|schedule|draft|prepare|request|follow up|follow-up)\b/i;
+const PROHIBITED_AUTONOMY=Object.freeze([
+  "payments_and_transfers",
+  "payroll_and_salary_changes",
+  "tax_or_regulatory_filing",
+  "contract_or_signature_commitment",
+  "employee_discipline_or_termination",
+  "accounting_journal_posting",
+  "refunds_or_customer_debits"
+]);
+const text=(value,max=500)=>String(value??"").trim().slice(0,max);
+const json=(body,status=200,headers={})=>new Response(JSON.stringify(body),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff",...headers}});
+const id=()=>crypto.randomUUID();
+
+function cookie(request,name){
+  const raw=request.headers.get("cookie")||"";
+  for(const part of raw.split(";")){
+    const [key,...rest]=part.trim().split("=");
+    if(key===name)return decodeURIComponent(rest.join("="));
+  }
+  return null;
+}
+
+async function hmacHex(secret,value){
+  const encoder=new TextEncoder();
+  const key=await crypto.subtle.importKey("raw",encoder.encode(secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
+  const signature=await crypto.subtle.sign("HMAC",key,encoder.encode(value));
+  return [...new Uint8Array(signature)].map(byte=>byte.toString(16).padStart(2,"0")).join("");
+}
+
+async function authenticate(request,env){
+  const raw=cookie(request,"__Host-bw_session")||cookie(request,"bw_session");
+  const secret=String(env?.SESSION_SECRET||"");
+  if(!raw||!secret||!env?.DB)return null;
+  const tokenHash=await hmacHex(secret,raw);
+  const row=await env.DB.prepare(`SELECT s.user_id,s.tenant_id,s.csrf_token,m.role,u.email
+    FROM sessions s
+    JOIN users u ON u.id=s.user_id
+    JOIN memberships m ON m.user_id=s.user_id AND m.tenant_id=s.tenant_id AND m.status='active'
+    WHERE s.token_hash=? AND s.session_generation=u.session_generation AND s.expires_at>CURRENT_TIMESTAMP
+    LIMIT 1`).bind(tokenHash).first();
+  return row||null;
+}
+
+function originAllowed(request,env){
+  const origin=text(request.headers.get("origin"),300);
+  if(!origin)return true;
+  try{
+    const expected=new URL(String(env?.PUBLIC_ORIGIN||env?.PUBLIC_APP_URL||""));
+    return new URL(origin).origin===expected.origin;
+  }catch{return false}
+}
+
+function csrfAllowed(request,auth){
+  const supplied=String(request.headers.get("x-csrf-token")||"");
+  const expected=String(auth?.csrf_token||"");
+  return !!supplied&&!!expected&&supplied===expected;
+}
+
+function roleAllowed(auth,...roles){return roles.includes(String(auth?.role||"").toLowerCase())}
+
+async function readJson(request){
+  const encoding=String(request.headers.get("content-encoding")||"").trim().toLowerCase();
+  if(encoding&&encoding!=="identity")throw new Error("unsupported_content_encoding");
+  const declared=Number(request.headers.get("content-length")||0);
+  if(Number.isFinite(declared)&&declared>MAX_BODY_BYTES)throw new Error("request_too_large");
+  const raw=await request.text();
+  if(new TextEncoder().encode(raw).byteLength>MAX_BODY_BYTES)throw new Error("request_too_large");
+  if(!raw)return {};
+  try{return JSON.parse(raw)}catch{throw new Error("invalid_json")}
+}
+
+function requestBodyErrorStatus(error){
+  if(error?.message==="request_too_large")return 413;
+  if(error?.message==="unsupported_content_encoding")return 415;
+  return 400;
+}
+async function safeFirst(env,sql,bindings=[]){
+  try{return await env.DB.prepare(sql).bind(...bindings).first()}catch{return null}
+}
+
+async function observeWorkspace(env,tenantId,actorRole){
+  const role=String(actorRole||"").toLowerCase();
+  const businessHealthAllowed=role==="owner"||role==="manager";
+  const operationsAllowed=role==="owner"||role==="manager";
+  const [finance,reconciliation,workflows,ops,performance,compliance]=await Promise.all([
+    safeFirst(env,`SELECT COALESCE(SUM(a.opening_balance_minor+COALESCE(t.net,0)),0) cash_position_minor,
+      COUNT(a.id) account_count
+      FROM finance_accounts a
+      LEFT JOIN (SELECT account_id,SUM(amount_minor) net FROM finance_transactions WHERE tenant_id=? GROUP BY account_id) t ON t.account_id=a.id
+      WHERE a.tenant_id=? AND a.status='active'`,[tenantId,tenantId]),
+    safeFirst(env,`SELECT COUNT(*) unresolved_count,COALESCE(SUM(ABS(difference_minor)),0) exposure_minor,
+      MAX(created_at) latest_reconciliation_at
+      FROM finance_reconciliation_runs WHERE tenant_id=? AND status='exception'`,[tenantId]),
+    operationsAllowed?safeFirst(env,`SELECT
+      SUM(CASE WHEN status IN ('queued','pending','retry') THEN 1 ELSE 0 END) pending_count,
+      SUM(CASE WHEN status IN ('failed','dead') THEN 1 ELSE 0 END) failed_count,
+      MIN(CASE WHEN status IN ('queued','pending','retry') THEN due_at END) next_due_at
+      FROM workflow_jobs WHERE tenant_id=?`,[tenantId]):null,
+    operationsAllowed?safeFirst(env,`SELECT summary_date,generation_mode,metrics_json
+      FROM daily_operations_summaries WHERE tenant_id=? ORDER BY summary_date DESC,created_at DESC LIMIT 1`,[tenantId]):null,
+    businessHealthAllowed?safeFirst(env,`SELECT COUNT(*) open_count,
+      SUM(CASE WHEN severity='critical' THEN 1 ELSE 0 END) critical_count,
+      SUM(CASE WHEN severity='warning' THEN 1 ELSE 0 END) warning_count,
+      MAX(created_at) latest_signal_at
+      FROM performance_insights WHERE tenant_id=? AND status IN ('open','acknowledged')`,[tenantId]):null,
+    safeFirst(env,`SELECT
+      SUM(CASE WHEN status NOT IN ('completed','closed') AND due_at<CURRENT_TIMESTAMP THEN 1 ELSE 0 END) overdue_count,
+      SUM(CASE WHEN status NOT IN ('completed','closed') AND due_at>=CURRENT_TIMESTAMP AND due_at<datetime('now','+14 days') THEN 1 ELSE 0 END) due_14d_count,
+      MIN(CASE WHEN status NOT IN ('completed','closed') AND due_at>=CURRENT_TIMESTAMP THEN due_at END) next_due_at
+      FROM compliance_obligations WHERE tenant_id=?`,[tenantId])
+  ]);
+  let opsMetrics={};
+  try{opsMetrics=JSON.parse(String(ops?.metrics_json||"{}"))}catch{}
+  return {
+    observedAt:new Date().toISOString(),
+    roleScope:Object.freeze({
+      actorRole:role,
+      businessHealth:businessHealthAllowed,
+      operations:operationsAllowed,
+      finance:true,
+      compliance:true
+    }),
+    finance:{
+      currency:"BWP",
+      cashPositionMinor:Number(finance?.cash_position_minor||0),
+      accountCount:Number(finance?.account_count||0),
+      reconciliationExceptions:Number(reconciliation?.unresolved_count||0),
+      reconciliationExposureMinor:Number(reconciliation?.exposure_minor||0),
+      latestReconciliationAt:reconciliation?.latest_reconciliation_at||null
+    },
+    operations:operationsAllowed?{
+      pendingWorkflowCount:Number(workflows?.pending_count||0),
+      failedWorkflowCount:Number(workflows?.failed_count||0),
+      nextWorkflowDueAt:workflows?.next_due_at||null,
+      latestSummaryDate:ops?.summary_date||null,
+      latestSummaryMode:ops?.generation_mode||null,
+      latestCoverage:Number(opsMetrics?.coverage||0)||null
+    }:{restricted:true},
+    performance:businessHealthAllowed?{
+      openSignals:Number(performance?.open_count||0),
+      criticalSignals:Number(performance?.critical_count||0),
+      warningSignals:Number(performance?.warning_count||0),
+      latestSignalAt:performance?.latest_signal_at||null
+    }:{restricted:true},
+    compliance:{
+      overdueCount:Number(compliance?.overdue_count||0),
+      dueWithin14Days:Number(compliance?.due_14d_count||0),
+      nextDueAt:compliance?.next_due_at||null
+    }
+  };
+}
+
+function deterministicSimulation(observation){
+  const cash=Number(observation?.finance?.cashPositionMinor||0);
+  const reconciliationExposure=Math.max(0,Number(observation?.finance?.reconciliationExposureMinor||0));
+  const pending=Math.max(0,Number(observation?.operations?.pendingWorkflowCount||0));
+  const failed=Math.max(0,Number(observation?.operations?.failedWorkflowCount||0));
+  const overdue=Math.max(0,Number(observation?.compliance?.overdueCount||0));
+  const critical=Math.max(0,Number(observation?.performance?.criticalSignals||0));
+  return {
+    type:"deterministic_non_mutating",
+    currency:"BWP",
+    cashStress:{recordedCashMinor:cash,reconciliationExposureMinor:reconciliationExposure,exposureAdjustedCashMinor:cash-reconciliationExposure},
+    operatingLoad:{pendingWorkflowCount:pending,failedWorkflowCount:failed,overdueComplianceCount:overdue,criticalPerformanceSignals:critical},
+    pressureScore:Math.min(100,failed*20+overdue*15+critical*15+Math.min(pending,20)*2),
+    assumptions:[
+      "Reconciliation exposure is treated as downside uncertainty, not a forecasted loss.",
+      "Pressure score is a deterministic triage aid and not a financial, legal or employment decision.",
+      "No simulation output changes business records or authorizes execution."
+    ]
+  };
+}
+
+function deterministicFallback(observation){
+  const actions=[];
+  if(observation.finance.reconciliationExceptions>0){
+    actions.push({title:"Review reconciliation exceptions",reason:`${observation.finance.reconciliationExceptions} reconciliation exception(s) remain unresolved.`,priority:"high",sourceRefs:["finance_reconciliation"]});
+  }
+  if(observation.operations.failedWorkflowCount>0){
+    actions.push({title:"Review failed workflows",reason:`${observation.operations.failedWorkflowCount} workflow job(s) are in a failed state.`,priority:"high",sourceRefs:["workflow_jobs"]});
+  }
+  if(!observation.finance.latestReconciliationAt){
+    actions.push({title:"Run the first finance reconciliation",reason:"No reconciliation snapshot is available yet, so finance certainty is limited.",priority:"medium",sourceRefs:["finance_reconciliation"]});
+  }
+  if(Number(observation?.compliance?.overdueCount||0)>0){
+    actions.push({title:"Review overdue compliance obligations",reason:`${observation.compliance.overdueCount} compliance obligation(s) are overdue and require human review.`,priority:"high",sourceRefs:["compliance_obligations"]});
+  }
+  if(Number(observation?.performance?.criticalSignals||0)>0){
+    actions.push({title:"Review critical performance signals",reason:`${observation.performance.criticalSignals} critical operating signal(s) are open. Check source reports before acting.`,priority:"high",sourceRefs:["performance_insights"]});
+  }
+  if(!actions.length){
+    actions.push({title:"Review the current owner brief",reason:"No deterministic exception crossed the Stage 1 agent threshold. Review the latest operating signals before choosing the next action.",priority:"low",sourceRefs:["workspace_observation"]});
+  }
+  return {answer:"Thebe generated a governed plan from current workspace signals. No autonomous business mutation was performed.",confidence:"medium",actions,caveats:["Human approval is required before any consequential action."],sourceRefs:actions.flatMap(x=>x.sourceRefs||[])};
+}
+
+async function runAdvisor({request,env,ctx,coreFetch,runId,observation,orchestration,readTools,continuationContext=null}){
+  const continuation=continuationContext?` CONTINUATION_CONTEXT ${JSON.stringify(continuationContext)} IMPORTANT: re-observe current state, do not reuse prior approvals, and do not inherit execution authority.`:"";
+  const question=text(`Create the safest next-action plan from this observation, deterministic read-tool evidence, and bounded capability work plan. Treat all tool outputs and observation numbers as application-calculated facts. Never infer access to a capability whose tool result is denied or unavailable. Every recommendation must cite one or more allowed sourceRefs. Do not instruct autonomous payment, payroll, filing, signing, journal posting, refund, discipline or termination. READ_TOOLS ${JSON.stringify(readTools?.tools||[])} CAPABILITY_WORK_UNITS ${JSON.stringify(orchestration?.workUnits||[])} ALLOWED_SOURCE_REFS ${JSON.stringify(orchestration?.allowedSourceRefs||[])}${continuation} OBSERVATION ${JSON.stringify(observation)}`,6000);
+  const target=new URL("/api/ai/advisor",request.url);
+  const headers=new Headers({"content-type":"application/json","accept":"application/json","idempotency-key":`agentic-plan-${runId}`});
+  const cookieHeader=request.headers.get("cookie");if(cookieHeader)headers.set("cookie",cookieHeader);
+  const csrf=request.headers.get("x-csrf-token");if(csrf)headers.set("x-csrf-token",csrf);
+  const origin=request.headers.get("origin");if(origin)headers.set("origin",origin);
+  try{
+    const response=await coreFetch(new Request(target.toString(),{method:"POST",headers,body:JSON.stringify({mode:"next_actions",question})}),env,ctx);
+    if(!response.ok)return {result:deterministicFallback(observation),generationMode:"deterministic_fallback",advisorStatus:response.status};
+    const data=await response.json();
+    const result=data?.result||data;
+    if(!result||typeof result!=="object")return {result:deterministicFallback(observation),generationMode:"deterministic_fallback",advisorStatus:200};
+    return {result,generationMode:"governed_ai_advisor",advisorStatus:200};
+  }catch{
+    return {result:deterministicFallback(observation),generationMode:"deterministic_fallback",advisorStatus:0};
+  }
+}
+
+function classifyProposal(action){
+  const combined=`${action?.title||""} ${action?.reason||""}`;
+  if(HIGH_RISK_TERMS.test(combined))return {risk:"high",authority:"human_only",executionPolicy:"prohibited_autonomy"};
+  if(CONTROLLED_ACTION_TERMS.test(combined))return {risk:"medium",authority:"approval_required",executionPolicy:"not_executable_stage_1"};
+  return {risk:"low",authority:"recommendation_only",executionPolicy:"not_executable_stage_1"};
+}
+
+function normalizeProposals(actions=[]){
+  return (Array.isArray(actions)?actions:[]).slice(0,MAX_PROPOSALS).map((action,index)=>{
+    const policy=classifyProposal(action);
+    return {
+      ordinal:index+1,
+      title:text(action?.title||"Review recommended action",180),
+      reason:text(action?.reason||"Generated from current workspace signals.",700),
+      priority:["low","medium","high"].includes(String(action?.priority))?String(action.priority):"medium",
+      sourceRefs:Array.isArray(action?.sourceRefs)?action.sourceRefs.map(x=>text(x,120)).filter(Boolean).slice(0,12):[],
+      ...policy
+    };
+  });
+}
+
+async function loadOutcomeAssociations(env,tenantId){
+  try{
+    const rows=await env.DB.prepare(`SELECT refs.source_ref source_ref,
+      COUNT(*) evidence_count,
+      SUM(CASE WHEN o.outcome_status IN ('improved','resolved') THEN 1 ELSE 0 END) positive_count,
+      SUM(CASE WHEN o.outcome_status='worsened' THEN 1 ELSE 0 END) negative_count,
+      SUM(CASE WHEN o.outcome_status='unchanged' THEN 1 ELSE 0 END) unchanged_count
+      FROM agentic_outcomes o
+      JOIN (
+        SELECT DISTINCT p0.id proposal_id,p0.tenant_id,ref.value source_ref
+        FROM agentic_proposals p0
+        JOIN json_each(p0.source_refs_json) ref
+        WHERE p0.tenant_id=?
+      ) refs ON refs.proposal_id=o.proposal_id AND refs.tenant_id=o.tenant_id
+      WHERE o.tenant_id=?
+        AND o.outcome_status IN ('improved','resolved','worsened','unchanged')
+        AND o.created_at>=datetime('now','-180 days')
+        AND o.id=(SELECT o2.id FROM agentic_outcomes o2
+          WHERE o2.tenant_id=o.tenant_id AND o2.proposal_id=o.proposal_id
+          ORDER BY o2.created_at DESC,o2.id DESC LIMIT 1)
+      GROUP BY refs.source_ref
+      ORDER BY evidence_count DESC,source_ref ASC
+      LIMIT 64`).bind(tenantId,tenantId).all();
+    return buildOutcomeAssociations(rows.results||[]);
+  }catch{return {}}
+}
+
+async function appendEvent(env,{tenantId,runId,proposalId=null,eventType,actorUserId,detail={}}){
+  await env.DB.prepare(`INSERT INTO agentic_events(id,tenant_id,run_id,proposal_id,event_type,actor_user_id,detail_json)
+    VALUES(?,?,?,?,?,?,?)`).bind(id(),tenantId,runId,proposalId,eventType,actorUserId,JSON.stringify(detail)).run();
+}
+
+function parseJsonObject(value){
+  try{const parsed=JSON.parse(String(value||"{}"));return parsed&&typeof parsed==="object"&&!Array.isArray(parsed)?parsed:{}}
+  catch{return {}}
+}
+
+function parseJsonArray(value){
+  try{const parsed=JSON.parse(String(value||"[]"));return Array.isArray(parsed)?parsed:[]}
+  catch{return []}
+}
+
+async function loadRunBundle(env,auth,runId){
+  const run=await safeFirst(env,`SELECT id,goal,status,generation_mode,confidence,summary,observation_json,created_at
+    FROM agentic_runs WHERE id=? AND tenant_id=? LIMIT 1`,[runId,auth.tenant_id]);
+  if(!run)return null;
+  const proposalRows=await env.DB.prepare(`SELECT id,ordinal,title,reason,priority,risk,authority,execution_policy,source_refs_json,status,created_at
+    FROM agentic_proposals WHERE tenant_id=? AND run_id=? ORDER BY ordinal`).bind(auth.tenant_id,runId).all();
+  const proposals=(proposalRows.results||[]).map(row=>({
+    ...row,
+    sourceRefs:parseJsonArray(row.source_refs_json),
+    source_refs_json:undefined
+  }));
+  return {run:{...run,observation:parseJsonObject(run.observation_json)},proposals};
+}
+
+async function loadContinuation(env,auth,runId){
+  const bundle=await loadRunBundle(env,auth,runId);
+  if(!bundle)return {error:"agentic_run_not_found",status:404};
+  const event=await safeFirst(env,`SELECT detail_json,created_at FROM agentic_events
+    WHERE tenant_id=? AND run_id=? AND event_type='RUN_CHECKPOINTED'
+    ORDER BY created_at DESC,id DESC LIMIT 1`,[auth.tenant_id,runId]);
+  if(event){
+    const checkpoint=parseJsonObject(event.detail_json);
+    const verified=await verifyContinuationCheckpoint(checkpoint);
+    if(verified.valid!==true)return {error:"agentic_checkpoint_invalid",status:409,code:verified.code};
+    return {bundle,checkpoint,synthesized:false};
+  }
+  const observation=bundle.run.observation||{};
+  const checkpoint=await buildContinuationCheckpoint({
+    runId:bundle.run.id,
+    goal:bundle.run.goal,
+    summary:bundle.run.summary,
+    confidence:bundle.run.confidence,
+    observation,
+    orchestration:observation.orchestration||{},
+    proposals:bundle.proposals,
+    createdAt:bundle.run.created_at,
+    source:"synthesized_from_run"
+  });
+  return {bundle,checkpoint,synthesized:true};
+}
+
+async function createPlan({request,env,ctx,coreFetch,auth,goalOverride=null,continuationFrom=null}){
+  let body;try{body=await readJson(request)}catch(error){return json({error:error.message},requestBodyErrorStatus(error))}
+  const goal=text(goalOverride||body?.goal||"Protect the business and identify the safest next actions.",500);
+  const runId=id(),observation=await observeWorkspace(env,auth.tenant_id,auth.role);
+  const readTools=await buildAgentReadToolContext({env,auth});
+  observation.readTools=readTools;
+  observation.simulation=deterministicSimulation(observation);
+  const continuationContext=continuationFrom?buildResumeContext(continuationFrom):null;
+  if(continuationContext){
+    observation.continuation={
+      version:continuationContext.continuationVersion,
+      parentRunId:continuationContext.parentRunId,
+      checkpointDigest:continuationContext.checkpointDigest,
+      freshObservationRequired:true,
+      approvalsReusable:false,
+      executionAuthorityInherited:false
+    };
+  }
+  const orchestration=buildSingleAgentOrchestration({goal,observation,additionalSourceRefs:readTools.sourceRefs});
+  observation.orchestration=orchestration;
+  const advisor=await runAdvisor({request,env,ctx,coreFetch,runId,observation,orchestration,readTools,continuationContext});
+  const normalizedProposals=normalizeProposals(advisor.result?.actions);
+  const verified=verifyOrchestratedProposals(normalizedProposals,orchestration);
+  const outcomeAssociations=await loadOutcomeAssociations(env,auth.tenant_id);
+  const proposals=rankOutcomeInformedProposals(verified.proposals,outcomeAssociations);
+  observation.verification=verified.summary;
+  observation.learning={
+    type:"non_causal_outcome_association",
+    causal:false,
+    evidenceWindowDays:180,
+    minimumEvidencePerSource:3,
+    sourceCount:Object.keys(outcomeAssociations).length,
+    authorityEffect:"none",
+    executionEffect:"none"
+  };
+  const summary=text(advisor.result?.answer||"Governed plan generated.",3000);
+  const confidence=["low","medium","high"].includes(String(advisor.result?.confidence))?String(advisor.result.confidence):"medium";
+  const savedProposals=proposals.map(item=>({...item,id:id(),status:"pending"}));
+  const checkpoint=await buildContinuationCheckpoint({
+    runId,goal,summary,confidence,observation,orchestration,proposals:savedProposals,
+    createdAt:new Date().toISOString(),source:"run_checkpoint"
+  });
+  const checkpointVerification=await verifyContinuationCheckpoint(checkpoint);
+  if(checkpointVerification.valid!==true)return json({error:"agentic_checkpoint_generation_failed",code:checkpointVerification.code},500);
+  await env.DB.batch([
+    env.DB.prepare(`INSERT INTO agentic_runs(id,tenant_id,requested_by_user_id,goal,status,generation_mode,confidence,observation_json,summary)
+      VALUES(?,?,?,?, 'completed',?,?,?,?)`).bind(runId,auth.tenant_id,auth.user_id,goal,advisor.generationMode,confidence,JSON.stringify(observation),summary),
+    ...savedProposals.map(item=>env.DB.prepare(`INSERT INTO agentic_proposals(id,tenant_id,run_id,ordinal,title,reason,priority,risk,authority,execution_policy,source_refs_json,status)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,'pending')`).bind(item.id,auth.tenant_id,runId,item.ordinal,item.title,item.reason,item.priority,item.risk,item.authority,item.executionPolicy,JSON.stringify(item.sourceRefs))),
+    env.DB.prepare(`INSERT INTO agentic_events(id,tenant_id,run_id,proposal_id,event_type,actor_user_id,detail_json)
+      VALUES(?,?,?,NULL,'PLAN_GENERATED',?,?)`).bind(id(),auth.tenant_id,runId,auth.user_id,JSON.stringify({
+        goal,generationMode:advisor.generationMode,proposalCount:savedProposals.length,outcomeInformedRanking:true,
+        learningSourceCount:Object.keys(outcomeAssociations).length,orchestrationVersion:orchestration.version,
+        workUnitCount:orchestration.workUnits.length,readToolCount:readTools.toolCount,allProposalsGrounded:verified.summary.allGrounded,
+        parentRunId:continuationContext?.parentRunId||null,authorityEffect:"none"
+      })),
+    env.DB.prepare(`INSERT INTO agentic_events(id,tenant_id,run_id,proposal_id,event_type,actor_user_id,detail_json)
+      VALUES(?,?,?,NULL,'RUN_CHECKPOINTED',?,?)`).bind(id(),auth.tenant_id,runId,auth.user_id,JSON.stringify(checkpoint))
+  ]);
+  return json({
+    ok:true,
+    stage:"observe_read_tools_decompose_route_reason_verify_checkpoint_recommend",
+    run:{id:runId,goal,status:"completed",generationMode:advisor.generationMode,confidence,summary,observation},
+    proposals:savedProposals.map(proposal=>({...proposal,outcomeLearning:associationForProposal(proposal,outcomeAssociations)})),
+    continuation:{
+      enabled:true,
+      checkpointVersion:checkpoint.version,
+      checkpointDigest:checkpoint.digest,
+      parentRunId:continuationContext?.parentRunId||null,
+      freshObservationRequired:true,
+      approvalsReusable:false,
+      executionAuthorityInherited:false
+    },
+    architecture:{agentKey:"thebe",singleAgent:true,orchestrationVersion:orchestration.version,fanOut:orchestration.fanOut,session:orchestration.session},
+    authority:{executionEnabled:false,humanApprovalRequired:true,prohibitedAutonomy:PROHIBITED_AUTONOMY}
+  },201);
+}
+
+async function getContinuation(env,auth,runId){
+  const loaded=await loadContinuation(env,auth,runId);
+  if(loaded.error)return json({error:loaded.error,code:loaded.code},loaded.status);
+  return json({
+    ok:true,
+    run:{id:loaded.bundle.run.id,goal:loaded.bundle.run.goal,status:loaded.bundle.run.status,createdAt:loaded.bundle.run.created_at},
+    checkpoint:loaded.checkpoint,
+    resumeContext:buildResumeContext(loaded.checkpoint),
+    synthesized:loaded.synthesized,
+    guarantees:{freshObservationRequired:true,approvalsReusable:false,executionAuthorityInherited:false}
+  });
+}
+
+async function continueRun({request,env,ctx,coreFetch,auth,runId}){
+  const loaded=await loadContinuation(env,auth,runId);
+  if(loaded.error)return json({error:loaded.error,code:loaded.code},loaded.status);
+  return createPlan({
+    request,env,ctx,coreFetch,auth,
+    goalOverride:loaded.bundle.run.goal,
+    continuationFrom:loaded.checkpoint
+  });
+}
+
+async function listRuns(env,auth){
+  const runs=await env.DB.prepare(`SELECT id,goal,status,generation_mode,confidence,summary,created_at
+    FROM agentic_runs WHERE tenant_id=? ORDER BY created_at DESC LIMIT 20`).bind(auth.tenant_id).all();
+  const proposals=await env.DB.prepare(`SELECT id,run_id,ordinal,title,priority,risk,authority,execution_policy,status,decision_at,created_at
+    FROM agentic_proposals WHERE tenant_id=? ORDER BY created_at DESC,ordinal LIMIT 100`).bind(auth.tenant_id).all();
+  return json({items:runs.results||[],proposals:proposals.results||[],authority:{executionEnabled:false,prohibitedAutonomy:PROHIBITED_AUTONOMY}});
+}
+
+async function decideProposal({env,auth,proposalId,decision}){
+  const proposal=await env.DB.prepare(`SELECT id,run_id,status FROM agentic_proposals WHERE id=? AND tenant_id=? LIMIT 1`).bind(proposalId,auth.tenant_id).first();
+  if(!proposal)return json({error:"agentic_proposal_not_found"},404);
+  if(proposal.status!=="pending")return json({error:"agentic_proposal_already_decided",status:proposal.status},409);
+  if(decision==="approved"&&!roleAllowed(auth,"owner"))return json({error:"owner_approval_required"},403);
+  if(decision==="rejected"&&!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
+  const eventType=decision==="approved"?"PROPOSAL_APPROVED":"PROPOSAL_REJECTED";
+  const results=await env.DB.batch([
+    env.DB.prepare(`UPDATE agentic_proposals SET status=?,decided_by_user_id=?,decision_at=CURRENT_TIMESTAMP
+      WHERE id=? AND tenant_id=? AND status='pending'`).bind(decision,auth.user_id,proposalId,auth.tenant_id),
+    env.DB.prepare(`INSERT INTO agentic_events(id,tenant_id,run_id,proposal_id,event_type,actor_user_id,detail_json)
+      SELECT ?,?,?,?,?,?,? WHERE changes()=1`).bind(id(),auth.tenant_id,proposal.run_id,proposalId,eventType,auth.user_id,JSON.stringify({executionEnabled:false}))
+  ]);
+  const changed=Number(results?.[0]?.meta?.changes??results?.[0]?.changes??0);
+  if(changed!==1){
+    const current=await env.DB.prepare(`SELECT status FROM agentic_proposals WHERE id=? AND tenant_id=? LIMIT 1`).bind(proposalId,auth.tenant_id).first();
+    if(!current)return json({error:"agentic_proposal_not_found"},404);
+    return json({error:"agentic_proposal_already_decided",status:current.status},409);
+  }
+  return json({ok:true,id:proposalId,status:decision,execution:{performed:false,enabled:false,reason:"Stage 1 records governance decisions only."}});
+}
+
+async function listOutcomes(env,auth){
+  const rows=await env.DB.prepare(`SELECT o.id,o.run_id,o.proposal_id,o.outcome_status,o.metric_key,o.baseline_json,o.observed_json,o.note,o.created_at,
+    p.title proposal_title,p.status proposal_status
+    FROM agentic_outcomes o JOIN agentic_proposals p ON p.id=o.proposal_id AND p.tenant_id=o.tenant_id
+    WHERE o.tenant_id=? ORDER BY o.created_at DESC LIMIT 100`).bind(auth.tenant_id).all();
+  return json({items:(rows.results||[]).map(row=>({...row,baseline:JSON.parse(row.baseline_json||"{}"),observed:JSON.parse(row.observed_json||"{}"),baseline_json:undefined,observed_json:undefined})),executionEnabled:false});
+}
+
+async function recordOutcome({request,env,auth,proposalId}){
+  if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
+  const proposal=await env.DB.prepare(`SELECT id,run_id,status FROM agentic_proposals WHERE id=? AND tenant_id=? LIMIT 1`).bind(proposalId,auth.tenant_id).first();
+  if(!proposal)return json({error:"agentic_proposal_not_found"},404);
+  if(proposal.status==="pending")return json({error:"proposal_decision_required_before_outcome"},409);
+  let body;try{body=await readJson(request)}catch(error){return json({error:error.message},requestBodyErrorStatus(error))}
+  const outcomeStatus=String(body?.outcomeStatus||"");
+  const allowed=new Set(["observed","improved","unchanged","worsened","resolved","not_applicable"]);
+  if(!allowed.has(outcomeStatus))return json({error:"invalid_outcome_status"},400);
+  const metricKey=text(body?.metricKey||"",120)||null;
+  const note=text(body?.note||"",1000);
+  const baseline=body?.baseline&&typeof body.baseline==="object"&&!Array.isArray(body.baseline)?body.baseline:{};
+  const observed=body?.observed&&typeof body.observed==="object"&&!Array.isArray(body.observed)?body.observed:{};
+  const outcomeId=id();
+  await env.DB.prepare(`INSERT INTO agentic_outcomes(id,tenant_id,run_id,proposal_id,recorded_by_user_id,outcome_status,metric_key,baseline_json,observed_json,note)
+    VALUES(?,?,?,?,?,?,?,?,?,?)`).bind(outcomeId,auth.tenant_id,proposal.run_id,proposalId,auth.user_id,outcomeStatus,metricKey,JSON.stringify(baseline),JSON.stringify(observed),note).run();
+  return json({ok:true,id:outcomeId,proposalId,runId:proposal.run_id,outcomeStatus,measurementOnly:true,execution:{performed:false,enabled:false}},201);
+}
+
+export async function handleAgenticRequest({request,logicalPath,env,ctx,coreFetch}){
+  const path=String(logicalPath||new URL(request.url).pathname);
+  if(!path.startsWith("/api/agentic"))return null;
+  const auth=await authenticate(request,env);
+  if(!auth)return json({error:"unauthenticated"},401);
+  if(!roleAllowed(auth,"owner","manager","reviewer"))return json({error:"forbidden"},403);
+  if(request.method!=="GET"){
+    if(!originAllowed(request,env))return json({error:"origin_failed"},403);
+    if(!csrfAllowed(request,auth))return json({error:"csrf_failed"},403);
+  }
+  if(path==="/api/agentic/status"&&request.method==="GET")return json({
+    enabled:true,
+    stage:"observe_decompose_route_reason_verify_checkpoint_recommend_measure",
+    executionEnabled:false,
+    approvalRecordsEnabled:true,
+    continuation:{enabled:true,durableEventCheckpoint:true,freshObservationRequired:true,approvalsReusable:false,executionAuthorityInherited:false},
+    readTools:{enabled:true,readOnly:true,mutationAllowed:false,policyBound:true,roleScoped:true},
+    outcomeLearning:{enabled:true,type:"non_causal_association",minimumEvidencePerSource:3,priorityClassOverride:false,riskAuthorityEffect:false,executionAuthorityEffect:false},
+    prohibitedAutonomy:PROHIBITED_AUTONOMY,
+    principles:["grounded_workspace_observation","least_authority","human_approval","no_hidden_execution","auditable_decisions"]
+  });
+  if(path==="/api/agentic/runs"&&request.method==="GET")return listRuns(env,auth);
+  if(path==="/api/agentic/outcomes"&&request.method==="GET")return listOutcomes(env,auth);
+  if(path==="/api/agentic/plan"&&request.method==="POST")return createPlan({request,env,ctx,coreFetch,auth});
+  const readToolMatch=path.match(/^\/api\/agentic\/tools\/read\/([^/]+)$/);
+  if(readToolMatch&&request.method==="GET"){
+    const result=await executeAgentReadTool(decodeURIComponent(readToolMatch[1]),{env,auth});
+    return json(result,result.allowed===true?200:result.error==="unsupported_read_tool"?404:403);
+  }
+  const continuationMatch=path.match(/^\/api\/agentic\/runs\/([^/]+)\/continuation$/);
+  if(continuationMatch&&request.method==="GET")return getContinuation(env,auth,continuationMatch[1]);
+  const continueMatch=path.match(/^\/api\/agentic\/runs\/([^/]+)\/continue$/);
+  if(continueMatch&&request.method==="POST")return continueRun({request,env,ctx,coreFetch,auth,runId:continueMatch[1]});
+  const outcomeMatch=path.match(/^\/api\/agentic\/proposals\/([^/]+)\/outcome$/);
+  if(outcomeMatch&&request.method==="POST")return recordOutcome({request,env,auth,proposalId:outcomeMatch[1]});
+  const decisionMatch=path.match(/^\/api\/agentic\/proposals\/([^/]+)\/(approve|reject)$/);
+  if(decisionMatch&&request.method==="POST")return decideProposal({env,auth,proposalId:decisionMatch[1],decision:decisionMatch[2]==="approve"?"approved":"rejected"});
+  return json({error:"not_found"},404);
+}
+
+export const __agenticFoundationTest=Object.freeze({
+  classifyProposal,
+  normalizeProposals,
+  deterministicSimulation,
+  originAllowed,
+  csrfAllowed,
+  prohibitedAutonomy:PROHIBITED_AUTONOMY
+});
+
+
+===== ORIGINAL FILE: cloudflare/src/agentic-entry.js =====
+
+import base from "./production-entry.js";
+import {handleAgenticAuthorityRequest} from "./agentic-authority-core.js";
+import {handleAgenticWhatsAppRequest} from "./agentic-whatsapp-core.js";
+import {handleAgenticTaskExecutionRequest} from "./agentic-task-execution.js";
+import {handleAgenticLiveVoiceRequest} from "./agentic-live-voice.js";
+import {preparePlatformOwnerLogin,withPlatformOwnerAdminEnv} from "./platform-owner-access.js";
+import {applyClientRuntimeIdentity} from "./client-runtime-identity.js";
+
+const V81_SCHEMA_DELTA="048_v102_bounded_internal_task_execution.sql";
+const COLD_START_REDUNDANT_RENDER="if(!options?.skipDataRefresh)queueMicrotask(()=>renderAll())";
+const COLD_START_GUARDED_RENDER="if(!options?.skipDataRefresh&&!options?.roleRedirect)queueMicrotask(()=>renderAll())";
+const SYNTHETIC_BOOT_TRACE_PREFIX="THEBE_SYNTHETIC_BOOT";
+const SYNTHETIC_BOOT_TRACE_PARAMS=new Set(["desktop-owner-proof","authenticated-mobile-proof"]);
+const SYNTHETIC_AUTH_ME_BOOT_SOURCE='const info=await productionApiClient.request("/api/auth/me");currentUser=';
+const SYNTHETIC_STATE_BOOT_SOURCE='const st=consumeInitialWorkspaceState()||await apiFetch("/api/state");serverStateVersion=st.version||1;let nextStore;';
+const SYNTHETIC_STORE_BOOT_SOURCE='nextStore.activeRole=currentUser.role;nextStore.audit=[];replaceWorkspaceStore(nextStore);';
+const SYNTHETIC_RENDER_BOOT_SOURCE='renderAll();applyRoleUi();hideAuth();logEvent("APP_OPENED",{ruleset:"BW-2026.08.30-launch"});';
+const SYNTHETIC_LANDING_BOOT_SOURCE='const landing=roleLandingView(currentUser.role);if(landing&&roleCanView(landing))showView(landing,{roleRedirect:true});';
+const SYNTHETIC_READY_BOOT_SOURCE='try{await loadServerState();if(isWorkspaceRole(currentUser?.role))markWorkspaceReady()}';
+
+function logicalRequestPath(request){
+  try{
+    const url=new URL(request.url);
+    if(url.pathname==="/"){
+      const tunneled=url.searchParams.get("__thebe_api_path");
+      if(tunneled)return String(tunneled);
+    }
+    if(url.pathname.startsWith("/__thebe_api/"))return `/api/${url.pathname.slice("/__thebe_api/".length)}`;
+    if(url.pathname==="/__thebe_api")return "/api";
+    return url.pathname;
+  }catch{return ""}
+}
+
+function syntheticBootTraceRequested(request){
+  try{
+    if(String(request?.method||"").toUpperCase()!=="GET")return false;
+    const url=new URL(request.url);
+    if(url.pathname!=="/")return false;
+    return [...SYNTHETIC_BOOT_TRACE_PARAMS].some(name=>url.searchParams.has(name));
+  }catch{return false}
+}
+
+function uniqueSourceAnchor(source,needle){
+  const first=source.indexOf(needle);
+  return first>=0&&first===source.lastIndexOf(needle);
+}
+
+function injectSyntheticBootTrace(request,html){
+  const source=String(html||"");
+  if(!syntheticBootTraceRequested(request))return source;
+  if(!uniqueSourceAnchor(source,SYNTHETIC_AUTH_ME_BOOT_SOURCE)||
+    !uniqueSourceAnchor(source,SYNTHETIC_STATE_BOOT_SOURCE)||
+    !uniqueSourceAnchor(source,SYNTHETIC_STORE_BOOT_SOURCE)||
+    !uniqueSourceAnchor(source,SYNTHETIC_RENDER_BOOT_SOURCE)||
+    !uniqueSourceAnchor(source,SYNTHETIC_LANDING_BOOT_SOURCE)||
+    !uniqueSourceAnchor(source,SYNTHETIC_READY_BOOT_SOURCE))return source;
+  return source
+    .replace(
+      SYNTHETIC_AUTH_ME_BOOT_SOURCE,
+      `console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} auth_me_start");const info=await productionApiClient.request("/api/auth/me");console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} auth_me_complete");currentUser=`
+    )
+    .replace(
+      SYNTHETIC_STATE_BOOT_SOURCE,
+      `console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} state_start");const st=consumeInitialWorkspaceState()||await apiFetch("/api/state");console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} state_complete");serverStateVersion=st.version||1;let nextStore;`
+    )
+    .replace(
+      SYNTHETIC_STORE_BOOT_SOURCE,
+      `console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} store_start");nextStore.activeRole=currentUser.role;nextStore.audit=[];replaceWorkspaceStore(nextStore);console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} store_complete");`
+    )
+    .replace(
+      SYNTHETIC_RENDER_BOOT_SOURCE,
+      `console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} render_start");renderAll();console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} render_complete");applyRoleUi();console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} role_ui_complete");hideAuth();console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} reveal_complete");logEvent("APP_OPENED",{ruleset:"BW-2026.08.30-launch"});console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} app_open_logged");`
+    )
+    .replace(
+      SYNTHETIC_LANDING_BOOT_SOURCE,
+      `console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} landing_start");const landing=roleLandingView(currentUser.role);if(landing&&roleCanView(landing))showView(landing,{roleRedirect:true});console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} landing_complete");`
+    )
+    .replace(
+      SYNTHETIC_READY_BOOT_SOURCE,
+      `try{await loadServerState();if(isWorkspaceRole(currentUser?.role)){console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} workspace_ready_start");markWorkspaceReady();console.info("${SYNTHETIC_BOOT_TRACE_PREFIX} workspace_ready_complete")}}`
+    );
+}
+
+async function delegatedAuthoritySchemaReady(env){
+  if(!env?.DB)return false;
+  try{
+    await env.DB.prepare(`SELECT
+      (SELECT COUNT(*) FROM agent_delegations) delegation_count,
+      (SELECT COUNT(*) FROM agent_action_intents) intent_count,
+      (SELECT COUNT(*) FROM agent_delegation_events) event_count,
+      (SELECT COUNT(*) FROM agent_execution_grants) execution_grant_count,
+      (SELECT COUNT(*) FROM agent_task_requests) task_request_count,
+      (SELECT COUNT(*) FROM agent_internal_tasks) internal_task_count,
+      (SELECT COUNT(*) FROM agent_execution_receipts) execution_receipt_count`).first();
+    return true;
+  }catch{return false}
+}
+
+async function hardenAuthenticatedColdStart(request,response){
+  if(String(request?.method||"").toUpperCase()!=="GET")return response;
+  const type=String(response?.headers?.get?.("content-type")||"").toLowerCase();
+  if(!type.includes("text/html"))return response;
+  let html;
+  try{html=await response.clone().text()}catch{return response}
+  const hasLegacyRender=html.includes(COLD_START_REDUNDANT_RENDER);
+  const hasGuardedRender=html.includes(COLD_START_GUARDED_RENDER);
+  const traceRequested=syntheticBootTraceRequested(request);
+  if(!hasLegacyRender&&(!hasGuardedRender||!traceRequested))return response;
+  const guarded=hasLegacyRender?html.replace(COLD_START_REDUNDANT_RENDER,COLD_START_GUARDED_RENDER):html;
+  const hardened=traceRequested?injectSyntheticBootTrace(request,guarded):guarded;
+  const headers=new Headers(response.headers);
+  headers.delete("content-length");
+  headers.delete("etag");
+  headers.set("x-thebe-cold-start-guard","role-redirect-v1");
+  if(hardened!==guarded)headers.set("x-thebe-synthetic-boot-trace","auth-state-render-v4");
+  return new Response(hardened,{status:response.status,statusText:response.statusText,headers});
+}
+
+async function enhanceReadiness(request,env,response){
+  if(request.method!=="GET"||logicalRequestPath(request)!=="/api/ready")return response;
+  let body;
+  try{body=await response.clone().json()}catch{return response}
+  const authoritySchemaReady=await delegatedAuthoritySchemaReady(env);
+  const coreSchemaReady=body?.schemaReady===true;
+  const schemaReady=coreSchemaReady&&authoritySchemaReady;
+  const next={
+    ...body,
+    schemaReady,
+    coreSchemaReady,
+    agenticAuthoritySchemaReady:authoritySchemaReady,
+    latestSchemaDelta:V81_SCHEMA_DELTA
+  };
+  if(!schemaReady&&!next.error)next.error="schema_outdated";
+  const headers=new Headers(response.headers);
+  headers.set("content-type","application/json; charset=utf-8");
+  headers.set("cache-control","no-store");
+  return new Response(JSON.stringify(next),{
+    status:schemaReady?response.status:503,
+    statusText:response.statusText,
+    headers
+  });
+}
+
+export default {
+  async fetch(request,env,ctx){
+    const logicalPath=logicalRequestPath(request);
+    const liveVoiceResponse=await handleAgenticLiveVoiceRequest({
+      request,logicalPath,env,ctx,
+      coreFetch:(innerRequest,innerEnv=env,innerCtx=ctx)=>base.fetch(innerRequest,innerEnv,innerCtx),
+      taskFetch:(innerRequest,innerEnv=env)=>handleAgenticTaskExecutionRequest({
+        request:innerRequest,
+        logicalPath:logicalRequestPath(innerRequest),
+        env:innerEnv
+      })
+    });
+    if(liveVoiceResponse)return liveVoiceResponse;
+    const whatsappResponse=await handleAgenticWhatsAppRequest({request,logicalPath,env});
+    if(whatsappResponse)return whatsappResponse;
+    const taskExecutionResponse=await handleAgenticTaskExecutionRequest({request,logicalPath,env});
+    if(taskExecutionResponse)return taskExecutionResponse;
+    const authorityResponse=await handleAgenticAuthorityRequest({request,logicalPath,env});
+    if(authorityResponse)return authorityResponse;
+    env=withPlatformOwnerAdminEnv(env);
+    request=await preparePlatformOwnerLogin(request,env);
+    const response=await base.fetch(request,env,ctx);
+    const runtimeResponse=await applyClientRuntimeIdentity(request,response);
+    const hardenedResponse=await hardenAuthenticatedColdStart(request,runtimeResponse);
+    if(hardenedResponse!==runtimeResponse)return enhanceReadiness(request,env,hardenedResponse);
+    return enhanceReadiness(request,env,runtimeResponse);
+  },
+  async scheduled(event,env,ctx){
+    return base.scheduled(event,env,ctx);
+  }
+};
+
+export {delegatedAuthoritySchemaReady,enhanceReadiness,hardenAuthenticatedColdStart,injectSyntheticBootTrace,logicalRequestPath,syntheticBootTraceRequested,V81_SCHEMA_DELTA};
+
+===== ORIGINAL FILE: cloudflare/src/agentic-learning.js =====
+
+const PRIORITY_WEIGHT=Object.freeze({high:300,medium:200,low:100});
+const MIN_EVIDENCE=3;
+const MAX_ASSOCIATION_ADJUSTMENT=10;
+
+function finite(value,fallback=0){const n=Number(value);return Number.isFinite(n)?n:fallback}
+
+export function buildOutcomeAssociations(rows=[]){
+  const map=Object.create(null);
+  for(const row of Array.isArray(rows)?rows:[]){
+    const ref=String(row?.source_ref||"").trim().slice(0,120);
+    if(!ref)continue;
+    const count=Math.max(0,Math.trunc(finite(row?.evidence_count)));
+    const positive=Math.max(0,Math.trunc(finite(row?.positive_count)));
+    const negative=Math.max(0,Math.trunc(finite(row?.negative_count)));
+    const unchanged=Math.max(0,Math.trunc(finite(row?.unchanged_count)));
+    map[ref]={
+      evidenceCount:count,
+      positiveCount:positive,
+      negativeCount:negative,
+      unchangedCount:unchanged,
+      association:count>=MIN_EVIDENCE?Math.max(-1,Math.min(1,(positive-negative)/count)):0,
+      causal:false
+    };
+  }
+  return map;
+}
+
+export function associationForProposal(proposal,associations={}){
+  const refs=[...new Set((Array.isArray(proposal?.sourceRefs)?proposal.sourceRefs:[])
+    .map(ref=>String(ref||"").trim()).filter(Boolean))];
+  const qualified=refs.map(ref=>associations[ref]).filter(item=>item&&item.evidenceCount>=MIN_EVIDENCE);
+  if(!qualified.length)return {evidenceCount:0,association:0,adjustment:0,causal:false};
+  const evidenceCount=qualified.reduce((sum,item)=>sum+item.evidenceCount,0);
+  const weighted=qualified.reduce((sum,item)=>sum+(item.association*item.evidenceCount),0)/Math.max(1,evidenceCount);
+  return {
+    evidenceCount,
+    association:Math.max(-1,Math.min(1,weighted)),
+    adjustment:Math.round(Math.max(-MAX_ASSOCIATION_ADJUSTMENT,Math.min(MAX_ASSOCIATION_ADJUSTMENT,weighted*MAX_ASSOCIATION_ADJUSTMENT))),
+    causal:false
+  };
+}
+
+export function rankOutcomeInformedProposals(proposals=[],associations={}){
+  return (Array.isArray(proposals)?proposals:[]).map((proposal,index)=>{
+    const learning=associationForProposal(proposal,associations);
+    const priority=String(proposal?.priority||"medium");
+    const basePriorityWeight=PRIORITY_WEIGHT[priority]??PRIORITY_WEIGHT.medium;
+    return {...proposal,outcomeLearning:learning,_rank:basePriorityWeight+learning.adjustment,_original:index};
+  }).sort((a,b)=>b._rank-a._rank||a._original-b._original).map((proposal,index)=>{
+    const {_rank,_original,...rest}=proposal;
+    return {...rest,ordinal:index+1};
+  });
+}
+
+export const __agenticLearningTest={PRIORITY_WEIGHT,MIN_EVIDENCE,MAX_ASSOCIATION_ADJUSTMENT};
+
+
+===== ORIGINAL FILE: cloudflare/src/agentic-live-voice.js =====
+
+import {
+  authenticate,roleAllowed,originAllowed,csrfAllowed,safeFirst
+} from "./agentic-authority-core.js";
+
+export const THEBE_LIVE_VOICE_VERSION="2026-09-20.realtime-ga-task-prepare-debug-v3";
+
+const OPENAI_REALTIME_CALLS_URL="https://api.openai.com/v1/realtime/calls";
+const LIVE_MODEL="gpt-realtime-2.1";
+const DELEGATION_TOOL_NAME="delegate_to_thebe_backend";
+const MAX_SESSION_BODY_BYTES=96*1024;
+const MAX_SDP_CHARS=72*1024;
+const MAX_DELEGATION_TEXT=2400;
+const MAX_DELEGATION_ID=240;
+const MAX_TASK_TITLE=160;
+const MAX_TASK_DESCRIPTION=1200;
+const VOICE_INTENT_ANALYZE="analyze";
+const VOICE_INTENT_PREPARE_INTERNAL_TASK="prepare_internal_task";
+const DEFAULT_MAX_SESSION_SECONDS=600;
+const DEFAULT_UPSTREAM_TIMEOUT_MS=12000;
+const DEFAULT_MAX_USER_STARTS_PER_HOUR=4;
+const DEFAULT_FAILURE_CIRCUIT_THRESHOLD=3;
+const DEFAULT_MARKETING_MAX_SESSION_SECONDS=60;
+const DEFAULT_MARKETING_MAX_STARTS_PER_HOUR=6;
+
+const json=(body,status=200)=>new Response(JSON.stringify(body),{
+  status,
+  headers:{
+    "content-type":"application/json; charset=utf-8",
+    "cache-control":"no-store",
+    "x-content-type-options":"nosniff"
+  }
+});
+
+function envTrue(value){
+  return ["1","true","on","yes"].includes(String(value??"").trim().toLowerCase());
+}
+
+function cleanText(value,max=500){
+  return String(value??"")
+    .replace(/[\u0000-\u001f\u007f]/g," ")
+    .replace(/\s+/g," ")
+    .trim()
+    .slice(0,max);
+}
+
+function boundedInt(value,{min,max,fallback}){
+  const parsed=Number(value);
+  if(!Number.isInteger(parsed)||parsed<min||parsed>max)return fallback;
+  return parsed;
+}
+
+function boundedStarts(value){return boundedInt(value,{min:1,max:60,fallback:6})}
+function boundedUserStarts(value){return boundedInt(value,{min:1,max:30,fallback:DEFAULT_MAX_USER_STARTS_PER_HOUR})}
+function boundedSessionSeconds(value){return boundedInt(value,{min:60,max:1800,fallback:DEFAULT_MAX_SESSION_SECONDS})}
+function boundedUpstreamTimeoutMs(value){return boundedInt(value,{min:3000,max:30000,fallback:DEFAULT_UPSTREAM_TIMEOUT_MS})}
+function boundedFailureThreshold(value){return boundedInt(value,{min:1,max:20,fallback:DEFAULT_FAILURE_CIRCUIT_THRESHOLD})}
+function boundedMarketingSessionSeconds(value){return boundedInt(value,{min:30,max:120,fallback:DEFAULT_MARKETING_MAX_SESSION_SECONDS})}
+function boundedMarketingStarts(value){return boundedInt(value,{min:1,max:20,fallback:DEFAULT_MARKETING_MAX_STARTS_PER_HOUR})}
+
+async function sha256Hex(value){
+  const bytes=new TextEncoder().encode(String(value??""));
+  const hash=await crypto.subtle.digest("SHA-256",bytes);
+  return [...new Uint8Array(hash)].map(byte=>byte.toString(16).padStart(2,"0")).join("");
+}
+
+async function readBoundedJson(request){
+  const encoding=String(request.headers.get("content-encoding")||"").trim().toLowerCase();
+  if(encoding&&encoding!=="identity")throw new Error("unsupported_content_encoding");
+  const declared=Number(request.headers.get("content-length")||0);
+  if(Number.isFinite(declared)&&declared>MAX_SESSION_BODY_BYTES)throw new Error("request_too_large");
+  const raw=await request.text();
+  if(new TextEncoder().encode(raw).byteLength>MAX_SESSION_BODY_BYTES)throw new Error("request_too_large");
+  if(!raw)return {};
+  try{return JSON.parse(raw)}catch{throw new Error("invalid_json")}
+}
+
+function bodyErrorStatus(error){
+  if(error?.message==="request_too_large")return 413;
+  if(error?.message==="unsupported_content_encoding")return 415;
+  return 400;
+}
+
+function validPreparedTaskBackendPayload(value){
+  if(!value||typeof value!=="object"||Array.isArray(value))return false;
+  if(value.ok!==true)return false;
+  const request=value.request;
+  if(!request||typeof request!=="object"||Array.isArray(request))return false;
+  return cleanText(request.id,160).length>0&&String(request.status||"").trim()==="prepared";
+}
+
+function validGovernedPlanPayload(value){
+  if(!value||typeof value!=="object"||Array.isArray(value))return false;
+  if(value.ok!==true)return false;
+  const run=value.run;
+  if(!run||typeof run!=="object"||Array.isArray(run))return false;
+  return cleanText(run.id,160).length>0&&String(run.status||"").trim()==="completed"&&Array.isArray(value.proposals);
+}
+
+function liveEnabled(env){
+  return envTrue(env?.THEBE_LIVE_VOICE_ENABLED);
+}
+
+function liveConfigured(env){
+  return String(env?.OPENAI_API_KEY||"").trim().length>20;
+}
+
+function runtimeEnabled(env){
+  return String(env?.AGENT_RUNTIME_ENABLED||"1")!=="0";
+}
+
+function killSwitchActive(env){
+  return envTrue(env?.AGENT_RUNTIME_KILL_SWITCH);
+}
+
+function liveAllowed(env){
+  return liveEnabled(env)&&liveConfigured(env)&&runtimeEnabled(env)&&!killSwitchActive(env);
+}
+function marketingVoiceEnabled(env){
+  return liveEnabled(env)&&envTrue(env?.THEBE_MARKETING_VOICE_ENABLED);
+}
+function marketingVoiceAllowed(env){
+  return marketingVoiceEnabled(env)&&liveConfigured(env)&&runtimeEnabled(env)&&!killSwitchActive(env);
+}
+
+function instructions(){
+  return [
+    "You are Thebe, the live voice interface for Thebe Desk.",
+    "Speak calmly, concisely and professionally. Prefer short spoken answers and ask one focused question when the user's intent is unclear.",
+    "You are the conversational voice layer, not an independent business agent.",
+    "For current company facts, finance, compliance, operations, customer work, business analysis, or any request that needs Thebe Desk data or tools, call delegate_to_thebe_backend instead of inventing an answer.",
+    "If and only if the user explicitly asks to create, add or record an internal task, call delegate_to_thebe_backend with intent prepare_internal_task and a concise structured task. Do not use task preparation for vague follow-up, analysis or suggestions.",
+    "Preparing an internal task is not approval and is not execution. The owner must separately approve the prepared request in Thebe Desk before guarded execution can be attempted.",
+    "The application backend owns business rules, permissions, tenant scope, approvals, tools, audit records and execution.",
+    "Never claim a business action succeeded unless a verified backend result explicitly says it succeeded.",
+    "Never approve, authorize or execute payments, statutory filings, signatures, employment termination, financing acceptance or accounting journal posting.",
+    "Never approve or execute an internal task from voice. Voice may only request a governed task draft.",
+    "A spoken interruption changes the conversation but does not prove that backend work was cancelled or that a prepared task draft disappeared.",
+    "When a delegated tool result arrives, summarize it naturally and preserve any approval, uncertainty, prepared-draft or no-execution warning in that result."
+  ].join(" ");
+}
+
+function delegationTool(){
+  return Object.freeze({
+    type:"function",
+    name:DELEGATION_TOOL_NAME,
+    description:"Use this tool whenever the user asks for current Thebe Desk business data, finance, compliance, operations, customer work, business analysis, or governed business actions. The backend may analyze and propose next steps, but high-risk execution remains human-controlled.",
+    parameters:{
+      type:"object",
+      properties:{
+        request:{
+          type:"string",
+          description:"The user's business request, stated clearly and completely."
+        },
+        intent:{
+          type:"string",
+          enum:[VOICE_INTENT_ANALYZE,VOICE_INTENT_PREPARE_INTERNAL_TASK],
+          description:"Use analyze for normal governed business work. Use prepare_internal_task only when the user explicitly asks to create, add or record an internal task."
+        },
+        task:{
+          type:"object",
+          description:"Structured internal-task draft. Supply only with prepare_internal_task.",
+          properties:{
+            title:{type:"string",description:"Short task title."},
+            description:{type:"string",description:"Optional task detail."},
+            priority:{type:"string",enum:["high","medium","low"],description:"Task priority."},
+            dueAt:{type:"string",description:"Optional ISO date or date-time."}
+          },
+          required:["title"],
+          additionalProperties:false
+        }
+      },
+      required:["request"],
+      additionalProperties:false
+    }
+  });
+}
+
+function realtimeSessionConfig(){
+  return {
+    type:"realtime",
+    model:LIVE_MODEL,
+    output_modalities:["audio"],
+    audio:{
+      input:{turn_detection:{type:"semantic_vad"}},
+      output:{voice:"marin"}
+    },
+    instructions:instructions(),
+    tools:[delegationTool()],
+    tool_choice:"auto"
+  };
+}
+
+function marketingInstructions(){
+  return [
+    "You are Thebe, the public voice guide for Thebe Desk, Botswana SME compliance software.",
+    "This is a short marketing demonstration on the public website. You have no access to any visitor account, workspace, company data, finance records, employees, evidence, documents, tools or governed actions.",
+    "Explain Thebe Desk clearly and conversationally. Keep most answers under 35 seconds unless the visitor asks for detail.",
+    "Thebe Desk helps Botswana SMEs keep recurring compliance work visible across CIPA company records, BURS tax obligations, employment compliance, business and industrial licences, tender readiness, inspections and evidence.",
+    "Key product features include Employer Shield, Regulatory Intelligence, Continuous Control Assurance, Remediation and Inspection Readiness, Tender Control, Compliance Passport, Thebe AI, and accounting and financial intelligence.",
+    "Thebe AI provides grounded decision support inside an authenticated workspace: management briefs, risk explanations and practical next actions while approvals, evidence and human judgement remain in control.",
+    "Current published plans are Monitor at P149 per month, Protect at P349 per month, Control at P699 per month, and Network at P1,299 per month. New workspaces start with a 14-day trial.",
+    "Do not invent legal, tax or regulatory conclusions. Explain product capabilities rather than giving professional legal or tax advice.",
+    "If asked to inspect a business, perform an action, create a task, access records, or make a decision using private data, explain that public sample mode cannot do that and invite the visitor to sign in or start a workspace.",
+    "Do not call tools. Do not claim you accessed private data. Do not claim an action was executed.",
+    "If the visitor asks what makes Thebe Desk different, emphasize continuous risk detection, controlled action, evidence of compliance, Botswana-specific workflows, and an owner-focused management view."
+  ].join(" ");
+}
+
+function marketingRealtimeSessionConfig(){
+  return {
+    type:"realtime",
+    model:LIVE_MODEL,
+    output_modalities:["audio"],
+    audio:{
+      input:{turn_detection:{type:"semantic_vad"}},
+      output:{voice:"marin"}
+    },
+    instructions:marketingInstructions()
+  };
+}
+
+async function marketingSafetyIdentifier(request){
+  const ip=cleanText((request.headers.get("cf-connecting-ip")||request.headers.get("x-forwarded-for")||"").split(",")[0],120);
+  const ua=cleanText(request.headers.get("user-agent"),200);
+  return sha256Hex(`marketing:${ip||"unknown"}:${ua||"unknown"}`);
+}
+
+async function consumeMarketingStart(request,env){
+  const cache=globalThis.caches?.default;
+  if(!cache)return Object.freeze({allowed:false,code:"marketing_rate_limit_unavailable"});
+  const fingerprint=await marketingSafetyIdentifier(request);
+  const hour=new Date().toISOString().slice(0,13);
+  const key=new Request(`https://thebedesk-rate.invalid/marketing-voice/${fingerprint}/${hour}`);
+  let count=0;
+  try{
+    const existing=await cache.match(key);
+    if(existing){
+      const body=await existing.json();
+      count=Math.max(0,Number(body?.count)||0);
+    }
+  }catch{}
+  const max=boundedMarketingStarts(env?.THEBE_MARKETING_VOICE_MAX_STARTS_PER_HOUR);
+  if(count>=max)return Object.freeze({allowed:false,code:"marketing_session_rate_limited",retryAfterSeconds:3600,count,max});
+  const next=count+1;
+  try{
+    await cache.put(key,new Response(JSON.stringify({count:next}),{
+      headers:{"content-type":"application/json","cache-control":"public,max-age=3700"}
+    }));
+  }catch{
+    return Object.freeze({allowed:false,code:"marketing_rate_limit_unavailable"});
+  }
+  return Object.freeze({allowed:true,code:"marketing_voice_ready",count:next,max,fingerprint});
+}
+
+function marketingStatus(env){
+  const allowed=marketingVoiceAllowed(env);
+  return json({
+    enabled:marketingVoiceEnabled(env),
+    configured:liveConfigured(env),
+    sessionCreationAllowed:allowed,
+    gateCode:allowed?"marketing_voice_ready":"marketing_voice_unavailable",
+    version:THEBE_LIVE_VOICE_VERSION,
+    model:LIVE_MODEL,
+    transport:"webrtc",
+    mode:"marketing_sample",
+    maxSessionSeconds:boundedMarketingSessionSeconds(env?.THEBE_MARKETING_VOICE_MAX_SESSION_SECONDS),
+    maxStartsPerHour:boundedMarketingStarts(env?.THEBE_MARKETING_VOICE_MAX_STARTS_PER_HOUR),
+    transcriptPolicy:{rawAudioStoredByThebe:false,liveTranscriptServerStorage:false},
+    authority:{workspaceDataAccess:false,toolsAvailable:false,executionAuthority:false}
+  });
+}
+
+async function createMarketingSession({request,env}){
+  if(!marketingVoiceAllowed(env))return json({error:"marketing_voice_unavailable"},503);
+  let body;
+  try{body=await readBoundedJson(request)}
+  catch(error){return json({error:error.message},bodyErrorStatus(error))}
+  const sdp=String(body?.sdp||"");
+  if(!sdp||sdp.length>MAX_SDP_CHARS||!/^v=0(?:\r?\n|$)/.test(sdp))return json({error:"invalid_webrtc_offer"},400);
+
+  const rate=await consumeMarketingStart(request,env);
+  if(!rate.allowed){
+    const status=rate.code==="marketing_session_rate_limited"?429:503;
+    return json({error:rate.code,...(rate.retryAfterSeconds?{retryAfterSeconds:rate.retryAfterSeconds}:{})},status);
+  }
+
+  const upstreamTimeoutMs=boundedUpstreamTimeoutMs(env?.THEBE_LIVE_VOICE_UPSTREAM_TIMEOUT_MS);
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort("marketing_live_session_timeout"),upstreamTimeoutMs);
+  const form=new FormData();
+  form.set("sdp",sdp);
+  form.set("session",JSON.stringify(marketingRealtimeSessionConfig()));
+  let upstream;
+  try{
+    upstream=await fetch(OPENAI_REALTIME_CALLS_URL,{
+      method:"POST",
+      headers:{
+        "authorization":`Bearer ${String(env.OPENAI_API_KEY).trim()}`,
+        "accept":"application/sdp",
+        "OpenAI-Safety-Identifier":rate.fingerprint
+      },
+      signal:controller.signal,
+      body:form
+    });
+  }catch{
+    return json({error:"marketing_live_session_create_failed",code:controller.signal.aborted?"upstream_timeout":"upstream_unreachable"},502);
+  }finally{
+    clearTimeout(timeout);
+  }
+  if(!upstream.ok){
+    const providerRaw=String(await upstream.text()).slice(0,4096);
+    let providerCode=null,providerType=null;
+    try{
+      const parsed=JSON.parse(providerRaw);
+      providerCode=cleanText(parsed?.error?.code,120)||null;
+      providerType=cleanText(parsed?.error?.type,120)||null;
+    }catch{}
+    return json({error:"marketing_live_session_create_failed",code:"upstream_rejected",upstreamStatus:upstream.status,providerCode,providerType},502);
+  }
+
+  const answerSdp=String(await upstream.text());
+  const location=String(upstream.headers.get("location")||"");
+  const sessionId=cleanText(location.split("/").filter(Boolean).pop(),240)||crypto.randomUUID();
+  if(!answerSdp||answerSdp.length>MAX_SDP_CHARS||!/^v=0(?:\r?\n|$)/.test(answerSdp))return json({error:"marketing_live_session_invalid_response"},502);
+
+  return json({
+    ok:true,
+    version:THEBE_LIVE_VOICE_VERSION,
+    model:LIVE_MODEL,
+    mode:"marketing_sample",
+    session:{id:sessionId},
+    transport:{type:"webrtc",sdp:answerSdp},
+    delegation:{type:"none"},
+    limits:{
+      maxSessionSeconds:boundedMarketingSessionSeconds(env?.THEBE_MARKETING_VOICE_MAX_SESSION_SECONDS),
+      maxStartsPerHour:rate.max
+    },
+    authority:{workspaceDataAccess:false,toolsAvailable:false,executionAuthority:false}
+  },201);
+}
+
+async function audit(env,auth,eventType,entityId,detail={}){
+  await env.DB.prepare(`INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data)
+    VALUES(?,?,?,?,?,?)`).bind(
+      auth.tenant_id,
+      auth.user_id,
+      eventType,
+      "thebe_live_session",
+      entityId||null,
+      JSON.stringify(detail)
+    ).run();
+}
+
+async function recentLiveTelemetry(env,tenantId,userId){
+  const row=await safeFirst(env,`SELECT
+      SUM(CASE WHEN event_type='THEBE_LIVE_SESSION_REQUESTED' AND created_at>=datetime('now','-1 hour') THEN 1 ELSE 0 END) tenant_starts,
+      SUM(CASE WHEN actor_user_id=? AND event_type='THEBE_LIVE_SESSION_REQUESTED' AND created_at>=datetime('now','-1 hour') THEN 1 ELSE 0 END) user_starts,
+      SUM(CASE WHEN event_type='THEBE_LIVE_SESSION_FAILED' AND created_at>=datetime('now','-10 minutes') THEN 1 ELSE 0 END) recent_failures
+    FROM audit_events WHERE tenant_id=? AND entity_type='thebe_live_session'`,[userId,tenantId]);
+  return Object.freeze({
+    tenantStarts:Number(row?.tenant_starts||0),
+    userStarts:Number(row?.user_starts||0),
+    recentFailures:Number(row?.recent_failures||0)
+  });
+}
+
+function liveGate(env,telemetry={}){
+  if(!liveEnabled(env))return Object.freeze({allowed:false,code:"live_voice_disabled"});
+  if(!liveConfigured(env))return Object.freeze({allowed:false,code:"live_voice_not_configured"});
+  if(!runtimeEnabled(env))return Object.freeze({allowed:false,code:"agent_runtime_disabled"});
+  if(killSwitchActive(env))return Object.freeze({allowed:false,code:"agent_runtime_kill_switch_active"});
+  if(Number(telemetry.tenantStarts||0)>=boundedStarts(env?.THEBE_LIVE_VOICE_MAX_STARTS_PER_HOUR))return Object.freeze({allowed:false,code:"tenant_session_rate_limited"});
+  if(Number(telemetry.userStarts||0)>=boundedUserStarts(env?.THEBE_LIVE_VOICE_MAX_USER_STARTS_PER_HOUR))return Object.freeze({allowed:false,code:"user_session_rate_limited"});
+  if(Number(telemetry.recentFailures||0)>=boundedFailureThreshold(env?.THEBE_LIVE_VOICE_FAILURE_CIRCUIT_THRESHOLD))return Object.freeze({allowed:false,code:"live_failure_circuit_open"});
+  return Object.freeze({allowed:true,code:"live_voice_ready"});
+}
+
+async function status(env,auth){
+  const telemetry=await recentLiveTelemetry(env,auth.tenant_id,auth.user_id);
+  const maxStarts=boundedStarts(env?.THEBE_LIVE_VOICE_MAX_STARTS_PER_HOUR);
+  const maxUserStarts=boundedUserStarts(env?.THEBE_LIVE_VOICE_MAX_USER_STARTS_PER_HOUR);
+  const failureThreshold=boundedFailureThreshold(env?.THEBE_LIVE_VOICE_FAILURE_CIRCUIT_THRESHOLD);
+  const gate=liveGate(env,telemetry);
+  return json({
+    enabled:liveEnabled(env),
+    configured:liveConfigured(env),
+    sessionCreationAllowed:gate.allowed,
+    gateCode:gate.code,
+    version:THEBE_LIVE_VOICE_VERSION,
+    model:LIVE_MODEL,
+    transport:"webrtc",
+    delegation:"function_tool",
+    phase:"phase0_foundation",
+    runtimeEnabled:runtimeEnabled(env),
+    runtimeKillSwitch:killSwitchActive(env),
+    startsThisHour:telemetry.tenantStarts,
+    userStartsThisHour:telemetry.userStarts,
+    recentFailures10m:telemetry.recentFailures,
+    maxStartsPerHour:maxStarts,
+    maxUserStartsPerHour:maxUserStarts,
+    failureCircuitThreshold:failureThreshold,
+    maxSessionSeconds:boundedSessionSeconds(env?.THEBE_LIVE_VOICE_MAX_SESSION_SECONDS),
+    upstreamTimeoutMs:boundedUpstreamTimeoutMs(env?.THEBE_LIVE_VOICE_UPSTREAM_TIMEOUT_MS),
+    secureContextRequired:true,
+    transcriptPolicy:{
+      rawAudioStoredByThebe:false,
+      liveTranscriptServerStorage:false,
+      delegatedBusinessRequestMayBecomeAgenticRunGoal:true
+    },
+    authority:{
+      voiceMayGrantPermissions:false,
+      voiceMayBypassRuntimeGuard:false,
+      voiceMayPrepareInternalTask:true,
+      voiceMayApproveInternalTask:false,
+      voiceMayExecuteInternalTask:false,
+      taskPreparationRequiresExistingGrant:true,
+      taskExecutionRequiresSeparateOwnerApproval:true,
+      delegatedBusinessWork:"governed_thebe_backend",
+      highRiskActions:"human_only"
+    }
+  });
+}
+
+async function createSession({request,env,auth}){
+  const telemetry=await recentLiveTelemetry(env,auth.tenant_id,auth.user_id);
+  const gate=liveGate(env,telemetry);
+  if(!gate.allowed){
+    const rateLimited=gate.code==="tenant_session_rate_limited"||gate.code==="user_session_rate_limited";
+    return json({error:gate.code,...(rateLimited?{retryAfterSeconds:3600}:{})},rateLimited?429:503);
+  }
+
+  let body;
+  try{body=await readBoundedJson(request)}
+  catch(error){return json({error:error.message},bodyErrorStatus(error))}
+
+  const sdp=String(body?.sdp||"");
+  if(!sdp||sdp.length>MAX_SDP_CHARS||!/^v=0(?:\r?\n|$)/.test(sdp)){
+    return json({error:"invalid_webrtc_offer"},400);
+  }
+
+  const requestId=crypto.randomUUID();
+  await audit(env,auth,"THEBE_LIVE_SESSION_REQUESTED",requestId,{
+    model:LIVE_MODEL,
+    transport:"webrtc",
+    delegation:"function_tool",
+    voiceAuthority:"none"
+  });
+
+  let upstream;
+  const upstreamTimeoutMs=boundedUpstreamTimeoutMs(env?.THEBE_LIVE_VOICE_UPSTREAM_TIMEOUT_MS);
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort("live_session_timeout"),upstreamTimeoutMs);
+  const safetyIdentifier=await sha256Hex(`${auth.tenant_id}:${auth.user_id}`);
+  const form=new FormData();
+  form.set("sdp",sdp);
+  form.set("session",JSON.stringify(realtimeSessionConfig()));
+  try{
+    upstream=await fetch(OPENAI_REALTIME_CALLS_URL,{
+      method:"POST",
+      headers:{
+        "authorization":`Bearer ${String(env.OPENAI_API_KEY).trim()}`,
+        "accept":"application/sdp",
+        "OpenAI-Safety-Identifier":safetyIdentifier
+      },
+      signal:controller.signal,
+      body:form
+    });
+  }catch(error){
+    const code=controller.signal.aborted?"upstream_timeout":"upstream_unreachable";
+    await audit(env,auth,"THEBE_LIVE_SESSION_FAILED",requestId,{code,upstreamTimeoutMs});
+    return json({error:"live_session_create_failed",code},502);
+  }finally{
+    clearTimeout(timeout);
+  }
+
+  if(!upstream.ok){
+    const providerRaw=String(await upstream.text()).slice(0,4096);
+    let providerCode=null,providerType=null;
+    try{
+      const parsed=JSON.parse(providerRaw);
+      providerCode=cleanText(parsed?.error?.code,120)||null;
+      providerType=cleanText(parsed?.error?.type,120)||null;
+    }catch{}
+    await audit(env,auth,"THEBE_LIVE_SESSION_FAILED",requestId,{
+      code:"upstream_rejected",
+      status:upstream.status,
+      providerCode,
+      providerType
+    });
+    return json({
+      error:"live_session_create_failed",
+      code:"upstream_rejected",
+      upstreamStatus:upstream.status,
+      providerCode,
+      providerType
+    },502);
+  }
+
+  const answerSdp=String(await upstream.text());
+  const location=String(upstream.headers.get("location")||"");
+  const sessionId=cleanText(location.split("/").filter(Boolean).pop(),240)||requestId;
+  if(!answerSdp||answerSdp.length>MAX_SDP_CHARS||!/^v=0(?:\r?\n|$)/.test(answerSdp)){
+    await audit(env,auth,"THEBE_LIVE_SESSION_FAILED",requestId,{code:"invalid_upstream_response"});
+    return json({error:"live_session_invalid_response"},502);
+  }
+
+  await audit(env,auth,"THEBE_LIVE_SESSION_STARTED",sessionId,{
+    requestId,
+    model:LIVE_MODEL,
+    transport:"webrtc",
+    delegation:"function_tool"
+  });
+
+  return json({
+    ok:true,
+    version:THEBE_LIVE_VOICE_VERSION,
+    model:LIVE_MODEL,
+    session:{id:sessionId},
+    transport:{type:"webrtc",sdp:answerSdp},
+    delegation:{type:"function_tool",name:DELEGATION_TOOL_NAME},
+    limits:{
+      maxSessionSeconds:boundedSessionSeconds(env?.THEBE_LIVE_VOICE_MAX_SESSION_SECONDS),
+      maxStartsPerHour:boundedStarts(env?.THEBE_LIVE_VOICE_MAX_STARTS_PER_HOUR),
+      maxUserStartsPerHour:boundedUserStarts(env?.THEBE_LIVE_VOICE_MAX_USER_STARTS_PER_HOUR)
+    },
+    authority:{
+      independentAgent:false,
+      backendPolicyRequired:true,
+      executionAuthorityInherited:false
+    }
+  },201);
+}
+
+function copiedHeaders(request){
+  const headers=new Headers({"content-type":"application/json","accept":"application/json"});
+  for(const name of ["cookie","x-csrf-token","origin"]){
+    const value=request.headers.get(name);
+    if(value)headers.set(name,value);
+  }
+  return headers;
+}
+
+function normalizeVoiceIntent(value){
+  return String(value||"").trim().toLowerCase()===VOICE_INTENT_PREPARE_INTERNAL_TASK
+    ?VOICE_INTENT_PREPARE_INTERNAL_TASK
+    :VOICE_INTENT_ANALYZE;
+}
+
+function normalizeTaskPriority(value){
+  const priority=String(value||"medium").trim().toLowerCase();
+  if(priority==="high")return 1;
+  if(priority==="low")return 3;
+  return 2;
+}
+
+function normalizeTaskDueAt(value){
+  const raw=cleanText(value,80);
+  if(!raw)return null;
+  const date=new Date(raw);
+  return Number.isFinite(date.getTime())?date.toISOString():undefined;
+}
+
+function normalizeVoiceTask(value={}){
+  const task=value&&typeof value==="object"&&!Array.isArray(value)?value:{};
+  const title=cleanText(task.title,MAX_TASK_TITLE);
+  if(!title)return Object.freeze({error:"voice_task_title_required"});
+  const dueAt=normalizeTaskDueAt(task.dueAt);
+  if(dueAt===undefined)return Object.freeze({error:"voice_task_due_at_invalid"});
+  return Object.freeze({
+    task:Object.freeze({
+      title,
+      description:cleanText(task.description,MAX_TASK_DESCRIPTION)||null,
+      priority:normalizeTaskPriority(task.priority),
+      dueAt
+    })
+  });
+}
+
+async function activeVoiceTaskAuthority(env,tenantId){
+  if(!env?.DB)return Object.freeze({ok:false,code:"bounded_execution_schema_not_ready"});
+  let rows;
+  try{
+    rows=await env.DB.prepare(`SELECT d.id delegation_id,g.id execution_grant_id
+      FROM agent_delegations d
+      JOIN agent_execution_grants g ON g.delegation_id=d.id AND g.tenant_id=d.tenant_id
+      WHERE d.tenant_id=? AND d.agent_key='thebe' AND d.action_key='task.create'
+        AND d.status='active' AND d.max_autonomy_level>=3
+        AND d.external_side_effects=0 AND d.human_confirmation_required=1
+        AND (d.valid_from IS NULL OR d.valid_from<=CURRENT_TIMESTAMP)
+        AND (d.expires_at IS NULL OR d.expires_at>CURRENT_TIMESTAMP)
+        AND g.status='active'
+      ORDER BY g.created_at DESC,g.id DESC
+      LIMIT 2`).bind(tenantId).all();
+  }catch{
+    return Object.freeze({ok:false,code:"bounded_execution_schema_not_ready"});
+  }
+  const items=rows?.results||[];
+  if(items.length===0)return Object.freeze({ok:false,code:"active_task_execution_grant_required"});
+  if(items.length!==1)return Object.freeze({ok:false,code:"ambiguous_task_execution_grant"});
+  return Object.freeze({
+    ok:true,
+    delegationId:String(items[0].delegation_id),
+    executionGrantId:String(items[0].execution_grant_id)
+  });
+}
+
+function preparedTaskContent(task){
+  return cleanText(`I prepared the internal task "${task.title}" for review. It is not approved or executed. The owner must approve it in Thebe Desk before any guarded execution can occur.`,1500);
+}
+
+function taskPreparationNoopContent(code){
+  if(code==="active_task_execution_grant_required"){
+    return "I could not prepare that task because this workspace does not have an active governed task-creation grant. No task was created or executed.";
+  }
+  if(code==="ambiguous_task_execution_grant"){
+    return "I could not prepare that task because more than one eligible task-creation grant is active. Resolve the grant configuration first. No task was created or executed.";
+  }
+  return "I could not prepare that task through the governed task workflow. No task was created or executed.";
+}
+
+async function prepareInternalTaskFromVoice({request,env,auth,taskFetch,delegationId,sessionId,task}){
+  const authority=await activeVoiceTaskAuthority(env,auth.tenant_id);
+  if(!authority.ok){
+    const content=taskPreparationNoopContent(authority.code);
+    await audit(env,auth,"THEBE_LIVE_TASK_PREPARE_DENIED",sessionId||delegationId,{
+      delegationId,
+      code:authority.code,
+      executionPerformed:false
+    });
+    return json({
+      ok:false,
+      mode:VOICE_INTENT_PREPARE_INTERNAL_TASK,
+      content,
+      toolOutput:{
+        ok:false,
+        content,
+        authority:{
+          taskPrepared:false,
+          approvalRequired:true,
+          executionPerformed:false,
+          voiceMayApprove:false,
+          voiceMayExecute:false,
+          runtimeGuardBypassed:false
+        }
+      },
+      authority:{
+        taskPrepared:false,
+        approvalRequired:true,
+        executionPerformed:false,
+        voiceMayApprove:false,
+        voiceMayExecute:false,
+        runtimeGuardBypassed:false
+      }
+    },200);
+  }
+  if(typeof taskFetch!=="function")return json({error:"governed_task_backend_unavailable"},503);
+
+  const taskPayloadHash=await sha256Hex(JSON.stringify(task));
+  const idempotencyHash=await sha256Hex(`${auth.tenant_id}:${sessionId||"no-session"}:${delegationId}:${taskPayloadHash}`);
+  const idempotencyKey=`voice-task-${idempotencyHash.slice(0,40)}`;
+  await audit(env,auth,"THEBE_LIVE_TASK_PREPARE_REQUESTED",sessionId||delegationId,{
+    delegationId,
+    taskPayloadHash,
+    executionGrantId:authority.executionGrantId,
+    transcriptStored:false,
+    executionPerformed:false
+  });
+
+  const target=new URL("/api/agentic/task-execution/prepare",request.url);
+  const headers=copiedHeaders(request);
+  headers.set("idempotency-key",idempotencyKey);
+  let response;
+  try{
+    response=await taskFetch(new Request(target.toString(),{
+      method:"POST",
+      headers,
+      body:JSON.stringify({
+        delegationId:authority.delegationId,
+        title:task.title,
+        description:task.description,
+        priority:task.priority,
+        dueAt:task.dueAt
+      })
+    }),env);
+  }catch{
+    await audit(env,auth,"THEBE_LIVE_TASK_PREPARE_FAILED",sessionId||delegationId,{
+      delegationId,taskPayloadHash,code:"task_backend_unreachable"
+    });
+    return json({error:"governed_task_prepare_failed"},502);
+  }
+
+  let prepared=null;
+  try{prepared=await response.json()}catch{}
+  if(!response.ok){
+    const code=cleanText(prepared?.error,120)||"task_prepare_rejected";
+    await audit(env,auth,"THEBE_LIVE_TASK_PREPARE_FAILED",sessionId||delegationId,{
+      delegationId,taskPayloadHash,code,status:response.status
+    });
+    const content=taskPreparationNoopContent(code);
+    return json({
+      ok:false,
+      mode:VOICE_INTENT_PREPARE_INTERNAL_TASK,
+      content,
+      toolOutput:{
+        ok:false,
+        content,
+        authority:{
+          taskPrepared:false,
+          approvalRequired:true,
+          executionPerformed:false,
+          voiceMayApprove:false,
+          voiceMayExecute:false,
+          runtimeGuardBypassed:false
+        }
+      },
+      authority:{
+        taskPrepared:false,
+        approvalRequired:true,
+        executionPerformed:false,
+        voiceMayApprove:false,
+        voiceMayExecute:false,
+        runtimeGuardBypassed:false
+      }
+    },response.status>=500?502:200);
+  }
+
+  if(!validPreparedTaskBackendPayload(prepared)){
+    await audit(env,auth,"THEBE_LIVE_TASK_PREPARE_FAILED",sessionId||delegationId,{
+      delegationId,taskPayloadHash,code:"task_backend_invalid_response",status:response.status
+    });
+    return json({error:"governed_task_prepare_invalid_response"},502);
+  }
+
+  const requestId=cleanText(prepared.request.id,160);
+  const content=preparedTaskContent(task);
+  await audit(env,auth,"THEBE_LIVE_TASK_PREPARED",sessionId||delegationId,{
+    delegationId,
+    taskPayloadHash,
+    requestId,
+    executionGrantId:authority.executionGrantId,
+    preparedStatus:cleanText(prepared?.request?.status,80)||"prepared",
+    executionPerformed:false
+  });
+
+  const resultAuthority={
+    taskPrepared:true,
+    approvalRequired:true,
+    executionPerformed:false,
+    permissionsExpanded:false,
+    voiceMayApprove:false,
+    voiceMayExecute:false,
+    runtimeGuardBypassed:false
+  };
+  return json({
+    ok:true,
+    mode:VOICE_INTENT_PREPARE_INTERNAL_TASK,
+    requestId,
+    task:{title:task.title,priority:task.priority,dueAt:task.dueAt},
+    content,
+    toolOutput:{
+      ok:true,
+      mode:VOICE_INTENT_PREPARE_INTERNAL_TASK,
+      requestId,
+      content,
+      authority:resultAuthority
+    },
+    authority:resultAuthority
+  },201);
+}
+
+function spokenResult(plan){
+  const summary=cleanText(plan?.run?.summary||"Thebe completed the governed business review.",700);
+  const proposals=(Array.isArray(plan?.proposals)?plan.proposals:[])
+    .slice(0,3)
+    .map(item=>{
+      const title=cleanText(item?.title,180);
+      const reason=cleanText(item?.reason,260);
+      return title&&reason?`${title}: ${reason}`:title;
+    })
+    .filter(Boolean);
+  const parts=[summary];
+  if(proposals.length)parts.push(`The main next steps are: ${proposals.join(" ")}`);
+  parts.push("No business action was executed from this voice delegation.");
+  return cleanText(parts.join(" "),1500);
+}
+
+async function delegateBusinessWork({request,env,ctx,auth,coreFetch,taskFetch}){
+  if(!liveAllowed(env))return json({error:"live_voice_unavailable"},503);
+  if(typeof coreFetch!=="function")return json({error:"governed_backend_unavailable"},503);
+
+  let body;
+  try{body=await readBoundedJson(request)}
+  catch(error){return json({error:error.message},bodyErrorStatus(error))}
+
+  const delegationId=cleanText(body?.delegationId,MAX_DELEGATION_ID);
+  const taskText=cleanText(body?.taskText,MAX_DELEGATION_TEXT);
+  const sessionId=cleanText(body?.sessionId,240)||null;
+  const intent=normalizeVoiceIntent(body?.intent);
+  if(!delegationId)return json({error:"delegation_id_required"},400);
+  if(!taskText)return json({error:"delegation_task_text_required"},400);
+
+  if(intent===VOICE_INTENT_PREPARE_INTERNAL_TASK){
+    const normalized=normalizeVoiceTask(body?.task);
+    if(normalized.error){
+      const content="I could not prepare that internal task because the task details were incomplete or invalid. Ask the user to restate the task. No task was created or executed.";
+      return json({
+        ok:false,
+        mode:intent,
+        content,
+        toolOutput:{ok:false,content,authority:{taskPrepared:false,approvalRequired:true,executionPerformed:false,voiceMayApprove:false,voiceMayExecute:false}},
+        authority:{taskPrepared:false,approvalRequired:true,executionPerformed:false,voiceMayApprove:false,voiceMayExecute:false}
+      },200);
+    }
+    return prepareInternalTaskFromVoice({
+      request,env,auth,taskFetch,delegationId,sessionId,task:normalized.task
+    });
+  }
+
+  const taskHash=await sha256Hex(taskText);
+  await audit(env,auth,"THEBE_LIVE_DELEGATION_REQUESTED",sessionId||delegationId,{
+    delegationId,
+    taskHash,
+    intent,
+    transcriptStored:false,
+    executionAuthorityInherited:false
+  });
+
+  const target=new URL("/api/agentic/plan",request.url);
+  let response;
+  try{
+    response=await coreFetch(new Request(target.toString(),{
+      method:"POST",
+      headers:copiedHeaders(request),
+      body:JSON.stringify({goal:taskText})
+    }),env,ctx);
+  }catch{
+    await audit(env,auth,"THEBE_LIVE_DELEGATION_FAILED",sessionId||delegationId,{delegationId,taskHash,code:"backend_unreachable"});
+    return json({error:"delegated_business_work_failed"},502);
+  }
+
+  let plan=null;
+  try{plan=await response.json()}catch{}
+  if(!response.ok){
+    await audit(env,auth,"THEBE_LIVE_DELEGATION_FAILED",sessionId||delegationId,{
+      delegationId,taskHash,code:"governed_backend_rejected",status:response.status
+    });
+    return json({error:"delegated_business_work_failed",backendStatus:response.status},response.status>=500?502:response.status);
+  }
+  if(!validGovernedPlanPayload(plan)){
+    await audit(env,auth,"THEBE_LIVE_DELEGATION_FAILED",sessionId||delegationId,{
+      delegationId,taskHash,code:"governed_backend_invalid_response",status:response.status
+    });
+    return json({error:"delegated_business_work_invalid_response"},502);
+  }
+
+  const content=spokenResult(plan);
+  await audit(env,auth,"THEBE_LIVE_DELEGATION_COMPLETED",sessionId||delegationId,{
+    delegationId,
+    taskHash,
+    runId:cleanText(plan?.run?.id,160)||null,
+    proposalCount:Array.isArray(plan?.proposals)?plan.proposals.length:0,
+    executionPerformed:false
+  });
+
+  const authority={
+    executionPerformed:false,
+    permissionsExpanded:false,
+    runtimeGuardBypassed:false
+  };
+  return json({
+    ok:true,
+    runId:plan?.run?.id||null,
+    proposalIds:(Array.isArray(plan?.proposals)?plan.proposals:[]).map(item=>item?.id).filter(Boolean),
+    content,
+    toolOutput:{
+      ok:true,
+      runId:plan?.run?.id||null,
+      content,
+      authority
+    },
+    authority
+  },201);
+}
+
+export async function handleAgenticLiveVoiceRequest({request,logicalPath,env,ctx,coreFetch,taskFetch}){
+  const path=String(logicalPath||new URL(request.url).pathname);
+  if(!path.startsWith("/api/agentic/live"))return null;
+
+  if(path==="/api/agentic/live/marketing/status"&&request.method==="GET")return marketingStatus(env);
+  if(path==="/api/agentic/live/marketing/session"&&request.method==="POST"){
+    if(!String(request.headers.get("origin")||"").trim()||!originAllowed(request,env))return json({error:"origin_failed"},403);
+    return createMarketingSession({request,env});
+  }
+  if(path.startsWith("/api/agentic/live/marketing"))return json({error:"not_found"},404);
+
+  const auth=await authenticate(request,env);
+  if(!auth)return json({error:"unauthenticated"},401);
+  if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
+
+  if(request.method!=="GET"){
+    if(!originAllowed(request,env))return json({error:"origin_failed"},403);
+    if(!csrfAllowed(request,auth))return json({error:"csrf_failed"},403);
+  }
+
+  if(path==="/api/agentic/live/status"&&request.method==="GET")return status(env,auth);
+  if(path==="/api/agentic/live/session"&&request.method==="POST")return createSession({request,env,auth});
+  if(path==="/api/agentic/live/delegation"&&request.method==="POST"){
+    return delegateBusinessWork({request,env,ctx,auth,coreFetch,taskFetch});
+  }
+  return json({error:"not_found"},404);
+}
+
+export const __agenticLiveVoiceTest=Object.freeze({
+  cleanText,
+  boundedStarts,
+  boundedUserStarts,
+  boundedSessionSeconds,
+  boundedUpstreamTimeoutMs,
+  boundedFailureThreshold,
+  boundedMarketingSessionSeconds,
+  boundedMarketingStarts,
+  liveGate,
+  liveEnabled,
+  marketingVoiceEnabled,
+  marketingVoiceAllowed,
+  liveConfigured,
+  runtimeEnabled,
+  killSwitchActive,
+  normalizeVoiceIntent,
+  normalizeTaskPriority,
+  normalizeTaskDueAt,
+  normalizeVoiceTask,
+  validPreparedTaskBackendPayload,
+  validGovernedPlanPayload,
+  instructions,
+  marketingInstructions,
+  delegationTool,
+  realtimeSessionConfig,
+  marketingRealtimeSessionConfig,
+  spokenResult,
+  preparedTaskContent,
+  taskPreparationNoopContent
+});
+
+
+===== ORIGINAL FILE: cloudflare/src/agentic-task-execution.js =====
+
+import {AGENT_ACTION_CATALOG} from "./agent-policy.js";
+import {evaluateAgentRuntimeGuard} from "./agent-runtime-guard.js";
+import {normalizeDelegation} from "./delegated-authority.js";
+import {
+  authenticate,roleAllowed,originAllowed,csrfAllowed,readJson,requestBodyErrorStatus,safeFirst
+} from "./agentic-authority-core.js";
+
+const MAX_TITLE=160;
+const MAX_DESCRIPTION=1200;
+const ACTION_KEY="task.create";
+const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"}});
+const text=(value,max=500)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
+const id=()=>crypto.randomUUID();
+
+async function sha256Hex(value){
+  const bytes=new TextEncoder().encode(String(value??""));
+  const hash=await crypto.subtle.digest("SHA-256",bytes);
+  return [...new Uint8Array(hash)].map(byte=>byte.toString(16).padStart(2,"0")).join("");
+}
+
+function envTrue(value){return ["1","true","on","yes"].includes(String(value??"").trim().toLowerCase())}
+function executionMode(env){
+  if(envTrue(env?.AGENT_BOUNDED_TASK_EXECUTION_ENABLED))return "global";
+  const mode=String(env?.AGENT_BOUNDED_TASK_EXECUTION_MODE||"off").trim().toLowerCase();
+  return ["off","platform_admin_canary","global"].includes(mode)?mode:"off";
+}
+function platformAdminEmails(env){
+  return new Set(String(env?.PLATFORM_ADMIN_EMAILS||"").split(",").map(value=>value.trim().toLowerCase()).filter(Boolean));
+}
+function sessionExecutionEnabled(env,auth){
+  const mode=executionMode(env);
+  if(mode==="global")return true;
+  if(mode!=="platform_admin_canary")return false;
+  const email=String(auth?.email||"").trim().toLowerCase();
+  return roleAllowed(auth,"owner")&&!!email&&platformAdminEmails(env).has(email);
+}
+function globalExecutionEnabled(env){return executionMode(env)==="global"}
+function runtimeKillSwitch(env){return envTrue(env?.AGENT_RUNTIME_KILL_SWITCH)}
+function runtimeAgentStatus(env){return String(env?.AGENT_RUNTIME_ENABLED||"1")==="0"?"disabled":"enabled"}
+function runtimeBudgetStatus(env){return String(env?.AGENT_RUNTIME_BUDGET_STATUS||"within_limit")}
+
+function validIso(value){
+  if(value==null||value==="")return null;
+  const date=new Date(value);
+  return Number.isFinite(date.getTime())?date.toISOString():undefined;
+}
+
+function normalizeTaskPayload(body={}){
+  const title=text(body?.title,MAX_TITLE);
+  if(!title)return {error:"task_title_required"};
+  const description=text(body?.description,MAX_DESCRIPTION)||null;
+  const priority=body?.priority==null?2:Number(body.priority);
+  if(!Number.isInteger(priority)||priority<1||priority>3)return {error:"invalid_task_priority"};
+  const dueAt=validIso(body?.dueAt);
+  if(dueAt===undefined)return {error:"invalid_task_due_at"};
+  return {payload:Object.freeze({title,description,priority,dueAt})};
+}
+
+function canonicalIntentPayload({payload,runId=null,proposalId=null,humanConfirmed=false}){
+  return JSON.stringify({
+    agentKey:"thebe",
+    actionKey:ACTION_KEY,
+    amountMinor:0,
+    humanConfirmed:Boolean(humanConfirmed),
+    runId:runId||null,
+    proposalId:proposalId||null,
+    metadata:{
+      title:payload.title,
+      description:payload.description,
+      priority:payload.priority,
+      dueAt:payload.dueAt
+    }
+  });
+}
+
+async function schemaReady(env){
+  try{
+    await env.DB.prepare(`SELECT
+      (SELECT COUNT(*) FROM agent_execution_grants) grant_count,
+      (SELECT COUNT(*) FROM agent_task_requests) request_count,
+      (SELECT COUNT(*) FROM agent_internal_tasks) task_count,
+      (SELECT COUNT(*) FROM agent_execution_receipts) receipt_count`).first();
+    return true;
+  }catch{return false}
+}
+
+async function loadExecutionGrant(env,tenantId,delegationId){
+  const row=await safeFirst(env,`SELECT d.*,g.id execution_grant_id,g.status execution_grant_status
+    FROM agent_delegations d
+    JOIN agent_execution_grants g ON g.delegation_id=d.id AND g.tenant_id=d.tenant_id
+    WHERE d.id=? AND d.tenant_id=? AND d.agent_key='thebe' AND d.action_key=? AND d.status='active'
+      AND d.max_autonomy_level>=3 AND d.external_side_effects=0 AND d.human_confirmation_required=1
+      AND (d.valid_from IS NULL OR d.valid_from<=CURRENT_TIMESTAMP)
+      AND (d.expires_at IS NULL OR d.expires_at>CURRENT_TIMESTAMP)
+      AND g.status='active'
+    LIMIT 1`,[delegationId,tenantId,ACTION_KEY]);
+  if(!row)return null;
+  return Object.freeze({
+    row,
+    executionGrantId:String(row.execution_grant_id),
+    delegation:Object.freeze({...normalizeDelegation(row),shadowOnly:false})
+  });
+}
+
+async function status(env,auth){
+  const ready=await schemaReady(env);
+  let activeGrants=[],openTasks=0;
+  if(ready){
+    const grants=await env.DB.prepare(`SELECT g.id,g.delegation_id,g.created_at
+      FROM agent_execution_grants g
+      JOIN agent_delegations d ON d.id=g.delegation_id AND d.tenant_id=g.tenant_id
+      WHERE g.tenant_id=? AND g.action_key=? AND g.status='active'
+        AND d.status='active'
+        AND (d.valid_from IS NULL OR d.valid_from<=CURRENT_TIMESTAMP)
+        AND (d.expires_at IS NULL OR d.expires_at>CURRENT_TIMESTAMP)
+      ORDER BY g.created_at DESC LIMIT 10`).bind(auth.tenant_id,ACTION_KEY).all();
+    const tasks=await safeFirst(env,`SELECT COUNT(*) count FROM agent_internal_tasks WHERE tenant_id=? AND status='open'`,[auth.tenant_id]);
+    activeGrants=(grants.results||[]).map(row=>({id:row.id,delegationId:row.delegation_id,createdAt:row.created_at}));
+    openTasks=Number(tasks?.count||0);
+  }
+  const mode=executionMode(env);
+  const sessionEnabled=sessionExecutionEnabled(env,auth);
+  return json({
+    enabled:true,
+    schemaReady:ready,
+    actionKey:ACTION_KEY,
+    executionMode:mode,
+    sessionExecutionEnabled:sessionEnabled,
+    globalExecutionEnabled:mode==="global",
+    platformAdminCanary:mode==="platform_admin_canary",
+    runtimeKillSwitch:runtimeKillSwitch(env),
+    activeExecutionGrants:activeGrants.length,
+    activeGrants,
+    openTasks,
+    guarantees:["task_create_only","no_external_side_effect","explicit_owner_approval","payload_hash_binding","idempotent_execution","runtime_guard_required","platform_admin_canary_is_owner_only"]
+  });
+}
+
+async function createExecutionGrant({request,env,auth}){
+  if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);
+  if(!(await schemaReady(env)))return json({error:"bounded_execution_schema_not_ready"},503);
+  let body;try{body=await readJson(request)}catch(error){return json({error:error.message},requestBodyErrorStatus(error))}
+  const delegationId=text(body?.delegationId,120);
+  if(!delegationId)return json({error:"delegation_id_required"},400);
+  const delegation=await safeFirst(env,`SELECT id,tenant_id,agent_key,action_key,status,max_autonomy_level,external_side_effects,human_confirmation_required,valid_from,expires_at
+    FROM agent_delegations WHERE id=? AND tenant_id=?
+      AND (valid_from IS NULL OR valid_from<=CURRENT_TIMESTAMP)
+      AND (expires_at IS NULL OR expires_at>CURRENT_TIMESTAMP)
+    LIMIT 1`,[delegationId,auth.tenant_id]);
+  if(!delegation)return json({error:"delegation_not_found"},404);
+  if(String(delegation.agent_key)!=="thebe"||String(delegation.action_key)!==ACTION_KEY)return json({error:"delegation_not_eligible"},409);
+  if(String(delegation.status)!=="active"||Number(delegation.max_autonomy_level)<3||Number(delegation.external_side_effects)!==0||Number(delegation.human_confirmation_required)!==1){
+    return json({error:"delegation_not_eligible"},409);
+  }
+  const existing=await safeFirst(env,`SELECT id,status FROM agent_execution_grants WHERE tenant_id=? AND delegation_id=? LIMIT 1`,[auth.tenant_id,delegationId]);
+  if(existing){
+    if(existing.status==="active")return json({error:"active_execution_grant_exists",executionGrantId:existing.id},409);
+    return json({error:"execution_grant_revoked_permanently",executionGrantId:existing.id},409);
+  }
+  const grantId=id();
+  try{
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO agent_execution_grants(id,tenant_id,delegation_id,action_key,status,approved_by_user_id)
+        VALUES(?,?,?,?,'active',?)`).bind(grantId,auth.tenant_id,delegationId,ACTION_KEY,auth.user_id),
+      env.DB.prepare(`INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data)
+        VALUES(?,?,'AGENT_EXECUTION_GRANT_CREATED','agent_execution_grant',?,?)`).bind(
+          auth.tenant_id,auth.user_id,grantId,JSON.stringify({delegationId,actionKey:ACTION_KEY,executionMode:executionMode(env),sessionExecutionEnabled:sessionExecutionEnabled(env,auth)})
+        )
+    ]);
+  }catch{return json({error:"execution_grant_create_failed"},500)}
+  return json({ok:true,executionGrant:{id:grantId,delegationId,actionKey:ACTION_KEY,status:"active"},executionMode:executionMode(env),sessionExecutionEnabled:sessionExecutionEnabled(env,auth)},201);
+}
+
+async function revokeExecutionGrant({env,auth,grantId}){
+  if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);
+  if(!(await schemaReady(env)))return json({error:"bounded_execution_schema_not_ready"},503);
+  const result=await env.DB.prepare(`UPDATE agent_execution_grants SET status='revoked',revoked_at=CURRENT_TIMESTAMP
+    WHERE id=? AND tenant_id=? AND status='active'`).bind(grantId,auth.tenant_id).run();
+  const changed=Number(result?.meta?.changes??result?.changes??0);
+  if(changed!==1){
+    const current=await safeFirst(env,`SELECT status FROM agent_execution_grants WHERE id=? AND tenant_id=? LIMIT 1`,[grantId,auth.tenant_id]);
+    if(!current)return json({error:"execution_grant_not_found"},404);
+    return json({error:"execution_grant_already_revoked"},409);
+  }
+  await env.DB.prepare(`INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data)
+    VALUES(?,?,'AGENT_EXECUTION_GRANT_REVOKED','agent_execution_grant',?,'{}')`).bind(auth.tenant_id,auth.user_id,grantId).run();
+  return json({ok:true,id:grantId,status:"revoked"});
+}
+
+async function prepareTask({request,env,auth}){
+  if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
+  if(!(await schemaReady(env)))return json({error:"bounded_execution_schema_not_ready"},503);
+  const idem=text(request.headers.get("idempotency-key"),200);
+  if(idem.length<8)return json({error:"idempotency_key_required"},400);
+  let body;try{body=await readJson(request)}catch(error){return json({error:error.message},requestBodyErrorStatus(error))}
+  const normalized=normalizeTaskPayload(body);
+  if(normalized.error)return json({error:normalized.error},400);
+  const delegationId=text(body?.delegationId,120);
+  if(!delegationId)return json({error:"delegation_id_required"},400);
+  const authority=await loadExecutionGrant(env,auth.tenant_id,delegationId);
+  if(!authority)return json({error:"active_task_execution_grant_required"},409);
+
+  const runId=body?.runId?text(body.runId,120):null;
+  const proposalId=body?.proposalId?text(body.proposalId,120):null;
+  if(runId&&!await safeFirst(env,"SELECT id FROM agentic_runs WHERE id=? AND tenant_id=? LIMIT 1",[runId,auth.tenant_id]))return json({error:"run_not_found"},404);
+  if(proposalId&&!await safeFirst(env,"SELECT id FROM agentic_proposals WHERE id=? AND tenant_id=? LIMIT 1",[proposalId,auth.tenant_id]))return json({error:"proposal_not_found"},404);
+
+  const canonical=canonicalIntentPayload({payload:normalized.payload,runId,proposalId,humanConfirmed:false});
+  const payloadHash=await sha256Hex(canonical);
+  const existing=await safeFirst(env,`SELECT i.id intent_id,i.payload_hash,r.id request_id,r.status,r.payload_json,r.approved_payload_hash,r.created_at
+    FROM agent_action_intents i LEFT JOIN agent_task_requests r ON r.action_intent_id=i.id AND r.tenant_id=i.tenant_id
+    WHERE i.tenant_id=? AND i.idempotency_key=? LIMIT 1`,[auth.tenant_id,idem]);
+  if(existing){
+    if(String(existing.payload_hash)!==payloadHash||!existing.request_id)return json({error:"idempotency_key_conflict"},409);
+    return json({ok:true,replayed:true,request:{id:existing.request_id,status:existing.status,payload:JSON.parse(existing.payload_json||"{}"),createdAt:existing.created_at},execution:{performed:false,enabled:globalExecutionEnabled(env)}});
+  }
+
+  const intentId=id(),requestId=id();
+  try{
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO agent_action_intents(id,tenant_id,run_id,proposal_id,agent_key,action_key,requested_by_user_id,delegation_id,mode,decision,decision_code,
+        required_autonomy_level,amount_minor,payload_hash,idempotency_key,status)
+        VALUES(?,?,?,?, 'thebe',?,?,?,'shadow','review_required','human_confirmation_required',3,0,?,?,'review_required')`).bind(
+          intentId,auth.tenant_id,runId,proposalId,ACTION_KEY,auth.user_id,delegationId,payloadHash,idem
+        ),
+      env.DB.prepare(`INSERT INTO agent_task_requests(id,tenant_id,action_intent_id,delegation_id,execution_grant_id,requested_by_user_id,payload_json,payload_hash,status)
+        VALUES(?,?,?,?,?,?,?,?,'prepared')`).bind(
+          requestId,auth.tenant_id,intentId,delegationId,authority.executionGrantId,auth.user_id,JSON.stringify(normalized.payload),payloadHash
+        ),
+      env.DB.prepare(`INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data)
+        VALUES(?,?,'AGENT_TASK_PREPARED','agent_task_request',?,?)`).bind(
+          auth.tenant_id,auth.user_id,requestId,JSON.stringify({intentId,delegationId,executionGrantId:authority.executionGrantId,payloadHash})
+        )
+    ]);
+  }catch{
+    const replay=await safeFirst(env,`SELECT i.payload_hash,r.id request_id,r.status,r.payload_json
+      FROM agent_action_intents i JOIN agent_task_requests r ON r.action_intent_id=i.id AND r.tenant_id=i.tenant_id
+      WHERE i.tenant_id=? AND i.idempotency_key=? LIMIT 1`,[auth.tenant_id,idem]);
+    if(replay&&String(replay.payload_hash)===payloadHash)return json({ok:true,replayed:true,request:{id:replay.request_id,status:replay.status,payload:JSON.parse(replay.payload_json||"{}")},execution:{performed:false,enabled:globalExecutionEnabled(env)}});
+    return json({error:"task_prepare_failed"},500);
+  }
+  return json({ok:true,replayed:false,request:{id:requestId,status:"prepared",payload:normalized.payload,payloadHash},approvalRequired:true,execution:{performed:false,enabled:globalExecutionEnabled(env)}},201);
+}
+
+async function approveTask({env,auth,requestId}){
+  if(!roleAllowed(auth,"owner"))return json({error:"owner_approval_required"},403);
+  if(!(await schemaReady(env)))return json({error:"bounded_execution_schema_not_ready"},503);
+  const current=await safeFirst(env,`SELECT id,status,payload_hash,approved_payload_hash FROM agent_task_requests WHERE id=? AND tenant_id=? LIMIT 1`,[requestId,auth.tenant_id]);
+  if(!current)return json({error:"task_request_not_found"},404);
+  if(current.status==="approved"||current.status==="executed")return json({ok:true,id:requestId,status:current.status,replayed:true});
+  if(current.status!=="prepared")return json({error:"task_request_not_approvable",status:current.status},409);
+  const results=await env.DB.batch([
+    env.DB.prepare(`UPDATE agent_task_requests SET status='approved',approved_payload_hash=payload_hash,approved_by_user_id=?,approved_at=CURRENT_TIMESTAMP
+      WHERE id=? AND tenant_id=? AND status='prepared'`).bind(auth.user_id,requestId,auth.tenant_id),
+    env.DB.prepare(`INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data)
+      SELECT ?,?,'AGENT_TASK_APPROVED','agent_task_request',?,? WHERE changes()=1`).bind(
+        auth.tenant_id,auth.user_id,requestId,JSON.stringify({payloadHash:String(current.payload_hash)})
+      )
+  ]);
+  const changed=Number(results?.[0]?.meta?.changes??results?.[0]?.changes??0);
+  if(changed!==1)return json({error:"task_request_approval_conflict"},409);
+  return json({ok:true,id:requestId,status:"approved",payloadHash:String(current.payload_hash)});
+}
+
+async function listTaskRequests(env,auth){
+  if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
+  if(!(await schemaReady(env)))return json({error:"bounded_execution_schema_not_ready"},503);
+  const rows=await env.DB.prepare(`SELECT q.id,q.status,q.payload_json,q.payload_hash,q.approved_payload_hash,
+      q.delegation_id,q.execution_grant_id,q.approved_at,q.executed_at,q.created_at,
+      i.run_id,i.proposal_id
+    FROM agent_task_requests q
+    JOIN agent_action_intents i ON i.id=q.action_intent_id AND i.tenant_id=q.tenant_id
+    WHERE q.tenant_id=?
+    ORDER BY q.created_at DESC
+    LIMIT 50`).bind(auth.tenant_id).all();
+  return json({items:(rows.results||[]).map(row=>{
+    let payload={};
+    try{payload=JSON.parse(String(row.payload_json||"{}"))}catch{}
+    return {
+      id:row.id,
+      status:row.status,
+      payload,
+      payloadHash:row.payload_hash,
+      approvedPayloadHash:row.approved_payload_hash||null,
+      delegationId:row.delegation_id,
+      executionGrantId:row.execution_grant_id,
+      runId:row.run_id||null,
+      proposalId:row.proposal_id||null,
+      approvedAt:row.approved_at||null,
+      executedAt:row.executed_at||null,
+      createdAt:row.created_at
+    };
+  })});
+}
+
+async function cancelTask({env,auth,requestId}){
+  if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);
+  if(!(await schemaReady(env)))return json({error:"bounded_execution_schema_not_ready"},503);
+  const current=await safeFirst(env,`SELECT id,status,payload_hash FROM agent_task_requests WHERE id=? AND tenant_id=? LIMIT 1`,[requestId,auth.tenant_id]);
+  if(!current)return json({error:"task_request_not_found"},404);
+  if(current.status==="cancelled")return json({ok:true,id:requestId,status:"cancelled",replayed:true});
+  if(current.status==="executed")return json({error:"task_request_already_executed"},409);
+  if(!["prepared","approved"].includes(String(current.status||"")))return json({error:"task_request_not_cancellable",status:current.status},409);
+  const results=await env.DB.batch([
+    env.DB.prepare(`UPDATE agent_task_requests SET status='cancelled'
+      WHERE id=? AND tenant_id=? AND status IN ('prepared','approved')`).bind(requestId,auth.tenant_id),
+    env.DB.prepare(`INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data)
+      SELECT ?,?,'AGENT_TASK_CANCELLED','agent_task_request',?,? WHERE changes()=1`).bind(
+        auth.tenant_id,auth.user_id,requestId,JSON.stringify({previousStatus:String(current.status),payloadHash:String(current.payload_hash||"")})
+      )
+  ]);
+  const changed=Number(results?.[0]?.meta?.changes??results?.[0]?.changes??0);
+  if(changed!==1)return json({error:"task_request_cancel_conflict"},409);
+  return json({ok:true,id:requestId,status:"cancelled"});
+}
+
+async function executeTask({env,auth,requestId}){
+  if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
+  if(!(await schemaReady(env)))return json({error:"bounded_execution_schema_not_ready"},503);
+  const replay=await safeFirst(env,`SELECT r.id receipt_id,r.result_entity_id task_id,t.title,t.description,t.priority,t.due_at,t.status,t.created_at
+    FROM agent_execution_receipts r JOIN agent_internal_tasks t ON t.id=r.result_entity_id AND t.tenant_id=r.tenant_id
+    JOIN agent_task_requests q ON q.action_intent_id=r.action_intent_id AND q.tenant_id=r.tenant_id
+    WHERE q.id=? AND r.tenant_id=? LIMIT 1`,[requestId,auth.tenant_id]);
+  if(replay)return json({ok:true,replayed:true,task:{id:replay.task_id,title:replay.title,description:replay.description,priority:replay.priority,dueAt:replay.due_at,status:replay.status,createdAt:replay.created_at},receiptId:replay.receipt_id});
+
+  const row=await safeFirst(env,`SELECT q.id request_id,q.status request_status,q.payload_json,q.payload_hash,q.approved_payload_hash,q.delegation_id,q.execution_grant_id,
+      q.requested_by_user_id,i.id intent_id,i.agent_key,i.action_key,i.run_id,i.proposal_id,
+      d.*,g.status execution_grant_status
+    FROM agent_task_requests q
+    JOIN agent_action_intents i ON i.id=q.action_intent_id AND i.tenant_id=q.tenant_id
+    JOIN agent_delegations d ON d.id=q.delegation_id AND d.tenant_id=q.tenant_id
+    JOIN agent_execution_grants g ON g.id=q.execution_grant_id AND g.tenant_id=q.tenant_id
+    WHERE q.id=? AND q.tenant_id=? LIMIT 1`,[requestId,auth.tenant_id]);
+  if(!row)return json({error:"task_request_not_found"},404);
+  if(row.request_status!=="approved")return json({error:"task_request_not_approved",status:row.request_status},409);
+  if(row.execution_grant_status!=="active")return json({error:"execution_grant_inactive"},409);
+  const payload=JSON.parse(row.payload_json||"{}");
+  const authority=Object.freeze({...normalizeDelegation(row),shadowOnly:false});
+  const usage=await safeFirst(env,`SELECT COUNT(*) count FROM agent_execution_receipts WHERE tenant_id=? AND execution_grant_id=? AND created_at>=date('now')`,[auth.tenant_id,row.execution_grant_id]);
+  const decision=evaluateAgentRuntimeGuard({
+    agentKey:"thebe",
+    actionKey:ACTION_KEY,
+    actorRole:String(auth.role||"").toLowerCase(),
+    tenantScoped:true,
+    tenantId:String(auth.tenant_id),
+    actorTenantId:String(auth.tenant_id),
+    targetTenantId:String(auth.tenant_id),
+    agentStatus:runtimeAgentStatus(env),
+    killSwitchActive:runtimeKillSwitch(env),
+    budgetStatus:runtimeBudgetStatus(env),
+    approvalState:"approved",
+    approvalPayloadHash:String(row.approved_payload_hash||""),
+    actionPayloadHash:String(row.payload_hash||""),
+    delegation:authority,
+    mode:"execute",
+    globalExecutionEnabled:sessionExecutionEnabled(env,auth),
+    amountMinor:0,
+    dailyActionCount:Number(usage?.count||0),
+    phase:"bounded_v1"
+  });
+  if(decision.allowed!==true||decision.executionAllowed!==true){
+    try{
+      await env.DB.prepare(`INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data)
+        VALUES(?,?,'AGENT_TASK_EXECUTION_DENIED','agent_task_request',?,?)`).bind(
+          auth.tenant_id,auth.user_id,requestId,JSON.stringify({intentId:row.intent_id,executionGrantId:row.execution_grant_id,code:decision.code,guardVersion:decision.guardVersion,executionMode:executionMode(env)})
+        ).run();
+    }catch{}
+    return json({error:"task_execution_denied",decision:{code:decision.code,reason:decision.reason,guardVersion:decision.guardVersion}},409);
+  }
+
+  const taskId=id(),receiptId=id();
+  try{
+    const results=await env.DB.batch([
+      env.DB.prepare(`UPDATE agent_task_requests SET status='executed',executed_at=CURRENT_TIMESTAMP
+        WHERE id=? AND tenant_id=? AND status='approved' AND approved_payload_hash=payload_hash`).bind(requestId,auth.tenant_id),
+      env.DB.prepare(`INSERT INTO agent_internal_tasks(id,tenant_id,title,description,priority,due_at,status,source_request_id,source_intent_id,execution_grant_id,requested_by_user_id,created_by_agent_key)
+        SELECT ?,?,?,?,?,?,'open',?,?,?,?, 'thebe' WHERE changes()=1`).bind(
+          taskId,auth.tenant_id,text(payload.title,MAX_TITLE),text(payload.description,MAX_DESCRIPTION)||null,Number(payload.priority||2),payload.dueAt||null,
+          requestId,row.intent_id,row.execution_grant_id,row.requested_by_user_id
+        ),
+      env.DB.prepare(`INSERT INTO agent_execution_receipts(id,tenant_id,action_intent_id,execution_grant_id,action_key,payload_hash,result_entity_type,result_entity_id,status)
+        SELECT ?,?,?,?,?,?,'agent_internal_task',?,'succeeded' WHERE changes()=1`).bind(
+          receiptId,auth.tenant_id,row.intent_id,row.execution_grant_id,ACTION_KEY,row.payload_hash,taskId
+        ),
+      env.DB.prepare(`INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data)
+        SELECT ?,?,'AGENT_TASK_EXECUTED','agent_internal_task',?,? WHERE changes()=1`).bind(
+          auth.tenant_id,auth.user_id,taskId,JSON.stringify({requestId,intentId:row.intent_id,executionGrantId:row.execution_grant_id,payloadHash:row.payload_hash,guardVersion:decision.guardVersion,executionMode:executionMode(env)})
+        )
+    ]);
+    const changed=Number(results?.[0]?.meta?.changes??results?.[0]?.changes??0);
+    if(changed!==1)throw new Error("execution_conflict");
+  }catch{
+    const existing=await safeFirst(env,`SELECT r.id receipt_id,r.result_entity_id task_id,t.title,t.description,t.priority,t.due_at,t.status,t.created_at
+      FROM agent_execution_receipts r JOIN agent_internal_tasks t ON t.id=r.result_entity_id AND t.tenant_id=r.tenant_id
+      WHERE r.action_intent_id=? AND r.tenant_id=? LIMIT 1`,[row.intent_id,auth.tenant_id]);
+    if(existing)return json({ok:true,replayed:true,task:{id:existing.task_id,title:existing.title,description:existing.description,priority:existing.priority,dueAt:existing.due_at,status:existing.status,createdAt:existing.created_at},receiptId:existing.receipt_id});
+    return json({error:"task_execution_failed"},500);
+  }
+
+  const verified=await safeFirst(env,`SELECT t.id task_id,t.title,t.description,t.priority,t.due_at,t.status,t.created_at,r.id receipt_id
+    FROM agent_internal_tasks t JOIN agent_execution_receipts r ON r.result_entity_id=t.id AND r.tenant_id=t.tenant_id
+    WHERE t.id=? AND t.tenant_id=? AND t.source_request_id=? AND r.action_intent_id=? LIMIT 1`,[taskId,auth.tenant_id,requestId,row.intent_id]);
+  if(!verified)return json({error:"task_execution_verification_failed",taskId,receiptId},500);
+
+  return json({ok:true,replayed:false,task:{id:verified.task_id,title:verified.title,description:verified.description,priority:verified.priority,dueAt:verified.due_at,status:verified.status,createdAt:verified.created_at},receiptId:verified.receipt_id,guard:{version:decision.guardVersion,code:decision.code},verified:true},201);
+}
+
+async function listTasks(env,auth){
+  if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
+  if(!(await schemaReady(env)))return json({error:"bounded_execution_schema_not_ready"},503);
+  const rows=await env.DB.prepare(`SELECT id,title,description,priority,due_at,status,created_at,updated_at
+    FROM agent_internal_tasks WHERE tenant_id=? ORDER BY CASE status WHEN 'open' THEN 0 ELSE 1 END,priority ASC,due_at ASC,created_at DESC LIMIT 100`).bind(auth.tenant_id).all();
+  return json({items:(rows.results||[]).map(row=>({id:row.id,title:row.title,description:row.description,priority:row.priority,dueAt:row.due_at,status:row.status,createdAt:row.created_at,updatedAt:row.updated_at}))});
+}
+
+export async function handleAgenticTaskExecutionRequest({request,logicalPath,env}){
+  const path=String(logicalPath||new URL(request.url).pathname);
+  if(!path.startsWith("/api/agentic/task-execution"))return null;
+  const auth=await authenticate(request,env);
+  if(!auth)return json({error:"unauthenticated"},401);
+  if(!roleAllowed(auth,"owner","manager","reviewer"))return json({error:"forbidden"},403);
+  if(request.method!=="GET"){
+    if(!originAllowed(request,env))return json({error:"origin_failed"},403);
+    if(!csrfAllowed(request,auth))return json({error:"csrf_failed"},403);
+  }
+
+  if(path==="/api/agentic/task-execution/status"&&request.method==="GET")return status(env,auth);
+  if(path==="/api/agentic/task-execution/grants"&&request.method==="POST")return createExecutionGrant({request,env,auth});
+  const revoke=path.match(/^\/api\/agentic\/task-execution\/grants\/([^/]+)\/revoke$/);
+  if(revoke&&request.method==="POST")return revokeExecutionGrant({env,auth,grantId:revoke[1]});
+  if(path==="/api/agentic/task-execution/prepare"&&request.method==="POST")return prepareTask({request,env,auth});
+  if(path==="/api/agentic/task-execution/requests"&&request.method==="GET")return listTaskRequests(env,auth);
+  const cancel=path.match(/^\/api\/agentic\/task-execution\/requests\/([^/]+)\/cancel$/);
+  if(cancel&&request.method==="POST")return cancelTask({env,auth,requestId:cancel[1]});
+  const approve=path.match(/^\/api\/agentic\/task-execution\/requests\/([^/]+)\/approve$/);
+  if(approve&&request.method==="POST")return approveTask({env,auth,requestId:approve[1]});
+  const execute=path.match(/^\/api\/agentic\/task-execution\/requests\/([^/]+)\/execute$/);
+  if(execute&&request.method==="POST")return executeTask({env,auth,requestId:execute[1]});
+  if(path==="/api/agentic/task-execution/tasks"&&request.method==="GET")return listTasks(env,auth);
+  return json({error:"not_found"},404);
+}
+
+export const __agenticTaskExecutionTest=Object.freeze({
+  normalizeTaskPayload,
+  canonicalIntentPayload,
+  executionMode,
+  platformAdminEmails,
+  sessionExecutionEnabled,
+  globalExecutionEnabled,
+  runtimeKillSwitch
+});
+
+
+===== ORIGINAL FILE: cloudflare/src/agentic-whatsapp-core.js =====
+
+import {AGENT_ACTION_CATALOG,THEBE_AGENTS} from "./agent-policy.js";
+import {evaluateAgentRuntimeGuard} from "./agent-runtime-guard.js";
+
+const MAX_BODY_BYTES=4096;
+const ACTION_KEY_BY_PURPOSE=Object.freeze({
+  owner_daily_brief:Object.freeze({agentKey:"thebe",capability:"core",actionKey:"management_brief.prepare",label:"Owner daily brief"}),
+  finance_exception:Object.freeze({agentKey:"thebe",capability:"finance",actionKey:"finance_brief.prepare",label:"Finance reconciliation follow-up"}),
+  compliance_followup:Object.freeze({agentKey:"thebe",capability:"compliance",actionKey:"compliance_action_plan.prepare",label:"Compliance follow-up"}),
+  operations_update:Object.freeze({agentKey:"thebe",capability:"operations",actionKey:"daily_operations_brief.prepare",label:"Operations update"})
+});
+const ALLOWED_BODY_KEYS=new Set(["purpose"]);
+
+const text=(value,max=1200)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
+const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"}});
+const id=()=>crypto.randomUUID();
+
+function cookie(request,name){
+  const raw=request.headers.get("cookie")||"";
+  for(const part of raw.split(";")){
+    const [key,...rest]=part.trim().split("=");
+    if(key===name)return decodeURIComponent(rest.join("="));
+  }
+  return null;
+}
+
+async function hmacHex(secret,value){
+  const encoder=new TextEncoder();
+  const key=await crypto.subtle.importKey("raw",encoder.encode(secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
+  const signature=await crypto.subtle.sign("HMAC",key,encoder.encode(value));
+  return [...new Uint8Array(signature)].map(byte=>byte.toString(16).padStart(2,"0")).join("");
+}
+
+async function sha256Hex(value){
+  const bytes=new TextEncoder().encode(String(value??""));
+  const hash=await crypto.subtle.digest("SHA-256",bytes);
+  return [...new Uint8Array(hash)].map(byte=>byte.toString(16).padStart(2,"0")).join("");
+}
+
+async function authenticate(request,env){
+  const raw=cookie(request,"__Host-bw_session")||cookie(request,"bw_session");
+  const secret=String(env?.SESSION_SECRET||"");
+  if(!raw||!secret||!env?.DB)return null;
+  const tokenHash=await hmacHex(secret,raw);
+  return await env.DB.prepare(`SELECT s.user_id,s.tenant_id,s.csrf_token,m.role
+    FROM sessions s
+    JOIN users u ON u.id=s.user_id
+    JOIN memberships m ON m.user_id=s.user_id AND m.tenant_id=s.tenant_id AND m.status='active'
+    WHERE s.token_hash=? AND s.session_generation=u.session_generation AND s.expires_at>CURRENT_TIMESTAMP
+    LIMIT 1`).bind(tokenHash).first();
+}
+
+function roleAllowed(auth,...roles){return roles.includes(String(auth?.role||"").toLowerCase())}
+function originAllowed(request,env){
+  const origin=text(request.headers.get("origin"),300);
+  if(!origin)return true;
+  try{
+    const expected=new URL(String(env?.PUBLIC_ORIGIN||env?.PUBLIC_APP_URL||""));
+    return new URL(origin).origin===expected.origin;
+  }catch{return false}
+}
+function csrfAllowed(request,auth){
+  const supplied=String(request.headers.get("x-csrf-token")||"");
+  const expected=String(auth?.csrf_token||"");
+  return !!supplied&&!!expected&&supplied===expected;
+}
+
+async function readJson(request){
+  const encoding=String(request.headers.get("content-encoding")||"").trim().toLowerCase();
+  if(encoding&&encoding!=="identity")throw new Error("unsupported_content_encoding");
+  const declared=Number(request.headers.get("content-length")||0);
+  if(Number.isFinite(declared)&&declared>MAX_BODY_BYTES)throw new Error("request_too_large");
+  const raw=await request.text();
+  if(new TextEncoder().encode(raw).byteLength>MAX_BODY_BYTES)throw new Error("request_too_large");
+  if(!raw)return {};
+  try{return JSON.parse(raw)}catch{throw new Error("invalid_json")}
+}
+
+function gaboroneDate(now=new Date()){
+  return new Date(now.getTime()+2*60*60*1000).toISOString().slice(0,10);
+}
+function pula(minor){
+  const n=Number(minor||0);
+  return `P${(Number.isFinite(n)?n:0)/100}`.replace(/(\.\d\d)\d+$/,"$1").replace(/\.0+$/,"");
+}
+function safeJson(value,fallback={}){try{return JSON.parse(String(value||"{}"))}catch{return fallback}}
+
+async function ownerSnapshot(env,tenantId){
+  const [finance,reconciliation,compliance,workflows,performance]=await Promise.all([
+    env.DB.prepare(`SELECT COALESCE(SUM(a.opening_balance_minor+COALESCE(t.net,0)),0) cash_position_minor,COUNT(a.id) account_count
+      FROM finance_accounts a
+      LEFT JOIN (SELECT account_id,SUM(amount_minor) net FROM finance_transactions WHERE tenant_id=? GROUP BY account_id) t ON t.account_id=a.id
+      WHERE a.tenant_id=? AND a.status='active'`).bind(tenantId,tenantId).first(),
+    env.DB.prepare(`SELECT COUNT(*) exception_count,COALESCE(SUM(ABS(difference_minor)),0) exposure_minor,MAX(created_at) latest_reconciliation_at
+      FROM finance_reconciliation_runs WHERE tenant_id=? AND status='exception'`).bind(tenantId).first(),
+    env.DB.prepare(`SELECT
+      SUM(CASE WHEN status NOT IN ('completed','closed') AND due_at<CURRENT_TIMESTAMP THEN 1 ELSE 0 END) overdue_count,
+      SUM(CASE WHEN status NOT IN ('completed','closed') AND due_at>=CURRENT_TIMESTAMP AND due_at<datetime('now','+14 days') THEN 1 ELSE 0 END) due_14d_count
+      FROM compliance_obligations WHERE tenant_id=?`).bind(tenantId).first(),
+    env.DB.prepare(`SELECT
+      SUM(CASE WHEN status IN ('queued','pending','retry') THEN 1 ELSE 0 END) pending_count,
+      SUM(CASE WHEN status IN ('failed','dead') THEN 1 ELSE 0 END) failed_count
+      FROM workflow_jobs WHERE tenant_id=?`).bind(tenantId).first(),
+    env.DB.prepare(`SELECT COUNT(*) critical_count FROM performance_insights
+      WHERE tenant_id=? AND status IN ('open','acknowledged') AND severity='critical'`).bind(tenantId).first()
+  ]);
+  return {
+    kind:"owner_daily_brief",
+    observedAt:new Date().toISOString(),
+    currency:"BWP",
+    cashPositionMinor:Number(finance?.cash_position_minor||0),
+    financeAccountCount:Number(finance?.account_count||0),
+    reconciliationExceptions:Number(reconciliation?.exception_count||0),
+    reconciliationExposureMinor:Number(reconciliation?.exposure_minor||0),
+    latestReconciliationAt:reconciliation?.latest_reconciliation_at||null,
+    overdueCompliance:Number(compliance?.overdue_count||0),
+    complianceDue14d:Number(compliance?.due_14d_count||0),
+    pendingWorkflows:Number(workflows?.pending_count||0),
+    failedWorkflows:Number(workflows?.failed_count||0),
+    criticalPerformanceSignals:Number(performance?.critical_count||0),
+    sourceRefs:["finance_accounts","finance_transactions","finance_reconciliation_runs","compliance_obligations","workflow_jobs","performance_insights"]
+  };
+}
+
+async function financeSnapshot(env,tenantId){
+  const row=await env.DB.prepare(`SELECT r.id,a.name account_name,r.statement_to,r.difference_minor,r.created_at
+    FROM finance_reconciliation_runs r JOIN finance_accounts a ON a.id=r.account_id AND a.tenant_id=r.tenant_id
+    WHERE r.tenant_id=? AND r.status='exception' ORDER BY r.created_at DESC,r.id DESC LIMIT 1`).bind(tenantId).first();
+  return {
+    kind:"finance_exception",
+    observedAt:new Date().toISOString(),
+    exception:row?{id:String(row.id),accountName:text(row.account_name,120),statementTo:String(row.statement_to||""),differenceMinor:Number(row.difference_minor||0),createdAt:row.created_at||null}:null,
+    sourceRefs:["finance_reconciliation_runs","finance_accounts"]
+  };
+}
+
+async function complianceSnapshot(env,tenantId){
+  const row=await env.DB.prepare(`SELECT
+    SUM(CASE WHEN status NOT IN ('completed','closed') AND due_at<CURRENT_TIMESTAMP THEN 1 ELSE 0 END) overdue_count,
+    SUM(CASE WHEN status NOT IN ('completed','closed') AND due_at>=CURRENT_TIMESTAMP AND due_at<datetime('now','+14 days') THEN 1 ELSE 0 END) due_14d_count,
+    MIN(CASE WHEN status NOT IN ('completed','closed') AND due_at>=CURRENT_TIMESTAMP THEN due_at END) next_due_at
+    FROM compliance_obligations WHERE tenant_id=?`).bind(tenantId).first();
+  return {kind:"compliance_followup",observedAt:new Date().toISOString(),overdueCount:Number(row?.overdue_count||0),due14dCount:Number(row?.due_14d_count||0),nextDueAt:row?.next_due_at||null,sourceRefs:["compliance_obligations"]};
+}
+
+async function operationsSnapshot(env,tenantId){
+  const [summary,workflow]=await Promise.all([
+    env.DB.prepare(`SELECT summary_date,generation_mode,metrics_json FROM daily_operations_summaries
+      WHERE tenant_id=? ORDER BY summary_date DESC,created_at DESC LIMIT 1`).bind(tenantId).first(),
+    env.DB.prepare(`SELECT
+      SUM(CASE WHEN status IN ('queued','pending','retry') THEN 1 ELSE 0 END) pending_count,
+      SUM(CASE WHEN status IN ('failed','dead') THEN 1 ELSE 0 END) failed_count
+      FROM workflow_jobs WHERE tenant_id=?`).bind(tenantId).first()
+  ]);
+  const metrics=safeJson(summary?.metrics_json,{});
+  return {
+    kind:"operations_update",
+    observedAt:new Date().toISOString(),
+    latestSummaryDate:summary?.summary_date||null,
+    summaryMode:summary?.generation_mode||null,
+    reportingCoverage:Number(metrics?.coverage||0),
+    pendingWorkflows:Number(workflow?.pending_count||0),
+    failedWorkflows:Number(workflow?.failed_count||0),
+    sourceRefs:["daily_operations_summaries","workflow_jobs"]
+  };
+}
+
+async function snapshotForPurpose(env,tenantId,purpose){
+  if(purpose==="owner_daily_brief")return ownerSnapshot(env,tenantId);
+  if(purpose==="finance_exception")return financeSnapshot(env,tenantId);
+  if(purpose==="compliance_followup")return complianceSnapshot(env,tenantId);
+  if(purpose==="operations_update")return operationsSnapshot(env,tenantId);
+  throw new Error("unsupported_purpose");
+}
+
+function buildDraft(purpose,snapshot,{date=gaboroneDate()}={}){
+  const footer="Review in Thebe Desk before sending or acting.";
+  if(purpose==="owner_daily_brief"){
+    return [
+      `Thebe Desk owner brief · ${date}`,
+      `Recorded cash: ${pula(snapshot.cashPositionMinor)} across ${Number(snapshot.financeAccountCount||0)} account(s).`,
+      `Reconciliation: ${Number(snapshot.reconciliationExceptions||0)} exception(s), ${pula(snapshot.reconciliationExposureMinor)} exposure.`,
+      `Compliance: ${Number(snapshot.overdueCompliance||0)} overdue, ${Number(snapshot.complianceDue14d||0)} due within 14 days.`,
+      `Operations: ${Number(snapshot.pendingWorkflows||0)} pending, ${Number(snapshot.failedWorkflows||0)} failed workflow(s).`,
+      `Critical business signals: ${Number(snapshot.criticalPerformanceSignals||0)}.`,
+      footer
+    ].join("\n");
+  }
+  if(purpose==="finance_exception"){
+    if(!snapshot.exception)return [`Thebe Desk finance check · ${date}`,"No unresolved reconciliation exception is currently recorded.",footer].join("\n");
+    return [
+      `Thebe Desk finance check · ${date}`,
+      `${snapshot.exception.accountName||"Finance account"}: reconciliation difference ${pula(snapshot.exception.differenceMinor)} for period ending ${snapshot.exception.statementTo||"unknown"}.`,
+      "Review the source statement and ledger records before correcting anything.",
+      footer
+    ].join("\n");
+  }
+  if(purpose==="compliance_followup"){
+    return [
+      `Thebe Desk compliance follow-up · ${date}`,
+      `${Number(snapshot.overdueCount||0)} overdue obligation(s); ${Number(snapshot.due14dCount||0)} due within 14 days.`,
+      snapshot.nextDueAt?`Next recorded due date: ${String(snapshot.nextDueAt).slice(0,10)}.`:"No upcoming due date is currently recorded.",
+      "Confirm the applicable rule and supporting evidence before filing or submitting anything.",
+      footer
+    ].join("\n");
+  }
+  if(purpose==="operations_update"){
+    return [
+      `Thebe Desk operations update · ${date}`,
+      snapshot.latestSummaryDate?`Latest summary: ${snapshot.latestSummaryDate}; reporting coverage ${Number(snapshot.reportingCoverage||0)}%.`:"No daily-operations summary is currently recorded.",
+      `Workflows: ${Number(snapshot.pendingWorkflows||0)} pending, ${Number(snapshot.failedWorkflows||0)} failed.`,
+      "Use source reports before making any employee or disciplinary decision.",
+      footer
+    ].join("\n");
+  }
+  throw new Error("unsupported_purpose");
+}
+
+function parseObservation(value){try{return JSON.parse(String(value||"{}"))}catch{return {}}}
+function publicIntent(row){return row?{id:String(row.id||""),runId:String(row.run_id||""),agentKey:String(row.agent_key||""),actionKey:String(row.action_key||""),decision:String(row.decision||""),decisionCode:String(row.decision_code||""),status:String(row.status||""),createdAt:row.created_at||null}:null}
+
+async function replayIntent(env,tenantId,idempotencyKey){
+  return await env.DB.prepare(`SELECT ai.id,ai.run_id,ai.agent_key,ai.action_key,ai.decision,ai.decision_code,ai.status,ai.payload_hash,ai.created_at,
+      r.summary,r.observation_json
+    FROM agent_action_intents ai LEFT JOIN agentic_runs r ON r.id=ai.run_id AND r.tenant_id=ai.tenant_id
+    WHERE ai.tenant_id=? AND ai.idempotency_key=? LIMIT 1`).bind(tenantId,idempotencyKey).first();
+}
+
+export async function prepareWhatsAppPurposeForPrincipal({env,auth,purpose,idempotencyKey,source="app",sourceContext=null}){
+  const normalizedPurpose=text(purpose,80),spec=ACTION_KEY_BY_PURPOSE[normalizedPurpose];
+  if(!spec)return {status:400,body:{error:"unsupported_whatsapp_prepare_purpose",supported:Object.keys(ACTION_KEY_BY_PURPOSE)}};
+  const agent=THEBE_AGENTS[spec.agentKey],definition=AGENT_ACTION_CATALOG[spec.actionKey];
+  if(!agent||!definition||definition.level!==2||definition.humanReviewRequired!==true)return {status:503,body:{error:"whatsapp_prepare_policy_unavailable"}};
+  const role=String(auth?.role||"").toLowerCase();
+  if(!auth?.tenant_id||!auth?.user_id||!agent.allowedRoles.includes(role)||!definition.roles.includes(role))return {status:403,body:{error:"role_forbidden"}};
+
+  const runtimeDecision=evaluateAgentRuntimeGuard({
+    agentKey:spec.agentKey,
+    actionKey:spec.actionKey,
+    actorRole:role,
+    tenantScoped:true,
+    tenantId:String(auth.tenant_id),
+    actorTenantId:String(auth.tenant_id),
+    targetTenantId:String(auth.tenant_id),
+    agentStatus:String(env?.AGENT_RUNTIME_ENABLED||"1")==="0"?"disabled":"enabled",
+    killSwitchActive:["1","true","on"].includes(String(env?.AGENT_RUNTIME_KILL_SWITCH||"").trim().toLowerCase()),
+    budgetStatus:String(env?.AGENT_RUNTIME_BUDGET_STATUS||"within_limit"),
+    mode:"shadow",
+    globalExecutionEnabled:false,
+    phase:"phase1"
+  });
+  if(runtimeDecision.allowed!==true||runtimeDecision.executionAllowed!==false){
+    return {status:409,body:{error:"whatsapp_prepare_runtime_guard_denied",decision:{code:runtimeDecision.code,guardVersion:runtimeDecision.guardVersion}}};
+  }
+
+  const idem=text(idempotencyKey,200);
+  if(idem.length<8)return {status:400,body:{error:"idempotency_key_required"}};
+  const sourceName=String(source||"app")==="whatsapp_inbound"?"whatsapp_inbound":"app";
+  const providerMessageId=sourceName==="whatsapp_inbound"?text(sourceContext?.providerMessageId,200):"";
+  if(sourceName==="whatsapp_inbound"&&!providerMessageId)return {status:400,body:{error:"whatsapp_inbound_source_invalid"}};
+  const requestIdentity={purpose:normalizedPurpose,agentKey:spec.agentKey,actionKey:spec.actionKey};
+  if(sourceName==="whatsapp_inbound"){
+    requestIdentity.source=sourceName;
+    requestIdentity.providerMessageId=providerMessageId;
+    requestIdentity.userId=String(auth.user_id);
+  }
+  const requestHash=await sha256Hex(JSON.stringify(requestIdentity));
+  const existing=await replayIntent(env,auth.tenant_id,idem);
+  if(existing){
+    if(String(existing.action_key)!==spec.actionKey||String(existing.payload_hash)!==requestHash)return {status:409,body:{error:"idempotency_key_conflict"}};
+    return {status:200,body:{ok:true,replayed:true,purpose:normalizedPurpose,intent:publicIntent(existing),messagePreview:String(existing.summary||""),snapshot:parseObservation(existing.observation_json),policy:{humanReviewRequired:true,prepareOnly:true},execution:{performed:false,enabled:false,providerSend:false,recipientTargeting:false}}};
+  }
+
+  let snapshot;try{snapshot=await snapshotForPurpose(env,auth.tenant_id,normalizedPurpose)}catch{return {status:503,body:{error:"whatsapp_prepare_data_unavailable"}}}
+  const messagePreview=buildDraft(normalizedPurpose,snapshot);
+  const decision=runtimeDecision.authority;
+  if(decision?.allowed!==true||decision.executionAllowed!==false)return {status:409,body:{error:"whatsapp_prepare_policy_denied",decision}};
+
+  const observation=sourceName==="whatsapp_inbound"
+    ? {...snapshot,channel:"whatsapp_inbound",inbound:{providerMessageId,receivedAt:text(sourceContext?.receivedAt,80)||null,purpose:normalizedPurpose}}
+    : snapshot;
+  const runId=id(),intentId=id();
+  try{
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO agentic_runs(id,tenant_id,requested_by_user_id,goal,status,generation_mode,confidence,observation_json,summary)
+        VALUES(?,?,?,?, 'completed','deterministic_fallback','medium',?,?)`).bind(runId,auth.tenant_id,auth.user_id,`${sourceName==="whatsapp_inbound"?"Prepare inbound":"Prepare"} ${spec.label} for WhatsApp human review.`,JSON.stringify(observation),messagePreview),
+      env.DB.prepare(`INSERT INTO agent_action_intents(id,tenant_id,run_id,proposal_id,agent_key,action_key,requested_by_user_id,delegation_id,mode,decision,decision_code,
+        required_autonomy_level,amount_minor,payload_hash,idempotency_key,status)
+        VALUES(?,?,?,NULL,?,?,?,NULL,'shadow',?,?,?,0,?,?,'review_required')`).bind(intentId,auth.tenant_id,runId,spec.agentKey,spec.actionKey,auth.user_id,decision.decision,decision.code,decision.requiredAutonomyLevel,requestHash,idem),
+      env.DB.prepare(`INSERT INTO agentic_events(id,tenant_id,run_id,proposal_id,event_type,actor_user_id,detail_json)
+        VALUES(?,?,?,NULL,'PLAN_GENERATED',?,?)`).bind(id(),auth.tenant_id,runId,auth.user_id,JSON.stringify({channel:sourceName==="whatsapp_inbound"?"whatsapp_inbound":"whatsapp",purpose:normalizedPurpose,actionKey:spec.actionKey,providerMessageId:providerMessageId||undefined,prepareOnly:true,providerSend:false,recipientTargeting:false}))
+    ]);
+  }catch{
+    const replay=await replayIntent(env,auth.tenant_id,idem);
+    if(replay&&String(replay.action_key)===spec.actionKey&&String(replay.payload_hash)===requestHash){
+      return {status:200,body:{ok:true,replayed:true,purpose:normalizedPurpose,intent:publicIntent(replay),messagePreview:String(replay.summary||""),snapshot:parseObservation(replay.observation_json),policy:{humanReviewRequired:true,prepareOnly:true},execution:{performed:false,enabled:false,providerSend:false,recipientTargeting:false}}};
+    }
+    return {status:500,body:{error:"whatsapp_prepare_failed"}};
+  }
+
+  return {status:201,body:{
+    ok:true,replayed:false,purpose:normalizedPurpose,
+    intent:{id:intentId,runId,agentKey:spec.agentKey,actionKey:spec.actionKey,decision:decision.decision,decisionCode:decision.code,status:"review_required"},
+    messagePreview,snapshot:observation,
+    policy:{humanReviewRequired:true,prepareOnly:true,sourceRefs:snapshot.sourceRefs||[]},
+    execution:{performed:false,enabled:false,providerSend:false,recipientTargeting:false}
+  }};
+}
+
+async function prepareDraft({request,env,auth}){
+  let body;try{body=await readJson(request)}catch(error){
+    const status=error.message==="request_too_large"?413:error.message==="unsupported_content_encoding"?415:400;
+    return json({error:error.message},status);
+  }
+  const unexpected=Object.keys(body||{}).find(key=>!ALLOWED_BODY_KEYS.has(key));
+  if(unexpected)return json({error:"unsupported_field",field:unexpected},400);
+  const result=await prepareWhatsAppPurposeForPrincipal({
+    env,
+    auth,
+    purpose:text(body?.purpose,80),
+    idempotencyKey:text(request.headers.get("idempotency-key"),200),
+    source:"app"
+  });
+  return json(result.body,result.status);
+}
+
+export async function handleAgenticWhatsAppRequest({request,logicalPath,env}){
+  if(!String(logicalPath||"").startsWith("/api/agentic/whatsapp"))return null;
+  const auth=await authenticate(request,env);if(!auth)return json({error:"authentication_required"},401);
+  if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
+  if(logicalPath==="/api/agentic/whatsapp/status"&&request.method==="GET"){
+    return json({enabled:true,mode:"prepare_only",purposes:Object.entries(ACTION_KEY_BY_PURPOSE).map(([key,value])=>({key,label:value.label,agentKey:value.agentKey,actionKey:value.actionKey})),humanReviewRequired:true,providerSend:false,recipientTargeting:false,executionEnabled:false});
+  }
+  if(logicalPath==="/api/agentic/whatsapp/prepare"&&request.method==="POST"){
+    if(!originAllowed(request,env))return json({error:"origin_forbidden"},403);
+    if(!csrfAllowed(request,auth))return json({error:"csrf_required"},403);
+    return prepareDraft({request,env,auth});
+  }
+  return json({error:"not_found"},404);
+}
+
+export const __whatsappAgenticTest=Object.freeze({ACTION_KEY_BY_PURPOSE,buildDraft,gaboroneDate,pula});
+
+
+===== ORIGINAL FILE: cloudflare/src/delegated-authority.js =====
+
+// Thebe Desk delegated authority engine.
+// Stage 1.5 is intentionally shadow-only: this module can determine whether a
+// future bounded action would be permitted, but it cannot execute side effects.
+
+export const DELEGATED_AUTHORITY_VERSION = "2026-09-20.stage1_5-shadow-v2";
+
+export const AUTONOMY_LEVELS = Object.freeze({
+  OBSERVE: 0,
+  RECOMMEND: 1,
+  PREPARE: 2,
+  BOUNDED_EXECUTE: 3,
+  HUMAN_ONLY: 4
+});
+
+export const NEVER_AUTONOMOUS_ACTIONS = Object.freeze([
+  "payment.execute",
+  "government_filing.submit",
+  "document.sign",
+  "employment.terminate",
+  "financing.accept",
+  "journal_entry.post"
+]);
+
+const NEVER_AUTONOMOUS_SET = new Set(NEVER_AUTONOMOUS_ACTIONS);
+const asBool=value=>value===true||value===1||value==="1";
+const asInt=(value,fallback=0)=>Number.isInteger(Number(value))?Number(value):fallback;
+const iso=value=>value?new Date(value):null;
+
+export function requiredAutonomyLevel(actionDefinition){
+  const level=Number(actionDefinition?.level||0);
+  if(level>=4)return AUTONOMY_LEVELS.HUMAN_ONLY;
+  if(level===3)return AUTONOMY_LEVELS.BOUNDED_EXECUTE;
+  if(level===2)return AUTONOMY_LEVELS.PREPARE;
+  if(level===1)return AUTONOMY_LEVELS.OBSERVE;
+  return AUTONOMY_LEVELS.RECOMMEND;
+}
+
+export function isNeverAutonomousAction(actionKey){
+  return NEVER_AUTONOMOUS_SET.has(String(actionKey||""));
+}
+
+export function normalizeDelegation(row){
+  if(!row)return null;
+  return Object.freeze({
+    id:String(row.id||""),
+    tenantId:String(row.tenant_id||row.tenantId||""),
+    agentKey:String(row.agent_key||row.agentKey||""),
+    actionKey:String(row.action_key||row.actionKey||""),
+    status:String(row.status||"inactive"),
+    maxAutonomyLevel:asInt(row.max_autonomy_level??row.maxAutonomyLevel,0),
+    externalSideEffects:asBool(row.external_side_effects??row.externalSideEffects),
+    strongAuthRequired:asBool(row.strong_auth_required??row.strongAuthRequired),
+    humanConfirmationRequired:asBool(row.human_confirmation_required??row.humanConfirmationRequired),
+    maxDailyActions:row.max_daily_actions==null&&row.maxDailyActions==null?null:Math.max(0,asInt(row.max_daily_actions??row.maxDailyActions,0)),
+    maxAmountMinor:row.max_amount_minor==null&&row.maxAmountMinor==null?null:Math.max(0,asInt(row.max_amount_minor??row.maxAmountMinor,0)),
+    shadowOnly:row.shadow_only==null&&row.shadowOnly==null?true:asBool(row.shadow_only??row.shadowOnly),
+    validFrom:row.valid_from||row.validFrom||null,
+    expiresAt:row.expires_at||row.expiresAt||null
+  });
+}
+
+function result({allowed=false,decision="deny",code,reason,requiredLevel,delegation=null,executionAllowed=false,humanReviewRequired=false}){
+  return Object.freeze({
+    allowed:Boolean(allowed),
+    decision,
+    code,
+    reason,
+    requiredAutonomyLevel:requiredLevel,
+    policyVersion:DELEGATED_AUTHORITY_VERSION,
+    delegationId:delegation?.id||null,
+    executionAllowed:Boolean(executionAllowed),
+    humanReviewRequired:Boolean(humanReviewRequired),
+    shadowOnly:delegation?.shadowOnly??true
+  });
+}
+
+export function evaluateDelegatedAuthority({
+  agentKey,
+  actionKey,
+  actionDefinition,
+  tenantId=null,
+  delegation,
+  mode="shadow",
+  globalExecutionEnabled=false,
+  amountMinor=0,
+  dailyActionCount=0,
+  strongAuth="none",
+  approvalState="none",
+  now=new Date()
+}={}){
+  const key=String(actionKey||actionDefinition?.key||"");
+  const requestedAgent=String(agentKey||"");
+  const authenticatedTenant=String(tenantId||"").trim();
+  const requiredLevel=requiredAutonomyLevel(actionDefinition);
+  const grant=normalizeDelegation(delegation);
+
+  if(!actionDefinition)return result({code:"unknown_action",reason:"Unknown action; delegated authority fails closed.",requiredLevel});
+  if(isNeverAutonomousAction(key)||requiredLevel===AUTONOMY_LEVELS.HUMAN_ONLY){
+    return result({decision:"human_only",code:"human_only_action",reason:"This action is permanently outside autonomous authority and always requires a human decision.",requiredLevel,delegation:grant,humanReviewRequired:true});
+  }
+
+  if(requiredLevel<=AUTONOMY_LEVELS.PREPARE){
+    return result({allowed:true,decision:mode==="shadow"?"shadow_allow":"policy_allow",code:"delegation_not_required",reason:"This action does not require bounded execution authority.",requiredLevel,delegation:grant,executionAllowed:false,humanReviewRequired:Boolean(actionDefinition?.humanReviewRequired)});
+  }
+
+  if(!grant)return result({code:"delegation_required",reason:"Bounded execution requires an explicit tenant delegation.",requiredLevel});
+  if(authenticatedTenant&&(!grant.tenantId||grant.tenantId!==authenticatedTenant)){
+    return result({code:"delegation_tenant_mismatch",reason:"The delegation is not bound to the authenticated tenant.",requiredLevel,delegation:grant});
+  }
+  if(grant.status!=="active")return result({code:"delegation_inactive",reason:"The delegation is not active.",requiredLevel,delegation:grant});
+  if(requestedAgent&&grant.agentKey&&grant.agentKey!==requestedAgent)return result({code:"delegation_agent_mismatch",reason:"The delegation does not cover this agent.",requiredLevel,delegation:grant});
+  if(grant.actionKey&&grant.actionKey!==key)return result({code:"delegation_action_mismatch",reason:"The delegation does not cover this action.",requiredLevel,delegation:grant});
+  if(grant.maxAutonomyLevel<requiredLevel)return result({code:"delegation_level_insufficient",reason:"The delegation autonomy ceiling is below the action requirement.",requiredLevel,delegation:grant});
+
+  const clock=now instanceof Date?now:new Date(now);
+  const validFrom=iso(grant.validFrom),expiresAt=iso(grant.expiresAt);
+  if(validFrom&&Number.isFinite(validFrom.getTime())&&clock<validFrom)return result({code:"delegation_not_started",reason:"The delegation is not valid yet.",requiredLevel,delegation:grant});
+  if(expiresAt&&Number.isFinite(expiresAt.getTime())&&clock>=expiresAt)return result({code:"delegation_expired",reason:"The delegation has expired.",requiredLevel,delegation:grant});
+
+  if(Boolean(actionDefinition?.externalSideEffect)&&!grant.externalSideEffects){
+    return result({code:"external_side_effect_not_delegated",reason:"The delegation does not permit external side effects.",requiredLevel,delegation:grant});
+  }
+  if(grant.strongAuthRequired&&strongAuth!=="server_verified"){
+    return result({decision:"review_required",code:"strong_auth_required",reason:"Server-verified strong authentication is required before this delegated action could proceed.",requiredLevel,delegation:grant,humanReviewRequired:true});
+  }
+  if(grant.humanConfirmationRequired&&approvalState!=="approved"){
+    return result({decision:"review_required",code:"human_confirmation_required",reason:"Human confirmation is required by the delegation.",requiredLevel,delegation:grant,humanReviewRequired:true});
+  }
+  if(grant.maxDailyActions!=null&&Number(dailyActionCount)>=grant.maxDailyActions){
+    return result({code:"daily_action_limit_reached",reason:"The delegation daily action limit has been reached.",requiredLevel,delegation:grant});
+  }
+  const amount=Math.max(0,Number(amountMinor)||0);
+  if(grant.maxAmountMinor!=null&&amount>grant.maxAmountMinor){
+    return result({code:"amount_limit_exceeded",reason:"The proposed amount exceeds the delegation limit.",requiredLevel,delegation:grant});
+  }
+
+  if(mode==="shadow"){
+    return result({allowed:true,decision:"shadow_allow",code:"shadow_policy_pass",reason:"The action passes delegated-authority checks in shadow mode. No side effect was executed.",requiredLevel,delegation:grant,executionAllowed:false});
+  }
+  if(grant.shadowOnly)return result({code:"shadow_only_grant",reason:"This delegation is permanently shadow-only in the current schema.",requiredLevel,delegation:grant});
+  if(globalExecutionEnabled!==true)return result({code:"execution_globally_disabled",reason:"Bounded execution is globally disabled.",requiredLevel,delegation:grant});
+
+  return result({allowed:true,decision:"allow_execute",code:"bounded_execution_allowed",reason:"The bounded action satisfies delegated-authority controls.",requiredLevel,delegation:grant,executionAllowed:true});
+}
+
+export const __delegatedAuthorityTest=Object.freeze({
+  requiredAutonomyLevel,
+  normalizeDelegation,
+  isNeverAutonomousAction
+});
