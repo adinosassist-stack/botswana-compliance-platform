@@ -506,7 +506,7 @@
   const DOCK_RELEASE="20260921b";
   const STORE_KEY="thebe_ai_dock_collapsed_v4";
   const MAX_QUESTION=1000;
-  const MOBILE_DOCK_MAX=650;
+  const MOBILE_DOCK_MAX=1023;
   let dock=null,pill=null,pillLabel=null,orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,input=null,sendButton=null,attentionButton=null,quick=null,foot=null;
   let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",collapsed=false;
 
