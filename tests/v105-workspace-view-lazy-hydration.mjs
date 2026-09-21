@@ -13,7 +13,7 @@ for(const script of coreWorkspaceScripts){
 assert.ok(!html.includes('src="js/')&&!html.includes("src=\'js/"),"workspace core scripts must not resolve under /app/js/");
 
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
-const runtime=fs.readFileSync("public/js/workspace-runtime-20260921d.js","utf8");
+const runtime=fs.readFileSync("public/js/workspace-runtime-20260921e.js","utf8");
 const delegatedEvents=fs.readFileSync("public/js/event-delegation.js","utf8");
 assert.match(delegatedEvents,/\'linkSocial\'/,"social connect action must remain in delegated event allowlist");
 
@@ -74,10 +74,14 @@ const peopleShard=fragmentShards[viewShard("peopleops")];
 assert.match(String(peopleShard.views.peopleops||""),/People & operations/,"People must hydrate its own semantic content");
 assert.doesNotMatch(String(peopleShard.views.peopleops||""),/Ruleset integrity|Sources in this prototype/i,"People must never hydrate regulatory source prototype copy");
 assert.match(String(fragmentShards[viewShard("sources")].views.sources||""),/Authoritative source registry/,"source governance content must remain scoped to the Sources view");
-assert.ok(production.includes('const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20260921d.js";'),"workspace runtime identity must rotate with injected runtime behavior");
+assert.ok(production.includes('const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20260921e.js";'),"workspace runtime identity must rotate with injected runtime behavior");
 assert.match(production,/window\.BW\?\.dom\?\.renderMarkup/,"hydration must use the sanctioned DOM sanitizer");
-assert.match(production,/credentials:"same-origin",cache:"reload"/,"lazy fragment requests must bypass stale immutable browser entries");
+assert.match(production,/credentials:"same-origin",cache:"force-cache"/,"versioned immutable lazy fragments should reuse their rotated cache identity");
 assert.match(production,/target\.dataset\.lazyView==="1"/);
+assert.match(production,/function activateLazyWorkspacePlaceholder\(id,target\)/,"lazy navigation must activate its destination before network hydration");
+assert.match(production,/setLazyWorkspaceMessage\(target,"Loading "\+label\+"…"/,"lazy navigation must visibly replace the previous view while loading");
+assert.match(production,/target\.dataset\.lazyError="1"/,"lazy hydration failure must expose a visible error state");
+assert.match(production,/activateLazyWorkspacePlaceholder\(id,target\);void hydrateLazyWorkspaceView/,"showView must stop leaving the previous view visible during lazy fetches");
 assert.match(production,/hydrateLazyWorkspaceView\(id,target,options\)/);
 assert.match(production,/let workspaceViewNavigationEpoch=0/,"lazy navigation must carry a monotonic epoch");
 assert.match(production,/target\.dataset\.lazyNavigationEpoch=String\(workspaceNavigationEpoch\)/,"every lazy navigation must record its latest requested epoch");
