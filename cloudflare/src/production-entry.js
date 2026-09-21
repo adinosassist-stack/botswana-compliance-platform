@@ -15,6 +15,7 @@ const THEBE_LIVE_VOICE_RELEASE="20260921c";
 const THEBE_PUBLIC_API_CLIENT_RELEASE="20260920a";
 const THEBE_AI_DOCK_RELEASE="20260921c";
 const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20260921a.js";
+const WORKSPACE_STYLE_ASSET="/assets/workspace-inline-20260921a.css";
 const TURNSTILE_SECRET_HEALTH_TTL_MS=5*60*1000;
 const REGISTRATION_PROOF_TTL_MS=5*60*1000;
 const REGISTRATION_PROOF_DIFFICULTY=10;
@@ -126,6 +127,16 @@ function externalizeWorkspaceRuntime(html){
   const pattern=/<script id="thebe-workspace-runtime-inline">[\s\S]*?<\/script>/;
   if(!pattern.test(source))return source;
   return source.replace(pattern,`<script id="thebe-workspace-runtime" src="${WORKSPACE_RUNTIME_ASSET}"></script>`);
+}
+
+function externalizeWorkspaceStyles(html){
+  const source=String(html||"");
+  const start="<!-- THEBE_WORKSPACE_INLINE_STYLES_START -->";
+  const end="<!-- THEBE_WORKSPACE_INLINE_STYLES_END -->";
+  const from=source.indexOf(start),to=source.indexOf(end);
+  if(from<0||to<from)return source;
+  const after=to+end.length;
+  return source.slice(0,from)+`<link rel="stylesheet" href="${WORKSPACE_STYLE_ASSET}" />`+source.slice(after);
 }
 
 function injectOwnerCommandCentreAssets(html){
@@ -317,7 +328,8 @@ async function fetchWithTurnstileCspRepair(request,env,ctx){
   const baseHtml=injectFirstPartyRegistrationClient(injectLogoFavicon(stripConflictingMetaCsp(html)));
   const publicSurface=path==="/home"||path==="/home/";
   const workspaceSurface=path==="/"||path==="/app"||path==="/app/";
-  const surfaceHtml=workspaceSurface?externalizeWorkspaceRuntime(baseHtml):baseHtml;
+  const runtimeHtml=workspaceSurface?externalizeWorkspaceRuntime(baseHtml):baseHtml;
+  const surfaceHtml=workspaceSurface?externalizeWorkspaceStyles(runtimeHtml):runtimeHtml;
   const repaired=workspaceSurface?injectOwnerCommandCentreAssets(surfaceHtml):publicSurface?injectPublicThebeAssets(surfaceHtml):surfaceHtml;
   if(repaired===html)return response;
   const headers=new Headers(response.headers);
@@ -340,6 +352,7 @@ export {
   injectOwnerCommandCentreAssets,
   injectPublicThebeAssets,
   externalizeWorkspaceRuntime,
+  externalizeWorkspaceStyles,
   isRegistrationRequest,
   isRegistrationProofChallengeRequest,
   rewriteRegistrationVerificationFailure,
