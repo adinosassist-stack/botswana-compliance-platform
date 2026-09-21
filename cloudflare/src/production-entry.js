@@ -14,7 +14,7 @@ const BUSINESS_DATA_BRIDGE_RELEASE="20260913d";
 const THEBE_LIVE_VOICE_RELEASE="20260921c";
 const THEBE_PUBLIC_API_CLIENT_RELEASE="20260920a";
 const THEBE_AI_DOCK_RELEASE="20260921c";
-const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20260921d.js";
+const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20260921e.js";
 const WORKSPACE_STYLES_ASSET="/assets/workspace-inline-styles-20260921a.css";
 const WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT=12;
 const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20260921c-";
@@ -202,7 +202,7 @@ async function workspaceViewFragments(id){
   const shard=workspaceViewShard(id);
   if(workspaceViewShardPromises.has(shard))return workspaceViewShardPromises.get(shard);
   const asset=WORKSPACE_VIEW_FRAGMENT_PREFIX+shard+".json";
-  const promise=fetch(asset,{method:"GET",credentials:"same-origin",cache:"reload"}).then(async response=>{
+  const promise=fetch(asset,{method:"GET",credentials:"same-origin",cache:"force-cache"}).then(async response=>{
     if(!response.ok)throw new Error("Workspace view shard is unavailable.");
     const payload=await response.json();
     if(!payload||payload.schema!==2||payload.shard!==shard||!payload.views||typeof payload.views!=="object")throw new Error("Workspace view shard is invalid.");
@@ -211,10 +211,47 @@ async function workspaceViewFragments(id){
   workspaceViewShardPromises.set(shard,promise);
   return promise;
 }
+function lazyWorkspaceViewLabel(id){
+  const meta=typeof COMMAND_META!=="undefined"?COMMAND_META[id]:null;
+  const nav=document.querySelector('[data-view="'+String(id||"")+'"]');
+  return String(meta?.[0]||nav?.textContent?.trim()||"Workspace");
+}
+function setLazyWorkspaceMessage(target,title,detail,bad=false){
+  if(!target)return;
+  target.replaceChildren();
+  const card=document.createElement("div");
+  card.className=bad?"notice bad":"card";
+  const heading=document.createElement("h2");
+  heading.textContent=String(title||"");
+  const copy=document.createElement("div");
+  copy.className="muted small";
+  copy.textContent=String(detail||"");
+  card.append(heading,copy);
+  target.append(card);
+}
+function activateLazyWorkspacePlaceholder(id,target){
+  lastWorkspaceView=id;
+  document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+  target.classList.add("active");
+  document.querySelectorAll(".nav button").forEach(b=>{
+    const active=b.dataset.view===id;
+    b.classList.toggle("active",active);
+    if(active)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current");
+  });
+  const label=lazyWorkspaceViewLabel(id);
+  const pageTitle=document.getElementById("pageTitle");
+  if(pageTitle)pageTitle.textContent=label;
+  updateMobileNav(id);
+  const status=document.getElementById("srStatus");
+  if(status)status.textContent="Loading "+label+"…";
+  setLazyWorkspaceMessage(target,"Loading "+label+"…","Fetching this workspace area.");
+  window.scrollTo({top:0,behavior:prefersReducedMotion()?"auto":"smooth"});
+}
 async function hydrateLazyWorkspaceView(id,target,options={}){
   if(!target||target.dataset.lazyView!=="1")return false;
   if(target.dataset.lazyLoading==="1")return true;
   target.dataset.lazyLoading="1";
+  delete target.dataset.lazyError;
   target.setAttribute("aria-busy","true");
   const status=document.getElementById("srStatus");
   if(status)status.textContent="Loading "+String(id||"workspace")+"…";
@@ -225,6 +262,7 @@ async function hydrateLazyWorkspaceView(id,target,options={}){
     if(!window.BW?.dom?.renderMarkup)throw new Error("Workspace DOM safety layer is unavailable.");
     window.BW.dom.renderMarkup(target,markup);
     target.dataset.lazyHydrated="1";
+    delete target.dataset.lazyError;
     target.removeAttribute("data-lazy-view");
     target.removeAttribute("data-lazy-view-id");
     target.setAttribute("aria-busy","false");
@@ -237,7 +275,12 @@ async function hydrateLazyWorkspaceView(id,target,options={}){
     target.setAttribute("aria-busy","false");
     delete target.dataset.lazyLoading;
     console.error("workspace_lazy_view_hydration_failed",{view:id,error});
-    if(Number(target.dataset.lazyNavigationEpoch||0)===workspaceViewNavigationEpoch&&status)status.textContent="This workspace area could not be loaded. Try again.";
+    if(Number(target.dataset.lazyNavigationEpoch||0)===workspaceViewNavigationEpoch){
+      target.dataset.lazyError="1";
+      const label=lazyWorkspaceViewLabel(id);
+      setLazyWorkspaceMessage(target,label+" could not be loaded","Try this section again. The previous workspace view is no longer being shown.",true);
+      if(status)status.textContent="This workspace area could not be loaded. Try again.";
+    }
     return false;
   }
 }
@@ -245,7 +288,7 @@ async function hydrateLazyWorkspaceView(id,target,options={}){
   source=source.replace(marker,hydrationBlock+"\n"+marker);
   const targetNeedle='const target=document.getElementById(id);if(!target){console.warn("Unknown view",id);return false}lastWorkspaceView=id;';
   if(!source.includes(targetNeedle))return String(runtime||"");
-  source=source.replace(targetNeedle,'const target=document.getElementById(id);if(!target){console.warn("Unknown view",id);return false}const workspaceNavigationEpoch=options?.preserveNavigationEpoch===true?workspaceViewNavigationEpoch:++workspaceViewNavigationEpoch;if(target.dataset.lazyView==="1"&&options?.lazyHydrated!==true){target.dataset.lazyNavigationEpoch=String(workspaceNavigationEpoch);void hydrateLazyWorkspaceView(id,target,options);return true}lastWorkspaceView=id;');
+  source=source.replace(targetNeedle,'const target=document.getElementById(id);if(!target){console.warn("Unknown view",id);return false}const workspaceNavigationEpoch=options?.preserveNavigationEpoch===true?workspaceViewNavigationEpoch:++workspaceViewNavigationEpoch;if(target.dataset.lazyView==="1"&&options?.lazyHydrated!==true){target.dataset.lazyNavigationEpoch=String(workspaceNavigationEpoch);activateLazyWorkspacePlaceholder(id,target);void hydrateLazyWorkspaceView(id,target,options);return true}lastWorkspaceView=id;');
   return source;
 }
 
