@@ -295,9 +295,17 @@ async function fetchWithTurnstileCspRepair(request,env,ctx){
   let response=await worker.fetch(request,env,ctx);
   if(request.method!=="GET")return response;
   const type=String(response.headers.get("content-type")||"").toLowerCase();
+  const path=logicalRequestPath(request);
+  if(path==="/js/workspace-runtime-20260921a.js"&&(type.includes("javascript")||type.includes("ecmascript")||type.includes("text/plain"))){
+    const runtime=await response.clone().text();
+    const repairedRuntime=injectFirstPartyRegistrationClient(runtime);
+    if(repairedRuntime===runtime)return response;
+    const headers=new Headers(response.headers);
+    headers.set("x-thebe-registration-protection","first-party-proof-v1");
+    return new Response(repairedRuntime,{status:response.status,statusText:response.statusText,headers});
+  }
   if(!type.includes("text/html"))return response;
   const html=await response.clone().text();
-  const path=logicalRequestPath(request);
   const baseHtml=injectFirstPartyRegistrationClient(injectLogoFavicon(stripConflictingMetaCsp(html)));
   const publicSurface=path==="/home"||path==="/home/";
   const workspaceSurface=path==="/"||path==="/app"||path==="/app/";
