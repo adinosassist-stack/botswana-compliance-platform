@@ -18,7 +18,7 @@ ok(launchDoc.includes(launchIdentity)&&launchDoc.includes(profile.latest_cloudfl
 
 const publicFiles=["public/index.html",...fs.readdirSync(path.join(root,"public/js")).filter(x=>x.endsWith(".js")).map(x=>`public/js/${x}`)];
 for(const file of publicFiles){const s=read(file);ok(!/(^|[^.\w$])confirm\s*\(/m.test(s),`${file} must not use native confirm()`);ok(!/(^|[^.\w$])prompt\s*\(/m.test(s),`${file} must not use native prompt()`)}
-ok(html.includes('src="js/dialog-service.js"'),"production app must load the accessible dialog service");
+ok(html.includes('src="/js/dialog-service.js"'),"production /app/ must load the accessible dialog service from the root asset path");
 ok(builder.includes('"notifications.js","dialog-service.js","api-client.js"'),"standalone preview builder must inline the accessible dialog service in production script order");
 ok(dialog.includes('role","dialog"')&&dialog.includes('aria-modal","true"')&&dialog.includes("textContent")&&dialog.includes("stopImmediatePropagation")&&dialog.includes("exactValue"),"dialog service must be accessible, safe-text based, validated and isolate keyboard cancellation");
 ok(lint.includes("must not use native confirm()")&&lint.includes("must not use native prompt()")&&lint.includes("public/js/dialog-service.js"),"production lint must permanently ban native browser dialogs and require the dialog service");
