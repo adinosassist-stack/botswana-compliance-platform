@@ -1,0 +1,1430 @@
+PINNED SHA: 9fdfbfa5bf3995a466f2bb4f18d2a28587909d29
+
+
+===== ORIGINAL FILE: public/home.html =====
+
+<!doctype html>
+<html lang="en-BW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0B66D6">
+<title>Botswana SME Compliance Software | Thebe Desk</title>
+<meta name="description" content="Thebe Desk helps Botswana SMEs track CIPA, BURS, employment, licence, tender, deadline and evidence obligations from one practical workspace.">
+<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="en_BW">
+<meta property="og:site_name" content="Thebe Desk">
+<meta property="og:title" content="Botswana SME Compliance Software | Thebe Desk">
+<meta property="og:description" content="See business risk before it becomes a penalty, dispute or loss.">
+<meta property="og:url" content="https://thebedesk.com/">
+<meta property="og:image" content="https://thebedesk.com/assets/gaborone-entrepreneurs-v67.webp">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://thebedesk.com/">
+<link rel="icon" type="image/png" sizes="192x192" href="/assets/thebe-desk-icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<style>
+:root{--ink:#17191c;--muted:#686d75;--line:#e5e5e1;--accent:#0b66d6;--accent2:#0d5bc8;--soft:#edf5ff;--paper:#fff;--bg:#f7f7f5;--shadow:0 18px 50px rgba(11,102,214,.08)}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.55}a{color:inherit;text-decoration:none}img{max-width:100%;display:block}.wrap{width:min(1180px,calc(100% - 36px));margin:auto}.nav{position:sticky;top:0;z-index:20;background:rgba(248,250,249,.96);border-bottom:1px solid rgba(225,231,227,.92);backdrop-filter:blur(14px)}.navin{min-height:72px;display:flex;align-items:center;justify-content:space-between;gap:18px}.brand{display:flex;align-items:center;gap:10px;font-weight:780;letter-spacing:-.02em}.brand img{width:34px;height:34px;object-fit:contain}.links{display:flex;align-items:center;gap:18px;font-size:14px;color:#435048}.actions{display:flex;align-items:center;gap:9px}.btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 16px;border-radius:12px;border:1px solid transparent;font-weight:720;font-size:14px;transition:.16s ease}.btn.primary{background:var(--accent);color:#fff}.btn.primary:hover{background:var(--accent2)}.btn.secondary{background:#fff;border-color:var(--line)}.btn.ghost{color:var(--accent)}.hero{padding:50px 0 38px}.hero-grid{display:grid;grid-template-columns:1.04fr .96fr;gap:40px;align-items:center}.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:760;color:var(--accent);background:var(--soft);padding:7px 10px;border-radius:999px}.dot{width:7px;height:7px;border-radius:50%;background:#0b66d6}.hero h1{font-size:clamp(42px,6vw,72px);line-height:.99;letter-spacing:-.055em;margin:14px 0 16px;max-width:820px}.hero p{font-size:19px;color:var(--muted);max-width:690px;margin:0}.hero-cta{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}.reassure{margin-top:10px;color:#6a766f;font-size:13px}.visual{position:relative}.visual img{border-radius:28px;box-shadow:var(--shadow);aspect-ratio:4/3;object-fit:cover}.trust{padding:0 0 38px}.trustline{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.trustitem{background:#fff;border:1px solid var(--line);border-radius:15px;padding:16px}.trustitem b{font-size:13px}.trustitem div{font-size:12px;color:var(--muted);margin-top:3px}.section{padding:50px 0;border-top:1px solid var(--line)}.section-head{max-width:760px;margin-bottom:24px}.section-head .kicker{color:var(--accent);font-size:12px;text-transform:uppercase;letter-spacing:.12em;font-weight:800}.section h2{font-size:clamp(31px,4vw,48px);line-height:1.04;letter-spacing:-.04em;margin:8px 0 12px}.section-head p{color:var(--muted);font-size:17px;margin:0}.featuregrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.feature{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px}.feature .num{width:34px;height:34px;border-radius:10px;background:var(--soft);color:var(--accent);display:grid;place-items:center;font-size:12px;font-weight:800;margin-bottom:14px}.feature h3{margin:0 0 7px;font-size:18px;letter-spacing:-.02em}.feature p{margin:0;color:var(--muted);font-size:14px}.compliance{display:grid;grid-template-columns:1fr 1fr;gap:18px}.panel{background:#fff;border:1px solid var(--line);border-radius:20px;padding:20px}.panel h3{margin:0 0 13px;font-size:22px;letter-spacing:-.025em}.check{display:flex;gap:10px;padding:9px 0;border-top:1px solid #edf1ee;color:#48554e;font-size:14px}.check:first-of-type{border-top:0}.tick{color:var(--accent);font-weight:900}.pricinggrid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}.pricecard{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;display:flex;flex-direction:column}.pricecard.featured{border-color:#a9c8ef;box-shadow:0 14px 34px rgba(11,102,214,.10)}.label{font-size:11px;color:var(--accent);font-weight:800;text-transform:uppercase;letter-spacing:.08em;min-height:18px}.pricecard h3{font-size:20px;margin:8px 0}.price{font-size:31px;font-weight:820;letter-spacing:-.04em}.price small{font-size:12px;color:var(--muted);font-weight:600}.pricecard p{font-size:12px;color:var(--muted)}.pricecard ul{padding-left:18px;margin:10px 0 18px;font-size:12.5px;color:#4c5952;flex:1}.pricecard li+li{margin-top:7px}.pricecard .btn{width:100%}.fine{font-size:12px;color:var(--muted);margin-top:14px}.faq{display:grid;grid-template-columns:1fr 1fr;gap:12px}.faq article{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px}.faq h3{margin:0 0 7px;font-size:16px}.faq p{margin:0;color:var(--muted);font-size:14px}.final{padding:50px 0}.cta-box{background:#0f172a;color:#fff;border-radius:26px;padding:32px;display:flex;align-items:center;justify-content:space-between;gap:28px}.cta-box h2{margin:0 0 8px;font-size:clamp(30px,4vw,48px);letter-spacing:-.045em}.cta-box p{margin:0;color:#cbd5e1}.cta-box .btn.secondary{border-color:#d9e4de}.footer{padding:22px 0 30px;color:#647069;font-size:12px}.footerin{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap}.footerlinks{display:flex;gap:16px;flex-wrap:wrap}
+@media(max-width:1000px){.links{display:none}.hero-grid{grid-template-columns:1fr;gap:34px}.visual{max-width:760px}.trustline{grid-template-columns:repeat(2,1fr)}.featuregrid{grid-template-columns:repeat(2,1fr)}.pricinggrid{grid-template-columns:repeat(2,1fr)}.pricecard:last-child{grid-column:span 2}.compliance{grid-template-columns:1fr}.cta-box{align-items:flex-start;flex-direction:column}}
+@media(max-width:620px){.wrap{width:min(100% - 24px,1180px)}.navin{min-height:64px}.brand span{display:none}.actions{gap:6px}.actions .btn{min-height:40px;padding:8px 10px;font-size:12px}.actions .ghost{display:none}.hero{padding:40px 0 28px}.hero h1{font-size:43px}.hero p{font-size:16px}.hero-cta .btn{width:100%}.float-card{position:relative;left:auto;bottom:auto;width:100%;margin-top:10px}.trustline,.featuregrid,.pricinggrid,.faq{grid-template-columns:1fr}.pricecard:last-child{grid-column:auto}.section{padding:42px 0}.cta-box{padding:24px 20px}.footerin{display:block}.footerlinks{margin-top:12px}}
+/* Premium marketing refinement — denser SaaS hierarchy, no gradients, dock-aware. */
+.hero{padding:42px 0 30px}
+.hero-grid{gap:32px}
+.hero p{max-width:630px}
+.hero-cta{margin-top:18px}
+.visual img{border-radius:22px}
+.product-stack{position:absolute;left:-24px;bottom:22px;width:min(356px,84%);display:grid;gap:8px}
+.product-snapshot{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:0 14px 34px rgba(18,22,20,.12)}
+.product-snapshot-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:9px}
+.product-snapshot-head b{font-size:13px}
+.status-chip{font-size:10px;font-weight:800;color:var(--accent);background:var(--soft);border-radius:999px;padding:4px 7px}
+.signal-row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:7px 0;border-top:1px solid #eef0ed;font-size:12px}
+.signal-row:first-of-type{border-top:0}
+.signal-row span{color:var(--muted)}
+.signal-row strong{font-size:11px}
+.control-ribbon{display:flex;gap:7px;flex-wrap:wrap;margin-top:14px}
+.control-ribbon span{border:1px solid #dde4df;background:#fff;border-radius:999px;padding:5px 8px;font-size:11px;color:#52605a}
+.trust{padding:0 0 28px}
+.trustline{gap:0;background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.trustitem{border:0;border-radius:0;padding:13px 15px}
+.trustitem+ .trustitem{border-left:1px solid var(--line)}
+.section{padding:42px 0}
+.section-head{margin-bottom:20px}
+.featuregrid{gap:12px}
+.feature{padding:16px}
+.feature .num{margin-bottom:11px}
+.workflow-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+.workflow-step{background:#fff;border:1px solid var(--line);border-radius:15px;padding:14px;display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start}
+.workflow-step em{font-style:normal;display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:#0f172a;color:#fff;font-size:11px;font-weight:800}
+.workflow-step b{display:block;font-size:13px;margin-bottom:2px}
+.workflow-step span{display:block;color:var(--muted);font-size:12px;line-height:1.45}
+.ai-section{padding:0 0 42px}
+.ai-panel{background:#fff;border:1px solid var(--line);border-radius:20px;padding:22px;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr);gap:24px;align-items:center;box-shadow:0 12px 30px rgba(11,102,214,.05)}
+.ai-panel .kicker{color:var(--accent);font-size:11px;text-transform:uppercase;letter-spacing:.12em;font-weight:800}
+.ai-panel h2{font-size:clamp(28px,3.6vw,42px);line-height:1.02;letter-spacing:-.04em;margin:7px 0 9px}
+.ai-panel p{margin:0;color:var(--muted);max-width:660px}
+.ai-prompts{display:grid;gap:8px}
+.ai-prompt{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fdfdfc;color:var(--ink);font:inherit;text-align:left;cursor:pointer}.ai-prompt:hover,.ai-prompt:focus-visible{background:var(--soft);border-color:#bfd7f5;outline:2px solid rgba(11,102,214,.12);outline-offset:1px}
+.ai-prompt b{display:block;font-size:12px}
+.ai-prompt span{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.ai-hint{margin-top:12px;font-size:12px;color:#3e4a44}
+.ai-hint strong{color:var(--accent)}
+.panel{padding:18px}
+.pricinggrid{gap:10px}
+.pricecard{padding:16px}
+.faq article{padding:17px}
+.final{padding:40px 0}
+.cta-box{padding:27px 30px;border-radius:22px}
+.footer{padding:18px 0 26px}
+@media(max-width:1000px){
+  .ai-panel{grid-template-columns:1fr}
+  .product-stack{left:14px}
+  .trustitem+ .trustitem:nth-child(3){border-left:0}
+}
+@media(max-width:620px){
+  .hero{padding:34px 0 24px}
+  .hero h1{font-size:41px}
+  .product-stack{position:relative;left:auto;bottom:auto;width:100%;margin-top:10px}
+  .trustline{display:grid;grid-template-columns:1fr}
+  .trustitem+ .trustitem{border-left:0;border-top:1px solid var(--line)}
+  .section{padding:34px 0}
+  .workflow-strip{grid-template-columns:1fr}
+  .ai-section{padding:0 0 34px}
+  .ai-panel{padding:18px}
+  .final{padding:32px 0}
+  .cta-box{padding:22px 18px}
+}
+
+/* Desktop dock-aware marketing composition: reserve a real lane for Thebe instead of overlaying content. */
+@media(min-width:1024px){
+  .marketinggate main,.marketinggate>.footer{padding-right:var(--thebe-dock-w,380px)}
+  .pricinggrid{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+  .pricecard:last-child{grid-column:auto}
+}
+@media(min-width:1024px) and (max-width:1350px){
+  .hero-grid{grid-template-columns:1fr;gap:24px}
+  .visual{max-width:680px}
+  .cta-box{align-items:flex-start;flex-direction:column}
+}
+@media(min-width:651px) and (max-width:820px){
+  .trustline,.featuregrid,.faq{grid-template-columns:1fr}
+  .section{padding:38px 0}
+}
+
+</style>
+</head>
+<body>
+<div class="marketinggate" id="marketingGate">
+<header class="nav">
+  <div class="wrap navin">
+    <a class="brand" href="/" aria-label="Thebe Desk home"><img src="/assets/thebe-desk-logo-symbol.png" alt=""><span>Thebe Desk</span></a>
+    <nav class="links" aria-label="Public navigation"><a href="#features">Features</a><a href="#thebe-ai">Thebe AI</a><a href="#botswana-compliance">Botswana compliance</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a><a href="#trust">Trust</a></nav>
+    <div class="actions"><a class="btn ghost" href="/app/">Open workspace</a><a class="btn secondary marketing-guest-action" data-guest-action href="/auth/?mode=login">Sign in</a><a class="btn primary marketing-start-action" href="/auth/?mode=register&amp;plan=business">Start free</a></div>
+  </div>
+</header>
+<main>
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <div class="eyebrow"><span class="dot"></span>Live in Botswana · South Africa next</div>
+      <h1>See business risk before it becomes a penalty, dispute or loss.</h1>
+      <p>Stay ready, stay protected and keep moving. Thebe Desk brings obligations, evidence, people risk, licences and deadlines into one calm, practical workspace.</p>
+      <div class="hero-cta"><a class="btn primary marketing-start-action hero-primary-cta" href="/auth/?mode=register&amp;plan=business">Start free for 14 days</a><a class="btn secondary hero-product-cta" href="/auth/?mode=login&amp;next=/app/">Open your workspace</a><a class="btn ghost hero-pricing-cta" href="#pricing">See plans</a></div>
+      <div class="reassure">14-day trial · no payment card required to register · public website does not load private workspace data</div>
+      <div class="control-ribbon" aria-label="Core Thebe Desk coverage"><span>CIPA</span><span>BURS</span><span>People</span><span>Licences</span><span>Tenders</span><span>Finance</span><span>Evidence</span></div>
+    </div>
+    <div class="visual"><img src="/assets/gaborone-entrepreneurs-v67.webp" width="1536" height="1024" alt="Botswana business owners reviewing work together" fetchpriority="high"><div class="product-stack" aria-label="Illustrative Thebe Desk product snapshot"><div class="product-snapshot"><div class="product-snapshot-head"><b>Today in Thebe Desk</b><span class="status-chip">Live overview</span></div><div class="signal-row"><span>Next action</span><strong>Review people-risk control</strong></div><div class="signal-row"><span>Evidence</span><strong>2 items verified</strong></div><div class="signal-row"><span>Finance</span><strong>Reconciliation ready</strong></div></div></div></div>
+  </div>
+</section>
+<section class="trust" id="trust"><div class="wrap trustline"><div class="trustitem"><b>Botswana-first</b><div>Built around local SME compliance and operational reality.</div></div><div class="trustitem"><b>Evidence-backed</b><div>Keep proof connected to the obligation or action it supports.</div></div><div class="trustitem"><b>Role-aware</b><div>Owners, employees and reviewers see the controls relevant to them.</div></div><div class="trustitem"><b>Human review</b><div>AI assists; professional judgement stays with people where it matters.</div></div></div></section>
+<section class="section" id="features"><div class="wrap"><div class="section-head"><div class="kicker">Practical control</div><h2>Run the business with fewer blind spots.</h2><p>Thebe Desk turns scattered obligations into a working operating rhythm: what matters, what is due, what changed, and what needs proof.</p></div><div class="featuregrid"><article class="feature"><div class="num">01</div><h3>Owner Command Centre</h3><p>Bring priorities, exceptions, financial signals and business risk into one decision surface.</p></article><article class="feature"><div class="num">02</div><h3>Compliance obligations</h3><p>Track recurring and event-driven CIPA, BURS, licence and employment duties.</p></article><article class="feature"><div class="num">03</div><h3>Evidence register</h3><p>Keep records, supporting proof and audit trails connected to the control they defend.</p></article><article class="feature"><div class="num">04</div><h3>People risk</h3><p>Support employee records, daily reporting, accountability and employment-compliance workflows.</p></article><article class="feature"><div class="num">05</div><h3>Finance & reconciliation</h3><p>Use a provider-neutral finance layer for trustworthy operational financial signals and reconciliation.</p></article><article class="feature"><div class="num">06</div><h3>Decision intelligence</h3><p>Use the Business Model Engine, Decision Engine, Simulation Engine and Benchmark Network to test decisions with context.</p></article></div><div class="workflow-strip" aria-label="How Thebe Desk works"><div class="workflow-step"><em>1</em><div><b>See what matters</b><span>Thebe brings deadlines, risks and exceptions into one decision surface.</span></div></div><div class="workflow-step"><em>2</em><div><b>Assign the next action</b><span>Turn the signal into owned work with context, evidence and a clear boundary.</span></div></div><div class="workflow-step"><em>3</em><div><b>Keep the proof</b><span>Close the loop with records that stay connected to the action they defend.</span></div></div></div></div></section>
+<section class="ai-section" id="thebe-ai"><div class="wrap"><div class="ai-panel"><div><div class="kicker">Thebe AI</div><h2>The product can explain itself while you explore it.</h2><p>The persistent Thebe dock on the right is a public, bounded product guide. Ask what Thebe Desk does, how Botswana compliance workflows fit together, or which plan matches a business. The public sample cannot read private workspace data or execute business actions.</p><div class="ai-hint"><strong>Try it now:</strong> use the dock on desktop, or tap <b>Ask Thebe</b> on mobile.</div></div><div class="ai-prompts" aria-label="Example questions for Thebe"><button type="button" class="ai-prompt" data-thebe-prompt="What does Thebe Desk actually do?"><b>“What does Thebe Desk actually do?”</b><span>Get a short product explanation.</span></button><button type="button" class="ai-prompt" data-thebe-prompt="How does Thebe Desk help with CIPA and BURS?"><b>“How does it help with CIPA and BURS?”</b><span>See how recurring obligations become actions and evidence.</span></button><button type="button" class="ai-prompt" data-thebe-prompt="Which Thebe Desk plan fits a multi-branch SME?"><b>“Which plan fits a multi-branch SME?”</b><span>Compare published plan boundaries and pricing.</span></button></div></div></div></section>
+<section class="section" id="botswana-compliance"><div class="wrap"><div class="section-head"><div class="kicker">Botswana compliance</div><h2>Know what needs attention before it becomes urgent.</h2><p>Designed to help Botswana SMEs organise obligations and evidence while keeping legal, tax and professional judgement appropriately human.</p></div><div class="compliance"><div class="panel"><h3>Core compliance areas</h3><div class="check"><span class="tick">✓</span>CIPA company records and recurring obligations</div><div class="check"><span class="tick">✓</span>BURS tax and regulatory readiness</div><div class="check"><span class="tick">✓</span>Employment and people-risk controls</div><div class="check"><span class="tick">✓</span>Business licences and renewal deadlines</div><div class="check"><span class="tick">✓</span>Tender readiness and reusable evidence</div></div><div class="panel"><h3>Built for action, not just reminders</h3><div class="check"><span class="tick">✓</span>Prioritised actions with owners and deadlines</div><div class="check"><span class="tick">✓</span>Evidence trails for inspections and disputes</div><div class="check"><span class="tick">✓</span>Regulatory-change impact workflows</div><div class="check"><span class="tick">✓</span>Daily operating and management reporting</div><div class="check"><span class="tick">✓</span>Escalation when human review is required</div></div></div></div></section>
+<section class="section" id="pricing"><div class="wrap"><div class="section-head"><div class="kicker">Simple Botswana pricing</div><h2>Start lean. Upgrade when the business needs more control.</h2><p>Every new workspace starts with a 14-day trial. No payment card is required to create the trial workspace.</p></div><div class="pricinggrid"><article class="pricecard"><div class="label">Start lean</div><h3>Monitor</h3><div class="price">P149 <small>/ month</small></div><p>For an owner-managed SME that needs deadlines and defensible records.</p><ul><li>1 company · 1 location</li><li>Recurring obligations</li><li>Licence & deadline tracking</li><li>Evidence register</li></ul><a class="btn secondary marketing-start-action" href="/auth/?mode=register&amp;plan=starter">Start free</a></article><article class="pricecard featured"><div class="label">Best SME fit</div><h3>Protect</h3><div class="price">P349 <small>/ month</small></div><p>For SMEs with staff, licences, tenders and up to two operating locations.</p><ul><li>Everything in Monitor</li><li>Employer Shield</li><li>Daily operational reporting</li><li>40 AI credits / month</li></ul><a class="btn primary marketing-start-action" href="/auth/?mode=register&amp;plan=business">Start free</a></article><article class="pricecard"><div class="label">More control</div><h3>Control</h3><div class="price">P699 <small>/ month</small></div><p>For tender-active, regulated or multi-branch SMEs.</p><ul><li>Everything in Protect</li><li>Up to 10 locations</li><li>Inspection / dispute packs</li><li>150 AI credits / month</li></ul><a class="btn secondary marketing-start-action" href="/auth/?mode=register&amp;plan=pro">Start free</a></article><article class="pricecard"><div class="label">Multi-site</div><h3>Network</h3><div class="price">P1,299 <small>/ month</small></div><p>For groups, franchises and businesses operating across many locations.</p><ul><li>Everything in Control</li><li>Up to 25 locations</li><li>Linked workspaces</li><li>350 AI credits / month</li></ul><a class="btn secondary marketing-start-action" href="/auth/?mode=register&amp;plan=network">Start free</a></article><article class="pricecard"><div class="label">Advisers</div><h3>Partner</h3><div class="price">P2,499 <small>/ month</small></div><p>For advisers and service partners managing multiple client businesses.</p><ul><li>Partner and client workflows</li><li>Portfolio support</li><li>Compliance Passport collaboration</li><li>Assisted onboarding</li></ul><a class="btn secondary" href="/pricing/">Partner details</a></article></div><div class="fine">Annual billing is two months free on supported plans. Prices exclude separately quoted professional legal, accounting, tax or company-secretarial services.</div></div></section>
+<section class="section" id="faq"><div class="wrap"><div class="section-head"><div class="kicker">Questions</div><h2>Clear boundaries from the start.</h2></div><div class="faq"><article><h3>Does the public homepage load my business data?</h3><p>No. The public site is now a separate surface. Private session and workspace state are loaded only when you open the authenticated app.</p></article><article><h3>Does Thebe Desk replace a lawyer or accountant?</h3><p>No. It helps organise obligations, evidence and decisions. Professional judgement remains appropriate for legal, tax, accounting and regulated matters.</p></article><article><h3>Can employees see owner information?</h3><p>Workspace access is role-aware. Employee access is separated from leadership and owner-only surfaces.</p></article><article><h3>What happens if the workspace service has a problem?</h3><p>The public website remains available independently. Workspace failures should no longer turn the public homepage into a blank or restricted portal.</p></article></div></div></section>
+<section class="final"><div class="wrap"><div class="cta-box"><div><h2>Ready when you are.</h2><p>Create a workspace or sign in to continue running your business from one desk.</p></div><div class="hero-cta"><a class="btn secondary marketing-start-action" href="/auth/?mode=register&amp;plan=business">Start free</a><a class="btn primary" href="/auth/?mode=login">Sign in</a></div></div></div></section>
+</main>
+<footer class="footer"><div class="wrap footerin"><div>© 2026 Thebe Desk · Botswana SME compliance and operations software.</div><div class="footerlinks"><a href="/pricing/">Pricing</a><a href="/auth/?mode=login">Sign in</a><a href="/app/">Workspace</a></div></div></footer>
+</div>
+</body>
+</html>
+
+
+===== ORIGINAL FILE: public/assets/thebe-ai-dock.css =====
+
+/* Thebe Desk persistent AI dock — Phase 0
+   Lightweight companion UI for the existing governed advisor + Live Voice runtime. */
+:root{
+  --thebe-dock-w:352px;
+  --thebe-dock-bg:rgba(255,255,255,.985);
+  --thebe-dock-ink:#16201c;
+  --thebe-dock-muted:#6b756f;
+  --thebe-dock-line:#e2e7e4;
+  --thebe-dock-accent:#176b4f;
+  --thebe-dock-soft:#eef6f2;
+  --thebe-dock-shadow:0 24px 80px rgba(14,28,21,.18),0 3px 12px rgba(14,28,21,.08);
+}
+.thebe-ai-dock[hidden],.thebe-ai-pill[hidden]{display:none!important}
+.thebe-ai-dock{
+  position:fixed;z-index:72;right:18px;top:78px;bottom:18px;width:min(var(--thebe-dock-w),calc(100vw - 36px));
+  display:flex;flex-direction:column;overflow:hidden;background:var(--thebe-dock-bg);color:var(--thebe-dock-ink);
+  border:1px solid var(--thebe-dock-line);border-radius:18px;box-shadow:var(--thebe-dock-shadow);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)
+}
+.thebe-ai-dock-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 14px 10px;border-bottom:1px solid var(--thebe-dock-line)}
+.thebe-ai-dock-title{display:flex;align-items:center;gap:9px;min-width:0}
+.thebe-ai-mark{display:grid;place-items:center;width:30px;height:30px;border-radius:10px;background:#15211c;color:#fff;font-size:10px;font-weight:900;letter-spacing:.05em;flex:0 0 auto}
+.thebe-ai-title-copy{min-width:0}.thebe-ai-title-copy b{display:block;font-size:14px;letter-spacing:-.015em}.thebe-ai-presence{display:flex;align-items:center;gap:6px;color:var(--thebe-dock-muted);font-size:10px;margin-top:1px}
+.thebe-ai-presence-dot{width:6px;height:6px;border-radius:50%;background:#42a77d;box-shadow:0 0 0 3px rgba(66,167,125,.12)}
+.thebe-ai-head-actions{display:flex;align-items:center;gap:6px}.thebe-ai-icon-btn{width:31px;height:31px;border:1px solid var(--thebe-dock-line);border-radius:9px;background:#fff;color:#5e6963;cursor:pointer;font:inherit}.thebe-ai-icon-btn:hover,.thebe-ai-icon-btn:focus-visible{background:#f5f8f6;color:#18231e;outline:2px solid rgba(23,107,79,.18);outline-offset:1px}
+.thebe-ai-attention{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:#fff3dc;color:#805308;font-size:10px;font-weight:800;border:0;cursor:pointer}
+.thebe-ai-attention:empty{display:none}
+
+.thebe-ai-dock-scroll{overflow:auto;overscroll-behavior:contain;padding:13px 14px 12px;display:flex;flex-direction:column;gap:13px}
+.thebe-ai-voice-card{border:1px solid var(--thebe-dock-line);border-radius:16px;padding:13px;background:#fff}
+.thebe-ai-orb-button{display:block;width:104px;height:104px;margin:0 auto 8px;border:0;background:transparent;border-radius:50%;padding:0;cursor:pointer}
+.thebe-ai-orb-button:focus-visible{outline:3px solid rgba(23,107,79,.2);outline-offset:3px}
+.thebe-particle-orb{--thebe-audio-scale:1;--thebe-audio-ring:8px;--thebe-audio-blur:28px;position:relative;width:104px;height:104px;border-radius:50%;isolation:isolate;transform:scale(var(--thebe-audio-scale));transition:transform 70ms linear}
+.thebe-particle-orb:before,.thebe-particle-orb:after{content:"";position:absolute;inset:23px;border-radius:50%;border:1px solid rgba(23,107,79,.18);opacity:.5;transform:scale(.88)}
+.thebe-particle-orb:after{inset:14px;opacity:.24}
+.thebe-particle-core{position:absolute;left:50%;top:50%;width:24px;height:24px;border-radius:50%;transform:translate(-50%,-50%);background:#0b66d6;box-shadow:0 0 0 var(--thebe-audio-ring) rgba(23,107,79,.07),0 0 var(--thebe-audio-blur) rgba(23,107,79,.26)}
+.thebe-particle{position:absolute;width:5px;height:5px;border-radius:50%;background:#5eb992;opacity:.48;transform:translate(-50%,-50%) scale(.8)}
+.thebe-particle:nth-of-type(1){left:50%;top:7%}.thebe-particle:nth-of-type(2){left:72%;top:13%}.thebe-particle:nth-of-type(3){left:90%;top:31%}.thebe-particle:nth-of-type(4){left:94%;top:54%}.thebe-particle:nth-of-type(5){left:84%;top:77%}.thebe-particle:nth-of-type(6){left:62%;top:92%}.thebe-particle:nth-of-type(7){left:38%;top:92%}.thebe-particle:nth-of-type(8){left:16%;top:77%}.thebe-particle:nth-of-type(9){left:6%;top:54%}.thebe-particle:nth-of-type(10){left:10%;top:31%}.thebe-particle:nth-of-type(11){left:28%;top:13%}.thebe-particle:nth-of-type(12){left:50%;top:24%;width:4px;height:4px}
+
+@keyframes thebe-particle-listen{0%,100%{transform:translate(-50%,-50%) scale(.7);opacity:.35}45%{transform:translate(-50%,-50%) scale(1.65);opacity:1}}
+@keyframes thebe-particle-speak{0%{transform:translate(-50%,-50%) scale(.65);opacity:.25}50%{transform:translate(-50%,-50%) scale(1.9);opacity:1}100%{transform:translate(-50%,-50%) scale(.75);opacity:.32}}
+@keyframes thebe-ring-out{0%{transform:scale(.72);opacity:.48}100%{transform:scale(1.7);opacity:0}}
+@keyframes thebe-think-core{0%,100%{transform:translate(-50%,-50%) scale(.88);filter:saturate(.85)}50%{transform:translate(-50%,-50%) scale(1.08);filter:saturate(1.2)}}
+.thebe-particle-orb[data-phase="listening"] .thebe-particle{animation:thebe-particle-listen .72s ease-in-out infinite}
+.thebe-particle-orb[data-phase="listening"] .thebe-particle:nth-of-type(3n){animation-delay:.12s}.thebe-particle-orb[data-phase="listening"] .thebe-particle:nth-of-type(3n+1){animation-delay:.24s}
+.thebe-particle-orb[data-phase="speaking"] .thebe-particle{animation:thebe-particle-speak .54s ease-in-out infinite}
+.thebe-particle-orb[data-phase="speaking"]:before,.thebe-particle-orb[data-phase="speaking"]:after{animation:thebe-ring-out 1.15s ease-out infinite}
+.thebe-particle-orb[data-phase="speaking"]:after{animation-delay:.45s}
+.thebe-particle-orb[data-phase="thinking"] .thebe-particle-core,.thebe-particle-orb[data-phase="connecting"] .thebe-particle-core{animation:thebe-think-core 1.05s ease-in-out infinite}
+.thebe-particle-orb[data-phase="thinking"] .thebe-particle{opacity:.32}.thebe-particle-orb[data-phase="error"] .thebe-particle-core{background:#a5453b;box-shadow:0 0 0 8px rgba(165,69,59,.08),0 0 26px rgba(165,69,59,.22)}
+.thebe-ai-voice-label{text-align:center;font-weight:750;font-size:13px}.thebe-ai-voice-sub{text-align:center;color:var(--thebe-dock-muted);font-size:11px;min-height:17px;margin-top:2px}
+.thebe-ai-voice-mount{display:flex;flex-direction:column;align-items:center;gap:5px;margin-top:9px}.thebe-ai-voice-mount .btn{min-height:35px;padding:7px 12px;font-size:11px;border-radius:10px}.thebe-ai-voice-mount #thebeLiveVoiceStatus{font-size:10px;text-align:center;max-width:280px}
+.thebe-ai-live-transcript{margin-top:9px;padding-top:9px;border-top:1px solid var(--thebe-dock-line);font-size:11px;line-height:1.45;color:#45514b}.thebe-ai-live-transcript[hidden]{display:none}.thebe-ai-live-line+ .thebe-ai-live-line{margin-top:5px}.thebe-ai-live-line b{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:#7a8580;margin-right:5px}
+
+.thebe-ai-quick{display:grid;grid-template-columns:1fr 1fr;gap:7px}.thebe-ai-quick button{border:1px solid var(--thebe-dock-line);background:#fff;border-radius:10px;padding:8px 9px;text-align:left;font:inherit;font-size:11px;color:#34413b;cursor:pointer}.thebe-ai-quick button:hover,.thebe-ai-quick button:focus-visible{background:var(--thebe-dock-soft);border-color:#cfe2d9;outline:0}.thebe-ai-quick button small{display:block;color:#8a948f;margin-top:2px;font-size:9px}
+.thebe-ai-response{border:1px solid var(--thebe-dock-line);border-radius:13px;background:#fff;padding:11px;font-size:12px;line-height:1.55;color:#2e3934;min-height:72px}
+.thebe-ai-response[data-state="thinking"]{color:var(--thebe-dock-muted)}.thebe-ai-response-title{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:#839089;font-weight:800;margin-bottom:5px}.thebe-ai-response-answer{white-space:pre-wrap}.thebe-ai-action{margin-top:8px;padding:8px 9px;border-radius:9px;background:#f7f9f8;border-left:3px solid #809089}.thebe-ai-action b{display:block;font-size:11px}.thebe-ai-action span{display:block;color:#6d7772;margin-top:2px;font-size:10px}.thebe-ai-boundary{margin-top:8px;color:#7b8580;font-size:9px}
+.thebe-ai-open-full{margin-top:9px;border:0;background:transparent;color:var(--thebe-dock-accent);font:inherit;font-size:10px;font-weight:800;padding:0;cursor:pointer}
+.thebe-ai-compose{display:flex;gap:7px;align-items:flex-end;padding:11px 12px 12px;border-top:1px solid var(--thebe-dock-line);background:#fff}.thebe-ai-compose textarea{flex:1;min-width:0;min-height:38px;max-height:106px;resize:none;border:1px solid #dbe1de;border-radius:11px;padding:9px 10px;font:inherit;font-size:12px;line-height:1.35;background:#fbfcfb;color:#1e2823}.thebe-ai-compose textarea:focus{outline:2px solid rgba(23,107,79,.15);border-color:#a9c9ba}.thebe-ai-send{width:38px;height:38px;flex:0 0 38px;border:0;border-radius:11px;background:#173d30;color:#fff;cursor:pointer;font-size:16px}.thebe-ai-send:disabled{opacity:.45;cursor:default}
+.thebe-ai-foot{font-size:9px;color:#8a948f;padding:0 13px 10px;background:#fff}
+.thebe-ai-pill{position:fixed;z-index:72;right:8px;top:50%;bottom:auto;transform:translateY(-50%);border:1px solid #d7dfdb;background:#15211c;color:#fff;border-radius:999px;padding:9px 13px;box-shadow:0 12px 35px rgba(11,25,18,.2);font:inherit;font-size:11px;font-weight:800;cursor:pointer}.thebe-ai-pill .thebe-ai-pill-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#76d4ae;margin-right:6px;vertical-align:1px}
+.thebe-ai-pill[data-attention]:after{content:attr(data-attention);display:inline-grid;place-items:center;min-width:17px;height:17px;padding:0 4px;border-radius:999px;background:#fff3dc;color:#744b00;margin-left:7px;font-size:9px}
+
+@media(min-width:1180px){body.thebe-ai-dock-open #appShell main{padding-right:calc(30px + var(--thebe-dock-w) + 22px)!important}}
+@media(max-width:1179px){.thebe-ai-dock{top:70px;bottom:14px;right:14px}.thebe-ai-pill{right:8px;top:50%;bottom:auto;transform:translateY(-50%)}}
+@media(max-width:1023px){.thebe-ai-dock{left:8px;right:8px;top:auto;bottom:78px;width:auto;max-height:72vh;border-radius:17px}.thebe-ai-dock-scroll{padding:11px 12px}.thebe-ai-orb-button,.thebe-particle-orb{width:88px;height:88px}.thebe-ai-pill{top:auto;bottom:78px;right:10px;transform:none}.thebe-ai-quick{grid-template-columns:1fr 1fr}}
+@media(prefers-reduced-motion:reduce){.thebe-particle-orb{transform:none!important;transition:none!important}.thebe-particle-orb *,.thebe-particle-orb:before,.thebe-particle-orb:after{animation:none!important;transition:none!important}.thebe-particle-orb[data-phase="listening"] .thebe-particle,.thebe-particle-orb[data-phase="speaking"] .thebe-particle{opacity:.82!important;transform:translate(-50%,-50%) scale(1.15)!important}}
+
+.thebe-ai-dock[data-surface="public"]{box-shadow:0 18px 70px rgba(15,23,42,.18)}
+.thebe-ai-dock[data-surface="public"] .thebe-ai-foot{background:#f8fafc}
+.thebe-ai-public-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.thebe-ai-public-signin{border:0;border-radius:10px;padding:10px 12px;background:#0b66d6;color:#fff;font:inherit;font-weight:700;cursor:pointer}
+.thebe-ai-public-signin:hover{filter:brightness(.96)}
+
+/* Marketing dock refinement — monochrome floating assistant */
+@keyframes thebe-particle-idle{0%,100%{transform:translate(-50%,-50%) scale(.68);opacity:.28}50%{transform:translate(-50%,-50%) scale(1.25);opacity:.82}}
+@keyframes thebe-pill-pulse{0%,100%{transform:scale(.82);opacity:.45}50%{transform:scale(1.35);opacity:1}}
+.thebe-particle-orb:before,.thebe-particle-orb:after{border-color:rgba(0,0,0,.18)}
+.thebe-particle-core{background:#0b66d6;box-shadow:0 0 0 var(--thebe-audio-ring) rgba(0,0,0,.06),0 0 var(--thebe-audio-blur) rgba(0,0,0,.22)}
+.thebe-particle{background:#111}
+.thebe-particle-orb[data-phase="idle"] .thebe-particle{animation:thebe-particle-idle 2.15s ease-in-out infinite}
+.thebe-particle-orb[data-phase="idle"] .thebe-particle:nth-of-type(2n){animation-delay:.22s}
+.thebe-particle-orb[data-phase="idle"] .thebe-particle:nth-of-type(3n){animation-delay:.44s}
+.thebe-particle-orb[data-phase="listening"] .thebe-particle,.thebe-particle-orb[data-phase="speaking"] .thebe-particle{background:#000}
+.thebe-particle-orb[data-phase="error"] .thebe-particle-core{background:#111;box-shadow:0 0 0 8px rgba(0,0,0,.06),0 0 26px rgba(0,0,0,.18)}
+.thebe-ai-presence-dot{background:#111;box-shadow:0 0 0 3px rgba(0,0,0,.08)}
+.thebe-ai-dock[data-surface="public"]{
+  top:auto;bottom:24px;right:24px;height:min(620px,calc(100vh - 48px));width:min(366px,calc(100vw - 48px));
+  border-color:#dedede;border-radius:22px;box-shadow:0 26px 90px rgba(0,0,0,.18),0 3px 12px rgba(0,0,0,.07);backdrop-filter:blur(22px)
+}
+.thebe-ai-dock[data-surface="public"] .thebe-ai-mark{background:#000;color:#fff;border-radius:50%}
+.thebe-ai-dock[data-surface="public"] .thebe-ai-voice-card{background:#fff;border-color:#dedede}
+.thebe-ai-dock[data-surface="public"] .thebe-ai-orb-button{width:116px;height:116px}
+.thebe-ai-dock[data-surface="public"] .thebe-particle-orb{width:116px;height:116px}
+.thebe-ai-dock[data-surface="public"] .thebe-ai-quick button:hover,.thebe-ai-dock[data-surface="public"] .thebe-ai-quick button:focus-visible{background:#f4f4f4;border-color:#cfcfcf}
+.thebe-ai-dock[data-surface="public"] .thebe-ai-send{background:#000}
+.thebe-ai-dock[data-surface="public"] .thebe-ai-voice-mount{display:none}
+.thebe-ai-dock[data-surface="public"] .thebe-ai-foot{background:#fff;color:#777}
+.thebe-ai-public-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.thebe-ai-public-signin,.thebe-ai-public-start,.thebe-ai-public-voice{border:1px solid #111;border-radius:10px;padding:9px 11px;font:inherit;font-size:10px;font-weight:800;cursor:pointer}
+.thebe-ai-public-signin,.thebe-ai-public-voice{background:#fff;color:#111}.thebe-ai-public-start{background:#111;color:#fff}
+.thebe-ai-pill[data-surface="public"]{top:auto;bottom:24px;right:24px;transform:none;background:#050505;color:#fff;border-color:#050505;padding:11px 15px;border-radius:999px;box-shadow:0 18px 55px rgba(0,0,0,.24)}
+.thebe-ai-pill[data-surface="public"] .thebe-ai-pill-dot{background:#fff;animation:thebe-pill-pulse 1.8s ease-in-out infinite}
+.thebe-ai-pill-label{vertical-align:middle}
+@media(max-width:1023px){
+  .thebe-ai-dock[data-surface="public"]{left:10px;right:10px;bottom:76px;width:auto;height:auto;max-height:76vh}
+  .thebe-ai-pill[data-surface="public"]{right:12px;bottom:76px}
+}
+
+/* Desktop persistence contract: Thebe remains a full dock above the mobile breakpoint. */
+@media(min-width:1024px){
+  .thebe-ai-pill{display:none!important}
+  .thebe-ai-minimize{display:none!important}
+  .thebe-ai-dock[data-surface="public"],.thebe-ai-dock[data-surface="workspace"]{display:flex}
+}
+
+
+/* V104 — Webflow-inspired docked layout, expressed in Thebe Desk's own visual system.
+   Desktop: flush right-side panel aligned to navigation. Mobile: compact pill/bottom sheet.
+   No gradients. */
+:root{
+  --thebe-dock-w:380px;
+  --thebe-dock-bg:#fff;
+  --thebe-dock-ink:#17191c;
+  --thebe-dock-muted:#686d75;
+  --thebe-dock-line:#e5e5e1;
+  --thebe-dock-accent:#0b66d6;
+  --thebe-dock-soft:#edf5ff;
+  --thebe-dock-shadow:-14px 0 36px rgba(23,25,28,.10)
+}
+.thebe-ai-dock{
+  background:#fff;
+  color:#17191c;
+  border-color:#e5e5e1;
+  box-shadow:var(--thebe-dock-shadow);
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none
+}
+.thebe-ai-mark{background:#0b66d6;color:#fff}
+.thebe-ai-presence{color:#686d75}
+.thebe-ai-presence-dot{background:#0b66d6;box-shadow:0 0 0 3px rgba(11,102,214,.10)}
+.thebe-ai-icon-btn{border-color:#e5e5e1;color:#686d75}
+.thebe-ai-icon-btn:hover,.thebe-ai-icon-btn:focus-visible{background:#edf5ff;color:#17191c;outline-color:rgba(11,102,214,.16)}
+.thebe-ai-attention{background:#edf5ff;color:#0b66d6}
+.thebe-ai-voice-card{background:#fff;border-color:#e5e5e1}
+.thebe-ai-orb-button{width:78px;height:78px;margin-bottom:6px}
+.thebe-particle-orb{width:78px;height:78px}
+.thebe-particle-orb:before,.thebe-particle-orb:after{border-color:rgba(11,102,214,.20)}
+.thebe-particle-core{
+  width:10px;height:10px;
+  background:#0b66d6;
+  box-shadow:0 0 0 var(--thebe-audio-ring) rgba(11,102,214,.08),0 0 var(--thebe-audio-blur) rgba(11,102,214,.16)
+}
+.thebe-particle{width:3px;height:3px;background:#0b66d6;opacity:.62}
+.thebe-particle:nth-of-type(2n){background:#17191c}
+@keyframes thebe-particle-idle{0%,100%{transform:translate(-50%,-50%) scale(.72);opacity:.34}50%{transform:translate(-50%,-50%) scale(1.12);opacity:.78}}
+@keyframes thebe-particle-listen{0%,100%{transform:translate(-50%,-50%) scale(.72);opacity:.38}45%{transform:translate(-50%,-50%) scale(1.32);opacity:.92}}
+@keyframes thebe-particle-speak{0%{transform:translate(-50%,-50%) scale(.7);opacity:.32}50%{transform:translate(-50%,-50%) scale(1.38);opacity:.95}100%{transform:translate(-50%,-50%) scale(.76);opacity:.38}}
+.thebe-particle-orb[data-phase="listening"] .thebe-particle,.thebe-particle-orb[data-phase="speaking"] .thebe-particle{background:#0b66d6}
+.thebe-particle-orb[data-phase="listening"] .thebe-particle:nth-of-type(2n),.thebe-particle-orb[data-phase="speaking"] .thebe-particle:nth-of-type(2n){background:#17191c}
+.thebe-particle-orb[data-phase="error"] .thebe-particle-core{background:#a5453b}
+.thebe-ai-quick button{border-color:#e5e5e1;color:#34383e}
+.thebe-ai-quick button:hover,.thebe-ai-quick button:focus-visible{background:#edf5ff;border-color:#bfd7f5}
+.thebe-ai-compose textarea:focus{outline-color:rgba(11,102,214,.14);border-color:#9fc4ef}
+.thebe-ai-send{background:#0b66d6}
+.thebe-ai-open-full{color:#0b66d6}
+.thebe-ai-public-signin,.thebe-ai-public-voice{border-color:#17191c;background:#fff;color:#17191c}
+.thebe-ai-public-start{border-color:#0b66d6;background:#0b66d6;color:#fff}
+.thebe-ai-pill{background:#0b66d6;color:#fff;border-color:#0b66d6}
+.thebe-ai-pill .thebe-ai-pill-dot{background:#fff}
+
+@media(min-width:1024px){
+  .thebe-ai-dock[data-surface="public"]{
+    top:72px;right:0;bottom:0;left:auto;
+    width:min(var(--thebe-dock-w),calc(100vw - 24px));
+    height:auto;max-height:none;
+    border-radius:0;
+    border-top:1px solid #e5e5e1;
+    border-right:0;
+    border-bottom:0;
+    border-left:1px solid #e5e5e1;
+    box-shadow:-14px 0 36px rgba(23,25,28,.10)
+  }
+  .thebe-ai-dock[data-surface="workspace"]{
+    top:70px;right:0;bottom:0;left:auto;
+    width:min(var(--thebe-dock-w),calc(100vw - 24px));
+    height:auto;max-height:none;
+    border-radius:0;
+    border-right:0;
+    border-bottom:0
+  }
+  .thebe-ai-dock[data-surface="public"] .thebe-ai-orb-button,
+  .thebe-ai-dock[data-surface="public"] .thebe-particle-orb{width:78px;height:78px}
+  .thebe-ai-pill{display:none!important}
+  .thebe-ai-minimize{display:none!important}
+}
+
+@media(max-width:1023px){
+  .thebe-ai-dock[data-surface="public"]{
+    left:10px;right:10px;top:auto;bottom:76px;width:auto;height:auto;max-height:76vh;
+    border-radius:17px;border:1px solid #e5e5e1
+  }
+  .thebe-ai-orb-button,.thebe-particle-orb{width:72px;height:72px}
+  .thebe-ai-pill[data-surface="public"]{right:12px;bottom:76px;background:#0b66d6;border-color:#0b66d6}
+}
+
+
+/* Medium desktop/tablet refinement: keep the full dock, but give the marketing page enough reading width. */
+@media(min-width:1024px) and (max-width:1179px){
+  :root{--thebe-dock-w:320px}
+  .thebe-ai-dock[data-surface="public"] .thebe-ai-dock-scroll{padding:11px 12px 10px;gap:10px}
+}
+
+/* Public marketing identity: use the real Thebe Desk symbol instead of a temporary monogram. */
+.thebe-ai-dock[data-surface="public"] .thebe-ai-mark{
+  background:#fff url("/assets/thebe-desk-logo-symbol.png") center/22px 22px no-repeat;
+  border:1px solid #e5e5e1;color:transparent;font-size:0;border-radius:9px
+}
+
+
+===== ORIGINAL FILE: public/js/thebe-live-voice.js =====
+
+(function(global){
+  "use strict";
+
+  const RELEASE="20260921c";
+  const DELEGATION_TOOL="delegate_to_thebe_backend";
+  const MAX_TRANSCRIPT_CHARS=6000;
+  const CLOSE_TIMEOUT_MS=15000;
+  const DELEGATION_DRAIN_TIMEOUT_MS=12000;
+  let pc=null,dc=null,media=null,remoteAudio=null,sessionId=null,sessionTimer=null,closeTimer=null,delegationDrainTimer=null;
+  const audioMeters=[];
+  let inputTranscript="",outputTranscript="",state="idle",button=null,statusEl=null,transcriptRevision=0,maxSessionSeconds=600,lastError=null,closeRequested=false,sessionMode="workspace";
+  const activeDelegations=new Set();
+
+  let publicTransport=null;
+  const api=(url,options={})=>{
+    if(typeof global.apiJson==="function")return global.apiJson(url,options);
+    if(!publicTransport&&typeof global.BW?.api?.createClient==="function"){
+      publicTransport=global.BW.api.createClient({
+        getCsrfToken:()=>"",
+        onUnauthorized:()=>{},
+        onError:()=>{}
+      });
+    }
+    if(publicTransport?.request)return publicTransport.request(url,options);
+    throw new Error("The secure Thebe API transport is not available.");
+  };
+  const text=(value,max=500)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
+  const emit=(name,detail={})=>{
+    try{global.dispatchEvent(new CustomEvent(name,{detail}))}catch{}
+  };
+  function showStatus(message,kind="info"){
+    if(!statusEl)return;
+    statusEl.textContent=text(message,320);
+    statusEl.dataset.kind=kind;
+    statusEl.hidden=!statusEl.textContent;
+  }
+
+  const setState=(next,detail={})=>{
+    state=next;
+    if(button){
+      button.textContent=next==="connected"?"End Thebe voice":next==="connecting"?"Connecting…":next==="closing"?"Ending…":"Talk to Thebe";
+      button.disabled=next==="connecting"||next==="closing";
+      button.setAttribute("aria-pressed",next==="connected"?"true":"false");
+    }
+    if(!detail.preserveStatus){
+      if(next==="connecting")showStatus("Connecting securely to Thebe voice…");
+      else if(next==="connected")showStatus("Thebe voice is connected. You can speak now.","success");
+      else if(next==="closing")showStatus("Ending the voice session…");
+      else if(next==="idle")showStatus("");
+    }
+    emit("thebe-live-state",{state:next,sessionId,mode:sessionMode,...detail});
+  };
+
+  function rememberError(message,stage="runtime",detail={}){
+    lastError=Object.freeze({
+      at:new Date().toISOString(),
+      stage,
+      message:text(message||"Thebe live voice error",320),
+      ...detail
+    });
+    showStatus(lastError.message,"error");
+    emit("thebe-live-error",lastError);
+  }
+
+  function friendlyStartError(error){
+    const name=String(error?.name||"");
+    const raw=text(error?.message||error||"Thebe live voice could not start.",320);
+    if(name==="NotAllowedError"||name==="PermissionDeniedError")return "Microphone permission is blocked. Allow microphone access for thebedesk.com, then try again.";
+    if(name==="NotFoundError")return "No microphone was found on this device.";
+    if(name==="NotReadableError")return "The microphone is busy or unavailable. Close other apps using it and try again.";
+    const providerCode=String(error?.data?.providerCode||error?.body?.providerCode||"");
+    if(providerCode==="billing_not_active")return "The public voice sample is temporarily unavailable while API billing is being activated.";
+    if(/429|rate.?limit|marketing_session_rate_limited/i.test(raw))return sessionMode==="marketing"
+      ?"The public voice sample has reached its temporary limit. Please try again later or sign in to use your workspace."
+      :"Thebe voice has reached its temporary session limit. Try again later.";
+    if(/401|403|unauth|forbidden/i.test(raw))return "Your session is not authorized for Thebe voice. Sign in again and retry.";
+    if(/upstream|502|OpenAI|live_session_create_failed/i.test(raw))return "The voice provider rejected the session. Thebe recorded a safe diagnostic code for review.";
+    return raw||"Thebe live voice could not start.";
+  }
+
+  const cap=value=>String(value||"").slice(-MAX_TRANSCRIPT_CHARS);
+
+  function stopAudioMeters(){
+    while(audioMeters.length){
+      const meter=audioMeters.pop();
+      try{cancelAnimationFrame(meter.raf)}catch{}
+      try{meter.source?.disconnect()}catch{}
+      try{meter.analyser?.disconnect()}catch{}
+      try{meter.context?.close()}catch{}
+    }
+    emit("thebe-live-audio-level",{channel:"all",level:0});
+  }
+
+  function startAudioMeter(stream,channel){
+    if(!stream)return;
+    const AudioContextCtor=global.AudioContext||global.webkitAudioContext;
+    if(!AudioContextCtor)return;
+    try{
+      const context=new AudioContextCtor();
+      const analyser=context.createAnalyser();
+      analyser.fftSize=256;
+      analyser.smoothingTimeConstant=.78;
+      const source=context.createMediaStreamSource(stream);
+      source.connect(analyser);
+      const samples=new Uint8Array(analyser.fftSize);
+      const meter={context,analyser,source,raf:0,channel};
+      const frame=()=>{
+        analyser.getByteTimeDomainData(samples);
+        let sum=0;
+        for(let i=0;i<samples.length;i++){
+          const centered=(samples[i]-128)/128;
+          sum+=centered*centered;
+        }
+        const rms=Math.sqrt(sum/samples.length);
+        const level=Math.max(0,Math.min(1,rms*5.5));
+        emit("thebe-live-audio-level",{channel,level});
+        meter.raf=requestAnimationFrame(frame);
+      };
+      audioMeters.push(meter);
+      meter.raf=requestAnimationFrame(frame);
+    }catch{}
+  }
+
+  function sendEvent(event){
+    if(!dc||dc.readyState!=="open")throw new Error("Thebe live data channel is not open.");
+    dc.send(JSON.stringify(event));
+  }
+
+  function transcriptDelta(event){
+    const delta=String(event?.delta??event?.text??"");
+    if(!delta)return;
+    if(event.type==="conversation.item.input_audio_transcription.delta"){
+      inputTranscript=cap(inputTranscript+delta);
+    }
+    if(event.type==="response.output_audio_transcript.delta"){
+      outputTranscript=cap(outputTranscript+delta);
+    }
+  }
+
+  function sendFunctionOutput(callId,payload){
+    sendEvent({
+      type:"conversation.item.create",
+      item:{
+        type:"function_call_output",
+        call_id:callId,
+        output:JSON.stringify(payload)
+      }
+    });
+    sendEvent({type:"response.create"});
+  }
+
+  function sendSessionClose(){
+    if(state!=="closing"||closeTimer||!dc||dc.readyState!=="open")return;
+    closeRequested=false;
+    if(delegationDrainTimer){clearTimeout(delegationDrainTimer);delegationDrainTimer=null}
+    showStatus("Ending the voice session…");
+    try{
+      sendEvent({
+        type:"session.close",
+        event_id:global.crypto?.randomUUID?.()||String(Date.now())
+      });
+      closeTimer=setTimeout(()=>{
+        rememberError("The voice session did not confirm a graceful close; the local connection was ended.","close_timeout");
+        cleanup("idle",{preserveStatus:true});
+      },CLOSE_TIMEOUT_MS);
+    }catch(error){
+      rememberError(error?.message||"The voice session could not close cleanly.","close");
+      cleanup("idle",{preserveStatus:true});
+    }
+  }
+
+  function maybeSendSessionClose(){
+    if(state!=="closing"||!closeRequested||activeDelegations.size>0)return;
+    sendSessionClose();
+  }
+
+  async function handleFunctionCall(item){
+    if(item?.type!=="function_call"||item?.name!==DELEGATION_TOOL)return;
+    const callId=text(item?.call_id||item?.id,240);
+    if(!callId||activeDelegations.has(callId))return;
+    activeDelegations.add(callId);
+    const revision=transcriptRevision;
+    let taskText="",intent="analyze",task=null;
+    try{
+      const args=JSON.parse(String(item?.arguments||"{}"));
+      taskText=text(args?.request,2400);
+      intent=String(args?.intent||"analyze").trim().toLowerCase()==="prepare_internal_task"
+        ?"prepare_internal_task"
+        :"analyze";
+      if(intent==="prepare_internal_task"&&args?.task&&typeof args.task==="object"&&!Array.isArray(args.task)){
+        const priority=String(args.task.priority||"medium").trim().toLowerCase();
+        task={
+          title:text(args.task.title,160),
+          description:text(args.task.description,1200)||null,
+          priority:["high","medium","low"].includes(priority)?priority:"medium",
+          dueAt:text(args.task.dueAt,80)||null
+        };
+      }
+    }catch{}
+    try{
+      if(!taskText){
+        sendFunctionOutput(callId,{
+          ok:false,
+          error:"delegation_request_missing",
+          message:"I could not reliably capture the business request. Ask the user to repeat it.",
+          executionPerformed:false
+        });
+        return;
+      }
+      showStatus(intent==="prepare_internal_task"?"Thebe is preparing the governed task draft…":"Thebe is checking your business data…");
+      emit("thebe-live-delegation",{delegationId:callId,sessionId,taskText,intent});
+      const result=await api("/api/agentic/live/delegation",{
+        method:"POST",
+        body:JSON.stringify({delegationId:callId,sessionId,taskText,intent,task})
+      });
+      const taskPrepared=result?.authority?.taskPrepared===true;
+      emit("thebe-live-delegation-complete",{delegationId:callId,sessionId,intent,taskPrepared,requestId:result?.requestId||null});
+      if(state==="idle"||(state==="closing"&&closeTimer)){
+        emit("thebe-live-delegation-after-close",{delegationId:callId,sessionId,intent,taskPrepared,requestId:result?.requestId||null});
+        if(taskPrepared)showStatus("Voice ended while a task draft finished. It still requires owner approval.","info");
+        return;
+      }
+      if(revision!==transcriptRevision){
+        emit("thebe-live-delegation-stale",{delegationId:callId,sessionId,revision,currentRevision:transcriptRevision,taskPrepared,requestId:result?.requestId||null});
+        sendFunctionOutput(callId,{
+          ok:false,
+          stale:true,
+          taskPrepared,
+          requestId:result?.requestId||null,
+          message:taskPrepared
+            ?"The user spoke again after a governed internal task draft was prepared. Do not claim cancellation. Tell the user the draft still exists pending owner approval, then continue from the latest user input."
+            :"The user spoke again before the governed result was ready. Do not present the stale result; continue from the latest user input.",
+          executionPerformed:false
+        });
+        return;
+      }
+      sendFunctionOutput(callId,result?.toolOutput||{
+        ok:result?.ok===true,
+        content:text(result?.content||"The governed Thebe backend completed the request.",1800),
+        authority:result?.authority||{executionPerformed:false}
+      });
+      emit("thebe-live-delegation-result",{delegationId:callId,sessionId,intent,result});
+      if(state==="connected")showStatus("Thebe voice is connected. You can keep speaking.","success");
+      else if(state==="closing")showStatus("Governed work finished. Ending voice…");
+    }catch(error){
+      if(state==="idle"||(state==="closing"&&closeTimer)){
+        emit("thebe-live-delegation-after-close",{delegationId:callId,sessionId,intent,error:text(error?.message||"Delegation failed",240)});
+      }else{
+        try{
+          sendFunctionOutput(callId,{
+            ok:false,
+            error:"governed_backend_unavailable",
+            message:"The governed Thebe backend could not complete that request. No business action was executed.",
+            executionPerformed:false
+          });
+        }catch{}
+        rememberError(error?.message||"Delegation failed","delegation");
+      }
+    }finally{
+      activeDelegations.delete(callId);
+      maybeSendSessionClose();
+    }
+  }
+
+  function handleServerEvent(raw){
+    let event;
+    try{event=JSON.parse(String(raw||""))}catch{return}
+    transcriptDelta(event);
+    if(event.type==="input_audio_buffer.speech_started"){
+      transcriptRevision+=1;
+      if(state==="connected")showStatus("Listening…");
+    }
+    if(event.type==="input_audio_buffer.speech_stopped"&&state==="connected")showStatus("Thinking…");
+    if(event.type==="session.started"||event.type==="session.created"||event.type==="session.updated"){
+      sessionId=text(event?.session?.id||sessionId,240)||sessionId;
+    }
+    if(event.type==="response.done"){
+      const output=Array.isArray(event?.response?.output)?event.response.output:[];
+      let delegated=false;
+      for(const item of output){
+        if(item?.type==="function_call"&&item?.name===DELEGATION_TOOL){
+          delegated=true;
+          handleFunctionCall(item);
+        }
+      }
+      if(!delegated&&state==="connected")showStatus("Thebe voice is connected. You can keep speaking.","success");
+    }
+    if(event.type==="session.closed"){
+      if(closeTimer){clearTimeout(closeTimer);closeTimer=null}
+      cleanup("idle",{message:"Voice session ended.",success:true});
+      return;
+    }
+    if(event.type==="error"){
+      const code=text(event?.error?.code||event?.code,120)||null;
+      const message=text(event?.error?.message||event?.message||"The realtime voice service reported an error.",320);
+      rememberError(code?message+" ("+code+")":message,"realtime",{code,eventId:text(event?.event_id,160)||null});
+    }
+    emit("thebe-live-event",{event});
+  }
+
+  function waitForIce(peer,timeoutMs=5000){
+    if(peer.iceGatheringState==="complete")return Promise.resolve();
+    return new Promise(resolve=>{
+      let settled=false;
+      const done=()=>{
+        if(settled)return;
+        settled=true;
+        peer.removeEventListener("icegatheringstatechange",onChange);
+        clearTimeout(timer);
+        resolve();
+      };
+      const onChange=()=>{if(peer.iceGatheringState==="complete")done()};
+      const timer=setTimeout(done,timeoutMs);
+      peer.addEventListener("icegatheringstatechange",onChange);
+    });
+  }
+
+  async function start(options={}){
+    if(state==="connecting"||state==="connected")return {state,sessionId,mode:sessionMode};
+    if(!global.isSecureContext)throw new Error("Thebe live voice requires HTTPS.");
+    if(!global.RTCPeerConnection||!navigator.mediaDevices?.getUserMedia)throw new Error("This browser does not support Thebe live voice.");
+
+    sessionMode=String(options?.mode||"workspace")==="marketing"?"marketing":"workspace";
+    const requestApi=api;
+    const statusPath=sessionMode==="marketing"?"/api/agentic/live/marketing/status":"/api/agentic/live/status";
+    const status=await requestApi(statusPath);
+    if(status?.sessionCreationAllowed!==true){
+      const gate=text(status?.gateCode,120);
+      if(status?.runtimeKillSwitch)throw new Error("Thebe live voice is paused by the runtime safety switch.");
+      if(gate==="tenant_session_rate_limited"||gate==="user_session_rate_limited"||gate==="marketing_session_rate_limited")throw new Error("Thebe voice session limit has been reached temporarily.");
+      if(gate==="live_failure_circuit_open")throw new Error("Thebe voice is temporarily paused after repeated provider failures.");
+      throw new Error(sessionMode==="marketing"?"The public Thebe voice sample is not available right now.":"Thebe live voice is not enabled for this workspace.");
+    }
+
+    setState("connecting");
+    inputTranscript="";outputTranscript="";sessionId=null;transcriptRevision=0;lastError=null;
+    const minimum=sessionMode==="marketing"?30:60;
+    maxSessionSeconds=Math.max(minimum,Math.min(1800,Number(status?.maxSessionSeconds||(sessionMode==="marketing"?60:600))));
+    try{
+      media=await navigator.mediaDevices.getUserMedia({audio:true});
+      startAudioMeter(media,"input");
+      remoteAudio=document.createElement("audio");
+      remoteAudio.autoplay=true;
+      remoteAudio.setAttribute("aria-hidden","true");
+      remoteAudio.style.display="none";
+      document.body.append(remoteAudio);
+
+      pc=new RTCPeerConnection();
+      pc.addEventListener("connectionstatechange",()=>{
+        const next=pc?.connectionState||"unknown";
+        emit("thebe-live-peer-state",{connectionState:next,iceConnectionState:pc?.iceConnectionState||"unknown"});
+        if(next==="failed")rememberError("The WebRTC voice connection failed. Check your network and try again.","webrtc");
+      });
+      pc.addEventListener("track",event=>{
+        const stream=event.streams?.[0];
+        if(stream){remoteAudio.srcObject=stream;startAudioMeter(stream,"output")}
+      });
+      media.getTracks().forEach(track=>pc.addTrack(track,media));
+
+      dc=pc.createDataChannel("oai-events");
+      dc.addEventListener("open",()=>{
+        setState("connected");
+        if(sessionMode==="marketing"){
+          try{sendEvent({type:"response.create",response:{instructions:"Greet the visitor in one short sentence as Thebe, then invite them to ask what Thebe Desk does or to ask about a feature."}})}catch{}
+        }
+      });
+      dc.addEventListener("message",event=>handleServerEvent(event.data));
+      dc.addEventListener("close",()=>{
+        if(state!=="closing")cleanup("idle",{message:lastError?.message||"Voice connection closed."});
+      });
+      dc.addEventListener("error",()=>rememberError("Thebe live data channel failed.","data_channel"));
+
+      const offer=await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      await waitForIce(pc);
+      const sessionPath=sessionMode==="marketing"?"/api/agentic/live/marketing/session":"/api/agentic/live/session";
+      const session=await requestApi(sessionPath,{
+        method:"POST",
+        body:JSON.stringify({sdp:pc.localDescription?.sdp||offer.sdp})
+      });
+      sessionId=text(session?.session?.id,240)||null;
+      const answerSdp=String(session?.transport?.sdp||"");
+      if(!answerSdp)throw new Error("Thebe live session did not return a WebRTC answer.");
+      await pc.setRemoteDescription({type:"answer",sdp:answerSdp});
+      const serverLimit=Number(session?.limits?.maxSessionSeconds||maxSessionSeconds);
+      maxSessionSeconds=Math.max(sessionMode==="marketing"?30:60,Math.min(1800,Number.isFinite(serverLimit)?serverLimit:(sessionMode==="marketing"?60:600)));
+      sessionTimer=setTimeout(()=>{
+        emit("thebe-live-session-limit",{sessionId,maxSessionSeconds});
+        stop();
+      },maxSessionSeconds*1000);
+      return {state:"connecting",sessionId,maxSessionSeconds,mode:sessionMode};
+    }catch(error){
+      cleanup("idle",{preserveStatus:true});
+      throw error;
+    }
+  }
+
+  function cleanup(nextState="idle",options={}){
+    stopAudioMeters();
+    try{dc?.close()}catch{}
+    try{pc?.close()}catch{}
+    try{media?.getTracks?.().forEach(track=>track.stop())}catch{}
+    try{if(remoteAudio){remoteAudio.srcObject=null;remoteAudio.remove()}}catch{}
+    pc=null;dc=null;media=null;remoteAudio=null;sessionId=null;
+    if(sessionTimer){clearTimeout(sessionTimer);sessionTimer=null}
+    if(closeTimer){clearTimeout(closeTimer);closeTimer=null}
+    if(delegationDrainTimer){clearTimeout(delegationDrainTimer);delegationDrainTimer=null}
+    closeRequested=false;
+    activeDelegations.clear();
+    setState(nextState,{preserveStatus:options.preserveStatus||Boolean(options.message)});
+    if(options.message)showStatus(options.message,options.success?"success":"info");
+  }
+
+  function stop(){
+    if(state==="closing")return;
+    if(state==="connected"&&dc?.readyState==="open"){
+      setState("closing");
+      closeRequested=true;
+      try{media?.getAudioTracks?.().forEach(track=>{track.enabled=false})}catch{}
+      if(activeDelegations.size>0){
+        showStatus("Finishing governed work before ending voice…");
+        delegationDrainTimer=setTimeout(()=>{
+          delegationDrainTimer=null;
+          if(state!=="closing"||!closeRequested)return;
+          emit("thebe-live-delegation-drain-timeout",{sessionId,pendingDelegations:activeDelegations.size});
+          sendSessionClose();
+        },DELEGATION_DRAIN_TIMEOUT_MS);
+        return;
+      }
+      sendSessionClose();
+      return;
+    }
+    cleanup("idle");
+  }
+
+  async function maybeMount(){
+    let status;
+    try{status=await api("/api/agentic/live/status")}catch{return}
+    if(status?.sessionCreationAllowed!==true)return;
+    const host=document.querySelector("#thebeAiDockVoiceMount")||document.querySelector("#ownerAgenticPanel .owner-agentic-head")||document.querySelector("#ownerAgenticPanel");
+    if(!host||document.getElementById("thebeLiveVoiceButton"))return;
+    button=document.createElement("button");
+    button.type="button";
+    button.id="thebeLiveVoiceButton";
+    button.className="btn soft";
+    button.textContent="Talk to Thebe";
+    button.setAttribute("aria-pressed","false");
+
+    statusEl=document.createElement("span");
+    statusEl.id="thebeLiveVoiceStatus";
+    statusEl.className="muted";
+    statusEl.setAttribute("role","status");
+    statusEl.setAttribute("aria-live","polite");
+    statusEl.hidden=true;
+
+    button.addEventListener("click",async()=>{
+      if(state==="connected"||state==="connecting"||state==="closing"){stop();return}
+      try{await start()}catch(error){
+        const message=friendlyStartError(error);
+        cleanup("idle",{preserveStatus:true});
+        rememberError(message,"start",{name:text(error?.name,120)||null});
+      }
+    });
+    host.append(button,statusEl);
+  }
+
+  function boot(){
+    setTimeout(maybeMount,350);
+    const dashboard=document.querySelector("#dashboard");
+    if(dashboard){
+      new MutationObserver(()=>{
+        if(dashboard.classList.contains("active"))setTimeout(maybeMount,250);
+      }).observe(dashboard,{attributes:true,attributeFilter:["class"]});
+    }
+  }
+
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});
+  else boot();
+
+  global.ThebeLiveVoice=Object.freeze({
+    release:RELEASE,
+    start,
+    stop,
+    status:()=>({state,sessionId,mode:sessionMode,inputTranscript,outputTranscript,transcriptRevision,maxSessionSeconds,lastError,pendingDelegations:activeDelegations.size,closeRequested}),
+    diagnostics:()=>({
+      release:RELEASE,
+      state,
+      sessionId,
+      mode:sessionMode,
+      secureContext:global.isSecureContext,
+      peerConnectionState:pc?.connectionState||null,
+      iceConnectionState:pc?.iceConnectionState||null,
+      dataChannelState:dc?.readyState||null,
+      pendingDelegations:activeDelegations.size,
+      closeRequested,
+      microphoneTracks:media?.getAudioTracks?.().map(track=>({readyState:track.readyState,enabled:track.enabled,muted:track.muted}))||[],
+      lastError
+    })
+  });
+})(window);
+
+
+(function(global){
+  "use strict";
+
+  const DOCK_RELEASE="20260921c";
+  const STORE_KEY="thebe_ai_dock_collapsed_v4";
+  const MAX_QUESTION=1000;
+  const MOBILE_DOCK_MAX=1023;
+  let dock=null,pill=null,pillLabel=null,orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,input=null,sendButton=null,attentionButton=null,quick=null,foot=null;
+  let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",collapsed=false;
+
+  const api=(url,options={})=>{
+    if(typeof global.apiJson!=="function")throw new Error("The secure Thebe API transport is not available.");
+    return global.apiJson(url,options);
+  };
+  const clean=(value,max=600)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
+  const el=(tag,className,textValue)=>{
+    const item=document.createElement(tag);
+    if(className)item.className=className;
+    if(textValue!==undefined&&textValue!==null)item.textContent=String(textValue);
+    return item;
+  };
+  function safeSessionGet(key){try{return sessionStorage.getItem(key)}catch{return null}}
+  function safeSessionSet(key,value){try{sessionStorage.setItem(key,value)}catch{}}
+  function mobileDockMode(){
+    try{return global.matchMedia?.(`(max-width: ${MOBILE_DOCK_MAX}px)`)?.matches??global.innerWidth<=MOBILE_DOCK_MAX}
+    catch{return global.innerWidth<=MOBILE_DOCK_MAX}
+  }
+  function effectiveCollapsed(){return mobileDockMode()&&collapsed}
+  function shellVisible(){
+    const shell=document.getElementById("appShell");
+    if(!shell)return false;
+    const style=getComputedStyle(shell);
+    return style.display!=="none"&&style.visibility!=="hidden";
+  }
+  function publicSurfaceVisible(){
+    const gate=document.getElementById("marketingGate");
+    if(!gate)return false;
+    const style=getComputedStyle(gate);
+    return !gate.classList.contains("hidden")&&style.display!=="none"&&style.visibility!=="hidden";
+  }
+  function surfaceMode(){
+    if(shellVisible())return "workspace";
+    if(publicSurfaceVisible())return "public";
+    return "hidden";
+  }
+  function activeContext(){
+    const active=document.querySelector(".view.active");
+    const id=clean(active?.id||"workspace",80);
+    const title=clean(document.getElementById("pageTitle")?.textContent||id||"Workspace",100);
+    return {id,title};
+  }
+  function contextualQuestion(question){
+    const q=clean(question,MAX_QUESTION);
+    const context=activeContext();
+    const prefix=`Current Thebe Desk screen: ${context.title} (${context.id}). `;
+    return (prefix+q).slice(0,MAX_QUESTION);
+  }
+  function openView(id){
+    const button=[...document.querySelectorAll("[data-view]")].find(item=>item.dataset.view===id);
+    if(button){button.click();return true}
+    if(typeof global.showView==="function")return global.showView(id)!==false;
+    return false;
+  }
+  function setCollapsed(next){
+    if(!mobileDockMode()){
+      collapsed=false;
+      syncVisibility();
+      return;
+    }
+    collapsed=Boolean(next);
+    safeSessionSet(STORE_KEY,collapsed?"1":"0");
+    syncVisibility();
+  }
+  function syncVisibility(){
+    if(!dock||!pill)return;
+    const surface=surfaceMode(),visible=surface!=="hidden",workspace=surface==="workspace",mobile=mobileDockMode(),isCollapsed=effectiveCollapsed();
+    dock.hidden=!visible||isCollapsed;
+    pill.hidden=!visible||!isCollapsed;
+    dock.dataset.surface=surface;
+    pill.dataset.surface=surface;
+    dock.dataset.workspaceVisible=workspace?"1":"0";
+    pill.dataset.workspaceVisible=workspace?"1":"0";
+    if(attentionButton)attentionButton.hidden=!workspace;
+    const minimize=dock.querySelector(".thebe-ai-minimize");
+    if(minimize)minimize.hidden=!mobile;
+    const presence=dock.querySelector(".thebe-ai-presence");
+    if(presence){
+      presence.replaceChildren(el("span","thebe-ai-presence-dot"),document.createTextNode(workspace?"Available across this workspace":"Public assistant · sign in for your workspace"));
+    }
+    if(voicePhase==="idle"){
+      if(workspace)setPhase("idle","Voice ready","Tap the particles or Talk to Thebe");
+      else if(surface==="public")setPhase("idle","Try Thebe voice","Tap the particles and ask about Thebe Desk");
+    }
+    if(input)input.placeholder=workspace?"Ask Thebe anything…":"Ask about Thebe Desk…";
+    if(pillLabel)pillLabel.textContent=workspace?"Thebe":"Ask Thebe";
+    renderQuickActions(surface);
+    if(foot)foot.textContent=workspace
+      ?"Advisory by default · governed actions still require the existing approval controls."
+      :"Public sample · no workspace data · voice sample limited to 60 seconds.";
+    document.body.classList.toggle("thebe-ai-dock-open",workspace&&!isCollapsed);
+  }
+  function recoverVisibility(){
+    if(!dock||!pill)return;
+    syncVisibility();
+    const surface=surfaceMode(),isCollapsed=effectiveCollapsed();
+    if(surface!=="hidden"&&!isCollapsed){
+      dock.hidden=false;
+      pill.hidden=true;
+      document.body.classList.toggle("thebe-ai-dock-open",surface==="workspace");
+    }
+  }
+  function setPhase(phase,label,sub){
+    voicePhase=phase||"idle";
+    if(orb)orb.dataset.phase=voicePhase;
+    if(voiceLabel&&label)voiceLabel.textContent=label;
+    if(voiceSub)voiceSub.textContent=sub||"";
+  }
+  function syncAttention(){
+    if(!attentionButton||!pill)return;
+    const raw=clean(document.getElementById("navAlerts")?.textContent,20);
+    const count=Math.max(0,Number.parseInt(raw||"0",10)||0);
+    attentionButton.textContent=count?String(count):"";
+    attentionButton.setAttribute("aria-label",count?`${count} work item${count===1?"":"s"} need attention`:"No urgent work items");
+    if(count)pill.dataset.attention=String(count);else delete pill.dataset.attention;
+  }
+  function renderVoiceTranscript(){
+    if(!transcriptBox)return;
+    transcriptBox.replaceChildren();
+    const user=clean(voiceInput,360),assistant=clean(voiceOutput,360);
+    if(!user&&!assistant){transcriptBox.hidden=true;return}
+    transcriptBox.hidden=false;
+    if(user){
+      const line=el("div","thebe-ai-live-line"),label=el("b","", "You");
+      line.append(label,document.createTextNode(user));
+      transcriptBox.append(line);
+    }
+    if(assistant){
+      const line=el("div","thebe-ai-live-line"),label=el("b","", "Thebe");
+      line.append(label,document.createTextNode(assistant));
+      transcriptBox.append(line);
+    }
+  }
+  function responseMessage(message,state="ready"){
+    if(!responseBox)return;
+    responseBox.dataset.state=state;
+    responseBox.replaceChildren(el("div","thebe-ai-response-title",state==="thinking"?"Thebe is working":"Thebe"),el("div","thebe-ai-response-answer",message));
+  }
+  function renderResult(result){
+    if(!responseBox)return;
+    responseBox.dataset.state="ready";
+    responseBox.replaceChildren();
+    responseBox.append(el("div","thebe-ai-response-title",result?.generationMode==="workers_ai"?"Grounded workspace response":"Thebe workspace response"));
+    responseBox.append(el("div","thebe-ai-response-answer",clean(result?.answer||"No grounded answer was returned.",1800)));
+    const actions=Array.isArray(result?.actions)?result.actions.slice(0,3):[];
+    for(const action of actions){
+      const card=el("div","thebe-ai-action");
+      card.append(el("b","",clean(action?.title||"Suggested follow-up",180)));
+      if(action?.reason)card.append(el("span","",clean(action.reason,320)));
+      responseBox.append(card);
+    }
+    const caveats=Array.isArray(result?.caveats)?result.caveats.slice(0,2):[];
+    if(caveats.length)responseBox.append(el("div","thebe-ai-boundary",caveats.map(item=>clean(item,220)).filter(Boolean).join(" · ")));
+    const open=el("button","thebe-ai-open-full","Open full Thebe AI →");
+    open.type="button";
+    open.addEventListener("click",()=>{openView("automationhub");if(innerWidth<900)setCollapsed(true)});
+    responseBox.append(open);
+  }
+  function showPublicSignIn(message){
+    responseMessage(message||"Sign in to use Thebe with your business workspace.");
+    if(!responseBox)return;
+    const actions=el("div","thebe-ai-public-actions");
+    const signIn=el("button","thebe-ai-public-signin","Sign in");
+    signIn.type="button";
+    signIn.addEventListener("click",()=>global.location.assign("/auth/?mode=login&next=%2Fapp%2F"));
+    const start=el("button","thebe-ai-public-start","Start 14-day trial");
+    start.type="button";
+    start.addEventListener("click",()=>global.location.assign("/auth/?mode=register"));
+    actions.append(signIn,start);
+    responseBox.append(actions);
+  }
+  function publishedPricing(){
+    const cards=[...document.querySelectorAll("#pricing .pricecard")].slice(0,4);
+    const values=cards.map(card=>{
+      const name=clean(card.querySelector("h3")?.textContent,40);
+      const price=clean(card.querySelector(".price")?.textContent,60);
+      return name&&price?`${name} ${price}`:"";
+    }).filter(Boolean);
+    return values.length?values.join(" · "):"Monitor P149/month · Protect P349/month · Control P699/month · Network P1,299/month";
+  }
+  function marketingAnswer(question){
+    const q=clean(question,MAX_QUESTION).toLowerCase();
+    if(/price|pricing|cost|plan|subscription|trial/.test(q)){
+      return `Thebe Desk has four published plans: ${publishedPricing()}. Every new workspace starts with a 14-day trial, so an SME can start lean and upgrade as it needs more locations, controls and AI capacity.`;
+    }
+    if(/cipa|burs|tax|vat|paye|licen[cs]e|compliance|regulat/.test(q)){
+      return "Thebe Desk keeps recurring Botswana compliance work visible in one place: CIPA company records and annual-return work, BURS tax obligations, employment compliance, business and industrial licences, tender deadlines, controls and inspection-ready evidence. It turns confirmed obligations into practical actions and keeps the supporting proof attached.";
+    }
+    if(/employee|employment|hr|disciplin|leave|employer/.test(q)){
+      return "Employer Shield organises employment contracts, fixed-term risk, warnings, disciplinary evidence, leave, grievances and high-risk decision gates around a defensible process. It is designed for employment-risk control and evidence rather than payroll processing.";
+    }
+    if(/tender|bid|passport|evidence|inspection|remediation/.test(q)){
+      return "Tender Control tracks bid-specific requirements, mandatory evidence and closing dates. Compliance Passport can share scoped, revocable proof, while remediation and inspection-readiness workflows turn control failures into owned cases and evidence packs.";
+    }
+    if(/ai|thebe ai|agent|voice|assistant/.test(q)){
+      return "Thebe AI is the decision-support layer inside Thebe Desk. In a signed-in workspace it can turn permitted business data into management briefs, explain risks and suggest next actions, while approvals, evidence and human judgement stay in control. This public dock is a safe sample and cannot access private workspace data.";
+    }
+    if(/account|finance|cash|reconcil|revenue|expense|bookkeep/.test(q)){
+      return "Accounting and financial intelligence brings bookkeeping outputs into the management picture so owners can understand revenue, expenses, cash position, payroll and tax readiness. Thebe Desk analyses the business picture without pretending to replace the accounting ledger.";
+    }
+    if(/what is|what does|feature|how does|tell me|explain|thebe desk/.test(q)){
+      return "Thebe Desk is Botswana SME compliance and business-risk software. It continuously helps owners and managers see what needs attention across compliance, employees, licences, tenders, evidence, operations and financial intelligence, then turns gaps into controlled next actions instead of scattered reminders and files.";
+    }
+    return "Ask me about Thebe Desk features, Botswana compliance workflows, Thebe AI, Employer Shield, tenders, evidence, financial intelligence or pricing. You can also tap the black-and-white particles to sample Thebe voice for up to one minute.";
+  }
+  function renderMarketingAnswer(question){
+    responseMessage(marketingAnswer(question));
+    if(!responseBox)return;
+    const actions=el("div","thebe-ai-public-actions");
+    const voice=el("button","thebe-ai-public-voice","Try voice");
+    voice.type="button";
+    voice.addEventListener("click",()=>orb?.parentElement?.click());
+    const start=el("button","thebe-ai-public-start","Start 14-day trial");
+    start.type="button";start.addEventListener("click",()=>global.location.assign("/auth/?mode=register"));
+    actions.append(voice,start);
+    responseBox.append(actions);
+  }
+  function renderQuickActions(surface){
+    if(!quick)return;
+    const mode=surface==="public"?"public":"workspace";
+    if(quick.dataset.mode===mode)return;
+    quick.dataset.mode=mode;
+    quick.replaceChildren();
+    if(mode==="public"){
+      quick.append(
+        quickButton("What is Thebe Desk?","30-second overview","ask","What is Thebe Desk and who is it for?"),
+        quickButton("Compliance","CIPA, BURS, licences","ask","How does Thebe Desk help with Botswana SME compliance?"),
+        quickButton("Thebe AI","Decision support","ask","What can Thebe AI do?"),
+        quickButton("Pricing","Plans & trial","ask","What does Thebe Desk cost?")
+      );
+      return;
+    }
+    quick.append(
+      quickButton("What changed?","Management brief","management_brief","Summarise what has changed or needs attention from the current workspace records. Be concise and distinguish confirmed facts from missing data."),
+      quickButton("Today’s priorities","Next actions","next_actions","What needs management attention today? Prioritise the most important current workspace items."),
+      quickButton("Cash position","Finance check","ask","Summarise the current cash position, collection risk and finance items needing attention. If finance data is incomplete, say exactly what is missing."),
+      quickButton("Explain risk","Grounded evidence","explain_risk","Explain the highest current business-protection risk and the evidence behind it.")
+    );
+  }
+  async function ask(mode,question){
+    const q=clean(question,MAX_QUESTION);
+    if(textBusy||q.length<3)return;
+    if(!shellVisible()){
+      renderMarketingAnswer(q);
+      return;
+    }
+    textBusy=true;
+    if(sendButton)sendButton.disabled=true;
+    responseMessage("Reviewing the current workspace and this screen…","thinking");
+    try{
+      const result=await api("/api/ai/advisor",{
+        method:"POST",
+        headers:{"content-type":"application/json"},
+        body:JSON.stringify({mode:mode||"ask",question:contextualQuestion(q)})
+      });
+      renderResult(result||{});
+    }catch(error){
+      const message=error?.status===402
+        ?"AI credits or the configured cost cap do not allow this run."
+        :clean(error?.message||"Thebe could not complete that workspace review.",320);
+      responseMessage(message||"Thebe could not complete that workspace review.","error");
+    }finally{
+      textBusy=false;
+      if(sendButton)sendButton.disabled=false;
+    }
+  }
+  function quickButton(label,detail,mode,question){
+    const button=el("button","",label);
+    button.type="button";
+    if(detail)button.append(el("small","",detail));
+    button.addEventListener("click",()=>ask(mode,question));
+    return button;
+  }
+  function bindMarketingPrompts(){
+    document.querySelectorAll("[data-thebe-prompt]").forEach(button=>{
+      if(button.dataset.thebePromptBound==="1")return;
+      button.dataset.thebePromptBound="1";
+      button.addEventListener("click",()=>{
+        const question=clean(button.getAttribute("data-thebe-prompt"),MAX_QUESTION);
+        if(question.length<3||surfaceMode()!=="public")return;
+        if(mobileDockMode())setCollapsed(false);
+        recoverVisibility();
+        if(input)input.value=question;
+        void ask("ask",question);
+      });
+    });
+  }
+  function mount(){
+    if(document.getElementById("thebeAiDock"))return;
+    const storedCollapse=safeSessionGet(STORE_KEY);
+    collapsed=mobileDockMode()&&(storedCollapse==="1"||storedCollapse===null);
+
+    dock=el("section","thebe-ai-dock");
+    dock.id="thebeAiDock";
+    dock.setAttribute("aria-label","Thebe AI assistant");
+    dock.hidden=true;
+
+    const head=el("div","thebe-ai-dock-head");
+    const title=el("div","thebe-ai-dock-title");
+    title.append(el("span","thebe-ai-mark","TD"));
+    const titleCopy=el("div","thebe-ai-title-copy");
+    titleCopy.append(el("b","","Thebe"));
+    const presence=el("div","thebe-ai-presence");
+    presence.append(el("span","thebe-ai-presence-dot"),document.createTextNode("Available across this workspace"));
+    titleCopy.append(presence);title.append(titleCopy);
+
+    const headActions=el("div","thebe-ai-head-actions");
+    attentionButton=el("button","thebe-ai-attention","");
+    attentionButton.type="button";
+    attentionButton.addEventListener("click",()=>{openView("workhub");if(mobileDockMode())setCollapsed(true)});
+    const minimize=el("button","thebe-ai-icon-btn thebe-ai-minimize","—");
+    minimize.type="button";minimize.setAttribute("aria-label","Minimise Thebe on mobile");
+    minimize.addEventListener("click",()=>setCollapsed(true));
+    headActions.append(attentionButton,minimize);head.append(title,headActions);
+
+    const scroll=el("div","thebe-ai-dock-scroll");
+    const voiceCard=el("div","thebe-ai-voice-card");
+    const orbButton=el("button","thebe-ai-orb-button");
+    orbButton.type="button";orbButton.setAttribute("aria-label","Start or stop Thebe voice");
+    orb=el("div","thebe-particle-orb");orb.dataset.phase="idle";
+    orb.append(el("span","thebe-particle-core"));
+    for(let i=0;i<12;i++)orb.append(el("i","thebe-particle"));
+    orbButton.append(orb);
+    orbButton.addEventListener("click",()=>{
+      const liveApi=global.ThebeLiveVoice;
+      if(!shellVisible()){
+        if(!liveApi){responseMessage("The public voice sample is not available in this browser right now.","error");return}
+        const liveState=liveApi.status?.().state||"idle";
+        if(liveState==="connected"||liveState==="connecting"||liveState==="closing"){liveApi.stop();return}
+        responseMessage("Opening a short Thebe voice sample…","thinking");
+        liveApi.start({mode:"marketing"}).catch(error=>{
+          responseMessage(clean(error?.message||"The public voice sample could not start.",320),"error");
+        });
+        return;
+      }
+      const live=document.getElementById("thebeLiveVoiceButton");
+      if(live&&!live.disabled){live.click();return}
+      responseMessage("Thebe Live Voice is not available for this workspace right now.","error");
+    });
+    voiceLabel=el("div","thebe-ai-voice-label","Voice ready");
+    voiceSub=el("div","thebe-ai-voice-sub","Tap the particles or Talk to Thebe");
+    const voiceMount=el("div","thebe-ai-voice-mount");voiceMount.id="thebeAiDockVoiceMount";
+    transcriptBox=el("div","thebe-ai-live-transcript");transcriptBox.id="thebeAiDockTranscript";transcriptBox.hidden=true;
+    voiceCard.append(orbButton,voiceLabel,voiceSub,voiceMount,transcriptBox);
+
+    quick=el("div","thebe-ai-quick");
+    renderQuickActions(surfaceMode());
+
+    responseBox=el("div","thebe-ai-response");responseBox.id="thebeAiDockResponse";responseMessage("Ask a question, use a quick action, or speak to Thebe.");
+
+    scroll.append(voiceCard,quick,responseBox);
+
+    const compose=el("form","thebe-ai-compose");
+    input=document.createElement("textarea");input.id="thebeAiDockInput";input.maxLength=MAX_QUESTION;input.rows=1;input.placeholder="Ask Thebe anything…";input.setAttribute("aria-label","Ask Thebe anything");
+    sendButton=el("button","thebe-ai-send","↑");sendButton.type="submit";sendButton.setAttribute("aria-label","Send to Thebe");
+    compose.append(input,sendButton);
+    compose.addEventListener("submit",event=>{event.preventDefault();const value=input.value;input.value="";void ask("ask",value)});
+    input.addEventListener("keydown",event=>{if(event.key==="Enter"&&!event.shiftKey){event.preventDefault();compose.requestSubmit()}});
+
+    foot=el("div","thebe-ai-foot","Advisory by default · governed actions still require the existing approval controls.");
+    dock.append(head,scroll,compose,foot);
+
+    pill=el("button","thebe-ai-pill");
+    pill.id="thebeAiDockPill";pill.type="button";pill.hidden=true;
+    pillLabel=el("span","thebe-ai-pill-label","Thebe");
+    pill.append(el("span","thebe-ai-pill-dot"),pillLabel);
+    pill.addEventListener("click",()=>setCollapsed(false));
+
+    document.body.append(dock,pill);
+    syncVisibility();syncAttention();bindMarketingPrompts();
+
+    const shell=document.getElementById("appShell");
+    if(shell)new MutationObserver(syncVisibility).observe(shell,{attributes:true,attributeFilter:["style","class"]});
+    const marketing=document.getElementById("marketingGate");
+    if(marketing)new MutationObserver(syncVisibility).observe(marketing,{attributes:true,attributeFilter:["style","class"]});
+    const alerts=document.getElementById("navAlerts");
+    if(alerts)new MutationObserver(syncAttention).observe(alerts,{childList:true,characterData:true,subtree:true});
+    global.addEventListener("resize",syncVisibility,{passive:true});
+    global.addEventListener("pageshow",recoverVisibility,{passive:true});
+    global.addEventListener("focus",recoverVisibility,{passive:true});
+    global.addEventListener("thebe:workspace-ready",recoverVisibility);
+    if(typeof global.whenThebeWorkspaceReady==="function")global.whenThebeWorkspaceReady(recoverVisibility);
+  }
+
+  global.addEventListener("thebe-live-state",event=>{
+    const next=event?.detail?.state||"idle";
+    const marketing=event?.detail?.mode==="marketing"||surfaceMode()==="public";
+    if(next==="connecting")setPhase("connecting","Connecting…",marketing?"Opening the 60-second sample":"Opening the secure voice session");
+    else if(next==="connected")setPhase("ready","Voice connected",marketing?"Ask me about Thebe Desk":"Speak naturally — you can interrupt Thebe");
+    else if(next==="closing")setPhase("thinking","Ending voice…","Closing the voice session");
+    else {
+      setPhase("idle",marketing?"Try Thebe voice":"Voice ready",marketing?"Tap the particles and ask about Thebe Desk":"Tap the particles or Talk to Thebe");
+      voiceInput="";voiceOutput="";renderVoiceTranscript()
+    }
+  });
+  global.addEventListener("thebe-live-event",event=>{
+    const message=event?.detail?.event||{};
+    if(message.type==="input_audio_buffer.speech_started"){
+      voiceInput="";setPhase("listening","Listening…","Thebe is hearing you");
+    }else if(message.type==="conversation.item.input_audio_transcription.delta"){
+      voiceInput=(voiceInput+String(message?.delta??message?.text??"")).slice(-600);renderVoiceTranscript();
+    }else if(message.type==="input_audio_buffer.speech_stopped"){
+      setPhase("thinking","Thinking…","Checking the request and workspace context");
+    }else if(message.type==="response.output_audio_transcript.delta"){
+      if(voicePhase!=="speaking")voiceOutput="";
+      voiceOutput=(voiceOutput+String(message?.delta??message?.text??"")).slice(-600);
+      setPhase("speaking","Thebe is speaking","You can interrupt at any time");renderVoiceTranscript();
+    }else if(message.type==="response.done"){
+      setPhase("ready","Voice connected","Ready for your next request");
+    }
+  });
+  global.addEventListener("thebe-live-audio-level",event=>{
+    if(!orb)return;
+    const channel=event?.detail?.channel||"all";
+    const level=Math.max(0,Math.min(1,Number(event?.detail?.level)||0));
+    const relevant=(voicePhase==="listening"&&channel==="input")||(voicePhase==="speaking"&&channel==="output");
+    const scale=relevant?(1+level*.13):1;
+    const ring=relevant?(8+level*5):8;
+    const blur=relevant?(28+level*20):28;
+    orb.style.setProperty("--thebe-audio-scale",scale.toFixed(3));
+    orb.style.setProperty("--thebe-audio-ring",ring.toFixed(1)+"px");
+    orb.style.setProperty("--thebe-audio-blur",blur.toFixed(1)+"px");
+  });
+  global.addEventListener("thebe-live-delegation",()=>setPhase("thinking","Checking your business…","Using the governed Thebe backend"));
+  global.addEventListener("thebe-live-delegation-result",event=>{
+    const result=event?.detail?.result||{};
+    const prepared=result?.authority?.taskPrepared===true;
+    if(prepared){
+      responseBox?.replaceChildren();
+      if(responseBox){
+        responseBox.dataset.state="ready";
+        responseBox.append(el("div","thebe-ai-response-title","Approval required"),el("div","thebe-ai-response-answer",clean(result?.content||"The internal task draft was prepared for owner review.",800)));
+        const review=el("button","thebe-ai-open-full","Review approval controls →");review.type="button";
+        review.addEventListener("click",()=>{openView("dashboard");setTimeout(()=>document.getElementById("ownerAgenticPanel")?.scrollIntoView({behavior:"smooth",block:"center"}),250);if(innerWidth<900)setCollapsed(true)});
+        responseBox.append(review);
+      }
+    }else if(result?.content){
+      responseMessage(clean(result.content,1200));
+    }
+  });
+  global.addEventListener("thebe-live-delegation-stale",event=>{
+    if(event?.detail?.taskPrepared)responseMessage("A governed task draft was prepared before you spoke again. It still exists and requires owner approval before any guarded execution.","ready");
+  });
+  global.addEventListener("thebe-live-error",event=>setPhase("error","Voice needs attention",clean(event?.detail?.message||"Check the voice connection and try again.",180)));
+  global.addEventListener("thebe-live-session-limit",()=>responseMessage("This voice session reached its configured safety limit and was ended. Start a new session to continue.","ready"));
+
+  function boot(){
+    mount();
+    setTimeout(recoverVisibility,0);
+    setTimeout(recoverVisibility,350);
+    setTimeout(recoverVisibility,1200);
+    setTimeout(recoverVisibility,3000);
+  }
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});else boot();
+
+  global.ThebeAiDock=Object.freeze({
+    release:DOCK_RELEASE,
+    open:()=>setCollapsed(false),
+    close:()=>setCollapsed(true),
+    ask:(question,mode="ask")=>ask(mode,question),
+    state:()=>({collapsed:effectiveCollapsed(),mobileCollapsedPreference:collapsed,mobile:mobileDockMode(),voicePhase,textBusy,workspaceVisible:shellVisible(),dockHidden:dock?.hidden??true,pillHidden:pill?.hidden??true,context:activeContext()})
+  });
+})(window);
+
+
+===== ORIGINAL FILE: public/sw.js =====
+
+const LEGACY_CACHE_PREFIX="thebe-desk-";
+const RETIREMENT_RELEASE="1.21.101";
+const HISTORICAL_RELEASE_LINEAGE="bw-business-protection-v78-1.21.101-retired";
+const HISTORICAL_REGISTRATION_LINEAGE="1.21.101-registration-owner-ui-hotfix-20260914";
+
+// Decommission the historical Thebe Desk service-worker shell. Production now
+// prefers the live network document and a normal browser lifecycle. This worker
+// exists only so browsers that still have an older registration can update to a
+// safe revision, clear Thebe Desk caches, and unregister themselves. The
+// retirement release identity and historical lineage markers keep old release
+// audits truthful without reintroducing a versioned application cache. It never
+// opens a window, reloads a client, or intercepts fetches.
+self.addEventListener("install",event=>{
+  event.waitUntil(self.skipWaiting());
+});
+
+self.addEventListener("activate",event=>{
+  event.waitUntil((async()=>{
+    try{
+      const keys=await caches.keys();
+      await Promise.all(keys.filter(key=>String(key).startsWith(LEGACY_CACHE_PREFIX)).map(key=>caches.delete(key)));
+    }catch{}
+    try{await self.registration.unregister()}catch{}
+  })());
+});
+
+
+===== ORIGINAL FILE: public/_headers =====
+
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin
+  X-Permitted-Cross-Domain-Policies: none
+  X-DNS-Prefetch-Control: off
+
+/
+  Cache-Control: no-store, max-age=0, must-revalidate
+
+/auth/*
+  Cache-Control: no-store, max-age=0, must-revalidate
+  X-Robots-Tag: noindex, nofollow
+
+/app/*
+  Cache-Control: no-store, max-age=0, must-revalidate
+  X-Robots-Tag: noindex, nofollow
+
+/*.html
+  Cache-Control: no-store, max-age=0, must-revalidate
+
+/sw.js
+  Cache-Control: no-store, max-age=0, must-revalidate
+  Service-Worker-Allowed: /
+
+/recover.html
+  Cache-Control: no-store, max-age=0, must-revalidate
+
+/register-direct.html
+  Cache-Control: no-store, max-age=0, must-revalidate
+
+/js/recover-runtime.js
+  Cache-Control: no-store, max-age=0, must-revalidate
+
+/js/*
+  Cache-Control: public, max-age=300, must-revalidate
+
+/assets/*
+  Cache-Control: public, max-age=300, must-revalidate
+
+/manifest.webmanifest
+  Cache-Control: public, max-age=300, must-revalidate
