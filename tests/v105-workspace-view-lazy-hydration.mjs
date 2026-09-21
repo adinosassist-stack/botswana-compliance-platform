@@ -41,7 +41,7 @@ for(const view of lazyViews){
 }
 
 assert.match(production,/WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT=12/);
-assert.match(production,/WORKSPACE_VIEW_FRAGMENT_PREFIX="\\/assets\\/workspace-view-fragments-20260921b-"/);
+assert.ok(production.includes('const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20260921b-";'));
 assert.match(production,/function workspaceViewShard\\(id\\)/);
 assert.match(production,/workspaceViewShardPromises=new Map\\(\\)/);
 assert.match(production,/workspaceViewFragments\\(id\\)/);
