@@ -209,6 +209,25 @@ async function runFullUserJourney(credentials){
     await delegatedWorkButton.click();
     await page.waitForFunction(()=>document.getElementById('workhub')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
     mark('workspace delegated button actions','visible data-bw-onclick navigation executed through event-delegation.js on /app/');
+
+    const delegatedPeopleButton=page.locator('#nav button[data-view="peopleops"]:visible').first();
+    assert(await delegatedPeopleButton.count(),'visible delegated People button missing');
+    await delegatedPeopleButton.click();
+    await page.waitForFunction(()=>{
+      const view=document.getElementById('peopleops');
+      return view?.classList.contains('active')&&view?.dataset?.lazyHydrated==='1';
+    },null,{timeout:VIEW_TIMEOUT_MS});
+    const peopleContent=await page.locator('#peopleops').innerText();
+    assert(/People & operations/i.test(peopleContent),`People view hydrated unexpected content: ${safe(peopleContent.slice(0,240))}`);
+    assert(!/Ruleset integrity|Sources in this prototype/i.test(peopleContent),`People view leaked regulatory-source prototype copy: ${safe(peopleContent.slice(0,240))}`);
+    const workspaceAssetIdentity=await page.evaluate(()=>({
+      runtime:[...document.querySelectorAll('script[src]')].map(node=>new URL(node.src,location.href).pathname).find(path=>path.startsWith('/js/workspace-runtime-'))||'',
+      fragments:performance.getEntriesByType('resource').map(entry=>{try{return new URL(entry.name).pathname}catch{return ''}}).filter(path=>path.startsWith('/assets/workspace-view-fragments-'))
+    }));
+    assert(workspaceAssetIdentity.runtime==='/js/workspace-runtime-20260921d.js',`stale workspace runtime identity: ${safe(workspaceAssetIdentity.runtime||'missing')}`);
+    assert(workspaceAssetIdentity.fragments.some(path=>path.startsWith('/assets/workspace-view-fragments-20260921c-')),`rotated People fragment was not fetched: ${safe(workspaceAssetIdentity.fragments.join(', '))}`);
+    mark('workspace People semantic content','real People click hydrated People & operations from the rotated fragment release with no ruleset-integrity copy leakage');
+
     await page.evaluate(()=>globalThis.showView?.('dashboard',{skipDataRefresh:true}));
 
     await page.waitForFunction(()=>{
