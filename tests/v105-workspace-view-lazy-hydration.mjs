@@ -7,7 +7,7 @@ const fragmentShards=Array.from({length:12},(_,i)=>JSON.parse(fs.readFileSync(`p
 const viewShard=id=>{let hash=0;for(const ch of String(id||""))hash=(Math.imul(hash,31)+ch.charCodeAt(0))>>>0;return hash%12};
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
-const runtime=fs.readFileSync("public/js/workspace-runtime-20260921a.js","utf8");
+const runtime=fs.readFileSync("public/js/workspace-runtime-20260921b.js","utf8");
 
 function sectionBounds(source,start){
   const openEnd=source.indexOf(">",start)+1;
@@ -66,6 +66,19 @@ assert.match(production,/window\.BW\?\.dom\?\.renderMarkup/,"hydration must use 
 assert.match(production,/credentials:"same-origin",cache:"force-cache"/);
 assert.match(production,/target\.dataset\.lazyView==="1"/);
 assert.match(production,/hydrateLazyWorkspaceView\(id,target,options\)/);
+assert.match(production,/let workspaceViewNavigationEpoch=0/,"lazy navigation must carry a monotonic epoch");
+assert.match(production,/target\.dataset\.lazyNavigationEpoch=String\(workspaceNavigationEpoch\)/,"every lazy navigation must record its latest requested epoch");
+assert.match(production,/requestedEpoch!==workspaceViewNavigationEpoch/,"stale hydration completion must not reactivate an older view");
+assert.match(production,/preserveNavigationEpoch:true/,"hydrated activation must not invalidate its own winning navigation epoch");
+let adversarialEpoch=0;
+const adversarialTargets=new Map();
+const requestView=id=>{const epoch=++adversarialEpoch;adversarialTargets.set(id,epoch);return epoch};
+const completionWins=id=>adversarialTargets.get(id)===adversarialEpoch;
+requestView("peopleops");requestView("businesshub");
+assert.equal(completionWins("peopleops"),false,"older lazy completion must lose after a newer navigation");
+assert.equal(completionWins("businesshub"),true,"latest lazy completion must win");
+requestView("evidencehub");requestView("evidencehub");
+assert.equal(completionWins("evidencehub"),true,"repeat click on the same loading view must preserve latest intent");
 assert.match(production,/externalizeWorkspaceViews\(externalizeWorkspaceHeadStyles\(externalizeWorkspaceRuntime\(baseHtml\)\)\)/);
 assert.match(production,/injectWorkspaceLazyViewClient\(injectFirstPartyRegistrationClient\(runtime\)\)/);
 
