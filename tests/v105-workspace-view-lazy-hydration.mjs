@@ -14,6 +14,8 @@ assert.ok(!html.includes('src="js/')&&!html.includes("src=\'js/"),"workspace cor
 
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const runtime=fs.readFileSync("public/js/workspace-runtime-20260921c.js","utf8");
+const delegatedEvents=fs.readFileSync("public/js/event-delegation.js","utf8");
+assert.match(delegatedEvents,/\'linkSocial\'/,"social connect action must remain in delegated event allowlist");
 
 function sectionBounds(source,start){
   const openEnd=source.indexOf(">",start)+1;
