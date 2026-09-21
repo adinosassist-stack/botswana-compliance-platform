@@ -1,0 +1,727 @@
+PINNED SHA: 9fdfbfa5bf3995a466f2bb4f18d2a28587909d29
+
+
+===== ORIGINAL FILE: public/auth.html =====
+
+<!doctype html>
+<html lang="en-BW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0B66D6">
+<meta name="robots" content="noindex,nofollow">
+<title>Sign in | Thebe Desk</title>
+<link rel="icon" type="image/png" sizes="192x192" href="/assets/thebe-desk-icon-192.png">
+<style>
+:root{--ink:#17191c;--muted:#686d75;--line:#e5e5e1;--accent:#0b66d6;--accent2:#0d5bc8;--soft:#edf5ff;--bad:#b42318;--good:#147a44;--bg:#f7f7f5}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100vh}a{color:inherit}.shell{min-height:100vh;display:grid;grid-template-columns:minmax(0,1fr) minmax(430px,560px)}.brandpane{background:linear-gradient(145deg,#0b66d6 0%,#0d3f88 100%);color:#fff;padding:48px;display:flex;flex-direction:column;justify-content:space-between;min-height:100vh}.brand{display:flex;align-items:center;gap:12px;font-weight:780;font-size:20px;text-decoration:none}.brand img{width:38px;height:38px}.brandcopy{max-width:650px}.brandcopy h1{font-size:clamp(42px,5vw,70px);letter-spacing:-.055em;line-height:1;margin:0 0 18px}.brandcopy p{color:#dbeafe;font-size:18px;max-width:570px}.brandfoot{color:#bfdbfe;font-size:12px}.authpane{background:#fff;padding:34px;display:flex;align-items:center;justify-content:center}.card{width:min(100%,440px)}.toplink{font-size:13px;color:var(--accent);text-decoration:none;font-weight:700}.card h2{font-size:31px;letter-spacing:-.035em;margin:28px 0 7px}.intro{color:var(--muted);font-size:14px;margin:0 0 22px}.tabs{display:grid;grid-template-columns:1fr 1fr;padding:4px;background:#f1f5f9;border-radius:13px;margin-bottom:20px}.tab{border:0;background:transparent;border-radius:10px;min-height:42px;font:inherit;font-size:13px;font-weight:720;cursor:pointer}.tab.active{background:#fff;box-shadow:0 2px 8px rgba(15,23,42,.08)}label{display:block;font-size:12px;font-weight:750;margin:13px 0 6px;color:#3f4a44}input,select{width:100%;border:1px solid var(--line);border-radius:11px;padding:12px 13px;font:inherit;background:#fff;color:var(--ink);outline:none}input:focus,select:focus{border-color:#7fb0ea;box-shadow:0 0 0 3px rgba(11,102,214,.12)}.company[hidden],.workspace[hidden]{display:none}.primary{width:100%;border:0;border-radius:11px;background:var(--accent);color:#fff;min-height:47px;padding:10px 14px;font:inherit;font-weight:760;cursor:pointer;margin-top:18px}.primary:hover{background:var(--accent2)}.primary:disabled{opacity:.6;cursor:wait}.status{display:none;margin-top:14px;border-radius:11px;padding:11px 12px;font-size:13px}.status.show{display:block;background:#fff0ef;border:1px solid #efc5c1;color:#8d231b}.status.good{background:#eef8f2;border-color:#c7e4d2;color:var(--good)}.notice{display:none;margin:0 0 16px;border-radius:12px;padding:12px 13px;background:#fff7e8;border:1px solid #f2d49b;color:#72500c;font-size:13px}.notice.show{display:block}.social{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}.social button{min-height:43px;border-radius:10px;border:1px solid var(--line);background:#fff;font:inherit;font-size:13px;font-weight:700;cursor:pointer}.social button[hidden]{display:none}.sep{display:flex;align-items:center;gap:10px;color:#8a948f;font-size:11px;margin:18px 0}.sep:before,.sep:after{content:"";height:1px;background:var(--line);flex:1}.footrow{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-top:14px;font-size:12px;color:var(--muted)}.footrow a{color:var(--accent);font-weight:700}.tiny{font-size:11px;color:#7b8580;margin-top:16px;line-height:1.55}.signed{display:none;margin-bottom:15px;padding:12px;border:1px solid #c7e4d2;background:#eef8f2;border-radius:11px;color:#2d6c4c;font-size:13px}.signed.show{display:block}
+@media(max-width:900px){.shell{grid-template-columns:1fr}.brandpane{min-height:auto;padding:24px}.brandcopy{display:none}.brandfoot{display:none}.authpane{padding:24px 18px 42px}.card h2{margin-top:22px}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <section class="brandpane" aria-label="Thebe Desk"><a class="brand" href="/"><img src="/assets/thebe-desk-logo-symbol.png" alt=""><span>Thebe Desk</span></a><div class="brandcopy"><h1>Private workspace access, separated from the public site.</h1><p>Authentication now has its own surface. Signing in or creating an account cannot replace, hide or break the public homepage.</p></div><div class="brandfoot">Botswana SME compliance · operations · evidence · decision intelligence</div></section>
+  <main class="authpane"><section class="card" id="authGate"><a class="toplink" href="/">← Back to public site</a><h2 id="authHeading">Sign in</h2><p class="intro" id="authIntro">Open your Thebe Desk workspace.</p><div class="signed" id="signedNotice">A valid session is already active. Opening your workspace…</div><div class="notice" id="registrationHoldNotice">New account registration is temporarily unavailable. Existing customers can still sign in.</div><div class="tabs" role="tablist"><button class="tab active" id="loginTab" type="button" role="tab" aria-selected="true">Sign in</button><button class="tab" id="registerTab" type="button" role="tab" aria-selected="false">Create account</button></div><form id="authForm" novalidate><div class="company" id="companyNameField" hidden><label for="authCompany">Business name</label><input id="authCompany" name="companyName" autocomplete="organization" maxlength="160"></div><label for="authEmail">Email</label><input id="authEmail" name="email" type="email" autocomplete="email" inputmode="email" required maxlength="254"><label for="authPassword">Password</label><input id="authPassword" name="password" type="password" autocomplete="current-password" required maxlength="200"><div class="workspace" id="workspaceField" hidden><label for="authWorkspace">Workspace</label><select id="authWorkspace" name="tenantId"></select></div><button class="primary" id="authSubmit" type="submit">Sign in</button><div class="status" id="authError" role="status" aria-live="polite"></div></form><div class="sep">or</div><div class="social"><button type="button" class="social-auth-btn google" id="googleAuthButton" hidden>Continue with Google</button><button type="button" class="social-auth-btn facebook" id="facebookAuthButton" hidden>Continue with Facebook</button></div><div class="footrow"><a href="/recover.html">Forgot password?</a><a href="/app/">Open workspace</a></div><p class="tiny">By continuing, you are accessing the private Thebe Desk application. The public website remains independent of this sign-in flow.</p></section></main>
+</div>
+<script src="/js/api-client.js" defer></script>
+<script src="/js/auth-portal.js" defer></script>
+</body>
+</html>
+
+
+===== ORIGINAL FILE: public/register-direct.html =====
+
+<!doctype html>
+<html lang="en-BW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#111516">
+<title>Create your Thebe Desk account</title>
+<style>
+:root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#131516;background:#f6f7f8}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px}.card{width:min(100%,520px);background:#fff;border:1px solid #e3e6e8;border-radius:20px;padding:28px;box-shadow:0 16px 48px rgba(0,0,0,.08)}h1{margin:0 0 8px;font-size:28px}.muted{color:#667078;font-size:14px;line-height:1.5;margin:0 0 24px}.field{margin:14px 0}label{display:block;font-size:12px;font-weight:700;margin-bottom:6px}input{width:100%;padding:12px;border:1px solid #d7dbde;border-radius:11px;font:inherit}button{width:100%;border:0;border-radius:11px;padding:13px 16px;background:#111516;color:white;font:inherit;font-weight:750;cursor:pointer;margin-top:8px}button:disabled{opacity:.6;cursor:wait}.status{margin-top:16px;padding:12px 14px;border-radius:11px;font-size:13px;line-height:1.45;display:none}.status.show{display:block}.status.bad{background:#fff0ef;border:1px solid #efc1bd;color:#8b1e16}.status.good{background:#eef8f2;border:1px solid #c7e4d2;color:#126b3d}.small{font-size:12px;color:#6b7176;margin-top:16px;text-align:center}.small a{color:#0f5f46}.trap{position:absolute!important;left:-10000px!important;width:1px!important;height:1px!important;opacity:0!important}html:not(.registration-open):not(.registration-cohort) #registerForm{display:none}
+</style>
+<body>
+<main class="card">
+<h1>Create your account</h1>
+<p class="muted">This registration route uses Thebe Desk's own first-party security proof. It does not use Cloudflare Turnstile or a CAPTCHA provider.</p>
+<form id="registerForm" novalidate>
+<div class="field"><label for="companyName">Business name</label><input id="companyName" name="companyName" autocomplete="organization" maxlength="160" required></div>
+<div class="field"><label for="email">Email</label><input id="email" name="email" type="email" autocomplete="email" maxlength="254" required></div>
+<div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="200" required><div class="small" style="text-align:left;margin-top:6px">Use at least 12 characters.</div></div>
+<input id="website" name="website" class="trap" tabindex="-1" autocomplete="off" aria-hidden="true">
+<button id="submitBtn" type="submit">Create account</button>
+<div id="status" class="status" role="status" aria-live="polite"></div>
+</form>
+<div class="small">Already have an account? <a href="/">Return to Thebe Desk sign in</a></div>
+</main>
+<script src="/js/api-client.js?v=20260906-registration-post-capability-v1" defer></script>
+<script src="/js/register-direct.js?v=20260913b" defer></script>
+<script src="/js/oauth-availability.js?v=20260916b" defer></script>
+</body>
+</html>
+
+
+===== ORIGINAL FILE: public/recover.html =====
+
+<!doctype html>
+<html lang="en-BW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0B66D6">
+<meta name="robots" content="noindex,nofollow">
+<title>Recover Thebe Desk</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:#f6f8f7;color:#16191b;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}.card{width:min(100%,480px);background:#fff;border:1px solid #e0e6e2;border-radius:20px;padding:24px;box-shadow:0 12px 36px rgba(0,0,0,.07)}h1{font-size:25px;margin:0 0 10px}p{color:#5e6963;line-height:1.55;margin:8px 0}.status{margin-top:18px;padding:12px 14px;border-radius:12px;background:#eef5ff;color:#174b86;font-weight:650}.btn{display:inline-block;margin-top:16px;padding:11px 15px;border-radius:10px;background:#0B66D6;color:#fff;text-decoration:none;font-weight:750}
+</style>
+<script src="/js/recover-runtime.js" defer></script>
+</head>
+<body>
+<main class="card">
+<h1>Recovering Thebe Desk</h1>
+<p>This clears only old Thebe Desk service-worker/cache files from this browser. It does not delete your account or production data.</p>
+<div id="recoveryStatus" class="status" role="status" aria-live="polite">Starting browser recovery…</div>
+<a id="manualOpen" class="btn" href="/" hidden>Open live site</a>
+</main>
+</body>
+</html>
+
+
+===== ORIGINAL FILE: public/js/api-client.js =====
+
+(function bootstrapBwApi(global){
+  "use strict";
+  const CANONICAL_PRODUCTION_ORIGIN="https://thebedesk.com";
+  const API_TUNNEL_PATH_PARAM="__thebe_api_path";
+  const API_TUNNEL_QUERY_PARAM="__thebe_api_query";
+  const API_SHADOW_PREFIX="/__thebe_api";
+  const AUTH_TRANSPORT_PROBE_PATH="/api/auth/register-transport-probe";
+  const AUTH_TRANSPORT_PROBE_RELEASE="20260906-registration-post-capability-v1";
+  const IDEMPOTENT_TRANSPORT_CANDIDATE_MAX_MS=3000;
+  class ApiError extends Error{constructor(message,{status=0,code="request_failed",requestId="",data=null}={}){super(message);this.name="ApiError";this.status=status;this.code=code;this.requestId=requestId;this.data=data}}
+  const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+  const AUTO_IDEMPOTENT_MUTATIONS=new Set([
+    "POST /api/payments/create-checkout",
+    "POST /api/evidence/presign",
+    "POST /api/hr/cases",
+    "POST /api/employees",
+    "POST /api/daily-reporting/locations",
+    "POST /api/daily-reporting/ai-summary",
+    "POST /api/partner/tasks",
+    "POST /api/compliance-schedules",
+    "POST /api/ai/advisor",
+    "POST /api/company-actions",
+    "POST /api/licences",
+    "POST /api/business-events/report"
+  ]);
+  function productionMode(){return String(global.document?.querySelector?.('meta[name="bw-runtime-mode"]')?.content||"production").toLowerCase()==="production"}
+  function isLocalHostname(hostname){return ["localhost","127.0.0.1","::1"].includes(String(hostname||"").toLowerCase())}
+  function enforceCanonicalProductionOrigin(){
+    try{
+      if(!productionMode()||!global.location?.href)return false;
+      const current=new URL(global.location.href);
+      if(current.origin===CANONICAL_PRODUCTION_ORIGIN)return false;
+      if(isLocalHostname(current.hostname))return false;
+      const destination=new URL(CANONICAL_PRODUCTION_ORIGIN);
+      destination.pathname=current.pathname;
+      destination.search=current.search;
+      destination.hash=current.hash;
+      if(typeof global.location.replace==="function"){global.location.replace(destination.href);return true}
+      return false;
+    }catch{return false}
+  }
+  enforceCanonicalProductionOrigin();
+  function autoIdempotency(method,target){try{const path=new URL(target).pathname,key=`${method} ${path}`;return AUTO_IDEMPOTENT_MUTATIONS.has(key)||(method==="POST"&&(/^\/api\/company-actions\/[^/]+\/advance$/.test(path)||/^\/api\/licences\/[^/]+\/renew$/.test(path)))}catch{return false}}
+  function friendlyMessage(status,data){
+    const code=String(data?.error||"");
+    const known={csrf_failed:"Your session security token changed. Refresh and try again.",origin_failed:"This request was blocked because it came from an unexpected origin.",unauthenticated:"Your session has expired. Please sign in again.",invalid_credentials:"Email or password is incorrect.",registration_not_confirmed:"We couldn't confirm this account with the password you entered. If you've used this email before, sign in with the password already on the account or use Forgot password.",registration_confirmation_unavailable:"We couldn't securely confirm that registration produced a usable account. Try again. If you've used this email before, sign in with the password already on the account or use Forgot password.",forbidden:"Your role does not have permission for that action.",workspace_role_forbidden:"Your account role cannot access this workspace action.",workspace_role_read_forbidden:"Your role cannot view that information.",workspace_role_mutation_forbidden:"Your role cannot change that information.",invalid_registration:"Check your company name, email and password. Company name must be at least 2 characters and the password must be at least 12 characters.",human_verification_failed:"Human verification failed or expired. Complete the verification and try again.",registration_protection_failed:"Registration protection expired or could not be verified. Click Create account again to generate a fresh secure proof.",database_daily_limit_reached:"The database has reached its daily service limit. Try again after the limit resets."};
+    return known[code]||String(data?.message||data?.error||((status>=500)?"The service could not complete the request. Please retry.":`Request failed (${status||"network"}).`));
+  }
+  function registrationValidationMessage(target,method,body){
+    try{
+      if(method!=="POST"||new URL(target).pathname!=="/api/auth/register"||typeof body!=="string")return "";
+      const data=JSON.parse(body),companyName=String(data?.companyName||"").trim(),email=String(data?.email||"").trim(),password=String(data?.password||"");
+      if(companyName.length<2||companyName.length>160)return "Enter a company name between 2 and 160 characters.";
+      if(email.length>254||!(/^[^\s@]+@[^\s@]+\.[^\s@]+$/).test(email))return "Enter a valid email address.";
+      if(password.length<12)return "Create a password with at least 12 characters.";
+      if(password.length>200)return "Password is too long. Use 200 characters or fewer.";
+      return "";
+    }catch{return ""}
+  }
+  function authBodyCredentials(body){
+    try{
+      if(typeof body!=="string")return null;
+      const data=JSON.parse(body),email=String(data?.email||"").trim().toLowerCase(),password=String(data?.password||""),tenantId=String(data?.tenantId||"").trim();
+      return email&&password?{email,password,tenantId}:null;
+    }catch{return null}
+  }
+  function createClient({getCsrfToken=()=>"",onUnauthorized=()=>{},onError=()=>{},timeoutMs=18000,retries=1}={}){
+    let preferredTransport="root",pendingRegistrationLogin=null;
+    function apiUrl(value){
+      const base=global.location?.href||"https://invalid.local/",target=new URL(String(value||""),base);
+      if(!global.location?.origin||target.origin!==global.location.origin)throw new ApiError("Blocked cross-origin application API request.",{code:"cross_origin_api_blocked"});
+      if(productionMode()&&!isLocalHostname(target.hostname)&&(target.protocol!=="https:"||target.origin!==CANONICAL_PRODUCTION_ORIGIN))throw new ApiError("Thebe Desk is switching this session to its secure production address. Reload once if it does not continue automatically.",{code:"canonical_origin_required"});
+      return target.href;
+    }
+    function isLogicalApiTarget(logicalTarget){const target=new URL(logicalTarget);return target.pathname==="/api"||target.pathname.startsWith("/api/")}
+    function isAuthCredentialMutation(logicalTarget,method){if(method!=="POST")return false;const path=new URL(logicalTarget).pathname;return path==="/api/auth/register"||path==="/api/auth/login"}
+    function rootTransportApiUrl(logicalTarget){
+      const target=new URL(logicalTarget);
+      if(!isLogicalApiTarget(logicalTarget))return target.href;
+      const transport=new URL("/",target.origin);
+      transport.searchParams.set(API_TUNNEL_PATH_PARAM,target.pathname);
+      if(target.search.length>1)transport.searchParams.set(API_TUNNEL_QUERY_PARAM,target.search.slice(1));
+      return transport.href;
+    }
+    function shadowTransportApiUrl(logicalTarget){
+      const target=new URL(logicalTarget);
+      if(!isLogicalApiTarget(logicalTarget))return target.href;
+      target.pathname=target.pathname==="/api"?API_SHADOW_PREFIX:`${API_SHADOW_PREFIX}${target.pathname.slice(4)}`;
+      return target.href;
+    }
+    function transportApiUrl(logicalTarget,transport="root"){
+      if(transport==="direct")return logicalTarget;
+      if(transport==="shadow")return shadowTransportApiUrl(logicalTarget);
+      return rootTransportApiUrl(logicalTarget);
+    }
+    function transportCandidates(logicalTarget){
+      if(!isLogicalApiTarget(logicalTarget))return [{name:"direct",url:logicalTarget}];
+      const target=new URL(logicalTarget);
+      const all=["root","shadow","direct"].map(name=>({name,url:transportApiUrl(logicalTarget,name)}));
+      if(target.pathname==="/api/state"){
+        const direct=all.find(x=>x.name==="direct");
+        return [direct,...all.filter(x=>x!==direct)];
+      }
+      const preferred=all.find(x=>x.name===preferredTransport)||all[0];
+      return [preferred,...all.filter(x=>x!==preferred)];
+    }
+    function transportRouteRejected(response){return response?.status===404||response?.status===405}
+    function uploadUrl(value){
+      const base=global.location?.href||"https://invalid.local/",target=new URL(String(value||""),base);
+      const localHttp=target.protocol==="http:"&&isLocalHostname(target.hostname);
+      if(target.protocol!=="https:"&&!localHttp)throw new ApiError("Blocked insecure upload destination.",{code:"insecure_upload_destination"});
+      return target.href;
+    }
+    async function fetchApi(target,fetchOptions,method,headers,signal){
+      const response=await fetch(target,{...fetchOptions,method,headers,credentials:"same-origin",signal,redirect:"error"});
+      let data={};const type=response.headers.get("content-type")||"";
+      if(type.includes("application/json")){try{data=await response.json()}catch{data={}}}
+      else{const text=await response.text().catch(()=>"");data=text?{message:text.slice(0,600)}:{}}
+      return {response,data};
+    }
+    function parentAbortError(signal){
+      const error=new Error(String(signal?.reason||"The request was aborted."));
+      error.name="AbortError";
+      return error;
+    }
+    function transportTimeoutError(){
+      const error=new Error("The transport candidate timed out.");
+      error.name="AbortError";
+      return error;
+    }
+    async function probeIdempotentTransports(logicalTarget,fetchOptions,method,headers,signal,requestId){
+      let firstNetworkError=null;
+      const candidates=transportCandidates(logicalTarget),deadline=Date.now()+Math.max(1,Number(timeoutMs)||1);
+      for(let index=0;index<candidates.length;index++){
+        if(signal?.aborted)throw parentAbortError(signal);
+        const candidate=candidates[index],remaining=Math.max(0,deadline-Date.now()),candidatesLeft=candidates.length-index;
+        if(remaining<=0)throw parentAbortError(signal);
+        const candidateBudget=Math.min(remaining,IDEMPOTENT_TRANSPORT_CANDIDATE_MAX_MS,Math.max(50,Math.floor(remaining/candidatesLeft)));
+        const candidateController=new AbortController();
+        let rejectCandidateDeadline=()=>{};
+        const abortFromParent=()=>{
+          candidateController.abort(signal?.reason||"timeout");
+          rejectCandidateDeadline(parentAbortError(signal));
+        };
+        const candidateDeadline=new Promise((_,reject)=>{
+          rejectCandidateDeadline=reject;
+        });
+        if(signal?.aborted)abortFromParent();else signal?.addEventListener?.("abort",abortFromParent,{once:true});
+        const candidateTimer=setTimeout(()=>{
+          candidateController.abort("transport-timeout");
+          rejectCandidateDeadline(transportTimeoutError());
+        },candidateBudget);
+        try{
+          const result=await Promise.race([
+            fetchApi(candidate.url,fetchOptions,method,headers,candidateController.signal),
+            candidateDeadline
+          ]);
+          if(transportRouteRejected(result.response))continue;
+          preferredTransport=candidate.name;
+          return result;
+        }catch(error){
+          if(signal?.aborted)throw parentAbortError(signal);
+          if(!firstNetworkError)firstNetworkError=error;
+        }finally{
+          clearTimeout(candidateTimer);
+          signal?.removeEventListener?.("abort",abortFromParent);
+          rejectCandidateDeadline=()=>{};
+        }
+      }
+      if(firstNetworkError)throw firstNetworkError;
+      throw new ApiError("Thebe Desk application service route is unavailable. Refresh and try again.",{status:0,code:"api_transport_unavailable",requestId});
+    }
+    async function probeAuthMutationTransport(logicalTarget,fetchOptions,method,headers,signal,requestId){
+      let firstNetworkError=null;
+      const probeTarget=new URL(AUTH_TRANSPORT_PROBE_PATH,logicalTarget).href;
+      const probeOptions={...fetchOptions};delete probeOptions.body;delete probeOptions.idempotencyKey;
+      const expectedTransport={root:"root_tunnel",shadow:"shadow_path",direct:"direct"};
+      for(const candidate of transportCandidates(logicalTarget)){
+        const probeHeaders=new Headers(headers);
+        probeHeaders.delete("idempotency-key");
+        probeHeaders.delete("x-csrf-token");
+        try{
+          const result=await fetchApi(transportApiUrl(probeTarget,candidate.name),probeOptions,method,probeHeaders,signal);
+          if(transportRouteRejected(result.response))continue;
+          if(!result.response.ok){
+            throw new ApiError(friendlyMessage(result.response.status,result.data),{status:result.response.status,code:String(result.data?.error||"auth_transport_probe_failed"),requestId,data:result.data});
+          }
+          if(result.data?.ok!==true||result.data?.release!==AUTH_TRANSPORT_PROBE_RELEASE||result.data?.transport!==expectedTransport[candidate.name])throw new ApiError("The sign-in service could not verify a safe request route. Refresh and try again.",{status:0,code:"auth_transport_probe_unverified",requestId,data:result.data});
+          preferredTransport=candidate.name;
+          return candidate.name;
+        }catch(error){
+          if(error?.name==="AbortError")throw error;
+          if(error instanceof ApiError)throw error;
+          if(!firstNetworkError)firstNetworkError=error;
+        }
+      }
+      if(firstNetworkError)throw firstNetworkError;
+      throw new ApiError("Thebe Desk sign-in service route is unavailable. Refresh and try again.",{status:0,code:"auth_transport_unavailable",requestId});
+    }
+    async function confirmRegistration(logicalTarget,credentials,requestId){
+      const loginTarget=new URL("/api/auth/login",logicalTarget).href,controller=new AbortController(),timer=setTimeout(()=>controller.abort("timeout"),timeoutMs);
+      const headers=new Headers({"accept":"application/json","content-type":"application/json","x-client-request-id":`${requestId}-registration-confirm`});
+      try{
+        const result=await fetchApi(transportApiUrl(loginTarget,preferredTransport),{body:JSON.stringify({email:credentials.email,password:credentials.password})},"POST",headers,controller.signal);
+        if(result.response.ok)return {kind:"success",data:result.data};
+        if(result.response.status===409&&String(result.data?.error||"")==="workspace_selection_required"){
+          return {kind:"workspace",error:new ApiError(friendlyMessage(result.response.status,result.data),{status:result.response.status,code:"workspace_selection_required",requestId,data:result.data})};
+        }
+        if(result.response.status===401&&String(result.data?.error||"")==="invalid_credentials")return {kind:"invalid"};
+        return {kind:"retry"};
+      }catch{return {kind:"retry"}}
+      finally{clearTimeout(timer)}
+    }
+    async function request(url,options={}){
+      const logicalTarget=apiUrl(url),method=String(options.method||"GET").toUpperCase(),idempotent=["GET","HEAD"].includes(method),authCredentialMutation=isAuthCredentialMutation(logicalTarget,method),requestId=global.crypto?.randomUUID?.()||`${Date.now()}-${Math.random()}`,authPath=authCredentialMutation?new URL(logicalTarget).pathname:"";
+      if(method==="POST"&&authPath==="/api/auth/login"&&pendingRegistrationLogin){
+        const credentials=authBodyCredentials(options.body),pending=pendingRegistrationLogin;
+        pendingRegistrationLogin=null;
+        if(credentials&&!credentials.tenantId&&credentials.email===pending.email&&Date.now()<=pending.expiresAt){
+          if(pending.error)throw pending.error;
+          return pending.data;
+        }
+      }
+      const registrationError=registrationValidationMessage(logicalTarget,method,options.body);if(registrationError)throw new ApiError(registrationError,{status:400,code:"invalid_registration",requestId});
+      const requestedIdempotency=options.idempotencyKey??autoIdempotency(method,logicalTarget),idempotencyKey=requestedIdempotency===true?(global.crypto?.randomUUID?.()||requestId):String(requestedIdempotency||"").trim();
+      const safeRetry=idempotent||!!idempotencyKey,attempts=safeRetry?Math.max(1,retries+1):1;
+      const fetchOptions={...options};delete fetchOptions.idempotencyKey;
+      let lastError;
+      for(let attempt=0;attempt<attempts;attempt++){
+        const controller=new AbortController(),timer=setTimeout(()=>controller.abort("timeout"),timeoutMs);
+        const headers=new Headers(options.headers||{});headers.set("accept","application/json");headers.set("x-client-request-id",requestId);
+        if(idempotencyKey)headers.set("idempotency-key",idempotencyKey);
+        if(options.body!=null&&!headers.has("content-type")&&!(options.body instanceof FormData))headers.set("content-type","application/json");
+        if(!idempotent){const csrf=String(getCsrfToken()||"");if(csrf)headers.set("x-csrf-token",csrf)}
+        try{
+          let result;
+          if(idempotent){
+            result=await probeIdempotentTransports(logicalTarget,fetchOptions,method,headers,controller.signal,requestId);
+          }else{
+            if(authCredentialMutation)await probeAuthMutationTransport(logicalTarget,fetchOptions,method,headers,controller.signal,requestId);
+            result=await fetchApi(transportApiUrl(logicalTarget,preferredTransport),fetchOptions,method,headers,controller.signal);
+          }
+          clearTimeout(timer);const {response,data}=result;
+          if(response.ok&&authPath==="/api/auth/register"){
+            const credentials=authBodyCredentials(options.body);
+            if(credentials){
+              const confirmation=await confirmRegistration(logicalTarget,credentials,requestId);
+              if(confirmation.kind==="success"){
+                pendingRegistrationLogin={email:credentials.email,data:confirmation.data,error:null,expiresAt:Date.now()+5000};
+                return {...data,credentialConfirmed:true};
+              }
+              if(confirmation.kind==="workspace"){
+                pendingRegistrationLogin={email:credentials.email,data:null,error:confirmation.error,expiresAt:Date.now()+5000};
+                return data;
+              }
+              if(confirmation.kind==="invalid"){
+                const confirmationData={error:"registration_not_confirmed"};
+                throw new ApiError(friendlyMessage(409,confirmationData),{status:409,code:"registration_not_confirmed",requestId,data:confirmationData});
+              }
+              const confirmationData={error:"registration_confirmation_unavailable"};
+              throw new ApiError(friendlyMessage(503,confirmationData),{status:503,code:"registration_confirmation_unavailable",requestId,data:confirmationData});
+            }
+            return data;
+          }
+          if(response.status===401){try{onUnauthorized()}catch{}}
+          if(response.ok)return data;
+          const routeChanged=authCredentialMutation&&transportRouteRejected(response);
+          const err=routeChanged
+            ?new ApiError("The sign-in service route changed before the request completed. Refresh and try again. The account request was not automatically repeated.",{status:response.status,code:"auth_transport_changed",requestId,data})
+            :new ApiError(friendlyMessage(response.status,data),{status:response.status,code:String(data?.error||"request_failed"),requestId,data});
+          if(safeRetry&&attempt+1<attempts&&[425,429,502,503,504].includes(response.status)){lastError=err;await sleep(200*(attempt+1));continue}
+          throw err;
+        }catch(error){
+          clearTimeout(timer);
+          const err=error instanceof ApiError?error:new ApiError(error?.name==="AbortError"?"The request timed out. Please retry.":"Network connection failed. Check connectivity and retry.",{status:0,code:error?.name==="AbortError"?"timeout":"network_error",requestId});
+          if(!idempotent&&safeRetry&&attempt+1<attempts&&!(error instanceof ApiError)){lastError=err;await sleep(200*(attempt+1));continue}
+          try{console.error("BW API request failed",{url:logicalTarget,method,status:err.status,code:err.code,requestId});onError(err,{url:logicalTarget,method,requestId})}catch{}
+          throw err;
+        }
+      }
+      throw lastError||new ApiError("Request failed",{requestId});
+    }
+    async function uploadPresigned(url,{body,contentType="application/octet-stream",timeout=timeoutMs}={}){
+      const target=uploadUrl(url),controller=new AbortController(),timer=setTimeout(()=>controller.abort("timeout"),timeout);
+      try{
+        const response=await fetch(target,{method:"PUT",headers:{"content-type":String(contentType||"application/octet-stream")},body,credentials:"omit",signal:controller.signal,redirect:"error",referrerPolicy:"no-referrer"});
+        if(response.ok)return {ok:true,status:response.status};
+        throw new ApiError(`Secure file upload failed (${response.status}).`,{status:response.status,code:"presigned_upload_failed"});
+      }catch(error){
+        const err=error instanceof ApiError?error:new ApiError(error?.name==="AbortError"?"Secure file upload timed out. Please retry.":"Secure file upload failed. Check connectivity and retry.",{status:0,code:error?.name==="AbortError"?"upload_timeout":"upload_network_error"});
+        try{console.error("BW presigned upload failed",{status:err.status,code:err.code})}catch{}
+        throw err;
+      }finally{clearTimeout(timer)}
+    }
+    return Object.freeze({request,uploadPresigned});
+  }
+  global.BW=global.BW||{};global.BW.api=Object.freeze({ApiError,createClient});
+})(window);
+
+(function loadOwnerWhatsAppPrepare(global){
+  "use strict";
+  if(!global.document||global.document.querySelector('script[data-thebe-owner-whatsapp-prepare]'))return;
+  const script=global.document.createElement("script");
+  script.src="/js/owner-whatsapp-prepare.js";
+  script.defer=true;
+  script.dataset.thebeOwnerWhatsappPrepare="20260914a";
+  (global.document.head||global.document.documentElement).append(script);
+})(window);
+
+
+===== ORIGINAL FILE: public/js/auth-portal.js =====
+
+(()=>{
+"use strict";
+const $=id=>document.getElementById(id);
+const form=$("authForm"),heading=$("authHeading"),intro=$("authIntro"),loginTab=$("loginTab"),registerTab=$("registerTab"),companyField=$("companyNameField"),company=$("authCompany"),email=$("authEmail"),password=$("authPassword"),workspaceField=$("workspaceField"),workspace=$("authWorkspace"),submit=$("authSubmit"),status=$("authError"),holdNotice=$("registrationHoldNotice"),signedNotice=$("signedNotice"),google=$("googleAuthButton"),facebook=$("facebookAuthButton");
+const encoder=new TextEncoder();
+const client=window.BW?.api?.createClient?.({getCsrfToken:()=>"",onUnauthorized:()=>{},onError:()=>{}});
+const params=new URLSearchParams(location.search);
+const allowedPlans=new Set(["starter","business","pro","network","partner"]);
+let mode=params.get("mode")==="register"?"register":"login";
+let registrationMode="invalid";
+let busy=false;
+function safeNext(){const raw=String(params.get("next")||"/app/").trim();return raw.startsWith("/")&&!raw.startsWith("//")?raw:"/app/"}
+const next=safeNext();
+function selectedPlan(){const plan=String(params.get("plan")||"business");return allowedPlans.has(plan)?plan:"business"}
+function setStatus(message,type="bad"){status.textContent=String(message||"");status.className=`status show${type==="good"?" good":""}`}
+function clearStatus(){status.textContent="";status.className="status"}
+function setMode(nextMode){
+ mode=nextMode==="register"?"register":"login";clearStatus();workspaceField.hidden=true;workspace.replaceChildren();
+ const registering=mode==="register";
+ companyField.hidden=!registering;password.autocomplete=registering?"new-password":"current-password";
+ heading.textContent=registering?"Create your account":"Sign in";
+ intro.textContent=registering?"Start a 14-day Thebe Desk workspace trial.":"Open your private Thebe Desk workspace.";
+ submit.textContent=registering?"Create account & workspace":"Sign in";
+ loginTab.classList.toggle("active",!registering);registerTab.classList.toggle("active",registering);
+ loginTab.setAttribute("aria-selected",String(!registering));registerTab.setAttribute("aria-selected",String(registering));
+ if(registering&&(registrationMode==="hold"||registrationMode==="invalid")){setMode("login");setStatus("New account registration is temporarily unavailable. Existing customers can still sign in.");}
+}
+async function api(path,options={}){if(!client)throw new Error("Authentication service is not ready. Reload and try again.");return client.request(path,options)}
+function leadingZeroBits(bytes,bits){let remaining=Number(bits)||0;for(const value of bytes){if(remaining<=0)return true;const take=Math.min(8,remaining);if((value>>(8-take))!==0)return false;remaining-=take}return remaining<=0}
+async function solveRegistrationProof(){
+ const challenge=await api("/api/auth/registration-proof/challenge",{method:"POST",headers:{"content-type":"application/json"},body:"{}"});
+ const token=String(challenge?.token||""),difficulty=Number(challenge?.difficulty||0);
+ if(!token||difficulty<8||difficulty>16)throw new Error("Registration protection is not ready. Reload and try again.");
+ for(let counter=0;counter<=500000;counter++){
+  const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",encoder.encode(`${token}:${counter}`)));
+  if(leadingZeroBits(digest,difficulty))return JSON.stringify({challenge:token,counter,honeypot:""});
+  if(counter&&counter%512===0)await new Promise(resolve=>setTimeout(resolve,0));
+ }
+ throw new Error("Registration protection could not complete. Reload and try again.")
+}
+function showWorkspaceChoices(error){
+ const choices=Array.isArray(error?.data?.workspaces)?error.data.workspaces:[];
+ if(!choices.length)return false;
+ workspace.replaceChildren();
+ for(const item of choices){const option=document.createElement("option");option.value=String(item?.tenantId||"");option.textContent=String(item?.tenantName||item?.name||item?.companyName||"Workspace");workspace.append(option)}
+ workspaceField.hidden=false;setStatus("Choose the workspace you want to open.","good");return true;
+}
+async function login(payload){
+ const data=await api("/api/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
+ if(data?.ok===false)throw new Error(data?.message||"Sign in failed.");
+ location.replace(next);return data;
+}
+async function requestRecovery(address){try{await api("/api/auth/password-reset/request",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email:address})});return true}catch{return false}}
+async function registerAccount(payload){
+ if(registrationMode!=="open"&&registrationMode!=="cohort")throw new Error("Registration is currently unavailable.");
+ const proof=await solveRegistrationProof();
+ await api("/api/auth/register",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...payload,turnstileToken:proof})});
+ try{await login({email:payload.email,password:payload.password})}
+ catch(error){
+  if(error?.code==="workspace_selection_required"){
+   const choices=Array.isArray(error?.data?.workspaces)?error.data.workspaces:[];
+   const preferred=choices.find(item=>String(item?.role||"")==="owner")||choices[0];
+   if(preferred?.tenantId){await login({email:payload.email,password:payload.password,tenantId:String(preferred.tenantId)});return}
+  }
+  if(error?.code==="invalid_credentials"){
+   const requested=await requestRecovery(payload.email);
+   throw new Error(requested?"This email may already have an account. Password recovery instructions have been requested.":"This email may already have an account. Use Forgot password, then sign in.")
+  }
+  throw error;
+ }
+}
+async function loadCapabilities(){
+ const [policyResult,providersResult]=await Promise.allSettled([api("/api/auth/registration-policy"),api("/api/auth/oauth/providers")]);
+ const policy=policyResult.status==="fulfilled"?policyResult.value:null;registrationMode=["hold","cohort","open"].includes(String(policy?.mode))?String(policy.mode):"invalid";
+ document.documentElement.classList.remove("registration-hold","registration-cohort","registration-open","registration-invalid");document.documentElement.classList.add(`registration-${registrationMode}`);
+ const registrationAvailable=registrationMode==="open"||registrationMode==="cohort";registerTab.hidden=!registrationAvailable;holdNotice.classList.toggle("show",!registrationAvailable);
+ const providers=providersResult.status==="fulfilled"?providersResult.value:{};google.hidden=providers?.google!==true;facebook.hidden=providers?.facebook!==true;
+ if(mode==="register"&&!registrationAvailable)setMode("login");else setMode(mode);
+}
+async function detectExistingSession(){
+ try{const data=await api("/api/auth/me");if(data?.user){signedNotice.classList.add("show");setTimeout(()=>location.replace(next),120);return true}}catch{}
+ return false;
+}
+async function submitForm(event){
+ event.preventDefault();if(busy)return;clearStatus();
+ const address=String(email.value||"").trim().toLowerCase(),secret=String(password.value||"");
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)){setStatus("Enter a valid email address.");return}
+ if(secret.length<12){setStatus("Use a password with at least 12 characters.");return}
+ busy=true;submit.disabled=true;const original=submit.textContent;submit.textContent=mode==="register"?"Securing registration…":"Signing in…";
+ try{
+  if(mode==="register"){
+   const companyName=String(company.value||"").trim();if(companyName.length<2)throw new Error("Enter a business name with at least 2 characters.");
+   await registerAccount({companyName,email:address,password:secret,plan:selectedPlan()});
+  }else{
+   const payload={email:address,password:secret};if(!workspaceField.hidden&&workspace.value)payload.tenantId=workspace.value;
+   try{await login(payload)}catch(error){if(error?.code==="workspace_selection_required"&&showWorkspaceChoices(error))return;throw error}
+  }
+ }catch(error){setStatus(error?.message||"Authentication could not complete. Try again.")}
+ finally{busy=false;submit.disabled=false;submit.textContent=mode==="register"?"Create account & workspace":"Sign in";if(original&&mode==="login"&&workspaceField.hidden)submit.textContent="Sign in"}
+}
+function oauth(provider){if(!["google","facebook"].includes(provider))return;location.assign(`/api/auth/oauth/${provider}/start?next=${encodeURIComponent(next)}`)}
+loginTab?.addEventListener("click",()=>setMode("login"));registerTab?.addEventListener("click",()=>setMode("register"));form?.addEventListener("submit",submitForm);google?.addEventListener("click",()=>oauth("google"));facebook?.addEventListener("click",()=>oauth("facebook"));
+(async()=>{await loadCapabilities();await detectExistingSession()})().catch(error=>setStatus(error?.message||"Authentication service is temporarily unavailable."));
+})();
+
+
+===== ORIGINAL FILE: public/js/register-direct.js =====
+
+(()=>{
+"use strict";
+const form=document.getElementById("registerForm"),btn=document.getElementById("submitBtn"),status=document.getElementById("status");
+const encoder=new TextEncoder();
+const client=window.BW?.api?.createClient?.({getCsrfToken:()=>"",onUnauthorized:()=>{},onError:()=>{}});
+function setStatus(message,type="bad"){status.textContent=message;status.className=`status show ${type}`}
+async function api(path,options={}){if(!client)throw new Error("Registration service is not ready. Reload and try again.");return client.request(path,options)}
+function leadingZeroBits(bytes,bits){let remaining=Number(bits)||0;for(const value of bytes){if(remaining<=0)return true;const take=Math.min(8,remaining);if((value>>(8-take))!==0)return false;remaining-=take}return remaining<=0}
+async function solveProof(){
+ const challenge=await api("/api/auth/registration-proof/challenge",{method:"POST",headers:{"content-type":"application/json"},body:"{}"});
+ const token=String(challenge?.token||""),difficulty=Number(challenge?.difficulty||0);
+ if(!token||difficulty<8||difficulty>16)throw new Error("Registration protection is not ready. Reload and try again.");
+ for(let counter=0;counter<=500000;counter++){
+  const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",encoder.encode(`${token}:${counter}`)));
+  if(leadingZeroBits(digest,difficulty))return JSON.stringify({challenge:token,counter,honeypot:String(document.getElementById("website")?.value||"")});
+  if(counter&&counter%512===0)await new Promise(resolve=>setTimeout(resolve,0));
+ }
+ throw new Error("Registration protection could not complete. Reload and try again.")
+}
+async function requestPasswordRecovery(email){
+ try{
+  await api("/api/auth/password-reset/request",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email})});
+  return true;
+ }catch{return false}
+}
+async function showSecureExistingAccountRecovery(email){
+ btn.textContent="Securing account recovery…";
+ const requested=await requestPasswordRecovery(email);
+ if(requested)setStatus("This email may already have an account. Registration never replaces an existing password. If the account exists, password recovery instructions have been requested. Use the email link, then sign in.");
+ else setStatus("This email may already have an account. Registration never replaces an existing password. Use Forgot password on Thebe Desk, then sign in.");
+ btn.disabled=false;btn.textContent="Create account";
+}
+async function finishWorkspaceSelection(loginError,email,password){
+ const workspaces=Array.isArray(loginError?.data?.workspaces)?loginError.data.workspaces:[];
+ const preferred=workspaces.find(item=>String(item?.role||"")==="owner")||workspaces[0];
+ const tenantId=String(preferred?.tenantId||"").trim();
+ if(!tenantId)throw loginError;
+ await api("/api/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email,password,tenantId})});
+}
+form?.addEventListener("submit",async event=>{
+ event.preventDefault();status.className="status";
+ const companyName=String(document.getElementById("companyName")?.value||"").trim();
+ const email=String(document.getElementById("email")?.value||"").trim().toLowerCase();
+ const password=String(document.getElementById("password")?.value||"");
+ if(companyName.length<2){setStatus("Enter a business name with at least 2 characters.");return}
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){setStatus("Enter a valid email address.");return}
+ if(password.length<12){setStatus("Create a password with at least 12 characters.");return}
+ btn.disabled=true;btn.textContent="Securing registration…";
+ try{
+  const proof=await solveProof();
+  btn.textContent="Creating account…";
+  await api("/api/auth/register",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({companyName,email,password,turnstileToken:proof})});
+  btn.textContent="Signing in…";
+  try{
+   await api("/api/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email,password})});
+   setStatus("Account access confirmed. Opening your workspace…","good");
+   location.href="/app/";
+   return;
+  }catch(loginError){
+   if(loginError?.code==="workspace_selection_required"){
+    try{
+     btn.textContent="Opening owner workspace…";
+     await finishWorkspaceSelection(loginError,email,password);
+     setStatus("Account access confirmed. Opening your owner workspace…","good");
+     location.href="/app/";
+     return;
+    }catch(selectionError){
+     if(selectionError?.code==="invalid_credentials"){await showSecureExistingAccountRecovery(email);return}
+     setStatus(selectionError?.message||"We couldn't open the selected workspace securely. Sign in from Thebe Desk and choose your workspace.");
+     btn.disabled=false;btn.textContent="Create account";
+     return;
+    }
+   }
+   if(loginError?.code==="invalid_credentials"){await showSecureExistingAccountRecovery(email);return}
+   setStatus(loginError?.message||"We couldn't confirm the account securely. Return to Thebe Desk sign in or use Forgot password if needed.");
+   btn.disabled=false;btn.textContent="Create account";
+  }
+ }catch(error){
+  if(error?.code==="registration_not_confirmed"){await showSecureExistingAccountRecovery(email);return}
+  setStatus(error?.message||"Account creation could not complete. Try again.");btn.disabled=false;btn.textContent="Create account";
+ }
+});
+})();
+
+===== ORIGINAL FILE: public/js/recover-runtime.js =====
+
+(async()=>{
+  const status=document.getElementById("recoveryStatus");
+  const setStatus=message=>{if(status)status.textContent=message};
+  try{
+    setStatus("Clearing old Thebe Desk browser files…");
+    if("serviceWorker" in navigator){
+      const registrations=await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map(registration=>registration.unregister()));
+    }
+    if("caches" in window){
+      const keys=await caches.keys();
+      await Promise.all(keys.map(key=>caches.delete(key)));
+    }
+    setStatus("Browser files cleared. Opening the live site…");
+    const target=new URL("/",location.origin);
+    target.searchParams.set("recovered",String(Date.now()));
+    location.replace(target.toString());
+  }catch(error){
+    console.error("thebe_recovery_failed",error);
+    setStatus("Automatic recovery could not finish. Close this tab, reopen Thebe Desk, and refresh once.");
+    document.getElementById("manualOpen")?.removeAttribute("hidden");
+  }
+})();
+
+
+===== ORIGINAL FILE: public/js/oauth-availability.js =====
+
+(()=>{
+"use strict";
+
+const PROVIDER_SELECTORS={
+  google:'.social-auth-btn.google,#googleAuthButton,[data-bw-onclick*="google"]',
+  facebook:'.social-auth-btn.facebook,#facebookAuthButton,[data-bw-onclick*="facebook"]'
+};
+
+function rememberHidden(element,key){
+  if(!(key in element.dataset))element.dataset[key]=element.hidden?"1":"0";
+}
+
+function restoreHidden(element,key){
+  if(!(key in element.dataset))return;
+  element.hidden=element.dataset[key]==="1";
+}
+
+function setElementsHidden(selector,hidden,key){
+  for(const element of document.querySelectorAll(selector)){
+    rememberHidden(element,key);
+    if(hidden)element.hidden=true;
+    else restoreHidden(element,key);
+  }
+}
+
+function setProvider(provider,enabled){
+  const root=document.documentElement;
+  root.classList.toggle(`oauth-${provider}-disabled`,!enabled);
+  root.classList.toggle(`oauth-${provider}-enabled`,enabled);
+  setElementsHidden(PROVIDER_SELECTORS[provider],!enabled,"thebeOauthInitialHidden");
+  const status=document.getElementById(`${provider}LinkStatus`);
+  if(status){
+    if(!("thebeOauthInitialText" in status.dataset))status.dataset.thebeOauthInitialText=status.textContent||"";
+    status.textContent=enabled?status.dataset.thebeOauthInitialText:"Unavailable";
+  }
+}
+
+function setRegistrationMode(mode){
+  const normalized=["hold","cohort","open"].includes(String(mode||"").toLowerCase())?String(mode).toLowerCase():"invalid";
+  const closed=normalized==="hold"||normalized==="invalid";
+  const root=document.documentElement;
+  for(const value of ["hold","cohort","open","invalid"])root.classList.toggle(`registration-${value}`,normalized===value);
+
+  setElementsHidden("#registerTab",closed,"thebeRegistrationInitialHidden");
+  setElementsHidden(".marketing-start-action",closed,"thebeRegistrationInitialHidden");
+
+  const form=document.getElementById("registerForm");
+  if(form){
+    rememberHidden(form,"thebeRegistrationInitialHidden");
+    if(closed)form.hidden=true;
+    else restoreHidden(form,"thebeRegistrationInitialHidden");
+
+    let notice=document.getElementById("registrationHoldNotice");
+    if(closed){
+      if(!notice){
+        notice=document.createElement("p");
+        notice.id="registrationHoldNotice";
+        notice.className="muted";
+        notice.setAttribute("role","status");
+        form.parentNode?.insertBefore(notice,form);
+      }
+      notice.textContent=normalized==="invalid"
+        ?"Registration is temporarily unavailable while launch controls are being repaired."
+        :"New customer registration is temporarily on hold while launch verification is completed.";
+      notice.hidden=false;
+    }else if(notice){
+      notice.hidden=true;
+    }
+  }
+}
+
+function failClosed(){
+  setProvider("google",false);
+  setProvider("facebook",false);
+  setRegistrationMode("hold");
+}
+
+function apiClient(){
+  const factory=window.BW?.api?.createClient;
+  return typeof factory==="function"?factory({timeoutMs:8000,retries:0}):null;
+}
+
+async function refresh(){
+  failClosed();
+  const client=apiClient();
+  if(!client)return;
+
+  try{
+    const providers=await client.request("/api/auth/oauth/providers",{method:"GET",cache:"no-store"});
+    setProvider("google",providers?.google===true);
+    setProvider("facebook",providers?.facebook===true);
+  }catch{}
+
+  try{
+    const policy=await client.request("/api/auth/registration-policy",{method:"GET",cache:"no-store"});
+    setRegistrationMode(policy?.mode);
+  }catch{}
+}
+
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",refresh,{once:true});
+else refresh();
+})();
