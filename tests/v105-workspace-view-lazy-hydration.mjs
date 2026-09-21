@@ -7,7 +7,7 @@ const fragmentShards=Array.from({length:12},(_,i)=>JSON.parse(fs.readFileSync(`p
 const viewShard=id=>{let hash=0;for(const ch of String(id||""))hash=(Math.imul(hash,31)+ch.charCodeAt(0))>>>0;return hash%12};
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
-const runtime=fs.readFileSync("public/js/workspace-runtime-20260921b.js","utf8");
+const runtime=fs.readFileSync("public/js/workspace-runtime-20260921c.js","utf8");
 
 function sectionBounds(source,start){
   const openEnd=source.indexOf(">",start)+1;
