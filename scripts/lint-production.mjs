@@ -38,6 +38,6 @@ ok(!decommissionedServiceWorkerBoundary||(dom.includes("getRegistrations()")&&do
 ok(worker.includes("APP_SECURITY_HEADERS")&&worker.includes('frame-ancestors \'none\'')&&worker.includes('x-frame-options":"DENY"'),"Worker must apply browser security headers");
 ok(!worker.includes("const BOTSWANA_FOUNDATION_PACK_V1={"),"Worker must not embed a hand-maintained foundation pack copy");
 ok(worker.startsWith('import {BOTSWANA_FOUNDATION_PACK_V1,BOTSWANA_FOUNDATION_PACK_V1_HASH}'),"Worker must use the generated foundation-pack module");
-for(const f of ["public/js/dom-security.js","public/js/event-delegation.js","public/js/notifications.js","public/js/dialog-service.js","public/js/api-client.js","public/js/state-store.js","public/js/components.js"]){ok(html.includes(`src="js/${path.basename(f)}"`),`${f} must be loaded by the production app shell`)}
+for(const f of ["public/js/dom-security.js","public/js/event-delegation.js","public/js/notifications.js","public/js/dialog-service.js","public/js/api-client.js","public/js/state-store.js","public/js/components.js"]){ok(html.includes(`src="/js/${path.basename(f)}"`),`${f} must be root-relative and loaded by the production /app/ shell`)}
 ok(!html.includes('src="js/preview-data.js"')&&!html.includes('src="js/preview-api.js"'),"production app shell must not load preview-only modules");
 console.log(`Production lint: ${checks}/${checks} PASS`);
