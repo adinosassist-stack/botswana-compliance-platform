@@ -10,7 +10,7 @@ const coreWorkspaceScripts=["dom-security.js","event-delegation.js","notificatio
 for(const script of coreWorkspaceScripts){
   assert.ok(html.includes(`<script src="/js/${script}"></script>`),`workspace core asset must be root-relative for /app/: ${script}`);
 }
-assert.doesNotMatch(html,/<script\\b[^>]*\\bsrc=["']js\\//i,"workspace core scripts must not resolve under /app/js/");
+assert.ok(!html.includes('src="js/')&&!html.includes("src=\'js/"),"workspace core scripts must not resolve under /app/js/");
 
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const runtime=fs.readFileSync("public/js/workspace-runtime-20260921c.js","utf8");
