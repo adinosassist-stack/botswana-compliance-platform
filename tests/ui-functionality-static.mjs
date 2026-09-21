@@ -72,7 +72,7 @@ for(const action of ["createOpsReporterLink","copyOpsReporterLink","shareOpsRepo
 assert.ok(worker.includes("const link=")&&worker.includes("/#report=")&&worker.includes("encodeURIComponent(token)"),"employee reporting bearer link must remain fragment-scoped");
 assert.ok(worker.includes('url.pathname.startsWith("/js/")&&url.pathname.endsWith(".js")'),"all first-party JS runtimes must be served no-store");
 assert.ok(worker.includes('20260921-workspace-actions-v1'),"workspace action runtime release marker missing");
-assert.ok(worker.includes('html.replace(/src="(\\\\/?js\\\\/[^"?]+\\\\.js)'),"root HTML must version every first-party JS runtime");
+assert.ok(worker.includes('versioned=html.replace(/src="')&&worker.includes('CLIENT_RUNTIME_RELEASE'),"root HTML must version every first-party JS runtime");
 
 for(const rel of [...domHtml.matchAll(/(?:src|href)="(assets\/[^"?#]+)"/g)].map(m=>m[1]))assert.ok(fs.existsSync(path.join(pub,rel)),"missing local asset: "+rel);
 assert.match(html,/async function runScan\(\)/,"compliance scan button must have an implementation");
