@@ -32,10 +32,10 @@ ok(!/<script\s+src=["']js\/preview-(?:data|api)\.js["']/i.test(html),"preview mo
 ok(builder.includes('previewOnlyScripts=["preview-data.js","preview-api.js"]'),"preview builder owns preview-only module list");
 ok(builder.includes('data-preview-only="${file}"'),"preview builder injects preview-only transport");
 ok(builder.includes('content="preview"'),"preview builder explicitly flips runtime mode");
-ok(builder.includes('if(/<script\\s+src="js\\//.test(standalone))'),"standalone builder rejects residual external app JS");
+ok(builder.includes('if(/<script\\s+src="\\/js\\//.test(standalone))'),"standalone builder rejects residual root-relative external app JS");
 
 ok(!/\son(?:click|change|input|keydown|keyup|focus|submit)\s*=/i.test(html),"production HTML has no native inline event attributes");
-ok(html.includes('src="js/event-delegation.js"'),"delegated event runtime is loaded");
+ok(html.includes('src="/js/event-delegation.js"'),"delegated event runtime is root-relative and loaded on /app/");
 ok(events.includes("const ALLOWED_ACTIONS=new Set(["),"delegated actions use explicit allowlist");
 ok(events.includes("MAX_EXPRESSION_LENGTH=600"),"delegated expression length is bounded");
 ok(events.includes("statements.length<=4"),"delegated expression statement count is bounded");
