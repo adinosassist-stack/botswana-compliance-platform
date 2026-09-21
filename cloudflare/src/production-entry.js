@@ -16,6 +16,9 @@ const THEBE_PUBLIC_API_CLIENT_RELEASE="20260920a";
 const THEBE_AI_DOCK_RELEASE="20260921c";
 const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20260921a.js";
 const WORKSPACE_STYLES_ASSET="/assets/workspace-inline-styles-20260921a.css";
+const WORKSPACE_VIEW_FRAGMENTS_ASSET="/assets/workspace-view-fragments-20260921a.json";
+const WORKSPACE_RESIDENT_VIEW_IDS=Object.freeze(["dashboard","workhub"]);
+const WORKSPACE_LAZY_VIEW_IDS=Object.freeze(["peopleops","businesshub","evidencehub","tenderhub","automationhub","accounthub","obligations","employer","employees","dailyreports","sites","privacy","tender","events","manufacturing","sources","taxprofile","bwreadiness","corporate","employmentcontrols","publishing","calendar","vault","documents","changes","audit","rules","expert","security","integrations","billing","accountsocial","accountsecurity","accountdata","tenderready","protectionengine","employershield","companysecretary","compliancepassport","licenceos","partnerportal","workflowhub","aiservices","aicontrols","notifications","recurringautomation","servicesmarketplace","payments","entitlements","regulatoryintel","regulatoryobligations","inspectionreadiness","datadeletion","evidenceintegrity","controlcenter","riskengine","portfolioRisk","industryintel","assurancefreshness","auditintegrity","controllineage","regulatorygovernance","statutorycalendar","businessevents","partneractioncenter","profile"]);
 const TURNSTILE_SECRET_HEALTH_TTL_MS=5*60*1000;
 const REGISTRATION_PROOF_TTL_MS=5*60*1000;
 const REGISTRATION_PROOF_DIFFICULTY=10;
@@ -143,6 +146,94 @@ function externalizeWorkspaceHeadStyles(html){
   });
   return count?rewritten+tail:source;
 }
+
+function findMatchingSectionBounds(source,start){
+  const openEnd=source.indexOf(">",start)+1;
+  if(openEnd<=0)return null;
+  const token=/<\/?section\b[^>]*>/gi;
+  token.lastIndex=start;
+  let depth=0,match;
+  while((match=token.exec(source))){
+    if(/^<section\b/i.test(match[0]))depth+=1;
+    else depth-=1;
+    if(depth===0)return {openEnd,closeStart:match.index,end:token.lastIndex};
+  }
+  return null;
+}
+
+function externalizeWorkspaceViews(html){
+  const source=String(html||"");
+  const replacements=[];
+  for(const id of WORKSPACE_LAZY_VIEW_IDS){
+    const pattern=new RegExp(`<section\\b[^>]*\\bid=["']${id}["'][^>]*>`,"i");
+    const match=pattern.exec(source);
+    if(!match)return source;
+    const bounds=findMatchingSectionBounds(source,match.index);
+    if(!bounds)return source;
+    const openTag=source.slice(match.index,bounds.openEnd);
+    const placeholder=`${openTag.slice(0,-1)} data-lazy-view="1" data-lazy-view-id="${id}" aria-busy="false"></section>`;
+    replacements.push({start:match.index,end:bounds.end,placeholder});
+  }
+  if(replacements.length!==WORKSPACE_LAZY_VIEW_IDS.length)return source;
+  let transformed=source;
+  for(const replacement of replacements.sort((a,b)=>b.start-a.start)){
+    transformed=transformed.slice(0,replacement.start)+replacement.placeholder+transformed.slice(replacement.end);
+  }
+  return transformed;
+}
+
+function injectWorkspaceLazyViewClient(runtime){
+  let source=String(runtime||"");
+  const marker='let lastWorkspaceView="dashboard";';
+  if(!source.includes(marker))return source;
+  const hydrationBlock=`
+const WORKSPACE_VIEW_FRAGMENTS_ASSET="/assets/workspace-view-fragments-20260921a.json";
+let workspaceViewFragmentsPromise=null;
+async function workspaceViewFragments(){
+  if(workspaceViewFragmentsPromise)return workspaceViewFragmentsPromise;
+  workspaceViewFragmentsPromise=fetch(WORKSPACE_VIEW_FRAGMENTS_ASSET,{method:"GET",credentials:"same-origin",cache:"force-cache"}).then(async response=>{
+    if(!response.ok)throw new Error("Workspace view bundle is unavailable.");
+    const payload=await response.json();
+    if(!payload||payload.schema!==1||!payload.views||typeof payload.views!=="object")throw new Error("Workspace view bundle is invalid.");
+    return payload.views;
+  }).catch(error=>{workspaceViewFragmentsPromise=null;throw error});
+  return workspaceViewFragmentsPromise;
+}
+async function hydrateLazyWorkspaceView(id,target,options={}){
+  if(!target||target.dataset.lazyView!=="1")return false;
+  if(target.dataset.lazyLoading==="1")return true;
+  target.dataset.lazyLoading="1";
+  target.setAttribute("aria-busy","true");
+  const status=document.getElementById("srStatus");
+  if(status)status.textContent="Loading "+String(id||"workspace")+"…";
+  try{
+    const views=await workspaceViewFragments();
+    const markup=Object.prototype.hasOwnProperty.call(views,id)?views[id]:null;
+    if(typeof markup!=="string")throw new Error("Workspace view is unavailable.");
+    if(!window.BW?.dom?.renderMarkup)throw new Error("Workspace DOM safety layer is unavailable.");
+    window.BW.dom.renderMarkup(target,markup);
+    target.dataset.lazyHydrated="1";
+    target.removeAttribute("data-lazy-view");
+    target.removeAttribute("data-lazy-view-id");
+    target.setAttribute("aria-busy","false");
+    delete target.dataset.lazyLoading;
+    return showView(id,{...options,lazyHydrated:true});
+  }catch(error){
+    target.setAttribute("aria-busy","false");
+    delete target.dataset.lazyLoading;
+    console.error("workspace_lazy_view_hydration_failed",{view:id,error});
+    if(status)status.textContent="This workspace area could not be loaded. Try again.";
+    return false;
+  }
+}
+`;
+  source=source.replace(marker,hydrationBlock+"\n"+marker);
+  const targetNeedle='const target=document.getElementById(id);if(!target){console.warn("Unknown view",id);return false}lastWorkspaceView=id;';
+  if(!source.includes(targetNeedle))return String(runtime||"");
+  source=source.replace(targetNeedle,'const target=document.getElementById(id);if(!target){console.warn("Unknown view",id);return false}if(target.dataset.lazyView==="1"&&options?.lazyHydrated!==true){void hydrateLazyWorkspaceView(id,target,options);return true}lastWorkspaceView=id;');
+  return source;
+}
+
 
 function injectOwnerCommandCentreAssets(html){
   let source=String(html||"");
@@ -322,7 +413,7 @@ async function fetchWithTurnstileCspRepair(request,env,ctx){
   const path=logicalRequestPath(request);
   if(path===WORKSPACE_RUNTIME_ASSET&&(type.includes("javascript")||type.includes("ecmascript")||type.includes("text/plain"))){
     const runtime=await response.clone().text();
-    const repairedRuntime=injectFirstPartyRegistrationClient(runtime);
+    const repairedRuntime=injectWorkspaceLazyViewClient(injectFirstPartyRegistrationClient(runtime));
     if(repairedRuntime===runtime)return response;
     const headers=new Headers(response.headers);
     headers.set("x-thebe-registration-protection","first-party-proof-v1");
@@ -333,7 +424,7 @@ async function fetchWithTurnstileCspRepair(request,env,ctx){
   const baseHtml=injectFirstPartyRegistrationClient(injectLogoFavicon(stripConflictingMetaCsp(html)));
   const publicSurface=path==="/home"||path==="/home/";
   const workspaceSurface=path==="/"||path==="/app"||path==="/app/";
-  const surfaceHtml=workspaceSurface?externalizeWorkspaceHeadStyles(externalizeWorkspaceRuntime(baseHtml)):baseHtml;
+  const surfaceHtml=workspaceSurface?externalizeWorkspaceViews(externalizeWorkspaceHeadStyles(externalizeWorkspaceRuntime(baseHtml))):baseHtml;
   const repaired=workspaceSurface?injectOwnerCommandCentreAssets(surfaceHtml):publicSurface?injectPublicThebeAssets(surfaceHtml):surfaceHtml;
   if(repaired===html)return response;
   const headers=new Headers(response.headers);
@@ -357,6 +448,8 @@ export {
   injectPublicThebeAssets,
   externalizeWorkspaceRuntime,
   externalizeWorkspaceHeadStyles,
+  externalizeWorkspaceViews,
+  injectWorkspaceLazyViewClient,
   isRegistrationRequest,
   isRegistrationProofChallengeRequest,
   rewriteRegistrationVerificationFailure,
