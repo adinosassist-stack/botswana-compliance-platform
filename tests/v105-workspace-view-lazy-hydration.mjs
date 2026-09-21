@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 
 const html=fs.readFileSync("public/index.html","utf8");
 const fragments=JSON.parse(fs.readFileSync("public/assets/workspace-view-fragments-20260921a.json","utf8"));
+const fragmentShards=Array.from({length:12},(_,i)=>JSON.parse(fs.readFileSync(`public/assets/workspace-view-fragments-20260921b-${i}.json`,"utf8")));
+const viewShard=id=>{let hash=0;for(const ch of String(id||""))hash=(Math.imul(hash,31)+ch.charCodeAt(0))>>>0;return hash%12};
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const runtime=fs.readFileSync("public/js/workspace-runtime-20260921a.js","utf8");
@@ -38,11 +40,28 @@ for(const view of lazyViews){
   assert.doesNotMatch(canonical,/<(?:script|iframe|object|embed|base|meta|link|img|svg|math|video|audio|source|track)\b/i,`fragment ${view.id} must stay compatible with BW.dom sanitizer`);
 }
 
-assert.match(production,/WORKSPACE_VIEW_FRAGMENTS_ASSET="\/assets\/workspace-view-fragments-20260921a\.json"/);
+assert.match(production,/WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT=12/);
+assert.match(production,/WORKSPACE_VIEW_FRAGMENT_PREFIX="\\/assets\\/workspace-view-fragments-20260921b-"/);
+assert.match(production,/function workspaceViewShard\\(id\\)/);
+assert.match(production,/workspaceViewShardPromises=new Map\\(\\)/);
+assert.match(production,/workspaceViewFragments\\(id\\)/);
 assert.match(production,/WORKSPACE_RESIDENT_VIEW_IDS=Object\.freeze\(\["dashboard","workhub"\]\)/);
 assert.match(production,/function externalizeWorkspaceViews\(html\)/);
 assert.match(production,/data-lazy-view="1"/);
 assert.match(production,/function injectWorkspaceLazyViewClient\(runtime\)/);
+const seen=new Set();
+for(let i=0;i<fragmentShards.length;i++){
+  const payload=fragmentShards[i];
+  assert.equal(payload.schema,2,`shard ${i} schema mismatch`);
+  assert.equal(payload.shard,i,`shard ${i} index mismatch`);
+  for(const [id,markup] of Object.entries(payload.views)){
+    assert.equal(viewShard(id),i,`view ${id} is in the wrong shard`);
+    assert.equal(fragments.views[id],markup,`sharded markup drift for ${id}`);
+    assert.ok(!seen.has(id),`view ${id} duplicated across shards`);
+    seen.add(id);
+  }
+}
+assert.equal(seen.size,Object.keys(fragments.views).length,"shards must cover every lazy view exactly once");
 assert.match(production,/window\.BW\?\.dom\?\.renderMarkup/,"hydration must use the sanctioned DOM sanitizer");
 assert.match(production,/credentials:"same-origin",cache:"force-cache"/);
 assert.match(production,/target\.dataset\.lazyView==="1"/);
