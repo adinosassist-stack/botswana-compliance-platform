@@ -5,7 +5,8 @@ const worker=bytes("cloudflare/src/worker.js"),html=bytes("public/index.html"),w
 const workerGzip=zlib.gzipSync(worker,{level:9}),htmlGzip=zlib.gzipSync(html,{level:9});
 ok(worker.length<1_500_000,`Worker source budget exceeded (${kb(worker.length)} KiB)`);
 ok(workerGzip.length<512_000,`Worker gzip headroom budget exceeded (${kb(workerGzip.length)} KiB)`);
-ok(html.length<650_000,`application HTML budget exceeded (${kb(html.length)} KiB)`);\nok(workspaceRuntime.length<550_000,`workspace runtime budget exceeded (${kb(workspaceRuntime.length)} KiB)`);
+ok(html.length<650_000,`application HTML budget exceeded (${kb(html.length)} KiB)`);
+ok(workspaceRuntime.length<550_000,`workspace runtime budget exceeded (${kb(workspaceRuntime.length)} KiB)`);
 ok(htmlGzip.length<300_000,`application HTML gzip budget exceeded (${kb(htmlGzip.length)} KiB)`);
 const walk=dir=>fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>{const p=path.join(dir,e.name);return e.isDirectory()?walk(p):[p]});
 const staticFiles=walk(path.join(root,"public")).filter(p=>!p.endsWith(`${path.sep}_headers`)&&!p.endsWith(`${path.sep}.assetsignore`));
