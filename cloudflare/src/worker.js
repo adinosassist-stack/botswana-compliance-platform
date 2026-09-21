@@ -58,7 +58,8 @@ function authTransportProbeResponse(transport){return json({ok:true,transport,re
 async function versionRuntimeResponse(response,request,url){
   const headers=new Headers(response.headers);
   const immutableWorkspaceRuntime=/^\/js\/workspace-runtime-[a-z0-9.-]+\.js$/i.test(url.pathname);
-  if(immutableWorkspaceRuntime&&["GET","HEAD"].includes(request.method)){headers.set("cache-control","public, max-age=31536000, immutable");headers.set("cdn-cache-control","public, max-age=31536000, immutable");headers.set("x-thebe-client-release",CLIENT_RUNTIME_RELEASE);return new Response(request.method==="HEAD"?null:response.body,{status:response.status,statusText:response.statusText,headers})}
+  const immutableWorkspaceStyles=/^\/assets\/workspace-inline-styles-[a-z0-9.-]+\.css$/i.test(url.pathname);
+  if((immutableWorkspaceRuntime||immutableWorkspaceStyles)&&["GET","HEAD"].includes(request.method)){headers.set("cache-control","public, max-age=31536000, immutable");headers.set("cdn-cache-control","public, max-age=31536000, immutable");headers.set("x-thebe-client-release",CLIENT_RUNTIME_RELEASE);return new Response(request.method==="HEAD"?null:response.body,{status:response.status,statusText:response.statusText,headers})}
   if(url.pathname.startsWith("/js/")&&url.pathname.endsWith(".js")&&["GET","HEAD"].includes(request.method)){headers.set("cache-control","no-store, max-age=0");headers.set("cdn-cache-control","no-store");headers.set("x-thebe-client-release",CLIENT_RUNTIME_RELEASE);return new Response(request.method==="HEAD"?null:response.body,{status:response.status,statusText:response.statusText,headers})}
   if(url.pathname!=="/"||!["GET","HEAD"].includes(request.method))return response;
   const type=String(headers.get("content-type")||"").toLowerCase();if(!type.includes("text/html"))return response;
