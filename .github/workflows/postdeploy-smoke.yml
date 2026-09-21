@@ -91,6 +91,15 @@ jobs:
           assert.match(String(root.headers.get('content-security-policy')||''),/default-src 'self'/);
           console.log('PASS public-only root + security headers');
 
+          const workspaceRuntime=await get('/js/workspace-runtime-20260921b.js');
+          assert.equal(workspaceRuntime.status,200);
+          assert.match(String(workspaceRuntime.headers.get('cache-control')||''),/immutable/);
+          const workspaceRuntimeText=await workspaceRuntime.text();
+          assert.match(workspaceRuntimeText,/let workspaceViewNavigationEpoch=0/);
+          assert.match(workspaceRuntimeText,/lazyNavigationEpoch/);
+          assert.match(workspaceRuntimeText,/workspace-view-fragments-20260921b-/);
+          console.log('PASS immutable workspace runtime release + lazy-navigation hardening');
+
           const auth=await get('/auth/');
           assert.equal(auth.status,200);assert.equal(auth.headers.get('x-thebe-surface'),'auth');assert.match(String(auth.headers.get('x-robots-tag')||''),/noindex/i);
           const authHtml=await auth.text();assert.match(authHtml,/id="authForm"/);assert.doesNotMatch(authHtml,/id="appShell"/);

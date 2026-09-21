@@ -14,7 +14,7 @@ const BUSINESS_DATA_BRIDGE_RELEASE="20260913d";
 const THEBE_LIVE_VOICE_RELEASE="20260921c";
 const THEBE_PUBLIC_API_CLIENT_RELEASE="20260920a";
 const THEBE_AI_DOCK_RELEASE="20260921c";
-const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20260921a.js";
+const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20260921b.js";
 const WORKSPACE_STYLES_ASSET="/assets/workspace-inline-styles-20260921a.css";
 const WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT=12;
 const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20260921b-";
@@ -191,6 +191,7 @@ function injectWorkspaceLazyViewClient(runtime){
 const WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT=12;
 const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20260921b-";
 const workspaceViewShardPromises=new Map();
+let workspaceViewNavigationEpoch=0;
 function workspaceViewShard(id){
   let hash=0;
   const value=String(id||"");
@@ -228,12 +229,15 @@ async function hydrateLazyWorkspaceView(id,target,options={}){
     target.removeAttribute("data-lazy-view-id");
     target.setAttribute("aria-busy","false");
     delete target.dataset.lazyLoading;
-    return showView(id,{...options,lazyHydrated:true});
+    const requestedEpoch=Number(target.dataset.lazyNavigationEpoch||0);
+    delete target.dataset.lazyNavigationEpoch;
+    if(requestedEpoch!==workspaceViewNavigationEpoch)return true;
+    return showView(id,{...options,lazyHydrated:true,preserveNavigationEpoch:true});
   }catch(error){
     target.setAttribute("aria-busy","false");
     delete target.dataset.lazyLoading;
     console.error("workspace_lazy_view_hydration_failed",{view:id,error});
-    if(status)status.textContent="This workspace area could not be loaded. Try again.";
+    if(Number(target.dataset.lazyNavigationEpoch||0)===workspaceViewNavigationEpoch&&status)status.textContent="This workspace area could not be loaded. Try again.";
     return false;
   }
 }
@@ -241,7 +245,7 @@ async function hydrateLazyWorkspaceView(id,target,options={}){
   source=source.replace(marker,hydrationBlock+"\n"+marker);
   const targetNeedle='const target=document.getElementById(id);if(!target){console.warn("Unknown view",id);return false}lastWorkspaceView=id;';
   if(!source.includes(targetNeedle))return String(runtime||"");
-  source=source.replace(targetNeedle,'const target=document.getElementById(id);if(!target){console.warn("Unknown view",id);return false}if(target.dataset.lazyView==="1"&&options?.lazyHydrated!==true){void hydrateLazyWorkspaceView(id,target,options);return true}lastWorkspaceView=id;');
+  source=source.replace(targetNeedle,'const target=document.getElementById(id);if(!target){console.warn("Unknown view",id);return false}const workspaceNavigationEpoch=options?.preserveNavigationEpoch===true?workspaceViewNavigationEpoch:++workspaceViewNavigationEpoch;if(target.dataset.lazyView==="1"&&options?.lazyHydrated!==true){target.dataset.lazyNavigationEpoch=String(workspaceNavigationEpoch);void hydrateLazyWorkspaceView(id,target,options);return true}lastWorkspaceView=id;');
   return source;
 }
 
