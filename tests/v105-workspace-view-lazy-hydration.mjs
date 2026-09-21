@@ -8,7 +8,7 @@ const viewShard=id=>{let hash=0;for(const ch of String(id||""))hash=(Math.imul(h
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
 const coreWorkspaceScripts=["dom-security.js","event-delegation.js","notifications.js","dialog-service.js","api-client.js","state-store.js","components.js"];
 for(const script of coreWorkspaceScripts){
-  assert.match(html,new RegExp(`<script\\\\s+src=["']\\\\/js\\\\/${script.replace(/[.*+?^$()|[\\]\\\\]/g,"\\\\const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");")}["']`),`workspace core asset must be root-relative for /app/: ${script}`);
+  assert.ok(html.includes(`<script src="/js/${script}"></script>`),`workspace core asset must be root-relative for /app/: ${script}`);
 }
 assert.doesNotMatch(html,/<script\\b[^>]*\\bsrc=["']js\\//i,"workspace core scripts must not resolve under /app/js/");
 
