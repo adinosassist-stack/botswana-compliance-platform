@@ -6,6 +6,12 @@ const fragments=JSON.parse(fs.readFileSync("public/assets/workspace-view-fragmen
 const fragmentShards=Array.from({length:12},(_,i)=>JSON.parse(fs.readFileSync(`public/assets/workspace-view-fragments-20260921b-${i}.json`,"utf8")));
 const viewShard=id=>{let hash=0;for(const ch of String(id||""))hash=(Math.imul(hash,31)+ch.charCodeAt(0))>>>0;return hash%12};
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
+const coreWorkspaceScripts=["dom-security.js","event-delegation.js","notifications.js","dialog-service.js","api-client.js","state-store.js","components.js"];
+for(const script of coreWorkspaceScripts){
+  assert.ok(html.includes(`<script src="/js/${script}"></script>`),`workspace core asset must be root-relative for /app/: ${script}`);
+}
+assert.ok(!html.includes('src="js/')&&!html.includes("src=\'js/"),"workspace core scripts must not resolve under /app/js/");
+
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const runtime=fs.readFileSync("public/js/workspace-runtime-20260921c.js","utf8");
 
