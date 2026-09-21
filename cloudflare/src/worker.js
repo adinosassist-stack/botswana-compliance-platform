@@ -31,7 +31,7 @@ const API_TRANSPORT_PREFIX="/__thebe_api";
 const API_TUNNEL_PATH_PARAM="__thebe_api_path";
 const API_TUNNEL_QUERY_PARAM="__thebe_api_query";
 const REGISTER_TRANSPORT_PROBE_PATH="/api/auth/register-transport-probe";
-const CLIENT_RUNTIME_RELEASE="20260906-registration-post-capability-v1";
+const CLIENT_RUNTIME_RELEASE="20260921-workspace-actions-v1";
 function logicalApiPath(pathname){const path=String(pathname||"");if(path===API_TRANSPORT_PREFIX)return "/api";if(path.startsWith(`${API_TRANSPORT_PREFIX}/`))return `/api${path.slice(API_TRANSPORT_PREFIX.length)}`;return null}
 function tunnelPathSegmentSafe(segment){if(segment==="."||segment==="..")return false;try{const decoded=decodeURIComponent(segment);return decoded!=="."&&decoded!==".."}catch{return false}}
 function rootTunnelApiTarget(url){
@@ -57,12 +57,12 @@ function registrationProbeOriginAllowed(request,url){const origin=String(request
 function authTransportProbeResponse(transport){return json({ok:true,transport,release:CLIENT_RUNTIME_RELEASE},200,{"x-thebe-client-release":CLIENT_RUNTIME_RELEASE})}
 async function versionRuntimeResponse(response,request,url){
   const headers=new Headers(response.headers);
-  if(url.pathname==="/js/api-client.js"&&["GET","HEAD"].includes(request.method)){headers.set("cache-control","no-store, max-age=0");headers.set("cdn-cache-control","no-store");headers.set("x-thebe-client-release",CLIENT_RUNTIME_RELEASE);return new Response(request.method==="HEAD"?null:response.body,{status:response.status,statusText:response.statusText,headers})}
+  if(url.pathname.startsWith("/js/")&&url.pathname.endsWith(".js")&&["GET","HEAD"].includes(request.method)){headers.set("cache-control","no-store, max-age=0");headers.set("cdn-cache-control","no-store");headers.set("x-thebe-client-release",CLIENT_RUNTIME_RELEASE);return new Response(request.method==="HEAD"?null:response.body,{status:response.status,statusText:response.statusText,headers})}
   if(url.pathname!=="/"||!["GET","HEAD"].includes(request.method))return response;
   const type=String(headers.get("content-type")||"").toLowerCase();if(!type.includes("text/html"))return response;
   headers.set("cache-control","no-store, max-age=0");headers.set("cdn-cache-control","no-store");headers.set("x-thebe-client-release",CLIENT_RUNTIME_RELEASE);
   if(request.method==="HEAD")return new Response(null,{status:response.status,statusText:response.statusText,headers});
-  const html=await response.text(),versioned=html.replaceAll('src="js/api-client.js"',`src="js/api-client.js?v=${CLIENT_RUNTIME_RELEASE}"`).replaceAll('src="/js/api-client.js"',`src="/js/api-client.js?v=${CLIENT_RUNTIME_RELEASE}"`);
+  const html=await response.text(),versioned=html.replace(/src="(\\/?js\\/[^"?]+\\.js)(?:\\?[^"]*)?"/g,`src="$1?v=${CLIENT_RUNTIME_RELEASE}"`);
   return new Response(versioned,{status:response.status,statusText:response.statusText,headers});
 }
 
