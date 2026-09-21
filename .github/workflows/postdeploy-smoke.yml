@@ -91,15 +91,20 @@ jobs:
           assert.match(String(root.headers.get('content-security-policy')||''),/default-src 'self'/);
           console.log('PASS public-only root + security headers');
 
-          const workspaceRuntime=await get('/js/workspace-runtime-20260921c.js');
+          const productionEntry=fs.readFileSync('cloudflare/src/production-entry.js','utf8');
+          const runtimeAsset=productionEntry.match(/const WORKSPACE_RUNTIME_ASSET="([^"]+)"/)?.[1]||'';
+          const fragmentPrefix=productionEntry.match(/const WORKSPACE_VIEW_FRAGMENT_PREFIX="([^"]+)"/)?.[1]||'';
+          assert.match(runtimeAsset,/^\/js\/workspace-runtime-[a-z0-9.-]+\.js$/i,'workspace runtime asset source-of-truth missing');
+          assert.match(fragmentPrefix,/^\/assets\/workspace-view-fragments-[a-z0-9.-]+-$/i,'workspace fragment prefix source-of-truth missing');
+          const workspaceRuntime=await get(runtimeAsset);
           assert.equal(workspaceRuntime.status,200);
           assert.match(String(workspaceRuntime.headers.get('cache-control')||''),/immutable/);
           assert.ok(workspaceRuntime.headers.get('x-thebe-client-release'),'workspace runtime must pass through Worker versioning boundary');
           const workspaceRuntimeText=await workspaceRuntime.text();
           assert.match(workspaceRuntimeText,/let workspaceViewNavigationEpoch=0/);
           assert.match(workspaceRuntimeText,/lazyNavigationEpoch/);
-          assert.match(workspaceRuntimeText,/workspace-view-fragments-20260921b-/);
-          console.log('PASS immutable workspace runtime release + lazy-navigation hardening');
+          assert.ok(workspaceRuntimeText.includes(fragmentPrefix),`workspace runtime fragment prefix mismatch expected=${fragmentPrefix}`);
+          console.log(`PASS immutable workspace runtime release + lazy-navigation hardening runtime=${runtimeAsset} fragments=${fragmentPrefix}`);
 
           const auth=await get('/auth/');
           assert.equal(auth.status,200);assert.equal(auth.headers.get('x-thebe-surface'),'auth');assert.match(String(auth.headers.get('x-robots-tag')||''),/noindex/i);
