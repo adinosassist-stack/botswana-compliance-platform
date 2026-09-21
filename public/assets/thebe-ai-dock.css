@@ -63,7 +63,7 @@
 
 @media(min-width:1180px){body.thebe-ai-dock-open #appShell main{padding-right:calc(30px + var(--thebe-dock-w) + 22px)!important}}
 @media(max-width:1179px){.thebe-ai-dock{top:70px;bottom:14px;right:14px}.thebe-ai-pill{right:8px;top:50%;bottom:auto;transform:translateY(-50%)}}
-@media(max-width:650px){.thebe-ai-dock{left:8px;right:8px;top:auto;bottom:78px;width:auto;max-height:72vh;border-radius:17px}.thebe-ai-dock-scroll{padding:11px 12px}.thebe-ai-orb-button,.thebe-particle-orb{width:88px;height:88px}.thebe-ai-pill{top:auto;bottom:78px;right:10px;transform:none}.thebe-ai-quick{grid-template-columns:1fr 1fr}}
+@media(max-width:1023px){.thebe-ai-dock{left:8px;right:8px;top:auto;bottom:78px;width:auto;max-height:72vh;border-radius:17px}.thebe-ai-dock-scroll{padding:11px 12px}.thebe-ai-orb-button,.thebe-particle-orb{width:88px;height:88px}.thebe-ai-pill{top:auto;bottom:78px;right:10px;transform:none}.thebe-ai-quick{grid-template-columns:1fr 1fr}}
 @media(prefers-reduced-motion:reduce){.thebe-particle-orb{transform:none!important;transition:none!important}.thebe-particle-orb *,.thebe-particle-orb:before,.thebe-particle-orb:after{animation:none!important;transition:none!important}.thebe-particle-orb[data-phase="listening"] .thebe-particle,.thebe-particle-orb[data-phase="speaking"] .thebe-particle{opacity:.82!important;transform:translate(-50%,-50%) scale(1.15)!important}}
 
 .thebe-ai-dock[data-surface="public"]{box-shadow:0 18px 70px rgba(15,23,42,.18)}
@@ -102,13 +102,13 @@
 .thebe-ai-pill[data-surface="public"]{top:auto;bottom:24px;right:24px;transform:none;background:#050505;color:#fff;border-color:#050505;padding:11px 15px;border-radius:999px;box-shadow:0 18px 55px rgba(0,0,0,.24)}
 .thebe-ai-pill[data-surface="public"] .thebe-ai-pill-dot{background:#fff;animation:thebe-pill-pulse 1.8s ease-in-out infinite}
 .thebe-ai-pill-label{vertical-align:middle}
-@media(max-width:650px){
+@media(max-width:1023px){
   .thebe-ai-dock[data-surface="public"]{left:10px;right:10px;bottom:76px;width:auto;height:auto;max-height:76vh}
   .thebe-ai-pill[data-surface="public"]{right:12px;bottom:76px}
 }
 
 /* Desktop persistence contract: Thebe remains a full dock above the mobile breakpoint. */
-@media(min-width:651px){
+@media(min-width:1024px){
   .thebe-ai-pill{display:none!important}
   .thebe-ai-minimize{display:none!important}
   .thebe-ai-dock[data-surface="public"],.thebe-ai-dock[data-surface="workspace"]{display:flex}
@@ -169,7 +169,7 @@
 .thebe-ai-pill{background:#0b66d6;color:#fff;border-color:#0b66d6}
 .thebe-ai-pill .thebe-ai-pill-dot{background:#fff}
 
-@media(min-width:651px){
+@media(min-width:1024px){
   .thebe-ai-dock[data-surface="public"]{
     top:72px;right:0;bottom:0;left:auto;
     width:min(var(--thebe-dock-w),calc(100vw - 24px));
@@ -195,7 +195,7 @@
   .thebe-ai-minimize{display:none!important}
 }
 
-@media(max-width:650px){
+@media(max-width:1023px){
   .thebe-ai-dock[data-surface="public"]{
     left:10px;right:10px;top:auto;bottom:76px;width:auto;height:auto;max-height:76vh;
     border-radius:17px;border:1px solid #e5e5e1
@@ -206,7 +206,7 @@
 
 
 /* Medium desktop/tablet refinement: keep the full dock, but give the marketing page enough reading width. */
-@media(min-width:651px) and (max-width:1179px){
+@media(min-width:1024px) and (max-width:1179px){
   :root{--thebe-dock-w:320px}
   .thebe-ai-dock[data-surface="public"] .thebe-ai-dock-scroll{padding:11px 12px 10px;gap:10px}
 }
