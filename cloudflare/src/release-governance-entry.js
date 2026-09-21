@@ -8,6 +8,7 @@ const OAUTH_VISIBILITY_SCRIPT="/js/oauth-availability.js?v=20260916b";
 const WORKSPACE_BOUNDARY_SCRIPT="/js/surface-boundaries.js?v=20260918-no-layout-read";
 const PUBLIC_HOME_ASSET="/home";
 const AUTH_PORTAL_ASSET="/auth";
+const VOICE_SURFACE_PERMISSIONS_POLICY="camera=(), microphone=(self), geolocation=(), payment=()";
 const SYNTHETIC_LEGACY_ROOT_PARAMS=new Set(["desktop-owner-proof","authenticated-mobile-proof"]);
 const SYNTHETIC_EMAIL_RE=/^synthetic\.lifecycle\.\d+\.\d+\.[0-9a-f]{12}@example\.invalid$/;
 const MAX_REGISTRATION_POLICY_BODY_BYTES=16*1024;
@@ -55,6 +56,12 @@ function trailingSlashRedirect(request,pathname){
   const current=new URL(request.url),target=new URL(request.url);target.pathname=pathname;
   if(pathname==="/auth/"||pathname==="/app/")target.search=current.search;
   return Response.redirect(target.toString(),302);
+}
+
+function voiceSurfacePermissionsPolicy(path,contentType){
+  const html=String(contentType||"").toLowerCase().includes("text/html");
+  if(!html)return null;
+  return path==="/"||path==="/app"||path==="/app/"?VOICE_SURFACE_PERMISSIONS_POLICY:null;
 }
 
 function registrationMode(env){
@@ -316,6 +323,8 @@ async function decorateResponse(request,env,response){
   }
 
   const headers=new Headers(next.headers);
+  const voicePolicy=voiceSurfacePermissionsPolicy(path,headers.get("content-type"));
+  if(voicePolicy)headers.set("permissions-policy",voicePolicy);
   const provenance=releaseProvenance(env);
   if(provenance.sourceSha)headers.set("x-thebe-source-sha",provenance.sourceSha);
   if(provenance.releaseSequence>0)headers.set("x-thebe-release-sequence",String(provenance.releaseSequence));
@@ -396,5 +405,6 @@ export {
   releaseProvenance,
   signedSyntheticRegistrationAllowed,
   syntheticLegacyRootRequested,
+  voiceSurfacePermissionsPolicy,
   workspaceSurfaceResponse
 };
