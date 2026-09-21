@@ -15,6 +15,7 @@ const THEBE_LIVE_VOICE_RELEASE="20260921c";
 const THEBE_PUBLIC_API_CLIENT_RELEASE="20260920a";
 const THEBE_AI_DOCK_RELEASE="20260921c";
 const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20260921a.js";
+const WORKSPACE_STYLES_ASSET="/assets/workspace-inline-styles-20260921a.css";
 const TURNSTILE_SECRET_HEALTH_TTL_MS=5*60*1000;
 const REGISTRATION_PROOF_TTL_MS=5*60*1000;
 const REGISTRATION_PROOF_DIFFICULTY=10;
@@ -126,6 +127,21 @@ function externalizeWorkspaceRuntime(html){
   const pattern=/<script id="thebe-workspace-runtime-inline">[\s\S]*?<\/script>/;
   if(!pattern.test(source))return source;
   return source.replace(pattern,`<script id="thebe-workspace-runtime" src="${WORKSPACE_RUNTIME_ASSET}"></script>`);
+}
+
+function externalizeWorkspaceHeadStyles(html){
+  const source=String(html||"");
+  const headEnd=source.toLowerCase().indexOf("</head>");
+  if(headEnd<0)return source;
+  const head=source.slice(0,headEnd);
+  const tail=source.slice(headEnd);
+  const pattern=/<style\b[^>]*>[\s\S]*?<\/style>/gi;
+  let count=0;
+  const rewritten=head.replace(pattern,()=>{
+    count+=1;
+    return count===1?`<link id="thebe-workspace-inline-styles" rel="stylesheet" href="${WORKSPACE_STYLES_ASSET}" />`:"";
+  });
+  return count?rewritten+tail:source;
 }
 
 function injectOwnerCommandCentreAssets(html){
@@ -317,7 +333,7 @@ async function fetchWithTurnstileCspRepair(request,env,ctx){
   const baseHtml=injectFirstPartyRegistrationClient(injectLogoFavicon(stripConflictingMetaCsp(html)));
   const publicSurface=path==="/home"||path==="/home/";
   const workspaceSurface=path==="/"||path==="/app"||path==="/app/";
-  const surfaceHtml=workspaceSurface?externalizeWorkspaceRuntime(baseHtml):baseHtml;
+  const surfaceHtml=workspaceSurface?externalizeWorkspaceHeadStyles(externalizeWorkspaceRuntime(baseHtml)):baseHtml;
   const repaired=workspaceSurface?injectOwnerCommandCentreAssets(surfaceHtml):publicSurface?injectPublicThebeAssets(surfaceHtml):surfaceHtml;
   if(repaired===html)return response;
   const headers=new Headers(response.headers);
@@ -340,6 +356,7 @@ export {
   injectOwnerCommandCentreAssets,
   injectPublicThebeAssets,
   externalizeWorkspaceRuntime,
+  externalizeWorkspaceHeadStyles,
   isRegistrationRequest,
   isRegistrationProofChallengeRequest,
   rewriteRegistrationVerificationFailure,
