@@ -14,6 +14,7 @@ const BUSINESS_DATA_BRIDGE_RELEASE="20260913d";
 const THEBE_LIVE_VOICE_RELEASE="20260921c";
 const THEBE_PUBLIC_API_CLIENT_RELEASE="20260920a";
 const THEBE_AI_DOCK_RELEASE="20260921c";
+const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20260921a.js";
 const TURNSTILE_SECRET_HEALTH_TTL_MS=5*60*1000;
 const REGISTRATION_PROOF_TTL_MS=5*60*1000;
 const REGISTRATION_PROOF_DIFFICULTY=10;
@@ -118,6 +119,13 @@ function injectPublicThebeAssets(html){
   if(!source.includes("/js/api-client.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${publicApiClientJsSrc}" defer></script>\n`);
   if(!source.includes("/js/thebe-live-voice.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${liveVoiceJsSrc}" defer></script>\n`);
   return source;
+}
+
+function externalizeWorkspaceRuntime(html){
+  const source=String(html||"");
+  const pattern=/<script id="thebe-workspace-runtime-inline">[\s\S]*?<\/script>/;
+  if(!pattern.test(source))return source;
+  return source.replace(pattern,`<script id="thebe-workspace-runtime" src="${WORKSPACE_RUNTIME_ASSET}"></script>`);
 }
 
 function injectOwnerCommandCentreAssets(html){
@@ -295,13 +303,22 @@ async function fetchWithTurnstileCspRepair(request,env,ctx){
   let response=await worker.fetch(request,env,ctx);
   if(request.method!=="GET")return response;
   const type=String(response.headers.get("content-type")||"").toLowerCase();
+  const path=logicalRequestPath(request);
+  if(path===WORKSPACE_RUNTIME_ASSET&&(type.includes("javascript")||type.includes("ecmascript")||type.includes("text/plain"))){
+    const runtime=await response.clone().text();
+    const repairedRuntime=injectFirstPartyRegistrationClient(runtime);
+    if(repairedRuntime===runtime)return response;
+    const headers=new Headers(response.headers);
+    headers.set("x-thebe-registration-protection","first-party-proof-v1");
+    return new Response(repairedRuntime,{status:response.status,statusText:response.statusText,headers});
+  }
   if(!type.includes("text/html"))return response;
   const html=await response.clone().text();
-  const path=logicalRequestPath(request);
   const baseHtml=injectFirstPartyRegistrationClient(injectLogoFavicon(stripConflictingMetaCsp(html)));
   const publicSurface=path==="/home"||path==="/home/";
   const workspaceSurface=path==="/"||path==="/app"||path==="/app/";
-  const repaired=workspaceSurface?injectOwnerCommandCentreAssets(baseHtml):publicSurface?injectPublicThebeAssets(baseHtml):baseHtml;
+  const surfaceHtml=workspaceSurface?externalizeWorkspaceRuntime(baseHtml):baseHtml;
+  const repaired=workspaceSurface?injectOwnerCommandCentreAssets(surfaceHtml):publicSurface?injectPublicThebeAssets(surfaceHtml):surfaceHtml;
   if(repaired===html)return response;
   const headers=new Headers(response.headers);
   headers.set("x-thebe-csp-meta","server-header-authoritative");
@@ -322,6 +339,7 @@ export {
   injectLogoFavicon,
   injectOwnerCommandCentreAssets,
   injectPublicThebeAssets,
+  externalizeWorkspaceRuntime,
   isRegistrationRequest,
   isRegistrationProofChallengeRequest,
   rewriteRegistrationVerificationFailure,
