@@ -62,7 +62,7 @@ async function versionRuntimeResponse(response,request,url){
   const type=String(headers.get("content-type")||"").toLowerCase();if(!type.includes("text/html"))return response;
   headers.set("cache-control","no-store, max-age=0");headers.set("cdn-cache-control","no-store");headers.set("x-thebe-client-release",CLIENT_RUNTIME_RELEASE);
   if(request.method==="HEAD")return new Response(null,{status:response.status,statusText:response.statusText,headers});
-  const html=await response.text(),versioned=html.replace(/src="(\\/?js\\/[^"?]+\\.js)(?:\\?[^"]*)?"/g,`src="$1?v=${CLIENT_RUNTIME_RELEASE}"`);
+  const html=await response.text(),versioned=html.replace(/src="(\/?js\/[^"?]+\.js)(?:\?[^"]*)?"/g,`src="$1?v=${CLIENT_RUNTIME_RELEASE}"`);
   return new Response(versioned,{status:response.status,statusText:response.statusText,headers});
 }
 
