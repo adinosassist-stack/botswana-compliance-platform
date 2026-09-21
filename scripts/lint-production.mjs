@@ -19,7 +19,7 @@ for(const f of publicFiles){
 }
 ok(!/localStorage\.(?:setItem|getItem|removeItem|clear)\s*\(/.test(html),"application shell must not persist app data in localStorage");
 ok(!/(?:^|\s)on(?:click|change|input|submit|keydown|keyup|focus)\s*=\s*["']/im.test(html),"application shell must not contain native inline event attributes");
-ok(html.includes('src="js/event-delegation.js"'),"delegated event runtime must be loaded");
+ok(html.includes('src="/js/event-delegation.js"'),"delegated event runtime must be root-relative and loaded on /app/");
 ok(read("public/js/event-delegation.js").includes("ALLOWED_ACTIONS")&&read("public/js/event-delegation.js").includes("isAllowedExpression"),"delegated event runtime must use an explicit action allowlist and expression validator");
 ok(worker.includes("script-src-attr 'none'"),"production CSP must disable native inline event-handler execution");
 
