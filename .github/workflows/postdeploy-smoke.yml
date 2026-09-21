@@ -91,9 +91,10 @@ jobs:
           assert.match(String(root.headers.get('content-security-policy')||''),/default-src 'self'/);
           console.log('PASS public-only root + security headers');
 
-          const workspaceRuntime=await get('/js/workspace-runtime-20260921b.js');
+          const workspaceRuntime=await get('/js/workspace-runtime-20260921c.js');
           assert.equal(workspaceRuntime.status,200);
           assert.match(String(workspaceRuntime.headers.get('cache-control')||''),/immutable/);
+          assert.ok(workspaceRuntime.headers.get('x-thebe-client-release'),'workspace runtime must pass through Worker versioning boundary');
           const workspaceRuntimeText=await workspaceRuntime.text();
           assert.match(workspaceRuntimeText,/let workspaceViewNavigationEpoch=0/);
           assert.match(workspaceRuntimeText,/lazyNavigationEpoch/);
