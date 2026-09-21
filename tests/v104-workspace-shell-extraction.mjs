@@ -35,9 +35,9 @@ assert.match(production,/const WORKSPACE_STYLES_ASSET="\/assets\/workspace-inlin
 assert.match(production,/function externalizeWorkspaceRuntime\(html\)/);
 assert.match(production,/function externalizeWorkspaceHeadStyles\(html\)/);
 assert.match(production,/thebe-workspace-runtime-inline/);
-assert.match(production,/surfaceHtml=workspaceSurface\?externalizeWorkspaceHeadStyles\(externalizeWorkspaceRuntime\(baseHtml\)\):baseHtml/);
+assert.match(production,/surfaceHtml=workspaceSurface\?externalizeWorkspaceViews\(externalizeWorkspaceHeadStyles\(externalizeWorkspaceRuntime\(baseHtml\)\)\):baseHtml/);
 assert.match(production,/path===WORKSPACE_RUNTIME_ASSET/);
-assert.match(production,/repairedRuntime=injectFirstPartyRegistrationClient\(runtime\)/);
+assert.match(production,/repairedRuntime=injectWorkspaceLazyViewClient\(injectFirstPartyRegistrationClient\(runtime\)\)/);
 assert.match(production,/x-thebe-registration-protection","first-party-proof-v1"/);
 
 assert.match(budget,/deployedHtml\.length<160_000/);
