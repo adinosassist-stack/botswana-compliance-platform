@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 const html=fs.readFileSync("public/index.html","utf8");
 const fragments=JSON.parse(fs.readFileSync("public/assets/workspace-view-fragments-20260921a.json","utf8"));
-const fragmentShards=Array.from({length:12},(_,i)=>JSON.parse(fs.readFileSync(`public/assets/workspace-view-fragments-20260921b-${i}.json`,"utf8")));
+const fragmentShards=Array.from({length:12},(_,i)=>JSON.parse(fs.readFileSync(`public/assets/workspace-view-fragments-20260921c-${i}.json`,"utf8")));
 const viewShard=id=>{let hash=0;for(const ch of String(id||""))hash=(Math.imul(hash,31)+ch.charCodeAt(0))>>>0;return hash%12};
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
 const coreWorkspaceScripts=["dom-security.js","event-delegation.js","notifications.js","dialog-service.js","api-client.js","state-store.js","components.js"];
@@ -13,7 +13,7 @@ for(const script of coreWorkspaceScripts){
 assert.ok(!html.includes('src="js/')&&!html.includes("src=\'js/"),"workspace core scripts must not resolve under /app/js/");
 
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
-const runtime=fs.readFileSync("public/js/workspace-runtime-20260921c.js","utf8");
+const runtime=fs.readFileSync("public/js/workspace-runtime-20260921d.js","utf8");
 const delegatedEvents=fs.readFileSync("public/js/event-delegation.js","utf8");
 assert.match(delegatedEvents,/\'linkSocial\'/,"social connect action must remain in delegated event allowlist");
 
@@ -49,7 +49,7 @@ for(const view of lazyViews){
 }
 
 assert.match(production,/WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT=12/);
-assert.ok(production.includes('const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20260921b-";'));
+assert.ok(production.includes('const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20260921c-";'));
 assert.ok(production.includes("function workspaceViewShard(id){"));
 assert.ok(production.includes("const workspaceViewShardPromises=new Map();"));
 assert.ok(production.includes("async function workspaceViewFragments(id){"));
@@ -70,8 +70,13 @@ for(let i=0;i<fragmentShards.length;i++){
   }
 }
 assert.equal(seen.size,Object.keys(fragments.views).length,"shards must cover every lazy view exactly once");
+const peopleShard=fragmentShards[viewShard("peopleops")];
+assert.match(String(peopleShard.views.peopleops||""),/People & operations/,"People must hydrate its own semantic content");
+assert.doesNotMatch(String(peopleShard.views.peopleops||""),/Ruleset integrity|Sources in this prototype/i,"People must never hydrate regulatory source prototype copy");
+assert.match(String(fragmentShards[viewShard("sources")].views.sources||""),/Authoritative source registry/,"source governance content must remain scoped to the Sources view");
+assert.ok(production.includes('const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20260921d.js";'),"workspace runtime identity must rotate with injected runtime behavior");
 assert.match(production,/window\.BW\?\.dom\?\.renderMarkup/,"hydration must use the sanctioned DOM sanitizer");
-assert.match(production,/credentials:"same-origin",cache:"force-cache"/);
+assert.match(production,/credentials:"same-origin",cache:"reload"/,"lazy fragment requests must bypass stale immutable browser entries");
 assert.match(production,/target\.dataset\.lazyView==="1"/);
 assert.match(production,/hydrateLazyWorkspaceView\(id,target,options\)/);
 assert.match(production,/let workspaceViewNavigationEpoch=0/,"lazy navigation must carry a monotonic epoch");
