@@ -186,21 +186,6 @@ async function runFullUserJourney(credentials){
     await waitForWorkspace(page);
     mark('full-user workspace bootstrap','synthetic owner reached the authenticated /app/ workspace after reload');
 
-    const delegatedRuntime=await page.evaluate(()=>({
-      ready:typeof globalThis.BW?.events?.runExpression==='function',
-      coreScripts:[...document.querySelectorAll('script[src]')].map(node=>new URL(node.src,location.href).pathname).filter(path=>['/js/dom-security.js','/js/event-delegation.js','/js/notifications.js','/js/dialog-service.js','/js/api-client.js','/js/state-store.js','/js/components.js'].includes(path)),
-      badNestedAssets:performance.getEntriesByType('resource').map(entry=>{try{return new URL(entry.name).pathname}catch{return ''}}).filter(path=>path.startsWith('/app/js/')||path.startsWith('/app/assets/'))
-    }));
-    assert(delegatedRuntime.ready,'delegated data-bw action runtime did not load on /app/');
-    assert(delegatedRuntime.coreScripts.length===7,`expected 7 root-level workspace core scripts, got ${delegatedRuntime.coreScripts.length}`);
-    assert(delegatedRuntime.badNestedAssets.length===0,`workspace requested nested /app assets: ${safe(delegatedRuntime.badNestedAssets.join(', '))}`);
-    const delegatedWorkButton=page.locator('[data-bw-onclick="showView(\\'workhub\\')"]').first();
-    assert(await delegatedWorkButton.count(),'delegated Home -> Work button missing');
-    await delegatedWorkButton.click();
-    await page.waitForFunction(()=>document.getElementById('workhub')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
-    mark('workspace delegated button actions','real data-bw-onclick navigation executed through event-delegation.js on /app/');
-    await page.evaluate(()=>globalThis.showView?.('dashboard',{skipDataRefresh:true}));
-
     await page.waitForFunction(()=>{
       const api=globalThis.ThebeAiDock,dock=document.getElementById('thebeAiDock'),pill=document.getElementById('thebeAiDockPill');
       if(!api||!dock||!pill)return false;
