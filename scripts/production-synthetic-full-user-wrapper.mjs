@@ -194,7 +194,7 @@ async function runFullUserJourney(credentials){
     assert(delegatedRuntime.ready,'delegated data-bw action runtime did not load on /app/');
     assert(delegatedRuntime.coreScripts.length===7,`expected 7 root-level workspace core scripts, got ${delegatedRuntime.coreScripts.length}`);
     assert(delegatedRuntime.badNestedAssets.length===0,`workspace requested nested /app assets: ${safe(delegatedRuntime.badNestedAssets.join(', '))}`);
-    const delegatedWorkButton=page.locator('[data-bw-onclick="showView(\\'workhub\\')"]').first();
+    const delegatedWorkButton=page.locator("[data-bw-onclick=\"showView('workhub')\"]").first();
     assert(await delegatedWorkButton.count(),'delegated Home -> Work button missing');
     await delegatedWorkButton.click();
     await page.waitForFunction(()=>document.getElementById('workhub')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
