@@ -194,11 +194,13 @@ async function runFullUserJourney(credentials){
     assert(delegatedRuntime.ready,'delegated data-bw action runtime did not load on /app/');
     assert(delegatedRuntime.coreScripts.length===7,`expected 7 root-level workspace core scripts, got ${delegatedRuntime.coreScripts.length}`);
     assert(delegatedRuntime.badNestedAssets.length===0,`workspace requested nested /app assets: ${safe(delegatedRuntime.badNestedAssets.join(', '))}`);
-    const delegatedWorkButton=page.locator("[data-bw-onclick=\"showView('workhub')\"]").first();
-    assert(await delegatedWorkButton.count(),'delegated Home -> Work button missing');
+    await page.evaluate(()=>globalThis.showView?.('dashboard',{skipDataRefresh:true}));
+    await page.waitForFunction(()=>document.getElementById('dashboard')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
+    const delegatedWorkButton=page.locator("[data-bw-onclick=\"showView('workhub')\"]:visible").first();
+    assert(await delegatedWorkButton.count(),'visible delegated Home -> Work button missing');
     await delegatedWorkButton.click();
     await page.waitForFunction(()=>document.getElementById('workhub')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
-    mark('workspace delegated button actions','real data-bw-onclick navigation executed through event-delegation.js on /app/');
+    mark('workspace delegated button actions','visible data-bw-onclick navigation executed through event-delegation.js on /app/');
     await page.evaluate(()=>globalThis.showView?.('dashboard',{skipDataRefresh:true}));
 
     await page.waitForFunction(()=>{
