@@ -1,11 +1,11 @@
 import fs from "node:fs";import path from "node:path";import zlib from "node:zlib";
 const root=process.cwd(),bytes=p=>fs.readFileSync(path.join(root,p)),kb=n=>Math.round(n/1024);
 let checks=0;const ok=(v,m)=>{checks++;if(!v)throw new Error(`FAIL ${checks}: ${m}`)};
-const worker=bytes("cloudflare/src/worker.js"),html=bytes("public/index.html");
+const worker=bytes("cloudflare/src/worker.js"),html=bytes("public/index.html"),workspaceRuntime=bytes("public/js/workspace-runtime-20260921a.js");
 const workerGzip=zlib.gzipSync(worker,{level:9}),htmlGzip=zlib.gzipSync(html,{level:9});
 ok(worker.length<1_500_000,`Worker source budget exceeded (${kb(worker.length)} KiB)`);
 ok(workerGzip.length<512_000,`Worker gzip headroom budget exceeded (${kb(workerGzip.length)} KiB)`);
-ok(html.length<1_200_000,`application HTML budget exceeded (${kb(html.length)} KiB)`);
+ok(html.length<650_000,`application HTML budget exceeded (${kb(html.length)} KiB)`);\nok(workspaceRuntime.length<550_000,`workspace runtime budget exceeded (${kb(workspaceRuntime.length)} KiB)`);
 ok(htmlGzip.length<300_000,`application HTML gzip budget exceeded (${kb(htmlGzip.length)} KiB)`);
 const walk=dir=>fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>{const p=path.join(dir,e.name);return e.isDirectory()?walk(p):[p]});
 const staticFiles=walk(path.join(root,"public")).filter(p=>!p.endsWith(`${path.sep}_headers`)&&!p.endsWith(`${path.sep}.assetsignore`));
@@ -13,4 +13,4 @@ ok(staticFiles.length<2_000,`static asset count safety budget exceeded (${static
 const largest=staticFiles.reduce((best,p)=>fs.statSync(p).size>best.size?{p,size:fs.statSync(p).size}:best,{p:"",size:0});
 ok(largest.size<10*1024*1024,`single static asset safety budget exceeded (${path.relative(root,largest.p)} ${kb(largest.size)} KiB)`);
 const total=staticFiles.reduce((n,p)=>n+fs.statSync(p).size,0);ok(total<20*1024*1024,`total public asset safety budget exceeded (${kb(total)} KiB)`);
-console.log(`Bundle budget: ${checks}/${checks} PASS · worker ${kb(worker.length)} KiB raw/${kb(workerGzip.length)} KiB gzip · HTML ${kb(html.length)} KiB raw/${kb(htmlGzip.length)} KiB gzip · ${staticFiles.length} public files`);
+console.log(`Bundle budget: ${checks}/${checks} PASS · worker ${kb(worker.length)} KiB raw/${kb(workerGzip.length)} KiB gzip · HTML ${kb(html.length)} KiB raw/${kb(htmlGzip.length)} KiB gzip · workspace runtime ${kb(workspaceRuntime.length)} KiB · ${staticFiles.length} public files`);
