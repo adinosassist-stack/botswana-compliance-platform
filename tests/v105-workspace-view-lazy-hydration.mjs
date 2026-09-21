@@ -42,9 +42,9 @@ for(const view of lazyViews){
 
 assert.match(production,/WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT=12/);
 assert.ok(production.includes('const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20260921b-";'));
-assert.match(production,/function workspaceViewShard\\(id\\)/);
-assert.match(production,/workspaceViewShardPromises=new Map\\(\\)/);
-assert.match(production,/workspaceViewFragments\\(id\\)/);
+assert.ok(production.includes("function workspaceViewShard(id){"));
+assert.ok(production.includes("const workspaceViewShardPromises=new Map();"));
+assert.ok(production.includes("async function workspaceViewFragments(id){"));
 assert.match(production,/WORKSPACE_RESIDENT_VIEW_IDS=Object\.freeze\(\["dashboard","workhub"\]\)/);
 assert.match(production,/function externalizeWorkspaceViews\(html\)/);
 assert.match(production,/data-lazy-view="1"/);
