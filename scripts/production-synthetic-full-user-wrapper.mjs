@@ -213,10 +213,19 @@ async function runFullUserJourney(credentials){
     const delegatedPeopleButton=page.locator('#nav button[data-view="peopleops"]:visible').first();
     assert(await delegatedPeopleButton.count(),'visible delegated People button missing');
     await delegatedPeopleButton.click();
+    await page.waitForFunction(()=>document.getElementById('peopleops')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
+    const peopleImmediateContent=await page.locator('#peopleops').innerText();
+    assert(!/Ruleset integrity|Sources in this prototype/i.test(peopleImmediateContent),`People navigation left previous regulatory-source content visible: ${safe(peopleImmediateContent.slice(0,240))}`);
+    mark('workspace People navigation boundary','real People click replaced the previous workspace view immediately while lazy content hydrated');
     await page.waitForFunction(()=>{
       const view=document.getElementById('peopleops');
-      return view?.classList.contains('active')&&view?.dataset?.lazyHydrated==='1';
-    },null,{timeout:VIEW_TIMEOUT_MS});
+      return view?.dataset?.lazyHydrated==='1'||view?.dataset?.lazyError==='1';
+    },null,{timeout:WORKSPACE_TIMEOUT_MS});
+    const peopleState=await page.evaluate(()=>{
+      const view=document.getElementById('peopleops');
+      return {hydrated:view?.dataset?.lazyHydrated==='1',error:view?.dataset?.lazyError==='1',active:!!view?.classList.contains('active'),text:String(view?.innerText||'').slice(0,500)};
+    });
+    assert(peopleState.hydrated&&!peopleState.error&&peopleState.active,`People lazy hydration failed: ${safe(JSON.stringify(peopleState))}`);
     const peopleContent=await page.locator('#peopleops').innerText();
     assert(/People & operations/i.test(peopleContent),`People view hydrated unexpected content: ${safe(peopleContent.slice(0,240))}`);
     assert(!/Ruleset integrity|Sources in this prototype/i.test(peopleContent),`People view leaked regulatory-source prototype copy: ${safe(peopleContent.slice(0,240))}`);
@@ -224,7 +233,7 @@ async function runFullUserJourney(credentials){
       runtime:[...document.querySelectorAll('script[src]')].map(node=>new URL(node.src,location.href).pathname).find(path=>path.startsWith('/js/workspace-runtime-'))||'',
       fragments:performance.getEntriesByType('resource').map(entry=>{try{return new URL(entry.name).pathname}catch{return ''}}).filter(path=>path.startsWith('/assets/workspace-view-fragments-'))
     }));
-    assert(workspaceAssetIdentity.runtime==='/js/workspace-runtime-20260921d.js',`stale workspace runtime identity: ${safe(workspaceAssetIdentity.runtime||'missing')}`);
+    assert(workspaceAssetIdentity.runtime==='/js/workspace-runtime-20260921e.js',`stale workspace runtime identity: ${safe(workspaceAssetIdentity.runtime||'missing')}`);
     assert(workspaceAssetIdentity.fragments.some(path=>path.startsWith('/assets/workspace-view-fragments-20260921c-')),`rotated People fragment was not fetched: ${safe(workspaceAssetIdentity.fragments.join(', '))}`);
     mark('workspace People semantic content','real People click hydrated People & operations from the rotated fragment release with no ruleset-integrity copy leakage');
 
