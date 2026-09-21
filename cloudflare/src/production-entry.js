@@ -11,9 +11,9 @@ const THEBE_LOGO_FAVICON="/assets/thebe-desk-favicon-512.png?v=20260912b";
 const OWNER_COMMAND_CENTRE_RELEASE="20260913c";
 const EXECUTIVE_PERSONALIZATION_RELEASE="20260913c";
 const BUSINESS_DATA_BRIDGE_RELEASE="20260913d";
-const THEBE_LIVE_VOICE_RELEASE="20260921a";
+const THEBE_LIVE_VOICE_RELEASE="20260921c";
 const THEBE_PUBLIC_API_CLIENT_RELEASE="20260920a";
-const THEBE_AI_DOCK_RELEASE="20260921b";
+const THEBE_AI_DOCK_RELEASE="20260921c";
 const TURNSTILE_SECRET_HEALTH_TTL_MS=5*60*1000;
 const REGISTRATION_PROOF_TTL_MS=5*60*1000;
 const REGISTRATION_PROOF_DIFFICULTY=10;
@@ -105,6 +105,19 @@ function injectLogoFavicon(html){
   const withoutOldIcons=source.replace(ICON_LINK_RE,"");
   const faviconMarkup=`<link rel="icon" type="image/png" sizes="512x512" href="${THEBE_LOGO_FAVICON}" />\n<link rel="apple-touch-icon" href="${THEBE_LOGO_FAVICON}" />\n`;
   return injectBeforeFinalClosingTag(withoutOldIcons,"head",faviconMarkup);
+}
+
+function injectPublicThebeAssets(html){
+  let source=String(html||"");
+  const lower=source.toLowerCase();
+  if(!lower.includes("</head>")||!lower.includes("</body>"))return source;
+  const liveVoiceJsSrc=`/js/thebe-live-voice.js?v=${THEBE_LIVE_VOICE_RELEASE}`;
+  const publicApiClientJsSrc=`/js/api-client.js?v=${THEBE_PUBLIC_API_CLIENT_RELEASE}`;
+  const aiDockCssHref=`/assets/thebe-ai-dock.css?v=${THEBE_AI_DOCK_RELEASE}`;
+  if(!source.includes("/assets/thebe-ai-dock.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${aiDockCssHref}" />\n`);
+  if(!source.includes("/js/api-client.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${publicApiClientJsSrc}" defer></script>\n`);
+  if(!source.includes("/js/thebe-live-voice.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${liveVoiceJsSrc}" defer></script>\n`);
+  return source;
 }
 
 function injectOwnerCommandCentreAssets(html){
@@ -284,16 +297,22 @@ async function fetchWithTurnstileCspRepair(request,env,ctx){
   const type=String(response.headers.get("content-type")||"").toLowerCase();
   if(!type.includes("text/html"))return response;
   const html=await response.clone().text();
-  const repaired=injectOwnerCommandCentreAssets(injectFirstPartyRegistrationClient(injectLogoFavicon(stripConflictingMetaCsp(html))));
+  const path=logicalRequestPath(request);
+  const baseHtml=injectFirstPartyRegistrationClient(injectLogoFavicon(stripConflictingMetaCsp(html)));
+  const publicSurface=path==="/home"||path==="/home/";
+  const workspaceSurface=path==="/"||path==="/app"||path==="/app/";
+  const repaired=workspaceSurface?injectOwnerCommandCentreAssets(baseHtml):publicSurface?injectPublicThebeAssets(baseHtml):baseHtml;
   if(repaired===html)return response;
   const headers=new Headers(response.headers);
   headers.set("x-thebe-csp-meta","server-header-authoritative");
   headers.set("x-thebe-favicon","optimized-512");
   headers.set("x-thebe-registration-protection","first-party-proof-v1");
-  headers.set("x-thebe-owner-brief",OWNER_COMMAND_CENTRE_RELEASE);
-  headers.set("x-thebe-executive-personalization",EXECUTIVE_PERSONALIZATION_RELEASE);
-  headers.set("x-thebe-business-data-bridge",BUSINESS_DATA_BRIDGE_RELEASE);
-  headers.set("x-thebe-ai-dock",THEBE_AI_DOCK_RELEASE);
+  if(workspaceSurface){
+    headers.set("x-thebe-owner-brief",OWNER_COMMAND_CENTRE_RELEASE);
+    headers.set("x-thebe-executive-personalization",EXECUTIVE_PERSONALIZATION_RELEASE);
+    headers.set("x-thebe-business-data-bridge",BUSINESS_DATA_BRIDGE_RELEASE);
+  }
+  if(workspaceSurface||publicSurface)headers.set("x-thebe-ai-dock",THEBE_AI_DOCK_RELEASE);
   return new Response(repaired,{status:response.status,statusText:response.statusText,headers});
 }
 
@@ -302,6 +321,7 @@ export {
   injectFirstPartyRegistrationClient,
   injectLogoFavicon,
   injectOwnerCommandCentreAssets,
+  injectPublicThebeAssets,
   isRegistrationRequest,
   isRegistrationProofChallengeRequest,
   rewriteRegistrationVerificationFailure,

@@ -92,12 +92,12 @@
 }
 
 /* Desktop dock-aware marketing composition: reserve a real lane for Thebe instead of overlaying content. */
-@media(min-width:651px){
+@media(min-width:1024px){
   .marketinggate main,.marketinggate>.footer{padding-right:var(--thebe-dock-w,380px)}
   .pricinggrid{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
   .pricecard:last-child{grid-column:auto}
 }
-@media(min-width:651px) and (max-width:1350px){
+@media(min-width:1024px) and (max-width:1350px){
   .hero-grid{grid-template-columns:1fr;gap:24px}
   .visual{max-width:680px}
   .cta-box{align-items:flex-start;flex-direction:column}
