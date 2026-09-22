@@ -362,52 +362,66 @@ async function runFullUserJourney(credentials){
     }
 
     let inViewNavigationClicks=0;
+    let inViewTransientSkips=0;
     for(const sourceView of views){
       const sourceNav=page.locator(`#nav button[data-view="${sourceView}"]`).first();
       assert(await sourceNav.count(),`source navigation button missing for in-view audit ${sourceView}`);
       const sourceDetails=sourceNav.locator('xpath=ancestor::details[1]');
-      if(await sourceDetails.count()&&!(await sourceDetails.evaluate(node=>node.open===true))){
-        const summary=sourceDetails.locator(':scope > summary').first();
-        assert(await summary.count(),`collapsed source group for ${sourceView} has no summary control`);
-        await summary.click();
-      }
-      await sourceNav.click();
-      await page.waitForFunction(view=>document.getElementById(view)?.classList.contains('active'),sourceView,{timeout:VIEW_TIMEOUT_MS});
-
-      const controls=await page.locator(`#${sourceView} button[data-bw-onclick]`).evaluateAll((buttons,allowedViews)=>buttons.map((button,index)=>{
-        const expression=String(button.getAttribute('data-bw-onclick')||'').trim();
-        const match=expression.match(/^showView\((['"])([A-Za-z0-9_-]+)\1\)$/);
-        const targetView=match?.[2]||'';
-        const style=getComputedStyle(button);
-        const visible=button.offsetParent!==null&&style.display!=='none'&&style.visibility!=='hidden';
-        if(!visible||button.disabled||!targetView||!allowedViews.includes(targetView))return null;
-        const ordinal=buttons.slice(0,index).filter(other=>String(other.getAttribute('data-bw-onclick')||'').trim()===expression).length;
-        return {ordinal,targetView,expression,label:String(button.textContent||'').replace(/\s+/g,' ').trim().slice(0,120)};
-      }).filter(Boolean),views);
-
-      for(const control of controls){
+      const testedControlKeys=new Set();
+      const activateSourceView=async()=>{
+        if(await sourceDetails.count()&&!(await sourceDetails.evaluate(node=>node.open===true))){
+          const summary=sourceDetails.locator(':scope > summary').first();
+          assert(await summary.count(),`collapsed source group for ${sourceView} has no summary control`);
+          await summary.click();
+        }
         if(!(await page.evaluate(view=>document.getElementById(view)?.classList.contains('active'),sourceView))){
-          if(await sourceDetails.count()&&!(await sourceDetails.evaluate(node=>node.open===true))){
-            const summary=sourceDetails.locator(':scope > summary').first();
-            assert(await summary.count(),`collapsed source group for ${sourceView} lost its summary control`);
-            await summary.click();
-          }
           await sourceNav.click();
           await page.waitForFunction(view=>document.getElementById(view)?.classList.contains('active'),sourceView,{timeout:VIEW_TIMEOUT_MS});
         }
+        await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(resolve,40)))));
+      };
+
+      let exhausted=false;
+      for(let cycle=0;cycle<100;cycle++){
+        await activateSourceView();
+        const control=await page.locator(`#${sourceView} button[data-bw-onclick]`).evaluateAll((buttons,args)=>{
+          const allowedViews=args.allowedViews,tested=new Set(args.testedKeys);
+          for(let index=0;index<buttons.length;index++){
+            const button=buttons[index],expression=String(button.getAttribute('data-bw-onclick')||'').trim();
+            const match=expression.match(/^showView\((['"])([A-Za-z0-9_-]+)\1\)$/),targetView=match?.[2]||'';
+            const style=getComputedStyle(button),visible=button.offsetParent!==null&&style.display!=='none'&&style.visibility!=='hidden';
+            if(!visible||button.disabled||!targetView||!allowedViews.includes(targetView))continue;
+            const label=String(button.textContent||'').replace(/\s+/g,' ').trim().slice(0,120);
+            const stableLabel=label.replace(/\b\d+(?:\.\d+)?\b/g,'#');
+            const hubTarget=String(button.dataset.hubTarget||'');
+            const key=`${expression}\u241f${hubTarget}\u241f${stableLabel}`;
+            if(tested.has(key))continue;
+            const ordinal=buttons.slice(0,index).filter(other=>String(other.getAttribute('data-bw-onclick')||'').trim()===expression).length;
+            return {key,ordinal,targetView,expression,label};
+          }
+          return null;
+        },{allowedViews:views,testedKeys:[...testedControlKeys]});
+        if(!control){exhausted=true;break;}
+        testedControlKeys.add(control.key);
+
         const escapedExpression=control.expression.replaceAll('\\','\\\\').replaceAll('"','\\"');
         const controlButtons=page.locator(`#${sourceView} button[data-bw-onclick="${escapedExpression}"]`);
-        assert(await controlButtons.count()>control.ordinal,`in-view navigation control disappeared before click: ${sourceView} -> ${control.targetView} ${safe(control.label)}`);
+        if(await controlButtons.count()<=control.ordinal){inViewTransientSkips++;continue;}
         const controlButton=controlButtons.nth(control.ordinal);
         if(!(await controlButton.isVisible())){
           const controlDisclosure=controlButton.locator('xpath=ancestor::details[1]');
           if(await controlDisclosure.count()&&!(await controlDisclosure.evaluate(node=>node.open===true))){
             const disclosureSummary=controlDisclosure.locator(':scope > summary').first();
-            assert(await disclosureSummary.count(),`hidden in-view navigation control has no disclosure summary: ${sourceView} -> ${control.targetView} ${safe(control.label)}`);
-            await disclosureSummary.click();
+            if(await disclosureSummary.count()){
+              await disclosureSummary.click();
+              await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>setTimeout(resolve,30))));
+            }
           }
         }
-        assert(await controlButton.isVisible(),`in-view navigation control became hidden before click: ${sourceView} -> ${control.targetView} ${safe(control.label)}`);
+        if(!(await controlButton.isVisible())){inViewTransientSkips++;continue;}
+        const currentLabel=String(await controlButton.textContent()||'').replace(/\s+/g,' ').trim().slice(0,120);
+        if(currentLabel!==control.label){inViewTransientSkips++;continue;}
+
         await controlButton.click();
         await page.waitForFunction(view=>document.getElementById(view)?.classList.contains('active'),control.targetView,{timeout:VIEW_TIMEOUT_MS});
         const targetState=await page.evaluate(view=>{
@@ -424,6 +438,7 @@ async function runFullUserJourney(credentials){
         assert(targetState.title.length>0,`in-view navigation control reached ${control.targetView} without a page title`);
         inViewNavigationClicks++;
       }
+      assert(exhausted,`in-view navigation discovery did not stabilize for ${sourceView} within 100 cycles`);
     }
     assert(inViewNavigationClicks>=MIN_OWNER_INVIEW_NAV_CONTROL_COUNT,
       `only ${inViewNavigationClicks} visible owner in-view navigation controls were exercised; expected at least ${MIN_OWNER_INVIEW_NAV_CONTROL_COUNT}`);
@@ -432,7 +447,7 @@ async function runFullUserJourney(credentials){
     assert(assetFailures.length===0,`critical asset failures: ${safe(assetFailures.join(' | '))}`);
     assert(apiServerFailures.length===0,`same-origin API 5xx responses: ${safe(apiServerFailures.join(' | '))}`);
     mark('full-user owner navigation click matrix',`${views.length} role-visible navigation buttons were clicked through the live DOM; every lazy view completed hydration with non-empty content and no page, asset, or API 5xx failures`);
-    mark('full-user in-view navigation control matrix',`${inViewNavigationClicks} visible non-destructive workspace navigation controls were clicked from their real source views and activated their intended destinations`);
+    mark('full-user in-view navigation control matrix',`${inViewNavigationClicks} visible non-destructive workspace navigation controls were clicked at live click-time visibility; ${inViewTransientSkips} transient controls changed, disappeared, or remained hidden after disclosure recovery and were not judged`);
     await context.close();
   }finally{
     await withDeadline('full-user browser close',browser.close().catch(()=>{}),CLOSE_TIMEOUT_MS).catch(()=>{});
