@@ -117,10 +117,13 @@ assert.equal(completionWins("vault"),true,"repeat click on the same loading view
 assert.match(production,/externalizeWorkspaceViews\(externalizeWorkspaceHeadStyles\(externalizeWorkspaceRuntime\(baseHtml\)\)\)/);
 assert.match(production,/injectWorkspaceLazyViewClient\(injectFirstPartyRegistrationClient\(runtime\)\)/);
 
-assert.match(fullUserProof,/const wasLazy=target\.dataset\.lazyView==='1'/,"live owner matrix must classify lazy views before activation");
-assert.match(fullUserProof,/target\.dataset\.lazyHydrated!=='1'&&target\.dataset\.lazyError!=='1'/,"live owner matrix must wait for lazy hydration terminal state");
-assert.ok(fullUserProof.includes("lazy view ${view} did not complete hydration"),"live owner matrix must fail closed on any lazy hydration failure");
-assert.ok(fullUserProof.includes("lazy view ${view} hydrated with empty content"),"live owner matrix must reject empty hydrated fragments");
+assert.match(fullUserProof,/page\.locator\(\`#nav button\[data-view="/,"live owner matrix must locate the real workspace navigation button for every view");
+assert.match(fullUserProof,/await summary\.click\(\)/,"live owner matrix must open collapsed navigation groups through their summary controls");
+assert.match(fullUserProof,/await button\.click\(\)/,"live owner matrix must activate workspace views through real button clicks");
+assert.match(fullUserProof,/target\?\.dataset\?\.lazyView==='1'\|\|target\?\.dataset\?\.lazyHydrated==='1'/,"live owner click matrix must classify lazy or previously hydrated views");
+assert.match(fullUserProof,/target\?\.dataset\?\.lazyHydrated==='1'\|\|target\?\.dataset\?\.lazyError==='1'/,"live owner click matrix must wait for lazy hydration terminal state");
+assert.ok(fullUserProof.includes("did not complete hydration after its real navigation click"),"live owner click matrix must fail closed on any lazy hydration failure");
+assert.ok(fullUserProof.includes("hydrated with empty content after its real navigation click"),"live owner click matrix must reject empty hydrated fragments");
 
 assert.match(runtime,/const workspaceNavigationEpoch=options\?\.preserveNavigationEpoch===true\?workspaceViewNavigationEpoch:\+\+workspaceViewNavigationEpoch;if\(target\.dataset\.lazyView==="1"&&options\?\.lazyHydrated!==true\)\{target\.dataset\.lazyNavigationEpoch=String\(workspaceNavigationEpoch\);activateLazyWorkspacePlaceholder\(id,target\);void hydrateLazyWorkspaceView\(id,target,options\);return true\}/,"canonical showView must carry the baked lazy interception branch");
 assert.match(runtime,/const shouldRender=view=>\{if\(!roleCanView\(view\)\)return false;const target=document\.getElementById\(view\),active=!!target\?\.classList\.contains\("active"\),coldLanding=window\.__THEBE_WORKSPACE_READY__!==true&&view===roleLandingView\(currentUser\?\.role\);return active\|\|coldLanding\}/,"render fan-out must remain active-or-cold-landing only");
