@@ -24,8 +24,8 @@ assert.ok(Buffer.byteLength(runtime)<550_000,"versioned workspace runtime must s
 assert.match(runtime,/const DEFAULT_COMPANY=/);
 assert.match(runtime,/async function bootstrap\(\)/);
 assert.match(runtime,/function hydrateLazyWorkspaceView\(id,target,options=\{\}\)/,"versioned runtime must contain lazy hydration without Worker source rewriting");
-assert.match(runtime,/function fetchWorkspaceViewShard\(asset,shard,cacheMode\)/,"versioned runtime must contain bounded fragment transport");
-assert.match(runtime,/workspace_fragment_timeout/,"versioned runtime must fail boundedly instead of hanging on fragment delivery");
+assert.match(runtime,/const workspaceFragmentClient=window\.BW\?\.api\?\.createClient\?\.\(\{timeoutMs:6000,retries:1\}\)/,"versioned runtime must use the centralized bounded fragment transport");
+assert.match(runtime,/function fetchWorkspaceViewShard\(asset,shard\)/,"versioned runtime must contain fragment transport wrapper");
 assert.match(runtime,/let turnstileWidgetId=/);
 execFileSync(process.execPath,["--check","public/js/workspace-runtime-20260922a.js"],{stdio:"pipe"});
 
