@@ -110,8 +110,15 @@ must(fullUserWrapper,/const ordinal=buttons\.slice\(0,index\)\.filter/,'full-use
 must(fullUserWrapper,/button\[data-bw-onclick="\$\{escapedExpression\}"\]/,'full-user proof relocates each control by exact delegated expression after source rerenders');
 must(fullUserWrapper,/controlButton\.locator\('xpath=ancestor::details\[1\]'\)/,'full-user proof recovers a valid nested control when its disclosure resets closed after navigation');
 must(fullUserWrapper,/await disclosureSummary\.click\(\)/,'full-user proof reopens collapsed in-view disclosures through their real summary control');
+must(fullUserWrapper,/const testedControlKeys=new Set\(\)/,'full-user proof tracks controls considered at live click time');
+must(fullUserWrapper,/for\(let cycle=0;cycle<100;cycle\+\+\)/,'full-user proof dynamically rediscovers in-view controls after every source-view return');
+must(fullUserWrapper,/if\(!control\)\{exhausted=true;break;\}/,'full-user proof stops only after no untested currently visible control remains');
+must(fullUserWrapper,/inViewTransientSkips\+\+/,'full-user proof skips transient controls that disappear, change, or remain hidden after disclosure recovery');
+must(fullUserWrapper,/assert\(exhausted,/,'full-user proof fails closed if dynamic discovery does not stabilize');
+must(fullUserWrapper,/click-time visibility/,'full-user proof reports click-time visibility semantics');
 mustNot(fullUserWrapper,/in-view navigation expression changed before click/,'full-user proof no longer treats positional DOM drift as a product failure');
 must(fullUserWrapper,/full-user in-view navigation control matrix/,'full-user proof reports in-view navigation control completion');
+mustNot(fullUserWrapper,/in-view navigation control became hidden before click/,'full-user proof no longer treats transient hidden state as a product failure');
 mustNot(fullUserWrapper,/DELETE FROM|deletion_tombstones|Cloudflare API|CLOUDFLARE_API_TOKEN|D1_DATABASE_ID/,'full-user wrapper has no direct destructive or D1 authority');
 
 syntax('cloudflare/src/agentic-entry.js','authenticated cold-start wrapper parses');
