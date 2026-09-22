@@ -48,6 +48,9 @@ assert.ok(html.includes('id="reporterPortal"'),'restricted employee report porta
 assert.ok(html.includes('function renderDailyOperations()')&&html.includes('function generateOpsSummary()'),'daily operations render/summary functions missing');
 assert.ok(html.includes('Promise.allSettled(requests)'),'daily operations setup must survive partial API failure');
 assert.ok(html.includes('Locations still work independently'),'location setup must remain usable when daily reporting is outside the active plan');
+assert.ok(html.includes('apiJson("/api/employees",{method:"POST"'),'visible employee register must create the authoritative employee records used by reporting access');
+assert.ok(html.includes('Employee saved. It is now available for reporting access.'),'employee creation must confirm reporting-access continuity');
+assert.ok(worker.includes('LEFT JOIN employee_risk_controls c ON c.employee_id=e.id'),'authoritative employee list must expose contract/asset control state without local prototype data');
 assert.ok(worker.includes('url.pathname==="/api/daily-reporting/locations"?"operating_locations":"daily_operations"'),'location routes must use the operating_locations entitlement rather than the daily_operations gate');
 assert.ok(html.includes('if(!["owner","manager"].includes(role))return'),'non-manager Daily Reports background API calls must be suppressed');
 assert.equal((html.match(/id="companySelect"/g)||[]).length,1,'company switcher id must be unique');

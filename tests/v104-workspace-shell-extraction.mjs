@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {execFileSync} from "node:child_process";
 
 const html=fs.readFileSync("public/index.html","utf8");
-const runtime=fs.readFileSync("public/js/workspace-runtime-20260922a.js","utf8");
+const runtime=fs.readFileSync("public/js/workspace-runtime-20260922b.js","utf8");
 const styles=fs.readFileSync("public/assets/workspace-inline-styles-20260921a.css","utf8");
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
@@ -27,7 +27,7 @@ assert.match(runtime,/function hydrateLazyWorkspaceView\(id,target,options=\{\}\
 assert.match(runtime,/const workspaceFragmentClient=window\.BW\?\.api\?\.createClient\?\.\(\{timeoutMs:6000,retries:1\}\)/,"versioned runtime must use the centralized bounded fragment transport");
 assert.match(runtime,/function fetchWorkspaceViewShard\(asset,shard\)/,"versioned runtime must contain fragment transport wrapper");
 assert.match(runtime,/let turnstileWidgetId=/);
-execFileSync(process.execPath,["--check","public/js/workspace-runtime-20260922a.js"],{stdio:"pipe"});
+execFileSync(process.execPath,["--check","public/js/workspace-runtime-20260922b.js"],{stdio:"pipe"});
 
 assert.match(worker,/immutableWorkspaceRuntime=\/\^\\\/js\\\/workspace-runtime-\[a-z0-9\.\-\]\+\\\.js\$\/i\.test\(url\.pathname\)/);
 assert.match(worker,/immutableWorkspaceStyles=\/\^\\\/assets\\\/workspace-inline-styles-\[a-z0-9\.\-\]\+\\\.css\$\/i\.test\(url\.pathname\)/);
@@ -37,7 +37,7 @@ assert.match(wrangler,/\/assets\/workspace-inline-styles-\*/,"versioned workspac
 assert.match(wrangler,/\/assets\/workspace-view-fragments-\*/,"versioned workspace fragments must run Worker-first for the declared immutable cache contract");
 assert.match(worker,/url\.pathname\.startsWith\("\/js\/"\).*cache-control","no-store, max-age=0"/s);
 
-assert.match(production,/const WORKSPACE_RUNTIME_ASSET="\/js\/workspace-runtime-20260922a\.js"/);
+assert.match(production,/const WORKSPACE_RUNTIME_ASSET="\/js\/workspace-runtime-20260922b\.js"/);
 assert.match(production,/const WORKSPACE_STYLES_ASSET="\/assets\/workspace-inline-styles-20260921a\.css"/);
 assert.match(production,/function externalizeWorkspaceRuntime\(html\)/);
 assert.match(production,/function externalizeWorkspaceHeadStyles\(html\)/);

@@ -51,6 +51,25 @@ function bindingValue(binding){
   return undefined;
 }
 
+async function d1Rows(label,sql,params=[]){
+  const statement=String(sql||'').trim();
+  assert(/^SELECT\b/i.test(statement),`refusing non-read-only D1 audit query for ${label}`);
+  assert(Array.isArray(params)&&params.length<=100,`invalid D1 audit parameters for ${label}`);
+  const body=await cfJson(`/accounts/${accountId}/d1/database/${databaseId}/query`,{
+    method:'POST',
+    body:JSON.stringify({sql:statement,params})
+  });
+  const sets=Array.isArray(body?.result)?body.result:[];
+  assert(sets.length&&sets.every(x=>x?.success!==false),`D1 row query failed for ${label}`);
+  return sets.flatMap(x=>Array.isArray(x?.results)?x.results:[]);
+}
+function regulatoryDateValid(value){
+  const text=String(value||'').trim();
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(text))return false;
+  const parsed=new Date(`${text}T00:00:00Z`);
+  return Number.isFinite(parsed.getTime())&&parsed.toISOString().slice(0,10)===text;
+}
+
 async function d1Scalar(label,sql){
   const statement=String(sql||'').trim();
   assert(/^SELECT\b/i.test(statement),`refusing non-read-only D1 audit query for ${label}`);
@@ -215,6 +234,47 @@ const countEntries=[];
 for(const table of inventoryTables)countEntries.push([table,await d1Count(table)]);
 const counts=Object.fromEntries(countEntries);
 console.log(`INFO production inventory counts users=${counts.users} tenants=${counts.tenants} memberships=${counts.memberships} operating_locations=${counts.operating_locations} employees=${counts.employees} daily_employee_reports=${counts.daily_employee_reports}`);
+
+const executableRules=await d1Rows('executable regulatory rules',`SELECT id,rule_key,version,status,effective_from,effective_to,source_ids_json,definition_hash,created_by_user_id,approved_by_user_id,published_by_user_id FROM regulatory_rules WHERE status IN ('approved','published') ORDER BY rule_key,version`);
+for(const rule of executableRules){
+  const label=`${safe(rule.rule_key)}@v${Number(rule.version||0)}`;
+  assert(regulatoryDateValid(rule.effective_from),`regulatory rule ${label} has no valid effective_from date`);
+  if(rule.effective_to){
+    assert(regulatoryDateValid(rule.effective_to),`regulatory rule ${label} has invalid effective_to date`);
+    assert(String(rule.effective_to)>=String(rule.effective_from),`regulatory rule ${label} has effective_to before effective_from`);
+  }
+  let sourceIds=[];try{sourceIds=JSON.parse(String(rule.source_ids_json||'[]'))}catch{}
+  assert(Array.isArray(sourceIds)&&sourceIds.length>0,`regulatory rule ${label} has no source references`);
+  sourceIds=sourceIds.map(String);assert(new Set(sourceIds).size===sourceIds.length,`regulatory rule ${label} has duplicate source references`);
+  const placeholders=sourceIds.map(()=>'?').join(',');
+  const sources=await d1Rows(`regulatory sources for ${label}`,`SELECT id,status,verification_status,content_hash,metadata_hash,latest_snapshot_version FROM regulatory_sources WHERE id IN (${placeholders})`,sourceIds);
+  assert(sources.length===sourceIds.length,`regulatory rule ${label} references a missing source`);
+  for(const source of sources){
+    const sourceLabel=safe(source.id);
+    assert(source.status==='approved'&&source.verification_status==='verified',`regulatory rule ${label} source ${sourceLabel} is not approved + verified`);
+    assert(String(source.content_hash||'')&&String(source.metadata_hash||''),`regulatory rule ${label} source ${sourceLabel} is missing current hashes`);
+    assert(Number(source.latest_snapshot_version||0)>=1,`regulatory rule ${label} source ${sourceLabel} has no snapshot version`);
+    const snapshots=await d1Rows(`latest snapshot ${sourceLabel}`,`SELECT version,content_hash,metadata_hash,object_key,captured_by_user_id FROM regulatory_source_snapshots WHERE source_id=? ORDER BY version DESC LIMIT 1`,[source.id]);
+    const snapshot=snapshots[0];
+    assert(snapshot&&Number(snapshot.version)===Number(source.latest_snapshot_version),`regulatory rule ${label} source ${sourceLabel} snapshot version drift`);
+    assert(String(snapshot.content_hash||'')===String(source.content_hash||'')&&String(snapshot.metadata_hash||'')===String(source.metadata_hash||''),`regulatory rule ${label} source ${sourceLabel} snapshot hashes do not match the current source`);
+    assert(String(snapshot.object_key||'')&&String(snapshot.captured_by_user_id||''),`regulatory rule ${label} source ${sourceLabel} snapshot lacks stored-object or capturer identity`);
+    const reviews=await d1Rows(`latest source review ${sourceLabel}`,`SELECT reviewer_user_id,content_hash,metadata_hash FROM regulatory_source_reviews WHERE source_id=? AND decision='approved' ORDER BY created_at DESC LIMIT 1`,[source.id]);
+    const review=reviews[0];
+    assert(review&&String(review.reviewer_user_id||''),`regulatory rule ${label} source ${sourceLabel} has no approving reviewer identity`);
+    assert(String(review.content_hash||'')===String(source.content_hash||'')&&String(review.metadata_hash||'')===String(source.metadata_hash||''),`regulatory rule ${label} source ${sourceLabel} approval is stale for the current snapshot`);
+  }
+  const history=await d1Scalar(`rule history ${label}`,`SELECT COUNT(*) AS count FROM regulatory_rule_events WHERE rule_id='${String(rule.id).replaceAll("'","''")}'`);
+  assert(history>=1,`regulatory rule ${label} has no change history`);
+  const approvals=await d1Rows(`rule approval ${label}`,`SELECT reviewer_user_id,definition_hash FROM regulatory_rule_reviews WHERE rule_id=? AND decision='approved' ORDER BY created_at DESC LIMIT 1`,[rule.id]);
+  const approval=approvals[0];
+  assert(approval&&String(approval.reviewer_user_id||''),`regulatory rule ${label} has no approving rule reviewer identity`);
+  assert(String(approval.definition_hash||'')===String(rule.definition_hash||''),`regulatory rule ${label} changed after approval`);
+  assert(String(rule.created_by_user_id||'')&&String(rule.approved_by_user_id||''),`regulatory rule ${label} is missing creator or approver identity`);
+  assert(String(rule.created_by_user_id)!==String(rule.approved_by_user_id),`regulatory rule ${label} violates maker-checker separation`);
+  if(rule.status==='published')assert(String(rule.published_by_user_id||''),`published regulatory rule ${label} is missing publisher identity`);
+}
+mark('live regulatory ruleset integrity',true,`${executableRules.length} approved/published rule(s) checked for effective dates, source snapshots, current approvals, reviewer identity, maker-checker separation and change history`);
 
 const orphanPredicate=`NOT EXISTS (SELECT 1 FROM memberships m WHERE m.tenant_id=t.id)`;
 const orphanTenants=await d1Scalar('orphan tenants',`SELECT COUNT(*) AS count FROM tenants t WHERE ${orphanPredicate}`);
