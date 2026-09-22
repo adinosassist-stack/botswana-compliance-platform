@@ -234,8 +234,14 @@ async function runFullUserJourney(credentials){
     assert(!workspaceRuntimeProof.peopleLazy,'People unexpectedly became lazy in delivered /app/ HTML');
     assert(workspaceRuntimeProof.deepLazy==='1','deep workspace tools must remain lazy after primary hubs are made resident');
 
+    const peopleToolsGroup=page.locator('#nav details.nav-access-group').filter({hasText:'Operations & people'}).first();
+    assert(await peopleToolsGroup.count(),'Operations & people navigation group missing');
+    const peopleToolsSummary=peopleToolsGroup.locator('summary').first();
+    assert(await peopleToolsSummary.count(),'Operations & people navigation summary missing');
+    if(!(await peopleToolsGroup.evaluate(node=>node.open===true)))await peopleToolsSummary.click();
+    await page.waitForFunction(()=>document.querySelector('#nav button[data-view="employees"]')?.offsetParent!==null,null,{timeout:VIEW_TIMEOUT_MS});
     const delegatedEmployeesButton=page.locator('#nav button[data-view="employees"]:visible').first();
-    assert(await delegatedEmployeesButton.count(),'visible delegated Employees button missing');
+    assert(await delegatedEmployeesButton.count(),'visible delegated Employees button missing after opening Operations & people');
     await delegatedEmployeesButton.click();
     await page.waitForFunction(()=>document.getElementById('employees')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
     await page.waitForFunction(()=>{
