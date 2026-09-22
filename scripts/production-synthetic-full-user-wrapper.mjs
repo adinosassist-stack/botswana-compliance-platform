@@ -229,10 +229,12 @@ async function runFullUserJourney(credentials){
     assert(!/Ruleset integrity|Sources in this prototype/i.test(peopleState.text),`People view leaked regulatory-source prototype copy: ${safe(peopleState.text)}`);
     const workspaceRuntimeProof=await page.evaluate(()=>({
       peopleLazy:document.getElementById('peopleops')?.dataset?.lazyView||'',
-      deepLazy:document.getElementById('employees')?.dataset?.lazyView||''
+      deepLazy:document.getElementById('employees')?.dataset?.lazyView||'',
+      showViewSource:String(globalThis.showView||'')
     }));
     assert(!workspaceRuntimeProof.peopleLazy,'People unexpectedly became lazy in delivered /app/ HTML');
     assert(workspaceRuntimeProof.deepLazy==='1','deep workspace tools must remain lazy after primary hubs are made resident');
+    assert(/hydrateLazyWorkspaceView/.test(workspaceRuntimeProof.showViewSource),'live showView must contain the source-baked lazy hydration branch');
 
     const peopleToolsGroup=page.locator('#nav details.nav-access-group').filter({hasText:'Operations & people'}).first();
     assert(await peopleToolsGroup.count(),'Operations & people navigation group missing');
@@ -260,7 +262,7 @@ async function runFullUserJourney(credentials){
     });
     assert(employeeLazyState.active&&employeeLazyState.hydrated&&!employeeLazyState.error&&!employeeLazyState.stillLazy,`functional lazy workspace hydration failed: ${safe(JSON.stringify(employeeLazyState))}`);
     assert(/Employees|Staff register|staff/i.test(employeeLazyState.text),`Employees lazy view hydrated unexpected content: ${safe(employeeLazyState.text)}`);
-    mark('workspace lazy runtime functional proof','real Employees click hydrated a deep lazy view through the injected runtime');
+    mark('workspace lazy runtime functional proof','real Employees click hydrated a deep lazy view through the self-contained versioned runtime');
 
     await delegatedPeopleButton.click();
     await page.waitForFunction(()=>document.getElementById('peopleops')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
