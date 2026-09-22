@@ -227,18 +227,37 @@ async function runFullUserJourney(credentials){
     assert(peopleState.active&&!peopleState.lazy&&!peopleState.error,`resident People navigation failed: ${safe(JSON.stringify(peopleState))}`);
     assert(/People & operations/i.test(peopleState.text),`People view showed unexpected content: ${safe(peopleState.text)}`);
     assert(!/Ruleset integrity|Sources in this prototype/i.test(peopleState.text),`People view leaked regulatory-source prototype copy: ${safe(peopleState.text)}`);
-    const workspaceRuntimeProof=await page.evaluate(()=>{
-      const showViewSource=typeof globalThis.showView==='function'?String(globalThis.showView):'';
-      return {
-        runtimeInjected:showViewSource.includes('hydrateLazyWorkspaceView')&&showViewSource.includes('workspaceNavigationEpoch'),
-        peopleLazy:document.getElementById('peopleops')?.dataset?.lazyView||'',
-        deepLazy:document.getElementById('employees')?.dataset?.lazyView||'',
-        runtimeScriptSrc:document.getElementById('thebe-workspace-runtime')?.getAttribute('src')||''
-      };
-    });
-    assert(workspaceRuntimeProof.runtimeInjected,`lazy workspace runtime interception is not active: ${safe(JSON.stringify(workspaceRuntimeProof))}`);
+    const workspaceRuntimeProof=await page.evaluate(()=>({
+      peopleLazy:document.getElementById('peopleops')?.dataset?.lazyView||'',
+      deepLazy:document.getElementById('employees')?.dataset?.lazyView||''
+    }));
     assert(!workspaceRuntimeProof.peopleLazy,'People unexpectedly became lazy in delivered /app/ HTML');
     assert(workspaceRuntimeProof.deepLazy==='1','deep workspace tools must remain lazy after primary hubs are made resident');
+
+    const delegatedEmployeesButton=page.locator('#nav button[data-view="employees"]:visible').first();
+    assert(await delegatedEmployeesButton.count(),'visible delegated Employees button missing');
+    await delegatedEmployeesButton.click();
+    await page.waitForFunction(()=>document.getElementById('employees')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
+    await page.waitForFunction(()=>{
+      const view=document.getElementById('employees');
+      return view?.dataset?.lazyHydrated==='1'||view?.dataset?.lazyError==='1';
+    },null,{timeout:WORKSPACE_TIMEOUT_MS});
+    const employeeLazyState=await page.evaluate(()=>{
+      const view=document.getElementById('employees');
+      return {
+        active:!!view?.classList.contains('active'),
+        hydrated:view?.dataset?.lazyHydrated==='1',
+        error:view?.dataset?.lazyError==='1',
+        stillLazy:view?.dataset?.lazyView||'',
+        text:String(view?.innerText||'').slice(0,900)
+      };
+    });
+    assert(employeeLazyState.active&&employeeLazyState.hydrated&&!employeeLazyState.error&&!employeeLazyState.stillLazy,`functional lazy workspace hydration failed: ${safe(JSON.stringify(employeeLazyState))}`);
+    assert(/Employees|Staff register|staff/i.test(employeeLazyState.text),`Employees lazy view hydrated unexpected content: ${safe(employeeLazyState.text)}`);
+    mark('workspace lazy runtime functional proof','real Employees click hydrated a deep lazy view through the injected runtime');
+
+    await delegatedPeopleButton.click();
+    await page.waitForFunction(()=>document.getElementById('peopleops')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
     mark('workspace People resident content','real People click opened resident People & operations immediately with no Ruleset/source leakage and no fragment dependency');
 
     await page.evaluate(()=>globalThis.showView?.('dashboard',{skipDataRefresh:true}));
