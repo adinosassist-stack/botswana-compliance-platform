@@ -92,13 +92,16 @@ must(fullUserWrapper,/Object\.defineProperty\(globalThis,'__thebeSyntheticBrowse
 must(fullUserWrapper,/await originalProof\(credentials\);[\s\S]*await runFullUserJourney\(credentials\)/,'canonical browser proof runs before the exhaustive full-user journey');
 must(fullUserWrapper,/MIN_OWNER_VIEW_COUNT=40/,'full-user proof fails closed on suspiciously incomplete owner navigation');
 must(fullUserWrapper,/roleCanView/,'full-user proof derives the matrix from role-visible navigation');
-must(fullUserWrapper,/const show=globalThis\.showView;/,'full-user proof resolves the canonical view activation function');
-must(fullUserWrapper,/show\(targetView,\{skipDataRefresh:true\}\)/,'full-user proof activates every role-visible view without triggering mutations');
+must(fullUserWrapper,/page\.locator\(\`#nav button\[data-view="/,'full-user proof resolves each canonical navigation button from the live sidebar');
+must(fullUserWrapper,/await summary\.click\(\)/,'full-user proof opens collapsed navigation groups through the real summary control');
+must(fullUserWrapper,/await button\.click\(\)/,'full-user proof activates every role-visible view through its real navigation button');
+must(fullUserWrapper,/classList\.contains\('active'\)/,'full-user proof requires the clicked destination to become active');
+mustNot(fullUserWrapper,/show\(targetView,\{skipDataRefresh:true\}\)/,'full-user exhaustive matrix no longer bypasses navigation through direct showView activation');
 must(fullUserWrapper,/response\.status\(\)>=500/,'full-user proof rejects same-origin API server failures');
 must(fullUserWrapper,/pageErrors\.length===0/,'full-user proof rejects browser page errors');
 must(fullUserWrapper,/assetFailures\.length===0/,'full-user proof rejects critical asset failures');
 must(fullUserWrapper,/apiServerFailures\.length===0/,'full-user proof rejects collected API 5xx responses');
-must(fullUserWrapper,/full-user owner view matrix/,'full-user proof reports exhaustive owner view completion');
+must(fullUserWrapper,/full-user owner navigation click matrix/,'full-user proof reports exhaustive owner navigation click completion');
 mustNot(fullUserWrapper,/DELETE FROM|deletion_tombstones|Cloudflare API|CLOUDFLARE_API_TOKEN|D1_DATABASE_ID/,'full-user wrapper has no direct destructive or D1 authority');
 
 syntax('cloudflare/src/agentic-entry.js','authenticated cold-start wrapper parses');
