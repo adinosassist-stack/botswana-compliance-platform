@@ -278,6 +278,53 @@ async function runFullUserJourney(credentials){
     await page.waitForFunction(()=>document.getElementById('peopleops')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
     mark('workspace People resident content','real People click opened resident People & operations immediately with no Ruleset/source leakage and no fragment dependency');
 
+    // Mutating proof is safe here because the canonical lifecycle owns this isolated synthetic tenant and purges it after the browser returns.
+    await delegatedEmployeesButton.click();
+    await page.waitForFunction(()=>document.getElementById('employees')?.classList.contains('active')&&document.getElementById('eName'),null,{timeout:VIEW_TIMEOUT_MS});
+    const syntheticEmployeeName=`Synthetic Reporter ${Date.now()}`;
+    await page.locator('#eName').fill(syntheticEmployeeName);
+    await page.locator('#eRole').fill('Synthetic Operations Tester');
+    await page.locator('#eStart').fill(new Date().toISOString().slice(0,10));
+    await page.locator('#eContract').selectOption('true');
+    await page.locator('#eAsset').selectOption('true');
+    const addEmployee=page.locator('#employees [data-bw-onclick="addEmployeeRecord()"]:visible').first();
+    assert(await addEmployee.count(),'authoritative Add employee control missing');
+    await addEmployee.click();
+    await page.waitForFunction(name=>String(document.getElementById('employeeRegister')?.innerText||'').includes(name),syntheticEmployeeName,{timeout:15000});
+    mark('authoritative employee register','employee created through visible workspace form and reloaded from /api/employees');
+
+    const dailyReportsButton=page.locator('#nav button[data-view="dailyreports"]').first();
+    assert(await dailyReportsButton.count(),'Daily reports navigation button missing');
+    const dailyDetails=dailyReportsButton.locator('xpath=ancestor::details[1]');
+    if(await dailyDetails.count()&&!(await dailyDetails.evaluate(node=>node.open===true)))await dailyDetails.locator(':scope > summary').first().click();
+    await dailyReportsButton.click();
+    await page.waitForFunction(()=>document.getElementById('dailyreports')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
+    await page.waitForFunction(()=>document.getElementById('dailyreports')?.dataset?.lazyHydrated==='1'||document.getElementById('dailyreports')?.dataset?.lazyError==='1',null,{timeout:WORKSPACE_TIMEOUT_MS});
+    const setup=page.locator('#opsReportingSetupDetails').first();assert(await setup.count(),'Reporting setup disclosure missing');
+    if(!(await setup.evaluate(node=>node.open===true)))await setup.locator(':scope > summary').first().click();
+    const locationName=`Synthetic Branch ${Date.now()}`,locationCode=`S${String(Date.now()).slice(-7)}`;
+    await page.locator('#opsLocationName').fill(locationName);await page.locator('#opsLocationCode').fill(locationCode);await page.locator('#opsLocationTown').fill('Gaborone');
+    const addLocation=page.locator('#dailyreports [data-bw-onclick="addOpsLocation()"]:visible').first();assert(await addLocation.count(),'Add location control missing');
+    await addLocation.click();
+    await page.waitForFunction(name=>String(document.getElementById('opsLocationsList')?.innerText||'').includes(name),locationName,{timeout:15000});
+    await page.waitForFunction(name=>[...document.querySelectorAll('#opsReporterEmployee option')].some(option=>String(option.textContent||'').includes(name)),syntheticEmployeeName,{timeout:15000});
+    const employeeValue=await page.locator('#opsReporterEmployee option').evaluateAll((options,name)=>options.find(option=>String(option.textContent||'').includes(name))?.value||'',syntheticEmployeeName);
+    const locationValue=await page.locator('#opsReporterLocation option').evaluateAll((options,name)=>options.find(option=>String(option.textContent||'').includes(name))?.value||'',locationName);
+    assert(employeeValue&&locationValue,'reporting selectors did not receive authoritative employee/location records');
+    await page.locator('#opsReporterEmployee').selectOption(employeeValue);await page.locator('#opsReporterLocation').selectOption(locationValue);
+    const createLink=page.locator('#dailyreports [data-bw-onclick="createOpsReporterLink()"]:visible').first();assert(await createLink.count()&&!(await createLink.isDisabled()),'Create reporting link control remained unavailable after valid setup');
+    await createLink.click();
+    await page.waitForFunction(()=>String(document.getElementById('opsNewReporterLink')?.value||'').includes('#report='),null,{timeout:15000});
+    const reporterLink=await page.locator('#opsNewReporterLink').inputValue();
+    const reporterPage=await context.newPage();
+    const reporterResponse=await reporterPage.goto(reporterLink,{waitUntil:'domcontentloaded',timeout:NAVIGATION_TIMEOUT_MS});
+    assert(reporterResponse?.status()===200,`restricted reporter portal HTTP ${reporterResponse?.status()||0}`);
+    await reporterPage.waitForFunction(()=>getComputedStyle(document.getElementById('reporterPortal')).display!=='none',null,{timeout:15000});
+    const reporterText=await reporterPage.locator('#reporterPortal').innerText();
+    assert(reporterText.includes(syntheticEmployeeName)&&reporterText.includes(locationName),'restricted reporter portal did not bind the employee and location from the issued link');
+    await reporterPage.close();
+    mark('employee reporting access lifecycle','employee -> location -> restricted reporting link -> reporter portal verified in the disposable production tenant');
+
     await page.evaluate(()=>globalThis.showView?.('dashboard',{skipDataRefresh:true}));
 
     await page.waitForFunction(()=>{
