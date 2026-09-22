@@ -8,6 +8,7 @@ const VIEW_TIMEOUT_MS=5000;
 const CLOSE_TIMEOUT_MS=5000;
 const MIN_OWNER_VIEW_COUNT=40;
 const MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=25;
+const MIN_SAFE_UI_ACTION_COUNT=5;
 const executablePath=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(path=>fs.existsSync(path));
 
 function assert(condition,message){if(!condition)throw new Error(`Synthetic full-user proof failed: ${message}`)}
@@ -63,7 +64,8 @@ async function waitForWorkspace(page){
 
 async function runFullUserJourney(credentials){
   const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox','--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
-  const pageErrors=[];const assetFailures=[];const apiServerFailures=[];
+  const pageErrors=[];const assetFailures=[];const apiServerFailures=[];const safeUiMutationRequests=[];
+  let safeUiActionProbeActive=false;
   try{
     const context=await browser.newContext({viewport:{width:1440,height:1100},screen:{width:1440,height:1100}});
     await context.grantPermissions(['microphone'],{origin:ORIGIN});
@@ -73,6 +75,11 @@ async function runFullUserJourney(credentials){
     page.on('requestfailed',request=>{
       const url=request.url();
       if(url.startsWith(`${ORIGIN}/js/`)||url.startsWith(`${ORIGIN}/assets/`))assetFailures.push(`${request.method()} ${url} ${safe(request.failure()?.errorText||'failed')}`);
+    });
+    page.on('request',request=>{
+      if(!safeUiActionProbeActive)return;
+      const path=logicalApiPath(request.url()),method=request.method().toUpperCase();
+      if(path&&!['GET','HEAD','OPTIONS'].includes(method))safeUiMutationRequests.push(method+' '+path);
     });
     page.on('response',response=>{
       const path=logicalApiPath(response.url());
