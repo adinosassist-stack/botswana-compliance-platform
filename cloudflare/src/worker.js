@@ -1409,14 +1409,41 @@ async function incrementUsage(env,tenantId,counterKey,periodKey="lifetime",amoun
 }
 
 
+function regulatoryDateOnlyValid(value){
+  const text=String(value||"").trim();
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(text))return false;
+  const parsed=new Date(`${text}T00:00:00Z`);
+  return Number.isFinite(parsed.getTime())&&parsed.toISOString().slice(0,10)===text;
+}
 async function ruleSourcesApproved(env,sourceIds){
   if(!Array.isArray(sourceIds)||!sourceIds.length)return {ok:false,error:"approved_source_required"};
-  const qs=sourceIds.map(()=>"?").join(",");
-  const r=await env.DB.prepare(`SELECT id,status,verification_status,content_hash,latest_snapshot_version FROM regulatory_sources WHERE id IN (${qs})`).bind(...sourceIds).all();
+  const ids=[...new Set(sourceIds.map(String))];
+  if(ids.length!==sourceIds.length)return {ok:false,error:"duplicate_source_reference"};
+  const qs=ids.map(()=>"?").join(",");
+  const r=await env.DB.prepare(`SELECT id,status,verification_status,content_hash,metadata_hash,latest_snapshot_version FROM regulatory_sources WHERE id IN (${qs})`).bind(...ids).all();
   const rows=r.results||[];
-  if(rows.length!==sourceIds.length)return {ok:false,error:"source_not_found"};
-  const bad=rows.filter(x=>x.status!=="approved"||x.verification_status!=="verified"||!x.content_hash||Number(x.latest_snapshot_version||0)<1);
+  if(rows.length!==ids.length)return {ok:false,error:"source_not_found"};
+  const bad=rows.filter(x=>x.status!=="approved"||x.verification_status!=="verified"||!x.content_hash||!x.metadata_hash||Number(x.latest_snapshot_version||0)<1);
   if(bad.length)return {ok:false,error:"unapproved_source",sourceIds:bad.map(x=>x.id)};
+  const reviews=await env.DB.prepare(`SELECT source_id,reviewer_user_id,content_hash,metadata_hash,created_at FROM regulatory_source_reviews WHERE decision='approved' AND source_id IN (${qs}) ORDER BY created_at DESC`).bind(...ids).all();
+  const latest=new Map();
+  for(const review of reviews.results||[])if(!latest.has(String(review.source_id)))latest.set(String(review.source_id),review);
+  const unreviewed=rows.filter(source=>{
+    const review=latest.get(String(source.id));
+    return !review||!review.reviewer_user_id||String(review.content_hash||"")!==String(source.content_hash||"")||String(review.metadata_hash||"")!==String(source.metadata_hash||"");
+  });
+  if(unreviewed.length)return {ok:false,error:"source_approval_review_required",sourceIds:unreviewed.map(x=>x.id)};
+  return {ok:true};
+}
+async function executableRuleIntegrityReady(env,row,sourceIds){
+  if(!regulatoryDateOnlyValid(row?.effective_from))return {ok:false,error:"rule_effective_date_required"};
+  if(row?.effective_to){
+    if(!regulatoryDateOnlyValid(row.effective_to))return {ok:false,error:"rule_effective_to_invalid"};
+    if(String(row.effective_to)<String(row.effective_from))return {ok:false,error:"rule_effective_range_invalid"};
+  }
+  const sources=await ruleSourcesApproved(env,sourceIds);if(!sources.ok)return sources;
+  const history=await env.DB.prepare("SELECT COUNT(*) c FROM regulatory_rule_events WHERE rule_id=?").bind(row.id).first();
+  if(Number(history?.c||0)<1)return {ok:false,error:"rule_change_history_required"};
   return {ok:true};
 }
 
@@ -5762,7 +5789,7 @@ export default {
         const actionDef=safeJson(row.action_json,{}),xv=validateRuleActionDefinition(actionDef);if(!xv.ok)return json(xv,409);
         if(["approved","published"].includes(next)){
           const readiness=ruleOperationalizationReady(actionDef);if(!readiness.ok)return json(readiness,409);
-          const sg=await ruleSourcesApproved(env,sourceIds);if(!sg.ok)return json(sg,409);
+          const integrity=await executableRuleIntegrityReady(env,row,sourceIds);if(!integrity.ok)return json(integrity,409);
           const conflict=await openConflictForSources(env,sourceIds);if(conflict)return json({error:"open_source_conflict",conflictId:conflict.id,topicKey:conflict.topic_key},409);
         }
         const currentFingerprint=await regulatorySourceFingerprint(env,sourceIds);if(!currentFingerprint)return json({error:"source_fingerprint_unavailable"},409);
