@@ -102,6 +102,11 @@ must(fullUserWrapper,/pageErrors\.length===0/,'full-user proof rejects browser p
 must(fullUserWrapper,/assetFailures\.length===0/,'full-user proof rejects critical asset failures');
 must(fullUserWrapper,/apiServerFailures\.length===0/,'full-user proof rejects collected API 5xx responses');
 must(fullUserWrapper,/full-user owner navigation click matrix/,'full-user proof reports exhaustive owner navigation click completion');
+must(fullUserWrapper,/MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=25/,'full-user proof fails closed when too few in-view navigation controls are exercised');
+must(fullUserWrapper,/button\[data-bw-onclick\]/,'full-user proof discovers delegated in-view buttons from each active source view');
+must(fullUserWrapper,/expression\.match\(\/\^showView/,'full-user in-view matrix is restricted to non-destructive view navigation');
+must(fullUserWrapper,/await controlButton\.click\(\)/,'full-user proof clicks real in-view controls instead of calling showView directly');
+must(fullUserWrapper,/full-user in-view navigation control matrix/,'full-user proof reports in-view navigation control completion');
 mustNot(fullUserWrapper,/DELETE FROM|deletion_tombstones|Cloudflare API|CLOUDFLARE_API_TOKEN|D1_DATABASE_ID/,'full-user wrapper has no direct destructive or D1 authority');
 
 syntax('cloudflare/src/agentic-entry.js','authenticated cold-start wrapper parses');
