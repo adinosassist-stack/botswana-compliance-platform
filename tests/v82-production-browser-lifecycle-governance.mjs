@@ -102,6 +102,17 @@ must(fullUserWrapper,/pageErrors\.length===0/,'full-user proof rejects browser p
 must(fullUserWrapper,/assetFailures\.length===0/,'full-user proof rejects critical asset failures');
 must(fullUserWrapper,/apiServerFailures\.length===0/,'full-user proof rejects collected API 5xx responses');
 must(fullUserWrapper,/full-user owner navigation click matrix/,'full-user proof reports exhaustive owner navigation click completion');
+must(fullUserWrapper,/MIN_SAFE_UI_ACTION_COUNT=5/,'full-user proof requires a bounded set of real non-navigation UI actions');
+must(fullUserWrapper,/safeUiActionProbeActive=true/,'full-user proof explicitly scopes the non-mutating UI action probe');
+must(fullUserWrapper,/page\.on\('request',request=>/,'full-user proof observes network traffic while safe UI actions are exercised');
+must(fullUserWrapper,/\['GET','HEAD','OPTIONS'\]\.includes\(method\)/,'safe UI action probe classifies non-idempotent API requests');
+must(fullUserWrapper,/#quickNav:visible/,'safe UI action proof clicks the real command-palette trigger');
+must(fullUserWrapper,/openAddEvidence\(\)/,'safe UI action proof exercises the real Add evidence control');
+must(fullUserWrapper,/openModal\('scanModal'\)/,'safe UI action proof exercises the compliance-scan modal trigger without running the scan');
+must(fullUserWrapper,/openOnboarding\(\)/,'safe UI action proof exercises Guided setup without submitting onboarding');
+must(fullUserWrapper,/openLicenceEntry\(\)/,'safe UI action proof exercises the Add licence disclosure without creating a licence');
+must(fullUserWrapper,/safeUiMutationRequests\.length===0/,'safe UI action proof fails if a supposedly UI-only control issues a mutation request');
+must(fullUserWrapper,/full-user safe UI action matrix/,'full-user proof reports the safe non-navigation UI action matrix');
 must(fullUserWrapper,/MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=25/,'full-user proof fails closed when too few in-view navigation controls are exercised');
 must(fullUserWrapper,/button\[data-bw-onclick\]/,'full-user proof discovers delegated in-view buttons from each active source view');
 must(fullUserWrapper,/expression\.match\(\/\^showView/,'full-user in-view matrix is restricted to non-destructive view navigation');

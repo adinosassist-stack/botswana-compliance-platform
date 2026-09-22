@@ -8,6 +8,7 @@ const VIEW_TIMEOUT_MS=5000;
 const CLOSE_TIMEOUT_MS=5000;
 const MIN_OWNER_VIEW_COUNT=40;
 const MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=25;
+const MIN_SAFE_UI_ACTION_COUNT=5;
 const executablePath=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(path=>fs.existsSync(path));
 
 function assert(condition,message){if(!condition)throw new Error(`Synthetic full-user proof failed: ${message}`)}
@@ -63,7 +64,8 @@ async function waitForWorkspace(page){
 
 async function runFullUserJourney(credentials){
   const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox','--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
-  const pageErrors=[];const assetFailures=[];const apiServerFailures=[];
+  const pageErrors=[];const assetFailures=[];const apiServerFailures=[];const safeUiMutationRequests=[];
+  let safeUiActionProbeActive=false;
   try{
     const context=await browser.newContext({viewport:{width:1440,height:1100},screen:{width:1440,height:1100}});
     await context.grantPermissions(['microphone'],{origin:ORIGIN});
@@ -73,6 +75,11 @@ async function runFullUserJourney(credentials){
     page.on('requestfailed',request=>{
       const url=request.url();
       if(url.startsWith(`${ORIGIN}/js/`)||url.startsWith(`${ORIGIN}/assets/`))assetFailures.push(`${request.method()} ${url} ${safe(request.failure()?.errorText||'failed')}`);
+    });
+    page.on('request',request=>{
+      if(!safeUiActionProbeActive)return;
+      const path=logicalApiPath(request.url()),method=request.method().toUpperCase();
+      if(path&&!['GET','HEAD','OPTIONS'].includes(method))safeUiMutationRequests.push(method+' '+path);
     });
     page.on('response',response=>{
       const path=logicalApiPath(response.url());
@@ -360,6 +367,100 @@ async function runFullUserJourney(credentials){
         assert(result.contentLength>0,`lazy view ${view} hydrated with empty content after its real navigation click`);
       }
     }
+
+    const openOwnerViewThroughNav=async view=>{
+      const button=page.locator('#nav button[data-view="'+view+'"]').first();
+      assert(await button.count(),'safe UI action source navigation missing for '+view);
+      const details=button.locator('xpath=ancestor::details[1]');
+      if(await details.count()&&!(await details.evaluate(node=>node.open===true))){
+        const summary=details.locator(':scope > summary').first();
+        assert(await summary.count(),'safe UI action source group for '+view+' has no summary');
+        await summary.click();
+      }
+      await button.click();
+      await page.waitForFunction(targetView=>document.getElementById(targetView)?.classList.contains('active'),view,{timeout:VIEW_TIMEOUT_MS});
+      await page.waitForFunction(targetView=>{
+        const target=document.getElementById(targetView);
+        return !!target&&(target.dataset.lazyView!=='1'||target.dataset.lazyHydrated==='1'||target.dataset.lazyError==='1');
+      },view,{timeout:WORKSPACE_TIMEOUT_MS});
+      const state=await page.evaluate(targetView=>{
+        const target=document.getElementById(targetView);
+        return {active:!!target?.classList.contains('active'),lazyError:target?.dataset?.lazyError||''};
+      },view);
+      assert(state.active&&!state.lazyError,'safe UI action source view failed to open: '+view+' '+safe(JSON.stringify(state)));
+    };
+
+    let safeUiActionClicks=0;
+    safeUiActionProbeActive=true;
+    try{
+      await openOwnerViewThroughNav('dashboard');
+
+      const quickNav=page.locator('#quickNav:visible').first();
+      assert(await quickNav.count(),'safe UI action missing: command palette trigger');
+      await quickNav.click();
+      await page.waitForFunction(()=>document.getElementById('commandShade')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});
+      const commandClose=page.locator('#commandShade [data-bw-onclick="closeCommandPalette()"]:visible').first();
+      assert(await commandClose.count(),'safe UI action missing: command palette close');
+      await commandClose.click();
+      await page.waitForFunction(()=>!document.getElementById('commandShade')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});
+      safeUiActionClicks++;
+
+      const addEvidence=page.locator('[data-bw-onclick="openAddEvidence()"]:visible').first();
+      assert(await addEvidence.count(),'safe UI action missing: Add evidence');
+      await addEvidence.click();
+      await page.waitForFunction(()=>document.getElementById('actionModal')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});
+      const actionClose=page.locator("#actionModal [data-bw-onclick=\"closeModal('actionModal')\"]:visible").first();
+      assert(await actionClose.count(),'safe UI action missing: Add evidence modal close');
+      await actionClose.click();
+      await page.waitForFunction(()=>!document.getElementById('actionModal')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});
+      safeUiActionClicks++;
+
+      const quickbar=page.locator('#workspaceQuickbar').first();
+      assert(await quickbar.count(),'safe UI action missing: Common work disclosure');
+      if(!(await quickbar.evaluate(node=>node.open===true))){
+        const quickbarSummary=quickbar.locator(':scope > summary').first();
+        assert(await quickbarSummary.count(),'safe UI action missing: Common work summary');
+        await quickbarSummary.click();
+      }
+
+      const scanOpen=page.locator("#workspaceQuickbar [data-bw-onclick=\"openModal('scanModal')\"]:visible").first();
+      assert(await scanOpen.count(),'safe UI action missing: compliance scan modal trigger');
+      await scanOpen.click();
+      await page.waitForFunction(()=>document.getElementById('scanModal')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});
+      const scanClose=page.locator("#scanModal [data-bw-onclick=\"closeModal('scanModal')\"]:visible").first();
+      assert(await scanClose.count(),'safe UI action missing: compliance scan modal close');
+      await scanClose.click();
+      await page.waitForFunction(()=>!document.getElementById('scanModal')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});
+      safeUiActionClicks++;
+
+      const onboardingOpen=page.locator('#workspaceQuickbar [data-bw-onclick="openOnboarding()"]:visible').first();
+      assert(await onboardingOpen.count(),'safe UI action missing: Guided setup');
+      await onboardingOpen.click();
+      await page.waitForFunction(()=>document.getElementById('onboardModal')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});
+      const onboardingClose=page.locator('#onboardModal [data-bw-onclick="dismissOnboarding()"]:visible').first();
+      assert(await onboardingClose.count(),'safe UI action missing: Guided setup close');
+      await onboardingClose.click();
+      await page.waitForFunction(()=>!document.getElementById('onboardModal')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});
+      safeUiActionClicks++;
+
+      await openOwnerViewThroughNav('licenceos');
+      const licenceOpen=page.locator('#licenceos [data-bw-onclick="openLicenceEntry()"]:visible').first();
+      assert(await licenceOpen.count(),'safe UI action missing: Add licence disclosure');
+      await licenceOpen.click();
+      await page.waitForFunction(()=>document.getElementById('licenceEntryDetails')?.open===true,null,{timeout:VIEW_TIMEOUT_MS});
+      const licenceSummary=page.locator('#licenceEntryDetails > summary:visible').first();
+      assert(await licenceSummary.count(),'safe UI action missing: Add licence disclosure summary');
+      await licenceSummary.click();
+      await page.waitForFunction(()=>document.getElementById('licenceEntryDetails')?.open===false,null,{timeout:VIEW_TIMEOUT_MS});
+      safeUiActionClicks++;
+    }finally{
+      safeUiActionProbeActive=false;
+    }
+    assert(safeUiActionClicks>=MIN_SAFE_UI_ACTION_COUNT,
+      'only '+safeUiActionClicks+' safe non-mutating UI actions were exercised; expected at least '+MIN_SAFE_UI_ACTION_COUNT);
+    assert(safeUiMutationRequests.length===0,
+      'safe UI action probes issued mutation requests: '+safe(safeUiMutationRequests.join(' | ')));
+    mark('full-user safe UI action matrix',safeUiActionClicks+' real non-navigation controls opened and closed their intended UI state without issuing same-origin mutation requests');
 
     let inViewNavigationClicks=0;
     for(const sourceView of views){

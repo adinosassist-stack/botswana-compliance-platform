@@ -124,6 +124,16 @@ assert.match(fullUserProof,/target\?\.dataset\?\.lazyView==='1'\|\|target\?\.dat
 assert.match(fullUserProof,/target\?\.dataset\?\.lazyHydrated==='1'\|\|target\?\.dataset\?\.lazyError==='1'/,"live owner click matrix must wait for lazy hydration terminal state");
 assert.ok(fullUserProof.includes("did not complete hydration after its real navigation click"),"live owner click matrix must fail closed on any lazy hydration failure");
 assert.ok(fullUserProof.includes("hydrated with empty content after its real navigation click"),"live owner click matrix must reject empty hydrated fragments");
+assert.match(fullUserProof,/MIN_SAFE_UI_ACTION_COUNT=5/,"live owner proof must exercise a minimum set of safe non-navigation controls");
+assert.match(fullUserProof,/safeUiActionProbeActive=true/,"safe action probe must be explicitly bounded");
+assert.match(fullUserProof,/safeUiMutationRequests\.push/,"safe action probe must record any same-origin mutation request");
+assert.match(fullUserProof,/#quickNav:visible/,"safe action matrix must click the real command palette trigger");
+assert.match(fullUserProof,/openAddEvidence\(\)/,"safe action matrix must click Add evidence");
+assert.match(fullUserProof,/openModal\('scanModal'\)/,"safe action matrix must open the compliance scan modal without running it");
+assert.match(fullUserProof,/openOnboarding\(\)/,"safe action matrix must open Guided setup");
+assert.match(fullUserProof,/openLicenceEntry\(\)/,"safe action matrix must open Add licence details");
+assert.match(fullUserProof,/safeUiMutationRequests\.length===0/,"safe action matrix must fail closed if UI-only controls issue mutations");
+assert.ok(fullUserProof.includes("full-user safe UI action matrix"),"live proof must report non-navigation UI action completion");
 assert.match(fullUserProof,/MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=25/,"live owner proof must retain a fail-closed minimum for in-view controls");
 assert.match(fullUserProof,/button\[data-bw-onclick\]/,"live owner proof must discover real in-view delegated buttons");
 assert.match(fullUserProof,/expression\.match\(\/\^showView/,"in-view matrix must restrict itself to non-destructive showView controls");
