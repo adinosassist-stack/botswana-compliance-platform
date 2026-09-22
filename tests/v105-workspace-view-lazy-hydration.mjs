@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 const html=fs.readFileSync("public/index.html","utf8");
 const fragments=JSON.parse(fs.readFileSync("public/assets/workspace-view-fragments-20260921a.json","utf8"));
-const fragmentShards=Array.from({length:12},(_,i)=>JSON.parse(fs.readFileSync(`public/assets/workspace-view-fragments-20260921c-${i}.json`,"utf8")));
+const fragmentShards=Array.from({length:12},(_,i)=>JSON.parse(fs.readFileSync(`public/assets/workspace-view-fragments-20260921d-${i}.json`,"utf8")));
 const viewShard=id=>{let hash=0;for(const ch of String(id||""))hash=(Math.imul(hash,31)+ch.charCodeAt(0))>>>0;return hash%12};
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
 const coreWorkspaceScripts=["dom-security.js","event-delegation.js","notifications.js","dialog-service.js","api-client.js","state-store.js","components.js"];
@@ -13,7 +13,7 @@ for(const script of coreWorkspaceScripts){
 assert.ok(!html.includes('src="js/')&&!html.includes("src=\'js/"),"workspace core scripts must not resolve under /app/js/");
 
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
-const runtime=fs.readFileSync("public/js/workspace-runtime-20260921e.js","utf8");
+const runtime=fs.readFileSync("public/js/workspace-runtime-20260921f.js","utf8");
 const delegatedEvents=fs.readFileSync("public/js/event-delegation.js","utf8");
 assert.match(delegatedEvents,/\'linkSocial\'/,"social connect action must remain in delegated event allowlist");
 
@@ -37,9 +37,10 @@ const canonicalViews=[...html.matchAll(/<section\b([^>]*)>/gi)].map(match=>{
   return {id,cls,start:match.index};
 }).filter(view=>/\bview\b/.test(view.cls));
 assert.equal(canonicalViews.length,68,"canonical workspace view count changed; reassess lazy-view boundary");
-assert.deepEqual(fragments.residentViews,["dashboard","workhub"],"owner/manager and reviewer/auditor landing views must remain resident");
+const primaryResidentViews=["dashboard","workhub","sites","peopleops","businesshub","obligations","evidencehub","automationhub"];
+assert.deepEqual(fragments.residentViews,primaryResidentViews,"primary workspace navigation must remain resident and independent of fragment delivery");
 const lazyViews=canonicalViews.filter(view=>!fragments.residentViews.includes(view.id));
-assert.equal(lazyViews.length,66,"expected 66 inactive views to be lazy");
+assert.equal(lazyViews.length,60,"expected only 60 deep workspace views to remain lazy");
 assert.deepEqual(Object.keys(fragments.views).sort(),lazyViews.map(view=>view.id).sort(),"fragment bundle must cover every lazy view exactly once");
 for(const view of lazyViews){
   const bounds=sectionBounds(html,view.start);
@@ -49,12 +50,21 @@ for(const view of lazyViews){
 }
 
 assert.match(production,/WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT=12/);
-assert.ok(production.includes('const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20260921c-";'));
+assert.ok(production.includes('const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20260921d-";'));
 assert.ok(production.includes("function workspaceViewShard(id){"));
 assert.ok(production.includes("const workspaceViewShardPromises=new Map();"));
 assert.ok(production.includes("async function workspaceViewFragments(id){"));
-assert.match(production,/WORKSPACE_RESIDENT_VIEW_IDS=Object\.freeze\(\["dashboard","workhub"\]\)/);
+assert.ok(production.includes('const WORKSPACE_RESIDENT_VIEW_IDS=Object.freeze(["dashboard","workhub","sites","peopleops","businesshub","obligations","evidencehub","automationhub"]);'));
+const lazyConstant=(production.match(/const WORKSPACE_LAZY_VIEW_IDS=Object\.freeze\((\[[^\n]+\])\);/)||[])[1];
+assert.ok(lazyConstant,"production lazy-view constant must remain parseable");
+const productionLazyViews=JSON.parse(lazyConstant);
+for(const id of primaryResidentViews)assert.equal(productionLazyViews.includes(id),false,"resident primary view "+id+" must not be in the production lazy list");
+assert.equal(productionLazyViews.length,60,"production lazy list must match regenerated fragments");
 assert.match(production,/function externalizeWorkspaceViews\(html\)/);
+for(const id of primaryResidentViews){
+  const pattern=new RegExp('<section\\b[^>]*\\bid=["\\\']'+id+'["\\\'][^>]*data-lazy-view="1"',"i");
+  assert.doesNotMatch(production,pattern,"resident view "+id+" must never be externalized by production entry");
+}
 assert.match(production,/data-lazy-view="1"/);
 assert.match(production,/function injectWorkspaceLazyViewClient\(runtime\)/);
 const seen=new Set();
@@ -70,11 +80,13 @@ for(let i=0;i<fragmentShards.length;i++){
   }
 }
 assert.equal(seen.size,Object.keys(fragments.views).length,"shards must cover every lazy view exactly once");
-const peopleShard=fragmentShards[viewShard("peopleops")];
-assert.match(String(peopleShard.views.peopleops||""),/People & operations/,"People must hydrate its own semantic content");
-assert.doesNotMatch(String(peopleShard.views.peopleops||""),/Ruleset integrity|Sources in this prototype/i,"People must never hydrate regulatory source prototype copy");
+assert.equal(Object.prototype.hasOwnProperty.call(fragments.views,"peopleops"),false,"People must not depend on lazy fragment delivery");
+for(const payload of fragmentShards)assert.equal(Object.prototype.hasOwnProperty.call(payload.views,"peopleops"),false,"People must not appear in any lazy shard");
+const peopleCanonical=html.slice(sectionBounds(html,canonicalViews.find(view=>view.id==="peopleops").start).openEnd,sectionBounds(html,canonicalViews.find(view=>view.id==="peopleops").start).closeStart);
+assert.match(peopleCanonical,/People & operations/,"resident People content must remain in canonical workspace HTML");
+assert.doesNotMatch(peopleCanonical,/Ruleset integrity|Sources in this prototype/i,"resident People content must not contain regulatory source prototype copy");
 assert.match(String(fragmentShards[viewShard("sources")].views.sources||""),/Authoritative source registry/,"source governance content must remain scoped to the Sources view");
-assert.ok(production.includes('const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20260921e.js";'),"workspace runtime identity must rotate with injected runtime behavior");
+assert.ok(production.includes('const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20260921f.js";'),"workspace runtime identity must rotate with injected runtime behavior");
 assert.match(production,/window\.BW\?\.dom\?\.renderMarkup/,"hydration must use the sanctioned DOM sanitizer");
 assert.match(production,/credentials:"same-origin",cache:"force-cache"/,"versioned immutable lazy fragments should reuse their rotated cache identity");
 assert.match(production,/target\.dataset\.lazyView==="1"/);
@@ -91,11 +103,11 @@ let adversarialEpoch=0;
 const adversarialTargets=new Map();
 const requestView=id=>{const epoch=++adversarialEpoch;adversarialTargets.set(id,epoch);return epoch};
 const completionWins=id=>adversarialTargets.get(id)===adversarialEpoch;
-requestView("peopleops");requestView("businesshub");
-assert.equal(completionWins("peopleops"),false,"older lazy completion must lose after a newer navigation");
-assert.equal(completionWins("businesshub"),true,"latest lazy completion must win");
-requestView("evidencehub");requestView("evidencehub");
-assert.equal(completionWins("evidencehub"),true,"repeat click on the same loading view must preserve latest intent");
+requestView("employees");requestView("corporate");
+assert.equal(completionWins("employees"),false,"older lazy completion must lose after a newer navigation");
+assert.equal(completionWins("corporate"),true,"latest lazy completion must win");
+requestView("vault");requestView("vault");
+assert.equal(completionWins("vault"),true,"repeat click on the same loading view must preserve latest intent");
 assert.match(production,/externalizeWorkspaceViews\(externalizeWorkspaceHeadStyles\(externalizeWorkspaceRuntime\(baseHtml\)\)\)/);
 assert.match(production,/injectWorkspaceLazyViewClient\(injectFirstPartyRegistrationClient\(runtime\)\)/);
 

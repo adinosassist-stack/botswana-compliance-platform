@@ -1,8 +1,8 @@
 import fs from "node:fs";import path from "node:path";import zlib from "node:zlib";
 const root=process.cwd(),bytes=p=>fs.readFileSync(path.join(root,p)),kb=n=>Math.round(n/1024);
 let checks=0;const ok=(v,m)=>{checks++;if(!v)throw new Error(`FAIL ${checks}: ${m}`)};
-const worker=bytes("cloudflare/src/worker.js"),html=bytes("public/index.html"),workspaceRuntime=bytes("public/js/workspace-runtime-20260921e.js"),workspaceStyles=bytes("public/assets/workspace-inline-styles-20260921a.css"),workspaceViews=bytes("public/assets/workspace-view-fragments-20260921a.json");
-const workspaceViewShards=Array.from({length:12},(_,i)=>bytes(`public/assets/workspace-view-fragments-20260921c-${i}.json`));
+const worker=bytes("cloudflare/src/worker.js"),html=bytes("public/index.html"),workspaceRuntime=bytes("public/js/workspace-runtime-20260921f.js"),workspaceStyles=bytes("public/assets/workspace-inline-styles-20260921a.css"),workspaceViews=bytes("public/assets/workspace-view-fragments-20260921a.json");
+const workspaceViewShards=Array.from({length:12},(_,i)=>bytes(`public/assets/workspace-view-fragments-20260921d-${i}.json`));
 const htmlText=html.toString("utf8"),runtimeText=workspaceRuntime.toString("utf8"),stylesText=workspaceStyles.toString("utf8"),workspaceViewsPayload=JSON.parse(workspaceViews.toString("utf8"));
 const workspaceViewShardPayloads=workspaceViewShards.map(buffer=>JSON.parse(buffer.toString("utf8")));
 const workspaceViewShardFor=id=>{let hash=0;for(const ch of String(id||""))hash=(Math.imul(hash,31)+ch.charCodeAt(0))>>>0;return hash%12};
@@ -21,8 +21,9 @@ ok(normalizedStyles===stylesText,"versioned workspace stylesheet must exactly ma
 const residentViews=new Set(workspaceViewsPayload.residentViews||[]);
 const lazyViewIds=Object.keys(workspaceViewsPayload.views||{});
 ok(workspaceViewsPayload.schema===1,"workspace view fragment schema mismatch");
-ok(residentViews.has("dashboard")&&residentViews.has("workhub")&&residentViews.size===2,"workspace resident view contract mismatch");
-ok(lazyViewIds.length===66,`unexpected lazy workspace view count (${lazyViewIds.length})`);
+const expectedResident=["dashboard","workhub","sites","peopleops","businesshub","obligations","evidencehub","automationhub"];
+ok(expectedResident.every(id=>residentViews.has(id))&&residentViews.size===expectedResident.length,"workspace resident view contract mismatch");
+ok(lazyViewIds.length===60,`unexpected lazy workspace view count (${lazyViewIds.length})`);
 function viewSectionBounds(source,start){
   const openEnd=source.indexOf(">",start)+1,token=/<\/?section\b[^>]*>/gi;token.lastIndex=start;let depth=0,match;
   while((match=token.exec(source))){if(/^<section\b/i.test(match[0]))depth++;else depth--;if(depth===0)return {openEnd,closeStart:match.index,end:token.lastIndex}}
@@ -34,7 +35,7 @@ for(const id of lazyViewIds){
   const bounds=viewSectionBounds(htmlText,match.index);ok(!!bounds,`canonical lazy view bounds missing (${id})`);
   ok(htmlText.slice(bounds.openEnd,bounds.closeStart)===workspaceViewsPayload.views[id],`lazy view fragment drift (${id})`);
 }
-const runtimeExternalizedHtml=htmlText.replace(/<script id="thebe-workspace-runtime-inline">[\s\S]*?<\/script>/,'<script id="thebe-workspace-runtime" src="/js/workspace-runtime-20260921e.js"></script>');
+const runtimeExternalizedHtml=htmlText.replace(/<script id="thebe-workspace-runtime-inline">[\s\S]*?<\/script>/,'<script id="thebe-workspace-runtime" src="/js/workspace-runtime-20260921f.js"></script>');
 const runtimeHeadEnd=runtimeExternalizedHtml.toLowerCase().indexOf("</head>");
 const runtimeHead=runtimeExternalizedHtml.slice(0,runtimeHeadEnd),runtimeTail=runtimeExternalizedHtml.slice(runtimeHeadEnd);
 let styleCount=0;
@@ -56,7 +57,7 @@ ok(worker.length<1_500_000,`Worker source budget exceeded (${kb(worker.length)} 
 ok(workerGzip.length<512_000,`Worker gzip headroom budget exceeded (${kb(workerGzip.length)} KiB)`);
 ok(html.length<1_200_000,`canonical application HTML budget exceeded (${kb(html.length)} KiB)`);
 ok(htmlGzip.length<300_000,`canonical application HTML gzip budget exceeded (${kb(htmlGzip.length)} KiB)`);
-ok(deployedHtml.length<160_000,`deployed application HTML budget exceeded (${kb(deployedHtml.length)} KiB)`);
+ok(deployedHtml.length<170_000,`deployed application HTML budget exceeded (${kb(deployedHtml.length)} KiB)`);
 ok(deployedHtmlGzip.length<300_000,`deployed application HTML gzip budget exceeded (${kb(deployedHtmlGzip.length)} KiB)`);
 ok(workspaceRuntime.length<550_000,`workspace runtime budget exceeded (${kb(workspaceRuntime.length)} KiB)`);
 ok(workspaceStyles.length<220_000,`workspace stylesheet budget exceeded (${kb(workspaceStyles.length)} KiB)`);
