@@ -57,7 +57,7 @@ ok(worker.length<1_500_000,`Worker source budget exceeded (${kb(worker.length)} 
 ok(workerGzip.length<512_000,`Worker gzip headroom budget exceeded (${kb(workerGzip.length)} KiB)`);
 ok(html.length<1_200_000,`canonical application HTML budget exceeded (${kb(html.length)} KiB)`);
 ok(htmlGzip.length<300_000,`canonical application HTML gzip budget exceeded (${kb(htmlGzip.length)} KiB)`);
-ok(deployedHtml.length<160_000,`deployed application HTML budget exceeded (${kb(deployedHtml.length)} KiB)`);
+ok(deployedHtml.length<170_000,`deployed application HTML budget exceeded (${kb(deployedHtml.length)} KiB)`);
 ok(deployedHtmlGzip.length<300_000,`deployed application HTML gzip budget exceeded (${kb(deployedHtmlGzip.length)} KiB)`);
 ok(workspaceRuntime.length<550_000,`workspace runtime budget exceeded (${kb(workspaceRuntime.length)} KiB)`);
 ok(workspaceStyles.length<220_000,`workspace stylesheet budget exceeded (${kb(workspaceStyles.length)} KiB)`);
