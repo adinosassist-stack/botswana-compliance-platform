@@ -309,45 +309,61 @@ async function runFullUserJourney(credentials){
     assert(views.length>=MIN_OWNER_VIEW_COUNT,`only ${views.length} owner-visible views were discoverable; expected at least ${MIN_OWNER_VIEW_COUNT}`);
 
     for(const view of views){
-      const result=await withDeadline(`view ${view}`,page.evaluate(async targetView=>{
+      const button=page.locator(`#nav button[data-view="${view}"]`).first();
+      assert(await button.count(),`navigation button missing for owner view ${view}`);
+      const details=button.locator('xpath=ancestor::details[1]');
+      if(await details.count()&&!(await details.evaluate(node=>node.open===true))){
+        const summary=details.locator(':scope > summary').first();
+        assert(await summary.count(),`collapsed navigation group for ${view} has no summary control`);
+        await summary.click();
+        await page.waitForFunction(targetView=>{
+          const button=document.querySelector(`#nav button[data-view="${targetView}"]`);
+          return !!button&&button.offsetParent!==null;
+        },view,{timeout:VIEW_TIMEOUT_MS});
+      }
+      const before=await page.evaluate(targetView=>{
         const target=document.getElementById(targetView);
-        const show=globalThis.showView;
-        if(!target||typeof show!=='function')return {ok:false,exists:!!target,active:false,title:'',wasLazy:false,lazyHydrated:false,lazyError:false,stillLazy:'',contentLength:0};
-        const wasLazy=target.dataset.lazyView==='1';
-        const ok=show(targetView,{skipDataRefresh:true});
-        if(wasLazy){
-          const deadline=Date.now()+7000;
-          while(Date.now()<deadline&&target.dataset.lazyHydrated!=='1'&&target.dataset.lazyError!=='1'){
-            await new Promise(resolve=>setTimeout(resolve,40));
-          }
-        }else{
-          await new Promise(resolve=>requestAnimationFrame(()=>setTimeout(resolve,30)));
-        }
         return {
-          ok:ok===true,
-          exists:true,
-          active:target.classList.contains('active'),
+          exists:!!target,
+          lazy:target?.dataset?.lazyView==='1'||target?.dataset?.lazyHydrated==='1'
+        };
+      },view);
+      assert(before.exists,`workspace target missing for owner view ${view}`);
+      await button.click();
+      await page.waitForFunction(targetView=>document.getElementById(targetView)?.classList.contains('active'),view,{timeout:VIEW_TIMEOUT_MS});
+      if(before.lazy){
+        await page.waitForFunction(targetView=>{
+          const target=document.getElementById(targetView);
+          return target?.dataset?.lazyHydrated==='1'||target?.dataset?.lazyError==='1';
+        },view,{timeout:WORKSPACE_TIMEOUT_MS});
+      }else{
+        await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>setTimeout(resolve,30))));
+      }
+      const result=await page.evaluate(targetView=>{
+        const target=document.getElementById(targetView);
+        return {
+          exists:!!target,
+          active:!!target?.classList.contains('active'),
           title:String(document.getElementById('pageTitle')?.textContent||'').trim(),
           shellVisible:!document.getElementById('appShell')?.classList.contains('hidden'),
-          wasLazy,
-          lazyHydrated:target.dataset.lazyHydrated==='1',
-          lazyError:target.dataset.lazyError==='1',
-          stillLazy:target.dataset.lazyView||'',
-          contentLength:String(target.textContent||'').trim().length
+          lazyHydrated:target?.dataset?.lazyHydrated==='1',
+          lazyError:target?.dataset?.lazyError==='1',
+          stillLazy:target?.dataset?.lazyView||'',
+          contentLength:String(target?.textContent||'').trim().length
         };
-      },view),VIEW_TIMEOUT_MS);
-      assert(result.ok&&result.exists&&result.active&&result.shellVisible,`view ${view} did not activate in the owner workspace`);
+      },view);
+      assert(result.exists&&result.active&&result.shellVisible,`real navigation click did not activate owner view ${view}: ${safe(JSON.stringify(result))}`);
       assert(result.title.length>0,`view ${view} activated without a page title`);
-      if(result.wasLazy){
-        assert(result.lazyHydrated&&!result.lazyError&&!result.stillLazy,`lazy view ${view} did not complete hydration: ${safe(JSON.stringify(result))}`);
-        assert(result.contentLength>0,`lazy view ${view} hydrated with empty content`);
+      if(before.lazy){
+        assert(result.lazyHydrated&&!result.lazyError&&!result.stillLazy,`lazy view ${view} did not complete hydration after its real navigation click: ${safe(JSON.stringify(result))}`);
+        assert(result.contentLength>0,`lazy view ${view} hydrated with empty content after its real navigation click`);
       }
     }
 
     assert(pageErrors.length===0,`page errors: ${safe(pageErrors.join(' | '))}`);
     assert(assetFailures.length===0,`critical asset failures: ${safe(assetFailures.join(' | '))}`);
     assert(apiServerFailures.length===0,`same-origin API 5xx responses: ${safe(apiServerFailures.join(' | '))}`);
-    mark('full-user owner view matrix',`${views.length} role-visible views activated read-only; every lazy view completed hydration with non-empty content and no page, asset, or API 5xx failures`);
+    mark('full-user owner navigation click matrix',`${views.length} role-visible navigation buttons were clicked through the live DOM; every lazy view completed hydration with non-empty content and no page, asset, or API 5xx failures`);
     await context.close();
   }finally{
     await withDeadline('full-user browser close',browser.close().catch(()=>{}),CLOSE_TIMEOUT_MS).catch(()=>{});
