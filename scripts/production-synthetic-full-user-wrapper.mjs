@@ -227,12 +227,18 @@ async function runFullUserJourney(credentials){
     assert(peopleState.active&&!peopleState.lazy&&!peopleState.error,`resident People navigation failed: ${safe(JSON.stringify(peopleState))}`);
     assert(/People & operations/i.test(peopleState.text),`People view showed unexpected content: ${safe(peopleState.text)}`);
     assert(!/Ruleset integrity|Sources in this prototype/i.test(peopleState.text),`People view leaked regulatory-source prototype copy: ${safe(peopleState.text)}`);
-    const workspaceAssetIdentity=await page.evaluate(()=>({
-      runtime:[...document.querySelectorAll('script[src]')].map(node=>new URL(node.src,location.href).pathname).find(path=>path.startsWith('/js/workspace-runtime-'))||'',
-      peopleLazy:document.getElementById('peopleops')?.dataset?.lazyView||''
-    }));
-    assert(workspaceAssetIdentity.runtime==='/js/workspace-runtime-20260921f.js',`stale workspace runtime identity: ${safe(workspaceAssetIdentity.runtime||'missing')}`);
-    assert(!workspaceAssetIdentity.peopleLazy,'People unexpectedly became lazy in delivered /app/ HTML');
+    const workspaceRuntimeProof=await page.evaluate(()=>{
+      const showViewSource=typeof globalThis.showView==='function'?String(globalThis.showView):'';
+      return {
+        runtimeInjected:showViewSource.includes('hydrateLazyWorkspaceView')&&showViewSource.includes('workspaceNavigationEpoch'),
+        peopleLazy:document.getElementById('peopleops')?.dataset?.lazyView||'',
+        deepLazy:document.getElementById('employees')?.dataset?.lazyView||'',
+        runtimeScriptSrc:document.getElementById('thebe-workspace-runtime')?.getAttribute('src')||''
+      };
+    });
+    assert(workspaceRuntimeProof.runtimeInjected,`lazy workspace runtime interception is not active: ${safe(JSON.stringify(workspaceRuntimeProof))}`);
+    assert(!workspaceRuntimeProof.peopleLazy,'People unexpectedly became lazy in delivered /app/ HTML');
+    assert(workspaceRuntimeProof.deepLazy==='1','deep workspace tools must remain lazy after primary hubs are made resident');
     mark('workspace People resident content','real People click opened resident People & operations immediately with no Ruleset/source leakage and no fragment dependency');
 
     await page.evaluate(()=>globalThis.showView?.('dashboard',{skipDataRefresh:true}));
