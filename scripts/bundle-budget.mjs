@@ -21,8 +21,9 @@ ok(normalizedStyles===stylesText,"versioned workspace stylesheet must exactly ma
 const residentViews=new Set(workspaceViewsPayload.residentViews||[]);
 const lazyViewIds=Object.keys(workspaceViewsPayload.views||{});
 ok(workspaceViewsPayload.schema===1,"workspace view fragment schema mismatch");
-ok(residentViews.has("dashboard")&&residentViews.has("workhub")&&residentViews.size===2,"workspace resident view contract mismatch");
-ok(lazyViewIds.length===66,`unexpected lazy workspace view count (${lazyViewIds.length})`);
+const expectedResident=["dashboard","workhub","sites","peopleops","businesshub","obligations","evidencehub","automationhub"];
+ok(expectedResident.every(id=>residentViews.has(id))&&residentViews.size===expectedResident.length,"workspace resident view contract mismatch");
+ok(lazyViewIds.length===60,`unexpected lazy workspace view count (${lazyViewIds.length})`);
 function viewSectionBounds(source,start){
   const openEnd=source.indexOf(">",start)+1,token=/<\/?section\b[^>]*>/gi;token.lastIndex=start;let depth=0,match;
   while((match=token.exec(source))){if(/^<section\b/i.test(match[0]))depth++;else depth--;if(depth===0)return {openEnd,closeStart:match.index,end:token.lastIndex}}
