@@ -128,6 +128,9 @@ assert.match(fullUserProof,/MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=25/,"live owner p
 assert.match(fullUserProof,/button\[data-bw-onclick\]/,"live owner proof must discover real in-view delegated buttons");
 assert.match(fullUserProof,/expression\.match\(\/\^showView/,"in-view matrix must restrict itself to non-destructive showView controls");
 assert.match(fullUserProof,/await controlButton\.click\(\)/,"in-view matrix must click the real source-view control");
+assert.match(fullUserProof,/const ordinal=buttons\.slice\(0,index\)\.filter/,"in-view matrix must preserve same-expression ordinal across rerenders");
+assert.match(fullUserProof,/button\[data-bw-onclick="\$\{escapedExpression\}"\]/,"in-view matrix must relocate controls by exact delegated expression rather than stale global index");
+assert.doesNotMatch(fullUserProof,/in-view navigation expression changed before click/,"in-view matrix must not rely on stale positional identity after source rerenders");
 assert.ok(fullUserProof.includes("in-view navigation control failed"),"in-view matrix must fail closed when a real control does not activate its target");
 assert.ok(fullUserProof.includes("full-user in-view navigation control matrix"),"live proof must report in-view navigation completion");
 

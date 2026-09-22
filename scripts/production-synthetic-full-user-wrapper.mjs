@@ -381,7 +381,8 @@ async function runFullUserJourney(credentials){
         const style=getComputedStyle(button);
         const visible=button.offsetParent!==null&&style.display!=='none'&&style.visibility!=='hidden';
         if(!visible||button.disabled||!targetView||!allowedViews.includes(targetView))return null;
-        return {index,targetView,expression,label:String(button.textContent||'').replace(/\s+/g,' ').trim().slice(0,120)};
+        const ordinal=buttons.slice(0,index).filter(other=>String(other.getAttribute('data-bw-onclick')||'').trim()===expression).length;
+        return {ordinal,targetView,expression,label:String(button.textContent||'').replace(/\s+/g,' ').trim().slice(0,120)};
       }).filter(Boolean),views);
 
       for(const control of controls){
@@ -394,9 +395,11 @@ async function runFullUserJourney(credentials){
           await sourceNav.click();
           await page.waitForFunction(view=>document.getElementById(view)?.classList.contains('active'),sourceView,{timeout:VIEW_TIMEOUT_MS});
         }
-        const controlButton=page.locator(`#${sourceView} button[data-bw-onclick]`).nth(control.index);
+        const escapedExpression=control.expression.replaceAll('\\','\\\\').replaceAll('"','\\"');
+        const controlButtons=page.locator(`#${sourceView} button[data-bw-onclick="${escapedExpression}"]`);
+        assert(await controlButtons.count()>control.ordinal,`in-view navigation control disappeared before click: ${sourceView} -> ${control.targetView} ${safe(control.label)}`);
+        const controlButton=controlButtons.nth(control.ordinal);
         assert(await controlButton.isVisible(),`in-view navigation control became hidden before click: ${sourceView} -> ${control.targetView} ${safe(control.label)}`);
-        assert((await controlButton.getAttribute('data-bw-onclick'))===control.expression,`in-view navigation expression changed before click: ${sourceView} -> ${control.targetView}`);
         await controlButton.click();
         await page.waitForFunction(view=>document.getElementById(view)?.classList.contains('active'),control.targetView,{timeout:VIEW_TIMEOUT_MS});
         const targetState=await page.evaluate(view=>{
