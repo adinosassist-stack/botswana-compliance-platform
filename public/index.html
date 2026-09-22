@@ -3117,7 +3117,7 @@ main{
             <div><label for="eAsset">Asset acknowledgement?</label><select id="eAsset"><option value="true">Yes</option><option value="false">No</option></select></div>
           </div>
           <button type="button" class="btn" data-bw-onclick="addEmployeeRecord()">Add employee</button>
-          <div class="muted small">Prototype stores only structured metadata locally. Do not enter real IDs, medical details, bank information or other sensitive employee data into this prototype.</div>
+          <div class="muted small">Employee records are saved to this workspace and are used by reporting and employment controls. Enter only information needed for work administration; do not enter medical, banking or identity-document details here.</div>
         </div>
       </div>
     </div>
@@ -5809,12 +5809,29 @@ async function renderBusinessHub(){
   }
 }
 
-function addEmployeeRecord(){
- let name=eName.value.trim();if(!name)return;
- let rec={id:"emp_"+Date.now(),name,role:eRole.value.trim(),start:eStart.value,contract:eContract.value==="true",asset:eAsset.value==="true"};
- updateActiveCompany(c=>{const employees=[...(c.employees||[]),rec];c.employees=employees;c.profile={...c.profile,employees:Math.max(Number(c.profile?.employees||0),employees.length)}});
- logEvent("EMPLOYEE_RECORD_ADDED",{employeeId:rec.id,role:rec.role,contract:rec.contract,asset:rec.asset});
- eName.value="";eRole.value="";eStart.value="";save();renderAll()
+async function addEmployeeRecord(){
+  const name=document.getElementById("eName")?.value.trim()||"";if(!name)return notifyUser("Enter an employee name or work reference.");
+  if(STANDALONE_PREVIEW){
+    const rec={id:"emp_"+Date.now(),name,role:document.getElementById("eRole")?.value.trim()||"",start:document.getElementById("eStart")?.value||"",contract:document.getElementById("eContract")?.value==="true",asset:document.getElementById("eAsset")?.value==="true"};
+    updateActiveCompany(company=>{const employees=[...(company.employees||[]),rec];company.employees=employees;company.profile={...company.profile,employees:Math.max(Number(company.profile?.employees||0),employees.length)}});
+    logEvent("EMPLOYEE_RECORD_ADDED",{employeeId:rec.id,role:rec.role,contract:rec.contract,asset:rec.asset});
+    document.getElementById("eName").value="";document.getElementById("eRole").value="";document.getElementById("eStart").value="";save();renderAll();return;
+  }
+  const roleTitle=document.getElementById("eRole")?.value.trim()||"",startDate=document.getElementById("eStart")?.value||null;
+  const contractSigned=document.getElementById("eContract")?.value==="true",assetAcknowledgement=document.getElementById("eAsset")?.value==="true";
+  try{
+    const created=await apiJson("/api/employees",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({fullName:name,roleTitle,employmentType:"unknown",startDate})});
+    if(created?.id){
+      try{
+        await apiJson(`/api/employees/${encodeURIComponent(created.id)}/risk-controls`,{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify({contractSigned,contractType:"unknown",assetAcknowledgement})});
+      }catch(controlError){notifyUser("Employee saved, but contract/asset controls need review: "+controlError.message)}
+    }
+    document.getElementById("eName").value="";document.getElementById("eRole").value="";document.getElementById("eStart").value="";
+    await renderEmployeeRegister();
+    if(document.getElementById("peopleops"))await renderPeopleOperationsHub();
+    if(document.getElementById("opsReporterEmployee"))await renderDailyOperations();
+    notifyUser("Employee saved. It is now available for reporting access.",{type:"success"});
+  }catch(e){notifyUser(e.message)}
 }
 function removeEmployeeRecord(id){
  let rec=(state.employees||[]).find(e=>e.id===id);updateActiveCompany(c=>{c.employees=(c.employees||[]).filter(e=>e.id!==id);c.profile={...c.profile,employees:c.employees.length}});
@@ -5825,16 +5842,19 @@ function toggleEmployeeControl(id,field){
  updateActiveCompany(c=>{c.employees=(c.employees||[]).map(item=>item.id===id?{...item,[field]:value}:item)});
  logEvent("EMPLOYEE_CONTROL_UPDATED",{employeeId:id,control:field,value});save();renderAll()
 }
-function renderEmployeeRegister(){
- let arr=state.employees||[], total=arr.length, contracts=arr.filter(e=>e.contract).length, assets=arr.filter(e=>e.asset).length;
- let by=id=>document.getElementById(id);
- if(by("empRecordsCount"))by("empRecordsCount").textContent=total;
- if(by("contractCoverage"))by("contractCoverage").textContent=(total?Math.round(contracts/total*100):0)+"%";
- if(by("assetCoverage"))by("assetCoverage").textContent=(total?Math.round(assets/total*100):0)+"%";
- let el=by("employeeRegister");if(!el)return;
- el.safeHTML=arr.length?arr.map(e=>`<div class="item"><div class="between row"><div><b>${escapeHtml(e.name)}</b><div class="muted small">${escapeHtml(e.role||"Role not set")} · ${e.start||"Start date not set"}</div></div><button class="btn alt" data-bw-onclick="removeEmployeeRecord('${safeId(e.id)}')">Remove</button></div><div class="rulemeta"><button class="btn ${e.contract?"soft":"alt"}" data-bw-onclick="toggleEmployeeControl('${safeId(e.id)}','contract')">Contract ${e.contract?"✓":"missing"}</button><button class="btn ${e.asset?"soft":"alt"}" data-bw-onclick="toggleEmployeeControl('${safeId(e.id)}','asset')">Asset form ${e.asset?"✓":"missing"}</button></div></div>`).join(""):`<div class="muted small">No employee records yet.</div>`
+async function renderEmployeeRegister(){
+  const by=id=>document.getElementById(id),el=by("employeeRegister");if(!el)return;
+  if(STANDALONE_PREVIEW){
+    const arr=state.employees||[],total=arr.length,contracts=arr.filter(e=>e.contract).length,assets=arr.filter(e=>e.asset).length;
+    if(by("empRecordsCount"))by("empRecordsCount").textContent=total;if(by("contractCoverage"))by("contractCoverage").textContent=(total?Math.round(contracts/total*100):0)+"%";if(by("assetCoverage"))by("assetCoverage").textContent=(total?Math.round(assets/total*100):0)+"%";
+    el.safeHTML=arr.length?arr.map(e=>`<div class="item"><div class="between row"><div><b>${escapeHtml(e.name)}</b><div class="muted small">${escapeHtml(e.role||"Role not set")} · ${e.start||"Start date not set"}</div></div><button class="btn alt" data-bw-onclick="removeEmployeeRecord('${safeId(e.id)}')">Remove</button></div><div class="rulemeta"><button class="btn ${e.contract?"soft":"alt"}" data-bw-onclick="toggleEmployeeControl('${safeId(e.id)}','contract')">Contract ${e.contract?"✓":"missing"}</button><button class="btn ${e.asset?"soft":"alt"}" data-bw-onclick="toggleEmployeeControl('${safeId(e.id)}','asset')">Asset form ${e.asset?"✓":"missing"}</button></div></div>`).join(""):`<div class="muted small">No employee records yet.</div>`;return;
+  }
+  try{
+    const response=await apiJson("/api/employees"),arr=response.items||[],active=arr.filter(e=>String(e.status||"").trim().toLowerCase()==="active"),contracts=active.filter(e=>Number(e.contract_signed||0)===1).length,assets=active.filter(e=>Number(e.asset_acknowledgement||0)===1).length,total=active.length;
+    if(by("empRecordsCount"))by("empRecordsCount").textContent=total;if(by("contractCoverage"))by("contractCoverage").textContent=(total?Math.round(contracts/total*100):0)+"%";if(by("assetCoverage"))by("assetCoverage").textContent=(total?Math.round(assets/total*100):0)+"%";
+    el.safeHTML=arr.length?arr.map(e=>`<div class="item"><div class="between row"><div><b>${escapeHtml(e.full_name)}</b><div class="muted small">${escapeHtml(e.role_title||"Role not set")} · ${e.start_date||"Start date not set"} · ${escapeHtml(String(e.status||"active"))}</div></div><span class="badge ${String(e.status||"").toLowerCase()==="active"?"good":""}">${String(e.status||"active").toLowerCase()==="active"?"Active":"Inactive"}</span></div><div class="rulemeta"><span class="pill">Contract ${Number(e.contract_signed||0)===1?"✓":"missing"}</span><span class="pill">Asset form ${Number(e.asset_acknowledgement||0)===1?"✓":"missing"}</span></div></div>`).join(""):`<div class="muted small">No employee records yet. Add one here and it will also become available under Employee reporting access.</div>`;
+  }catch(e){el.safeHTML=`<div class="notice bad">Employee records could not load. ${escapeHtml(e.message)}</div>`}
 }
-
 
 const tenderRequirements=[
  {id:"t_cipa",name:"Current CIPA annual-return evidence",patterns:["annual return","cipa"],area:"Corporate"},
