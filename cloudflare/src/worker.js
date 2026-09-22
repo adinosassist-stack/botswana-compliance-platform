@@ -6603,7 +6603,7 @@ export default {
       }
       if(url.pathname==="/api/employees"&&req.method==="GET"){
         if(!roleAllowed(a,"owner","manager"))return json({error:"forbidden"},403);
-        const r=await env.DB.prepare("SELECT id,full_name,role_title,employment_type,start_date,end_date,status FROM employees WHERE tenant_id=? ORDER BY full_name LIMIT 250").bind(a.tenant_id).all();
+        const r=await env.DB.prepare(`SELECT e.id,e.full_name,e.role_title,e.employment_type,e.start_date,e.end_date,e.status,COALESCE(c.contract_signed,0) contract_signed,COALESCE(c.asset_acknowledgement,0) asset_acknowledgement FROM employees e LEFT JOIN employee_risk_controls c ON c.employee_id=e.id AND c.tenant_id=e.tenant_id WHERE e.tenant_id=? ORDER BY e.full_name LIMIT 250`).bind(a.tenant_id).all();
         return json({items:r.results||[]});
       }
 
