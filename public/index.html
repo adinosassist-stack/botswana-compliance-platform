@@ -7910,8 +7910,118 @@ async function handlePublicPassportFragment(){
 }
 function leavePublicPassport(){document.getElementById("publicPassportGate")?.classList.add("hidden");showMarketing()}
 
+
+const WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT=12;
+const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20260921d-";
+const workspaceViewShardPromises=new Map();
+let workspaceViewNavigationEpoch=0;
+function workspaceViewShard(id){
+  let hash=0;
+  const value=String(id||"");
+  for(let i=0;i<value.length;i++)hash=(Math.imul(hash,31)+value.charCodeAt(i))>>>0;
+  return hash%WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT;
+}
+async function fetchWorkspaceViewShard(asset,shard,cacheMode){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort("workspace_fragment_timeout"),6000);
+  try{
+    const response=await fetch(asset,{method:"GET",credentials:"same-origin",cache:cacheMode,signal:controller.signal});
+    if(!response.ok)throw new Error("Workspace view shard is unavailable.");
+    const payload=await response.json();
+    if(!payload||payload.schema!==2||payload.shard!==shard||!payload.views||typeof payload.views!=="object")throw new Error("Workspace view shard is invalid.");
+    return payload.views;
+  }finally{clearTimeout(timer)}
+}
+async function workspaceViewFragments(id){
+  const shard=workspaceViewShard(id);
+  if(workspaceViewShardPromises.has(shard))return workspaceViewShardPromises.get(shard);
+  const asset=WORKSPACE_VIEW_FRAGMENT_PREFIX+shard+".json";
+  const promise=(async()=>{
+    try{return await fetchWorkspaceViewShard(asset,shard,"force-cache")}
+    catch(firstError){
+      console.warn("workspace_view_fragment_retry",{view:id,shard,error:String(firstError?.message||firstError||"unknown")});
+      return fetchWorkspaceViewShard(asset+"?retry=1",shard,"reload");
+    }
+  })().catch(error=>{workspaceViewShardPromises.delete(shard);throw error});
+  workspaceViewShardPromises.set(shard,promise);
+  return promise;
+}
+function lazyWorkspaceViewLabel(id){
+  const meta=typeof COMMAND_META!=="undefined"?COMMAND_META[id]:null;
+  const nav=document.querySelector('[data-view="'+String(id||"")+'"]');
+  return String(meta?.[0]||nav?.textContent?.trim()||"Workspace");
+}
+function setLazyWorkspaceMessage(target,title,detail,bad=false){
+  if(!target)return;
+  target.replaceChildren();
+  const card=document.createElement("div");
+  card.className=bad?"notice bad":"card";
+  const heading=document.createElement("h2");
+  heading.textContent=String(title||"");
+  const copy=document.createElement("div");
+  copy.className="muted small";
+  copy.textContent=String(detail||"");
+  card.append(heading,copy);
+  target.append(card);
+}
+function activateLazyWorkspacePlaceholder(id,target){
+  lastWorkspaceView=id;
+  document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+  target.classList.add("active");
+  document.querySelectorAll(".nav button").forEach(b=>{
+    const active=b.dataset.view===id;
+    b.classList.toggle("active",active);
+    if(active)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current");
+  });
+  const label=lazyWorkspaceViewLabel(id);
+  const pageTitle=document.getElementById("pageTitle");
+  if(pageTitle)pageTitle.textContent=label;
+  updateMobileNav(id);
+  const status=document.getElementById("srStatus");
+  if(status)status.textContent="Loading "+label+"…";
+  setLazyWorkspaceMessage(target,"Loading "+label+"…","Fetching this workspace area.");
+  window.scrollTo({top:0,behavior:prefersReducedMotion()?"auto":"smooth"});
+}
+async function hydrateLazyWorkspaceView(id,target,options={}){
+  if(!target||target.dataset.lazyView!=="1")return false;
+  if(target.dataset.lazyLoading==="1")return true;
+  target.dataset.lazyLoading="1";
+  delete target.dataset.lazyError;
+  target.setAttribute("aria-busy","true");
+  const status=document.getElementById("srStatus");
+  if(status)status.textContent="Loading "+String(id||"workspace")+"…";
+  try{
+    const views=await workspaceViewFragments(id);
+    const markup=Object.prototype.hasOwnProperty.call(views,id)?views[id]:null;
+    if(typeof markup!=="string")throw new Error("Workspace view is unavailable.");
+    if(!window.BW?.dom?.renderMarkup)throw new Error("Workspace DOM safety layer is unavailable.");
+    window.BW.dom.renderMarkup(target,markup);
+    target.dataset.lazyHydrated="1";
+    delete target.dataset.lazyError;
+    target.removeAttribute("data-lazy-view");
+    target.removeAttribute("data-lazy-view-id");
+    target.setAttribute("aria-busy","false");
+    delete target.dataset.lazyLoading;
+    const requestedEpoch=Number(target.dataset.lazyNavigationEpoch||0);
+    delete target.dataset.lazyNavigationEpoch;
+    if(requestedEpoch!==workspaceViewNavigationEpoch)return true;
+    return showView(id,{...options,lazyHydrated:true,preserveNavigationEpoch:true});
+  }catch(error){
+    target.setAttribute("aria-busy","false");
+    delete target.dataset.lazyLoading;
+    console.error("workspace_lazy_view_hydration_failed",{view:id,error});
+    if(Number(target.dataset.lazyNavigationEpoch||0)===workspaceViewNavigationEpoch){
+      target.dataset.lazyError="1";
+      const label=lazyWorkspaceViewLabel(id);
+      setLazyWorkspaceMessage(target,label+" could not be loaded","Try this section again. The previous workspace view is no longer being shown.",true);
+      if(status)status.textContent="This workspace area could not be loaded. Try again.";
+    }
+    return false;
+  }
+}
+
 let lastWorkspaceView="dashboard";
-function showView(id,options={}){if(!roleCanView(id)){console.warn("Role denied view",id,currentWorkspaceRole());if(!options?.silent){let sr=document.getElementById("srStatus");if(sr)sr.textContent="This area is not available for your role."}return false}const target=document.getElementById(id);if(!target){console.warn("Unknown view",id);return false}lastWorkspaceView=id;document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));target.classList.add("active");document.querySelectorAll(".nav button").forEach(b=>{let active=b.dataset.view===id;b.classList.toggle("active",active);if(active)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});const nb=document.querySelector(`[data-view="${id}"]`),meta=(typeof COMMAND_META!=="undefined"?COMMAND_META[id]:null);document.getElementById("pageTitle").textContent=meta?.[0]||nb?.textContent?.trim()||"BW Compliance OS";updateMobileNav(id);let sr=document.getElementById("srStatus");if(sr)sr.textContent="Opened "+document.getElementById("pageTitle").textContent;window.scrollTo({top:0,behavior:prefersReducedMotion()?"auto":"smooth"});setTimeout(animateViewItems,20);if(!options?.skipDataRefresh&&!options?.roleRedirect)queueMicrotask(()=>renderAll());if(!STANDALONE_PREVIEW&&!options?.skipDataRefresh&&!options?.roleRedirect){if(id==="billing")queueMicrotask(()=>void loadBilling());if(id==="audit")queueMicrotask(()=>void hydrateWorkspaceAudit())}return true}
+function showView(id,options={}){if(!roleCanView(id)){console.warn("Role denied view",id,currentWorkspaceRole());if(!options?.silent){let sr=document.getElementById("srStatus");if(sr)sr.textContent="This area is not available for your role."}return false}const target=document.getElementById(id);if(!target){console.warn("Unknown view",id);return false}const workspaceNavigationEpoch=options?.preserveNavigationEpoch===true?workspaceViewNavigationEpoch:++workspaceViewNavigationEpoch;if(target.dataset.lazyView==="1"&&options?.lazyHydrated!==true){target.dataset.lazyNavigationEpoch=String(workspaceNavigationEpoch);activateLazyWorkspacePlaceholder(id,target);void hydrateLazyWorkspaceView(id,target,options);return true}lastWorkspaceView=id;document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));target.classList.add("active");document.querySelectorAll(".nav button").forEach(b=>{let active=b.dataset.view===id;b.classList.toggle("active",active);if(active)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});const nb=document.querySelector(`[data-view="${id}"]`),meta=(typeof COMMAND_META!=="undefined"?COMMAND_META[id]:null);document.getElementById("pageTitle").textContent=meta?.[0]||nb?.textContent?.trim()||"BW Compliance OS";updateMobileNav(id);let sr=document.getElementById("srStatus");if(sr)sr.textContent="Opened "+document.getElementById("pageTitle").textContent;window.scrollTo({top:0,behavior:prefersReducedMotion()?"auto":"smooth"});setTimeout(animateViewItems,20);if(!options?.skipDataRefresh&&!options?.roleRedirect)queueMicrotask(()=>renderAll());if(!STANDALONE_PREVIEW&&!options?.skipDataRefresh&&!options?.roleRedirect){if(id==="billing")queueMicrotask(()=>void loadBilling());if(id==="audit")queueMicrotask(()=>void hydrateWorkspaceAudit())}return true}
 
 let wizardStep=0;
 let firstValueTopTarget="workhub";
