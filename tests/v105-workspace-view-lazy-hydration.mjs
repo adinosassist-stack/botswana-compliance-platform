@@ -116,7 +116,7 @@ assert.equal(completionWins("vault"),true,"repeat click on the same loading view
 assert.match(production,/externalizeWorkspaceViews\(externalizeWorkspaceHeadStyles\(externalizeWorkspaceRuntime\(baseHtml\)\)\)/);
 assert.match(production,/injectWorkspaceLazyViewClient\(injectFirstPartyRegistrationClient\(runtime\)\)/);
 
-assert.match(runtime,/const target=document\.getElementById\(id\);if\(!target\)\{console\.warn\("Unknown view",id\);return false\}lastWorkspaceView=id;/,"canonical showView interception anchor changed");
+assert.match(runtime,/const workspaceNavigationEpoch=options\?\.preserveNavigationEpoch===true\?workspaceViewNavigationEpoch:\+\+workspaceViewNavigationEpoch;if\(target\.dataset\.lazyView==="1"&&options\?\.lazyHydrated!==true\)\{target\.dataset\.lazyNavigationEpoch=String\(workspaceNavigationEpoch\);activateLazyWorkspacePlaceholder\(id,target\);void hydrateLazyWorkspaceView\(id,target,options\);return true\}/,"canonical showView must carry the baked lazy interception branch");
 assert.match(runtime,/const shouldRender=view=>\{if\(!roleCanView\(view\)\)return false;const target=document\.getElementById\(view\),active=!!target\?\.classList\.contains\("active"\),coldLanding=window\.__THEBE_WORKSPACE_READY__!==true&&view===roleLandingView\(currentUser\?\.role\);return active\|\|coldLanding\}/,"render fan-out must remain active-or-cold-landing only");
 
 assert.match(worker,/immutableWorkspaceViewFragments=\/\^\\\/assets\\\/workspace-view-fragments-\[a-z0-9\.\-\]\+\\\.json\$\/i\.test\(url\.pathname\)/);
