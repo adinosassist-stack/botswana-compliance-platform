@@ -55,6 +55,11 @@ assert.ok(production.includes("function workspaceViewShard(id){"));
 assert.ok(production.includes("const workspaceViewShardPromises=new Map();"));
 assert.ok(production.includes("async function workspaceViewFragments(id){"));
 assert.ok(production.includes('const WORKSPACE_RESIDENT_VIEW_IDS=Object.freeze(["dashboard","workhub","sites","peopleops","businesshub","obligations","evidencehub","automationhub"]);'));
+const lazyConstant=(production.match(/const WORKSPACE_LAZY_VIEW_IDS=Object\.freeze\((\[[^\n]+\])\);/)||[])[1];
+assert.ok(lazyConstant,"production lazy-view constant must remain parseable");
+const productionLazyViews=JSON.parse(lazyConstant);
+for(const id of primaryResidentViews)assert.equal(productionLazyViews.includes(id),false,"resident primary view "+id+" must not be in the production lazy list");
+assert.equal(productionLazyViews.length,60,"production lazy list must match regenerated fragments");
 assert.match(production,/function externalizeWorkspaceViews\(html\)/);
 for(const id of primaryResidentViews){
   const pattern=new RegExp('<section\\b[^>]*\\bid=["\\\']'+id+'["\\\'][^>]*data-lazy-view="1"',"i");
@@ -98,11 +103,11 @@ let adversarialEpoch=0;
 const adversarialTargets=new Map();
 const requestView=id=>{const epoch=++adversarialEpoch;adversarialTargets.set(id,epoch);return epoch};
 const completionWins=id=>adversarialTargets.get(id)===adversarialEpoch;
-requestView("peopleops");requestView("businesshub");
-assert.equal(completionWins("peopleops"),false,"older lazy completion must lose after a newer navigation");
-assert.equal(completionWins("businesshub"),true,"latest lazy completion must win");
-requestView("evidencehub");requestView("evidencehub");
-assert.equal(completionWins("evidencehub"),true,"repeat click on the same loading view must preserve latest intent");
+requestView("employees");requestView("corporate");
+assert.equal(completionWins("employees"),false,"older lazy completion must lose after a newer navigation");
+assert.equal(completionWins("corporate"),true,"latest lazy completion must win");
+requestView("vault");requestView("vault");
+assert.equal(completionWins("vault"),true,"repeat click on the same loading view must preserve latest intent");
 assert.match(production,/externalizeWorkspaceViews\(externalizeWorkspaceHeadStyles\(externalizeWorkspaceRuntime\(baseHtml\)\)\)/);
 assert.match(production,/injectWorkspaceLazyViewClient\(injectFirstPartyRegistrationClient\(runtime\)\)/);
 
