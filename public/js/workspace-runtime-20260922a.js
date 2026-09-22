@@ -3155,28 +3155,18 @@ function workspaceViewShard(id){
   for(let i=0;i<value.length;i++)hash=(Math.imul(hash,31)+value.charCodeAt(i))>>>0;
   return hash%WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT;
 }
-async function fetchWorkspaceViewShard(asset,shard,cacheMode){
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort("workspace_fragment_timeout"),6000);
-  try{
-    const response=await fetch(asset,{method:"GET",credentials:"same-origin",cache:cacheMode,signal:controller.signal});
-    if(!response.ok)throw new Error("Workspace view shard is unavailable.");
-    const payload=await response.json();
-    if(!payload||payload.schema!==2||payload.shard!==shard||!payload.views||typeof payload.views!=="object")throw new Error("Workspace view shard is invalid.");
-    return payload.views;
-  }finally{clearTimeout(timer)}
+const workspaceFragmentClient=window.BW?.api?.createClient?.({timeoutMs:6000,retries:1})||null;
+async function fetchWorkspaceViewShard(asset,shard){
+  if(!workspaceFragmentClient)throw new Error("Workspace fragment transport is unavailable.");
+  const payload=await workspaceFragmentClient.request(asset,{method:"GET"});
+  if(!payload||payload.schema!==2||payload.shard!==shard||!payload.views||typeof payload.views!=="object")throw new Error("Workspace view shard is invalid.");
+  return payload.views;
 }
 async function workspaceViewFragments(id){
   const shard=workspaceViewShard(id);
   if(workspaceViewShardPromises.has(shard))return workspaceViewShardPromises.get(shard);
   const asset=WORKSPACE_VIEW_FRAGMENT_PREFIX+shard+".json";
-  const promise=(async()=>{
-    try{return await fetchWorkspaceViewShard(asset,shard,"force-cache")}
-    catch(firstError){
-      console.warn("workspace_view_fragment_retry",{view:id,shard,error:String(firstError?.message||firstError||"unknown")});
-      return fetchWorkspaceViewShard(asset+"?retry=1",shard,"reload");
-    }
-  })().catch(error=>{workspaceViewShardPromises.delete(shard);throw error});
+  const promise=fetchWorkspaceViewShard(asset,shard).catch(error=>{workspaceViewShardPromises.delete(shard);throw error});
   workspaceViewShardPromises.set(shard,promise);
   return promise;
 }
