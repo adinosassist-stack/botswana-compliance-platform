@@ -13,7 +13,7 @@ for(const script of coreWorkspaceScripts){
 assert.ok(!html.includes('src="js/')&&!html.includes("src=\'js/"),"workspace core scripts must not resolve under /app/js/");
 
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
-const runtime=fs.readFileSync("public/js/workspace-runtime-20260921f.js","utf8");
+const runtime=fs.readFileSync("public/js/workspace-runtime-20260922a.js","utf8");
 const delegatedEvents=fs.readFileSync("public/js/event-delegation.js","utf8");
 assert.match(delegatedEvents,/\'linkSocial\'/,"social connect action must remain in delegated event allowlist");
 
@@ -86,9 +86,14 @@ const peopleCanonical=html.slice(sectionBounds(html,canonicalViews.find(view=>vi
 assert.match(peopleCanonical,/People & operations/,"resident People content must remain in canonical workspace HTML");
 assert.doesNotMatch(peopleCanonical,/Ruleset integrity|Sources in this prototype/i,"resident People content must not contain regulatory source prototype copy");
 assert.match(String(fragmentShards[viewShard("sources")].views.sources||""),/Authoritative source registry/,"source governance content must remain scoped to the Sources view");
-assert.ok(production.includes('const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20260921f.js";'),"workspace runtime identity must rotate with injected runtime behavior");
+assert.ok(production.includes('const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20260922a.js";'),"workspace runtime identity must rotate with injected runtime behavior");
 assert.match(production,/window\.BW\?\.dom\?\.renderMarkup/,"hydration must use the sanctioned DOM sanitizer");
-assert.match(production,/credentials:"same-origin",cache:"force-cache"/,"versioned immutable lazy fragments should reuse their rotated cache identity");
+assert.match(runtime,/let workspaceViewNavigationEpoch=0/,"static versioned runtime must carry lazy navigation state");
+assert.match(runtime,/function hydrateLazyWorkspaceView\(id,target,options=\{\}\)/,"static versioned runtime must hydrate lazy views itself");
+assert.match(runtime,/const workspaceFragmentClient=window\.BW\?\.api\?\.createClient\?\.\(\{timeoutMs:6000,retries:1\}\)/,"static versioned runtime must use centralized bounded fragment transport");
+assert.match(runtime,/function fetchWorkspaceViewShard\(asset,shard\)/,"static versioned runtime must own fragment transport wrapper");
+assert.match(production,/source\.includes\("function hydrateLazyWorkspaceView\("/,"Worker lazy-runtime repair must be idempotent when the static runtime is already hydrated");
+assert.match(runtime,/workspaceFragmentClient\.request\(asset,\{method:"GET"\}\)/,"lazy fragments must flow through the centralized same-origin browser transport");
 assert.match(production,/target\.dataset\.lazyView==="1"/);
 assert.match(production,/function activateLazyWorkspacePlaceholder\(id,target\)/,"lazy navigation must activate its destination before network hydration");
 assert.match(production,/setLazyWorkspaceMessage\(target,"Loading "\+label\+"…"/,"lazy navigation must visibly replace the previous view while loading");
@@ -111,7 +116,7 @@ assert.equal(completionWins("vault"),true,"repeat click on the same loading view
 assert.match(production,/externalizeWorkspaceViews\(externalizeWorkspaceHeadStyles\(externalizeWorkspaceRuntime\(baseHtml\)\)\)/);
 assert.match(production,/injectWorkspaceLazyViewClient\(injectFirstPartyRegistrationClient\(runtime\)\)/);
 
-assert.match(runtime,/const target=document\.getElementById\(id\);if\(!target\)\{console\.warn\("Unknown view",id\);return false\}lastWorkspaceView=id;/,"canonical showView interception anchor changed");
+assert.match(runtime,/const workspaceNavigationEpoch=options\?\.preserveNavigationEpoch===true\?workspaceViewNavigationEpoch:\+\+workspaceViewNavigationEpoch;if\(target\.dataset\.lazyView==="1"&&options\?\.lazyHydrated!==true\)\{target\.dataset\.lazyNavigationEpoch=String\(workspaceNavigationEpoch\);activateLazyWorkspacePlaceholder\(id,target\);void hydrateLazyWorkspaceView\(id,target,options\);return true\}/,"canonical showView must carry the baked lazy interception branch");
 assert.match(runtime,/const shouldRender=view=>\{if\(!roleCanView\(view\)\)return false;const target=document\.getElementById\(view\),active=!!target\?\.classList\.contains\("active"\),coldLanding=window\.__THEBE_WORKSPACE_READY__!==true&&view===roleLandingView\(currentUser\?\.role\);return active\|\|coldLanding\}/,"render fan-out must remain active-or-cold-landing only");
 
 assert.match(worker,/immutableWorkspaceViewFragments=\/\^\\\/assets\\\/workspace-view-fragments-\[a-z0-9\.\-\]\+\\\.json\$\/i\.test\(url\.pathname\)/);

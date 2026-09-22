@@ -14,7 +14,7 @@ const BUSINESS_DATA_BRIDGE_RELEASE="20260913d";
 const THEBE_LIVE_VOICE_RELEASE="20260921c";
 const THEBE_PUBLIC_API_CLIENT_RELEASE="20260920a";
 const THEBE_AI_DOCK_RELEASE="20260921c";
-const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20260921f.js";
+const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20260922a.js";
 const WORKSPACE_STYLES_ASSET="/assets/workspace-inline-styles-20260921a.css";
 const WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT=12;
 const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20260921d-";
@@ -185,6 +185,7 @@ function externalizeWorkspaceViews(html){
 
 function injectWorkspaceLazyViewClient(runtime){
   let source=String(runtime||"");
+  if(source.includes("function hydrateLazyWorkspaceView(")&&source.includes("let workspaceViewNavigationEpoch=0;"))return source;
   const marker='let lastWorkspaceView="dashboard";';
   if(!source.includes(marker))return source;
   const hydrationBlock=`
@@ -198,16 +199,18 @@ function workspaceViewShard(id){
   for(let i=0;i<value.length;i++)hash=(Math.imul(hash,31)+value.charCodeAt(i))>>>0;
   return hash%WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT;
 }
+const workspaceFragmentClient=window.BW?.api?.createClient?.({timeoutMs:6000,retries:1})||null;
+async function fetchWorkspaceViewShard(asset,shard){
+  if(!workspaceFragmentClient)throw new Error("Workspace fragment transport is unavailable.");
+  const payload=await workspaceFragmentClient.request(asset,{method:"GET"});
+  if(!payload||payload.schema!==2||payload.shard!==shard||!payload.views||typeof payload.views!=="object")throw new Error("Workspace view shard is invalid.");
+  return payload.views;
+}
 async function workspaceViewFragments(id){
   const shard=workspaceViewShard(id);
   if(workspaceViewShardPromises.has(shard))return workspaceViewShardPromises.get(shard);
   const asset=WORKSPACE_VIEW_FRAGMENT_PREFIX+shard+".json";
-  const promise=fetch(asset,{method:"GET",credentials:"same-origin",cache:"force-cache"}).then(async response=>{
-    if(!response.ok)throw new Error("Workspace view shard is unavailable.");
-    const payload=await response.json();
-    if(!payload||payload.schema!==2||payload.shard!==shard||!payload.views||typeof payload.views!=="object")throw new Error("Workspace view shard is invalid.");
-    return payload.views;
-  }).catch(error=>{workspaceViewShardPromises.delete(shard);throw error});
+  const promise=fetchWorkspaceViewShard(asset,shard).catch(error=>{workspaceViewShardPromises.delete(shard);throw error});
   workspaceViewShardPromises.set(shard,promise);
   return promise;
 }
