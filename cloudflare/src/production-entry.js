@@ -189,7 +189,7 @@ function injectWorkspaceLazyViewClient(runtime){
   if(!source.includes(marker))return source;
   const hydrationBlock=`
 const WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT=12;
-const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20260921c-";
+const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20260921d-";
 const workspaceViewShardPromises=new Map();
 let workspaceViewNavigationEpoch=0;
 function workspaceViewShard(id){
