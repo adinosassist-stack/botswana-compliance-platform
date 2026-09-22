@@ -93,7 +93,7 @@ assert.match(runtime,/function hydrateLazyWorkspaceView\(id,target,options=\{\}\
 assert.match(runtime,/const workspaceFragmentClient=window\.BW\?\.api\?\.createClient\?\.\(\{timeoutMs:6000,retries:1\}\)/,"static versioned runtime must use centralized bounded fragment transport");
 assert.match(runtime,/function fetchWorkspaceViewShard\(asset,shard\)/,"static versioned runtime must own fragment transport wrapper");
 assert.match(production,/source\.includes\("function hydrateLazyWorkspaceView\("/,"Worker lazy-runtime repair must be idempotent when the static runtime is already hydrated");
-assert.match(production,/credentials:"same-origin",cache:"force-cache"/,"versioned immutable lazy fragments should reuse their rotated cache identity");
+assert.match(runtime,/workspaceFragmentClient\.request\(asset,\{method:"GET"\}\)/,"lazy fragments must flow through the centralized same-origin browser transport");
 assert.match(production,/target\.dataset\.lazyView==="1"/);
 assert.match(production,/function activateLazyWorkspacePlaceholder\(id,target\)/,"lazy navigation must activate its destination before network hydration");
 assert.match(production,/setLazyWorkspaceMessage\(target,"Loading "\+label\+"…"/,"lazy navigation must visibly replace the previous view while loading");
