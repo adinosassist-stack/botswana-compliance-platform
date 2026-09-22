@@ -106,10 +106,15 @@ must(fullUserWrapper,/MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=25/,'full-user proof fa
 must(fullUserWrapper,/button\[data-bw-onclick\]/,'full-user proof discovers delegated in-view buttons from each active source view');
 must(fullUserWrapper,/expression\.match\(\/\^showView/,'full-user in-view matrix is restricted to non-destructive view navigation');
 must(fullUserWrapper,/await controlButton\.click\(\)/,'full-user proof clicks real in-view controls instead of calling showView directly');
+must(fullUserWrapper,/const testedControlKeys=new Set\(\)/,'full-user proof tracks controls considered at live click time');
+must(fullUserWrapper,/for\(let cycle=0;cycle<100;cycle\+\+\)/,'full-user proof dynamically rediscovers in-view controls after every source-view return');
+must(fullUserWrapper,/if\(!control\)\{exhausted=true;break;\}/,'full-user proof stops only after no untested currently visible control remains');
 must(fullUserWrapper,/const ordinal=buttons\.slice\(0,index\)\.filter/,'full-user proof records same-expression ordinal rather than a stale global button index');
 must(fullUserWrapper,/button\[data-bw-onclick="\$\{escapedExpression\}"\]/,'full-user proof relocates each control by exact delegated expression after source rerenders');
-mustNot(fullUserWrapper,/in-view navigation expression changed before click/,'full-user proof no longer treats positional DOM drift as a product failure');
-must(fullUserWrapper,/full-user in-view navigation control matrix/,'full-user proof reports in-view navigation control completion');
+must(fullUserWrapper,/inViewTransientSkips\+\+/,'full-user proof skips transient controls that disappear or change before click');
+must(fullUserWrapper,/assert\(exhausted,/,'full-user proof fails closed if dynamic discovery does not stabilize');
+mustNot(fullUserWrapper,/in-view navigation control became hidden before click/,'full-user proof no longer treats legitimate source rerenders as dead controls');
+must(fullUserWrapper,/click-time visibility/,'full-user proof reports in-view navigation completion at actual click-time visibility');
 mustNot(fullUserWrapper,/DELETE FROM|deletion_tombstones|Cloudflare API|CLOUDFLARE_API_TOKEN|D1_DATABASE_ID/,'full-user wrapper has no direct destructive or D1 authority');
 
 syntax('cloudflare/src/agentic-entry.js','authenticated cold-start wrapper parses');
