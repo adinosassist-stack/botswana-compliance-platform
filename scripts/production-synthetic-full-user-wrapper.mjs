@@ -399,6 +399,14 @@ async function runFullUserJourney(credentials){
         const controlButtons=page.locator(`#${sourceView} button[data-bw-onclick="${escapedExpression}"]`);
         assert(await controlButtons.count()>control.ordinal,`in-view navigation control disappeared before click: ${sourceView} -> ${control.targetView} ${safe(control.label)}`);
         const controlButton=controlButtons.nth(control.ordinal);
+        if(!(await controlButton.isVisible())){
+          const controlDisclosure=controlButton.locator('xpath=ancestor::details[1]');
+          if(await controlDisclosure.count()&&!(await controlDisclosure.evaluate(node=>node.open===true))){
+            const disclosureSummary=controlDisclosure.locator(':scope > summary').first();
+            assert(await disclosureSummary.count(),`hidden in-view navigation control has no disclosure summary: ${sourceView} -> ${control.targetView} ${safe(control.label)}`);
+            await disclosureSummary.click();
+          }
+        }
         assert(await controlButton.isVisible(),`in-view navigation control became hidden before click: ${sourceView} -> ${control.targetView} ${safe(control.label)}`);
         await controlButton.click();
         await page.waitForFunction(view=>document.getElementById(view)?.classList.contains('active'),control.targetView,{timeout:VIEW_TIMEOUT_MS});
