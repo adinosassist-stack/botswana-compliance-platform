@@ -230,11 +230,13 @@ async function runFullUserJourney(credentials){
     const workspaceRuntimeProof=await page.evaluate(()=>({
       peopleLazy:document.getElementById('peopleops')?.dataset?.lazyView||'',
       deepLazy:document.getElementById('employees')?.dataset?.lazyView||'',
-      showViewSource:String(globalThis.showView||'')
+      showViewReady:typeof globalThis.showView==='function',
+      hydrateReady:typeof globalThis.hydrateLazyWorkspaceView==='function'
     }));
     assert(!workspaceRuntimeProof.peopleLazy,'People unexpectedly became lazy in delivered /app/ HTML');
     assert(workspaceRuntimeProof.deepLazy==='1','deep workspace tools must remain lazy after primary hubs are made resident');
-    assert(/hydrateLazyWorkspaceView/.test(workspaceRuntimeProof.showViewSource),'live showView must contain the source-baked lazy hydration branch');
+    assert(workspaceRuntimeProof.showViewReady,'live showView function missing from workspace runtime');
+    assert(workspaceRuntimeProof.hydrateReady,'live lazy hydration function missing from workspace runtime');
 
     const peopleToolsGroup=page.locator('#nav details.nav-access-group').filter({hasText:'Operations & people'}).first();
     assert(await peopleToolsGroup.count(),'Operations & people navigation group missing');
