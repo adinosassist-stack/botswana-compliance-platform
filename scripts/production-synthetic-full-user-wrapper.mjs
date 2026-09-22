@@ -7,6 +7,7 @@ const WORKSPACE_TIMEOUT_MS=40000;
 const VIEW_TIMEOUT_MS=5000;
 const CLOSE_TIMEOUT_MS=5000;
 const MIN_OWNER_VIEW_COUNT=40;
+const MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=25;
 const executablePath=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(path=>fs.existsSync(path));
 
 function assert(condition,message){if(!condition)throw new Error(`Synthetic full-user proof failed: ${message}`)}
@@ -360,10 +361,67 @@ async function runFullUserJourney(credentials){
       }
     }
 
+    let inViewNavigationClicks=0;
+    for(const sourceView of views){
+      const sourceNav=page.locator(`#nav button[data-view="${sourceView}"]`).first();
+      assert(await sourceNav.count(),`source navigation button missing for in-view audit ${sourceView}`);
+      const sourceDetails=sourceNav.locator('xpath=ancestor::details[1]');
+      if(await sourceDetails.count()&&!(await sourceDetails.evaluate(node=>node.open===true))){
+        const summary=sourceDetails.locator(':scope > summary').first();
+        assert(await summary.count(),`collapsed source group for ${sourceView} has no summary control`);
+        await summary.click();
+      }
+      await sourceNav.click();
+      await page.waitForFunction(view=>document.getElementById(view)?.classList.contains('active'),sourceView,{timeout:VIEW_TIMEOUT_MS});
+
+      const controls=await page.locator(`#${sourceView} button[data-bw-onclick]`).evaluateAll((buttons,allowedViews)=>buttons.map((button,index)=>{
+        const expression=String(button.getAttribute('data-bw-onclick')||'').trim();
+        const match=expression.match(/^showView\((['"])([A-Za-z0-9_-]+)\1\)$/);
+        const targetView=match?.[2]||'';
+        const style=getComputedStyle(button);
+        const visible=button.offsetParent!==null&&style.display!=='none'&&style.visibility!=='hidden';
+        if(!visible||button.disabled||!targetView||!allowedViews.includes(targetView))return null;
+        return {index,targetView,expression,label:String(button.textContent||'').replace(/\s+/g,' ').trim().slice(0,120)};
+      }).filter(Boolean),views);
+
+      for(const control of controls){
+        if(!(await page.evaluate(view=>document.getElementById(view)?.classList.contains('active'),sourceView))){
+          if(await sourceDetails.count()&&!(await sourceDetails.evaluate(node=>node.open===true))){
+            const summary=sourceDetails.locator(':scope > summary').first();
+            assert(await summary.count(),`collapsed source group for ${sourceView} lost its summary control`);
+            await summary.click();
+          }
+          await sourceNav.click();
+          await page.waitForFunction(view=>document.getElementById(view)?.classList.contains('active'),sourceView,{timeout:VIEW_TIMEOUT_MS});
+        }
+        const controlButton=page.locator(`#${sourceView} button[data-bw-onclick]`).nth(control.index);
+        assert(await controlButton.isVisible(),`in-view navigation control became hidden before click: ${sourceView} -> ${control.targetView} ${safe(control.label)}`);
+        assert((await controlButton.getAttribute('data-bw-onclick'))===control.expression,`in-view navigation expression changed before click: ${sourceView} -> ${control.targetView}`);
+        await controlButton.click();
+        await page.waitForFunction(view=>document.getElementById(view)?.classList.contains('active'),control.targetView,{timeout:VIEW_TIMEOUT_MS});
+        const targetState=await page.evaluate(view=>{
+          const target=document.getElementById(view);
+          return {
+            active:!!target?.classList.contains('active'),
+            lazyError:target?.dataset?.lazyError||'',
+            title:String(document.getElementById('pageTitle')?.textContent||'').trim(),
+            shellVisible:!document.getElementById('appShell')?.classList.contains('hidden')
+          };
+        },control.targetView);
+        assert(targetState.active&&targetState.shellVisible&&!targetState.lazyError,
+          `in-view navigation control failed: ${sourceView} -> ${control.targetView} ${safe(JSON.stringify(targetState))}`);
+        assert(targetState.title.length>0,`in-view navigation control reached ${control.targetView} without a page title`);
+        inViewNavigationClicks++;
+      }
+    }
+    assert(inViewNavigationClicks>=MIN_OWNER_INVIEW_NAV_CONTROL_COUNT,
+      `only ${inViewNavigationClicks} visible owner in-view navigation controls were exercised; expected at least ${MIN_OWNER_INVIEW_NAV_CONTROL_COUNT}`);
+
     assert(pageErrors.length===0,`page errors: ${safe(pageErrors.join(' | '))}`);
     assert(assetFailures.length===0,`critical asset failures: ${safe(assetFailures.join(' | '))}`);
     assert(apiServerFailures.length===0,`same-origin API 5xx responses: ${safe(apiServerFailures.join(' | '))}`);
     mark('full-user owner navigation click matrix',`${views.length} role-visible navigation buttons were clicked through the live DOM; every lazy view completed hydration with non-empty content and no page, asset, or API 5xx failures`);
+    mark('full-user in-view navigation control matrix',`${inViewNavigationClicks} visible non-destructive workspace navigation controls were clicked from their real source views and activated their intended destinations`);
     await context.close();
   }finally{
     await withDeadline('full-user browser close',browser.close().catch(()=>{}),CLOSE_TIMEOUT_MS).catch(()=>{});

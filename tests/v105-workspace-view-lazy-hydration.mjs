@@ -124,6 +124,12 @@ assert.match(fullUserProof,/target\?\.dataset\?\.lazyView==='1'\|\|target\?\.dat
 assert.match(fullUserProof,/target\?\.dataset\?\.lazyHydrated==='1'\|\|target\?\.dataset\?\.lazyError==='1'/,"live owner click matrix must wait for lazy hydration terminal state");
 assert.ok(fullUserProof.includes("did not complete hydration after its real navigation click"),"live owner click matrix must fail closed on any lazy hydration failure");
 assert.ok(fullUserProof.includes("hydrated with empty content after its real navigation click"),"live owner click matrix must reject empty hydrated fragments");
+assert.match(fullUserProof,/MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=25/,"live owner proof must retain a fail-closed minimum for in-view controls");
+assert.match(fullUserProof,/button\[data-bw-onclick\]/,"live owner proof must discover real in-view delegated buttons");
+assert.match(fullUserProof,/expression\.match\(\/\^showView/,"in-view matrix must restrict itself to non-destructive showView controls");
+assert.match(fullUserProof,/await controlButton\.click\(\)/,"in-view matrix must click the real source-view control");
+assert.ok(fullUserProof.includes("in-view navigation control failed"),"in-view matrix must fail closed when a real control does not activate its target");
+assert.ok(fullUserProof.includes("full-user in-view navigation control matrix"),"live proof must report in-view navigation completion");
 
 assert.match(runtime,/const workspaceNavigationEpoch=options\?\.preserveNavigationEpoch===true\?workspaceViewNavigationEpoch:\+\+workspaceViewNavigationEpoch;if\(target\.dataset\.lazyView==="1"&&options\?\.lazyHydrated!==true\)\{target\.dataset\.lazyNavigationEpoch=String\(workspaceNavigationEpoch\);activateLazyWorkspacePlaceholder\(id,target\);void hydrateLazyWorkspaceView\(id,target,options\);return true\}/,"canonical showView must carry the baked lazy interception branch");
 assert.match(runtime,/const shouldRender=view=>\{if\(!roleCanView\(view\)\)return false;const target=document\.getElementById\(view\),active=!!target\?\.classList\.contains\("active"\),coldLanding=window\.__THEBE_WORKSPACE_READY__!==true&&view===roleLandingView\(currentUser\?\.role\);return active\|\|coldLanding\}/,"render fan-out must remain active-or-cold-landing only");
