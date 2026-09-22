@@ -6,6 +6,7 @@ const fragments=JSON.parse(fs.readFileSync("public/assets/workspace-view-fragmen
 const fragmentShards=Array.from({length:12},(_,i)=>JSON.parse(fs.readFileSync(`public/assets/workspace-view-fragments-20260921d-${i}.json`,"utf8")));
 const viewShard=id=>{let hash=0;for(const ch of String(id||""))hash=(Math.imul(hash,31)+ch.charCodeAt(0))>>>0;return hash%12};
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
+const fullUserProof=fs.readFileSync("scripts/production-synthetic-full-user-wrapper.mjs","utf8");
 const coreWorkspaceScripts=["dom-security.js","event-delegation.js","notifications.js","dialog-service.js","api-client.js","state-store.js","components.js"];
 for(const script of coreWorkspaceScripts){
   assert.ok(html.includes(`<script src="/js/${script}"></script>`),`workspace core asset must be root-relative for /app/: ${script}`);
@@ -115,6 +116,11 @@ requestView("vault");requestView("vault");
 assert.equal(completionWins("vault"),true,"repeat click on the same loading view must preserve latest intent");
 assert.match(production,/externalizeWorkspaceViews\(externalizeWorkspaceHeadStyles\(externalizeWorkspaceRuntime\(baseHtml\)\)\)/);
 assert.match(production,/injectWorkspaceLazyViewClient\(injectFirstPartyRegistrationClient\(runtime\)\)/);
+
+assert.match(fullUserProof,/const wasLazy=target\.dataset\.lazyView==='1'/,"live owner matrix must classify lazy views before activation");
+assert.match(fullUserProof,/target\.dataset\.lazyHydrated!=='1'&&target\.dataset\.lazyError!=='1'/,"live owner matrix must wait for lazy hydration terminal state");
+assert.ok(fullUserProof.includes("lazy view ${view} did not complete hydration"),"live owner matrix must fail closed on any lazy hydration failure");
+assert.ok(fullUserProof.includes("lazy view ${view} hydrated with empty content"),"live owner matrix must reject empty hydrated fragments");
 
 assert.match(runtime,/const workspaceNavigationEpoch=options\?\.preserveNavigationEpoch===true\?workspaceViewNavigationEpoch:\+\+workspaceViewNavigationEpoch;if\(target\.dataset\.lazyView==="1"&&options\?\.lazyHydrated!==true\)\{target\.dataset\.lazyNavigationEpoch=String\(workspaceNavigationEpoch\);activateLazyWorkspacePlaceholder\(id,target\);void hydrateLazyWorkspaceView\(id,target,options\);return true\}/,"canonical showView must carry the baked lazy interception branch");
 assert.match(runtime,/const shouldRender=view=>\{if\(!roleCanView\(view\)\)return false;const target=document\.getElementById\(view\),active=!!target\?\.classList\.contains\("active"\),coldLanding=window\.__THEBE_WORKSPACE_READY__!==true&&view===roleLandingView\(currentUser\?\.role\);return active\|\|coldLanding\}/,"render fan-out must remain active-or-cold-landing only");

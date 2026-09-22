@@ -312,25 +312,42 @@ async function runFullUserJourney(credentials){
       const result=await withDeadline(`view ${view}`,page.evaluate(async targetView=>{
         const target=document.getElementById(targetView);
         const show=globalThis.showView;
-        if(!target||typeof show!=='function')return {ok:false,exists:!!target,active:false,title:''};
+        if(!target||typeof show!=='function')return {ok:false,exists:!!target,active:false,title:'',wasLazy:false,lazyHydrated:false,lazyError:false,stillLazy:'',contentLength:0};
+        const wasLazy=target.dataset.lazyView==='1';
         const ok=show(targetView,{skipDataRefresh:true});
-        await new Promise(resolve=>requestAnimationFrame(()=>setTimeout(resolve,30)));
+        if(wasLazy){
+          const deadline=Date.now()+7000;
+          while(Date.now()<deadline&&target.dataset.lazyHydrated!=='1'&&target.dataset.lazyError!=='1'){
+            await new Promise(resolve=>setTimeout(resolve,40));
+          }
+        }else{
+          await new Promise(resolve=>requestAnimationFrame(()=>setTimeout(resolve,30)));
+        }
         return {
           ok:ok===true,
           exists:true,
           active:target.classList.contains('active'),
           title:String(document.getElementById('pageTitle')?.textContent||'').trim(),
-          shellVisible:!document.getElementById('appShell')?.classList.contains('hidden')
+          shellVisible:!document.getElementById('appShell')?.classList.contains('hidden'),
+          wasLazy,
+          lazyHydrated:target.dataset.lazyHydrated==='1',
+          lazyError:target.dataset.lazyError==='1',
+          stillLazy:target.dataset.lazyView||'',
+          contentLength:String(target.textContent||'').trim().length
         };
       },view),VIEW_TIMEOUT_MS);
       assert(result.ok&&result.exists&&result.active&&result.shellVisible,`view ${view} did not activate in the owner workspace`);
       assert(result.title.length>0,`view ${view} activated without a page title`);
+      if(result.wasLazy){
+        assert(result.lazyHydrated&&!result.lazyError&&!result.stillLazy,`lazy view ${view} did not complete hydration: ${safe(JSON.stringify(result))}`);
+        assert(result.contentLength>0,`lazy view ${view} hydrated with empty content`);
+      }
     }
 
     assert(pageErrors.length===0,`page errors: ${safe(pageErrors.join(' | '))}`);
     assert(assetFailures.length===0,`critical asset failures: ${safe(assetFailures.join(' | '))}`);
     assert(apiServerFailures.length===0,`same-origin API 5xx responses: ${safe(apiServerFailures.join(' | '))}`);
-    mark('full-user owner view matrix',`${views.length} role-visible views activated read-only with no page, asset, or API 5xx failures`);
+    mark('full-user owner view matrix',`${views.length} role-visible views activated read-only; every lazy view completed hydration with non-empty content and no page, asset, or API 5xx failures`);
     await context.close();
   }finally{
     await withDeadline('full-user browser close',browser.close().catch(()=>{}),CLOSE_TIMEOUT_MS).catch(()=>{});
