@@ -6608,7 +6608,7 @@ export default {
       }
 
 
-      if(url.pathname.startsWith("/api/daily-reporting/")){const featureGate=await requireEntitlement(env,a.tenant_id,"daily_operations");if(!featureGate.ok)return json({error:featureGate.error,entitlement:featureGate.entitlement},402);}
+      if(url.pathname.startsWith("/api/daily-reporting/")){const featureKey=url.pathname==="/api/daily-reporting/locations"?"operating_locations":"daily_operations";const featureGate=await requireEntitlement(env,a.tenant_id,featureKey);if(!featureGate.ok)return json({error:featureGate.error,entitlement:featureGate.entitlement},402);}
 
       if(url.pathname==="/api/daily-reporting/locations"&&req.method==="GET"){
         if(!roleAllowed(a,"owner","manager"))return json({error:"forbidden"},403);
