@@ -46,6 +46,9 @@ assert.ok(html.includes('data-view="dailyreports"')&&html.includes('data-hub-tar
 assert.ok(html.includes('<section id="dailyreports" class="view">'),'Daily Reports workspace view missing');
 assert.ok(html.includes('id="reporterPortal"'),'restricted employee report portal missing');
 assert.ok(html.includes('function renderDailyOperations()')&&html.includes('function generateOpsSummary()'),'daily operations render/summary functions missing');
+assert.ok(html.includes('Promise.allSettled(requests)'),'daily operations setup must survive partial API failure');
+assert.ok(html.includes('Locations still work independently'),'location setup must remain usable when daily reporting is outside the active plan');
+assert.ok(worker.includes('url.pathname==="/api/daily-reporting/locations"?"operating_locations":"daily_operations"'),'location routes must use the operating_locations entitlement rather than the daily_operations gate');
 assert.ok(html.includes('if(!["owner","manager"].includes(role))return'),'non-manager Daily Reports background API calls must be suppressed');
 assert.equal((html.match(/id="companySelect"/g)||[]).length,1,'company switcher id must be unique');
 assert.ok(html.includes('Today’s operations')&&html.includes('Daily leadership digest'),'leadership workspace hierarchy missing');
