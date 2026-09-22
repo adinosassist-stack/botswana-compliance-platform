@@ -263,7 +263,7 @@ async function runFullUserJourney(credentials){
       };
     });
     assert(employeeLazyState.active&&employeeLazyState.hydrated&&!employeeLazyState.error&&!employeeLazyState.stillLazy,`functional lazy workspace hydration failed: ${safe(JSON.stringify(employeeLazyState))}`);
-    assert(/Employees|Staff register|staff/i.test(employeeLazyState.text),`Employees lazy view hydrated unexpected content: ${safe(employeeLazyState.text)}`);
+    assert(/Employee records|Employee register|Employees|Staff register|staff/i.test(employeeLazyState.text),`Employees lazy view hydrated unexpected content: ${safe(employeeLazyState.text)}`);
     mark('workspace lazy runtime functional proof','real Employees click hydrated a deep lazy view through the self-contained versioned runtime');
 
     await delegatedPeopleButton.click();
