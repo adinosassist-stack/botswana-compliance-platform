@@ -14,7 +14,7 @@ const BUSINESS_DATA_BRIDGE_RELEASE="20260913d";
 const THEBE_LIVE_VOICE_RELEASE="20260921c";
 const THEBE_PUBLIC_API_CLIENT_RELEASE="20260920a";
 const THEBE_AI_DOCK_RELEASE="20260921c";
-const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20260921f.js";
+const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20260922a.js";
 const WORKSPACE_STYLES_ASSET="/assets/workspace-inline-styles-20260921a.css";
 const WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT=12;
 const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20260921d-";
@@ -128,7 +128,7 @@ function injectPublicThebeAssets(html){
 
 function externalizeWorkspaceRuntime(html){
   const source=String(html||"");
-  const pattern=/<script id="thebe-workspace-runtime-inline">[\s\S]*?<\/script>/;
+  const pattern=/<script\b(?=[^>]*\bid=["']thebe-workspace-runtime-inline["'])[^>]*>[\s\S]*?<\/script>/i;
   if(!pattern.test(source))return source;
   return source.replace(pattern,`<script id="thebe-workspace-runtime" src="${WORKSPACE_RUNTIME_ASSET}"></script>`);
 }
