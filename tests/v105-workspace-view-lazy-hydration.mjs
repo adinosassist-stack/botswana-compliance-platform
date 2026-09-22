@@ -90,8 +90,8 @@ assert.ok(production.includes('const WORKSPACE_RUNTIME_ASSET="/js/workspace-runt
 assert.match(production,/window\.BW\?\.dom\?\.renderMarkup/,"hydration must use the sanctioned DOM sanitizer");
 assert.match(runtime,/let workspaceViewNavigationEpoch=0/,"static versioned runtime must carry lazy navigation state");
 assert.match(runtime,/function hydrateLazyWorkspaceView\(id,target,options=\{\}\)/,"static versioned runtime must hydrate lazy views itself");
-assert.match(runtime,/function fetchWorkspaceViewShard\(asset,shard,cacheMode\)/,"static versioned runtime must own fragment transport");
-assert.match(runtime,/workspace_fragment_timeout/,"static lazy runtime must bound stalled fragment fetches");
+assert.match(runtime,/const workspaceFragmentClient=window\.BW\?\.api\?\.createClient\?\.\(\{timeoutMs:6000,retries:1\}\)/,"static versioned runtime must use centralized bounded fragment transport");
+assert.match(runtime,/function fetchWorkspaceViewShard\(asset,shard\)/,"static versioned runtime must own fragment transport wrapper");
 assert.match(production,/source\.includes\("function hydrateLazyWorkspaceView\("/,"Worker lazy-runtime repair must be idempotent when the static runtime is already hydrated");
 assert.match(production,/credentials:"same-origin",cache:"force-cache"/,"versioned immutable lazy fragments should reuse their rotated cache identity");
 assert.match(production,/target\.dataset\.lazyView==="1"/);
