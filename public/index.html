@@ -4517,7 +4517,6 @@ main{
       <div class="actions profile-actions"><button type="button" class="btn" data-bw-onclick="saveProfile()">Save changes</button><button type="button" id="profileResetDemo" class="btn alt profile-preview-reset" data-bw-onclick="resetDemo()">Reset preview data</button><span id="profileSaveStatus" class="muted small" role="status"></span></div>
     </div>
   </section>
-<div class="card" style="margin-top:18px"><div class="small muted"><b>Ruleset integrity:</b> Sources in this prototype point to official/public Botswana materials where available. Production must retain source snapshots, effective dates, reviewer identity and change history for every executable legal rule.</div></div>
 </main>
 </div>
 
@@ -6656,14 +6655,57 @@ function renderOpsLocations(items){const box=document.getElementById("opsLocatio
 function renderOpsAccess(items){const box=document.getElementById("opsReporterAccessList");if(!box)return;const active=(items||[]).filter(x=>x.status==="active");box.safeHTML=active.length?active.map(x=>`<div class="item"><div class="between row"><div><b>${escapeHtml(x.full_name)}</b><div class="muted small">${escapeHtml(x.location_name)} · expires ${new Date(x.expires_at).toLocaleDateString()}${x.last_used_at?` · last used ${new Date(x.last_used_at).toLocaleDateString()}`:" · not used yet"}</div></div><button class="btn alt" data-bw-onclick="revokeOpsReporterAccess('${escapeHtml(x.id)}')">Revoke</button></div></div>`).join(""):'<div class="muted small">No active employee reporting links yet.</div>'}
 function fillSelectPreserve(select,items,labelFn,emptyLabel){if(!select)return;const old=select.value;select.safeHTML=(emptyLabel?`<option value="">${escapeHtml(emptyLabel)}</option>`:"")+(items||[]).map(x=>`<option value="${escapeHtml(x.id)}">${escapeHtml(labelFn(x))}</option>`).join("");if([...select.options].some(o=>o.value===old))select.value=old}
 async function renderDailyOperations(){
-  const root=document.getElementById("dailyreports");if(!root)return;const role=currentWorkspaceRole();if(!["owner","manager"].includes(role))return;const dateEl=document.getElementById("opsReportDate");if(dateEl&&!dateEl.value)dateEl.value=browserGaboroneDate();const date=dateEl?.value||browserGaboroneDate(),locationId=document.getElementById("opsLocationFilter")?.value||"";
-  try{
-    const [locations,employees,access,settings,dashboard,summaries,performance]=await Promise.all([apiJson("/api/daily-reporting/locations"),apiJson("/api/employees"),apiJson("/api/daily-reporting/access"),apiJson("/api/daily-reporting/settings"),apiJson(`/api/daily-reporting/dashboard?date=${encodeURIComponent(date)}${locationId?`&locationId=${encodeURIComponent(locationId)}`:""}`),apiJson(`/api/daily-reporting/summaries?date=${encodeURIComponent(date)}`),apiJson(`/api/daily-reporting/performance?date=${encodeURIComponent(date)}${locationId?`&locationId=${encodeURIComponent(locationId)}`:""}`)]);
-    const locs=locations.items||[],emps=(employees.items||[]).filter(x=>String(x.status||"").trim().toLowerCase()==="active");fillSelectPreserve(document.getElementById("opsLocationFilter"),locs,x=>x.name,"All locations");fillSelectPreserve(document.getElementById("opsReporterLocation"),locs,x=>x.name,"Select location");fillSelectPreserve(document.getElementById("opsReporterEmployee"),emps,x=>`${x.full_name}${x.role_title?` · ${x.role_title}`:""}`,"Select employee");
-    if(locationId&&document.getElementById("opsLocationFilter"))document.getElementById("opsLocationFilter").value=locationId;
-    setText("opsCoverage",`${Number(dashboard.coverage||0)}%`);setText("opsReportsReceived",dashboard.reports?.length||0);setText("opsReportOrb",dashboard.reports?.length||0);setText("opsExpectedReports",dashboard.reportingPopulation?.expected??dashboard.accesses?.length??0);setText("opsLocationsReporting",dashboard.locationsReporting||0);setText("opsLocationOrb",dashboard.locationsReporting||0);setText("opsAttention",dashboard.totals?.attention||0);setText("opsAttentionOrb",dashboard.totals?.attention||0);
-    renderOpsBranches(dashboard.branches||[]);renderOpsMissing(dashboard.missing||[]);renderOpsExceptions(dashboard.exceptions||[]);renderOpsReports(dashboard.reports||[]);renderOpsLocations(locs);renderOpsAccess(access.items||[]);document.getElementById("opsAutoSummary").checked=Number(settings.auto_summary_enabled||0)===1||settings.autoSummaryEnabled===true;renderOpsNarrative(opsLatestSummary(summaries.items||[],locationId));renderOpsPerformance(performance);setTimeout(()=>document.querySelectorAll('#dailyreports .metric-ring[data-ring-target]').forEach(syncMetricRing),10);
-  }catch(e){const box=document.getElementById("opsAiSummary");if(box)box.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
+  const root=document.getElementById("dailyreports");if(!root)return;const role=currentWorkspaceRole();if(!["owner","manager"].includes(role))return;
+  const dateEl=document.getElementById("opsReportDate");if(dateEl&&!dateEl.value)dateEl.value=browserGaboroneDate();
+  const date=dateEl?.value||browserGaboroneDate(),locationId=document.getElementById("opsLocationFilter")?.value||"";
+  const requests=[
+    apiJson("/api/daily-reporting/locations"),
+    apiJson("/api/employees"),
+    apiJson("/api/daily-reporting/access"),
+    apiJson("/api/daily-reporting/settings"),
+    apiJson(`/api/daily-reporting/dashboard?date=${encodeURIComponent(date)}${locationId?`&locationId=${encodeURIComponent(locationId)}`:""}`),
+    apiJson(`/api/daily-reporting/summaries?date=${encodeURIComponent(date)}`),
+    apiJson(`/api/daily-reporting/performance?date=${encodeURIComponent(date)}${locationId?`&locationId=${encodeURIComponent(locationId)}`:""}`)
+  ];
+  const [locationsR,employeesR,accessR,settingsR,dashboardR,summariesR,performanceR]=await Promise.allSettled(requests);
+  const value=(result,fallback)=>result.status==="fulfilled"?result.value:fallback;
+  const reason=result=>result.status==="rejected"?result.reason:null;
+  const locations=value(locationsR,{items:[]}),employees=value(employeesR,{items:[]}),access=value(accessR,{items:[]});
+  const settings=value(settingsR,{}),dashboard=value(dashboardR,{}),summaries=value(summariesR,{items:[]}),performance=value(performanceR,null);
+  const locs=locations.items||[],emps=(employees.items||[]).filter(x=>String(x.status||"").trim().toLowerCase()==="active");
+  fillSelectPreserve(document.getElementById("opsLocationFilter"),locs,x=>x.name,"All locations");
+  fillSelectPreserve(document.getElementById("opsReporterLocation"),locs,x=>x.name,"Select location");
+  fillSelectPreserve(document.getElementById("opsReporterEmployee"),emps,x=>`${x.full_name}${x.role_title?` · ${x.role_title}`:""}`,"Select employee");
+  if(locationId&&document.getElementById("opsLocationFilter"))document.getElementById("opsLocationFilter").value=locationId;
+
+  if(locationsR.status==="fulfilled")renderOpsLocations(locs);
+  else{const box=document.getElementById("opsLocationsList");if(box)box.safeHTML=`<div class="notice bad">Locations could not load. ${escapeHtml(reason(locationsR)?.message||"Retry this section.")}</div>`}
+
+  const accessButton=document.querySelector('#dailyreports [data-bw-onclick="createOpsReporterLink()"]');
+  const accessBlocked=accessR.status==="rejected";
+  if(accessButton)accessButton.disabled=accessBlocked||!locs.length||!emps.length;
+  if(accessR.status==="fulfilled"){
+    if(!emps.length){const box=document.getElementById("opsReporterAccessList");if(box)box.safeHTML='<div class="notice info">Add an active employee first, then issue a reporting link.</div>'}
+    else if(!locs.length){const box=document.getElementById("opsReporterAccessList");if(box)box.safeHTML='<div class="notice info">Add a location first, then issue a reporting link.</div>'}
+    else renderOpsAccess(access.items||[]);
+  }else{
+    const err=reason(accessR),box=document.getElementById("opsReporterAccessList"),planBlocked=Number(err?.status||0)===402||String(err?.code||"")==="feature_not_in_plan";
+    if(box)box.safeHTML=planBlocked?'<div class="notice info"><b>Employee reporting is not available on the current plan.</b><div class="small">Locations still work independently. Upgrade the workspace plan to issue restricted employee reporting links.</div></div>':`<div class="notice bad">Employee reporting access could not load. ${escapeHtml(err?.message||"Retry this section.")}</div>`;
+  }
+
+  setText("opsCoverage",`${Number(dashboard.coverage||0)}%`);setText("opsReportsReceived",dashboard.reports?.length||0);setText("opsReportOrb",dashboard.reports?.length||0);
+  setText("opsExpectedReports",dashboard.reportingPopulation?.expected??dashboard.accesses?.length??0);setText("opsLocationsReporting",dashboard.locationsReporting||0);setText("opsLocationOrb",dashboard.locationsReporting||0);
+  setText("opsAttention",dashboard.totals?.attention||0);setText("opsAttentionOrb",dashboard.totals?.attention||0);
+  renderOpsBranches(dashboard.branches||[]);renderOpsMissing(dashboard.missing||[]);renderOpsExceptions(dashboard.exceptions||[]);renderOpsReports(dashboard.reports||[]);
+  const autoSummary=document.getElementById("opsAutoSummary");if(autoSummary){autoSummary.checked=Number(settings.auto_summary_enabled||0)===1||settings.autoSummaryEnabled===true;autoSummary.disabled=settingsR.status==="rejected"}
+  renderOpsNarrative(summariesR.status==="fulfilled"?opsLatestSummary(summaries.items||[],locationId):null);
+  if(performanceR.status==="fulfilled")renderOpsPerformance(performance);
+  const reportingFailures=[settingsR,dashboardR,summariesR,performanceR].filter(x=>x.status==="rejected");
+  if(reportingFailures.length){
+    const first=reason(reportingFailures[0]),box=document.getElementById("opsAiSummary"),planBlocked=reportingFailures.some(x=>Number(reason(x)?.status||0)===402||String(reason(x)?.code||"")==="feature_not_in_plan");
+    if(box)box.safeHTML=planBlocked?'<div class="notice info"><b>Daily reporting analytics are not available on the current plan.</b><div class="small">Location setup remains available.</div></div>':`<div class="notice bad">Some reporting analytics could not load. ${escapeHtml(first?.message||"Retry this section.")}</div>`;
+  }
+  setTimeout(()=>document.querySelectorAll('#dailyreports .metric-ring[data-ring-target]').forEach(syncMetricRing),10);
 }
 async function addOpsLocation(){const name=document.getElementById("opsLocationName").value.trim();if(!name)return notifyUser("Enter a location name.");try{await apiJson("/api/daily-reporting/locations",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({name,code:document.getElementById("opsLocationCode").value,town:document.getElementById("opsLocationTown").value})});document.getElementById("opsLocationName").value="";document.getElementById("opsLocationCode").value="";document.getElementById("opsLocationTown").value="";await renderDailyOperations()}catch(e){notifyUser(e.message)}}
 async function createOpsReporterLink(){const employeeId=document.getElementById("opsReporterEmployee").value,locationId=document.getElementById("opsReporterLocation").value;if(!employeeId||!locationId)return notifyUser("Choose an employee and location.");try{let r;if(STANDALONE_PREVIEW)r={link:"https://your-domain.example/#report=secure-employee-link",employeeName:"Demo Employee",locationName:"Head Office",expiresInDays:Number(document.getElementById("opsReporterExpiry").value)};else r=await apiJson("/api/daily-reporting/access",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({employeeId,locationId,expiresInDays:Number(document.getElementById("opsReporterExpiry").value)})});const box=document.getElementById("opsReporterLinkResult");box.safeHTML=`<div class="notice good" style="margin-top:12px"><b>Reporting link created</b><div class="small">Share this only with ${escapeHtml(r.employeeName||"the employee")}. Creating another link for the same location revokes the previous one.</div><div class="ops-access-link"><input id="opsNewReporterLink" readonly value="${escapeHtml(r.link||"")}"><button class="btn alt" data-bw-onclick="copyOpsReporterLink()">Copy link</button><button class="btn alt" data-bw-onclick="shareOpsReporterLink()">Share</button></div><div class="muted small" style="margin-top:8px">Share uses the phone/browser share sheet when available (including WhatsApp on supported devices). The reporting link is a private bearer link—send it only to the named employee.</div></div>`;if(!STANDALONE_PREVIEW)await renderDailyOperations()}catch(e){notifyUser(e.message)}}
