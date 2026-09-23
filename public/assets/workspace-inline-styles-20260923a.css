@@ -2089,13 +2089,15 @@ main{
 .mobile-nav-backdrop,.mobile-nav-close{display:none}
 @media (max-width:760px){
   html,body{max-width:100%;overflow-x:hidden}
-  body.mobile-nav-open{overflow:hidden;touch-action:none}
+  body.mobile-nav-open{overflow:hidden;touch-action:none;background:#0b0f0d!important}
   .shell{display:block!important;min-width:0!important}
-  main{width:100%!important;max-width:none!important;padding:12px 10px calc(128px + env(safe-area-inset-bottom))!important;overflow-x:hidden;scroll-padding-bottom:calc(128px + env(safe-area-inset-bottom))}
+  main{width:100%!important;max-width:none!important;padding:12px 10px calc(144px + env(safe-area-inset-bottom))!important;overflow-x:hidden;scroll-padding-bottom:calc(144px + env(safe-area-inset-bottom))}
+  #mainContent::after{content:"";display:block;width:100%;height:calc(88px + env(safe-area-inset-bottom));pointer-events:none}
 
   /* Reuse the real desktop sidebar as the mobile drawer so every workspace view remains accessible. */
-  #workspaceSidebar{display:flex!important;position:fixed!important;z-index:220!important;inset:0 auto 0 0!important;width:min(88vw,360px)!important;height:100dvh!important;max-height:100dvh!important;padding:14px 10px calc(18px + env(safe-area-inset-bottom))!important;background:var(--sidebar)!important;border-right:1px solid #28312c!important;box-shadow:18px 0 50px rgba(6,12,9,.28)!important;transform:translateX(-104%);transition:transform .22s ease;overflow:hidden!important;overscroll-behavior:contain}
+  #workspaceSidebar{display:flex!important;position:fixed!important;z-index:220!important;inset:0 auto 0 0!important;width:min(88vw,360px)!important;height:100dvh!important;max-height:100dvh!important;padding:14px 10px calc(18px + env(safe-area-inset-bottom))!important;background:#111915!important;border-right:1px solid #28312c!important;box-shadow:18px 0 50px rgba(6,12,9,.36)!important;transform:translateX(-104%);transition:transform .22s ease;overflow:hidden!important;overscroll-behavior:contain}
   body.mobile-nav-open #workspaceSidebar{transform:translateX(0)}
+  body.mobile-nav-open #mainContent{visibility:hidden!important}
   #workspaceSidebar>.brand{flex:0 0 auto;margin:0 48px 10px 6px!important;min-height:40px}
   #workspaceSidebar>.nav{display:block!important;flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;overflow-x:hidden!important;padding:4px 3px 18px 0!important;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
   #workspaceSidebar .sidebarfoot{display:block!important;flex:0 0 auto;margin-top:0!important;padding:10px 6px 0!important;max-height:92px;overflow:hidden}
@@ -2103,7 +2105,7 @@ main{
   #workspaceSidebar .sidebar-website-link{display:flex!important;margin-top:0!important;min-height:44px!important}
   .mobile-nav-close{display:grid;place-items:center;position:absolute;top:12px;right:12px;z-index:2;width:40px;height:40px;border:1px solid #333d37;border-radius:11px;background:#1d2420;color:#e8eeea;font-size:23px;line-height:1;cursor:pointer}
   .mobile-nav-close:focus-visible{outline:3px solid rgba(118,212,174,.26);outline-offset:2px}
-  .mobile-nav-backdrop{display:block;position:fixed;z-index:210;inset:0;background:rgba(5,10,7,.72);backdrop-filter:blur(2px);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s ease,visibility .2s ease}
+  .mobile-nav-backdrop{display:block;position:fixed;z-index:210;inset:0;background:#0b0f0d;backdrop-filter:none;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s ease,visibility .2s ease}
   body.mobile-nav-open .mobile-nav-backdrop{opacity:1;visibility:visible;pointer-events:auto}
 
   /* Touch targets and menu density. */
