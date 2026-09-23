@@ -485,7 +485,7 @@ export async function handleAgenticWhatsAppRequest({request,logicalPath,env}){
   const auth=await authenticate(request,env);if(!auth)return json({error:"authentication_required"},401);
   if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
   if(logicalPath==="/api/agentic/whatsapp/status"&&request.method==="GET"){
-    return json({enabled:true,mode:"governed_inbound_reads_plus_prepare",purposes:Object.entries(ACTION_KEY_BY_PURPOSE).map(([key,value])=>({key,label:value.label,agentKey:value.agentKey,actionKey:value.actionKey})),readQueries:Object.entries(WHATSAPP_READ_ACTIONS).map(([key,value])=>({key,label:value.label,agentKey:"thebe",actionKey:value.actionKey})),humanReviewRequired:true,providerSend:false,recipientTargeting:false,executionEnabled:false,readReplies:{inboundOnly:true,recipientLocked:true,financeMutation:false}});
+    return json({enabled:true,mode:"prepare_only",inboundMode:"governed_reads_plus_prepare",purposes:Object.entries(ACTION_KEY_BY_PURPOSE).map(([key,value])=>({key,label:value.label,agentKey:value.agentKey,actionKey:value.actionKey})),readQueries:Object.entries(WHATSAPP_READ_ACTIONS).map(([key,value])=>({key,label:value.label,agentKey:"thebe",actionKey:value.actionKey})),humanReviewRequired:true,providerSend:false,recipientTargeting:false,executionEnabled:false,readReplies:{inboundOnly:true,recipientLocked:true,financeMutation:false}});
   }
   if(logicalPath==="/api/agentic/whatsapp/prepare"&&request.method==="POST"){
     if(!originAllowed(request,env))return json({error:"origin_forbidden"},403);
