@@ -6726,6 +6726,8 @@ function fillSelectPreserve(select,items,labelFn,emptyLabel){if(!select)return;c
 let opsReportingSetupEpoch=0;
 async function renderPeopleReportingSetup(){
   if(!document.getElementById("peopleops")?.classList.contains("active"))return;
+  const reportingSetupDetails=document.getElementById("opsReportingSetupDetails");
+  if(reportingSetupDetails&&!reportingSetupDetails.open)reportingSetupDetails.open=true;
   if(!["owner","manager"].includes(currentWorkspaceRole()))return;
   const setupEpoch=++opsReportingSetupEpoch;
   const [locationsR,employeesR,accessR]=await Promise.allSettled([

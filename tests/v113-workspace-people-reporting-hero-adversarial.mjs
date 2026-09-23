@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const html=fs.readFileSync("public/index.html","utf8");
-const runtime=fs.readFileSync("public/js/workspace-runtime-20260923l.js","utf8");
+const runtime=fs.readFileSync("public/js/workspace-runtime-20260923m.js","utf8");
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const delegation=fs.readFileSync("public/js/event-delegation.js","utf8");
 const apiClient=fs.readFileSync("public/js/api-client.js","utf8");
@@ -56,6 +56,7 @@ assert.match(runtime,/reportingAnalyticsJson\(\`\/api\/daily-reporting\/dashboar
 assert.match(runtime,/if\(document\.getElementById\("peopleops"\)\?\.classList\.contains\("active"\)\)await renderPeopleReportingSetup\(\)/);
 assert.match(runtime,/if\(document\.getElementById\("dailyreports"\)\?\.classList\.contains\("active"\)\)await renderDailyOperations\(\)/);
 assert.match(runtime,/Retry analytics/);
+assert.match(runtime,/if\(reportingSetupDetails&&!reportingSetupDetails\.open\)reportingSetupDetails\.open=true;/,"People reporting controls must not collapse during async refresh/navigation");
 assert.match(worker,/const \[locRes,accessRes,reportRes,prevRes,exceptionRes\]=await env\.DB\.batch\(\[/,"dashboard analytics must use one D1 batch round-trip");
 assert.match(home,/gaborone-entrepreneurs-v67\.webp/);
 assert.match(html,/gaborone-entrepreneurs-v67\.webp/);
