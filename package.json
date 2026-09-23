@@ -216,7 +216,7 @@
     "test:platform-admin-task-canary": "node tests/v100-platform-admin-task-canary.mjs",
     "test:live-voice-task-prepare": "node tests/v102-live-voice-task-preparation.mjs",
     "test:agent-read-tools": "node tests/v103-agent-read-tools.mjs",
-    "test:finance-receivables": "node tests/v108-finance-receivables-adversarial.mjs && node tests/v108-whatsapp-receivables-adversarial.mjs"
+    "test:finance-receivables": "node tests/v108-migration-statement-splitter.mjs && node tests/v108-finance-receivables-adversarial.mjs && node tests/v108-whatsapp-receivables-adversarial.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1126.0",
