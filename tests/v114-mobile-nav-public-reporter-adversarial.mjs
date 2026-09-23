@@ -28,7 +28,9 @@ assert.ok(wrangler.includes('"/report", "/report/*"'),"Cloudflare must route the
 assert.ok(reportHtml.includes('id="reporterPortal"'),"dedicated reporter portal missing");
 assert.ok(reportHtml.includes("No Thebe Desk account or sign-in is required."),"reporter page must clearly be passwordless");
 assert.ok(!/id="authForm"|id="authGate"|id="appShell"/.test(reportHtml),"reporter page must not contain workspace authentication UI");
-assert.ok(reportJs.includes('credentials:"omit"'),"reporter API calls must not depend on a signed-in session");
+assert.ok(reportHtml.includes('/js/api-client.js?v=20260920a'),"reporter page must load the centralized API transport");
+assert.ok(reportJs.includes("BW?.api?.createClient"),"reporter API calls must use the centralized API transport");
+assert.ok(!reportJs.includes("fetch("),"reporter client must not bypass the centralized API transport");
 assert.ok(reportJs.includes('"/public/daily-reporting/access"'),"reporter access endpoint missing");
 assert.ok(reportJs.includes('"/public/daily-reporting/submit"'),"reporter submit endpoint missing");
 assert.ok(!reportJs.includes("/api/auth/"),"reporter client must not call authentication APIs");
