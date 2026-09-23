@@ -306,11 +306,13 @@ async function runFullUserJourney(credentials){
     await page.locator('#opsLocationName').fill(locationName);await page.locator('#opsLocationCode').fill(locationCode);await page.locator('#opsLocationTown').fill('Gaborone');
     const addLocation=page.locator('#dailyreports [data-bw-onclick="addOpsLocation()"]:visible').first();assert(await addLocation.count(),'Add location control missing');
     await addLocation.click();
-    await page.waitForFunction(name=>String(document.getElementById('opsLocationsList')?.innerText||'').includes(name),locationName,{timeout:15000});
+    await page.waitForFunction(name=>String(document.getElementById('opsLocationsList')?.innerText||'').includes(name),locationName,{timeout:WORKSPACE_TIMEOUT_MS});
     const editedLocationName=`${locationName} Updated`;
     const locationRow=page.locator('#opsLocationsList .item',{hasText:locationName}).first();
-    const editLocation=locationRow.locator('button[data-bw-onclick^="editOpsLocation("]:visible').first();
-    assert(await editLocation.count(),'visible Edit location control missing');
+    await locationRow.waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
+    const editLocation=locationRow.locator('button[data-bw-onclick^="editOpsLocation("]').first();
+    await editLocation.waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
+    assert(await editLocation.isEnabled(),'visible Edit location control is disabled');
     await editLocation.click();
     let editDialog=page.locator('.bw-dialog-service:visible').first();
     await editDialog.waitFor({state:'visible',timeout:VIEW_TIMEOUT_MS});
@@ -325,7 +327,16 @@ async function runFullUserJourney(credentials){
     locationName=editedLocationName;
     await page.waitForFunction(name=>String(document.getElementById('opsLocationsList')?.innerText||'').includes(name),locationName,{timeout:15000});
     mark('operating location edit lifecycle','location created and renamed through the visible reporting setup controls');
-    await page.waitForFunction(name=>[...document.querySelectorAll('#opsReporterEmployee option')].some(option=>String(option.textContent||'').includes(name)),syntheticEmployeeName,{timeout:15000});
+    const analyticsProbe=await page.evaluate(async()=>{
+      try{
+        const date=document.getElementById('opsReportDate')?.value||new Date().toISOString().slice(0,10);
+        const value=await globalThis.reportingAnalyticsJson('/api/daily-reporting/dashboard?date='+encodeURIComponent(date));
+        return {ok:!!value&&typeof value==='object',coverage:value?.coverage??null,error:''};
+      }catch(error){return {ok:false,coverage:null,error:String(error?.message||error||'')}}
+    });
+    assert(analyticsProbe.ok&&!/timed out/i.test(analyticsProbe.error),`reporting analytics slow-path failed: ${safe(JSON.stringify(analyticsProbe))}`);
+    mark('reporting analytics bounded slow path','daily reporting dashboard completed through the longer bounded analytics transport');
+    await page.waitForFunction(name=>[...document.querySelectorAll('#opsReporterEmployee option')].some(option=>String(option.textContent||'').includes(name)),syntheticEmployeeName,{timeout:WORKSPACE_TIMEOUT_MS});
     const employeeValue=await page.locator('#opsReporterEmployee option').evaluateAll((options,name)=>options.find(option=>String(option.textContent||'').includes(name))?.value||'',syntheticEmployeeName);
     const locationValue=await page.locator('#opsReporterLocation option').evaluateAll((options,name)=>options.find(option=>String(option.textContent||'').includes(name))?.value||'',locationName);
     assert(employeeValue&&locationValue,'reporting selectors did not receive authoritative employee/location records');
