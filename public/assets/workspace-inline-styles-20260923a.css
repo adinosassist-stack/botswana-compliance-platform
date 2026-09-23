@@ -2086,13 +2086,15 @@ main{
 @media(max-width:960px){.nav-access-group>summary,.nav-specialist-tools>summary{min-height:36px}.nav .nav-secondary,.nav .nav-specialist-item{min-height:32px!important}}
 
 /* Mobile experience v83 — preserves desktop workspace and exposes the full menu in a touch-first drawer. */
-.mobile-nav-backdrop,.mobile-nav-close{display:none}
-@media (max-width:760px){
+.mobile-nav-backdrop,.mobile-nav-close,.mobile-nav-occlusion{display:none}
+@media (max-width:1000px){
   html,body{max-width:100%;overflow-x:hidden}
   body.mobile-nav-open{overflow:hidden;touch-action:none;background:#0b0f0d!important}
   .shell{display:block!important;min-width:0!important}
   main{width:100%!important;max-width:none!important;padding:12px 10px calc(144px + env(safe-area-inset-bottom))!important;overflow-x:hidden;scroll-padding-bottom:calc(144px + env(safe-area-inset-bottom))}
   #mainContent::after{content:"";display:block;width:100%;height:calc(88px + env(safe-area-inset-bottom));pointer-events:none}
+  .mobile-nav-occlusion{display:block;position:fixed;z-index:179;left:0;right:0;bottom:0;height:calc(84px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid #edf0ee;pointer-events:none}
+  body.mobile-nav-open .mobile-nav-occlusion{display:none!important}
 
   /* Reuse the real desktop sidebar as the mobile drawer so every workspace view remains accessible. */
   #workspaceSidebar{display:flex!important;position:fixed!important;z-index:220!important;inset:0 auto 0 0!important;width:min(88vw,360px)!important;height:100dvh!important;max-height:100dvh!important;padding:14px 10px calc(18px + env(safe-area-inset-bottom))!important;background:#111915!important;border-right:1px solid #28312c!important;box-shadow:18px 0 50px rgba(6,12,9,.36)!important;transform:translateX(-104%);transition:transform .22s ease;overflow:hidden!important;overscroll-behavior:contain}
