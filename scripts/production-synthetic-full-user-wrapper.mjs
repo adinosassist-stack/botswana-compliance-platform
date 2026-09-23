@@ -333,7 +333,7 @@ async function runFullUserJourney(credentials){
     const createLink=page.locator('#dailyreports [data-bw-onclick="createOpsReporterLink()"]:visible').first();assert(await createLink.count()&&!(await createLink.isDisabled()),'Create reporting link control remained unavailable after valid setup');
     await createLink.click();
     await page.waitForFunction(()=>String(document.getElementById('opsNewReporterLink')?.value||'').includes('#report='),null,{timeout:15000});
-    const reporterLink=await page.locator('#opsNewReporterLink').inputValue();
+    let reporterLink=await page.locator('#opsNewReporterLink').inputValue();
     const reporterPage=await context.newPage();
     const reporterResponse=await reporterPage.goto(reporterLink,{waitUntil:'domcontentloaded',timeout:NAVIGATION_TIMEOUT_MS});
     assert(reporterResponse?.status()===200,`restricted reporter portal HTTP ${reporterResponse?.status()||0}`);
@@ -344,6 +344,27 @@ async function runFullUserJourney(credentials){
     assert(reporterText.includes(syntheticEmployeeName)&&reporterText.includes(locationName),'restricted reporter portal did not bind the employee and location from the issued link');
     await reporterPage.close();
     mark('employee reporting access lifecycle','employee -> location -> restricted reporting link -> reporter portal verified in the disposable production tenant');
+
+    // Prove employee-row access opens reporting status and can issue a fresh viewable private link.
+    await delegatedEmployeesButton.click();
+    await page.waitForFunction(()=>document.getElementById('employees')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
+    const employeeAccessRow=page.locator('#employeeRegister .item',{hasText:syntheticEmployeeName}).first();
+    await employeeAccessRow.waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
+    const employeeAccessButton=employeeAccessRow.locator('button[data-bw-onclick^="openEmployeeReportingAccess("]:visible').first();
+    assert(await employeeAccessButton.count(),'clickable employee reporting-access control missing');
+    await employeeAccessButton.click();
+    const employeeAccessPanel=page.locator(`#employeeReportingAccess_${employeeValue}`).first();
+    await employeeAccessPanel.waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
+    assert(/Employee reporting access/i.test(await employeeAccessPanel.innerText()),'employee click did not reveal reporting access');
+    const employeeLocationSelect=page.locator(`#employeeReportingLocation_${employeeValue}`).first();
+    assert(await employeeLocationSelect.count(),'employee reporting-access location selector missing');
+    await employeeLocationSelect.selectOption(locationValue);
+    const createEmployeeLink=employeeAccessPanel.locator('button[data-bw-onclick^="createEmployeeReportingLinkFromCard("]:visible').first();
+    assert(await createEmployeeLink.count(),'employee-row create/rotate reporting link control missing');
+    await createEmployeeLink.click();
+    await page.waitForFunction(id=>String(document.getElementById(`employeeReporterLink_${id}`)?.value||'').includes('#report='),employeeValue,{timeout:WORKSPACE_TIMEOUT_MS});
+    reporterLink=await page.locator(`#employeeReporterLink_${employeeValue}`).inputValue();
+    mark('employee row reporting access','clicking the employee opened reporting access and produced a fresh viewable private reporting link');
 
     // Prove employee removal through the visible UI and fail closed on the bearer reporting link.
     await delegatedEmployeesButton.click();
@@ -358,11 +379,7 @@ async function runFullUserJourney(credentials){
     const confirmRemoval=removalDialog.getByRole('button',{name:'Remove employee'}).first();
     assert(await confirmRemoval.count(),'Remove employee confirmation control missing');
     await confirmRemoval.click();
-    await page.waitForFunction(name=>{
-      const rows=[...document.querySelectorAll('#employeeRegister .item')];
-      const row=rows.find(item=>String(item.textContent||'').includes(name));
-      return !!row&&/Removed/.test(String(row.textContent||''))&&!row.querySelector('button[data-bw-onclick^="removeEmployeeRecord("]');
-    },syntheticEmployeeName,{timeout:WORKSPACE_TIMEOUT_MS});
+    await page.waitForFunction(name=>![...document.querySelectorAll('#employeeRegister .item')].some(item=>String(item.textContent||'').includes(name)),syntheticEmployeeName,{timeout:WORKSPACE_TIMEOUT_MS});
     const reporterToken=new URLSearchParams(new URL(reporterLink).hash.slice(1)).get('report')||'';
     assert(reporterToken.length>=32,'issued reporting link token could not be recovered for revocation proof');
     const revokedAccess=await page.evaluate(async token=>{
@@ -372,7 +389,7 @@ async function runFullUserJourney(credentials){
     },reporterToken);
     assert(revokedAccess.status===404&&revokedAccess.error==='reporting_link_invalid_or_expired',
       `removed employee reporting link remained usable: HTTP ${revokedAccess.status} ${safe(revokedAccess.error)}`);
-    mark('employee removal and reporting revocation','visible Remove employee flow marked the employee removed and invalidated the previously issued reporting link');
+    mark('employee removal and reporting revocation','visible Remove employee flow removed the employee from the active register and invalidated the previously issued reporting link');
 
     // Prove the last active location can be removed without erasing historical location/reporting facts.
     await delegatedPeopleButton.click();
