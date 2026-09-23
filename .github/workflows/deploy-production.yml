@@ -47,6 +47,12 @@ jobs:
       FACEBOOK_APP_ID: ${{ vars.FACEBOOK_APP_ID }}
       FACEBOOK_OAUTH_REDIRECT_URI: https://thebedesk.com/api/auth/oauth/facebook/callback
       EMAIL_FROM: ${{ vars.EMAIL_FROM }}
+      THEBE_BANK_NAME: ${{ vars.THEBE_BANK_NAME }}
+      THEBE_BANK_ACCOUNT_NUMBER: ${{ vars.THEBE_BANK_ACCOUNT_NUMBER }}
+      THEBE_BANK_ACCOUNT_TYPE: ${{ vars.THEBE_BANK_ACCOUNT_TYPE }}
+      THEBE_BANK_BRANCH_NAME: ${{ vars.THEBE_BANK_BRANCH_NAME }}
+      THEBE_BANK_BRANCH_CODE: ${{ vars.THEBE_BANK_BRANCH_CODE }}
+      THEBE_BANK_SWIFT_CODE: ${{ vars.THEBE_BANK_SWIFT_CODE }}
 
     steps:
       - name: Checkout exact candidate revision
@@ -197,6 +203,7 @@ jobs:
           required=(
             D1_DATABASE_ID TURNSTILE_SITE_KEY PLATFORM_ADMIN_EMAILS PLATFORM_REGULATORY_REVIEWERS
             GOOGLE_OAUTH_REDIRECT_URI FACEBOOK_OAUTH_REDIRECT_URI
+            THEBE_BANK_NAME THEBE_BANK_ACCOUNT_NUMBER THEBE_BANK_BRANCH_NAME THEBE_BANK_BRANCH_CODE THEBE_BANK_SWIFT_CODE
           )
           for key in "${required[@]}"; do
             [[ -n "${!key:-}" ]] || { echo "Missing GitHub production environment value: $key" >&2; exit 1; }
