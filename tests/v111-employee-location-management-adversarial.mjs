@@ -32,7 +32,15 @@ assert.match(html,/async function openEmployeeReportingAccess\(id\)/);
 assert.match(html,/async function createEmployeeReportingLinkFromCard\(id\)/);
 assert.match(html,/previously issued bearer URLs are stored only as hashes/);
 assert.match(html,/fresh link created in this session remains visible here/);
-for(const action of ["openEmployeeReportingAccess","createEmployeeReportingLinkFromCard","copyEmployeeReportingLink"])assert.ok(delegatedEvents.includes(`'${action}'`),`delegated event allowlist missing ${action}`);
+assert.match(html,/data-employee-id=/,"active employee rows must be individually evictable after removal");
+assert.match(html,/showFreshEmployeeReportingLink\(id,locationId\)/);
+assert.match(html,/Show fresh link/);
+assert.match(html,/reportingAnalyticsMemory=new Map\(\)/);
+assert.match(html,/timeoutMs:90000,retries:2,candidateTimeoutMs:30000/);
+assert.match(html,/Date\.now\(\)-cached\.at<15\*60\*1000/);
+assert.match(html,/overflow:visible!important;background:transparent!important;box-shadow:none!important/);
+assert.match(html,/max-height:none!important;display:block!important;object-fit:contain!important/);
+for(const action of ["openEmployeeReportingAccess","createEmployeeReportingLinkFromCard","copyEmployeeReportingLink","showFreshEmployeeReportingLink"])assert.ok(delegatedEvents.includes(`'${action}'`),`delegated event allowlist missing ${action}`);
 
 // Core directory must remain usable even when Employer Shield is not entitled.
 assert.match(worker,/const employerEntitlement=await entitlement\(env,a\.tenant_id,"employer_shield"\)/);
