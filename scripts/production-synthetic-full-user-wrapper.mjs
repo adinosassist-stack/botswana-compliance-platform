@@ -193,6 +193,7 @@ async function runFullUserJourney(credentials){
     await page.reload({waitUntil:'domcontentloaded',timeout:NAVIGATION_TIMEOUT_MS});
     await waitForWorkspace(page);
     mark('full-user workspace bootstrap','synthetic owner reached the authenticated /app/ workspace after reload');
+    await page.waitForFunction(()=>globalThis.__THEBE_ONBOARDING_AUTO_PROMPT_SETTLED__===true,null,{timeout:VIEW_TIMEOUT_MS});
 
     const delegatedRuntime=await page.evaluate(()=>({
       ready:typeof globalThis.BW?.events?.runExpression==='function',
