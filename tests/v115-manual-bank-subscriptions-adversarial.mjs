@@ -36,6 +36,7 @@ const checks=[
  ["manual refunds require review",w.includes("manual_bank_refund_required")&&w.includes("Manual bank payment refund requires operations review")],
  ["customer bank UI",h.includes("Bank transfer ready — your plan is not active yet.")&&h.includes('id="manualBankReference"')&&h.includes("I have paid — submit for verification")],
  ["admin UI hidden by default",h.includes('id="manualPaymentAdminCard" style="display:none"')],
+ ["admin approval avoids native confirm/prompt",!h.includes("window.confirm(")&&!h.includes("window.prompt(")&&h.includes("I confirm P")],
  ["explicit activation confirmation",h.includes("Verify & activate")&&h.includes("visibly reflected in the Thebe Desk company bank account")],
  ["no proof screenshot activation",d.includes("proof-of-payment screenshot is deliberately not treated as settlement evidence")],
  ["documentation says admin verified",d.includes("explicitly verifies that the exact amount has reflected")]
