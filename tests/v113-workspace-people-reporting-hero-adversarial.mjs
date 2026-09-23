@@ -40,6 +40,10 @@ assert.match(runtime,/async function openEmployeeReportingAccess\(id\)/);
 assert.ok(runtime.includes(">Reporting link</button>"),"employee row must expose the reporting-link action");
 assert.match(runtime,/Rotate and show fresh link|Create and show reporting link/);
 assert.match(runtime,/__employeeReporterLinks/);
+const onboardingScheduler=(runtime.match(/function scheduleOwnerOnboarding\(\)\{([\s\S]*?)\n\}\nfunction openOnboarding/)||[])[1]||"";
+assert.ok(onboardingScheduler,"owner onboarding scheduler must remain parseable");
+assert.match(onboardingScheduler,/queueMicrotask/,"first-run onboarding must resolve at workspace-ready time instead of appearing later over user navigation");
+assert.doesNotMatch(onboardingScheduler,/requestIdleCallback|setTimeout\(openWhenIdle/,"first-run onboarding must not use a delayed idle callback that can intercept an already-started workspace action");
 
 // Pass 3: reporting reads get a bounded slow-path, location refresh is view-scoped, and hero never crops the original.
 assert.match(apiClient,/candidateTimeoutMs=IDEMPOTENT_TRANSPORT_CANDIDATE_MAX_MS/);
