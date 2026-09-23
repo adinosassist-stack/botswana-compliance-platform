@@ -8,13 +8,15 @@ const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
 const fragments=JSON.parse(fs.readFileSync("public/assets/workspace-view-fragments-20260923f.json","utf8"));
 
 function sectionInner(source,id){
-  const match=new RegExp('<section\\b[^>]*\\bid=["\\\']'+id+'["\\\'][^>]*>','i').exec(source);
+  const match=new RegExp(`<section\\b[^>]*\\bid=["']${id}["'][^>]*>`,"i").exec(source);
   assert.ok(match,"missing workspace view "+id);
   const openEnd=match.index+match[0].length;
-  const token=/<\\/?section\\b[^>]*>/gi;token.lastIndex=match.index;
+  const token=/<\/?section\b[^>]*>/gi;
+  token.lastIndex=match.index;
   let depth=0,current;
   while((current=token.exec(source))){
-    if(/^<section\\b/i.test(current[0]))depth+=1;else depth-=1;
+    if(/^<section\b/i.test(current[0]))depth+=1;
+    else depth-=1;
     if(depth===0)return source.slice(openEnd,current.index);
   }
   throw new Error("unclosed workspace view "+id);
