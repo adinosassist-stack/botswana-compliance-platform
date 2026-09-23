@@ -144,11 +144,14 @@ for(const forbidden of ["WHATSAPP_ACCESS_TOKEN","graph.facebook.com","notificati
 assert.doesNotMatch(inboundSource,/\bfetch\s*\(/,"inbound layer must not perform outbound network I/O");
 assert.match(inboundSource,/m\.role IN \('owner','manager'\)/,"inbound account binding must be role-bounded");
 assert.match(inboundSource,/matches\.length!==1/,"ambiguous account binding must fail closed");
-assert.match(inboundSource,/sourceContext:\{providerMessageId,receivedAt:/,"provider message identity must bind idempotent preparation without storing arbitrary raw text");
+assert.match(inboundSource,/const context=\{providerMessageId,receivedAt:/,"provider message identity must be normalized once at the inbound boundary");
+assert.match(inboundSource,/sourceContext:context/,"governed WhatsApp actions must bind the normalized provider message identity without storing arbitrary raw text");
 assert.match(workerSource,/processWhatsAppInboundMessages/,"signed Meta webhook path must hand inbound messages to the governed intake layer");
 assert.match(workerSource,/if\(!messages\.length\)return base/,"status-only webhook responses must preserve the existing V76 response contract");
 assert.match(agenticSource,/export async function prepareWhatsAppPurposeForPrincipal/,"app and inbound WhatsApp must share one governed preparation implementation");
 assert.match(agenticSource,/sourceName==="whatsapp_inbound"/,"shared preparation must mark inbound state explicitly");
 assert.doesNotMatch(agenticSource,/WHATSAPP_ACCESS_TOKEN/,"shared agentic preparation must remain provider-credential blind");
+assert.match(inboundSource,/classifyWhatsAppInboundIntent/,"inbound WhatsApp must route natural-language finance intents through deterministic classification");
+assert.match(workerSource,/enqueueWhatsAppSessionReply/,"read-only owner replies must use the existing governed WhatsApp delivery ledger");
 
 console.log("v93 governed inbound WhatsApp -> single Thebe preparation: PASS");
