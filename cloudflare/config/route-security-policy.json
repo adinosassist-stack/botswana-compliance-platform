@@ -215,7 +215,8 @@
     ],
     "billing": [
       "/api/billing/",
-      "/api/ai/credits"
+      "/api/ai/credits",
+      "/api/platform/billing/"
     ],
     "obligations": [
       "/api/obligations",
