@@ -8155,12 +8155,16 @@ let wizardStep=0;
 let firstValueTopTarget="workhub";
 function scheduleOwnerOnboarding(){
  const eligible=()=>currentUser?.role==="owner"&&currentUser?.onboardingComplete===false&&safeSessionGet("bw_onboarding_dismissed")!=="1";
- if(!eligible())return false;
- const afterReady=()=>queueMicrotask(()=>{
-  if(!eligible()||window.__THEBE_WORKSPACE_READY__!==true)return;
-  if(document.querySelector(".modal.open")&&!document.getElementById("onboardModal")?.classList.contains("open"))return;
-  openOnboarding();
- });
+ window.__THEBE_ONBOARDING_AUTO_PROMPT_SETTLED__=false;
+ if(!eligible()){window.__THEBE_ONBOARDING_AUTO_PROMPT_SETTLED__=true;return false}
+ const settle=()=>{window.__THEBE_ONBOARDING_AUTO_PROMPT_SETTLED__=true};
+ const afterReady=()=>{
+  requestAnimationFrame(()=>requestAnimationFrame(()=>queueMicrotask(()=>{
+   if(!eligible()||window.__THEBE_WORKSPACE_READY__!==true){settle();return}
+   if(document.querySelector(".modal.open")&&!document.getElementById("onboardModal")?.classList.contains("open")){settle();return}
+   openOnboarding();settle();
+  })));
+ };
  window.whenThebeWorkspaceReady(afterReady);
  return true;
 }
