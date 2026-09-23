@@ -65,7 +65,7 @@ const buttons=[...domHtml.matchAll(/<button\b([^>]*)>/gi)].map(m=>m[1]);
 const inertButtons=buttons.filter(attrs=>!buttonHasBinding(attrs));
 assert.deepEqual(inertButtons,[],"inert buttons found: "+inertButtons.slice(0,8).join(" | "));
 
-for(const action of ["createOpsReporterLink","copyOpsReporterLink","shareOpsReporterLink","revokeOpsReporterAccess","submitDailyReporterForm","openEmployeeReportingAccess","createEmployeeReportingLinkFromCard","copyEmployeeReportingLink","loadOpsPerformanceLearning"]){
+for(const action of ["createOpsReporterLink","copyOpsReporterLink","shareOpsReporterLink","revokeOpsReporterAccess","submitDailyReporterForm","openEmployeeReportingAccess","createEmployeeReportingLinkFromCard","copyEmployeeReportingLink","showFreshEmployeeReportingLink","loadOpsPerformanceLearning"]){
   assert.ok(allowedActions.has(action),"employee reporting action must be delegated: "+action);
   assert.ok(funcs.has(action),"employee reporting action implementation missing: "+action);
 }
@@ -77,12 +77,14 @@ assert.ok(worker.includes('versioned=html.replace(/src="')&&worker.includes('CLI
 for(const rel of [...domHtml.matchAll(/(?:src|href)="(assets\/[^"?#]+)"/g)].map(m=>m[1]))assert.ok(fs.existsSync(path.join(pub,rel)),"missing local asset: "+rel);
 assert.match(html,/async function runScan\(\)/,"compliance scan button must have an implementation");
 
-assert.ok(html.includes('src="/assets/gaborone-entrepreneurs-v67.webp"')&&html.includes('height:auto!important')&&html.includes('object-fit:contain!important')&&html.includes('position:relative!important;left:auto!important;right:auto!important;bottom:auto!important'),"marketing hero must preserve the original 1536x1024 image framing without cover-cropping or covering most of the photo");
+assert.ok(html.includes('src="/assets/gaborone-entrepreneurs-v67.webp"')&&html.includes('width="1536" height="1024"')&&html.includes('height:auto!important')&&html.includes('max-height:none!important')&&html.includes('object-fit:contain!important')&&html.includes('overflow:visible!important;background:transparent!important;box-shadow:none!important'),"marketing hero must preserve the original 1536x1024 image framing without cover-cropping or container clipping");
 assert.doesNotMatch(html,/\.founders-photo\{[^}]*object-fit:cover/,"marketing hero base stylesheet must never reintroduce cover-cropping");
 assert.match(html,/data-bw-onclick="openEmployeeReportingAccess\('[^']+'\)"[^>]*>Reporting link<\/button>/,"employee rows must expose a dedicated reporting-link control");
 assert.match(html,/data-bw-onclick="openEmployeeReportingAccess\('\$\{safeId\(e\.id\)\}'\)"/,"employee name/row must bind directly to employee reporting access");
 assert.match(html,/aria-label="Open reporting access for \$\{escapeHtml\(e\.full_name\)\}"/,"employee reporting row control must remain explicitly labelled");
-assert.match(html,/timeoutMs:60000,retries:1,candidateTimeoutMs:20000/,"reporting analytics must use the hardened bounded timeout/retry budget");
+assert.match(html,/timeoutMs:90000,retries:2,candidateTimeoutMs:30000/,"reporting analytics must use the hardened bounded timeout/retry budget");
+assert.match(html,/reportingAnalyticsMemory=new Map\(\)/,"reporting analytics must retain a bounded in-memory last-good response for timeout recovery");
+assert.match(html,/Date\.now\(\)-cached\.at<15\*60\*1000/,"reporting analytics timeout fallback must expire within 15 minutes");
 assert.match(worker,/includeInactive=url\.searchParams\.get\("includeInactive"\)==="1"/,"employee directory API must default to active staff with explicit inactive opt-in");
 assert.match(worker,/includeInactive\?"":"AND lower\(trim\(coalesce\(e\.status,''\)\)\)='active' "/,"removed employees must be excluded from the default employee directory response");
 console.log("PASS UI functionality: "+buttons.length+" buttons, "+delegatedExpressions.length+" delegated controls, "+delegatedUsed.size+" delegated actions, "+views.length+" nav targets");
