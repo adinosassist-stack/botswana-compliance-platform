@@ -35,7 +35,7 @@ assert.match(runtime,/No active employee records yet/);
 assert.match(runtime,/const items=\(r\.items\|\|\[\]\)\.filter\(x=>String\(x\.status\|\|""\)\.trim\(\)\.toLowerCase\(\)==="active"\)/);
 assert.match(runtime,/activeRiskEmployees=\(emps\.items\|\|\[\]\)\.filter\(e=>String\(e\.status\|\|""\)\.trim\(\)\.toLowerCase\(\)==="active"\)/);
 assert.match(runtime,/async function openEmployeeReportingAccess\(id\)/);
-assert.match(runtime,/Reporting link<\\/button>/);
+assert.ok(runtime.includes(">Reporting link</button>"),"employee row must expose the reporting-link action");
 assert.match(runtime,/Rotate and show fresh link|Create and show reporting link/);
 assert.match(runtime,/__employeeReporterLinks/);
 
