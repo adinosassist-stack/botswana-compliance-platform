@@ -64,7 +64,7 @@
       return email&&password?{email,password,tenantId}:null;
     }catch{return null}
   }
-  function createClient({getCsrfToken=()=>"",onUnauthorized=()=>{},onError=()=>{},timeoutMs=18000,retries=1}={}){
+  function createClient({getCsrfToken=()=>"",onUnauthorized=()=>{},onError=()=>{},timeoutMs=18000,retries=1,candidateTimeoutMs=IDEMPOTENT_TRANSPORT_CANDIDATE_MAX_MS}={}){
     let preferredTransport="root",pendingRegistrationLogin=null;
     function apiUrl(value){
       const base=global.location?.href||"https://invalid.local/",target=new URL(String(value||""),base);
@@ -135,7 +135,7 @@
         if(signal?.aborted)throw parentAbortError(signal);
         const candidate=candidates[index],remaining=Math.max(0,deadline-Date.now()),candidatesLeft=candidates.length-index;
         if(remaining<=0)throw parentAbortError(signal);
-        const candidateBudget=Math.min(remaining,IDEMPOTENT_TRANSPORT_CANDIDATE_MAX_MS,Math.max(50,Math.floor(remaining/candidatesLeft)));
+        const candidateBudget=Math.min(remaining,Math.max(50,Number(candidateTimeoutMs)||IDEMPOTENT_TRANSPORT_CANDIDATE_MAX_MS),Math.max(50,Math.floor(remaining/candidatesLeft)));
         const candidateController=new AbortController();
         let rejectCandidateDeadline=()=>{};
         const abortFromParent=()=>{
