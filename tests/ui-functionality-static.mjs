@@ -77,5 +77,5 @@ assert.ok(worker.includes('versioned=html.replace(/src="')&&worker.includes('CLI
 for(const rel of [...domHtml.matchAll(/(?:src|href)="(assets\/[^"?#]+)"/g)].map(m=>m[1]))assert.ok(fs.existsSync(path.join(pub,rel)),"missing local asset: "+rel);
 assert.match(html,/async function runScan\(\)/,"compliance scan button must have an implementation");
 
-assert.ok(html.includes('src="/assets/gaborone-entrepreneurs-v67.webp"')&&html.includes('aspect-ratio:3/2')&&html.includes('object-fit:contain!important'),"marketing hero must preserve the original 1536x1024 image framing without cover-cropping");
+assert.ok(html.includes('src="/assets/gaborone-entrepreneurs-v67.webp"')&&html.includes('height:auto!important')&&html.includes('object-fit:contain!important')&&html.includes('position:relative!important;left:auto!important;right:auto!important;bottom:auto!important'),"marketing hero must preserve the original 1536x1024 image framing without cover-cropping or covering most of the photo");
 console.log("PASS UI functionality: "+buttons.length+" buttons, "+delegatedExpressions.length+" delegated controls, "+delegatedUsed.size+" delegated actions, "+views.length+" nav targets");
