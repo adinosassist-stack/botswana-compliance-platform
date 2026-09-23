@@ -10,7 +10,7 @@ const syntax=spawnSync(process.execPath,["--check","public/js/workspace-runtime-
 assert.equal(syntax.status,0,syntax.stderr||syntax.stdout);
 
 // Pass 1: People owns the reporting setup DOM and must hydrate it on view open.
-assert.match(html,/<section\\b[^>]*\\bid="peopleops"[^>]*\\bclass="[^"]*\\bview\\b[^"]*"/i);
+assert.match(html,/<section[^>]*id="peopleops"[^>]*class="[^"]*view[^"]*"/i);
 assert.match(html,/id="opsReporterEmployee"/);
 assert.match(html,/id="opsReporterLocation"/);
 assert.match(html,/data-bw-onclick="addOpsLocation\(\)"/);
