@@ -7547,13 +7547,18 @@ async function renderPlatformManualPaymentApprovals(){
     const r=await apiJson("/api/platform/billing/manual-payments?status=submitted"),items=r.items||[];
     card.style.display="";
     box.safeHTML=items.map(x=>{
-      const plan=planLabel(String(x.metadata?.plan||"business"));
-      return `<div class="item"><b>${escapeHtml(x.tenant_name||"Workspace")} · ${escapeHtml(plan)} · P${Number(x.amount_bwp||0)}</b><div class="muted small">Thebe Desk ref: ${escapeHtml(x.payment_reference||"—")} · Bank ref: ${escapeHtml(x.customer_bank_reference||"—")}</div><div class="muted small">Submitted ${x.submitted_at?new Date(x.submitted_at).toLocaleString():"—"}${x.submitted_by_email?` · ${escapeHtml(x.submitted_by_email)}`:""}</div><div class="row" style="gap:8px;margin-top:10px"><button class="btn" data-bw-onclick="verifyManualPaymentAdmin('${escapeHtml(x.payment_order_id)}',${Number(x.amount_bwp||0)})">Verify & activate</button><button class="btn danger" data-bw-onclick="rejectManualPaymentAdmin('${escapeHtml(x.payment_order_id)}')">Reject</button></div></div>`;
+      const plan=planLabel(String(x.metadata?.plan||"business")),paymentOrderId=String(x.payment_order_id||""),safeId=paymentOrderId.replace(/[^A-Za-z0-9_-]/g,"");
+      return `<div class="item"><b>${escapeHtml(x.tenant_name||"Workspace")} · ${escapeHtml(plan)} · P${Number(x.amount_bwp||0)}</b><div class="muted small">Thebe Desk ref: ${escapeHtml(x.payment_reference||"—")} · Bank ref: ${escapeHtml(x.customer_bank_reference||"—")}</div><div class="muted small">Submitted ${x.submitted_at?new Date(x.submitted_at).toLocaleString():"—"}${x.submitted_by_email?` · ${escapeHtml(x.submitted_by_email)}`:""}</div>
+      <label class="small" style="display:flex;gap:8px;align-items:flex-start;margin-top:10px"><input id="manual-confirm-${safeId}" type="checkbox" style="width:auto;margin-top:2px">I confirm P${Number(x.amount_bwp||0)} is visibly reflected in the Thebe Desk company bank account.</label>
+      <div class="row" style="gap:8px;margin-top:10px"><button class="btn" data-bw-onclick="verifyManualPaymentAdmin('${escapeHtml(paymentOrderId)}',${Number(x.amount_bwp||0)})">Verify & activate</button></div>
+      <label class="small" style="display:block;margin-top:12px">Rejection reason<input id="manual-reject-${safeId}" maxlength="500" placeholder="e.g. Payment has not reflected"></label>
+      <button class="btn danger" style="margin-top:8px" data-bw-onclick="rejectManualPaymentAdmin('${escapeHtml(paymentOrderId)}')">Reject payment</button></div>`;
     }).join("")||'<div class="muted small">No payments awaiting approval.</div>';
   }catch(_){card.style.display="none";box.textContent="No payments awaiting approval."}
 }
 async function verifyManualPaymentAdmin(paymentOrderId,amountBwp){
-  if(!window.confirm(`Confirm that P${Number(amountBwp)} is visibly reflected in the Thebe Desk company bank account. This will activate the customer plan.`))return;
+  const safeId=String(paymentOrderId||"").replace(/[^A-Za-z0-9_-]/g,""),confirmed=document.getElementById("manual-confirm-"+safeId)?.checked===true;
+  if(!confirmed){notifyUser(`Confirm that P${Number(amountBwp)} is visibly reflected in the Thebe Desk company bank account before activation.`);return}
   try{
     const r=await apiJson(`/api/platform/billing/manual-payments/${encodeURIComponent(paymentOrderId)}/verify`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({confirmedReceived:true,confirmedAmountBwp:Number(amountBwp),reviewNote:"Funds confirmed in Thebe Desk company bank account."}),idempotencyKey:true});
     notifyUser(`Payment verified. ${planLabel(r.subscription?.plan||"business")} is now active.`);
@@ -7561,10 +7566,10 @@ async function verifyManualPaymentAdmin(paymentOrderId,amountBwp){
   }catch(e){notifyUser(e.message)}
 }
 async function rejectManualPaymentAdmin(paymentOrderId){
-  const reason=window.prompt("Reason for rejection (shown in the payment record):","Payment has not reflected in the Thebe Desk company bank account.");
-  if(reason===null)return;if(String(reason).trim().length<5){notifyUser("Enter a clear rejection reason.");return}
+  const safeId=String(paymentOrderId||"").replace(/[^A-Za-z0-9_-]/g,""),field=document.getElementById("manual-reject-"+safeId),reason=String(field?.value||"").trim();
+  if(reason.length<5){notifyUser("Enter a clear rejection reason.");field?.focus();return}
   try{
-    await apiJson(`/api/platform/billing/manual-payments/${encodeURIComponent(paymentOrderId)}/reject`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({reason:String(reason).trim()}),idempotencyKey:true});
+    await apiJson(`/api/platform/billing/manual-payments/${encodeURIComponent(paymentOrderId)}/reject`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({reason}),idempotencyKey:true});
     notifyUser("Payment returned to the customer for correction or resubmission.");await renderPayments();
   }catch(e){notifyUser(e.message)}
 }
