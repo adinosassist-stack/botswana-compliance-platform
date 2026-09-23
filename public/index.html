@@ -2498,7 +2498,7 @@ main{
       <div class="trustline"><span>Simple to start</span><span>Evidence-backed</span><span>Human review when it matters</span></div>
     </div>
     <div class="marketingvisual" style="min-height:0!important;overflow:visible!important;background:transparent!important;box-shadow:none!important">
-      <img class="founders-photo" src="/assets/gaborone-entrepreneurs-v67.webp" width="1536" height="1024" alt="A Botswana woman and man reviewing business work together at a laptop" fetchpriority="high" decoding="async" style="position:relative!important;inset:auto!important;width:100%!important;height:auto!important;max-height:none!important;display:block!important;object-fit:contain!important;object-position:center center!important;background:#dfe9e4;border-radius:30px!important">
+      <img class="founders-photo" src="/assets/gaborone-entrepreneurs-v67.webp" width="1536" height="1024" alt="A Botswana woman and man reviewing business work together at a laptop" fetchpriority="high" decoding="async" style="position:relative!important;inset:auto!important;width:100%!important;height:auto!important;max-height:none!important;aspect-ratio:3/2!important;display:block!important;object-fit:contain!important;object-position:center center!important;background:#dfe9e4;border-radius:30px!important">
       <div class="visual-tag">Live protection overview</div>
       <div class="productmock" aria-label="Product preview" style="position:relative!important;left:auto!important;right:auto!important;bottom:auto!important;margin:16px 20px 20px">
         <div class="mockinner"><div class="mocktop"><div><div class="kpi">Business health</div><b>Kgetsi Trading</b></div><span class="badge good">Live</span></div><div class="mockscore"><div class="mockmetric"><span class="small muted">Compliance</span><strong>86</strong></div><div class="mockmetric"><span class="small muted">Protection</span><strong>71</strong></div><div class="mockmetric"><span class="small muted">Actions</span><strong>4</strong></div></div><div class="mockaction"><div class="section-eyebrow">Next best action</div><b>Review employment contract controls</b><div class="muted small">High-risk item · professional review available</div></div><div class="mockaction"><div class="between row"><div><b>CIPA annual return</b><div class="muted small">Evidence verified</div></div><span class="badge good">Compliant</span></div></div></div>
@@ -5769,7 +5769,7 @@ async function renderPeopleOperationsHub(){
   const dash=results[1].status==="fulfilled"?results[1].value:null;
   const cases=results[2].status==="fulfilled"?(results[2].value.items||[]):[];
   const risk=results[3].status==="fulfilled"?results[3].value:null;
-  const activeEmployees=employees.filter(x=>String(x.status||"active")==="active").length;
+  const activeEmployees=employees.filter(x=>String(x.status||"active").trim().toLowerCase()==="active"&&!recentlyRemovedEmployeeIds.has(String(x.id))).length;
   const openCases=cases.filter(x=>String(x.status||"")!=="closed").length;
   const coverage=dash&&Number.isFinite(Number(dash.coverage))?Math.max(0,Math.min(100,Math.round(Number(dash.coverage)))):null;
   const missing=Array.isArray(dash?.missing)?dash.missing.length:0;
@@ -5843,6 +5843,7 @@ async function removeEmployeeRecord(id){
  if(!confirmed)return;
  try{
    await apiJson(`/api/employees/${encodeURIComponent(id)}`,{method:"DELETE"});
+   recentlyRemovedEmployeeIds.add(String(id));
    document.querySelector(`#employeeRegister [data-employee-id="${CSS.escape(String(id))}"]`)?.remove();
    if(globalThis.__activeEmployeesById)delete globalThis.__activeEmployeesById[String(id)];
    if(globalThis.__employeeReporterLinks)delete globalThis.__employeeReporterLinks[String(id)];
@@ -5862,8 +5863,12 @@ async function openEmployeeReportingAccess(id){
    const locations=(locationData.items||[]).filter(x=>Number(x.active)===1);
    const cachedLink=globalThis.__employeeReporterLinks?.[String(id)]||"";const accessHtml=activeAccess.length?activeAccess.map(x=>`<div class="item" style="margin-top:7px"><div class="between row"><div><b>${escapeHtml(x.location_name||"Location")}</b><div class="muted small">Active until ${new Date(x.expires_at).toLocaleDateString()}${x.last_used_at?` · last used ${new Date(x.last_used_at).toLocaleDateString()}`:" · not used yet"}</div></div><button class="btn soft" type="button" data-bw-onclick="showFreshEmployeeReportingLink('${safeId(id)}','${safeId(x.location_id)}')">Show fresh link</button></div></div>`).join(""):'<div class="muted small">No active reporting access yet.</div>';
    const options=locations.map(x=>`<option value="${escapeHtml(x.id)}">${escapeHtml(x.name)}</option>`).join("");
-   box.safeHTML=`<div class="notice info"><b>Employee reporting access</b><div class="small">For security, previously issued bearer URLs are stored only as hashes. A fresh link created in this session remains visible here.</div></div>${accessHtml}${cachedLink?`<div class="notice good" style="margin-top:9px"><b>Private reporting link</b><div class="ops-access-link"><input id="employeeReporterLink_${safeId(id)}" readonly value="${escapeHtml(cachedLink)}"><button class="btn alt" type="button" data-bw-onclick="copyEmployeeReportingLink('${safeId(id)}')">Copy link</button></div></div>`:""}${locations.length?`<div class="formgrid" style="margin-top:9px"><div><label for="employeeReportingLocation_${safeId(id)}">Location</label><select id="employeeReportingLocation_${safeId(id)}">${options}</select></div></div><button class="btn soft" type="button" style="margin-top:8px" data-bw-onclick="createEmployeeReportingLinkFromCard('${safeId(id)}')">${activeAccess.length?"Rotate and show fresh link":"Create and show reporting link"}</button><div id="employeeReportingLinkResult_${safeId(id)}"></div>`:'<div class="muted small" style="margin-top:8px">Add an active location before issuing reporting access.</div>'}`;
- }catch(e){box.safeHTML=`<div class="notice bad">Reporting access could not load. ${escapeHtml(e.message)}</div>`}
+   box.safeHTML=`<div class="notice info"><b>Employee reporting access</b><div class="small">Previously issued bearer URLs are stored only as hashes. When one active reporting access exists, opening the employee issues and shows one fresh replacement link for this session.</div></div>${accessHtml}${cachedLink?`<div class="notice good" style="margin-top:9px"><b>Private reporting link</b><div class="ops-access-link"><input id="employeeReporterLink_${safeId(id)}" readonly value="${escapeHtml(cachedLink)}"><button class="btn alt" type="button" data-bw-onclick="copyEmployeeReportingLink('${safeId(id)}')">Copy link</button></div></div>`:""}${locations.length?`<div class="formgrid" style="margin-top:9px"><div><label for="employeeReportingLocation_${safeId(id)}">Location</label><select id="employeeReportingLocation_${safeId(id)}">${options}</select></div></div><button class="btn soft" type="button" style="margin-top:8px" data-bw-onclick="createEmployeeReportingLinkFromCard('${safeId(id)}')">${activeAccess.length?"Rotate and show fresh link":"Create and show reporting link"}</button><div id="employeeReportingLinkResult_${safeId(id)}"></div>`:'<div class="muted small" style="margin-top:8px">Add an active location before issuing reporting access.</div>'}`;
+
+   if(!cachedLink&&activeAccess.length===1&&locations.some(x=>String(x.id)===String(activeAccess[0].location_id))){
+     const select=document.getElementById(`employeeReportingLocation_${id}`);if(select)select.value=String(activeAccess[0].location_id);
+     await createEmployeeReportingLinkFromCard(id);
+   } }catch(e){box.safeHTML=`<div class="notice bad">Reporting access could not load. ${escapeHtml(e.message)}</div>`}
 }
 async function showFreshEmployeeReportingLink(id,locationId){const select=document.getElementById(`employeeReportingLocation_${id}`);if(select&&[...select.options].some(o=>o.value===String(locationId)))select.value=String(locationId);return createEmployeeReportingLinkFromCard(id)}
 async function createEmployeeReportingLinkFromCard(id){
@@ -5889,7 +5894,7 @@ async function renderEmployeeRegister(){
     el.safeHTML=arr.length?arr.map(e=>`<div class="item"><div class="between row"><div><b>${escapeHtml(e.name)}</b><div class="muted small">${escapeHtml(e.role||"Role not set")} · ${e.start||"Start date not set"}</div></div><button class="btn alt" data-bw-onclick="removeEmployeeRecord('${safeId(e.id)}')">Remove</button></div><div class="rulemeta"><button class="btn ${e.contract?"soft":"alt"}" data-bw-onclick="toggleEmployeeControl('${safeId(e.id)}','contract')">Contract ${e.contract?"✓":"missing"}</button><button class="btn ${e.asset?"soft":"alt"}" data-bw-onclick="toggleEmployeeControl('${safeId(e.id)}','asset')">Asset form ${e.asset?"✓":"missing"}</button></div></div>`).join(""):`<div class="muted small">No employee records yet.</div>`;return;
   }
   try{
-    const response=await apiJson("/api/employees"),arr=response.items||[],active=arr.filter(e=>String(e.status||"").trim().toLowerCase()==="active"),contracts=active.filter(e=>Number(e.contract_signed||0)===1).length,assets=active.filter(e=>Number(e.asset_acknowledgement||0)===1).length,total=active.length;
+    const response=await apiJson("/api/employees"),arr=response.items||[],active=arr.filter(e=>String(e.status||"").trim().toLowerCase()==="active"&&!recentlyRemovedEmployeeIds.has(String(e.id))),contracts=active.filter(e=>Number(e.contract_signed||0)===1).length,assets=active.filter(e=>Number(e.asset_acknowledgement||0)===1).length,total=active.length;
     globalThis.__activeEmployeesById=Object.fromEntries(active.map(e=>[String(e.id),e]));
     if(by("empRecordsCount"))by("empRecordsCount").textContent=total;if(by("contractCoverage"))by("contractCoverage").textContent=(total?Math.round(contracts/total*100):0)+"%";if(by("assetCoverage"))by("assetCoverage").textContent=(total?Math.round(assets/total*100):0)+"%";
     el.safeHTML=active.length?active.map(e=>`<div class="item" data-employee-id="${escapeHtml(e.id)}"><div class="between row"><button type="button" style="all:unset;cursor:pointer;display:block;flex:1;min-width:0" data-bw-onclick="openEmployeeReportingAccess('${safeId(e.id)}')" aria-label="Open reporting access for ${escapeHtml(e.full_name)}"><b>${escapeHtml(e.full_name)}</b><div class="muted small">${escapeHtml(e.role_title||"Role not set")} · ${e.start_date||"Start date not set"} · click employee to view reporting link</div></button><div class="actions"><span class="badge good">Active</span><button class="btn soft" type="button" data-bw-onclick="openEmployeeReportingAccess('${safeId(e.id)}')">Reporting link</button><button class="btn alt" type="button" data-bw-onclick="removeEmployeeRecord('${safeId(e.id)}')">Remove</button></div></div><div class="rulemeta"><span class="pill">Contract ${Number(e.contract_signed||0)===1?"✓":"missing"}</span><span class="pill">Asset form ${Number(e.asset_acknowledgement||0)===1?"✓":"missing"}</span></div><div id="employeeReportingAccess_${safeId(e.id)}" hidden style="margin-top:10px"></div></div>`).join(""):`<div class="muted small">No active employee records yet. Add one here and it will also become available under Employee reporting access.</div>`;
@@ -6670,6 +6675,7 @@ const productionApiClient=BW.api.createClient({getCsrfToken:()=>csrfToken,onUnau
 const publicApiClient=BW.api.createClient({getCsrfToken:()=>"",onUnauthorized:()=>{},onError:(err,ctx)=>console.error("BW public API request failed",{code:err.code,status:err.status,...ctx})});
 const reportingAnalyticsApiClient=BW.api.createClient({getCsrfToken:()=>csrfToken,onUnauthorized:()=>{try{showAuth()}catch{}},onError:(err)=>console.warn("BW reporting analytics request failed",{code:err.code,status:err.status}),timeoutMs:90000,retries:2,candidateTimeoutMs:30000});
 const reportingAnalyticsMemory=new Map();
+const recentlyRemovedEmployeeIds=new Set();
 const runtimeApiClient=STANDALONE_PREVIEW?Object.freeze({request:(url,opts={})=>BW.preview.request(url,opts)}):productionApiClient;
 async function apiJson(url,opts={}){return runtimeApiClient.request(url,opts)}
 async function reportingAnalyticsJson(url,opts={}){if(STANDALONE_PREVIEW)return runtimeApiClient.request(url,opts);try{const value=await reportingAnalyticsApiClient.request(url,opts);if(String(opts?.method||"GET").toUpperCase()==="GET")reportingAnalyticsMemory.set(String(url),{value,at:Date.now()});return value}catch(error){const cached=reportingAnalyticsMemory.get(String(url)),isTimeout=/timed out|timeout/i.test(String(error?.message||error||""));if(isTimeout&&cached&&Date.now()-cached.at<15*60*1000)return cached.value;throw error}}
@@ -6731,7 +6737,7 @@ async function renderPeopleReportingSetup(){
   const value=(result,fallback)=>result.status==="fulfilled"?result.value:fallback;
   const reason=result=>result.status==="rejected"?result.reason:null;
   const locations=value(locationsR,{items:[]}),employees=value(employeesR,{items:[]}),access=value(accessR,{items:[]});
-  const allLocs=locations.items||[],locs=allLocs.filter(x=>Number(x.active)===1),emps=(employees.items||[]).filter(x=>String(x.status||"").trim().toLowerCase()==="active");
+  const allLocs=locations.items||[],locs=allLocs.filter(x=>Number(x.active)===1),emps=(employees.items||[]).filter(x=>String(x.status||"").trim().toLowerCase()==="active"&&!recentlyRemovedEmployeeIds.has(String(x.id)));
   fillSelectPreserve(document.getElementById("opsReporterLocation"),locs,x=>x.name,"Select location");
   fillSelectPreserve(document.getElementById("opsReporterEmployee"),emps,x=>`${x.full_name}${x.role_title?` · ${x.role_title}`:""}`,"Select employee");
   if(locationsR.status==="fulfilled")renderOpsLocations(allLocs);
@@ -6764,7 +6770,7 @@ async function renderDailyOperations(){
   const value=(result,fallback)=>result.status==="fulfilled"?result.value:fallback;
   const reason=result=>result.status==="rejected"?result.reason:null;
   const locations=value(locationsR,{items:[]}),employees=value(employeesR,{items:[]}),access=value(accessR,{items:[]}),dashboard=value(dashboardR,{});
-  const allLocs=locations.items||[],locs=allLocs.filter(x=>Number(x.active)===1),emps=(employees.items||[]).filter(x=>String(x.status||"").trim().toLowerCase()==="active");
+  const allLocs=locations.items||[],locs=allLocs.filter(x=>Number(x.active)===1),emps=(employees.items||[]).filter(x=>String(x.status||"").trim().toLowerCase()==="active"&&!recentlyRemovedEmployeeIds.has(String(x.id)));
   fillSelectPreserve(document.getElementById("opsLocationFilter"),locs,x=>x.name,"All locations");
   fillSelectPreserve(document.getElementById("opsReporterLocation"),locs,x=>x.name,"Select location");
   fillSelectPreserve(document.getElementById("opsReporterEmployee"),emps,x=>`${x.full_name}${x.role_title?` · ${x.role_title}`:""}`,"Select employee");
@@ -7084,7 +7090,7 @@ async function renderEmployeesForHr(){
   const sel=document.getElementById("hrCaseEmployee");if(!sel)return;
   try{
     const r=await apiJson("/api/employees");
-    const items=(r.items||[]).filter(x=>String(x.status||"").trim().toLowerCase()==="active");
+    const items=(r.items||[]).filter(x=>String(x.status||"").trim().toLowerCase()==="active"&&!recentlyRemovedEmployeeIds.has(String(x.id)));
     document.getElementById("employeeCount").textContent=items.length;
     sel.safeHTML='<option value="">General / not assigned</option>'+items.map(x=>`<option value="${escapeHtml(x.id)}">${escapeHtml(x.full_name)}</option>`).join("");
   }catch{}
@@ -7738,7 +7744,7 @@ async function renderProtectionEngine(){
     const dims=bps.dimensions||{};bpsDimensions.safeHTML=Object.entries(dims).map(([k,v])=>`<div class="item"><div class="between row"><b>${escapeHtml(k.replaceAll("_"," "))}</b><span>${v.score}% · weight ${v.weight}%</span></div><div class="progress"><span style="width:${v.score}%"></span></div></div>`).join("");
     bpsDrivers.safeHTML=(bps.drivers||[]).map(x=>`<div class="item"><b>${escapeHtml(x.title||x.dimension)}</b><div class="muted small">${x.severity?escapeHtml(x.severity):`Score ${x.score}`}</div></div>`).join("")||'<div class="muted small">No material protection gaps.</div>';
     box.safeHTML=(risk.findings||[]).map(x=>`<div class="item"><div class="between row"><div><b>${escapeHtml(x.title)}</b><div class="muted small">${escapeHtml(x.severity)}${x.employeeId?` · employee ${escapeHtml(x.employeeId)}`:""}</div><div class="small">${escapeHtml(x.rationale)}</div><div class="muted small" style="margin-top:4px">Action: ${escapeHtml(x.recommendedAction)}</div></div></div></div>`).join("")||'<div class="muted small">No material employment-control findings.</div>';
-    const sel=document.getElementById("riskEmployee"),old=sel.value,activeRiskEmployees=(emps.items||[]).filter(e=>String(e.status||"").trim().toLowerCase()==="active");sel.safeHTML=activeRiskEmployees.map(e=>`<option value="${e.id}">${escapeHtml(e.full_name)}</option>`).join("");if(old&&[...sel.options].some(o=>o.value===old))sel.value=old;sel.onchange=loadRiskEmployeeControls;if(sel.value)await loadRiskEmployeeControls();
+    const sel=document.getElementById("riskEmployee"),old=sel.value,activeRiskEmployees=(emps.items||[]).filter(e=>String(e.status||"").trim().toLowerCase()==="active"&&!recentlyRemovedEmployeeIds.has(String(e.id)));sel.safeHTML=activeRiskEmployees.map(e=>`<option value="${e.id}">${escapeHtml(e.full_name)}</option>`).join("");if(old&&[...sel.options].some(o=>o.value===old))sel.value=old;sel.onchange=loadRiskEmployeeControls;if(sel.value)await loadRiskEmployeeControls();
   }catch(e){box.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
 }
 

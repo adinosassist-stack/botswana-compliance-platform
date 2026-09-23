@@ -1702,19 +1702,21 @@ function dailyReportPayloadMatches(row,payload){
 async function dailyOpsDashboard(env,tenantId,reportDate,locationId=null){
   await ensureDefaultOperatingLocation(env,tenantId);
   const prevDate=previousIsoDate(reportDate);
-  const [locRes,accessRes,reportRes,prevRes,exceptionRes]=await Promise.all([
-    env.DB.prepare("SELECT id,name,code,town,active FROM operating_locations WHERE tenant_id=? AND active=1 ORDER BY name").bind(tenantId).all(),
+  // One D1 batch keeps the dashboard on a single database round-trip. These reads are
+  // independent and are intentionally batched so a slow transport cannot multiply latency.
+  const [locRes,accessRes,reportRes,prevRes,exceptionRes]=await env.DB.batch([
+    env.DB.prepare("SELECT id,name,code,town,active FROM operating_locations WHERE tenant_id=? AND active=1 ORDER BY name").bind(tenantId),
     env.DB.prepare(`SELECT a.id,a.employee_id,a.location_id,a.expires_at,a.last_used_at,e.full_name,e.role_title,l.name location_name
       FROM employee_reporting_access a JOIN employees e ON e.id=a.employee_id JOIN operating_locations l ON l.id=a.location_id
-      WHERE a.tenant_id=? AND a.status='active' AND a.expires_at>CURRENT_TIMESTAMP AND lower(trim(coalesce(e.status,'')))='active' AND l.active=1 ORDER BY l.name,e.full_name`).bind(tenantId).all(),
+      WHERE a.tenant_id=? AND a.status='active' AND a.expires_at>CURRENT_TIMESTAMP AND lower(trim(coalesce(e.status,'')))='active' AND l.active=1 ORDER BY l.name,e.full_name`).bind(tenantId),
     env.DB.prepare(`SELECT r.id,r.employee_id,r.location_id,r.report_date,r.work_summary,r.wins,r.blockers,r.incidents,r.next_plan,r.kpi_json,r.needs_attention,r.revision_count,r.submitted_at,r.updated_at,
       e.full_name,e.role_title,l.name location_name,l.code location_code
       FROM daily_employee_reports r JOIN employees e ON e.id=r.employee_id JOIN operating_locations l ON l.id=r.location_id
-      WHERE r.tenant_id=? AND r.report_date=? ORDER BY l.name,e.full_name`).bind(tenantId,reportDate).all(),
-    env.DB.prepare(`SELECT r.location_id,r.kpi_json,r.needs_attention,r.incidents FROM daily_employee_reports r WHERE r.tenant_id=? AND r.report_date=?`).bind(tenantId,prevDate).all(),
+      WHERE r.tenant_id=? AND r.report_date=? ORDER BY l.name,e.full_name`).bind(tenantId,reportDate),
+    env.DB.prepare(`SELECT r.location_id,r.kpi_json,r.needs_attention,r.incidents FROM daily_employee_reports r WHERE r.tenant_id=? AND r.report_date=?`).bind(tenantId,prevDate),
     env.DB.prepare(`SELECT x.id,x.employee_id,x.location_id,x.report_date,x.reason_code,x.note,x.created_at,e.full_name,e.role_title,l.name location_name
       FROM daily_reporting_exceptions x JOIN employees e ON e.id=x.employee_id JOIN operating_locations l ON l.id=x.location_id
-      WHERE x.tenant_id=? AND x.report_date=? ORDER BY l.name,e.full_name`).bind(tenantId,reportDate).all()
+      WHERE x.tenant_id=? AND x.report_date=? ORDER BY l.name,e.full_name`).bind(tenantId,reportDate)
   ]);
   const locations=locRes.results||[],allAccesses=accessRes.results||[],allExceptions=exceptionRes.results||[];
   const scopedAccesses=allAccesses.filter(x=>!locationId||x.location_id===locationId),exceptions=allExceptions.filter(x=>!locationId||x.location_id===locationId);
