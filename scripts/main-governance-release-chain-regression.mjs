@@ -169,7 +169,13 @@ const rendered = execFileSync('sh', ['cloudflare/render-production-config.sh', '
     FACEBOOK_APP_ID: '',
     FACEBOOK_APP_SECRET: '',
     FACEBOOK_OAUTH_REDIRECT_URI: 'https://thebedesk.com/api/auth/oauth/facebook/callback',
-    EMAIL_FROM: ''
+    EMAIL_FROM: '',
+    THEBE_BANK_NAME: 'Test Bank',
+    THEBE_BANK_ACCOUNT_NUMBER: '1234567890',
+    THEBE_BANK_ACCOUNT_TYPE: '',
+    THEBE_BANK_BRANCH_NAME: 'Test Branch',
+    THEBE_BANK_BRANCH_CODE: '123456',
+    THEBE_BANK_SWIFT_CODE: 'TESTBWGX'
   }
 });
 const renderedMain = rendered.match(/^main\s*=\s*"([^"]+)"\s*$/m)?.[1];

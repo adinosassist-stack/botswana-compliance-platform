@@ -281,7 +281,8 @@
     "platform": [
       "/api/ops/",
       "/api/platform/deployment-readiness",
-      "/api/platform/scheduled-runs"
+      "/api/platform/scheduled-runs",
+      "/api/platform/billing/"
     ],
     "cipa_registry": [
       "/api/cipa/"

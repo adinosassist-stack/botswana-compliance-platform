@@ -61,7 +61,7 @@ The endpoint sends only a bounded whitelist of workspace facts to the configured
 
 The default model remains `@cf/zai-org/glm-4.7-flash` and can be changed with `AI_ADVISOR_MODEL`. A Workers AI run costs six application credits, respects the existing monthly hard stops, is limited to ten completed/fallback tenant runs per minute, and refunds the correct wallet or partner pool on provider/output failure. If no AI binding is configured, the endpoint returns a clearly labelled deterministic workspace fallback without charging credits.
 
-The current Cloudflare profile requires the finance, governed-agentic, delegated-authority and bounded-task schema chain. For a brand-new D1 database, load the current `schema.sql`, which represents the consolidated schema through migration 046, then apply `migrations/047_v81_delegated_authority.sql` followed by `migrations/049_v108_finance_receivables.sql`. For an existing database, back up first and apply only pending numbered migrations in order through 048. Do not replay migration 001 against a fresh database; the migration chain starts from an older baseline. Migration 047 remains governance/telemetry only; migration 048 adds a separate internal task-execution persistence layer but does **not** activate execution by itself. See `../docs/LAUNCH.md` and `../V81_AGENTIC_BUSINESS_OS.md`.
+The current Cloudflare profile requires the finance, governed-agentic, delegated-authority and bounded-task schema chain. For a brand-new D1 database, load the current `schema.sql`, which represents the consolidated schema through migration 046, then apply migrations 047, 048, 049 and 050 in order. For an existing database, back up first and apply only pending numbered migrations in order through 050. Do not replay migration 001 against a fresh database; the migration chain starts from an older baseline. Migration 047 remains governance/telemetry only; migration 048 adds a separate internal task-execution persistence layer but does **not** activate execution by itself. See `../docs/LAUNCH.md` and `../V81_AGENTIC_BUSINESS_OS.md`.
 
 ## V81 delegated authority — shadow only
 
@@ -101,7 +101,7 @@ Cloudflare Worker social sign-in now supports Google and Facebook directly. Conf
 Google may link an existing local account only when Google reports a verified email. Facebook never links to an existing account by email alone; the user must sign in first and explicitly link it under Sign-in & Accounts.
 
 ### Current upgrade delta
-The current upgrade delta `migrations/049_v108_finance_receivables.sql` is the required existing-database release tip and must be applied after migration 047 and all earlier numbered migrations. For a brand-new D1 database, load the current `schema.sql`, then apply migrations 047 and 048 in order. Migration 047 remains shadow-only; migration 048 does not activate execution unless the separately reviewed runtime and explicit bounded-task execution switch are enabled.
+The current upgrade delta `migrations/050_v115_manual_bank_subscriptions.sql` is the required existing-database release tip and must be applied after migration 047 and all earlier numbered migrations. For a brand-new D1 database, load the current `schema.sql`, then apply migrations 047, 048, 049 and 050 in order. Migration 047 remains shadow-only; migration 048 does not activate execution unless the separately reviewed runtime and explicit bounded-task execution switch are enabled.
 
 ## V102 bounded internal task execution
 

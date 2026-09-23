@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: audit-remediation-ci-${{ github.event.pull_request.number || github.ref }}
+  group: audit-remediation-ci-v2-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:

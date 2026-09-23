@@ -18,6 +18,12 @@ FACEBOOK_APP_ID_VALUE=${FACEBOOK_APP_ID:-}
 FACEBOOK_APP_SECRET_VALUE=${FACEBOOK_APP_SECRET:-}
 FACEBOOK_REDIRECT_URI=${FACEBOOK_OAUTH_REDIRECT_URI:-}
 EMAIL_FROM_VALUE=${EMAIL_FROM:-}
+THEBE_BANK_NAME_VALUE=${THEBE_BANK_NAME:-}
+THEBE_BANK_ACCOUNT_NUMBER_VALUE=${THEBE_BANK_ACCOUNT_NUMBER:-}
+THEBE_BANK_ACCOUNT_TYPE_VALUE=${THEBE_BANK_ACCOUNT_TYPE:-}
+THEBE_BANK_BRANCH_NAME_VALUE=${THEBE_BANK_BRANCH_NAME:-}
+THEBE_BANK_BRANCH_CODE_VALUE=${THEBE_BANK_BRANCH_CODE:-}
+THEBE_BANK_SWIFT_CODE_VALUE=${THEBE_BANK_SWIFT_CODE:-}
 
 fail() {
   echo "Cloudflare production config render failed: $1" >&2
@@ -82,6 +88,15 @@ PUBLIC_BASE=${PUBLIC_APP%/}
 safe_optional_toml_value GOOGLE_OAUTH_CLIENT_ID "$GOOGLE_CLIENT_ID"
 safe_optional_toml_value FACEBOOK_APP_ID "$FACEBOOK_APP_ID_VALUE"
 safe_optional_toml_value EMAIL_FROM "$EMAIL_FROM_VALUE"
+safe_toml_value THEBE_BANK_NAME "$THEBE_BANK_NAME_VALUE"
+safe_toml_value THEBE_BANK_ACCOUNT_NUMBER "$THEBE_BANK_ACCOUNT_NUMBER_VALUE"
+safe_optional_toml_value THEBE_BANK_ACCOUNT_TYPE "$THEBE_BANK_ACCOUNT_TYPE_VALUE"
+safe_optional_toml_value THEBE_BANK_BRANCH_NAME "$THEBE_BANK_BRANCH_NAME_VALUE"
+safe_optional_toml_value THEBE_BANK_BRANCH_CODE "$THEBE_BANK_BRANCH_CODE_VALUE"
+safe_optional_toml_value THEBE_BANK_SWIFT_CODE "$THEBE_BANK_SWIFT_CODE_VALUE"
+printf '%s\n' "$THEBE_BANK_ACCOUNT_NUMBER_VALUE" | grep -Eq '^[0-9]{6,20}$' || fail "THEBE_BANK_ACCOUNT_NUMBER must contain 6-20 digits"
+printf '%s\n' "$THEBE_BANK_BRANCH_CODE_VALUE" | grep -Eq '^[0-9]{3,12}$' || fail "THEBE_BANK_BRANCH_CODE must contain 3-12 digits"
+printf '%s\n' "$THEBE_BANK_SWIFT_CODE_VALUE" | grep -Eq '^[A-Z0-9]{8}([A-Z0-9]{3})?$' || fail "THEBE_BANK_SWIFT_CODE must be an 8 or 11 character SWIFT/BIC"
 
 # Deferred OAuth must be fully absent at Worker runtime. The base Worker treats a
 # callback URI as an intent to enable the provider, so retaining only the callback
@@ -120,7 +135,7 @@ ASSET_DIR_LINES=$(grep -Ec '^[[:space:]]*directory[[:space:]]*=[[:space:]]*"\.\.
 [ "$MAIN_LINES" -eq 1 ] || fail "template must contain exactly one canonical release governance entrypoint"
 [ "$ASSET_DIR_LINES" -eq 1 ] || fail "template must contain exactly one canonical public assets directory"
 
-for key in PUBLIC_APP_URL PUBLIC_ORIGIN TURNSTILE_SITE_KEY PLATFORM_ADMIN_EMAILS PLATFORM_REGULATORY_REVIEWERS EVIDENCE_SCAN_API_URL GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_REDIRECT_URI FACEBOOK_APP_ID FACEBOOK_OAUTH_REDIRECT_URI EMAIL_FROM; do
+for key in PUBLIC_APP_URL PUBLIC_ORIGIN TURNSTILE_SITE_KEY PLATFORM_ADMIN_EMAILS PLATFORM_REGULATORY_REVIEWERS EVIDENCE_SCAN_API_URL GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_REDIRECT_URI FACEBOOK_APP_ID FACEBOOK_OAUTH_REDIRECT_URI EMAIL_FROM THEBE_BANK_NAME THEBE_BANK_ACCOUNT_NUMBER THEBE_BANK_ACCOUNT_TYPE THEBE_BANK_BRANCH_NAME THEBE_BANK_BRANCH_CODE THEBE_BANK_SWIFT_CODE; do
   count=$(grep -Ec "^[[:space:]]*${key}[[:space:]]*=[[:space:]]*\"REPLACE_WITH_${key}\"[[:space:]]*$" "$TEMPLATE" || true)
   [ "$count" -eq 1 ] || fail "template must contain exactly one ${key} placeholder"
 done
@@ -139,6 +154,12 @@ awk \
   -v facebook_app_id="$FACEBOOK_APP_ID_VALUE" \
   -v facebook_redirect_uri="$FACEBOOK_RUNTIME_REDIRECT_URI" \
   -v email_from="$EMAIL_FROM_VALUE" \
+  -v bank_name="$THEBE_BANK_NAME_VALUE" \
+  -v bank_account_number="$THEBE_BANK_ACCOUNT_NUMBER_VALUE" \
+  -v bank_account_type="$THEBE_BANK_ACCOUNT_TYPE_VALUE" \
+  -v bank_branch_name="$THEBE_BANK_BRANCH_NAME_VALUE" \
+  -v bank_branch_code="$THEBE_BANK_BRANCH_CODE_VALUE" \
+  -v bank_swift_code="$THEBE_BANK_SWIFT_CODE_VALUE" \
   -v main_entry="$MAIN_ENTRY" \
   -v assets_directory="$ASSETS_DIRECTORY" '
   function emit(k,v){ print k " = \"" v "\""; replaced[k]++ }
@@ -157,10 +178,16 @@ awk \
   /^[[:space:]]*FACEBOOK_APP_ID[[:space:]]*=/ { emit("FACEBOOK_APP_ID",facebook_app_id); next }
   /^[[:space:]]*FACEBOOK_OAUTH_REDIRECT_URI[[:space:]]*=/ { emit("FACEBOOK_OAUTH_REDIRECT_URI",facebook_redirect_uri); next }
   /^[[:space:]]*EMAIL_FROM[[:space:]]*=/ { emit("EMAIL_FROM",email_from); next }
+  /^[[:space:]]*THEBE_BANK_NAME[[:space:]]*=/ { emit("THEBE_BANK_NAME",bank_name); next }
+  /^[[:space:]]*THEBE_BANK_ACCOUNT_NUMBER[[:space:]]*=/ { emit("THEBE_BANK_ACCOUNT_NUMBER",bank_account_number); next }
+  /^[[:space:]]*THEBE_BANK_ACCOUNT_TYPE[[:space:]]*=/ { emit("THEBE_BANK_ACCOUNT_TYPE",bank_account_type); next }
+  /^[[:space:]]*THEBE_BANK_BRANCH_NAME[[:space:]]*=/ { emit("THEBE_BANK_BRANCH_NAME",bank_branch_name); next }
+  /^[[:space:]]*THEBE_BANK_BRANCH_CODE[[:space:]]*=/ { emit("THEBE_BANK_BRANCH_CODE",bank_branch_code); next }
+  /^[[:space:]]*THEBE_BANK_SWIFT_CODE[[:space:]]*=/ { emit("THEBE_BANK_SWIFT_CODE",bank_swift_code); next }
   { print }
   END {
     if (id_replaced != 1 || payment_replaced != 1 || main_replaced != 1 || assets_replaced != 1) exit 42
-    keys[1]="PUBLIC_APP_URL";keys[2]="PUBLIC_ORIGIN";keys[3]="TURNSTILE_SITE_KEY";keys[4]="PLATFORM_ADMIN_EMAILS";keys[5]="PLATFORM_REGULATORY_REVIEWERS";keys[6]="EVIDENCE_SCAN_API_URL";keys[7]="GOOGLE_OAUTH_CLIENT_ID";keys[8]="GOOGLE_OAUTH_REDIRECT_URI";keys[9]="FACEBOOK_APP_ID";keys[10]="FACEBOOK_OAUTH_REDIRECT_URI";keys[11]="EMAIL_FROM"
-    for(i=1;i<=11;i++)if(replaced[keys[i]]!=1)exit 43
+    keys[1]="PUBLIC_APP_URL";keys[2]="PUBLIC_ORIGIN";keys[3]="TURNSTILE_SITE_KEY";keys[4]="PLATFORM_ADMIN_EMAILS";keys[5]="PLATFORM_REGULATORY_REVIEWERS";keys[6]="EVIDENCE_SCAN_API_URL";keys[7]="GOOGLE_OAUTH_CLIENT_ID";keys[8]="GOOGLE_OAUTH_REDIRECT_URI";keys[9]="FACEBOOK_APP_ID";keys[10]="FACEBOOK_OAUTH_REDIRECT_URI";keys[11]="EMAIL_FROM";keys[12]="THEBE_BANK_NAME";keys[13]="THEBE_BANK_ACCOUNT_NUMBER";keys[14]="THEBE_BANK_ACCOUNT_TYPE";keys[15]="THEBE_BANK_BRANCH_NAME";keys[16]="THEBE_BANK_BRANCH_CODE";keys[17]="THEBE_BANK_SWIFT_CODE"
+    for(i=1;i<=17;i++)if(replaced[keys[i]]!=1)exit 43
   }
 ' "$TEMPLATE"
