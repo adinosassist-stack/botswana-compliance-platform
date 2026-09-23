@@ -5,6 +5,7 @@ import {spawnSync} from "node:child_process";
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const html=fs.readFileSync("public/index.html","utf8");
 const migration=fs.readFileSync("cloudflare/migrations/015_v73_daily_operations_reporting.sql","utf8");
+const synthetic=fs.readFileSync("scripts/production-synthetic-full-user-wrapper.mjs","utf8");
 
 for(const path of ["cloudflare/src/worker.js"]){
   const r=spawnSync(process.execPath,["--check",path],{encoding:"utf8"});
@@ -56,5 +57,9 @@ assert.match(worker,/l\.active=1/);
 assert.match(html,/Employee saved\. It is now available for reporting access\./);
 assert.match(html,/Add an active employee first, then issue a reporting link\./);
 assert.match(html,/Add a location first, then issue a reporting link\./);
+assert.match(synthetic,/visible Remove employee control missing for the synthetic employee/);
+assert.match(synthetic,/employee removal and reporting revocation/);
+assert.match(synthetic,/reporting_link_invalid_or_expired/);
+assert.match(synthetic,/\/public\/daily-reporting\/access/);
 
 console.log("v111 employee/location management: 3-pass adversarial boundary PASS");

@@ -327,6 +327,35 @@ async function runFullUserJourney(credentials){
     await reporterPage.close();
     mark('employee reporting access lifecycle','employee -> location -> restricted reporting link -> reporter portal verified in the disposable production tenant');
 
+    // Prove employee removal through the visible UI and fail closed on the bearer reporting link.
+    await delegatedEmployeesButton.click();
+    await page.waitForFunction(()=>document.getElementById('employees')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
+    const syntheticEmployeeRow=page.locator('#employeeRegister .item',{hasText:syntheticEmployeeName}).first();
+    await syntheticEmployeeRow.waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
+    const removeEmployee=syntheticEmployeeRow.locator('button[data-bw-onclick^="removeEmployeeRecord("]:visible').first();
+    assert(await removeEmployee.count(),'visible Remove employee control missing for the synthetic employee');
+    await removeEmployee.click();
+    const removalDialog=page.locator('.bw-dialog-service:visible').first();
+    await removalDialog.waitFor({state:'visible',timeout:VIEW_TIMEOUT_MS});
+    const confirmRemoval=removalDialog.getByRole('button',{name:'Remove employee'}).first();
+    assert(await confirmRemoval.count(),'Remove employee confirmation control missing');
+    await confirmRemoval.click();
+    await page.waitForFunction(name=>{
+      const rows=[...document.querySelectorAll('#employeeRegister .item')];
+      const row=rows.find(item=>String(item.textContent||'').includes(name));
+      return !!row&&/Removed/.test(String(row.textContent||''))&&!row.querySelector('button[data-bw-onclick^="removeEmployeeRecord("]');
+    },syntheticEmployeeName,{timeout:WORKSPACE_TIMEOUT_MS});
+    const reporterToken=new URLSearchParams(new URL(reporterLink).hash.slice(1)).get('report')||'';
+    assert(reporterToken.length>=32,'issued reporting link token could not be recovered for revocation proof');
+    const revokedAccess=await page.evaluate(async token=>{
+      const response=await fetch('/public/daily-reporting/access',{method:'POST',credentials:'same-origin',headers:{'accept':'application/json','content-type':'application/json'},body:JSON.stringify({token})});
+      let body=null;try{body=await response.json()}catch{}
+      return {status:response.status,error:String(body?.error||'')};
+    },reporterToken);
+    assert(revokedAccess.status===404&&revokedAccess.error==='reporting_link_invalid_or_expired',
+      `removed employee reporting link remained usable: HTTP ${revokedAccess.status} ${safe(revokedAccess.error)}`);
+    mark('employee removal and reporting revocation','visible Remove employee flow marked the employee removed and invalidated the previously issued reporting link');
+
     await page.evaluate(()=>globalThis.showView?.('dashboard',{skipDataRefresh:true}));
 
     await page.waitForFunction(()=>{
