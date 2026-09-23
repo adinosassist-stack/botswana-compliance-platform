@@ -7039,6 +7039,10 @@ export default {
         return idempotentJsonMutation(env,a,req,"subscription-checkout",{plan,billingCycle},async()=>{
           const months=billingCycle==="annual"?12:1,amount=PLAN_PRICE_BWP[plan]*(billingCycle==="annual"?10:1);
           const bank=manualBankConfig(env);if(!bank.configured)return {status:503,body:{error:"manual_bank_transfer_not_configured"}};
+          const pending=await env.DB.prepare(`SELECT id,amount_bwp,metadata_json FROM payment_orders
+            WHERE tenant_id=? AND order_type='subscription' AND provider='manual_bank' AND status IN ('pending','processing') ORDER BY created_at DESC LIMIT 20`).bind(a.tenant_id).all();
+          const reusable=(pending.results||[]).find(x=>{const m=safeJson(x.metadata_json,{});return m.plan===plan&&m.billingCycle===billingCycle&&Number(x.amount_bwp)===amount});
+          if(reusable)return {status:200,body:{ok:true,reused:true,paymentOrder:{id:reusable.id,amountBwp:amount,reference:manualPaymentReference(reusable.id)},checkoutMode:"manual_bank_transfer",bankTransfer:{...bank,reference:manualPaymentReference(reusable.id),amountBwp:amount},message:"Use this existing pending bank-transfer reference, then submit the bank transaction reference for verification."}};
           const po=await createPaymentOrder(env,{tenantId:a.tenant_id,orderType:"subscription",amountBwp:amount,metadata:{plan,billingCycle,periodMonths:months,paymentMode:"manual_bank"}});
           await env.DB.prepare("UPDATE payment_orders SET provider='manual_bank',updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=?").bind(po.id,a.tenant_id).run();
           return {status:201,body:{ok:true,paymentOrder:{...po,reference:manualPaymentReference(po.id)},checkoutMode:"manual_bank_transfer",bankTransfer:{...bank,reference:manualPaymentReference(po.id),amountBwp:amount},message:"Transfer the exact amount to the Thebe Desk company account, use the supplied reference, then submit the bank transaction reference for verification."}};
