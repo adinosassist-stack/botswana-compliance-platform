@@ -26,6 +26,12 @@ assert.match(html,/method:"DELETE"/);
 assert.match(html,/Historical records were retained and reporting access was revoked/);
 assert.match(html,/data-bw-onclick="removeEmployeeRecord\('/);
 
+// Core directory must remain usable even when Employer Shield is not entitled.
+assert.match(worker,/const employerEntitlement=await entitlement\(env,a\.tenant_id,"employer_shield"\)/);
+assert.match(worker,/const basicDirectoryLimit=10,used=await usageValue\(env,a\.tenant_id,"employees_active"\)/);
+assert.match(worker,/featureKey:"employee_directory"/);
+assert.doesNotMatch(worker,/if\(url\.pathname==="\/api\/employees"&&req\.method==="POST"\)\{[\s\S]{0,220}enforceUsageLimit\(env,a\.tenant_id,"employer_shield","employees_active"\);if\(!gate\.ok\)return json\(gate,402\);/);
+
 // Pass 2: default location must not consume the customer's first real slot.
 assert.match(worker,/untouchedDefault=activeLocations\.find/);
 assert.match(worker,/String\(row\.name\|\|""\)\.trim\(\)==="Head Office"/);
@@ -35,6 +41,10 @@ assert.match(worker,/OPERATING_LOCATION_DEFAULT_CUSTOMIZED/);
 assert.match(worker,/reusedDefault:true/);
 assert.ok(migration.includes("CREATE TABLE IF NOT EXISTS operating_locations"));
 assert.match(html,/Location saved\. The initial Head Office placeholder was replaced\./);
+
+// Basic reporting setup uses the operating-locations entitlement; analytics remain separately gated.
+assert.match(worker,/const reportingSetupPath=url\.pathname==="\/api\/daily-reporting\/locations"\|\|url\.pathname==="\/api\/daily-reporting\/access"\|\|\/\^\\\/api\\\/daily-reporting\\\/access\\\/\[\^\/\]\+\\\/revoke\$\/\.test\(url\.pathname\)/);
+assert.match(worker,/const featureKey=reportingSetupPath\?"operating_locations":"daily_operations"/);
 
 // Pass 3: reporting access stays tenant/active scoped and removals fail closed.
 assert.match(worker,/active_employee_required/);
