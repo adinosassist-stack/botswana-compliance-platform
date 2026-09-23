@@ -4,6 +4,7 @@ const s=fs.readFileSync(new URL("../cloudflare/schema.sql",import.meta.url),"utf
 const h=fs.readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
 const e=fs.readFileSync(new URL("../.env.example",import.meta.url),"utf8");
 const d=fs.readFileSync(new URL("../docs/SUBSCRIPTIONS.md",import.meta.url),"utf8");
+const policy=JSON.parse(fs.readFileSync(new URL("../cloudflare/config/route-security-policy.json",import.meta.url),"utf8"));
 
 const between=(start,end)=>{const a=w.indexOf(start),b=w.indexOf(end,a+start.length);return a>=0&&b>a?w.slice(a,b):""};
 const customerSubmit=between('if(url.pathname==="/api/payments/manual/submit"','if(url.pathname==="/api/payments/subscription-checkout"');
@@ -11,6 +12,7 @@ const adminReview=between('if(url.pathname.match(/^\\/api\\/platform\\/billing\\
 const checkout=between('if(url.pathname==="/api/payments/subscription-checkout"','if(url.pathname==="/api/payments/ai-credit-checkout"');
 
 const checks=[
+ ["manual billing routes classified",(policy.workspaceFeaturePrefixes?.billing||[]).includes("/api/platform/billing/")],
  ["manual submission schema",s.includes("CREATE TABLE IF NOT EXISTS manual_payment_submissions")&&s.includes("payment_reference TEXT NOT NULL UNIQUE")],
  ["manual state machine",s.includes("'awaiting_payment','submitted','under_review','verified','rejected','canceled'")],
  ["verified bank ref unique",s.includes("manual_payment_verified_bank_reference_unique")&&s.includes("status='verified'")],
