@@ -30,7 +30,8 @@ assert.match(html,/data-bw-onclick="removeEmployeeRecord\('/);
 assert.match(html,/el\.safeHTML=active\.length\?active\.map/,"employee register must render active employees only");
 assert.match(html,/async function openEmployeeReportingAccess\(id\)/);
 assert.match(html,/async function createEmployeeReportingLinkFromCard\(id\)/);
-assert.match(html,/Existing private bearer links are stored only as hashes and cannot be revealed again/);
+assert.match(html,/previously issued bearer URLs are stored only as hashes/);
+assert.match(html,/fresh link created in this session remains visible here/);
 for(const action of ["openEmployeeReportingAccess","createEmployeeReportingLinkFromCard","copyEmployeeReportingLink"])assert.ok(delegatedEvents.includes(`'${action}'`),`delegated event allowlist missing ${action}`);
 
 // Core directory must remain usable even when Employer Shield is not entitled.
