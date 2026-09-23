@@ -8,7 +8,8 @@ const WHATSAPP_READ_ACTIONS=Object.freeze({
   cash_position:Object.freeze({actionKey:"financial_position.read",label:"Recorded cash position"}),
   finance_inflows_today:Object.freeze({actionKey:"finance_daily_inflows.read",label:"Recorded positive inflows today"}),
   finance_data_quality:Object.freeze({actionKey:"finance_data_quality.read",label:"Finance data quality"}),
-  receivables:Object.freeze({actionKey:"receivables_summary.read",label:"Customer receivables"})
+  receivables:Object.freeze({actionKey:"receivables_summary.read",label:"Customer receivables"}),
+  receivable_customer:Object.freeze({actionKey:"receivables_customer.read",label:"Customer receivable balance"})
 });
 
 const ACTION_KEY_BY_PURPOSE=Object.freeze({
@@ -116,6 +117,18 @@ function buildReadReply(readKey,result){
       `Reconciliation: ${Number(data.reconciledRunCount||0)} reconciled run(s), ${Number(data.reconciliationExceptionCount||0)} exception(s).`
     ].join("\n");
   }
+  if(readKey==="receivable_customer"){
+    if(data.state==="not_found")return "Thebe · no active customer exactly matching that name or customer code is recorded. I will not guess a customer identity.";
+    if(data.state==="ambiguous")return "Thebe · that customer reference matches more than one active customer. Use the exact customer code or a unique full customer name.";
+    if(data.state!=="resolved")return "Thebe · a valid exact customer name or customer code is required for this balance check.";
+    const customer=data.customer||{},lines=[
+      `Thebe · ${text(customer.customerName,100)||"Customer"}: ${pula(data.outstandingMinor)} outstanding across ${Number(data.outstandingInvoiceCount||0)} invoice(s).`,
+      `Overdue: ${pula(data.overdueMinor)} across ${Number(data.overdueInvoiceCount||0)} invoice(s).`
+    ];
+    if(data.earliestDueOn)lines.push(`Earliest open due date: ${data.earliestDueOn}.`);
+    lines.push("This balance is derived from issued invoices less explicit allocations of recorded Finance Core transactions. Thebe uses exact customer matching only.");
+    return lines.join("\n");
+  }
   if(readKey==="receivables"){
     const customers=Array.isArray(data.customers)?data.customers.slice(0,3):[];
     const lines=[
@@ -133,7 +146,7 @@ function buildReadReply(readKey,result){
   throw new Error("unsupported_whatsapp_read");
 }
 
-export async function prepareWhatsAppReadForPrincipal({env,auth,readKey,idempotencyKey,source="whatsapp_inbound",sourceContext=null}){
+export async function prepareWhatsAppReadForPrincipal({env,auth,readKey,readParams=null,idempotencyKey,source="whatsapp_inbound",sourceContext=null}){
   const key=text(readKey,80),spec=WHATSAPP_READ_ACTIONS[key];
   if(!spec)return {status:400,body:{error:"unsupported_whatsapp_read",supported:Object.keys(WHATSAPP_READ_ACTIONS)}};
   const definition=AGENT_ACTION_CATALOG[spec.actionKey],role=String(auth?.role||"").toLowerCase();
@@ -155,14 +168,15 @@ export async function prepareWhatsAppReadForPrincipal({env,auth,readKey,idempote
   const idem=text(idempotencyKey,200),providerMessageId=text(sourceContext?.providerMessageId,200);
   if(idem.length<8)return {status:400,body:{error:"idempotency_key_required"}};
   if(source==="whatsapp_inbound"&&!providerMessageId)return {status:400,body:{error:"whatsapp_inbound_source_invalid"}};
-  const requestHash=await sha256Hex(JSON.stringify({readKey:key,actionKey:spec.actionKey,source,providerMessageId,userId:String(auth.user_id)}));
+  const params=readParams&&typeof readParams==="object"?{customerQuery:text(readParams.customerQuery,160)}:{};
+  const requestHash=await sha256Hex(JSON.stringify({readKey:key,actionKey:spec.actionKey,params,source,providerMessageId,userId:String(auth.user_id)}));
   const existing=await replayIntent(env,auth.tenant_id,idem);
   if(existing){
     if(String(existing.action_key)!==spec.actionKey||String(existing.payload_hash)!==requestHash)return {status:409,body:{error:"idempotency_key_conflict"}};
     return {status:200,body:{ok:true,replayed:true,readKey:key,intent:publicIntent(existing),messagePreview:String(existing.summary||""),snapshot:parseObservation(existing.observation_json),policy:{readOnly:true,runtimeGuard:true},execution:{performed:false,financeMutation:false,customerMessage:false},delivery:{replyToInbound:true,recipientLocked:true}}};
   }
 
-  const result=await executeAgentReadTool(spec.actionKey,{env,auth});
+  const result=await executeAgentReadTool(spec.actionKey,{env,auth,params});
   if(result?.allowed!==true||result?.available!==true)return {status:409,body:{error:"whatsapp_read_tool_denied",decisionCode:result?.decisionCode||result?.error||"read_unavailable"}};
   const messagePreview=buildReadReply(key,result),runId=id(),intentId=id(),authority=runtimeDecision.authority;
   if(authority?.allowed!==true||authority.executionAllowed!==false)return {status:409,body:{error:"whatsapp_read_authority_denied",decision:authority}};
