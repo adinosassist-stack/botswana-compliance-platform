@@ -27,6 +27,7 @@ assert.ok(fullUser.includes("reporterPage.locator('#reporterEmployeeName',{hasTe
 assert.ok(fullUser.includes("reporterPage.locator('#reporterLocationName',{hasText:locationName}).waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS})"),"reporter portal proof must wait for the issued location identity to bind");
 assert.doesNotMatch(fullUser,/reporterPortal[^\n]{0,220}timeout:15000/,"reporter portal proof must not retain the brittle 15-second wait");
 assert.ok(fullUser.includes("page.locator('#employeeRegister .item',{hasText:syntheticEmployeeName}).first().waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS})"),"employee-register proof must wait for the created visible row using the standard bounded workspace timeout");
+assert.match(fullUser,/Employee reporting access\/i\.test\(String\(document\.getElementById\(`employeeReportingAccess_\$\{id\}`\)\?\.innerText\|\|''\)\)/,"employee-row proof must wait for reporting-access content rather than only panel visibility");
 assert.doesNotMatch(fullUser,/employeeRegister[^\n]{0,220}timeout:15000/,"employee-register proof must not retain the brittle 15-second wait");
 assert.match(fullUser,/async function dismissFirstRunOnboardingIfNeeded\(page\)/,"full-user proof must centralize bounded first-run onboarding dismissal");
 assert.match(fullUser,/data-bw-onclick="dismissOnboarding\(\)"/,"onboarding race recovery must use the real delegated dismissal control");
