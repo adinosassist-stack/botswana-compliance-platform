@@ -4,7 +4,7 @@ import {execFileSync} from "node:child_process";
 
 const html=fs.readFileSync("public/index.html","utf8");
 const runtime=fs.readFileSync("public/js/workspace-runtime-20260923m.js","utf8");
-const styles=fs.readFileSync("public/assets/workspace-inline-styles-20260923a.css","utf8");
+const styles=fs.readFileSync("public/assets/workspace-inline-styles-20260924a.css","utf8");
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
 const budget=fs.readFileSync("scripts/bundle-budget.mjs","utf8");
@@ -38,7 +38,7 @@ assert.match(wrangler,/\/assets\/workspace-view-fragments-\*/,"versioned workspa
 assert.match(worker,/url\.pathname\.startsWith\("\/js\/"\).*cache-control","no-store, max-age=0"/s);
 
 assert.match(production,/const WORKSPACE_RUNTIME_ASSET="\/js\/workspace-runtime-20260923m\.js"/);
-assert.match(production,/const WORKSPACE_STYLES_ASSET="\/assets\/workspace-inline-styles-20260923a\.css"/);
+assert.match(production,/const WORKSPACE_STYLES_ASSET="\/assets\/workspace-inline-styles-20260924a\.css"/);
 assert.match(production,/function externalizeWorkspaceRuntime\(html\)/);
 assert.match(production,/function externalizeWorkspaceHeadStyles\(html\)/);
 assert.match(production,/thebe-workspace-runtime-inline/);

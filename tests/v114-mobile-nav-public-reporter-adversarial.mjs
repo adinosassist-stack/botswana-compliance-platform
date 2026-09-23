@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const html=fs.readFileSync("public/index.html","utf8");
-const styles=fs.readFileSync("public/assets/workspace-inline-styles-20260923a.css","utf8");
+const styles=fs.readFileSync("public/assets/workspace-inline-styles-20260924a.css","utf8");
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const redirect=fs.readFileSync("public/js/reporter-link-redirect.js","utf8");
 const reportHtml=fs.readFileSync("public/report/index.html","utf8");
