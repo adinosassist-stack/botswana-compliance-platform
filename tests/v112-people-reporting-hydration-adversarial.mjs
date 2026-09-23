@@ -37,7 +37,7 @@ assert.match(helper,/Employee reporting access could not load/);
 assert.match(helper,/accessButton\.disabled=accessBlocked\|\|!locs\.length\|\|!emps\.length/);
 assert.match(helper,/Add an active employee first, then issue a reporting link/);
 assert.match(helper,/Add a location first, then issue a reporting link/);
-assert.match(production,/WORKSPACE_RUNTIME_ASSET="\/js\/workspace-runtime-20260923l\.js"/);
+assert.match(production,/WORKSPACE_RUNTIME_ASSET="\/js\/workspace-runtime-20260923m\.js"/);
 assert.match(runtime,/async function removeOpsLocation\(id\)/);
 assert.match(runtime,/removeOpsLocation/);
 assert.match(runtime,/Remove location\?/);
