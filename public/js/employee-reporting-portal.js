@@ -11,14 +11,10 @@ function errorMessage(error){
   if(error?.name==="AbortError")return "The connection took too long. Check your network and reopen the reporting link.";
   return String(error?.message||"The reporting link could not be verified. Check your connection and try again.");
 }
+const reporterApiClient=globalThis.BW?.api?.createClient?.({timeoutMs:20000,retries:1})||null;
 async function request(path,options={}){
-  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);
-  try{
-    const response=await fetch(path,{...options,credentials:"omit",cache:"no-store",referrerPolicy:"no-referrer",signal:controller.signal,headers:{accept:"application/json",...(options.headers||{})}});
-    let body={};try{body=await response.json()}catch{}
-    if(!response.ok){const error=new Error(String(body?.message||body?.error||("Request failed ("+response.status+")")));error.code=String(body?.error||"");error.status=response.status;throw error}
-    return body;
-  }finally{clearTimeout(timer)}
+  if(!reporterApiClient)throw new Error("The reporting service could not start. Reload the private reporting link.");
+  return reporterApiClient.request(path,{...options,cache:"no-store",referrerPolicy:"no-referrer"});
 }
 function readToken(){
   const hash=String(location.hash||"");
