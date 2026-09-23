@@ -201,7 +201,7 @@ assert.doesNotMatch(publicInjector,/owner-command-centre/);
 assert.doesNotMatch(publicInjector,/executive-personalization/);
 assert.doesNotMatch(publicInjector,/business-data-bridge/);
 assert.match(production,/surfaceHtml=workspaceSurface\?externalizeWorkspaceViews\(externalizeWorkspaceHeadStyles\(externalizeWorkspaceRuntime\(baseHtml\)\)\):baseHtml/,"workspace surface must externalize runtime, canonical head styles and inactive views before asset injection");
-assert.match(production,/const WORKSPACE_STYLES_ASSET="\/assets\/workspace-inline-styles-20260921a\.css"/,"workspace style extraction must stay versioned and first-party");
+assert.match(production,/const WORKSPACE_STYLES_ASSET="\/assets\/workspace-inline-styles-20260923a\.css"/,"workspace style extraction must stay versioned and first-party");
 assert.match(production,/workspaceSurface\?injectOwnerCommandCentreAssets\(surfaceHtml\):publicSurface\?injectPublicThebeAssets\(surfaceHtml\):surfaceHtml/,"public/workspace asset scoping must operate on the transformed surface");
 assert.match(client,/aria-live/);
 assert.match(client,/diagnostics:\(\)=>/);
