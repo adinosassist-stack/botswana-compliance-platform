@@ -12,22 +12,27 @@ const synthetic=fs.readFileSync("scripts/production-synthetic-full-user-wrapper.
 
 // Pass 1: mobile navigation must not cover readable workspace content.
 for(const source of [html,styles]){
-  assert.ok(source.includes("padding:12px 10px calc(128px + env(safe-area-inset-bottom))!important"),"mobile workspace must reserve space below the floating navigation");
+  assert.ok(source.includes("padding:12px 10px calc(144px + env(safe-area-inset-bottom))!important"),"mobile workspace must reserve space below the floating navigation");
+  assert.ok(source.includes('#mainContent::after{content:"";display:block;width:100%;height:calc(88px + env(safe-area-inset-bottom))'),"mobile workspace must include a physical bottom spacer below the floating navigation");
   assert.ok(source.includes("background:#fff!important;box-shadow:0 14px 38px rgba(10,20,14,.22)!important;isolation:isolate"),"mobile navigation must be opaque and isolated from page text");
   assert.ok(source.includes("body.mobile-nav-open .mobilebar{opacity:0!important;visibility:hidden!important;pointer-events:none!important}"),"bottom navigation must leave the way when the full drawer opens");
-  assert.ok(source.includes("background:rgba(5,10,7,.72)"),"mobile drawer backdrop must visually separate menu from page content");
+  assert.ok(source.includes("background:#0b0f0d;backdrop-filter:none"),"mobile drawer backdrop must be fully opaque so workspace text cannot bleed underneath");
+  assert.ok(source.includes("body.mobile-nav-open #mainContent{visibility:hidden!important}"),"workspace text must not remain visible below the open mobile drawer");
 }
 assert.ok(html.includes('document.getElementById("mainContent")?.setAttribute("inert","")'),"workspace content must be inert while the mobile menu is open");
 assert.ok(html.includes('document.getElementById("mainContent")?.removeAttribute("inert")'),"workspace content must be restored after closing the mobile menu");
 
 // Pass 2: employee reporting is a bearer-link public surface, not workspace authentication.
-assert.ok(worker.includes("/report/#report="),"new reporting links must use the public report route");
+assert.ok(worker.includes("/report/?entry=employee&v=20260923e#report="),"new reporting links must use the cache-busted public report route");
 assert.ok(redirect.includes('if(path==="/report")return'),"report redirect must preserve the public report route");
-assert.ok(redirect.includes('location.replace("/report/"+hash)'),"legacy report links must redirect to the public report route");
+assert.ok(redirect.includes('location.replace("/report/?entry=legacy-link&v=20260923e"+hash)'),"legacy report links must redirect to the cache-busted public report route");
 assert.ok(wrangler.includes('"/report", "/report/*"'),"Cloudflare must route the public report surface through the Worker");
 assert.ok(reportHtml.includes('id="reporterPortal"'),"dedicated reporter portal missing");
 assert.ok(reportHtml.includes("No Thebe Desk account or sign-in is required."),"reporter page must clearly be passwordless");
 assert.ok(!/id="authForm"|id="authGate"|id="appShell"/.test(reportHtml),"reporter page must not contain workspace authentication UI");
+assert.ok(html.includes('id="employee-report-entry-guard"')&&html.includes('/report/?entry=legacy-mobile&v=20260923e'),"legacy mobile report links must redirect before the workspace document renders");
+assert.ok(reportHtml.includes('id="reporter-browser-recovery"'),"reporter portal must retire stale Thebe Desk browser caches/service workers");
+assert.ok(worker.includes('"cache-control","no-store, max-age=0, must-revalidate"'),"report route must be served no-store");
 assert.ok(reportHtml.includes('/js/api-client.js?v=20260920a'),"reporter page must load the centralized API transport");
 assert.ok(reportJs.includes("BW?.api?.createClient"),"reporter API calls must use the centralized API transport");
 assert.ok(!reportJs.includes("fetch("),"reporter client must not bypass the centralized API transport");
