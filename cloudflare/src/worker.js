@@ -6640,7 +6640,7 @@ export default {
         if(!emp||String(emp.status||"").trim().toLowerCase()!=="active")return json({error:"active_employee_required"},404);if(!loc||Number(loc.active)!==1)return json({error:"active_location_required"},404);
         const days=Math.max(7,Math.min(365,Number(body.expiresInDays||180))),token=randomReporterToken(),tokenHash=await sha256Hex(token),aid=id();
         await env.DB.batch([env.DB.prepare("UPDATE employee_reporting_access SET status='revoked',last_rotated_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND employee_id=? AND location_id=? AND status='active'").bind(a.tenant_id,employeeId,locationId),env.DB.prepare("INSERT INTO employee_reporting_access(id,tenant_id,employee_id,location_id,token_hash,status,expires_at) VALUES(?,?,?,?,?,'active',datetime('now',?))").bind(aid,a.tenant_id,employeeId,locationId,tokenHash,`+${days} days`)]);
-        const origin=(validPublicAppUrl(env.PUBLIC_APP_URL)||`${url.origin}/`).replace(/\/+$/,"");const link=`${origin}/#report=${encodeURIComponent(token)}`;
+        const origin=(validPublicAppUrl(env.PUBLIC_APP_URL)||`${url.origin}/`).replace(/\/+$/,"");const link=`${origin}/app/#report=${encodeURIComponent(token)}`;
         await writeAudit(env,a.tenant_id,a.user_id,"EMPLOYEE_REPORTING_ACCESS_ISSUED",{accessId:aid,employeeId,locationId,expiresInDays:days});return json({ok:true,id:aid,employeeName:emp.full_name,locationName:loc.name,expiresInDays:days,link},201);
       }
       if(url.pathname.match(/^\/api\/daily-reporting\/access\/[^/]+\/revoke$/)&&req.method==="POST"){
