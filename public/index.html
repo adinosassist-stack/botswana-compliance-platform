@@ -6781,7 +6781,7 @@ async function renderDailyOperations(){
   renderOpsBranches(dashboard.branches||[]);renderOpsMissing(dashboard.missing||[]);renderOpsExceptions(dashboard.exceptions||[]);renderOpsReports(dashboard.reports||[]);
   const autoSummary=document.getElementById("opsAutoSummary");if(autoSummary){autoSummary.checked=Number(settings.auto_summary_enabled||0)===1||settings.autoSummaryEnabled===true;autoSummary.disabled=settingsR.status==="rejected"}
   renderOpsNarrative(summariesR.status==="fulfilled"?opsLatestSummary(summaries.items||[],locationId):null);
-  const reportingFailures=[settingsR,dashboardR,summariesR].filter(x=>x.status==="rejected");
+  const reportingFailures=[dashboardR].filter(x=>x.status==="rejected");
   if(reportingFailures.length){
     const first=reason(reportingFailures[0]),box=document.getElementById("opsAiSummary"),planBlocked=reportingFailures.some(x=>Number(reason(x)?.status||0)===402||String(reason(x)?.code||"")==="feature_not_in_plan");
     if(box)box.safeHTML=planBlocked?'<div class="notice info"><b>Daily reporting analytics are not available on the current plan.</b><div class="small">Location setup remains available.</div></div>':`<div class="notice bad">Some reporting analytics could not load. ${escapeHtml(first?.message||"Retry this section.")}</div>`;
