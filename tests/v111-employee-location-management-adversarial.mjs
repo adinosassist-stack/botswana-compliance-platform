@@ -54,7 +54,7 @@ assert.match(html,/allLocs\.filter\(x=>Number\(x\.active\)===1\)/);
 assert.match(html,/Inactive/);
 
 // Basic reporting setup uses the operating-locations entitlement; analytics remain separately gated.
-assert.match(worker,/daily-reporting\\\/locations\\\/\[\^\/\]\+\(\?:\\\/\(\?:deactivate\|reactivate\)\)\?\$\/\.test\(url\.pathname\)/);
+assert.ok(worker.includes('/^\\/api\\/daily-reporting\\/locations\\/[^/]+(?:\\/(?:deactivate|reactivate))?$/.test(url.pathname)'));
 assert.match(worker,/const featureKey=reportingSetupPath\?"operating_locations":"daily_operations"/);
 assert.equal((worker.match(/entitlement\(env,access\.tenant_id,"operating_locations"\)/g)||[]).length,2,"public reporting access and submit must follow the core operating_locations entitlement");
 
