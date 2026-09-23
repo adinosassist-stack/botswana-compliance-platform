@@ -11,6 +11,7 @@ const checks=[
  ["platform admin approval",w.includes("/api/platform/billing/manual-payments")&&w.includes("platformBillingAdmin")&&w.includes("MANUAL_APPROVED")],
  ["one time fulfillment preserved",w.includes("applyVerifiedPaymentOrder(env,row.payment_order_id")&&w.includes("claimPaymentSettlement")],
  ["duplicate bank ref blocked",w.includes("bank_reference_already_used")&&s.includes("bank_reference TEXT NOT NULL UNIQUE")],
+ ["pending order reused",w.includes("reused:true")&&w.includes("existing pending bank-transfer reference")],
  ["customer UI bank details",h.includes("Manual bank transfer")&&h.includes("I have paid")&&h.includes("manualBankReference")],
  ["approval warning",h.includes("Approve only after the matching funds are visible")&&h.includes("Verify & activate")],
  ["hosted subscription checkout removed",!h.includes("Preparing secure hosted checkout")&&!h.includes("Opening the configured hosted payment provider")]
