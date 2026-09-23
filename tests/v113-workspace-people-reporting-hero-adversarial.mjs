@@ -31,7 +31,7 @@ for(const name of actionNames){
 assert.doesNotMatch(html,/\son(?:click|change|input|submit)=/i,"legacy inline event attributes must remain absent");
 
 // Pass 2: employee removal is visible-state removal everywhere and employee click owns reporting access.
-assert.match(runtime,/const response=await apiJson\("\/api\/employees"\),arr=response\.items\|\|\[\],active=arr\.filter\(e=>String\(e\.status\|\|""\)\.trim\(\)\.toLowerCase\(\)==="active"\)/);
+assert.match(runtime,/const response=await apiJson\("\/api\/employees"\),arr=response\.items\|\|\[\],active=arr\.filter\(e=>String\(e\.status\|\|""\)\.trim\(\)\.toLowerCase\(\)==="active"&&!recentlyRemovedEmployeeIds\.has\(String\(e\.id\)\)\)/);
 assert.match(runtime,/data-bw-onclick="openEmployeeReportingAccess\('/);
 assert.match(runtime,/aria-label="Open reporting access for \$\{escapeHtml\(e\.full_name\)\}"/,"employee name/row must be directly clickable for reporting access");
 assert.match(runtime,/click employee to view reporting link/,"employee row must clearly advertise reporting-link access");
