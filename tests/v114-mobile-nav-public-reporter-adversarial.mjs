@@ -13,8 +13,11 @@ const synthetic=fs.readFileSync("scripts/production-synthetic-full-user-wrapper.
 // Pass 1: mobile navigation must not cover readable workspace content.
 for(const source of [html,styles]){
   assert.ok(source.includes("padding:12px 10px calc(144px + env(safe-area-inset-bottom))!important"),"mobile workspace must reserve space below the floating navigation");
+  assert.ok(source.includes("@media (max-width:1000px){"),"hardened mobile navigation must cover the full breakpoint where the bottom bar is enabled");
   assert.ok(source.includes('#mainContent::after{content:"";display:block;width:100%;height:calc(88px + env(safe-area-inset-bottom))'),"mobile workspace must include a physical bottom spacer below the floating navigation");
   assert.ok(source.includes("background:#fff!important;box-shadow:0 14px 38px rgba(10,20,14,.22)!important;isolation:isolate"),"mobile navigation must be opaque and isolated from page text");
+  assert.ok(source.includes(".mobile-nav-occlusion{display:block;position:fixed;z-index:179;left:0;right:0;bottom:0;height:calc(84px + env(safe-area-inset-bottom));background:#fff"),"an opaque bottom shield must prevent page text from showing beneath or around the floating navigation");
+  assert.ok(source.includes("body.mobile-nav-open .mobile-nav-occlusion{display:none!important}"),"bottom shield must leave the way when the full drawer opens");
   assert.ok(source.includes("body.mobile-nav-open .mobilebar{opacity:0!important;visibility:hidden!important;pointer-events:none!important}"),"bottom navigation must leave the way when the full drawer opens");
   assert.ok(source.includes("background:#0b0f0d;backdrop-filter:none"),"mobile drawer backdrop must be fully opaque so workspace text cannot bleed underneath");
   assert.ok(source.includes("body.mobile-nav-open #mainContent{visibility:hidden!important}"),"workspace text must not remain visible below the open mobile drawer");
@@ -42,6 +45,8 @@ assert.ok(!reportJs.includes("/api/auth/"),"reporter client must not call authen
 
 // Pass 3: production lifecycle proves the boundary in a phone-sized browser.
 assert.ok(synthetic.includes("viewport:{width:390,height:844}"),"mobile reporter browser proof missing");
+assert.ok(synthetic.includes("setViewportSize({width:844,height:390})"),"wide-mobile landscape navigation proof missing");
+assert.ok(synthetic.includes("wide-mobile navigation occlusion"),"wide-mobile dock/drawer occlusion assertion missing");
 assert.ok(synthetic.includes("mobile employee report link required or exposed workspace sign-in"),"mobile reporter sign-in regression assertion missing");
 assert.ok(synthetic.includes('#peopleops [data-bw-onclick="addOpsLocation()"]:visible'),"synthetic lifecycle must create locations through the People-owned reporting setup");
 assert.ok(synthetic.includes('#peopleops [data-bw-onclick="createOpsReporterLink()"]:visible'),"synthetic lifecycle must create reporting links through the People-owned reporting setup");
