@@ -12,11 +12,12 @@ import {
   verifyOrchestratedProposals
 } from "../cloudflare/src/agent-orchestration.js";
 
-assert.equal(AGENT_READ_TOOLS_VERSION,"2026-09-20.read-tools-v1");
+assert.equal(AGENT_READ_TOOLS_VERSION,"2026-09-23.read-tools-v2");
 assert.deepEqual(__agentReadToolsTest.TOOL_ACTIONS,[
   "business_health.read",
   "financial_position.read",
   "finance_data_quality.read",
+  "finance_daily_inflows.read",
   "compliance_status.read",
   "daily_operations_summary.read"
 ]);
@@ -33,6 +34,7 @@ const DB={
             if(sql.includes("FROM finance_reconciliation_runs")&&sql.includes("reconciliation_count"))return {reconciliation_count:3,exception_count:1,exception_exposure_minor:5000,latest_reconciliation_at:"2026-09-20T09:00:00Z"};
             if(sql.includes("FROM finance_reconciliation_runs")&&sql.includes("run_count"))return {run_count:3,reconciled_count:2,exception_count:1,latest_run_at:"2026-09-20T09:00:00Z"};
             if(sql.includes("FROM finance_import_batches"))return {import_batch_count:4,completed_batch_count:4,failed_batch_count:0,imported_row_count:20,duplicate_row_count:2,latest_completed_at:"2026-09-20T08:00:00Z"};
+            if(sql.includes("FROM finance_transactions")&&sql.includes("positive_inflow_minor"))return {positive_inflow_minor:45500,positive_inflow_count:3,outflow_minor:10000,outflow_count:1};
             if(sql.includes("FROM finance_transactions")&&sql.includes("transaction_count"))return {transaction_count:20,missing_fingerprint_count:0,latest_transaction_at:"2026-09-20T08:00:00Z"};
             if(sql.includes("FROM performance_insights"))return {open_count:2,critical_count:1,warning_count:1,latest_signal_at:"2026-09-20T07:00:00Z"};
             if(sql.includes("FROM workflow_jobs"))return {pending_count:3,failed_count:1,next_due_at:"2026-09-21T09:00:00Z"};
@@ -58,14 +60,14 @@ const reviewer={tenant_id:"tenant-a",role:"reviewer"};
 const ownerContext=await buildAgentReadToolContext({env:{DB},auth:owner});
 assert.equal(ownerContext.readOnly,true);
 assert.equal(ownerContext.mutationAllowed,false);
-assert.equal(ownerContext.toolCount,5);
+assert.equal(ownerContext.toolCount,6);
 assert.equal(ownerContext.tools.every(item=>item.readOnly===true),true);
 assert.equal(ownerContext.tools.every(item=>item.mutationAllowed===false),true);
 assert.ok(ownerContext.sourceRefs.includes("tool:financial_position"));
 assert.ok(ownerContext.sourceRefs.includes("tool:daily_operations_summary"));
 
 const reviewerContext=await buildAgentReadToolContext({env:{DB},auth:reviewer});
-assert.equal(reviewerContext.toolCount,3);
+assert.equal(reviewerContext.toolCount,4);
 const reviewerBusiness=reviewerContext.tools.find(item=>item.actionKey==="business_health.read");
 const reviewerOps=reviewerContext.tools.find(item=>item.actionKey==="daily_operations_summary.read");
 assert.equal(reviewerBusiness.allowed,false);
@@ -75,6 +77,7 @@ assert.equal(reviewerOps.error,"role_forbidden");
 assert.equal(reviewerContext.sourceRefs.includes("tool:business_health"),false);
 assert.equal(reviewerContext.sourceRefs.includes("tool:daily_operations_summary"),false);
 assert.equal(reviewerContext.sourceRefs.includes("tool:financial_position"),true);
+assert.equal(reviewerContext.sourceRefs.includes("tool:finance_daily_inflows"),true);
 assert.equal(reviewerContext.sourceRefs.includes("tool:compliance_status"),true);
 
 const finance=await executeAgentReadTool("financial_position.read",{env:{DB},auth:reviewer});
@@ -82,6 +85,14 @@ assert.equal(finance.allowed,true);
 assert.equal(finance.data.currency,"BWP");
 assert.equal(finance.data.cashPositionMinor,125000);
 assert.equal(finance.data.reconciliationExceptionCount,1);
+
+const inflows=await executeAgentReadTool("finance_daily_inflows.read",{env:{DB},auth:owner});
+assert.equal(inflows.allowed,true);
+assert.equal(inflows.data.currency,"BWP");
+assert.equal(inflows.data.positiveInflowMinor,45500);
+assert.equal(inflows.data.positiveInflowCount,3);
+assert.equal(inflows.data.customerCollectionClassificationAvailable,false);
+assert.match(inflows.data.qualification,/not guaranteed to be customer collections/i);
 
 const ops=await executeAgentReadTool("daily_operations_summary.read",{env:{DB},auth:owner});
 assert.equal(ops.allowed,true);
