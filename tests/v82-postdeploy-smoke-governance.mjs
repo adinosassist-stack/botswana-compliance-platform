@@ -18,7 +18,10 @@ ok(workflow.includes('without submitting customer data')&&workflow.includes('reg
 ok(workflow.includes("readFileSync('cloudflare/src/agentic-entry.js','utf8')"),'post-deploy smoke derives schema expectation from the deployed runtime source');
 ok(workflow.includes('expectedSchemaDelta=schemaMatch[1]'),'schema delta source-of-truth is parsed before live readiness comparison');
 ok(workflow.includes('assert.equal(readiness.latestSchemaDelta,expectedSchemaDelta)'),'live readiness is compared to the exact deployed source schema delta');
+ok(workflow.includes("readFileSync('release/production.json','utf8')"),'post-deploy smoke loads the exact promoted production release manifest');
+ok(workflow.includes("get('/api/version')")&&workflow.includes("assert.equal(provenance.releaseSequence,releaseManifest.sequence)")&&workflow.includes("assert.equal(provenance.sourceSha,releaseManifest.sourceSha)"),'live /api/version provenance must match the promoted release sequence and source SHA');
+ok(workflow.includes("root.headers.get('x-thebe-source-sha')")&&workflow.includes("root.headers.get('x-thebe-release-sequence')"),'public surface provenance headers must match the promoted release manifest');
 ok(!workflow.includes("assert.equal(readiness.latestSchemaDelta,'047_v81_delegated_authority.sql')"),'post-deploy smoke does not pin the retired 047 schema literal');
 ok(!workflow.includes('CLOUDFLARE_API_TOKEN')&&!workflow.includes('DATABASE_URL'),'post-deploy smoke requires no production secrets or database credentials');
 
-console.log(`Post-deploy smoke governance contract: ${pass}/15 PASS`);
+console.log(`Post-deploy smoke governance contract: ${pass}/${pass} PASS`);
