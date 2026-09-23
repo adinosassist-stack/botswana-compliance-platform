@@ -20,7 +20,7 @@ for(const trigger of triggers){
 }
 assert.match(triggers.find(s=>s.includes("finance_invoice_allocations_apply_guard"))||"",/finance_invoice_overallocation[\s\S]*finance_transaction_overallocation/);
 assert.ok(triggers.every(trigger=>!trigger.includes("SELECT CASE")),"D1 trigger statements must not contain unparenthesized CASE");
-assert.equal(triggers.reduce((count,trigger)=>count+(trigger.match(/SELECT \\(CASE/g)||[]).length,0),6);
+assert.equal(triggers.reduce((count,trigger)=>count+(trigger.match(/SELECT \(CASE/g)||[]).length,0),6);
 assert.match(triggers.find(s=>s.includes("finance_invoice_allocations_reverse_guard"))||"",/CASE[\s\S]*END;[\s\S]*END;\s*$/i);
 
 const fixture=`
