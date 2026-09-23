@@ -38,7 +38,10 @@ assert.ok(worker.includes("VALUES(?,'refund',?,?,?,?)"),'AI refund ledger SQL mu
 assert.ok(wrangler.includes('[ai]')&&wrangler.includes('binding = "AI"'),'Workers AI binding missing');
 assert.ok(wrangler.includes('"15 16 * * *"'),'18:15 Botswana scheduled digest cron missing');
 for(const endpoint of ['/api/daily-reporting/locations','/api/daily-reporting/access','/api/daily-reporting/dashboard','/api/daily-reporting/ai-summary','/api/daily-reporting/settings','/api/daily-reporting/exceptions']){
-  const at=worker.indexOf(endpoint);assert.ok(at>=0,`missing ${endpoint}`);const around=worker.slice(Math.max(0,at-180),at+520);assert.ok(around.includes('owner","manager')||around.includes('owner","manager"'),`${endpoint} must be manager/owner scoped`);
+  const routeNeedle=`if(url.pathname==="${endpoint}"`,at=worker.indexOf(routeNeedle);
+  assert.ok(at>=0,`missing ${endpoint}`);
+  const route=worker.slice(at,at+900);
+  assert.ok(route.includes('roleAllowed(a,"owner","manager"'),`${endpoint} must be manager/owner scoped`);
 }
 
 // Pass 3 — workspace/release contract.
