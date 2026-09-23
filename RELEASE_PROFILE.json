@@ -733,7 +733,7 @@
   "control_replacement_no_people_scoring": true,
   "control_replacement_no_second_notification_stream": true,
   "control_replacement_fail_closed": true,
-  "latest_cloudflare_migration": "048_v102_bounded_internal_task_execution.sql",
+  "latest_cloudflare_migration": "049_v108_finance_receivables.sql",
   "agentic_foundation_v80": true,
   "agentic_execution_enabled": false,
   "agentic_human_approval_required": true,
@@ -1151,5 +1151,9 @@
   "bounded_internal_task_execution_default_enabled": false,
   "bounded_internal_task_execution_external_side_effects": false,
   "bounded_internal_task_execution_owner_approval_required": true,
-  "bounded_internal_task_execution_runtime_guard_required": true
+  "bounded_internal_task_execution_runtime_guard_required": true,
+  "finance_receivables_v108": true,
+  "finance_receivables_transaction_backed": true,
+  "finance_receivables_agent_read_only": true,
+  "finance_receivables_currency": "BWP"
 }
