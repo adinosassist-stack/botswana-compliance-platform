@@ -356,6 +356,33 @@ async function runFullUserJourney(credentials){
       `removed employee reporting link remained usable: HTTP ${revokedAccess.status} ${safe(revokedAccess.error)}`);
     mark('employee removal and reporting revocation','visible Remove employee flow marked the employee removed and invalidated the previously issued reporting link');
 
+    await delegatedPeopleButton.click();
+    await page.waitForFunction(()=>document.getElementById('peopleops')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
+    const reportingSetupAfterEmployeeRemoval=page.locator('#opsReportingSetupDetails').first();
+    assert(await reportingSetupAfterEmployeeRemoval.count(),'Reporting setup disclosure missing before location removal');
+    if(!(await reportingSetupAfterEmployeeRemoval.evaluate(node=>node.open===true)))await reportingSetupAfterEmployeeRemoval.locator(':scope > summary').first().click();
+    const syntheticLocationRow=page.locator('#opsLocationsList .item',{hasText:locationName}).first();
+    await syntheticLocationRow.waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
+    const removeLocation=syntheticLocationRow.locator('button[data-bw-onclick^="removeOpsLocation("]:visible').first();
+    assert(await removeLocation.count(),'visible Remove location control missing for the synthetic location');
+    await removeLocation.click();
+    const locationRemovalDialog=page.locator('.bw-dialog-service:visible').first();
+    await locationRemovalDialog.waitFor({state:'visible',timeout:VIEW_TIMEOUT_MS});
+    const confirmLocationRemoval=locationRemovalDialog.getByRole('button',{name:'Remove location'}).first();
+    assert(await confirmLocationRemoval.count(),'Remove location confirmation control missing');
+    await confirmLocationRemoval.click();
+    await page.waitForFunction(name=>![...document.querySelectorAll('#opsLocationsList .item')].some(item=>String(item.textContent||'').includes(name)),locationName,{timeout:WORKSPACE_TIMEOUT_MS});
+    await page.waitForFunction(id=>![...document.querySelectorAll('#opsReporterLocation option')].some(option=>option.value===id),locationValue,{timeout:WORKSPACE_TIMEOUT_MS});
+    const archivedLocation=await page.evaluate(async id=>{
+      const response=await fetch('/api/daily-reporting/locations',{credentials:'same-origin',headers:{accept:'application/json'}});
+      let body=null;try{body=await response.json()}catch{}
+      const item=(body?.items||[]).find(row=>String(row.id)===String(id));
+      return {status:response.status,found:!!item,active:Number(item?.active)};
+    },locationValue);
+    assert(archivedLocation.status===200&&archivedLocation.found&&archivedLocation.active===0,
+      `removed location was not retained as inactive history: ${safe(JSON.stringify(archivedLocation))}`);
+    mark('location removal lifecycle','visible Remove location flow removed the location from active People controls while retaining the location as inactive history');
+
     await page.evaluate(()=>globalThis.showView?.('dashboard',{skipDataRefresh:true}));
 
     await page.waitForFunction(()=>{
