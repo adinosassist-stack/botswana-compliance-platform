@@ -35,6 +35,10 @@ assert.match(helper,/Employee reporting access could not load/);
 assert.match(helper,/accessButton\.disabled=accessBlocked\|\|!locs\.length\|\|!emps\.length/);
 assert.match(helper,/Add an active employee first, then issue a reporting link/);
 assert.match(helper,/Add a location first, then issue a reporting link/);
-assert.match(production,/WORKSPACE_RUNTIME_ASSET="\/js\/workspace-runtime-20260923c\.js"/);
+assert.match(production,/WORKSPACE_RUNTIME_ASSET="\/js\/workspace-runtime-20260923d\.js"/);
+assert.match(runtime,/async function removeOpsLocation\(id\)/);
+assert.match(runtime,/removeOpsLocation/);
+assert.match(runtime,/Remove location\?/);
+assert.match(runtime,/Historical reports were retained and reporting links for it were revoked/);
 
 console.log("v112 People reporting hydration: 3-pass UI boundary PASS");
