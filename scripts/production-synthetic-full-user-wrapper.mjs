@@ -388,6 +388,7 @@ async function runFullUserJourney(credentials){
     await employeeAccessButton.click();
     const employeeAccessPanel=page.locator(`[id="employeeReportingAccess_${employeeValue}"]`).first();
     await employeeAccessPanel.waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
+    await page.waitForFunction(id=>/Employee reporting access/i.test(String(document.getElementById(`employeeReportingAccess_${id}`)?.innerText||'')),employeeValue,{timeout:WORKSPACE_TIMEOUT_MS});
     assert(/Employee reporting access/i.test(await employeeAccessPanel.innerText()),'employee click did not reveal reporting access');
     const employeeLocationSelect=page.locator(`[id="employeeReportingLocation_${employeeValue}"]`).first();
     assert(await employeeLocationSelect.count(),'employee reporting-access location selector missing');
