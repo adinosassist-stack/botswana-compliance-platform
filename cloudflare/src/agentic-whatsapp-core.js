@@ -1,7 +1,15 @@
 import {AGENT_ACTION_CATALOG,THEBE_AGENTS} from "./agent-policy.js";
 import {evaluateAgentRuntimeGuard} from "./agent-runtime-guard.js";
+import {executeAgentReadTool} from "./agent-read-tools.js";
+import {prepareFinanceReconciliationForPrincipal} from "./agentic-finance-reconciliation.js";
 
 const MAX_BODY_BYTES=4096;
+const WHATSAPP_READ_ACTIONS=Object.freeze({
+  cash_position:Object.freeze({actionKey:"financial_position.read",label:"Recorded cash position"}),
+  finance_inflows_today:Object.freeze({actionKey:"finance_daily_inflows.read",label:"Recorded positive inflows today"}),
+  finance_data_quality:Object.freeze({actionKey:"finance_data_quality.read",label:"Finance data quality"})
+});
+
 const ACTION_KEY_BY_PURPOSE=Object.freeze({
   owner_daily_brief:Object.freeze({agentKey:"thebe",capability:"core",actionKey:"management_brief.prepare",label:"Owner daily brief"}),
   finance_exception:Object.freeze({agentKey:"thebe",capability:"finance",actionKey:"finance_brief.prepare",label:"Finance reconciliation follow-up"}),
@@ -83,6 +91,155 @@ function pula(minor){
   return `P${(Number.isFinite(n)?n:0)/100}`.replace(/(\.\d\d)\d+$/,"$1").replace(/\.0+$/,"");
 }
 function safeJson(value,fallback={}){try{return JSON.parse(String(value||"{}"))}catch{return fallback}}
+
+function buildReadReply(readKey,result){
+  const data=result?.data||{};
+  if(readKey==="cash_position"){
+    return [
+      `Thebe · recorded cash position: ${pula(data.cashPositionMinor)} across ${Number(data.activeAccountCount||0)} active account(s).`,
+      `Reconciliation: ${Number(data.reconciliationExceptionCount||0)} exception(s), ${pula(data.reconciliationExceptionExposureMinor)} exposure.`,
+      "This is the Finance Core ledger position, not independent bank-balance verification."
+    ].join("\n");
+  }
+  if(readKey==="finance_inflows_today"){
+    return [
+      `Thebe · recorded positive inflows for ${data.businessDate||"today"}: ${pula(data.positiveInflowMinor)} across ${Number(data.positiveInflowCount||0)} transaction(s).`,
+      "These are positive Finance Core inflows. Thebe cannot yet prove they are all customer collections because authoritative receivables classification is not live."
+    ].join("\n");
+  }
+  if(readKey==="finance_data_quality"){
+    return [
+      `Thebe · finance data quality: ${Number(data.completedImportBatchCount||0)} completed import batch(es), ${Number(data.failedImportBatchCount||0)} failed.`,
+      `Ledger: ${Number(data.transactionCount||0)} transaction(s), ${Number(data.missingSourceFingerprintCount||0)} missing source fingerprint(s).`,
+      `Reconciliation: ${Number(data.reconciledRunCount||0)} reconciled run(s), ${Number(data.reconciliationExceptionCount||0)} exception(s).`
+    ].join("\n");
+  }
+  throw new Error("unsupported_whatsapp_read");
+}
+
+export async function prepareWhatsAppReadForPrincipal({env,auth,readKey,idempotencyKey,source="whatsapp_inbound",sourceContext=null}){
+  const key=text(readKey,80),spec=WHATSAPP_READ_ACTIONS[key];
+  if(!spec)return {status:400,body:{error:"unsupported_whatsapp_read",supported:Object.keys(WHATSAPP_READ_ACTIONS)}};
+  const definition=AGENT_ACTION_CATALOG[spec.actionKey],role=String(auth?.role||"").toLowerCase();
+  if(!definition||definition.level!==1)return {status:503,body:{error:"whatsapp_read_policy_unavailable"}};
+  if(!auth?.tenant_id||!auth?.user_id||!THEBE_AGENTS.thebe.allowedRoles.includes(role)||!definition.roles.includes(role))return {status:403,body:{error:"role_forbidden"}};
+
+  const runtimeDecision=evaluateAgentRuntimeGuard({
+    agentKey:"thebe",actionKey:spec.actionKey,actorRole:role,tenantScoped:true,
+    tenantId:String(auth.tenant_id),actorTenantId:String(auth.tenant_id),targetTenantId:String(auth.tenant_id),
+    agentStatus:String(env?.AGENT_RUNTIME_ENABLED||"1")==="0"?"disabled":"enabled",
+    killSwitchActive:["1","true","on"].includes(String(env?.AGENT_RUNTIME_KILL_SWITCH||"").trim().toLowerCase()),
+    budgetStatus:String(env?.AGENT_RUNTIME_BUDGET_STATUS||"within_limit"),
+    mode:"shadow",globalExecutionEnabled:false,phase:"phase1"
+  });
+  if(runtimeDecision.allowed!==true||runtimeDecision.executionAllowed!==false){
+    return {status:409,body:{error:"whatsapp_read_runtime_guard_denied",decision:{code:runtimeDecision.code,guardVersion:runtimeDecision.guardVersion}}};
+  }
+
+  const idem=text(idempotencyKey,200),providerMessageId=text(sourceContext?.providerMessageId,200);
+  if(idem.length<8)return {status:400,body:{error:"idempotency_key_required"}};
+  if(source==="whatsapp_inbound"&&!providerMessageId)return {status:400,body:{error:"whatsapp_inbound_source_invalid"}};
+  const requestHash=await sha256Hex(JSON.stringify({readKey:key,actionKey:spec.actionKey,source,providerMessageId,userId:String(auth.user_id)}));
+  const existing=await replayIntent(env,auth.tenant_id,idem);
+  if(existing){
+    if(String(existing.action_key)!==spec.actionKey||String(existing.payload_hash)!==requestHash)return {status:409,body:{error:"idempotency_key_conflict"}};
+    return {status:200,body:{ok:true,replayed:true,readKey:key,intent:publicIntent(existing),messagePreview:String(existing.summary||""),snapshot:parseObservation(existing.observation_json),policy:{readOnly:true,runtimeGuard:true},execution:{performed:false,financeMutation:false,customerMessage:false},delivery:{replyToInbound:true,recipientLocked:true}}};
+  }
+
+  const result=await executeAgentReadTool(spec.actionKey,{env,auth});
+  if(result?.allowed!==true||result?.available!==true)return {status:409,body:{error:"whatsapp_read_tool_denied",decisionCode:result?.decisionCode||result?.error||"read_unavailable"}};
+  const messagePreview=buildReadReply(key,result),runId=id(),intentId=id(),authority=runtimeDecision.authority;
+  if(authority?.allowed!==true||authority.executionAllowed!==false)return {status:409,body:{error:"whatsapp_read_authority_denied",decision:authority}};
+
+  const observation={kind:"whatsapp_finance_read",readKey:key,actionKey:spec.actionKey,tool:result,channel:"whatsapp_inbound",inbound:{providerMessageId,receivedAt:text(sourceContext?.receivedAt,80)||null}};
+  try{
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO agentic_runs(id,tenant_id,requested_by_user_id,goal,status,generation_mode,confidence,observation_json,summary)
+        VALUES(?,?,?,?, 'completed','deterministic_fallback','high',?,?)`).bind(runId,auth.tenant_id,auth.user_id,`Answer inbound ${spec.label} using governed read-only Thebe data.`,JSON.stringify(observation),messagePreview),
+      env.DB.prepare(`INSERT INTO agent_action_intents(id,tenant_id,run_id,proposal_id,agent_key,action_key,requested_by_user_id,delegation_id,mode,decision,decision_code,
+        required_autonomy_level,amount_minor,payload_hash,idempotency_key,status)
+        VALUES(?,?,?,NULL,'thebe',?,?,NULL,'shadow',?,?,?,0,?,?,'evaluated')`).bind(intentId,auth.tenant_id,runId,spec.actionKey,auth.user_id,authority.decision,authority.code,authority.requiredAutonomyLevel,requestHash,idem),
+      env.DB.prepare(`INSERT INTO agentic_events(id,tenant_id,run_id,proposal_id,event_type,actor_user_id,detail_json)
+        VALUES(?,?,?,NULL,'PLAN_GENERATED',?,?)`).bind(id(),auth.tenant_id,runId,auth.user_id,JSON.stringify({channel:"whatsapp_inbound",readKey:key,actionKey:spec.actionKey,providerMessageId,readOnly:true,runtimeGuardVersion:runtimeDecision.guardVersion,recipientLocked:true}))
+    ]);
+  }catch{
+    const replay=await replayIntent(env,auth.tenant_id,idem);
+    if(replay&&String(replay.action_key)===spec.actionKey&&String(replay.payload_hash)===requestHash){
+      return {status:200,body:{ok:true,replayed:true,readKey:key,intent:publicIntent(replay),messagePreview:String(replay.summary||""),snapshot:parseObservation(replay.observation_json),policy:{readOnly:true,runtimeGuard:true},execution:{performed:false,financeMutation:false,customerMessage:false},delivery:{replyToInbound:true,recipientLocked:true}}};
+    }
+    return {status:500,body:{error:"whatsapp_read_prepare_failed"}};
+  }
+
+  return {status:201,body:{ok:true,replayed:false,readKey:key,intent:{id:intentId,runId,agentKey:"thebe",actionKey:spec.actionKey,status:"evaluated"},messagePreview,snapshot:observation,policy:{readOnly:true,runtimeGuard:true,sourceRef:result.sourceRef},execution:{performed:false,financeMutation:false,customerMessage:false},delivery:{replyToInbound:true,recipientLocked:true}}};
+}
+
+export async function prepareWhatsAppReconciliationForPrincipal({env,auth,payload,idempotencyKey,sourceContext=null}){
+  const definition=AGENT_ACTION_CATALOG["finance_reconciliation.prepare"],role=String(auth?.role||"").toLowerCase();
+  if(!definition||definition.level!==2||definition.humanReviewRequired!==true)return {status:503,body:{error:"whatsapp_reconciliation_policy_unavailable"}};
+  if(!auth?.tenant_id||!auth?.user_id||!definition.roles.includes(role))return {status:403,body:{error:"role_forbidden"}};
+  const providerMessageId=text(sourceContext?.providerMessageId,200),idem=text(idempotencyKey,200);
+  if(!providerMessageId)return {status:400,body:{error:"whatsapp_inbound_source_invalid"}};
+  if(idem.length<8)return {status:400,body:{error:"idempotency_key_required"}};
+
+  const requestPayload={
+    accountId:text(payload?.accountId,64),
+    statementFrom:text(payload?.statementFrom,10),
+    statementTo:text(payload?.statementTo,10),
+    openingBalanceMinor:payload?.openingBalanceMinor,
+    closingBalanceMinor:payload?.closingBalanceMinor
+  };
+  const requestHash=await sha256Hex(JSON.stringify({actionKey:"finance_reconciliation.prepare",providerMessageId,userId:String(auth.user_id),requestPayload}));
+  const existing=await replayIntent(env,auth.tenant_id,idem);
+  if(existing){
+    if(String(existing.action_key)!=="finance_reconciliation.prepare"||String(existing.payload_hash)!==requestHash)return {status:409,body:{error:"idempotency_key_conflict"}};
+    return {status:200,body:{ok:true,replayed:true,messagePreview:String(existing.summary||""),snapshot:parseObservation(existing.observation_json),policy:{prepareOnly:true,humanReviewRequired:true,runtimeGuard:true},execution:{performed:false,financeWrite:false,customerMessage:false},delivery:{replyToInbound:true,recipientLocked:true}}};
+  }
+
+  const runtimeDecision=evaluateAgentRuntimeGuard({
+    agentKey:"thebe",actionKey:"finance_reconciliation.prepare",actorRole:role,tenantScoped:true,
+    tenantId:String(auth.tenant_id),actorTenantId:String(auth.tenant_id),targetTenantId:String(auth.tenant_id),
+    agentStatus:String(env?.AGENT_RUNTIME_ENABLED||"1")==="0"?"disabled":"enabled",
+    killSwitchActive:["1","true","on"].includes(String(env?.AGENT_RUNTIME_KILL_SWITCH||"").trim().toLowerCase()),
+    budgetStatus:String(env?.AGENT_RUNTIME_BUDGET_STATUS||"within_limit"),
+    mode:"shadow",globalExecutionEnabled:false,phase:"phase1"
+  });
+  if(runtimeDecision.allowed!==true||runtimeDecision.executionAllowed!==false)return {status:409,body:{error:"whatsapp_reconciliation_runtime_guard_denied",decision:{code:runtimeDecision.code,guardVersion:runtimeDecision.guardVersion}}};
+  const authority=runtimeDecision.authority;
+  if(authority?.allowed!==true||authority.executionAllowed!==false)return {status:409,body:{error:"whatsapp_reconciliation_authority_denied"}};
+
+  const internalRequest=new Request("https://thebe.internal/api/agentic/finance/reconciliation/prepare",{
+    method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(requestPayload)
+  });
+  const response=await prepareFinanceReconciliationForPrincipal({request:internalRequest,env,auth});
+  const prepared=await response.json();
+  if(response.status>=400||prepared?.ok!==true)return {status:response.status,body:prepared};
+  const proposal=prepared.proposal||{};
+  const messagePreview=[
+    `Thebe · reconciliation prepared for ${proposal.accountName||"finance account"} (${proposal.statementFrom||"?"} to ${proposal.statementTo||"?"}).`,
+    `Book closing: ${pula(proposal.bookClosingMinor)} · statement closing: ${pula(proposal.statementClosingMinor)} · difference: ${pula(proposal.differenceMinor)}.`,
+    `${Number(proposal.transactionCount||0)} transaction(s) checked. Nothing was recorded, posted or sent. Review and approve in Thebe Desk before recording the reconciliation.`
+  ].join("\n");
+  const observation={kind:"whatsapp_finance_reconciliation_prepare",channel:"whatsapp_inbound",inbound:{providerMessageId,receivedAt:text(sourceContext?.receivedAt,80)||null},proposal,verification:prepared.verification,guard:prepared.guard,approval:prepared.approval};
+  const runId=id(),intentId=id();
+  try{
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO agentic_runs(id,tenant_id,requested_by_user_id,goal,status,generation_mode,confidence,observation_json,summary)
+        VALUES(?,?,?,?, 'completed','deterministic_fallback','high',?,?)`).bind(runId,auth.tenant_id,auth.user_id,"Prepare inbound finance reconciliation through the canonical Runtime Guard.",JSON.stringify(observation),messagePreview),
+      env.DB.prepare(`INSERT INTO agent_action_intents(id,tenant_id,run_id,proposal_id,agent_key,action_key,requested_by_user_id,delegation_id,mode,decision,decision_code,
+        required_autonomy_level,amount_minor,payload_hash,idempotency_key,status)
+        VALUES(?,?,?,NULL,'thebe','finance_reconciliation.prepare',?,NULL,'shadow',?,?,?,0,?,?,'review_required')`).bind(intentId,auth.tenant_id,runId,auth.user_id,authority.decision,authority.code,authority.requiredAutonomyLevel,requestHash,idem),
+      env.DB.prepare(`INSERT INTO agentic_events(id,tenant_id,run_id,proposal_id,event_type,actor_user_id,detail_json)
+        VALUES(?,?,?,NULL,'PLAN_GENERATED',?,?)`).bind(id(),auth.tenant_id,runId,auth.user_id,JSON.stringify({channel:"whatsapp_inbound",actionKey:"finance_reconciliation.prepare",providerMessageId,prepareOnly:true,runtimeGuardVersion:runtimeDecision.guardVersion,recipientLocked:true}))
+    ]);
+  }catch{
+    const replay=await replayIntent(env,auth.tenant_id,idem);
+    if(replay&&String(replay.action_key)==="finance_reconciliation.prepare"&&String(replay.payload_hash)===requestHash){
+      return {status:200,body:{ok:true,replayed:true,messagePreview:String(replay.summary||""),snapshot:parseObservation(replay.observation_json),policy:{prepareOnly:true,humanReviewRequired:true,runtimeGuard:true},execution:{performed:false,financeWrite:false,customerMessage:false},delivery:{replyToInbound:true,recipientLocked:true}}};
+    }
+    return {status:500,body:{error:"whatsapp_reconciliation_prepare_failed"}};
+  }
+  return {status:201,body:{ok:true,replayed:false,messagePreview,snapshot:observation,proposal,policy:{prepareOnly:true,humanReviewRequired:true,runtimeGuard:true},execution:{performed:false,financeWrite:false,customerMessage:false},delivery:{replyToInbound:true,recipientLocked:true}}};
+}
 
 async function ownerSnapshot(env,tenantId){
   const [finance,reconciliation,compliance,workflows,performance]=await Promise.all([
@@ -328,7 +485,7 @@ export async function handleAgenticWhatsAppRequest({request,logicalPath,env}){
   const auth=await authenticate(request,env);if(!auth)return json({error:"authentication_required"},401);
   if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
   if(logicalPath==="/api/agentic/whatsapp/status"&&request.method==="GET"){
-    return json({enabled:true,mode:"prepare_only",purposes:Object.entries(ACTION_KEY_BY_PURPOSE).map(([key,value])=>({key,label:value.label,agentKey:value.agentKey,actionKey:value.actionKey})),humanReviewRequired:true,providerSend:false,recipientTargeting:false,executionEnabled:false});
+    return json({enabled:true,mode:"prepare_only",inboundMode:"governed_reads_plus_prepare",purposes:Object.entries(ACTION_KEY_BY_PURPOSE).map(([key,value])=>({key,label:value.label,agentKey:value.agentKey,actionKey:value.actionKey})),readQueries:Object.entries(WHATSAPP_READ_ACTIONS).map(([key,value])=>({key,label:value.label,agentKey:"thebe",actionKey:value.actionKey})),humanReviewRequired:true,providerSend:false,recipientTargeting:false,executionEnabled:false,readReplies:{inboundOnly:true,recipientLocked:true,financeMutation:false}});
   }
   if(logicalPath==="/api/agentic/whatsapp/prepare"&&request.method==="POST"){
     if(!originAllowed(request,env))return json({error:"origin_forbidden"},403);
@@ -338,4 +495,4 @@ export async function handleAgenticWhatsAppRequest({request,logicalPath,env}){
   return json({error:"not_found"},404);
 }
 
-export const __whatsappAgenticTest=Object.freeze({ACTION_KEY_BY_PURPOSE,buildDraft,gaboroneDate,pula});
+export const __whatsappAgenticTest=Object.freeze({ACTION_KEY_BY_PURPOSE,WHATSAPP_READ_ACTIONS,buildDraft,buildReadReply,gaboroneDate,pula});

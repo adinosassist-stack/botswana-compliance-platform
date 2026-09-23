@@ -1,11 +1,12 @@
 import {evaluateAgentAction} from "./agent-policy.js";
 
-export const AGENT_READ_TOOLS_VERSION="2026-09-20.read-tools-v1";
+export const AGENT_READ_TOOLS_VERSION="2026-09-23.read-tools-v2";
 
 const TOOL_ACTIONS=Object.freeze([
   "business_health.read",
   "financial_position.read",
   "finance_data_quality.read",
+  "finance_daily_inflows.read",
   "compliance_status.read",
   "daily_operations_summary.read"
 ]);
@@ -14,6 +15,7 @@ const SOURCE_REFS=Object.freeze({
   "business_health.read":"tool:business_health",
   "financial_position.read":"tool:financial_position",
   "finance_data_quality.read":"tool:finance_data_quality",
+  "finance_daily_inflows.read":"tool:finance_daily_inflows",
   "compliance_status.read":"tool:compliance_status",
   "daily_operations_summary.read":"tool:daily_operations_summary"
 });
@@ -90,6 +92,30 @@ async function financialPosition(env,tenantId){
   });
 }
 
+function gaboroneDate(value=new Date()){
+  try{return new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Gaborone",year:"numeric",month:"2-digit",day:"2-digit"}).format(value)}
+  catch{return value.toISOString().slice(0,10)}
+}
+
+async function financeDailyInflows(env,tenantId,{businessDate=gaboroneDate()}={}){
+  const row=await safeFirst(env,`SELECT
+    COALESCE(SUM(CASE WHEN amount_minor>0 THEN amount_minor ELSE 0 END),0) positive_inflow_minor,
+    SUM(CASE WHEN amount_minor>0 THEN 1 ELSE 0 END) positive_inflow_count,
+    COALESCE(SUM(CASE WHEN amount_minor<0 THEN ABS(amount_minor) ELSE 0 END),0) outflow_minor,
+    SUM(CASE WHEN amount_minor<0 THEN 1 ELSE 0 END) outflow_count
+    FROM finance_transactions WHERE tenant_id=? AND posted_on=?`,[tenantId,businessDate]);
+  return Object.freeze({
+    currency:"BWP",
+    businessDate,
+    positiveInflowMinor:number(row?.positive_inflow_minor),
+    positiveInflowCount:number(row?.positive_inflow_count),
+    outflowMinor:number(row?.outflow_minor),
+    outflowCount:number(row?.outflow_count),
+    customerCollectionClassificationAvailable:false,
+    qualification:"Positive inflows are recorded Finance Core credits for the date; they are not guaranteed to be customer collections."
+  });
+}
+
 async function financeDataQuality(env,tenantId){
   const [imports,reconciliations,transactions]=await Promise.all([
     safeFirst(env,"SELECT COUNT(*) import_batch_count, SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) completed_batch_count, SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) failed_batch_count, COALESCE(SUM(row_count),0) imported_row_count, COALESCE(SUM(duplicate_count),0) duplicate_row_count, MAX(completed_at) latest_completed_at FROM finance_import_batches WHERE tenant_id=? AND substr(id,1,2)<>'__'",[tenantId]),
@@ -163,6 +189,7 @@ async function executeOne(actionKey,{env,auth}){
   if(actionKey==="business_health.read")data=await businessHealth(env,auth.tenant_id);
   else if(actionKey==="financial_position.read")data=await financialPosition(env,auth.tenant_id);
   else if(actionKey==="finance_data_quality.read")data=await financeDataQuality(env,auth.tenant_id);
+  else if(actionKey==="finance_daily_inflows.read")data=await financeDailyInflows(env,auth.tenant_id);
   else if(actionKey==="compliance_status.read")data=await complianceStatus(env,auth.tenant_id);
   else if(actionKey==="daily_operations_summary.read")data=await dailyOperationsSummary(env,auth.tenant_id);
   else return Object.freeze({...result,available:false,allowed:false,error:"unsupported_read_tool"});
