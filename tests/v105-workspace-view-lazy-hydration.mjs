@@ -2,8 +2,8 @@ import fs from "node:fs";
 import assert from "node:assert/strict";
 
 const html=fs.readFileSync("public/index.html","utf8");
-const fragments=JSON.parse(fs.readFileSync("public/assets/workspace-view-fragments-20260921a.json","utf8"));
-const fragmentShards=Array.from({length:12},(_,i)=>JSON.parse(fs.readFileSync(`public/assets/workspace-view-fragments-20260921d-${i}.json`,"utf8")));
+const fragments=JSON.parse(fs.readFileSync("public/assets/workspace-view-fragments-20260923f.json","utf8"));
+const fragmentShards=Array.from({length:12},(_,i)=>JSON.parse(fs.readFileSync(`public/assets/workspace-view-fragments-20260923f-${i}.json`,"utf8")));
 const viewShard=id=>{let hash=0;for(const ch of String(id||""))hash=(Math.imul(hash,31)+ch.charCodeAt(0))>>>0;return hash%12};
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
 const fullUserProof=fs.readFileSync("scripts/production-synthetic-full-user-wrapper.mjs","utf8");
@@ -51,7 +51,7 @@ for(const view of lazyViews){
 }
 
 assert.match(production,/WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT=12/);
-assert.ok(production.includes('const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20260921d-";'));
+assert.ok(production.includes('const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20260923f-";'));
 assert.ok(production.includes("function workspaceViewShard(id){"));
 assert.ok(production.includes("const workspaceViewShardPromises=new Map();"));
 assert.ok(production.includes("async function workspaceViewFragments(id){"));
