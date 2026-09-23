@@ -370,13 +370,25 @@ async function runFullUserJourney(credentials){
     const reporterPage=await context.newPage();
     const reporterResponse=await reporterPage.goto(reporterLink,{waitUntil:'domcontentloaded',timeout:NAVIGATION_TIMEOUT_MS});
     assert(reporterResponse?.status()===200,`restricted reporter portal HTTP ${reporterResponse?.status()||0}`);
+    assert(new URL(reporterPage.url()).pathname==='/report/','issued employee reporting link did not use the dedicated public report route');
     await reporterPage.locator('#reporterPortal').waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
     await reporterPage.locator('#reporterEmployeeName',{hasText:syntheticEmployeeName}).waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
     await reporterPage.locator('#reporterLocationName',{hasText:locationName}).waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
     const reporterText=await reporterPage.locator('#reporterPortal').innerText();
     assert(reporterText.includes(syntheticEmployeeName)&&reporterText.includes(locationName),'restricted reporter portal did not bind the employee and location from the issued link');
+    assert(!(await reporterPage.locator('#authForm,#authGate,#appShell').count()),'public employee reporter leaked a sign-in or workspace surface');
     await reporterPage.close();
-    mark('employee reporting access lifecycle','employee -> location -> restricted reporting link -> reporter portal verified in the disposable production tenant');
+
+    const mobileReporterContext=await browser.newContext({viewport:{width:390,height:844},screen:{width:390,height:844},isMobile:true,hasTouch:true});
+    const mobileReporterPage=await mobileReporterContext.newPage();
+    const mobileReporterResponse=await mobileReporterPage.goto(reporterLink,{waitUntil:'domcontentloaded',timeout:NAVIGATION_TIMEOUT_MS});
+    assert(mobileReporterResponse?.status()===200,`mobile reporter portal HTTP ${mobileReporterResponse?.status()||0}`);
+    assert(new URL(mobileReporterPage.url()).pathname==='/report/','mobile employee report link left the dedicated public report route');
+    await mobileReporterPage.locator('#reporterPortal').waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
+    await mobileReporterPage.locator('#reporterEmployeeName',{hasText:syntheticEmployeeName}).waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
+    assert(!(await mobileReporterPage.locator('#authForm,#authGate,#appShell').count()),'mobile employee report link required or exposed workspace sign-in');
+    await mobileReporterContext.close();
+    mark('employee reporting access lifecycle','employee -> location -> passwordless desktop/mobile reporter portal verified in the disposable production tenant');
 
     // Prove employee-row access opens reporting status and can issue a fresh viewable private link.
     await delegatedEmployeesButton.click();
