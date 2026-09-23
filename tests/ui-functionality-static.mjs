@@ -65,7 +65,7 @@ const buttons=[...domHtml.matchAll(/<button\b([^>]*)>/gi)].map(m=>m[1]);
 const inertButtons=buttons.filter(attrs=>!buttonHasBinding(attrs));
 assert.deepEqual(inertButtons,[],"inert buttons found: "+inertButtons.slice(0,8).join(" | "));
 
-for(const action of ["createOpsReporterLink","copyOpsReporterLink","shareOpsReporterLink","revokeOpsReporterAccess","submitDailyReporterForm"]){
+for(const action of ["createOpsReporterLink","copyOpsReporterLink","shareOpsReporterLink","revokeOpsReporterAccess","submitDailyReporterForm","openEmployeeReportingAccess","createEmployeeReportingLinkFromCard","copyEmployeeReportingLink","loadOpsPerformanceLearning"]){
   assert.ok(allowedActions.has(action),"employee reporting action must be delegated: "+action);
   assert.ok(funcs.has(action),"employee reporting action implementation missing: "+action);
 }
@@ -77,4 +77,5 @@ assert.ok(worker.includes('versioned=html.replace(/src="')&&worker.includes('CLI
 for(const rel of [...domHtml.matchAll(/(?:src|href)="(assets\/[^"?#]+)"/g)].map(m=>m[1]))assert.ok(fs.existsSync(path.join(pub,rel)),"missing local asset: "+rel);
 assert.match(html,/async function runScan\(\)/,"compliance scan button must have an implementation");
 
+assert.ok(html.includes('src="/assets/gaborone-entrepreneurs-v67.webp"')&&html.includes('height:auto!important')&&html.includes('object-fit:contain!important')&&html.includes('position:relative!important;left:auto!important;right:auto!important;bottom:auto!important'),"marketing hero must preserve the original 1536x1024 image framing without cover-cropping or covering most of the photo");
 console.log("PASS UI functionality: "+buttons.length+" buttons, "+delegatedExpressions.length+" delegated controls, "+delegatedUsed.size+" delegated actions, "+views.length+" nav targets");
