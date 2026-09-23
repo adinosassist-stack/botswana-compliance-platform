@@ -290,7 +290,7 @@ async function runFullUserJourney(credentials){
     const addEmployee=page.locator('#employees [data-bw-onclick="addEmployeeRecord()"]:visible').first();
     assert(await addEmployee.count(),'authoritative Add employee control missing');
     await addEmployee.click();
-    await page.waitForFunction(name=>String(document.getElementById('employeeRegister')?.innerText||'').includes(name),syntheticEmployeeName,{timeout:15000});
+    await page.locator('#employeeRegister .item',{hasText:syntheticEmployeeName}).first().waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
     mark('authoritative employee register','employee created through visible workspace form and reloaded from /api/employees');
 
     const dailyReportsButton=page.locator('#nav button[data-view="dailyreports"]').first();
