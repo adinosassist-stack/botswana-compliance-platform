@@ -206,6 +206,8 @@ assert.match(production,/workspaceSurface\?injectOwnerCommandCentreAssets\(surfa
 assert.match(client,/aria-live/);
 assert.match(client,/diagnostics:\(\)=>/);
 assert.match(client,/Microphone permission is blocked/);
+assert.match(client,/public voice sample is temporarily unavailable while API billing is being activated/i);
+assert.match(client,/Thebe voice is temporarily unavailable while API billing is being activated\. Your workspace remains available/i);
 assert.match(worker,/"permissions-policy":"camera=\(\), microphone=\(\), geolocation=\(\), payment=\(\)"/,"non-voice responses must keep microphone denied by default");
 assert.match(releaseGovernance,/VOICE_SURFACE_PERMISSIONS_POLICY="camera=\(\), microphone=\(self\), geolocation=\(\), payment=\(\)"/,"voice surfaces must explicitly allow same-origin microphone access");
 assert.match(releaseGovernance,/path==="\/"\|\|path==="\/app"\|\|path==="\/app\/"\?VOICE_SURFACE_PERMISSIONS_POLICY:null/,"microphone permission must stay limited to public root and authenticated app surfaces");
