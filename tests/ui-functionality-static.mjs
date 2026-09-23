@@ -80,6 +80,8 @@ assert.match(html,/async function runScan\(\)/,"compliance scan button must have
 assert.ok(html.includes('src="/assets/gaborone-entrepreneurs-v67.webp"')&&html.includes('height:auto!important')&&html.includes('object-fit:contain!important')&&html.includes('position:relative!important;left:auto!important;right:auto!important;bottom:auto!important'),"marketing hero must preserve the original 1536x1024 image framing without cover-cropping or covering most of the photo");
 assert.doesNotMatch(html,/\.founders-photo\{[^}]*object-fit:cover/,"marketing hero base stylesheet must never reintroduce cover-cropping");
 assert.match(html,/data-bw-onclick="openEmployeeReportingAccess\('[^']+'\)"[^>]*>Reporting link<\/button>/,"employee rows must expose a dedicated reporting-link control");
+assert.match(html,/data-bw-onclick="openEmployeeReportingAccess\('\$\{safeId\(e\.id\)\}'\)"/,"employee name/row must bind directly to employee reporting access");
+assert.match(html,/aria-label="Open reporting access for \$\{escapeHtml\(e\.full_name\)\}"/,"employee reporting row control must remain explicitly labelled");
 assert.match(html,/timeoutMs:60000,retries:1,candidateTimeoutMs:20000/,"reporting analytics must use the hardened bounded timeout/retry budget");
 assert.match(worker,/includeInactive=url\.searchParams\.get\("includeInactive"\)==="1"/,"employee directory API must default to active staff with explicit inactive opt-in");
 assert.match(worker,/includeInactive\?"":"AND lower\(trim\(coalesce\(e\.status,''\)\)\)='active' "/,"removed employees must be excluded from the default employee directory response");

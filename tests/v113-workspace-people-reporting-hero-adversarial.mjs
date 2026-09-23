@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const html=fs.readFileSync("public/index.html","utf8");
-const runtime=fs.readFileSync("public/js/workspace-runtime-20260923i.js","utf8");
+const runtime=fs.readFileSync("public/js/workspace-runtime-20260923j.js","utf8");
 const delegation=fs.readFileSync("public/js/event-delegation.js","utf8");
 const apiClient=fs.readFileSync("public/js/api-client.js","utf8");
 const home=fs.readFileSync("public/home.html","utf8");
@@ -31,6 +31,8 @@ assert.doesNotMatch(html,/\son(?:click|change|input|submit)=/i,"legacy inline ev
 // Pass 2: employee removal is visible-state removal everywhere and employee click owns reporting access.
 assert.match(runtime,/const response=await apiJson\("\/api\/employees"\),arr=response\.items\|\|\[\],active=arr\.filter\(e=>String\(e\.status\|\|""\)\.trim\(\)\.toLowerCase\(\)==="active"\)/);
 assert.match(runtime,/data-bw-onclick="openEmployeeReportingAccess\('/);
+assert.match(runtime,/aria-label="Open reporting access for \$\{escapeHtml\(e\.full_name\)\}"/,"employee name/row must be directly clickable for reporting access");
+assert.match(runtime,/click employee to view reporting link/,"employee row must clearly advertise reporting-link access");
 assert.match(runtime,/No active employee records yet/);
 assert.match(runtime,/const items=\(r\.items\|\|\[\]\)\.filter\(x=>String\(x\.status\|\|""\)\.trim\(\)\.toLowerCase\(\)==="active"\)/);
 assert.match(runtime,/activeRiskEmployees=\(emps\.items\|\|\[\]\)\.filter\(e=>String\(e\.status\|\|""\)\.trim\(\)\.toLowerCase\(\)==="active"\)/);

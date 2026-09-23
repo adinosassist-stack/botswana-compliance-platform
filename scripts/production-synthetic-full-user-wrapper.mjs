@@ -361,8 +361,8 @@ async function runFullUserJourney(credentials){
     await page.waitForFunction(()=>document.getElementById('employees')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
     const employeeAccessRow=page.locator('#employeeRegister .item',{hasText:syntheticEmployeeName}).first();
     await employeeAccessRow.waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
-    const employeeAccessButton=employeeAccessRow.locator('button[data-bw-onclick^="openEmployeeReportingAccess("]:visible').first();
-    assert(await employeeAccessButton.count(),'clickable employee reporting-access control missing');
+    const employeeAccessButton=employeeAccessRow.locator('button[aria-label^="Open reporting access for "][data-bw-onclick^="openEmployeeReportingAccess("]:visible').first();
+    assert(await employeeAccessButton.count(),'clickable employee row reporting-access control missing');
     await employeeAccessButton.click();
     const employeeAccessPanel=page.locator(`[id="employeeReportingAccess_${employeeValue}"]`).first();
     await employeeAccessPanel.waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
