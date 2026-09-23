@@ -41,7 +41,7 @@ assert.match(html,/reportingAnalyticsMemory=new Map\(\)/);
 assert.match(html,/timeoutMs:90000,retries:2,candidateTimeoutMs:30000/);
 assert.match(html,/Date\.now\(\)-cached\.at<15\*60\*1000/);
 assert.match(html,/overflow:visible!important;background:transparent!important;box-shadow:none!important/);
-assert.match(html,/max-height:none!important;display:block!important;object-fit:contain!important/);
+assert.match(html,/max-height:none!important;aspect-ratio:3\/2!important;display:block!important;object-fit:contain!important/);
 for(const action of ["openEmployeeReportingAccess","createEmployeeReportingLinkFromCard","copyEmployeeReportingLink","showFreshEmployeeReportingLink"])assert.ok(delegatedEvents.includes(`'${action}'`),`delegated event allowlist missing ${action}`);
 
 // Core directory must remain usable even when Employer Shield is not entitled.
