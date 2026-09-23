@@ -1,3 +1,5 @@
+import {handleFinanceReceivablesRequest,financeReceivablesSummary} from "./finance-receivables.js";
+
 const ACCOUNT_TYPES=new Set(["bank","cash","mobile_money","clearing"]);
 const SOURCE_TYPES=new Set(["manual","csv","adapter"]);
 const CONNECTION_STATUSES=new Set(["not_configured","active","paused","error","revoked"]);
@@ -346,7 +348,12 @@ function connectionSyncRunsPath(pathname){
 export async function handleFinanceRequest({request,url,env,auth,json,readJson,id,writeAudit,roleAllowed,sha256Hex,enqueueTenantAlert=null,whatsappTemplateAvailable=()=>false}){
   if(!url.pathname.startsWith("/api/finance"))return null;
   if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
-  if(url.pathname==="/api/finance/summary"&&request.method==="GET")return json(await financeSummary(env,auth.tenant_id));
+  const receivablesResponse=await handleFinanceReceivablesRequest({request,url,env,auth,json,readJson,id,appendLineage,writeAudit,sha256Hex});
+  if(receivablesResponse)return receivablesResponse;
+  if(url.pathname==="/api/finance/summary"&&request.method==="GET"){
+    const [summary,receivables]=await Promise.all([financeSummary(env,auth.tenant_id),financeReceivablesSummary(env,auth.tenant_id)]);
+    return json({...summary,receivables});
+  }
   if(url.pathname==="/api/finance/accounts"&&request.method==="GET"){
     const rows=await env.DB.prepare("SELECT id,name,account_type,currency,opening_balance_minor,status,created_at FROM finance_accounts WHERE tenant_id=? ORDER BY name").bind(auth.tenant_id).all();
     return json({items:rows.results||[],currency:"BWP"});
