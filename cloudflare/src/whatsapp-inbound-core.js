@@ -180,19 +180,6 @@ export async function processWhatsAppInboundMessages(env,items,{deliverReply=nul
       continue;
     }
 
-    if(intent.kind==="unavailable"&&intent.reason==="receivables"){
-      const messagePreview=[
-        "Thebe cannot answer customer balances yet because the production Finance Core does not have an authoritative invoices/receivables ledger.",
-        "I will not infer who owes you from bank descriptions. Receivables must be added as a governed data model first."
-      ].join("\n");
-      summary.guidance++;
-      try{
-        const queued=await queueInboundReply(deliverReply,{sender,principal:binding.principal,providerMessageId,messagePreview,kind:"receivables_unavailable"});
-        if(queued?.ok===true||queued?.deduplicated===true)summary.replyQueued++;else if(deliverReply)summary.replyFailed++;
-      }catch{summary.replyFailed++}
-      continue;
-    }
-
     if(intent.kind==="reconcile"){
       const parsed=parseWhatsAppReconciliationRequest(message.text.body),account=await resolveFinanceAccount(env,binding.principal.tenant_id,parsed.accountRef);
       if(!parsed.statementFrom||!parsed.statementTo||parsed.openingBalanceMinor===null||parsed.closingBalanceMinor===null||account.state!=="resolved"){
