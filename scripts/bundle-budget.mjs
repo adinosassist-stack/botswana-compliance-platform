@@ -1,7 +1,7 @@
 import fs from "node:fs";import path from "node:path";import zlib from "node:zlib";
 const root=process.cwd(),bytes=p=>fs.readFileSync(path.join(root,p)),kb=n=>Math.round(n/1024);
 let checks=0;const ok=(v,m)=>{checks++;if(!v)throw new Error(`FAIL ${checks}: ${m}`)};
-const worker=bytes("cloudflare/src/worker.js"),html=bytes("public/index.html"),workspaceRuntime=bytes("public/js/workspace-runtime-20260923i.js"),workspaceStyles=bytes("public/assets/workspace-inline-styles-20260921a.css"),workspaceViews=bytes("public/assets/workspace-view-fragments-20260923f.json");
+const worker=bytes("cloudflare/src/worker.js"),html=bytes("public/index.html"),workspaceRuntime=bytes("public/js/workspace-runtime-20260923i.js"),workspaceStyles=bytes("public/assets/workspace-inline-styles-20260923a.css"),workspaceViews=bytes("public/assets/workspace-view-fragments-20260923f.json");
 const workspaceViewShards=Array.from({length:12},(_,i)=>bytes(`public/assets/workspace-view-fragments-20260923f-${i}.json`));
 const htmlText=html.toString("utf8"),runtimeText=workspaceRuntime.toString("utf8"),stylesText=workspaceStyles.toString("utf8"),workspaceViewsPayload=JSON.parse(workspaceViews.toString("utf8"));
 const workspaceViewShardPayloads=workspaceViewShards.map(buffer=>JSON.parse(buffer.toString("utf8")));
@@ -39,7 +39,7 @@ const runtimeExternalizedHtml=htmlText.replace(/<script id="thebe-workspace-runt
 const runtimeHeadEnd=runtimeExternalizedHtml.toLowerCase().indexOf("</head>");
 const runtimeHead=runtimeExternalizedHtml.slice(0,runtimeHeadEnd),runtimeTail=runtimeExternalizedHtml.slice(runtimeHeadEnd);
 let styleCount=0;
-const deployedHead=runtimeHead.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,()=>{styleCount++;return styleCount===1?'<link id="thebe-workspace-inline-styles" rel="stylesheet" href="/assets/workspace-inline-styles-20260921a.css" />':""});
+const deployedHead=runtimeHead.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,()=>{styleCount++;return styleCount===1?'<link id="thebe-workspace-inline-styles" rel="stylesheet" href="/assets/workspace-inline-styles-20260923a.css" />':""});
 ok(styleCount===48,`deployed workspace style extraction count mismatch (${styleCount})`);
 let deployedHtmlText=deployedHead+runtimeTail;
 const viewReplacements=[];
