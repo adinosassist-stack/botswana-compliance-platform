@@ -2091,7 +2091,7 @@ main{
   html,body{max-width:100%;overflow-x:hidden}
   body.mobile-nav-open{overflow:hidden;touch-action:none}
   .shell{display:block!important;min-width:0!important}
-  main{width:100%!important;max-width:none!important;padding:12px 10px calc(92px + env(safe-area-inset-bottom))!important;overflow-x:hidden}
+  main{width:100%!important;max-width:none!important;padding:12px 10px calc(128px + env(safe-area-inset-bottom))!important;overflow-x:hidden;scroll-padding-bottom:calc(128px + env(safe-area-inset-bottom))}
 
   /* Reuse the real desktop sidebar as the mobile drawer so every workspace view remains accessible. */
   #workspaceSidebar{display:flex!important;position:fixed!important;z-index:220!important;inset:0 auto 0 0!important;width:min(88vw,360px)!important;height:100dvh!important;max-height:100dvh!important;padding:14px 10px calc(18px + env(safe-area-inset-bottom))!important;background:var(--sidebar)!important;border-right:1px solid #28312c!important;box-shadow:18px 0 50px rgba(6,12,9,.28)!important;transform:translateX(-104%);transition:transform .22s ease;overflow:hidden!important;overscroll-behavior:contain}
@@ -2103,7 +2103,7 @@ main{
   #workspaceSidebar .sidebar-website-link{display:flex!important;margin-top:0!important;min-height:44px!important}
   .mobile-nav-close{display:grid;place-items:center;position:absolute;top:12px;right:12px;z-index:2;width:40px;height:40px;border:1px solid #333d37;border-radius:11px;background:#1d2420;color:#e8eeea;font-size:23px;line-height:1;cursor:pointer}
   .mobile-nav-close:focus-visible{outline:3px solid rgba(118,212,174,.26);outline-offset:2px}
-  .mobile-nav-backdrop{display:block;position:fixed;z-index:210;inset:0;background:rgba(5,10,7,.46);backdrop-filter:blur(2px);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s ease,visibility .2s ease}
+  .mobile-nav-backdrop{display:block;position:fixed;z-index:210;inset:0;background:rgba(5,10,7,.72);backdrop-filter:blur(2px);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s ease,visibility .2s ease}
   body.mobile-nav-open .mobile-nav-backdrop{opacity:1;visibility:visible;pointer-events:auto}
 
   /* Touch targets and menu density. */
@@ -2165,11 +2165,12 @@ main{
   .commandresults{max-height:55dvh!important}
 
   /* Five-item bottom navigation: high-frequency destinations + full menu. */
-  .mobilebar{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;left:8px!important;right:8px!important;bottom:8px!important;padding:4px 4px calc(4px + env(safe-area-inset-bottom))!important;border-radius:16px!important;z-index:180!important;overflow:hidden}
+  .mobilebar{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;left:8px!important;right:8px!important;bottom:8px!important;padding:4px 4px calc(4px + env(safe-area-inset-bottom))!important;border-radius:16px!important;z-index:180!important;overflow:hidden;background:#fff!important;box-shadow:0 14px 38px rgba(10,20,14,.22)!important;isolation:isolate}
   .mobilebar button{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:1px!important;min-width:0!important;min-height:52px!important;padding:5px 2px!important;font-size:9.5px!important;line-height:1.05!important;border-radius:11px!important;touch-action:manipulation}
   .mobilebar button span{font-size:18px!important;margin:0 0 2px!important}
   .mobilebar button.active{background:#edf5f1!important;color:#154e39!important}
   .mobilebar button:focus-visible{outline:3px solid rgba(23,107,79,.16);outline-offset:-2px}
+  body.mobile-nav-open .mobilebar{opacity:0!important;visibility:hidden!important;pointer-events:none!important}
 
   /* Hide desktop-only hover transforms on touch screens. */
   .btn:hover,.eventcard:hover{transform:none!important}
