@@ -28,5 +28,9 @@ assert.ok(fullUser.includes("reporterPage.locator('#reporterLocationName',{hasTe
 assert.doesNotMatch(fullUser,/reporterPortal[^\n]{0,220}timeout:15000/,"reporter portal proof must not retain the brittle 15-second wait");
 assert.ok(fullUser.includes("page.locator('#employeeRegister .item',{hasText:syntheticEmployeeName}).first().waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS})"),"employee-register proof must wait for the created visible row using the standard bounded workspace timeout");
 assert.doesNotMatch(fullUser,/employeeRegister[^\n]{0,220}timeout:15000/,"employee-register proof must not retain the brittle 15-second wait");
+assert.match(fullUser,/async function dismissFirstRunOnboardingIfNeeded\(page\)/,"full-user proof must centralize bounded first-run onboarding dismissal");
+assert.match(fullUser,/data-bw-onclick="dismissOnboarding\(\)"/,"onboarding race recovery must use the real delegated dismissal control");
+assert.match(fullUser,/Date\.now\(\)\+3500/,"delayed onboarding recovery must remain explicitly bounded");
+assert.ok((fullUser.match(/await dismissFirstRunOnboardingIfNeeded\(page\);/g)||[]).length>=2,"workspace button audit must guard against onboarding both before and after dashboard activation");
 
 console.log("v86 production synthetic workspace polling checks passed");
