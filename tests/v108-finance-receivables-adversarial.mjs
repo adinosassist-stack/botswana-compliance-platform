@@ -39,6 +39,8 @@ assert.match(migration,/finance_invoice_allocations_reverse_guard/);
 assert.match(migration,/finance_invoice_overallocation/);
 assert.match(migration,/finance_transaction_overallocation/);
 assert.match(migration,/finance_allocation_immutable/);
+assert.equal((migration.match(/SELECT \\(CASE/g)||[]).length,6,'all trigger CASE expressions must use the D1-safe parenthesized form');
+assert.doesNotMatch(migration,/SELECT CASE/,'unparenthesized CASE in D1 triggers is not allowed');
 assert.match(migration,/UNIQUE\(tenant_id,reverses_allocation_id\)/);
 assert.match(migration,/finance_transactions\(id\) ON DELETE RESTRICT/);
 
@@ -49,6 +51,10 @@ const blobSha=createHash("sha1")
 assert.match(migrationScript,new RegExp("expectedGitBlobSha='"+blobSha+"'"));
 assert.match(migrationScript,/time_travel\/bookmark/);
 assert.match(migrationScript,/partial migration detected/);
+assert.match(migrationScript,/exactKnownPrefix/);
+assert.match(migrationScript,/assertKnownPrefixEmpty/);
+assert.match(migrationScript,/resumeFromKnownPrefix\?8:0/);
+assert.match(migrationScript,/resuming only the reviewed trigger suffix/);
 assert.match(migrationScript,/PRAGMA foreign_key_check/);
 assert.match(migrationWorkflow,/\[migrate-049\]/);
 assert.match(migrationWorkflow,/scripts\/migrate-production-v108-finance-receivables\.mjs/);
