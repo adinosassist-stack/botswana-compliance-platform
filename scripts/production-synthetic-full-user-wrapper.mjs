@@ -353,17 +353,17 @@ async function runFullUserJourney(credentials){
     const employeeAccessButton=employeeAccessRow.locator('button[data-bw-onclick^="openEmployeeReportingAccess("]:visible').first();
     assert(await employeeAccessButton.count(),'clickable employee reporting-access control missing');
     await employeeAccessButton.click();
-    const employeeAccessPanel=page.locator(`#employeeReportingAccess_${employeeValue}`).first();
+    const employeeAccessPanel=page.locator(`[id="employeeReportingAccess_${employeeValue}"]`).first();
     await employeeAccessPanel.waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
     assert(/Employee reporting access/i.test(await employeeAccessPanel.innerText()),'employee click did not reveal reporting access');
-    const employeeLocationSelect=page.locator(`#employeeReportingLocation_${employeeValue}`).first();
+    const employeeLocationSelect=page.locator(`[id="employeeReportingLocation_${employeeValue}"]`).first();
     assert(await employeeLocationSelect.count(),'employee reporting-access location selector missing');
     await employeeLocationSelect.selectOption(locationValue);
     const createEmployeeLink=employeeAccessPanel.locator('button[data-bw-onclick^="createEmployeeReportingLinkFromCard("]:visible').first();
     assert(await createEmployeeLink.count(),'employee-row create/rotate reporting link control missing');
     await createEmployeeLink.click();
     await page.waitForFunction(id=>String(document.getElementById(`employeeReporterLink_${id}`)?.value||'').includes('#report='),employeeValue,{timeout:WORKSPACE_TIMEOUT_MS});
-    reporterLink=await page.locator(`#employeeReporterLink_${employeeValue}`).inputValue();
+    reporterLink=await page.locator(`[id="employeeReporterLink_${employeeValue}"]`).inputValue();
     mark('employee row reporting access','clicking the employee opened reporting access and produced a fresh viewable private reporting link');
 
     // Prove employee removal through the visible UI and fail closed on the bearer reporting link.
