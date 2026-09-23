@@ -53,7 +53,8 @@ assert.match(workspaceReadyBody,/authGate\.classList\.add\("hidden"\)/,'workspac
 assert.doesNotMatch(index,/setTimeout\(\(\)=>openOnboarding\(\),180\)/,'first-run onboarding must not interrupt the critical workspace paint with the legacy 180ms timer');
 assert.match(index,/function scheduleOwnerOnboarding\(\)/,'first-run onboarding must use an explicit post-paint scheduler');
 assert.match(index,/requestAnimationFrame\(\(\)=>requestAnimationFrame\(\(\)=>/,'first-run onboarding must allow at least two workspace paint frames before scheduling setup');
-assert.match(index,/requestIdleCallback\(openWhenIdle,\{timeout:1500\}\)/,'first-run onboarding should prefer a bounded browser idle slot');
+assert.doesNotMatch(index,/requestIdleCallback\(openWhenIdle|setTimeout\(openWhenIdle/,'first-run onboarding must not defer into a later idle/timer slot that can intercept active workspace navigation');
+assert.match(index,/__THEBE_ONBOARDING_AUTO_PROMPT_SETTLED__/,'first-run onboarding must publish a deterministic settled signal after the post-paint decision');
 assert.match(index,/#onboardModal\{backdrop-filter:none!important;-webkit-backdrop-filter:none!important\}/,'first-run onboarding must not composite an expensive backdrop blur over the initial workspace');
 
 const bridgePanelBody=businessDataBridge.match(/async function ensurePanel\(\)\{([\s\S]*?)\n  \}\n\n  function schedule/)?.[1]||'';
