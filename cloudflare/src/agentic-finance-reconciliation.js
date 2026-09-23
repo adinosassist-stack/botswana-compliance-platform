@@ -50,7 +50,7 @@ async function verifyPlannerLinks(env,tenantId,runId,proposalId){
   return {ok:true};
 }
 
-async function prepare({request,env,auth}){
+export async function prepareFinanceReconciliationForPrincipal({request,env,auth}){
   if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
   let body;
   try{body=await readJson(request)}catch(error){return json({error:error.message},requestBodyErrorStatus(error))}
@@ -190,7 +190,7 @@ export async function handleAgenticFinanceReconciliationRequest({request,logical
       guarantees:["canonical_finance_core","tenant_scope","runtime_guard","snapshot_reverification","audit_ledger","no_hidden_execution"]
     });
   }
-  if(path==="/api/agentic/finance/reconciliation/prepare"&&request.method==="POST")return prepare({request,env,auth});
+  if(path==="/api/agentic/finance/reconciliation/prepare"&&request.method==="POST")return prepareFinanceReconciliationForPrincipal({request,env,auth});
   return json({error:"not_found"},404);
 }
 
