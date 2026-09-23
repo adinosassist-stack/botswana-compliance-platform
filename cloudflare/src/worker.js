@@ -6667,7 +6667,13 @@ export default {
 
       if(url.pathname==="/api/employees"&&req.method==="POST"){
         if(!roleAllowed(a,"owner","manager"))return json({error:"forbidden"},403);
-        const gate=await enforceUsageLimit(env,a.tenant_id,"employer_shield","employees_active");if(!gate.ok)return json(gate,402);
+        const employerEntitlement=await entitlement(env,a.tenant_id,"employer_shield");
+        if(employerEntitlement.enabled){
+          const gate=await enforceUsageLimit(env,a.tenant_id,"employer_shield","employees_active");if(!gate.ok)return json(gate,402);
+        }else{
+          const basicDirectoryLimit=10,used=await usageValue(env,a.tenant_id,"employees_active");
+          if(used>=basicDirectoryLimit)return json({ok:false,error:"plan_limit_reached",entitlement:{featureKey:"employee_directory",plan:employerEntitlement.plan,enabled:true,limit:basicDirectoryLimit,source:"core_directory"},usage:used},402);
+        }
         const b=await readJson(req),fullName=boundedReportText(b.fullName,160),roleTitle=boundedReportText(b.roleTitle,120),employmentType=boundedReportText(b.employmentType||"unknown",40),startDate=b.startDate?String(b.startDate):null,endDate=b.endDate?String(b.endDate):null;if(fullName.length<2)return json({error:"full_name_required"},400);
         if(startDate&&!isoDateValid(startDate))return json({error:"invalid_start_date"},400);if(endDate&&!isoDateValid(endDate))return json({error:"invalid_end_date"},400);if(startDate&&endDate&&endDate<startDate)return json({error:"end_before_start"},400);
         return idempotentJsonMutation(env,a,req,"employee-create",{fullName,roleTitle,employmentType,startDate,endDate},async()=>{
@@ -6702,7 +6708,11 @@ export default {
       }
 
 
-      if(url.pathname.startsWith("/api/daily-reporting/")){const featureKey=url.pathname==="/api/daily-reporting/locations"?"operating_locations":"daily_operations";const featureGate=await requireEntitlement(env,a.tenant_id,featureKey);if(!featureGate.ok)return json({error:featureGate.error,entitlement:featureGate.entitlement},402);}
+      if(url.pathname.startsWith("/api/daily-reporting/")){
+        const reportingSetupPath=url.pathname==="/api/daily-reporting/locations"||url.pathname==="/api/daily-reporting/access"||/^\/api\/daily-reporting\/access\/[^/]+\/revoke$/.test(url.pathname);
+        const featureKey=reportingSetupPath?"operating_locations":"daily_operations";
+        const featureGate=await requireEntitlement(env,a.tenant_id,featureKey);if(!featureGate.ok)return json({error:featureGate.error,entitlement:featureGate.entitlement},402);
+      }
 
       if(url.pathname==="/api/daily-reporting/locations"&&req.method==="GET"){
         if(!roleAllowed(a,"owner","manager"))return json({error:"forbidden"},403);
