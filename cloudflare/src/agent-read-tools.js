@@ -1,5 +1,5 @@
 import {evaluateAgentAction} from "./agent-policy.js";
-import {financeDailyCollections,financeReceivablesSummary} from "./finance-receivables.js";
+import {financeDailyCollections,financeReceivablesSummary,financeReceivableCustomerLookup} from "./finance-receivables.js";
 
 export const AGENT_READ_TOOLS_VERSION="2026-09-23.read-tools-v3";
 
@@ -12,6 +12,8 @@ const TOOL_ACTIONS=Object.freeze([
   "compliance_status.read",
   "daily_operations_summary.read"
 ]);
+const PARAMETERIZED_TOOL_ACTIONS=Object.freeze(["receivables_customer.read"]);
+const SUPPORTED_TOOL_ACTIONS=Object.freeze([...TOOL_ACTIONS,...PARAMETERIZED_TOOL_ACTIONS]);
 
 const SOURCE_REFS=Object.freeze({
   "business_health.read":"tool:business_health",
@@ -19,6 +21,7 @@ const SOURCE_REFS=Object.freeze({
   "finance_data_quality.read":"tool:finance_data_quality",
   "finance_daily_inflows.read":"tool:finance_daily_inflows",
   "receivables_summary.read":"tool:receivables_summary",
+  "receivables_customer.read":"tool:receivables_customer",
   "compliance_status.read":"tool:compliance_status",
   "daily_operations_summary.read":"tool:daily_operations_summary"
 });
@@ -113,6 +116,10 @@ async function receivablesSummary(env,tenantId){
   return financeReceivablesSummary(env,tenantId);
 }
 
+async function receivablesCustomer(env,tenantId,params={}){
+  return financeReceivableCustomerLookup(env,tenantId,{customerQuery:params.customerQuery});
+}
+
 async function financeDataQuality(env,tenantId){
   const [imports,reconciliations,transactions]=await Promise.all([
     safeFirst(env,"SELECT COUNT(*) import_batch_count, SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) completed_batch_count, SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) failed_batch_count, COALESCE(SUM(row_count),0) imported_row_count, COALESCE(SUM(duplicate_count),0) duplicate_row_count, MAX(completed_at) latest_completed_at FROM finance_import_batches WHERE tenant_id=? AND substr(id,1,2)<>'__'",[tenantId]),
@@ -178,7 +185,7 @@ async function dailyOperationsSummary(env,tenantId){
   });
 }
 
-async function executeOne(actionKey,{env,auth}){
+async function executeOne(actionKey,{env,auth,params={}}){
   const decision=policyDecision(actionKey,auth);
   const result=baseResult(actionKey,decision);
   if(decision.allowed!==true)return Object.freeze({...result,available:false,allowed:false,error:decision.code});
@@ -188,6 +195,7 @@ async function executeOne(actionKey,{env,auth}){
   else if(actionKey==="finance_data_quality.read")data=await financeDataQuality(env,auth.tenant_id);
   else if(actionKey==="finance_daily_inflows.read")data=await financeDailyInflows(env,auth.tenant_id);
   else if(actionKey==="receivables_summary.read")data=await receivablesSummary(env,auth.tenant_id);
+  else if(actionKey==="receivables_customer.read")data=await receivablesCustomer(env,auth.tenant_id,params);
   else if(actionKey==="compliance_status.read")data=await complianceStatus(env,auth.tenant_id);
   else if(actionKey==="daily_operations_summary.read")data=await dailyOperationsSummary(env,auth.tenant_id);
   else return Object.freeze({...result,available:false,allowed:false,error:"unsupported_read_tool"});
@@ -196,7 +204,7 @@ async function executeOne(actionKey,{env,auth}){
 
 export async function executeAgentReadTool(actionKey,context={}){
   const key=String(actionKey||"").trim();
-  if(!TOOL_ACTIONS.includes(key)){
+  if(!SUPPORTED_TOOL_ACTIONS.includes(key)){
     return Object.freeze({actionKey:key,available:false,allowed:false,readOnly:true,mutationAllowed:false,error:"unsupported_read_tool"});
   }
   return executeOne(key,context);
@@ -217,4 +225,4 @@ export async function buildAgentReadToolContext({env,auth}={}){
   });
 }
 
-export const __agentReadToolsTest=Object.freeze({TOOL_ACTIONS,SOURCE_REFS,parseObject});
+export const __agentReadToolsTest=Object.freeze({TOOL_ACTIONS,PARAMETERIZED_TOOL_ACTIONS,SUPPORTED_TOOL_ACTIONS,SOURCE_REFS,parseObject});
