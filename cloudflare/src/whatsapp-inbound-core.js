@@ -36,6 +36,14 @@ export function classifyWhatsAppInboundIntent(value){
   if(/\b(cash position|cash balance|how much (?:cash|money) (?:do we|we) have|what(?:'s| is) our cash)\b/.test(command))return {kind:"read",readKey:"cash_position"};
   if(/\b(how much (?:did we )?(?:collect|collected|receive|received) today|collections? today|money in today|positive inflows? today|inflows? today)\b/.test(command))return {kind:"read",readKey:"finance_inflows_today"};
   if(/\b(finance data quality|finance quality|ledger quality|is (?:our )?finance data (?:clean|current|up to date))\b/.test(command))return {kind:"read",readKey:"finance_data_quality"};
+  const customerBalanceMatch=
+    command.match(/^(?:how much does|what does)\s+(.+?)\s+owe(?:\s+us)?$/)||
+    command.match(/^(?:customer\s+)?balance\s+(?:for|of)\s+(.+)$/)||
+    command.match(/^does\s+(.+?)\s+owe\s+us$/);
+  if(customerBalanceMatch){
+    const customerQuery=clean(customerBalanceMatch[1],160).replace(/^["']|["']$/g,"").trim();
+    if(customerQuery.length>=2)return {kind:"read",readKey:"receivable_customer",params:{customerQuery}};
+  }
   if(/\b(which customers? (?:still )?owe|who (?:still )?owes|customer balances?|receivables?|outstanding invoices?|overdue invoices?)\b/.test(command))return {kind:"read",readKey:"receivables"};
   if(/\b(reconcile|reconciliation)\b/.test(command))return {kind:"reconcile",command};
   const purpose=classifyWhatsAppInboundCommand(value);
@@ -158,7 +166,7 @@ export async function processWhatsAppInboundMessages(env,items,{deliverReply=nul
 
     if(intent.kind==="read"){
       const result=await prepareWhatsAppReadForPrincipal({
-        env,auth:binding.principal,readKey:intent.readKey,
+        env,auth:binding.principal,readKey:intent.readKey,readParams:intent.params||null,
         idempotencyKey:`whatsapp_inbound_${providerMessageId}`,
         source:"whatsapp_inbound",sourceContext:context
       });
