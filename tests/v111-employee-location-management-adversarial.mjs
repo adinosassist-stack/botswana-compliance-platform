@@ -5,6 +5,7 @@ import {spawnSync} from "node:child_process";
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const html=fs.readFileSync("public/index.html","utf8");
 const migration=fs.readFileSync("cloudflare/migrations/015_v73_daily_operations_reporting.sql","utf8");
+const runtime=fs.readFileSync("public/js/workspace-runtime-20260923c.js","utf8");
 const synthetic=fs.readFileSync("scripts/production-synthetic-full-user-wrapper.mjs","utf8");
 
 for(const path of ["cloudflare/src/worker.js"]){
@@ -42,6 +43,22 @@ assert.match(worker,/OPERATING_LOCATION_DEFAULT_CUSTOMIZED/);
 assert.match(worker,/reusedDefault:true/);
 assert.ok(migration.includes("CREATE TABLE IF NOT EXISTS operating_locations"));
 assert.match(html,/Location saved\. The initial Head Office placeholder was replaced\./);
+
+// Locations are removable without deleting historical reporting facts.
+assert.match(worker,/url\.pathname\.match\(\/\^\\\/api\\\/daily-reporting\\\/locations\\\/\[\^\/\]\+\$\/\)&&req\.method==="DELETE"/);
+assert.match(worker,/UPDATE operating_locations SET active=0,updated_at=CURRENT_TIMESTAMP/);
+assert.match(worker,/UPDATE employee_reporting_access SET status='revoked'.*location_id=\?/s);
+assert.match(worker,/OPERATING_LOCATION_REMOVED/);
+assert.match(worker,/retainedHistory:true/);
+assert.match(worker,/const historical=await env\.DB\.prepare\("SELECT id,name,code,town,active FROM operating_locations WHERE tenant_id=\? ORDER BY created_at LIMIT 1"\)/);
+assert.match(worker,/if\(historical\)return null/);
+assert.match(worker,/OPERATING_LOCATION_REACTIVATED/);
+assert.match(runtime,/function renderOpsLocations\(items\)/);
+assert.match(runtime,/data-bw-onclick="removeOpsLocation\('/);
+assert.match(runtime,/async function removeOpsLocation\(id\)/);
+assert.match(runtime,/Remove this location from active use\?/);
+assert.match(runtime,/Historical reports were retained and reporting links for this location were revoked/);
+assert.match(runtime,/const locs=\(locations\.items\|\|\[\]\)\.filter\(x=>Number\(x\.active\)!==0\)/);
 
 // Basic reporting setup uses the operating-locations entitlement; analytics remain separately gated.
 assert.match(worker,/const reportingSetupPath=url\.pathname==="\/api\/daily-reporting\/locations"\|\|url\.pathname==="\/api\/daily-reporting\/access"\|\|url\.pathname==="\/api\/daily-reporting\/dashboard"\|\|\/\^\\\/api\\\/daily-reporting\\\/access\\\/\[\^\/\]\+\\\/revoke\$\/\.test\(url\.pathname\)/);
