@@ -43,15 +43,20 @@ assert.match(worker,/reusedDefault:true/);
 assert.ok(migration.includes("CREATE TABLE IF NOT EXISTS operating_locations"));
 assert.match(html,/Location saved\. The initial Head Office placeholder was replaced\./);
 assert.match(worker,/OPERATING_LOCATION_UPDATED/);
-assert.match(worker,/OPERATING_LOCATION_DEACTIVATED/);
+assert.match(worker,/OPERATING_LOCATION_REMOVED/);
 assert.match(worker,/OPERATING_LOCATION_REACTIVATED/);
-assert.match(worker,/last_active_location_required/);
+assert.doesNotMatch(worker,/last_active_location_required/);
 assert.match(worker,/reportingAccessRevoked:true/);
+assert.match(worker,/const historical=await env\.DB\.prepare\("SELECT id,name,code,town,active FROM operating_locations WHERE tenant_id=\? ORDER BY created_at LIMIT 1"\)/);
+assert.match(worker,/if\(historical\)return null/);
 assert.match(html,/async function editOpsLocation\(id\)/);
-assert.match(html,/async function deactivateOpsLocation\(id\)/);
+assert.match(html,/async function removeOpsLocation\(id\)/);
+assert.match(html,/async function deactivateOpsLocation\(id\)\{return removeOpsLocation\(id\)\}/);
 assert.match(html,/async function reactivateOpsLocation\(id\)/);
 assert.match(html,/allLocs\.filter\(x=>Number\(x\.active\)===1\)/);
-assert.match(html,/Inactive/);
+assert.match(html,/Remove location\?/);
+assert.match(html,/Historical reports were retained and reporting links for it were revoked/);
+assert.match(html,/Removed/);
 
 // Basic reporting setup uses the operating-locations entitlement; analytics remain separately gated.
 assert.ok(worker.includes('/^\\/api\\/daily-reporting\\/locations\\/[^/]+(?:\\/(?:deactivate|reactivate))?$/.test(url.pathname)'));
@@ -70,6 +75,7 @@ assert.match(html,/Add a location first, then issue a reporting link\./);
 assert.match(synthetic,/visible Remove employee control missing for the synthetic employee/);
 assert.match(synthetic,/operating location edit lifecycle/);
 assert.match(synthetic,/employee removal and reporting revocation/);
+assert.match(synthetic,/location removal lifecycle/);
 assert.match(synthetic,/reporting_link_invalid_or_expired/);
 assert.match(synthetic,/\/public\/daily-reporting\/access/);
 
