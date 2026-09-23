@@ -7,7 +7,7 @@ import {handleAgenticFinanceReconciliationRequest} from "./agentic-finance-recon
 import {preparePlatformOwnerLogin,withPlatformOwnerAdminEnv} from "./platform-owner-access.js";
 import {applyClientRuntimeIdentity} from "./client-runtime-identity.js";
 
-const V81_SCHEMA_DELTA="049_v108_finance_receivables.sql";
+const V81_SCHEMA_DELTA="050_v115_manual_bank_payments.sql";
 const COLD_START_REDUNDANT_RENDER="if(!options?.skipDataRefresh)queueMicrotask(()=>renderAll())";
 const COLD_START_GUARDED_RENDER="if(!options?.skipDataRefresh&&!options?.roleRedirect)queueMicrotask(()=>renderAll())";
 const SYNTHETIC_BOOT_TRACE_PREFIX="THEBE_SYNTHETIC_BOOT";
