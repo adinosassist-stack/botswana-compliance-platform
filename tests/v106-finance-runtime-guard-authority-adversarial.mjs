@@ -55,7 +55,9 @@ assert.equal(decision.code,"role_forbidden");
 decision=evaluateAgentRuntimeGuard({...base,mode:"execute"});
 assert.equal(decision.allowed,false);
 assert.equal(decision.executionAllowed,false);
-assert.equal(decision.code,"execution_not_authorized");
+assert.equal(decision.decision,"deny");
+assert.equal(decision.code,"delegation_not_required");
+assert.match(decision.reason,/did not authorize side effects/i);
 
 for(const actionKey of ["payment.execute","journal_entry.post","government_filing.submit"]){
   const blocked=evaluateAgentRuntimeGuard({...base,actionKey,actorRole:"owner",approvalState:"approved",strongAuth:"server_verified",mode:"execute",globalExecutionEnabled:true});
