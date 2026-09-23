@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const html=fs.readFileSync("public/index.html","utf8");
-const runtime=fs.readFileSync("public/js/workspace-runtime-20260923h.js","utf8");
+const runtime=fs.readFileSync("public/js/workspace-runtime-20260923i.js","utf8");
 const delegation=fs.readFileSync("public/js/event-delegation.js","utf8");
 const apiClient=fs.readFileSync("public/js/api-client.js","utf8");
 const home=fs.readFileSync("public/home.html","utf8");
@@ -35,12 +35,14 @@ assert.match(runtime,/No active employee records yet/);
 assert.match(runtime,/const items=\(r\.items\|\|\[\]\)\.filter\(x=>String\(x\.status\|\|""\)\.trim\(\)\.toLowerCase\(\)==="active"\)/);
 assert.match(runtime,/activeRiskEmployees=\(emps\.items\|\|\[\]\)\.filter\(e=>String\(e\.status\|\|""\)\.trim\(\)\.toLowerCase\(\)==="active"\)/);
 assert.match(runtime,/async function openEmployeeReportingAccess\(id\)/);
-assert.match(runtime,/Create \/ rotate and show link/);
+assert.ok(runtime.includes(">Reporting link</button>"),"employee row must expose the reporting-link action");
+assert.match(runtime,/Rotate and show fresh link|Create and show reporting link/);
+assert.match(runtime,/__employeeReporterLinks/);
 
 // Pass 3: reporting reads get a bounded slow-path, location refresh is view-scoped, and hero never crops the original.
 assert.match(apiClient,/candidateTimeoutMs=IDEMPOTENT_TRANSPORT_CANDIDATE_MAX_MS/);
 assert.match(apiClient,/Number\(candidateTimeoutMs\)\|\|IDEMPOTENT_TRANSPORT_CANDIDATE_MAX_MS/);
-assert.match(runtime,/reportingAnalyticsApiClient=BW\.api\.createClient\([\s\S]*timeoutMs:30000,retries:0,candidateTimeoutMs:9000/);
+assert.match(runtime,/reportingAnalyticsApiClient=BW\.api\.createClient\([\s\S]*timeoutMs:60000,retries:1,candidateTimeoutMs:20000/);
 assert.match(runtime,/reportingAnalyticsJson\(\`\/api\/daily-reporting\/dashboard/);
 assert.match(runtime,/if\(document\.getElementById\("peopleops"\)\?\.classList\.contains\("active"\)\)await renderPeopleReportingSetup\(\)/);
 assert.match(runtime,/if\(document\.getElementById\("dailyreports"\)\?\.classList\.contains\("active"\)\)await renderDailyOperations\(\)/);
