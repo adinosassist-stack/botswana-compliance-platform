@@ -14,6 +14,7 @@ const migration=fs.readFileSync(migrationPath,"utf8");
 const runtime=fs.readFileSync("cloudflare/src/finance-receivables.js","utf8");
 const core=fs.readFileSync("cloudflare/src/finance-core.js","utf8");
 const entry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
+const releaseProfile=JSON.parse(fs.readFileSync("RELEASE_PROFILE.json","utf8"));
 const migrationScript=fs.readFileSync("scripts/migrate-production-v108-finance-receivables.mjs","utf8");
 const migrationWorkflow=fs.readFileSync(".github/workflows/migrate-production-v108-finance-receivables.yml","utf8");
 
@@ -77,7 +78,7 @@ assert.equal(policy.level,AGENT_ACTION_LEVELS.READ);
 assert.equal(policy.phase1Enabled,true);
 assert.equal(policy.externalSideEffect,false);
 assert.equal(policy.authoritativeSource,"finance_invoices_plus_transaction_allocations");
-assert.match(entry,/049_v108_finance_receivables\.sql/);
+assert.ok(entry.includes(`const V81_SCHEMA_DELTA="${releaseProfile.latest_cloudflare_migration}"`));
 for(const table of ["finance_customers","finance_invoices","finance_invoice_allocations"]){
   assert.match(entry,new RegExp("\\(SELECT COUNT\\(\\*\\) FROM "+table+"\\)"));
 }
