@@ -43,6 +43,10 @@ assert.ok(!reportJs.includes("/api/auth/"),"reporter client must not call authen
 // Pass 3: production lifecycle proves the boundary in a phone-sized browser.
 assert.ok(synthetic.includes("viewport:{width:390,height:844}"),"mobile reporter browser proof missing");
 assert.ok(synthetic.includes("mobile employee report link required or exposed workspace sign-in"),"mobile reporter sign-in regression assertion missing");
+assert.ok(synthetic.includes('#peopleops [data-bw-onclick="addOpsLocation()"]:visible'),"synthetic lifecycle must create locations through the People-owned reporting setup");
+assert.ok(synthetic.includes('#peopleops [data-bw-onclick="createOpsReporterLink()"]:visible'),"synthetic lifecycle must create reporting links through the People-owned reporting setup");
+assert.ok(!synthetic.includes('#dailyreports [data-bw-onclick="addOpsLocation()"]:visible'),"synthetic lifecycle must not regress to hidden Daily Reports reporting controls");
+assert.ok(!synthetic.includes('#dailyreports [data-bw-onclick="createOpsReporterLink()"]:visible'),"synthetic lifecycle must not regress reporting-link creation to Daily Reports");
 assert.ok(synthetic.includes("issued employee reporting link did not use the dedicated public report route"),"desktop reporter route assertion missing");
 
 console.log("v114 mobile navigation and passwordless employee reporting: 3-pass PASS");

@@ -315,18 +315,15 @@ async function runFullUserJourney(credentials){
     await page.locator('#employeeRegister .item',{hasText:syntheticEmployeeName}).first().waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
     mark('authoritative employee register','employee created through visible workspace form and reloaded from /api/employees');
 
-    const dailyReportsButton=page.locator('#nav button[data-view="dailyreports"]').first();
-    assert(await dailyReportsButton.count(),'Daily reports navigation button missing');
-    const dailyDetails=dailyReportsButton.locator('xpath=ancestor::details[1]');
-    if(await dailyDetails.count()&&!(await dailyDetails.evaluate(node=>node.open===true)))await dailyDetails.locator(':scope > summary').first().click();
-    await dailyReportsButton.click();
-    await page.waitForFunction(()=>document.getElementById('dailyreports')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
-    await page.waitForFunction(()=>document.getElementById('dailyreports')?.dataset?.lazyHydrated==='1'||document.getElementById('dailyreports')?.dataset?.lazyError==='1',null,{timeout:WORKSPACE_TIMEOUT_MS});
-    const setup=page.locator('#opsReportingSetupDetails').first();assert(await setup.count(),'Reporting setup disclosure missing');
+    // Reporting setup is owned by resident People & Operations. Return there after
+    // creating the employee instead of relying on the old Daily Reports DOM location.
+    await delegatedPeopleButton.click();
+    await page.waitForFunction(()=>document.getElementById('peopleops')?.classList.contains('active')&&document.getElementById('opsReportingSetupDetails'),null,{timeout:VIEW_TIMEOUT_MS});
+    const setup=page.locator('#peopleops #opsReportingSetupDetails').first();assert(await setup.count(),'People reporting setup disclosure missing');
     if(!(await setup.evaluate(node=>node.open===true)))await setup.locator(':scope > summary').first().click();
     let locationName=`Synthetic Branch ${Date.now()}`;const locationCode=`S${String(Date.now()).slice(-7)}`;
-    await page.locator('#opsLocationName').fill(locationName);await page.locator('#opsLocationCode').fill(locationCode);await page.locator('#opsLocationTown').fill('Gaborone');
-    const addLocation=page.locator('#dailyreports [data-bw-onclick="addOpsLocation()"]:visible').first();assert(await addLocation.count(),'Add location control missing');
+    await page.locator('#peopleops #opsLocationName').fill(locationName);await page.locator('#peopleops #opsLocationCode').fill(locationCode);await page.locator('#peopleops #opsLocationTown').fill('Gaborone');
+    const addLocation=page.locator('#peopleops [data-bw-onclick="addOpsLocation()"]:visible').first();assert(await addLocation.count(),'Add location control missing');
     await addLocation.click();
     await page.waitForFunction(name=>String(document.getElementById('opsLocationsList')?.innerText||'').includes(name),locationName,{timeout:WORKSPACE_TIMEOUT_MS});
     const editedLocationName=`${locationName} Updated`;
@@ -363,7 +360,7 @@ async function runFullUserJourney(credentials){
     const locationValue=await page.locator('#opsReporterLocation option').evaluateAll((options,name)=>options.find(option=>String(option.textContent||'').includes(name))?.value||'',locationName);
     assert(employeeValue&&locationValue,'reporting selectors did not receive authoritative employee/location records');
     await page.locator('#opsReporterEmployee').selectOption(employeeValue);await page.locator('#opsReporterLocation').selectOption(locationValue);
-    const createLink=page.locator('#dailyreports [data-bw-onclick="createOpsReporterLink()"]:visible').first();assert(await createLink.count()&&!(await createLink.isDisabled()),'Create reporting link control remained unavailable after valid setup');
+    const createLink=page.locator('#peopleops [data-bw-onclick="createOpsReporterLink()"]:visible').first();assert(await createLink.count()&&!(await createLink.isDisabled()),'Create reporting link control remained unavailable after valid setup');
     await createLink.click();
     await page.waitForFunction(()=>String(document.getElementById('opsNewReporterLink')?.value||'').includes('#report='),null,{timeout:15000});
     let reporterLink=await page.locator('#opsNewReporterLink').inputValue();
