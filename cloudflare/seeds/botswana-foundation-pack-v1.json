@@ -1,7 +1,7 @@
 {
   "packKey": "botswana-foundation-v1",
-  "version": "1.5",
-  "asOf": "2026-08-31",
+  "version": "1.6",
+  "asOf": "2026-09-23",
   "sources": [
     {
       "key": "cipa-annual-return-faq",
@@ -76,6 +76,16 @@
       "publicationDate": "2026-08-19",
       "effectiveDate": "2026-09-01",
       "notes": "Latest official ministerial statement identified during 31 Aug 2026 review: Employment and Labour Relations Act 2025 commences 1 September 2026."
+    },
+    {
+      "key": "employment-act-in-effect-2026-09-10",
+      "authority": "Government of Botswana / BOPA",
+      "title": "New Act replaces three laws",
+      "url": "https://dailynews.gov.bw/news-detail/93207",
+      "type": "official",
+      "publicationDate": "2026-09-10",
+      "effectiveDate": "2026-09-01",
+      "notes": "Current official BOPA report confirms the Employment and Labour Relations Act of 2025 took effect on 1 September 2026. It reports fixed-term contracts limited to 12 months unless clearly justified, probation capped at 6 months, and maternity leave increased to 14 weeks at 70% pay. Treat detailed employment terms as reviewer-controlled draft rules until the underlying Act/regulations are source-snapshotted and approved."
     },
     {
       "key": "employment-older-2026-06-04",
@@ -309,9 +319,10 @@
       "key": "employment-act-commencement",
       "ruleKey": "bw.employment-labour-relations-act.commencement",
       "title": "Employment and Labour Relations Act 2025 commencement",
-      "summary": "Latest official government statement reviewed on 31 Aug 2026 says the Act commences 1 September 2026.",
+      "summary": "Official government reporting confirms the Employment and Labour Relations Act of 2025 commenced on 1 September 2026 and is now in effect.",
       "sourceKeys": [
-        "employment-commencement-2026-08-19"
+        "employment-commencement-2026-08-19",
+        "employment-act-in-effect-2026-09-10"
       ],
       "applicability": {
         "requiresEmployer": true
@@ -333,9 +344,9 @@
       "key": "fixed-term-review",
       "ruleKey": "bw.employment.fixed-term.12-month-review",
       "title": "Fixed-term contract review trigger",
-      "summary": "Official government explanation states fixed-term contracts are limited to 12 months unless objectively justified. This rule is a review trigger, not an automated legality conclusion.",
+      "summary": "Current official government reporting states fixed-term contracts are limited to 12 months unless there is a clear reason for a longer term. This remains a controlled review trigger, not an automated legality conclusion.",
       "sourceKeys": [
-        "employment-older-2026-06-04"
+        "employment-act-in-effect-2026-09-10"
       ],
       "applicability": {
         "requiresEmployer": true
@@ -346,6 +357,55 @@
             "key": "fixed-term-contract-review",
             "title": "Review fixed-term contracts and objective justification",
             "description": "Flag fixed-term contracts approaching or exceeding 12 months for controlled review. Do not automatically decide legality.",
+            "priority": 1
+          }
+        ]
+      },
+      "confidence": "medium",
+      "effectiveFrom": "2026-09-01"
+    },
+    {
+      "key": "probation-period-review",
+      "ruleKey": "bw.employment.probation.max-six-month-review",
+      "title": "Probation period review trigger",
+      "summary": "Current official government reporting states probation is capped at a maximum of 6 months. This draft rule flags probation arrangements for controlled review rather than automatically deciding legality.",
+      "sourceKeys": [
+        "employment-act-in-effect-2026-09-10"
+      ],
+      "applicability": {
+        "requiresEmployer": true
+      },
+      "effectiveFrom": "2026-09-01",
+      "action": {
+        "obligations": [
+          {
+            "key": "probation-period-control-review",
+            "title": "Review employee probation periods",
+            "description": "Review active probation arrangements against the approved Employment and Labour Relations Act source set, especially any period approaching or exceeding six months. Escalate exceptions for human/legal review rather than making an automatic legal conclusion.",
+            "priority": 1
+          }
+        ]
+      },
+      "confidence": "medium"
+    },
+    {
+      "key": "maternity-leave-review",
+      "ruleKey": "bw.employment.maternity-leave.14-week-review",
+      "title": "Maternity leave control review",
+      "summary": "Current official government reporting states maternity leave increased to 14 weeks at 70 per cent pay. This draft rule is a policy/control review trigger pending approved primary-source snapshots.",
+      "sourceKeys": [
+        "employment-act-in-effect-2026-09-10"
+      ],
+      "applicability": {
+        "requiresEmployer": true
+      },
+      "effectiveFrom": "2026-09-01",
+      "action": {
+        "obligations": [
+          {
+            "key": "maternity-leave-policy-review",
+            "title": "Review maternity leave policy and payroll controls",
+            "description": "Review maternity leave policy, payroll configuration and employee communications against the approved Employment and Labour Relations Act source set before relying on the configured entitlement.",
             "priority": 1
           }
         ]
