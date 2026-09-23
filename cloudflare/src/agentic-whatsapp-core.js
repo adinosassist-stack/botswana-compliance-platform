@@ -7,7 +7,8 @@ const MAX_BODY_BYTES=4096;
 const WHATSAPP_READ_ACTIONS=Object.freeze({
   cash_position:Object.freeze({actionKey:"financial_position.read",label:"Recorded cash position"}),
   finance_inflows_today:Object.freeze({actionKey:"finance_daily_inflows.read",label:"Recorded positive inflows today"}),
-  finance_data_quality:Object.freeze({actionKey:"finance_data_quality.read",label:"Finance data quality"})
+  finance_data_quality:Object.freeze({actionKey:"finance_data_quality.read",label:"Finance data quality"}),
+  receivables:Object.freeze({actionKey:"receivables_summary.read",label:"Customer receivables"})
 });
 
 const ACTION_KEY_BY_PURPOSE=Object.freeze({
@@ -104,7 +105,8 @@ function buildReadReply(readKey,result){
   if(readKey==="finance_inflows_today"){
     return [
       `Thebe · recorded positive inflows for ${data.businessDate||"today"}: ${pula(data.positiveInflowMinor)} across ${Number(data.positiveInflowCount||0)} transaction(s).`,
-      "These are positive Finance Core inflows. Thebe cannot yet prove they are all customer collections because authoritative receivables classification is not live."
+      `Invoice-linked customer collections: ${pula(data.customerCollectionMinor)} across ${Number(data.customerCollectionTransactionCount||0)} transaction(s).`,
+      `Unclassified positive inflows: ${pula(data.unclassifiedPositiveInflowMinor)}. Only explicit invoice allocations are treated as customer collections.`
     ].join("\n");
   }
   if(readKey==="finance_data_quality"){
@@ -113,6 +115,20 @@ function buildReadReply(readKey,result){
       `Ledger: ${Number(data.transactionCount||0)} transaction(s), ${Number(data.missingSourceFingerprintCount||0)} missing source fingerprint(s).`,
       `Reconciliation: ${Number(data.reconciledRunCount||0)} reconciled run(s), ${Number(data.reconciliationExceptionCount||0)} exception(s).`
     ].join("\n");
+  }
+  if(readKey==="receivables"){
+    const customers=Array.isArray(data.customers)?data.customers.slice(0,3):[];
+    const lines=[
+      `Thebe · customer receivables: ${pula(data.outstandingMinor)} outstanding across ${Number(data.outstandingInvoiceCount||0)} invoice(s).`,
+      `Overdue: ${pula(data.overdueMinor)} across ${Number(data.overdueInvoiceCount||0)} invoice(s) and ${Number(data.overdueCustomerCount||0)} customer(s).`
+    ];
+    if(customers.length){
+      lines.push("Largest recorded balances: "+customers.map(item=>`${text(item.customerName,80)||"Customer"} ${pula(item.outstandingMinor)}`).join("; ")+".");
+    }else{
+      lines.push("No outstanding issued invoices are recorded in the authoritative receivables ledger.");
+    }
+    lines.push("Balances are derived from issued invoices less explicit allocations of recorded Finance Core transactions.");
+    return lines.join("\n");
   }
   throw new Error("unsupported_whatsapp_read");
 }

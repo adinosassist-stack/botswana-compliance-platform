@@ -36,7 +36,7 @@ export function classifyWhatsAppInboundIntent(value){
   if(/\b(cash position|cash balance|how much (?:cash|money) (?:do we|we) have|what(?:'s| is) our cash)\b/.test(command))return {kind:"read",readKey:"cash_position"};
   if(/\b(how much (?:did we )?(?:collect|collected|receive|received) today|collections? today|money in today|positive inflows? today|inflows? today)\b/.test(command))return {kind:"read",readKey:"finance_inflows_today"};
   if(/\b(finance data quality|finance quality|ledger quality|is (?:our )?finance data (?:clean|current|up to date))\b/.test(command))return {kind:"read",readKey:"finance_data_quality"};
-  if(/\b(which customers? (?:still )?owe|who (?:still )?owes|customer balances?|receivables?|outstanding invoices?|overdue invoices?)\b/.test(command))return {kind:"unavailable",reason:"receivables"};
+  if(/\b(which customers? (?:still )?owe|who (?:still )?owes|customer balances?|receivables?|outstanding invoices?|overdue invoices?)\b/.test(command))return {kind:"read",readKey:"receivables"};
   if(/\b(reconcile|reconciliation)\b/.test(command))return {kind:"reconcile",command};
   const purpose=classifyWhatsAppInboundCommand(value);
   return purpose?{kind:"prepare",purpose}:null;

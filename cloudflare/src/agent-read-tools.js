@@ -1,12 +1,14 @@
 import {evaluateAgentAction} from "./agent-policy.js";
+import {financeDailyCollections,financeReceivablesSummary} from "./finance-receivables.js";
 
-export const AGENT_READ_TOOLS_VERSION="2026-09-23.read-tools-v2";
+export const AGENT_READ_TOOLS_VERSION="2026-09-23.read-tools-v3";
 
 const TOOL_ACTIONS=Object.freeze([
   "business_health.read",
   "financial_position.read",
   "finance_data_quality.read",
   "finance_daily_inflows.read",
+  "receivables_summary.read",
   "compliance_status.read",
   "daily_operations_summary.read"
 ]);
@@ -16,6 +18,7 @@ const SOURCE_REFS=Object.freeze({
   "financial_position.read":"tool:financial_position",
   "finance_data_quality.read":"tool:finance_data_quality",
   "finance_daily_inflows.read":"tool:finance_daily_inflows",
+  "receivables_summary.read":"tool:receivables_summary",
   "compliance_status.read":"tool:compliance_status",
   "daily_operations_summary.read":"tool:daily_operations_summary"
 });
@@ -77,9 +80,10 @@ async function businessHealth(env,tenantId){
 }
 
 async function financialPosition(env,tenantId){
-  const [position,reconciliation]=await Promise.all([
+  const [position,reconciliation,receivables]=await Promise.all([
     safeFirst(env,"SELECT COALESCE(SUM(a.opening_balance_minor+COALESCE(t.net,0)),0) cash_position_minor, COUNT(a.id) account_count FROM finance_accounts a LEFT JOIN (SELECT account_id,SUM(amount_minor) net FROM finance_transactions WHERE tenant_id=? GROUP BY account_id) t ON t.account_id=a.id WHERE a.tenant_id=? AND a.status='active'",[tenantId,tenantId]),
-    safeFirst(env,"SELECT COUNT(*) reconciliation_count, SUM(CASE WHEN status='exception' THEN 1 ELSE 0 END) exception_count, COALESCE(SUM(CASE WHEN status='exception' THEN ABS(difference_minor) ELSE 0 END),0) exception_exposure_minor, MAX(created_at) latest_reconciliation_at FROM finance_reconciliation_runs WHERE tenant_id=?",[tenantId])
+    safeFirst(env,"SELECT COUNT(*) reconciliation_count, SUM(CASE WHEN status='exception' THEN 1 ELSE 0 END) exception_count, COALESCE(SUM(CASE WHEN status='exception' THEN ABS(difference_minor) ELSE 0 END),0) exception_exposure_minor, MAX(created_at) latest_reconciliation_at FROM finance_reconciliation_runs WHERE tenant_id=?",[tenantId]),
+    financeReceivablesSummary(env,tenantId)
   ]);
   return Object.freeze({
     currency:"BWP",
@@ -88,7 +92,11 @@ async function financialPosition(env,tenantId){
     reconciliationCount:number(reconciliation?.reconciliation_count),
     reconciliationExceptionCount:number(reconciliation?.exception_count),
     reconciliationExceptionExposureMinor:number(reconciliation?.exception_exposure_minor),
-    latestReconciliationAt:reconciliation?.latest_reconciliation_at||null
+    latestReconciliationAt:reconciliation?.latest_reconciliation_at||null,
+    receivablesOutstandingMinor:number(receivables?.outstandingMinor),
+    receivablesOverdueMinor:number(receivables?.overdueMinor),
+    outstandingInvoiceCount:number(receivables?.outstandingInvoiceCount),
+    overdueInvoiceCount:number(receivables?.overdueInvoiceCount)
   });
 }
 
@@ -98,22 +106,11 @@ function gaboroneDate(value=new Date()){
 }
 
 async function financeDailyInflows(env,tenantId,{businessDate=gaboroneDate()}={}){
-  const row=await safeFirst(env,`SELECT
-    COALESCE(SUM(CASE WHEN amount_minor>0 THEN amount_minor ELSE 0 END),0) positive_inflow_minor,
-    SUM(CASE WHEN amount_minor>0 THEN 1 ELSE 0 END) positive_inflow_count,
-    COALESCE(SUM(CASE WHEN amount_minor<0 THEN ABS(amount_minor) ELSE 0 END),0) outflow_minor,
-    SUM(CASE WHEN amount_minor<0 THEN 1 ELSE 0 END) outflow_count
-    FROM finance_transactions WHERE tenant_id=? AND posted_on=?`,[tenantId,businessDate]);
-  return Object.freeze({
-    currency:"BWP",
-    businessDate,
-    positiveInflowMinor:number(row?.positive_inflow_minor),
-    positiveInflowCount:number(row?.positive_inflow_count),
-    outflowMinor:number(row?.outflow_minor),
-    outflowCount:number(row?.outflow_count),
-    customerCollectionClassificationAvailable:false,
-    qualification:"Positive inflows are recorded Finance Core credits for the date; they are not guaranteed to be customer collections."
-  });
+  return financeDailyCollections(env,tenantId,{businessDate});
+}
+
+async function receivablesSummary(env,tenantId){
+  return financeReceivablesSummary(env,tenantId);
 }
 
 async function financeDataQuality(env,tenantId){
@@ -190,6 +187,7 @@ async function executeOne(actionKey,{env,auth}){
   else if(actionKey==="financial_position.read")data=await financialPosition(env,auth.tenant_id);
   else if(actionKey==="finance_data_quality.read")data=await financeDataQuality(env,auth.tenant_id);
   else if(actionKey==="finance_daily_inflows.read")data=await financeDailyInflows(env,auth.tenant_id);
+  else if(actionKey==="receivables_summary.read")data=await receivablesSummary(env,auth.tenant_id);
   else if(actionKey==="compliance_status.read")data=await complianceStatus(env,auth.tenant_id);
   else if(actionKey==="daily_operations_summary.read")data=await dailyOperationsSummary(env,auth.tenant_id);
   else return Object.freeze({...result,available:false,allowed:false,error:"unsupported_read_tool"});
