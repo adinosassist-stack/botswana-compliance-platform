@@ -5751,6 +5751,33 @@ export default {
         return json({items:(r.results||[]).map(x=>({...x,summary:safeJson(x.summary_json,{})}))});
       }
       if(url.pathname==="/api/platform/regulatory/status"&&req.method==="GET"){const access=await requirePlatformRegulatory(a,env,"editor","reviewer","admin");if(!access.ok)return json(access,403);return json({ok:true,role:access.role,email:a.email})}
+      if(url.pathname==="/api/platform/regulatory/readiness"&&req.method==="GET"){
+        const access=await requirePlatformRegulatory(a,env,"editor","reviewer","admin");if(!access.ok)return json(access,403);
+        const [principalsR,sourcesR,rulesR,conflictsR,importsR]=await Promise.all([
+          env.DB.prepare("SELECT user_id,role FROM platform_regulatory_principals WHERE active=1 ORDER BY role,user_id").all(),
+          env.DB.prepare(`SELECT COUNT(*) total,
+            SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) pending,
+            SUM(CASE WHEN status='approved' THEN 1 ELSE 0 END) approved,
+            SUM(CASE WHEN status='approved' AND verification_status='verified' AND latest_snapshot_version>0 AND approved_by_user_id IS NOT NULL THEN 1 ELSE 0 END) verified_approved
+            FROM regulatory_sources`).first(),
+          env.DB.prepare(`SELECT COUNT(*) total,
+            SUM(CASE WHEN status='draft' THEN 1 ELSE 0 END) draft,
+            SUM(CASE WHEN status='review' THEN 1 ELSE 0 END) review,
+            SUM(CASE WHEN status='approved' THEN 1 ELSE 0 END) approved,
+            SUM(CASE WHEN status='published' THEN 1 ELSE 0 END) published,
+            SUM(CASE WHEN status='blocked' THEN 1 ELSE 0 END) blocked
+            FROM regulatory_rules`).first(),
+          env.DB.prepare("SELECT COUNT(*) open FROM regulatory_conflicts WHERE status='open'").first(),
+          env.DB.prepare("SELECT pack_key,pack_version,created_at,status FROM regulatory_pack_imports ORDER BY created_at DESC LIMIT 1").first()
+        ]);
+        const principals=principalsR.results||[],editorCapable=principals.filter(x=>["editor","admin"].includes(String(x.role))),reviewerCapable=principals.filter(x=>["reviewer","admin"].includes(String(x.role)));
+        const makerCheckerReady=editorCapable.some(e=>reviewerCapable.some(r=>String(r.user_id)!==String(e.user_id)));
+        const n=v=>Number(v||0),sources={total:n(sourcesR?.total),pending:n(sourcesR?.pending),approved:n(sourcesR?.approved),verifiedApproved:n(sourcesR?.verified_approved)},
+          rules={total:n(rulesR?.total),draft:n(rulesR?.draft),review:n(rulesR?.review),approved:n(rulesR?.approved),published:n(rulesR?.published),blocked:n(rulesR?.blocked)},
+          openConflicts=n(conflictsR?.open),packImported=!!importsR;
+        const blockers=[];if(!makerCheckerReady)blockers.push("maker_checker_principals_required");if(!packImported)blockers.push("foundation_pack_not_imported");if(packImported&&!sources.verifiedApproved)blockers.push("no_verified_approved_sources");if(packImported&&!rules.published)blockers.push("no_published_rules");if(openConflicts)blockers.push("open_source_conflicts");
+        return json({ok:true,platformRole:access.role,makerCheckerReady,principals:{active:principals.length,editorCapable:editorCapable.length,reviewerCapable:reviewerCapable.length},sources,rules,openConflicts,foundationPack:{imported:packImported,lastImport:importsR||null},blockers});
+      }
       if(url.pathname==="/api/platform/regulatory/sources"&&req.method==="GET"){const access=await requirePlatformRegulatory(a,env,"editor","reviewer","admin");if(!access.ok)return json(access,403);const r=await env.DB.prepare(`SELECT id,jurisdiction,authority,title,source_url,source_type,publication_date,effective_date,status,verification_status,content_hash,metadata_hash,latest_snapshot_version,submitted_by_user_id,approved_by_user_id,approved_at,notes,created_at,updated_at FROM regulatory_sources ORDER BY updated_at DESC LIMIT 500`).all();return json({items:r.results||[],platformRole:access.role})}
       if(url.pathname==="/api/platform/regulatory/sources"&&req.method==="POST"){const access=await requirePlatformRegulatory(a,env,"editor","reviewer","admin");if(!access.ok)return json(access,403);const b=await readJson(req),sid=id();let parsedSourceUrl=null;try{parsedSourceUrl=new URL(String(b.sourceUrl||""))}catch{}if(!parsedSourceUrl||parsedSourceUrl.protocol!=="https:")return json({error:"https_source_url_required"},400);if(!String(b.authority||"").trim()||!String(b.title||"").trim())return json({error:"authority_and_title_required"},400);await env.DB.prepare(`INSERT INTO regulatory_sources(id,jurisdiction,authority,title,source_url,source_type,publication_date,effective_date,status,notes,submitted_by_user_id,verification_status) VALUES(?,?,?,?,?,?,?,?, 'pending',?,?,'unverified')`).bind(sid,String(b.jurisdiction||"BW"),String(b.authority||""),String(b.title||""),String(b.sourceUrl||""),String(b.sourceType||"official"),b.publicationDate||null,b.effectiveDate||null,String(b.notes||""),a.user_id).run();if(String(b.sourceContent||"").trim())await captureRegulatorySourceSnapshot(env,a,sid,b.sourceContent);await platformRegulatoryAudit(env,a,"SOURCE_SUBMITTED","regulatory_source",sid,{authority:b.authority||"",title:b.title||""});return json({ok:true,id:sid,status:"pending"},201)}
       if(url.pathname.match(/^\/api\/platform\/regulatory\/sources\/[^/]+\/snapshot$/)&&req.method==="POST"){const access=await requirePlatformRegulatory(a,env,"editor","reviewer","admin");if(!access.ok)return json(access,403);const sid=url.pathname.split("/")[5],b=await readJson(req);const result=await captureRegulatorySourceSnapshot(env,a,sid,b.content);return json(result,result.ok?201:400)}
