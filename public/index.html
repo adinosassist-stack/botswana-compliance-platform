@@ -6683,17 +6683,20 @@ function renderOpsMissing(items){const box=document.getElementById("opsMissingRe
 function renderOpsExceptions(items){const wrap=document.getElementById("opsReportingExceptionsWrap"),box=document.getElementById("opsReportingExceptions");if(!wrap||!box)return;wrap.style.display=items?.length?"block":"none";const labels={leave:"Leave",rest_day:"Rest day",field_assignment:"Field assignment",training:"Training",connectivity:"Connectivity",other:"Other approved exception"};box.safeHTML=(items||[]).map(x=>`<div class="item"><div class="between row"><div><b>${escapeHtml(x.full_name)}</b><div class="muted small">${escapeHtml(x.location_name)} · ${escapeHtml(labels[x.reason_code]||x.reason_code)}${x.note?` · ${escapeHtml(x.note)}`:""}</div></div><button class="btn alt" type="button" data-bw-onclick="removeOpsReportingException('${safeId(x.id)}')">Restore expectation</button></div></div>`).join("")}
 
 function renderOpsReports(items){const box=document.getElementById("opsReportsList");if(!box)return;box.safeHTML=items?.length?items.map(r=>{const k=typeof r.kpi_json==="string"?(()=>{try{return JSON.parse(r.kpi_json)}catch{return {}}})():r.kpi_json||{};return `<div class="ops-report-card ${r.needs_attention?"ops-attention":""}"><div class="between row"><div><b>${escapeHtml(r.full_name)}</b><div class="muted small">${escapeHtml(r.location_name)} · submitted ${new Date(r.submitted_at).toLocaleString()}</div></div>${r.needs_attention?'<span class="badge warn">Needs attention</span>':''}</div><div class="small" style="margin-top:8px"><b>Work:</b> ${escapeHtml(r.work_summary||"—")}</div><div class="ops-report-grid"><div class="ops-report-field"><b>Wins</b>${escapeHtml(r.wins||"—")}</div><div class="ops-report-field"><b>Blockers</b>${escapeHtml(r.blockers||"—")}</div><div class="ops-report-field"><b>Incidents / issues</b>${escapeHtml(r.incidents||"—")}</div></div><div class="muted small" style="margin-top:9px">Tasks ${Number(k.tasksCompleted||0)} · Customers/jobs ${Number(k.customersHandled||0)} · Revenue ${moneyBwp(k.revenueBwp)} · Incidents ${Number(k.incidentsCount||0)}</div></div>`}).join(""):'<div class="muted small">No reports submitted for this filter.</div>'}
-function renderOpsLocations(items){const box=document.getElementById("opsLocationsList");if(!box)return;globalThis.__opsLocationsById=Object.fromEntries((items||[]).map(x=>[String(x.id),x]));box.safeHTML=(items||[]).map(x=>{const active=Number(x.active)===1;return `<div class="item"><div class="between row"><div><b>${escapeHtml(x.name)}</b><div class="muted small">${escapeHtml(x.code||"No code")}${x.town?` · ${escapeHtml(x.town)}`:""} · ${active?"Active":"Removed"}</div></div><div class="actions"><button class="btn alt" data-bw-onclick="editOpsLocation('${escapeHtml(x.id)}')">Edit</button><button class="btn alt" data-bw-onclick="${active?`removeOpsLocation('${escapeHtml(x.id)}')`:`reactivateOpsLocation('${escapeHtml(x.id)}')`}">${active?"Remove":"Reactivate"}</button></div></div></div>`}).join("")||'<div class="muted small">No locations configured.</div>'}
+function renderOpsLocations(items){const box=document.getElementById("opsLocationsList");if(!box)return;const rows=items||[];globalThis.__opsLocationsById=Object.fromEntries(rows.map(x=>[String(x.id),x]));const signature=JSON.stringify(rows.map(x=>[String(x.id||""),String(x.name||""),String(x.code||""),String(x.town||""),Number(x.active)===1]));if(box.dataset.opsLocationsSignature===signature)return;box.dataset.opsLocationsSignature=signature;box.safeHTML=rows.map(x=>{const active=Number(x.active)===1;return `<div class="item"><div class="between row"><div><b>${escapeHtml(x.name)}</b><div class="muted small">${escapeHtml(x.code||"No code")}${x.town?` · ${escapeHtml(x.town)}`:""} · ${active?"Active":"Removed"}</div></div><div class="actions"><button class="btn alt" data-bw-onclick="editOpsLocation('${escapeHtml(x.id)}')">Edit</button><button class="btn alt" data-bw-onclick="${active?`removeOpsLocation('${escapeHtml(x.id)}')`:`reactivateOpsLocation('${escapeHtml(x.id)}')`}">${active?"Remove":"Reactivate"}</button></div></div></div>`}).join("")||'<div class="muted small">No locations configured.</div>'}
 function renderOpsAccess(items){const box=document.getElementById("opsReporterAccessList");if(!box)return;const active=(items||[]).filter(x=>x.status==="active");box.safeHTML=active.length?active.map(x=>`<div class="item"><div class="between row"><div><b>${escapeHtml(x.full_name)}</b><div class="muted small">${escapeHtml(x.location_name)} · expires ${new Date(x.expires_at).toLocaleDateString()}${x.last_used_at?` · last used ${new Date(x.last_used_at).toLocaleDateString()}`:" · not used yet"}</div></div><button class="btn alt" data-bw-onclick="revokeOpsReporterAccess('${escapeHtml(x.id)}')">Revoke</button></div></div>`).join(""):'<div class="muted small">No active employee reporting links yet.</div>'}
 function fillSelectPreserve(select,items,labelFn,emptyLabel){if(!select)return;const old=select.value;select.safeHTML=(emptyLabel?`<option value="">${escapeHtml(emptyLabel)}</option>`:"")+(items||[]).map(x=>`<option value="${escapeHtml(x.id)}">${escapeHtml(labelFn(x))}</option>`).join("");if([...select.options].some(o=>o.value===old))select.value=old}
+let opsReportingSetupEpoch=0;
 async function renderPeopleReportingSetup(){
   if(!document.getElementById("peopleops")?.classList.contains("active"))return;
   if(!["owner","manager"].includes(currentWorkspaceRole()))return;
+  const setupEpoch=++opsReportingSetupEpoch;
   const [locationsR,employeesR,accessR]=await Promise.allSettled([
     apiJson("/api/daily-reporting/locations"),
     apiJson("/api/employees"),
     apiJson("/api/daily-reporting/access")
   ]);
+  if(setupEpoch!==opsReportingSetupEpoch)return;
   const value=(result,fallback)=>result.status==="fulfilled"?result.value:fallback;
   const reason=result=>result.status==="rejected"?result.reason:null;
   const locations=value(locationsR,{items:[]}),employees=value(employeesR,{items:[]}),access=value(accessR,{items:[]});
@@ -6716,6 +6719,7 @@ async function renderPeopleReportingSetup(){
 }
 async function renderDailyOperations(){
   const root=document.getElementById("dailyreports");if(!root)return;const role=currentWorkspaceRole();if(!["owner","manager"].includes(role))return;
+  const setupEpoch=++opsReportingSetupEpoch;
   const dateEl=document.getElementById("opsReportDate");if(dateEl&&!dateEl.value)dateEl.value=browserGaboroneDate();
   const date=dateEl?.value||browserGaboroneDate(),locationId=document.getElementById("opsLocationFilter")?.value||"";
   const requests=[
@@ -6728,6 +6732,7 @@ async function renderDailyOperations(){
     apiJson(`/api/daily-reporting/performance?date=${encodeURIComponent(date)}${locationId?`&locationId=${encodeURIComponent(locationId)}`:""}`)
   ];
   const [locationsR,employeesR,accessR,settingsR,dashboardR,summariesR,performanceR]=await Promise.allSettled(requests);
+  if(setupEpoch!==opsReportingSetupEpoch)return;
   const value=(result,fallback)=>result.status==="fulfilled"?result.value:fallback;
   const reason=result=>result.status==="rejected"?result.reason:null;
   const locations=value(locationsR,{items:[]}),employees=value(employeesR,{items:[]}),access=value(accessR,{items:[]});
