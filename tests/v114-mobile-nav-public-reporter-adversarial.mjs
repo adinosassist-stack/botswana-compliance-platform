@@ -45,6 +45,8 @@ assert.ok(!reportJs.includes("/api/auth/"),"reporter client must not call authen
 
 // Pass 3: production lifecycle proves the boundary in a phone-sized browser.
 assert.ok(synthetic.includes("viewport:{width:390,height:844}"),"mobile reporter browser proof missing");
+assert.ok(synthetic.includes("setViewportSize({width:844,height:390})"),"wide-mobile landscape navigation proof missing");
+assert.ok(synthetic.includes("wide-mobile navigation occlusion"),"wide-mobile dock/drawer occlusion assertion missing");
 assert.ok(synthetic.includes("mobile employee report link required or exposed workspace sign-in"),"mobile reporter sign-in regression assertion missing");
 assert.ok(synthetic.includes('#peopleops [data-bw-onclick="addOpsLocation()"]:visible'),"synthetic lifecycle must create locations through the People-owned reporting setup");
 assert.ok(synthetic.includes('#peopleops [data-bw-onclick="createOpsReporterLink()"]:visible'),"synthetic lifecycle must create reporting links through the People-owned reporting setup");
