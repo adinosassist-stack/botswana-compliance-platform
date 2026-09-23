@@ -12,7 +12,7 @@ for(const path of ["cloudflare/src/worker.js"]){
 }
 
 // Pass 1: authoritative employee lifecycle.
-assert.match(worker,/\/api\/employees\\\/\[\^\/\]\+\$\/\)&&req\.method==="DELETE"/);
+assert.ok(worker.includes('url.pathname.match(/^\\/api\\/employees\\/[^/]+$/)&&req.method==="DELETE"'));
 assert.match(worker,/UPDATE employees SET status='inactive',end_date=COALESCE\(end_date,\?\)/);
 assert.match(worker,/lower\(trim\(coalesce\(status,''\)\)\)='active' RETURNING id,full_name/);
 assert.match(worker,/UPDATE employee_reporting_access SET status='revoked'/);
