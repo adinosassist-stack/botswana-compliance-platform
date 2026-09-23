@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en-BW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#f7f8f9">
+<title>Daily Report | Thebe Desk</title>
+<link rel="icon" type="image/png" sizes="512x512" href="/assets/thebe-desk-favicon-512.png">
+<link rel="stylesheet" href="/assets/employee-reporting-portal.css?v=20260923a">
+<script src="/js/employee-reporting-portal.js?v=20260923a" defer></script>
+</head>
+<body>
+<main class="reporter-portal" id="reporterPortal">
+  <div class="reporter-shell">
+    <header class="reporter-brand">
+      <img src="/assets/thebe-desk-logo-symbol.png" alt="" width="34" height="34">
+      <div><strong>Thebe Desk</strong><span>Daily Operations</span></div>
+    </header>
+    <section class="reporter-card" aria-labelledby="reporterTitle">
+      <div class="reporter-eyebrow">Private employee report</div>
+      <h1 id="reporterTitle">What happened today?</h1>
+      <p class="reporter-intro">Use the private link your manager sent you. No Thebe Desk account or sign-in is required.</p>
+
+      <div class="reporter-meta" aria-live="polite">
+        <span id="reporterEmployeeName">Checking employee…</span>
+        <span id="reporterLocationName">Checking location…</span>
+        <span id="reporterCompanyName">Checking company…</span>
+      </div>
+
+      <div id="reporterPortalError" class="reporter-message error" role="alert" hidden></div>
+      <div id="reporterPortalSuccess" class="reporter-message success" role="status" hidden></div>
+
+      <form id="reporterDailyForm" class="reporter-form" hidden>
+        <div class="field">
+          <label for="reporterDate">Report date</label>
+          <input id="reporterDate" type="date" required>
+        </div>
+
+        <div class="field">
+          <label for="reporterWorkSummary">Work completed / main activity</label>
+          <textarea id="reporterWorkSummary" maxlength="2400" placeholder="What did you complete or work on today?"></textarea>
+        </div>
+
+        <div class="two-col">
+          <div class="field"><label for="reporterWins">Wins / good results</label><textarea id="reporterWins" maxlength="1600" placeholder="What went well?"></textarea></div>
+          <div class="field"><label for="reporterBlockers">Blockers / delays</label><textarea id="reporterBlockers" maxlength="1600" placeholder="What slowed work down or needs help?"></textarea></div>
+        </div>
+
+        <div class="two-col">
+          <div class="field"><label for="reporterIncidents">Incidents / customer issues</label><textarea id="reporterIncidents" maxlength="1600" placeholder="Only factual incidents or issues. Leave blank if none."></textarea></div>
+          <div class="field"><label for="reporterNextPlan">Tomorrow / next shift</label><textarea id="reporterNextPlan" maxlength="1600" placeholder="What should happen next?"></textarea></div>
+        </div>
+
+        <div class="kpi-grid">
+          <div class="field"><label for="reporterTasks">Tasks completed</label><input id="reporterTasks" type="number" min="0" step="1" inputmode="numeric" placeholder="Optional"></div>
+          <div class="field"><label for="reporterCustomers">Customers / jobs handled</label><input id="reporterCustomers" type="number" min="0" step="1" inputmode="numeric" placeholder="Optional"></div>
+          <div class="field"><label for="reporterRevenue">Sales / revenue (P)</label><input id="reporterRevenue" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Optional"></div>
+          <div class="field"><label for="reporterIncidentCount">Incident count</label><input id="reporterIncidentCount" type="number" min="0" step="1" inputmode="numeric" placeholder="0"></div>
+        </div>
+
+        <div class="two-col">
+          <div class="field"><label for="reporterCustomLabel">Other metric label</label><input id="reporterCustomLabel" maxlength="60" placeholder="e.g. quotations sent"></div>
+          <div class="field"><label for="reporterCustomValue">Other metric value</label><input id="reporterCustomValue" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Optional"></div>
+        </div>
+
+        <label class="attention-row"><input id="reporterNeedsAttention" type="checkbox"><span><strong>I need manager attention</strong><small>Use this when something should be reviewed soon.</small></span></label>
+
+        <button class="submit-button" id="reporterSubmitBtn" type="submit">Send daily report</button>
+        <div id="reporterDraftStatus" class="reporter-status" role="status" aria-live="polite">Entries stay on this page until sent. Sensitive report text is not saved in browser storage.</div>
+        <p class="privacy-note">A missing report is not automatically treated as absence or poor performance. Do not include medical, banking, identity-document or other unnecessary sensitive information.</p>
+      </form>
+    </section>
+  </div>
+</main>
+</body>
+</html>
