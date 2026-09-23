@@ -1676,6 +1676,8 @@ function randomReporterToken(){return b64(crypto.getRandomValues(new Uint8Array(
 async function ensureDefaultOperatingLocation(env,tenantId){
   let row=await env.DB.prepare("SELECT id,name,code,town,active FROM operating_locations WHERE tenant_id=? AND active=1 ORDER BY created_at LIMIT 1").bind(tenantId).first();
   if(row)return row;
+  const historical=await env.DB.prepare("SELECT id,name,code,town,active FROM operating_locations WHERE tenant_id=? ORDER BY created_at LIMIT 1").bind(tenantId).first();
+  if(historical)return null;
   const lid=id();
   await env.DB.prepare("INSERT INTO operating_locations(id,tenant_id,name,code,town,active) VALUES(?,?,'Head Office','HQ','',1)").bind(lid,tenantId).run();
   return {id:lid,name:"Head Office",code:"HQ",town:"",active:1};
@@ -6756,14 +6758,12 @@ export default {
         const locationId=url.pathname.split("/")[4],existing=await env.DB.prepare("SELECT id,name,active FROM operating_locations WHERE id=? AND tenant_id=? LIMIT 1").bind(locationId,a.tenant_id).first();
         if(!existing)return json({error:"location_not_found"},404);
         if(Number(existing.active)!==1)return json({ok:true,id:locationId,status:"inactive",alreadyInactive:true,reportingAccessRevoked:true});
-        const countRow=await env.DB.prepare("SELECT COUNT(*) count FROM operating_locations WHERE tenant_id=? AND active=1").bind(a.tenant_id).first();
-        if(Number(countRow?.count||0)<=1)return json({error:"last_active_location_required"},409);
         await env.DB.batch([
           env.DB.prepare("UPDATE operating_locations SET active=0,updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND active=1").bind(locationId,a.tenant_id),
           env.DB.prepare("UPDATE employee_reporting_access SET status='revoked',last_rotated_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND location_id=? AND status='active'").bind(a.tenant_id,locationId)
         ]);
-        await writeAudit(env,a.tenant_id,a.user_id,"OPERATING_LOCATION_DEACTIVATED",{locationId,name:existing.name,retainedHistory:true,reportingAccessRevoked:true});
-        return json({ok:true,id:locationId,status:"inactive",retainedHistory:true,reportingAccessRevoked:true});
+        await writeAudit(env,a.tenant_id,a.user_id,"OPERATING_LOCATION_REMOVED",{locationId,name:existing.name,retainedHistory:true,reportingAccessRevoked:true,restorable:true});
+        return json({ok:true,id:locationId,status:"inactive",removed:true,retainedHistory:true,reportingAccessRevoked:true,restorable:true});
       }
       if(url.pathname.match(/^\/api\/daily-reporting\/locations\/[^/]+\/reactivate$/)&&req.method==="POST"){
         if(!roleAllowed(a,"owner","manager"))return json({error:"forbidden"},403);
