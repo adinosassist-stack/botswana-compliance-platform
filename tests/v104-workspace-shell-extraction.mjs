@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {execFileSync} from "node:child_process";
 
 const html=fs.readFileSync("public/index.html","utf8");
-const runtime=fs.readFileSync("public/js/workspace-runtime-20260923c.js","utf8");
+const runtime=fs.readFileSync("public/js/workspace-runtime-20260923d.js","utf8");
 const styles=fs.readFileSync("public/assets/workspace-inline-styles-20260921a.css","utf8");
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
@@ -27,7 +27,7 @@ assert.match(runtime,/function hydrateLazyWorkspaceView\(id,target,options=\{\}\
 assert.match(runtime,/const workspaceFragmentClient=window\.BW\?\.api\?\.createClient\?\.\(\{timeoutMs:6000,retries:1\}\)/,"versioned runtime must use the centralized bounded fragment transport");
 assert.match(runtime,/function fetchWorkspaceViewShard\(asset,shard\)/,"versioned runtime must contain fragment transport wrapper");
 assert.match(runtime,/let turnstileWidgetId=/);
-execFileSync(process.execPath,["--check","public/js/workspace-runtime-20260923c.js"],{stdio:"pipe"});
+execFileSync(process.execPath,["--check","public/js/workspace-runtime-20260923d.js"],{stdio:"pipe"});
 
 assert.match(worker,/immutableWorkspaceRuntime=\/\^\\\/js\\\/workspace-runtime-\[a-z0-9\.\-\]\+\\\.js\$\/i\.test\(url\.pathname\)/);
 assert.match(worker,/immutableWorkspaceStyles=\/\^\\\/assets\\\/workspace-inline-styles-\[a-z0-9\.\-\]\+\\\.css\$\/i\.test\(url\.pathname\)/);
