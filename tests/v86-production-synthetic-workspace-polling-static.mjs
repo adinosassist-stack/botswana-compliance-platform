@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const source=fs.readFileSync("scripts/production-synthetic-browser-wrapper.mjs","utf8");
+const fullUser=fs.readFileSync("scripts/production-synthetic-full-user-wrapper.mjs","utf8");
 const workspaceProof=source.slice(source.indexOf("function workspaceAuthoredState"),source.indexOf("async function loginInBrowser"));
 
 assert.ok(workspaceProof.length>0,"workspace proof section must be discoverable");
@@ -21,5 +22,6 @@ assert.doesNotMatch(workspaceProof,/page\.waitForFunction\(/,"production workspa
 assert.match(source,/getComputedStyle\(shell\)/,"computed rendered visibility confirmation must remain after authored readiness");
 assert.match(source,/rendered\.display!=='none'&&rendered\.visibility!=='hidden'&&rendered\.opacity!=='0'&&rendered\.rects>0/,"rendered workspace must still fail closed when not visible");
 assert.match(source,/WORKSPACE_AUTHORED_VISIBILITY_WAIT_MS\+Math\.max\(DIAGNOSTIC_EXTERNAL_DEADLINE_MS,WORKSPACE_COMPUTED_VISIBILITY_DEADLINE_MS\)\+2000<WORKSPACE_EXTERNAL_DEADLINE_MS/,"inner diagnostics must remain inside outer workspace deadline");
+assert.match(fullUser,/const portal=document\.getElementById\('reporterPortal'\);return !!portal&&getComputedStyle\(portal\)\.display!==\'none\'/,"reporter portal visibility wait must tolerate lazy DOM hydration before calling getComputedStyle");
 
 console.log("v86 production synthetic workspace polling checks passed");
