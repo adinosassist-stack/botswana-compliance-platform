@@ -46,6 +46,34 @@ async function query(sql,params=[]){
   if(!results.length||results.some(r=>r?.success===false))fail(`D1 query failed: ${safe(sql)}`);
   return results.flatMap(r=>Array.isArray(r?.results)?r.results:[]);
 }
+
+function splitMigrationStatements(sql){
+  const statements=[];let buffer=[],trigger=false;
+  for(const rawLine of String(sql||'').split(/\r?\n/)){
+    const line=rawLine.trim();
+    if(!buffer.length&&(!line||line.startsWith('--')))continue;
+    if(!buffer.length&&/^CREATE\s+TRIGGER\b/i.test(line))trigger=true;
+    buffer.push(rawLine);
+    if(trigger){
+      if(/^END;\s*$/i.test(line)){
+        statements.push(buffer.join('\n').trim());buffer=[];trigger=false;
+      }
+    }else if(/;\s*$/.test(line)){
+      statements.push(buffer.join('\n').trim());buffer=[];
+    }
+  }
+  if(buffer.some(line=>String(line).trim()))fail('migration parser ended with incomplete SQL');
+  return statements;
+}
+async function batch(statements){
+  const payload={batch:statements.map(sql=>({sql,params:[]}))};
+  const body=await cf(`/accounts/${accountId}/d1/database/${databaseId}/query`,{method:'POST',body:JSON.stringify(payload)});
+  const results=Array.isArray(body?.result)?body.result:[];
+  if(results.length!==statements.length||results.some(r=>r?.success===false)){
+    fail(`D1 batch failed expected=${statements.length} results=${results.length}`);
+  }
+  return results;
+}
 async function names(type){
   const rows=await query('SELECT name FROM sqlite_master WHERE type=?',[type]);
   return new Set(rows.map(row=>String(row.name||'')));
@@ -76,8 +104,10 @@ const bookmarkBody=await cf(`/accounts/${accountId}/d1/database/${databaseId}/ti
 const bookmark=String(bookmarkBody?.result?.bookmark||'').trim();
 if(!bookmark)fail('could not capture a pre-migration Time Travel bookmark');
 console.log(`Pre-migration Time Travel bookmark captured: ${bookmark}`);
-console.log('Applying reviewed forward-only migration 049 to production D1.');
-await query(migration);
+const statements=splitMigrationStatements(migration);
+if(statements.length!==13)fail(`reviewed migration parser expected 13 statements, got ${statements.length}`);
+console.log(`Applying reviewed forward-only migration 049 to production D1 as ${statements.length} complete statements.`);
+await batch(statements);
 
 const after=await inspect();
 if(!complete(after))fail(`post-migration verification incomplete tables=${after.presentTables.join(',')||'none'} indexes=${after.presentIndexes.join(',')||'none'} triggers=${after.presentTriggers.join(',')||'none'}`);
