@@ -5764,7 +5764,7 @@ async function renderPeopleOperationsHub(){
   if(!roleCanView("peopleops")||!["owner","manager"].includes(currentWorkspaceRole()))return;
   const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value};
   const date=browserGaboroneDate();
-  const results=await Promise.allSettled([apiJson("/api/employees"),apiJson(`/api/daily-reporting/dashboard?date=${encodeURIComponent(date)}`),apiJson("/api/hr/cases"),apiJson("/api/employer-risk")]);
+  const results=await Promise.allSettled([apiJson("/api/employees"),reportingAnalyticsJson(`/api/daily-reporting/dashboard?date=${encodeURIComponent(date)}`),apiJson("/api/hr/cases"),apiJson("/api/employer-risk")]);
   const employees=results[0].status==="fulfilled"?(results[0].value.items||[]):[];
   const dash=results[1].status==="fulfilled"?results[1].value:null;
   const cases=results[2].status==="fulfilled"?(results[2].value.items||[]):[];
@@ -5830,7 +5830,8 @@ async function addEmployeeRecord(){
     document.getElementById("eName").value="";document.getElementById("eRole").value="";document.getElementById("eStart").value="";
     await renderEmployeeRegister();
     if(document.getElementById("peopleops"))await renderPeopleOperationsHub();
-    if(document.getElementById("opsReporterEmployee"))await renderDailyOperations();
+    if(document.getElementById("peopleops")?.classList.contains("active"))await renderPeopleReportingSetup();
+    if(document.getElementById("dailyreports")?.classList.contains("active"))await renderDailyOperations();
     notifyUser("Employee saved. It is now available for reporting access.",{type:"success"});
   }catch(e){notifyUser(e.message)}
 }
@@ -5845,7 +5846,8 @@ async function removeEmployeeRecord(id){
    await apiJson(`/api/employees/${encodeURIComponent(id)}`,{method:"DELETE"});
    await renderEmployeeRegister();
    if(document.getElementById("peopleops"))await renderPeopleOperationsHub();
-   if(document.getElementById("opsReporterEmployee"))await renderDailyOperations();
+   if(document.getElementById("peopleops")?.classList.contains("active"))await renderPeopleReportingSetup();
+   if(document.getElementById("dailyreports")?.classList.contains("active"))await renderDailyOperations();
    notifyUser("Employee removed from active staff. Historical records were retained and reporting access was revoked.",{type:"success"});
  }catch(e){notifyUser(e.message)}
 }
@@ -6663,8 +6665,10 @@ window.addEventListener("error",event=>reportClientError(event.error||event.mess
 window.addEventListener("unhandledrejection",event=>reportClientError(event.reason,"unhandledrejection"));
 const productionApiClient=BW.api.createClient({getCsrfToken:()=>csrfToken,onUnauthorized:()=>{try{showAuth()}catch{}},onError:(err)=>{try{BW.notifications.notify(err.message,{type:"error"})}catch{}}});
 const publicApiClient=BW.api.createClient({getCsrfToken:()=>"",onUnauthorized:()=>{},onError:(err,ctx)=>console.error("BW public API request failed",{code:err.code,status:err.status,...ctx})});
+const reportingAnalyticsApiClient=BW.api.createClient({getCsrfToken:()=>csrfToken,onUnauthorized:()=>{try{showAuth()}catch{}},onError:(err)=>console.warn("BW reporting analytics request failed",{code:err.code,status:err.status}),timeoutMs:30000,retries:0,candidateTimeoutMs:9000});
 const runtimeApiClient=STANDALONE_PREVIEW?Object.freeze({request:(url,opts={})=>BW.preview.request(url,opts)}):productionApiClient;
 async function apiJson(url,opts={}){return runtimeApiClient.request(url,opts)}
+async function reportingAnalyticsJson(url,opts={}){return STANDALONE_PREVIEW?runtimeApiClient.request(url,opts):reportingAnalyticsApiClient.request(url,opts)}
 function enterStandalonePreview(){if(!STANDALONE_PREVIEW)return false;document.body.classList.add("standalone-preview");const next=structuredClone(DEFAULT_STATE);next.activeRole="owner";replaceWorkspaceStore(next);currentUser={id:"preview-user",email:"preview@local",role:"owner"};marketingGate.classList.add("hidden");authGate.classList.add("hidden");revealWorkspaceShell();syncMobileRoleNav("owner");renderAll();applyRoleUi();showView("dashboard");const chip=document.querySelector(".prodchip");if(chip)chip.textContent="PREVIEW MODE";return true}
 
 
@@ -6749,7 +6753,7 @@ async function renderDailyOperations(){
     apiJson("/api/daily-reporting/locations"),
     apiJson("/api/employees"),
     apiJson("/api/daily-reporting/access"),
-    apiJson(`/api/daily-reporting/dashboard?date=${encodeURIComponent(date)}${locationId?`&locationId=${encodeURIComponent(locationId)}`:""}`)
+    reportingAnalyticsJson(`/api/daily-reporting/dashboard?date=${encodeURIComponent(date)}${locationId?`&locationId=${encodeURIComponent(locationId)}`:""}`)
   ];
   const [locationsR,employeesR,accessR,dashboardR]=await Promise.allSettled(requests);
   if(setupEpoch!==opsReportingSetupEpoch)return;
@@ -6783,7 +6787,7 @@ async function renderDailyOperations(){
   renderOpsBranches(dashboard.branches||[]);renderOpsMissing(dashboard.missing||[]);renderOpsExceptions(dashboard.exceptions||[]);renderOpsReports(dashboard.reports||[]);
   const [settingsR,summariesR]=await Promise.allSettled([
     apiJson("/api/daily-reporting/settings"),
-    apiJson(`/api/daily-reporting/summaries?date=${encodeURIComponent(date)}`)
+    reportingAnalyticsJson(`/api/daily-reporting/summaries?date=${encodeURIComponent(date)}`)
   ]);
   const settings=value(settingsR,{}),summaries=value(summariesR,{items:[]});
   const autoSummary=document.getElementById("opsAutoSummary");if(autoSummary){autoSummary.checked=Number(settings.auto_summary_enabled||0)===1||settings.autoSummaryEnabled===true;autoSummary.disabled=settingsR.status==="rejected"}
@@ -6791,12 +6795,12 @@ async function renderDailyOperations(){
   const reportingFailures=[dashboardR].filter(x=>x.status==="rejected");
   if(reportingFailures.length){
     const first=reason(reportingFailures[0]),box=document.getElementById("opsAiSummary"),planBlocked=reportingFailures.some(x=>Number(reason(x)?.status||0)===402||String(reason(x)?.code||"")==="feature_not_in_plan");
-    if(box)box.safeHTML=planBlocked?'<div class="notice info"><b>Daily reporting analytics are not available on the current plan.</b><div class="small">Location setup remains available.</div></div>':`<div class="notice bad">Some reporting analytics could not load. ${escapeHtml(first?.message||"Retry this section.")}</div>`;
+    if(box)box.safeHTML=planBlocked?'<div class="notice info"><b>Daily reporting analytics are not available on the current plan.</b><div class="small">Location setup remains available.</div></div>':`<div class="notice bad"><b>Reporting analytics are temporarily unavailable.</b><div class="small">${escapeHtml(first?.message||"Retry this section.")}</div><button class="btn alt" type="button" style="margin-top:8px" data-bw-onclick="renderDailyOperations()">Retry analytics</button></div>`;
   }
   setTimeout(()=>document.querySelectorAll('#dailyreports .metric-ring[data-ring-target]').forEach(syncMetricRing),10);
 }
-async function loadOpsPerformanceLearning(){const date=document.getElementById("opsReportDate")?.value||browserGaboroneDate(),locationId=document.getElementById("opsLocationFilter")?.value||"",status=document.getElementById("opsLearningUpdated");if(status)status.textContent="Loading performance learning…";try{const performance=await apiJson(`/api/daily-reporting/performance?date=${encodeURIComponent(date)}${locationId?`&locationId=${encodeURIComponent(locationId)}`:""}`);renderOpsPerformance(performance);if(status&&!String(status.textContent||"").includes("historical"))status.textContent="Performance learning loaded."}catch(e){if(status)status.textContent="Performance learning could not load. "+e.message}}
-async function addOpsLocation(){const name=document.getElementById("opsLocationName").value.trim();if(!name)return notifyUser("Enter a location name.");try{const saved=await apiJson("/api/daily-reporting/locations",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({name,code:document.getElementById("opsLocationCode").value,town:document.getElementById("opsLocationTown").value})});document.getElementById("opsLocationName").value="";document.getElementById("opsLocationCode").value="";document.getElementById("opsLocationTown").value="";await renderDailyOperations();notifyUser(saved?.reusedDefault?"Location saved. The initial Head Office placeholder was replaced.":"Location added.",{type:"success"})}catch(e){notifyUser(e.message)}}
+async function loadOpsPerformanceLearning(){const date=document.getElementById("opsReportDate")?.value||browserGaboroneDate(),locationId=document.getElementById("opsLocationFilter")?.value||"",status=document.getElementById("opsLearningUpdated");if(status)status.textContent="Loading performance learning…";try{const performance=await reportingAnalyticsJson(`/api/daily-reporting/performance?date=${encodeURIComponent(date)}${locationId?`&locationId=${encodeURIComponent(locationId)}`:""}`);renderOpsPerformance(performance);if(status&&!String(status.textContent||"").includes("historical"))status.textContent="Performance learning loaded."}catch(e){if(status)status.textContent="Performance learning could not load. "+e.message}}
+async function addOpsLocation(){const name=document.getElementById("opsLocationName").value.trim();if(!name)return notifyUser("Enter a location name.");try{const saved=await apiJson("/api/daily-reporting/locations",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({name,code:document.getElementById("opsLocationCode").value,town:document.getElementById("opsLocationTown").value})});document.getElementById("opsLocationName").value="";document.getElementById("opsLocationCode").value="";document.getElementById("opsLocationTown").value="";if(document.getElementById("peopleops")?.classList.contains("active"))await renderPeopleReportingSetup();if(document.getElementById("dailyreports")?.classList.contains("active"))await renderDailyOperations();notifyUser(saved?.reusedDefault?"Location saved. The initial Head Office placeholder was replaced.":"Location added.",{type:"success"})}catch(e){notifyUser(e.message)}}
 async function editOpsLocation(id){const current=globalThis.__opsLocationsById?.[String(id)];if(!current)return notifyUser("Location details are unavailable. Reload this section.");const name=await BW.dialog.prompt({title:"Edit location name",message:"Update the office, branch, shop, site or team name.",defaultValue:String(current.name||""),required:true,minLength:2,maxLength:90,confirmLabel:"Next"});if(name===null)return;const code=await BW.dialog.prompt({title:"Edit location code",message:"Optional short code used in reporting filters.",defaultValue:String(current.code||""),maxLength:16,confirmLabel:"Next"});if(code===null)return;const town=await BW.dialog.prompt({title:"Edit location town / area",message:"Optional town or area.",defaultValue:String(current.town||""),maxLength:80,confirmLabel:"Save location"});if(town===null)return;try{await apiJson(`/api/daily-reporting/locations/${encodeURIComponent(id)}`,{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify({name,code,town})});await renderDailyOperations();await renderPeopleReportingSetup();notifyUser("Location updated.",{type:"success"})}catch(e){notifyUser(e.message)}}
 async function removeOpsLocation(id){const current=globalThis.__opsLocationsById?.[String(id)],confirmed=await BW.dialog.confirm({title:"Remove location?",message:`Remove ${current?.name||"this location"} from active use? Historical reports stay intact and active employee reporting links for this location will be revoked. You can restore the location later.`,confirmLabel:"Remove location",danger:true});if(!confirmed)return;try{await apiJson(`/api/daily-reporting/locations/${encodeURIComponent(id)}/deactivate`,{method:"POST",body:"{}"});await renderDailyOperations();await renderPeopleReportingSetup();notifyUser("Location removed from active use. Historical reports were retained and reporting links for it were revoked.",{type:"success"})}catch(e){notifyUser(e.message)}}
 async function deactivateOpsLocation(id){return removeOpsLocation(id)}
@@ -7076,7 +7080,7 @@ async function renderEmployeesForHr(){
   const sel=document.getElementById("hrCaseEmployee");if(!sel)return;
   try{
     const r=await apiJson("/api/employees");
-    const items=r.items||[];
+    const items=(r.items||[]).filter(x=>String(x.status||"").trim().toLowerCase()==="active");
     document.getElementById("employeeCount").textContent=items.length;
     sel.safeHTML='<option value="">General / not assigned</option>'+items.map(x=>`<option value="${escapeHtml(x.id)}">${escapeHtml(x.full_name)}</option>`).join("");
   }catch{}
@@ -7730,7 +7734,7 @@ async function renderProtectionEngine(){
     const dims=bps.dimensions||{};bpsDimensions.safeHTML=Object.entries(dims).map(([k,v])=>`<div class="item"><div class="between row"><b>${escapeHtml(k.replaceAll("_"," "))}</b><span>${v.score}% · weight ${v.weight}%</span></div><div class="progress"><span style="width:${v.score}%"></span></div></div>`).join("");
     bpsDrivers.safeHTML=(bps.drivers||[]).map(x=>`<div class="item"><b>${escapeHtml(x.title||x.dimension)}</b><div class="muted small">${x.severity?escapeHtml(x.severity):`Score ${x.score}`}</div></div>`).join("")||'<div class="muted small">No material protection gaps.</div>';
     box.safeHTML=(risk.findings||[]).map(x=>`<div class="item"><div class="between row"><div><b>${escapeHtml(x.title)}</b><div class="muted small">${escapeHtml(x.severity)}${x.employeeId?` · employee ${escapeHtml(x.employeeId)}`:""}</div><div class="small">${escapeHtml(x.rationale)}</div><div class="muted small" style="margin-top:4px">Action: ${escapeHtml(x.recommendedAction)}</div></div></div></div>`).join("")||'<div class="muted small">No material employment-control findings.</div>';
-    const sel=document.getElementById("riskEmployee"),old=sel.value;sel.safeHTML=(emps.items||[]).map(e=>`<option value="${e.id}">${escapeHtml(e.full_name)}</option>`).join("");if(old&&[...sel.options].some(o=>o.value===old))sel.value=old;sel.onchange=loadRiskEmployeeControls;if(sel.value)await loadRiskEmployeeControls();
+    const sel=document.getElementById("riskEmployee"),old=sel.value,activeRiskEmployees=(emps.items||[]).filter(e=>String(e.status||"").trim().toLowerCase()==="active");sel.safeHTML=activeRiskEmployees.map(e=>`<option value="${e.id}">${escapeHtml(e.full_name)}</option>`).join("");if(old&&[...sel.options].some(o=>o.value===old))sel.value=old;sel.onchange=loadRiskEmployeeControls;if(sel.value)await loadRiskEmployeeControls();
   }catch(e){box.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
 }
 
