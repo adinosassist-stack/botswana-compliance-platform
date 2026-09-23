@@ -43,8 +43,9 @@ assert.ok(migration.includes("CREATE TABLE IF NOT EXISTS operating_locations"));
 assert.match(html,/Location saved\. The initial Head Office placeholder was replaced\./);
 
 // Basic reporting setup uses the operating-locations entitlement; analytics remain separately gated.
-assert.match(worker,/const reportingSetupPath=url\.pathname==="\/api\/daily-reporting\/locations"\|\|url\.pathname==="\/api\/daily-reporting\/access"\|\|\/\^\\\/api\\\/daily-reporting\\\/access\\\/\[\^\/\]\+\\\/revoke\$\/\.test\(url\.pathname\)/);
+assert.match(worker,/const reportingSetupPath=url\.pathname==="\/api\/daily-reporting\/locations"\|\|url\.pathname==="\/api\/daily-reporting\/access"\|\|url\.pathname==="\/api\/daily-reporting\/dashboard"\|\|\/\^\\\/api\\\/daily-reporting\\\/access\\\/\[\^\/\]\+\\\/revoke\$\/\.test\(url\.pathname\)/);
 assert.match(worker,/const featureKey=reportingSetupPath\?"operating_locations":"daily_operations"/);
+assert.equal((worker.match(/entitlement\(env,access\.tenant_id,"operating_locations"\)/g)||[]).length,2,"public reporting access and submit must follow the core operating_locations entitlement");
 
 // Pass 3: reporting access stays tenant/active scoped and removals fail closed.
 assert.match(worker,/active_employee_required/);
