@@ -148,6 +148,77 @@ export async function financeReceivablesSummary(env,tenantId,{businessDate=gabor
   });
 }
 
+
+export async function financeReceivableCustomerLookup(env,tenantId,{customerQuery,businessDate=gaboroneBusinessDate(),invoiceLimit=20}={}){
+  const query=text(customerQuery,160).toLowerCase();
+  const authority=Object.freeze({
+    canonical:true,
+    providerNeutral:true,
+    source:"finance_invoices_plus_transaction_allocations",
+    estimated:false,
+    matchPolicy:"exact_customer_name_or_code_only"
+  });
+  if(query.length<2)return Object.freeze({state:"invalid",currency:"BWP",businessDate,authority});
+  const matches=await env.DB.prepare(
+    "SELECT id,customer_code,name FROM finance_customers"+
+    " WHERE tenant_id=? AND status='active' AND (lower(name)=? OR lower(COALESCE(customer_code,''))=?)"+
+    " ORDER BY name,id LIMIT 3"
+  ).bind(tenantId,query,query).all();
+  const rows=matches.results||[];
+  if(rows.length===0)return Object.freeze({state:"not_found",currency:"BWP",businessDate,query,authority});
+  if(rows.length!==1){
+    return Object.freeze({
+      state:"ambiguous",currency:"BWP",businessDate,query,matchCount:rows.length,
+      matches:Object.freeze(rows.map(row=>Object.freeze({
+        customerId:String(row.id||""),
+        customerCode:text(row.customer_code,80)||null,
+        customerName:text(row.name,160)
+      }))),
+      authority
+    });
+  }
+  const customer=rows[0],invoiceCap=Math.min(50,Math.max(1,Number(invoiceLimit)||20)),cte=allocationCte();
+  const [summary,invoices]=await Promise.all([
+    env.DB.prepare(cte+
+      "SELECT COUNT(*) outstanding_invoice_count,COALESCE(SUM(outstanding_minor),0) outstanding_minor,"+
+      " SUM(CASE WHEN due_on<? THEN 1 ELSE 0 END) overdue_invoice_count,"+
+      " COALESCE(SUM(CASE WHEN due_on<? THEN outstanding_minor ELSE 0 END),0) overdue_minor,"+
+      " MIN(due_on) earliest_due_on FROM open_invoices WHERE customer_id=?"
+    ).bind(tenantId,tenantId,businessDate,businessDate,customer.id).first(),
+    env.DB.prepare(cte+
+      "SELECT id,invoice_number,issued_on,due_on,total_minor,allocated_minor,outstanding_minor,"+
+      " CASE WHEN due_on<? THEN 1 ELSE 0 END overdue"+
+      " FROM open_invoices WHERE customer_id=? ORDER BY overdue DESC,due_on ASC,outstanding_minor DESC LIMIT ?"
+    ).bind(tenantId,tenantId,businessDate,customer.id,invoiceCap).all()
+  ]);
+  return Object.freeze({
+    state:"resolved",
+    currency:"BWP",
+    businessDate,
+    customer:Object.freeze({
+      customerId:String(customer.id||""),
+      customerCode:text(customer.customer_code,80)||null,
+      customerName:text(customer.name,160)
+    }),
+    outstandingInvoiceCount:Number(summary?.outstanding_invoice_count||0),
+    outstandingMinor:Number(summary?.outstanding_minor||0),
+    overdueInvoiceCount:Number(summary?.overdue_invoice_count||0),
+    overdueMinor:Number(summary?.overdue_minor||0),
+    earliestDueOn:summary?.earliest_due_on||null,
+    invoices:Object.freeze((invoices.results||[]).map(row=>Object.freeze({
+      id:String(row.id||""),
+      invoiceNumber:text(row.invoice_number,80),
+      issuedOn:row.issued_on||null,
+      dueOn:row.due_on||null,
+      totalMinor:Number(row.total_minor||0),
+      allocatedMinor:Number(row.allocated_minor||0),
+      outstandingMinor:Number(row.outstanding_minor||0),
+      overdue:Number(row.overdue||0)===1
+    }))),
+    authority
+  });
+}
+
 async function invoiceDetail(env,tenantId,invoiceId){
   return await env.DB.prepare(
     "SELECT i.id,i.customer_id,c.name customer_name,i.invoice_number,i.issued_on,i.due_on,i.description,i.total_minor,i.currency,i.status,i.created_at,"+
