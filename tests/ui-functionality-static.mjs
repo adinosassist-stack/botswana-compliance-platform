@@ -69,7 +69,7 @@ for(const action of ["createOpsReporterLink","copyOpsReporterLink","shareOpsRepo
   assert.ok(allowedActions.has(action),"employee reporting action must be delegated: "+action);
   assert.ok(funcs.has(action),"employee reporting action implementation missing: "+action);
 }
-assert.ok(worker.includes("const link=")&&worker.includes("/#report=")&&worker.includes("encodeURIComponent(token)"),"employee reporting bearer link must remain fragment-scoped");
+assert.ok(worker.includes("const link=")&&worker.includes("#report=${encodeURIComponent(token)}")&&!worker.includes("?report=${encodeURIComponent(token)}"),"employee reporting bearer token must remain fragment-scoped and never enter the query string");
 assert.ok(worker.includes('url.pathname.startsWith("/js/")&&url.pathname.endsWith(".js")'),"all first-party JS runtimes must be served no-store");
 assert.ok(worker.includes('20260921-workspace-actions-v1'),"workspace action runtime release marker missing");
 assert.ok(worker.includes('versioned=html.replace(/src="')&&worker.includes('CLIENT_RUNTIME_RELEASE'),"root HTML must version every first-party JS runtime");
