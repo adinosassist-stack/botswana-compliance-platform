@@ -6709,7 +6709,7 @@ export default {
 
 
       if(url.pathname.startsWith("/api/daily-reporting/")){
-        const reportingSetupPath=url.pathname==="/api/daily-reporting/locations"||url.pathname==="/api/daily-reporting/access"||url.pathname==="/api/daily-reporting/dashboard"||/^\/api\/daily-reporting\/access\/[^/]+\/revoke$/.test(url.pathname);
+        const reportingSetupPath=url.pathname==="/api/daily-reporting/locations"||/^\/api\/daily-reporting\/locations\/[^/]+(?:\/(?:deactivate|reactivate))?$/.test(url.pathname)||url.pathname==="/api/daily-reporting/access"||url.pathname==="/api/daily-reporting/dashboard"||/^\/api\/daily-reporting\/access\/[^/]+\/revoke$/.test(url.pathname);
         const featureKey=reportingSetupPath?"operating_locations":"daily_operations";
         const featureGate=await requireEntitlement(env,a.tenant_id,featureKey);if(!featureGate.ok)return json({error:featureGate.error,entitlement:featureGate.entitlement},402);
       }
@@ -6737,6 +6737,44 @@ export default {
           await writeAudit(env,a.tenant_id,a.user_id,"OPERATING_LOCATION_CREATED",{locationId:lid,name,code,town});
           return {status:201,body:{ok:true,id:lid,reusedDefault:false}};
         });
+      }
+      if(url.pathname.match(/^\/api\/daily-reporting\/locations\/[^/]+$/)&&req.method==="PUT"){
+        if(!roleAllowed(a,"owner","manager"))return json({error:"forbidden"},403);
+        const locationId=url.pathname.split("/")[4],body=await readJson(req),name=boundedReportText(body.name,90);
+        if(name.length<2)return json({error:"location_name_required"},400);
+        const code=boundedReportText(body.code,16).toUpperCase().replace(/[^A-Z0-9_-]/g,"")||null,town=boundedReportText(body.town,80);
+        const existing=await env.DB.prepare("SELECT id,name,code,town,active FROM operating_locations WHERE id=? AND tenant_id=? LIMIT 1").bind(locationId,a.tenant_id).first();
+        if(!existing)return json({error:"location_not_found"},404);
+        try{
+          await env.DB.prepare("UPDATE operating_locations SET name=?,code=?,town=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=?").bind(name,code,town,locationId,a.tenant_id).run();
+        }catch(e){if(String(e).includes("UNIQUE"))return json({error:"location_code_already_used"},409);throw e}
+        await writeAudit(env,a.tenant_id,a.user_id,"OPERATING_LOCATION_UPDATED",{locationId,name,code,town,active:Number(existing.active)===1});
+        return json({ok:true,id:locationId,name,code,town,active:Number(existing.active)===1});
+      }
+      if(url.pathname.match(/^\/api\/daily-reporting\/locations\/[^/]+\/deactivate$/)&&req.method==="POST"){
+        if(!roleAllowed(a,"owner","manager"))return json({error:"forbidden"},403);
+        const locationId=url.pathname.split("/")[4],existing=await env.DB.prepare("SELECT id,name,active FROM operating_locations WHERE id=? AND tenant_id=? LIMIT 1").bind(locationId,a.tenant_id).first();
+        if(!existing)return json({error:"location_not_found"},404);
+        if(Number(existing.active)!==1)return json({ok:true,id:locationId,status:"inactive",alreadyInactive:true,reportingAccessRevoked:true});
+        const countRow=await env.DB.prepare("SELECT COUNT(*) count FROM operating_locations WHERE tenant_id=? AND active=1").bind(a.tenant_id).first();
+        if(Number(countRow?.count||0)<=1)return json({error:"last_active_location_required"},409);
+        await env.DB.batch([
+          env.DB.prepare("UPDATE operating_locations SET active=0,updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND active=1").bind(locationId,a.tenant_id),
+          env.DB.prepare("UPDATE employee_reporting_access SET status='revoked',last_rotated_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND location_id=? AND status='active'").bind(a.tenant_id,locationId)
+        ]);
+        await writeAudit(env,a.tenant_id,a.user_id,"OPERATING_LOCATION_DEACTIVATED",{locationId,name:existing.name,retainedHistory:true,reportingAccessRevoked:true});
+        return json({ok:true,id:locationId,status:"inactive",retainedHistory:true,reportingAccessRevoked:true});
+      }
+      if(url.pathname.match(/^\/api\/daily-reporting\/locations\/[^/]+\/reactivate$/)&&req.method==="POST"){
+        if(!roleAllowed(a,"owner","manager"))return json({error:"forbidden"},403);
+        const locationId=url.pathname.split("/")[4],existing=await env.DB.prepare("SELECT id,name,active FROM operating_locations WHERE id=? AND tenant_id=? LIMIT 1").bind(locationId,a.tenant_id).first();
+        if(!existing)return json({error:"location_not_found"},404);
+        if(Number(existing.active)===1)return json({ok:true,id:locationId,status:"active",alreadyActive:true});
+        const locEnt=await entitlement(env,a.tenant_id,"operating_locations"),countRow=await env.DB.prepare("SELECT COUNT(*) count FROM operating_locations WHERE tenant_id=? AND active=1").bind(a.tenant_id).first();
+        if(locEnt.limit!=null&&Number(countRow?.count||0)>=Number(locEnt.limit))return json({error:"location_plan_limit_reached",limit:locEnt.limit},402);
+        await env.DB.prepare("UPDATE operating_locations SET active=1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND active=0").bind(locationId,a.tenant_id).run();
+        await writeAudit(env,a.tenant_id,a.user_id,"OPERATING_LOCATION_REACTIVATED",{locationId,name:existing.name});
+        return json({ok:true,id:locationId,status:"active"});
       }
       if(url.pathname==="/api/daily-reporting/access"&&req.method==="GET"){
         if(!roleAllowed(a,"owner","manager"))return json({error:"forbidden"},403);
