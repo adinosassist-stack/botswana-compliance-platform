@@ -25,7 +25,7 @@ assert.ok(html.includes('(employees.items||[]).filter(x=>String(x.status||\"\").
 
 // Pass 2 — access, privacy, prompt-injection and AI cost controls.
 assert.ok(worker.includes('token_hash')&&!migration.includes('raw_token'),'reporting token must be stored hashed only');
-assert.ok(worker.includes('const link=`${origin}/report/#report=${encodeURIComponent(token)}`'),'reporting token must use the dedicated /report/ bearer surface and URL fragment rather than query string');
+assert.ok(worker.includes('const link=`${origin}/report/?entry=employee&v=20260923e#report=${encodeURIComponent(token)}`'),'reporting token must use the dedicated /report/ bearer surface with cache-busting metadata while keeping the bearer token in the URL fragment');
 assert.ok(worker.includes('"/public/daily-reporting/access"&&req.method==="POST"')&&worker.includes('"/public/daily-reporting/submit"&&req.method==="POST"'),'public reporting bearer workflow must be POST-only');
 assert.ok(worker.includes('requestOriginAllowed(req,env)'),'public reporting endpoints must enforce allowed origin policy');
 assert.ok(worker.includes("a.status='active' AND a.expires_at>CURRENT_TIMESTAMP AND lower(trim(coalesce(e.status,'')))='active' AND l.active=1"),'reporting link must fail closed on inactive/expired scope');

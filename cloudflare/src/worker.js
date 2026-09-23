@@ -6792,7 +6792,7 @@ export default {
         if(!emp||String(emp.status||"").trim().toLowerCase()!=="active")return json({error:"active_employee_required"},404);if(!loc||Number(loc.active)!==1)return json({error:"active_location_required"},404);
         const days=Math.max(7,Math.min(365,Number(body.expiresInDays||180))),token=randomReporterToken(),tokenHash=await sha256Hex(token),aid=id();
         await env.DB.batch([env.DB.prepare("UPDATE employee_reporting_access SET status='revoked',last_rotated_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND employee_id=? AND location_id=? AND status='active'").bind(a.tenant_id,employeeId,locationId),env.DB.prepare("INSERT INTO employee_reporting_access(id,tenant_id,employee_id,location_id,token_hash,status,expires_at) VALUES(?,?,?,?,?,'active',datetime('now',?))").bind(aid,a.tenant_id,employeeId,locationId,tokenHash,`+${days} days`)]);
-        const origin=(validPublicAppUrl(env.PUBLIC_APP_URL)||`${url.origin}/`).replace(/\/+$/,"");const link=`${origin}/report/#report=${encodeURIComponent(token)}`;
+        const origin=(validPublicAppUrl(env.PUBLIC_APP_URL)||`${url.origin}/`).replace(/\/+$/,"");const link=`${origin}/report/?entry=employee&v=20260923e#report=${encodeURIComponent(token)}`;
         await writeAudit(env,a.tenant_id,a.user_id,"EMPLOYEE_REPORTING_ACCESS_ISSUED",{accessId:aid,employeeId,locationId,expiresInDays:days});return json({ok:true,id:aid,employeeName:emp.full_name,locationName:loc.name,expiresInDays:days,link},201);
       }
       if(url.pathname.match(/^\/api\/daily-reporting\/access\/[^/]+\/revoke$/)&&req.method==="POST"){
@@ -7878,6 +7878,12 @@ export default {
       return json({error:"not_found"},404);
     }
 
+    if((req.method==="GET"||req.method==="HEAD")&&(url.pathname.replace(/\/+$/,"")||"/")==="/report"){
+      const reportAssetRequest=new Request(new URL("/report/index.html",url.origin).toString(),{method:req.method,headers:req.headers});
+      const reportAsset=await env.ASSETS.fetch(reportAssetRequest),securedReport=secureResponse(reportAsset,{html:true}),reportHeaders=new Headers(securedReport.headers);
+      reportHeaders.set("cache-control","no-store, max-age=0, must-revalidate");reportHeaders.set("pragma","no-cache");reportHeaders.set("x-robots-tag","noindex, nofollow");
+      return versionRuntimeResponse(new Response(req.method==="HEAD"?null:securedReport.body,{status:securedReport.status,statusText:securedReport.statusText,headers:reportHeaders}),req,url);
+    }
     const assetResponse=await env.ASSETS.fetch(req),securedAsset=secureResponse(assetResponse,{html:(assetResponse.headers.get("content-type")||"").includes("text/html")});return versionRuntimeResponse(securedAsset,req,url);
     }catch(error){
       if(error instanceof HttpError)return json({error:error.code,requestId},error.status,{"x-request-id":requestId});
