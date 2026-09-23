@@ -3636,12 +3636,12 @@ main{
       <div class="card"><div class="kpi">Plan</div><div id="billingPlanName" style="font-size:24px;font-weight:800">Business</div></div>
       <div class="card"><div class="kpi">Subscription status</div><div id="billingStatus" style="font-size:24px;font-weight:800">Trial</div></div>
       <div class="card"><div class="kpi">Next billing date</div><div id="billingDate" style="font-size:20px;font-weight:800">—</div></div>
-      <div class="card"><div class="kpi">Billing</div><div style="font-size:20px;font-weight:800">Provider-managed</div></div>
+      <div class="card"><div class="kpi">Billing</div><div style="font-size:20px;font-weight:800">Manual bank transfer</div></div>
     </div>
     <div class="grid g2" style="margin-top:16px">
       <div class="card">
         <h2>Plan & billing</h2>
-        <div class="muted small">Choose the plan that fits your business. Payment should be completed through hosted/tokenized checkout so raw card details never enter Thebe Desk.</div>
+        <div class="muted small">Choose the plan that fits your business. For Phase 0, subscription payment is by bank transfer to the Thebe Desk company account. A plan activates only after Thebe Desk verifies that the funds have reflected.</div>
         <div class="row" style="margin-top:14px"><label style="min-width:170px">Billing cycle<select id="billingCycleSelect" aria-label="Billing cycle select"><option value="monthly">Monthly</option><option value="annual">Annual · 2 months free</option></select></label></div><div class="grid g4" style="margin-top:14px">
           <button type="button" class="eventcard" data-bw-onclick="requestPlan('starter')"><b>Monitor</b><div class="muted small">P149 / month</div></button>
           <button type="button" class="eventcard" data-bw-onclick="requestPlan('business')"><b>Protect</b><div class="muted small">P349 / month</div></button>
@@ -3652,7 +3652,7 @@ main{
       </div>
       <div class="card">
         <h2>Billing controls</h2>
-        <div class="checkline"><span class="dot good"></span><div><b>Hosted checkout</b><div class="muted small">Card data remains with the payment provider.</div></div></div>
+        <div class="checkline"><span class="dot good"></span><div><b>Manual verification</b><div class="muted small">Proof or a submitted bank reference never activates a plan by itself. Thebe Desk must confirm reflected funds before activation.</div></div></div>
         <div class="checkline"><span class="dot good"></span><div><b>Read access preserved</b><div class="muted small">Past-due accounts can retain read access while writes are restricted according to subscription policy.</div></div></div>
       </div>
     </div>
@@ -4168,6 +4168,10 @@ main{
   <div class="grid g2" style="margin-top:16px">
     <div class="card"><h2>Payment providers</h2><div id="paymentProviderList" class="muted small">Loading provider readiness…</div></div>
     <div class="card"><h2>Payment orders</h2><div id="paymentOrderList" class="muted small">No payment orders yet.</div></div>
+  </div>
+  <div id="manualPaymentAdminCard" class="card" style="margin-top:16px" hidden><h2>Manual payment approvals</h2>
+    <div class="notice warn"><b>Platform billing control</b><div class="small">Approve only after the matching funds are visible in the Thebe Desk company bank account. Customer-submitted references are not proof of receipt.</div></div>
+    <div id="manualPaymentAdminList" class="muted small" style="margin-top:12px">No manual payments awaiting approval.</div>
   </div>
   <div class="card" style="margin-top:16px"><h2>Reconciliation</h2>
     <div class="notice"><b>Browser return is not proof of payment</b><div class="small">Subscription activation, AI credits and paid services still require provider-side verification.</div></div>
@@ -7487,7 +7491,27 @@ async function renderPayments(){
     const vb=document.getElementById("paymentVerificationList"),rb=document.getElementById("paymentRefundList");
     if(vb)vb.safeHTML=(v.items||[]).map(x=>`<div class="item"><b>${escapeHtml(x.verification_status)}</b><div class="muted small">${escapeHtml(x.provider)} · ${escapeHtml(x.trigger_type)}${x.provider_result_code?` · code ${escapeHtml(x.provider_result_code)}`:""} · ${new Date(x.checked_at).toLocaleString()}</div></div>`).join("")||'<div class="muted small">No provider verification checks yet.</div>';
     if(rb)rb.safeHTML=(rf.items||[]).map(x=>`<div class="item"><b>${escapeHtml(x.status)} · P${x.amount_bwp}</b><div class="muted small">${escapeHtml(x.provider)}${x.reversal_status?` · ${escapeHtml(x.reversal_status)}`:""} · ${new Date(x.created_at).toLocaleString()}</div></div>`).join("")||'<div class="muted small">No refunds yet.</div>';
+    try{
+      const admin=await apiJson("/api/platform/billing/manual-payments"),card=document.getElementById("manualPaymentAdminCard"),box=document.getElementById("manualPaymentAdminList");
+      if(card&&box){card.hidden=false;box.safeHTML=(admin.items||[]).map(x=>`<div class="item"><b>${escapeHtml(x.tenant_name||x.tenant_id)} · P${x.amount_bwp}</b><div class="muted small">${escapeHtml(x.metadata?.plan||"subscription")} · bank ref ${escapeHtml(x.bank_reference)} · submitted ${new Date(x.submitted_at).toLocaleString()}</div><div class="row" style="margin-top:8px"><button type="button" class="btn" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','approve')">Verify & activate</button><button type="button" class="btn soft" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','reject')">Reject</button></div></div>`).join("")||'<div class="muted small">No manual payments awaiting approval.</div>'}
+    }catch(e){const card=document.getElementById("manualPaymentAdminCard");if(card)card.hidden=true}
   }catch(e){list.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
+}
+async function reviewManualPayment(submissionId,action){
+ try{
+   let reason="";
+   if(action==="reject"){
+     reason=await BW.dialog.prompt({title:"Reject payment submission",message:"Explain why this bank payment could not be verified. The customer plan will remain inactive.",multiline:true,required:true,minLength:5,maxLength:500,confirmLabel:"Reject payment"});
+     if(reason===null)return;
+     reason=reason.trim();if(reason.length<5){notifyUser("Add a rejection reason of at least 5 characters.");return}
+   }else{
+     const confirmed=await BW.dialog.confirm({title:"Verify payment and activate plan",message:"Confirm that the matching funds are visible in the Thebe Desk company bank account. Customer-submitted references are not proof of receipt.",confirmLabel:"Verify & activate"});
+     if(!confirmed)return;
+   }
+   const r=await apiJson(`/api/platform/billing/manual-payments/${encodeURIComponent(submissionId)}/${action}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({reason}),idempotencyKey:true});
+   notifyUser(action==="approve"?"Payment verified and plan activated.":"Payment submission rejected.");
+   await Promise.all([renderPayments(),loadBilling()]);
+ }catch(e){notifyUser(e.message)}
 }
 
 
@@ -8329,16 +8353,30 @@ function renderBilling(){
  document.querySelectorAll("[data-plan-card]").forEach(c=>c.classList.toggle("current",c.dataset.planCard===plan));
  let banner=document.getElementById("billingBanner");if(banner){let days=trial?Math.max(0,Math.ceil((trial-Date.now())/86400000)):null;if(status==="trialing"){banner.style.display="flex";banner.safeHTML=`<div><b>${days} day${days===1?"":"s"} left in your free trial</b><div class="muted small">Current selection: ${planLabel(plan)} · ${moneyPlan(plan)}/month after trial when billing is activated.</div></div><button class="btn soft" data-bw-onclick="showView('billing')">View plans</button>`}else if(status==="active"){banner.style.display="flex";banner.safeHTML=`<div><b>${planLabel(plan)} plan active</b><div class="muted small">Renewal ${fmt(renew)}</div></div><button class="btn soft" data-bw-onclick="showView('billing')">Manage plan</button>`}else{banner.style.display="none"}}
 }
+async function submitManualBankPayment(paymentOrderId){
+ const input=document.getElementById("manualBankReference"),out=document.getElementById("manualBankSubmitResult"),bankReference=String(input?.value||"").trim();
+ if(!bankReference){if(out)out.safeHTML='<div class="autherror show">Enter the bank transaction reference first.</div>';return}
+ try{
+   const r=await apiJson("/api/payments/manual-bank/submit",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({paymentOrderId,bankReference}),idempotencyKey:true});
+   if(out)out.safeHTML=`<div class="upgradeSuccess"><b>Payment submitted for verification.</b><br>${escapeHtml(r.message||"Your plan will activate after the funds are confirmed in the Thebe Desk bank account.")}</div>`;
+   await renderPayments();
+ }catch(e){if(out)out.safeHTML=`<div class="autherror show">${escapeHtml(e.message)}</div>`}
+}
 async function requestPlan(plan){
  const upgradeResult=document.getElementById("upgradeResult"),billingCycle=document.getElementById("billingCycleSelect")?.value||"monthly";
- if(upgradeResult)upgradeResult.safeHTML='<div class="muted small">Preparing secure hosted checkout…</div>';
+ if(upgradeResult)upgradeResult.safeHTML='<div class="muted small">Preparing your bank-transfer reference…</div>';
  try{
-   if(STANDALONE_PREVIEW){billingInfo={...(billingInfo||{}),plan,status:"preview"};renderBilling();if(upgradeResult)upgradeResult.safeHTML=`<div class="upgradeSuccess"><b>${planLabel(plan)} checkout preview.</b><br>Production creates a provider-hosted payment order and redirects to the configured secure checkout. No payment is taken in preview mode.</div>`;return}
+   if(STANDALONE_PREVIEW){billingInfo={...(billingInfo||{}),plan,status:"preview"};renderBilling();if(upgradeResult)upgradeResult.safeHTML=`<div class="upgradeSuccess"><b>${planLabel(plan)} manual-payment preview.</b><br>Production will show the Thebe Desk company bank details and a unique payment reference. No plan activates until staff verify reflected funds.</div>`;return}
    const data=await apiJson("/api/payments/subscription-checkout",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({plan,billingCycle}),idempotencyKey:true});
-   if(!data?.paymentOrder?.id)throw new Error("Checkout order was not created.");
+   if(!data?.paymentOrder?.id||data.checkoutMode!=="manual_bank_transfer")throw new Error("Manual payment order was not created.");
    billingInfo={...(billingInfo||{}),plan};renderBilling();
-   if(upgradeResult)upgradeResult.safeHTML=`<div class="upgradeSuccess"><b>${planLabel(plan)} checkout created.</b><br>Opening the configured hosted payment provider…</div>`;
-   await openHostedCheckout(data.paymentOrder.id);
+   const b=data.bankTransfer||{},details=[b.bankName,b.accountName,b.accountNumber,b.accountType,b.branchCode].filter(Boolean);
+   if(upgradeResult)upgradeResult.safeHTML=`<div class="upgradeSuccess"><b>Transfer P${Number(b.amountBwp||data.paymentOrder.amountBwp).toLocaleString()} to Thebe Desk.</b>
+     <div class="small" style="margin-top:8px"><b>Bank:</b> ${escapeHtml(b.bankName||"—")}<br><b>Account number:</b> ${escapeHtml(b.accountNumber||"—")}${b.accountType?`<br><b>Account type:</b> ${escapeHtml(b.accountType)}`:""}${b.branchName?`<br><b>Branch:</b> ${escapeHtml(b.branchName)}`:""}${b.branchCode?`<br><b>Branch code:</b> ${escapeHtml(b.branchCode)}`:""}${b.swiftCode?`<br><b>SWIFT:</b> ${escapeHtml(b.swiftCode)}`:""}<br><b>Payment reference:</b> ${escapeHtml(b.reference||data.paymentOrder.reference||"")}</div>
+     <div class="small" style="margin-top:8px">Use the payment reference above on the bank transfer. After paying, enter your bank transaction reference below. Submission does not activate the plan.</div>
+     <label style="display:block;margin-top:10px">Bank transaction reference<input id="manualBankReference" maxlength="100" autocomplete="off" placeholder="e.g. transfer confirmation/reference"></label>
+     <button type="button" class="btn" style="margin-top:10px" data-bw-onclick="submitManualBankPayment('${escapeHtml(data.paymentOrder.id)}')">I have paid</button>
+     <div id="manualBankSubmitResult" style="margin-top:10px" role="status" aria-live="polite"></div></div>`;
  }catch(e){if(upgradeResult)upgradeResult.safeHTML=`<div class="autherror show">${escapeHtml(e.message)}</div>`}
 }
 
