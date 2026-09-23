@@ -1407,6 +1407,12 @@ async function incrementUsage(env,tenantId,counterKey,periodKey="lifetime",amoun
      ON CONFLICT(tenant_id,counter_key,period_key) DO UPDATE SET value=value+excluded.value,updated_at=CURRENT_TIMESTAMP`
   ).bind(tenantId,counterKey,periodKey,Number(amount)).run();
 }
+async function decrementUsage(env,tenantId,counterKey,periodKey="lifetime",amount=1){
+  const step=Math.max(0,Math.trunc(Number(amount)||0));if(!step)return;
+  await env.DB.prepare(
+    "UPDATE tenant_usage_counters SET value=CASE WHEN value>? THEN value-? ELSE 0 END,updated_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND counter_key=? AND period_key=?"
+  ).bind(step,step,tenantId,counterKey,periodKey).run();
+}
 
 
 function regulatoryDateOnlyValid(value){
@@ -6680,6 +6686,21 @@ export default {
         return json({items:r.results||[]});
       }
 
+      if(url.pathname.match(/^\/api\/employees\/[^/]+$/)&&req.method==="DELETE"){
+        if(!roleAllowed(a,"owner","manager"))return json({error:"forbidden"},403);
+        const employeeId=url.pathname.split("/")[3];
+        const existing=await env.DB.prepare("SELECT id,full_name,status FROM employees WHERE id=? AND tenant_id=? LIMIT 1").bind(employeeId,a.tenant_id).first();
+        if(!existing)return json({error:"employee_not_found"},404);
+        const removed=await env.DB.prepare(
+          "UPDATE employees SET status='inactive',end_date=COALESCE(end_date,?) WHERE id=? AND tenant_id=? AND lower(trim(coalesce(status,'')))='active' RETURNING id,full_name"
+        ).bind(gaboroneDate(),employeeId,a.tenant_id).first();
+        if(!removed)return json({ok:true,id:employeeId,status:"inactive",alreadyInactive:true,reportingAccessRevoked:true});
+        await env.DB.prepare("UPDATE employee_reporting_access SET status='revoked',last_rotated_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND employee_id=? AND status='active'").bind(a.tenant_id,employeeId).run();
+        await decrementUsage(env,a.tenant_id,"employees_active");
+        await writeAudit(env,a.tenant_id,a.user_id,"EMPLOYEE_REMOVED",{employeeId,fullName:removed.full_name,retainedHistory:true,reportingAccessRevoked:true});
+        return json({ok:true,id:employeeId,status:"inactive",reportingAccessRevoked:true,retainedHistory:true});
+      }
+
 
       if(url.pathname.startsWith("/api/daily-reporting/")){const featureKey=url.pathname==="/api/daily-reporting/locations"?"operating_locations":"daily_operations";const featureGate=await requireEntitlement(env,a.tenant_id,featureKey);if(!featureGate.ok)return json({error:featureGate.error,entitlement:featureGate.entitlement},402);}
 
@@ -6693,12 +6714,18 @@ export default {
         const body=await readJson(req),name=boundedReportText(body.name,90);if(name.length<2)return json({error:"location_name_required"},400);
         const code=boundedReportText(body.code,16).toUpperCase().replace(/[^A-Z0-9_-]/g,"")||null,town=boundedReportText(body.town,80);
         return idempotentJsonMutation(env,a,req,"operating-location-create",{name,code,town},async()=>{
-          const locEnt=await entitlement(env,a.tenant_id,"operating_locations"),locCount=await env.DB.prepare("SELECT COUNT(*) c FROM operating_locations WHERE tenant_id=? AND active=1").bind(a.tenant_id).first();
-          if(locEnt.limit!=null&&Number(locCount?.c||0)>=Number(locEnt.limit))return {status:402,body:{error:"location_plan_limit_reached",limit:locEnt.limit}};
+          const locEnt=await entitlement(env,a.tenant_id,"operating_locations"),locRows=await env.DB.prepare("SELECT id,name,code,town,active FROM operating_locations WHERE tenant_id=? AND active=1 ORDER BY created_at,id").bind(a.tenant_id).all(),activeLocations=locRows.results||[];
+          const untouchedDefault=activeLocations.find(row=>String(row.name||"").trim()==="Head Office"&&String(row.code||"").trim().toUpperCase()==="HQ");
+          if(untouchedDefault){
+            try{await env.DB.prepare("UPDATE operating_locations SET name=?,code=?,town=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=?").bind(name,code,town,untouchedDefault.id,a.tenant_id).run()}catch(e){if(String(e).includes("UNIQUE"))return {status:409,body:{error:"location_code_already_used"}};throw e}
+            await writeAudit(env,a.tenant_id,a.user_id,"OPERATING_LOCATION_DEFAULT_CUSTOMIZED",{locationId:untouchedDefault.id,name,code,town});
+            return {status:200,body:{ok:true,id:untouchedDefault.id,reusedDefault:true}};
+          }
+          if(locEnt.limit!=null&&activeLocations.length>=Number(locEnt.limit))return {status:402,body:{error:"location_plan_limit_reached",limit:locEnt.limit}};
           const lid=id();
           try{await env.DB.prepare("INSERT INTO operating_locations(id,tenant_id,name,code,town,active) VALUES(?,?,?,?,?,1)").bind(lid,a.tenant_id,name,code,town).run()}catch(e){if(String(e).includes("UNIQUE"))return {status:409,body:{error:"location_code_already_used"}};throw e}
           await writeAudit(env,a.tenant_id,a.user_id,"OPERATING_LOCATION_CREATED",{locationId:lid,name,code,town});
-          return {status:201,body:{ok:true,id:lid}};
+          return {status:201,body:{ok:true,id:lid,reusedDefault:false}};
         });
       }
       if(url.pathname==="/api/daily-reporting/access"&&req.method==="GET"){
