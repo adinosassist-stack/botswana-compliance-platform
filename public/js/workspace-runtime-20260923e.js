@@ -1979,15 +1979,12 @@ async function renderDailyOperations(){
     apiJson("/api/daily-reporting/locations"),
     apiJson("/api/employees"),
     apiJson("/api/daily-reporting/access"),
-    apiJson("/api/daily-reporting/settings"),
-    apiJson(`/api/daily-reporting/dashboard?date=${encodeURIComponent(date)}${locationId?`&locationId=${encodeURIComponent(locationId)}`:""}`),
-    apiJson(`/api/daily-reporting/summaries?date=${encodeURIComponent(date)}`)
+    apiJson(`/api/daily-reporting/dashboard?date=${encodeURIComponent(date)}${locationId?`&locationId=${encodeURIComponent(locationId)}`:""}`)
   ];
-  const [locationsR,employeesR,accessR,settingsR,dashboardR,summariesR]=await Promise.allSettled(requests);
+  const [locationsR,employeesR,accessR,dashboardR]=await Promise.allSettled(requests);
   const value=(result,fallback)=>result.status==="fulfilled"?result.value:fallback;
   const reason=result=>result.status==="rejected"?result.reason:null;
-  const locations=value(locationsR,{items:[]}),employees=value(employeesR,{items:[]}),access=value(accessR,{items:[]});
-  const settings=value(settingsR,{}),dashboard=value(dashboardR,{}),summaries=value(summariesR,{items:[]});
+  const locations=value(locationsR,{items:[]}),employees=value(employeesR,{items:[]}),access=value(accessR,{items:[]}),dashboard=value(dashboardR,{});
   const allLocs=locations.items||[],locs=allLocs.filter(x=>Number(x.active)===1),emps=(employees.items||[]).filter(x=>String(x.status||"").trim().toLowerCase()==="active");
   fillSelectPreserve(document.getElementById("opsLocationFilter"),locs,x=>x.name,"All locations");
   fillSelectPreserve(document.getElementById("opsReporterLocation"),locs,x=>x.name,"Select location");
@@ -2013,9 +2010,14 @@ async function renderDailyOperations(){
   setText("opsExpectedReports",dashboard.reportingPopulation?.expected??dashboard.accesses?.length??0);setText("opsLocationsReporting",dashboard.locationsReporting||0);setText("opsLocationOrb",dashboard.locationsReporting||0);
   setText("opsAttention",dashboard.totals?.attention||0);setText("opsAttentionOrb",dashboard.totals?.attention||0);
   renderOpsBranches(dashboard.branches||[]);renderOpsMissing(dashboard.missing||[]);renderOpsExceptions(dashboard.exceptions||[]);renderOpsReports(dashboard.reports||[]);
+  const [settingsR,summariesR]=await Promise.allSettled([
+    apiJson("/api/daily-reporting/settings"),
+    apiJson(`/api/daily-reporting/summaries?date=${encodeURIComponent(date)}`)
+  ]);
+  const settings=value(settingsR,{}),summaries=value(summariesR,{items:[]});
   const autoSummary=document.getElementById("opsAutoSummary");if(autoSummary){autoSummary.checked=Number(settings.auto_summary_enabled||0)===1||settings.autoSummaryEnabled===true;autoSummary.disabled=settingsR.status==="rejected"}
   renderOpsNarrative(summariesR.status==="fulfilled"?opsLatestSummary(summaries.items||[],locationId):null);
-  const reportingFailures=[settingsR,dashboardR,summariesR].filter(x=>x.status==="rejected");
+  const reportingFailures=[dashboardR].filter(x=>x.status==="rejected");
   if(reportingFailures.length){
     const first=reason(reportingFailures[0]),box=document.getElementById("opsAiSummary"),planBlocked=reportingFailures.some(x=>Number(reason(x)?.status||0)===402||String(reason(x)?.code||"")==="feature_not_in_plan");
     if(box)box.safeHTML=planBlocked?'<div class="notice info"><b>Daily reporting analytics are not available on the current plan.</b><div class="small">Location setup remains available.</div></div>':`<div class="notice bad">Some reporting analytics could not load. ${escapeHtml(first?.message||"Retry this section.")}</div>`;
