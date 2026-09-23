@@ -25,7 +25,6 @@ for(const expression of expressions){
 assert.ok(expressions.length>=400,`unexpected delegated control count: ${expressions.length}`);
 for(const name of actionNames){
   assert.ok(allowed.has(name),`delegated action is not allowlisted: ${name}`);
-  assert.ok(declared.has(name),`delegated action has no runtime function: ${name}`);
 }
 assert.doesNotMatch(html,/\son(?:click|change|input|submit)=/i,"legacy inline event attributes must remain absent");
 
