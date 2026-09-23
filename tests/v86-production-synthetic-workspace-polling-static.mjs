@@ -22,7 +22,8 @@ assert.doesNotMatch(workspaceProof,/page\.waitForFunction\(/,"production workspa
 assert.match(source,/getComputedStyle\(shell\)/,"computed rendered visibility confirmation must remain after authored readiness");
 assert.match(source,/rendered\.display!=='none'&&rendered\.visibility!=='hidden'&&rendered\.opacity!=='0'&&rendered\.rects>0/,"rendered workspace must still fail closed when not visible");
 assert.match(source,/WORKSPACE_AUTHORED_VISIBILITY_WAIT_MS\+Math\.max\(DIAGNOSTIC_EXTERNAL_DEADLINE_MS,WORKSPACE_COMPUTED_VISIBILITY_DEADLINE_MS\)\+2000<WORKSPACE_EXTERNAL_DEADLINE_MS/,"inner diagnostics must remain inside outer workspace deadline");
-assert.match(fullUser,/const portal=document\.getElementById\('reporterPortal'\);return !!portal&&getComputedStyle\(portal\)\.display!==\'none\'/,"reporter portal visibility wait must tolerate lazy DOM hydration before calling getComputedStyle");
+assert.ok(fullUser.includes("reporterPage.locator('#reporterPortal').waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS})"),"reporter portal visibility proof must wait for the real rendered portal using the standard bounded workspace timeout");
+assert.doesNotMatch(fullUser,/reporterPortal[^\n]{0,220}timeout:15000/,"reporter portal proof must not retain the brittle 15-second wait");
 assert.ok(fullUser.includes("page.locator('#employeeRegister .item',{hasText:syntheticEmployeeName}).first().waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS})"),"employee-register proof must wait for the created visible row using the standard bounded workspace timeout");
 assert.doesNotMatch(fullUser,/employeeRegister[^\n]{0,220}timeout:15000/,"employee-register proof must not retain the brittle 15-second wait");
 
