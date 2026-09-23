@@ -38,7 +38,10 @@ assert.ok(worker.includes("VALUES(?,'refund',?,?,?,?)"),'AI refund ledger SQL mu
 assert.ok(wrangler.includes('[ai]')&&wrangler.includes('binding = "AI"'),'Workers AI binding missing');
 assert.ok(wrangler.includes('"15 16 * * *"'),'18:15 Botswana scheduled digest cron missing');
 for(const endpoint of ['/api/daily-reporting/locations','/api/daily-reporting/access','/api/daily-reporting/dashboard','/api/daily-reporting/ai-summary','/api/daily-reporting/settings','/api/daily-reporting/exceptions']){
-  const at=worker.indexOf(endpoint);assert.ok(at>=0,`missing ${endpoint}`);const around=worker.slice(Math.max(0,at-180),at+520);assert.ok(around.includes('owner","manager')||around.includes('owner","manager"'),`${endpoint} must be manager/owner scoped`);
+  const routeNeedle=`if(url.pathname==="${endpoint}"`,at=worker.indexOf(routeNeedle);
+  assert.ok(at>=0,`missing ${endpoint}`);
+  const route=worker.slice(at,at+900);
+  assert.ok(route.includes('roleAllowed(a,"owner","manager"'),`${endpoint} must be manager/owner scoped`);
 }
 
 // Pass 3 — workspace/release contract.
@@ -52,7 +55,8 @@ assert.ok(html.includes('Locations still work independently'),'location setup mu
 assert.ok(html.includes('apiJson("/api/employees",{method:"POST"'),'visible employee register must create the authoritative employee records used by reporting access');
 assert.ok(html.includes('Employee saved. It is now available for reporting access.'),'employee creation must confirm reporting-access continuity');
 assert.ok(worker.includes('LEFT JOIN employee_risk_controls c ON c.employee_id=e.id'),'authoritative employee list must expose contract/asset control state without local prototype data');
-assert.ok(worker.includes('url.pathname==="/api/daily-reporting/locations"?"operating_locations":"daily_operations"'),'location routes must use the operating_locations entitlement rather than the daily_operations gate');
+assert.ok(worker.includes('const reportingSetupPath=url.pathname==="/api/daily-reporting/locations"||url.pathname==="/api/daily-reporting/access"||url.pathname==="/api/daily-reporting/dashboard"')&&worker.includes('const featureKey=reportingSetupPath?"operating_locations":"daily_operations"'),'location, reporting access and the basic dashboard must use operating_locations while advanced analytics remain daily_operations-gated');
+assert.equal((worker.match(/entitlement\(env,access\.tenant_id,"operating_locations"\)/g)||[]).length,2,'employee reporting link access and submit must remain usable wherever core operating locations are entitled');
 assert.ok(html.includes('if(!["owner","manager"].includes(role))return'),'non-manager Daily Reports background API calls must be suppressed');
 assert.equal((html.match(/id="companySelect"/g)||[]).length,1,'company switcher id must be unique');
 assert.ok(html.includes('Today’s operations')&&html.includes('Daily leadership digest'),'leadership workspace hierarchy missing');
