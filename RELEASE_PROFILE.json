@@ -733,7 +733,7 @@
   "control_replacement_no_people_scoring": true,
   "control_replacement_no_second_notification_stream": true,
   "control_replacement_fail_closed": true,
-  "latest_cloudflare_migration": "049_v108_finance_receivables.sql",
+  "latest_cloudflare_migration": "050_v115_manual_bank_payments.sql",
   "agentic_foundation_v80": true,
   "agentic_execution_enabled": false,
   "agentic_human_approval_required": true,
@@ -1155,5 +1155,8 @@
   "finance_receivables_v108": true,
   "finance_receivables_transaction_backed": true,
   "finance_receivables_agent_read_only": true,
-  "finance_receivables_currency": "BWP"
+  "finance_receivables_currency": "BWP",
+  "manual_bank_subscription_phase0": true,
+  "manual_bank_subscription_customer_auto_activation": false,
+  "manual_bank_subscription_admin_verification_required": true
 }
