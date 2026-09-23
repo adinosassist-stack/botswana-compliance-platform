@@ -1063,8 +1063,7 @@ async function addEmployeeRecord(){
     }
     document.getElementById("eName").value="";document.getElementById("eRole").value="";document.getElementById("eStart").value="";
     await renderEmployeeRegister();
-    if(document.getElementById("peopleops"))await renderPeopleOperationsHub();
-    if(document.getElementById("peopleops")?.classList.contains("active"))await renderPeopleReportingSetup();
+    if(document.getElementById("peopleops")?.classList.contains("active")){await renderPeopleOperationsHub();await renderPeopleReportingSetup()}
     if(document.getElementById("dailyreports")?.classList.contains("active"))await renderDailyOperations();
     notifyUser("Employee saved. It is now available for reporting access.",{type:"success"});
   }catch(e){notifyUser(e.message)}
@@ -1079,8 +1078,7 @@ async function removeEmployeeRecord(id){
  try{
    await apiJson(`/api/employees/${encodeURIComponent(id)}`,{method:"DELETE"});
    await renderEmployeeRegister();
-   if(document.getElementById("peopleops"))await renderPeopleOperationsHub();
-   if(document.getElementById("peopleops")?.classList.contains("active"))await renderPeopleReportingSetup();
+   if(document.getElementById("peopleops")?.classList.contains("active")){await renderPeopleOperationsHub();await renderPeopleReportingSetup()}
    if(document.getElementById("dailyreports")?.classList.contains("active"))await renderDailyOperations();
    notifyUser("Employee removed from active staff. Historical records were retained and reporting access was revoked.",{type:"success"});
  }catch(e){notifyUser(e.message)}
