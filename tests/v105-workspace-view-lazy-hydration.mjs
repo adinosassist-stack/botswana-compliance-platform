@@ -2,8 +2,8 @@ import fs from "node:fs";
 import assert from "node:assert/strict";
 
 const html=fs.readFileSync("public/index.html","utf8");
-const fragments=JSON.parse(fs.readFileSync("public/assets/workspace-view-fragments-20260921a.json","utf8"));
-const fragmentShards=Array.from({length:12},(_,i)=>JSON.parse(fs.readFileSync(`public/assets/workspace-view-fragments-20260921d-${i}.json`,"utf8")));
+const fragments=JSON.parse(fs.readFileSync("public/assets/workspace-view-fragments-20260923f.json","utf8"));
+const fragmentShards=Array.from({length:12},(_,i)=>JSON.parse(fs.readFileSync(`public/assets/workspace-view-fragments-20260923f-${i}.json`,"utf8")));
 const viewShard=id=>{let hash=0;for(const ch of String(id||""))hash=(Math.imul(hash,31)+ch.charCodeAt(0))>>>0;return hash%12};
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
 const fullUserProof=fs.readFileSync("scripts/production-synthetic-full-user-wrapper.mjs","utf8");
@@ -14,7 +14,7 @@ for(const script of coreWorkspaceScripts){
 assert.ok(!html.includes('src="js/')&&!html.includes("src=\'js/"),"workspace core scripts must not resolve under /app/js/");
 
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
-const runtime=fs.readFileSync("public/js/workspace-runtime-20260923e.js","utf8");
+const runtime=fs.readFileSync("public/js/workspace-runtime-20260923f.js","utf8");
 const delegatedEvents=fs.readFileSync("public/js/event-delegation.js","utf8");
 assert.match(delegatedEvents,/\'linkSocial\'/,"social connect action must remain in delegated event allowlist");
 
@@ -51,7 +51,7 @@ for(const view of lazyViews){
 }
 
 assert.match(production,/WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT=12/);
-assert.ok(production.includes('const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20260921d-";'));
+assert.ok(production.includes('const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20260923f-";'));
 assert.ok(production.includes("function workspaceViewShard(id){"));
 assert.ok(production.includes("const workspaceViewShardPromises=new Map();"));
 assert.ok(production.includes("async function workspaceViewFragments(id){"));
@@ -87,7 +87,7 @@ const peopleCanonical=html.slice(sectionBounds(html,canonicalViews.find(view=>vi
 assert.match(peopleCanonical,/People & operations/,"resident People content must remain in canonical workspace HTML");
 assert.doesNotMatch(peopleCanonical,/Ruleset integrity|Sources in this prototype/i,"resident People content must not contain regulatory source prototype copy");
 assert.match(String(fragmentShards[viewShard("sources")].views.sources||""),/Authoritative source registry/,"source governance content must remain scoped to the Sources view");
-assert.ok(production.includes('const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20260923e.js";'),"workspace runtime identity must rotate with injected runtime behavior");
+assert.ok(production.includes('const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20260923f.js";'),"workspace runtime identity must rotate with injected runtime behavior");
 assert.match(production,/window\.BW\?\.dom\?\.renderMarkup/,"hydration must use the sanctioned DOM sanitizer");
 assert.match(runtime,/let workspaceViewNavigationEpoch=0/,"static versioned runtime must carry lazy navigation state");
 assert.match(runtime,/function hydrateLazyWorkspaceView\(id,target,options=\{\}\)/,"static versioned runtime must hydrate lazy views itself");

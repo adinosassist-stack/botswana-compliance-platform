@@ -27,6 +27,11 @@ assert.match(html,/\/api\/employees\/\$\{encodeURIComponent\(id\)\}/);
 assert.match(html,/method:"DELETE"/);
 assert.match(html,/Historical records were retained and reporting access was revoked/);
 assert.match(html,/data-bw-onclick="removeEmployeeRecord\('/);
+assert.match(html,/el\.safeHTML=active\.length\?active\.map/,"employee register must render active employees only");
+assert.match(html,/async function openEmployeeReportingAccess\(id\)/);
+assert.match(html,/async function createEmployeeReportingLinkFromCard\(id\)/);
+assert.match(html,/Existing private bearer links are stored only as hashes and cannot be revealed again/);
+for(const action of ["openEmployeeReportingAccess","createEmployeeReportingLinkFromCard","copyEmployeeReportingLink"])assert.ok(delegatedEvents.includes(`'${action}'`),`delegated event allowlist missing ${action}`);
 
 // Core directory must remain usable even when Employer Shield is not entitled.
 assert.match(worker,/const employerEntitlement=await entitlement\(env,a\.tenant_id,"employer_shield"\)/);
@@ -80,6 +85,7 @@ assert.match(html,/Add an active employee first, then issue a reporting link\./)
 assert.match(html,/Add a location first, then issue a reporting link\./);
 assert.match(synthetic,/visible Remove employee control missing for the synthetic employee/);
 assert.match(synthetic,/operating location edit lifecycle/);
+assert.match(synthetic,/employee row reporting access/);
 assert.match(synthetic,/employee removal and reporting revocation/);
 assert.match(synthetic,/location removal lifecycle/);
 assert.match(synthetic,/reporting_link_invalid_or_expired/);
