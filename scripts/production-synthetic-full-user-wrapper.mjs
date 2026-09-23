@@ -231,6 +231,51 @@ async function runFullUserJourney(credentials){
     assert(delegatedRuntime.coreScripts.length===7,`expected 7 root-level workspace core scripts, got ${delegatedRuntime.coreScripts.length}`);
     assert(delegatedRuntime.badNestedAssets.length===0,`workspace requested nested /app assets: ${safe(delegatedRuntime.badNestedAssets.join(', '))}`);
     await dismissFirstRunOnboardingIfNeeded(page);
+
+    // Wide-mobile / landscape regression: the bottom dock is enabled up to 1000px,
+    // so prove its opaque shield and drawer at a viewport that used to miss the <=760px hardening.
+    await page.setViewportSize({width:844,height:390});
+    await page.waitForFunction(()=>{
+      const bar=document.getElementById('mobileBar'),shield=document.querySelector('.mobile-nav-occlusion');
+      if(!bar||!shield)return false;
+      const barStyle=getComputedStyle(bar),shieldStyle=getComputedStyle(shield);
+      return barStyle.display!=='none'&&shieldStyle.display!=='none'&&shield.getBoundingClientRect().height>=80;
+    },null,{timeout:VIEW_TIMEOUT_MS});
+    const wideMobileOcclusion=await page.evaluate(()=>{
+      const bar=document.getElementById('mobileBar'),shield=document.querySelector('.mobile-nav-occlusion'),main=document.querySelector('main');
+      const barStyle=getComputedStyle(bar),shieldStyle=getComputedStyle(shield),mainStyle=getComputedStyle(main);
+      const opaque=value=>{const match=String(value||'').match(/rgba?\\(([^)]+)\\)/i);if(!match)return false;const parts=match[1].split(',').map(x=>Number.parseFloat(x.trim()));return parts.length<4||parts[3]>=.999};
+      return {
+        barDisplay:barStyle.display,
+        barOpaque:opaque(barStyle.backgroundColor),
+        shieldDisplay:shieldStyle.display,
+        shieldOpaque:opaque(shieldStyle.backgroundColor),
+        shieldHeight:Math.round(shield.getBoundingClientRect().height),
+        mainPaddingBottom:Number.parseFloat(mainStyle.paddingBottom)||0
+      };
+    });
+    assert(wideMobileOcclusion.barDisplay!=='none'&&wideMobileOcclusion.barOpaque,'wide-mobile bottom navigation is missing or translucent');
+    assert(wideMobileOcclusion.shieldDisplay!=='none'&&wideMobileOcclusion.shieldOpaque&&wideMobileOcclusion.shieldHeight>=80,'wide-mobile bottom navigation lacks an opaque occlusion shield');
+    assert(wideMobileOcclusion.mainPaddingBottom>=140,'wide-mobile workspace does not reserve enough bottom space for navigation');
+    await page.locator('#mobileMenuButton').click();
+    await page.waitForFunction(()=>document.body.classList.contains('mobile-nav-open'),null,{timeout:VIEW_TIMEOUT_MS});
+    const wideMobileDrawer=await page.evaluate(()=>({
+      mainVisibility:getComputedStyle(document.getElementById('mainContent')).visibility,
+      backdropVisibility:getComputedStyle(document.querySelector('.mobile-nav-backdrop')).visibility,
+      backdropOpacity:Number.parseFloat(getComputedStyle(document.querySelector('.mobile-nav-backdrop')).opacity)||0,
+      barVisibility:getComputedStyle(document.getElementById('mobileBar')).visibility,
+      shieldDisplay:getComputedStyle(document.querySelector('.mobile-nav-occlusion')).display,
+      sidebarTransform:getComputedStyle(document.getElementById('workspaceSidebar')).transform
+    }));
+    assert(wideMobileDrawer.mainVisibility==='hidden','wide-mobile drawer leaves workspace text visible underneath');
+    assert(wideMobileDrawer.backdropVisibility==='visible'&&wideMobileDrawer.backdropOpacity>=.99,'wide-mobile drawer backdrop is not fully visible');
+    assert(wideMobileDrawer.barVisibility==='hidden'&&wideMobileDrawer.shieldDisplay==='none','bottom dock/shield did not leave the way for the full mobile drawer');
+    assert(wideMobileDrawer.sidebarTransform==='none'||/matrix\\(1, 0, 0, 1, 0, 0\\)/.test(wideMobileDrawer.sidebarTransform),'wide-mobile sidebar did not slide fully into view');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(()=>!document.body.classList.contains('mobile-nav-open'),null,{timeout:VIEW_TIMEOUT_MS});
+    await page.setViewportSize({width:1440,height:1100});
+    mark('wide-mobile navigation occlusion','844px landscape breakpoint keeps workspace text out from under the bottom dock and full drawer');
+
     await page.evaluate(()=>globalThis.showView?.('dashboard',{skipDataRefresh:true}));
     await dismissFirstRunOnboardingIfNeeded(page);
     await page.waitForFunction(()=>document.getElementById('dashboard')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
