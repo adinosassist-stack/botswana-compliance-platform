@@ -7496,7 +7496,15 @@ async function renderPayments(){
 }
 async function reviewManualPayment(submissionId,action){
  try{
-   let reason="";if(action==="reject"){reason=prompt("Reason for rejecting this payment submission:")||"";if(reason.trim().length<5)return}
+   let reason="";
+   if(action==="reject"){
+     reason=await BW.dialog.prompt({title:"Reject payment submission",message:"Explain why this bank payment could not be verified. The customer plan will remain inactive.",multiline:true,required:true,minLength:5,maxLength:500,confirmLabel:"Reject payment"});
+     if(reason===null)return;
+     reason=reason.trim();if(reason.length<5){notifyUser("Add a rejection reason of at least 5 characters.");return}
+   }else{
+     const confirmed=await BW.dialog.confirm({title:"Verify payment and activate plan",message:"Confirm that the matching funds are visible in the Thebe Desk company bank account. Customer-submitted references are not proof of receipt.",confirmLabel:"Verify & activate"});
+     if(!confirmed)return;
+   }
    const r=await apiJson(`/api/platform/billing/manual-payments/${encodeURIComponent(submissionId)}/${action}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({reason}),idempotencyKey:true});
    notifyUser(action==="approve"?"Payment verified and plan activated.":"Payment submission rejected.");
    await Promise.all([renderPayments(),loadBilling()]);
