@@ -319,7 +319,7 @@ async function runFullUserJourney(credentials){
     const reporterPage=await context.newPage();
     const reporterResponse=await reporterPage.goto(reporterLink,{waitUntil:'domcontentloaded',timeout:NAVIGATION_TIMEOUT_MS});
     assert(reporterResponse?.status()===200,`restricted reporter portal HTTP ${reporterResponse?.status()||0}`);
-    await reporterPage.waitForFunction(()=>getComputedStyle(document.getElementById('reporterPortal')).display!=='none',null,{timeout:15000});
+    await reporterPage.waitForFunction(()=>{const portal=document.getElementById('reporterPortal');return !!portal&&getComputedStyle(portal).display!=='none'},null,{timeout:15000});
     const reporterText=await reporterPage.locator('#reporterPortal').innerText();
     assert(reporterText.includes(syntheticEmployeeName)&&reporterText.includes(locationName),'restricted reporter portal did not bind the employee and location from the issued link');
     await reporterPage.close();
