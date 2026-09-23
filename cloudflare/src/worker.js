@@ -1453,6 +1453,7 @@ function safeJson(v,fallback={}){
 }
 
 const WHATSAPP_CONSENT_VERSION="utility-reminders-v1";
+const WHATSAPP_SESSION_REPLY_TEMPLATE_KEY="__thebe_agent_reply";
 const WHATSAPP_TEMPLATE_PARAMETER_KEYS=Object.freeze({
   obligation_due:["title","dueAt","level"],
   compliance_schedule_due:["scheduleType"],
@@ -1497,6 +1498,14 @@ function whatsappTemplateText(value,key){
   const text=String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,1024);
   if(!text)throw new Error(`whatsapp_template_parameter_missing:${key}`);
   return text;
+}
+function buildWhatsAppSessionReplyRequest(notification,phoneE164){
+  const phone=normalizeBotswanaWhatsappNumber(phoneE164);if(!phone)throw new Error("whatsapp_recipient_invalid");
+  const payload=safeJson(notification.payload_json,{}),replyToMessageId=String(payload.replyToMessageId||"").trim().slice(0,200);
+  const body=String(payload.body||"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,3900);
+  if(!replyToMessageId)throw new Error("whatsapp_reply_context_missing");
+  if(!body)throw new Error("whatsapp_reply_body_missing");
+  return {messaging_product:"whatsapp",recipient_type:"individual",to:phone.slice(1),context:{message_id:replyToMessageId},type:"text",text:{preview_url:false,body}};
 }
 function buildWhatsAppTemplateRequest(env,notification,phoneE164){
   const phone=normalizeBotswanaWhatsappNumber(phoneE164);if(!phone)throw new Error("whatsapp_recipient_invalid");
@@ -1553,7 +1562,7 @@ async function processWhatsAppWebhookBody(env,body){
   }
   const base={received:statuses.length,recorded,updated,failed,unknown};
   if(!messages.length)return base;
-  const inbound=await processWhatsAppInboundMessages(env,messages);
+  const inbound=await processWhatsAppInboundMessages(env,messages,{deliverReply:payload=>enqueueWhatsAppSessionReply(env,payload)});
   return {...base,inbound};
 }
 async function whatsappRecipients(env,tenantId){
@@ -1588,6 +1597,34 @@ async function releaseWhatsAppAllowance(env,tenantId,period){
 }
 function botswanaMonthKey(d=new Date()){
   const local=botswanaWallClock(d);return `${local.getUTCFullYear()}-${String(local.getUTCMonth()+1).padStart(2,"0")}`;
+}
+async function enqueueWhatsAppSessionReply(env,{tenantId,userId,to,replyToMessageId,text:body,kind="read"}){
+  const phone=normalizeBotswanaWhatsappNumber(to),providerMessageId=String(replyToMessageId||"").trim().slice(0,200);
+  if(!phone||!providerMessageId||!tenantId||!userId)return {ok:false,error:"whatsapp_session_reply_invalid"};
+  const connector=whatsappConnectorStatus(env);
+  if(!connector.credentialsConfigured||!connector.webhookConfigured)return {ok:false,error:"whatsapp_connector_not_configured"};
+  const consent=await env.DB.prepare("SELECT phone_e164,status FROM whatsapp_consents WHERE tenant_id=? AND user_id=? LIMIT 1").bind(tenantId,userId).first();
+  const consentPhone=normalizeBotswanaWhatsappNumber(consent?.phone_e164);
+  if(consent?.status!=="active"||!consentPhone||consentPhone!==phone)return {ok:false,error:"whatsapp_session_reply_recipient_mismatch"};
+  const dedupeKey=`agent-reply:${providerMessageId}`;
+  const existing=await env.DB.prepare("SELECT id FROM notification_outbox WHERE tenant_id=? AND channel='whatsapp' AND recipient_ref=? AND dedupe_key=? LIMIT 1").bind(tenantId,userId,dedupeKey).first();
+  if(existing?.id)return {ok:true,id:existing.id,deduplicated:true};
+  const allowance=await reserveWhatsAppAllowance(env,tenantId);if(!allowance.ok)return allowance;
+  const nid=id(),expectedPhoneHash=await sha256Hex(phone);
+  const inserted=await env.DB.prepare(`INSERT OR IGNORE INTO notification_outbox
+    (id,tenant_id,recipient_ref,channel,template_key,subject,payload_json,scheduled_at,dedupe_key)
+    VALUES(?,?,?,'whatsapp',?,'Thebe inbound reply',?,CURRENT_TIMESTAMP,?)`).bind(
+      nid,tenantId,userId,WHATSAPP_SESSION_REPLY_TEMPLATE_KEY,
+      JSON.stringify({body:String(body||"").slice(0,3900),replyToMessageId:providerMessageId,expectedPhoneHash,kind:String(kind||"read").slice(0,80),deliveryPolicy:"inbound_response"}),
+      dedupeKey
+    ).run();
+  if(Number(inserted.meta?.changes||0)!==1){
+    await releaseWhatsAppAllowance(env,tenantId,allowance.period);
+    const raced=await env.DB.prepare("SELECT id FROM notification_outbox WHERE tenant_id=? AND channel='whatsapp' AND recipient_ref=? AND dedupe_key=? LIMIT 1").bind(tenantId,userId,dedupeKey).first();
+    return {ok:true,id:raced?.id||null,deduplicated:true};
+  }
+  try{await writeAudit(env,tenantId,userId,"WHATSAPP_AGENT_REPLY_QUEUED",{notificationId:nid,inboundMessageIdHash:await sha256Hex(providerMessageId),kind:String(kind||"read").slice(0,80),recipientLocked:true})}catch{}
+  return {ok:true,id:nid,allowance};
 }
 async function enqueueWhatsAppNotification(env,{tenantId,recipientRef,templateKey,subject,payload={},scheduledAt=null,dedupeKey}){
   const key=String(dedupeKey||"").slice(0,240);if(!key)return {ok:false,error:"whatsapp_dedupe_key_required"};
@@ -2675,11 +2712,19 @@ async function markDeadLetter(env,n,reason){
     .bind(reason,Number(n.attempts||0),n.id).run();
 }
 async function sendWhatsAppNotification(env,n){
-  const connector=whatsappConnectorStatus(env);if(!connector.configured){const e=new Error("whatsapp_connector_not_configured");e.permanent=true;throw e}
+  const connector=whatsappConnectorStatus(env),sessionReply=String(n.template_key||"")===WHATSAPP_SESSION_REPLY_TEMPLATE_KEY;
+  const connectorReady=sessionReply?connector.credentialsConfigured&&connector.webhookConfigured:connector.configured;
+  if(!connectorReady){const e=new Error("whatsapp_connector_not_configured");e.permanent=true;throw e}
   const consent=await env.DB.prepare("SELECT phone_e164,status FROM whatsapp_consents WHERE tenant_id=? AND user_id=? LIMIT 1")
     .bind(n.tenant_id,n.recipient_ref).first();
   if(consent?.status!=="active"){const e=new Error("whatsapp_consent_required");e.permanent=true;throw e}
-  const body=buildWhatsAppTemplateRequest(env,n,consent.phone_e164),version=connector.graphVersion;
+  let body;
+  if(sessionReply){
+    const phone=normalizeBotswanaWhatsappNumber(consent.phone_e164),payload=safeJson(n.payload_json,{});
+    if(!phone||String(payload.expectedPhoneHash||"")!==await sha256Hex(phone)){const e=new Error("whatsapp_session_reply_recipient_mismatch");e.permanent=true;throw e}
+    body=buildWhatsAppSessionReplyRequest(n,phone);
+  }else body=buildWhatsAppTemplateRequest(env,n,consent.phone_e164);
+  const version=connector.graphVersion;
   body.biz_opaque_callback_data=String(n.id);
   let response,data={};
   try{
@@ -2698,7 +2743,7 @@ async function sendWhatsAppNotification(env,n){
 async function deliverNotification(env,n){
   const attemptNo=Number(n.attempts||0)+1;
   const pref=await deliveryPreference(env,n.recipient_ref);
-  if(inQuietHours(pref) && n.channel!=="in_app"){
+  if(inQuietHours(pref) && n.channel!=="in_app" && !(n.channel==="whatsapp"&&String(n.template_key||"")===WHATSAPP_SESSION_REPLY_TEMPLATE_KEY)){
     const scheduled=nextQuietHoursEndUtc(pref)||nextRetryAt(attemptNo);
     await env.DB.prepare("UPDATE notification_outbox SET scheduled_at=?,status='queued',processing_at=NULL WHERE id=?").bind(scheduled,n.id).run();
     await env.DB.prepare(
@@ -4739,6 +4784,7 @@ function deploymentReadiness(env){
 export const __v76Test=Object.freeze({
   normalizeBotswanaWhatsappNumber,
   buildWhatsAppTemplateRequest,
+  buildWhatsAppSessionReplyRequest,
   whatsappConnectorStatus,
   WHATSAPP_OPTIONAL_TEMPLATE_KEYS,
   verifyWhatsAppWebhookSignature,
