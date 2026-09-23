@@ -987,6 +987,41 @@ async function createPaymentOrder(env,{tenantId,orderType,referenceId=null,amoun
   ).bind(oid,tenantId,orderType,referenceId,Number(amountBwp),idem,JSON.stringify(metadata)).run();
   return {id:oid,idempotencyKey:idem,amountBwp:Number(amountBwp)};
 }
+function manualPaymentConfig(env){
+  const clean=(value,max)=>String(value||"").trim().slice(0,max);
+  const bankName=clean(env.MANUAL_PAYMENT_BANK_NAME,120);
+  const accountName=clean(env.MANUAL_PAYMENT_ACCOUNT_NAME,160);
+  const accountNumber=clean(env.MANUAL_PAYMENT_ACCOUNT_NUMBER,80);
+  const branchCode=clean(env.MANUAL_PAYMENT_BRANCH_CODE,80);
+  const missing=[!bankName?"MANUAL_PAYMENT_BANK_NAME":null,!accountName?"MANUAL_PAYMENT_ACCOUNT_NAME":null,!accountNumber?"MANUAL_PAYMENT_ACCOUNT_NUMBER":null].filter(Boolean);
+  return {configured:missing.length===0,missing,bankName,accountName,accountNumber,branchCode};
+}
+function subscriptionPaymentMode(env){
+  const mode=String(env.SUBSCRIPTION_PAYMENT_MODE||"manual_bank").trim().toLowerCase();
+  return mode==="provider_hosted"?"provider_hosted":"manual_bank";
+}
+function manualPaymentReference(orderId){
+  const compact=String(orderId||"").replace(/[^A-Fa-f0-9]/g,"").toUpperCase();
+  return `TBD-${compact.slice(0,8)}${compact.slice(-8)}`;
+}
+function normalizeManualBankReference(value){
+  const ref=String(value||"").trim().replace(/\s+/g," ");
+  if(!/^[A-Za-z0-9][A-Za-z0-9 ._\/-]{3,79}$/.test(ref))return null;
+  return ref.toUpperCase();
+}
+async function createManualSubscriptionPaymentOrder(env,{tenantId,amountBwp,metadata={}}){
+  const cfg=manualPaymentConfig(env);
+  if(!cfg.configured)return {ok:false,error:"manual_payment_not_configured",missing:cfg.missing};
+  const oid=id(),idem=`${tenantId}:subscription:${oid}:${crypto.randomUUID()}`,paymentReference=manualPaymentReference(oid);
+  const bankSnapshot={bankName:cfg.bankName,accountName:cfg.accountName,accountNumber:cfg.accountNumber,branchCode:cfg.branchCode,currency:"BWP"};
+  await env.DB.batch([
+    env.DB.prepare("INSERT INTO payment_orders(id,tenant_id,order_type,provider,amount_bwp,status,idempotency_key,metadata_json) VALUES(?,?,'subscription','manual_bank',?,'pending',?,?)")
+      .bind(oid,tenantId,Number(amountBwp),idem,JSON.stringify(metadata)),
+    env.DB.prepare("INSERT INTO manual_payment_submissions(payment_order_id,tenant_id,payment_reference,status,bank_instructions_json) VALUES(?,?,?,'awaiting_payment',?)")
+      .bind(oid,tenantId,paymentReference,JSON.stringify(bankSnapshot))
+  ]);
+  return {ok:true,paymentOrder:{id:oid,idempotencyKey:idem,amountBwp:Number(amountBwp)},manualPayment:{...bankSnapshot,paymentReference,amountBwp:Number(amountBwp)}};
+}
 
 const DPO_PAID_CODE="000";
 const DPO_PENDING_CODES=new Set(["001","003","005","007","900"]);
@@ -1118,6 +1153,11 @@ async function claimPaymentSettlement(env,order){
     if(!String(e).includes("UNIQUE"))throw e;
     const existing=await env.DB.prepare("SELECT status,claim_token,claimed_at FROM payment_settlement_claims WHERE payment_order_id=? LIMIT 1").bind(order.id).first();
     if(["applied","legacy_assumed_applied"].includes(existing?.status))return {ok:false,alreadyApplied:true,status:existing.status};
+    if(existing?.status==="failed"){
+      const retry=await env.DB.prepare(`UPDATE payment_settlement_claims SET claim_token=?,claimed_at=CURRENT_TIMESTAMP,status='processing',last_error='failed_claim_recovered'
+        WHERE payment_order_id=? AND status='failed'`).bind(token,order.id).run();
+      if(Number(retry.meta?.changes||0)===1)return {ok:true,token,recovered:true};
+    }
     const stale=existing?.status==="processing"&&new Date(existing.claimed_at).getTime()<Date.now()-10*60*1000;
     if(stale){
       const takeover=await env.DB.prepare(`UPDATE payment_settlement_claims SET claim_token=?,claimed_at=CURRENT_TIMESTAMP,status='processing',last_error='stale_claim_recovered'
@@ -1171,7 +1211,7 @@ async function applyVerifiedPaymentOrder(env,orderId,verification){
     await env.DB.batch(stmts);
     await finishPaymentSettlementClaim(env,row.id,claim.token,"applied");
     await recordReconciliation(env,{order:{...row,status:"paid"},provider,providerReference:providerPaymentId,providerStatus:"verified_paid",status:"matched",
-      notes:"Provider server verification matched order amount and currency before one-time fulfillment."});
+      notes:provider==="manual_bank"?"Platform administrator confirmed the bank transfer reflected for the exact order amount before one-time fulfillment.":"Provider server verification matched order amount and currency before one-time fulfillment."});
     return {ok:true,status:"paid",recoveredClaim:claim.recovered};
   }catch(e){
     await finishPaymentSettlementClaim(env,row.id,claim.token,"failed",e);
@@ -1257,6 +1297,7 @@ function xmlTag(xml,tag){
 }
 function paymentProviderConfigured(env){
   const provider=String(env.PAYMENT_PROVIDER||"dpo").toLowerCase();
+  if(provider==="manual_bank") return providerConfigState(env,"manual_bank").configured;
   if(provider==="dpo") return providerConfigState(env,"dpo").configured;
   return false;
 }
@@ -1328,7 +1369,8 @@ async function createConfiguredCheckout(env,paymentOrderId){
   if(order.order_type==="subscription")description="BW Compliance OS subscription";
   else if(order.order_type==="ai_credits")description="BW Compliance OS AI credits";
   else if(order.order_type==="service")description="BW Compliance OS professional service";
-  const provider=String(env.PAYMENT_PROVIDER||"dpo").toLowerCase();
+  const provider=String(order.provider||env.PAYMENT_PROVIDER||"dpo").toLowerCase();
+  if(provider==="manual_bank")return {ok:false,error:"manual_bank_order_has_no_hosted_checkout"};
   if(provider==="dpo")return createDpoCheckout(env,order,description);
   if(provider==="orange_money")return createOrangeMoneyCheckout(env,order,description);
   return {ok:false,error:"unsupported_payment_provider"};
@@ -1336,12 +1378,18 @@ async function createConfiguredCheckout(env,paymentOrderId){
 
 
 const PAYMENT_PROVIDER_CATALOG={
+  manual_bank:{label:"Manual bank transfer",country:"Botswana",settlementCurrency:"BWP",mode:"manual_verification",
+       capabilities:["subscription_bank_transfer"],integrationState:"phase0_active"},
   dpo:{label:"DPO Pay by Network",country:"Botswana",settlementCurrency:"BWP",mode:"hosted_checkout",
        capabilities:["cards","eft_bank_transfer","orange_money"],integrationState:"adapter_implemented"},
   orange_money:{label:"Orange Money Web Payment",country:"Botswana",settlementCurrency:"BWP",mode:"merchant_api",
        capabilities:["orange_money_wallet"],integrationState:"merchant_gated"}
 };
 function providerConfigState(env,provider){
+  if(provider==="manual_bank"){
+    const cfg=manualPaymentConfig(env);
+    return {configured:cfg.configured,merchantStatus:cfg.configured?"active":"not_configured",missing:cfg.missing};
+  }
   if(provider==="dpo"){
     const publicApp=validPublicAppUrl(env.PUBLIC_APP_URL),api=trustedDpoUrl(env,env.DPO_API_URL,"https://secure.3gdirectpay.com/API/v6/"),verify=trustedDpoUrl(env,env.DPO_VERIFY_API_URL||env.DPO_API_URL,"https://secure.3gdirectpay.com/API/v6/"),refund=trustedDpoUrl(env,env.DPO_REFUND_API_URL||env.DPO_API_URL,"https://secure.3gdirectpay.com/API/v6/"),checkout=trustedDpoUrl(env,env.DPO_CHECKOUT_URL,"https://secure.3gdirectpay.com/payv2.php");
     const missing=[!env.DPO_COMPANY_TOKEN?"DPO_COMPANY_TOKEN":null,!env.DPO_SERVICE_TYPE?"DPO_SERVICE_TYPE":null,!publicApp?"PUBLIC_APP_URL":null,!api?"DPO_API_URL":null,!verify?"DPO_VERIFY_API_URL":null,!refund?"DPO_REFUND_API_URL":null,!checkout?"DPO_CHECKOUT_URL":null].filter(Boolean),configured=missing.length===0;
@@ -5182,6 +5230,11 @@ export default {
           .bind(String(lockedPreflight.reason||lockedPreflight.error||"preflight_changed"),refundId).run();
         return json({...lockedPreflight,refundId},409);
       }
+      if(provider==="manual_bank"){
+        await env.DB.prepare("UPDATE payment_refund_requests SET status='manual_review',provider_result_text='Manual bank refund requires an authorised bank transfer/reversal outside the payment adapter.',reversal_status='manual_bank_refund_required',completed_at=CURRENT_TIMESTAMP WHERE id=?").bind(refundId).run();
+        await recordReconciliation(env,{order,provider,providerReference:order.provider_payment_id||null,providerStatus:"manual_refund_required",status:"pending",notes:"Manual bank payment refund requires operations review and bank-side execution."});
+        return json({ok:false,manualReview:true,refundId,status:"manual_review",reason:"manual_bank_refund_required"},202);
+      }
       let result={ok:false,error:"refund_provider_not_supported"};
       if(provider==="dpo")result=await refundDpoOrder(env,order,reason);
       if(!result.ok){
@@ -5797,6 +5850,65 @@ export default {
       if(url.pathname.match(/^\/api\/regulatory\/sources\/[^/]+\/status$/)&&req.method==="POST")return json({error:"platform_regulatory_endpoint_required"},403);
       if(url.pathname.match(/^\/api\/regulatory\/rules\/[^/]+\/advance$/)&&req.method==="POST")return json({error:"platform_regulatory_endpoint_required"},403);
       if(url.pathname.match(/^\/api\/regulatory\/rules\/[^/]+\/rollout$/)&&req.method==="POST")return json({error:"platform_regulatory_endpoint_required"},403);
+      if(url.pathname==="/api/platform/billing/manual-payments"&&req.method==="GET"){
+        const access=await requirePlatformRegulatory(a,env,"admin");if(!access.ok)return json(access,403);
+        const requested=String(url.searchParams.get("status")||"submitted").toLowerCase();
+        const allowed=new Set(["awaiting_payment","submitted","under_review","verified","rejected","canceled","all"]);
+        if(!allowed.has(requested))return json({error:"invalid_manual_payment_status"},400);
+        const where=requested==="all"?"":"WHERE m.status=?";
+        const stmt=env.DB.prepare(`SELECT m.payment_order_id,m.tenant_id,t.name tenant_name,m.payment_reference,m.customer_bank_reference,m.amount_submitted_bwp,m.status,m.submitted_at,m.reviewed_at,m.reviewed_by_email,m.review_note,
+          o.amount_bwp,o.status order_status,o.metadata_json,o.created_at,u.email submitted_by_email
+          FROM manual_payment_submissions m JOIN payment_orders o ON o.id=m.payment_order_id JOIN tenants t ON t.id=m.tenant_id
+          LEFT JOIN users u ON u.id=m.submitted_by_user_id ${where} ORDER BY COALESCE(m.submitted_at,o.created_at) DESC LIMIT 250`);
+        const r=requested==="all"?await stmt.all():await stmt.bind(requested).all();
+        return json({items:(r.results||[]).map(x=>{const {metadata_json,...rest}=x;return {...rest,metadata:safeJson(metadata_json,{})}})});
+      }
+      if(url.pathname.match(/^\/api\/platform\/billing\/manual-payments\/[^/]+\/(verify|reject)$/)&&req.method==="POST"){
+        const access=await requirePlatformRegulatory(a,env,"admin");if(!access.ok)return json(access,403);
+        const parts=url.pathname.split("/"),paymentOrderId=String(parts[5]||""),action=String(parts[6]||"");
+        if(!PAYMENT_ORDER_ID_RE.test(paymentOrderId))return json({error:"invalid_payment_order_id"},400);
+        const body=await readJson(req);
+        const row=await env.DB.prepare(`SELECT o.*,m.payment_reference,m.customer_bank_reference,m.amount_submitted_bwp,m.status manual_status
+          FROM payment_orders o JOIN manual_payment_submissions m ON m.payment_order_id=o.id
+          WHERE o.id=? AND o.provider='manual_bank' AND o.order_type='subscription' LIMIT 1`).bind(paymentOrderId).first();
+        if(!row)return json({error:"manual_payment_order_not_found"},404);
+        if(String(row.manual_status)!=="submitted")return json({error:"manual_payment_not_awaiting_review",status:row.manual_status},409);
+        if(action==="reject"){
+          const reason=boundedReportText(body.reason,500).trim();if(reason.length<5)return json({error:"rejection_reason_required"},400);
+          const changed=await env.DB.prepare(`UPDATE manual_payment_submissions SET status='rejected',reviewed_by_user_id=?,reviewed_by_email=?,reviewed_at=CURRENT_TIMESTAMP,review_note=?,updated_at=CURRENT_TIMESTAMP
+            WHERE payment_order_id=? AND status='submitted'`).bind(a.user_id,String(a.email||""),reason,paymentOrderId).run();
+          if(Number(changed.meta?.changes||0)!==1)return json({error:"manual_payment_review_conflict"},409);
+          await env.DB.prepare("UPDATE payment_orders SET status='pending',updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='processing'").bind(paymentOrderId).run();
+          await writeAudit(env,row.tenant_id,a.user_id,"MANUAL_BANK_PAYMENT_REJECTED",{paymentOrderId,reason});
+          await platformRegulatoryAudit(env,a,"MANUAL_BANK_PAYMENT_REJECTED","payment_order",paymentOrderId,{tenantId:row.tenant_id,reason});
+          return json({ok:true,status:"rejected"});
+        }
+        if(body.confirmedReceived!==true)return json({error:"reflected_funds_confirmation_required"},400);
+        const confirmedAmount=Number(body.confirmedAmountBwp);
+        if(!Number.isInteger(confirmedAmount)||confirmedAmount!==Number(row.amount_bwp)||confirmedAmount!==Number(row.amount_submitted_bwp))return json({error:"confirmed_amount_mismatch",expectedAmountBwp:Number(row.amount_bwp)},409);
+        const bankReference=normalizeManualBankReference(row.customer_bank_reference);
+        if(!bankReference)return json({error:"bank_reference_missing"},409);
+        const claimed=await env.DB.prepare("UPDATE manual_payment_submissions SET status='under_review',updated_at=CURRENT_TIMESTAMP WHERE payment_order_id=? AND status='submitted'").bind(paymentOrderId).run();
+        if(Number(claimed.meta?.changes||0)!==1)return json({error:"manual_payment_review_conflict"},409);
+        const duplicate=await env.DB.prepare("SELECT id FROM payment_orders WHERE provider='manual_bank' AND provider_payment_id=? AND id<>? LIMIT 1").bind(bankReference,paymentOrderId).first();
+        if(duplicate){
+          await env.DB.prepare("UPDATE manual_payment_submissions SET status='submitted',review_note='Duplicate bank reference detected during verification.',updated_at=CURRENT_TIMESTAMP WHERE payment_order_id=? AND status='under_review'").bind(paymentOrderId).run();
+          return json({error:"bank_reference_already_verified"},409);
+        }
+        const settlement=await applyVerifiedPaymentOrder(env,paymentOrderId,{verified:true,status:"verified_paid",providerPaymentId:bankReference,resultCode:"manual_admin_verified"});
+        if(!settlement.ok){
+          await env.DB.prepare("UPDATE manual_payment_submissions SET status='submitted',review_note=?,updated_at=CURRENT_TIMESTAMP WHERE payment_order_id=? AND status='under_review'")
+            .bind(String(settlement.error||"manual_settlement_failed").slice(0,500),paymentOrderId).run();
+          return json({error:settlement.error||"manual_settlement_failed",settlement},409);
+        }
+        const reviewNote=boundedReportText(body.reviewNote||"Funds confirmed in Thebe Desk company bank account.",500);
+        await env.DB.prepare(`UPDATE manual_payment_submissions SET status='verified',reviewed_by_user_id=?,reviewed_by_email=?,reviewed_at=CURRENT_TIMESTAMP,review_note=?,updated_at=CURRENT_TIMESTAMP
+          WHERE payment_order_id=? AND status='under_review'`).bind(a.user_id,String(a.email||""),reviewNote,paymentOrderId).run();
+        await writeAudit(env,row.tenant_id,a.user_id,"MANUAL_BANK_PAYMENT_VERIFIED",{paymentOrderId,amountBwp:Number(row.amount_bwp),bankReferenceHash:await sha256Hex(bankReference)});
+        await platformRegulatoryAudit(env,a,"MANUAL_BANK_PAYMENT_VERIFIED","payment_order",paymentOrderId,{tenantId:row.tenant_id,amountBwp:Number(row.amount_bwp),plan:safeJson(row.metadata_json,{}).plan||null});
+        const subscription=await env.DB.prepare("SELECT tenant_id,plan,status,current_period_ends_at,provider FROM subscriptions WHERE tenant_id=? LIMIT 1").bind(row.tenant_id).first();
+        return json({ok:true,status:"verified",paymentOrderId,subscription});
+      }
       if(url.pathname==="/api/platform/deployment-readiness"&&req.method==="GET"){
         const access=await requirePlatformRegulatory(a,env,"admin");if(!access.ok)return json(access,403);
         return json(deploymentReadiness(env));
@@ -6990,6 +7102,7 @@ export default {
         const body=await readJson(req);
         const provider=String(body.provider||"").toLowerCase();
         if(!(provider in PAYMENT_PROVIDER_CATALOG))return json({error:"unsupported_payment_provider"},400);
+        if(provider==="manual_bank")return json({error:"manual_bank_is_subscription_mode_not_workspace_provider"},409);
         const state=providerConfigState(env,provider), meta=PAYMENT_PROVIDER_CATALOG[provider];
         await env.DB.prepare(`INSERT INTO payment_provider_accounts(tenant_id,provider,merchant_status,display_name,settlement_currency,capabilities_json,config_state_json,updated_at)
           VALUES(?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
@@ -7015,10 +7128,41 @@ export default {
         });
       }
       if(url.pathname==="/api/payments/orders"&&req.method==="GET"){if(!roleAllowed(a,"owner"))return json({error:"forbidden"},403);
-        const r=await env.DB.prepare(
-          "SELECT id,order_type,reference_id,provider,provider_payment_id,amount_bwp,status,created_at,paid_at,refunded_at FROM payment_orders WHERE tenant_id=? ORDER BY created_at DESC LIMIT 200"
-        ).bind(a.tenant_id).all();
+        const r=await env.DB.prepare(`SELECT o.id,o.order_type,o.reference_id,o.provider,o.provider_payment_id,o.amount_bwp,o.status,o.created_at,o.paid_at,o.refunded_at,
+          m.payment_reference,m.customer_bank_reference,m.status manual_status,m.submitted_at,m.reviewed_at
+          FROM payment_orders o LEFT JOIN manual_payment_submissions m ON m.payment_order_id=o.id
+          WHERE o.tenant_id=? ORDER BY o.created_at DESC LIMIT 200`).bind(a.tenant_id).all();
         return json({items:r.results||[]});
+      }
+      if(url.pathname==="/api/payments/manual"&&req.method==="GET"){if(!roleAllowed(a,"owner"))return json({error:"forbidden"},403);
+        const r=await env.DB.prepare(`SELECT m.payment_order_id,m.payment_reference,m.customer_bank_reference,m.amount_submitted_bwp,m.status,m.submitted_at,m.reviewed_at,m.review_note,m.bank_instructions_json,
+          o.amount_bwp,o.status order_status,o.created_at,o.paid_at
+          FROM manual_payment_submissions m JOIN payment_orders o ON o.id=m.payment_order_id
+          WHERE m.tenant_id=? AND o.tenant_id=? ORDER BY o.created_at DESC LIMIT 100`).bind(a.tenant_id,a.tenant_id).all();
+        return json({items:(r.results||[]).map(x=>{const {bank_instructions_json,...rest}=x;return {...rest,bankInstructions:safeJson(bank_instructions_json,{})}})});
+      }
+      if(url.pathname==="/api/payments/manual/submit"&&req.method==="POST"){
+        if(!roleAllowed(a,"owner"))return json({error:"forbidden"},403);
+        const body=await readJson(req),paymentOrderId=String(body.paymentOrderId||""),bankReference=normalizeManualBankReference(body.bankReference),amountPaidBwp=Number(body.amountPaidBwp);
+        if(!PAYMENT_ORDER_ID_RE.test(paymentOrderId))return json({error:"invalid_payment_order_id"},400);
+        if(!bankReference)return json({error:"invalid_bank_reference"},400);
+        if(!Number.isInteger(amountPaidBwp)||amountPaidBwp<=0)return json({error:"invalid_payment_amount"},400);
+        return idempotentJsonMutation(env,a,req,"manual-payment-submit",{paymentOrderId,bankReference,amountPaidBwp},async()=>{
+          const row=await env.DB.prepare(`SELECT o.id,o.amount_bwp,o.status order_status,m.status manual_status
+            FROM payment_orders o JOIN manual_payment_submissions m ON m.payment_order_id=o.id
+            WHERE o.id=? AND o.tenant_id=? AND m.tenant_id=? AND o.provider='manual_bank' AND o.order_type='subscription' LIMIT 1`).bind(paymentOrderId,a.tenant_id,a.tenant_id).first();
+          if(!row)return {status:404,body:{error:"manual_payment_order_not_found"}};
+          if(Number(row.amount_bwp)!==amountPaidBwp)return {status:409,body:{error:"payment_amount_mismatch",expectedAmountBwp:Number(row.amount_bwp)}};
+          if(!["awaiting_payment","rejected"].includes(String(row.manual_status||"")))return {status:409,body:{error:"manual_payment_not_submittable",status:row.manual_status}};
+          const duplicate=await env.DB.prepare("SELECT payment_order_id FROM manual_payment_submissions WHERE customer_bank_reference=? AND payment_order_id<>? AND status IN ('submitted','under_review','verified') LIMIT 1").bind(bankReference,paymentOrderId).first();
+          if(duplicate)return {status:409,body:{error:"bank_reference_already_used"}};
+          const changed=await env.DB.prepare(`UPDATE manual_payment_submissions SET customer_bank_reference=?,amount_submitted_bwp=?,status='submitted',submitted_by_user_id=?,submitted_at=CURRENT_TIMESTAMP,reviewed_by_user_id=NULL,reviewed_by_email=NULL,reviewed_at=NULL,review_note=NULL,updated_at=CURRENT_TIMESTAMP
+            WHERE payment_order_id=? AND tenant_id=? AND status IN ('awaiting_payment','rejected')`).bind(bankReference,amountPaidBwp,a.user_id,paymentOrderId,a.tenant_id).run();
+          if(Number(changed.meta?.changes||0)!==1)return {status:409,body:{error:"manual_payment_submission_conflict"}};
+          await env.DB.prepare("UPDATE payment_orders SET status='processing',updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND status IN ('pending','failed','processing')").bind(paymentOrderId,a.tenant_id).run();
+          await writeAudit(env,a.tenant_id,a.user_id,"MANUAL_BANK_PAYMENT_SUBMITTED",{paymentOrderId,amountBwp:amountPaidBwp,bankReferenceHash:await sha256Hex(bankReference)});
+          return {status:202,body:{ok:true,status:"submitted",paymentOrderId,message:"Payment submitted for bank-account verification. The subscription remains inactive until Thebe Desk confirms reflected funds."}};
+        });
       }
 
       if(url.pathname==="/api/payments/subscription-checkout"&&req.method==="POST"){
@@ -7029,7 +7173,12 @@ export default {
         if(!SELF_SERVE_PLAN_IDS.has(plan))return json({error:"partner_plan_requires_assisted_onboarding"},409);
         if(!["monthly","annual"].includes(billingCycle))return json({error:"invalid_billing_cycle"},400);
         return idempotentJsonMutation(env,a,req,"subscription-checkout",{plan,billingCycle},async()=>{
-          const months=billingCycle==="annual"?12:1,amount=PLAN_PRICE_BWP[plan]*(billingCycle==="annual"?10:1);
+          const months=billingCycle==="annual"?12:1,amount=PLAN_PRICE_BWP[plan]*(billingCycle==="annual"?10:1),mode=subscriptionPaymentMode(env);
+          if(mode==="manual_bank"){
+            const manual=await createManualSubscriptionPaymentOrder(env,{tenantId:a.tenant_id,amountBwp:amount,metadata:{plan,billingCycle,periodMonths:months,paymentMode:"manual_bank"}});
+            if(!manual.ok)return {status:503,body:manual};
+            return {status:201,body:{ok:true,paymentOrder:manual.paymentOrder,checkoutMode:"manual_bank",manualPayment:manual.manualPayment,message:"Transfer the exact amount using the supplied Thebe Desk reference, then submit your bank transaction reference for manual verification."}};
+          }
           const po=await createPaymentOrder(env,{tenantId:a.tenant_id,orderType:"subscription",amountBwp:amount,metadata:{plan,billingCycle,periodMonths:months}});
           return {status:201,body:{ok:true,paymentOrder:po,checkoutMode:"provider_hosted",message:"Pass paymentOrder.id and idempotencyKey to the configured hosted checkout provider."}};
         });
