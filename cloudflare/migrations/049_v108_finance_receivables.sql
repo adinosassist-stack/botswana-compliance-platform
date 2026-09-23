@@ -70,34 +70,34 @@ CREATE INDEX IF NOT EXISTS finance_invoice_allocations_transaction_idx
 CREATE TRIGGER IF NOT EXISTS finance_invoices_customer_tenant_guard
 BEFORE INSERT ON finance_invoices
 BEGIN
-  SELECT CASE
+  SELECT (CASE
     WHEN NOT EXISTS(
       SELECT 1 FROM finance_customers c
       WHERE c.id=NEW.customer_id AND c.tenant_id=NEW.tenant_id AND c.status='active'
     )
     THEN RAISE(ABORT,'finance_customer_tenant_mismatch')
-  END;
+  END);
 END;
 
 CREATE TRIGGER IF NOT EXISTS finance_invoice_allocations_apply_guard
 BEFORE INSERT ON finance_invoice_allocations
 WHEN NEW.entry_type='apply'
 BEGIN
-  SELECT CASE
+  SELECT (CASE
     WHEN NOT EXISTS(
       SELECT 1 FROM finance_invoices i
       WHERE i.id=NEW.invoice_id AND i.tenant_id=NEW.tenant_id AND i.status='issued'
     )
     THEN RAISE(ABORT,'finance_invoice_not_allocatable')
-  END;
-  SELECT CASE
+  END);
+  SELECT (CASE
     WHEN NOT EXISTS(
       SELECT 1 FROM finance_transactions t
       WHERE t.id=NEW.transaction_id AND t.tenant_id=NEW.tenant_id AND t.amount_minor>0
     )
     THEN RAISE(ABORT,'finance_transaction_not_allocatable')
-  END;
-  SELECT CASE
+  END);
+  SELECT (CASE
     WHEN (
       SELECT COALESCE(SUM(CASE WHEN a.entry_type='apply' THEN a.amount_minor ELSE -a.amount_minor END),0)
       FROM finance_invoice_allocations a
@@ -108,8 +108,8 @@ BEGIN
       WHERE i.id=NEW.invoice_id AND i.tenant_id=NEW.tenant_id
     )
     THEN RAISE(ABORT,'finance_invoice_overallocation')
-  END;
-  SELECT CASE
+  END);
+  SELECT (CASE
     WHEN (
       SELECT COALESCE(SUM(CASE WHEN a.entry_type='apply' THEN a.amount_minor ELSE -a.amount_minor END),0)
       FROM finance_invoice_allocations a
@@ -120,14 +120,14 @@ BEGIN
       WHERE t.id=NEW.transaction_id AND t.tenant_id=NEW.tenant_id
     )
     THEN RAISE(ABORT,'finance_transaction_overallocation')
-  END;
+  END);
 END;
 
 CREATE TRIGGER IF NOT EXISTS finance_invoice_allocations_reverse_guard
 BEFORE INSERT ON finance_invoice_allocations
 WHEN NEW.entry_type='reverse'
 BEGIN
-  SELECT CASE
+  SELECT (CASE
     WHEN NOT EXISTS(
       SELECT 1 FROM finance_invoice_allocations a
       WHERE a.id=NEW.reverses_allocation_id
@@ -138,7 +138,7 @@ BEGIN
         AND a.entry_type='apply'
     )
     THEN RAISE(ABORT,'finance_allocation_reversal_mismatch')
-  END;
+  END);
 END;
 
 CREATE TRIGGER IF NOT EXISTS finance_invoice_allocations_immutable_update
