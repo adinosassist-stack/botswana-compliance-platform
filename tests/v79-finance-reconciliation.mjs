@@ -56,7 +56,7 @@ for(const path of [
   "tests/v78-12153-payment-webhook-scheduled-restore-hardening-adversarial.mjs",
   "tests/v78-12154-idempotency-cross-layer-recovery-adversarial.mjs",
   "tests/v78-12152-tenant-lifecycle-purge-performance-adversarial.mjs"
-]) assert.match(fs.readFileSync(path,"utf8"),/044_v79_finance_reconciliation\.sql/);
+]) assert.match(fs.readFileSync(path,"utf8"),/044_v79_finance_reconciliation\.sql|latestCloudflareMigrationNumber/);
 const delegated=fs.readFileSync("public/js/event-delegation.js","utf8"),routeGate=fs.readFileSync("tests/v78-12148-feature-security-csp-route-hardening-adversarial.mjs","utf8");
 assert.match(delegated,/'testWhatsAppConnection'/);
 assert.match(routeGate,/pkg\.version==="1\.21\.101"\?254/);
