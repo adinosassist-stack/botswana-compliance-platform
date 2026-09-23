@@ -27,10 +27,14 @@ assert.equal(syntax.status,0,syntax.stderr||syntax.stdout);
 
 // Pass 1: People owns the reporting setup DOM and must hydrate it on view open.
 assert.match(html,/<section[^>]*id="peopleops"[^>]*class="[^"]*view[^"]*"/i);
-assert.match(html,/id="opsReporterEmployee"/);
-assert.match(html,/id="opsReporterLocation"/);
-assert.match(html,/data-bw-onclick="addOpsLocation\(\)"/);
-assert.match(html,/<details id="opsReportingSetupDetails" class="ops-specialist-details" open>/,"People reporting setup must be visible before async hydration starts");
+assert.match(peopleMarkup,/id="opsReporterEmployee"/);
+assert.match(peopleMarkup,/id="opsReporterLocation"/);
+assert.match(peopleMarkup,/id="opsLocationsList"/);
+assert.match(peopleMarkup,/data-bw-onclick="addOpsLocation\(\)"/);
+assert.match(peopleMarkup,/<details id="opsReportingSetupDetails" class="ops-specialist-details" open>/,"People reporting setup must be visible before async hydration starts");
+assert.doesNotMatch(dailyMarkup,/id="opsReportingSetupDetails"|id="opsLocationsList"|id="opsReporterEmployee"/,"Daily Reports must not own People reporting-setup controls");
+assert.doesNotMatch(String(fragments.views?.dailyreports||""),/id="opsReportingSetupDetails"|id="opsLocationsList"|id="opsReporterEmployee"/,"lazy Daily Reports fragment must not reintroduce duplicate/hidden reporting setup controls");
+assert.equal((html.match(/id="opsReportingSetupDetails"/g)||[]).length,1,"reporting setup must have exactly one DOM owner");
 assert.match(runtime,/async function renderPeopleReportingSetup\(\)/);
 assert.match(runtime,/document\.getElementById\("peopleops"\)\?\.classList\.contains\("active"\)/);
 assert.match(runtime,/run\("peopleops",renderPeopleReportingSetup\)/);
