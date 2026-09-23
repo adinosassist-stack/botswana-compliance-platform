@@ -62,6 +62,34 @@ async function waitForWorkspace(page){
   },null,{timeout:WORKSPACE_TIMEOUT_MS});
 }
 
+async function dismissFirstRunOnboardingIfNeeded(page){
+  const deadline=Date.now()+3500;
+  while(Date.now()<deadline){
+    const modal=page.locator('#onboardModal.open').first();
+    if(await modal.count()){
+      const finishLater=modal.locator('[data-bw-onclick="dismissOnboarding()"]:visible, button:has-text("Finish later"):visible').first();
+      assert(await finishLater.count(),'visible first-run onboarding dismissal control missing');
+      await finishLater.click();
+      await page.waitForFunction(()=>!document.getElementById('onboardModal')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});
+      mark('workspace onboarding button','first-run onboarding closed through the real dismissal button before workspace action audit');
+      return true;
+    }
+    const dismissed=await page.evaluate(()=>sessionStorage.getItem('bw_onboarding_dismissed')==='1');
+    if(dismissed)return false;
+    await page.waitForTimeout(125);
+  }
+  const modal=page.locator('#onboardModal.open').first();
+  if(await modal.count()){
+    const finishLater=modal.locator('[data-bw-onclick="dismissOnboarding()"]:visible, button:has-text("Finish later"):visible').first();
+    assert(await finishLater.count(),'visible delayed first-run onboarding dismissal control missing');
+    await finishLater.click();
+    await page.waitForFunction(()=>!document.getElementById('onboardModal')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});
+    mark('workspace onboarding button','delayed first-run onboarding closed through the real dismissal button before workspace action audit');
+    return true;
+  }
+  return false;
+}
+
 async function runFullUserJourney(credentials){
   const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox','--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
   const pageErrors=[];const assetFailures=[];const apiServerFailures=[];const safeUiMutationRequests=[];
@@ -202,15 +230,9 @@ async function runFullUserJourney(credentials){
     assert(delegatedRuntime.ready,'delegated data-bw action runtime did not load on /app/');
     assert(delegatedRuntime.coreScripts.length===7,`expected 7 root-level workspace core scripts, got ${delegatedRuntime.coreScripts.length}`);
     assert(delegatedRuntime.badNestedAssets.length===0,`workspace requested nested /app assets: ${safe(delegatedRuntime.badNestedAssets.join(', '))}`);
-    const firstRunModal=page.locator('#onboardModal.open');
-    if(await firstRunModal.count()){
-      const finishLater=page.locator('#onboardModal button:has-text("Finish later"):visible').first();
-      assert(await finishLater.count(),'visible Finish later control missing');
-      await finishLater.click();
-      await page.waitForFunction(()=>!document.getElementById('onboardModal')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});
-      mark('workspace onboarding button','Finish later closed the first-run dialog through the real click path');
-    }
+    await dismissFirstRunOnboardingIfNeeded(page);
     await page.evaluate(()=>globalThis.showView?.('dashboard',{skipDataRefresh:true}));
+    await dismissFirstRunOnboardingIfNeeded(page);
     await page.waitForFunction(()=>document.getElementById('dashboard')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
     const delegatedWorkButton=page.locator("[data-bw-onclick=\"showView('workhub')\"]:visible").first();
     assert(await delegatedWorkButton.count(),'visible delegated Home -> Work button missing');
