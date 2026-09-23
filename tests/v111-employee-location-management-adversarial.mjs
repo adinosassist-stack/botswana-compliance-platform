@@ -6,6 +6,7 @@ const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const html=fs.readFileSync("public/index.html","utf8");
 const migration=fs.readFileSync("cloudflare/migrations/015_v73_daily_operations_reporting.sql","utf8");
 const synthetic=fs.readFileSync("scripts/production-synthetic-full-user-wrapper.mjs","utf8");
+const delegatedEvents=fs.readFileSync("public/js/event-delegation.js","utf8");
 
 for(const path of ["cloudflare/src/worker.js"]){
   const r=spawnSync(process.execPath,["--check",path],{encoding:"utf8"});
@@ -53,6 +54,7 @@ assert.match(html,/async function editOpsLocation\(id\)/);
 assert.match(html,/async function removeOpsLocation\(id\)/);
 assert.match(html,/async function deactivateOpsLocation\(id\)\{return removeOpsLocation\(id\)\}/);
 assert.match(html,/async function reactivateOpsLocation\(id\)/);
+for(const action of ["editOpsLocation","removeOpsLocation","reactivateOpsLocation"])assert.ok(delegatedEvents.includes(`'${action}'`),`delegated event allowlist missing ${action}`);
 assert.match(html,/allLocs\.filter\(x=>Number\(x\.active\)===1\)/);
 assert.match(html,/Remove location\?/);
 assert.match(html,/Historical reports were retained and reporting links for it were revoked/);
