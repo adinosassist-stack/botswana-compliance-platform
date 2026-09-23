@@ -14,6 +14,7 @@ assert.match(html,/<section[^>]*id="peopleops"[^>]*class="[^"]*view[^"]*"/i);
 assert.match(html,/id="opsReporterEmployee"/);
 assert.match(html,/id="opsReporterLocation"/);
 assert.match(html,/data-bw-onclick="addOpsLocation\(\)"/);
+assert.match(html,/<details id="opsReportingSetupDetails" class="ops-specialist-details" open>/,"People reporting setup must be visible before async hydration starts");
 assert.match(runtime,/async function renderPeopleReportingSetup\(\)/);
 assert.match(runtime,/document\.getElementById\("peopleops"\)\?\.classList\.contains\("active"\)/);
 assert.match(runtime,/run\("peopleops",renderPeopleReportingSetup\)/);
