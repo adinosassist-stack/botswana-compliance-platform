@@ -5834,9 +5834,20 @@ async function addEmployeeRecord(){
     notifyUser("Employee saved. It is now available for reporting access.",{type:"success"});
   }catch(e){notifyUser(e.message)}
 }
-function removeEmployeeRecord(id){
- let rec=(state.employees||[]).find(e=>e.id===id);updateActiveCompany(c=>{c.employees=(c.employees||[]).filter(e=>e.id!==id);c.profile={...c.profile,employees:c.employees.length}});
- logEvent("EMPLOYEE_RECORD_REMOVED",{employeeId:id,employeeRef:rec?.name});save();renderAll()
+async function removeEmployeeRecord(id){
+ if(STANDALONE_PREVIEW){
+   let rec=(state.employees||[]).find(e=>e.id===id);updateActiveCompany(c=>{c.employees=(c.employees||[]).filter(e=>e.id!==id);c.profile={...c.profile,employees:c.employees.length}});
+   logEvent("EMPLOYEE_RECORD_REMOVED",{employeeId:id,employeeRef:rec?.name});save();renderAll();return;
+ }
+ const confirmed=await BW.dialog.confirm({title:"Remove employee?",message:"Remove this employee from active staff? Their historical employment and reporting records will be retained, and any active reporting links will be revoked.",confirmLabel:"Remove employee",danger:true});
+ if(!confirmed)return;
+ try{
+   await apiJson(`/api/employees/${encodeURIComponent(id)}`,{method:"DELETE"});
+   await renderEmployeeRegister();
+   if(document.getElementById("peopleops"))await renderPeopleOperationsHub();
+   if(document.getElementById("opsReporterEmployee"))await renderDailyOperations();
+   notifyUser("Employee removed from active staff. Historical records were retained and reporting access was revoked.",{type:"success"});
+ }catch(e){notifyUser(e.message)}
 }
 function toggleEmployeeControl(id,field){
  const rec=(state.employees||[]).find(e=>e.id===id);if(!rec)return;const value=!rec[field];
@@ -5853,7 +5864,7 @@ async function renderEmployeeRegister(){
   try{
     const response=await apiJson("/api/employees"),arr=response.items||[],active=arr.filter(e=>String(e.status||"").trim().toLowerCase()==="active"),contracts=active.filter(e=>Number(e.contract_signed||0)===1).length,assets=active.filter(e=>Number(e.asset_acknowledgement||0)===1).length,total=active.length;
     if(by("empRecordsCount"))by("empRecordsCount").textContent=total;if(by("contractCoverage"))by("contractCoverage").textContent=(total?Math.round(contracts/total*100):0)+"%";if(by("assetCoverage"))by("assetCoverage").textContent=(total?Math.round(assets/total*100):0)+"%";
-    el.safeHTML=arr.length?arr.map(e=>`<div class="item"><div class="between row"><div><b>${escapeHtml(e.full_name)}</b><div class="muted small">${escapeHtml(e.role_title||"Role not set")} · ${e.start_date||"Start date not set"} · ${escapeHtml(String(e.status||"active"))}</div></div><span class="badge ${String(e.status||"").toLowerCase()==="active"?"good":""}">${String(e.status||"active").toLowerCase()==="active"?"Active":"Inactive"}</span></div><div class="rulemeta"><span class="pill">Contract ${Number(e.contract_signed||0)===1?"✓":"missing"}</span><span class="pill">Asset form ${Number(e.asset_acknowledgement||0)===1?"✓":"missing"}</span></div></div>`).join(""):`<div class="muted small">No employee records yet. Add one here and it will also become available under Employee reporting access.</div>`;
+    el.safeHTML=arr.length?arr.map(e=>{const active=String(e.status||"").trim().toLowerCase()==="active";return `<div class="item"><div class="between row"><div><b>${escapeHtml(e.full_name)}</b><div class="muted small">${escapeHtml(e.role_title||"Role not set")} · ${e.start_date||"Start date not set"} · ${active?"active":"inactive"}</div></div><div class="actions"><span class="badge ${active?"good":""}">${active?"Active":"Removed"}</span>${active?`<button class="btn alt" type="button" data-bw-onclick="removeEmployeeRecord('${safeId(e.id)}')">Remove</button>`:""}</div></div><div class="rulemeta"><span class="pill">Contract ${Number(e.contract_signed||0)===1?"✓":"missing"}</span><span class="pill">Asset form ${Number(e.asset_acknowledgement||0)===1?"✓":"missing"}</span></div></div>`}).join(""):`<div class="muted small">No employee records yet. Add one here and it will also become available under Employee reporting access.</div>`;
   }catch(e){el.safeHTML=`<div class="notice bad">Employee records could not load. ${escapeHtml(e.message)}</div>`}
 }
 
@@ -6728,7 +6739,7 @@ async function renderDailyOperations(){
   }
   setTimeout(()=>document.querySelectorAll('#dailyreports .metric-ring[data-ring-target]').forEach(syncMetricRing),10);
 }
-async function addOpsLocation(){const name=document.getElementById("opsLocationName").value.trim();if(!name)return notifyUser("Enter a location name.");try{await apiJson("/api/daily-reporting/locations",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({name,code:document.getElementById("opsLocationCode").value,town:document.getElementById("opsLocationTown").value})});document.getElementById("opsLocationName").value="";document.getElementById("opsLocationCode").value="";document.getElementById("opsLocationTown").value="";await renderDailyOperations()}catch(e){notifyUser(e.message)}}
+async function addOpsLocation(){const name=document.getElementById("opsLocationName").value.trim();if(!name)return notifyUser("Enter a location name.");try{const saved=await apiJson("/api/daily-reporting/locations",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({name,code:document.getElementById("opsLocationCode").value,town:document.getElementById("opsLocationTown").value})});document.getElementById("opsLocationName").value="";document.getElementById("opsLocationCode").value="";document.getElementById("opsLocationTown").value="";await renderDailyOperations();notifyUser(saved?.reusedDefault?"Location saved. The initial Head Office placeholder was replaced.":"Location added.",{type:"success"})}catch(e){notifyUser(e.message)}}
 async function createOpsReporterLink(){const employeeId=document.getElementById("opsReporterEmployee").value,locationId=document.getElementById("opsReporterLocation").value;if(!employeeId||!locationId)return notifyUser("Choose an employee and location.");try{let r;if(STANDALONE_PREVIEW)r={link:"https://your-domain.example/#report=secure-employee-link",employeeName:"Demo Employee",locationName:"Head Office",expiresInDays:Number(document.getElementById("opsReporterExpiry").value)};else r=await apiJson("/api/daily-reporting/access",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({employeeId,locationId,expiresInDays:Number(document.getElementById("opsReporterExpiry").value)})});const box=document.getElementById("opsReporterLinkResult");box.safeHTML=`<div class="notice good" style="margin-top:12px"><b>Reporting link created</b><div class="small">Share this only with ${escapeHtml(r.employeeName||"the employee")}. Creating another link for the same location revokes the previous one.</div><div class="ops-access-link"><input id="opsNewReporterLink" readonly value="${escapeHtml(r.link||"")}"><button class="btn alt" data-bw-onclick="copyOpsReporterLink()">Copy link</button><button class="btn alt" data-bw-onclick="shareOpsReporterLink()">Share</button></div><div class="muted small" style="margin-top:8px">Share uses the phone/browser share sheet when available (including WhatsApp on supported devices). The reporting link is a private bearer link—send it only to the named employee.</div></div>`;if(!STANDALONE_PREVIEW)await renderDailyOperations()}catch(e){notifyUser(e.message)}}
 async function copyOpsReporterLink(){const el=document.getElementById("opsNewReporterLink");if(!el)return;try{await navigator.clipboard.writeText(el.value)}catch{el.select();document.execCommand("copy")}}
 async function shareOpsReporterLink(){const e=document.getElementById("opsNewReporterLink");if(!e||!e.value)return;const text=`BW Daily Operations reporting link. This private link is for the assigned employee only: ${e.value}`;try{if(navigator.share){await navigator.share({title:"Daily operations report",text});return}const u=`https://wa.me/?text=${encodeURIComponent(text)}`;window.open(u,"_blank","noopener,noreferrer")}catch(err){if(err?.name!=="AbortError")notifyUser("Unable to open the share sheet. Use Copy link instead.")}}

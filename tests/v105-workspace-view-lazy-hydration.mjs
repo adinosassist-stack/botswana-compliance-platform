@@ -14,7 +14,7 @@ for(const script of coreWorkspaceScripts){
 assert.ok(!html.includes('src="js/')&&!html.includes("src=\'js/"),"workspace core scripts must not resolve under /app/js/");
 
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
-const runtime=fs.readFileSync("public/js/workspace-runtime-20260922b.js","utf8");
+const runtime=fs.readFileSync("public/js/workspace-runtime-20260923a.js","utf8");
 const delegatedEvents=fs.readFileSync("public/js/event-delegation.js","utf8");
 assert.match(delegatedEvents,/\'linkSocial\'/,"social connect action must remain in delegated event allowlist");
 
@@ -87,7 +87,7 @@ const peopleCanonical=html.slice(sectionBounds(html,canonicalViews.find(view=>vi
 assert.match(peopleCanonical,/People & operations/,"resident People content must remain in canonical workspace HTML");
 assert.doesNotMatch(peopleCanonical,/Ruleset integrity|Sources in this prototype/i,"resident People content must not contain regulatory source prototype copy");
 assert.match(String(fragmentShards[viewShard("sources")].views.sources||""),/Authoritative source registry/,"source governance content must remain scoped to the Sources view");
-assert.ok(production.includes('const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20260922b.js";'),"workspace runtime identity must rotate with injected runtime behavior");
+assert.ok(production.includes('const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20260923a.js";'),"workspace runtime identity must rotate with injected runtime behavior");
 assert.match(production,/window\.BW\?\.dom\?\.renderMarkup/,"hydration must use the sanctioned DOM sanitizer");
 assert.match(runtime,/let workspaceViewNavigationEpoch=0/,"static versioned runtime must carry lazy navigation state");
 assert.match(runtime,/function hydrateLazyWorkspaceView\(id,target,options=\{\}\)/,"static versioned runtime must hydrate lazy views itself");
