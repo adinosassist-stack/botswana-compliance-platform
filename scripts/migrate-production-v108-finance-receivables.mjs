@@ -7,7 +7,7 @@ const token=String(process.env.CLOUDFLARE_API_TOKEN||'').trim();
 const accountId=String(process.env.CLOUDFLARE_ACCOUNT_ID||'').trim();
 const databaseId=String(process.env.D1_DATABASE_ID||'').trim();
 const migrationPath='cloudflare/migrations/049_v108_finance_receivables.sql';
-const expectedGitBlobSha='a3f34d31f2d68798761942b54a4fdfb7ee5ba73e';
+const expectedGitBlobSha='d89d634670665482955ab97f00ed57314a443e8c';
 const targetTables=['finance_customers','finance_invoices','finance_invoice_allocations'];
 const targetIndexes=[
   'finance_customers_tenant_idx',
@@ -64,6 +64,14 @@ async function inspect(){
 }
 const complete=s=>s.presentTables.length===targetTables.length&&s.presentIndexes.length===targetIndexes.length&&s.presentTriggers.length===targetTriggers.length;
 const absent=s=>s.presentTables.length===0&&s.presentIndexes.length===0&&s.presentTriggers.length===0;
+const exactKnownPrefix=s=>s.presentTables.length===targetTables.length&&s.presentIndexes.length===targetIndexes.length&&s.presentTriggers.length===0;
+async function assertKnownPrefixEmpty(){
+  for(const table of targetTables){
+    const rows=await query(`SELECT COUNT(*) count FROM ${table}`);
+    const count=Number(rows[0]?.count||0);
+    if(count!==0)fail(`cannot resume partial migration because ${table} contains ${count} row(s)`);
+  }
+}
 
 const migration=await readFile(migrationPath,'utf8');
 const gitBlobSha=createHash('sha1').update(`blob ${Buffer.byteLength(migration)}\0`).update(migration).digest('hex');
@@ -71,7 +79,12 @@ if(gitBlobSha!==expectedGitBlobSha)fail(`reviewed migration blob changed expecte
 
 const before=await inspect();
 if(complete(before)){console.log('Production D1 migration 049 already present; no mutation required.');process.exit(0)}
-if(!absent(before))fail(`partial migration detected tables=${before.presentTables.join(',')||'none'} indexes=${before.presentIndexes.join(',')||'none'} triggers=${before.presentTriggers.join(',')||'none'}`);
+const resumeFromKnownPrefix=exactKnownPrefix(before);
+if(!absent(before)&&!resumeFromKnownPrefix)fail(`partial migration detected tables=${before.presentTables.join(',')||'none'} indexes=${before.presentIndexes.join(',')||'none'} triggers=${before.presentTriggers.join(',')||'none'}`);
+if(resumeFromKnownPrefix){
+  await assertKnownPrefixEmpty();
+  console.log('Detected exact empty migration-049 prefix (3 tables + 5 indexes, no triggers); resuming only the reviewed trigger suffix.');
+}
 
 const bookmarkBody=await cf(`/accounts/${accountId}/d1/database/${databaseId}/time_travel/bookmark`,{method:'GET'});
 const bookmark=String(bookmarkBody?.result?.bookmark||'').trim();
@@ -79,8 +92,9 @@ if(!bookmark)fail('could not capture a pre-migration Time Travel bookmark');
 console.log(`Pre-migration Time Travel bookmark captured: ${bookmark}`);
 const statements=splitSqliteMigrationStatements(migration);
 if(statements.length!==13)fail(`reviewed migration parsed into unexpected statement count: ${statements.length}`);
-console.log(`Applying reviewed forward-only migration 049 to production D1 as ${statements.length} complete statements.`);
-for(let index=0;index<statements.length;index+=1){
+const startIndex=resumeFromKnownPrefix?8:0;
+console.log(`Applying reviewed forward-only migration 049 to production D1 from statement ${startIndex+1}/${statements.length}.`);
+for(let index=startIndex;index<statements.length;index+=1){
   try{await query(statements[index])}
   catch(error){throw new Error(`Migration 049 statement ${index+1}/${statements.length} failed: ${error.message}`)}
 }
