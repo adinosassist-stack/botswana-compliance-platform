@@ -19,7 +19,6 @@ FACEBOOK_APP_SECRET_VALUE=${FACEBOOK_APP_SECRET:-}
 FACEBOOK_REDIRECT_URI=${FACEBOOK_OAUTH_REDIRECT_URI:-}
 EMAIL_FROM_VALUE=${EMAIL_FROM:-}
 THEBE_BANK_NAME_VALUE=${THEBE_BANK_NAME:-}
-THEBE_BANK_ACCOUNT_NAME_VALUE=${THEBE_BANK_ACCOUNT_NAME:-}
 THEBE_BANK_ACCOUNT_NUMBER_VALUE=${THEBE_BANK_ACCOUNT_NUMBER:-}
 THEBE_BANK_ACCOUNT_TYPE_VALUE=${THEBE_BANK_ACCOUNT_TYPE:-}
 THEBE_BANK_BRANCH_NAME_VALUE=${THEBE_BANK_BRANCH_NAME:-}
@@ -90,7 +89,6 @@ safe_optional_toml_value GOOGLE_OAUTH_CLIENT_ID "$GOOGLE_CLIENT_ID"
 safe_optional_toml_value FACEBOOK_APP_ID "$FACEBOOK_APP_ID_VALUE"
 safe_optional_toml_value EMAIL_FROM "$EMAIL_FROM_VALUE"
 safe_toml_value THEBE_BANK_NAME "$THEBE_BANK_NAME_VALUE"
-safe_toml_value THEBE_BANK_ACCOUNT_NAME "$THEBE_BANK_ACCOUNT_NAME_VALUE"
 safe_toml_value THEBE_BANK_ACCOUNT_NUMBER "$THEBE_BANK_ACCOUNT_NUMBER_VALUE"
 safe_optional_toml_value THEBE_BANK_ACCOUNT_TYPE "$THEBE_BANK_ACCOUNT_TYPE_VALUE"
 safe_optional_toml_value THEBE_BANK_BRANCH_NAME "$THEBE_BANK_BRANCH_NAME_VALUE"
@@ -137,7 +135,7 @@ ASSET_DIR_LINES=$(grep -Ec '^[[:space:]]*directory[[:space:]]*=[[:space:]]*"\.\.
 [ "$MAIN_LINES" -eq 1 ] || fail "template must contain exactly one canonical release governance entrypoint"
 [ "$ASSET_DIR_LINES" -eq 1 ] || fail "template must contain exactly one canonical public assets directory"
 
-for key in PUBLIC_APP_URL PUBLIC_ORIGIN TURNSTILE_SITE_KEY PLATFORM_ADMIN_EMAILS PLATFORM_REGULATORY_REVIEWERS EVIDENCE_SCAN_API_URL GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_REDIRECT_URI FACEBOOK_APP_ID FACEBOOK_OAUTH_REDIRECT_URI EMAIL_FROM THEBE_BANK_NAME THEBE_BANK_ACCOUNT_NAME THEBE_BANK_ACCOUNT_NUMBER THEBE_BANK_ACCOUNT_TYPE THEBE_BANK_BRANCH_NAME THEBE_BANK_BRANCH_CODE THEBE_BANK_SWIFT_CODE; do
+for key in PUBLIC_APP_URL PUBLIC_ORIGIN TURNSTILE_SITE_KEY PLATFORM_ADMIN_EMAILS PLATFORM_REGULATORY_REVIEWERS EVIDENCE_SCAN_API_URL GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_REDIRECT_URI FACEBOOK_APP_ID FACEBOOK_OAUTH_REDIRECT_URI EMAIL_FROM THEBE_BANK_NAME THEBE_BANK_ACCOUNT_NUMBER THEBE_BANK_ACCOUNT_TYPE THEBE_BANK_BRANCH_NAME THEBE_BANK_BRANCH_CODE THEBE_BANK_SWIFT_CODE; do
   count=$(grep -Ec "^[[:space:]]*${key}[[:space:]]*=[[:space:]]*\"REPLACE_WITH_${key}\"[[:space:]]*$" "$TEMPLATE" || true)
   [ "$count" -eq 1 ] || fail "template must contain exactly one ${key} placeholder"
 done
@@ -157,7 +155,6 @@ awk \
   -v facebook_redirect_uri="$FACEBOOK_RUNTIME_REDIRECT_URI" \
   -v email_from="$EMAIL_FROM_VALUE" \
   -v bank_name="$THEBE_BANK_NAME_VALUE" \
-  -v bank_account_name="$THEBE_BANK_ACCOUNT_NAME_VALUE" \
   -v bank_account_number="$THEBE_BANK_ACCOUNT_NUMBER_VALUE" \
   -v bank_account_type="$THEBE_BANK_ACCOUNT_TYPE_VALUE" \
   -v bank_branch_name="$THEBE_BANK_BRANCH_NAME_VALUE" \
@@ -182,7 +179,6 @@ awk \
   /^[[:space:]]*FACEBOOK_OAUTH_REDIRECT_URI[[:space:]]*=/ { emit("FACEBOOK_OAUTH_REDIRECT_URI",facebook_redirect_uri); next }
   /^[[:space:]]*EMAIL_FROM[[:space:]]*=/ { emit("EMAIL_FROM",email_from); next }
   /^[[:space:]]*THEBE_BANK_NAME[[:space:]]*=/ { emit("THEBE_BANK_NAME",bank_name); next }
-  /^[[:space:]]*THEBE_BANK_ACCOUNT_NAME[[:space:]]*=/ { emit("THEBE_BANK_ACCOUNT_NAME",bank_account_name); next }
   /^[[:space:]]*THEBE_BANK_ACCOUNT_NUMBER[[:space:]]*=/ { emit("THEBE_BANK_ACCOUNT_NUMBER",bank_account_number); next }
   /^[[:space:]]*THEBE_BANK_ACCOUNT_TYPE[[:space:]]*=/ { emit("THEBE_BANK_ACCOUNT_TYPE",bank_account_type); next }
   /^[[:space:]]*THEBE_BANK_BRANCH_NAME[[:space:]]*=/ { emit("THEBE_BANK_BRANCH_NAME",bank_branch_name); next }
@@ -191,7 +187,7 @@ awk \
   { print }
   END {
     if (id_replaced != 1 || payment_replaced != 1 || main_replaced != 1 || assets_replaced != 1) exit 42
-    keys[1]="PUBLIC_APP_URL";keys[2]="PUBLIC_ORIGIN";keys[3]="TURNSTILE_SITE_KEY";keys[4]="PLATFORM_ADMIN_EMAILS";keys[5]="PLATFORM_REGULATORY_REVIEWERS";keys[6]="EVIDENCE_SCAN_API_URL";keys[7]="GOOGLE_OAUTH_CLIENT_ID";keys[8]="GOOGLE_OAUTH_REDIRECT_URI";keys[9]="FACEBOOK_APP_ID";keys[10]="FACEBOOK_OAUTH_REDIRECT_URI";keys[11]="EMAIL_FROM";keys[12]="THEBE_BANK_NAME";keys[13]="THEBE_BANK_ACCOUNT_NAME";keys[14]="THEBE_BANK_ACCOUNT_NUMBER";keys[15]="THEBE_BANK_ACCOUNT_TYPE";keys[16]="THEBE_BANK_BRANCH_NAME";keys[17]="THEBE_BANK_BRANCH_CODE";keys[18]="THEBE_BANK_SWIFT_CODE"
-    for(i=1;i<=18;i++)if(replaced[keys[i]]!=1)exit 43
+    keys[1]="PUBLIC_APP_URL";keys[2]="PUBLIC_ORIGIN";keys[3]="TURNSTILE_SITE_KEY";keys[4]="PLATFORM_ADMIN_EMAILS";keys[5]="PLATFORM_REGULATORY_REVIEWERS";keys[6]="EVIDENCE_SCAN_API_URL";keys[7]="GOOGLE_OAUTH_CLIENT_ID";keys[8]="GOOGLE_OAUTH_REDIRECT_URI";keys[9]="FACEBOOK_APP_ID";keys[10]="FACEBOOK_OAUTH_REDIRECT_URI";keys[11]="EMAIL_FROM";keys[12]="THEBE_BANK_NAME";keys[13]="THEBE_BANK_ACCOUNT_NUMBER";keys[14]="THEBE_BANK_ACCOUNT_TYPE";keys[15]="THEBE_BANK_BRANCH_NAME";keys[16]="THEBE_BANK_BRANCH_CODE";keys[17]="THEBE_BANK_SWIFT_CODE"
+    for(i=1;i<=17;i++)if(replaced[keys[i]]!=1)exit 43
   }
 ' "$TEMPLATE"
