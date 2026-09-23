@@ -171,7 +171,6 @@ const rendered = execFileSync('sh', ['cloudflare/render-production-config.sh', '
     FACEBOOK_OAUTH_REDIRECT_URI: 'https://thebedesk.com/api/auth/oauth/facebook/callback',
     EMAIL_FROM: '',
     THEBE_BANK_NAME: 'Test Bank',
-    THEBE_BANK_ACCOUNT_NAME: 'Test Account',
     THEBE_BANK_ACCOUNT_NUMBER: '1234567890',
     THEBE_BANK_ACCOUNT_TYPE: '',
     THEBE_BANK_BRANCH_NAME: 'Test Branch',
