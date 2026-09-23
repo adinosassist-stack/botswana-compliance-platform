@@ -102,7 +102,7 @@ const whatsapp=fs.readFileSync("cloudflare/src/agentic-whatsapp-core.js","utf8")
 const inbound=fs.readFileSync("cloudflare/src/whatsapp-inbound-core.js","utf8");
 const readTools=fs.readFileSync("cloudflare/src/agent-read-tools.js","utf8");
 const receivables=fs.readFileSync("cloudflare/src/finance-receivables.js","utf8");
-assert.match(whatsapp,/readParams:intent\.params\|\|null/);
+assert.match(inbound,/readParams:intent\.params\|\|null/);
 assert.match(whatsapp,/params,source,providerMessageId/);
 assert.match(whatsapp,/financeMutation:false/);
 assert.match(whatsapp,/customerMessage:false/);
