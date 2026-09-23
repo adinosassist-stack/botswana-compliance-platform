@@ -123,7 +123,7 @@ assert.equal(unsupported.error,"unsupported_read_tool");
 assert.ok(calls.length>0);
 assert.ok(calls.every(call=>call.bindings.includes("tenant-a")));
 assert.ok(calls.every(call=>/^(?:SELECT|WITH)\b/i.test(call.sql.trim())),"read tools must issue read-only SELECT/CTE statements only");
-assert.ok(calls.every(call=>!\b(?:INSERT|UPDATE|DELETE|REPLACE|CREATE|DROP|ALTER)\b/i.test(call.sql)),"read tools must never issue SQL mutations or DDL");
+assert.ok(calls.every(call=>!/(?:INSERT|UPDATE|DELETE|REPLACE|CREATE|DROP|ALTER)\b/i.test(call.sql)),"read tools must never issue SQL mutations or DDL");
 
 const orchestration=buildSingleAgentOrchestration({
   goal:"Review finance certainty",
