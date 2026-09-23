@@ -39,7 +39,7 @@ assert.match(migration,/finance_invoice_allocations_reverse_guard/);
 assert.match(migration,/finance_invoice_overallocation/);
 assert.match(migration,/finance_transaction_overallocation/);
 assert.match(migration,/finance_allocation_immutable/);
-assert.equal((migration.match(/SELECT \\(CASE/g)||[]).length,6,'all trigger CASE expressions must use the D1-safe parenthesized form');
+assert.equal((migration.match(/SELECT \(CASE/g)||[]).length,6,'all trigger CASE expressions must use the D1-safe parenthesized form');
 assert.doesNotMatch(migration,/SELECT CASE/,'unparenthesized CASE in D1 triggers is not allowed');
 assert.match(migration,/UNIQUE\(tenant_id,reverses_allocation_id\)/);
 assert.match(migration,/finance_transactions\(id\) ON DELETE RESTRICT/);
