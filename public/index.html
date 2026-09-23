@@ -8156,16 +8156,11 @@ let firstValueTopTarget="workhub";
 function scheduleOwnerOnboarding(){
  const eligible=()=>currentUser?.role==="owner"&&currentUser?.onboardingComplete===false&&safeSessionGet("bw_onboarding_dismissed")!=="1";
  if(!eligible())return false;
- const afterReady=()=>{
-  const openWhenIdle=()=>{
-   if(!eligible()||window.__THEBE_WORKSPACE_READY__!==true)return;
-   openOnboarding();
-  };
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{
-   if(typeof requestIdleCallback==="function")requestIdleCallback(openWhenIdle,{timeout:1500});
-   else setTimeout(openWhenIdle,600);
-  }));
- };
+ const afterReady=()=>queueMicrotask(()=>{
+  if(!eligible()||window.__THEBE_WORKSPACE_READY__!==true)return;
+  if(document.querySelector(".modal.open")&&!document.getElementById("onboardModal")?.classList.contains("open"))return;
+  openOnboarding();
+ });
  window.whenThebeWorkspaceReady(afterReady);
  return true;
 }
