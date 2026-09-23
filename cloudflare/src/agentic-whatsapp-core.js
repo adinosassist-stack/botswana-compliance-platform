@@ -1,6 +1,7 @@
 import {AGENT_ACTION_CATALOG,THEBE_AGENTS} from "./agent-policy.js";
 import {evaluateAgentRuntimeGuard} from "./agent-runtime-guard.js";
 import {executeAgentReadTool} from "./agent-read-tools.js";
+import {prepareFinanceReconciliationForPrincipal} from "./agentic-finance-reconciliation.js";
 
 const MAX_BODY_BYTES=4096;
 const WHATSAPP_READ_ACTIONS=Object.freeze({
@@ -170,6 +171,74 @@ export async function prepareWhatsAppReadForPrincipal({env,auth,readKey,idempote
   }
 
   return {status:201,body:{ok:true,replayed:false,readKey:key,intent:{id:intentId,runId,agentKey:"thebe",actionKey:spec.actionKey,status:"evaluated"},messagePreview,snapshot:observation,policy:{readOnly:true,runtimeGuard:true,sourceRef:result.sourceRef},execution:{performed:false,financeMutation:false,customerMessage:false},delivery:{replyToInbound:true,recipientLocked:true}}};
+}
+
+export async function prepareWhatsAppReconciliationForPrincipal({env,auth,payload,idempotencyKey,sourceContext=null}){
+  const definition=AGENT_ACTION_CATALOG["finance_reconciliation.prepare"],role=String(auth?.role||"").toLowerCase();
+  if(!definition||definition.level!==2||definition.humanReviewRequired!==true)return {status:503,body:{error:"whatsapp_reconciliation_policy_unavailable"}};
+  if(!auth?.tenant_id||!auth?.user_id||!definition.roles.includes(role))return {status:403,body:{error:"role_forbidden"}};
+  const providerMessageId=text(sourceContext?.providerMessageId,200),idem=text(idempotencyKey,200);
+  if(!providerMessageId)return {status:400,body:{error:"whatsapp_inbound_source_invalid"}};
+  if(idem.length<8)return {status:400,body:{error:"idempotency_key_required"}};
+
+  const requestPayload={
+    accountId:text(payload?.accountId,64),
+    statementFrom:text(payload?.statementFrom,10),
+    statementTo:text(payload?.statementTo,10),
+    openingBalanceMinor:payload?.openingBalanceMinor,
+    closingBalanceMinor:payload?.closingBalanceMinor
+  };
+  const requestHash=await sha256Hex(JSON.stringify({actionKey:"finance_reconciliation.prepare",providerMessageId,userId:String(auth.user_id),requestPayload}));
+  const existing=await replayIntent(env,auth.tenant_id,idem);
+  if(existing){
+    if(String(existing.action_key)!=="finance_reconciliation.prepare"||String(existing.payload_hash)!==requestHash)return {status:409,body:{error:"idempotency_key_conflict"}};
+    return {status:200,body:{ok:true,replayed:true,messagePreview:String(existing.summary||""),snapshot:parseObservation(existing.observation_json),policy:{prepareOnly:true,humanReviewRequired:true,runtimeGuard:true},execution:{performed:false,financeWrite:false,customerMessage:false},delivery:{replyToInbound:true,recipientLocked:true}}};
+  }
+
+  const runtimeDecision=evaluateAgentRuntimeGuard({
+    agentKey:"thebe",actionKey:"finance_reconciliation.prepare",actorRole:role,tenantScoped:true,
+    tenantId:String(auth.tenant_id),actorTenantId:String(auth.tenant_id),targetTenantId:String(auth.tenant_id),
+    agentStatus:String(env?.AGENT_RUNTIME_ENABLED||"1")==="0"?"disabled":"enabled",
+    killSwitchActive:["1","true","on"].includes(String(env?.AGENT_RUNTIME_KILL_SWITCH||"").trim().toLowerCase()),
+    budgetStatus:String(env?.AGENT_RUNTIME_BUDGET_STATUS||"within_limit"),
+    mode:"shadow",globalExecutionEnabled:false,phase:"phase1"
+  });
+  if(runtimeDecision.allowed!==true||runtimeDecision.executionAllowed!==false)return {status:409,body:{error:"whatsapp_reconciliation_runtime_guard_denied",decision:{code:runtimeDecision.code,guardVersion:runtimeDecision.guardVersion}}};
+  const authority=runtimeDecision.authority;
+  if(authority?.allowed!==true||authority.executionAllowed!==false)return {status:409,body:{error:"whatsapp_reconciliation_authority_denied"}};
+
+  const internalRequest=new Request("https://thebe.internal/api/agentic/finance/reconciliation/prepare",{
+    method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(requestPayload)
+  });
+  const response=await prepareFinanceReconciliationForPrincipal({request:internalRequest,env,auth});
+  const prepared=await response.json();
+  if(response.status>=400||prepared?.ok!==true)return {status:response.status,body:prepared};
+  const proposal=prepared.proposal||{};
+  const messagePreview=[
+    `Thebe · reconciliation prepared for ${proposal.accountName||"finance account"} (${proposal.statementFrom||"?"} to ${proposal.statementTo||"?"}).`,
+    `Book closing: ${pula(proposal.bookClosingMinor)} · statement closing: ${pula(proposal.statementClosingMinor)} · difference: ${pula(proposal.differenceMinor)}.`,
+    `${Number(proposal.transactionCount||0)} transaction(s) checked. Nothing was recorded, posted or sent. Review and approve in Thebe Desk before recording the reconciliation.`
+  ].join("\n");
+  const observation={kind:"whatsapp_finance_reconciliation_prepare",channel:"whatsapp_inbound",inbound:{providerMessageId,receivedAt:text(sourceContext?.receivedAt,80)||null},proposal,verification:prepared.verification,guard:prepared.guard,approval:prepared.approval};
+  const runId=id(),intentId=id();
+  try{
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO agentic_runs(id,tenant_id,requested_by_user_id,goal,status,generation_mode,confidence,observation_json,summary)
+        VALUES(?,?,?,?, 'completed','deterministic_fallback','high',?,?)`).bind(runId,auth.tenant_id,auth.user_id,"Prepare inbound finance reconciliation through the canonical Runtime Guard.",JSON.stringify(observation),messagePreview),
+      env.DB.prepare(`INSERT INTO agent_action_intents(id,tenant_id,run_id,proposal_id,agent_key,action_key,requested_by_user_id,delegation_id,mode,decision,decision_code,
+        required_autonomy_level,amount_minor,payload_hash,idempotency_key,status)
+        VALUES(?,?,?,NULL,'thebe','finance_reconciliation.prepare',?,NULL,'shadow',?,?,?,0,?,?,'review_required')`).bind(intentId,auth.tenant_id,runId,auth.user_id,authority.decision,authority.code,authority.requiredAutonomyLevel,requestHash,idem),
+      env.DB.prepare(`INSERT INTO agentic_events(id,tenant_id,run_id,proposal_id,event_type,actor_user_id,detail_json)
+        VALUES(?,?,?,NULL,'PLAN_GENERATED',?,?)`).bind(id(),auth.tenant_id,runId,auth.user_id,JSON.stringify({channel:"whatsapp_inbound",actionKey:"finance_reconciliation.prepare",providerMessageId,prepareOnly:true,runtimeGuardVersion:runtimeDecision.guardVersion,recipientLocked:true}))
+    ]);
+  }catch{
+    const replay=await replayIntent(env,auth.tenant_id,idem);
+    if(replay&&String(replay.action_key)==="finance_reconciliation.prepare"&&String(replay.payload_hash)===requestHash){
+      return {status:200,body:{ok:true,replayed:true,messagePreview:String(replay.summary||""),snapshot:parseObservation(replay.observation_json),policy:{prepareOnly:true,humanReviewRequired:true,runtimeGuard:true},execution:{performed:false,financeWrite:false,customerMessage:false},delivery:{replyToInbound:true,recipientLocked:true}}};
+    }
+    return {status:500,body:{error:"whatsapp_reconciliation_prepare_failed"}};
+  }
+  return {status:201,body:{ok:true,replayed:false,messagePreview,snapshot:observation,proposal,policy:{prepareOnly:true,humanReviewRequired:true,runtimeGuard:true},execution:{performed:false,financeWrite:false,customerMessage:false},delivery:{replyToInbound:true,recipientLocked:true}}};
 }
 
 async function ownerSnapshot(env,tenantId){
