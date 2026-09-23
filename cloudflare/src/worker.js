@@ -1153,6 +1153,11 @@ async function claimPaymentSettlement(env,order){
     if(!String(e).includes("UNIQUE"))throw e;
     const existing=await env.DB.prepare("SELECT status,claim_token,claimed_at FROM payment_settlement_claims WHERE payment_order_id=? LIMIT 1").bind(order.id).first();
     if(["applied","legacy_assumed_applied"].includes(existing?.status))return {ok:false,alreadyApplied:true,status:existing.status};
+    if(existing?.status==="failed"){
+      const retry=await env.DB.prepare(`UPDATE payment_settlement_claims SET claim_token=?,claimed_at=CURRENT_TIMESTAMP,status='processing',last_error='failed_claim_recovered'
+        WHERE payment_order_id=? AND status='failed'`).bind(token,order.id).run();
+      if(Number(retry.meta?.changes||0)===1)return {ok:true,token,recovered:true};
+    }
     const stale=existing?.status==="processing"&&new Date(existing.claimed_at).getTime()<Date.now()-10*60*1000;
     if(stale){
       const takeover=await env.DB.prepare(`UPDATE payment_settlement_claims SET claim_token=?,claimed_at=CURRENT_TIMESTAMP,status='processing',last_error='stale_claim_recovered'
