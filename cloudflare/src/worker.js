@@ -5220,7 +5220,7 @@ export default {
       const publicLimit=await publicBearerRateLimit(req,env,"daily-report-access",token);if(!publicLimit.ok)return rateLimitResponse(publicLimit);
       const access=await reporterAccessFromToken(env,token);
       if(!access)return json({error:"reporting_link_invalid_or_expired"},404,PASSPORT_PUBLIC_HEADERS);
-      const reportEnt=await entitlement(env,access.tenant_id,"daily_operations");if(!reportEnt.enabled)return json({error:"daily_reporting_not_in_active_plan"},402,PASSPORT_PUBLIC_HEADERS);
+      const reportEnt=await entitlement(env,access.tenant_id,"operating_locations");if(!reportEnt.enabled)return json({error:"daily_reporting_not_in_active_plan"},402,PASSPORT_PUBLIC_HEADERS);
       return json({employee:{name:access.full_name,roleTitle:access.role_title||""},location:{id:access.location_id,name:access.location_name,code:access.location_code||"",town:access.town||""},companyName:access.company_name,reportDate:gaboroneDate(),expiresAt:access.expires_at},200,PASSPORT_PUBLIC_HEADERS);
     }
     if(url.pathname==="/public/daily-reporting/submit"&&req.method==="POST"){
@@ -5231,7 +5231,7 @@ export default {
       const publicLimit=await publicBearerRateLimit(req,env,"daily-report-submit",token);if(!publicLimit.ok)return rateLimitResponse(publicLimit);
       const access=await reporterAccessFromToken(env,token);
       if(!access)return json({error:"reporting_link_invalid_or_expired"},404,PASSPORT_PUBLIC_HEADERS);
-      const reportEnt=await entitlement(env,access.tenant_id,"daily_operations");if(!reportEnt.enabled)return json({error:"daily_reporting_not_in_active_plan"},402,PASSPORT_PUBLIC_HEADERS);
+      const reportEnt=await entitlement(env,access.tenant_id,"operating_locations");if(!reportEnt.enabled)return json({error:"daily_reporting_not_in_active_plan"},402,PASSPORT_PUBLIC_HEADERS);
       const reportDate=String(body.reportDate||gaboroneDate());if(!isoDateValid(reportDate))return json({error:"invalid_report_date"},400,PASSPORT_PUBLIC_HEADERS);
       const today=gaboroneDate(),oldest=new Date(`${today}T00:00:00Z`);oldest.setUTCDate(oldest.getUTCDate()-3);const oldestDate=oldest.toISOString().slice(0,10);
       if(reportDate>today||reportDate<oldestDate)return json({error:"report_date_outside_allowed_window",allowedFrom:oldestDate,allowedTo:today},409,PASSPORT_PUBLIC_HEADERS);
@@ -6709,7 +6709,7 @@ export default {
 
 
       if(url.pathname.startsWith("/api/daily-reporting/")){
-        const reportingSetupPath=url.pathname==="/api/daily-reporting/locations"||url.pathname==="/api/daily-reporting/access"||/^\/api\/daily-reporting\/access\/[^/]+\/revoke$/.test(url.pathname);
+        const reportingSetupPath=url.pathname==="/api/daily-reporting/locations"||url.pathname==="/api/daily-reporting/access"||url.pathname==="/api/daily-reporting/dashboard"||/^\/api\/daily-reporting\/access\/[^/]+\/revoke$/.test(url.pathname);
         const featureKey=reportingSetupPath?"operating_locations":"daily_operations";
         const featureGate=await requireEntitlement(env,a.tenant_id,featureKey);if(!featureGate.ok)return json({error:featureGate.error,entitlement:featureGate.entitlement},402);
       }
