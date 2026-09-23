@@ -42,7 +42,7 @@ assert.match(runtime,/Remove location\?/);
 assert.match(runtime,/Historical reports were retained and reporting links for it were revoked/);
 assert.match(runtime,/async function loadOpsPerformanceLearning\(\)/);
 assert.match(runtime,/const reportingFailures=\[dashboardR\]/,"optional reporting intelligence must not block the core dashboard");
-assert.match(runtime,/data-bw-onclick="loadOpsPerformanceLearning\(\)"/);
+assert.match(html,/data-bw-onclick="loadOpsPerformanceLearning\(\)"/);
 assert.match(runtime,/async function openEmployeeReportingAccess\(id\)/);
 assert.match(runtime,/el\.safeHTML=active\.length\?active\.map/);
 
