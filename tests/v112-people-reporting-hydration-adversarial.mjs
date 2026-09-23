@@ -5,16 +5,38 @@ import {spawnSync} from "node:child_process";
 const runtime=fs.readFileSync("public/js/workspace-runtime-20260923m.js","utf8");
 const html=fs.readFileSync("public/index.html","utf8");
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
+const fragments=JSON.parse(fs.readFileSync("public/assets/workspace-view-fragments-20260923f.json","utf8"));
+
+function sectionInner(source,id){
+  const match=new RegExp(`<section\\b[^>]*\\bid=["']${id}["'][^>]*>`,"i").exec(source);
+  assert.ok(match,"missing workspace view "+id);
+  const openEnd=match.index+match[0].length;
+  const token=/<\/?section\b[^>]*>/gi;
+  token.lastIndex=match.index;
+  let depth=0,current;
+  while((current=token.exec(source))){
+    if(/^<section\b/i.test(current[0]))depth+=1;
+    else depth-=1;
+    if(depth===0)return source.slice(openEnd,current.index);
+  }
+  throw new Error("unclosed workspace view "+id);
+}
+const peopleMarkup=sectionInner(html,"peopleops");
+const dailyMarkup=sectionInner(html,"dailyreports");
 
 const syntax=spawnSync(process.execPath,["--check","public/js/workspace-runtime-20260923m.js"],{encoding:"utf8"});
 assert.equal(syntax.status,0,syntax.stderr||syntax.stdout);
 
 // Pass 1: People owns the reporting setup DOM and must hydrate it on view open.
 assert.match(html,/<section[^>]*id="peopleops"[^>]*class="[^"]*view[^"]*"/i);
-assert.match(html,/id="opsReporterEmployee"/);
-assert.match(html,/id="opsReporterLocation"/);
-assert.match(html,/data-bw-onclick="addOpsLocation\(\)"/);
-assert.match(html,/<details id="opsReportingSetupDetails" class="ops-specialist-details" open>/,"People reporting setup must be visible before async hydration starts");
+assert.match(peopleMarkup,/id="opsReporterEmployee"/);
+assert.match(peopleMarkup,/id="opsReporterLocation"/);
+assert.match(peopleMarkup,/id="opsLocationsList"/);
+assert.match(peopleMarkup,/data-bw-onclick="addOpsLocation\(\)"/);
+assert.match(peopleMarkup,/<details id="opsReportingSetupDetails" class="ops-specialist-details" open>/,"People reporting setup must be visible before async hydration starts");
+assert.doesNotMatch(dailyMarkup,/id="opsReportingSetupDetails"|id="opsLocationsList"|id="opsReporterEmployee"/,"Daily Reports must not own People reporting-setup controls");
+assert.doesNotMatch(String(fragments.views?.dailyreports||""),/id="opsReportingSetupDetails"|id="opsLocationsList"|id="opsReporterEmployee"/,"lazy Daily Reports fragment must not reintroduce duplicate/hidden reporting setup controls");
+assert.equal((html.match(/id="opsReportingSetupDetails"/g)||[]).length,1,"reporting setup must have exactly one DOM owner");
 assert.match(runtime,/async function renderPeopleReportingSetup\(\)/);
 assert.match(runtime,/document\.getElementById\("peopleops"\)\?\.classList\.contains\("active"\)/);
 assert.match(runtime,/run\("peopleops",renderPeopleReportingSetup\)/);

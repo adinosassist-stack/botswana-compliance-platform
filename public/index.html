@@ -2942,7 +2942,19 @@ main{
         <button class="hub-card" type="button" data-hub-target="privacy" data-bw-onclick="showView('privacy')"><span class="hub-icon">◉</span><span><b>Employee data privacy</b><small>Track personal-data activities and privacy controls.</small></span><span class="hub-arrow">→</span></button>
       </div>
     </details>
-  </section>
+  
+
+    <details id="opsReportingSetupDetails" class="ops-specialist-details" open>
+          <summary>Reporting setup <span class="muted small">Locations, employee links and automation</span></summary>
+          <div class="ops-specialist-inner">
+            <div class="card"><div class="section-eyebrow">Automation</div><h2 style="margin:3px 0 10px">Daily leadership digest</h2><div class="ops-setting-row"><div><b>Auto-generate at 18:15 Botswana time</b><div class="muted small">Creates a daily summary and in-app notification. Uses Workers AI credits when available; otherwise produces a structured factual roll-up.</div></div><input id="opsAutoSummary" type="checkbox" aria-label="Ops auto summary"></div><button type="button" class="btn alt" style="margin-top:14px" data-bw-onclick="saveOpsReportingSettings()">Save automation</button><div id="opsAutomationStatus" class="muted small" style="margin-top:8px"></div></div>
+            <div class="grid g2" style="margin-top:16px">
+              <div class="card"><h2>Locations</h2><div class="muted small">Create the offices, branches, shops, sites or teams you want to track separately.</div><div class="formgrid" style="margin-top:12px"><div><label for="opsLocationName">Location name</label><input id="opsLocationName" placeholder="e.g. Gaborone Main Office"></div><div><label for="opsLocationCode">Code</label><input id="opsLocationCode" maxlength="16" placeholder="GBE"></div><div><label for="opsLocationTown">Town / area</label><input id="opsLocationTown" placeholder="Gaborone"></div></div><button type="button" class="btn" style="margin-top:10px" data-bw-onclick="addOpsLocation()">Add location</button><div id="opsLocationsList" style="margin-top:12px"></div></div>
+              <div class="card"><h2>Employee reporting access</h2><div class="muted small">Issue a restricted reporting link. The link can submit daily reports only; it does not open the compliance workspace.</div><div class="formgrid" style="margin-top:12px"><div><label for="opsReporterEmployee">Employee</label><select id="opsReporterEmployee"></select></div><div><label for="opsReporterLocation">Location</label><select id="opsReporterLocation"></select></div><div><label for="opsReporterExpiry">Link expires</label><select id="opsReporterExpiry"><option value="90">90 days</option><option value="180" selected>180 days</option><option value="365">365 days</option></select></div></div><button type="button" class="btn" style="margin-top:10px" data-bw-onclick="createOpsReporterLink()">Create / rotate reporting link</button><div id="opsReporterLinkResult"></div><div id="opsReporterAccessList" style="margin-top:12px"></div></div>
+            </div>
+          </div>
+        </details>
+</section>
 
   <section id="businesshub" class="view simplified-hub business-hub" data-hub-name="Business">
     <div class="hub-hero"><div><div class="section-eyebrow">Business</div><h2>See what can affect the company’s standing, licences and tax readiness.</h2><p class="muted">Start with the business outcomes that need attention. Company changes, detailed profile fields and specialist requirements stay available without crowding the first screen.</p></div><button class="btn alt" type="button" data-hub-target="businessevents" data-bw-onclick="showView('businessevents')">Record a business change</button></div>
@@ -3169,16 +3181,7 @@ main{
       </div>
     </details>
 
-    <details id="opsReportingSetupDetails" class="ops-specialist-details" open>
-      <summary>Reporting setup <span class="muted small">Locations, employee links and automation</span></summary>
-      <div class="ops-specialist-inner">
-        <div class="card"><div class="section-eyebrow">Automation</div><h2 style="margin:3px 0 10px">Daily leadership digest</h2><div class="ops-setting-row"><div><b>Auto-generate at 18:15 Botswana time</b><div class="muted small">Creates a daily summary and in-app notification. Uses Workers AI credits when available; otherwise produces a structured factual roll-up.</div></div><input id="opsAutoSummary" type="checkbox" aria-label="Ops auto summary"></div><button type="button" class="btn alt" style="margin-top:14px" data-bw-onclick="saveOpsReportingSettings()">Save automation</button><div id="opsAutomationStatus" class="muted small" style="margin-top:8px"></div></div>
-        <div class="grid g2" style="margin-top:16px">
-          <div class="card"><h2>Locations</h2><div class="muted small">Create the offices, branches, shops, sites or teams you want to track separately.</div><div class="formgrid" style="margin-top:12px"><div><label for="opsLocationName">Location name</label><input id="opsLocationName" placeholder="e.g. Gaborone Main Office"></div><div><label for="opsLocationCode">Code</label><input id="opsLocationCode" maxlength="16" placeholder="GBE"></div><div><label for="opsLocationTown">Town / area</label><input id="opsLocationTown" placeholder="Gaborone"></div></div><button type="button" class="btn" style="margin-top:10px" data-bw-onclick="addOpsLocation()">Add location</button><div id="opsLocationsList" style="margin-top:12px"></div></div>
-          <div class="card"><h2>Employee reporting access</h2><div class="muted small">Issue a restricted reporting link. The link can submit daily reports only; it does not open the compliance workspace.</div><div class="formgrid" style="margin-top:12px"><div><label for="opsReporterEmployee">Employee</label><select id="opsReporterEmployee"></select></div><div><label for="opsReporterLocation">Location</label><select id="opsReporterLocation"></select></div><div><label for="opsReporterExpiry">Link expires</label><select id="opsReporterExpiry"><option value="90">90 days</option><option value="180" selected>180 days</option><option value="365">365 days</option></select></div></div><button type="button" class="btn" style="margin-top:10px" data-bw-onclick="createOpsReporterLink()">Create / rotate reporting link</button><div id="opsReporterLinkResult"></div><div id="opsReporterAccessList" style="margin-top:12px"></div></div>
-        </div>
-      </div>
-    </details>
+    
   </section>
 
 
