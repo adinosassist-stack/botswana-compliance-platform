@@ -72,6 +72,10 @@ jobs:
           import assert from 'node:assert/strict';
           import fs from 'node:fs';
           const origin=process.env.ORIGIN;
+          const releaseManifest=JSON.parse(fs.readFileSync('release/production.json','utf8'));
+          assert.equal(releaseManifest.release,'production');
+          assert.ok(Number.isSafeInteger(releaseManifest.sequence)&&releaseManifest.sequence>0,'production release sequence must be a positive integer');
+          assert.match(String(releaseManifest.sourceSha||''),/^[0-9a-f]{40}$/,'production release source SHA must be exact');
           const entrySource=fs.readFileSync('cloudflare/src/agentic-entry.js','utf8');
           const schemaMatch=entrySource.match(/const V81_SCHEMA_DELTA="([^"]+)"/);
           assert.ok(schemaMatch?.[1],'agentic schema delta source-of-truth missing');
@@ -89,7 +93,19 @@ jobs:
           assert.equal(String(root.headers.get('x-content-type-options')||'').toLowerCase(),'nosniff');
           assert.equal(String(root.headers.get('x-frame-options')||'').toUpperCase(),'DENY');
           assert.match(String(root.headers.get('content-security-policy')||''),/default-src 'self'/);
-          console.log('PASS public-only root + security headers');
+          assert.equal(root.headers.get('x-thebe-source-sha'),releaseManifest.sourceSha,'public root source provenance must match promoted release');
+          assert.equal(root.headers.get('x-thebe-release-sequence'),String(releaseManifest.sequence),'public root release sequence must match promoted release');
+          console.log(`PASS public-only root + security headers + release provenance sequence=${releaseManifest.sequence} source=${releaseManifest.sourceSha.slice(0,12)}`);
+
+          const version=await get('/api/version');
+          assert.equal(version.status,200);
+          const provenance=await version.json();
+          assert.equal(provenance.ok,true);
+          assert.equal(provenance.release,releaseManifest.release);
+          assert.equal(provenance.releaseSequence,releaseManifest.sequence);
+          assert.equal(provenance.sourceSha,releaseManifest.sourceSha);
+          assert.equal(provenance.runtimeEntry,'release-governance-entry');
+          console.log(`PASS /api/version exact promoted release identity sequence=${provenance.releaseSequence} source=${provenance.sourceSha.slice(0,12)}`);
 
           const productionEntry=fs.readFileSync('cloudflare/src/production-entry.js','utf8');
           const runtimeAsset=productionEntry.match(/const WORKSPACE_RUNTIME_ASSET="([^"]+)"/)?.[1]||'';
