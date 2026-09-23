@@ -3,6 +3,7 @@ import {handleAgenticAuthorityRequest} from "./agentic-authority-core.js";
 import {handleAgenticWhatsAppRequest} from "./agentic-whatsapp-core.js";
 import {handleAgenticTaskExecutionRequest} from "./agentic-task-execution.js";
 import {handleAgenticLiveVoiceRequest} from "./agentic-live-voice.js";
+import {handleAgenticFinanceReconciliationRequest} from "./agentic-finance-reconciliation.js";
 import {preparePlatformOwnerLogin,withPlatformOwnerAdminEnv} from "./platform-owner-access.js";
 import {applyClientRuntimeIdentity} from "./client-runtime-identity.js";
 
@@ -156,6 +157,8 @@ export default {
     if(liveVoiceResponse)return liveVoiceResponse;
     const whatsappResponse=await handleAgenticWhatsAppRequest({request,logicalPath,env});
     if(whatsappResponse)return whatsappResponse;
+    const financeReconciliationResponse=await handleAgenticFinanceReconciliationRequest({request,logicalPath,env});
+    if(financeReconciliationResponse)return financeReconciliationResponse;
     const taskExecutionResponse=await handleAgenticTaskExecutionRequest({request,logicalPath,env});
     if(taskExecutionResponse)return taskExecutionResponse;
     const authorityResponse=await handleAgenticAuthorityRequest({request,logicalPath,env});
