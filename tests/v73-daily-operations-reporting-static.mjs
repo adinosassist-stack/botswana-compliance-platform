@@ -25,7 +25,7 @@ assert.ok(html.includes('(employees.items||[]).filter(x=>String(x.status||\"\").
 
 // Pass 2 — access, privacy, prompt-injection and AI cost controls.
 assert.ok(worker.includes('token_hash')&&!migration.includes('raw_token'),'reporting token must be stored hashed only');
-assert.ok(worker.includes('const link=`${origin}/app/#report=${encodeURIComponent(token)}`'),'reporting token must use the /app/ reporter surface and URL fragment rather than query string');
+assert.ok(worker.includes('const link=`${origin}/report/#report=${encodeURIComponent(token)}`'),'reporting token must use the dedicated /report/ bearer surface and URL fragment rather than query string');
 assert.ok(worker.includes('"/public/daily-reporting/access"&&req.method==="POST"')&&worker.includes('"/public/daily-reporting/submit"&&req.method==="POST"'),'public reporting bearer workflow must be POST-only');
 assert.ok(worker.includes('requestOriginAllowed(req,env)'),'public reporting endpoints must enforce allowed origin policy');
 assert.ok(worker.includes("a.status='active' AND a.expires_at>CURRENT_TIMESTAMP AND lower(trim(coalesce(e.status,'')))='active' AND l.active=1"),'reporting link must fail closed on inactive/expired scope');
@@ -48,7 +48,7 @@ for(const endpoint of ['/api/daily-reporting/locations','/api/daily-reporting/ac
 assert.ok(html.includes('data-view="dailyreports"')&&html.includes('data-hub-target="dailyreports"'),'Daily Reports navigation/search path missing');
 assert.ok(html.includes('<section id="dailyreports" class="view">'),'Daily Reports workspace view missing');
 assert.ok(html.includes('id="reporterPortal"'),'restricted employee report portal missing');
-assert.ok(html.includes('/js/reporter-link-redirect.js'),'legacy root reporter links must redirect to the /app/ reporter surface');
+assert.ok(html.includes('/js/reporter-link-redirect.js'),'legacy reporter links must retain the redirect shim to the dedicated /report/ surface');
 assert.ok(html.includes('function renderDailyOperations()')&&html.includes('function generateOpsSummary()'),'daily operations render/summary functions missing');
 assert.ok(html.includes('Promise.allSettled(requests)'),'daily operations setup must survive partial API failure');
 assert.ok(html.includes('Locations still work independently'),'location setup must remain usable when daily reporting is outside the active plan');
