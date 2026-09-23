@@ -1,5 +1,6 @@
 import {createHash} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
+import {splitSqliteMigrationStatements} from './sqlite-migration-statements.mjs';
 
 const API='https://api.cloudflare.com/client/v4';
 const token=String(process.env.CLOUDFLARE_API_TOKEN||'').trim();
@@ -76,8 +77,13 @@ const bookmarkBody=await cf(`/accounts/${accountId}/d1/database/${databaseId}/ti
 const bookmark=String(bookmarkBody?.result?.bookmark||'').trim();
 if(!bookmark)fail('could not capture a pre-migration Time Travel bookmark');
 console.log(`Pre-migration Time Travel bookmark captured: ${bookmark}`);
-console.log('Applying reviewed forward-only migration 049 to production D1.');
-await query(migration);
+const statements=splitSqliteMigrationStatements(migration);
+if(statements.length!==13)fail(`reviewed migration parsed into unexpected statement count: ${statements.length}`);
+console.log(`Applying reviewed forward-only migration 049 to production D1 as ${statements.length} complete statements.`);
+for(let index=0;index<statements.length;index+=1){
+  try{await query(statements[index])}
+  catch(error){throw new Error(`Migration 049 statement ${index+1}/${statements.length} failed: ${error.message}`)}
+}
 
 const after=await inspect();
 if(!complete(after))fail(`post-migration verification incomplete tables=${after.presentTables.join(',')||'none'} indexes=${after.presentIndexes.join(',')||'none'} triggers=${after.presentTriggers.join(',')||'none'}`);
