@@ -71,7 +71,7 @@ ok('registration challenge rate budget is durable and fails closed when unavaila
 ok('platform owner repair does not advance the D1 schema lineage',!fs.existsSync(new URL('../cloudflare/migrations/048_v82_platform_owner_access.sql',import.meta.url)));
 
 ok('platform specialist tools start hidden',html.includes('<details class="nav-specialist-tools" hidden>')&&html.includes('.nav-specialist-tools[hidden]{display:none!important}'));
-ok('owner platform screens require positive platform-admin status',html.includes('let platformRegulatoryAccess=false')&&html.includes('platformRegulatoryAccess=status?.role==="admin"'));
+ok('platform specialist screens require positive provisioned regulatory role status',html.includes('let platformRegulatoryAccess=false')&&html.includes('platformRegulatoryAccess=["editor","reviewer","admin"].includes(String(status?.role||""))'));
 ok('owner view matrix conditionally includes platform-only buttons',html.includes('const platformAdminViews=platformRegulatoryAccess?')&&html.includes('new Set([...allCustomer,...platformAdminViews])'));
 ok('logout clears platform UI privilege',html.includes('async function logoutUser(){platformRegulatoryAccess=false;'));
 ok('no company-name privilege shortcut was introduced',!html.includes('Lovely Group')&&!html.includes('Lovey Group')&&!worker.includes('Lovely Group')&&!worker.includes('Lovey Group'));
