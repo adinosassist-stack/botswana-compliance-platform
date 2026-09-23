@@ -63,7 +63,7 @@ directory = "../public"
 binding = "ASSETS"
 not_found_handling = "404-page"
 html_handling = "auto-trailing-slash"
-run_worker_first = ["/", "/index.html", "/auth", "/auth/*", "/app", "/app/*", "/robots.txt", "/sitemap.xml", "/cipa-compliance-botswana/*", "/burs-tax-compliance-botswana/*", "/business-licences-botswana/*", "/employment-compliance-botswana/*", "/tender-readiness-botswana/*", "/compliance-evidence-botswana/*", "/pricing/*", "/api/*", "/public/*", "/js/workspace-runtime-*", "/assets/workspace-inline-styles-*", "/assets/workspace-view-fragments-*"]
+run_worker_first = ["/", "/index.html", "/auth", "/auth/*", "/app", "/app/*", "/report", "/report/*", "/robots.txt", "/sitemap.xml", "/cipa-compliance-botswana/*", "/burs-tax-compliance-botswana/*", "/business-licences-botswana/*", "/employment-compliance-botswana/*", "/tender-readiness-botswana/*", "/compliance-evidence-botswana/*", "/pricing/*", "/api/*", "/public/*", "/js/workspace-runtime-*", "/assets/workspace-inline-styles-*", "/assets/workspace-view-fragments-*"]
 
 # Set with: npx wrangler secret put PAYMENT_WEBHOOK_SECRET
 # Set with: npx wrangler secret put BILLING_WEBHOOK_SECRET
