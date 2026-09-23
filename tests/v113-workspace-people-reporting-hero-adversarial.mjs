@@ -10,7 +10,7 @@ const home=fs.readFileSync("public/home.html","utf8");
 // Pass 1: every delegated workspace control resolves to an allowed runtime function.
 const allowedBlock=(delegation.match(/const ALLOWED_ACTIONS=new Set\(\[([\s\S]*?)\]\);/)||[])[1]||"";
 const allowed=new Set([...allowedBlock.matchAll(/'([^']+)'/g)].map(m=>m[1]));
-const declared=new Set([...runtime.matchAll(/(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/g)].map(m=>m[1]));
+const declared=new Set([...runtime.matchAll(/(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/g),...html.matchAll(/(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/g)].map(m=>m[1]));
 const expressions=[...html.matchAll(/data-bw-on(?:click|change|input|keydown|keyup|focus|submit)="([^"]+)"/g)].map(m=>m[1]);
 const actionNames=new Set();
 for(const expression of expressions){
@@ -25,6 +25,7 @@ for(const expression of expressions){
 assert.ok(expressions.length>=400,`unexpected delegated control count: ${expressions.length}`);
 for(const name of actionNames){
   assert.ok(allowed.has(name),`delegated action is not allowlisted: ${name}`);
+  assert.ok(declared.has(name),`delegated action has no shipped workspace handler: ${name}`);
 }
 assert.doesNotMatch(html,/\son(?:click|change|input|submit)=/i,"legacy inline event attributes must remain absent");
 
