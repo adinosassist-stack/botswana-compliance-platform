@@ -22,6 +22,7 @@ const checks=[
  ["hosted subscription checkout removed",!h.includes("Preparing secure hosted checkout")&&!h.includes("Opening the configured hosted payment provider")],
  ["release tip 050",profile.latest_cloudflare_migration==="050_v115_manual_bank_subscriptions.sql"&&m.includes("manual_payment_submissions")],
  ["guarded production migration runner",mr.includes("expectedGitBlobSha='9fc8a50b365e20eb313166912b7b42a266f1322b'")&&mr.includes("time_travel/bookmark")&&mr.includes("PRAGMA foreign_key_check")&&mr.includes("reviewed idempotent forward-only migration 050")],
- ["migration workflow isolated",mw.includes("environment: production")&&mw.includes("[migrate-050]")&&mw.includes("migrate-production-v115-manual-bank-subscriptions.mjs")&&!mw.includes("wrangler deploy")]
+ ["migration workflow isolated",mw.includes("environment: production")&&mw.includes("[migrate-050]")&&mw.includes("migrate-production-v115-manual-bank-subscriptions.mjs")&&!mw.includes("wrangler deploy")],
+ ["migration concurrency is job scoped",!mw.slice(0,mw.indexOf("jobs:")).includes("\nconcurrency:")&&mw.includes("jobs:\n  migrate:\n    concurrency:\n      group: thebe-desk-production\n      cancel-in-progress: false")]
 ];
 const bad=checks.filter(x=>!x[1]);for(const [n,ok] of checks)console.log(`${ok?"PASS":"FAIL"} ${n}`);if(bad.length)process.exit(1);
