@@ -2269,10 +2269,10 @@ main{
 @media (max-width:1000px){
   html,body{max-width:100%;overflow-x:hidden}
   body.mobile-nav-open{overflow:hidden;touch-action:none;background:#0b0f0d!important}
-  .shell{display:block!important;min-width:0!important}
-  main{width:100%!important;max-width:none!important;padding:12px 10px calc(144px + env(safe-area-inset-bottom))!important;overflow-x:hidden;scroll-padding-bottom:calc(144px + env(safe-area-inset-bottom))}
-  #mainContent::after{content:"";display:block;width:100%;height:calc(88px + env(safe-area-inset-bottom));pointer-events:none}
-  .mobile-nav-occlusion{display:block;position:fixed;z-index:179;left:0;right:0;bottom:0;height:calc(84px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid #edf0ee;pointer-events:none}
+  .shell{display:block!important;min-width:0!important;height:100dvh!important;max-height:100dvh!important;overflow:hidden!important;background:#f7f8f9!important}
+  main{width:100%!important;max-width:none!important;height:calc(100dvh - 96px - env(safe-area-inset-bottom))!important;max-height:calc(100dvh - 96px - env(safe-area-inset-bottom))!important;padding:12px 10px 20px!important;overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior-y:contain;scroll-padding-bottom:20px}
+  #mainContent::after{content:"";display:block;width:100%;height:20px;pointer-events:none}
+  .mobile-nav-occlusion{display:block;position:fixed;z-index:179;left:0;right:0;bottom:0;height:calc(96px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid #edf0ee;box-shadow:0 -8px 24px rgba(10,20,14,.06);pointer-events:none}
   body.mobile-nav-open .mobile-nav-occlusion{display:none!important}
 
   /* Reuse the real desktop sidebar as the mobile drawer so every workspace view remains accessible. */
