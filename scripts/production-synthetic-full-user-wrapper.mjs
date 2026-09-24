@@ -619,8 +619,8 @@ async function runFullUserJourney(credentials){
     // Prove the live manual-bank customer path without falsely approving synthetic funds.
     await page.evaluate(()=>globalThis.showView?.('billing'));
     await page.waitForFunction(()=>document.getElementById('billing')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
-    const starterPlanButton=page.locator('#billing button[data-bw-onclick="requestPlan(\'starter\')"]:visible').first();
-    if(!(await starterPlanButton.count()))throw new Error('Synthetic full-user proof failed: manual-bank proof missing visible starter plan control');
+    const starterPlanButton=page.locator('#billing button.eventcard:visible').filter({hasText:'Monitor'}).first();
+    if(!(await starterPlanButton.count()))throw new Error('Synthetic full-user proof failed: manual-bank proof missing visible Monitor plan control');
     await starterPlanButton.click();
     await page.locator('#manualBankReference').waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
     const manualTransferUi=await page.locator('#upgradeResult').innerText();
