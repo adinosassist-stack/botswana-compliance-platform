@@ -9,12 +9,11 @@ permissions:
   contents: read
   actions: read
 
-concurrency:
-  group: thebe-desk-production
-  cancel-in-progress: false
-
 jobs:
   migrate:
+    concurrency:
+      group: thebe-desk-production
+      cancel-in-progress: false
     name: Apply reviewed finance receivables migration 049
     if: contains(github.event.head_commit.message, '[migrate-049]')
     runs-on: ubuntu-24.04
