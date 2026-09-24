@@ -3,6 +3,7 @@ import fs from "node:fs";
 
 const html=fs.readFileSync("public/index.html","utf8");
 const styles=fs.readFileSync("public/assets/workspace-inline-styles-20260924a.css","utf8");
+const uxStyles=fs.readFileSync("public/assets/workspace-ui-ux-10.css","utf8");
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const redirect=fs.readFileSync("public/js/reporter-link-redirect.js","utf8");
 const reportHtml=fs.readFileSync("public/report/index.html","utf8");
@@ -22,6 +23,9 @@ for(const source of [html,styles]){
   assert.ok(source.includes("background:#0b0f0d;backdrop-filter:none"),"mobile drawer backdrop must be fully opaque so workspace text cannot bleed underneath");
   assert.ok(source.includes("body.mobile-nav-open #mainContent{visibility:hidden!important}"),"workspace text must not remain visible below the open mobile drawer");
 }
+assert.ok(uxStyles.includes("#appShell .mobilebar{")&&uxStyles.includes("background:#fff!important")&&uxStyles.includes("background-color:#fff!important")&&uxStyles.includes("backdrop-filter:none!important"),"production UX override must keep the wide-mobile bottom navigation fully opaque");
+assert.ok(!uxStyles.includes("background:rgba(255,255,255,.96)!important"),"production UX override must not reintroduce translucent wide-mobile navigation");
+assert.ok(html.includes('/assets/workspace-ui-ux-10.css?v=20260924b'),"workspace UX stylesheet cache token must rotate with the opacity fix");
 assert.ok(html.includes('document.getElementById("mainContent")?.setAttribute("inert","")'),"workspace content must be inert while the mobile menu is open");
 assert.ok(html.includes('document.getElementById("mainContent")?.removeAttribute("inert")'),"workspace content must be restored after closing the mobile menu");
 

@@ -67,7 +67,7 @@ ok(ownerCss.startsWith('@import url("/assets/workspace-ui-ux-10.css?v=20260913b"
 ok(workspaceUx.includes('#appShell .owner-action-index') && workspaceUx.includes('background:var(--ws-accent-soft)!important') && workspaceUx.includes('color:var(--ws-accent-strong)!important'),'owner decision layer is visually unified with the live blue workspace brand');
 ok(workspaceUx.includes('@media(max-width:1000px)') && workspaceUx.includes('@media(prefers-reduced-motion:reduce)'),'workspace UX 10 retains responsive and reduced-motion behavior');
 
-ok(home.includes('/assets/workspace-ui-ux-10.css?v=20260918a') && home.includes('--accent:#0b66d6;--soft:#edf5ff;'),'authenticated shell loads the established blue workspace layer at first paint');
+ok(home.includes('/assets/workspace-ui-ux-10.css?v=20260924b') && home.includes('--accent:#0b66d6;--soft:#edf5ff;'),'authenticated shell loads the established blue workspace layer at first paint');
 const blueAuthority=home.indexOf('id="thebe-blue-brand-authority"');
 ok(blueAuthority>home.lastIndexOf('/* v16 acquisition + monetization UX */'),'final blue brand authority loads after the legacy green acquisition layer');
 const blueAuthorityCss=home.slice(blueAuthority);
