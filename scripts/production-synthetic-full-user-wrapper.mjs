@@ -143,10 +143,16 @@ async function runFullUserJourney(credentials){
       assert(Math.abs(renderedRatio-naturalRatio)<0.015,`marketing hero rendered aspect ratio crops or distorts the source: ${safe(JSON.stringify({...state,naturalRatio,renderedRatio}))}`);
       assert(state.frameOverflowX==='visible'&&state.frameOverflowY==='visible',`marketing hero frame can clip the original image: ${safe(JSON.stringify(state))}`);
     };
-    await page.waitForFunction(()=>{
-      const image=document.querySelector('.founders-photo');
-      return !!image&&image.complete&&image.naturalWidth>0&&image.naturalHeight>0&&image.getBoundingClientRect().width>0&&image.getBoundingClientRect().height>0;
-    },null,{timeout:VIEW_TIMEOUT_MS});
+    const heroLoadState=await withDeadline('marketing hero image load',page.locator('.founders-photo').evaluate(image=>{
+      if(image.complete)return {complete:true,naturalWidth:image.naturalWidth,naturalHeight:image.naturalHeight};
+      return new Promise(resolve=>{
+        const finish=()=>resolve({complete:image.complete,naturalWidth:image.naturalWidth,naturalHeight:image.naturalHeight});
+        image.addEventListener('load',finish,{once:true});
+        image.addEventListener('error',finish,{once:true});
+      });
+    }),NAVIGATION_TIMEOUT_MS);
+    assert(heroLoadState.complete&&heroLoadState.naturalWidth>0&&heroLoadState.naturalHeight>0,`marketing hero asset failed to load: ${safe(JSON.stringify(heroLoadState))}`);
+    await page.waitForFunction(()=>document.querySelector('.founders-photo')?.getBoundingClientRect().width>0,null,{timeout:VIEW_TIMEOUT_MS});
     const desktopHeroGeometry=await readMarketingHeroGeometry();
     assertMarketingHeroUncropped(desktopHeroGeometry);
     await page.setViewportSize({width:390,height:844});
