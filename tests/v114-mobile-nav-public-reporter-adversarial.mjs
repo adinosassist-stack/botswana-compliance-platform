@@ -55,6 +55,9 @@ assert.ok(synthetic.includes("viewport:{width:390,height:844}"),"mobile reporter
 assert.ok(synthetic.includes("setViewportSize({width:844,height:390})"),"wide-mobile landscape navigation proof missing");
 assert.ok(synthetic.includes("wide-mobile navigation occlusion"),"wide-mobile dock/drawer occlusion assertion missing");
 assert.ok(synthetic.includes("Math.abs(rect.left)<=1&&rect.width>0&&rect.right>0"),"wide-mobile drawer proof must wait for fully rendered sidebar geometry instead of racing the slide animation");
+assert.ok(synthetic.includes("wide-mobile drawer state stress"),"wide-mobile proof must stress repeated reopen, Escape, orientation and breakpoint state recovery");
+assert.ok(synthetic.includes("!main.hasAttribute('inert')"),"wide-mobile close proof must confirm workspace interactivity is restored");
+assert.ok(synthetic.includes("button.getAttribute('aria-expanded')==='false'"),"wide-mobile close proof must confirm menu accessibility state is restored");
 assert.ok(synthetic.includes("mobile employee report link required or exposed workspace sign-in"),"mobile reporter sign-in regression assertion missing");
 assert.ok(synthetic.includes('#peopleops [data-bw-onclick="addOpsLocation()"]:visible'),"synthetic lifecycle must create locations through the People-owned reporting setup");
 assert.ok(synthetic.includes('#peopleops [data-bw-onclick="createOpsReporterLink()"]:visible'),"synthetic lifecycle must create reporting links through the People-owned reporting setup");
