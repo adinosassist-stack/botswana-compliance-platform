@@ -7,6 +7,7 @@ const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const delegation=fs.readFileSync("public/js/event-delegation.js","utf8");
 const apiClient=fs.readFileSync("public/js/api-client.js","utf8");
 const home=fs.readFileSync("public/home.html","utf8");
+const synthetic=fs.readFileSync("scripts/production-synthetic-full-user-wrapper.mjs","utf8");
 
 // Pass 1: every delegated workspace control resolves to an allowed runtime function.
 const allowedBlock=(delegation.match(/const ALLOWED_ACTIONS=new Set\(\[([\s\S]*?)\]\);/)||[])[1]||"";
@@ -63,5 +64,9 @@ assert.match(html,/gaborone-entrepreneurs-v67\.webp/);
 assert.match(html,/aspect-ratio:3\/2!important;display:block!important;object-fit:contain!important/,"live marketing hero must preserve the original 1536x1024 ratio without cropping");
 assert.match(home,/\.visual img\{width:100%;height:auto;[^}]*aspect-ratio:auto;object-fit:contain\}/);
 assert.doesNotMatch(home,/\.visual img\{[^}]*object-fit:cover/);
+assert.match(synthetic,/marketing hero uncropped geometry/,"production browser lifecycle must prove hero geometry at desktop and phone widths");
+assert.match(synthetic,/Math\.abs\(renderedRatio-naturalRatio\)<0\.015/,"production browser lifecycle must reject hero crop or distortion by rendered aspect ratio");
+assert.match(synthetic,/frameOverflowX==='visible'&&state\.frameOverflowY==='visible'/,"production browser lifecycle must reject a clipping hero frame");
+assert.match(synthetic,/setViewportSize\(\{width:390,height:844\}\)/,"production browser lifecycle must prove the marketing hero on a phone viewport");
 
 console.log("v113 workspace buttons, people visibility, reporting timeout and hero framing: 3-pass PASS");
