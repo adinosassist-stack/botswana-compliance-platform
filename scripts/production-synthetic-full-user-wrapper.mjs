@@ -260,19 +260,30 @@ async function runFullUserJourney(credentials){
     assert(wideMobileOcclusion.shieldDisplay!=='none'&&wideMobileOcclusion.shieldOpaque&&wideMobileOcclusion.shieldHeight>=80,'wide-mobile bottom navigation lacks an opaque occlusion shield');
     assert(wideMobileOcclusion.mainOverflowY==='auto'&&wideMobileOcclusion.mainBottom<=wideMobileOcclusion.shieldTop+1,`wide-mobile workspace still extends beneath bottom navigation: ${safe(JSON.stringify(wideMobileOcclusion))}`);
     await page.locator('#mobileMenuButton').click();
-    await page.waitForFunction(()=>document.body.classList.contains('mobile-nav-open'),null,{timeout:VIEW_TIMEOUT_MS});
-    const wideMobileDrawer=await page.evaluate(()=>({
-      mainVisibility:getComputedStyle(document.getElementById('mainContent')).visibility,
-      backdropVisibility:getComputedStyle(document.querySelector('.mobile-nav-backdrop')).visibility,
-      backdropOpacity:Number.parseFloat(getComputedStyle(document.querySelector('.mobile-nav-backdrop')).opacity)||0,
-      barVisibility:getComputedStyle(document.getElementById('mobileBar')).visibility,
-      shieldDisplay:getComputedStyle(document.querySelector('.mobile-nav-occlusion')).display,
-      sidebarTransform:getComputedStyle(document.getElementById('workspaceSidebar')).transform
-    }));
+    await page.waitForFunction(()=>{
+      const sidebar=document.getElementById('workspaceSidebar');
+      if(!document.body.classList.contains('mobile-nav-open')||!sidebar)return false;
+      const rect=sidebar.getBoundingClientRect();
+      return Math.abs(rect.left)<=1&&rect.width>0&&rect.right>0;
+    },null,{timeout:VIEW_TIMEOUT_MS});
+    const wideMobileDrawer=await page.evaluate(()=>{
+      const sidebar=document.getElementById('workspaceSidebar');
+      const sidebarRect=sidebar.getBoundingClientRect();
+      return {
+        mainVisibility:getComputedStyle(document.getElementById('mainContent')).visibility,
+        backdropVisibility:getComputedStyle(document.querySelector('.mobile-nav-backdrop')).visibility,
+        backdropOpacity:Number.parseFloat(getComputedStyle(document.querySelector('.mobile-nav-backdrop')).opacity)||0,
+        barVisibility:getComputedStyle(document.getElementById('mobileBar')).visibility,
+        shieldDisplay:getComputedStyle(document.querySelector('.mobile-nav-occlusion')).display,
+        sidebarLeft:Math.round(sidebarRect.left),
+        sidebarWidth:Math.round(sidebarRect.width),
+        sidebarTransform:getComputedStyle(sidebar).transform
+      };
+    });
     assert(wideMobileDrawer.mainVisibility==='hidden','wide-mobile drawer leaves workspace text visible underneath');
     assert(wideMobileDrawer.backdropVisibility==='visible'&&wideMobileDrawer.backdropOpacity>=.99,'wide-mobile drawer backdrop is not fully visible');
     assert(wideMobileDrawer.barVisibility==='hidden'&&wideMobileDrawer.shieldDisplay==='none','bottom dock/shield did not leave the way for the full mobile drawer');
-    assert(wideMobileDrawer.sidebarTransform==='none'||/matrix\\(1, 0, 0, 1, 0, 0\\)/.test(wideMobileDrawer.sidebarTransform),'wide-mobile sidebar did not slide fully into view');
+    assert(Math.abs(wideMobileDrawer.sidebarLeft)<=1&&wideMobileDrawer.sidebarWidth>0,`wide-mobile sidebar did not slide fully into view: ${safe(JSON.stringify(wideMobileDrawer))}`);
     await page.keyboard.press('Escape');
     await page.waitForFunction(()=>!document.body.classList.contains('mobile-nav-open'),null,{timeout:VIEW_TIMEOUT_MS});
     await page.setViewportSize({width:1440,height:1100});
