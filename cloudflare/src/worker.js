@@ -226,6 +226,15 @@ async function createPasswordSession(env,userId,tenantId,role,expectedPasswordHa
   return {raw,csrf};
 }
 function validEmail(v){const value=String(v||"");return value.length<=EMAIL_MAX_CHARS&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)}
+function validEmailFrom(v){
+  const value=String(v||"").trim();
+  if(!value||value.length>320||/[\r\n]/.test(value))return false;
+  const named=value.match(/^([^<>]{1,120})<([^<>]+)>$/);
+  const address=String(named?named[2]:value).trim();
+  if(!validEmail(address))return false;
+  if(/@(?:example\.invalid|example\.com)$/i.test(address))return false;
+  return !named||String(named[1]||"").trim().length>0;
+}
 function validPasswordLength(v){const n=String(v||"").length;return n>=PASSWORD_MIN_CHARS&&n<=PASSWORD_MAX_CHARS}
 function validPasswordResetToken(v){return /^[a-f0-9]{64}$/i.test(String(v||""))}
 function normalizeHttpsOrigin(value){
@@ -562,12 +571,17 @@ async function passportScore(env,tenantId){
 
 
 async function deliverPasswordReset(env,email,rawToken){
-  const publicApp=validPublicAppUrl(env.PUBLIC_APP_URL);
-  if(!env.RESEND_API_KEY||!publicApp)return false;
+  const publicApp=validPublicAppUrl(env.PUBLIC_APP_URL),from=String(env.EMAIL_FROM||"").trim();
+  if(!env.RESEND_API_KEY||!publicApp||!validEmailFrom(from))return false;
   const reset=new URL(publicApp);reset.search="";reset.hash=`reset_token=${encodeURIComponent(String(rawToken||""))}`;
+  const tokenDigest=await sha256Hex(String(rawToken||""));
   try{
-    const r=await externalFetch("https://api.resend.com/emails",{method:"POST",headers:{"authorization":`Bearer ${env.RESEND_API_KEY}`,"content-type":"application/json"},body:JSON.stringify({
-      from:env.EMAIL_FROM||"Thebe Desk <no-reply@example.invalid>",
+    const r=await externalFetch("https://api.resend.com/emails",{method:"POST",headers:{
+      "authorization":`Bearer ${env.RESEND_API_KEY}`,
+      "content-type":"application/json",
+      "idempotency-key":`password-reset/${tokenDigest}`
+    },body:JSON.stringify({
+      from,
       to:[email],
       subject:"Reset your Thebe Desk password",
       text:`We received a request to reset your password. Use this secure link within 30 minutes: ${reset.toString()}\n\nIf you did not request this, you can ignore this email.`
