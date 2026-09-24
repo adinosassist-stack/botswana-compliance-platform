@@ -616,6 +616,39 @@ async function runFullUserJourney(credentials){
       'last location removal did not retain exactly an inactive historical row: '+safe(JSON.stringify(archivedLocation)));
     mark('location removal lifecycle','visible Remove location flow removed the last active location, retained it as history and did not recreate Head Office');
 
+    // Prove the live manual-bank customer path without falsely approving synthetic funds.
+    await page.evaluate(()=>globalThis.showView?.('billing'));
+    await page.waitForFunction(()=>document.getElementById('billing')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
+    const starterPlanButton=page.locator('#billing button[data-bw-onclick="requestPlan(\'starter\')"]:visible').first();
+    if(!(await starterPlanButton.count()))throw new Error('Synthetic full-user proof failed: manual-bank proof missing visible starter plan control');
+    await starterPlanButton.click();
+    await page.locator('#manualBankReference').waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
+    const manualTransferUi=await page.locator('#upgradeResult').innerText();
+    assert(/First National Bank/i.test(manualTransferUi)&&/Account number:/i.test(manualTransferUi)&&/Branch:/i.test(manualTransferUi)&&/SWIFT:/i.test(manualTransferUi),
+      'manual-bank checkout did not render complete public bank instructions');
+    assert(!/Account name:/i.test(manualTransferUi),'manual-bank checkout unexpectedly exposed an account-name field');
+    assert(/Submission does not activate the plan\./i.test(manualTransferUi),'manual-bank checkout omitted pending-verification warning');
+    const syntheticBankReference=('SYNTH-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10)).toUpperCase();
+    await page.locator('#manualBankReference').fill(syntheticBankReference);
+    const paidButton=page.locator('#upgradeResult button[data-bw-onclick^="submitManualBankPayment("]:visible').first();
+    assert(await paidButton.count(),'manual-bank checkout missing I have paid control');
+    await paidButton.click();
+    await page.waitForFunction(()=>/Payment submitted for verification\./i.test(String(document.getElementById('manualBankSubmitResult')?.textContent||'')),null,{timeout:WORKSPACE_TIMEOUT_MS});
+    const manualPaymentState=await page.evaluate(async bankReference=>{
+      const [statusResponse,billingResponse]=await Promise.all([
+        fetch('/api/payments/manual-bank/status',{credentials:'same-origin',headers:{accept:'application/json'}}),
+        fetch('/api/billing/status',{credentials:'same-origin',headers:{accept:'application/json'}})
+      ]);
+      let statusBody=null,billingBody=null;try{statusBody=await statusResponse.json()}catch{}try{billingBody=await billingResponse.json()}catch{}
+      const match=(Array.isArray(statusBody?.items)?statusBody.items:[]).find(row=>String(row?.bank_reference||'')===bankReference);
+      return {statusHttp:statusResponse.status,billingHttp:billingResponse.status,submissionStatus:String(match?.status||''),billingStatus:String(billingBody?.status||''),found:!!match};
+    },syntheticBankReference);
+    assert(manualPaymentState.statusHttp===200&&manualPaymentState.billingHttp===200&&manualPaymentState.found&&manualPaymentState.submissionStatus==='submitted',
+      'manual-bank submission was not retained in submitted state: '+safe(JSON.stringify(manualPaymentState)));
+    assert(manualPaymentState.billingStatus!=='active',
+      'synthetic manual-bank submission activated the subscription before funds verification: '+safe(JSON.stringify(manualPaymentState)));
+    mark('manual bank pending-verification lifecycle','checkout rendered reviewed bank instructions, customer submission persisted, and the plan remained inactive pending admin verification');
+
     await page.evaluate(()=>globalThis.showView?.('dashboard',{skipDataRefresh:true}));
 
     await page.waitForFunction(()=>{
