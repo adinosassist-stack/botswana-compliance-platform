@@ -120,8 +120,10 @@ async function runFullUserJourney(credentials){
     assert(/business risk/i.test(publicState.hero),'public root hero missing');
     assert(!publicState.hasWorkspace&&!publicState.hasAuthForm,'public root leaked workspace or authentication shell');
 
-    const readMarketingHeroGeometry=async()=>page.evaluate(()=>{
-      const image=document.querySelector('.founders-photo'),frame=document.querySelector('.marketingvisual');
+    const marketingHeroSelector='.hero .visual img[src*="gaborone-entrepreneurs-v67.webp"]';
+    const readMarketingHeroGeometry=async()=>page.evaluate(selector=>{
+      const image=document.querySelector(selector),frame=image?.closest('.visual');
+
       if(!image||!frame)return null;
       const rect=image.getBoundingClientRect(),style=getComputedStyle(image),frameStyle=getComputedStyle(frame);
       return {
@@ -135,7 +137,7 @@ async function runFullUserJourney(credentials){
         frameOverflowX:frameStyle.overflowX,
         frameOverflowY:frameStyle.overflowY
       };
-    });
+    },marketingHeroSelector);
     const assertMarketingHeroUncropped=state=>{
       assert(state&&state.complete&&state.naturalWidth>0&&state.naturalHeight>0,'marketing hero image did not load with intrinsic dimensions');
       const naturalRatio=state.naturalWidth/state.naturalHeight,renderedRatio=state.renderedWidth/state.renderedHeight;
@@ -143,7 +145,7 @@ async function runFullUserJourney(credentials){
       assert(Math.abs(renderedRatio-naturalRatio)<0.015,`marketing hero rendered aspect ratio crops or distorts the source: ${safe(JSON.stringify({...state,naturalRatio,renderedRatio}))}`);
       assert(state.frameOverflowX==='visible'&&state.frameOverflowY==='visible',`marketing hero frame can clip the original image: ${safe(JSON.stringify(state))}`);
     };
-    const heroLoadState=await withDeadline('marketing hero image load',page.locator('.founders-photo').evaluate(image=>{
+    const heroLoadState=await withDeadline('marketing hero image load',page.locator(marketingHeroSelector).evaluate(image=>{
       const snapshot=()=>({complete:image.complete,naturalWidth:image.naturalWidth,naturalHeight:image.naturalHeight,currentSrc:String(image.currentSrc||image.src||'')});
       if(image.complete)return snapshot();
       return new Promise(resolve=>{
@@ -154,7 +156,7 @@ async function runFullUserJourney(credentials){
     }),NAVIGATION_TIMEOUT_MS);
     assert(heroLoadState.complete&&heroLoadState.naturalWidth>0&&heroLoadState.naturalHeight>0,`marketing hero asset failed to load: ${safe(JSON.stringify(heroLoadState))}`);
     await page.waitForFunction(()=>{
-      const image=document.querySelector('.founders-photo');
+      const image=document.querySelector('.hero .visual img[src*="gaborone-entrepreneurs-v67.webp"]');
       if(!image)return false;
       const rect=image.getBoundingClientRect();
       return rect.width>0&&rect.height>0;
@@ -163,7 +165,7 @@ async function runFullUserJourney(credentials){
     assertMarketingHeroUncropped(desktopHeroGeometry);
     await page.setViewportSize({width:390,height:844});
     await page.waitForFunction(()=>{
-      const image=document.querySelector('.founders-photo');
+      const image=document.querySelector('.hero .visual img[src*="gaborone-entrepreneurs-v67.webp"]');
       if(!image)return false;
       const rect=image.getBoundingClientRect();
       return rect.width>0&&rect.height>0;
