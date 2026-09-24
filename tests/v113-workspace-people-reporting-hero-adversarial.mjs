@@ -65,6 +65,7 @@ assert.match(html,/aspect-ratio:3\/2!important;display:block!important;object-fi
 assert.match(home,/\.visual img\{width:100%;height:auto;[^}]*aspect-ratio:auto;object-fit:contain\}/);
 assert.doesNotMatch(home,/\.visual img\{[^}]*object-fit:cover/);
 assert.match(synthetic,/marketing hero uncropped geometry/,"production browser lifecycle must prove hero geometry at desktop and phone widths");
+assert.match(synthetic,/const HERO_IMAGE_TIMEOUT_MS=15000/,"network-backed hero proof must use its own bounded asset-load budget");
 assert.match(synthetic,/Math\.abs\(renderedRatio-naturalRatio\)<0\.015/,"production browser lifecycle must reject hero crop or distortion by rendered aspect ratio");
 assert.match(synthetic,/frameOverflowX==='visible'&&state\.frameOverflowY==='visible'/,"production browser lifecycle must reject a clipping hero frame");
 assert.match(synthetic,/setViewportSize\(\{width:390,height:844\}\)/,"production browser lifecycle must prove the marketing hero on a phone viewport");

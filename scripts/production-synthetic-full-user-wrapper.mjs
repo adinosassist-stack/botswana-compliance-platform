@@ -4,6 +4,7 @@ import {chromium} from 'playwright-core';
 const ORIGIN='https://thebedesk.com';
 const NAVIGATION_TIMEOUT_MS=30000;
 const WORKSPACE_TIMEOUT_MS=40000;
+const HERO_IMAGE_TIMEOUT_MS=15000;
 const VIEW_TIMEOUT_MS=5000;
 const CLOSE_TIMEOUT_MS=5000;
 const MIN_OWNER_VIEW_COUNT=40;
@@ -146,11 +147,11 @@ async function runFullUserJourney(credentials){
     await page.waitForFunction(()=>{
       const image=document.querySelector('.founders-photo');
       return !!image&&image.complete&&image.naturalWidth>0&&image.naturalHeight>0&&image.getBoundingClientRect().width>0&&image.getBoundingClientRect().height>0;
-    },null,{timeout:VIEW_TIMEOUT_MS});
+    },null,{timeout:HERO_IMAGE_TIMEOUT_MS});
     const desktopHeroGeometry=await readMarketingHeroGeometry();
     assertMarketingHeroUncropped(desktopHeroGeometry);
     await page.setViewportSize({width:390,height:844});
-    await page.waitForFunction(()=>document.querySelector('.founders-photo')?.getBoundingClientRect().width>0,null,{timeout:VIEW_TIMEOUT_MS});
+    await page.waitForFunction(()=>document.querySelector('.founders-photo')?.getBoundingClientRect().width>0,null,{timeout:HERO_IMAGE_TIMEOUT_MS});
     const mobileHeroGeometry=await readMarketingHeroGeometry();
     assertMarketingHeroUncropped(mobileHeroGeometry);
     await page.setViewportSize({width:1440,height:1100});
