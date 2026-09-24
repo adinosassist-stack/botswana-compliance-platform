@@ -243,20 +243,22 @@ async function runFullUserJourney(credentials){
     },null,{timeout:VIEW_TIMEOUT_MS});
     const wideMobileOcclusion=await page.evaluate(()=>{
       const bar=document.getElementById('mobileBar'),shield=document.querySelector('.mobile-nav-occlusion'),main=document.querySelector('main');
-      const barStyle=getComputedStyle(bar),shieldStyle=getComputedStyle(shield),mainStyle=getComputedStyle(main);
-      const opaque=value=>{const match=String(value||'').match(/rgba?\\(([^)]+)\\)/i);if(!match)return false;const parts=match[1].split(',').map(x=>Number.parseFloat(x.trim()));return parts.length<4||parts[3]>=.999};
+      const barStyle=getComputedStyle(bar),shieldStyle=getComputedStyle(shield),mainRect=main.getBoundingClientRect(),shieldRect=shield.getBoundingClientRect();
+      const opaque=value=>!/^rgba\([^)]*,\s*0(?:\.0+)?\)$/.test(String(value||''))&&String(value||'')!=='transparent';
       return {
         barDisplay:barStyle.display,
         barOpaque:opaque(barStyle.backgroundColor),
         shieldDisplay:shieldStyle.display,
         shieldOpaque:opaque(shieldStyle.backgroundColor),
-        shieldHeight:Math.round(shield.getBoundingClientRect().height),
-        mainPaddingBottom:Number.parseFloat(mainStyle.paddingBottom)||0
+        shieldHeight:Math.round(shieldRect.height),
+        mainBottom:Math.round(mainRect.bottom),
+        shieldTop:Math.round(shieldRect.top),
+        mainOverflowY:getComputedStyle(main).overflowY
       };
     });
     assert(wideMobileOcclusion.barDisplay!=='none'&&wideMobileOcclusion.barOpaque,'wide-mobile bottom navigation is missing or translucent');
     assert(wideMobileOcclusion.shieldDisplay!=='none'&&wideMobileOcclusion.shieldOpaque&&wideMobileOcclusion.shieldHeight>=80,'wide-mobile bottom navigation lacks an opaque occlusion shield');
-    assert(wideMobileOcclusion.mainPaddingBottom>=140,'wide-mobile workspace does not reserve enough bottom space for navigation');
+    assert(wideMobileOcclusion.mainOverflowY==='auto'&&wideMobileOcclusion.mainBottom<=wideMobileOcclusion.shieldTop+1,`wide-mobile workspace still extends beneath bottom navigation: ${safe(JSON.stringify(wideMobileOcclusion))}`);
     await page.locator('#mobileMenuButton').click();
     await page.waitForFunction(()=>document.body.classList.contains('mobile-nav-open'),null,{timeout:VIEW_TIMEOUT_MS});
     const wideMobileDrawer=await page.evaluate(()=>({
