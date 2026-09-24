@@ -28,6 +28,7 @@ assert.ok(!uxStyles.includes("background:rgba(255,255,255,.96)!important"),"prod
 assert.ok(html.includes('/assets/workspace-ui-ux-10.css?v=20260924b'),"workspace UX stylesheet cache token must rotate with the opacity fix");
 assert.ok(html.includes('document.getElementById("mainContent")?.setAttribute("inert","")'),"workspace content must be inert while the mobile menu is open");
 assert.ok(html.includes('document.getElementById("mainContent")?.removeAttribute("inert")'),"workspace content must be restored after closing the mobile menu");
+assert.ok(html.includes("const MOBILE_MAX=1000;"),"mobile drawer runtime breakpoint must match the 1000px CSS/bottom-navigation breakpoint");
 
 // Pass 2: employee reporting is a bearer-link public surface, not workspace authentication.
 assert.ok(worker.includes("/report/?entry=employee&v=20260923e#report="),"new reporting links must use the cache-busted public report route");
