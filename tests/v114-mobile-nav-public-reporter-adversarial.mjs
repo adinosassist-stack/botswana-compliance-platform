@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const html=fs.readFileSync("public/index.html","utf8");
-const styles=fs.readFileSync("public/assets/workspace-inline-styles-20260924a.css","utf8");
+const styles=fs.readFileSync("public/assets/workspace-inline-styles-20260924b.css","utf8");
 const uxStyles=fs.readFileSync("public/assets/workspace-ui-ux-10.css","utf8");
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const redirect=fs.readFileSync("public/js/reporter-link-redirect.js","utf8");
@@ -13,11 +13,11 @@ const synthetic=fs.readFileSync("scripts/production-synthetic-full-user-wrapper.
 
 // Pass 1: mobile navigation must not cover readable workspace content.
 for(const source of [html,styles]){
-  assert.ok(source.includes("padding:12px 10px calc(144px + env(safe-area-inset-bottom))!important"),"mobile workspace must reserve space below the floating navigation");
+  assert.ok(source.includes("height:calc(100dvh - 96px - env(safe-area-inset-bottom))!important"),"mobile workspace must reserve a structural viewport zone above the bottom navigation");
   assert.ok(source.includes("@media (max-width:1000px){"),"hardened mobile navigation must cover the full breakpoint where the bottom bar is enabled");
-  assert.ok(source.includes('#mainContent::after{content:"";display:block;width:100%;height:calc(88px + env(safe-area-inset-bottom))'),"mobile workspace must include a physical bottom spacer below the floating navigation");
+  assert.ok(source.includes('#mainContent::after{content:"";display:block;width:100%;height:20px'),"mobile workspace must keep a small in-scroll terminal spacer");
   assert.ok(source.includes("background:#fff!important;box-shadow:0 14px 38px rgba(10,20,14,.22)!important;isolation:isolate"),"mobile navigation must be opaque and isolated from page text");
-  assert.ok(source.includes(".mobile-nav-occlusion{display:block;position:fixed;z-index:179;left:0;right:0;bottom:0;height:calc(84px + env(safe-area-inset-bottom));background:#fff"),"an opaque bottom shield must prevent page text from showing beneath or around the floating navigation");
+  assert.ok(source.includes(".mobile-nav-occlusion{display:block;position:fixed;z-index:179;left:0;right:0;bottom:0;height:calc(96px + env(safe-area-inset-bottom));background:#fff"),"an opaque reserved dock zone must prevent page text from showing beneath or around the navigation");
   assert.ok(source.includes("body.mobile-nav-open .mobile-nav-occlusion{display:none!important}"),"bottom shield must leave the way when the full drawer opens");
   assert.ok(source.includes("body.mobile-nav-open .mobilebar{opacity:0!important;visibility:hidden!important;pointer-events:none!important}"),"bottom navigation must leave the way when the full drawer opens");
   assert.ok(source.includes("background:#0b0f0d;backdrop-filter:none"),"mobile drawer backdrop must be fully opaque so workspace text cannot bleed underneath");
