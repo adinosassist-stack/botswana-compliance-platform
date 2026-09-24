@@ -1159,5 +1159,8 @@
   "manual_bank_subscription_payments": true,
   "manual_bank_activation_requires_platform_admin": true,
   "customer_payment_submission_is_not_activation": true,
-  "account_name_displayed_in_manual_bank_flow": false
+  "account_name_displayed_in_manual_bank_flow": false,
+  "manual_bank_public_phase0_config": true,
+  "manual_bank_public_account_name_omitted": true,
+  "manual_bank_public_config_overrideable": true
 }
