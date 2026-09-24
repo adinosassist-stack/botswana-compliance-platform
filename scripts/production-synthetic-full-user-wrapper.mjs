@@ -235,12 +235,7 @@ async function runFullUserJourney(credentials){
     // Wide-mobile / landscape regression: the bottom dock is enabled up to 1000px,
     // so prove its opaque shield and drawer at a viewport that used to miss the <=760px hardening.
     await page.setViewportSize({width:844,height:390});
-    await page.waitForFunction(()=>{
-      const bar=document.getElementById('mobileBar'),shield=document.querySelector('.mobile-nav-occlusion');
-      if(!bar||!shield)return false;
-      const barStyle=getComputedStyle(bar),shieldStyle=getComputedStyle(shield);
-      return barStyle.display!=='none'&&shieldStyle.display!=='none'&&shield.getBoundingClientRect().height>=80;
-    },null,{timeout:VIEW_TIMEOUT_MS});
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
     const wideMobileOcclusion=await page.evaluate(()=>{
       const bar=document.getElementById('mobileBar'),shield=document.querySelector('.mobile-nav-occlusion'),main=document.querySelector('main');
       const barStyle=getComputedStyle(bar),shieldStyle=getComputedStyle(shield),mainRect=main.getBoundingClientRect(),shieldRect=shield.getBoundingClientRect();
