@@ -21,6 +21,7 @@ for(const source of [html,styles]){
   assert.ok(source.includes("body.mobile-nav-open .mobile-nav-occlusion{display:none!important}"),"bottom shield must leave the way when the full drawer opens");
   assert.ok(source.includes("body.mobile-nav-open .mobilebar{opacity:0!important;visibility:hidden!important;pointer-events:none!important}"),"bottom navigation must leave the way when the full drawer opens");
   assert.ok(source.includes("background:#0b0f0d;backdrop-filter:none"),"mobile drawer backdrop must be fully opaque so workspace text cannot bleed underneath");
+  assert.ok(source.includes("pointer-events:none;transition:none"),"mobile drawer backdrop must become fully opaque immediately without a fade-in window");
   assert.ok(source.includes("body.mobile-nav-open #mainContent{visibility:hidden!important}"),"workspace text must not remain visible below the open mobile drawer");
 }
 assert.ok(uxStyles.includes("#appShell .mobilebar{")&&uxStyles.includes("background:#fff!important")&&uxStyles.includes("background-color:#fff!important")&&uxStyles.includes("backdrop-filter:none!important"),"production UX override must keep the wide-mobile bottom navigation fully opaque");
