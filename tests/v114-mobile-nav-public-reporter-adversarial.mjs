@@ -23,6 +23,7 @@ for(const source of [html,styles]){
   assert.ok(source.includes("background:#0b0f0d;backdrop-filter:none"),"mobile drawer backdrop must be fully opaque so workspace text cannot bleed underneath");
   assert.ok(source.includes("pointer-events:none;transition:none"),"mobile drawer backdrop must become fully opaque immediately without a fade-in window");
   assert.ok(source.includes("body.mobile-nav-open #mainContent{visibility:hidden!important}"),"workspace text must not remain visible below the open mobile drawer");
+  assert.ok(source.includes("#workspaceSidebar{display:flex!important;position:fixed!important;z-index:220!important")&&source.includes(".mobile-nav-backdrop{display:block;position:fixed;z-index:210"),"drawer layering must keep the sidebar above the opaque backdrop and all workspace text below it");
 }
 assert.ok(uxStyles.includes("#appShell .mobilebar{")&&uxStyles.includes("background:#fff!important")&&uxStyles.includes("background-color:#fff!important")&&uxStyles.includes("backdrop-filter:none!important"),"production UX override must keep the wide-mobile bottom navigation fully opaque");
 assert.ok(!uxStyles.includes("background:rgba(255,255,255,.96)!important"),"production UX override must not reintroduce translucent wide-mobile navigation");
