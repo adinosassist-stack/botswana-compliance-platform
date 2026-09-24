@@ -119,6 +119,42 @@ async function runFullUserJourney(credentials){
     const publicState=await page.evaluate(()=>({hero:(document.querySelector('.hero h1')?.textContent||'').trim(),hasWorkspace:!!document.getElementById('appShell'),hasAuthForm:!!document.getElementById('authForm')}));
     assert(/business risk/i.test(publicState.hero),'public root hero missing');
     assert(!publicState.hasWorkspace&&!publicState.hasAuthForm,'public root leaked workspace or authentication shell');
+
+    const readMarketingHeroGeometry=async()=>page.evaluate(()=>{
+      const image=document.querySelector('.founders-photo'),frame=document.querySelector('.marketingvisual');
+      if(!image||!frame)return null;
+      const rect=image.getBoundingClientRect(),style=getComputedStyle(image),frameStyle=getComputedStyle(frame);
+      return {
+        complete:image.complete,
+        naturalWidth:image.naturalWidth,
+        naturalHeight:image.naturalHeight,
+        renderedWidth:rect.width,
+        renderedHeight:rect.height,
+        objectFit:style.objectFit,
+        objectPosition:style.objectPosition,
+        frameOverflowX:frameStyle.overflowX,
+        frameOverflowY:frameStyle.overflowY
+      };
+    });
+    const assertMarketingHeroUncropped=state=>{
+      assert(state&&state.complete&&state.naturalWidth>0&&state.naturalHeight>0,'marketing hero image did not load with intrinsic dimensions');
+      const naturalRatio=state.naturalWidth/state.naturalHeight,renderedRatio=state.renderedWidth/state.renderedHeight;
+      assert(state.objectFit==='contain',`marketing hero object-fit regressed to ${safe(state.objectFit)}`);
+      assert(Math.abs(renderedRatio-naturalRatio)<0.015,`marketing hero rendered aspect ratio crops or distorts the source: ${safe(JSON.stringify({...state,naturalRatio,renderedRatio}))}`);
+      assert(state.frameOverflowX==='visible'&&state.frameOverflowY==='visible',`marketing hero frame can clip the original image: ${safe(JSON.stringify(state))}`);
+    };
+    await page.waitForFunction(()=>{
+      const image=document.querySelector('.founders-photo');
+      return !!image&&image.complete&&image.naturalWidth>0&&image.naturalHeight>0&&image.getBoundingClientRect().width>0&&image.getBoundingClientRect().height>0;
+    },null,{timeout:VIEW_TIMEOUT_MS});
+    const desktopHeroGeometry=await readMarketingHeroGeometry();
+    assertMarketingHeroUncropped(desktopHeroGeometry);
+    await page.setViewportSize({width:390,height:844});
+    await page.waitForFunction(()=>document.querySelector('.founders-photo')?.getBoundingClientRect().width>0,null,{timeout:VIEW_TIMEOUT_MS});
+    const mobileHeroGeometry=await readMarketingHeroGeometry();
+    assertMarketingHeroUncropped(mobileHeroGeometry);
+    await page.setViewportSize({width:1440,height:1100});
+    mark('marketing hero uncropped geometry',`desktop=${Math.round(desktopHeroGeometry.renderedWidth)}x${Math.round(desktopHeroGeometry.renderedHeight)} mobile=${Math.round(mobileHeroGeometry.renderedWidth)}x${Math.round(mobileHeroGeometry.renderedHeight)} source=${desktopHeroGeometry.naturalWidth}x${desktopHeroGeometry.naturalHeight}`);
     await page.waitForFunction(()=>{
       const dock=document.getElementById('thebeAiDock'),pill=document.getElementById('thebeAiDockPill');
       if(!dock||!pill)return false;
