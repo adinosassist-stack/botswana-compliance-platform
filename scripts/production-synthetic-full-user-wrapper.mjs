@@ -4,7 +4,6 @@ import {chromium} from 'playwright-core';
 const ORIGIN='https://thebedesk.com';
 const NAVIGATION_TIMEOUT_MS=30000;
 const WORKSPACE_TIMEOUT_MS=40000;
-const HERO_IMAGE_TIMEOUT_MS=15000;
 const VIEW_TIMEOUT_MS=5000;
 const CLOSE_TIMEOUT_MS=5000;
 const MIN_OWNER_VIEW_COUNT=40;
@@ -144,14 +143,31 @@ async function runFullUserJourney(credentials){
       assert(Math.abs(renderedRatio-naturalRatio)<0.015,`marketing hero rendered aspect ratio crops or distorts the source: ${safe(JSON.stringify({...state,naturalRatio,renderedRatio}))}`);
       assert(state.frameOverflowX==='visible'&&state.frameOverflowY==='visible',`marketing hero frame can clip the original image: ${safe(JSON.stringify(state))}`);
     };
+    const heroLoadState=await withDeadline('marketing hero image load',page.locator('.founders-photo').evaluate(image=>{
+      const snapshot=()=>({complete:image.complete,naturalWidth:image.naturalWidth,naturalHeight:image.naturalHeight,currentSrc:String(image.currentSrc||image.src||'')});
+      if(image.complete)return snapshot();
+      return new Promise(resolve=>{
+        const finish=()=>resolve(snapshot());
+        image.addEventListener('load',finish,{once:true});
+        image.addEventListener('error',finish,{once:true});
+      });
+    }),NAVIGATION_TIMEOUT_MS);
+    assert(heroLoadState.complete&&heroLoadState.naturalWidth>0&&heroLoadState.naturalHeight>0,`marketing hero asset failed to load: ${safe(JSON.stringify(heroLoadState))}`);
     await page.waitForFunction(()=>{
       const image=document.querySelector('.founders-photo');
-      return !!image&&image.complete&&image.naturalWidth>0&&image.naturalHeight>0&&image.getBoundingClientRect().width>0&&image.getBoundingClientRect().height>0;
-    },null,{timeout:HERO_IMAGE_TIMEOUT_MS});
+      if(!image)return false;
+      const rect=image.getBoundingClientRect();
+      return rect.width>0&&rect.height>0;
+    },null,{timeout:VIEW_TIMEOUT_MS});
     const desktopHeroGeometry=await readMarketingHeroGeometry();
     assertMarketingHeroUncropped(desktopHeroGeometry);
     await page.setViewportSize({width:390,height:844});
-    await page.waitForFunction(()=>document.querySelector('.founders-photo')?.getBoundingClientRect().width>0,null,{timeout:HERO_IMAGE_TIMEOUT_MS});
+    await page.waitForFunction(()=>{
+      const image=document.querySelector('.founders-photo');
+      if(!image)return false;
+      const rect=image.getBoundingClientRect();
+      return rect.width>0&&rect.height>0;
+    },null,{timeout:VIEW_TIMEOUT_MS});
     const mobileHeroGeometry=await readMarketingHeroGeometry();
     assertMarketingHeroUncropped(mobileHeroGeometry);
     await page.setViewportSize({width:1440,height:1100});
