@@ -10,6 +10,7 @@ const profile=JSON.parse(fs.readFileSync(new URL("../RELEASE_PROFILE.json",impor
 const checks=[
  ["manual schema",s.includes("manual_payment_submissions")&&s.includes("manual_payment_events")&&s.includes("bank_reference TEXT NOT NULL UNIQUE")],
  ["bank config env",e.includes("THEBE_BANK_NAME=")&&e.includes("THEBE_BANK_ACCOUNT_NUMBER=")&&e.includes("THEBE_BANK_BRANCH_NAME=")&&e.includes("THEBE_BANK_SWIFT_CODE=")],
+ ["reviewed public bank defaults",w.includes('bankName:"First National Bank"')&&w.includes('accountNumber:"63087687788"')&&w.includes('branchName:"Riverwalk"')&&w.includes('branchCode:"285267"')&&w.includes('swiftCode:"FIRNBWGX"')&&!w.includes("accountName:")],
  ["manual checkout",w.includes('checkoutMode:"manual_bank_transfer"')&&w.includes("manualPaymentReference")&&w.includes("manual_bank_transfer_not_configured")],
  ["no proof auto activation",w.includes("/api/payments/manual-bank/submit")&&w.includes("Payment submitted for manual verification")&&!w.includes('submitManualBankPayment') ],
  ["platform admin approval",w.includes("/api/platform/billing/manual-payments")&&w.includes("platformBillingAdmin")&&w.includes("MANUAL_APPROVED")],
