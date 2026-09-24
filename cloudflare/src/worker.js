@@ -836,11 +836,18 @@ async function captureControlLineageSnapshot(env,tenantId,controlKey){
 
 const PLAN_PRICE_BWP={starter:149,business:349,pro:699,network:1299,partner:2499};
 const SELF_SERVE_PLAN_IDS=new Set(["starter","business","pro","network"]);
+const PHASE0_PUBLIC_BANK=Object.freeze({
+  bankName:"First National Bank",
+  accountNumber:"63087687788",
+  branchName:"Riverwalk",
+  branchCode:"285267",
+  swiftCode:"FIRNBWGX"
+});
 function manualBankConfig(env){
-  const bankName=String(env.THEBE_BANK_NAME||"").trim(),accountNumber=String(env.THEBE_BANK_ACCOUNT_NUMBER||"").trim();
-  const branchCode=String(env.THEBE_BANK_BRANCH_CODE||"").trim(),branchName=String(env.THEBE_BANK_BRANCH_NAME||"").trim(),accountType=String(env.THEBE_BANK_ACCOUNT_TYPE||"").trim();
-  const swiftCode=String(env.THEBE_BANK_SWIFT_CODE||"").trim().toUpperCase();
-  return {configured:!!(bankName&&accountNumber),bankName,accountNumber,branchCode,branchName,accountType,swiftCode,currency:"BWP"};
+  const bankName=String(env.THEBE_BANK_NAME||PHASE0_PUBLIC_BANK.bankName).trim(),accountNumber=String(env.THEBE_BANK_ACCOUNT_NUMBER||PHASE0_PUBLIC_BANK.accountNumber).trim();
+  const branchCode=String(env.THEBE_BANK_BRANCH_CODE||PHASE0_PUBLIC_BANK.branchCode).trim(),branchName=String(env.THEBE_BANK_BRANCH_NAME||PHASE0_PUBLIC_BANK.branchName).trim(),accountType=String(env.THEBE_BANK_ACCOUNT_TYPE||"").trim();
+  const swiftCode=String(env.THEBE_BANK_SWIFT_CODE||PHASE0_PUBLIC_BANK.swiftCode).trim().toUpperCase();
+  return {configured:!!(bankName&&accountNumber&&branchName&&branchCode&&swiftCode),bankName,accountNumber,branchCode,branchName,accountType,swiftCode,currency:"BWP"};
 }
 function manualPaymentReference(orderId){return "TBD-"+String(orderId||"").replace(/[^a-f0-9]/gi,"").slice(0,10).toUpperCase();}
 function platformBillingAdmin(a,env){const email=String(a?.email||"").trim().toLowerCase();return !!email&&csvEmailSet(env.PLATFORM_ADMIN_EMAILS).has(email);}
