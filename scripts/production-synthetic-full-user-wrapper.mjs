@@ -284,8 +284,45 @@ async function runFullUserJourney(credentials){
     assert(wideMobileDrawer.backdropVisibility==='visible'&&wideMobileDrawer.backdropOpacity>=.99,'wide-mobile drawer backdrop is not fully visible');
     assert(wideMobileDrawer.barVisibility==='hidden'&&wideMobileDrawer.shieldDisplay==='none','bottom dock/shield did not leave the way for the full mobile drawer');
     assert(Math.abs(wideMobileDrawer.sidebarLeft)<=1&&wideMobileDrawer.sidebarWidth>0,`wide-mobile sidebar did not slide fully into view: ${safe(JSON.stringify(wideMobileDrawer))}`);
+    const waitForWideMobileDrawerClosed=async()=>page.waitForFunction(()=>{
+      const sidebar=document.getElementById('workspaceSidebar'),main=document.getElementById('mainContent'),bar=document.getElementById('mobileBar'),shield=document.querySelector('.mobile-nav-occlusion'),button=document.getElementById('mobileMenuButton');
+      if(!sidebar||!main||!bar||!shield||!button||document.body.classList.contains('mobile-nav-open'))return false;
+      const rect=sidebar.getBoundingClientRect();
+      return rect.right<=2&&getComputedStyle(main).visibility!=='hidden'&&!main.hasAttribute('inert')&&
+        button.getAttribute('aria-expanded')==='false'&&getComputedStyle(bar).visibility!=='hidden'&&getComputedStyle(shield).display!=='none';
+    },null,{timeout:VIEW_TIMEOUT_MS});
+
     await page.keyboard.press('Escape');
-    await page.waitForFunction(()=>!document.body.classList.contains('mobile-nav-open'),null,{timeout:VIEW_TIMEOUT_MS});
+    await waitForWideMobileDrawerClosed();
+
+    for(let cycle=0;cycle<3;cycle+=1){
+      await page.locator('#mobileMenuButton').click();
+      await page.waitForFunction(()=>{
+        const sidebar=document.getElementById('workspaceSidebar');
+        if(!document.body.classList.contains('mobile-nav-open')||!sidebar)return false;
+        const rect=sidebar.getBoundingClientRect();
+        return Math.abs(rect.left)<=1&&rect.width>0;
+      },null,{timeout:VIEW_TIMEOUT_MS});
+      await page.keyboard.press('Escape');
+      await waitForWideMobileDrawerClosed();
+    }
+
+    await page.locator('#mobileMenuButton').click();
+    await page.waitForFunction(()=>document.body.classList.contains('mobile-nav-open')&&document.getElementById('mainContent')?.hasAttribute('inert'),null,{timeout:VIEW_TIMEOUT_MS});
+    await page.evaluate(()=>window.dispatchEvent(new Event('orientationchange')));
+    await waitForWideMobileDrawerClosed();
+
+    await page.locator('#mobileMenuButton').click();
+    await page.waitForFunction(()=>document.body.classList.contains('mobile-nav-open'),null,{timeout:VIEW_TIMEOUT_MS});
+    await page.setViewportSize({width:1001,height:390});
+    await page.waitForFunction(()=>!document.body.classList.contains('mobile-nav-open')&&!document.getElementById('mainContent')?.hasAttribute('inert'),null,{timeout:VIEW_TIMEOUT_MS});
+    await page.setViewportSize({width:844,height:390});
+    await page.waitForFunction(()=>{
+      const bar=document.getElementById('mobileBar'),shield=document.querySelector('.mobile-nav-occlusion');
+      return bar&&shield&&getComputedStyle(bar).display!=='none'&&getComputedStyle(shield).display!=='none';
+    },null,{timeout:VIEW_TIMEOUT_MS});
+    mark('wide-mobile drawer state stress','3 reopen cycles + Escape + orientationchange + 1000px breakpoint crossing restored a clean closed state');
+
     await page.setViewportSize({width:1440,height:1100});
     mark('wide-mobile navigation occlusion','844px landscape breakpoint keeps workspace text out from under the bottom dock and full drawer');
 
