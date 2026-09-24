@@ -65,6 +65,8 @@ assert.match(html,/aspect-ratio:3\/2!important;display:block!important;object-fi
 assert.match(home,/\.visual img\{width:100%;height:auto;[^}]*aspect-ratio:auto;object-fit:contain\}/);
 assert.doesNotMatch(home,/\.visual img\{[^}]*object-fit:cover/);
 assert.match(synthetic,/marketing hero uncropped geometry/,"production browser lifecycle must prove hero geometry at desktop and phone widths");
+assert.match(synthetic,/const marketingHeroSelector='\\.hero \\.visual img\\[src\\\\\*=\\\"gaborone-entrepreneurs-v67\\.webp\\\"\\]'/,"production hero proof must target the shipped public hero structurally");
+assert.doesNotMatch(synthetic,/\\.founders-photo/,"production hero proof must not depend on the retired founders-photo class");
 assert.match(synthetic,/withDeadline\('marketing hero image load',[\s\S]*NAVIGATION_TIMEOUT_MS/,"network-backed hero proof must wait on the real image load or error outcome with the bounded navigation deadline");
 assert.match(synthetic,/marketing hero asset failed to load/,"hero proof must distinguish an asset-load failure from crop or distortion failure");
 assert.doesNotMatch(synthetic,/HERO_IMAGE_TIMEOUT_MS/,"hero proof must not use a second polling-only asset timeout that can misclassify slow or cached image loading");
