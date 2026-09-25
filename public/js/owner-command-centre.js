@@ -23,6 +23,8 @@
   let agenticBusy=false;
   let agenticTaskBusy=false;
   let agenticTaskDraft=null;
+  let financeReconciliationPreview=null;
+  let financeReconciliationBusy=false;
 
   const q=(selector,root=document)=>root.querySelector(selector);
   const num=value=>{
@@ -442,6 +444,142 @@
   }
 
   function agenticStatusNode(){return q("#ownerAgenticStatus")}
+
+  const reconciliationMoney=minor=>`P${(Number(minor||0)/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+
+  function financeReconciliationPayloadFromFields({accountId,statementFrom,statementTo,openingBalance,closingBalance}){
+    const opening=Number(openingBalance),closing=Number(closingBalance);
+    if(!accountId)return {error:"Choose a finance account."};
+    if(!isoDateValid(statementFrom)||!isoDateValid(statementTo)||statementFrom>statementTo)return {error:"Enter a valid statement period."};
+    if(!Number.isFinite(opening)||!Number.isFinite(closing))return {error:"Enter valid opening and closing balances."};
+    const openingBalanceMinor=Math.round(opening*100),closingBalanceMinor=Math.round(closing*100);
+    if(!Number.isSafeInteger(openingBalanceMinor)||!Number.isSafeInteger(closingBalanceMinor))return {error:"Statement balances are outside the supported range."};
+    return {payload:{accountId,statementFrom,statementTo,openingBalanceMinor,closingBalanceMinor}};
+  }
+
+  async function prepareFinanceReconciliationReview(payload){
+    if(financeReconciliationBusy)return;
+    financeReconciliationBusy=true;
+    const status=agenticStatusNode();
+    if(status)status.textContent="Preparing reconciliation from the canonical Finance Core…";
+    try{
+      financeReconciliationPreview=await request("/api/agentic/finance/reconciliation/prepare",{
+        method:"POST",
+        body:JSON.stringify(payload)
+      });
+      if(status)status.textContent="Reconciliation prepared. Review the exact snapshot before recording.";
+      await renderAgenticGovernance(false);
+    }catch(error){
+      if(status)status.textContent=String(error?.message||"Could not prepare reconciliation").slice(0,180);
+    }finally{
+      financeReconciliationBusy=false;
+    }
+  }
+
+  async function recordReviewedFinanceReconciliation(){
+    if(financeReconciliationBusy||role()!=="owner")return;
+    const proposal=financeReconciliationPreview?.proposal;
+    if(!proposal?.snapshotHash)return;
+    financeReconciliationBusy=true;
+    const status=agenticStatusNode();
+    if(status)status.textContent="Revalidating the reviewed snapshot before recording…";
+    try{
+      await request("/api/finance/reconciliations",{
+        method:"POST",
+        body:JSON.stringify({
+          accountId:proposal.accountId,
+          statementFrom:proposal.statementFrom,
+          statementTo:proposal.statementTo,
+          openingBalanceMinor:proposal.openingBalanceMinor,
+          closingBalanceMinor:proposal.statementClosingMinor,
+          expectedSnapshotHash:proposal.snapshotHash
+        })
+      });
+      financeReconciliationPreview=null;
+      if(status)status.textContent="Reviewed reconciliation recorded and verified.";
+      await renderOwnerBrief(true);
+    }catch(error){
+      if(status)status.textContent=String(error?.message||"Could not record reviewed reconciliation").slice(0,180);
+    }finally{
+      financeReconciliationBusy=false;
+    }
+  }
+
+  function renderFinanceReconciliationControl(accountsPayload){
+    const section=document.createElement("section");
+    section.className="owner-agentic-boundary";
+    const accounts=Array.isArray(accountsPayload?.items)?accountsPayload.items.filter(item=>String(item?.status||"active")==="active"):[];
+    const copy=document.createElement("div");
+    copy.append(
+      text("b","Finance reconciliation · prepare, review, then record"),
+      text("span","Thebe prepares a tenant-scoped Finance Core snapshot. Recording remains a direct human action and is cryptographically bound to the reviewed snapshot hash.")
+    );
+    section.append(copy);
+
+    if(!accounts.length){
+      section.append(text("div","Create an active finance account before preparing a reconciliation.","owner-command-empty"));
+      return section;
+    }
+
+    const form=document.createElement("form");
+    form.className="owner-inputs-body";
+    form.setAttribute("aria-label","Prepare finance reconciliation for review");
+    const account=selectField("Finance account",{id:"ownerFinanceReconciliationAccount",value:String(accounts[0]?.id||""),options:accounts.map(item=>({value:String(item.id||""),label:String(item.name||"Finance account")}))});
+    const from=field("Statement from",{id:"ownerFinanceReconciliationFrom",type:"date",value:gaboroneDate()});
+    const to=field("Statement to",{id:"ownerFinanceReconciliationTo",type:"date",value:gaboroneDate()});
+    const opening=field("Opening balance (P)",{id:"ownerFinanceReconciliationOpening",type:"number",value:"0"});
+    opening.input.step="0.01";
+    const closing=field("Closing balance (P)",{id:"ownerFinanceReconciliationClosing",type:"number",value:"0"});
+    closing.input.step="0.01";
+    const submit=document.createElement("button");
+    submit.type="submit";
+    submit.className="btn soft";
+    submit.textContent=financeReconciliationBusy?"Working…":"Prepare reconciliation";
+    submit.disabled=financeReconciliationBusy;
+    form.append(account.wrap,from.wrap,to.wrap,opening.wrap,closing.wrap,submit);
+    form.addEventListener("submit",event=>{
+      event.preventDefault();
+      const normalized=financeReconciliationPayloadFromFields({
+        accountId:account.select.value,
+        statementFrom:from.input.value,
+        statementTo:to.input.value,
+        openingBalance:opening.input.value,
+        closingBalance:closing.input.value
+      });
+      if(normalized.error){
+        const status=agenticStatusNode();
+        if(status)status.textContent=normalized.error;
+        return;
+      }
+      prepareFinanceReconciliationReview(normalized.payload);
+    });
+    section.append(form);
+
+    const proposal=financeReconciliationPreview?.proposal;
+    if(proposal){
+      const card=document.createElement("article");
+      card.className="owner-agentic-proposal";
+      card.dataset.tone=proposal.status==="exception"?"risk":"positive";
+      card.append(
+        text("span",proposal.status==="exception"?"EXCEPTION":"RECONCILED","owner-agentic-kicker"),
+        text("h5",`${proposal.accountName||"Finance account"} · ${proposal.statementFrom} to ${proposal.statementTo}`),
+        text("p",`Statement closing ${reconciliationMoney(proposal.statementClosingMinor)} · Book closing ${reconciliationMoney(proposal.bookClosingMinor)} · Difference ${reconciliationMoney(proposal.differenceMinor)}`,"owner-agentic-reason"),
+        text("div",`${Number(proposal.transactionCount||0)} transaction(s) · Snapshot ${String(proposal.snapshotHash||"").slice(0,24)}…`,"owner-agentic-policy")
+      );
+      const actions=document.createElement("div");
+      actions.className="owner-agentic-actions";
+      if(role()==="owner"){
+        const record=button("Record reviewed reconciliation",recordReviewedFinanceReconciliation,"btn");
+        record.disabled=financeReconciliationBusy;
+        actions.append(record);
+      }else{
+        actions.append(text("span","Owner approval is required to record this reconciliation.","owner-agentic-policy"));
+      }
+      card.append(actions);
+      section.append(card);
+    }
+    return section;
+  }
 
   function agenticPolicyLabel(proposal){
     if(proposal?.execution_policy==="prohibited_autonomy"||proposal?.executionPolicy==="prohibited_autonomy")return "Human-only · autonomy prohibited";
@@ -871,7 +1009,7 @@
     return card;
   }
 
-  function renderAgenticSnapshot(statusPayload,runsPayload,taskExecutionPayload=null,authorityPayload=null,taskRequestsPayload=null,taskListPayload=null){
+  function renderAgenticSnapshot(statusPayload,runsPayload,taskExecutionPayload=null,authorityPayload=null,taskRequestsPayload=null,taskListPayload=null,financeAccountsPayload=null){
     const body=q("#ownerAgenticBody");
     if(!body)return;
     body.replaceChildren();
@@ -931,6 +1069,7 @@
     }
 
     if(["owner","manager"].includes(role())){
+      body.append(renderFinanceReconciliationControl(financeAccountsPayload));
       body.append(renderBoundedTaskControl({taskExecutionPayload,authorityPayload,taskRequestsPayload,taskListPayload}));
     }
 
@@ -975,15 +1114,16 @@
     const status=agenticStatusNode();
     if(status)status.textContent="Refreshing governed plan…";
     try{
-      const [statusPayload,runsPayload,taskExecutionPayload,authorityPayload,taskRequestsPayload,taskListPayload]=await Promise.all([
+      const [statusPayload,runsPayload,taskExecutionPayload,authorityPayload,taskRequestsPayload,taskListPayload,financeAccountsPayload]=await Promise.all([
         request("/api/agentic/status"),
         request("/api/agentic/runs"),
         request("/api/agentic/task-execution/status").catch(()=>null),
         request("/api/agentic/authority/delegations").catch(()=>({items:[]})),
         request("/api/agentic/task-execution/requests").catch(()=>({items:[]})),
-        request("/api/agentic/task-execution/tasks").catch(()=>({items:[]}))
+        request("/api/agentic/task-execution/tasks").catch(()=>({items:[]})),
+        request("/api/finance/accounts").catch(()=>({items:[]}))
       ]);
-      renderAgenticSnapshot(statusPayload,runsPayload,taskExecutionPayload,authorityPayload,taskRequestsPayload,taskListPayload);
+      renderAgenticSnapshot(statusPayload,runsPayload,taskExecutionPayload,authorityPayload,taskRequestsPayload,taskListPayload,financeAccountsPayload);
       if(status){
         status.textContent=taskExecutionPayload?.schemaReady===true&&taskExecutionPayload?.sessionExecutionEnabled===true&&taskExecutionPayload?.runtimeKillSwitch!==true
           ?(taskExecutionPayload?.executionMode==="platform_admin_canary"?"Platform-admin task canary enabled":"Bounded internal execution enabled")
