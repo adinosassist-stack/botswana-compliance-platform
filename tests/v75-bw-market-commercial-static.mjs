@@ -6,8 +6,11 @@ const m=fs.readFileSync(new URL("../cloudflare/migrations/017_v75_bw_market_comm
 const p=JSON.parse(fs.readFileSync(new URL("../cloudflare/seeds/botswana-foundation-pack-v1.json",import.meta.url),"utf8"));
 const vatConflict=p.conflicts.find(x=>x.key==="vat-registration-threshold");
 const payeConflict=p.conflicts.find(x=>x.key==="paye-itw8-salary-threshold");
+const home=fs.readFileSync(new URL("../public/home.html",import.meta.url),"utf8");
 const checks=[
  ["v75+ runtime",/version:"v(?:7[5-9]|[89][0-9])",runtime:"cloudflare-worker"/.test(w)],
+ ["market expansion copy",h.includes("Live in Botswana · Namibia next")&&home.includes("Live in Botswana · Namibia next")&&!h.includes("Live in Botswana · South Africa next")&&!home.includes("Live in Botswana · South Africa next")],
+
  ["public plan prices",w.includes('PLAN_PRICE_BWP={starter:149,business:349,pro:699,network:1299,partner:2499}')],
  ["self serve boundary",w.includes('SELF_SERVE_PLAN_IDS=new Set(["starter","business","pro","network"])')&&w.includes('partner_plan_requires_assisted_onboarding')],
  ["verified checkout only",w.includes('direct_plan_change_disabled_use_verified_checkout')&&w.includes('/api/payments/subscription-checkout')],
