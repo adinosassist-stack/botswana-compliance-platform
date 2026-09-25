@@ -454,7 +454,7 @@ export async function prepareWhatsAppPurposeForPrincipal({env,auth,purpose,idemp
   const existing=await replayIntent(env,auth.tenant_id,idem);
   if(existing){
     if(String(existing.action_key)!==spec.actionKey||String(existing.payload_hash)!==requestHash)return {status:409,body:{error:"idempotency_key_conflict"}};
-    return {status:200,body:{ok:true,replayed:true,purpose:normalizedPurpose,intent:publicIntent(existing),messagePreview:String(existing.summary||""),snapshot:parseObservation(existing.observation_json),policy:{humanReviewRequired:true,prepareOnly:true},execution:{performed:false,enabled:false,providerSend:false,recipientTargeting:false}}};
+    return {status:200,body:{ok:true,replayed:true,purpose:normalizedPurpose,intent:publicIntent(existing),messagePreview:String(existing.summary||""),snapshot:parseObservation(existing.observation_json),policy:{humanReviewRequired:true,prepareOnly:true},execution:{performed:false,enabled:false,providerSend:false,recipientTargeting:false},delivery:sourceName==="whatsapp_inbound"?{replyToInbound:true,recipientLocked:true}:undefined}};
   }
 
   let snapshot;try{snapshot=await snapshotForPurpose(env,auth.tenant_id,normalizedPurpose)}catch{return {status:503,body:{error:"whatsapp_prepare_data_unavailable"}}}
@@ -489,7 +489,8 @@ export async function prepareWhatsAppPurposeForPrincipal({env,auth,purpose,idemp
     intent:{id:intentId,runId,agentKey:spec.agentKey,actionKey:spec.actionKey,decision:decision.decision,decisionCode:decision.code,status:"review_required"},
     messagePreview,snapshot:observation,
     policy:{humanReviewRequired:true,prepareOnly:true,sourceRefs:snapshot.sourceRefs||[]},
-    execution:{performed:false,enabled:false,providerSend:false,recipientTargeting:false}
+    execution:{performed:false,enabled:false,providerSend:false,recipientTargeting:false},
+    delivery:sourceName==="whatsapp_inbound"?{replyToInbound:true,recipientLocked:true}:undefined
   }};
 }
 
