@@ -223,7 +223,8 @@
     "test:employee-location-management": "node tests/v111-employee-location-management-adversarial.mjs",
     "test:people-reporting-hydration": "node tests/v112-people-reporting-hydration-adversarial.mjs",
     "test:persistent-agent-tasks": "node tests/v117-persistent-agent-tasks.mjs",
-    "test:tool-trust-registry": "node tests/v118-tool-trust-registry.mjs"
+    "test:tool-trust-registry": "node tests/v118-tool-trust-registry.mjs",
+    "test:super-agent-finance-watcher": "node tests/v119-super-agent-finance-watcher.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1126.0",
