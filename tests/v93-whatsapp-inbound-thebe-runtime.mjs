@@ -37,14 +37,22 @@ function mockDb({bindings=[{tenant_id:"tenant-A",user_id:"u1",role:"owner"}]}={}
 }
 
 {
-  const DB=mockDb();
+  const DB=mockDb(),deliveries=[];
   const result=await processWhatsAppInboundMessages({DB,WHATSAPP_PHONE_NUMBER_ID:"12345"},[{
     phoneNumberId:"12345",
     message:{id:"wamid.finance.1",from:"26771234567",type:"text",timestamp:"1789862400",text:{body:"finance"}}
-  }]);
+  }],{deliverReply:async reply=>{deliveries.push(reply);return {ok:true,id:"reply-finance-1"}}});
   assert.equal(result.received,1);
   assert.equal(result.prepared,1);
+  assert.equal(result.replyQueued,1);
+  assert.equal(result.replyFailed,0);
   assert.equal(result.unlinked,0);
+  assert.equal(deliveries.length,1);
+  assert.equal(deliveries[0].to,"+26771234567");
+  assert.equal(deliveries[0].userId,"u1");
+  assert.equal(deliveries[0].replyToMessageId,"wamid.finance.1");
+  assert.equal(deliveries[0].kind,"prepared_brief");
+  assert.match(deliveries[0].text,/Thebe Desk finance check/i);
   const intent=DB.calls.find(call=>call.sql.includes("INSERT INTO agent_action_intents"));
   assert.ok(intent,"inbound command must create a governed action intent");
   assert.ok(intent.bindings.includes("thebe"),"inbound command must persist canonical Thebe agent identity");
@@ -150,6 +158,9 @@ assert.match(workerSource,/processWhatsAppInboundMessages/,"signed Meta webhook 
 assert.match(workerSource,/if\(!messages\.length\)return base/,"status-only webhook responses must preserve the existing V76 response contract");
 assert.match(agenticSource,/export async function prepareWhatsAppPurposeForPrincipal/,"app and inbound WhatsApp must share one governed preparation implementation");
 assert.match(agenticSource,/sourceName==="whatsapp_inbound"/,"shared preparation must mark inbound state explicitly");
+assert.match(agenticSource,/replyToInbound:true,recipientLocked:true/,"inbound prepared briefs must explicitly opt into recipient-locked replies");
+assert.match(inboundSource,/kind:"prepared_brief"/,"inbound prepare commands must reply through the locked session-reply path");
+assert.match(inboundSource,/delivery\?\.replyToInbound===true&&result\.body\?\.delivery\?\.recipientLocked===true/,"router must fail closed unless the shared preparation explicitly authorizes an inbound-only reply");
 assert.doesNotMatch(agenticSource,/WHATSAPP_ACCESS_TOKEN/,"shared agentic preparation must remain provider-credential blind");
 assert.match(inboundSource,/classifyWhatsAppInboundIntent/,"inbound WhatsApp must route natural-language finance intents through deterministic classification");
 assert.match(workerSource,/enqueueWhatsAppSessionReply/,"read-only owner replies must use the existing governed WhatsApp delivery ledger");
