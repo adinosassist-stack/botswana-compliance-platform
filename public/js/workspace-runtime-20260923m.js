@@ -2487,6 +2487,11 @@ function ownerGreetingText(){
 function ownerBriefUpdatedLabel(value){
   try{const d=value?new Date(value):new Date();return `Updated ${new Intl.DateTimeFormat("en-BW",{timeZone:"Africa/Gaborone",hour:"2-digit",minute:"2-digit"}).format(d)}`}catch{return "Updated now"}
 }
+let ownerBriefLastGoodAt=null;
+function setOwnerBriefNotice(message=""){
+  const el=document.getElementById("ownerBriefNotice");if(!el)return;
+  const text=String(message||"").trim();el.textContent=text;el.style.display=text?"block":"none";
+}
 function openThebeFromHome(question="",run=false){
   if(!roleCanView("aiservices"))return false;
   const source=document.getElementById("homeThebeQuestion"),prompt=String(question||source?.value||"").trim().slice(0,1000);
@@ -2547,13 +2552,20 @@ async function renderDailyOperatingBrief(){
     }
 
     const partial=financeR.status!=="fulfilled"||employeesR.status!=="fulfilled";set("ownerBriefStatus",partial?"Thebe Brief · partial":"Thebe Brief · live");
+    setOwnerBriefNotice(partial?"Some live sources could not be confirmed. Cards marked Unavailable are not zero balances or all-clear signals.":"");
     homeFirstActionTarget=actions.length?homeActionMeta(actions[0].source).target:"workhub";
     box.safeHTML=actions.length?actions.map(renderAction).join(""):'<div class="home-action-empty"><b>No action is currently returned for today.</b><div class="small" style="margin-top:3px">Keep deadlines and source changes under review. This is not a legal all-clear.</div></div>';
     changesBox.safeHTML=changes.length?changes.map(x=>`<div class="daily-change-item ${escapeHtml(String(x.severity||"info").toLowerCase())}"><span class="daily-change-dot" aria-hidden="true"></span><div class="daily-change-copy"><b>${escapeHtml(x.title||"Workspace change")}</b><small>${escapeHtml(x.kind==="operations"?"Operations signal":x.kind==="completed"?"Completed work":"Business / protection change")}</small></div></div>`).join(""):'<div class="muted small">No material system, operating or completion change is recorded in the last 24 hours.</div>';
     const title=document.getElementById("homeDecisionTitle");if(title)title.textContent=urgent?`${urgent} urgent item${urgent===1?"":"s"} to handle today`:reviewTotal?`${reviewTotal} item${reviewTotal===1?" is":"s are"} waiting for review`:"What needs your attention today";
+    ownerBriefLastGoodAt=d.generatedAt||new Date().toISOString();
   }catch(e){
+    if(ownerBriefLastGoodAt){
+      set("ownerGreeting",ownerGreetingText());set("ownerBriefFreshness",`${ownerBriefUpdatedLabel(ownerBriefLastGoodAt)} · last confirmed; refresh failed`);set("ownerBriefStatus","Thebe Brief · stale");
+      setOwnerBriefNotice("Refresh failed. The last confirmed operating brief remains visible. Verify source records before acting on time-sensitive figures, deadlines or queues.");
+      return;
+    }
     ["homeActionCount","homeHighPriorityCount","homeReviewCount","homeChangesCount","homeNextDeadline","homeOpsCoverage","homeOpsCardValue","homeReviewCardValue","homeProofHealth","homeCashPosition","homeMoneyOwed","homeEmployeeCount"].forEach(id=>set(id,"Unavailable"));homeFirstActionTarget="workhub";
-    set("ownerGreeting",ownerGreetingText());set("ownerBriefFreshness","Live business brief unavailable");set("ownerBriefStatus","Thebe Brief · unavailable");set("homeCashDetail","Finance status could not be confirmed.");set("homeReceivablesDetail","Receivables status could not be confirmed.");set("homeEmployeeDetail","Employee status could not be confirmed.");set("homeComplianceDetail","Deadline status could not be confirmed.");set("homeAttentionDetail","Open Work & deadlines to verify current items.");
+    set("ownerGreeting",ownerGreetingText());set("ownerBriefFreshness","Live business brief unavailable");set("ownerBriefStatus","Thebe Brief · unavailable");setOwnerBriefNotice("No confirmed operating brief is available yet. Retry or open the source workspaces before making a time-sensitive decision.");set("homeCashDetail","Finance status could not be confirmed.");set("homeReceivablesDetail","Receivables status could not be confirmed.");set("homeEmployeeDetail","Employee status could not be confirmed.");set("homeComplianceDetail","Deadline status could not be confirmed.");set("homeAttentionDetail","Open Work & deadlines to verify current items.");
     box.safeHTML='<div class="notice bad"><b>Daily operating brief unavailable</b><div class="small">The server-backed brief could not be confirmed. Do not interpret missing cards or an empty queue as all clear. Open Work & deadlines and Daily reports before acting.</div><button class="btn alt" style="margin-top:8px" data-bw-onclick="renderDailyOperatingBrief()">Retry brief</button></div>';
     changesBox.safeHTML='<div class="notice bad small">Recent changes could not be confirmed.</div>';set("homeOpsDetail","Daily reporting could not be confirmed. Review source reports before making an operational or employment decision.");set("homeReviewDetail","Review status could not be confirmed. Open Work & deadlines before relying on this summary.");set("homeProofDetail","Evidence health could not be confirmed. Open Documents & proof for the underlying records.");
   }
