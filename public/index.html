@@ -2396,6 +2396,32 @@ main{
 @media(max-width:1100px){#homeDecisionCenter .daily-brief-grid{grid-template-columns:1fr!important}}
 @media(max-width:760px){#nav .nav-primary-icon.nav-svg-icon{width:27px!important;min-width:27px!important;height:27px!important}#homeDecisionCenter .home-queue-card{padding:14px!important}}
 </style>
+<style id="owner-retention-loop-styles">
+.owner-command-hero .dashboard-intro{align-items:center}
+.owner-command-kicker{color:#176b4f!important}
+.owner-command-hero h2{margin:4px 0 7px;font-size:clamp(24px,3vw,36px);letter-spacing:-.035em}
+.owner-command-company{display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--muted);font-size:13px}
+.owner-command-company b{color:var(--ink)}
+.owner-today-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:14px 0}
+.owner-today-card{appearance:none;width:100%;min-width:0;text-align:left;border:1px solid var(--line);background:var(--card);border-radius:14px;padding:14px;display:grid;gap:5px;color:var(--ink);cursor:pointer;box-shadow:var(--shadow);font:inherit}
+.owner-today-card:hover{border-color:#cfd8d3;transform:translateY(-1px)}
+.owner-today-card:focus-visible,.thebe-agent-launcher:focus-visible{outline:3px solid rgba(23,107,79,.22);outline-offset:2px}
+.owner-today-label{font-size:10px;letter-spacing:.1em;text-transform:uppercase;font-weight:800;color:var(--muted)}
+.owner-today-value{font-size:22px;line-height:1.05;letter-spacing:-.03em;overflow-wrap:anywhere}
+.owner-today-detail{font-size:11px;line-height:1.35;color:var(--muted)}
+.home-thebe-agent{margin:12px 0 16px;border:1px solid #dfe7e3;border-radius:16px;background:#fff;padding:16px;display:grid;grid-template-columns:minmax(190px,.8fr) minmax(280px,1.6fr);gap:16px;align-items:center}
+.home-thebe-agent h3{margin:3px 0 5px;font-size:17px}
+.home-thebe-agent p{margin:0}
+.home-thebe-agent-compose{display:flex;gap:8px}
+.home-thebe-agent-compose input{min-width:0;flex:1}
+.home-thebe-agent-quick{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
+.home-thebe-agent-quick .btn{font-size:11px;padding:7px 9px}
+.home-thebe-agent-note{display:block;margin-top:7px;color:var(--muted);font-size:10px}
+.thebe-agent-launcher{position:fixed;right:22px;bottom:22px;z-index:75;border:1px solid #202923;background:#121715;color:#fff;border-radius:999px;padding:11px 15px;box-shadow:0 10px 28px rgba(16,24,20,.16);font:inherit;font-weight:750;cursor:pointer}
+.thebe-agent-launcher:hover{background:#1d2521}
+@media(max-width:1100px){.owner-today-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.owner-today-card:last-child{grid-column:1/-1}.home-thebe-agent{grid-template-columns:1fr}}
+@media(max-width:650px){.owner-today-grid{grid-template-columns:1fr 1fr}.owner-today-card{padding:12px}.owner-today-card:last-child{grid-column:1/-1}.owner-today-value{font-size:19px}.home-thebe-agent{padding:13px}.home-thebe-agent-compose{flex-direction:column}.home-thebe-agent-compose .btn{width:100%}.thebe-agent-launcher{right:14px;bottom:calc(78px + env(safe-area-inset-bottom));padding:10px 13px}}
+</style>
 <style id="ownerAgenticStyles">
 .owner-agentic-panel{margin-top:18px;border:1px solid #e3e7ea;border-radius:18px;background:#fff;padding:18px;box-shadow:0 10px 30px rgba(15,23,42,.04)}
 .owner-agentic-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}.owner-agentic-head h4{margin:4px 0 6px;font-size:18px}.owner-agentic-head p{margin:0;max-width:760px}.owner-agentic-body{display:grid;gap:12px}
@@ -2739,10 +2765,14 @@ main{
   </div>
 
   <section id="dashboard" class="view active">
-    <div class="hero">
+    <div class="hero owner-command-hero">
       <div class="dashboard-intro">
-        <div><div class="kpi" style="color:#266fca">Your business, protected</div><h2 id="companyHero">Kgetsi Trading (Pty) Ltd</h2><div class="muted">One calm view of obligations, evidence, deadlines, changes and the actions that matter next.</div></div>
-        <div class="health-chip">Protection monitoring on</div>
+        <div>
+          <div class="kpi owner-command-kicker">Owner Command Centre</div>
+          <h2 id="ownerGreeting">Good morning. Here’s your business today.</h2>
+          <div class="owner-command-company"><b id="companyHero">Kgetsi Trading (Pty) Ltd</b><span aria-hidden="true">·</span><span id="ownerBriefFreshness">Building Thebe Brief…</span></div>
+        </div>
+        <div class="health-chip" id="ownerBriefStatus">Thebe Brief · live</div>
       </div>
     </div>
     <div id="billingBanner" class="billingbanner" style="display:none"></div>
@@ -2765,16 +2795,23 @@ main{
 
     <section class="home-decision-center" id="homeDecisionCenter" aria-labelledby="homeDecisionTitle">
       <div class="home-decision-head">
-        <div><div class="section-eyebrow">Today</div><h2 id="homeDecisionTitle">Your operating brief</h2><p class="muted">See what changed, what is urgent, what staff reported, what is waiting for review and the three actions that matter today. Open the exact record from here.</p></div>
+        <div><div class="section-eyebrow">Thebe Brief</div><h2 id="homeDecisionTitle">What needs your attention today</h2><p class="muted">A live owner view of cash, money owed, people, compliance and the work that needs a decision. Every figure links back to the workspace source instead of becoming a separate dashboard truth.</p></div>
         <button class="btn alt" type="button" data-bw-onclick="renderDailyOperatingBrief()">Refresh brief</button>
       </div>
-      <div class="home-status-strip daily-status-strip" aria-label="Today's management status">
-        <button class="home-status-chip" type="button" data-bw-onclick="showView('workhub')"><b id="homeActionCount">—</b><span>open work</span></button>
-        <button class="home-status-chip" type="button" data-bw-onclick="showView('workhub')"><b id="homeHighPriorityCount">—</b><span>urgent / high</span></button>
-        <button class="home-status-chip" type="button" data-bw-onclick="showView('workhub')"><b id="homeReviewCount">—</b><span>waiting review</span></button>
-        <button class="home-status-chip" type="button" data-bw-onclick="showView('calendar')"><b id="homeNextDeadline">—</b><span>next deadline</span></button>
-        <button class="home-status-chip" type="button" data-bw-onclick="showView('dailyreports')"><b id="homeOpsCoverage">—</b><span>reporting today</span></button>
-        <button class="home-status-chip" type="button" data-bw-onclick="showView('businessevents')"><b id="homeChangesCount">—</b><span>changed in 24h</span></button>
+      <div class="owner-today-grid" aria-label="Today's business snapshot">
+        <button class="owner-today-card" type="button" data-bw-onclick="openThebeFromHome('Explain our current cash position and any reconciliation issues.')"><span class="owner-today-label">Cash</span><b class="owner-today-value" id="homeCashPosition">—</b><span class="owner-today-detail" id="homeCashDetail">Checking canonical Finance Core…</span></button>
+        <button class="owner-today-card" type="button" data-bw-onclick="openThebeFromHome('Summarise our outstanding receivables and overdue customer balances.')"><span class="owner-today-label">Money owed</span><b class="owner-today-value" id="homeMoneyOwed">—</b><span class="owner-today-detail" id="homeReceivablesDetail">Checking issued invoices…</span></button>
+        <button class="owner-today-card" type="button" data-bw-onclick="showView('peopleops')"><span class="owner-today-label">Employees</span><b class="owner-today-value" id="homeEmployeeCount">—</b><span class="owner-today-detail" id="homeEmployeeDetail"><span id="homeOpsCoverage">—</span> reporting today</span></button>
+        <button class="owner-today-card" type="button" data-bw-onclick="showView('calendar')"><span class="owner-today-label">Compliance</span><b class="owner-today-value" id="homeNextDeadline">—</b><span class="owner-today-detail" id="homeComplianceDetail">Checking the next tracked deadline…</span></button>
+        <button class="owner-today-card" type="button" data-bw-onclick="showView('workhub')"><span class="owner-today-label">Needs attention</span><b class="owner-today-value" id="homeActionCount">—</b><span class="owner-today-detail" id="homeAttentionDetail"><span id="homeHighPriorityCount">—</span> urgent · <span id="homeReviewCount">—</span> waiting review</span></button>
+      </div>
+      <div class="home-thebe-agent executive-only" aria-label="Thebe Super Agent">
+        <div><div class="section-eyebrow">Thebe Super Agent</div><h3>Ask the business, not the menus.</h3><p class="muted small">Thebe answers from the tenant-scoped workspace context available to it and keeps consequential actions behind the existing approval controls.</p></div>
+        <div>
+          <div class="home-thebe-agent-compose"><input id="homeThebeQuestion" type="text" maxlength="1000" autocomplete="off" placeholder="Ask: What needs management attention today?" aria-label="Question for Thebe"><button class="btn" type="button" data-bw-onclick="askThebeFromHome()">Ask Thebe</button></div>
+          <div class="home-thebe-agent-quick" aria-label="Quick questions"><button class="btn soft" type="button" data-bw-onclick="askThebeFromHome('What needs management attention today?')">Today’s priorities</button><button class="btn soft" type="button" data-bw-onclick="askThebeFromHome('Explain our current cash position and collection risk.')">Cash & collections</button><button class="btn soft" type="button" data-bw-onclick="askThebeFromHome('Which reports or reviews need follow-up?')">Follow-up</button></div>
+          <small class="home-thebe-agent-note">A submitted question uses the same governed Thebe AI workspace advisor; AI credits apply when the configured model runs.</small>
+        </div>
       </div>
       <div class="home-decision-grid daily-brief-grid">
         <div class="home-queue-card">
@@ -4769,6 +4806,8 @@ main{
     <div class="actions"><button class="btn alt" type="button" data-bw-onclick="closeModal('controlPreventiveActionModal')">Cancel</button><button class="btn" id="controlPreventiveSubmit" type="button" data-bw-onclick="submitControlPreventiveAction()">Record preventive completion</button></div>
   </div>
 </div></div>
+
+<button id="thebeAgentLauncher" class="thebe-agent-launcher executive-only" type="button" hidden data-bw-onclick="openThebeFromHome()" aria-label="Open Thebe Super Agent">✦ <span>Ask Thebe</span></button>
 
 <script src="/js/dom-security.js"></script>
 <script src="/js/event-delegation.js"></script>
@@ -7256,25 +7295,84 @@ async function renderHomeDecisionSignals(){
 }
 
 
+function homeMoneyMinor(value){
+  const n=Number(value);if(!Number.isFinite(n))return "—";
+  const amount=n/100,whole=Math.abs(amount-Math.round(amount))<0.00001;
+  return `P${amount.toLocaleString("en-BW",{minimumFractionDigits:whole?0:2,maximumFractionDigits:2})}`;
+}
+function ownerGreetingText(){
+  try{const hour=Number(new Intl.DateTimeFormat("en-GB",{timeZone:"Africa/Gaborone",hour:"2-digit",hourCycle:"h23"}).format(new Date()));return `${hour<12?"Good morning":hour<18?"Good afternoon":"Good evening"}. Here’s your business today.`}catch{return "Here’s your business today."}
+}
+function ownerBriefUpdatedLabel(value){
+  try{const d=value?new Date(value):new Date();return `Updated ${new Intl.DateTimeFormat("en-BW",{timeZone:"Africa/Gaborone",hour:"2-digit",minute:"2-digit"}).format(d)}`}catch{return "Updated now"}
+}
+function openThebeFromHome(question="",run=false){
+  if(!roleCanView("aiservices"))return false;
+  const source=document.getElementById("homeThebeQuestion"),prompt=String(question||source?.value||"").trim().slice(0,1000);
+  const opened=showView("aiservices");if(!opened)return false;
+  requestAnimationFrame(()=>{
+    const mode=document.getElementById("aiAdvisorMode"),target=document.getElementById("aiAdvisorQuestion");
+    if(mode)mode.value="ask";
+    if(target){if(prompt)target.value=prompt;target.focus()}
+    if(run&&prompt.length>=3&&typeof askAiAdvisor==="function")void askAiAdvisor();
+  });
+  return true;
+}
+function askThebeFromHome(question=""){
+  const source=document.getElementById("homeThebeQuestion"),prompt=String(question||source?.value||"").trim().slice(0,1000);
+  if(prompt.length<3){source?.focus();const sr=document.getElementById("srStatus");if(sr)sr.textContent="Enter a question for Thebe.";return false}
+  return openThebeFromHome(prompt,true);
+}
+
 async function renderDailyOperatingBrief(){
   if(!roleCanView("dashboard")||!["owner","manager"].includes(currentWorkspaceRole()))return;
   const box=document.getElementById("unifiedNextActions"),changesBox=document.getElementById("homeChangesList");if(!box||!changesBox)return;
   const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value};
   const renderAction=x=>{const meta=homeActionMeta(x.source),due=homeDueLabel(x.dueAt),priority=Number(x.priority)===1?"High":Number(x.priority)===2?"Normal":"Low",proofMissing=Number(x.proofMissing||0),proofDirect=x.source==="regulatory"&&proofMissing>0;return `<div class="home-action-row"><div class="home-action-copy"><b>${escapeHtml(x.title)}</b><div class="home-action-meta"><span>${escapeHtml(priority)} priority</span><span>${escapeHtml(x.status||"Open")}</span>${due?`<span>Due ${escapeHtml(due)}</span>`:""}${proofDirect?`<span class="home-proof-flag">${proofMissing} proof gap${proofMissing===1?"":"s"}</span>`:""}</div></div><div class="home-action-actions">${x.source==="regulatory"?`<button class="btn" type="button" data-bw-onclick="openActionProof('regulatory','${safeId(x.id)}')">${proofDirect?"Add proof":"Work action"}</button>`:""}<button class="btn ${Number(x.priority)===1&&!proofDirect?"":"soft"}" type="button" data-bw-onclick="showView('${meta.target}')">${escapeHtml(meta.label)}</button></div></div>`};
   try{
-    const d=await apiJson("/api/daily-brief"),status=d.status||{},actions=(d.topActions||[]).slice(0,3),changes=(d.changes||[]).slice(0,6),reviews=d.reviews||{},ops=d.operations||{},e=d.evidenceHealth||{};
-    set("homeActionCount",Number(status.openWork||0));set("homeHighPriorityCount",Number(status.urgent||0));set("homeReviewCount",Number(reviews.total||status.waitingReview||0));set("homeChangesCount",Number(status.changes??changes.length));set("homeChangesBadge",`${Number(d.windowHours||24)}h`);
+    const [dailyR,financeR,employeesR]=await Promise.allSettled([
+      apiJson("/api/daily-brief"),
+      apiJson("/api/finance/summary"),
+      apiJson("/api/employees")
+    ]);
+    if(dailyR.status!=="fulfilled")throw dailyR.reason||new Error("daily_brief_unavailable");
+    const d=dailyR.value||{},status=d.status||{},actions=(d.topActions||[]).slice(0,3),changes=(d.changes||[]).slice(0,6),reviews=d.reviews||{},ops=d.operations||{},e=d.evidenceHealth||{};
+    const urgent=Number(status.urgent||0),reviewTotal=Number(reviews.total||status.waitingReview||0),openWork=Number(status.openWork||0);
+    set("ownerGreeting",ownerGreetingText());set("ownerBriefFreshness",`${ownerBriefUpdatedLabel(d.generatedAt)} · ${Number(d.windowHours||24)}h operating window`);
+    set("homeActionCount",openWork);set("homeHighPriorityCount",urgent);set("homeReviewCount",reviewTotal);set("homeChangesCount",Number(status.changes??changes.length));set("homeChangesBadge",`${Number(d.windowHours||24)}h`);
     set("homeNextDeadline",status.nextDeadline?homeDueLabel(status.nextDeadline):"None set");
+    set("homeComplianceDetail",status.nextDeadline?"Next tracked deadline · open Calendar for the source record":"No future tracked deadline is currently returned; this is not a compliance all-clear.");
     const coverage=Number(ops.coverage??status.reportingCoverage),coverageText=Number.isFinite(coverage)?`${Math.round(coverage)}%`:"—";set("homeOpsCoverage",coverageText);set("homeOpsCardValue",coverageText);
     const missing=Number(ops.missing||0),attention=Number(ops.attention||0),incidents=Number(ops.incidents||0),locations=Number(ops.locationsReporting||0);set("homeOpsDetail",`${locations} location${locations===1?"":"s"} reported${missing?` · ${missing} expected report${missing===1?"":"s"} missing`:" · no expected report currently missing"}${attention?` · ${attention} manager-attention flag${attention===1?"":"s"}`:""}${incidents?` · ${incidents} incident flag${incidents===1?"":"s"}`:""}. Missing reports are not proof of absence or poor performance.`);
-    const reviewParts=[];if(Number(reviews.obligations||0))reviewParts.push(`${reviews.obligations} compliance`);if(Number(reviews.company||0))reviewParts.push(`${reviews.company} company`);if(Number(reviews.hr||0))reviewParts.push(`${reviews.hr} HR`);if(Number(reviews.tenders||0))reviewParts.push(`${reviews.tenders} tender`);set("homeReviewCardValue",Number(reviews.total||0));set("homeReviewDetail",reviewParts.length?`${reviewParts.join(" · ")} item${Number(reviews.total||0)===1?"":"s"} waiting for a recorded review decision.`:"No workflow is currently returned at a review stage.");
+    const reviewParts=[];if(Number(reviews.obligations||0))reviewParts.push(`${reviews.obligations} compliance`);if(Number(reviews.company||0))reviewParts.push(`${reviews.company} company`);if(Number(reviews.hr||0))reviewParts.push(`${reviews.hr} HR`);if(Number(reviews.tenders||0))reviewParts.push(`${reviews.tenders} tender`);set("homeReviewCardValue",reviewTotal);set("homeReviewDetail",reviewParts.length?`${reviewParts.join(" · ")} item${reviewTotal===1?"":"s"} waiting for a recorded review decision.`:"No workflow is currently returned at a review stage.");
+    set("homeAttentionDetail",`${urgent} urgent · ${reviewTotal} waiting review`);
     const score=Number(e.healthScore),proofIssues=Number(e.missingRequired||0)+Number(e.expired||0)+Number(e.expiring||0)+Number(e.quarantined||0);set("homeProofHealth",Number.isFinite(score)?`${Math.max(0,Math.min(100,Math.round(score)))}%`:"Not established");set("homeProofDetail",proofIssues?`${Number(e.missingRequired||0)} required missing · ${Number(e.expired||0)} expired · ${Number(e.expiring||0)} expiring · ${Number(e.quarantined||0)} awaiting clean approval.`:"No current evidence-health issue is returned by the server snapshot.");
+
+    if(financeR.status==="fulfilled"){
+      const f=financeR.value||{},receivables=f.receivables||{},accounts=Array.isArray(f.accounts)?f.accounts:[],recon=f.reconciliation||{};
+      set("homeCashPosition",homeMoneyMinor(f.cashPositionMinor));
+      set("homeCashDetail",`Canonical Finance Core · ${accounts.length} active account${accounts.length===1?"":"s"}${Number(recon.unresolvedCount||0)?` · ${Number(recon.unresolvedCount)} reconciliation exception${Number(recon.unresolvedCount)===1?"":"s"}`:""}`);
+      set("homeMoneyOwed",homeMoneyMinor(receivables.outstandingMinor));
+      set("homeReceivablesDetail",`${Number(receivables.outstandingInvoiceCount||0)} outstanding invoice${Number(receivables.outstandingInvoiceCount||0)===1?"":"s"} · ${Number(receivables.overdueInvoiceCount||0)} overdue`);
+    }else{
+      set("homeCashPosition","Unavailable");set("homeCashDetail","Finance Core could not be confirmed. Open Thebe Finance before relying on a cash figure.");set("homeMoneyOwed","Unavailable");set("homeReceivablesDetail","Receivables could not be confirmed from the canonical invoice ledger.");
+    }
+
+    if(employeesR.status==="fulfilled"){
+      const rows=Array.isArray(employeesR.value?.items)?employeesR.value.items:[],active=rows.filter(x=>String(x.status||"active").trim().toLowerCase()==="active"&&!recentlyRemovedEmployeeIds.has(String(x.id)));
+      set("homeEmployeeCount",active.length);set("homeEmployeeDetail",`${active.length} active employee${active.length===1?"":"s"} · ${coverageText} reporting today`);
+    }else{
+      set("homeEmployeeCount","Unavailable");set("homeEmployeeDetail",`Employee register unavailable · ${coverageText} reporting coverage`);
+    }
+
+    const partial=financeR.status!=="fulfilled"||employeesR.status!=="fulfilled";set("ownerBriefStatus",partial?"Thebe Brief · partial":"Thebe Brief · live");
     homeFirstActionTarget=actions.length?homeActionMeta(actions[0].source).target:"workhub";
     box.safeHTML=actions.length?actions.map(renderAction).join(""):'<div class="home-action-empty"><b>No action is currently returned for today.</b><div class="small" style="margin-top:3px">Keep deadlines and source changes under review. This is not a legal all-clear.</div></div>';
     changesBox.safeHTML=changes.length?changes.map(x=>`<div class="daily-change-item ${escapeHtml(String(x.severity||"info").toLowerCase())}"><span class="daily-change-dot" aria-hidden="true"></span><div class="daily-change-copy"><b>${escapeHtml(x.title||"Workspace change")}</b><small>${escapeHtml(x.kind==="operations"?"Operations signal":x.kind==="completed"?"Completed work":"Business / protection change")}</small></div></div>`).join(""):'<div class="muted small">No material system, operating or completion change is recorded in the last 24 hours.</div>';
-    const title=document.getElementById("homeDecisionTitle"),urgent=Number(status.urgent||0),reviewTotal=Number(reviews.total||0);if(title)title.textContent=urgent?`${urgent} urgent item${urgent===1?"":"s"} to handle today`:reviewTotal?`${reviewTotal} item${reviewTotal===1?" is":"s are"} waiting for review`:"Your operating brief";
+    const title=document.getElementById("homeDecisionTitle");if(title)title.textContent=urgent?`${urgent} urgent item${urgent===1?"":"s"} to handle today`:reviewTotal?`${reviewTotal} item${reviewTotal===1?" is":"s are"} waiting for review`:"What needs your attention today";
   }catch(e){
-    ["homeActionCount","homeHighPriorityCount","homeReviewCount","homeChangesCount","homeNextDeadline","homeOpsCoverage","homeOpsCardValue","homeReviewCardValue","homeProofHealth"].forEach(id=>set(id,"Unavailable"));homeFirstActionTarget="workhub";
+    ["homeActionCount","homeHighPriorityCount","homeReviewCount","homeChangesCount","homeNextDeadline","homeOpsCoverage","homeOpsCardValue","homeReviewCardValue","homeProofHealth","homeCashPosition","homeMoneyOwed","homeEmployeeCount"].forEach(id=>set(id,"Unavailable"));homeFirstActionTarget="workhub";
+    set("ownerGreeting",ownerGreetingText());set("ownerBriefFreshness","Live business brief unavailable");set("ownerBriefStatus","Thebe Brief · unavailable");set("homeCashDetail","Finance status could not be confirmed.");set("homeReceivablesDetail","Receivables status could not be confirmed.");set("homeEmployeeDetail","Employee status could not be confirmed.");set("homeComplianceDetail","Deadline status could not be confirmed.");set("homeAttentionDetail","Open Work & deadlines to verify current items.");
     box.safeHTML='<div class="notice bad"><b>Daily operating brief unavailable</b><div class="small">The server-backed brief could not be confirmed. Do not interpret missing cards or an empty queue as all clear. Open Work & deadlines and Daily reports before acting.</div><button class="btn alt" style="margin-top:8px" data-bw-onclick="renderDailyOperatingBrief()">Retry brief</button></div>';
     changesBox.safeHTML='<div class="notice bad small">Recent changes could not be confirmed.</div>';set("homeOpsDetail","Daily reporting could not be confirmed. Review source reports before making an operational or employment decision.");set("homeReviewDetail","Review status could not be confirmed. Open Work & deadlines before relying on this summary.");set("homeProofDetail","Evidence health could not be confirmed. Open Documents & proof for the underlying records.");
   }
