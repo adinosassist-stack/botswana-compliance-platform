@@ -12,6 +12,7 @@ const html=fs.readFileSync("public/index.html","utf8");
 const runtime=fs.readFileSync("public/js/workspace-runtime-20260923m.js","utf8");
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const finance=fs.readFileSync("cloudflare/src/finance-core.js","utf8");
+const events=fs.readFileSync("public/js/event-delegation.js","utf8");
 
 // Pass 1 — retention surface: owners land on one factual daily command centre, not another parallel dashboard.
 assert.match(html,/Owner Command Centre/);
@@ -57,5 +58,8 @@ assert.match(runtime,/function askThebeFromHome\(question=""\)/);
 assert.match(runtime,/return openThebeFromHome\(prompt,true\)/);
 assert.match(html,/data-bw-onclick="openThebeFromHome\(\)" aria-label="Open Thebe Super Agent"/);
 assert.doesNotMatch(html,/id="thebeAgentLauncher"[^>]*data-bw-onclick="askThebeFromHome\(/);
+
+assert.ok(events.includes("\'askThebeFromHome\'"));
+assert.ok(events.includes("\'openThebeFromHome\'"));
 
 console.log("v116 owner retention loop: 3-pass command-centre boundary PASS");
