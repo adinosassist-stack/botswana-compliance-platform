@@ -160,8 +160,20 @@ export async function processWhatsAppInboundMessages(env,items,{deliverReply=nul
         source:"whatsapp_inbound",sourceContext:context
       });
       if(result.status>=500)throw new Error("whatsapp_inbound_prepare_failed");
-      if(result.body?.ok===true){summary.prepared++;if(result.body.replayed===true)summary.replayed++;continue}
-      summary.blocked++;continue;
+      if(result.body?.ok!==true){summary.blocked++;continue}
+      summary.prepared++;if(result.body.replayed===true)summary.replayed++;
+      if(result.body?.delivery?.replyToInbound===true&&result.body?.delivery?.recipientLocked===true){
+        try{
+          const queued=await queueInboundReply(deliverReply,{
+            sender,principal:binding.principal,providerMessageId,
+            messagePreview:result.body.messagePreview,kind:"prepared_brief"
+          });
+          if(queued?.ok===true||queued?.deduplicated===true)summary.replyQueued++;else if(deliverReply)summary.replyFailed++;
+        }catch{summary.replyFailed++}
+      }else{
+        summary.blocked++;
+      }
+      continue;
     }
 
     if(intent.kind==="read"){
