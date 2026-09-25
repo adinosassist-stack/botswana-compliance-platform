@@ -1,0 +1,3 @@
+import assert from "node:assert/strict";import {buildFinanceObservationRun} from "../cloudflare/src/persistent-finance-observer.js";
+const r=buildFinanceObservationRun({task:{id:"t1",objective:"watch",allowedTools:["financial_position.read","payment.execute","receivables_summary.read"]}});
+assert.deepEqual([...r.reads],["financial_position.read","receivables_summary.read"]);assert.equal(r.executionAllowed,false);assert.equal(r.externalActions,0);assert.equal(r.checkpointRequired,true);console.log("v120 persistent finance observer passed");
