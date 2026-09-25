@@ -2769,16 +2769,24 @@ main{
 
     <section class="home-decision-center" id="homeDecisionCenter" aria-labelledby="homeDecisionTitle">
       <div class="home-decision-head">
-        <div><div class="section-eyebrow">Thebe Brief</div><h2 id="homeDecisionTitle">What needs your attention today</h2><p class="muted">Your operating brief: a live owner view of cash, money owed, people, compliance and the work that needs a decision. Every figure links back to the workspace source instead of becoming a separate dashboard truth.</p></div>
+        <div><div class="section-eyebrow">Thebe Brief</div><h2 id="homeDecisionTitle">What needs your attention today</h2><p class="muted">Your operating brief: a live owner view of cash, money owed, people, compliance and the work that needs a decision. See what changed, what is urgent, what staff reported, what is waiting for review and the three actions that matter today. Open the exact record from here. Every figure links back to the workspace source instead of becoming a separate dashboard truth.</p></div>
         <button class="btn alt" type="button" data-bw-onclick="renderDailyOperatingBrief()">Refresh brief</button>
       </div>
       <div id="ownerBriefNotice" class="notice warn small" style="display:none;margin:0 0 12px" role="status" aria-live="polite"></div>
       <div class="owner-today-grid" aria-label="Today's business snapshot">
         <button class="owner-today-card" type="button" data-bw-onclick="openThebeFromHome('Explain our current cash position and any reconciliation issues.')"><span class="owner-today-label">Cash</span><b class="owner-today-value" id="homeCashPosition">—</b><span class="owner-today-detail" id="homeCashDetail">Checking canonical Finance Core…</span></button>
         <button class="owner-today-card" type="button" data-bw-onclick="openThebeFromHome('Summarise our outstanding receivables and overdue customer balances.')"><span class="owner-today-label">Money owed</span><b class="owner-today-value" id="homeMoneyOwed">—</b><span class="owner-today-detail" id="homeReceivablesDetail">Checking issued invoices…</span></button>
-        <button class="owner-today-card" type="button" data-bw-onclick="showView('peopleops')"><span class="owner-today-label">Employees</span><b class="owner-today-value" id="homeEmployeeCount">—</b><span class="owner-today-detail" id="homeEmployeeDetail"><span id="homeOpsCoverage">—</span> reporting today</span></button>
-        <button class="owner-today-card" type="button" data-bw-onclick="showView('calendar')"><span class="owner-today-label">Compliance</span><b class="owner-today-value" id="homeNextDeadline">—</b><span class="owner-today-detail" id="homeComplianceDetail">Checking the next tracked deadline…</span></button>
-        <button class="owner-today-card" type="button" data-bw-onclick="showView('workhub')"><span class="owner-today-label">Needs attention</span><b class="owner-today-value" id="homeActionCount">—</b><span class="owner-today-detail" id="homeAttentionDetail"><span id="homeHighPriorityCount">—</span> urgent · <span id="homeReviewCount">—</span> waiting review</span></button>
+        <button class="owner-today-card" type="button" data-bw-onclick="showView('peopleops')"><span class="owner-today-label">Employees</span><b class="owner-today-value" id="homeEmployeeCount">—</b><span class="owner-today-detail" id="homeEmployeeDetail"><span id="homeOpsCoverageCard">—</span> reporting today</span></button>
+        <button class="owner-today-card" type="button" data-bw-onclick="showView('calendar')"><span class="owner-today-label">Compliance</span><b class="owner-today-value" id="homeNextDeadlineCard">—</b><span class="owner-today-detail" id="homeComplianceDetail">Checking the next tracked deadline…</span></button>
+        <button class="owner-today-card" type="button" data-bw-onclick="showView('workhub')"><span class="owner-today-label">Needs attention</span><b class="owner-today-value" id="homeActionCountCard">—</b><span class="owner-today-detail" id="homeAttentionDetail"><span id="homeHighPriorityCountCard">—</span> urgent · <span id="homeReviewCountCard">—</span> waiting review</span></button>
+      </div>
+      <div class="home-status-strip daily-status-strip" aria-label="Today's management status">
+        <button class="home-status-chip" type="button" data-bw-onclick="showView('workhub')"><b id="homeActionCount">—</b><span>open work</span></button>
+        <button class="home-status-chip" type="button" data-bw-onclick="showView('workhub')"><b id="homeHighPriorityCount">—</b><span>urgent / high</span></button>
+        <button class="home-status-chip" type="button" data-bw-onclick="showView('workhub')"><b id="homeReviewCount">—</b><span>waiting review</span></button>
+        <button class="home-status-chip" type="button" data-bw-onclick="showView('calendar')"><b id="homeNextDeadline">—</b><span>next deadline</span></button>
+        <button class="home-status-chip" type="button" data-bw-onclick="showView('dailyreports')"><b id="homeOpsCoverage">—</b><span>reporting today</span></button>
+        <button class="home-status-chip" type="button" data-bw-onclick="showView('businessevents')"><b id="homeChangesCount">—</b><span>changed in 24h</span></button>
       </div>
       <div class="home-thebe-agent executive-only" aria-label="Thebe Super Agent">
         <div><div class="section-eyebrow">Thebe Super Agent</div><h3>Ask the business, not the menus.</h3><p class="muted small">Thebe answers from the tenant-scoped workspace context available to it and keeps consequential actions behind the existing approval controls.</p></div>
@@ -5278,7 +5286,8 @@ async function renderWorkHub(){
 }
 async function renderTenderHub(){
   if(!roleCanView("tenderhub")||!["owner","manager"].includes(currentWorkspaceRole()))return;
-  const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value};
+  const ownerAliases={homeActionCount:["homeActionCountCard"],homeHighPriorityCount:["homeHighPriorityCountCard"],homeReviewCount:["homeReviewCountCard"],homeNextDeadline:["homeNextDeadlineCard"],homeOpsCoverage:["homeOpsCoverageCard"]};
+  const set=(id,value)=>{for(const key of [id,...(ownerAliases[id]||[])]){const el=document.getElementById(key);if(el)el.textContent=value}};
   try{
     const r=await apiJson("/api/tenders"),items=r.items||[],now=Date.now();
     const active=items.filter(x=>String(x.status||"watching").toLowerCase()!=="closed"),soon=active.filter(x=>x.closing_at&&new Date(x.closing_at).getTime()>now&&new Date(x.closing_at).getTime()-now<=14*86400000);
