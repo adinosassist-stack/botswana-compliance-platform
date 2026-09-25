@@ -136,9 +136,9 @@ async function queueInboundReply(deliverReply,{sender,principal,providerMessageI
   });
 }
 
-export async function processWhatsAppInboundMessages(env,items,{deliverReply=null}={}){
+export async function processWhatsAppInboundMessages(env,items,{deliverReply=null,answerQuestion=null}={}){
   const selected=(Array.isArray(items)?items:[]).slice(0,MAX_INBOUND_MESSAGES);
-  const summary={received:selected.length,prepared:0,answered:0,reconciliationPrepared:0,guidance:0,replayed:0,replyQueued:0,replyFailed:0,unlinked:0,ambiguous:0,unsupported:0,unrecognized:0,wrongNumber:0,blocked:0};
+  const summary={received:selected.length,prepared:0,answered:0,questionsAnswered:0,reconciliationPrepared:0,guidance:0,replayed:0,replyQueued:0,replyFailed:0,unlinked:0,ambiguous:0,unsupported:0,unrecognized:0,wrongNumber:0,blocked:0};
   const principalCache=new Map();
   for(const item of selected){
     const message=item?.message||{},phoneNumberId=clean(item?.phoneNumberId,40),configuredPhoneNumberId=clean(env.WHATSAPP_PHONE_NUMBER_ID,40);
@@ -150,8 +150,35 @@ export async function processWhatsAppInboundMessages(env,items,{deliverReply=nul
     if(binding.state==="unlinked"){summary.unlinked++;continue}
     if(binding.state==="ambiguous"){summary.ambiguous++;continue}
     const intent=classifyWhatsAppInboundIntent(message.text.body);
-    if(!intent){summary.unrecognized++;continue}
     const context={providerMessageId,receivedAt:receivedAt(message?.timestamp)};
+    if(!intent){
+      if(typeof answerQuestion!=="function"){summary.unrecognized++;continue}
+      let answered;
+      try{
+        answered=await answerQuestion({
+          principal:binding.principal,
+          question:clean(message.text.body,1000),
+          providerMessageId,
+          receivedAt:context.receivedAt,
+          sender
+        });
+      }catch{
+        summary.blocked++;
+        continue;
+      }
+      if(answered?.deduplicated===true){summary.replayed++;continue}
+      if(answered?.ok!==true||!clean(answered?.answer,3900)){summary.blocked++;continue}
+      summary.answered++;
+      summary.questionsAnswered++;
+      try{
+        const queued=await queueInboundReply(deliverReply,{
+          sender,principal:binding.principal,providerMessageId,
+          messagePreview:answered.answer,kind:"super_agent_answer"
+        });
+        if(queued?.ok===true||queued?.deduplicated===true)summary.replyQueued++;else if(deliverReply)summary.replyFailed++;
+      }catch{summary.replyFailed++}
+      continue;
+    }
 
     if(intent.kind==="prepare"){
       const result=await prepareWhatsAppPurposeForPrincipal({
