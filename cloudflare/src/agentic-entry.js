@@ -2,12 +2,13 @@ import base from "./production-entry.js";
 import {handleAgenticAuthorityRequest} from "./agentic-authority-core.js";
 import {handleAgenticWhatsAppRequest} from "./agentic-whatsapp-core.js";
 import {handleAgenticTaskExecutionRequest} from "./agentic-task-execution.js";
+import {handleAgenticPersistentTaskRequest} from "./agentic-persistent-tasks.js";
 import {handleAgenticLiveVoiceRequest} from "./agentic-live-voice.js";
 import {handleAgenticFinanceReconciliationRequest} from "./agentic-finance-reconciliation.js";
 import {preparePlatformOwnerLogin,withPlatformOwnerAdminEnv} from "./platform-owner-access.js";
 import {applyClientRuntimeIdentity} from "./client-runtime-identity.js";
 
-const V81_SCHEMA_DELTA="050_v115_manual_bank_subscriptions.sql";
+const V81_SCHEMA_DELTA="051_v117_persistent_agent_tasks.sql";
 const COLD_START_REDUNDANT_RENDER="if(!options?.skipDataRefresh)queueMicrotask(()=>renderAll())";
 const COLD_START_GUARDED_RENDER="if(!options?.skipDataRefresh&&!options?.roleRedirect)queueMicrotask(()=>renderAll())";
 const SYNTHETIC_BOOT_TRACE_PREFIX="THEBE_SYNTHETIC_BOOT";
@@ -93,6 +94,7 @@ async function delegatedAuthoritySchemaReady(env){
       (SELECT COUNT(*) FROM agent_task_requests) task_request_count,
       (SELECT COUNT(*) FROM agent_internal_tasks) internal_task_count,
       (SELECT COUNT(*) FROM agent_execution_receipts) execution_receipt_count,
+      (SELECT COUNT(*) FROM agent_persistent_tasks) persistent_task_count,
       (SELECT COUNT(*) FROM finance_customers) finance_customer_count,
       (SELECT COUNT(*) FROM finance_invoices) finance_invoice_count,
       (SELECT COUNT(*) FROM finance_invoice_allocations) finance_invoice_allocation_count`).first();
@@ -162,6 +164,8 @@ export default {
     if(whatsappResponse)return whatsappResponse;
     const financeReconciliationResponse=await handleAgenticFinanceReconciliationRequest({request,logicalPath,env});
     if(financeReconciliationResponse)return financeReconciliationResponse;
+    const persistentTaskResponse=await handleAgenticPersistentTaskRequest({request,logicalPath,env});
+    if(persistentTaskResponse)return persistentTaskResponse;
     const taskExecutionResponse=await handleAgenticTaskExecutionRequest({request,logicalPath,env});
     if(taskExecutionResponse)return taskExecutionResponse;
     const authorityResponse=await handleAgenticAuthorityRequest({request,logicalPath,env});
