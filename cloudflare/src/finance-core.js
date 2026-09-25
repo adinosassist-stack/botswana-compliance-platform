@@ -216,7 +216,7 @@ async function appendLineageIfEntityUnchanged({env,tenantId,userId,eventType,ent
   throw new Error("finance_lineage_contention");
 }
 
-async function financeSummary(env,tenantId){
+export async function financeSummary(env,tenantId){
   const [balances,unresolved,lastRun,imports]=await Promise.all([
     env.DB.prepare(`SELECT a.id,a.name,a.account_type,a.opening_balance_minor+COALESCE(SUM(t.amount_minor),0) balance_minor,COUNT(t.id) transaction_count
       FROM finance_accounts a LEFT JOIN finance_transactions t ON t.account_id=a.id AND t.tenant_id=a.tenant_id

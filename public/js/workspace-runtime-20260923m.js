@@ -484,7 +484,8 @@ async function renderWorkHub(){
 }
 async function renderTenderHub(){
   if(!roleCanView("tenderhub")||!["owner","manager"].includes(currentWorkspaceRole()))return;
-  const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value};
+  const ownerAliases={homeActionCount:["homeActionCountCard"],homeHighPriorityCount:["homeHighPriorityCountCard"],homeReviewCount:["homeReviewCountCard"],homeNextDeadline:["homeNextDeadlineCard"],homeOpsCoverage:["homeOpsCoverageCard"]};
+  const set=(id,value)=>{for(const key of [id,...(ownerAliases[id]||[])]){const el=document.getElementById(key);if(el)el.textContent=value}};
   try{
     const r=await apiJson("/api/tenders"),items=r.items||[],now=Date.now();
     const active=items.filter(x=>String(x.status||"watching").toLowerCase()!=="closed"),soon=active.filter(x=>x.closing_at&&new Date(x.closing_at).getTime()>now&&new Date(x.closing_at).getTime()-now<=14*86400000);
@@ -2476,25 +2477,96 @@ async function renderHomeDecisionSignals(){
 }
 
 
+function homeMoneyMinor(value){
+  const n=Number(value);if(!Number.isFinite(n))return "—";
+  const amount=n/100,whole=Math.abs(amount-Math.round(amount))<0.00001;
+  return `P${amount.toLocaleString("en-BW",{minimumFractionDigits:whole?0:2,maximumFractionDigits:2})}`;
+}
+function ownerGreetingText(){
+  try{const hour=Number(new Intl.DateTimeFormat("en-GB",{timeZone:"Africa/Gaborone",hour:"2-digit",hourCycle:"h23"}).format(new Date()));return `${hour<12?"Good morning":hour<18?"Good afternoon":"Good evening"}. Here’s your business today.`}catch{return "Here’s your business today."}
+}
+function ownerBriefUpdatedLabel(value){
+  try{const d=value?new Date(value):new Date();return `Updated ${new Intl.DateTimeFormat("en-BW",{timeZone:"Africa/Gaborone",hour:"2-digit",minute:"2-digit"}).format(d)}`}catch{return "Updated now"}
+}
+let ownerBriefLastGoodAt=null;
+function setOwnerBriefNotice(message=""){
+  const el=document.getElementById("ownerBriefNotice");if(!el)return;
+  const text=String(message||"").trim();el.textContent=text;el.style.display=text?"block":"none";
+}
+function openThebeFromHome(question="",run=false){
+  if(!roleCanView("aiservices"))return false;
+  const source=document.getElementById("homeThebeQuestion"),prompt=String(question||source?.value||"").trim().slice(0,1000);
+  const opened=showView("aiservices");if(!opened)return false;
+  requestAnimationFrame(()=>{
+    const mode=document.getElementById("aiAdvisorMode"),target=document.getElementById("aiAdvisorQuestion");
+    if(mode)mode.value="ask";
+    if(target){if(prompt)target.value=prompt;target.focus()}
+    if(run&&prompt.length>=3&&typeof askAiAdvisor==="function")void askAiAdvisor();
+  });
+  return true;
+}
+function askThebeFromHome(question=""){
+  const source=document.getElementById("homeThebeQuestion"),prompt=String(question||source?.value||"").trim().slice(0,1000);
+  if(prompt.length<3){source?.focus();const sr=document.getElementById("srStatus");if(sr)sr.textContent="Enter a question for Thebe.";return false}
+  return openThebeFromHome(prompt,true);
+}
+
 async function renderDailyOperatingBrief(){
   if(!roleCanView("dashboard")||!["owner","manager"].includes(currentWorkspaceRole()))return;
   const box=document.getElementById("unifiedNextActions"),changesBox=document.getElementById("homeChangesList");if(!box||!changesBox)return;
   const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value};
   const renderAction=x=>{const meta=homeActionMeta(x.source),due=homeDueLabel(x.dueAt),priority=Number(x.priority)===1?"High":Number(x.priority)===2?"Normal":"Low",proofMissing=Number(x.proofMissing||0),proofDirect=x.source==="regulatory"&&proofMissing>0;return `<div class="home-action-row"><div class="home-action-copy"><b>${escapeHtml(x.title)}</b><div class="home-action-meta"><span>${escapeHtml(priority)} priority</span><span>${escapeHtml(x.status||"Open")}</span>${due?`<span>Due ${escapeHtml(due)}</span>`:""}${proofDirect?`<span class="home-proof-flag">${proofMissing} proof gap${proofMissing===1?"":"s"}</span>`:""}</div></div><div class="home-action-actions">${x.source==="regulatory"?`<button class="btn" type="button" data-bw-onclick="openActionProof('regulatory','${safeId(x.id)}')">${proofDirect?"Add proof":"Work action"}</button>`:""}<button class="btn ${Number(x.priority)===1&&!proofDirect?"":"soft"}" type="button" data-bw-onclick="showView('${meta.target}')">${escapeHtml(meta.label)}</button></div></div>`};
   try{
-    const d=await apiJson("/api/daily-brief"),status=d.status||{},actions=(d.topActions||[]).slice(0,3),changes=(d.changes||[]).slice(0,6),reviews=d.reviews||{},ops=d.operations||{},e=d.evidenceHealth||{};
-    set("homeActionCount",Number(status.openWork||0));set("homeHighPriorityCount",Number(status.urgent||0));set("homeReviewCount",Number(reviews.total||status.waitingReview||0));set("homeChangesCount",Number(status.changes??changes.length));set("homeChangesBadge",`${Number(d.windowHours||24)}h`);
+    const [dailyR,financeR,employeesR]=await Promise.allSettled([
+      apiJson("/api/daily-brief"),
+      apiJson("/api/finance/summary"),
+      apiJson("/api/employees")
+    ]);
+    if(dailyR.status!=="fulfilled")throw dailyR.reason||new Error("daily_brief_unavailable");
+    const d=dailyR.value||{},status=d.status||{},actions=(d.topActions||[]).slice(0,3),changes=(d.changes||[]).slice(0,6),reviews=d.reviews||{},ops=d.operations||{},e=d.evidenceHealth||{};
+    const urgent=Number(status.urgent||0),reviewTotal=Number(reviews.total||status.waitingReview||0),openWork=Number(status.openWork||0);
+    set("ownerGreeting",ownerGreetingText());set("ownerBriefFreshness",`${ownerBriefUpdatedLabel(d.generatedAt)} · ${Number(d.windowHours||24)}h operating window`);
+    set("homeActionCount",openWork);set("homeHighPriorityCount",urgent);set("homeReviewCount",reviewTotal);set("homeChangesCount",Number(status.changes??changes.length));set("homeChangesBadge",`${Number(d.windowHours||24)}h`);
     set("homeNextDeadline",status.nextDeadline?homeDueLabel(status.nextDeadline):"None set");
+    set("homeComplianceDetail",status.nextDeadline?"Next tracked deadline · open Calendar for the source record":"No future tracked deadline is currently returned; this is not a compliance all-clear.");
     const coverage=Number(ops.coverage??status.reportingCoverage),coverageText=Number.isFinite(coverage)?`${Math.round(coverage)}%`:"—";set("homeOpsCoverage",coverageText);set("homeOpsCardValue",coverageText);
     const missing=Number(ops.missing||0),attention=Number(ops.attention||0),incidents=Number(ops.incidents||0),locations=Number(ops.locationsReporting||0);set("homeOpsDetail",`${locations} location${locations===1?"":"s"} reported${missing?` · ${missing} expected report${missing===1?"":"s"} missing`:" · no expected report currently missing"}${attention?` · ${attention} manager-attention flag${attention===1?"":"s"}`:""}${incidents?` · ${incidents} incident flag${incidents===1?"":"s"}`:""}. Missing reports are not proof of absence or poor performance.`);
-    const reviewParts=[];if(Number(reviews.obligations||0))reviewParts.push(`${reviews.obligations} compliance`);if(Number(reviews.company||0))reviewParts.push(`${reviews.company} company`);if(Number(reviews.hr||0))reviewParts.push(`${reviews.hr} HR`);if(Number(reviews.tenders||0))reviewParts.push(`${reviews.tenders} tender`);set("homeReviewCardValue",Number(reviews.total||0));set("homeReviewDetail",reviewParts.length?`${reviewParts.join(" · ")} item${Number(reviews.total||0)===1?"":"s"} waiting for a recorded review decision.`:"No workflow is currently returned at a review stage.");
+    const reviewParts=[];if(Number(reviews.obligations||0))reviewParts.push(`${reviews.obligations} compliance`);if(Number(reviews.company||0))reviewParts.push(`${reviews.company} company`);if(Number(reviews.hr||0))reviewParts.push(`${reviews.hr} HR`);if(Number(reviews.tenders||0))reviewParts.push(`${reviews.tenders} tender`);set("homeReviewCardValue",reviewTotal);set("homeReviewDetail",reviewParts.length?`${reviewParts.join(" · ")} item${reviewTotal===1?"":"s"} waiting for a recorded review decision.`:"No workflow is currently returned at a review stage.");
+    set("homeAttentionDetail",`${urgent} urgent · ${reviewTotal} waiting review`);
     const score=Number(e.healthScore),proofIssues=Number(e.missingRequired||0)+Number(e.expired||0)+Number(e.expiring||0)+Number(e.quarantined||0);set("homeProofHealth",Number.isFinite(score)?`${Math.max(0,Math.min(100,Math.round(score)))}%`:"Not established");set("homeProofDetail",proofIssues?`${Number(e.missingRequired||0)} required missing · ${Number(e.expired||0)} expired · ${Number(e.expiring||0)} expiring · ${Number(e.quarantined||0)} awaiting clean approval.`:"No current evidence-health issue is returned by the server snapshot.");
+
+    if(financeR.status==="fulfilled"){
+      const f=financeR.value||{},receivables=f.receivables||{},accounts=Array.isArray(f.accounts)?f.accounts:[],recon=f.reconciliation||{};
+      set("homeCashPosition",homeMoneyMinor(f.cashPositionMinor));
+      set("homeCashDetail",`Canonical Finance Core · ${accounts.length} active account${accounts.length===1?"":"s"}${Number(recon.unresolvedCount||0)?` · ${Number(recon.unresolvedCount)} reconciliation exception${Number(recon.unresolvedCount)===1?"":"s"}`:""}`);
+      set("homeMoneyOwed",homeMoneyMinor(receivables.outstandingMinor));
+      set("homeReceivablesDetail",`${Number(receivables.outstandingInvoiceCount||0)} outstanding invoice${Number(receivables.outstandingInvoiceCount||0)===1?"":"s"} · ${Number(receivables.overdueInvoiceCount||0)} overdue`);
+    }else{
+      set("homeCashPosition","Unavailable");set("homeCashDetail","Finance Core could not be confirmed. Open Thebe Finance before relying on a cash figure.");set("homeMoneyOwed","Unavailable");set("homeReceivablesDetail","Receivables could not be confirmed from the canonical invoice ledger.");
+    }
+
+    if(employeesR.status==="fulfilled"){
+      const rows=Array.isArray(employeesR.value?.items)?employeesR.value.items:[],active=rows.filter(x=>String(x.status||"active").trim().toLowerCase()==="active"&&!recentlyRemovedEmployeeIds.has(String(x.id)));
+      set("homeEmployeeCount",active.length);set("homeEmployeeDetail",`${active.length} active employee${active.length===1?"":"s"} · ${coverageText} reporting today`);
+    }else{
+      set("homeEmployeeCount","Unavailable");set("homeEmployeeDetail",`Employee register unavailable · ${coverageText} reporting coverage`);
+    }
+
+    const partial=financeR.status!=="fulfilled"||employeesR.status!=="fulfilled";set("ownerBriefStatus",partial?"Thebe Brief · partial":"Thebe Brief · live");
+    setOwnerBriefNotice(partial?"Some live sources could not be confirmed. Cards marked Unavailable are not zero balances or all-clear signals.":"");
     homeFirstActionTarget=actions.length?homeActionMeta(actions[0].source).target:"workhub";
     box.safeHTML=actions.length?actions.map(renderAction).join(""):'<div class="home-action-empty"><b>No action is currently returned for today.</b><div class="small" style="margin-top:3px">Keep deadlines and source changes under review. This is not a legal all-clear.</div></div>';
     changesBox.safeHTML=changes.length?changes.map(x=>`<div class="daily-change-item ${escapeHtml(String(x.severity||"info").toLowerCase())}"><span class="daily-change-dot" aria-hidden="true"></span><div class="daily-change-copy"><b>${escapeHtml(x.title||"Workspace change")}</b><small>${escapeHtml(x.kind==="operations"?"Operations signal":x.kind==="completed"?"Completed work":"Business / protection change")}</small></div></div>`).join(""):'<div class="muted small">No material system, operating or completion change is recorded in the last 24 hours.</div>';
-    const title=document.getElementById("homeDecisionTitle"),urgent=Number(status.urgent||0),reviewTotal=Number(reviews.total||0);if(title)title.textContent=urgent?`${urgent} urgent item${urgent===1?"":"s"} to handle today`:reviewTotal?`${reviewTotal} item${reviewTotal===1?" is":"s are"} waiting for review`:"Your operating brief";
+    const title=document.getElementById("homeDecisionTitle");if(title)title.textContent=urgent?`${urgent} urgent item${urgent===1?"":"s"} to handle today`:reviewTotal?`${reviewTotal} item${reviewTotal===1?" is":"s are"} waiting for review`:"What needs your attention today";
+    ownerBriefLastGoodAt=d.generatedAt||new Date().toISOString();
   }catch(e){
-    ["homeActionCount","homeHighPriorityCount","homeReviewCount","homeChangesCount","homeNextDeadline","homeOpsCoverage","homeOpsCardValue","homeReviewCardValue","homeProofHealth"].forEach(id=>set(id,"Unavailable"));homeFirstActionTarget="workhub";
+    if(ownerBriefLastGoodAt){
+      set("ownerGreeting",ownerGreetingText());set("ownerBriefFreshness",`${ownerBriefUpdatedLabel(ownerBriefLastGoodAt)} · last confirmed; refresh failed`);set("ownerBriefStatus","Thebe Brief · stale");
+      setOwnerBriefNotice("Refresh failed. The last confirmed operating brief remains visible. Verify source records before acting on time-sensitive figures, deadlines or queues.");
+      return;
+    }
+    ["homeActionCount","homeHighPriorityCount","homeReviewCount","homeChangesCount","homeNextDeadline","homeOpsCoverage","homeOpsCardValue","homeReviewCardValue","homeProofHealth","homeCashPosition","homeMoneyOwed","homeEmployeeCount"].forEach(id=>set(id,"Unavailable"));homeFirstActionTarget="workhub";
+    set("ownerGreeting",ownerGreetingText());set("ownerBriefFreshness","Live business brief unavailable");set("ownerBriefStatus","Thebe Brief · unavailable");setOwnerBriefNotice("No confirmed operating brief is available yet. Retry or open the source workspaces before making a time-sensitive decision.");set("homeCashDetail","Finance status could not be confirmed.");set("homeReceivablesDetail","Receivables status could not be confirmed.");set("homeEmployeeDetail","Employee status could not be confirmed.");set("homeComplianceDetail","Deadline status could not be confirmed.");set("homeAttentionDetail","Open Work & deadlines to verify current items.");
     box.safeHTML='<div class="notice bad"><b>Daily operating brief unavailable</b><div class="small">The server-backed brief could not be confirmed. Do not interpret missing cards or an empty queue as all clear. Open Work & deadlines and Daily reports before acting.</div><button class="btn alt" style="margin-top:8px" data-bw-onclick="renderDailyOperatingBrief()">Retry brief</button></div>';
     changesBox.safeHTML='<div class="notice bad small">Recent changes could not be confirmed.</div>';set("homeOpsDetail","Daily reporting could not be confirmed. Review source reports before making an operational or employment decision.");set("homeReviewDetail","Review status could not be confirmed. Open Work & deadlines before relying on this summary.");set("homeProofDetail","Evidence health could not be confirmed. Open Documents & proof for the underlying records.");
   }
