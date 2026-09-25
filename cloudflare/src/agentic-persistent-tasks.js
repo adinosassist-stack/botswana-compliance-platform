@@ -1,3 +1,4 @@
+import {validatePersistentTaskAllowedTools} from "./agent-tool-trust-registry.js";
 import {authenticate,roleAllowed,originAllowed,csrfAllowed,readJson,requestBodyErrorStatus,safeFirst} from "./agentic-authority-core.js";
 
 export const PERSISTENT_TASK_ENGINE_VERSION="2026-09-25.v1";
@@ -14,8 +15,11 @@ export function normalizePersistentTask(body={}){
   if(!objective)return {error:"objective_required"};
   const triggerKind=clean(body.triggerKind,20)||"manual";
   if(!allowedTrigger.has(triggerKind))return {error:"invalid_trigger_kind"};
-  const allowedTools=arrayOfStrings(body.allowedTools??[]);
-  if(!allowedTools)return {error:"invalid_allowed_tools"};
+  const requestedTools=arrayOfStrings(body.allowedTools??[]);
+  if(!requestedTools)return {error:"invalid_allowed_tools"};
+  const trustedTools=validatePersistentTaskAllowedTools(requestedTools);
+  if(!trustedTools.valid)return {error:trustedTools.code};
+  const allowedTools=trustedTools.tools;
   const nextRunAt=validIso(body.nextRunAt);
   if(nextRunAt===undefined)return {error:"invalid_next_run_at"};
   const riskPolicy=plainObject(body.riskPolicy),approvalPolicy=plainObject(body.approvalPolicy),budget=plainObject(body.budget),triggerSpec=plainObject(body.triggerSpec);
