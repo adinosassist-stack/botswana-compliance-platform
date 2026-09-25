@@ -1,0 +1,2 @@
+import assert from "node:assert/strict";import {detectFinanceExceptions} from "../cloudflare/src/finance-exception-detector.js";
+const x=detectFinanceExceptions({overdueInvoiceCount:3,receivablesOverdueMinor:235000,missingSourceFingerprintCount:1});assert.equal(x.length,2);assert.equal(x[0].key,"overdue_receivables");assert.equal(x[0].exposureMinor,235000);assert.equal(x[1].key,"missing_provenance");console.log("v121 finance exception detector passed");
