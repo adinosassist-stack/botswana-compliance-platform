@@ -733,7 +733,7 @@
   "control_replacement_no_people_scoring": true,
   "control_replacement_no_second_notification_stream": true,
   "control_replacement_fail_closed": true,
-  "latest_cloudflare_migration": "050_v115_manual_bank_subscriptions.sql",
+  "latest_cloudflare_migration": "051_v117_persistent_agent_tasks.sql",
   "agentic_foundation_v80": true,
   "agentic_execution_enabled": false,
   "agentic_human_approval_required": true,
@@ -1162,5 +1162,7 @@
   "account_name_displayed_in_manual_bank_flow": false,
   "manual_bank_public_phase0_config": true,
   "manual_bank_public_account_name_omitted": true,
-  "manual_bank_public_config_overrideable": true
+  "manual_bank_public_config_overrideable": true,
+  "persistent_agent_tasks_v117": true,
+  "persistent_agent_tasks_execution_authority": false
 }
