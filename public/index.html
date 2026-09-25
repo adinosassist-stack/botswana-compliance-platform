@@ -2769,9 +2769,10 @@ main{
 
     <section class="home-decision-center" id="homeDecisionCenter" aria-labelledby="homeDecisionTitle">
       <div class="home-decision-head">
-        <div><div class="section-eyebrow">Thebe Brief</div><h2 id="homeDecisionTitle">What needs your attention today</h2><p class="muted">A live owner view of cash, money owed, people, compliance and the work that needs a decision. Every figure links back to the workspace source instead of becoming a separate dashboard truth.</p></div>
+        <div><div class="section-eyebrow">Thebe Brief</div><h2 id="homeDecisionTitle">What needs your attention today</h2><p class="muted">Your operating brief: a live owner view of cash, money owed, people, compliance and the work that needs a decision. Every figure links back to the workspace source instead of becoming a separate dashboard truth.</p></div>
         <button class="btn alt" type="button" data-bw-onclick="renderDailyOperatingBrief()">Refresh brief</button>
       </div>
+      <div id="ownerBriefNotice" class="notice warn small" style="display:none;margin:0 0 12px" role="status" aria-live="polite"></div>
       <div class="owner-today-grid" aria-label="Today's business snapshot">
         <button class="owner-today-card" type="button" data-bw-onclick="openThebeFromHome('Explain our current cash position and any reconciliation issues.')"><span class="owner-today-label">Cash</span><b class="owner-today-value" id="homeCashPosition">—</b><span class="owner-today-detail" id="homeCashDetail">Checking canonical Finance Core…</span></button>
         <button class="owner-today-card" type="button" data-bw-onclick="openThebeFromHome('Summarise our outstanding receivables and overdue customer balances.')"><span class="owner-today-label">Money owed</span><b class="owner-today-value" id="homeMoneyOwed">—</b><span class="owner-today-detail" id="homeReceivablesDetail">Checking issued invoices…</span></button>
