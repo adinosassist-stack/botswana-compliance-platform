@@ -553,11 +553,28 @@ export async function handleFinanceRequest({request,url,env,auth,json,readJson,i
   }
   if(url.pathname==="/api/finance/reconciliations"&&request.method==="POST"){
     const body=await readJson(request,{maxBytes:32*1024});
+    const expectedSnapshotHash=text(body.expectedSnapshotHash,64).toLowerCase();
+    if(expectedSnapshotHash&&!/^[0-9a-f]{64}$/.test(expectedSnapshotHash))return json({error:"invalid_expected_snapshot_hash"},400);
     const prepared=await prepareFinanceReconciliationSnapshot({
       env,tenantId:auth.tenant_id,accountId:body.accountId,statementFrom:body.statementFrom,statementTo:body.statementTo,
       openingBalanceMinor:body.openingBalanceMinor,closingBalanceMinor:body.closingBalanceMinor,sha256Hex
     });
     if(!prepared.ok)return json({error:prepared.error},prepared.status||400);
+    if(expectedSnapshotHash&&expectedSnapshotHash!==prepared.snapshotHash){
+      await writeAudit(env,auth.tenant_id,auth.user_id,"FINANCE_RECONCILIATION_STALE_APPROVAL",{
+        accountId:prepared.accountId,
+        statementFrom:prepared.statementFrom,
+        statementTo:prepared.statementTo,
+        expectedSnapshotHash,
+        actualSnapshotHash:prepared.snapshotHash
+      });
+      return json({
+        error:"finance_reconciliation_snapshot_changed",
+        expectedSnapshotHash,
+        actualSnapshotHash:prepared.snapshotHash,
+        execution:{performed:false}
+      },409);
+    }
     const runId=id();
     await env.DB.prepare("INSERT INTO finance_reconciliation_runs(id,tenant_id,account_id,statement_from,statement_to,opening_balance_minor,statement_closing_minor,book_closing_minor,difference_minor,currency,status,transaction_count,snapshot_hash,created_by_user_id) VALUES(?,?,?,?,?,?,?,?,?, 'BWP',?,?,?,?)").bind(runId,auth.tenant_id,prepared.accountId,prepared.statementFrom,prepared.statementTo,prepared.openingBalanceMinor,prepared.statementClosingMinor,prepared.bookClosingMinor,prepared.differenceMinor,prepared.status,prepared.transactionCount,prepared.snapshotHash,auth.user_id).run();
     await appendLineage({env,tenantId:auth.tenant_id,userId:auth.user_id,eventType:"RECONCILIATION_COMPLETED",entityType:"finance_reconciliation",entityId:runId,payload:{accountId:prepared.accountId,statementFrom:prepared.statementFrom,statementTo:prepared.statementTo,openingBalanceMinor:prepared.openingBalanceMinor,statementClosingMinor:prepared.statementClosingMinor,bookClosingMinor:prepared.bookClosingMinor,differenceMinor:prepared.differenceMinor,status:prepared.status,transactionCount:prepared.transactionCount,snapshotHash:prepared.snapshotHash},sha256Hex,id});
