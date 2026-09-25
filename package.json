@@ -220,7 +220,8 @@
     "test:customer-receivable-read": "node tests/v109-customer-receivable-read-adversarial.mjs",
     "test:dead-code-boundary": "node tests/v110-dead-code-boundary-adversarial.mjs",
     "test:employee-location-management": "node tests/v111-employee-location-management-adversarial.mjs",
-    "test:people-reporting-hydration": "node tests/v112-people-reporting-hydration-adversarial.mjs"
+    "test:people-reporting-hydration": "node tests/v112-people-reporting-hydration-adversarial.mjs",
+    "test:persistent-agent-tasks": "node tests/v117-persistent-agent-tasks.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1126.0",
