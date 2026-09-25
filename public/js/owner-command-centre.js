@@ -21,6 +21,8 @@
   let stateWriteQueue=Promise.resolve();
   let agenticLatestPlan=null;
   let agenticBusy=false;
+  let agenticAskBusy=false;
+  let agenticAskResult=null;
   let agenticTaskBusy=false;
   let agenticTaskDraft=null;
   let financeReconciliationPreview=null;
@@ -1009,6 +1011,102 @@
     return card;
   }
 
+  async function askThebe(question){
+    if(agenticAskBusy)return;
+    const normalized=String(question||"").trim().replace(/\s+/g," ").slice(0,1000);
+    const status=agenticStatusNode();
+    if(normalized.length<3){
+      if(status)status.textContent="Enter a question for Thebe.";
+      return;
+    }
+    agenticAskBusy=true;
+    if(status)status.textContent="Thebe is answering your question…";
+    try{
+      agenticAskResult=await request("/api/ai/advisor",{
+        method:"POST",
+        body:JSON.stringify({mode:"ask",question:normalized})
+      });
+      if(status)status.textContent="Answer ready · no action was executed.";
+      await renderAgenticGovernance(false);
+    }catch(error){
+      if(status)status.textContent=String(error?.message||"Thebe could not answer that question.").slice(0,180);
+    }finally{
+      agenticAskBusy=false;
+    }
+  }
+
+  function renderAskThebeControl(){
+    const section=document.createElement("section");
+    section.className="owner-agentic-boundary";
+
+    const copy=document.createElement("div");
+    copy.append(
+      text("b","Ask Thebe"),
+      text("span","Ask a company-specific question or a general question. Company facts stay tenant-scoped; general knowledge is never presented as company data.")
+    );
+    section.append(copy);
+
+    const form=document.createElement("form");
+    form.className="owner-inputs-body";
+    form.setAttribute("aria-label","Ask Thebe a question");
+    const question=document.createElement("textarea");
+    question.id="ownerThebeQuestion";
+    question.rows=3;
+    question.maxLength=1000;
+    question.placeholder="Example: Why is our cash position different from revenue? Or: What is gross margin?";
+    question.setAttribute("aria-label","Question for Thebe");
+    const submit=document.createElement("button");
+    submit.type="submit";
+    submit.className="btn";
+    submit.textContent=agenticAskBusy?"Answering…":"Ask Thebe";
+    submit.disabled=agenticAskBusy;
+    form.append(question,submit);
+    form.addEventListener("submit",event=>{
+      event.preventDefault();
+      void askThebe(question.value);
+    });
+    section.append(form);
+
+    const result=agenticAskResult;
+    if(result?.answer){
+      const card=document.createElement("article");
+      card.className="owner-agentic-run";
+      const confidence=String(result.confidence||"low").toUpperCase();
+      const mode=String(result.generationMode||"governed").replaceAll("_"," ");
+      card.append(
+        text("span",`${confidence} confidence · ${mode}`,"owner-agentic-kicker"),
+        text("h4","Thebe"),
+        text("p",String(result.answer),"owner-agentic-reason")
+      );
+
+      const references=Array.isArray(result.references)?result.references:[];
+      if(references.length){
+        const refs=document.createElement("div");
+        refs.className="owner-agentic-sources";
+        references.slice(0,8).forEach(item=>refs.append(text("span",String(item?.label||item?.ref||"Workspace source"),"owner-agentic-source")));
+        card.append(refs);
+      }
+
+      const caveats=Array.isArray(result.caveats)?result.caveats.filter(Boolean).slice(0,4):[];
+      if(caveats.length)card.append(text("div",caveats.join(" · "),"owner-agentic-policy"));
+
+      const actions=Array.isArray(result.actions)?result.actions.filter(item=>item?.title).slice(0,4):[];
+      if(actions.length){
+        const suggestions=document.createElement("div");
+        suggestions.className="owner-agentic-proposals";
+        actions.forEach(item=>{
+          const suggestion=document.createElement("div");
+          suggestion.className="owner-command-empty";
+          suggestion.append(text("b",item.title),text("span",item.reason||""));
+          suggestions.append(suggestion);
+        });
+        card.append(suggestions);
+      }
+      section.append(card);
+    }
+    return section;
+  }
+
   function renderAgenticSnapshot(statusPayload,runsPayload,taskExecutionPayload=null,authorityPayload=null,taskRequestsPayload=null,taskListPayload=null,financeAccountsPayload=null){
     const body=q("#ownerAgenticBody");
     if(!body)return;
@@ -1057,6 +1155,7 @@
       )
     );
     body.append(boundary);
+    body.append(renderAskThebeControl());
 
     if(statusPayload?.outcomeLearning?.enabled){
       const learning=document.createElement("div");
@@ -1221,9 +1320,9 @@
     agenticHead.className="owner-agentic-head";
     const agenticCopy=document.createElement("div");
     agenticCopy.append(
-      text("div","Thebe AI · governed decisions","section-eyebrow"),
-      text("h4","Observe → reason → recommend → approve → bounded execute"),
-      text("p","Thebe prepares auditable next actions from tenant-scoped business data. A separate internal-task lane is only available when owner-approved grants, the platform switch and the Runtime Guard all allow it; high-impact actions remain human-only.","muted")
+      text("div","Thebe AI · Super Agent","section-eyebrow"),
+      text("h4","Ask → understand → reason → recommend → approve → bounded execute"),
+      text("p","Ask Thebe company-specific or general questions in one place. Company answers use tenant-scoped records when relevant; recommendations remain read-only until an existing approval and Runtime Guard path explicitly allows a bounded action.","muted")
     );
     const agenticStatus=text("span","Execution controlled","owner-input-status");
     agenticStatus.id="ownerAgenticStatus";
