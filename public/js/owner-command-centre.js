@@ -1326,7 +1326,7 @@
     const agenticCopy=document.createElement("div");
     agenticCopy.append(
       text("div","Thebe AI · Super Agent","section-eyebrow"),
-      text("h4","Ask → understand → reason → recommend → approve → bounded execute"),
+      text("h4","Ask anything · Observe → reason → recommend → approve → bounded execute"),
       text("p","Ask Thebe company-specific or general questions in one place. Company answers use tenant-scoped records when relevant; recommendations remain read-only until an existing approval and Runtime Guard path explicitly allows a bounded action.","muted")
     );
     const agenticStatus=text("span","Execution controlled","owner-input-status");
