@@ -122,6 +122,45 @@ function mockDb({bindings=[{tenant_id:"tenant-A",user_id:"u1",role:"owner"}]}={}
 }
 
 {
+  const DB=mockDb(),deliveries=[],questions=[];
+  const result=await processWhatsAppInboundMessages({DB,WHATSAPP_PHONE_NUMBER_ID:"12345"},[{
+    phoneNumberId:"12345",
+    message:{id:"wamid.question.1",from:"26771234567",type:"text",timestamp:"1789862400",text:{body:"What is gross margin and why does it matter?"}}
+  }],{
+    answerQuestion:async payload=>{questions.push(payload);return {ok:true,answer:"Gross margin is revenue less direct cost of sales, expressed as an amount or percentage."}},
+    deliverReply:async reply=>{deliveries.push(reply);return {ok:true,id:"reply-question-1"}}
+  });
+  assert.equal(result.unrecognized,0);
+  assert.equal(result.questionsAnswered,1);
+  assert.equal(result.answered,1);
+  assert.equal(result.replyQueued,1);
+  assert.equal(questions.length,1);
+  assert.equal(questions[0].principal.tenant_id,"tenant-A");
+  assert.equal(questions[0].principal.user_id,"u1");
+  assert.equal(questions[0].principal.role,"owner");
+  assert.equal(questions[0].providerMessageId,"wamid.question.1");
+  assert.equal(deliveries.length,1);
+  assert.equal(deliveries[0].to,"+26771234567");
+  assert.equal(deliveries[0].replyToMessageId,"wamid.question.1");
+  assert.equal(deliveries[0].kind,"super_agent_answer");
+  assert.match(deliveries[0].text,/Gross margin/i);
+}
+
+{
+  const DB=mockDb({bindings:[
+    {tenant_id:"tenant-A",user_id:"u1",role:"owner"},
+    {tenant_id:"tenant-B",user_id:"u1",role:"owner"}
+  ]});
+  let invoked=0;
+  const result=await processWhatsAppInboundMessages({DB,WHATSAPP_PHONE_NUMBER_ID:"12345"},[{
+    phoneNumberId:"12345",
+    message:{id:"wamid.question.ambiguous",from:"26771234567",type:"text",timestamp:"1789862400",text:{body:"What is gross margin?"}}
+  }],{answerQuestion:async()=>{invoked++;return {ok:true,answer:"should not run"}}});
+  assert.equal(result.ambiguous,1);
+  assert.equal(invoked,0,"ambiguous phone bindings must never reach open-ended Q&A");
+}
+
+{
   const DB=mockDb();
   const result=await processWhatsAppInboundMessages({DB},[{
     phoneNumberId:"12345",
@@ -164,5 +203,11 @@ assert.match(inboundSource,/delivery\?\.replyToInbound===true&&result\.body\?\.d
 assert.doesNotMatch(agenticSource,/WHATSAPP_ACCESS_TOKEN/,"shared agentic preparation must remain provider-credential blind");
 assert.match(inboundSource,/classifyWhatsAppInboundIntent/,"inbound WhatsApp must route natural-language finance intents through deterministic classification");
 assert.match(workerSource,/enqueueWhatsAppSessionReply/,"read-only owner replies must use the existing governed WhatsApp delivery ledger");
+assert.match(inboundSource,/answerQuestion=null/,"open-ended Q&A must be injected rather than giving the inbound router network or model authority");
+assert.match(inboundSource,/kind:"super_agent_answer"/,"open-ended answers must use the recipient-locked session reply path");
+assert.match(workerSource,/answerWhatsAppSuperAgentQuestion/,"the production webhook must route unknown linked questions to the governed Thebe answer engine");
+assert.match(workerSource,/whatsapp-super-agent-tenant/,"WhatsApp Super Agent questions must be rate limited");
+assert.match(workerSource,/agent-reply:\$\{messageId\}/,"WhatsApp Super Agent generation must check the existing provider-message dedupe key before spending another AI credit");
+
 
 console.log("v93 governed inbound WhatsApp -> single Thebe preparation: PASS");
