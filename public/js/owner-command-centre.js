@@ -1021,17 +1021,22 @@
     }
     agenticAskBusy=true;
     if(status)status.textContent="Thebe is answering your question…";
+    let answered=false;
     try{
       agenticAskResult=await request("/api/ai/advisor",{
         method:"POST",
         body:JSON.stringify({mode:"ask",question:normalized})
       });
-      if(status)status.textContent="Answer ready · no action was executed.";
-      await renderAgenticGovernance(false);
+      answered=true;
     }catch(error){
       if(status)status.textContent=String(error?.message||"Thebe could not answer that question.").slice(0,180);
     }finally{
       agenticAskBusy=false;
+    }
+    if(answered){
+      await renderAgenticGovernance(false);
+      const refreshedStatus=agenticStatusNode();
+      if(refreshedStatus)refreshedStatus.textContent="Answer ready · no action was executed.";
     }
   }
 
