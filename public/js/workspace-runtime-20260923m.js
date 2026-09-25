@@ -484,7 +484,8 @@ async function renderWorkHub(){
 }
 async function renderTenderHub(){
   if(!roleCanView("tenderhub")||!["owner","manager"].includes(currentWorkspaceRole()))return;
-  const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value};
+  const ownerAliases={homeActionCount:["homeActionCountCard"],homeHighPriorityCount:["homeHighPriorityCountCard"],homeReviewCount:["homeReviewCountCard"],homeNextDeadline:["homeNextDeadlineCard"],homeOpsCoverage:["homeOpsCoverageCard"]};
+  const set=(id,value)=>{for(const key of [id,...(ownerAliases[id]||[])]){const el=document.getElementById(key);if(el)el.textContent=value}};
   try{
     const r=await apiJson("/api/tenders"),items=r.items||[],now=Date.now();
     const active=items.filter(x=>String(x.status||"watching").toLowerCase()!=="closed"),soon=active.filter(x=>x.closing_at&&new Date(x.closing_at).getTime()>now&&new Date(x.closing_at).getTime()-now<=14*86400000);
