@@ -7,6 +7,7 @@ import {buildBusinessContext,handleBusinessContextRequest} from "./business-cont
 import {extractSpendWhatIfBwpMinor,simulateWeeklySpendDecision} from "./money-intelligence.js";
 import {handleBusinessMemoryRequest} from "./business-memory.js";
 import {thebeLanguagePrompt,deterministicLanguagePolicy,deterministicLanguageNotice} from "./thebe-language.js";
+import {handlePublicJobsRequest,handleJobsRequest} from "./jobs-linking.js";
 const APP_SECURITY_HEADERS=Object.freeze({
   "x-content-type-options":"nosniff",
   "x-frame-options":"DENY",
@@ -5116,6 +5117,7 @@ export default {
           : json({ok:false,error:"configuration_incomplete",schemaReady:true,expectedSchemaDelta:EXPECTED_SCHEMA_DELTA,version:APP_RELEASE,requiredConfigReady:false},503);
       }catch(e){return d1DailyQuotaExceeded(e)?workerFailureResponse(e):json({ok:false,error:"database_unavailable",schemaReady:false,expectedSchemaDelta:EXPECTED_SCHEMA_DELTA,version:APP_RELEASE},503)}
     }
+    {const publicJobsResponse=await handlePublicJobsRequest({request:req,url,env,json,readTextBounded,sha256Hex,id,edgeScopedRateLimit,validEmail});if(publicJobsResponse)return publicJobsResponse;}
     if(url.pathname==="/api/webhooks/whatsapp"&&req.method==="GET"){
       const mode=String(url.searchParams.get("hub.mode")||""),token=String(url.searchParams.get("hub.verify_token")||""),challenge=String(url.searchParams.get("hub.challenge")||"");
       const verifyLimit=await edgeScopedRateLimit(req,env,"whatsapp-verify",token||"anonymous");if(!verifyLimit.ok)return rateLimitResponse(verifyLimit);
@@ -5516,6 +5518,7 @@ export default {
       if(req.method==="GET"&&!restrictedWorkspaceReadAllowed(url.pathname,a.role))return json({error:"workspace_role_read_forbidden"},403);
       if(!["GET","HEAD","OPTIONS"].includes(req.method)&&!restrictedWorkspaceMutationAllowed(url.pathname,req.method,a.role))return json({error:"workspace_role_mutation_forbidden"},403);
       if(!evidenceUploadsEnabled(env)&&evidenceMutationDisabled(url,req.method))return json({error:"evidence_uploads_temporarily_disabled",evidenceUploadsEnabled:false},503);
+      const jobsResponse=await handleJobsRequest({request:req,url,env,auth:a,json,readJson,sha256Hex,id,roleAllowed,writeAudit,randomReporterToken,validPublicAppUrl});if(jobsResponse)return jobsResponse;
       const businessMemoryResponse=await handleBusinessMemoryRequest({request:req,url,env,auth:a,json,readJson,roleAllowed,id,writeAudit});
       if(businessMemoryResponse)return businessMemoryResponse;
       const businessContextResponse=await handleBusinessContextRequest({request:req,url,env,auth:a,json,roleAllowed});
