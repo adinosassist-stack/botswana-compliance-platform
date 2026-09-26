@@ -1,10 +1,11 @@
 import {financeSummary} from "./finance-core.js";
 import {financeReceivablesSummary,financeDailyCollections} from "./finance-receivables.js";
+import {financePayablesSummary} from "./finance-payables.js";
 import {listBusinessMemory} from "./business-memory.js";
 import {buildMoneyIntelligence} from "./money-intelligence.js";
 import {languagePreferenceFromMemory,deterministicLanguagePolicy,deterministicLanguageNotice} from "./thebe-language.js";
 
-export const BUSINESS_CONTEXT_VERSION="2026-09-26.v160";
+export const BUSINESS_CONTEXT_VERSION="2026-09-26.v161";
 
 const PROFILE_KEYS=Object.freeze({
   monthlyRevenueTargetBwp:"decisionMonthlyRevenueTargetBwp",
@@ -162,9 +163,10 @@ async function complianceContext(env,tenantId){
 export async function buildBusinessContext(env,tenantId,{actorRole="owner",now=new Date()}={}){
   const role=String(actorRole||"").toLowerCase(),businessDate=gaboroneDate(now);
   const management=role==="owner"||role==="manager";
-  const [finance,receivables,collections,operations,compliance,tenant,stateRow,durableMemory]=await Promise.all([
+  const [finance,receivables,payables,collections,operations,compliance,tenant,stateRow,durableMemory]=await Promise.all([
     financeSummary(env,tenantId),
-    financeReceivablesSummary(env,tenantId,{businessDate,customerLimit:management?5:1,invoiceLimit:management?5:1}),
+    financeReceivablesSummary(env,tenantId,{businessDate,customerLimit:management?8:1,invoiceLimit:management?20:1}),
+    management?financePayablesSummary(env,tenantId,{businessDate,supplierLimit:8,payableLimit:30}):Promise.resolve(frozen({available:false,restricted:true,payables:frozen([]),suppliers:frozen([])})),
     financeDailyCollections(env,tenantId,{businessDate}),
     operationsContext(env,tenantId,{allowed:management}),
     complianceContext(env,tenantId),
@@ -176,7 +178,7 @@ export async function buildBusinessContext(env,tenantId,{actorRole="owner",now=n
   const profileMemory=management?ownerEnteredMemory(state,tenant?.name):frozen({restricted:true,source:"owner_workspace_profile"});
   const memory=management?mergeConfirmedMemory(profileMemory,durableMemory):profileMemory;
   const sales=management?salesMemory(state,{businessDate}):frozen({restricted:true});
-  const moneyIntelligence=management?await buildMoneyIntelligence(env,tenantId,{businessDate,cashPositionMinor:Number(finance?.cashPositionMinor||0),memory,receivablesOutstandingMinor:Number(receivables?.outstandingMinor||0)}):frozen({available:false,restricted:true});
+  const moneyIntelligence=management?await buildMoneyIntelligence(env,tenantId,{businessDate,cashPositionMinor:Number(finance?.cashPositionMinor||0),memory,receivables,payables}):frozen({available:false,restricted:true});
   return frozen({
     version:BUSINESS_CONTEXT_VERSION,
     observedAt:new Date(now).toISOString(),
@@ -191,8 +193,10 @@ export async function buildBusinessContext(env,tenantId,{actorRole="owner",now=n
         overdueInvoiceCount:Number(receivables?.overdueInvoiceCount||0),
         overdueMinor:Number(receivables?.overdueMinor||0),
         overdueCustomerCount:Number(receivables?.overdueCustomerCount||0),
-        customers:management?receivables.customers:frozen([])
+        customers:management?receivables.customers:frozen([]),
+        invoices:management?receivables.invoices:frozen([])
       }),
+      payables:management?payables:frozen({available:false,restricted:true}),
       today:collections
     }),
     operations,
@@ -203,7 +207,7 @@ export async function buildBusinessContext(env,tenantId,{actorRole="owner",now=n
     sales,
     moneyIntelligence,
     provenance:frozen({
-      authoritative:frozen(["finance_accounts","finance_transactions","finance_reconciliation_runs","finance_invoices","finance_invoice_allocations","daily_operations_summaries","workflow_jobs","performance_insights","compliance_obligations"]),
+      authoritative:frozen(["finance_accounts","finance_transactions","finance_reconciliation_runs","finance_invoices","finance_invoice_allocations","finance_suppliers","finance_supplier_aliases","finance_payables","finance_payable_allocations","daily_operations_summaries","workflow_jobs","performance_insights","compliance_obligations"]),
       ownerEntered:management?frozen(["app_state.active_company.profile","app_state.active_company.salesIntelligence","business_memory_items"]):frozen([]),
       rule:"Authoritative records and owner-entered assumptions remain explicitly separated; Thebe must not promote assumptions into observed facts."
     })
@@ -215,6 +219,8 @@ function setswanaPriority(item,metrics={}){
   const map={
     reconciliation_exception:{title:"Sekaseka diphapang tsa poelanyo ya madi",detail:`${Number(metrics.reconciliationExceptionCount||0)} diphapang di emela ${money(metrics.reconciliationExposureMinor)} ya exposure e e rekotilweng.`},
     overdue_receivables:{title:"Latela madi a bareki a a fetileng nako",detail:`${money(metrics.receivablesOverdueMinor)} e fetile nako mo di-invoice di le ${Number(metrics.receivablesOverdueInvoiceCount||0)}.`},
+    overdue_payables:{title:"Sekaseka dikoloto tsa suppliers tse di fetileng nako",detail:`${money(metrics.payablesOverdueMinor)} e fetile nako mo payables di le ${Number(metrics.payablesOverdueCount||0)}.`},
+    payables_due_14d:{title:"Sekaseka supplier commitments tsa malatsi a 14",detail:`${money(metrics.payablesDue14dMinor)} ya recorded payables e due mo malatsing a 14.`},
     overdue_compliance:{title:"Sekaseka maikarabelo a compliance a a fetileng nako",detail:`Go na le maikarabelo a compliance a ${Number(metrics.overdueComplianceCount||0)} a a rekotilweng a fetile nako.`},
     failed_workflows:{title:"Rarabolola ditsela tsa tiro tse di paletsweng",detail:`Go na le workflow di le ${Number(metrics.failedWorkflowCount||0)} tse di rekotilweng di paletswe kgotsa di emetse tharabololo.`},
     critical_performance:{title:"Sekaseka ditemoso tsa botlhokwa tsa kgwebo",detail:`Go na le ditemoso tsa botlhokwa di le ${Number(metrics.criticalPerformanceSignals||0)} tse di sa ntseng di butse.`},
@@ -266,6 +272,17 @@ export function deriveBusinessPriorities(context){
     `${pulaMinor(receivables.overdueMinor)} is overdue across ${Number(receivables.overdueInvoiceCount||0)} issued invoice(s).`,
     ["finance_invoices","finance_invoice_allocations"],"receivables_summary.read"
   ));
+  const payables=finance.payables||{};
+  if(Number(payables.overdueMinor||0)>0)out.push(priority(
+    "overdue_payables","high","Review overdue supplier payables",
+    `${pulaMinor(payables.overdueMinor)} is overdue across ${Number(payables.overduePayableCount||0)} recorded payable(s).`,
+    ["finance_suppliers","finance_payables","finance_payable_allocations"],null
+  ));
+  else if(Number(payables.due14dMinor||0)>0)out.push(priority(
+    "payables_due_14d","medium","Review supplier cash commitments due within 14 days",
+    `${pulaMinor(payables.due14dMinor)} of recorded supplier payables falls due within 14 days.`,
+    ["finance_suppliers","finance_payables","finance_payable_allocations"],null
+  ));
   if(Number(compliance.overdueCount||0)>0)out.push(priority(
     "overdue_compliance","high","Review overdue compliance obligations",
     `${Number(compliance.overdueCount||0)} compliance obligation(s) are recorded as overdue.`,
@@ -314,6 +331,12 @@ export function buildDailyBusinessBrief(context){
     receivablesOutstandingMinor:Number(receivables.outstandingMinor||0),
     receivablesOverdueMinor:Number(receivables.overdueMinor||0),
     receivablesOverdueInvoiceCount:Number(receivables.overdueInvoiceCount||0),
+    payablesOutstandingMinor:Number(finance?.payables?.outstandingMinor||0),
+    payablesOverdueMinor:Number(finance?.payables?.overdueMinor||0),
+    payablesOverdueCount:Number(finance?.payables?.overduePayableCount||0),
+    payablesDue7dMinor:Number(finance?.payables?.due7dMinor||0),
+    payablesDue14dMinor:Number(finance?.payables?.due14dMinor||0),
+    payablesDue30dMinor:Number(finance?.payables?.due30dMinor||0),
     reconciliationExceptionCount:Number(finance?.reconciliation?.unresolvedCount||0),
     reconciliationExposureMinor:Number(finance?.reconciliation?.unresolvedExposureMinor||0),
     reconciliationStale:finance?.reconciliation?.stale===true,
