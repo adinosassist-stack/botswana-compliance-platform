@@ -14,7 +14,7 @@ const headEnd=htmlText.toLowerCase().indexOf("</head>");
 ok(headEnd>0,"canonical workspace head missing");
 const headText=htmlText.slice(0,headEnd);
 const canonicalStyles=[...headText.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)].map(match=>String(match[1]||"").replace(/^\n/,"").replace(/\s*$/,""));
-ok(canonicalStyles.length===48,`unexpected canonical workspace style count (${canonicalStyles.length})`);
+ok(canonicalStyles.length===49,`unexpected canonical workspace style count (${canonicalStyles.length})`);
 const normalizedStyles=canonicalStyles.join("\n\n")+"\n";
 ok(normalizedStyles===stylesText,"versioned workspace stylesheet must exactly match canonical head styles");
 
@@ -39,7 +39,7 @@ const runtimeExternalizedHtml=htmlText.replace(/<script id="thebe-workspace-runt
 const runtimeHeadEnd=runtimeExternalizedHtml.toLowerCase().indexOf("</head>");
 const runtimeHead=runtimeExternalizedHtml.slice(0,runtimeHeadEnd),runtimeTail=runtimeExternalizedHtml.slice(runtimeHeadEnd);
 let styleCount=0;
-const deployedHead=runtimeHead.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,()=>{styleCount++;return styleCount===1?'<link id="thebe-workspace-inline-styles" rel="stylesheet" href="/assets/workspace-inline-styles-20260923a.css" />':""});
+const deployedHead=runtimeHead.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,()=>{styleCount++;return styleCount===1?'<link id="thebe-workspace-inline-styles" rel="stylesheet" href="/assets/workspace-inline-styles-20260926b.css" />':""});
 ok(styleCount===48,`deployed workspace style extraction count mismatch (${styleCount})`);
 let deployedHtmlText=deployedHead+runtimeTail;
 const viewReplacements=[];
