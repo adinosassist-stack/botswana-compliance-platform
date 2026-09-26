@@ -175,7 +175,7 @@ export async function buildBusinessContext(env,tenantId,{actorRole="owner",now=n
   const profileMemory=management?ownerEnteredMemory(state,tenant?.name):frozen({restricted:true,source:"owner_workspace_profile"});
   const memory=management?mergeConfirmedMemory(profileMemory,durableMemory):profileMemory;
   const sales=management?salesMemory(state,{businessDate}):frozen({restricted:true});
-  const moneyIntelligence=management?await buildMoneyIntelligence(env,tenantId,{businessDate,cashPositionMinor:Number(finance?.cashPositionMinor||0),memory}):frozen({available:false,restricted:true});
+  const moneyIntelligence=management?await buildMoneyIntelligence(env,tenantId,{businessDate,cashPositionMinor:Number(finance?.cashPositionMinor||0),memory,receivablesOutstandingMinor:Number(receivables?.outstandingMinor||0)}):frozen({available:false,restricted:true});
   return frozen({
     version:BUSINESS_CONTEXT_VERSION,
     observedAt:new Date(now).toISOString(),
@@ -221,7 +221,11 @@ function setswanaPriority(item,metrics={}){
     cash_runway:{title:"Sekaseka nako e madi a ka tswelelang ka yone",detail:`Runway e e fopholeditsweng ke matsatsi a ${metrics.estimatedRunwayDays==null?"—":Number(metrics.estimatedRunwayDays)} go ya ka monthly outflows tse mong a di tsentseng.`},
     outflow_acceleration:{title:"Sekaseka koketsego ya madi a tswang",detail:`Madi a a tswang mo malatsing a 30 a fetileng a fetogile ka ${metrics.outflowChangePct==null?"—":Math.round(Number(metrics.outflowChangePct)*100)+"%"} fa a bapisiwa le malatsi a 30 a pele.`},
     large_debits:{title:"Sekaseka ditlhakololo tsa madi tse dikgolo",detail:`Go na le debit di le ${Number(metrics.largeDebitCount||0)} tse di fetang deterministic large-debit threshold.`},
-    stale_reconciliation:{title:"Ntšhafatsa poelanyo ya madi",detail:"Poelanyo ya madi e e rekotilweng ya bofelo e feta freshness threshold."}
+    stale_reconciliation:{title:"Ntšhafatsa poelanyo ya madi",detail:"Poelanyo ya madi e e rekotilweng ya bofelo e feta freshness threshold."},
+    cash_buffer_scenario:{title:"Sekaseka cash-buffer scenario",detail:"Owner-assumption cash scenario e wela kwa tlase ga minimum cash buffer mo horizon e e sekasekilweng."},
+    commitment_pressure:{title:"Sekaseka planned commitments",detail:"Planned one-off commitments tse mong a di tsentseng di feta cash e e kwa godimo ga minimum cash buffer."},
+    debit_concentration:{title:"Sekaseka repeated debit concentration",detail:"Repeated debit description e tsaya karolo e kgolo ya outflows; supplier identity ga e a netefadiwa."},
+    cash_flow_margin_pressure:{title:"Sekaseka cash-flow margin pressure",detail:"30-day cash-flow margin proxy e ka fa tlase ga zero. Seno ga se accounting gross margin kgotsa profit."}
   };
   return map[item?.key]||{title:item?.title,detail:item?.detail};
 }
@@ -285,6 +289,10 @@ export function deriveBusinessPriorities(context){
     if(signal?.key==="cash_runway")out.push(priority("cash_runway","high","Review cash runway",clean(signal.detail,300),["owner_entered_assumptions","finance_transactions"],null));
     else if(signal?.key==="outflow_acceleration")out.push(priority("outflow_acceleration","medium","Review rising cash outflows",clean(signal.detail,300),["finance_transactions"],null));
     else if(signal?.key==="large_debits")out.push(priority("large_debits","medium","Review unusually large debits",clean(signal.detail,300),["finance_transactions"],null));
+    else if(signal?.key==="cash_buffer_scenario")out.push(priority("cash_buffer_scenario","high","Review cash-buffer scenario",clean(signal.detail,300),["finance_transactions","owner_entered_assumptions"],null));
+    else if(signal?.key==="commitment_pressure")out.push(priority("commitment_pressure","high","Review planned commitment pressure",clean(signal.detail,300),["owner_entered_assumptions"],null));
+    else if(signal?.key==="debit_concentration")out.push(priority("debit_concentration","medium","Review repeated debit concentration",clean(signal.detail,300),["finance_transactions"],null));
+    else if(signal?.key==="cash_flow_margin_pressure")out.push(priority("cash_flow_margin_pressure","medium","Review cash-flow margin pressure",clean(signal.detail,300),["finance_transactions"],null));
   }
   if(recon.stale===true)out.push(priority(
     "stale_reconciliation","medium","Refresh finance reconciliation",
@@ -321,7 +329,14 @@ export function buildDailyBusinessBrief(context){
     outflowChangePct:trend?.outflowChangePct==null?null:Number(trend.outflowChangePct),
     largeDebitCount:Array.isArray(trend?.largeDebits)?trend.largeDebits.length:0,
     estimatedRunwayDays:assumptions?.estimatedRunwayDays==null?null:Number(assumptions.estimatedRunwayDays),
-    safeDiscretionaryMinor:assumptions?.safeDiscretionaryMinor==null?null:Number(assumptions.safeDiscretionaryMinor)
+    safeDiscretionaryMinor:assumptions?.safeDiscretionaryMinor==null?null:Number(assumptions.safeDiscretionaryMinor),
+    plannedPurchaseMinor:assumptions?.plannedPurchaseMinor==null?null:Number(assumptions.plannedPurchaseMinor),
+    cashFlowMarginProxyPct:money?.scenario?.cashFlowMarginProxyPct==null?null:Number(money.scenario.cashFlowMarginProxyPct),
+    firstOwnerBufferBreachHorizonDays:money?.scenario?.firstOwnerBufferBreachHorizonDays==null?null:Number(money.scenario.firstOwnerBufferBreachHorizonDays),
+    scenario7EndingCashMinor:Number((money?.scenario?.horizons||[]).find(item=>Number(item?.days)===7)?.ownerAssumptionEndingCashMinor||0),
+    scenario30EndingCashMinor:Number((money?.scenario?.horizons||[]).find(item=>Number(item?.days)===30)?.ownerAssumptionEndingCashMinor||0),
+    scenario90EndingCashMinor:Number((money?.scenario?.horizons||[]).find(item=>Number(item?.days)===90)?.ownerAssumptionEndingCashMinor||0),
+    debitConcentrationCount:Array.isArray(money?.debitConcentrations)?money.debitConcentrations.length:0
   });
   const priorities=frozen(basePriorities.map(item=>localizeBriefPriority(item,metrics,language)));
   return frozen({
