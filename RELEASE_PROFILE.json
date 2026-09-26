@@ -1176,5 +1176,14 @@
   "business_memory_owner_confirmed_only": true,
   "money_intelligence_v157": true,
   "money_intelligence_execution_enabled": false,
-  "money_intelligence_assumptions_non_authoritative": true
+  "money_intelligence_assumptions_non_authoritative": true,
+  "multilingual_voice_v159": true,
+  "multilingual_voice_languages": [
+    "English",
+    "Setswana",
+    "Sekalaka"
+  ],
+  "multilingual_voice_owner_preference_memory": true,
+  "multilingual_voice_code_switching": true,
+  "multilingual_voice_execution_authority_expanded": false
 }
