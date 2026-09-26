@@ -140,7 +140,9 @@ export async function handleFinancePayablesRequest({request,url,env,auth,json,re
       await env.DB.prepare("INSERT INTO finance_suppliers(id,tenant_id,supplier_code,name,normalized_name,default_expense_category,status,created_by_user_id) VALUES(?,?,?,?,?,?,'active',?)")
         .bind(supplierId,auth.tenant_id,supplierCode,name,normalizedName,category,auth.user_id).run();
     }catch(error){
-      if(/unique|constraint/i.test(String(error)))return json({error:"finance_supplier_exists"},409);
+      const message=String(error);
+      if(message.includes("finance_supplier_name_alias_collision"))return json({error:"finance_supplier_name_alias_collision"},409);
+      if(/unique|constraint/i.test(message))return json({error:"finance_supplier_exists"},409);
       return json({error:"finance_supplier_write_failed"},503);
     }
     await appendLineage({env,tenantId:auth.tenant_id,userId:auth.user_id,eventType:"SUPPLIER_CREATED",entityType:"finance_supplier",entityId:supplierId,payload:{supplierCode,name,defaultExpenseCategory:category},sha256Hex,id});
