@@ -3207,36 +3207,30 @@ main{
   </section>
 
 
-<section id="sites" class="view" data-phase="0-demo" data-recovery-lineage="v81-sites-reconstructed">
+<section id="sites" class="view" data-source="authoritative-operating-locations" data-recovery-lineage="v159-sites-authoritative">
   <div class="sites-head">
-    <div><div class="section-eyebrow">Out-of-office operations</div><h2 style="margin:3px 0 6px">Sites &amp; field work</h2><div class="muted">Manage temporary customer jobs, installations, maintenance work and construction sites separately from branches.</div></div>
-    <div class="actions"><button type="button" class="btn alt" id="sitesResetDemo">Reset demo</button><button type="button" class="btn" id="sitesAddDemo">Create site / job</button></div>
+    <div><div class="section-eyebrow">Out-of-office operations</div><h2 style="margin:3px 0 6px">Sites &amp; field work</h2><div class="muted">Manage customer sites, installations, maintenance locations and field teams using the same tenant-scoped records that power employee reporting and operating analytics.</div></div>
+    <div class="actions"><button type="button" class="btn alt" id="sitesRefreshAuthoritative">Refresh</button><button type="button" class="btn" id="sitesAddAuthoritative">Create site / job</button></div>
   </div>
   <div class="sites-kpis">
     <div class="sites-kpi"><span>Active sites</span><strong id="sitesActiveCount">—</strong></div>
-    <div class="sites-kpi"><span>Crew on site</span><strong id="sitesCrewCount">—</strong></div>
-    <div class="sites-kpi"><span>Open issues</span><strong id="sitesIssueCount">—</strong></div>
-    <div class="sites-kpi"><span>Tasks due</span><strong id="sitesTaskCount">—</strong></div>
+    <div class="sites-kpi"><span>Expected reporters</span><strong id="sitesCrewCount">—</strong></div>
+    <div class="sites-kpi"><span>Attention flags</span><strong id="sitesIssueCount">—</strong></div>
+    <div class="sites-kpi"><span>Reports today</span><strong id="sitesTaskCount">—</strong></div>
   </div>
   <div class="sites-grid">
     <div class="card">
-      <div class="between row"><div><h3 style="margin:0">Current jobs</h3><div class="muted small">Select a job to review its field activity.</div></div><span class="pill">Phase 0 demo</span></div>
-      <div id="siteDemoList" aria-live="polite"></div>
-      <div class="site-boundary"><b>Management coordination only.</b> Site activity is stored only in the authenticated browser session. It does not create payroll, disciplinary findings, accounting journals or authoritative project records, and it does not score employee performance from attendance or missing reports.</div>
+      <div class="between row"><div><h3 style="margin:0">Current sites</h3><div class="muted small">Select a site to review live reporting activity or manage the underlying location record.</div></div><span class="pill">Authoritative</span></div>
+      <div id="siteAuthoritativeList" aria-live="polite"></div>
+      <div class="site-boundary"><b>Server-backed tenant data.</b> Sites here are authoritative operating-location records. Creating, editing, removing or reactivating a site writes through the authenticated Thebe Desk API and preserves historical reporting records.</div>
     </div>
     <div class="card">
-      <div class="between row"><div><h3 id="siteDemoTitle" style="margin:0">Select a site</h3><div class="muted small" id="siteDemoSubtitle">Owner or Manager access is required.</div></div><span class="proof-state" id="siteDemoStatus">Locked</span></div>
-      <div style="margin-top:14px" id="siteDemoTasks"><div class="muted small">Site task state loads only after the authenticated tenant and canonical site ID are confirmed.</div></div>
-      <div id="siteTaskCreate" class="card" style="margin-top:14px;padding:12px;display:none">
-        <div class="between row"><div><b>Add site task / work package</b><div class="muted small">Session-only demo. No Finance, payroll or HR write is created.</div></div><span class="pill">V81 boundary</span></div>
-        <div class="formgrid" style="margin-top:10px">
-          <div><label for="siteTaskTitle">Task</label><input id="siteTaskTitle" maxlength="120" placeholder="e.g. Confirm component delivery"></div>
-          <div><label for="siteTaskOwner">Owner</label><input id="siteTaskOwner" maxlength="80" placeholder="e.g. Site supervisor"></div>
-          <div><label for="siteTaskDue">Due date</label><input id="siteTaskDue" type="date"></div>
-          <div><label for="siteTaskStatus">Status</label><select id="siteTaskStatus"><option value="open">Open</option><option value="in progress">In progress</option><option value="done">Done</option></select></div>
-        </div>
-        <div class="actions" style="margin-top:10px"><button type="button" class="btn" id="siteTaskAddBtn">Add task</button></div>
-        <div id="siteTaskSecurityNote" class="muted small" role="status" style="margin-top:8px"></div>
+      <div class="between row"><div><h3 id="siteAuthoritativeTitle" style="margin:0">Select a site</h3><div class="muted small" id="siteAuthoritativeSubtitle">Owner or Manager access is required.</div></div><span class="proof-state" id="siteAuthoritativeStatus">Locked</span></div>
+      <div style="margin-top:14px" id="siteAuthoritativeActivity"><div class="muted small">Live site activity loads after the authenticated tenant and site record are confirmed.</div></div>
+      <div id="siteAuthoritativeActions" class="actions" style="margin-top:14px;display:none">
+        <button type="button" class="btn alt" id="siteAuthoritativeEdit">Edit site</button>
+        <button type="button" class="btn alt" id="siteAuthoritativeToggle">Remove site</button>
+        <button type="button" class="btn" id="siteAuthoritativeOpenOps">Open Daily Operations</button>
       </div>
     </div>
   </div>
@@ -8702,57 +8696,131 @@ bootstrap();
 })();
 </script>
 
-<script id="thebe-sites-phase0-demo-js">
+<script id="thebe-sites-authoritative-js">
 (()=>{"use strict";
- const q=(s,r=document)=>r.querySelector(s),qa=(s,r=document)=>[...r.querySelectorAll(s)];
- const SITE_PREFIX="thebe:v81:sites:",TASK_PREFIX="thebe:v81:site-tasks:",ALLOWED_ROLES=new Set(["owner","manager"]),TASK_STATUSES=new Set(["open","in progress","done"]),MAX_TASKS=200;
- const DEMO_SITES=[
-  {id:"site_demo_gaborone",title:"Gaborone installation",kind:"Customer job",location:"Gaborone",crewCount:2,issueCount:1,status:"On site",statusClass:"good"},
-  {id:"site_demo_palapye",title:"Palapye maintenance",kind:"Field visit",location:"Palapye",crewCount:1,issueCount:0,status:"Scheduled",statusClass:"warn"}
- ];
- const DEMO_TASKS={
-  site_demo_gaborone:[
-   {id:"task_demo_gbe_1",title:"Arrival & safety check",owner:"Site crew",dueDate:"",status:"done",description:"Confirm crew arrival and site readiness."},
-   {id:"task_demo_gbe_2",title:"Installation progress",owner:"Site crew",dueDate:"",status:"in progress",description:"Record work-stage note for management."},
-   {id:"task_demo_gbe_3",title:"Client handover",owner:"Site supervisor",dueDate:"",status:"open",description:"Prepare handover once field work is complete."}
-  ],
-  site_demo_palapye:[
-   {id:"task_demo_plt_1",title:"Confirm customer access",owner:"Site supervisor",dueDate:"",status:"done",description:"Check the agreed access window."},
-   {id:"task_demo_plt_2",title:"Maintenance inspection",owner:"Maintenance team",dueDate:"",status:"open",description:"Record field observations for management."}
-  ]
- };
- let selectedSiteId="";
- function text(v,max){return String(v??"").trim().slice(0,max)}
- function safeCount(v){const n=Number(v);return Number.isSafeInteger(n)&&n>=0&&n<=999?n:0}
- function validId(v,prefix){const x=String(v||"");return new RegExp("^"+prefix+"[A-Za-z0-9_-]{1,80}$").test(x)?x:""}
- function validDate(v){const x=String(v||"").trim();if(!x)return "";if(!/^\d{4}-\d{2}-\d{2}$/.test(x))return "";const d=new Date(x+"T00:00:00Z");return !Number.isNaN(d.getTime())&&d.toISOString().slice(0,10)===x?x:""}
- function normalizeSite(row){if(!row||typeof row!=="object")return null;const id=validId(row.id,"site_");const title=text(row.title,120);if(!id||!title)return null;const statusClass=["good","warn","bad"].includes(row.statusClass)?row.statusClass:"good";return {id,title,kind:text(row.kind,80)||"Customer job",location:text(row.location,120),crewCount:safeCount(row.crewCount),issueCount:safeCount(row.issueCount),status:text(row.status,40)||"Active",statusClass}}
- function normalizeTask(row){if(!row||typeof row!=="object")return null;const id=validId(row.id,"task_");const title=text(row.title,120),owner=text(row.owner,80),status=TASK_STATUSES.has(String(row.status||"").toLowerCase())?String(row.status).toLowerCase():"open";if(!id||!title)return null;return {id,title,owner,dueDate:validDate(row.dueDate),status,description:text(row.description,240)}}
- function localContext(){const role=String(typeof currentWorkspaceRole==="function"?currentWorkspaceRole():currentUser?.role||"");const tenantId=text(currentUser?.tenantId,128),companyId=text(store?.activeCompanyId||state?.id,128);if(!ALLOWED_ROLES.has(role)||!tenantId||!companyId)return null;return {role,tenantId,companyId}}
- async function verifiedContext(){const info=await productionApiClient.request("/api/auth/me");const user=info?.user||{};const role=String(user.role||"");const tenantId=text(user.tenantId,128),companyId=text(store?.activeCompanyId||state?.id,128);if(!ALLOWED_ROLES.has(role)||!tenantId||!companyId)throw new Error("Sites & field work is available only to an authenticated Owner or Manager.");currentUser={...(currentUser||{}),...user};if(info.csrfToken)csrfToken=info.csrfToken;return {role,tenantId,companyId}}
- function sitesKey(ctx){if(!ctx?.tenantId||!ctx?.companyId)throw new Error("tenant context required");return SITE_PREFIX+encodeURIComponent(ctx.tenantId)+":"+encodeURIComponent(ctx.companyId)}
- function tasksKey(ctx,siteId){const id=validId(siteId,"site_");if(!ctx?.tenantId||!ctx?.companyId||!id)throw new Error("canonical site context required");return TASK_PREFIX+encodeURIComponent(ctx.tenantId)+":"+encodeURIComponent(ctx.companyId)+":"+id}
- function readJson(key){try{const raw=sessionStorage.getItem(key);return raw?JSON.parse(raw):null}catch{return null}}
- function writeJson(key,value){sessionStorage.setItem(key,JSON.stringify(value))}
- function readSites(ctx,{seed=true}={}){if(!ctx)return [];const key=sitesKey(ctx),raw=readJson(key);let rows=Array.isArray(raw)?raw.map(normalizeSite).filter(Boolean):[];if(!rows.length&&seed){rows=DEMO_SITES.map(x=>normalizeSite(x));writeJson(key,rows)}return rows}
- function writeSites(ctx,rows){const clean=Array.isArray(rows)?rows.map(normalizeSite).filter(Boolean).slice(0,40):[];writeJson(sitesKey(ctx),clean);return clean}
- function resolveSite(ctx,siteId){const matches=readSites(ctx).filter(x=>x.id===siteId);return matches.length===1?matches[0]:null}
- function readTasks(ctx,siteId,{seed=true}={}){const site=resolveSite(ctx,siteId);if(!site)return [];const key=tasksKey(ctx,site.id),raw=readJson(key);let rows=Array.isArray(raw)?raw.map(normalizeTask).filter(Boolean).slice(0,MAX_TASKS):[];if(!rows.length&&seed){rows=(DEMO_TASKS[site.id]||[]).map(normalizeTask).filter(Boolean);writeJson(key,rows)}return rows}
- function writeTasks(ctx,siteId,rows){const site=resolveSite(ctx,siteId);if(!site)throw new Error("Canonical site could not be resolved.");const clean=Array.isArray(rows)?rows.map(normalizeTask).filter(Boolean).slice(0,MAX_TASKS):[];writeJson(tasksKey(ctx,site.id),clean);return clean}
- function statusLabel(status){return status==="done"?"Done":status==="in progress"?"In progress":"Open"}
- function setLocked(message){const list=q("#siteDemoList"),tasks=q("#siteDemoTasks"),create=q("#siteTaskCreate"),st=q("#siteDemoStatus");if(list)list.replaceChildren();if(tasks){const note=document.createElement("div");note.className="muted small";note.textContent=message;tasks.replaceChildren(note)}if(create)create.style.display="none";if(st){st.textContent="Locked";st.className="proof-state"}const sub=q("#siteDemoSubtitle");if(sub)sub.textContent=message;for(const id of ["sitesActiveCount","sitesCrewCount","sitesIssueCount","sitesTaskCount"]){const el=q("#"+id);if(el)el.textContent="—"}}
- function makeSiteButton(site,taskCount){const btn=document.createElement("button");btn.type="button";btn.className="site-demo-card"+(site.id===selectedSiteId?" active":"");btn.dataset.siteId=site.id;btn.style.width="100%";btn.style.textAlign="left";const top=document.createElement("div");top.className="between row";const name=document.createElement("b");name.textContent=site.title+" · "+site.kind;const badge=document.createElement("span");badge.className="proof-state "+site.statusClass;badge.textContent=site.status;top.append(name,badge);const sub=document.createElement("div");sub.className="muted small";sub.style.marginTop="5px";sub.textContent=(site.location||"Field site")+" · Phase 0 session";const meta=document.createElement("div");meta.className="site-demo-meta";for(const value of [site.crewCount+" crew",taskCount+" tasks",site.issueCount+" issues"]){const x=document.createElement("span");x.textContent=value;meta.appendChild(x)}btn.append(top,sub,meta);return btn}
- function renderTask(task){const row=document.createElement("div");row.className="site-demo-task";const copy=document.createElement("div"),title=document.createElement("b"),desc=document.createElement("div"),meta=document.createElement("div"),btn=document.createElement("button");title.textContent=task.title;desc.className="muted small";desc.textContent=task.description||"Site coordination task.";meta.className="muted small";meta.textContent=[task.owner||"Unassigned",task.dueDate?"Due "+task.dueDate:"No due date"].join(" · ");copy.append(title,desc,meta);btn.type="button";btn.className="btn alt small siteTaskToggle";btn.dataset.taskId=task.id;btn.textContent=statusLabel(task.status);row.append(copy,btn);return row}
- function renderCurrent(ctx=localContext()){if(!ctx){setLocked("Authenticated Owner or Manager tenant context required.");return false}let sites=readSites(ctx);if(!sites.length){setLocked("No valid site records are available in this session.");return false}if(!resolveSite(ctx,selectedSiteId))selectedSiteId=sites[0].id;const list=q("#siteDemoList");if(list){const buttons=sites.map(site=>makeSiteButton(site,readTasks(ctx,site.id).length));list.replaceChildren(...buttons)}const selected=resolveSite(ctx,selectedSiteId);if(!selected){setLocked("Selected site could not be resolved uniquely.");return false}const tasks=readTasks(ctx,selected.id);q("#siteDemoTitle").textContent=selected.title;q("#siteDemoSubtitle").textContent=(selected.location||"Field site")+" · "+selected.crewCount+" crew · "+selected.issueCount+" open issue"+(selected.issueCount===1?"":"s");const status=q("#siteDemoStatus");status.textContent=selected.status;status.className="proof-state "+selected.statusClass;const wrap=q("#siteDemoTasks");wrap.replaceChildren(...(tasks.length?tasks.map(renderTask):[Object.assign(document.createElement("div"),{className:"muted small",textContent:"No site tasks recorded in this session."})]));const create=q("#siteTaskCreate");if(create)create.style.display="";q("#sitesActiveCount").textContent=String(sites.filter(x=>!/completed/i.test(x.status)).length);q("#sitesCrewCount").textContent=String(sites.reduce((n,x)=>n+x.crewCount,0));q("#sitesIssueCount").textContent=String(sites.reduce((n,x)=>n+x.issueCount,0));q("#sitesTaskCount").textContent=String(sites.reduce((n,x)=>n+readTasks(ctx,x.id).filter(t=>t.status!=="done").length,0));const note=q("#siteTaskSecurityNote");if(note)note.textContent="Owner/Manager session verified locally; every mutation rechecks /api/auth/me before writing tenant-scoped sessionStorage.";return true}
- async function renderVerified(){try{const ctx=await verifiedContext();return renderCurrent(ctx)}catch(err){setLocked(err?.message||"Authenticated Owner or Manager tenant context required.");return false}}
- async function mutate(label,fn){try{const ctx=await verifiedContext();await fn(ctx);renderCurrent(ctx);const sr=q("#srStatus");if(sr)sr.textContent=label}catch(err){const msg=err?.message||"Sites action blocked.";const sr=q("#srStatus");if(sr)sr.textContent=msg;setLocked(msg);BW.notifications.notify(msg,{type:"warning"})}}
- async function toggleTask(taskId){await mutate("Site task updated in this browser session.",async ctx=>{const site=resolveSite(ctx,selectedSiteId);if(!site)throw new Error("Canonical site could not be resolved uniquely.");const rows=readTasks(ctx,site.id),idx=rows.findIndex(x=>x.id===taskId);if(idx<0)throw new Error("Task could not be resolved for this site.");rows[idx]={...rows[idx],status:rows[idx].status==="done"?"open":"done"};writeTasks(ctx,site.id,rows)})}
- async function addTask(){const title=text(q("#siteTaskTitle")?.value,120),owner=text(q("#siteTaskOwner")?.value,80),dueDate=validDate(q("#siteTaskDue")?.value),status=String(q("#siteTaskStatus")?.value||"open").toLowerCase();if(!title){BW.notifications.notify("Enter a task title.",{type:"warning"});q("#siteTaskTitle")?.focus();return}await mutate("Site task added to this browser session.",async ctx=>{const site=resolveSite(ctx,selectedSiteId);if(!site)throw new Error("Canonical site could not be resolved uniquely.");const rows=readTasks(ctx,site.id);if(rows.length>=MAX_TASKS)throw new Error("This demo site has reached the 200-task session limit.");const id="task_"+(globalThis.crypto?.randomUUID?.()||Date.now().toString(36)).replace(/[^A-Za-z0-9_-]/g,"");const row=normalizeTask({id,title,owner,dueDate,status,description:"Session-only site work package."});if(!row)throw new Error("Task details are invalid.");writeTasks(ctx,site.id,[...rows,row]);q("#siteTaskTitle").value="";q("#siteTaskOwner").value="";q("#siteTaskDue").value="";q("#siteTaskStatus").value="open"})}
- async function createSite(){const name=await BW.dialog.prompt({title:"Create demo site / job",message:"Phase 0 stores this site only in the authenticated browser session.",placeholder:"Site or customer job name",required:true,maxLength:120,confirmLabel:"Continue"});if(name===null)return;const location=await BW.dialog.prompt({title:"Site location",placeholder:"Town or area",maxLength:120,confirmLabel:"Create demo site"});if(location===null)return;await mutate("Demo site created in this browser session.",async ctx=>{const rows=readSites(ctx);const id="site_"+(globalThis.crypto?.randomUUID?.()||Date.now().toString(36)).replace(/[^A-Za-z0-9_-]/g,"");const site=normalizeSite({id,title:name,kind:"Customer job",location,crewCount:0,issueCount:0,status:"Active",statusClass:"good"});if(!site)throw new Error("Site details are invalid.");writeSites(ctx,[...rows,site]);selectedSiteId=site.id;writeTasks(ctx,site.id,[])})}
- async function resetDemo(){const ok=await BW.dialog.confirm({title:"Reset Sites demo?",message:"This clears only tenant-scoped Sites Phase 0 session data in this browser. It does not change authoritative business records.",confirmLabel:"Reset demo",danger:true});if(!ok)return;await mutate("Sites demo reset for this browser session.",async ctx=>{for(const site of readSites(ctx,{seed:false}))try{sessionStorage.removeItem(tasksKey(ctx,site.id))}catch{}sessionStorage.removeItem(sitesKey(ctx));selectedSiteId="";readSites(ctx)})}
- document.addEventListener("click",e=>{const site=e.target.closest?.("[data-site-id]");if(site){selectedSiteId=site.dataset.siteId||"";void renderVerified();return}const task=e.target.closest?.(".siteTaskToggle[data-task-id]");if(task){void toggleTask(task.dataset.taskId);return}if(e.target.closest?.("#siteTaskAddBtn")){void addTask();return}if(e.target.closest?.("#sitesResetDemo")){void resetDemo();return}if(e.target.closest?.("#sitesAddDemo")){void createSite();return}});
- const priorShowView=window.showView;if(typeof priorShowView==="function")window.showView=function(id){const out=priorShowView.apply(this,arguments);if(out&&id==="sites")queueMicrotask(()=>void renderVerified());return out};
- window.__renderV81SitesRecovery=renderVerified;window.whenThebeWorkspaceReady(()=>setTimeout(()=>{if(document.getElementById("sites")?.classList.contains("active"))void renderVerified()},500));
+ const q=(s,r=document)=>r.querySelector(s),ALLOWED_ROLES=new Set(["owner","manager"]);
+ let selectedSiteId="",siteRows=[],siteContext=null;
+
+ function text(v,max=160){return String(v??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max)}
+ function isActive(site){return Number(site?.active)===1}
+ function siteById(id){return siteRows.find(site=>String(site.id)===String(id))||null}
+ function setText(id,value){const el=q("#"+id);if(el)el.textContent=String(value??"—")}
+ function clear(node){if(node)node.replaceChildren()}
+ function note(message,kind="muted small"){const el=document.createElement("div");el.className=kind;el.textContent=message;return el}
+ function actionButton(label,id,secondary=false){const btn=document.createElement("button");btn.type="button";btn.id=id;btn.className=secondary?"btn alt":"btn";btn.textContent=label;return btn}
+
+ async function verifiedContext(){
+   const info=await productionApiClient.request("/api/auth/me"),user=info?.user||{};
+   const role=String(user.role||"").toLowerCase(),tenantId=text(user.tenantId,128);
+   if(!ALLOWED_ROLES.has(role)||!tenantId)throw new Error("Sites & field work is available only to an authenticated Owner or Manager.");
+   currentUser={...(currentUser||{}),...user};if(info.csrfToken)csrfToken=info.csrfToken;
+   siteContext={role,tenantId};return siteContext;
+ }
+
+ function setLocked(message){
+   clear(q("#siteAuthoritativeList"));const activity=q("#siteAuthoritativeActivity");clear(activity);activity?.append(note(message));
+   const actions=q("#siteAuthoritativeActions");if(actions)actions.style.display="none";
+   const status=q("#siteAuthoritativeStatus");if(status){status.textContent="Locked";status.className="proof-state"}
+   setText("siteAuthoritativeSubtitle",message);
+   for(const id of ["sitesActiveCount","sitesCrewCount","sitesIssueCount","sitesTaskCount"])setText(id,"—");
+ }
+
+ function siteButton(site){
+   const btn=document.createElement("button");btn.type="button";btn.className="site-demo-card"+(String(site.id)===String(selectedSiteId)?" active":"");btn.dataset.siteId=String(site.id);btn.style.width="100%";btn.style.textAlign="left";
+   const top=document.createElement("div");top.className="between row";const name=document.createElement("b");name.textContent=site.name||"Unnamed site";const badge=document.createElement("span");badge.className="proof-state "+(isActive(site)?"good":"");badge.textContent=isActive(site)?"Active":"Removed";top.append(name,badge);
+   const sub=document.createElement("div");sub.className="muted small";sub.style.marginTop="5px";sub.textContent=[site.code||"No code",site.town||"No town",isActive(site)?"Server-backed":"Historical record"].join(" · ");
+   btn.append(top,sub);return btn;
+ }
+
+ function renderSites(){
+   const list=q("#siteAuthoritativeList");clear(list);
+   if(!siteRows.length){list?.append(note("No sites or operating locations are configured yet. Create the first site / job to begin."));return}
+   const rows=[...siteRows].sort((a,b)=>Number(isActive(b))-Number(isActive(a))||String(a.name||"").localeCompare(String(b.name||"")));
+   list?.append(...rows.map(siteButton));
+ }
+
+ function renderActivity(site,dashboard){
+   const box=q("#siteAuthoritativeActivity");clear(box);
+   if(!site){box?.append(note("Select a site."));return}
+   if(!isActive(site)){box?.append(note("This site is removed from active use. Historical records are retained. Reactivate it to resume reporting.","notice warn"));return}
+   const population=dashboard?.reportingPopulation||{},totals=dashboard?.totals||{},reports=Array.isArray(dashboard?.reports)?dashboard.reports:[],missing=Array.isArray(dashboard?.missing)?dashboard.missing:[];
+   const grid=document.createElement("div");grid.className="grid g2";
+   const metrics=[
+     ["Reporting coverage",String(Number(dashboard?.coverage||0))+"%"],
+     ["Expected reporters",String(Number(population.expected||0))],
+     ["Reports received",String(Number(population.expectedSubmitted??reports.length??0))],
+     ["Missing reports",String(missing.length)],
+     ["Attention flags",String(Number(totals.attention||0))],
+     ["Incidents",String(Number(totals.incidents||0))]
+   ];
+   for(const [label,value] of metrics){const card=document.createElement("div");card.className="item";const b=document.createElement("b");b.textContent=value;const small=document.createElement("div");small.className="muted small";small.textContent=label;card.append(b,small);grid.append(card)}
+   box?.append(grid);
+   const heading=document.createElement("h3");heading.style.margin="16px 0 8px";heading.textContent="Today’s field reports";box?.append(heading);
+   if(!reports.length){box?.append(note("No reports have been submitted for this site today."));return}
+   for(const report of reports.slice(0,12)){const row=document.createElement("div");row.className="item";const b=document.createElement("b");b.textContent=report.full_name||"Reporter";const meta=document.createElement("div");meta.className="muted small";meta.textContent=[report.role_title||"Team member",report.submitted_at?"Submitted "+new Date(report.submitted_at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}):"Submitted"].join(" · ");const summary=document.createElement("div");summary.className="small";summary.style.marginTop="5px";summary.textContent=text(report.work_summary||report.next_plan||"Report submitted.",220);row.append(b,meta,summary);box?.append(row)}
+ }
+
+ async function loadSelectedActivity(){
+   const site=siteById(selectedSiteId);
+   if(!site){setText("siteAuthoritativeTitle","Select a site");setText("siteAuthoritativeSubtitle","Choose a site from the list.");return}
+   setText("siteAuthoritativeTitle",site.name||"Site");
+   setText("siteAuthoritativeSubtitle",[site.code||"No code",site.town||"No town"].join(" · "));
+   const status=q("#siteAuthoritativeStatus");if(status){status.textContent=isActive(site)?"Active":"Removed";status.className="proof-state "+(isActive(site)?"good":"")}
+   const actions=q("#siteAuthoritativeActions");if(actions)actions.style.display="";
+   const toggle=q("#siteAuthoritativeToggle");if(toggle)toggle.textContent=isActive(site)?"Remove site":"Reactivate site";
+   if(!isActive(site)){setText("sitesCrewCount",0);setText("sitesIssueCount",0);setText("sitesTaskCount",0);renderActivity(site,null);return}
+   const date=browserGaboroneDate();
+   const dashboard=await reportingAnalyticsJson("/api/daily-reporting/dashboard?date="+encodeURIComponent(date)+"&locationId="+encodeURIComponent(site.id));
+   const population=dashboard?.reportingPopulation||{},totals=dashboard?.totals||{};
+   setText("sitesCrewCount",population.expected||0);setText("sitesIssueCount",totals.attention||0);setText("sitesTaskCount",population.expectedSubmitted??dashboard?.reports?.length??0);
+   renderActivity(site,dashboard);
+ }
+
+ async function loadSites(){
+   try{
+     await verifiedContext();
+     const data=await apiJson("/api/daily-reporting/locations");
+     siteRows=Array.isArray(data?.items)?data.items:[];
+     setText("sitesActiveCount",siteRows.filter(isActive).length);
+     if(!siteById(selectedSiteId)||!isActive(siteById(selectedSiteId))){selectedSiteId=String(siteRows.find(isActive)?.id||siteRows[0]?.id||"")}
+     renderSites();
+     if(selectedSiteId)await loadSelectedActivity();else{setText("sitesCrewCount",0);setText("sitesIssueCount",0);setText("sitesTaskCount",0);const box=q("#siteAuthoritativeActivity");clear(box);box?.append(note("Create a site / job to begin."))}
+     return true;
+   }catch(error){setLocked(error?.message||"Sites could not load.");return false}
+ }
+
+ async function createSite(){
+   const name=await BW.dialog.prompt({title:"Create site / job",message:"This creates an authoritative operating-location record for the current workspace.",placeholder:"Customer site or job name",required:true,minLength:2,maxLength:90,confirmLabel:"Next"});if(name===null)return;
+   const code=await BW.dialog.prompt({title:"Site code",message:"Optional short code for reporting and filters.",placeholder:"e.g. GBE-01",maxLength:16,confirmLabel:"Next"});if(code===null)return;
+   const town=await BW.dialog.prompt({title:"Town / area",placeholder:"e.g. Gaborone",maxLength:80,confirmLabel:"Create site"});if(town===null)return;
+   try{const saved=await apiJson("/api/daily-reporting/locations",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({name,code,town})});selectedSiteId=String(saved?.id||"");await loadSites();notifyUser(saved?.reusedDefault?"Site saved. The initial Head Office placeholder was replaced.":"Site created.",{type:"success"})}catch(error){notifyUser(error.message)}
+ }
+
+ async function editSelected(){
+   const site=siteById(selectedSiteId);if(!site)return;
+   const name=await BW.dialog.prompt({title:"Edit site name",defaultValue:String(site.name||""),required:true,minLength:2,maxLength:90,confirmLabel:"Next"});if(name===null)return;
+   const code=await BW.dialog.prompt({title:"Edit site code",defaultValue:String(site.code||""),maxLength:16,confirmLabel:"Next"});if(code===null)return;
+   const town=await BW.dialog.prompt({title:"Edit town / area",defaultValue:String(site.town||""),maxLength:80,confirmLabel:"Save site"});if(town===null)return;
+   try{await apiJson("/api/daily-reporting/locations/"+encodeURIComponent(site.id),{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify({name,code,town})});await loadSites();notifyUser("Site updated.",{type:"success"})}catch(error){notifyUser(error.message)}
+ }
+
+ async function toggleSelected(){
+   const site=siteById(selectedSiteId);if(!site)return;
+   if(isActive(site)){const ok=await BW.dialog.confirm({title:"Remove site?",message:"Remove "+(site.name||"this site")+" from active use? Historical reports stay intact and reporting links for this site are revoked.",confirmLabel:"Remove site",danger:true});if(!ok)return}
+   const action=isActive(site)?"deactivate":"reactivate";
+   try{await apiJson("/api/daily-reporting/locations/"+encodeURIComponent(site.id)+"/"+action,{method:"POST",body:"{}"});await loadSites();notifyUser(action==="deactivate"?"Site removed from active use. Historical reporting records were retained.":"Site reactivated.",{type:"success"})}catch(error){notifyUser(error.message)}
+ }
+
+ document.addEventListener("click",event=>{
+   const site=event.target.closest?.("[data-site-id]");if(site){selectedSiteId=String(site.dataset.siteId||"");renderSites();void loadSelectedActivity();return}
+   if(event.target.closest?.("#sitesRefreshAuthoritative")){void loadSites();return}
+   if(event.target.closest?.("#sitesAddAuthoritative")){void createSite();return}
+   if(event.target.closest?.("#siteAuthoritativeEdit")){void editSelected();return}
+   if(event.target.closest?.("#siteAuthoritativeToggle")){void toggleSelected();return}
+   if(event.target.closest?.("#siteAuthoritativeOpenOps")){if(typeof showView==="function")showView("dailyreports");return}
+ });
+ const priorShowView=window.showView;if(typeof priorShowView==="function")window.showView=function(id){const out=priorShowView.apply(this,arguments);if(out&&id==="sites")queueMicrotask(()=>void loadSites());return out};
+ window.__renderAuthoritativeSites=loadSites;window.whenThebeWorkspaceReady(()=>setTimeout(()=>{if(document.getElementById("sites")?.classList.contains("active"))void loadSites()},500));
 })();
 </script>
 
