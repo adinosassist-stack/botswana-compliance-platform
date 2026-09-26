@@ -733,7 +733,7 @@
   "control_replacement_no_people_scoring": true,
   "control_replacement_no_second_notification_stream": true,
   "control_replacement_fail_closed": true,
-  "latest_cloudflare_migration": "058_v161_finance_suppliers_payables.sql",
+  "latest_cloudflare_migration": "059_v168_jobs_linking.sql",
   "agentic_foundation_v80": true,
   "agentic_execution_enabled": false,
   "agentic_human_approval_required": true,
@@ -1265,5 +1265,13 @@
   ],
   "spend_what_if_channel_parity": true,
   "spend_what_if_non_spend_currency_questions_ignored": true,
-  "spend_what_if_ambiguous_multiple_amounts_fail_closed": true
+  "spend_what_if_ambiguous_multiple_amounts_fail_closed": true,
+  "jobs_linking_v168": true,
+  "jobs_public_application_links": true,
+  "jobs_public_links_hashed_at_rest": true,
+  "jobs_applicant_account_required": false,
+  "jobs_ai_candidate_scoring": false,
+  "jobs_automatic_hiring": false,
+  "jobs_hired_status_grants_employee_access": false,
+  "jobs_resume_uploads_enabled": false
 }
