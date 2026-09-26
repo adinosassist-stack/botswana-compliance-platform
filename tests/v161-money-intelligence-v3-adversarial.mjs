@@ -113,7 +113,8 @@ assert.match(moneySource,/receivablesAssumedCollected:false/);
 assert.match(moneySource,/predictiveProbability:false/);
 assert.match(moneySource,/accountingPosting:false/);
 assert.match(moneySource,/supplierPayments:false/);
-assert.match(moneySource,/Recorded overdue supplier payables plus payables due within 14 days/);
+assert.match(moneySource,/cashCommitmentStress/);
+assert.match(moneySource,/payable_cover_shortfall_14d/);
 assert.doesNotMatch(moneySource,/executionAllowed:true/);
 
 const owner=fs.readFileSync("public/js/owner-command-centre.js","utf8");

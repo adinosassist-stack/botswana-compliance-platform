@@ -1217,5 +1217,18 @@
   "v161_cash_horizons_include_overdue": true,
   "v161_supplier_alias_match_deduplicated_per_transaction": true,
   "v161_supplier_identity_collision_guards": true,
-  "v161_execution_authority_expanded": false
+  "v161_execution_authority_expanded": false,
+  "money_intelligence_v4": true,
+  "money_intelligence_supplier_cost_watch": true,
+  "money_intelligence_supplier_spend_comparison_windows_days": [
+    30,
+    30
+  ],
+  "money_intelligence_supplier_match_authority": "owner_confirmed_alias_exact_match",
+  "money_intelligence_unit_price_inflation_claimed": false,
+  "money_intelligence_payable_cover_horizon_days": 14,
+  "money_intelligence_payable_cover_excludes_other_future_outflows": true,
+  "money_intelligence_payable_cover_assumes_receivables_collected": false,
+  "money_intelligence_supplier_payable_concentration": true,
+  "v164_execution_authority_expanded": false
 }

@@ -5,7 +5,7 @@ import {listBusinessMemory} from "./business-memory.js";
 import {buildMoneyIntelligence} from "./money-intelligence.js";
 import {languagePreferenceFromMemory,deterministicLanguagePolicy,deterministicLanguageNotice} from "./thebe-language.js";
 
-export const BUSINESS_CONTEXT_VERSION="2026-09-26.v161";
+export const BUSINESS_CONTEXT_VERSION="2026-09-26.v164";
 
 const PROFILE_KEYS=Object.freeze({
   monthlyRevenueTargetBwp:"decisionMonthlyRevenueTargetBwp",
@@ -238,7 +238,11 @@ function setswanaPriority(item,metrics={}){
     cash_flow_margin_pressure:{title:"Sekaseka cash-flow margin pressure",detail:"30-day cash-flow margin proxy e ka fa tlase ga zero. Seno ga se accounting gross margin kgotsa profit."},
     payables_cash_pressure_14d:{title:"Sekaseka cash pressure ya suppliers",detail:"Recorded supplier payables tse di due mo malatsing a 14 di feta recorded cash position."},
     collection_attention:{title:"Sekaseka customer collection attention",detail:"Customer o na le overdue receivables le historical on-time payment behavior e e tlhokang tlhokomelo. Seno ga se payment probability."},
-    expense_category_concentration:{title:"Sekaseka expense-category concentration",detail:"Category e le nngwe e tsaya karolo e kgolo ya matched outflows ka owner-confirmed supplier aliases. Seno ga se accounting posting."}
+    expense_category_concentration:{title:"Sekaseka expense-category concentration",detail:"Category e le nngwe e tsaya karolo e kgolo ya matched outflows ka owner-confirmed supplier aliases. Seno ga se accounting posting."},
+    supplier_outflow_acceleration:{title:"Sekaseka supplier cash-outflow change",detail:"Matched cash outflow ya supplier e oketsegile kgatlhanong le malatsi a 30 a pele. Seno se ka bakiwa ke volume, timing kgotsa price; ga se unit-price inflation claim."},
+    supplier_payable_concentration:{title:"Sekaseka supplier payable concentration",detail:"Supplier a le mongwe o emela karolo e kgolo ya outstanding recorded supplier payables."},
+    payable_cover_shortfall_14d:{title:"Sekaseka 14-day payable cover shortfall",detail:"Recorded cash ga e lekane recorded overdue le next-14-day supplier payables. Seno ga se full liquidity forecast."},
+    payable_cover_tight_14d:{title:"Sekaseka 14-day payable cover",detail:"Recorded cash e kwa gaufi le recorded overdue le next-14-day supplier payables. Seno ga se full liquidity forecast."}
   };
   return map[item?.key]||{title:item?.title,detail:item?.detail};
 }
@@ -320,6 +324,10 @@ export function deriveBusinessPriorities(context){
     else if(signal?.key==="payables_cash_pressure_14d")out.push(priority("payables_cash_pressure_14d","high","Review 14-day supplier cash pressure",clean(signal.detail,300),["finance_payables","finance_payable_allocations","finance_accounts"],null));
     else if(signal?.key==="collection_attention")out.push(priority("collection_attention","medium","Review customer collection attention",clean(signal.detail,300),["finance_invoices","finance_invoice_allocations"],null));
     else if(signal?.key==="expense_category_concentration")out.push(priority("expense_category_concentration","medium","Review expense-category concentration",clean(signal.detail,300),["finance_transactions","finance_supplier_aliases","finance_suppliers"],null));
+    else if(signal?.key==="supplier_outflow_acceleration")out.push(priority("supplier_outflow_acceleration","medium","Review supplier cash-outflow change",clean(signal.detail,300),["finance_transactions","finance_supplier_aliases","finance_suppliers"],null));
+    else if(signal?.key==="supplier_payable_concentration")out.push(priority("supplier_payable_concentration","medium","Review supplier payable concentration",clean(signal.detail,300),["finance_suppliers","finance_payables","finance_payable_allocations"],null));
+    else if(signal?.key==="payable_cover_shortfall_14d")out.push(priority("payable_cover_shortfall_14d","high","Review 14-day payable cover shortfall",clean(signal.detail,300),["finance_accounts","finance_payables","finance_payable_allocations"],null));
+    else if(signal?.key==="payable_cover_tight_14d")out.push(priority("payable_cover_tight_14d","medium","Review 14-day payable cover",clean(signal.detail,300),["finance_accounts","finance_payables","finance_payable_allocations"],null));
   }
   if(recon.stale===true)out.push(priority(
     "stale_reconciliation","medium","Refresh finance reconciliation",
@@ -375,7 +383,11 @@ export function buildDailyBusinessBrief(context){
     forward30CommittedOutflowMinor:Number(money?.cashCalendar?.next30?.committedOutflowMinor||0),
     forward14PotentialReceivableMinor:Number(money?.cashCalendar?.next14?.potentialReceivableMinor||0),
     collectionHigherAttentionCount:(money?.collectionBehaviors||[]).filter(item=>item?.attention==="higher_attention").length,
-    learnedExpenseCategoryCount:Number(money?.expenseLearning?.categories?.length||0)
+    learnedExpenseCategoryCount:Number(money?.expenseLearning?.categories?.length||0),
+    supplierSpendIncreaseCount:(money?.supplierSpendTrends||[]).filter(item=>item?.attention==="increase").length,
+    topSupplierPayableShare:money?.payableConcentration?.topSupplier?.shareOfOutstanding==null?null:Number(money.payableConcentration.topSupplier.shareOfOutstanding),
+    payableCoverage14dRatio:money?.commitmentStress?.coverageRatio==null?null:Number(money.commitmentStress.coverageRatio),
+    payableShortfall14dMinor:Number(money?.commitmentStress?.shortfallMinor||0)
   });
   const priorities=frozen(basePriorities.map(item=>localizeBriefPriority(item,metrics,language)));
   return frozen({
