@@ -2,6 +2,7 @@ import {BOTSWANA_FOUNDATION_PACK_V1,BOTSWANA_FOUNDATION_PACK_V1_HASH} from "./ge
 import {handleFinanceRequest,financeSummary} from "./finance-core.js";
 import {financeReceivablesSummary} from "./finance-receivables.js";
 import {processWhatsAppInboundMessages} from "./whatsapp-inbound-core.js";
+import {runDueFinanceWatchTasks} from "./finance-watch-durable-loop.js";
 const APP_SECURITY_HEADERS=Object.freeze({
   "x-content-type-options":"nosniff",
   "x-frame-options":"DENY",
@@ -8119,6 +8120,7 @@ export default {
           summary.regulatoryRetry=await retryRegulatoryRolloutFailures(env,25);
           summary.continuousAssurance=await runContinuousAssuranceSweep(env,25);
           summary.assurance=await runAssuranceSweep(env,25);
+          summary.financeWatch=await runDueFinanceWatchTasks(env,{limit:25});
           if(new Date().getUTCDay()===0)summary.industryBenchmarks=await refreshIndustryBenchmarks(env);
           summary.notifications=await processNotificationOutbox(env,100);
           const pendingDeletes=await env.DB.prepare(
