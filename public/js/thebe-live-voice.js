@@ -1,14 +1,14 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260921c";
+  const RELEASE="20260926-v159";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
   const DELEGATION_DRAIN_TIMEOUT_MS=12000;
   let pc=null,dc=null,media=null,remoteAudio=null,sessionId=null,sessionTimer=null,closeTimer=null,delegationDrainTimer=null;
   const audioMeters=[];
-  let inputTranscript="",outputTranscript="",state="idle",button=null,statusEl=null,transcriptRevision=0,maxSessionSeconds=600,lastError=null,closeRequested=false,sessionMode="workspace";
+  let inputTranscript="",outputTranscript="",state="idle",button=null,statusEl=null,languageSelect=null,transcriptRevision=0,maxSessionSeconds=600,lastError=null,closeRequested=false,sessionMode="workspace";
   const activeDelegations=new Set();
 
   let publicTransport=null;
@@ -25,6 +25,23 @@
     throw new Error("The secure Thebe API transport is not available.");
   };
   const text=(value,max=500)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
+  const workspaceRole=()=>{try{return String(global.currentWorkspaceRole?.()||global.currentUser?.role||"").toLowerCase()}catch{return ""}};
+  async function persistLanguagePreference(value){
+    if(workspaceRole()!=="owner")throw new Error("Only the workspace owner can change the saved voice language.");
+    const selected=String(value||"auto").toLowerCase();
+    if(selected==="auto"){
+      const memory=await api("/api/business-memory");
+      const item=(Array.isArray(memory?.items)?memory.items:[]).find(row=>row?.namespace==="language"&&row?.key==="primary");
+      if(item?.id)await api(`/api/business-memory/${encodeURIComponent(item.id)}`,{method:"DELETE"});
+      return {primary:null};
+    }
+    if(!["english","setswana","sekalaka"].includes(selected))throw new Error("Unsupported voice language.");
+    await api("/api/business-memory",{
+      method:"POST",
+      body:JSON.stringify({namespace:"language",key:"primary",value:selected})
+    });
+    return {primary:selected};
+  }
   const emit=(name,detail={})=>{
     try{global.dispatchEvent(new CustomEvent(name,{detail}))}catch{}
   };
@@ -453,6 +470,38 @@
     statusEl.setAttribute("aria-live","polite");
     statusEl.hidden=true;
 
+    languageSelect=document.createElement("select");
+    languageSelect.id="thebeLiveVoiceLanguage";
+    languageSelect.className="thebe-live-language";
+    languageSelect.setAttribute("aria-label","Preferred Thebe voice language");
+    languageSelect.title=workspaceRole()==="owner"?"Preferred Thebe voice language":"Voice language preference is managed by the workspace owner";
+    const languageOptions=[
+      ["auto","Auto language"],
+      ...((Array.isArray(status?.language?.supported)?status.language.supported:[]).map(item=>[item.key,item.label]))
+    ];
+    for(const [value,label] of languageOptions){
+      const option=document.createElement("option");
+      option.value=value;option.textContent=label;languageSelect.append(option);
+    }
+    languageSelect.value=status?.language?.preference?.primary||"auto";
+    languageSelect.disabled=workspaceRole()!=="owner";
+    languageSelect.addEventListener("change",async()=>{
+      const next=languageSelect.value;
+      languageSelect.disabled=true;
+      try{
+        await persistLanguagePreference(next);
+        showStatus(next==="auto"?"Thebe will mirror the language you speak.":`Voice preference saved: ${languageSelect.options[languageSelect.selectedIndex]?.textContent||next}.`,"success");
+      }catch(error){
+        showStatus(error?.message||"Could not save the voice language preference.","error");
+        try{
+          const refreshed=await api("/api/agentic/live/status");
+          languageSelect.value=refreshed?.language?.preference?.primary||"auto";
+        }catch{}
+      }finally{
+        languageSelect.disabled=workspaceRole()!=="owner";
+      }
+    });
+
     button.addEventListener("click",async()=>{
       if(state==="connected"||state==="connecting"||state==="closing"){stop();return}
       try{await start()}catch(error){
@@ -461,7 +510,7 @@
         rememberError(message,"start",{name:text(error?.name,120)||null});
       }
     });
-    host.append(button,statusEl);
+    host.append(languageSelect,button,statusEl);
   }
 
   function boot(){
@@ -481,7 +530,7 @@
     release:RELEASE,
     start,
     stop,
-    status:()=>({state,sessionId,mode:sessionMode,inputTranscript,outputTranscript,transcriptRevision,maxSessionSeconds,lastError,pendingDelegations:activeDelegations.size,closeRequested}),
+    status:()=>({state,sessionId,mode:sessionMode,inputTranscript,outputTranscript,transcriptRevision,maxSessionSeconds,lastError,pendingDelegations:activeDelegations.size,closeRequested,preferredLanguage:languageSelect?.value||"auto"}),
     diagnostics:()=>({
       release:RELEASE,
       state,
@@ -503,7 +552,7 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260921c";
+  const DOCK_RELEASE="20260926-v159";
   const STORE_KEY="thebe_ai_dock_collapsed_v4";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
