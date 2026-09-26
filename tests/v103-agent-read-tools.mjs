@@ -12,7 +12,7 @@ import {
   verifyOrchestratedProposals
 } from "../cloudflare/src/agent-orchestration.js";
 
-assert.equal(AGENT_READ_TOOLS_VERSION,"2026-09-23.read-tools-v3");
+assert.equal(AGENT_READ_TOOLS_VERSION,"2026-09-26.read-tools-v4");
 assert.deepEqual(__agentReadToolsTest.TOOL_ACTIONS,[
   "business_health.read",
   "financial_position.read",
