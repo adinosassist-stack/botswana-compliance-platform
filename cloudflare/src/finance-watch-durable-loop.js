@@ -1,10 +1,45 @@
 import {executeAgentReadTool} from "./agent-read-tools.js";
 import {runGovernedFinanceObservation} from "./governed-finance-observation-runner.js";
 
-export const FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26.v10";
+export const FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26.v11";
 const frozen=value=>Object.freeze(value);
 const clean=(value,max=160)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
 const parse=(value,fallback)=>{try{return JSON.parse(String(value??""))}catch{return fallback}};
+const auditEnc=new TextEncoder();
+function stableJsonValue(value){
+  if(value===null||typeof value!=="object")return value;
+  if(Array.isArray(value))return value.map(stableJsonValue);
+  const out={};for(const key of Object.keys(value).sort())out[key]=stableJsonValue(value[key]);return out;
+}
+const stableJson=value=>JSON.stringify(stableJsonValue(value));
+async function auditHmacHex(secret,value){
+  const key=await crypto.subtle.importKey("raw",auditEnc.encode(secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
+  const signature=await crypto.subtle.sign("HMAC",key,auditEnc.encode(value));
+  return [...new Uint8Array(signature)].map(byte=>byte.toString(16).padStart(2,"0")).join("");
+}
+async function prepareSealedAudit(env,{tenantId,eventType,entityId,eventData}){
+  const integritySecret=String(env?.AUDIT_INTEGRITY_SECRET||"");
+  if(!integritySecret)throw new Error("audit_integrity_secret_not_configured");
+  const state=await env.DB.prepare("SELECT last_hash,event_count FROM audit_chain_state WHERE tenant_id=? LIMIT 1").bind(tenantId).first();
+  const seq=Number(state?.event_count||0)+1,prevHash=state?.last_hash||"GENESIS",occurredAt=new Date().toISOString();
+  const normalized=stableJson(eventData||{});
+  const hashInput=stableJson({tenantId,seq,actorUserId:null,eventType,entityType:"agent_observation_checkpoint",entityId,eventData:JSON.parse(normalized),occurredAt,prevHash,integrityVersion:1});
+  const eventHash=await auditHmacHex(integritySecret,hashInput);
+  return frozen({stateExists:!!state,expectedCount:Number(state?.event_count||0),expectedHash:state?.last_hash||null,seq,prevHash,occurredAt,normalized,eventHash});
+}
+function auditStateGuardStatement(DB,tenantId,audit){
+  return audit.stateExists
+    ?DB.prepare("SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM audit_chain_state WHERE tenant_id=? AND event_count=? AND last_hash=?) THEN json_extract('invalid','$.') ELSE 1 END").bind(tenantId,audit.expectedCount,audit.expectedHash)
+    :DB.prepare("SELECT CASE WHEN EXISTS (SELECT 1 FROM audit_chain_state WHERE tenant_id=?) THEN json_extract('invalid','$.') ELSE 1 END").bind(tenantId);
+}
+function auditInsertStatement(DB,{tenantId,eventType,entityId,audit}){
+  return DB.prepare("INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data,occurred_at,tenant_seq,prev_hash,event_hash,integrity_version,write_source) VALUES(?,NULL,?,'agent_observation_checkpoint',?,?,?,?,?,?,?,1,'finance_watch')")
+    .bind(tenantId,eventType,entityId,audit.normalized,audit.occurredAt,audit.seq,audit.prevHash,audit.eventHash);
+}
+function auditStateUpdateStatement(DB,tenantId,audit){
+  return DB.prepare("INSERT INTO audit_chain_state(tenant_id,last_event_id,last_hash,event_count,updated_at) VALUES(?,NULL,?,?,CURRENT_TIMESTAMP) ON CONFLICT(tenant_id) DO UPDATE SET last_event_id=NULL,last_hash=excluded.last_hash,event_count=excluded.event_count,updated_at=CURRENT_TIMESTAMP")
+    .bind(tenantId,audit.eventHash,audit.seq);
+}
 function nextRunAt(task,scheduledFor,{now=new Date()}={}){
   const spec=parse(task.trigger_spec_json,task.triggerSpec??{}),cadence=String(spec.cadence||"daily").toLowerCase();
   const ms={daily:86400000,weekly:604800000}[cadence];
@@ -50,18 +85,20 @@ export async function runFinanceWatchTask({env,task,attempt=0,claim=null}={}){
 
   const checkpointId=crypto.randomUUID();
   const eventId=crypto.randomUUID();
-  const auditId=crypto.randomUUID();
   const schedule=claim?.id&&claim?.scheduledFor?nextRunAt(task,claim.scheduledFor):null;
   if(claim?.id&&claim?.scheduledFor&&!schedule)return frozen({...governed,persisted:false,code:"invalid_observation_cadence",executionAllowed:false});
   const next=schedule?.nextRunAt||null,skippedOccurrences=schedule?.skippedOccurrences||0;
   const observationMeta={scheduledFor:claim?.scheduledFor||null,nextRunAt:next,skippedOccurrences,cadence:schedule?.cadence||null};
+  const auditData={persistentTaskId:taskId,snapshotHash:governed.change.currentHash,changed:governed.change.changed,externalActions:0,...observationMeta};
+  const sealedAudit=await prepareSealedAudit(env,{tenantId,eventType:"AGENT_FINANCE_OBSERVATION_VERIFIED",entityId:checkpointId,eventData:auditData});
   const statements=[
     env.DB.prepare("INSERT INTO agent_observation_checkpoints(id,tenant_id,persistent_task_id,snapshot_hash,snapshot_json,exception_json,scheduled_for) VALUES(?,?,?,?,?,?,?)")
       .bind(checkpointId,tenantId,taskId,governed.change.currentHash,JSON.stringify(financeSnapshot),JSON.stringify(governed.exceptions),claim?.scheduledFor||null),
     env.DB.prepare("INSERT INTO agent_persistent_task_events(id,tenant_id,persistent_task_id,event_type,event_data) VALUES(?,?,?,'OBSERVATION_VERIFIED',?)")
       .bind(eventId,tenantId,taskId,JSON.stringify({checkpointId,snapshotHash:governed.change.currentHash,changed:governed.change.changed,exceptionCount:governed.exceptions.length,...observationMeta})),
-    env.DB.prepare("INSERT INTO audit_events(id,tenant_id,event_type,entity_type,entity_id,event_data) VALUES(?,?,'AGENT_FINANCE_OBSERVATION_VERIFIED','agent_observation_checkpoint',?,?)")
-      .bind(auditId,tenantId,checkpointId,JSON.stringify({persistentTaskId:taskId,snapshotHash:governed.change.currentHash,changed:governed.change.changed,externalActions:0,...observationMeta}))
+    auditStateGuardStatement(env.DB,tenantId,sealedAudit),
+    auditInsertStatement(env.DB,{tenantId,eventType:"AGENT_FINANCE_OBSERVATION_VERIFIED",entityId:checkpointId,audit:sealedAudit}),
+    auditStateUpdateStatement(env.DB,tenantId,sealedAudit)
   ];
   if(claim?.id&&claim?.scheduledFor){
     statements.push(
@@ -75,8 +112,8 @@ export async function runFinanceWatchTask({env,task,attempt=0,claim=null}={}){
   }
   const batchResults=await env.DB.batch(statements);
   if(claim?.id&&claim?.scheduledFor){
-    const claimChanges=Number(batchResults?.[4]?.meta?.changes??batchResults?.[4]?.changes??0);
-    const taskChanges=Number(batchResults?.[5]?.meta?.changes??batchResults?.[5]?.changes??0);
+    const claimChanges=Number(batchResults?.[6]?.meta?.changes??batchResults?.[6]?.changes??0);
+    const taskChanges=Number(batchResults?.[7]?.meta?.changes??batchResults?.[7]?.changes??0);
     if(claimChanges!==1||taskChanges!==1)throw new Error("observation_finalization_guard_failed");
   }
   return frozen({...governed,persisted:true,checkpointId,finalized:!!claim?.id,nextRunAt:next,skippedOccurrences});
@@ -111,14 +148,17 @@ async function recoverVerifiedOccurrence(env,task,claim){
   if(!checkpoint)return null;
   const schedule=nextRunAt(task,claim.scheduledFor),next=schedule?.nextRunAt||null;
   if(!next)return frozen({ok:false,persisted:false,code:"invalid_observation_cadence",executionAllowed:false});
-  const recoveryAuditId=crypto.randomUUID(),recoveryMeta={persistentTaskId:task.id,scheduledFor:claim.scheduledFor,nextRunAt:next,skippedOccurrences:schedule?.skippedOccurrences||0,cadence:schedule?.cadence||null,claimId:claim.id,checkpointId:checkpoint.id,externalActions:0};
+  const recoveryMeta={persistentTaskId:task.id,scheduledFor:claim.scheduledFor,nextRunAt:next,skippedOccurrences:schedule?.skippedOccurrences||0,cadence:schedule?.cadence||null,claimId:claim.id,checkpointId:checkpoint.id,externalActions:0};
+  const sealedAudit=await prepareSealedAudit(env,{tenantId:task.tenant_id,eventType:"AGENT_FINANCE_OBSERVATION_RECOVERED",entityId:checkpoint.id,eventData:recoveryMeta});
   const results=await env.DB.batch([
     env.DB.prepare("SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM agent_observation_claims WHERE id=? AND tenant_id=? AND persistent_task_id=? AND scheduled_for=? AND status='running') OR NOT EXISTS (SELECT 1 FROM agent_persistent_tasks WHERE id=? AND tenant_id=? AND status='active' AND next_run_at=?) THEN json_extract('invalid','$.') ELSE 1 END").bind(claim.id,task.tenant_id,task.id,claim.scheduledFor,task.id,task.tenant_id,claim.scheduledFor),
+    auditStateGuardStatement(env.DB,task.tenant_id,sealedAudit),
     env.DB.prepare("UPDATE agent_observation_claims SET status='completed',checkpoint_id=?,error_code=NULL,completed_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND persistent_task_id=? AND scheduled_for=? AND status='running'").bind(checkpoint.id,claim.id,task.tenant_id,task.id,claim.scheduledFor),
     env.DB.prepare("UPDATE agent_persistent_tasks SET last_run_at=CURRENT_TIMESTAMP,next_run_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND status='active' AND next_run_at=?").bind(next,task.id,task.tenant_id,claim.scheduledFor),
-    env.DB.prepare("INSERT INTO audit_events(id,tenant_id,event_type,entity_type,entity_id,event_data) VALUES(?,?,'AGENT_FINANCE_OBSERVATION_RECOVERED','agent_observation_checkpoint',?,?)").bind(recoveryAuditId,task.tenant_id,checkpoint.id,JSON.stringify(recoveryMeta))
+    auditInsertStatement(env.DB,{tenantId:task.tenant_id,eventType:"AGENT_FINANCE_OBSERVATION_RECOVERED",entityId:checkpoint.id,audit:sealedAudit}),
+    auditStateUpdateStatement(env.DB,task.tenant_id,sealedAudit)
   ]);
-  const claimChanges=Number(results?.[1]?.meta?.changes??results?.[1]?.changes??0),taskChanges=Number(results?.[2]?.meta?.changes??results?.[2]?.changes??0);
+  const claimChanges=Number(results?.[2]?.meta?.changes??results?.[2]?.changes??0),taskChanges=Number(results?.[3]?.meta?.changes??results?.[3]?.changes??0);
   if(claimChanges!==1||taskChanges!==1)throw new Error("observation_recovery_finalization_guard_failed");
   return frozen({ok:true,code:"verified_occurrence_recovered",persisted:true,checkpointId:checkpoint.id,finalized:true,recovered:true,nextRunAt:next,skippedOccurrences:schedule?.skippedOccurrences||0,executionAllowed:false,externalActions:0,toolCalls:0});
 }
