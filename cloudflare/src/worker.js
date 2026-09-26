@@ -4968,6 +4968,8 @@ function deploymentReadiness(env){
   return {ready:missingRequired.length===0,paymentProvider:provider,missingRequired,checks:checks.map(x=>({...x,value:undefined}))};
 }
 
+export const __v166Test=Object.freeze({extractSingleBwpAmountMinor});
+
 export const __v76Test=Object.freeze({
   normalizeBotswanaWhatsappNumber,
   buildWhatsAppTemplateRequest,
