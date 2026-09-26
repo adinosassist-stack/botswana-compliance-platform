@@ -10,7 +10,7 @@ assert.match(workflow,/group: thebe-desk-production/);
 assert.match(workflow,/statuses: write/);
 assert.match(workflow,/Publish observable production migration status/);
 assert.equal(workflow.includes("thebe/production-d1-058"),true);
-assert.match(workflow,/if: always\\(\\)/);
+assert.equal(workflow.includes("if: always()"),true);
 assert.match(workflow,/migration authority must be a two-parent merged PR commit/);
 assert.match(workflow,/refusing stale migration target=/);
 assert.match(workflow,/wrangler@4\.135\.0/);
