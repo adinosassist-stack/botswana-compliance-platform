@@ -1,14 +1,8 @@
 import {buildSingleAgentOrchestration} from "./agent-orchestration.js";
 import {evaluateToolTrust} from "./agent-tool-trust-registry.js";
+import {FINANCE_WATCH_READ_ACTIONS} from "./finance-watch-contract.js";
 
 export const SUPER_AGENT_PLANNER_VERSION="2026-09-25.v1";
-
-const FINANCE_WATCH_TOOLS=Object.freeze([
-  "financial_position.read",
-  "finance_data_quality.read",
-  "finance_daily_inflows.read",
-  "receivables_summary.read"
-]);
 
 function frozen(value){return Object.freeze(value)}
 function clean(value,max=500){return String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max)}
@@ -49,7 +43,7 @@ export function buildReadOnlyFinanceWatchTask({objective="Watch finance certaint
     objective:clean(objective),
     triggerKind:"scheduled",
     triggerSpec:frozen({cadence:"daily",timezone:"Africa/Gaborone"}),
-    allowedTools:FINANCE_WATCH_TOOLS,
+    allowedTools:FINANCE_WATCH_READ_ACTIONS,
     riskPolicy:frozen({mode:"read_only",sideEffects:false,stopOnBoundarySurprise:true}),
     approvalPolicy:frozen({consequentialActions:"owner_required"}),
     budget:frozen({maxToolCallsPerRun:4,maxExternalActions:0}),
@@ -58,4 +52,4 @@ export function buildReadOnlyFinanceWatchTask({objective="Watch finance certaint
   });
 }
 
-export const __superAgentPlannerTest=frozen({FINANCE_WATCH_TOOLS});
+export const __superAgentPlannerTest=frozen({FINANCE_WATCH_TOOLS:FINANCE_WATCH_READ_ACTIONS});
