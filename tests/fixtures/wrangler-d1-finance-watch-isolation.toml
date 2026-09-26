@@ -1,0 +1,8 @@
+name = "thebe-d1-finance-watch-isolation"
+main = "./d1-finance-watch-isolation-worker.mjs"
+compatibility_date = "2026-09-03"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "thebe-d1-finance-watch-isolation"
+database_id = "00000000-0000-0000-0000-000000000002"
