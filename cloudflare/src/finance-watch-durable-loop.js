@@ -1,7 +1,7 @@
 import {executeAgentReadTool} from "./agent-read-tools.js";
 import {runGovernedFinanceObservation} from "./governed-finance-observation-runner.js";
 
-export const FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26.v4";
+export const FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26.v5";
 const frozen=value=>Object.freeze(value);
 const clean=(value,max=160)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
 const parse=(value,fallback)=>{try{return JSON.parse(String(value??""))}catch{return fallback}};
@@ -100,6 +100,21 @@ async function finishObservationClaim(env,task,claim,outcome){
   await env.DB.prepare("UPDATE agent_observation_claims SET status=?,checkpoint_id=?,error_code=?,completed_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND persistent_task_id=? AND status='running'").bind(status,checkpointId,errorCode,claim.id,task.tenant_id,task.id).run();
 }
 
+async function recoverVerifiedOccurrence(env,task,claim){
+  if(!claim?.recovered||!claim?.scheduledFor)return null;
+  const checkpoint=await env.DB.prepare("SELECT id,snapshot_hash FROM agent_observation_checkpoints WHERE tenant_id=? AND persistent_task_id=? AND scheduled_for=? LIMIT 1").bind(task.tenant_id,task.id,claim.scheduledFor).first();
+  if(!checkpoint)return null;
+  const next=nextRunAt(task,claim.scheduledFor);
+  if(!next)return frozen({ok:false,persisted:false,code:"invalid_observation_cadence",executionAllowed:false});
+  const results=await env.DB.batch([
+    env.DB.prepare("UPDATE agent_observation_claims SET status='completed',checkpoint_id=?,error_code=NULL,completed_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND persistent_task_id=? AND scheduled_for=? AND status='running'").bind(checkpoint.id,claim.id,task.tenant_id,task.id,claim.scheduledFor),
+    env.DB.prepare("UPDATE agent_persistent_tasks SET last_run_at=CURRENT_TIMESTAMP,next_run_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND status='active' AND next_run_at=?").bind(next,task.id,task.tenant_id,claim.scheduledFor)
+  ]);
+  const claimChanges=Number(results?.[0]?.meta?.changes??results?.[0]?.changes??0),taskChanges=Number(results?.[1]?.meta?.changes??results?.[1]?.changes??0);
+  if(claimChanges!==1||taskChanges!==1)throw new Error("observation_recovery_finalization_guard_failed");
+  return frozen({ok:true,code:"verified_occurrence_recovered",persisted:true,checkpointId:checkpoint.id,finalized:true,recovered:true,nextRunAt:next,executionAllowed:false,externalActions:0,toolCalls:0});
+}
+
 export async function runDueFinanceWatchTasks(env,{limit=25}={}){
   const cap=Math.max(1,Math.min(50,Number(limit)||25));
   const rows=await env.DB.prepare("SELECT id,tenant_id,status,objective,trigger_spec_json,allowed_tools_json,budget_json,next_run_at FROM agent_persistent_tasks WHERE status='active' AND trigger_kind='scheduled' AND next_run_at IS NOT NULL AND next_run_at<=CURRENT_TIMESTAMP ORDER BY next_run_at,id LIMIT ?").bind(cap).all();
@@ -108,11 +123,11 @@ export async function runDueFinanceWatchTasks(env,{limit=25}={}){
     const claim=await claimObservation(env,task);
     if(!claim.ok){outcomes.push(frozen({ok:false,persisted:false,skipped:true,code:claim.code,executionAllowed:false}));continue}
     let outcome;
-    try{outcome=await runFinanceWatchTask({env,task,attempt:claim.attempts-1,claim})}catch(error){outcome=frozen({ok:false,persisted:false,code:"observation_run_failed",executionAllowed:false,error:String(error?.message||error).slice(0,160)})}
+    try{outcome=await recoverVerifiedOccurrence(env,task,claim)||await runFinanceWatchTask({env,task,attempt:claim.attempts-1,claim})}catch(error){outcome=frozen({ok:false,persisted:false,code:"observation_run_failed",executionAllowed:false,error:String(error?.message||error).slice(0,160)})}
     outcomes.push(outcome);
     if(!outcome.persisted)await finishObservationClaim(env,task,claim,outcome);
   }
   return frozen({version:FINANCE_WATCH_DURABLE_LOOP_VERSION,selected:(rows.results||[]).length,verified:outcomes.filter(x=>x.persisted).length,failed:outcomes.filter(x=>!x.persisted).length,executionAllowed:false,externalActions:0,outcomes:frozen(outcomes)});
 }
 
-export const __financeWatchDurableLoopTest=Object.freeze({nextRunAt,claimObservation,finishObservationClaim});
+export const __financeWatchDurableLoopTest=Object.freeze({nextRunAt,claimObservation,finishObservationClaim,recoverVerifiedOccurrence});
