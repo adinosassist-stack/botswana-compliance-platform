@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import {__businessMemoryTest} from "../cloudflare/src/business-memory.js";
 import {__moneyIntelligenceTest} from "../cloudflare/src/money-intelligence.js";
+import {__businessContextTest} from "../cloudflare/src/business-context.js";
 
 assert.equal(__businessMemoryTest.normalizeNamespace("finance"),"finance");
 assert.equal(__businessMemoryTest.normalizeNamespace("people"),null);
@@ -33,6 +34,17 @@ assert.match(context,/buildMoneyIntelligence/);
 assert.match(context,/listBusinessMemory/);
 assert.match(context,/moneyIntelligence/);
 assert.match(context,/durableMemory/);
+const merged=__businessContextTest.mergeConfirmedMemory(
+  {assumptions:{monthlyCashOutflowsBwp:10000,minimumCashBufferBwp:5000}},
+  {items:[
+    {namespace:"finance",key:"monthly_outflows_bwp",value:60000},
+    {namespace:"finance",key:"minimum_cash_buffer_bwp",value:25000}
+  ]}
+);
+assert.equal(merged.assumptions.monthlyCashOutflowsBwp,60000);
+assert.equal(merged.assumptions.minimumCashBufferBwp,25000);
+assert.equal(merged.durableMemoryApplied,true);
+
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 assert.match(worker,/handleBusinessMemoryRequest/);
 assert.match(worker,/057_v157_business_memory_money_intelligence\.sql/);
