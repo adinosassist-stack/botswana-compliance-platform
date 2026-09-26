@@ -1,0 +1,8 @@
+name = "thebe-d1-runtime-parity"
+main = "./d1-runtime-parity-worker.mjs"
+compatibility_date = "2026-09-03"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "thebe-d1-runtime-parity"
+database_id = "00000000-0000-0000-0000-000000000001"
