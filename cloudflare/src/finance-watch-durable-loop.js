@@ -2,7 +2,7 @@ import {executeAgentReadTool} from "./agent-read-tools.js";
 import {runGovernedFinanceObservation} from "./governed-finance-observation-runner.js";
 import {buildFinanceWatchDueQuery,isFinanceWatchToolList} from "./finance-watch-contract.js";
 
-export const FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26.v14";
+export const FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26.v15";
 const frozen=value=>Object.freeze(value);
 const clean=(value,max=160)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
 const parse=(value,fallback)=>{try{return JSON.parse(String(value??""))}catch{return fallback}};
@@ -91,10 +91,9 @@ async function claimObservation(env,task){
     return frozen({ok:true,id:claimId,scheduledFor,attempts:1});
   }catch(error){
     if(!String(error).includes("UNIQUE"))throw error;
-    const existing=await env.DB.prepare("SELECT id,status,attempts,started_at FROM agent_observation_claims WHERE tenant_id=? AND persistent_task_id=? AND scheduled_for=? LIMIT 1").bind(tenantId,taskId,scheduledFor).first();
+    const existing=await env.DB.prepare("SELECT id,status,attempts FROM agent_observation_claims WHERE tenant_id=? AND persistent_task_id=? AND scheduled_for=? LIMIT 1").bind(tenantId,taskId,scheduledFor).first();
     if(!existing)return frozen({ok:false,code:"observation_claim_conflict"});
-    const stale=existing.status==="running"&&new Date(existing.started_at).getTime()<Date.now()-30*60*1000;
-    if(existing.status==="failed"||stale){
+    if(existing.status==="failed"||existing.status==="running"){
       const updated=await env.DB.prepare("UPDATE agent_observation_claims SET status='running',attempts=attempts+1,started_at=CURRENT_TIMESTAMP,completed_at=NULL,checkpoint_id=NULL,error_code=NULL WHERE id=? AND tenant_id=? AND persistent_task_id=? AND (status='failed' OR (status='running' AND started_at<datetime('now','-30 minutes')))").bind(existing.id,tenantId,taskId).run();
       if(Number(updated?.meta?.changes??updated?.changes??0)===1)return frozen({ok:true,id:existing.id,scheduledFor,attempts:Number(existing.attempts||1)+1,recovered:true});
     }
