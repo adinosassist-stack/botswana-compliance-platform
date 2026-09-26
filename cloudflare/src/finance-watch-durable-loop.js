@@ -1,7 +1,7 @@
 import {executeAgentReadTool} from "./agent-read-tools.js";
 import {runGovernedFinanceObservation} from "./governed-finance-observation-runner.js";
 
-export const FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26.v9";
+export const FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26.v10";
 const frozen=value=>Object.freeze(value);
 const clean=(value,max=160)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
 const parse=(value,fallback)=>{try{return JSON.parse(String(value??""))}catch{return fallback}};
@@ -111,11 +111,14 @@ async function recoverVerifiedOccurrence(env,task,claim){
   if(!checkpoint)return null;
   const schedule=nextRunAt(task,claim.scheduledFor),next=schedule?.nextRunAt||null;
   if(!next)return frozen({ok:false,persisted:false,code:"invalid_observation_cadence",executionAllowed:false});
+  const recoveryAuditId=crypto.randomUUID(),recoveryMeta={persistentTaskId:task.id,scheduledFor:claim.scheduledFor,nextRunAt:next,skippedOccurrences:schedule?.skippedOccurrences||0,cadence:schedule?.cadence||null,claimId:claim.id,checkpointId:checkpoint.id,externalActions:0};
   const results=await env.DB.batch([
+    env.DB.prepare("SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM agent_observation_claims WHERE id=? AND tenant_id=? AND persistent_task_id=? AND scheduled_for=? AND status='running') OR NOT EXISTS (SELECT 1 FROM agent_persistent_tasks WHERE id=? AND tenant_id=? AND status='active' AND next_run_at=?) THEN json_extract('invalid','$.') ELSE 1 END").bind(claim.id,task.tenant_id,task.id,claim.scheduledFor,task.id,task.tenant_id,claim.scheduledFor),
     env.DB.prepare("UPDATE agent_observation_claims SET status='completed',checkpoint_id=?,error_code=NULL,completed_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND persistent_task_id=? AND scheduled_for=? AND status='running'").bind(checkpoint.id,claim.id,task.tenant_id,task.id,claim.scheduledFor),
-    env.DB.prepare("UPDATE agent_persistent_tasks SET last_run_at=CURRENT_TIMESTAMP,next_run_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND status='active' AND next_run_at=?").bind(next,task.id,task.tenant_id,claim.scheduledFor)
+    env.DB.prepare("UPDATE agent_persistent_tasks SET last_run_at=CURRENT_TIMESTAMP,next_run_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND status='active' AND next_run_at=?").bind(next,task.id,task.tenant_id,claim.scheduledFor),
+    env.DB.prepare("INSERT INTO audit_events(id,tenant_id,event_type,entity_type,entity_id,event_data) VALUES(?,?,'AGENT_FINANCE_OBSERVATION_RECOVERED','agent_observation_checkpoint',?,?)").bind(recoveryAuditId,task.tenant_id,checkpoint.id,JSON.stringify(recoveryMeta))
   ]);
-  const claimChanges=Number(results?.[0]?.meta?.changes??results?.[0]?.changes??0),taskChanges=Number(results?.[1]?.meta?.changes??results?.[1]?.changes??0);
+  const claimChanges=Number(results?.[1]?.meta?.changes??results?.[1]?.changes??0),taskChanges=Number(results?.[2]?.meta?.changes??results?.[2]?.changes??0);
   if(claimChanges!==1||taskChanges!==1)throw new Error("observation_recovery_finalization_guard_failed");
   return frozen({ok:true,code:"verified_occurrence_recovered",persisted:true,checkpointId:checkpoint.id,finalized:true,recovered:true,nextRunAt:next,skippedOccurrences:schedule?.skippedOccurrences||0,executionAllowed:false,externalActions:0,toolCalls:0});
 }
