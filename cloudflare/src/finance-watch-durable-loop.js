@@ -5,6 +5,11 @@ export const FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26.v1";
 const frozen=value=>Object.freeze(value);
 const clean=(value,max=160)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
 const parse=(value,fallback)=>{try{return JSON.parse(String(value??""))}catch{return fallback}};
+function nextRunAt(task,now=new Date()){
+  const spec=parse(task.trigger_spec_json,task.triggerSpec??{}),cadence=String(spec.cadence||"daily").toLowerCase();
+  const ms={hourly:3600000,daily:86400000,weekly:604800000}[cadence];
+  if(!ms)return null;return new Date(now.getTime()+ms).toISOString();
+}
 
 export async function runFinanceWatchTask({env,task,attempt=0}={}){
   const tenantId=clean(task?.tenant_id??task?.tenantId,120);
@@ -56,8 +61,16 @@ export async function runFinanceWatchTask({env,task,attempt=0}={}){
 
 export async function runDueFinanceWatchTasks(env,{limit=25}={}){
   const cap=Math.max(1,Math.min(50,Number(limit)||25));
-  const rows=await env.DB.prepare("SELECT id,tenant_id,status,objective,allowed_tools_json,budget_json FROM agent_persistent_tasks WHERE status='active' AND trigger_kind='scheduled' AND next_run_at IS NOT NULL AND next_run_at<=CURRENT_TIMESTAMP ORDER BY next_run_at,id LIMIT ?").bind(cap).all();
+  const rows=await env.DB.prepare("SELECT id,tenant_id,status,objective,trigger_spec_json,allowed_tools_json,budget_json FROM agent_persistent_tasks WHERE status='active' AND trigger_kind='scheduled' AND next_run_at IS NOT NULL AND next_run_at<=CURRENT_TIMESTAMP ORDER BY next_run_at,id LIMIT ?").bind(cap).all();
   const outcomes=[];
-  for(const task of rows.results||[])outcomes.push(await runFinanceWatchTask({env,task}));
+  for(const task of rows.results||[]){
+    const outcome=await runFinanceWatchTask({env,task});outcomes.push(outcome);
+    if(outcome.persisted){
+      const next=nextRunAt(task);
+      await env.DB.prepare("UPDATE agent_persistent_tasks SET last_run_at=CURRENT_TIMESTAMP,next_run_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND status='active'").bind(next,task.id,task.tenant_id).run();
+    }
+  }
   return frozen({version:FINANCE_WATCH_DURABLE_LOOP_VERSION,selected:(rows.results||[]).length,verified:outcomes.filter(x=>x.persisted).length,failed:outcomes.filter(x=>!x.persisted).length,executionAllowed:false,externalActions:0,outcomes:frozen(outcomes)});
 }
+
+export const __financeWatchDurableLoopTest=Object.freeze({nextRunAt});
