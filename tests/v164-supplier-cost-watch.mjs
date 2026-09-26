@@ -24,6 +24,8 @@ const trends=money.supplierSpendTrend([
   }
 ]);
 assert.equal(trends[0].supplierName,"Supplier A");
+assert.equal(trends[0].current30OutflowMinor,600000);
+assert.equal(trends[0].prior30OutflowMinor,300000);
 assert.equal(trends[0].changePct,1);
 assert.equal(trends[0].absoluteChangeMinor,300000);
 assert.equal(trends[0].attention,"increase");
