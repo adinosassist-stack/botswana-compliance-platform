@@ -1,7 +1,8 @@
 import {evaluateToolTrust} from "./agent-tool-trust-registry.js";
 import {planSuperAgentWork} from "./super-agent-planner.js";
+import {FINANCE_WATCH_READ_ACTIONS} from "./finance-watch-contract.js";
 export const PERSISTENT_FINANCE_OBSERVER_VERSION="2026-09-25.v1";
-const READS=Object.freeze(["financial_position.read","finance_data_quality.read","finance_daily_inflows.read","receivables_summary.read"]);
+const READS=FINANCE_WATCH_READ_ACTIONS;
 export function buildFinanceObservationRun({task,observation={}}={}){
   const allowed=new Set(Array.isArray(task?.allowedTools)?task.allowedTools:[]);
   const reads=READS.filter(actionKey=>allowed.has(actionKey)&&evaluateToolTrust({actionKey}).allowed);
