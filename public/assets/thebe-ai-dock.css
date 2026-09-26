@@ -88,3 +88,373 @@
 @media(prefers-reduced-motion:reduce){.thebe-particle-orb{transform:none!important;transition:none!important}.thebe-particle-orb *,.thebe-particle-orb:before,.thebe-particle-orb:after,.thebe-ai-pill-dot{animation:none!important;transition:none!important}}
 
 .thebe-live-language{max-width:100%;min-height:40px;border:1px solid #454c56;border-radius:10px;background:#1b1f25;color:#edf2f8;padding:8px 12px;font:inherit;font-size:12px}.thebe-live-language:disabled{opacity:.68;cursor:not-allowed}.thebe-live-language:focus-visible{outline:2px solid #83baff;outline-offset:3px}
+
+
+/* V160 dock polish — premium command-surface hierarchy, flat Thebe palette, no gradients. */
+:root{
+  --thebe-dock-w:392px;
+  --thebe-dock-bg:#0f1114;
+  --thebe-dock-panel:#14181d;
+  --thebe-dock-elevated:#191e24;
+  --thebe-dock-ink:#f7f9fb;
+  --thebe-dock-muted:#98a2ad;
+  --thebe-dock-line:#2b3139;
+  --thebe-dock-line-strong:#3a4653;
+  --thebe-dock-accent:#0b66d6;
+  --thebe-dock-accent-soft:#162b45;
+}
+.thebe-ai-dock{
+  background:var(--thebe-dock-bg);
+  border-color:var(--thebe-dock-line);
+  box-shadow:-18px 0 44px rgba(0,0,0,.16);
+}
+.thebe-ai-dock-head{
+  min-height:70px;
+  padding:14px 16px 13px 18px;
+  border-bottom-color:#252a31;
+  background:#101317;
+}
+.thebe-ai-dock-title{gap:11px}
+.thebe-ai-mark{
+  width:36px;height:36px;border-radius:11px;
+  background-color:#fff;background-size:27px 27px;
+  box-shadow:0 0 0 1px rgba(255,255,255,.08);
+}
+.thebe-ai-title-copy b{
+  display:block;
+  font-size:16px;
+  font-weight:650;
+  letter-spacing:-.025em;
+  line-height:1.1;
+}
+.thebe-ai-presence{
+  gap:7px;
+  margin-top:5px;
+  font-size:10.5px;
+  color:#a9b2bc;
+}
+.thebe-ai-presence-dot{
+  width:6px;height:6px;
+  background:#5fa2f4;
+  box-shadow:0 0 0 3px rgba(95,162,244,.10);
+}
+.thebe-ai-head-actions{gap:6px}
+.thebe-ai-icon-btn{
+  width:40px;height:40px;
+  border-color:#303741;
+  border-radius:11px;
+  background:#14181d;
+  color:#d8dee6;
+  font-size:17px;
+  transition:background-color .16s ease,border-color .16s ease,transform .16s ease;
+}
+.thebe-ai-attention{
+  min-width:30px;min-height:34px;
+  padding:0 8px;
+  border-color:#345e8d;
+  border-radius:999px;
+  background:var(--thebe-dock-accent-soft);
+  color:#cfe4ff;
+  font-weight:700;
+}
+@media(hover:hover){
+  .thebe-ai-icon-btn:hover{background:#1d232a;border-color:#4c5866;transform:translateY(-1px)}
+  .thebe-ai-quick button:hover{background:#1a2026;border-color:#4c6075;transform:translateY(-1px)}
+  .thebe-ai-send:hover{background:#1b73dc;border-color:#1b73dc;transform:translateY(-1px)}
+  .thebe-ai-open-full:hover{color:#c7e0ff}
+}
+.thebe-ai-dock-scroll{
+  padding:16px 18px 18px;
+  gap:13px;
+  background:#0f1114;
+}
+.thebe-ai-voice-card{
+  padding:14px 14px 16px;
+  border:1px solid #292f37;
+  border-radius:18px;
+  background:#13171b;
+  text-align:center;
+}
+.thebe-ai-eyebrow{
+  margin-bottom:8px;
+  font-size:9px;
+  font-weight:700;
+  letter-spacing:.18em;
+  color:#7f8a96;
+}
+.thebe-ai-orb-button{
+  height:132px;
+  margin-bottom:8px;
+  border:1px solid #252b32;
+  border-radius:16px;
+  background:#0d1013;
+  transition:border-color .18s ease,background-color .18s ease;
+}
+.thebe-ai-orb-button:focus-visible{border-color:#6da8ef}
+.thebe-particle-core{
+  width:64px;height:64px;
+  border-color:#6b7682;
+  background:#11151a;
+  box-shadow:0 0 0 var(--thebe-audio-ring) rgba(255,255,255,.025);
+  transition:background-color .18s ease,border-color .18s ease,box-shadow .18s ease;
+}
+.thebe-particle-core svg{width:21px;height:21px}
+.thebe-particle-orb:before{
+  width:90px;height:90px;
+  border-color:rgba(116,171,239,.28);
+}
+.thebe-particle-orb:after{
+  width:116px;height:116px;
+  border-color:rgba(255,255,255,.08);
+}
+.thebe-particle{fill:#dfeaf8;opacity:.52}
+.thebe-particle-wave g:nth-child(2n){opacity:.38}
+.thebe-particle-orb[data-phase="ready"] .thebe-particle-core,
+.thebe-particle-orb[data-phase="listening"] .thebe-particle-core,
+.thebe-particle-orb[data-phase="speaking"] .thebe-particle-core{
+  border-color:#5f9fe9;
+  background:#12243a;
+  box-shadow:0 0 0 var(--thebe-audio-ring) rgba(11,102,214,.10);
+}
+.thebe-particle-orb[data-phase="thinking"] .thebe-particle-core,
+.thebe-particle-orb[data-phase="connecting"] .thebe-particle-core{
+  border-color:#7b8da1;
+  background:#171c22;
+}
+.thebe-ai-voice-label{
+  font-size:22px;
+  font-weight:520;
+  letter-spacing:-.035em;
+}
+.thebe-ai-voice-sub{
+  margin-top:6px;
+  max-width:300px;
+  font-size:11.5px;
+  color:#9ba6b1;
+}
+.thebe-ai-voice-mount{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:8px;
+  margin-top:12px;
+}
+.thebe-ai-voice-mount .btn{
+  min-height:42px;
+  padding:8px 13px;
+  border-color:#37689d;
+  border-radius:11px;
+  background:#17304d;
+  color:#e3f0ff;
+  font-weight:650;
+}
+.thebe-ai-voice-mount #thebeLiveVoiceStatus{
+  grid-column:1/-1;
+  margin-top:1px;
+  color:#9ba6b1;
+}
+.thebe-live-language{
+  min-height:42px;
+  border-color:#353e49;
+  border-radius:11px;
+  background:#171b20;
+  color:#eef3f9;
+}
+.thebe-ai-live-transcript{
+  margin-top:12px;
+  padding:11px 12px;
+  border-color:#2c343e;
+  border-radius:11px;
+  background:#101419;
+  color:#e7edf5;
+}
+.thebe-ai-live-line b{color:#9cbfe8}
+.thebe-ai-quick{
+  grid-template-columns:1fr;
+  gap:7px;
+}
+.thebe-ai-quick button{
+  min-height:56px;
+  padding:11px 34px 11px 13px;
+  border-color:#2b323b;
+  border-radius:13px;
+  background:#14181d;
+  transition:background-color .16s ease,border-color .16s ease,transform .16s ease;
+}
+.thebe-ai-quick button:after{
+  right:13px;
+  top:50%;
+  transform:translateY(-50%);
+  color:#7e8995;
+  font-size:12px;
+}
+.thebe-ai-quick button small{
+  margin-top:2px;
+  color:#8f99a4;
+}
+.thebe-ai-response{
+  padding:14px 14px 15px;
+  border-color:#2d3540;
+  border-left:2px solid #4f85c7;
+  border-radius:13px;
+  background:#13181e;
+  color:#edf2f7;
+  line-height:1.6;
+}
+.thebe-ai-response-title{
+  margin-bottom:7px;
+  color:#8eb6e5;
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:.14em;
+}
+.thebe-ai-action{
+  margin-top:9px;
+  padding:10px 11px;
+  border-radius:10px;
+  border-left-color:#6ca4e6;
+  background:#1a2129;
+}
+.thebe-ai-action span{color:#aeb8c3}
+.thebe-ai-boundary{color:#929eaa}
+.thebe-ai-open-full{
+  margin-top:10px;
+  padding:6px 0 2px;
+  color:#83b9fa;
+  font-weight:650;
+}
+.thebe-ai-public-signin,.thebe-ai-public-start,.thebe-ai-public-voice{
+  min-height:42px;
+  border-radius:11px;
+}
+.thebe-ai-compose{
+  gap:9px;
+  padding:12px 16px 10px;
+  border-top-color:#272c33;
+  background:#101317;
+}
+.thebe-ai-compose textarea{
+  min-height:46px;
+  max-height:118px;
+  padding:12px 13px;
+  border-color:#343d47;
+  border-radius:14px;
+  background:#171b20;
+  color:#f6f8fa;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.01);
+}
+.thebe-ai-compose textarea:focus{
+  border-color:#568dcc;
+  background:#191e24;
+}
+.thebe-ai-send{
+  width:46px;height:46px;
+  border-radius:14px;
+  background:var(--thebe-dock-accent);
+  transition:background-color .16s ease,border-color .16s ease,transform .16s ease;
+}
+.thebe-ai-foot{
+  padding:0 18px 12px;
+  color:#7f8994;
+  background:#101317;
+  font-size:9.5px;
+}
+.thebe-ai-dock[data-conversation="true"] .thebe-ai-voice-card{
+  display:grid;
+  grid-template-columns:72px minmax(0,1fr);
+  column-gap:12px;
+  row-gap:3px;
+  align-items:center;
+  padding:11px 12px;
+  text-align:left;
+}
+.thebe-ai-dock[data-conversation="true"] .thebe-ai-eyebrow{display:none}
+.thebe-ai-dock[data-conversation="true"] .thebe-ai-orb-button{
+  grid-column:1;
+  grid-row:1/3;
+  width:72px;
+  height:72px;
+  margin:0;
+  border-radius:14px;
+}
+.thebe-ai-dock[data-conversation="true"] .thebe-particle-core{width:44px;height:44px}
+.thebe-ai-dock[data-conversation="true"] .thebe-particle-core svg{width:17px;height:17px}
+.thebe-ai-dock[data-conversation="true"] .thebe-particle-orb:before{width:56px;height:56px}
+.thebe-ai-dock[data-conversation="true"] .thebe-particle-orb:after{width:68px;height:68px}
+.thebe-ai-dock[data-conversation="true"] .thebe-ai-voice-label{
+  grid-column:2;
+  align-self:end;
+  font-size:17px;
+  line-height:1.15;
+}
+.thebe-ai-dock[data-conversation="true"] .thebe-ai-voice-sub{
+  grid-column:2;
+  align-self:start;
+  margin:0;
+}
+.thebe-ai-dock[data-conversation="true"] .thebe-ai-voice-mount,
+.thebe-ai-dock[data-conversation="true"] .thebe-ai-live-transcript{
+  grid-column:1/-1;
+}
+.thebe-ai-pill{
+  min-height:46px;
+  padding:12px 16px;
+  border-color:#394654;
+  background:#11151a;
+  box-shadow:0 10px 28px rgba(0,0,0,.22);
+}
+.thebe-ai-pill-dot{
+  background:#6ea9ef;
+  box-shadow:0 0 0 3px rgba(110,169,239,.10);
+}
+@media(min-width:1024px){
+  .thebe-ai-dock{top:72px;border-top-color:#242a31}
+  .thebe-ai-dock[data-surface="workspace"]{top:70px}
+  body.thebe-ai-expanded{--thebe-dock-w:528px}
+  body.thebe-ai-expanded .thebe-ai-dock-scroll{padding-left:20px;padding-right:20px}
+  body.thebe-ai-expanded .thebe-ai-quick{grid-template-columns:repeat(2,minmax(0,1fr))}
+  body.thebe-ai-expanded .thebe-ai-quick button:last-child:nth-child(odd){grid-column:1/-1}
+}
+@media(min-width:1024px) and (max-width:1179px){
+  :root{--thebe-dock-w:328px}
+  body.thebe-ai-expanded{--thebe-dock-w:452px}
+}
+@media(max-width:1023px){
+  .thebe-ai-dock{
+    left:6px;right:6px;
+    border-radius:24px 24px 18px 18px;
+    box-shadow:0 -10px 38px rgba(0,0,0,.22);
+  }
+  .thebe-ai-dock:before{
+    content:"";
+    position:absolute;
+    z-index:4;
+    top:7px;left:50%;
+    width:34px;height:3px;
+    transform:translateX(-50%);
+    border-radius:999px;
+    background:#4a535e;
+  }
+  .thebe-ai-dock-head{padding:17px 12px 11px}
+  .thebe-ai-dock-scroll{padding:12px;gap:10px}
+  .thebe-ai-voice-card{padding:12px}
+  .thebe-ai-orb-button{height:104px}
+  .thebe-ai-voice-label{font-size:20px}
+  .thebe-ai-icon-btn{width:44px;height:44px}
+  .thebe-ai-compose{padding:10px 12px 8px}
+  .thebe-ai-foot{padding:0 13px 10px}
+  .thebe-ai-dock[data-conversation="true"] .thebe-ai-voice-card{grid-template-columns:62px minmax(0,1fr)}
+  .thebe-ai-dock[data-conversation="true"] .thebe-ai-orb-button{width:62px;height:62px}
+}
+@media(max-width:380px){
+  .thebe-ai-dock-head{gap:5px}
+  .thebe-ai-mark{width:32px;height:32px;background-size:24px 24px}
+  .thebe-ai-title-copy b{font-size:15px}
+  .thebe-ai-presence{font-size:9.5px}
+  .thebe-ai-voice-mount{grid-template-columns:1fr}
+  .thebe-ai-voice-mount #thebeLiveVoiceStatus{grid-column:1}
+  .thebe-ai-voice-mount .btn{width:100%}
+}
+@media(prefers-reduced-motion:reduce){
+  .thebe-ai-icon-btn,.thebe-ai-quick button,.thebe-ai-send{transition:none!important}
+}
