@@ -5,10 +5,12 @@ const db=path.join(os.tmpdir(),`thebe-bootstrap-${process.pid}.sqlite`);
 try{
   for(const file of files)execFileSync("sqlite3",[db],{input:fs.readFileSync(file),stdio:["pipe","pipe","pipe"]});
   const q=sql=>execFileSync("sqlite3",[db,sql],{encoding:"utf8"}).trim();
-  for(const table of ["agent_persistent_tasks","agent_persistent_task_events","agent_observation_checkpoints","agent_observation_claims","manual_payment_submissions","manual_payment_events"])assert.equal(q(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='${table}'`),"1",`missing table ${table}`);
+  for(const table of ["agent_persistent_tasks","agent_persistent_task_events","agent_observation_checkpoints","agent_observation_claims","manual_payment_submissions","manual_payment_events","agent_registry","agent_authority_events","agent_authority_drift_findings"])assert.equal(q(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='${table}'`),"1",`missing table ${table}`);
   const cols=q("PRAGMA table_info(agent_observation_checkpoints)").split("\n");assert.ok(cols.some(x=>x.includes("|scheduled_for|")),"scheduled_for missing");
   assert.equal(q("SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='uq_agent_observation_checkpoint_occurrence'"),"1");
   assert.equal(q("SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='agent_persistent_tasks_scheduler_due'"),"1");
+  assert.equal(q("SELECT authority_state||\":\"||execution_capable FROM agent_registry WHERE agent_id=\'THEBE-001\'"),"active:1");
+  assert.equal(q("SELECT authority_state||\":\"||execution_capable FROM agent_registry WHERE agent_id=\'SYS-FIN-OBS-001\'"),"active:0");
   assert.equal(q("PRAGMA foreign_keys"),"0");
   console.log("v141 fresh bootstrap smoke passed");
 }finally{try{fs.unlinkSync(db)}catch{}}
