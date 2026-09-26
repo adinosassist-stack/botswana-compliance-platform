@@ -2,6 +2,7 @@ import {associationForProposal,buildOutcomeAssociations,rankOutcomeInformedPropo
 import {buildSingleAgentOrchestration,verifyOrchestratedProposals} from "./agent-orchestration.js";
 import {buildContinuationCheckpoint,buildResumeContext,verifyContinuationCheckpoint} from "./agent-continuation.js";
 import {buildAgentReadToolContext,executeAgentReadTool} from "./agent-read-tools.js";
+import {buildBusinessContext} from "./business-context.js";
 
 const MAX_BODY_BYTES=8192;
 const MAX_PROPOSALS=8;
@@ -88,73 +89,63 @@ async function safeFirst(env,sql,bindings=[]){
 }
 
 async function observeWorkspace(env,tenantId,actorRole){
-  const role=String(actorRole||"").toLowerCase();
-  const businessHealthAllowed=role==="owner"||role==="manager";
-  const operationsAllowed=role==="owner"||role==="manager";
-  const [finance,reconciliation,workflows,ops,performance,compliance]=await Promise.all([
-    safeFirst(env,`SELECT COALESCE(SUM(a.opening_balance_minor+COALESCE(t.net,0)),0) cash_position_minor,
-      COUNT(a.id) account_count
-      FROM finance_accounts a
-      LEFT JOIN (SELECT account_id,SUM(amount_minor) net FROM finance_transactions WHERE tenant_id=? GROUP BY account_id) t ON t.account_id=a.id
-      WHERE a.tenant_id=? AND a.status='active'`,[tenantId,tenantId]),
-    safeFirst(env,`SELECT COUNT(*) unresolved_count,COALESCE(SUM(ABS(difference_minor)),0) exposure_minor,
-      MAX(created_at) latest_reconciliation_at
-      FROM finance_reconciliation_runs WHERE tenant_id=? AND status='exception'`,[tenantId]),
-    operationsAllowed?safeFirst(env,`SELECT
-      SUM(CASE WHEN status IN ('queued','pending','retry') THEN 1 ELSE 0 END) pending_count,
-      SUM(CASE WHEN status IN ('failed','dead') THEN 1 ELSE 0 END) failed_count,
-      MIN(CASE WHEN status IN ('queued','pending','retry') THEN due_at END) next_due_at
-      FROM workflow_jobs WHERE tenant_id=?`,[tenantId]):null,
-    operationsAllowed?safeFirst(env,`SELECT summary_date,generation_mode,metrics_json
-      FROM daily_operations_summaries WHERE tenant_id=? ORDER BY summary_date DESC,created_at DESC LIMIT 1`,[tenantId]):null,
-    businessHealthAllowed?safeFirst(env,`SELECT COUNT(*) open_count,
-      SUM(CASE WHEN severity='critical' THEN 1 ELSE 0 END) critical_count,
-      SUM(CASE WHEN severity='warning' THEN 1 ELSE 0 END) warning_count,
-      MAX(created_at) latest_signal_at
-      FROM performance_insights WHERE tenant_id=? AND status IN ('open','acknowledged')`,[tenantId]):null,
-    safeFirst(env,`SELECT
-      SUM(CASE WHEN status NOT IN ('completed','closed') AND due_at<CURRENT_TIMESTAMP THEN 1 ELSE 0 END) overdue_count,
-      SUM(CASE WHEN status NOT IN ('completed','closed') AND due_at>=CURRENT_TIMESTAMP AND due_at<datetime('now','+14 days') THEN 1 ELSE 0 END) due_14d_count,
-      MIN(CASE WHEN status NOT IN ('completed','closed') AND due_at>=CURRENT_TIMESTAMP THEN due_at END) next_due_at
-      FROM compliance_obligations WHERE tenant_id=?`,[tenantId])
-  ]);
-  let opsMetrics={};
-  try{opsMetrics=JSON.parse(String(ops?.metrics_json||"{}"))}catch{}
+  const context=await buildBusinessContext(env,tenantId,{actorRole});
+  const finance=context.finance||{},reconciliation=finance.reconciliation||{},receivables=finance.receivables||{},today=finance.today||{};
+  const operations=context.operations||{},roleScope=context.roleScope||{},compliance=context.compliance||{};
+  const performance=operations?.restricted===true
+    ?{restricted:true}
+    :{
+      openSignals:Number(operations.openPerformanceSignals||0),
+      criticalSignals:Number(operations.criticalPerformanceSignals||0),
+      warningSignals:Number(operations.warningPerformanceSignals||0),
+      latestSignalAt:operations.latestPerformanceSignalAt||null
+    };
   return {
-    observedAt:new Date().toISOString(),
+    observedAt:context.observedAt,
     roleScope:Object.freeze({
-      actorRole:role,
-      businessHealth:businessHealthAllowed,
-      operations:operationsAllowed,
+      actorRole:String(actorRole||"").toLowerCase(),
+      businessHealth:roleScope.managementContext===true,
+      operations:roleScope.managementContext===true,
       finance:true,
       compliance:true
     }),
     finance:{
       currency:"BWP",
-      cashPositionMinor:Number(finance?.cash_position_minor||0),
-      accountCount:Number(finance?.account_count||0),
-      reconciliationExceptions:Number(reconciliation?.unresolved_count||0),
-      reconciliationExposureMinor:Number(reconciliation?.exposure_minor||0),
-      latestReconciliationAt:reconciliation?.latest_reconciliation_at||null
+      cashPositionMinor:Number(finance.cashPositionMinor||0),
+      accountCount:Array.isArray(finance.accounts)?finance.accounts.length:0,
+      reconciliationExceptions:Number(reconciliation.unresolvedCount||0),
+      reconciliationExposureMinor:Number(reconciliation.unresolvedExposureMinor||0),
+      latestReconciliationAt:reconciliation?.lastRun?.created_at||null,
+      receivablesOutstandingMinor:Number(receivables.outstandingMinor||0),
+      receivablesOverdueMinor:Number(receivables.overdueMinor||0),
+      receivablesOverdueCustomers:Number(receivables.overdueCustomerCount||0),
+      positiveInflowTodayMinor:Number(today.positiveInflowMinor||0),
+      customerCollectionsTodayMinor:Number(today.customerCollectionMinor||0)
     },
-    operations:operationsAllowed?{
-      pendingWorkflowCount:Number(workflows?.pending_count||0),
-      failedWorkflowCount:Number(workflows?.failed_count||0),
-      nextWorkflowDueAt:workflows?.next_due_at||null,
-      latestSummaryDate:ops?.summary_date||null,
-      latestSummaryMode:ops?.generation_mode||null,
-      latestCoverage:Number(opsMetrics?.coverage||0)||null
-    }:{restricted:true},
-    performance:businessHealthAllowed?{
-      openSignals:Number(performance?.open_count||0),
-      criticalSignals:Number(performance?.critical_count||0),
-      warningSignals:Number(performance?.warning_count||0),
-      latestSignalAt:performance?.latest_signal_at||null
-    }:{restricted:true},
+    operations:operations?.restricted===true
+      ?{restricted:true}
+      :{
+        pendingWorkflowCount:Number(operations.pendingWorkflowCount||0),
+        failedWorkflowCount:Number(operations.failedWorkflowCount||0),
+        nextWorkflowDueAt:operations.nextWorkflowDueAt||null,
+        latestSummaryDate:operations.latestSummaryDate||null,
+        latestSummaryMode:operations.latestSummaryMode||null,
+        latestCoverage:operations.latestCoverage
+      },
+    performance,
     compliance:{
-      overdueCount:Number(compliance?.overdue_count||0),
-      dueWithin14Days:Number(compliance?.due_14d_count||0),
-      nextDueAt:compliance?.next_due_at||null
+      overdueCount:Number(compliance.overdueCount||0),
+      dueWithin14Days:Number(compliance.dueWithin14Days||0),
+      nextDueAt:compliance.nextDueAt||null
+    },
+    businessContext:{
+      version:context.version,
+      businessDate:context.businessDate,
+      identity:context.identity,
+      memory:context.memory,
+      sales:context.sales,
+      provenance:context.provenance,
+      channelParity:"web_voice_whatsapp"
     }
   };
 }
