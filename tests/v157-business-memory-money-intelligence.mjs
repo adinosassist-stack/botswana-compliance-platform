@@ -47,6 +47,10 @@ assert.equal(merged.durableMemoryApplied,true);
 
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 assert.match(worker,/handleBusinessMemoryRequest/);
+const memorySource=fs.readFileSync("cloudflare/src/business-memory.js","utf8");
+assert.match(memorySource,/owner_required/);
+assert.match(memorySource,/BUSINESS_MEMORY_CONFIRMED/);
+assert.match(memorySource,/BUSINESS_MEMORY_REMOVED/);
 assert.match(worker,/057_v157_business_memory_money_intelligence\.sql/);
 const agentic=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
 assert.match(agentic,/057_v157_business_memory_money_intelligence\.sql/);
