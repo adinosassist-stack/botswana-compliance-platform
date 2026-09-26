@@ -733,7 +733,7 @@
   "control_replacement_no_people_scoring": true,
   "control_replacement_no_second_notification_stream": true,
   "control_replacement_fail_closed": true,
-  "latest_cloudflare_migration": "054_v134_agent_observation_identity.sql",
+  "latest_cloudflare_migration": "055_v149_finance_watch_audit_integrity.sql",
   "agentic_foundation_v80": true,
   "agentic_execution_enabled": false,
   "agentic_human_approval_required": true,
