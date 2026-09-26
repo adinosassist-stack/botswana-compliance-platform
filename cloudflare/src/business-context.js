@@ -1,5 +1,7 @@
 import {financeSummary} from "./finance-core.js";
 import {financeReceivablesSummary,financeDailyCollections} from "./finance-receivables.js";
+import {listBusinessMemory} from "./business-memory.js";
+import {buildMoneyIntelligence} from "./money-intelligence.js";
 
 export const BUSINESS_CONTEXT_VERSION="2026-09-26.v1";
 
@@ -131,18 +133,20 @@ async function complianceContext(env,tenantId){
 export async function buildBusinessContext(env,tenantId,{actorRole="owner",now=new Date()}={}){
   const role=String(actorRole||"").toLowerCase(),businessDate=gaboroneDate(now);
   const management=role==="owner"||role==="manager";
-  const [finance,receivables,collections,operations,compliance,tenant,stateRow]=await Promise.all([
+  const [finance,receivables,collections,operations,compliance,tenant,stateRow,durableMemory]=await Promise.all([
     financeSummary(env,tenantId),
     financeReceivablesSummary(env,tenantId,{businessDate,customerLimit:management?5:1,invoiceLimit:management?5:1}),
     financeDailyCollections(env,tenantId,{businessDate}),
     operationsContext(env,tenantId,{allowed:management}),
     complianceContext(env,tenantId),
     safeFirst(env,"SELECT name FROM tenants WHERE id=? LIMIT 1",[tenantId]),
-    safeFirst(env,"SELECT state_json,version FROM app_state WHERE tenant_id=? LIMIT 1",[tenantId])
+    safeFirst(env,"SELECT state_json,version FROM app_state WHERE tenant_id=? LIMIT 1",[tenantId]),
+    management?listBusinessMemory(env,tenantId):Promise.resolve(frozen({schemaReady:true,items:frozen([]),authoritative:false,restricted:true}))
   ]);
   const state=safeJson(stateRow?.state_json,{});
   const memory=management?ownerEnteredMemory(state,tenant?.name):frozen({restricted:true,source:"owner_workspace_profile"});
   const sales=management?salesMemory(state,{businessDate}):frozen({restricted:true});
+  const moneyIntelligence=management?await buildMoneyIntelligence(env,tenantId,{businessDate,cashPositionMinor:Number(finance?.cashPositionMinor||0),memory}):frozen({available:false,restricted:true});
   return frozen({
     version:BUSINESS_CONTEXT_VERSION,
     observedAt:new Date(now).toISOString(),
@@ -164,10 +168,12 @@ export async function buildBusinessContext(env,tenantId,{actorRole="owner",now=n
     operations,
     compliance,
     memory,
+    durableMemory,
     sales,
+    moneyIntelligence,
     provenance:frozen({
       authoritative:frozen(["finance_accounts","finance_transactions","finance_reconciliation_runs","finance_invoices","finance_invoice_allocations","daily_operations_summaries","workflow_jobs","performance_insights","compliance_obligations"]),
-      ownerEntered:management?frozen(["app_state.active_company.profile","app_state.active_company.salesIntelligence"]):frozen([]),
+      ownerEntered:management?frozen(["app_state.active_company.profile","app_state.active_company.salesIntelligence","business_memory_items"]):frozen([]),
       rule:"Authoritative records and owner-entered assumptions remain explicitly separated; Thebe must not promote assumptions into observed facts."
     })
   });
@@ -178,7 +184,7 @@ function priority(key,severity,title,detail,sourceRefs,actionKey=null){
 }
 
 export function deriveBusinessPriorities(context){
-  const out=[],finance=context?.finance||{},recon=finance.reconciliation||{},receivables=finance.receivables||{},ops=context?.operations||{},compliance=context?.compliance||{},sales=context?.sales||{};
+  const out=[],finance=context?.finance||{},recon=finance.reconciliation||{},receivables=finance.receivables||{},ops=context?.operations||{},compliance=context?.compliance||{},sales=context?.sales||{},money=context?.moneyIntelligence||{};
   if(Number(recon.unresolvedCount||0)>0)out.push(priority(
     "reconciliation_exception","high","Review finance reconciliation exceptions",
     `${Number(recon.unresolvedCount||0)} exception(s) represent ${pulaMinor(recon.unresolvedExposureMinor)} of recorded reconciliation exposure.`,
@@ -209,6 +215,11 @@ export function deriveBusinessPriorities(context){
     `${Number(sales.dormantQuotationCount||0)} dormant quotation(s) represent P${Number(sales.dormantQuotationValueBwp||0).toLocaleString("en-BW",{maximumFractionDigits:2})} of owner-recorded quote value.`,
     ["app_state.active_company.salesIntelligence"],null
   ));
+  for(const signal of Array.isArray(money?.signals)?money.signals:[]){
+    if(signal?.key==="cash_runway")out.push(priority("cash_runway","high","Review cash runway",clean(signal.detail,300),["owner_entered_assumptions","finance_transactions"],null));
+    else if(signal?.key==="outflow_acceleration")out.push(priority("outflow_acceleration","medium","Review rising cash outflows",clean(signal.detail,300),["finance_transactions"],null));
+    else if(signal?.key==="large_debits")out.push(priority("large_debits","medium","Review unusually large debits",clean(signal.detail,300),["finance_transactions"],null));
+  }
   if(recon.stale===true)out.push(priority(
     "stale_reconciliation","medium","Refresh finance reconciliation",
     "The latest recorded finance reconciliation is older than the freshness threshold.",
@@ -218,7 +229,7 @@ export function deriveBusinessPriorities(context){
 }
 
 export function buildDailyBusinessBrief(context){
-  const priorities=deriveBusinessPriorities(context),finance=context?.finance||{},receivables=finance.receivables||{},compliance=context?.compliance||{},ops=context?.operations||{};
+  const priorities=deriveBusinessPriorities(context),finance=context?.finance||{},receivables=finance.receivables||{},compliance=context?.compliance||{},ops=context?.operations||{},money=context?.moneyIntelligence||{},trend=money?.trend||{},assumptions=money?.assumptions||{};
   const headline=[
     `Recorded cash ${pulaMinor(finance.cashPositionMinor)}`,
     `${pulaMinor(receivables.outstandingMinor)} customer receivables`,
@@ -244,7 +255,14 @@ export function buildDailyBusinessBrief(context){
       complianceDueWithin14Days:Number(compliance.dueWithin14Days||0),
       pendingWorkflowCount:Number(ops.pendingWorkflowCount||0),
       failedWorkflowCount:Number(ops.failedWorkflowCount||0),
-      criticalPerformanceSignals:Number(ops.criticalPerformanceSignals||0)
+      criticalPerformanceSignals:Number(ops.criticalPerformanceSignals||0),
+      current30InflowMinor:Number(trend?.current30?.inflow||0),
+      current30OutflowMinor:Number(trend?.current30?.outflow||0),
+      current30NetMinor:Number(trend?.current30?.net||0),
+      outflowChangePct:trend?.outflowChangePct==null?null:Number(trend.outflowChangePct),
+      largeDebitCount:Array.isArray(trend?.largeDebits)?trend.largeDebits.length:0,
+      estimatedRunwayDays:assumptions?.estimatedRunwayDays==null?null:Number(assumptions.estimatedRunwayDays),
+      safeDiscretionaryMinor:assumptions?.safeDiscretionaryMinor==null?null:Number(assumptions.safeDiscretionaryMinor)
     }),
     authority:frozen({
       readOnly:true,
@@ -253,6 +271,8 @@ export function buildDailyBusinessBrief(context){
       runtimeGuardBypassed:false,
       assumptionsRemainNonAuthoritative:true
     }),
+    durableMemory:context?.durableMemory||null,
+    moneyIntelligence:money,
     provenance:context?.provenance||null
   });
 }
