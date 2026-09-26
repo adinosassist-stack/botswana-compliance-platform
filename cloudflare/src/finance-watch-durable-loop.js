@@ -1,7 +1,7 @@
 import {executeAgentReadTool} from "./agent-read-tools.js";
 import {runGovernedFinanceObservation} from "./governed-finance-observation-runner.js";
 
-export const FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26.v11";
+export const FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26.v12";
 const frozen=value=>Object.freeze(value);
 const clean=(value,max=160)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
 const parse=(value,fallback)=>{try{return JSON.parse(String(value??""))}catch{return fallback}};
@@ -99,14 +99,14 @@ async function claimObservation(env,task){
     return frozen({ok:false,code:"observation_already_claimed",status:existing.status});
   }
 }
-async function finishObservationClaim(env,task,claim,outcome){
-  const status=outcome?.persisted?"completed":"failed",checkpointId=outcome?.checkpointId||null,errorCode=outcome?.code||outcome?.recovery?.code||null;
-  await env.DB.prepare("UPDATE agent_observation_claims SET status=?,checkpoint_id=?,error_code=?,completed_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND persistent_task_id=? AND status='running'").bind(status,checkpointId,errorCode,claim.id,task.tenant_id,task.id).run();
+async function failObservationClaim(env,task,claim,outcome){
+  const errorCode=outcome?.code||outcome?.recovery?.code||null;
+  await env.DB.prepare("UPDATE agent_observation_claims SET status='failed',checkpoint_id=NULL,error_code=?,completed_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND persistent_task_id=? AND status='running'").bind(errorCode,claim.id,task.tenant_id,task.id).run();
 }
 
 async function recoverVerifiedOccurrence(env,task,claim){
   if(!claim?.recovered||!claim?.scheduledFor)return null;
-  const checkpoint=await env.DB.prepare("SELECT id,snapshot_hash FROM agent_observation_checkpoints WHERE tenant_id=? AND persistent_task_id=? AND scheduled_for=? LIMIT 1").bind(task.tenant_id,task.id,claim.scheduledFor).first();
+  const checkpoint=await env.DB.prepare("SELECT id FROM agent_observation_checkpoints WHERE tenant_id=? AND persistent_task_id=? AND scheduled_for=? LIMIT 1").bind(task.tenant_id,task.id,claim.scheduledFor).first();
   if(!checkpoint)return null;
   const schedule=nextRunAt(task,claim.scheduledFor),next=schedule?.nextRunAt||null;
   if(!next)return frozen({ok:false,persisted:false,code:"invalid_observation_cadence",executionAllowed:false});
@@ -132,9 +132,9 @@ export async function runDueFinanceWatchTasks(env,{limit=25}={}){
     let outcome;
     try{outcome=await recoverVerifiedOccurrence(env,task,claim)||await runFinanceWatchTask({env,task,attempt:claim.attempts-1,claim})}catch(error){outcome=frozen({ok:false,persisted:false,code:"observation_run_failed",executionAllowed:false,error:String(error?.message||error).slice(0,160)})}
     outcomes.push(outcome);
-    if(!outcome.persisted)await finishObservationClaim(env,task,claim,outcome);
+    if(!outcome.persisted)await failObservationClaim(env,task,claim,outcome);
   }
   return frozen({version:FINANCE_WATCH_DURABLE_LOOP_VERSION,selected:(rows.results||[]).length,verified:outcomes.filter(x=>x.persisted).length,failed:outcomes.filter(x=>!x.persisted).length,executionAllowed:false,externalActions:0,outcomes:frozen(outcomes)});
 }
 
-export const __financeWatchDurableLoopTest=Object.freeze({nextRunAt,claimObservation,finishObservationClaim,recoverVerifiedOccurrence});
+export const __financeWatchDurableLoopTest=Object.freeze({nextRunAt,claimObservation,recoverVerifiedOccurrence});
