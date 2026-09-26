@@ -59,6 +59,41 @@ jobs:
           node-version-file: '.nvmrc'
           package-manager-cache: false
 
+      - name: Prepare pinned Wrangler D1 migration transport
+        shell: bash
+        run: |
+          set -euo pipefail
+          WRANGLER_ROOT="$RUNNER_TEMP/wrangler-d1-migration"
+          NPM_HOME="$RUNNER_TEMP/npm-home-d1-migration"
+          MIGRATION_CONFIG="$RUNNER_TEMP/thebe-d1-migration.toml"
+          rm -rf "$WRANGLER_ROOT" "$NPM_HOME"
+          rm -f "$MIGRATION_CONFIG"
+          mkdir -p "$WRANGLER_ROOT" "$NPM_HOME"
+          (
+            cd "$RUNNER_TEMP"
+            HOME="$NPM_HOME" \
+            NPM_CONFIG_USERCONFIG=/dev/null \
+            NPM_CONFIG_REGISTRY=https://registry.npmjs.org/ \
+            NPM_CONFIG_IGNORE_SCRIPTS=true \
+            npm install --prefix "$WRANGLER_ROOT" --no-audit --no-fund --no-save --package-lock=false wrangler@4.135.0
+          )
+          WRANGLER_JS="$WRANGLER_ROOT/node_modules/wrangler/bin/wrangler.js"
+          test -f "$WRANGLER_JS"
+          version="$(node "$WRANGLER_JS" --version)"
+          [[ "$version" == *'4.135.0'* ]] || { echo "unexpected Wrangler version: $version" >&2; exit 1; }
+          cat > "$MIGRATION_CONFIG" <<EOF
+          name = "thebe-d1-production-migration"
+          compatibility_date = "2026-09-03"
+          account_id = "$CLOUDFLARE_ACCOUNT_ID"
+
+          [[d1_databases]]
+          binding = "DB"
+          database_name = "bw-compliance-os"
+          database_id = "$D1_DATABASE_ID"
+          EOF
+          chmod 600 "$MIGRATION_CONFIG"
+          printf 'WRANGLER_JS=%s\nWRANGLER_CONFIG=%s\n' "$WRANGLER_JS" "$MIGRATION_CONFIG" >> "$GITHUB_ENV"
+
       - name: Validate production migration inputs
         shell: bash
         run: |
