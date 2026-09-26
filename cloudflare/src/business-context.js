@@ -192,6 +192,9 @@ export async function buildBusinessContext(env,tenantId,{actorRole="owner",now=n
         outstandingMinor:Number(receivables?.outstandingMinor||0),
         overdueInvoiceCount:Number(receivables?.overdueInvoiceCount||0),
         overdueMinor:Number(receivables?.overdueMinor||0),
+        due7dMinor:Number(receivables?.due7dMinor||0),
+        due14dMinor:Number(receivables?.due14dMinor||0),
+        due30dMinor:Number(receivables?.due30dMinor||0),
         overdueCustomerCount:Number(receivables?.overdueCustomerCount||0),
         customers:management?receivables.customers:frozen([]),
         invoices:management?receivables.invoices:frozen([])
