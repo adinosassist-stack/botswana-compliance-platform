@@ -2333,6 +2333,8 @@ const AI_ADVISOR_SCHEMA={
 function advisorText(v,max){return String(v||"").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g," ").replace(/\s+/g," ").trim().slice(0,max)}
 function extractSingleBwpAmountMinor(question){
   const input=advisorText(question,1000);
+  const spendIntent=/\b(spend|spending|buy|buying|purchase|purchasing|afford|cost|costs|costing|pay\s+for|paying\s+for)\b/i.test(input);
+  if(!spendIntent)return null;
   const pattern=/(?:\b(?:P|BWP)\s*(\d+(?:,\d{3})*(?:\.\d{1,2})?)\s*k\b)|(?:\b(\d+(?:\.\d+)?)\s*k\s*(?:pula|BWP)\b)|(?:\b(?:P|BWP)\s*(\d+(?:,\d{3})*(?:\.\d{1,2})?)\b)|(?:\b(\d+(?:,\d{3})*(?:\.\d{1,2})?)\s*(?:pula|BWP)\b)/gi;
   const values=[];
   for(const match of input.matchAll(pattern)){
