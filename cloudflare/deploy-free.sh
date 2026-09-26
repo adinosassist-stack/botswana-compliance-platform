@@ -49,7 +49,7 @@ echo "25f) For this NEW D1 only: ${W} d1 execute bw-compliance-os --remote --fil
 echo "25g) For this NEW D1 only: ${W} d1 execute bw-compliance-os --remote --file=migrations/052_v122_agent_observation_checkpoints.sql --config \"\$PROD_CONFIG\""
 echo "25h) For this NEW D1 only: ${W} d1 execute bw-compliance-os --remote --file=migrations/053_v132_agent_observation_claims.sql --config \"\$PROD_CONFIG\""
 echo "25i) For this NEW D1 only: ${W} d1 execute bw-compliance-os --remote --file=migrations/054_v134_agent_observation_identity.sql --config \"\$PROD_CONFIG\""
-echo "25j) For this NEW D1 only: ${W} d1 execute bw-compliance-os --remote --file=migrations/056_v154_agent_control_plane.sql --config \"\$PROD_CONFIG\""
+echo "25j) For this NEW D1 only: ${W} d1 execute bw-compliance-os --remote --file=migrations/055_v151_finance_watch_scheduler_isolation.sql --config \"\$PROD_CONFIG\""
 echo "25k) For this NEW D1 only: ${W} d1 execute bw-compliance-os --remote --file=migrations/056_v154_agent_control_plane.sql --config \"\$PROD_CONFIG\""
 echo "26) ${W} secret put SESSION_SECRET --config \"\$PROD_CONFIG\""
 echo "27) ${W} secret put AUDIT_INTEGRITY_SECRET --config \"\$PROD_CONFIG\""
