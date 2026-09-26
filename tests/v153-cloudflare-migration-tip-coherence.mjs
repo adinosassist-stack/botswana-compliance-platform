@@ -18,7 +18,8 @@ for(const stale of [
   "apply only pending numbered migrations in order through 050",
   "apply only the pending release migrations in order through \`050_v115_manual_bank_subscriptions.sql\` before deploying the current Worker",
   "then apply migrations 047, 048, 049 and 050 in order",
-  "through `055_v151_finance_watch_scheduler_isolation.sql` before deploying the current Worker"
+  "through `055_v151_finance_watch_scheduler_isolation.sql` before deploying the current Worker",
+  "then apply migrations 047, 048, 049, 050, 051, 052, 053, 054 and 055 in order"
 ]){
   assert.equal(readme.includes(stale)||launch.includes(stale),false,`stale launch migration guidance remains: ${stale}`);
 }
