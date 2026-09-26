@@ -351,7 +351,7 @@ export async function handleFinanceRequest({request,url,env,auth,json,readJson,i
   if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
   const receivablesResponse=await handleFinanceReceivablesRequest({request,url,env,auth,json,readJson,id,appendLineage,writeAudit,sha256Hex});
   if(receivablesResponse)return receivablesResponse;
-  const payablesResponse=await handleFinancePayablesRequest({request,url,env,auth,json,readJson,id,appendLineage,writeAudit,sha256Hex});
+  const payablesResponse=await handleFinancePayablesRequest({request,url,env,auth,json,readJson,id,appendLineage,writeAudit,sha256Hex,roleAllowed});
   if(payablesResponse)return payablesResponse;
   if(url.pathname==="/api/finance/summary"&&request.method==="GET"){
     const [summary,receivables,payables]=await Promise.all([financeSummary(env,auth.tenant_id),financeReceivablesSummary(env,auth.tenant_id),financePayablesSummary(env,auth.tenant_id)]);
