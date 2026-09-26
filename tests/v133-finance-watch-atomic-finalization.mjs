@@ -1,0 +1,14 @@
+import assert from "node:assert/strict";import fs from "node:fs";
+const loop=fs.readFileSync("cloudflare/src/finance-watch-durable-loop.js","utf8");
+assert.match(loop,/FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26\.v2"/);
+assert.match(loop,/runFinanceWatchTask\(\{env,task,attempt=0,claim=null\}/);
+assert.match(loop,/const statements=\[/);
+assert.match(loop,/UPDATE agent_observation_claims SET status='completed'.*scheduled_for=\? AND status='running'/s);
+assert.match(loop,/UPDATE agent_persistent_tasks SET last_run_at=CURRENT_TIMESTAMP,next_run_at=\?,updated_at=CURRENT_TIMESTAMP.*next_run_at=\?/s);
+assert.match(loop,/await env\.DB\.batch\(statements\)/);
+assert.match(loop,/runFinanceWatchTask\(\{env,task,attempt:claim\.attempts-1,claim\}\)/);
+assert.match(loop,/if\(!outcome\.persisted\)await finishObservationClaim/);
+assert.ok(!/if\(outcome\.persisted\)[\s\S]{0,300}UPDATE agent_persistent_tasks/.test(loop),"successful schedule advancement must not be a post-checkpoint write");
+assert.match(loop,/executionAllowed:false/);
+assert.ok(!loop.includes("agent_execution_grants"),"atomic observer must remain read-only and grant-independent");
+console.log("v133 Finance atomic observation finalization passed");
