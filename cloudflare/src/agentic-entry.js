@@ -105,7 +105,7 @@ async function delegatedAuthoritySchemaReady(env){
       (SELECT COUNT(*) FROM agent_authority_events) agent_authority_event_count,
       (SELECT COUNT(*) FROM agent_authority_drift_findings) agent_authority_drift_count,
       (SELECT COUNT(*) FROM business_memory_items) business_memory_item_count,
-      (SELECT COUNT(*) FROM business_memory_events) business_memory_event_count).first();
+      (SELECT COUNT(*) FROM business_memory_events) business_memory_event_count`).first();
     await env.DB.prepare("SELECT scheduled_for FROM agent_observation_checkpoints LIMIT 1").first();
     const occurrenceIndex=await env.DB.prepare("SELECT 1 ok FROM sqlite_master WHERE type='index' AND name='uq_agent_observation_checkpoint_occurrence' LIMIT 1").first();
     const schedulerIndex=await env.DB.prepare("SELECT 1 ok FROM sqlite_master WHERE type='index' AND name='agent_persistent_tasks_scheduler_due' LIMIT 1").first();
