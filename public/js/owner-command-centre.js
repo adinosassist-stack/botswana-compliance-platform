@@ -1,7 +1,7 @@
 (function initOwnerCommandCentre(global){
   "use strict";
 
-  const RELEASE="20260926-v164";
+  const RELEASE="20260926-v165";
   const MAX_OPPORTUNITIES=500;
   const MAX_CAMPAIGNS=50;
   const PROFILE_KEYS=Object.freeze({
@@ -1454,6 +1454,23 @@
           tone:Number(runway)<45?"risk":"neutral"
         }));
       }
+      const spend=moneyIntel.spendEnvelope;
+      if(spend?.ready===true)box.append(signalCard({
+        label:"Spend this week",
+        value:money(Number(spend.discretionaryEnvelopeMinor||0)/100),
+        title:Number(spend.discretionaryEnvelopeMinor||0)>0
+          ?"Conservative 7-day discretionary planning envelope."
+          :"No discretionary cash is left after the protected reserves in this scenario.",
+        detail:`Protects ${money(Number(spend.recordedSupplierPayablesDue7dMinor||0)/100)} recorded supplier payables due now/within 7 days + ${money(Number(spend.payrollReserveMinor||0)/100)} full monthly labour reserve + ${money(Number(spend.minimumCashBufferMinor||0)/100)} minimum cash buffer. Assumes zero receivables collected; unknown obligations are not reserved. This is not spending authorization.`,
+        tone:Number(spend.discretionaryEnvelopeMinor||0)>0?"neutral":"risk"
+      }));
+      else if(Array.isArray(spend?.missingInputs)&&spend.missingInputs.length)box.append(signalCard({
+        label:"Spend this week",
+        value:"Needs inputs",
+        title:"Thebe will not calculate a discretionary spend envelope without the required owner assumptions.",
+        detail:"Add monthly labour cost and minimum cash buffer. Thebe then protects those amounts plus recorded supplier payables due now/within 7 days and assumes no receivables are collected.",
+        tone:"neutral"
+      }));
       const scenario=moneyIntel.scenario||{},horizons=Array.isArray(scenario.horizons)?scenario.horizons:[],h30=horizons.find(item=>Number(item?.days)===30);
       if(h30){
         const ending=Number(h30.ownerAssumptionEndingCashMinor||0)/100,below=h30.belowOwnerBuffer===true;
