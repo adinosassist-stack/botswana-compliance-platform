@@ -8820,7 +8820,7 @@ bootstrap();
    if(event.target.closest?.("#siteAuthoritativeOpenOps")){if(typeof showView==="function")showView("dailyreports");return}
  });
  const priorShowView=window.showView;if(typeof priorShowView==="function")window.showView=function(id){const out=priorShowView.apply(this,arguments);if(out&&id==="sites")queueMicrotask(()=>void loadSites());return out};
- window.__renderAuthoritativeSites=loadSites;window.__renderV81SitesRecovery=loadSites;window.whenThebeWorkspaceReady(()=>setTimeout(()=>{if(document.getElementById("sites")?.classList.contains("active"))void loadSites()},500));
+ const renderVerified=loadSites;window.__renderAuthoritativeSites=loadSites;window.__renderV81SitesRecovery=renderVerified;window.whenThebeWorkspaceReady(()=>setTimeout(()=>{if(document.getElementById("sites")?.classList.contains("active"))void loadSites()},500));
 })();
 </script>
 
