@@ -37,7 +37,7 @@ function assumptionMetrics({cashPositionMinor=0,memory={}}={}){
   const monthlyOutflowsMinor=toMinor(assumptions.monthlyCashOutflowsBwp,{positive:true});
   const minBufferMinor=toMinor(assumptions.minimumCashBufferBwp);
   const plannedPurchaseMinor=toMinor(assumptions.plannedPurchaseBwp,{positive:true});
-  const monthlyLabourCostMinor=toMinor(assumptions.monthlyLabourCostBwp,{positive:true});
+  const monthlyLabourCostMinor=toMinor(assumptions.monthlyLabourCostBwp);
   const monthlyRevenueTargetMinor=toMinor(assumptions.monthlyRevenueTargetBwp,{positive:true});
   const collection=Number(assumptions.sameMonthCollectionPct);
   const sameMonthCollectionPct=Number.isFinite(collection)?Math.max(0,Math.min(100,collection)):null;
