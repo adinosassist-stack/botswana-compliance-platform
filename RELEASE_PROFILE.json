@@ -1257,5 +1257,13 @@
   "spend_what_if_payment_initiated": false,
   "spend_what_if_spending_authorization": false,
   "spend_what_if_financial_advice": false,
-  "v166_execution_authority_expanded": false
+  "v166_execution_authority_expanded": false,
+  "spend_what_if_channels": [
+    "typed_chat",
+    "live_voice_agentic",
+    "whatsapp_open_question"
+  ],
+  "spend_what_if_channel_parity": true,
+  "spend_what_if_non_spend_currency_questions_ignored": true,
+  "spend_what_if_ambiguous_multiple_amounts_fail_closed": true
 }
