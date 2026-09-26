@@ -215,16 +215,24 @@ function forwardCashCalendar({businessDate,cashPositionMinor=0,payables={},recei
     if(committedCash<lowestCommittedCash){lowestCommittedCash=committedCash;lowestDate=event.date}
     return frozen({...event,committedCashAfterMinor:committedCash});
   });
-  const within=days=>calendar.filter(event=>{const d=dateDiffDays(event.date,businessDate);return d!=null&&d>=0&&d<=days});
-  const sum=(rows,type)=>rows.filter(x=>x.type===type).reduce((n,x)=>n+number(x.amountMinor),0);
+  const visibleReceivables=Array.isArray(receivables?.invoices)?receivables.invoices.length:0;
+  const totalOpenReceivables=number(receivables?.outstandingInvoiceCount);
   return frozen({
     basis:"canonical_payables_plus_potential_receivables",
     formalForecast:false,
     receivablesAssumedCollected:false,
+    detailedEventCoverage:frozen({
+      payableRowsShown:Array.isArray(payables?.payables)?payables.payables.length:0,
+      payableRowsTotal:number(payables?.outstandingPayableCount),
+      receivableRowsShown:visibleReceivables,
+      receivableRowsTotal:totalOpenReceivables,
+      payablesComplete:(Array.isArray(payables?.payables)?payables.payables.length:0)>=number(payables?.outstandingPayableCount),
+      receivablesComplete:visibleReceivables>=totalOpenReceivables
+    }),
     events:frozen(calendar),
-    next7:frozen({committedOutflowMinor:sum(within(7),"committed_payable"),potentialReceivableMinor:sum(within(7),"potential_receivable")}),
-    next14:frozen({committedOutflowMinor:sum(within(14),"committed_payable"),potentialReceivableMinor:sum(within(14),"potential_receivable")}),
-    next30:frozen({committedOutflowMinor:sum(within(30),"committed_payable"),potentialReceivableMinor:sum(within(30),"potential_receivable")}),
+    next7:frozen({committedOutflowMinor:number(payables?.due7dMinor),potentialReceivableMinor:number(receivables?.due7dMinor)}),
+    next14:frozen({committedOutflowMinor:number(payables?.due14dMinor),potentialReceivableMinor:number(receivables?.due14dMinor)}),
+    next30:frozen({committedOutflowMinor:number(payables?.due30dMinor),potentialReceivableMinor:number(receivables?.due30dMinor)}),
     lowestCommittedCashMinor:lowestCommittedCash,
     lowestCommittedCashDate:lowestDate
   });
