@@ -1,5 +1,6 @@
 import {createHash} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
+import {extractReviewedStatements} from './reviewed-sql-extractor.mjs';
 
 const API='https://api.cloudflare.com/client/v4';
 const token=String(process.env.CLOUDFLARE_API_TOKEN||'').trim();
@@ -13,6 +14,41 @@ const reviewedMigrations=Object.freeze([
   Object.freeze({number:54,path:'cloudflare/migrations/054_v134_agent_observation_identity.sql',blob:'0d7cb2f2e4a90ea570d5dc5193c0507efbf00ab4'}),
   Object.freeze({number:55,path:'cloudflare/migrations/055_v151_finance_watch_scheduler_isolation.sql',blob:'0b5ea933afa9299d535a50b99c1e4fb9041aa674'}),
   Object.freeze({number:56,path:'cloudflare/migrations/056_v154_agent_control_plane.sql',blob:'86d033543e5eb47ec2da3fd5e4e44e82e25ec5cd'})
+]);
+
+const migrationMarkers=new Map([
+  [51,[
+    'CREATE TABLE IF NOT EXISTS agent_persistent_tasks',
+    'CREATE INDEX IF NOT EXISTS agent_persistent_tasks_due',
+    'CREATE TABLE IF NOT EXISTS agent_persistent_task_events',
+    'CREATE INDEX IF NOT EXISTS agent_persistent_task_events_task',
+    'CREATE TRIGGER IF NOT EXISTS agent_persistent_task_event_tenant_guard'
+  ]],
+  [52,[
+    'CREATE TABLE IF NOT EXISTS agent_observation_checkpoints',
+    'CREATE INDEX IF NOT EXISTS idx_agent_observation_checkpoints_task_time',
+    'CREATE TRIGGER IF NOT EXISTS trg_agent_observation_checkpoint_tenant'
+  ]],
+  [53,[
+    'CREATE TABLE IF NOT EXISTS agent_observation_claims',
+    'CREATE INDEX IF NOT EXISTS idx_agent_observation_claims_task_time',
+    'CREATE TRIGGER IF NOT EXISTS trg_agent_observation_claim_tenant'
+  ]],
+  [55,[
+    'CREATE INDEX IF NOT EXISTS agent_persistent_tasks_scheduler_due'
+  ]],
+  [56,[
+    'CREATE TABLE IF NOT EXISTS agent_registry',
+    'CREATE TABLE IF NOT EXISTS agent_authority_events',
+    'CREATE TABLE IF NOT EXISTS agent_authority_drift_findings',
+    'CREATE INDEX IF NOT EXISTS idx_agent_authority_events_agent_created',
+    'CREATE INDEX IF NOT EXISTS idx_agent_authority_drift_agent_status',
+    'CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_authority_drift_open',
+    'INSERT OR IGNORE INTO agent_registry',
+    'CREATE TRIGGER IF NOT EXISTS trg_agent_registry_identity_immutable',
+    'CREATE TRIGGER IF NOT EXISTS trg_agent_registry_no_execution_escalation',
+    'CREATE TRIGGER IF NOT EXISTS trg_agent_registry_revoked_terminal'
+  ]]
 ]);
 
 const baselineTables=[
@@ -157,10 +193,14 @@ async function applyStage(spec,sql){
       ON agent_observation_checkpoints(tenant_id,persistent_task_id,scheduled_for)
       WHERE scheduled_for IS NOT NULL`);
   }else{
-    // D1 accepts a reviewed multi-statement SQL payload. Execute trigger-bearing
-    // migrations intact so CASE/BEGIN/END bodies are never split incorrectly.
-    console.log(`Applying reviewed migration ${spec.number} as one intact D1 SQL payload.`);
-    await query(sql);
+    const markers=migrationMarkers.get(spec.number);
+    if(!markers?.length)fail(`reviewed statement markers missing for migration ${spec.number}`);
+    const statements=extractReviewedStatements(sql,markers);
+    console.log(`Applying reviewed migration ${spec.number} as ${statements.length} exact top-level D1 statement(s).`);
+    for(let index=0;index<statements.length;index+=1){
+      try{await query(statements[index])}
+      catch(error){throw new Error(`Migration ${spec.number} statement ${index+1}/${statements.length} failed: ${error.message}`)}
+    }
   }
 
   if(!(await verify()))fail(`post-migration verification failed for migration ${spec.number}`);
