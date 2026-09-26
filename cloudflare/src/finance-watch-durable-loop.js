@@ -1,16 +1,17 @@
 import {executeAgentReadTool} from "./agent-read-tools.js";
 import {runGovernedFinanceObservation} from "./governed-finance-observation-runner.js";
 
-export const FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26.v6";
+export const FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26.v7";
 const frozen=value=>Object.freeze(value);
 const clean=(value,max=160)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
 const parse=(value,fallback)=>{try{return JSON.parse(String(value??""))}catch{return fallback}};
-function nextRunAt(task,scheduledFor){
+function nextRunAt(task,scheduledFor,{now=new Date()}={}){
   const spec=parse(task.trigger_spec_json,task.triggerSpec??{}),cadence=String(spec.cadence||"daily").toLowerCase();
   const ms={hourly:3600000,daily:86400000,weekly:604800000}[cadence];
-  const anchor=new Date(String(scheduledFor||task?.next_run_at||""));
-  if(!ms||!Number.isFinite(anchor.getTime()))return null;
-  return new Date(anchor.getTime()+ms).toISOString();
+  const anchor=new Date(String(scheduledFor||task?.next_run_at||"")),nowMs=new Date(now).getTime();
+  if(!ms||!Number.isFinite(anchor.getTime())||!Number.isFinite(nowMs))return null;
+  const elapsed=Math.max(0,nowMs-anchor.getTime()),intervals=Math.max(1,Math.floor(elapsed/ms)+1);
+  return Object.freeze({nextRunAt:new Date(anchor.getTime()+intervals*ms).toISOString(),skippedOccurrences:Math.max(0,intervals-1),cadence});
 }
 
 export async function runFinanceWatchTask({env,task,attempt=0,claim=null}={}){
@@ -60,7 +61,8 @@ export async function runFinanceWatchTask({env,task,attempt=0,claim=null}={}){
   ];
   let next=null;
   if(claim?.id&&claim?.scheduledFor){
-    next=nextRunAt(task,claim.scheduledFor);
+    const schedule=nextRunAt(task,claim.scheduledFor);
+    next=schedule?.nextRunAt||null;
     statements.push(
       env.DB.prepare("SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM agent_observation_claims WHERE id=? AND tenant_id=? AND persistent_task_id=? AND scheduled_for=? AND status='running') OR NOT EXISTS (SELECT 1 FROM agent_persistent_tasks WHERE id=? AND tenant_id=? AND status='active' AND next_run_at=?) THEN json_extract('invalid','$.') ELSE 1 END")
         .bind(claim.id,tenantId,taskId,claim.scheduledFor,taskId,tenantId,claim.scheduledFor),
@@ -106,7 +108,7 @@ async function recoverVerifiedOccurrence(env,task,claim){
   if(!claim?.recovered||!claim?.scheduledFor)return null;
   const checkpoint=await env.DB.prepare("SELECT id,snapshot_hash FROM agent_observation_checkpoints WHERE tenant_id=? AND persistent_task_id=? AND scheduled_for=? LIMIT 1").bind(task.tenant_id,task.id,claim.scheduledFor).first();
   if(!checkpoint)return null;
-  const next=nextRunAt(task,claim.scheduledFor);
+  const schedule=nextRunAt(task,claim.scheduledFor),next=schedule?.nextRunAt||null;
   if(!next)return frozen({ok:false,persisted:false,code:"invalid_observation_cadence",executionAllowed:false});
   const results=await env.DB.batch([
     env.DB.prepare("UPDATE agent_observation_claims SET status='completed',checkpoint_id=?,error_code=NULL,completed_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND persistent_task_id=? AND scheduled_for=? AND status='running'").bind(checkpoint.id,claim.id,task.tenant_id,task.id,claim.scheduledFor),
