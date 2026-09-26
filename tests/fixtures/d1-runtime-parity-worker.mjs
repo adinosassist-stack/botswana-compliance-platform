@@ -1,52 +1,20 @@
 const json=(value,status=200)=>new Response(JSON.stringify(value),{status,headers:{"content-type":"application/json; charset=utf-8"}});
 
 async function resetDatabase(DB){
-  await DB.exec(`
-DROP TABLE IF EXISTS agent_observation_claims;
-DROP TABLE IF EXISTS agent_persistent_tasks;
-DROP TABLE IF EXISTS agent_observation_checkpoints;
-DROP TABLE IF EXISTS agent_persistent_task_events;
-DROP TABLE IF EXISTS audit_events;
-CREATE TABLE agent_observation_claims(
-  id TEXT PRIMARY KEY,
-  tenant_id TEXT NOT NULL,
-  persistent_task_id TEXT NOT NULL,
-  scheduled_for TEXT NOT NULL,
-  status TEXT NOT NULL,
-  checkpoint_id TEXT,
-  error_code TEXT,
-  completed_at TEXT
-);
-CREATE TABLE agent_persistent_tasks(
-  id TEXT PRIMARY KEY,
-  tenant_id TEXT NOT NULL,
-  status TEXT NOT NULL,
-  next_run_at TEXT,
-  last_run_at TEXT,
-  updated_at TEXT
-);
-CREATE TABLE agent_observation_checkpoints(
-  id TEXT PRIMARY KEY,
-  tenant_id TEXT NOT NULL,
-  persistent_task_id TEXT NOT NULL,
-  snapshot_hash TEXT
-);
-CREATE TABLE agent_persistent_task_events(
-  id TEXT PRIMARY KEY,
-  tenant_id TEXT NOT NULL,
-  persistent_task_id TEXT NOT NULL,
-  event_type TEXT NOT NULL,
-  event_data TEXT
-);
-CREATE TABLE audit_events(
-  id TEXT PRIMARY KEY,
-  tenant_id TEXT NOT NULL,
-  event_type TEXT NOT NULL,
-  entity_type TEXT NOT NULL,
-  entity_id TEXT NOT NULL,
-  event_data TEXT
-);
-`);
+  await DB.batch([
+    DB.prepare("DROP TABLE IF EXISTS agent_observation_claims"),
+    DB.prepare("DROP TABLE IF EXISTS agent_persistent_tasks"),
+    DB.prepare("DROP TABLE IF EXISTS agent_observation_checkpoints"),
+    DB.prepare("DROP TABLE IF EXISTS agent_persistent_task_events"),
+    DB.prepare("DROP TABLE IF EXISTS audit_events")
+  ]);
+  await DB.batch([
+    DB.prepare("CREATE TABLE agent_observation_claims(id TEXT PRIMARY KEY,tenant_id TEXT NOT NULL,persistent_task_id TEXT NOT NULL,scheduled_for TEXT NOT NULL,status TEXT NOT NULL,checkpoint_id TEXT,error_code TEXT,completed_at TEXT)"),
+    DB.prepare("CREATE TABLE agent_persistent_tasks(id TEXT PRIMARY KEY,tenant_id TEXT NOT NULL,status TEXT NOT NULL,next_run_at TEXT,last_run_at TEXT,updated_at TEXT)"),
+    DB.prepare("CREATE TABLE agent_observation_checkpoints(id TEXT PRIMARY KEY,tenant_id TEXT NOT NULL,persistent_task_id TEXT NOT NULL,snapshot_hash TEXT)"),
+    DB.prepare("CREATE TABLE agent_persistent_task_events(id TEXT PRIMARY KEY,tenant_id TEXT NOT NULL,persistent_task_id TEXT NOT NULL,event_type TEXT NOT NULL,event_data TEXT)"),
+    DB.prepare("CREATE TABLE audit_events(id TEXT PRIMARY KEY,tenant_id TEXT NOT NULL,event_type TEXT NOT NULL,entity_type TEXT NOT NULL,entity_id TEXT NOT NULL,event_data TEXT)")
+  ]);
 }
 
 const guard=(DB,{claimId,tenantId,taskId,scheduledFor})=>DB.prepare(
