@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";import fs from "node:fs";
 const src=fs.readFileSync("cloudflare/src/finance-watch-durable-loop.js","utf8");
-assert.match(src,/VERSION="2026-09-26\.v8"/);
+assert.match(src,/FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26\\.v\\d+"/,"durable loop must expose a dated version without pinning a stale implementation revision");
 assert.match(src,/const schedule=claim\?\.id&&claim\?\.scheduledFor\?nextRunAt\(task,claim\.scheduledFor\):null;/,"schedule must outlive finalization block");
 assert.match(src,/if\(claim\?\.id&&claim\?\.scheduledFor&&!schedule\)return frozen\(\{\.\.\.governed,persisted:false,code:"invalid_observation_cadence"/,"invalid cadence must fail before persistence");
 assert.match(src,/const observationMeta=\{scheduledFor:claim\?\.scheduledFor\|\|null,nextRunAt:next,skippedOccurrences,cadence:schedule\?\.cadence\|\|null\}/,"catch-up metadata must be durable");
