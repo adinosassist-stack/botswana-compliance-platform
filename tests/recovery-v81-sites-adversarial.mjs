@@ -4,6 +4,9 @@ import assert from "node:assert/strict";
 const html=fs.readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
 const worker=fs.readFileSync(new URL("../cloudflare/src/worker.js",import.meta.url),"utf8");
 const server=fs.readFileSync(new URL("../server/server.js",import.meta.url),"utf8");
+const sectionMatch=html.match(/<section id="sites"[\s\S]*?<\/section>/);
+assert.ok(sectionMatch,"Authoritative Sites section missing");
+const siteSection=sectionMatch[0];
 const match=html.match(/<script id="thebe-sites-authoritative-js">([\s\S]*?)<\/script>/);
 assert.ok(match,"Authoritative Sites module missing");
 const js=match[1];
@@ -17,7 +20,8 @@ assert.match(js,/apiJson\("\/api\/daily-reporting\/locations"\)/);
 assert.match(js,/reportingAnalyticsJson\("\/api\/daily-reporting\/dashboard\?date="/);
 assert.match(js,/Create site \/ job/);
 assert.doesNotMatch(js,/sessionStorage|localStorage|DEMO_SITES|DEMO_TASKS|SITE_PREFIX|TASK_PREFIX/);
-assert.doesNotMatch(siteSection,/Phase 0 demo|Session-only demo|Reset demo|Phase 0 session/);\nassert.doesNotMatch(js,/Phase 0 demo|Session-only demo|Reset demo|Phase 0 session/);
+assert.doesNotMatch(siteSection,/Phase 0 demo|Session-only demo|Reset demo|Phase 0 session/);
+assert.doesNotMatch(js,/Phase 0 demo|Session-only demo|Reset demo|Phase 0 session/);
 
 // Pass 2 — authorization, tenant isolation and exact server-side location mutation routes.
 assert.match(js,/ALLOWED_ROLES=new Set\(\["owner","manager"\]\)/);
