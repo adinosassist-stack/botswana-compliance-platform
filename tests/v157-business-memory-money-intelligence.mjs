@@ -28,6 +28,11 @@ assert.equal(assumptions.estimatedRunwayDays,45);
 assert.equal(assumptions.safeDiscretionaryMinor,6500000);
 assert.equal(assumptions.authoritative,false);
 
+const moneySource=fs.readFileSync("cloudflare/src/money-intelligence.js","utf8");
+assert.match(moneySource,/current_debit_count/);
+assert.match(moneySource,/ABS\(amount_minor\)>=\?/);
+assert.doesNotMatch(moneySource,/ORDER BY posted_on DESC,id DESC LIMIT 1000/);
+
 const migration=fs.readFileSync("cloudflare/migrations/057_v157_business_memory_money_intelligence.sql","utf8");
 for(const contract of ["business_memory_items","business_memory_events","owner_confirmed","uq_business_memory_active_key","trg_business_memory_source_immutable"])assert.ok(migration.includes(contract));
 const context=fs.readFileSync("cloudflare/src/business-context.js","utf8");
