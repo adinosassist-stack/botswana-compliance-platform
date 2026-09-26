@@ -1,0 +1,43 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+
+const html=fs.readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
+const primary=[...html.matchAll(/<button[^>]*class="(?:active )?nav-primary"[^>]*data-view="([^"]+)"/g)].map(m=>m[1]);
+
+assert.deepEqual(primary,['dashboard','moneyhub','workhub','peopleops','protecthub','automationhub','accounthub'],'owner navigation must stay at seven primary destinations');
+assert.ok(html.includes('class="nav-more-tools"')&&html.includes('>Find tools<'),'specialist navigation must collapse behind Find tools');
+assert.ok(html.includes('class="nav-advanced-index" hidden'),'specialist route index must remain hidden from normal navigation');
+for(const id of ['sites','businesshub','obligations','evidencehub','propertyintelligence']){
+  assert.ok(new RegExp(`class="nav-advanced"[^>]*data-view="${id}"`).test(html),`hidden route index missing ${id}`);
+}
+assert.ok(html.includes('data-mobile-view="moneyhub"')&&!html.includes('data-mobile-view="sites"'),'mobile primary navigation must prefer Money over Sites');
+
+assert.ok(html.includes('<section id="moneyhub"')&&html.includes('Canonical Finance Core'),'Money hub missing or detached from Finance Core');
+assert.ok(html.includes('<section id="protecthub"'),'Protect hub missing');
+assert.ok(html.includes('<section id="propertyintelligence"'),'Property Intelligence view missing');
+assert.ok(html.includes('data-hub-target="propertyintelligence"'),'Money hub must route to Property Intelligence');
+assert.ok(html.includes('function calculatePropertyDeal()'),'property calculator missing');
+assert.ok(html.includes('function askThebeAboutProperty()'),'Thebe handoff missing');
+assert.ok(html.includes('Do not invent market value or comparable-sales data.'),'agent prompt must reject invented market data');
+assert.ok(html.includes('not a professional property valuation'),'professional valuation boundary missing');
+assert.ok(html.includes('not a forecast or valuation'),'five-year appreciation boundary missing');
+
+for(const label of ['Gross rental yield','Net yield','Net operating income','Monthly debt service','Annual cash flow','DSCR','Cash-on-cash return','Break-even occupancy']){
+  assert.ok(html.includes(label),`property metric missing: ${label}`);
+}
+
+// Independent known-case math check for the intended formulas:
+// P2.4m purchase, P15k monthly rent, 8% vacancy, P30k opex, P600k deposit,
+// 7.5% interest, 20 years.
+const purchase=2400000,rent=15000,vacancy=.08,opex=30000,deposit=600000,rate=.075/12,n=240;
+const loan=purchase-deposit,annualScheduled=rent*12,effective=annualScheduled*(1-vacancy),noi=effective-opex;
+const monthlyDebt=loan*rate/(1-Math.pow(1+rate,-n));
+const annualDebt=monthlyDebt*12;
+const grossYield=annualScheduled/purchase*100,netYield=noi/purchase*100,dscr=noi/annualDebt,breakEven=(opex+annualDebt)/annualScheduled*100;
+assert.ok(Math.abs(grossYield-7.5)<1e-9,'known-case gross yield changed');
+assert.ok(Math.abs(netYield-5.65)<1e-9,'known-case net yield changed');
+assert.ok(monthlyDebt>14000&&monthlyDebt<15000,'known-case mortgage payment outside expected range');
+assert.ok(dscr>0.75&&dscr<0.85,'known-case DSCR outside expected range');
+assert.ok(breakEven>100,'known-case should expose break-even occupancy above 100%');
+
+console.log('v155 property intelligence + workspace simplification adversarial checks passed');
