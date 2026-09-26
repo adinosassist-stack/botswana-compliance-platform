@@ -72,6 +72,7 @@ function mergeConfirmedMemory(base,durable){
     "finance.minimum_cash_buffer_bwp":"minimumCashBufferBwp",
     "finance.monthly_outflows_bwp":"monthlyCashOutflowsBwp",
     "finance.monthly_labour_cost_bwp":"monthlyLabourCostBwp",
+    "finance.planned_purchase_bwp":"plannedPurchaseBwp",
     "operations.operating_days_per_month":"operatingDaysPerMonth",
     "sales.same_month_collection_pct":"sameMonthCollectionPct"
   });
