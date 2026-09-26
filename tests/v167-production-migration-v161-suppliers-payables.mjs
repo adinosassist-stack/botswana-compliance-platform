@@ -11,6 +11,7 @@ assert.match(workflow,/statuses: write/);
 assert.match(workflow,/Publish observable production migration status/);
 assert.equal(workflow.includes("thebe/production-d1-058"),true);
 assert.equal(workflow.includes("if: always()"),true);
+for(const context of ["thebe/production-d1-058/authority","thebe/production-d1-058/transport","thebe/production-d1-058/schema","thebe/production-d1-058/readiness"]) assert.equal(workflow.includes(context),true);
 assert.match(workflow,/migration authority must be a two-parent merged PR commit/);
 assert.match(workflow,/refusing stale migration target=/);
 assert.match(workflow,/wrangler@4\.135\.0/);
