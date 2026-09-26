@@ -254,7 +254,8 @@
     "test:finance-finalization-rollback-runtime": "node --no-warnings tests/v145-finance-finalization-rollback-runtime.mjs",
     "test:finance-watch-recovery-finalization": "node tests/v146-finance-watch-recovery-finalization.mjs",
     "test:finance-watch-protected-gate": "node tests/v147-finance-watch-protected-gate.mjs",
-    "test:d1-runtime-parity": "node tests/v148-d1-runtime-parity.mjs"
+    "test:d1-runtime-parity": "node tests/v148-d1-runtime-parity.mjs",
+    "test:agent-control-plane": "node tests/v149-agent-control-plane.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1126.0",
