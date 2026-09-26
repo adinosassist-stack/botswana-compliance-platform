@@ -11,6 +11,7 @@ class FakeStmt{
   async first(){
     if(this.sql.includes("executive_control_replacement_governance") && this.mode==="core_stale") throw new Error("no such table");
     if(this.sql.includes("agent_delegations") && this.mode==="authority_stale") throw new Error("no such table");
+    if(this.sql.includes("uq_audit_finance_observation_checkpoint_event"))return {ok:1,finance_watch_audit_index_count:this.mode==="audit_tip_stale"?0:1};
     return {ok:1};
   }
 }
@@ -33,6 +34,9 @@ if(res.status!==503||data.error!=="schema_outdated"||data.schemaReady!==false||d
 res=await agenticWorker.fetch(new Request("https://app.example/api/ready"),env("authority_stale"),{});data=await body(res);
 if(res.status!==503||data.error!=="schema_outdated"||data.schemaReady!==false||data.coreSchemaReady!==true||data.agenticAuthoritySchemaReady!==false||data.latestSchemaDelta!==profile.latest_cloudflare_migration)throw new Error("agentic authority schema must fail closed independently while reporting the authoritative latest migration tip");
 
+res=await agenticWorker.fetch(new Request("https://app.example/api/ready"),env("audit_tip_stale"),{});data=await body(res);
+if(res.status!==503||data.error!=="schema_outdated"||data.schemaReady!==false||data.coreSchemaReady!==true||data.agenticAuthoritySchemaReady!==false||data.latestSchemaDelta!==profile.latest_cloudflare_migration)throw new Error("migration 055 audit index must fail readiness closed");
+
 res=await agenticWorker.fetch(new Request("https://app.example/api/ready"),env("current"),{});data=await body(res);
 if(res.status!==200||data.ok!==true||data.schemaReady!==true||data.coreSchemaReady!==true||data.agenticAuthoritySchemaReady!==true||data.latestSchemaDelta!==profile.latest_cloudflare_migration||data.version!==`v78.${pkg.version}`)throw new Error("current core + agentic schemas with required config must be ready");
-console.log("V78 1.21.47 launch readiness runtime: 4/4 PASS through current agentic schema wrapper");
+console.log("V78 1.21.47 launch readiness runtime: 5/5 PASS through current migration-055 agentic schema wrapper");
