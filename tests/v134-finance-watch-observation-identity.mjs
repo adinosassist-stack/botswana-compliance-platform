@@ -1,0 +1,15 @@
+import assert from "node:assert/strict";import fs from "node:fs";
+const migration=fs.readFileSync("cloudflare/migrations/054_v134_agent_observation_identity.sql","utf8");
+const loop=fs.readFileSync("cloudflare/src/finance-watch-durable-loop.js","utf8");
+assert.match(migration,/ALTER TABLE agent_observation_checkpoints ADD COLUMN scheduled_for TEXT/);
+assert.match(migration,/CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_observation_checkpoint_occurrence/);
+assert.match(migration,/tenant_id,persistent_task_id,scheduled_for/);
+assert.match(migration,/WHERE scheduled_for IS NOT NULL/);
+assert.match(loop,/FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26\.v3"/);
+assert.match(loop,/snapshot_json,exception_json,scheduled_for/);
+assert.match(loop,/claim\?\.scheduledFor\|\|null/);
+assert.match(loop,/UPDATE agent_observation_claims SET status='completed'/);
+assert.match(loop,/next_run_at=\?/);
+assert.match(loop,/executionAllowed:false/);
+assert.ok(!loop.includes("agent_execution_grants"),"dedupe must not widen execution authority");
+console.log("v134 deterministic Finance observation identity passed");
