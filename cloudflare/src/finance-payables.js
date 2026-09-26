@@ -118,7 +118,7 @@ async function payableDetail(env,tenantId,payableId){
     " WHERE p.tenant_id=? AND p.id=? GROUP BY p.id,p.supplier_id,s.name,p.payable_number,p.issued_on,p.due_on,p.description,p.expense_category,p.total_minor,p.currency,p.status,p.created_at LIMIT 1"
   ).bind(tenantId,payableId).first();
 }
-export async function handleFinancePayablesRequest({request,url,env,auth,json,readJson,id,appendLineage,writeAudit,sha256Hex}={}){
+export async function handleFinancePayablesRequest({request,url,env,auth,json,readJson,id,appendLineage,writeAudit,sha256Hex,roleAllowed=()=>false}={}){
   const path=String(url?.pathname||"");
   if(!path.startsWith("/api/finance/"))return null;
 
@@ -150,10 +150,13 @@ export async function handleFinancePayablesRequest({request,url,env,auth,json,re
 
   const aliasRoute=supplierAliasesPath(path);
   if(aliasRoute&&request.method==="POST"){
+    if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);
     const body=await readJson(request,{maxBytes:8*1024}),aliasText=text(body.alias,160),normalizedAlias=normalizeSupplierIdentity(aliasText);
     if(normalizedAlias.length<2)return json({error:"supplier_alias_required"},400);
     const supplier=await env.DB.prepare("SELECT id FROM finance_suppliers WHERE id=? AND tenant_id=? AND status='active' LIMIT 1").bind(aliasRoute.supplierId,auth.tenant_id).first();
     if(!supplier)return json({error:"finance_supplier_not_found"},404);
+    const canonicalCollision=await env.DB.prepare("SELECT id FROM finance_suppliers WHERE tenant_id=? AND normalized_name=? AND id<>? LIMIT 1").bind(auth.tenant_id,normalizedAlias,aliasRoute.supplierId).first();
+    if(canonicalCollision)return json({error:"finance_supplier_alias_canonical_collision"},409);
     const aliasId=id();
     try{
       await env.DB.prepare("INSERT INTO finance_supplier_aliases(id,tenant_id,supplier_id,alias_text,normalized_alias,source_kind,created_by_user_id) VALUES(?,?,?,?,?,'owner_confirmed',?)")
