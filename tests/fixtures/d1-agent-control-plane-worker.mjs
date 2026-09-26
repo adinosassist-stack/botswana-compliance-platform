@@ -39,6 +39,10 @@ export default {
     const revoked=await transitionCanonicalAgentAuthority({
       env,agentId:THEBE_AGENT_ID,newState:"revoked",reasonCode:"runtime_probe_revoke",actorType:"system",actorId:"d1-test"
     });
+    let revokedTerminalBlocked=false;
+    try{
+      await env.DB.prepare("UPDATE agent_registry SET authority_state='active' WHERE agent_id=?").bind(THEBE_AGENT_ID).run();
+    }catch{revokedTerminalBlocked=true}
     const revive=await transitionCanonicalAgentAuthority({
       env,agentId:THEBE_AGENT_ID,newState:"active",reasonCode:"runtime_probe_illegal_revive",actorType:"system",actorId:"d1-test"
     });
@@ -59,6 +63,7 @@ export default {
       drift,
       reEscalationBlocked,
       revoked,
+      revokedTerminalBlocked,
       revive,
       eventCount:Number(eventCount?.count||0),
       findingCount:Number(findingCount?.count||0)
