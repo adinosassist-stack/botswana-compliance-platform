@@ -1,7 +1,7 @@
 (function initOwnerCommandCentre(global){
   "use strict";
 
-  const RELEASE="20260913d";
+  const RELEASE="20260926-business-context-v1";
   const MAX_OPPORTUNITIES=500;
   const MAX_CAMPAIGNS=50;
   const PROFILE_KEYS=Object.freeze({
@@ -353,7 +353,7 @@
     };
   }
 
-  function deriveModel(performance,inputs,date,sales,finance){
+  function deriveModel(performance,inputs,date,sales,finance,businessBrief){
     const selected=performance?.selected||{};
     const profile=selected.profile||{};
     const baseline30=profile.baseline30||{};
@@ -441,7 +441,8 @@
       recommendedCashImpact,
       branch:branchSignal(performance),
       sales,
-      finance:finance||null
+      finance:finance||null,
+      businessBrief:businessBrief||null
     };
   }
 
@@ -1386,6 +1387,7 @@
     ));
     if(model.branch)box.append(sourcePill("Location operating baselines","reported"));
     if(model.finance?.authority?.canonical)box.append(sourcePill("Canonical finance ledger","reported"));
+    if(model.businessBrief)box.append(sourcePill("Unified Thebe Business Context","reported"));
     if(model.sales?.opportunities.length){
       box.append(sourcePill(`${model.sales.opportunities.length} recorded quotations`,"reported"));
     }
@@ -2422,6 +2424,11 @@
     const lines=[];
     let tone="neutral";
 
+    if(model.businessBrief?.headline){
+      lines.push(String(model.businessBrief.headline).slice(0,520));
+      if((model.businessBrief.priorities||[]).some(item=>item?.severity==="high"))tone="risk";
+    }
+
     if(model.targetGapPct!==null){
       const gap=model.targetGapPct;
       if(gap>0){
@@ -2485,17 +2492,18 @@
 
     try{
       const date=gaboroneDate();
-      const [performance,stateEnvelope,finance]=await Promise.all([
+      const [performance,stateEnvelope,finance,businessEnvelope]=await Promise.all([
         request(`/api/daily-reporting/performance?date=${encodeURIComponent(date)}`),
         request("/api/state"),
-        request("/api/finance/summary").catch(()=>null)
+        request("/api/finance/summary").catch(()=>null),
+        request("/api/business-context/brief").catch(()=>null)
       ]);
       if(seq!==renderSeq)return;
 
       latestStateEnvelope=stateEnvelope;
       const inputs=decisionInputs(stateEnvelope?.state||{});
       const sales=deriveSalesIntelligence(inputs.company,date);
-      const model=deriveModel(performance,inputs,date,sales,finance);
+      const model=deriveModel(performance,inputs,date,sales,finance,businessEnvelope?.brief||null);
 
       renderSummary(model);
       renderSources(model,inputs);
