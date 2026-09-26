@@ -310,7 +310,7 @@ function weeklySpendEnvelope({cashPositionMinor=0,cashCalendar={},assumptions={}
   });
 }
 
-function simulateWeeklySpendDecision({spendEnvelope={},proposedSpendMinor,label=null}={}){
+export function simulateWeeklySpendDecision({spendEnvelope={},proposedSpendMinor,label=null}={}){
   const amount=Number(proposedSpendMinor);
   const validAmount=Number.isSafeInteger(amount)&&amount>0&&amount<=100000000000000;
   const cleanLabel=clean(label,120)||"Proposed spend";
