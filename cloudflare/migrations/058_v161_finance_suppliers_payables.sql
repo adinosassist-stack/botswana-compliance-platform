@@ -41,6 +41,24 @@ CREATE TABLE IF NOT EXISTS finance_supplier_aliases(
 CREATE INDEX IF NOT EXISTS finance_supplier_aliases_supplier_idx
   ON finance_supplier_aliases(tenant_id,supplier_id,normalized_alias);
 
+CREATE TRIGGER IF NOT EXISTS finance_supplier_name_alias_collision_guard
+BEFORE INSERT ON finance_suppliers
+BEGIN
+  SELECT (CASE WHEN EXISTS(
+    SELECT 1 FROM finance_supplier_aliases a
+    WHERE a.tenant_id=NEW.tenant_id AND a.normalized_alias=NEW.normalized_name
+  ) THEN RAISE(ABORT,'finance_supplier_name_alias_collision') END);
+END;
+
+CREATE TRIGGER IF NOT EXISTS finance_supplier_alias_canonical_collision_guard
+BEFORE INSERT ON finance_supplier_aliases
+BEGIN
+  SELECT (CASE WHEN EXISTS(
+    SELECT 1 FROM finance_suppliers s
+    WHERE s.tenant_id=NEW.tenant_id AND s.normalized_name=NEW.normalized_alias AND s.id<>NEW.supplier_id
+  ) THEN RAISE(ABORT,'finance_supplier_alias_canonical_collision') END);
+END;
+
 CREATE TABLE IF NOT EXISTS finance_payables(
   id TEXT PRIMARY KEY,
   tenant_id TEXT NOT NULL,
