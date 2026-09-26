@@ -55,7 +55,7 @@ export async function runFinanceWatchTask({env,task,attempt=0,claim=null}={}){
     env.DB.prepare("INSERT INTO agent_observation_checkpoints(id,tenant_id,persistent_task_id,snapshot_hash,snapshot_json,exception_json,scheduled_for) VALUES(?,?,?,?,?,?,?)")
       .bind(checkpointId,tenantId,taskId,governed.change.currentHash,JSON.stringify(financeSnapshot),JSON.stringify(governed.exceptions),claim?.scheduledFor||null),
     env.DB.prepare("INSERT INTO agent_persistent_task_events(id,tenant_id,persistent_task_id,event_type,event_data) VALUES(?,?,?,'OBSERVATION_VERIFIED',?)")
-      .bind(eventId,tenantId,taskId,JSON.stringify({checkpointId,snapshotHash:governed.change.currentHash,changed:governed.change.changed,exceptionCount:governed.exceptions.length})),
+      .bind(eventId,tenantId,taskId,JSON.stringify({checkpointId,snapshotHash:governed.change.currentHash,changed:governed.change.changed,exceptionCount:governed.exceptions.length,scheduledFor:claim?.scheduledFor||null})),
     env.DB.prepare("INSERT INTO audit_events(id,tenant_id,event_type,entity_type,entity_id,event_data) VALUES(?,?,'AGENT_FINANCE_OBSERVATION_VERIFIED','agent_observation_checkpoint',?,?)")
       .bind(auditId,tenantId,checkpointId,JSON.stringify({persistentTaskId:taskId,snapshotHash:governed.change.currentHash,changed:governed.change.changed,externalActions:0}))
   ];
@@ -78,7 +78,7 @@ export async function runFinanceWatchTask({env,task,attempt=0,claim=null}={}){
     const taskChanges=Number(batchResults?.[5]?.meta?.changes??batchResults?.[5]?.changes??0);
     if(claimChanges!==1||taskChanges!==1)throw new Error("observation_finalization_guard_failed");
   }
-  return frozen({...governed,persisted:true,checkpointId,finalized:!!claim?.id,nextRunAt:next});
+  return frozen({...governed,persisted:true,checkpointId,finalized:!!claim?.id,nextRunAt:next,skippedOccurrences:claim?.id?schedule?.skippedOccurrences||0:0});
 }
 
 async function claimObservation(env,task){
@@ -116,7 +116,7 @@ async function recoverVerifiedOccurrence(env,task,claim){
   ]);
   const claimChanges=Number(results?.[0]?.meta?.changes??results?.[0]?.changes??0),taskChanges=Number(results?.[1]?.meta?.changes??results?.[1]?.changes??0);
   if(claimChanges!==1||taskChanges!==1)throw new Error("observation_recovery_finalization_guard_failed");
-  return frozen({ok:true,code:"verified_occurrence_recovered",persisted:true,checkpointId:checkpoint.id,finalized:true,recovered:true,nextRunAt:next,executionAllowed:false,externalActions:0,toolCalls:0});
+  return frozen({ok:true,code:"verified_occurrence_recovered",persisted:true,checkpointId:checkpoint.id,finalized:true,recovered:true,nextRunAt:next,skippedOccurrences:schedule?.skippedOccurrences||0,executionAllowed:false,externalActions:0,toolCalls:0});
 }
 
 export async function runDueFinanceWatchTasks(env,{limit=25}={}){
