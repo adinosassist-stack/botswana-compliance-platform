@@ -72,8 +72,8 @@ export async function runFinanceWatchTask({env,task,attempt=0,claim=null}={}){
   }
   const batchResults=await env.DB.batch(statements);
   if(claim?.id&&claim?.scheduledFor){
-    const claimChanges=Number(batchResults?.[5]?.meta?.changes??batchResults?.[5]?.changes??0);
-    const taskChanges=Number(batchResults?.[4]?.meta?.changes??batchResults?.[4]?.changes??0);
+    const claimChanges=Number(batchResults?.[4]?.meta?.changes??batchResults?.[4]?.changes??0);
+    const taskChanges=Number(batchResults?.[5]?.meta?.changes??batchResults?.[5]?.changes??0);
     if(claimChanges!==1||taskChanges!==1)throw new Error("observation_finalization_guard_failed");
   }
   return frozen({...governed,persisted:true,checkpointId,finalized:!!claim?.id,nextRunAt:next});
