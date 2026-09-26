@@ -55,7 +55,7 @@ assert.ok(production.includes('const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/wor
 assert.ok(production.includes("function workspaceViewShard(id){"));
 assert.ok(production.includes("const workspaceViewShardPromises=new Map();"));
 assert.ok(production.includes("async function workspaceViewFragments(id){"));
-assert.ok(production.includes('const WORKSPACE_RESIDENT_VIEW_IDS=Object.freeze(["dashboard","workhub","sites","peopleops","businesshub","obligations","evidencehub","automationhub"]);'));
+assert.ok(production.includes('const WORKSPACE_RESIDENT_VIEW_IDS=Object.freeze(["dashboard","moneyhub","workhub","sites","peopleops","protecthub","businesshub","obligations","evidencehub","automationhub","propertyintelligence"]);'),"production resident-view inventory must include Money, Protect and Property Intelligence");
 const lazyConstant=(production.match(/const WORKSPACE_LAZY_VIEW_IDS=Object\.freeze\((\[[^\n]+\])\);/)||[])[1];
 assert.ok(lazyConstant,"production lazy-view constant must remain parseable");
 const productionLazyViews=JSON.parse(lazyConstant);
