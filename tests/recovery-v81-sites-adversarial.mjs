@@ -1,37 +1,48 @@
 import fs from "node:fs";
 import assert from "node:assert/strict";
+
 const html=fs.readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
 const worker=fs.readFileSync(new URL("../cloudflare/src/worker.js",import.meta.url),"utf8");
 const server=fs.readFileSync(new URL("../server/server.js",import.meta.url),"utf8");
-const m=html.match(/<script id="thebe-sites-phase0-demo-js">([\s\S]*?)<\/script>/);
-assert.ok(m,"V81 Sites recovery module missing");
-const js=m[1];
-// Pass 1 — product boundary and interactive Phase 0 behavior.
-assert.match(html,/data-recovery-lineage="v81-sites-reconstructed"/);
+const sectionMatch=html.match(/<section id="sites"[\s\S]*?<\/section>/);
+assert.ok(sectionMatch,"Authoritative Sites section missing");
+const siteSection=sectionMatch[0];
+const match=html.match(/<script id="thebe-sites-authoritative-js">([\s\S]*?)<\/script>/);
+assert.ok(match,"Authoritative Sites module missing");
+const js=match[1];
+
+// Pass 1 — production UI is backed by durable tenant APIs, not browser demo state.
+assert.match(html,/data-source="authoritative-operating-locations"/);
+assert.match(html,/data-recovery-lineage="v159-sites-authoritative"/);
 assert.match(html,/Sites &amp; field work/);
-assert.match(js,/siteTaskAddBtn/);
-assert.match(js,/createSite\(\)/);
-assert.match(js,/MAX_TASKS=200/);
-assert.doesNotMatch(js,/\/api\/(finance|payroll|hr|employees)/i);
-// Pass 2 — authorization, tenant isolation and canonical site binding.
+assert.match(html,/Server-backed tenant data/);
+assert.match(js,/apiJson\("\/api\/daily-reporting\/locations"\)/);
+assert.match(js,/reportingAnalyticsJson\("\/api\/daily-reporting\/dashboard\?date="/);
+assert.match(js,/Create site \/ job/);
+assert.doesNotMatch(js,/sessionStorage|localStorage|DEMO_SITES|DEMO_TASKS|SITE_PREFIX|TASK_PREFIX/);
+assert.doesNotMatch(siteSection,/Phase 0 demo|Session-only demo|Reset demo|Phase 0 session/);
+assert.doesNotMatch(js,/Phase 0 demo|Session-only demo|Reset demo|Phase 0 session/);
+
+// Pass 2 — authorization, tenant isolation and exact server-side location mutation routes.
 assert.match(js,/ALLOWED_ROLES=new Set\(\["owner","manager"\]\)/);
 assert.match(js,/productionApiClient\.request\("\/api\/auth\/me"\)/);
 assert.match(js,/tenantId/);
-assert.match(js,/SITE_PREFIX="thebe:v81:sites:"/);
-assert.match(js,/TASK_PREFIX="thebe:v81:site-tasks:"/);
-assert.match(js,/matches\.length===1/);
-assert.match(js,/canonical site context required/);
-assert.match(js,/sessionStorage\.getItem/);
-assert.match(js,/sessionStorage\.setItem/);
-assert.doesNotMatch(js,/localStorage/);
-assert.doesNotMatch(js,/generic|workspace:fallback|fallback.*storage/i);
-// Pass 3 — normalized session records, no authority creep, server session exposes opaque tenant identity.
-assert.match(js,/slice\(0,MAX_TASKS\)/);
-assert.match(js,/title,120/);
-assert.match(js,/owner,80/);
-assert.match(js,/validDate/);
-assert.match(js,/TASK_STATUSES/);
-assert.match(worker,/tenantId:a\.tenant_id/);
+assert.match(js,/\/api\/daily-reporting\/locations\/"\+encodeURIComponent\(site\.id\)/);
+assert.match(js,/"deactivate"/);
+assert.match(js,/"reactivate"/);
+assert.match(worker,/WHERE tenant_id=\?/);
+assert.match(worker,/OPERATING_LOCATION_CREATED/);
+assert.match(worker,/OPERATING_LOCATION_UPDATED/);
+assert.match(worker,/OPERATING_LOCATION_REMOVED/);
 assert.match(server,/tenantId:req\.auth\.tenant_id/);
-assert.match(html,/does not create payroll, disciplinary findings, accounting journals or authoritative project records/);
-console.log("Recovery V81 Sites adversarial checks passed (3-pass boundary)");
+
+// Pass 3 — no authority creep: site UI coordinates locations/reporting only.
+assert.doesNotMatch(js,/\/api\/(finance|payroll|hr|employees)/i);
+assert.doesNotMatch(js,/agent_execution_grants|agent_task_requests|payment_orders/i);
+assert.match(html,/Historical reports stay intact/);
+assert.match(js,/reportingPopulation/);
+assert.match(js,/totals\.attention/);
+assert.match(js,/expectedSubmitted/);
+assert.match(js,/showView\("dailyreports"\)/);
+
+console.log("Recovery Sites adversarial checks passed (authoritative 3-pass boundary)");
