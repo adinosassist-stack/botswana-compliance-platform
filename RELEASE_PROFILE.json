@@ -1247,5 +1247,15 @@
   "v165_execution_authority_expanded": false,
   "weekly_spend_envelope_stale_reconciliation_fail_closed": true,
   "weekly_spend_envelope_payables_unavailable_fail_closed": true,
-  "weekly_spend_envelope_withholds_numeric_amount_on_evidence_failure": true
+  "weekly_spend_envelope_withholds_numeric_amount_on_evidence_failure": true,
+  "money_intelligence_v6": true,
+  "spend_what_if_simulator_v166": true,
+  "spend_what_if_currency": "BWP",
+  "spend_what_if_requires_single_explicit_currency_amount": true,
+  "spend_what_if_uses_fail_closed_weekly_envelope": true,
+  "spend_what_if_execution_performed": false,
+  "spend_what_if_payment_initiated": false,
+  "spend_what_if_spending_authorization": false,
+  "spend_what_if_financial_advice": false,
+  "v166_execution_authority_expanded": false
 }
