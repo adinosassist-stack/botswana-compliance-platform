@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";import fs from "node:fs";
 const src=fs.readFileSync("cloudflare/src/finance-watch-durable-loop.js","utf8");
-assert.match(src,/VERSION="2026-09-26\.v10"/);
+assert.match(src,/FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26\.v\d+"/,"recovery finalization regression must follow the current dated durable-loop contract");
 const recovery=src.slice(src.indexOf("async function recoverVerifiedOccurrence"),src.indexOf("export async function runDueFinanceWatchTasks"));
 assert.match(recovery,/SELECT CASE WHEN NOT EXISTS \(SELECT 1 FROM agent_observation_claims/,"recovery must abort inside batch when ownership preconditions changed");
 assert.match(recovery,/THEN json_extract\('invalid','\$\.'\)/);
 assert.match(recovery,/AGENT_FINANCE_OBSERVATION_RECOVERED/,"recovery must be durably auditable");
 assert.match(recovery,/skippedOccurrences:schedule\?\.skippedOccurrences\|\|0,cadence:schedule\?\.cadence\|\|null/);
 assert.doesNotMatch(recovery,/OBSERVATION_VERIFIED/,"recovery must not duplicate the canonical observation event");
-assert.match(recovery,/results\?\.\[1\].*claimChanges/);
-assert.match(recovery,/results\?\.\[2\].*taskChanges/);
+assert.match(recovery,/claimChanges=Number\(results\?\.\[1\]/,"recovery claim row-count guard must read batch result index 1");
+assert.match(recovery,/taskChanges=Number\(results\?\.\[2\]/,"recovery task row-count guard must read batch result index 2");
 console.log("v146 Finance Watch recovery finalization passed");
