@@ -1,7 +1,7 @@
 import {evaluateAgentAction} from "./agent-policy.js";
 import {financeDailyCollections,financeReceivablesSummary,financeReceivableCustomerLookup} from "./finance-receivables.js";
 
-export const AGENT_READ_TOOLS_VERSION="2026-09-23.read-tools-v3";
+export const AGENT_READ_TOOLS_VERSION="2026-09-26.read-tools-v4";
 
 const TOOL_ACTIONS=Object.freeze([
   "business_health.read",
@@ -30,11 +30,12 @@ const text=(value,max=240)=>String(value??"").trim().slice(0,max);
 const number=value=>Number.isFinite(Number(value))?Number(value):0;
 
 async function safeFirst(env,sql,bindings=[]){
-  try{return await env.DB.prepare(sql).bind(...bindings).first()}catch{return null}
+  try{return {ok:true,value:await env.DB.prepare(sql).bind(...bindings).first()}}catch(error){return {ok:false,error:text(error?.message||error,160)}}
 }
 async function safeAll(env,sql,bindings=[]){
-  try{return await env.DB.prepare(sql).bind(...bindings).all()}catch{return null}
+  try{return {ok:true,value:await env.DB.prepare(sql).bind(...bindings).all()}}catch(error){return {ok:false,error:text(error?.message||error,160)}}
 }
+function requireReads(reads){const failed=reads.filter(x=>!x?.ok);if(failed.length)throw new Error(`authoritative_read_unavailable:${failed.map(x=>x.error||"db_error").join("|")}`);return reads.map(x=>x.value)}
 function parseObject(value){
   try{
     const parsed=JSON.parse(String(value||"{}"));
@@ -64,11 +65,11 @@ function baseResult(actionKey,decision){
 }
 
 async function businessHealth(env,tenantId){
-  const [performance,workflows,compliance]=await Promise.all([
+  const reads=await Promise.all([
     safeFirst(env,"SELECT COUNT(*) open_count, SUM(CASE WHEN severity='critical' THEN 1 ELSE 0 END) critical_count, SUM(CASE WHEN severity='warning' THEN 1 ELSE 0 END) warning_count, MAX(created_at) latest_signal_at FROM performance_insights WHERE tenant_id=? AND status IN ('open','acknowledged')",[tenantId]),
     safeFirst(env,"SELECT SUM(CASE WHEN status IN ('queued','pending','retry') THEN 1 ELSE 0 END) pending_count, SUM(CASE WHEN status IN ('failed','dead') THEN 1 ELSE 0 END) failed_count, MIN(CASE WHEN status IN ('queued','pending','retry') THEN due_at END) next_due_at FROM workflow_jobs WHERE tenant_id=?",[tenantId]),
     safeFirst(env,"SELECT SUM(CASE WHEN status NOT IN ('completed','closed') AND due_at<CURRENT_TIMESTAMP THEN 1 ELSE 0 END) overdue_count, SUM(CASE WHEN status NOT IN ('completed','closed') AND due_at>=CURRENT_TIMESTAMP AND due_at<datetime('now','+14 days') THEN 1 ELSE 0 END) due_14d_count FROM compliance_obligations WHERE tenant_id=?",[tenantId])
-  ]);
+  ]);const [performance,workflows,compliance]=requireReads(reads);
   return Object.freeze({
     openPerformanceSignals:number(performance?.open_count),
     criticalPerformanceSignals:number(performance?.critical_count),
@@ -83,11 +84,11 @@ async function businessHealth(env,tenantId){
 }
 
 async function financialPosition(env,tenantId){
-  const [position,reconciliation,receivables]=await Promise.all([
+  const reads=await Promise.all([
     safeFirst(env,"SELECT COALESCE(SUM(a.opening_balance_minor+COALESCE(t.net,0)),0) cash_position_minor, COUNT(a.id) account_count FROM finance_accounts a LEFT JOIN (SELECT account_id,SUM(amount_minor) net FROM finance_transactions WHERE tenant_id=? GROUP BY account_id) t ON t.account_id=a.id WHERE a.tenant_id=? AND a.status='active'",[tenantId,tenantId]),
     safeFirst(env,"SELECT COUNT(*) reconciliation_count, SUM(CASE WHEN status='exception' THEN 1 ELSE 0 END) exception_count, COALESCE(SUM(CASE WHEN status='exception' THEN ABS(difference_minor) ELSE 0 END),0) exception_exposure_minor, MAX(created_at) latest_reconciliation_at FROM finance_reconciliation_runs WHERE tenant_id=?",[tenantId]),
-    financeReceivablesSummary(env,tenantId)
-  ]);
+    financeReceivablesSummary(env,tenantId).then(value=>({ok:true,value})).catch(error=>({ok:false,error:text(error?.message||error,160)}))
+  ]);const [position,reconciliation,receivables]=requireReads(reads);
   return Object.freeze({
     currency:"BWP",
     cashPositionMinor:number(position?.cash_position_minor),
@@ -121,11 +122,11 @@ async function receivablesCustomer(env,tenantId,params={}){
 }
 
 async function financeDataQuality(env,tenantId){
-  const [imports,reconciliations,transactions]=await Promise.all([
+  const reads=await Promise.all([
     safeFirst(env,"SELECT COUNT(*) import_batch_count, SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) completed_batch_count, SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) failed_batch_count, COALESCE(SUM(row_count),0) imported_row_count, COALESCE(SUM(duplicate_count),0) duplicate_row_count, MAX(completed_at) latest_completed_at FROM finance_import_batches WHERE tenant_id=? AND substr(id,1,2)<>'__'",[tenantId]),
     safeFirst(env,"SELECT COUNT(*) run_count, SUM(CASE WHEN status='reconciled' THEN 1 ELSE 0 END) reconciled_count, SUM(CASE WHEN status='exception' THEN 1 ELSE 0 END) exception_count, MAX(created_at) latest_run_at FROM finance_reconciliation_runs WHERE tenant_id=?",[tenantId]),
     safeFirst(env,"SELECT COUNT(*) transaction_count, SUM(CASE WHEN source_fingerprint IS NULL OR source_fingerprint='' THEN 1 ELSE 0 END) missing_fingerprint_count, MAX(created_at) latest_transaction_at FROM finance_transactions WHERE tenant_id=?",[tenantId])
-  ]);
+  ]);const [imports,reconciliations,transactions]=requireReads(reads);
   const importedRows=number(imports?.imported_row_count);
   const duplicateRows=number(imports?.duplicate_row_count);
   const totalRows=importedRows+duplicateRows;
@@ -148,10 +149,10 @@ async function financeDataQuality(env,tenantId){
 }
 
 async function complianceStatus(env,tenantId){
-  const [summary,nextRows]=await Promise.all([
+  const reads=await Promise.all([
     safeFirst(env,"SELECT COUNT(*) total_count, SUM(CASE WHEN status NOT IN ('completed','closed') THEN 1 ELSE 0 END) open_count, SUM(CASE WHEN status NOT IN ('completed','closed') AND due_at<CURRENT_TIMESTAMP THEN 1 ELSE 0 END) overdue_count, SUM(CASE WHEN status NOT IN ('completed','closed') AND due_at>=CURRENT_TIMESTAMP AND due_at<datetime('now','+14 days') THEN 1 ELSE 0 END) due_14d_count, MIN(CASE WHEN status NOT IN ('completed','closed') AND due_at>=CURRENT_TIMESTAMP THEN due_at END) next_due_at FROM compliance_obligations WHERE tenant_id=?",[tenantId]),
     safeAll(env,"SELECT id,title,due_at,status FROM compliance_obligations WHERE tenant_id=? AND status NOT IN ('completed','closed') ORDER BY CASE WHEN due_at IS NULL THEN 1 ELSE 0 END,due_at ASC,id ASC LIMIT 5",[tenantId])
-  ]);
+  ]);const [summary,nextRows]=requireReads(reads);
   return Object.freeze({
     totalObligationCount:number(summary?.total_count),
     openObligationCount:number(summary?.open_count),
@@ -168,7 +169,8 @@ async function complianceStatus(env,tenantId){
 }
 
 async function dailyOperationsSummary(env,tenantId){
-  const row=await safeFirst(env,"SELECT summary_date,generation_mode,metrics_json,created_at FROM daily_operations_summaries WHERE tenant_id=? ORDER BY summary_date DESC,created_at DESC LIMIT 1",[tenantId]);
+  const rowRead=await safeFirst(env,"SELECT summary_date,generation_mode,metrics_json,created_at FROM daily_operations_summaries WHERE tenant_id=? ORDER BY summary_date DESC,created_at DESC LIMIT 1",[tenantId]);
+  const [row]=requireReads([rowRead]);
   if(!row)return Object.freeze({available:false,summaryDate:null,generationMode:null,metrics:Object.freeze({})});
   const metrics=parseObject(row.metrics_json);
   const allowed={};
@@ -190,6 +192,7 @@ async function executeOne(actionKey,{env,auth,params={}}){
   const result=baseResult(actionKey,decision);
   if(decision.allowed!==true)return Object.freeze({...result,available:false,allowed:false,error:decision.code});
   let data;
+  try{
   if(actionKey==="business_health.read")data=await businessHealth(env,auth.tenant_id);
   else if(actionKey==="financial_position.read")data=await financialPosition(env,auth.tenant_id);
   else if(actionKey==="finance_data_quality.read")data=await financeDataQuality(env,auth.tenant_id);
@@ -199,6 +202,7 @@ async function executeOne(actionKey,{env,auth,params={}}){
   else if(actionKey==="compliance_status.read")data=await complianceStatus(env,auth.tenant_id);
   else if(actionKey==="daily_operations_summary.read")data=await dailyOperationsSummary(env,auth.tenant_id);
   else return Object.freeze({...result,available:false,allowed:false,error:"unsupported_read_tool"});
+  }catch(error){return Object.freeze({...result,available:false,allowed:true,error:"authoritative_read_unavailable",errorDetail:text(error?.message||error,160)});}
   return Object.freeze({...result,available:true,allowed:true,data});
 }
 

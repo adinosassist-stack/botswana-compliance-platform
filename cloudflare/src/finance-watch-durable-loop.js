@@ -1,14 +1,16 @@
 import {executeAgentReadTool} from "./agent-read-tools.js";
 import {runGovernedFinanceObservation} from "./governed-finance-observation-runner.js";
 
-export const FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26.v3";
+export const FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26.v4";
 const frozen=value=>Object.freeze(value);
 const clean=(value,max=160)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
 const parse=(value,fallback)=>{try{return JSON.parse(String(value??""))}catch{return fallback}};
-function nextRunAt(task,now=new Date()){
+function nextRunAt(task,scheduledFor){
   const spec=parse(task.trigger_spec_json,task.triggerSpec??{}),cadence=String(spec.cadence||"daily").toLowerCase();
   const ms={hourly:3600000,daily:86400000,weekly:604800000}[cadence];
-  if(!ms)return null;return new Date(now.getTime()+ms).toISOString();
+  const anchor=new Date(String(scheduledFor||task?.next_run_at||""));
+  if(!ms||!Number.isFinite(anchor.getTime()))return null;
+  return new Date(anchor.getTime()+ms).toISOString();
 }
 
 export async function runFinanceWatchTask({env,task,attempt=0,claim=null}={}){
@@ -19,7 +21,7 @@ export async function runFinanceWatchTask({env,task,attempt=0,claim=null}={}){
   const allowedTools=parse(task.allowed_tools_json,task.allowedTools??[]);
   const budget=parse(task.budget_json,task.budget??{});
   const previous=await env.DB.prepare("SELECT id,snapshot_hash,observed_at FROM agent_observation_checkpoints WHERE tenant_id=? AND persistent_task_id=? ORDER BY observed_at DESC,id DESC LIMIT 1").bind(tenantId,taskId).first();
-  const auth=frozen({tenant_id:tenantId,role:"owner"});
+  const auth=frozen({tenant_id:tenantId,role:"system_observer",systemActor:true});
   const results={};let toolCalls=0;
   const started=Date.now();
   for(const actionKey of allowedTools){
@@ -58,7 +60,7 @@ export async function runFinanceWatchTask({env,task,attempt=0,claim=null}={}){
   ];
   let next=null;
   if(claim?.id&&claim?.scheduledFor){
-    next=nextRunAt(task);
+    next=nextRunAt(task,claim.scheduledFor);
     statements.push(
       env.DB.prepare("UPDATE agent_observation_claims SET status='completed',checkpoint_id=?,error_code=NULL,completed_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND persistent_task_id=? AND scheduled_for=? AND status='running'")
         .bind(checkpointId,claim.id,tenantId,taskId,claim.scheduledFor),
@@ -66,7 +68,12 @@ export async function runFinanceWatchTask({env,task,attempt=0,claim=null}={}){
         .bind(next,taskId,tenantId,claim.scheduledFor)
     );
   }
-  await env.DB.batch(statements);
+  const batchResults=await env.DB.batch(statements);
+  if(claim?.id&&claim?.scheduledFor){
+    const claimChanges=Number(batchResults?.[3]?.meta?.changes??batchResults?.[3]?.changes??0);
+    const taskChanges=Number(batchResults?.[4]?.meta?.changes??batchResults?.[4]?.changes??0);
+    if(claimChanges!==1||taskChanges!==1)throw new Error("observation_finalization_guard_failed");
+  }
   return frozen({...governed,persisted:true,checkpointId,finalized:!!claim?.id,nextRunAt:next});
 }
 
