@@ -1,7 +1,7 @@
 (function initOwnerCommandCentre(global){
   "use strict";
 
-  const RELEASE="20260913d";
+  const RELEASE="20260926-v164";
   const MAX_OPPORTUNITIES=500;
   const MAX_CAMPAIGNS=50;
   const PROFILE_KEYS=Object.freeze({
@@ -1490,13 +1490,18 @@
         tone:Number(concentration.shareOfCurrent30Outflow)>=0.35?"risk":"neutral"
       }));
       const calendar=moneyIntel.cashCalendar||{},next14=calendar.next14||{};
-      if(Number(next14.committedOutflowMinor||0)>0)box.append(signalCard({
-        label:"Supplier commitments · 14 days",
-        value:money(Number(next14.committedOutflowMinor||0)/100),
-        title:"Recorded overdue supplier payables plus payables due within 14 days.",
-        detail:"This comes from the canonical payable ledger. Overdue amounts are treated as due now. Potential customer receipts are shown separately and are not assumed collected.",
-        tone:Number(next14.committedOutflowMinor||0)>Number(model.finance?.cashPositionMinor||0)?"risk":"neutral"
-      }));
+      if(Number(next14.committedOutflowMinor||0)>0){
+        const stress=moneyIntel.commitmentStress||{},coverage=stress.coverageRatio;
+        box.append(signalCard({
+          label:"Supplier commitments · 14 days",
+          value:money(Number(next14.committedOutflowMinor||0)/100),
+          title:Number(stress.shortfallMinor||0)>0
+            ?`Recorded cash is short by ${money(Number(stress.shortfallMinor||0)/100)} against recorded supplier payables due now/within 14 days.`
+            :"Recorded overdue supplier payables plus payables due within 14 days.",
+          detail:(coverage==null?"":`Payable cover: ${Number(coverage).toFixed(2)}x · `)+"Canonical payable ledger only. Other future outflows are excluded, and potential customer receipts are not assumed collected.",
+          tone:Number(stress.shortfallMinor||0)>0||Number(coverage||99)<1.25?"risk":"neutral"
+        }));
+      }
       if(Number(next14.potentialReceivableMinor||0)>0)box.append(signalCard({
         label:"Potential receivables · 14 days",
         value:money(Number(next14.potentialReceivableMinor||0)/100),
@@ -1521,6 +1526,22 @@
         title:(expenseCategory.expenseCategory||"Other")+" is the largest 30-day category matched through confirmed supplier aliases.",
         detail:"Management signal only. Thebe has not posted an accounting classification or journal entry.",
         tone:Number(expenseCategory.shareOfCurrent30Outflow||0)>=0.5?"risk":"neutral"
+      }));
+      const supplierTrend=(moneyIntel.supplierSpendTrends||[]).find(item=>item?.attention==="increase");
+      if(supplierTrend)box.append(signalCard({
+        label:"Supplier cost watch",
+        value:"+"+pct(Number(supplierTrend.changePct||0)*100),
+        title:(supplierTrend.supplierName||"Confirmed supplier")+" matched cash outflow increased versus the prior 30 days.",
+        detail:`Current ${money(Number(supplierTrend.current30OutflowMinor||0)/100)} · prior ${money(Number(supplierTrend.prior30OutflowMinor||0)/100)} · ${Number(supplierTrend.currentTransactionCount||0)} current transaction(s). This can reflect volume, timing or price; it is not a unit-price inflation claim.`,
+        tone:"risk"
+      }));
+      const payableTop=moneyIntel.payableConcentration?.topSupplier;
+      if(payableTop?.shareOfOutstanding>=0.5)box.append(signalCard({
+        label:"Supplier payable concentration",
+        value:pct(Number(payableTop.shareOfOutstanding||0)*100),
+        title:(payableTop.supplierName||"One supplier")+" holds a large share of recorded outstanding supplier payables.",
+        detail:`${money(Number(payableTop.outstandingMinor||0)/100)} outstanding across ${Number(payableTop.outstandingPayableCount||0)} payable(s). Supplier identity comes from the canonical supplier ledger.`,
+        tone:"risk"
       }));
       const largeDebits=Array.isArray(trend.largeDebits)?trend.largeDebits.length:0;
       if(largeDebits>0)box.append(signalCard({
