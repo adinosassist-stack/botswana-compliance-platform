@@ -1,7 +1,7 @@
 import {executeAgentReadTool} from "./agent-read-tools.js";
 import {runGovernedFinanceObservation} from "./governed-finance-observation-runner.js";
 
-export const FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26.v7";
+export const FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26.v8";
 const frozen=value=>Object.freeze(value);
 const clean=(value,max=160)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
 const parse=(value,fallback)=>{try{return JSON.parse(String(value??""))}catch{return fallback}};
@@ -51,18 +51,19 @@ export async function runFinanceWatchTask({env,task,attempt=0,claim=null}={}){
   const checkpointId=crypto.randomUUID();
   const eventId=crypto.randomUUID();
   const auditId=crypto.randomUUID();
+  const schedule=claim?.id&&claim?.scheduledFor?nextRunAt(task,claim.scheduledFor):null;
+  if(claim?.id&&claim?.scheduledFor&&!schedule)return frozen({...governed,persisted:false,code:"invalid_observation_cadence",executionAllowed:false});
+  const next=schedule?.nextRunAt||null,skippedOccurrences=schedule?.skippedOccurrences||0;
+  const observationMeta={scheduledFor:claim?.scheduledFor||null,nextRunAt:next,skippedOccurrences,cadence:schedule?.cadence||null};
   const statements=[
     env.DB.prepare("INSERT INTO agent_observation_checkpoints(id,tenant_id,persistent_task_id,snapshot_hash,snapshot_json,exception_json,scheduled_for) VALUES(?,?,?,?,?,?,?)")
       .bind(checkpointId,tenantId,taskId,governed.change.currentHash,JSON.stringify(financeSnapshot),JSON.stringify(governed.exceptions),claim?.scheduledFor||null),
     env.DB.prepare("INSERT INTO agent_persistent_task_events(id,tenant_id,persistent_task_id,event_type,event_data) VALUES(?,?,?,'OBSERVATION_VERIFIED',?)")
-      .bind(eventId,tenantId,taskId,JSON.stringify({checkpointId,snapshotHash:governed.change.currentHash,changed:governed.change.changed,exceptionCount:governed.exceptions.length,scheduledFor:claim?.scheduledFor||null})),
+      .bind(eventId,tenantId,taskId,JSON.stringify({checkpointId,snapshotHash:governed.change.currentHash,changed:governed.change.changed,exceptionCount:governed.exceptions.length,...observationMeta})),
     env.DB.prepare("INSERT INTO audit_events(id,tenant_id,event_type,entity_type,entity_id,event_data) VALUES(?,?,'AGENT_FINANCE_OBSERVATION_VERIFIED','agent_observation_checkpoint',?,?)")
-      .bind(auditId,tenantId,checkpointId,JSON.stringify({persistentTaskId:taskId,snapshotHash:governed.change.currentHash,changed:governed.change.changed,externalActions:0}))
+      .bind(auditId,tenantId,checkpointId,JSON.stringify({persistentTaskId:taskId,snapshotHash:governed.change.currentHash,changed:governed.change.changed,externalActions:0,...observationMeta}))
   ];
-  let next=null;
   if(claim?.id&&claim?.scheduledFor){
-    const schedule=nextRunAt(task,claim.scheduledFor);
-    next=schedule?.nextRunAt||null;
     statements.push(
       env.DB.prepare("SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM agent_observation_claims WHERE id=? AND tenant_id=? AND persistent_task_id=? AND scheduled_for=? AND status='running') OR NOT EXISTS (SELECT 1 FROM agent_persistent_tasks WHERE id=? AND tenant_id=? AND status='active' AND next_run_at=?) THEN json_extract('invalid','$.') ELSE 1 END")
         .bind(claim.id,tenantId,taskId,claim.scheduledFor,taskId,tenantId,claim.scheduledFor),
@@ -78,7 +79,7 @@ export async function runFinanceWatchTask({env,task,attempt=0,claim=null}={}){
     const taskChanges=Number(batchResults?.[5]?.meta?.changes??batchResults?.[5]?.changes??0);
     if(claimChanges!==1||taskChanges!==1)throw new Error("observation_finalization_guard_failed");
   }
-  return frozen({...governed,persisted:true,checkpointId,finalized:!!claim?.id,nextRunAt:next,skippedOccurrences:claim?.id?schedule?.skippedOccurrences||0:0});
+  return frozen({...governed,persisted:true,checkpointId,finalized:!!claim?.id,nextRunAt:next,skippedOccurrences});
 }
 
 async function claimObservation(env,task){
