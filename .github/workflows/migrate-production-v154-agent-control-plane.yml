@@ -59,6 +59,16 @@ jobs:
           node-version-file: '.nvmrc'
           package-manager-cache: false
 
+      - name: Install exact migration toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="$(node -p "String(require('./package.json').packageManager).replace(/^npm@/,'')")"
+          actual="$(npm --version)"
+          [[ "$actual" == "$expected" ]] || { echo "npm mismatch expected=$expected actual=$actual" >&2; exit 1; }
+          npm ci --ignore-scripts --no-audit --no-fund
+          ./node_modules/.bin/wrangler --version | grep -F '4.135.0'
+
       - name: Validate production migration inputs
         shell: bash
         run: |
