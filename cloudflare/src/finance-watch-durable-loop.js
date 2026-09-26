@@ -2,7 +2,7 @@ import {executeAgentReadTool} from "./agent-read-tools.js";
 import {runGovernedFinanceObservation} from "./governed-finance-observation-runner.js";
 import {buildFinanceWatchDueQuery,isFinanceWatchToolList} from "./finance-watch-contract.js";
 
-export const FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26.v13";
+export const FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26.v14";
 const frozen=value=>Object.freeze(value);
 const clean=(value,max=160)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
 const parse=(value,fallback)=>{try{return JSON.parse(String(value??""))}catch{return fallback}};
