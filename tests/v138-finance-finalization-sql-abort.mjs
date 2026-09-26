@@ -1,0 +1,12 @@
+import assert from "node:assert/strict";import fs from "node:fs";
+const src=fs.readFileSync("cloudflare/src/finance-watch-durable-loop.js","utf8");
+assert.match(src,/FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26\.v6"/);
+const guard=src.indexOf("SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM agent_observation_claims");
+const checkpoint=src.indexOf("INSERT INTO agent_observation_checkpoints");
+const claim=src.indexOf("UPDATE agent_observation_claims SET status='completed'");
+const task=src.indexOf("UPDATE agent_persistent_tasks SET last_run_at=");
+assert.ok(checkpoint>=0&&guard>checkpoint&&claim>guard&&task>claim,"finalization guard must execute inside batch before state updates");
+assert.match(src,/THEN json_extract\('invalid','\$\.'\)/,"guard must raise a SQL error, not merely return zero rows");
+assert.match(src,/batchResults\?\.\[4\].*claimChanges/);
+assert.match(src,/batchResults\?\.\[5\].*taskChanges/);
+console.log("v138 Finance finalization SQL abort guard passed");

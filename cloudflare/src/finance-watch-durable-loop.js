@@ -1,7 +1,7 @@
 import {executeAgentReadTool} from "./agent-read-tools.js";
 import {runGovernedFinanceObservation} from "./governed-finance-observation-runner.js";
 
-export const FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26.v5";
+export const FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26.v6";
 const frozen=value=>Object.freeze(value);
 const clean=(value,max=160)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
 const parse=(value,fallback)=>{try{return JSON.parse(String(value??""))}catch{return fallback}};
@@ -62,6 +62,8 @@ export async function runFinanceWatchTask({env,task,attempt=0,claim=null}={}){
   if(claim?.id&&claim?.scheduledFor){
     next=nextRunAt(task,claim.scheduledFor);
     statements.push(
+      env.DB.prepare("SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM agent_observation_claims WHERE id=? AND tenant_id=? AND persistent_task_id=? AND scheduled_for=? AND status='running') OR NOT EXISTS (SELECT 1 FROM agent_persistent_tasks WHERE id=? AND tenant_id=? AND status='active' AND next_run_at=?) THEN json_extract('invalid','$.') ELSE 1 END")
+        .bind(claim.id,tenantId,taskId,claim.scheduledFor,taskId,tenantId,claim.scheduledFor),
       env.DB.prepare("UPDATE agent_observation_claims SET status='completed',checkpoint_id=?,error_code=NULL,completed_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND persistent_task_id=? AND scheduled_for=? AND status='running'")
         .bind(checkpointId,claim.id,tenantId,taskId,claim.scheduledFor),
       env.DB.prepare("UPDATE agent_persistent_tasks SET last_run_at=CURRENT_TIMESTAMP,next_run_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND status='active' AND next_run_at=?")
@@ -70,8 +72,8 @@ export async function runFinanceWatchTask({env,task,attempt=0,claim=null}={}){
   }
   const batchResults=await env.DB.batch(statements);
   if(claim?.id&&claim?.scheduledFor){
-    const claimChanges=Number(batchResults?.[3]?.meta?.changes??batchResults?.[3]?.changes??0);
-    const taskChanges=Number(batchResults?.[4]?.meta?.changes??batchResults?.[4]?.changes??0);
+    const claimChanges=Number(batchResults?.[4]?.meta?.changes??batchResults?.[4]?.changes??0);
+    const taskChanges=Number(batchResults?.[5]?.meta?.changes??batchResults?.[5]?.changes??0);
     if(claimChanges!==1||taskChanges!==1)throw new Error("observation_finalization_guard_failed");
   }
   return frozen({...governed,persisted:true,checkpointId,finalized:!!claim?.id,nextRunAt:next});
