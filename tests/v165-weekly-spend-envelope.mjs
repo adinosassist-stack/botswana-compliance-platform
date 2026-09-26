@@ -102,6 +102,18 @@ assert.equal(unavailablePayables.recordedSupplierPayablesDue7dMinor,null);
 assert.equal(unavailablePayables.discretionaryEnvelopeMinor,null);
 assert.deepEqual(unavailablePayables.blockingEvidence,["supplier_payables_unavailable"]);
 
+const combined=money.weeklySpendEnvelope({
+  cashPositionMinor:10000000,
+  cashCalendar:{payablesAvailable:false,next7:{committedOutflowMinor:0}},
+  assumptions:{},
+  reconciliationStale:true
+});
+assert.equal(combined.ready,false);
+assert.equal(combined.state,"needs_inputs_and_finance_review");
+assert.deepEqual(combined.missingInputs,["monthly_labour_cost","minimum_cash_buffer"]);
+assert.deepEqual(combined.blockingEvidence,["supplier_payables_unavailable","finance_reconciliation_stale"]);
+assert.equal(combined.discretionaryEnvelopeMinor,null);
+
 const calendar=money.forwardCashCalendar({
   businessDate:"2026-09-26",
   cashPositionMinor:10000000,
@@ -146,6 +158,7 @@ assert.match(owner,/const RELEASE="20260926-v165"/);
 assert.match(owner,/label:"Spend this week"/);
 assert.match(owner,/Finance review/);
 assert.match(owner,/withholding the spend envelope/);
+assert.match(owner,/needs both owner assumptions and current finance evidence/);
 assert.match(owner,/not spending authorization/);
 
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
