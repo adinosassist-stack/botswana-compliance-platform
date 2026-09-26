@@ -40,10 +40,14 @@ const assert=require('node:assert/strict');
      quickHeight:quick.height
    };
  });
- assert.equal(visual.dockBackground,'rgb(15, 17, 20)');
+ assert.equal(visual.dockBackground,'rgb(11, 102, 214)');
  assert(visual.voiceRadius>=16&&visual.composerRadius>=12,'dock cards use the refined rounded hierarchy');
  assert(visual.sendWidth>=44&&visual.sendHeight>=44&&visual.quickHeight>=52,'primary dock controls keep comfortable targets');
  assert.equal(await page.locator('.thebe-particle').count(),343);
+ const particleMotion=await page.locator('.thebe-particle-wave g').first().evaluate(el=>getComputedStyle(el).animationName);
+ const particleShimmer=await page.locator('.thebe-particle').first().evaluate(el=>getComputedStyle(el).animationName);
+ assert.match(particleMotion,/thebe-particle-drift-v162/);
+ assert.match(particleShimmer,/thebe-particle-shimmer-v162/);
  assert.equal(await page.locator('.thebe-ai-quick button').count(),3);
  assert.equal(await page.locator('#thebeAiDockPill').isVisible(),false);
  await page.screenshot({path:path.join(screenshots,'desktop.png')});
