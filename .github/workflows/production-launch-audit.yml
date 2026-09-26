@@ -92,6 +92,7 @@ jobs:
           node tests/v78-12188-oauth-redirect-config-hardening-adversarial.mjs
           node tests/v78-12194-oauth-state-cookie-hardening-adversarial.mjs
           node tests/v82-phase0-launch-audit-deferred-integrations.mjs
+          node tests/v163-thebe-dock-release-identity.mjs
 
       - name: Audit live production without creating customer data
         shell: bash
