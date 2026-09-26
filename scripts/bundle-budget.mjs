@@ -21,9 +21,9 @@ ok(normalizedStyles===stylesText,"versioned workspace stylesheet must exactly ma
 const residentViews=new Set(workspaceViewsPayload.residentViews||[]);
 const lazyViewIds=Object.keys(workspaceViewsPayload.views||{});
 ok(workspaceViewsPayload.schema===1,"workspace view fragment schema mismatch");
-const expectedResident=["dashboard","workhub","sites","peopleops","businesshub","obligations","evidencehub","automationhub"];
+const expectedResident=["dashboard","moneyhub","workhub","sites","peopleops","protecthub","businesshub","obligations","evidencehub","automationhub"];
 ok(expectedResident.every(id=>residentViews.has(id))&&residentViews.size===expectedResident.length,"workspace resident view contract mismatch");
-ok(lazyViewIds.length===60,`unexpected lazy workspace view count (${lazyViewIds.length})`);
+ok(lazyViewIds.length===61,`unexpected lazy workspace view count (${lazyViewIds.length})`);
 function viewSectionBounds(source,start){
   const openEnd=source.indexOf(">",start)+1,token=/<\/?section\b[^>]*>/gi;token.lastIndex=start;let depth=0,match;
   while((match=token.exec(source))){if(/^<section\b/i.test(match[0]))depth++;else depth--;if(depth===0)return {openEnd,closeStart:match.index,end:token.lastIndex}}
@@ -40,7 +40,7 @@ const runtimeHeadEnd=runtimeExternalizedHtml.toLowerCase().indexOf("</head>");
 const runtimeHead=runtimeExternalizedHtml.slice(0,runtimeHeadEnd),runtimeTail=runtimeExternalizedHtml.slice(runtimeHeadEnd);
 let styleCount=0;
 const deployedHead=runtimeHead.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,()=>{styleCount++;return styleCount===1?'<link id="thebe-workspace-inline-styles" rel="stylesheet" href="/assets/workspace-inline-styles-20260926b.css" />':""});
-ok(styleCount===48,`deployed workspace style extraction count mismatch (${styleCount})`);
+ok(styleCount===49,`deployed workspace style extraction count mismatch (${styleCount})`);
 let deployedHtmlText=deployedHead+runtimeTail;
 const viewReplacements=[];
 for(const id of lazyViewIds){
