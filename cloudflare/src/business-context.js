@@ -232,7 +232,10 @@ function setswanaPriority(item,metrics={}){
     cash_buffer_scenario:{title:"Sekaseka cash-buffer scenario",detail:"Owner-assumption cash scenario e wela kwa tlase ga minimum cash buffer mo horizon e e sekasekilweng."},
     commitment_pressure:{title:"Sekaseka planned commitments",detail:"Planned one-off commitments tse mong a di tsentseng di feta cash e e kwa godimo ga minimum cash buffer."},
     debit_concentration:{title:"Sekaseka repeated debit concentration",detail:"Repeated debit description e tsaya karolo e kgolo ya outflows; supplier identity ga e a netefadiwa."},
-    cash_flow_margin_pressure:{title:"Sekaseka cash-flow margin pressure",detail:"30-day cash-flow margin proxy e ka fa tlase ga zero. Seno ga se accounting gross margin kgotsa profit."}
+    cash_flow_margin_pressure:{title:"Sekaseka cash-flow margin pressure",detail:"30-day cash-flow margin proxy e ka fa tlase ga zero. Seno ga se accounting gross margin kgotsa profit."},
+    payables_cash_pressure_14d:{title:"Sekaseka cash pressure ya suppliers",detail:"Recorded supplier payables tse di due mo malatsing a 14 di feta recorded cash position."},
+    collection_attention:{title:"Sekaseka customer collection attention",detail:"Customer o na le overdue receivables le historical on-time payment behavior e e tlhokang tlhokomelo. Seno ga se payment probability."},
+    expense_category_concentration:{title:"Sekaseka expense-category concentration",detail:"Category e le nngwe e tsaya karolo e kgolo ya matched outflows ka owner-confirmed supplier aliases. Seno ga se accounting posting."}
   };
   return map[item?.key]||{title:item?.title,detail:item?.detail};
 }
@@ -311,6 +314,9 @@ export function deriveBusinessPriorities(context){
     else if(signal?.key==="commitment_pressure")out.push(priority("commitment_pressure","high","Review planned commitment pressure",clean(signal.detail,300),["owner_entered_assumptions"],null));
     else if(signal?.key==="debit_concentration")out.push(priority("debit_concentration","medium","Review repeated debit concentration",clean(signal.detail,300),["finance_transactions"],null));
     else if(signal?.key==="cash_flow_margin_pressure")out.push(priority("cash_flow_margin_pressure","medium","Review cash-flow margin pressure",clean(signal.detail,300),["finance_transactions"],null));
+    else if(signal?.key==="payables_cash_pressure_14d")out.push(priority("payables_cash_pressure_14d","high","Review 14-day supplier cash pressure",clean(signal.detail,300),["finance_payables","finance_payable_allocations","finance_accounts"],null));
+    else if(signal?.key==="collection_attention")out.push(priority("collection_attention","medium","Review customer collection attention",clean(signal.detail,300),["finance_invoices","finance_invoice_allocations"],null));
+    else if(signal?.key==="expense_category_concentration")out.push(priority("expense_category_concentration","medium","Review expense-category concentration",clean(signal.detail,300),["finance_transactions","finance_supplier_aliases","finance_suppliers"],null));
   }
   if(recon.stale===true)out.push(priority(
     "stale_reconciliation","medium","Refresh finance reconciliation",
@@ -360,7 +366,13 @@ export function buildDailyBusinessBrief(context){
     scenario7EndingCashMinor:Number((money?.scenario?.horizons||[]).find(item=>Number(item?.days)===7)?.ownerAssumptionEndingCashMinor||0),
     scenario30EndingCashMinor:Number((money?.scenario?.horizons||[]).find(item=>Number(item?.days)===30)?.ownerAssumptionEndingCashMinor||0),
     scenario90EndingCashMinor:Number((money?.scenario?.horizons||[]).find(item=>Number(item?.days)===90)?.ownerAssumptionEndingCashMinor||0),
-    debitConcentrationCount:Array.isArray(money?.debitConcentrations)?money.debitConcentrations.length:0
+    debitConcentrationCount:Array.isArray(money?.debitConcentrations)?money.debitConcentrations.length:0,
+    forward7CommittedOutflowMinor:Number(money?.cashCalendar?.next7?.committedOutflowMinor||0),
+    forward14CommittedOutflowMinor:Number(money?.cashCalendar?.next14?.committedOutflowMinor||0),
+    forward30CommittedOutflowMinor:Number(money?.cashCalendar?.next30?.committedOutflowMinor||0),
+    forward14PotentialReceivableMinor:Number(money?.cashCalendar?.next14?.potentialReceivableMinor||0),
+    collectionHigherAttentionCount:(money?.collectionBehaviors||[]).filter(item=>item?.attention==="higher_attention").length,
+    learnedExpenseCategoryCount:Number(money?.expenseLearning?.categories?.length||0)
   });
   const priorities=frozen(basePriorities.map(item=>localizeBriefPriority(item,metrics,language)));
   return frozen({
