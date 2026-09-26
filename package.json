@@ -233,7 +233,7 @@
     "test:finance-watch-verifier": "node tests/v125-finance-watch-verifier.mjs",
     "test:finance-watch-change-detector": "node tests/v126-finance-watch-change-detector.mjs",
     "test:finance-watch-recovery": "node tests/v127-finance-watch-recovery.mjs",
-    "test:super-agent-watch-stack": "npm run test:super-agent-finance-watcher && npm run test:persistent-finance-observer && npm run test:finance-exception-detector && npm run test:agent-observation-checkpoints && npm run test:owner-exception-inbox && npm run test:finance-watch-budget && npm run test:finance-watch-verifier && npm run test:finance-watch-change-detector && npm run test:finance-watch-recovery && npm run test:governed-finance-observation-runner && npm run test:finance-watch-durable-loop && npm run test:finance-watch-scheduler && npm run test:finance-watch-canonical-schedule && npm run test:finance-watch-task-claim && npm run test:finance-watch-atomic-finalization && npm run test:finance-watch-observation-identity && npm run test:finance-watch-hardening && npm run test:finance-watch-recovery-idempotency && npm run test:migration-chain-integrity && npm run test:finance-finalization-sql-abort && npm run test:system-observer-boundary && npm run test:finance-watch-catchup",
+    "test:super-agent-watch-stack": "npm run test:super-agent-finance-watcher && npm run test:persistent-finance-observer && npm run test:finance-exception-detector && npm run test:agent-observation-checkpoints && npm run test:owner-exception-inbox && npm run test:finance-watch-budget && npm run test:finance-watch-verifier && npm run test:finance-watch-change-detector && npm run test:finance-watch-recovery && npm run test:governed-finance-observation-runner && npm run test:finance-watch-durable-loop && npm run test:finance-watch-scheduler && npm run test:finance-watch-canonical-schedule && npm run test:finance-watch-task-claim && npm run test:finance-watch-atomic-finalization && npm run test:finance-watch-observation-identity && npm run test:finance-watch-hardening && npm run test:finance-watch-recovery-idempotency && npm run test:migration-chain-integrity && npm run test:finance-finalization-sql-abort && npm run test:system-observer-boundary && npm run test:finance-watch-catchup && npm run test:fresh-bootstrap-smoke",
     "test:governed-finance-observation-runner": "node tests/v128-governed-finance-observation-runner.mjs",
     "test:finance-watch-durable-loop": "node tests/v129-finance-watch-durable-loop.mjs",
     "test:finance-watch-scheduler": "node tests/v130-finance-watch-scheduler-integration.mjs",
@@ -246,7 +246,8 @@
     "test:migration-chain-integrity": "node tests/v137-migration-chain-integrity.mjs",
     "test:finance-finalization-sql-abort": "node tests/v138-finance-finalization-sql-abort.mjs",
     "test:system-observer-boundary": "node tests/v139-system-observer-boundary.mjs",
-    "test:finance-watch-catchup": "node tests/v140-finance-watch-catchup.mjs"
+    "test:finance-watch-catchup": "node tests/v140-finance-watch-catchup.mjs",
+    "test:fresh-bootstrap-smoke": "node tests/v141-fresh-bootstrap-smoke.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1126.0",
