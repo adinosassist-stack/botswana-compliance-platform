@@ -6,7 +6,7 @@ const task={id:"watch-a",tenant_id:"tenant-a",next_run_at:"2026-09-26T08:00:00.0
 const claim={id:"claim-a",scheduledFor:"2026-09-26T08:00:00.000Z",recovered:true};
 const out=await __financeWatchDurableLoopTest.recoverVerifiedOccurrence({DB,AUDIT_INTEGRITY_SECRET:"test-audit-secret-32-characters-minimum"},task,claim);
 assert.equal(out.persisted,true);assert.equal(out.recovered,true);assert.equal(out.checkpointId,"cp-1");assert.equal(out.toolCalls,0);assert.equal(out.executionAllowed,false);assert.equal(out.nextRunAt,"2026-09-27T08:00:00.000Z");
-assert.equal(writes.length,4);assert.match(writes[0].sql,/SELECT CASE WHEN NOT EXISTS/);assert.match(writes[1].sql,/status='completed'/);assert.match(writes[2].sql,/next_run_at=\?/);assert.match(writes[3].sql,/AGENT_FINANCE_OBSERVATION_RECOVERED/);
+assert.equal(writes.length,6);assert.match(writes[0].sql,/SELECT CASE WHEN NOT EXISTS/);assert.match(writes[1].sql,/audit_chain_state/);assert.match(writes[2].sql,/status='completed'/);assert.match(writes[3].sql,/next_run_at=\?/);assert.match(writes[4].sql,/INSERT INTO audit_events\(tenant_id,actor_user_id/);assert.doesNotMatch(writes[4].sql,/audit_events\(id,/);assert.match(writes[5].sql,/INSERT INTO audit_chain_state/);
 const noRecovery=await __financeWatchDurableLoopTest.recoverVerifiedOccurrence({DB,AUDIT_INTEGRITY_SECRET:"test-audit-secret-32-characters-minimum"},task,{...claim,recovered:false});assert.equal(noRecovery,null);
 const missingDB={prepare(sql){return {bind(){return this},async first(){return null}}}};
 assert.equal(await __financeWatchDurableLoopTest.recoverVerifiedOccurrence({DB:missingDB,AUDIT_INTEGRITY_SECRET:"test-audit-secret-32-characters-minimum"},task,claim),null);
