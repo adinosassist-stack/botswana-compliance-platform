@@ -7,6 +7,6 @@ const claim=src.indexOf("UPDATE agent_observation_claims SET status='completed'"
 const task=src.indexOf("UPDATE agent_persistent_tasks SET last_run_at=");
 assert.ok(checkpoint>=0&&guard>checkpoint&&claim>guard&&task>claim,"finalization guard must execute inside batch before state updates");
 assert.match(src,/THEN json_extract\('invalid','\$\.'\)/,"guard must raise a SQL error, not merely return zero rows");
-assert.match(src,/batchResults\?\.\[4\].*claimChanges/);
-assert.match(src,/batchResults\?\.\[5\].*taskChanges/);
+assert.match(src,/claimChanges=Number\(batchResults\?\.\[4\]/,"claim row-count guard must read batch result index 4");
+assert.match(src,/taskChanges=Number\(batchResults\?\.\[5\]/,"task row-count guard must read batch result index 5");
 console.log("v138 Finance finalization SQL abort guard passed");
