@@ -15,7 +15,7 @@ jobs:
     concurrency:
       group: thebe-desk-production
       cancel-in-progress: false
-    name: Apply reviewed agent control-plane migration 056
+    name: Apply reviewed agent stack catch-up 051-056
     if: contains(github.event.head_commit.message, '[migrate-056]')
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -67,7 +67,7 @@ jobs:
           [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[0-9a-fA-F]{32}$ ]] || { echo 'Invalid CLOUDFLARE_ACCOUNT_ID' >&2; exit 1; }
           [[ "$D1_DATABASE_ID" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]] || { echo 'Invalid D1_DATABASE_ID' >&2; exit 1; }
 
-      - name: Apply guarded forward-only migration 056
+      - name: Apply guarded ordered catch-up migrations 051-056
         shell: bash
         run: |
           set -euo pipefail
@@ -89,11 +89,11 @@ jobs:
             echo "post-migration readiness attempt $attempt/12 status=${status:-curl_error} body=${compact:-<empty>}" >&2
             if (( attempt < 12 )); then sleep 5; fi
           done
-          [[ "$status" == '200' ]] || { echo 'production readiness unhealthy after migration 056' >&2; exit 1; }
+          [[ "$status" == '200' ]] || { echo 'production readiness unhealthy after migrations 051-056' >&2; exit 1; }
           READY_JSON="$body" node <<'NODE'
           const ready=JSON.parse(process.env.READY_JSON);
           if(ready.ok!==true||ready.schemaReady!==true||ready.requiredConfigReady!==true){
-            throw new Error(`production readiness unhealthy after migration 056 schemaReady=${String(ready.schemaReady)} error=${String(ready.error||'')}`);
+            throw new Error(`production readiness unhealthy after migrations 051-056 schemaReady=${String(ready.schemaReady)} error=${String(ready.error||'')}`);
           }
-          console.log(`Production remained healthy after schema 056 expansion: version=${ready.version||'unknown'} currentWorkerDelta=${ready.latestSchemaDelta||'unknown'}`);
+          console.log(`Production remained healthy after schema 051-056 catch-up: version=${ready.version||'unknown'} currentWorkerDelta=${ready.latestSchemaDelta||'unknown'}`);
           NODE
