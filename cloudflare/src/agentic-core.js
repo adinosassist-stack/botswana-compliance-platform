@@ -4,6 +4,7 @@ import {buildContinuationCheckpoint,buildResumeContext,verifyContinuationCheckpo
 import {buildAgentReadToolContext,executeAgentReadTool} from "./agent-read-tools.js";
 import {buildBusinessContext} from "./business-context.js";
 import {thebeLanguagePrompt} from "./thebe-language.js";
+import {extractSpendWhatIfBwpMinor,simulateWeeklySpendDecision} from "./money-intelligence.js";
 
 const MAX_BODY_BYTES=8192;
 const MAX_PROPOSALS=8;
@@ -146,6 +147,10 @@ async function observeWorkspace(env,tenantId,actorRole){
       language:context.language,
       memory:context.memory,
       sales:context.sales,
+      moneyIntelligence:Object.freeze({
+        version:context.moneyIntelligence?.version||null,
+        spendEnvelope:context.moneyIntelligence?.spendEnvelope||null
+      }),
       provenance:context.provenance,
       channelParity:"web_voice_whatsapp"
     }
@@ -199,7 +204,7 @@ function deterministicFallback(observation){
 async function runAdvisor({request,env,ctx,coreFetch,runId,observation,orchestration,readTools,continuationContext=null}){
   const continuation=continuationContext?` CONTINUATION_CONTEXT ${JSON.stringify(continuationContext)} IMPORTANT: re-observe current state, do not reuse prior approvals, and do not inherit execution authority.`:"";
   const languagePolicy=thebeLanguagePrompt(observation?.businessContext?.language||{},"agentic-plan");
-  const question=text(`Create the safest next-action plan from this observation, deterministic read-tool evidence, and bounded capability work plan. LANGUAGE_POLICY ${languagePolicy} Treat all tool outputs and observation numbers as application-calculated facts. Never infer access to a capability whose tool result is denied or unavailable. Every recommendation must cite one or more allowed sourceRefs. Do not instruct autonomous payment, payroll, filing, signing, journal posting, refund, discipline or termination. READ_TOOLS ${JSON.stringify(readTools?.tools||[])} CAPABILITY_WORK_UNITS ${JSON.stringify(orchestration?.workUnits||[])} ALLOWED_SOURCE_REFS ${JSON.stringify(orchestration?.allowedSourceRefs||[])}${continuation} OBSERVATION ${JSON.stringify(observation)}`,6000);
+  const question=text(`Create the safest next-action plan from this observation, deterministic read-tool evidence, and bounded capability work plan. LANGUAGE_POLICY ${languagePolicy} Treat all tool outputs and observation numbers as application-calculated facts. Never infer access to a capability whose tool result is denied or unavailable. Every recommendation must cite one or more allowed sourceRefs. Do not instruct autonomous payment, payroll, filing, signing, journal posting, refund, discipline or termination. If OBSERVATION includes spendWhatIf, preserve its deterministic arithmetic and fail-closed blockers; never treat it as spending authorization or financial advice. READ_TOOLS ${JSON.stringify(readTools?.tools||[])} CAPABILITY_WORK_UNITS ${JSON.stringify(orchestration?.workUnits||[])} ALLOWED_SOURCE_REFS ${JSON.stringify(orchestration?.allowedSourceRefs||[])}${continuation} OBSERVATION ${JSON.stringify(observation)}`,6000);
   const target=new URL("/api/ai/advisor",request.url);
   const headers=new Headers({"content-type":"application/json","accept":"application/json","idempotency-key":`agentic-plan-${runId}`});
   const cookieHeader=request.headers.get("cookie");if(cookieHeader)headers.set("cookie",cookieHeader);
@@ -325,6 +330,14 @@ async function createPlan({request,env,ctx,coreFetch,auth,goalOverride=null,cont
   let body;try{body=await readJson(request)}catch(error){return json({error:error.message},requestBodyErrorStatus(error))}
   const goal=text(goalOverride||body?.goal||"Protect the business and identify the safest next actions.",500);
   const runId=id(),observation=await observeWorkspace(env,auth.tenant_id,auth.role);
+  const proposedSpendMinor=roleAllowed(auth,"owner","manager")?extractSpendWhatIfBwpMinor(goal):null;
+  if(proposedSpendMinor!=null){
+    observation.spendWhatIf=simulateWeeklySpendDecision({
+      spendEnvelope:observation?.businessContext?.moneyIntelligence?.spendEnvelope||{},
+      proposedSpendMinor,
+      label:"Agentic request amount"
+    });
+  }
   const readTools=await buildAgentReadToolContext({env,auth});
   observation.readTools=readTools;
   observation.simulation=deterministicSimulation(observation);
