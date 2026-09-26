@@ -77,7 +77,8 @@ assert.equal(policy.level,AGENT_ACTION_LEVELS.READ);
 assert.equal(policy.phase1Enabled,true);
 assert.equal(policy.externalSideEffect,false);
 assert.equal(policy.authoritativeSource,"finance_invoices_plus_transaction_allocations");
-const releaseProfile=JSON.parse(fs.readFileSync("RELEASE_PROFILE.json","utf8"));\nassert.ok(entry.includes(`const V81_SCHEMA_DELTA="${releaseProfile.latest_cloudflare_migration}"`),"agentic readiness tip must follow the authoritative release profile");
+const releaseProfile=JSON.parse(fs.readFileSync("RELEASE_PROFILE.json","utf8"));
+assert.ok(entry.includes(`const V81_SCHEMA_DELTA="${releaseProfile.latest_cloudflare_migration}"`),"agentic readiness tip must follow the authoritative release profile");
 for(const table of ["finance_customers","finance_invoices","finance_invoice_allocations"]){
   assert.match(entry,new RegExp("\\(SELECT COUNT\\(\\*\\) FROM "+table+"\\)"));
 }
