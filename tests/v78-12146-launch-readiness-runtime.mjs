@@ -11,6 +11,7 @@ class FakeStmt{
   async first(){
     if(this.sql.includes("executive_control_replacement_governance") && this.mode==="core_stale") throw new Error("no such table");
     if(this.sql.includes("agent_delegations") && this.mode==="authority_stale") throw new Error("no such table");
+    if(this.sql.includes("uq_audit_finance_observation_checkpoint_event"))return {ok:1,finance_watch_audit_index_count:1};
     return {ok:1};
   }
 }
