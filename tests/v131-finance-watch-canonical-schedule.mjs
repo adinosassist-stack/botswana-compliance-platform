@@ -1,0 +1,14 @@
+import assert from "node:assert/strict";
+import {snapshotHash} from "../cloudflare/src/finance-watch-change-detector.js";
+import {__financeWatchDurableLoopTest} from "../cloudflare/src/finance-watch-durable-loop.js";
+const a={receivables:{overdue:1,meta:{region:"BW",count:2}},daily:[{amount:10,id:"a"}]};
+const b={daily:[{id:"a",amount:10}],receivables:{meta:{count:2,region:"BW"},overdue:1}};
+assert.equal(await snapshotHash(a),await snapshotHash(b),"key order must not alter canonical hash");
+const changed={...b,receivables:{...b.receivables,meta:{...b.receivables.meta,count:3}}};
+assert.notEqual(await snapshotHash(a),await snapshotHash(changed),"nested finance change must alter hash");
+const base=new Date("2026-09-26T06:00:00.000Z");
+assert.equal(__financeWatchDurableLoopTest.nextRunAt({triggerSpec:{cadence:"hourly"}},base),"2026-09-26T07:00:00.000Z");
+assert.equal(__financeWatchDurableLoopTest.nextRunAt({triggerSpec:{cadence:"daily"}},base),"2026-09-27T06:00:00.000Z");
+assert.equal(__financeWatchDurableLoopTest.nextRunAt({triggerSpec:{cadence:"weekly"}},base),"2026-10-03T06:00:00.000Z");
+assert.equal(__financeWatchDurableLoopTest.nextRunAt({triggerSpec:{cadence:"unsupported"}},base),null);
+console.log("v131 Finance canonical hash and schedule advancement passed");
