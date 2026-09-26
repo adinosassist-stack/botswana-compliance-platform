@@ -30,6 +30,27 @@ const DEFAULT_FAILURE_CIRCUIT_THRESHOLD=3;
 const DEFAULT_MARKETING_MAX_SESSION_SECONDS=60;
 const DEFAULT_MARKETING_MAX_STARTS_PER_HOUR=6;
 
+const json=(body,status=200)=>new Response(JSON.stringify(body),{
+  status,
+  headers:{
+    "content-type":"application/json; charset=utf-8",
+    "cache-control":"no-store",
+    "x-content-type-options":"nosniff"
+  }
+});
+
+function envTrue(value){
+  return ["1","true","on","yes"].includes(String(value??"").trim().toLowerCase());
+}
+
+function cleanText(value,max=500){
+  return String(value??"")
+    .replace(/[\u0000-\u001f\u007f]/g," ")
+    .replace(/\s+/g," ")
+    .trim()
+    .slice(0,max);
+}
+
 function languageGuidance(preference={}){
   return sharedLanguageGuidance(preference,"voice");
 }
