@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import {__financeWatchDurableLoopTest} from "../cloudflare/src/finance-watch-durable-loop.js";
 const writes=[];
-const DB={prepare(sql){return {sql,bindings:[],bind(...v){this.bindings=v;return this},async first(){if(sql.includes("agent_observation_checkpoints"))return {id:"cp-1",snapshot_hash:"hash-1"};return null}}},async batch(stmts){for(const s of stmts)writes.push({sql:s.sql,bindings:s.bindings});return [{meta:{changes:1}},{meta:{changes:1}}]}};
+const DB={prepare(sql){return {sql,bindings:[],bind(...v){this.bindings=v;return this},async first(){if(sql.includes("agent_observation_checkpoints"))return {id:"cp-1",snapshot_hash:"hash-1"};return null}}},async batch(stmts){for(const s of stmts)writes.push({sql:s.sql,bindings:s.bindings});return [{meta:{}},{meta:{changes:1}},{meta:{changes:1}},{meta:{changes:1}}]}};
 const task={id:"watch-a",tenant_id:"tenant-a",next_run_at:"2026-09-26T08:00:00.000Z",trigger_spec_json:'{"cadence":"daily"}'};
 const claim={id:"claim-a",scheduledFor:"2026-09-26T08:00:00.000Z",recovered:true};
-const out=await __financeWatchDurableLoopTest.recoverVerifiedOccurrence(DB,task,claim);
+const out=await __financeWatchDurableLoopTest.recoverVerifiedOccurrence({DB},task,claim);
 assert.equal(out.persisted,true);assert.equal(out.recovered,true);assert.equal(out.checkpointId,"cp-1");assert.equal(out.toolCalls,0);assert.equal(out.executionAllowed,false);assert.equal(out.nextRunAt,"2026-09-27T08:00:00.000Z");
-assert.equal(writes.length,2);assert.match(writes[0].sql,/status='completed'/);assert.match(writes[1].sql,/next_run_at=\?/);
-const noRecovery=await __financeWatchDurableLoopTest.recoverVerifiedOccurrence(DB,task,{...claim,recovered:false});assert.equal(noRecovery,null);
+assert.equal(writes.length,4);assert.match(writes[0].sql,/SELECT CASE WHEN NOT EXISTS/);assert.match(writes[1].sql,/status='completed'/);assert.match(writes[2].sql,/next_run_at=\?/);assert.match(writes[3].sql,/AGENT_FINANCE_OBSERVATION_RECOVERED/);
+const noRecovery=await __financeWatchDurableLoopTest.recoverVerifiedOccurrence({DB},task,{...claim,recovered:false});assert.equal(noRecovery,null);
 const missingDB={prepare(sql){return {bind(){return this},async first(){return null}}}};
-assert.equal(await __financeWatchDurableLoopTest.recoverVerifiedOccurrence(missingDB,task,claim),null);
+assert.equal(await __financeWatchDurableLoopTest.recoverVerifiedOccurrence({DB:missingDB},task,claim),null);
 console.log("v136 Finance watch recovery idempotency passed");

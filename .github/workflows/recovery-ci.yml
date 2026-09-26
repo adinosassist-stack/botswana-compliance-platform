@@ -101,6 +101,12 @@ jobs:
           node tests/v82-whatsapp-prepare.mjs
           node tests/v82-whatsapp-owner-centre.mjs
 
+      - name: Finance Watch protected regression stack
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run test:super-agent-watch-stack
+
       - name: Production and historical regression qualification
         shell: bash
         run: |
