@@ -61,6 +61,33 @@ function ownerEnteredMemory(state,tenantName){
   });
 }
 
+function mergeConfirmedMemory(base,durable){
+  const items=Array.isArray(durable?.items)?durable.items:[];
+  if(!items.length)return base;
+  const map=new Map(items.map(item=>[`${item?.namespace||""}.${item?.key||""}`,item?.value]));
+  const assumptions={...(base?.assumptions||{})};
+  const numericBindings=Object.freeze({
+    "business.monthly_revenue_target_bwp":"monthlyRevenueTargetBwp",
+    "finance.minimum_cash_buffer_bwp":"minimumCashBufferBwp",
+    "finance.monthly_outflows_bwp":"monthlyCashOutflowsBwp",
+    "finance.monthly_labour_cost_bwp":"monthlyLabourCostBwp",
+    "operations.operating_days_per_month":"operatingDaysPerMonth",
+    "sales.same_month_collection_pct":"sameMonthCollectionPct"
+  });
+  for(const [memoryKey,target] of Object.entries(numericBindings)){
+    if(!map.has(memoryKey))continue;
+    const value=finite(map.get(memoryKey));
+    if(value!==null)assumptions[target]=value;
+  }
+  if(map.has("business.planned_purchase_label"))assumptions.plannedPurchaseLabel=clean(map.get("business.planned_purchase_label"),80)||null;
+  return frozen({
+    ...base,
+    assumptions:frozen(assumptions),
+    durableMemoryApplied:true,
+    durableMemorySource:"owner_confirmed_business_memory"
+  });
+}
+
 function salesMemory(state,{businessDate=gaboroneDate()}={}){
   const company=activeCompany(state),sales=company?.salesIntelligence&&typeof company.salesIntelligence==="object"?company.salesIntelligence:{};
   const opportunities=Array.isArray(sales.opportunities)?sales.opportunities.slice(0,500):[];
@@ -144,7 +171,8 @@ export async function buildBusinessContext(env,tenantId,{actorRole="owner",now=n
     management?listBusinessMemory(env,tenantId):Promise.resolve(frozen({schemaReady:true,items:frozen([]),authoritative:false,restricted:true}))
   ]);
   const state=safeJson(stateRow?.state_json,{});
-  const memory=management?ownerEnteredMemory(state,tenant?.name):frozen({restricted:true,source:"owner_workspace_profile"});
+  const profileMemory=management?ownerEnteredMemory(state,tenant?.name):frozen({restricted:true,source:"owner_workspace_profile"});
+  const memory=management?mergeConfirmedMemory(profileMemory,durableMemory):profileMemory;
   const sales=management?salesMemory(state,{businessDate}):frozen({restricted:true});
   const moneyIntelligence=management?await buildMoneyIntelligence(env,tenantId,{businessDate,cashPositionMinor:Number(finance?.cashPositionMinor||0),memory}):frozen({available:false,restricted:true});
   return frozen({
@@ -303,6 +331,7 @@ export async function handleBusinessContextRequest({request,url,env,auth,json,ro
 export const __businessContextTest=frozen({
   gaboroneDate,
   ownerEnteredMemory,
+  mergeConfirmedMemory,
   salesMemory,
   deriveBusinessPriorities,
   buildDailyBusinessBrief,
