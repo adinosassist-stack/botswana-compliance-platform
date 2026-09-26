@@ -23,8 +23,7 @@ for(const [path,expected] of migrations){
 
 assert.match(runner,/time_travel\/bookmark/);
 assert.doesNotMatch(runner,/splitSqliteMigrationStatements/);
-assert.match(runner,/Execute trigger-bearing migrations intact/);
-assert.match(runner,/await query\(sql\)/);
+assert.match(runner,/else\{[\s\S]*await query\(sql\);[\s\S]*\}/);
 assert.match(runner,/PRAGMA foreign_key_check/);
 assert.match(runner,/Migration 54 scheduled_for column already exists; skipping non-idempotent ALTER TABLE/);
 assert.match(runner,/ALTER TABLE agent_observation_checkpoints ADD COLUMN scheduled_for TEXT/);
