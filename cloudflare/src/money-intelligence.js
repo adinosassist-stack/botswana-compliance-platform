@@ -281,7 +281,7 @@ function weeklySpendEnvelope({cashPositionMinor=0,cashCalendar={},assumptions={}
   if(cashCalendar?.payablesAvailable!==true)warnings.push("The supplier-payables ledger is unavailable, so Thebe will not calculate a discretionary spend amount.");
   if(reconciliationStale)warnings.push("The latest finance reconciliation is stale, so Thebe will not calculate a discretionary spend amount until cash is reviewed.");
   if(plannedPurchase)warnings.push("An owner-entered planned purchase is shown separately because its timing is unspecified.");
-  const state=missing.length?"needs_owner_inputs":evidenceIssues.length?"needs_finance_review":(envelope>0?"available":"none");
+  const state=missing.length&&evidenceIssues.length?"needs_inputs_and_finance_review":missing.length?"needs_owner_inputs":evidenceIssues.length?"needs_finance_review":(envelope>0?"available":"none");
   return frozen({
     ready,
     state,
