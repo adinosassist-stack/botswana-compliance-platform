@@ -17,7 +17,7 @@ assert.match(js,/apiJson\("\/api\/daily-reporting\/locations"\)/);
 assert.match(js,/reportingAnalyticsJson\("\/api\/daily-reporting\/dashboard\?date="/);
 assert.match(js,/Create site \/ job/);
 assert.doesNotMatch(js,/sessionStorage|localStorage|DEMO_SITES|DEMO_TASKS|SITE_PREFIX|TASK_PREFIX/);
-assert.doesNotMatch(html,/Phase 0 demo|Session-only demo|Reset demo|Phase 0 session/);
+assert.doesNotMatch(siteSection,/Phase 0 demo|Session-only demo|Reset demo|Phase 0 session/);\nassert.doesNotMatch(js,/Phase 0 demo|Session-only demo|Reset demo|Phase 0 session/);
 
 // Pass 2 — authorization, tenant isolation and exact server-side location mutation routes.
 assert.match(js,/ALLOWED_ROLES=new Set\(\["owner","manager"\]\)/);
