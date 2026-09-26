@@ -8,7 +8,7 @@ import {handleAgenticFinanceReconciliationRequest} from "./agentic-finance-recon
 import {preparePlatformOwnerLogin,withPlatformOwnerAdminEnv} from "./platform-owner-access.js";
 import {applyClientRuntimeIdentity} from "./client-runtime-identity.js";
 
-const V81_SCHEMA_DELTA="054_v134_agent_observation_identity.sql";
+const V81_SCHEMA_DELTA="055_v151_finance_watch_scheduler_isolation.sql";
 const COLD_START_REDUNDANT_RENDER="if(!options?.skipDataRefresh)queueMicrotask(()=>renderAll())";
 const COLD_START_GUARDED_RENDER="if(!options?.skipDataRefresh&&!options?.roleRedirect)queueMicrotask(()=>renderAll())";
 const SYNTHETIC_BOOT_TRACE_PREFIX="THEBE_SYNTHETIC_BOOT";
@@ -94,11 +94,16 @@ async function delegatedAuthoritySchemaReady(env){
       (SELECT COUNT(*) FROM agent_task_requests) task_request_count,
       (SELECT COUNT(*) FROM agent_internal_tasks) internal_task_count,
       (SELECT COUNT(*) FROM agent_execution_receipts) execution_receipt_count,
-      (SELECT COUNT(*) FROM agent_persistent_tasks) persistent_task_count,\n      (SELECT COUNT(*) FROM agent_observation_checkpoints) observation_checkpoint_count,
+      (SELECT COUNT(*) FROM agent_persistent_tasks) persistent_task_count,
+      (SELECT COUNT(*) FROM agent_observation_checkpoints) observation_checkpoint_count,
+      (SELECT COUNT(*) FROM agent_observation_claims) observation_claim_count,
       (SELECT COUNT(*) FROM finance_customers) finance_customer_count,
       (SELECT COUNT(*) FROM finance_invoices) finance_invoice_count,
       (SELECT COUNT(*) FROM finance_invoice_allocations) finance_invoice_allocation_count`).first();
-    return true;
+    await env.DB.prepare("SELECT scheduled_for FROM agent_observation_checkpoints LIMIT 1").first();
+    const occurrenceIndex=await env.DB.prepare("SELECT 1 ok FROM sqlite_master WHERE type='index' AND name='uq_agent_observation_checkpoint_occurrence' LIMIT 1").first();
+    const schedulerIndex=await env.DB.prepare("SELECT 1 ok FROM sqlite_master WHERE type='index' AND name='agent_persistent_tasks_scheduler_due' LIMIT 1").first();
+    return !!occurrenceIndex&&!!schedulerIndex;
   }catch{return false}
 }
 
