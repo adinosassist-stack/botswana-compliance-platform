@@ -41,6 +41,20 @@ assert.equal(ready.formalForecast,false);
 assert.equal(ready.spendingAuthorization,false);
 assert.equal(ready.financialAdvice,false);
 
+const explicitZeroLabour=money.assumptionMetrics({
+  cashPositionMinor:5000000,
+  memory:{assumptions:{monthlyLabourCostBwp:0,minimumCashBufferBwp:0}}
+});
+assert.equal(explicitZeroLabour.monthlyLabourCostMinor,0);
+assert.equal(explicitZeroLabour.minimumCashBufferMinor,0);
+const zeroLabourEnvelope=money.weeklySpendEnvelope({
+  cashPositionMinor:5000000,
+  cashCalendar:{next7:{committedOutflowMinor:1000000}},
+  assumptions:explicitZeroLabour
+});
+assert.equal(zeroLabourEnvelope.ready,true);
+assert.equal(zeroLabourEnvelope.discretionaryEnvelopeMinor,4000000);
+
 const missing=money.weeklySpendEnvelope({
   cashPositionMinor:10000000,
   cashCalendar:{next7:{committedOutflowMinor:2000000}},
