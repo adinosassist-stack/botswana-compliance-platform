@@ -18,4 +18,17 @@ assert.match(migration,/THEBE-001[\s\S]*?'restricted',0,'platform'/);
 assert.match(migration,/SYS-FIN-OBS-001[\s\S]*?'restricted',0,'platform'/);
 assert.doesNotMatch(migration,/payment\.execute|journal\.post|filing\.submit|employment\.terminate/);
 
-console.log("v149 agent control-plane schema contract passed");
+
+const execution=fs.readFileSync("cloudflare/src/agentic-task-execution.js","utf8");
+for(const required of [
+  "canonicalAgentAuthority",
+  "authorityPermitsExecution",
+  "agent_authority_contained",
+  "AGENT_EXECUTION_CONTAINED",
+  'state==="active"',
+  "executionCapable===true"
+]) assert.ok(execution.includes(required),`missing runtime containment contract: ${required}`);
+assert.match(execution,/sessionExecutionEnabled\(env,auth\)&&authorityPermitsExecution\(canonicalAuthority\)/);
+assert.match(execution,/if\(!authorityPermitsExecution\(canonicalAuthority\)\)/);
+
+console.log("v149 agent control-plane schema + runtime containment contract passed");
