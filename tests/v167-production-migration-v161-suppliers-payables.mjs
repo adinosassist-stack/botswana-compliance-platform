@@ -9,7 +9,7 @@ assert.match(workflow,/\[migrate-058\]/);
 assert.match(workflow,/group: thebe-desk-production/);
 assert.match(workflow,/statuses: write/);
 assert.match(workflow,/Publish observable production migration status/);
-assert.match(workflow,/thebe\\/production-d1-058/);
+assert.equal(workflow.includes("thebe/production-d1-058"),true);
 assert.match(workflow,/if: always\\(\\)/);
 assert.match(workflow,/migration authority must be a two-parent merged PR commit/);
 assert.match(workflow,/refusing stale migration target=/);
