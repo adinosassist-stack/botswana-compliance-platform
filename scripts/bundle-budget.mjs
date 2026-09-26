@@ -1,7 +1,7 @@
 import fs from "node:fs";import path from "node:path";import zlib from "node:zlib";
 const root=process.cwd(),bytes=p=>fs.readFileSync(path.join(root,p)),kb=n=>Math.round(n/1024);
 let checks=0;const ok=(v,m)=>{checks++;if(!v)throw new Error(`FAIL ${checks}: ${m}`)};
-const worker=bytes("cloudflare/src/worker.js"),html=bytes("public/index.html"),workspaceRuntime=bytes("public/js/workspace-runtime-20260923m.js"),workspaceStyles=bytes("public/assets/workspace-inline-styles-20260924b.css"),workspaceViews=bytes("public/assets/workspace-view-fragments-20260923f.json");
+const worker=bytes("cloudflare/src/worker.js"),html=bytes("public/index.html"),workspaceRuntime=bytes("public/js/workspace-runtime-20260926b.js"),workspaceStyles=bytes("public/assets/workspace-inline-styles-20260926b.css"),workspaceViews=bytes("public/assets/workspace-view-fragments-20260923f.json");
 const workspaceViewShards=Array.from({length:12},(_,i)=>bytes(`public/assets/workspace-view-fragments-20260923f-${i}.json`));
 const htmlText=html.toString("utf8"),runtimeText=workspaceRuntime.toString("utf8"),stylesText=workspaceStyles.toString("utf8"),workspaceViewsPayload=JSON.parse(workspaceViews.toString("utf8"));
 const workspaceViewShardPayloads=workspaceViewShards.map(buffer=>JSON.parse(buffer.toString("utf8")));
@@ -14,7 +14,7 @@ const headEnd=htmlText.toLowerCase().indexOf("</head>");
 ok(headEnd>0,"canonical workspace head missing");
 const headText=htmlText.slice(0,headEnd);
 const canonicalStyles=[...headText.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)].map(match=>String(match[1]||"").replace(/^\n/,"").replace(/\s*$/,""));
-ok(canonicalStyles.length===48,`unexpected canonical workspace style count (${canonicalStyles.length})`);
+ok(canonicalStyles.length===49,`unexpected canonical workspace style count (${canonicalStyles.length})`);
 const normalizedStyles=canonicalStyles.join("\n\n")+"\n";
 ok(normalizedStyles===stylesText,"versioned workspace stylesheet must exactly match canonical head styles");
 
@@ -35,11 +35,11 @@ for(const id of lazyViewIds){
   const bounds=viewSectionBounds(htmlText,match.index);ok(!!bounds,`canonical lazy view bounds missing (${id})`);
   ok(htmlText.slice(bounds.openEnd,bounds.closeStart)===workspaceViewsPayload.views[id],`lazy view fragment drift (${id})`);
 }
-const runtimeExternalizedHtml=htmlText.replace(/<script id="thebe-workspace-runtime-inline">[\s\S]*?<\/script>/,'<script id="thebe-workspace-runtime" src="/js/workspace-runtime-20260923m.js"></script>');
+const runtimeExternalizedHtml=htmlText.replace(/<script id="thebe-workspace-runtime-inline">[\s\S]*?<\/script>/,'<script id="thebe-workspace-runtime" src="/js/workspace-runtime-20260926b.js"></script>');
 const runtimeHeadEnd=runtimeExternalizedHtml.toLowerCase().indexOf("</head>");
 const runtimeHead=runtimeExternalizedHtml.slice(0,runtimeHeadEnd),runtimeTail=runtimeExternalizedHtml.slice(runtimeHeadEnd);
 let styleCount=0;
-const deployedHead=runtimeHead.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,()=>{styleCount++;return styleCount===1?'<link id="thebe-workspace-inline-styles" rel="stylesheet" href="/assets/workspace-inline-styles-20260923a.css" />':""});
+const deployedHead=runtimeHead.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,()=>{styleCount++;return styleCount===1?'<link id="thebe-workspace-inline-styles" rel="stylesheet" href="/assets/workspace-inline-styles-20260926b.css" />':""});
 ok(styleCount===48,`deployed workspace style extraction count mismatch (${styleCount})`);
 let deployedHtmlText=deployedHead+runtimeTail;
 const viewReplacements=[];
