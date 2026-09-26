@@ -263,9 +263,12 @@ function weeklySpendEnvelope({cashPositionMinor=0,cashCalendar={},assumptions={}
   const buffer=assumptions?.minimumCashBufferMinor==null?null:Math.max(0,number(assumptions.minimumCashBufferMinor));
   const plannedPurchase=assumptions?.plannedPurchaseMinor==null?null:Math.max(0,number(assumptions.plannedPurchaseMinor));
   const missing=[];
+  const evidenceIssues=[];
   if(payroll==null)missing.push("monthly_labour_cost");
   if(buffer==null)missing.push("minimum_cash_buffer");
-  const ready=missing.length===0;
+  if(cashCalendar?.payablesAvailable!==true)evidenceIssues.push("supplier_payables_unavailable");
+  if(reconciliationStale===true)evidenceIssues.push("finance_reconciliation_stale");
+  const ready=missing.length===0&&evidenceIssues.length===0;
   const protectedBeforeDiscretionary=ready?committed7d+payroll+buffer:null;
   const rawEnvelope=ready?cash-protectedBeforeDiscretionary:null;
   const envelope=rawEnvelope==null?null:Math.max(0,rawEnvelope);
@@ -275,16 +278,19 @@ function weeklySpendEnvelope({cashPositionMinor=0,cashCalendar={},assumptions={}
     "Assumes no receivables are collected before spending.",
     "Unknown, unrecorded or later-due obligations are not reserved."
   ];
-  if(reconciliationStale)warnings.push("The latest finance reconciliation is stale, so the recorded cash position needs review.");
+  if(cashCalendar?.payablesAvailable!==true)warnings.push("The supplier-payables ledger is unavailable, so Thebe will not calculate a discretionary spend amount.");
+  if(reconciliationStale)warnings.push("The latest finance reconciliation is stale, so Thebe will not calculate a discretionary spend amount until cash is reviewed.");
   if(plannedPurchase)warnings.push("An owner-entered planned purchase is shown separately because its timing is unspecified.");
+  const state=missing.length?"needs_owner_inputs":evidenceIssues.length?"needs_finance_review":(envelope>0?"available":"none");
   return frozen({
     ready,
-    state:ready?(envelope>0?"available":"none"):"needs_owner_inputs",
+    state,
     missingInputs:frozen(missing),
+    blockingEvidence:frozen(evidenceIssues),
     currency:"BWP",
     horizonDays:7,
     recordedCashPositionMinor:cash,
-    recordedSupplierPayablesDue7dMinor:committed7d,
+    recordedSupplierPayablesDue7dMinor:cashCalendar?.payablesAvailable===true?committed7d:null,
     payrollReserveMinor:payroll,
     minimumCashBufferMinor:buffer,
     protectedBeforeDiscretionaryMinor:protectedBeforeDiscretionary,
@@ -294,6 +300,7 @@ function weeklySpendEnvelope({cashPositionMinor=0,cashCalendar={},assumptions={}
     receivablesAssumedCollected:false,
     fullMonthlyPayrollReserved:true,
     unknownFutureObligationsReserved:false,
+    payablesAvailable:cashCalendar?.payablesAvailable===true,
     reconciliationStale:reconciliationStale===true,
     formalForecast:false,
     spendingAuthorization:false,
@@ -339,6 +346,8 @@ function forwardCashCalendar({businessDate,cashPositionMinor=0,payables={},recei
   const totalOpenReceivables=number(receivables?.outstandingInvoiceCount);
   return frozen({
     basis:"canonical_payables_plus_potential_receivables",
+    payablesAvailable:payables?.available===true,
+    receivablesAvailable:receivables?.available!==false,
     formalForecast:false,
     receivablesAssumedCollected:false,
     detailedEventCoverage:frozen({
