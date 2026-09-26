@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";import fs from "node:fs";
 const src=fs.readFileSync("cloudflare/src/finance-watch-durable-loop.js","utf8");
-assert.match(src,/FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26\.v12"/);
+assert.match(src,/FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26\.v\d+"/,"dead-code regression must follow the current dated durable-loop contract");
 assert.doesNotMatch(src,/finishObservationClaim/,"obsolete complete-or-fail helper must remain removed");
 assert.match(src,/async function failObservationClaim\(env,task,claim,outcome\)/);
 assert.match(src,/SET status='failed',checkpoint_id=NULL,error_code=\?/,"failure finalization must never manufacture completion or attach a checkpoint");
