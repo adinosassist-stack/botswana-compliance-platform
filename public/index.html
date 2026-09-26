@@ -8709,8 +8709,8 @@ bootstrap();
  function note(message,kind="muted small"){const el=document.createElement("div");el.className=kind;el.textContent=message;return el}
  function actionButton(label,id,secondary=false){const btn=document.createElement("button");btn.type="button";btn.id=id;btn.className=secondary?"btn alt":"btn";btn.textContent=label;return btn}
 
- async function verifiedContext(){
-   const info=await productionApiClient.request("/api/auth/me"),user=info?.user||{};
+ async function verifiedContext(){const info=await productionApiClient.request("/api/auth/me");
+   const user=info?.user||{};
    const role=String(user.role||"").toLowerCase(),tenantId=text(user.tenantId,128);
    if(!ALLOWED_ROLES.has(role)||!tenantId)throw new Error("Sites & field work is available only to an authenticated Owner or Manager.");
    currentUser={...(currentUser||{}),...user};if(info.csrfToken)csrfToken=info.csrfToken;
