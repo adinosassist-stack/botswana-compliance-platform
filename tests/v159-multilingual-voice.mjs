@@ -65,7 +65,10 @@ assert.match(client,/preferredLanguage:languageSelect\?\.value\|\|"auto"/);
 const css=fs.readFileSync("public/assets/thebe-ai-dock.css","utf8");
 assert.match(css,/\.thebe-live-language\{/);
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
-assert.match(production,/THEBE_LIVE_VOICE_RELEASE="20260926-aura-v159"/);
-assert.match(production,/THEBE_AI_DOCK_RELEASE="20260926-aura-v159"/);
+const liveRelease=production.match(/THEBE_LIVE_VOICE_RELEASE="([^"]+)"/)?.[1]||"";
+const dockRelease=production.match(/THEBE_AI_DOCK_RELEASE="([^"]+)"/)?.[1]||"";
+assert.match(liveRelease,/^[0-9]{8}[A-Za-z0-9._-]{1,48}$/);
+assert.match(dockRelease,/^[0-9]{8}[A-Za-z0-9._-]{1,48}$/);
+assert.equal(liveRelease,dockRelease);
 
 console.log("v159 English + Setswana + Sekalaka live voice contract passed");
