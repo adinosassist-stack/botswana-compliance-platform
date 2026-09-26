@@ -1,0 +1,12 @@
+import assert from "node:assert/strict";import fs from "node:fs";
+const worker=fs.readFileSync("cloudflare/src/worker.js","utf8"),loop=fs.readFileSync("cloudflare/src/finance-watch-durable-loop.js","utf8"),tools=fs.readFileSync("cloudflare/src/agent-read-tools.js","utf8"),policy=fs.readFileSync("cloudflare/src/agent-policy.js","utf8");
+assert.match(loop,/role:"system_observer",systemActor:true/,"trusted observer provenance must be constructed only by the durable scheduler");
+assert.doesNotMatch(worker,/systemActor\s*:/,"HTTP worker must never construct systemActor authority");
+assert.doesNotMatch(worker,/system_observer/,"HTTP worker must never expose or assign system_observer");
+assert.match(tools,/systemActor:auth\?\.systemActor===true/,"read tools must require strict trusted boolean provenance");
+assert.match(policy,/role==="system_observer"&&systemActor!==true/,"policy must fail closed for untrusted observer role");
+const advisor=worker.slice(worker.indexOf('if(url.pathname==="/api/ai/advisor"'),worker.indexOf('if(url.pathname==="/api/ai/credits"'));
+assert.ok(advisor.length>0,"advisor route missing");
+assert.doesNotMatch(advisor,/\.\.\.body|body\.role|body\.systemActor/,"advisor request body must not influence trusted auth");
+assert.match(advisor,/runAiAdvisor\(env,a,\{mode,question\}\)/,"advisor must pass server session auth, not request auth");
+console.log("v142 system actor provenance gate passed");
