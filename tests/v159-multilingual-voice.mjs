@@ -43,7 +43,9 @@ assert.equal(config.tools.length,1);
 assert.equal(config.tools[0].name,"delegate_to_thebe_backend");
 
 const backend=fs.readFileSync("cloudflare/src/agentic-live-voice.js","utf8");
-assert.match(backend,/listBusinessMemory\(env,tenantId\)/);
+const sharedLanguage=fs.readFileSync("cloudflare/src/thebe-language.js","utf8");
+assert.match(sharedLanguage,/listBusinessMemory\(env,tenantId\)/);
+assert.match(backend,/sharedLanguageGuidance/);
 assert.match(backend,/loadVoiceLanguagePreference\(env,auth\.tenant_id\)/);
 assert.match(backend,/preferredLanguage:languagePreference\.primary\|\|"auto"/);
 assert.match(backend,/codeSwitching:true/);
