@@ -128,7 +128,7 @@ assert.match(owner,/30-day cash scenario/);
 assert.match(owner,/Cash-flow margin proxy/);
 assert.match(owner,/Planned commitments/);
 assert.match(owner,/Debit concentration/);
-assert.match(production,/OWNER_COMMAND_CENTRE_RELEASE="20260926-v160"/);
+assert.match(production,/OWNER_COMMAND_CENTRE_RELEASE="20260926-v161"/);
 assert.match(moneySource,/formalForecast:false/);
 assert.match(moneySource,/accountingMargin:false/);
 assert.match(moneySource,/description_only_not_supplier_verified/);
