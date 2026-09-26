@@ -19,12 +19,14 @@ export default {
     if(url.pathname!=="/probe"||request.method!=="POST")return json({ok:false},404);
 
     await reset(env.DB);
-    const due="2000-01-01T00:00:00.000Z",future="2099-01-01T00:00:00.000Z",tenant="tenant-isolation";
+    const clock=await env.DB.prepare("SELECT strftime('%Y-%m-%dT%H:%M:%fZ','now') now_iso").first();
+    const nowMs=Date.parse(clock.now_iso),due=new Date(nowMs-60000).toISOString(),future=new Date(nowMs+60000).toISOString(),tenant="tenant-isolation";
     await env.DB.batch([
       env.DB.prepare("INSERT INTO agent_persistent_tasks(id,tenant_id,status,trigger_kind,allowed_tools_json,next_run_at) VALUES(?,?,?,?,?,?)").bind("finance-due",tenant,"active","scheduled",JSON.stringify(["financial_position.read"]),due),
       env.DB.prepare("INSERT INTO agent_persistent_tasks(id,tenant_id,status,trigger_kind,allowed_tools_json,next_run_at) VALUES(?,?,?,?,?,?)").bind("receivables-due",tenant,"active","scheduled",JSON.stringify(["receivables_summary.read"]),due),
       env.DB.prepare("INSERT INTO agent_persistent_tasks(id,tenant_id,status,trigger_kind,allowed_tools_json,next_run_at) VALUES(?,?,?,?,?,?)").bind("generic-due",tenant,"active","scheduled",JSON.stringify(["compliance_status.read"]),due),
       env.DB.prepare("INSERT INTO agent_persistent_tasks(id,tenant_id,status,trigger_kind,allowed_tools_json,next_run_at) VALUES(?,?,?,?,?,?)").bind("mixed-due",tenant,"active","scheduled",JSON.stringify(["financial_position.read","compliance_status.read"]),due),
+      env.DB.prepare("INSERT INTO agent_persistent_tasks(id,tenant_id,status,trigger_kind,allowed_tools_json,next_run_at) VALUES(?,?,?,?,?,?)").bind("duplicate-finance",tenant,"active","scheduled",JSON.stringify(["financial_position.read","financial_position.read"]),due),
       env.DB.prepare("INSERT INTO agent_persistent_tasks(id,tenant_id,status,trigger_kind,allowed_tools_json,next_run_at) VALUES(?,?,?,?,?,?)").bind("empty-due",tenant,"active","scheduled","[]",due),
       env.DB.prepare("INSERT INTO agent_persistent_tasks(id,tenant_id,status,trigger_kind,allowed_tools_json,next_run_at) VALUES(?,?,?,?,?,?)").bind("malformed-due",tenant,"active","scheduled","not-json",due),
       env.DB.prepare("INSERT INTO agent_persistent_tasks(id,tenant_id,status,trigger_kind,allowed_tools_json,next_run_at) VALUES(?,?,?,?,?,?)").bind("manual-finance",tenant,"active","manual",JSON.stringify(["financial_position.read"]),due),
@@ -37,7 +39,7 @@ export default {
     const plan=await env.DB.prepare("EXPLAIN QUERY PLAN "+dueQuery.sql).bind(...dueQuery.bindings).all();
     return json({
       selected:(rows.results||[]).map(row=>row.id),
-      plan:(plan.results||[]).map(row=>String(row.detail||""))
+      plan:(plan.results||[]).map(row=>String(row.detail||"")),clock:clock.now_iso,due,future
     });
   }
 };
