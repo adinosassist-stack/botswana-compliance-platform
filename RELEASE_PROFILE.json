@@ -1218,4 +1218,4 @@
   "v161_supplier_alias_match_deduplicated_per_transaction": true,
   "v161_supplier_identity_collision_guards": true,
   "v161_execution_authority_expanded": false
-}\n
+}
