@@ -22,6 +22,27 @@ const assert=require('node:assert/strict');
  });
  await page.addScriptTag({path:root+'/public/js/thebe-live-voice.js'});
  await page.waitForSelector('#thebeAiDock');
+ const dockCss=fs.readFileSync(root+'/public/assets/thebe-ai-dock.css','utf8');
+ assert.match(dockCss,/V160 dock polish/);
+ assert(!/gradient\\(/i.test(dockCss),'dock styling stays on the flat Thebe palette without gradients');
+ const visual=await page.locator('#thebeAiDock').evaluate(el=>{
+   const dockStyle=getComputedStyle(el);
+   const voice=getComputedStyle(el.querySelector('.thebe-ai-voice-card'));
+   const send=el.querySelector('.thebe-ai-send').getBoundingClientRect();
+   const quick=el.querySelector('.thebe-ai-quick button').getBoundingClientRect();
+   const composer=getComputedStyle(el.querySelector('.thebe-ai-compose textarea'));
+   return {
+     dockBackground:dockStyle.backgroundColor,
+     voiceRadius:parseFloat(voice.borderRadius),
+     composerRadius:parseFloat(composer.borderRadius),
+     sendWidth:send.width,
+     sendHeight:send.height,
+     quickHeight:quick.height
+   };
+ });
+ assert.equal(visual.dockBackground,'rgb(15, 17, 20)');
+ assert(visual.voiceRadius>=16&&visual.composerRadius>=12,'dock cards use the refined rounded hierarchy');
+ assert(visual.sendWidth>=44&&visual.sendHeight>=44&&visual.quickHeight>=52,'primary dock controls keep comfortable targets');
  assert.equal(await page.locator('.thebe-particle').count(),343);
  assert.equal(await page.locator('.thebe-ai-quick button').count(),3);
  assert.equal(await page.locator('#thebeAiDockPill').isVisible(),false);
@@ -33,6 +54,9 @@ const assert=require('node:assert/strict');
  await page.getByRole('button',{name:/What is Thebe Desk/}).click();
  assert.match(await page.locator('#thebeAiDockResponse').innerText(),/Thebe/);
  assert.equal(await page.locator('#thebeAiDock').getAttribute('data-conversation'),'true');
+ const compactVoice=await page.locator('.thebe-ai-voice-card').evaluate(el=>({display:getComputedStyle(el).display,height:el.getBoundingClientRect().height}));
+ assert.equal(compactVoice.display,'grid');
+ assert(compactVoice.height<250,'conversation mode compacts the voice hero instead of leaving a tall decorative block');
  // Check real dock event wiring with an isolated transport, never call a live service.
  await page.evaluate(()=>{document.querySelector('#marketingGate').style.display='none';document.querySelector('#appShell').style.display='block';window.apiJson=()=>new Promise(resolve=>window.resolveDockRequest=resolve)});
  await page.waitForTimeout(100);
