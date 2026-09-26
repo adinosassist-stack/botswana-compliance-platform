@@ -1,0 +1,13 @@
+import assert from "node:assert/strict";import fs from "node:fs";
+const s=fs.readFileSync("cloudflare/src/worker.js","utf8");
+assert.match(s,/import \{runDueFinanceWatchTasks\} from "\.\/finance-watch-durable-loop\.js"/);
+const scheduled=s.slice(s.indexOf("async scheduled(event,env,ctx)"));
+const claim=scheduled.indexOf("claim=await beginPlatformScheduledRun");
+const finance=scheduled.indexOf("summary.financeWatch=await runDueFinanceWatchTasks");
+const finish=scheduled.indexOf("await finishPlatformScheduledRun");
+assert.ok(claim>=0&&finance>claim&&finish>finance,"finance watch must remain inside claimed scheduled run");
+const daily=scheduled.indexOf('if(event.cron==="15 16 * * *")');
+const other=scheduled.indexOf("}else{",daily);
+assert.ok(finance>other,"finance watch must run only in the general claimed scheduler branch");
+assert.match(s,/UNIQUE/);assert.match(s,/scheduled_run_already_claimed/);
+console.log("v130 finance watch scheduler integration passed");
