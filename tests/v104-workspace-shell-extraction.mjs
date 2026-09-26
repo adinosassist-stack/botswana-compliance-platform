@@ -37,8 +37,8 @@ assert.match(wrangler,/\/assets\/workspace-inline-styles-\*/,"versioned workspac
 assert.match(wrangler,/\/assets\/workspace-view-fragments-\*/,"versioned workspace fragments must run Worker-first for the declared immutable cache contract");
 assert.match(worker,/url\.pathname\.startsWith\("\/js\/"\).*cache-control","no-store, max-age=0"/s);
 
-assert.match(production,/const WORKSPACE_RUNTIME_ASSET="\/js\/workspace-runtime-20260923m\.js"/);
-assert.match(production,/const WORKSPACE_STYLES_ASSET="\/assets\/workspace-inline-styles-20260924b\.css"/);
+assert.match(production,/const WORKSPACE_RUNTIME_ASSET="\/js\/workspace-runtime-20260926a\.js"/);
+assert.match(production,/const WORKSPACE_STYLES_ASSET="\/assets\/workspace-inline-styles-20260926a\.css"/);
 assert.match(production,/function externalizeWorkspaceRuntime\(html\)/);
 assert.match(production,/function externalizeWorkspaceHeadStyles\(html\)/);
 assert.match(production,/thebe-workspace-runtime-inline/);
