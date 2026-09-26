@@ -22,9 +22,13 @@ for(const [path,expected] of migrations){
 }
 
 assert.match(runner,/time_travel\/bookmark/);
-assert.match(runner,/splitSqliteMigrationStatements/);
+assert.doesNotMatch(runner,/splitSqliteMigrationStatements/);
+assert.match(runner,/Execute trigger-bearing migrations intact/);
+assert.match(runner,/await query\(sql\)/);
 assert.match(runner,/PRAGMA foreign_key_check/);
 assert.match(runner,/Migration 54 scheduled_for column already exists; skipping non-idempotent ALTER TABLE/);
+assert.match(runner,/ALTER TABLE agent_observation_checkpoints ADD COLUMN scheduled_for TEXT/);
+assert.match(runner,/CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_observation_checkpoint_occurrence/);
 assert.match(runner,/for\(const \[spec,sql\] of loaded\)await applyStage\(spec,sql\)/);
 for(const name of [
   "agent_persistent_tasks","agent_persistent_task_events",
