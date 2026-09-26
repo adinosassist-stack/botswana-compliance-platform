@@ -44,7 +44,7 @@ assert.equal(fs.existsSync("cloudflare/migrations/047_v81_finance_connections.sq
 assert.equal(fs.existsSync("scripts/migrate-production-d1-047.mjs"),false,"no production migration runner should exist for finance connections");
 assert.equal(fs.existsSync(".github/workflows/migrate-production-d1-047.yml"),false,"no production migration workflow should exist for finance connections");
 const profile=JSON.parse(fs.readFileSync("RELEASE_PROFILE.json","utf8"));
-assert.equal(profile.latest_cloudflare_migration,"056_v154_agent_control_plane.sql");
+assert.equal(profile.latest_cloudflare_migration,"057_v157_business_memory_money_intelligence.sql");
 
 const finance=fs.readFileSync("cloudflare/src/finance-core.js","utf8");
 assert.match(finance,/entity_type='finance_connection'/);
