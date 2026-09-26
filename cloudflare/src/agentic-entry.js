@@ -8,7 +8,7 @@ import {handleAgenticFinanceReconciliationRequest} from "./agentic-finance-recon
 import {preparePlatformOwnerLogin,withPlatformOwnerAdminEnv} from "./platform-owner-access.js";
 import {applyClientRuntimeIdentity} from "./client-runtime-identity.js";
 
-const V81_SCHEMA_DELTA="054_v134_agent_observation_identity.sql";
+const V81_SCHEMA_DELTA="055_v149_finance_watch_audit_integrity.sql";
 const COLD_START_REDUNDANT_RENDER="if(!options?.skipDataRefresh)queueMicrotask(()=>renderAll())";
 const COLD_START_GUARDED_RENDER="if(!options?.skipDataRefresh&&!options?.roleRedirect)queueMicrotask(()=>renderAll())";
 const SYNTHETIC_BOOT_TRACE_PREFIX="THEBE_SYNTHETIC_BOOT";
@@ -86,7 +86,7 @@ function injectSyntheticBootTrace(request,html){
 async function delegatedAuthoritySchemaReady(env){
   if(!env?.DB)return false;
   try{
-    await env.DB.prepare(`SELECT
+    const row=await env.DB.prepare(`SELECT
       (SELECT COUNT(*) FROM agent_delegations) delegation_count,
       (SELECT COUNT(*) FROM agent_action_intents) intent_count,
       (SELECT COUNT(*) FROM agent_delegation_events) event_count,
@@ -94,11 +94,15 @@ async function delegatedAuthoritySchemaReady(env){
       (SELECT COUNT(*) FROM agent_task_requests) task_request_count,
       (SELECT COUNT(*) FROM agent_internal_tasks) internal_task_count,
       (SELECT COUNT(*) FROM agent_execution_receipts) execution_receipt_count,
-      (SELECT COUNT(*) FROM agent_persistent_tasks) persistent_task_count,\n      (SELECT COUNT(*) FROM agent_observation_checkpoints) observation_checkpoint_count,
+      (SELECT COUNT(*) FROM agent_persistent_tasks) persistent_task_count,
+      (SELECT COUNT(*) FROM agent_observation_checkpoints) observation_checkpoint_count,
+      (SELECT COUNT(*) FROM agent_observation_claims) observation_claim_count,
+      (SELECT scheduled_for FROM agent_observation_checkpoints LIMIT 1) observation_scheduled_for_probe,
+      (SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='uq_audit_finance_observation_checkpoint_event') finance_watch_audit_index_count,
       (SELECT COUNT(*) FROM finance_customers) finance_customer_count,
       (SELECT COUNT(*) FROM finance_invoices) finance_invoice_count,
       (SELECT COUNT(*) FROM finance_invoice_allocations) finance_invoice_allocation_count`).first();
-    return true;
+    return Number(row?.finance_watch_audit_index_count||0)===1;
   }catch{return false}
 }
 
