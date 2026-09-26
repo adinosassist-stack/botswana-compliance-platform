@@ -3,5 +3,5 @@ const workflow=fs.readFileSync(".github/workflows/recovery-ci.yml","utf8"),pkg=J
 assert.match(workflow,/Finance Watch protected regression stack/);
 assert.match(workflow,/npm run test:super-agent-watch-stack/);
 const stack=String(pkg.scripts["test:super-agent-watch-stack"]||"");
-for(const name of ["test:finance-finalization-sql-abort","test:finance-watch-catchup","test:system-actor-provenance","test:fresh-bootstrap-smoke","test:finance-watch-finalization-integrity","test:finance-watch-cadence-contract","test:finance-finalization-rollback-runtime","test:finance-watch-recovery-finalization","test:d1-runtime-parity"])assert.ok(stack.includes(name),`protected Finance Watch stack missing ${name}`);
+for(const name of ["test:finance-finalization-sql-abort","test:finance-watch-catchup","test:system-actor-provenance","test:fresh-bootstrap-smoke","test:finance-watch-finalization-integrity","test:finance-watch-cadence-contract","test:finance-finalization-rollback-runtime","test:finance-watch-recovery-finalization","test:d1-runtime-parity","test:finance-watch-audit-schema"])assert.ok(stack.includes(name),`protected Finance Watch stack missing ${name}`);
 console.log("v147 Finance Watch protected gate passed");
