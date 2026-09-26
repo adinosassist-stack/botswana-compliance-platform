@@ -33,7 +33,7 @@ function auditStateGuardStatement(DB,tenantId,audit){
     :DB.prepare("SELECT CASE WHEN EXISTS (SELECT 1 FROM audit_chain_state WHERE tenant_id=?) THEN json_extract('invalid','$.') ELSE 1 END").bind(tenantId);
 }
 function auditInsertStatement(DB,{tenantId,eventType,entityId,audit}){
-  return DB.prepare("INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data,occurred_at,tenant_seq,prev_hash,event_hash,integrity_version,write_source) VALUES(?,NULL,?,'agent_observation_checkpoint',?,?,?,?,?,?,?,1,'finance_watch')")
+  return DB.prepare("INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data,occurred_at,tenant_seq,prev_hash,event_hash,integrity_version,write_source) VALUES(?,NULL,?,'agent_observation_checkpoint',?,?,?,?,?,?,1,'finance_watch')")
     .bind(tenantId,eventType,entityId,audit.normalized,audit.occurredAt,audit.seq,audit.prevHash,audit.eventHash);
 }
 function auditStateUpdateStatement(DB,tenantId,audit){
