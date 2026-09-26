@@ -130,7 +130,7 @@ async function status(env,auth){
     actionKey:ACTION_KEY,
     executionMode:mode,
     sessionExecutionEnabled:sessionEnabled,
-    globalExecutionEnabled:mode==="global",
+    globalExecutionEnabled:mode==="global"&&authorityPermitsExecution(canonicalAuthority),
     platformAdminCanary:mode==="platform_admin_canary",
     runtimeKillSwitch:runtimeKillSwitch(env),
     activeExecutionGrants:activeGrants.length,
