@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
-const tip="058_v161_finance_suppliers_payables.sql";
+const tip="059_v168_jobs_linking.sql";
 const profile=JSON.parse(fs.readFileSync("RELEASE_PROFILE.json","utf8"));
 const entry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
 const deploy=fs.readFileSync("cloudflare/deploy-free.sh","utf8");
@@ -22,7 +22,7 @@ for(const stale of [
   "then apply migrations 047, 048, 049, 050, 051, 052, 053, 054 and 055 in order",
   "through `056_v154_agent_control_plane.sql` before deploying the current Worker",
   "then apply migrations 047, 048, 049, 050, 051, 052, 053, 054, 055 and 056 in order",
-  "then apply migrations 047, 048, 049, 050, 051, 052, 053, 054, 055, 056 and 057 in order"
+  "then apply migrations 047, 048, 049, 050, 051, 052, 053, 054, 055, 056 and 057 in order",\n  "through `058_v161_finance_suppliers_payables.sql` before deploying the current Worker"
 ]){
   assert.equal(readme.includes(stale)||launch.includes(stale),false,`stale launch migration guidance remains: ${stale}`);
 }
