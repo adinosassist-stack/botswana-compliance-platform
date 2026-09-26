@@ -1,7 +1,7 @@
 (function initOwnerCommandCentre(global){
   "use strict";
 
-  const RELEASE="20260926-business-context-v1";
+  const RELEASE="20260913d";
   const MAX_OPPORTUNITIES=500;
   const MAX_CAMPAIGNS=50;
   const PROFILE_KEYS=Object.freeze({
