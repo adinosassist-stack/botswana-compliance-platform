@@ -54,6 +54,7 @@ try{
     assert.equal(body.drift.drifted,true,"irreversible execution-capability degradation must surface as canonical drift");
     assert.equal(body.reEscalationBlocked,true,"registry must never raise execution_capable from 0 to 1");
     assert.equal(body.revoked.ok,true);
+    assert.equal(body.revokedTerminalBlocked,true,"revoked identity must be terminal at the D1 trigger layer");
     assert.equal(body.revive.ok,false);
     assert.equal(body.revive.code,"agent_authority_revoked_terminal");
     assert.ok(body.eventCount>=3,"authority transitions must append durable evidence");
