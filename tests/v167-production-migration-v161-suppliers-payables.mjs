@@ -19,7 +19,7 @@ assert.match(workflow,/057_v157_business_memory_money_intelligence\.sql/);
 assert.match(workflow,/058_v161_finance_suppliers_payables\.sql/);
 assert.doesNotMatch(workflow,/latestSchemaDelta!=='058_v161_finance_suppliers_payables\.sql'/);
 
-assert.match(runner,/blob:'376964783185388092116c9a1134c4120e13aec1'/);
+assert.match(runner,/blob:'e3842050a76c62136790f9307b6e0f4fd921c9ac'/);
 assert.match(runner,/verifyPrerequisites/);
 assert.match(runner,/business_memory_items/);
 assert.match(runner,/time_travel\/bookmark/);
