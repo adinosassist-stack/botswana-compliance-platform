@@ -2334,7 +2334,7 @@ function advisorProfile(state){
   return {companyId:String(company.id||activeId||""),record:{industry:advisorText(p.industry,100)||null,employeeCount:Number(p.employees??p.employee_count??0),town:advisorText(p.town,100)||null,vatRegistered:!!p.vat,payeRegistered:!!p.paye,tradeLicenceTracked:!!p.trade,processesPersonalData:!!p.data,tendering:!!p.tender,manufacturing:!!p.manufacturing,premises:!!p.premises}};
 }
 async function buildAiAdvisorContext(env,tenantId,{includeFinance=false,actorRole="reviewer"}={}){
-  const businessPromise=includeFinance
+  const financePromise=includeFinance
     ?buildBusinessContext(env,tenantId,{actorRole}).catch(()=>null)
     :Promise.resolve(null);
   const [stateRow,obligationRows,riskRows,controlRows,tenderRows,scoreRow,opsRow]=await Promise.all([
@@ -2382,7 +2382,7 @@ async function buildAiAdvisorContext(env,tenantId,{includeFinance=false,actorRol
   }
   const opsMetrics=safeJson(opsRow?.metrics_json,{}),operations=opsRow?{ref:"OPS-1",date:opsRow.summary_date,reported:Number(opsRow.report_count||0),expected:Number(opsRow.expected_count||0),coverage:Number(opsMetrics.coverage||0),generationMode:opsRow.generation_mode}:null;
   const protection=scoreRow?{ref:"SCORE-1",score:Number(scoreRow.score||0),grade:scoreRow.grade,dimensions:safeJson(scoreRow.dimensions_json,{}),capturedAt:scoreRow.created_at}:null;
-  const businessPayload=await businessPromise;
+  const businessPayload=await financePromise;
   const financePayload=businessPayload?.finance?{summary:businessPayload.finance,receivables:businessPayload.finance.receivables}:null;
   const finance=financePayload?{
     ref:"FIN-1",
