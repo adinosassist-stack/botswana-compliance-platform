@@ -8,5 +8,5 @@ assert.match(recovery,/AGENT_FINANCE_OBSERVATION_RECOVERED/,"recovery must be du
 assert.match(recovery,/skippedOccurrences:schedule\?\.skippedOccurrences\|\|0,cadence:schedule\?\.cadence\|\|null/);
 assert.doesNotMatch(recovery,/OBSERVATION_VERIFIED/,"recovery must not duplicate the canonical observation event");
 assert.match(recovery,/claimChanges=Number\(results\?\.\[2\]/,"recovery claim row-count guard must read batch result index 2");
-assert.match(recovery,/taskChanges=Number\(results\?\.\[2\]/,"recovery task row-count guard must read batch result index 2");
+assert.match(recovery,/taskChanges=Number\(results\?\.\[3\]/,"recovery task row-count guard must read batch result index 3");
 console.log("v146 Finance Watch recovery finalization passed");
