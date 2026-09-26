@@ -733,7 +733,7 @@
   "control_replacement_no_people_scoring": true,
   "control_replacement_no_second_notification_stream": true,
   "control_replacement_fail_closed": true,
-  "latest_cloudflare_migration": "056_v154_agent_control_plane.sql",
+  "latest_cloudflare_migration": "057_v157_business_memory_money_intelligence.sql",
   "agentic_foundation_v80": true,
   "agentic_execution_enabled": false,
   "agentic_human_approval_required": true,
@@ -1170,5 +1170,11 @@
   "persistent_agent_tasks_v117": true,
   "persistent_agent_tasks_execution_authority": false,
   "agent_observation_checkpoints_v122": true,
-  "super_agent_finance_watcher_execution_authority": false
+  "super_agent_finance_watcher_execution_authority": false,
+  "business_context_v156": true,
+  "business_memory_v157": true,
+  "business_memory_owner_confirmed_only": true,
+  "money_intelligence_v157": true,
+  "money_intelligence_execution_enabled": false,
+  "money_intelligence_assumptions_non_authoritative": true
 }
