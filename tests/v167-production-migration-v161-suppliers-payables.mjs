@@ -40,7 +40,7 @@ for(const name of [
   'finance_payable_allocations'
 ])assert.match(migration,new RegExp(`CREATE TABLE IF NOT EXISTS ${name}`));
 assert.match(migration,/This migration grants no payment, approval, journal, procurement or other execution authority/);
-assert.doesNotMatch(migration,/SELECT \\(CASE WHEN/,'D1 trigger guards must use RAISE ... WHERE rather than CASE-wrapped RAISE expressions');
+assert.doesNotMatch(migration,/SELECT \(CASE WHEN/,'D1 trigger guards must use RAISE ... WHERE rather than CASE-wrapped RAISE expressions');
 assert.match(migration,/SELECT RAISE\\(ABORT,'finance_supplier_name_alias_collision'\\)\\s+WHERE EXISTS/);
 assert.match(migration,/SELECT RAISE\\(ABORT,'finance_payable_overallocation'\\)\\s+WHERE/);
 
