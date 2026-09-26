@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
-const tip="055_v151_finance_watch_scheduler_isolation.sql";
+const tip="056_v154_agent_control_plane.sql";
 const profile=JSON.parse(fs.readFileSync("RELEASE_PROFILE.json","utf8"));
 const entry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
 const deploy=fs.readFileSync("cloudflare/deploy-free.sh","utf8");
@@ -17,7 +17,8 @@ assert.match(launch,new RegExp("through \`"+tip.replaceAll(".","\\.")+"\`"));
 for(const stale of [
   "apply only pending numbered migrations in order through 050",
   "apply only the pending release migrations in order through \`050_v115_manual_bank_subscriptions.sql\` before deploying the current Worker",
-  "then apply migrations 047, 048, 049 and 050 in order"
+  "then apply migrations 047, 048, 049 and 050 in order",
+  "through `055_v151_finance_watch_scheduler_isolation.sql` before deploying the current Worker"
 ]){
   assert.equal(readme.includes(stale)||launch.includes(stale),false,`stale launch migration guidance remains: ${stale}`);
 }
