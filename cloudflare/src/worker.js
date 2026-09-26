@@ -4872,7 +4872,7 @@ async function edgeScopedRateLimit(req,env,scope,subject=""){
 }
 async function publicBearerRateLimit(req,env,scope,token){return edgeScopedRateLimit(req,env,scope,token)}
 const APP_RELEASE="v78.1.21.101";
-const EXPECTED_SCHEMA_DELTA="057_v157_business_memory_money_intelligence.sql";
+const EXPECTED_SCHEMA_DELTA="046_v80_agentic_outcomes.sql";
 async function currentSchemaReady(env){
   try{await env.DB.prepare("SELECT id FROM agentic_runs LIMIT 1").first();await env.DB.prepare("SELECT id FROM agentic_outcomes LIMIT 1").first();await env.DB.prepare("SELECT id FROM business_memory_items LIMIT 1").first();await env.DB.prepare("SELECT id FROM business_memory_events LIMIT 1").first()}catch{return false}
   if(!env.DB)return false;
