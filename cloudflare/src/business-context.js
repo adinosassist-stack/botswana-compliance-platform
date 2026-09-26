@@ -394,7 +394,8 @@ export function buildDailyBusinessBrief(context){
     weeklySpendEnvelopeMinor:money?.spendEnvelope?.discretionaryEnvelopeMinor==null?null:Number(money.spendEnvelope.discretionaryEnvelopeMinor),
     weeklySpendAfterPlannedPurchaseMinor:money?.spendEnvelope?.discretionaryAfterPlannedPurchaseMinor==null?null:Number(money.spendEnvelope.discretionaryAfterPlannedPurchaseMinor),
     weeklySpendPayrollReserveMinor:money?.spendEnvelope?.payrollReserveMinor==null?null:Number(money.spendEnvelope.payrollReserveMinor),
-    weeklySpendMissingInputCount:Array.isArray(money?.spendEnvelope?.missingInputs)?money.spendEnvelope.missingInputs.length:0
+    weeklySpendMissingInputCount:Array.isArray(money?.spendEnvelope?.missingInputs)?money.spendEnvelope.missingInputs.length:0,
+    weeklySpendBlockingEvidenceCount:Array.isArray(money?.spendEnvelope?.blockingEvidence)?money.spendEnvelope.blockingEvidence.length:0
   });
   const priorities=frozen(basePriorities.map(item=>localizeBriefPriority(item,metrics,language)));
   return frozen({
@@ -431,6 +432,10 @@ export function businessBriefText(brief){
     lines.push(setswana
       ?"Seta monthly labour cost le minimum cash buffer go kgontsha 7-day discretionary planning envelope."
       :"Set monthly labour cost and minimum cash buffer to enable the 7-day discretionary planning envelope.");
+  }else if(spend?.state==="needs_finance_review"){
+    lines.push(setswana
+      ?"7-day discretionary planning envelope ga e bontshiwe go fitlha finance reconciliation le supplier-payables evidence di siame."
+      :"The 7-day discretionary planning envelope is withheld until finance reconciliation and supplier-payables evidence are current.");
   }
   const priorities=Array.isArray(brief?.priorities)?brief.priorities.slice(0,3):[];
   if(priorities.length){
