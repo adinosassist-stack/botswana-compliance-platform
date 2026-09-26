@@ -3,6 +3,7 @@ import {evaluateAgentRuntimeGuard} from "./agent-runtime-guard.js";
 import {executeAgentReadTool} from "./agent-read-tools.js";
 import {prepareFinanceReconciliationForPrincipal} from "./agentic-finance-reconciliation.js";
 import {buildBusinessContext,buildDailyBusinessBrief,businessBriefText} from "./business-context.js";
+import {loadThebeLanguagePreference,deterministicLanguagePolicy,deterministicLanguageNotice} from "./thebe-language.js";
 
 const MAX_BODY_BYTES=4096;
 const WHATSAPP_READ_ACTIONS=Object.freeze({
@@ -95,56 +96,78 @@ function pula(minor){
 }
 function safeJson(value,fallback={}){try{return JSON.parse(String(value||"{}"))}catch{return fallback}}
 
-function buildReadReply(readKey,result){
-  const data=result?.data||{};
+function languageEnvelope(body,preference={},setswanaLead="Dintlha tse di rekotilweng"){
+  const policy=deterministicLanguagePolicy(preference);
+  if(policy.render==="setswana")return [`Thebe · ${setswanaLead}`,String(body||""),"Mareo a tekheniki a ka nna ka English go sireletsa bokao."].filter(Boolean).join("\n");
+  const notice=deterministicLanguageNotice(preference);
+  return [notice,String(body||"")].filter(Boolean).join("\n");
+}
+
+function buildReadReply(readKey,result,preference={}){
+  const data=result?.data||{},setswana=deterministicLanguagePolicy(preference).render==="setswana";
+  let body="";
   if(readKey==="cash_position"){
-    return [
+    body=setswana?[
+      `Thebe · madi a a rekotilweng: ${pula(data.cashPositionMinor)} mo di-account di le ${Number(data.activeAccountCount||0)}.`,
+      `Reconciliation: diphapang di le ${Number(data.reconciliationExceptionCount||0)}, exposure ${pula(data.reconciliationExceptionExposureMinor)}.`,
+      "Seno ke boemo jwa Finance Core ledger; ga se netefatso e e ikemetseng ya bank balance."
+    ].join("\n"):[
       `Thebe · recorded cash position: ${pula(data.cashPositionMinor)} across ${Number(data.activeAccountCount||0)} active account(s).`,
       `Reconciliation: ${Number(data.reconciliationExceptionCount||0)} exception(s), ${pula(data.reconciliationExceptionExposureMinor)} exposure.`,
       "This is the Finance Core ledger position, not independent bank-balance verification."
     ].join("\n");
-  }
-  if(readKey==="finance_inflows_today"){
-    return [
+  }else if(readKey==="finance_inflows_today"){
+    body=setswana?[
+      `Thebe · madi a a tseneng a a rekotilweng ka ${data.businessDate||"gompieno"}: ${pula(data.positiveInflowMinor)} mo transaction di le ${Number(data.positiveInflowCount||0)}.`,
+      `Customer collections tse di golaganeng le invoice: ${pula(data.customerCollectionMinor)} mo transaction di le ${Number(data.customerCollectionTransactionCount||0)}.`,
+      `Madi a a tseneng a a sa tlhaolwang: ${pula(data.unclassifiedPositiveInflowMinor)}. Ke allocations tsa invoice fela tse di tsewang e le customer collections.`
+    ].join("\n"):[
       `Thebe · recorded positive inflows for ${data.businessDate||"today"}: ${pula(data.positiveInflowMinor)} across ${Number(data.positiveInflowCount||0)} transaction(s).`,
       `Invoice-linked customer collections: ${pula(data.customerCollectionMinor)} across ${Number(data.customerCollectionTransactionCount||0)} transaction(s).`,
       `Unclassified positive inflows: ${pula(data.unclassifiedPositiveInflowMinor)}. Only explicit invoice allocations are treated as customer collections.`
     ].join("\n");
-  }
-  if(readKey==="finance_data_quality"){
-    return [
+  }else if(readKey==="finance_data_quality"){
+    body=setswana?[
+      `Thebe · boleng jwa finance data: import batch di le ${Number(data.completedImportBatchCount||0)} di fedile, ${Number(data.failedImportBatchCount||0)} di paletswe.`,
+      `Ledger: transaction di le ${Number(data.transactionCount||0)}, source fingerprint tse di tlhaelang di le ${Number(data.missingSourceFingerprintCount||0)}.`,
+      `Reconciliation: run di le ${Number(data.reconciledRunCount||0)} di reconciled, diphapang di le ${Number(data.reconciliationExceptionCount||0)}.`
+    ].join("\n"):[
       `Thebe · finance data quality: ${Number(data.completedImportBatchCount||0)} completed import batch(es), ${Number(data.failedImportBatchCount||0)} failed.`,
       `Ledger: ${Number(data.transactionCount||0)} transaction(s), ${Number(data.missingSourceFingerprintCount||0)} missing source fingerprint(s).`,
       `Reconciliation: ${Number(data.reconciledRunCount||0)} reconciled run(s), ${Number(data.reconciliationExceptionCount||0)} exception(s).`
     ].join("\n");
-  }
-  if(readKey==="receivable_customer"){
-    if(data.state==="not_found")return "Thebe · no active customer exactly matching that name or customer code is recorded. I will not guess a customer identity.";
-    if(data.state==="ambiguous")return "Thebe · that customer reference matches more than one active customer. Use the exact customer code or a unique full customer name.";
-    if(data.state!=="resolved")return "Thebe · a valid exact customer name or customer code is required for this balance check.";
-    const customer=data.customer||{},lines=[
-      `Thebe · ${text(customer.customerName,100)||"Customer"}: ${pula(data.outstandingMinor)} outstanding across ${Number(data.outstandingInvoiceCount||0)} invoice(s).`,
-      `Overdue: ${pula(data.overdueMinor)} across ${Number(data.overdueInvoiceCount||0)} invoice(s).`
-    ];
-    if(data.earliestDueOn)lines.push(`Earliest open due date: ${data.earliestDueOn}.`);
-    lines.push("This balance is derived from issued invoices less explicit allocations of recorded Finance Core transactions. Thebe uses exact customer matching only.");
-    return lines.join("\n");
-  }
-  if(readKey==="receivables"){
+  }else if(readKey==="receivable_customer"){
+    if(data.state==="not_found")body=setswana?"Thebe · ga go na customer yo o active yo leina kgotsa customer code e tshwanang sentle. Thebe ga e kitla e fopholetsa identity.":"Thebe · no active customer exactly matching that name or customer code is recorded. I will not guess a customer identity.";
+    else if(data.state==="ambiguous")body=setswana?"Thebe · customer reference eo e tsamaisana le bareki ba feta a le mongwe. Dirisa customer code e e nepagetseng kgotsa full customer name e e unique.":"Thebe · that customer reference matches more than one active customer. Use the exact customer code or a unique full customer name.";
+    else if(data.state!=="resolved")body=setswana?"Thebe · full customer name kgotsa customer code e e nepagetseng e a tlhokega.":"Thebe · a valid exact customer name or customer code is required for this balance check.";
+    else{
+      const customer=data.customer||{},lines=setswana?[
+        `Thebe · ${text(customer.customerName,100)||"Customer"}: ${pula(data.outstandingMinor)} e santse e le outstanding mo di-invoice di le ${Number(data.outstandingInvoiceCount||0)}.`,
+        `E e fetileng nako: ${pula(data.overdueMinor)} mo di-invoice di le ${Number(data.overdueInvoiceCount||0)}.`
+      ]:[
+        `Thebe · ${text(customer.customerName,100)||"Customer"}: ${pula(data.outstandingMinor)} outstanding across ${Number(data.outstandingInvoiceCount||0)} invoice(s).`,
+        `Overdue: ${pula(data.overdueMinor)} across ${Number(data.overdueInvoiceCount||0)} invoice(s).`
+      ];
+      if(data.earliestDueOn)lines.push(setswana?`Due date ya ntlha e e butseng: ${data.earliestDueOn}.`:`Earliest open due date: ${data.earliestDueOn}.`);
+      lines.push(setswana?"Balance eno e tswa mo di-invoice tse di issued go ntshitswe explicit allocations tsa Finance Core transactions. Thebe e dirisa exact customer matching fela.":"This balance is derived from issued invoices less explicit allocations of recorded Finance Core transactions. Thebe uses exact customer matching only.");
+      body=lines.join("\n");
+    }
+  }else if(readKey==="receivables"){
     const customers=Array.isArray(data.customers)?data.customers.slice(0,3):[];
-    const lines=[
+    const lines=setswana?[
+      `Thebe · dikoloto tsa bareki: ${pula(data.outstandingMinor)} outstanding mo di-invoice di le ${Number(data.outstandingInvoiceCount||0)}.`,
+      `Tse di fetileng nako: ${pula(data.overdueMinor)} mo di-invoice di le ${Number(data.overdueInvoiceCount||0)} le bareki ba le ${Number(data.overdueCustomerCount||0)}.`
+    ]:[
       `Thebe · customer receivables: ${pula(data.outstandingMinor)} outstanding across ${Number(data.outstandingInvoiceCount||0)} invoice(s).`,
       `Overdue: ${pula(data.overdueMinor)} across ${Number(data.overdueInvoiceCount||0)} invoice(s) and ${Number(data.overdueCustomerCount||0)} customer(s).`
     ];
-    if(customers.length){
-      lines.push("Largest recorded balances: "+customers.map(item=>`${text(item.customerName,80)||"Customer"} ${pula(item.outstandingMinor)}`).join("; ")+".");
-    }else{
-      lines.push("No outstanding issued invoices are recorded in the authoritative receivables ledger.");
-    }
-    lines.push("Balances are derived from issued invoices less explicit allocations of recorded Finance Core transactions.");
-    return lines.join("\n");
-  }
-  throw new Error("unsupported_whatsapp_read");
+    if(customers.length)lines.push((setswana?"Balances tse dikgolo tse di rekotilweng: ":"Largest recorded balances: ")+customers.map(item=>`${text(item.customerName,80)||"Customer"} ${pula(item.outstandingMinor)}`).join("; ")+".");
+    else lines.push(setswana?"Ga go na outstanding issued invoices mo authoritative receivables ledger.":"No outstanding issued invoices are recorded in the authoritative receivables ledger.");
+    lines.push(setswana?"Balances di tswa mo di-invoice tse di issued go ntshitswe explicit allocations tsa Finance Core transactions.":"Balances are derived from issued invoices less explicit allocations of recorded Finance Core transactions.");
+    body=lines.join("\n");
+  }else throw new Error("unsupported_whatsapp_read");
+  const notice=deterministicLanguageNotice(preference);
+  return [notice,body].filter(Boolean).join("\n").slice(0,3900);
 }
 
 export async function prepareWhatsAppReadForPrincipal({env,auth,readKey,readParams=null,idempotencyKey,source="whatsapp_inbound",sourceContext=null}){
@@ -177,9 +200,9 @@ export async function prepareWhatsAppReadForPrincipal({env,auth,readKey,readPara
     return {status:200,body:{ok:true,replayed:true,readKey:key,intent:publicIntent(existing),messagePreview:String(existing.summary||""),snapshot:parseObservation(existing.observation_json),policy:{readOnly:true,runtimeGuard:true},execution:{performed:false,financeMutation:false,customerMessage:false},delivery:{replyToInbound:true,recipientLocked:true}}};
   }
 
-  const result=await executeAgentReadTool(spec.actionKey,{env,auth,params});
+  const [result,languagePreference]=await Promise.all([executeAgentReadTool(spec.actionKey,{env,auth,params}),loadThebeLanguagePreference(env,auth.tenant_id)]);
   if(result?.allowed!==true||result?.available!==true)return {status:409,body:{error:"whatsapp_read_tool_denied",decisionCode:result?.decisionCode||result?.error||"read_unavailable"}};
-  const messagePreview=buildReadReply(key,result),runId=id(),intentId=id(),authority=runtimeDecision.authority;
+  const messagePreview=buildReadReply(key,result,languagePreference),runId=id(),intentId=id(),authority=runtimeDecision.authority;
   if(authority?.allowed!==true||authority.executionAllowed!==false)return {status:409,body:{error:"whatsapp_read_authority_denied",decision:authority}};
 
   const observation={kind:"whatsapp_finance_read",readKey:key,actionKey:spec.actionKey,tool:result,channel:"whatsapp_inbound",inbound:{providerMessageId,receivedAt:text(sourceContext?.receivedAt,80)||null}};
@@ -387,7 +410,7 @@ async function snapshotForPurpose(env,tenantId,purpose){
   throw new Error("unsupported_purpose");
 }
 
-function buildDraft(purpose,snapshot,{date=gaboroneDate()}={}){
+function buildDraft(purpose,snapshot,{date=gaboroneDate(),languagePreference={}}={}){
   const footer="Review in Thebe Desk before sending or acting.";
   if(purpose==="owner_daily_brief"){
     return snapshot?.brief?businessBriefText(snapshot.brief):[
@@ -486,7 +509,9 @@ export async function prepareWhatsAppPurposeForPrincipal({env,auth,purpose,idemp
   }
 
   let snapshot;try{snapshot=await snapshotForPurpose(env,auth.tenant_id,normalizedPurpose)}catch{return {status:503,body:{error:"whatsapp_prepare_data_unavailable"}}}
-  const messagePreview=buildDraft(normalizedPurpose,snapshot);
+  const languagePreference=await loadThebeLanguagePreference(env,auth.tenant_id);
+  const rawPreview=buildDraft(normalizedPurpose,snapshot,{languagePreference});
+  const messagePreview=normalizedPurpose==="owner_daily_brief"?rawPreview:languageEnvelope(rawPreview,languagePreference,"Draft e e laolwang");
   const decision=runtimeDecision.authority;
   if(decision?.allowed!==true||decision.executionAllowed!==false)return {status:409,body:{error:"whatsapp_prepare_policy_denied",decision}};
 
