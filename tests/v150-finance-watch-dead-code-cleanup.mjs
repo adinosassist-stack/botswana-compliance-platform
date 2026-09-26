@@ -1,0 +1,12 @@
+import assert from "node:assert/strict";import fs from "node:fs";
+const src=fs.readFileSync("cloudflare/src/finance-watch-durable-loop.js","utf8");
+assert.match(src,/FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26\.v12"/);
+assert.doesNotMatch(src,/finishObservationClaim/,"obsolete complete-or-fail helper must remain removed");
+assert.match(src,/async function failObservationClaim\(env,task,claim,outcome\)/);
+assert.match(src,/SET status='failed',checkpoint_id=NULL,error_code=\?/,"failure finalization must never manufacture completion or attach a checkpoint");
+assert.match(src,/if\(!outcome\.persisted\)await failObservationClaim\(env,task,claim,outcome\)/);
+assert.doesNotMatch(src,/SELECT id,snapshot_hash FROM agent_observation_checkpoints WHERE tenant_id=\? AND persistent_task_id=\? AND scheduled_for=\?/,"recovery must not fetch unused snapshot hash");
+assert.match(src,/SELECT id FROM agent_observation_checkpoints WHERE tenant_id=\? AND persistent_task_id=\? AND scheduled_for=\?/);
+const helper=src.slice(src.indexOf("export const __financeWatchDurableLoopTest"));
+assert.doesNotMatch(helper,/failObservationClaim|finishObservationClaim/,"claim failure helper must stay internal");
+console.log("v150 Finance Watch dead-code cleanup passed");
