@@ -81,7 +81,7 @@ assert.match(workerSource,/proposedSpendScenario/);
 assert.match(workerSource,/extractSpendWhatIfBwpMinor/);
 assert.match(workerSource,/use its deterministic arithmetic for that exact BWP amount/);
 assert.match(workerSource,/if it is blocked, explain the blockers and do not invent a result/);
-assert.match(workerSource,/roleAllowed\(a,"owner","manager"\)\?extractSingleBwpAmountMinor/);
+assert.match(workerSource,/roleAllowed\(a,"owner","manager"\)\?extractSpendWhatIfBwpMinor/);
 assert.doesNotMatch(workerSource,/spendingAuthorization\s*:\s*true/);
 
 const agenticSource=fs.readFileSync("cloudflare/src/agentic-core.js","utf8");
