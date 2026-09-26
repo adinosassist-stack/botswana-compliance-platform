@@ -33,7 +33,7 @@ assert.match(moneySource,/current_debit_count/);
 assert.match(moneySource,/ABS\(amount_minor\)>=\?/);
 assert.doesNotMatch(moneySource,/ORDER BY posted_on DESC,id DESC LIMIT 1000/);
 
-const migration=fs.readFileSync("cloudflare/migrations/057_v157_business_memory_money_intelligence.sql","utf8");
+const migration=fs.readFileSync("cloudflare/migrations/058_v161_finance_suppliers_payables.sql","utf8");
 for(const contract of ["business_memory_items","business_memory_events","owner_confirmed","uq_business_memory_active_key","trg_business_memory_source_immutable"])assert.ok(migration.includes(contract));
 const context=fs.readFileSync("cloudflare/src/business-context.js","utf8");
 assert.match(context,/buildMoneyIntelligence/);
@@ -61,7 +61,7 @@ assert.match(worker,/const EXPECTED_SCHEMA_DELTA="046_v80_agentic_outcomes\.sql"
 const agentic=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
 assert.match(agentic,/057_v157_business_memory_money_intelligence\.sql/);
 const profile=JSON.parse(fs.readFileSync("RELEASE_PROFILE.json","utf8"));
-assert.equal(profile.latest_cloudflare_migration,"057_v157_business_memory_money_intelligence.sql");
+assert.equal(profile.latest_cloudflare_migration,"058_v161_finance_suppliers_payables.sql");
 assert.equal(profile.business_memory_v157,true);
 assert.equal(profile.money_intelligence_v157,true);
 console.log("v157 Business Memory + Money Intelligence checks passed");
