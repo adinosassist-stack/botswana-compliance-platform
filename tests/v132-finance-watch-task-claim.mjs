@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";import fs from "node:fs";
 const migration=fs.readFileSync("cloudflare/migrations/053_v132_agent_observation_claims.sql","utf8");
-const loop=fs.readFileSync("cloudflare/src/finance-watch-durable-loop.js","utf8");
+const loop=fs.readFileSync("cloudflare/src/finance-watch-durable-loop.js","utf8");const contract=fs.readFileSync("cloudflare/src/finance-watch-contract.js","utf8");
 assert.match(migration,/UNIQUE\(tenant_id,persistent_task_id,scheduled_for\)/);
 assert.match(migration,/persistent_task_tenant_mismatch/);
 assert.match(loop,/INSERT INTO agent_observation_claims/);
 assert.match(loop,/observation_already_claimed/);
 assert.match(loop,/started_at<datetime\('now','-30 minutes'\)/);
-assert.match(loop,/SELECT id,tenant_id,status,objective,trigger_spec_json,allowed_tools_json,budget_json,next_run_at/);
+assert.match(contract,/SELECT id,tenant_id,status,objective,trigger_spec_json,allowed_tools_json,budget_json,next_run_at/);assert.match(loop,/buildFinanceWatchDueQuery\(cap\)/);
 assert.match(loop,/await failObservationClaim\(env,task,claim,outcome\)/);
 assert.match(loop,/executionAllowed:false/);
 assert.ok(!loop.includes("agent_execution_grants"),"observer must not inherit execution grants");
