@@ -15,6 +15,7 @@ assert.deepEqual([...FINANCE_WATCH_READ_ACTIONS],[
 assert.equal(isFinanceWatchToolList(["financial_position.read"]),true);
 assert.equal(isFinanceWatchToolList(["financial_position.read","compliance_status.read"]),false);
 assert.equal(isFinanceWatchToolList([]),false);
+assert.equal(isFinanceWatchToolList(["financial_position.read","financial_position.read"]),false,"duplicate finance tools must fail closed");
 
 let touched=false;
 const rejectingDB={prepare(){touched=true;throw new Error("D1 must not be touched for an ineligible task")}};
@@ -36,6 +37,8 @@ assert.match(due.sql,/json_valid\(agent_persistent_tasks\.allowed_tools_json\)/)
 assert.match(due.sql,/json_each/);
 assert.match(due.sql,/value NOT IN/);
 assert.match(due.sql,/trigger_kind='scheduled'/);
+assert.match(due.sql,/next_run_at<=strftime\('%Y-%m-%dT%H:%M:%fZ','now'\)/,"due comparison must use the same canonical ISO text format as stored next_run_at");
+assert.match(due.sql,/COUNT\(DISTINCT value\)/,"duplicate tool entries must be excluded in D1 before execution");
 
 const migration=fs.readFileSync("cloudflare/migrations/055_v151_finance_watch_scheduler_isolation.sql","utf8");
 assert.match(migration,/CREATE INDEX IF NOT EXISTS agent_persistent_tasks_scheduler_due/);
@@ -72,7 +75,8 @@ try{
   const raw=await response.text();
   assert.equal(response.ok,true,`Finance Watch isolation probe returned HTTP ${response.status}\nbody: ${raw.slice(0,4000)}\nwrangler: ${output.slice(-4000)}`);
   const body=JSON.parse(raw);
-  assert.deepEqual(body.selected,["finance-due","receivables-due"],"only active due finance-read scheduled tasks may enter Finance Watch");
+  assert.deepEqual(body.selected,["finance-due","receivables-due"],"only active due unique finance-read scheduled tasks may enter Finance Watch");
+  assert.ok(Date.parse(body.due)<Date.parse(body.clock)&&Date.parse(body.future)>Date.parse(body.clock),"D1 fixture must test tasks immediately around the same runtime clock");
   assert.ok(body.plan.some(detail=>detail.includes("agent_persistent_tasks_scheduler_due")),"D1 query plan must use the scheduler due index");
   console.log("v151 Finance Watch task isolation and scheduler index passed");
 }finally{
