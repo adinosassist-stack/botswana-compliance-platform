@@ -1211,5 +1211,11 @@
   "money_intelligence_forward_cash_calendar": true,
   "money_intelligence_collection_behavior_not_probability": true,
   "money_intelligence_expense_learning_accounting_posting": false,
-  "supplier_payments_execution_authority": false
-}
+  "supplier_payments_execution_authority": false,
+  "v161_supplier_alias_confirmation_owner_only": true,
+  "v161_payable_number_scope": "tenant_supplier",
+  "v161_cash_horizons_include_overdue": true,
+  "v161_supplier_alias_match_deduplicated_per_transaction": true,
+  "v161_supplier_identity_collision_guards": true,
+  "v161_execution_authority_expanded": false
+}\n
