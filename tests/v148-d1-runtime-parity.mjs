@@ -41,8 +41,9 @@ async function waitForHealth(){
 try{
   await waitForHealth();
   const response=await fetch(base+"/probe",{method:"POST"});
-  assert.equal(response.ok,true,`D1 parity probe returned HTTP ${response.status}`);
-  const body=await response.json();
+  const raw=await response.text();
+  assert.equal(response.ok,true,`D1 parity probe returned HTTP ${response.status}\nbody: ${raw.slice(0,4000)}\nwrangler: ${output.slice(-4000)}`);
+  const body=JSON.parse(raw);
 
   assert.equal(body.runtime,"wrangler-local-d1");
 
