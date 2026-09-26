@@ -1464,6 +1464,13 @@
         detail:`Protects ${money(Number(spend.recordedSupplierPayablesDue7dMinor||0)/100)} recorded supplier payables due now/within 7 days + ${money(Number(spend.payrollReserveMinor||0)/100)} full monthly labour reserve + ${money(Number(spend.minimumCashBufferMinor||0)/100)} minimum cash buffer. Assumes zero receivables collected; unknown obligations are not reserved. This is not spending authorization.`,
         tone:Number(spend.discretionaryEnvelopeMinor||0)>0?"neutral":"risk"
       }));
+      else if(spend?.state==="needs_inputs_and_finance_review")box.append(signalCard({
+        label:"Spend this week",
+        value:"Needs review",
+        title:"Thebe needs both owner assumptions and current finance evidence before showing an amount.",
+        detail:"Add monthly labour cost and minimum cash buffer, refresh finance reconciliation, and confirm the supplier-payables ledger is available. Thebe will not calculate a spend envelope until all blockers are cleared.",
+        tone:"risk"
+      }));
       else if(Array.isArray(spend?.missingInputs)&&spend.missingInputs.length)box.append(signalCard({
         label:"Spend this week",
         value:"Needs inputs",
