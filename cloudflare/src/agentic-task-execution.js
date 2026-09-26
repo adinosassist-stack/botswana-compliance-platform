@@ -39,6 +39,30 @@ function runtimeKillSwitch(env){return envTrue(env?.AGENT_RUNTIME_KILL_SWITCH)}
 function runtimeAgentStatus(env){return String(env?.AGENT_RUNTIME_ENABLED||"1")==="0"?"disabled":"enabled"}
 function runtimeBudgetStatus(env){return String(env?.AGENT_RUNTIME_BUDGET_STATUS||"within_limit")}
 
+async function canonicalAgentAuthority(env,agentId="THEBE-001"){
+  try{
+    const row=await safeFirst(env,`SELECT agent_id,canonical_name,actor_type,authority_state,execution_capable
+      FROM agent_registry WHERE agent_id=? LIMIT 1`,[agentId]);
+    if(!row)return Object.freeze({ready:false,agentId,state:"restricted",executionCapable:false,reason:"agent_identity_missing"});
+    const state=String(row.authority_state||"restricted").toLowerCase();
+    return Object.freeze({
+      ready:true,
+      agentId:String(row.agent_id),
+      canonicalName:String(row.canonical_name),
+      actorType:String(row.actor_type),
+      state,
+      executionCapable:Number(row.execution_capable)===1,
+      reason:["suspended","revoked"].includes(state)?"agent_authority_contained":state==="restricted"?"agent_authority_restricted":"agent_authority_active"
+    });
+  }catch{
+    return Object.freeze({ready:false,agentId,state:"restricted",executionCapable:false,reason:"agent_registry_unavailable"});
+  }
+}
+
+function authorityPermitsExecution(authority){
+  return authority?.ready===true&&authority.state==="active"&&authority.executionCapable===true;
+}
+
 function validIso(value){
   if(value==null||value==="")return null;
   const date=new Date(value);
@@ -119,7 +143,8 @@ async function status(env,auth){
     openTasks=Number(tasks?.count||0);
   }
   const mode=executionMode(env);
-  const sessionEnabled=sessionExecutionEnabled(env,auth);
+  const authority=await canonicalAgentAuthority(env);
+  const sessionEnabled=sessionExecutionEnabled(env,auth)&&authorityPermitsExecution(authority);
   return json({
     enabled:true,
     schemaReady:ready,
@@ -129,6 +154,7 @@ async function status(env,auth){
     globalExecutionEnabled:mode==="global",
     platformAdminCanary:mode==="platform_admin_canary",
     runtimeKillSwitch:runtimeKillSwitch(env),
+    agentAuthority:{agentId:authority.agentId,state:authority.state,ready:authority.ready,executionCapable:authority.executionCapable},
     activeExecutionGrants:activeGrants.length,
     activeGrants,
     openTasks,
@@ -317,6 +343,16 @@ async function cancelTask({env,auth,requestId}){
 async function executeTask({env,auth,requestId}){
   if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
   if(!(await schemaReady(env)))return json({error:"bounded_execution_schema_not_ready"},503);
+  const canonicalAuthority=await canonicalAgentAuthority(env);
+  if(!authorityPermitsExecution(canonicalAuthority)){
+    try{
+      await env.DB.prepare(`INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data)
+        VALUES(?,?,'AGENT_EXECUTION_CONTAINED','agent_registry',?,?)`).bind(
+          auth.tenant_id,auth.user_id,canonicalAuthority.agentId,JSON.stringify({requestId,state:canonicalAuthority.state,reason:canonicalAuthority.reason})
+        ).run();
+    }catch{}
+    return json({error:"agent_authority_contained",authority:{agentId:canonicalAuthority.agentId,state:canonicalAuthority.state,reason:canonicalAuthority.reason}},409);
+  }
   const replay=await safeFirst(env,`SELECT r.id receipt_id,r.result_entity_id task_id,t.title,t.description,t.priority,t.due_at,t.status,t.created_at
     FROM agent_execution_receipts r JOIN agent_internal_tasks t ON t.id=r.result_entity_id AND t.tenant_id=r.tenant_id
     JOIN agent_task_requests q ON q.action_intent_id=r.action_intent_id AND q.tenant_id=r.tenant_id
@@ -353,7 +389,7 @@ async function executeTask({env,auth,requestId}){
     actionPayloadHash:String(row.payload_hash||""),
     delegation:authority,
     mode:"execute",
-    globalExecutionEnabled:sessionExecutionEnabled(env,auth),
+    globalExecutionEnabled:sessionExecutionEnabled(env,auth)&&authorityPermitsExecution(canonicalAuthority),
     amountMinor:0,
     dailyActionCount:Number(usage?.count||0),
     phase:"bounded_v1"
@@ -447,5 +483,7 @@ export const __agenticTaskExecutionTest=Object.freeze({
   platformAdminEmails,
   sessionExecutionEnabled,
   globalExecutionEnabled,
-  runtimeKillSwitch
+  runtimeKillSwitch,
+  canonicalAgentAuthority,
+  authorityPermitsExecution
 });
