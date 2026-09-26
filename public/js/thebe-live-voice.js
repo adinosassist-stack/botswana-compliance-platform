@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260926-v159";
+  const RELEASE="20260926-aura-v159";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -552,7 +552,7 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260926-v159";
+  const DOCK_RELEASE="20260926-aura-v159";
   const STORE_KEY="thebe_ai_dock_collapsed_v4";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
@@ -621,11 +621,14 @@
     collapsed=Boolean(next);
     safeSessionSet(STORE_KEY,collapsed?"1":"0");
     syncVisibility();
+    if(collapsed)pill?.focus();else input?.focus({preventScroll:true});
   }
   function syncVisibility(){
     if(!dock||!pill)return;
     const surface=surfaceMode(),visible=surface!=="hidden",workspace=surface==="workspace",mobile=mobileDockMode(),isCollapsed=effectiveCollapsed();
     dock.hidden=!visible||isCollapsed;
+    pill.setAttribute("aria-expanded",String(visible&&!isCollapsed));
+    document.body.classList.toggle("thebe-ai-expanded",visible&&!mobile&&dock.dataset.expanded==="true");
     pill.hidden=!visible||!isCollapsed;
     dock.dataset.surface=surface;
     pill.dataset.surface=surface;
@@ -636,11 +639,11 @@
     if(minimize)minimize.hidden=!mobile;
     const presence=dock.querySelector(".thebe-ai-presence");
     if(presence){
-      presence.replaceChildren(el("span","thebe-ai-presence-dot"),document.createTextNode(workspace?"Available across this workspace":"Public assistant · sign in for your workspace"));
+      presence.replaceChildren(el("span","thebe-ai-presence-dot"),document.createTextNode(workspace?"Your business assistant":"Public assistant · try Thebe"));
     }
     if(voicePhase==="idle"){
-      if(workspace)setPhase("idle","Voice ready","Tap the particles or Talk to Thebe");
-      else if(surface==="public")setPhase("idle","Try Thebe voice","Tap the particles and ask about Thebe Desk");
+      if(workspace)setPhase("idle","Talk to Thebe","What would you like to get done?");
+      else if(surface==="public")setPhase("idle","Talk to Thebe","Explore what Thebe can do for your business");
     }
     if(input)input.placeholder=workspace?"Ask Thebe anything…":"Ask about Thebe Desk…";
     if(pillLabel)pillLabel.textContent=workspace?"Thebe":"Ask Thebe";
@@ -662,7 +665,12 @@
   }
   function setPhase(phase,label,sub){
     voicePhase=phase||"idle";
-    if(orb)orb.dataset.phase=voicePhase;
+    if(orb){
+      orb.dataset.phase=voicePhase;
+      const active=["ready","connecting","listening","speaking","thinking"].includes(voicePhase);
+      orb.parentElement?.setAttribute("aria-label",active?"Stop Thebe voice":"Talk to Thebe");
+      orb.parentElement?.setAttribute("aria-pressed",String(active));
+    }
     if(voiceLabel&&label)voiceLabel.textContent=label;
     if(voiceSub)voiceSub.textContent=sub||"";
   }
@@ -679,6 +687,7 @@
     transcriptBox.replaceChildren();
     const user=clean(voiceInput,360),assistant=clean(voiceOutput,360);
     if(!user&&!assistant){transcriptBox.hidden=true;return}
+    if(dock)dock.dataset.conversation="true";
     transcriptBox.hidden=false;
     if(user){
       const line=el("div","thebe-ai-live-line"),label=el("b","", "You");
@@ -713,7 +722,7 @@
     if(caveats.length)responseBox.append(el("div","thebe-ai-boundary",caveats.map(item=>clean(item,220)).filter(Boolean).join(" · ")));
     const open=el("button","thebe-ai-open-full","Open full Thebe AI →");
     open.type="button";
-    open.addEventListener("click",()=>{openView("automationhub");if(innerWidth<900)setCollapsed(true)});
+    open.addEventListener("click",()=>{openView("automationhub");if(mobileDockMode())setCollapsed(true)});
     responseBox.append(open);
   }
   function showPublicSignIn(message){
@@ -777,29 +786,39 @@
   }
   function renderQuickActions(surface){
     if(!quick)return;
-    const mode=surface==="public"?"public":"workspace";
+    const context=activeContext();
+    const mode=surface==="public"?"public":context.id+":"+context.title;
     if(quick.dataset.mode===mode)return;
     quick.dataset.mode=mode;
     quick.replaceChildren();
-    if(mode==="public"){
-      quick.append(
-        quickButton("What is Thebe Desk?","30-second overview","ask","What is Thebe Desk and who is it for?"),
-        quickButton("Compliance","CIPA, BURS, licences","ask","How does Thebe Desk help with Botswana SME compliance?"),
-        quickButton("Thebe AI","Decision support","ask","What can Thebe AI do?"),
-        quickButton("Pricing","Plans & trial","ask","What does Thebe Desk cost?")
-      );
-      return;
-    }
-    quick.append(
-      quickButton("What changed?","Management brief","management_brief","Summarise what has changed or needs attention from the current workspace records. Be concise and distinguish confirmed facts from missing data."),
-      quickButton("Today’s priorities","Next actions","next_actions","What needs management attention today? Prioritise the most important current workspace items."),
-      quickButton("Cash position","Finance check","ask","Summarise the current cash position, collection risk and finance items needing attention. If finance data is incomplete, say exactly what is missing."),
-      quickButton("Explain risk","Grounded evidence","explain_risk","Explain the highest current business-protection risk and the evidence behind it.")
-    );
+    let suggestions;
+    if(surface==="public")suggestions=[
+      ["What is Thebe Desk?","A quick introduction","ask","What is Thebe Desk and who is it for?"],
+      ["Explore Thebe AI","See how it helps","ask","What can Thebe AI do?"],
+      ["Compare plans","Pricing and trial","ask","What does Thebe Desk cost?"]
+    ];
+    else if(/finance|money|recon|cash/i.test(context.id+context.title))suggestions=[
+      ["Cash position","Understand the available records","ask","Explain my cash position and identify any missing financial data."],
+      ["Review unmatched items","Prepare the next steps","ask","Review unmatched transactions and suggest reconciliation steps. Do not execute changes."],
+      ["Collection priorities","See what needs attention","ask","Which receivables need attention based on available workspace records?"]
+    ];
+    else if(/property|estate/i.test(context.id+context.title))suggestions=[
+      ["Property overview","Review available records","ask","Summarise the property records available in this workspace and identify missing information."],
+      ["Review rental income","Income and outstanding amounts","ask","Explain rental income and arrears from available records; state where data is missing."],
+      ["Assess a property","Prepare a grounded analysis","ask","What information do you need to assess a property's income, costs and investment risks?"]
+    ];
+    else suggestions=[
+      ["What changed?","Your business brief","management_brief","Summarise what has changed or needs attention from the current workspace records. Distinguish confirmed facts from missing data."],
+      ["Today’s priorities","Your next useful steps","next_actions","What needs management attention today? Prioritise current workspace items."],
+      ["Explain this page","Help with the current screen","ask","Explain what I can do on the current screen and suggest a useful next step."]
+    ];
+    for(const suggestion of suggestions)quick.append(quickButton(...suggestion));
   }
+
   async function ask(mode,question){
     const q=clean(question,MAX_QUESTION);
     if(textBusy||q.length<3)return;
+    dock.dataset.conversation="true";
     if(!shellVisible()){
       renderMarketingAnswer(q);
       return;
@@ -853,6 +872,7 @@
     dock=el("section","thebe-ai-dock");
     dock.id="thebeAiDock";
     dock.setAttribute("aria-label","Thebe AI assistant");
+    dock.dataset.conversation="false";
     dock.hidden=true;
 
     const head=el("div","thebe-ai-dock-head");
@@ -871,15 +891,43 @@
     const minimize=el("button","thebe-ai-icon-btn thebe-ai-minimize","—");
     minimize.type="button";minimize.setAttribute("aria-label","Minimise Thebe on mobile");
     minimize.addEventListener("click",()=>setCollapsed(true));
-    headActions.append(attentionButton,minimize);head.append(title,headActions);
+    const expand=el("button","thebe-ai-icon-btn thebe-ai-expand","⤢");
+    expand.type="button";expand.setAttribute("aria-label","Expand Thebe panel");expand.setAttribute("aria-pressed","false");
+    expand.addEventListener("click",()=>{
+      const expanded=dock.dataset.expanded!=="true";
+      dock.dataset.expanded=String(expanded);
+      expand.setAttribute("aria-pressed",String(expanded));
+      expand.setAttribute("aria-label",expanded?"Restore Thebe panel width":"Expand Thebe panel");
+      syncVisibility();
+    });
+    headActions.append(attentionButton,expand,minimize);head.append(title,headActions);
 
     const scroll=el("div","thebe-ai-dock-scroll");
     const voiceCard=el("div","thebe-ai-voice-card");
     const orbButton=el("button","thebe-ai-orb-button");
     orbButton.type="button";orbButton.setAttribute("aria-label","Start or stop Thebe voice");
     orb=el("div","thebe-particle-orb");orb.dataset.phase="idle";
-    orb.append(el("span","thebe-particle-core"));
-    for(let i=0;i<12;i++)orb.append(el("i","thebe-particle"));
+    orb.setAttribute("aria-hidden","true");
+    const svgNS="http://www.w3.org/2000/svg";
+    const wave=document.createElementNS(svgNS,"svg");
+    wave.setAttribute("class","thebe-particle-wave");wave.setAttribute("viewBox","0 0 340 152");
+    for(let row=0;row<7;row++){
+      const line=document.createElementNS(svgNS,"g");
+      for(let col=0;col<49;col++){
+        const dot=document.createElementNS(svgNS,"circle");
+        const x=col*7;
+        const y=76+Math.sin(x/48+row*.22)*22+(row-3)*6;
+        dot.setAttribute("class","thebe-particle");dot.setAttribute("cx",String(x));dot.setAttribute("cy",y.toFixed(2));dot.setAttribute("r",".85");
+        line.append(dot);
+      }
+      wave.append(line);
+    }
+    const core=el("span","thebe-particle-core");
+    const mic=document.createElementNS(svgNS,"svg");mic.setAttribute("viewBox","0 0 24 24");
+    const path=document.createElementNS(svgNS,"path");
+    path.setAttribute("d","M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3ZM6 11v1a6 6 0 0 0 12 0v-1M12 18v3M9 21h6");
+    path.setAttribute("fill","none");path.setAttribute("stroke","currentColor");path.setAttribute("stroke-width","1.5");path.setAttribute("stroke-linecap","round");
+    mic.append(path);core.append(mic);orb.append(wave,core);
     orbButton.append(orb);
     orbButton.addEventListener("click",()=>{
       const liveApi=global.ThebeLiveVoice;
@@ -897,16 +945,17 @@
       if(live&&!live.disabled){live.click();return}
       responseMessage("Thebe Live Voice is not available for this workspace right now.","error");
     });
-    voiceLabel=el("div","thebe-ai-voice-label","Voice ready");
+    voiceLabel=el("div","thebe-ai-voice-label","Talk to Thebe");
+    voiceLabel.setAttribute("role","status");
     voiceSub=el("div","thebe-ai-voice-sub","Tap the particles or Talk to Thebe");
     const voiceMount=el("div","thebe-ai-voice-mount");voiceMount.id="thebeAiDockVoiceMount";
     transcriptBox=el("div","thebe-ai-live-transcript");transcriptBox.id="thebeAiDockTranscript";transcriptBox.hidden=true;
-    voiceCard.append(orbButton,voiceLabel,voiceSub,voiceMount,transcriptBox);
+    voiceCard.append(el("div","thebe-ai-eyebrow","Your business. One conversation."),orbButton,voiceLabel,voiceSub,voiceMount,transcriptBox);
 
     quick=el("div","thebe-ai-quick");
     renderQuickActions(surfaceMode());
 
-    responseBox=el("div","thebe-ai-response");responseBox.id="thebeAiDockResponse";responseMessage("Ask a question, use a quick action, or speak to Thebe.");
+    responseBox=el("div","thebe-ai-response");responseBox.id="thebeAiDockResponse";responseBox.setAttribute("role","status");responseBox.setAttribute("aria-live","polite");responseMessage("Ask a question, use a quick action, or speak to Thebe.");
 
     scroll.append(voiceCard,quick,responseBox);
 
@@ -914,14 +963,15 @@
     input=document.createElement("textarea");input.id="thebeAiDockInput";input.maxLength=MAX_QUESTION;input.rows=1;input.placeholder="Ask Thebe anything…";input.setAttribute("aria-label","Ask Thebe anything");
     sendButton=el("button","thebe-ai-send","↑");sendButton.type="submit";sendButton.setAttribute("aria-label","Send to Thebe");
     compose.append(input,sendButton);
-    compose.addEventListener("submit",event=>{event.preventDefault();const value=input.value;input.value="";void ask("ask",value)});
-    input.addEventListener("keydown",event=>{if(event.key==="Enter"&&!event.shiftKey){event.preventDefault();compose.requestSubmit()}});
+    compose.addEventListener("submit",event=>{event.preventDefault();const value=input.value;if(textBusy||clean(value,MAX_QUESTION).length<3)return;input.value="";void ask("ask",value)});
+    input.addEventListener("keydown",event=>{if(event.key==="Enter"&&!event.shiftKey&&!event.isComposing){event.preventDefault();compose.requestSubmit()}});
 
     foot=el("div","thebe-ai-foot","Advisory by default · governed actions still require the existing approval controls.");
     dock.append(head,scroll,compose,foot);
 
     pill=el("button","thebe-ai-pill");
     pill.id="thebeAiDockPill";pill.type="button";pill.hidden=true;
+    pill.setAttribute("aria-controls","thebeAiDock");
     pillLabel=el("span","thebe-ai-pill-label","Thebe");
     pill.append(el("span","thebe-ai-pill-dot"),pillLabel);
     pill.addEventListener("click",()=>setCollapsed(false));
@@ -935,7 +985,20 @@
     if(marketing)new MutationObserver(syncVisibility).observe(marketing,{attributes:true,attributeFilter:["style","class"]});
     const alerts=document.getElementById("navAlerts");
     if(alerts)new MutationObserver(syncAttention).observe(alerts,{childList:true,characterData:true,subtree:true});
-    global.addEventListener("resize",syncVisibility,{passive:true});
+    const pageTitle=document.getElementById("pageTitle");
+    if(pageTitle)new MutationObserver(()=>renderQuickActions(surfaceMode())).observe(pageTitle,{childList:true,characterData:true,subtree:true});
+    const syncKeyboard=()=>{
+      const viewport=global.visualViewport;
+      if(!viewport)return;
+      const inset=Math.max(0,global.innerHeight-viewport.height-viewport.offsetTop);
+      dock.dataset.keyboard=String(mobileDockMode()&&inset>100);
+      dock.style.setProperty("--thebe-keyboard-inset",inset+"px");
+      dock.style.setProperty("--thebe-visible-height",Math.max(160,viewport.height-16)+"px");
+    };
+    global.visualViewport?.addEventListener("resize",syncKeyboard,{passive:true});
+    global.visualViewport?.addEventListener("scroll",syncKeyboard,{passive:true});
+    dock.addEventListener("keydown",event=>{if(event.key==="Escape"&&mobileDockMode()){event.preventDefault();setCollapsed(true)}});
+    global.addEventListener("resize",()=>{syncVisibility();syncKeyboard()},{passive:true});
     global.addEventListener("pageshow",recoverVisibility,{passive:true});
     global.addEventListener("focus",recoverVisibility,{passive:true});
     global.addEventListener("thebe:workspace-ready",recoverVisibility);
@@ -949,7 +1012,7 @@
     else if(next==="connected")setPhase("ready","Voice connected",marketing?"Ask me about Thebe Desk":"Speak naturally — you can interrupt Thebe");
     else if(next==="closing")setPhase("thinking","Ending voice…","Closing the voice session");
     else {
-      setPhase("idle",marketing?"Try Thebe voice":"Voice ready",marketing?"Tap the particles and ask about Thebe Desk":"Tap the particles or Talk to Thebe");
+      setPhase("idle","Talk to Thebe",marketing?"Try Thebe voice — ask about Thebe Desk":"What would you like to get done?");
       voiceInput="";voiceOutput="";renderVoiceTranscript()
     }
   });
@@ -991,7 +1054,7 @@
         responseBox.dataset.state="ready";
         responseBox.append(el("div","thebe-ai-response-title","Approval required"),el("div","thebe-ai-response-answer",clean(result?.content||"The internal task draft was prepared for owner review.",800)));
         const review=el("button","thebe-ai-open-full","Review approval controls →");review.type="button";
-        review.addEventListener("click",()=>{openView("dashboard");setTimeout(()=>document.getElementById("ownerAgenticPanel")?.scrollIntoView({behavior:"smooth",block:"center"}),250);if(innerWidth<900)setCollapsed(true)});
+        review.addEventListener("click",()=>{openView("dashboard");setTimeout(()=>document.getElementById("ownerAgenticPanel")?.scrollIntoView({behavior:"smooth",block:"center"}),250);if(mobileDockMode())setCollapsed(true)});
         responseBox.append(review);
       }
     }else if(result?.content){
