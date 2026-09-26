@@ -8,7 +8,7 @@ const changed={...b,receivables:{...b.receivables,meta:{...b.receivables.meta,co
 assert.notEqual(await snapshotHash(a),await snapshotHash(changed),"nested finance change must alter hash");
 const base=new Date("2026-09-26T06:00:00.000Z");
 assert.equal(__financeWatchDurableLoopTest.nextRunAt({triggerSpec:{cadence:"hourly"}},base),null,"hourly cadence must fail closed because Finance Watch is scheduled daily");
-assert.equal(__financeWatchDurableLoopTest.nextRunAt({triggerSpec:{cadence:"daily"}},base),"2026-09-27T06:00:00.000Z");
-assert.equal(__financeWatchDurableLoopTest.nextRunAt({triggerSpec:{cadence:"weekly"}},base),"2026-10-03T06:00:00.000Z");
+assert.deepEqual(__financeWatchDurableLoopTest.nextRunAt({triggerSpec:{cadence:"daily"}},base),{nextRunAt:"2026-09-27T06:00:00.000Z",skippedOccurrences:0,cadence:"daily"});
+assert.deepEqual(__financeWatchDurableLoopTest.nextRunAt({triggerSpec:{cadence:"weekly"}},base),{nextRunAt:"2026-10-03T06:00:00.000Z",skippedOccurrences:0,cadence:"weekly"});
 assert.equal(__financeWatchDurableLoopTest.nextRunAt({triggerSpec:{cadence:"unsupported"}},base),null);
 console.log("v131 Finance canonical hash and schedule advancement passed");
