@@ -1493,15 +1493,15 @@
       if(Number(next14.committedOutflowMinor||0)>0)box.append(signalCard({
         label:"Supplier commitments · 14 days",
         value:money(Number(next14.committedOutflowMinor||0)/100),
-        title:"Recorded supplier payables due within 14 days.",
-        detail:"This comes from the canonical payable ledger. Potential customer receipts are shown separately and are not assumed collected.",
+        title:"Recorded overdue supplier payables plus payables due within 14 days.",
+        detail:"This comes from the canonical payable ledger. Overdue amounts are treated as due now. Potential customer receipts are shown separately and are not assumed collected.",
         tone:Number(next14.committedOutflowMinor||0)>Number(model.finance?.cashPositionMinor||0)?"risk":"neutral"
       }));
       if(Number(next14.potentialReceivableMinor||0)>0)box.append(signalCard({
         label:"Potential receivables · 14 days",
         value:money(Number(next14.potentialReceivableMinor||0)/100),
-        title:"Issued customer invoices due within 14 days.",
-        detail:"Potential inflow only. Thebe does not add this amount to committed cash until a recorded transaction is allocated to the invoice.",
+        title:"Issued customer invoices already overdue or due within 14 days.",
+        detail:"Potential inflow only. Overdue invoices are included for collection attention, but Thebe does not add any amount to committed cash until a recorded transaction is allocated to the invoice.",
         tone:"neutral"
       }));
       const collectionAttention=(moneyIntel.collectionBehaviors||[]).find(item=>item?.attention==="higher_attention"||item?.attention==="watch");
