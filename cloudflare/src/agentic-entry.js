@@ -9,7 +9,7 @@ import {handleAgenticFinanceReconciliationRequest} from "./agentic-finance-recon
 import {preparePlatformOwnerLogin,withPlatformOwnerAdminEnv} from "./platform-owner-access.js";
 import {applyClientRuntimeIdentity} from "./client-runtime-identity.js";
 
-const V81_SCHEMA_DELTA="056_v154_agent_control_plane.sql";
+const V81_SCHEMA_DELTA="057_v157_business_memory_money_intelligence.sql";
 const COLD_START_REDUNDANT_RENDER="if(!options?.skipDataRefresh)queueMicrotask(()=>renderAll())";
 const COLD_START_GUARDED_RENDER="if(!options?.skipDataRefresh&&!options?.roleRedirect)queueMicrotask(()=>renderAll())";
 const SYNTHETIC_BOOT_TRACE_PREFIX="THEBE_SYNTHETIC_BOOT";
@@ -103,7 +103,9 @@ async function delegatedAuthoritySchemaReady(env){
       (SELECT COUNT(*) FROM finance_invoice_allocations) finance_invoice_allocation_count,
       (SELECT COUNT(*) FROM agent_registry) agent_registry_count,
       (SELECT COUNT(*) FROM agent_authority_events) agent_authority_event_count,
-      (SELECT COUNT(*) FROM agent_authority_drift_findings) agent_authority_drift_count`).first();
+      (SELECT COUNT(*) FROM agent_authority_drift_findings) agent_authority_drift_count,
+      (SELECT COUNT(*) FROM business_memory_items) business_memory_item_count,
+      (SELECT COUNT(*) FROM business_memory_events) business_memory_event_count`).first();
     await env.DB.prepare("SELECT scheduled_for FROM agent_observation_checkpoints LIMIT 1").first();
     const occurrenceIndex=await env.DB.prepare("SELECT 1 ok FROM sqlite_master WHERE type='index' AND name='uq_agent_observation_checkpoint_occurrence' LIMIT 1").first();
     const schedulerIndex=await env.DB.prepare("SELECT 1 ok FROM sqlite_master WHERE type='index' AND name='agent_persistent_tasks_scheduler_due' LIMIT 1").first();

@@ -353,7 +353,7 @@
     };
   }
 
-  function deriveModel(performance,inputs,date,sales,finance){
+  function deriveModel(performance,inputs,date,sales,finance,businessBrief){
     const selected=performance?.selected||{};
     const profile=selected.profile||{};
     const baseline30=profile.baseline30||{};
@@ -441,7 +441,8 @@
       recommendedCashImpact,
       branch:branchSignal(performance),
       sales,
-      finance:finance||null
+      finance:finance||null,
+      businessBrief:businessBrief||null
     };
   }
 
@@ -1386,6 +1387,10 @@
     ));
     if(model.branch)box.append(sourcePill("Location operating baselines","reported"));
     if(model.finance?.authority?.canonical)box.append(sourcePill("Canonical finance ledger","reported"));
+    if(model.businessBrief)box.append(sourcePill("Unified Thebe Business Context","reported"));
+    if(model.businessBrief?.moneyIntelligence?.available)box.append(sourcePill("Deterministic Money Intelligence","reported"));
+    const confirmedMemoryCount=Number(model.businessBrief?.durableMemory?.items?.length||0);
+    if(confirmedMemoryCount>0)box.append(sourcePill(`${confirmedMemoryCount} owner-confirmed business memor${confirmedMemoryCount===1?"y":"ies"}`,"input"));
     if(model.sales?.opportunities.length){
       box.append(sourcePill(`${model.sales.opportunities.length} recorded quotations`,"reported"));
     }
@@ -1427,6 +1432,36 @@
     if(model.finance){
       const recon=model.finance.reconciliation||{},exposure=Number(recon.unresolvedExposureMinor||0)/100;
       box.append(signalCard({label:"Finance integrity",value:recon.unresolvedCount?`${recon.unresolvedCount} exception${recon.unresolvedCount===1?"":"s"}`:(recon.stale?"Review due":"Reconciled"),title:recon.unresolvedCount?`${money(exposure)} remains outside a completed reconciliation.`:(recon.stale?"The finance ledger needs a current reconciliation.":"The latest finance reconciliation has no recorded difference."),detail:`Canonical BWP ledger · ${model.finance.imports?.transactions||0} imported transaction${Number(model.finance.imports?.transactions||0)===1?"":"s"} · no estimate substituted.`,tone:recon.unresolvedCount||recon.stale?"risk":"positive"}));
+    }
+
+    const moneyIntel=model.businessBrief?.moneyIntelligence;
+    if(moneyIntel?.available){
+      const trend=moneyIntel.trend||{},current=trend.current30||{},netMinor=Number(current.net||0);
+      box.append(signalCard({
+        label:"30-day cash movement",
+        value:money(netMinor/100),
+        title:netMinor<0?"Recorded cash outflows exceeded inflows over the last 30 days.":"Recorded inflows covered outflows over the last 30 days.",
+        detail:`Recorded inflows ${money(Number(current.inflow||0)/100)} · outflows ${money(Number(current.outflow||0)/100)}. This is ledger history, not a forecast.`,
+        tone:netMinor<0?"risk":"positive"
+      }));
+      const runway=moneyIntel.assumptions?.estimatedRunwayDays;
+      if(runway!==null&&runway!==undefined){
+        box.append(signalCard({
+          label:"Cash runway",
+          value:`${Number(runway).toFixed(Number(runway)<10?1:0)} days`,
+          title:"Runway uses your owner-entered monthly outflow assumption.",
+          detail:"This estimate is deliberately separated from authoritative ledger facts and does not authorize spending.",
+          tone:Number(runway)<45?"risk":"neutral"
+        }));
+      }
+      const largeDebits=Array.isArray(trend.largeDebits)?trend.largeDebits.length:0;
+      if(largeDebits>0)box.append(signalCard({
+        label:"Large debits",
+        value:String(largeDebits),
+        title:"Recent debits crossed Thebe’s deterministic review threshold.",
+        detail:"Review the underlying transactions before treating any debit as unusual or incorrect.",
+        tone:"risk"
+      }));
     }
 
     if(model.projectedMonthlyRevenue!==null&&model.target){
@@ -2422,6 +2457,11 @@
     const lines=[];
     let tone="neutral";
 
+    if(model.businessBrief?.headline){
+      lines.push(String(model.businessBrief.headline).slice(0,520));
+      if((model.businessBrief.priorities||[]).some(item=>item?.severity==="high"))tone="risk";
+    }
+
     if(model.targetGapPct!==null){
       const gap=model.targetGapPct;
       if(gap>0){
@@ -2485,17 +2525,18 @@
 
     try{
       const date=gaboroneDate();
-      const [performance,stateEnvelope,finance]=await Promise.all([
+      const [performance,stateEnvelope,finance,businessEnvelope]=await Promise.all([
         request(`/api/daily-reporting/performance?date=${encodeURIComponent(date)}`),
         request("/api/state"),
-        request("/api/finance/summary").catch(()=>null)
+        request("/api/finance/summary").catch(()=>null),
+        request("/api/business-context/brief").catch(()=>null)
       ]);
       if(seq!==renderSeq)return;
 
       latestStateEnvelope=stateEnvelope;
       const inputs=decisionInputs(stateEnvelope?.state||{});
       const sales=deriveSalesIntelligence(inputs.company,date);
-      const model=deriveModel(performance,inputs,date,sales,finance);
+      const model=deriveModel(performance,inputs,date,sales,finance,businessEnvelope?.brief||null);
 
       renderSummary(model);
       renderSources(model,inputs);
