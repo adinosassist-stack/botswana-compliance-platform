@@ -1,6 +1,5 @@
 import {createHash} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
-import {splitSqliteMigrationStatements} from './sqlite-migration-statements.mjs';
 
 const API='https://api.cloudflare.com/client/v4';
 const token=String(process.env.CLOUDFLARE_API_TOKEN||'').trim();
@@ -145,21 +144,25 @@ async function applyStage(spec,sql){
     console.log(`Migration ${spec.number} already present and verified; skipping.`);
     return;
   }
-  const statements=splitSqliteMigrationStatements(sql);
-  if(!statements.length)fail(`migration ${spec.number} parsed into zero statements`);
-  console.log(`Applying reviewed migration ${spec.number} (${statements.length} statements).`);
-  for(let index=0;index<statements.length;index+=1){
-    const statement=statements[index];
-    if(spec.number===54&&/^\s*(?:--[^\n]*\n\s*)*ALTER TABLE agent_observation_checkpoints ADD COLUMN scheduled_for TEXT\s*;?\s*$/i.test(statement)){
-      const checkpointColumns=await columns('agent_observation_checkpoints');
-      if(checkpointColumns.has('scheduled_for')){
-        console.log('Migration 54 scheduled_for column already exists; skipping non-idempotent ALTER TABLE.');
-        continue;
-      }
+
+  if(spec.number===54){
+    const checkpointColumns=await columns('agent_observation_checkpoints');
+    if(!checkpointColumns.has('scheduled_for')){
+      console.log('Applying migration 54 scheduled_for column.');
+      await query('ALTER TABLE agent_observation_checkpoints ADD COLUMN scheduled_for TEXT');
+    }else{
+      console.log('Migration 54 scheduled_for column already exists; skipping non-idempotent ALTER TABLE.');
     }
-    try{await query(statement)}
-    catch(error){throw new Error(`Migration ${spec.number} statement ${index+1}/${statements.length} failed: ${error.message}`)}
+    await query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_observation_checkpoint_occurrence
+      ON agent_observation_checkpoints(tenant_id,persistent_task_id,scheduled_for)
+      WHERE scheduled_for IS NOT NULL`);
+  }else{
+    // D1 accepts a reviewed multi-statement SQL payload. Execute trigger-bearing
+    // migrations intact so CASE/BEGIN/END bodies are never split incorrectly.
+    console.log(`Applying reviewed migration ${spec.number} as one intact D1 SQL payload.`);
+    await query(sql);
   }
+
   if(!(await verify()))fail(`post-migration verification failed for migration ${spec.number}`);
   console.log(`Migration ${spec.number} verified.`);
 }
