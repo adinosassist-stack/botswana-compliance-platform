@@ -155,7 +155,7 @@ mark('first-party registration proof',true,`difficulty=${registrationProofDiffic
 const root=await publicFetch('/');
 assert(root.status===200,`root page HTTP ${root.status}`);
 const productionEntry=fs.readFileSync('cloudflare/src/production-entry.js','utf8');
-const dockReleaseMatch=productionEntry.match(/const THEBE_AI_DOCK_RELEASE="([0-9]{8}[a-z])";/);
+const dockReleaseMatch=productionEntry.match(/const THEBE_AI_DOCK_RELEASE="([0-9]{8}[A-Za-z0-9._-]{1,48})";/);
 assert(dockReleaseMatch?.[1],'production entry does not expose a valid Thebe AI dock release constant');
 const expectedDockRelease=dockReleaseMatch[1];
 const liveDockRelease=String(root.headers.get('x-thebe-ai-dock')||'');
