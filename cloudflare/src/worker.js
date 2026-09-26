@@ -3,6 +3,7 @@ import {handleFinanceRequest,financeSummary} from "./finance-core.js";
 import {financeReceivablesSummary} from "./finance-receivables.js";
 import {processWhatsAppInboundMessages} from "./whatsapp-inbound-core.js";
 import {runDueFinanceWatchTasks} from "./finance-watch-durable-loop.js";
+import {handleBusinessContextRequest} from "./business-context.js";
 const APP_SECURITY_HEADERS=Object.freeze({
   "x-content-type-options":"nosniff",
   "x-frame-options":"DENY",
@@ -5470,6 +5471,8 @@ export default {
       if(req.method==="GET"&&!restrictedWorkspaceReadAllowed(url.pathname,a.role))return json({error:"workspace_role_read_forbidden"},403);
       if(!["GET","HEAD","OPTIONS"].includes(req.method)&&!restrictedWorkspaceMutationAllowed(url.pathname,req.method,a.role))return json({error:"workspace_role_mutation_forbidden"},403);
       if(!evidenceUploadsEnabled(env)&&evidenceMutationDisabled(url,req.method))return json({error:"evidence_uploads_temporarily_disabled",evidenceUploadsEnabled:false},503);
+      const businessContextResponse=await handleBusinessContextRequest({request:req,url,env,auth:a,json,roleAllowed});
+      if(businessContextResponse)return businessContextResponse;
       const financeResponse=await handleFinanceRequest({request:req,url,env,auth:a,json,readJson,id,writeAudit,roleAllowed,sha256Hex,enqueueTenantAlert,whatsappTemplateAvailable:key=>!!parseWhatsAppTemplateMap(env)[key]});
       if(financeResponse)return financeResponse;
       if(url.pathname==="/api/auth/me"&&req.method==="GET")return json({user:{id:a.user_id,email:a.email,displayName:a.display_name,role:a.role,tenantId:a.tenant_id,tenantName:a.tenant_name,onboardingComplete:!!a.onboarding_complete},csrfToken:a.csrf_token});
