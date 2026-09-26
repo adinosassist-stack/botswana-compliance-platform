@@ -126,7 +126,9 @@ async function recoverVerifiedOccurrence(env,task,claim){
 
 export async function runDueFinanceWatchTasks(env,{limit=25}={}){
   const cap=Math.max(1,Math.min(50,Number(limit)||25));
-  const due=buildFinanceWatchDueQuery(cap);\n  const rows=await env.DB.prepare(due.sql).bind(...due.bindings).all();\n  const outcomes=[];
+  const due=buildFinanceWatchDueQuery(cap);
+  const rows=await env.DB.prepare(due.sql).bind(...due.bindings).all();
+  const outcomes=[];
   for(const task of rows.results||[]){
     const claim=await claimObservation(env,task);
     if(!claim.ok){outcomes.push(frozen({ok:false,persisted:false,skipped:true,code:claim.code,executionAllowed:false}));continue}
