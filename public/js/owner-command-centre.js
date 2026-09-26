@@ -1471,6 +1471,13 @@
         detail:"Add monthly labour cost and minimum cash buffer. Thebe then protects those amounts plus recorded supplier payables due now/within 7 days and assumes no receivables are collected.",
         tone:"neutral"
       }));
+      else if(spend?.state==="needs_finance_review")box.append(signalCard({
+        label:"Spend this week",
+        value:"Finance review",
+        title:"Thebe is withholding the spend envelope because core finance evidence is not current.",
+        detail:"Refresh finance reconciliation and confirm the supplier-payables ledger is available. No spendable amount is shown while either evidence gate is unresolved.",
+        tone:"risk"
+      }));
       const scenario=moneyIntel.scenario||{},horizons=Array.isArray(scenario.horizons)?scenario.horizons:[],h30=horizons.find(item=>Number(item?.days)===30);
       if(h30){
         const ending=Number(h30.ownerAssumptionEndingCashMinor||0)/100,below=h30.belowOwnerBuffer===true;
