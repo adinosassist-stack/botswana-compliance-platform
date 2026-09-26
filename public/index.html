@@ -3010,6 +3010,36 @@ main{
       <button class="people-outcome-card" type="button" data-hub-target="employees" data-bw-onclick="showView('employees')"><span class="section-eyebrow">Staff records</span><b>Employees</b><span id="peopleEmployeeDetail" class="people-outcome-status">Keep the staff register and core employment-control records current.</span><span class="people-outcome-action">Open employee records →</span></button>
       <button class="people-outcome-card" type="button" data-hub-target="employershield" data-bw-onclick="showView('employershield')"><span class="section-eyebrow">Follow-up</span><b>Employment protection</b><span id="peopleFollowupDetail" class="people-outcome-status">Review open control gaps and high-risk employment issues before they become disputes.</span><span class="people-outcome-action">Review protection gaps →</span></button>
     </div>
+    <details id="peopleJobsDetails" class="people-specialist-details">
+      <summary>Jobs & hiring links <span class="muted small">Open roles and private applications</span></summary>
+      <div class="people-specialist-inner">
+        <div class="grid g2">
+          <div class="card">
+            <div class="section-eyebrow">Open a role</div><h2>Create a public application link</h2>
+            <div class="formgrid">
+              <div><label for="jobTitleInput">Job title</label><input id="jobTitleInput" maxlength="140" placeholder="e.g. Sales consultant"></div>
+              <div><label for="jobLocationInput">Location</label><input id="jobLocationInput" maxlength="120" placeholder="e.g. Gaborone"></div>
+              <div><label for="jobTypeInput">Employment type</label><select id="jobTypeInput"><option value="unspecified">Not specified</option><option value="permanent">Permanent</option><option value="fixed_term">Fixed term</option><option value="part_time">Part time</option><option value="temporary">Temporary</option><option value="internship">Internship</option></select></div>
+              <div><label for="jobClosesInput">Applications close</label><input id="jobClosesInput" type="date"></div>
+            </div>
+            <div style="margin-top:12px"><label for="jobDescriptionInput">Role description</label><textarea id="jobDescriptionInput" maxlength="3000" placeholder="Responsibilities, requirements and how the role works."></textarea></div>
+            <div class="actions" style="margin-top:12px"><button type="button" class="btn" data-bw-onclick="createJobOpening()">Create job link</button></div>
+            <div id="jobLinkResult" class="muted small" style="margin-top:10px" aria-live="polite"></div>
+          </div>
+          <div class="card">
+            <div class="section-eyebrow">Recruitment guardrails</div><h2>Hiring stays human-controlled</h2>
+            <div class="checkline"><span class="dot good"></span><div><b>No applicant login required</b><div class="muted small">The public link accepts a minimal application without giving access to Thebe Desk.</div></div></div>
+            <div class="checkline"><span class="dot good"></span><div><b>No AI candidate ranking</b><div class="muted small">Applicants are not scored, ranked or automatically recommended by Thebe.</div></div></div>
+            <div class="checkline"><span class="dot good"></span><div><b>Hiring does not create access</b><div class="muted small">Marking an application hired never creates an employee record, reporting link or workspace session. Add the employee separately after the decision.</div></div></div>
+            <div class="checkline"><span class="dot good"></span><div><b>No CV upload in this release</b><div class="muted small">The public form is text-only while production evidence/file scanning remains separately gated.</div></div></div>
+          </div>
+        </div>
+        <div class="grid g2" style="margin-top:16px">
+          <div class="card"><div class="between row"><div><h2>Job openings</h2><div class="muted small">Public links are stored as hashes. Rotate a link to issue a fresh share URL.</div></div><button type="button" class="btn soft" data-bw-onclick="renderJobsLinking()">Refresh</button></div><div id="jobOpeningsList" style="margin-top:12px"><div class="muted small">Loading job openings…</div></div></div>
+          <div class="card"><h2>Applications</h2><div id="jobApplicationsList" class="muted small">Choose a job opening to review applications.</div></div>
+        </div>
+      </div>
+    </details>
     <details class="people-specialist-details">
       <summary>Specialist people tools <span class="muted small">Cases, controls and privacy</span></summary>
       <div class="people-specialist-inner hub-grid">
@@ -5399,7 +5429,7 @@ function renderAll(){
  applyRoleUi();
  const shouldRender=view=>{if(!roleCanView(view))return false;const target=document.getElementById(view),active=!!target?.classList.contains("active"),coldLanding=window.__THEBE_WORKSPACE_READY__!==true&&view===roleLandingView(currentUser?.role);return active||coldLanding};const run=(view,fn)=>{if(!shouldRender(view)||typeof fn!=="function")return;try{const result=fn();if(result&&typeof result.catch==="function")result.catch(error=>reportClientError(error,`render:${view}`))}catch(error){reportClientError(error,`render:${view}`)}};
  if(shouldRender("dashboard")){renderGlobalConflict();setupProgress();renderDeadlines();renderOnboardingBanner();if(document.getElementById("dashboard")?.classList.contains("active")){renderDailyOperatingBrief();if(["owner","manager"].includes(currentWorkspaceRole()))renderExecutiveExceptions()}}
- run("security",renderSecurity);run("moneyhub",renderMoneyHub);run("obligations",renderObligations);run("calendar",renderCalendar);run("workhub",renderWorkHub);run("peopleops",renderPeopleOperationsHub);run("peopleops",renderPeopleReportingSetup);run("businesshub",renderBusinessHub);run("evidencehub",renderDocumentsProofHub);run("tenderhub",renderTenderHub);run("automationhub",renderAutomationHub);run("accounthub",renderSettingsHub);run("vault",renderVault);run("employer",renderEmployees);run("employees",renderEmployeeRegister);run("dailyreports",renderDailyOperations);run("privacy",renderPrivacy);run("tender",renderTender);run("manufacturing",renderManufacturing);run("sources",renderSourceRegistry);run("taxprofile",renderTaxProfile);run("bwreadiness",renderBwReadiness);run("corporate",renderCorporate);run("employmentcontrols",renderEmploymentControls);run("publishing",renderPublishing);run("documents",renderDocs);run("changes",renderChanges);renderCompanies();run("audit",renderAudit);run("rules",renderRuleLibrary);run("employer",renderCases);run("expert",renderExpert);run("profile",fillProfile);run("accountsocial",renderSocialAccounts);run("accountsecurity",renderAccountSecurity);run("accountdata",renderDeletionStatus);run("aicontrols",renderAiCredits);run("aicontrols",renderAiCostControls);run("tenderready",renderTenderReady);if((document.getElementById("employershield")?.classList.contains("active")||document.getElementById("protectionengine")?.classList.contains("active"))&&(roleCanView("employershield")||roleCanView("protectionengine"))){renderEmployeesForHr();renderHrCases()}run("companysecretary",renderCompanyActions);run("licenceos",renderLicences);run("partnerportal",renderPartnerPortal);run("compliancepassport",renderPassport);if(["owner","manager"].includes(currentWorkspaceRole()))run("compliancepassport",renderPassportShares);run("workflowhub",renderWorkflowRules);run("notifications",renderNotifications);run("notifications",renderNotificationDeadLetters);run("recurringautomation",renderSchedules);run("partnerportal",renderPartnerInvites);run("partnerportal",renderPartnerAccess);run("servicesmarketplace",renderProfessionalServices);run("payments",renderPayments);run("payments",renderPaymentProviders);run("payments",renderPaymentReconciliation);run("entitlements",renderEntitlements);run("regulatoryintel",renderRegulatoryIntelligence);if(["sources","rules","publishing","regulatorygovernance"].some(v=>roleCanView(v)&&document.getElementById(v)?.classList.contains("active")))renderPlatformRegulatoryGovernance();run("regulatoryobligations",renderComplianceObligations);run("inspectionreadiness",renderInspectionReadiness);run("datadeletion",renderDeletion);run("evidenceintegrity",renderEvidenceIntegrity);run("protectionengine",renderProtectionEngine);run("controlcenter",renderControlCenter);run("controllineage",renderControlLineageOptions);run("riskengine",renderRiskEvents);run("portfolioRisk",renderPortfolioRisk);run("partneractioncenter",renderPartnerActionCenter);setTimeout(animateViewItems,30);
+ run("security",renderSecurity);run("moneyhub",renderMoneyHub);run("obligations",renderObligations);run("calendar",renderCalendar);run("workhub",renderWorkHub);run("peopleops",renderPeopleOperationsHub);run("peopleops",renderPeopleReportingSetup);run("peopleops",renderJobsLinking);run("businesshub",renderBusinessHub);run("evidencehub",renderDocumentsProofHub);run("tenderhub",renderTenderHub);run("automationhub",renderAutomationHub);run("accounthub",renderSettingsHub);run("vault",renderVault);run("employer",renderEmployees);run("employees",renderEmployeeRegister);run("dailyreports",renderDailyOperations);run("privacy",renderPrivacy);run("tender",renderTender);run("manufacturing",renderManufacturing);run("sources",renderSourceRegistry);run("taxprofile",renderTaxProfile);run("bwreadiness",renderBwReadiness);run("corporate",renderCorporate);run("employmentcontrols",renderEmploymentControls);run("publishing",renderPublishing);run("documents",renderDocs);run("changes",renderChanges);renderCompanies();run("audit",renderAudit);run("rules",renderRuleLibrary);run("employer",renderCases);run("expert",renderExpert);run("profile",fillProfile);run("accountsocial",renderSocialAccounts);run("accountsecurity",renderAccountSecurity);run("accountdata",renderDeletionStatus);run("aicontrols",renderAiCredits);run("aicontrols",renderAiCostControls);run("tenderready",renderTenderReady);if((document.getElementById("employershield")?.classList.contains("active")||document.getElementById("protectionengine")?.classList.contains("active"))&&(roleCanView("employershield")||roleCanView("protectionengine"))){renderEmployeesForHr();renderHrCases()}run("companysecretary",renderCompanyActions);run("licenceos",renderLicences);run("partnerportal",renderPartnerPortal);run("compliancepassport",renderPassport);if(["owner","manager"].includes(currentWorkspaceRole()))run("compliancepassport",renderPassportShares);run("workflowhub",renderWorkflowRules);run("notifications",renderNotifications);run("notifications",renderNotificationDeadLetters);run("recurringautomation",renderSchedules);run("partnerportal",renderPartnerInvites);run("partnerportal",renderPartnerAccess);run("servicesmarketplace",renderProfessionalServices);run("payments",renderPayments);run("payments",renderPaymentProviders);run("payments",renderPaymentReconciliation);run("entitlements",renderEntitlements);run("regulatoryintel",renderRegulatoryIntelligence);if(["sources","rules","publishing","regulatorygovernance"].some(v=>roleCanView(v)&&document.getElementById(v)?.classList.contains("active")))renderPlatformRegulatoryGovernance();run("regulatoryobligations",renderComplianceObligations);run("inspectionreadiness",renderInspectionReadiness);run("datadeletion",renderDeletion);run("evidenceintegrity",renderEvidenceIntegrity);run("protectionengine",renderProtectionEngine);run("controlcenter",renderControlCenter);run("controllineage",renderControlLineageOptions);run("riskengine",renderRiskEvents);run("portfolioRisk",renderPortfolioRisk);run("partneractioncenter",renderPartnerActionCenter);setTimeout(animateViewItems,30);
 }
 function addDays(d,n){let x=new Date(d);x.setDate(x.getDate()+n);return x}
 function endOfMonth(y,m){return new Date(y,m+1,0)}
@@ -5882,6 +5912,52 @@ async function renderPeopleOperationsHub(){
   set("peopleEmployeeDetail",Number.isFinite(contractCoverage)?`${activeEmployees} active employee${activeEmployees===1?"":"s"} · ${Math.round(contractCoverage)}% contract coverage.`:`${activeEmployees} active employee${activeEmployees===1?"":"s"}. Keep staff and contract records current.`);
   const findings=Array.isArray(risk?.findings)?risk.findings:[];const high=findings.filter(x=>["high","critical"].includes(String(x.severity||""))).length;
   set("peopleFollowupDetail",`${high||0} high-priority control gap${high===1?"":"s"}${openCases?` · ${openCases} open employment case${openCases===1?"":"s"}`:""}${attention?` · ${attention} report flag${attention===1?"":"s"}`:""}.`);
+}
+
+function openJobsPanel(){const panel=document.getElementById("peopleJobsDetails");if(panel){panel.open=true;panel.scrollIntoView({behavior:"smooth",block:"start"})}}
+function jobPipelineActions(item,jobId){
+ const status=String(item?.status||"received"),id=safeId(item?.id),jid=safeId(jobId),actions=[];
+ const add=(next,label)=>actions.push(`<button class="btn soft" type="button" data-bw-onclick="setJobApplicationStatus('${id}','${next}','${jid}')">${label}</button>`);
+ if(status==="received"){add("review","Review");add("rejected","Reject")}
+ else if(status==="review"){add("interview","Interview");add("rejected","Reject")}
+ else if(status==="interview"){add("offer","Offer");add("rejected","Reject")}
+ else if(status==="offer"){add("hired","Mark hired");add("rejected","Reject")}
+ return actions.join("");
+}
+async function renderJobsLinking(){
+ if(!roleCanView("peopleops")||!["owner","manager"].includes(currentWorkspaceRole()))return;
+ const list=document.getElementById("jobOpeningsList");if(!list)return;
+ try{
+  const r=await apiJson("/api/jobs"),items=r.items||[];
+  list.safeHTML=items.length?items.map(x=>`<div class="item"><div class="between row"><div><b>${escapeHtml(x.title)}</b><div class="muted small">${escapeHtml(x.location||"Location not specified")} · ${escapeHtml(String(x.employment_type||"unspecified").replaceAll("_"," "))}${x.closes_on?` · closes ${escapeHtml(x.closes_on)}`:""}</div></div><span class="badge ${x.status==="open"?"good":""}">${escapeHtml(x.status)}</span></div><div class="small" style="margin-top:7px">${Number(x.application_count||0)} application${Number(x.application_count||0)===1?"":"s"} · ${Number(x.active_pipeline_count||0)} active in pipeline</div><div class="actions" style="margin-top:9px"><button class="btn alt" type="button" data-bw-onclick="loadJobApplications('${safeId(x.id)}')">Applications</button>${x.status==="open"?`<button class="btn soft" type="button" data-bw-onclick="rotateJobPublicLink('${safeId(x.id)}')">Fresh public link</button><button class="btn alt" type="button" data-bw-onclick="closeJobOpening('${safeId(x.id)}')">Close role</button>`:""}</div></div>`).join(""):'<div class="muted small">No job openings yet.</div>';
+ }catch(e){list.safeHTML=`<div class="notice bad"><b>Jobs unavailable</b><div class="small">${escapeHtml(e.message)}</div></div>`}
+}
+async function createJobOpening(){
+ const title=document.getElementById("jobTitleInput")?.value.trim()||"",description=document.getElementById("jobDescriptionInput")?.value.trim()||"";
+ if(title.length<3||description.length<20)return notifyUser("Add a job title and at least 20 characters of role description.");
+ try{
+  const r=await apiJson("/api/jobs",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({title,location:document.getElementById("jobLocationInput")?.value.trim()||"",employmentType:document.getElementById("jobTypeInput")?.value||"unspecified",closesOn:document.getElementById("jobClosesInput")?.value||null,description})});
+  const box=document.getElementById("jobLinkResult");if(box)box.safeHTML=r.publicUrl?`<div class="notice good"><b>Public application link created</b><div class="small" style="margin-top:6px">This URL is shown now because only its hash is stored.</div><div class="source"><a href="${escapeHtml(r.publicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(r.publicUrl)}</a></div></div>`:'<div class="notice warn">Job created, but PUBLIC_APP_URL is not available to build the public link.</div>';
+  ["jobTitleInput","jobLocationInput","jobClosesInput","jobDescriptionInput"].forEach(id=>{const el=document.getElementById(id);if(el)el.value=""});await renderJobsLinking();
+ }catch(e){const box=document.getElementById("jobLinkResult");if(box)box.textContent=e.message}
+}
+async function rotateJobPublicLink(jobId){
+ try{const r=await apiJson(`/api/jobs/${encodeURIComponent(jobId)}/rotate-link`,{method:"POST"}),box=document.getElementById("jobLinkResult");if(box)box.safeHTML=r.publicUrl?`<div class="notice good"><b>Fresh public link</b><div class="source"><a href="${escapeHtml(r.publicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(r.publicUrl)}</a></div><div class="small">The previous link no longer works.</div></div>`:'<div class="notice warn">Link rotated, but no public origin is configured.</div>'}catch(e){notifyUser(e.message)}
+}
+async function closeJobOpening(jobId){
+ const confirmed=await BW.dialog.confirm({title:"Close job opening?",message:"The public application link will stop accepting new applications. Existing applications stay available for review.",confirmLabel:"Close role"});if(!confirmed)return;
+ try{await apiJson(`/api/jobs/${encodeURIComponent(jobId)}/close`,{method:"POST"});await renderJobsLinking()}catch(e){notifyUser(e.message)}
+}
+async function loadJobApplications(jobId){
+ const target=document.getElementById("jobApplicationsList");if(!target)return;target.innerHTML='<div class="muted small">Loading applications…</div>';
+ try{
+  const r=await apiJson(`/api/jobs/${encodeURIComponent(jobId)}/applications`),items=r.items||[];
+  target.safeHTML=`<div class="between row"><div><b>${escapeHtml(r.job?.title||"Applications")}</b><div class="muted small">Human review only · no AI ranking</div></div><span class="badge">${items.length} total</span></div>`+(items.length?items.map(x=>`<div class="item"><div class="between row"><div><b>${escapeHtml(x.full_name)}</b><div class="muted small">${escapeHtml(x.contact_type)} · ${escapeHtml(x.contact_value)}</div></div><span class="badge">${escapeHtml(x.status)}</span></div><div class="small" style="margin-top:7px;white-space:pre-wrap">${escapeHtml(x.summary)}</div><div class="actions" style="margin-top:9px">${jobPipelineActions(x,jobId)}${x.status==="hired"?'<button class="btn alt" type="button" data-bw-onclick="showView(\'employees\')">Add employee record separately</button>':""}</div></div>`).join(""):'<div class="muted small" style="margin-top:12px">No applications yet.</div>');
+ }catch(e){target.safeHTML=`<div class="notice bad"><b>Applications unavailable</b><div class="small">${escapeHtml(e.message)}</div></div>`}
+}
+async function setJobApplicationStatus(applicationId,status,jobId){
+ if(status==="hired"){const ok=await BW.dialog.confirm({title:"Mark applicant hired?",message:"This records only the recruitment decision. It will not create an employee record, reporting link or workspace access.",confirmLabel:"Mark hired"});if(!ok)return}
+ try{await apiJson(`/api/job-applications/${encodeURIComponent(applicationId)}/status`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({status})});await loadJobApplications(jobId);await renderJobsLinking()}catch(e){notifyUser(e.message)}
 }
 
 async function renderBusinessHub(){
