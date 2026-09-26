@@ -198,7 +198,7 @@ function supplierSpendTrend(rows=[]){
     return frozen({
       supplierId:clean(row?.supplier_id,120),supplierName:clean(row?.supplier_name,160),
       expenseCategory:clean(row?.expense_category,60)||"other",
-      current30OutflowMinor,prior30OutflowMinor,currentTransactionCount,priorTransactionCount,
+      current30OutflowMinor:currentOutflowMinor,prior30OutflowMinor:priorOutflowMinor,currentTransactionCount,priorTransactionCount,
       currentAverageTransactionMinor:currentTransactionCount?Math.round(currentOutflowMinor/currentTransactionCount):null,
       priorAverageTransactionMinor:priorTransactionCount?Math.round(priorOutflowMinor/priorTransactionCount):null,
       changePct:changePct==null?null:Math.round(changePct*1000)/1000,
