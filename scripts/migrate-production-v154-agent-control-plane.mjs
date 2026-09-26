@@ -1,6 +1,8 @@
 import {createHash} from 'node:crypto';
-import {readFile} from 'node:fs/promises';
-import {extractReviewedStatements} from './reviewed-sql-extractor.mjs';
+import {spawnSync} from 'node:child_process';
+import {access,mkdtemp,readFile,rm,writeFile} from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 
 const API='https://api.cloudflare.com/client/v4';
 const token=String(process.env.CLOUDFLARE_API_TOKEN||'').trim();
@@ -14,41 +16,6 @@ const reviewedMigrations=Object.freeze([
   Object.freeze({number:54,path:'cloudflare/migrations/054_v134_agent_observation_identity.sql',blob:'0d7cb2f2e4a90ea570d5dc5193c0507efbf00ab4'}),
   Object.freeze({number:55,path:'cloudflare/migrations/055_v151_finance_watch_scheduler_isolation.sql',blob:'0b5ea933afa9299d535a50b99c1e4fb9041aa674'}),
   Object.freeze({number:56,path:'cloudflare/migrations/056_v154_agent_control_plane.sql',blob:'86d033543e5eb47ec2da3fd5e4e44e82e25ec5cd'})
-]);
-
-const migrationMarkers=new Map([
-  [51,[
-    'CREATE TABLE IF NOT EXISTS agent_persistent_tasks',
-    'CREATE INDEX IF NOT EXISTS agent_persistent_tasks_due',
-    'CREATE TABLE IF NOT EXISTS agent_persistent_task_events',
-    'CREATE INDEX IF NOT EXISTS agent_persistent_task_events_task',
-    'CREATE TRIGGER IF NOT EXISTS agent_persistent_task_event_tenant_guard'
-  ]],
-  [52,[
-    'CREATE TABLE IF NOT EXISTS agent_observation_checkpoints',
-    'CREATE INDEX IF NOT EXISTS idx_agent_observation_checkpoints_task_time',
-    'CREATE TRIGGER IF NOT EXISTS trg_agent_observation_checkpoint_tenant'
-  ]],
-  [53,[
-    'CREATE TABLE IF NOT EXISTS agent_observation_claims',
-    'CREATE INDEX IF NOT EXISTS idx_agent_observation_claims_task_time',
-    'CREATE TRIGGER IF NOT EXISTS trg_agent_observation_claim_tenant'
-  ]],
-  [55,[
-    'CREATE INDEX IF NOT EXISTS agent_persistent_tasks_scheduler_due'
-  ]],
-  [56,[
-    'CREATE TABLE IF NOT EXISTS agent_registry',
-    'CREATE TABLE IF NOT EXISTS agent_authority_events',
-    'CREATE TABLE IF NOT EXISTS agent_authority_drift_findings',
-    'CREATE INDEX IF NOT EXISTS idx_agent_authority_events_agent_created',
-    'CREATE INDEX IF NOT EXISTS idx_agent_authority_drift_agent_status',
-    'CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_authority_drift_open',
-    'INSERT OR IGNORE INTO agent_registry',
-    'CREATE TRIGGER IF NOT EXISTS trg_agent_registry_identity_immutable',
-    'CREATE TRIGGER IF NOT EXISTS trg_agent_registry_no_execution_escalation',
-    'CREATE TRIGGER IF NOT EXISTS trg_agent_registry_revoked_terminal'
-  ]]
 ]);
 
 const baselineTables=[
@@ -66,7 +33,10 @@ if(!/^[0-9a-fA-F]{32}$/.test(accountId))fail('CLOUDFLARE_ACCOUNT_ID is invalid')
 if(!/^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$/.test(databaseId))fail('D1_DATABASE_ID is invalid');
 
 const headers={Authorization:`Bearer ${token}`,Accept:'application/json','Content-Type':'application/json'};
-const safe=value=>String(value||'').replace(/[\u0000-\u001f\u007f]+/g,' ').replace(/\s+/g,' ').slice(0,500);
+const safe=(value,max=500)=>String(value||'').replace(/[\u0000-\u001f\u007f]+/g,' ').replace(/\s+/g,' ').slice(0,max);
+const root=process.cwd();
+const wrangler=path.join(root,'node_modules','.bin',process.platform==='win32'?'wrangler.cmd':'wrangler');
+const expectedWranglerVersion='4.135.0';
 
 async function cf(path,options={}){
   const response=await fetch(`${API}${path}`,{...options,headers:{...headers,...(options.headers||{})}});
@@ -82,6 +52,50 @@ async function query(sql,params=[]){
   const results=Array.isArray(body?.result)?body.result:[];
   if(!results.length||results.some(r=>r?.success===false))fail(`D1 query failed: ${safe(sql)}`);
   return results.flatMap(r=>Array.isArray(r?.results)?r.results:[]);
+}
+function tomlQuote(value){
+  return '"'+String(value??'').replace(/\\/g,'\\\\').replace(/"/g,'\\"')+'"';
+}
+async function createWranglerContext(){
+  try{await access(wrangler)}catch{fail('pinned Wrangler binary is not installed; run npm ci before migration')}
+  const version=spawnSync(wrangler,['--version'],{cwd:root,env:{...process.env,CI:'true'},encoding:'utf8',maxBuffer:1024*1024});
+  if(version.status!==0)fail(`could not execute pinned Wrangler: ${safe(version.stderr||version.stdout)}`);
+  if(!String(version.stdout||version.stderr||'').includes(expectedWranglerVersion))fail(`Wrangler version mismatch; expected ${expectedWranglerVersion}`);
+
+  const info=await cf(`/accounts/${accountId}/d1/database/${databaseId}`,{method:'GET'});
+  const databaseName=String(info?.result?.name||'').trim();
+  if(!databaseName)fail('could not resolve production D1 database name from reviewed database id');
+
+  const dir=await mkdtemp(path.join(os.tmpdir(),'thebe-prod-d1-'));
+  const configPath=path.join(dir,'wrangler.toml');
+  const config=[
+    'name = "thebe-production-d1-migration"',
+    'compatibility_date = "2026-09-26"',
+    `account_id = ${tomlQuote(accountId)}`,
+    '',
+    '[[d1_databases]]',
+    'binding = "DB"',
+    `database_name = ${tomlQuote(databaseName)}`,
+    `database_id = ${tomlQuote(databaseId)}`,
+    ''
+  ].join('\n');
+  await writeFile(configPath,config,{encoding:'utf8',mode:0o600});
+  return {dir,configPath,databaseName};
+}
+function executeMigrationFile(spec,context){
+  const result=spawnSync(wrangler,[
+    'd1','execute','DB','--remote','--file',spec.path,'--config',context.configPath,'--yes'
+  ],{
+    cwd:root,
+    env:{...process.env,CI:'true'},
+    encoding:'utf8',
+    maxBuffer:8*1024*1024
+  });
+  if(result.status!==0){
+    const output=safe(`${result.stdout||''}\n${result.stderr||''}`,5000);
+    throw new Error(`Wrangler migration ${spec.number} failed: ${output}`);
+  }
+  console.log(`Wrangler applied reviewed migration ${spec.number} to production D1 ${context.databaseName}.`);
 }
 async function names(type){
   const rows=await query('SELECT name FROM sqlite_master WHERE type=?',[type]);
@@ -193,14 +207,9 @@ async function applyStage(spec,sql){
       ON agent_observation_checkpoints(tenant_id,persistent_task_id,scheduled_for)
       WHERE scheduled_for IS NOT NULL`);
   }else{
-    const markers=migrationMarkers.get(spec.number);
-    if(!markers?.length)fail(`reviewed statement markers missing for migration ${spec.number}`);
-    const statements=extractReviewedStatements(sql,markers);
-    console.log(`Applying reviewed migration ${spec.number} as ${statements.length} exact top-level D1 statement(s).`);
-    for(let index=0;index<statements.length;index+=1){
-      try{await query(statements[index])}
-      catch(error){throw new Error(`Migration ${spec.number} statement ${index+1}/${statements.length} failed: ${error.message}`)}
-    }
+    if(!wranglerContext)fail('Wrangler mutation context is unavailable');
+    console.log(`Applying reviewed migration ${spec.number} with pinned Wrangler remote file execution.`);
+    executeMigrationFile(spec,wranglerContext);
   }
 
   if(!(await verify()))fail(`post-migration verification failed for migration ${spec.number}`);
@@ -227,9 +236,15 @@ const bookmark=String(bookmarkBody?.result?.bookmark||'').trim();
 if(!bookmark)fail('could not capture a pre-migration Time Travel bookmark');
 console.log(`Pre-catch-up Time Travel bookmark captured: ${bookmark}`);
 
-for(const [spec,sql] of loaded)await applyStage(spec,sql);
+let wranglerContext=null;
+try{
+  wranglerContext=await createWranglerContext();
+  for(const [spec,sql] of loaded)await applyStage(spec,sql);
 
-const fk=await query('PRAGMA foreign_key_check');
-if(fk.length)fail(`foreign key verification failed with ${fk.length} violation(s)`);
-console.log('Production D1 migrations 051-056 verified successfully.');
-console.log(`Rollback bookmark (Time Travel): ${bookmark}`);
+  const fk=await query('PRAGMA foreign_key_check');
+  if(fk.length)fail(`foreign key verification failed with ${fk.length} violation(s)`);
+  console.log('Production D1 migrations 051-056 verified successfully.');
+  console.log(`Rollback bookmark (Time Travel): ${bookmark}`);
+}finally{
+  if(wranglerContext?.dir)await rm(wranglerContext.dir,{recursive:true,force:true});
+}
