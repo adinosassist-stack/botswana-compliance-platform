@@ -8,6 +8,7 @@ on:
 permissions:
   contents: read
   pull-requests: read
+  statuses: write
 
 jobs:
   migrate:
@@ -113,3 +114,23 @@ jobs:
           if(!allowed.has(ready.latestSchemaDelta))throw new Error('unexpected deployed Worker schema contract during 058 migration');
           console.log('Production D1 is verified through migration 058 and the deployed Worker remains healthy.');
           NODE
+
+
+      - name: Publish observable production migration status
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STATUS_STATE: ${{ job.status == 'success' && 'success' || 'error' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          description='Production D1 migration 058 failed or was blocked'
+          if [[ "$STATUS_STATE" == 'success' ]]; then description='Production D1 migration 058 verified'; fi
+          payload="$(STATUS_STATE="$STATUS_STATE" DESCRIPTION="$description" node -e 'process.stdout.write(JSON.stringify({state:process.env.STATUS_STATE,description:process.env.DESCRIPTION,context:"thebe/production-d1-058"}))')"
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header 'Accept: application/vnd.github+json' \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header 'X-GitHub-Api-Version: 2022-11-28' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
+            --data "$payload"
