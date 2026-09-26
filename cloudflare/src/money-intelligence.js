@@ -49,17 +49,51 @@ function assumptionMetrics({cashPositionMinor=0,memory={}}={}){
   });
 }
 export async function buildMoneyIntelligence(env,tenantId,{businessDate,cashPositionMinor=0,memory={}}={}){
-  let rows=[];
+  if(!env?.DB||!tenantId||!businessDate)return frozen({version:MONEY_INTELLIGENCE_VERSION,available:false,error:"finance_transactions_unavailable"});
+  let aggregate;
   try{
-    const result=await env.DB.prepare(`SELECT id,posted_on,description,reference,amount_minor
+    aggregate=await env.DB.prepare(`SELECT
+      COALESCE(SUM(CASE WHEN posted_on>=date(?,'-29 days') AND amount_minor>0 THEN amount_minor ELSE 0 END),0) current_inflow,
+      COALESCE(SUM(CASE WHEN posted_on>=date(?,'-29 days') AND amount_minor<0 THEN ABS(amount_minor) ELSE 0 END),0) current_outflow,
+      SUM(CASE WHEN posted_on>=date(?,'-29 days') THEN 1 ELSE 0 END) current_count,
+      SUM(CASE WHEN posted_on>=date(?,'-29 days') AND amount_minor<0 THEN 1 ELSE 0 END) current_debit_count,
+      COALESCE(SUM(CASE WHEN posted_on<date(?,'-29 days') AND amount_minor>0 THEN amount_minor ELSE 0 END),0) prior_inflow,
+      COALESCE(SUM(CASE WHEN posted_on<date(?,'-29 days') AND amount_minor<0 THEN ABS(amount_minor) ELSE 0 END),0) prior_outflow,
+      SUM(CASE WHEN posted_on<date(?,'-29 days') THEN 1 ELSE 0 END) prior_count
       FROM finance_transactions
-      WHERE tenant_id=? AND posted_on>=date(?,'-59 days') AND posted_on<=date(?)
-      ORDER BY posted_on DESC,id DESC LIMIT 1000`).bind(tenantId,businessDate,businessDate).all();
-    rows=result.results||[];
+      WHERE tenant_id=? AND posted_on>=date(?,'-59 days') AND posted_on<=date(?)`)
+      .bind(businessDate,businessDate,businessDate,businessDate,businessDate,businessDate,businessDate,tenantId,businessDate,businessDate).first();
   }catch{
     return frozen({version:MONEY_INTELLIGENCE_VERSION,available:false,error:"finance_transactions_unavailable"});
   }
-  const trend=summarizeTransactions(rows,businessDate);
+  const currentInflow=number(aggregate?.current_inflow),currentOutflow=number(aggregate?.current_outflow);
+  const priorInflow=number(aggregate?.prior_inflow),priorOutflow=number(aggregate?.prior_outflow);
+  const debitCount=Math.max(0,number(aggregate?.current_debit_count));
+  const avgDebit=debitCount?currentOutflow/debitCount:0;
+  const threshold=Math.max(500000,Math.round(avgDebit*2.5));
+  let largeDebits=[];
+  try{
+    const result=await env.DB.prepare(`SELECT id,posted_on,description,reference,amount_minor
+      FROM finance_transactions
+      WHERE tenant_id=? AND posted_on>=date(?,'-29 days') AND posted_on<=date(?)
+        AND amount_minor<0 AND ABS(amount_minor)>=?
+      ORDER BY ABS(amount_minor) DESC,posted_on DESC,id DESC LIMIT 5`)
+      .bind(tenantId,businessDate,businessDate,threshold).all();
+    largeDebits=(result.results||[]).map(row=>frozen({
+      id:clean(row?.id,120),postedOn:dateOnly(row?.posted_on),description:clean(row?.description,120),
+      reference:clean(row?.reference,80),amountMinor:number(row?.amount_minor)
+    }));
+  }catch{
+    return frozen({version:MONEY_INTELLIGENCE_VERSION,available:false,error:"finance_transactions_unavailable"});
+  }
+  const trend=frozen({
+    current30:frozen({inflow:currentInflow,outflow:currentOutflow,count:number(aggregate?.current_count),net:currentInflow-currentOutflow}),
+    prior30:frozen({inflow:priorInflow,outflow:priorOutflow,count:number(aggregate?.prior_count),net:priorInflow-priorOutflow}),
+    outflowChangePct:pctChange(currentOutflow,priorOutflow),
+    inflowChangePct:pctChange(currentInflow,priorInflow),
+    largeDebitThresholdMinor:threshold,
+    largeDebits:frozen(largeDebits)
+  });
   const assumptions=assumptionMetrics({cashPositionMinor,memory});
   const signals=[];
   if(trend.outflowChangePct!=null&&trend.outflowChangePct>=0.25)signals.push(frozen({key:"outflow_acceleration",severity:"medium",detail:`Recorded 30-day outflows are ${Math.round(trend.outflowChangePct*100)}% above the previous 30-day period.`,source:"finance_transactions"}));
