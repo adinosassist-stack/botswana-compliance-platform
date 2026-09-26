@@ -1489,6 +1489,39 @@
         detail:Number(concentration.transactionCount||0)+" transaction(s). Description-based grouping only; Thebe has not verified a supplier identity.",
         tone:Number(concentration.shareOfCurrent30Outflow)>=0.35?"risk":"neutral"
       }));
+      const calendar=moneyIntel.cashCalendar||{},next14=calendar.next14||{};
+      if(Number(next14.committedOutflowMinor||0)>0)box.append(signalCard({
+        label:"Supplier commitments · 14 days",
+        value:money(Number(next14.committedOutflowMinor||0)/100),
+        title:"Recorded supplier payables due within 14 days.",
+        detail:"This comes from the canonical payable ledger. Potential customer receipts are shown separately and are not assumed collected.",
+        tone:Number(next14.committedOutflowMinor||0)>Number(model.finance?.cashPositionMinor||0)?"risk":"neutral"
+      }));
+      if(Number(next14.potentialReceivableMinor||0)>0)box.append(signalCard({
+        label:"Potential receivables · 14 days",
+        value:money(Number(next14.potentialReceivableMinor||0)/100),
+        title:"Issued customer invoices due within 14 days.",
+        detail:"Potential inflow only. Thebe does not add this amount to committed cash until a recorded transaction is allocated to the invoice.",
+        tone:"neutral"
+      }));
+      const collectionAttention=(moneyIntel.collectionBehaviors||[]).find(item=>item?.attention==="higher_attention"||item?.attention==="watch");
+      if(collectionAttention)box.append(signalCard({
+        label:"Collection attention",
+        value:money(Number(collectionAttention.overdueMinor||0)/100),
+        title:(collectionAttention.customerName||"A customer")+" needs collection attention.",
+        detail:collectionAttention.historicalOnTimeRate==null
+          ?"Current overdue age is elevated, but there is not enough settled-invoice history for a historical payment pattern."
+          :"Historical on-time rate: "+pct(Number(collectionAttention.historicalOnTimeRate)*100)+". This is historical behavior, not a probability of future payment.",
+        tone:collectionAttention.attention==="higher_attention"?"risk":"neutral"
+      }));
+      const expenseCategory=moneyIntel.expenseLearning?.categories?.[0];
+      if(expenseCategory?.totalOutflowMinor>0)box.append(signalCard({
+        label:"Matched expense concentration",
+        value:pct(Number(expenseCategory.shareOfCurrent30Outflow||0)*100),
+        title:(expenseCategory.expenseCategory||"Other")+" is the largest 30-day category matched through confirmed supplier aliases.",
+        detail:"Management signal only. Thebe has not posted an accounting classification or journal entry.",
+        tone:Number(expenseCategory.shareOfCurrent30Outflow||0)>=0.5?"risk":"neutral"
+      }));
       const largeDebits=Array.isArray(trend.largeDebits)?trend.largeDebits.length:0;
       if(largeDebits>0)box.append(signalCard({
         label:"Large debits",
