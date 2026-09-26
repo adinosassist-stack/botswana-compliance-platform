@@ -171,7 +171,7 @@ assert.match(dockCss,/thebe-ring-out/);
 assert.match(dockCss,/prefers-reduced-motion:reduce/);
 assert.match(dockCss,/body\.thebe-ai-dock-open/);
 assert.doesNotMatch(dockCss,/gradient\(/,"Thebe dock must not render gradients");
-assert.match(dockCss,/\.thebe-particle\{width:3px;height:3px;background:#0b66d6/);
+assert.match(dockCss,/\.thebe-particle\{fill:#fff/,"AURA wave particles remain monochrome");
 assert.match(dockCss,/top:72px;right:0;bottom:0;left:auto/);
 assert.match(dockCss,/width:min\(var\(--thebe-dock-w\),calc\(100vw - 24px\)\)/);
 assert.match(dockCss,/@media\(min-width:1024px\) and \(max-width:1179px\)/);
