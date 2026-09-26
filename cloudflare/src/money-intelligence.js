@@ -230,9 +230,30 @@ function forwardCashCalendar({businessDate,cashPositionMinor=0,payables={},recei
       receivablesComplete:visibleReceivables>=totalOpenReceivables
     }),
     events:frozen(calendar),
-    next7:frozen({committedOutflowMinor:number(payables?.due7dMinor),potentialReceivableMinor:number(receivables?.due7dMinor)}),
-    next14:frozen({committedOutflowMinor:number(payables?.due14dMinor),potentialReceivableMinor:number(receivables?.due14dMinor)}),
-    next30:frozen({committedOutflowMinor:number(payables?.due30dMinor),potentialReceivableMinor:number(receivables?.due30dMinor)}),
+    next7:frozen({
+      committedOutflowMinor:number(payables?.overdueMinor)+number(payables?.due7dMinor),
+      overdueOutflowMinor:number(payables?.overdueMinor),
+      upcomingOutflowMinor:number(payables?.due7dMinor),
+      potentialReceivableMinor:number(receivables?.overdueMinor)+number(receivables?.due7dMinor),
+      overdueReceivableMinor:number(receivables?.overdueMinor),
+      upcomingReceivableMinor:number(receivables?.due7dMinor)
+    }),
+    next14:frozen({
+      committedOutflowMinor:number(payables?.overdueMinor)+number(payables?.due14dMinor),
+      overdueOutflowMinor:number(payables?.overdueMinor),
+      upcomingOutflowMinor:number(payables?.due14dMinor),
+      potentialReceivableMinor:number(receivables?.overdueMinor)+number(receivables?.due14dMinor),
+      overdueReceivableMinor:number(receivables?.overdueMinor),
+      upcomingReceivableMinor:number(receivables?.due14dMinor)
+    }),
+    next30:frozen({
+      committedOutflowMinor:number(payables?.overdueMinor)+number(payables?.due30dMinor),
+      overdueOutflowMinor:number(payables?.overdueMinor),
+      upcomingOutflowMinor:number(payables?.due30dMinor),
+      potentialReceivableMinor:number(receivables?.overdueMinor)+number(receivables?.due30dMinor),
+      overdueReceivableMinor:number(receivables?.overdueMinor),
+      upcomingReceivableMinor:number(receivables?.due30dMinor)
+    }),
     lowestCommittedCashMinor:lowestCommittedCash,
     lowestCommittedCashDate:lowestDate
   });
@@ -352,7 +373,7 @@ export async function buildMoneyIntelligence(env,tenantId,{businessDate,cashPosi
   if(concentrated)signals.push(frozen({key:"debit_concentration",severity:"medium",detail:`One repeated debit description represents ${Math.round(concentrated.shareOfCurrent30Outflow*100)}% of recorded 30-day outflows across ${concentrated.transactionCount} transaction(s). Thebe has not verified it as a supplier identity.`,source:"finance_transactions_description_only"}));
   if(scenario.cashFlowMarginProxyPct!=null&&scenario.cashFlowMarginProxyPct<0)signals.push(frozen({key:"cash_flow_margin_pressure",severity:"medium",detail:`Recorded 30-day cash-flow margin proxy is ${Math.round(scenario.cashFlowMarginProxyPct*100)}%. This is not accounting gross margin or profit.`,source:"finance_transactions"}));
   if(Number(payables?.overdueMinor||0)>0)signals.push(frozen({key:"overdue_payables",severity:"high",detail:`${Number(payables.overduePayableCount||0)} recorded payable(s) totaling ${Number(payables.overdueMinor||0)} minor units are overdue.`,source:"finance_payables"}));
-  if(Number(payables?.due14dMinor||0)>0&&Number(payables.due14dMinor)>number(cashPositionMinor))signals.push(frozen({key:"payables_cash_pressure_14d",severity:"high",detail:"Recorded supplier payables due within 14 days exceed the current recorded cash position.",source:"finance_payables_plus_finance_accounts"}));
+  if((Number(payables?.overdueMinor||0)+Number(payables?.due14dMinor||0))>0&&(Number(payables?.overdueMinor||0)+Number(payables?.due14dMinor||0))>number(cashPositionMinor))signals.push(frozen({key:"payables_cash_pressure_14d",severity:"high",detail:"Recorded overdue supplier payables plus payables due within 14 days exceed the current recorded cash position.",source:"finance_payables_plus_finance_accounts"}));
   const customerAttention=collectionBehaviors.find(item=>item.attention==="higher_attention");
   if(customerAttention)signals.push(frozen({key:"collection_attention",severity:"medium",detail:`${customerAttention.customerName||"A customer"} has overdue receivables and weaker historical on-time payment behavior. This is an attention signal, not a payment probability.`,source:"finance_invoices_plus_allocations"}));
   const learnedCategory=expenseLearning.categories[0];
