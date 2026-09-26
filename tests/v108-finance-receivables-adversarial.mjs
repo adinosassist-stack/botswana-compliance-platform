@@ -77,7 +77,7 @@ assert.equal(policy.level,AGENT_ACTION_LEVELS.READ);
 assert.equal(policy.phase1Enabled,true);
 assert.equal(policy.externalSideEffect,false);
 assert.equal(policy.authoritativeSource,"finance_invoices_plus_transaction_allocations");
-assert.match(entry,/055_v151_finance_watch_scheduler_isolation\.sql/,"agentic readiness must report the current migration tip");
+assert.match(entry,/056_v154_agent_control_plane\.sql/,"agentic readiness must report the current migration tip");
 for(const table of ["finance_customers","finance_invoices","finance_invoice_allocations"]){
   assert.match(entry,new RegExp("\\(SELECT COUNT\\(\\*\\) FROM "+table+"\\)"));
 }
