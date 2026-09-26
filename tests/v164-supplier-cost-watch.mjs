@@ -62,7 +62,7 @@ assert.equal(stress.receivablesAssumedCollected,false);
 assert.equal(stress.formalForecast,false);
 
 const source=fs.readFileSync("cloudflare/src/money-intelligence.js","utf8");
-assert.match(source,/MONEY_INTELLIGENCE_VERSION="2026-09-26\.v4"/);
+assert.match(source,/MONEY_INTELLIGENCE_VERSION="2026-09-26\.v5"/);
 assert.match(source,/posted_on>=date\(\?,'-59 days'\)/);
 assert.match(source,/SELECT DISTINCT t\.id transaction_id,t\.posted_on,ABS\(t\.amount_minor\) outflow_minor,a\.supplier_id/);
 assert.match(source,/supplier_outflow_acceleration/);
@@ -75,24 +75,24 @@ assert.doesNotMatch(source,/unitPriceInflationClaimed:true/);
 assert.doesNotMatch(source,/executionAllowed:true/);
 
 const context=fs.readFileSync("cloudflare/src/business-context.js","utf8");
-assert.match(context,/BUSINESS_CONTEXT_VERSION="2026-09-26\.v164"/);
+assert.match(context,/BUSINESS_CONTEXT_VERSION="2026-09-26\.v165"/);
 assert.match(context,/supplier_outflow_acceleration/);
 assert.match(context,/supplier_payable_concentration/);
 assert.match(context,/payable_cover_shortfall_14d/);
 assert.match(context,/payableCoverage14dRatio/);
 
 const owner=fs.readFileSync("public/js/owner-command-centre.js","utf8");
-assert.match(owner,/const RELEASE="20260926-v164"/);
+assert.match(owner,/const RELEASE="20260926-v165"/);
 assert.match(owner,/Supplier cost watch/);
 assert.match(owner,/Supplier payable concentration/);
 assert.match(owner,/Payable cover:/);
 assert.match(owner,/not a unit-price inflation claim/);
 
 const personalization=fs.readFileSync("public/js/executive-personalization.js","utf8");
-assert.match(personalization,/const RELEASE="20260926-v164"/);
+assert.match(personalization,/const RELEASE="20260926-v165"/);
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
-assert.match(production,/OWNER_COMMAND_CENTRE_RELEASE="20260926-v164"/);
-assert.match(production,/EXECUTIVE_PERSONALIZATION_RELEASE="20260926-v164"/);
+assert.match(production,/OWNER_COMMAND_CENTRE_RELEASE="20260926-v165"/);
+assert.match(production,/EXECUTIVE_PERSONALIZATION_RELEASE="20260926-v165"/);
 
 const profile=JSON.parse(fs.readFileSync("RELEASE_PROFILE.json","utf8"));
 assert.equal(profile.money_intelligence_v4,true);
@@ -105,4 +105,4 @@ assert.equal(profile.money_intelligence_payable_cover_excludes_other_future_outf
 assert.equal(profile.money_intelligence_payable_cover_assumes_receivables_collected,false);
 assert.equal(profile.v164_execution_authority_expanded,false);
 
-console.log("v164 supplier cost watch + payable cover checks passed");
+console.log("v164 supplier cost watch safeguards preserved under V165 successor");

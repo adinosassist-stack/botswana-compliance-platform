@@ -1230,5 +1230,22 @@
   "money_intelligence_payable_cover_excludes_other_future_outflows": true,
   "money_intelligence_payable_cover_assumes_receivables_collected": false,
   "money_intelligence_supplier_payable_concentration": true,
-  "v164_execution_authority_expanded": false
+  "v164_execution_authority_expanded": false,
+  "money_intelligence_v5": true,
+  "weekly_spend_envelope_v165": true,
+  "weekly_spend_envelope_horizon_days": 7,
+  "weekly_spend_envelope_required_owner_inputs": [
+    "monthly_labour_cost",
+    "minimum_cash_buffer"
+  ],
+  "weekly_spend_envelope_full_monthly_payroll_reserved": true,
+  "weekly_spend_envelope_receivables_assumed_collected": false,
+  "weekly_spend_envelope_unknown_future_obligations_reserved": false,
+  "weekly_spend_envelope_spending_authorization": false,
+  "weekly_spend_envelope_formal_forecast": false,
+  "weekly_spend_envelope_financial_advice": false,
+  "v165_execution_authority_expanded": false,
+  "weekly_spend_envelope_stale_reconciliation_fail_closed": true,
+  "weekly_spend_envelope_payables_unavailable_fail_closed": true,
+  "weekly_spend_envelope_withholds_numeric_amount_on_evidence_failure": true
 }

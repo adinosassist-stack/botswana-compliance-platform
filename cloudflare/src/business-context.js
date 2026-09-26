@@ -5,7 +5,7 @@ import {listBusinessMemory} from "./business-memory.js";
 import {buildMoneyIntelligence} from "./money-intelligence.js";
 import {languagePreferenceFromMemory,deterministicLanguagePolicy,deterministicLanguageNotice} from "./thebe-language.js";
 
-export const BUSINESS_CONTEXT_VERSION="2026-09-26.v164";
+export const BUSINESS_CONTEXT_VERSION="2026-09-26.v165";
 
 const PROFILE_KEYS=Object.freeze({
   monthlyRevenueTargetBwp:"decisionMonthlyRevenueTargetBwp",
@@ -178,7 +178,7 @@ export async function buildBusinessContext(env,tenantId,{actorRole="owner",now=n
   const profileMemory=management?ownerEnteredMemory(state,tenant?.name):frozen({restricted:true,source:"owner_workspace_profile"});
   const memory=management?mergeConfirmedMemory(profileMemory,durableMemory):profileMemory;
   const sales=management?salesMemory(state,{businessDate}):frozen({restricted:true});
-  const moneyIntelligence=management?await buildMoneyIntelligence(env,tenantId,{businessDate,cashPositionMinor:Number(finance?.cashPositionMinor||0),memory,receivables,payables}):frozen({available:false,restricted:true});
+  const moneyIntelligence=management?await buildMoneyIntelligence(env,tenantId,{businessDate,cashPositionMinor:Number(finance?.cashPositionMinor||0),memory,receivables,payables,reconciliationStale:finance?.reconciliation?.stale===true}):frozen({available:false,restricted:true});
   return frozen({
     version:BUSINESS_CONTEXT_VERSION,
     observedAt:new Date(now).toISOString(),
@@ -242,7 +242,8 @@ function setswanaPriority(item,metrics={}){
     supplier_outflow_acceleration:{title:"Sekaseka supplier cash-outflow change",detail:"Matched cash outflow ya supplier e oketsegile kgatlhanong le malatsi a 30 a pele. Seno se ka bakiwa ke volume, timing kgotsa price; ga se unit-price inflation claim."},
     supplier_payable_concentration:{title:"Sekaseka supplier payable concentration",detail:"Supplier a le mongwe o emela karolo e kgolo ya outstanding recorded supplier payables."},
     payable_cover_shortfall_14d:{title:"Sekaseka 14-day payable cover shortfall",detail:"Recorded cash ga e lekane recorded overdue le next-14-day supplier payables. Seno ga se full liquidity forecast."},
-    payable_cover_tight_14d:{title:"Sekaseka 14-day payable cover",detail:"Recorded cash e kwa gaufi le recorded overdue le next-14-day supplier payables. Seno ga se full liquidity forecast."}
+    payable_cover_tight_14d:{title:"Sekaseka 14-day payable cover",detail:"Recorded cash e kwa gaufi le recorded overdue le next-14-day supplier payables. Seno ga se full liquidity forecast."},
+    weekly_spend_envelope_zero:{title:"Sekaseka 7-day discretionary spend envelope",detail:"Conservative spend envelope ke zero morago ga recorded supplier payables tsa malatsi a 7, full monthly labour reserve le minimum cash buffer tse mong a di tsentseng."}
   };
   return map[item?.key]||{title:item?.title,detail:item?.detail};
 }
@@ -328,6 +329,7 @@ export function deriveBusinessPriorities(context){
     else if(signal?.key==="supplier_payable_concentration")out.push(priority("supplier_payable_concentration","medium","Review supplier payable concentration",clean(signal.detail,300),["finance_suppliers","finance_payables","finance_payable_allocations"],null));
     else if(signal?.key==="payable_cover_shortfall_14d")out.push(priority("payable_cover_shortfall_14d","high","Review 14-day payable cover shortfall",clean(signal.detail,300),["finance_accounts","finance_payables","finance_payable_allocations"],null));
     else if(signal?.key==="payable_cover_tight_14d")out.push(priority("payable_cover_tight_14d","medium","Review 14-day payable cover",clean(signal.detail,300),["finance_accounts","finance_payables","finance_payable_allocations"],null));
+    else if(signal?.key==="weekly_spend_envelope_zero")out.push(priority("weekly_spend_envelope_zero","high","Review weekly discretionary spend envelope",clean(signal.detail,300),["finance_accounts","finance_payables","business_memory_items"],null));
   }
   if(recon.stale===true)out.push(priority(
     "stale_reconciliation","medium","Refresh finance reconciliation",
@@ -387,7 +389,13 @@ export function buildDailyBusinessBrief(context){
     supplierSpendIncreaseCount:(money?.supplierSpendTrends||[]).filter(item=>item?.attention==="increase").length,
     topSupplierPayableShare:money?.payableConcentration?.topSupplier?.shareOfOutstanding==null?null:Number(money.payableConcentration.topSupplier.shareOfOutstanding),
     payableCoverage14dRatio:money?.commitmentStress?.coverageRatio==null?null:Number(money.commitmentStress.coverageRatio),
-    payableShortfall14dMinor:Number(money?.commitmentStress?.shortfallMinor||0)
+    payableShortfall14dMinor:Number(money?.commitmentStress?.shortfallMinor||0),
+    weeklySpendEnvelopeReady:money?.spendEnvelope?.ready===true,
+    weeklySpendEnvelopeMinor:money?.spendEnvelope?.discretionaryEnvelopeMinor==null?null:Number(money.spendEnvelope.discretionaryEnvelopeMinor),
+    weeklySpendAfterPlannedPurchaseMinor:money?.spendEnvelope?.discretionaryAfterPlannedPurchaseMinor==null?null:Number(money.spendEnvelope.discretionaryAfterPlannedPurchaseMinor),
+    weeklySpendPayrollReserveMinor:money?.spendEnvelope?.payrollReserveMinor==null?null:Number(money.spendEnvelope.payrollReserveMinor),
+    weeklySpendMissingInputCount:Array.isArray(money?.spendEnvelope?.missingInputs)?money.spendEnvelope.missingInputs.length:0,
+    weeklySpendBlockingEvidenceCount:Array.isArray(money?.spendEnvelope?.blockingEvidence)?money.spendEnvelope.blockingEvidence.length:0
   });
   const priorities=frozen(basePriorities.map(item=>localizeBriefPriority(item,metrics,language)));
   return frozen({
@@ -415,6 +423,24 @@ export function businessBriefText(brief){
   const render=brief?.language?.deterministic?.render||"english",setswana=render==="setswana";
   const lines=[setswana?`Thebe Desk · Kakaretso ya kgwebo · ${brief?.businessDate||gaboroneDate()}`:`Thebe Desk owner brief · ${brief?.businessDate||gaboroneDate()}`,clean(brief?.headline,1000)];
   if(brief?.language?.fallbackNotice)lines.push(clean(brief.language.fallbackNotice,500));
+  const spend=brief?.moneyIntelligence?.spendEnvelope;
+  if(spend?.ready===true){
+    lines.push(setswana
+      ?`7-day discretionary planning envelope: ${pulaMinor(spend.discretionaryEnvelopeMinor)} morago ga recorded supplier payables, full monthly labour reserve le minimum cash buffer. Receivables ga di a tsewa e le collected.`
+      :`7-day discretionary planning envelope: ${pulaMinor(spend.discretionaryEnvelopeMinor)} after recorded supplier payables, the full monthly labour reserve and minimum cash buffer. Receivables are not assumed collected.`);
+  }else if(Array.isArray(spend?.missingInputs)&&spend.missingInputs.length){
+    lines.push(setswana
+      ?"Seta monthly labour cost le minimum cash buffer go kgontsha 7-day discretionary planning envelope."
+      :"Set monthly labour cost and minimum cash buffer to enable the 7-day discretionary planning envelope.");
+  }else if(spend?.state==="needs_inputs_and_finance_review"){
+    lines.push(setswana
+      ?"7-day discretionary planning envelope e tlhoka owner assumptions mme gape e emetse finance reconciliation le supplier-payables evidence."
+      :"The 7-day discretionary planning envelope needs owner assumptions and is also withheld until finance reconciliation and supplier-payables evidence are current.");
+  }else if(spend?.state==="needs_finance_review"){
+    lines.push(setswana
+      ?"7-day discretionary planning envelope ga e bontshiwe go fitlha finance reconciliation le supplier-payables evidence di siame."
+      :"The 7-day discretionary planning envelope is withheld until finance reconciliation and supplier-payables evidence are current.");
+  }
   const priorities=Array.isArray(brief?.priorities)?brief.priorities.slice(0,3):[];
   if(priorities.length){
     lines.push(setswana?"Tlhokomelo:":"Attention:");
