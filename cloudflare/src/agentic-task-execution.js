@@ -4,6 +4,7 @@ import {normalizeDelegation} from "./delegated-authority.js";
 import {
   authenticate,roleAllowed,originAllowed,csrfAllowed,readJson,requestBodyErrorStatus,safeFirst
 } from "./agentic-authority-core.js";
+import {THEBE_AGENT_ID,loadCanonicalAgentAuthority,authorityPermitsExecution} from "./agent-control-plane.js";
 
 const MAX_TITLE=160;
 const MAX_DESCRIPTION=1200;
@@ -119,10 +120,13 @@ async function status(env,auth){
     openTasks=Number(tasks?.count||0);
   }
   const mode=executionMode(env);
-  const sessionEnabled=sessionExecutionEnabled(env,auth);
+  const canonicalAuthority=await loadCanonicalAgentAuthority(env,THEBE_AGENT_ID);
+  const sessionEnabled=sessionExecutionEnabled(env,auth)&&authorityPermitsExecution(canonicalAuthority);
   return json({
     enabled:true,
     schemaReady:ready,
+    controlPlaneReady:canonicalAuthority.ready,
+    agentAuthority:{agentId:canonicalAuthority.agentId,state:canonicalAuthority.state,executionCapable:canonicalAuthority.executionCapable,reason:canonicalAuthority.reason},
     actionKey:ACTION_KEY,
     executionMode:mode,
     sessionExecutionEnabled:sessionEnabled,
@@ -132,13 +136,17 @@ async function status(env,auth){
     activeExecutionGrants:activeGrants.length,
     activeGrants,
     openTasks,
-    guarantees:["task_create_only","no_external_side_effect","explicit_owner_approval","payload_hash_binding","idempotent_execution","runtime_guard_required","platform_admin_canary_is_owner_only"]
+    guarantees:["task_create_only","no_external_side_effect","explicit_owner_approval","payload_hash_binding","idempotent_execution","runtime_guard_required","canonical_agent_containment_required","platform_admin_canary_is_owner_only"]
   });
 }
 
 async function createExecutionGrant({request,env,auth}){
   if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);
   if(!(await schemaReady(env)))return json({error:"bounded_execution_schema_not_ready"},503);
+  const canonicalAuthority=await loadCanonicalAgentAuthority(env,THEBE_AGENT_ID);
+  if(!authorityPermitsExecution(canonicalAuthority)){
+    return json({error:"agent_authority_contained",authority:{agentId:canonicalAuthority.agentId,state:canonicalAuthority.state,reason:canonicalAuthority.reason}},canonicalAuthority.ready?409:503);
+  }
   let body;try{body=await readJson(request)}catch(error){return json({error:error.message},requestBodyErrorStatus(error))}
   const delegationId=text(body?.delegationId,120);
   if(!delegationId)return json({error:"delegation_id_required"},400);
@@ -323,6 +331,17 @@ async function executeTask({env,auth,requestId}){
     WHERE q.id=? AND r.tenant_id=? LIMIT 1`,[requestId,auth.tenant_id]);
   if(replay)return json({ok:true,replayed:true,task:{id:replay.task_id,title:replay.title,description:replay.description,priority:replay.priority,dueAt:replay.due_at,status:replay.status,createdAt:replay.created_at},receiptId:replay.receipt_id});
 
+  const canonicalAuthority=await loadCanonicalAgentAuthority(env,THEBE_AGENT_ID);
+  if(!authorityPermitsExecution(canonicalAuthority)){
+    try{
+      await env.DB.prepare(`INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data)
+        VALUES(?,?,'AGENT_EXECUTION_CONTAINED','agent_registry',?,?)`).bind(
+          auth.tenant_id,auth.user_id,canonicalAuthority.agentId,JSON.stringify({requestId,state:canonicalAuthority.state,reason:canonicalAuthority.reason,controlPlane:"v154"})
+        ).run();
+    }catch{}
+    return json({error:"agent_authority_contained",authority:{agentId:canonicalAuthority.agentId,state:canonicalAuthority.state,reason:canonicalAuthority.reason}},canonicalAuthority.ready?409:503);
+  }
+
   const row=await safeFirst(env,`SELECT q.id request_id,q.status request_status,q.payload_json,q.payload_hash,q.approved_payload_hash,q.delegation_id,q.execution_grant_id,
       q.requested_by_user_id,i.id intent_id,i.agent_key,i.action_key,i.run_id,i.proposal_id,
       d.*,g.status execution_grant_status
@@ -353,7 +372,7 @@ async function executeTask({env,auth,requestId}){
     actionPayloadHash:String(row.payload_hash||""),
     delegation:authority,
     mode:"execute",
-    globalExecutionEnabled:sessionExecutionEnabled(env,auth),
+    globalExecutionEnabled:sessionExecutionEnabled(env,auth)&&authorityPermitsExecution(canonicalAuthority),
     amountMinor:0,
     dailyActionCount:Number(usage?.count||0),
     phase:"bounded_v1"
