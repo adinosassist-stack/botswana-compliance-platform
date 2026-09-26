@@ -261,7 +261,8 @@
     "test:agentic-readiness-migration-tip": "node tests/v152-agentic-readiness-migration-tip.mjs",
     "test:cloudflare-migration-tip-coherence": "node tests/v153-cloudflare-migration-tip-coherence.mjs",
     "test:agent-control-plane": "node tests/v154-agent-control-plane.mjs",
-    "test:agent-control-plane-d1": "node tests/v155-agent-control-plane-d1-runtime.mjs"
+    "test:agent-control-plane-d1": "node tests/v155-agent-control-plane-d1-runtime.mjs",
+    "test:business-context-v156": "node tests/v156-business-context.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1126.0",
