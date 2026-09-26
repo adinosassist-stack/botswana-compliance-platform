@@ -1,7 +1,8 @@
 import {executeAgentReadTool} from "./agent-read-tools.js";
 import {runGovernedFinanceObservation} from "./governed-finance-observation-runner.js";
+import {FINANCE_WATCH_READ_ACTIONS,isFinanceWatchToolList} from "./finance-watch-contract.js";
 
-export const FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26.v12";
+export const FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26.v13";
 const frozen=value=>Object.freeze(value);
 const clean=(value,max=160)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
 const parse=(value,fallback)=>{try{return JSON.parse(String(value??""))}catch{return fallback}};
@@ -20,6 +21,7 @@ export async function runFinanceWatchTask({env,task,attempt=0,claim=null}={}){
   if(!env?.DB||!tenantId||!taskId)return frozen({ok:false,code:"invalid_task_context",executionAllowed:false});
 
   const allowedTools=parse(task.allowed_tools_json,task.allowedTools??[]);
+  if(!isFinanceWatchToolList(allowedTools))return frozen({ok:false,persisted:false,code:"invalid_finance_watch_tools",executionAllowed:false,externalActions:0});
   const budget=parse(task.budget_json,task.budget??{});
   const previous=await env.DB.prepare("SELECT id,snapshot_hash,observed_at FROM agent_observation_checkpoints WHERE tenant_id=? AND persistent_task_id=? ORDER BY observed_at DESC,id DESC LIMIT 1").bind(tenantId,taskId).first();
   const auth=frozen({tenant_id:tenantId,role:"system_observer",systemActor:true});
@@ -124,7 +126,17 @@ async function recoverVerifiedOccurrence(env,task,claim){
 
 export async function runDueFinanceWatchTasks(env,{limit=25}={}){
   const cap=Math.max(1,Math.min(50,Number(limit)||25));
-  const rows=await env.DB.prepare("SELECT id,tenant_id,status,objective,trigger_spec_json,allowed_tools_json,budget_json,next_run_at FROM agent_persistent_tasks WHERE status='active' AND trigger_kind='scheduled' AND next_run_at IS NOT NULL AND next_run_at<=CURRENT_TIMESTAMP ORDER BY next_run_at,id LIMIT ?").bind(cap).all();
+  const placeholders=FINANCE_WATCH_READ_ACTIONS.map(()=>"?").join(",");
+  const safeToolsJson="CASE WHEN json_valid(agent_persistent_tasks.allowed_tools_json) THEN agent_persistent_tasks.allowed_tools_json ELSE '[]' END";
+  const rows=await env.DB.prepare(`SELECT id,tenant_id,status,objective,trigger_spec_json,allowed_tools_json,budget_json,next_run_at
+    FROM agent_persistent_tasks
+    WHERE status='active' AND trigger_kind='scheduled' AND next_run_at IS NOT NULL AND next_run_at<=CURRENT_TIMESTAMP
+      AND json_array_length(${safeToolsJson})>0
+      AND NOT EXISTS (
+        SELECT 1 FROM json_each(${safeToolsJson})
+        WHERE type<>'text' OR value NOT IN (${placeholders})
+      )
+    ORDER BY next_run_at,id LIMIT ?`).bind(...FINANCE_WATCH_READ_ACTIONS,cap).all();
   const outcomes=[];
   for(const task of rows.results||[]){
     const claim=await claimObservation(env,task);
