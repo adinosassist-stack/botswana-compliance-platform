@@ -37,11 +37,11 @@ const canonicalViews=[...html.matchAll(/<section\b([^>]*)>/gi)].map(match=>{
   const cls=(attrs.match(/\bclass=["']([^"']+)["']/i)||[])[1]||"";
   return {id,cls,start:match.index};
 }).filter(view=>/\bview\b/.test(view.cls));
-assert.equal(canonicalViews.length,68,"canonical workspace view count changed; reassess lazy-view boundary");
-const primaryResidentViews=["dashboard","workhub","sites","peopleops","businesshub","obligations","evidencehub","automationhub"];
+assert.equal(canonicalViews.length,71,"canonical workspace view count changed; reassess lazy-view boundary");
+const primaryResidentViews=["dashboard","moneyhub","workhub","sites","peopleops","protecthub","businesshub","obligations","evidencehub","automationhub"];
 assert.deepEqual(fragments.residentViews,primaryResidentViews,"primary workspace navigation must remain resident and independent of fragment delivery");
 const lazyViews=canonicalViews.filter(view=>!fragments.residentViews.includes(view.id));
-assert.equal(lazyViews.length,60,"expected only 60 deep workspace views to remain lazy");
+assert.equal(lazyViews.length,61,"expected 61 deep workspace views to remain lazy, including Property Intelligence");
 assert.deepEqual(Object.keys(fragments.views).sort(),lazyViews.map(view=>view.id).sort(),"fragment bundle must cover every lazy view exactly once");
 for(const view of lazyViews){
   const bounds=sectionBounds(html,view.start);
@@ -55,12 +55,12 @@ assert.ok(production.includes('const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/wor
 assert.ok(production.includes("function workspaceViewShard(id){"));
 assert.ok(production.includes("const workspaceViewShardPromises=new Map();"));
 assert.ok(production.includes("async function workspaceViewFragments(id){"));
-assert.ok(production.includes('const WORKSPACE_RESIDENT_VIEW_IDS=Object.freeze(["dashboard","workhub","sites","peopleops","businesshub","obligations","evidencehub","automationhub"]);'));
+assert.ok(production.includes('const WORKSPACE_RESIDENT_VIEW_IDS=Object.freeze(["dashboard","moneyhub","workhub","sites","peopleops","protecthub","businesshub","obligations","evidencehub","automationhub"]);'),"production resident inventory must keep Money and Protect resident");
 const lazyConstant=(production.match(/const WORKSPACE_LAZY_VIEW_IDS=Object\.freeze\((\[[^\n]+\])\);/)||[])[1];
 assert.ok(lazyConstant,"production lazy-view constant must remain parseable");
 const productionLazyViews=JSON.parse(lazyConstant);
 for(const id of primaryResidentViews)assert.equal(productionLazyViews.includes(id),false,"resident primary view "+id+" must not be in the production lazy list");
-assert.equal(productionLazyViews.length,60,"production lazy list must match regenerated fragments");
+assert.equal(productionLazyViews.length,61,"production lazy list must match regenerated fragments");
 assert.match(production,/function externalizeWorkspaceViews\(html\)/);
 for(const id of primaryResidentViews){
   const pattern=new RegExp('<section\\b[^>]*\\bid=["\\\']'+id+'["\\\'][^>]*data-lazy-view="1"',"i");
@@ -81,6 +81,7 @@ for(let i=0;i<fragmentShards.length;i++){
   }
 }
 assert.equal(seen.size,Object.keys(fragments.views).length,"shards must cover every lazy view exactly once");
+assert.equal(Object.prototype.hasOwnProperty.call(fragments.views,"propertyintelligence"),true,"Property Intelligence should use lazy fragment delivery to protect the shell budget");
 assert.equal(Object.prototype.hasOwnProperty.call(fragments.views,"peopleops"),false,"People must not depend on lazy fragment delivery");
 for(const payload of fragmentShards)assert.equal(Object.prototype.hasOwnProperty.call(payload.views,"peopleops"),false,"People must not appear in any lazy shard");
 const peopleCanonical=html.slice(sectionBounds(html,canonicalViews.find(view=>view.id==="peopleops").start).openEnd,sectionBounds(html,canonicalViews.find(view=>view.id==="peopleops").start).closeStart);
