@@ -13,13 +13,14 @@ assert.equal(__businessMemoryTest.encodeValue([1,2,3]).ok,false);
 
 const rows=[
   {id:"1",posted_on:"2026-09-26",description:"Receipt",reference:"",amount_minor:1000000},
-  {id:"2",posted_on:"2026-09-25",description:"Supplier",reference:"",amount_minor:-800000},
-  {id:"3",posted_on:"2026-09-10",description:"Rent",reference:"",amount_minor:-300000},
+  {id:"2",posted_on:"2026-09-25",description:"Supplier",reference:"",amount_minor:-1500000},
+  {id:"3",posted_on:"2026-09-10",description:"Rent",reference:"",amount_minor:-100000},
+  {id:"5",posted_on:"2026-09-09",description:"Utilities",reference:"",amount_minor:-100000},
   {id:"4",posted_on:"2026-08-20",description:"Old supplier",reference:"",amount_minor:-400000}
 ];
 const trend=__moneyIntelligenceTest.summarizeTransactions(rows,"2026-09-26");
 assert.equal(trend.current30.inflow,1000000);
-assert.equal(trend.current30.outflow,1100000);
+assert.equal(trend.current30.outflow,1700000);
 assert.equal(trend.prior30.outflow,400000);
 assert.equal(trend.largeDebits.length,1);
 const assumptions=__moneyIntelligenceTest.assumptionMetrics({cashPositionMinor:9000000,memory:{assumptions:{monthlyCashOutflowsBwp:60000,minimumCashBufferBwp:25000}}});
@@ -51,7 +52,7 @@ const memorySource=fs.readFileSync("cloudflare/src/business-memory.js","utf8");
 assert.match(memorySource,/owner_required/);
 assert.match(memorySource,/BUSINESS_MEMORY_CONFIRMED/);
 assert.match(memorySource,/BUSINESS_MEMORY_REMOVED/);
-assert.match(worker,/057_v157_business_memory_money_intelligence\.sql/);
+assert.match(worker,/const EXPECTED_SCHEMA_DELTA="046_v80_agentic_outcomes\.sql";/);
 const agentic=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
 assert.match(agentic,/057_v157_business_memory_money_intelligence\.sql/);
 const profile=JSON.parse(fs.readFileSync("RELEASE_PROFILE.json","utf8"));
