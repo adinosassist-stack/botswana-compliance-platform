@@ -90,7 +90,7 @@
 .thebe-live-language{max-width:100%;min-height:40px;border:1px solid #454c56;border-radius:10px;background:#1b1f25;color:#edf2f8;padding:8px 12px;font:inherit;font-size:12px}.thebe-live-language:disabled{opacity:.68;cursor:not-allowed}.thebe-live-language:focus-visible{outline:2px solid #83baff;outline-offset:3px}
 
 
-/* V160 dock polish — premium command-surface hierarchy, flat Thebe palette, no gradients. */
+/* V161 dock polish — premium command-surface hierarchy, flat Thebe palette, no gradients. */
 :root{
   --thebe-dock-w:392px;
   --thebe-dock-bg:#0f1114;
