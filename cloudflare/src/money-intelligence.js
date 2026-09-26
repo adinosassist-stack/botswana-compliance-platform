@@ -327,13 +327,17 @@ export async function buildMoneyIntelligence(env,tenantId,{businessDate,cashPosi
         GROUP BY o.customer_id,o.customer_name,h.historical_paid_count,h.historical_on_time_count
         ORDER BY overdue_minor DESC,outstanding_minor DESC LIMIT 20`)
         .bind(tenantId,tenantId,tenantId,businessDate).all(),
-      env.DB.prepare(`SELECT s.id supplier_id,s.name supplier_name,s.default_expense_category expense_category,
-          COUNT(*) transaction_count,SUM(ABS(t.amount_minor)) total_outflow_minor
-        FROM finance_transactions t
-        JOIN finance_supplier_aliases a ON a.tenant_id=t.tenant_id
-          AND (LOWER(TRIM(t.description))=LOWER(TRIM(a.alias_text)) OR LOWER(TRIM(t.reference))=LOWER(TRIM(a.alias_text)))
-        JOIN finance_suppliers s ON s.id=a.supplier_id AND s.tenant_id=t.tenant_id AND s.status='active'
-        WHERE t.tenant_id=? AND t.posted_on>=date(?,'-29 days') AND t.posted_on<=date(?) AND t.amount_minor<0
+      env.DB.prepare(`WITH matched AS (
+          SELECT DISTINCT t.id transaction_id,t.amount_minor,a.supplier_id
+          FROM finance_transactions t
+          JOIN finance_supplier_aliases a ON a.tenant_id=t.tenant_id
+            AND (LOWER(TRIM(t.description))=LOWER(TRIM(a.alias_text)) OR LOWER(TRIM(t.reference))=LOWER(TRIM(a.alias_text)))
+          WHERE t.tenant_id=? AND t.posted_on>=date(?,'-29 days') AND t.posted_on<=date(?) AND t.amount_minor<0
+        )
+        SELECT s.id supplier_id,s.name supplier_name,s.default_expense_category expense_category,
+          COUNT(*) transaction_count,SUM(ABS(m.amount_minor)) total_outflow_minor
+        FROM matched m
+        JOIN finance_suppliers s ON s.id=m.supplier_id AND s.status='active'
         GROUP BY s.id,s.name,s.default_expense_category
         ORDER BY total_outflow_minor DESC LIMIT 20`)
         .bind(tenantId,businessDate,businessDate).all()
