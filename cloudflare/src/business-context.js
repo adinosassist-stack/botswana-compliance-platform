@@ -432,6 +432,10 @@ export function businessBriefText(brief){
     lines.push(setswana
       ?"Seta monthly labour cost le minimum cash buffer go kgontsha 7-day discretionary planning envelope."
       :"Set monthly labour cost and minimum cash buffer to enable the 7-day discretionary planning envelope.");
+  }else if(spend?.state==="needs_inputs_and_finance_review"){
+    lines.push(setswana
+      ?"7-day discretionary planning envelope e tlhoka owner assumptions mme gape e emetse finance reconciliation le supplier-payables evidence."
+      :"The 7-day discretionary planning envelope needs owner assumptions and is also withheld until finance reconciliation and supplier-payables evidence are current.");
   }else if(spend?.state==="needs_finance_review"){
     lines.push(setswana
       ?"7-day discretionary planning envelope ga e bontshiwe go fitlha finance reconciliation le supplier-payables evidence di siame."
