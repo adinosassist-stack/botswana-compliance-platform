@@ -23,7 +23,7 @@ const assert=require('node:assert/strict');
  await page.addScriptTag({path:root+'/public/js/thebe-live-voice.js'});
  await page.waitForSelector('#thebeAiDock');
  const dockCss=fs.readFileSync(root+'/public/assets/thebe-ai-dock.css','utf8');
- assert.match(dockCss,/V160 dock polish/);
+ assert.match(dockCss,/V161 dock polish/);
  assert(!/gradient\\(/i.test(dockCss),'dock styling stays on the flat Thebe palette without gradients');
  const visual=await page.locator('#thebeAiDock').evaluate(el=>{
    const dockStyle=getComputedStyle(el);
