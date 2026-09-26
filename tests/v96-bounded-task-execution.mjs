@@ -168,7 +168,8 @@ assert.doesNotMatch(source,/government_filing\.submit/);
 
 const entry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
 assert.match(entry,/handleAgenticTaskExecutionRequest/);
-assert.match(entry,/054_v134_agent_observation_identity\.sql/);
+const releaseProfile=JSON.parse(fs.readFileSync("RELEASE_PROFILE.json","utf8"));
+assert.ok(entry.includes(`const V81_SCHEMA_DELTA="${releaseProfile.latest_cloudflare_migration}"`),"bounded-task entry must follow the authoritative reviewed schema tip");
 assert.match(entry,/agent_execution_receipts/);
 
 console.log("v96 bounded internal task execution guard: PASS");
