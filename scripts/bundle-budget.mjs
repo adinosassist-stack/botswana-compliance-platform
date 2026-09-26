@@ -14,14 +14,14 @@ const headEnd=htmlText.toLowerCase().indexOf("</head>");
 ok(headEnd>0,"canonical workspace head missing");
 const headText=htmlText.slice(0,headEnd);
 const canonicalStyles=[...headText.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)].map(match=>String(match[1]||"").replace(/^\n/,"").replace(/\s*$/,""));
-ok(canonicalStyles.length===48,`unexpected canonical workspace style count (${canonicalStyles.length})`);
+ok(canonicalStyles.length===49,`unexpected canonical workspace style count (${canonicalStyles.length})`);
 const normalizedStyles=canonicalStyles.join("\n\n")+"\n";
 ok(normalizedStyles===stylesText,"versioned workspace stylesheet must exactly match canonical head styles");
 
 const residentViews=new Set(workspaceViewsPayload.residentViews||[]);
 const lazyViewIds=Object.keys(workspaceViewsPayload.views||{});
 ok(workspaceViewsPayload.schema===1,"workspace view fragment schema mismatch");
-const expectedResident=["dashboard","workhub","sites","peopleops","businesshub","obligations","evidencehub","automationhub"];
+const expectedResident=["dashboard","moneyhub","workhub","sites","peopleops","protecthub","businesshub","obligations","evidencehub","automationhub","propertyintelligence"];
 ok(expectedResident.every(id=>residentViews.has(id))&&residentViews.size===expectedResident.length,"workspace resident view contract mismatch");
 ok(lazyViewIds.length===60,`unexpected lazy workspace view count (${lazyViewIds.length})`);
 function viewSectionBounds(source,start){
