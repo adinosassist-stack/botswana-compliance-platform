@@ -2,8 +2,9 @@ import {financeSummary} from "./finance-core.js";
 import {financeReceivablesSummary,financeDailyCollections} from "./finance-receivables.js";
 import {listBusinessMemory} from "./business-memory.js";
 import {buildMoneyIntelligence} from "./money-intelligence.js";
+import {languagePreferenceFromMemory,deterministicLanguagePolicy,deterministicLanguageNotice} from "./thebe-language.js";
 
-export const BUSINESS_CONTEXT_VERSION="2026-09-26.v1";
+export const BUSINESS_CONTEXT_VERSION="2026-09-26.v160";
 
 const PROFILE_KEYS=Object.freeze({
   monthlyRevenueTargetBwp:"decisionMonthlyRevenueTargetBwp",
@@ -71,6 +72,7 @@ function mergeConfirmedMemory(base,durable){
     "finance.minimum_cash_buffer_bwp":"minimumCashBufferBwp",
     "finance.monthly_outflows_bwp":"monthlyCashOutflowsBwp",
     "finance.monthly_labour_cost_bwp":"monthlyLabourCostBwp",
+    "finance.planned_purchase_bwp":"plannedPurchaseBwp",
     "operations.operating_days_per_month":"operatingDaysPerMonth",
     "sales.same_month_collection_pct":"sameMonthCollectionPct"
   });
@@ -174,7 +176,7 @@ export async function buildBusinessContext(env,tenantId,{actorRole="owner",now=n
   const profileMemory=management?ownerEnteredMemory(state,tenant?.name):frozen({restricted:true,source:"owner_workspace_profile"});
   const memory=management?mergeConfirmedMemory(profileMemory,durableMemory):profileMemory;
   const sales=management?salesMemory(state,{businessDate}):frozen({restricted:true});
-  const moneyIntelligence=management?await buildMoneyIntelligence(env,tenantId,{businessDate,cashPositionMinor:Number(finance?.cashPositionMinor||0),memory}):frozen({available:false,restricted:true});
+  const moneyIntelligence=management?await buildMoneyIntelligence(env,tenantId,{businessDate,cashPositionMinor:Number(finance?.cashPositionMinor||0),memory,receivablesOutstandingMinor:Number(receivables?.outstandingMinor||0)}):frozen({available:false,restricted:true});
   return frozen({
     version:BUSINESS_CONTEXT_VERSION,
     observedAt:new Date(now).toISOString(),
@@ -197,6 +199,7 @@ export async function buildBusinessContext(env,tenantId,{actorRole="owner",now=n
     compliance,
     memory,
     durableMemory,
+    language:languagePreferenceFromMemory(durableMemory),
     sales,
     moneyIntelligence,
     provenance:frozen({
@@ -205,6 +208,46 @@ export async function buildBusinessContext(env,tenantId,{actorRole="owner",now=n
       rule:"Authoritative records and owner-entered assumptions remain explicitly separated; Thebe must not promote assumptions into observed facts."
     })
   });
+}
+
+function setswanaPriority(item,metrics={}){
+  const money=pulaMinor;
+  const map={
+    reconciliation_exception:{title:"Sekaseka diphapang tsa poelanyo ya madi",detail:`${Number(metrics.reconciliationExceptionCount||0)} diphapang di emela ${money(metrics.reconciliationExposureMinor)} ya exposure e e rekotilweng.`},
+    overdue_receivables:{title:"Latela madi a bareki a a fetileng nako",detail:`${money(metrics.receivablesOverdueMinor)} e fetile nako mo di-invoice di le ${Number(metrics.receivablesOverdueInvoiceCount||0)}.`},
+    overdue_compliance:{title:"Sekaseka maikarabelo a compliance a a fetileng nako",detail:`Go na le maikarabelo a compliance a ${Number(metrics.overdueComplianceCount||0)} a a rekotilweng a fetile nako.`},
+    failed_workflows:{title:"Rarabolola ditsela tsa tiro tse di paletsweng",detail:`Go na le workflow di le ${Number(metrics.failedWorkflowCount||0)} tse di rekotilweng di paletswe kgotsa di emetse tharabololo.`},
+    critical_performance:{title:"Sekaseka ditemoso tsa botlhokwa tsa kgwebo",detail:`Go na le ditemoso tsa botlhokwa di le ${Number(metrics.criticalPerformanceSignals||0)} tse di sa ntseng di butse.`},
+    dormant_quotations:{title:"Latela dikhoutheishene tse di sa tsweleleng",detail:`${Number(metrics.dormantQuotationCount||0)} dikhoutheishene di emela P${Number(metrics.dormantQuotationValueBwp||0).toLocaleString("en-BW",{maximumFractionDigits:2})} ya boleng jo bo rekotilweng ke mong.`},
+    cash_runway:{title:"Sekaseka nako e madi a ka tswelelang ka yone",detail:`Runway e e fopholeditsweng ke matsatsi a ${metrics.estimatedRunwayDays==null?"—":Number(metrics.estimatedRunwayDays)} go ya ka monthly outflows tse mong a di tsentseng.`},
+    outflow_acceleration:{title:"Sekaseka koketsego ya madi a tswang",detail:`Madi a a tswang mo malatsing a 30 a fetileng a fetogile ka ${metrics.outflowChangePct==null?"—":Math.round(Number(metrics.outflowChangePct)*100)+"%"} fa a bapisiwa le malatsi a 30 a pele.`},
+    large_debits:{title:"Sekaseka ditlhakololo tsa madi tse dikgolo",detail:`Go na le debit di le ${Number(metrics.largeDebitCount||0)} tse di fetang deterministic large-debit threshold.`},
+    stale_reconciliation:{title:"Ntšhafatsa poelanyo ya madi",detail:"Poelanyo ya madi e e rekotilweng ya bofelo e feta freshness threshold."},
+    cash_buffer_scenario:{title:"Sekaseka cash-buffer scenario",detail:"Owner-assumption cash scenario e wela kwa tlase ga minimum cash buffer mo horizon e e sekasekilweng."},
+    commitment_pressure:{title:"Sekaseka planned commitments",detail:"Planned one-off commitments tse mong a di tsentseng di feta cash e e kwa godimo ga minimum cash buffer."},
+    debit_concentration:{title:"Sekaseka repeated debit concentration",detail:"Repeated debit description e tsaya karolo e kgolo ya outflows; supplier identity ga e a netefadiwa."},
+    cash_flow_margin_pressure:{title:"Sekaseka cash-flow margin pressure",detail:"30-day cash-flow margin proxy e ka fa tlase ga zero. Seno ga se accounting gross margin kgotsa profit."}
+  };
+  return map[item?.key]||{title:item?.title,detail:item?.detail};
+}
+function localizeBriefPriority(item,metrics,language){
+  if(language?.render!=="setswana")return item;
+  const localized=setswanaPriority(item,metrics);
+  return frozen({...item,title:localized.title,detail:localized.detail});
+}
+function briefHeadline({finance={},receivables={},compliance={},ops={},language}){
+  if(language?.render==="setswana")return [
+    `Madi a a rekotilweng ${pulaMinor(finance.cashPositionMinor)}`,
+    `${pulaMinor(receivables.outstandingMinor)} ya dikoloto tsa bareki`,
+    `${Number(compliance.overdueCount||0)} dilo tsa compliance tse di fetileng nako`,
+    `${Number(ops.failedWorkflowCount||0)} workflow tse di paletsweng`
+  ].join(" · ");
+  return [
+    `Recorded cash ${pulaMinor(finance.cashPositionMinor)}`,
+    `${pulaMinor(receivables.outstandingMinor)} customer receivables`,
+    `${Number(compliance.overdueCount||0)} overdue compliance item(s)`,
+    `${Number(ops.failedWorkflowCount||0)} failed workflow(s)`
+  ].join(" · ");
 }
 
 function priority(key,severity,title,detail,sourceRefs,actionKey=null){
@@ -247,6 +290,10 @@ export function deriveBusinessPriorities(context){
     if(signal?.key==="cash_runway")out.push(priority("cash_runway","high","Review cash runway",clean(signal.detail,300),["owner_entered_assumptions","finance_transactions"],null));
     else if(signal?.key==="outflow_acceleration")out.push(priority("outflow_acceleration","medium","Review rising cash outflows",clean(signal.detail,300),["finance_transactions"],null));
     else if(signal?.key==="large_debits")out.push(priority("large_debits","medium","Review unusually large debits",clean(signal.detail,300),["finance_transactions"],null));
+    else if(signal?.key==="cash_buffer_scenario")out.push(priority("cash_buffer_scenario","high","Review cash-buffer scenario",clean(signal.detail,300),["finance_transactions","owner_entered_assumptions"],null));
+    else if(signal?.key==="commitment_pressure")out.push(priority("commitment_pressure","high","Review planned commitment pressure",clean(signal.detail,300),["owner_entered_assumptions"],null));
+    else if(signal?.key==="debit_concentration")out.push(priority("debit_concentration","medium","Review repeated debit concentration",clean(signal.detail,300),["finance_transactions"],null));
+    else if(signal?.key==="cash_flow_margin_pressure")out.push(priority("cash_flow_margin_pressure","medium","Review cash-flow margin pressure",clean(signal.detail,300),["finance_transactions"],null));
   }
   if(recon.stale===true)out.push(priority(
     "stale_reconciliation","medium","Refresh finance reconciliation",
@@ -257,41 +304,50 @@ export function deriveBusinessPriorities(context){
 }
 
 export function buildDailyBusinessBrief(context){
-  const priorities=deriveBusinessPriorities(context),finance=context?.finance||{},receivables=finance.receivables||{},compliance=context?.compliance||{},ops=context?.operations||{},money=context?.moneyIntelligence||{},trend=money?.trend||{},assumptions=money?.assumptions||{};
-  const headline=[
-    `Recorded cash ${pulaMinor(finance.cashPositionMinor)}`,
-    `${pulaMinor(receivables.outstandingMinor)} customer receivables`,
-    `${Number(compliance.overdueCount||0)} overdue compliance item(s)`,
-    `${Number(ops.failedWorkflowCount||0)} failed workflow(s)`
-  ].join(" · ");
+  const basePriorities=deriveBusinessPriorities(context),finance=context?.finance||{},receivables=finance.receivables||{},compliance=context?.compliance||{},ops=context?.operations||{},sales=context?.sales||{},money=context?.moneyIntelligence||{},trend=money?.trend||{},assumptions=money?.assumptions||{};
+  const preference=context?.language||languagePreferenceFromMemory(context?.durableMemory),language=deterministicLanguagePolicy(preference);
+  const metrics=frozen({
+    currency:"BWP",
+    cashPositionMinor:Number(finance.cashPositionMinor||0),
+    positiveInflowTodayMinor:Number(finance?.today?.positiveInflowMinor||0),
+    customerCollectionsTodayMinor:Number(finance?.today?.customerCollectionMinor||0),
+    receivablesOutstandingMinor:Number(receivables.outstandingMinor||0),
+    receivablesOverdueMinor:Number(receivables.overdueMinor||0),
+    receivablesOverdueInvoiceCount:Number(receivables.overdueInvoiceCount||0),
+    reconciliationExceptionCount:Number(finance?.reconciliation?.unresolvedCount||0),
+    reconciliationExposureMinor:Number(finance?.reconciliation?.unresolvedExposureMinor||0),
+    reconciliationStale:finance?.reconciliation?.stale===true,
+    overdueComplianceCount:Number(compliance.overdueCount||0),
+    complianceDueWithin14Days:Number(compliance.dueWithin14Days||0),
+    pendingWorkflowCount:Number(ops.pendingWorkflowCount||0),
+    failedWorkflowCount:Number(ops.failedWorkflowCount||0),
+    criticalPerformanceSignals:Number(ops.criticalPerformanceSignals||0),
+    dormantQuotationCount:Number(sales.dormantQuotationCount||0),
+    dormantQuotationValueBwp:Number(sales.dormantQuotationValueBwp||0),
+    current30InflowMinor:Number(trend?.current30?.inflow||0),
+    current30OutflowMinor:Number(trend?.current30?.outflow||0),
+    current30NetMinor:Number(trend?.current30?.net||0),
+    outflowChangePct:trend?.outflowChangePct==null?null:Number(trend.outflowChangePct),
+    largeDebitCount:Array.isArray(trend?.largeDebits)?trend.largeDebits.length:0,
+    estimatedRunwayDays:assumptions?.estimatedRunwayDays==null?null:Number(assumptions.estimatedRunwayDays),
+    safeDiscretionaryMinor:assumptions?.safeDiscretionaryMinor==null?null:Number(assumptions.safeDiscretionaryMinor),
+    plannedPurchaseMinor:assumptions?.plannedPurchaseMinor==null?null:Number(assumptions.plannedPurchaseMinor),
+    cashFlowMarginProxyPct:money?.scenario?.cashFlowMarginProxyPct==null?null:Number(money.scenario.cashFlowMarginProxyPct),
+    firstOwnerBufferBreachHorizonDays:money?.scenario?.firstOwnerBufferBreachHorizonDays==null?null:Number(money.scenario.firstOwnerBufferBreachHorizonDays),
+    scenario7EndingCashMinor:Number((money?.scenario?.horizons||[]).find(item=>Number(item?.days)===7)?.ownerAssumptionEndingCashMinor||0),
+    scenario30EndingCashMinor:Number((money?.scenario?.horizons||[]).find(item=>Number(item?.days)===30)?.ownerAssumptionEndingCashMinor||0),
+    scenario90EndingCashMinor:Number((money?.scenario?.horizons||[]).find(item=>Number(item?.days)===90)?.ownerAssumptionEndingCashMinor||0),
+    debitConcentrationCount:Array.isArray(money?.debitConcentrations)?money.debitConcentrations.length:0
+  });
+  const priorities=frozen(basePriorities.map(item=>localizeBriefPriority(item,metrics,language)));
   return frozen({
     version:BUSINESS_CONTEXT_VERSION,
     observedAt:context?.observedAt||new Date().toISOString(),
     businessDate:context?.businessDate||gaboroneDate(),
-    headline,
+    language:frozen({...preference,deterministic:language,fallbackNotice:deterministicLanguageNotice(preference)}),
+    headline:briefHeadline({finance,receivables,compliance,ops,language}),
     priorities,
-    metrics:frozen({
-      currency:"BWP",
-      cashPositionMinor:Number(finance.cashPositionMinor||0),
-      positiveInflowTodayMinor:Number(finance?.today?.positiveInflowMinor||0),
-      customerCollectionsTodayMinor:Number(finance?.today?.customerCollectionMinor||0),
-      receivablesOutstandingMinor:Number(receivables.outstandingMinor||0),
-      receivablesOverdueMinor:Number(receivables.overdueMinor||0),
-      reconciliationExceptionCount:Number(finance?.reconciliation?.unresolvedCount||0),
-      reconciliationExposureMinor:Number(finance?.reconciliation?.unresolvedExposureMinor||0),
-      overdueComplianceCount:Number(compliance.overdueCount||0),
-      complianceDueWithin14Days:Number(compliance.dueWithin14Days||0),
-      pendingWorkflowCount:Number(ops.pendingWorkflowCount||0),
-      failedWorkflowCount:Number(ops.failedWorkflowCount||0),
-      criticalPerformanceSignals:Number(ops.criticalPerformanceSignals||0),
-      current30InflowMinor:Number(trend?.current30?.inflow||0),
-      current30OutflowMinor:Number(trend?.current30?.outflow||0),
-      current30NetMinor:Number(trend?.current30?.net||0),
-      outflowChangePct:trend?.outflowChangePct==null?null:Number(trend.outflowChangePct),
-      largeDebitCount:Array.isArray(trend?.largeDebits)?trend.largeDebits.length:0,
-      estimatedRunwayDays:assumptions?.estimatedRunwayDays==null?null:Number(assumptions.estimatedRunwayDays),
-      safeDiscretionaryMinor:assumptions?.safeDiscretionaryMinor==null?null:Number(assumptions.safeDiscretionaryMinor)
-    }),
+    metrics,
     authority:frozen({
       readOnly:true,
       executionAllowed:false,
@@ -306,15 +362,17 @@ export function buildDailyBusinessBrief(context){
 }
 
 export function businessBriefText(brief){
-  const lines=[`Thebe Desk owner brief · ${brief?.businessDate||gaboroneDate()}`,clean(brief?.headline,1000)];
+  const render=brief?.language?.deterministic?.render||"english",setswana=render==="setswana";
+  const lines=[setswana?`Thebe Desk · Kakaretso ya kgwebo · ${brief?.businessDate||gaboroneDate()}`:`Thebe Desk owner brief · ${brief?.businessDate||gaboroneDate()}`,clean(brief?.headline,1000)];
+  if(brief?.language?.fallbackNotice)lines.push(clean(brief.language.fallbackNotice,500));
   const priorities=Array.isArray(brief?.priorities)?brief.priorities.slice(0,3):[];
   if(priorities.length){
-    lines.push("Attention:");
+    lines.push(setswana?"Tlhokomelo:":"Attention:");
     priorities.forEach((item,index)=>lines.push(`${index+1}. ${clean(item.title,160)} — ${clean(item.detail,300)}`));
   }else{
-    lines.push("No configured exception threshold is currently crossed. Continue recording finance, operations and compliance data.");
+    lines.push(setswana?"Ga go na temoso e e tlhomamisitsweng e e fetang threshold mo nakong eno. Tswelela go rekota madi, ditiro le compliance.":"No configured exception threshold is currently crossed. Continue recording finance, operations and compliance data.");
   }
-  lines.push("Read-only brief. Review source records before acting.");
+  lines.push(setswana?"Kakaretso ya go bala fela. Sekaseka direkoto tsa motswedi pele ga o tsaya kgato.":"Read-only brief. Review source records before acting.");
   return lines.filter(Boolean).join("\n").slice(0,3900);
 }
 
@@ -333,6 +391,8 @@ export const __businessContextTest=frozen({
   ownerEnteredMemory,
   mergeConfirmedMemory,
   salesMemory,
+  localizeBriefPriority,
+  briefHeadline,
   deriveBusinessPriorities,
   buildDailyBusinessBrief,
   businessBriefText

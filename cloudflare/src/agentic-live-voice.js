@@ -1,7 +1,14 @@
 import {
   authenticate,roleAllowed,originAllowed,csrfAllowed,safeFirst
 } from "./agentic-authority-core.js";
-import {listBusinessMemory} from "./business-memory.js";
+import {
+  SUPPORTED_THEBE_LANGUAGES as SUPPORTED_VOICE_LANGUAGES,
+  normalizeThebeLanguage as normalizeVoiceLanguage,
+  thebeLanguageLabel as voiceLanguageLabel,
+  languagePreferenceFromMemory,
+  loadThebeLanguagePreference as loadVoiceLanguagePreference,
+  thebeLanguageGuidance as sharedLanguageGuidance
+} from "./thebe-language.js";
 
 export const THEBE_LIVE_VOICE_VERSION="2026-09-26.multilingual-v159";
 
@@ -22,18 +29,6 @@ const DEFAULT_MAX_USER_STARTS_PER_HOUR=4;
 const DEFAULT_FAILURE_CIRCUIT_THRESHOLD=3;
 const DEFAULT_MARKETING_MAX_SESSION_SECONDS=60;
 const DEFAULT_MARKETING_MAX_STARTS_PER_HOUR=6;
-
-const SUPPORTED_VOICE_LANGUAGES=Object.freeze([
-  Object.freeze({key:"english",label:"English"}),
-  Object.freeze({key:"setswana",label:"Setswana"}),
-  Object.freeze({key:"sekalaka",label:"Sekalaka"})
-]);
-const VOICE_LANGUAGE_KEYS=new Set(SUPPORTED_VOICE_LANGUAGES.map(item=>item.key));
-const VOICE_LANGUAGE_ALIASES=Object.freeze({
-  en:"english",english:"english",
-  tn:"setswana",tswana:"setswana",setswana:"setswana",
-  sekalaka:"sekalaka"
-});
 
 const json=(body,status=200)=>new Response(JSON.stringify(body),{
   status,
@@ -56,40 +51,8 @@ function cleanText(value,max=500){
     .slice(0,max);
 }
 
-function normalizeVoiceLanguage(value){
-  const raw=cleanText(value,80).toLowerCase();
-  const key=VOICE_LANGUAGE_ALIASES[raw]||raw;
-  return VOICE_LANGUAGE_KEYS.has(key)?key:null;
-}
-function voiceLanguageLabel(key){
-  return SUPPORTED_VOICE_LANGUAGES.find(item=>item.key===key)?.label||null;
-}
-function languagePreferenceFromMemory(memory){
-  const items=Array.isArray(memory?.items)?memory.items:[];
-  const primary=items.find(item=>item?.namespace==="language"&&item?.key==="primary");
-  const normalized=normalizeVoiceLanguage(primary?.value);
-  return Object.freeze({
-    mode:normalized?"preferred":"auto",
-    primary:normalized,
-    label:voiceLanguageLabel(normalized),
-    source:normalized?"owner_confirmed_business_memory":"auto_mirror",
-    authoritative:false
-  });
-}
-async function loadVoiceLanguagePreference(env,tenantId){
-  try{return languagePreferenceFromMemory(await listBusinessMemory(env,tenantId))}
-  catch{return languagePreferenceFromMemory(null)}
-}
 function languageGuidance(preference={}){
-  const preferred=normalizeVoiceLanguage(preference?.primary);
-  const base=[
-    "Support English, Setswana, and Sekalaka, including natural code-switching with English where practical.",
-    "Mirror the language the user is actually speaking; an owner preference is a default, never a reason to ignore an explicit language change.",
-    "Keep legal, tax, accounting and other technical terms precise; retain or briefly explain the English term when translation could reduce precision.",
-    "For Setswana or Sekalaka, never invent vocabulary. If wording or intent is uncertain, say so briefly and ask one concise clarification or switch to a clearer supported language."
-  ];
-  if(preferred)base.push(`The owner-confirmed preferred language is ${voiceLanguageLabel(preferred)}. Start there when appropriate, while continuing to mirror the user's current language.`);
-  return base;
+  return sharedLanguageGuidance(preference,"voice");
 }
 
 function boundedInt(value,{min,max,fallback}){

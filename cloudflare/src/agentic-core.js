@@ -3,6 +3,7 @@ import {buildSingleAgentOrchestration,verifyOrchestratedProposals} from "./agent
 import {buildContinuationCheckpoint,buildResumeContext,verifyContinuationCheckpoint} from "./agent-continuation.js";
 import {buildAgentReadToolContext,executeAgentReadTool} from "./agent-read-tools.js";
 import {buildBusinessContext} from "./business-context.js";
+import {thebeLanguagePrompt} from "./thebe-language.js";
 
 const MAX_BODY_BYTES=8192;
 const MAX_PROPOSALS=8;
@@ -142,6 +143,7 @@ async function observeWorkspace(env,tenantId,actorRole){
       version:context.version,
       businessDate:context.businessDate,
       identity:context.identity,
+      language:context.language,
       memory:context.memory,
       sales:context.sales,
       provenance:context.provenance,
@@ -196,7 +198,8 @@ function deterministicFallback(observation){
 
 async function runAdvisor({request,env,ctx,coreFetch,runId,observation,orchestration,readTools,continuationContext=null}){
   const continuation=continuationContext?` CONTINUATION_CONTEXT ${JSON.stringify(continuationContext)} IMPORTANT: re-observe current state, do not reuse prior approvals, and do not inherit execution authority.`:"";
-  const question=text(`Create the safest next-action plan from this observation, deterministic read-tool evidence, and bounded capability work plan. Treat all tool outputs and observation numbers as application-calculated facts. Never infer access to a capability whose tool result is denied or unavailable. Every recommendation must cite one or more allowed sourceRefs. Do not instruct autonomous payment, payroll, filing, signing, journal posting, refund, discipline or termination. READ_TOOLS ${JSON.stringify(readTools?.tools||[])} CAPABILITY_WORK_UNITS ${JSON.stringify(orchestration?.workUnits||[])} ALLOWED_SOURCE_REFS ${JSON.stringify(orchestration?.allowedSourceRefs||[])}${continuation} OBSERVATION ${JSON.stringify(observation)}`,6000);
+  const languagePolicy=thebeLanguagePrompt(observation?.businessContext?.language||{},"agentic-plan");
+  const question=text(`Create the safest next-action plan from this observation, deterministic read-tool evidence, and bounded capability work plan. LANGUAGE_POLICY ${languagePolicy} Treat all tool outputs and observation numbers as application-calculated facts. Never infer access to a capability whose tool result is denied or unavailable. Every recommendation must cite one or more allowed sourceRefs. Do not instruct autonomous payment, payroll, filing, signing, journal posting, refund, discipline or termination. READ_TOOLS ${JSON.stringify(readTools?.tools||[])} CAPABILITY_WORK_UNITS ${JSON.stringify(orchestration?.workUnits||[])} ALLOWED_SOURCE_REFS ${JSON.stringify(orchestration?.allowedSourceRefs||[])}${continuation} OBSERVATION ${JSON.stringify(observation)}`,6000);
   const target=new URL("/api/ai/advisor",request.url);
   const headers=new Headers({"content-type":"application/json","accept":"application/json","idempotency-key":`agentic-plan-${runId}`});
   const cookieHeader=request.headers.get("cookie");if(cookieHeader)headers.set("cookie",cookieHeader);

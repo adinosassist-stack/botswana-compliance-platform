@@ -1185,5 +1185,25 @@
   ],
   "multilingual_voice_owner_preference_memory": true,
   "multilingual_voice_code_switching": true,
-  "multilingual_voice_execution_authority_expanded": false
+  "multilingual_voice_execution_authority_expanded": false,
+  "language_parity_v160": true,
+  "language_parity_channels_v160": [
+    "typed_chat",
+    "agentic_plans",
+    "whatsapp",
+    "daily_business_brief",
+    "live_voice"
+  ],
+  "deterministic_sekalaka_safe_fallback": true,
+  "money_intelligence_v2": true,
+  "money_intelligence_scenario_horizons_days": [
+    7,
+    30,
+    90
+  ],
+  "money_intelligence_receivable_upside_separated": true,
+  "money_intelligence_formal_forecast_claimed": false,
+  "money_intelligence_accounting_margin_claimed": false,
+  "money_intelligence_supplier_identity_claimed": false,
+  "v160_execution_authority_expanded": false
 }
