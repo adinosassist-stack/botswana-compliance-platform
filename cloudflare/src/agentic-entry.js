@@ -9,7 +9,7 @@ import {handleAgenticFinanceReconciliationRequest} from "./agentic-finance-recon
 import {preparePlatformOwnerLogin,withPlatformOwnerAdminEnv} from "./platform-owner-access.js";
 import {applyClientRuntimeIdentity} from "./client-runtime-identity.js";
 
-const V81_SCHEMA_DELTA="057_v157_business_memory_money_intelligence.sql";
+const V81_SCHEMA_DELTA="058_v161_finance_suppliers_payables.sql";
 const COLD_START_REDUNDANT_RENDER="if(!options?.skipDataRefresh)queueMicrotask(()=>renderAll())";
 const COLD_START_GUARDED_RENDER="if(!options?.skipDataRefresh&&!options?.roleRedirect)queueMicrotask(()=>renderAll())";
 const SYNTHETIC_BOOT_TRACE_PREFIX="THEBE_SYNTHETIC_BOOT";
@@ -101,6 +101,10 @@ async function delegatedAuthoritySchemaReady(env){
       (SELECT COUNT(*) FROM finance_customers) finance_customer_count,
       (SELECT COUNT(*) FROM finance_invoices) finance_invoice_count,
       (SELECT COUNT(*) FROM finance_invoice_allocations) finance_invoice_allocation_count,
+      (SELECT COUNT(*) FROM finance_suppliers) finance_supplier_count,
+      (SELECT COUNT(*) FROM finance_supplier_aliases) finance_supplier_alias_count,
+      (SELECT COUNT(*) FROM finance_payables) finance_payable_count,
+      (SELECT COUNT(*) FROM finance_payable_allocations) finance_payable_allocation_count,
       (SELECT COUNT(*) FROM agent_registry) agent_registry_count,
       (SELECT COUNT(*) FROM agent_authority_events) agent_authority_event_count,
       (SELECT COUNT(*) FROM agent_authority_drift_findings) agent_authority_drift_count,

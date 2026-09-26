@@ -1,4 +1,5 @@
 import {handleFinanceReceivablesRequest,financeReceivablesSummary} from "./finance-receivables.js";
+import {handleFinancePayablesRequest,financePayablesSummary} from "./finance-payables.js";
 
 const ACCOUNT_TYPES=new Set(["bank","cash","mobile_money","clearing"]);
 const SOURCE_TYPES=new Set(["manual","csv","adapter"]);
@@ -350,9 +351,11 @@ export async function handleFinanceRequest({request,url,env,auth,json,readJson,i
   if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
   const receivablesResponse=await handleFinanceReceivablesRequest({request,url,env,auth,json,readJson,id,appendLineage,writeAudit,sha256Hex});
   if(receivablesResponse)return receivablesResponse;
+  const payablesResponse=await handleFinancePayablesRequest({request,url,env,auth,json,readJson,id,appendLineage,writeAudit,sha256Hex,roleAllowed});
+  if(payablesResponse)return payablesResponse;
   if(url.pathname==="/api/finance/summary"&&request.method==="GET"){
-    const [summary,receivables]=await Promise.all([financeSummary(env,auth.tenant_id),financeReceivablesSummary(env,auth.tenant_id)]);
-    return json({...summary,receivables});
+    const [summary,receivables,payables]=await Promise.all([financeSummary(env,auth.tenant_id),financeReceivablesSummary(env,auth.tenant_id),financePayablesSummary(env,auth.tenant_id)]);
+    return json({...summary,receivables,payables});
   }
   if(url.pathname==="/api/finance/accounts"&&request.method==="GET"){
     const rows=await env.DB.prepare("SELECT id,name,account_type,currency,opening_balance_minor,status,created_at FROM finance_accounts WHERE tenant_id=? ORDER BY name").bind(auth.tenant_id).all();

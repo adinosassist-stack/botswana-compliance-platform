@@ -733,7 +733,7 @@
   "control_replacement_no_people_scoring": true,
   "control_replacement_no_second_notification_stream": true,
   "control_replacement_fail_closed": true,
-  "latest_cloudflare_migration": "057_v157_business_memory_money_intelligence.sql",
+  "latest_cloudflare_migration": "058_v161_finance_suppliers_payables.sql",
   "agentic_foundation_v80": true,
   "agentic_execution_enabled": false,
   "agentic_human_approval_required": true,
@@ -1205,5 +1205,17 @@
   "money_intelligence_formal_forecast_claimed": false,
   "money_intelligence_accounting_margin_claimed": false,
   "money_intelligence_supplier_identity_claimed": false,
-  "v160_execution_authority_expanded": false
+  "v160_execution_authority_expanded": false,
+  "finance_suppliers_payables_v161": true,
+  "money_intelligence_v3": true,
+  "money_intelligence_forward_cash_calendar": true,
+  "money_intelligence_collection_behavior_not_probability": true,
+  "money_intelligence_expense_learning_accounting_posting": false,
+  "supplier_payments_execution_authority": false,
+  "v161_supplier_alias_confirmation_owner_only": true,
+  "v161_payable_number_scope": "tenant_supplier",
+  "v161_cash_horizons_include_overdue": true,
+  "v161_supplier_alias_match_deduplicated_per_transaction": true,
+  "v161_supplier_identity_collision_guards": true,
+  "v161_execution_authority_expanded": false
 }

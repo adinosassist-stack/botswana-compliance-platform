@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import {delegatedAuthoritySchemaReady,V81_SCHEMA_DELTA} from "../cloudflare/src/agentic-entry.js";
 
-assert.equal(V81_SCHEMA_DELTA,"057_v157_business_memory_money_intelligence.sql");
+assert.equal(V81_SCHEMA_DELTA,"058_v161_finance_suppliers_payables.sql");
 
 function db({missingClaims=false,missingScheduledFor=false,missingOccurrenceIndex=false,missingSchedulerIndex=false,missingRegistry=false,missingMemory=false}={}){
   return {
