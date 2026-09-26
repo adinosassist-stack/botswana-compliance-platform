@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS finance_payables(
     CHECK(expense_category IN ('inventory','materials','rent','utilities','payroll','transport','marketing','tax','loan','equipment','professional_services','other')),
   created_by_user_id TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(tenant_id,payable_number),
+  UNIQUE(tenant_id,supplier_id,payable_number),
   CHECK(length(issued_on)=10 AND length(due_on)=10 AND due_on>=issued_on),
   FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
   FOREIGN KEY(supplier_id) REFERENCES finance_suppliers(id) ON DELETE RESTRICT,
