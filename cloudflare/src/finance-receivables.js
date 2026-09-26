@@ -91,10 +91,13 @@ export async function financeReceivablesSummary(env,tenantId,{businessDate=gabor
       "SELECT COUNT(*) outstanding_invoice_count,COALESCE(SUM(outstanding_minor),0) outstanding_minor,"+
       " SUM(CASE WHEN due_on<? THEN 1 ELSE 0 END) overdue_invoice_count,"+
       " COALESCE(SUM(CASE WHEN due_on<? THEN outstanding_minor ELSE 0 END),0) overdue_minor,"+
+      " COALESCE(SUM(CASE WHEN due_on>=? AND due_on<=date(?,'+7 days') THEN outstanding_minor ELSE 0 END),0) due_7d_minor,"+
+      " COALESCE(SUM(CASE WHEN due_on>=? AND due_on<=date(?,'+14 days') THEN outstanding_minor ELSE 0 END),0) due_14d_minor,"+
+      " COALESCE(SUM(CASE WHEN due_on>=? AND due_on<=date(?,'+30 days') THEN outstanding_minor ELSE 0 END),0) due_30d_minor,"+
       " COUNT(DISTINCT customer_id) customer_count,"+
       " COUNT(DISTINCT CASE WHEN due_on<? THEN customer_id END) overdue_customer_count"+
       " FROM open_invoices"
-    ).bind(tenantId,tenantId,businessDate,businessDate,businessDate).first(),
+    ).bind(tenantId,tenantId,businessDate,businessDate,businessDate,businessDate,businessDate,businessDate,businessDate,businessDate,businessDate).first(),
     env.DB.prepare(cte+
       "SELECT customer_id,customer_name,COUNT(*) outstanding_invoice_count,SUM(outstanding_minor) outstanding_minor,"+
       " SUM(CASE WHEN due_on<? THEN 1 ELSE 0 END) overdue_invoice_count,"+
@@ -115,6 +118,9 @@ export async function financeReceivablesSummary(env,tenantId,{businessDate=gabor
     outstandingMinor:Number(summary?.outstanding_minor||0),
     overdueInvoiceCount:Number(summary?.overdue_invoice_count||0),
     overdueMinor:Number(summary?.overdue_minor||0),
+    due7dMinor:Number(summary?.due_7d_minor||0),
+    due14dMinor:Number(summary?.due_14d_minor||0),
+    due30dMinor:Number(summary?.due_30d_minor||0),
     customerCount:Number(summary?.customer_count||0),
     overdueCustomerCount:Number(summary?.overdue_customer_count||0),
     customers:Object.freeze((customers.results||[]).map(row=>Object.freeze({
