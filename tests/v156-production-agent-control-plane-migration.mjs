@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import {createHash} from "node:crypto";
-import {extractReviewedStatements} from "../scripts/reviewed-sql-extractor.mjs";
 
 const migrations=[
   ["cloudflare/migrations/051_v117_persistent_agent_tasks.sql","f05582d7dc9354710af43de2760e4786f8cab95c"],
@@ -23,64 +22,18 @@ for(const [path,expected] of migrations){
 }
 
 assert.match(runner,/time_travel\/bookmark/);
-assert.doesNotMatch(runner,/splitSqliteMigrationStatements/);
-assert.match(runner,/extractReviewedStatements/);
-assert.match(runner,/await query\(statements\[index\]\)/);
+assert.doesNotMatch(runner,/splitSqliteMigrationStatements|extractReviewedStatements/);
+assert.match(runner,/spawnSync\(wrangler/);
+assert.match(runner,/d1\W+execute\W+DB\W+--remote\W+--file\W+spec\.path/);
+assert.match(runner,/expectedWranglerVersion='4\.135\.0'/);
+assert.match(runner,/createWranglerContext/);
+assert.match(runner,/database_id =/);
 assert.match(runner,/PRAGMA foreign_key_check/);
 assert.match(runner,/Migration 54 scheduled_for column already exists; skipping non-idempotent ALTER TABLE/);
 assert.match(runner,/ALTER TABLE agent_observation_checkpoints ADD COLUMN scheduled_for TEXT/);
 assert.match(runner,/CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_observation_checkpoint_occurrence/);
 assert.match(runner,/for\(const \[spec,sql\] of loaded\)await applyStage\(spec,sql\)/);
 
-const extractionCases=[
-  ["cloudflare/migrations/051_v117_persistent_agent_tasks.sql",[
-    "CREATE TABLE IF NOT EXISTS agent_persistent_tasks",
-    "CREATE INDEX IF NOT EXISTS agent_persistent_tasks_due",
-    "CREATE TABLE IF NOT EXISTS agent_persistent_task_events",
-    "CREATE INDEX IF NOT EXISTS agent_persistent_task_events_task",
-    "CREATE TRIGGER IF NOT EXISTS agent_persistent_task_event_tenant_guard"
-  ]],
-  ["cloudflare/migrations/052_v122_agent_observation_checkpoints.sql",[
-    "CREATE TABLE IF NOT EXISTS agent_observation_checkpoints",
-    "CREATE INDEX IF NOT EXISTS idx_agent_observation_checkpoints_task_time",
-    "CREATE TRIGGER IF NOT EXISTS trg_agent_observation_checkpoint_tenant"
-  ]],
-  ["cloudflare/migrations/053_v132_agent_observation_claims.sql",[
-    "CREATE TABLE IF NOT EXISTS agent_observation_claims",
-    "CREATE INDEX IF NOT EXISTS idx_agent_observation_claims_task_time",
-    "CREATE TRIGGER IF NOT EXISTS trg_agent_observation_claim_tenant"
-  ]],
-  ["cloudflare/migrations/056_v154_agent_control_plane.sql",[
-    "CREATE TABLE IF NOT EXISTS agent_registry",
-    "CREATE TABLE IF NOT EXISTS agent_authority_events",
-    "CREATE TABLE IF NOT EXISTS agent_authority_drift_findings",
-    "CREATE INDEX IF NOT EXISTS idx_agent_authority_events_agent_created",
-    "CREATE INDEX IF NOT EXISTS idx_agent_authority_drift_agent_status",
-    "CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_authority_drift_open",
-    "INSERT OR IGNORE INTO agent_registry",
-    "CREATE TRIGGER IF NOT EXISTS trg_agent_registry_identity_immutable",
-    "CREATE TRIGGER IF NOT EXISTS trg_agent_registry_no_execution_escalation",
-    "CREATE TRIGGER IF NOT EXISTS trg_agent_registry_revoked_terminal"
-  ]]
-];
-for(const [path,markers] of extractionCases){
-  const sql=fs.readFileSync(path,"utf8");
-  const statements=extractReviewedStatements(sql,markers);
-  assert.equal(statements.length,markers.length,`statement extraction count mismatch for ${path}`);
-  for(let i=0;i<markers.length;i+=1){
-    assert.ok(statements[i].startsWith(markers[i]),`statement marker mismatch for ${markers[i]}`);
-    if(markers[i].includes("TRIGGER")){
-      assert.match(statements[i],/BEGIN[\s\S]*END;$/,`trigger must remain one complete statement: ${markers[i]}`);
-    }else{
-      assert.match(statements[i],/;$/,`statement must retain terminal semicolon: ${markers[i]}`);
-    }
-  }
-}
-const migration51Statements=extractReviewedStatements(
-  fs.readFileSync("cloudflare/migrations/051_v117_persistent_agent_tasks.sql","utf8"),
-  extractionCases[0][1]
-);
-assert.match(migration51Statements.at(-1),/SELECT CASE WHEN NOT EXISTS[\s\S]*THEN RAISE\(ABORT,'persistent_task_tenant_mismatch'\) END;[\s\S]*END;$/);
 for(const name of [
   "agent_persistent_tasks","agent_persistent_task_events",
   "agent_observation_checkpoints","agent_observation_claims",
@@ -95,6 +48,9 @@ assert.doesNotMatch(runner,/DELETE FROM agent_registry/);
 assert.match(workflow,/contains\(github\.event\.head_commit\.message, '\[migrate-056\]'\)/);
 assert.match(workflow,/environment: production/);
 assert.match(workflow,/ordered catch-up migrations 051-056/);
+assert.match(workflow,/Install exact migration toolchain/);
+assert.match(workflow,/npm ci --ignore-scripts --no-audit --no-fund/);
+assert.match(workflow,/wrangler --version \| grep -F '4\.135\.0'/);
 assert.match(workflow,/migrate-production-v154-agent-control-plane\.mjs/);
 assert.match(workflow,/two-parent merged PR commit/);
 assert.match(workflow,/current-main merged-PR authority/);
