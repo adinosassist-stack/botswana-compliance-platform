@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";import fs from "node:fs";
 const src=fs.readFileSync("cloudflare/src/finance-watch-durable-loop.js","utf8");
-assert.match(src,/FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26\.v6"/);
+assert.match(src,/FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26\.v\d+"/,"SQL abort regression must follow the current dated durable-loop contract rather than pinning v6");
 const guard=src.indexOf("SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM agent_observation_claims");
 const checkpoint=src.indexOf("INSERT INTO agent_observation_checkpoints");
 const claim=src.indexOf("UPDATE agent_observation_claims SET status='completed'");
