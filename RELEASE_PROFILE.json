@@ -1244,5 +1244,8 @@
   "weekly_spend_envelope_spending_authorization": false,
   "weekly_spend_envelope_formal_forecast": false,
   "weekly_spend_envelope_financial_advice": false,
-  "v165_execution_authority_expanded": false
+  "v165_execution_authority_expanded": false,
+  "weekly_spend_envelope_stale_reconciliation_fail_closed": true,
+  "weekly_spend_envelope_payables_unavailable_fail_closed": true,
+  "weekly_spend_envelope_withholds_numeric_amount_on_evidence_failure": true
 }
