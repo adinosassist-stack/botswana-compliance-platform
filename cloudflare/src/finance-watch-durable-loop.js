@@ -1,13 +1,13 @@
 import {executeAgentReadTool} from "./agent-read-tools.js";
 import {runGovernedFinanceObservation} from "./governed-finance-observation-runner.js";
 
-export const FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26.v8";
+export const FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26.v9";
 const frozen=value=>Object.freeze(value);
 const clean=(value,max=160)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
 const parse=(value,fallback)=>{try{return JSON.parse(String(value??""))}catch{return fallback}};
 function nextRunAt(task,scheduledFor,{now=new Date()}={}){
   const spec=parse(task.trigger_spec_json,task.triggerSpec??{}),cadence=String(spec.cadence||"daily").toLowerCase();
-  const ms={hourly:3600000,daily:86400000,weekly:604800000}[cadence];
+  const ms={daily:86400000,weekly:604800000}[cadence];
   const anchor=new Date(String(scheduledFor||task?.next_run_at||"")),nowMs=new Date(now).getTime();
   if(!ms||!Number.isFinite(anchor.getTime())||!Number.isFinite(nowMs))return null;
   const elapsed=Math.max(0,nowMs-anchor.getTime()),intervals=Math.max(1,Math.floor(elapsed/ms)+1);
