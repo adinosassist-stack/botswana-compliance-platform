@@ -411,9 +411,19 @@ async function snapshotForPurpose(env,tenantId,purpose){
 }
 
 function buildDraft(purpose,snapshot,{date=gaboroneDate(),languagePreference={}}={}){
-  const footer="Review in Thebe Desk before sending or acting.";
+  const policy=deterministicLanguagePolicy(languagePreference),setswana=policy.render==="setswana";
+  const footer=setswana?"Sekaseka mo Thebe Desk pele ga o romela kgotsa o tsaya kgato.":"Review in Thebe Desk before sending or acting.";
   if(purpose==="owner_daily_brief"){
-    return snapshot?.brief?businessBriefText(snapshot.brief):[
+    if(snapshot?.brief)return businessBriefText(snapshot.brief);
+    return setswana?[
+      `Thebe Desk · Kakaretso ya kgwebo · ${date}`,
+      `Madi a a rekotilweng: ${pula(snapshot.cashPositionMinor)} mo di-account di le ${Number(snapshot.financeAccountCount||0)}.`,
+      `Dikoloto tsa bareki: ${pula(snapshot.receivablesOutstandingMinor)} outstanding; ${pula(snapshot.receivablesOverdueMinor)} e fetile nako.`,
+      `Reconciliation: diphapang di le ${Number(snapshot.reconciliationExceptions||0)}, exposure ${pula(snapshot.reconciliationExposureMinor)}.`,
+      `Compliance: ${Number(snapshot.overdueCompliance||0)} e fetile nako, ${Number(snapshot.complianceDue14d||0)} e due mo malatsing a 14.`,
+      `Operations: workflow di le ${Number(snapshot.pendingWorkflows||0)} pending, ${Number(snapshot.failedWorkflows||0)} di paletswe.`,
+      footer
+    ].join("\n"):[
       `Thebe Desk owner brief · ${date}`,
       `Recorded cash: ${pula(snapshot.cashPositionMinor)} across ${Number(snapshot.financeAccountCount||0)} account(s).`,
       `Customer receivables: ${pula(snapshot.receivablesOutstandingMinor)} outstanding; ${pula(snapshot.receivablesOverdueMinor)} overdue.`,
@@ -424,8 +434,13 @@ function buildDraft(purpose,snapshot,{date=gaboroneDate(),languagePreference={}}
     ].join("\n");
   }
   if(purpose==="finance_exception"){
-    if(!snapshot.exception)return [`Thebe Desk finance check · ${date}`,"No unresolved reconciliation exception is currently recorded.",footer].join("\n");
-    return [
+    if(!snapshot.exception)return setswana?[`Thebe Desk · Finance check · ${date}`,"Ga go na reconciliation exception e e sa rarabololwang e e rekotilweng.",footer].join("\n"):[`Thebe Desk finance check · ${date}`,"No unresolved reconciliation exception is currently recorded.",footer].join("\n");
+    return setswana?[
+      `Thebe Desk · Finance check · ${date}`,
+      `${snapshot.exception.accountName||"Finance account"}: reconciliation difference ${pula(snapshot.exception.differenceMinor)} ya period e e felelang ${snapshot.exception.statementTo||"unknown"}.`,
+      "Sekaseka source statement le ledger records pele ga o baakanya sengwe.",
+      footer
+    ].join("\n"):[
       `Thebe Desk finance check · ${date}`,
       `${snapshot.exception.accountName||"Finance account"}: reconciliation difference ${pula(snapshot.exception.differenceMinor)} for period ending ${snapshot.exception.statementTo||"unknown"}.`,
       "Review the source statement and ledger records before correcting anything.",
@@ -433,7 +448,13 @@ function buildDraft(purpose,snapshot,{date=gaboroneDate(),languagePreference={}}
     ].join("\n");
   }
   if(purpose==="compliance_followup"){
-    return [
+    return setswana?[
+      `Thebe Desk · Compliance follow-up · ${date}`,
+      `${Number(snapshot.overdueCount||0)} obligation e fetile nako; ${Number(snapshot.due14dCount||0)} e due mo malatsing a 14.`,
+      snapshot.nextDueAt?`Due date e e latelang e e rekotilweng: ${String(snapshot.nextDueAt).slice(0,10)}.`:"Ga go na upcoming due date e e rekotilweng jaanong.",
+      "Netefatsa rule e e dirang le supporting evidence pele ga filing kgotsa submission.",
+      footer
+    ].join("\n"):[
       `Thebe Desk compliance follow-up · ${date}`,
       `${Number(snapshot.overdueCount||0)} overdue obligation(s); ${Number(snapshot.due14dCount||0)} due within 14 days.`,
       snapshot.nextDueAt?`Next recorded due date: ${String(snapshot.nextDueAt).slice(0,10)}.`:"No upcoming due date is currently recorded.",
@@ -442,7 +463,13 @@ function buildDraft(purpose,snapshot,{date=gaboroneDate(),languagePreference={}}
     ].join("\n");
   }
   if(purpose==="operations_update"){
-    return [
+    return setswana?[
+      `Thebe Desk · Operations update · ${date}`,
+      snapshot.latestSummaryDate?`Summary ya bofelo: ${snapshot.latestSummaryDate}; reporting coverage ${Number(snapshot.reportingCoverage||0)}%.`:"Ga go na daily-operations summary e e rekotilweng jaanong.",
+      `Workflows: ${Number(snapshot.pendingWorkflows||0)} pending, ${Number(snapshot.failedWorkflows||0)} di paletswe.`,
+      "Dirisa source reports pele ga employee kgotsa disciplinary decision.",
+      footer
+    ].join("\n"):[
       `Thebe Desk operations update · ${date}`,
       snapshot.latestSummaryDate?`Latest summary: ${snapshot.latestSummaryDate}; reporting coverage ${Number(snapshot.reportingCoverage||0)}%.`:"No daily-operations summary is currently recorded.",
       `Workflows: ${Number(snapshot.pendingWorkflows||0)} pending, ${Number(snapshot.failedWorkflows||0)} failed.`,
@@ -452,7 +479,6 @@ function buildDraft(purpose,snapshot,{date=gaboroneDate(),languagePreference={}}
   }
   throw new Error("unsupported_purpose");
 }
-
 function parseObservation(value){try{return JSON.parse(String(value||"{}"))}catch{return {}}}
 function publicIntent(row){return row?{id:String(row.id||""),runId:String(row.run_id||""),agentKey:String(row.agent_key||""),actionKey:String(row.action_key||""),decision:String(row.decision||""),decisionCode:String(row.decision_code||""),status:String(row.status||""),createdAt:row.created_at||null}:null}
 
