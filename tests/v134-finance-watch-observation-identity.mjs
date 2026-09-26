@@ -5,7 +5,7 @@ assert.match(migration,/ALTER TABLE agent_observation_checkpoints ADD COLUMN sch
 assert.match(migration,/CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_observation_checkpoint_occurrence/);
 assert.match(migration,/tenant_id,persistent_task_id,scheduled_for/);
 assert.match(migration,/WHERE scheduled_for IS NOT NULL/);
-assert.match(loop,/FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26\\.v\\d+"/,"durable loop must expose a dated version without pinning a stale implementation revision");
+assert.match(loop,/FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26\.v\d+"/,"durable loop must expose a dated version without pinning a stale implementation revision");
 assert.match(loop,/snapshot_json,exception_json,scheduled_for/);
 assert.match(loop,/claim\?\.scheduledFor\|\|null/);
 assert.match(loop,/UPDATE agent_observation_claims SET status='completed'/);
