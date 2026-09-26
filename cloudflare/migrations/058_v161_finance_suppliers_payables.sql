@@ -44,19 +44,21 @@ CREATE INDEX IF NOT EXISTS finance_supplier_aliases_supplier_idx
 CREATE TRIGGER IF NOT EXISTS finance_supplier_name_alias_collision_guard
 BEFORE INSERT ON finance_suppliers
 BEGIN
-  SELECT (CASE WHEN EXISTS(
+  SELECT RAISE(ABORT,'finance_supplier_name_alias_collision')
+  WHERE EXISTS(
     SELECT 1 FROM finance_supplier_aliases a
     WHERE a.tenant_id=NEW.tenant_id AND a.normalized_alias=NEW.normalized_name
-  ) THEN RAISE(ABORT,'finance_supplier_name_alias_collision') END);
+  );
 END;
 
 CREATE TRIGGER IF NOT EXISTS finance_supplier_alias_canonical_collision_guard
 BEFORE INSERT ON finance_supplier_aliases
 BEGIN
-  SELECT (CASE WHEN EXISTS(
+  SELECT RAISE(ABORT,'finance_supplier_alias_canonical_collision')
+  WHERE EXISTS(
     SELECT 1 FROM finance_suppliers s
     WHERE s.tenant_id=NEW.tenant_id AND s.normalized_name=NEW.normalized_alias AND s.id<>NEW.supplier_id
-  ) THEN RAISE(ABORT,'finance_supplier_alias_canonical_collision') END);
+  );
 END;
 
 CREATE TABLE IF NOT EXISTS finance_payables(
@@ -114,56 +116,63 @@ CREATE INDEX IF NOT EXISTS finance_payable_allocations_transaction_idx
 CREATE TRIGGER IF NOT EXISTS finance_supplier_alias_tenant_guard
 BEFORE INSERT ON finance_supplier_aliases
 BEGIN
-  SELECT (CASE WHEN NOT EXISTS(
+  SELECT RAISE(ABORT,'finance_supplier_tenant_mismatch')
+  WHERE NOT EXISTS(
     SELECT 1 FROM finance_suppliers s
     WHERE s.id=NEW.supplier_id AND s.tenant_id=NEW.tenant_id AND s.status='active'
-  ) THEN RAISE(ABORT,'finance_supplier_tenant_mismatch') END;
+  );
 END;
 
 CREATE TRIGGER IF NOT EXISTS finance_payables_supplier_tenant_guard
 BEFORE INSERT ON finance_payables
 BEGIN
-  SELECT (CASE WHEN NOT EXISTS(
+  SELECT RAISE(ABORT,'finance_supplier_tenant_mismatch')
+  WHERE NOT EXISTS(
     SELECT 1 FROM finance_suppliers s
     WHERE s.id=NEW.supplier_id AND s.tenant_id=NEW.tenant_id AND s.status='active'
-  ) THEN RAISE(ABORT,'finance_supplier_tenant_mismatch') END;
+  );
 END;
 
 CREATE TRIGGER IF NOT EXISTS finance_payable_allocations_apply_guard
 BEFORE INSERT ON finance_payable_allocations
 WHEN NEW.entry_type='apply'
 BEGIN
-  SELECT (CASE WHEN NOT EXISTS(
+  SELECT RAISE(ABORT,'finance_payable_not_allocatable')
+  WHERE NOT EXISTS(
     SELECT 1 FROM finance_payables p
     WHERE p.id=NEW.payable_id AND p.tenant_id=NEW.tenant_id AND p.status='open'
-  ) THEN RAISE(ABORT,'finance_payable_not_allocatable') END;
-  SELECT (CASE WHEN NOT EXISTS(
+  );
+  SELECT RAISE(ABORT,'finance_transaction_not_allocatable')
+  WHERE NOT EXISTS(
     SELECT 1 FROM finance_transactions t
     WHERE t.id=NEW.transaction_id AND t.tenant_id=NEW.tenant_id AND t.amount_minor<0
-  ) THEN RAISE(ABORT,'finance_transaction_not_allocatable') END;
-  SELECT (CASE WHEN (
+  );
+  SELECT RAISE(ABORT,'finance_payable_overallocation')
+  WHERE (
     SELECT COALESCE(SUM(CASE WHEN a.entry_type='apply' THEN a.amount_minor ELSE -a.amount_minor END),0)
     FROM finance_payable_allocations a
     WHERE a.tenant_id=NEW.tenant_id AND a.payable_id=NEW.payable_id
   ) + NEW.amount_minor > (
     SELECT p.total_minor FROM finance_payables p
     WHERE p.id=NEW.payable_id AND p.tenant_id=NEW.tenant_id
-  ) THEN RAISE(ABORT,'finance_payable_overallocation') END;
-  SELECT (CASE WHEN (
+  );
+  SELECT RAISE(ABORT,'finance_transaction_overallocation')
+  WHERE (
     SELECT COALESCE(SUM(CASE WHEN a.entry_type='apply' THEN a.amount_minor ELSE -a.amount_minor END),0)
     FROM finance_payable_allocations a
     WHERE a.tenant_id=NEW.tenant_id AND a.transaction_id=NEW.transaction_id
   ) + NEW.amount_minor > (
     SELECT ABS(t.amount_minor) FROM finance_transactions t
     WHERE t.id=NEW.transaction_id AND t.tenant_id=NEW.tenant_id
-  ) THEN RAISE(ABORT,'finance_transaction_overallocation') END;
+  );
 END;
 
 CREATE TRIGGER IF NOT EXISTS finance_payable_allocations_reverse_guard
 BEFORE INSERT ON finance_payable_allocations
 WHEN NEW.entry_type='reverse'
 BEGIN
-  SELECT (CASE WHEN NOT EXISTS(
+  SELECT RAISE(ABORT,'finance_payable_allocation_reversal_mismatch')
+  WHERE NOT EXISTS(
     SELECT 1 FROM finance_payable_allocations a
     WHERE a.id=NEW.reverses_allocation_id
       AND a.tenant_id=NEW.tenant_id
@@ -171,7 +180,7 @@ BEGIN
       AND a.transaction_id=NEW.transaction_id
       AND a.amount_minor=NEW.amount_minor
       AND a.entry_type='apply'
-  ) THEN RAISE(ABORT,'finance_payable_allocation_reversal_mismatch') END;
+  );
 END;
 
 CREATE TRIGGER IF NOT EXISTS finance_payable_allocations_immutable_update
