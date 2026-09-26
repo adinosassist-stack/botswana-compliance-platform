@@ -1,4 +1,4 @@
-export const MONEY_INTELLIGENCE_VERSION="2026-09-26.v5";
+export const MONEY_INTELLIGENCE_VERSION="2026-09-26.v6";
 const frozen=value=>Object.freeze(value);
 const number=value=>Number.isFinite(Number(value))?Number(value):0;
 const clean=(value,max=180)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
@@ -310,6 +310,68 @@ function weeklySpendEnvelope({cashPositionMinor=0,cashCalendar={},assumptions={}
   });
 }
 
+export function extractSpendWhatIfBwpMinor(question){
+  const input=clean(question,1000);
+  const spendIntent=/\b(spend|spending|buy|buying|purchase|purchasing|afford|cost|costs|costing|pay\s+for|paying\s+for)\b/i.test(input);
+  if(!spendIntent)return null;
+  const pattern=/(?:\b(?:P|BWP)\s*(\d+(?:,\d{3})*(?:\.\d{1,2})?)\s*k\b)|(?:\b(\d+(?:\.\d+)?)\s*k\s*(?:pula|BWP)\b)|(?:\b(?:P|BWP)\s*(\d+(?:,\d{3})*(?:\.\d{1,2})?)\b)|(?:\b(\d+(?:,\d{3})*(?:\.\d{1,2})?)\s*(?:pula|BWP)\b)/gi;
+  const values=[];
+  for(const match of input.matchAll(pattern)){
+    const kilo=match[1]??match[2],plain=match[3]??match[4];
+    const raw=String(kilo??plain??"").replaceAll(",","");
+    const value=Number(raw);
+    if(!Number.isFinite(value)||value<=0)continue;
+    const bwp=kilo!=null?value*1000:value;
+    const minor=Math.round(bwp*100);
+    if(Number.isSafeInteger(minor)&&minor>0&&minor<=100000000000000)values.push(minor);
+  }
+  const unique=[...new Set(values)];
+  return unique.length===1?unique[0]:null;
+}
+
+export function simulateWeeklySpendDecision({spendEnvelope={},proposedSpendMinor,label=null}={}){
+  const amount=Number(proposedSpendMinor);
+  const validAmount=Number.isSafeInteger(amount)&&amount>0&&amount<=100000000000000;
+  const cleanLabel=clean(label,120)||"Proposed spend";
+  if(!validAmount)return frozen({
+    ready:false,state:"invalid_amount",error:"invalid_proposed_spend_minor",label:cleanLabel,
+    proposedSpendMinor:null,withinEnvelope:null,remainingEnvelopeMinor:null,exceedsEnvelopeByMinor:null,
+    protectedReservesPreserved:null,executionPerformed:false,spendingAuthorization:false,financialAdvice:false
+  });
+  if(spendEnvelope?.ready!==true||spendEnvelope?.discretionaryEnvelopeMinor==null){
+    return frozen({
+      ready:false,state:"blocked",error:"weekly_spend_envelope_unavailable",label:cleanLabel,
+      proposedSpendMinor:amount,withinEnvelope:null,remainingEnvelopeMinor:null,exceedsEnvelopeByMinor:null,
+      protectedReservesPreserved:null,
+      envelopeState:clean(spendEnvelope?.state,80)||"unavailable",
+      missingInputs:frozen(Array.isArray(spendEnvelope?.missingInputs)?spendEnvelope.missingInputs.slice(0,8):[]),
+      blockingEvidence:frozen(Array.isArray(spendEnvelope?.blockingEvidence)?spendEnvelope.blockingEvidence.slice(0,8):[]),
+      warnings:frozen(Array.isArray(spendEnvelope?.warnings)?spendEnvelope.warnings.slice(0,8):[]),
+      executionPerformed:false,spendingAuthorization:false,financialAdvice:false
+    });
+  }
+  const envelope=Math.max(0,number(spendEnvelope.discretionaryEnvelopeMinor));
+  const within=amount<=envelope;
+  const remaining=Math.max(0,envelope-amount);
+  const overage=Math.max(0,amount-envelope);
+  const cash=Math.max(0,number(spendEnvelope.recordedCashPositionMinor));
+  return frozen({
+    ready:true,state:within?"within_envelope":"above_envelope",label:cleanLabel,
+    proposedSpendMinor:amount,weeklyEnvelopeMinor:envelope,withinEnvelope:within,
+    remainingEnvelopeMinor:remaining,exceedsEnvelopeByMinor:overage,
+    recordedCashAfterSpendMinor:cash-amount,
+    protectedReservesPreserved:within,
+    horizonDays:Number(spendEnvelope.horizonDays||7),
+    basis:"comparison_to_fail_closed_weekly_discretionary_planning_envelope",
+    receivablesAssumedCollected:false,
+    formalForecast:false,
+    executionPerformed:false,
+    paymentInitiated:false,
+    spendingAuthorization:false,
+    financialAdvice:false
+  });
+}
+
 function forwardCashCalendar({businessDate,cashPositionMinor=0,payables={},receivables={},collectionBehaviors=[]}={}){
   const behaviorByCustomer=new Map((collectionBehaviors||[]).map(item=>[String(item.customerId||""),item]));
   const events=[];
@@ -578,4 +640,4 @@ export async function buildMoneyIntelligence(env,tenantId,{businessDate,cashPosi
     authority:frozen({readOnly:true,executionAllowed:false,forecast:false,scenarioProjection:true,accountingMargin:false,accountingPosting:false,supplierPayments:false,financialAdvice:false})
   });
 }
-export const __moneyIntelligenceTest=frozen({summarizeTransactions,assumptionMetrics,cashScenario,ownerCommitments,debitConcentration,collectionBehavior,expenseCategoryLearning,supplierSpendTrend,payableSupplierConcentration,cashCommitmentStress,weeklySpendEnvelope,forwardCashCalendar,pctChange});
+export const __moneyIntelligenceTest=frozen({summarizeTransactions,assumptionMetrics,cashScenario,ownerCommitments,debitConcentration,collectionBehavior,expenseCategoryLearning,supplierSpendTrend,payableSupplierConcentration,cashCommitmentStress,weeklySpendEnvelope,extractSpendWhatIfBwpMinor,simulateWeeklySpendDecision,forwardCashCalendar,pctChange});
