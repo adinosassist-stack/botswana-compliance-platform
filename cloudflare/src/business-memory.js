@@ -58,14 +58,15 @@ export async function confirmBusinessMemory({env,tenantId,userId,namespace,key,v
   if(!encoded.ok)return frozen({ok:false,error:encoded.error});
   const itemId=id(),eventId=id(),valueHash=await sha256Hex(encoded.json);
   try{
-    const current=await env.DB.prepare("SELECT id FROM business_memory_items WHERE tenant_id=? AND namespace=? AND memory_key=? AND status='active' LIMIT 1")
+    const current=await env.DB.prepare("SELECT id,value_json FROM business_memory_items WHERE tenant_id=? AND namespace=? AND memory_key=? AND status='active' LIMIT 1")
       .bind(tenantId,ns,memoryKey).first();
     const statements=[];
     if(current?.id){
       statements.push(env.DB.prepare("UPDATE business_memory_items SET status='superseded',superseded_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND status='active'")
         .bind(current.id,tenantId));
+      const previousValueHash=await sha256Hex(String(current.value_json||""));
       statements.push(env.DB.prepare("INSERT INTO business_memory_events(id,tenant_id,memory_item_id,event_type,actor_user_id,value_hash) VALUES(?,?,?,?,?,?)")
-        .bind(id(),tenantId,current.id,"superseded",userId||null,valueHash));
+        .bind(id(),tenantId,current.id,"superseded",userId||null,previousValueHash));
     }
     statements.push(env.DB.prepare(`INSERT INTO business_memory_items(
       id,tenant_id,namespace,memory_key,value_json,value_type,source_kind,confidence,status,created_by_user_id
