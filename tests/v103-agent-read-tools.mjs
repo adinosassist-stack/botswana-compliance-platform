@@ -148,7 +148,8 @@ assert.equal(verified.proposals[0].verification.droppedSourceRefCount,1);
 
 const moduleSource=fs.readFileSync("cloudflare/src/agent-read-tools.js","utf8");
 const coreSource=fs.readFileSync("cloudflare/src/agentic-core.js","utf8");
-for(const path of ["cloudflare/src/agent-read-tools.js","cloudflare/src/agentic-core.js","cloudflare/src/agent-orchestration.js"]){
+const businessContextSource=fs.readFileSync("cloudflare/src/business-context.js","utf8");
+for(const path of ["cloudflare/src/agent-read-tools.js","cloudflare/src/agentic-core.js","cloudflare/src/agent-orchestration.js","cloudflare/src/business-context.js"]){
   execFileSync(process.execPath,["--check",path],{stdio:"pipe"});
 }
 assert.doesNotMatch(moduleSource,/\b(INSERT|UPDATE|DELETE|REPLACE)\s+(INTO|FROM|\w+)/i,"read-tool module must not contain mutating SQL");
@@ -159,9 +160,10 @@ assert.match(moduleSource,/narrativeExcluded:true/);
 assert.match(moduleSource,/substr\(id,1,2\)<>'__'/);
 
 assert.match(coreSource,/observeWorkspace\(env,tenantId,actorRole\)/);
-assert.match(coreSource,/operationsAllowed\?safeFirst/);
-assert.match(coreSource,/businessHealthAllowed\?safeFirst/);
-assert.doesNotMatch(coreSource,/SELECT summary_date,generation_mode,metrics_json,narrative_json/,"planning observation must not read operations narrative");
+assert.match(coreSource,/buildBusinessContext\(env,tenantId,\{actorRole\}\)/);
+assert.match(businessContextSource,/if\(!allowed\)return frozen\(\{restricted:true\}\)/,"canonical Business Context must fail closed before operations reads for non-management roles");
+assert.match(businessContextSource,/operationsContext\(env,tenantId,\{allowed:management\}\)/,"role scope must be passed into the canonical operations context");
+assert.doesNotMatch(businessContextSource,/SELECT summary_date,generation_mode,metrics_json,narrative_json/,"canonical planning context must not read operations narrative");
 assert.match(coreSource,/buildAgentReadToolContext\(\{env,auth\}\)/);
 assert.match(coreSource,/additionalSourceRefs:readTools\.sourceRefs/);
 assert.match(coreSource,/READ_TOOLS/);
