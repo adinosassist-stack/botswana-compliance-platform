@@ -13,7 +13,7 @@ async function resetDatabase(DB){
     DB.prepare("CREATE TABLE agent_persistent_tasks(id TEXT PRIMARY KEY,tenant_id TEXT NOT NULL,status TEXT NOT NULL,next_run_at TEXT,last_run_at TEXT,updated_at TEXT)"),
     DB.prepare("CREATE TABLE agent_observation_checkpoints(id TEXT PRIMARY KEY,tenant_id TEXT NOT NULL,persistent_task_id TEXT NOT NULL,snapshot_hash TEXT)"),
     DB.prepare("CREATE TABLE agent_persistent_task_events(id TEXT PRIMARY KEY,tenant_id TEXT NOT NULL,persistent_task_id TEXT NOT NULL,event_type TEXT NOT NULL,event_data TEXT)"),
-    DB.prepare("CREATE TABLE audit_events(id TEXT PRIMARY KEY,tenant_id TEXT NOT NULL,event_type TEXT NOT NULL,entity_type TEXT NOT NULL,entity_id TEXT NOT NULL,event_data TEXT)")
+    DB.prepare("CREATE TABLE audit_events(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id TEXT NOT NULL,event_type TEXT NOT NULL,entity_type TEXT,entity_id TEXT,event_data TEXT NOT NULL DEFAULT '{}',occurred_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)")
   ]);
 }
 
@@ -21,14 +21,11 @@ const guard=(DB,{claimId,tenantId,taskId,scheduledFor})=>DB.prepare(
   "SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM agent_observation_claims WHERE id=? AND tenant_id=? AND persistent_task_id=? AND scheduled_for=? AND status='running') OR NOT EXISTS (SELECT 1 FROM agent_persistent_tasks WHERE id=? AND tenant_id=? AND status='active' AND next_run_at=?) THEN json_extract('invalid','$.') ELSE 1 END"
 ).bind(claimId,tenantId,taskId,scheduledFor,taskId,tenantId,scheduledFor);
 
-async function artifactCount(DB,id){
-  const tables=["agent_observation_checkpoints","agent_persistent_task_events","audit_events"];
-  let total=0;
-  for(const table of tables){
-    const row=await DB.prepare(`SELECT COUNT(*) AS c FROM ${table} WHERE id=?`).bind(id).first();
-    total+=Number(row?.c||0);
-  }
-  return total;
+async function artifactCount(DB,{checkpointId,eventId,auditEntityId,auditEventType}){
+  const checkpoint=checkpointId?Number((await DB.prepare("SELECT COUNT(*) AS c FROM agent_observation_checkpoints WHERE id=?").bind(checkpointId).first())?.c||0):0;
+  const event=eventId?Number((await DB.prepare("SELECT COUNT(*) AS c FROM agent_persistent_task_events WHERE id=?").bind(eventId).first())?.c||0):0;
+  const audit=auditEntityId?Number((await DB.prepare("SELECT COUNT(*) AS c FROM audit_events WHERE entity_id=? AND event_type=?").bind(auditEntityId,auditEventType).first())?.c||0):0;
+  return {checkpoint,event,audit};
 }
 
 export default {
@@ -53,7 +50,7 @@ export default {
       await env.DB.batch([
         env.DB.prepare("INSERT INTO agent_observation_checkpoints(id,tenant_id,persistent_task_id,snapshot_hash) VALUES(?,?,?,?)").bind("cp-fail",tenantId,taskId,"hash-fail"),
         env.DB.prepare("INSERT INTO agent_persistent_task_events(id,tenant_id,persistent_task_id,event_type,event_data) VALUES(?,?,?,?,?)").bind("ev-fail",tenantId,taskId,"OBSERVATION_VERIFIED","{}"),
-        env.DB.prepare("INSERT INTO audit_events(id,tenant_id,event_type,entity_type,entity_id,event_data) VALUES(?,?,?,?,?,?)").bind("au-fail",tenantId,"AGENT_FINANCE_OBSERVATION_VERIFIED","agent_observation_checkpoint","cp-fail","{}"),
+        env.DB.prepare("INSERT INTO audit_events(tenant_id,event_type,entity_type,entity_id,event_data) VALUES(?,?,?,?,?)").bind(tenantId,"AGENT_FINANCE_OBSERVATION_VERIFIED","agent_observation_checkpoint","cp-fail","{}"),
         guard(env.DB,{claimId,tenantId,taskId,scheduledFor}),
         env.DB.prepare("UPDATE agent_observation_claims SET status='completed',checkpoint_id=? WHERE id=? AND tenant_id=? AND persistent_task_id=? AND scheduled_for=? AND status='running'").bind("cp-fail",claimId,tenantId,taskId,scheduledFor),
         env.DB.prepare("UPDATE agent_persistent_tasks SET next_run_at=? WHERE id=? AND tenant_id=? AND status='active' AND next_run_at=?").bind(successNextRunAt,taskId,tenantId,scheduledFor)
@@ -63,11 +60,7 @@ export default {
       failureMessage=String(error?.message||error).slice(0,240);
     }
 
-    const failedArtifacts={
-      checkpoint:await artifactCount(env.DB,"cp-fail"),
-      event:await artifactCount(env.DB,"ev-fail"),
-      audit:await artifactCount(env.DB,"au-fail")
-    };
+    const failedArtifacts=await artifactCount(env.DB,{checkpointId:"cp-fail",eventId:"ev-fail",auditEntityId:"cp-fail",auditEventType:"AGENT_FINANCE_OBSERVATION_VERIFIED"});
     const claimAfterFailure=await env.DB.prepare("SELECT status,checkpoint_id FROM agent_observation_claims WHERE id=?").bind(claimId).first();
     const taskAfterFailure=await env.DB.prepare("SELECT next_run_at FROM agent_persistent_tasks WHERE id=?").bind(taskId).first();
 
@@ -78,7 +71,7 @@ export default {
       await env.DB.batch([
         env.DB.prepare("INSERT INTO agent_observation_checkpoints(id,tenant_id,persistent_task_id,snapshot_hash) VALUES(?,?,?,?)").bind("cp-ok",tenantId,taskId,"hash-ok"),
         env.DB.prepare("INSERT INTO agent_persistent_task_events(id,tenant_id,persistent_task_id,event_type,event_data) VALUES(?,?,?,?,?)").bind("ev-ok",tenantId,taskId,"OBSERVATION_VERIFIED","{}"),
-        env.DB.prepare("INSERT INTO audit_events(id,tenant_id,event_type,entity_type,entity_id,event_data) VALUES(?,?,?,?,?,?)").bind("au-ok",tenantId,"AGENT_FINANCE_OBSERVATION_VERIFIED","agent_observation_checkpoint","cp-ok","{}"),
+        env.DB.prepare("INSERT INTO audit_events(tenant_id,event_type,entity_type,entity_id,event_data) VALUES(?,?,?,?,?)").bind(tenantId,"AGENT_FINANCE_OBSERVATION_VERIFIED","agent_observation_checkpoint","cp-ok","{}"),
         guard(env.DB,{claimId,tenantId,taskId,scheduledFor}),
         env.DB.prepare("UPDATE agent_observation_claims SET status='completed',checkpoint_id=? WHERE id=? AND tenant_id=? AND persistent_task_id=? AND scheduled_for=? AND status='running'").bind("cp-ok",claimId,tenantId,taskId,scheduledFor),
         env.DB.prepare("UPDATE agent_persistent_tasks SET next_run_at=? WHERE id=? AND tenant_id=? AND status='active' AND next_run_at=?").bind(successNextRunAt,taskId,tenantId,scheduledFor)
@@ -88,18 +81,34 @@ export default {
       successMessage=String(error?.message||error).slice(0,240);
     }
 
-    const successArtifacts={
-      checkpoint:await artifactCount(env.DB,"cp-ok"),
-      event:await artifactCount(env.DB,"ev-ok"),
-      audit:await artifactCount(env.DB,"au-ok")
-    };
+    const successArtifacts=await artifactCount(env.DB,{checkpointId:"cp-ok",eventId:"ev-ok",auditEntityId:"cp-ok",auditEventType:"AGENT_FINANCE_OBSERVATION_VERIFIED"});
     const claimAfterSuccess=await env.DB.prepare("SELECT status,checkpoint_id FROM agent_observation_claims WHERE id=?").bind(claimId).first();
     const taskAfterSuccess=await env.DB.prepare("SELECT next_run_at FROM agent_persistent_tasks WHERE id=?").bind(taskId).first();
+
+    const raceClaimId="claim-race",raceTaskId="task-race",raceCheckpointId="cp-race";
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO agent_observation_claims(id,tenant_id,persistent_task_id,scheduled_for,status) VALUES(?,?,?,?,?)").bind(raceClaimId,tenantId,raceTaskId,scheduledFor,"running"),
+      env.DB.prepare("INSERT INTO agent_persistent_tasks(id,tenant_id,status,next_run_at) VALUES(?,?,?,?)").bind(raceTaskId,tenantId,"active",scheduledFor),
+      env.DB.prepare("INSERT INTO agent_observation_checkpoints(id,tenant_id,persistent_task_id,snapshot_hash) VALUES(?,?,?,?)").bind(raceCheckpointId,tenantId,raceTaskId,"hash-race")
+    ]);
+
+    const recoveryBatch=()=>env.DB.batch([
+      guard(env.DB,{claimId:raceClaimId,tenantId,taskId:raceTaskId,scheduledFor}),
+      env.DB.prepare("UPDATE agent_observation_claims SET status='completed',checkpoint_id=? WHERE id=? AND tenant_id=? AND persistent_task_id=? AND scheduled_for=? AND status='running'").bind(raceCheckpointId,raceClaimId,tenantId,raceTaskId,scheduledFor),
+      env.DB.prepare("UPDATE agent_persistent_tasks SET next_run_at=? WHERE id=? AND tenant_id=? AND status='active' AND next_run_at=?").bind(successNextRunAt,raceTaskId,tenantId,scheduledFor),
+      env.DB.prepare("INSERT INTO audit_events(tenant_id,event_type,entity_type,entity_id,event_data) VALUES(?,?,?,?,?)").bind(tenantId,"AGENT_FINANCE_OBSERVATION_RECOVERED","agent_observation_checkpoint",raceCheckpointId,"{}")
+    ]);
+
+    const raceResults=await Promise.allSettled([recoveryBatch(),recoveryBatch()]);
+    const raceAudit=Number((await env.DB.prepare("SELECT COUNT(*) AS c FROM audit_events WHERE entity_id=? AND event_type='AGENT_FINANCE_OBSERVATION_RECOVERED'").bind(raceCheckpointId).first())?.c||0);
+    const raceClaim=await env.DB.prepare("SELECT status,checkpoint_id FROM agent_observation_claims WHERE id=?").bind(raceClaimId).first();
+    const raceTask=await env.DB.prepare("SELECT next_run_at FROM agent_persistent_tasks WHERE id=?").bind(raceTaskId).first();
 
     return json({
       runtime:"wrangler-local-d1",
       failure:{threw:failureThrew,message:failureMessage,artifacts:failedArtifacts,claim:claimAfterFailure,task:taskAfterFailure},
-      success:{threw:successThrew,message:successMessage,artifacts:successArtifacts,claim:claimAfterSuccess,task:taskAfterSuccess}
+      success:{threw:successThrew,message:successMessage,artifacts:successArtifacts,claim:claimAfterSuccess,task:taskAfterSuccess},
+      recoveryRace:{fulfilled:raceResults.filter(x=>x.status==="fulfilled").length,rejected:raceResults.filter(x=>x.status==="rejected").length,auditCount:raceAudit,claim:raceClaim,task:raceTask}
     });
   }
 };

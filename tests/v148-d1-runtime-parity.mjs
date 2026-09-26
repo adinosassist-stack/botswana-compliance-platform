@@ -59,6 +59,13 @@ try{
   assert.equal(body.success.claim.checkpoint_id,"cp-ok");
   assert.equal(body.success.task.next_run_at,"2026-09-27T06:15:00.000Z");
 
+  assert.equal(body.recoveryRace.fulfilled,1,"exactly one concurrent recovery batch must commit");
+  assert.equal(body.recoveryRace.rejected,1,"the losing concurrent recovery batch must fail closed");
+  assert.equal(body.recoveryRace.auditCount,1,"concurrent recovery must produce exactly one durable recovery audit event");
+  assert.equal(body.recoveryRace.claim.status,"completed");
+  assert.equal(body.recoveryRace.claim.checkpoint_id,"cp-race");
+  assert.equal(body.recoveryRace.task.next_run_at,"2026-09-27T06:15:00.000Z");
+
   console.log("v148 Wrangler local D1 batch rollback and commit parity passed");
 }finally{
   if(child.exitCode===null)child.kill("SIGTERM");
