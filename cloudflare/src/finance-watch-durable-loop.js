@@ -2,7 +2,7 @@ import {executeAgentReadTool} from "./agent-read-tools.js";
 import {runGovernedFinanceObservation} from "./governed-finance-observation-runner.js";
 import {buildFinanceWatchDueQuery,isFinanceWatchToolList} from "./finance-watch-contract.js";
 
-export const FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26.v15";
+export const FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26.v16";
 const frozen=value=>Object.freeze(value);
 const clean=(value,max=160)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
 const parse=(value,fallback)=>{try{return JSON.parse(String(value??""))}catch{return fallback}};
@@ -105,6 +105,29 @@ async function failObservationClaim(env,task,claim,outcome){
   await env.DB.prepare("UPDATE agent_observation_claims SET status='failed',checkpoint_id=NULL,error_code=?,completed_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND persistent_task_id=? AND status='running'").bind(errorCode,claim.id,task.tenant_id,task.id).run();
 }
 
+async function escalateOwnerAttention(env,task,claim,outcome){
+  const tenantId=clean(task?.tenant_id,120),taskId=clean(task?.id,120),claimId=clean(claim?.id,120),scheduledFor=clean(claim?.scheduledFor,80);
+  if(!env?.DB||!tenantId||!taskId||!claimId||!scheduledFor)throw new Error("invalid_owner_attention_context");
+  const errorCode=clean(outcome?.code||outcome?.recovery?.code||"owner_attention_required",120)||"owner_attention_required";
+  const eventData=JSON.stringify({claimId,scheduledFor,attempts:Number(claim?.attempts||0),errorCode,recoveryDecision:"owner_attention",executionAllowed:false,externalActions:0});
+  const results=await env.DB.batch([
+    env.DB.prepare("SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM agent_observation_claims WHERE id=? AND tenant_id=? AND persistent_task_id=? AND scheduled_for=? AND status='running') OR NOT EXISTS (SELECT 1 FROM agent_persistent_tasks WHERE id=? AND tenant_id=? AND status='active' AND next_run_at=?) THEN json_extract('invalid','$.') ELSE 1 END")
+      .bind(claimId,tenantId,taskId,scheduledFor,taskId,tenantId,scheduledFor),
+    env.DB.prepare("UPDATE agent_observation_claims SET status='failed',checkpoint_id=NULL,error_code=?,completed_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND persistent_task_id=? AND scheduled_for=? AND status='running'")
+      .bind(errorCode,claimId,tenantId,taskId,scheduledFor),
+    env.DB.prepare("UPDATE agent_persistent_tasks SET status='paused',updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND status='active' AND next_run_at=?")
+      .bind(taskId,tenantId,scheduledFor),
+    env.DB.prepare("INSERT INTO agent_persistent_task_events(id,tenant_id,persistent_task_id,event_type,event_data) VALUES(?,?,?,'OWNER_ATTENTION_REQUIRED',?)")
+      .bind(crypto.randomUUID(),tenantId,taskId,eventData),
+    env.DB.prepare("INSERT INTO audit_events(tenant_id,event_type,entity_type,entity_id,event_data) VALUES(?,'AGENT_FINANCE_OBSERVATION_OWNER_ATTENTION','agent_persistent_task',?,?)")
+      .bind(tenantId,taskId,eventData)
+  ]);
+  const claimChanges=Number(results?.[1]?.meta?.changes??results?.[1]?.changes??0);
+  const taskChanges=Number(results?.[2]?.meta?.changes??results?.[2]?.changes??0);
+  if(claimChanges!==1||taskChanges!==1)throw new Error("owner_attention_escalation_guard_failed");
+  return frozen({paused:true,claimId,taskId,scheduledFor,errorCode,recoveryDecision:"owner_attention",executionAllowed:false,externalActions:0});
+}
+
 async function recoverVerifiedOccurrence(env,task,claim){
   if(!claim?.recovered||!claim?.scheduledFor)return null;
   const checkpoint=await env.DB.prepare("SELECT id FROM agent_observation_checkpoints WHERE tenant_id=? AND persistent_task_id=? AND scheduled_for=? LIMIT 1").bind(task.tenant_id,task.id,claim.scheduledFor).first();
@@ -133,10 +156,22 @@ export async function runDueFinanceWatchTasks(env,{limit=25}={}){
     if(!claim.ok){outcomes.push(frozen({ok:false,persisted:false,skipped:true,code:claim.code,executionAllowed:false}));continue}
     let outcome;
     try{outcome=await recoverVerifiedOccurrence(env,task,claim)||await runFinanceWatchTask({env,task,attempt:claim.attempts-1,claim})}catch(error){outcome=frozen({ok:false,persisted:false,code:"observation_run_failed",executionAllowed:false,error:String(error?.message||error).slice(0,160)})}
+    if(!outcome.persisted){
+      if(outcome?.recovery?.decision==="owner_attention"){
+        try{
+          const ownerAttention=await escalateOwnerAttention(env,task,claim,outcome);
+          outcome=frozen({...outcome,ownerAttention});
+        }catch(error){
+          await failObservationClaim(env,task,claim,outcome);
+          outcome=frozen({...outcome,code:"owner_attention_escalation_failed",ownerAttention:{paused:false,error:String(error?.message||error).slice(0,160)}});
+        }
+      }else{
+        await failObservationClaim(env,task,claim,outcome);
+      }
+    }
     outcomes.push(outcome);
-    if(!outcome.persisted)await failObservationClaim(env,task,claim,outcome);
   }
   return frozen({version:FINANCE_WATCH_DURABLE_LOOP_VERSION,selected:(rows.results||[]).length,verified:outcomes.filter(x=>x.persisted).length,failed:outcomes.filter(x=>!x.persisted).length,executionAllowed:false,externalActions:0,outcomes:frozen(outcomes)});
 }
 
-export const __financeWatchDurableLoopTest=Object.freeze({nextRunAt,claimObservation,recoverVerifiedOccurrence});
+export const __financeWatchDurableLoopTest=Object.freeze({nextRunAt,claimObservation,recoverVerifiedOccurrence,escalateOwnerAttention});
