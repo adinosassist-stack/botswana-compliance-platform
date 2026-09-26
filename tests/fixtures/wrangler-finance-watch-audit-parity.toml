@@ -1,0 +1,11 @@
+name = "thebe-finance-watch-audit-parity"
+main = "./finance-watch-audit-d1-worker.mjs"
+compatibility_date = "2026-09-03"
+
+[vars]
+AUDIT_INTEGRITY_SECRET = "finance-watch-local-d1-audit-integrity-secret"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "thebe-finance-watch-audit-parity"
+database_id = "00000000-0000-0000-0000-000000000002"
