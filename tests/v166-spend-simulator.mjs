@@ -2,25 +2,25 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import {execFileSync} from "node:child_process";
 import {__moneyIntelligenceTest as money} from "../cloudflare/src/money-intelligence.js";
-import {__v166Test as worker} from "../cloudflare/src/worker.js";
 
 for(const path of [
   "cloudflare/src/money-intelligence.js",
   "cloudflare/src/worker.js",
+  "cloudflare/src/agentic-core.js",
   "cloudflare/src/business-context.js"
 ]){
   execFileSync(process.execPath,["--check",path],{stdio:"pipe"});
 }
 
-assert.equal(worker.extractSingleBwpAmountMinor("Can I spend P20,000 this week?"),2000000);
-assert.equal(worker.extractSingleBwpAmountMinor("What happens if I buy equipment for P20k?"),2000000);
-assert.equal(worker.extractSingleBwpAmountMinor("Can the business spend 20,000 pula?"),2000000);
-assert.equal(worker.extractSingleBwpAmountMinor("What if it costs BWP 1,250.50?"),125050);
-assert.equal(worker.extractSingleBwpAmountMinor("P20,000 now and P25,000 later"),null);
-assert.equal(worker.extractSingleBwpAmountMinor("Can I spend 20000 this week?"),null);
-assert.equal(worker.extractSingleBwpAmountMinor("Monthly revenue is P20,000."),null);
-assert.equal(worker.extractSingleBwpAmountMinor("Invoice balance is BWP 20,000."),null);
-assert.equal(worker.extractSingleBwpAmountMinor("Can I spend P20,000 if the quote is also P20,000?"),2000000);
+assert.equal(money.extractSpendWhatIfBwpMinor("Can I spend P20,000 this week?"),2000000);
+assert.equal(money.extractSpendWhatIfBwpMinor("What happens if I buy equipment for P20k?"),2000000);
+assert.equal(money.extractSpendWhatIfBwpMinor("Can the business spend 20,000 pula?"),2000000);
+assert.equal(money.extractSpendWhatIfBwpMinor("What if it costs BWP 1,250.50?"),125050);
+assert.equal(money.extractSpendWhatIfBwpMinor("P20,000 now and P25,000 later"),null);
+assert.equal(money.extractSpendWhatIfBwpMinor("Can I spend 20000 this week?"),null);
+assert.equal(money.extractSpendWhatIfBwpMinor("Monthly revenue is P20,000."),null);
+assert.equal(money.extractSpendWhatIfBwpMinor("Invoice balance is BWP 20,000."),null);
+assert.equal(money.extractSpendWhatIfBwpMinor("Can I spend P20,000 if the quote is also P20,000?"),2000000);
 
 const envelope={
   ready:true,state:"available",horizonDays:7,
@@ -78,14 +78,22 @@ assert.equal(invalid.proposedSpendMinor,null);
 
 const workerSource=fs.readFileSync("cloudflare/src/worker.js","utf8");
 assert.match(workerSource,/proposedSpendScenario/);
-assert.match(workerSource,/extractSingleBwpAmountMinor/);
+assert.match(workerSource,/extractSpendWhatIfBwpMinor/);
 assert.match(workerSource,/use its deterministic arithmetic for that exact BWP amount/);
 assert.match(workerSource,/if it is blocked, explain the blockers and do not invent a result/);
 assert.match(workerSource,/roleAllowed\(a,"owner","manager"\)\?extractSingleBwpAmountMinor/);
 assert.doesNotMatch(workerSource,/spendingAuthorization\s*:\s*true/);
 
+const agenticSource=fs.readFileSync("cloudflare/src/agentic-core.js","utf8");
+assert.match(agenticSource,/extractSpendWhatIfBwpMinor\(goal\)/);
+assert.match(agenticSource,/observation\.spendWhatIf=simulateWeeklySpendDecision/);
+assert.match(agenticSource,/channelParity:"web_voice_whatsapp"/);
+assert.match(agenticSource,/never treat it as spending authorization or financial advice/);
+assert.doesNotMatch(agenticSource,/executionEnabled:true/);
+
 const moneySource=fs.readFileSync("cloudflare/src/money-intelligence.js","utf8");
 assert.match(moneySource,/MONEY_INTELLIGENCE_VERSION="2026-09-26\.v6"/);
+assert.match(moneySource,/export function extractSpendWhatIfBwpMinor/);
 assert.match(moneySource,/export function simulateWeeklySpendDecision/);
 assert.match(moneySource,/comparison_to_fail_closed_weekly_discretionary_planning_envelope/);
 assert.doesNotMatch(moneySource,/paymentInitiated:true/);
