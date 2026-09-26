@@ -90,18 +90,21 @@ export async function removeBusinessMemory({env,tenantId,userId,itemId,id=()=>cr
     return frozen({ok:true,removed:true});
   }catch{return frozen({ok:false,error:"business_memory_remove_failed"})}
 }
-export async function handleBusinessMemoryRequest({request,url,env,auth,json,readJson,roleAllowed,id}={}){
+export async function handleBusinessMemoryRequest({request,url,env,auth,json,readJson,roleAllowed,id,writeAudit}={}){
   if(!url.pathname.startsWith("/api/business-memory"))return null;
   if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
   if(url.pathname==="/api/business-memory"&&request.method==="GET")return json(await listBusinessMemory(env,auth.tenant_id));
+  if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);
   if(url.pathname==="/api/business-memory"&&request.method==="POST"){
-    let body;try{body=await readJson(request)}catch(error){return json({error:error?.message||"invalid_json"},400)}
+    let body;try{body=await readJson(request)}catch(error){const code=error?.message||"invalid_json";return json({error:code},code==="request_too_large"?413:code==="unsupported_content_encoding"?415:400)}
     const result=await confirmBusinessMemory({env,tenantId:auth.tenant_id,userId:auth.user_id,namespace:body?.namespace,key:body?.key,value:body?.value,id});
+    if(result.ok&&typeof writeAudit==="function")await writeAudit(env,auth.tenant_id,auth.user_id,"BUSINESS_MEMORY_CONFIRMED",{itemId:result.itemId,namespace:result.namespace,key:result.key,valueHash:result.valueHash});
     return result.ok?json(result,201):json({error:result.error},result.error==="business_memory_write_failed"?503:400);
   }
   const match=url.pathname.match(/^\/api\/business-memory\/([a-zA-Z0-9-]{8,120})$/);
   if(match&&request.method==="DELETE"){
     const result=await removeBusinessMemory({env,tenantId:auth.tenant_id,userId:auth.user_id,itemId:match[1],id});
+    if(result.ok&&result.removed&&typeof writeAudit==="function")await writeAudit(env,auth.tenant_id,auth.user_id,"BUSINESS_MEMORY_REMOVED",{itemId:match[1]});
     return result.ok?json(result):json({error:result.error},503);
   }
   return json({error:"not_found"},404);
