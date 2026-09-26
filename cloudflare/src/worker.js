@@ -5484,7 +5484,7 @@ export default {
       if(req.method==="GET"&&!restrictedWorkspaceReadAllowed(url.pathname,a.role))return json({error:"workspace_role_read_forbidden"},403);
       if(!["GET","HEAD","OPTIONS"].includes(req.method)&&!restrictedWorkspaceMutationAllowed(url.pathname,req.method,a.role))return json({error:"workspace_role_mutation_forbidden"},403);
       if(!evidenceUploadsEnabled(env)&&evidenceMutationDisabled(url,req.method))return json({error:"evidence_uploads_temporarily_disabled",evidenceUploadsEnabled:false},503);
-      const businessMemoryResponse=await handleBusinessMemoryRequest({request:req,url,env,auth:a,json,readJson,roleAllowed,id});
+      const businessMemoryResponse=await handleBusinessMemoryRequest({request:req,url,env,auth:a,json,readJson,roleAllowed,id,writeAudit});
       if(businessMemoryResponse)return businessMemoryResponse;
       const businessContextResponse=await handleBusinessContextRequest({request:req,url,env,auth:a,json,roleAllowed});
       if(businessContextResponse)return businessContextResponse;
