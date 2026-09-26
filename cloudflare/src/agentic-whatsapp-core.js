@@ -2,6 +2,7 @@ import {AGENT_ACTION_CATALOG,THEBE_AGENTS} from "./agent-policy.js";
 import {evaluateAgentRuntimeGuard} from "./agent-runtime-guard.js";
 import {executeAgentReadTool} from "./agent-read-tools.js";
 import {prepareFinanceReconciliationForPrincipal} from "./agentic-finance-reconciliation.js";
+import {buildBusinessContext,buildDailyBusinessBrief,businessBriefText} from "./business-context.js";
 
 const MAX_BODY_BYTES=4096;
 const WHATSAPP_READ_ACTIONS=Object.freeze({
@@ -272,39 +273,26 @@ export async function prepareWhatsAppReconciliationForPrincipal({env,auth,payloa
 }
 
 async function ownerSnapshot(env,tenantId){
-  const [finance,reconciliation,compliance,workflows,performance]=await Promise.all([
-    env.DB.prepare(`SELECT COALESCE(SUM(a.opening_balance_minor+COALESCE(t.net,0)),0) cash_position_minor,COUNT(a.id) account_count
-      FROM finance_accounts a
-      LEFT JOIN (SELECT account_id,SUM(amount_minor) net FROM finance_transactions WHERE tenant_id=? GROUP BY account_id) t ON t.account_id=a.id
-      WHERE a.tenant_id=? AND a.status='active'`).bind(tenantId,tenantId).first(),
-    env.DB.prepare(`SELECT COUNT(*) exception_count,COALESCE(SUM(ABS(difference_minor)),0) exposure_minor,MAX(created_at) latest_reconciliation_at
-      FROM finance_reconciliation_runs WHERE tenant_id=? AND status='exception'`).bind(tenantId).first(),
-    env.DB.prepare(`SELECT
-      SUM(CASE WHEN status NOT IN ('completed','closed') AND due_at<CURRENT_TIMESTAMP THEN 1 ELSE 0 END) overdue_count,
-      SUM(CASE WHEN status NOT IN ('completed','closed') AND due_at>=CURRENT_TIMESTAMP AND due_at<datetime('now','+14 days') THEN 1 ELSE 0 END) due_14d_count
-      FROM compliance_obligations WHERE tenant_id=?`).bind(tenantId).first(),
-    env.DB.prepare(`SELECT
-      SUM(CASE WHEN status IN ('queued','pending','retry') THEN 1 ELSE 0 END) pending_count,
-      SUM(CASE WHEN status IN ('failed','dead') THEN 1 ELSE 0 END) failed_count
-      FROM workflow_jobs WHERE tenant_id=?`).bind(tenantId).first(),
-    env.DB.prepare(`SELECT COUNT(*) critical_count FROM performance_insights
-      WHERE tenant_id=? AND status IN ('open','acknowledged') AND severity='critical'`).bind(tenantId).first()
-  ]);
+  const context=await buildBusinessContext(env,tenantId,{actorRole:"owner"});
+  const brief=buildDailyBusinessBrief(context),finance=context.finance||{},reconciliation=finance.reconciliation||{},receivables=finance.receivables||{},operations=context.operations||{},compliance=context.compliance||{};
   return {
     kind:"owner_daily_brief",
-    observedAt:new Date().toISOString(),
+    observedAt:context.observedAt,
     currency:"BWP",
-    cashPositionMinor:Number(finance?.cash_position_minor||0),
-    financeAccountCount:Number(finance?.account_count||0),
-    reconciliationExceptions:Number(reconciliation?.exception_count||0),
-    reconciliationExposureMinor:Number(reconciliation?.exposure_minor||0),
-    latestReconciliationAt:reconciliation?.latest_reconciliation_at||null,
-    overdueCompliance:Number(compliance?.overdue_count||0),
-    complianceDue14d:Number(compliance?.due_14d_count||0),
-    pendingWorkflows:Number(workflows?.pending_count||0),
-    failedWorkflows:Number(workflows?.failed_count||0),
-    criticalPerformanceSignals:Number(performance?.critical_count||0),
-    sourceRefs:["finance_accounts","finance_transactions","finance_reconciliation_runs","compliance_obligations","workflow_jobs","performance_insights"]
+    cashPositionMinor:Number(finance.cashPositionMinor||0),
+    financeAccountCount:Array.isArray(finance.accounts)?finance.accounts.length:0,
+    reconciliationExceptions:Number(reconciliation.unresolvedCount||0),
+    reconciliationExposureMinor:Number(reconciliation.unresolvedExposureMinor||0),
+    latestReconciliationAt:reconciliation?.lastRun?.created_at||null,
+    receivablesOutstandingMinor:Number(receivables.outstandingMinor||0),
+    receivablesOverdueMinor:Number(receivables.overdueMinor||0),
+    overdueCompliance:Number(compliance.overdueCount||0),
+    complianceDue14d:Number(compliance.dueWithin14Days||0),
+    pendingWorkflows:Number(operations.pendingWorkflowCount||0),
+    failedWorkflows:Number(operations.failedWorkflowCount||0),
+    criticalPerformanceSignals:Number(operations.criticalPerformanceSignals||0),
+    brief,
+    sourceRefs:Array.from(new Set([...(context.provenance?.authoritative||[]),...(context.provenance?.ownerEntered||[])]))
   };
 }
 
@@ -362,13 +350,13 @@ async function snapshotForPurpose(env,tenantId,purpose){
 function buildDraft(purpose,snapshot,{date=gaboroneDate()}={}){
   const footer="Review in Thebe Desk before sending or acting.";
   if(purpose==="owner_daily_brief"){
-    return [
+    return snapshot?.brief?businessBriefText(snapshot.brief):[
       `Thebe Desk owner brief · ${date}`,
       `Recorded cash: ${pula(snapshot.cashPositionMinor)} across ${Number(snapshot.financeAccountCount||0)} account(s).`,
+      `Customer receivables: ${pula(snapshot.receivablesOutstandingMinor)} outstanding; ${pula(snapshot.receivablesOverdueMinor)} overdue.`,
       `Reconciliation: ${Number(snapshot.reconciliationExceptions||0)} exception(s), ${pula(snapshot.reconciliationExposureMinor)} exposure.`,
       `Compliance: ${Number(snapshot.overdueCompliance||0)} overdue, ${Number(snapshot.complianceDue14d||0)} due within 14 days.`,
       `Operations: ${Number(snapshot.pendingWorkflows||0)} pending, ${Number(snapshot.failedWorkflows||0)} failed workflow(s).`,
-      `Critical business signals: ${Number(snapshot.criticalPerformanceSignals||0)}.`,
       footer
     ].join("\n");
   }
