@@ -233,10 +233,11 @@
     "test:finance-watch-verifier": "node tests/v125-finance-watch-verifier.mjs",
     "test:finance-watch-change-detector": "node tests/v126-finance-watch-change-detector.mjs",
     "test:finance-watch-recovery": "node tests/v127-finance-watch-recovery.mjs",
-    "test:super-agent-watch-stack": "npm run test:super-agent-finance-watcher && npm run test:persistent-finance-observer && npm run test:finance-exception-detector && npm run test:agent-observation-checkpoints && npm run test:owner-exception-inbox && npm run test:finance-watch-budget && npm run test:finance-watch-verifier && npm run test:finance-watch-change-detector && npm run test:finance-watch-recovery && npm run test:governed-finance-observation-runner && npm run test:finance-watch-durable-loop && npm run test:finance-watch-scheduler",
+    "test:super-agent-watch-stack": "npm run test:super-agent-finance-watcher && npm run test:persistent-finance-observer && npm run test:finance-exception-detector && npm run test:agent-observation-checkpoints && npm run test:owner-exception-inbox && npm run test:finance-watch-budget && npm run test:finance-watch-verifier && npm run test:finance-watch-change-detector && npm run test:finance-watch-recovery && npm run test:governed-finance-observation-runner && npm run test:finance-watch-durable-loop && npm run test:finance-watch-scheduler && npm run test:finance-watch-canonical-schedule",
     "test:governed-finance-observation-runner": "node tests/v128-governed-finance-observation-runner.mjs",
     "test:finance-watch-durable-loop": "node tests/v129-finance-watch-durable-loop.mjs",
-    "test:finance-watch-scheduler": "node tests/v130-finance-watch-scheduler-integration.mjs"
+    "test:finance-watch-scheduler": "node tests/v130-finance-watch-scheduler-integration.mjs",
+    "test:finance-watch-canonical-schedule": "node tests/v131-finance-watch-canonical-schedule.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1126.0",
