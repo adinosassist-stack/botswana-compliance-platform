@@ -1,4 +1,4 @@
-export const MONEY_INTELLIGENCE_VERSION="2026-09-26.v3";
+export const MONEY_INTELLIGENCE_VERSION="2026-09-26.v4";
 const frozen=value=>Object.freeze(value);
 const number=value=>Number.isFinite(Number(value))?Number(value):0;
 const clean=(value,max=180)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
@@ -183,6 +183,79 @@ function expenseCategoryLearning(rows=[],currentOutflow=0){
     accountingClassification:false
   });
 }
+function supplierSpendTrend(rows=[]){
+  return frozen((rows||[]).map(row=>{
+    const currentOutflowMinor=number(row?.current_outflow_minor),priorOutflowMinor=number(row?.prior_outflow_minor);
+    const currentTransactionCount=Math.max(0,number(row?.current_count)),priorTransactionCount=Math.max(0,number(row?.prior_count));
+    const changePct=priorOutflowMinor>0?(currentOutflowMinor-priorOutflowMinor)/priorOutflowMinor:null;
+    const absoluteChangeMinor=currentOutflowMinor-priorOutflowMinor;
+    const enoughHistory=currentTransactionCount>=2&&priorTransactionCount>=2;
+    const attention=enoughHistory&&changePct!=null&&changePct>=0.25&&absoluteChangeMinor>=100000
+      ?"increase"
+      :enoughHistory&&changePct!=null&&changePct<=-0.25&&absoluteChangeMinor<=-100000
+        ?"decrease"
+        :(enoughHistory?"stable":"sparse_history");
+    return frozen({
+      supplierId:clean(row?.supplier_id,120),supplierName:clean(row?.supplier_name,160),
+      expenseCategory:clean(row?.expense_category,60)||"other",
+      current30OutflowMinor,prior30OutflowMinor,currentTransactionCount,priorTransactionCount,
+      currentAverageTransactionMinor:currentTransactionCount?Math.round(currentOutflowMinor/currentTransactionCount):null,
+      priorAverageTransactionMinor:priorTransactionCount?Math.round(priorOutflowMinor/priorTransactionCount):null,
+      changePct:changePct==null?null:Math.round(changePct*1000)/1000,
+      absoluteChangeMinor,
+      enoughHistory,
+      attention,
+      matchAuthority:"owner_confirmed_supplier_alias_exact_match",
+      unitPriceInflationClaimed:false,
+      qualification:"Change in total recorded supplier-matched cash outflow can reflect volume, timing or price. It is not a unit-price inflation measure."
+    });
+  }).sort((a,b)=>{
+    const rank=value=>value==="increase"?0:value==="stable"?1:value==="decrease"?2:3;
+    return rank(a.attention)-rank(b.attention)||Math.abs(b.absoluteChangeMinor)-Math.abs(a.absoluteChangeMinor);
+  }));
+}
+
+function payableSupplierConcentration(payables={}){
+  const total=Math.max(0,number(payables?.outstandingMinor)),suppliers=Array.isArray(payables?.suppliers)?payables.suppliers:[];
+  const top=suppliers[0];
+  if(!top||total<=0)return frozen({available:false,totalOutstandingMinor:total,topSupplier:null});
+  const amount=Math.max(0,number(top?.outstandingMinor)),share=amount/total;
+  return frozen({
+    available:true,totalOutstandingMinor:total,
+    topSupplier:frozen({
+      supplierId:clean(top?.supplierId,120),supplierName:clean(top?.supplierName,160),
+      outstandingMinor:amount,overdueMinor:Math.max(0,number(top?.overdueMinor)),
+      outstandingPayableCount:Math.max(0,number(top?.outstandingPayableCount)),
+      shareOfOutstanding:Math.round(share*1000)/1000
+    }),
+    supplierRowsShown:suppliers.length,
+    supplierCount:Math.max(0,number(payables?.supplierCount)),
+    canonical:true,
+    supplierIdentity:"finance_suppliers"
+  });
+}
+
+function cashCommitmentStress({cashPositionMinor=0,cashCalendar={},minimumCashBufferMinor=null}={}){
+  const cash=number(cashPositionMinor),committed14=Math.max(0,number(cashCalendar?.next14?.committedOutflowMinor));
+  const after14=cash-committed14,coverage=committed14>0?cash/committed14:null;
+  const buffer=minimumCashBufferMinor==null?null:Math.max(0,number(minimumCashBufferMinor));
+  const after14VsBuffer=buffer==null?null:after14-buffer;
+  return frozen({
+    basis:"recorded_cash_position_vs_recorded_overdue_and_next_14_day_supplier_payables",
+    cashPositionMinor:cash,
+    committed14dMinor:committed14,
+    cashAfterCommitted14dMinor:after14,
+    coverageRatio:coverage==null?null:Math.round(coverage*1000)/1000,
+    shortfallMinor:Math.max(0,-after14),
+    minimumCashBufferMinor:buffer,
+    cashAfterCommittedVsOwnerBufferMinor:after14VsBuffer,
+    supplierPayablesOnly:true,
+    excludesOtherFutureOutflows:true,
+    receivablesAssumedCollected:false,
+    formalForecast:false
+  });
+}
+
 function forwardCashCalendar({businessDate,cashPositionMinor=0,payables={},receivables={},collectionBehaviors=[]}={}){
   const behaviorByCustomer=new Map((collectionBehaviors||[]).map(item=>[String(item.customerId||""),item]));
   const events=[];
@@ -282,9 +355,9 @@ export async function buildMoneyIntelligence(env,tenantId,{businessDate,cashPosi
   const debitCount=Math.max(0,number(aggregate?.current_debit_count));
   const avgDebit=debitCount?currentOutflow/debitCount:0;
   const threshold=Math.max(500000,Math.round(avgDebit*2.5));
-  let largeDebits=[],concentrationRows=[],collectionRows=[],expenseRows=[];
+  let largeDebits=[],concentrationRows=[],collectionRows=[],expenseRows=[],supplierTrendRows=[];
   try{
-    const [largeResult,concentrationResult,collectionResult,expenseResult]=await Promise.all([
+    const [largeResult,concentrationResult,collectionResult,expenseResult,supplierTrendResult]=await Promise.all([
       env.DB.prepare(`SELECT id,posted_on,description,reference,amount_minor
         FROM finance_transactions
         WHERE tenant_id=? AND posted_on>=date(?,'-29 days') AND posted_on<=date(?)
@@ -340,7 +413,23 @@ export async function buildMoneyIntelligence(env,tenantId,{businessDate,cashPosi
         JOIN finance_suppliers s ON s.id=m.supplier_id AND s.status='active'
         GROUP BY s.id,s.name,s.default_expense_category
         ORDER BY total_outflow_minor DESC LIMIT 20`)
-        .bind(tenantId,businessDate,businessDate).all()
+        .bind(tenantId,businessDate,businessDate).all(),
+      env.DB.prepare(`WITH matched AS (
+          SELECT DISTINCT t.id transaction_id,t.posted_on,ABS(t.amount_minor) outflow_minor,a.supplier_id
+          FROM finance_transactions t
+          JOIN finance_supplier_aliases a ON a.tenant_id=t.tenant_id
+            AND (LOWER(TRIM(t.description))=LOWER(TRIM(a.alias_text)) OR LOWER(TRIM(t.reference))=LOWER(TRIM(a.alias_text)))
+          WHERE t.tenant_id=? AND t.posted_on>=date(?,'-59 days') AND t.posted_on<=date(?) AND t.amount_minor<0
+        )
+        SELECT s.id supplier_id,s.name supplier_name,s.default_expense_category expense_category,
+          SUM(CASE WHEN m.posted_on>=date(?,'-29 days') THEN m.outflow_minor ELSE 0 END) current_outflow_minor,
+          SUM(CASE WHEN m.posted_on>=date(?,'-29 days') THEN 1 ELSE 0 END) current_count,
+          SUM(CASE WHEN m.posted_on<date(?,'-29 days') THEN m.outflow_minor ELSE 0 END) prior_outflow_minor,
+          SUM(CASE WHEN m.posted_on<date(?,'-29 days') THEN 1 ELSE 0 END) prior_count
+        FROM matched m JOIN finance_suppliers s ON s.id=m.supplier_id AND s.status='active'
+        GROUP BY s.id,s.name,s.default_expense_category
+        ORDER BY current_outflow_minor DESC,prior_outflow_minor DESC,s.name ASC LIMIT 20`)
+        .bind(tenantId,businessDate,businessDate,businessDate,businessDate,businessDate,businessDate).all()
     ]);
     largeDebits=(largeResult.results||[]).map(row=>frozen({
       id:clean(row?.id,120),postedOn:dateOnly(row?.posted_on),description:clean(row?.description,120),
@@ -349,6 +438,7 @@ export async function buildMoneyIntelligence(env,tenantId,{businessDate,cashPosi
     concentrationRows=concentrationResult.results||[];
     collectionRows=collectionResult.results||[];
     expenseRows=expenseResult.results||[];
+    supplierTrendRows=supplierTrendResult.results||[];
   }catch{
     return frozen({version:MONEY_INTELLIGENCE_VERSION,available:false,error:"finance_transactions_unavailable"});
   }
@@ -366,7 +456,10 @@ export async function buildMoneyIntelligence(env,tenantId,{businessDate,cashPosi
   const debitConcentrations=debitConcentration(concentrationRows,currentOutflow);
   const collectionBehaviors=collectionBehavior(collectionRows,businessDate);
   const expenseLearning=expenseCategoryLearning(expenseRows,currentOutflow);
+  const supplierSpendTrends=supplierSpendTrend(supplierTrendRows);
+  const payableConcentration=payableSupplierConcentration(payables);
   const cashCalendar=forwardCashCalendar({businessDate,cashPositionMinor,payables,receivables,collectionBehaviors});
+  const commitmentStress=cashCommitmentStress({cashPositionMinor,cashCalendar,minimumCashBufferMinor:assumptions.minimumCashBufferMinor});
   const signals=[];
   if(trend.outflowChangePct!=null&&trend.outflowChangePct>=0.25)signals.push(frozen({key:"outflow_acceleration",severity:"medium",detail:`Recorded 30-day outflows are ${Math.round(trend.outflowChangePct*100)}% above the previous 30-day period.`,source:"finance_transactions"}));
   if(trend.largeDebits.length)signals.push(frozen({key:"large_debits",severity:"medium",detail:`${trend.largeDebits.length} recent debit(s) exceed the deterministic large-debit threshold.`,source:"finance_transactions"}));
@@ -382,6 +475,27 @@ export async function buildMoneyIntelligence(env,tenantId,{businessDate,cashPosi
   if(customerAttention)signals.push(frozen({key:"collection_attention",severity:"medium",detail:`${customerAttention.customerName||"A customer"} has overdue receivables and weaker historical on-time payment behavior. This is an attention signal, not a payment probability.`,source:"finance_invoices_plus_allocations"}));
   const learnedCategory=expenseLearning.categories[0];
   if(learnedCategory?.shareOfCurrent30Outflow!=null&&learnedCategory.shareOfCurrent30Outflow>=0.5)signals.push(frozen({key:"expense_category_concentration",severity:"medium",detail:`${clean(learnedCategory.expenseCategory,60)} represents ${Math.round(learnedCategory.shareOfCurrent30Outflow*100)}% of 30-day outflows matched through owner-confirmed supplier aliases. This is not an accounting posting.`,source:"finance_transactions_plus_confirmed_supplier_aliases"}));
+  const supplierIncrease=supplierSpendTrends.find(item=>item.attention==="increase");
+  if(supplierIncrease)signals.push(frozen({
+    key:"supplier_outflow_acceleration",severity:"medium",
+    detail:`${supplierIncrease.supplierName||"A confirmed supplier"} matched cash outflow increased ${Math.round(Number(supplierIncrease.changePct||0)*100)}% versus the prior 30 days, an absolute increase of ${Math.round(Number(supplierIncrease.absoluteChangeMinor||0))} minor units. This can reflect volume, timing or price and is not a unit-price inflation claim.`,
+    source:"finance_transactions_plus_owner_confirmed_supplier_aliases"
+  }));
+  if(payableConcentration?.topSupplier?.shareOfOutstanding>=0.5&&payableConcentration?.topSupplier?.outstandingPayableCount>=1)signals.push(frozen({
+    key:"supplier_payable_concentration",severity:"medium",
+    detail:`${payableConcentration.topSupplier.supplierName||"One supplier"} represents ${Math.round(payableConcentration.topSupplier.shareOfOutstanding*100)}% of recorded outstanding supplier payables.`,
+    source:"finance_payables"
+  }));
+  if(commitmentStress.shortfallMinor>0)signals.push(frozen({
+    key:"payable_cover_shortfall_14d",severity:"high",
+    detail:`Recorded cash is short of recorded overdue and next-14-day supplier payables by ${Math.round(commitmentStress.shortfallMinor)} minor units. This comparison excludes other future outflows and assumes no receivables are collected.`,
+    source:"finance_accounts_plus_finance_payables"
+  }));
+  else if(commitmentStress.coverageRatio!=null&&commitmentStress.coverageRatio<1.25)signals.push(frozen({
+    key:"payable_cover_tight_14d",severity:"medium",
+    detail:`Recorded cash covers recorded overdue and next-14-day supplier payables by ${commitmentStress.coverageRatio.toFixed(2)}x. This is a payable-cover signal, not a full liquidity forecast.`,
+    source:"finance_accounts_plus_finance_payables"
+  }));
   return frozen({
     version:MONEY_INTELLIGENCE_VERSION,
     available:true,
@@ -394,10 +508,13 @@ export async function buildMoneyIntelligence(env,tenantId,{businessDate,cashPosi
     debitConcentrations,
     collectionBehaviors,
     expenseLearning,
+    supplierSpendTrends,
+    payableConcentration,
     cashCalendar,
+    commitmentStress,
     payables:frozen({available:payables?.available===true,outstandingMinor:number(payables?.outstandingMinor),overdueMinor:number(payables?.overdueMinor),due7dMinor:number(payables?.due7dMinor),due14dMinor:number(payables?.due14dMinor),due30dMinor:number(payables?.due30dMinor),supplierCount:number(payables?.supplierCount)}),
     signals:frozen(signals),
     authority:frozen({readOnly:true,executionAllowed:false,forecast:false,scenarioProjection:true,accountingMargin:false,accountingPosting:false,supplierPayments:false,financialAdvice:false})
   });
 }
-export const __moneyIntelligenceTest=frozen({summarizeTransactions,assumptionMetrics,cashScenario,ownerCommitments,debitConcentration,collectionBehavior,expenseCategoryLearning,forwardCashCalendar,pctChange});
+export const __moneyIntelligenceTest=frozen({summarizeTransactions,assumptionMetrics,cashScenario,ownerCommitments,debitConcentration,collectionBehavior,expenseCategoryLearning,supplierSpendTrend,payableSupplierConcentration,cashCommitmentStress,forwardCashCalendar,pctChange});
