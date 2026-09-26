@@ -14,7 +14,7 @@ for(const script of coreWorkspaceScripts){
 assert.ok(!html.includes('src="js/')&&!html.includes("src=\'js/"),"workspace core scripts must not resolve under /app/js/");
 
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
-const runtime=fs.readFileSync("public/js/workspace-runtime-20260923m.js","utf8");
+const runtime=fs.readFileSync("public/js/workspace-runtime-20260926a.js","utf8");
 const delegatedEvents=fs.readFileSync("public/js/event-delegation.js","utf8");
 assert.match(delegatedEvents,/\'linkSocial\'/,"social connect action must remain in delegated event allowlist");
 
@@ -37,9 +37,9 @@ const canonicalViews=[...html.matchAll(/<section\b([^>]*)>/gi)].map(match=>{
   const cls=(attrs.match(/\bclass=["']([^"']+)["']/i)||[])[1]||"";
   return {id,cls,start:match.index};
 }).filter(view=>/\bview\b/.test(view.cls));
-assert.equal(canonicalViews.length,68,"canonical workspace view count changed; reassess lazy-view boundary");
-const primaryResidentViews=["dashboard","workhub","sites","peopleops","businesshub","obligations","evidencehub","automationhub"];
-assert.deepEqual(fragments.residentViews,primaryResidentViews,"primary workspace navigation must remain resident and independent of fragment delivery");
+assert.equal(canonicalViews.length,71,"canonical workspace view count changed; reassess lazy-view boundary");
+const primaryResidentViews=["dashboard","moneyhub","workhub","sites","peopleops","protecthub","businesshub","obligations","evidencehub","automationhub","propertyintelligence"];
+assert.deepEqual(fragments.residentViews,primaryResidentViews,"owner/context workspace views must remain resident and independent of fragment delivery");
 const lazyViews=canonicalViews.filter(view=>!fragments.residentViews.includes(view.id));
 assert.equal(lazyViews.length,60,"expected only 60 deep workspace views to remain lazy");
 assert.deepEqual(Object.keys(fragments.views).sort(),lazyViews.map(view=>view.id).sort(),"fragment bundle must cover every lazy view exactly once");
@@ -55,7 +55,7 @@ assert.ok(production.includes('const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/wor
 assert.ok(production.includes("function workspaceViewShard(id){"));
 assert.ok(production.includes("const workspaceViewShardPromises=new Map();"));
 assert.ok(production.includes("async function workspaceViewFragments(id){"));
-assert.ok(production.includes('const WORKSPACE_RESIDENT_VIEW_IDS=Object.freeze(["dashboard","workhub","sites","peopleops","businesshub","obligations","evidencehub","automationhub"]);'));
+assert.ok(production.includes('const WORKSPACE_RESIDENT_VIEW_IDS=Object.freeze(["dashboard","moneyhub","workhub","sites","peopleops","protecthub","businesshub","obligations","evidencehub","automationhub","propertyintelligence"]);'),"production resident-view inventory must include Money, Protect and Property Intelligence");
 const lazyConstant=(production.match(/const WORKSPACE_LAZY_VIEW_IDS=Object\.freeze\((\[[^\n]+\])\);/)||[])[1];
 assert.ok(lazyConstant,"production lazy-view constant must remain parseable");
 const productionLazyViews=JSON.parse(lazyConstant);
@@ -87,7 +87,7 @@ const peopleCanonical=html.slice(sectionBounds(html,canonicalViews.find(view=>vi
 assert.match(peopleCanonical,/People & operations/,"resident People content must remain in canonical workspace HTML");
 assert.doesNotMatch(peopleCanonical,/Ruleset integrity|Sources in this prototype/i,"resident People content must not contain regulatory source prototype copy");
 assert.match(String(fragmentShards[viewShard("sources")].views.sources||""),/Authoritative source registry/,"source governance content must remain scoped to the Sources view");
-assert.ok(production.includes('const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20260923m.js";'),"workspace runtime identity must rotate with injected runtime behavior");
+assert.ok(production.includes('const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20260926a.js";'),"workspace runtime identity must rotate with injected runtime behavior");
 assert.match(production,/window\.BW\?\.dom\?\.renderMarkup/,"hydration must use the sanctioned DOM sanitizer");
 assert.match(runtime,/let workspaceViewNavigationEpoch=0/,"static versioned runtime must carry lazy navigation state");
 assert.match(runtime,/function hydrateLazyWorkspaceView\(id,target,options=\{\}\)/,"static versioned runtime must hydrate lazy views itself");

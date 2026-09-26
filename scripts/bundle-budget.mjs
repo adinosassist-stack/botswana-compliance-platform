@@ -1,7 +1,7 @@
 import fs from "node:fs";import path from "node:path";import zlib from "node:zlib";
 const root=process.cwd(),bytes=p=>fs.readFileSync(path.join(root,p)),kb=n=>Math.round(n/1024);
 let checks=0;const ok=(v,m)=>{checks++;if(!v)throw new Error(`FAIL ${checks}: ${m}`)};
-const worker=bytes("cloudflare/src/worker.js"),html=bytes("public/index.html"),workspaceRuntime=bytes("public/js/workspace-runtime-20260923m.js"),workspaceStyles=bytes("public/assets/workspace-inline-styles-20260924b.css"),workspaceViews=bytes("public/assets/workspace-view-fragments-20260923f.json");
+const worker=bytes("cloudflare/src/worker.js"),html=bytes("public/index.html"),workspaceRuntime=bytes("public/js/workspace-runtime-20260926a.js"),workspaceStyles=bytes("public/assets/workspace-inline-styles-20260926a.css"),workspaceViews=bytes("public/assets/workspace-view-fragments-20260923f.json");
 const workspaceViewShards=Array.from({length:12},(_,i)=>bytes(`public/assets/workspace-view-fragments-20260923f-${i}.json`));
 const htmlText=html.toString("utf8"),runtimeText=workspaceRuntime.toString("utf8"),stylesText=workspaceStyles.toString("utf8"),workspaceViewsPayload=JSON.parse(workspaceViews.toString("utf8"));
 const workspaceViewShardPayloads=workspaceViewShards.map(buffer=>JSON.parse(buffer.toString("utf8")));
@@ -14,14 +14,14 @@ const headEnd=htmlText.toLowerCase().indexOf("</head>");
 ok(headEnd>0,"canonical workspace head missing");
 const headText=htmlText.slice(0,headEnd);
 const canonicalStyles=[...headText.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)].map(match=>String(match[1]||"").replace(/^\n/,"").replace(/\s*$/,""));
-ok(canonicalStyles.length===48,`unexpected canonical workspace style count (${canonicalStyles.length})`);
+ok(canonicalStyles.length===49,`unexpected canonical workspace style count (${canonicalStyles.length})`);
 const normalizedStyles=canonicalStyles.join("\n\n")+"\n";
 ok(normalizedStyles===stylesText,"versioned workspace stylesheet must exactly match canonical head styles");
 
 const residentViews=new Set(workspaceViewsPayload.residentViews||[]);
 const lazyViewIds=Object.keys(workspaceViewsPayload.views||{});
 ok(workspaceViewsPayload.schema===1,"workspace view fragment schema mismatch");
-const expectedResident=["dashboard","workhub","sites","peopleops","businesshub","obligations","evidencehub","automationhub"];
+const expectedResident=["dashboard","moneyhub","workhub","sites","peopleops","protecthub","businesshub","obligations","evidencehub","automationhub","propertyintelligence"];
 ok(expectedResident.every(id=>residentViews.has(id))&&residentViews.size===expectedResident.length,"workspace resident view contract mismatch");
 ok(lazyViewIds.length===60,`unexpected lazy workspace view count (${lazyViewIds.length})`);
 function viewSectionBounds(source,start){
@@ -35,12 +35,12 @@ for(const id of lazyViewIds){
   const bounds=viewSectionBounds(htmlText,match.index);ok(!!bounds,`canonical lazy view bounds missing (${id})`);
   ok(htmlText.slice(bounds.openEnd,bounds.closeStart)===workspaceViewsPayload.views[id],`lazy view fragment drift (${id})`);
 }
-const runtimeExternalizedHtml=htmlText.replace(/<script id="thebe-workspace-runtime-inline">[\s\S]*?<\/script>/,'<script id="thebe-workspace-runtime" src="/js/workspace-runtime-20260923m.js"></script>');
+const runtimeExternalizedHtml=htmlText.replace(/<script id="thebe-workspace-runtime-inline">[\s\S]*?<\/script>/,'<script id="thebe-workspace-runtime" src="/js/workspace-runtime-20260926a.js"></script>');
 const runtimeHeadEnd=runtimeExternalizedHtml.toLowerCase().indexOf("</head>");
 const runtimeHead=runtimeExternalizedHtml.slice(0,runtimeHeadEnd),runtimeTail=runtimeExternalizedHtml.slice(runtimeHeadEnd);
 let styleCount=0;
-const deployedHead=runtimeHead.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,()=>{styleCount++;return styleCount===1?'<link id="thebe-workspace-inline-styles" rel="stylesheet" href="/assets/workspace-inline-styles-20260923a.css" />':""});
-ok(styleCount===48,`deployed workspace style extraction count mismatch (${styleCount})`);
+const deployedHead=runtimeHead.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,()=>{styleCount++;return styleCount===1?'<link id="thebe-workspace-inline-styles" rel="stylesheet" href="/assets/workspace-inline-styles-20260926a.css" />':""});
+ok(styleCount===49,`deployed workspace style extraction count mismatch (${styleCount})`);
 let deployedHtmlText=deployedHead+runtimeTail;
 const viewReplacements=[];
 for(const id of lazyViewIds){

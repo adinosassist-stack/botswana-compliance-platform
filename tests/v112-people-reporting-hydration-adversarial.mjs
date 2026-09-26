@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import {spawnSync} from "node:child_process";
 
-const runtime=fs.readFileSync("public/js/workspace-runtime-20260923m.js","utf8");
+const runtime=fs.readFileSync("public/js/workspace-runtime-20260926a.js","utf8");
 const html=fs.readFileSync("public/index.html","utf8");
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
 const fragments=JSON.parse(fs.readFileSync("public/assets/workspace-view-fragments-20260923f.json","utf8"));
@@ -24,7 +24,7 @@ function sectionInner(source,id){
 const peopleMarkup=sectionInner(html,"peopleops");
 const dailyMarkup=sectionInner(html,"dailyreports");
 
-const syntax=spawnSync(process.execPath,["--check","public/js/workspace-runtime-20260923m.js"],{encoding:"utf8"});
+const syntax=spawnSync(process.execPath,["--check","public/js/workspace-runtime-20260926a.js"],{encoding:"utf8"});
 assert.equal(syntax.status,0,syntax.stderr||syntax.stdout);
 
 // Pass 1: People owns the reporting setup DOM and must hydrate it on view open.
@@ -60,7 +60,7 @@ assert.match(helper,/Employee reporting access could not load/);
 assert.match(helper,/accessButton\.disabled=accessBlocked\|\|!locs\.length\|\|!emps\.length/);
 assert.match(helper,/Add an active employee first, then issue a reporting link/);
 assert.match(helper,/Add a location first, then issue a reporting link/);
-assert.match(production,/WORKSPACE_RUNTIME_ASSET="\/js\/workspace-runtime-20260923m\.js"/);
+assert.match(production,/WORKSPACE_RUNTIME_ASSET="\/js\/workspace-runtime-20260926a\.js"/);
 assert.match(runtime,/async function removeOpsLocation\(id\)/);
 assert.match(runtime,/removeOpsLocation/);
 assert.match(runtime,/Remove location\?/);

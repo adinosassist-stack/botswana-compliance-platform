@@ -20,9 +20,9 @@ for(const version of ["20260921b","20260921c"]){
   }
 }
 
-assert.ok(fs.existsSync("public/js/workspace-runtime-20260923m.js"));
+assert.ok(fs.existsSync("public/js/workspace-runtime-20260926a.js"));
 for(let i=0;i<12;i++)assert.ok(fs.existsSync(`public/assets/workspace-view-fragments-20260923f-${i}.json`));
-assert.match(production,/WORKSPACE_RUNTIME_ASSET="\/js\/workspace-runtime-20260923m\.js"/);
+assert.match(production,/WORKSPACE_RUNTIME_ASSET="\/js\/workspace-runtime-20260926a\.js"/);
 assert.match(production,/WORKSPACE_VIEW_FRAGMENT_PREFIX="\/assets\/workspace-view-fragments-20260923f-"/);
 
 assert.doesNotMatch(inbound,/intent\.kind==="unavailable"&&intent\.reason==="receivables"/);
