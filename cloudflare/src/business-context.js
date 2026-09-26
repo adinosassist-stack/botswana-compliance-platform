@@ -258,7 +258,7 @@ export function buildDailyBusinessBrief(context){
 }
 
 export function businessBriefText(brief){
-  const lines=[`Thebe business brief · ${brief?.businessDate||gaboroneDate()}`,clean(brief?.headline,1000)];
+  const lines=[`Thebe Desk owner brief · ${brief?.businessDate||gaboroneDate()}`,clean(brief?.headline,1000)];
   const priorities=Array.isArray(brief?.priorities)?brief.priorities.slice(0,3):[];
   if(priorities.length){
     lines.push("Attention:");
