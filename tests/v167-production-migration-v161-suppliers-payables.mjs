@@ -15,7 +15,7 @@ assert.match(workflow,/057_v157_business_memory_money_intelligence\.sql/);
 assert.match(workflow,/058_v161_finance_suppliers_payables\.sql/);
 assert.doesNotMatch(workflow,/latestSchemaDelta!=='058_v161_finance_suppliers_payables\.sql'/);
 
-assert.match(runner,/blob:'b8c7e706db5de370744adba095dc1c1e07feeb80'/);
+assert.match(runner,/blob:'376964783185388092116c9a1134c4120e13aec1'/);
 assert.match(runner,/verifyPrerequisites/);
 assert.match(runner,/business_memory_items/);
 assert.match(runner,/time_travel\/bookmark/);
@@ -36,5 +36,8 @@ for(const name of [
   'finance_payable_allocations'
 ])assert.match(migration,new RegExp(`CREATE TABLE IF NOT EXISTS ${name}`));
 assert.match(migration,/This migration grants no payment, approval, journal, procurement or other execution authority/);
+assert.doesNotMatch(migration,/SELECT \\(CASE WHEN/,'D1 trigger guards must use RAISE ... WHERE rather than CASE-wrapped RAISE expressions');
+assert.match(migration,/SELECT RAISE\\(ABORT,'finance_supplier_name_alias_collision'\\)\\s+WHERE EXISTS/);
+assert.match(migration,/SELECT RAISE\\(ABORT,'finance_payable_overallocation'\\)\\s+WHERE/);
 
 console.log('v167 guarded production migration 058 checks passed');
