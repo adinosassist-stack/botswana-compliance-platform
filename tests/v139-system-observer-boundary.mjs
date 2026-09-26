@@ -1,0 +1,10 @@
+import assert from "node:assert/strict";import {evaluateAgentAction} from "../cloudflare/src/agent-policy.js";import {executeAgentReadTool} from "../cloudflare/src/agent-read-tools.js";
+const base={agentKey:"thebe",actionKey:"financial_position.read",tenantScoped:true,phase:"phase1"};
+assert.equal(evaluateAgentAction({...base,actorRole:"system_observer"}).allowed,false);
+assert.equal(evaluateAgentAction({...base,actorRole:"system_observer"}).code,"system_actor_required");
+assert.equal(evaluateAgentAction({...base,actorRole:"system_observer",systemActor:true}).allowed,true);
+assert.equal(evaluateAgentAction({...base,actorRole:"owner"}).allowed,true);
+const db={prepare(){return{bind(){return{first:async()=>({cash_position_minor:0,account_count:0,reconciliation_count:0,exception_count:0,exception_exposure_minor:0}),all:async()=>({results:[]})}}}}};
+const denied=await executeAgentReadTool("financial_position.read",{env:{DB:db},auth:{tenant_id:"t1",role:"system_observer"}});
+assert.equal(denied.allowed,false);assert.equal(denied.error,"system_actor_required");
+console.log("v139 system observer boundary passed");

@@ -48,6 +48,7 @@ function policyDecision(actionKey,auth){
     actionKey,
     actorRole:String(auth?.role||"").toLowerCase(),
     tenantScoped:true,
+    systemActor:auth?.systemActor===true,
     phase:"phase1"
   });
 }

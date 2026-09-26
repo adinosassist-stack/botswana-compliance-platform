@@ -131,13 +131,14 @@ export function agentCanRouteAction(agentKey,actionDefinition){
 
 function deny(code,reason,actionDefinition=null){return Object.freeze({allowed:false,decision:"deny",code,reason,policyVersion:AGENT_POLICY_VERSION,action:actionDefinition,humanReviewRequired:Boolean(actionDefinition?.humanReviewRequired),explicitApprovalRequired:Boolean(actionDefinition?.explicitApprovalRequired),strongAuthRequired:Boolean(actionDefinition?.strongAuthRequired),externalSideEffect:Boolean(actionDefinition?.externalSideEffect)})}
 
-export function evaluateAgentAction({agentKey,actionKey,actorRole,tenantScoped=false,strongAuth=false,approvalState="none",phase="phase1"}={}){
+export function evaluateAgentAction({agentKey,actionKey,actorRole,tenantScoped=false,systemActor=false,strongAuth=false,approvalState="none",phase="phase1"}={}){
   const canonicalAgentKey=resolveAgentKey(agentKey);
   const agent=canonicalAgentKey?THEBE_AGENTS[canonicalAgentKey]:null;
   if(!agent)return deny("unknown_agent","Unknown agent; policy fails closed.");
   const definition=AGENT_ACTION_CATALOG[String(actionKey||"")]; if(!definition)return deny("unknown_action","Unknown action; policy fails closed.");
   if(tenantScoped!==true)return deny("tenant_scope_required","Agent actions require an authenticated tenant scope.",definition);
   const role=String(actorRole||"").trim().toLowerCase();
+  if(role==="system_observer"&&systemActor!==true)return deny("system_actor_required","The system observer role is reserved for trusted internal scheduled execution.",definition);
   if(!agentCanRouteAction(agentKey,definition))return deny("agent_action_mismatch","This request is not authorised for the action's capability.",definition);
   if(!agent.allowedRoles.includes(role)||!definition.roles.includes(role))return deny("role_forbidden","The current role is not authorised for this agent action.",definition);
   const launchPhase=String(phase||"phase1");
