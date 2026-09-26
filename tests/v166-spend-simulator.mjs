@@ -18,6 +18,8 @@ assert.equal(worker.extractSingleBwpAmountMinor("Can the business spend 20,000 p
 assert.equal(worker.extractSingleBwpAmountMinor("What if it costs BWP 1,250.50?"),125050);
 assert.equal(worker.extractSingleBwpAmountMinor("P20,000 now and P25,000 later"),null);
 assert.equal(worker.extractSingleBwpAmountMinor("Can I spend 20000 this week?"),null);
+assert.equal(worker.extractSingleBwpAmountMinor("Monthly revenue is P20,000."),null);
+assert.equal(worker.extractSingleBwpAmountMinor("Invoice balance is BWP 20,000."),null);
 assert.equal(worker.extractSingleBwpAmountMinor("Can I spend P20,000 if the quote is also P20,000?"),2000000);
 
 const envelope={
