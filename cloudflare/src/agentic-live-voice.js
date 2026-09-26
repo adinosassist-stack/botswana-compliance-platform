@@ -1,8 +1,9 @@
 import {
   authenticate,roleAllowed,originAllowed,csrfAllowed,safeFirst
 } from "./agentic-authority-core.js";
+import {listBusinessMemory} from "./business-memory.js";
 
-export const THEBE_LIVE_VOICE_VERSION="2026-09-20.realtime-ga-task-prepare-debug-v3";
+export const THEBE_LIVE_VOICE_VERSION="2026-09-26.multilingual-v159";
 
 const OPENAI_REALTIME_CALLS_URL="https://api.openai.com/v1/realtime/calls";
 const LIVE_MODEL="gpt-realtime-2.1";
@@ -21,6 +22,18 @@ const DEFAULT_MAX_USER_STARTS_PER_HOUR=4;
 const DEFAULT_FAILURE_CIRCUIT_THRESHOLD=3;
 const DEFAULT_MARKETING_MAX_SESSION_SECONDS=60;
 const DEFAULT_MARKETING_MAX_STARTS_PER_HOUR=6;
+
+const SUPPORTED_VOICE_LANGUAGES=Object.freeze([
+  Object.freeze({key:"english",label:"English"}),
+  Object.freeze({key:"setswana",label:"Setswana"}),
+  Object.freeze({key:"sekalaka",label:"Sekalaka"})
+]);
+const VOICE_LANGUAGE_KEYS=new Set(SUPPORTED_VOICE_LANGUAGES.map(item=>item.key));
+const VOICE_LANGUAGE_ALIASES=Object.freeze({
+  en:"english",english:"english",
+  tn:"setswana",tswana:"setswana",setswana:"setswana",
+  sekalaka:"sekalaka"
+});
 
 const json=(body,status=200)=>new Response(JSON.stringify(body),{
   status,
@@ -41,6 +54,42 @@ function cleanText(value,max=500){
     .replace(/\s+/g," ")
     .trim()
     .slice(0,max);
+}
+
+function normalizeVoiceLanguage(value){
+  const raw=cleanText(value,80).toLowerCase();
+  const key=VOICE_LANGUAGE_ALIASES[raw]||raw;
+  return VOICE_LANGUAGE_KEYS.has(key)?key:null;
+}
+function voiceLanguageLabel(key){
+  return SUPPORTED_VOICE_LANGUAGES.find(item=>item.key===key)?.label||null;
+}
+function languagePreferenceFromMemory(memory){
+  const items=Array.isArray(memory?.items)?memory.items:[];
+  const primary=items.find(item=>item?.namespace==="language"&&item?.key==="primary");
+  const normalized=normalizeVoiceLanguage(primary?.value);
+  return Object.freeze({
+    mode:normalized?"preferred":"auto",
+    primary:normalized,
+    label:voiceLanguageLabel(normalized),
+    source:normalized?"owner_confirmed_business_memory":"auto_mirror",
+    authoritative:false
+  });
+}
+async function loadVoiceLanguagePreference(env,tenantId){
+  try{return languagePreferenceFromMemory(await listBusinessMemory(env,tenantId))}
+  catch{return languagePreferenceFromMemory(null)}
+}
+function languageGuidance(preference={}){
+  const preferred=normalizeVoiceLanguage(preference?.primary);
+  const base=[
+    "Support English, Setswana, and Sekalaka, including natural code-switching with English where practical.",
+    "Mirror the language the user is actually speaking; an owner preference is a default, never a reason to ignore an explicit language change.",
+    "Keep legal, tax, accounting and other technical terms precise; retain or briefly explain the English term when translation could reduce precision.",
+    "For Setswana or Sekalaka, never invent vocabulary. If wording or intent is uncertain, say so briefly and ask one concise clarification or switch to a clearer supported language."
+  ];
+  if(preferred)base.push(`The owner-confirmed preferred language is ${voiceLanguageLabel(preferred)}. Start there when appropriate, while continuing to mirror the user's current language.`);
+  return base;
 }
 
 function boundedInt(value,{min,max,fallback}){
@@ -122,12 +171,11 @@ function marketingVoiceAllowed(env){
   return marketingVoiceEnabled(env)&&liveConfigured(env)&&runtimeEnabled(env)&&!killSwitchActive(env);
 }
 
-function instructions(){
+function instructions(preference={}){
   return [
     "You are Thebe, the live voice interface for Thebe Desk.",
     "Speak calmly, concisely and professionally. Prefer short spoken answers and ask one focused question when the user's intent is unclear.",
-    "Mirror the language used by the customer where practical. Support English, Setswana, and natural English-Setswana code-switching; keep business terms clear and do not pretend certainty when a phrase is ambiguous.",
-    "If a Setswana or code-switched request is unclear, ask one concise clarification rather than guessing the meaning.",
+    ...languageGuidance(preference),
     "You are the conversational voice layer, not an independent business agent.",
     "For current company facts, finance, compliance, operations, customer work, business analysis, or any request that needs Thebe Desk data or tools, call delegate_to_thebe_backend instead of inventing an answer.",
     "If and only if the user explicitly asks to create, add or record an internal task, call delegate_to_thebe_backend with intent prepare_internal_task and a concise structured task. Do not use task preparation for vague follow-up, analysis or suggestions.",
@@ -177,7 +225,7 @@ function delegationTool(){
   });
 }
 
-function realtimeSessionConfig(){
+function realtimeSessionConfig(preference={}){
   return {
     type:"realtime",
     model:LIVE_MODEL,
@@ -186,7 +234,7 @@ function realtimeSessionConfig(){
       input:{turn_detection:{type:"semantic_vad"}},
       output:{voice:"marin"}
     },
-    instructions:instructions(),
+    instructions:instructions(preference),
     tools:[delegationTool()],
     tool_choice:"auto"
   };
@@ -197,6 +245,7 @@ function marketingInstructions(){
     "You are Thebe, the public voice guide for Thebe Desk, Botswana SME compliance software.",
     "This is a short marketing demonstration on the public website. You have no access to any visitor account, workspace, company data, finance records, employees, evidence, documents, tools or governed actions.",
     "Explain Thebe Desk clearly and conversationally. Keep most answers under 35 seconds unless the visitor asks for detail.",
+    "Support English, Setswana and Sekalaka where practical, and mirror the visitor's language. If Setswana or Sekalaka wording is uncertain, do not invent vocabulary; ask briefly or use a clearer supported language.",
     "Thebe Desk helps Botswana SMEs keep recurring compliance work visible across CIPA company records, BURS tax obligations, employment compliance, business and industrial licences, tender readiness, inspections and evidence.",
     "Key product features include Employer Shield, Regulatory Intelligence, Continuous Control Assurance, Remediation and Inspection Readiness, Tender Control, Compliance Passport, Thebe AI, and accounting and financial intelligence.",
     "Thebe AI provides grounded decision support inside an authenticated workspace: management briefs, risk explanations and practical next actions while approvals, evidence and human judgement remain in control.",
@@ -378,7 +427,7 @@ function liveGate(env,telemetry={}){
 }
 
 async function status(env,auth){
-  const telemetry=await recentLiveTelemetry(env,auth.tenant_id,auth.user_id);
+  const [telemetry,languagePreference]=await Promise.all([recentLiveTelemetry(env,auth.tenant_id,auth.user_id),loadVoiceLanguagePreference(env,auth.tenant_id)]);
   const maxStarts=boundedStarts(env?.THEBE_LIVE_VOICE_MAX_STARTS_PER_HOUR);
   const maxUserStarts=boundedUserStarts(env?.THEBE_LIVE_VOICE_MAX_USER_STARTS_PER_HOUR);
   const failureThreshold=boundedFailureThreshold(env?.THEBE_LIVE_VOICE_FAILURE_CIRCUIT_THRESHOLD);
@@ -404,6 +453,7 @@ async function status(env,auth){
     maxSessionSeconds:boundedSessionSeconds(env?.THEBE_LIVE_VOICE_MAX_SESSION_SECONDS),
     upstreamTimeoutMs:boundedUpstreamTimeoutMs(env?.THEBE_LIVE_VOICE_UPSTREAM_TIMEOUT_MS),
     secureContextRequired:true,
+    language:{supported:SUPPORTED_VOICE_LANGUAGES,preference:languagePreference,codeSwitching:true},
     transcriptPolicy:{
       rawAudioStoredByThebe:false,
       liveTranscriptServerStorage:false,
@@ -424,7 +474,7 @@ async function status(env,auth){
 }
 
 async function createSession({request,env,auth}){
-  const telemetry=await recentLiveTelemetry(env,auth.tenant_id,auth.user_id);
+  const [telemetry,languagePreference]=await Promise.all([recentLiveTelemetry(env,auth.tenant_id,auth.user_id),loadVoiceLanguagePreference(env,auth.tenant_id)]);
   const gate=liveGate(env,telemetry);
   if(!gate.allowed){
     const rateLimited=gate.code==="tenant_session_rate_limited"||gate.code==="user_session_rate_limited";
@@ -445,7 +495,8 @@ async function createSession({request,env,auth}){
     model:LIVE_MODEL,
     transport:"webrtc",
     delegation:"function_tool",
-    voiceAuthority:"none"
+    voiceAuthority:"none",
+    preferredLanguage:languagePreference.primary||"auto"
   });
 
   let upstream;
@@ -455,7 +506,7 @@ async function createSession({request,env,auth}){
   const safetyIdentifier=await sha256Hex(`${auth.tenant_id}:${auth.user_id}`);
   const form=new FormData();
   form.set("sdp",sdp);
-  form.set("session",JSON.stringify(realtimeSessionConfig()));
+  form.set("session",JSON.stringify(realtimeSessionConfig(languagePreference)));
   try{
     upstream=await fetch(OPENAI_REALTIME_CALLS_URL,{
       method:"POST",
@@ -520,6 +571,7 @@ async function createSession({request,env,auth}){
     session:{id:sessionId},
     transport:{type:"webrtc",sdp:answerSdp},
     delegation:{type:"function_tool",name:DELEGATION_TOOL_NAME},
+    language:{supported:SUPPORTED_VOICE_LANGUAGES,preference:languagePreference,codeSwitching:true},
     limits:{
       maxSessionSeconds:boundedSessionSeconds(env?.THEBE_LIVE_VOICE_MAX_SESSION_SECONDS),
       maxStartsPerHour:boundedStarts(env?.THEBE_LIVE_VOICE_MAX_STARTS_PER_HOUR),
@@ -928,6 +980,12 @@ export const __agenticLiveVoiceTest=Object.freeze({
   liveConfigured,
   runtimeEnabled,
   killSwitchActive,
+  normalizeVoiceLanguage,
+  voiceLanguageLabel,
+  languagePreferenceFromMemory,
+  loadVoiceLanguagePreference,
+  languageGuidance,
+  SUPPORTED_VOICE_LANGUAGES,
   normalizeVoiceIntent,
   normalizeTaskPriority,
   normalizeTaskDueAt,
