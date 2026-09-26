@@ -4,7 +4,7 @@ import {financeReceivablesSummary} from "./finance-receivables.js";
 import {processWhatsAppInboundMessages} from "./whatsapp-inbound-core.js";
 import {runDueFinanceWatchTasks} from "./finance-watch-durable-loop.js";
 import {buildBusinessContext,handleBusinessContextRequest} from "./business-context.js";
-import {__moneyIntelligenceTest as moneyIntelligenceHelpers} from "./money-intelligence.js";
+import {simulateWeeklySpendDecision} from "./money-intelligence.js";
 import {handleBusinessMemoryRequest} from "./business-memory.js";
 import {thebeLanguagePrompt,deterministicLanguagePolicy,deterministicLanguageNotice} from "./thebe-language.js";
 const APP_SECURITY_HEADERS=Object.freeze({
@@ -2404,7 +2404,7 @@ async function buildAiAdvisorContext(env,tenantId,{includeFinance=false,actorRol
   const protection=scoreRow?{ref:"SCORE-1",score:Number(scoreRow.score||0),grade:scoreRow.grade,dimensions:safeJson(scoreRow.dimensions_json,{}),capturedAt:scoreRow.created_at}:null;
   const businessPayload=await financePromise;
   const proposedSpendScenario=businessPayload?.moneyIntelligence?.spendEnvelope&&proposedSpendMinor!=null
-    ?moneyIntelligenceHelpers.simulateWeeklySpendDecision({spendEnvelope:businessPayload.moneyIntelligence.spendEnvelope,proposedSpendMinor,label:"Question amount"})
+    ?simulateWeeklySpendDecision({spendEnvelope:businessPayload.moneyIntelligence.spendEnvelope,proposedSpendMinor,label:"Question amount"})
     :null;
   const financePayload=businessPayload?.finance?{summary:businessPayload.finance,receivables:businessPayload.finance.receivables}:null;
   const finance=financePayload?{
