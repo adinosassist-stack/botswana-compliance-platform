@@ -7,7 +7,8 @@ assert.deepEqual(__financeWatchDurableLoopTest.nextRunAt({trigger_spec_json:'{"c
 assert.deepEqual(__financeWatchDurableLoopTest.nextRunAt({trigger_spec_json:'{"cadence":"weekly"}'},"2026-09-26T08:00:00.000Z"),{nextRunAt:"2026-10-03T08:00:00.000Z",skippedOccurrences:0,cadence:"weekly"});
 assert.equal(__financeWatchDurableLoopTest.nextRunAt({trigger_spec_json:'{"cadence":"hourly"}'},"2026-09-26T08:00:00.000Z"),null,"hourly cadence must fail closed");
 assert.match(loop,/role:"system_observer"/);assert.ok(!loop.includes('role:"owner"'));
-assert.equal(evaluateAgentAction({agentKey:"thebe",actionKey:"financial_position.read",actorRole:"system_observer",systemActor:true,tenantScoped:true,phase:"phase1"}).allowed,true);\nassert.equal(evaluateAgentAction({agentKey:"thebe",actionKey:"financial_position.read",actorRole:"system_observer",tenantScoped:true,phase:"phase1"}).allowed,false,"system_observer without trusted systemActor provenance must fail closed");
+assert.equal(evaluateAgentAction({agentKey:"thebe",actionKey:"financial_position.read",actorRole:"system_observer",systemActor:true,tenantScoped:true,phase:"phase1"}).allowed,true);
+assert.equal(evaluateAgentAction({agentKey:"thebe",actionKey:"financial_position.read",actorRole:"system_observer",tenantScoped:true,phase:"phase1"}).allowed,false,"system_observer without trusted systemActor provenance must fail closed");
 assert.equal(evaluateAgentAction({agentKey:"thebe",actionKey:"finance_brief.prepare",actorRole:"system_observer",systemActor:true,tenantScoped:true,phase:"phase1"}).allowed,false);
 assert.equal(evaluateAgentAction({agentKey:"thebe",actionKey:"task.create",actorRole:"system_observer",systemActor:true,tenantScoped:true,phase:"bounded_v1"}).allowed,false);
 const failingDB={prepare(){return {bind(){return this},async first(){throw new Error("db down")},async all(){throw new Error("db down")}}}};
