@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";import fs from "node:fs";
 const loop=fs.readFileSync("cloudflare/src/finance-watch-durable-loop.js","utf8");
-assert.match(loop,/FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26\\.v\\d+"/,"durable loop must expose a dated version without pinning a stale implementation revision");
+assert.match(loop,/FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26\.v\d+"/,"durable loop must expose a dated version without pinning a stale implementation revision");
 assert.match(loop,/runFinanceWatchTask\(\{env,task,attempt=0,claim=null\}/);
 assert.match(loop,/const statements=\[/);
 assert.match(loop,/UPDATE agent_observation_claims SET status='completed'.*scheduled_for=\? AND status='running'/s);
