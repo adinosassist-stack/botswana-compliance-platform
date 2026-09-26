@@ -5,6 +5,7 @@ import {__agenticFoundationTest} from '../cloudflare/src/agentic-core.js';
 
 const read=p=>fs.readFileSync(new URL(`../${p}`,import.meta.url),'utf8');
 const agent=read('cloudflare/src/agentic-core.js');
+const businessContext=read('cloudflare/src/business-context.js');
 const worker=read('cloudflare/src/worker.js');
 const schema=read('cloudflare/schema.sql');
 const migration=read('cloudflare/migrations/046_v80_agentic_outcomes.sql');
@@ -20,8 +21,8 @@ ok(migration.includes('CREATE TABLE IF NOT EXISTS agentic_outcomes'),'migration 
 ok(schema.includes('CREATE TABLE IF NOT EXISTS agentic_outcomes'),'fresh schema contains outcome ledger');
 ok(migration.includes("outcome_status IN ('observed','improved','unchanged','worsened','resolved','not_applicable')"),'outcome states are constrained');
 ok(!migration.toLowerCase().includes('queue')||migration.includes('no executable action queue'),'migration adds no executable action queue');
-ok(agent.includes('FROM performance_insights WHERE tenant_id=?'),'agent observes tenant-scoped performance signals');
-ok(agent.includes('FROM compliance_obligations WHERE tenant_id=?'),'agent observes tenant-scoped compliance obligations');
+ok(agent.includes('buildBusinessContext(env,tenantId,{actorRole})')&&businessContext.includes('FROM performance_insights WHERE tenant_id=?'),'agent observes tenant-scoped performance signals through canonical Business Context');
+ok(agent.includes('buildBusinessContext(env,tenantId,{actorRole})')&&businessContext.includes('FROM compliance_obligations WHERE tenant_id=?'),'agent observes tenant-scoped compliance obligations through canonical Business Context');
 ok(agent.includes('type:"deterministic_non_mutating"'),'simulation is explicitly non-mutating');
 ok(agent.includes('/api/agentic/outcomes'),'outcome list route exists');
 ok(agent.includes('/outcome$/'),'proposal outcome route exists');
