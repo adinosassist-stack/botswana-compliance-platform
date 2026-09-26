@@ -43,7 +43,7 @@ assert.match(worker,/SELECT 1 ok FROM finance_lineage/);
 assert.match(worker,/SELECT id FROM agentic_runs LIMIT 1/);
 assert.match(worker,/SELECT id FROM agentic_outcomes LIMIT 1/);
 const profile=JSON.parse(fs.readFileSync("RELEASE_PROFILE.json","utf8"));
-assert.equal(profile.latest_cloudflare_migration,"052_v122_agent_observation_checkpoints.sql");
+assert.equal(profile.latest_cloudflare_migration,"053_v132_agent_observation_claims.sql");
 assert.equal(profile.finance_reconciliation_v79,true);
 assert.equal(profile.finance_provider_neutral,true);
 assert.equal(profile.finance_whatsapp_exception_alerts_optional,true);
