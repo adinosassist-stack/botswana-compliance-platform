@@ -1,4 +1,4 @@
-export const MONEY_INTELLIGENCE_VERSION="2026-09-26.v4";
+export const MONEY_INTELLIGENCE_VERSION="2026-09-26.v5";
 const frozen=value=>Object.freeze(value);
 const number=value=>Number.isFinite(Number(value))?Number(value):0;
 const clean=(value,max=180)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
@@ -256,6 +256,53 @@ function cashCommitmentStress({cashPositionMinor=0,cashCalendar={},minimumCashBu
   });
 }
 
+function weeklySpendEnvelope({cashPositionMinor=0,cashCalendar={},assumptions={},reconciliationStale=false}={}){
+  const cash=number(cashPositionMinor);
+  const committed7d=Math.max(0,number(cashCalendar?.next7?.committedOutflowMinor));
+  const payroll=assumptions?.monthlyLabourCostMinor==null?null:Math.max(0,number(assumptions.monthlyLabourCostMinor));
+  const buffer=assumptions?.minimumCashBufferMinor==null?null:Math.max(0,number(assumptions.minimumCashBufferMinor));
+  const plannedPurchase=assumptions?.plannedPurchaseMinor==null?null:Math.max(0,number(assumptions.plannedPurchaseMinor));
+  const missing=[];
+  if(payroll==null)missing.push("monthly_labour_cost");
+  if(buffer==null)missing.push("minimum_cash_buffer");
+  const ready=missing.length===0;
+  const protectedBeforeDiscretionary=ready?committed7d+payroll+buffer:null;
+  const rawEnvelope=ready?cash-protectedBeforeDiscretionary:null;
+  const envelope=rawEnvelope==null?null:Math.max(0,rawEnvelope);
+  const afterPlannedPurchase=envelope==null?null:Math.max(0,envelope-(plannedPurchase||0));
+  const warnings=[
+    "Uses recorded cash, recorded supplier payables due now/within 7 days, and owner-entered payroll/buffer assumptions.",
+    "Assumes no receivables are collected before spending.",
+    "Unknown, unrecorded or later-due obligations are not reserved."
+  ];
+  if(reconciliationStale)warnings.push("The latest finance reconciliation is stale, so the recorded cash position needs review.");
+  if(plannedPurchase)warnings.push("An owner-entered planned purchase is shown separately because its timing is unspecified.");
+  return frozen({
+    ready,
+    state:ready?(envelope>0?"available":"none"):"needs_owner_inputs",
+    missingInputs:frozen(missing),
+    currency:"BWP",
+    horizonDays:7,
+    recordedCashPositionMinor:cash,
+    recordedSupplierPayablesDue7dMinor:committed7d,
+    payrollReserveMinor:payroll,
+    minimumCashBufferMinor:buffer,
+    protectedBeforeDiscretionaryMinor:protectedBeforeDiscretionary,
+    discretionaryEnvelopeMinor:envelope,
+    ownerPlannedPurchaseMinor:plannedPurchase,
+    discretionaryAfterPlannedPurchaseMinor:afterPlannedPurchase,
+    receivablesAssumedCollected:false,
+    fullMonthlyPayrollReserved:true,
+    unknownFutureObligationsReserved:false,
+    reconciliationStale:reconciliationStale===true,
+    formalForecast:false,
+    spendingAuthorization:false,
+    financialAdvice:false,
+    basis:"recorded_cash_minus_recorded_7_day_supplier_payables_minus_owner_monthly_labour_reserve_minus_owner_minimum_cash_buffer",
+    warnings:frozen(warnings)
+  });
+}
+
 function forwardCashCalendar({businessDate,cashPositionMinor=0,payables={},receivables={},collectionBehaviors=[]}={}){
   const behaviorByCustomer=new Map((collectionBehaviors||[]).map(item=>[String(item.customerId||""),item]));
   const events=[];
@@ -332,7 +379,7 @@ function forwardCashCalendar({businessDate,cashPositionMinor=0,payables={},recei
   });
 }
 
-export async function buildMoneyIntelligence(env,tenantId,{businessDate,cashPositionMinor=0,memory={},receivables={},payables={}}={}){
+export async function buildMoneyIntelligence(env,tenantId,{businessDate,cashPositionMinor=0,memory={},receivables={},payables={},reconciliationStale=false}={}){
   if(!env?.DB||!tenantId||!businessDate)return frozen({version:MONEY_INTELLIGENCE_VERSION,available:false,error:"finance_transactions_unavailable"});
   let aggregate;
   try{
@@ -460,6 +507,7 @@ export async function buildMoneyIntelligence(env,tenantId,{businessDate,cashPosi
   const payableConcentration=payableSupplierConcentration(payables);
   const cashCalendar=forwardCashCalendar({businessDate,cashPositionMinor,payables,receivables,collectionBehaviors});
   const commitmentStress=cashCommitmentStress({cashPositionMinor,cashCalendar,minimumCashBufferMinor:assumptions.minimumCashBufferMinor});
+  const spendEnvelope=weeklySpendEnvelope({cashPositionMinor,cashCalendar,assumptions,reconciliationStale});
   const signals=[];
   if(trend.outflowChangePct!=null&&trend.outflowChangePct>=0.25)signals.push(frozen({key:"outflow_acceleration",severity:"medium",detail:`Recorded 30-day outflows are ${Math.round(trend.outflowChangePct*100)}% above the previous 30-day period.`,source:"finance_transactions"}));
   if(trend.largeDebits.length)signals.push(frozen({key:"large_debits",severity:"medium",detail:`${trend.largeDebits.length} recent debit(s) exceed the deterministic large-debit threshold.`,source:"finance_transactions"}));
@@ -485,7 +533,12 @@ export async function buildMoneyIntelligence(env,tenantId,{businessDate,cashPosi
     detail:`${payableConcentration.topSupplier.supplierName||"One supplier"} represents ${Math.round(payableConcentration.topSupplier.shareOfOutstanding*100)}% of recorded outstanding supplier payables.`,
     source:"finance_payables"
   }));
-  if(commitmentStress.shortfallMinor>0)signals.push(frozen({
+  if(spendEnvelope.ready&&spendEnvelope.discretionaryEnvelopeMinor===0)signals.push(frozen({
+    key:"weekly_spend_envelope_zero",severity:"high",
+    detail:"The conservative 7-day discretionary spend envelope is zero after reserving recorded supplier payables due now/within 7 days, the full owner-entered monthly labour cost and the owner-entered minimum cash buffer.",
+    source:"finance_accounts_plus_finance_payables_plus_owner_assumptions"
+  }));
+    if(commitmentStress.shortfallMinor>0)signals.push(frozen({
     key:"payable_cover_shortfall_14d",severity:"high",
     detail:`Recorded cash is short of recorded overdue and next-14-day supplier payables by ${Math.round(commitmentStress.shortfallMinor)} minor units. This comparison excludes other future outflows and assumes no receivables are collected.`,
     source:"finance_accounts_plus_finance_payables"
@@ -516,4 +569,4 @@ export async function buildMoneyIntelligence(env,tenantId,{businessDate,cashPosi
     authority:frozen({readOnly:true,executionAllowed:false,forecast:false,scenarioProjection:true,accountingMargin:false,accountingPosting:false,supplierPayments:false,financialAdvice:false})
   });
 }
-export const __moneyIntelligenceTest=frozen({summarizeTransactions,assumptionMetrics,cashScenario,ownerCommitments,debitConcentration,collectionBehavior,expenseCategoryLearning,supplierSpendTrend,payableSupplierConcentration,cashCommitmentStress,forwardCashCalendar,pctChange});
+export const __moneyIntelligenceTest=frozen({summarizeTransactions,assumptionMetrics,cashScenario,ownerCommitments,debitConcentration,collectionBehavior,expenseCategoryLearning,supplierSpendTrend,payableSupplierConcentration,cashCommitmentStress,weeklySpendEnvelope,forwardCashCalendar,pctChange});
