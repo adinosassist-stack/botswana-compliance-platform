@@ -37,9 +37,9 @@ const canonicalViews=[...html.matchAll(/<section\b([^>]*)>/gi)].map(match=>{
   const cls=(attrs.match(/\bclass=["']([^"']+)["']/i)||[])[1]||"";
   return {id,cls,start:match.index};
 }).filter(view=>/\bview\b/.test(view.cls));
-assert.equal(canonicalViews.length,68,"canonical workspace view count changed; reassess lazy-view boundary");
-const primaryResidentViews=["dashboard","workhub","sites","peopleops","businesshub","obligations","evidencehub","automationhub"];
-assert.deepEqual(fragments.residentViews,primaryResidentViews,"primary workspace navigation must remain resident and independent of fragment delivery");
+assert.equal(canonicalViews.length,71,"canonical workspace view count changed; reassess lazy-view boundary");
+const primaryResidentViews=["dashboard","moneyhub","workhub","sites","peopleops","protecthub","businesshub","obligations","evidencehub","automationhub","propertyintelligence"];
+assert.deepEqual(fragments.residentViews,primaryResidentViews,"owner/context workspace views must remain resident and independent of fragment delivery");
 const lazyViews=canonicalViews.filter(view=>!fragments.residentViews.includes(view.id));
 assert.equal(lazyViews.length,60,"expected only 60 deep workspace views to remain lazy");
 assert.deepEqual(Object.keys(fragments.views).sort(),lazyViews.map(view=>view.id).sort(),"fragment bundle must cover every lazy view exactly once");
