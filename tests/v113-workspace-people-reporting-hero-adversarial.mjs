@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const html=fs.readFileSync("public/index.html","utf8");
-const runtime=fs.readFileSync("public/js/workspace-runtime-20260923m.js","utf8");
+const runtime=fs.readFileSync("public/js/workspace-runtime-20260926b.js","utf8");
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const delegation=fs.readFileSync("public/js/event-delegation.js","utf8");
 const apiClient=fs.readFileSync("public/js/api-client.js","utf8");
