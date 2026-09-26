@@ -64,12 +64,14 @@ function cashScenario({cashPositionMinor=0,trend={},assumptions={},receivablesOu
   const horizons=[7,30,90].map(days=>{
     const recordedEnding=Math.round(number(cashPositionMinor)+(dailyInflow-dailyOutflow)*days);
     const ownerCollection=Math.round(collection30*Math.min(1,days/30));
-    const ownerEnding=Math.round(number(cashPositionMinor)+dailyInflow*days+ownerCollection-ownerDailyOutflow*days);
+    const ownerEnding=Math.round(number(cashPositionMinor)+dailyInflow*days-ownerDailyOutflow*days);
+    const ownerEndingWithCollection=Math.round(ownerEnding+ownerCollection);
     return frozen({
       days,
       recordedRunRateEndingCashMinor:recordedEnding,
       ownerAssumptionEndingCashMinor:ownerEnding,
-      ownerCollectionScenarioMinor:ownerCollection,
+      ownerAssumptionEndingCashWithCollectionMinor:ownerEndingWithCollection,
+      ownerCollectionUpsideMinor:ownerCollection,
       minimumCashBufferMinor:assumptions.minimumCashBufferMinor,
       belowOwnerBuffer:assumptions.minimumCashBufferMinor==null?null:ownerEnding<assumptions.minimumCashBufferMinor
     });
@@ -84,7 +86,8 @@ function cashScenario({cashPositionMinor=0,trend={},assumptions={},receivablesOu
     dailyRecordedInflowMinor:Math.round(dailyInflow),
     dailyRecordedOutflowMinor:Math.round(dailyOutflow),
     dailyOwnerScenarioOutflowMinor:Math.round(ownerDailyOutflow),
-    sameMonthReceivableCollectionScenarioMinor:collection30,
+    sameMonthReceivableCollectionUpsideMinor:collection30,
+    receivableCollectionTreatment:"separate_upside_not_added_to_base_scenario",
     cashFlowMarginProxyPct:cashFlowMarginProxyPct==null?null:Math.round(cashFlowMarginProxyPct*1000)/1000,
     monthlyRevenueTargetCoveragePct:targetCoveragePct==null?null:Math.round(targetCoveragePct*1000)/1000,
     firstOwnerBufferBreachHorizonDays:firstBufferBreach,
