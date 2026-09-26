@@ -3460,4 +3460,3 @@ CREATE TABLE IF NOT EXISTS manual_payment_events(
   FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS manual_payment_events_submission_idx ON manual_payment_events(submission_id,created_at DESC);
-

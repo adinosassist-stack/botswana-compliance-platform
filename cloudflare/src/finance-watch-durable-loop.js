@@ -59,12 +59,39 @@ export async function runFinanceWatchTask({env,task,attempt=0}={}){
   return frozen({...governed,persisted:true,checkpointId});
 }
 
+async function claimObservation(env,task){
+  const tenantId=clean(task.tenant_id,120),taskId=clean(task.id,120),scheduledFor=clean(task.next_run_at,80),claimId=crypto.randomUUID();
+  if(!tenantId||!taskId||!scheduledFor)return frozen({ok:false,code:"invalid_observation_claim"});
+  try{
+    await env.DB.prepare("INSERT INTO agent_observation_claims(id,tenant_id,persistent_task_id,scheduled_for,status) VALUES(?,?,?,?,'running')").bind(claimId,tenantId,taskId,scheduledFor).run();
+    return frozen({ok:true,id:claimId,scheduledFor,attempts:1});
+  }catch(error){
+    if(!String(error).includes("UNIQUE"))throw error;
+    const existing=await env.DB.prepare("SELECT id,status,attempts,started_at FROM agent_observation_claims WHERE tenant_id=? AND persistent_task_id=? AND scheduled_for=? LIMIT 1").bind(tenantId,taskId,scheduledFor).first();
+    if(!existing)return frozen({ok:false,code:"observation_claim_conflict"});
+    const stale=existing.status==="running"&&new Date(existing.started_at).getTime()<Date.now()-30*60*1000;
+    if(existing.status==="failed"||stale){
+      const updated=await env.DB.prepare("UPDATE agent_observation_claims SET status='running',attempts=attempts+1,started_at=CURRENT_TIMESTAMP,completed_at=NULL,checkpoint_id=NULL,error_code=NULL WHERE id=? AND tenant_id=? AND persistent_task_id=? AND (status='failed' OR (status='running' AND started_at<datetime('now','-30 minutes')))").bind(existing.id,tenantId,taskId).run();
+      if(Number(updated?.meta?.changes??updated?.changes??0)===1)return frozen({ok:true,id:existing.id,scheduledFor,attempts:Number(existing.attempts||1)+1,recovered:true});
+    }
+    return frozen({ok:false,code:"observation_already_claimed",status:existing.status});
+  }
+}
+async function finishObservationClaim(env,task,claim,outcome){
+  const status=outcome?.persisted?"completed":"failed",checkpointId=outcome?.checkpointId||null,errorCode=outcome?.code||outcome?.recovery?.code||null;
+  await env.DB.prepare("UPDATE agent_observation_claims SET status=?,checkpoint_id=?,error_code=?,completed_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND persistent_task_id=? AND status='running'").bind(status,checkpointId,errorCode,claim.id,task.tenant_id,task.id).run();
+}
+
 export async function runDueFinanceWatchTasks(env,{limit=25}={}){
   const cap=Math.max(1,Math.min(50,Number(limit)||25));
-  const rows=await env.DB.prepare("SELECT id,tenant_id,status,objective,trigger_spec_json,allowed_tools_json,budget_json FROM agent_persistent_tasks WHERE status='active' AND trigger_kind='scheduled' AND next_run_at IS NOT NULL AND next_run_at<=CURRENT_TIMESTAMP ORDER BY next_run_at,id LIMIT ?").bind(cap).all();
+  const rows=await env.DB.prepare("SELECT id,tenant_id,status,objective,trigger_spec_json,allowed_tools_json,budget_json,next_run_at FROM agent_persistent_tasks WHERE status='active' AND trigger_kind='scheduled' AND next_run_at IS NOT NULL AND next_run_at<=CURRENT_TIMESTAMP ORDER BY next_run_at,id LIMIT ?").bind(cap).all();
   const outcomes=[];
   for(const task of rows.results||[]){
-    const outcome=await runFinanceWatchTask({env,task});outcomes.push(outcome);
+    const claim=await claimObservation(env,task);
+    if(!claim.ok){outcomes.push(frozen({ok:false,persisted:false,skipped:true,code:claim.code,executionAllowed:false}));continue}
+    let outcome;
+    try{outcome=await runFinanceWatchTask({env,task,attempt:claim.attempts-1})}catch(error){outcome=frozen({ok:false,persisted:false,code:"observation_run_failed",executionAllowed:false,error:String(error?.message||error).slice(0,160)})}
+    outcomes.push(outcome);await finishObservationClaim(env,task,claim,outcome);
     if(outcome.persisted){
       const next=nextRunAt(task);
       await env.DB.prepare("UPDATE agent_persistent_tasks SET last_run_at=CURRENT_TIMESTAMP,next_run_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND status='active'").bind(next,task.id,task.tenant_id).run();
@@ -73,4 +100,4 @@ export async function runDueFinanceWatchTasks(env,{limit=25}={}){
   return frozen({version:FINANCE_WATCH_DURABLE_LOOP_VERSION,selected:(rows.results||[]).length,verified:outcomes.filter(x=>x.persisted).length,failed:outcomes.filter(x=>!x.persisted).length,executionAllowed:false,externalActions:0,outcomes:frozen(outcomes)});
 }
 
-export const __financeWatchDurableLoopTest=Object.freeze({nextRunAt});
+export const __financeWatchDurableLoopTest=Object.freeze({nextRunAt,claimObservation,finishObservationClaim});
