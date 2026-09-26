@@ -59,7 +59,7 @@ assert.match(memorySource,/BUSINESS_MEMORY_CONFIRMED/);
 assert.match(memorySource,/BUSINESS_MEMORY_REMOVED/);
 assert.match(worker,/const EXPECTED_SCHEMA_DELTA="046_v80_agentic_outcomes\.sql";/);
 const agentic=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
-assert.match(agentic,/057_v157_business_memory_money_intelligence\.sql/);
+assert.match(agentic,/058_v161_finance_suppliers_payables\.sql/);
 const profile=JSON.parse(fs.readFileSync("RELEASE_PROFILE.json","utf8"));
 assert.equal(profile.latest_cloudflare_migration,"058_v161_finance_suppliers_payables.sql");
 assert.equal(profile.business_memory_v157,true);
