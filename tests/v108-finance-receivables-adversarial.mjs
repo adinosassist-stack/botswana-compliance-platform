@@ -77,7 +77,7 @@ assert.equal(policy.level,AGENT_ACTION_LEVELS.READ);
 assert.equal(policy.phase1Enabled,true);
 assert.equal(policy.externalSideEffect,false);
 assert.equal(policy.authoritativeSource,"finance_invoices_plus_transaction_allocations");
-assert.match(entry,/051_v117_persistent_agent_tasks\.sql/);
+assert.match(entry,/052_v122_agent_observation_checkpoints\.sql/);
 for(const table of ["finance_customers","finance_invoices","finance_invoice_allocations"]){
   assert.match(entry,new RegExp("\\(SELECT COUNT\\(\\*\\) FROM "+table+"\\)"));
 }

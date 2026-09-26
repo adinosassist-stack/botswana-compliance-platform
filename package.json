@@ -223,7 +223,17 @@
     "test:employee-location-management": "node tests/v111-employee-location-management-adversarial.mjs",
     "test:people-reporting-hydration": "node tests/v112-people-reporting-hydration-adversarial.mjs",
     "test:persistent-agent-tasks": "node tests/v117-persistent-agent-tasks.mjs",
-    "test:tool-trust-registry": "node tests/v118-tool-trust-registry.mjs"
+    "test:tool-trust-registry": "node tests/v118-tool-trust-registry.mjs",
+    "test:super-agent-finance-watcher": "node tests/v119-super-agent-finance-watcher.mjs",
+    "test:persistent-finance-observer": "node tests/v120-persistent-finance-observer.mjs",
+    "test:finance-exception-detector": "node tests/v121-finance-exception-detector.mjs",
+    "test:agent-observation-checkpoints": "node tests/v122-agent-observation-checkpoints.mjs",
+    "test:owner-exception-inbox": "node tests/v123-owner-exception-inbox.mjs",
+    "test:finance-watch-budget": "node tests/v124-finance-watch-budget.mjs",
+    "test:finance-watch-verifier": "node tests/v125-finance-watch-verifier.mjs",
+    "test:finance-watch-change-detector": "node tests/v126-finance-watch-change-detector.mjs",
+    "test:finance-watch-recovery": "node tests/v127-finance-watch-recovery.mjs",
+    "test:super-agent-watch-stack": "npm run test:super-agent-finance-watcher && npm run test:persistent-finance-observer && npm run test:finance-exception-detector && npm run test:agent-observation-checkpoints && npm run test:owner-exception-inbox && npm run test:finance-watch-budget && npm run test:finance-watch-verifier && npm run test:finance-watch-change-detector && npm run test:finance-watch-recovery"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1126.0",
