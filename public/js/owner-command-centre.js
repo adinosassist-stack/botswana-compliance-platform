@@ -1454,6 +1454,41 @@
           tone:Number(runway)<45?"risk":"neutral"
         }));
       }
+      const scenario=moneyIntel.scenario||{},horizons=Array.isArray(scenario.horizons)?scenario.horizons:[],h30=horizons.find(item=>Number(item?.days)===30);
+      if(h30){
+        const ending=Number(h30.ownerAssumptionEndingCashMinor||0)/100,below=h30.belowOwnerBuffer===true;
+        box.append(signalCard({
+          label:"30-day cash scenario",
+          value:money(ending),
+          title:below?"Owner-assumption cash falls below your minimum buffer in the 30-day scenario.":"Owner-assumption cash remains above the entered minimum buffer in the 30-day scenario.",
+          detail:"Uses recorded 30-day cash run-rate plus owner-entered outflows and collection assumptions. This is a scenario projection, not an accounting forecast.",
+          tone:below?"risk":"neutral"
+        }));
+      }
+      const proxy=scenario.cashFlowMarginProxyPct;
+      if(proxy!==null&&proxy!==undefined)box.append(signalCard({
+        label:"Cash-flow margin proxy",
+        value:pct(Number(proxy)*100),
+        title:Number(proxy)<0?"Recorded 30-day cash outflows exceeded recorded inflows.":"Recorded 30-day inflows exceeded recorded outflows.",
+        detail:"Cash-flow proxy only. It is not gross margin, net profit, or an accounting profitability measure.",
+        tone:Number(proxy)<0?"risk":"positive"
+      }));
+      const commitments=moneyIntel.commitments||{},oneOff=Number(commitments.totalUntimedOneOffMinor||0);
+      if(oneOff>0)box.append(signalCard({
+        label:"Planned commitments",
+        value:money(oneOff/100),
+        title:"Owner-entered one-off commitments are included as a separate planning pressure.",
+        detail:"Timing is not inferred. These are assumptions, not accounts-payable records or authorized spending.",
+        tone:moneyIntel.signals?.some(item=>item?.key==="commitment_pressure")?"risk":"neutral"
+      }));
+      const concentration=Array.isArray(moneyIntel.debitConcentrations)?moneyIntel.debitConcentrations[0]:null;
+      if(concentration?.shareOfCurrent30Outflow!=null)box.append(signalCard({
+        label:"Debit concentration",
+        value:pct(Number(concentration.shareOfCurrent30Outflow)*100),
+        title:(concentration.descriptor||"A repeated debit description")+" represents a material share of recorded 30-day outflows.",
+        detail:Number(concentration.transactionCount||0)+" transaction(s). Description-based grouping only; Thebe has not verified a supplier identity.",
+        tone:Number(concentration.shareOfCurrent30Outflow)>=0.35?"risk":"neutral"
+      }));
       const largeDebits=Array.isArray(trend.largeDebits)?trend.largeDebits.length:0;
       if(largeDebits>0)box.append(signalCard({
         label:"Large debits",
