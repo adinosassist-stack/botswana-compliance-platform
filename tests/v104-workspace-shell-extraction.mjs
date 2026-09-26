@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import {execFileSync} from "node:child_process";
 
 const html=fs.readFileSync("public/index.html","utf8");
-const runtime=fs.readFileSync("public/js/workspace-runtime-20260923m.js","utf8");
-const styles=fs.readFileSync("public/assets/workspace-inline-styles-20260924b.css","utf8");
+const runtime=fs.readFileSync("public/js/workspace-runtime-20260926a.js","utf8");
+const styles=fs.readFileSync("public/assets/workspace-inline-styles-20260926a.css","utf8");
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
 const budget=fs.readFileSync("scripts/bundle-budget.mjs","utf8");
@@ -17,7 +17,7 @@ assert.equal(normalized,runtime,"external workspace runtime must be byte-equival
 const headEnd=html.toLowerCase().indexOf("</head>");
 assert.ok(headEnd>0,"workspace head must exist");
 const canonicalStyles=[...html.slice(0,headEnd).matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)].map(match=>String(match[1]||"").replace(/^\n/,"").replace(/\s*$/,""));
-assert.equal(canonicalStyles.length,48,"workspace must keep the audited 48 canonical head style blocks");
+assert.equal(canonicalStyles.length,49,"workspace must keep the audited 49 canonical head style blocks");
 assert.equal(canonicalStyles.join("\n\n")+"\n",styles,"external workspace stylesheet must be byte-equivalent to canonical head styles");
 assert.ok(Buffer.byteLength(styles)<220_000,"versioned workspace stylesheet must stay below 220 KB raw");
 assert.ok(Buffer.byteLength(runtime)<550_000,"versioned workspace runtime must stay below 550 KB raw");
@@ -27,7 +27,7 @@ assert.match(runtime,/function hydrateLazyWorkspaceView\(id,target,options=\{\}\
 assert.match(runtime,/const workspaceFragmentClient=window\.BW\?\.api\?\.createClient\?\.\(\{timeoutMs:6000,retries:1\}\)/,"versioned runtime must use the centralized bounded fragment transport");
 assert.match(runtime,/function fetchWorkspaceViewShard\(asset,shard\)/,"versioned runtime must contain fragment transport wrapper");
 assert.match(runtime,/let turnstileWidgetId=/);
-execFileSync(process.execPath,["--check","public/js/workspace-runtime-20260923m.js"],{stdio:"pipe"});
+execFileSync(process.execPath,["--check","public/js/workspace-runtime-20260926a.js"],{stdio:"pipe"});
 
 assert.match(worker,/immutableWorkspaceRuntime=\/\^\\\/js\\\/workspace-runtime-\[a-z0-9\.\-\]\+\\\.js\$\/i\.test\(url\.pathname\)/);
 assert.match(worker,/immutableWorkspaceStyles=\/\^\\\/assets\\\/workspace-inline-styles-\[a-z0-9\.\-\]\+\\\.css\$\/i\.test\(url\.pathname\)/);
