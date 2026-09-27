@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 const html=fs.readFileSync(new URL('../public/index.html', import.meta.url),'utf8');
 const checks=[
- ['hero copy',html.includes('See business risk before it becomes a penalty, dispute or loss.')],
+ ['hero copy',html.includes('Run your business with intelligence.')],
  ['legacy hero removed',!html.includes('See business risk before it becomes a penalty, dispute or lost tender.')],
  ['circular gauge component',html.includes('class="metric-ring ring-blue"')&&html.includes('data-ring-target="complianceScore"')],
  ['protection circular gauge',html.includes('data-ring-target="protectionScore"')],
