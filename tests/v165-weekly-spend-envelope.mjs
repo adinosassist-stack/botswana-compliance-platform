@@ -126,7 +126,7 @@ assert.equal(calendar.payablesAvailable,true);
 assert.equal(calendar.next7.committedOutflowMinor,500000);
 
 const source=fs.readFileSync("cloudflare/src/money-intelligence.js","utf8");
-assert.match(source,/MONEY_INTELLIGENCE_VERSION="2026-09-26\.v6"/,"V166 extends the fail-closed V165 envelope without weakening it");
+assert.match(source,/MONEY_INTELLIGENCE_VERSION="2026-09-27\.v7"/,"V168 market profiling extends the fail-closed V165 envelope without weakening it");
 assert.match(source,/weeklySpendEnvelope/);
 assert.match(source,/blockingEvidence/);
 assert.match(source,/payablesAvailable:payables\?\.available===true/);
@@ -139,7 +139,7 @@ assert.match(source,/weekly_spend_envelope_zero/);
 assert.doesNotMatch(source,/spendingAuthorization:true/);
 
 const context=fs.readFileSync("cloudflare/src/business-context.js","utf8");
-assert.match(context,/BUSINESS_CONTEXT_VERSION="2026-09-26\.v165"/);
+assert.match(context,/BUSINESS_CONTEXT_VERSION="2026-09-27\.v166"/);
 assert.match(context,/reconciliationStale:finance\?\.reconciliation\?\.stale===true/);
 assert.match(context,/weeklySpendEnvelopeMinor/);
 assert.match(context,/weeklySpendBlockingEvidenceCount/);

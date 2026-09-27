@@ -1,4 +1,6 @@
-export const MONEY_INTELLIGENCE_VERSION="2026-09-26.v6";
+import {DEFAULT_RUNTIME_MARKET_CODE,runtimeMarketProfile,marketMoneyTokens} from "./market-profile.js";
+
+export const MONEY_INTELLIGENCE_VERSION="2026-09-27.v7";
 const frozen=value=>Object.freeze(value);
 const number=value=>Number.isFinite(Number(value))?Number(value):0;
 const clean=(value,max=180)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
@@ -287,7 +289,7 @@ function weeklySpendEnvelope({cashPositionMinor=0,cashCalendar={},assumptions={}
     state,
     missingInputs:frozen(missing),
     blockingEvidence:frozen(evidenceIssues),
-    currency:"BWP",
+    currency:runtimeMarketProfile(DEFAULT_RUNTIME_MARKET_CODE)?.currency||"BWP",
     horizonDays:7,
     recordedCashPositionMinor:cash,
     recordedSupplierPayablesDue7dMinor:cashCalendar?.payablesAvailable===true?committed7d:null,
@@ -310,23 +312,39 @@ function weeklySpendEnvelope({cashPositionMinor=0,cashCalendar={},assumptions={}
   });
 }
 
-export function extractSpendWhatIfBwpMinor(question){
+const regexEscape=value=>String(value).replace(/[.*+?^$()|[\]{}\\]/g,"\\$&");
+
+export function extractSpendWhatIfMinor(question,{marketCode=DEFAULT_RUNTIME_MARKET_CODE}={}){
   const input=clean(question,1000);
   const spendIntent=/\b(spend|spending|buy|buying|purchase|purchasing|afford|cost|costs|costing|pay\s+for|paying\s+for)\b/i.test(input);
   if(!spendIntent)return null;
-  const pattern=/(?:\b(?:P|BWP)\s*(\d+(?:,\d{3})*(?:\.\d{1,2})?)\s*k\b)|(?:\b(\d+(?:\.\d+)?)\s*k\s*(?:pula|BWP)\b)|(?:\b(?:P|BWP)\s*(\d+(?:,\d{3})*(?:\.\d{1,2})?)\b)|(?:\b(\d+(?:,\d{3})*(?:\.\d{1,2})?)\s*(?:pula|BWP)\b)/gi;
+  const profile=runtimeMarketProfile(marketCode),tokens=marketMoneyTokens(marketCode);
+  if(!profile||!tokens)return null;
+  const prefix=tokens.prefix.map(regexEscape).sort((a,b)=>b.length-a.length).join("|");
+  const suffix=tokens.suffix.map(regexEscape).sort((a,b)=>b.length-a.length).join("|");
+  if(!prefix||!suffix)return null;
+  const amount="(\\d+(?:,\\d{3})*(?:\\.\\d{1,2})?)";
+  const kiloAmount="(\\d+(?:\\.\\d+)?)";
+  const pattern=new RegExp(
+    `(?:\\b(?:${prefix})\\s*${amount}\\s*k\\b)|(?:\\b${kiloAmount}\\s*k\\s*(?:${suffix})\\b)|(?:\\b(?:${prefix})\\s*${amount}\\b)|(?:\\b${amount}\\s*(?:${suffix})\\b)`,
+    "gi"
+  );
   const values=[];
   for(const match of input.matchAll(pattern)){
     const kilo=match[1]??match[2],plain=match[3]??match[4];
     const raw=String(kilo??plain??"").replaceAll(",","");
     const value=Number(raw);
     if(!Number.isFinite(value)||value<=0)continue;
-    const bwp=kilo!=null?value*1000:value;
-    const minor=Math.round(bwp*100);
+    const major=kilo!=null?value*1000:value;
+    const minor=Math.round(major*100);
     if(Number.isSafeInteger(minor)&&minor>0&&minor<=100000000000000)values.push(minor);
   }
   const unique=[...new Set(values)];
   return unique.length===1?unique[0]:null;
+}
+
+export function extractSpendWhatIfBwpMinor(question){
+  return extractSpendWhatIfMinor(question,{marketCode:"BW"});
 }
 
 export function simulateWeeklySpendDecision({spendEnvelope={},proposedSpendMinor,label=null}={}){
@@ -623,7 +641,7 @@ export async function buildMoneyIntelligence(env,tenantId,{businessDate,cashPosi
     version:MONEY_INTELLIGENCE_VERSION,
     available:true,
     businessDate,
-    currency:"BWP",
+    currency:runtimeMarketProfile(DEFAULT_RUNTIME_MARKET_CODE)?.currency||"BWP",
     trend,
     assumptions,
     commitments,
@@ -640,4 +658,4 @@ export async function buildMoneyIntelligence(env,tenantId,{businessDate,cashPosi
     authority:frozen({readOnly:true,executionAllowed:false,forecast:false,scenarioProjection:true,accountingMargin:false,accountingPosting:false,supplierPayments:false,financialAdvice:false})
   });
 }
-export const __moneyIntelligenceTest=frozen({summarizeTransactions,assumptionMetrics,cashScenario,ownerCommitments,debitConcentration,collectionBehavior,expenseCategoryLearning,supplierSpendTrend,payableSupplierConcentration,cashCommitmentStress,weeklySpendEnvelope,extractSpendWhatIfBwpMinor,simulateWeeklySpendDecision,forwardCashCalendar,pctChange});
+export const __moneyIntelligenceTest=frozen({summarizeTransactions,assumptionMetrics,cashScenario,ownerCommitments,debitConcentration,collectionBehavior,expenseCategoryLearning,supplierSpendTrend,payableSupplierConcentration,cashCommitmentStress,weeklySpendEnvelope,extractSpendWhatIfMinor,extractSpendWhatIfBwpMinor,simulateWeeklySpendDecision,forwardCashCalendar,pctChange});

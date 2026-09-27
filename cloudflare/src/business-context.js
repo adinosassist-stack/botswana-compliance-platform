@@ -4,8 +4,9 @@ import {financePayablesSummary} from "./finance-payables.js";
 import {listBusinessMemory} from "./business-memory.js";
 import {buildMoneyIntelligence} from "./money-intelligence.js";
 import {languagePreferenceFromMemory,deterministicLanguagePolicy,deterministicLanguageNotice} from "./thebe-language.js";
+import {runtimeMarketProfile,marketBusinessDate,formatMarketMajor,formatMarketMinor} from "./market-profile.js";
 
-export const BUSINESS_CONTEXT_VERSION="2026-09-26.v165";
+export const BUSINESS_CONTEXT_VERSION="2026-09-27.v166";
 
 const PROFILE_KEYS=Object.freeze({
   monthlyRevenueTargetBwp:"decisionMonthlyRevenueTargetBwp",
@@ -22,8 +23,8 @@ const frozen=value=>Object.freeze(value);
 const clean=(value,max=240)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
 const finite=value=>{const n=Number(value);return Number.isFinite(n)?n:null};
 const safeJson=(value,fallback={})=>{try{const parsed=JSON.parse(String(value||""));return parsed&&typeof parsed==="object"?parsed:fallback}catch{return fallback}};
-const gaboroneDate=(now=new Date())=>{try{return new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Gaborone",year:"numeric",month:"2-digit",day:"2-digit"}).format(now)}catch{return now.toISOString().slice(0,10)}};
-const pulaMinor=value=>`P${(Number(value||0)/100).toLocaleString("en-BW",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+const gaboroneDate=(now=new Date())=>marketBusinessDate(now,"BW");
+const pulaMinor=value=>formatMarketMinor(value,{marketCode:"BW"});
 async function safeFirst(env,sql,bindings=[]){try{return await env.DB.prepare(sql).bind(...bindings).first()}catch{return null}}
 
 function activeCompany(state){
@@ -227,7 +228,7 @@ function setswanaPriority(item,metrics={}){
     overdue_compliance:{title:"Sekaseka maikarabelo a compliance a a fetileng nako",detail:`Go na le maikarabelo a compliance a ${Number(metrics.overdueComplianceCount||0)} a a rekotilweng a fetile nako.`},
     failed_workflows:{title:"Rarabolola ditsela tsa tiro tse di paletsweng",detail:`Go na le workflow di le ${Number(metrics.failedWorkflowCount||0)} tse di rekotilweng di paletswe kgotsa di emetse tharabololo.`},
     critical_performance:{title:"Sekaseka ditemoso tsa botlhokwa tsa kgwebo",detail:`Go na le ditemoso tsa botlhokwa di le ${Number(metrics.criticalPerformanceSignals||0)} tse di sa ntseng di butse.`},
-    dormant_quotations:{title:"Latela dikhoutheishene tse di sa tsweleleng",detail:`${Number(metrics.dormantQuotationCount||0)} dikhoutheishene di emela P${Number(metrics.dormantQuotationValueBwp||0).toLocaleString("en-BW",{maximumFractionDigits:2})} ya boleng jo bo rekotilweng ke mong.`},
+    dormant_quotations:{title:"Latela dikhoutheishene tse di sa tsweleleng",detail:`${Number(metrics.dormantQuotationCount||0)} dikhoutheishene di emela ${formatMarketMajor(metrics.dormantQuotationValueBwp,{marketCode:"BW",maximumFractionDigits:2})} ya boleng jo bo rekotilweng ke mong.`},
     cash_runway:{title:"Sekaseka nako e madi a ka tswelelang ka yone",detail:`Runway e e fopholeditsweng ke matsatsi a ${metrics.estimatedRunwayDays==null?"—":Number(metrics.estimatedRunwayDays)} go ya ka monthly outflows tse mong a di tsentseng.`},
     outflow_acceleration:{title:"Sekaseka koketsego ya madi a tswang",detail:`Madi a a tswang mo malatsing a 30 a fetileng a fetogile ka ${metrics.outflowChangePct==null?"—":Math.round(Number(metrics.outflowChangePct)*100)+"%"} fa a bapisiwa le malatsi a 30 a pele.`},
     large_debits:{title:"Sekaseka ditlhakololo tsa madi tse dikgolo",detail:`Go na le debit di le ${Number(metrics.largeDebitCount||0)} tse di fetang deterministic large-debit threshold.`},
@@ -311,7 +312,7 @@ export function deriveBusinessPriorities(context){
   ));
   if(Number(sales.dormantQuotationCount||0)>0)out.push(priority(
     "dormant_quotations","medium","Follow up dormant quotations",
-    `${Number(sales.dormantQuotationCount||0)} dormant quotation(s) represent P${Number(sales.dormantQuotationValueBwp||0).toLocaleString("en-BW",{maximumFractionDigits:2})} of owner-recorded quote value.`,
+    `${Number(sales.dormantQuotationCount||0)} dormant quotation(s) represent ${formatMarketMajor(sales.dormantQuotationValueBwp,{marketCode:"BW",maximumFractionDigits:2})} of owner-recorded quote value.`,
     ["app_state.active_company.salesIntelligence"],null
   ));
   for(const signal of Array.isArray(money?.signals)?money.signals:[]){
@@ -343,7 +344,7 @@ export function buildDailyBusinessBrief(context){
   const basePriorities=deriveBusinessPriorities(context),finance=context?.finance||{},receivables=finance.receivables||{},compliance=context?.compliance||{},ops=context?.operations||{},sales=context?.sales||{},money=context?.moneyIntelligence||{},trend=money?.trend||{},assumptions=money?.assumptions||{};
   const preference=context?.language||languagePreferenceFromMemory(context?.durableMemory),language=deterministicLanguagePolicy(preference);
   const metrics=frozen({
-    currency:"BWP",
+    currency:runtimeMarketProfile("BW")?.currency||"BWP",
     cashPositionMinor:Number(finance.cashPositionMinor||0),
     positiveInflowTodayMinor:Number(finance?.today?.positiveInflowMinor||0),
     customerCollectionsTodayMinor:Number(finance?.today?.customerCollectionMinor||0),
