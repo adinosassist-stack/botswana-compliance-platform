@@ -209,9 +209,10 @@ export async function handlePropertyPortfolioRequest({request,url,env,auth,json,
   const asset=assetRoute(path);
   if(asset&&request.method==="PATCH"){
     const body=await readJson(request,{maxBytes:16*1024});
-    const current=await env.DB.prepare("SELECT id,name,property_type,location_text,tenure_type,currency,acquisition_date,acquisition_cost_minor,annual_rent_minor,annual_operating_cost_minor,debt_balance_minor,status,archived_at,archived_by_user_id,archive_reason FROM property_assets WHERE tenant_id=? AND id=? LIMIT 1").bind(auth.tenant_id,asset.assetId).first();
+    const current=await env.DB.prepare("SELECT id,asset_code,name,property_type,location_text,tenure_type,currency,acquisition_date,acquisition_cost_minor,annual_rent_minor,annual_operating_cost_minor,debt_balance_minor,status,archived_at,archived_by_user_id,archive_reason FROM property_assets WHERE tenant_id=? AND id=? LIMIT 1").bind(auth.tenant_id,asset.assetId).first();
     if(!current)return json({error:"property_asset_not_found"},404);
     const next={
+      assetCode:body.assetCode===undefined?current.asset_code:(text(body.assetCode,80)||null),
       name:body.name===undefined?current.name:text(body.name,160),
       propertyType:body.propertyType===undefined?current.property_type:normalizedType(body.propertyType),
       location:body.location===undefined?current.location_text:text(body.location,240),
@@ -240,8 +241,8 @@ export async function handlePropertyPortfolioRequest({request,url,env,auth,json,
     const archiveReason=next.status==="archived"?next.archiveReason:null;
     const statements=[
       env.DB.prepare(
-        "UPDATE property_assets SET name=?,property_type=?,location_text=?,tenure_type=?,acquisition_date=?,acquisition_cost_minor=?,annual_rent_minor=?,annual_operating_cost_minor=?,debt_balance_minor=?,status=?,archived_at=?,archived_by_user_id=?,archive_reason=?,updated_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND id=?"
-      ).bind(next.name,next.propertyType,next.location,next.tenureType,next.acquisitionDate,next.acquisitionCostMinor,next.annualRentMinor,next.annualOperatingCostMinor,next.debtBalanceMinor,next.status,archivedAt,archivedByUserId,archiveReason,auth.tenant_id,asset.assetId)
+        "UPDATE property_assets SET asset_code=?,name=?,property_type=?,location_text=?,tenure_type=?,acquisition_date=?,acquisition_cost_minor=?,annual_rent_minor=?,annual_operating_cost_minor=?,debt_balance_minor=?,status=?,archived_at=?,archived_by_user_id=?,archive_reason=?,updated_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND id=?"
+      ).bind(next.assetCode,next.name,next.propertyType,next.location,next.tenureType,next.acquisitionDate,next.acquisitionCostMinor,next.annualRentMinor,next.annualOperatingCostMinor,next.debtBalanceMinor,next.status,archivedAt,archivedByUserId,archiveReason,auth.tenant_id,asset.assetId)
     ];
     if(financialChanged){
       statements.push(env.DB.prepare(
@@ -251,7 +252,10 @@ export async function handlePropertyPortfolioRequest({request,url,env,auth,json,
     }
     try{
       await env.DB.batch(statements);
-    }catch{return json({error:"property_asset_update_failed"},503)}
+    }catch(error){
+      if(/UNIQUE|constraint/i.test(String(error)))return json({error:"property_asset_conflict"},409);
+      return json({error:"property_asset_update_failed"},503);
+    }
     await writeAudit(env,auth.tenant_id,auth.user_id,statusChanged?"PROPERTY_ASSET_STATUS_CHANGED":"PROPERTY_ASSET_UPDATED",{
       propertyId:asset.assetId,fromStatus:current.status,toStatus:next.status,financialSnapshotRecorded:financialChanged,archiveReason:archiveReason||null
     });
