@@ -85,7 +85,8 @@ jobs:
           const root=await get('/');
           assert.equal(root.status,200);
           const html=await root.text();
-          assert.match(html,/Run your business with intelligence\./i);\n          assert.match(html,/Live in Botswana · Namibia next/i);
+          assert.match(html,/Run your business with intelligence\./i);
+          assert.match(html,/Live in Botswana · Namibia next/i);
           assert.doesNotMatch(html,/id="appShell"/i);
           assert.doesNotMatch(html,/id="authForm"/i);
           assert.equal(root.headers.get('x-thebe-surface'),'public');
