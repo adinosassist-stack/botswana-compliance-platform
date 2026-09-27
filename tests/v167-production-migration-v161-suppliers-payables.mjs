@@ -19,7 +19,7 @@ assert.match(workflow,/057_v157_business_memory_money_intelligence\.sql/);
 assert.match(workflow,/058_v161_finance_suppliers_payables\.sql/);
 assert.doesNotMatch(workflow,/latestSchemaDelta!=='058_v161_finance_suppliers_payables\.sql'/);
 
-assert.match(runner,/blob:'3aa835dc81d52ac0066313e866162186c9876421'/);
+assert.match(runner,/blob:'36b5a13dae42dffebcfbeac07a926094f5afae10'/);
 assert.match(runner,/verifyPrerequisites/);
 assert.match(runner,/business_memory_items/);
 assert.match(runner,/time_travel\/bookmark/);
@@ -44,5 +44,6 @@ assert.match(migration,/SELECT \(CASE WHEN EXISTS\(/,'D1 trigger guards must use
 assert.equal(migration.includes("THEN RAISE(ABORT,'finance_supplier_name_alias_collision') END);"),true);
 assert.equal(migration.includes("THEN RAISE(ABORT,'finance_payable_overallocation') END);"),true);
 assert.doesNotMatch(migration,/SELECT RAISE\(ABORT,'finance_supplier_name_alias_collision'\)\n  WHERE EXISTS\(/);
+assert.doesNotMatch(migration,/SELECT RAISE\(ABORT,'finance_supplier_tenant_mismatch'\)\n  WHERE NOT EXISTS\(/);
 
 console.log('v167 guarded production migration 058 checks passed');
