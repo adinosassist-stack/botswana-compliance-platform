@@ -1,7 +1,7 @@
 (function initOwnerCommandCentre(global){
   "use strict";
 
-  const RELEASE="20260927-v173";
+  const RELEASE="20260926-v165";
   const MAX_OPPORTUNITIES=500;
   const MAX_CAMPAIGNS=50;
   const PROFILE_KEYS=Object.freeze({
