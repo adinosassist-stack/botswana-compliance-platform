@@ -37,7 +37,7 @@ assert.equal(runtimeMarketProfile("NA"),null);
 assert.equal(runtimeMarketProfile("ZA"),null);
 assert.deepEqual(marketRollout(),{live:["BW"],next:["NA"]});
 
-assert.equal(marketBusinessDate(new Date("2026-09-26T22:30:00.000Z"),"BW"),"09/27/2026");
+assert.equal(marketBusinessDate(new Date("2026-09-26T22:30:00.000Z"),"BW"),"2026-09-27");
 assert.equal(formatMarketMajor(1250.5,{marketCode:"BW",minimumFractionDigits:2,maximumFractionDigits:2}),"P1,250.50");
 assert.equal(formatMarketMinor(125050,{marketCode:"BW"}),"P1,250.50");
 assert.deepEqual(marketMoneyTokens("BW"),{prefix:["P","BWP"],suffix:["pula","BWP"]});
