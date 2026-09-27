@@ -289,26 +289,26 @@ function priority(key,severity,title,detail,sourceRefs,actionKey=null){
 }
 
 export function deriveBusinessPriorities(context){
-  const marketCode=context?.market?.code||DEFAULT_RUNTIME_MARKET_CODE,money=value=>activeMarketMinor(value,marketCode),out=[],finance=context?.finance||{},recon=finance.reconciliation||{},receivables=finance.receivables||{},ops=context?.operations||{},compliance=context?.compliance||{},sales=context?.sales||{},money=context?.moneyIntelligence||{};
+  const marketCode=context?.market?.code||DEFAULT_RUNTIME_MARKET_CODE,formatMoney=value=>activeMarketMinor(value,marketCode),out=[],finance=context?.finance||{},recon=finance.reconciliation||{},receivables=finance.receivables||{},ops=context?.operations||{},compliance=context?.compliance||{},sales=context?.sales||{},money=context?.moneyIntelligence||{};
   if(Number(recon.unresolvedCount||0)>0)out.push(priority(
     "reconciliation_exception","high","Review finance reconciliation exceptions",
-    `${Number(recon.unresolvedCount||0)} exception(s) represent ${money(recon.unresolvedExposureMinor)} of recorded reconciliation exposure.`,
+    `${Number(recon.unresolvedCount||0)} exception(s) represent ${formatMoney(recon.unresolvedExposureMinor)} of recorded reconciliation exposure.`,
     ["finance_reconciliation_runs"],"finance_reconciliation.prepare"
   ));
   if(Number(receivables.overdueMinor||0)>0)out.push(priority(
     "overdue_receivables","high","Collect overdue customer balances",
-    `${money(receivables.overdueMinor)} is overdue across ${Number(receivables.overdueInvoiceCount||0)} issued invoice(s).`,
+    `${formatMoney(receivables.overdueMinor)} is overdue across ${Number(receivables.overdueInvoiceCount||0)} issued invoice(s).`,
     ["finance_invoices","finance_invoice_allocations"],"receivables_summary.read"
   ));
   const payables=finance.payables||{};
   if(Number(payables.overdueMinor||0)>0)out.push(priority(
     "overdue_payables","high","Review overdue supplier payables",
-    `${money(payables.overdueMinor)} is overdue across ${Number(payables.overduePayableCount||0)} recorded payable(s).`,
+    `${formatMoney(payables.overdueMinor)} is overdue across ${Number(payables.overduePayableCount||0)} recorded payable(s).`,
     ["finance_suppliers","finance_payables","finance_payable_allocations"],null
   ));
   else if(Number(payables.due14dMinor||0)>0)out.push(priority(
     "payables_due_14d","medium","Review supplier cash commitments due within 14 days",
-    `${money(payables.due14dMinor)} of recorded supplier payables falls due within 14 days.`,
+    `${formatMoney(payables.due14dMinor)} of recorded supplier payables falls due within 14 days.`,
     ["finance_suppliers","finance_payables","finance_payable_allocations"],null
   ));
   if(Number(compliance.overdueCount||0)>0)out.push(priority(
