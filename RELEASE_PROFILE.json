@@ -733,7 +733,7 @@
   "control_replacement_no_people_scoring": true,
   "control_replacement_no_second_notification_stream": true,
   "control_replacement_fail_closed": true,
-  "latest_cloudflare_migration": "058_v161_finance_suppliers_payables.sql",
+  "latest_cloudflare_migration": "059_v174_property_portfolio_valuation.sql",
   "agentic_foundation_v80": true,
   "agentic_execution_enabled": false,
   "agentic_human_approval_required": true,
