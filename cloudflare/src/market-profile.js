@@ -64,10 +64,14 @@ export function marketBusinessDate(now=new Date(),code=DEFAULT_RUNTIME_MARKET_CO
   }
 }
 
-export function formatMarketMinor(value,{marketCode=DEFAULT_RUNTIME_MARKET_CODE,minimumFractionDigits=2,maximumFractionDigits=2}={}){
+export function formatMarketMajor(value,{marketCode=DEFAULT_RUNTIME_MARKET_CODE,minimumFractionDigits=0,maximumFractionDigits=2}={}){
   const profile=runtimeMarketProfile(marketCode)||runtimeMarketProfile(DEFAULT_RUNTIME_MARKET_CODE);
-  const amount=Number(value||0)/100;
+  const amount=Number(value||0);
   return `${profile.currencySymbol}${amount.toLocaleString(profile.locale,{minimumFractionDigits,maximumFractionDigits})}`;
+}
+
+export function formatMarketMinor(value,{marketCode=DEFAULT_RUNTIME_MARKET_CODE,minimumFractionDigits=2,maximumFractionDigits=2}={}){
+  return formatMarketMajor(Number(value||0)/100,{marketCode,minimumFractionDigits,maximumFractionDigits});
 }
 
 export function marketMoneyTokens(code=DEFAULT_RUNTIME_MARKET_CODE){
@@ -85,6 +89,7 @@ export const __marketProfileTest=frozen({
   runtimeMarketProfile,
   marketRollout,
   marketBusinessDate,
+  formatMarketMajor,
   formatMarketMinor,
   marketMoneyTokens
 });
