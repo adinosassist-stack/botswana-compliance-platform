@@ -55,7 +55,8 @@ const businessContext=fs.readFileSync(new URL("../cloudflare/src/business-contex
 const moneySource=fs.readFileSync(new URL("../cloudflare/src/money-intelligence.js",import.meta.url),"utf8");
 const homepage=fs.readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
 assert.match(businessContext,/from "\.\/market-profile\.js"/);
-assert.match(businessContext,/currency:runtimeMarketProfile\("BW"\)\?\.currency\|\|"BWP"/);
+assert.match(businessContext,/function activeMarketContext\(\)/);
+assert.match(businessContext,/market:activeMarketContext|const market=activeMarketContext\(\)/);
 assert.doesNotMatch(businessContext,/toLocaleString\("en-BW"/);
 assert.match(moneySource,/extractSpendWhatIfMinor/);
 assert.match(moneySource,/runtimeMarketProfile\(DEFAULT_RUNTIME_MARKET_CODE\)/);
