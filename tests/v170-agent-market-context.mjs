@@ -3,7 +3,7 @@ import fs from "node:fs";
 import {__businessContextTest as business,BUSINESS_CONTEXT_VERSION} from "../cloudflare/src/business-context.js";
 import {DEFAULT_RUNTIME_MARKET_CODE,runtimeMarketProfile} from "../cloudflare/src/market-profile.js";
 
-assert.equal(BUSINESS_CONTEXT_VERSION,"2026-09-27.v167");
+assert.equal(BUSINESS_CONTEXT_VERSION,"2026-09-27.v173");
 assert.equal(DEFAULT_RUNTIME_MARKET_CODE,"BW");
 
 const active=business.activeMarketContext();
