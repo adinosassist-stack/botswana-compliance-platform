@@ -1488,7 +1488,7 @@
       detail:p.portfolioAnalyticsAvailable?`${money(Number(p.recordedProfessionalValueMinor||0)/100)} recorded professional valuation value · ${money(Number(p.debtBalanceMinor||0)/100)} recorded debt · ${p.valuationCoveragePct==null?"—":pct(Number(p.valuationCoveragePct))} valuation coverage. Thebe does not create or certify market value.`:"The underwriting calculator remains scenario-only until the canonical property register is available.",
       tone:Number(p.unvaluedAssetCount||0)>0||Number(p.staleProfessionalValuationCount||0)>0?"risk":"neutral",
       actionLabel:p.portfolioAnalyticsAvailable?"Open property tools":null,
-      action:p.portfolioAnalyticsAvailable?()=>window.showView?.("propertyintelligence"):null
+      action:p.portfolioAnalyticsAvailable?()=>route("propertyintelligence"):null
     }));
     grid.append(signalCard({
       label:"Data readiness",value:String(analytics.dataQuality?.readiness||"limited").replace(/^./,x=>x.toUpperCase()),
