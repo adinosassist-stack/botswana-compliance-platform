@@ -49,6 +49,7 @@ assert.match(analytics,/recordedProfessionalValueMinor/);
 assert.match(analytics,/property_valuation_coverage/);
 assert.match(owner,/Property & valuation/);
 assert.match(owner,/recorded professional valuation/);
+assert.match(owner,/action:p\.portfolioAnalyticsAvailable\?\(\)=>route\("propertyintelligence"\):null/);
 assert.match(workflow,/\[migrate-059\]/);
 assert.match(workflow,/thebe\/production-d1-059/);
 assert.match(workflow,/migration authority must be a two-parent merged PR commit/);
