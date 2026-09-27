@@ -3397,6 +3397,24 @@
     }
   }
 
+  async function linkPropertyValuationEvidence(propertyId,valuationId,evidenceId,propertyName="Property"){
+    if(role()!=="owner"||!propertyId||!valuationId||!evidenceId)return;
+    const box=q("#propertyValuationHistory");
+    try{
+      if(box)box.prepend(text("div","Linking approved scan-clean signed report…","notice small"));
+      await request("/api/property/assets/"+encodeURIComponent(propertyId)+"/professional-valuations/"+encodeURIComponent(valuationId)+"/evidence",{
+        method:"POST",
+        headers:{"content-type":"application/json"},
+        body:JSON.stringify({evidenceId})
+      });
+      propertyPortfolioNotify("Signed valuation-report evidence linked without changing the immutable valuation record.");
+      await renderPropertyPortfolio(true);
+      await showPropertyValuationHistory(propertyId,propertyName);
+    }catch(error){
+      if(box)box.prepend(text("div","Could not link signed-report evidence: "+String(error?.message||"secure write failed").slice(0,180),"notice bad"));
+    }
+  }
+
   async function showPropertyValuationHistory(propertyId,propertyName="Property"){
     const box=q("#propertyValuationHistory");
     if(!box||!propertyId)return;
@@ -3431,6 +3449,27 @@
             text("div",row.report_evidence?.ready?"Evidence: "+String(row.report_evidence.display_name||"approved scan-clean document"):"Evidence gap: no linked approved, scan-clean signed report","muted small")
           );
           if(row.methodology_note)item.append(text("div",String(row.methodology_note),"small"));
+          if(!row.report_evidence?.ready&&role()==="owner"&&propertyEvidenceOptions.length){
+            const evidenceRow=document.createElement("div");
+            evidenceRow.className="actions";
+            evidenceRow.style.marginTop="8px";
+            const select=document.createElement("select");
+            const none=document.createElement("option");
+            none.value="";
+            none.textContent="Choose approved signed-report evidence";
+            select.append(none);
+            for(const evidence of propertyEvidenceOptions){
+              const option=document.createElement("option");
+              option.value=String(evidence.id||"");
+              option.textContent=String(evidence.display_name||evidence.displayName||"Evidence");
+              select.append(option);
+            }
+            const link=button("Link signed report",()=>{
+              if(select.value)void linkPropertyValuationEvidence(propertyId,String(row.id||""),select.value,propertyName);
+            },"btn soft");
+            evidenceRow.append(select,link);
+            item.append(evidenceRow);
+          }
           panel.append(item);
         });
       }
