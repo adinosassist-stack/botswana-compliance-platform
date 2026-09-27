@@ -2779,7 +2779,7 @@ main{
     </div>
 
     <section id="firstValuePanel" class="first-value-panel" aria-labelledby="firstValueTitle" aria-live="polite">
-      <div class="first-value-head"><div><div class="section-eyebrow">First protection check</div><h2 id="firstValueTitle">Turning your business facts into the first actions</h2><p id="firstValueIntro" class="muted small">We only use confirmed facts. Unknown tax or licence facts stay unresolved until you confirm them.</p></div><span id="firstValueStatus" class="badge warn first-value-status">Checking</span></div>
+      <div class="first-value-head"><div><div class="section-eyebrow">First protection check</div><h2 id="firstValueTitle">Turning your business facts into the first actions</h2><p id="firstValueIntro" class="muted small">We only use confirmed facts. Unknown tax or licence facts stay unresolved until you confirm them.</p></div><span id="firstValueStatus" class="badge first-value-status">Not checked</span></div>
       <div class="first-value-grid">
         <div class="first-value-list"><div class="section-eyebrow">Start here</div><div id="firstValueActions"><div class="muted small">Checking current published rules and your saved business facts…</div></div></div>
         <div class="first-value-confirm"><div class="section-eyebrow">Facts to confirm</div><div id="firstValueConfirmations"><div class="muted small">Checking what still needs confirmation…</div></div></div>
@@ -2792,7 +2792,7 @@ main{
         <div><div class="section-eyebrow">Thebe Brief</div><h2 id="homeDecisionTitle">What needs your attention today</h2><p class="muted">Your operating brief: a live owner view of cash, money owed, people, compliance and the work that needs a decision. See what changed, what is urgent, what staff reported, what is waiting for review and the three actions that matter today. Open the exact record from here. Every figure links back to the workspace source instead of becoming a separate dashboard truth.</p></div>
         <button class="btn alt" type="button" data-bw-onclick="renderDailyOperatingBrief()">Refresh brief</button>
       </div>
-      <div id="ownerBriefNotice" class="notice warn small" style="display:none;margin:0 0 12px" role="status" aria-live="polite"></div>
+      <div id="ownerBriefNotice" class="notice small" style="display:none;margin:0 0 12px" role="status" aria-live="polite"></div>
       <div class="owner-today-grid" aria-label="Today's business snapshot">
         <button class="owner-today-card" type="button" data-bw-onclick="openThebeFromHome('Explain our current cash position and any reconciliation issues.')"><span class="owner-today-label">Cash</span><b class="owner-today-value" id="homeCashPosition">—</b><span class="owner-today-detail" id="homeCashDetail">Checking canonical Finance Core…</span></button>
         <button class="owner-today-card" type="button" data-bw-onclick="openThebeFromHome('Summarise our outstanding receivables and overdue customer balances.')"><span class="owner-today-label">Money owed</span><b class="owner-today-value" id="homeMoneyOwed">—</b><span class="owner-today-detail" id="homeReceivablesDetail">Checking issued invoices…</span></button>
