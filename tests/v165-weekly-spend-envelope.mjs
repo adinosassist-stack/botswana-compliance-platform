@@ -139,7 +139,7 @@ assert.match(source,/weekly_spend_envelope_zero/);
 assert.doesNotMatch(source,/spendingAuthorization:true/);
 
 const context=fs.readFileSync("cloudflare/src/business-context.js","utf8");
-assert.match(context,/BUSINESS_CONTEXT_VERSION="2026-09-26\.v165"/);
+assert.match(context,/BUSINESS_CONTEXT_VERSION="2026-09-27\.v166"/);
 assert.match(context,/reconciliationStale:finance\?\.reconciliation\?\.stale===true/);
 assert.match(context,/weeklySpendEnvelopeMinor/);
 assert.match(context,/weeklySpendBlockingEvidenceCount/);
