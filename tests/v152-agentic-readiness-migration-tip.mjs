@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import {delegatedAuthoritySchemaReady,V81_SCHEMA_DELTA} from "../cloudflare/src/agentic-entry.js";
 
-assert.equal(V81_SCHEMA_DELTA,"061_v176_property_valuation_services.sql");
+assert.equal(V81_SCHEMA_DELTA,"062_v177_property_valuation_service_reliability.sql");
 
 function db({missingClaims=false,missingScheduledFor=false,missingOccurrenceIndex=false,missingSchedulerIndex=false,missingRegistry=false,missingMemory=false,missingProperty=false,missingPropertyV175=false,missingPropertyV176=false}={}){
   return {
