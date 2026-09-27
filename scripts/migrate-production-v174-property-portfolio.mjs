@@ -13,7 +13,7 @@ const execFile=promisify(execFileCallback);
 const spec=Object.freeze({
   number:59,
   path:'cloudflare/migrations/059_v174_property_portfolio_valuation.sql',
-  blob:'0af4889b77c2cea872207c340aefaa700b477494'
+  blob:'92ecf76e86e04184d750851246fe630b965295b3'
 });
 
 function fail(message){throw new Error(`Production D1 migration 059 refused: ${message}`)}
@@ -89,7 +89,7 @@ async function verify059(){
   await requireTrigger('property_professional_valuation_tenant_guard',[/property_asset_tenant_mismatch/i,/property_assets/i]);
   await requireTrigger('property_professional_valuation_currency_guard',[/property_valuation_currency_mismatch/i,/a\.currency\s*=\s*NEW\.currency/i]);
   await requireTrigger('property_professional_valuations_immutable_update',[/property_professional_valuation_immutable/i]);
-  await requireTrigger('property_professional_valuations_immutable_delete',[/property_professional_valuation_immutable/i]);
+  await requireTrigger('property_professional_valuations_immutable_delete',[/property_professional_valuation_immutable/i,/WHEN\s+EXISTS\s*\(\s*SELECT 1 FROM tenants/i]);
   return true;
 }
 async function executeMigration(){
