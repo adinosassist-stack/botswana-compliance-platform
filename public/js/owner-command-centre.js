@@ -2933,6 +2933,7 @@
       String(row?.review_status||"")==="approved"
       &&String(row?.scan_status||"")==="clean"
       &&!!row?.scanned_at
+      &&!row?.malware_name
     );
   }
 
