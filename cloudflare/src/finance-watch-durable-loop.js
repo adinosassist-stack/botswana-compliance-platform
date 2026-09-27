@@ -128,11 +128,11 @@ async function escalateOwnerAttention(env,task,claim,outcome){
   return frozen({paused:true,claimId,taskId,scheduledFor,errorCode,recoveryDecision:"owner_attention",executionAllowed:false,externalActions:0});
 }
 
-async function recoverVerifiedOccurrence(env,task,claim){
+async function recoverVerifiedOccurrence(env,task,claim,{now=new Date()}={}){
   if(!claim?.recovered||!claim?.scheduledFor)return null;
   const checkpoint=await env.DB.prepare("SELECT id FROM agent_observation_checkpoints WHERE tenant_id=? AND persistent_task_id=? AND scheduled_for=? LIMIT 1").bind(task.tenant_id,task.id,claim.scheduledFor).first();
   if(!checkpoint)return null;
-  const schedule=nextRunAt(task,claim.scheduledFor),next=schedule?.nextRunAt||null;
+  const schedule=nextRunAt(task,claim.scheduledFor,{now}),next=schedule?.nextRunAt||null;
   if(!next)return frozen({ok:false,persisted:false,code:"invalid_observation_cadence",executionAllowed:false});
   const recoveryMeta={persistentTaskId:task.id,scheduledFor:claim.scheduledFor,nextRunAt:next,skippedOccurrences:schedule?.skippedOccurrences||0,cadence:schedule?.cadence||null,claimId:claim.id,checkpointId:checkpoint.id,externalActions:0};
   const results=await env.DB.batch([

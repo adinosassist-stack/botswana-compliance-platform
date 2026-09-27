@@ -3,9 +3,10 @@ import {__financeWatchDurableLoopTest} from "../cloudflare/src/finance-watch-dur
 import {evaluateAgentAction} from "../cloudflare/src/agent-policy.js";
 import {executeAgentReadTool} from "../cloudflare/src/agent-read-tools.js";
 const loop=fs.readFileSync("cloudflare/src/finance-watch-durable-loop.js","utf8");
-assert.deepEqual(__financeWatchDurableLoopTest.nextRunAt({trigger_spec_json:'{"cadence":"daily"}'},"2026-09-26T08:00:00.000Z"),{nextRunAt:"2026-09-27T08:00:00.000Z",skippedOccurrences:0,cadence:"daily"});
-assert.deepEqual(__financeWatchDurableLoopTest.nextRunAt({trigger_spec_json:'{"cadence":"weekly"}'},"2026-09-26T08:00:00.000Z"),{nextRunAt:"2026-10-03T08:00:00.000Z",skippedOccurrences:0,cadence:"weekly"});
-assert.equal(__financeWatchDurableLoopTest.nextRunAt({trigger_spec_json:'{"cadence":"hourly"}'},"2026-09-26T08:00:00.000Z"),null,"hourly cadence must fail closed");
+assert.deepEqual(__financeWatchDurableLoopTest.nextRunAt({trigger_spec_json:'{"cadence":"daily"}'},"2026-09-26T08:00:00.000Z",{now:"2026-09-26T08:00:00.000Z"}),{nextRunAt:"2026-09-27T08:00:00.000Z",skippedOccurrences:0,cadence:"daily"});
+assert.deepEqual(__financeWatchDurableLoopTest.nextRunAt({trigger_spec_json:'{"cadence":"weekly"}'},"2026-09-26T08:00:00.000Z",{now:"2026-09-26T08:00:00.000Z"}),{nextRunAt:"2026-10-03T08:00:00.000Z",skippedOccurrences:0,cadence:"weekly"});
+assert.equal(__financeWatchDurableLoopTest.nextRunAt({trigger_spec_json:'{"cadence":"hourly"}'},"2026-09-26T08:00:00.000Z",{now:"2026-09-26T08:00:00.000Z"}),null,"hourly cadence must fail closed");
+assert.deepEqual(__financeWatchDurableLoopTest.nextRunAt({trigger_spec_json:'{"cadence":"daily"}'},"2026-09-26T08:00:00.000Z",{now:"2026-09-27T08:00:00.000Z"}),{nextRunAt:"2026-09-28T08:00:00.000Z",skippedOccurrences:1,cadence:"daily"},"exact next-slot boundary must advance past an already-due occurrence");
 assert.match(loop,/role:"system_observer"/);assert.ok(!loop.includes('role:"owner"'));
 assert.equal(evaluateAgentAction({agentKey:"thebe",actionKey:"financial_position.read",actorRole:"system_observer",systemActor:true,tenantScoped:true,phase:"phase1"}).allowed,true);
 assert.equal(evaluateAgentAction({agentKey:"thebe",actionKey:"financial_position.read",actorRole:"system_observer",tenantScoped:true,phase:"phase1"}).allowed,false,"system_observer without trusted systemActor provenance must fail closed");
