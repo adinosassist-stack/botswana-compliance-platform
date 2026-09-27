@@ -15,6 +15,7 @@ const preflight=read('cloudflare/preflight-production.sh');
 const deploy=read('cloudflare/deploy-free.sh');
 const productionDeploy=read('.github/workflows/deploy-production.yml');
 const bf07Workflow=read('.github/workflows/bf07-seal.yml');
+const postDeploySmoke=read('.github/workflows/postdeploy-smoke.yml');
 const provenanceCore=read('scripts/bf07-provenance-core.mjs');
 const projectedState=worker.slice(worker.indexOf('function projectWorkspaceStateForRole'),worker.indexOf('function mergeManagerWorkspaceState'));
 let pass=0;const ok=(c,m)=>{if(!c)throw new Error('FAIL: '+m);pass++;console.log('PASS',m)};
@@ -62,6 +63,8 @@ ok(!productionDeploy.includes('wrangler@4.135.0 deploy --yes'), 'production depl
 ok(productionDeploy.includes('--secrets-file')&&productionDeploy.includes('thebe-worker-secrets.json'), 'production automation uploads runtime secrets from an ephemeral file rather than source control');
 ok(!productionDeploy.includes('d1 execute')&&!productionDeploy.includes('schema.sql'), 'production automation never replays or mutates the production D1 schema');
 ok(productionDeploy.includes('/api/live')&&productionDeploy.includes('/api/ready')&&productionDeploy.includes('/api/auth/registration-proof/challenge')&&productionDeploy.includes("proof.provider !== 'thebe_proof'")&&productionDeploy.includes('/api/auth/oauth/google/start')&&productionDeploy.includes('/api/auth/oauth/facebook/start')&&productionDeploy.includes('google-deferred')&&productionDeploy.includes('facebook-deferred'), 'production automation verifies core readiness and conditionally verifies configured OAuth starts after deploy');
+ok(postDeploySmoke.includes("assert.match(html,/Run your business with intelligence\\./i);\n          assert.match(html,/Live in Botswana · Namibia next/i);"), 'post-deploy public hero assertions remain separate executable JavaScript statements');
+ok(!postDeploySmoke.includes(";\\n          assert.match(html,/Live in Botswana · Namibia next/i);"), 'post-deploy smoke must not embed a literal escaped newline between JavaScript statements');
 
 ok(wrangler.includes('main = "src/release-governance-entry.js"')&&releaseGovernanceEntry.includes('import base from "./agentic-entry.js"')&&releaseGovernanceEntry.includes('const response=await base.fetch(request,downstreamEnv,ctx)')&&releaseGovernanceEntry.includes('let downstreamEnv=env')&&releaseGovernanceEntry.includes('return base.scheduled(event,env,ctx)')&&agenticEntry.includes('import base from "./production-entry.js"')&&agenticEntry.includes('const response=await base.fetch(request,env,ctx)')&&agenticEntry.includes('base.scheduled(event,env,ctx)')&&productionEntry.includes('import worker from "./worker.js"')&&productionEntry.includes('worker.fetch(request,env,ctx)')&&productionEntry.includes('worker.scheduled(event,env,ctx)'), 'production release governance delegates through agentic and canonical hardened production entries to the base Worker with server-only registration handoff state');
 ok(releaseGovernanceEntry.includes('REGISTRATION_MODE')&&releaseGovernanceEntry.includes('registrationGate(request,env)')&&releaseGovernanceEntry.includes('/api/version')&&releaseGovernanceEntry.includes('x-thebe-source-sha'), 'release governance entry enforces activation policy and exposes immutable runtime provenance');
