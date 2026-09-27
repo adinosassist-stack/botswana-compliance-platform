@@ -34,6 +34,7 @@ for(const table of ["property_assets","property_professional_valuations"])assert
 assert.match(migration,/source_kind='external_professional_report'/);
 assert.match(migration,/property_professional_valuations_immutable_update/);
 assert.match(migration,/property_professional_valuations_immutable_delete/);
+assert.match(migration,/BEFORE DELETE ON property_professional_valuations\s+WHEN EXISTS\(SELECT 1 FROM tenants t WHERE t\.id=OLD\.tenant_id\)/s);
 assert.match(property,/professionalValuesOnlyFromRecordedExternalReports:true/);
 assert.match(property,/thebeMarketValuation:false/);
 assert.match(property,/thebeCertification:false/);
@@ -53,7 +54,7 @@ assert.match(owner,/action:p\.portfolioAnalyticsAvailable\?\(\)=>route\("propert
 assert.match(workflow,/\[migrate-059\]/);
 assert.match(workflow,/thebe\/production-d1-059/);
 assert.match(workflow,/migration authority must be a two-parent merged PR commit/);
-assert.match(runner,/blob:'0af4889b77c2cea872207c340aefaa700b477494'/);
+assert.match(runner,/blob:'92ecf76e86e04184d750851246fe630b965295b3'/);
 assert.match(runner,/time_travel\/bookmark/);
 assert.match(runner,/foreign_key_check/);
 
