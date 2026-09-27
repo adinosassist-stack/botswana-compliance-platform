@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 const html=fs.readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
 const worker=fs.readFileSync(new URL("../cloudflare/src/worker.js",import.meta.url),"utf8");
 assert.match(html,/v67 — secure Apple-clean merge/);
-assert.match(html,/See business risk before it becomes a penalty, dispute or loss\.<\/h1>/);
+assert.match(html,/Run your business with intelligence\.<\/h1>/);
 assert.match(html,/gaborone-entrepreneurs-v67\.webp/);
 assert.match(html,/Your business, protected/);
 assert.match(html,/Protection monitoring on/);
