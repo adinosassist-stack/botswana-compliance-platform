@@ -26,13 +26,21 @@ async function syncPaymentStatus(env,row){
   const paymentStatus=String(order?.status||"");
   if(paymentStatus==="paid"&&row.status==="awaiting_payment"){
     const changed=await env.DB.prepare("UPDATE property_valuation_service_requests SET status='paid',updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='awaiting_payment'").bind(row.id).run();
-    if(Number(changed.meta?.changes||0)===1)await event(env,row,"PAYMENT_CONFIRMED",null,{serviceOrderId:row.service_order_id});
-    return {...row,status:"paid",service_order_status:"paid"};
+    if(Number(changed.meta?.changes||0)===1){
+      await event(env,row,"PAYMENT_CONFIRMED",null,{serviceOrderId:row.service_order_id});
+      return {...row,status:"paid",service_order_status:"paid"};
+    }
+    const current=await env.DB.prepare("SELECT status FROM property_valuation_service_requests WHERE id=? LIMIT 1").bind(row.id).first();
+    return {...row,status:String(current?.status||row.status),service_order_status:"paid"};
   }
   if(paymentStatus==="refunded"&&!["report_issued","refunded"].includes(row.status)){
     const changed=await env.DB.prepare("UPDATE property_valuation_service_requests SET status='refunded',updated_at=CURRENT_TIMESTAMP WHERE id=? AND status!='refunded' AND status!='report_issued'").bind(row.id).run();
-    if(Number(changed.meta?.changes||0)===1)await event(env,row,"PAYMENT_REFUNDED",null,{serviceOrderId:row.service_order_id});
-    return {...row,status:"refunded",service_order_status:"refunded"};
+    if(Number(changed.meta?.changes||0)===1){
+      await event(env,row,"PAYMENT_REFUNDED",null,{serviceOrderId:row.service_order_id});
+      return {...row,status:"refunded",service_order_status:"refunded"};
+    }
+    const current=await env.DB.prepare("SELECT status FROM property_valuation_service_requests WHERE id=? LIMIT 1").bind(row.id).first();
+    return {...row,status:String(current?.status||row.status),service_order_status:"refunded"};
   }
   return {...row,service_order_status:paymentStatus||null};
 }
@@ -146,8 +154,14 @@ export async function handlePropertyValuationServicesRequest({request,url,env,au
     const changed=await env.DB.prepare("UPDATE property_valuation_service_requests SET status='canceled',canceled_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND status=?")
       .bind(row.id,auth.tenant_id,row.status).run();
     if(Number(changed.meta?.changes||0)!==1)return json({error:"valuation_service_state_changed"},409);
-    await event(env,row,"CUSTOMER_CANCELED",auth.user_id,{from:row.status});
-    await writeAudit(env,auth.tenant_id,auth.user_id,"PROPERTY_VALUATION_SERVICE_CANCELED",{requestId:row.id,fromStatus:row.status});
+    if(row.service_order_id){
+      await env.DB.batch([
+        env.DB.prepare("UPDATE service_orders SET status='canceled',updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND status IN ('draft','awaiting_payment')").bind(row.service_order_id,auth.tenant_id),
+        env.DB.prepare("UPDATE payment_orders SET status='canceled',updated_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND order_type='service' AND reference_id=? AND status IN ('pending','processing','failed')").bind(auth.tenant_id,row.service_order_id)
+      ]);
+    }
+    await event(env,row,"CUSTOMER_CANCELED",auth.user_id,{from:row.status,serviceOrderId:row.service_order_id||null});
+    await writeAudit(env,auth.tenant_id,auth.user_id,"PROPERTY_VALUATION_SERVICE_CANCELED",{requestId:row.id,fromStatus:row.status,serviceOrderId:row.service_order_id||null});
     return json({ok:true,status:"canceled"});
   }
 
@@ -167,6 +181,9 @@ export async function handlePropertyValuationServicesRequest({request,url,env,au
       if(!quoteExpiresAt||Number.isNaN(expiryMs)||expiryMs<=Date.now()+15*60*1000)return json({error:"invalid_quote_expiry"},400);
       const serviceOrderId=row.service_order_id||id(),orderNote="Professional property valuation request "+row.id;
       if(row.service_order_id){
+        const livePayment=await env.DB.prepare("SELECT id,status FROM payment_orders WHERE tenant_id=? AND order_type='service' AND reference_id=? AND status IN ('pending','processing') ORDER BY created_at DESC LIMIT 1")
+          .bind(row.tenant_id,serviceOrderId).first();
+        if(livePayment)return json({error:"valuation_quote_checkout_already_created",paymentOrderId:livePayment.id,status:livePayment.status},409);
         const order=await env.DB.prepare("SELECT status FROM service_orders WHERE id=? LIMIT 1").bind(serviceOrderId).first();
         if(order&&!["draft","awaiting_payment"].includes(order.status))return json({error:"valuation_quote_locked_after_payment",serviceOrderStatus:order.status},409);
         await env.DB.prepare("UPDATE service_orders SET price_bwp=?,notes=?,status='awaiting_payment',updated_at=CURRENT_TIMESTAMP WHERE id=?")
