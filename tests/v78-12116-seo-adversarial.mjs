@@ -14,8 +14,8 @@ ok('release version 1.21.20',pkg.version.startsWith('1.21.')&&Number(pkg.version
 ok('PWA cache bumped',sw.includes(`bw-business-protection-v78-${pkg.version}`));
 ok('PWA no longer caches duplicate index URL',!sw.includes("'./index.html'"));
 ok('manifest starts at root',manifest.start_url==='./');
-ok('descriptive SEO title',html.includes('<title>Botswana SME Compliance Software | Thebe Desk</title>'));
-ok('meta description present',/meta name="description" content="Botswana SME compliance software/.test(html));
+ok('descriptive SEO title',html.includes('<title>Thebe Desk | AI Operating Layer for African Business</title>'));
+ok('meta description present',/meta name="description" content="Thebe Desk is the AI operating layer for African business/.test(html));
 ok('robots meta allows rich previews',html.includes('max-image-preview:large'));
 ok('Botswana locale signals',html.includes('og:locale" content="en_BW"')&&html.includes('geo.region" content="BW"'));
 ok('canonical placeholder supplied for server rendering',html.includes('rel="canonical" href="__SEO_CANONICAL__"'));

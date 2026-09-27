@@ -24,15 +24,17 @@ const bridgeCss=read('public/assets/business-data-bridge.css');
 const bridgeJs=read('public/js/business-data-bridge.js');
 const productionEntry=read('cloudflare/src/production-entry.js');
 
-ok(home.includes(`<title>Botswana SME Compliance Software | ${brand}</title>`) && home.includes(`property="og:site_name" content="${brand}"`),'home title and Open Graph site identity use Thebe Desk');
+ok(home.includes(`<title>${brand} | AI Operating Layer for African Business</title>`) && home.includes(`property="og:site_name" content="${brand}"`),'home title and Open Graph site identity use Africa-ready Thebe Desk positioning');
 ok(home.includes(`"name":"${brand}"`) && /class="marketinglogo"[^>]*>[\s\S]*?alt="Thebe Desk logo symbol"[\s\S]*?>Thebe Desk<\/span>/.test(home) && /class="authbrand"[^>]*>[\s\S]*?alt="Thebe Desk logo symbol"[\s\S]*?>Thebe Desk<\/span>/.test(home),'structured data, marketing shell and auth shell use Thebe Desk');
 ok(home.includes(`aria-label="Back to ${brand} website"`) && /class="brand workspace-brand-link"[\s\S]*?>Thebe Desk<\/span><\/button>/.test(home),'workspace return identity uses Thebe Desk');
 ok(manifest.name===brand && manifest.short_name===brand,'PWA install identity is Thebe Desk');
+ok(home.includes('Live in Botswana · Namibia next') && publicHome.includes('Live in Botswana · Namibia next'),'public brand preserves the locked Botswana-live Namibia-next rollout line');
+ok(!home.includes('South Africa next') && !publicHome.includes('South Africa next'),'public brand does not regress the Namibia-next rollout strategy');
 ok(manifest.icons.every(x=>String(x.src).includes('thebe-desk-icon-')),'PWA manifest no longer advertises legacy-branded icon paths');
 const historicalRecoveryCache=sw.includes('thebe-desk-')&&sw.includes('recovery-r1');
 const retiredServiceWorker=sw.includes('LEGACY_CACHE_PREFIX="thebe-desk-"')&&sw.includes('self.registration.unregister()')&&!sw.includes('addEventListener("fetch"')&&!sw.includes('clients.openWindow');
 ok(historicalRecoveryCache||retiredServiceWorker,'service-worker state is either rotated for recovery or safely retired for Thebe Desk without request interception/window creation');
-ok(worker.includes(`Reset your ${brand} password`) && worker.includes(`Botswana SME Compliance Software | ${brand}`),'Worker email and SEO surfaces use Thebe Desk');
+ok(worker.includes(`Reset your ${brand} password`) && worker.includes(`${brand} | AI Operating Layer for African Business`),'Worker email and SEO surfaces use Africa-ready Thebe Desk positioning');
 ok(server.includes(`Reset your ${brand} password`),'Node fallback email surface uses Thebe Desk');
 ok(profile.product_name===brand && profile.final_public_brand===brand && profile.thebe_desk_brand_finalized===true,'release profile records Thebe Desk as final public brand');
 

@@ -12,7 +12,7 @@ ok('PWA cache 1.21.20',sw.includes(`bw-business-protection-v78-${pkg.version}`))
 const markup=html.replace(/<script\b[\s\S]*?<\/script>/gi,'');
 const h1s=[...markup.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/gi)].map(m=>m[1].replace(/<[^>]+>/g,'').trim());
 ok('homepage document has exactly one semantic H1',h1s.length===1);
-ok('hero copy remains the single H1',h1s[0]==='See business risk before it becomes a penalty, dispute or loss.');
+ok('hero copy remains the single H1',h1s[0]==='Run your business with intelligence.');
 ok('reporter heading is H2',html.includes('<h2>What happened today?</h2>')&&!html.includes('<h1>What happened today?</h1>'));
 ok('restricted-role heading is H2',html.includes('<h2 style="font-size:clamp(28px,4vw,44px)">This account does not open the leadership workspace.</h2>'));
 ok('auth heading is H2',html.includes('<h2 id="authTitle"'));

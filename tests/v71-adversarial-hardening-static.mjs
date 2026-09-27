@@ -32,5 +32,5 @@ check(html.includes('${escapeHtml(r.title)}'),'rule titles escaped in HTML rende
 check(html.includes('rel="noopener noreferrer"'),'external source links use opener isolation');
 
 check(html.includes('.small{font-size:14px!important')&&html.includes('.nav button{font-size:13.5px!important')&&html.includes('table td{font-size:13.5px!important'),'final readability override present');
-check(html.includes('See business risk before it becomes a penalty, dispute or loss.'),'approved hero copy preserved');
+check(html.includes('Run your business with intelligence.'),'approved Africa-ready hero copy preserved');
 if(process.exitCode)process.exit(1);
