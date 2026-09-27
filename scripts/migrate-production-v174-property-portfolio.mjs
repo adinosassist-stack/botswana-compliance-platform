@@ -13,7 +13,7 @@ const execFile=promisify(execFileCallback);
 const spec=Object.freeze({
   number:59,
   path:'cloudflare/migrations/059_v174_property_portfolio_valuation.sql',
-  blob:'92ecf76e86e04184d750851246fe630b965295b3'
+  blob:'ea31e1d7e90458cc9f0c6a7717db2da19b46c753'
 });
 
 function fail(message){throw new Error(`Production D1 migration 059 refused: ${message}`)}
