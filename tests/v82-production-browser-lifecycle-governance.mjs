@@ -95,6 +95,12 @@ must(fullUserWrapper,/roleCanView/,'full-user proof derives the matrix from role
 must(fullUserWrapper,/page\.locator\(\`#nav button\[data-view="/,'full-user proof resolves each canonical navigation button from the live sidebar');
 must(fullUserWrapper,/await summary\.click\(\)/,'full-user proof opens collapsed navigation groups through the real summary control');
 must(fullUserWrapper,/await button\.click\(\)/,'full-user proof activates every role-visible view through its real navigation button');
+must(fullUserWrapper,/const openEmployeesTool=async\(\)=>/,'full-user proof has a supported Employees specialist-tool discovery helper');
+must(fullUserWrapper,/nav-more-tools:visible/,'full-user proof opens specialist tools through the visible Find tools control');
+must(fullUserWrapper,/#commandInput:visible/,'full-user proof searches the visible Find tools command palette');
+must(fullUserWrapper,/#commandResults \.commanditem:visible/,'full-user proof selects Employees from visible command results');
+must(fullUserWrapper,/await openEmployeesTool\(\);/,'full-user proof reuses the supported Employees discovery path');
+mustNot(fullUserWrapper,/peopleToolsGroup/,'full-user proof does not click hidden legacy advanced navigation groups');
 must(fullUserWrapper,/classList\.contains\('active'\)/,'full-user proof requires the clicked destination to become active');
 mustNot(fullUserWrapper,/show\(targetView,\{skipDataRefresh:true\}\)/,'full-user exhaustive matrix no longer bypasses navigation through direct showView activation');
 must(fullUserWrapper,/response\.status\(\)>=500/,'full-user proof rejects same-origin API server failures');
