@@ -5,8 +5,9 @@ import {listBusinessMemory} from "./business-memory.js";
 import {buildMoneyIntelligence} from "./money-intelligence.js";
 import {languagePreferenceFromMemory,deterministicLanguagePolicy,deterministicLanguageNotice} from "./thebe-language.js";
 import {DEFAULT_RUNTIME_MARKET_CODE,runtimeMarketProfile,marketBusinessDate,formatMarketMajor,formatMarketMinor} from "./market-profile.js";
+import {buildBusinessAnalytics} from "./business-analytics.js";
 
-export const BUSINESS_CONTEXT_VERSION="2026-09-27.v167";
+export const BUSINESS_CONTEXT_VERSION="2026-09-27.v173";
 
 const PROFILE_KEYS=Object.freeze({
   monthlyRevenueTargetBwp:"decisionMonthlyRevenueTargetBwp",
@@ -175,7 +176,7 @@ async function complianceContext(env,tenantId){
   });
 }
 
-export async function buildBusinessContext(env,tenantId,{actorRole="owner",now=new Date()}={}){
+async function buildBusinessContextBase(env,tenantId,{actorRole="owner",now=new Date()}={}){
   const market=activeMarketContext(),role=String(actorRole||"").toLowerCase(),businessDate=marketBusinessDate(now,market.code);
   const management=role==="owner"||role==="manager";
   const [finance,receivables,payables,collections,operations,compliance,tenant,stateRow,durableMemory]=await Promise.all([
@@ -231,6 +232,11 @@ export async function buildBusinessContext(env,tenantId,{actorRole="owner",now=n
       rule:"Authoritative records and owner-entered assumptions remain explicitly separated; Thebe must not promote assumptions into observed facts."
     })
   });
+}
+
+export async function buildBusinessContext(env,tenantId,options={}){
+  const context=await buildBusinessContextBase(env,tenantId,options);
+  return frozen({...context,analytics:buildBusinessAnalytics(context)});
 }
 
 function setswanaPriority(item,metrics={},marketCode=DEFAULT_RUNTIME_MARKET_CODE){
@@ -433,6 +439,7 @@ export function buildDailyBusinessBrief(context){
     }),
     durableMemory:context?.durableMemory||null,
     moneyIntelligence:money,
+    analytics:context?.analytics||buildBusinessAnalytics(context),
     provenance:context?.provenance||null
   });
 }
@@ -476,7 +483,8 @@ export async function handleBusinessContextRequest({request,url,env,auth,json,ro
   if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
   const context=await buildBusinessContext(env,auth.tenant_id,{actorRole:auth.role});
   if(url.pathname==="/api/business-context/snapshot")return json(context);
-  if(url.pathname==="/api/business-context/brief")return json({contextVersion:context.version,brief:buildDailyBusinessBrief(context)});
+  if(url.pathname==="/api/business-context/analytics")return json({contextVersion:context.version,analytics:context.analytics});
+  if(url.pathname==="/api/business-context/brief")return json({contextVersion:context.version,brief:buildDailyBusinessBrief(context),analytics:context.analytics});
   return json({error:"not_found"},404);
 }
 

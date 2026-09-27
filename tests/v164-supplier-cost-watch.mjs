@@ -75,7 +75,7 @@ assert.doesNotMatch(source,/unitPriceInflationClaimed:true/);
 assert.doesNotMatch(source,/executionAllowed:true/);
 
 const context=fs.readFileSync("cloudflare/src/business-context.js","utf8");
-assert.match(context,/BUSINESS_CONTEXT_VERSION="2026-09-27\.v167"/);
+assert.match(context,/BUSINESS_CONTEXT_VERSION="2026-09-27\.v173"/);
 assert.match(context,/supplier_outflow_acceleration/);
 assert.match(context,/supplier_payable_concentration/);
 assert.match(context,/payable_cover_shortfall_14d/);
