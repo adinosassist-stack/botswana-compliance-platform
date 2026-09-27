@@ -4,6 +4,7 @@ const audit=fs.readFileSync('scripts/production-launch-audit.mjs','utf8');
 const workflow=fs.readFileSync('.github/workflows/production-launch-audit.yml','utf8');
 const residueAudit=fs.readFileSync('scripts/production-synthetic-residue-audit.mjs','utf8');
 const browserWrapper=fs.readFileSync('scripts/production-synthetic-browser-wrapper.mjs','utf8');
+const fullUserWrapper=fs.readFileSync('scripts/production-synthetic-full-user-wrapper.mjs','utf8');
 const workspaceHtml=fs.readFileSync('public/index.html','utf8');
 const worker=fs.readFileSync('cloudflare/src/worker.js','utf8');
 const agenticEntry=fs.readFileSync('cloudflare/src/agentic-entry.js','utf8');
@@ -29,6 +30,8 @@ ok(workflow.includes('post-deploy smoke SHA mismatch')&&workflow.includes('refus
 ok(workflow.includes('environment: production')&&workflow.includes('CLOUDFLARE_API_TOKEN')&&workflow.includes('D1_DATABASE_ID'), 'privileged Cloudflare and D1 audit remains isolated in the production environment');
 ok(browserWrapper.includes("opening dedicated auth surface")&&browserWrapper.includes("/auth/?mode=login&next=/app/")&&browserWrapper.includes("opening authenticated /app/ workspace"), 'canonical desktop synthetic lifecycle authenticates through the dedicated auth surface and enters /app/');
 ok(browserWrapper.includes("mobile auth surface navigation")&&browserWrapper.includes("mobile authenticated /app/ route did not return 200")&&browserWrapper.includes("reloading authenticated /app/ workspace"), 'canonical mobile synthetic lifecycle reloads the authenticated /app/ boundary instead of legacy root');
+ok(fullUserWrapper.includes("assert(/Run your business with intelligence\\./i.test(publicState.hero),'public root hero missing or stale');"), 'mandatory full-user lifecycle binds its public-root proof to the current homepage hero contract');
+ok(!fullUserWrapper.includes("/business risk/i.test(publicState.hero)"), 'mandatory full-user lifecycle rejects the obsolete business-risk hero contract');
 const assertWorkspaceSource=browserWrapper.slice(browserWrapper.indexOf('function workspaceAuthoredState'),browserWrapper.indexOf('async function loginInBrowser'));
 ok(
   assertWorkspaceSource.includes('WORKSPACE_AUTHORED_VISIBILITY_WAIT_MS')&&
@@ -91,4 +94,4 @@ if(productionAuditEnv){
   console.log('PASS production-only historical synthetic residue audit completed');
 }
 
-console.log(`Phase 0 deferred integration, post-deploy, tenant-integrity and residue-audit contract: ${pass}/51 PASS`);
+console.log(`Phase 0 deferred integration, post-deploy, tenant-integrity and residue-audit contract: ${pass}/53 PASS`);
