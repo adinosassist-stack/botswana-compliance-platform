@@ -7313,9 +7313,17 @@ export default {
         const body=await readJson(req),orderId=String(body.serviceOrderId||"");
         if(!PAYMENT_ORDER_ID_RE.test(orderId))return json({error:"invalid_service_order_id"},400);
         return idempotentJsonMutation(env,a,req,"service-checkout",{serviceOrderId:orderId},async()=>{
-          const so=await env.DB.prepare("SELECT id,price_bwp,status FROM service_orders WHERE id=? AND tenant_id=? LIMIT 1").bind(orderId,a.tenant_id).first();
+          const so=await env.DB.prepare("SELECT id,price_bwp,status,source_type,source_id FROM service_orders WHERE id=? AND tenant_id=? LIMIT 1").bind(orderId,a.tenant_id).first();
           if(!so)return {status:404,body:{error:"service_order_not_found"}};
           if(so.status!=="awaiting_payment")return {status:409,body:{error:"service_order_not_payable",status:so.status}};
+          if(so.source_type==="property_valuation_service"&&so.source_id){
+            const valuationRequest=await env.DB.prepare("SELECT status,quote_expires_at FROM property_valuation_service_requests WHERE id=? AND tenant_id=? AND service_order_id=? LIMIT 1")
+              .bind(so.source_id,a.tenant_id,so.id).first();
+            if(!valuationRequest)return {status:409,body:{error:"valuation_service_order_mismatch"}};
+            if(valuationRequest.status!=="awaiting_payment")return {status:409,body:{error:"valuation_service_not_payable",status:valuationRequest.status}};
+            const expiry=Date.parse(String(valuationRequest.quote_expires_at||""));
+            if(!Number.isFinite(expiry)||expiry<=Date.now())return {status:409,body:{error:"valuation_quote_expired",quoteExpiresAt:valuationRequest.quote_expires_at||null}};
+          }
           const po=await createPaymentOrder(env,{tenantId:a.tenant_id,orderType:"service",referenceId:so.id,amountBwp:so.price_bwp,metadata:{serviceOrderId:so.id}});
           return {status:201,body:{ok:true,paymentOrder:po}};
         });
