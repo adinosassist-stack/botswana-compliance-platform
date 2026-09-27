@@ -66,7 +66,7 @@ assert.match(owner,/propertyPortfolioAssetCount/);
 assert.match(owner,/propertyPortfolioRecordedValue/);
 assert.match(owner,/propertyPortfolioCoverage/);
 assert.match(owner,/Only the account owner can record a professional valuation/);
-assert.match(owner,/Thebe has not certified or independently verified it/);
+assert.match(owner,/Thebe does not certify, sign or independently verify valuations/);
 assert.match(workflow,/\[migrate-059\]/);
 assert.match(workflow,/thebe\/production-d1-059/);
 assert.match(workflow,/migration authority must be a two-parent merged PR commit/);
