@@ -2720,6 +2720,8 @@
     if(!view)return null;
     const existing=q("#propertyPortfolioWorkspace",view);
     if(existing)return existing;
+    const scenario=q(".property-layout",view);
+    if(!scenario)return null;
 
     const heroCopy=q(".hub-hero .muted",view);
     if(heroCopy)heroCopy.textContent="Use the canonical register for owned property and signed professional valuation reports. Keep prospective-deal underwriting separate: Thebe calculates scenarios from your assumptions but does not invent, certify or sign market value.";
@@ -2854,9 +2856,7 @@
     history.style.marginTop="14px";
     shell.append(listHead,list,history);
 
-    const scenario=q(".property-layout",view);
-    if(scenario)view.insertBefore(shell,scenario);
-    else view.append(shell);
+    view.insertBefore(shell,scenario);
     valuationDetails.hidden=role()!=="owner";
     return shell;
   }
@@ -2946,7 +2946,7 @@
   async function renderPropertyPortfolio(force=false){
     if(!canView())return;
     const shell=ensurePropertyPortfolioShell();
-    if(!shell||propertyPortfolioBusy&&!force)return;
+    if(!shell||propertyPortfolioBusy)return;
     propertyPortfolioBusy=true;
     const list=q("#propertyPortfolioList");
     if(list)list.replaceChildren(text("div","Reading canonical property records…","muted small"));
@@ -3254,8 +3254,10 @@
     if(propertyView){
       ensurePropertyPortfolioShell();
       new MutationObserver(()=>{
-        if(propertyView.classList.contains("active"))void renderPropertyPortfolio(false);
-      }).observe(propertyView,{attributes:true,attributeFilter:["class"]});
+        if(!propertyView.classList.contains("active"))return;
+        if(!q("#propertyPortfolioWorkspace",propertyView))ensurePropertyPortfolioShell();
+        void renderPropertyPortfolio(false);
+      }).observe(propertyView,{attributes:true,attributeFilter:["class"],childList:true});
       if(propertyView.classList.contains("active"))void renderPropertyPortfolio(false);
     }
   }
