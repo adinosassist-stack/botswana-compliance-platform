@@ -2391,7 +2391,7 @@ async function buildAiAdvisorContext(env,tenantId,{includeFinance=false,actorRol
   const proposedSpendScenario=businessPayload?.moneyIntelligence?.spendEnvelope&&proposedSpendMinor!=null
     ?simulateWeeklySpendDecision({spendEnvelope:businessPayload.moneyIntelligence.spendEnvelope,proposedSpendMinor,label:"Question amount"})
     :null;
-  const activeMarket=businessPayload?.market||null;
+  const activeMarket=businessPayload?.market||runtimeMarketProfile(DEFAULT_RUNTIME_MARKET_CODE)||null;
   const financePayload=businessPayload?.finance?{summary:businessPayload.finance,receivables:businessPayload.finance.receivables}:null;
   const finance=financePayload?{
     ref:"FIN-1",
