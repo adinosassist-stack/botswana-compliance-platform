@@ -215,6 +215,7 @@ export async function handlePropertyPortfolioRequest({request,url,env,auth,json,
     const body=await readJson(request,{maxBytes:16*1024});
     const current=await env.DB.prepare("SELECT id,asset_code,name,property_type,location_text,tenure_type,currency,acquisition_date,acquisition_cost_minor,annual_rent_minor,annual_operating_cost_minor,debt_balance_minor,status,archived_at,archived_by_user_id,archive_reason FROM property_assets WHERE tenant_id=? AND id=? LIMIT 1").bind(auth.tenant_id,asset.assetId).first();
     if(!current)return json({error:"property_asset_not_found"},404);
+    if(String(current.status)==="archived"&&!roleAllowed(auth,"owner"))return json({error:"owner_required_for_archived_property"},403);
     const next={
       assetCode:body.assetCode===undefined?current.asset_code:(text(body.assetCode,80)||null),
       name:body.name===undefined?current.name:text(body.name,160),
