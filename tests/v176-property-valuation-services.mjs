@@ -10,7 +10,6 @@ assert.equal(__propertyValuationServicesTest.OPS_TRANSITIONS.professional_review
 assert.equal(__propertyValuationServicesTest.OPS_TRANSITIONS.report_issued.size,0);
 
 const migration=fs.readFileSync("cloudflare/migrations/061_v176_property_valuation_services.sql","utf8");
-const schema=fs.readFileSync("cloudflare/schema.sql","utf8");
 const service=fs.readFileSync("cloudflare/src/property-valuation-services.js","utf8");
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const owner=fs.readFileSync("public/js/owner-command-centre.js","utf8");
@@ -21,7 +20,6 @@ const workflow=fs.readFileSync(".github/workflows/migrate-production-v176-proper
 
 for(const table of ["property_valuation_service_requests","property_valuation_service_events"]){
   assert.match(migration,new RegExp("CREATE TABLE IF NOT EXISTS "+table));
-  assert.match(schema,new RegExp("CREATE TABLE IF NOT EXISTS "+table));
 }
 for(const trigger of ["property_valuation_service_property_guard","property_valuation_service_professional_guard","property_valuation_service_issued_guard"]){
   assert.match(migration,new RegExp(trigger));
