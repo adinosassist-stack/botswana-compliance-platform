@@ -3198,6 +3198,19 @@
     if(!items.length){
       box.replaceChildren(text("div","No professional valuation service requests yet.","muted small"));return;
     }
+    const summary=payload?.summary||{};
+    const summaryStrip=document.createElement("div");
+    summaryStrip.className="outcome-status-strip";
+    const summaryPairs=[
+      [String(Number(summary.activeRequests||0)),"active"],
+      [valuationServiceMoney(summary.quotedPipelineBwp||0),"awaiting-payment pipeline"],
+      [String(Number(summary.inProgress||0)),"in progress"],
+      [valuationServiceMoney(summary.completedRevenueBwp||0),"completed service value"]
+    ];
+    for(const [value,label] of summaryPairs){
+      const chip=document.createElement("span");chip.className="outcome-status-chip";
+      chip.append(text("b",value),document.createTextNode(" "+label));summaryStrip.append(chip);
+    }
     const nodes=items.map(item=>{
       const row=document.createElement("div");row.className="item";
       const top=document.createElement("div");top.className="between row";
@@ -3209,14 +3222,14 @@
       const details=[];
       if(item.quotedFeeBwp!=null)details.push("Quoted fee "+valuationServiceMoney(item.quotedFeeBwp));
       else details.push("Fee quote pending");
-      if(item.quoteExpiresAt)details.push("quote expires "+new Date(item.quoteExpiresAt).toLocaleDateString());
-      if(item.assignedProfessional?.displayName)details.push("valuer "+item.assignedProfessional.displayName);
+      if(item.quoteExpiresAt)details.push((item.quoteExpired?"quote expired ":"quote expires ")+new Date(item.quoteExpiresAt).toLocaleDateString());
+      if(item.assignedProfessional?.displayName)details.push("valuer "+item.assignedProfessional.displayName+(item.assignedProfessional.registrationRef?" · reg "+item.assignedProfessional.registrationRef:""));
       if(item.inspectionScheduledAt)details.push("inspection "+new Date(item.inspectionScheduledAt).toLocaleString());
       row.append(text("div",details.join(" · "),"small"));
       const authority=text("div","Human professional sign-off required. Thebe is workflow and evidence infrastructure, not the valuer.","muted small");
       authority.style.marginTop="5px";row.append(authority);
       const actions=document.createElement("div");actions.className="actions";actions.style.marginTop="8px";
-      if(item.status==="awaiting_payment"&&item.serviceOrderId&&role()==="owner"){
+      if(item.status==="awaiting_payment"&&item.serviceOrderId&&role()==="owner"&&item.payable){
         actions.append(button("Pay quoted fee",async()=>{
           try{
             const checkout=await request("/api/payments/service-checkout",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({serviceOrderId:item.serviceOrderId})});
@@ -3226,7 +3239,10 @@
             global.location.assign(hosted.checkoutUrl);
           }catch(error){propertyPortfolioNotify(String(error?.message||"Payment checkout failed"),"error")}
         },"btn"));
+      }else if(item.status==="awaiting_payment"&&item.quoteExpired){
+        actions.append(text("span","Quote expired · a fresh quote is required before payment.","badge warn"));
       }
+      actions.append(button("View timeline",()=>void showPropertyValuationServiceTimeline(item.id,item.propertyName),"btn soft"));
       if(["requested","quoted","awaiting_payment"].includes(item.status)&&role()==="owner"){
         actions.append(button("Cancel request",async()=>{
           try{await request("/api/property/valuation-services/"+encodeURIComponent(item.id),{method:"DELETE"});propertyPortfolioNotify("Valuation request canceled.");await renderPropertyPortfolio(true)}
@@ -3237,7 +3253,33 @@
       if(actions.childNodes.length)row.append(actions);
       return row;
     });
-    box.replaceChildren(...nodes);
+    box.replaceChildren(summaryStrip,...nodes);
+  }
+
+  async function showPropertyValuationServiceTimeline(requestId,propertyName="Property"){
+    const box=q("#propertyValuationHistory");if(!box||!requestId)return;
+    box.replaceChildren(text("div","Loading valuation-service timeline…","muted small"));
+    try{
+      const payload=await request("/api/property/valuation-services/"+encodeURIComponent(requestId));
+      const item=payload?.item||{},events=Array.isArray(payload?.events)?payload.events:[];
+      const panel=document.createElement("div");panel.className="card";
+      const head=document.createElement("div");head.className="between row";
+      head.append(text("h3",propertyName+" · valuation-service timeline"),text("span",String(item.status||"requested").replaceAll("_"," "),"badge info"));
+      panel.append(head);
+      panel.append(text("div","Commercial workflow timeline only. A verified human professional remains responsible for inspection, valuation judgment, review and signature.","muted small"));
+      if(item.assignedProfessional?.displayName){
+        panel.append(text("div","Assigned professional: "+item.assignedProfessional.displayName+(item.assignedProfessional.registrationRef?" · registration "+item.assignedProfessional.registrationRef:""),"notice small"));
+      }
+      if(!events.length)panel.append(text("div","No workflow events recorded yet.","muted small"));
+      for(const eventItem of events){
+        const row=document.createElement("div");row.className="item";row.style.marginTop="8px";
+        row.append(text("b",String(eventItem.type||"event").replaceAll("_"," ")),text("div",eventItem.at?new Date(eventItem.at).toLocaleString():"Time unavailable","muted small"));
+        panel.append(row);
+      }
+      box.replaceChildren(panel);box.scrollIntoView({behavior:"smooth",block:"nearest"});
+    }catch(error){
+      box.replaceChildren(text("div","Valuation-service timeline unavailable: "+String(error?.message||"secure read failed").slice(0,180),"notice bad"));
+    }
   }
 
   async function requestPropertyValuationService(){
