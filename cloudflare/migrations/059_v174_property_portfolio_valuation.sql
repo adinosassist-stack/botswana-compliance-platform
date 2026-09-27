@@ -80,6 +80,7 @@ END;
 
 CREATE TRIGGER IF NOT EXISTS property_professional_valuations_immutable_delete
 BEFORE DELETE ON property_professional_valuations
+WHEN EXISTS(SELECT 1 FROM tenants t WHERE t.id=OLD.tenant_id)
 BEGIN
   SELECT RAISE(ABORT,'property_professional_valuation_immutable');
 END;
