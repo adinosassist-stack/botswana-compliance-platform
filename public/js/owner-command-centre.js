@@ -1450,7 +1450,7 @@
     }
     const grid=document.createElement("div");
     grid.className="owner-signal-list";
-    const domains=analytics.domains||{},m=domains.money||{},s=domains.sales||{},o=domains.operations||{},co=domains.compliance||{};
+    const domains=analytics.domains||{},m=domains.money||{},s=domains.sales||{},o=domains.operations||{},co=domains.compliance||{},p=domains.property||{};
     const net=Number(m.current30NetCashMovementMinor||0),inChange=m.inflowChangePct,outChange=m.outflowChangePct;
     grid.append(signalCard({
       label:"Money · 30 days",value:money(net/100),
@@ -1483,13 +1483,21 @@
       tone:Number(o.criticalPerformanceSignals||0)>0||Number(co.overdueCount||0)>0?"risk":"neutral"
     }));
     grid.append(signalCard({
+      label:"Property & valuation",value:p.portfolioAnalyticsAvailable?`${Number(p.assetCount||0)} asset${Number(p.assetCount||0)===1?"":"s"}`:"Not connected",
+      title:p.portfolioAnalyticsAvailable?`${Number(p.valuedAssetCount||0)} of ${Number(p.assetCount||0)} active asset(s) have a recorded professional valuation.`:"Property portfolio records are not yet readable.",
+      detail:p.portfolioAnalyticsAvailable?`${money(Number(p.recordedProfessionalValueMinor||0)/100)} recorded professional valuation value · ${money(Number(p.debtBalanceMinor||0)/100)} recorded debt · ${p.valuationCoveragePct==null?"—":pct(Number(p.valuationCoveragePct))} valuation coverage. Thebe does not create or certify market value.`:"The underwriting calculator remains scenario-only until the canonical property register is available.",
+      tone:Number(p.unvaluedAssetCount||0)>0||Number(p.staleProfessionalValuationCount||0)>0?"risk":"neutral",
+      actionLabel:p.portfolioAnalyticsAvailable?"Open property tools":null,
+      action:p.portfolioAnalyticsAvailable?()=>window.showView?.("propertyintelligence"):null
+    }));
+    grid.append(signalCard({
       label:"Data readiness",value:String(analytics.dataQuality?.readiness||"limited").replace(/^./,x=>x.toUpperCase()),
       title:analytics.summary?.headline||"Analytics source readiness.",
       detail:"Finance reconciliation, Money Intelligence and operations evidence determine readiness. Missing evidence is never filled with generated facts.",
       tone:analytics.dataQuality?.readiness==="strong"?"positive":analytics.dataQuality?.readiness==="limited"?"risk":"neutral"
     }));
     panel.append(grid);
-    panel.append(text("p","Property underwriting is available today; authoritative property portfolio analytics and professional valuation will connect here in the next vertical release.","muted small"));
+    panel.append(text("p","Property analytics use the canonical register; market value appears only when backed by a recorded external professional valuation report. Thebe does not certify or sign valuations.","muted small"));
   }
 
   function renderSignals(model){
