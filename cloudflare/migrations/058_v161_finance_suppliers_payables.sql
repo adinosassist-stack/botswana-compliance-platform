@@ -123,11 +123,10 @@ END;
 CREATE TRIGGER IF NOT EXISTS finance_payables_supplier_tenant_guard
 BEFORE INSERT ON finance_payables
 BEGIN
-  SELECT RAISE(ABORT,'finance_supplier_tenant_mismatch')
-  WHERE NOT EXISTS(
+  SELECT (CASE WHEN NOT EXISTS(
     SELECT 1 FROM finance_suppliers s
     WHERE s.id=NEW.supplier_id AND s.tenant_id=NEW.tenant_id AND s.status='active'
-  );
+  ) THEN RAISE(ABORT,'finance_supplier_tenant_mismatch') END);
 END;
 
 CREATE TRIGGER IF NOT EXISTS finance_payable_allocations_apply_guard
