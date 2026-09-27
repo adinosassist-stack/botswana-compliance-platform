@@ -11,8 +11,8 @@ const wranglerJs=String(process.env.WRANGLER_JS||'').trim();
 const wranglerConfig=String(process.env.WRANGLER_CONFIG||'').trim();
 const execFile=promisify(execFileCallback);
 const spec=Object.freeze({
-  number:60,
-  path:'cloudflare/migrations/061_v175_property_evidence_profitability.sql',
+  number:61,
+  path:'cloudflare/migrations/061_v176_property_valuation_services.sql',
   blob:'914fce9da4bf1794fd9b61d0f7e3ee59baadcceb'
 });
 
