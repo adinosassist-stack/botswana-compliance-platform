@@ -643,7 +643,7 @@
     }
     if(voicePhase==="idle"){
       if(workspace)setPhase("idle","Talk to Thebe","What would you like to get done?");
-      else if(surface==="public")setPhase("idle","Talk to Thebe","Explore what Thebe can do for your business");
+      else if(surface==="public")setPhase("idle","Talk to Thebe","Ask about Thebe Desk or tap the particles to sample voice");
     }
     if(input)input.placeholder=workspace?"Ask Thebe anything…":"Ask about Thebe Desk…";
     if(pillLabel)pillLabel.textContent=workspace?"Thebe":"Ask Thebe";

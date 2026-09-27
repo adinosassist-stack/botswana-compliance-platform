@@ -61,6 +61,7 @@ assert.match(client,/workspaceRole\(\)!=="owner"/);
 assert.match(client,/Auto language/);
 assert.match(client,/\["english","setswana","sekalaka"\]/);
 assert.match(client,/preferredLanguage:languageSelect\?\.value\|\|"auto"/);
+assert.match(client,/Ask about Thebe Desk or tap the particles to sample voice/);
 
 const css=fs.readFileSync("public/assets/thebe-ai-dock.css","utf8");
 assert.match(css,/\.thebe-live-language\{/);

@@ -19,7 +19,7 @@ assert.match(workflow,/057_v157_business_memory_money_intelligence\.sql/);
 assert.match(workflow,/058_v161_finance_suppliers_payables\.sql/);
 assert.doesNotMatch(workflow,/latestSchemaDelta!=='058_v161_finance_suppliers_payables\.sql'/);
 
-assert.match(runner,/blob:'e3842050a76c62136790f9307b6e0f4fd921c9ac'/);
+assert.match(runner,/blob:'36b5a13dae42dffebcfbeac07a926094f5afae10'/);
 assert.match(runner,/verifyPrerequisites/);
 assert.match(runner,/business_memory_items/);
 assert.match(runner,/time_travel\/bookmark/);
@@ -40,8 +40,10 @@ for(const name of [
   'finance_payable_allocations'
 ])assert.match(migration,new RegExp(`CREATE TABLE IF NOT EXISTS ${name}`));
 assert.match(migration,/This migration grants no payment, approval, journal, procurement or other execution authority/);
-assert.doesNotMatch(migration,/SELECT \(CASE WHEN/,'D1 trigger guards must use RAISE ... WHERE rather than CASE-wrapped RAISE expressions');
-assert.equal(migration.includes("SELECT RAISE(ABORT,'finance_supplier_name_alias_collision')\n  WHERE EXISTS("),true);
-assert.equal(migration.includes("SELECT RAISE(ABORT,'finance_payable_overallocation')\n  WHERE"),true);
+assert.match(migration,/SELECT \(CASE WHEN EXISTS\(/,'D1 trigger guards must use the parenthesized CASE workaround accepted by the remote D1 trigger parser');
+assert.equal(migration.includes("THEN RAISE(ABORT,'finance_supplier_name_alias_collision') END);"),true);
+assert.equal(migration.includes("THEN RAISE(ABORT,'finance_payable_overallocation') END);"),true);
+assert.doesNotMatch(migration,/SELECT RAISE\(ABORT,'finance_supplier_name_alias_collision'\)\n  WHERE EXISTS\(/);
+assert.doesNotMatch(migration,/SELECT RAISE\(ABORT,'finance_supplier_tenant_mismatch'\)\n  WHERE NOT EXISTS\(/);
 
 console.log('v167 guarded production migration 058 checks passed');
