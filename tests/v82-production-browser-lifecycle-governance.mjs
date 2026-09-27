@@ -91,6 +91,8 @@ must(fullUserWrapper,/await import\('\.\/production-synthetic-hold-wrapper\.mjs'
 must(fullUserWrapper,/Object\.defineProperty\(globalThis,'__thebeSyntheticBrowserProof'/,'full-user wrapper composes with the canonical browser proof hook');
 must(fullUserWrapper,/await originalProof\(credentials\);[\s\S]*await runFullUserJourney\(credentials\)/,'canonical browser proof runs before the exhaustive full-user journey');
 must(fullUserWrapper,/MIN_OWNER_VIEW_COUNT=7/,'full-user proof fails closed if the approved seven-destination primary navigation is incomplete');
+must(fullUserWrapper,/MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=7/,'full-user proof aligns visible in-view navigation coverage with the approved seven-destination workspace');
+mustNot(fullUserWrapper,/MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=25/,'full-user proof must not retain the superseded 25-control in-view navigation threshold');
 must(fullUserWrapper,/button\.closest\('\[hidden\]'\)/,'full-user proof excludes specialist controls inside hidden search indexes from the primary visible-navigation matrix');
 must(fullUserWrapper,/button\.offsetParent===null/,'full-user proof excludes CSS/ancestor-hidden controls from the primary visible-navigation matrix');
 must(fullUserWrapper,/openCommandPaletteWithQuery/,'full-user proof routes hidden specialist source views through Find tools');
@@ -122,7 +124,7 @@ must(fullUserWrapper,/openOnboarding\(\)/,'safe UI action proof exercises Guided
 must(fullUserWrapper,/openLicenceEntry\(\)/,'safe UI action proof exercises the Add licence disclosure without creating a licence');
 must(fullUserWrapper,/safeUiMutationRequests\.length===0/,'safe UI action proof fails if a supposedly UI-only control issues a mutation request');
 must(fullUserWrapper,/full-user safe UI action matrix/,'full-user proof reports the safe non-navigation UI action matrix');
-must(fullUserWrapper,/MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=25/,'full-user proof fails closed when too few in-view navigation controls are exercised');
+must(fullUserWrapper,/MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=7/,'full-user proof fails closed when fewer than the approved seven visible in-view navigation controls are exercised');
 must(fullUserWrapper,/button\[data-bw-onclick\]/,'full-user proof discovers delegated in-view buttons from each active source view');
 must(fullUserWrapper,/expression\.match\(\/\^showView/,'full-user in-view matrix is restricted to non-destructive view navigation');
 must(fullUserWrapper,/await controlButton\.click\(\)/,'full-user proof clicks real in-view controls instead of calling showView directly');
