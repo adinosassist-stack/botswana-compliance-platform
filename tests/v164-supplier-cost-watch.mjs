@@ -62,7 +62,7 @@ assert.equal(stress.receivablesAssumedCollected,false);
 assert.equal(stress.formalForecast,false);
 
 const source=fs.readFileSync("cloudflare/src/money-intelligence.js","utf8");
-assert.match(source,/MONEY_INTELLIGENCE_VERSION="2026-09-26\.v6"/,"V166 is the current Money Intelligence successor while retaining V164 supplier-watch semantics");
+assert.match(source,/MONEY_INTELLIGENCE_VERSION="2026-09-27\.v7"/,"V168 market profiling preserves V164 supplier-watch semantics");
 assert.match(source,/posted_on>=date\(\?,'-59 days'\)/);
 assert.match(source,/SELECT DISTINCT t\.id transaction_id,t\.posted_on,ABS\(t\.amount_minor\) outflow_minor,a\.supplier_id/);
 assert.match(source,/supplier_outflow_acceleration/);
@@ -75,7 +75,7 @@ assert.doesNotMatch(source,/unitPriceInflationClaimed:true/);
 assert.doesNotMatch(source,/executionAllowed:true/);
 
 const context=fs.readFileSync("cloudflare/src/business-context.js","utf8");
-assert.match(context,/BUSINESS_CONTEXT_VERSION="2026-09-26\.v165"/);
+assert.match(context,/BUSINESS_CONTEXT_VERSION="2026-09-27\.v166"/);
 assert.match(context,/supplier_outflow_acceleration/);
 assert.match(context,/supplier_payable_concentration/);
 assert.match(context,/payable_cover_shortfall_14d/);
