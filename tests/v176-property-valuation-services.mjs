@@ -52,7 +52,8 @@ assert.match(owner,/Fee quote pending/);
 assert.match(owner,/Pay quoted fee/);
 assert.match(owner,/Human professional sign-off required/);
 assert.match(owner,/\/api\/property\/valuation-services/);
-assert.match(owner,/\/api\/payments\/service-checkout/);\nassert.match(owner,/\/api\/payments\/create-checkout/);
+assert.match(owner,/\/api\/payments\/service-checkout/);
+assert.match(owner,/\/api\/payments\/create-checkout/);
 
 assert.equal(profile.latest_cloudflare_migration,"061_v176_property_valuation_services.sql");
 assert.match(agentic,/061_v176_property_valuation_services\.sql/);
