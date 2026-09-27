@@ -257,7 +257,7 @@ export async function handlePropertyPortfolioRequest({request,url,env,auth,json,
       return json({error:"property_asset_update_failed"},503);
     }
     await writeAudit(env,auth.tenant_id,auth.user_id,statusChanged?"PROPERTY_ASSET_STATUS_CHANGED":"PROPERTY_ASSET_UPDATED",{
-      propertyId:asset.assetId,fromStatus:current.status,toStatus:next.status,financialSnapshotRecorded:financialChanged,archiveReason:archiveReason||null
+      propertyId:asset.assetId,assetCode:next.assetCode,fromStatus:current.status,toStatus:next.status,financialSnapshotRecorded:financialChanged,archiveReason:archiveReason||null
     });
     return json({ok:true,id:asset.assetId,...next,archivedAt,archivedByUserId,financialSnapshotRecorded:financialChanged});
   }
