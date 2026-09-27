@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS property_professional_valuations(
     CHECK(source_kind='external_professional_report'),
   created_by_user_id TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(tenant_id,property_id,report_reference),
   CHECK(length(valuation_date)=10),
   FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
   FOREIGN KEY(property_id) REFERENCES property_assets(id) ON DELETE RESTRICT,
