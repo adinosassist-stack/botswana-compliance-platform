@@ -4,7 +4,7 @@ Business Analytics v1 is the deterministic management-intelligence layer over Th
 
 ## Scope
 
-It consolidates Finance Core, receivables/payables, Money Intelligence, owner-recorded sales pipeline data, operations summaries, performance signals and compliance obligations into a single read-only analytics snapshot.
+It consolidates Finance Core, receivables/payables, Money Intelligence, owner-recorded sales pipeline data, operations summaries, performance signals, compliance obligations and the governed property portfolio into a single read-only analytics snapshot.
 
 The first release answers four management questions:
 
@@ -17,8 +17,8 @@ The first release answers four management questions:
 
 Analytics v1 does not invent missing business facts, calculate accounting profit from cash movement, issue a formal forecast, authorize execution or produce a property market valuation. Owner-entered assumptions remain separate from authoritative records.
 
-Property underwriting remains available as a scenario tool. Portfolio analytics and professional valuation become available only after the property register and registered-valuer review workflow are authoritative.
+Property underwriting remains a scenario tool. Portfolio analytics use the canonical property register, while market value is included only from recorded external professional valuation reports carrying the valuer name, registration reference and report reference. Thebe never turns its own scenario output into a professional valuation.
 
 ## Product role
 
-Analytics is horizontal across Money, Sales, Operations and Compliance. Real Estate & Valuation is the next specialist vertical that will feed the same analytics layer rather than creating a separate intelligence stack.
+Analytics is horizontal across Money, Sales, Operations, Compliance and Property & Valuation. Specialist verticals feed the same governed analytics layer rather than creating separate intelligence stacks.
