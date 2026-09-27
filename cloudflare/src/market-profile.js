@@ -1,7 +1,8 @@
-export const THEBE_MARKET_PROFILE_VERSION="2026-09-27.v1";
+export const THEBE_MARKET_PROFILE_VERSION="2026-09-27.v2";
 
 const frozen=value=>Object.freeze(value);
 const cleanCode=value=>String(value||"").trim().toUpperCase();
+const present=value=>String(value??"").trim().length>0;
 
 export const DEFAULT_RUNTIME_MARKET_CODE="BW";
 
@@ -38,14 +39,44 @@ export function marketProfile(code=DEFAULT_RUNTIME_MARKET_CODE){
   return THEBE_MARKETS[cleanCode(code)]||null;
 }
 
+function activationBlockers(profile){
+  if(!profile)return frozen(["market_not_registered"]);
+  const blockers=[];
+  if(profile.runtimeEnabled!==true)blockers.push("runtime_disabled");
+  if(profile.rolloutStatus!=="live")blockers.push("rollout_not_live");
+  if(!present(profile.code)||!present(profile.country))blockers.push("market_identity_incomplete");
+  if(!present(profile.currency)||!present(profile.currencySymbol))blockers.push("currency_config_incomplete");
+  if(!present(profile.locale)||!present(profile.timeZone))blockers.push("locale_config_incomplete");
+  if(!present(profile.regulatoryPack))blockers.push("regulatory_pack_missing");
+  if(!Array.isArray(profile.moneyPrefixTokens)||profile.moneyPrefixTokens.length===0||!Array.isArray(profile.moneySuffixTokens)||profile.moneySuffixTokens.length===0){
+    blockers.push("money_tokens_missing");
+  }
+  return frozen(blockers);
+}
+
+export function marketActivationReadiness(code=DEFAULT_RUNTIME_MARKET_CODE){
+  const normalized=cleanCode(code);
+  const profile=marketProfile(normalized);
+  const blockers=activationBlockers(profile);
+  return frozen({
+    marketCode:profile?.code||normalized||null,
+    registered:!!profile,
+    ready:blockers.length===0,
+    rolloutStatus:profile?.rolloutStatus||null,
+    runtimeEnabled:profile?.runtimeEnabled===true,
+    regulatoryPack:profile?.regulatoryPack||null,
+    blockers
+  });
+}
+
 export function runtimeMarketProfile(code=DEFAULT_RUNTIME_MARKET_CODE){
   const profile=marketProfile(code);
-  return profile?.runtimeEnabled===true?profile:null;
+  return marketActivationReadiness(code).ready?profile:null;
 }
 
 export function marketRollout(){
   return frozen({
-    live:frozen(Object.values(THEBE_MARKETS).filter(item=>item.runtimeEnabled===true&&item.rolloutStatus==="live").map(item=>item.code)),
+    live:frozen(Object.values(THEBE_MARKETS).filter(item=>runtimeMarketProfile(item.code)?.rolloutStatus==="live").map(item=>item.code)),
     next:frozen(Object.values(THEBE_MARKETS).filter(item=>item.rolloutStatus==="next").map(item=>item.code))
   });
 }
@@ -85,7 +116,9 @@ export function marketMoneyTokens(code=DEFAULT_RUNTIME_MARKET_CODE){
 
 export const __marketProfileTest=frozen({
   cleanCode,
+  activationBlockers,
   marketProfile,
+  marketActivationReadiness,
   runtimeMarketProfile,
   marketRollout,
   marketBusinessDate,
