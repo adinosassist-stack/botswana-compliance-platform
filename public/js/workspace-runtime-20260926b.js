@@ -1079,8 +1079,13 @@ async function addEmployeeRecord(){
       }catch(controlError){notifyUser("Employee saved, but contract/asset controls need review: "+controlError.message)}
     }
     document.getElementById("eName").value="";document.getElementById("eRole").value="";document.getElementById("eStart").value="";
+    /* Mutation closure: reconcile every employee-dependent surface immediately.
+       Do not wait for a page reload to make the authoritative POST visible. */
     await renderEmployeeRegister();
-    if(document.getElementById("peopleops")?.classList.contains("active")){await renderPeopleOperationsHub();await renderPeopleReportingSetup()}
+    await renderPeopleOperationsHub();
+    await renderPeopleReportingSetup();
+    if(typeof renderEmployeesForHr==="function")await renderEmployeesForHr();
+    if(typeof renderOwnerDailyBrief==="function")await renderOwnerDailyBrief();
     if(document.getElementById("dailyreports")?.classList.contains("active"))await renderDailyOperations();
     notifyUser("Employee saved. It is now available for reporting access.",{type:"success"});
   }catch(e){notifyUser(e.message)}
