@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import {PROPERTY_VALUATION_SERVICES_VERSION,__propertyValuationServicesTest} from "../cloudflare/src/property-valuation-services.js";
 
-assert.equal(PROPERTY_VALUATION_SERVICES_VERSION,"2026-09-27.v176");
+assert.equal(PROPERTY_VALUATION_SERVICES_VERSION,"2026-09-27.v177");
 assert.equal(__propertyValuationServicesTest.PURPOSES.has("finance"),true);
 assert.equal(__propertyValuationServicesTest.PURPOSES.has("sale"),true);
 assert.equal(__propertyValuationServicesTest.CUSTOMER_CANCELABLE.has("awaiting_payment"),true);
@@ -55,8 +55,8 @@ assert.match(owner,/\/api\/property\/valuation-services/);
 assert.match(owner,/\/api\/payments\/service-checkout/);
 assert.match(owner,/\/api\/payments\/create-checkout/);
 
-assert.equal(profile.latest_cloudflare_migration,"061_v176_property_valuation_services.sql");
-assert.match(agentic,/061_v176_property_valuation_services\.sql/);
+assert.equal(profile.latest_cloudflare_migration,"062_v177_property_valuation_service_reliability.sql");
+assert.match(agentic,/062_v177_property_valuation_service_reliability\.sql/);
 assert.match(runner,/number:61/);
 assert.match(runner,/061_v176_property_valuation_services\.sql/);
 assert.match(runner,/blob:'914fce9da4bf1794fd9b61d0f7e3ee59baadcceb'/);
