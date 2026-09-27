@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 
 const html=fs.readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
 const primary=[...html.matchAll(/<button[^>]*class="(?:active )?nav-primary"[^>]*data-view="([^"]+)"/g)].map(m=>m[1]);
-assert.deepEqual(primary,['dashboard','moneyhub','workhub','peopleops','protecthub','automationhub','accounthub'],'owner navigation must stay at seven primary destinations');
+assert.deepEqual(primary,['dashboard','moneyhub','propertyintelligence','workhub','peopleops','protecthub','automationhub','accounthub'],'owner navigation must keep the eight intentional primary destinations, including Property');
 assert.ok(html.includes('class="nav-more-tools"')&&html.includes('>Find tools<'),'specialist navigation must collapse behind Find tools');
 assert.ok(html.includes('class="nav-advanced-index" hidden'),'specialist route index must remain hidden from normal navigation');
-for(const id of ['sites','businesshub','obligations','evidencehub','propertyintelligence'])assert.ok(new RegExp(`class="nav-advanced"[^>]*data-view="${id}"`).test(html),`hidden route index missing ${id}`);
+for(const id of ['sites','businesshub','obligations','evidencehub'])assert.ok(new RegExp(`class="nav-advanced"[^>]*data-view="${id}"`).test(html),`hidden route index missing ${id}`);
 assert.ok(html.includes('data-mobile-view="moneyhub"')&&!html.includes('data-mobile-view="sites"'),'mobile primary navigation must prefer Money over Sites');
 assert.ok(html.includes('<section id="moneyhub"')&&html.includes('Canonical Finance Core'),'Money hub missing or detached from Finance Core');
 assert.ok(html.includes('<section id="protecthub"'),'Protect hub missing');
