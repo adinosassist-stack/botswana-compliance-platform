@@ -2867,6 +2867,51 @@
     forms.append(assetDetails,valuationDetails);
     shell.append(forms);
 
+    const servicePanel=document.createElement("div");
+    servicePanel.id="propertyValuationServicePanel";
+    servicePanel.className="card";
+    servicePanel.style.marginTop="14px";
+    const serviceHead=document.createElement("div");
+    serviceHead.className="between row";
+    const serviceHeadText=document.createElement("div");
+    serviceHeadText.append(text("div","Professional service","section-eyebrow"),text("h3","Request a professional property valuation"));
+    serviceHead.append(serviceHeadText,text("span","Quote required","badge info"));
+    servicePanel.append(serviceHead);
+    const serviceBoundary=text("div","Thebe coordinates the workflow and payment. A verified human valuer must inspect, prepare, review and sign the professional report; Thebe does not create or sign the valuation.","notice small");
+    serviceBoundary.style.marginTop="10px";servicePanel.append(serviceBoundary);
+    const serviceGrid=document.createElement("div");
+    serviceGrid.className="formgrid property-form";
+    serviceGrid.style.marginTop="12px";
+    const serviceProperty=propertyPortfolioSelect("portfolioValuationServiceProperty",[["","Choose active property"]]);
+    const servicePurpose=propertyPortfolioSelect("portfolioValuationServicePurpose",[
+      ["finance","Finance / mortgage"],["sale","Sale"],["purchase","Purchase"],["insurance","Insurance"],
+      ["financial_reporting","Financial reporting"],["estate","Estate"],["legal","Legal"],["tax","Tax"],["internal","Internal"],["other","Other"]
+    ]);
+    serviceGrid.append(
+      propertyPortfolioField("Property",serviceProperty),
+      propertyPortfolioField("Purpose",servicePurpose),
+      propertyPortfolioField("Desired by",propertyPortfolioInput("portfolioValuationServiceDesiredBy",{type:"date"})),
+      propertyPortfolioField("Access contact",propertyPortfolioInput("portfolioValuationServiceContact",{placeholder:"Person who can provide property access",maxLength:160})),
+      propertyPortfolioField("Access phone",propertyPortfolioInput("portfolioValuationServicePhone",{placeholder:"+267 ...",maxLength:40}))
+    );
+    const serviceNotesWrap=document.createElement("div");
+    const serviceNotesLabel=document.createElement("label");
+    serviceNotesLabel.htmlFor="portfolioValuationServiceNotes";serviceNotesLabel.textContent="Request notes";
+    const serviceNotes=document.createElement("textarea");
+    serviceNotes.id="portfolioValuationServiceNotes";serviceNotes.maxLength=1200;serviceNotes.rows=3;
+    serviceNotes.placeholder="Purpose, access constraints, lender/client instructions, or timing notes";
+    serviceNotesWrap.append(serviceNotesLabel,serviceNotes);serviceGrid.append(serviceNotesWrap);
+    servicePanel.append(serviceGrid);
+    const serviceActions=document.createElement("div");serviceActions.className="actions";serviceActions.style.marginTop="12px";
+    const serviceRequestButton=button("Request valuation quote",()=>void requestPropertyValuationService(),"btn");
+    serviceRequestButton.id="propertyValuationServiceRequestButton";
+    const serviceStatus=text("span","","muted small");serviceStatus.id="propertyValuationServiceStatus";
+    serviceActions.append(serviceRequestButton,serviceStatus);servicePanel.append(serviceActions);
+    const serviceList=document.createElement("div");serviceList.id="propertyValuationServiceList";serviceList.style.marginTop="14px";
+    serviceList.append(text("div","No valuation service requests loaded yet.","muted small"));servicePanel.append(serviceList);
+    servicePanel.hidden=role()!=="owner"&&role()!=="manager";
+    shell.append(servicePanel);
+
     const listHead=document.createElement("div");
     listHead.className="between row";
     listHead.style.marginTop="16px";
@@ -2904,6 +2949,19 @@
       }
       if([...select.options].some(option=>option.value===current))select.value=current;
     }
+    const serviceSelect=q("#portfolioValuationServiceProperty");
+    if(serviceSelect){
+      const current=serviceSelect.value;
+      serviceSelect.replaceChildren();
+      const placeholder=document.createElement("option");placeholder.value="";placeholder.textContent="Choose active property";serviceSelect.append(placeholder);
+      for(const item of items||[]){
+        if(String(item?.status||"active")!=="active")continue;
+        const option=document.createElement("option");option.value=String(item.id||"");option.textContent=String(item.name||"Property");serviceSelect.append(option);
+      }
+      if([...serviceSelect.options].some(option=>option.value===current))serviceSelect.value=current;
+    }
+    const serviceDesired=q("#portfolioValuationServiceDesiredBy");
+    if(serviceDesired)serviceDesired.min=String(businessDate||gaboroneDate());
     const date=q("#portfolioValuationDate");
     if(date){
       date.max=String(businessDate||gaboroneDate());
@@ -3067,9 +3125,10 @@
     const list=q("#propertyPortfolioList");
     if(list)list.replaceChildren(text("div","Reading canonical property records…","muted small"));
     try{
-      const [portfolio,evidencePayload]=await Promise.all([
+      const [portfolio,evidencePayload,valuationServices]=await Promise.all([
         request("/api/property/portfolio"),
-        request("/api/evidence").catch(()=>({items:[]}))
+        request("/api/evidence").catch(()=>({items:[]})),
+        request("/api/property/valuation-services").catch(()=>({available:false,items:[]}))
       ]);
       propertyPortfolioCache=portfolio;
       propertyEvidenceOptions=propertyPortfolioEligibleEvidence(evidencePayload);
@@ -3105,6 +3164,8 @@
       propertyPortfolioSetValuationOptions(items,portfolio.businessDate,propertyEvidenceOptions);
       const valuationPanel=q("#propertyValuationFormPanel");
       if(valuationPanel)valuationPanel.hidden=role()!=="owner";
+      const serviceButton=q("#propertyValuationServiceRequestButton");if(serviceButton)serviceButton.hidden=role()!=="owner";
+      renderPropertyValuationServices(valuationServices);
       if(list){
         if(!items.length){
           list.replaceChildren(text("div","No property assets are recorded yet. Add the first property to start the canonical portfolio.","notice"));
@@ -3121,6 +3182,85 @@
     }finally{
       propertyPortfolioBusy=false;
     }
+  }
+
+  function valuationServiceMoney(value){
+    const n=Number(value);return Number.isFinite(n)?"P"+n.toLocaleString("en-BW",{minimumFractionDigits:0,maximumFractionDigits:0}):"Quote pending";
+  }
+
+  function renderPropertyValuationServices(payload){
+    const box=q("#propertyValuationServiceList");if(!box)return;
+    const items=Array.isArray(payload?.items)?payload.items:[];
+    if(payload?.available===false){
+      box.replaceChildren(text("div","Valuation-service workflow is not available yet. Existing property and valuation records are unaffected.","notice"));
+      return;
+    }
+    if(!items.length){
+      box.replaceChildren(text("div","No professional valuation service requests yet.","muted small"));return;
+    }
+    const nodes=items.map(item=>{
+      const row=document.createElement("div");row.className="item";
+      const top=document.createElement("div");top.className="between row";
+      const left=document.createElement("div");
+      left.append(text("b",String(item.propertyName||"Property")+" · "+String(item.purpose||"valuation").replaceAll("_"," ")),
+        text("div","Requested "+(item.createdAt?new Date(item.createdAt).toLocaleDateString():"")+" · "+String(item.status||"requested").replaceAll("_"," "),"muted small"));
+      const badge=text("span",String(item.status||"requested").replaceAll("_"," "),"badge"+(["report_issued"].includes(item.status)?" good":["canceled","declined","refunded"].includes(item.status)?"":" info"));
+      top.append(left,badge);row.append(top);
+      const details=[];
+      if(item.quotedFeeBwp!=null)details.push("Quoted fee "+valuationServiceMoney(item.quotedFeeBwp));
+      else details.push("Fee quote pending");
+      if(item.quoteExpiresAt)details.push("quote expires "+new Date(item.quoteExpiresAt).toLocaleDateString());
+      if(item.assignedProfessional?.displayName)details.push("valuer "+item.assignedProfessional.displayName);
+      if(item.inspectionScheduledAt)details.push("inspection "+new Date(item.inspectionScheduledAt).toLocaleString());
+      row.append(text("div",details.join(" · "),"small"));
+      const authority=text("div","Human professional sign-off required. Thebe is workflow and evidence infrastructure, not the valuer.","muted small");
+      authority.style.marginTop="5px";row.append(authority);
+      const actions=document.createElement("div");actions.className="actions";actions.style.marginTop="8px";
+      if(item.status==="awaiting_payment"&&item.serviceOrderId&&role()==="owner"){
+        actions.append(button("Pay quoted fee",async()=>{
+          try{
+            const checkout=await request("/api/payments/service-checkout",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({serviceOrderId:item.serviceOrderId})});
+            if(!checkout?.paymentOrder?.id)throw new Error("Payment order could not be created.");
+            const hosted=await request("/api/payments/create-checkout",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({paymentOrderId:checkout.paymentOrder.id})});
+            if(!hosted?.checkoutUrl)throw new Error(hosted?.error||"Checkout is not configured.");
+            global.location.assign(hosted.checkoutUrl);
+          }catch(error){propertyPortfolioNotify(String(error?.message||"Payment checkout failed"),"error")}
+        },"btn"));
+      }
+      if(["requested","quoted","awaiting_payment"].includes(item.status)&&role()==="owner"){
+        actions.append(button("Cancel request",async()=>{
+          try{await request("/api/property/valuation-services/"+encodeURIComponent(item.id),{method:"DELETE"});propertyPortfolioNotify("Valuation request canceled.");await renderPropertyPortfolio(true)}
+          catch(error){propertyPortfolioNotify(String(error?.message||"Could not cancel request"),"error")}
+        },"btn soft"));
+      }
+      if(item.issuedValuationId)actions.append(button("Open valuation history",()=>void showPropertyValuationHistory(item.propertyId,item.propertyName),"btn soft"));
+      if(actions.childNodes.length)row.append(actions);
+      return row;
+    });
+    box.replaceChildren(...nodes);
+  }
+
+  async function requestPropertyValuationService(){
+    if(role()!=="owner"){propertyPortfolioStatus("propertyValuationServiceStatus","Only the account owner can request a paid professional valuation.");return}
+    const propertyId=String(q("#portfolioValuationServiceProperty")?.value||"");
+    const purpose=String(q("#portfolioValuationServicePurpose")?.value||"finance");
+    const desiredByDate=String(q("#portfolioValuationServiceDesiredBy")?.value||"")||null;
+    const accessContactName=cleanText(q("#portfolioValuationServiceContact")?.value,160);
+    const accessContactPhone=cleanText(q("#portfolioValuationServicePhone")?.value,40);
+    const clientNotes=cleanText(q("#portfolioValuationServiceNotes")?.value,1200);
+    if(!propertyId){propertyPortfolioStatus("propertyValuationServiceStatus","Choose an active property.");return}
+    propertyPortfolioStatus("propertyValuationServiceStatus","Submitting quote request…");
+    try{
+      await request("/api/property/valuation-services",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({
+        propertyId,purpose,desiredByDate,accessContactName,accessContactPhone,clientNotes
+      })});
+      for(const id of ["portfolioValuationServiceDesiredBy","portfolioValuationServiceContact","portfolioValuationServicePhone","portfolioValuationServiceNotes"]){
+        const node=q("#"+id);if(node)node.value="";
+      }
+      propertyPortfolioStatus("propertyValuationServiceStatus","Request submitted. A fee is not due until a quote is issued.");
+      propertyPortfolioNotify("Professional valuation quote requested.");
+      await renderPropertyPortfolio(true);
+    }catch(error){propertyPortfolioStatus("propertyValuationServiceStatus",String(error?.message||"Could not request valuation").slice(0,180))}
   }
 
   async function createPropertyAsset(){
