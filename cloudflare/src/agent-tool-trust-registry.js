@@ -1,6 +1,7 @@
 import {AGENT_ACTION_CATALOG} from "./agent-policy.js";
+import {evaluateToolDataBoundary} from "./agent-capability-security.js";
 
-export const TOOL_TRUST_REGISTRY_VERSION="2026-09-25.v1";
+export const TOOL_TRUST_REGISTRY_VERSION="2026-09-27.v2";
 
 const TRUSTED_READ_TOOLS=Object.freeze({
   "business_health.read":{toolId:"thebe.business_health",owner:"thebe",transport:"internal",dataClass:"business_aggregate"},
@@ -35,18 +36,58 @@ export function trustedToolDefinition(actionKey){
     discoveryAuthority:"none",
     executionAuthority:"none",
     networkDestinations:frozen([]),
+    egressPolicy:frozen({
+      networkMode:"deny_by_default",
+      allowedDestinations:frozen(["internal"]),
+      allowedDataClasses:frozen([registry.dataClass]),
+      maxPayloadBytes:262144,
+      credentialRequired:true
+    }),
+    credentialPolicy:frozen({
+      kind:"short_lived_capability",
+      maxTtlSeconds:300,
+      inheritable:false,
+      reusable:false,
+      bindTenant:true,
+      bindTool:true,
+      bindExecutionEnvironment:true
+    }),
+    executionIsolation:frozen({
+      persistence:"ephemeral",
+      inheritProcessEnvironment:false,
+      inheritCredentials:false,
+      inheritBrowserSession:false,
+      recoverySource:"verified_checkpoint_only"
+    }),
     pinned:true,
     version:TOOL_TRUST_REGISTRY_VERSION
   });
 }
 
-export function evaluateToolTrust({actionKey,requestedToolId=null,requestedTransport=null}={}){
+export function evaluateToolTrust({
+  actionKey,requestedToolId=null,requestedTransport=null,destination="internal",payloadDataClasses=null,payloadBytes=0
+}={}){
   const definition=trustedToolDefinition(actionKey);
   if(!definition)return frozen({allowed:false,executionAllowed:false,code:"tool_not_trusted",reason:"The requested capability is not in the pinned Tool Trust Registry.",registryVersion:TOOL_TRUST_REGISTRY_VERSION});
   if(requestedToolId&&clean(requestedToolId)!==definition.toolId)return frozen({allowed:false,executionAllowed:false,code:"tool_identity_mismatch",reason:"The requested tool identity does not match the trusted registry entry.",registryVersion:TOOL_TRUST_REGISTRY_VERSION});
   if(requestedTransport&&clean(requestedTransport)!==definition.transport)return frozen({allowed:false,executionAllowed:false,code:"tool_transport_mismatch",reason:"The requested transport does not match the trusted registry entry.",registryVersion:TOOL_TRUST_REGISTRY_VERSION});
   if(definition.externalSideEffect)return frozen({allowed:false,executionAllowed:false,code:"side_effect_tool_not_read_trusted",reason:"The read-only registry cannot authorize a side-effecting tool.",registryVersion:TOOL_TRUST_REGISTRY_VERSION});
-  return frozen({allowed:true,executionAllowed:false,code:"trusted_read_tool",reason:"Pinned internal read capability is trusted for governed observation only.",registryVersion:TOOL_TRUST_REGISTRY_VERSION,tool:definition});
+  const boundary=evaluateToolDataBoundary({
+    tool:definition,
+    destination,
+    payloadDataClasses:Array.isArray(payloadDataClasses)?payloadDataClasses:[definition.dataClass],
+    payloadBytes
+  });
+  if(boundary.allowed!==true)return frozen({
+    allowed:false,executionAllowed:false,code:boundary.code,
+    reason:"The requested tool call violates the pinned data-egress policy.",
+    registryVersion:TOOL_TRUST_REGISTRY_VERSION
+  });
+  return frozen({
+    allowed:true,executionAllowed:false,code:"trusted_read_tool",
+    reason:"Pinned internal read capability is trusted for governed observation only.",
+    registryVersion:TOOL_TRUST_REGISTRY_VERSION,tool:definition,dataBoundary:boundary
+  });
 }
 
 export function validatePersistentTaskAllowedTools(values=[]){

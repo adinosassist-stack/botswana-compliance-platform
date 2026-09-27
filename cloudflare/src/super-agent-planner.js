@@ -20,7 +20,10 @@ export function planSuperAgentWork({goal="",observation={},persistentTask=null}=
       transport:trust.tool.transport,
       mode:"observe",
       executionAllowed:false,
-      externalSideEffect:false
+      externalSideEffect:false,
+      dataBoundary:trust.dataBoundary,
+      credentialPolicy:trust.tool.credentialPolicy,
+      executionIsolation:trust.tool.executionIsolation
     }));
   }
   return frozen({
