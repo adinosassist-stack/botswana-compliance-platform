@@ -9,6 +9,7 @@ import {handleBusinessMemoryRequest} from "./business-memory.js";
 import {thebeLanguagePrompt,deterministicLanguagePolicy,deterministicLanguageNotice} from "./thebe-language.js";
 import {DEFAULT_RUNTIME_MARKET_CODE,runtimeMarketProfile} from "./market-profile.js";
 import {handlePropertyPortfolioRequest} from "./property-portfolio.js";
+import {handlePropertyValuationServicesRequest} from "./property-valuation-services.js";
 const APP_SECURITY_HEADERS=Object.freeze({
   "x-content-type-options":"nosniff",
   "x-frame-options":"DENY",
@@ -5528,6 +5529,8 @@ export default {
       if(businessMemoryResponse)return businessMemoryResponse;
       const businessContextResponse=await handleBusinessContextRequest({request:req,url,env,auth:a,json,roleAllowed});
       if(businessContextResponse)return businessContextResponse;
+      const propertyValuationServicesResponse=await handlePropertyValuationServicesRequest({request:req,url,env,auth:a,json,readJson,id,writeAudit,roleAllowed,privilegedSecretGate});
+      if(propertyValuationServicesResponse)return propertyValuationServicesResponse;
       const propertyPortfolioResponse=await handlePropertyPortfolioRequest({request:req,url,env,auth:a,json,readJson,id,writeAudit,roleAllowed});
       if(propertyPortfolioResponse)return propertyPortfolioResponse;
       const financeResponse=await handleFinanceRequest({request:req,url,env,auth:a,json,readJson,id,writeAudit,roleAllowed,sha256Hex,enqueueTenantAlert,whatsappTemplateAvailable:key=>!!parseWhatsAppTemplateMap(env)[key]});
