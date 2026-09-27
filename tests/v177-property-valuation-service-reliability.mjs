@@ -48,10 +48,14 @@ assert.match(service,/assigned_valuer_credential_mismatch/);
 assert.match(service,/Number\(changed\.meta\?\.changes\|\|0\)===1/);
 assert.match(service,/summary:serviceSummary\(items\)/);
 assert.match(service,/credentialBoundIssuance:true/);
+assert.match(service,/valuation_quote_checkout_already_created/);
+assert.match(service,/UPDATE payment_orders SET status=\'canceled\'/);
+assert.match(service,/CUSTOMER_CANCELED/);
 
 assert.match(worker,/valuation_quote_expired/);
 assert.match(worker,/property_valuation_service_requests/);
 assert.match(worker,/source_type==="property_valuation_service"/);
+assert.match(worker,/payment_order_canceled/);
 
 assert.match(owner,/awaiting-payment pipeline/);
 assert.match(owner,/completed service value/);
