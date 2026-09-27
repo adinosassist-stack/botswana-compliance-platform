@@ -77,7 +77,7 @@ assert.match(worker,/const historical=await env\.DB\.prepare\("SELECT id,name,co
 assert.match(worker,/if\(historical\)return null/);
 assert.match(html,/async function editOpsLocation\(id\)/);
 assert.match(html,/async function removeOpsLocation\(id\)/);
-assert.match(html,/async function deactivateOpsLocation\(id\)\{return removeOpsLocation\(id\)\}/);
+assert.doesNotMatch(html,/async function deactivateOpsLocation\(/,"obsolete deactivate alias must remain removed; removeOpsLocation is canonical");
 assert.match(html,/async function reactivateOpsLocation\(id\)/);
 for(const action of ["editOpsLocation","removeOpsLocation","reactivateOpsLocation"])assert.ok(delegatedEvents.includes(`'${action}'`),`delegated event allowlist missing ${action}`);
 assert.match(html,/let opsReportingSetupEpoch=0/);
