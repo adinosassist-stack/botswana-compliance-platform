@@ -418,16 +418,20 @@ async function runFullUserJourney(credentials){
     assert(workspaceRuntimeProof.showViewReady,'live showView function missing from workspace runtime');
     assert(workspaceRuntimeProof.hydrateReady,'live lazy hydration function missing from workspace runtime');
 
-    const peopleToolsGroup=page.locator('#nav details.nav-access-group').filter({hasText:'Operations & people'}).first();
-    assert(await peopleToolsGroup.count(),'Operations & people navigation group missing');
-    const peopleToolsSummary=peopleToolsGroup.locator('summary').first();
-    assert(await peopleToolsSummary.count(),'Operations & people navigation summary missing');
-    if(!(await peopleToolsGroup.evaluate(node=>node.open===true)))await peopleToolsSummary.click();
-    await page.waitForFunction(()=>document.querySelector('#nav button[data-view="employees"]')?.offsetParent!==null,null,{timeout:VIEW_TIMEOUT_MS});
-    const delegatedEmployeesButton=page.locator('#nav button[data-view="employees"]:visible').first();
-    assert(await delegatedEmployeesButton.count(),'visible delegated Employees button missing after opening Operations & people');
-    await delegatedEmployeesButton.click();
-    await page.waitForFunction(()=>document.getElementById('employees')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
+    const openEmployeesTool=async()=>{
+      const findTools=page.locator('#nav .nav-more-tools:visible').first();
+      assert(await findTools.count(),'visible Find tools control missing before Employees navigation');
+      await findTools.click();
+      await page.locator('#commandShade.open').waitFor({state:'visible',timeout:VIEW_TIMEOUT_MS});
+      const commandInput=page.locator('#commandInput:visible').first();
+      assert(await commandInput.count(),'Find tools search input missing');
+      await commandInput.fill('employee');
+      const employeesCommand=page.locator('#commandResults .commanditem:visible').filter({hasText:'Employees'}).first();
+      assert(await employeesCommand.count(),'Employees command missing from Find tools search results');
+      await employeesCommand.click();
+      await page.waitForFunction(()=>document.getElementById('employees')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
+    };
+    await openEmployeesTool();
     await page.waitForFunction(()=>{
       const view=document.getElementById('employees');
       return view?.dataset?.lazyHydrated==='1'||view?.dataset?.lazyError==='1';
@@ -444,6 +448,7 @@ async function runFullUserJourney(credentials){
     });
     assert(employeeLazyState.active&&employeeLazyState.hydrated&&!employeeLazyState.error&&!employeeLazyState.stillLazy,`functional lazy workspace hydration failed: ${safe(JSON.stringify(employeeLazyState))}`);
     assert(/Employee records|Employee register|Employees|Staff register|staff/i.test(employeeLazyState.text),`Employees lazy view hydrated unexpected content: ${safe(employeeLazyState.text)}`);
+    mark('workspace deep-tool discovery','Find tools -> Employees opened and hydrated the specialist employee register');
     mark('workspace lazy runtime functional proof','real Employees click hydrated a deep lazy view through the self-contained versioned runtime');
 
     await delegatedPeopleButton.click();
@@ -451,7 +456,7 @@ async function runFullUserJourney(credentials){
     mark('workspace People resident content','real People click opened resident People & operations immediately with no Ruleset/source leakage and no fragment dependency');
 
     // Mutating proof is safe here because the canonical lifecycle owns this isolated synthetic tenant and purges it after the browser returns.
-    await delegatedEmployeesButton.click();
+    await openEmployeesTool();
     await page.waitForFunction(()=>document.getElementById('employees')?.classList.contains('active')&&document.getElementById('eName'),null,{timeout:VIEW_TIMEOUT_MS});
     const syntheticEmployeeName=`Synthetic Reporter ${Date.now()}`;
     await page.locator('#eName').fill(syntheticEmployeeName);
@@ -538,7 +543,7 @@ async function runFullUserJourney(credentials){
     mark('employee reporting access lifecycle','employee -> location -> passwordless desktop/mobile reporter portal verified in the disposable production tenant');
 
     // Prove employee-row access opens reporting status and can issue a fresh viewable private link.
-    await delegatedEmployeesButton.click();
+    await openEmployeesTool();
     await page.waitForFunction(()=>document.getElementById('employees')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
     const employeeAccessRow=page.locator('#employeeRegister .item',{hasText:syntheticEmployeeName}).first();
     await employeeAccessRow.waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
@@ -560,7 +565,7 @@ async function runFullUserJourney(credentials){
     mark('employee row reporting access','clicking the employee opened reporting access and produced a fresh viewable private reporting link');
 
     // Prove employee removal through the visible UI and fail closed on the bearer reporting link.
-    await delegatedEmployeesButton.click();
+    await openEmployeesTool();
     await page.waitForFunction(()=>document.getElementById('employees')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
     const syntheticEmployeeRow=page.locator('#employeeRegister .item',{hasText:syntheticEmployeeName}).first();
     await syntheticEmployeeRow.waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
