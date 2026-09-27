@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 const html=fs.readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
+const fullUser=fs.readFileSync(new URL('../scripts/production-synthetic-full-user-wrapper.mjs',import.meta.url),'utf8');
 const primary=[...html.matchAll(/<button[^>]*class="(?:active )?nav-primary"[^>]*data-view="([^"]+)"/g)].map(m=>m[1]);
 // Sep-26 owner UX contract: keep the everyday workspace to seven primary mental models.
 // Specialist engines remain reachable through Find tools and contextual hubs.
@@ -39,4 +40,8 @@ for(const label of ['What needs action','Filing deadlines','Evidence checks','AI
 if(!html.includes('id="dashboardDetailPanel"')||!html.includes('Protection health & deadlines'))throw new Error('Home progressive-disclosure panel missing');
 if(!html.includes('class="companyswitch role-context"')||!html.includes('.top>.actions .role-context{display:none!important}'))throw new Error('Mobile role-context simplification missing');
 if(!html.includes('#dashboard .dashboard-intro .muted{display:none!important}'))throw new Error('Mobile Home hero copy reduction missing');
+if(!fullUser.includes('const MIN_OWNER_VIEW_COUNT=7;'))throw new Error('Phase 0 full-user audit must follow the approved seven-destination primary workspace contract');
+if(fullUser.includes('const MIN_OWNER_VIEW_COUNT=40;'))throw new Error('Phase 0 full-user audit must not require the superseded 40-visible-nav contract');
+if(!fullUser.includes("button.closest('[hidden]')")||!fullUser.includes("button.offsetParent===null"))throw new Error('Phase 0 full-user audit must exclude hidden specialist index controls from primary visible navigation');
+if(!fullUser.includes("openCommandPaletteWithQuery")||!fullUser.includes("Find tools result missing for hidden specialist view"))throw new Error('Phase 0 full-user audit must exercise hidden specialist sources through Find tools');
 console.log('v78 workspace simplification static checks passed');

@@ -90,7 +90,10 @@ syntax('scripts/production-synthetic-full-user-wrapper.mjs','mandatory full-user
 must(fullUserWrapper,/await import\('\.\/production-synthetic-hold-wrapper\.mjs'\)/,'full-user wrapper preserves signed HOLD and canonical cleanup authority');
 must(fullUserWrapper,/Object\.defineProperty\(globalThis,'__thebeSyntheticBrowserProof'/,'full-user wrapper composes with the canonical browser proof hook');
 must(fullUserWrapper,/await originalProof\(credentials\);[\s\S]*await runFullUserJourney\(credentials\)/,'canonical browser proof runs before the exhaustive full-user journey');
-must(fullUserWrapper,/MIN_OWNER_VIEW_COUNT=40/,'full-user proof fails closed on suspiciously incomplete owner navigation');
+must(fullUserWrapper,/MIN_OWNER_VIEW_COUNT=7/,'full-user proof fails closed if the approved seven-destination primary navigation is incomplete');
+must(fullUserWrapper,/button\.closest\('\[hidden\]'\)/,'full-user proof excludes specialist controls inside hidden search indexes from the primary visible-navigation matrix');
+must(fullUserWrapper,/button\.offsetParent===null/,'full-user proof excludes CSS/ancestor-hidden controls from the primary visible-navigation matrix');
+must(fullUserWrapper,/openCommandPaletteWithQuery/,'full-user proof routes hidden specialist source views through Find tools');
 must(fullUserWrapper,/roleCanView/,'full-user proof derives the matrix from role-visible navigation');
 must(fullUserWrapper,/page\.locator\(\`#nav button\[data-view="/,'full-user proof resolves each canonical navigation button from the live sidebar');
 must(fullUserWrapper,/await summary\.click\(\)/,'full-user proof opens collapsed navigation groups through the real summary control');
