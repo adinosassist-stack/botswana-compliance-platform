@@ -2426,6 +2426,7 @@ async function buildAiAdvisorContext(env,tenantId,{includeFinance=false,actorRol
     ownerEnteredMemory:businessPayload.memory||{},
     language:businessPayload.language||{},
     sales:businessPayload.sales||{},
+    analytics:businessPayload.analytics||null,
     spendEnvelope:businessPayload.moneyIntelligence?.spendEnvelope?{
       ready:businessPayload.moneyIntelligence.spendEnvelope.ready===true,
       state:String(businessPayload.moneyIntelligence.spendEnvelope.state||""),
