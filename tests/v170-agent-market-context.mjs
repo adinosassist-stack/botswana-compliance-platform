@@ -45,6 +45,11 @@ assert.match(source,/currency:market\.currency/);
 assert.match(source,/market,\n\s+roleScope:/);
 assert.match(source,/market,\n\s+language:/);
 assert.doesNotMatch(source,/currency:runtimeMarketProfile\("BW"\)/);
+assert.doesNotMatch(source,/marketBusinessDate\(now,"BW"\)/);
+assert.doesNotMatch(source,/formatMarketMinor\(value,\{marketCode:"BW"\}\)/);
+assert.match(source,/activeBusinessDate\(new Date\(\),marketCode\)/);
+assert.match(source,/localizeBriefPriority\(item,metrics,language,market\.code\)/);
+assert.match(source,/marketCode:market\.code/);
 assert.match(homepage,/Live in Botswana · Namibia next/);
 assert.doesNotMatch(homepage,/Live in Namibia/);
 
