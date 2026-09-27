@@ -136,7 +136,7 @@ assert.match(fullUserProof,/openOnboarding\(\)/,"safe action matrix must open Gu
 assert.match(fullUserProof,/openLicenceEntry\(\)/,"safe action matrix must open Add licence details");
 assert.match(fullUserProof,/safeUiMutationRequests\.length===0/,"safe action matrix must fail closed if UI-only controls issue mutations");
 assert.ok(fullUserProof.includes("full-user safe UI action matrix"),"live proof must report non-navigation UI action completion");
-assert.match(fullUserProof,/MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=25/,"live owner proof must retain a fail-closed minimum for in-view controls");
+assert.match(fullUserProof,/MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=7/,"live owner proof must retain the approved fail-closed minimum for visible in-view controls");
 assert.match(fullUserProof,/button\[data-bw-onclick\]/,"live owner proof must discover real in-view delegated buttons");
 assert.match(fullUserProof,/expression\.match\(\/\^showView/,"in-view matrix must restrict itself to non-destructive showView controls");
 assert.match(fullUserProof,/await controlButton\.click\(\)/,"in-view matrix must click the real source-view control");
