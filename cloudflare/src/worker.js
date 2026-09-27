@@ -4972,8 +4972,8 @@ export const __v77Test=Object.freeze({
 });
 
 const SEO_RELEASE_LASTMOD="2026-09-11";
-const SEO_HOME_TITLE="Botswana SME Compliance Software | Thebe Desk";
-const SEO_HOME_DESCRIPTION="Botswana SME compliance software for CIPA records, BURS tax obligations, employment risk, licences, tenders, deadlines and evidence in one workspace.";
+const SEO_HOME_TITLE="Thebe Desk | AI Operating Layer for African Business";
+const SEO_HOME_DESCRIPTION="Thebe Desk is the AI operating layer for African business—bringing finance, people, operations, compliance and decision support into one intelligent workspace. Live in Botswana · Namibia next.";
 const SEO_GUIDE_SLUGS=Object.freeze([
   "cipa-compliance-botswana",
   "burs-tax-compliance-botswana",
