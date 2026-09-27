@@ -83,7 +83,7 @@ assert.match(worker,/analytics:businessPayload\.analytics\|\|null/);
 assert.match(owner,/Analytics v1/);
 assert.match(owner,/ownerAnalyticsPanel/);
 assert.match(owner,/renderBusinessAnalytics/);
-assert.match(analyticsSource,/cash movement, not accounting profit/i);
+assert.match(analyticsSource,/cash movement and margin proxies are not accounting profit/i);
 assert.match(analyticsSource,/registeredValuerSignOffRequiredForProfessionalValuation:true/);
 assert.doesNotMatch(analyticsSource,/executionAllowed:true/);
 
