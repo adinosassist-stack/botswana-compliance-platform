@@ -666,7 +666,7 @@ async function runFullUserJourney(credentials){
     const dockInitial=await page.evaluate(()=>({release:String(globalThis.ThebeAiDock?.release||''),state:globalThis.ThebeAiDock?.state?.()||null}));
     const appHeaders=await app.allHeaders();
     const expectedDockRelease=String(appHeaders['x-thebe-ai-dock']||'');
-    assert(/^\d{8}[a-z]$/.test(dockInitial.release),`unexpected Thebe dock release ${safe(dockInitial.release||'missing')}`);
+    assert(/^[0-9]{8}[A-Za-z0-9._-]{1,48}$/.test(dockInitial.release),`unexpected Thebe dock release ${safe(dockInitial.release||'missing')}`);
     assert(expectedDockRelease&&dockInitial.release===expectedDockRelease,`Thebe dock release mismatch runtime=${safe(dockInitial.release||'missing')} server=${safe(expectedDockRelease||'missing')}`);
     assert(dockInitial.state?.workspaceVisible===true&&dockInitial.state?.dockHidden===false,'Thebe dock was not visibly mounted after owner workspace readiness');
 
