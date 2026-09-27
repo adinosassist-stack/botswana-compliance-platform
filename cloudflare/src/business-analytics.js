@@ -29,6 +29,7 @@ export function buildBusinessAnalytics(context={}){
   const money=context?.moneyIntelligence||{},trend=money?.trend||{},current30=trend?.current30||{},prior30=trend?.prior30||{};
   const scenario=money?.scenario||{},commitmentStress=money?.commitmentStress||{};
   const operations=context?.operations||{},compliance=context?.compliance||{},sales=context?.sales||{},property=context?.property||{};
+  const propertyAvailable=property?.available===true;
   const signals=[];
 
   if(Number(reconciliation?.unresolvedCount||0)>0)signals.push(signal(
@@ -76,12 +77,12 @@ export function buildBusinessAnalytics(context={}){
     `${Number(sales.dormantQuotationCount||0)} owner-recorded quotation(s) have passed the configured dormancy threshold.`,
     ["app_state.active_company.salesIntelligence"]
   ));
-  if(property?.available===true&&Number(property?.unvaluedAssetCount||0)>0)signals.push(signal(
+  if(propertyAvailable&&Number(property?.unvaluedAssetCount||0)>0)signals.push(signal(
     "property_valuation_coverage","medium","Property portfolio has valuation coverage gaps",
     `${Number(property.unvaluedAssetCount||0)} active property asset(s) do not yet have a recorded professional valuation report.`,
     ["property_assets","property_professional_valuations"]
   ));
-  if(property?.available===true&&Number(property?.staleProfessionalValuationCount||0)>0)signals.push(signal(
+  if(propertyAvailable&&Number(property?.staleProfessionalValuationCount||0)>0)signals.push(signal(
     "property_professional_valuation_stale","medium","Some professional property valuations are older than 12 months",
     `${Number(property.staleProfessionalValuationCount||0)} active property asset(s) have a latest recorded professional valuation older than 12 months.`,
     ["property_professional_valuations"]
@@ -160,8 +161,8 @@ export function buildBusinessAnalytics(context={}){
       }),
       property:frozen({
         underwritingToolAvailable:true,
-        portfolioAnalyticsAvailable:property?.available===true,
-        professionalValuationWorkflowAvailable:property?.available===true,
+        portfolioAnalyticsAvailable:propertyAvailable,
+        professionalValuationWorkflowAvailable:propertyAvailable,
         assetCount:number(property?.assetCount),
         valuedAssetCount:number(property?.valuedAssetCount),
         unvaluedAssetCount:number(property?.unvaluedAssetCount),
@@ -176,7 +177,7 @@ export function buildBusinessAnalytics(context={}){
         debtToRecordedProfessionalValueRatio:optionalNumber(property?.debtToRecordedProfessionalValueRatio),
         authoritativeValueBasis:"recorded_external_professional_reports_only",
         thebeMarketValuation:false,
-        reason:property?.available===true
+        reason:propertyAvailable
           ?"Portfolio analytics use the canonical property register. Market values are included only from recorded external professional valuation reports."
           :"Property underwriting remains available, but canonical portfolio records are not yet readable."
       })
