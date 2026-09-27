@@ -53,10 +53,10 @@ assert.equal(profile.agentic_stage2_execution_enabled,false);
 assert.equal(profile.authenticated_route_branches,254);
 const launch=fs.readFileSync("docs/LAUNCH.md","utf8"),deploy=fs.readFileSync("cloudflare/deploy-free.sh","utf8"),cloudflareReadme=fs.readFileSync("cloudflare/README.md","utf8");
 assert.match(launch,/Migration 044 remains the finance reconciliation prerequisite/);
-assert.match(launch,/through `061_v176_property_valuation_services\.sql`/);
+assert.match(launch,/through `062_v177_property_valuation_service_reliability\.sql`/);
 assert.doesNotMatch(launch,/No new schema migration is required\./);
-assert.match(deploy,/Current reviewed schema delta: 061_v176_property_valuation_services\.sql/);
-assert.match(cloudflareReadme,/061_v176_property_valuation_services\.sql/);
+assert.match(deploy,/Current reviewed schema delta: 062_v177_property_valuation_service_reliability\.sql/);
+assert.match(cloudflareReadme,/062_v177_property_valuation_service_reliability\.sql/);
 for(const path of [
   "tests/v78-12167-session-generation-revocation-adversarial.mjs",
   "tests/v78-12157-authorization-reporting-concurrency-adversarial.mjs",
