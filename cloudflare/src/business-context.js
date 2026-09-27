@@ -37,8 +37,8 @@ function activeMarketContext(){
     regulatoryPack:profile.regulatoryPack
   });
 }
-const gaboroneDate=(now=new Date())=>marketBusinessDate(now,"BW");
-const pulaMinor=value=>formatMarketMinor(value,{marketCode:"BW"});
+const activeBusinessDate=(now=new Date(),marketCode=DEFAULT_RUNTIME_MARKET_CODE)=>marketBusinessDate(now,marketCode);
+const activeMarketMinor=(value,marketCode=DEFAULT_RUNTIME_MARKET_CODE)=>formatMarketMinor(value,{marketCode});
 async function safeFirst(env,sql,bindings=[]){try{return await env.DB.prepare(sql).bind(...bindings).first()}catch{return null}}
 
 function activeCompany(state){
@@ -106,7 +106,7 @@ function mergeConfirmedMemory(base,durable){
   });
 }
 
-function salesMemory(state,{businessDate=gaboroneDate()}={}){
+function salesMemory(state,{businessDate=activeBusinessDate()}={}){
   const company=activeCompany(state),sales=company?.salesIntelligence&&typeof company.salesIntelligence==="object"?company.salesIntelligence:{};
   const opportunities=Array.isArray(sales.opportunities)?sales.opportunities.slice(0,500):[];
   const settings=sales.settings&&typeof sales.settings==="object"?sales.settings:{};
@@ -233,8 +233,8 @@ export async function buildBusinessContext(env,tenantId,{actorRole="owner",now=n
   });
 }
 
-function setswanaPriority(item,metrics={}){
-  const money=pulaMinor;
+function setswanaPriority(item,metrics={},marketCode=DEFAULT_RUNTIME_MARKET_CODE){
+  const money=value=>activeMarketMinor(value,marketCode);
   const map={
     reconciliation_exception:{title:"Sekaseka diphapang tsa poelanyo ya madi",detail:`${Number(metrics.reconciliationExceptionCount||0)} diphapang di emela ${money(metrics.reconciliationExposureMinor)} ya exposure e e rekotilweng.`},
     overdue_receivables:{title:"Latela madi a bareki a a fetileng nako",detail:`${money(metrics.receivablesOverdueMinor)} e fetile nako mo di-invoice di le ${Number(metrics.receivablesOverdueInvoiceCount||0)}.`},
@@ -243,7 +243,7 @@ function setswanaPriority(item,metrics={}){
     overdue_compliance:{title:"Sekaseka maikarabelo a compliance a a fetileng nako",detail:`Go na le maikarabelo a compliance a ${Number(metrics.overdueComplianceCount||0)} a a rekotilweng a fetile nako.`},
     failed_workflows:{title:"Rarabolola ditsela tsa tiro tse di paletsweng",detail:`Go na le workflow di le ${Number(metrics.failedWorkflowCount||0)} tse di rekotilweng di paletswe kgotsa di emetse tharabololo.`},
     critical_performance:{title:"Sekaseka ditemoso tsa botlhokwa tsa kgwebo",detail:`Go na le ditemoso tsa botlhokwa di le ${Number(metrics.criticalPerformanceSignals||0)} tse di sa ntseng di butse.`},
-    dormant_quotations:{title:"Latela dikhoutheishene tse di sa tsweleleng",detail:`${Number(metrics.dormantQuotationCount||0)} dikhoutheishene di emela ${formatMarketMajor(metrics.dormantQuotationValueBwp,{marketCode:"BW",maximumFractionDigits:2})} ya boleng jo bo rekotilweng ke mong.`},
+    dormant_quotations:{title:"Latela dikhoutheishene tse di sa tsweleleng",detail:`${Number(metrics.dormantQuotationCount||0)} dikhoutheishene di emela ${formatMarketMajor(metrics.dormantQuotationValueBwp,{marketCode,maximumFractionDigits:2})} ya boleng jo bo rekotilweng ke mong.`},
     cash_runway:{title:"Sekaseka nako e madi a ka tswelelang ka yone",detail:`Runway e e fopholeditsweng ke matsatsi a ${metrics.estimatedRunwayDays==null?"—":Number(metrics.estimatedRunwayDays)} go ya ka monthly outflows tse mong a di tsentseng.`},
     outflow_acceleration:{title:"Sekaseka koketsego ya madi a tswang",detail:`Madi a a tswang mo malatsing a 30 a fetileng a fetogile ka ${metrics.outflowChangePct==null?"—":Math.round(Number(metrics.outflowChangePct)*100)+"%"} fa a bapisiwa le malatsi a 30 a pele.`},
     large_debits:{title:"Sekaseka ditlhakololo tsa madi tse dikgolo",detail:`Go na le debit di le ${Number(metrics.largeDebitCount||0)} tse di fetang deterministic large-debit threshold.`},
@@ -263,21 +263,22 @@ function setswanaPriority(item,metrics={}){
   };
   return map[item?.key]||{title:item?.title,detail:item?.detail};
 }
-function localizeBriefPriority(item,metrics,language){
+function localizeBriefPriority(item,metrics,language,marketCode=DEFAULT_RUNTIME_MARKET_CODE){
   if(language?.render!=="setswana")return item;
-  const localized=setswanaPriority(item,metrics);
+  const localized=setswanaPriority(item,metrics,marketCode);
   return frozen({...item,title:localized.title,detail:localized.detail});
 }
-function briefHeadline({finance={},receivables={},compliance={},ops={},language}){
+function briefHeadline({finance={},receivables={},compliance={},ops={},language,marketCode=DEFAULT_RUNTIME_MARKET_CODE}){
+  const money=value=>activeMarketMinor(value,marketCode);
   if(language?.render==="setswana")return [
-    `Madi a a rekotilweng ${pulaMinor(finance.cashPositionMinor)}`,
-    `${pulaMinor(receivables.outstandingMinor)} ya dikoloto tsa bareki`,
+    `Madi a a rekotilweng ${money(finance.cashPositionMinor)}`,
+    `${money(receivables.outstandingMinor)} ya dikoloto tsa bareki`,
     `${Number(compliance.overdueCount||0)} dilo tsa compliance tse di fetileng nako`,
     `${Number(ops.failedWorkflowCount||0)} workflow tse di paletsweng`
   ].join(" · ");
   return [
-    `Recorded cash ${pulaMinor(finance.cashPositionMinor)}`,
-    `${pulaMinor(receivables.outstandingMinor)} customer receivables`,
+    `Recorded cash ${money(finance.cashPositionMinor)}`,
+    `${money(receivables.outstandingMinor)} customer receivables`,
     `${Number(compliance.overdueCount||0)} overdue compliance item(s)`,
     `${Number(ops.failedWorkflowCount||0)} failed workflow(s)`
   ].join(" · ");
@@ -288,26 +289,26 @@ function priority(key,severity,title,detail,sourceRefs,actionKey=null){
 }
 
 export function deriveBusinessPriorities(context){
-  const out=[],finance=context?.finance||{},recon=finance.reconciliation||{},receivables=finance.receivables||{},ops=context?.operations||{},compliance=context?.compliance||{},sales=context?.sales||{},money=context?.moneyIntelligence||{};
+  const marketCode=context?.market?.code||DEFAULT_RUNTIME_MARKET_CODE,formatMoney=value=>activeMarketMinor(value,marketCode),out=[],finance=context?.finance||{},recon=finance.reconciliation||{},receivables=finance.receivables||{},ops=context?.operations||{},compliance=context?.compliance||{},sales=context?.sales||{},money=context?.moneyIntelligence||{};
   if(Number(recon.unresolvedCount||0)>0)out.push(priority(
     "reconciliation_exception","high","Review finance reconciliation exceptions",
-    `${Number(recon.unresolvedCount||0)} exception(s) represent ${pulaMinor(recon.unresolvedExposureMinor)} of recorded reconciliation exposure.`,
+    `${Number(recon.unresolvedCount||0)} exception(s) represent ${formatMoney(recon.unresolvedExposureMinor)} of recorded reconciliation exposure.`,
     ["finance_reconciliation_runs"],"finance_reconciliation.prepare"
   ));
   if(Number(receivables.overdueMinor||0)>0)out.push(priority(
     "overdue_receivables","high","Collect overdue customer balances",
-    `${pulaMinor(receivables.overdueMinor)} is overdue across ${Number(receivables.overdueInvoiceCount||0)} issued invoice(s).`,
+    `${formatMoney(receivables.overdueMinor)} is overdue across ${Number(receivables.overdueInvoiceCount||0)} issued invoice(s).`,
     ["finance_invoices","finance_invoice_allocations"],"receivables_summary.read"
   ));
   const payables=finance.payables||{};
   if(Number(payables.overdueMinor||0)>0)out.push(priority(
     "overdue_payables","high","Review overdue supplier payables",
-    `${pulaMinor(payables.overdueMinor)} is overdue across ${Number(payables.overduePayableCount||0)} recorded payable(s).`,
+    `${formatMoney(payables.overdueMinor)} is overdue across ${Number(payables.overduePayableCount||0)} recorded payable(s).`,
     ["finance_suppliers","finance_payables","finance_payable_allocations"],null
   ));
   else if(Number(payables.due14dMinor||0)>0)out.push(priority(
     "payables_due_14d","medium","Review supplier cash commitments due within 14 days",
-    `${pulaMinor(payables.due14dMinor)} of recorded supplier payables falls due within 14 days.`,
+    `${formatMoney(payables.due14dMinor)} of recorded supplier payables falls due within 14 days.`,
     ["finance_suppliers","finance_payables","finance_payable_allocations"],null
   ));
   if(Number(compliance.overdueCount||0)>0)out.push(priority(
@@ -413,14 +414,14 @@ export function buildDailyBusinessBrief(context){
     weeklySpendMissingInputCount:Array.isArray(money?.spendEnvelope?.missingInputs)?money.spendEnvelope.missingInputs.length:0,
     weeklySpendBlockingEvidenceCount:Array.isArray(money?.spendEnvelope?.blockingEvidence)?money.spendEnvelope.blockingEvidence.length:0
   });
-  const priorities=frozen(basePriorities.map(item=>localizeBriefPriority(item,metrics,language)));
+  const priorities=frozen(basePriorities.map(item=>localizeBriefPriority(item,metrics,language,market.code)));
   return frozen({
     version:BUSINESS_CONTEXT_VERSION,
     observedAt:context?.observedAt||new Date().toISOString(),
     businessDate:context?.businessDate||marketBusinessDate(new Date(),market.code),
     market,
     language:frozen({...preference,deterministic:language,fallbackNotice:deterministicLanguageNotice(preference)}),
-    headline:briefHeadline({finance,receivables,compliance,ops,language}),
+    headline:briefHeadline({finance,receivables,compliance,ops,language,marketCode:market.code}),
     priorities,
     metrics,
     authority:frozen({
@@ -437,14 +438,14 @@ export function buildDailyBusinessBrief(context){
 }
 
 export function businessBriefText(brief){
-  const render=brief?.language?.deterministic?.render||"english",setswana=render==="setswana";
-  const lines=[setswana?`Thebe Desk · Kakaretso ya kgwebo · ${brief?.businessDate||gaboroneDate()}`:`Thebe Desk owner brief · ${brief?.businessDate||gaboroneDate()}`,clean(brief?.headline,1000)];
+  const render=brief?.language?.deterministic?.render||"english",setswana=render==="setswana",marketCode=brief?.market?.code||DEFAULT_RUNTIME_MARKET_CODE;
+  const lines=[setswana?`Thebe Desk · Kakaretso ya kgwebo · ${brief?.businessDate||activeBusinessDate(new Date(),marketCode)}`:`Thebe Desk owner brief · ${brief?.businessDate||activeBusinessDate(new Date(),marketCode)}`,clean(brief?.headline,1000)];
   if(brief?.language?.fallbackNotice)lines.push(clean(brief.language.fallbackNotice,500));
   const spend=brief?.moneyIntelligence?.spendEnvelope;
   if(spend?.ready===true){
     lines.push(setswana
-      ?`7-day discretionary planning envelope: ${pulaMinor(spend.discretionaryEnvelopeMinor)} morago ga recorded supplier payables, full monthly labour reserve le minimum cash buffer. Receivables ga di a tsewa e le collected.`
-      :`7-day discretionary planning envelope: ${pulaMinor(spend.discretionaryEnvelopeMinor)} after recorded supplier payables, the full monthly labour reserve and minimum cash buffer. Receivables are not assumed collected.`);
+      ?`7-day discretionary planning envelope: ${activeMarketMinor(spend.discretionaryEnvelopeMinor,marketCode)} morago ga recorded supplier payables, full monthly labour reserve le minimum cash buffer. Receivables ga di a tsewa e le collected.`
+      :`7-day discretionary planning envelope: ${activeMarketMinor(spend.discretionaryEnvelopeMinor,marketCode)} after recorded supplier payables, the full monthly labour reserve and minimum cash buffer. Receivables are not assumed collected.`);
   }else if(Array.isArray(spend?.missingInputs)&&spend.missingInputs.length){
     lines.push(setswana
       ?"Seta monthly labour cost le minimum cash buffer go kgontsha 7-day discretionary planning envelope."
@@ -481,7 +482,9 @@ export async function handleBusinessContextRequest({request,url,env,auth,json,ro
 
 export const __businessContextTest=frozen({
   activeMarketContext,
-  gaboroneDate,
+  gaboroneDate:activeBusinessDate,
+  activeBusinessDate,
+  activeMarketMinor,
   ownerEnteredMemory,
   mergeConfirmedMemory,
   salesMemory,
