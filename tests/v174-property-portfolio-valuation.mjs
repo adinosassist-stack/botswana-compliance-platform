@@ -27,6 +27,7 @@ const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const context=fs.readFileSync("cloudflare/src/business-context.js","utf8");
 const analytics=fs.readFileSync("cloudflare/src/business-analytics.js","utf8");
 const owner=fs.readFileSync("public/js/owner-command-centre.js","utf8");
+const html=fs.readFileSync("public/index.html","utf8");
 const workflow=fs.readFileSync(".github/workflows/migrate-production-v174-property-portfolio.yml","utf8");
 const runner=fs.readFileSync("scripts/migrate-production-v174-property-portfolio.mjs","utf8");
 
@@ -55,6 +56,18 @@ assert.match(analytics,/property_valuation_coverage/);
 assert.match(owner,/Property & valuation/);
 assert.match(owner,/recorded professional valuation/);
 assert.match(owner,/action:p\.portfolioAnalyticsAvailable\?\(\)=>route\("propertyintelligence"\):null/);
+
+assert.match(owner,/function ensurePropertyPortfolioShell\(\)/);
+assert.match(owner,/\/api\/property\/portfolio/);
+assert.match(owner,/\/api\/property\/assets/);
+assert.match(owner,/professional-valuations/);
+assert.match(owner,/propertyPortfolioAssetCount/);
+assert.match(owner,/propertyPortfolioRecordedValue/);
+assert.match(owner,/propertyPortfolioCoverage/);
+assert.match(owner,/Only the account owner can record a professional valuation/);
+assert.match(owner,/Thebe has not certified or independently verified it/);
+assert.match(html,/Use the canonical register for owned property and signed professional valuation reports/);
+assert.match(html,/does not invent, certify or sign market value/);
 assert.match(workflow,/\[migrate-059\]/);
 assert.match(workflow,/thebe\/production-d1-059/);
 assert.match(workflow,/migration authority must be a two-parent merged PR commit/);
