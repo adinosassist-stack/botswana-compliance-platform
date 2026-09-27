@@ -4,9 +4,9 @@ import {financePayablesSummary} from "./finance-payables.js";
 import {listBusinessMemory} from "./business-memory.js";
 import {buildMoneyIntelligence} from "./money-intelligence.js";
 import {languagePreferenceFromMemory,deterministicLanguagePolicy,deterministicLanguageNotice} from "./thebe-language.js";
-import {runtimeMarketProfile,marketBusinessDate,formatMarketMajor,formatMarketMinor} from "./market-profile.js";
+import {DEFAULT_RUNTIME_MARKET_CODE,runtimeMarketProfile,marketBusinessDate,formatMarketMajor,formatMarketMinor} from "./market-profile.js";
 
-export const BUSINESS_CONTEXT_VERSION="2026-09-27.v166";
+export const BUSINESS_CONTEXT_VERSION="2026-09-27.v167";
 
 const PROFILE_KEYS=Object.freeze({
   monthlyRevenueTargetBwp:"decisionMonthlyRevenueTargetBwp",
@@ -23,6 +23,20 @@ const frozen=value=>Object.freeze(value);
 const clean=(value,max=240)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
 const finite=value=>{const n=Number(value);return Number.isFinite(n)?n:null};
 const safeJson=(value,fallback={})=>{try{const parsed=JSON.parse(String(value||""));return parsed&&typeof parsed==="object"?parsed:fallback}catch{return fallback}};
+function activeMarketContext(){
+  const profile=runtimeMarketProfile(DEFAULT_RUNTIME_MARKET_CODE);
+  if(!profile)throw new Error("No active runtime market profile");
+  return frozen({
+    code:profile.code,
+    country:profile.country,
+    rolloutStatus:profile.rolloutStatus,
+    currency:profile.currency,
+    currencySymbol:profile.currencySymbol,
+    locale:profile.locale,
+    timeZone:profile.timeZone,
+    regulatoryPack:profile.regulatoryPack
+  });
+}
 const gaboroneDate=(now=new Date())=>marketBusinessDate(now,"BW");
 const pulaMinor=value=>formatMarketMinor(value,{marketCode:"BW"});
 async function safeFirst(env,sql,bindings=[]){try{return await env.DB.prepare(sql).bind(...bindings).first()}catch{return null}}
@@ -162,7 +176,7 @@ async function complianceContext(env,tenantId){
 }
 
 export async function buildBusinessContext(env,tenantId,{actorRole="owner",now=new Date()}={}){
-  const role=String(actorRole||"").toLowerCase(),businessDate=gaboroneDate(now);
+  const market=activeMarketContext(),role=String(actorRole||"").toLowerCase(),businessDate=marketBusinessDate(now,market.code);
   const management=role==="owner"||role==="manager";
   const [finance,receivables,payables,collections,operations,compliance,tenant,stateRow,durableMemory]=await Promise.all([
     financeSummary(env,tenantId),
@@ -184,6 +198,7 @@ export async function buildBusinessContext(env,tenantId,{actorRole="owner",now=n
     version:BUSINESS_CONTEXT_VERSION,
     observedAt:new Date(now).toISOString(),
     businessDate,
+    market,
     roleScope:frozen({actorRole:role,managementContext:management,finance:true,compliance:true}),
     identity:frozen({tenantName:clean(tenant?.name,160)||null}),
     finance:frozen({
@@ -341,10 +356,10 @@ export function deriveBusinessPriorities(context){
 }
 
 export function buildDailyBusinessBrief(context){
-  const basePriorities=deriveBusinessPriorities(context),finance=context?.finance||{},receivables=finance.receivables||{},compliance=context?.compliance||{},ops=context?.operations||{},sales=context?.sales||{},money=context?.moneyIntelligence||{},trend=money?.trend||{},assumptions=money?.assumptions||{};
+  const market=context?.market||activeMarketContext(),basePriorities=deriveBusinessPriorities(context),finance=context?.finance||{},receivables=finance.receivables||{},compliance=context?.compliance||{},ops=context?.operations||{},sales=context?.sales||{},money=context?.moneyIntelligence||{},trend=money?.trend||{},assumptions=money?.assumptions||{};
   const preference=context?.language||languagePreferenceFromMemory(context?.durableMemory),language=deterministicLanguagePolicy(preference);
   const metrics=frozen({
-    currency:runtimeMarketProfile("BW")?.currency||"BWP",
+    currency:market.currency,
     cashPositionMinor:Number(finance.cashPositionMinor||0),
     positiveInflowTodayMinor:Number(finance?.today?.positiveInflowMinor||0),
     customerCollectionsTodayMinor:Number(finance?.today?.customerCollectionMinor||0),
@@ -402,7 +417,8 @@ export function buildDailyBusinessBrief(context){
   return frozen({
     version:BUSINESS_CONTEXT_VERSION,
     observedAt:context?.observedAt||new Date().toISOString(),
-    businessDate:context?.businessDate||gaboroneDate(),
+    businessDate:context?.businessDate||marketBusinessDate(new Date(),market.code),
+    market,
     language:frozen({...preference,deterministic:language,fallbackNotice:deterministicLanguageNotice(preference)}),
     headline:briefHeadline({finance,receivables,compliance,ops,language}),
     priorities,
@@ -464,6 +480,7 @@ export async function handleBusinessContextRequest({request,url,env,auth,json,ro
 }
 
 export const __businessContextTest=frozen({
+  activeMarketContext,
   gaboroneDate,
   ownerEnteredMemory,
   mergeConfirmedMemory,
