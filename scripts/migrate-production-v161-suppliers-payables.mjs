@@ -13,7 +13,7 @@ const execFile=promisify(execFileCallback);
 const spec=Object.freeze({
   number:58,
   path:'cloudflare/migrations/058_v161_finance_suppliers_payables.sql',
-  blob:'3aa835dc81d52ac0066313e866162186c9876421'
+  blob:'36b5a13dae42dffebcfbeac07a926094f5afae10'
 });
 
 function fail(message){throw new Error(`Production D1 migration 058 refused: ${message}`)}
