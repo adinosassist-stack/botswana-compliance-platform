@@ -74,6 +74,14 @@ export async function propertyPortfolioSummary(env,tenantId,{businessDate=market
       "ORDER BY v2.valuation_date DESC,v2.created_at DESC,v2.id DESC LIMIT 1) "+
       "WHERE a.tenant_id=? ORDER BY a.status ASC,a.name ASC LIMIT ?"
     ).bind(tenantId,cap).all();
+    const metricRows=await env.DB.prepare(
+      "SELECT a.acquisition_cost_minor,a.annual_rent_minor,a.annual_operating_cost_minor,a.debt_balance_minor,a.status,"+
+      "v.valuation_date,v.market_value_minor "+
+      "FROM property_assets a LEFT JOIN property_professional_valuations v ON v.id=("+
+      "SELECT v2.id FROM property_professional_valuations v2 WHERE v2.tenant_id=a.tenant_id AND v2.property_id=a.id "+
+      "ORDER BY v2.valuation_date DESC,v2.created_at DESC,v2.id DESC LIMIT 1) "+
+      "WHERE a.tenant_id=? AND a.status='active'"
+    ).bind(tenantId).all();
     const items=(rows.results||[]).map(row=>frozen({
       id:String(row.id||""),assetCode:row.asset_code||null,name:text(row.name,160),propertyType:text(row.property_type,32),
       location:text(row.location_text,240),tenureType:text(row.tenure_type,32),currency:text(row.currency,3),
@@ -87,12 +95,7 @@ export async function propertyPortfolioSummary(env,tenantId,{businessDate=market
         sourceKind:"external_professional_report",thebeCertified:false,professionalCredentialVerifiedByThebe:false
       }):null
     }));
-    const metrics=derivePortfolioMetrics(items.map(item=>({
-      status:item.status,acquisition_cost_minor:item.acquisitionCostMinor,annual_rent_minor:item.annualRentMinor,
-      annual_operating_cost_minor:item.annualOperatingCostMinor,debt_balance_minor:item.debtBalanceMinor,
-      market_value_minor:item.latestProfessionalValuation?.marketValueMinor||0,
-      valuation_date:item.latestProfessionalValuation?.valuationDate||null
-    })),{businessDate});
+    const metrics=derivePortfolioMetrics(metricRows.results||[],{businessDate});
     return frozen({
       available:true,version:PROPERTY_PORTFOLIO_VERSION,businessDate,currency:activeCurrency(),...metrics,
       items:frozen(items),
@@ -194,6 +197,8 @@ export async function handlePropertyPortfolioRequest({request,url,env,auth,json,
       valuerRegistrationRef=text(body.valuerRegistrationRef,120),reportReference=text(body.reportReference,160),
       methodologyNote=text(body.methodologyNote,500),currency=activeCurrency();
     if(!validDate(valuationDate))return json({error:"invalid_valuation_date"},400);
+    const businessDate=marketBusinessDate(new Date(),DEFAULT_RUNTIME_MARKET_CODE);
+    if(valuationDate>businessDate)return json({error:"valuation_date_in_future"},400);
     if(marketValueMinor===null||marketValueMinor<=0)return json({error:"invalid_market_value"},400);
     if(valuerName.length<2||valuerRegistrationRef.length<2||reportReference.length<2)return json({error:"professional_report_details_required"},400);
     const property=await env.DB.prepare("SELECT id,currency,status FROM property_assets WHERE tenant_id=? AND id=? LIMIT 1").bind(auth.tenant_id,valuations.assetId).first();
@@ -206,7 +211,9 @@ export async function handlePropertyPortfolioRequest({request,url,env,auth,json,
         "VALUES(?,?,?,?,?,?,?,?,?,?,'external_professional_report',?)"
       ).bind(valuationId,auth.tenant_id,valuations.assetId,valuationDate,marketValueMinor,currency,valuerName,valuerRegistrationRef,reportReference,methodologyNote,auth.user_id).run();
     }catch(error){
-      if(String(error).includes("property_valuation_currency_mismatch"))return json({error:"property_currency_mismatch"},409);
+      const message=String(error);
+      if(message.includes("property_valuation_currency_mismatch"))return json({error:"property_currency_mismatch"},409);
+      if(/UNIQUE/i.test(message))return json({error:"professional_valuation_conflict"},409);
       return json({error:"professional_valuation_record_failed"},503);
     }
     await writeAudit(env,auth.tenant_id,auth.user_id,"PROPERTY_PROFESSIONAL_VALUATION_RECORDED",{
