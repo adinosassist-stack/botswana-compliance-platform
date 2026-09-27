@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "migration": 58,
+  "purpose": "production-rerun-after-d1-trigger-parser-fix",
+  "sourceSha": "6f7ed72a854d13635bb90e8ee449dc177c72aea2",
+  "requestedAt": "2026-09-27",
+  "authority": "merged-pr-only"
+}
