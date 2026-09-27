@@ -41,6 +41,8 @@ if(!html.includes('id="dashboardDetailPanel"')||!html.includes('Protection healt
 if(!html.includes('class="companyswitch role-context"')||!html.includes('.top>.actions .role-context{display:none!important}'))throw new Error('Mobile role-context simplification missing');
 if(!html.includes('#dashboard .dashboard-intro .muted{display:none!important}'))throw new Error('Mobile Home hero copy reduction missing');
 if(!fullUser.includes('const MIN_OWNER_VIEW_COUNT=7;'))throw new Error('Phase 0 full-user audit must follow the approved seven-destination primary workspace contract');
+if(!fullUser.includes('const MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=7;'))throw new Error('Phase 0 full-user audit must align the visible in-view navigation minimum with the seven-destination workspace contract');
+if(fullUser.includes('const MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=25;'))throw new Error('Phase 0 full-user audit must not require the superseded 25-control in-view navigation contract');
 if(fullUser.includes('const MIN_OWNER_VIEW_COUNT=40;'))throw new Error('Phase 0 full-user audit must not require the superseded 40-visible-nav contract');
 if(!fullUser.includes("button.closest('[hidden]')")||!fullUser.includes("button.offsetParent===null"))throw new Error('Phase 0 full-user audit must exclude hidden specialist index controls from primary visible navigation');
 if(!fullUser.includes("openCommandPaletteWithQuery")||!fullUser.includes("Find tools result missing for hidden specialist view"))throw new Error('Phase 0 full-user audit must exercise hidden specialist sources through Find tools');
