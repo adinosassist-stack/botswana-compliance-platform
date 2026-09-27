@@ -312,24 +312,7 @@ function weeklySpendEnvelope({cashPositionMinor=0,cashCalendar={},assumptions={}
   });
 }
 
-const regexEscape=value=>String(value).replace(/[.*+?^$()|[\]\\{}]/g,"\\export function extractSpendWhatIfBwpMinor(question){
-  const input=clean(question,1000);
-  const spendIntent=/\b(spend|spending|buy|buying|purchase|purchasing|afford|cost|costs|costing|pay\s+for|paying\s+for)\b/i.test(input);
-  if(!spendIntent)return null;
-  const pattern=/(?:\b(?:P|BWP)\s*(\d+(?:,\d{3})*(?:\.\d{1,2})?)\s*k\b)|(?:\b(\d+(?:\.\d+)?)\s*k\s*(?:pula|BWP)\b)|(?:\b(?:P|BWP)\s*(\d+(?:,\d{3})*(?:\.\d{1,2})?)\b)|(?:\b(\d+(?:,\d{3})*(?:\.\d{1,2})?)\s*(?:pula|BWP)\b)/gi;
-  const values=[];
-  for(const match of input.matchAll(pattern)){
-    const kilo=match[1]??match[2],plain=match[3]??match[4];
-    const raw=String(kilo??plain??"").replaceAll(",","");
-    const value=Number(raw);
-    if(!Number.isFinite(value)||value<=0)continue;
-    const bwp=kilo!=null?value*1000:value;
-    const minor=Math.round(bwp*100);
-    if(Number.isSafeInteger(minor)&&minor>0&&minor<=100000000000000)values.push(minor);
-  }
-  const unique=[...new Set(values)];
-  return unique.length===1?unique[0]:null;
-}");
+const regexEscape=value=>String(value).replace(/[.*+?^$()|[\]{}\\]/g,"\\$&");
 
 export function extractSpendWhatIfMinor(question,{marketCode=DEFAULT_RUNTIME_MARKET_CODE}={}){
   const input=clean(question,1000);
