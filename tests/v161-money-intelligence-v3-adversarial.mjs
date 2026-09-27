@@ -124,7 +124,7 @@ assert.match(owner,/historical behavior, not a probability of future payment/);
 assert.match(owner,/Management signal only/);
 
 const agenticEntry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
-assert.match(agenticEntry,/059_v174_property_portfolio_valuation\.sql/);
+assert.match(agenticEntry,/060_v175_property_evidence_profitability\.sql/);
 const profile=JSON.parse(fs.readFileSync("RELEASE_PROFILE.json","utf8"));
 assert.equal(profile.finance_suppliers_payables_v161,true);
 assert.equal(profile.money_intelligence_v3,true);
