@@ -28,7 +28,8 @@ export function buildBusinessAnalytics(context={}){
   const receivables=finance?.receivables||{},payables=finance?.payables||{};
   const money=context?.moneyIntelligence||{},trend=money?.trend||{},current30=trend?.current30||{},prior30=trend?.prior30||{};
   const scenario=money?.scenario||{},commitmentStress=money?.commitmentStress||{};
-  const operations=context?.operations||{},compliance=context?.compliance||{},sales=context?.sales||{};
+  const operations=context?.operations||{},compliance=context?.compliance||{},sales=context?.sales||{},property=context?.property||{};
+  const propertyAvailable=property?.available===true;
   const signals=[];
 
   if(Number(reconciliation?.unresolvedCount||0)>0)signals.push(signal(
@@ -75,6 +76,16 @@ export function buildBusinessAnalytics(context={}){
     "dormant_sales_pipeline","medium","Dormant quotations need follow-up",
     `${Number(sales.dormantQuotationCount||0)} owner-recorded quotation(s) have passed the configured dormancy threshold.`,
     ["app_state.active_company.salesIntelligence"]
+  ));
+  if(propertyAvailable&&Number(property?.unvaluedAssetCount||0)>0)signals.push(signal(
+    "property_valuation_coverage","medium","Property portfolio has valuation coverage gaps",
+    `${Number(property.unvaluedAssetCount||0)} active property asset(s) do not yet have a recorded professional valuation report.`,
+    ["property_assets","property_professional_valuations"]
+  ));
+  if(propertyAvailable&&Number(property?.staleProfessionalValuationCount||0)>0)signals.push(signal(
+    "property_professional_valuation_stale","medium","Some professional property valuations are older than 12 months",
+    `${Number(property.staleProfessionalValuationCount||0)} active property asset(s) have a latest recorded professional valuation older than 12 months.`,
+    ["property_professional_valuations"]
   ));
 
   signals.sort((a,b)=>severityRank(a.severity)-severityRank(b.severity)||a.key.localeCompare(b.key));
@@ -150,9 +161,25 @@ export function buildBusinessAnalytics(context={}){
       }),
       property:frozen({
         underwritingToolAvailable:true,
-        portfolioAnalyticsAvailable:false,
-        professionalValuationWorkflowAvailable:false,
-        reason:"Property underwriting exists, but an authoritative property portfolio register and professional valuation workflow are not yet connected to Business Analytics."
+        portfolioAnalyticsAvailable:propertyAvailable,
+        professionalValuationWorkflowAvailable:propertyAvailable,
+        assetCount:number(property?.assetCount),
+        valuedAssetCount:number(property?.valuedAssetCount),
+        unvaluedAssetCount:number(property?.unvaluedAssetCount),
+        staleProfessionalValuationCount:number(property?.staleProfessionalValuationCount),
+        acquisitionCostMinor:number(property?.acquisitionCostMinor),
+        annualRentMinor:number(property?.annualRentMinor),
+        annualOperatingCostMinor:number(property?.annualOperatingCostMinor),
+        netOperatingIncomeProxyMinor:number(property?.netOperatingIncomeProxyMinor),
+        debtBalanceMinor:number(property?.debtBalanceMinor),
+        recordedProfessionalValueMinor:number(property?.recordedProfessionalValueMinor),
+        valuationCoveragePct:optionalNumber(property?.valuationCoveragePct),
+        debtToRecordedProfessionalValueRatio:optionalNumber(property?.debtToRecordedProfessionalValueRatio),
+        authoritativeValueBasis:"recorded_external_professional_reports_only",
+        thebeMarketValuation:false,
+        reason:propertyAvailable
+          ?"Portfolio analytics use the canonical property register. Market values are included only from recorded external professional valuation reports."
+          :"Property underwriting remains available, but canonical portfolio records are not yet readable."
       })
     }),
     changes:frozen({
@@ -182,7 +209,7 @@ export function buildBusinessAnalytics(context={}){
     provenance:frozen({
       authoritative:frozen([
         "finance_accounts","finance_transactions","finance_reconciliation_runs","finance_invoices","finance_invoice_allocations",
-        "finance_payables","finance_payable_allocations","daily_operations_summaries","performance_insights","compliance_obligations"
+        "finance_payables","finance_payable_allocations","property_assets","property_professional_valuations","daily_operations_summaries","performance_insights","compliance_obligations"
       ]),
       ownerEntered:frozen(["app_state.active_company.salesIntelligence","business_memory_items"]),
       rule:"Authoritative records, derived analytics and owner-entered assumptions remain visibly separated."

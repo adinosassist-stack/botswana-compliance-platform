@@ -6,6 +6,7 @@ import {buildMoneyIntelligence} from "./money-intelligence.js";
 import {languagePreferenceFromMemory,deterministicLanguagePolicy,deterministicLanguageNotice} from "./thebe-language.js";
 import {DEFAULT_RUNTIME_MARKET_CODE,runtimeMarketProfile,marketBusinessDate,formatMarketMajor,formatMarketMinor} from "./market-profile.js";
 import {buildBusinessAnalytics} from "./business-analytics.js";
+import {propertyPortfolioSummary} from "./property-portfolio.js";
 
 export const BUSINESS_CONTEXT_VERSION="2026-09-27.v173";
 
@@ -179,13 +180,14 @@ async function complianceContext(env,tenantId){
 async function buildBusinessContextBase(env,tenantId,{actorRole="owner",now=new Date()}={}){
   const market=activeMarketContext(),role=String(actorRole||"").toLowerCase(),businessDate=marketBusinessDate(now,market.code);
   const management=role==="owner"||role==="manager";
-  const [finance,receivables,payables,collections,operations,compliance,tenant,stateRow,durableMemory]=await Promise.all([
+  const [finance,receivables,payables,collections,operations,compliance,property,tenant,stateRow,durableMemory]=await Promise.all([
     financeSummary(env,tenantId),
     financeReceivablesSummary(env,tenantId,{businessDate,customerLimit:management?8:1,invoiceLimit:management?20:1}),
     management?financePayablesSummary(env,tenantId,{businessDate,supplierLimit:8,payableLimit:30}):Promise.resolve(frozen({available:false,restricted:true,payables:frozen([]),suppliers:frozen([])})),
     financeDailyCollections(env,tenantId,{businessDate}),
     operationsContext(env,tenantId,{allowed:management}),
     complianceContext(env,tenantId),
+    management?propertyPortfolioSummary(env,tenantId,{businessDate}):Promise.resolve(frozen({available:false,restricted:true,items:frozen([])})),
     safeFirst(env,"SELECT name FROM tenants WHERE id=? LIMIT 1",[tenantId]),
     safeFirst(env,"SELECT state_json,version FROM app_state WHERE tenant_id=? LIMIT 1",[tenantId]),
     management?listBusinessMemory(env,tenantId):Promise.resolve(frozen({schemaReady:true,items:frozen([]),authoritative:false,restricted:true}))
@@ -221,13 +223,14 @@ async function buildBusinessContextBase(env,tenantId,{actorRole="owner",now=new 
     }),
     operations,
     compliance,
+    property:management?property:frozen({available:false,restricted:true,items:frozen([])}),
     memory,
     durableMemory,
     language:languagePreferenceFromMemory(durableMemory),
     sales,
     moneyIntelligence,
     provenance:frozen({
-      authoritative:frozen(["finance_accounts","finance_transactions","finance_reconciliation_runs","finance_invoices","finance_invoice_allocations","finance_suppliers","finance_supplier_aliases","finance_payables","finance_payable_allocations","daily_operations_summaries","workflow_jobs","performance_insights","compliance_obligations"]),
+      authoritative:frozen(["finance_accounts","finance_transactions","finance_reconciliation_runs","finance_invoices","finance_invoice_allocations","finance_suppliers","finance_supplier_aliases","finance_payables","finance_payable_allocations","property_assets","property_professional_valuations","daily_operations_summaries","workflow_jobs","performance_insights","compliance_obligations"]),
       ownerEntered:management?frozen(["app_state.active_company.profile","app_state.active_company.salesIntelligence","business_memory_items"]):frozen([]),
       rule:"Authoritative records and owner-entered assumptions remain explicitly separated; Thebe must not promote assumptions into observed facts."
     })
