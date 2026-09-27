@@ -8,6 +8,7 @@ import {extractSpendWhatIfMinor,simulateWeeklySpendDecision} from "./money-intel
 import {handleBusinessMemoryRequest} from "./business-memory.js";
 import {thebeLanguagePrompt,deterministicLanguagePolicy,deterministicLanguageNotice} from "./thebe-language.js";
 import {DEFAULT_RUNTIME_MARKET_CODE,runtimeMarketProfile} from "./market-profile.js";
+import {handlePropertyPortfolioRequest} from "./property-portfolio.js";
 const APP_SECURITY_HEADERS=Object.freeze({
   "x-content-type-options":"nosniff",
   "x-frame-options":"DENY",
@@ -5527,6 +5528,8 @@ export default {
       if(businessMemoryResponse)return businessMemoryResponse;
       const businessContextResponse=await handleBusinessContextRequest({request:req,url,env,auth:a,json,roleAllowed});
       if(businessContextResponse)return businessContextResponse;
+      const propertyPortfolioResponse=await handlePropertyPortfolioRequest({request:req,url,env,auth:a,json,readJson,id,writeAudit,roleAllowed});
+      if(propertyPortfolioResponse)return propertyPortfolioResponse;
       const financeResponse=await handleFinanceRequest({request:req,url,env,auth:a,json,readJson,id,writeAudit,roleAllowed,sha256Hex,enqueueTenantAlert,whatsappTemplateAvailable:key=>!!parseWhatsAppTemplateMap(env)[key]});
       if(financeResponse)return financeResponse;
       if(url.pathname==="/api/auth/me"&&req.method==="GET")return json({user:{id:a.user_id,email:a.email,displayName:a.display_name,role:a.role,tenantId:a.tenant_id,tenantName:a.tenant_name,onboardingComplete:!!a.onboarding_complete},csrfToken:a.csrf_token});
