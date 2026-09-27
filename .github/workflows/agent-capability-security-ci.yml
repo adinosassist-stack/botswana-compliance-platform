@@ -1,0 +1,38 @@
+name: Agent Capability Security
+
+on:
+  pull_request:
+    paths:
+      - "cloudflare/src/agent-capability-security.js"
+      - "cloudflare/src/agent-tool-trust-registry.js"
+      - "cloudflare/src/super-agent-planner.js"
+      - "tests/v176-agent-capability-security.mjs"
+      - ".github/workflows/agent-capability-security-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "cloudflare/src/agent-capability-security.js"
+      - "cloudflare/src/agent-tool-trust-registry.js"
+      - "cloudflare/src/super-agent-planner.js"
+      - "tests/v176-agent-capability-security.mjs"
+
+permissions:
+  contents: read
+
+jobs:
+  capability-boundary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+      - run: npm ci --ignore-scripts
+      - run: node tests/v118-tool-trust-registry.mjs
+      - run: node tests/v119-super-agent-finance-watcher.mjs
+      - run: node tests/v176-agent-capability-security.mjs
+      - run: node --check cloudflare/src/agent-capability-security.js
+      - run: node --check cloudflare/src/agent-tool-trust-registry.js
+      - run: node --check cloudflare/src/super-agent-planner.js
