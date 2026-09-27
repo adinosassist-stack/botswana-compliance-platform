@@ -8,7 +8,7 @@ import {DEFAULT_RUNTIME_MARKET_CODE,runtimeMarketProfile,marketBusinessDate,form
 import {buildBusinessAnalytics} from "./business-analytics.js";
 import {propertyPortfolioSummary} from "./property-portfolio.js";
 
-export const BUSINESS_CONTEXT_VERSION="2026-09-27.v173";
+export const BUSINESS_CONTEXT_VERSION="2026-09-27.v175";
 
 const PROFILE_KEYS=Object.freeze({
   monthlyRevenueTargetBwp:"decisionMonthlyRevenueTargetBwp",
