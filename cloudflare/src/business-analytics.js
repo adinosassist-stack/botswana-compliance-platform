@@ -1,4 +1,4 @@
-export const BUSINESS_ANALYTICS_VERSION="2026-09-27.v173";
+export const BUSINESS_ANALYTICS_VERSION="2026-09-27.v175";
 
 const frozen=value=>Object.freeze(value);
 const number=value=>Number.isFinite(Number(value))?Number(value):0;
