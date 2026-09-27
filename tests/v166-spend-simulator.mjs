@@ -92,7 +92,7 @@ assert.match(agenticSource,/never treat it as spending authorization or financia
 assert.doesNotMatch(agenticSource,/executionEnabled:true/);
 
 const moneySource=fs.readFileSync("cloudflare/src/money-intelligence.js","utf8");
-assert.match(moneySource,/MONEY_INTELLIGENCE_VERSION="2026-09-26\.v6"/);
+assert.match(moneySource,/MONEY_INTELLIGENCE_VERSION="2026-09-27\.v7"/);
 assert.match(moneySource,/export function extractSpendWhatIfBwpMinor/);
 assert.match(moneySource,/export function simulateWeeklySpendDecision/);
 assert.match(moneySource,/comparison_to_fail_closed_weekly_discretionary_planning_envelope/);
