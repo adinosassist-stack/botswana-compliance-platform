@@ -85,7 +85,7 @@ jobs:
           const root=await get('/');
           assert.equal(root.status,200);
           const html=await root.text();
-          assert.match(html,/See business risk before it becomes a penalty, dispute or loss\./i);
+          assert.match(html,/Run your business with intelligence\./i);\n          assert.match(html,/Live in Botswana · Namibia next/i);
           assert.doesNotMatch(html,/id="appShell"/i);
           assert.doesNotMatch(html,/id="authForm"/i);
           assert.equal(root.headers.get('x-thebe-surface'),'public');
@@ -206,7 +206,7 @@ jobs:
           await page.goto(process.env.ORIGIN+'/',{waitUntil:'networkidle',timeout:45000});
           assert.match(await page.title(),/Thebe Desk/i);
           const rootState=await page.evaluate(()=>({hero:(document.querySelector('.hero h1')?.textContent||'').trim(),app:!!document.getElementById('appShell'),auth:!!document.getElementById('authForm'),role:!!document.getElementById('roleAccessPortal')}));
-          assert.match(rootState.hero,/business risk/i);assert.equal(rootState.app,false);assert.equal(rootState.auth,false);assert.equal(rootState.role,false);
+          assert.match(rootState.hero,/Run your business with intelligence\./i);assert.equal(rootState.app,false);assert.equal(rootState.auth,false);assert.equal(rootState.role,false);
           await page.waitForTimeout(600);
           assert.equal(context.pages().length,1,'desktop startup must not create extra tabs/windows');
           assert.deepEqual(popupUrls,[],'desktop startup must not create popups');
