@@ -84,7 +84,7 @@ export async function propertyPortfolioSummary(env,tenantId,{businessDate=market
         id:String(row.valuation_id),valuationDate:row.valuation_date||null,marketValueMinor:Number(row.market_value_minor||0),
         valuerName:text(row.valuer_name,160),valuerRegistrationRef:text(row.valuer_registration_ref,120),
         reportReference:text(row.report_reference,160),recordedAt:row.valuation_recorded_at||null,
-        sourceKind:"external_professional_report",thebeCertified:false
+        sourceKind:"external_professional_report",thebeCertified:false,professionalCredentialVerifiedByThebe:false
       }):null
     }));
     const metrics=derivePortfolioMetrics(items.map(item=>({
@@ -99,7 +99,7 @@ export async function propertyPortfolioSummary(env,tenantId,{businessDate=market
       authority:frozen({
         canonicalRegister:true,professionalValuesOnlyFromRecordedExternalReports:true,
         thebeMarketValuation:false,thebeCertification:false,executionAllowed:false,
-        registeredValuerReportRequired:true
+        registeredValuerReportRequired:true,professionalCredentialVerifiedByThebe:false
       })
     });
   }catch{
@@ -184,7 +184,7 @@ export async function handlePropertyPortfolioRequest({request,url,env,auth,json,
       "SELECT id,valuation_date,market_value_minor,currency,valuer_name,valuer_registration_ref,report_reference,methodology_note,source_kind,created_at "+
       "FROM property_professional_valuations WHERE tenant_id=? AND property_id=? ORDER BY valuation_date DESC,created_at DESC LIMIT 50"
     ).bind(auth.tenant_id,valuations.assetId).all();
-    return json({items:rows.results||[],authority:{professionalValuesOnlyFromRecordedExternalReports:true,thebeMarketValuation:false,thebeCertification:false}});
+    return json({items:rows.results||[],authority:{professionalValuesOnlyFromRecordedExternalReports:true,thebeMarketValuation:false,thebeCertification:false,professionalCredentialVerifiedByThebe:false}});
   }
 
   if(valuations&&request.method==="POST"){
@@ -211,7 +211,7 @@ export async function handlePropertyPortfolioRequest({request,url,env,auth,json,
     }
     await writeAudit(env,auth.tenant_id,auth.user_id,"PROPERTY_PROFESSIONAL_VALUATION_RECORDED",{
       propertyId:valuations.assetId,valuationId,valuationDate,marketValueMinor,currency,reportReference,valuerRegistrationRef,
-      sourceKind:"external_professional_report",thebeCertified:false
+      sourceKind:"external_professional_report",thebeCertified:false,professionalCredentialVerifiedByThebe:false
     });
     return json({ok:true,id:valuationId,propertyId:valuations.assetId,valuationDate,marketValueMinor,currency,sourceKind:"external_professional_report",thebeCertified:false},201);
   }
