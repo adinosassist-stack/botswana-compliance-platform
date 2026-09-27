@@ -27,6 +27,8 @@
   let agenticTaskDraft=null;
   let financeReconciliationPreview=null;
   let financeReconciliationBusy=false;
+  let propertyPortfolioCache=null;
+  let propertyPortfolioBusy=false;
 
   const q=(selector,root=document)=>root.querySelector(selector);
   const num=value=>{
@@ -2647,6 +2649,456 @@
     }
   }
 
+
+  function propertyPortfolioMoneyMinor(value){
+    const amount=Number(value||0)/100;
+    return "P"+amount.toLocaleString("en-BW",{minimumFractionDigits:0,maximumFractionDigits:2});
+  }
+
+  function propertyPortfolioNotify(message,type="success"){
+    try{global.BW?.notifications?.notify?.(String(message||""),{type,duration:5200})}catch{}
+  }
+
+  function propertyPortfolioStatus(id,message){
+    const node=q("#"+id);
+    if(node)node.textContent=String(message||"");
+  }
+
+  function propertyPortfolioField(labelValue,control){
+    const wrap=document.createElement("div");
+    const label=document.createElement("label");
+    label.htmlFor=control.id;
+    label.textContent=labelValue;
+    wrap.append(label,control);
+    return wrap;
+  }
+
+  function propertyPortfolioInput(id,{type="text",placeholder="",min=null,step=null,maxLength=null}={}){
+    const input=document.createElement("input");
+    input.id=id;
+    input.type=type;
+    if(placeholder)input.placeholder=placeholder;
+    if(min!==null)input.min=String(min);
+    if(step!==null)input.step=String(step);
+    if(maxLength!==null)input.maxLength=Number(maxLength);
+    return input;
+  }
+
+  function propertyPortfolioSelect(id,choices=[]){
+    const select=document.createElement("select");
+    select.id=id;
+    for(const [value,label] of choices){
+      const option=document.createElement("option");
+      option.value=value;
+      option.textContent=label;
+      select.append(option);
+    }
+    return select;
+  }
+
+  function propertyPortfolioMetric(labelValue,id){
+    const card=document.createElement("div");
+    card.className="card";
+    const label=text("div",labelValue,"kpi");
+    const value=text("div","—","score");
+    value.id=id;
+    card.append(label,value);
+    return card;
+  }
+
+  function propertyMajorToMinor(id,{optional=false}={}){
+    const raw=String(q("#"+id)?.value||"").trim();
+    if(!raw)return optional?null:0;
+    const major=Number(raw);
+    if(!Number.isFinite(major)||major<0)return NaN;
+    const minor=Math.round(major*100);
+    return Number.isSafeInteger(minor)?minor:NaN;
+  }
+
+  function ensurePropertyPortfolioShell(){
+    const view=q("#propertyintelligence");
+    if(!view)return null;
+    const existing=q("#propertyPortfolioWorkspace",view);
+    if(existing)return existing;
+
+    const heroCopy=q(".hub-hero .muted",view);
+    if(heroCopy)heroCopy.textContent="Use the canonical register for owned property and signed professional valuation reports. Keep prospective-deal underwriting separate: Thebe calculates scenarios from your assumptions but does not invent, certify or sign market value.";
+
+    const shell=document.createElement("div");
+    shell.id="propertyPortfolioWorkspace";
+    shell.className="card";
+    shell.style.marginBottom="16px";
+
+    const head=document.createElement("div");
+    head.className="between row";
+    const headText=document.createElement("div");
+    headText.append(text("div","Portfolio records","section-eyebrow"),text("h3","Property portfolio & professional valuations"));
+    head.append(headText,text("span","Governed records","badge info"));
+    shell.append(head);
+
+    const boundary=document.createElement("div");
+    boundary.className="notice small";
+    boundary.style.marginTop="12px";
+    boundary.append(
+      text("b","Authority boundary: "),
+      document.createTextNode("Market value enters Thebe only from a professional report you record. Thebe does not create, certify, sign or independently verify a valuation or the valuer's registration.")
+    );
+    shell.append(boundary);
+
+    const metrics=document.createElement("div");
+    metrics.className="grid g4";
+    metrics.style.marginTop="14px";
+    metrics.append(
+      propertyPortfolioMetric("Active property assets","propertyPortfolioAssetCount"),
+      propertyPortfolioMetric("Recorded professional value","propertyPortfolioRecordedValue"),
+      propertyPortfolioMetric("Recorded debt","propertyPortfolioDebt"),
+      propertyPortfolioMetric("Valuation coverage","propertyPortfolioCoverage")
+    );
+    shell.append(metrics);
+
+    const forms=document.createElement("div");
+    forms.className="grid g2";
+    forms.style.marginTop="14px";
+
+    const assetDetails=document.createElement("details");
+    assetDetails.id="propertyAssetFormPanel";
+    assetDetails.className="card";
+    const assetSummary=document.createElement("summary");
+    assetSummary.textContent="Add property to canonical register";
+    assetDetails.append(assetSummary);
+    const assetGrid=document.createElement("div");
+    assetGrid.className="formgrid property-form";
+    assetGrid.style.marginTop="12px";
+    assetGrid.append(
+      propertyPortfolioField("Property name",propertyPortfolioInput("portfolioAssetName",{placeholder:"e.g. Phakalane rental house",maxLength:160})),
+      propertyPortfolioField("Asset code",propertyPortfolioInput("portfolioAssetCode",{placeholder:"Optional internal reference",maxLength:80})),
+      propertyPortfolioField("Property type",propertyPortfolioSelect("portfolioAssetType",[
+        ["residential","Residential"],["commercial","Commercial"],["industrial","Industrial"],["land","Land"],["mixed_use","Mixed use"],["other","Other"]
+      ])),
+      propertyPortfolioField("Tenure",propertyPortfolioSelect("portfolioAssetTenure",[
+        ["freehold","Freehold"],["leasehold","Leasehold"],["customary","Customary"],["state","State"],["other","Other"],["unknown","Unknown"]
+      ])),
+      propertyPortfolioField("Location",propertyPortfolioInput("portfolioAssetLocation",{placeholder:"Town / area / plot description",maxLength:240})),
+      propertyPortfolioField("Acquisition date",propertyPortfolioInput("portfolioAssetAcquisitionDate",{type:"date"})),
+      propertyPortfolioField("Acquisition cost (P)",propertyPortfolioInput("portfolioAssetAcquisitionCost",{type:"number",min:0,step:"0.01",placeholder:"Optional"})),
+      propertyPortfolioField("Annual rent (P)",propertyPortfolioInput("portfolioAssetAnnualRent",{type:"number",min:0,step:"0.01",placeholder:"0"})),
+      propertyPortfolioField("Annual operating costs (P)",propertyPortfolioInput("portfolioAssetAnnualOpex",{type:"number",min:0,step:"0.01",placeholder:"0"})),
+      propertyPortfolioField("Debt balance (P)",propertyPortfolioInput("portfolioAssetDebt",{type:"number",min:0,step:"0.01",placeholder:"0"}))
+    );
+    const assetActions=document.createElement("div");
+    assetActions.className="actions";
+    assetActions.style.marginTop="12px";
+    assetActions.append(button("Add property",()=>void createPropertyAsset(),"btn"));
+    const assetStatus=text("span","","muted small");
+    assetStatus.id="propertyAssetFormStatus";
+    assetActions.append(assetStatus);
+    assetDetails.append(assetGrid,assetActions);
+
+    const valuationDetails=document.createElement("details");
+    valuationDetails.id="propertyValuationFormPanel";
+    valuationDetails.className="card";
+    const valuationSummary=document.createElement("summary");
+    valuationSummary.textContent="Record professional valuation report";
+    valuationDetails.append(valuationSummary);
+    const valuationNotice=document.createElement("div");
+    valuationNotice.className="notice small";
+    valuationNotice.style.marginTop="10px";
+    valuationNotice.textContent="Owner-only ledger entry. Record an already issued professional report; this form does not generate a valuation.";
+    valuationDetails.append(valuationNotice);
+    const valuationGrid=document.createElement("div");
+    valuationGrid.className="formgrid property-form";
+    valuationGrid.style.marginTop="12px";
+    const assetSelect=propertyPortfolioSelect("portfolioValuationAsset",[["","Choose property"]]);
+    valuationGrid.append(
+      propertyPortfolioField("Property",assetSelect),
+      propertyPortfolioField("Valuation date",propertyPortfolioInput("portfolioValuationDate",{type:"date"})),
+      propertyPortfolioField("Market value (P)",propertyPortfolioInput("portfolioValuationValue",{type:"number",min:0,step:"0.01",placeholder:"Value shown on signed report"})),
+      propertyPortfolioField("Valuer name",propertyPortfolioInput("portfolioValuerName",{placeholder:"Professional valuer",maxLength:160})),
+      propertyPortfolioField("Registration reference",propertyPortfolioInput("portfolioValuerRegistration",{placeholder:"Registration / licence reference",maxLength:120})),
+      propertyPortfolioField("Report reference",propertyPortfolioInput("portfolioValuationReportRef",{placeholder:"Report number / reference",maxLength:160}))
+    );
+    const noteWrap=document.createElement("div");
+    const noteLabel=document.createElement("label");
+    noteLabel.htmlFor="portfolioValuationMethodology";
+    noteLabel.textContent="Methodology note";
+    const note=document.createElement("textarea");
+    note.id="portfolioValuationMethodology";
+    note.maxLength=500;
+    note.rows=3;
+    note.placeholder="Optional note copied from or describing the professional report";
+    noteWrap.append(noteLabel,note);
+    valuationGrid.append(noteWrap);
+    const valuationActions=document.createElement("div");
+    valuationActions.className="actions";
+    valuationActions.style.marginTop="12px";
+    valuationActions.append(button("Record signed report",()=>void recordPropertyProfessionalValuation(),"btn"));
+    const valuationStatus=text("span","","muted small");
+    valuationStatus.id="propertyValuationFormStatus";
+    valuationActions.append(valuationStatus);
+    valuationDetails.append(valuationGrid,valuationActions);
+
+    forms.append(assetDetails,valuationDetails);
+    shell.append(forms);
+
+    const listHead=document.createElement("div");
+    listHead.className="between row";
+    listHead.style.marginTop="16px";
+    listHead.append(text("div","Canonical property register","section-eyebrow"),button("Refresh",()=>void renderPropertyPortfolio(true),"btn soft"));
+    const list=document.createElement("div");
+    list.id="propertyPortfolioList";
+    list.className="property-risk-list";
+    list.style.marginTop="8px";
+    list.append(text("div","Loading property portfolio…","muted small"));
+    const history=document.createElement("div");
+    history.id="propertyValuationHistory";
+    history.style.marginTop="14px";
+    shell.append(listHead,list,history);
+
+    const scenario=q(".property-layout",view);
+    if(scenario)view.insertBefore(shell,scenario);
+    else view.append(shell);
+    valuationDetails.hidden=role()!=="owner";
+    return shell;
+  }
+
+  function propertyPortfolioSetValuationOptions(items,businessDate){
+    const select=q("#portfolioValuationAsset");
+    if(!select)return;
+    const current=select.value;
+    select.replaceChildren();
+    const placeholder=document.createElement("option");
+    placeholder.value="";
+    placeholder.textContent="Choose property";
+    select.append(placeholder);
+    for(const item of items||[]){
+      if(String(item?.status||"active")!=="active")continue;
+      const option=document.createElement("option");
+      option.value=String(item.id||"");
+      option.textContent=String(item.name||"Property");
+      select.append(option);
+    }
+    if([...select.options].some(option=>option.value===current))select.value=current;
+    const date=q("#portfolioValuationDate");
+    if(date){
+      date.max=String(businessDate||gaboroneDate());
+      if(!date.value)date.value=String(businessDate||gaboroneDate());
+    }
+  }
+
+  function propertyPortfolioAssetCard(item,businessDate){
+    const card=document.createElement("div");
+    card.className="item";
+    const top=document.createElement("div");
+    top.className="between row";
+    const identity=document.createElement("div");
+    const title=text("b",item?.name||"Property");
+    const meta=[
+      item?.assetCode||null,
+      String(item?.propertyType||"other").replaceAll("_"," "),
+      item?.tenureType||null,
+      item?.location||null
+    ].filter(Boolean).join(" · ");
+    identity.append(title,text("div",meta||"Registered property","muted small"));
+    const latest=item?.latestProfessionalValuation||null;
+    const age=latest?.valuationDate?daysSince(latest.valuationDate,businessDate):null;
+    const badge=text("span",!latest?"Valuation missing":age!==null&&age>365?"Valuation stale":"Professional report recorded",!latest||age!==null&&age>365?"badge warn":"badge good");
+    top.append(identity,badge);
+    card.append(top);
+
+    const facts=document.createElement("div");
+    facts.className="small";
+    facts.style.marginTop="8px";
+    const value=latest?propertyPortfolioMoneyMinor(latest.marketValueMinor):"Not recorded";
+    facts.textContent="Acquisition cost "+(item?.acquisitionCostMinor==null?"Not recorded":propertyPortfolioMoneyMinor(item.acquisitionCostMinor))+
+      " · Annual rent "+propertyPortfolioMoneyMinor(item?.annualRentMinor)+
+      " · Operating costs "+propertyPortfolioMoneyMinor(item?.annualOperatingCostMinor)+
+      " · Debt "+propertyPortfolioMoneyMinor(item?.debtBalanceMinor)+
+      " · Professional value "+value;
+    card.append(facts);
+
+    if(latest){
+      const provenance=text("div",
+        "Latest report: "+String(latest.valuationDate||"date unavailable")+" · "+String(latest.valuerName||"valuer not recorded")+
+        " · registration "+String(latest.valuerRegistrationRef||"not recorded")+" · report "+String(latest.reportReference||"not recorded")+
+        ". Thebe has not independently verified the professional credential.",
+        "muted small"
+      );
+      provenance.style.marginTop="6px";
+      card.append(provenance);
+    }
+
+    const actions=document.createElement("div");
+    actions.className="actions";
+    actions.style.marginTop="8px";
+    actions.append(button("Valuation history",()=>void showPropertyValuationHistory(String(item.id||""),String(item.name||"Property")),"btn soft"));
+    if(role()==="owner"){
+      actions.append(button("Record valuation",()=>{
+        const select=q("#portfolioValuationAsset");
+        const panel=q("#propertyValuationFormPanel");
+        if(select)select.value=String(item.id||"");
+        if(panel){panel.open=true;panel.scrollIntoView({behavior:"smooth",block:"center"})}
+      },"btn soft"));
+    }
+    card.append(actions);
+    return card;
+  }
+
+  async function renderPropertyPortfolio(force=false){
+    if(!canView())return;
+    const shell=ensurePropertyPortfolioShell();
+    if(!shell||propertyPortfolioBusy&&!force)return;
+    propertyPortfolioBusy=true;
+    const list=q("#propertyPortfolioList");
+    if(list)list.replaceChildren(text("div","Reading canonical property records…","muted small"));
+    try{
+      const portfolio=await request("/api/property/portfolio");
+      propertyPortfolioCache=portfolio;
+      const set=(id,value)=>{const node=q("#"+id);if(node)node.textContent=value};
+      if(portfolio?.available!==true){
+        set("propertyPortfolioAssetCount","Unavailable");
+        set("propertyPortfolioRecordedValue","—");
+        set("propertyPortfolioDebt","—");
+        set("propertyPortfolioCoverage","—");
+        if(list){
+          const notice=text("div","Property records are not available yet. Migration 059 must be verified before this portfolio can be used.","notice bad");
+          list.replaceChildren(notice,button("Retry",()=>void renderPropertyPortfolio(true),"btn soft"));
+        }
+        return;
+      }
+      set("propertyPortfolioAssetCount",String(Number(portfolio.assetCount||0)));
+      set("propertyPortfolioRecordedValue",propertyPortfolioMoneyMinor(portfolio.recordedProfessionalValueMinor));
+      set("propertyPortfolioDebt",propertyPortfolioMoneyMinor(portfolio.debtBalanceMinor));
+      set("propertyPortfolioCoverage",portfolio.valuationCoveragePct==null?"—":pct(Number(portfolio.valuationCoveragePct)));
+      const items=Array.isArray(portfolio.items)?portfolio.items:[];
+      propertyPortfolioSetValuationOptions(items,portfolio.businessDate);
+      const valuationPanel=q("#propertyValuationFormPanel");
+      if(valuationPanel)valuationPanel.hidden=role()!=="owner";
+      if(list){
+        if(!items.length){
+          list.replaceChildren(text("div","No property assets are recorded yet. Add the first property to start the canonical portfolio.","notice"));
+        }else{
+          list.replaceChildren(...items.map(item=>propertyPortfolioAssetCard(item,portfolio.businessDate)));
+        }
+      }
+    }catch(error){
+      propertyPortfolioCache=null;
+      if(list){
+        const notice=text("div","Property portfolio unavailable: "+String(error?.message||"secure read failed").slice(0,180)+". No value has been inferred.","notice bad");
+        list.replaceChildren(notice,button("Retry",()=>void renderPropertyPortfolio(true),"btn soft"));
+      }
+    }finally{
+      propertyPortfolioBusy=false;
+    }
+  }
+
+  async function createPropertyAsset(){
+    if(!canView())return;
+    const name=cleanText(q("#portfolioAssetName")?.value,160);
+    if(name.length<2){propertyPortfolioStatus("propertyAssetFormStatus","Enter a property name.");return}
+    const acquisitionCostMinor=propertyMajorToMinor("portfolioAssetAcquisitionCost",{optional:true});
+    const annualRentMinor=propertyMajorToMinor("portfolioAssetAnnualRent");
+    const annualOperatingCostMinor=propertyMajorToMinor("portfolioAssetAnnualOpex");
+    const debtBalanceMinor=propertyMajorToMinor("portfolioAssetDebt");
+    if([acquisitionCostMinor,annualRentMinor,annualOperatingCostMinor,debtBalanceMinor].some(value=>Number.isNaN(value))){
+      propertyPortfolioStatus("propertyAssetFormStatus","Enter valid non-negative BWP amounts.");
+      return;
+    }
+    const payload={
+      name,
+      assetCode:cleanText(q("#portfolioAssetCode")?.value,80),
+      propertyType:String(q("#portfolioAssetType")?.value||"other"),
+      tenureType:String(q("#portfolioAssetTenure")?.value||"unknown"),
+      location:cleanText(q("#portfolioAssetLocation")?.value,240),
+      acquisitionDate:String(q("#portfolioAssetAcquisitionDate")?.value||"")||null,
+      acquisitionCostMinor,
+      annualRentMinor,
+      annualOperatingCostMinor,
+      debtBalanceMinor
+    };
+    propertyPortfolioStatus("propertyAssetFormStatus","Saving…");
+    try{
+      await request("/api/property/assets",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
+      for(const id of ["portfolioAssetName","portfolioAssetCode","portfolioAssetLocation","portfolioAssetAcquisitionDate","portfolioAssetAcquisitionCost","portfolioAssetAnnualRent","portfolioAssetAnnualOpex","portfolioAssetDebt"]){
+        const node=q("#"+id);if(node)node.value="";
+      }
+      propertyPortfolioStatus("propertyAssetFormStatus","Saved to canonical register.");
+      propertyPortfolioNotify("Property added to the canonical register.");
+      await renderPropertyPortfolio(true);
+    }catch(error){
+      propertyPortfolioStatus("propertyAssetFormStatus",String(error?.message||"Could not save property").slice(0,180));
+    }
+  }
+
+  async function recordPropertyProfessionalValuation(){
+    if(role()!=="owner"){propertyPortfolioStatus("propertyValuationFormStatus","Only the account owner can record a professional valuation.");return}
+    const propertyId=String(q("#portfolioValuationAsset")?.value||"");
+    const valuationDate=String(q("#portfolioValuationDate")?.value||"");
+    const marketValueMinor=propertyMajorToMinor("portfolioValuationValue");
+    const valuerName=cleanText(q("#portfolioValuerName")?.value,160);
+    const valuerRegistrationRef=cleanText(q("#portfolioValuerRegistration")?.value,120);
+    const reportReference=cleanText(q("#portfolioValuationReportRef")?.value,160);
+    const methodologyNote=cleanText(q("#portfolioValuationMethodology")?.value,500);
+    if(!propertyId||!valuationDate||!Number.isSafeInteger(marketValueMinor)||marketValueMinor<=0||valuerName.length<2||valuerRegistrationRef.length<2||reportReference.length<2){
+      propertyPortfolioStatus("propertyValuationFormStatus","Choose a property and enter the signed report date, value, valuer, registration reference and report reference.");
+      return;
+    }
+    propertyPortfolioStatus("propertyValuationFormStatus","Recording immutable report entry…");
+    try{
+      await request("/api/property/assets/"+encodeURIComponent(propertyId)+"/professional-valuations",{
+        method:"POST",
+        headers:{"content-type":"application/json"},
+        body:JSON.stringify({valuationDate,marketValueMinor,valuerName,valuerRegistrationRef,reportReference,methodologyNote})
+      });
+      for(const id of ["portfolioValuationValue","portfolioValuerName","portfolioValuerRegistration","portfolioValuationReportRef","portfolioValuationMethodology"]){
+        const node=q("#"+id);if(node)node.value="";
+      }
+      propertyPortfolioStatus("propertyValuationFormStatus","Professional report recorded.");
+      propertyPortfolioNotify("Professional valuation report recorded. Thebe has not certified or independently verified it.");
+      await renderPropertyPortfolio(true);
+      await showPropertyValuationHistory(propertyId,(propertyPortfolioCache?.items||[]).find(item=>String(item.id)===propertyId)?.name||"Property");
+    }catch(error){
+      propertyPortfolioStatus("propertyValuationFormStatus",String(error?.message||"Could not record professional valuation").slice(0,180));
+    }
+  }
+
+  async function showPropertyValuationHistory(propertyId,propertyName="Property"){
+    const box=q("#propertyValuationHistory");
+    if(!box||!propertyId)return;
+    box.replaceChildren(text("div","Loading valuation history…","muted small"));
+    try{
+      const result=await request("/api/property/assets/"+encodeURIComponent(propertyId)+"/professional-valuations");
+      const rows=Array.isArray(result?.items)?result.items:[];
+      const panel=document.createElement("div");
+      panel.className="card";
+      const heading=document.createElement("div");
+      heading.className="between row";
+      heading.append(text("h3",propertyName+" · valuation history"),text("span","Immutable ledger","badge"));
+      panel.append(heading);
+      const note=text("div","Recorded external professional reports only. Thebe does not certify these values or independently verify professional credentials.","muted small");
+      note.style.marginTop="6px";
+      panel.append(note);
+      if(!rows.length){
+        panel.append(text("div","No professional valuation reports are recorded for this property.","notice"));
+      }else{
+        for(const row of rows){
+          const item=document.createElement("div");
+          item.className="item";
+          item.style.marginTop="8px";
+          item.append(
+            text("b",propertyPortfolioMoneyMinor(row.market_value_minor)+" · "+String(row.valuation_date||"date unavailable")),
+            text("div",String(row.valuer_name||"valuer unavailable")+" · registration "+String(row.valuer_registration_ref||"not recorded")+" · report "+String(row.report_reference||"not recorded"),"muted small")
+          );
+          if(row.methodology_note)item.append(text("div",String(row.methodology_note),"small"));
+          panel.append(item);
+        }
+      }
+      box.replaceChildren(panel);
+      box.scrollIntoView({behavior:"smooth",block:"nearest"});
+    }catch(error){
+      box.replaceChildren(text("div","Valuation history unavailable: "+String(error?.message||"secure read failed").slice(0,180),"notice bad"));
+    }
+  }
+
   function renderSummary(model){
     const box=q("#ownerCommandSummary");
     if(!box)return;
@@ -2798,6 +3250,14 @@
         if(dashboard.classList.contains("active"))scheduleRender();
       }).observe(dashboard,{attributes:true,attributeFilter:["class"]});
     }
+    const propertyView=q("#propertyintelligence");
+    if(propertyView){
+      ensurePropertyPortfolioShell();
+      new MutationObserver(()=>{
+        if(propertyView.classList.contains("active"))void renderPropertyPortfolio(false);
+      }).observe(propertyView,{attributes:true,attributeFilter:["class"]});
+      if(propertyView.classList.contains("active"))void renderPropertyPortfolio(false);
+    }
   }
 
   if(document.readyState==="loading"){
@@ -2811,6 +3271,7 @@
     refresh:()=>renderOwnerBrief(true),
     openSales:openSalesWorkspace,
     refreshAgentic:()=>renderAgenticGovernance(true),
+    refreshPropertyPortfolio:()=>renderPropertyPortfolio(true),
     generatePlan:generateAgenticPlan
   });
 })(window);
