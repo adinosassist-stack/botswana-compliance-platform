@@ -32,12 +32,16 @@ const runner=fs.readFileSync("scripts/migrate-production-v174-property-portfolio
 
 for(const table of ["property_assets","property_professional_valuations"])assert.match(migration,new RegExp(`CREATE TABLE IF NOT EXISTS ${table}`));
 assert.match(migration,/source_kind='external_professional_report'/);
+assert.match(migration,/UNIQUE\(tenant_id,property_id,report_reference\)/);
 assert.match(migration,/property_professional_valuations_immutable_update/);
 assert.match(migration,/property_professional_valuations_immutable_delete/);
 assert.match(migration,/BEFORE DELETE ON property_professional_valuations\s+WHEN EXISTS\(SELECT 1 FROM tenants t WHERE t\.id=OLD\.tenant_id\)/s);
 assert.match(property,/professionalValuesOnlyFromRecordedExternalReports:true/);
 assert.match(property,/thebeMarketValuation:false/);
 assert.match(property,/thebeCertification:false/);
+assert.match(property,/WHERE a\.tenant_id=\? AND a\.status='active'/);
+assert.match(property,/valuation_date_in_future/);
+assert.match(property,/professional_valuation_conflict/);
 assert.doesNotMatch(property,/thebeCertification:true/);
 assert.match(worker,/handlePropertyPortfolioRequest/);
 assert.match(worker,/propertyPortfolioResponse/);
@@ -54,7 +58,7 @@ assert.match(owner,/action:p\.portfolioAnalyticsAvailable\?\(\)=>route\("propert
 assert.match(workflow,/\[migrate-059\]/);
 assert.match(workflow,/thebe\/production-d1-059/);
 assert.match(workflow,/migration authority must be a two-parent merged PR commit/);
-assert.match(runner,/blob:'92ecf76e86e04184d750851246fe630b965295b3'/);
+assert.match(runner,/blob:'ea31e1d7e90458cc9f0c6a7717db2da19b46c753'/);
 assert.match(runner,/time_travel\/bookmark/);
 assert.match(runner,/foreign_key_check/);
 
