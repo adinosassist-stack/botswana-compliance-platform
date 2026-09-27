@@ -81,6 +81,11 @@ assert.ok(
   'BF-07 must not make release authority depend on mutable/default merge commit message formatting'
 );
 
+assert.ok(
+  bf07.includes("python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ[\"LINEAGE_SHA\"]"),
+  'BF-07 lineage Recovery parser must import sys before reading sys.stdin'
+);
+
 const requiredDeployFragments = [
   "await successful('main-governance-guard.yml', 'Main Governance Guard'",
   "requiredEvent: 'push'",
