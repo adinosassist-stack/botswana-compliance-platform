@@ -1,7 +1,7 @@
 (function initOwnerCommandCentre(global){
   "use strict";
 
-  const RELEASE="20260926-v165";
+  const RELEASE="20260927-v173";
   const MAX_OPPORTUNITIES=500;
   const MAX_CAMPAIGNS=50;
   const PROFILE_KEYS=Object.freeze({
@@ -1287,7 +1287,7 @@
       title,
       text(
         "p",
-        "Thebe connects reported performance, sales conversion, quotations, campaign economics and your business targets so the first screen explains what changed, why it matters and what to do next.",
+        "Thebe Analytics connects money, sales, operations and compliance so the first screen explains what changed, what needs attention and which records support the signal.",
         "muted"
       )
     );
@@ -1307,6 +1307,11 @@
     signals.className="owner-signal-list";
     signals.id="ownerSignalList";
     shell.append(signals);
+
+    const analytics=document.createElement("section");
+    analytics.className="owner-panel owner-analytics-panel";
+    analytics.id="ownerAnalyticsPanel";
+    shell.append(analytics);
 
     const grid=document.createElement("div");
     grid.className="owner-decision-grid";
@@ -1388,6 +1393,7 @@
     if(model.branch)box.append(sourcePill("Location operating baselines","reported"));
     if(model.finance?.authority?.canonical)box.append(sourcePill("Canonical finance ledger","reported"));
     if(model.businessBrief)box.append(sourcePill("Unified Thebe Business Context","reported"));
+    if(model.businessAnalytics)box.append(sourcePill("Business Analytics v1","reported"));
     if(model.businessBrief?.moneyIntelligence?.available)box.append(sourcePill("Deterministic Money Intelligence","reported"));
     const confirmedMemoryCount=Number(model.businessBrief?.durableMemory?.items?.length||0);
     if(confirmedMemoryCount>0)box.append(sourcePill(`${confirmedMemoryCount} owner-confirmed business memor${confirmedMemoryCount===1?"y":"ies"}`,"input"));
@@ -1422,6 +1428,68 @@
     card.append(top,text("h4",title),text("p",detail));
     if(actionLabel&&action)card.append(button(actionLabel,action,"btn soft"));
     return card;
+  }
+
+  function renderBusinessAnalytics(analytics){
+    const panel=q("#ownerAnalyticsPanel");
+    if(!panel)return;
+    panel.replaceChildren();
+    const head=document.createElement("div");
+    head.className="between row";
+    const copy=document.createElement("div");
+    copy.append(
+      text("div","Analytics v1","section-eyebrow"),
+      text("h4","One management view across the business"),
+      text("p","Deterministic analytics from Thebe's governed records. Cash movement is not presented as accounting profit, and missing evidence is shown rather than guessed.","muted")
+    );
+    head.append(copy);
+    panel.append(head);
+    if(!analytics){
+      panel.append(text("div","Analytics is unavailable until the unified Business Context can be read securely.","owner-command-empty"));
+      return;
+    }
+    const grid=document.createElement("div");
+    grid.className="owner-signal-list";
+    const domains=analytics.domains||{},m=domains.money||{},s=domains.sales||{},o=domains.operations||{},co=domains.compliance||{};
+    const net=Number(m.current30NetCashMovementMinor||0),inChange=m.inflowChangePct,outChange=m.outflowChangePct;
+    grid.append(signalCard({
+      label:"Money · 30 days",value:money(net/100),
+      title:net<0?"Recorded outflows exceeded inflows.":"Recorded inflows covered outflows.",
+      detail:`Inflow ${money(Number(m.current30InflowMinor||0)/100)} · outflow ${money(Number(m.current30OutflowMinor||0)/100)} · inflow change ${inChange==null?"—":pct(Number(inChange)*100)} · outflow change ${outChange==null?"—":pct(Number(outChange)*100)}. Cash movement only; not accounting profit.`,
+      tone:net<0?"risk":"positive"
+    }));
+    grid.append(signalCard({
+      label:"Collections",value:money(Number(m.overdueReceivablesMinor||0)/100),
+      title:Number(m.overdueReceivablesMinor||0)>0?"Customer money is overdue.":"No overdue receivable balance is currently recorded.",
+      detail:`${money(Number(m.outstandingReceivablesMinor||0)/100)} total outstanding receivables. Thebe never assumes overdue invoices will be collected.`,
+      tone:Number(m.overdueReceivablesMinor||0)>0?"risk":"positive"
+    }));
+    grid.append(signalCard({
+      label:"Supplier commitments · 14 days",value:money(Number(m.payablesDue14dMinor||0)/100),
+      title:Number(m.payableShortfall14dMinor||0)>0?"Recorded cash is short against near-term supplier commitments.":"Near-term supplier commitments are visible against recorded cash.",
+      detail:`${m.payableCoverage14dRatio==null?"Payable cover unavailable":`Payable cover ${Number(m.payableCoverage14dRatio).toFixed(2)}x`} · overdue payables ${money(Number(m.overduePayablesMinor||0)/100)}.`,
+      tone:Number(m.payableShortfall14dMinor||0)>0?"risk":"neutral"
+    }));
+    grid.append(signalCard({
+      label:"Sales pipeline",value:money(Number(s.openQuotationValueBwp||0)),
+      title:`${Number(s.openQuotationCount||0)} open quotation${Number(s.openQuotationCount||0)===1?"":"s"} · ${Number(s.dormantQuotationCount||0)} dormant.`,
+      detail:`Dormant recorded quote value ${money(Number(s.dormantQuotationValueBwp||0))}. Sales pipeline is owner-recorded and remains separate from canonical finance revenue.`,
+      tone:Number(s.dormantQuotationCount||0)>0?"risk":"neutral"
+    }));
+    grid.append(signalCard({
+      label:"Operations & compliance",value:`${Number(o.criticalPerformanceSignals||0)} critical · ${Number(co.overdueCount||0)} overdue`,
+      title:o.latestSummaryDate?`Operations last summarized ${o.latestSummaryDate}.`:"Operations summary is not yet available.",
+      detail:`${Number(o.failedWorkflowCount||0)} failed workflow(s) · ${Number(co.dueWithin14Days||0)} compliance item(s) due within 14 days.`,
+      tone:Number(o.criticalPerformanceSignals||0)>0||Number(co.overdueCount||0)>0?"risk":"neutral"
+    }));
+    grid.append(signalCard({
+      label:"Data readiness",value:String(analytics.dataQuality?.readiness||"limited").replace(/^./,x=>x.toUpperCase()),
+      title:analytics.summary?.headline||"Analytics source readiness.",
+      detail:"Finance reconciliation, Money Intelligence and operations evidence determine readiness. Missing evidence is never filled with generated facts.",
+      tone:analytics.dataQuality?.readiness==="strong"?"positive":analytics.dataQuality?.readiness==="limited"?"risk":"neutral"
+    }));
+    panel.append(grid);
+    panel.append(text("p","Property underwriting is available today; authoritative property portfolio analytics and professional valuation will connect here in the next vertical release.","muted small"));
   }
 
   function renderSignals(model){
@@ -2657,10 +2725,12 @@
       const inputs=decisionInputs(stateEnvelope?.state||{});
       const sales=deriveSalesIntelligence(inputs.company,date);
       const model=deriveModel(performance,inputs,date,sales,finance,businessEnvelope?.brief||null);
+      model.businessAnalytics=businessEnvelope?.analytics||businessEnvelope?.brief?.analytics||null;
 
       renderSummary(model);
       renderSources(model,inputs);
       renderSignals(model);
+      renderBusinessAnalytics(model.businessAnalytics);
       renderActions(model);
       renderSimulation(model);
       renderSalesWorkspace(inputs.company,sales);
@@ -2685,6 +2755,8 @@
           action:()=>renderOwnerBrief(true)
         }));
       }
+      const analytics=q("#ownerAnalyticsPanel");
+      if(analytics)analytics.replaceChildren(text("div","Analytics unavailable until source data can be read securely.","owner-command-empty"));
       const actions=q("#ownerActionPanel");
       if(actions)actions.replaceChildren();
       const simulation=q("#ownerSimulationPanel");
