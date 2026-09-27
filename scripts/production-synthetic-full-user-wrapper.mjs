@@ -117,7 +117,7 @@ async function runFullUserJourney(credentials){
     const publicRoot=await page.goto(`${ORIGIN}/?full-user-public-proof=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:NAVIGATION_TIMEOUT_MS});
     assert(publicRoot?.status()===200,`public root returned HTTP ${publicRoot?.status()||0}`);
     const publicState=await page.evaluate(()=>({hero:(document.querySelector('.hero h1')?.textContent||'').trim(),hasWorkspace:!!document.getElementById('appShell'),hasAuthForm:!!document.getElementById('authForm')}));
-    assert(/business risk/i.test(publicState.hero),'public root hero missing');
+    assert(/Run your business with intelligence\./i.test(publicState.hero),'public root hero missing or stale');
     assert(!publicState.hasWorkspace&&!publicState.hasAuthForm,'public root leaked workspace or authentication shell');
 
     const marketingHeroSelector='.hero .visual img[src*="gaborone-entrepreneurs-v67.webp"]';
