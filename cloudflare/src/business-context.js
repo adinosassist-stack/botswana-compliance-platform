@@ -4,8 +4,9 @@ import {financePayablesSummary} from "./finance-payables.js";
 import {listBusinessMemory} from "./business-memory.js";
 import {buildMoneyIntelligence} from "./money-intelligence.js";
 import {languagePreferenceFromMemory,deterministicLanguagePolicy,deterministicLanguageNotice} from "./thebe-language.js";
+import {runtimeMarketProfile,marketBusinessDate,formatMarketMinor} from "./market-profile.js";
 
-export const BUSINESS_CONTEXT_VERSION="2026-09-26.v165";
+export const BUSINESS_CONTEXT_VERSION="2026-09-27.v166";
 
 const PROFILE_KEYS=Object.freeze({
   monthlyRevenueTargetBwp:"decisionMonthlyRevenueTargetBwp",
@@ -22,8 +23,8 @@ const frozen=value=>Object.freeze(value);
 const clean=(value,max=240)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
 const finite=value=>{const n=Number(value);return Number.isFinite(n)?n:null};
 const safeJson=(value,fallback={})=>{try{const parsed=JSON.parse(String(value||""));return parsed&&typeof parsed==="object"?parsed:fallback}catch{return fallback}};
-const gaboroneDate=(now=new Date())=>{try{return new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Gaborone",year:"numeric",month:"2-digit",day:"2-digit"}).format(now)}catch{return now.toISOString().slice(0,10)}};
-const pulaMinor=value=>`P${(Number(value||0)/100).toLocaleString("en-BW",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+const gaboroneDate=(now=new Date())=>marketBusinessDate(now,"BW");
+const pulaMinor=value=>formatMarketMinor(value,{marketCode:"BW"});
 async function safeFirst(env,sql,bindings=[]){try{return await env.DB.prepare(sql).bind(...bindings).first()}catch{return null}}
 
 function activeCompany(state){
@@ -343,7 +344,7 @@ export function buildDailyBusinessBrief(context){
   const basePriorities=deriveBusinessPriorities(context),finance=context?.finance||{},receivables=finance.receivables||{},compliance=context?.compliance||{},ops=context?.operations||{},sales=context?.sales||{},money=context?.moneyIntelligence||{},trend=money?.trend||{},assumptions=money?.assumptions||{};
   const preference=context?.language||languagePreferenceFromMemory(context?.durableMemory),language=deterministicLanguagePolicy(preference);
   const metrics=frozen({
-    currency:"BWP",
+    currency:runtimeMarketProfile("BW")?.currency||"BWP",
     cashPositionMinor:Number(finance.cashPositionMinor||0),
     positiveInflowTodayMinor:Number(finance?.today?.positiveInflowMinor||0),
     customerCollectionsTodayMinor:Number(finance?.today?.customerCollectionMinor||0),
