@@ -1175,6 +1175,7 @@ async function applyVerifiedPaymentOrder(env,orderId,verification){
   const row=await env.DB.prepare("SELECT * FROM payment_orders WHERE id=? LIMIT 1").bind(orderId).first();
   if(!row)return {ok:false,error:"payment_order_not_found"};
   if(row.status==="refunded")return {ok:false,error:"payment_already_refunded"};
+  if(row.status==="canceled")return {ok:false,error:"payment_order_canceled"};
   const claim=await claimPaymentSettlement(env,row);
   if(claim.alreadyApplied)return {ok:true,alreadySettled:true,fulfillmentStatus:claim.status};
   if(!claim.ok)return {ok:false,error:"settlement_in_progress_retry",status:claim.status||"processing"};
