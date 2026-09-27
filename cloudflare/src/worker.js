@@ -1,4 +1,4 @@
-import {BOTSWANA_FOUNDATION_PACK_V1,BOTSWANA_FOUNDATION_PACK_V1_HASH} from "./generated/foundation-pack-v1.js";
+import {BOTSWANA_FOUNDATION_PACK_V1,BOTSWANA_FOUNDATION_PACK_V1_HASH} from "./regulatory-pack-registry.js";
 import {handleFinanceRequest,financeSummary} from "./finance-core.js";
 import {financeReceivablesSummary} from "./finance-receivables.js";
 import {processWhatsAppInboundMessages} from "./whatsapp-inbound-core.js";
