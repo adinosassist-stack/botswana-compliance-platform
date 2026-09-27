@@ -7,6 +7,7 @@ const html=fs.readFileSync("public/index.html","utf8");
 const migration=fs.readFileSync("cloudflare/migrations/015_v73_daily_operations_reporting.sql","utf8");
 const synthetic=fs.readFileSync("scripts/production-synthetic-full-user-wrapper.mjs","utf8");
 const delegatedEvents=fs.readFileSync("public/js/event-delegation.js","utf8");
+const workspaceRuntime=fs.readFileSync("public/js/workspace-runtime-20260926b.js","utf8");
 
 for(const path of ["cloudflare/src/worker.js"]){
   const r=spawnSync(process.execPath,["--check",path],{encoding:"utf8"});
@@ -37,6 +38,14 @@ assert.match(html,/showFreshEmployeeReportingLink\(id,locationId\)/);
 assert.match(html,/Show fresh link/);
 assert.match(html,/recentlyRemovedEmployeeIds\.add\(String\(id\)\)/,"removed employees must stay hidden during the current session even if a stale read races the delete");
 assert.match(html,/activeAccess\.length===1/,"single reporting access should reveal a fresh link from an employee click");
+for(const source of [html,workspaceRuntime]){
+  assert.ok(source.includes(`const openReportingIds=[...el.querySelectorAll(\'[id^="employeeReportingAccess_"][data-open="1"]\')]`),
+    "employee register refresh must capture open reporting-access panels immediately before replacing the register DOM");
+  assert.ok(source.includes("for(const employeeId of openReportingIds){if(document.getElementById(`employeeReportingAccess_${employeeId}`))void openEmployeeReportingAccess(employeeId)}"),
+    "employee register refresh must restore reporting access against the replacement DOM node");
+}
+assert.ok(synthetic.includes("await page.waitForFunction(id=>/Employee reporting access/i.test(String(document.getElementById(`employeeReportingAccess_${id}`)?.innerText||\'\')),employeeValue"),
+  "production synthetic must retain the strict reporting-access hydration proof");
 assert.match(html,/reportingAnalyticsMemory=new Map\(\)/);
 assert.match(html,/timeoutMs:90000,retries:2,candidateTimeoutMs:30000/);
 assert.match(html,/Date\.now\(\)-cached\.at<15\*60\*1000/);
