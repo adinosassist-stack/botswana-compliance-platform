@@ -31,7 +31,7 @@ const context={
 };
 
 const analytics=buildBusinessAnalytics(context);
-assert.equal(BUSINESS_ANALYTICS_VERSION,"2026-09-27.v173");
+assert.equal(BUSINESS_ANALYTICS_VERSION,"2026-09-27.v175","v175 must retain the v173 analytics contract while extending property signals");
 assert.equal(analytics.domains.money.cashPositionMinor,5000000);
 assert.equal(analytics.domains.money.current30NetCashMovementMinor,-1200000);
 assert.equal(analytics.domains.money.accountingProfitAvailable,false);

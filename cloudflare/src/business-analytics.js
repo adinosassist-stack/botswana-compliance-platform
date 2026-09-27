@@ -1,4 +1,4 @@
-export const BUSINESS_ANALYTICS_VERSION="2026-09-27.v173";
+export const BUSINESS_ANALYTICS_VERSION="2026-09-27.v175";
 
 const frozen=value=>Object.freeze(value);
 const number=value=>Number.isFinite(Number(value))?Number(value):0;
@@ -87,6 +87,21 @@ export function buildBusinessAnalytics(context={}){
     `${Number(property.staleProfessionalValuationCount||0)} active property asset(s) have a latest recorded professional valuation older than 12 months.`,
     ["property_professional_valuations"]
   ));
+  if(propertyAvailable&&Number(property?.professionalValuationRenewalDueCount||0)>0)signals.push(signal(
+    "property_valuation_review_due","medium","Professional property valuation review is due",
+    `${Number(property.professionalValuationRenewalDueCount||0)} active property asset(s) have a recorded valuation review reminder that is due. A reminder is not a statement that a valuation has legally expired.`,
+    ["property_professional_valuations"]
+  ));
+  else if(propertyAvailable&&Number(property?.professionalValuationRenewalDueSoonCount||0)>0)signals.push(signal(
+    "property_valuation_review_due_soon","medium","Professional property valuation review is due soon",
+    `${Number(property.professionalValuationRenewalDueSoonCount||0)} active property asset(s) have a recorded valuation review reminder due within 60 days.`,
+    ["property_professional_valuations"]
+  ));
+  if(propertyAvailable&&Number(property?.valuationReportEvidenceGapCount||0)>0)signals.push(signal(
+    "property_valuation_report_evidence_gap","medium","Signed valuation-report evidence is incomplete",
+    `${Number(property.valuationReportEvidenceGapCount||0)} valued property asset(s) do not have linked approved, malware-scan-clean signed-report evidence.`,
+    ["property_professional_valuations","property_valuation_evidence_links","evidence"]
+  ));
 
   signals.sort((a,b)=>severityRank(a.severity)-severityRank(b.severity)||a.key.localeCompare(b.key));
 
@@ -167,6 +182,9 @@ export function buildBusinessAnalytics(context={}){
         valuedAssetCount:number(property?.valuedAssetCount),
         unvaluedAssetCount:number(property?.unvaluedAssetCount),
         staleProfessionalValuationCount:number(property?.staleProfessionalValuationCount),
+        professionalValuationRenewalDueCount:number(property?.professionalValuationRenewalDueCount),
+        professionalValuationRenewalDueSoonCount:number(property?.professionalValuationRenewalDueSoonCount),
+        valuationReportEvidenceGapCount:number(property?.valuationReportEvidenceGapCount),
         acquisitionCostMinor:number(property?.acquisitionCostMinor),
         annualRentMinor:number(property?.annualRentMinor),
         annualOperatingCostMinor:number(property?.annualOperatingCostMinor),
@@ -209,7 +227,7 @@ export function buildBusinessAnalytics(context={}){
     provenance:frozen({
       authoritative:frozen([
         "finance_accounts","finance_transactions","finance_reconciliation_runs","finance_invoices","finance_invoice_allocations",
-        "finance_payables","finance_payable_allocations","property_assets","property_professional_valuations","daily_operations_summaries","performance_insights","compliance_obligations"
+        "finance_payables","finance_payable_allocations","property_assets","property_professional_valuations","property_valuation_evidence_links","property_operating_snapshots","daily_operations_summaries","performance_insights","compliance_obligations"
       ]),
       ownerEntered:frozen(["app_state.active_company.salesIntelligence","business_memory_items"]),
       rule:"Authoritative records, derived analytics and owner-entered assumptions remain visibly separated."

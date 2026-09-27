@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import {derivePortfolioMetrics,PROPERTY_PORTFOLIO_VERSION} from "../cloudflare/src/property-portfolio.js";
 
-assert.equal(PROPERTY_PORTFOLIO_VERSION,"2026-09-27.v174");
+assert.equal(PROPERTY_PORTFOLIO_VERSION,"2026-09-27.v175","v175 must retain the v174 property portfolio authority boundary");
 const metrics=derivePortfolioMetrics([
   {status:"active",acquisition_cost_minor:200000000,annual_rent_minor:18000000,annual_operating_cost_minor:3000000,debt_balance_minor:90000000,market_value_minor:260000000,valuation_date:"2024-06-01"},
   {status:"active",acquisition_cost_minor:80000000,annual_rent_minor:6000000,annual_operating_cost_minor:1000000,debt_balance_minor:0,market_value_minor:0,valuation_date:null},
@@ -66,7 +66,7 @@ assert.match(owner,/propertyPortfolioAssetCount/);
 assert.match(owner,/propertyPortfolioRecordedValue/);
 assert.match(owner,/propertyPortfolioCoverage/);
 assert.match(owner,/Only the account owner can record a professional valuation/);
-assert.match(owner,/Thebe has not certified or independently verified it/);
+assert.match(owner,/Thebe does not certify, sign or independently verify valuations/);
 assert.match(workflow,/\[migrate-059\]/);
 assert.match(workflow,/thebe\/production-d1-059/);
 assert.match(workflow,/migration authority must be a two-parent merged PR commit/);

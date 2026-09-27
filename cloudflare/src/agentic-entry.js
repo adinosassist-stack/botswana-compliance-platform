@@ -9,7 +9,7 @@ import {handleAgenticFinanceReconciliationRequest} from "./agentic-finance-recon
 import {preparePlatformOwnerLogin,withPlatformOwnerAdminEnv} from "./platform-owner-access.js";
 import {applyClientRuntimeIdentity} from "./client-runtime-identity.js";
 
-const V81_SCHEMA_DELTA="059_v174_property_portfolio_valuation.sql";
+const V81_SCHEMA_DELTA="060_v175_property_evidence_profitability.sql";
 const COLD_START_REDUNDANT_RENDER="if(!options?.skipDataRefresh)queueMicrotask(()=>renderAll())";
 const COLD_START_GUARDED_RENDER="if(!options?.skipDataRefresh&&!options?.roleRedirect)queueMicrotask(()=>renderAll())";
 const SYNTHETIC_BOOT_TRACE_PREFIX="THEBE_SYNTHETIC_BOOT";
@@ -111,7 +111,9 @@ async function delegatedAuthoritySchemaReady(env){
       (SELECT COUNT(*) FROM business_memory_items) business_memory_item_count,
       (SELECT COUNT(*) FROM business_memory_events) business_memory_event_count,
       (SELECT COUNT(*) FROM property_assets) property_asset_count,
-      (SELECT COUNT(*) FROM property_professional_valuations) property_professional_valuation_count`).first();
+      (SELECT COUNT(*) FROM property_professional_valuations) property_professional_valuation_count,
+      (SELECT COUNT(*) FROM property_valuation_evidence_links) property_valuation_evidence_link_count,
+      (SELECT COUNT(*) FROM property_operating_snapshots) property_operating_snapshot_count`).first();
     await env.DB.prepare("SELECT scheduled_for FROM agent_observation_checkpoints LIMIT 1").first();
     const occurrenceIndex=await env.DB.prepare("SELECT 1 ok FROM sqlite_master WHERE type='index' AND name='uq_agent_observation_checkpoint_occurrence' LIMIT 1").first();
     const schedulerIndex=await env.DB.prepare("SELECT 1 ok FROM sqlite_master WHERE type='index' AND name='agent_persistent_tasks_scheduler_due' LIMIT 1").first();

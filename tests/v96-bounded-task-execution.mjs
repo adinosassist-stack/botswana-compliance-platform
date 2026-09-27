@@ -168,7 +168,7 @@ assert.doesNotMatch(source,/government_filing\.submit/);
 
 const entry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
 assert.match(entry,/handleAgenticTaskExecutionRequest/);
-assert.match(entry,/059_v174_property_portfolio_valuation\.sql/);
+assert.match(entry,/060_v175_property_evidence_profitability\.sql/);
 assert.match(entry,/agent_execution_receipts/);
 
 console.log("v96 bounded internal task execution guard: PASS");

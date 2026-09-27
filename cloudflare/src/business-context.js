@@ -8,7 +8,7 @@ import {DEFAULT_RUNTIME_MARKET_CODE,runtimeMarketProfile,marketBusinessDate,form
 import {buildBusinessAnalytics} from "./business-analytics.js";
 import {propertyPortfolioSummary} from "./property-portfolio.js";
 
-export const BUSINESS_CONTEXT_VERSION="2026-09-27.v173";
+export const BUSINESS_CONTEXT_VERSION="2026-09-27.v175";
 
 const PROFILE_KEYS=Object.freeze({
   monthlyRevenueTargetBwp:"decisionMonthlyRevenueTargetBwp",
@@ -230,7 +230,7 @@ async function buildBusinessContextBase(env,tenantId,{actorRole="owner",now=new 
     sales,
     moneyIntelligence,
     provenance:frozen({
-      authoritative:frozen(["finance_accounts","finance_transactions","finance_reconciliation_runs","finance_invoices","finance_invoice_allocations","finance_suppliers","finance_supplier_aliases","finance_payables","finance_payable_allocations","property_assets","property_professional_valuations","daily_operations_summaries","workflow_jobs","performance_insights","compliance_obligations"]),
+      authoritative:frozen(["finance_accounts","finance_transactions","finance_reconciliation_runs","finance_invoices","finance_invoice_allocations","finance_suppliers","finance_supplier_aliases","finance_payables","finance_payable_allocations","property_assets","property_professional_valuations","property_valuation_evidence_links","property_operating_snapshots","evidence","daily_operations_summaries","workflow_jobs","performance_insights","compliance_obligations"]),
       ownerEntered:management?frozen(["app_state.active_company.profile","app_state.active_company.salesIntelligence","business_memory_items"]):frozen([]),
       rule:"Authoritative records and owner-entered assumptions remain explicitly separated; Thebe must not promote assumptions into observed facts."
     })
