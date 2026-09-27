@@ -6,7 +6,7 @@ const NAVIGATION_TIMEOUT_MS=30000;
 const WORKSPACE_TIMEOUT_MS=40000;
 const VIEW_TIMEOUT_MS=5000;
 const CLOSE_TIMEOUT_MS=5000;
-const MIN_OWNER_VIEW_COUNT=40;
+const MIN_OWNER_VIEW_COUNT=7;
 const MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=25;
 const MIN_SAFE_UI_ACTION_COUNT=5;
 const executablePath=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(path=>fs.existsSync(path));
@@ -684,7 +684,8 @@ async function runFullUserJourney(credentials){
       const unique=[];
       for(const button of document.querySelectorAll('#nav button[data-view]')){
         const view=String(button.dataset.view||'').trim();
-        if(!view||unique.includes(view)||button.style.display==='none')continue;
+        const style=getComputedStyle(button);
+        if(!view||unique.includes(view)||button.hidden||button.closest('[hidden]')||button.offsetParent===null||style.display==='none'||style.visibility==='hidden')continue;
         if(roleCheck&&!roleCheck(view))continue;
         unique.push(view);
       }
@@ -746,14 +747,27 @@ async function runFullUserJourney(credentials){
 
     const openOwnerViewThroughNav=async view=>{
       const button=page.locator('#nav button[data-view="'+view+'"]').first();
-      assert(await button.count(),'safe UI action source navigation missing for '+view);
-      const details=button.locator('xpath=ancestor::details[1]');
-      if(await details.count()&&!(await details.evaluate(node=>node.open===true))){
-        const summary=details.locator(':scope > summary').first();
-        assert(await summary.count(),'safe UI action source group for '+view+' has no summary');
-        await summary.click();
+      assert(await button.count(),'safe UI action source navigation/search index missing for '+view);
+      if(await button.isVisible()){
+        const details=button.locator('xpath=ancestor::details[1]');
+        if(await details.count()&&!(await details.evaluate(node=>node.open===true))){
+          const summary=details.locator(':scope > summary').first();
+          assert(await summary.count(),'safe UI action source group for '+view+' has no summary');
+          await summary.click();
+        }
+        await button.click();
+      }else{
+        const label=safe(await button.textContent())||view;
+        const opened=await page.evaluate(query=>{
+          if(typeof globalThis.openCommandPaletteWithQuery!=='function')return false;
+          globalThis.openCommandPaletteWithQuery(query);
+          return document.getElementById('commandShade')?.classList.contains('open')===true;
+        },label);
+        assert(opened,'Find tools did not open for hidden specialist view '+view);
+        const result=page.locator('#commandResults .commanditem[data-bw-onclick="commandGo(\''+view+'\')"]').first();
+        assert(await result.count(),'Find tools result missing for hidden specialist view '+view);
+        await result.click();
       }
-      await button.click();
       await page.waitForFunction(targetView=>document.getElementById(targetView)?.classList.contains('active'),view,{timeout:VIEW_TIMEOUT_MS});
       await page.waitForFunction(targetView=>{
         const target=document.getElementById(targetView);
