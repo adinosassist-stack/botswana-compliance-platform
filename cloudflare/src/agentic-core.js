@@ -4,7 +4,7 @@ import {buildContinuationCheckpoint,buildResumeContext,verifyContinuationCheckpo
 import {buildAgentReadToolContext,executeAgentReadTool} from "./agent-read-tools.js";
 import {buildBusinessContext} from "./business-context.js";
 import {thebeLanguagePrompt} from "./thebe-language.js";
-import {extractSpendWhatIfBwpMinor,simulateWeeklySpendDecision} from "./money-intelligence.js";
+import {extractSpendWhatIfMinor,simulateWeeklySpendDecision} from "./money-intelligence.js";
 
 const MAX_BODY_BYTES=8192;
 const MAX_PROPOSALS=8;
@@ -92,7 +92,7 @@ async function safeFirst(env,sql,bindings=[]){
 
 async function observeWorkspace(env,tenantId,actorRole){
   const context=await buildBusinessContext(env,tenantId,{actorRole});
-  const finance=context.finance||{},reconciliation=finance.reconciliation||{},receivables=finance.receivables||{},today=finance.today||{};
+  const market=context.market||{},finance=context.finance||{},reconciliation=finance.reconciliation||{},receivables=finance.receivables||{},today=finance.today||{};
   const operations=context.operations||{},roleScope=context.roleScope||{},compliance=context.compliance||{};
   const performance=operations?.restricted===true
     ?{restricted:true}
@@ -104,6 +104,7 @@ async function observeWorkspace(env,tenantId,actorRole){
     };
   return {
     observedAt:context.observedAt,
+    market:context.market,
     roleScope:Object.freeze({
       actorRole:String(actorRole||"").toLowerCase(),
       businessHealth:roleScope.managementContext===true,
@@ -112,7 +113,7 @@ async function observeWorkspace(env,tenantId,actorRole){
       compliance:true
     }),
     finance:{
-      currency:"BWP",
+      currency:String(market.currency||finance.currency||""),
       cashPositionMinor:Number(finance.cashPositionMinor||0),
       accountCount:Array.isArray(finance.accounts)?finance.accounts.length:0,
       reconciliationExceptions:Number(reconciliation.unresolvedCount||0),
@@ -143,6 +144,7 @@ async function observeWorkspace(env,tenantId,actorRole){
     businessContext:{
       version:context.version,
       businessDate:context.businessDate,
+      market:context.market,
       identity:context.identity,
       language:context.language,
       memory:context.memory,
@@ -166,7 +168,7 @@ function deterministicSimulation(observation){
   const critical=Math.max(0,Number(observation?.performance?.criticalSignals||0));
   return {
     type:"deterministic_non_mutating",
-    currency:"BWP",
+    currency:String(observation?.market?.currency||observation?.finance?.currency||""),
     cashStress:{recordedCashMinor:cash,reconciliationExposureMinor:reconciliationExposure,exposureAdjustedCashMinor:cash-reconciliationExposure},
     operatingLoad:{pendingWorkflowCount:pending,failedWorkflowCount:failed,overdueComplianceCount:overdue,criticalPerformanceSignals:critical},
     pressureScore:Math.min(100,failed*20+overdue*15+critical*15+Math.min(pending,20)*2),
@@ -330,7 +332,7 @@ async function createPlan({request,env,ctx,coreFetch,auth,goalOverride=null,cont
   let body;try{body=await readJson(request)}catch(error){return json({error:error.message},requestBodyErrorStatus(error))}
   const goal=text(goalOverride||body?.goal||"Protect the business and identify the safest next actions.",500);
   const runId=id(),observation=await observeWorkspace(env,auth.tenant_id,auth.role);
-  const proposedSpendMinor=roleAllowed(auth,"owner","manager")?extractSpendWhatIfBwpMinor(goal):null;
+  const proposedSpendMinor=roleAllowed(auth,"owner","manager")?extractSpendWhatIfMinor(goal,{marketCode:observation?.market?.code}):null;
   if(proposedSpendMinor!=null){
     observation.spendWhatIf=simulateWeeklySpendDecision({
       spendEnvelope:observation?.businessContext?.moneyIntelligence?.spendEnvelope||{},

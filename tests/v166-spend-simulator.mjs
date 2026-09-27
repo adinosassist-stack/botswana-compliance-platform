@@ -78,14 +78,14 @@ assert.equal(invalid.proposedSpendMinor,null);
 
 const workerSource=fs.readFileSync("cloudflare/src/worker.js","utf8");
 assert.match(workerSource,/proposedSpendScenario/);
-assert.match(workerSource,/extractSpendWhatIfBwpMinor/);
-assert.match(workerSource,/use its deterministic arithmetic for that exact BWP amount/);
+assert.match(workerSource,/extractSpendWhatIfMinor/);
+assert.match(workerSource,/use its deterministic arithmetic for that exact amount in the active market currency/);
 assert.match(workerSource,/if it is blocked, explain the blockers and do not invent a result/);
-assert.match(workerSource,/roleAllowed\(a,"owner","manager"\)\?extractSpendWhatIfBwpMinor/);
+assert.match(workerSource,/roleAllowed\(a,"owner","manager"\)\?extractSpendWhatIfMinor/);
 assert.doesNotMatch(workerSource,/spendingAuthorization\s*:\s*true/);
 
 const agenticSource=fs.readFileSync("cloudflare/src/agentic-core.js","utf8");
-assert.match(agenticSource,/extractSpendWhatIfBwpMinor\(goal\)/);
+assert.match(agenticSource,/extractSpendWhatIfMinor\(goal,\{marketCode:observation\?\.market\?\.code\}\)/);
 assert.match(agenticSource,/observation\.spendWhatIf=simulateWeeklySpendDecision/);
 assert.match(agenticSource,/channelParity:"web_voice_whatsapp"/);
 assert.match(agenticSource,/never treat it as spending authorization or financial advice/);
