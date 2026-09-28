@@ -14,7 +14,7 @@ assert.match(css,/V170 interaction awareness/);
 assert.match(css,/V171 approved-reference mascot visual/);
 assert.match(css,/#marketingGate \.thebe-market-mascot\{[\s\S]*?width:min\(128%,960px\)!important/,'marketing hero must keep the approved mascot large and dominant');
 assert.match(css,/data-surface="public"[\s\S]*?thebe-particle-core\{width:112px;height:112px/,'public dock mascot must be materially larger than the workspace mascot');
-assert.match(dockJs,/viewBox","0 0 1000 1000"/,'dock mascot must use the full approved reference proportions');
+assert.match(dockJs,/viewBox:"0 0 1000 1000"/,'dock mascot must use the full approved reference proportions');
 assert.match(dockJs,/thebeDockShell/);
 assert.match(dockJs,/thebe-mascot-body-seam/);
 assert.match(dockJs,/thebe-mascot-smile/);
