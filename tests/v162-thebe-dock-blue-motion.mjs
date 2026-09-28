@@ -13,6 +13,7 @@ assert.match(css,/V168 Super Agent mascot/);
 assert.match(css,/V169 contextual presence/);
 assert.match(css,/V170 interaction awareness/);
 assert.match(css,/V171 approved-reference mascot visual/);
+assert.match(css,/V172 governed mission rail/);
 assert.match(css,/#marketingGate \.thebe-market-mascot-frame\{[\s\S]*?width:min\(128%,960px\)!important/,'marketing hero must keep the approved mascot large and dominant');
 assert.match(css,/data-surface="public"[\s\S]*?thebe-particle-core\{width:112px;height:112px/,'public dock mascot must be materially larger than the workspace mascot');
 assert.match(dockJs,/viewBox:"0 0 1000 1000"/,'dock mascot must use the full approved reference proportions');
@@ -25,6 +26,11 @@ assert.match(css,/data-focus="compose"[\s\S]*?--thebe-eye-y:2px/,'composer focus
 assert.match(css,/data-focus="attention"[\s\S]*?--thebe-eye-y:-1\.5px/,'attention focus must pull the mascot gaze toward the header');
 assert.match(css,/data-attention="true"[\s\S]*?thebe-mascot-beacon/,'workspace attention must produce a restrained beacon cue');
 assert.match(css,/thebe-mascot-ack-v170/,'completed responses must have a restrained acknowledgement motion');
+assert.match(css,/\.thebe-ai-mission-track\{[\s\S]*?grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/,'V172 mission rail must expose four governed progress stages');
+assert.match(css,/data-tone="review"[\s\S]*?background:#ffb648/,'owner review stage must use restrained amber');
+assert.match(css,/data-tone="error"[\s\S]*?background:#ff6268/,'mission errors must remain visually distinct');
+assert.match(dockJs,/thebe:owner-agent-state/,'dock must listen to authoritative Owner Command Centre state');
+assert.match(dockJs,/ownerCommandState/,'dock state must retain the read-only Owner Command Centre snapshot');
 
 assert.match(css,/data-context="finance"[\s\S]*?--thebe-eye-x:1\.4px/,'Finance context must shift gaze analytically');
 assert.match(css,/data-context="property"[\s\S]*?thebe-mascot-property-survey-v169/,'Property context must use restrained surveying motion');
