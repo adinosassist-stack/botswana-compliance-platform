@@ -16,7 +16,7 @@ for(const value of [productionLive,productionDock,runtimeLive,runtimeDock]){
 }
 assert.equal(productionLive,runtimeLive,'production must cache-bust the exact Thebe Live Voice runtime');
 assert.equal(productionDock,runtimeDock,'production must cache-bust the exact Thebe AI dock runtime');
-assert.equal(productionDock,'20260926-blue-v162','blue animated dock must ship under the V162 release token');
+assert.equal(productionDock,'20260928-future-v164','futuristic V164 dock must ship under the current release token');
 assert(audit.includes('const dockReleaseMatch=productionEntry.match(/const THEBE_AI_DOCK_RELEASE="([0-9]{8}[A-Za-z0-9._-]{1,48})";/);'),'launch audit must accept the repository release-token format');
 assert(!audit.includes('[0-9]{8}[a-z]'),'launch audit must not regress to the obsolete date-plus-letter token parser');
 assert(fullUser.includes("/^[0-9]{8}[A-Za-z0-9._-]{1,48}$/"),'full-user synthetic must accept the bounded cache-safe dock release token format');
