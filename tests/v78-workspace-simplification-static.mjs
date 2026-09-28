@@ -2,10 +2,10 @@ import fs from 'node:fs';
 const html=fs.readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
 const fullUser=fs.readFileSync(new URL('../scripts/production-synthetic-full-user-wrapper.mjs',import.meta.url),'utf8');
 const primary=[...html.matchAll(/<button[^>]*class="(?:active )?nav-primary"[^>]*data-view="([^"]+)"/g)].map(m=>m[1]);
-// Sep-26 owner UX contract: keep the everyday workspace to seven primary mental models.
+// Sep-28 owner UX contract: keep the everyday workspace to eight primary mental models, with Property promoted to first-class.
 // Specialist engines remain reachable through Find tools and contextual hubs.
-const expected=['dashboard','moneyhub','workhub','peopleops','protecthub','automationhub','accounthub'];
-if(JSON.stringify(primary)!==JSON.stringify(expected))throw new Error(`Primary workspace navigation drifted from the approved 7-destination contract; got ${primary.join(', ')}`);
+const expected=['dashboard','moneyhub','propertyintelligence','workhub','peopleops','protecthub','automationhub','accounthub'];
+if(JSON.stringify(primary)!==JSON.stringify(expected))throw new Error(`Primary workspace navigation drifted from the approved 8-destination contract; got ${primary.join(', ')}`);
 for(const id of ['calendar','dailyreports','employees','tenderhub']){
   if(!html.includes(`class=\"nav-secondary\" data-view=\"${id}\"`))throw new Error(`Approved secondary destination missing from More tools: ${id}`);
 }
@@ -40,8 +40,8 @@ for(const label of ['What needs action','Filing deadlines','Evidence checks','AI
 if(!html.includes('id="dashboardDetailPanel"')||!html.includes('Protection health & deadlines'))throw new Error('Home progressive-disclosure panel missing');
 if(!html.includes('class="companyswitch role-context"')||!html.includes('.top>.actions .role-context{display:none!important}'))throw new Error('Mobile role-context simplification missing');
 if(!html.includes('#dashboard .dashboard-intro .muted{display:none!important}'))throw new Error('Mobile Home hero copy reduction missing');
-if(!fullUser.includes('const MIN_OWNER_VIEW_COUNT=7;'))throw new Error('Phase 0 full-user audit must follow the approved seven-destination primary workspace contract');
-if(!fullUser.includes('const MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=7;'))throw new Error('Phase 0 full-user audit must align the visible in-view navigation minimum with the seven-destination workspace contract');
+if(!fullUser.includes('const MIN_OWNER_VIEW_COUNT=8;'))throw new Error('Phase 0 full-user audit must follow the approved eight-destination primary workspace contract');
+if(!fullUser.includes('const MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=8;'))throw new Error('Phase 0 full-user audit must align the visible in-view navigation minimum with the eight-destination workspace contract');
 if(fullUser.includes('const MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=25;'))throw new Error('Phase 0 full-user audit must not require the superseded 25-control in-view navigation contract');
 if(fullUser.includes('const MIN_OWNER_VIEW_COUNT=40;'))throw new Error('Phase 0 full-user audit must not require the superseded 40-visible-nav contract');
 if(!fullUser.includes("button.closest('[hidden]')")||!fullUser.includes("button.offsetParent===null"))throw new Error('Phase 0 full-user audit must exclude hidden specialist index controls from primary visible navigation');
