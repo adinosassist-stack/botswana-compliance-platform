@@ -36,6 +36,10 @@ function performanceHistoryRoute(pathname){
   const m=String(pathname||"").match(/^\/api\/property\/assets\/([^/]+)\/performance-history$/);
   return m?{assetId:text(m[1],64)}:null;
 }
+function valuationEvidenceRoute(pathname){
+  const m=String(pathname||"").match(/^\/api\/property\/assets\/([^/]+)\/professional-valuations\/([^/]+)\/evidence$/);
+  return m?{assetId:text(m[1],64),valuationId:text(m[2],64)}:null;
+}
 function evidenceReady(row){
   return !!row?.evidence_id
     &&String(row?.evidence_review_status||"")==="approved"
@@ -211,6 +215,7 @@ export async function handlePropertyPortfolioRequest({request,url,env,auth,json,
     const body=await readJson(request,{maxBytes:16*1024});
     const current=await env.DB.prepare("SELECT id,asset_code,name,property_type,location_text,tenure_type,currency,acquisition_date,acquisition_cost_minor,annual_rent_minor,annual_operating_cost_minor,debt_balance_minor,status,archived_at,archived_by_user_id,archive_reason FROM property_assets WHERE tenant_id=? AND id=? LIMIT 1").bind(auth.tenant_id,asset.assetId).first();
     if(!current)return json({error:"property_asset_not_found"},404);
+    if(String(current.status)==="archived"&&!roleAllowed(auth,"owner"))return json({error:"owner_required_for_archived_property"},403);
     const next={
       assetCode:body.assetCode===undefined?current.asset_code:(text(body.assetCode,80)||null),
       name:body.name===undefined?current.name:text(body.name,160),
@@ -257,7 +262,7 @@ export async function handlePropertyPortfolioRequest({request,url,env,auth,json,
       return json({error:"property_asset_update_failed"},503);
     }
     await writeAudit(env,auth.tenant_id,auth.user_id,statusChanged?"PROPERTY_ASSET_STATUS_CHANGED":"PROPERTY_ASSET_UPDATED",{
-      propertyId:asset.assetId,fromStatus:current.status,toStatus:next.status,financialSnapshotRecorded:financialChanged,archiveReason:archiveReason||null
+      propertyId:asset.assetId,assetCode:next.assetCode,fromStatus:current.status,toStatus:next.status,financialSnapshotRecorded:financialChanged,archiveReason:archiveReason||null
     });
     return json({ok:true,id:asset.assetId,...next,archivedAt,archivedByUserId,financialSnapshotRecorded:financialChanged});
   }
@@ -316,6 +321,40 @@ export async function handlePropertyPortfolioRequest({request,url,env,auth,json,
       }:null,
       authority:{accountingProfitClaim:false,propertyMarketValuation:false,operatingTrendBasis:"owner_recorded_property_register_snapshots",professionalValueBasis:"recorded_external_professional_reports_only"}
     });
+  }
+
+  const valuationEvidence=valuationEvidenceRoute(path);
+  if(valuationEvidence&&request.method==="POST"){
+    if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);
+    const body=await readJson(request,{maxBytes:8*1024}),evidenceId=text(body.evidenceId,64);
+    if(!evidenceId)return json({error:"evidence_id_required"},400);
+    const valuation=await env.DB.prepare(
+      "SELECT id,property_id FROM property_professional_valuations WHERE tenant_id=? AND property_id=? AND id=? LIMIT 1"
+    ).bind(auth.tenant_id,valuationEvidence.assetId,valuationEvidence.valuationId).first();
+    if(!valuation)return json({error:"professional_valuation_not_found"},404);
+    const evidence=await env.DB.prepare(
+      "SELECT id,display_name,review_status,scan_status,scanned_at,malware_name,deleted_at FROM evidence WHERE tenant_id=? AND id=? LIMIT 1"
+    ).bind(auth.tenant_id,evidenceId).first();
+    if(!evidence||!evidenceReady({
+      evidence_id:evidence.id,evidence_review_status:evidence.review_status,evidence_scan_status:evidence.scan_status,
+      evidence_scanned_at:evidence.scanned_at,evidence_malware_name:evidence.malware_name,evidence_deleted_at:evidence.deleted_at
+    }))return json({error:"valuation_report_evidence_not_ready"},409);
+    try{
+      await env.DB.prepare(
+        "INSERT INTO property_valuation_evidence_links(tenant_id,property_id,valuation_id,evidence_id,link_kind,linked_by_user_id) VALUES(?,?,?,?, 'signed_report',?)"
+      ).bind(auth.tenant_id,valuationEvidence.assetId,valuationEvidence.valuationId,evidenceId,auth.user_id).run();
+    }catch(error){
+      const message=String(error);
+      if(message.includes("property_valuation_evidence_not_ready"))return json({error:"valuation_report_evidence_not_ready"},409);
+      if(message.includes("property_valuation_evidence_valuation_mismatch"))return json({error:"valuation_report_evidence_mismatch"},409);
+      if(/UNIQUE/i.test(message))return json({error:"valuation_report_evidence_already_linked"},409);
+      return json({error:"valuation_report_evidence_link_failed"},503);
+    }
+    await writeAudit(env,auth.tenant_id,auth.user_id,"PROPERTY_VALUATION_EVIDENCE_LINKED",{
+      propertyId:valuationEvidence.assetId,valuationId:valuationEvidence.valuationId,evidenceId,
+      linkKind:"signed_report",evidenceReviewStatus:"approved",evidenceScanStatus:"clean"
+    });
+    return json({ok:true,propertyId:valuationEvidence.assetId,valuationId:valuationEvidence.valuationId,evidenceId,reportEvidenceReady:true},201);
   }
 
   const valuations=valuationsRoute(path);
