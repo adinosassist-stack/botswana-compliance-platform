@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260928-future-v164";
+  const RELEASE="20260928-workspace-v165";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -552,7 +552,7 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260928-future-v164";
+  const DOCK_RELEASE="20260928-workspace-v165";
   const STORE_KEY="thebe_ai_dock_collapsed_v4";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
