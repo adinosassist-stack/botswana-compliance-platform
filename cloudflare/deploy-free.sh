@@ -55,7 +55,6 @@ echo "25l) For this NEW D1 only: ${W} d1 execute bw-compliance-os --remote --fil
 echo "25m) For this NEW D1 only: ${W} d1 execute bw-compliance-os --remote --file=migrations/058_v161_finance_suppliers_payables.sql --config \"\$PROD_CONFIG\""
 echo "25n) For this NEW D1 only: ${W} d1 execute bw-compliance-os --remote --file=migrations/059_v174_property_portfolio_valuation.sql --config \"\$PROD_CONFIG\""
 echo "25o) For this NEW D1 only: ${W} d1 execute bw-compliance-os --remote --file=migrations/060_v175_property_evidence_profitability.sql --config \"\$PROD_CONFIG\""
-echo "25o) For this NEW D1 only: ${W} d1 execute bw-compliance-os --remote --file=migrations/060_v175_property_evidence_profitability.sql --config \"\$PROD_CONFIG\""
 echo "26) ${W} secret put SESSION_SECRET --config \"\$PROD_CONFIG\""
 echo "27) ${W} secret put AUDIT_INTEGRITY_SECRET --config \"\$PROD_CONFIG\""
 echo "28) ${W} secret put OPERATIONS_SECRET --config \"\$PROD_CONFIG\""
