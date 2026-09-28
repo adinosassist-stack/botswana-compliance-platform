@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260928-mascot-v169";
+  const RELEASE="20260928-mascot-v170";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -552,12 +552,12 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260928-mascot-v169";
+  const DOCK_RELEASE="20260928-mascot-v170";
   const STORE_KEY="thebe_ai_dock_collapsed_v4";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
   let dock=null,pill=null,pillLabel=null,orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,input=null,sendButton=null,attentionButton=null,quick=null,foot=null,mascot=null;
-  let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",mascotState="idle",mascotContext="general",collapsed=false;
+  let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",mascotState="idle",mascotContext="general",mascotFocus="ambient",collapsed=false;
 
   const api=(url,options={})=>{
     if(typeof global.apiJson!=="function")throw new Error("The secure Thebe API transport is not available.");
@@ -613,6 +613,12 @@
     if(mascot)mascot.dataset.context=mascotContext;
     if(dock)dock.dataset.agentContext=mascotContext;
     return mascotContext;
+  }
+  function setMascotFocus(focus){
+    const allowed=["ambient","compose","commands","attention","response"];
+    mascotFocus=allowed.includes(focus)?focus:"ambient";
+    if(mascot)mascot.dataset.focus=mascotFocus;
+    if(dock)dock.dataset.agentFocus=mascotFocus;
   }
   function contextualQuestion(question){
     const q=clean(question,MAX_QUESTION);
@@ -711,6 +717,8 @@
     attentionButton.textContent=count?String(count):"";
     attentionButton.setAttribute("aria-label",count?`${count} work item${count===1?"":"s"} need attention`:"No urgent work items");
     if(count)pill.dataset.attention=String(count);else delete pill.dataset.attention;
+    if(mascot)mascot.dataset.attention=count?"true":"false";
+    if(dock)dock.dataset.agentAttention=count?"true":"false";
   }
   function renderVoiceTranscript(){
     if(!transcriptBox)return;
@@ -738,6 +746,7 @@
     responseBox.replaceChildren(el("div","thebe-ai-response-title",state==="thinking"?"Thebe is working":"Thebe"),el("div","thebe-ai-response-answer",message));
   }
   function renderResult(result){
+    setMascotFocus("response");
     setMascotState("success");
     if(!responseBox)return;
     responseBox.dataset.state="ready";
@@ -881,6 +890,10 @@
     const button=el("button","",label);
     button.type="button";
     if(detail)button.append(el("small","",detail));
+    button.addEventListener("focus",()=>setMascotFocus("commands"));
+    button.addEventListener("blur",()=>setMascotFocus("ambient"));
+    button.addEventListener("pointerenter",()=>setMascotFocus("commands"));
+    button.addEventListener("pointerleave",()=>{if(document.activeElement!==button)setMascotFocus("ambient")});
     button.addEventListener("click",()=>ask(mode,question));
     return button;
   }
@@ -921,6 +934,10 @@
     const headActions=el("div","thebe-ai-head-actions");
     attentionButton=el("button","thebe-ai-attention","");
     attentionButton.type="button";
+    attentionButton.addEventListener("focus",()=>setMascotFocus("attention"));
+    attentionButton.addEventListener("blur",()=>setMascotFocus("ambient"));
+    attentionButton.addEventListener("pointerenter",()=>setMascotFocus("attention"));
+    attentionButton.addEventListener("pointerleave",()=>{if(document.activeElement!==attentionButton)setMascotFocus("ambient")});
     attentionButton.addEventListener("click",()=>{openView("workhub");if(mobileDockMode())setCollapsed(true)});
     const minimize=el("button","thebe-ai-icon-btn thebe-ai-minimize","—");
     minimize.type="button";minimize.setAttribute("aria-label","Minimise Thebe on mobile");
@@ -957,7 +974,7 @@
       wave.append(line);
     }
     const core=el("span","thebe-particle-core");
-    mascot=el("span","thebe-mascot");mascot.dataset.state=mascotState;mascot.dataset.context=mascotContext;mascot.setAttribute("aria-hidden","true");
+    mascot=el("span","thebe-mascot");mascot.dataset.state=mascotState;mascot.dataset.context=mascotContext;mascot.dataset.focus=mascotFocus;mascot.dataset.attention="false";mascot.setAttribute("aria-hidden","true");
     const bot=document.createElementNS(svgNS,"svg");bot.setAttribute("viewBox","0 0 96 96");bot.setAttribute("class","thebe-mascot-svg");
     const orbit=document.createElementNS(svgNS,"circle");orbit.setAttribute("class","thebe-mascot-orbit");orbit.setAttribute("cx","48");orbit.setAttribute("cy","48");orbit.setAttribute("r","40");
     const antenna=document.createElementNS(svgNS,"path");antenna.setAttribute("class","thebe-mascot-antenna");antenna.setAttribute("d","M48 25V16");
@@ -1014,6 +1031,8 @@
     sendButton=el("button","thebe-ai-send","↑");sendButton.type="submit";sendButton.setAttribute("aria-label","Send to Thebe");
     compose.append(input,sendButton);
     compose.addEventListener("submit",event=>{event.preventDefault();const value=input.value;if(textBusy||clean(value,MAX_QUESTION).length<3)return;input.value="";void ask("ask",value)});
+    input.addEventListener("focus",()=>setMascotFocus("compose"));
+    input.addEventListener("blur",()=>setMascotFocus("ambient"));
     input.addEventListener("keydown",event=>{if(event.key==="Enter"&&!event.shiftKey&&!event.isComposing){event.preventDefault();compose.requestSubmit()}});
 
     foot=el("div","thebe-ai-foot","Advisory by default · governed actions still require the existing approval controls.");
@@ -1143,6 +1162,6 @@
     open:()=>setCollapsed(false),
     close:()=>setCollapsed(true),
     ask:(question,mode="ask")=>ask(mode,question),
-    state:()=>({collapsed:effectiveCollapsed(),mobileCollapsedPreference:collapsed,mobile:mobileDockMode(),voicePhase,mascotState,mascotContext,textBusy,workspaceVisible:shellVisible(),dockHidden:dock?.hidden??true,pillHidden:pill?.hidden??true,context:activeContext()})
+    state:()=>({collapsed:effectiveCollapsed(),mobileCollapsedPreference:collapsed,mobile:mobileDockMode(),voicePhase,mascotState,mascotContext,mascotFocus,textBusy,workspaceVisible:shellVisible(),dockHidden:dock?.hidden??true,pillHidden:pill?.hidden??true,context:activeContext()})
   });
 })(window);
