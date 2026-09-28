@@ -1,6 +1,6 @@
 import {DEFAULT_RUNTIME_MARKET_CODE,marketBusinessDate} from "./market-profile.js";
 
-export const PROPERTY_VALUATION_SERVICES_VERSION="2026-09-27.v177";
+export const PROPERTY_VALUATION_SERVICES_VERSION="2026-09-28.v179";
 const PURPOSES=new Set(["finance","sale","purchase","insurance","financial_reporting","estate","legal","tax","internal","other"]);
 const CUSTOMER_CANCELABLE=new Set(["requested","quoted","awaiting_payment"]);
 const OPS_TRANSITIONS=Object.freeze({
@@ -13,8 +13,21 @@ const text=(value,max=500)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g,"
 const validDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(String(value||""))&&!Number.isNaN(Date.parse(String(value)+"T00:00:00Z"));
 const phone=value=>text(value,40).replace(/[^+0-9 ()-]/g,"");
 const safeJson=value=>{try{return JSON.parse(String(value||"{}"))}catch{return {}}};
+function professionalCredentialReady(row,now=Date.now()){
+  if(!row||String(row.verification_status||"")!=="verified")return false;
+  if(!["property_valuer","valuer","registered_valuer"].includes(String(row.professional_type||"").toLowerCase()))return false;
+  if(text(row.registration_ref,120).length<2||text(row.registration_authority,160).length<2||text(row.registration_jurisdiction,80).length<2)return false;
+  if(!row.credential_verified_at)return false;
+  if(row.registration_valid_until){
+    const expiry=Date.parse(String(row.registration_valid_until)+"T23:59:59Z");
+    if(!Number.isFinite(expiry)||expiry<Number(now))return false;
+  }
+  return true;
+}
 const requestRoute=pathname=>{const m=String(pathname||"").match(/^\/api\/property\/valuation-services\/([^/]+)$/);return m?{requestId:text(m[1],64)}:null};
 const internalRoute=pathname=>{const m=String(pathname||"").match(/^\/api\/internal\/property\/valuation-services\/([^/]+)\/([^/]+)$/);return m?{requestId:text(m[1],64),action:text(m[2],32)}:null};
+const professionalCredentialRoute=pathname=>{const m=String(pathname||"").match(/^\/api\/internal\/property\/valuation-services\/professionals\/([^/]+)\/credential$/);return m?{professionalUserId:text(m[1],64)}:null};
+const professionalsRoute=pathname=>String(pathname||"")==="/api/internal/property/valuation-services/professionals";
 
 async function event(env,row,eventType,actorUserId,data={}){
   await env.DB.prepare("INSERT INTO property_valuation_service_events(request_id,tenant_id,event_type,actor_user_id,event_data) VALUES(?,?,?,?,?)")
@@ -47,7 +60,10 @@ async function syncPaymentStatus(env,row){
 async function readRequest(env,tenantId,requestId){
   return env.DB.prepare(
     "SELECT r.*,a.name property_name,a.location_text property_location,a.property_type,o.status service_order_status,"+
-    "p.display_name professional_name,p.professional_type,p.verification_status professional_verification_status "+
+    "p.display_name professional_name,p.professional_type,p.verification_status professional_verification_status,"+
+    "p.registration_ref professional_registration_ref,p.registration_authority professional_registration_authority,"+
+    "p.registration_jurisdiction professional_registration_jurisdiction,p.registration_valid_until professional_registration_valid_until,"+
+    "p.credential_verified_at professional_credential_verified_at "+
     "FROM property_valuation_service_requests r JOIN property_assets a ON a.id=r.property_id AND a.tenant_id=r.tenant_id "+
     "LEFT JOIN service_orders o ON o.id=r.service_order_id LEFT JOIN professional_profiles p ON p.user_id=r.assigned_professional_user_id "+
     "WHERE r.tenant_id=? AND r.id=? LIMIT 1"
@@ -79,10 +95,25 @@ function publicItem(row){
     quotedFeeBwp:row.quoted_fee_bwp==null?null:Number(row.quoted_fee_bwp),quoteIssuedAt:row.quote_issued_at||null,quoteExpiresAt:row.quote_expires_at||null,
     quoteExpired:expired,payable:row.status==="awaiting_payment"&&!expired&&row.service_order_status==="awaiting_payment",
     serviceOrderId:row.service_order_id||null,serviceOrderStatus:row.service_order_status||null,
-    assignedProfessional:row.assigned_professional_user_id?{displayName:text(row.professional_name,160),professionalType:text(row.professional_type,80),verificationStatus:text(row.professional_verification_status,32),registrationRef:text(row.assigned_professional_registration_ref,120)}:null,
+    assignedProfessional:row.assigned_professional_user_id?{
+      displayName:text(row.professional_name,160),professionalType:text(row.professional_type,80),
+      verificationStatus:text(row.professional_verification_status,32),
+      registrationRef:text(row.professional_registration_ref||row.assigned_professional_registration_ref,120),
+      registrationAuthority:text(row.professional_registration_authority,160),
+      registrationJurisdiction:text(row.professional_registration_jurisdiction,80),
+      registrationValidUntil:row.professional_registration_valid_until||null,
+      credentialVerifiedAt:row.professional_credential_verified_at||null,
+      credentialReady:professionalCredentialReady({
+        verification_status:row.professional_verification_status,professional_type:row.professional_type,
+        registration_ref:row.professional_registration_ref,registration_authority:row.professional_registration_authority,
+        registration_jurisdiction:row.professional_registration_jurisdiction,registration_valid_until:row.professional_registration_valid_until,
+        credential_verified_at:row.professional_credential_verified_at
+      }),
+      credentialBindingSource:"verified_professional_profile"
+    }:null,
     inspectionScheduledAt:row.inspection_scheduled_at||null,issuedValuationId:row.issued_valuation_id||null,
     issuedReportEvidenceId:row.issued_report_evidence_id||null,createdAt:row.created_at||null,updatedAt:row.updated_at||null,completedAt:row.completed_at||null,
-    authority:{thebeIsWorkflowPlatform:true,thebeCreatesValuation:false,thebeSignsValuation:false,humanProfessionalSignoffRequired:true,verifiedValuerAssignmentRequired:true}
+    authority:{thebeIsWorkflowPlatform:true,thebeCreatesValuation:false,thebeSignsValuation:false,humanProfessionalSignoffRequired:true,verifiedValuerAssignmentRequired:true,professionalCredentialRecordedNotCertifiedByThebe:true}
   };
 }
 
@@ -94,7 +125,10 @@ export async function handlePropertyValuationServicesRequest({request,url,env,au
     if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
     const rows=await env.DB.prepare(
       "SELECT r.*,a.name property_name,a.location_text property_location,a.property_type,o.status service_order_status,"+
-      "p.display_name professional_name,p.professional_type,p.verification_status professional_verification_status "+
+      "p.display_name professional_name,p.professional_type,p.verification_status professional_verification_status,"+
+      "p.registration_ref professional_registration_ref,p.registration_authority professional_registration_authority,"+
+      "p.registration_jurisdiction professional_registration_jurisdiction,p.registration_valid_until professional_registration_valid_until,"+
+      "p.credential_verified_at professional_credential_verified_at "+
       "FROM property_valuation_service_requests r JOIN property_assets a ON a.id=r.property_id AND a.tenant_id=r.tenant_id "+
       "LEFT JOIN service_orders o ON o.id=r.service_order_id LEFT JOIN professional_profiles p ON p.user_id=r.assigned_professional_user_id "+
       "WHERE r.tenant_id=? ORDER BY r.created_at DESC LIMIT 200"
@@ -102,6 +136,76 @@ export async function handlePropertyValuationServicesRequest({request,url,env,au
     const items=[];for(const raw of rows.results||[])items.push(publicItem(await syncPaymentStatus(env,raw)));
     return json({available:true,version:PROPERTY_VALUATION_SERVICES_VERSION,items,summary:serviceSummary(items),commercialModel:"quote_then_verified_payment",
       authority:{thebeCreatesValuation:false,thebeSignsValuation:false,humanProfessionalSignoffRequired:true,credentialBoundIssuance:true}});
+  }
+
+  if(professionalsRoute(path)&&request.method==="GET"){
+    const supplied=request.headers.get("x-operations-secret")||"";
+    const gate=await privilegedSecretGate(env,request,"operations-secret",supplied,env.OPERATIONS_SECRET,auth?.user_id||"");if(!gate.ok)return gate.response;
+    const rows=await env.DB.prepare(
+      "SELECT p.user_id,u.email,p.display_name,p.professional_type,p.verification_status,p.registration_ref,p.registration_authority,p.registration_jurisdiction,p.registration_valid_until,p.credential_verified_at,p.credential_verified_by_user_id,p.updated_at "+
+      "FROM professional_profiles p JOIN users u ON u.id=p.user_id "+
+      "WHERE lower(p.professional_type) IN ('property_valuer','valuer','registered_valuer') ORDER BY p.verification_status,p.display_name LIMIT 200"
+    ).all();
+    const items=(rows.results||[]).map(row=>({
+      userId:String(row.user_id||""),email:text(row.email,240),displayName:text(row.display_name,160),professionalType:text(row.professional_type,80),
+      verificationStatus:text(row.verification_status,32),registrationRef:text(row.registration_ref,120),
+      registrationAuthority:text(row.registration_authority,160),registrationJurisdiction:text(row.registration_jurisdiction,80),
+      registrationValidUntil:row.registration_valid_until||null,credentialVerifiedAt:row.credential_verified_at||null,
+      credentialReady:professionalCredentialReady(row),updatedAt:row.updated_at||null
+    }));
+    return json({items,authority:{thebeRecordsCredentialMetadata:true,thebeCertifiesProfessionalCredentials:false,assignmentRequiresReadyCredential:true}});
+  }
+
+  const credential=professionalCredentialRoute(path);
+  if(credential&&request.method==="POST"){
+    const supplied=request.headers.get("x-operations-secret")||"";
+    const gate=await privilegedSecretGate(env,request,"operations-secret",supplied,env.OPERATIONS_SECRET,auth?.user_id||"");if(!gate.ok)return gate.response;
+    const body=await readJson(request,{maxBytes:16*1024});
+    const user=await env.DB.prepare("SELECT id,email,display_name FROM users WHERE id=? LIMIT 1").bind(credential.professionalUserId).first();
+    if(!user)return json({error:"professional_user_not_found"},404);
+    const professionalType=text(body.professionalType||"registered_valuer",80).toLowerCase();
+    if(!["property_valuer","valuer","registered_valuer"].includes(professionalType))return json({error:"invalid_property_valuer_type"},400);
+    const verificationStatus=text(body.verificationStatus||"verified",32).toLowerCase();
+    if(!["pending","verified","suspended"].includes(verificationStatus))return json({error:"invalid_professional_verification_status"},400);
+    const displayName=text(body.displayName||user.display_name||user.email,160);
+    const registrationRef=text(body.registrationRef,120),registrationAuthority=text(body.registrationAuthority,160),
+      registrationJurisdiction=text(body.registrationJurisdiction,80),registrationValidUntil=text(body.registrationValidUntil,10)||null,
+      note=text(body.verificationNote,500);
+    if(registrationValidUntil&&!validDate(registrationValidUntil))return json({error:"invalid_registration_valid_until"},400);
+    if(verificationStatus==="verified"&&(registrationRef.length<2||registrationAuthority.length<2||registrationJurisdiction.length<2))
+      return json({error:"professional_valuer_credential_required"},400);
+    const prior=await env.DB.prepare("SELECT verification_status,registration_ref FROM professional_profiles WHERE user_id=? LIMIT 1").bind(user.id).first();
+    const verifiedAt=verificationStatus==="verified"?new Date().toISOString():null;
+    const eventType=verificationStatus==="suspended"?"CREDENTIAL_SUSPENDED":verificationStatus==="verified"?"CREDENTIAL_VERIFIED":prior?"CREDENTIAL_UPDATED":"CREDENTIAL_RECORDED";
+    try{
+      await env.DB.batch([
+        env.DB.prepare(
+          "INSERT INTO professional_profiles(user_id,professional_type,display_name,verification_status,service_categories_json,registration_ref,registration_authority,registration_jurisdiction,registration_valid_until,credential_verified_at,credential_verified_by_user_id,credential_verification_note,updated_at) "+
+          "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP) "+
+          "ON CONFLICT(user_id) DO UPDATE SET professional_type=excluded.professional_type,display_name=excluded.display_name,verification_status=excluded.verification_status,"+
+          "registration_ref=excluded.registration_ref,registration_authority=excluded.registration_authority,registration_jurisdiction=excluded.registration_jurisdiction,"+
+          "registration_valid_until=excluded.registration_valid_until,credential_verified_at=excluded.credential_verified_at,credential_verified_by_user_id=excluded.credential_verified_by_user_id,"+
+          "credential_verification_note=excluded.credential_verification_note,updated_at=CURRENT_TIMESTAMP"
+        ).bind(user.id,professionalType,displayName,verificationStatus,JSON.stringify(["property_valuation"]),registrationRef||null,registrationAuthority||null,registrationJurisdiction||null,registrationValidUntil,verifiedAt,verificationStatus==="verified"?auth.user_id:null,note||null),
+        env.DB.prepare(
+          "INSERT INTO professional_credential_events(professional_user_id,actor_user_id,event_type,registration_ref,registration_authority,registration_jurisdiction,registration_valid_until,event_data) VALUES(?,?,?,?,?,?,?,?)"
+        ).bind(user.id,auth.user_id,eventType,registrationRef||null,registrationAuthority||null,registrationJurisdiction||null,registrationValidUntil,JSON.stringify({verificationStatus,previousVerificationStatus:prior?.verification_status||null,previousRegistrationRef:prior?.registration_ref||null,note:note||null}))
+      ]);
+    }catch(error){
+      const message=String(error);
+      if(message.includes("professional_valuer_credential_required"))return json({error:"professional_valuer_credential_required"},409);
+      if(message.includes("professional_valuer_credential_expired"))return json({error:"professional_valuer_credential_expired"},409);
+      if(message.includes("professional_valuer_credential_verification_required"))return json({error:"professional_valuer_credential_verification_required"},409);
+      if(/UNIQUE/i.test(message))return json({error:"professional_registration_already_bound"},409);
+      return json({error:"professional_credential_write_failed"},503);
+    }
+    await writeAudit(env,auth.tenant_id,auth.user_id,"PROPERTY_VALUER_CREDENTIAL_RECORDED",{
+      professionalUserId:user.id,verificationStatus,registrationRef:registrationRef||null,
+      registrationAuthority:registrationAuthority||null,registrationJurisdiction:registrationJurisdiction||null,registrationValidUntil
+    });
+    return json({ok:true,userId:user.id,verificationStatus,registrationRef:registrationRef||null,registrationAuthority:registrationAuthority||null,
+      registrationJurisdiction:registrationJurisdiction||null,registrationValidUntil,credentialReady:verificationStatus==="verified",
+      authority:{thebeRecordsCredentialMetadata:true,thebeCertifiesProfessionalCredentials:false}},verificationStatus==="verified"?200:202);
   }
 
   if(path==="/api/property/valuation-services"&&request.method==="POST"){
@@ -200,21 +304,37 @@ export async function handlePropertyValuationServicesRequest({request,url,env,au
 
     if(internal.action==="assign"){
       const synced=await syncPaymentStatus(env,row);if(!["paid","assigned"].includes(synced.status))return json({error:"valuation_service_payment_required",status:synced.status},409);
-      const professionalUserId=text(body.professionalUserId,64),registrationRef=text(body.registrationRef,120);
+      const professionalUserId=text(body.professionalUserId,64);
       if(!professionalUserId)return json({error:"professional_user_required"},400);
-      if(registrationRef.length<2)return json({error:"professional_registration_required"},400);
+      const professional=await env.DB.prepare(
+        "SELECT user_id,display_name,professional_type,verification_status,registration_ref,registration_authority,registration_jurisdiction,registration_valid_until,credential_verified_at "+
+        "FROM professional_profiles WHERE user_id=? LIMIT 1"
+      ).bind(professionalUserId).first();
+      if(!professionalCredentialReady(professional))return json({error:"verified_property_valuer_credential_required"},409);
+      const suppliedRegistrationRef=text(body.registrationRef,120);
+      if(suppliedRegistrationRef&&suppliedRegistrationRef.toLowerCase()!==String(professional.registration_ref||"").trim().toLowerCase())
+        return json({error:"professional_registration_mismatch"},409);
+      const registrationRef=text(professional.registration_ref,120);
       try{
         await env.DB.prepare("UPDATE property_valuation_service_requests SET status='assigned',assigned_professional_user_id=?,assigned_professional_registration_ref=?,updated_at=CURRENT_TIMESTAMP WHERE id=?")
           .bind(professionalUserId,registrationRef,row.id).run();
       }catch(error){
-        if(String(error).includes("property_valuation_service_professional_not_verified"))return json({error:"verified_property_valuer_required"},409);
-        if(String(error).includes("property_valuation_service_registration_required"))return json({error:"professional_registration_required"},409);
+        const message=String(error);
+        if(message.includes("property_valuation_service_professional_credential_mismatch"))return json({error:"verified_property_valuer_credential_required"},409);
+        if(message.includes("property_valuation_service_professional_not_verified"))return json({error:"verified_property_valuer_required"},409);
+        if(message.includes("property_valuation_service_registration_required"))return json({error:"professional_registration_required"},409);
         throw error;
       }
       await env.DB.prepare("UPDATE service_orders SET status='assigned',professional_user_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='paid'")
         .bind(professionalUserId,row.service_order_id).run();
-      await event(env,row,"PROFESSIONAL_ASSIGNED",auth.user_id,{professionalUserId,registrationRef});
-      return json({ok:true,status:"assigned",professionalUserId,registrationRef});
+      await event(env,row,"PROFESSIONAL_ASSIGNED",auth.user_id,{
+        professionalUserId,registrationRef,registrationAuthority:professional.registration_authority,
+        registrationJurisdiction:professional.registration_jurisdiction,registrationValidUntil:professional.registration_valid_until||null,
+        credentialBindingSource:"verified_professional_profile"
+      });
+      return json({ok:true,status:"assigned",professionalUserId,registrationRef,
+        registrationAuthority:professional.registration_authority,registrationJurisdiction:professional.registration_jurisdiction,
+        registrationValidUntil:professional.registration_valid_until||null,credentialBindingSource:"verified_professional_profile"});
     }
 
     if(internal.action==="advance"){
@@ -235,7 +355,7 @@ export async function handlePropertyValuationServicesRequest({request,url,env,au
           .bind(valuationId,reportEvidenceId,row.id).run();
       }catch(error){
         if(String(error).includes("property_valuation_service_issuance_incomplete")||String(error).includes("property_valuation_service_report_not_linked"))return json({error:"governed_signed_report_required"},409);
-        if(String(error).includes("property_valuation_service_registration_required")||String(error).includes("property_valuation_service_credential_mismatch"))return json({error:"assigned_valuer_credential_mismatch"},409);
+        if(String(error).includes("property_valuation_service_registration_required")||String(error).includes("property_valuation_service_credential_mismatch")||String(error).includes("property_valuation_service_professional_credential_mismatch"))return json({error:"assigned_valuer_credential_mismatch"},409);
         throw error;
       }
       if(row.service_order_id)await env.DB.prepare("UPDATE service_orders SET status='completed',completed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(row.service_order_id).run();
@@ -245,4 +365,4 @@ export async function handlePropertyValuationServicesRequest({request,url,env,au
   }
   return null;
 }
-export const __propertyValuationServicesTest=Object.freeze({PURPOSES,CUSTOMER_CANCELABLE,OPS_TRANSITIONS,quoteExpired,serviceSummary});
+export const __propertyValuationServicesTest=Object.freeze({PURPOSES,CUSTOMER_CANCELABLE,OPS_TRANSITIONS,quoteExpired,serviceSummary,professionalCredentialReady});
