@@ -41,6 +41,10 @@ ok('direct registration verifies usability by logging in after creation',direct.
 ok('existing registration uses password recovery instead of replacing credentials',direct.includes('/api/auth/password-reset/request')&&direct.includes('Registration never replaces an existing password'));
 ok('owner workspace selection is completed with an explicit tenant login',direct.includes('finishWorkspaceSelection')&&direct.includes('tenantId')&&direct.includes('Opening owner workspace'));
 ok('registration protection error is user-readable',api.includes('registration_protection_failed:"Registration protection expired'));
+const clientAuthTransportRelease=api.match(/const AUTH_TRANSPORT_PROBE_RELEASE="([^"]+)"/)?.[1];
+const workerAuthTransportRelease=worker.match(/const AUTH_TRANSPORT_PROBE_RELEASE="([^"]+)"/)?.[1];
+ok('auth transport attestation version stays aligned between browser and Worker',!!clientAuthTransportRelease&&clientAuthTransportRelease===workerAuthTransportRelease);
+ok('auth transport probe returns the dedicated attestation release rather than the mutable client runtime release',worker.includes('release:AUTH_TRANSPORT_PROBE_RELEASE')&&worker.includes('runtimeRelease:CLIENT_RUNTIME_RELEASE'));
 
 ok('platform owner repair is scoped to the explicit owner email',ownerAccess.includes('PLATFORM_OWNER_EMAIL="thebedesk@gmail.com"'));
 ok('platform owner access cannot run until the stored password verifies',ownerAccess.indexOf('verifyStoredPassword(password,user.password_hash)')<ownerAccess.indexOf('ensurePlatformOwnerAccess(env,user.id)'));

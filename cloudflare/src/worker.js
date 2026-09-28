@@ -40,6 +40,7 @@ const API_TRANSPORT_PREFIX="/__thebe_api";
 const API_TUNNEL_PATH_PARAM="__thebe_api_path";
 const API_TUNNEL_QUERY_PARAM="__thebe_api_query";
 const REGISTER_TRANSPORT_PROBE_PATH="/api/auth/register-transport-probe";
+const AUTH_TRANSPORT_PROBE_RELEASE="20260906-registration-post-capability-v1";
 const CLIENT_RUNTIME_RELEASE="20260921-workspace-actions-v1";
 function logicalApiPath(pathname){const path=String(pathname||"");if(path===API_TRANSPORT_PREFIX)return "/api";if(path.startsWith(`${API_TRANSPORT_PREFIX}/`))return `/api${path.slice(API_TRANSPORT_PREFIX.length)}`;return null}
 function tunnelPathSegmentSafe(segment){if(segment==="."||segment==="..")return false;try{const decoded=decodeURIComponent(segment);return decoded!=="."&&decoded!==".."}catch{return false}}
@@ -63,7 +64,7 @@ function evidenceMutationDisabled(url,method){
   return method==="POST"&&/^\/api\/evidence\/[^/]+\/(complete|scan-retry)$/.test(url.pathname);
 }
 function registrationProbeOriginAllowed(request,url){const origin=String(request.headers.get("origin")||"").trim();if(!origin)return true;try{return new URL(origin).origin===url.origin}catch{return false}}
-function authTransportProbeResponse(transport){return json({ok:true,transport,release:CLIENT_RUNTIME_RELEASE},200,{"x-thebe-client-release":CLIENT_RUNTIME_RELEASE})}
+function authTransportProbeResponse(transport){return json({ok:true,transport,release:AUTH_TRANSPORT_PROBE_RELEASE,runtimeRelease:CLIENT_RUNTIME_RELEASE},200,{"x-thebe-auth-transport-release":AUTH_TRANSPORT_PROBE_RELEASE,"x-thebe-client-release":CLIENT_RUNTIME_RELEASE})}
 async function versionRuntimeResponse(response,request,url){
   const headers=new Headers(response.headers);
   const immutableWorkspaceRuntime=/^\/js\/workspace-runtime-[a-z0-9.-]+\.js$/i.test(url.pathname);
