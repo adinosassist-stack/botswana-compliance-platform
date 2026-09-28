@@ -1276,3 +1276,43 @@
 @media(prefers-reduced-motion:reduce){
   .thebe-mascot[data-context]{animation:none!important}
 }
+
+
+/* V170 interaction awareness — Thebe subtly attends to the active control without overriding agent state. */
+@keyframes thebe-mascot-ack-v170{
+  0%,100%{transform:rotate(0deg) translateY(0)}
+  38%{transform:rotate(1.4deg) translateY(1px)}
+  70%{transform:rotate(-.7deg) translateY(0)}
+}
+.thebe-mascot[data-state="idle"][data-focus="compose"],
+.thebe-mascot[data-state="ready"][data-focus="compose"]{
+  --thebe-eye-x:1.1px;
+  --thebe-eye-y:2px;
+}
+.thebe-mascot[data-state="idle"][data-focus="commands"],
+.thebe-mascot[data-state="ready"][data-focus="commands"]{
+  --thebe-eye-x:-1.2px;
+  --thebe-eye-y:1.5px;
+}
+.thebe-mascot[data-state="idle"][data-focus="attention"],
+.thebe-mascot[data-state="ready"][data-focus="attention"]{
+  --thebe-eye-x:1.8px;
+  --thebe-eye-y:-1.5px;
+}
+.thebe-mascot[data-state="idle"][data-focus="response"],
+.thebe-mascot[data-state="ready"][data-focus="response"]{
+  --thebe-eye-x:-.8px;
+  --thebe-eye-y:1.4px;
+}
+.thebe-mascot[data-attention="true"][data-state="idle"] .thebe-mascot-beacon,
+.thebe-mascot[data-attention="true"][data-state="ready"] .thebe-mascot-beacon{
+  animation:thebe-mascot-context-pulse-v169 2.4s ease-in-out infinite;
+  opacity:1;
+}
+.thebe-mascot[data-state="success"][data-focus="response"] .thebe-mascot-shell{
+  animation:thebe-mascot-success-v168 1.6s ease-in-out 2,thebe-mascot-ack-v170 .72s ease-out 1;
+}
+@media(prefers-reduced-motion:reduce){
+  .thebe-mascot[data-focus],
+  .thebe-mascot[data-focus] *{animation:none!important}
+}
