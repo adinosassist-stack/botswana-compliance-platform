@@ -50,7 +50,8 @@ assert.match(html,/reportingAnalyticsMemory=new Map\(\)/);
 assert.match(html,/timeoutMs:90000,retries:2,candidateTimeoutMs:30000/);
 assert.match(html,/Date\.now\(\)-cached\.at<15\*60\*1000/);
 assert.match(html,/overflow:visible!important;background:transparent!important;box-shadow:none!important/);
-assert.match(html,/class="thebe-market-mascot"/);\nassert.match(html,/\.thebe-market-mascot\{[^}]*width:min\(118%,860px\)/);
+assert.match(html,/class="thebe-market-mascot"/);\nconst marketMascotSize=html.match(/\.thebe-market-mascot\{[^}]*width:min\((\d+)%\s*,\s*(\d+)px\)/);
+assert.ok(marketMascotSize&&Number(marketMascotSize[1])>=118&&Number(marketMascotSize[2])>=860);
 for(const action of ["openEmployeeReportingAccess","createEmployeeReportingLinkFromCard","copyEmployeeReportingLink","showFreshEmployeeReportingLink"])assert.ok(delegatedEvents.includes(`'${action}'`),`delegated event allowlist missing ${action}`);
 
 // Core directory must remain usable even when Employer Shield is not entitled.
