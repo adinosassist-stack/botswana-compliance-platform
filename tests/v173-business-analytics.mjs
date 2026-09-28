@@ -56,6 +56,25 @@ assert.ok(analytics.signals.some(x=>x.key==="overdue_receivables"));
 assert.ok(analytics.signals.some(x=>x.key==="overdue_compliance"));
 assert.equal(analytics.changes.outflowChangePercentagePoints,24.4);
 
+const propertyCommercial=buildBusinessAnalytics({
+  ...context,
+  property:{
+    available:true,assetCount:3,valuedAssetCount:2,unvaluedAssetCount:1,staleProfessionalValuationCount:0,
+    professionalValuationRenewalDueCount:0,professionalValuationRenewalDueSoonCount:1,valuationReportEvidenceGapCount:0,
+    acquisitionCostMinor:300000000,annualRentMinor:24000000,annualOperatingCostMinor:4000000,netOperatingIncomeProxyMinor:20000000,
+    debtBalanceMinor:90000000,recordedProfessionalValueMinor:260000000,valuationCoveragePct:66.7,debtToRecordedProfessionalValueRatio:0.3462,
+    valuationServices:{available:true,awaitingPaymentCount:3,awaitingPaymentValueBwp:4500,payableQuoteCount:2,payableQuoteValueBwp:3200,expiredQuoteCount:1,expiredQuoteValueBwp:1300,inProgressCount:1,completedCount:2,completedServiceValueBwp:5000}
+  }
+});
+assert.equal(propertyCommercial.domains.property.portfolioAnalyticsAvailable,true);
+assert.equal(propertyCommercial.domains.property.valuationServicesAvailable,true);
+assert.equal(propertyCommercial.domains.property.valuationServicePayableQuoteCount,2);
+assert.equal(propertyCommercial.domains.property.valuationServicePayableQuoteValueBwp,3200);
+assert.equal(propertyCommercial.domains.property.valuationServiceExpiredQuoteCount,1);
+assert.equal(propertyCommercial.domains.property.valuationServiceCompletedValueBwp,5000);
+assert.ok(propertyCommercial.signals.some(x=>x.key==="property_valuation_quote_payment_due"));
+assert.ok(propertyCommercial.signals.some(x=>x.key==="property_valuation_quote_expired"));
+
 const stale=buildBusinessAnalytics({
   ...context,
   finance:{...context.finance,reconciliation:{unresolvedCount:2,unresolvedExposureMinor:100000,stale:true}}
@@ -86,6 +105,8 @@ assert.match(worker,/analytics:businessPayload\.analytics\|\|null/);
 assert.match(owner,/Analytics v1/);
 assert.match(owner,/ownerAnalyticsPanel/);
 assert.match(owner,/renderBusinessAnalytics/);
+assert.match(owner,/Open valuation payments/);
+assert.match(owner,/payable quote\(s\) worth/);
 assert.match(analyticsSource,/cash movement and margin proxies are not accounting profit/i);
 assert.match(analyticsSource,/registeredValuerSignOffRequiredForProfessionalValuation:true/);
 assert.doesNotMatch(analyticsSource,/executionAllowed:true/);
