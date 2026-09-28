@@ -1,7 +1,7 @@
 (function initOwnerCommandCentre(global){
   "use strict";
 
-  const RELEASE="20260929-v172";
+  const RELEASE="20260929-v173";
   const MAX_OPPORTUNITIES=500;
   const MAX_CAMPAIGNS=50;
   const PROFILE_KEYS=Object.freeze({
@@ -457,7 +457,7 @@
     const previous=latestAgentControlState&&typeof latestAgentControlState==="object"?latestAgentControlState:{};
     const requests=Array.isArray(taskRequestsPayload?.items)?taskRequestsPayload.items:[];
     const pendingReviews=taskRequestsPayload
-      ?requests.filter(item=>["prepared","approved"].includes(String(item?.status||""))).length
+      ?requests.filter(item=>String(item?.status||"")==="prepared").length
       :Number(previous.pendingReviews||0);
     const approvedRequests=taskRequestsPayload
       ?requests.filter(item=>String(item?.status||"")==="approved").length
@@ -974,12 +974,20 @@
     }
 
     const requests=Array.isArray(taskRequestsPayload?.items)?taskRequestsPayload.items:[];
-    const reviewable=requests.filter(item=>["prepared","approved"].includes(String(item?.status||""))).slice(0,8);
+    const reviewable=requests.filter(item=>String(item?.status||"")==="prepared").slice(0,8);
     if(reviewable.length){
       section.append(text("h4","Needs owner review"));
       const list=document.createElement("div");
       list.className="owner-agentic-proposals";
       reviewable.forEach(item=>list.append(boundedTaskRequestCard(item,{executionEnabled})));
+      section.append(list);
+    }
+    const approved=requests.filter(item=>String(item?.status||"")==="approved").slice(0,8);
+    if(approved.length){
+      section.append(text("h4","Approved internal task requests"));
+      const list=document.createElement("div");
+      list.className="owner-agentic-proposals";
+      approved.forEach(item=>list.append(boundedTaskRequestCard(item,{executionEnabled})));
       section.append(list);
     }
 
