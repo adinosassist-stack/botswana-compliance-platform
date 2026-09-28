@@ -1276,3 +1276,88 @@
 @media(prefers-reduced-motion:reduce){
   .thebe-mascot[data-context]{animation:none!important}
 }
+
+
+/* V170 governed mission rail — truthful progress plus Owner Command Centre state, no execution inference. */
+.thebe-ai-mission{display:none}
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-mission{
+  grid-column:1/-1;
+  display:grid;
+  gap:6px;
+  padding:8px 10px 9px;
+  border:1px solid rgba(143,210,255,.24);
+  border-radius:12px;
+  background:#064fa8;
+}
+.thebe-ai-mission-track{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:4px;
+}
+.thebe-ai-mission-segment{
+  height:3px;
+  border-radius:999px;
+  background:#0a3f7f;
+}
+.thebe-ai-mission[data-stage="1"] .thebe-ai-mission-segment:nth-child(-n+1),
+.thebe-ai-mission[data-stage="2"] .thebe-ai-mission-segment:nth-child(-n+2),
+.thebe-ai-mission[data-stage="3"] .thebe-ai-mission-segment:nth-child(-n+3),
+.thebe-ai-mission[data-stage="4"] .thebe-ai-mission-segment:nth-child(-n+4){
+  background:#8fd2ff;
+}
+.thebe-ai-mission[data-tone="review"] .thebe-ai-mission-segment:nth-child(4){
+  background:#ffb648;
+}
+.thebe-ai-mission[data-tone="error"] .thebe-ai-mission-segment:first-child{
+  background:#ff6268;
+}
+.thebe-ai-mission[data-tone="success"] .thebe-ai-mission-segment{
+  background:#83e7b8;
+}
+.thebe-ai-mission-copy{
+  min-width:0;
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:10px;
+}
+.thebe-ai-mission-label{
+  min-width:0;
+  color:#eff8ff;
+  font-size:10.5px;
+  font-weight:650;
+  line-height:1.2;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.thebe-ai-mission-meta{
+  flex:0 1 auto;
+  min-width:0;
+  color:#bcdcff;
+  font-size:9px;
+  line-height:1.2;
+  text-align:right;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.thebe-ai-mission[data-tone="review"] .thebe-ai-mission-label{color:#ffd27a}
+.thebe-ai-mission[data-tone="error"] .thebe-ai-mission-label{color:#ffb1b5}
+.thebe-ai-mission[data-tone="success"] .thebe-ai-mission-label{color:#c8ffe1}
+@media(max-width:420px){
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-mission{
+    padding:7px 8px 8px;
+  }
+  .thebe-ai-mission-copy{
+    display:grid;
+    gap:2px;
+  }
+  .thebe-ai-mission-meta{
+    text-align:left;
+    font-size:8.5px;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  .thebe-ai-mission-segment{transition:none!important}
+}
