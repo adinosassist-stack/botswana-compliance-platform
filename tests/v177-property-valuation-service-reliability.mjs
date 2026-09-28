@@ -56,12 +56,26 @@ assert.match(worker,/valuation_quote_expired/);
 assert.match(worker,/property_valuation_service_requests/);
 assert.match(worker,/source_type==="property_valuation_service"/);
 assert.match(worker,/payment_order_canceled/);
+assert.match(worker,/\/api\/property\/valuation-operations\/status/);
+assert.match(worker,/platformValuationOperationsAdmin/);
+assert.match(worker,/platform_valuation_operations_forbidden/);
+assert.match(worker,/valuation-operations\\\/\\([^/]+\\\\\\)\\\/(quote\|assign\|advance)/);
+assert.match(worker,/SELECT id FROM property_valuation_service_requests WHERE id=\? AND tenant_id=\? LIMIT 1/);
+assert.match(worker,/headers\.set\("x-operations-secret",env\.OPERATIONS_SECRET\)/);
 
 assert.match(owner,/awaiting-payment pipeline/);
 assert.match(owner,/completed service value/);
 assert.match(owner,/View timeline/);
 assert.match(owner,/Quote expired · a fresh quote is required before payment/);
 assert.match(owner,/registration /);
+assert.match(owner,/Platform valuation operations/);
+assert.match(owner,/\/api\/property\/valuation-operations\/professionals/);
+assert.match(owner,/Assign valuer/);
+assert.match(owner,/Schedule inspection/);
+assert.match(owner,/Mark fieldwork complete/);
+assert.match(owner,/Send to professional review/);
+assert.match(owner,/Final issuance requires the governed signed valuation record/);
+assert.doesNotMatch(owner,/OPERATIONS_SECRET|x-operations-secret/);
 
 assert.equal(profile.latest_cloudflare_migration,"063_v179_property_valuer_credential_binding.sql");
 assert.equal(profile.property_valuation_service_reliability_v177,true);
