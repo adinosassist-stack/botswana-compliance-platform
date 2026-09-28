@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260928-mascot-v168";
+  const RELEASE="20260928-mascot-v169";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -552,12 +552,12 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260928-mascot-v168";
+  const DOCK_RELEASE="20260928-mascot-v169";
   const STORE_KEY="thebe_ai_dock_collapsed_v4";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
   let dock=null,pill=null,pillLabel=null,orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,input=null,sendButton=null,attentionButton=null,quick=null,foot=null,mascot=null;
-  let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",mascotState="idle",collapsed=false;
+  let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",mascotState="idle",mascotContext="general",collapsed=false;
 
   const api=(url,options={})=>{
     if(typeof global.apiJson!=="function")throw new Error("The secure Thebe API transport is not available.");
@@ -600,6 +600,20 @@
     const title=clean(document.getElementById("pageTitle")?.textContent||id||"Workspace",100);
     return {id,title};
   }
+  function mascotContextFor(context=activeContext()){
+    const key=`${context?.id||""} ${context?.title||""}`.toLowerCase();
+    if(/finance|money|recon|cash|receiv|payable|bookkeep|accounthub|accounting|ledger/.test(key))return "finance";
+    if(/property|estate|land|valuation|rental|portfolio/.test(key))return "property";
+    if(/people|employee|employer|employment|human resources|\bhr\b|leave|disciplin|grievance/.test(key))return "people";
+    if(/compliance|obligation|licen|burs|cipa|tax|vat|paye|regulat|evidence|audit|risk|tender|inspection|passport|assurance/.test(key))return "compliance";
+    return "general";
+  }
+  function syncMascotContext(context=activeContext()){
+    mascotContext=surfaceMode()==="workspace"?mascotContextFor(context):"general";
+    if(mascot)mascot.dataset.context=mascotContext;
+    if(dock)dock.dataset.agentContext=mascotContext;
+    return mascotContext;
+  }
   function contextualQuestion(question){
     const q=clean(question,MAX_QUESTION);
     const context=activeContext();
@@ -634,6 +648,7 @@
     pill.dataset.surface=surface;
     dock.dataset.workspaceVisible=workspace?"1":"0";
     pill.dataset.workspaceVisible=workspace?"1":"0";
+    syncMascotContext();
     if(attentionButton)attentionButton.hidden=!workspace;
     const minimize=dock.querySelector(".thebe-ai-minimize");
     if(minimize)minimize.hidden=!mobile;
@@ -805,6 +820,7 @@
   function renderQuickActions(surface){
     if(!quick)return;
     const context=activeContext();
+    syncMascotContext(context);
     const mode=surface==="public"?"public":context.id+":"+context.title;
     if(quick.dataset.mode===mode)return;
     quick.dataset.mode=mode;
@@ -941,7 +957,7 @@
       wave.append(line);
     }
     const core=el("span","thebe-particle-core");
-    mascot=el("span","thebe-mascot");mascot.dataset.state=mascotState;mascot.setAttribute("aria-hidden","true");
+    mascot=el("span","thebe-mascot");mascot.dataset.state=mascotState;mascot.dataset.context=mascotContext;mascot.setAttribute("aria-hidden","true");
     const bot=document.createElementNS(svgNS,"svg");bot.setAttribute("viewBox","0 0 96 96");bot.setAttribute("class","thebe-mascot-svg");
     const orbit=document.createElementNS(svgNS,"circle");orbit.setAttribute("class","thebe-mascot-orbit");orbit.setAttribute("cx","48");orbit.setAttribute("cy","48");orbit.setAttribute("r","40");
     const antenna=document.createElementNS(svgNS,"path");antenna.setAttribute("class","thebe-mascot-antenna");antenna.setAttribute("d","M48 25V16");
@@ -1127,6 +1143,6 @@
     open:()=>setCollapsed(false),
     close:()=>setCollapsed(true),
     ask:(question,mode="ask")=>ask(mode,question),
-    state:()=>({collapsed:effectiveCollapsed(),mobileCollapsedPreference:collapsed,mobile:mobileDockMode(),voicePhase,mascotState,textBusy,workspaceVisible:shellVisible(),dockHidden:dock?.hidden??true,pillHidden:pill?.hidden??true,context:activeContext()})
+    state:()=>({collapsed:effectiveCollapsed(),mobileCollapsedPreference:collapsed,mobile:mobileDockMode(),voicePhase,mascotState,mascotContext,textBusy,workspaceVisible:shellVisible(),dockHidden:dock?.hidden??true,pillHidden:pill?.hidden??true,context:activeContext()})
   });
 })(window);
