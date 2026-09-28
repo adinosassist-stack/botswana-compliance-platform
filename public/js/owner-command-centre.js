@@ -3053,6 +3053,19 @@
     const panel=q("#propertyAssetFormPanel");if(panel){panel.open=true;panel.scrollIntoView({behavior:"smooth",block:"center"})}
   }
 
+  function openPropertyValuationServiceRequest(item){
+    if(!item||String(item.status||"active")!=="active")return;
+    if(role()!=="owner"){propertyPortfolioNotify("Only the account owner can request a paid professional valuation.","error");return}
+    const propertyId=String(item.id||"");
+    const select=q("#portfolioValuationServiceProperty");
+    const panel=q("#propertyValuationServicePanel");
+    if(!propertyId||!select||!panel){propertyPortfolioNotify("Valuation quote form is unavailable.","error");return}
+    if([...select.options].some(option=>option.value===propertyId))select.value=propertyId;
+    propertyPortfolioStatus("propertyValuationServiceStatus","Property selected. Add the request details, then request a quote.");
+    panel.scrollIntoView({behavior:"smooth",block:"center"});
+    setTimeout(()=>q("#portfolioValuationServicePurpose")?.focus({preventScroll:true}),180);
+  }
+
   function propertyPortfolioAssetCard(item,businessDate){
     const card=document.createElement("div");
     card.className="item";
@@ -3122,12 +3135,15 @@
     );
     if(latest?.reportEvidence?.id)actions.append(button("Open Documents",()=>route("evidencehub"),"btn soft"));
     if(role()==="owner"&&item?.status==="active"){
-      actions.append(button("Record valuation",()=>{
-        const select=q("#portfolioValuationAsset");
-        const panel=q("#propertyValuationFormPanel");
-        if(select)select.value=String(item.id||"");
-        if(panel){panel.open=true;panel.scrollIntoView({behavior:"smooth",block:"center"})}
-      },"btn soft"));
+      actions.append(
+        button("Request valuation quote",()=>openPropertyValuationServiceRequest(item),"btn"),
+        button("Record valuation",()=>{
+          const select=q("#portfolioValuationAsset");
+          const panel=q("#propertyValuationFormPanel");
+          if(select)select.value=String(item.id||"");
+          if(panel){panel.open=true;panel.scrollIntoView({behavior:"smooth",block:"center"})}
+        },"btn soft")
+      );
     }
     card.append(actions);
     return card;
