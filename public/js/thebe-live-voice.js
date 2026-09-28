@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260928-workspace-v167";
+  const RELEASE="20260928-mascot-v168";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -552,12 +552,12 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260928-workspace-v167";
+  const DOCK_RELEASE="20260928-mascot-v168";
   const STORE_KEY="thebe_ai_dock_collapsed_v4";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
-  let dock=null,pill=null,pillLabel=null,orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,input=null,sendButton=null,attentionButton=null,quick=null,foot=null;
-  let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",collapsed=false;
+  let dock=null,pill=null,pillLabel=null,orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,input=null,sendButton=null,attentionButton=null,quick=null,foot=null,mascot=null;
+  let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",mascotState="idle",collapsed=false;
 
   const api=(url,options={})=>{
     if(typeof global.apiJson!=="function")throw new Error("The secure Thebe API transport is not available.");
@@ -663,6 +663,20 @@
       document.body.classList.toggle("thebe-ai-dock-open",surface==="workspace");
     }
   }
+  function setMascotState(state){
+    const allowed=["idle","ready","listening","thinking","acting","approval","speaking","success","error"];
+    mascotState=allowed.includes(state)?state:"idle";
+    if(mascot)mascot.dataset.state=mascotState;
+    if(dock)dock.dataset.agentState=mascotState;
+  }
+  function mascotStateForPhase(phase){
+    if(phase==="listening")return "listening";
+    if(phase==="speaking")return "speaking";
+    if(phase==="thinking"||phase==="connecting")return "thinking";
+    if(phase==="ready")return "ready";
+    if(phase==="error")return "error";
+    return "idle";
+  }
   function setPhase(phase,label,sub){
     voicePhase=phase||"idle";
     if(orb){
@@ -671,6 +685,7 @@
       orb.parentElement?.setAttribute("aria-label",active?"Stop Thebe voice":"Talk to Thebe");
       orb.parentElement?.setAttribute("aria-pressed",String(active));
     }
+    if(!textBusy||voicePhase!=="idle")setMascotState(mascotStateForPhase(voicePhase));
     if(voiceLabel&&label)voiceLabel.textContent=label;
     if(voiceSub)voiceSub.textContent=sub||"";
   }
@@ -701,11 +716,14 @@
     }
   }
   function responseMessage(message,state="ready"){
+    if(state==="thinking")setMascotState("thinking");
+    else if(state==="error")setMascotState("error");
     if(!responseBox)return;
     responseBox.dataset.state=state;
     responseBox.replaceChildren(el("div","thebe-ai-response-title",state==="thinking"?"Thebe is working":"Thebe"),el("div","thebe-ai-response-answer",message));
   }
   function renderResult(result){
+    setMascotState("success");
     if(!responseBox)return;
     responseBox.dataset.state="ready";
     responseBox.replaceChildren();
@@ -923,11 +941,27 @@
       wave.append(line);
     }
     const core=el("span","thebe-particle-core");
-    const mic=document.createElementNS(svgNS,"svg");mic.setAttribute("viewBox","0 0 24 24");
-    const path=document.createElementNS(svgNS,"path");
-    path.setAttribute("d","M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3ZM6 11v1a6 6 0 0 0 12 0v-1M12 18v3M9 21h6");
-    path.setAttribute("fill","none");path.setAttribute("stroke","currentColor");path.setAttribute("stroke-width","1.5");path.setAttribute("stroke-linecap","round");
-    mic.append(path);core.append(mic);orb.append(wave,core);
+    mascot=el("span","thebe-mascot");mascot.dataset.state=mascotState;mascot.setAttribute("aria-hidden","true");
+    const bot=document.createElementNS(svgNS,"svg");bot.setAttribute("viewBox","0 0 96 96");bot.setAttribute("class","thebe-mascot-svg");
+    const orbit=document.createElementNS(svgNS,"circle");orbit.setAttribute("class","thebe-mascot-orbit");orbit.setAttribute("cx","48");orbit.setAttribute("cy","48");orbit.setAttribute("r","40");
+    const antenna=document.createElementNS(svgNS,"path");antenna.setAttribute("class","thebe-mascot-antenna");antenna.setAttribute("d","M48 25V16");
+    const beacon=document.createElementNS(svgNS,"circle");beacon.setAttribute("class","thebe-mascot-beacon");beacon.setAttribute("cx","48");beacon.setAttribute("cy","12");beacon.setAttribute("r","3.5");
+    const mascotShell=document.createElementNS(svgNS,"g");mascotShell.setAttribute("class","thebe-mascot-shell");
+    const earL=document.createElementNS(svgNS,"rect");earL.setAttribute("class","thebe-mascot-ear thebe-mascot-ear-left");earL.setAttribute("x","8");earL.setAttribute("y","40");earL.setAttribute("width","9");earL.setAttribute("height","18");earL.setAttribute("rx","4.5");
+    const earR=document.createElementNS(svgNS,"rect");earR.setAttribute("class","thebe-mascot-ear thebe-mascot-ear-right");earR.setAttribute("x","79");earR.setAttribute("y","40");earR.setAttribute("width","9");earR.setAttribute("height","18");earR.setAttribute("rx","4.5");
+    const mascotHead=document.createElementNS(svgNS,"rect");mascotHead.setAttribute("class","thebe-mascot-head");mascotHead.setAttribute("x","16");mascotHead.setAttribute("y","26");mascotHead.setAttribute("width","64");mascotHead.setAttribute("height","48");mascotHead.setAttribute("rx","19");
+    const face=document.createElementNS(svgNS,"rect");face.setAttribute("class","thebe-mascot-face");face.setAttribute("x","24");face.setAttribute("y","35");face.setAttribute("width","48");face.setAttribute("height","28");face.setAttribute("rx","11");
+    const scan=document.createElementNS(svgNS,"path");scan.setAttribute("class","thebe-mascot-scan");scan.setAttribute("d","M28 42H68");
+    const eyeL=document.createElementNS(svgNS,"circle");eyeL.setAttribute("class","thebe-mascot-eye thebe-mascot-eye-left");eyeL.setAttribute("cx","38");eyeL.setAttribute("cy","47");eyeL.setAttribute("r","3");
+    const eyeR=document.createElementNS(svgNS,"circle");eyeR.setAttribute("class","thebe-mascot-eye thebe-mascot-eye-right");eyeR.setAttribute("cx","58");eyeR.setAttribute("cy","47");eyeR.setAttribute("r","3");
+    const mouth=document.createElementNS(svgNS,"g");mouth.setAttribute("class","thebe-mascot-mouth");
+    for(const [x,h] of [[39,5],[46,8],[53,5]]){
+      const bar=document.createElementNS(svgNS,"rect");bar.setAttribute("class","thebe-mascot-mouth-bar");bar.setAttribute("x",String(x));bar.setAttribute("y",String(57-h/2));bar.setAttribute("width","4");bar.setAttribute("height",String(h));bar.setAttribute("rx","2");mouth.append(bar);
+    }
+    const chest=document.createElementNS(svgNS,"path");chest.setAttribute("class","thebe-mascot-chest");chest.setAttribute("d","M30 74h36l-5 10H35z");
+    const status=document.createElementNS(svgNS,"rect");status.setAttribute("class","thebe-mascot-status");status.setAttribute("x","43");status.setAttribute("y","77");status.setAttribute("width","10");status.setAttribute("height","4");status.setAttribute("rx","2");
+    mascotShell.append(earL,earR,mascotHead,face,scan,eyeL,eyeR,mouth,chest,status);
+    bot.append(orbit,antenna,beacon,mascotShell);mascot.append(bot);core.append(mascot);orb.append(wave,core);
     orbButton.append(orb);
     orbButton.addEventListener("click",()=>{
       const liveApi=global.ThebeLiveVoice;
@@ -1044,11 +1078,16 @@
     orb.style.setProperty("--thebe-audio-ring",ring.toFixed(1)+"px");
     orb.style.setProperty("--thebe-audio-blur",blur.toFixed(1)+"px");
   });
-  global.addEventListener("thebe-live-delegation",()=>setPhase("thinking","Checking your business…","Using the governed Thebe backend"));
+  global.addEventListener("thebe-live-delegation",()=>{
+    setMascotState("acting");
+    setPhase("thinking","Checking your business…","Using the governed Thebe backend");
+    setMascotState("acting");
+  });
   global.addEventListener("thebe-live-delegation-result",event=>{
     const result=event?.detail?.result||{};
     const prepared=result?.authority?.taskPrepared===true;
     if(prepared){
+      setMascotState("approval");
       responseBox?.replaceChildren();
       if(responseBox){
         responseBox.dataset.state="ready";
@@ -1058,14 +1097,21 @@
         responseBox.append(review);
       }
     }else if(result?.content){
+      setMascotState("success");
       responseMessage(clean(result.content,1200));
     }
   });
   global.addEventListener("thebe-live-delegation-stale",event=>{
-    if(event?.detail?.taskPrepared)responseMessage("A governed task draft was prepared before you spoke again. It still exists and requires owner approval before any guarded execution.","ready");
+    if(event?.detail?.taskPrepared){
+      setMascotState("approval");
+      responseMessage("A governed task draft was prepared before you spoke again. It still exists and requires owner approval before any guarded execution.","ready");
+    }
   });
   global.addEventListener("thebe-live-error",event=>setPhase("error","Voice needs attention",clean(event?.detail?.message||"Check the voice connection and try again.",180)));
-  global.addEventListener("thebe-live-session-limit",()=>responseMessage("This voice session reached its configured safety limit and was ended. Start a new session to continue.","ready"));
+  global.addEventListener("thebe-live-session-limit",()=>{
+    setMascotState("idle");
+    responseMessage("This voice session reached its configured safety limit and was ended. Start a new session to continue.","ready");
+  });
 
   function boot(){
     mount();
@@ -1081,6 +1127,6 @@
     open:()=>setCollapsed(false),
     close:()=>setCollapsed(true),
     ask:(question,mode="ask")=>ask(mode,question),
-    state:()=>({collapsed:effectiveCollapsed(),mobileCollapsedPreference:collapsed,mobile:mobileDockMode(),voicePhase,textBusy,workspaceVisible:shellVisible(),dockHidden:dock?.hidden??true,pillHidden:pill?.hidden??true,context:activeContext()})
+    state:()=>({collapsed:effectiveCollapsed(),mobileCollapsedPreference:collapsed,mobile:mobileDockMode(),voicePhase,mascotState,textBusy,workspaceVisible:shellVisible(),dockHidden:dock?.hidden??true,pillHidden:pill?.hidden??true,context:activeContext()})
   });
 })(window);
