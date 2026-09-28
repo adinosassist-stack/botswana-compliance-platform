@@ -73,7 +73,8 @@ ok(api.includes('referrerPolicy:"no-referrer"'),"presigned upload suppresses ref
 ok(api.includes('target.protocol!=="https:"&&!localHttp'),"presigned upload blocks insecure non-local destinations");
 
 ok(policy.preAuthRoutes.flatMap(r=>r.methods).length===24,"pre-auth method/route allowlist count is locked");
-ok(Object.keys(policy.workspaceFeaturePrefixes).length===25,"authenticated feature-family inventory count is locked");
+ok(Object.keys(policy.workspaceFeaturePrefixes).length===26,"authenticated feature-family inventory count is locked");
+ok(Array.isArray(policy.workspaceFeaturePrefixes.property)&&policy.workspaceFeaturePrefixes.property.includes("/api/property/"),"Property workspace API family is explicitly classified");
 ok(routeAudit.includes('Unclassified pre-auth route(s)'),"route audit fails on unexpected pre-auth routes");
 ok(routeAudit.includes('Authenticated route(s) missing feature inventory classification'),"route audit fails on unclassified authenticated routes");
 ok(routeAudit.includes('authenticatedRouteCount:workspaceRoutes.length'),"route audit emits authenticated route count");
@@ -82,7 +83,7 @@ ok(routeAudit.includes(`release:"${pkg.version}"`),"route inventory release iden
 const expectedAuthenticatedRoutes=pkg.version==="1.21.101"?254:["1.21.89","1.21.90","1.21.91","1.21.92","1.21.93","1.21.94","1.21.95","1.21.96","1.21.97","1.21.98","1.21.99","1.21.100"].includes(pkg.version)?253:["1.21.53","1.21.54","1.21.55","1.21.56","1.21.57","1.21.58","1.21.59","1.21.60","1.21.61","1.21.62","1.21.63","1.21.64","1.21.65","1.21.66","1.21.67","1.21.68","1.21.69","1.21.70","1.21.71","1.21.72","1.21.73","1.21.74","1.21.75","1.21.76","1.21.77","1.21.78","1.21.79","1.21.80","1.21.81","1.21.82","1.21.83","1.21.84","1.21.85","1.21.86","1.21.87","1.21.88"].includes(pkg.version)?252:251;
 for(const [key,value] of Object.entries({
  route_security_inventory:true,
- route_security_feature_families:25,
+ route_security_feature_families:26,
  authenticated_route_branches:expectedAuthenticatedRoutes,
  preauth_route_allowlist:23,
  csp_inline_event_execution_disabled:true,

@@ -795,7 +795,7 @@
   "node_account_export_app_state_backed": true,
   "cloudflare_required_migration": "041_v78_webhook_purge_claim_hardening.sql",
   "route_security_inventory": true,
-  "route_security_feature_families": 25,
+  "route_security_feature_families": 26,
   "authenticated_route_branches": 254,
   "preauth_route_allowlist": 23,
   "csp_inline_event_execution_disabled": true,
