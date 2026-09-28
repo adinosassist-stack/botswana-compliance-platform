@@ -3232,7 +3232,7 @@
       if(valuationPanel)valuationPanel.hidden=role()!=="owner";
       const serviceButton=q("#propertyValuationServiceRequestButton");if(serviceButton)serviceButton.hidden=role()!=="owner";
       renderPropertyValuationServices(valuationServices);
-      void renderPropertyValuationOperations();
+      await renderPropertyValuationOperations();
       if(list){
         if(!items.length){
           list.replaceChildren(text("div","No property assets are recorded yet. Add the first property to start the canonical portfolio.","notice"));
@@ -3340,7 +3340,7 @@
         method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload||{})
       });
       propertyPortfolioNotify(successMessage||"Valuation operation saved.");
-      await Promise.all([renderPropertyValuationOperations(true),renderPropertyPortfolio(true)]);
+      await renderPropertyPortfolio(true);
     }catch(error){
       propertyPortfolioNotify(String(error?.message||"Valuation operation failed"),"error");
     }
