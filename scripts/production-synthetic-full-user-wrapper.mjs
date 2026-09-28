@@ -7,7 +7,8 @@ const WORKSPACE_TIMEOUT_MS=40000;
 const VIEW_TIMEOUT_MS=5000;
 const CLOSE_TIMEOUT_MS=5000;
 const MIN_OWNER_VIEW_COUNT=8;
-const MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=8;
+// Property/Money separation intentionally removed the two reciprocal cross-hub buttons; retain a seven-control minimum as the current non-destructive in-view navigation baseline.
+const MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=7;
 const MIN_SAFE_UI_ACTION_COUNT=5;
 const executablePath=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(path=>fs.existsSync(path));
 
