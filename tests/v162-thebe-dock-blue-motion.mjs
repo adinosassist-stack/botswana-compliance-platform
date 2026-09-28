@@ -8,6 +8,13 @@ assert.match(css,/V162 blue motion/);
 assert.match(css,/V164 futuristic command surface/);
 assert.match(css,/V167 workspace dock/);
 assert.match(css,/V168 Super Agent mascot/);
+assert.match(css,/V169 contextual presence/);
+assert.match(css,/data-context="finance"[\s\S]*?--thebe-eye-x:1\.4px/,'Finance context must shift gaze analytically');
+assert.match(css,/data-context="property"[\s\S]*?thebe-mascot-property-survey-v169/,'Property context must use restrained surveying motion');
+assert.match(css,/data-context="compliance"[\s\S]*?thebe-mascot-scan-v168/,'Compliance context must use a watchful scan');
+assert.match(css,/data-context="people"[\s\S]*?thebe-mascot-ear-left/,'People context must use conversational ear micro-motion');
+assert.match(css,/\.thebe-mascot-beacon\{fill:#8fd2ff/,'idle mascot beacon must not falsely imply red action state');
+
 assert.match(css,/\.thebe-mascot\[data-state="listening"\][\s\S]*?thebe-mascot-orbit/,'mascot must expose a listening state');
 assert.match(css,/\.thebe-mascot\[data-state="acting"\][\s\S]*?stroke:#e2464f/,'acting state must use the restrained Thebe red orbit');
 assert.match(css,/\.thebe-mascot\[data-state="approval"\][\s\S]*?fill:#ffb648/,'approval state must use amber status feedback');
@@ -38,4 +45,4 @@ assert.match(css,/prefers-reduced-motion:reduce[\s\S]*?\.thebe-particle,[\s\S]*?
 assert.match(css,/\.thebe-ai-send\{[\s\S]*?width:46px;height:46px/);
 assert.match(css,/\.thebe-ai-quick button\{[\s\S]*?min-height:56px/);
 
-console.log('PASS: V162 Thebe AI dock is solid blue with animated idle/reactive particles and reduced-motion protection.');
+console.log('PASS: V169 Thebe Super Agent preserves the solid-blue dock with contextual micro-motion and reduced-motion protection.');
