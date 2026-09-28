@@ -64,12 +64,15 @@ assert.match(worker,/platform_valuation_operations_forbidden/);
 assert.ok(worker.includes('const match=url.pathname.match(/^\\/api\\/property\\/valuation-operations\\/([^/]+)\\/(quote|assign|advance|issue)$/);'),"browser operations proxy must whitelist quote, assign, advance and governed issue only");
 assert.match(worker,/SELECT id FROM property_valuation_service_requests WHERE id=\? AND tenant_id=\? LIMIT 1/);
 assert.match(worker,/headers\.set\("x-operations-secret",env\.OPERATIONS_SECRET\)/);
-assert.match(worker,/valuation-operations\\\/\\([^/]+\\\\\\)\\\/issuable-reports/);
+assert.ok(worker.includes('const readyMatch=url.pathname.match(/^\\/api\\/property\\/valuation-operations\\/([^/]+)\\/issuable-reports$/);'),"browser operations proxy must expose only the explicit read-only issuable-report discovery route");
 assert.match(service,/internal\.action==="issuable-reports"/);
 assert.match(service,/e\.review_status='approved' AND e\.scan_status='clean'/);
 assert.match(service,/lower\(trim\(v\.valuer_registration_ref\)\)=lower\(trim\(\?\)\)/);
 assert.match(service,/existingProfessionalValuationRequired:true/);
 assert.match(service,/linkedApprovedScanCleanSignedEvidenceRequired:true/);
+assert.match(service,/governedReport=await env\.DB\.prepare/);
+assert.match(service,/e\.review_status='approved' AND e\.scan_status='clean' AND e\.scanned_at IS NOT NULL/);
+assert.match(service,/UPDATE service_orders SET status='completed'.*tenant_id=\?/);
 assert.deepEqual(routePolicy.workspaceFeaturePrefixes.property,["/api/property/"]);
 
 assert.match(owner,/awaiting-payment pipeline/);
