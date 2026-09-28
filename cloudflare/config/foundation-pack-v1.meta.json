@@ -1,4 +1,4 @@
 {
-  "importIdentityHash": "0b3248c3a5004bb1911ac1e939cb8c238de3acddb3e0115e47c773e810e3427f",
-  "note": "Stable import identity retained from v1.21.46 to avoid a duplicate production re-import when only code packaging changes. Update deliberately when the approved foundation pack changes."
+  "importIdentityHash": "398f201771906923f34f275a01246c1627ceec679124f03dd161425aa0dce251",
+  "note": "Content-bound import identity for Botswana foundation pack v1.6. The generator refuses source/meta drift; update deliberately whenever reviewed pack content changes."
 }
