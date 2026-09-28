@@ -1,7 +1,7 @@
 {
   "packKey": "botswana-foundation-v1",
-  "version": "1.6",
-  "asOf": "2026-09-23",
+  "version": "1.7",
+  "asOf": "2026-09-28",
   "sources": [
     {
       "key": "cipa-annual-return-faq",
@@ -33,7 +33,7 @@
       "title": "VAT FAQ",
       "url": "https://www.burs.org.bw/index.php/about-us/faq/tax-faq/vat-faq",
       "type": "official",
-      "notes": "Current BURS VAT FAQ states compulsory registration above P500,000 annual taxable supplies. Conflicts with other official BURS guidance."
+      "notes": "Legacy BURS VAT FAQ text states P500,000. Retained as stale-source evidence after reconciliation against the primary Value Added Tax Act 2026; do not use this page to determine the compulsory registration amount."
     },
     {
       "key": "burs-vat-registration-1m",
@@ -41,7 +41,7 @@
       "title": "BURS Registration Guidance",
       "url": "https://www.burs.org.bw/index.php/customsexcisemain/international-trade-agreements/39-registration",
       "type": "official",
-      "notes": "Official BURS registration page states compulsory VAT registration above P1,000,000, with voluntary registration between P500,000 and P1,000,000. Conflicts with current VAT FAQ."
+      "notes": "BURS registration guidance states compulsory VAT registration above P1,000,000. This aligns with the primary Value Added Tax Act 2026; the Act is the controlling source for the reconciled threshold record."
     },
     {
       "key": "burs-vat-brochure-1m",
@@ -49,7 +49,7 @@
       "title": "VAT Brochure",
       "url": "https://www.burs.org.bw/index.php/brochure?download=815%3Aburs-vat-brochures",
       "type": "official",
-      "notes": "Official BURS brochure states P1,000,000 compulsory VAT threshold; use only after snapshot verification."
+      "notes": "BURS VAT brochure states P1,000,000 compulsory VAT threshold. Retained as corroborating guidance; the primary Value Added Tax Act 2026 is the controlling source for the reconciled threshold record."
     },
     {
       "key": "burs-income-faq-3000",
@@ -57,7 +57,7 @@
       "title": "Income Tax FAQ",
       "url": "https://www.burs.org.bw/index.php/about-us/faq/tax-faq/income-tax-faq",
       "type": "official",
-      "notes": "Current BURS FAQ states salary/ITW8 guidance above P3,000 monthly and PAYE due on the 15th following deduction month."
+      "notes": "Legacy BURS income-tax FAQ references P3,000 monthly in PAYE/ITW8 guidance. Retained for provenance only; do not turn this snippet into an executable salary-threshold rule. Use the current dated BURS tax table for PAYE calculations."
     },
     {
       "key": "burs-tax-faq-pdf-2500",
@@ -65,7 +65,7 @@
       "title": "Tax FAQ PDF",
       "url": "https://www.burs.org.bw/phocadownload/tax%20faq.pdf",
       "type": "official",
-      "notes": "Official BURS PDF contains older/different ITW8 salary threshold of P2,500 monthly. Treat threshold as conflict until resolved."
+      "notes": "Legacy BURS Tax FAQ PDF references P2,500 monthly in PAYE/ITW8 guidance. Retained for provenance only; do not turn this snippet into an executable salary-threshold rule. Use the current dated BURS tax table for PAYE calculations."
     },
     {
       "key": "employment-commencement-2026-08-19",
@@ -183,6 +183,23 @@
       "publicationDate": "2026-06-30",
       "effectiveDate": "2026-07-01",
       "notes": "Primary BURS tax administration legislation includes formal tax-agent registration. The platform remains software; tax return preparation, objections, representation or filing services must be routed through appropriately authorised professionals and explicit taxpayer authority."
+    },
+    {
+      "key": "burs-vat-act-2026",
+      "authority": "Botswana Unified Revenue Service / Botswana Government Gazette",
+      "title": "Value Added Tax Act 2026",
+      "url": "https://burs.org.bw/index.php/tax/tax-laws-2026?download=958%3Avalue-added-tax-act-2026",
+      "type": "official",
+      "publicationDate": "2026-07-01",
+      "notes": "Primary 2026 VAT legislation. Section 12 ties compulsory registration to Schedule 5; Schedule 5 paragraph 2 sets the compulsory registration amount at P1,000,000. Older BURS P500,000 FAQ wording is retained only as stale source evidence for this issue."
+    },
+    {
+      "key": "burs-tax-table-2026",
+      "authority": "Botswana Unified Revenue Service",
+      "title": "Tax Table 2026",
+      "url": "https://burs.org.bw/index.php/tax/tax-downloads?download=953%3Atax-table-2026",
+      "type": "official",
+      "notes": "Current dated BURS tax table for PAYE calculations. Legacy P2,500/P3,000 monthly guidance snippets are not executable threshold rules; PAYE workflows remain driven by confirmed taxpayer/employer status and approved rules."
     }
   ],
   "rules": [
@@ -670,25 +687,27 @@
     {
       "key": "vat-registration-threshold",
       "topicKey": "burs.vat.registration.threshold",
-      "status": "open",
+      "status": "resolved",
       "sourceKeys": [
         "burs-vat-faq-500k",
         "burs-vat-registration-1m",
-        "burs-vat-brochure-1m"
+        "burs-vat-brochure-1m",
+        "burs-vat-act-2026"
       ],
-      "description": "Official BURS sources conflict on the compulsory VAT registration threshold: current FAQ/value-added-tax pages show P500,000 while registration guidance/brochure show P1,000,000. Do not automate threshold conclusions until resolved.",
-      "resolutionNotes": "Unresolved as of 31 Aug 2026. Current official BURS public sources conflict. Automated compulsory-registration threshold execution is disabled until authoritative 2026 implementation guidance or legislation is source-reviewed."
+      "description": "Historical BURS public guidance conflicted on the compulsory VAT registration amount: a legacy FAQ showed P500,000 while other BURS guidance showed P1,000,000.",
+      "resolutionNotes": "Resolved 28 Sep 2026 against the primary Value Added Tax Act 2026. Section 12 ties compulsory registration to Schedule 5, and Schedule 5 paragraph 2 sets the amount at P1,000,000. Retain the P500,000 FAQ wording as stale source evidence. No turnover-only auto-registration inference is enabled."
     },
     {
       "key": "paye-itw8-salary-threshold",
       "topicKey": "burs.paye.itw8.salary.threshold",
-      "status": "open",
+      "status": "resolved",
       "sourceKeys": [
         "burs-income-faq-3000",
-        "burs-tax-faq-pdf-2500"
+        "burs-tax-faq-pdf-2500",
+        "burs-tax-table-2026"
       ],
-      "description": "Official BURS guidance conflicts on the monthly salary threshold referenced for ITW8/PAYE guidance: P3,000 versus P2,500. Do not automate threshold conclusions until resolved.",
-      "resolutionNotes": "Unresolved as of 31 Aug 2026. Current official BURS public guidance contains conflicting threshold references. Use current approved tax tables and taxpayer status; automated registration-threshold execution is disabled."
+      "description": "Historical BURS PAYE/ITW8 guidance snippets disagreed on P3,000 versus P2,500 monthly figures.",
+      "resolutionNotes": "Resolved 28 Sep 2026 as a source-governance issue without selecting either legacy monthly snippet as an executable rule. Use the current dated BURS Tax Table 2026 for PAYE calculations. No standalone P2,500/P3,000 salary-threshold rule is executable; PAYE obligations remain driven by confirmed taxpayer/employer status and approved rules."
     },
     {
       "key": "employment-commencement-date",
