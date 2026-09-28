@@ -949,7 +949,7 @@
     const shell=document.createElementNS(svgNS,"g");shell.setAttribute("class","thebe-mascot-shell");
     const earL=document.createElementNS(svgNS,"rect");earL.setAttribute("class","thebe-mascot-ear thebe-mascot-ear-left");earL.setAttribute("x","8");earL.setAttribute("y","40");earL.setAttribute("width","9");earL.setAttribute("height","18");earL.setAttribute("rx","4.5");
     const earR=document.createElementNS(svgNS,"rect");earR.setAttribute("class","thebe-mascot-ear thebe-mascot-ear-right");earR.setAttribute("x","79");earR.setAttribute("y","40");earR.setAttribute("width","9");earR.setAttribute("height","18");earR.setAttribute("rx","4.5");
-    const head=document.createElementNS(svgNS,"rect");head.setAttribute("class","thebe-mascot-head");head.setAttribute("x","16");head.setAttribute("y","26");head.setAttribute("width","64");head.setAttribute("height","48");head.setAttribute("rx","19");
+    const mascotHead=document.createElementNS(svgNS,"rect");mascotHead.setAttribute("class","thebe-mascot-head");mascotHead.setAttribute("x","16");mascotHead.setAttribute("y","26");mascotHead.setAttribute("width","64");mascotHead.setAttribute("height","48");mascotHead.setAttribute("rx","19");
     const face=document.createElementNS(svgNS,"rect");face.setAttribute("class","thebe-mascot-face");face.setAttribute("x","24");face.setAttribute("y","35");face.setAttribute("width","48");face.setAttribute("height","28");face.setAttribute("rx","11");
     const scan=document.createElementNS(svgNS,"path");scan.setAttribute("class","thebe-mascot-scan");scan.setAttribute("d","M28 42H68");
     const eyeL=document.createElementNS(svgNS,"circle");eyeL.setAttribute("class","thebe-mascot-eye thebe-mascot-eye-left");eyeL.setAttribute("cx","38");eyeL.setAttribute("cy","47");eyeL.setAttribute("r","3");
@@ -960,7 +960,7 @@
     }
     const chest=document.createElementNS(svgNS,"path");chest.setAttribute("class","thebe-mascot-chest");chest.setAttribute("d","M30 74h36l-5 10H35z");
     const status=document.createElementNS(svgNS,"rect");status.setAttribute("class","thebe-mascot-status");status.setAttribute("x","43");status.setAttribute("y","77");status.setAttribute("width","10");status.setAttribute("height","4");status.setAttribute("rx","2");
-    shell.append(earL,earR,head,face,scan,eyeL,eyeR,mouth,chest,status);
+    shell.append(earL,earR,mascotHead,face,scan,eyeL,eyeR,mouth,chest,status);
     bot.append(orbit,antenna,beacon,shell);mascot.append(bot);core.append(mascot);orb.append(wave,core);
     orbButton.append(orb);
     orbButton.addEventListener("click",()=>{
