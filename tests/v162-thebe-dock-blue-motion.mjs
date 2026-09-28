@@ -5,6 +5,11 @@ const css=fs.readFileSync(new URL('../public/assets/thebe-ai-dock.css',import.me
 
 assert.match(css,/V161 dock polish/);
 assert.match(css,/V162 blue motion/);
+assert.match(css,/V164 futuristic command surface/);
+assert.match(css,/\.thebe-ai-dock-scroll\{[\s\S]*?padding:22px 22px 24px/,'Thebe AI content must keep a comfortable inset from the dock edge');
+assert.match(css,/\.thebe-ai-quick button\{[\s\S]*?min-height:68px[\s\S]*?padding:13px 48px 13px 54px/,'quick actions must use the V164 command-card geometry');
+assert.match(css,/\.thebe-ai-compose\{[\s\S]*?margin:0 18px 14px[\s\S]*?border-radius:20px/,'composer must float inside the dock instead of touching the edge');
+assert.match(css,/\.thebe-ai-send\{[\s\S]*?width:50px;height:50px[\s\S]*?background:#f8fbff/,'send control must use the high-contrast V164 command treatment');
 assert(!/gradient\(/i.test(css),'Thebe AI dock must stay flat without gradients');
 assert.match(css,/--thebe-dock-bg:#0b66d6/);
 assert.match(css,/\.thebe-ai-dock-scroll\{[\s\S]*?background:#0b66d6/);
