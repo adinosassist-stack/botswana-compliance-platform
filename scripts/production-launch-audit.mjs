@@ -235,6 +235,64 @@ for(const table of inventoryTables)countEntries.push([table,await d1Count(table)
 const counts=Object.fromEntries(countEntries);
 console.log(`INFO production inventory counts users=${counts.users} tenants=${counts.tenants} memberships=${counts.memberships} operating_locations=${counts.operating_locations} employees=${counts.employees} daily_employee_reports=${counts.daily_employee_reports}`);
 
+// v181 regulatory activation diagnostic begin
+const regulatoryPrincipals=await d1Rows('regulatory activation principals',`SELECT user_id,role FROM platform_regulatory_principals WHERE active=1 ORDER BY role,user_id`);
+const editorCapable=regulatoryPrincipals.filter(row=>['editor','admin'].includes(String(row.role||'')));
+const reviewerCapable=regulatoryPrincipals.filter(row=>['reviewer','admin'].includes(String(row.role||'')));
+const makerCheckerReady=editorCapable.some(editor=>reviewerCapable.some(reviewer=>String(editor.user_id)!==String(reviewer.user_id)));
+const regulatorySources=(await d1Rows('regulatory activation sources',`SELECT
+  COUNT(*) total,
+  SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) pending,
+  SUM(CASE WHEN status='approved' THEN 1 ELSE 0 END) approved,
+  SUM(CASE WHEN status='approved' AND verification_status='verified' AND latest_snapshot_version>0 AND approved_by_user_id IS NOT NULL THEN 1 ELSE 0 END) verified_approved
+  FROM regulatory_sources`))[0]||{};
+const regulatoryRules=(await d1Rows('regulatory activation rules',`SELECT
+  COUNT(*) total,
+  SUM(CASE WHEN status='draft' THEN 1 ELSE 0 END) draft,
+  SUM(CASE WHEN status='review' THEN 1 ELSE 0 END) review,
+  SUM(CASE WHEN status='approved' THEN 1 ELSE 0 END) approved,
+  SUM(CASE WHEN status='published' THEN 1 ELSE 0 END) published,
+  SUM(CASE WHEN status='blocked' THEN 1 ELSE 0 END) blocked
+  FROM regulatory_rules`))[0]||{};
+const regulatoryImport=(await d1Rows('regulatory activation latest foundation import',`SELECT pack_key,pack_version,status,created_at FROM regulatory_pack_imports ORDER BY created_at DESC LIMIT 1`))[0]||null;
+const regulatoryOpenConflicts=await d1Scalar('regulatory activation open conflicts',`SELECT COUNT(*) AS count FROM regulatory_conflicts WHERE status='open'`);
+const regN=value=>Number(value||0);
+const regSummary={
+  principalsActive:regulatoryPrincipals.length,
+  editorCapable:editorCapable.length,
+  reviewerCapable:reviewerCapable.length,
+  makerCheckerReady,
+  packImported:!!regulatoryImport,
+  packKey:regulatoryImport?String(regulatoryImport.pack_key||'unknown'):'none',
+  packVersion:regulatoryImport?String(regulatoryImport.pack_version||'unknown'):'none',
+  packStatus:regulatoryImport?String(regulatoryImport.status||'unknown'):'none',
+  sourcesTotal:regN(regulatorySources.total),
+  sourcesPending:regN(regulatorySources.pending),
+  sourcesApproved:regN(regulatorySources.approved),
+  sourcesVerifiedApproved:regN(regulatorySources.verified_approved),
+  rulesTotal:regN(regulatoryRules.total),
+  rulesDraft:regN(regulatoryRules.draft),
+  rulesReview:regN(regulatoryRules.review),
+  rulesApproved:regN(regulatoryRules.approved),
+  rulesPublished:regN(regulatoryRules.published),
+  rulesBlocked:regN(regulatoryRules.blocked),
+  openConflicts:regN(regulatoryOpenConflicts)
+};
+const regulatoryActivationState=!regSummary.packImported
+  ?'not_initialized'
+  :!regSummary.makerCheckerReady
+    ?'maker_checker_required'
+    :!regSummary.sourcesVerifiedApproved
+      ?'source_review_required'
+      :!regSummary.rulesPublished
+        ?'rule_review_required'
+        :regSummary.openConflicts
+          ?'active_with_conflicts'
+          :'active';
+console.log(`INFO regulatory activation state=${regulatoryActivationState} maker_checker_ready=${regSummary.makerCheckerReady} principals_active=${regSummary.principalsActive} editor_capable=${regSummary.editorCapable} reviewer_capable=${regSummary.reviewerCapable} pack_imported=${regSummary.packImported} pack_key=${regSummary.packKey} pack_version=${regSummary.packVersion} pack_status=${regSummary.packStatus} sources_total=${regSummary.sourcesTotal} sources_pending=${regSummary.sourcesPending} sources_approved=${regSummary.sourcesApproved} sources_verified_approved=${regSummary.sourcesVerifiedApproved} rules_total=${regSummary.rulesTotal} rules_draft=${regSummary.rulesDraft} rules_review=${regSummary.rulesReview} rules_approved=${regSummary.rulesApproved} rules_published=${regSummary.rulesPublished} rules_blocked=${regSummary.rulesBlocked} open_conflicts=${regSummary.openConflicts}`);
+mark('regulatory activation visibility',true,`state=${regulatoryActivationState}; pack imported=${regSummary.packImported}; published rules=${regSummary.rulesPublished}; maker-checker ready=${regSummary.makerCheckerReady}`);
+// v181 regulatory activation diagnostic end
+
 const executableRules=await d1Rows('executable regulatory rules',`SELECT id,rule_key,version,status,effective_from,effective_to,source_ids_json,definition_hash,created_by_user_id,approved_by_user_id,published_by_user_id FROM regulatory_rules WHERE status IN ('approved','published') ORDER BY rule_key,version`);
 for(const rule of executableRules){
   const label=`${safe(rule.rule_key)}@v${Number(rule.version||0)}`;
