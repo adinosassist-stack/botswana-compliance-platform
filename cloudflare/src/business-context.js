@@ -165,15 +165,27 @@ async function operationsContext(env,tenantId,{allowed=true}={}){
 }
 
 async function complianceContext(env,tenantId){
-  const row=await safeFirst(env,`SELECT
-    SUM(CASE WHEN status NOT IN ('completed','closed') AND due_at<CURRENT_TIMESTAMP THEN 1 ELSE 0 END) overdue_count,
-    SUM(CASE WHEN status NOT IN ('completed','closed') AND due_at>=CURRENT_TIMESTAMP AND due_at<datetime('now','+14 days') THEN 1 ELSE 0 END) due_14d_count,
-    MIN(CASE WHEN status NOT IN ('completed','closed') AND due_at>=CURRENT_TIMESTAMP THEN due_at END) next_due_at
-    FROM compliance_obligations WHERE tenant_id=?`,[tenantId]);
+  const [row,coverage]=await Promise.all([
+    safeFirst(env,`SELECT
+      SUM(CASE WHEN status NOT IN ('completed','closed') AND due_at<CURRENT_TIMESTAMP THEN 1 ELSE 0 END) overdue_count,
+      SUM(CASE WHEN status NOT IN ('completed','closed') AND due_at>=CURRENT_TIMESTAMP AND due_at<datetime('now','+14 days') THEN 1 ELSE 0 END) due_14d_count,
+      MIN(CASE WHEN status NOT IN ('completed','closed') AND due_at>=CURRENT_TIMESTAMP THEN due_at END) next_due_at
+      FROM compliance_obligations WHERE tenant_id=?`,[tenantId]),
+    safeFirst(env,`SELECT
+      SUM(CASE WHEN status='published' THEN 1 ELSE 0 END) published_rule_count,
+      SUM(CASE WHEN status='approved' THEN 1 ELSE 0 END) approved_unpublished_rule_count
+      FROM regulatory_rules`)
+  ]);
+  const coverageKnown=coverage!==null;
+  const publishedRuleCount=coverageKnown?Number(coverage?.published_rule_count||0):null;
+  const approvedUnpublishedRuleCount=coverageKnown?Number(coverage?.approved_unpublished_rule_count||0):null;
   return frozen({
     overdueCount:Number(row?.overdue_count||0),
     dueWithin14Days:Number(row?.due_14d_count||0),
-    nextDueAt:row?.next_due_at||null
+    nextDueAt:row?.next_due_at||null,
+    publishedRuleCount,
+    approvedUnpublishedRuleCount,
+    ruleCoverageStatus:coverageKnown?(publishedRuleCount>0?"active":"inactive"):"unknown"
   });
 }
 
@@ -279,16 +291,22 @@ function localizeBriefPriority(item,metrics,language,marketCode=DEFAULT_RUNTIME_
 }
 function briefHeadline({finance={},receivables={},compliance={},ops={},language,marketCode=DEFAULT_RUNTIME_MARKET_CODE}){
   const money=value=>activeMarketMinor(value,marketCode);
+  const coverageStatus=String(compliance?.ruleCoverageStatus||"unknown");
+  const complianceHeadline=coverageStatus==="inactive"
+    ?"Regulatory coverage inactive"
+    :coverageStatus==="unknown"
+      ?"Regulatory coverage unknown"
+      :`${Number(compliance.overdueCount||0)} overdue compliance item(s)`;
   if(language?.render==="setswana")return [
     `Madi a a rekotilweng ${money(finance.cashPositionMinor)}`,
     `${money(receivables.outstandingMinor)} ya dikoloto tsa bareki`,
-    `${Number(compliance.overdueCount||0)} dilo tsa compliance tse di fetileng nako`,
+    complianceHeadline,
     `${Number(ops.failedWorkflowCount||0)} workflow tse di paletsweng`
   ].join(" · ");
   return [
     `Recorded cash ${money(finance.cashPositionMinor)}`,
     `${money(receivables.outstandingMinor)} customer receivables`,
-    `${Number(compliance.overdueCount||0)} overdue compliance item(s)`,
+    complianceHeadline,
     `${Number(ops.failedWorkflowCount||0)} failed workflow(s)`
   ].join(" · ");
 }
@@ -319,6 +337,16 @@ export function deriveBusinessPriorities(context){
     "payables_due_14d","medium","Review supplier cash commitments due within 14 days",
     `${formatMoney(payables.due14dMinor)} of recorded supplier payables falls due within 14 days.`,
     ["finance_suppliers","finance_payables","finance_payable_allocations"],null
+  ));
+  if(String(compliance?.ruleCoverageStatus||"unknown")==="inactive")out.push(priority(
+    "compliance_rule_coverage_inactive","high","Activate reviewed compliance rule coverage",
+    `No published regulatory rules are active. ${Number(compliance?.approvedUnpublishedRuleCount||0)} approved rule(s) remain unpublished. A zero overdue count is not compliance assurance; publish only through the existing maker-checker governance flow.`,
+    ["regulatory_rules","regulatory_rule_reviews","regulatory_sources"],null
+  ));
+  else if(String(compliance?.ruleCoverageStatus||"unknown")==="unknown")out.push(priority(
+    "compliance_rule_coverage_unknown","medium","Verify compliance rule coverage",
+    "Thebe could not verify whether regulatory rules are published. It will not infer compliance coverage from a zero obligation count.",
+    ["regulatory_rules"],null
   ));
   if(Number(compliance.overdueCount||0)>0)out.push(priority(
     "overdue_compliance","high","Review overdue compliance obligations",
