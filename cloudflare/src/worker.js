@@ -5531,7 +5531,7 @@ export default {
       if(businessMemoryResponse)return businessMemoryResponse;
       const businessContextResponse=await handleBusinessContextRequest({request:req,url,env,auth:a,json,roleAllowed});
       if(businessContextResponse)return businessContextResponse;
-      const propertyValuationServicesResponse=await handlePropertyValuationServicesRequest({request:req,url,env,auth:a,json,readJson,id,writeAudit,roleAllowed,privilegedSecretGate});
+      const propertyValuationServicesResponse=await handlePropertyValuationServicesRequest({request:req,url,env,auth:a,json,readJson,id,writeAudit,roleAllowed,privilegedSecretGate,platformAdminAllowed:actor=>platformBillingAdmin(actor,env)});
       if(propertyValuationServicesResponse)return propertyValuationServicesResponse;
       const propertyPortfolioResponse=await handlePropertyPortfolioRequest({request:req,url,env,auth:a,json,readJson,id,writeAudit,roleAllowed});
       if(propertyPortfolioResponse)return propertyPortfolioResponse;
