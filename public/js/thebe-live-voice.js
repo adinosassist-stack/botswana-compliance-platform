@@ -946,7 +946,7 @@
     const orbit=document.createElementNS(svgNS,"circle");orbit.setAttribute("class","thebe-mascot-orbit");orbit.setAttribute("cx","48");orbit.setAttribute("cy","48");orbit.setAttribute("r","40");
     const antenna=document.createElementNS(svgNS,"path");antenna.setAttribute("class","thebe-mascot-antenna");antenna.setAttribute("d","M48 25V16");
     const beacon=document.createElementNS(svgNS,"circle");beacon.setAttribute("class","thebe-mascot-beacon");beacon.setAttribute("cx","48");beacon.setAttribute("cy","12");beacon.setAttribute("r","3.5");
-    const shell=document.createElementNS(svgNS,"g");shell.setAttribute("class","thebe-mascot-shell");
+    const mascotShell=document.createElementNS(svgNS,"g");mascotShell.setAttribute("class","thebe-mascot-shell");
     const earL=document.createElementNS(svgNS,"rect");earL.setAttribute("class","thebe-mascot-ear thebe-mascot-ear-left");earL.setAttribute("x","8");earL.setAttribute("y","40");earL.setAttribute("width","9");earL.setAttribute("height","18");earL.setAttribute("rx","4.5");
     const earR=document.createElementNS(svgNS,"rect");earR.setAttribute("class","thebe-mascot-ear thebe-mascot-ear-right");earR.setAttribute("x","79");earR.setAttribute("y","40");earR.setAttribute("width","9");earR.setAttribute("height","18");earR.setAttribute("rx","4.5");
     const mascotHead=document.createElementNS(svgNS,"rect");mascotHead.setAttribute("class","thebe-mascot-head");mascotHead.setAttribute("x","16");mascotHead.setAttribute("y","26");mascotHead.setAttribute("width","64");mascotHead.setAttribute("height","48");mascotHead.setAttribute("rx","19");
@@ -960,8 +960,8 @@
     }
     const chest=document.createElementNS(svgNS,"path");chest.setAttribute("class","thebe-mascot-chest");chest.setAttribute("d","M30 74h36l-5 10H35z");
     const status=document.createElementNS(svgNS,"rect");status.setAttribute("class","thebe-mascot-status");status.setAttribute("x","43");status.setAttribute("y","77");status.setAttribute("width","10");status.setAttribute("height","4");status.setAttribute("rx","2");
-    shell.append(earL,earR,mascotHead,face,scan,eyeL,eyeR,mouth,chest,status);
-    bot.append(orbit,antenna,beacon,shell);mascot.append(bot);core.append(mascot);orb.append(wave,core);
+    mascotShell.append(earL,earR,mascotHead,face,scan,eyeL,eyeR,mouth,chest,status);
+    bot.append(orbit,antenna,beacon,mascotShell);mascot.append(bot);core.append(mascot);orb.append(wave,core);
     orbButton.append(orb);
     orbButton.addEventListener("click",()=>{
       const liveApi=global.ThebeLiveVoice;
