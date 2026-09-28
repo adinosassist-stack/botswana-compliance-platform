@@ -291,7 +291,7 @@ function localizeBriefPriority(item,metrics,language,marketCode=DEFAULT_RUNTIME_
 }
 function briefHeadline({finance={},receivables={},compliance={},ops={},language,marketCode=DEFAULT_RUNTIME_MARKET_CODE}){
   const money=value=>activeMarketMinor(value,marketCode);
-  const coverageStatus=String(compliance?.ruleCoverageStatus||"unknown");
+  const coverageStatus=String(compliance?.ruleCoverageStatus||"");
   const complianceHeadline=coverageStatus==="inactive"
     ?"Regulatory coverage inactive"
     :coverageStatus==="unknown"
@@ -338,12 +338,12 @@ export function deriveBusinessPriorities(context){
     `${formatMoney(payables.due14dMinor)} of recorded supplier payables falls due within 14 days.`,
     ["finance_suppliers","finance_payables","finance_payable_allocations"],null
   ));
-  if(String(compliance?.ruleCoverageStatus||"unknown")==="inactive")out.push(priority(
+  if(String(compliance?.ruleCoverageStatus||"")==="inactive")out.push(priority(
     "compliance_rule_coverage_inactive","high","Activate reviewed compliance rule coverage",
     `No published regulatory rules are active. ${Number(compliance?.approvedUnpublishedRuleCount||0)} approved rule(s) remain unpublished. A zero overdue count is not compliance assurance; publish only through the existing maker-checker governance flow.`,
     ["regulatory_rules","regulatory_rule_reviews","regulatory_sources"],null
   ));
-  else if(String(compliance?.ruleCoverageStatus||"unknown")==="unknown")out.push(priority(
+  else if(String(compliance?.ruleCoverageStatus||"")==="unknown")out.push(priority(
     "compliance_rule_coverage_unknown","medium","Verify compliance rule coverage",
     "Thebe could not verify whether regulatory rules are published. It will not infer compliance coverage from a zero obligation count.",
     ["regulatory_rules"],null
