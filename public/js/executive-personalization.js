@@ -1,7 +1,7 @@
 (function initExecutivePersonalization(global){
   "use strict";
 
-  const RELEASE="20260929-v172";
+  const RELEASE="20260929-v173";
   const q=(selector,root=document)=>root.querySelector(selector);
   const qa=(selector,root=document)=>Array.from(root.querySelectorAll(selector));
   let scheduled=false;
