@@ -121,60 +121,50 @@ async function runFullUserJourney(credentials){
     assert(/Run your business with intelligence\./i.test(publicState.hero),'public root hero missing or stale');
     assert(!publicState.hasWorkspace&&!publicState.hasAuthForm,'public root leaked workspace or authentication shell');
 
-    const marketingHeroSelector='.hero .visual img[src*="gaborone-entrepreneurs-v67.webp"]';
+    const marketingHeroSelector='.hero .visual .thebe-public-mascot';
     const readMarketingHeroGeometry=async()=>page.evaluate(selector=>{
-      const image=document.querySelector(selector),frame=image?.closest('.visual');
-
-      if(!image||!frame)return null;
-      const rect=image.getBoundingClientRect(),style=getComputedStyle(image),frameStyle=getComputedStyle(frame);
+      const mascot=document.querySelector(selector),frame=mascot?.closest('.visual');
+      if(!mascot||!frame)return null;
+      const rect=mascot.getBoundingClientRect(),style=getComputedStyle(mascot),frameStyle=getComputedStyle(frame);
+      const viewBox=mascot.getAttribute('viewBox')||'';
       return {
-        complete:image.complete,
-        naturalWidth:image.naturalWidth,
-        naturalHeight:image.naturalHeight,
         renderedWidth:rect.width,
         renderedHeight:rect.height,
-        objectFit:style.objectFit,
-        objectPosition:style.objectPosition,
+        visibility:style.visibility,
+        display:style.display,
+        viewBox,
+        eyeCount:mascot.querySelectorAll('.thebe-public-eye').length,
+        hasSmile:!!mascot.querySelector('.thebe-public-smile'),
         frameOverflowX:frameStyle.overflowX,
         frameOverflowY:frameStyle.overflowY
       };
     },marketingHeroSelector);
-    const assertMarketingHeroUncropped=state=>{
-      assert(state&&state.complete&&state.naturalWidth>0&&state.naturalHeight>0,'marketing hero image did not load with intrinsic dimensions');
-      const naturalRatio=state.naturalWidth/state.naturalHeight,renderedRatio=state.renderedWidth/state.renderedHeight;
-      assert(state.objectFit==='contain',`marketing hero object-fit regressed to ${safe(state.objectFit)}`);
-      assert(Math.abs(renderedRatio-naturalRatio)<0.015,`marketing hero rendered aspect ratio crops or distorts the source: ${safe(JSON.stringify({...state,naturalRatio,renderedRatio}))}`);
-      assert(state.frameOverflowX==='visible'&&state.frameOverflowY==='visible',`marketing hero frame can clip the original image: ${safe(JSON.stringify(state))}`);
+    const assertMarketingMascotVisible=(state,viewport)=>{
+      assert(state&&state.renderedWidth>280&&state.renderedHeight>280,`marketing Thebe mascot is too small or missing on ${viewport}: ${safe(JSON.stringify(state))}`);
+      assert(state.display!=='none'&&state.visibility!=='hidden',`marketing Thebe mascot is hidden on ${viewport}`);
+      assert(state.viewBox==='0 0 1000 1000','marketing Thebe mascot must preserve the approved square composition');
+      assert(state.eyeCount===2&&state.hasSmile,'marketing Thebe mascot lost the approved happy cyan face');
+      assert(state.frameOverflowX==='visible'&&state.frameOverflowY==='visible',`marketing Thebe mascot frame can clip the approved character: ${safe(JSON.stringify(state))}`);
     };
-    const heroLoadState=await withDeadline('marketing hero image load',page.locator(marketingHeroSelector).evaluate(image=>{
-      const snapshot=()=>({complete:image.complete,naturalWidth:image.naturalWidth,naturalHeight:image.naturalHeight,currentSrc:String(image.currentSrc||image.src||'')});
-      if(image.complete)return snapshot();
-      return new Promise(resolve=>{
-        const finish=()=>resolve(snapshot());
-        image.addEventListener('load',finish,{once:true});
-        image.addEventListener('error',finish,{once:true});
-      });
-    }),NAVIGATION_TIMEOUT_MS);
-    assert(heroLoadState.complete&&heroLoadState.naturalWidth>0&&heroLoadState.naturalHeight>0,`marketing hero asset failed to load: ${safe(JSON.stringify(heroLoadState))}`);
-    await page.waitForFunction(()=>{
-      const image=document.querySelector('.hero .visual img[src*="gaborone-entrepreneurs-v67.webp"]');
-      if(!image)return false;
-      const rect=image.getBoundingClientRect();
-      return rect.width>0&&rect.height>0;
-    },null,{timeout:VIEW_TIMEOUT_MS});
+    await page.waitForFunction(selector=>{
+      const mascot=document.querySelector(selector);
+      if(!mascot)return false;
+      const rect=mascot.getBoundingClientRect();
+      return rect.width>280&&rect.height>280;
+    },marketingHeroSelector,{timeout:VIEW_TIMEOUT_MS});
     const desktopHeroGeometry=await readMarketingHeroGeometry();
-    assertMarketingHeroUncropped(desktopHeroGeometry);
+    assertMarketingMascotVisible(desktopHeroGeometry,'desktop');
     await page.setViewportSize({width:390,height:844});
-    await page.waitForFunction(()=>{
-      const image=document.querySelector('.hero .visual img[src*="gaborone-entrepreneurs-v67.webp"]');
-      if(!image)return false;
-      const rect=image.getBoundingClientRect();
-      return rect.width>0&&rect.height>0;
-    },null,{timeout:VIEW_TIMEOUT_MS});
+    await page.waitForFunction(selector=>{
+      const mascot=document.querySelector(selector);
+      if(!mascot)return false;
+      const rect=mascot.getBoundingClientRect();
+      return rect.width>280&&rect.height>280;
+    },marketingHeroSelector,{timeout:VIEW_TIMEOUT_MS});
     const mobileHeroGeometry=await readMarketingHeroGeometry();
-    assertMarketingHeroUncropped(mobileHeroGeometry);
+    assertMarketingMascotVisible(mobileHeroGeometry,'mobile');
     await page.setViewportSize({width:1440,height:1100});
-    mark('marketing hero uncropped geometry',`desktop=${Math.round(desktopHeroGeometry.renderedWidth)}x${Math.round(desktopHeroGeometry.renderedHeight)} mobile=${Math.round(mobileHeroGeometry.renderedWidth)}x${Math.round(mobileHeroGeometry.renderedHeight)} source=${desktopHeroGeometry.naturalWidth}x${desktopHeroGeometry.naturalHeight}`);
+    mark('marketing mascot hero geometry',`desktop=${Math.round(desktopHeroGeometry.renderedWidth)}x${Math.round(desktopHeroGeometry.renderedHeight)} mobile=${Math.round(mobileHeroGeometry.renderedWidth)}x${Math.round(mobileHeroGeometry.renderedHeight)}`);
     await page.waitForFunction(()=>{
       const dock=document.getElementById('thebeAiDock'),pill=document.getElementById('thebeAiDockPill');
       if(!dock||!pill)return false;
