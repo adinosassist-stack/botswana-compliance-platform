@@ -3170,11 +3170,17 @@
     const list=q("#propertyPortfolioList");
     if(list)list.replaceChildren(text("div","Reading canonical property records…","muted small"));
     try{
-      const [portfolio,evidencePayload,valuationServices]=await Promise.all([
+      const [portfolio,evidencePayload,valuationServices,valuationOperationsStatus]=await Promise.all([
         request("/api/property/portfolio"),
         request("/api/evidence").catch(()=>({items:[]})),
-        request("/api/property/valuation-services").catch(()=>({available:false,items:[]}))
+        request("/api/property/valuation-services").catch(()=>({available:false,items:[]})),
+        request("/api/property/valuation-operations/status").catch(()=>({sessionAllowed:false}))
       ]);
+      let valuationOperationsProfessionals=[];
+      if(valuationOperationsStatus?.sessionAllowed===true){
+        const professionalsPayload=await request("/api/property/valuation-operations/professionals").catch(()=>({items:[]}));
+        valuationOperationsProfessionals=Array.isArray(professionalsPayload?.items)?professionalsPayload.items:[];
+      }
       propertyPortfolioCache=portfolio;
       propertyEvidenceOptions=propertyPortfolioEligibleEvidence(evidencePayload);
       const set=(id,value)=>{const node=q("#"+id);if(node)node.textContent=value};
@@ -3210,7 +3216,7 @@
       const valuationPanel=q("#propertyValuationFormPanel");
       if(valuationPanel)valuationPanel.hidden=role()!=="owner";
       const serviceButton=q("#propertyValuationServiceRequestButton");if(serviceButton)serviceButton.hidden=role()!=="owner";
-      renderPropertyValuationServices(valuationServices);
+      renderPropertyValuationServices(valuationServices,{sessionAllowed:valuationOperationsStatus?.sessionAllowed===true,professionals:valuationOperationsProfessionals});
       if(list){
         if(!items.length){
           list.replaceChildren(text("div","No property assets are recorded yet. Add the first property to start the canonical portfolio.","notice"));
@@ -3233,7 +3239,93 @@
     const n=Number(value);return Number.isFinite(n)?"P"+n.toLocaleString("en-BW",{minimumFractionDigits:0,maximumFractionDigits:0}):"Quote pending";
   }
 
-  function renderPropertyValuationServices(payload){
+  function propertyOpsLocalDateTime(value){
+    if(!value)return "";
+    const d=new Date(value);if(Number.isNaN(d.getTime()))return "";
+    const pad=n=>String(n).padStart(2,"0");
+    return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+"T"+pad(d.getHours())+":"+pad(d.getMinutes());
+  }
+
+  async function runPropertyValuationOperation(requestId,action,payload,successMessage){
+    if(!requestId||!["quote","assign","advance"].includes(action))return;
+    try{
+      await request("/api/property/valuation-operations/"+encodeURIComponent(requestId)+"/"+action,{
+        method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload||{})
+      });
+      propertyPortfolioNotify(successMessage||"Valuation operation saved.");
+      await renderPropertyPortfolio(true);
+    }catch(error){
+      propertyPortfolioNotify(String(error?.message||"Valuation operation failed"),"error");
+    }
+  }
+
+  function propertyValuationOperationsControls(item,operations={}){
+    if(operations?.sessionAllowed!==true)return null;
+    const professionals=Array.isArray(operations?.professionals)?operations.professionals.filter(row=>row?.credentialReady===true):[];
+    const box=document.createElement("details");
+    box.className="card";
+    box.style.marginTop="10px";
+    const summary=document.createElement("summary");
+    summary.textContent="Platform valuation operations";
+    box.append(summary);
+    const note=text("div","Platform-admin owner controls. Human valuation judgment and signed-report issuance remain outside automated execution.","muted small");
+    note.style.marginTop="8px";box.append(note);
+    const controls=document.createElement("div");controls.className="actions";controls.style.marginTop="10px";
+    const requestId=String(item?.id||"");
+
+    if(["requested","quoted","awaiting_payment"].includes(String(item?.status||""))){
+      const fee=document.createElement("input");fee.type="number";fee.min="1";fee.step="1";fee.placeholder="Fee BWP";fee.value=item?.quotedFeeBwp==null?"":String(item.quotedFeeBwp);
+      fee.setAttribute("aria-label","Valuation fee BWP");
+      const expiry=document.createElement("input");expiry.type="datetime-local";expiry.setAttribute("aria-label","Quote expiry");
+      expiry.value=!item?.quoteExpired?propertyOpsLocalDateTime(item?.quoteExpiresAt):"";
+      controls.append(fee,expiry,button(item?.quotedFeeBwp==null?"Issue quote":"Refresh quote",()=>{
+        const feeBwp=Math.round(Number(fee.value||0));const parsed=Date.parse(expiry.value);
+        if(!Number.isSafeInteger(feeBwp)||feeBwp<=0){propertyPortfolioNotify("Enter a valid whole-BWP valuation fee.","error");return}
+        if(!expiry.value||!Number.isFinite(parsed)){propertyPortfolioNotify("Choose a valid quote expiry time.","error");return}
+        void runPropertyValuationOperation(requestId,"quote",{feeBwp,quoteExpiresAt:new Date(parsed).toISOString()},"Valuation quote issued.");
+      },"btn"));
+    }
+
+    if(String(item?.status||"")==="paid"){
+      const select=document.createElement("select");select.setAttribute("aria-label","Verified property valuer");
+      const first=document.createElement("option");first.value="";first.textContent=professionals.length?"Choose verified valuer":"No verified valuers available";select.append(first);
+      for(const professional of professionals){
+        const option=document.createElement("option");option.value=String(professional.userId||"");
+        option.textContent=String(professional.displayName||professional.email||"Valuer")+(professional.registrationRef?" · "+professional.registrationRef:"");
+        select.append(option);
+      }
+      controls.append(select,button("Assign valuer",()=>{
+        if(!select.value){propertyPortfolioNotify("Choose a verified property valuer.","error");return}
+        const professional=professionals.find(row=>String(row.userId||"")===select.value);
+        void runPropertyValuationOperation(requestId,"assign",{professionalUserId:select.value,registrationRef:professional?.registrationRef||""},"Verified property valuer assigned.");
+      },"btn"));
+    }
+
+    if(String(item?.status||"")==="assigned"){
+      const inspection=document.createElement("input");inspection.type="datetime-local";inspection.setAttribute("aria-label","Inspection date and time");
+      inspection.value=propertyOpsLocalDateTime(item?.inspectionScheduledAt);
+      controls.append(inspection,button("Schedule inspection",()=>{
+        const parsed=Date.parse(inspection.value);
+        if(!inspection.value||!Number.isFinite(parsed)){propertyPortfolioNotify("Choose a valid inspection date and time.","error");return}
+        void runPropertyValuationOperation(requestId,"advance",{status:"inspection_scheduled",inspectionScheduledAt:new Date(parsed).toISOString()},"Inspection scheduled.");
+      },"btn soft"));
+      controls.append(button("Mark fieldwork complete",()=>void runPropertyValuationOperation(requestId,"advance",{status:"fieldwork_complete"},"Fieldwork marked complete."),"btn soft"));
+    }else if(String(item?.status||"")==="inspection_scheduled"){
+      controls.append(button("Mark fieldwork complete",()=>void runPropertyValuationOperation(requestId,"advance",{status:"fieldwork_complete"},"Fieldwork marked complete."),"btn soft"));
+    }else if(String(item?.status||"")==="fieldwork_complete"){
+      controls.append(button("Start drafting",()=>void runPropertyValuationOperation(requestId,"advance",{status:"drafting"},"Valuation drafting started."),"btn soft"));
+    }else if(String(item?.status||"")==="drafting"){
+      controls.append(button("Send to professional review",()=>void runPropertyValuationOperation(requestId,"advance",{status:"professional_review"},"Valuation sent to professional review."),"btn soft"));
+    }else if(String(item?.status||"")==="professional_review"){
+      controls.append(text("span","Final issuance requires the governed signed valuation record and linked clean report evidence.","badge warn"));
+    }
+
+    if(!controls.childNodes.length)controls.append(text("span","No platform operation is available at this workflow state.","muted small"));
+    box.append(controls);
+    return box;
+  }
+
+  function renderPropertyValuationServices(payload,operations={}){
     const box=q("#propertyValuationServiceList");if(!box)return;
     const items=Array.isArray(payload?.items)?payload.items:[];
     if(payload?.available===false){
@@ -3296,6 +3388,7 @@
       }
       if(item.issuedValuationId)actions.append(button("Open valuation history",()=>void showPropertyValuationHistory(item.propertyId,item.propertyName),"btn soft"));
       if(actions.childNodes.length)row.append(actions);
+      const operationsControls=propertyValuationOperationsControls(item,operations);if(operationsControls)row.append(operationsControls);
       return row;
     });
     box.replaceChildren(summaryStrip,...nodes);
