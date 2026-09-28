@@ -24,9 +24,9 @@
             <rect x="194" y="114" width="612" height="388" rx="148" fill="url(#thebeMarketShell)"/>
             <rect x="232" y="176" width="536" height="268" rx="108" fill="url(#thebeMarketFace)"/>
             <path d="M235 221c26-50 70-79 124-93" fill="none" stroke="#fff" stroke-width="28" stroke-linecap="round" opacity=".62"/>
-            <path class="thebe-market-eye" d="M326 312c0-39 31-66 68-66s68 27 68 66c0 10-5 17-15 17h-106c-10 0-15-7-15-17Z" fill="url(#thebeMarketCyan)"/>
-            <path class="thebe-market-eye" d="M538 312c0-39 31-66 68-66s68 27 68 66c0 10-5 17-15 17h-106c-10 0-15-7-15-17Z" fill="url(#thebeMarketCyan)"/>
-            <path class="thebe-market-smile" d="M454 362h92c0 37-18 59-46 59s-46-22-46-59Z" fill="url(#thebeMarketCyan)"/>
+            <path class="thebe-market-eye" d="M326 312c0-39 31-66 68-66s68 27 68 66c0 10-5 17-15 17h-106c-10 0-15-7-15-17Z" fill="url(#thebeMarketCyan)" filter="url(#thebeMarketGlow)"/>
+            <path class="thebe-market-eye" d="M538 312c0-39 31-66 68-66s68 27 68 66c0 10-5 17-15 17h-106c-10 0-15-7-15-17Z" fill="url(#thebeMarketCyan)" filter="url(#thebeMarketGlow)"/>
+            <path class="thebe-market-smile" d="M454 362h92c0 37-18 59-46 59s-46-22-46-59Z" fill="url(#thebeMarketCyan)" filter="url(#thebeMarketGlow)"/>
             <path d="M347 558c-34 26-57 67-67 119" fill="none" stroke="#fff" stroke-width="28" stroke-linecap="round" opacity=".55"/>
           </g>
         </svg>
