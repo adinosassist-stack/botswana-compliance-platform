@@ -101,7 +101,7 @@ Cloudflare Worker social sign-in now supports Google and Facebook directly. Conf
 Google may link an existing local account only when Google reports a verified email. Facebook never links to an existing account by email alone; the user must sign in first and explicitly link it under Sign-in & Accounts.
 
 ### Current upgrade delta
-The current upgrade delta `migrations/063_v179_property_valuer_credential_binding.sql` is the required existing-database release tip and must be applied after `059_v174_property_portfolio_valuation.sql` and all earlier reviewed migrations. For a brand-new D1 database, load the current `schema.sql`, then apply migrations 047, 048, 049, 050, 051, 052, 053, 054, 055, 056, 057, 058, 059, 060, 061, 062 and 063 in order. Migration 047 remains shadow-only; migration 048 does not activate execution unless the separately reviewed runtime and explicit bounded-task execution switch are enabled.
+The current upgrade delta `migrations/063_v179_property_valuer_credential_binding.sql` is the required existing-database release tip and must be applied after `062_v177_property_valuation_service_reliability.sql` and all earlier reviewed migrations. For a brand-new D1 database, load the current `schema.sql`, then apply migrations 047, 048, 049, 050, 051, 052, 053, 054, 055, 056, 057, 058, 059, 060, 061, 062 and 063 in order. Migration 047 remains shadow-only; migration 048 does not activate execution unless the separately reviewed runtime and explicit bounded-task execution switch are enabled.
 
 ## V102 bounded internal task execution
 
