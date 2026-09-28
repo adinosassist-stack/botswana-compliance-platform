@@ -11,7 +11,8 @@ assert.ok(html.includes('data-mobile-view="moneyhub"')&&!html.includes('data-mob
 assert.ok(html.includes('<section id="moneyhub"')&&html.includes('Canonical Finance Core'),'Money hub missing or detached from Finance Core');
 assert.ok(html.includes('<section id="protecthub"'),'Protect hub missing');
 assert.ok(html.includes('<section id="propertyintelligence"'),'Property Intelligence view missing');
-assert.ok(html.includes('data-hub-target="propertyintelligence"'),'Money hub must route to Property Intelligence');
+const moneySection=html.slice(html.indexOf('<section id="moneyhub"'),html.indexOf('<section id="propertyintelligence"'));
+assert.ok(!moneySection.includes('propertyintelligence'),'Money hub must not route to Property Intelligence; Property is an independent primary workspace');
 assert.ok(html.includes('function calculatePropertyDeal()'),'property calculator missing');
 assert.ok(html.includes('function askThebeAboutProperty()'),'Thebe handoff missing');
 assert.ok(html.includes('Do not invent market value or comparable-sales data.'),'agent prompt must reject invented market data');
