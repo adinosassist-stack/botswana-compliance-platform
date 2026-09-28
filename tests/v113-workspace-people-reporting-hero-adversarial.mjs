@@ -7,6 +7,7 @@ const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const delegation=fs.readFileSync("public/js/event-delegation.js","utf8");
 const apiClient=fs.readFileSync("public/js/api-client.js","utf8");
 const home=fs.readFileSync("public/home.html","utf8");
+const mascotAsset=fs.readFileSync("public/assets/thebe-mascot-reference.svg","utf8");
 const synthetic=fs.readFileSync("scripts/production-synthetic-full-user-wrapper.mjs","utf8");
 
 // Pass 1: every delegated workspace control resolves to an allowed runtime function.
@@ -66,7 +67,8 @@ assert.ok(publicMascotSize&&Number(publicMascotSize[1])>=128&&Number(publicMasco
 const marketMascotSize=html.match(/\.thebe-market-mascot\{[^}]*width:min\((\d+)%\s*,\s*(\d+)px\)/);
 assert.ok(marketMascotSize&&Number(marketMascotSize[1])>=118&&Number(marketMascotSize[2])>=860,"app-entry marketing mascot must remain deliberately oversized on desktop");
 assert.match(home,/viewBox="0 0 1000 1000"/,"public marketing mascot must preserve the approved square composition");
-assert.match(html,/viewBox="0 0 1000 1000"/,"app-entry marketing mascot must preserve the approved square composition");
+assert.match(html,/src="\/assets\/thebe-mascot-reference\.svg"/,"app-entry marketing mascot must use the approved external reference asset");
+assert.match(mascotAsset,/viewBox="0 0 1000 1000"/,"app-entry marketing mascot asset must preserve the approved square composition");
 assert.match(home,/thebe-public-eye[\s\S]*thebe-public-smile/,"public marketing mascot must preserve the approved happy face");
 assert.match(html,/thebe-market-eye[\s\S]*thebe-market-smile/,"app-entry marketing mascot must preserve the approved happy face");
 assert.match(synthetic,/marketing mascot hero geometry/,"production browser lifecycle must prove mascot geometry at desktop and phone widths");
