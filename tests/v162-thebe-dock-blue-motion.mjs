@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 
 const css=fs.readFileSync(new URL('../public/assets/thebe-ai-dock.css',import.meta.url),'utf8');
+const dockJs=fs.readFileSync(new URL('../public/js/thebe-live-voice.js',import.meta.url),'utf8');
 
 assert.match(css,/V161 dock polish/);
 assert.match(css,/V162 blue motion/);
@@ -10,6 +11,13 @@ assert.match(css,/V167 workspace dock/);
 assert.match(css,/V168 Super Agent mascot/);
 assert.match(css,/V169 contextual presence/);
 assert.match(css,/V170 interaction awareness/);
+assert.match(css,/V171 approved-reference mascot visual/);
+assert.match(css,/#marketingGate \.thebe-market-mascot\{[\s\S]*?width:min\(128%,960px\)!important/,'marketing hero must keep the approved mascot large and dominant');
+assert.match(css,/data-surface="public"[\s\S]*?thebe-particle-core\{width:112px;height:112px/,'public dock mascot must be materially larger than the workspace mascot');
+assert.match(dockJs,/viewBox","0 0 1000 1000"/,'dock mascot must use the full approved reference proportions');
+assert.match(dockJs,/thebeDockShell/);
+assert.match(dockJs,/thebe-mascot-body-seam/);
+assert.match(dockJs,/thebe-mascot-smile/);
 assert.match(css,/data-focus="compose"[\s\S]*?--thebe-eye-y:2px/,'composer focus must pull the mascot gaze downward');
 assert.match(css,/data-focus="attention"[\s\S]*?--thebe-eye-y:-1\.5px/,'attention focus must pull the mascot gaze toward the header');
 assert.match(css,/data-attention="true"[\s\S]*?thebe-mascot-beacon/,'workspace attention must produce a restrained beacon cue');
@@ -51,4 +59,4 @@ assert.match(css,/prefers-reduced-motion:reduce[\s\S]*?\.thebe-particle,[\s\S]*?
 assert.match(css,/\.thebe-ai-send\{[\s\S]*?width:46px;height:46px/);
 assert.match(css,/\.thebe-ai-quick button\{[\s\S]*?min-height:56px/);
 
-console.log('PASS: V170 Thebe Super Agent preserves the solid-blue dock with contextual and interaction-aware micro-motion plus reduced-motion protection.');
+console.log('PASS: V171 Thebe Super Agent preserves the solid-blue dock while using the approved full mascot proportions and larger marketing/public presence.');
