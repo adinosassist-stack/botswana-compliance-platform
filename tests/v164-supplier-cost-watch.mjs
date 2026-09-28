@@ -82,14 +82,14 @@ assert.match(context,/payable_cover_shortfall_14d/);
 assert.match(context,/payableCoverage14dRatio/);
 
 const owner=fs.readFileSync("public/js/owner-command-centre.js","utf8");
-assert.match(owner,/const RELEASE="20260926-v165"/);
+assert.match(owner,/const RELEASE="20260928-v170"/);
 assert.match(owner,/Supplier cost watch/);
 assert.match(owner,/Supplier payable concentration/);
 assert.match(owner,/Payable cover:/);
 assert.match(owner,/not a unit-price inflation claim/);
 
 const personalization=fs.readFileSync("public/js/executive-personalization.js","utf8");
-assert.match(personalization,/const RELEASE="20260926-v165"/);
+assert.match(personalization,/const RELEASE="20260928-v170"/);
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
 assert.match(production,/OWNER_COMMAND_CENTRE_RELEASE="20260926-v165"/);
 assert.match(production,/EXECUTIVE_PERSONALIZATION_RELEASE="20260926-v165"/);
