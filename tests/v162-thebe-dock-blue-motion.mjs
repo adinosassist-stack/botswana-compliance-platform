@@ -10,10 +10,14 @@ assert.match(css,/V167 workspace dock/);
 assert.match(css,/V168 Super Agent mascot/);
 assert.match(css,/V169 contextual presence/);
 assert.match(css,/V170 interaction awareness/);
+assert.match(css,/V171 governed mission rail/);
 assert.match(css,/data-focus="compose"[\s\S]*?--thebe-eye-y:2px/,'composer focus must pull the mascot gaze downward');
 assert.match(css,/data-focus="attention"[\s\S]*?--thebe-eye-y:-1\.5px/,'attention focus must pull the mascot gaze toward the header');
 assert.match(css,/data-attention="true"[\s\S]*?thebe-mascot-beacon/,'workspace attention must produce a restrained beacon cue');
 assert.match(css,/thebe-mascot-ack-v170/,'completed responses must have a restrained acknowledgement motion');
+assert.match(css,/\.thebe-ai-mission-track\{[\s\S]*?grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/,'V171 mission rail must expose four governed progress stages');
+assert.match(css,/data-tone="review"[\s\S]*?background:#ffb648/,'owner review stage must use restrained amber');
+assert.match(css,/data-tone="error"[\s\S]*?background:#ff6268/,'mission errors must remain visually distinct');
 
 assert.match(css,/data-context="finance"[\s\S]*?--thebe-eye-x:1\.4px/,'Finance context must shift gaze analytically');
 assert.match(css,/data-context="property"[\s\S]*?thebe-mascot-property-survey-v169/,'Property context must use restrained surveying motion');
@@ -51,4 +55,4 @@ assert.match(css,/prefers-reduced-motion:reduce[\s\S]*?\.thebe-particle,[\s\S]*?
 assert.match(css,/\.thebe-ai-send\{[\s\S]*?width:46px;height:46px/);
 assert.match(css,/\.thebe-ai-quick button\{[\s\S]*?min-height:56px/);
 
-console.log('PASS: V170 Thebe Super Agent preserves the solid-blue dock with contextual and interaction-aware micro-motion plus reduced-motion protection.');
+console.log('PASS: V171 Thebe Super Agent preserves contextual and interaction-aware motion while adding governed mission progress.');
