@@ -874,6 +874,7 @@ function manualBankConfig(env){
 }
 function manualPaymentReference(orderId){return "TBD-"+String(orderId||"").replace(/[^a-f0-9]/gi,"").slice(0,10).toUpperCase();}
 function platformBillingAdmin(a,env){const email=String(a?.email||"").trim().toLowerCase();return !!email&&csvEmailSet(env.PLATFORM_ADMIN_EMAILS).has(email);}
+function platformValuationOperationsAdmin(a,env){return roleAllowed(a,"owner")&&platformBillingAdmin(a,env)&&strongSecret(env.OPERATIONS_SECRET,32);}
 function normalizeBankReference(v){return String(v||"").trim().replace(/\s+/g," ").toUpperCase();}
 
 async function sha256Hex(text){
@@ -5531,6 +5532,31 @@ export default {
       if(businessMemoryResponse)return businessMemoryResponse;
       const businessContextResponse=await handleBusinessContextRequest({request:req,url,env,auth:a,json,roleAllowed});
       if(businessContextResponse)return businessContextResponse;
+      if(url.pathname==="/api/property/valuation-operations/status"&&req.method==="GET"){
+        return json({sessionAllowed:platformValuationOperationsAdmin(a,env),authority:"platform_admin_owner_only",secretExposed:false});
+      }
+      if(url.pathname==="/api/property/valuation-operations/professionals"&&req.method==="GET"){
+        if(!platformValuationOperationsAdmin(a,env))return json({error:"platform_valuation_operations_forbidden"},403);
+        const headers=new Headers(req.headers);headers.set("x-operations-secret",env.OPERATIONS_SECRET);
+        const internalReq=new Request(req,{headers}),internalUrl=new URL(req.url);
+        internalUrl.pathname="/api/internal/property/valuation-services/professionals";
+        const response=await handlePropertyValuationServicesRequest({request:internalReq,url:internalUrl,env,auth:a,json,readJson,id,writeAudit,roleAllowed,privilegedSecretGate});
+        return response||json({error:"valuation_operations_unavailable"},503);
+      }
+      {
+        const match=url.pathname.match(/^\/api\/property\/valuation-operations\/([^/]+)\/(quote|assign|advance)$/);
+        if(match&&req.method==="POST"){
+          if(!platformValuationOperationsAdmin(a,env))return json({error:"platform_valuation_operations_forbidden"},403);
+          const requestId=String(match[1]||""),action=String(match[2]||"");
+          const owned=await env.DB.prepare("SELECT id FROM property_valuation_service_requests WHERE id=? AND tenant_id=? LIMIT 1").bind(requestId,a.tenant_id).first();
+          if(!owned)return json({error:"valuation_service_request_not_found"},404);
+          const headers=new Headers(req.headers);headers.set("x-operations-secret",env.OPERATIONS_SECRET);
+          const internalReq=new Request(req,{headers}),internalUrl=new URL(req.url);
+          internalUrl.pathname="/api/internal/property/valuation-services/"+encodeURIComponent(requestId)+"/"+action;
+          const response=await handlePropertyValuationServicesRequest({request:internalReq,url:internalUrl,env,auth:a,json,readJson,id,writeAudit,roleAllowed,privilegedSecretGate});
+          return response||json({error:"valuation_operations_unavailable"},503);
+        }
+      }
       const propertyValuationServicesResponse=await handlePropertyValuationServicesRequest({request:req,url,env,auth:a,json,readJson,id,writeAudit,roleAllowed,privilegedSecretGate});
       if(propertyValuationServicesResponse)return propertyValuationServicesResponse;
       const propertyPortfolioResponse=await handlePropertyPortfolioRequest({request:req,url,env,auth:a,json,readJson,id,writeAudit,roleAllowed});
