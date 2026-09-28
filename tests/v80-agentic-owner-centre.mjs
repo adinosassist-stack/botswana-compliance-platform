@@ -9,7 +9,7 @@ const core=read('cloudflare/src/agentic-core.js');
 let checks=0;
 const ok=(value,message)=>{assert.ok(value,message);checks++};
 
-ok(js.includes('const RELEASE="20260926-v165";'),'browser release advanced for outcome-informed agentic UI');
+ok(js.includes('const RELEASE="20260928-v171";'),'browser release advanced for outcome-informed agentic UI');
 const runtimeAssetsSafe=(sw.includes('function criticalRuntimeAsset(url){return url.origin===self.location.origin&&url.pathname.startsWith("/js/")}')&&sw.includes('fetch(request,{cache:"no-store"})'))||(sw.includes('self.registration.unregister()')&&!sw.includes('addEventListener("fetch"'));
 ok(runtimeAssetsSafe,'JS runtime assets must be network-first under the legacy worker or fully outside service-worker interception under the decommissioned model');
 ok(html.includes('id="ownerAgenticStyles"')&&html.includes('.owner-agentic-panel{'),'responsive agentic panel styles are present');
@@ -20,6 +20,7 @@ ok(js.includes('statusPayload?.outcomeLearning?.enabled')&&js.includes('Outcome-
 ok(js.includes('Recent recorded outcomes can only reorder recommendations within the same priority level.'),'UI states the strict priority-class learning boundary');
 ok(js.includes('This is non-causal and cannot change risk, approvals or execution authority.'),'UI states that learning is non-causal and cannot expand authority');
 ok(js.includes('request("/api/agentic/status")')&&js.includes('request("/api/agentic/runs")')&&js.includes('request("/api/agentic/task-execution/status")'),'UI reads governed planning, persisted runs and read-only bounded-execution status');
+ok(js.includes('thebe:owner-agent-state')&&js.includes('pendingReviews')&&js.includes('boundedExecutionAvailable'),'Owner Command Centre emits a read-only Super Agent state bridge from authoritative governed-task data');
 ok(js.includes('request("/api/agentic/plan"')&&js.includes('method:"POST"'),'plan generation uses the reviewed Stage 1 planning endpoint');
 ok(js.includes('/api/agentic/proposals/${encodeURIComponent(proposalId)}/${decision}')&&js.includes('"Record approval"')&&js.includes('"Reject"'),'proposal decisions use reviewed approve/reject endpoints');
 ok(js.includes('if(role()==="owner")')&&js.includes('["owner","manager"].includes(role())'),'approval is owner-only while rejection remains owner/manager');
