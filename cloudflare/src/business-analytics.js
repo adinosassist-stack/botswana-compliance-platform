@@ -30,6 +30,8 @@ export function buildBusinessAnalytics(context={}){
   const scenario=money?.scenario||{},commitmentStress=money?.commitmentStress||{};
   const operations=context?.operations||{},compliance=context?.compliance||{},sales=context?.sales||{},property=context?.property||{};
   const propertyAvailable=property?.available===true;
+  const valuationServices=property?.valuationServices||{};
+  const valuationServicesAvailable=valuationServices?.available===true;
   const signals=[];
 
   if(Number(reconciliation?.unresolvedCount||0)>0)signals.push(signal(
@@ -111,6 +113,16 @@ export function buildBusinessAnalytics(context={}){
     "property_valuation_report_evidence_gap","medium","Signed valuation-report evidence is incomplete",
     `${Number(property.valuationReportEvidenceGapCount||0)} valued property asset(s) do not have linked approved, malware-scan-clean signed-report evidence.`,
     ["property_professional_valuations","property_valuation_evidence_links","evidence"]
+  ));
+  if(valuationServicesAvailable&&Number(valuationServices?.payableQuoteCount||0)>0)signals.push(signal(
+    "property_valuation_quote_payment_due","medium","Professional valuation quotes await payment",
+    `${Number(valuationServices.payableQuoteCount||0)} payable professional valuation quote(s) total P${Number(valuationServices.payableQuoteValueBwp||0).toLocaleString("en-BW")}.`,
+    ["property_valuation_service_requests","service_orders"]
+  ));
+  if(valuationServicesAvailable&&Number(valuationServices?.expiredQuoteCount||0)>0)signals.push(signal(
+    "property_valuation_quote_expired","medium","Professional valuation quotes need refresh",
+    `${Number(valuationServices.expiredQuoteCount||0)} awaiting-payment valuation quote(s) expired before payment, representing P${Number(valuationServices.expiredQuoteValueBwp||0).toLocaleString("en-BW")} in quoted value.`,
+    ["property_valuation_service_requests"]
   ));
 
   signals.sort((a,b)=>severityRank(a.severity)-severityRank(b.severity)||a.key.localeCompare(b.key));
@@ -194,6 +206,16 @@ export function buildBusinessAnalytics(context={}){
         underwritingToolAvailable:true,
         portfolioAnalyticsAvailable:propertyAvailable,
         professionalValuationWorkflowAvailable:propertyAvailable,
+        valuationServicesAvailable:valuationServicesAvailable,
+        valuationServiceAwaitingPaymentCount:number(valuationServices?.awaitingPaymentCount),
+        valuationServiceAwaitingPaymentValueBwp:number(valuationServices?.awaitingPaymentValueBwp),
+        valuationServicePayableQuoteCount:number(valuationServices?.payableQuoteCount),
+        valuationServicePayableQuoteValueBwp:number(valuationServices?.payableQuoteValueBwp),
+        valuationServiceExpiredQuoteCount:number(valuationServices?.expiredQuoteCount),
+        valuationServiceExpiredQuoteValueBwp:number(valuationServices?.expiredQuoteValueBwp),
+        valuationServiceInProgressCount:number(valuationServices?.inProgressCount),
+        valuationServiceCompletedCount:number(valuationServices?.completedCount),
+        valuationServiceCompletedValueBwp:number(valuationServices?.completedServiceValueBwp),
         assetCount:number(property?.assetCount),
         valuedAssetCount:number(property?.valuedAssetCount),
         unvaluedAssetCount:number(property?.unvaluedAssetCount),
