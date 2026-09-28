@@ -32,6 +32,7 @@ assert.ok(fs.existsSync("public/js/owner-whatsapp-prepare.js"),"indirectly loade
 assert.match(apiClient,/\/js\/owner-whatsapp-prepare\.js/);
 assert.ok(fs.existsSync("public/js/surface-boundaries.js"),"release-governed surface boundary runtime is live code");
 assert.match(governance,/\/js\/surface-boundaries\.js/);
+assert.doesNotMatch(html,/function deactivateOpsLocation\(/,"obsolete deactivateOpsLocation compatibility alias must stay deleted; removeOpsLocation is canonical");
 
 // Literal workspace buttons must resolve to delegated handlers, and literal data-view targets must exist.
 const actionNames=[...html.matchAll(/data-bw-onclick="([^"]+)"/g)]
