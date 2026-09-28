@@ -993,8 +993,8 @@
       addStops(svgNode("radialGradient",{id:"thebeDockFace",cx:".52",cy:".5",r:".72"}),[["0","#163f57"],[".62","#0b2637"],["1","#071a26"]]),
       addStops(svgNode("linearGradient",{id:"thebeDockCyan",x1:"0",y1:"0",x2:"1",y2:"1"}),[["0","#71efff"],["1","#39cfe0"]])
     );
-    const shell=svgNode("g",{class:"thebe-mascot-shell"});
-    shell.append(
+    const mascotShell=svgNode("g",{class:"thebe-mascot-shell"});
+    mascotShell.append(
       svgNode("rect",{class:"thebe-mascot-nub",x:"415",y:"80",width:"170",height:"62",rx:"31",fill:"url(#thebeDockLimb)"}),
       svgNode("rect",{class:"thebe-mascot-ear thebe-mascot-ear-left",x:"174",y:"254",width:"94",height:"136",rx:"47",fill:"url(#thebeDockLimb)"}),
       svgNode("rect",{class:"thebe-mascot-ear thebe-mascot-ear-right",x:"732",y:"254",width:"94",height:"136",rx:"47",fill:"url(#thebeDockLimb)"}),
@@ -1012,7 +1012,7 @@
       (()=>{const mouth=svgNode("g",{class:"thebe-mascot-mouth"});mouth.append(svgNode("path",{class:"thebe-mascot-smile",d:"M454 362h92c0 37-18 59-46 59s-46-22-46-59Z",fill:"url(#thebeDockCyan)"}));return mouth})(),
       svgNode("path",{class:"thebe-mascot-chest",d:"M347 558c-34 26-57 67-67 119",fill:"none",stroke:"#fff","stroke-width":"28","stroke-linecap":"round",opacity:".55"})
     );
-    bot.append(defs,svgNode("ellipse",{class:"thebe-mascot-shadow",cx:"500",cy:"918",rx:"112",ry:"16",fill:"#687080",opacity:".16"}),shell);
+    bot.append(defs,svgNode("ellipse",{class:"thebe-mascot-shadow",cx:"500",cy:"918",rx:"112",ry:"16",fill:"#687080",opacity:".16"}),mascotShell);
     mascot.append(bot);core.append(mascot);orb.append(wave,core);
     orbButton.append(orb);
     orbButton.addEventListener("click",()=>{
