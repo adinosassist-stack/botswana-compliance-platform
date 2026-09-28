@@ -126,15 +126,14 @@ async function runFullUserJourney(credentials){
       const mascot=document.querySelector(selector),frame=mascot?.closest('.visual');
       if(!mascot||!frame)return null;
       const rect=mascot.getBoundingClientRect(),style=getComputedStyle(mascot),frameStyle=getComputedStyle(frame);
-      const viewBox=mascot.getAttribute('viewBox')||'';
+      const source=new URL(mascot.currentSrc||mascot.src,location.href).pathname;
       return {
         renderedWidth:rect.width,
         renderedHeight:rect.height,
         visibility:style.visibility,
         display:style.display,
-        viewBox,
-        eyeCount:mascot.querySelectorAll('.thebe-public-eye').length,
-        hasSmile:!!mascot.querySelector('.thebe-public-smile'),
+        source,
+        imageLoaded:mascot.complete&&mascot.naturalWidth===2048&&mascot.naturalHeight===2048,
         frameOverflowX:frameStyle.overflowX,
         frameOverflowY:frameStyle.overflowY
       };
@@ -142,8 +141,7 @@ async function runFullUserJourney(credentials){
     const assertMarketingMascotVisible=(state,viewport)=>{
       assert(state&&state.renderedWidth>280&&state.renderedHeight>280,`marketing Thebe mascot is too small or missing on ${viewport}: ${safe(JSON.stringify(state))}`);
       assert(state.display!=='none'&&state.visibility!=='hidden',`marketing Thebe mascot is hidden on ${viewport}`);
-      assert(state.viewBox==='0 0 1000 1000','marketing Thebe mascot must preserve the approved square composition');
-      assert(state.eyeCount===2&&state.hasSmile,'marketing Thebe mascot lost the approved happy cyan face');
+      assert(state.source==='/assets/thebe-mascot-original.png'&&state.imageLoaded,'marketing Thebe mascot must load the exact approved image');
       assert(state.frameOverflowX==='visible'&&state.frameOverflowY==='visible',`marketing Thebe mascot frame can clip the approved character: ${safe(JSON.stringify(state))}`);
     };
     await page.waitForFunction(selector=>{

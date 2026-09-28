@@ -2434,13 +2434,17 @@ main{
 </head>
 <style id="thebe-market-mascot-style">
 .marketingvisual.mascot-visual:after{display:none}
-.thebe-market-mascot-wrap{position:relative;display:grid;place-items:center;min-height:640px;margin:-44px -52px -138px;isolation:isolate}
+.thebe-market-mascot-wrap{position:relative;display:grid;place-items:center;min-height:640px;margin:-44px -52px -138px}
 .thebe-market-mascot{display:block;width:min(118%,860px);height:auto;overflow:visible;filter:drop-shadow(0 28px 38px rgba(20,34,48,.15));transform-origin:50% 58%;animation:thebe-market-float 5.6s ease-in-out infinite}
-.thebe-market-mascot .thebe-market-eye,.thebe-market-mascot .thebe-market-smile{filter:url(#thebeMarketGlow)}
+.thebe-market-mascot-frame{position:relative;display:block;width:min(118%,860px);animation:thebe-market-float 5.6s ease-in-out infinite}
+.thebe-market-mascot{width:100%;animation:none;filter:none;mix-blend-mode:multiply;object-fit:contain}
+.thebe-mascot-blink-eye{position:absolute;top:26.1%;width:7%;height:5%;border-radius:48%;background:#15364a;transform:scaleY(0);transform-origin:50% 8%;animation:thebe-eye-blink 6.8s ease-in-out infinite;pointer-events:none}
+.thebe-mascot-blink-eye.left{left:37.1%}.thebe-mascot-blink-eye.right{left:55.9%}
+@keyframes thebe-eye-blink{0%,41%,44%,100%{transform:scaleY(0)}42.3%,42.9%{transform:scaleY(1)}}
 @keyframes thebe-market-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
 @media(max-width:900px){.thebe-market-mascot-wrap{min-height:560px;margin:-20px auto -92px}.thebe-market-mascot{width:min(108%,760px)}}
 @media(max-width:650px){.thebe-market-mascot-wrap{min-height:455px;margin:-12px -28px -78px}.thebe-market-mascot{width:112%}}
-@media(prefers-reduced-motion:reduce){.thebe-market-mascot{animation:none!important}}
+@media(prefers-reduced-motion:reduce){.thebe-market-mascot,.thebe-market-mascot-frame,.thebe-mascot-blink-eye{animation:none!important}}
 </style>
 <body>
 <!-- Approved workspace UI/UX refinement · simplified primary navigation + action-first Home · mobile 5-item nav preserved --><a class="skiplink" href="#mainContent">Skip to main content</a><div id="srStatus" class="sr-status" aria-live="polite"></div>
@@ -2517,8 +2521,8 @@ main{
       <div class="trustline"><span>Built for African business</span><span>Evidence-backed</span><span>Human review when it matters</span></div>
     </div>
     <div class="marketingvisual mascot-visual" style="min-height:0!important;overflow:visible!important;background:transparent!important;box-shadow:none!important">
-      <div class="thebe-market-mascot-wrap" aria-label="Thebe, your AI business assistant">
-        <img class="thebe-market-mascot" src="/assets/thebe-mascot-reference.svg" width="1000" height="1000" alt="Thebe, your AI business assistant">
+      <div class="thebe-market-mascot-wrap">
+        <span class="thebe-market-mascot-frame"><img class="thebe-market-mascot" src="/assets/thebe-mascot-original.png" width="2048" height="2048" fetchpriority="high" decoding="async" alt="Thebe, your AI business assistant"><span class="thebe-mascot-blink-eye left" aria-hidden="true"></span><span class="thebe-mascot-blink-eye right" aria-hidden="true"></span></span>
       </div>
       <div class="visual-tag">Meet Thebe · your business assistant</div>
       <div class="productmock" aria-label="Product preview" style="position:relative!important;left:auto!important;right:auto!important;bottom:auto!important;margin:16px 20px 20px">
