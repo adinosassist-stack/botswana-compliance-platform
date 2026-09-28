@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 const css=fs.readFileSync(new URL('../public/assets/thebe-ai-dock.css',import.meta.url),'utf8');
 const dockJs=fs.readFileSync(new URL('../public/js/thebe-live-voice.js',import.meta.url),'utf8');
+const home=fs.readFileSync(new URL('../public/home.html',import.meta.url),'utf8');
 
 assert.match(css,/V161 dock polish/);
 assert.match(css,/V162 blue motion/);
@@ -18,6 +19,8 @@ assert.match(dockJs,/viewBox:"0 0 1000 1000"/,'dock mascot must use the full app
 assert.match(dockJs,/thebeDockShell/);
 assert.match(dockJs,/thebe-mascot-body-seam/);
 assert.match(dockJs,/thebe-mascot-smile/);
+assert.match(home,/\.thebe-public-mascot\{[\s\S]*?width:min\(145%,900px\)/,'public home hero must keep Thebe substantially larger than the earlier 760px treatment');
+assert.match(home,/thebe-public-mascot-stage\{[\s\S]*?min-height:660px/,'public home hero must reserve enough vertical room for the enlarged mascot');
 assert.match(css,/data-focus="compose"[\s\S]*?--thebe-eye-y:2px/,'composer focus must pull the mascot gaze downward');
 assert.match(css,/data-focus="attention"[\s\S]*?--thebe-eye-y:-1\.5px/,'attention focus must pull the mascot gaze toward the header');
 assert.match(css,/data-attention="true"[\s\S]*?thebe-mascot-beacon/,'workspace attention must produce a restrained beacon cue');
