@@ -7,6 +7,22 @@ assert.match(html,/class="nav-primary" data-view="propertyintelligence"/,"Proper
 assert.equal((html.match(/data-view="propertyintelligence"/g)||[]).length,1,"Property navigation must have one canonical control");
 assert.doesNotMatch(html,/class="nav-advanced" data-view="propertyintelligence"/,"Property must not be hidden in advanced navigation");
 
+const moneyStart=html.indexOf('<section id="moneyhub"');
+const propertyStart=html.indexOf('<section id="propertyintelligence"',moneyStart);
+assert.ok(moneyStart>0&&propertyStart>moneyStart,"Money and Property workspace sections must exist");
+const moneySection=html.slice(moneyStart,propertyStart);
+assert.doesNotMatch(moneySection,/Property Intelligence|propertyintelligence/i,"Money must not surface or route into Property Intelligence");
+assert.match(html,/propertyintelligence:\["Property Intelligence","Property","property real estate rental yield mortgage cash flow investment"\]/,"Property Intelligence must be classified under Property, not Money");
+assert.doesNotMatch(html,/Money · Investments/,"Property workspace must not present itself as a Money sub-area");
+assert.doesNotMatch(html,/showView\('moneyhub'\)">Back to Money/,"Property workspace must not route back to Money");
+const propertyFragments=[
+  fs.readFileSync(new URL("../public/assets/workspace-view-fragments-20260923f.json",import.meta.url),"utf8"),
+  fs.readFileSync(new URL("../public/assets/workspace-view-fragments-20260923f-4.json",import.meta.url),"utf8")
+];
+for(const source of propertyFragments){
+  assert.doesNotMatch(source,/Money · Investments|Back to Money/,"lazy Property fragments must preserve the Property/Money separation");
+}
+
 const ownerCentre=fs.readFileSync(new URL("../public/js/owner-command-centre.js",import.meta.url),"utf8");
 assert.match(ownerCentre,/function openPropertyValuationServiceRequest\(item\)/,"active property cards must have a contextual valuation-service entry helper");
 assert.match(ownerCentre,/button\("Request valuation quote",\(\)=>openPropertyValuationServiceRequest\(item\),"btn"\)/,"active owner property cards must expose the valuation quote CTA");
