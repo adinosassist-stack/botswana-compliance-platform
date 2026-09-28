@@ -60,3 +60,7 @@ When `MALWARE_SCAN_REQUIRED=true`, the scanner job request includes `evidenceId`
 
 ### Current schema upgrade target
 For an existing D1 database, apply only the pending release migrations in order through `063_v179_property_valuer_credential_binding.sql` before deploying the current Worker. For a brand-new D1 database, load `cloudflare/schema.sql` and then apply migrations 047 through 063 in order. The delegated-authority layer remains shadow-only after the migration; applying these migrations does not enable autonomous execution.
+### Migration 063 release ordering
+
+Property-valuer credential binding must not be deployed until production D1 migration 063 has completed from an exact-main, merged-PR authority commit carrying the `[migrate-063]` marker. The migration is additive and is applied while the previously closed production Worker remains authoritative. Only after the migration workflow reports success may a later manifest-only release promote a Worker that requires the new credential tables and columns.
+
