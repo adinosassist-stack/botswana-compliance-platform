@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import {PROPERTY_VALUATION_SERVICES_VERSION,__propertyValuationServicesTest} from "../cloudflare/src/property-valuation-services.js";
 
-assert.equal(PROPERTY_VALUATION_SERVICES_VERSION,"2026-09-27.v177");
+assert.equal(PROPERTY_VALUATION_SERVICES_VERSION,"2026-09-28.v179");
 assert.equal(__propertyValuationServicesTest.quoteExpired({quote_expires_at:"2026-09-27T10:00:00Z"},Date.parse("2026-09-27T10:00:01Z")),true);
 assert.equal(__propertyValuationServicesTest.quoteExpired({quote_expires_at:"2026-09-27T10:00:00Z"},Date.parse("2026-09-27T09:59:59Z")),false);
 const summary=__propertyValuationServicesTest.serviceSummary([
@@ -19,7 +19,7 @@ assert.equal(summary.quotedPipelineBwp,3700);
 assert.equal(summary.completedRevenueBwp,2500);
 assert.equal(summary.expiredQuotes,1);
 
-const migration=fs.readFileSync("cloudflare/migrations/062_v177_property_valuation_service_reliability.sql","utf8");
+const migration=fs.readFileSync("cloudflare/migrations/063_v179_property_valuer_credential_binding.sql","utf8");
 const service=fs.readFileSync("cloudflare/src/property-valuation-services.js","utf8");
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const owner=fs.readFileSync("public/js/owner-command-centre.js","utf8");
@@ -63,12 +63,12 @@ assert.match(owner,/View timeline/);
 assert.match(owner,/Quote expired · a fresh quote is required before payment/);
 assert.match(owner,/registration /);
 
-assert.equal(profile.latest_cloudflare_migration,"062_v177_property_valuation_service_reliability.sql");
+assert.equal(profile.latest_cloudflare_migration,"063_v179_property_valuer_credential_binding.sql");
 assert.equal(profile.property_valuation_service_reliability_v177,true);
 assert.equal(profile.property_valuation_quote_expiry_enforced,true);
 assert.equal(profile.property_valuation_assigned_credential_bound,true);
 assert.equal(profile.property_valuation_duplicate_active_request_blocked,true);
-assert.match(agentic,/062_v177_property_valuation_service_reliability\.sql/);
+assert.match(agentic,/063_v179_property_valuer_credential_binding\.sql/);
 assert.match(runner,/number:62/);
 assert.match(runner,/062_v177_property_valuation_service_reliability\.sql/);
 assert.match(runner,/blob:'de15b22de9d6547c5b138b4400b54b67827b79d3'/);
