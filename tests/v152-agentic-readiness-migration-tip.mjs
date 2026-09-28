@@ -30,7 +30,7 @@ assert.equal(await delegatedAuthoritySchemaReady({DB:db({missingOccurrenceIndex:
 assert.equal(await delegatedAuthoritySchemaReady({DB:db({missingSchedulerIndex:true})}),false,"migration 055 scheduler index is required");
 assert.equal(await delegatedAuthoritySchemaReady({DB:db({missingRegistry:true})}),false,"migration 056 canonical agent registry is required");
 assert.equal(await delegatedAuthoritySchemaReady({DB:db({missingMemory:true})}),false,"migration 057 business memory tables are required");
-assert.equal(await delegatedAuthoritySchemaReady({DB:db({missingProperty:true})}),false,"migration 059 property portfolio tables are required");
+assert.equal(await delegatedAuthoritySchemaReady({DB:db({missingProperty:true})}),false,"migration 060 property evidence/history tables are required");
 assert.equal(await delegatedAuthoritySchemaReady({DB:db({missingPropertyV175:true})}),false,"migration 060 property evidence and operating history tables are required");
 assert.equal(await delegatedAuthoritySchemaReady({}),false);
 
