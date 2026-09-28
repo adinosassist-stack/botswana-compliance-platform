@@ -6,8 +6,8 @@ const NAVIGATION_TIMEOUT_MS=30000;
 const WORKSPACE_TIMEOUT_MS=40000;
 const VIEW_TIMEOUT_MS=5000;
 const CLOSE_TIMEOUT_MS=5000;
-const MIN_OWNER_VIEW_COUNT=7;
-const MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=7;
+const MIN_OWNER_VIEW_COUNT=8;
+const MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=8;
 const MIN_SAFE_UI_ACTION_COUNT=5;
 const executablePath=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(path=>fs.existsSync(path));
 
