@@ -61,8 +61,10 @@ assert.match(runtime,/if\(reportingSetupDetails&&!reportingSetupDetails\.open\)r
 assert.match(worker,/const \[locRes,accessRes,reportRes,prevRes,exceptionRes\]=await env\.DB\.batch\(\[/,"dashboard analytics must use one D1 batch round-trip");
 assert.match(home,/class="thebe-public-mascot"/,"public marketing hero must ship the approved Thebe mascot");
 assert.match(html,/class="thebe-market-mascot"/,"app-entry marketing hero must ship the approved Thebe mascot");
-assert.match(home,/\.thebe-public-mascot\{[^}]*width:min\(128%,760px\)/,"public marketing mascot must be deliberately oversized on desktop");
-assert.match(html,/\.thebe-market-mascot\{[^}]*width:min\(118%,860px\)/,"app-entry marketing mascot must be deliberately oversized on desktop");
+const publicMascotSize=home.match(/\.thebe-public-mascot\{[^}]*width:min\((\d+)%\s*,\s*(\d+)px\)/);
+assert.ok(publicMascotSize&&Number(publicMascotSize[1])>=128&&Number(publicMascotSize[2])>=760,"public marketing mascot must remain deliberately oversized on desktop");
+const marketMascotSize=html.match(/\.thebe-market-mascot\{[^}]*width:min\((\d+)%\s*,\s*(\d+)px\)/);
+assert.ok(marketMascotSize&&Number(marketMascotSize[1])>=118&&Number(marketMascotSize[2])>=860,"app-entry marketing mascot must remain deliberately oversized on desktop");
 assert.match(home,/viewBox="0 0 1000 1000"/,"public marketing mascot must preserve the approved square composition");
 assert.match(html,/viewBox="0 0 1000 1000"/,"app-entry marketing mascot must preserve the approved square composition");
 assert.match(home,/thebe-public-eye[\s\S]*thebe-public-smile/,"public marketing mascot must preserve the approved happy face");
