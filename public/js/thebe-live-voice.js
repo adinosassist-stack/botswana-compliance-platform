@@ -980,20 +980,28 @@
     const antenna=document.createElementNS(svgNS,"path");antenna.setAttribute("class","thebe-mascot-antenna");antenna.setAttribute("d","M48 25V16");
     const beacon=document.createElementNS(svgNS,"circle");beacon.setAttribute("class","thebe-mascot-beacon");beacon.setAttribute("cx","48");beacon.setAttribute("cy","12");beacon.setAttribute("r","3.5");
     const mascotShell=document.createElementNS(svgNS,"g");mascotShell.setAttribute("class","thebe-mascot-shell");
-    const earL=document.createElementNS(svgNS,"rect");earL.setAttribute("class","thebe-mascot-ear thebe-mascot-ear-left");earL.setAttribute("x","8");earL.setAttribute("y","40");earL.setAttribute("width","9");earL.setAttribute("height","18");earL.setAttribute("rx","4.5");
-    const earR=document.createElementNS(svgNS,"rect");earR.setAttribute("class","thebe-mascot-ear thebe-mascot-ear-right");earR.setAttribute("x","79");earR.setAttribute("y","40");earR.setAttribute("width","9");earR.setAttribute("height","18");earR.setAttribute("rx","4.5");
-    const mascotHead=document.createElementNS(svgNS,"rect");mascotHead.setAttribute("class","thebe-mascot-head");mascotHead.setAttribute("x","16");mascotHead.setAttribute("y","26");mascotHead.setAttribute("width","64");mascotHead.setAttribute("height","48");mascotHead.setAttribute("rx","19");
-    const face=document.createElementNS(svgNS,"rect");face.setAttribute("class","thebe-mascot-face");face.setAttribute("x","24");face.setAttribute("y","35");face.setAttribute("width","48");face.setAttribute("height","28");face.setAttribute("rx","11");
-    const scan=document.createElementNS(svgNS,"path");scan.setAttribute("class","thebe-mascot-scan");scan.setAttribute("d","M28 42H68");
-    const eyeL=document.createElementNS(svgNS,"circle");eyeL.setAttribute("class","thebe-mascot-eye thebe-mascot-eye-left");eyeL.setAttribute("cx","38");eyeL.setAttribute("cy","47");eyeL.setAttribute("r","3");
-    const eyeR=document.createElementNS(svgNS,"circle");eyeR.setAttribute("class","thebe-mascot-eye thebe-mascot-eye-right");eyeR.setAttribute("cx","58");eyeR.setAttribute("cy","47");eyeR.setAttribute("r","3");
+    const armL=document.createElementNS(svgNS,"rect");armL.setAttribute("class","thebe-mascot-arm thebe-mascot-arm-left");armL.setAttribute("x","18");armL.setAttribute("y","60");armL.setAttribute("width","10");armL.setAttribute("height","25");armL.setAttribute("rx","5");armL.setAttribute("transform","rotate(12 23 72)");
+    const armR=document.createElementNS(svgNS,"rect");armR.setAttribute("class","thebe-mascot-arm thebe-mascot-arm-right");armR.setAttribute("x","68");armR.setAttribute("y","60");armR.setAttribute("width","10");armR.setAttribute("height","25");armR.setAttribute("rx","5");armR.setAttribute("transform","rotate(-12 73 72)");
+    const body=document.createElementNS(svgNS,"path");body.setAttribute("class","thebe-mascot-body");body.setAttribute("d","M28 61C32 55 39 53 48 53s16 2 20 8c5 8 6 20 2 28-4 7-12 10-22 10s-18-3-22-10c-4-8-3-20 2-28Z");
+    const seam=document.createElementNS(svgNS,"path");seam.setAttribute("class","thebe-mascot-body-seam");seam.setAttribute("d","M29 78c8 4 14 5 19 5s11-1 19-5M38 80v5c3 1 6 2 10 2s7-1 10-2v-5");
+    const neck=document.createElementNS(svgNS,"rect");neck.setAttribute("class","thebe-mascot-neck");neck.setAttribute("x","42");neck.setAttribute("y","51");neck.setAttribute("width","12");neck.setAttribute("height","14");neck.setAttribute("rx","5");
+    const earL=document.createElementNS(svgNS,"rect");earL.setAttribute("class","thebe-mascot-ear thebe-mascot-ear-left");earL.setAttribute("x","10");earL.setAttribute("y","29");earL.setAttribute("width","8");earL.setAttribute("height","18");earL.setAttribute("rx","4");
+    const earR=document.createElementNS(svgNS,"rect");earR.setAttribute("class","thebe-mascot-ear thebe-mascot-ear-right");earR.setAttribute("x","78");earR.setAttribute("y","29");earR.setAttribute("width","8");earR.setAttribute("height","18");earR.setAttribute("rx","4");
+    const nub=document.createElementNS(svgNS,"rect");nub.setAttribute("class","thebe-mascot-nub");nub.setAttribute("x","40");nub.setAttribute("y","13");nub.setAttribute("width","16");nub.setAttribute("height","7");nub.setAttribute("rx","3.5");
+    const mascotHead=document.createElementNS(svgNS,"rect");mascotHead.setAttribute("class","thebe-mascot-head");mascotHead.setAttribute("x","15");mascotHead.setAttribute("y","18");mascotHead.setAttribute("width","66");mascotHead.setAttribute("height","42");mascotHead.setAttribute("rx","18");
+    const face=document.createElementNS(svgNS,"rect");face.setAttribute("class","thebe-mascot-face");face.setAttribute("x","21");face.setAttribute("y","25");face.setAttribute("width","54");face.setAttribute("height","28");face.setAttribute("rx","12");
+    const highlight=document.createElementNS(svgNS,"path");highlight.setAttribute("class","thebe-mascot-highlight");highlight.setAttribute("d","M22 28c4-7 9-10 15-12");
+    const scan=document.createElementNS(svgNS,"path");scan.setAttribute("class","thebe-mascot-scan");scan.setAttribute("d","M27 34H69");
+    const eyeL=document.createElementNS(svgNS,"path");eyeL.setAttribute("class","thebe-mascot-eye thebe-mascot-eye-left");eyeL.setAttribute("d","M29 38c0-5 4-8 9-8s9 3 9 8c0 2-1 3-3 3H32c-2 0-3-1-3-3Z");
+    const eyeR=document.createElementNS(svgNS,"path");eyeR.setAttribute("class","thebe-mascot-eye thebe-mascot-eye-right");eyeR.setAttribute("d","M49 38c0-5 4-8 9-8s9 3 9 8c0 2-1 3-3 3H52c-2 0-3-1-3-3Z");
     const mouth=document.createElementNS(svgNS,"g");mouth.setAttribute("class","thebe-mascot-mouth");
+    const smile=document.createElementNS(svgNS,"path");smile.setAttribute("class","thebe-mascot-smile");smile.setAttribute("d","M43 45h10c0 5-2 7-5 7s-5-2-5-7Z");mouth.append(smile);
     for(const [x,h] of [[39,5],[46,8],[53,5]]){
       const bar=document.createElementNS(svgNS,"rect");bar.setAttribute("class","thebe-mascot-mouth-bar");bar.setAttribute("x",String(x));bar.setAttribute("y",String(57-h/2));bar.setAttribute("width","4");bar.setAttribute("height",String(h));bar.setAttribute("rx","2");mouth.append(bar);
     }
-    const chest=document.createElementNS(svgNS,"path");chest.setAttribute("class","thebe-mascot-chest");chest.setAttribute("d","M30 74h36l-5 10H35z");
-    const status=document.createElementNS(svgNS,"rect");status.setAttribute("class","thebe-mascot-status");status.setAttribute("x","43");status.setAttribute("y","77");status.setAttribute("width","10");status.setAttribute("height","4");status.setAttribute("rx","2");
-    mascotShell.append(earL,earR,mascotHead,face,scan,eyeL,eyeR,mouth,chest,status);
+    const chest=document.createElementNS(svgNS,"path");chest.setAttribute("class","thebe-mascot-chest");chest.setAttribute("d","M34 59c4-3 9-4 14-4s10 1 14 4");
+    const status=document.createElementNS(svgNS,"rect");status.setAttribute("class","thebe-mascot-status");status.setAttribute("x","43");status.setAttribute("y","84");status.setAttribute("width","10");status.setAttribute("height","4");status.setAttribute("rx","2");
+    mascotShell.append(armL,armR,body,seam,neck,earL,earR,nub,mascotHead,face,highlight,scan,eyeL,eyeR,mouth,chest,status);
     bot.append(orbit,antenna,beacon,mascotShell);mascot.append(bot);core.append(mascot);orb.append(wave,core);
     orbButton.append(orb);
     orbButton.addEventListener("click",()=>{
