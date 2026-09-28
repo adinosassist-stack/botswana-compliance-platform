@@ -31,6 +31,8 @@ assert.match(css,/data-tone="review"[\s\S]*?background:#ffb648/,'owner review st
 assert.match(css,/data-tone="error"[\s\S]*?background:#ff6268/,'mission errors must remain visually distinct');
 assert.match(dockJs,/thebe:owner-agent-state/,'dock must listen to authoritative Owner Command Centre state');
 assert.match(dockJs,/ownerCommandState/,'dock state must retain the read-only Owner Command Centre snapshot');
+assert.match(dockJs,/approved task[s]? ready for guarded execution/,'approved requests must not be mislabeled as awaiting owner review when guarded execution is available');
+assert.match(dockJs,/approved task[s]? · execution controlled/,'approved requests must truthfully show when execution remains controlled');
 
 assert.match(css,/data-context="finance"[\s\S]*?--thebe-eye-x:1\.4px/,'Finance context must shift gaze analytically');
 assert.match(css,/data-context="property"[\s\S]*?thebe-mascot-property-survey-v169/,'Property context must use restrained surveying motion');
