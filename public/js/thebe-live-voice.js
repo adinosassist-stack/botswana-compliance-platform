@@ -975,34 +975,35 @@
     }
     const core=el("span","thebe-particle-core");
     mascot=el("span","thebe-mascot");mascot.dataset.state=mascotState;mascot.dataset.context=mascotContext;mascot.dataset.focus=mascotFocus;mascot.dataset.attention="false";mascot.setAttribute("aria-hidden","true");
-    const bot=document.createElementNS(svgNS,"svg");bot.setAttribute("viewBox","0 0 96 96");bot.setAttribute("class","thebe-mascot-svg");
-    const orbit=document.createElementNS(svgNS,"circle");orbit.setAttribute("class","thebe-mascot-orbit");orbit.setAttribute("cx","48");orbit.setAttribute("cy","48");orbit.setAttribute("r","40");
-    const antenna=document.createElementNS(svgNS,"path");antenna.setAttribute("class","thebe-mascot-antenna");antenna.setAttribute("d","M48 25V16");
-    const beacon=document.createElementNS(svgNS,"circle");beacon.setAttribute("class","thebe-mascot-beacon");beacon.setAttribute("cx","48");beacon.setAttribute("cy","12");beacon.setAttribute("r","3.5");
-    const mascotShell=document.createElementNS(svgNS,"g");mascotShell.setAttribute("class","thebe-mascot-shell");
-    const armL=document.createElementNS(svgNS,"rect");armL.setAttribute("class","thebe-mascot-arm thebe-mascot-arm-left");armL.setAttribute("x","18");armL.setAttribute("y","60");armL.setAttribute("width","10");armL.setAttribute("height","25");armL.setAttribute("rx","5");armL.setAttribute("transform","rotate(12 23 72)");
-    const armR=document.createElementNS(svgNS,"rect");armR.setAttribute("class","thebe-mascot-arm thebe-mascot-arm-right");armR.setAttribute("x","68");armR.setAttribute("y","60");armR.setAttribute("width","10");armR.setAttribute("height","25");armR.setAttribute("rx","5");armR.setAttribute("transform","rotate(-12 73 72)");
-    const body=document.createElementNS(svgNS,"path");body.setAttribute("class","thebe-mascot-body");body.setAttribute("d","M28 61C32 55 39 53 48 53s16 2 20 8c5 8 6 20 2 28-4 7-12 10-22 10s-18-3-22-10c-4-8-3-20 2-28Z");
-    const seam=document.createElementNS(svgNS,"path");seam.setAttribute("class","thebe-mascot-body-seam");seam.setAttribute("d","M29 78c8 4 14 5 19 5s11-1 19-5M38 80v5c3 1 6 2 10 2s7-1 10-2v-5");
-    const neck=document.createElementNS(svgNS,"rect");neck.setAttribute("class","thebe-mascot-neck");neck.setAttribute("x","42");neck.setAttribute("y","51");neck.setAttribute("width","12");neck.setAttribute("height","14");neck.setAttribute("rx","5");
-    const earL=document.createElementNS(svgNS,"rect");earL.setAttribute("class","thebe-mascot-ear thebe-mascot-ear-left");earL.setAttribute("x","10");earL.setAttribute("y","29");earL.setAttribute("width","8");earL.setAttribute("height","18");earL.setAttribute("rx","4");
-    const earR=document.createElementNS(svgNS,"rect");earR.setAttribute("class","thebe-mascot-ear thebe-mascot-ear-right");earR.setAttribute("x","78");earR.setAttribute("y","29");earR.setAttribute("width","8");earR.setAttribute("height","18");earR.setAttribute("rx","4");
-    const nub=document.createElementNS(svgNS,"rect");nub.setAttribute("class","thebe-mascot-nub");nub.setAttribute("x","40");nub.setAttribute("y","13");nub.setAttribute("width","16");nub.setAttribute("height","7");nub.setAttribute("rx","3.5");
-    const mascotHead=document.createElementNS(svgNS,"rect");mascotHead.setAttribute("class","thebe-mascot-head");mascotHead.setAttribute("x","15");mascotHead.setAttribute("y","18");mascotHead.setAttribute("width","66");mascotHead.setAttribute("height","42");mascotHead.setAttribute("rx","18");
-    const face=document.createElementNS(svgNS,"rect");face.setAttribute("class","thebe-mascot-face");face.setAttribute("x","21");face.setAttribute("y","25");face.setAttribute("width","54");face.setAttribute("height","28");face.setAttribute("rx","12");
-    const highlight=document.createElementNS(svgNS,"path");highlight.setAttribute("class","thebe-mascot-highlight");highlight.setAttribute("d","M22 28c4-7 9-10 15-12");
-    const scan=document.createElementNS(svgNS,"path");scan.setAttribute("class","thebe-mascot-scan");scan.setAttribute("d","M27 34H69");
-    const eyeL=document.createElementNS(svgNS,"path");eyeL.setAttribute("class","thebe-mascot-eye thebe-mascot-eye-left");eyeL.setAttribute("d","M29 38c0-5 4-8 9-8s9 3 9 8c0 2-1 3-3 3H32c-2 0-3-1-3-3Z");
-    const eyeR=document.createElementNS(svgNS,"path");eyeR.setAttribute("class","thebe-mascot-eye thebe-mascot-eye-right");eyeR.setAttribute("d","M49 38c0-5 4-8 9-8s9 3 9 8c0 2-1 3-3 3H52c-2 0-3-1-3-3Z");
-    const mouth=document.createElementNS(svgNS,"g");mouth.setAttribute("class","thebe-mascot-mouth");
-    const smile=document.createElementNS(svgNS,"path");smile.setAttribute("class","thebe-mascot-smile");smile.setAttribute("d","M43 45h10c0 5-2 7-5 7s-5-2-5-7Z");mouth.append(smile);
-    for(const [x,h] of [[39,5],[46,8],[53,5]]){
-      const bar=document.createElementNS(svgNS,"rect");bar.setAttribute("class","thebe-mascot-mouth-bar");bar.setAttribute("x",String(x));bar.setAttribute("y",String(57-h/2));bar.setAttribute("width","4");bar.setAttribute("height",String(h));bar.setAttribute("rx","2");mouth.append(bar);
-    }
-    const chest=document.createElementNS(svgNS,"path");chest.setAttribute("class","thebe-mascot-chest");chest.setAttribute("d","M34 59c4-3 9-4 14-4s10 1 14 4");
-    const status=document.createElementNS(svgNS,"rect");status.setAttribute("class","thebe-mascot-status");status.setAttribute("x","43");status.setAttribute("y","84");status.setAttribute("width","10");status.setAttribute("height","4");status.setAttribute("rx","2");
-    mascotShell.append(armL,armR,body,seam,neck,earL,earR,nub,mascotHead,face,highlight,scan,eyeL,eyeR,mouth,chest,status);
-    bot.append(orbit,antenna,beacon,mascotShell);mascot.append(bot);core.append(mascot);orb.append(wave,core);
+    const bot=document.createElementNS(svgNS,"svg");bot.setAttribute("viewBox","0 0 1000 1000");bot.setAttribute("class","thebe-mascot-svg");
+    bot.innerHTML=`
+      <defs>
+        <linearGradient id="thebeDockShell" x1="0" y1="0" x2=".75" y2="1"><stop offset="0" stop-color="#f9fbff"/><stop offset=".48" stop-color="#dfe4ed"/><stop offset="1" stop-color="#aeb5c2"/></linearGradient>
+        <linearGradient id="thebeDockBody" x1=".15" y1=".05" x2=".82" y2=".95"><stop offset="0" stop-color="#f8fbff"/><stop offset=".55" stop-color="#dce1ea"/><stop offset="1" stop-color="#a9b0bd"/></linearGradient>
+        <linearGradient id="thebeDockLimb" x1=".1" y1=".05" x2=".9" y2=".95"><stop offset="0" stop-color="#dfe4ec"/><stop offset="1" stop-color="#b3bac7"/></linearGradient>
+        <radialGradient id="thebeDockFace" cx=".52" cy=".5" r=".72"><stop offset="0" stop-color="#163f57"/><stop offset=".62" stop-color="#0b2637"/><stop offset="1" stop-color="#071a26"/></radialGradient>
+        <linearGradient id="thebeDockCyan" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#71efff"/><stop offset="1" stop-color="#39cfe0"/></linearGradient>
+      </defs>
+      <ellipse class="thebe-mascot-shadow" cx="500" cy="918" rx="112" ry="16" fill="#687080" opacity=".16"/>
+      <g class="thebe-mascot-shell">
+        <rect class="thebe-mascot-nub" x="415" y="80" width="170" height="62" rx="31" fill="url(#thebeDockLimb)"/>
+        <rect class="thebe-mascot-ear thebe-mascot-ear-left" x="174" y="254" width="94" height="136" rx="47" fill="url(#thebeDockLimb)"/>
+        <rect class="thebe-mascot-ear thebe-mascot-ear-right" x="732" y="254" width="94" height="136" rx="47" fill="url(#thebeDockLimb)"/>
+        <rect class="thebe-mascot-arm thebe-mascot-arm-left" x="236" y="515" width="112" height="292" rx="56" fill="url(#thebeDockLimb)" transform="rotate(13 292 661)"/>
+        <rect class="thebe-mascot-arm thebe-mascot-arm-right" x="652" y="515" width="112" height="292" rx="56" fill="url(#thebeDockLimb)" transform="rotate(-13 708 661)"/>
+        <path class="thebe-mascot-body" d="M313 560C348 506 411 488 500 488s152 18 187 72c39 61 51 156 17 238-35 86-113 137-204 137s-169-51-204-137c-34-82-22-177 17-238Z" fill="url(#thebeDockBody)"/>
+        <path class="thebe-mascot-body-seam" d="M319 714c71 29 127 40 181 40s110-11 181-40M395 711v43c32 9 67 14 105 14s73-5 105-14v-43" fill="none" stroke="#9ea5b1" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+        <rect class="thebe-mascot-neck" x="426" y="444" width="148" height="128" rx="56" fill="url(#thebeDockLimb)"/>
+        <rect class="thebe-mascot-head" x="194" y="114" width="612" height="388" rx="148" fill="url(#thebeDockShell)"/>
+        <rect class="thebe-mascot-face" x="232" y="176" width="536" height="268" rx="108" fill="url(#thebeDockFace)"/>
+        <path class="thebe-mascot-highlight" d="M235 221c26-50 70-79 124-93" fill="none" stroke="#fff" stroke-width="28" stroke-linecap="round" opacity=".62"/>
+        <path class="thebe-mascot-scan" d="M268 310H732" fill="none" stroke="#50dbea" stroke-width="10" stroke-linecap="round"/>
+        <path class="thebe-mascot-eye thebe-mascot-eye-left" d="M326 312c0-39 31-66 68-66s68 27 68 66c0 10-5 17-15 17H341c-10 0-15-7-15-17Z" fill="url(#thebeDockCyan)"/>
+        <path class="thebe-mascot-eye thebe-mascot-eye-right" d="M538 312c0-39 31-66 68-66s68 27 68 66c0 10-5 17-15 17H553c-10 0-15-7-15-17Z" fill="url(#thebeDockCyan)"/>
+        <g class="thebe-mascot-mouth"><path class="thebe-mascot-smile" d="M454 362h92c0 37-18 59-46 59s-46-22-46-59Z" fill="url(#thebeDockCyan)"/></g>
+        <path class="thebe-mascot-chest" d="M347 558c-34 26-57 67-67 119" fill="none" stroke="#fff" stroke-width="28" stroke-linecap="round" opacity=".55"/>
+      </g>`;
+    mascot.append(bot);core.append(mascot);orb.append(wave,core);
     orbButton.append(orb);
     orbButton.addEventListener("click",()=>{
       const liveApi=global.ThebeLiveVoice;
