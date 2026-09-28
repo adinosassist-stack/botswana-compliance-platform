@@ -28,6 +28,19 @@ const requestRoute=pathname=>{const m=String(pathname||"").match(/^\/api\/proper
 const internalRoute=pathname=>{const m=String(pathname||"").match(/^\/api\/internal\/property\/valuation-services\/([^/]+)\/([^/]+)$/);return m?{requestId:text(m[1],64),action:text(m[2],32)}:null};
 const professionalCredentialRoute=pathname=>{const m=String(pathname||"").match(/^\/api\/internal\/property\/valuation-services\/professionals\/([^/]+)\/credential$/);return m?{professionalUserId:text(m[1],64)}:null};
 const professionalsRoute=pathname=>String(pathname||"")==="/api/internal/property/valuation-services/professionals";
+const platformQueueRoute=pathname=>String(pathname||"")==="/api/platform/property/valuation-services";
+const platformProfessionalsRoute=pathname=>String(pathname||"")==="/api/platform/property/valuation-services/professionals";
+const platformOperationsRoute=pathname=>{const m=String(pathname||"").match(/^\/api\/platform\/property\/valuation-services\/([^/]+)\/(quote|assign|advance)$/);return m?{requestId:text(m[1],64),action:text(m[2],32)}:null};
+const PLATFORM_CONSOLE_ACTIONS=Object.freeze(new Set(["quote","assign","advance"]));
+
+async function operationsSecretProxy(request,env,pathname){
+  const target=new URL(request.url);target.pathname=pathname;target.search="";
+  const headers=new Headers(request.headers);
+  headers.set("x-operations-secret",String(env.OPERATIONS_SECRET||""));
+  const init={method:request.method,headers};
+  if(!["GET","HEAD"].includes(String(request.method||"GET").toUpperCase()))init.body=await request.text();
+  return {request:new Request(target.toString(),init),url:target};
+}
 
 async function event(env,row,eventType,actorUserId,data={}){
   await env.DB.prepare("INSERT INTO property_valuation_service_events(request_id,tenant_id,event_type,actor_user_id,event_data) VALUES(?,?,?,?,?)")
@@ -117,7 +130,7 @@ function publicItem(row){
   };
 }
 
-export async function handlePropertyValuationServicesRequest({request,url,env,auth,json,readJson,id,writeAudit,roleAllowed,privilegedSecretGate}={}){
+export async function handlePropertyValuationServicesRequest({request,url,env,auth,json,readJson,id,writeAudit,roleAllowed,privilegedSecretGate,platformAdminAllowed}={}){
   const path=String(url?.pathname||"");
   if(!path.includes("/property/valuation-services"))return null;
 
@@ -136,6 +149,42 @@ export async function handlePropertyValuationServicesRequest({request,url,env,au
     const items=[];for(const raw of rows.results||[])items.push(publicItem(await syncPaymentStatus(env,raw)));
     return json({available:true,version:PROPERTY_VALUATION_SERVICES_VERSION,items,summary:serviceSummary(items),commercialModel:"quote_then_verified_payment",
       authority:{thebeCreatesValuation:false,thebeSignsValuation:false,humanProfessionalSignoffRequired:true,credentialBoundIssuance:true}});
+  }
+
+  if(platformQueueRoute(path)&&request.method==="GET"){
+    if(!platformAdminAllowed?.(auth))return json({error:"platform_valuation_operations_forbidden"},403);
+    const rows=await env.DB.prepare(
+      "SELECT r.*,a.name property_name,a.location_text property_location,a.property_type,t.name tenant_name,o.status service_order_status,"+
+      "p.display_name professional_name,p.professional_type,p.verification_status professional_verification_status,"+
+      "p.registration_ref professional_registration_ref,p.registration_authority professional_registration_authority,"+
+      "p.registration_jurisdiction professional_registration_jurisdiction,p.registration_valid_until professional_registration_valid_until,"+
+      "p.credential_verified_at professional_credential_verified_at "+
+      "FROM property_valuation_service_requests r JOIN property_assets a ON a.id=r.property_id AND a.tenant_id=r.tenant_id "+
+      "JOIN tenants t ON t.id=r.tenant_id LEFT JOIN service_orders o ON o.id=r.service_order_id "+
+      "LEFT JOIN professional_profiles p ON p.user_id=r.assigned_professional_user_id "+
+      "ORDER BY CASE r.status WHEN 'requested' THEN 1 WHEN 'paid' THEN 2 WHEN 'assigned' THEN 3 WHEN 'inspection_scheduled' THEN 4 WHEN 'fieldwork_complete' THEN 5 WHEN 'drafting' THEN 6 WHEN 'professional_review' THEN 7 WHEN 'awaiting_payment' THEN 8 ELSE 9 END,r.created_at ASC LIMIT 500"
+    ).all();
+    const items=[];
+    for(const raw of rows.results||[]){
+      const synced=await syncPaymentStatus(env,raw);
+      items.push({...publicItem(synced),tenantId:String(raw.tenant_id||""),tenantName:text(raw.tenant_name,160)});
+    }
+    return json({available:true,version:PROPERTY_VALUATION_SERVICES_VERSION,items,summary:serviceSummary(items),
+      authority:{platformAdminOnly:true,operationsSecretRemainsServerSide:true,reportIssuanceConsoleEnabled:false}});
+  }
+
+  if(platformProfessionalsRoute(path)&&request.method==="GET"){
+    if(!platformAdminAllowed?.(auth))return json({error:"platform_valuation_operations_forbidden"},403);
+    const proxied=await operationsSecretProxy(request,env,"/api/internal/property/valuation-services/professionals");
+    return handlePropertyValuationServicesRequest({request:proxied.request,url:proxied.url,env,auth,json,readJson,id,writeAudit,roleAllowed,privilegedSecretGate,platformAdminAllowed});
+  }
+
+  const platformOperation=platformOperationsRoute(path);
+  if(platformOperation&&request.method==="POST"){
+    if(!platformAdminAllowed?.(auth))return json({error:"platform_valuation_operations_forbidden"},403);
+    if(!PLATFORM_CONSOLE_ACTIONS.has(platformOperation.action))return json({error:"platform_valuation_operation_not_allowed"},403);
+    const proxied=await operationsSecretProxy(request,env,`/api/internal/property/valuation-services/${encodeURIComponent(platformOperation.requestId)}/${platformOperation.action}`);
+    return handlePropertyValuationServicesRequest({request:proxied.request,url:proxied.url,env,auth,json,readJson,id,writeAudit,roleAllowed,privilegedSecretGate,platformAdminAllowed});
   }
 
   if(professionalsRoute(path)&&request.method==="GET"){
@@ -365,4 +414,4 @@ export async function handlePropertyValuationServicesRequest({request,url,env,au
   }
   return null;
 }
-export const __propertyValuationServicesTest=Object.freeze({PURPOSES,CUSTOMER_CANCELABLE,OPS_TRANSITIONS,quoteExpired,serviceSummary,professionalCredentialReady});
+export const __propertyValuationServicesTest=Object.freeze({PURPOSES,CUSTOMER_CANCELABLE,OPS_TRANSITIONS,PLATFORM_CONSOLE_ACTIONS,quoteExpired,serviceSummary,professionalCredentialReady});
