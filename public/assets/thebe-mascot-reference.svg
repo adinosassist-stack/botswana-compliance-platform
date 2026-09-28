@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="thebe-market-mascot" viewBox="0 0 1000 1000" role="img" aria-labelledby="thebeMascotTitle thebeMascotDesc">
+          <title id="thebeMascotTitle">Thebe</title>
+          <desc id="thebeMascotDesc">Friendly floating white robot with a dark navy face and cyan smile.</desc>
+          <defs>
+            <linearGradient id="thebeMarketShell" x1="0" y1="0" x2="0.75" y2="1"><stop offset="0" stop-color="#f9fbff"/><stop offset=".48" stop-color="#dfe4ed"/><stop offset="1" stop-color="#aeb5c2"/></linearGradient>
+            <linearGradient id="thebeMarketBody" x1=".15" y1=".05" x2=".82" y2=".95"><stop offset="0" stop-color="#f8fbff"/><stop offset=".55" stop-color="#dce1ea"/><stop offset="1" stop-color="#a9b0bd"/></linearGradient>
+            <linearGradient id="thebeMarketLimb" x1=".1" y1=".05" x2=".9" y2=".95"><stop offset="0" stop-color="#dfe4ec"/><stop offset="1" stop-color="#b3bac7"/></linearGradient>
+            <radialGradient id="thebeMarketFace" cx=".52" cy=".5" r=".72"><stop offset="0" stop-color="#163f57"/><stop offset=".62" stop-color="#0b2637"/><stop offset="1" stop-color="#071a26"/></radialGradient>
+            <linearGradient id="thebeMarketCyan" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#71efff"/><stop offset="1" stop-color="#39cfe0"/></linearGradient>
+            <filter id="thebeMarketGlow" x="-120%" y="-120%" width="340%" height="340%"><feGaussianBlur stdDeviation="10" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            <filter id="thebeMarketBlur" x="-40%" y="-160%" width="180%" height="420%"><feGaussianBlur stdDeviation="12"/></filter>
+          </defs>
+          <ellipse cx="500" cy="918" rx="112" ry="16" fill="#687080" opacity=".18" filter="url(#thebeMarketBlur)"/>
+          <g>
+            <rect x="415" y="80" width="170" height="62" rx="31" fill="url(#thebeMarketLimb)"/>
+            <rect x="174" y="254" width="94" height="136" rx="47" fill="url(#thebeMarketLimb)"/>
+            <rect x="732" y="254" width="94" height="136" rx="47" fill="url(#thebeMarketLimb)"/>
+            <rect x="236" y="515" width="112" height="292" rx="56" fill="url(#thebeMarketLimb)" transform="rotate(13 292 661)"/>
+            <rect x="652" y="515" width="112" height="292" rx="56" fill="url(#thebeMarketLimb)" transform="rotate(-13 708 661)"/>
+            <path d="M313 560C348 506 411 488 500 488s152 18 187 72c39 61 51 156 17 238-35 86-113 137-204 137s-169-51-204-137c-34-82-22-177 17-238Z" fill="url(#thebeMarketBody)"/>
+            <path d="M319 714c71 29 127 40 181 40s110-11 181-40" fill="none" stroke="#9ea5b1" stroke-width="12" stroke-linecap="round"/>
+            <path d="M395 711v43c32 9 67 14 105 14s73-5 105-14v-43" fill="none" stroke="#a4abb7" stroke-width="12" stroke-linejoin="round"/>
+            <rect x="426" y="444" width="148" height="128" rx="56" fill="url(#thebeMarketLimb)"/>
+            <rect x="194" y="114" width="612" height="388" rx="148" fill="url(#thebeMarketShell)"/>
+            <rect x="232" y="176" width="536" height="268" rx="108" fill="url(#thebeMarketFace)"/>
+            <path d="M235 221c26-50 70-79 124-93" fill="none" stroke="#fff" stroke-width="28" stroke-linecap="round" opacity=".62"/>
+            <path class="thebe-market-eye" d="M326 312c0-39 31-66 68-66s68 27 68 66c0 10-5 17-15 17h-106c-10 0-15-7-15-17Z" fill="url(#thebeMarketCyan)"/>
+            <path class="thebe-market-eye" d="M538 312c0-39 31-66 68-66s68 27 68 66c0 10-5 17-15 17h-106c-10 0-15-7-15-17Z" fill="url(#thebeMarketCyan)"/>
+            <path class="thebe-market-smile" d="M454 362h92c0 37-18 59-46 59s-46-22-46-59Z" fill="url(#thebeMarketCyan)"/>
+            <path d="M347 558c-34 26-57 67-67 119" fill="none" stroke="#fff" stroke-width="28" stroke-linecap="round" opacity=".55"/>
+          </g>
+        </svg>
