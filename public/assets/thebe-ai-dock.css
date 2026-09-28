@@ -1381,9 +1381,10 @@
   min-height:700px!important;
   margin:-72px -82px -148px!important;
 }
-#marketingGate .thebe-market-mascot{
+#marketingGate .thebe-market-mascot-frame{
   width:min(128%,960px)!important;
 }
+#marketingGate .thebe-market-mascot{width:100%!important}
 .thebe-ai-dock[data-surface="public"] .thebe-ai-orb-button{height:188px}
 .thebe-ai-dock[data-surface="public"] .thebe-particle-core{width:112px;height:112px}
 .thebe-ai-dock[data-surface="public"] .thebe-particle-wave{opacity:.26}
@@ -1393,11 +1394,11 @@
 
 @media(max-width:900px){
   #marketingGate .thebe-market-mascot-wrap{min-height:590px!important;margin:-30px -44px -104px!important}
-  #marketingGate .thebe-market-mascot{width:min(120%,820px)!important}
+  #marketingGate .thebe-market-mascot-frame{width:min(120%,820px)!important}
 }
 @media(max-width:700px){
   #marketingGate .thebe-market-mascot-wrap{min-height:480px!important;margin:-18px -30px -82px!important}
-  #marketingGate .thebe-market-mascot{width:118%!important}
+  #marketingGate .thebe-market-mascot-frame{width:118%!important}
   .thebe-ai-dock[data-surface="public"] .thebe-ai-orb-button{height:152px}
   .thebe-ai-dock[data-surface="public"] .thebe-particle-core{width:92px;height:92px}
   .thebe-ai-dock[data-surface="workspace"] .thebe-particle-core{width:60px;height:60px}
