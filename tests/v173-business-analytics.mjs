@@ -27,7 +27,7 @@ const context={
   },
   sales:{openQuotationCount:7,openQuotationValueBwp:82000,dormantQuotationCount:2,dormantQuotationValueBwp:24000},
   operations:{latestSummaryDate:"2026-09-27",latestCoverage:0.82,pendingWorkflowCount:3,failedWorkflowCount:0,openPerformanceSignals:2,criticalPerformanceSignals:0},
-  compliance:{overdueCount:1,dueWithin14Days:3,nextDueAt:"2026-10-01"}
+  compliance:{overdueCount:1,dueWithin14Days:3,nextDueAt:"2026-10-01",publishedRuleCount:10,approvedUnpublishedRuleCount:0,ruleCoverageStatus:"active"}
 };
 
 const analytics=buildBusinessAnalytics(context);
@@ -38,6 +38,9 @@ assert.equal(analytics.domains.money.accountingProfitAvailable,false);
 assert.equal(analytics.domains.sales.openQuotationValueBwp,82000);
 assert.equal(analytics.domains.operations.latestSummaryDate,"2026-09-27");
 assert.equal(analytics.domains.compliance.overdueCount,1);
+assert.equal(analytics.domains.compliance.publishedRuleCount,10);
+assert.equal(analytics.domains.compliance.ruleCoverageStatus,"active");
+assert.equal(analytics.domains.compliance.coverageActive,true);
 assert.equal(analytics.domains.property.portfolioAnalyticsAvailable,false);
 assert.equal(analytics.domains.property.professionalValuationWorkflowAvailable,false);
 assert.equal(analytics.authority.readOnly,true);

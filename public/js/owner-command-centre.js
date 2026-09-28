@@ -1455,6 +1455,9 @@
     const grid=document.createElement("div");
     grid.className="owner-signal-list";
     const domains=analytics.domains||{},m=domains.money||{},s=domains.sales||{},o=domains.operations||{},co=domains.compliance||{},p=domains.property||{};
+    const complianceCoverageStatus=String(co.ruleCoverageStatus||"");
+    const complianceCoverageInactive=complianceCoverageStatus==="inactive";
+    const complianceCoverageUnknown=complianceCoverageStatus==="unknown";
     const net=Number(m.current30NetCashMovementMinor||0),inChange=m.inflowChangePct,outChange=m.outflowChangePct;
     grid.append(signalCard({
       label:"Money · 30 days",value:money(net/100),
@@ -1481,10 +1484,23 @@
       tone:Number(s.dormantQuotationCount||0)>0?"risk":"neutral"
     }));
     grid.append(signalCard({
-      label:"Operations & compliance",value:`${Number(o.criticalPerformanceSignals||0)} critical · ${Number(co.overdueCount||0)} overdue`,
-      title:o.latestSummaryDate?`Operations last summarized ${o.latestSummaryDate}.`:"Operations summary is not yet available.",
-      detail:`${Number(o.failedWorkflowCount||0)} failed workflow(s) · ${Number(co.dueWithin14Days||0)} compliance item(s) due within 14 days.`,
-      tone:Number(o.criticalPerformanceSignals||0)>0||Number(co.overdueCount||0)>0?"risk":"neutral"
+      label:"Operations & compliance",
+      value:complianceCoverageInactive
+        ?"Coverage inactive"
+        :complianceCoverageUnknown
+          ?"Coverage unknown"
+          :`${Number(o.criticalPerformanceSignals||0)} critical · ${Number(co.overdueCount||0)} overdue`,
+      title:complianceCoverageInactive
+        ?"No published regulatory rules are active."
+        :complianceCoverageUnknown
+          ?"Regulatory rule coverage could not be verified."
+          :(o.latestSummaryDate?`Operations last summarized ${o.latestSummaryDate}.`:"Operations summary is not yet available."),
+      detail:complianceCoverageInactive
+        ?`${Number(o.failedWorkflowCount||0)} failed workflow(s) · ${Number(co.approvedUnpublishedRuleCount||0)} approved-but-unpublished rule(s). A zero overdue count is not compliance assurance until reviewed rules are published through governance.`
+        :complianceCoverageUnknown
+          ?`${Number(o.failedWorkflowCount||0)} failed workflow(s). Compliance obligations remain visible, but Thebe will not infer regulatory coverage from missing rule data.`
+          :`${Number(o.failedWorkflowCount||0)} failed workflow(s) · ${Number(co.dueWithin14Days||0)} compliance item(s) due within 14 days.`,
+      tone:complianceCoverageInactive||complianceCoverageUnknown||Number(o.criticalPerformanceSignals||0)>0||Number(co.overdueCount||0)>0?"risk":"neutral"
     }));
     grid.append(signalCard({
       label:"Property & valuation",value:p.portfolioAnalyticsAvailable?`${Number(p.assetCount||0)} asset${Number(p.assetCount||0)===1?"":"s"}`:"Not connected",
