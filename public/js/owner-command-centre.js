@@ -1,7 +1,7 @@
 (function initOwnerCommandCentre(global){
   "use strict";
 
-  const RELEASE="20260926-v165";
+  const RELEASE="20260928-v171";
   const MAX_OPPORTUNITIES=500;
   const MAX_CAMPAIGNS=50;
   const PROFILE_KEYS=Object.freeze({
@@ -25,6 +25,7 @@
   let agenticAskResult=null;
   let agenticTaskBusy=false;
   let agenticTaskDraft=null;
+  let latestAgentControlState=null;
   let financeReconciliationPreview=null;
   let financeReconciliationBusy=false;
   let propertyPortfolioCache=null;
@@ -452,6 +453,41 @@
 
   function agenticStatusNode(){return q("#ownerAgenticStatus")}
 
+  function emitSuperAgentControlState(phase,message="",taskExecutionPayload=null,taskRequestsPayload=null){
+    const previous=latestAgentControlState&&typeof latestAgentControlState==="object"?latestAgentControlState:{};
+    const requests=Array.isArray(taskRequestsPayload?.items)?taskRequestsPayload.items:[];
+    const pendingReviews=taskRequestsPayload
+      ?requests.filter(item=>["prepared","approved"].includes(String(item?.status||""))).length
+      :Number(previous.pendingReviews||0);
+    const approvedRequests=taskRequestsPayload
+      ?requests.filter(item=>String(item?.status||"")==="approved").length
+      :Number(previous.approvedRequests||0);
+    const boundedReady=taskExecutionPayload
+      ?taskExecutionPayload?.schemaReady===true
+      :Boolean(previous.boundedReady);
+    const runtimeKillSwitch=taskExecutionPayload
+      ?taskExecutionPayload?.runtimeKillSwitch===true
+      :Boolean(previous.runtimeKillSwitch);
+    const boundedExecutionAvailable=taskExecutionPayload
+      ?boundedReady&&taskExecutionPayload?.sessionExecutionEnabled===true&&!runtimeKillSwitch
+      :Boolean(previous.boundedExecutionAvailable);
+    latestAgentControlState={
+      release:RELEASE,
+      phase:cleanText(phase||"snapshot",40)||"snapshot",
+      message:cleanText(message,180),
+      openTasks:taskExecutionPayload?Math.max(0,Number(taskExecutionPayload?.openTasks||0)):Math.max(0,Number(previous.openTasks||0)),
+      activeExecutionGrants:taskExecutionPayload?Math.max(0,Number(taskExecutionPayload?.activeExecutionGrants||0)):Math.max(0,Number(previous.activeExecutionGrants||0)),
+      pendingReviews:Math.max(0,pendingReviews),
+      approvedRequests:Math.max(0,approvedRequests),
+      executionMode:taskExecutionPayload?String(taskExecutionPayload?.executionMode||"off"):String(previous.executionMode||"off"),
+      boundedReady,
+      boundedExecutionAvailable,
+      runtimeKillSwitch
+    };
+    try{global.dispatchEvent(new CustomEvent("thebe:owner-agent-state",{detail:{...latestAgentControlState}}))}catch{}
+    return latestAgentControlState;
+  }
+
   const reconciliationMoney=minor=>`P${(Number(minor||0)/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;
 
   function financeReconciliationPayloadFromFields({accountId,statementFrom,statementTo,openingBalance,closingBalance}){
@@ -660,13 +696,17 @@
     agenticTaskBusy=true;
     const status=agenticStatusNode();
     if(status)status.textContent=progress;
+    emitSuperAgentControlState("working",progress);
     try{
       const result=await work();
       if(status)status.textContent=success;
+      emitSuperAgentControlState("complete",success);
       await renderAgenticGovernance(false);
       return result;
     }catch(error){
-      if(status)status.textContent=String(error?.message||"The bounded task action could not be completed.").slice(0,180);
+      const message=String(error?.message||"The bounded task action could not be completed.").slice(0,180);
+      if(status)status.textContent=message;
+      emitSuperAgentControlState("error",message);
       return null;
     }finally{
       agenticTaskBusy=false;
@@ -1165,6 +1205,12 @@
       )
     );
     body.append(boundary);
+    emitSuperAgentControlState(
+      "snapshot",
+      "Owner Command Centre synced.",
+      taskExecutionPayload,
+      taskRequestsPayload
+    );
     body.append(renderAskThebeControl());
 
     if(statusPayload?.outcomeLearning?.enabled){
@@ -1222,6 +1268,7 @@
     if(force)agenticLatestPlan=null;
     const status=agenticStatusNode();
     if(status)status.textContent="Refreshing governed plan…";
+    emitSuperAgentControlState("syncing","Refreshing governed plan…");
     try{
       const [statusPayload,runsPayload,taskExecutionPayload,authorityPayload,taskRequestsPayload,taskListPayload,financeAccountsPayload]=await Promise.all([
         request("/api/agentic/status"),
@@ -1244,7 +1291,9 @@
         "Governed planning is temporarily unavailable. No fallback action will be executed.",
         "owner-command-empty"
       ));
-      if(status)status.textContent=String(error?.message||"Agentic planning unavailable").slice(0,180);
+      const message=String(error?.message||"Agentic planning unavailable").slice(0,180);
+      if(status)status.textContent=message;
+      emitSuperAgentControlState("error",message);
     }
   }
 
@@ -1253,15 +1302,19 @@
     agenticBusy=true;
     const status=agenticStatusNode();
     if(status)status.textContent="Observing business state and generating a governed plan…";
+    emitSuperAgentControlState("reasoning","Observing business state and generating a governed plan…");
     try{
       agenticLatestPlan=await request("/api/agentic/plan",{
         method:"POST",
         body:JSON.stringify({goal:"Protect the business and identify the safest next actions from current authoritative workspace signals."})
       });
       if(status)status.textContent="Plan generated. Review proposals before recording any decision.";
+      emitSuperAgentControlState("plan_ready","Plan generated. Review proposals before recording any decision.");
       await renderAgenticGovernance(false);
     }catch(error){
-      if(status)status.textContent=String(error?.message||"Could not generate governed plan").slice(0,180);
+      const message=String(error?.message||"Could not generate governed plan").slice(0,180);
+      if(status)status.textContent=message;
+      emitSuperAgentControlState("error",message);
     }finally{
       agenticBusy=false;
       const buttonNode=q("#ownerAgenticBody .owner-agentic-control-buttons .btn");
