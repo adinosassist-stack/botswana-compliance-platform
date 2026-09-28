@@ -67,6 +67,16 @@ export function buildBusinessAnalytics(context={}){
     `${Number(operations.criticalPerformanceSignals||0)} critical operating signal(s) remain open or acknowledged.`,
     ["performance_insights","daily_operations_summaries"]
   ));
+  if(String(compliance?.ruleCoverageStatus||"unknown")==="inactive")signals.push(signal(
+    "compliance_rule_coverage_inactive","high","Compliance rule coverage is inactive",
+    `No published regulatory rules are active. ${Number(compliance?.approvedUnpublishedRuleCount||0)} approved rule(s) remain unpublished. A zero overdue count is not compliance assurance.`,
+    ["regulatory_rules","regulatory_rule_reviews","regulatory_sources"]
+  ));
+  else if(String(compliance?.ruleCoverageStatus||"unknown")==="unknown")signals.push(signal(
+    "compliance_rule_coverage_unknown","medium","Compliance rule coverage could not be verified",
+    "Thebe could not verify published regulatory rule coverage and will not infer assurance from a zero obligation count.",
+    ["regulatory_rules"]
+  ));
   if(Number(compliance?.overdueCount||0)>0)signals.push(signal(
     "overdue_compliance","high","Compliance actions are overdue",
     `${Number(compliance.overdueCount||0)} tracked compliance obligation(s) are overdue.`,
@@ -172,7 +182,13 @@ export function buildBusinessAnalytics(context={}){
         available:true,
         overdueCount:number(compliance?.overdueCount),
         dueWithin14Days:number(compliance?.dueWithin14Days),
-        nextDueAt:compliance?.nextDueAt||null
+        nextDueAt:compliance?.nextDueAt||null,
+        publishedRuleCount:optionalNumber(compliance?.publishedRuleCount),
+        approvedUnpublishedRuleCount:optionalNumber(compliance?.approvedUnpublishedRuleCount),
+        ruleCoverageStatus:["active","inactive","unknown"].includes(String(compliance?.ruleCoverageStatus||""))
+          ?String(compliance.ruleCoverageStatus)
+          :"unknown",
+        coverageActive:String(compliance?.ruleCoverageStatus||"unknown")==="active"
       }),
       property:frozen({
         underwritingToolAvailable:true,
