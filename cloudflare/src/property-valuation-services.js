@@ -270,6 +270,65 @@ export async function handlePropertyValuationServicesRequest({request,url,env,au
   }
 
   const internal=internalRoute(path);
+  if(internal&&request.method==="GET"&&internal.action==="issuable-reports"){
+    const supplied=request.headers.get("x-operations-secret")||"";
+    const gate=await privilegedSecretGate(env,request,"operations-secret",supplied,env.OPERATIONS_SECRET,auth?.user_id||"");if(!gate.ok)return gate.response;
+    const base=await env.DB.prepare("SELECT tenant_id FROM property_valuation_service_requests WHERE id=? LIMIT 1").bind(internal.requestId).first();
+    if(!base)return json({error:"valuation_service_request_not_found"},404);
+    const row=await readRequest(env,base.tenant_id,internal.requestId);
+    if(!row)return json({error:"valuation_service_request_not_found"},404);
+    if(String(row.status||"")!=="professional_review")return json({items:[],status:String(row.status||""),ready:false,reason:"professional_review_required"});
+    const credentialReady=professionalCredentialReady({
+      verification_status:row.professional_verification_status,
+      professional_type:row.professional_type,
+      registration_ref:row.professional_registration_ref,
+      registration_authority:row.professional_registration_authority,
+      registration_jurisdiction:row.professional_registration_jurisdiction,
+      registration_valid_until:row.professional_registration_valid_until,
+      credential_verified_at:row.professional_credential_verified_at
+    });
+    const assignedRegistration=text(row.assigned_professional_registration_ref,120).toLowerCase();
+    const liveRegistration=text(row.professional_registration_ref,120).toLowerCase();
+    if(!row.assigned_professional_user_id||!credentialReady||!assignedRegistration||assignedRegistration!==liveRegistration){
+      return json({items:[],status:"professional_review",ready:false,reason:"assigned_valuer_credential_mismatch"},409);
+    }
+    const rows=await env.DB.prepare(
+      "SELECT v.id valuation_id,v.valuation_date,v.market_value_minor,v.currency,v.valuer_name,v.valuer_registration_ref,v.report_reference,"+
+      "e.id report_evidence_id,e.display_name evidence_display_name,e.review_status,e.scan_status,e.scanned_at "+
+      "FROM property_professional_valuations v "+
+      "JOIN property_valuation_evidence_links l ON l.tenant_id=v.tenant_id AND l.property_id=v.property_id AND l.valuation_id=v.id AND l.link_kind='signed_report' "+
+      "JOIN evidence e ON e.tenant_id=v.tenant_id AND e.id=l.evidence_id "+
+      "WHERE v.tenant_id=? AND v.property_id=? "+
+      "AND lower(trim(v.valuer_registration_ref))=lower(trim(?)) "+
+      "AND e.review_status='approved' AND e.scan_status='clean' AND e.scanned_at IS NOT NULL AND e.malware_name IS NULL AND e.deleted_at IS NULL "+
+      "ORDER BY v.valuation_date DESC,v.created_at DESC LIMIT 50"
+    ).bind(row.tenant_id,row.property_id,row.assigned_professional_registration_ref).all();
+    const items=(rows.results||[]).map(item=>({
+      valuationId:String(item.valuation_id||""),
+      reportEvidenceId:String(item.report_evidence_id||""),
+      valuationDate:item.valuation_date||null,
+      marketValueMinor:Number(item.market_value_minor||0),
+      currency:text(item.currency,3),
+      valuerName:text(item.valuer_name,160),
+      valuerRegistrationRef:text(item.valuer_registration_ref,120),
+      reportReference:text(item.report_reference,160),
+      evidenceDisplayName:text(item.evidence_display_name,240),
+      evidenceReviewStatus:text(item.review_status,32),
+      evidenceScanStatus:text(item.scan_status,32),
+      evidenceScannedAt:item.scanned_at||null
+    }));
+    return json({items,status:"professional_review",ready:items.length>0,assignedProfessional:{
+      displayName:text(row.professional_name,160),
+      registrationRef:text(row.professional_registration_ref,120),
+      credentialReady:true
+    },authority:{
+      existingProfessionalValuationRequired:true,
+      linkedApprovedScanCleanSignedEvidenceRequired:true,
+      assignedValuerRegistrationMatchRequired:true,
+      thebeCreatesValuation:false,
+      thebeSignsValuation:false
+    }});
+  }
   if(internal&&request.method==="POST"){
     const supplied=request.headers.get("x-operations-secret")||"";
     const gate=await privilegedSecretGate(env,request,"operations-secret",supplied,env.OPERATIONS_SECRET,auth?.user_id||"");if(!gate.ok)return gate.response;
@@ -351,8 +410,9 @@ export async function handlePropertyValuationServicesRequest({request,url,env,au
       if(row.status!=="professional_review")return json({error:"professional_review_required",status:row.status},409);
       const valuationId=text(body.valuationId,64),reportEvidenceId=text(body.reportEvidenceId,64);if(!valuationId||!reportEvidenceId)return json({error:"issued_valuation_and_report_required"},400);
       try{
-        await env.DB.prepare("UPDATE property_valuation_service_requests SET status='report_issued',issued_valuation_id=?,issued_report_evidence_id=?,completed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='professional_review'")
+        const changed=await env.DB.prepare("UPDATE property_valuation_service_requests SET status='report_issued',issued_valuation_id=?,issued_report_evidence_id=?,completed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='professional_review'")
           .bind(valuationId,reportEvidenceId,row.id).run();
+        if(Number(changed.meta?.changes||0)!==1)return json({error:"valuation_service_state_changed"},409);
       }catch(error){
         if(String(error).includes("property_valuation_service_issuance_incomplete")||String(error).includes("property_valuation_service_report_not_linked"))return json({error:"governed_signed_report_required"},409);
         if(String(error).includes("property_valuation_service_registration_required")||String(error).includes("property_valuation_service_credential_mismatch")||String(error).includes("property_valuation_service_professional_credential_mismatch"))return json({error:"assigned_valuer_credential_mismatch"},409);
