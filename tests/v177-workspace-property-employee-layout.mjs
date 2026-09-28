@@ -16,8 +16,11 @@ for(const call of ["await renderEmployeeRegister();","await renderPeopleOperatio
 }
 assert.doesNotMatch(createBody,/peopleops[^\n]{0,120}classList\.contains\("active"\)/,"employee reconciliation must not depend on People view being active");
 
-assert.match(html,/#appShell \.view\{width:100%;max-width:100%;overflow-x:clip\}/,"workspace views must be width bounded");
-assert.match(html,/#appShell \.card,#appShell \.hub-card\{max-width:100%\}/,"workspace cards must be width bounded");
-assert.match(html,/@media\(max-width:760px\)[^}]*\{[^}]*grid-template-columns:1fr!important/s,"narrow workspace grids must collapse deterministically");
+assert.match(html,/#appShell \*\{min-width:0\}/,"workspace descendants must be allowed to shrink instead of forcing column overflow");
+assert.match(html,/#appShell \.view\{overflow-x:clip\}/,"workspace views must clip accidental horizontal overflow");
+assert.match(html,/\.property-layout\{display:grid;grid-template-columns:minmax\(0,1\.05fr\) minmax\(300px,\.95fr\)/,"property layout must use bounded shrinkable columns");
+assert.match(html,/@media\(max-width:900px\)\{\.people-outcome-grid,\.ops-primary-grid\{grid-template-columns:1fr\}\}/,"people workspace must collapse before narrow screens");
+assert.match(html,/@media\(max-width:900px\)\{\.business-outcome-grid\{grid-template-columns:1fr\}\}/,"business workspace must collapse before narrow screens");
+assert.match(html,/@media\(max-width:900px\)\{\.hub-grid,\.hub-grid-3\{grid-template-columns:1fr\}/,"workspace hubs must collapse before narrow screens");
 
 console.log("V177_WORKSPACE_ADVERSARIAL_PASS");
