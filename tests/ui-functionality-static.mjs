@@ -77,8 +77,8 @@ assert.ok(worker.includes('versioned=html.replace(/src="')&&worker.includes('CLI
 for(const rel of [...domHtml.matchAll(/(?:src|href)="(assets\/[^"?#]+)"/g)].map(m=>m[1]))assert.ok(fs.existsSync(path.join(pub,rel)),"missing local asset: "+rel);
 assert.match(html,/async function runScan\(\)/,"compliance scan button must have an implementation");
 
-assert.ok(html.includes('src="/assets/gaborone-entrepreneurs-v67.webp"')&&html.includes('width="1536" height="1024"')&&html.includes('height:auto!important')&&html.includes('max-height:none!important')&&html.includes('object-fit:contain!important')&&html.includes('overflow:visible!important;background:transparent!important;box-shadow:none!important'),"marketing hero must preserve the original 1536x1024 image framing without cover-cropping or container clipping");
-assert.doesNotMatch(html,/\.founders-photo\{[^}]*object-fit:cover/,"marketing hero base stylesheet must never reintroduce cover-cropping");
+assert.ok(html.includes('class="thebe-market-mascot"')&&html.includes('viewBox="0 0 1000 1000"')&&html.includes('class="marketingvisual mascot-visual"')&&html.includes('overflow:visible!important;background:transparent!important;box-shadow:none!important'),"marketing hero must preserve the approved square Thebe mascot composition without container clipping");
+assert.doesNotMatch(html,/\.thebe-market-mascot\{[^}]*object-fit:cover/,"marketing hero mascot must never introduce cover-cropping");
 assert.match(html,/data-bw-onclick="openEmployeeReportingAccess\('[^']+'\)"[^>]*>Reporting link<\/button>/,"employee rows must expose a dedicated reporting-link control");
 assert.match(html,/data-bw-onclick="openEmployeeReportingAccess\('\$\{safeId\(e\.id\)\}'\)"/,"employee name/row must bind directly to employee reporting access");
 assert.match(html,/aria-label="Open reporting access for \$\{escapeHtml\(e\.full_name\)\}"/,"employee reporting row control must remain explicitly labelled");
