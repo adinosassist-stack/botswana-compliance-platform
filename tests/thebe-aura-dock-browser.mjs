@@ -64,6 +64,19 @@ const assert=require('node:assert/strict');
  // Check real dock event wiring with an isolated transport, never call a live service.
  await page.evaluate(()=>{document.querySelector('#marketingGate').style.display='none';document.querySelector('#appShell').style.display='block';window.apiJson=()=>new Promise(resolve=>window.resolveDockRequest=resolve)});
  await page.waitForTimeout(100);
+ const workspaceUi=await page.locator('#thebeAiDock').evaluate(el=>{
+   const voice=el.querySelector('.thebe-ai-voice-card').getBoundingClientRect();
+   const quick=[...el.querySelectorAll('.thebe-ai-quick button')].map(button=>button.getBoundingClientRect());
+   const compose=el.querySelector('.thebe-ai-compose').getBoundingClientRect();
+   const dock=el.getBoundingClientRect();
+   const scrollStyle=getComputedStyle(el.querySelector('.thebe-ai-dock-scroll'));
+   return {voiceHeight:voice.height,quick,composeLeft:compose.left-dock.left,composeRight:dock.right-compose.right,scrollLeft:parseFloat(scrollStyle.paddingLeft)};
+ });
+ assert(workspaceUi.voiceHeight<190,'workspace voice hero must stay compact');
+ assert(workspaceUi.quick.length===3&&workspaceUi.quick[0].top===workspaceUi.quick[1].top,'first two workspace quick actions must share a row');
+ assert(workspaceUi.quick[2].width>workspaceUi.quick[0].width,'third workspace quick action must span the command grid');
+ assert(workspaceUi.composeLeft>=16&&workspaceUi.composeRight>=16,'workspace composer must stay visibly inset from dock edges');
+ assert(workspaceUi.scrollLeft>=18,'workspace scroll content must keep comfortable desktop edge spacing');
  assert.match(await page.locator('.thebe-ai-quick').innerText(),/unmatched/);
  assert.equal(await page.locator('#thebeLiveVoiceLanguage option').count(),4);
  assert(await page.locator('#thebeLiveVoiceLanguage').isVisible());
