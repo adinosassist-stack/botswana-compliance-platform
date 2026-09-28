@@ -114,15 +114,14 @@ const rules=[
 
 
 
-const sourceConflicts=[
- {id:"vat_threshold",area:"Tax",topic:"Compulsory VAT registration threshold",severity:"High",
-  sourceA:{label:"BURS Registration page",claim:"More than P1,000,000 taxable supplies per annum",url:"https://www.burs.org.bw/index.php/about-us/46-tax-articles/income-tax?Itemid=161&id=48&option=com_content&view=article"},
-  sourceB:{label:"BURS VAT FAQ",claim:"Taxable supplies exceed P500,000 per annum",url:"https://www.burs.org.bw/index.php/about-us/faq/tax-faq/vat-faq"},
-  handling:"Do not infer compulsory registration from turnover. Use confirmed taxpayer VAT status and queue threshold rule for professional/source-owner validation."},
- {id:"paye_threshold",area:"Tax",topic:"PAYE employee taxable threshold",severity:"Medium",
-  sourceA:{label:"BURS Partnerships page",claim:"Above P3,000 per month",url:"https://www.burs.org.bw/index.php/tax/income-tax/partnerships"},
-  sourceB:{label:"BURS PAYE page",claim:"Above P2,500 per month",url:"https://www.burs.org.bw/index.php/tax/income-tax/pay-as-you-earn"},
-  handling:"Do not calculate employee tax liability from these web snippets. Use the current official tax tables/guidance for the tax year."}
+const sourceConflicts=[];
+const sourceResolutions=[
+ {id:"vat_threshold",area:"Tax",topic:"Compulsory VAT registration threshold",resolved:"2026-09-28",
+  handling:"Resolved against the Value Added Tax Act 2026: section 12 and Schedule 5 paragraph 2 set the compulsory registration amount at P1,000,000. Older P500,000 FAQ wording remains visible as stale-source history. Thebe Desk still does not infer VAT registration from annual turnover alone.",
+  source:{label:"BURS — Value Added Tax Act 2026",url:"https://burs.org.bw/index.php/tax/tax-laws-2026?download=958%3Avalue-added-tax-act-2026"}},
+ {id:"paye_threshold",area:"Tax",topic:"PAYE salary-threshold guidance",resolved:"2026-09-28",
+  handling:"Resolved as a source-governance issue: legacy P2,500/P3,000 snippets are not executable salary thresholds. PAYE calculations use the current dated BURS tax table, and PAYE workflows still require confirmed PAYE status.",
+  source:{label:"BURS — Tax Table 2026",url:"https://burs.org.bw/index.php/tax/tax-downloads?download=953%3Atax-table-2026"}}
 ];
 
 const sourceRegistry=[
@@ -138,8 +137,8 @@ const sourceRegistry=[
 const lawChanges=[
  {date:"2026-09-01",title:"Employment and Labour Relations Act commencement",impact:"High",text:"The latest government statement dated 19 August 2026 says the Employment and Labour Relations Act 2025 commences on 1 September 2026, with implementation regulations being finalised.",source:"DailyNews / Ministry of Labour and Home Affairs",url:"https://dailynews.gov.bw/news-detail/92813"},
  {date:"2026 transition",title:"Fixed-term contract duration control",impact:"High",text:"Government's June 2026 implementation explanation says fixed-term contracts are limited to 12 months unless objectively justified. The product now flags >12-month fixed-term metadata for review instead of assuming invalidity.",source:"DailyNews / Ministry of Labour and Home Affairs",url:"https://dailynews.gov.bw/news-detail/91734"},
- {date:"Current source validation",title:"BURS VAT threshold conflict detected",impact:"High",text:"Two current BURS public pages present different compulsory VAT-registration thresholds. Automatic turnover-based VAT registration advice is blocked pending validation against the current legislation/tax guidance.",source:"BURS Registration + VAT FAQ",url:"https://www.burs.org.bw/index.php/about-us/faq/tax-faq/vat-faq"},
- {date:"Current source validation",title:"BURS PAYE threshold conflict detected",impact:"Medium",text:"Different BURS public pages currently show P3,000 and P2,500 monthly thresholds in PAYE-related guidance. Payroll tax calculations should use current tax tables rather than either snippet.",source:"BURS PAYE guidance",url:"https://www.burs.org.bw/index.php/tax/income-tax/pay-as-you-earn"},
+ {date:"2026-09-28",title:"BURS VAT threshold source reconciled",impact:"High",text:"Primary 2026 VAT legislation resolves the historical public-page mismatch: section 12 points compulsory registration to Schedule 5, where paragraph 2 sets P1,000,000. Older P500,000 FAQ wording is retained as stale-source history; Thebe Desk does not infer registration from annual turnover alone.",source:"BURS — Value Added Tax Act 2026",url:"https://burs.org.bw/index.php/tax/tax-laws-2026?download=958%3Avalue-added-tax-act-2026"},
+ {date:"2026-09-28",title:"BURS PAYE threshold source reconciled",impact:"Medium",text:"Legacy BURS guidance snippets showing P3,000 and P2,500 are retained for provenance but are not executable salary-threshold rules. PAYE calculations use the current dated BURS tax table and confirmed taxpayer/employer status.",source:"BURS — Tax Table 2026",url:"https://burs.org.bw/index.php/tax/tax-downloads?download=953%3Atax-table-2026"},
  {date:"2025-03",title:"CIPA beneficial-owner and nominee declarations",impact:"High",text:"CIPA's upgraded OBRS requires beneficial-owner declarations for new and existing companies and declaration of nominee or alternate directors/shareholders where such arrangements exist.",source:"CIPA OBRS Upgrade Public Notice",url:"https://www.cipa.co.bw/wp-content/uploads/2025/03/OBRS-Upgrade-Public-Notice-PDF.pdf"},
  {date:"Current",title:"Industrial licensing route and annual renewal",impact:"High",text:"Government guidance states manufacturing enterprises require the applicable industrial licence before commencing operations. For enterprises above P5 million turnover, applications go to the Department of Industrial Affairs; below P5 million they go through local authority commercial offices. Industrial licences are renewed annually on or before the first-issue date.",source:"Government of Botswana – Industrial Licence",url:"https://www.gov.bw/trade/issuance-industrial-licence"},
  {date:"Current",title:"Factory-registration trigger",impact:"High",text:"Certain premises where persons are regularly employed in manufacturing or related processes require factory registration before operation. Manufacturing onboarding now triggers this assessment.",source:"Government of Botswana – Factory Registration",url:"https://www.gov.bw/occupational-health-safety/factory-registration"},
@@ -211,7 +210,7 @@ function renderSecurity(){
 function renderGlobalConflict(){
  let el=document.getElementById("globalConflictBanner");if(!el)return;
  if(!sourceConflicts.length){el.style.display="none";return}
- el.style.display="block";el.safeHTML=`<div class="between row"><div><b>Source validation in progress</b><div class="small">${sourceConflicts.length} rule conflict(s) are safely blocked from automation.</div></div><button class="btn alt" data-bw-onclick="showView('sources')">Review sources</button></div>`;
+ el.style.display="block";el.safeHTML=`<div class="between row"><div><b>Source validation required</b><div class="small">${sourceConflicts.length} unresolved source conflict(s) are safely blocking affected automation.</div></div><button class="btn alt" data-bw-onclick="showView('sources')">Review sources</button></div>`;
 }
 
 
@@ -627,31 +626,31 @@ function openTaxFacts(focusId=""){
 }
 function renderTaxProfile(){
  let p=state.profile,q=id=>document.getElementById(id);if(!q("taxPayeStatus"))return;
- const conflicts=sourceConflicts.filter(c=>c.area==="Tax");
+ const conflicts=sourceConflicts.filter(c=>c.area==="Tax"),resolutions=sourceResolutions.filter(c=>c.area==="Tax");
  const confirmedVatCategory=String(p.vatCategory||"").trim();
  const vatStatus=confirmedStatus(p,"vat"),payeStatus=confirmedStatus(p,"paye");
  const cycle=vatStatus==="unknown"?"Registration not confirmed":!p.vat?"Confirmed not VAT registered":(confirmedVatCategory?`Confirmed category ${confirmedVatCategory}`:"Category not confirmed");
  q("taxPayeStatus").textContent=payeStatus==="unknown"?"Not confirmed":p.paye?"Tracked":"Confirmed not registered";
  q("taxVatCycle").textContent=cycle;
- q("taxConflictCount").textContent=conflicts.length;
+ q("taxConflictCount").textContent=conflicts.length; q("taxConflictCount").className="score "+(conflicts.length?"bad":"good");
  const vatCategoryInput=q("taxVatCategoryInput"),suppliesInput=q("taxAnnualTaxableSuppliesInput"),payInput=q("taxHighestMonthlyPayInput");
  if(vatCategoryInput)vatCategoryInput.value=p.vatCategory||"";
  if(suppliesInput)suppliesInput.value=p.annualTaxableSupplies??"";
  if(payInput)payInput.value=p.highestMonthlyEmployeePay??"";
  if(q("taxVatFactsCard"))q("taxVatFactsCard").hidden=!p.vat;
  if(q("taxPayeFactsCard"))q("taxPayeFactsCard").hidden=!p.paye;
- let nextTitle="Tax setup recorded",nextDetail="Keep tax evidence current and review source conflicts before relying on a threshold conclusion.",nextAction=`<button class="btn alt" type="button" data-bw-onclick="openTaxFacts()">Review tax evidence</button>`;
- if(vatStatus==="unknown"||payeStatus==="unknown"){nextTitle="Confirm your tax registration facts";nextDetail="At least one VAT/PAYE registration fact is not confirmed. BW will not infer registration from turnover, employee count or disputed thresholds.";nextAction=`<button class="btn" type="button" data-bw-onclick="showView('profile')">Confirm registration status</button>`}
+ let nextTitle="Tax setup recorded",nextDetail="Keep tax evidence current and use the dated authoritative source before relying on any threshold conclusion.",nextAction=`<button class="btn alt" type="button" data-bw-onclick="openTaxFacts()">Review tax evidence</button>`;
+ if(vatStatus==="unknown"||payeStatus==="unknown"){nextTitle="Confirm your tax registration facts";nextDetail="At least one VAT/PAYE registration fact is not confirmed. Thebe Desk will not infer registration from turnover or employee count.";nextAction=`<button class="btn" type="button" data-bw-onclick="showView('profile')">Confirm registration status</button>`}
  else if(!p.vat&&!p.paye){nextTitle="Tax registration facts confirmed";nextDetail="VAT and PAYE are both recorded as confirmed not registered. Update Business details if the official position changes.";nextAction=`<button class="btn" type="button" data-bw-onclick="showView('profile')">Review status</button>`}
  else if(p.vat&&!confirmedVatCategory){nextTitle="Confirm your VAT category";nextDetail="VAT is marked as registered, but the filing category/code is not confirmed. Do not guess it from turnover.";nextAction=`<button class="btn" type="button" data-bw-onclick="openTaxFacts('taxVatCategoryInput')">Add confirmed category</button>`}
- else if(p.vat&&(p.annualTaxableSupplies===null||p.annualTaxableSupplies===undefined||p.annualTaxableSupplies==="")){nextTitle="Add the taxable-supplies fact if known";nextDetail="This supporting fact can help professional review, but the platform will not use it to auto-decide VAT registration while official thresholds conflict.";nextAction=`<button class="btn" type="button" data-bw-onclick="openTaxFacts('taxAnnualTaxableSuppliesInput')">Add taxable supplies</button>`}
- else if(p.paye&&(p.highestMonthlyEmployeePay===null||p.highestMonthlyEmployeePay===undefined||p.highestMonthlyEmployeePay==="")){nextTitle="Add payroll context if known";nextDetail="PAYE is marked as applicable. Record the highest monthly employee pay only as supporting context; conflicting threshold guidance remains blocked.";nextAction=`<button class="btn" type="button" data-bw-onclick="openTaxFacts('taxHighestMonthlyPayInput')">Add payroll context</button>`}
+ else if(p.vat&&(p.annualTaxableSupplies===null||p.annualTaxableSupplies===undefined||p.annualTaxableSupplies==="")){nextTitle="Add the taxable-supplies fact if known";nextDetail="This supporting fact can help professional review, but the platform will not use this field alone to auto-decide VAT registration.";nextAction=`<button class="btn" type="button" data-bw-onclick="openTaxFacts('taxAnnualTaxableSuppliesInput')">Add taxable supplies</button>`}
+ else if(p.paye&&(p.highestMonthlyEmployeePay===null||p.highestMonthlyEmployeePay===undefined||p.highestMonthlyEmployeePay==="")){nextTitle="Add payroll context if known";nextDetail="PAYE is marked as applicable. Record the highest monthly employee pay only as supporting context; current dated BURS tax tables govern calculations.";nextAction=`<button class="btn" type="button" data-bw-onclick="openTaxFacts('taxHighestMonthlyPayInput')">Add payroll context</button>`}
  q("taxNextTitle").textContent=nextTitle;q("taxNextDetail").textContent=nextDetail;q("taxNextActions").safeHTML=nextAction;
  let nextP=nextMonthlyDeadline(15),nextV=nextVatDeadline();
  const turnoverText=p.turnover===null||p.turnover===undefined||p.turnover===""?"Not supplied":`P${Number(p.turnover).toLocaleString()}`;
  const suppliesText=p.annualTaxableSupplies===null||p.annualTaxableSupplies===undefined||p.annualTaxableSupplies===""?"Not supplied":`P${Number(p.annualTaxableSupplies).toLocaleString()}`;
  q("taxProfileSummary").safeHTML=`<div class="matrix"><b>Annual turnover</b><span>${turnoverText} · not used as VAT taxable supplies</span><b>Annual taxable supplies</b><span>${suppliesText}</span><b>PAYE</b><span>${payeStatus==="unknown"?"Not confirmed":p.paye?"Enabled · next payment target "+fmtDate(nextP):"Confirmed not registered"}</span><b>VAT</b><span>${vatStatus==="unknown"?"Not confirmed":p.vat?"Enabled · "+cycle+" · next generic payment date "+fmtDate(nextV):"Confirmed not registered"}</span><b>Company return</b><span>Income-tax return timing depends on financial year / tax-year rules; configure when source-reviewed.</span></div>`;
- q("taxConflicts").safeHTML=conflicts.map(c=>`<div class="conflict item"><b>${c.topic}</b><div class="small" style="margin-top:6px"><b>${c.sourceA.label}:</b> ${c.sourceA.claim}</div><div class="small"><b>${c.sourceB.label}:</b> ${c.sourceB.claim}</div><div class="source">System handling: ${c.handling}</div><div class="rulemeta"><a href="${c.sourceA.url}" target="_blank" rel="noopener noreferrer">Source A</a><a href="${c.sourceB.url}" target="_blank" rel="noopener noreferrer">Source B</a></div></div>`).join("")||'<div class="notice good">No open tax source conflict.</div>';
+ q("taxConflicts").safeHTML=conflicts.length?conflicts.map(c=>`<div class="conflict item"><b>${escapeHtml(c.topic)}</b><div class="source">System handling: ${escapeHtml(c.handling)}</div></div>`).join(""):(resolutions.map(r=>`<div class="verifiedsrc item"><b>${escapeHtml(r.topic)}</b><div class="small" style="margin-top:6px">${escapeHtml(r.handling)}</div><div class="rulemeta"><span>Resolved ${escapeHtml(r.resolved)}</span><a href="${safeExternalUrl(r.source?.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(r.source?.label||"Authoritative source")}</a></div></div>`).join("")||'<div class="notice good">No open tax source conflict.</div>');
 }
 function saveTaxFacts(){
  if(currentWorkspaceRole()!=="owner"){let sr=document.getElementById("srStatus");if(sr)sr.textContent="Only the account owner can edit tax facts.";return false}
@@ -762,9 +761,11 @@ function renderManufacturing(){
 }
 function renderSourceRegistry(){
  let el=document.getElementById("sourceRegistry");if(!el)return;
- let cards=sourceRegistry.map(s=>`<div class="sourcebox item"><strong>${s.authority}</strong><div class="small">${s.coverage}</div><div class="pillrow" style="margin-top:8px"><span class="pill">${s.domain}</span><span class="pill">${s.confidence}</span><span class="pill">Review ${s.review}</span></div></div>`).join("");
- let conflicts=sourceConflicts.map(c=>`<div class="conflict item"><strong>Source conflict: ${c.topic}</strong><div class="small">${c.handling}</div></div>`).join("");
- el.safeHTML=`<div class="rulewarn"><b>${sourceConflicts.length} source conflict(s) currently block automatic rule execution.</b><div class="small">The platform should prefer no automated conclusion over a potentially wrong legal/tax conclusion.</div></div><div style="margin-top:12px">${conflicts}${cards}</div>`
+ let cards=sourceRegistry.map(s=>`<div class="sourcebox item"><strong>${escapeHtml(s.authority)}</strong><div class="small">${escapeHtml(s.coverage)}</div><div class="pillrow" style="margin-top:8px"><span class="pill">${escapeHtml(s.domain)}</span><span class="pill">${escapeHtml(s.confidence)}</span><span class="pill">Review ${escapeHtml(s.review)}</span></div></div>`).join("");
+ let conflicts=sourceConflicts.map(c=>`<div class="conflict item"><strong>Source conflict: ${escapeHtml(c.topic)}</strong><div class="small">${escapeHtml(c.handling)}</div></div>`).join("");
+ let resolutions=sourceResolutions.map(r=>`<div class="verifiedsrc item"><strong>Resolved source issue: ${escapeHtml(r.topic)}</strong><div class="small">${escapeHtml(r.handling)}</div><div class="rulemeta"><span>Resolved ${escapeHtml(r.resolved)}</span><a href="${safeExternalUrl(r.source?.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(r.source?.label||"Authoritative source")}</a></div></div>`).join("");
+ const status=sourceConflicts.length?`<div class="rulewarn"><b>${sourceConflicts.length} unresolved source conflict(s) currently block affected automation.</b><div class="small">The platform prefers no automated conclusion over a potentially wrong legal or tax conclusion.</div></div>`:`<div class="notice good"><b>No unresolved source conflicts currently block affected automation.</b><div class="small">Resolved-source history remains visible below for auditability and future review.</div></div>`;
+ el.safeHTML=`${status}<div style="margin-top:12px">${conflicts}${resolutions}${cards}</div>`;
 }
 
 function renderDeadlines(){
