@@ -9,11 +9,15 @@ assert.match(css,/V164 futuristic command surface/);
 assert.match(css,/V167 workspace dock/);
 assert.match(css,/V168 Super Agent mascot/);
 assert.match(css,/V169 contextual presence/);
+assert.match(css,/V170 governed mission rail/);
 assert.match(css,/data-context="finance"[\s\S]*?--thebe-eye-x:1\.4px/,'Finance context must shift gaze analytically');
 assert.match(css,/data-context="property"[\s\S]*?thebe-mascot-property-survey-v169/,'Property context must use restrained surveying motion');
 assert.match(css,/data-context="compliance"[\s\S]*?thebe-mascot-scan-v168/,'Compliance context must use a watchful scan');
 assert.match(css,/data-context="people"[\s\S]*?thebe-mascot-ear-left/,'People context must use conversational ear micro-motion');
 assert.match(css,/\.thebe-mascot-beacon\{fill:#8fd2ff/,'idle mascot beacon must not falsely imply red action state');
+assert.match(css,/\.thebe-ai-mission-track\{[\s\S]*?grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/,'V170 mission rail must expose four governed progress stages');
+assert.match(css,/data-tone="review"[\s\S]*?background:#ffb648/,'owner review stage must use restrained amber');
+assert.match(css,/data-tone="error"[\s\S]*?background:#ff6268/,'mission errors must remain visually distinct');
 
 assert.match(css,/\.thebe-mascot\[data-state="listening"\][\s\S]*?thebe-mascot-orbit/,'mascot must expose a listening state');
 assert.match(css,/\.thebe-mascot\[data-state="acting"\][\s\S]*?stroke:#e2464f/,'acting state must use the restrained Thebe red orbit');
@@ -45,4 +49,4 @@ assert.match(css,/prefers-reduced-motion:reduce[\s\S]*?\.thebe-particle,[\s\S]*?
 assert.match(css,/\.thebe-ai-send\{[\s\S]*?width:46px;height:46px/);
 assert.match(css,/\.thebe-ai-quick button\{[\s\S]*?min-height:56px/);
 
-console.log('PASS: V169 Thebe Super Agent preserves the solid-blue dock with contextual micro-motion and reduced-motion protection.');
+console.log('PASS: V170 Thebe Super Agent preserves the solid-blue dock with contextual micro-motion, governed mission progress and reduced-motion protection.');
