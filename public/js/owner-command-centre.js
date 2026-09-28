@@ -1459,6 +1459,12 @@
     const complianceCoverageInactive=complianceCoverageStatus==="inactive";
     const complianceCoverageUnknown=complianceCoverageStatus==="unknown";
     const net=Number(m.current30NetCashMovementMinor||0),inChange=m.inflowChangePct,outChange=m.outflowChangePct;
+    const valuationServicesAvailable=p.valuationServicesAvailable===true;
+    const payableValuationQuotes=Number(p.valuationServicePayableQuoteCount||0);
+    const payableValuationQuoteValue=Number(p.valuationServicePayableQuoteValueBwp||0);
+    const expiredValuationQuotes=Number(p.valuationServiceExpiredQuoteCount||0);
+    const inProgressValuations=Number(p.valuationServiceInProgressCount||0);
+    const completedValuationServiceValue=Number(p.valuationServiceCompletedValueBwp||0);
     grid.append(signalCard({
       label:"Money · 30 days",value:money(net/100),
       title:net<0?"Recorded outflows exceeded inflows.":"Recorded inflows covered outflows.",
@@ -1503,11 +1509,18 @@
       tone:complianceCoverageInactive||complianceCoverageUnknown||Number(o.criticalPerformanceSignals||0)>0||Number(co.overdueCount||0)>0?"risk":"neutral"
     }));
     grid.append(signalCard({
-      label:"Property & valuation",value:p.portfolioAnalyticsAvailable?`${Number(p.assetCount||0)} asset${Number(p.assetCount||0)===1?"":"s"}`:"Not connected",
-      title:p.portfolioAnalyticsAvailable?`${Number(p.valuedAssetCount||0)} of ${Number(p.assetCount||0)} active asset(s) have a recorded professional valuation.`:"Property portfolio records are not yet readable.",
-      detail:p.portfolioAnalyticsAvailable?`${money(Number(p.recordedProfessionalValueMinor||0)/100)} recorded professional valuation value · ${money(Number(p.debtBalanceMinor||0)/100)} recorded debt · ${p.valuationCoveragePct==null?"—":pct(Number(p.valuationCoveragePct))} valuation coverage · ${Number(p.professionalValuationRenewalDueCount||0)} review due · ${Number(p.valuationReportEvidenceGapCount||0)} report-evidence gap(s). Thebe does not create or certify market value.`:"The underwriting calculator remains scenario-only until the canonical property register is available.",
-      tone:Number(p.unvaluedAssetCount||0)>0||Number(p.staleProfessionalValuationCount||0)>0||Number(p.professionalValuationRenewalDueCount||0)>0||Number(p.valuationReportEvidenceGapCount||0)>0?"risk":"neutral",
-      actionLabel:p.portfolioAnalyticsAvailable?"Open property tools":null,
+      label:"Property & valuation",
+      value:p.portfolioAnalyticsAvailable?(payableValuationQuotes>0?money(payableValuationQuoteValue):`${Number(p.assetCount||0)} asset${Number(p.assetCount||0)===1?"":"s"}`):"Not connected",
+      title:p.portfolioAnalyticsAvailable
+        ?(payableValuationQuotes>0
+          ?`${payableValuationQuotes} professional valuation quote${payableValuationQuotes===1?"":"s"} await payment.`
+          :`${Number(p.valuedAssetCount||0)} of ${Number(p.assetCount||0)} active asset(s) have a recorded professional valuation.`)
+        :"Property portfolio records are not yet readable.",
+      detail:p.portfolioAnalyticsAvailable
+        ?`${money(Number(p.recordedProfessionalValueMinor||0)/100)} recorded professional valuation value · ${money(Number(p.debtBalanceMinor||0)/100)} recorded debt · ${p.valuationCoveragePct==null?"—":pct(Number(p.valuationCoveragePct))} valuation coverage · ${Number(p.professionalValuationRenewalDueCount||0)} review due · ${Number(p.valuationReportEvidenceGapCount||0)} report-evidence gap(s)${valuationServicesAvailable?` · ${payableValuationQuotes} payable quote(s) worth ${money(payableValuationQuoteValue)} · ${expiredValuationQuotes} expired quote(s) · ${inProgressValuations} valuation job(s) in progress · ${money(completedValuationServiceValue)} completed valuation-service value`:""}. Thebe does not create or certify market value.`
+        :"The underwriting calculator remains scenario-only until the canonical property register is available.",
+      tone:Number(p.unvaluedAssetCount||0)>0||Number(p.staleProfessionalValuationCount||0)>0||Number(p.professionalValuationRenewalDueCount||0)>0||Number(p.valuationReportEvidenceGapCount||0)>0||payableValuationQuotes>0||expiredValuationQuotes>0?"risk":"neutral",
+      actionLabel:p.portfolioAnalyticsAvailable?(payableValuationQuotes>0?"Open valuation payments":"Open property tools"):null,
       action:p.portfolioAnalyticsAvailable?()=>route("propertyintelligence"):null
     }));
     grid.append(signalCard({
