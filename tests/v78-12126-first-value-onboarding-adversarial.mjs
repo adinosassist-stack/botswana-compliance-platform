@@ -63,7 +63,7 @@ check('profile fill reads trade status helper',html.includes('set("pTrade",confi
 
 check('tax UI distinguishes VAT unknown',taxFn.includes('vatStatus==="unknown"?"Registration not confirmed"'));
 check('tax UI distinguishes PAYE unknown',taxFn.includes('payeStatus==="unknown"?"Not confirmed"'));
-check('tax UI refuses threshold inference',taxFn.includes('will not infer registration from turnover, employee count or disputed thresholds'));
+check('tax UI refuses threshold inference',taxFn.includes('will not infer registration from turnover or employee count')&&html.includes('VAT registration is never inferred solely from annual turnover'));
 check('tax summary prints not confirmed',taxFn.includes('payeStatus==="unknown"?"Not confirmed"')&&taxFn.includes('vatStatus==="unknown"?"Not confirmed"'));
 check('licence UI distinguishes unknown',licenceFn.includes('confirmedStatus(state.profile,"trade")==="unknown"'));
 check('licence UI refuses industry inference',licenceFn.includes('will not infer legal applicability from industry alone'));
