@@ -409,6 +409,15 @@ export async function handlePropertyValuationServicesRequest({request,url,env,au
     if(internal.action==="issue"){
       if(row.status!=="professional_review")return json({error:"professional_review_required",status:row.status},409);
       const valuationId=text(body.valuationId,64),reportEvidenceId=text(body.reportEvidenceId,64);if(!valuationId||!reportEvidenceId)return json({error:"issued_valuation_and_report_required"},400);
+      const governedReport=await env.DB.prepare(
+        "SELECT v.id valuation_id,e.id evidence_id FROM property_professional_valuations v "+
+        "JOIN property_valuation_evidence_links l ON l.tenant_id=v.tenant_id AND l.property_id=v.property_id AND l.valuation_id=v.id AND l.evidence_id=? AND l.link_kind='signed_report' "+
+        "JOIN evidence e ON e.tenant_id=v.tenant_id AND e.id=l.evidence_id "+
+        "WHERE v.id=? AND v.tenant_id=? AND v.property_id=? "+
+        "AND lower(trim(v.valuer_registration_ref))=lower(trim(?)) "+
+        "AND e.review_status='approved' AND e.scan_status='clean' AND e.scanned_at IS NOT NULL AND e.malware_name IS NULL AND e.deleted_at IS NULL LIMIT 1"
+      ).bind(reportEvidenceId,valuationId,row.tenant_id,row.property_id,row.assigned_professional_registration_ref||"").first();
+      if(!governedReport)return json({error:"governed_signed_report_required"},409);
       try{
         const changed=await env.DB.prepare("UPDATE property_valuation_service_requests SET status='report_issued',issued_valuation_id=?,issued_report_evidence_id=?,completed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='professional_review'")
           .bind(valuationId,reportEvidenceId,row.id).run();
@@ -418,7 +427,7 @@ export async function handlePropertyValuationServicesRequest({request,url,env,au
         if(String(error).includes("property_valuation_service_registration_required")||String(error).includes("property_valuation_service_credential_mismatch")||String(error).includes("property_valuation_service_professional_credential_mismatch"))return json({error:"assigned_valuer_credential_mismatch"},409);
         throw error;
       }
-      if(row.service_order_id)await env.DB.prepare("UPDATE service_orders SET status='completed',completed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(row.service_order_id).run();
+      if(row.service_order_id)await env.DB.prepare("UPDATE service_orders SET status='completed',completed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=?").bind(row.service_order_id,row.tenant_id).run();
       await event(env,row,"REPORT_ISSUED",auth.user_id,{valuationId,reportEvidenceId});return json({ok:true,status:"report_issued",valuationId,reportEvidenceId});
     }
     return json({error:"unknown_valuation_service_action"},404);
