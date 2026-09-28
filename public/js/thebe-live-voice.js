@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260928-mascot-v170";
+  const RELEASE="20260929-command-bridge-v172";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -552,12 +552,12 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260928-mascot-v170";
+  const DOCK_RELEASE="20260929-command-bridge-v172";
   const STORE_KEY="thebe_ai_dock_collapsed_v4";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
-  let dock=null,pill=null,pillLabel=null,orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,input=null,sendButton=null,attentionButton=null,quick=null,foot=null,mascot=null;
-  let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",mascotState="idle",mascotContext="general",mascotFocus="ambient",collapsed=false;
+  let dock=null,pill=null,pillLabel=null,orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,input=null,sendButton=null,attentionButton=null,quick=null,foot=null,mascot=null,missionRail=null,missionLabel=null,missionMeta=null;
+  let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",mascotState="idle",mascotContext="general",mascotFocus="ambient",ownerCommandState=null,collapsed=false;
 
   const api=(url,options={})=>{
     if(typeof global.apiJson!=="function")throw new Error("The secure Thebe API transport is not available.");
@@ -608,10 +608,49 @@
     if(/compliance|obligation|licen|burs|cipa|tax|vat|paye|regulat|evidence|audit|risk|tender|inspection|passport|assurance/.test(key))return "compliance";
     return "general";
   }
+
+  function missionDescriptor(){
+    if(mascotState==="error")return {stage:0,tone:"error",label:"Needs attention"};
+    if(mascotState==="approval")return {stage:4,tone:"review",label:"Owner review required"};
+    if(mascotState==="success")return {stage:4,tone:"success",label:"Complete"};
+    if(mascotState==="acting")return {stage:3,tone:"active",label:"Preparing governed work"};
+    if(mascotState==="thinking")return {stage:2,tone:"active",label:"Reasoning with workspace context"};
+    if(mascotState==="speaking")return {stage:2,tone:"active",label:"Responding"};
+    if(mascotState==="listening")return {stage:1,tone:"active",label:"Understanding request"};
+    const pending=Math.max(0,Number(ownerCommandState?.pendingReviews||0));
+    if(pending)return {stage:4,tone:"review",label:`${pending} item${pending===1?"":"s"} waiting for owner review`};
+    const phase=String(ownerCommandState?.phase||"");
+    const message=clean(ownerCommandState?.message||"",90);
+    if(phase==="working")return {stage:3,tone:"active",label:message||"Preparing governed work"};
+    if(phase==="reasoning"||phase==="syncing")return {stage:2,tone:"active",label:message||"Reasoning with workspace context"};
+    if(phase==="error")return {stage:0,tone:"error",label:message||"Command Centre needs attention"};
+    if(phase==="complete"||phase==="plan_ready")return {stage:4,tone:"success",label:message||"Command Centre updated"};
+    return {stage:0,tone:"neutral",label:"Ready"};
+  }
+  function ownerCommandSummary(){
+    if(surfaceMode()!=="workspace")return "Public assistant";
+    if(!ownerCommandState)return "Owner Command Centre · governed state";
+    const reviews=Math.max(0,Number(ownerCommandState?.pendingReviews||0));
+    const open=Math.max(0,Number(ownerCommandState?.openTasks||0));
+    if(ownerCommandState?.runtimeKillSwitch===true)return "Owner Command Centre · Runtime Guard locked";
+    if(reviews)return `Owner Command Centre · ${reviews} awaiting review`;
+    if(open)return `Owner Command Centre · ${open} open task${open===1?"":"s"}`;
+    if(ownerCommandState?.boundedExecutionAvailable===true)return "Owner Command Centre · governed lane ready";
+    return "Owner Command Centre · governed lane controlled";
+  }
+  function syncMission(){
+    if(!missionRail)return;
+    const descriptor=missionDescriptor();
+    missionRail.dataset.stage=String(descriptor.stage);
+    missionRail.dataset.tone=descriptor.tone;
+    if(missionLabel)missionLabel.textContent=descriptor.label;
+    if(missionMeta)missionMeta.textContent=ownerCommandSummary();
+  }
   function syncMascotContext(context=activeContext()){
     mascotContext=surfaceMode()==="workspace"?mascotContextFor(context):"general";
     if(mascot)mascot.dataset.context=mascotContext;
     if(dock)dock.dataset.agentContext=mascotContext;
+    syncMission();
     return mascotContext;
   }
   function setMascotFocus(focus){
@@ -689,6 +728,7 @@
     mascotState=allowed.includes(state)?state:"idle";
     if(mascot)mascot.dataset.state=mascotState;
     if(dock)dock.dataset.agentState=mascotState;
+    syncMission();
   }
   function mascotStateForPhase(phase){
     if(phase==="listening")return "listening";
@@ -1034,9 +1074,20 @@
     voiceLabel=el("div","thebe-ai-voice-label","Talk to Thebe");
     voiceLabel.setAttribute("role","status");
     voiceSub=el("div","thebe-ai-voice-sub","Tap the particles or Talk to Thebe");
+    missionRail=el("div","thebe-ai-mission");
+    missionRail.dataset.stage="0";
+    missionRail.dataset.tone="neutral";
+    missionRail.setAttribute("aria-label","Thebe governed task progress");
+    const missionTrack=el("div","thebe-ai-mission-track");
+    for(let i=0;i<4;i++)missionTrack.append(el("span","thebe-ai-mission-segment"));
+    const missionCopy=el("div","thebe-ai-mission-copy");
+    missionLabel=el("b","thebe-ai-mission-label","Ready");
+    missionMeta=el("span","thebe-ai-mission-meta","Owner Command Centre · governed state");
+    missionCopy.append(missionLabel,missionMeta);
+    missionRail.append(missionTrack,missionCopy);
     const voiceMount=el("div","thebe-ai-voice-mount");voiceMount.id="thebeAiDockVoiceMount";
     transcriptBox=el("div","thebe-ai-live-transcript");transcriptBox.id="thebeAiDockTranscript";transcriptBox.hidden=true;
-    voiceCard.append(el("div","thebe-ai-eyebrow","Your business. One conversation."),orbButton,voiceLabel,voiceSub,voiceMount,transcriptBox);
+    voiceCard.append(el("div","thebe-ai-eyebrow","Your business. One conversation."),orbButton,voiceLabel,voiceSub,missionRail,voiceMount,transcriptBox);
 
     quick=el("div","thebe-ai-quick");
     renderQuickActions(surfaceMode());
@@ -1167,6 +1218,23 @@
     responseMessage("This voice session reached its configured safety limit and was ended. Start a new session to continue.","ready");
   });
 
+
+  global.addEventListener("thebe:owner-agent-state",event=>{
+    const detail=event?.detail&&typeof event.detail==="object"?event.detail:{};
+    ownerCommandState={
+      phase:clean(detail.phase||"snapshot",40)||"snapshot",
+      message:clean(detail.message||"",180),
+      openTasks:Math.max(0,Number(detail.openTasks||0)),
+      activeExecutionGrants:Math.max(0,Number(detail.activeExecutionGrants||0)),
+      pendingReviews:Math.max(0,Number(detail.pendingReviews||0)),
+      approvedRequests:Math.max(0,Number(detail.approvedRequests||0)),
+      executionMode:clean(detail.executionMode||"off",40)||"off",
+      boundedExecutionAvailable:detail.boundedExecutionAvailable===true,
+      runtimeKillSwitch:detail.runtimeKillSwitch===true
+    };
+    syncMission();
+  });
+
   function boot(){
     mount();
     setTimeout(recoverVisibility,0);
@@ -1181,6 +1249,6 @@
     open:()=>setCollapsed(false),
     close:()=>setCollapsed(true),
     ask:(question,mode="ask")=>ask(mode,question),
-    state:()=>({collapsed:effectiveCollapsed(),mobileCollapsedPreference:collapsed,mobile:mobileDockMode(),voicePhase,mascotState,mascotContext,mascotFocus,textBusy,workspaceVisible:shellVisible(),dockHidden:dock?.hidden??true,pillHidden:pill?.hidden??true,context:activeContext()})
+    state:()=>({collapsed:effectiveCollapsed(),mobileCollapsedPreference:collapsed,mobile:mobileDockMode(),voicePhase,mascotState,mascotContext,mascotFocus,ownerCommandState,textBusy,workspaceVisible:shellVisible(),dockHidden:dock?.hidden??true,pillHidden:pill?.hidden??true,context:activeContext()})
   });
 })(window);
