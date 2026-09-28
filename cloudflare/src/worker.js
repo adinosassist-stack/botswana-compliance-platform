@@ -5545,7 +5545,19 @@ export default {
         return response||json({error:"valuation_operations_unavailable"},503);
       }
       {
-        const match=url.pathname.match(/^\/api\/property\/valuation-operations\/([^/]+)\/(quote|assign|advance)$/);
+        const readyMatch=url.pathname.match(/^\/api\/property\/valuation-operations\/([^/]+)\/issuable-reports$/);
+        if(readyMatch&&req.method==="GET"){
+          if(!platformValuationOperationsAdmin(a,env))return json({error:"platform_valuation_operations_forbidden"},403);
+          const requestId=String(readyMatch[1]||"");
+          const owned=await env.DB.prepare("SELECT id FROM property_valuation_service_requests WHERE id=? AND tenant_id=? LIMIT 1").bind(requestId,a.tenant_id).first();
+          if(!owned)return json({error:"valuation_service_request_not_found"},404);
+          const headers=new Headers(req.headers);headers.set("x-operations-secret",env.OPERATIONS_SECRET);
+          const internalReq=new Request(req,{headers}),internalUrl=new URL(req.url);
+          internalUrl.pathname="/api/internal/property/valuation-services/"+encodeURIComponent(requestId)+"/issuable-reports";
+          const response=await handlePropertyValuationServicesRequest({request:internalReq,url:internalUrl,env,auth:a,json,readJson,id,writeAudit,roleAllowed,privilegedSecretGate});
+          return response||json({error:"valuation_operations_unavailable"},503);
+        }
+        const match=url.pathname.match(/^\/api\/property\/valuation-operations\/([^/]+)\/(quote|assign|advance|issue)$/);
         if(match&&req.method==="POST"){
           if(!platformValuationOperationsAdmin(a,env))return json({error:"platform_valuation_operations_forbidden"},403);
           const requestId=String(match[1]||""),action=String(match[2]||"");
