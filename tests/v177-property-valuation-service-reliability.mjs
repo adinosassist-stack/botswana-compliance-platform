@@ -68,7 +68,7 @@ assert.equal(profile.property_valuation_service_reliability_v177,true);
 assert.equal(profile.property_valuation_quote_expiry_enforced,true);
 assert.equal(profile.property_valuation_assigned_credential_bound,true);
 assert.equal(profile.property_valuation_duplicate_active_request_blocked,true);
-assert.match(agentic,/062_v177_property_valuation_service_reliability\.sql/);
+assert.match(agentic,/063_v179_property_valuer_credential_binding\.sql/);
 assert.match(runner,/number:62/);
 assert.match(runner,/062_v177_property_valuation_service_reliability\.sql/);
 assert.match(runner,/blob:'de15b22de9d6547c5b138b4400b54b67827b79d3'/);
