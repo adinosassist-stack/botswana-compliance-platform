@@ -84,6 +84,6 @@ assert.doesNotMatch(businessContext,/UPDATE\s+regulatory_rules\s+SET\s+status\s*
 assert.match(analyticsSource,/compliance_rule_coverage_inactive/);
 assert.match(owner,/Coverage inactive/);
 assert.match(owner,/zero overdue count is not compliance assurance/i);
-assert.ok(packageJson.scripts["test:release-regressions"].startsWith("node tests/v179-compliance-coverage-truth.mjs && "));
+assert.ok(packageJson.scripts["test:release-regressions"].includes("node tests/v179-compliance-coverage-truth.mjs"));
 
 console.log("V179_COMPLIANCE_COVERAGE_TRUTH_PASS");
