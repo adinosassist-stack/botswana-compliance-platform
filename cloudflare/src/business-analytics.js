@@ -67,12 +67,12 @@ export function buildBusinessAnalytics(context={}){
     `${Number(operations.criticalPerformanceSignals||0)} critical operating signal(s) remain open or acknowledged.`,
     ["performance_insights","daily_operations_summaries"]
   ));
-  if(String(compliance?.ruleCoverageStatus||"unknown")==="inactive")signals.push(signal(
+  if(String(compliance?.ruleCoverageStatus||"")==="inactive")signals.push(signal(
     "compliance_rule_coverage_inactive","high","Compliance rule coverage is inactive",
     `No published regulatory rules are active. ${Number(compliance?.approvedUnpublishedRuleCount||0)} approved rule(s) remain unpublished. A zero overdue count is not compliance assurance.`,
     ["regulatory_rules","regulatory_rule_reviews","regulatory_sources"]
   ));
-  else if(String(compliance?.ruleCoverageStatus||"unknown")==="unknown")signals.push(signal(
+  else if(String(compliance?.ruleCoverageStatus||"")==="unknown")signals.push(signal(
     "compliance_rule_coverage_unknown","medium","Compliance rule coverage could not be verified",
     "Thebe could not verify published regulatory rule coverage and will not infer assurance from a zero obligation count.",
     ["regulatory_rules"]
