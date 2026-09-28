@@ -60,3 +60,6 @@ When `MALWARE_SCAN_REQUIRED=true`, the scanner job request includes `evidenceId`
 
 ### Current schema upgrade target
 For an existing D1 database, apply only the pending release migrations in order through `063_v179_property_valuer_credential_binding.sql` before deploying the current Worker. For a brand-new D1 database, load `cloudflare/schema.sql` and then apply migrations 047 through 063 in order. The delegated-authority layer remains shadow-only after the migration; applying these migrations does not enable autonomous execution.
+
+### Migration 063 production authorization
+Migration 063 must be verified in production before any Worker deployment that depends on the new professional-credential columns or event ledger. Authorization is performed only by merging an exact-current-main PR whose merge commit carries the `[migrate-063]` marker; the protected workflow then validates merged-PR provenance, the reviewed migration blob, prerequisite schema, a pre-migration Time Travel bookmark, post-migration schema shape, foreign keys, and `/api/ready` health. The runner is idempotent: if migration 063 is already present and valid, it performs no schema mutation and records successful verification. A production release manifest does not substitute for this D1 verification.
