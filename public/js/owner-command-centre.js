@@ -3247,7 +3247,7 @@
   }
 
   async function runPropertyValuationOperation(requestId,action,payload,successMessage){
-    if(!requestId||!["quote","assign","advance"].includes(action))return;
+    if(!requestId||!["quote","assign","advance","issue"].includes(action))return;
     try{
       await request("/api/property/valuation-operations/"+encodeURIComponent(requestId)+"/"+action,{
         method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload||{})
@@ -3317,7 +3317,40 @@
     }else if(String(item?.status||"")==="drafting"){
       controls.append(button("Send to professional review",()=>void runPropertyValuationOperation(requestId,"advance",{status:"professional_review"},"Valuation sent to professional review."),"btn soft"));
     }else if(String(item?.status||"")==="professional_review"){
-      controls.append(text("span","Final issuance requires the governed signed valuation record and linked clean report evidence.","badge warn"));
+      const boundary=text("div","Complete only from an existing signed professional valuation with approved, scan-clean linked evidence and the assigned valuer's matching registration. Thebe does not create or sign the valuation.","notice small");
+      boundary.style.width="100%";controls.append(boundary);
+      const select=document.createElement("select");select.setAttribute("aria-label","Eligible signed valuation report");
+      const placeholder=document.createElement("option");placeholder.value="";placeholder.textContent="Load eligible signed reports";select.append(placeholder);
+      const load=button("Load signed reports",async()=>{
+        load.disabled=true;
+        try{
+          const payload=await request("/api/property/valuation-operations/"+encodeURIComponent(requestId)+"/issuable-reports");
+          const candidates=Array.isArray(payload?.items)?payload.items:[];
+          select.replaceChildren();
+          const first=document.createElement("option");first.value="";
+          first.textContent=candidates.length?"Choose governed signed report":"No eligible signed report is ready";
+          select.append(first);
+          for(const candidate of candidates){
+            const option=document.createElement("option");
+            option.value=String(candidate.valuationId||"");
+            option.dataset.evidenceId=String(candidate.reportEvidenceId||"");
+            option.textContent=String(candidate.reportReference||"Signed report")+" · "+String(candidate.valuationDate||"date unavailable")+" · "+propertyPortfolioMoneyMinor(candidate.marketValueMinor);
+            select.append(option);
+          }
+          complete.disabled=candidates.length===0;
+          propertyPortfolioNotify(candidates.length?candidates.length+" eligible signed valuation report(s) found.":"No matching signed valuation report is ready.",candidates.length?"success":"error");
+        }catch(error){
+          propertyPortfolioNotify(String(error?.message||"Could not read eligible signed reports"),"error");
+        }finally{load.disabled=false}
+      },"btn soft");
+      const complete=button("Complete service from signed report",()=>{
+        const option=select.selectedOptions?.[0];
+        const valuationId=String(select.value||""),reportEvidenceId=String(option?.dataset?.evidenceId||"");
+        if(!valuationId||!reportEvidenceId){propertyPortfolioNotify("Choose an eligible signed valuation report first.","error");return}
+        void runPropertyValuationOperation(requestId,"issue",{valuationId,reportEvidenceId},"Valuation service completed from the governed signed professional report.");
+      },"btn");
+      complete.disabled=true;
+      controls.append(select,load,complete);
     }
 
     if(!controls.childNodes.length)controls.append(text("span","No platform operation is available at this workflow state.","muted small"));
