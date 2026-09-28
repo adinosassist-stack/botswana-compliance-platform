@@ -100,6 +100,41 @@ export function derivePortfolioMetrics(rows=[],{businessDate=marketBusinessDate(
   });
 }
 
+async function propertyValuationServiceCommercialSummary(env,tenantId){
+  try{
+    const row=await env.DB.prepare(
+      "SELECT "+
+      "SUM(CASE WHEN status='awaiting_payment' THEN 1 ELSE 0 END) awaiting_payment_count,"+
+      "SUM(CASE WHEN status='awaiting_payment' THEN coalesce(quoted_fee_bwp,0) ELSE 0 END) awaiting_payment_value_bwp,"+
+      "SUM(CASE WHEN status='awaiting_payment' AND quote_expires_at IS NOT NULL AND datetime(quote_expires_at)>CURRENT_TIMESTAMP THEN 1 ELSE 0 END) payable_quote_count,"+
+      "SUM(CASE WHEN status='awaiting_payment' AND quote_expires_at IS NOT NULL AND datetime(quote_expires_at)>CURRENT_TIMESTAMP THEN coalesce(quoted_fee_bwp,0) ELSE 0 END) payable_quote_value_bwp,"+
+      "SUM(CASE WHEN status='awaiting_payment' AND quote_expires_at IS NOT NULL AND datetime(quote_expires_at)<=CURRENT_TIMESTAMP THEN 1 ELSE 0 END) expired_quote_count,"+
+      "SUM(CASE WHEN status='awaiting_payment' AND quote_expires_at IS NOT NULL AND datetime(quote_expires_at)<=CURRENT_TIMESTAMP THEN coalesce(quoted_fee_bwp,0) ELSE 0 END) expired_quote_value_bwp,"+
+      "SUM(CASE WHEN status IN ('paid','assigned','inspection_scheduled','fieldwork_complete','drafting','professional_review') THEN 1 ELSE 0 END) in_progress_count,"+
+      "SUM(CASE WHEN status='report_issued' THEN 1 ELSE 0 END) completed_count,"+
+      "SUM(CASE WHEN status='report_issued' THEN coalesce(quoted_fee_bwp,0) ELSE 0 END) completed_service_value_bwp "+
+      "FROM property_valuation_service_requests WHERE tenant_id=?"
+    ).bind(tenantId).first();
+    return frozen({
+      available:true,
+      awaitingPaymentCount:Number(row?.awaiting_payment_count||0),
+      awaitingPaymentValueBwp:Number(row?.awaiting_payment_value_bwp||0),
+      payableQuoteCount:Number(row?.payable_quote_count||0),
+      payableQuoteValueBwp:Number(row?.payable_quote_value_bwp||0),
+      expiredQuoteCount:Number(row?.expired_quote_count||0),
+      expiredQuoteValueBwp:Number(row?.expired_quote_value_bwp||0),
+      inProgressCount:Number(row?.in_progress_count||0),
+      completedCount:Number(row?.completed_count||0),
+      completedServiceValueBwp:Number(row?.completed_service_value_bwp||0)
+    });
+  }catch{
+    return frozen({
+      available:false,awaitingPaymentCount:0,awaitingPaymentValueBwp:0,payableQuoteCount:0,payableQuoteValueBwp:0,
+      expiredQuoteCount:0,expiredQuoteValueBwp:0,inProgressCount:0,completedCount:0,completedServiceValueBwp:0
+    });
+  }
+}
+
 export async function propertyPortfolioSummary(env,tenantId,{businessDate=marketBusinessDate(new Date(),DEFAULT_RUNTIME_MARKET_CODE),limit=100}={}){
   const cap=Math.min(200,Math.max(1,Number(limit)||100));
   try{
@@ -125,6 +160,7 @@ export async function propertyPortfolioSummary(env,tenantId,{businessDate=market
       "LEFT JOIN evidence e ON e.tenant_id=a.tenant_id AND e.id=l.evidence_id "+
       "WHERE a.tenant_id=? AND a.status='active'"
     ).bind(tenantId).all();
+    const valuationServices=await propertyValuationServiceCommercialSummary(env,tenantId);
     const items=(rows.results||[]).map(row=>frozen({
       id:String(row.id||""),assetCode:row.asset_code||null,name:text(row.name,160),propertyType:text(row.property_type,32),
       location:text(row.location_text,240),tenureType:text(row.tenure_type,32),currency:text(row.currency,3),
@@ -150,6 +186,7 @@ export async function propertyPortfolioSummary(env,tenantId,{businessDate=market
     const metrics=derivePortfolioMetrics(metricRows.results||[],{businessDate});
     return frozen({
       available:true,version:PROPERTY_PORTFOLIO_VERSION,businessDate,currency:activeCurrency(),...metrics,
+      valuationServices,
       items:frozen(items),
       authority:frozen({
         canonicalRegister:true,professionalValuesOnlyFromRecordedExternalReports:true,
@@ -162,6 +199,7 @@ export async function propertyPortfolioSummary(env,tenantId,{businessDate=market
       available:false,version:PROPERTY_PORTFOLIO_VERSION,businessDate,currency:activeCurrency(),
       assetCount:0,valuedAssetCount:0,unvaluedAssetCount:0,staleProfessionalValuationCount:0,
       professionalValuationRenewalDueCount:0,professionalValuationRenewalDueSoonCount:0,valuationReportEvidenceGapCount:0,
+      valuationServices:frozen({available:false,awaitingPaymentCount:0,awaitingPaymentValueBwp:0,payableQuoteCount:0,payableQuoteValueBwp:0,expiredQuoteCount:0,expiredQuoteValueBwp:0,inProgressCount:0,completedCount:0,completedServiceValueBwp:0}),
       items:frozen([]),error:"property_portfolio_unavailable",
       authority:frozen({canonicalRegister:false,thebeMarketValuation:false,thebeCertification:false,executionAllowed:false})
     });
