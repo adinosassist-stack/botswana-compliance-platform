@@ -6,6 +6,10 @@ const css=fs.readFileSync(new URL('../public/assets/thebe-ai-dock.css',import.me
 assert.match(css,/V161 dock polish/);
 assert.match(css,/V162 blue motion/);
 assert.match(css,/V164 futuristic command surface/);
+assert.match(css,/V165 workspace dock UX/);
+assert.match(css,/\.thebe-ai-dock\[data-surface="workspace"\] \.thebe-ai-voice-card\{[\s\S]*?grid-template-columns:74px minmax\(0,1fr\)/,'workspace voice surface must use the compact horizontal command layout');
+assert.match(css,/\.thebe-ai-dock\[data-surface="workspace"\] \.thebe-ai-quick\{[\s\S]*?grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/,'workspace quick actions must use the two-up desktop command grid');
+assert.match(css,/\.thebe-ai-dock\[data-surface="workspace"\] \.thebe-ai-compose\{[\s\S]*?margin:0 var\(--thebe-workspace-edge\) 10px/,'workspace composer must stay inset from the dock edge');
 assert.match(css,/\.thebe-ai-dock-scroll\{[\s\S]*?padding:22px 22px 24px/,'Thebe AI content must keep a comfortable inset from the dock edge');
 assert.match(css,/\.thebe-ai-quick button\{[\s\S]*?min-height:68px[\s\S]*?padding:13px 48px 13px 54px/,'quick actions must use the V164 command-card geometry');
 assert.match(css,/\.thebe-ai-compose\{[\s\S]*?margin:0 18px 14px[\s\S]*?border-radius:20px/,'composer must float inside the dock instead of touching the edge');
