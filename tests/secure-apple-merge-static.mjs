@@ -1,10 +1,13 @@
 import fs from "node:fs";
 import assert from "node:assert/strict";
 const html=fs.readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
+const mascotAsset=fs.readFileSync(new URL("../public/assets/thebe-mascot-reference.svg",import.meta.url),"utf8");
 const worker=fs.readFileSync(new URL("../cloudflare/src/worker.js",import.meta.url),"utf8");
 assert.match(html,/v67 — secure Apple-clean merge/);
 assert.match(html,/Run your business with intelligence\.<\/h1>/);
-assert.match(html,/gaborone-entrepreneurs-v67\.webp/);
+assert.match(html,/class="thebe-market-mascot"/);
+assert.match(html,/src="\/assets\/thebe-mascot-reference\.svg"/);
+assert.match(mascotAsset,/viewBox="0 0 1000 1000"/);
 assert.match(html,/Your business, protected/);
 assert.match(html,/Protection monitoring on/);
 assert.match(html,/#dashboard \.small\{font-size:12\.5px!important/);

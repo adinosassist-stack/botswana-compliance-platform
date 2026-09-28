@@ -7,6 +7,7 @@ const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const delegation=fs.readFileSync("public/js/event-delegation.js","utf8");
 const apiClient=fs.readFileSync("public/js/api-client.js","utf8");
 const home=fs.readFileSync("public/home.html","utf8");
+const mascotAsset=fs.readFileSync("public/assets/thebe-mascot-reference.svg","utf8");
 const synthetic=fs.readFileSync("scripts/production-synthetic-full-user-wrapper.mjs","utf8");
 
 // Pass 1: every delegated workspace control resolves to an allowed runtime function.
@@ -59,19 +60,23 @@ assert.match(runtime,/if\(document\.getElementById\("dailyreports"\)\?\.classLis
 assert.match(runtime,/Retry analytics/);
 assert.match(runtime,/if\(reportingSetupDetails&&!reportingSetupDetails\.open\)reportingSetupDetails\.open=true;/,"People reporting controls must not collapse during async refresh/navigation");
 assert.match(worker,/const \[locRes,accessRes,reportRes,prevRes,exceptionRes\]=await env\.DB\.batch\(\[/,"dashboard analytics must use one D1 batch round-trip");
-assert.match(home,/gaborone-entrepreneurs-v67\.webp/);
-assert.match(html,/gaborone-entrepreneurs-v67\.webp/);
-assert.match(html,/aspect-ratio:3\/2!important;display:block!important;object-fit:contain!important/,"live marketing hero must preserve the original 1536x1024 ratio without cropping");
-assert.match(home,/\.visual img\{width:100%;height:auto;[^}]*aspect-ratio:auto;object-fit:contain\}/);
-assert.doesNotMatch(home,/\.visual img\{[^}]*object-fit:cover/);
-assert.match(synthetic,/marketing hero uncropped geometry/,"production browser lifecycle must prove hero geometry at desktop and phone widths");
-assert.ok(synthetic.includes(`const marketingHeroSelector='.hero .visual img[src*="gaborone-entrepreneurs-v67.webp"]'`),"production hero proof must target the shipped public hero structurally");
-assert.doesNotMatch(synthetic,/\\.founders-photo/,"production hero proof must not depend on the retired founders-photo class");
-assert.match(synthetic,/withDeadline\('marketing hero image load',[\s\S]*NAVIGATION_TIMEOUT_MS/,"network-backed hero proof must wait on the real image load or error outcome with the bounded navigation deadline");
-assert.match(synthetic,/marketing hero asset failed to load/,"hero proof must distinguish an asset-load failure from crop or distortion failure");
-assert.doesNotMatch(synthetic,/HERO_IMAGE_TIMEOUT_MS/,"hero proof must not use a second polling-only asset timeout that can misclassify slow or cached image loading");
-assert.match(synthetic,/Math\.abs\(renderedRatio-naturalRatio\)<0\.015/,"production browser lifecycle must reject hero crop or distortion by rendered aspect ratio");
-assert.match(synthetic,/frameOverflowX==='visible'&&state\.frameOverflowY==='visible'/,"production browser lifecycle must reject a clipping hero frame");
+assert.match(home,/class="thebe-public-mascot"/,"public marketing hero must ship the approved Thebe mascot");
+assert.match(html,/class="thebe-market-mascot"/,"app-entry marketing hero must ship the approved Thebe mascot");
+const publicMascotSize=home.match(/\.thebe-public-mascot\{[^}]*width:min\((\d+)%\s*,\s*(\d+)px\)/);
+assert.ok(publicMascotSize&&Number(publicMascotSize[1])>=128&&Number(publicMascotSize[2])>=760,"public marketing mascot must remain deliberately oversized on desktop");
+const marketMascotSize=html.match(/\.thebe-market-mascot\{[^}]*width:min\((\d+)%\s*,\s*(\d+)px\)/);
+assert.ok(marketMascotSize&&Number(marketMascotSize[1])>=118&&Number(marketMascotSize[2])>=860,"app-entry marketing mascot must remain deliberately oversized on desktop");
+assert.match(home,/viewBox="0 0 1000 1000"/,"public marketing mascot must preserve the approved square composition");
+assert.match(html,/src="\/assets\/thebe-mascot-reference\.svg"/,"app-entry marketing mascot must use the approved external reference asset");
+assert.match(mascotAsset,/viewBox="0 0 1000 1000"/,"app-entry marketing mascot asset must preserve the approved square composition");
+assert.match(home,/thebe-public-eye[\s\S]*thebe-public-smile/,"public marketing mascot must preserve the approved happy face");
+assert.match(html,/thebe-market-eye[\s\S]*thebe-market-smile/,"app-entry marketing mascot must preserve the approved happy face");
+assert.match(synthetic,/marketing mascot hero geometry/,"production browser lifecycle must prove mascot geometry at desktop and phone widths");
+assert.ok(synthetic.includes(`const marketingHeroSelector='.hero .visual .thebe-public-mascot'`),"production hero proof must target the shipped Thebe mascot structurally");
+assert.doesNotMatch(synthetic,/gaborone-entrepreneurs-v67\.webp/,"production hero proof must not target the retired photo");
+assert.match(synthetic,/state\.viewBox==='0 0 1000 1000'/,"production browser lifecycle must reject mascot composition drift");
+assert.match(synthetic,/state\.eyeCount===2&&state\.hasSmile/,"production browser lifecycle must reject loss of the approved happy face");
+assert.match(synthetic,/frameOverflowX==='visible'&&state\.frameOverflowY==='visible'/,"production browser lifecycle must reject a clipping mascot frame");
 assert.match(synthetic,/setViewportSize\(\{width:390,height:844\}\)/,"production browser lifecycle must prove the marketing hero on a phone viewport");
 
 console.log("v113 workspace buttons, people visibility, reporting timeout and hero framing: 3-pass PASS");

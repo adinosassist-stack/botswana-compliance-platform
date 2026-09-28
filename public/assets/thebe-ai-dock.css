@@ -1316,3 +1316,92 @@
   .thebe-mascot[data-focus],
   .thebe-mascot[data-focus] *{animation:none!important}
 }
+
+
+/* V171 approved-reference mascot visual — preserve the approved white robot proportions and make the public presence unmistakable. */
+.thebe-mascot{
+  inset:-7%;
+  filter:drop-shadow(0 7px 10px rgba(3,25,52,.22));
+}
+.thebe-mascot-orbit,
+.thebe-mascot-antenna,
+.thebe-mascot-beacon,
+.thebe-mascot-status{opacity:0!important}
+.thebe-mascot-nub,
+.thebe-mascot-ear,
+.thebe-mascot-neck,
+.thebe-mascot-arm{
+  fill:url(#thebeDockLimb)!important;
+  stroke:none!important;
+}
+.thebe-mascot-body{fill:url(#thebeDockBody)!important;stroke:none!important}
+.thebe-mascot-head{fill:url(#thebeDockShell)!important;stroke:none!important}
+.thebe-mascot-face{fill:url(#thebeDockFace)!important;stroke:none!important}
+.thebe-mascot-eye,
+.thebe-mascot-smile{
+  fill:url(#thebeDockCyan)!important;
+  filter:drop-shadow(0 0 4px rgba(80,219,234,.72));
+}
+.thebe-mascot-mouth-bar{opacity:0!important}
+.thebe-mascot-highlight{
+  fill:none!important;
+  stroke:#fff!important;
+  stroke-width:28!important;
+  stroke-linecap:round;
+  opacity:.62;
+}
+.thebe-mascot-body-seam{
+  fill:none!important;
+  stroke:#9ea5b1!important;
+  stroke-width:12!important;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.thebe-mascot-chest{
+  fill:none!important;
+  stroke:#fff!important;
+  stroke-width:28!important;
+  stroke-linecap:round;
+  opacity:.55;
+}
+.thebe-mascot-shadow{opacity:.16}
+.thebe-mascot-scan{stroke:#50dbea!important}
+.thebe-mascot[data-state="speaking"] .thebe-mascot-smile{
+  transform-box:fill-box;
+  transform-origin:center;
+  animation:thebe-mascot-talk-v168 .44s ease-in-out infinite;
+}
+.thebe-mascot[data-state="acting"]{filter:drop-shadow(0 7px 10px rgba(3,25,52,.22)) drop-shadow(0 0 10px rgba(226,70,79,.44))}
+.thebe-mascot[data-state="approval"]{filter:drop-shadow(0 7px 10px rgba(3,25,52,.22)) drop-shadow(0 0 10px rgba(255,182,72,.44))}
+.thebe-mascot[data-state="success"]{filter:drop-shadow(0 7px 10px rgba(3,25,52,.22)) drop-shadow(0 0 10px rgba(131,231,184,.5))}
+.thebe-mascot[data-state="error"]{filter:drop-shadow(0 7px 10px rgba(3,25,52,.22)) drop-shadow(0 0 10px rgba(255,98,104,.5))}
+
+/* Marketing/public surfaces get the larger character treatment. Workspace stays compact. */
+#marketingGate .thebe-market-mascot-wrap{
+  min-height:700px!important;
+  margin:-72px -82px -148px!important;
+}
+#marketingGate .thebe-market-mascot{
+  width:min(128%,960px)!important;
+}
+.thebe-ai-dock[data-surface="public"] .thebe-ai-orb-button{height:188px}
+.thebe-ai-dock[data-surface="public"] .thebe-particle-core{width:112px;height:112px}
+.thebe-ai-dock[data-surface="public"] .thebe-particle-wave{opacity:.26}
+.thebe-ai-dock[data-surface="public"] .thebe-mascot{inset:-9%}
+.thebe-ai-dock[data-surface="workspace"] .thebe-particle-core{width:66px;height:66px}
+.thebe-ai-dock[data-surface="workspace"][data-conversation="true"] .thebe-particle-core{width:48px;height:48px}
+
+@media(max-width:900px){
+  #marketingGate .thebe-market-mascot-wrap{min-height:590px!important;margin:-30px -44px -104px!important}
+  #marketingGate .thebe-market-mascot{width:min(120%,820px)!important}
+}
+@media(max-width:700px){
+  #marketingGate .thebe-market-mascot-wrap{min-height:480px!important;margin:-18px -30px -82px!important}
+  #marketingGate .thebe-market-mascot{width:118%!important}
+  .thebe-ai-dock[data-surface="public"] .thebe-ai-orb-button{height:152px}
+  .thebe-ai-dock[data-surface="public"] .thebe-particle-core{width:92px;height:92px}
+  .thebe-ai-dock[data-surface="workspace"] .thebe-particle-core{width:60px;height:60px}
+}
+@media(prefers-reduced-motion:reduce){
+  .thebe-mascot[data-state="speaking"] .thebe-mascot-smile{animation:none!important}
+}
