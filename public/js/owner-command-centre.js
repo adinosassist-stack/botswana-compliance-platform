@@ -29,6 +29,7 @@
   let financeReconciliationBusy=false;
   let propertyPortfolioCache=null;
   let propertyPortfolioBusy=false;
+  let propertyValuationOperationsBusy=false;
   let propertyAssetEditingId=null;
   let propertyEvidenceOptions=[];
 
@@ -2941,6 +2942,26 @@
     servicePanel.hidden=role()!=="owner"&&role()!=="manager";
     shell.append(servicePanel);
 
+    const opsPanel=document.createElement("div");
+    opsPanel.id="propertyValuationOperationsPanel";
+    opsPanel.className="card";
+    opsPanel.style.marginTop="14px";
+    opsPanel.hidden=true;
+    const opsHead=document.createElement("div");
+    opsHead.className="between row";
+    const opsHeadText=document.createElement("div");
+    opsHeadText.append(text("div","Platform operations","section-eyebrow"),text("h3","Valuation operations queue"));
+    opsHead.append(opsHeadText,text("span","Platform admin only","badge info"));
+    opsPanel.append(opsHead);
+    const opsBoundary=text("div","Quote, assignment and workflow progression use the existing server-side operations controls. The operations secret is never sent to the browser. Final signed-report issuance stays on the stronger internal operations path.","notice small");
+    opsBoundary.style.marginTop="10px";opsPanel.append(opsBoundary);
+    const opsList=document.createElement("div");
+    opsList.id="propertyValuationOperationsList";
+    opsList.style.marginTop="12px";
+    opsList.append(text("div","Checking platform valuation operations access…","muted small"));
+    opsPanel.append(opsList);
+    shell.append(opsPanel);
+
     const listHead=document.createElement("div");
     listHead.className="between row";
     listHead.style.marginTop="16px";
@@ -3211,6 +3232,7 @@
       if(valuationPanel)valuationPanel.hidden=role()!=="owner";
       const serviceButton=q("#propertyValuationServiceRequestButton");if(serviceButton)serviceButton.hidden=role()!=="owner";
       renderPropertyValuationServices(valuationServices);
+      void renderPropertyValuationOperations();
       if(list){
         if(!items.length){
           list.replaceChildren(text("div","No property assets are recorded yet. Add the first property to start the canonical portfolio.","notice"));
@@ -3299,6 +3321,132 @@
       return row;
     });
     box.replaceChildren(summaryStrip,...nodes);
+  }
+
+  function valuationOpsDateTimeInput(labelValue){
+    const wrap=document.createElement("label");
+    wrap.className="small";
+    wrap.append(document.createTextNode(labelValue));
+    const input=document.createElement("input");
+    input.type="datetime-local";
+    input.style.marginTop="4px";
+    wrap.append(input);
+    return {wrap,input};
+  }
+
+  async function runPlatformValuationOperation(requestId,action,payload,successMessage){
+    try{
+      await request("/api/platform/property/valuation-services/"+encodeURIComponent(requestId)+"/"+encodeURIComponent(action),{
+        method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload||{})
+      });
+      propertyPortfolioNotify(successMessage||"Valuation operation saved.");
+      await Promise.all([renderPropertyValuationOperations(true),renderPropertyPortfolio(true)]);
+    }catch(error){
+      propertyPortfolioNotify(String(error?.message||"Valuation operation failed"),"error");
+    }
+  }
+
+  function valuationOperationsRow(item,professionals){
+    const row=document.createElement("div");
+    row.className="item";
+    const top=document.createElement("div");top.className="between row";
+    const identity=document.createElement("div");
+    identity.append(
+      text("b",String(item.tenantName||"Tenant")+" · "+String(item.propertyName||"Property")),
+      text("div",String(item.purpose||"valuation").replaceAll("_"," ")+" · "+String(item.status||"requested").replaceAll("_"," ")+" · requested "+(item.createdAt?new Date(item.createdAt).toLocaleString():"time unavailable"),"muted small")
+    );
+    top.append(identity,text("span",String(item.status||"requested").replaceAll("_"," "),"badge info"));
+    row.append(top);
+    const details=[
+      item.quotedFeeBwp!=null?"quote "+valuationServiceMoney(item.quotedFeeBwp):"quote pending",
+      item.desiredByDate?"desired by "+item.desiredByDate:null,
+      item.accessContactName?"access "+item.accessContactName:null,
+      item.accessContactPhone||null,
+      item.assignedProfessional?.displayName?"valuer "+item.assignedProfessional.displayName+" · reg "+String(item.assignedProfessional.registrationRef||"not recorded"):null
+    ].filter(Boolean);
+    row.append(text("div",details.join(" · "),"small"));
+    if(item.clientNotes)row.append(text("div",String(item.clientNotes),"muted small"));
+
+    const controls=document.createElement("div");
+    controls.className="actions";
+    controls.style.marginTop="8px";
+
+    if(item.status==="requested"||(item.status==="awaiting_payment"&&item.quoteExpired)){
+      const fee=document.createElement("input");
+      fee.type="number";fee.min="1";fee.step="1";fee.placeholder="Fee (P)";fee.inputMode="numeric";fee.style.maxWidth="130px";
+      const expiry=valuationOpsDateTimeInput("Quote expiry");
+      controls.append(fee,expiry.wrap,button(item.quoteExpired?"Reissue quote":"Issue quote",()=>{
+        const amount=Number(fee.value);
+        const expiryMs=Date.parse(String(expiry.input.value||""));
+        if(!Number.isSafeInteger(amount)||amount<=0){propertyPortfolioNotify("Enter a whole-number BWP quote fee.","error");return}
+        if(!Number.isFinite(expiryMs)||expiryMs<=Date.now()+15*60*1000){propertyPortfolioNotify("Choose a quote expiry at least 15 minutes in the future.","error");return}
+        void runPlatformValuationOperation(item.id,"quote",{feeBwp:amount,quoteExpiresAt:new Date(expiryMs).toISOString()},"Valuation quote issued.");
+      },"btn"));
+    }else if(item.status==="awaiting_payment"){
+      controls.append(text("span",item.quoteExpired?"Quote expired; reissue before payment.":"Waiting for verified customer payment.","badge warn"));
+    }
+
+    if(item.status==="paid"){
+      const ready=(professionals||[]).filter(x=>x.credentialReady===true);
+      const select=document.createElement("select");
+      const placeholder=document.createElement("option");placeholder.value="";placeholder.textContent=ready.length?"Choose credential-ready valuer":"No credential-ready valuer";select.append(placeholder);
+      for(const professional of ready){
+        const option=document.createElement("option");
+        option.value=String(professional.userId||"");
+        option.textContent=String(professional.displayName||professional.email||"Valuer")+" · "+String(professional.registrationRef||"registration unavailable");
+        select.append(option);
+      }
+      controls.append(select,button("Assign valuer",()=>{
+        if(!select.value){propertyPortfolioNotify("Choose a credential-ready valuer.","error");return}
+        void runPlatformValuationOperation(item.id,"assign",{professionalUserId:select.value},"Verified valuer assigned.");
+      },"btn"));
+    }
+
+    if(item.status==="assigned"){
+      const inspection=valuationOpsDateTimeInput("Inspection");
+      controls.append(inspection.wrap,button("Schedule inspection",()=>{
+        const when=Date.parse(String(inspection.input.value||""));
+        if(!Number.isFinite(when)||when<=Date.now()){propertyPortfolioNotify("Choose a future inspection time.","error");return}
+        void runPlatformValuationOperation(item.id,"advance",{status:"inspection_scheduled",inspectionScheduledAt:new Date(when).toISOString()},"Inspection scheduled.");
+      },"btn"));
+      controls.append(button("Fieldwork complete",()=>void runPlatformValuationOperation(item.id,"advance",{status:"fieldwork_complete"},"Fieldwork marked complete."),"btn soft"));
+    }else if(item.status==="inspection_scheduled"){
+      controls.append(button("Fieldwork complete",()=>void runPlatformValuationOperation(item.id,"advance",{status:"fieldwork_complete"},"Fieldwork marked complete."),"btn"));
+    }else if(item.status==="fieldwork_complete"){
+      controls.append(button("Start drafting",()=>void runPlatformValuationOperation(item.id,"advance",{status:"drafting"},"Valuation moved to drafting."),"btn"));
+    }else if(item.status==="drafting"){
+      controls.append(button("Send to professional review",()=>void runPlatformValuationOperation(item.id,"advance",{status:"professional_review"},"Valuation moved to professional review."),"btn"));
+    }else if(item.status==="professional_review"){
+      controls.append(text("span","Professional review reached · signed-report issuance remains internal-secret gated.","badge warn"));
+    }
+    if(controls.childNodes.length)row.append(controls);
+    return row;
+  }
+
+  async function renderPropertyValuationOperations(force=false){
+    const panel=q("#propertyValuationOperationsPanel"),box=q("#propertyValuationOperationsList");
+    if(!panel||!box||propertyValuationOperationsBusy)return;
+    propertyValuationOperationsBusy=true;
+    try{
+      const [queue,professionalPayload]=await Promise.all([
+        request("/api/platform/property/valuation-services"),
+        request("/api/platform/property/valuation-services/professionals")
+      ]);
+      panel.hidden=false;
+      const items=Array.isArray(queue?.items)?queue.items:[];
+      const professionals=Array.isArray(professionalPayload?.items)?professionalPayload.items:[];
+      const active=items.filter(item=>!["report_issued","declined","canceled","refunded"].includes(String(item.status||"")));
+      if(!active.length){
+        box.replaceChildren(text("div","No active professional valuation jobs across the platform.","notice good"));
+      }else{
+        box.replaceChildren(...active.map(item=>valuationOperationsRow(item,professionals)));
+      }
+    }catch(error){
+      panel.hidden=true;
+      box.replaceChildren(text("div","Platform valuation operations are unavailable.","muted small"));
+    }finally{
+      propertyValuationOperationsBusy=false;
+    }
   }
 
   async function showPropertyValuationServiceTimeline(requestId,propertyName="Property"){
