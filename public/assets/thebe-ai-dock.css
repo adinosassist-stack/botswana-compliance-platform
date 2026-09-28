@@ -1061,7 +1061,7 @@
   pointer-events:none;
   transform-origin:50% 58%;
 }
-.thebe-mascot-svg{width:100%;height:100%;overflow:visible}
+.thebe-particle-core .thebe-mascot-svg{width:100%;height:100%;overflow:visible}
 .thebe-mascot-orbit{
   fill:none;
   stroke:#8fd2ff;
@@ -1194,9 +1194,6 @@
 .thebe-mascot[data-state="error"] .thebe-mascot-beacon,
 .thebe-mascot[data-state="error"] .thebe-mascot-eye{fill:#ff6268}
 .thebe-mascot[data-state="error"] .thebe-mascot-orbit{stroke:#ff6268;opacity:.72}
-.thebe-particle-core:has(.thebe-mascot){
-  overflow:visible;
-}
 .thebe-ai-dock[data-surface="workspace"] .thebe-particle-core{
   width:54px;
   height:54px;
