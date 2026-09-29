@@ -9,7 +9,7 @@ const META_CSP_RE=/<meta\b(?=[^>]*\bhttp-equiv\s*=\s*["']Content-Security-Policy
 const ICON_LINK_RE=/<link\b(?=[^>]*\brel\s*=\s*["'](?:icon|shortcut icon|apple-touch-icon)["'])[^>]*>\s*/gi;
 const THEBE_LOGO_FAVICON="/assets/thebe-desk-favicon-512.png?v=20260912b";
 const OWNER_COMMAND_CENTRE_RELEASE="20260929-v180";
-const EXECUTIVE_PERSONALIZATION_RELEASE="20260929-v173";
+const EXECUTIVE_PERSONALIZATION_RELEASE="20260929-v180";
 const BUSINESS_DATA_BRIDGE_RELEASE="20260913d";
 const THEBE_LIVE_VOICE_RELEASE="20260929-visual-v180";
 const THEBE_PUBLIC_API_CLIENT_RELEASE="20260920a";
