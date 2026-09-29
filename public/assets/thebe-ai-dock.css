@@ -1675,9 +1675,7 @@
     bottom:max(8px,var(--thebe-keyboard-inset,0px))!important;
     max-height:var(--thebe-visible-height,65dvh)!important;
   }
-  .thebe-ai-dock[data-surface="workspace"][data-keyboard="true"]>.thebe-ai-foot,
-  .thebe-ai-dock[data-surface="workspace"][data-keyboard="true"] .thebe-ai-voice-card,
-  .thebe-ai-dock[data-surface="workspace"][data-keyboard="true"] .thebe-ai-quick{
+  .thebe-ai-dock[data-surface="workspace"][data-keyboard="true"] :is(.thebe-ai-foot,.thebe-ai-voice-card,.thebe-ai-quick){
     display:none!important;
   }
   .thebe-ai-dock[data-surface="workspace"][data-keyboard="true"] .thebe-ai-response[data-long="true"] .thebe-ai-response-answer{
