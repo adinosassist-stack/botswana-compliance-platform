@@ -43,6 +43,25 @@ for(const call of ["await renderEmployeeRegister();","await renderPeopleOperatio
 }
 assert.doesNotMatch(createBody,/peopleops[^\n]{0,120}classList\.contains\("active"\)/,"employee reconciliation must not depend on People view being active");
 
+const employeeStart=html.indexOf('<section id="employees"');
+const dailyStart=html.indexOf('<section id="dailyreports"',employeeStart);
+assert.ok(employeeStart>0&&dailyStart>employeeStart,"Employees workspace section must exist");
+const employeeSection=html.slice(employeeStart,dailyStart);
+assert.match(employeeSection,/employee-directory-shell/,"Employees must use the V188 directory shell");
+assert.match(employeeSection,/Team structure/,"Employees must retain the org-chart-inspired team structure cue");
+assert.match(employeeSection,/id="employeeRegister" class="employee-register-list"/,"employee register hook must remain intact inside the redesigned directory");
+assert.match(employeeSection,/data-bw-onclick="addEmployeeRecord\(\)"/,"Add employee must remain wired through the approved delegated action");
+assert.match(employeeSection,/id="eName"/);
+assert.match(employeeSection,/id="eRole"/);
+assert.match(employeeSection,/id="eStart"/);
+assert.match(employeeSection,/id="eContract"/);
+assert.match(employeeSection,/id="eAsset"/);
+const workspaceStyles=fs.readFileSync(new URL("../public/assets/workspace-inline-styles-20260929b.css",import.meta.url),"utf8");
+assert.match(workspaceStyles,/V188 Employee Directory/,"versioned workspace stylesheet must ship the redesigned employee page");
+assert.match(workspaceStyles,/#employees \.employee-directory-layout\{display:grid;grid-template-columns:minmax\(0,1\.55fr\) minmax\(300px,\.7fr\)/,"employee directory must use a bounded directory/form split");
+assert.match(workspaceStyles,/body\.thebe-ai-dock-open #employees \.employee-directory-layout\{grid-template-columns:1fr\}/,"employee directory must collapse safely while Thebe is open");
+assert.match(workspaceStyles,/#employees #employeeRegister>\.item/,"runtime employee rows must receive the org-style card treatment");
+
 assert.match(html,/#appShell \*\{min-width:0\}/,"workspace descendants must be allowed to shrink instead of forcing column overflow");
 assert.match(html,/#appShell \.view\{overflow-x:clip\}/,"workspace views must clip accidental horizontal overflow");
 assert.match(html,/\.property-layout\{display:grid;grid-template-columns:minmax\(0,1\.05fr\) minmax\(300px,\.95fr\)/,"property layout must use bounded shrinkable columns");
