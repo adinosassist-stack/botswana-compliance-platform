@@ -67,7 +67,7 @@ assert(dockCss.includes('background:#07131f'),'V191 must replace the full-blue s
 assert(dockCss.includes('.thebe-ai-quick{')&&dockCss.includes('grid-template-columns:repeat(3,minmax(0,1fr))'),'V191 desktop contextual actions must use a compact three-command row');
 assert(dockCss.includes('V192 interaction polish'),'V192 must ship the interaction-polish contract without replacing V191 geometry ownership');
 assert(runtime.includes('const cleanMultiline=')&&runtime.includes('lastAnswer=cleanMultiline('),'V192 must preserve multiline answer formatting instead of flattening long responses');
-assert(runtime.includes('function scrollResponseIntoView()')&&runtime.includes('scroller.scrollTo({top:target'),'V192 must keep response reveal inside the dock scroller');
+assert(runtime.includes('function scrollResponseIntoView(force=false)')&&runtime.includes('scrollRegion.scrollTo({top:target'),'V193 must keep response reveal inside the dock scroller while supporting user-respecting follow state');
 assert(runtime.includes('function syncComposerHeight()')&&runtime.includes('input.addEventListener("input",syncComposerHeight)'),'V192 must auto-grow the composer within a bounded height');
 assert(runtime.includes('function syncBusyControls()')&&runtime.includes('button.disabled=textBusy'),'V192 must disable actionable dock controls while a text request is running');
 assert(dockCss.includes('display:flex!important')&&dockCss.includes('scroll-snap-type:x proximity'),'V192 mobile quick actions must use a compact horizontal command strip');
