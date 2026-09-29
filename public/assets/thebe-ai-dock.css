@@ -1387,6 +1387,12 @@
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-eyebrow{color:#63b9ff}
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-voice-label{font-size:17px;color:#f4f9ff}
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-voice-sub{font-size:10.5px;color:#91a9c0}
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-live-transcript{
+  max-height:132px;
+  overflow:auto;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+}
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick{
   display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));
@@ -1459,7 +1465,14 @@
   box-shadow:inset 0 1px 0 rgba(255,255,255,.02);
   backdrop-filter:blur(12px);
 }
+/* V192 interaction polish — preserve readable answers, bounded composer growth and compact mobile command browsing without changing V191 geometry ownership. */
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-response-title{font-size:8px;color:#6f9fc7}
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-response-answer{
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+  font-size:12.5px;
+  line-height:1.58;
+}
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-response-tools{gap:7px}
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-response-tools button{
   min-height:36px;
@@ -1491,6 +1504,9 @@
   border:0;
   border-radius:10px;
   background:transparent;
+  resize:none;
+  overflow-y:hidden;
+  line-height:1.42;
 }
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-send{
   width:44px;
@@ -1499,6 +1515,14 @@
   border-radius:13px;
   background:#137bcf;
   box-shadow:0 7px 18px rgba(0,73,143,.25),inset 0 1px 0 rgba(255,255,255,.12);
+}
+.thebe-ai-dock[data-surface="workspace"][data-busy="true"] .thebe-ai-context-action:disabled,
+.thebe-ai-dock[data-surface="workspace"][data-busy="true"] .thebe-ai-mode-button:disabled,
+.thebe-ai-dock[data-surface="workspace"][data-busy="true"] .thebe-ai-quick button:disabled{
+  cursor:wait;
+  opacity:.56;
+  transform:none!important;
+  box-shadow:none!important;
 }
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-context-action,
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-button,
@@ -1575,8 +1599,27 @@
   .thebe-ai-dock[data-surface="workspace"]>.thebe-ai-dock-head{padding:14px 12px 11px!important}
   .thebe-ai-dock[data-surface="workspace"]>.thebe-ai-dock-scroll{padding:12px 12px 16px!important;gap:10px!important}
   .thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-button{min-height:46px;padding:8px 8px 8px 12px}
-  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick{grid-template-columns:1fr}
-  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button{min-height:56px;padding:10px 34px 9px 10px}
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick{
+    display:flex!important;
+    gap:8px;
+    overflow-x:auto;
+    overflow-y:hidden;
+    overscroll-behavior-inline:contain;
+    scroll-snap-type:x proximity;
+    scrollbar-width:thin;
+    padding-bottom:2px;
+  }
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button{
+    flex:0 0 min(260px,78vw);
+    scroll-snap-align:start;
+    min-height:54px;
+    padding:10px 34px 9px 10px;
+  }
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-response-tools{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-response-tools .thebe-ai-open-full{grid-column:1/-1}
   .thebe-ai-dock[data-surface="workspace"] .thebe-ai-compose{margin:0 12px 10px!important}
   .thebe-ai-dock[data-surface="workspace"][data-keyboard="true"]{
     bottom:max(8px,var(--thebe-keyboard-inset,0px))!important;
@@ -1589,6 +1632,7 @@
   .thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-button>small{display:none}
   .thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-button:before{left:5px;top:9px;bottom:9px}
   .thebe-ai-dock[data-surface="workspace"] .thebe-ai-context-kicker{display:none}
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button{flex-basis:min(280px,82vw)}
   .thebe-ai-dock[data-surface="workspace"] .thebe-ai-compose-hint{display:none}
 }
 @media(max-width:380px){
