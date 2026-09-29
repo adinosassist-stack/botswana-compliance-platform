@@ -1,7 +1,7 @@
 (function initOwnerCommandCentre(global){
   "use strict";
 
-  const RELEASE="20260929-v180";
+  const RELEASE="20260929-v185";
   const MAX_OPPORTUNITIES=500;
   const MAX_CAMPAIGNS=50;
   const PROFILE_KEYS=Object.freeze({
@@ -2961,6 +2961,9 @@
     servicePanel.id="propertyValuationServicePanel";
     servicePanel.className="card property-valuation-service-card";
     servicePanel.style.marginTop="14px";
+    servicePanel.style.setProperty("background","#f7fbff","important");
+    servicePanel.style.setProperty("border-color","#a9c8ef","important");
+    servicePanel.style.setProperty("box-shadow","0 12px 30px rgba(11,102,214,.08)","important");
     const serviceHead=document.createElement("div");
     serviceHead.className="between row";
     const serviceHeadText=document.createElement("div");
