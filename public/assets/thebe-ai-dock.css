@@ -1256,7 +1256,7 @@
 }
 
 
-/* V190 canonical workspace dock — single authoritative workspace layer replacing the superseded V186–V189 workspace closures. */
+/* V191 canonical workspace dock — CSS owns normal geometry; JavaScript supplies only the dynamic workspace-left coordinate and emergency recovery. */
 .thebe-ai-dock[data-surface="workspace"]{
   --thebe-workspace-pad:16px;
   --thebe-dock-w:420px;
