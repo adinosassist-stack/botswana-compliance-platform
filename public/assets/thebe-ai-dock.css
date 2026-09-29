@@ -1532,16 +1532,6 @@
 }
 
 
-/* V181 character-free voice field — keep Talk to Thebe focused on voice, state and action rather than a repeated mascot. */
-.thebe-particle-core::before{
-  content:"";
-  display:block;
-  width:32px;
-  height:32px;
-  background:url('/assets/thebe-desk-logo-symbol.png') center/contain no-repeat;
-  filter:drop-shadow(0 2px 4px rgba(0,0,0,.16));
-}
-.thebe-ai-dock[data-surface="workspace"] .thebe-particle-core::before{width:25px;height:25px}
-.thebe-ai-dock[data-surface="workspace"][data-conversation="true"] .thebe-particle-core::before{width:21px;height:21px}
+/* V182 character-free voice field — particles and state are the visual cue; no mascot or decorative character/symbol inside Talk to Thebe. */
 .thebe-ai-voice-card{box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
 .thebe-ai-orb-button{overflow:hidden}
