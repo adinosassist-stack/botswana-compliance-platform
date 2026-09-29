@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260929-geometry-v191";
+  const RELEASE="20260929-interaction-v192";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -552,11 +552,11 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260929-geometry-v191";
+  const DOCK_RELEASE="20260929-interaction-v192";
   const STORE_KEY="thebe_ai_dock_collapsed_v5";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
-  let dock=null,pill=null,pillLabel=null,orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,input=null,sendButton=null,attentionButton=null,quick=null,foot=null,mascot=null,missionRail=null,missionLabel=null,missionMeta=null,contextBar=null,contextLabel=null,modeRail=null,clearButton=null;
+  let dock=null,pill=null,pillLabel=null,orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,scrollRegion=null,input=null,sendButton=null,attentionButton=null,quick=null,foot=null,mascot=null,missionRail=null,missionLabel=null,missionMeta=null,contextBar=null,contextLabel=null,modeRail=null,clearButton=null;
   let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",mascotState="idle",mascotContext="general",mascotFocus="ambient",ownerCommandState=null,collapsed=false,assistantMode="ask",lastAnswer="";
 
   const api=(url,options={})=>{
@@ -577,6 +577,49 @@
     catch{return global.innerWidth<=MOBILE_DOCK_MAX}
   }
   function effectiveCollapsed(){return collapsed}
+  function prefersReducedMotion(){
+    try{return global.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches===true}catch{return false}
+  }
+  function syncComposerHeight(){
+    if(!input)return;
+    input.style.height="auto";
+    const style=getComputedStyle(input);
+    const min=Math.max(36,Number.parseFloat(style.minHeight)||42);
+    const max=Math.max(min,Number.parseFloat(style.maxHeight)||112);
+    const next=Math.min(max,Math.max(min,input.scrollHeight||min));
+    input.style.height=next+"px";
+    input.style.overflowY=(input.scrollHeight||0)>max?"auto":"hidden";
+  }
+  function syncComposerState(){
+    if(!sendButton)return;
+    const ready=clean(input?.value||"",MAX_QUESTION).length>=3;
+    sendButton.disabled=textBusy||!ready;
+    sendButton.setAttribute("aria-disabled",String(sendButton.disabled));
+  }
+  function resetComposer(){
+    if(input)input.value="";
+    syncComposerHeight();
+    syncComposerState();
+  }
+  function revealResponse(){
+    if(!scrollRegion||!responseBox||dock?.hidden)return;
+    global.requestAnimationFrame?.(()=>{
+      const top=Math.max(0,(responseBox.offsetTop||0)-12);
+      const behavior=prefersReducedMotion()?"auto":"smooth";
+      if(typeof scrollRegion.scrollTo==="function")scrollRegion.scrollTo({top,behavior});
+      else scrollRegion.scrollTop=top;
+    });
+  }
+  function responseAnswer(message){
+    const answer=el("div","thebe-ai-response-answer",message);
+    const long=String(message??"").length>700;
+    if(responseBox)responseBox.dataset.long=String(long);
+    if(long){
+      answer.tabIndex=0;
+      answer.setAttribute("aria-label","Thebe answer. Scroll to read the full response.");
+    }
+    return answer;
+  }
   function setCriticalStyle(node,styles){
     if(!node)return;
     for(const [property,value] of Object.entries(styles))node.style.setProperty(property,value,"important");
@@ -707,9 +750,13 @@
     dock.dataset.conversation="false";
     renderVoiceTranscript();
     responseMessage("Ready when you are. Ask about this screen, request a brief, or choose a priority action.");
-    if(input)input.value="";
+    resetComposer();
     setMascotFocus("ambient");
     syncWorkspaceVisualInvariants();
+    if(scrollRegion){
+      const behavior=prefersReducedMotion()?"auto":"smooth";
+      scrollRegion.scrollTo?.({top:0,behavior});
+    }
   }
   function mascotContextFor(context=activeContext()){
     const key=`${context?.id||""} ${context?.title||""}`.toLowerCase();
@@ -937,7 +984,7 @@
     if(!responseBox)return;
     responseBox.dataset.state=state;
     if(state!=="ready")lastAnswer="";
-    responseBox.replaceChildren(el("div","thebe-ai-response-title",state==="thinking"?"Thebe is working":"Thebe"),el("div","thebe-ai-response-answer",message));
+    responseBox.replaceChildren(el("div","thebe-ai-response-title",state==="thinking"?"Thebe is working":"Thebe"),responseAnswer(message));
   }
   function renderResult(result){
     setMascotFocus("response");
@@ -947,7 +994,7 @@
     responseBox.replaceChildren();
     responseBox.append(el("div","thebe-ai-response-title",result?.generationMode==="workers_ai"?"Grounded workspace response":"Thebe workspace response"));
     lastAnswer=clean(result?.answer||"No grounded answer was returned.",1800);
-    responseBox.append(el("div","thebe-ai-response-answer",lastAnswer));
+    responseBox.append(responseAnswer(lastAnswer));
     const actions=Array.isArray(result?.actions)?result.actions.slice(0,3):[];
     for(const action of actions){
       const card=el("div","thebe-ai-action");
@@ -979,6 +1026,7 @@
     open.addEventListener("click",()=>{openView("automationhub");if(mobileDockMode())setCollapsed(true)});
     tools.append(follow,copy,open);
     responseBox.append(tools);
+    revealResponse();
   }
   function showPublicSignIn(message){
     responseMessage(message||"Sign in to use Thebe with your business workspace.");
@@ -1081,8 +1129,9 @@
       return;
     }
     textBusy=true;
-    if(sendButton)sendButton.disabled=true;
+    syncComposerState();
     responseMessage("Reviewing the current workspace and this screen…","thinking");
+    revealResponse();
     try{
       const requestedMode=Object.prototype.hasOwnProperty.call(modeCopy,mode)?mode:assistantMode;
       const result=await api("/api/ai/advisor",{
@@ -1096,9 +1145,10 @@
         ?"AI credits or the configured cost cap do not allow this run."
         :clean(error?.message||"Thebe could not complete that workspace review.",320);
       responseMessage(message||"Thebe could not complete that workspace review.","error");
+      revealResponse();
     }finally{
       textBusy=false;
-      if(sendButton)sendButton.disabled=false;
+      syncComposerState();
     }
   }
   function quickButton(label,detail,mode,question){
@@ -1121,7 +1171,11 @@
         if(question.length<3||surfaceMode()!=="public")return;
         if(mobileDockMode())setCollapsed(false);
         recoverVisibility();
-        if(input)input.value=question;
+        if(input){
+          input.value=question;
+          syncComposerHeight();
+          syncComposerState();
+        }
         void ask("ask",question);
       });
     });
@@ -1173,6 +1227,7 @@
     headActions.append(attentionButton,clearButton,expand,minimize);head.append(title,headActions);
 
     const scroll=el("div","thebe-ai-dock-scroll");
+    scrollRegion=scroll;
     contextBar=el("div","thebe-ai-context-bar");
     const contextLead=el("div","thebe-ai-context-lead");
     contextLead.append(el("span","thebe-ai-context-dot"),el("span","thebe-ai-context-kicker","Working in"));
@@ -1268,10 +1323,19 @@
     composeBody.append(input,composeHint);
     sendButton=el("button","thebe-ai-send","↑");sendButton.type="submit";sendButton.setAttribute("aria-label","Send to Thebe");sendButton.title="Send to Thebe";
     compose.append(composeBody,sendButton);
-    compose.addEventListener("submit",event=>{event.preventDefault();const value=input.value;if(textBusy||clean(value,MAX_QUESTION).length<3)return;input.value="";void ask(assistantMode,value)});
-    input.addEventListener("focus",()=>setMascotFocus("compose"));
+    compose.addEventListener("submit",event=>{
+      event.preventDefault();
+      const value=input.value;
+      if(textBusy||clean(value,MAX_QUESTION).length<3)return;
+      resetComposer();
+      void ask(assistantMode,value);
+    });
+    input.addEventListener("input",()=>{syncComposerHeight();syncComposerState()});
+    input.addEventListener("focus",()=>{setMascotFocus("compose");syncComposerHeight()});
     input.addEventListener("blur",()=>setMascotFocus("ambient"));
     input.addEventListener("keydown",event=>{if(event.key==="Enter"&&!event.shiftKey&&!event.isComposing){event.preventDefault();compose.requestSubmit()}});
+    syncComposerHeight();
+    syncComposerState();
 
     foot=el("div","thebe-ai-foot","Thebe can analyse, brief and prepare next steps. Governed actions remain behind the existing approval controls.");
     dock.append(head,scroll,compose,foot);
