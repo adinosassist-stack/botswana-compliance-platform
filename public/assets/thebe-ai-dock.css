@@ -1548,178 +1548,19 @@
 }
 
 
-/* V186 workspace specificity closure — supersede earlier workspace-only V167/V172 presentation rules. */
-.thebe-ai-dock[data-surface="workspace"]{--thebe-workspace-edge:14px;background:#07131f}
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-dock-scroll{padding:14px 14px 18px;background:#07131f}
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-voice-card{
-  padding:11px 12px;
-  border-color:rgba(125,180,255,.18);
-  border-radius:16px;
-  background:#0b1c2c;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
-}
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-eyebrow{color:#63b9ff}
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-orb-button{
-  border-radius:14px;
-  border-color:rgba(85,180,255,.28);
-  background:#0b2237;
-  box-shadow:inset 0 0 0 1px rgba(85,180,255,.05);
-}
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-voice-label{font-size:17px;color:#f4f9ff}
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-voice-sub{font-size:10.5px;color:#91a9c0}
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick{
-  grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:7px;
-}
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button,
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button:nth-child(3){
-  grid-column:auto;
-  min-height:62px;
-  padding:9px 9px 8px;
-  border-color:rgba(125,180,255,.14);
-  border-radius:13px;
-  background:#0a1826;
-  box-shadow:none;
-  display:block;
-}
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button:before{
-  content:"";
-  position:static;
-  display:block;
-  width:18px;height:3px;
-  margin:0 0 7px;
-  border:0;
-  border-radius:999px;
-  background:#2e8fe0;
-  box-shadow:none;
-  transform:none;
-}
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button:nth-child(2):before{background:#55b4ff}
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button:nth-child(3):before{background:#87caff}
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button:after{display:none}
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button small{font-size:8.5px;color:#7893ad}
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-response{
-  padding:13px 14px 14px;
-  border-color:rgba(125,180,255,.16);
-  border-radius:15px;
-  background:#0a1928;
-  box-shadow:none;
-}
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-response-title{font-size:8px;color:#6f9fc7}
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-compose{
-  margin:0 14px 10px;
-  padding:8px;
-  border-color:rgba(125,180,255,.20);
-  border-radius:16px;
-  background:#0b1b2a;
-  box-shadow:0 10px 28px rgba(0,0,0,.16);
-}
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-compose textarea{
-  min-height:42px;
-  max-height:112px;
-  padding:10px 10px 6px;
-  border:0;
-  border-radius:10px;
-  background:transparent;
-}
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-send{
-  width:42px;height:42px;
-  border-radius:12px;
-  box-shadow:0 6px 16px rgba(0,73,143,.22);
-}
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-foot{
-  padding:0 16px 11px;
-  background:#07131f;
-  color:#57718a;
-  font-size:8.5px;
-}
-.thebe-ai-dock[data-surface="workspace"][data-conversation="true"] .thebe-ai-voice-card{
-  grid-template-columns:82px minmax(0,1fr)!important;
-  padding:11px 12px;
-}
-.thebe-ai-dock[data-surface="workspace"][data-conversation="true"] .thebe-ai-orb-button{
-  width:82px!important;min-width:82px!important;max-width:82px!important;
-  height:82px!important;min-height:82px!important;
-}
-@media(max-width:1023px){
-  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-dock-scroll{padding:10px 10px 14px}
-  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick{grid-template-columns:1fr}
-  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button,
-  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button:nth-child(3){min-height:50px;padding:9px 11px}
-  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-compose{margin:0 10px 8px}
-}
-@media(max-width:380px){
-  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-voice-card,
-  .thebe-ai-dock[data-surface="workspace"][data-conversation="true"] .thebe-ai-voice-card{grid-template-columns:64px minmax(0,1fr)!important}
-  .thebe-ai-dock[data-surface="workspace"][data-conversation="true"] .thebe-ai-orb-button{
-    width:64px!important;min-width:64px!important;max-width:64px!important;
-    height:64px!important;min-height:64px!important;
-  }
-}
-
-
-/* V187 workspace floating-command closure — keep Thebe visible, inset and recoverable in the lower-left workspace corner. */
-@media(min-width:1024px){
-  .thebe-ai-dock[data-surface="workspace"]{
-    top:auto!important;
-    left:20px!important;
-    right:auto!important;
-    bottom:22px!important;
-    width:min(var(--thebe-dock-w),calc(100vw - 40px))!important;
-    max-height:min(720px,calc(100dvh - 108px))!important;
-    border:1px solid rgba(125,180,255,.24)!important;
-    border-radius:24px!important;
-    box-shadow:0 24px 70px rgba(2,14,30,.34),0 0 0 1px rgba(85,180,255,.05)!important;
-  }
-  body.thebe-ai-expanded{--thebe-dock-w:560px}
-  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-minimize{display:grid!important;place-items:center}
-  .thebe-ai-pill[data-surface="workspace"]:not([hidden]){
-    display:inline-flex!important;
-    align-items:center;
-    left:20px!important;
-    right:auto!important;
-    bottom:22px!important;
-    min-height:48px;
-    padding:0 17px;
-    border:1px solid rgba(125,180,255,.30);
-    background:#081827;
-    color:#eef7ff;
-    box-shadow:0 16px 42px rgba(2,14,30,.28);
-  }
-}
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-context-bar,
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-button,
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-voice-card,
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button,
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-response,
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-compose{
-  backdrop-filter:blur(12px);
-}
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-context-action,
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-button,
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button,
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-response-tools button,
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-icon-btn{
-  transition:transform .16s ease,border-color .16s ease,background-color .16s ease,box-shadow .16s ease;
-}
-@media(hover:hover) and (min-width:1024px){
-  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-context-action:hover,
-  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-button:hover,
-  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button:hover,
-  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-response-tools button:hover,
-  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-icon-btn:hover{
-    transform:translateY(-1px);
-    border-color:rgba(85,180,255,.48);
-    box-shadow:0 8px 20px rgba(1,12,26,.18);
-  }
-}
-
-
-/* V188 workspace structural hardening — keep the dock vertical, full-width internally and clear of legacy row-layout fallbacks. */
+/* V190 canonical workspace dock — single authoritative workspace layer replacing the superseded V186–V189 workspace closures. */
 .thebe-ai-dock[data-surface="workspace"]{
+  --thebe-workspace-pad:16px;
+  --thebe-dock-w:420px;
   flex-direction:column!important;
   align-items:stretch!important;
   box-sizing:border-box!important;
+  background:#07131f;
+  border:1px solid rgba(125,180,255,.24)!important;
+  color:#f7fbff;
+  overflow:hidden;
+  overscroll-behavior:contain;
+  isolation:isolate;
 }
 .thebe-ai-dock[data-surface="workspace"]>.thebe-ai-dock-head,
 .thebe-ai-dock[data-surface="workspace"]>.thebe-ai-dock-scroll,
@@ -1728,13 +1569,28 @@
   min-width:0!important;
   box-sizing:border-box!important;
 }
-.thebe-ai-dock[data-surface="workspace"]>.thebe-ai-dock-head,
-.thebe-ai-dock[data-surface="workspace"]>.thebe-ai-foot{flex:0 0 auto!important}
+.thebe-ai-dock[data-surface="workspace"]>.thebe-ai-dock-head{
+  flex:0 0 auto!important;
+  padding:14px var(--thebe-workspace-pad) 13px!important;
+}
 .thebe-ai-dock[data-surface="workspace"]>.thebe-ai-dock-scroll{
   flex:1 1 auto!important;
   flex-direction:column!important;
   align-items:stretch!important;
+  overflow:auto!important;
   overflow-x:hidden!important;
+  padding:16px var(--thebe-workspace-pad) 20px!important;
+  gap:12px!important;
+  background:#07131f;
+  scrollbar-gutter:stable;
+}
+.thebe-ai-dock[data-surface="workspace"]>.thebe-ai-foot{
+  flex:0 0 auto!important;
+  padding:0 var(--thebe-workspace-pad) 12px;
+  background:#07131f;
+  color:#57718a;
+  font-size:8.5px;
+  line-height:1.4;
 }
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-context-bar,
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-rail,
@@ -1745,31 +1601,14 @@
   min-width:0!important;
   box-sizing:border-box!important;
 }
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-compose{
-  flex:0 0 auto!important;
-  align-self:stretch!important;
-  min-width:0!important;
-  box-sizing:border-box!important;
-}
-
-
-/* V189 workspace command-surface polish — remove legacy workspace shifting, restore comfortable insets and make controls read as a deliberate command console. */
-.thebe-ai-dock[data-surface="workspace"]{
-  --thebe-workspace-pad:16px;
-}
-.thebe-ai-dock[data-surface="workspace"]>.thebe-ai-dock-head{
-  padding:14px var(--thebe-workspace-pad) 13px!important;
-}
-.thebe-ai-dock[data-surface="workspace"]>.thebe-ai-dock-scroll{
-  padding:16px var(--thebe-workspace-pad) 20px!important;
-  gap:12px!important;
-  scrollbar-gutter:stable;
-}
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-context-bar{
   min-height:48px;
   padding:10px 11px 10px 12px;
-  border-color:rgba(125,180,255,.20);
+  border:1px solid rgba(125,180,255,.20);
+  border-radius:14px;
+  background:#0b1b2a;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
+  backdrop-filter:blur(12px);
 }
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-context-action{
   min-height:36px;
@@ -1779,16 +1618,23 @@
   color:#d8edff;
 }
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-rail{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
   gap:8px;
 }
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-button{
   position:relative;
   overflow:hidden;
+  min-width:0;
   min-height:52px;
   padding:9px 10px 9px 14px;
-  border-color:rgba(125,180,255,.18);
+  border:1px solid rgba(125,180,255,.18);
+  border-radius:13px;
   background:#0a1a2a;
+  color:#b7c8d9;
+  text-align:left;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.02);
+  backdrop-filter:blur(12px);
 }
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-button:before{
   content:"";
@@ -1803,6 +1649,7 @@
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-button.active{
   border-color:rgba(85,180,255,.62);
   background:#0d2942;
+  color:#fff;
   box-shadow:inset 0 0 0 1px rgba(85,180,255,.10),0 7px 18px rgba(0,10,24,.16);
 }
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-button.active:before{
@@ -1810,26 +1657,52 @@
   box-shadow:0 0 10px rgba(85,180,255,.44);
 }
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-voice-card{
+  grid-template-columns:82px minmax(0,1fr)!important;
   padding:12px 13px;
-  border-color:rgba(125,180,255,.21);
+  border:1px solid rgba(125,180,255,.21);
+  border-radius:16px;
+  background:#0b1c2c;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.03),0 9px 22px rgba(0,10,24,.10);
+  backdrop-filter:blur(12px);
 }
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-orb-button{
+  width:82px!important;
+  min-width:82px!important;
+  max-width:82px!important;
+  height:82px!important;
+  min-height:82px!important;
+  border-radius:14px;
+  border-color:rgba(85,180,255,.28);
+  background:#0b2237;
+  box-shadow:inset 0 0 0 1px rgba(85,180,255,.05);
+}
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-eyebrow{color:#63b9ff}
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-voice-label{font-size:17px;color:#f4f9ff}
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-voice-sub{font-size:10.5px;color:#91a9c0}
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
   gap:8px;
 }
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button,
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button:nth-child(3){
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button{
   position:relative;
+  display:block;
   overflow:hidden;
+  min-width:0;
   min-height:68px;
   padding:11px 34px 10px 11px;
-  border-color:rgba(125,180,255,.18);
+  border:1px solid rgba(125,180,255,.18);
   border-radius:14px;
   background:#0a1b2b;
+  color:#edf7ff;
   text-align:left;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
+  backdrop-filter:blur(12px);
 }
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button:before{
+  content:"";
+  position:static;
+  display:block;
   width:22px;
   height:22px;
   margin:0 0 8px;
@@ -1837,6 +1710,7 @@
   border-radius:7px;
   background:#0d2942;
   box-shadow:inset 0 0 0 5px #0d2942,inset 0 0 0 6px rgba(143,210,255,.22);
+  transform:none;
 }
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button:nth-child(2):before{
   background:#10314e;
@@ -1865,16 +1739,20 @@
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button small{
   margin-top:4px;
   color:#879fb7;
+  font-size:8.5px;
   line-height:1.3;
 }
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-response{
   padding:14px 15px 15px;
-  border-color:rgba(125,180,255,.19);
+  border:1px solid rgba(125,180,255,.19);
+  border-radius:15px;
+  background:#0a1928;
+  color:#edf7ff;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.02);
+  backdrop-filter:blur(12px);
 }
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-response-tools{
-  gap:7px;
-}
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-response-title{font-size:8px;color:#6f9fc7}
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-response-tools{gap:7px}
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-response-tools button{
   min-height:36px;
   padding:7px 10px;
@@ -1882,19 +1760,29 @@
   background:#0d2438;
 }
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-compose{
+  flex:0 0 auto!important;
+  align-self:stretch!important;
+  min-width:0!important;
+  box-sizing:border-box!important;
   margin:0 var(--thebe-workspace-pad) 12px!important;
   padding:9px;
-  border-color:rgba(125,180,255,.24);
+  border:1px solid rgba(125,180,255,.24);
   border-radius:17px;
   background:#0a1b2a;
   box-shadow:0 12px 30px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.025);
+  backdrop-filter:blur(12px);
 }
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-compose:focus-within{
   border-color:rgba(85,180,255,.58);
   box-shadow:0 12px 30px rgba(0,0,0,.18),0 0 0 3px rgba(85,180,255,.08);
 }
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-compose textarea{
+  min-height:42px;
+  max-height:112px;
   padding:10px 11px 6px;
+  border:0;
+  border-radius:10px;
+  background:transparent;
 }
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-send{
   width:44px;
@@ -1904,14 +1792,29 @@
   background:#137bcf;
   box-shadow:0 7px 18px rgba(0,73,143,.25),inset 0 1px 0 rgba(255,255,255,.12);
 }
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-foot{
-  padding:0 var(--thebe-workspace-pad) 12px;
-  line-height:1.4;
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-context-action,
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-button,
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button,
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-response-tools button,
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-icon-btn{
+  transition:transform .16s ease,border-color .16s ease,background-color .16s ease,box-shadow .16s ease;
+}
+.thebe-ai-dock[data-surface="workspace"] :where(button,textarea):focus-visible{
+  outline:2px solid #8fd2ff;
+  outline-offset:2px;
 }
 @media(hover:hover) and (min-width:1024px){
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-context-action:hover,
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-button:hover,
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button:hover,
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-response-tools button:hover,
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-icon-btn:hover{
+    transform:translateY(-1px);
+    border-color:rgba(85,180,255,.48);
+    box-shadow:0 8px 20px rgba(1,12,26,.18);
+  }
   .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button:hover{
     background:#0d2337;
-    border-color:rgba(85,180,255,.48);
     box-shadow:0 9px 22px rgba(1,12,26,.20),inset 0 1px 0 rgba(255,255,255,.03);
   }
   .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button:hover:after{
@@ -1920,16 +1823,80 @@
     background:#10314d;
   }
 }
+@media(min-width:1024px){
+  .thebe-ai-dock[data-surface="workspace"]{
+    position:fixed!important;
+    top:auto!important;
+    left:20px!important;
+    right:auto!important;
+    bottom:22px!important;
+    width:min(var(--thebe-dock-w),calc(100vw - 40px))!important;
+    max-height:min(720px,calc(100dvh - 108px))!important;
+    border-radius:24px!important;
+    box-shadow:0 24px 70px rgba(2,14,30,.34),0 0 0 1px rgba(85,180,255,.05)!important;
+  }
+  body.thebe-ai-expanded{--thebe-dock-w:560px}
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-minimize{display:grid!important;place-items:center}
+  .thebe-ai-pill[data-surface="workspace"]:not([hidden]){
+    display:inline-flex!important;
+    align-items:center;
+    left:20px!important;
+    right:auto!important;
+    bottom:22px!important;
+    min-height:48px;
+    padding:0 17px;
+    border:1px solid rgba(125,180,255,.30);
+    background:#081827;
+    color:#eef7ff;
+    box-shadow:0 16px 42px rgba(2,14,30,.28);
+  }
+}
 @media(max-width:1023px){
-  .thebe-ai-dock[data-surface="workspace"]{--thebe-workspace-pad:12px}
+  .thebe-ai-dock[data-surface="workspace"]{
+    --thebe-workspace-pad:12px;
+    position:fixed!important;
+    top:auto!important;
+    left:8px!important;
+    right:8px!important;
+    bottom:calc(104px + env(safe-area-inset-bottom))!important;
+    width:auto!important;
+    max-width:none!important;
+    max-height:calc(100dvh - 128px - env(safe-area-inset-bottom))!important;
+    border-radius:22px!important;
+  }
   .thebe-ai-dock[data-surface="workspace"]>.thebe-ai-dock-head{padding:14px 12px 11px!important}
   .thebe-ai-dock[data-surface="workspace"]>.thebe-ai-dock-scroll{padding:12px 12px 16px!important;gap:10px!important}
   .thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-button{min-height:46px;padding:8px 8px 8px 12px}
-  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button,
-  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button:nth-child(3){min-height:56px;padding:10px 34px 9px 10px}
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick{grid-template-columns:1fr}
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button{min-height:56px;padding:10px 34px 9px 10px}
   .thebe-ai-dock[data-surface="workspace"] .thebe-ai-compose{margin:0 12px 10px!important}
 }
+@media(max-width:460px){
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-rail{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-button{min-height:42px;padding:8px 7px 8px 11px;text-align:center}
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-button>small{display:none}
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-button:before{left:5px;top:9px;bottom:9px}
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-context-kicker{display:none}
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-compose-hint{display:none}
+}
 @media(max-width:380px){
-  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-button{min-height:42px}
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-voice-card{grid-template-columns:64px minmax(0,1fr)!important}
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-orb-button{
+    width:64px!important;
+    min-width:64px!important;
+    max-width:64px!important;
+    height:64px!important;
+    min-height:64px!important;
+  }
   .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button:before{width:20px;height:20px}
+}
+@media(prefers-reduced-motion:reduce){
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-context-action,
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-button,
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button,
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-response-tools button,
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-icon-btn{
+    transition:none!important;
+    transform:none!important;
+  }
 }
