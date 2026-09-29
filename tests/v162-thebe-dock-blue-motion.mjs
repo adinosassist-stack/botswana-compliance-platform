@@ -14,12 +14,17 @@ assert.match(css,/V169 contextual presence/);
 assert.match(css,/V170 interaction awareness/);
 assert.match(css,/V171 approved-reference mascot visual/);
 assert.match(css,/V172 governed mission rail/);
+assert.match(css,/V180 original-art mascot/);
 assert.match(css,/#marketingGate \.thebe-market-mascot-frame\{[\s\S]*?width:min\(128%,960px\)!important/,'marketing hero must keep the approved mascot large and dominant');
 assert.match(css,/data-surface="public"[\s\S]*?thebe-particle-core\{width:112px;height:112px/,'public dock mascot must be materially larger than the workspace mascot');
 assert.match(dockJs,/viewBox:"0 0 1000 1000"/,'dock mascot must use the full approved reference proportions');
 assert.match(dockJs,/thebeDockShell/);
 assert.match(dockJs,/thebe-mascot-body-seam/);
 assert.match(dockJs,/thebe-mascot-smile/);
+assert.match(dockJs,/mascotImage\.src="\/assets\/thebe-mascot-original\.png"/,'dock must render the approved original mascot artwork');
+assert.match(dockJs,/thebe-mascot-image-blink left/,'approved artwork must retain the restrained blink treatment');
+assert.match(css,/\.thebe-mascot-svg\{[\s\S]*?opacity:0/,'legacy reconstructed SVG must remain non-visual after V180');
+assert.match(css,/data-surface="workspace"[\s\S]*?\.thebe-mascot\{inset:-20%\}/,'workspace mascot must be visibly larger without changing the voice control geometry');
 assert.match(home,/\.thebe-public-mascot-frame\{[\s\S]*?width:min\(145%,900px\)/,'public home hero must keep Thebe substantially larger than the earlier 760px treatment');
 assert.match(home,/thebe-public-mascot-stage\{[\s\S]*?min-height:660px/,'public home hero must reserve enough vertical room for the enlarged mascot');
 assert.match(css,/data-focus="compose"[\s\S]*?--thebe-eye-y:2px/,'composer focus must pull the mascot gaze downward');
@@ -70,4 +75,4 @@ assert.match(css,/prefers-reduced-motion:reduce[\s\S]*?\.thebe-particle,[\s\S]*?
 assert.match(css,/\.thebe-ai-send\{[\s\S]*?width:46px;height:46px/);
 assert.match(css,/\.thebe-ai-quick button\{[\s\S]*?min-height:56px/);
 
-console.log('PASS: V171 Thebe Super Agent preserves the solid-blue dock while using the approved full mascot proportions and larger marketing/public presence.');
+console.log('PASS: V180 Thebe Super Agent uses the approved original mascot artwork, truthful governed states and dock-safe sizing.');
