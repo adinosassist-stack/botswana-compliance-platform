@@ -56,11 +56,12 @@ assert.match(employeeSection,/id="eRole"/);
 assert.match(employeeSection,/id="eStart"/);
 assert.match(employeeSection,/id="eContract"/);
 assert.match(employeeSection,/id="eAsset"/);
-const workspaceStyles=fs.readFileSync(new URL("../public/assets/workspace-inline-styles-20260929b.css",import.meta.url),"utf8");
-assert.match(workspaceStyles,/V188 Employee Directory/,"versioned workspace stylesheet must ship the redesigned employee page");
-assert.match(workspaceStyles,/#employees \.employee-directory-layout\{display:grid;grid-template-columns:minmax\(0,1\.55fr\) minmax\(300px,\.7fr\)/,"employee directory must use a bounded directory/form split");
-assert.match(workspaceStyles,/body\.thebe-ai-dock-open #employees \.employee-directory-layout\{grid-template-columns:1fr\}/,"employee directory must collapse safely while Thebe is open");
-assert.match(workspaceStyles,/#employees #employeeRegister>\.item/,"runtime employee rows must receive the org-style card treatment");
+const employeeStyles=fs.readFileSync(new URL("../public/assets/employee-directory-v188.css",import.meta.url),"utf8");
+assert.match(html,/id="thebe-employee-directory-styles" rel="stylesheet" href="\/assets\/employee-directory-v188\.css"/,"canonical workspace must load the versioned employee directory stylesheet");
+assert.match(employeeStyles,/V188 Employee Directory/,"versioned employee stylesheet must ship the redesigned employee page");
+assert.match(employeeStyles,/#employees \.employee-directory-layout\{display:grid;grid-template-columns:minmax\(0,1\.55fr\) minmax\(300px,\.7fr\)/,"employee directory must use a bounded directory/form split");
+assert.match(employeeStyles,/body\.thebe-ai-dock-open #employees \.employee-directory-layout\{grid-template-columns:1fr\}/,"employee directory must collapse safely while Thebe is open");
+assert.match(employeeStyles,/#employees #employeeRegister>\.item/,"runtime employee rows must receive the org-style card treatment");
 
 assert.match(html,/#appShell \*\{min-width:0\}/,"workspace descendants must be allowed to shrink instead of forcing column overflow");
 assert.match(html,/#appShell \.view\{overflow-x:clip\}/,"workspace views must clip accidental horizontal overflow");
