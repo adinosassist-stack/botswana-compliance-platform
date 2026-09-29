@@ -61,10 +61,10 @@ assert(dockCss.includes('left:var(--thebe-workspace-left,20px)!important'),'V191
 assert(runtime.includes('attentionButton.hidden=surfaceMode()!=="workspace"||count===0'),'V191 must hide the blank attention control when there are no alerts');
 assert(runtime.includes('modeRail.setAttribute("aria-label","Thebe response mode");modeRail.setAttribute("role","group")'),'V191 must expose the response-mode controls as one accessible group');
 assert(runtime.includes('quick.setAttribute("role","group");quick.setAttribute("aria-label","Suggested Thebe actions")'),'V191 must expose suggested actions as one accessible group');
-assert(dockCss.includes('left:20px!important')&&dockCss.includes('bottom:22px!important'),'V188 CSS must keep the desktop dock inset from the lower-left workspace edge');
+assert(dockCss.includes('left:var(--thebe-workspace-left,20px)!important')&&dockCss.includes('bottom:22px!important'),'V191 CSS must keep the desktop dock inset from the resolved workspace lower-left edge');
 assert(dockCss.includes('.thebe-ai-context-bar')&&dockCss.includes('.thebe-ai-mode-rail'),'V191 must visibly render context and response-mode controls');
 assert(dockCss.includes('background:#07131f'),'V191 must replace the full-blue sidebar treatment with the reviewed deep-navy command surface');
-assert(dockCss.includes('.thebe-ai-quick{')&&dockCss.includes('grid-template-columns:repeat(3,minmax(0,1fr))'),'V188 desktop contextual actions must use a compact three-command row');
+assert(dockCss.includes('.thebe-ai-quick{')&&dockCss.includes('grid-template-columns:repeat(3,minmax(0,1fr))'),'V191 desktop contextual actions must use a compact three-command row');
 assert(audit.includes('const dockReleaseMatch=productionEntry.match(/const THEBE_AI_DOCK_RELEASE="([0-9]{8}[A-Za-z0-9._-]{1,48})";/);'),'launch audit must accept the repository release-token format');
 assert(!audit.includes('[0-9]{8}[a-z]'),'launch audit must not regress to the obsolete date-plus-letter token parser');
 assert(fullUser.includes("/^[0-9]{8}[A-Za-z0-9._-]{1,48}$/"),'full-user synthetic must accept the bounded cache-safe dock release token format');
