@@ -783,8 +783,11 @@ async function runFullUserJourney(credentials){
     await openOwnerViewThroughNav('propertyintelligence');
     await page.waitForFunction(()=>document.getElementById('propertyPortfolioWorkspace')&&document.getElementById('propertyValuationServicePanel'),null,{timeout:WORKSPACE_TIMEOUT_MS});
     await page.waitForFunction(()=>{
-      const image=document.querySelector('#thebeAiDock .thebe-mascot-image');
-      return !!image&&image.complete&&image.naturalWidth===2048&&image.naturalHeight===2048;
+      const dock=document.getElementById('thebeAiDock');
+      const core=dock?.querySelector('.thebe-particle-core');
+      return !!dock&&!!core&&
+        dock.querySelectorAll('.thebe-mascot-image').length===0&&
+        dock.querySelectorAll('.thebe-mascot-svg').length===0;
     },null,{timeout:VIEW_TIMEOUT_MS});
     const v181WorkspaceVisual=await page.evaluate(()=>{
       const orb=document.querySelector('#thebeAiDock .thebe-ai-orb-button');
