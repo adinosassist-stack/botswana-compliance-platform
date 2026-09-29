@@ -154,7 +154,7 @@ assert.match(worker,/conservative planning envelope/);
 assert.match(worker,/never present it as spending authorization or financial advice/);
 
 const owner=fs.readFileSync("public/js/owner-command-centre.js","utf8");
-assert.match(owner,/const RELEASE="20260929-v180"/);
+assert.match(owner,/const RELEASE="20260929-v185"/);
 assert.match(owner,/label:"Spend this week"/);
 assert.match(owner,/Finance review/);
 assert.match(owner,/withholding the spend envelope/);
@@ -162,8 +162,8 @@ assert.match(owner,/needs both owner assumptions and current finance evidence/);
 assert.match(owner,/not spending authorization/);
 
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
-assert.match(production,/OWNER_COMMAND_CENTRE_RELEASE="20260929-v180"/);
-assert.match(production,/EXECUTIVE_PERSONALIZATION_RELEASE="20260929-v180"/);
+assert.match(production,/OWNER_COMMAND_CENTRE_RELEASE="20260929-v185"/);
+assert.match(production,/EXECUTIVE_PERSONALIZATION_RELEASE="20260929-v185"/);
 
 const profile=JSON.parse(fs.readFileSync("RELEASE_PROFILE.json","utf8"));
 assert.equal(profile.money_intelligence_v5,true);

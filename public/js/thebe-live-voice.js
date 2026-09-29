@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260929-visual-v184";
+  const RELEASE="20260929-runtime-v185";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -552,7 +552,7 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260929-visual-v184";
+  const DOCK_RELEASE="20260929-runtime-v185";
   const STORE_KEY="thebe_ai_dock_collapsed_v4";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
@@ -696,6 +696,22 @@
     syncVisibility();
     if(collapsed)pill?.focus();else input?.focus({preventScroll:true});
   }
+  function syncWorkspaceVisualInvariants(){
+    if(!dock)return;
+    const voiceCard=dock.querySelector(".thebe-ai-voice-card");
+    const orbButton=dock.querySelector(".thebe-ai-orb-button");
+    if(!voiceCard||!orbButton)return;
+    const properties=["width","min-width","max-width","height","min-height"];
+    if(dock.dataset.surface!=="workspace"){
+      voiceCard.style.removeProperty("grid-template-columns");
+      for(const property of properties)orbButton.style.removeProperty(property);
+      return;
+    }
+    const compact=global.matchMedia?.("(max-width:380px)")?.matches===true;
+    const size=compact?"64px":"82px";
+    voiceCard.style.setProperty("grid-template-columns",size+" minmax(0,1fr)","important");
+    for(const property of properties)orbButton.style.setProperty(property,size,"important");
+  }
   function syncVisibility(){
     if(!dock||!pill)return;
     const surface=surfaceMode(),visible=surface!=="hidden",workspace=surface==="workspace",mobile=mobileDockMode(),isCollapsed=effectiveCollapsed();
@@ -705,6 +721,7 @@
     pill.hidden=!visible||!isCollapsed;
     dock.dataset.surface=surface;
     pill.dataset.surface=surface;
+    syncWorkspaceVisualInvariants();
     dock.dataset.workspaceVisible=workspace?"1":"0";
     pill.dataset.workspaceVisible=workspace?"1":"0";
     syncMascotContext();
@@ -779,7 +796,10 @@
     transcriptBox.replaceChildren();
     const user=clean(voiceInput,360),assistant=clean(voiceOutput,360);
     if(!user&&!assistant){transcriptBox.hidden=true;return}
-    if(dock)dock.dataset.conversation="true";
+    if(dock){
+      dock.dataset.conversation="true";
+      syncWorkspaceVisualInvariants();
+    }
     transcriptBox.hidden=false;
     if(user){
       const line=el("div","thebe-ai-live-line"),label=el("b","", "You");
@@ -916,6 +936,7 @@
     const q=clean(question,MAX_QUESTION);
     if(textBusy||q.length<3)return;
     dock.dataset.conversation="true";
+    syncWorkspaceVisualInvariants();
     if(!shellVisible()){
       renderMarketingAnswer(q);
       return;
