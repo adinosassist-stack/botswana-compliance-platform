@@ -15,10 +15,10 @@ const THEBE_LIVE_VOICE_RELEASE="20260929-recovery-v188";
 const THEBE_PUBLIC_API_CLIENT_RELEASE="20260920a";
 const THEBE_AI_DOCK_RELEASE="20260929-recovery-v188";
 const THEBE_AI_DOCK_HOTFIX_ASSET="/assets/thebe-ai-dock-v184-hotfix.css";
-const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20260926b.js";
-const WORKSPACE_STYLES_ASSET="/assets/workspace-inline-styles-20260929a.css";
+const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20260929c.js";
+const WORKSPACE_STYLES_ASSET="/assets/workspace-inline-styles-20260929b.css";
 const WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT=12;
-const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20260923f-";
+const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20260929g-";
 const WORKSPACE_RESIDENT_VIEW_IDS=Object.freeze(["dashboard","moneyhub","workhub","sites","peopleops","businesshub","obligations","evidencehub","automationhub"]);
 const WORKSPACE_LAZY_VIEW_IDS=Object.freeze(["protecthub","propertyintelligence","tenderhub","accounthub","employer","employees","dailyreports","privacy","tender","events","manufacturing","sources","taxprofile","bwreadiness","corporate","employmentcontrols","publishing","calendar","vault","documents","changes","audit","rules","expert","security","integrations","billing","accountsocial","accountsecurity","accountdata","tenderready","protectionengine","employershield","companysecretary","compliancepassport","licenceos","partnerportal","workflowhub","aiservices","aicontrols","notifications","recurringautomation","servicesmarketplace","payments","entitlements","regulatoryintel","regulatoryobligations","inspectionreadiness","datadeletion","evidenceintegrity","controlcenter","riskengine","portfolioRisk","industryintel","assurancefreshness","auditintegrity","controllineage","regulatorygovernance","statutorycalendar","businessevents","partneractioncenter","profile"]);
 const TURNSTILE_SECRET_HEALTH_TTL_MS=5*60*1000;
@@ -193,7 +193,7 @@ function injectWorkspaceLazyViewClient(runtime){
   if(!source.includes(marker))return source;
   const hydrationBlock=`
 const WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT=12;
-const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20260923f-";
+const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20260929g-";
 const workspaceViewShardPromises=new Map();
 let workspaceViewNavigationEpoch=0;
 function workspaceViewShard(id){
