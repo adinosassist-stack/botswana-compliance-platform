@@ -22,7 +22,7 @@ ok('canonical placeholder supplied for server rendering',html.includes('rel="can
 ok('OpenGraph URL/image dynamic',html.includes('og:url" content="__SEO_CANONICAL__"')&&html.includes('og:image" content="__SEO_OG_IMAGE__"'));
 ok('Twitter large card present',html.includes('twitter:card" content="summary_large_image"'));
 ok('OpenGraph image dimensions and type declared',html.includes('og:image:type" content="image/webp"')&&html.includes('og:image:width" content="1536"'));
-ok('marketing hero visual is immediately available for LCP',html.includes('class="thebe-market-mascot"'));
+ok('marketing hero photo is immediately available for LCP',html.includes('class="thebe-market-photo"')&&html.includes('src="/assets/gaborone-entrepreneurs-v67.webp"')&&html.includes('fetchpriority="high"'));
 ok('workspace and auth text excluded from snippets',html.includes('id="appShell" style="display:none;visibility:hidden" data-nosnippet')&&html.includes('id="authGate" data-nosnippet'));
 ok('hreflang en-BW and x-default',html.includes('hreflang="en-BW"')&&html.includes('hreflang="x-default"'));
 ok('structured data graph present',html.includes('"@type":"Service"')&&html.includes('"@type":"WebSite"')&&html.includes('"@type":"Organization"'));

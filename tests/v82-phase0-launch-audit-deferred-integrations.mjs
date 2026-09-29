@@ -34,22 +34,21 @@ ok(fullUserWrapper.includes("assert(/Run your business with intelligence\\./i.te
 ok(!fullUserWrapper.includes("/business risk/i.test(publicState.hero)"), 'mandatory full-user lifecycle rejects the obsolete business-risk hero contract');
 ok(
   fullUserWrapper.includes("photoSource==='/assets/gaborone-entrepreneurs-v67.webp'")&&
-  fullUserWrapper.includes("mascotSource==='/assets/thebe-mascot-original.png'")&&
-  fullUserWrapper.includes("mascotWidth<desktopHeroComposition.photoWidth*.45")&&
+  fullUserWrapper.includes("mascotCount===0")&&
   fullUserWrapper.includes("bottom marketing CTA text is not visibly contrasted"),
-  'mandatory full-user lifecycle proves the restored market photo, smaller supporting mascot and readable closing CTA'
+  'mandatory full-user lifecycle proves the restored market photo, no marketing mascot and readable closing CTA'
 );
 ok(
   fullUserWrapper.includes("openOwnerViewThroughNav('propertyintelligence')")&&
   fullUserWrapper.includes("dock.querySelectorAll('.thebe-mascot-image').length===0")&&
   fullUserWrapper.includes("dock.querySelectorAll('.thebe-mascot-svg').length===0")&&
-  fullUserWrapper.includes("mascotImages===0&&v181WorkspaceVisual.mascotSvgs===0")&&
+  fullUserWrapper.includes("mascotImages===0&&v182WorkspaceVisual.mascotSvgs===0")&&
   !fullUserWrapper.includes("return !!image&&image.complete&&image.naturalWidth===2048&&image.naturalHeight===2048")&&
   fullUserWrapper.includes("propertyLayoutStacked")&&
   fullUserWrapper.includes("serviceBeforeForms")&&
   fullUserWrapper.includes("serviceBackground==='rgb(247, 251, 255)'")&&
   fullUserWrapper.includes("orbWidth===82"),
-  'mandatory full-user lifecycle proves the mascot-free workspace/Talk to Thebe treatment while preserving Property hierarchy and dock geometry'
+  'mandatory full-user lifecycle proves mascot-free marketing, workspace and Talk to Thebe treatment while preserving Property hierarchy and dock geometry'
 );
 const assertWorkspaceSource=browserWrapper.slice(browserWrapper.indexOf('function workspaceAuthoredState'),browserWrapper.indexOf('async function loginInBrowser'));
 ok(

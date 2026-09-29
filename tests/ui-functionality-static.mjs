@@ -7,7 +7,6 @@ const here=path.dirname(fileURLToPath(import.meta.url));
 const root=path.resolve(here,"..");
 const pub=path.join(root,"public");
 const html=fs.readFileSync(path.join(pub,"index.html"),"utf8");
-const mascotAsset=fs.readFileSync(path.join(pub,"assets/thebe-mascot-original.png"));
 const domHtml=html.replace(/<script\b[\s\S]*?<\/script>/gi,"");
 const eventDelegation=fs.readFileSync(path.join(pub,"js/event-delegation.js"),"utf8");
 const worker=fs.readFileSync(path.join(root,"cloudflare/src/worker.js"),"utf8");
@@ -78,9 +77,8 @@ assert.ok(worker.includes('versioned=html.replace(/src="')&&worker.includes('CLI
 for(const rel of [...domHtml.matchAll(/(?:src|href)="(assets\/[^"?#]+)"/g)].map(m=>m[1]))assert.ok(fs.existsSync(path.join(pub,rel)),"missing local asset: "+rel);
 assert.match(html,/async function runScan\(\)/,"compliance scan button must have an implementation");
 
-assert.ok(html.includes('class="thebe-market-mascot"')&&html.includes('src="/assets/thebe-mascot-original.png"')&&html.includes('width="2048" height="2048"')&&html.includes('class="marketingvisual mascot-visual"')&&html.includes('overflow:visible!important;background:transparent!important;box-shadow:none!important'),"marketing hero must use the approved external Thebe mascot asset without container clipping");
-assert.equal(mascotAsset.subarray(0,8).toString("hex"),"89504e470d0a1a0a","external Thebe mascot asset must preserve the approved square composition");
-assert.doesNotMatch(html,/\.thebe-market-mascot\{[^}]*object-fit:cover/,"marketing hero mascot must never introduce cover-cropping");
+assert.ok(html.includes('class="thebe-market-photo"')&&html.includes('src="/assets/gaborone-entrepreneurs-v67.webp"')&&html.includes('width="1536" height="1024"')&&html.includes('class="marketingvisual market-photo-visual"')&&html.includes('overflow:visible!important;background:transparent!important;box-shadow:none!important'),"marketing hero must use the restored Botswana business photo without mascot artwork");
+assert.doesNotMatch(html,/thebe-market-mascot|thebe-mascot-original\.png/,"marketing and workspace shell must remain mascot-free");
 assert.match(html,/data-bw-onclick="openEmployeeReportingAccess\('[^']+'\)"[^>]*>Reporting link<\/button>/,"employee rows must expose a dedicated reporting-link control");
 assert.match(html,/data-bw-onclick="openEmployeeReportingAccess\('\$\{safeId\(e\.id\)\}'\)"/,"employee name/row must bind directly to employee reporting access");
 assert.match(html,/aria-label="Open reporting access for \$\{escapeHtml\(e\.full_name\)\}"/,"employee reporting row control must remain explicitly labelled");
