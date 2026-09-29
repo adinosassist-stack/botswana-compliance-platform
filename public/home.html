@@ -122,21 +122,15 @@
 
 @media(prefers-reduced-motion:reduce){.thebe-public-mascot,.thebe-public-mascot-frame,.thebe-mascot-blink-eye{animation:none!important}}
 
-/* V181 marketing composition — restore the human business photo and keep Thebe as a smaller supporting character. */
+/* V182 marketing composition — restore the human business photo as the sole hero visual. */
 .market-hero-visual{position:relative;max-width:680px;margin-left:auto}
 .market-hero-photo{width:100%;height:auto;aspect-ratio:3/2;object-fit:cover;border-radius:24px!important;box-shadow:0 22px 52px rgba(15,23,42,.12)!important}
-.market-hero-mascot{position:absolute;right:-24px;bottom:54px;width:clamp(128px,15vw,188px);aspect-ratio:1/1;display:block;z-index:3;filter:drop-shadow(0 16px 24px rgba(15,23,42,.20));animation:thebe-market-mascot-float 5.8s ease-in-out infinite}
-.market-hero-mascot>img{width:100%;height:100%;object-fit:contain;border-radius:0!important;box-shadow:none!important;mix-blend-mode:multiply}
-.market-hero-mascot-blink{position:absolute;top:26.1%;width:7%;height:5%;border-radius:48%;background:#15364a;transform:scaleY(0);transform-origin:50% 8%;animation:thebe-market-mascot-blink 6.8s ease-in-out infinite;pointer-events:none}
-.market-hero-mascot-blink.left{left:37.1%}.market-hero-mascot-blink.right{left:55.9%}
-@keyframes thebe-market-mascot-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
-@keyframes thebe-market-mascot-blink{0%,41%,44%,100%{transform:scaleY(0)}42.3%,42.9%{transform:scaleY(1)}}
-.market-hero-visual .product-stack{margin:-34px auto 0;position:relative;z-index:4}
+.market-hero-visual .product-stack{margin:-34px auto 0;position:relative;z-index:2}
 .cta-box .btn.secondary{background:#fff;color:#0f172a;border-color:#fff;box-shadow:0 8px 20px rgba(15,23,42,.16)}
 .cta-box .btn.secondary:hover{background:#f7fbff;color:#0b66d6;border-color:#d9e4de;transform:translateY(-1px)}
-@media(max-width:1000px){.market-hero-visual{margin-left:0}.market-hero-mascot{right:-12px;bottom:42px;width:clamp(118px,20vw,164px)}}
-@media(max-width:620px){.market-hero-visual{width:100%;overflow:visible}.market-hero-photo{border-radius:20px!important}.market-hero-mascot{right:-4px;bottom:26px;width:118px}.market-hero-visual .product-stack{margin:10px 0 0;width:100%}}
-@media(prefers-reduced-motion:reduce){.market-hero-mascot,.market-hero-mascot-blink{animation:none!important}}
+@media(max-width:1000px){.market-hero-visual{margin-left:0}}
+@media(max-width:620px){.market-hero-visual{width:100%;overflow:visible}.market-hero-photo{border-radius:20px!important}.market-hero-visual .product-stack{margin:10px 0 0;width:100%}}
+@media(prefers-reduced-motion:reduce){}
 </style>
 <script src="/js/reporter-link-redirect.js"></script>
 </head>
@@ -160,7 +154,7 @@
       <div class="reassure">14-day trial · no payment card required to register · public website does not load private workspace data</div>
       <div class="control-ribbon" aria-label="Core Thebe Desk coverage"><span>CIPA</span><span>BURS</span><span>People</span><span>Licences</span><span>Tenders</span><span>Finance</span><span>Evidence</span></div>
     </div>
-    <div class="visual market-hero-visual"><img class="market-hero-photo" src="/assets/gaborone-entrepreneurs-v67.webp" width="1536" height="1024" alt="Botswana business owners reviewing work together" fetchpriority="high"><span class="market-hero-mascot" aria-label="Thebe, your AI business assistant"><img src="/assets/thebe-mascot-original.png" width="2048" height="2048" decoding="async" alt=""><span class="market-hero-mascot-blink left" aria-hidden="true"></span><span class="market-hero-mascot-blink right" aria-hidden="true"></span></span><div class="product-stack" aria-label="Illustrative Thebe Desk product snapshot"><div class="product-snapshot"><div class="product-snapshot-head"><b>Today in Thebe Desk</b><span class="status-chip">Live overview</span></div><div class="signal-row"><span>Next action</span><strong>Review people-risk control</strong></div><div class="signal-row"><span>Evidence</span><strong>2 items verified</strong></div><div class="signal-row"><span>Finance</span><strong>Reconciliation ready</strong></div></div></div></div>
+    <div class="visual market-hero-visual"><img class="market-hero-photo" src="/assets/gaborone-entrepreneurs-v67.webp" width="1536" height="1024" alt="Botswana business owners reviewing work together" fetchpriority="high"><div class="product-stack" aria-label="Illustrative Thebe Desk product snapshot"><div class="product-snapshot"><div class="product-snapshot-head"><b>Today in Thebe Desk</b><span class="status-chip">Live overview</span></div><div class="signal-row"><span>Next action</span><strong>Review people-risk control</strong></div><div class="signal-row"><span>Evidence</span><strong>2 items verified</strong></div><div class="signal-row"><span>Finance</span><strong>Reconciliation ready</strong></div></div></div></div>
   </div>
 </section>
 <section class="trust" id="trust"><div class="wrap trustline"><div class="trustitem"><b>Africa-ready</b><div>One core platform, with Botswana live and country intelligence layered market by market.</div></div><div class="trustitem"><b>Evidence-backed</b><div>Keep proof connected to the obligation or action it supports.</div></div><div class="trustitem"><b>Role-aware</b><div>Owners, employees and reviewers see the controls relevant to them.</div></div><div class="trustitem"><b>Human review</b><div>AI assists; professional judgement stays with people where it matters.</div></div></div></section>
