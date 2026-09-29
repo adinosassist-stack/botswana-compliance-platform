@@ -19,6 +19,7 @@ assert.ok(headEnd>0,"workspace head must exist");
 const canonicalStyles=[...html.slice(0,headEnd).matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)].map(match=>String(match[1]||"").replace(/^\n/,"").replace(/\s*$/,""));
 assert.equal(canonicalStyles.length,49,"workspace must keep the audited 49 canonical head style blocks");
 assert.equal(canonicalStyles.join("\n\n")+"\n",styles,"external workspace stylesheet must be byte-equivalent to canonical head styles");
+assert.match(html,/id="thebe-employee-directory-styles" rel="stylesheet" href="\\/assets\\/employee-directory-v188\\.css"/,"workspace shell must retain the separately versioned employee directory stylesheet");
 assert.ok(Buffer.byteLength(styles)<224_000,"versioned workspace stylesheet must stay below 220 KB raw");
 assert.ok(Buffer.byteLength(runtime)<550_000,"versioned workspace runtime must stay below 550 KB raw");
 assert.match(runtime,/const DEFAULT_COMPANY=/);
