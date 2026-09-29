@@ -1,0 +1,35 @@
+/* V184 live presentation closure.
+   Path-level cache break for the authenticated Thebe dock and Property service emphasis.
+   Keep the reviewed workspace voice-control geometry stable after real voice/text conversation state. */
+
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-voice-card{
+  grid-template-columns:82px minmax(0,1fr)!important;
+}
+
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-orb-button{
+  width:82px!important;
+  min-width:82px!important;
+  max-width:82px!important;
+  height:82px!important;
+  min-height:82px!important;
+}
+
+#propertyValuationServicePanel{
+  background:#f7fbff!important;
+  border-color:#a9c8ef!important;
+  box-shadow:0 12px 30px rgba(11,102,214,.08)!important;
+}
+
+@media(max-width:380px){
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-voice-card{
+    grid-template-columns:64px minmax(0,1fr)!important;
+  }
+
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-orb-button{
+    width:64px!important;
+    min-width:64px!important;
+    max-width:64px!important;
+    height:64px!important;
+    min-height:64px!important;
+  }
+}
