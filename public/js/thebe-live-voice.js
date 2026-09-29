@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260929-task-state-v173";
+  const RELEASE="20260929-visual-v180";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -552,7 +552,7 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260929-task-state-v173";
+  const DOCK_RELEASE="20260929-visual-v180";
   const STORE_KEY="thebe_ai_dock_collapsed_v4";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
@@ -1029,6 +1029,13 @@
     }
     const core=el("span","thebe-particle-core");
     mascot=el("span","thebe-mascot");mascot.dataset.state=mascotState;mascot.dataset.context=mascotContext;mascot.dataset.focus=mascotFocus;mascot.dataset.attention="false";mascot.setAttribute("aria-hidden","true");
+    const mascotImage=el("img","thebe-mascot-image");
+    mascotImage.src="/assets/thebe-mascot-original.png";
+    mascotImage.alt="";
+    mascotImage.decoding="async";
+    mascotImage.draggable=false;
+    const mascotBlinkLeft=el("span","thebe-mascot-image-blink left");
+    const mascotBlinkRight=el("span","thebe-mascot-image-blink right");
     const svgNode=(tag,attrs={})=>{
       const node=document.createElementNS(svgNS,tag);
       for(const [key,value] of Object.entries(attrs))node.setAttribute(key,String(value));
@@ -1067,7 +1074,7 @@
       svgNode("path",{class:"thebe-mascot-chest",d:"M347 558c-34 26-57 67-67 119",fill:"none",stroke:"#fff","stroke-width":"28","stroke-linecap":"round",opacity:".55"})
     );
     bot.append(defs,svgNode("ellipse",{class:"thebe-mascot-shadow",cx:"500",cy:"918",rx:"112",ry:"16",fill:"#687080",opacity:".16"}),mascotShell);
-    mascot.append(bot);core.append(mascot);orb.append(wave,core);
+    mascot.append(mascotImage,mascotBlinkLeft,mascotBlinkRight,bot);core.append(mascot);orb.append(wave,core);
     orbButton.append(orb);
     orbButton.addEventListener("click",()=>{
       const liveApi=global.ThebeLiveVoice;
