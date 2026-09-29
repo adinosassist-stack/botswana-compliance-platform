@@ -32,6 +32,20 @@ ok(browserWrapper.includes("opening dedicated auth surface")&&browserWrapper.inc
 ok(browserWrapper.includes("mobile auth surface navigation")&&browserWrapper.includes("mobile authenticated /app/ route did not return 200")&&browserWrapper.includes("reloading authenticated /app/ workspace"), 'canonical mobile synthetic lifecycle reloads the authenticated /app/ boundary instead of legacy root');
 ok(fullUserWrapper.includes("assert(/Run your business with intelligence\\./i.test(publicState.hero),'public root hero missing or stale');"), 'mandatory full-user lifecycle binds its public-root proof to the current homepage hero contract');
 ok(!fullUserWrapper.includes("/business risk/i.test(publicState.hero)"), 'mandatory full-user lifecycle rejects the obsolete business-risk hero contract');
+ok(
+  fullUserWrapper.includes("mascotSource==='/assets/thebe-mascot-original.png'")&&
+  fullUserWrapper.includes("image.naturalWidth===2048&&image.naturalHeight===2048")&&
+  fullUserWrapper.includes("legacySvgOpacity==='0'"),
+  'mandatory full-user lifecycle proves the AI dock renders the exact approved mascot artwork while the reconstructed SVG stays non-visual'
+);
+ok(
+  fullUserWrapper.includes("openOwnerViewThroughNav('propertyintelligence')")&&
+  fullUserWrapper.includes("propertyLayoutStacked")&&
+  fullUserWrapper.includes("serviceBeforeForms")&&
+  fullUserWrapper.includes("serviceBackground==='rgb(247, 251, 255)'")&&
+  fullUserWrapper.includes("orbWidth===82"),
+  'mandatory full-user lifecycle proves the V180 Property hierarchy, dock-safe stacking and authoritative workspace dock geometry in live production'
+);
 const assertWorkspaceSource=browserWrapper.slice(browserWrapper.indexOf('function workspaceAuthoredState'),browserWrapper.indexOf('async function loginInBrowser'));
 ok(
   assertWorkspaceSource.includes('WORKSPACE_AUTHORED_VISIBILITY_WAIT_MS')&&
@@ -94,4 +108,4 @@ if(productionAuditEnv){
   console.log('PASS production-only historical synthetic residue audit completed');
 }
 
-console.log(`Phase 0 deferred integration, post-deploy, tenant-integrity and residue-audit contract: ${pass}/53 PASS`);
+console.log(`Phase 0 deferred integration, post-deploy, tenant-integrity and residue-audit contract: ${pass}/55 PASS`);
