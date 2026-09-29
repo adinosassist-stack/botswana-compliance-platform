@@ -124,36 +124,27 @@ async function runFullUserJourney(credentials){
     const readMarketingHeroComposition=async()=>page.evaluate(()=>{
       const frame=document.querySelector('.hero .market-hero-visual');
       const photo=document.querySelector('.hero .market-hero-photo');
-      const mascot=document.querySelector('.hero .market-hero-mascot');
-      const mascotImage=mascot?.querySelector('img');
-      if(!frame||!photo||!mascot||!mascotImage)return null;
-      const frameRect=frame.getBoundingClientRect(),photoRect=photo.getBoundingClientRect(),mascotRect=mascot.getBoundingClientRect();
+      if(!frame||!photo)return null;
+      const frameRect=frame.getBoundingClientRect(),photoRect=photo.getBoundingClientRect();
       const photoSource=new URL(photo.currentSrc||photo.src,location.href).pathname;
-      const mascotSource=new URL(mascotImage.currentSrc||mascotImage.src,location.href).pathname;
       return {
         frameWidth:Math.round(frameRect.width),
         photoWidth:Math.round(photoRect.width),
         photoHeight:Math.round(photoRect.height),
         photoSource,
         photoLoaded:photo.complete&&photo.naturalWidth===1536&&photo.naturalHeight===1024,
-        mascotWidth:Math.round(mascotRect.width),
-        mascotHeight:Math.round(mascotRect.height),
-        mascotSource,
-        mascotLoaded:mascotImage.complete&&mascotImage.naturalWidth===2048&&mascotImage.naturalHeight===2048
+        mascotCount:document.querySelectorAll('.hero .market-hero-mascot,.hero .thebe-public-mascot,.hero [src*="thebe-mascot-original"]').length
       };
     });
     await page.waitForFunction(()=>{
       const photo=document.querySelector('.hero .market-hero-photo');
-      const mascot=document.querySelector('.hero .market-hero-mascot img');
-      return !!photo&&!!mascot&&photo.complete&&photo.naturalWidth===1536&&mascot.complete&&mascot.naturalWidth===2048;
+      return !!photo&&photo.complete&&photo.naturalWidth===1536;
     },null,{timeout:VIEW_TIMEOUT_MS});
     const desktopHeroComposition=await readMarketingHeroComposition();
     assert(desktopHeroComposition?.photoSource==='/assets/gaborone-entrepreneurs-v67.webp'&&desktopHeroComposition.photoLoaded,
       `marketing page did not restore the original Botswana business photo: ${safe(JSON.stringify(desktopHeroComposition))}`);
-    assert(desktopHeroComposition.mascotSource==='/assets/thebe-mascot-original.png'&&desktopHeroComposition.mascotLoaded,
-      'marketing page must retain the approved mascot artwork as a supporting visual');
-    assert(desktopHeroComposition.mascotWidth>=120&&desktopHeroComposition.mascotWidth<=205&&desktopHeroComposition.mascotWidth<desktopHeroComposition.photoWidth*.45,
-      `marketing mascot is no longer subordinate to the restored picture: ${safe(JSON.stringify(desktopHeroComposition))}`);
+    assert(desktopHeroComposition.mascotCount===0,
+      `marketing page must not render a mascot: ${safe(JSON.stringify(desktopHeroComposition))}`);
     const finalCtaContrast=await page.locator('.cta-box .btn.secondary').first().evaluate(el=>{
       const style=getComputedStyle(el);return {color:style.color,background:style.backgroundColor,label:(el.textContent||'').trim()};
     });
@@ -161,10 +152,10 @@ async function runFullUserJourney(credentials){
       `bottom marketing CTA text is not visibly contrasted: ${safe(JSON.stringify(finalCtaContrast))}`);
     await page.setViewportSize({width:390,height:844});
     const mobileHeroComposition=await readMarketingHeroComposition();
-    assert(mobileHeroComposition?.photoLoaded&&mobileHeroComposition.mascotWidth>=100&&mobileHeroComposition.mascotWidth<=135,
-      `mobile marketing picture/mascot balance is outside the intended compact range: ${safe(JSON.stringify(mobileHeroComposition))}`);
+    assert(mobileHeroComposition?.photoLoaded&&mobileHeroComposition.mascotCount===0,
+      `mobile marketing hero must retain the restored photo with no mascot: ${safe(JSON.stringify(mobileHeroComposition))}`);
     await page.setViewportSize({width:1440,height:1100});
-    mark('marketing hero composition',`restored photo=${desktopHeroComposition.photoWidth}x${desktopHeroComposition.photoHeight}; supporting mascot=${desktopHeroComposition.mascotWidth}px desktop/${mobileHeroComposition.mascotWidth}px mobile; bottom CTA readable`);
+    mark('marketing hero composition',`restored photo=${desktopHeroComposition.photoWidth}x${desktopHeroComposition.photoHeight}; mascot removed; bottom CTA readable`);
     await page.waitForFunction(()=>{
       const dock=document.getElementById('thebeAiDock'),pill=document.getElementById('thebeAiDockPill');
       if(!dock||!pill)return false;
@@ -184,7 +175,8 @@ async function runFullUserJourney(credentials){
         mobile:Boolean(globalThis.ThebeAiDock?.state?.().mobile),
         mascotImages:document.querySelectorAll('#thebeAiDock .thebe-mascot-image').length,
         mascotSvgs:document.querySelectorAll('#thebeAiDock .thebe-mascot-svg').length,
-        coreSymbol:core?getComputedStyle(core,'::before').backgroundImage:''
+        coreWidth:core?Math.round(core.getBoundingClientRect().width):0,
+        particleCount:document.querySelectorAll('#thebeAiDock .thebe-particle').length
       };
     });
     assert(publicDock.surface==='public'&&!publicDock.mobile&&!publicDock.dockHidden&&publicDock.pillHidden&&publicDock.pillDisplay==='none',
@@ -192,7 +184,8 @@ async function runFullUserJourney(credentials){
     assert(publicDock.minimizeDisplay==='none','desktop Thebe dock must not expose the mobile minimise control');
     assert(publicDock.mascotImages===0&&publicDock.mascotSvgs===0,
       `Talk to Thebe must stay character-free: ${safe(JSON.stringify(publicDock))}`);
-    assert(/thebe-desk-logo-symbol\.png/.test(publicDock.coreSymbol),'Talk to Thebe must retain the restrained Thebe symbol inside the voice field');
+    assert(publicDock.coreWidth>=60&&publicDock.particleCount===343,
+      `Talk to Thebe must retain the animated voice field without a mascot or decorative character: ${safe(JSON.stringify(publicDock))}`);
     mark('Thebe desktop persistence',`release=${publicDock.release} full public dock fixed open; character-free voice field; pill/minimise hidden`);
     const marketingCopy=await page.evaluate(()=>({
       quick:[...document.querySelectorAll('#thebeAiDock .thebe-ai-quick button')].map(x=>(x.textContent||'').trim()),
@@ -789,7 +782,7 @@ async function runFullUserJourney(credentials){
         dock.querySelectorAll('.thebe-mascot-image').length===0&&
         dock.querySelectorAll('.thebe-mascot-svg').length===0;
     },null,{timeout:VIEW_TIMEOUT_MS});
-    const v181WorkspaceVisual=await page.evaluate(()=>{
+    const v182WorkspaceVisual=await page.evaluate(()=>{
       const orb=document.querySelector('#thebeAiDock .thebe-ai-orb-button');
       const core=document.querySelector('#thebeAiDock .thebe-particle-core');
       const shell=document.getElementById('propertyPortfolioWorkspace');
@@ -804,7 +797,7 @@ async function runFullUserJourney(credentials){
       return {
         mascotImages:document.querySelectorAll('#thebeAiDock .thebe-mascot-image').length,
         mascotSvgs:document.querySelectorAll('#thebeAiDock .thebe-mascot-svg').length,
-        coreSymbol:core?getComputedStyle(core,'::before').backgroundImage:'',
+        particleCount:document.querySelectorAll('#thebeAiDock .thebe-particle').length,
         orbWidth:orb?Math.round(orb.getBoundingClientRect().width):0,
         dockOpen:document.body.classList.contains('thebe-ai-dock-open'),
         serviceVisible:!!service&&!service.hidden&&getComputedStyle(service).display!=='none'&&getComputedStyle(service).visibility!=='hidden',
@@ -814,16 +807,16 @@ async function runFullUserJourney(credentials){
         propertyLayoutStacked:!!inputRect&&!!resultsRect&&Math.abs(inputRect.left-resultsRect.left)<=2&&resultsRect.top>inputRect.top+20
       };
     });
-    assert(v181WorkspaceVisual.mascotImages===0&&v181WorkspaceVisual.mascotSvgs===0,
-      `workspace must not render the mascot: ${safe(JSON.stringify(v181WorkspaceVisual))}`);
-    assert(/thebe-desk-logo-symbol\.png/.test(v181WorkspaceVisual.coreSymbol),'workspace Talk to Thebe voice field must retain the restrained Thebe symbol');
-    assert(v181WorkspaceVisual.orbWidth===82,
-      `workspace dock changed the authoritative 82px voice-control geometry: ${safe(JSON.stringify(v181WorkspaceVisual))}`);
-    assert(v181WorkspaceVisual.dockOpen&&v181WorkspaceVisual.propertyLayoutStacked,
-      `Property analysis did not stack cleanly beside the open desktop Thebe dock: ${safe(JSON.stringify(v181WorkspaceVisual))}`);
-    assert(v181WorkspaceVisual.serviceVisible&&v181WorkspaceVisual.serviceBackground==='rgb(247, 251, 255)'&&v181WorkspaceVisual.serviceBeforeForms&&v181WorkspaceVisual.requestButtonVisible,
-      `professional valuation service is not visibly promoted ahead of Property setup forms: ${safe(JSON.stringify(v181WorkspaceVisual))}`);
-    mark('V181 live marketing + workspace presentation','restored market photo, smaller public mascot, character-free workspace/Talk to Thebe, dock-safe Property layout and readable CTA verified');
+    assert(v182WorkspaceVisual.mascotImages===0&&v182WorkspaceVisual.mascotSvgs===0,
+      `workspace must not render the mascot: ${safe(JSON.stringify(v182WorkspaceVisual))}`);
+    assert(v182WorkspaceVisual.particleCount===343,'workspace Talk to Thebe must retain the particle voice field with no mascot or decorative character');
+    assert(v182WorkspaceVisual.orbWidth===82,
+      `workspace dock changed the authoritative 82px voice-control geometry: ${safe(JSON.stringify(v182WorkspaceVisual))}`);
+    assert(v182WorkspaceVisual.dockOpen&&v182WorkspaceVisual.propertyLayoutStacked,
+      `Property analysis did not stack cleanly beside the open desktop Thebe dock: ${safe(JSON.stringify(v182WorkspaceVisual))}`);
+    assert(v182WorkspaceVisual.serviceVisible&&v182WorkspaceVisual.serviceBackground==='rgb(247, 251, 255)'&&v182WorkspaceVisual.serviceBeforeForms&&v182WorkspaceVisual.requestButtonVisible,
+      `professional valuation service is not visibly promoted ahead of Property setup forms: ${safe(JSON.stringify(v182WorkspaceVisual))}`);
+    mark('V182 live marketing + workspace presentation','restored market photo, mascot removed everywhere, dock-safe Property layout and readable CTA verified');
 
     let safeUiActionClicks=0;
     safeUiActionProbeActive=true;
