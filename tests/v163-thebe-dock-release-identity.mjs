@@ -42,10 +42,11 @@ assert(runtime.includes('setMode:mode=>setAssistantMode(mode)'),'V187 public doc
 assert(runtime.includes('function recoverDockPresentation()'),'V187 must carry a runtime visual recovery path when the dock stylesheet is absent');
 assert(runtime.includes('dock.style.setProperty("left","20px","important")'),'V187 must runtime-pin the desktop workspace dock to the inset lower-left position');
 assert(runtime.includes('pill.style.setProperty("display",visible&&isCollapsed?"inline-flex":"none","important")'),'V187 must make desktop minimise/reopen usable without depending on stylesheet state');
+assert(runtime.includes('const STORE_KEY="thebe_ai_dock_collapsed_v5";'),'V187 must not inherit the pre-floating collapse preference');
+const dockCss=fs.readFileSync(new URL('../public/assets/thebe-ai-dock.css',import.meta.url),'utf8');
+assert(dockCss.includes('V186 Thebe Command Dock'),'V187 must retain the Command Dock foundation');
 assert(dockCss.includes('V187 workspace floating-command closure'),'V187 floating lower-left workspace visual layer must be present');
 assert(dockCss.includes('left:20px!important')&&dockCss.includes('bottom:22px!important'),'V187 CSS must keep the desktop dock inset from the lower-left workspace edge');
-const dockCss=fs.readFileSync(new URL('../public/assets/thebe-ai-dock.css',import.meta.url),'utf8');
-assert(dockCss.includes('V187 Thebe Command Dock'),'V187 command-surface visual layer must be present');
 assert(dockCss.includes('.thebe-ai-context-bar')&&dockCss.includes('.thebe-ai-mode-rail'),'V187 must visibly render context and response-mode controls');
 assert(dockCss.includes('background:#07131f'),'V187 must replace the full-blue sidebar treatment with the reviewed deep-navy command surface');
 assert(dockCss.includes('.thebe-ai-quick{')&&dockCss.includes('grid-template-columns:repeat(3,minmax(0,1fr))'),'V187 desktop contextual actions must use a compact three-command row');
