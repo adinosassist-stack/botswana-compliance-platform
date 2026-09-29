@@ -553,7 +553,7 @@
   "use strict";
 
   const DOCK_RELEASE="20260929-floating-v187";
-  const STORE_KEY="thebe_ai_dock_collapsed_v4";
+  const STORE_KEY="thebe_ai_dock_collapsed_v5";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
   let dock=null,pill=null,pillLabel=null,orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,input=null,sendButton=null,attentionButton=null,quick=null,foot=null,mascot=null,missionRail=null,missionLabel=null,missionMeta=null,contextBar=null,contextLabel=null,modeRail=null,clearButton=null;
@@ -782,6 +782,7 @@
       dock.style.setProperty("width","auto","important");
       dock.style.setProperty("max-width","none","important");
       dock.style.setProperty("max-height","calc(100dvh - 128px - env(safe-area-inset-bottom))","important");
+      setCriticalStyle(pill,{"position":"fixed","z-index":"181","left":"12px","right":"auto","bottom":"calc(104px + env(safe-area-inset-bottom))"});
     }else{
       dock.style.setProperty("left","20px","important");
       dock.style.setProperty("right","auto","important");
@@ -789,6 +790,9 @@
       dock.style.setProperty("width",dock.dataset.expanded==="true"?"560px":"420px","important");
       dock.style.setProperty("max-width","calc(100vw - 40px)","important");
       dock.style.setProperty("max-height","min(720px, calc(100dvh - 108px))","important");
+      setCriticalStyle(pill,{"position":"fixed","z-index":"181","left":"20px","right":"auto","bottom":"22px","min-height":"48px","padding":"0 17px","border":"1px solid rgba(125,180,255,.30)","border-radius":"999px","background":"#081827","color":"#eef7ff","box-shadow":"0 16px 42px rgba(2,14,30,.28)"});
+      const workspaceMain=document.querySelector("#appShell main");
+      if(workspaceMain)workspaceMain.style.setProperty("padding-right","30px","important");
     }
   }
   function syncVisibility(){
@@ -809,7 +813,7 @@
     if(visible&&!isCollapsed)global.requestAnimationFrame?.(recoverDockPresentation);
     if(attentionButton)attentionButton.hidden=!workspace;
     const minimize=dock.querySelector(".thebe-ai-minimize");
-    if(minimize)minimize.hidden=!mobile;
+    if(minimize)minimize.hidden=false;
     const presence=dock.querySelector(".thebe-ai-presence");
     if(presence){
       presence.replaceChildren(el("span","thebe-ai-presence-dot"),document.createTextNode(workspace?"Your business assistant":"Public assistant · try Thebe"));
