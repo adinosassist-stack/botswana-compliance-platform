@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260929-floating-v187";
+  const RELEASE="20260929-recovery-v188";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -552,7 +552,7 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260929-floating-v187";
+  const DOCK_RELEASE="20260929-recovery-v188";
   const STORE_KEY="thebe_ai_dock_collapsed_v5";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
@@ -581,32 +581,72 @@
     if(!node)return;
     for(const [property,value] of Object.entries(styles))node.style.setProperty(property,value,"important");
   }
+  function workspaceDockLeftPx(){
+    const workspaceMain=document.querySelector("#appShell main");
+    const rect=workspaceMain?.getBoundingClientRect?.();
+    const viewport=Math.max(0,Number(global.innerWidth||document.documentElement?.clientWidth||0));
+    const preferred=rect&&Number.isFinite(rect.left)?Math.max(20,Math.round(rect.left+20)):20;
+    const width=dock?.dataset?.expanded==="true"?560:420;
+    return Math.max(20,Math.min(preferred,Math.max(20,viewport-width-20)));
+  }
   function recoverDockPresentation(){
     if(!dock||dock.hidden)return;
     const head=dock.querySelector(".thebe-ai-dock-head");
     const scroll=dock.querySelector(".thebe-ai-dock-scroll");
+    const compose=dock.querySelector(".thebe-ai-compose");
+    const title=dock.querySelector(".thebe-ai-dock-title");
+    const headActions=dock.querySelector(".thebe-ai-head-actions");
+    const context=dock.querySelector(".thebe-ai-context-bar");
+    const contextLead=dock.querySelector(".thebe-ai-context-lead");
+    const voiceCard=dock.querySelector(".thebe-ai-voice-card");
+    const voiceMount=dock.querySelector(".thebe-ai-voice-mount");
+    const mission=dock.querySelector(".thebe-ai-mission");
+    const composeBody=dock.querySelector(".thebe-ai-compose-body");
     const computed=getComputedStyle(dock);
     const headComputed=head?getComputedStyle(head):null;
     const scrollComputed=scroll?getComputedStyle(scroll):null;
-    const healthy=computed.position==="fixed"&&headComputed?.display==="flex"&&scrollComputed?.display==="flex"&&parseFloat(computed.width||"0")>=300;
+    const dockWidth=dock.getBoundingClientRect?.().width||parseFloat(computed.width||"0");
+    const headWidth=head?.getBoundingClientRect?.().width||0;
+    const scrollWidth=scroll?.getBoundingClientRect?.().width||0;
+    const structuralWidth=Math.max(220,dockWidth*.72);
+    const healthy=
+      computed.position==="fixed"&&
+      computed.display==="flex"&&
+      computed.flexDirection==="column"&&
+      headComputed?.display==="flex"&&
+      scrollComputed?.display==="flex"&&
+      scrollComputed?.flexDirection==="column"&&
+      dockWidth>=300&&
+      headWidth>=structuralWidth&&
+      scrollWidth>=structuralWidth;
     if(healthy){dock.dataset.cssRecovery="0";return}
     dock.dataset.cssRecovery="1";
-    setCriticalStyle(dock,{"background":"#07131f","color":"#f7fbff","border":"1px solid rgba(125,180,255,.24)","box-shadow":"0 24px 70px rgba(2,14,30,.34)","overflow":"hidden","font-size":"14px","color-scheme":"dark"});
-    setCriticalStyle(head,{"display":"flex","align-items":"center","justify-content":"space-between","gap":"10px","padding":"13px 14px","background":"#091827","border-bottom":"1px solid rgba(125,180,255,.16)"});
-    setCriticalStyle(scroll,{"display":"flex","flex-direction":"column","gap":"10px","padding":"12px 14px 14px","overflow":"auto","min-height":"0","background":"#07131f"});
-    const context=dock.querySelector(".thebe-ai-context-bar");
-    setCriticalStyle(context,{"display":"flex","align-items":"center","justify-content":"space-between","gap":"10px","padding":"9px 10px","border":"1px solid rgba(125,180,255,.16)","border-radius":"14px","background":"#0b1b2a"});
-    setCriticalStyle(modeRail,{"display":"grid","grid-template-columns":"repeat(3,minmax(0,1fr))","gap":"7px"});
-    dock.querySelectorAll(".thebe-ai-mode-button,.thebe-ai-quick button,.thebe-ai-context-action,.thebe-ai-response-tools button").forEach(button=>setCriticalStyle(button,{"border":"1px solid rgba(125,180,255,.18)","border-radius":"12px","background":"#0d2236","color":"#eaf6ff","padding":"9px","font-family":"inherit"}));
-    const voiceCard=dock.querySelector(".thebe-ai-voice-card");
-    setCriticalStyle(voiceCard,{"display":"grid","grid-template-columns":"82px minmax(0,1fr)","gap":"4px 12px","align-items":"center","padding":"11px 12px","border":"1px solid rgba(125,180,255,.18)","border-radius":"16px","background":"#0b1c2c"});
-    setCriticalStyle(quick,{"display":"grid","grid-template-columns":"repeat(3,minmax(0,1fr))","gap":"7px"});
-    setCriticalStyle(responseBox,{"padding":"13px 14px","border":"1px solid rgba(125,180,255,.16)","border-radius":"15px","background":"#0a1928","color":"#edf7ff"});
-    const compose=dock.querySelector(".thebe-ai-compose");
-    setCriticalStyle(compose,{"display":"flex","align-items":"flex-end","gap":"8px","margin":"0 14px 10px","padding":"8px","border":"1px solid rgba(125,180,255,.20)","border-radius":"16px","background":"#0b1b2a"});
-    setCriticalStyle(input,{"width":"100%","min-height":"42px","border":"0","outline":"0","background":"transparent","color":"#f4f9ff","padding":"10px","font-family":"inherit"});
-    setCriticalStyle(sendButton,{"width":"42px","height":"42px","flex":"0 0 42px","border":"1px solid #55b4ff","border-radius":"12px","background":"#1478c9","color":"#fff"});
-    setCriticalStyle(foot,{"padding":"0 16px 11px","background":"#07131f","color":"#7893aa","font-size":"9px"});
+    const mobile=mobileDockMode();
+    const workspace=dock.dataset.surface==="workspace";
+    const dockGeometry=mobile
+      ?{"left":"8px","right":"8px","top":"auto","bottom":"calc(104px + env(safe-area-inset-bottom))","width":"auto","max-width":"none","max-height":"calc(100dvh - 128px - env(safe-area-inset-bottom))","border-radius":"22px"}
+      :workspace
+        ?{"left":workspaceDockLeftPx()+"px","right":"auto","top":"auto","bottom":"22px","width":dock.dataset.expanded==="true"?"560px":"420px","max-width":"calc(100vw - 40px)","max-height":"min(720px, calc(100dvh - 108px))","border-radius":"24px"}
+        :{"left":"auto","right":"0","top":"72px","bottom":"0","width":dock.dataset.expanded==="true"?"560px":"408px","max-width":"calc(100vw - 24px)","max-height":"none","border-radius":"0"};
+    setCriticalStyle(dock,{...dockGeometry,"display":"flex","flex-direction":"column","align-items":"stretch","position":"fixed","z-index":"181","box-sizing":"border-box","background":"#07131f","color":"#f7fbff","border":"1px solid rgba(125,180,255,.24)","box-shadow":"0 24px 70px rgba(2,14,30,.34)","overflow":"hidden","font-size":"14px","color-scheme":"dark"});
+    setCriticalStyle(head,{"display":"flex","flex":"0 0 auto","width":"100%","min-width":"0","box-sizing":"border-box","align-items":"center","justify-content":"space-between","gap":"10px","padding":"13px 14px","background":"#091827","border-bottom":"1px solid rgba(125,180,255,.16)"});
+    setCriticalStyle(title,{"display":"flex","align-items":"center","gap":"10px","min-width":"0"});
+    setCriticalStyle(headActions,{"display":"flex","align-items":"center","gap":"6px","flex":"0 0 auto"});
+    setCriticalStyle(scroll,{"display":"flex","flex":"1 1 auto","flex-direction":"column","align-items":"stretch","width":"100%","min-width":"0","max-width":"100%","box-sizing":"border-box","gap":"10px","padding":"12px 14px 14px","overflow":"auto","overflow-x":"hidden","background":"#07131f"});
+    setCriticalStyle(context,{"display":"flex","width":"100%","min-width":"0","box-sizing":"border-box","align-items":"center","justify-content":"space-between","gap":"10px","padding":"9px 10px","border":"1px solid rgba(125,180,255,.16)","border-radius":"14px","background":"#0b1b2a"});
+    setCriticalStyle(contextLead,{"display":"grid","grid-template-columns":"auto auto minmax(0,1fr)","align-items":"center","gap":"7px","min-width":"0","flex":"1 1 auto"});
+    setCriticalStyle(modeRail,{"display":"grid","width":"100%","min-width":"0","grid-template-columns":"repeat(3,minmax(0,1fr))","gap":"7px"});
+    dock.querySelectorAll(".thebe-ai-mode-button,.thebe-ai-quick button,.thebe-ai-context-action,.thebe-ai-response-tools button").forEach(button=>setCriticalStyle(button,{"min-width":"0","border":"1px solid rgba(125,180,255,.18)","border-radius":"12px","background":"#0d2236","color":"#eaf6ff","padding":"9px","font-family":"inherit"}));
+    setCriticalStyle(voiceCard,{"display":"grid","width":"100%","min-width":"0","box-sizing":"border-box","grid-template-columns":"82px minmax(0,1fr)","gap":"4px 12px","align-items":"center","padding":"11px 12px","border":"1px solid rgba(125,180,255,.18)","border-radius":"16px","background":"#0b1c2c"});
+    setCriticalStyle(voiceMount,{"grid-column":"1 / -1","display":"grid","width":"100%","min-width":"0","grid-template-columns":"minmax(0,1fr) auto","gap":"7px"});
+    setCriticalStyle(mission,{"grid-column":"1 / -1","width":"100%","min-width":"0","box-sizing":"border-box"});
+    setCriticalStyle(quick,{"display":"grid","width":"100%","min-width":"0","grid-template-columns":"repeat(3,minmax(0,1fr))","gap":"7px"});
+    setCriticalStyle(responseBox,{"width":"100%","min-width":"0","box-sizing":"border-box","padding":"13px 14px","border":"1px solid rgba(125,180,255,.16)","border-radius":"15px","background":"#0a1928","color":"#edf7ff"});
+    setCriticalStyle(compose,{"display":"flex","flex":"0 0 auto","align-self":"stretch","width":"auto","min-width":"0","box-sizing":"border-box","align-items":"flex-end","gap":"8px","margin":"0 14px 10px","padding":"8px","border":"1px solid rgba(125,180,255,.20)","border-radius":"16px","background":"#0b1b2a"});
+    setCriticalStyle(composeBody,{"flex":"1 1 auto","min-width":"0"});
+    setCriticalStyle(input,{"display":"block","width":"100%","min-width":"0","min-height":"42px","border":"0","outline":"0","background":"transparent","color":"#f4f9ff","padding":"10px","font-family":"inherit"});
+    setCriticalStyle(sendButton,{"width":"42px","height":"42px","min-width":"42px","flex":"0 0 42px","border":"1px solid #55b4ff","border-radius":"12px","background":"#1478c9","color":"#fff"});
+    setCriticalStyle(foot,{"display":"block","flex":"0 0 auto","width":"100%","min-width":"0","box-sizing":"border-box","padding":"0 16px 11px","background":"#07131f","color":"#7893aa","font-size":"9px"});
   }
   function shellVisible(){
     const shell=document.getElementById("appShell");
@@ -784,13 +824,13 @@
       dock.style.setProperty("max-height","calc(100dvh - 128px - env(safe-area-inset-bottom))","important");
       setCriticalStyle(pill,{"position":"fixed","z-index":"181","left":"12px","right":"auto","bottom":"calc(104px + env(safe-area-inset-bottom))"});
     }else{
-      dock.style.setProperty("left","20px","important");
+      dock.style.setProperty("left",workspaceDockLeftPx()+"px","important");
       dock.style.setProperty("right","auto","important");
       dock.style.setProperty("bottom","22px","important");
       dock.style.setProperty("width",dock.dataset.expanded==="true"?"560px":"420px","important");
       dock.style.setProperty("max-width","calc(100vw - 40px)","important");
       dock.style.setProperty("max-height","min(720px, calc(100dvh - 108px))","important");
-      setCriticalStyle(pill,{"position":"fixed","z-index":"181","left":"20px","right":"auto","bottom":"22px","min-height":"48px","padding":"0 17px","border":"1px solid rgba(125,180,255,.30)","border-radius":"999px","background":"#081827","color":"#eef7ff","box-shadow":"0 16px 42px rgba(2,14,30,.28)"});
+      setCriticalStyle(pill,{"position":"fixed","z-index":"181","left":workspaceDockLeftPx()+"px","right":"auto","bottom":"22px","min-height":"48px","padding":"0 17px","border":"1px solid rgba(125,180,255,.30)","border-radius":"999px","background":"#081827","color":"#eef7ff","box-shadow":"0 16px 42px rgba(2,14,30,.28)"});
       const workspaceMain=document.querySelector("#appShell main");
       if(workspaceMain)workspaceMain.style.setProperty("padding-right","30px","important");
     }
