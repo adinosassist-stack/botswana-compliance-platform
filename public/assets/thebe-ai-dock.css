@@ -75,7 +75,6 @@
  .thebe-ai-dock[data-surface="workspace"]{top:70px}
  .thebe-ai-pill{display:none!important}
  .thebe-ai-minimize{display:none!important}
- body.thebe-ai-dock-open #appShell main{padding-right:calc(30px + var(--thebe-dock-w) + 22px)!important}
  body.thebe-ai-expanded{--thebe-dock-w:520px}
 }
 @media(min-width:1024px) and (max-width:1179px){:root{--thebe-dock-w:320px}body.thebe-ai-expanded{--thebe-dock-w:440px}}
@@ -1536,7 +1535,7 @@
   .thebe-ai-dock[data-surface="workspace"]{
     position:fixed!important;
     top:auto!important;
-    left:20px!important;
+    left:var(--thebe-workspace-left,20px)!important;
     right:auto!important;
     bottom:22px!important;
     width:min(var(--thebe-dock-w),calc(100vw - 40px))!important;
@@ -1549,7 +1548,7 @@
   .thebe-ai-pill[data-surface="workspace"]:not([hidden]){
     display:inline-flex!important;
     align-items:center;
-    left:20px!important;
+    left:var(--thebe-workspace-left,20px)!important;
     right:auto!important;
     bottom:22px!important;
     min-height:48px;
@@ -1579,6 +1578,10 @@
   .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick{grid-template-columns:1fr}
   .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button{min-height:56px;padding:10px 34px 9px 10px}
   .thebe-ai-dock[data-surface="workspace"] .thebe-ai-compose{margin:0 12px 10px!important}
+  .thebe-ai-dock[data-surface="workspace"][data-keyboard="true"]{
+    bottom:max(8px,var(--thebe-keyboard-inset,0px))!important;
+    max-height:var(--thebe-visible-height,65dvh)!important;
+  }
 }
 @media(max-width:460px){
   .thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-rail{grid-template-columns:repeat(3,minmax(0,1fr))}
