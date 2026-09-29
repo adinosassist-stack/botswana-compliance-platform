@@ -1656,3 +1656,61 @@
     height:64px!important;min-height:64px!important;
   }
 }
+
+
+/* V187 workspace floating-command closure — keep Thebe visible, inset and recoverable in the lower-left workspace corner. */
+@media(min-width:1024px){
+  .thebe-ai-dock[data-surface="workspace"]{
+    top:auto!important;
+    left:20px!important;
+    right:auto!important;
+    bottom:22px!important;
+    width:min(var(--thebe-dock-w),calc(100vw - 40px))!important;
+    max-height:min(720px,calc(100dvh - 108px))!important;
+    border:1px solid rgba(125,180,255,.24)!important;
+    border-radius:24px!important;
+    box-shadow:0 24px 70px rgba(2,14,30,.34),0 0 0 1px rgba(85,180,255,.05)!important;
+  }
+  body.thebe-ai-dock-open #appShell main{padding-right:30px!important}
+  body.thebe-ai-expanded{--thebe-dock-w:560px}
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-minimize{display:grid!important;place-items:center}
+  .thebe-ai-pill[data-surface="workspace"]:not([hidden]){
+    display:inline-flex!important;
+    align-items:center;
+    left:20px!important;
+    right:auto!important;
+    bottom:22px!important;
+    min-height:48px;
+    padding:0 17px;
+    border:1px solid rgba(125,180,255,.30);
+    background:#081827;
+    color:#eef7ff;
+    box-shadow:0 16px 42px rgba(2,14,30,.28);
+  }
+}
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-context-bar,
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-button,
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-voice-card,
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button,
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-response,
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-compose{
+  backdrop-filter:blur(12px);
+}
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-context-action,
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-button,
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button,
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-response-tools button,
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-icon-btn{
+  transition:transform .16s ease,border-color .16s ease,background-color .16s ease,box-shadow .16s ease;
+}
+@media(hover:hover) and (min-width:1024px){
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-context-action:hover,
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-button:hover,
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button:hover,
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-response-tools button:hover,
+  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-icon-btn:hover{
+    transform:translateY(-1px);
+    border-color:rgba(85,180,255,.48);
+    box-shadow:0 8px 20px rgba(1,12,26,.18);
+  }
+}
