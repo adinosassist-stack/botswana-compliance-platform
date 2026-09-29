@@ -1,7 +1,7 @@
 (function initOwnerCommandCentre(global){
   "use strict";
 
-  const RELEASE="20260929-v173";
+  const RELEASE="20260929-v180";
   const MAX_OPPORTUNITIES=500;
   const MAX_CAMPAIGNS=50;
   const PROFILE_KEYS=Object.freeze({
@@ -2820,7 +2820,7 @@
 
     const shell=document.createElement("div");
     shell.id="propertyPortfolioWorkspace";
-    shell.className="card";
+    shell.className="card property-portfolio-workspace";
     shell.style.marginBottom="16px";
 
     const head=document.createElement("div");
@@ -2959,7 +2959,7 @@
 
     const servicePanel=document.createElement("div");
     servicePanel.id="propertyValuationServicePanel";
-    servicePanel.className="card";
+    servicePanel.className="card property-valuation-service-card";
     servicePanel.style.marginTop="14px";
     const serviceHead=document.createElement("div");
     serviceHead.className="between row";
@@ -3000,7 +3000,7 @@
     const serviceList=document.createElement("div");serviceList.id="propertyValuationServiceList";serviceList.style.marginTop="14px";
     serviceList.append(text("div","No valuation service requests loaded yet.","muted small"));servicePanel.append(serviceList);
     servicePanel.hidden=role()!=="owner"&&role()!=="manager";
-    shell.append(servicePanel);
+    shell.insertBefore(servicePanel,forms);
 
     const listHead=document.createElement("div");
     listHead.className="between row";
