@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import {createHash} from "node:crypto";
 
 const html=fs.readFileSync("public/index.html","utf8");
 const runtime=fs.readFileSync("public/js/workspace-runtime-20260926b.js","utf8");
@@ -8,8 +7,6 @@ const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const delegation=fs.readFileSync("public/js/event-delegation.js","utf8");
 const apiClient=fs.readFileSync("public/js/api-client.js","utf8");
 const home=fs.readFileSync("public/home.html","utf8");
-const mascotAsset=fs.readFileSync("public/assets/thebe-mascot-original.png");
-assert.equal(createHash("sha256").update(mascotAsset).digest("hex"),"8348bf06b67c5cd4baa344fdd3644bbbee4545fc8c12ab79eac61be655670b36","marketing hero must retain the exact user-approved image bytes");
 const synthetic=fs.readFileSync("scripts/production-synthetic-full-user-wrapper.mjs","utf8");
 
 // Pass 1: every delegated workspace control resolves to an allowed runtime function.
@@ -50,7 +47,7 @@ assert.match(runtime,/recentlyRemovedEmployeeIds\.add\(String\(id\)\)/);
 assert.match(runtime,/activeAccess\.length===1/);
 assert.match(runtime,/await createEmployeeReportingLinkFromCard\(id\)/);
 
-// Pass 3: reporting reads get a bounded slow-path, location refresh is view-scoped, and hero never crops the original.
+// Pass 3: reporting reads get a bounded slow-path, location refresh is view-scoped, and hero keeps the restored original photo and remains mascot-free.
 assert.match(apiClient,/candidateTimeoutMs=IDEMPOTENT_TRANSPORT_CANDIDATE_MAX_MS/);
 assert.match(apiClient,/Number\(candidateTimeoutMs\)\|\|IDEMPOTENT_TRANSPORT_CANDIDATE_MAX_MS/);
 assert.match(runtime,/reportingAnalyticsApiClient=BW\.api\.createClient\([\s\S]*timeoutMs:90000,retries:2,candidateTimeoutMs:30000/);
@@ -63,23 +60,12 @@ assert.match(runtime,/Retry analytics/);
 assert.match(runtime,/if\(reportingSetupDetails&&!reportingSetupDetails\.open\)reportingSetupDetails\.open=true;/,"People reporting controls must not collapse during async refresh/navigation");
 assert.match(worker,/const \[locRes,accessRes,reportRes,prevRes,exceptionRes\]=await env\.DB\.batch\(\[/,"dashboard analytics must use one D1 batch round-trip");
 assert.match(home,/class="market-hero-photo" src="\/assets\/gaborone-entrepreneurs-v67\.webp"/,"public marketing hero must restore the original Botswana business photo");
-assert.match(home,/class="market-hero-mascot"/,"public marketing hero may keep one smaller supporting Thebe mascot");
-assert.match(html,/class="thebe-market-mascot"/,"app-entry marketing hero must ship the approved Thebe mascot");
-const publicMascotSize=home.match(/\.market-hero-mascot\{[^}]*width:clamp\((\d+)px,(\d+)vw,(\d+)px\)/);
-assert.ok(publicMascotSize&&Number(publicMascotSize[3])<=205,"public marketing mascot must remain subordinate to the restored photo");
-assert.match(home,/class="market-hero-mascot"[\s\S]*?src="\/assets\/thebe-mascot-original\.png"/,"public marketing mascot must use the approved original image");
-assert.match(html,/src="\/assets\/thebe-mascot-original\.png"/,"app-entry marketing mascot must use the approved external reference asset");
-assert.equal(mascotAsset.subarray(0,8).toString("hex"),"89504e470d0a1a0a","app-entry marketing mascot asset must preserve the approved square composition");
-assert.match(home,/class="market-hero-mascot"[\s\S]*?width="2048" height="2048"/,"public supporting mascot must preserve the original image dimensions");
-assert.match(html,/width="2048" height="2048"/,"app-entry mascot must preserve the original image dimensions");
-assert.match(home,/class="market-hero-mascot-blink left"/);
-assert.match(home,/class="market-hero-mascot-blink right"/);
-assert.match(home,/@keyframes thebe-market-mascot-blink/);
-assert.match(home,/prefers-reduced-motion:reduce[^{]*\{[^}]*market-hero-mascot/);
-assert.match(synthetic,/marketing hero composition/,"production browser lifecycle must prove restored-photo and supporting-mascot composition");
+assert.doesNotMatch(home,/market-hero-mascot|thebe-public-mascot|thebe-mascot-original\.png/,"public marketing hero must remain mascot-free");
+assert.doesNotMatch(html,/thebe-market-mascot|thebe-mascot-original\.png/,"app-entry marketing shell must remain mascot-free");
+assert.match(synthetic,/marketing hero composition/,"production browser lifecycle must prove restored-photo mascot-free composition");
 assert.match(synthetic,/gaborone-entrepreneurs-v67\.webp/,"production hero proof must verify the restored original photo");
-assert.match(synthetic,/mascotWidth<desktopHeroComposition\.photoWidth\*\.45/,"production browser lifecycle must keep the mascot subordinate to the photo");
+assert.match(synthetic,/mascotCount===0/,"production browser lifecycle must prove zero marketing mascot elements");
 assert.match(synthetic,/bottom marketing CTA text is not visibly contrasted/,"production browser lifecycle must reject an unreadable closing CTA");
 assert.match(synthetic,/setViewportSize\(\{width:390,height:844\}\)/,"production browser lifecycle must prove the marketing hero on a phone viewport");
 
-console.log("v113 workspace buttons, people visibility, reporting timeout and hero framing: 3-pass PASS");
+console.log("v113 workspace buttons, people visibility, reporting timeout and mascot-free hero framing: 3-pass PASS");
