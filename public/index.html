@@ -405,65 +405,6 @@ label{font-size:13px!important}.badge,.billingbadge,.recommended{font-size:11.5p
 
 }
 
-
-/* V188 Employee Directory — PeopleHub org-chart reference adapted to Thebe Desk's workspace system. */
-#employees{--employee-blue:#0b66d6;--employee-blue-soft:#eef5ff;--employee-ink:#18212b;--employee-muted:#657487;--employee-line:#dfe7f0}
-#employees .employee-directory-shell{display:flex;flex-direction:column;gap:16px}
-#employees .employee-directory-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:4px 2px 2px}
-#employees .employee-directory-hero h2{margin:3px 0 6px;font-size:28px;line-height:1.08;letter-spacing:-.035em;color:var(--employee-ink)}
-#employees .employee-directory-hero .muted{max-width:720px;line-height:1.55}
-#employees .employee-metric-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-#employees .employee-metric-card{display:grid;grid-template-columns:44px minmax(0,1fr);align-items:center;gap:12px;min-height:104px;padding:16px;border-color:var(--employee-line);box-shadow:0 10px 28px rgba(25,46,72,.055)}
-#employees .employee-metric-icon{width:44px;height:44px;display:grid;place-items:center;border:1px solid #cfe0f6;border-radius:13px;background:var(--employee-blue-soft);color:var(--employee-blue);font-size:10px;font-weight:850;letter-spacing:.08em}
-#employees .employee-metric-card .score{margin-top:2px;font-size:28px;color:#15202b}
-#employees .employee-directory-layout{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,.7fr);gap:16px;align-items:start}
-#employees .employee-register-panel,#employees .employee-add-panel{border-color:var(--employee-line);box-shadow:0 14px 34px rgba(25,46,72,.06)}
-#employees .employee-register-panel{padding:18px 18px 20px;overflow:hidden}
-#employees .employee-register-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding-bottom:15px;border-bottom:1px solid #e8eef5}
-#employees .employee-register-head h2,#employees .employee-add-head h2{margin:3px 0 0;font-size:19px;letter-spacing:-.02em;color:var(--employee-ink)}
-#employees .employee-reference-pill{flex:none;max-width:240px;padding:7px 10px;border:1px solid #d9e6f5;border-radius:999px;background:#f8fbff;color:#55708d;font-size:9.5px;font-weight:700;text-align:center}
-#employees .employee-org-guide{position:relative;display:flex;align-items:center;gap:12px;margin:16px 0 11px;padding:11px 13px;border:1px solid #dfe9f5;border-radius:14px;background:#f8fbff}
-#employees .employee-org-node{position:relative;width:34px;height:34px;flex:none;border:1px solid #b9d3f3;border-radius:50%;background:#fff;box-shadow:inset 0 0 0 9px #eaf3ff}
-#employees .employee-org-node:after{content:"";position:absolute;left:50%;top:33px;width:1px;height:22px;background:#c9d8ea}
-#employees .employee-register-list{position:relative;display:flex;flex-direction:column;gap:10px;padding-left:18px}
-#employees .employee-register-list:before{content:"";position:absolute;left:5px;top:0;bottom:12px;width:1px;background:#d7e2ef}
-#employees #employeeRegister>.item{position:relative;margin:0;padding:13px 14px;border:1px solid #dfe7f0;border-left:4px solid var(--employee-blue);border-radius:14px;background:#fff;box-shadow:0 6px 18px rgba(28,52,78,.045);transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
-#employees #employeeRegister>.item:before{content:"";position:absolute;left:-20px;top:24px;width:9px;height:9px;border:2px solid #fff;border-radius:50%;background:#65a5eb;box-shadow:0 0 0 1px #b9cde4}
-#employees #employeeRegister>.item:hover{transform:translateY(-1px);border-color:#c9d9eb;border-left-color:#0758b8;box-shadow:0 10px 26px rgba(28,52,78,.08)}
-#employees #employeeRegister>.item>.between.row{align-items:flex-start;gap:14px}
-#employees #employeeRegister>.item>.between.row>button:first-child{display:flex!important;flex-direction:column!important;justify-content:center!important;min-height:44px!important;padding-left:52px!important;position:relative!important;color:var(--employee-ink)!important}
-#employees #employeeRegister>.item>.between.row>button:first-child:before{content:"";position:absolute;left:0;top:50%;width:38px;height:38px;transform:translateY(-50%);border:1px solid #bfd6f1;border-radius:50%;background:#eef5ff;box-shadow:inset 0 0 0 10px #dcecff}
-#employees #employeeRegister>.item>.between.row>button:first-child b{font-size:14px;letter-spacing:-.01em}
-#employees #employeeRegister>.item .actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
-#employees #employeeRegister>.item .btn{min-height:32px;padding:6px 9px;border-radius:9px;font-size:10px}
-#employees #employeeRegister>.item .rulemeta{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px;padding-top:10px;border-top:1px solid #edf1f6}
-#employees #employeeRegister>.item .pill{border:1px solid #dde6f0;background:#f8fafc;color:#5c6c7c}
-#employees [id^="employeeReportingAccess_"]{padding-top:2px}
-#employees .employee-add-panel{position:sticky;top:88px;padding:18px;background:#fbfdff}
-#employees .employee-add-head{display:flex;align-items:center;gap:11px;padding-bottom:14px;border-bottom:1px solid #e4ebf3}
-#employees .employee-add-mark{width:38px;height:38px;display:grid;place-items:center;border-radius:12px;background:var(--employee-blue);color:#fff;font-size:22px;font-weight:500;box-shadow:0 8px 18px rgba(11,102,214,.16)}
-#employees .employee-add-form{margin-top:15px;gap:12px}
-#employees .employee-add-form label{font-size:10px;font-weight:750;color:#526174}
-#employees .employee-add-form input,#employees .employee-add-form select{background:#fff;border-color:#d7e2ee}
-#employees .employee-control-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-#employees .employee-add-button{width:100%;justify-content:center;min-height:44px;margin-top:1px}
-#employees .employee-data-note{display:grid;gap:3px;padding:11px 12px;border:1px solid #dde7f2;border-radius:12px;background:#f7fafc;color:#647386;font-size:9.5px;line-height:1.45}
-#employees .employee-data-note b{color:#39495b}
-body.thebe-ai-dock-open #employees .employee-directory-layout{grid-template-columns:1fr}
-body.thebe-ai-dock-open #employees .employee-add-panel{position:static}
-@media(max-width:980px){
-  #employees .employee-directory-layout{grid-template-columns:1fr}
-  #employees .employee-add-panel{position:static}
-}
-@media(max-width:760px){
-  #employees .employee-metric-grid{grid-template-columns:1fr}
-  #employees .employee-directory-hero,#employees .employee-register-head{flex-direction:column}
-  #employees .employee-reference-pill{max-width:none}
-  #employees .employee-control-pair{grid-template-columns:1fr}
-  #employees #employeeRegister>.item>.between.row{flex-direction:column}
-  #employees #employeeRegister>.item .actions{justify-content:flex-start;padding-left:52px}
-}
-
 </style>
 
 <style id="v17-behance-polish">
@@ -2518,6 +2459,7 @@ body.thebe-ai-dock-open .property-valuation-service-card .formgrid{grid-template
   .property-valuation-service-card>.between.row:first-child{align-items:flex-start;flex-direction:column}
 }
 </style>
+<link id="thebe-employee-directory-styles" rel="stylesheet" href="/assets/employee-directory-v188.css" />
 </head>
 <style id="thebe-market-photo-style">
 .marketingvisual.market-photo-visual:after{display:none}
