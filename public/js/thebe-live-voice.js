@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260929-geometry-v191";
+  const RELEASE="20260929-interaction-v192";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -552,7 +552,7 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260929-geometry-v191";
+  const DOCK_RELEASE="20260929-interaction-v192";
   const STORE_KEY="thebe_ai_dock_collapsed_v5";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
@@ -564,6 +564,15 @@
     return global.apiJson(url,options);
   };
   const clean=(value,max=600)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
+  const cleanMultiline=(value,max=3200)=>String(value??"")
+    .replace(/\r\n?/g,"\n")
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g," ")
+    .split("\n")
+    .map(line=>line.replace(/[\t ]+/g," ").trimEnd())
+    .join("\n")
+    .replace(/\n{3,}/g,"\n\n")
+    .trim()
+    .slice(0,max);
   const el=(tag,className,textValue)=>{
     const item=document.createElement(tag);
     if(className)item.className=className;
@@ -707,7 +716,7 @@
     dock.dataset.conversation="false";
     renderVoiceTranscript();
     responseMessage("Ready when you are. Ask about this screen, request a brief, or choose a priority action.");
-    if(input)input.value="";
+    if(input){input.value="";syncComposerHeight()}
     setMascotFocus("ambient");
     syncWorkspaceVisualInvariants();
   }
@@ -931,11 +940,32 @@
       transcriptBox.append(line);
     }
   }
+  function scrollResponseIntoView(){
+    const scroller=dock?.querySelector(".thebe-ai-dock-scroll");
+    if(!scroller||!responseBox)return;
+    global.requestAnimationFrame?.(()=>{
+      const scrollRect=scroller.getBoundingClientRect();
+      const responseRect=responseBox.getBoundingClientRect();
+      const target=Math.max(0,scroller.scrollTop+(responseRect.top-scrollRect.top)-10);
+      const reduced=global.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches===true;
+      try{scroller.scrollTo({top:target,behavior:reduced?"auto":"smooth"})}
+      catch{scroller.scrollTop=target}
+    });
+  }
+  function syncComposerHeight(){
+    if(!input)return;
+    input.style.height="auto";
+    const limit=mobileDockMode()?96:112;
+    const next=Math.min(Math.max(42,input.scrollHeight||42),limit);
+    input.style.height=next+"px";
+    input.style.overflowY=(input.scrollHeight||0)>limit?"auto":"hidden";
+  }
   function responseMessage(message,state="ready"){
     if(state==="thinking")setMascotState("thinking");
     else if(state==="error")setMascotState("error");
     if(!responseBox)return;
     responseBox.dataset.state=state;
+    responseBox.setAttribute("aria-busy",String(state==="thinking"));
     if(state!=="ready")lastAnswer="";
     responseBox.replaceChildren(el("div","thebe-ai-response-title",state==="thinking"?"Thebe is working":"Thebe"),el("div","thebe-ai-response-answer",message));
   }
@@ -944,9 +974,10 @@
     setMascotState("success");
     if(!responseBox)return;
     responseBox.dataset.state="ready";
+    responseBox.setAttribute("aria-busy","false");
     responseBox.replaceChildren();
     responseBox.append(el("div","thebe-ai-response-title",result?.generationMode==="workers_ai"?"Grounded workspace response":"Thebe workspace response"));
-    lastAnswer=clean(result?.answer||"No grounded answer was returned.",1800);
+    lastAnswer=cleanMultiline(result?.answer||"No grounded answer was returned.",3200);
     responseBox.append(el("div","thebe-ai-response-answer",lastAnswer));
     const actions=Array.isArray(result?.actions)?result.actions.slice(0,3):[];
     for(const action of actions){
@@ -979,6 +1010,7 @@
     open.addEventListener("click",()=>{openView("automationhub");if(mobileDockMode())setCollapsed(true)});
     tools.append(follow,copy,open);
     responseBox.append(tools);
+    scrollResponseIntoView();
   }
   function showPublicSignIn(message){
     responseMessage(message||"Sign in to use Thebe with your business workspace.");
@@ -1081,8 +1113,10 @@
       return;
     }
     textBusy=true;
+    dock.dataset.busy="true";
     if(sendButton)sendButton.disabled=true;
     responseMessage("Reviewing the current workspace and this screen…","thinking");
+    scrollResponseIntoView();
     try{
       const requestedMode=Object.prototype.hasOwnProperty.call(modeCopy,mode)?mode:assistantMode;
       const result=await api("/api/ai/advisor",{
@@ -1096,8 +1130,10 @@
         ?"AI credits or the configured cost cap do not allow this run."
         :clean(error?.message||"Thebe could not complete that workspace review.",320);
       responseMessage(message||"Thebe could not complete that workspace review.","error");
+      scrollResponseIntoView();
     }finally{
       textBusy=false;
+      dock.dataset.busy="false";
       if(sendButton)sendButton.disabled=false;
     }
   }
@@ -1121,7 +1157,7 @@
         if(question.length<3||surfaceMode()!=="public")return;
         if(mobileDockMode())setCollapsed(false);
         recoverVisibility();
-        if(input)input.value=question;
+        if(input){input.value=question;syncComposerHeight()}
         void ask("ask",question);
       });
     });
@@ -1257,7 +1293,7 @@
     quick.setAttribute("role","group");quick.setAttribute("aria-label","Suggested Thebe actions");
     renderQuickActions(surfaceMode());
 
-    responseBox=el("div","thebe-ai-response");responseBox.id="thebeAiDockResponse";responseBox.setAttribute("role","status");responseBox.setAttribute("aria-live","polite");responseMessage("Ready when you are. Ask about this screen, request a brief, or choose a priority action.");
+    responseBox=el("div","thebe-ai-response");responseBox.id="thebeAiDockResponse";responseBox.setAttribute("role","status");responseBox.setAttribute("aria-live","polite");responseBox.setAttribute("aria-busy","false");responseMessage("Ready when you are. Ask about this screen, request a brief, or choose a priority action.");
 
     scroll.append(contextBar,modeRail,voiceCard,quick,responseBox);
 
@@ -1268,7 +1304,8 @@
     composeBody.append(input,composeHint);
     sendButton=el("button","thebe-ai-send","↑");sendButton.type="submit";sendButton.setAttribute("aria-label","Send to Thebe");sendButton.title="Send to Thebe";
     compose.append(composeBody,sendButton);
-    compose.addEventListener("submit",event=>{event.preventDefault();const value=input.value;if(textBusy||clean(value,MAX_QUESTION).length<3)return;input.value="";void ask(assistantMode,value)});
+    compose.addEventListener("submit",event=>{event.preventDefault();const value=input.value;if(textBusy||clean(value,MAX_QUESTION).length<3)return;input.value="";syncComposerHeight();void ask(assistantMode,value)});
+    input.addEventListener("input",syncComposerHeight);
     input.addEventListener("focus",()=>setMascotFocus("compose"));
     input.addEventListener("blur",()=>setMascotFocus("ambient"));
     input.addEventListener("keydown",event=>{if(event.key==="Enter"&&!event.shiftKey&&!event.isComposing){event.preventDefault();compose.requestSubmit()}});
@@ -1372,14 +1409,16 @@
       responseBox?.replaceChildren();
       if(responseBox){
         responseBox.dataset.state="ready";
-        responseBox.append(el("div","thebe-ai-response-title","Approval required"),el("div","thebe-ai-response-answer",clean(result?.content||"The internal task draft was prepared for owner review.",800)));
+        responseBox.append(el("div","thebe-ai-response-title","Approval required"),el("div","thebe-ai-response-answer",cleanMultiline(result?.content||"The internal task draft was prepared for owner review.",1600)));
         const review=el("button","thebe-ai-open-full","Review approval controls →");review.type="button";
         review.addEventListener("click",()=>{openView("dashboard");setTimeout(()=>document.getElementById("ownerAgenticPanel")?.scrollIntoView({behavior:"smooth",block:"center"}),250);if(mobileDockMode())setCollapsed(true)});
         responseBox.append(review);
+        scrollResponseIntoView();
       }
     }else if(result?.content){
       setMascotState("success");
-      responseMessage(clean(result.content,1200));
+      responseMessage(cleanMultiline(result.content,2000));
+      scrollResponseIntoView();
     }
   });
   global.addEventListener("thebe-live-delegation-stale",event=>{
