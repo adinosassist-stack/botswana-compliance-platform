@@ -169,7 +169,7 @@ assert.match(dockCss,/--thebe-audio-ring/);
 assert.match(dockCss,/--thebe-audio-blur/);
 assert.match(dockCss,/thebe-ring-out/);
 assert.match(dockCss,/prefers-reduced-motion:reduce/);
-assert.match(dockCss,/body\.thebe-ai-dock-open/);
+assert.doesNotMatch(dockCss,/body\.thebe-ai-dock-open #appShell main\{padding-right:/,"floating workspace dock must not reserve or squeeze a legacy right-side lane");
 assert.doesNotMatch(dockCss,/gradient\(/,"Thebe dock must not render gradients");
 assert.match(dockCss,/\.thebe-particle\{fill:#fff/,"AURA wave particles remain monochrome");
 assert.match(dockCss,/top:72px;right:0;bottom:0;left:auto/);
