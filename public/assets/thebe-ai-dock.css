@@ -1465,6 +1465,7 @@
   box-shadow:inset 0 1px 0 rgba(255,255,255,.02);
   backdrop-filter:blur(12px);
 }
+/* V192 interaction polish — preserve readable answers, bounded composer growth and compact mobile command browsing without changing V191 geometry ownership. */
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-response-title{font-size:8px;color:#6f9fc7}
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-response-answer{
   white-space:pre-wrap;
