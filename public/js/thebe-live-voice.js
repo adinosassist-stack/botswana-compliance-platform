@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260929-polish-v189";
+  const RELEASE="20260929-canonical-v190";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -552,7 +552,7 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260929-polish-v189";
+  const DOCK_RELEASE="20260929-canonical-v190";
   const STORE_KEY="thebe_ai_dock_collapsed_v5";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
@@ -857,7 +857,7 @@
     pill.dataset.workspaceVisible=workspace?"1":"0";
     syncMascotContext();
     if(visible&&!isCollapsed)global.requestAnimationFrame?.(recoverDockPresentation);
-    if(attentionButton)attentionButton.hidden=!workspace;
+    if(attentionButton)syncAttention();
     const minimize=dock.querySelector(".thebe-ai-minimize");
     if(minimize)minimize.hidden=false;
     const presence=dock.querySelector(".thebe-ai-presence");
@@ -919,6 +919,7 @@
     const raw=clean(document.getElementById("navAlerts")?.textContent,20);
     const count=Math.max(0,Number.parseInt(raw||"0",10)||0);
     attentionButton.textContent=count?String(count):"";
+    attentionButton.hidden=surfaceMode()!=="workspace"||count===0;
     attentionButton.setAttribute("aria-label",count?`${count} work item${count===1?"":"s"} need attention`:"No urgent work items");
     if(count)pill.dataset.attention=String(count);else delete pill.dataset.attention;
     if(mascot)mascot.dataset.attention=count?"true":"false";
@@ -1162,7 +1163,7 @@
 
     const headActions=el("div","thebe-ai-head-actions");
     clearButton=el("button","thebe-ai-icon-btn thebe-ai-clear","×");
-    clearButton.type="button";clearButton.setAttribute("aria-label","Clear Thebe conversation");
+    clearButton.type="button";clearButton.setAttribute("aria-label","Clear Thebe conversation");clearButton.title="Clear conversation";
     clearButton.addEventListener("click",clearConversation);
     attentionButton=el("button","thebe-ai-attention","");
     attentionButton.type="button";
@@ -1172,15 +1173,16 @@
     attentionButton.addEventListener("pointerleave",()=>{if(document.activeElement!==attentionButton)setMascotFocus("ambient")});
     attentionButton.addEventListener("click",()=>{openView("workhub");if(mobileDockMode())setCollapsed(true)});
     const minimize=el("button","thebe-ai-icon-btn thebe-ai-minimize","—");
-    minimize.type="button";minimize.setAttribute("aria-label","Minimise Thebe dock");
+    minimize.type="button";minimize.setAttribute("aria-label","Minimise Thebe dock");minimize.title="Minimise Thebe";
     minimize.addEventListener("click",()=>setCollapsed(true));
     const expand=el("button","thebe-ai-icon-btn thebe-ai-expand","⤢");
-    expand.type="button";expand.setAttribute("aria-label","Expand Thebe panel");expand.setAttribute("aria-pressed","false");
+    expand.type="button";expand.setAttribute("aria-label","Expand Thebe panel");expand.setAttribute("aria-pressed","false");expand.title="Expand Thebe";
     expand.addEventListener("click",()=>{
       const expanded=dock.dataset.expanded!=="true";
       dock.dataset.expanded=String(expanded);
       expand.setAttribute("aria-pressed",String(expanded));
       expand.setAttribute("aria-label",expanded?"Restore Thebe panel width":"Expand Thebe panel");
+      expand.title=expanded?"Restore Thebe width":"Expand Thebe";
       syncVisibility();
     });
     headActions.append(attentionButton,clearButton,expand,minimize);head.append(title,headActions);
@@ -1192,12 +1194,12 @@
     contextLabel=el("strong","thebe-ai-context-label","Workspace");
     contextLead.append(contextLabel);
     const explainContext=el("button","thebe-ai-context-action","Review screen");
-    explainContext.type="button";
+    explainContext.type="button";explainContext.title="Review the current workspace screen";
     explainContext.addEventListener("click",()=>void ask("ask","Review the current screen. Explain what matters, what needs attention, and the most useful next step."));
     contextBar.append(contextLead,explainContext);
 
     modeRail=el("div","thebe-ai-mode-rail");
-    modeRail.setAttribute("aria-label","Thebe response mode");
+    modeRail.setAttribute("aria-label","Thebe response mode");modeRail.setAttribute("role","group");
     for(const [mode,meta] of Object.entries(modeCopy)){
       const button=el("button","thebe-ai-mode-button",meta.label);
       button.type="button";
@@ -1267,6 +1269,7 @@
     voiceCard.append(el("div","thebe-ai-eyebrow","LIVE VOICE"),orbButton,voiceLabel,voiceSub,missionRail,voiceMount,transcriptBox);
 
     quick=el("div","thebe-ai-quick");
+    quick.setAttribute("role","group");quick.setAttribute("aria-label","Suggested Thebe actions");
     renderQuickActions(surfaceMode());
 
     responseBox=el("div","thebe-ai-response");responseBox.id="thebeAiDockResponse";responseBox.setAttribute("role","status");responseBox.setAttribute("aria-live","polite");responseMessage("Ready when you are. Ask about this screen, request a brief, or choose a priority action.");
@@ -1278,7 +1281,7 @@
     input=document.createElement("textarea");input.id="thebeAiDockInput";input.maxLength=MAX_QUESTION;input.rows=1;input.placeholder=modeCopy[assistantMode].placeholder;input.setAttribute("aria-label","Ask Thebe anything");
     const composeHint=el("div","thebe-ai-compose-hint","Enter to send · Shift+Enter for a new line · Alt+T opens Thebe");
     composeBody.append(input,composeHint);
-    sendButton=el("button","thebe-ai-send","↑");sendButton.type="submit";sendButton.setAttribute("aria-label","Send to Thebe");
+    sendButton=el("button","thebe-ai-send","↑");sendButton.type="submit";sendButton.setAttribute("aria-label","Send to Thebe");sendButton.title="Send to Thebe";
     compose.append(composeBody,sendButton);
     compose.addEventListener("submit",event=>{event.preventDefault();const value=input.value;if(textBusy||clean(value,MAX_QUESTION).length<3)return;input.value="";void ask(assistantMode,value)});
     input.addEventListener("focus",()=>setMascotFocus("compose"));
