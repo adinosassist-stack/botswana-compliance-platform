@@ -1460,6 +1460,13 @@
   backdrop-filter:blur(12px);
 }
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-response-title{font-size:8px;color:#6f9fc7}
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-live-transcript{
+  max-height:116px;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+  touch-action:pan-y;
+}
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-response[data-long="true"] .thebe-ai-response-answer{
   max-height:min(260px,32dvh);
   overflow-y:auto;
@@ -1623,6 +1630,20 @@
   .thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-button{min-height:46px;padding:8px 8px 8px 12px}
   .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick{grid-template-columns:1fr}
   .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button{min-height:56px;padding:10px 34px 9px 10px}
+  .thebe-ai-dock[data-surface="workspace"][data-conversation="true"] .thebe-ai-quick{
+    display:flex;
+    gap:8px;
+    overflow-x:auto;
+    overflow-y:hidden;
+    padding-bottom:2px;
+    scroll-snap-type:x proximity;
+    scrollbar-width:thin;
+  }
+  .thebe-ai-dock[data-surface="workspace"][data-conversation="true"] .thebe-ai-quick button{
+    flex:0 0 min(66vw,210px);
+    min-height:44px;
+    scroll-snap-align:start;
+  }
   .thebe-ai-dock[data-surface="workspace"] .thebe-ai-compose{margin:0 12px 10px!important}
   .thebe-ai-dock[data-surface="workspace"] .thebe-ai-response[data-long="true"] .thebe-ai-response-answer{
     max-height:min(210px,30dvh);
