@@ -1477,3 +1477,56 @@
 @media(prefers-reduced-motion:reduce){
   .thebe-ai-mission-segment{transition:none!important}
 }
+
+
+/* V180 original-art mascot — the AI dock renders the approved source artwork, while the SVG remains a non-visual compatibility/state layer. */
+.thebe-mascot{
+  inset:-18%;
+  filter:drop-shadow(0 8px 13px rgba(3,25,52,.24));
+}
+.thebe-mascot-image{
+  position:absolute;
+  inset:0;
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  object-position:center;
+  pointer-events:none;
+  user-select:none;
+}
+.thebe-mascot-svg{
+  position:absolute;
+  inset:0;
+  opacity:0;
+  pointer-events:none;
+}
+.thebe-mascot-image-blink{
+  position:absolute;
+  z-index:2;
+  top:26.1%;
+  width:7%;
+  height:5%;
+  border-radius:48%;
+  background:#15364a;
+  transform:scaleY(0);
+  transform-origin:50% 8%;
+  animation:thebe-mascot-image-blink-v180 6.8s ease-in-out infinite;
+  pointer-events:none;
+}
+.thebe-mascot-image-blink.left{left:37.1%}
+.thebe-mascot-image-blink.right{left:55.9%}
+@keyframes thebe-mascot-image-blink-v180{
+  0%,41%,44%,100%{transform:scaleY(0)}
+  42.3%,42.9%{transform:scaleY(1)}
+}
+.thebe-ai-dock[data-surface="public"] .thebe-mascot{inset:-22%}
+.thebe-ai-dock[data-surface="workspace"] .thebe-mascot{inset:-20%}
+.thebe-ai-dock[data-surface="workspace"][data-conversation="true"] .thebe-mascot{inset:-16%}
+.thebe-mascot[data-state="acting"]{filter:drop-shadow(0 8px 13px rgba(3,25,52,.24)) drop-shadow(0 0 12px rgba(226,70,79,.42))}
+.thebe-mascot[data-state="approval"]{filter:drop-shadow(0 8px 13px rgba(3,25,52,.24)) drop-shadow(0 0 12px rgba(255,182,72,.42))}
+.thebe-mascot[data-state="success"]{filter:drop-shadow(0 8px 13px rgba(3,25,52,.24)) drop-shadow(0 0 12px rgba(131,231,184,.48))}
+.thebe-mascot[data-state="error"]{filter:drop-shadow(0 8px 13px rgba(3,25,52,.24)) drop-shadow(0 0 12px rgba(255,98,104,.48))}
+@media(prefers-reduced-motion:reduce){
+  .thebe-mascot-image-blink{animation:none!important}
+}
