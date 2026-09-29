@@ -42,7 +42,7 @@ assert(runtime.includes('function recoverDockPresentation()'),'V191 must carry a
 assert(runtime.includes('computed.flexDirection===\"column\"')&&runtime.includes('scrollComputed?.flexDirection===\"column\"'),'V188 recovery health must reject the sideways row-layout failure');
 assert(runtime.includes('\"flex-direction\":\"column\"')&&runtime.includes('\"width\":\"100%\"'),'V188 runtime recovery must rebuild a vertical full-width dock when CSS is unavailable');
 assert(runtime.includes('function workspaceDockLeftPx()'),'V191 must resolve the dock against the workspace content edge instead of covering the sidebar');
-assert(runtime.includes('dock.style.setProperty("left",workspaceDockLeftPx()+"px","important")'),'V191 must runtime-pin the desktop dock to the resolved workspace lower-left position');
+assert(runtime.includes('?{"left":workspaceDockLeftPx()+"px"'),'V191 emergency recovery must still restore the resolved workspace lower-left position');
 assert(runtime.includes('pill.style.setProperty("display",visible&&isCollapsed?"inline-flex":"none","important")'),'V191 must make desktop minimise/reopen usable without depending on stylesheet state');
 assert(runtime.includes('const STORE_KEY="thebe_ai_dock_collapsed_v5";'),'V191 must not inherit the pre-floating collapse preference');
 const dockCss=fs.readFileSync(new URL('../public/assets/thebe-ai-dock.css',import.meta.url),'utf8');
