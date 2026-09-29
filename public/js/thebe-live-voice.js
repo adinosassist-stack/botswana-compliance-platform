@@ -564,6 +564,15 @@
     return global.apiJson(url,options);
   };
   const clean=(value,max=600)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
+  const cleanMultiline=(value,max=3200)=>String(value??"")
+    .replace(/\r\n?/g,"\n")
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g," ")
+    .split("\n")
+    .map(line=>line.replace(/[\t ]+/g," ").trimEnd())
+    .join("\n")
+    .replace(/\n{3,}/g,"\n\n")
+    .trim()
+    .slice(0,max);
   const el=(tag,className,textValue)=>{
     const item=document.createElement(tag);
     if(className)item.className=className;
@@ -595,6 +604,14 @@
     const ready=clean(input?.value||"",MAX_QUESTION).length>=3;
     sendButton.disabled=textBusy||!ready;
     sendButton.setAttribute("aria-disabled",String(sendButton.disabled));
+  }
+  function syncBusyControls(){
+    if(dock)dock.dataset.busy=String(textBusy);
+    quick?.querySelectorAll("button").forEach(button=>{button.disabled=textBusy});
+    modeRail?.querySelectorAll("button").forEach(button=>{button.disabled=textBusy});
+    const contextAction=contextBar?.querySelector(".thebe-ai-context-action");
+    if(contextAction)contextAction.disabled=textBusy;
+    syncComposerState();
   }
   function resetComposer(){
     if(input)input.value="";
@@ -995,6 +1012,7 @@
     else if(state==="error")setMascotState("error");
     if(!responseBox)return;
     responseBox.dataset.state=state;
+    responseBox.setAttribute("aria-busy",String(state==="thinking"));
     if(state!=="ready")lastAnswer="";
     responseBox.replaceChildren(el("div","thebe-ai-response-title",state==="thinking"?"Thebe is working":"Thebe"),responseAnswer(message));
   }
@@ -1003,9 +1021,10 @@
     setMascotState("success");
     if(!responseBox)return;
     responseBox.dataset.state="ready";
+    responseBox.setAttribute("aria-busy","false");
     responseBox.replaceChildren();
     responseBox.append(el("div","thebe-ai-response-title",result?.generationMode==="workers_ai"?"Grounded workspace response":"Thebe workspace response"));
-    lastAnswer=clean(result?.answer||"No grounded answer was returned.",1800);
+    lastAnswer=cleanMultiline(result?.answer||"No grounded answer was returned.",3200);
     responseBox.append(responseAnswer(lastAnswer));
     const actions=Array.isArray(result?.actions)?result.actions.slice(0,3):[];
     for(const action of actions){
@@ -1142,7 +1161,7 @@
     }
     textBusy=true;
     autoFollowResponse=true;
-    syncComposerState();
+    syncBusyControls();
     responseMessage("Reviewing the current workspace and this screen…","thinking");
     revealResponse(true);
     try{
@@ -1161,12 +1180,13 @@
       revealResponse();
     }finally{
       textBusy=false;
-      syncComposerState();
+      syncBusyControls();
     }
   }
   function quickButton(label,detail,mode,question){
     const button=el("button","",label);
     button.type="button";
+    button.disabled=textBusy;
     if(detail)button.append(el("small","",detail));
     button.addEventListener("focus",()=>setMascotFocus("commands"));
     button.addEventListener("blur",()=>setMascotFocus("ambient"));
@@ -1328,7 +1348,7 @@
     quick.setAttribute("role","group");quick.setAttribute("aria-label","Suggested Thebe actions");
     renderQuickActions(surfaceMode());
 
-    responseBox=el("div","thebe-ai-response");responseBox.id="thebeAiDockResponse";responseBox.setAttribute("role","status");responseBox.setAttribute("aria-live","polite");responseMessage("Ready when you are. Ask about this screen, request a brief, or choose a priority action.");
+    responseBox=el("div","thebe-ai-response");responseBox.id="thebeAiDockResponse";responseBox.setAttribute("role","status");responseBox.setAttribute("aria-live","polite");responseBox.setAttribute("aria-busy","false");responseMessage("Ready when you are. Ask about this screen, request a brief, or choose a priority action.");
 
     scroll.append(contextBar,modeRail,voiceCard,quick,responseBox);
 
