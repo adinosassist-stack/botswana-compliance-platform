@@ -2459,6 +2459,7 @@ body.thebe-ai-dock-open .property-valuation-service-card .formgrid{grid-template
   .property-valuation-service-card>.between.row:first-child{align-items:flex-start;flex-direction:column}
 }
 </style>
+<link id="thebe-employee-directory-styles" rel="stylesheet" href="/assets/employee-directory-v188.css" />
 </head>
 <style id="thebe-market-photo-style">
 .marketingvisual.market-photo-visual:after{display:none}
@@ -3221,28 +3222,64 @@ body.thebe-ai-dock-open .property-valuation-service-card .formgrid{grid-template
 
 
   <section id="employees" class="view">
-    <div class="grid g3">
-      <div class="card"><div class="kpi">Employee records</div><div class="score" id="empRecordsCount">0</div></div>
-      <div class="card"><div class="kpi">Contract coverage</div><div class="score" id="contractCoverage">0%</div></div>
-      <div class="card"><div class="kpi">Asset acknowledgement</div><div class="score" id="assetCoverage">0%</div></div>
-    </div>
-    <div class="grid g2" style="margin-top:16px">
-      <div class="card">
-        <h2>Employee register</h2>
-        <div id="employeeRegister"></div>
+    <div class="employee-directory-shell">
+      <div class="employee-directory-hero">
+        <div>
+          <div class="section-eyebrow">People directory</div>
+          <h2>Employees</h2>
+          <div class="muted">A clear team register for employment controls and reporting access. Open an employee card to manage their reporting link.</div>
+        </div>
+        <span class="badge info">Team records</span>
       </div>
-      <div class="card">
-        <h2>Add employee record</h2>
-        <div class="stack">
-          <div><label for="eName">Employee name / reference</label><input id="eName" placeholder="Employee name"></div>
-          <div class="formgrid">
+
+      <div class="employee-metric-grid">
+        <div class="card employee-metric-card">
+          <div class="employee-metric-icon" aria-hidden="true">01</div>
+          <div><div class="kpi">Active employees</div><div class="score" id="empRecordsCount">0</div><div class="muted small">Current team records</div></div>
+        </div>
+        <div class="card employee-metric-card">
+          <div class="employee-metric-icon" aria-hidden="true">02</div>
+          <div><div class="kpi">Contract coverage</div><div class="score" id="contractCoverage">0%</div><div class="muted small">Signed contract controls</div></div>
+        </div>
+        <div class="card employee-metric-card">
+          <div class="employee-metric-icon" aria-hidden="true">03</div>
+          <div><div class="kpi">Asset acknowledgement</div><div class="score" id="assetCoverage">0%</div><div class="muted small">Recorded asset forms</div></div>
+        </div>
+      </div>
+
+      <div class="employee-directory-layout">
+        <div class="card employee-register-panel">
+          <div class="employee-register-head">
+            <div>
+              <div class="section-eyebrow">Team structure</div>
+              <h2>Employee directory</h2>
+              <div class="muted small">Each card keeps the employee, their core controls and reporting access together.</div>
+            </div>
+            <span class="employee-reference-pill">Select a person to open reporting access</span>
+          </div>
+          <div class="employee-org-guide">
+            <span class="employee-org-node" aria-hidden="true"></span>
+            <div><b>Active team</b><div class="muted small">Directory records are ordered by employee name. Reporting access expands inside the selected card.</div></div>
+          </div>
+          <div id="employeeRegister" class="employee-register-list"></div>
+        </div>
+
+        <div class="card employee-add-panel">
+          <div class="employee-add-head">
+            <div class="employee-add-mark" aria-hidden="true">+</div>
+            <div><div class="section-eyebrow">New team member</div><h2>Add employee</h2></div>
+          </div>
+          <div class="stack employee-add-form">
+            <div><label for="eName">Employee name / reference</label><input id="eName" placeholder="Employee name"></div>
             <div><label for="eRole">Role</label><input id="eRole" placeholder="Job title"></div>
             <div><label for="eStart">Start date</label><input id="eStart" type="date"></div>
-            <div><label for="eContract">Contract signed?</label><select id="eContract"><option value="true">Yes</option><option value="false">No</option></select></div>
-            <div><label for="eAsset">Asset acknowledgement?</label><select id="eAsset"><option value="true">Yes</option><option value="false">No</option></select></div>
+            <div class="employee-control-pair">
+              <div><label for="eContract">Contract signed?</label><select id="eContract"><option value="true">Yes</option><option value="false">No</option></select></div>
+              <div><label for="eAsset">Asset acknowledgement?</label><select id="eAsset"><option value="true">Yes</option><option value="false">No</option></select></div>
+            </div>
+            <button type="button" class="btn employee-add-button" data-bw-onclick="addEmployeeRecord()">Add employee</button>
+            <div class="employee-data-note"><b>Keep this register work-only.</b><span>Use only the information needed for employment administration. Do not add medical, banking or identity-document details here.</span></div>
           </div>
-          <button type="button" class="btn" data-bw-onclick="addEmployeeRecord()">Add employee</button>
-          <div class="muted small">Employee records are saved to this workspace and are used by reporting and employment controls. Enter only information needed for work administration; do not enter medical, banking or identity-document details here.</div>
         </div>
       </div>
     </div>
@@ -8294,7 +8331,7 @@ function leavePublicPassport(){document.getElementById("publicPassportGate")?.cl
 
 
 const WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT=12;
-const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20260923f-";
+const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20260929g-";
 const workspaceViewShardPromises=new Map();
 let workspaceViewNavigationEpoch=0;
 function workspaceViewShard(id){

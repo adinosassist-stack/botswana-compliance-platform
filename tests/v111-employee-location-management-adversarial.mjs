@@ -7,7 +7,7 @@ const html=fs.readFileSync("public/index.html","utf8");
 const migration=fs.readFileSync("cloudflare/migrations/015_v73_daily_operations_reporting.sql","utf8");
 const synthetic=fs.readFileSync("scripts/production-synthetic-full-user-wrapper.mjs","utf8");
 const delegatedEvents=fs.readFileSync("public/js/event-delegation.js","utf8");
-const workspaceRuntime=fs.readFileSync("public/js/workspace-runtime-20260926b.js","utf8");
+const workspaceRuntime=fs.readFileSync("public/js/workspace-runtime-20260929c.js","utf8");
 
 for(const path of ["cloudflare/src/worker.js"]){
   const r=spawnSync(process.execPath,["--check",path],{encoding:"utf8"});
