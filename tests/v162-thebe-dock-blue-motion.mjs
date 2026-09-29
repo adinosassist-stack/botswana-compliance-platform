@@ -24,7 +24,7 @@ assert.match(home,/\.cta-box \.btn\.secondary\{[\s\S]*?color:#0f172a/,'closing w
 assert.doesNotMatch(dockJs,/mascotImage\.src="\/assets\/thebe-mascot-original\.png"/,'Talk to Thebe dock must not create or load mascot artwork');
 assert.doesNotMatch(dockJs,/viewBox:"0 0 1000 1000"/,'Talk to Thebe dock must not construct the legacy mascot SVG');
 assert.match(dockJs,/mascot=null;[\s\S]*?orb\.append\(wave,core\)/,'Talk to Thebe must retain the voice field without a mascot');
-assert.match(css,/\.thebe-particle-core::before\{[\s\S]*?thebe-desk-logo-symbol\.png/,'character-free voice field must retain a restrained Thebe symbol');
+assert.doesNotMatch(css,/\.thebe-particle-core::before\{[\s\S]*?thebe-desk-logo-symbol\.png/,'Talk to Thebe must not add a decorative mascot symbol');
 
 assert.match(css,/\.thebe-ai-mission-track\{[\s\S]*?grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/,'V172 mission rail must expose four governed progress stages');
 assert.match(css,/data-tone="review"[\s\S]*?background:#ffb648/,'owner review stage must use restrained amber');
