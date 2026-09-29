@@ -95,7 +95,7 @@ ok(personalizationJs.includes('revenueText.includes("needs more reporting histor
 ok(!personalizationJs.includes('/api/state') && !personalizationJs.includes('fetch(') && !personalizationJs.includes('localStorage'),'personalization does not create a second data-write path, direct network transport or persistent profiling store');
 ok(personalizationCss.includes('background:var(--ws-accent-soft)') && personalizationCss.includes('color:var(--ws-accent-strong)') && !personalizationCss.includes('#176b4f') && !personalizationCss.includes('#111713'),'personalization preserves the live blue/white workspace brand');
 ok(personalizationCss.includes('.executive-personalized #ownerActionPanel .owner-action-list>.owner-action:first-child') && personalizationCss.includes('.owner-action-panel-exhausted'),'promoted top priority is not duplicated in the remaining recommendation list');
-ok(productionEntry.includes('OWNER_COMMAND_CENTRE_RELEASE="20260929-v180"') && productionEntry.includes('EXECUTIVE_PERSONALIZATION_RELEASE="20260929-v180"'),'production entry rotates the owner-brief and personalization cache versions together');
+ok(productionEntry.includes('OWNER_COMMAND_CENTRE_RELEASE="20260929-v185"') && productionEntry.includes('EXECUTIVE_PERSONALIZATION_RELEASE="20260929-v185"'),'production entry rotates the owner-brief and personalization cache versions together');
 ok(productionEntry.includes('/assets/executive-personalization.css') && productionEntry.includes('/js/executive-personalization.js') && productionEntry.includes('x-thebe-executive-personalization'),'production HTML injects and identifies the personalization assets');
 
 // Business data bridge must make real SME data easier to ingest without bypassing tenant state, role or provenance controls.
