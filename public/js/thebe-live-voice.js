@@ -557,7 +557,7 @@
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
   let dock=null,pill=null,pillLabel=null,orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,scrollRegion=null,input=null,sendButton=null,attentionButton=null,quick=null,foot=null,mascot=null,missionRail=null,missionLabel=null,missionMeta=null,contextBar=null,contextLabel=null,modeRail=null,clearButton=null;
-  let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",mascotState="idle",mascotContext="general",mascotFocus="ambient",ownerCommandState=null,collapsed=false,assistantMode="ask",lastAnswer="";
+  let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",mascotState="idle",mascotContext="general",mascotFocus="ambient",ownerCommandState=null,collapsed=false,assistantMode="ask",lastAnswer="",autoFollowResponse=true,responseScrollLock=false;
 
   const api=(url,options={})=>{
     if(typeof global.apiJson!=="function")throw new Error("The secure Thebe API transport is not available.");
@@ -601,13 +601,23 @@
     syncComposerHeight();
     syncComposerState();
   }
-  function revealResponse(){
-    if(!scrollRegion||!responseBox||dock?.hidden)return;
+  function syncResponseFollowState(){
+    if(!scrollRegion||responseScrollLock)return;
+    const remaining=Math.max(0,scrollRegion.scrollHeight-scrollRegion.scrollTop-scrollRegion.clientHeight);
+    autoFollowResponse=remaining<=96;
+  }
+  function revealResponse(force=false){
+    if(!scrollRegion||!responseBox||dock?.hidden||(!force&&!autoFollowResponse))return;
+    responseScrollLock=true;
     global.requestAnimationFrame?.(()=>{
-      const top=Math.max(0,(responseBox.offsetTop||0)-12);
+      const top=Math.max(0,scrollRegion.scrollHeight-scrollRegion.clientHeight);
       const behavior=prefersReducedMotion()?"auto":"smooth";
       if(typeof scrollRegion.scrollTo==="function")scrollRegion.scrollTo({top,behavior});
       else scrollRegion.scrollTop=top;
+      global.setTimeout(()=>{
+        responseScrollLock=false;
+        syncResponseFollowState();
+      },behavior==="smooth"?360:0);
     });
   }
   function responseAnswer(message){
@@ -751,6 +761,7 @@
     renderVoiceTranscript();
     responseMessage("Ready when you are. Ask about this screen, request a brief, or choose a priority action.");
     resetComposer();
+    autoFollowResponse=true;
     setMascotFocus("ambient");
     syncWorkspaceVisualInvariants();
     if(scrollRegion){
@@ -977,6 +988,7 @@
       line.append(label,document.createTextNode(assistant));
       transcriptBox.append(line);
     }
+    global.requestAnimationFrame?.(()=>{transcriptBox.scrollTop=transcriptBox.scrollHeight});
   }
   function responseMessage(message,state="ready"){
     if(state==="thinking")setMascotState("thinking");
@@ -1129,9 +1141,10 @@
       return;
     }
     textBusy=true;
+    autoFollowResponse=true;
     syncComposerState();
     responseMessage("Reviewing the current workspace and this screen…","thinking");
-    revealResponse();
+    revealResponse(true);
     try{
       const requestedMode=Object.prototype.hasOwnProperty.call(modeCopy,mode)?mode:assistantMode;
       const result=await api("/api/ai/advisor",{
@@ -1228,6 +1241,9 @@
 
     const scroll=el("div","thebe-ai-dock-scroll");
     scrollRegion=scroll;
+    scrollRegion.addEventListener("scroll",syncResponseFollowState,{passive:true});
+    scrollRegion.addEventListener("wheel",()=>{if(!responseScrollLock)syncResponseFollowState()},{passive:true});
+    scrollRegion.addEventListener("touchmove",()=>{if(!responseScrollLock)syncResponseFollowState()},{passive:true});
     contextBar=el("div","thebe-ai-context-bar");
     const contextLead=el("div","thebe-ai-context-lead");
     contextLead.append(el("span","thebe-ai-context-dot"),el("span","thebe-ai-context-kicker","Working in"));
