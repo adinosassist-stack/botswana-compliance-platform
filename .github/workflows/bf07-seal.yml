@@ -176,6 +176,23 @@ jobs:
             RECOVERY_PAGE_1="$recovery_page_1" RECOVERY_PAGE_2="$recovery_page_2" python3 -c 'import json,os; p1=json.load(open(os.environ["RECOVERY_PAGE_1"])); p2=json.load(open(os.environ["RECOVERY_PAGE_2"])); runs=p1.get("workflow_runs",[])+p2.get("workflow_runs",[]); print(json.dumps({"workflow_runs":runs},separators=(",",":")))'
           }
 
+          fetch_workflow_runs(){
+            local workflow="$1"
+            local workflow_page_1="$RUNNER_TEMP/bf07-workflow-runs-page-1.json"
+            local workflow_page_2="$RUNNER_TEMP/bf07-workflow-runs-page-2.json"
+            curl --fail-with-body --silent --show-error \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/runs?branch=main&per_page=100&page=1" >"$workflow_page_1"
+            curl --fail-with-body --silent --show-error \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/runs?branch=main&per_page=100&page=2" >"$workflow_page_2"
+            WORKFLOW_PAGE_1="$workflow_page_1" WORKFLOW_PAGE_2="$workflow_page_2" python3 -c 'import json,os; p1=json.load(open(os.environ["WORKFLOW_PAGE_1"])); p2=json.load(open(os.environ["WORKFLOW_PAGE_2"])); runs=p1.get("workflow_runs",[])+p2.get("workflow_runs",[]); print(json.dumps({"workflow_runs":runs},separators=(",",":")))'
+          }
+
           recovery_json=''
           recovery_confirmed=0
           for attempt in $(seq 1 37); do
@@ -205,13 +222,7 @@ jobs:
           done
           [[ "$recovery_confirmed" == '1' ]] || { echo 'release merge has no successful completed Recovery CI run on main after bounded wait' >&2; exit 1; }
 
-          prior_launch_audit_json="$(
-            curl --fail-with-body --silent --show-error \
-              --header 'Accept: application/vnd.github+json' \
-              --header "Authorization: Bearer $GH_TOKEN" \
-              --header 'X-GitHub-Api-Version: 2022-11-28' \
-              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/production-launch-audit.yml/runs?branch=main&per_page=100"
-          )"
+          prior_launch_audit_json="$(fetch_workflow_runs production-launch-audit.yml)"
           previous_release_sha=''
           while IFS= read -r candidate_sha; do
             [[ "$candidate_sha" =~ ^[0-9a-f]{40}$ ]] || continue
@@ -225,31 +236,13 @@ jobs:
           [[ "$previous_release_sha" =~ ^[0-9a-f]{40}$ ]] || { echo 'no prior successful automatic production release audit found on the current first-parent ancestry' >&2; exit 1; }
           echo "Prior closed production release resolved: ${previous_release_sha:0:12}"
 
-          prior_bf07_json="$(
-            curl --fail-with-body --silent --show-error \
-              --header 'Accept: application/vnd.github+json' \
-              --header "Authorization: Bearer $GH_TOKEN" \
-              --header 'X-GitHub-Api-Version: 2022-11-28' \
-              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/bf07-seal.yml/runs?branch=main&per_page=100"
-          )"
+          prior_bf07_json="$(fetch_workflow_runs bf07-seal.yml)"
           printf '%s' "$prior_bf07_json" | PREVIOUS_RELEASE_SHA="$previous_release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["PREVIOUS_RELEASE_SHA"]; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("status")=="completed" and run.get("conclusion")=="success"),None); match or sys.exit("prior closed release has no successful BF-07 seal on main"); print("Prior BF-07 release baseline confirmed: run {}".format(match.get("id")))'
 
-          prior_deploy_json="$(
-            curl --fail-with-body --silent --show-error \
-              --header 'Accept: application/vnd.github+json' \
-              --header "Authorization: Bearer $GH_TOKEN" \
-              --header 'X-GitHub-Api-Version: 2022-11-28' \
-              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/deploy-production.yml/runs?branch=main&per_page=100"
-          )"
+          prior_deploy_json="$(fetch_workflow_runs deploy-production.yml)"
           printf '%s' "$prior_deploy_json" | PREVIOUS_RELEASE_SHA="$previous_release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["PREVIOUS_RELEASE_SHA"]; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("event")=="workflow_run" and run.get("status")=="completed" and run.get("conclusion")=="success"),None); match or sys.exit("prior closed release has no successful automatic production deployment on main"); print("Prior production release baseline confirmed: run {}".format(match.get("id")))'
 
-          prior_smoke_json="$(
-            curl --fail-with-body --silent --show-error \
-              --header 'Accept: application/vnd.github+json' \
-              --header "Authorization: Bearer $GH_TOKEN" \
-              --header 'X-GitHub-Api-Version: 2022-11-28' \
-              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/postdeploy-smoke.yml/runs?branch=main&per_page=100"
-          )"
+          prior_smoke_json="$(fetch_workflow_runs postdeploy-smoke.yml)"
           printf '%s' "$prior_smoke_json" | PREVIOUS_RELEASE_SHA="$previous_release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["PREVIOUS_RELEASE_SHA"]; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("event")=="workflow_run" and run.get("status")=="completed" and run.get("conclusion")=="success"),None); match or sys.exit("prior closed release has no successful automatic post-deploy smoke on main"); print("Prior post-deploy smoke release baseline confirmed: run {}".format(match.get("id")))'
 
           printf '%s' "$prior_launch_audit_json" | PREVIOUS_RELEASE_SHA="$previous_release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["PREVIOUS_RELEASE_SHA"]; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("event")=="workflow_run" and run.get("status")=="completed" and run.get("conclusion")=="success"),None); match or sys.exit("prior closed release has no successful automatic Phase 0 launch audit on main"); print("Prior Phase 0 launch-audit release baseline confirmed: run {}".format(match.get("id")))'
