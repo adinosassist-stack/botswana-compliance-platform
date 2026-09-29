@@ -1714,3 +1714,41 @@
     box-shadow:0 8px 20px rgba(1,12,26,.18);
   }
 }
+
+
+/* V188 workspace structural hardening — keep the dock vertical, full-width internally and clear of legacy row-layout fallbacks. */
+.thebe-ai-dock[data-surface="workspace"]{
+  flex-direction:column!important;
+  align-items:stretch!important;
+  box-sizing:border-box!important;
+}
+.thebe-ai-dock[data-surface="workspace"]>.thebe-ai-dock-head,
+.thebe-ai-dock[data-surface="workspace"]>.thebe-ai-dock-scroll,
+.thebe-ai-dock[data-surface="workspace"]>.thebe-ai-foot{
+  width:100%!important;
+  min-width:0!important;
+  box-sizing:border-box!important;
+}
+.thebe-ai-dock[data-surface="workspace"]>.thebe-ai-dock-head,
+.thebe-ai-dock[data-surface="workspace"]>.thebe-ai-foot{flex:0 0 auto!important}
+.thebe-ai-dock[data-surface="workspace"]>.thebe-ai-dock-scroll{
+  flex:1 1 auto!important;
+  flex-direction:column!important;
+  align-items:stretch!important;
+  overflow-x:hidden!important;
+}
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-context-bar,
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-rail,
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-voice-card,
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick,
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-response{
+  width:100%!important;
+  min-width:0!important;
+  box-sizing:border-box!important;
+}
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-compose{
+  flex:0 0 auto!important;
+  align-self:stretch!important;
+  min-width:0!important;
+  box-sizing:border-box!important;
+}
