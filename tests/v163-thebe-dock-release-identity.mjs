@@ -73,7 +73,7 @@ assert(runtime.includes('autoFollowResponse=true')&&runtime.includes('responseSc
 assert(runtime.includes('transcriptBox.scrollTop=transcriptBox.scrollHeight'),'V192 live voice transcript must keep the newest speech visible inside its bounded region');
 assert(runtime.includes('answer.setAttribute("aria-label","Thebe answer. Scroll to read the full response.")'),'V192 long answers must remain keyboard discoverable');
 assert(dockCss.includes('.thebe-ai-response[data-long="true"] .thebe-ai-response-answer'),'V192 must bound long-answer height inside the response card');
-assert(dockCss.includes('[data-keyboard="true"] .thebe-ai-voice-card')&&dockCss.includes('[data-keyboard="true"] .thebe-ai-quick'),'V192 mobile keyboard mode must suppress nonessential dock chrome');
+assert(dockCss.includes('[data-keyboard="true"] :is(.thebe-ai-foot,.thebe-ai-voice-card,.thebe-ai-quick)'),'V192 mobile keyboard mode must suppress nonessential dock chrome through one consolidated selector');
 assert(dockCss.includes('[data-conversation="true"] .thebe-ai-quick button'),'V192 must compact suggested actions after a conversation starts');
 assert(dockCss.includes('.thebe-ai-live-transcript{')&&dockCss.includes('max-height:116px'),'V192 must bound live voice transcript growth');
 assert(dockCss.includes('scroll-snap-type:x proximity'),'V192 mobile conversation actions must use a compact horizontal rail');
