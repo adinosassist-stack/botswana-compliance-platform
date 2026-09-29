@@ -18,7 +18,7 @@ for(const value of [productionLive,productionDock,runtimeLive,runtimeDock]){
 }
 assert.equal(productionLive,runtimeLive,'production must cache-bust the exact Thebe Live Voice runtime');
 assert.equal(productionDock,runtimeDock,'production must cache-bust the exact Thebe AI dock runtime');
-assert.equal(productionDock,'20260929-recovery-v188','live Thebe Command Dock V188 must ship under the current release token');
+assert.equal(productionDock,'20260929-polish-v189','live Thebe Command Dock V189 must ship under the current release token');
 assert(production.includes('const OWNER_COMMAND_CENTRE_RELEASE="20260929-v185";'),'production must cache-bust the Property service runtime that owns the valuation panel');
 assert(production.includes('const THEBE_AI_DOCK_HOTFIX_ASSET="/assets/thebe-ai-dock-v184-hotfix.css";'),'production must publish the path-busted V184 dock hotfix asset');
 assert.equal((production.match(/THEBE_AI_DOCK_HOTFIX_ASSET/g)||[]).length>=3,true,'V184 dock hotfix must be declared and injected across public/workspace surfaces');
@@ -26,10 +26,11 @@ assert(hotfix.includes('.thebe-ai-dock[data-surface="workspace"] .thebe-ai-orb-b
 assert(!hotfix.includes('[data-conversation="false"]'),'V184 geometry fix must not disappear after a real voice/text conversation');
 assert(hotfix.includes('width:82px!important')&&hotfix.includes('height:82px!important'),'V184 must pin the reviewed 82px desktop voice control');
 assert(hotfix.includes('#propertyValuationServicePanel')&&hotfix.includes('background:#f7fbff!important'),'V184 must visibly restore the professional Property service emphasis');
-assert(runtime.includes('function syncWorkspaceVisualInvariants()'),'V188 must retain authenticated dock geometry ownership at runtime, not only through CSS');
-assert(runtime.includes('const size=compact?"64px":"82px";'),'V188 must preserve the reviewed 82px desktop control and 64px narrow-mobile exception');
-assert(runtime.includes('orbButton.style.setProperty(property,size,"important")'),'V188 must pin workspace voice-control dimensions with runtime important declarations');
-assert((runtime.match(/syncWorkspaceVisualInvariants\(\);/g)||[]).length>=3,'V188 must re-assert workspace geometry across visibility and conversation-state changes');
+assert(runtime.includes('function syncWorkspaceVisualInvariants()'),'V189 must retain authenticated dock geometry ownership at runtime, not only through CSS');
+assert(runtime.includes('function clearLegacyWorkspaceDockPadding()'),'V189 must clean the obsolete dock-owned workspace right padding');
+assert(runtime.includes('const size=compact?"64px":"82px";'),'V189 must preserve the reviewed 82px desktop control and 64px narrow-mobile exception');
+assert(runtime.includes('orbButton.style.setProperty(property,size,"important")'),'V189 must pin workspace voice-control dimensions with runtime important declarations');
+assert((runtime.match(/syncWorkspaceVisualInvariants\(\);/g)||[]).length>=3,'V189 must re-assert workspace geometry across visibility and conversation-state changes');
 assert(ownerRuntime.includes('const RELEASE="20260929-v185";'),'Property runtime must carry the V185 cache identity');
 assert(ownerRuntime.includes('servicePanel.style.setProperty("background","#f7fbff","important")'),'Property professional-service emphasis must survive late or stale stylesheet state');
 assert(ownerRuntime.includes('servicePanel.style.setProperty("border-color","#a9c8ef","important")'),'Property professional-service border emphasis must be runtime-owned');
@@ -49,7 +50,9 @@ assert(runtime.includes('const STORE_KEY="thebe_ai_dock_collapsed_v5";'),'V188 m
 const dockCss=fs.readFileSync(new URL('../public/assets/thebe-ai-dock.css',import.meta.url),'utf8');
 assert(dockCss.includes('V186 Thebe Command Dock'),'V188 must retain the Command Dock foundation');
 assert(dockCss.includes('V187 workspace floating-command closure'),'V188 must retain the floating lower-left workspace visual layer');
-assert(dockCss.includes('V188 workspace structural hardening'),'V188 must pin the workspace dock to a vertical full-width internal structure');
+assert(dockCss.includes('V188 workspace structural hardening'),'V189 must retain the V188 vertical full-width structural hardening');
+assert(dockCss.includes('V189 workspace command-surface polish'),'V189 must ship the command-surface spacing and control polish layer');
+assert(!dockCss.includes('body.thebe-ai-dock-open #appShell main{padding-right:30px!important}'),'V189 must not shift the entire workspace to compensate for the lower-left dock');
 assert(dockCss.includes('left:20px!important')&&dockCss.includes('bottom:22px!important'),'V188 CSS must keep the desktop dock inset from the lower-left workspace edge');
 assert(dockCss.includes('.thebe-ai-context-bar')&&dockCss.includes('.thebe-ai-mode-rail'),'V188 must visibly render context and response-mode controls');
 assert(dockCss.includes('background:#07131f'),'V188 must replace the full-blue sidebar treatment with the reviewed deep-navy command surface');

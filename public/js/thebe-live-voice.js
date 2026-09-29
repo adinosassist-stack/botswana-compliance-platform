@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260929-recovery-v188";
+  const RELEASE="20260929-polish-v189";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -552,7 +552,7 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260929-recovery-v188";
+  const DOCK_RELEASE="20260929-polish-v189";
   const STORE_KEY="thebe_ai_dock_collapsed_v5";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
@@ -588,6 +588,13 @@
     const preferred=rect&&Number.isFinite(rect.left)?Math.max(20,Math.round(rect.left+20)):20;
     const width=dock?.dataset?.expanded==="true"?560:420;
     return Math.max(20,Math.min(preferred,Math.max(20,viewport-width-20)));
+  }
+  function clearLegacyWorkspaceDockPadding(){
+    const workspaceMain=document.querySelector("#appShell main");
+    if(!workspaceMain)return;
+    const inlineValue=workspaceMain.style.getPropertyValue("padding-right");
+    const inlinePriority=workspaceMain.style.getPropertyPriority("padding-right");
+    if(inlineValue==="30px"&&inlinePriority==="important")workspaceMain.style.removeProperty("padding-right");
   }
   function recoverDockPresentation(){
     if(!dock||dock.hidden)return;
@@ -797,6 +804,7 @@
   }
   function syncWorkspaceVisualInvariants(){
     if(!dock)return;
+    clearLegacyWorkspaceDockPadding();
     const voiceCard=dock.querySelector(".thebe-ai-voice-card");
     const orbButton=dock.querySelector(".thebe-ai-orb-button");
     if(!voiceCard||!orbButton)return;
@@ -831,8 +839,6 @@
       dock.style.setProperty("max-width","calc(100vw - 40px)","important");
       dock.style.setProperty("max-height","min(720px, calc(100dvh - 108px))","important");
       setCriticalStyle(pill,{"position":"fixed","z-index":"181","left":workspaceDockLeftPx()+"px","right":"auto","bottom":"22px","min-height":"48px","padding":"0 17px","border":"1px solid rgba(125,180,255,.30)","border-radius":"999px","background":"#081827","color":"#eef7ff","box-shadow":"0 16px 42px rgba(2,14,30,.28)"});
-      const workspaceMain=document.querySelector("#appShell main");
-      if(workspaceMain)workspaceMain.style.setProperty("padding-right","30px","important");
     }
   }
   function syncVisibility(){
