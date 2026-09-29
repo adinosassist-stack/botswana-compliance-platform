@@ -170,19 +170,32 @@ async function runFullUserJourney(credentials){
       return !dock.hidden&&style.display!=='none'&&style.visibility!=='hidden'&&rect.width>280&&rect.height>300&&
         pill.hidden&&pillStyle.display==='none'&&dock.dataset.surface==='public';
     },null,{timeout:15000});
-    const publicDock=await page.evaluate(()=>({
-      release:String(globalThis.ThebeAiDock?.release||''),
-      dockHidden:document.getElementById('thebeAiDock')?.hidden??true,
-      pillHidden:document.getElementById('thebeAiDockPill')?.hidden??true,
-      pillDisplay:getComputedStyle(document.getElementById('thebeAiDockPill')).display,
-      minimizeDisplay:getComputedStyle(document.querySelector('#thebeAiDock .thebe-ai-minimize')).display,
-      surface:document.getElementById('thebeAiDock')?.dataset.surface||'',
-      mobile:Boolean(globalThis.ThebeAiDock?.state?.().mobile)
-    }));
+    const publicDock=await page.evaluate(()=>{
+      const image=document.querySelector('#thebeAiDock .thebe-mascot-image');
+      const legacySvg=document.querySelector('#thebeAiDock .thebe-mascot-svg');
+      const source=image?new URL(image.currentSrc||image.src,location.href).pathname:'';
+      return {
+        release:String(globalThis.ThebeAiDock?.release||''),
+        dockHidden:document.getElementById('thebeAiDock')?.hidden??true,
+        pillHidden:document.getElementById('thebeAiDockPill')?.hidden??true,
+        pillDisplay:getComputedStyle(document.getElementById('thebeAiDockPill')).display,
+        minimizeDisplay:getComputedStyle(document.querySelector('#thebeAiDock .thebe-ai-minimize')).display,
+        surface:document.getElementById('thebeAiDock')?.dataset.surface||'',
+        mobile:Boolean(globalThis.ThebeAiDock?.state?.().mobile),
+        mascotSource:source,
+        mascotLoaded:!!image&&image.complete&&image.naturalWidth===2048&&image.naturalHeight===2048,
+        mascotBlinkCount:document.querySelectorAll('#thebeAiDock .thebe-mascot-image-blink').length,
+        legacySvgOpacity:legacySvg?getComputedStyle(legacySvg).opacity:'missing'
+      };
+    });
     assert(publicDock.surface==='public'&&!publicDock.mobile&&!publicDock.dockHidden&&publicDock.pillHidden&&publicDock.pillDisplay==='none',
       'desktop public homepage must keep the full Thebe dock visible and never render the pill');
     assert(publicDock.minimizeDisplay==='none','desktop Thebe dock must not expose the mobile minimise control');
-    mark('Thebe desktop persistence',`release=${publicDock.release} full public dock fixed open; pill/minimise hidden`);
+    assert(publicDock.mascotSource==='/assets/thebe-mascot-original.png'&&publicDock.mascotLoaded,
+      `public Thebe dock must load the exact approved 2048x2048 mascot artwork: ${safe(JSON.stringify(publicDock))}`);
+    assert(publicDock.mascotBlinkCount===2&&publicDock.legacySvgOpacity==='0',
+      `public Thebe dock must animate the approved artwork while keeping the reconstructed SVG non-visual: ${safe(JSON.stringify(publicDock))}`);
+    mark('Thebe desktop persistence',`release=${publicDock.release} full public dock fixed open; approved mascot artwork loaded; pill/minimise hidden`);
     const marketingCopy=await page.evaluate(()=>({
       quick:[...document.querySelectorAll('#thebeAiDock .thebe-ai-quick button')].map(x=>(x.textContent||'').trim()),
       sub:(document.querySelector('#thebeAiDock .thebe-ai-voice-sub')?.textContent||'').trim(),
@@ -768,6 +781,49 @@ async function runFullUserJourney(credentials){
       },view);
       assert(state.active&&!state.lazyError,'safe UI action source view failed to open: '+view+' '+safe(JSON.stringify(state)));
     };
+
+    await openOwnerViewThroughNav('propertyintelligence');
+    await page.waitForFunction(()=>document.getElementById('propertyPortfolioWorkspace')&&document.getElementById('propertyValuationServicePanel'),null,{timeout:WORKSPACE_TIMEOUT_MS});
+    await page.waitForFunction(()=>{
+      const image=document.querySelector('#thebeAiDock .thebe-mascot-image');
+      return !!image&&image.complete&&image.naturalWidth===2048&&image.naturalHeight===2048;
+    },null,{timeout:VIEW_TIMEOUT_MS});
+    const v180WorkspaceVisual=await page.evaluate(()=>{
+      const image=document.querySelector('#thebeAiDock .thebe-mascot-image');
+      const legacySvg=document.querySelector('#thebeAiDock .thebe-mascot-svg');
+      const orb=document.querySelector('#thebeAiDock .thebe-ai-orb-button');
+      const shell=document.getElementById('propertyPortfolioWorkspace');
+      const service=document.getElementById('propertyValuationServicePanel');
+      const forms=document.getElementById('propertyAssetFormPanel')?.parentElement||null;
+      const layout=document.querySelector('#propertyintelligence .property-layout');
+      const input=layout?.querySelector('.property-input-card');
+      const results=layout?.querySelector('.property-results-wrap');
+      const inputRect=input?.getBoundingClientRect?.();
+      const resultsRect=results?.getBoundingClientRect?.();
+      const source=image?new URL(image.currentSrc||image.src,location.href).pathname:'';
+      const shellChildren=shell?[...shell.children]:[];
+      return {
+        mascotSource:source,
+        mascotLoaded:!!image&&image.complete&&image.naturalWidth===2048&&image.naturalHeight===2048,
+        legacySvgOpacity:legacySvg?getComputedStyle(legacySvg).opacity:'missing',
+        orbWidth:orb?Math.round(orb.getBoundingClientRect().width):0,
+        dockOpen:document.body.classList.contains('thebe-ai-dock-open'),
+        serviceVisible:!!service&&!service.hidden&&getComputedStyle(service).display!=='none'&&getComputedStyle(service).visibility!=='hidden',
+        serviceBackground:service?getComputedStyle(service).backgroundColor:'missing',
+        serviceBeforeForms:!!service&&!!forms&&shellChildren.indexOf(service)>=0&&shellChildren.indexOf(forms)>=0&&shellChildren.indexOf(service)<shellChildren.indexOf(forms),
+        requestButtonVisible:!!document.getElementById('propertyValuationServiceRequestButton')&&document.getElementById('propertyValuationServiceRequestButton').offsetParent!==null,
+        propertyLayoutStacked:!!inputRect&&!!resultsRect&&Math.abs(inputRect.left-resultsRect.left)<=2&&resultsRect.top>inputRect.top+20
+      };
+    });
+    assert(v180WorkspaceVisual.mascotSource==='/assets/thebe-mascot-original.png'&&v180WorkspaceVisual.mascotLoaded&&v180WorkspaceVisual.legacySvgOpacity==='0',
+      `workspace dock did not retain the approved original mascot artwork: ${safe(JSON.stringify(v180WorkspaceVisual))}`);
+    assert(v180WorkspaceVisual.orbWidth===82,
+      `workspace dock changed the authoritative 82px voice-control geometry: ${safe(JSON.stringify(v180WorkspaceVisual))}`);
+    assert(v180WorkspaceVisual.dockOpen&&v180WorkspaceVisual.propertyLayoutStacked,
+      `Property analysis did not stack cleanly beside the open desktop Thebe dock: ${safe(JSON.stringify(v180WorkspaceVisual))}`);
+    assert(v180WorkspaceVisual.serviceVisible&&v180WorkspaceVisual.serviceBackground==='rgb(247, 251, 255)'&&v180WorkspaceVisual.serviceBeforeForms&&v180WorkspaceVisual.requestButtonVisible,
+      `professional valuation service is not visibly promoted ahead of Property setup forms: ${safe(JSON.stringify(v180WorkspaceVisual))}`);
+    mark('V180 live mascot + Property presentation','approved dock artwork, 82px workspace control geometry, dock-safe Property stacking and promoted professional valuation service verified');
 
     let safeUiActionClicks=0;
     safeUiActionProbeActive=true;
