@@ -18,7 +18,7 @@ for(const value of [productionLive,productionDock,runtimeLive,runtimeDock]){
 }
 assert.equal(productionLive,runtimeLive,'production must cache-bust the exact Thebe Live Voice runtime');
 assert.equal(productionDock,runtimeDock,'production must cache-bust the exact Thebe AI dock runtime');
-assert.equal(productionDock,'20260929-interaction-v192','live Thebe Command Dock V192 must ship under the current release token');
+assert.equal(productionDock,'20260929-reading-v193','live Thebe Command Dock V193 must ship under the current release token');
 assert(production.includes('const OWNER_COMMAND_CENTRE_RELEASE="20260929-v185";'),'production must cache-bust the Property service runtime that owns the valuation panel');
 assert(production.includes('const THEBE_AI_DOCK_HOTFIX_ASSET="/assets/thebe-ai-dock-v184-hotfix.css";'),'production must publish the path-busted V184 dock hotfix asset');
 assert.equal((production.match(/THEBE_AI_DOCK_HOTFIX_ASSET/g)||[]).length>=3,true,'V184 dock hotfix must be declared and injected across public/workspace surfaces');
@@ -72,6 +72,15 @@ assert(runtime.includes('function syncComposerHeight()')&&runtime.includes('inpu
 assert(runtime.includes('function syncBusyControls()')&&runtime.includes('button.disabled=textBusy'),'V192 must disable actionable dock controls while a text request is running');
 assert(dockCss.includes('display:flex!important')&&dockCss.includes('scroll-snap-type:x proximity'),'V192 mobile quick actions must use a compact horizontal command strip');
 assert(dockCss.includes('resize:none')&&dockCss.includes('overflow-y:hidden'),'V192 composer styling must support controlled runtime auto-growth');
+assert(dockCss.includes('V193 reading follow'),'V193 must ship the reading-follow interaction closure without changing V191 geometry ownership');
+assert(runtime.includes('function syncComposerState()'),'V193 must disable Send until a valid prompt is ready');
+assert(runtime.includes('function syncResponseFollowState()'),'V193 must track whether the user is still following the newest response');
+assert(runtime.includes('function scrollResponseIntoView(force=false)'),'V193 response reveal must support user-respecting auto-follow');
+assert(runtime.includes('scrollResponseIntoView(true)'),'V193 must force only the initial working-state reveal, then respect user scroll intent');
+assert(runtime.includes('transcriptBox.scrollTop=transcriptBox.scrollHeight'),'V193 must keep the newest live voice transcript line visible');
+assert(runtime.includes('answer.setAttribute("aria-label","Thebe answer. Scroll to read the full response.")'),'V193 long answers must expose their internal scroll region to keyboard users');
+assert(dockCss.includes('.thebe-ai-response[data-long="true"] .thebe-ai-response-answer'),'V193 must bound long answers inside the response card');
+assert(dockCss.includes('[data-keyboard="true"]>.thebe-ai-foot')&&dockCss.includes('[data-keyboard="true"] .thebe-ai-voice-card')&&dockCss.includes('[data-keyboard="true"] .thebe-ai-quick'),'V193 keyboard-open mode must hide nonessential workspace dock chrome');
 assert(audit.includes('const dockReleaseMatch=productionEntry.match(/const THEBE_AI_DOCK_RELEASE="([0-9]{8}[A-Za-z0-9._-]{1,48})";/);'),'launch audit must accept the repository release-token format');
 assert(!audit.includes('[0-9]{8}[a-z]'),'launch audit must not regress to the obsolete date-plus-letter token parser');
 assert(fullUser.includes("/^[0-9]{8}[A-Za-z0-9._-]{1,48}$/"),'full-user synthetic must accept the bounded cache-safe dock release token format');
