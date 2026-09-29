@@ -48,7 +48,8 @@ assert(runtime.includes('pill.style.setProperty("display",visible&&isCollapsed?"
 assert(runtime.includes('const STORE_KEY="thebe_ai_dock_collapsed_v5";'),'V188 must not inherit the pre-floating collapse preference');
 const dockCss=fs.readFileSync(new URL('../public/assets/thebe-ai-dock.css',import.meta.url),'utf8');
 assert(dockCss.includes('V186 Thebe Command Dock'),'V188 must retain the Command Dock foundation');
-assert(dockCss.includes('V188 workspace floating-command closure'),'V188 floating lower-left workspace visual layer must be present');
+assert(dockCss.includes('V187 workspace floating-command closure'),'V188 must retain the floating lower-left workspace visual layer');
+assert(dockCss.includes('V188 workspace structural hardening'),'V188 must pin the workspace dock to a vertical full-width internal structure');
 assert(dockCss.includes('left:20px!important')&&dockCss.includes('bottom:22px!important'),'V188 CSS must keep the desktop dock inset from the lower-left workspace edge');
 assert(dockCss.includes('.thebe-ai-context-bar')&&dockCss.includes('.thebe-ai-mode-rail'),'V188 must visibly render context and response-mode controls');
 assert(dockCss.includes('background:#07131f'),'V188 must replace the full-blue sidebar treatment with the reviewed deep-navy command surface');
