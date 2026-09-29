@@ -62,28 +62,24 @@ assert.match(runtime,/if\(document\.getElementById\("dailyreports"\)\?\.classLis
 assert.match(runtime,/Retry analytics/);
 assert.match(runtime,/if\(reportingSetupDetails&&!reportingSetupDetails\.open\)reportingSetupDetails\.open=true;/,"People reporting controls must not collapse during async refresh/navigation");
 assert.match(worker,/const \[locRes,accessRes,reportRes,prevRes,exceptionRes\]=await env\.DB\.batch\(\[/,"dashboard analytics must use one D1 batch round-trip");
-assert.match(home,/class="thebe-public-mascot"/,"public marketing hero must ship the approved Thebe mascot");
+assert.match(home,/class="market-hero-photo" src="\/assets\/gaborone-entrepreneurs-v67\.webp"/,"public marketing hero must restore the original Botswana business photo");
+assert.match(home,/class="market-hero-mascot"/,"public marketing hero may keep one smaller supporting Thebe mascot");
 assert.match(html,/class="thebe-market-mascot"/,"app-entry marketing hero must ship the approved Thebe mascot");
-const publicMascotSize=home.match(/\.thebe-public-mascot-frame\{[^}]*width:min\((\d+)%\s*,\s*(\d+)px\)/);
-assert.ok(publicMascotSize&&Number(publicMascotSize[1])>=128&&Number(publicMascotSize[2])>=760,"public marketing mascot must remain deliberately oversized on desktop");
-const marketMascotSize=fs.readFileSync("public/assets/thebe-ai-dock.css","utf8").match(/#marketingGate \.thebe-market-mascot-frame\{[^}]*width:min\((\d+)%\s*,\s*(\d+)px\)/);
-assert.ok(marketMascotSize&&Number(marketMascotSize[1])>=118&&Number(marketMascotSize[2])>=860,"app-entry marketing mascot must remain deliberately oversized on desktop");
-assert.match(home,/src="\/assets\/thebe-mascot-original\.png"/,"public marketing mascot must use the approved original image");
+const publicMascotSize=home.match(/\.market-hero-mascot\{[^}]*width:clamp\((\d+)px,(\d+)vw,(\d+)px\)/);
+assert.ok(publicMascotSize&&Number(publicMascotSize[3])<=205,"public marketing mascot must remain subordinate to the restored photo");
+assert.match(home,/class="market-hero-mascot"[\s\S]*?src="\/assets\/thebe-mascot-original\.png"/,"public marketing mascot must use the approved original image");
 assert.match(html,/src="\/assets\/thebe-mascot-original\.png"/,"app-entry marketing mascot must use the approved external reference asset");
 assert.equal(mascotAsset.subarray(0,8).toString("hex"),"89504e470d0a1a0a","app-entry marketing mascot asset must preserve the approved square composition");
-assert.match(home,/width="2048" height="2048"/,"public mascot must preserve the original image dimensions");
+assert.match(home,/class="market-hero-mascot"[\s\S]*?width="2048" height="2048"/,"public supporting mascot must preserve the original image dimensions");
 assert.match(html,/width="2048" height="2048"/,"app-entry mascot must preserve the original image dimensions");
-for(const page of [home,html]){
-  assert.match(page,/class="thebe-mascot-blink-eye left"/);
-  assert.match(page,/class="thebe-mascot-blink-eye right"/);
-  assert.match(page,/@keyframes thebe-eye-blink/);
-  assert.match(page,/prefers-reduced-motion:reduce[^{]*\{[^}]*thebe-mascot-blink-eye\{animation:none!important/);
-}
-assert.match(synthetic,/marketing mascot hero geometry/,"production browser lifecycle must prove mascot geometry at desktop and phone widths");
-assert.ok(synthetic.includes(`const marketingHeroSelector='.hero .visual .thebe-public-mascot'`),"production hero proof must target the shipped Thebe mascot structurally");
-assert.doesNotMatch(synthetic,/gaborone-entrepreneurs-v67\.webp/,"production hero proof must not target the retired photo");
-assert.match(synthetic,/state\.source==='\/assets\/thebe-mascot-original\.png'&&state\.imageLoaded/,"production browser lifecycle must verify the approved image loaded");
-assert.match(synthetic,/frameOverflowX==='visible'&&state\.frameOverflowY==='visible'/,"production browser lifecycle must reject a clipping mascot frame");
+assert.match(home,/class="market-hero-mascot-blink left"/);
+assert.match(home,/class="market-hero-mascot-blink right"/);
+assert.match(home,/@keyframes thebe-market-mascot-blink/);
+assert.match(home,/prefers-reduced-motion:reduce[^{]*\{[^}]*market-hero-mascot/);
+assert.match(synthetic,/marketing hero composition/,"production browser lifecycle must prove restored-photo and supporting-mascot composition");
+assert.match(synthetic,/gaborone-entrepreneurs-v67\.webp/,"production hero proof must verify the restored original photo");
+assert.match(synthetic,/mascotWidth<desktopHeroComposition\.photoWidth\*\.45/,"production browser lifecycle must keep the mascot subordinate to the photo");
+assert.match(synthetic,/bottom marketing CTA text is not visibly contrasted/,"production browser lifecycle must reject an unreadable closing CTA");
 assert.match(synthetic,/setViewportSize\(\{width:390,height:844\}\)/,"production browser lifecycle must prove the marketing hero on a phone viewport");
 
 console.log("v113 workspace buttons, people visibility, reporting timeout and hero framing: 3-pass PASS");
