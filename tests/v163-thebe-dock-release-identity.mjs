@@ -18,7 +18,7 @@ for(const value of [productionLive,productionDock,runtimeLive,runtimeDock]){
 }
 assert.equal(productionLive,runtimeLive,'production must cache-bust the exact Thebe Live Voice runtime');
 assert.equal(productionDock,runtimeDock,'production must cache-bust the exact Thebe AI dock runtime');
-assert.equal(productionDock,'20260929-geometry-v191','live Thebe Command Dock V191 must ship under the current release token');
+assert.equal(productionDock,'20260929-interaction-v192','live Thebe Command Dock V192 must ship under the current release token');
 assert(production.includes('const OWNER_COMMAND_CENTRE_RELEASE="20260929-v185";'),'production must cache-bust the Property service runtime that owns the valuation panel');
 assert(production.includes('const THEBE_AI_DOCK_HOTFIX_ASSET="/assets/thebe-ai-dock-v184-hotfix.css";'),'production must publish the path-busted V184 dock hotfix asset');
 assert.equal((production.match(/THEBE_AI_DOCK_HOTFIX_ASSET/g)||[]).length>=3,true,'V184 dock hotfix must be declared and injected across public/workspace surfaces');
@@ -65,6 +65,13 @@ assert(dockCss.includes('left:var(--thebe-workspace-left,20px)!important')&&dock
 assert(dockCss.includes('.thebe-ai-context-bar')&&dockCss.includes('.thebe-ai-mode-rail'),'V191 must visibly render context and response-mode controls');
 assert(dockCss.includes('background:#07131f'),'V191 must replace the full-blue sidebar treatment with the reviewed deep-navy command surface');
 assert(dockCss.includes('.thebe-ai-quick{')&&dockCss.includes('grid-template-columns:repeat(3,minmax(0,1fr))'),'V191 desktop contextual actions must use a compact three-command row');
+assert(dockCss.includes('V192 interaction polish'),'V192 must ship the interaction-polish contract without replacing V191 geometry ownership');
+assert(runtime.includes('const cleanMultiline=')&&runtime.includes('lastAnswer=cleanMultiline('),'V192 must preserve multiline answer formatting instead of flattening long responses');
+assert(runtime.includes('function scrollResponseIntoView()')&&runtime.includes('scroller.scrollTo({top:target'),'V192 must keep response reveal inside the dock scroller');
+assert(runtime.includes('function syncComposerHeight()')&&runtime.includes('input.addEventListener("input",syncComposerHeight)'),'V192 must auto-grow the composer within a bounded height');
+assert(runtime.includes('function syncBusyControls()')&&runtime.includes('button.disabled=textBusy'),'V192 must disable actionable dock controls while a text request is running');
+assert(dockCss.includes('display:flex!important')&&dockCss.includes('scroll-snap-type:x proximity'),'V192 mobile quick actions must use a compact horizontal command strip');
+assert(dockCss.includes('resize:none')&&dockCss.includes('overflow-y:hidden'),'V192 composer styling must support controlled runtime auto-growth');
 assert(audit.includes('const dockReleaseMatch=productionEntry.match(/const THEBE_AI_DOCK_RELEASE="([0-9]{8}[A-Za-z0-9._-]{1,48})";/);'),'launch audit must accept the repository release-token format');
 assert(!audit.includes('[0-9]{8}[a-z]'),'launch audit must not regress to the obsolete date-plus-letter token parser');
 assert(fullUser.includes("/^[0-9]{8}[A-Za-z0-9._-]{1,48}$/"),'full-user synthetic must accept the bounded cache-safe dock release token format');
