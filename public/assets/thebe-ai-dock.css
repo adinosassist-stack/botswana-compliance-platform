@@ -1549,9 +1549,7 @@
   min-height:46px;
 }
 .thebe-ai-dock[data-surface="workspace"][data-conversation="true"] .thebe-ai-quick button small{display:none}
-.thebe-ai-dock[data-surface="workspace"][data-busy="true"] .thebe-ai-context-action:disabled,
-.thebe-ai-dock[data-surface="workspace"][data-busy="true"] .thebe-ai-mode-button:disabled,
-.thebe-ai-dock[data-surface="workspace"][data-busy="true"] .thebe-ai-quick button:disabled{
+.thebe-ai-dock[data-surface="workspace"][data-busy="true"] :is(.thebe-ai-context-action:disabled,.thebe-ai-mode-button:disabled,.thebe-ai-quick button:disabled){
   cursor:wait;
   opacity:.56;
   transform:none!important;
@@ -1661,9 +1659,7 @@
     bottom:max(8px,var(--thebe-keyboard-inset,0px))!important;
     max-height:var(--thebe-visible-height,65dvh)!important;
   }
-  .thebe-ai-dock[data-surface="workspace"][data-keyboard="true"]>.thebe-ai-foot,
-  .thebe-ai-dock[data-surface="workspace"][data-keyboard="true"] .thebe-ai-voice-card,
-  .thebe-ai-dock[data-surface="workspace"][data-keyboard="true"] .thebe-ai-quick{
+  .thebe-ai-dock[data-surface="workspace"][data-keyboard="true"] :is(.thebe-ai-foot,.thebe-ai-voice-card,.thebe-ai-quick){
     display:none!important;
   }
   .thebe-ai-dock[data-surface="workspace"][data-keyboard="true"] .thebe-ai-response[data-long="true"] .thebe-ai-response-answer{
