@@ -41,7 +41,10 @@ ok(
 );
 ok(
   fullUserWrapper.includes("openOwnerViewThroughNav('propertyintelligence')")&&
+  fullUserWrapper.includes("dock.querySelectorAll('.thebe-mascot-image').length===0")&&
+  fullUserWrapper.includes("dock.querySelectorAll('.thebe-mascot-svg').length===0")&&
   fullUserWrapper.includes("mascotImages===0&&v181WorkspaceVisual.mascotSvgs===0")&&
+  !fullUserWrapper.includes("return !!image&&image.complete&&image.naturalWidth===2048&&image.naturalHeight===2048")&&
   fullUserWrapper.includes("propertyLayoutStacked")&&
   fullUserWrapper.includes("serviceBeforeForms")&&
   fullUserWrapper.includes("serviceBackground==='rgb(247, 251, 255)'")&&
