@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260929-command-bridge-v172";
+  const RELEASE="20260929-task-state-v173";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -552,7 +552,7 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260929-command-bridge-v172";
+  const DOCK_RELEASE="20260929-task-state-v173";
   const STORE_KEY="thebe_ai_dock_collapsed_v4";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
@@ -619,6 +619,13 @@
     if(mascotState==="listening")return {stage:1,tone:"active",label:"Understanding request"};
     const pending=Math.max(0,Number(ownerCommandState?.pendingReviews||0));
     if(pending)return {stage:4,tone:"review",label:`${pending} item${pending===1?"":"s"} waiting for owner review`};
+    const approved=Math.max(0,Number(ownerCommandState?.approvedRequests||0));
+    if(approved){
+      const noun=approved===1?"task":"tasks";
+      return ownerCommandState?.boundedExecutionAvailable===true
+        ?{stage:4,tone:"active",label:`${approved} approved ${noun} ready for guarded execution`}
+        :{stage:4,tone:"neutral",label:`${approved} approved ${noun} · execution controlled`};
+    }
     const phase=String(ownerCommandState?.phase||"");
     const message=clean(ownerCommandState?.message||"",90);
     if(phase==="working")return {stage:3,tone:"active",label:message||"Preparing governed work"};
@@ -631,9 +638,16 @@
     if(surfaceMode()!=="workspace")return "Public assistant";
     if(!ownerCommandState)return "Owner Command Centre · governed state";
     const reviews=Math.max(0,Number(ownerCommandState?.pendingReviews||0));
+    const approved=Math.max(0,Number(ownerCommandState?.approvedRequests||0));
     const open=Math.max(0,Number(ownerCommandState?.openTasks||0));
     if(ownerCommandState?.runtimeKillSwitch===true)return "Owner Command Centre · Runtime Guard locked";
     if(reviews)return `Owner Command Centre · ${reviews} awaiting review`;
+    if(approved){
+      const noun=approved===1?"task":"tasks";
+      return ownerCommandState?.boundedExecutionAvailable===true
+        ?`Owner Command Centre · ${approved} approved ${noun} · guarded action available`
+        :`Owner Command Centre · ${approved} approved ${noun} · execution controlled`;
+    }
     if(open)return `Owner Command Centre · ${open} open task${open===1?"":"s"}`;
     if(ownerCommandState?.boundedExecutionAvailable===true)return "Owner Command Centre · governed lane ready";
     return "Owner Command Centre · governed lane controlled";
