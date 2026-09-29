@@ -8,7 +8,7 @@ const home=fs.readFileSync(new URL('../public/home.html',import.meta.url),'utf8'
 assert.match(css,/V161 dock polish/);
 assert.match(css,/V162 blue motion/);
 assert.match(css,/V164 futuristic command surface/);
-assert.match(css,/V190 canonical workspace dock/);
+assert.match(css,/V191 canonical workspace dock/);
 assert.doesNotMatch(css,/V167 workspace dock/);
 assert.match(css,/V172 governed mission rail/);
 assert.match(css,/V182 character-free voice field/,'Talk to Thebe must use the V182 character-free voice treatment');
@@ -55,4 +55,4 @@ assert.match(css,/prefers-reduced-motion:reduce[\s\S]*?\.thebe-particle,[\s\S]*?
 assert.match(css,/\.thebe-ai-send\{[\s\S]*?width:46px;height:46px/);
 assert.match(css,/\.thebe-ai-quick button\{[\s\S]*?min-height:56px/);
 
-console.log('PASS: V190 preserves character-free Thebe voice, governed mission behavior and the canonical workspace dock surface.');
+console.log('PASS: V191 preserves character-free Thebe voice, governed mission behavior and canonical CSS-owned workspace geometry.');

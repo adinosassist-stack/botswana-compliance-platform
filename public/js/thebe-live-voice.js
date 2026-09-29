@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260929-canonical-v190";
+  const RELEASE="20260929-geometry-v191";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -552,7 +552,7 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260929-canonical-v190";
+  const DOCK_RELEASE="20260929-geometry-v191";
   const STORE_KEY="thebe_ai_dock_collapsed_v5";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
@@ -802,44 +802,29 @@
     syncVisibility();
     if(collapsed)pill?.focus();else input?.focus({preventScroll:true});
   }
+  function clearRoutineWorkspaceInlineGeometry(){
+    if(!dock)return;
+    const dockProperties=["position","z-index","top","left","right","bottom","width","max-width","max-height","border-radius"];
+    const pillProperties=["position","z-index","left","right","bottom","min-height","padding","border","border-radius","background","color","box-shadow"];
+    const orbButton=dock.querySelector(".thebe-ai-orb-button");
+    const voiceCard=dock.querySelector(".thebe-ai-voice-card");
+    for(const property of dockProperties)dock.style.removeProperty(property);
+    for(const property of pillProperties)pill?.style.removeProperty(property);
+    voiceCard?.style.removeProperty("grid-template-columns");
+    for(const property of ["width","min-width","max-width","height","min-height"])orbButton?.style.removeProperty(property);
+  }
   function syncWorkspaceVisualInvariants(){
     if(!dock)return;
     clearLegacyWorkspaceDockPadding();
-    const voiceCard=dock.querySelector(".thebe-ai-voice-card");
-    const orbButton=dock.querySelector(".thebe-ai-orb-button");
-    if(!voiceCard||!orbButton)return;
-    const properties=["width","min-width","max-width","height","min-height"];
+    clearRoutineWorkspaceInlineGeometry();
     if(dock.dataset.surface!=="workspace"){
-      voiceCard.style.removeProperty("grid-template-columns");
-      for(const property of properties)orbButton.style.removeProperty(property);
+      dock.style.removeProperty("--thebe-workspace-left");
+      pill?.style.removeProperty("--thebe-workspace-left");
       return;
     }
-    const compact=global.matchMedia?.("(max-width:380px)")?.matches===true;
-    const mobile=mobileDockMode();
-    const size=compact?"64px":"82px";
-    voiceCard.style.setProperty("grid-template-columns",size+" minmax(0,1fr)","important");
-    for(const property of properties)orbButton.style.setProperty(property,size,"important");
-    dock.style.setProperty("position","fixed","important");
-    dock.style.setProperty("z-index","181","important");
-    dock.style.setProperty("top","auto","important");
-    dock.style.setProperty("border-radius",mobile?"22px":"24px","important");
-    if(mobile){
-      dock.style.setProperty("left","8px","important");
-      dock.style.setProperty("right","8px","important");
-      dock.style.setProperty("bottom","calc(104px + env(safe-area-inset-bottom))","important");
-      dock.style.setProperty("width","auto","important");
-      dock.style.setProperty("max-width","none","important");
-      dock.style.setProperty("max-height","calc(100dvh - 128px - env(safe-area-inset-bottom))","important");
-      setCriticalStyle(pill,{"position":"fixed","z-index":"181","left":"12px","right":"auto","bottom":"calc(104px + env(safe-area-inset-bottom))"});
-    }else{
-      dock.style.setProperty("left",workspaceDockLeftPx()+"px","important");
-      dock.style.setProperty("right","auto","important");
-      dock.style.setProperty("bottom","22px","important");
-      dock.style.setProperty("width",dock.dataset.expanded==="true"?"560px":"420px","important");
-      dock.style.setProperty("max-width","calc(100vw - 40px)","important");
-      dock.style.setProperty("max-height","min(720px, calc(100dvh - 108px))","important");
-      setCriticalStyle(pill,{"position":"fixed","z-index":"181","left":workspaceDockLeftPx()+"px","right":"auto","bottom":"22px","min-height":"48px","padding":"0 17px","border":"1px solid rgba(125,180,255,.30)","border-radius":"999px","background":"#081827","color":"#eef7ff","box-shadow":"0 16px 42px rgba(2,14,30,.28)"});
-    }
+    const left=workspaceDockLeftPx()+"px";
+    dock.style.setProperty("--thebe-workspace-left",left);
+    pill?.style.setProperty("--thebe-workspace-left",left);
   }
   function syncVisibility(){
     if(!dock||!pill)return;
