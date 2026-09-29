@@ -64,11 +64,16 @@ assert(runtime.includes('quick.setAttribute("role","group");quick.setAttribute("
 assert(dockCss.includes('left:var(--thebe-workspace-left,20px)!important')&&dockCss.includes('bottom:22px!important'),'V192 CSS must keep the desktop dock inset from the resolved workspace lower-left edge');
 assert(runtime.includes('function syncComposerHeight()'),'V192 must auto-size the Thebe composer without manual resize handles');
 assert(runtime.includes('function syncComposerState()'),'V192 must keep send availability aligned to busy and prompt-validity state');
-assert(runtime.includes('function revealResponse()'),'V192 must deliberately reveal new Thebe responses in the dock scroll surface');
+assert(runtime.includes('function revealResponse(force=false)'),'V192 must deliberately reveal new Thebe responses in the dock scroll surface');
+assert(runtime.includes('function syncResponseFollowState()'),'V192 must stop auto-follow when the user deliberately leaves the latest response');
+assert(runtime.includes('autoFollowResponse=true')&&runtime.includes('responseScrollLock=false'),'V192 must track response-follow intent without fighting user scrolling');
+assert(runtime.includes('transcriptBox.scrollTop=transcriptBox.scrollHeight'),'V192 live voice transcript must keep the newest speech visible inside its bounded region');
 assert(runtime.includes('answer.setAttribute("aria-label","Thebe answer. Scroll to read the full response.")'),'V192 long answers must remain keyboard discoverable');
 assert(dockCss.includes('.thebe-ai-response[data-long="true"] .thebe-ai-response-answer'),'V192 must bound long-answer height inside the response card');
 assert(dockCss.includes('[data-keyboard="true"] .thebe-ai-voice-card')&&dockCss.includes('[data-keyboard="true"] .thebe-ai-quick'),'V192 mobile keyboard mode must suppress nonessential dock chrome');
 assert(dockCss.includes('[data-conversation="true"] .thebe-ai-quick button'),'V192 must compact suggested actions after a conversation starts');
+assert(dockCss.includes('.thebe-ai-live-transcript{')&&dockCss.includes('max-height:116px'),'V192 must bound live voice transcript growth');
+assert(dockCss.includes('scroll-snap-type:x proximity'),'V192 mobile conversation actions must use a compact horizontal rail');
 assert(dockCss.includes('.thebe-ai-context-bar')&&dockCss.includes('.thebe-ai-mode-rail'),'V192 must visibly render context and response-mode controls');
 assert(dockCss.includes('background:#07131f'),'V192 must replace the full-blue sidebar treatment with the reviewed deep-navy command surface');
 assert(dockCss.includes('.thebe-ai-quick{')&&dockCss.includes('grid-template-columns:repeat(3,minmax(0,1fr))'),'V192 desktop contextual actions must use a compact three-command row');
