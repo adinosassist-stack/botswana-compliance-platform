@@ -50,9 +50,8 @@ assert.match(html,/reportingAnalyticsMemory=new Map\(\)/);
 assert.match(html,/timeoutMs:90000,retries:2,candidateTimeoutMs:30000/);
 assert.match(html,/Date\.now\(\)-cached\.at<15\*60\*1000/);
 assert.match(html,/overflow:visible!important;background:transparent!important;box-shadow:none!important/);
-assert.match(html,/class="thebe-market-mascot"/);
-const marketMascotSize=html.match(/\.thebe-market-mascot\{[^}]*width:min\((\d+)%\s*,\s*(\d+)px\)/);
-assert.ok(marketMascotSize&&Number(marketMascotSize[1])>=118&&Number(marketMascotSize[2])>=860);
+assert.match(html,/class="thebe-market-photo" src="\/assets\/gaborone-entrepreneurs-v67\.webp"/,"app-entry marketing visual must use the restored Botswana business photo");
+assert.doesNotMatch(html,/thebe-market-mascot|thebe-mascot-original\.png/,"app-entry marketing visual must remain mascot-free");
 for(const action of ["openEmployeeReportingAccess","createEmployeeReportingLinkFromCard","copyEmployeeReportingLink","showFreshEmployeeReportingLink"])assert.ok(delegatedEvents.includes(`'${action}'`),`delegated event allowlist missing ${action}`);
 
 // Core directory must remain usable even when Employer Shield is not entitled.
