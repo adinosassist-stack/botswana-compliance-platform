@@ -42,7 +42,7 @@ assert(runtime.includes('function recoverDockPresentation()'),'V192 must carry a
 assert(runtime.includes('computed.flexDirection===\"column\"')&&runtime.includes('scrollComputed?.flexDirection===\"column\"'),'V188 recovery health must reject the sideways row-layout failure');
 assert(runtime.includes('\"flex-direction\":\"column\"')&&runtime.includes('\"width\":\"100%\"'),'V188 runtime recovery must rebuild a vertical full-width dock when CSS is unavailable');
 assert(runtime.includes('function workspaceDockLeftPx()'),'V192 must resolve the dock against the workspace content edge instead of covering the sidebar');
-assert(runtime.includes('?{"left":workspaceDockLeftPx()+"px"'),'V191 emergency recovery must still restore the resolved workspace lower-left position');
+assert(runtime.includes('?{"left":workspaceDockLeftPx()+"px"'),'V192 emergency recovery must still restore the resolved workspace lower-left position');
 assert(runtime.includes('pill.style.setProperty("display",visible&&isCollapsed?"inline-flex":"none","important")'),'V192 must make desktop minimise/reopen usable without depending on stylesheet state');
 assert(runtime.includes('const STORE_KEY="thebe_ai_dock_collapsed_v5";'),'V192 must not inherit the pre-floating collapse preference');
 const dockCss=fs.readFileSync(new URL('../public/assets/thebe-ai-dock.css',import.meta.url),'utf8');
@@ -57,7 +57,7 @@ const workspaceSelectorCount=(dockCss.match(/\.thebe-ai-dock\[data-surface="work
 assert(workspaceSelectorCount<100,'V192 must keep workspace-dock selector duplication below the consolidation budget');
 assert(!dockCss.includes('body.thebe-ai-dock-open #appShell main{padding-right:'),'V192 must not shift or squeeze the workspace for a floating dock');
 assert(dockCss.includes('[data-keyboard="true"]')&&dockCss.includes('bottom:max(8px,var(--thebe-keyboard-inset,0px))!important'),'V192 must let the mobile dock clear the on-screen keyboard');
-assert(dockCss.includes('left:var(--thebe-workspace-left,20px)!important'),'V191 desktop CSS must consume the dynamic workspace-left coordinate');
+assert(dockCss.includes('left:var(--thebe-workspace-left,20px)!important'),'V192 desktop CSS must consume the dynamic workspace-left coordinate');
 assert(runtime.includes('attentionButton.hidden=surfaceMode()!=="workspace"||count===0'),'V192 must hide the blank attention control when there are no alerts');
 assert(runtime.includes('modeRail.setAttribute("aria-label","Thebe response mode");modeRail.setAttribute("role","group")'),'V192 must expose the response-mode controls as one accessible group');
 assert(runtime.includes('quick.setAttribute("role","group");quick.setAttribute("aria-label","Suggested Thebe actions")'),'V192 must expose suggested actions as one accessible group');
@@ -71,7 +71,7 @@ assert(dockCss.includes('[data-keyboard="true"] .thebe-ai-voice-card')&&dockCss.
 assert(dockCss.includes('[data-conversation="true"] .thebe-ai-quick button'),'V192 must compact suggested actions after a conversation starts');
 assert(dockCss.includes('.thebe-ai-context-bar')&&dockCss.includes('.thebe-ai-mode-rail'),'V192 must visibly render context and response-mode controls');
 assert(dockCss.includes('background:#07131f'),'V192 must replace the full-blue sidebar treatment with the reviewed deep-navy command surface');
-assert(dockCss.includes('.thebe-ai-quick{')&&dockCss.includes('grid-template-columns:repeat(3,minmax(0,1fr))'),'V191 desktop contextual actions must use a compact three-command row');
+assert(dockCss.includes('.thebe-ai-quick{')&&dockCss.includes('grid-template-columns:repeat(3,minmax(0,1fr))'),'V192 desktop contextual actions must use a compact three-command row');
 assert(audit.includes('const dockReleaseMatch=productionEntry.match(/const THEBE_AI_DOCK_RELEASE="([0-9]{8}[A-Za-z0-9._-]{1,48})";/);'),'launch audit must accept the repository release-token format');
 assert(!audit.includes('[0-9]{8}[a-z]'),'launch audit must not regress to the obsolete date-plus-letter token parser');
 assert(fullUser.includes("/^[0-9]{8}[A-Za-z0-9._-]{1,48}$/"),'full-user synthetic must accept the bounded cache-safe dock release token format');
