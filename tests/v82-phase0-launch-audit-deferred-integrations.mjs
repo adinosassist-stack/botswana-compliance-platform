@@ -33,18 +33,20 @@ ok(browserWrapper.includes("mobile auth surface navigation")&&browserWrapper.inc
 ok(fullUserWrapper.includes("assert(/Run your business with intelligence\\./i.test(publicState.hero),'public root hero missing or stale');"), 'mandatory full-user lifecycle binds its public-root proof to the current homepage hero contract');
 ok(!fullUserWrapper.includes("/business risk/i.test(publicState.hero)"), 'mandatory full-user lifecycle rejects the obsolete business-risk hero contract');
 ok(
+  fullUserWrapper.includes("photoSource==='/assets/gaborone-entrepreneurs-v67.webp'")&&
   fullUserWrapper.includes("mascotSource==='/assets/thebe-mascot-original.png'")&&
-  fullUserWrapper.includes("image.naturalWidth===2048&&image.naturalHeight===2048")&&
-  fullUserWrapper.includes("legacySvgOpacity==='0'"),
-  'mandatory full-user lifecycle proves the AI dock renders the exact approved mascot artwork while the reconstructed SVG stays non-visual'
+  fullUserWrapper.includes("mascotWidth<desktopHeroComposition.photoWidth*.45")&&
+  fullUserWrapper.includes("bottom marketing CTA text is not visibly contrasted"),
+  'mandatory full-user lifecycle proves the restored market photo, smaller supporting mascot and readable closing CTA'
 );
 ok(
   fullUserWrapper.includes("openOwnerViewThroughNav('propertyintelligence')")&&
+  fullUserWrapper.includes("mascotImages===0&&v181WorkspaceVisual.mascotSvgs===0")&&
   fullUserWrapper.includes("propertyLayoutStacked")&&
   fullUserWrapper.includes("serviceBeforeForms")&&
   fullUserWrapper.includes("serviceBackground==='rgb(247, 251, 255)'")&&
   fullUserWrapper.includes("orbWidth===82"),
-  'mandatory full-user lifecycle proves the V180 Property hierarchy, dock-safe stacking and authoritative workspace dock geometry in live production'
+  'mandatory full-user lifecycle proves the mascot-free workspace/Talk to Thebe treatment while preserving Property hierarchy and dock geometry'
 );
 const assertWorkspaceSource=browserWrapper.slice(browserWrapper.indexOf('function workspaceAuthoredState'),browserWrapper.indexOf('async function loginInBrowser'));
 ok(
