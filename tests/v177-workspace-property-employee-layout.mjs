@@ -29,6 +29,9 @@ assert.match(ownerCentre,/button\("Request valuation quote",\(\)=>openPropertyVa
 assert.match(ownerCentre,/const select=q\("#portfolioValuationServiceProperty"\)/,"contextual quote CTA must bind to the canonical valuation-service property selector");
 assert.match(ownerCentre,/Property selected\. Add the request details, then request a quote\./,"contextual quote CTA must explain the next conversion step");
 assert.match(ownerCentre,/panel\.scrollIntoView\(\{behavior:"smooth",block:"center"\}\)/,"contextual quote CTA must move the user to the valuation-service form");
+assert.match(ownerCentre,/shell\.className="card property-portfolio-workspace"/,'Property portfolio must expose the V180 presentation hook');
+assert.match(ownerCentre,/servicePanel\.className="card property-valuation-service-card"/,'professional valuation service must expose the prominent service-card hook');
+assert.match(ownerCentre,/shell\.insertBefore\(servicePanel,forms\)/,'professional valuation service must appear before lower-priority property setup forms');
 
 
 const createStart=html.indexOf("async function addEmployeeRecord()");
@@ -43,6 +46,8 @@ assert.doesNotMatch(createBody,/peopleops[^\n]{0,120}classList\.contains\("activ
 assert.match(html,/#appShell \*\{min-width:0\}/,"workspace descendants must be allowed to shrink instead of forcing column overflow");
 assert.match(html,/#appShell \.view\{overflow-x:clip\}/,"workspace views must clip accidental horizontal overflow");
 assert.match(html,/\.property-layout\{display:grid;grid-template-columns:minmax\(0,1\.05fr\) minmax\(300px,\.95fr\)/,"property layout must use bounded shrinkable columns");
+assert.match(html,/body\.thebe-ai-dock-open \.property-layout\{grid-template-columns:1fr\}/,'Property must collapse to one column while the desktop Thebe dock consumes workspace width');
+assert.match(html,/\.property-valuation-service-card\{[^}]*background:#f7fbff/,'professional valuation service must have a distinct but restrained workspace treatment');
 assert.match(html,/@media\(max-width:900px\)\{\.people-outcome-grid,\.ops-primary-grid\{grid-template-columns:1fr\}\}/,"people workspace must collapse before narrow screens");
 assert.match(html,/@media\(max-width:900px\)\{\.business-outcome-grid\{grid-template-columns:1fr\}\}/,"business workspace must collapse before narrow screens");
 assert.match(html,/@media\(max-width:900px\)\{\.hub-grid,\.hub-grid-3\{grid-template-columns:1fr\}/,"workspace hubs must collapse before narrow screens");
