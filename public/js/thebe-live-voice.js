@@ -1146,6 +1146,7 @@
   function quickButton(label,detail,mode,question){
     const button=el("button","",label);
     button.type="button";
+    button.disabled=textBusy;
     if(detail)button.append(el("small","",detail));
     button.addEventListener("focus",()=>setMascotFocus("commands"));
     button.addEventListener("blur",()=>setMascotFocus("ambient"));
