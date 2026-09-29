@@ -16,8 +16,8 @@ assert.match(html,/propertyintelligence:\["Property Intelligence","Property","pr
 assert.doesNotMatch(html,/Money · Investments/,"Property workspace must not present itself as a Money sub-area");
 assert.doesNotMatch(html,/showView\('moneyhub'\)">Back to Money/,"Property workspace must not route back to Money");
 const propertyFragments=[
-  fs.readFileSync(new URL("../public/assets/workspace-view-fragments-20260923f.json",import.meta.url),"utf8"),
-  fs.readFileSync(new URL("../public/assets/workspace-view-fragments-20260923f-4.json",import.meta.url),"utf8")
+  fs.readFileSync(new URL("../public/assets/workspace-view-fragments-20260929g.json",import.meta.url),"utf8"),
+  fs.readFileSync(new URL("../public/assets/workspace-view-fragments-20260929g-4.json",import.meta.url),"utf8")
 ];
 for(const source of propertyFragments){
   assert.doesNotMatch(source,/Money · Investments|Back to Money/,"lazy Property fragments must preserve the Property/Money separation");
