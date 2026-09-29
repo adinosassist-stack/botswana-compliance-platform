@@ -960,6 +960,14 @@
     input.style.height=next+"px";
     input.style.overflowY=(input.scrollHeight||0)>limit?"auto":"hidden";
   }
+  function syncBusyControls(){
+    if(dock)dock.dataset.busy=String(textBusy);
+    quick?.querySelectorAll("button").forEach(button=>{button.disabled=textBusy});
+    modeRail?.querySelectorAll("button").forEach(button=>{button.disabled=textBusy});
+    const contextAction=contextBar?.querySelector(".thebe-ai-context-action");
+    if(contextAction)contextAction.disabled=textBusy;
+    if(sendButton)sendButton.disabled=textBusy;
+  }
   function responseMessage(message,state="ready"){
     if(state==="thinking")setMascotState("thinking");
     else if(state==="error")setMascotState("error");
@@ -1113,8 +1121,7 @@
       return;
     }
     textBusy=true;
-    dock.dataset.busy="true";
-    if(sendButton)sendButton.disabled=true;
+    syncBusyControls();
     responseMessage("Reviewing the current workspace and this screen…","thinking");
     scrollResponseIntoView();
     try{
@@ -1133,8 +1140,7 @@
       scrollResponseIntoView();
     }finally{
       textBusy=false;
-      dock.dataset.busy="false";
-      if(sendButton)sendButton.disabled=false;
+      syncBusyControls();
     }
   }
   function quickButton(label,detail,mode,question){
