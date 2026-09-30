@@ -2888,10 +2888,8 @@ async function renderRegulatoryIntelligence(){
       apiJson("/api/regulatory/impacts")
     ]);
     const ss=s.items||[],rr=r.items||[],cc=c.items||[],ii=i.items||[];
-    document.getElementById("regSourcesPending").textContent=ss.filter(x=>x.status==="approved").length;
-    document.getElementById("regRulesReview").textContent=ii.filter(x=>["action","urgent"].includes(x.impact_level)&&x.status==="pending").length;
-    document.getElementById("regRulesPublished").textContent=rr.filter(x=>x.status==="published").length;
-    document.getElementById("regConflictsOpen").textContent=cc.filter(x=>x.status==="open").length;
+    const approvedSources=ss.filter(x=>x.status==="approved").length,rulesReview=ii.filter(x=>["action","urgent"].includes(x.impact_level)&&x.status==="pending").length,publishedRules=rr.filter(x=>x.status==="published").length,openConflicts=cc.filter(x=>x.status==="open").length;
+    document.getElementById("regSourcesPending").textContent=approvedSources;document.getElementById("regRulesReview").textContent=rulesReview;document.getElementById("regRulesPublished").textContent=publishedRules;document.getElementById("regConflictsOpen").textContent=openConflicts;setText("regSourcesVisual",approvedSources);setText("regReviewVisual",rulesReview);setText("regPublishedVisual",publishedRules);setText("regConflictVisual",openConflicts);
     src.safeHTML=ss.slice(0,30).map(x=>`<div class="item"><b>${escapeHtml(x.title)}</b><div class="muted small">${escapeHtml(x.authority)} · ${escapeHtml(x.status)}${x.effective_date?` · effective ${new Date(x.effective_date).toLocaleDateString()}`:""}</div></div>`).join("")||'<div class="muted small">No sources loaded.</div>';
     document.getElementById("regulatoryRuleList").safeHTML=rr.slice(0,30).map(x=>`<div class="item"><b>${escapeHtml(x.title)}</b><div class="muted small">v${x.version} · ${escapeHtml(x.status)} · ${escapeHtml(x.confidence)} confidence</div></div>`).join("")||'<div class="muted small">No rules loaded.</div>';
     document.getElementById("regulatoryConflictList").safeHTML=cc.slice(0,20).map(x=>`<div class="item"><b>${escapeHtml(x.topic_key)}</b><div class="muted small">${escapeHtml(x.status)}</div><div class="small">${escapeHtml(x.description||"")}</div></div>`).join("")||'<div class="muted small">No open conflicts.</div>';
@@ -2955,10 +2953,8 @@ async function renderInspectionReadiness(){
     const [s,r,p]=await Promise.all([apiJson("/api/inspection-scenarios"),apiJson("/api/inspection-simulations"),apiJson("/api/inspection-packs")]);
     const ss=s.items||[],runs=r.items||[],packs=p.items||[],latest=runs[0]||null,canSimulate=currentWorkspaceRole()!=="auditor";
     scenarios.safeHTML=ss.map(x=>`<div class="item"><div class="between row"><div><b>${escapeHtml(x.name)}</b><div class="muted small">${escapeHtml(x.authority_label)} · ${escapeHtml(x.description)}</div></div>${canSimulate?`<button class="btn alt" data-bw-onclick="runInspectionScenario('${x.scenario_key}')">Simulate</button>`:'<span class="badge">Read only</span>'}</div></div>`).join("")||'<div class="muted small">No scenarios available on this plan.</div>';
-    document.getElementById("inspectionReadinessScore").textContent=latest?.coverage_status==="insufficient"?"N/A":latest?.readiness_score??"—";
-    document.getElementById("inspectionCritical").textContent=latest?.critical_findings??0;
-    document.getElementById("inspectionHigh").textContent=latest?.high_findings??0;
-    document.getElementById("inspectionPackCount").textContent=packs.length;
+    const readiness=latest?.coverage_status==="insufficient"?null:Number(latest?.readiness_score),criticalFindings=latest?.critical_findings??0,highFindings=latest?.high_findings??0;
+    document.getElementById("inspectionReadinessScore").textContent=readiness==null||!Number.isFinite(readiness)?"N/A":readiness;document.getElementById("inspectionCritical").textContent=criticalFindings;document.getElementById("inspectionHigh").textContent=highFindings;document.getElementById("inspectionPackCount").textContent=packs.length;setText("inspectionReadinessVisual",readiness==null||!Number.isFinite(readiness)?"N/A":readiness);setText("inspectionCriticalVisual",criticalFindings);setText("inspectionHighVisual",highFindings);setText("inspectionPackVisual",packs.length);const gauge=document.querySelector(".inspection-gauge");if(gauge)gauge.style.setProperty("--readiness",Math.max(0,Math.min(100,Number.isFinite(readiness)?readiness:0))+"%");
     document.getElementById("inspectionSimulationList").safeHTML=runs.slice(0,20).map(x=>`<div class="item"><b>${escapeHtml(x.scenario_name)}</b><div class="muted small">${x.coverage_status==="insufficient"?"Insufficient data":`Score ${x.readiness_score}`} · ${escapeHtml(x.readiness_band)} · coverage ${escapeHtml(x.coverage_status)} · ${new Date(x.created_at).toLocaleString()}</div></div>`).join("")||'<div class="muted small">No simulations yet.</div>';
     document.getElementById("inspectionPackList").safeHTML=packs.slice(0,20).map(x=>`<div class="item"><b>${escapeHtml(x.label)}</b><div class="muted small">${escapeHtml(x.status)} · ${new Date(x.generated_at).toLocaleString()}</div></div>`).join("")||'<div class="muted small">No packs yet.</div>';
     if(packs[0])latestInspectionPackId=packs[0].id;
@@ -3231,10 +3227,7 @@ async function verifyAuditIntegrity(){
   const box=document.getElementById("auditIntegrityDetail");if(!box)return;
   try{
     const [r,a]=await Promise.all([apiJson("/api/audit/integrity"),apiJson("/api/audit")]);
-    document.getElementById("auditIntegrityStatus").textContent=String(r.status||"unknown").toUpperCase();
-    document.getElementById("auditSealedCount").textContent=r.checkedEvents||0;
-    document.getElementById("auditLegacyCount").textContent=r.legacyEvents||0;
-    document.getElementById("auditFailureCount").textContent=a.unresolvedWriteFailures||0;
+    const sealed=r.checkedEvents||0,legacy=r.legacyEvents||0,failures=a.unresolvedWriteFailures||0;document.getElementById("auditIntegrityStatus").textContent=String(r.status||"unknown").toUpperCase();document.getElementById("auditSealedCount").textContent=sealed;document.getElementById("auditLegacyCount").textContent=legacy;document.getElementById("auditFailureCount").textContent=failures;setText("auditSealedVisual",sealed);setText("auditLegacyVisual",legacy);setText("auditFailureVisual",failures);
     box.safeHTML=`<div class="item"><b>${escapeHtml(r.status||"unknown")}</b><div class="muted small">${r.firstInvalidSeq?`First invalid sequence: ${r.firstInvalidSeq}`:"No chained-event mismatch detected."}</div>${r.lastHash?`<div class="audit">${escapeHtml(r.lastHash.slice(0,32))}…</div>`:""}</div>`;
   }catch(e){box.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
 }
