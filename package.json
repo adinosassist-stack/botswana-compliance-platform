@@ -289,7 +289,8 @@
     "config:generate": "node scripts/generate-foundation-pack.mjs",
     "test:regulatory-pack-v180": "node tests/v180-regulatory-pack-integrity.mjs",
     "test:property-valuer-credential-v179": "node tests/v179-property-valuer-credential-binding.mjs",
-    "test:regulatory-activation-v181": "node tests/v181-regulatory-activation-audit.mjs"
+    "test:regulatory-activation-v181": "node tests/v181-regulatory-activation-audit.mjs",
+    "test:jit-execution-permit-v213": "node tests/v213-jit-execution-permit.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1126.0",
@@ -306,4 +307,4 @@
   "devDependencies": {
     "wrangler": "4.135.0"
   }
-}
+}\n
