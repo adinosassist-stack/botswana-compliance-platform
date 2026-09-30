@@ -2874,29 +2874,13 @@
     );
     shell.append(boundary);
 
-    const metrics=document.createElement("div");
-    metrics.className="grid g4";
-    metrics.style.marginTop="14px";
-    metrics.append(
-      propertyPortfolioMetric("Active property assets","propertyPortfolioAssetCount"),
-      propertyPortfolioMetric("Recorded professional value","propertyPortfolioRecordedValue"),
-      propertyPortfolioMetric("Recorded debt","propertyPortfolioDebt"),
-      propertyPortfolioMetric("Valuation coverage","propertyPortfolioCoverage")
-    );
-    shell.append(metrics);
-    const performanceMetrics=document.createElement("div");
-    performanceMetrics.className="grid g4 property-performance-strip";
-    performanceMetrics.style.marginTop="10px";
-    performanceMetrics.append(
-      propertyPortfolioMetric("Annual rent","propertyPortfolioAnnualRent"),
-      propertyPortfolioMetric("NOI proxy","propertyPortfolioNoi"),
-      propertyPortfolioMetric("Recorded equity","propertyPortfolioEquity"),
-      propertyPortfolioMetric("Portfolio NOI yield","propertyPortfolioNoiYield")
-    );
-    shell.append(performanceMetrics);
+    const metricHooks=document.createElement("div");
+    metricHooks.className="metric-data-only";
+    metricHooks.safeHTML='<span id="propertyPortfolioAssetCount">—</span><span id="propertyPortfolioRecordedValue">—</span><span id="propertyPortfolioDebt">—</span><span id="propertyPortfolioCoverage">—</span><span id="propertyPortfolioAnnualRent">—</span><span id="propertyPortfolioNoi">—</span><span id="propertyPortfolioEquity">—</span><span id="propertyPortfolioNoiYield">—</span>';
+    shell.append(metricHooks);
     const infographic=document.createElement("div");
     infographic.className="property-portfolio-infographic";
-    infographic.safeHTML='<div class="property-info-panel"><div class="section-eyebrow">Capital structure</div><div class="property-capital-bar"><span id="propertyEquityBar"></span><i id="propertyDebtBar"></i></div><div class="property-info-legend"><span><b id="propertyEquityLegend">—</b> equity</span><span><b id="propertyDebtLegend">—</b> debt</span></div></div><div class="property-info-panel"><div class="section-eyebrow">Income flow</div><div class="property-income-flow"><span>Rent <b id="propertyFlowRent">—</b></span><em>→</em><span>NOI <b id="propertyFlowNoi">—</b></span><em>→</em><span>Yield <b id="propertyFlowYield">—</b></span></div></div><div class="property-info-panel"><div class="section-eyebrow">Valuation readiness</div><div class="property-coverage-ring" id="propertyCoverageRing"><b id="propertyCoverageRingValue">—</b><small>covered</small></div></div>';
+    infographic.safeHTML='<div class="property-info-panel"><div class="section-eyebrow">Portfolio</div><div class="property-primary-stat"><b id="propertyAssetVisual">—</b><small>active assets</small></div><div class="property-primary-stat"><b id="propertyValueVisual">—</b><small>professional value</small></div></div><div class="property-info-panel"><div class="section-eyebrow">Capital structure</div><div class="property-capital-bar"><span id="propertyEquityBar"></span><i id="propertyDebtBar"></i></div><div class="property-info-legend"><span><b id="propertyEquityLegend">—</b> equity</span><span><b id="propertyDebtLegend">—</b> debt</span></div></div><div class="property-info-panel"><div class="section-eyebrow">Income flow</div><div class="property-income-flow"><span>Rent <b id="propertyFlowRent">—</b></span><em>→</em><span>NOI <b id="propertyFlowNoi">—</b></span><em>→</em><span>Yield <b id="propertyFlowYield">—</b></span></div></div><div class="property-info-panel"><div class="section-eyebrow">Valuation readiness</div><div class="property-coverage-ring" id="propertyCoverageRing"><b id="propertyCoverageRingValue">—</b><small>covered</small></div></div>';
     shell.append(infographic);
     const portfolioAlerts=document.createElement("div");
     portfolioAlerts.className="grid g2";
