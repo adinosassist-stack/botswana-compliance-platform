@@ -96,6 +96,7 @@ console.log("V177_WORKSPACE_ADVERSARIAL_PASS");
 
 const propertyRuntime=fs.readFileSync("public/js/workspace-runtime-20260929c.js","utf8");
 const runtime=propertyRuntime;
+const css=fs.readFileSync("public/assets/workspace-inline-styles-20260929b.css","utf8");
 const propertyFragment=propertyFragments.join("\n");
 assert.match(propertyFragment,/Save scenario/,"compact Property calculator must allow assumption scenarios to be saved");
 assert.match(propertyFragment,/Saved deal scenarios/,"Property must expose compact scenario comparison");
