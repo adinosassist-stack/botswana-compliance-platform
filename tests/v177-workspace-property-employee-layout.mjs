@@ -79,8 +79,97 @@ assert.match(compactProperty,/Price \+ rent first\./,"empty result state must be
 assert.match(html,/property-risk-summary/,"calculated Property results must keep warning status visible in the compact view");
 assert.match(html,/property-analysis-details/,"secondary Property metrics must collapse behind one Full analysis disclosure");
 assert.match(html,/Full analysis/,"compact Property results must retain access to full underwriting detail");
+const ownerCommand=fs.readFileSync("public/js/owner-command-centre.js","utf8");
+assert.match(ownerCommand,/Property Intelligence/,"Property portfolio must present as a major Property Intelligence capability");
+assert.match(ownerCommand,/Your property portfolio/,"canonical portfolio must lead the governed Property workspace");
+for(const stage of ["Portfolio","Performance","Deal check","Professional valuation"])assert.match(ownerCommand,new RegExp('propertyJourneyCard\\("[1-4]","'+stage),"Property journey missing stage "+stage);
+assert.match(ownerCommand,/Thebe does not create, certify, sign or independently verify a valuation/,"professional valuation authority boundary must remain explicit");
+for(const metric of ["propertyPortfolioAnnualRent","propertyPortfolioNoi","propertyPortfolioEquity","propertyPortfolioNoiYield"])assert.match(ownerCommand,new RegExp(metric),"Property owner performance metric missing: "+metric);
+assert.match(ownerCommand,/annualRentMinor-annualOpexMinor|annualRentMinor\-annualOpexMinor/,"portfolio NOI must derive from recorded rent less recorded operating costs");
+assert.match(ownerCommand,/recordedProfessionalValueMinor\|\|0\)\-Number\(portfolio\.debtBalanceMinor/,"recorded equity must derive from professional value less recorded debt");
+
 assert.match(html,/@media\(max-width:900px\)\{\.people-outcome-grid,\.ops-primary-grid\{grid-template-columns:1fr\}\}/,"people workspace must collapse before narrow screens");
 assert.match(html,/@media\(max-width:900px\)\{\.business-outcome-grid\{grid-template-columns:1fr\}\}/,"business workspace must collapse before narrow screens");
 assert.match(html,/@media\(max-width:900px\)\{\.hub-grid,\.hub-grid-3\{grid-template-columns:1fr\}/,"workspace hubs must collapse before narrow screens");
 
 console.log("V177_WORKSPACE_ADVERSARIAL_PASS");
+
+const propertyRuntime=fs.readFileSync("public/js/workspace-runtime-20260929c.js","utf8");
+const runtime=propertyRuntime;
+const baseCss=fs.readFileSync("public/assets/workspace-inline-styles-20260929b.css","utf8");
+const visualCss=fs.readFileSync("public/assets/workspace-visuals-20260930a.css","utf8");
+const css=baseCss+"\n"+visualCss;
+assert.match(html,/id="thebe-workspace-visuals-v214-styles" rel="stylesheet" href="\/assets\/workspace-visuals-20260930a\.css"/,"workspace must load the bounded V214 visual stylesheet");
+const propertyFragment=propertyFragments.join("\n");
+assert.match(propertyFragment,/Save scenario/,"compact Property calculator must allow assumption scenarios to be saved");
+assert.match(propertyFragment,/Saved deal scenarios/,"Property must expose compact scenario comparison");
+assert.match(propertyRuntime,/PROPERTY_SCENARIO_KEY="thebe\.property\.scenarios\.v1"/,"scenario comparison must use an isolated scenario namespace");
+assert.match(propertyRuntime,/sessionStorage\.getItem\(PROPERTY_SCENARIO_KEY\)/,"saved Property comparisons must be session-only");
+assert.doesNotMatch(propertyRuntime,/localStorage/,"workspace runtime must not persist Property scenario data in localStorage");
+assert.match(propertyRuntime,/rows\.slice\(0,3\)/,"scenario comparison must remain bounded to three scenarios");
+assert.match(propertyRuntime,/Saved scenario only — not a valuation or portfolio record/,"saved scenarios must preserve the valuation and canonical-record boundary");
+assert.doesNotMatch(propertyRuntime,/savePropertyScenario[\s\S]{0,2500}\/api\/property\/portfolio/,"saving a scenario must not silently write assumptions into the canonical property portfolio");
+
+assert.match(propertyRuntime,/function propertyPortfolioImpact\(x\)/,"Property deal analysis must expose canonical portfolio impact");
+assert.match(propertyRuntime,/incrementalDebt:x\.loan/,"portfolio impact must use modeled acquisition debt");
+assert.match(propertyRuntime,/incrementalNoi:x\.noi/,"portfolio impact must use modeled incremental NOI");
+assert.match(propertyRuntime,/Purchase price is <b>not<\/b> added to recorded professional portfolio value/,"scenario purchase price must never become professional portfolio value");
+assert.doesNotMatch(propertyRuntime,/proFormaValue\s*[:=][^\n;]*x\.purchase/,"scenario purchase price must not be promoted into pro-forma professional value");
+assert.match(ownerCommand,/__thebePropertyPortfolioImpact/,"canonical portfolio context must be explicitly bounded for scenario impact");
+
+for(const visual of ["property-capital-bar","property-income-flow","property-coverage-ring"])assert.match(ownerCommand,new RegExp(visual),"Property Intelligence missing visual infographic: "+visual);
+assert.match(ownerCommand,/Rent <b id="propertyFlowRent">—<\/b>/,"income-flow infographic must begin from recorded rent");
+assert.match(ownerCommand,/NOI <b id="propertyFlowNoi">—<\/b>/,"income-flow infographic must expose recorded NOI");
+assert.match(ownerCommand,/Valuation readiness/,"valuation coverage must be shown visually");
+assert.match(ownerCommand,/property-more-actions/,"secondary register actions must be consolidated instead of adding another persistent button");
+
+assert.match(ownerCommand,/property-asset-visual/,"individual properties must use visual performance cards");
+assert.match(ownerCommand,/Record details/,"dense property provenance must be progressive disclosure");
+assert.match(ownerCommand,/property-record-actions/,"property record actions must be consolidated");
+assert.match(ownerCommand,/property-valuation-pipeline/,"professional valuation status must use a workflow infographic");
+assert.doesNotMatch(ownerCommand,/summaryStrip\.className="outcome-status-strip"/,"valuation summary must not regress to a dense chip strip");
+
+assert.match(propertyFragment,/protected-workflow-launch/,"HR protected workflows must use a compact launcher instead of six persistent buttons");
+assert.match(propertyFragment,/ops-visual-brief/,"Daily Reports must expose an at-a-glance visual brief");
+assert.match(runtime,/opsVisualExpected/,"Daily Reports visual brief must use live expected-report data");
+assert.match(runtime,/opsCoverageTrack/,"Daily Reports coverage visualization must be driven by live coverage");
+
+assert.match(propertyFragment,/ai-scope-disclosure/,"Thebe AI explanatory scope must use progressive disclosure");
+assert.match(propertyFragment,/ai-scope-visual/,"Thebe AI scope must use a compact visual flow");
+assert.match(propertyFragment,/corporate-change-launch/,"Corporate change workflows must use one guided launcher instead of six persistent buttons");
+assert.match(propertyFragment,/cipa-reconciliation-disclosure/,"dense CIPA reconciliation must be progressive disclosure");
+assert.match(propertyFragment,/notification-radar/,"Notifications must use a compact attention visualization");
+assert.match(propertyFragment,/notification-policy-disclosure/,"notification policy detail must not consume default viewport height");
+
+assert.match(propertyFragment,/risk-severity-visual/,"Risk Engine must provide a visual severity summary");
+assert.match(runtime,/riskCriticalBar/,"Risk severity visualization must be driven by live risk events");
+assert.match(propertyFragment,/control-health-visual/,"Control Center must expose compact assurance health");
+assert.match(runtime,/controlHealthVisual/,"Control assurance visual must use live control status");
+assert.match(propertyFragment,/evidence-integrity-flow/,"Evidence Integrity must visualize quarantine-to-approval flow");
+assert.match(runtime,/evidenceApprovedVisual/,"Evidence flow must use live integrity state");
+
+assert.match(propertyFragment,/freshness-visual/,"Assurance freshness must use a distribution visual");
+assert.match(runtime,/freshnessPct/,"Freshness visual must use live control freshness");
+assert.match(propertyFragment,/inspection-gauge/,"Inspection readiness must use a bounded readiness gauge");
+assert.match(runtime,/inspectionReadinessVisual/,"Inspection gauge must use live simulation readiness");
+assert.match(propertyFragment,/regulatory-pipeline/,"Regulatory intelligence must visualize source-to-publish flow");
+assert.match(runtime,/regConflictVisual/,"Regulatory flow must surface live conflicts");
+assert.match(propertyFragment,/audit-chain-visual/,"Audit integrity must expose chain state visually");
+assert.match(runtime,/auditSealedVisual/,"Audit chain visual must use verified integrity data");
+
+assert.match(ownerCommand,/owner-pulse/,"Owner first screen must expose a compact business pulse");
+assert.match(ownerCommand,/ownerPulseCash/,"Owner pulse must expose governed cash movement");
+assert.match(ownerCommand,/ownerPulseSales/,"Owner pulse must expose recorded sales pipeline");
+assert.match(ownerCommand,/ownerPulseOps/,"Owner pulse must expose operational exception state");
+assert.match(ownerCommand,/ownerPulseCompliance/,"Owner pulse must expose compliance pressure");
+
+assert.match(propertyFragment,/visual-summary-shell/,"dense assurance surfaces must use one primary visual summary");
+assert.match(propertyFragment,/metric-data-only/,"legacy metric hooks must remain runtime-compatible without duplicate visible KPI cards");
+assert.match(css,/\.metric-data-only\{display:none!important\}/,"duplicate metric hooks must remain visually suppressed");
+
+assert.match(ownerCommand,/propertyAssetVisual/,"Property infographic must retain active asset count after KPI strip removal");
+assert.match(ownerCommand,/propertyValueVisual/,"Property infographic must retain professional portfolio value after KPI strip removal");
+assert.match(propertyFragment,/ops-primary-summary/,"Daily Operations must use one primary visual summary");
+assert.doesNotMatch(propertyFragment,/ops-kpi-grid/,"Daily Operations must not repeat its visual brief in four KPI cards");
+assert.match(propertyFragment,/hr-people-summary/,"HR must use an evidence-first compact summary");
+assert.doesNotMatch(propertyFragment,/Employment risk/,"HR must not present an unsupported employee risk score");

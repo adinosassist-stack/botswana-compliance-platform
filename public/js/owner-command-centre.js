@@ -1373,6 +1373,13 @@
     signals.id="ownerSignalList";
     shell.append(signals);
 
+    const pulse=document.createElement("section");
+    pulse.className="owner-pulse";
+    pulse.id="ownerPulse";
+    pulse.setAttribute("aria-label","Business pulse");
+    pulse.safeHTML='<div class="owner-pulse-flow"><span><small>Cash movement</small><b id="ownerPulseCash">—</b></span><em>→</em><span><small>Sales pipeline</small><b id="ownerPulseSales">—</b></span><em>→</em><span><small>Operations</small><b id="ownerPulseOps">—</b></span><span class="owner-pulse-risk"><small>Compliance</small><b id="ownerPulseCompliance">—</b></span></div>';
+    shell.append(pulse);
+
     const analytics=document.createElement("section");
     analytics.className="owner-panel owner-analytics-panel";
     analytics.id="ownerAnalyticsPanel";
@@ -1495,6 +1502,8 @@
     return card;
   }
 
+  const setTextNode=(id,value)=>{const node=q("#"+id);if(node)node.textContent=String(value??"—");};
+
   function renderBusinessAnalytics(analytics){
     const panel=q("#ownerAnalyticsPanel");
     if(!panel)return;
@@ -1520,6 +1529,10 @@
     const complianceCoverageInactive=complianceCoverageStatus==="inactive";
     const complianceCoverageUnknown=complianceCoverageStatus==="unknown";
     const net=Number(m.current30NetCashMovementMinor||0),inChange=m.inflowChangePct,outChange=m.outflowChangePct;
+    setTextNode("ownerPulseCash",money(net/100));
+    setTextNode("ownerPulseSales",money(Number(s.openQuotationValueBwp||0)));
+    setTextNode("ownerPulseOps",Number(o.criticalPerformanceSignals||0)+" critical");
+    setTextNode("ownerPulseCompliance",complianceCoverageInactive?"inactive":complianceCoverageUnknown?"unknown":Number(co.overdueCount||0)+" overdue");
     const valuationServicesAvailable=p.valuationServicesAvailable===true;
     const payableValuationQuotes=Number(p.valuationServicePayableQuoteCount||0);
     const payableValuationQuoteValue=Number(p.valuationServicePayableQuoteValueBwp||0);
@@ -2807,6 +2820,18 @@
     return Number.isSafeInteger(minor)?minor:NaN;
   }
 
+  function propertyJourneyCard(step,title,copy,targetId){
+    const card=document.createElement("button");
+    card.type="button";card.className="property-journey-card";
+    card.append(text("span",step,"property-journey-step"),text("b",title),text("small",copy));
+    card.addEventListener("click",()=>{
+      const target=q("#"+targetId);
+      if(target?.tagName==="INPUT")target.focus({preventScroll:true});
+      target?.scrollIntoView({behavior:"smooth",block:"center"});
+    });
+    return card;
+  }
+
   function ensurePropertyPortfolioShell(){
     const view=q("#propertyintelligence");
     if(!view)return null;
@@ -2826,9 +2851,19 @@
     const head=document.createElement("div");
     head.className="between row";
     const headText=document.createElement("div");
-    headText.append(text("div","Portfolio records","section-eyebrow"),text("h3","Property portfolio & professional valuations"));
-    head.append(headText,text("span","Governed records","badge info"));
+    headText.append(text("div","Property Intelligence","section-eyebrow"),text("h3","Your property portfolio"));
+    head.append(headText,text("span","Live portfolio","badge info"));
     shell.append(head);
+
+    const journey=document.createElement("div");
+    journey.className="property-intelligence-journey";
+    journey.append(
+      propertyJourneyCard("1","Portfolio","Track owned land and buildings, rent, operating costs, debt and professional value.","propertyPortfolioList"),
+      propertyJourneyCard("2","Performance","See NOI, yield, debt exposure and valuation coverage from canonical records.","propertyPortfolioList"),
+      propertyJourneyCard("3","Deal check","Test a purchase or rental scenario without turning assumptions into market value.","propertyPurchasePrice"),
+      propertyJourneyCard("4","Professional valuation","Request or record a signed valuation through the governed human-valuer workflow.","propertyValuationServicePanel")
+    );
+    shell.append(journey);
 
     const boundary=document.createElement("div");
     boundary.className="notice small";
@@ -2839,16 +2874,14 @@
     );
     shell.append(boundary);
 
-    const metrics=document.createElement("div");
-    metrics.className="grid g4";
-    metrics.style.marginTop="14px";
-    metrics.append(
-      propertyPortfolioMetric("Active property assets","propertyPortfolioAssetCount"),
-      propertyPortfolioMetric("Recorded professional value","propertyPortfolioRecordedValue"),
-      propertyPortfolioMetric("Recorded debt","propertyPortfolioDebt"),
-      propertyPortfolioMetric("Valuation coverage","propertyPortfolioCoverage")
-    );
-    shell.append(metrics);
+    const metricHooks=document.createElement("div");
+    metricHooks.className="metric-data-only";
+    metricHooks.safeHTML='<span id="propertyPortfolioAssetCount">—</span><span id="propertyPortfolioRecordedValue">—</span><span id="propertyPortfolioDebt">—</span><span id="propertyPortfolioCoverage">—</span><span id="propertyPortfolioAnnualRent">—</span><span id="propertyPortfolioNoi">—</span><span id="propertyPortfolioEquity">—</span><span id="propertyPortfolioNoiYield">—</span>';
+    shell.append(metricHooks);
+    const infographic=document.createElement("div");
+    infographic.className="property-portfolio-infographic";
+    infographic.safeHTML='<div class="property-info-panel"><div class="section-eyebrow">Portfolio</div><div class="property-primary-stat"><b id="propertyAssetVisual">—</b><small>active assets</small></div><div class="property-primary-stat"><b id="propertyValueVisual">—</b><small>professional value</small></div></div><div class="property-info-panel"><div class="section-eyebrow">Capital structure</div><div class="property-capital-bar"><span id="propertyEquityBar"></span><i id="propertyDebtBar"></i></div><div class="property-info-legend"><span><b id="propertyEquityLegend">—</b> equity</span><span><b id="propertyDebtLegend">—</b> debt</span></div></div><div class="property-info-panel"><div class="section-eyebrow">Income flow</div><div class="property-income-flow"><span>Rent <b id="propertyFlowRent">—</b></span><em>→</em><span>NOI <b id="propertyFlowNoi">—</b></span><em>→</em><span>Yield <b id="propertyFlowYield">—</b></span></div></div><div class="property-info-panel"><div class="section-eyebrow">Valuation readiness</div><div class="property-coverage-ring" id="propertyCoverageRing"><b id="propertyCoverageRingValue">—</b><small>covered</small></div></div>';
+    shell.append(infographic);
     const portfolioAlerts=document.createElement("div");
     portfolioAlerts.className="grid g2";
     portfolioAlerts.style.marginTop="10px";
@@ -3008,7 +3041,9 @@
     const listHead=document.createElement("div");
     listHead.className="between row";
     listHead.style.marginTop="16px";
-    listHead.append(text("div","Canonical property register","section-eyebrow"),button("Refresh",()=>void renderPropertyPortfolio(true),"btn soft"));
+    const listTitle=document.createElement("div");listTitle.append(text("div","Canonical property register","section-eyebrow"),text("div","Owned properties and valuation evidence","muted small"));
+    const listMenu=document.createElement("details");listMenu.className="property-more-actions";const listMenuSummary=document.createElement("summary");listMenuSummary.textContent="More";listMenu.append(listMenuSummary);const refreshAction=button("Refresh portfolio",()=>void renderPropertyPortfolio(true),"btn soft");listMenu.append(refreshAction);
+    listHead.append(listTitle,listMenu);
     const list=document.createElement("div");
     list.id="propertyPortfolioList";
     list.className="property-risk-list";
@@ -3168,61 +3203,38 @@
     top.append(identity,text("span",badgeLabel,badgeClass));
     card.append(top);
 
-    const facts=document.createElement("div");
-    facts.className="small";
-    facts.style.marginTop="8px";
     const value=latest?propertyPortfolioMoneyMinor(latest.marketValueMinor):"Not recorded";
     const noi=Number(item?.annualRentMinor||0)-Number(item?.annualOperatingCostMinor||0);
     const yieldPct=latest?.marketValueMinor>0?Math.round((noi/Number(latest.marketValueMinor))*10000)/100:null;
-    facts.textContent="Acquisition cost "+(item?.acquisitionCostMinor==null?"Not recorded":propertyPortfolioMoneyMinor(item.acquisitionCostMinor))+
-      " · Annual rent "+propertyPortfolioMoneyMinor(item?.annualRentMinor)+
-      " · Operating costs "+propertyPortfolioMoneyMinor(item?.annualOperatingCostMinor)+
-      " · NOI proxy "+propertyPortfolioMoneyMinor(noi)+
-      " · Debt "+propertyPortfolioMoneyMinor(item?.debtBalanceMinor)+
-      " · Professional value "+value+
-      (yieldPct==null?"":" · NOI yield "+yieldPct.toFixed(2)+"%");
-    card.append(facts);
+    const visual=document.createElement("div");visual.className="property-asset-visual";
+    visual.safeHTML='<div><span>Rent</span><b>'+propertyPortfolioMoneyMinor(item?.annualRentMinor)+'</b></div><em>→</em><div><span>NOI</span><b>'+propertyPortfolioMoneyMinor(noi)+'</b></div><em>→</em><div><span>Yield</span><b>'+(yieldPct==null?"—":yieldPct.toFixed(2)+"%")+'</b></div><div class="property-asset-capital"><span>Debt</span><b>'+propertyPortfolioMoneyMinor(item?.debtBalanceMinor)+'</b><small>Professional value '+value+'</small></div>';
+    card.append(visual);
 
+    const detail=document.createElement("details");detail.className="property-record-details";
+    const detailSummary=document.createElement("summary");detailSummary.textContent="Record details";detail.append(detailSummary);
+    const facts=text("div","Acquisition cost "+(item?.acquisitionCostMinor==null?"Not recorded":propertyPortfolioMoneyMinor(item.acquisitionCostMinor))+" · Operating costs "+propertyPortfolioMoneyMinor(item?.annualOperatingCostMinor),"small");
+    detail.append(facts);
     if(latest){
-      const evidenceCopy=latest.reportEvidenceReady
-        ?" · report evidence "+String(latest.reportEvidence?.displayName||"linked and ready")
-        :" · signed report evidence not linked/ready";
-      const provenance=text("div",
-        "Latest report: "+String(latest.valuationDate||"date unavailable")+" · "+String(latest.valuerName||"valuer not recorded")+
-        " · registration "+String(latest.valuerRegistrationRef||"not recorded")+" · report "+String(latest.reportReference||"not recorded")+
-        " · review due "+String(latest.reviewDueDate||"not set")+evidenceCopy+
-        ". Thebe has not independently verified the professional credential.",
-        "muted small"
-      );
-      provenance.style.marginTop="6px";
-      card.append(provenance);
+      const evidenceCopy=latest.reportEvidenceReady?" · report evidence "+String(latest.reportEvidence?.displayName||"linked and ready"):" · signed report evidence not linked/ready";
+      detail.append(text("div","Latest report: "+String(latest.valuationDate||"date unavailable")+" · "+String(latest.valuerName||"valuer not recorded")+" · registration "+String(latest.valuerRegistrationRef||"not recorded")+" · report "+String(latest.reportReference||"not recorded")+" · review due "+String(latest.reviewDueDate||"not set")+evidenceCopy+". Thebe has not independently verified the professional credential.","muted small"));
     }
-    if(item?.status==="archived"&&item?.archiveReason){
-      const archived=text("div","Archived: "+String(item.archiveReason),"muted small");
-      archived.style.marginTop="6px";card.append(archived);
-    }
+    if(item?.status==="archived"&&item?.archiveReason)detail.append(text("div","Archived: "+String(item.archiveReason),"muted small"));
+    card.append(detail);
 
-    const actions=document.createElement("div");
-    actions.className="actions";
-    actions.style.marginTop="8px";
-    actions.append(
+    const actions=document.createElement("details");actions.className="property-more-actions property-record-actions";
+    const actionSummary=document.createElement("summary");actionSummary.textContent="Actions";actions.append(actionSummary);
+    const actionPanel=document.createElement("div");actionPanel.className="property-action-menu";
+    actionPanel.append(
       button("Performance history",()=>void showPropertyPerformanceHistory(String(item.id||""),String(item.name||"Property")),"btn soft"),
       button("Valuation history",()=>void showPropertyValuationHistory(String(item.id||""),String(item.name||"Property")),"btn soft"),
       button("Edit record",()=>editPropertyAsset(item),"btn soft")
     );
-    if(latest?.reportEvidence?.id)actions.append(button("Open Documents",()=>route("evidencehub"),"btn soft"));
+    if(latest?.reportEvidence?.id)actionPanel.append(button("Open Documents",()=>route("evidencehub"),"btn soft"));
     if(role()==="owner"&&item?.status==="active"){
-      actions.append(
-        button("Request valuation quote",()=>openPropertyValuationServiceRequest(item),"btn"),
-        button("Record valuation",()=>{
-          const select=q("#portfolioValuationAsset");
-          const panel=q("#propertyValuationFormPanel");
-          if(select)select.value=String(item.id||"");
-          if(panel){panel.open=true;panel.scrollIntoView({behavior:"smooth",block:"center"})}
-        },"btn soft")
-      );
+      actionPanel.append(button("Request valuation quote",()=>openPropertyValuationServiceRequest(item),"btn"));
+      actionPanel.append(button("Record valuation",()=>{const select=q("#portfolioValuationAsset"),panel=q("#propertyValuationFormPanel");if(select)select.value=String(item.id||"");if(panel){panel.open=true;panel.scrollIntoView({behavior:"smooth",block:"center"})}},"btn soft"));
     }
-    card.append(actions);
+    actions.append(actionPanel);card.append(actions);
     return card;
   }
 
@@ -3246,11 +3258,18 @@
         valuationOperationsProfessionals=Array.isArray(professionalsPayload?.items)?professionalsPayload.items:[];
       }
       propertyPortfolioCache=portfolio;
+      try{global.__thebePropertyPortfolioImpact=Object.freeze({
+        assetCount:Number(portfolio.assetCount||0),
+        recordedProfessionalValueMinor:Number(portfolio.recordedProfessionalValueMinor||0),
+        debtBalanceMinor:Number(portfolio.debtBalanceMinor||0),
+        annualRentMinor:(Array.isArray(portfolio.items)?portfolio.items:[]).filter(item=>String(item?.status||"active")==="active").reduce((sum,item)=>sum+Number(item?.annualRentMinor||0),0),
+        annualOperatingCostMinor:(Array.isArray(portfolio.items)?portfolio.items:[]).filter(item=>String(item?.status||"active")==="active").reduce((sum,item)=>sum+Number(item?.annualOperatingCostMinor||0),0)
+      })}catch{}
       propertyEvidenceOptions=propertyPortfolioEligibleEvidence(evidencePayload);
       const set=(id,value)=>{const node=q("#"+id);if(node)node.textContent=value};
       if(portfolio?.available!==true){
-        set("propertyPortfolioAssetCount","Unavailable");
-        set("propertyPortfolioRecordedValue","—");
+        set("propertyPortfolioAssetCount","Unavailable");set("propertyAssetVisual","Unavailable");
+        set("propertyPortfolioRecordedValue","—");set("propertyValueVisual","—");
         set("propertyPortfolioDebt","—");
         set("propertyPortfolioCoverage","—");
         if(list){
@@ -3259,10 +3278,25 @@
         }
         return;
       }
-      set("propertyPortfolioAssetCount",String(Number(portfolio.assetCount||0)));
-      set("propertyPortfolioRecordedValue",propertyPortfolioMoneyMinor(portfolio.recordedProfessionalValueMinor));
+      set("propertyPortfolioAssetCount",String(Number(portfolio.assetCount||0)));set("propertyAssetVisual",String(Number(portfolio.assetCount||0)));
+      set("propertyPortfolioRecordedValue",propertyPortfolioMoneyMinor(portfolio.recordedProfessionalValueMinor));set("propertyValueVisual",propertyPortfolioMoneyMinor(portfolio.recordedProfessionalValueMinor));
       set("propertyPortfolioDebt",propertyPortfolioMoneyMinor(portfolio.debtBalanceMinor));
       set("propertyPortfolioCoverage",portfolio.valuationCoveragePct==null?"—":pct(Number(portfolio.valuationCoveragePct)));
+      const activeItems=(Array.isArray(portfolio.items)?portfolio.items:[]).filter(item=>String(item?.status||"active")==="active");
+      const annualRentMinor=activeItems.reduce((sum,item)=>sum+Number(item?.annualRentMinor||0),0);
+      const annualOpexMinor=activeItems.reduce((sum,item)=>sum+Number(item?.annualOperatingCostMinor||0),0);
+      const noiMinor=annualRentMinor-annualOpexMinor;
+      const equityMinor=Math.max(0,Number(portfolio.recordedProfessionalValueMinor||0)-Number(portfolio.debtBalanceMinor||0));
+      set("propertyPortfolioAnnualRent",propertyPortfolioMoneyMinor(annualRentMinor));
+      set("propertyPortfolioNoi",propertyPortfolioMoneyMinor(noiMinor));
+      set("propertyPortfolioEquity",propertyPortfolioMoneyMinor(equityMinor));
+      set("propertyPortfolioNoiYield",Number(portfolio.recordedProfessionalValueMinor||0)>0?pct(noiMinor/Number(portfolio.recordedProfessionalValueMinor||0)*100):"—");
+      const recordedValue=Math.max(0,Number(portfolio.recordedProfessionalValueMinor||0)),debt=Math.max(0,Number(portfolio.debtBalanceMinor||0)),capital=Math.max(recordedValue,debt),equity=Math.max(0,recordedValue-debt),equityPct=capital>0?Math.max(0,Math.min(100,equity/capital*100)):0,debtPct=capital>0?Math.max(0,Math.min(100,debt/capital*100)):0,coverage=Math.max(0,Math.min(100,Number(portfolio.valuationCoveragePct||0)));
+      const equityBar=q("#propertyEquityBar");if(equityBar)equityBar.style.width=equityPct+"%";
+      const debtBar=q("#propertyDebtBar");if(debtBar)debtBar.style.width=debtPct+"%";
+      set("propertyEquityLegend",propertyPortfolioMoneyMinor(equity));set("propertyDebtLegend",propertyPortfolioMoneyMinor(debt));
+      set("propertyFlowRent",propertyPortfolioMoneyMinor(annualRentMinor));set("propertyFlowNoi",propertyPortfolioMoneyMinor(noiMinor));set("propertyFlowYield",recordedValue>0?pct(noiMinor/recordedValue*100):"—");
+      set("propertyCoverageRingValue",pct(coverage));const ring=q("#propertyCoverageRing");if(ring)ring.style.setProperty("--coverage",coverage+"%");
       const renewal=q("#propertyPortfolioRenewalStatus");
       if(renewal){
         const due=Number(portfolio.professionalValuationRenewalDueCount||0),soon=Number(portfolio.professionalValuationRenewalDueSoonCount||0);
@@ -3401,17 +3435,9 @@
     }
     const summary=payload?.summary||{};
     const summaryStrip=document.createElement("div");
-    summaryStrip.className="outcome-status-strip";
-    const summaryPairs=[
-      [String(Number(summary.activeRequests||0)),"active"],
-      [valuationServiceMoney(summary.quotedPipelineBwp||0),"awaiting-payment pipeline"],
-      [String(Number(summary.inProgress||0)),"in progress"],
-      [valuationServiceMoney(summary.completedRevenueBwp||0),"completed service value"]
-    ];
-    for(const [value,label] of summaryPairs){
-      const chip=document.createElement("span");chip.className="outcome-status-chip";
-      chip.append(text("b",value),document.createTextNode(" "+label));summaryStrip.append(chip);
-    }
+    summaryStrip.className="property-valuation-pipeline";
+    const active=Number(summary.activeRequests||0),inProgress=Number(summary.inProgress||0);
+    summaryStrip.safeHTML='<div class="property-pipeline-step"><span>Requests</span><b>'+active+'</b></div><em>→</em><div class="property-pipeline-step"><span>Quoted pipeline</span><b>'+valuationServiceMoney(summary.quotedPipelineBwp||0)+'</b></div><em>→</em><div class="property-pipeline-step"><span>In progress</span><b>'+inProgress+'</b></div><em>→</em><div class="property-pipeline-step"><span>Completed value</span><b>'+valuationServiceMoney(summary.completedRevenueBwp||0)+'</b></div>';
     const nodes=items.map(item=>{
       const row=document.createElement("div");row.className="item";
       const top=document.createElement("div");top.className="between row";
