@@ -122,23 +122,23 @@ assert.match(ownerCommand,/property-record-actions/,"property record actions mus
 assert.match(ownerCommand,/property-valuation-pipeline/,"professional valuation status must use a workflow infographic");
 assert.doesNotMatch(ownerCommand,/summaryStrip\.className="outcome-status-strip"/,"valuation summary must not regress to a dense chip strip");
 
-assert.match(html,/protected-workflow-launch/,"HR protected workflows must use a compact launcher instead of six persistent buttons");
-assert.match(html,/ops-visual-brief/,"Daily Reports must expose an at-a-glance visual brief");
+assert.match(propertyFragment,/protected-workflow-launch/,"HR protected workflows must use a compact launcher instead of six persistent buttons");
+assert.match(propertyFragment,/ops-visual-brief/,"Daily Reports must expose an at-a-glance visual brief");
 assert.match(runtime,/opsVisualExpected/,"Daily Reports visual brief must use live expected-report data");
 assert.match(runtime,/opsCoverageTrack/,"Daily Reports coverage visualization must be driven by live coverage");
 
-assert.match(html,/ai-scope-disclosure/,"Thebe AI explanatory scope must use progressive disclosure");
-assert.match(html,/ai-scope-visual/,"Thebe AI scope must use a compact visual flow");
-assert.match(html,/corporate-change-launch/,"Corporate change workflows must use one guided launcher instead of six persistent buttons");
-assert.match(html,/cipa-reconciliation-disclosure/,"dense CIPA reconciliation must be progressive disclosure");
-assert.match(html,/notification-radar/,"Notifications must use a compact attention visualization");
-assert.match(html,/notification-policy-disclosure/,"notification policy detail must not consume default viewport height");
+assert.match(propertyFragment,/ai-scope-disclosure/,"Thebe AI explanatory scope must use progressive disclosure");
+assert.match(propertyFragment,/ai-scope-visual/,"Thebe AI scope must use a compact visual flow");
+assert.match(propertyFragment,/corporate-change-launch/,"Corporate change workflows must use one guided launcher instead of six persistent buttons");
+assert.match(propertyFragment,/cipa-reconciliation-disclosure/,"dense CIPA reconciliation must be progressive disclosure");
+assert.match(propertyFragment,/notification-radar/,"Notifications must use a compact attention visualization");
+assert.match(propertyFragment,/notification-policy-disclosure/,"notification policy detail must not consume default viewport height");
 
-assert.match(html,/risk-severity-visual/,"Risk Engine must provide a visual severity summary");
+assert.match(propertyFragment,/risk-severity-visual/,"Risk Engine must provide a visual severity summary");
 assert.match(runtime,/riskCriticalBar/,"Risk severity visualization must be driven by live risk events");
-assert.match(html,/control-health-visual/,"Control Center must expose compact assurance health");
+assert.match(propertyFragment,/control-health-visual/,"Control Center must expose compact assurance health");
 assert.match(runtime,/controlHealthVisual/,"Control assurance visual must use live control status");
-assert.match(html,/evidence-integrity-flow/,"Evidence Integrity must visualize quarantine-to-approval flow");
+assert.match(propertyFragment,/evidence-integrity-flow/,"Evidence Integrity must visualize quarantine-to-approval flow");
 assert.match(runtime,/evidenceApprovedVisual/,"Evidence flow must use live integrity state");
 
 assert.match(html,/freshness-visual/,"Assurance freshness must use a distribution visual");
@@ -156,13 +156,13 @@ assert.match(ownerCommand,/ownerPulseSales/,"Owner pulse must expose recorded sa
 assert.match(ownerCommand,/ownerPulseOps/,"Owner pulse must expose operational exception state");
 assert.match(ownerCommand,/ownerPulseCompliance/,"Owner pulse must expose compliance pressure");
 
-assert.match(html,/visual-summary-shell/,"dense assurance surfaces must use one primary visual summary");
-assert.match(html,/metric-data-only/,"legacy metric hooks must remain runtime-compatible without duplicate visible KPI cards");
+assert.match(propertyFragment,/visual-summary-shell/,"dense assurance surfaces must use one primary visual summary");
+assert.match(propertyFragment,/metric-data-only/,"legacy metric hooks must remain runtime-compatible without duplicate visible KPI cards");
 assert.match(css,/\.metric-data-only\{display:none!important\}/,"duplicate metric hooks must remain visually suppressed");
 
 assert.match(ownerCommand,/propertyAssetVisual/,"Property infographic must retain active asset count after KPI strip removal");
 assert.match(ownerCommand,/propertyValueVisual/,"Property infographic must retain professional portfolio value after KPI strip removal");
-assert.match(html,/ops-primary-summary/,"Daily Operations must use one primary visual summary");
-assert.doesNotMatch(html,/ops-kpi-grid/,"Daily Operations must not repeat its visual brief in four KPI cards");
-assert.match(html,/hr-people-summary/,"HR must use an evidence-first compact summary");
-assert.doesNotMatch(html,/Employment risk/,"HR must not present an unsupported employee risk score");
+assert.match(propertyFragment,/ops-primary-summary/,"Daily Operations must use one primary visual summary");
+assert.doesNotMatch(propertyFragment,/ops-kpi-grid/,"Daily Operations must not repeat its visual brief in four KPI cards");
+assert.match(propertyFragment,/hr-people-summary/,"HR must use an evidence-first compact summary");
+assert.doesNotMatch(propertyFragment,/Employment risk/,"HR must not present an unsupported employee risk score");
