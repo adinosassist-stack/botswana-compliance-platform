@@ -552,7 +552,7 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260930-column-v199";
+  const DOCK_RELEASE="20260930-billing-yield-v200";
   const STORE_KEY="thebe_ai_dock_collapsed_v5";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
@@ -585,7 +585,13 @@
     try{return global.matchMedia?.(`(max-width: ${MOBILE_DOCK_MAX}px)`)?.matches??global.innerWidth<=MOBILE_DOCK_MAX}
     catch{return global.innerWidth<=MOBILE_DOCK_MAX}
   }
-  function effectiveCollapsed(){return collapsed}
+  function dockShouldYield(){
+    if(surfaceMode()!=="workspace")return false;
+    const context=activeContext();
+    const key=`${context.id} ${context.title}`.toLowerCase();
+    return /(^|\s)billing(\s|$)|subscription|payment plan/.test(key);
+  }
+  function effectiveCollapsed(){return collapsed||dockShouldYield()}
   function setCriticalStyle(node,styles){
     if(!node)return;
     for(const [property,value] of Object.entries(styles))node.style.setProperty(property,value,"important");
@@ -845,13 +851,13 @@
   }
   function syncVisibility(){
     if(!dock||!pill)return;
-    const surface=surfaceMode(),visible=surface!=="hidden",workspace=surface==="workspace",mobile=mobileDockMode(),isCollapsed=effectiveCollapsed();
+    const surface=surfaceMode(),visible=surface!=="hidden",workspace=surface==="workspace",mobile=mobileDockMode(),yielded=dockShouldYield(),isCollapsed=effectiveCollapsed();
     dock.hidden=!visible||isCollapsed;
     dock.style.setProperty("display",visible&&!isCollapsed?"flex":"none","important");
     pill.setAttribute("aria-expanded",String(visible&&!isCollapsed));
     document.body.classList.toggle("thebe-ai-expanded",visible&&!mobile&&dock.dataset.expanded==="true");
-    pill.hidden=!visible||!isCollapsed;
-    pill.style.setProperty("display",visible&&isCollapsed?"inline-flex":"none","important");
+    pill.hidden=!visible||!isCollapsed||yielded;
+    pill.style.setProperty("display",visible&&isCollapsed&&!yielded?"inline-flex":"none","important");
     dock.dataset.surface=surface;
     pill.dataset.surface=surface;
     syncWorkspaceVisualInvariants();
@@ -877,7 +883,7 @@
     if(foot)foot.textContent=workspace
       ?"Advisory by default · governed actions still require the existing approval controls."
       :"Public sample · no workspace data · voice sample limited to 60 seconds.";
-    document.body.classList.toggle("thebe-ai-dock-open",workspace&&!isCollapsed);
+    document.body.classList.toggle("thebe-ai-dock-open",workspace&&!isCollapsed);\n    document.body.classList.toggle("thebe-ai-dock-yield",workspace&&yielded);
   }
   function recoverVisibility(){
     if(!dock||!pill)return;
@@ -1412,7 +1418,8 @@
     const alerts=document.getElementById("navAlerts");
     if(alerts)new MutationObserver(syncAttention).observe(alerts,{childList:true,characterData:true,subtree:true});
     const pageTitle=document.getElementById("pageTitle");
-    if(pageTitle)new MutationObserver(()=>{syncContextBar();renderQuickActions(surfaceMode())}).observe(pageTitle,{childList:true,characterData:true,subtree:true});
+    if(pageTitle)new MutationObserver(()=>{syncVisibility();syncContextBar();renderQuickActions(surfaceMode())}).observe(pageTitle,{childList:true,characterData:true,subtree:true});
+    document.querySelectorAll(".view").forEach(view=>new MutationObserver(()=>syncVisibility()).observe(view,{attributes:true,attributeFilter:["class"]}));
     const syncKeyboard=()=>{
       const viewport=global.visualViewport;
       if(!viewport)return;
