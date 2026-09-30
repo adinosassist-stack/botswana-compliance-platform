@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260930-column-v199";
+  const RELEASE="20260930-anchor-v200";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -552,7 +552,7 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260930-column-v199";
+  const DOCK_RELEASE="20260930-anchor-v200";
   const STORE_KEY="thebe_ai_dock_collapsed_v5";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
@@ -591,10 +591,10 @@
     for(const [property,value] of Object.entries(styles))node.style.setProperty(property,value,"important");
   }
   function workspaceDockLeftPx(){
-    const workspaceMain=document.querySelector("#appShell main");
-    const rect=workspaceMain?.getBoundingClientRect?.();
+    const sidebar=document.getElementById("workspaceSidebar");
+    const rect=sidebar?.getBoundingClientRect?.();
     const viewport=Math.max(0,Number(global.innerWidth||document.documentElement?.clientWidth||0));
-    const preferred=rect&&Number.isFinite(rect.left)?Math.max(20,Math.round(rect.left+20)):20;
+    const preferred=rect&&Number.isFinite(rect.right)?Math.max(20,Math.round(rect.right+20)):20;
     const width=dock?.dataset?.expanded==="true"?560:420;
     return Math.max(20,Math.min(preferred,Math.max(20,viewport-width-20)));
   }
