@@ -3044,7 +3044,9 @@
     const listHead=document.createElement("div");
     listHead.className="between row";
     listHead.style.marginTop="16px";
-    listHead.append(text("div","Canonical property register","section-eyebrow"),button("Refresh",()=>void renderPropertyPortfolio(true),"btn soft"));
+    const listTitle=document.createElement("div");listTitle.append(text("div","Canonical property register","section-eyebrow"),text("div","Owned properties and valuation evidence","muted small"));
+    const listMenu=document.createElement("details");listMenu.className="property-more-actions";const listMenuSummary=document.createElement("summary");listMenuSummary.textContent="More";listMenu.append(listMenuSummary);const refreshAction=button("Refresh portfolio",()=>void renderPropertyPortfolio(true),"btn soft");listMenu.append(refreshAction);
+    listHead.append(listTitle,listMenu);
     const list=document.createElement("div");
     list.id="propertyPortfolioList";
     list.className="property-risk-list";
