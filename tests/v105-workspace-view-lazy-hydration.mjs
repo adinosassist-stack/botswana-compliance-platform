@@ -31,12 +31,12 @@ function sectionBounds(source,start){
   }
   throw new Error("view section did not close");
 }
-const shellViews=[...html.matchAll(/<section\\b([^>]*)>/gi)].map(match=>{
+const shellViews=[...html.matchAll(/<section\b([^>]*)>/gi)].map(match=>{
   const attrs=String(match[1]||"");
   const id=(attrs.match(/\\bid=["']([^"']+)["']/i)||[])[1]||"";
   const cls=(attrs.match(/\\bclass=["']([^"']+)["']/i)||[])[1]||"";
   return {id,cls,start:match.index};
-}).filter(view=>/\\bview\\b/.test(view.cls));
+}).filter(view=>/\bview\b/.test(view.cls));
 const primaryResidentViews=["dashboard","moneyhub","workhub","sites","peopleops","businesshub","obligations","evidencehub","automationhub"];
 assert.deepEqual(fragments.residentViews,primaryResidentViews,"primary workspace navigation must remain resident and independent of fragment delivery");
 assert.equal(shellViews.length,primaryResidentViews.length,"production workspace shell must contain only resident views");
