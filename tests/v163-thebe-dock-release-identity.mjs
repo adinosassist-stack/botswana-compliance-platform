@@ -54,9 +54,6 @@ assert(runtime.includes('if(minimize)minimize.hidden=!mobile'),'V207 desktop doc
 assert(runtime.includes('desktopWorkspaceOrbHealthy'),'V208 recovery health must include the authoritative desktop workspace orb geometry');
 assert(runtime.includes('Math.abs((orbRect?.width||0)-82)<=1'),'V208 must reject recovered workspace orb width drift');
 assert(runtime.includes('setCriticalStyle(orbButton,{"width":"82px"'),'V208 must repair the workspace orb back to 82px during emergency presentation recovery');
-assert(dockCss.includes('V209 workspace quickbar safe lane'),'V209 must reserve a dedicated safe lane for workspace quick actions');
-assert(dockCss.includes('body.thebe-ai-dock-open #workspaceQuickbar'),'V209 must explicitly move the workspace quickbar clear of the fixed dock');
-assert(dockCss.includes('margin-left:444px!important')&&dockCss.includes('width:calc(100% - 444px)!important'),'V209 wide desktop quickbar must reserve the normal dock footprint');
 assert(runtime.includes('function dockShouldYield()'),'V201 must explicitly yield the fixed dock on protected Billing views');
 assert(runtime.includes('subscription|payment plan'),'V201 Billing yield must cover billing, subscription and payment-plan context');
 assert(runtime.includes('pill.hidden=!visible||!isCollapsed||yielded'),'V201 must hide the collapsed pill while Billing owns the interaction surface');
@@ -75,6 +72,9 @@ assert(runtime.includes('?{"left":workspaceDockLeftPx()+"px"'),'V191 emergency r
 assert(runtime.includes('pill.style.setProperty("display",visible&&isCollapsed&&!yielded?"inline-flex":"none","important")'),'V207 must keep mobile minimise/reopen usable while suppressing the pill on yielded Billing views');
 assert(runtime.includes('const STORE_KEY="thebe_ai_dock_collapsed_v5";'),'V191 must not inherit the pre-floating collapse preference');
 const dockCss=fs.readFileSync(new URL('../public/assets/thebe-ai-dock.css',import.meta.url),'utf8');
+assert(dockCss.includes('V209 workspace quickbar safe lane'),'V209 must reserve a dedicated safe lane for workspace quick actions');
+assert(dockCss.includes('body.thebe-ai-dock-open #workspaceQuickbar'),'V209 must explicitly move the workspace quickbar clear of the fixed dock');
+assert(dockCss.includes('margin-left:444px!important')&&dockCss.includes('width:calc(100% - 444px)!important'),'V209 wide desktop quickbar must reserve the normal dock footprint');
 assert(dockCss.includes('.modal.bw-dialog-service')&&dockCss.includes('z-index:240!important'),'V200 must keep accessible workspace dialogs above the Thebe dock');
 assert(dockCss.includes('V186 Thebe Command Dock'),'V191 must retain the global Command Dock foundation');
 assert(dockCss.includes('V191 canonical workspace dock'),'V191 must ship one canonical authenticated-workspace presentation layer');
