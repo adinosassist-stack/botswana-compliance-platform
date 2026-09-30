@@ -3227,7 +3227,7 @@ async function verifyAuditIntegrity(){
   const box=document.getElementById("auditIntegrityDetail");if(!box)return;
   try{
     const [r,a]=await Promise.all([apiJson("/api/audit/integrity"),apiJson("/api/audit")]);
-    const sealed=r.checkedEvents||0,legacy=r.legacyEvents||0,failures=a.unresolvedWriteFailures||0;document.getElementById("auditIntegrityStatus").textContent=String(r.status||"unknown").toUpperCase();document.getElementById("auditSealedCount").textContent=sealed;document.getElementById("auditLegacyCount").textContent=legacy;document.getElementById("auditFailureCount").textContent=failures;setText("auditSealedVisual",sealed);setText("auditLegacyVisual",legacy);setText("auditFailureVisual",failures);
+    const sealed=r.checkedEvents||0,legacy=r.legacyEvents||0,failures=a.unresolvedWriteFailures||0;document.getElementById("auditIntegrityStatus").textContent=String(r.status||"unknown").toUpperCase();setText("auditIntegrityVisualStatus",String(r.status||"unknown").toUpperCase());document.getElementById("auditSealedCount").textContent=sealed;document.getElementById("auditLegacyCount").textContent=legacy;document.getElementById("auditFailureCount").textContent=failures;setText("auditSealedVisual",sealed);setText("auditLegacyVisual",legacy);setText("auditFailureVisual",failures);
     box.safeHTML=`<div class="item"><b>${escapeHtml(r.status||"unknown")}</b><div class="muted small">${r.firstInvalidSeq?`First invalid sequence: ${r.firstInvalidSeq}`:"No chained-event mismatch detected."}</div>${r.lastHash?`<div class="audit">${escapeHtml(r.lastHash.slice(0,32))}…</div>`:""}</div>`;
   }catch(e){box.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
 }
