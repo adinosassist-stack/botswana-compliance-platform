@@ -2807,6 +2807,18 @@
     return Number.isSafeInteger(minor)?minor:NaN;
   }
 
+  function propertyJourneyCard(step,title,copy,targetId){
+    const card=document.createElement("button");
+    card.type="button";card.className="property-journey-card";
+    card.append(text("span",step,"property-journey-step"),text("b",title),text("small",copy));
+    card.addEventListener("click",()=>{
+      const target=q("#"+targetId);
+      if(target?.tagName==="INPUT")target.focus({preventScroll:true});
+      target?.scrollIntoView({behavior:"smooth",block:"center"});
+    });
+    return card;
+  }
+
   function ensurePropertyPortfolioShell(){
     const view=q("#propertyintelligence");
     if(!view)return null;
@@ -2826,9 +2838,19 @@
     const head=document.createElement("div");
     head.className="between row";
     const headText=document.createElement("div");
-    headText.append(text("div","Portfolio records","section-eyebrow"),text("h3","Property portfolio & professional valuations"));
-    head.append(headText,text("span","Governed records","badge info"));
+    headText.append(text("div","Property Intelligence","section-eyebrow"),text("h3","Your property portfolio"));
+    head.append(headText,text("span","Live portfolio","badge info"));
     shell.append(head);
+
+    const journey=document.createElement("div");
+    journey.className="property-intelligence-journey";
+    journey.append(
+      propertyJourneyCard("1","Portfolio","Track owned land and buildings, rent, operating costs, debt and professional value.","propertyPortfolioList"),
+      propertyJourneyCard("2","Performance","See NOI, yield, debt exposure and valuation coverage from canonical records.","propertyPortfolioList"),
+      propertyJourneyCard("3","Deal check","Test a purchase or rental scenario without turning assumptions into market value.","propertyPurchasePrice"),
+      propertyJourneyCard("4","Professional valuation","Request or record a signed valuation through the governed human-valuer workflow.","propertyValuationServicePanel")
+    );
+    shell.append(journey);
 
     const boundary=document.createElement("div");
     boundary.className="notice small";
