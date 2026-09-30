@@ -2060,7 +2060,7 @@ async function renderDailyOperations(){
     if(box)box.safeHTML=planBlocked?'<div class="notice info"><b>Employee reporting is not available on the current plan.</b><div class="small">Locations still work independently. Upgrade the workspace plan to issue restricted employee reporting links.</div></div>':`<div class="notice bad">Employee reporting access could not load. ${escapeHtml(err?.message||"Retry this section.")}</div>`;
   }
 
-  setText("opsCoverage",`${Number(dashboard.coverage||0)}%`);setText("opsReportsReceived",dashboard.reports?.length||0);setText("opsReportOrb",dashboard.reports?.length||0);
+  const received=dashboard.reports?.length||0,expected=dashboard.reportingPopulation?.expected??dashboard.accesses?.length??0,followup=dashboard.missing?.length||0,coverage=Math.max(0,Math.min(100,Number(dashboard.coverage||0)));setText("opsCoverage",`${coverage}%`);setText("opsReportsReceived",received);setText("opsReportOrb",received);setText("opsVisualReceived",received);setText("opsVisualExpected",expected);setText("opsVisualFollowup",followup);const coverageTrack=document.getElementById("opsCoverageTrack");if(coverageTrack)coverageTrack.style.width=coverage+"%";
   setText("opsExpectedReports",dashboard.reportingPopulation?.expected??dashboard.accesses?.length??0);setText("opsLocationsReporting",dashboard.locationsReporting||0);setText("opsLocationOrb",dashboard.locationsReporting||0);
   setText("opsAttention",dashboard.totals?.attention||0);setText("opsAttentionOrb",dashboard.totals?.attention||0);
   renderOpsBranches(dashboard.branches||[]);renderOpsMissing(dashboard.missing||[]);renderOpsExceptions(dashboard.exceptions||[]);renderOpsReports(dashboard.reports||[]);
