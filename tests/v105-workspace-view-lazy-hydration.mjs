@@ -46,7 +46,7 @@ assert.equal(lazyViewIds.length,62,"expected 62 canonical lazy workspace fragmen
 for(const id of lazyViewIds){
   const canonical=String(fragments.views[id]||"");
   assert.ok(canonical.trim(),`fragment ${id} must contain canonical inner markup`);
-  assert.doesNotMatch(canonical,/<(?:script|iframe|object|embed|base|meta|link|img|svg|math|video|audio|source|track)\\b/i,`fragment ${id} must stay compatible with BW.dom sanitizer`);
+  assert.doesNotMatch(canonical,/<(?:script|iframe|object|embed|base|meta|link|img|svg|math|video|audio|source|track)\b/i,`fragment ${id} must stay compatible with BW.dom sanitizer`);
 }
 
 assert.match(production,/WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT=12/);
