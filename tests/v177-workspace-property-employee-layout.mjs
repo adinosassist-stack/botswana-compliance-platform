@@ -76,6 +76,9 @@ assert.match(compactProperty,/<details class="property-advanced-details">/,"seco
 for(const id of ["propertyPurchasePrice","propertyMonthlyRent","propertyDeposit","propertyInterestRate"])assert.match(compactProperty,new RegExp('id="'+id+'"'),"compact calculator missing core input "+id);
 for(const id of ["propertyVacancy","propertyOperatingCosts","propertyAcquisitionCosts","propertyLoanYears","propertyAppreciation"])assert.match(compactProperty,new RegExp('id="'+id+'"'),"compact calculator missing advanced input "+id);
 assert.match(compactProperty,/Price \+ rent first\./,"empty result state must be concise and action-oriented");
+assert.match(html,/property-risk-summary/,"calculated Property results must keep warning status visible in the compact view");
+assert.match(html,/property-analysis-details/,"secondary Property metrics must collapse behind one Full analysis disclosure");
+assert.match(html,/Full analysis/,"compact Property results must retain access to full underwriting detail");
 assert.match(html,/@media\(max-width:900px\)\{\.people-outcome-grid,\.ops-primary-grid\{grid-template-columns:1fr\}\}/,"people workspace must collapse before narrow screens");
 assert.match(html,/@media\(max-width:900px\)\{\.business-outcome-grid\{grid-template-columns:1fr\}\}/,"business workspace must collapse before narrow screens");
 assert.match(html,/@media\(max-width:900px\)\{\.hub-grid,\.hub-grid-3\{grid-template-columns:1fr\}/,"workspace hubs must collapse before narrow screens");
