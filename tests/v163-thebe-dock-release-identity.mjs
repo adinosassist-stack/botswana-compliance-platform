@@ -20,7 +20,7 @@ for(const value of [productionLive,productionDock,runtimeLive,runtimeDock]){
 }
 assert.equal(productionLive,runtimeLive,'production must cache-bust the exact Thebe Live Voice runtime');
 assert.equal(productionDock,runtimeDock,'production must cache-bust the exact Thebe AI dock runtime');
-assert.equal(productionDock,'20260930-view-event-v205','live Thebe Command Dock V201 must ship under the current release token');
+assert.equal(productionDock,'20260930-desktop-fixed-open-v207','live Thebe Command Dock V201 must ship under the current release token');
 assert(production.includes('const THEBE_PUBLIC_API_CLIENT_RELEASE="20260930a";'),'V200 must cache-bust the shared API client that carries caller cancellation');
 assert(production.includes('const OWNER_COMMAND_CENTRE_RELEASE="20260929-v185";'),'production must cache-bust the Property service runtime that owns the valuation panel');
 assert(production.includes('const THEBE_AI_DOCK_HOTFIX_ASSET="/assets/thebe-ai-dock-v184-hotfix.css";'),'production must publish the path-busted V184 dock hotfix asset');
@@ -47,6 +47,10 @@ assert(runtime.includes('\"flex-direction\":\"column\"')&&runtime.includes('\"wi
 assert(runtime.includes('function workspaceDockLeftPx()'),'V200 must retain one dock-anchor resolver');
 assert(runtime.includes('document.getElementById("workspaceSidebar")'),'V200 must anchor the desktop dock to the sidebar rather than the moving main workspace column');
 assert(runtime.includes('Math.round(rect.right+20)'),'V200 dock anchor must sit 20px beyond the sidebar edge');
+assert(runtime.includes('function effectiveCollapsed(){return (mobileDockMode()?collapsed:false)||dockShouldYield()}'),'V207 desktop dock must ignore stale collapse preference while preserving Billing yield');
+assert(runtime.includes('collapsed=mobile?Boolean(next):false'),'V207 collapse mutations must be mobile-only');
+assert(runtime.includes('collapsed=mobileDockMode()?(storedCollapse==="1"||storedCollapse===null):false'),'V207 desktop mount must start fixed-open even when an older collapse preference exists');
+assert(runtime.includes('if(minimize)minimize.hidden=!mobile'),'V207 desktop dock must not expose a minimise control that contradicts fixed-open behavior');
 assert(runtime.includes('function dockShouldYield()'),'V201 must explicitly yield the fixed dock on protected Billing views');
 assert(runtime.includes('subscription|payment plan'),'V201 Billing yield must cover billing, subscription and payment-plan context');
 assert(runtime.includes('function effectiveCollapsed(){return collapsed||dockShouldYield()}'),'V201 effective dock visibility must include the Billing yield state');
