@@ -34,3 +34,7 @@ assert.doesNotMatch(source.slice(source.indexOf("async function executeTask"),so
 assert.match(source,/jit-permit\$\/\);/);
 
 console.log("v213 JIT execution permit static adversarial gate passed");
+
+assert.match(source,/jit_permit_already_consumed/,"concurrent or repeated use must fail closed after permit consumption");
+const executeBody=source.slice(source.indexOf("async function executeTask"),source.indexOf("async function listTasks"));
+assert.doesNotMatch(executeBody,/return json\(\{ok:true,replayed:true/,"execute path must never convert a consumed/raced JIT permit into replay success");
