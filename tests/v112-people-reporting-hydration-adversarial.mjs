@@ -70,5 +70,9 @@ assert.match(runtime,/const reportingFailures=\[dashboardR\]/,"optional reportin
 assert.match(html,/data-bw-onclick="loadOpsPerformanceLearning\(\)"/);
 assert.match(runtime,/async function openEmployeeReportingAccess\(id\)/);
 assert.match(runtime,/el\.safeHTML=active\.length\?active\.map/);
+const employeeAccessHelper=(runtime.match(/async function openEmployeeReportingAccess\(id\)\{([\s\S]*?)\n\}\nasync function showFreshEmployeeReportingLink/)||[])[1]||"";
+assert.ok(employeeAccessHelper,"employee-row reporting access helper must remain parseable");
+assert.doesNotMatch(employeeAccessHelper,/await createEmployeeReportingLinkFromCard\(id\)/,"opening reporting access must not silently rotate a bearer link or destabilize the explicit rotate control");
+assert.match(employeeAccessHelper,/if\(!cachedLink&&activeAccess\.length===1/,"one existing access should still preselect its location without mutating it");
 
 console.log("v112 People reporting hydration: 3-pass UI boundary PASS");
