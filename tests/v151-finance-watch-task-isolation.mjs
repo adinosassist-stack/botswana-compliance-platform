@@ -30,6 +30,26 @@ assert.equal(rejected.executionAllowed,false);
 assert.equal(rejected.externalActions,0);
 assert.equal(touched,false,"ineligible direct Finance Watch invocation must fail before D1 access");
 
+let observerReads=0;
+const missingObserverDB={
+  prepare(sql){
+    if(String(sql).includes("FROM agent_registry")){
+      return {bind(){return {async first(){return null}}}};
+    }
+    observerReads++;
+    throw new Error("Finance Watch touched data before canonical observer identity was verified");
+  }
+};
+const containedObserver=await runFinanceWatchTask({
+  env:{DB:missingObserverDB},
+  task:{id:"finance-task",tenant_id:"tenant-a",allowed_tools_json:JSON.stringify(["financial_position.read"])}
+});
+assert.equal(containedObserver.ok,false);
+assert.equal(containedObserver.code,"finance_observer_identity_contained");
+assert.equal(containedObserver.executionAllowed,false);
+assert.equal(containedObserver.externalActions,0);
+assert.equal(observerReads,0,"missing canonical observer identity must fail before any finance read");
+
 const due=buildFinanceWatchDueQuery(25);
 assert.equal(due.bindings.length,FINANCE_WATCH_READ_ACTIONS.length+1);
 assert.equal(due.bindings.at(-1),25);
