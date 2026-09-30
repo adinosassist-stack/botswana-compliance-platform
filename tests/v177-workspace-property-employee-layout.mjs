@@ -79,6 +79,12 @@ assert.match(compactProperty,/Price \+ rent first\./,"empty result state must be
 assert.match(html,/property-risk-summary/,"calculated Property results must keep warning status visible in the compact view");
 assert.match(html,/property-analysis-details/,"secondary Property metrics must collapse behind one Full analysis disclosure");
 assert.match(html,/Full analysis/,"compact Property results must retain access to full underwriting detail");
+const ownerCommand=fs.readFileSync("public/js/owner-command-centre.js","utf8");
+assert.match(ownerCommand,/Property Intelligence/,"Property portfolio must present as a major Property Intelligence capability");
+assert.match(ownerCommand,/Your property portfolio/,"canonical portfolio must lead the governed Property workspace");
+for(const stage of ["Portfolio","Performance","Deal check","Professional valuation"])assert.match(ownerCommand,new RegExp('propertyJourneyCard\\("[1-4]","'+stage),"Property journey missing stage "+stage);
+assert.match(ownerCommand,/Thebe does not create, certify, sign or independently verify a valuation/,"professional valuation authority boundary must remain explicit");
+
 assert.match(html,/@media\(max-width:900px\)\{\.people-outcome-grid,\.ops-primary-grid\{grid-template-columns:1fr\}\}/,"people workspace must collapse before narrow screens");
 assert.match(html,/@media\(max-width:900px\)\{\.business-outcome-grid\{grid-template-columns:1fr\}\}/,"business workspace must collapse before narrow screens");
 assert.match(html,/@media\(max-width:900px\)\{\.hub-grid,\.hub-grid-3\{grid-template-columns:1fr\}/,"workspace hubs must collapse before narrow screens");
