@@ -478,7 +478,7 @@ export async function handleAgenticTaskExecutionRequest({request,logicalPath,env
   if(cancel&&request.method==="POST")return cancelTask({env,auth,requestId:cancel[1]});
   const approve=path.match(/^\/api\/agentic\/task-execution\/requests\/([^/]+)\/approve$/);
   if(approve&&request.method==="POST")return approveTask({env,auth,requestId:approve[1]});
-  const execute=path.match(/^\/api\/agentic\/task-execution\/requests\/([^/]+)\/execute$/);
+  const permit=path.match(/^\/api\/agentic\/task-execution\/requests\/([^/]+)\/jit-permit$/);\n  if(permit&&request.method==="POST")return issueJitPermit({env,auth,requestId:permit[1]});\n  const execute=path.match(/^\/api\/agentic\/task-execution\/requests\/([^/]+)\/execute$/);
   if(execute&&request.method==="POST")return executeTask({env,auth,requestId:execute[1]});
   if(path==="/api/agentic/task-execution/tasks"&&request.method==="GET")return listTasks(env,auth);
   return json({error:"not_found"},404);
