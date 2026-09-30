@@ -3058,10 +3058,8 @@ async function renderEvidenceIntegrity(){
   const box=document.getElementById("evidenceIntegrityList");if(!box)return;
   try{
     const [r,q]=await Promise.all([apiJson("/api/evidence/integrity"),apiJson("/api/evidence/scan-queue")]),items=r.items||[];
-    document.getElementById("evidenceQuarantined").textContent=items.filter(x=>x.review_status==="quarantined").length;
-    document.getElementById("evidenceScanClean").textContent=items.filter(x=>x.scan_status==="clean").length;
-    document.getElementById("evidenceApproved").textContent=items.filter(x=>x.review_status==="approved"&&x.scan_status==="clean").length;
-    document.getElementById("evidenceScanProblems").textContent=items.filter(x=>["infected","scan_error","legacy_unscanned"].includes(x.scan_status)).length;
+    const quarantined=items.filter(x=>x.review_status==="quarantined").length,clean=items.filter(x=>x.scan_status==="clean").length,approved=items.filter(x=>x.review_status==="approved"&&x.scan_status==="clean").length,problems=items.filter(x=>["infected","scan_error","legacy_unscanned"].includes(x.scan_status)).length;
+    document.getElementById("evidenceQuarantined").textContent=quarantined;document.getElementById("evidenceScanClean").textContent=clean;document.getElementById("evidenceApproved").textContent=approved;document.getElementById("evidenceScanProblems").textContent=problems;setText("evidenceQuarantinedVisual",quarantined);setText("evidenceCleanVisual",clean);setText("evidenceApprovedVisual",approved);setText("evidenceProblemsVisual",problems);
     document.getElementById("evidenceScannerStatus").safeHTML=q.scannerConfigured
       ? '<span class="pill good">Scanner configured</span>'
       : '<span class="pill bad">Scanner not configured · approval remains blocked</span>';
@@ -3121,10 +3119,9 @@ async function renderRiskEvents(){
   try{
     const r=await apiJson("/api/business-risk-events"),items=r.items||[],s=r.snapshot||{};
     const active=items.filter(x=>["open","acknowledged"].includes(x.status));
-    document.getElementById("riskEventOpen").textContent=active.length;
-    document.getElementById("riskEventCritical").textContent=active.filter(x=>x.severity==="critical").length;
-    document.getElementById("riskEventHigh").textContent=active.filter(x=>x.severity==="high").length;
-    document.getElementById("riskPressure").textContent=s.risk_pressure??0;
+    const critical=active.filter(x=>x.severity==="critical").length,high=active.filter(x=>x.severity==="high").length,pressure=Number(s.risk_pressure??0);
+    document.getElementById("riskEventOpen").textContent=active.length;document.getElementById("riskEventCritical").textContent=critical;document.getElementById("riskEventHigh").textContent=high;document.getElementById("riskPressure").textContent=pressure;
+    setText("riskOpenVisual",active.length);setText("riskCriticalVisual",critical);setText("riskHighVisual",high);setText("riskPressureVisual",pressure);const riskMax=Math.max(1,active.length);for(const [id,n] of [["riskCriticalBar",critical],["riskHighBar",high],["riskOpenBar",active.length]]){const el=document.getElementById(id);if(el)el.style.width=Math.min(100,n/riskMax*100)+"%";}
     box.safeHTML=active.map(x=>`<div class="item"><div class="between row"><div><b>${escapeHtml(x.title)}</b><div class="muted small">${escapeHtml(x.category)} · ${escapeHtml(x.severity)} · ${escapeHtml(x.status)}${x.due_at?` · ${new Date(x.due_at).toLocaleDateString()}`:""} · seen ${x.occurrence_count||1}×</div><div class="small">${escapeHtml(x.rationale||"")}</div><div class="small"><b>Action:</b> ${escapeHtml(x.recommended_action||"")}</div></div>${x.status==="open"?`<button class="btn alt" data-bw-onclick="acknowledgeRiskEvent('${x.id}')">Acknowledge</button>`:""}</div></div>`).join("")||'<div class="notice good">No active business-risk events detected from current workspace records.</div>';
   }catch(e){box.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
 }
@@ -3179,10 +3176,9 @@ async function renderControlCenter(){
   const box=document.getElementById("controlCenterList");if(!box)return;
   try{
     const c=await apiJson("/api/control-center"),items=c.items||[],eh=c.evidenceHealth||{};
-    document.getElementById("controlPassing").textContent=items.filter(x=>x.status==="passing").length;
-    document.getElementById("controlAttention").textContent=items.filter(x=>["attention","review"].includes(x.status)).length;
-    document.getElementById("controlFailed").textContent=items.filter(x=>x.status==="failed").length;
-    document.getElementById("evidenceHealthScore").textContent=eh.health_score??"—";
+    const passing=items.filter(x=>x.status==="passing").length,attentionCount=items.filter(x=>["attention","review"].includes(x.status)).length,failedCount=items.filter(x=>x.status==="failed").length,totalControls=items.length,passingPct=totalControls?Math.round(passing/totalControls*100):0;
+    document.getElementById("controlPassing").textContent=passing;document.getElementById("controlAttention").textContent=attentionCount;document.getElementById("controlFailed").textContent=failedCount;document.getElementById("evidenceHealthScore").textContent=eh.health_score??"—";
+    setText("controlPassingVisual",passing);setText("controlAttentionVisual",attentionCount);setText("controlFailedVisual",failedCount);setText("controlHealthVisual",passingPct+"%");const controlRing=document.querySelector(".control-health-ring");if(controlRing)controlRing.style.setProperty("--passing",passingPct+"%");
     {const total=items.length,current=items.filter(x=>x.assurance_freshness==="current").length,stale=items.filter(x=>["stale","overdue"].includes(x.assurance_freshness)).length,failed=items.filter(x=>x.status==="failed").length;
       const mode=document.getElementById("cockpitMode"),fresh=document.getElementById("cockpitFreshness"),src=document.getElementById("cockpitSources"),status=document.getElementById("cockpitStatus"),statusText=document.getElementById("cockpitStatusText"),ev=document.getElementById("evidenceCoverage"),cap=document.getElementById("evidenceMetricCaption");
       if(mode)mode.textContent=STANDALONE_PREVIEW?"Preview data":"Server-backed";if(fresh)fresh.textContent=total?`${current}/${total} controls current`:"Baseline not established";if(src)src.textContent=sourceConflicts.length?`${sourceConflicts.length} conflict${sourceConflicts.length===1?"":"s"} blocked`:"No blocking conflicts";
