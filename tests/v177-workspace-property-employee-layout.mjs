@@ -154,3 +154,7 @@ assert.match(ownerCommand,/ownerPulseCash/,"Owner pulse must expose governed cas
 assert.match(ownerCommand,/ownerPulseSales/,"Owner pulse must expose recorded sales pipeline");
 assert.match(ownerCommand,/ownerPulseOps/,"Owner pulse must expose operational exception state");
 assert.match(ownerCommand,/ownerPulseCompliance/,"Owner pulse must expose compliance pressure");
+
+assert.match(html,/visual-summary-shell/,"dense assurance surfaces must use one primary visual summary");
+assert.match(html,/metric-data-only/,"legacy metric hooks must remain runtime-compatible without duplicate visible KPI cards");
+assert.match(css,/\.metric-data-only\{display:none!important\}/,"duplicate metric hooks must remain visually suppressed");
