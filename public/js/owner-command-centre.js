@@ -3206,61 +3206,38 @@
     top.append(identity,text("span",badgeLabel,badgeClass));
     card.append(top);
 
-    const facts=document.createElement("div");
-    facts.className="small";
-    facts.style.marginTop="8px";
     const value=latest?propertyPortfolioMoneyMinor(latest.marketValueMinor):"Not recorded";
     const noi=Number(item?.annualRentMinor||0)-Number(item?.annualOperatingCostMinor||0);
     const yieldPct=latest?.marketValueMinor>0?Math.round((noi/Number(latest.marketValueMinor))*10000)/100:null;
-    facts.textContent="Acquisition cost "+(item?.acquisitionCostMinor==null?"Not recorded":propertyPortfolioMoneyMinor(item.acquisitionCostMinor))+
-      " · Annual rent "+propertyPortfolioMoneyMinor(item?.annualRentMinor)+
-      " · Operating costs "+propertyPortfolioMoneyMinor(item?.annualOperatingCostMinor)+
-      " · NOI proxy "+propertyPortfolioMoneyMinor(noi)+
-      " · Debt "+propertyPortfolioMoneyMinor(item?.debtBalanceMinor)+
-      " · Professional value "+value+
-      (yieldPct==null?"":" · NOI yield "+yieldPct.toFixed(2)+"%");
-    card.append(facts);
+    const visual=document.createElement("div");visual.className="property-asset-visual";
+    visual.safeHTML='<div><span>Rent</span><b>'+propertyPortfolioMoneyMinor(item?.annualRentMinor)+'</b></div><em>→</em><div><span>NOI</span><b>'+propertyPortfolioMoneyMinor(noi)+'</b></div><em>→</em><div><span>Yield</span><b>'+(yieldPct==null?"—":yieldPct.toFixed(2)+"%")+'</b></div><div class="property-asset-capital"><span>Debt</span><b>'+propertyPortfolioMoneyMinor(item?.debtBalanceMinor)+'</b><small>Professional value '+value+'</small></div>';
+    card.append(visual);
 
+    const detail=document.createElement("details");detail.className="property-record-details";
+    const detailSummary=document.createElement("summary");detailSummary.textContent="Record details";detail.append(detailSummary);
+    const facts=text("div","Acquisition cost "+(item?.acquisitionCostMinor==null?"Not recorded":propertyPortfolioMoneyMinor(item.acquisitionCostMinor))+" · Operating costs "+propertyPortfolioMoneyMinor(item?.annualOperatingCostMinor),"small");
+    detail.append(facts);
     if(latest){
-      const evidenceCopy=latest.reportEvidenceReady
-        ?" · report evidence "+String(latest.reportEvidence?.displayName||"linked and ready")
-        :" · signed report evidence not linked/ready";
-      const provenance=text("div",
-        "Latest report: "+String(latest.valuationDate||"date unavailable")+" · "+String(latest.valuerName||"valuer not recorded")+
-        " · registration "+String(latest.valuerRegistrationRef||"not recorded")+" · report "+String(latest.reportReference||"not recorded")+
-        " · review due "+String(latest.reviewDueDate||"not set")+evidenceCopy+
-        ". Thebe has not independently verified the professional credential.",
-        "muted small"
-      );
-      provenance.style.marginTop="6px";
-      card.append(provenance);
+      const evidenceCopy=latest.reportEvidenceReady?" · report evidence "+String(latest.reportEvidence?.displayName||"linked and ready"):" · signed report evidence not linked/ready";
+      detail.append(text("div","Latest report: "+String(latest.valuationDate||"date unavailable")+" · "+String(latest.valuerName||"valuer not recorded")+" · registration "+String(latest.valuerRegistrationRef||"not recorded")+" · report "+String(latest.reportReference||"not recorded")+" · review due "+String(latest.reviewDueDate||"not set")+evidenceCopy+". Thebe has not independently verified the professional credential.","muted small"));
     }
-    if(item?.status==="archived"&&item?.archiveReason){
-      const archived=text("div","Archived: "+String(item.archiveReason),"muted small");
-      archived.style.marginTop="6px";card.append(archived);
-    }
+    if(item?.status==="archived"&&item?.archiveReason)detail.append(text("div","Archived: "+String(item.archiveReason),"muted small"));
+    card.append(detail);
 
-    const actions=document.createElement("div");
-    actions.className="actions";
-    actions.style.marginTop="8px";
-    actions.append(
+    const actions=document.createElement("details");actions.className="property-more-actions property-record-actions";
+    const actionSummary=document.createElement("summary");actionSummary.textContent="Actions";actions.append(actionSummary);
+    const actionPanel=document.createElement("div");actionPanel.className="property-action-menu";
+    actionPanel.append(
       button("Performance history",()=>void showPropertyPerformanceHistory(String(item.id||""),String(item.name||"Property")),"btn soft"),
       button("Valuation history",()=>void showPropertyValuationHistory(String(item.id||""),String(item.name||"Property")),"btn soft"),
       button("Edit record",()=>editPropertyAsset(item),"btn soft")
     );
-    if(latest?.reportEvidence?.id)actions.append(button("Open Documents",()=>route("evidencehub"),"btn soft"));
+    if(latest?.reportEvidence?.id)actionPanel.append(button("Open Documents",()=>route("evidencehub"),"btn soft"));
     if(role()==="owner"&&item?.status==="active"){
-      actions.append(
-        button("Request valuation quote",()=>openPropertyValuationServiceRequest(item),"btn"),
-        button("Record valuation",()=>{
-          const select=q("#portfolioValuationAsset");
-          const panel=q("#propertyValuationFormPanel");
-          if(select)select.value=String(item.id||"");
-          if(panel){panel.open=true;panel.scrollIntoView({behavior:"smooth",block:"center"})}
-        },"btn soft")
-      );
+      actionPanel.append(button("Request valuation quote",()=>openPropertyValuationServiceRequest(item),"btn"));
+      actionPanel.append(button("Record valuation",()=>{const select=q("#portfolioValuationAsset"),panel=q("#propertyValuationFormPanel");if(select)select.value=String(item.id||"");if(panel){panel.open=true;panel.scrollIntoView({behavior:"smooth",block:"center"})}},"btn soft"));
     }
-    card.append(actions);
+    actions.append(actionPanel);card.append(actions);
     return card;
   }
 
