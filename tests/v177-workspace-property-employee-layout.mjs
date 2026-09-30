@@ -101,3 +101,10 @@ assert.match(propertyRuntime,/PROPERTY_SCENARIO_KEY="thebe\.property\.scenarios\
 assert.match(propertyRuntime,/rows\.slice\(0,3\)/,"scenario comparison must remain bounded to three scenarios");
 assert.match(propertyRuntime,/Saved scenario only — not a valuation or portfolio record/,"saved scenarios must preserve the valuation and canonical-record boundary");
 assert.doesNotMatch(propertyRuntime,/savePropertyScenario[\s\S]{0,2500}\/api\/property\/portfolio/,"saving a scenario must not silently write assumptions into the canonical property portfolio");
+
+assert.match(propertyRuntime,/function propertyPortfolioImpact\(x\)/,"Property deal analysis must expose canonical portfolio impact");
+assert.match(propertyRuntime,/incrementalDebt:x\.loan/,"portfolio impact must use modeled acquisition debt");
+assert.match(propertyRuntime,/incrementalNoi:x\.noi/,"portfolio impact must use modeled incremental NOI");
+assert.match(propertyRuntime,/Purchase price is <b>not<\/b> added to recorded professional portfolio value/,"scenario purchase price must never become professional portfolio value");
+assert.doesNotMatch(propertyRuntime,/proFormaValue\s*[:=][^\n;]*x\.purchase/,"scenario purchase price must not be promoted into pro-forma professional value");
+assert.match(ownerCommand,/__thebePropertyPortfolioImpact/,"canonical portfolio context must be explicitly bounded for scenario impact");
