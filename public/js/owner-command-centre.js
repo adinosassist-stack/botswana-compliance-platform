@@ -3438,17 +3438,9 @@
     }
     const summary=payload?.summary||{};
     const summaryStrip=document.createElement("div");
-    summaryStrip.className="outcome-status-strip";
-    const summaryPairs=[
-      [String(Number(summary.activeRequests||0)),"active"],
-      [valuationServiceMoney(summary.quotedPipelineBwp||0),"awaiting-payment pipeline"],
-      [String(Number(summary.inProgress||0)),"in progress"],
-      [valuationServiceMoney(summary.completedRevenueBwp||0),"completed service value"]
-    ];
-    for(const [value,label] of summaryPairs){
-      const chip=document.createElement("span");chip.className="outcome-status-chip";
-      chip.append(text("b",value),document.createTextNode(" "+label));summaryStrip.append(chip);
-    }
+    summaryStrip.className="property-valuation-pipeline";
+    const active=Number(summary.activeRequests||0),inProgress=Number(summary.inProgress||0);
+    summaryStrip.safeHTML='<div class="property-pipeline-step"><span>Requests</span><b>'+active+'</b></div><em>→</em><div class="property-pipeline-step"><span>Quoted pipeline</span><b>'+valuationServiceMoney(summary.quotedPipelineBwp||0)+'</b></div><em>→</em><div class="property-pipeline-step"><span>In progress</span><b>'+inProgress+'</b></div><em>→</em><div class="property-pipeline-step"><span>Completed value</span><b>'+valuationServiceMoney(summary.completedRevenueBwp||0)+'</b></div>';
     const nodes=items.map(item=>{
       const row=document.createElement("div");row.className="item";
       const top=document.createElement("div");top.className="between row";
