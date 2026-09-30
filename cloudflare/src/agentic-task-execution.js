@@ -80,7 +80,7 @@ async function schemaReady(env){
       (SELECT COUNT(*) FROM agent_execution_grants) grant_count,
       (SELECT COUNT(*) FROM agent_task_requests) request_count,
       (SELECT COUNT(*) FROM agent_internal_tasks) task_count,
-      (SELECT COUNT(*) FROM agent_execution_receipts) receipt_count`).first();
+      (SELECT COUNT(*) FROM agent_execution_receipts) receipt_count,\n      (SELECT COUNT(*) FROM agent_jit_execution_permits) jit_permit_count`).first();
     return true;
   }catch{return false}
 }
@@ -320,6 +320,31 @@ async function cancelTask({env,auth,requestId}){
   const changed=Number(results?.[0]?.meta?.changes??results?.[0]?.changes??0);
   if(changed!==1)return json({error:"task_request_cancel_conflict"},409);
   return json({ok:true,id:requestId,status:"cancelled"});
+}
+
+async function issueJitPermit({env,auth,requestId}){
+  if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);
+  if(!(await schemaReady(env)))return json({error:"bounded_execution_schema_not_ready"},503);
+  const canonicalAuthority=await loadCanonicalAgentAuthority(env,THEBE_AGENT_ID);
+  if(!authorityPermitsExecution(canonicalAuthority))return json({error:"agent_authority_contained"},canonicalAuthority.ready?409:503);
+  const row=await safeFirst(env,`SELECT q.id,q.status,q.payload_hash,q.approved_payload_hash,q.execution_grant_id,g.status execution_grant_status
+    FROM agent_task_requests q JOIN agent_execution_grants g ON g.id=q.execution_grant_id AND g.tenant_id=q.tenant_id
+    WHERE q.id=? AND q.tenant_id=? LIMIT 1`,[requestId,auth.tenant_id]);
+  if(!row)return json({error:"task_request_not_found"},404);
+  if(row.status!=="approved"||String(row.approved_payload_hash||"")!==String(row.payload_hash||""))return json({error:"exact_owner_approval_required"},409);
+  if(row.execution_grant_status!=="active")return json({error:"execution_grant_inactive"},409);
+  const existing=await safeFirst(env,`SELECT id,status,expires_at FROM agent_jit_execution_permits WHERE tenant_id=? AND task_request_id=? LIMIT 1`,[auth.tenant_id,requestId]);
+  if(existing)return json({error:"jit_permit_already_issued",permitId:existing.id,status:existing.status,expiresAt:existing.expires_at},409);
+  const permitId=id(),expiresAt=new Date(Date.now()+5*60*1000).toISOString();
+  try{
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO agent_jit_execution_permits(id,tenant_id,agent_id,human_user_id,task_request_id,execution_grant_id,action_key,payload_hash,expires_at)
+        VALUES(?,?,?,?,?,?,?,?,?)`).bind(permitId,auth.tenant_id,THEBE_AGENT_ID,auth.user_id,requestId,row.execution_grant_id,ACTION_KEY,row.payload_hash,expiresAt),
+      env.DB.prepare(`INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data)
+        VALUES(?,?,'AGENT_JIT_PERMIT_ISSUED','agent_jit_execution_permit',?,?)`).bind(auth.tenant_id,auth.user_id,permitId,JSON.stringify({requestId,agentId:THEBE_AGENT_ID,actionKey:ACTION_KEY,payloadHash:row.payload_hash,expiresAt,maxUses:1}))
+    ]);
+  }catch{return json({error:"jit_permit_issue_failed"},500)}
+  return json({ok:true,permit:{id:permitId,requestId,agentId:THEBE_AGENT_ID,actionKey:ACTION_KEY,payloadHash:row.payload_hash,expiresAt,maxUses:1}},201);
 }
 
 async function executeTask({env,auth,requestId}){
