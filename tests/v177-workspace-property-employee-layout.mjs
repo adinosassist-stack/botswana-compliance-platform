@@ -132,3 +132,10 @@ assert.match(html,/corporate-change-launch/,"Corporate change workflows must use
 assert.match(html,/cipa-reconciliation-disclosure/,"dense CIPA reconciliation must be progressive disclosure");
 assert.match(html,/notification-radar/,"Notifications must use a compact attention visualization");
 assert.match(html,/notification-policy-disclosure/,"notification policy detail must not consume default viewport height");
+
+assert.match(html,/risk-severity-visual/,"Risk Engine must provide a visual severity summary");
+assert.match(runtime,/riskCriticalBar/,"Risk severity visualization must be driven by live risk events");
+assert.match(html,/control-health-visual/,"Control Center must expose compact assurance health");
+assert.match(runtime,/controlHealthVisual/,"Control assurance visual must use live control status");
+assert.match(html,/evidence-integrity-flow/,"Evidence Integrity must visualize quarantine-to-approval flow");
+assert.match(runtime,/evidenceApprovedVisual/,"Evidence flow must use live integrity state");
