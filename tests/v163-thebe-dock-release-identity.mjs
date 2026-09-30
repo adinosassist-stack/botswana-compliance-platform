@@ -53,7 +53,7 @@ assert(runtime.includes('pill.hidden=!visible||!isCollapsed||yielded'),'V201 mus
 assert(runtime.includes('document.querySelectorAll(".view").forEach(view=>new MutationObserver(()=>syncVisibility())'),'V201 must react immediately when the active workspace view changes');
 assert(!runtime.includes('Math.round(rect.left+20)'),'V200 must remove the self-chasing main-column dock anchor');
 assert(runtime.includes('?{"left":workspaceDockLeftPx()+"px"'),'V191 emergency recovery must still restore the resolved workspace lower-left position');
-assert(runtime.includes('pill.style.setProperty("display",visible&&isCollapsed?"inline-flex":"none","important")'),'V191 must make desktop minimise/reopen usable without depending on stylesheet state');
+assert(runtime.includes('pill.style.setProperty("display",visible&&isCollapsed&&!yielded?"inline-flex":"none","important")'),'V201 must keep desktop minimise/reopen usable while suppressing the pill on yielded Billing views');
 assert(runtime.includes('const STORE_KEY="thebe_ai_dock_collapsed_v5";'),'V191 must not inherit the pre-floating collapse preference');
 const dockCss=fs.readFileSync(new URL('../public/assets/thebe-ai-dock.css',import.meta.url),'utf8');
 assert(dockCss.includes('.modal.bw-dialog-service')&&dockCss.includes('z-index:240!important'),'V200 must keep accessible workspace dialogs above the Thebe dock');
