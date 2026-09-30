@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260930-billing-yield-v201";
+  const RELEASE="20260930-view-sync-v202";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -552,7 +552,7 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260930-billing-yield-v201";
+  const DOCK_RELEASE="20260930-view-sync-v202";
   const STORE_KEY="thebe_ai_dock_collapsed_v5";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
@@ -1444,6 +1444,7 @@
     global.addEventListener("pageshow",recoverVisibility,{passive:true});
     global.addEventListener("focus",recoverVisibility,{passive:true});
     global.addEventListener("thebe:workspace-ready",recoverVisibility);
+    global.addEventListener("thebe:view-change",()=>{syncVisibility();global.requestAnimationFrame?.(()=>{syncVisibility();recoverDockPresentation()})});
     if(typeof global.whenThebeWorkspaceReady==="function")global.whenThebeWorkspaceReady(recoverVisibility);
   }
 
