@@ -552,7 +552,12 @@ async function runFullUserJourney(credentials){
     await employeeLocationSelect.selectOption(locationValue);
     const createEmployeeLink=employeeAccessPanel.locator('button[data-bw-onclick^="createEmployeeReportingLinkFromCard("]:visible').first();
     assert(await createEmployeeLink.count(),'employee-row create/rotate reporting link control missing');
-    await createEmployeeLink.click();
+    const linkAlreadyIssued=await page.waitForFunction(id=>{
+      const value=String(document.getElementById(`employeeReporterLink_${id}`)?.value||'');
+      const button=document.querySelector(`[id="employeeReportingAccess_${id}"] button[data-bw-onclick^="createEmployeeReportingLinkFromCard("]`);
+      return value.includes('#report=')?'issued':(button?'ready':'waiting');
+    },employeeValue,{timeout:WORKSPACE_TIMEOUT_MS}).then(handle=>handle.jsonValue());
+    if(linkAlreadyIssued!=='issued')await createEmployeeLink.click();
     await page.waitForFunction(id=>String(document.getElementById(`employeeReporterLink_${id}`)?.value||'').includes('#report='),employeeValue,{timeout:WORKSPACE_TIMEOUT_MS});
     reporterLink=await page.locator(`[id="employeeReporterLink_${employeeValue}"]`).inputValue();
     mark('employee row reporting access','clicking the employee opened reporting access and produced a fresh viewable private reporting link');
