@@ -139,3 +139,12 @@ assert.match(html,/control-health-visual/,"Control Center must expose compact as
 assert.match(runtime,/controlHealthVisual/,"Control assurance visual must use live control status");
 assert.match(html,/evidence-integrity-flow/,"Evidence Integrity must visualize quarantine-to-approval flow");
 assert.match(runtime,/evidenceApprovedVisual/,"Evidence flow must use live integrity state");
+
+assert.match(html,/freshness-visual/,"Assurance freshness must use a distribution visual");
+assert.match(runtime,/freshnessPct/,"Freshness visual must use live control freshness");
+assert.match(html,/inspection-gauge/,"Inspection readiness must use a bounded readiness gauge");
+assert.match(runtime,/inspectionReadinessVisual/,"Inspection gauge must use live simulation readiness");
+assert.match(html,/regulatory-pipeline/,"Regulatory intelligence must visualize source-to-publish flow");
+assert.match(runtime,/regConflictVisual/,"Regulatory flow must surface live conflicts");
+assert.match(html,/audit-chain-visual/,"Audit integrity must expose chain state visually");
+assert.match(runtime,/auditSealedVisual/,"Audit chain visual must use verified integrity data");
