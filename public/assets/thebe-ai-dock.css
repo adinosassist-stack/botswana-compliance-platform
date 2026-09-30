@@ -1775,10 +1775,10 @@
 
 /* V210 desktop workspace pointer lanes — decorative dock surfaces must not block workspace actions beneath the fixed command surface. */
 @media(min-width:1024px){
-  .thebe-ai-dock[data-surface="workspace"]{
+  #thebeAiDock[data-surface="workspace"]{
     pointer-events:none;
   }
-  .thebe-ai-dock[data-surface="workspace"] :is(
+  #thebeAiDock[data-surface="workspace"] :is(
     button,
     textarea,
     input,
