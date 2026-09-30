@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260930-view-event-v205";
+  const RELEASE="20260930-desktop-fixed-open-v207";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -552,7 +552,7 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260930-view-event-v205";
+  const DOCK_RELEASE="20260930-desktop-fixed-open-v207";
   const STORE_KEY="thebe_ai_dock_collapsed_v5";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
@@ -591,7 +591,7 @@
     const key=`${context.id} ${context.title}`.toLowerCase();
     return /(^|\s)billing(\s|$)|subscription|payment plan/.test(key);
   }
-  function effectiveCollapsed(){return collapsed||dockShouldYield()}
+  function effectiveCollapsed(){return (mobileDockMode()?collapsed:false)||dockShouldYield()}
   function setCriticalStyle(node,styles){
     if(!node)return;
     for(const [property,value] of Object.entries(styles))node.style.setProperty(property,value,"important");
@@ -826,10 +826,11 @@
     return false;
   }
   function setCollapsed(next){
-    collapsed=Boolean(next);
+    const mobile=mobileDockMode();
+    collapsed=mobile?Boolean(next):false;
     safeSessionSet(STORE_KEY,collapsed?"1":"0");
     syncVisibility();
-    if(collapsed)pill?.focus();else input?.focus({preventScroll:true});
+    if(mobile&&collapsed)pill?.focus();else input?.focus({preventScroll:true});
   }
   function clearRoutineWorkspaceInlineGeometry(){
     if(!dock)return;
@@ -873,7 +874,7 @@
     if(visible&&!isCollapsed)global.requestAnimationFrame?.(recoverDockPresentation);
     if(attentionButton)syncAttention();
     const minimize=dock.querySelector(".thebe-ai-minimize");
-    if(minimize)minimize.hidden=false;
+    if(minimize)minimize.hidden=!mobile;
     const presence=dock.querySelector(".thebe-ai-presence");
     if(presence){
       presence.replaceChildren(el("span","thebe-ai-presence-dot"),document.createTextNode(workspace?"Your business assistant":"Public assistant · try Thebe"));
@@ -1244,7 +1245,8 @@
   function mount(){
     if(document.getElementById("thebeAiDock"))return;
     const storedCollapse=safeSessionGet(STORE_KEY);
-    collapsed=storedCollapse==="1"||(mobileDockMode()&&storedCollapse===null);
+    collapsed=mobileDockMode()?(storedCollapse==="1"||storedCollapse===null):false;
+    if(!mobileDockMode()&&storedCollapse==="1")safeSessionSet(STORE_KEY,"0");
 
     dock=el("section","thebe-ai-dock");
     dock.id="thebeAiDock";

@@ -136,7 +136,7 @@ assert.match(client,/ThebeAiDock/);
 assert.match(client,/thebe_ai_dock_collapsed_v5/);
 assert.match(client,/MOBILE_DOCK_MAX=1023/);
 assert.match(client,/effectiveCollapsed\(\)/);
-assert.match(client,/function effectiveCollapsed\(\)\{return collapsed\|\|dockShouldYield\(\)\}/);
+assert.match(client,/function effectiveCollapsed\(\)\{return \(mobileDockMode\(\)\?collapsed:false\)\|\|dockShouldYield\(\)\}/);
 assert.match(client,/function dockShouldYield\(\)/);
 assert.match(client,/thebe-ai-minimize/);
 assert.match(client,/thebe:workspace-ready/);
