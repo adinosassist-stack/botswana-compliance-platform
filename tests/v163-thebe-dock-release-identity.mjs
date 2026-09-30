@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 const production=fs.readFileSync(new URL('../cloudflare/src/production-entry.js',import.meta.url),'utf8');
 const runtime=fs.readFileSync(new URL('../public/js/thebe-live-voice.js',import.meta.url),'utf8');
+const apiClient=fs.readFileSync(new URL('../public/js/api-client.js',import.meta.url),'utf8');
 const ownerRuntime=fs.readFileSync(new URL('../public/js/owner-command-centre.js',import.meta.url),'utf8');
 const hotfix=fs.readFileSync(new URL('../public/assets/thebe-ai-dock-v184-hotfix.css',import.meta.url),'utf8');
 const audit=fs.readFileSync(new URL('../scripts/production-launch-audit.mjs',import.meta.url),'utf8');
@@ -18,7 +19,8 @@ for(const value of [productionLive,productionDock,runtimeLive,runtimeDock]){
 }
 assert.equal(productionLive,runtimeLive,'production must cache-bust the exact Thebe Live Voice runtime');
 assert.equal(productionDock,runtimeDock,'production must cache-bust the exact Thebe AI dock runtime');
-assert.equal(productionDock,'20260930-race-v194','live Thebe Command Dock V194 must ship under the current release token');
+assert.equal(productionDock,'20260930-cancel-v195','live Thebe Command Dock V195 must ship under the current release token');
+assert(production.includes('const THEBE_PUBLIC_API_CLIENT_RELEASE="20260930a";'),'V195 must cache-bust the shared API client that carries caller cancellation');
 assert(production.includes('const OWNER_COMMAND_CENTRE_RELEASE="20260929-v185";'),'production must cache-bust the Property service runtime that owns the valuation panel');
 assert(production.includes('const THEBE_AI_DOCK_HOTFIX_ASSET="/assets/thebe-ai-dock-v184-hotfix.css";'),'production must publish the path-busted V184 dock hotfix asset');
 assert.equal((production.match(/THEBE_AI_DOCK_HOTFIX_ASSET/g)||[]).length>=3,true,'V184 dock hotfix must be declared and injected across public/workspace surfaces');
@@ -88,6 +90,15 @@ assert(runtime.includes('if(runId!==textRunId)return;'),'V194 must suppress stal
 assert(runtime.includes('latestResponseButton=el("button","thebe-ai-latest-response","Latest response ↓")'),'V194 must expose a compact latest-response affordance when auto-follow is disabled');
 assert(runtime.includes('function surfaceLatestResponse()'),'V194 must surface completed responses without forcing scroll when the user left the latest region');
 assert(dockCss.includes('.thebe-ai-latest-response[hidden]{display:none!important}'),'V194 latest-response affordance must stay absent until needed');
+assert(runtime.includes('textAbortController=null'),'V195 must track the active advisor AbortController');
+assert(runtime.includes('textAbortController?.abort("conversation-cleared")'),'V195 Clear must cancel the in-flight advisor request before clearing local state');
+assert(runtime.includes('signal:controller.signal'),'V195 advisor requests must pass the cancellation signal into the shared transport');
+assert(runtime.includes('error?.code==="aborted"'),'V195 must treat caller cancellation as a silent lifecycle exit instead of an assistant failure');
+assert(apiClient.includes('parentSignal=options.signal'),'V195 shared API transport must accept a caller-provided AbortSignal');
+assert(apiClient.includes('delete fetchOptions.signal'),'V195 transport must avoid leaking the parent signal while composing per-attempt fetch options');
+assert(apiClient.includes('if(parentSignal?.aborted)throw new ApiError("Request cancelled."'),'V195 transport must stop retries immediately after caller cancellation');
+assert(apiClient.includes('const abortFromParent=()=>controller.abort(parentSignal?.reason||"caller-aborted")'),'V195 each transport attempt must be linked to the caller AbortSignal');
+assert(apiClient.includes('parentSignal?.removeEventListener?.("abort",abortFromParent)'),'V195 must detach caller abort listeners after every transport attempt');
 assert(audit.includes('const dockReleaseMatch=productionEntry.match(/const THEBE_AI_DOCK_RELEASE="([0-9]{8}[A-Za-z0-9._-]{1,48})";/);'),'launch audit must accept the repository release-token format');
 assert(!audit.includes('[0-9]{8}[a-z]'),'launch audit must not regress to the obsolete date-plus-letter token parser');
 assert(fullUser.includes("/^[0-9]{8}[A-Za-z0-9._-]{1,48}$/"),'full-user synthetic must accept the bounded cache-safe dock release token format');

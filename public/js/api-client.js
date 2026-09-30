@@ -212,7 +212,7 @@
       finally{clearTimeout(timer)}
     }
     async function request(url,options={}){
-      const logicalTarget=apiUrl(url),method=String(options.method||"GET").toUpperCase(),idempotent=["GET","HEAD"].includes(method),authCredentialMutation=isAuthCredentialMutation(logicalTarget,method),requestId=global.crypto?.randomUUID?.()||`${Date.now()}-${Math.random()}`,authPath=authCredentialMutation?new URL(logicalTarget).pathname:"";
+      const logicalTarget=apiUrl(url),method=String(options.method||"GET").toUpperCase(),idempotent=["GET","HEAD"].includes(method),authCredentialMutation=isAuthCredentialMutation(logicalTarget,method),requestId=global.crypto?.randomUUID?.()||`${Date.now()}-${Math.random()}`,authPath=authCredentialMutation?new URL(logicalTarget).pathname:"",parentSignal=options.signal;
       if(method==="POST"&&authPath==="/api/auth/login"&&pendingRegistrationLogin){
         const credentials=authBodyCredentials(options.body),pending=pendingRegistrationLogin;
         pendingRegistrationLogin=null;
@@ -224,10 +224,13 @@
       const registrationError=registrationValidationMessage(logicalTarget,method,options.body);if(registrationError)throw new ApiError(registrationError,{status:400,code:"invalid_registration",requestId});
       const requestedIdempotency=options.idempotencyKey??autoIdempotency(method,logicalTarget),idempotencyKey=requestedIdempotency===true?(global.crypto?.randomUUID?.()||requestId):String(requestedIdempotency||"").trim();
       const safeRetry=idempotent||!!idempotencyKey,attempts=safeRetry?Math.max(1,retries+1):1;
-      const fetchOptions={...options};delete fetchOptions.idempotencyKey;
+      const fetchOptions={...options};delete fetchOptions.idempotencyKey;delete fetchOptions.signal;
       let lastError;
       for(let attempt=0;attempt<attempts;attempt++){
+        if(parentSignal?.aborted)throw new ApiError("Request cancelled.",{status:0,code:"aborted",requestId});
         const controller=new AbortController(),timer=setTimeout(()=>controller.abort("timeout"),timeoutMs);
+        const abortFromParent=()=>controller.abort(parentSignal?.reason||"caller-aborted");
+        if(parentSignal?.aborted)abortFromParent();else parentSignal?.addEventListener?.("abort",abortFromParent,{once:true});
         const headers=new Headers(options.headers||{});headers.set("accept","application/json");headers.set("x-client-request-id",requestId);
         if(idempotencyKey)headers.set("idempotency-key",idempotencyKey);
         if(options.body!=null&&!headers.has("content-type")&&!(options.body instanceof FormData))headers.set("content-type","application/json");
@@ -240,7 +243,9 @@
             if(authCredentialMutation)await probeAuthMutationTransport(logicalTarget,fetchOptions,method,headers,controller.signal,requestId);
             result=await fetchApi(transportApiUrl(logicalTarget,preferredTransport),fetchOptions,method,headers,controller.signal);
           }
-          clearTimeout(timer);const {response,data}=result;
+          clearTimeout(timer);
+          if(parentSignal?.aborted)throw parentAbortError(parentSignal);
+          const {response,data}=result;
           if(response.ok&&authPath==="/api/auth/register"){
             const credentials=authBodyCredentials(options.body);
             if(credentials){
@@ -272,10 +277,14 @@
           throw err;
         }catch(error){
           clearTimeout(timer);
+          if(parentSignal?.aborted)throw new ApiError("Request cancelled.",{status:0,code:"aborted",requestId});
           const err=error instanceof ApiError?error:new ApiError(error?.name==="AbortError"?"The request timed out. Please retry.":"Network connection failed. Check connectivity and retry.",{status:0,code:error?.name==="AbortError"?"timeout":"network_error",requestId});
           if(!idempotent&&safeRetry&&attempt+1<attempts&&!(error instanceof ApiError)){lastError=err;await sleep(200*(attempt+1));continue}
           try{console.error("BW API request failed",{url:logicalTarget,method,status:err.status,code:err.code,requestId});onError(err,{url:logicalTarget,method,requestId})}catch{}
           throw err;
+        }finally{
+          clearTimeout(timer);
+          parentSignal?.removeEventListener?.("abort",abortFromParent);
         }
       }
       throw lastError||new ApiError("Request failed",{requestId});
