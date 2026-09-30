@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260930-yield-exit-v203";
+  const RELEASE="20260930-geometry-health-v204";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -552,7 +552,7 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260930-yield-exit-v203";
+  const DOCK_RELEASE="20260930-geometry-health-v204";
   const STORE_KEY="thebe_ai_dock_collapsed_v5";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
@@ -627,9 +627,12 @@
     const computed=getComputedStyle(dock);
     const headComputed=head?getComputedStyle(head):null;
     const scrollComputed=scroll?getComputedStyle(scroll):null;
-    const dockWidth=dock.getBoundingClientRect?.().width||parseFloat(computed.width||"0");
+    const dockRect=dock.getBoundingClientRect?.();
+    const dockWidth=dockRect?.width||parseFloat(computed.width||"0");
+    const dockHeight=dockRect?.height||parseFloat(computed.height||"0");
     const headWidth=head?.getBoundingClientRect?.().width||0;
     const scrollWidth=scroll?.getBoundingClientRect?.().width||0;
+    const viewportWidth=Math.max(0,Number(global.innerWidth||document.documentElement?.clientWidth||0));
     const structuralWidth=Math.max(220,dockWidth*.72);
     const healthy=
       computed.position==="fixed"&&
@@ -639,6 +642,9 @@
       scrollComputed?.display==="flex"&&
       scrollComputed?.flexDirection==="column"&&
       dockWidth>=300&&
+      dockHeight>250&&
+      Number(dockRect?.left)>=0&&
+      Number(dockRect?.right)<=viewportWidth+1&&
       headWidth>=structuralWidth&&
       scrollWidth>=structuralWidth;
     if(healthy){dock.dataset.cssRecovery="0";return}
@@ -648,7 +654,7 @@
     const dockGeometry=mobile
       ?{"left":"8px","right":"8px","top":"auto","bottom":"calc(104px + env(safe-area-inset-bottom))","width":"auto","max-width":"none","max-height":"calc(100dvh - 128px - env(safe-area-inset-bottom))","border-radius":"22px"}
       :workspace
-        ?{"left":workspaceDockLeftPx()+"px","right":"auto","top":"auto","bottom":"22px","width":dock.dataset.expanded==="true"?"560px":"420px","max-width":"calc(100vw - 40px)","max-height":"min(720px, calc(100dvh - 108px))","border-radius":"24px"}
+        ?{"left":workspaceDockLeftPx()+"px","right":"auto","top":"auto","bottom":"22px","width":dock.dataset.expanded==="true"?"560px":"420px","min-height":"min(280px, calc(100dvh - 108px))","max-width":"calc(100vw - 40px)","max-height":"min(720px, calc(100dvh - 108px))","border-radius":"24px"}
         :{"left":"auto","right":"0","top":"72px","bottom":"0","width":dock.dataset.expanded==="true"?"560px":"408px","max-width":"calc(100vw - 24px)","max-height":"none","border-radius":"0"};
     setCriticalStyle(dock,{...dockGeometry,"display":"flex","flex-direction":"column","align-items":"stretch","position":"fixed","z-index":"181","box-sizing":"border-box","background":"#07131f","color":"#f7fbff","border":"1px solid rgba(125,180,255,.24)","box-shadow":"0 24px 70px rgba(2,14,30,.34)","overflow":"hidden","font-size":"14px","color-scheme":"dark"});
     setCriticalStyle(head,{"display":"flex","flex":"0 0 auto","width":"100%","min-width":"0","box-sizing":"border-box","align-items":"center","justify-content":"space-between","gap":"10px","padding":"13px 14px","background":"#091827","border-bottom":"1px solid rgba(125,180,255,.16)"});
