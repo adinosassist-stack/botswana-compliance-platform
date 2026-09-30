@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260930-desktop-fixed-open-v207";
+  const RELEASE="20260930-orb-geometry-v208";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -552,7 +552,7 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260930-desktop-fixed-open-v207";
+  const DOCK_RELEASE="20260930-orb-geometry-v208";
   const STORE_KEY="thebe_ai_dock_collapsed_v5";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
@@ -621,6 +621,7 @@
     const context=dock.querySelector(".thebe-ai-context-bar");
     const contextLead=dock.querySelector(".thebe-ai-context-lead");
     const voiceCard=dock.querySelector(".thebe-ai-voice-card");
+    const orbButton=dock.querySelector(".thebe-ai-orb-button");
     const voiceMount=dock.querySelector(".thebe-ai-voice-mount");
     const mission=dock.querySelector(".thebe-ai-mission");
     const composeBody=dock.querySelector(".thebe-ai-compose-body");
@@ -632,6 +633,9 @@
     const dockHeight=dockRect?.height||parseFloat(computed.height||"0");
     const headWidth=head?.getBoundingClientRect?.().width||0;
     const scrollWidth=scroll?.getBoundingClientRect?.().width||0;
+    const orbRect=orbButton?.getBoundingClientRect?.();
+    const workspaceSurface=dock.dataset.surface==="workspace";
+    const desktopWorkspaceOrbHealthy=!workspaceSurface||mobileDockMode()||(!orbButton?false:Math.abs((orbRect?.width||0)-82)<=1&&Math.abs((orbRect?.height||0)-82)<=1);
     const viewportWidth=Math.max(0,Number(global.innerWidth||document.documentElement?.clientWidth||0));
     const structuralWidth=Math.max(220,dockWidth*.72);
     const healthy=
@@ -646,7 +650,8 @@
       Number(dockRect?.left)>=0&&
       Number(dockRect?.right)<=viewportWidth+1&&
       headWidth>=structuralWidth&&
-      scrollWidth>=structuralWidth;
+      scrollWidth>=structuralWidth&&
+      desktopWorkspaceOrbHealthy;
     if(healthy){dock.dataset.cssRecovery="0";return}
     dock.dataset.cssRecovery="1";
     const mobile=mobileDockMode();
@@ -666,6 +671,7 @@
     setCriticalStyle(modeRail,{"display":"grid","width":"100%","min-width":"0","grid-template-columns":"repeat(3,minmax(0,1fr))","gap":"7px"});
     dock.querySelectorAll(".thebe-ai-mode-button,.thebe-ai-quick button,.thebe-ai-context-action,.thebe-ai-response-tools button").forEach(button=>setCriticalStyle(button,{"min-width":"0","border":"1px solid rgba(125,180,255,.18)","border-radius":"12px","background":"#0d2236","color":"#eaf6ff","padding":"9px","font-family":"inherit"}));
     setCriticalStyle(voiceCard,{"display":"grid","width":"100%","min-width":"0","box-sizing":"border-box","grid-template-columns":"82px minmax(0,1fr)","gap":"4px 12px","align-items":"center","padding":"11px 12px","border":"1px solid rgba(125,180,255,.18)","border-radius":"16px","background":"#0b1c2c"});
+    if(workspace&&!mobile)setCriticalStyle(orbButton,{"width":"82px","min-width":"82px","max-width":"82px","height":"82px","min-height":"82px","max-height":"82px","box-sizing":"border-box","flex":"0 0 82px"});
     setCriticalStyle(voiceMount,{"grid-column":"1 / -1","display":"grid","width":"100%","min-width":"0","grid-template-columns":"minmax(0,1fr) auto","gap":"7px"});
     setCriticalStyle(mission,{"grid-column":"1 / -1","width":"100%","min-width":"0","box-sizing":"border-box"});
     setCriticalStyle(quick,{"display":"grid","width":"100%","min-width":"0","grid-template-columns":"repeat(3,minmax(0,1fr))","gap":"7px"});
