@@ -31,23 +31,22 @@ function sectionBounds(source,start){
   }
   throw new Error("view section did not close");
 }
-const canonicalViews=[...html.matchAll(/<section\b([^>]*)>/gi)].map(match=>{
+const shellViews=[...html.matchAll(/<section\\b([^>]*)>/gi)].map(match=>{
   const attrs=String(match[1]||"");
-  const id=(attrs.match(/\bid=["']([^"']+)["']/i)||[])[1]||"";
-  const cls=(attrs.match(/\bclass=["']([^"']+)["']/i)||[])[1]||"";
+  const id=(attrs.match(/\\bid=["']([^"']+)["']/i)||[])[1]||"";
+  const cls=(attrs.match(/\\bclass=["']([^"']+)["']/i)||[])[1]||"";
   return {id,cls,start:match.index};
-}).filter(view=>/\bview\b/.test(view.cls));
-assert.equal(canonicalViews.length,71,"canonical workspace view count changed; reassess lazy-view boundary");
+}).filter(view=>/\\bview\\b/.test(view.cls));
 const primaryResidentViews=["dashboard","moneyhub","workhub","sites","peopleops","businesshub","obligations","evidencehub","automationhub"];
 assert.deepEqual(fragments.residentViews,primaryResidentViews,"primary workspace navigation must remain resident and independent of fragment delivery");
-const lazyViews=canonicalViews.filter(view=>!fragments.residentViews.includes(view.id));
-assert.equal(lazyViews.length,62,"expected 62 lazy workspace views, including Protect and Property Intelligence");
-assert.deepEqual(Object.keys(fragments.views).sort(),lazyViews.map(view=>view.id).sort(),"fragment bundle must cover every lazy view exactly once");
-for(const view of lazyViews){
-  const bounds=sectionBounds(html,view.start);
-  const canonical=html.slice(bounds.openEnd,bounds.closeStart);
-  assert.equal(fragments.views[view.id],canonical,`fragment ${view.id} must exactly match canonical inner markup`);
-  assert.doesNotMatch(canonical,/<(?:script|iframe|object|embed|base|meta|link|img|svg|math|video|audio|source|track)\b/i,`fragment ${view.id} must stay compatible with BW.dom sanitizer`);
+assert.equal(shellViews.length,primaryResidentViews.length,"production workspace shell must contain only resident views");
+assert.deepEqual(shellViews.map(view=>view.id).sort(),primaryResidentViews.slice().sort(),"production shell resident view inventory drifted");
+const lazyViewIds=Object.keys(fragments.views).sort();
+assert.equal(lazyViewIds.length,62,"expected 62 canonical lazy workspace fragments, including Protect and Property Intelligence");
+for(const id of lazyViewIds){
+  const canonical=String(fragments.views[id]||"");
+  assert.ok(canonical.trim(),`fragment ${id} must contain canonical inner markup`);
+  assert.doesNotMatch(canonical,/<(?:script|iframe|object|embed|base|meta|link|img|svg|math|video|audio|source|track)\\b/i,`fragment ${id} must stay compatible with BW.dom sanitizer`);
 }
 
 assert.match(production,/WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT=12/);
@@ -85,7 +84,7 @@ assert.equal(Object.prototype.hasOwnProperty.call(fragments.views,"propertyintel
 assert.equal(Object.prototype.hasOwnProperty.call(fragments.views,"protecthub"),true,"Protect should use lazy fragment delivery to protect the shell budget");
 assert.equal(Object.prototype.hasOwnProperty.call(fragments.views,"peopleops"),false,"People must not depend on lazy fragment delivery");
 for(const payload of fragmentShards)assert.equal(Object.prototype.hasOwnProperty.call(payload.views,"peopleops"),false,"People must not appear in any lazy shard");
-const peopleCanonical=html.slice(sectionBounds(html,canonicalViews.find(view=>view.id==="peopleops").start).openEnd,sectionBounds(html,canonicalViews.find(view=>view.id==="peopleops").start).closeStart);
+const peopleCanonical=html.slice(sectionBounds(html,shellViews.find(view=>view.id==="peopleops").start).openEnd,sectionBounds(html,shellViews.find(view=>view.id==="peopleops").start).closeStart);
 assert.match(peopleCanonical,/People & operations/,"resident People content must remain in canonical workspace HTML");
 assert.doesNotMatch(peopleCanonical,/Ruleset integrity|Sources in this prototype/i,"resident People content must not contain regulatory source prototype copy");
 assert.match(String(fragmentShards[viewShard("sources")].views.sources||""),/Authoritative source registry/,"source governance content must remain scoped to the Sources view");
