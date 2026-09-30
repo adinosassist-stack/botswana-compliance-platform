@@ -2871,6 +2871,16 @@
       propertyPortfolioMetric("Valuation coverage","propertyPortfolioCoverage")
     );
     shell.append(metrics);
+    const performanceMetrics=document.createElement("div");
+    performanceMetrics.className="grid g4 property-performance-strip";
+    performanceMetrics.style.marginTop="10px";
+    performanceMetrics.append(
+      propertyPortfolioMetric("Annual rent","propertyPortfolioAnnualRent"),
+      propertyPortfolioMetric("NOI proxy","propertyPortfolioNoi"),
+      propertyPortfolioMetric("Recorded equity","propertyPortfolioEquity"),
+      propertyPortfolioMetric("Portfolio NOI yield","propertyPortfolioNoiYield")
+    );
+    shell.append(performanceMetrics);
     const portfolioAlerts=document.createElement("div");
     portfolioAlerts.className="grid g2";
     portfolioAlerts.style.marginTop="10px";
@@ -3285,6 +3295,15 @@
       set("propertyPortfolioRecordedValue",propertyPortfolioMoneyMinor(portfolio.recordedProfessionalValueMinor));
       set("propertyPortfolioDebt",propertyPortfolioMoneyMinor(portfolio.debtBalanceMinor));
       set("propertyPortfolioCoverage",portfolio.valuationCoveragePct==null?"—":pct(Number(portfolio.valuationCoveragePct)));
+      const activeItems=(Array.isArray(portfolio.items)?portfolio.items:[]).filter(item=>String(item?.status||"active")==="active");
+      const annualRentMinor=activeItems.reduce((sum,item)=>sum+Number(item?.annualRentMinor||0),0);
+      const annualOpexMinor=activeItems.reduce((sum,item)=>sum+Number(item?.annualOperatingCostMinor||0),0);
+      const noiMinor=annualRentMinor-annualOpexMinor;
+      const equityMinor=Math.max(0,Number(portfolio.recordedProfessionalValueMinor||0)-Number(portfolio.debtBalanceMinor||0));
+      set("propertyPortfolioAnnualRent",propertyPortfolioMoneyMinor(annualRentMinor));
+      set("propertyPortfolioNoi",propertyPortfolioMoneyMinor(noiMinor));
+      set("propertyPortfolioEquity",propertyPortfolioMoneyMinor(equityMinor));
+      set("propertyPortfolioNoiYield",Number(portfolio.recordedProfessionalValueMinor||0)>0?pct(noiMinor/Number(portfolio.recordedProfessionalValueMinor||0)*100):"—");
       const renewal=q("#propertyPortfolioRenewalStatus");
       if(renewal){
         const due=Number(portfolio.professionalValuationRenewalDueCount||0),soon=Number(portfolio.professionalValuationRenewalDueSoonCount||0);
