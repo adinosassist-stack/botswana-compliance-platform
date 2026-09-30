@@ -20,7 +20,7 @@ for(const value of [productionLive,productionDock,runtimeLive,runtimeDock]){
 }
 assert.equal(productionLive,runtimeLive,'production must cache-bust the exact Thebe Live Voice runtime');
 assert.equal(productionDock,runtimeDock,'production must cache-bust the exact Thebe AI dock runtime');
-assert.equal(productionDock,'20260930-orb-geometry-v208','live Thebe Command Dock V201 must ship under the current release token');
+assert.equal(productionDock,'20260930-quickbar-safe-v209','live Thebe Command Dock V201 must ship under the current release token');
 assert(production.includes('const THEBE_PUBLIC_API_CLIENT_RELEASE="20260930a";'),'V200 must cache-bust the shared API client that carries caller cancellation');
 assert(production.includes('const OWNER_COMMAND_CENTRE_RELEASE="20260929-v185";'),'production must cache-bust the Property service runtime that owns the valuation panel');
 assert(production.includes('const THEBE_AI_DOCK_HOTFIX_ASSET="/assets/thebe-ai-dock-v184-hotfix.css";'),'production must publish the path-busted V184 dock hotfix asset');
@@ -72,6 +72,9 @@ assert(runtime.includes('?{"left":workspaceDockLeftPx()+"px"'),'V191 emergency r
 assert(runtime.includes('pill.style.setProperty("display",visible&&isCollapsed&&!yielded?"inline-flex":"none","important")'),'V207 must keep mobile minimise/reopen usable while suppressing the pill on yielded Billing views');
 assert(runtime.includes('const STORE_KEY="thebe_ai_dock_collapsed_v5";'),'V191 must not inherit the pre-floating collapse preference');
 const dockCss=fs.readFileSync(new URL('../public/assets/thebe-ai-dock.css',import.meta.url),'utf8');
+assert(dockCss.includes('V209 workspace quickbar safe lane'),'V209 must reserve a dedicated safe lane for workspace quick actions');
+assert(dockCss.includes('body.thebe-ai-dock-open #workspaceQuickbar'),'V209 must explicitly move the workspace quickbar clear of the fixed dock');
+assert(dockCss.includes('margin-left:444px!important')&&dockCss.includes('width:calc(100% - 444px)!important'),'V209 wide desktop quickbar must reserve the normal dock footprint');
 assert(dockCss.includes('.modal.bw-dialog-service')&&dockCss.includes('z-index:240!important'),'V200 must keep accessible workspace dialogs above the Thebe dock');
 assert(dockCss.includes('V186 Thebe Command Dock'),'V191 must retain the global Command Dock foundation');
 assert(dockCss.includes('V191 canonical workspace dock'),'V191 must ship one canonical authenticated-workspace presentation layer');

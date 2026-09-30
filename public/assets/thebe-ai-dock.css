@@ -1747,3 +1747,28 @@
     width:calc(100% - 464px)!important;
   }
 }
+
+
+/* V209 workspace quickbar safe lane — keep primary workspace actions clear of the fixed desktop Thebe dock. */
+@media(min-width:1180px){
+  body.thebe-ai-dock-open #workspaceQuickbar{
+    margin-left:444px!important;
+    width:calc(100% - 444px)!important;
+    box-sizing:border-box;
+  }
+  body.thebe-ai-dock-open.thebe-ai-expanded #workspaceQuickbar{
+    margin-left:584px!important;
+    width:calc(100% - 584px)!important;
+  }
+}
+@media(min-width:1024px) and (max-width:1179px){
+  body.thebe-ai-dock-open #workspaceQuickbar{
+    margin-left:344px!important;
+    width:calc(100% - 344px)!important;
+    box-sizing:border-box;
+  }
+  body.thebe-ai-dock-open.thebe-ai-expanded #workspaceQuickbar{
+    margin-left:464px!important;
+    width:calc(100% - 464px)!important;
+  }
+}
