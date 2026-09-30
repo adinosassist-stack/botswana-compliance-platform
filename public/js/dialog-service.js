@@ -8,7 +8,7 @@
   function createBase({title="Confirm action",message="",confirmLabel="Continue",cancelLabel="Cancel",danger=false}={}){
     if(active)closeActive(null);
     const previous=document.activeElement,root=document.createElement("div"),box=document.createElement("div"),head=document.createElement("div"),heading=document.createElement("h2"),copy=document.createElement("p"),body=document.createElement("div"),actions=document.createElement("div"),cancel=button(cancelLabel,"btn alt"),confirm=button(confirmLabel,danger?"btn danger":"btn");
-    root.className="modal open bw-dialog-service";root.setAttribute("role","dialog");root.setAttribute("aria-modal","true");root.setAttribute("aria-hidden","false");
+    root.className="modal open bw-dialog-service";root.setAttribute("role","dialog");root.setAttribute("aria-modal","true");root.setAttribute("aria-hidden","false");root.style.setProperty("z-index","10000","important");
     box.className="modalbox";head.className="between row";heading.textContent=String(title||"Confirm action");heading.id=`bwDialogTitle_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;root.setAttribute("aria-labelledby",heading.id);copy.className="muted";copy.textContent=String(message||"");body.className="stack";actions.className="actions";
     head.appendChild(heading);box.append(head);if(message)box.append(copy);box.append(body,actions);actions.append(cancel,confirm);root.appendChild(box);document.body.appendChild(root);
     return {root,box,body,actions,cancel,confirm,previous};
