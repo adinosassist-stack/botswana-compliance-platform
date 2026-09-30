@@ -347,7 +347,7 @@ async function issueJitPermit({env,auth,requestId}){
   return json({ok:true,permit:{id:permitId,requestId,agentId:THEBE_AGENT_ID,actionKey:ACTION_KEY,payloadHash:row.payload_hash,expiresAt,maxUses:1}},201);
 }
 
-async function executeTask({env,auth,requestId}){
+async function executeTask({env,auth,requestId,permitId}){
   if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
   if(!(await schemaReady(env)))return json({error:"bounded_execution_schema_not_ready"},503);
   const replay=await safeFirst(env,`SELECT r.id receipt_id,r.result_entity_id task_id,t.title,t.description,t.priority,t.due_at,t.status,t.created_at
@@ -378,6 +378,24 @@ async function executeTask({env,auth,requestId}){
   if(!row)return json({error:"task_request_not_found"},404);
   if(row.request_status!=="approved")return json({error:"task_request_not_approved",status:row.request_status},409);
   if(row.execution_grant_status!=="active")return json({error:"execution_grant_inactive"},409);
+  const jitPermitId=text(permitId,120);
+  if(!jitPermitId)return json({error:"jit_permit_required"},409);
+  const permit=await safeFirst(env,`SELECT id,agent_id,human_user_id,task_request_id,execution_grant_id,action_key,payload_hash,status,max_uses,use_count,expires_at
+    FROM agent_jit_execution_permits WHERE id=? AND tenant_id=? LIMIT 1`,[jitPermitId,auth.tenant_id]);
+  if(!permit||
+    String(permit.agent_id)!==THEBE_AGENT_ID||
+    String(permit.human_user_id)!==String(auth.user_id)||
+    String(permit.task_request_id)!==String(requestId)||
+    String(permit.execution_grant_id)!==String(row.execution_grant_id)||
+    String(permit.action_key)!==ACTION_KEY||
+    String(permit.payload_hash)!==String(row.payload_hash)||
+    String(permit.status)!=="active"||
+    Number(permit.max_uses)!==1||
+    Number(permit.use_count)!==0||
+    !permit.expires_at||
+    new Date(permit.expires_at).getTime()<=Date.now()){
+    return json({error:"jit_permit_invalid_or_expired"},409);
+  }
   const payload=JSON.parse(row.payload_json||"{}");
   const authority=Object.freeze({...normalizeDelegation(row),shadowOnly:false});
   const usage=await safeFirst(env,`SELECT COUNT(*) count FROM agent_execution_receipts WHERE tenant_id=? AND execution_grant_id=? AND created_at>=date('now')`,[auth.tenant_id,row.execution_grant_id]);
@@ -479,7 +497,10 @@ export async function handleAgenticTaskExecutionRequest({request,logicalPath,env
   const approve=path.match(/^\/api\/agentic\/task-execution\/requests\/([^/]+)\/approve$/);
   if(approve&&request.method==="POST")return approveTask({env,auth,requestId:approve[1]});
   const permit=path.match(/^\/api\/agentic\/task-execution\/requests\/([^/]+)\/jit-permit$/);\n  if(permit&&request.method==="POST")return issueJitPermit({env,auth,requestId:permit[1]});\n  const execute=path.match(/^\/api\/agentic\/task-execution\/requests\/([^/]+)\/execute$/);
-  if(execute&&request.method==="POST")return executeTask({env,auth,requestId:execute[1]});
+  if(execute&&request.method==="POST"){
+    let body;try{body=await readJson(request)}catch(error){return json({error:error.message},requestBodyErrorStatus(error))}
+    return executeTask({env,auth,requestId:execute[1],permitId:body?.permitId});
+  }
   if(path==="/api/agentic/task-execution/tasks"&&request.method==="GET")return listTasks(env,auth);
   return json({error:"not_found"},404);
 }
