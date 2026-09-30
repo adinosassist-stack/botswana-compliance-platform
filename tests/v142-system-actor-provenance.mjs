@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";import fs from "node:fs";
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8"),loop=fs.readFileSync("cloudflare/src/finance-watch-durable-loop.js","utf8"),tools=fs.readFileSync("cloudflare/src/agent-read-tools.js","utf8"),policy=fs.readFileSync("cloudflare/src/agent-policy.js","utf8");
-assert.match(loop,/role:"system_observer",systemActor:true/,"trusted observer provenance must be constructed only by the durable scheduler");
+assert.match(loop,/loadCanonicalAgentAuthority\(env,FINANCE_OBSERVER_AGENT_ID\)/,"Finance Watch must resolve the canonical observer identity before any read tool");
+assert.match(loop,/observerAuthority\.state!==\"active\"/,"non-active observer identity must fail closed");
+assert.match(loop,/observerAuthority\.executionCapable!==false/,"Finance observer must remain explicitly non-execution-capable");
+assert.match(loop,/code:\"finance_observer_identity_contained\"/,"observer identity failure must have a stable containment code");
+assert.match(loop,/role:\"system_observer\",systemActor:true,agentId:FINANCE_OBSERVER_AGENT_ID/,"trusted observer provenance must be bound to the canonical observer identity");
 assert.doesNotMatch(worker,/systemActor\s*:/,"HTTP worker must never construct systemActor authority");
 assert.doesNotMatch(worker,/system_observer/,"HTTP worker must never expose or assign system_observer");
 assert.match(tools,/systemActor:auth\?\.systemActor===true/,"read tools must require strict trusted boolean provenance");

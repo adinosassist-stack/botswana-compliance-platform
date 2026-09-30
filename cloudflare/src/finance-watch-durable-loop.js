@@ -1,6 +1,7 @@
 import {executeAgentReadTool} from "./agent-read-tools.js";
 import {runGovernedFinanceObservation} from "./governed-finance-observation-runner.js";
 import {buildFinanceWatchDueQuery,isFinanceWatchToolList} from "./finance-watch-contract.js";
+import {FINANCE_OBSERVER_AGENT_ID,loadCanonicalAgentAuthority} from "./agent-control-plane.js";
 
 export const FINANCE_WATCH_DURABLE_LOOP_VERSION="2026-09-26.v16";
 const frozen=value=>Object.freeze(value);
@@ -22,9 +23,17 @@ export async function runFinanceWatchTask({env,task,attempt=0,claim=null}={}){
 
   const allowedTools=parse(task.allowed_tools_json,task.allowedTools??[]);
   if(!isFinanceWatchToolList(allowedTools))return frozen({ok:false,persisted:false,code:"invalid_finance_watch_tools",executionAllowed:false,externalActions:0});
+  const observerAuthority=await loadCanonicalAgentAuthority(env,FINANCE_OBSERVER_AGENT_ID);
+  if(observerAuthority.ready!==true||
+    observerAuthority.agentId!==FINANCE_OBSERVER_AGENT_ID||
+    observerAuthority.actorType!=="system_observer"||
+    observerAuthority.state!=="active"||
+    observerAuthority.executionCapable!==false){
+    return frozen({ok:false,persisted:false,code:"finance_observer_identity_contained",executionAllowed:false,externalActions:0});
+  }
   const budget=parse(task.budget_json,task.budget??{});
   const previous=await env.DB.prepare("SELECT id,snapshot_hash,observed_at FROM agent_observation_checkpoints WHERE tenant_id=? AND persistent_task_id=? ORDER BY observed_at DESC,id DESC LIMIT 1").bind(tenantId,taskId).first();
-  const auth=frozen({tenant_id:tenantId,role:"system_observer",systemActor:true});
+  const auth=frozen({tenant_id:tenantId,role:"system_observer",systemActor:true,agentId:FINANCE_OBSERVER_AGENT_ID});
   const results={};let toolCalls=0;
   const started=Date.now();
   for(const actionKey of allowedTools){
