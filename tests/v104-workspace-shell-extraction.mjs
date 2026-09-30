@@ -5,6 +5,7 @@ import {execFileSync} from "node:child_process";
 const html=fs.readFileSync("public/index.html","utf8");
 const runtime=fs.readFileSync("public/js/workspace-runtime-20260929c.js","utf8");
 const styles=fs.readFileSync("public/assets/workspace-inline-styles-20260929b.css","utf8");
+const visualStyles=fs.readFileSync("public/assets/workspace-visuals-20260930a.css","utf8");
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
 const budget=fs.readFileSync("scripts/bundle-budget.mjs","utf8");
@@ -20,7 +21,9 @@ const canonicalStyles=[...html.slice(0,headEnd).matchAll(/<style\b[^>]*>([\s\S]*
 assert.equal(canonicalStyles.length,49,"workspace must keep the audited 49 canonical head style blocks");
 assert.equal(canonicalStyles.join("\n\n")+"\n",styles,"external workspace stylesheet must be byte-equivalent to canonical head styles");
 assert.match(html,/id="thebe-employee-directory-styles" rel="stylesheet" href="\/assets\/employee-directory-v188\.css"/,"workspace shell must retain the separately versioned employee directory stylesheet");
+assert.match(html,/id="thebe-workspace-visuals-v214-styles" rel="stylesheet" href="\/assets\/workspace-visuals-20260930a\.css"/,"workspace shell must load the bounded V214 visual stylesheet");
 assert.ok(Buffer.byteLength(styles)<224_000,"versioned workspace stylesheet must stay below 220 KB raw");
+assert.ok(Buffer.byteLength(visualStyles)<32_000,"V214 visual stylesheet must stay below 32 KB raw");
 assert.ok(Buffer.byteLength(runtime)<550_000,"versioned workspace runtime must stay below 550 KB raw");
 assert.match(runtime,/const DEFAULT_COMPANY=/);
 assert.match(runtime,/async function bootstrap\(\)/);
