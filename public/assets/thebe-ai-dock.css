@@ -1495,7 +1495,7 @@
   background:#0d2438;
 }
 /* V194 response-race closure — stale async replies cannot reappear after clear, and hidden-latest results get one compact affordance. */
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-latest-response{
+.thebe-ai-latest-response{
   align-self:center;
   min-height:34px;
   margin:0 var(--thebe-workspace-pad) 8px;
@@ -1509,9 +1509,9 @@
   letter-spacing:.01em;
   box-shadow:0 8px 18px rgba(0,18,42,.18);
 }
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-latest-response[hidden]{display:none!important}
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-latest-response:hover{border-color:rgba(85,180,255,.62);background:#103653}
-.thebe-ai-dock[data-surface="workspace"] .thebe-ai-latest-response:focus-visible{outline:2px solid #8fd2ff;outline-offset:2px}
+.thebe-ai-latest-response[hidden]{display:none!important}
+.thebe-ai-latest-response:hover{border-color:rgba(85,180,255,.62);background:#103653}
+.thebe-ai-latest-response:focus-visible{outline:2px solid #8fd2ff;outline-offset:2px}
 .thebe-ai-dock[data-surface="workspace"] .thebe-ai-compose{
   flex:0 0 auto!important;
   align-self:stretch!important;
