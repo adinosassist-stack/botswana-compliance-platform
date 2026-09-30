@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260930-column-v199";
+  const RELEASE="20260930-billing-yield-v200";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
