@@ -50,9 +50,9 @@ assert(runtime.includes('function dockShouldYield()'),'V201 must explicitly yiel
 assert(runtime.includes('subscription|payment plan'),'V201 Billing yield must cover billing, subscription and payment-plan context');
 assert(runtime.includes('function effectiveCollapsed(){return collapsed||dockShouldYield()}'),'V201 effective dock visibility must include the Billing yield state');
 assert(runtime.includes('pill.hidden=!visible||!isCollapsed||yielded'),'V201 must hide the collapsed pill while Billing owns the interaction surface');
-assert(runtime.includes('document.querySelectorAll(".view").forEach(view=>new MutationObserver(()=>syncVisibility())'),'V201 must react immediately when the active workspace view changes');
-assert(runtime.includes('global.addEventListener("thebe:view-change"'),'V202 must listen for explicit workspace view transitions');
-assert(runtime.includes('recoverDockPresentation()'),'V202 view transition handshake must recover dock presentation after leaving a yielded view');
+assert(runtime.includes('const syncAfterWorkspaceViewChange=()=>'),'V202 must own a deterministic post-navigation dock recovery path');
+assert(runtime.includes('new MutationObserver(syncAfterWorkspaceViewChange)'),'V202 must invoke full dock recovery when the active workspace view changes');
+assert(runtime.includes('recoverVisibility();recoverDockPresentation()'),'V202 must restore visibility and geometry after leaving a yielded Billing view');
 assert(!runtime.includes('Math.round(rect.left+20)'),'V200 must remove the self-chasing main-column dock anchor');
 assert(runtime.includes('?{"left":workspaceDockLeftPx()+"px"'),'V191 emergency recovery must still restore the resolved workspace lower-left position');
 assert(runtime.includes('pill.style.setProperty("display",visible&&isCollapsed&&!yielded?"inline-flex":"none","important")'),'V201 must keep desktop minimise/reopen usable while suppressing the pill on yielded Billing views');
