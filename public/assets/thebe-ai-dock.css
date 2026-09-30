@@ -1772,3 +1772,21 @@
     width:calc(100% - 464px)!important;
   }
 }
+
+/* V212 desktop workspace pointer lanes — decorative dock surfaces must never block workspace actions beneath the fixed command surface. */
+@media(min-width:1024px){
+  #thebeAiDock[data-surface="workspace"]{
+    pointer-events:none;
+  }
+  #thebeAiDock[data-surface="workspace"] :is(
+    button,
+    textarea,
+    input,
+    select,
+    a[href],
+    [role="button"],
+    [tabindex="0"]
+  ){
+    pointer-events:auto;
+  }
+}
