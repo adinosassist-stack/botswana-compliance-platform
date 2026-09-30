@@ -3278,6 +3278,13 @@
         valuationOperationsProfessionals=Array.isArray(professionalsPayload?.items)?professionalsPayload.items:[];
       }
       propertyPortfolioCache=portfolio;
+      try{global.__thebePropertyPortfolioImpact=Object.freeze({
+        assetCount:Number(portfolio.assetCount||0),
+        recordedProfessionalValueMinor:Number(portfolio.recordedProfessionalValueMinor||0),
+        debtBalanceMinor:Number(portfolio.debtBalanceMinor||0),
+        annualRentMinor:(Array.isArray(portfolio.items)?portfolio.items:[]).filter(item=>String(item?.status||"active")==="active").reduce((sum,item)=>sum+Number(item?.annualRentMinor||0),0),
+        annualOperatingCostMinor:(Array.isArray(portfolio.items)?portfolio.items:[]).filter(item=>String(item?.status||"active")==="active").reduce((sum,item)=>sum+Number(item?.annualOperatingCostMinor||0),0)
+      })}catch{}
       propertyEvidenceOptions=propertyPortfolioEligibleEvidence(evidencePayload);
       const set=(id,value)=>{const node=q("#"+id);if(node)node.textContent=value};
       if(portfolio?.available!==true){
