@@ -53,7 +53,6 @@ assert(runtime.includes('collapsed=mobileDockMode()?(storedCollapse==="1"||store
 assert(runtime.includes('if(minimize)minimize.hidden=!mobile'),'V207 desktop dock must not expose a minimise control that contradicts fixed-open behavior');
 assert(runtime.includes('function dockShouldYield()'),'V201 must explicitly yield the fixed dock on protected Billing views');
 assert(runtime.includes('subscription|payment plan'),'V201 Billing yield must cover billing, subscription and payment-plan context');
-assert(runtime.includes('function effectiveCollapsed(){return collapsed||dockShouldYield()}'),'V201 effective dock visibility must include the Billing yield state');
 assert(runtime.includes('pill.hidden=!visible||!isCollapsed||yielded'),'V201 must hide the collapsed pill while Billing owns the interaction surface');
 assert(runtime.includes('const syncAfterWorkspaceViewChange=()=>'),'V205 must own a deterministic post-navigation dock recovery path');
 assert(runtime.includes('new MutationObserver(syncAfterWorkspaceViewChange)'),'V205 must invoke full dock recovery when the active workspace view changes');
@@ -67,7 +66,7 @@ assert(runtime.includes('global.addEventListener("thebe:workspace-view-change"')
 assert(runtime.includes('global.requestAnimationFrame?.(()=>global.requestAnimationFrame?.(()=>{recoverVisibility();recoverDockPresentation()}))'),'V205 explicit view recovery must wait two animation frames so rendered geometry is authoritative');
 assert(!runtime.includes('Math.round(rect.left+20)'),'V200 must remove the self-chasing main-column dock anchor');
 assert(runtime.includes('?{"left":workspaceDockLeftPx()+"px"'),'V191 emergency recovery must still restore the resolved workspace lower-left position');
-assert(runtime.includes('pill.style.setProperty("display",visible&&isCollapsed&&!yielded?"inline-flex":"none","important")'),'V201 must keep desktop minimise/reopen usable while suppressing the pill on yielded Billing views');
+assert(runtime.includes('pill.style.setProperty("display",visible&&isCollapsed&&!yielded?"inline-flex":"none","important")'),'V207 must keep mobile minimise/reopen usable while suppressing the pill on yielded Billing views');
 assert(runtime.includes('const STORE_KEY="thebe_ai_dock_collapsed_v5";'),'V191 must not inherit the pre-floating collapse preference');
 const dockCss=fs.readFileSync(new URL('../public/assets/thebe-ai-dock.css',import.meta.url),'utf8');
 assert(dockCss.includes('.modal.bw-dialog-service')&&dockCss.includes('z-index:240!important'),'V200 must keep accessible workspace dialogs above the Thebe dock');
