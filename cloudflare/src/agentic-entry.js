@@ -94,7 +94,7 @@ async function delegatedAuthoritySchemaReady(env){
       (SELECT COUNT(*) FROM agent_execution_grants) execution_grant_count,
       (SELECT COUNT(*) FROM agent_task_requests) task_request_count,
       (SELECT COUNT(*) FROM agent_internal_tasks) internal_task_count,
-      (SELECT COUNT(*) FROM agent_execution_receipts) execution_receipt_count,
+      (SELECT COUNT(*) FROM agent_execution_receipts) execution_receipt_count,\n      (SELECT COUNT(*) FROM agent_jit_execution_permits) jit_execution_permit_count,
       (SELECT COUNT(*) FROM agent_persistent_tasks) persistent_task_count,
       (SELECT COUNT(*) FROM agent_observation_checkpoints) observation_checkpoint_count,
       (SELECT COUNT(*) FROM agent_observation_claims) observation_claim_count,
