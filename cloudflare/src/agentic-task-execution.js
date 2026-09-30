@@ -350,12 +350,6 @@ async function issueJitPermit({env,auth,requestId}){
 async function executeTask({env,auth,requestId,permitId}){
   if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
   if(!(await schemaReady(env)))return json({error:"bounded_execution_schema_not_ready"},503);
-  const replay=await safeFirst(env,`SELECT r.id receipt_id,r.result_entity_id task_id,t.title,t.description,t.priority,t.due_at,t.status,t.created_at
-    FROM agent_execution_receipts r JOIN agent_internal_tasks t ON t.id=r.result_entity_id AND t.tenant_id=r.tenant_id
-    JOIN agent_task_requests q ON q.action_intent_id=r.action_intent_id AND q.tenant_id=r.tenant_id
-    WHERE q.id=? AND r.tenant_id=? LIMIT 1`,[requestId,auth.tenant_id]);
-  if(replay)return json({ok:true,replayed:true,task:{id:replay.task_id,title:replay.title,description:replay.description,priority:replay.priority,dueAt:replay.due_at,status:replay.status,createdAt:replay.created_at},receiptId:replay.receipt_id});
-
   const canonicalAuthority=await loadCanonicalAgentAuthority(env,THEBE_AGENT_ID);
   if(!authorityPermitsExecution(canonicalAuthority)){
     try{
