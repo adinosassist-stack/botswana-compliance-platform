@@ -1373,6 +1373,13 @@
     signals.id="ownerSignalList";
     shell.append(signals);
 
+    const pulse=document.createElement("section");
+    pulse.className="owner-pulse";
+    pulse.id="ownerPulse";
+    pulse.setAttribute("aria-label","Business pulse");
+    pulse.safeHTML='<div class="owner-pulse-flow"><span><small>Cash movement</small><b id="ownerPulseCash">—</b></span><em>→</em><span><small>Sales pipeline</small><b id="ownerPulseSales">—</b></span><em>→</em><span><small>Operations</small><b id="ownerPulseOps">—</b></span><span class="owner-pulse-risk"><small>Compliance</small><b id="ownerPulseCompliance">—</b></span></div>';
+    shell.append(pulse);
+
     const analytics=document.createElement("section");
     analytics.className="owner-panel owner-analytics-panel";
     analytics.id="ownerAnalyticsPanel";
@@ -1495,6 +1502,8 @@
     return card;
   }
 
+  const setTextNode=(id,value)=>{const node=q("#"+id);if(node)node.textContent=String(value??"—");};
+
   function renderBusinessAnalytics(analytics){
     const panel=q("#ownerAnalyticsPanel");
     if(!panel)return;
@@ -1520,6 +1529,10 @@
     const complianceCoverageInactive=complianceCoverageStatus==="inactive";
     const complianceCoverageUnknown=complianceCoverageStatus==="unknown";
     const net=Number(m.current30NetCashMovementMinor||0),inChange=m.inflowChangePct,outChange=m.outflowChangePct;
+    setTextNode("ownerPulseCash",money(net/100));
+    setTextNode("ownerPulseSales",money(Number(s.openQuotationValueBwp||0)));
+    setTextNode("ownerPulseOps",Number(o.criticalPerformanceSignals||0)+" critical");
+    setTextNode("ownerPulseCompliance",complianceCoverageInactive?"inactive":complianceCoverageUnknown?"unknown":Number(co.overdueCount||0)+" overdue");
     const valuationServicesAvailable=p.valuationServicesAvailable===true;
     const payableValuationQuotes=Number(p.valuationServicePayableQuoteCount||0);
     const payableValuationQuoteValue=Number(p.valuationServicePayableQuoteValueBwp||0);
