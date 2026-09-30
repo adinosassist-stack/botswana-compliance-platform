@@ -8,6 +8,7 @@ const ownerRuntime=fs.readFileSync(new URL('../public/js/owner-command-centre.js
 const hotfix=fs.readFileSync(new URL('../public/assets/thebe-ai-dock-v184-hotfix.css',import.meta.url),'utf8');
 const audit=fs.readFileSync(new URL('../scripts/production-launch-audit.mjs',import.meta.url),'utf8');
 const fullUser=fs.readFileSync(new URL('../scripts/production-synthetic-full-user-wrapper.mjs',import.meta.url),'utf8');
+const workspaceStyles=fs.readFileSync(new URL('../public/assets/workspace-inline-styles-20260930a.css',import.meta.url),'utf8');
 
 const productionLive=production.match(/const THEBE_LIVE_VOICE_RELEASE="([^"]+)";/)?.[1]||'';
 const productionDock=production.match(/const THEBE_AI_DOCK_RELEASE="([^"]+)";/)?.[1]||'';
@@ -20,6 +21,8 @@ for(const value of [productionLive,productionDock,runtimeLive,runtimeDock]){
 assert.equal(productionLive,runtimeLive,'production must cache-bust the exact Thebe Live Voice runtime');
 assert.equal(productionDock,runtimeDock,'production must cache-bust the exact Thebe AI dock runtime');
 assert.equal(productionDock,'20260930-cancel-v195','live Thebe Command Dock V195 must ship under the current release token');
+assert(production.includes('const WORKSPACE_STYLES_ASSET="/assets/workspace-inline-styles-20260930a.css";'),'V196 must path-bust the workspace stylesheet that fixes dialog layering');
+assert(workspaceStyles.includes('.modal.bw-dialog-service')&&workspaceStyles.includes('z-index:240!important'),'V196 dialog layering must keep accessible workspace dialogs above Thebe and mobile navigation');
 assert(production.includes('const THEBE_PUBLIC_API_CLIENT_RELEASE="20260930a";'),'V195 must cache-bust the shared API client that carries caller cancellation');
 assert(production.includes('const OWNER_COMMAND_CENTRE_RELEASE="20260929-v185";'),'production must cache-bust the Property service runtime that owns the valuation panel');
 assert(production.includes('const THEBE_AI_DOCK_HOTFIX_ASSET="/assets/thebe-ai-dock-v184-hotfix.css";'),'production must publish the path-busted V184 dock hotfix asset');
