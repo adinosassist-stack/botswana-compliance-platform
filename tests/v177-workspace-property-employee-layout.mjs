@@ -96,11 +96,16 @@ console.log("V177_WORKSPACE_ADVERSARIAL_PASS");
 
 const propertyRuntime=fs.readFileSync("public/js/workspace-runtime-20260929c.js","utf8");
 const runtime=propertyRuntime;
-const css=fs.readFileSync("public/assets/workspace-inline-styles-20260929b.css","utf8");
+const baseCss=fs.readFileSync("public/assets/workspace-inline-styles-20260929b.css","utf8");
+const visualCss=fs.readFileSync("public/assets/workspace-visuals-20260930a.css","utf8");
+const css=baseCss+"\n"+visualCss;
+assert.match(html,/id="thebe-workspace-visuals-v214-styles" rel="stylesheet" href="\/assets\/workspace-visuals-20260930a\.css"/,"workspace must load the bounded V214 visual stylesheet");
 const propertyFragment=propertyFragments.join("\n");
 assert.match(propertyFragment,/Save scenario/,"compact Property calculator must allow assumption scenarios to be saved");
 assert.match(propertyFragment,/Saved deal scenarios/,"Property must expose compact scenario comparison");
 assert.match(propertyRuntime,/PROPERTY_SCENARIO_KEY="thebe\.property\.scenarios\.v1"/,"scenario comparison must use an isolated scenario namespace");
+assert.match(propertyRuntime,/sessionStorage\.getItem\(PROPERTY_SCENARIO_KEY\)/,"saved Property comparisons must be session-only");
+assert.doesNotMatch(propertyRuntime,/localStorage/,"workspace runtime must not persist Property scenario data in localStorage");
 assert.match(propertyRuntime,/rows\.slice\(0,3\)/,"scenario comparison must remain bounded to three scenarios");
 assert.match(propertyRuntime,/Saved scenario only — not a valuation or portfolio record/,"saved scenarios must preserve the valuation and canonical-record boundary");
 assert.doesNotMatch(propertyRuntime,/savePropertyScenario[\s\S]{0,2500}\/api\/property\/portfolio/,"saving a scenario must not silently write assumptions into the canonical property portfolio");
