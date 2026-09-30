@@ -20,7 +20,7 @@ for(const value of [productionLive,productionDock,runtimeLive,runtimeDock]){
 }
 assert.equal(productionLive,runtimeLive,'production must cache-bust the exact Thebe Live Voice runtime');
 assert.equal(productionDock,runtimeDock,'production must cache-bust the exact Thebe AI dock runtime');
-assert.equal(productionDock,'20260930-desktop-fixed-open-v207','live Thebe Command Dock V201 must ship under the current release token');
+assert.equal(productionDock,'20260930-orb-geometry-v208','live Thebe Command Dock V201 must ship under the current release token');
 assert(production.includes('const THEBE_PUBLIC_API_CLIENT_RELEASE="20260930a";'),'V200 must cache-bust the shared API client that carries caller cancellation');
 assert(production.includes('const OWNER_COMMAND_CENTRE_RELEASE="20260929-v185";'),'production must cache-bust the Property service runtime that owns the valuation panel');
 assert(production.includes('const THEBE_AI_DOCK_HOTFIX_ASSET="/assets/thebe-ai-dock-v184-hotfix.css";'),'production must publish the path-busted V184 dock hotfix asset');
@@ -51,6 +51,9 @@ assert(runtime.includes('function effectiveCollapsed(){return (mobileDockMode()?
 assert(runtime.includes('collapsed=mobile?Boolean(next):false'),'V207 collapse mutations must be mobile-only');
 assert(runtime.includes('collapsed=mobileDockMode()?(storedCollapse==="1"||storedCollapse===null):false'),'V207 desktop mount must start fixed-open even when an older collapse preference exists');
 assert(runtime.includes('if(minimize)minimize.hidden=!mobile'),'V207 desktop dock must not expose a minimise control that contradicts fixed-open behavior');
+assert(runtime.includes('desktopWorkspaceOrbHealthy'),'V208 recovery health must include the authoritative desktop workspace orb geometry');
+assert(runtime.includes('Math.abs((orbRect?.width||0)-82)<=1'),'V208 must reject recovered workspace orb width drift');
+assert(runtime.includes('setCriticalStyle(orbButton,{"width":"82px"'),'V208 must repair the workspace orb back to 82px during emergency presentation recovery');
 assert(runtime.includes('function dockShouldYield()'),'V201 must explicitly yield the fixed dock on protected Billing views');
 assert(runtime.includes('subscription|payment plan'),'V201 Billing yield must cover billing, subscription and payment-plan context');
 assert(runtime.includes('pill.hidden=!visible||!isCollapsed||yielded'),'V201 must hide the collapsed pill while Billing owns the interaction surface');
