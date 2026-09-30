@@ -1714,3 +1714,10 @@
     transform:none!important;
   }
 }
+
+
+/* V196 dialog layering closure — accessible workspace dialogs must render above the Thebe dock. */
+.modal.bw-dialog-service,
+[role="dialog"].bw-dialog-service{
+  z-index:240!important;
+}
