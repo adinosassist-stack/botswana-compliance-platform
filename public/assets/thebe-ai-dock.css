@@ -739,7 +739,12 @@
   border-radius:18px;
 }
 @media(min-width:1024px){
-  body.thebe-ai-expanded{--thebe-dock-w:560px}
+  /* V198 desktop safe lane — keep workspace controls reachable while Thebe stays open. */
+  body.thebe-ai-dock-open #appShell main{
+    padding-right:calc(var(--thebe-dock-w) + 54px)!important;
+    transition:padding-right .18s ease;
+  }
+    body.thebe-ai-expanded{--thebe-dock-w:560px}
   body.thebe-ai-expanded .thebe-ai-dock-scroll{padding-left:28px;padding-right:28px}
   body.thebe-ai-expanded .thebe-ai-quick{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
@@ -1608,8 +1613,8 @@
   .thebe-ai-dock[data-surface="workspace"]{
     position:fixed!important;
     top:auto!important;
-    left:var(--thebe-workspace-left,20px)!important;
-    right:auto!important;
+    left:auto!important;
+    right:22px!important;
     bottom:22px!important;
     width:min(var(--thebe-dock-w),calc(100vw - 40px))!important;
     max-height:min(720px,calc(100dvh - 108px))!important;
@@ -1621,8 +1626,8 @@
   .thebe-ai-pill[data-surface="workspace"]:not([hidden]){
     display:inline-flex!important;
     align-items:center;
-    left:var(--thebe-workspace-left,20px)!important;
-    right:auto!important;
+    left:auto!important;
+    right:22px!important;
     bottom:22px!important;
     min-height:48px;
     padding:0 17px;
