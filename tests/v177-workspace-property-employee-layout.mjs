@@ -148,3 +148,9 @@ assert.match(html,/regulatory-pipeline/,"Regulatory intelligence must visualize 
 assert.match(runtime,/regConflictVisual/,"Regulatory flow must surface live conflicts");
 assert.match(html,/audit-chain-visual/,"Audit integrity must expose chain state visually");
 assert.match(runtime,/auditSealedVisual/,"Audit chain visual must use verified integrity data");
+
+assert.match(ownerCommand,/owner-pulse/,"Owner first screen must expose a compact business pulse");
+assert.match(ownerCommand,/ownerPulseCash/,"Owner pulse must expose governed cash movement");
+assert.match(ownerCommand,/ownerPulseSales/,"Owner pulse must expose recorded sales pipeline");
+assert.match(ownerCommand,/ownerPulseOps/,"Owner pulse must expose operational exception state");
+assert.match(ownerCommand,/ownerPulseCompliance/,"Owner pulse must expose compliance pressure");
