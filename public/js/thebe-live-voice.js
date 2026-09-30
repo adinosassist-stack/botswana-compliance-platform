@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260930-geometry-health-v204";
+  const RELEASE="20260930-view-event-v205";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -552,7 +552,7 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260930-geometry-health-v204";
+  const DOCK_RELEASE="20260930-view-event-v205";
   const STORE_KEY="thebe_ai_dock_collapsed_v5";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
@@ -1437,6 +1437,7 @@
     };
     if(pageTitle)new MutationObserver(syncAfterWorkspaceViewChange).observe(pageTitle,{childList:true,characterData:true,subtree:true});
     document.querySelectorAll(".view").forEach(view=>new MutationObserver(syncAfterWorkspaceViewChange).observe(view,{attributes:true,attributeFilter:["class"]}));
+    global.addEventListener("thebe:workspace-view-change",()=>{syncAfterWorkspaceViewChange();global.requestAnimationFrame?.(()=>global.requestAnimationFrame?.(()=>{recoverVisibility();recoverDockPresentation()}))});
     const syncKeyboard=()=>{
       const viewport=global.visualViewport;
       if(!viewport)return;
