@@ -33,8 +33,8 @@ function sectionBounds(source,start){
 }
 const shellViews=[...html.matchAll(/<section\b([^>]*)>/gi)].map(match=>{
   const attrs=String(match[1]||"");
-  const id=(attrs.match(/\\bid=["']([^"']+)["']/i)||[])[1]||"";
-  const cls=(attrs.match(/\\bclass=["']([^"']+)["']/i)||[])[1]||"";
+  const id=(attrs.match(/\bid=["']([^"']+)["']/i)||[])[1]||"";
+  const cls=(attrs.match(/\bclass=["']([^"']+)["']/i)||[])[1]||"";
   return {id,cls,start:match.index};
 }).filter(view=>/\bview\b/.test(view.cls));
 const primaryResidentViews=["dashboard","moneyhub","workhub","sites","peopleops","businesshub","obligations","evidencehub","automationhub"];
