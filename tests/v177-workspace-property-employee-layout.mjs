@@ -114,3 +114,9 @@ assert.match(ownerCommand,/Rent <b id="propertyFlowRent">—<\/b>/,"income-flow 
 assert.match(ownerCommand,/NOI <b id="propertyFlowNoi">—<\/b>/,"income-flow infographic must expose recorded NOI");
 assert.match(ownerCommand,/Valuation readiness/,"valuation coverage must be shown visually");
 assert.match(ownerCommand,/property-more-actions/,"secondary register actions must be consolidated instead of adding another persistent button");
+
+assert.match(ownerCommand,/property-asset-visual/,"individual properties must use visual performance cards");
+assert.match(ownerCommand,/Record details/,"dense property provenance must be progressive disclosure");
+assert.match(ownerCommand,/property-record-actions/,"property record actions must be consolidated");
+assert.match(ownerCommand,/property-valuation-pipeline/,"professional valuation status must use a workflow infographic");
+assert.doesNotMatch(ownerCommand,/summaryStrip\.className="outcome-status-strip"/,"valuation summary must not regress to a dense chip strip");
