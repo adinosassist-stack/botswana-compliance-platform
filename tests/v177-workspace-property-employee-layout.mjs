@@ -93,3 +93,11 @@ assert.match(html,/@media\(max-width:900px\)\{\.business-outcome-grid\{grid-temp
 assert.match(html,/@media\(max-width:900px\)\{\.hub-grid,\.hub-grid-3\{grid-template-columns:1fr\}/,"workspace hubs must collapse before narrow screens");
 
 console.log("V177_WORKSPACE_ADVERSARIAL_PASS");
+
+const propertyRuntime=fs.readFileSync("public/js/workspace-runtime-20260929c.js","utf8");
+assert.match(html,/Save scenario/,"compact Property calculator must allow assumption scenarios to be saved");
+assert.match(html,/Saved deal scenarios/,"Property must expose compact scenario comparison");
+assert.match(propertyRuntime,/PROPERTY_SCENARIO_KEY="thebe\.property\.scenarios\.v1"/,"scenario comparison must use an isolated scenario namespace");
+assert.match(propertyRuntime,/rows\.slice\(0,3\)/,"scenario comparison must remain bounded to three scenarios");
+assert.match(propertyRuntime,/Saved scenario only — not a valuation or portfolio record/,"saved scenarios must preserve the valuation and canonical-record boundary");
+assert.doesNotMatch(propertyRuntime,/savePropertyScenario[\s\S]{0,2500}\/api\/property\/portfolio/,"saving a scenario must not silently write assumptions into the canonical property portfolio");
