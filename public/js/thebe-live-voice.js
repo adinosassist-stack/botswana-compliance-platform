@@ -1419,8 +1419,14 @@
     const alerts=document.getElementById("navAlerts");
     if(alerts)new MutationObserver(syncAttention).observe(alerts,{childList:true,characterData:true,subtree:true});
     const pageTitle=document.getElementById("pageTitle");
-    if(pageTitle)new MutationObserver(()=>{syncVisibility();syncContextBar();renderQuickActions(surfaceMode())}).observe(pageTitle,{childList:true,characterData:true,subtree:true});
-    document.querySelectorAll(".view").forEach(view=>new MutationObserver(()=>syncVisibility()).observe(view,{attributes:true,attributeFilter:["class"]}));
+    const syncAfterWorkspaceViewChange=()=>{
+      recoverVisibility();
+      syncContextBar();
+      renderQuickActions(surfaceMode());
+      global.requestAnimationFrame?.(()=>{recoverVisibility();recoverDockPresentation()});
+    };
+    if(pageTitle)new MutationObserver(syncAfterWorkspaceViewChange).observe(pageTitle,{childList:true,characterData:true,subtree:true});
+    document.querySelectorAll(".view").forEach(view=>new MutationObserver(syncAfterWorkspaceViewChange).observe(view,{attributes:true,attributeFilter:["class"]}));
     const syncKeyboard=()=>{
       const viewport=global.visualViewport;
       if(!viewport)return;
@@ -1444,7 +1450,6 @@
     global.addEventListener("pageshow",recoverVisibility,{passive:true});
     global.addEventListener("focus",recoverVisibility,{passive:true});
     global.addEventListener("thebe:workspace-ready",recoverVisibility);
-    global.addEventListener("thebe:view-change",()=>{syncVisibility();global.requestAnimationFrame?.(()=>{syncVisibility();recoverDockPresentation()})});
     if(typeof global.whenThebeWorkspaceReady==="function")global.whenThebeWorkspaceReady(recoverVisibility);
   }
 
