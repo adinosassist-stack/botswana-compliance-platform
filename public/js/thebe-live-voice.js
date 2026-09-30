@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260930-race-v194";
+  const RELEASE="20260930-cancel-v195";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -552,12 +552,12 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260930-race-v194";
+  const DOCK_RELEASE="20260930-cancel-v195";
   const STORE_KEY="thebe_ai_dock_collapsed_v5";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
   let dock=null,pill=null,pillLabel=null,orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,scrollRegion=null,input=null,sendButton=null,attentionButton=null,quick=null,foot=null,mascot=null,missionRail=null,missionLabel=null,missionMeta=null,contextBar=null,contextLabel=null,modeRail=null,clearButton=null,latestResponseButton=null;
-  let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",mascotState="idle",mascotContext="general",mascotFocus="ambient",ownerCommandState=null,collapsed=false,assistantMode="ask",lastAnswer="",autoFollowResponse=true,responseScrollLock=false,textRunId=0;
+  let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",mascotState="idle",mascotContext="general",mascotFocus="ambient",ownerCommandState=null,collapsed=false,assistantMode="ask",lastAnswer="",autoFollowResponse=true,responseScrollLock=false,textRunId=0,textAbortController=null;
 
   const api=(url,options={})=>{
     if(typeof global.apiJson!=="function")throw new Error("The secure Thebe API transport is not available.");
@@ -712,6 +712,8 @@
   }
   function clearConversation(){
     if(!dock)return;
+    textAbortController?.abort("conversation-cleared");
+    textAbortController=null;
     textRunId+=1;
     textBusy=false;
     voiceInput="";voiceOutput="";lastAnswer="";
@@ -998,6 +1000,10 @@
     modeRail?.querySelectorAll("button").forEach(button=>{button.disabled=textBusy});
     const contextAction=contextBar?.querySelector(".thebe-ai-context-action");
     if(contextAction)contextAction.disabled=textBusy;
+    if(clearButton){
+      clearButton.title=textBusy?"Cancel request and clear conversation":"Clear conversation";
+      clearButton.setAttribute("aria-label",textBusy?"Cancel current Thebe request and clear conversation":"Clear Thebe conversation");
+    }
     syncComposerState();
   }
   function responseAnswer(message){
@@ -1163,6 +1169,8 @@
       return;
     }
     const runId=++textRunId;
+    const controller=new AbortController();
+    textAbortController=controller;
     textBusy=true;
     autoFollowResponse=true;
     if(latestResponseButton)latestResponseButton.hidden=true;
@@ -1174,18 +1182,20 @@
       const result=await api("/api/ai/advisor",{
         method:"POST",
         headers:{"content-type":"application/json"},
-        body:JSON.stringify({mode:requestedMode,question:contextualQuestion(q)})
+        body:JSON.stringify({mode:requestedMode,question:contextualQuestion(q)}),
+        signal:controller.signal
       });
       if(runId!==textRunId)return;
       renderResult(result||{});
     }catch(error){
-      if(runId!==textRunId)return;
+      if(runId!==textRunId||error?.code==="aborted")return;
       const message=error?.status===402
         ?"AI credits or the configured cost cap do not allow this run."
         :clean(error?.message||"Thebe could not complete that workspace review.",320);
       responseMessage(message||"Thebe could not complete that workspace review.","error");
       surfaceLatestResponse();
     }finally{
+      if(textAbortController===controller)textAbortController=null;
       if(runId===textRunId){
         textBusy=false;
         syncBusyControls();
