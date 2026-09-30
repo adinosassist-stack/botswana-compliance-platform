@@ -4,6 +4,7 @@ import {runFinanceWatchTask} from "../cloudflare/src/finance-watch-durable-loop.
 function dbMock(){
  const writes=[];const db={
   prepare(sql){return {sql,bindings:[],bind(...v){this.bindings=v;return this},async first(){
+   if(sql.includes("FROM agent_registry"))return {agent_id:"SYS-FIN-OBS-001",canonical_name:"system_observer",actor_type:"system_observer",purpose:"Governed read-only Finance observation",risk_tier:"low",authority_state:"active",execution_capable:0,owner_scope:"platform"};
    if(sql.includes("agent_observation_checkpoints"))return null;
    if(sql.includes("finance_accounts"))return {cash_position_minor:10000,account_count:1};
    if(sql.includes("finance_reconciliation_runs"))return {reconciliation_count:1,exception_count:0,exception_exposure_minor:0};
