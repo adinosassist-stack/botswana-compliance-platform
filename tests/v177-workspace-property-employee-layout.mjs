@@ -120,3 +120,8 @@ assert.match(ownerCommand,/Record details/,"dense property provenance must be pr
 assert.match(ownerCommand,/property-record-actions/,"property record actions must be consolidated");
 assert.match(ownerCommand,/property-valuation-pipeline/,"professional valuation status must use a workflow infographic");
 assert.doesNotMatch(ownerCommand,/summaryStrip\.className="outcome-status-strip"/,"valuation summary must not regress to a dense chip strip");
+
+assert.match(html,/protected-workflow-launch/,"HR protected workflows must use a compact launcher instead of six persistent buttons");
+assert.match(html,/ops-visual-brief/,"Daily Reports must expose an at-a-glance visual brief");
+assert.match(runtime,/opsVisualExpected/,"Daily Reports visual brief must use live expected-report data");
+assert.match(runtime,/opsCoverageTrack/,"Daily Reports coverage visualization must be driven by live coverage");
