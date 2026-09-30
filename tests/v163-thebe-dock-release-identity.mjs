@@ -19,7 +19,7 @@ for(const value of [productionLive,productionDock,runtimeLive,runtimeDock]){
 }
 assert.equal(productionLive,runtimeLive,'production must cache-bust the exact Thebe Live Voice runtime');
 assert.equal(productionDock,runtimeDock,'production must cache-bust the exact Thebe AI dock runtime');
-assert.equal(productionDock,'20260930-geometry-health-v204','live Thebe Command Dock V201 must ship under the current release token');
+assert.equal(productionDock,'20260930-view-event-v205','live Thebe Command Dock V201 must ship under the current release token');
 assert(production.includes('const THEBE_PUBLIC_API_CLIENT_RELEASE="20260930a";'),'V200 must cache-bust the shared API client that carries caller cancellation');
 assert(production.includes('const OWNER_COMMAND_CENTRE_RELEASE="20260929-v185";'),'production must cache-bust the Property service runtime that owns the valuation panel');
 assert(production.includes('const THEBE_AI_DOCK_HOTFIX_ASSET="/assets/thebe-ai-dock-v184-hotfix.css";'),'production must publish the path-busted V184 dock hotfix asset');
@@ -50,13 +50,16 @@ assert(runtime.includes('function dockShouldYield()'),'V201 must explicitly yiel
 assert(runtime.includes('subscription|payment plan'),'V201 Billing yield must cover billing, subscription and payment-plan context');
 assert(runtime.includes('function effectiveCollapsed(){return collapsed||dockShouldYield()}'),'V201 effective dock visibility must include the Billing yield state');
 assert(runtime.includes('pill.hidden=!visible||!isCollapsed||yielded'),'V201 must hide the collapsed pill while Billing owns the interaction surface');
-assert(runtime.includes('const syncAfterWorkspaceViewChange=()=>'),'V204 must own a deterministic post-navigation dock recovery path');
-assert(runtime.includes('new MutationObserver(syncAfterWorkspaceViewChange)'),'V204 must invoke full dock recovery when the active workspace view changes');
-assert(runtime.includes('if(wasYielded&&!yielded)'),'V204 must restrict expensive dock recovery to leaving a yielded view');
+assert(runtime.includes('const syncAfterWorkspaceViewChange=()=>'),'V205 must own a deterministic post-navigation dock recovery path');
+assert(runtime.includes('new MutationObserver(syncAfterWorkspaceViewChange)'),'V205 must invoke full dock recovery when the active workspace view changes');
+assert(runtime.includes('if(wasYielded&&!yielded)'),'V205 must restrict expensive dock recovery to leaving a yielded view');
 assert(runtime.includes('dockHeight>250'),'V204 recovery health must reject undersized full docks');
 assert(runtime.includes('Number(dockRect?.right)<=viewportWidth+1'),'V204 recovery health must reject docks extending beyond the viewport');
 assert(runtime.includes('"min-height":"min(280px, calc(100dvh - 108px))"'),'V204 emergency workspace geometry must restore a bounded full-dock height');
-assert(runtime.includes('recoverVisibility();recoverDockPresentation()'),'V204 must restore visibility and geometry after leaving a yielded Billing view');
+assert(runtime.includes('recoverVisibility();recoverDockPresentation()'),'V205 must restore visibility and geometry after leaving a yielded Billing view');
+assert(workspaceRuntime.includes('new CustomEvent("thebe:workspace-view-change",{detail:{id}})'),'V205 canonical showView must emit an explicit workspace-view-change event');
+assert(runtime.includes('global.addEventListener("thebe:workspace-view-change"'),'V205 dock runtime must subscribe to the canonical workspace-view-change event');
+assert(runtime.includes('global.requestAnimationFrame?.(()=>global.requestAnimationFrame?.(()=>{recoverVisibility();recoverDockPresentation()}))'),'V205 explicit view recovery must wait two animation frames so rendered geometry is authoritative');
 assert(!runtime.includes('Math.round(rect.left+20)'),'V200 must remove the self-chasing main-column dock anchor');
 assert(runtime.includes('?{"left":workspaceDockLeftPx()+"px"'),'V191 emergency recovery must still restore the resolved workspace lower-left position');
 assert(runtime.includes('pill.style.setProperty("display",visible&&isCollapsed&&!yielded?"inline-flex":"none","important")'),'V201 must keep desktop minimise/reopen usable while suppressing the pill on yielded Billing views');
