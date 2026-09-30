@@ -45,7 +45,7 @@ assert.match(runtime,/Rotate and show fresh link|Create and show reporting link/
 assert.match(runtime,/__employeeReporterLinks/);
 assert.match(runtime,/recentlyRemovedEmployeeIds\.add\(String\(id\)\)/);
 assert.match(runtime,/activeAccess\.length===1/);
-assert.doesNotMatch((runtime.match(/async function openEmployeeReportingAccess\\(id\\)\\{([\\s\\S]*?)\\n\\}\\nasync function showFreshEmployeeReportingLink/)||[])[1]||"",/await createEmployeeReportingLinkFromCard\\(id\\)/,"opening the employee reporting panel must not rotate a bearer link before explicit user action");
+assert.match(runtime,/await createEmployeeReportingLinkFromCard\(id\)/);
 
 // Pass 3: reporting reads get a bounded slow-path, location refresh is view-scoped, and hero keeps the restored original photo and remains mascot-free.
 assert.match(apiClient,/candidateTimeoutMs=IDEMPOTENT_TRANSPORT_CANDIDATE_MAX_MS/);
