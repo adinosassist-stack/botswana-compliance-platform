@@ -74,7 +74,7 @@ assert(runtime.includes('const STORE_KEY="thebe_ai_dock_collapsed_v5";'),'V191 m
 const dockCss=fs.readFileSync(new URL('../public/assets/thebe-ai-dock.css',import.meta.url),'utf8');
 assert(dockCss.includes('V209 workspace quickbar safe lane'),'V209 must reserve a dedicated safe lane for workspace quick actions');
 assert(dockCss.includes('V210 desktop workspace pointer lanes'),'V210 must declare desktop workspace pointer-lane behavior');
-assert(dockCss.includes('.thebe-ai-dock[data-surface="workspace"]{\n    pointer-events:none;'),'V210 must make the non-interactive workspace dock shell pointer-transparent');
+assert(dockCss.includes('#thebeAiDock[data-surface="workspace"]{\n    pointer-events:none;'),'V210 must make the non-interactive workspace dock shell pointer-transparent without increasing canonical workspace selector duplication');
 assert(dockCss.includes('[role="button"],')&&dockCss.includes('[tabindex="0"]'),'V210 must preserve pointer events on explicit interactive/focusable dock controls');
 assert(dockCss.includes('body.thebe-ai-dock-open #workspaceQuickbar'),'V209 must explicitly move the workspace quickbar clear of the fixed dock');
 assert(dockCss.includes('margin-left:444px!important')&&dockCss.includes('width:calc(100% - 444px)!important'),'V209 wide desktop quickbar must reserve the normal dock footprint');
