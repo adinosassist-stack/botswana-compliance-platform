@@ -1772,3 +1772,21 @@
     width:calc(100% - 464px)!important;
   }
 }
+
+/* V203 desktop workspace pointer lanes — the fixed dock must never block underlying workspace actions with decorative surfaces. */
+@media(min-width:1024px){
+  .thebe-ai-dock[data-surface="workspace"]{
+    pointer-events:none;
+  }
+  .thebe-ai-dock[data-surface="workspace"] :is(
+    button,
+    textarea,
+    input,
+    select,
+    a[href],
+    [role="button"],
+    [tabindex="0"]
+  ){
+    pointer-events:auto;
+  }
+}
