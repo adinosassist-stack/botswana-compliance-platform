@@ -2881,6 +2881,10 @@
       propertyPortfolioMetric("Portfolio NOI yield","propertyPortfolioNoiYield")
     );
     shell.append(performanceMetrics);
+    const infographic=document.createElement("div");
+    infographic.className="property-portfolio-infographic";
+    infographic.safeHTML='<div class="property-info-panel"><div class="section-eyebrow">Capital structure</div><div class="property-capital-bar"><span id="propertyEquityBar"></span><i id="propertyDebtBar"></i></div><div class="property-info-legend"><span><b id="propertyEquityLegend">—</b> equity</span><span><b id="propertyDebtLegend">—</b> debt</span></div></div><div class="property-info-panel"><div class="section-eyebrow">Income flow</div><div class="property-income-flow"><span>Rent <b id="propertyFlowRent">—</b></span><em>→</em><span>NOI <b id="propertyFlowNoi">—</b></span><em>→</em><span>Yield <b id="propertyFlowYield">—</b></span></div></div><div class="property-info-panel"><div class="section-eyebrow">Valuation readiness</div><div class="property-coverage-ring" id="propertyCoverageRing"><b id="propertyCoverageRingValue">—</b><small>covered</small></div></div>';
+    shell.append(infographic);
     const portfolioAlerts=document.createElement("div");
     portfolioAlerts.className="grid g2";
     portfolioAlerts.style.marginTop="10px";
@@ -3311,6 +3315,12 @@
       set("propertyPortfolioNoi",propertyPortfolioMoneyMinor(noiMinor));
       set("propertyPortfolioEquity",propertyPortfolioMoneyMinor(equityMinor));
       set("propertyPortfolioNoiYield",Number(portfolio.recordedProfessionalValueMinor||0)>0?pct(noiMinor/Number(portfolio.recordedProfessionalValueMinor||0)*100):"—");
+      const recordedValue=Math.max(0,Number(portfolio.recordedProfessionalValueMinor||0)),debt=Math.max(0,Number(portfolio.debtBalanceMinor||0)),capital=Math.max(recordedValue,debt),equity=Math.max(0,recordedValue-debt),equityPct=capital>0?Math.max(0,Math.min(100,equity/capital*100)):0,debtPct=capital>0?Math.max(0,Math.min(100,debt/capital*100)):0,coverage=Math.max(0,Math.min(100,Number(portfolio.valuationCoveragePct||0)));
+      const equityBar=q("#propertyEquityBar");if(equityBar)equityBar.style.width=equityPct+"%";
+      const debtBar=q("#propertyDebtBar");if(debtBar)debtBar.style.width=debtPct+"%";
+      set("propertyEquityLegend",propertyPortfolioMoneyMinor(equity));set("propertyDebtLegend",propertyPortfolioMoneyMinor(debt));
+      set("propertyFlowRent",propertyPortfolioMoneyMinor(annualRentMinor));set("propertyFlowNoi",propertyPortfolioMoneyMinor(noiMinor));set("propertyFlowYield",recordedValue>0?pct(noiMinor/recordedValue*100):"—");
+      set("propertyCoverageRingValue",pct(coverage));const ring=q("#propertyCoverageRing");if(ring)ring.style.setProperty("--coverage",coverage+"%");
       const renewal=q("#propertyPortfolioRenewalStatus");
       if(renewal){
         const due=Number(portfolio.professionalValuationRenewalDueCount||0),soon=Number(portfolio.professionalValuationRenewalDueSoonCount||0);
