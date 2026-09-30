@@ -31,22 +31,27 @@ function sectionBounds(source,start){
   }
   throw new Error("view section did not close");
 }
-const shellViews=[...html.matchAll(/<section\b([^>]*)>/gi)].map(match=>{
+const canonicalViews=[...html.matchAll(/<section\b([^>]*)>/gi)].map(match=>{
   const attrs=String(match[1]||"");
   const id=(attrs.match(/\bid=["']([^"']+)["']/i)||[])[1]||"";
   const cls=(attrs.match(/\bclass=["']([^"']+)["']/i)||[])[1]||"";
   return {id,cls,start:match.index};
 }).filter(view=>/\bview\b/.test(view.cls));
+assert.equal(canonicalViews.length,71,"canonical workspace view count changed; reassess lazy-view boundary");
 const primaryResidentViews=["dashboard","moneyhub","workhub","sites","peopleops","businesshub","obligations","evidencehub","automationhub"];
 assert.deepEqual(fragments.residentViews,primaryResidentViews,"primary workspace navigation must remain resident and independent of fragment delivery");
-assert.equal(shellViews.length,primaryResidentViews.length,"production workspace shell must contain only resident views");
-assert.deepEqual(shellViews.map(view=>view.id).sort(),primaryResidentViews.slice().sort(),"production shell resident view inventory drifted");
+const canonicalIds=new Set(canonicalViews.map(view=>view.id));
+for(const id of primaryResidentViews)assert.ok(canonicalIds.has(id),`resident view ${id} must remain present in the canonical workspace shell`);
 const lazyViewIds=Object.keys(fragments.views).sort();
 assert.equal(lazyViewIds.length,62,"expected 62 canonical lazy workspace fragments, including Protect and Property Intelligence");
-for(const id of lazyViewIds){
-  const canonical=String(fragments.views[id]||"");
-  assert.ok(canonical.trim(),`fragment ${id} must contain canonical inner markup`);
-  assert.doesNotMatch(canonical,/<(?:script|iframe|object|embed|base|meta|link|img|svg|math|video|audio|source|track)\b/i,`fragment ${id} must stay compatible with BW.dom sanitizer`);
+const canonicalLazyViews=canonicalViews.filter(view=>!primaryResidentViews.includes(view.id));
+assert.equal(canonicalLazyViews.length,62,"canonical workspace must contain exactly 62 externalizable views");
+assert.deepEqual(lazyViewIds,canonicalLazyViews.map(view=>view.id).sort(),"lazy fragment inventory must match canonical non-resident views");
+for(const view of canonicalLazyViews){
+  const bounds=sectionBounds(html,view.start);
+  const canonical=html.slice(bounds.openEnd,bounds.closeStart);
+  assert.equal(fragments.views[view.id],canonical,`fragment ${view.id} must exactly match canonical inner markup`);
+  assert.doesNotMatch(canonical,/<(?:script|iframe|object|embed|base|meta|link|img|svg|math|video|audio|source|track)\b/i,`fragment ${view.id} must stay compatible with BW.dom sanitizer`);
 }
 
 assert.match(production,/WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT=12/);
@@ -60,6 +65,7 @@ assert.ok(lazyConstant,"production lazy-view constant must remain parseable");
 const productionLazyViews=JSON.parse(lazyConstant);
 for(const id of primaryResidentViews)assert.equal(productionLazyViews.includes(id),false,"resident primary view "+id+" must not be in the production lazy list");
 assert.equal(productionLazyViews.length,62,"production lazy list must match regenerated fragments");
+assert.deepEqual(productionLazyViews.slice().sort(),lazyViewIds,"production externalization inventory must exactly match the 62 canonical lazy views");
 assert.match(production,/function externalizeWorkspaceViews\(html\)/);
 for(const id of primaryResidentViews){
   const pattern=new RegExp('<section\\b[^>]*\\bid=["\\\']'+id+'["\\\'][^>]*data-lazy-view="1"',"i");
@@ -84,7 +90,10 @@ assert.equal(Object.prototype.hasOwnProperty.call(fragments.views,"propertyintel
 assert.equal(Object.prototype.hasOwnProperty.call(fragments.views,"protecthub"),true,"Protect should use lazy fragment delivery to protect the shell budget");
 assert.equal(Object.prototype.hasOwnProperty.call(fragments.views,"peopleops"),false,"People must not depend on lazy fragment delivery");
 for(const payload of fragmentShards)assert.equal(Object.prototype.hasOwnProperty.call(payload.views,"peopleops"),false,"People must not appear in any lazy shard");
-const peopleCanonical=html.slice(sectionBounds(html,shellViews.find(view=>view.id==="peopleops").start).openEnd,sectionBounds(html,shellViews.find(view=>view.id==="peopleops").start).closeStart);
+const peopleView=canonicalViews.find(view=>view.id==="peopleops");
+assert.ok(peopleView,"resident People view must remain in canonical workspace shell");
+const peopleBounds=sectionBounds(html,peopleView.start);
+const peopleCanonical=html.slice(peopleBounds.openEnd,peopleBounds.closeStart);
 assert.match(peopleCanonical,/People & operations/,"resident People content must remain in canonical workspace HTML");
 assert.doesNotMatch(peopleCanonical,/Ruleset integrity|Sources in this prototype/i,"resident People content must not contain regulatory source prototype copy");
 assert.match(String(fragmentShards[viewShard("sources")].views.sources||""),/Authoritative source registry/,"source governance content must remain scoped to the Sources view");
