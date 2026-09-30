@@ -1721,3 +1721,22 @@
 [role="dialog"].bw-dialog-service{
   z-index:240!important;
 }
+
+
+/* V198 workspace occlusion closure — reserve the dock footprint so scrolled workspace actions never sit beneath the fixed command surface. */
+@media(min-width:1024px){
+  body.thebe-ai-dock-open #appShell main{
+    padding-left:464px!important;
+  }
+  body.thebe-ai-dock-open.thebe-ai-expanded #appShell main{
+    padding-left:604px!important;
+  }
+}
+@media(min-width:1024px) and (max-width:1179px){
+  body.thebe-ai-dock-open #appShell main{
+    padding-left:356px!important;
+  }
+  body.thebe-ai-dock-open.thebe-ai-expanded #appShell main{
+    padding-left:476px!important;
+  }
+}
