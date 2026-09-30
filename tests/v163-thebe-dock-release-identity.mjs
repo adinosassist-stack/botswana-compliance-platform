@@ -18,7 +18,7 @@ for(const value of [productionLive,productionDock,runtimeLive,runtimeDock]){
 }
 assert.equal(productionLive,runtimeLive,'production must cache-bust the exact Thebe Live Voice runtime');
 assert.equal(productionDock,runtimeDock,'production must cache-bust the exact Thebe AI dock runtime');
-assert.equal(productionDock,'20260929-reading-v193','live Thebe Command Dock V193 must ship under the current release token');
+assert.equal(productionDock,'20260930-race-v194','live Thebe Command Dock V194 must ship under the current release token');
 assert(production.includes('const OWNER_COMMAND_CENTRE_RELEASE="20260929-v185";'),'production must cache-bust the Property service runtime that owns the valuation panel');
 assert(production.includes('const THEBE_AI_DOCK_HOTFIX_ASSET="/assets/thebe-ai-dock-v184-hotfix.css";'),'production must publish the path-busted V184 dock hotfix asset');
 assert.equal((production.match(/THEBE_AI_DOCK_HOTFIX_ASSET/g)||[]).length>=3,true,'V184 dock hotfix must be declared and injected across public/workspace surfaces');
@@ -81,6 +81,13 @@ assert(runtime.includes('transcriptBox.scrollTop=transcriptBox.scrollHeight'),'V
 assert(runtime.includes('answer.setAttribute("aria-label","Thebe answer. Scroll to read the full response.")'),'V193 long answers must expose their internal scroll region to keyboard users');
 assert(dockCss.includes('.thebe-ai-response[data-long="true"] .thebe-ai-response-answer'),'V193 must bound long answers inside the response card');
 assert(dockCss.includes('[data-keyboard="true"] :is(.thebe-ai-foot,.thebe-ai-voice-card,.thebe-ai-quick)'),'V193 keyboard-open mode must hide nonessential workspace dock chrome through one grouped selector');
+assert(dockCss.includes('V194 response-race closure'),'V194 must ship the stale-response and latest-result interaction closure');
+assert(runtime.includes('textRunId=0'),'V194 must track text request generations');
+assert(runtime.includes('textRunId+=1')&&runtime.includes('const runId=++textRunId'),'V194 clear must invalidate in-flight text requests before a later response can render');
+assert(runtime.includes('if(runId!==textRunId)return;'),'V194 must suppress stale success and error responses after the active run is invalidated');
+assert(runtime.includes('latestResponseButton=el("button","thebe-ai-latest-response","Latest response ↓")'),'V194 must expose a compact latest-response affordance when auto-follow is disabled');
+assert(runtime.includes('function surfaceLatestResponse()'),'V194 must surface completed responses without forcing scroll when the user left the latest region');
+assert(dockCss.includes('.thebe-ai-latest-response[hidden]{display:none!important}'),'V194 latest-response affordance must stay absent until needed');
 assert(audit.includes('const dockReleaseMatch=productionEntry.match(/const THEBE_AI_DOCK_RELEASE="([0-9]{8}[A-Za-z0-9._-]{1,48})";/);'),'launch audit must accept the repository release-token format');
 assert(!audit.includes('[0-9]{8}[a-z]'),'launch audit must not regress to the obsolete date-plus-letter token parser');
 assert(fullUser.includes("/^[0-9]{8}[A-Za-z0-9._-]{1,48}$/"),'full-user synthetic must accept the bounded cache-safe dock release token format');
