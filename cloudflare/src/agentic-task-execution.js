@@ -453,10 +453,10 @@ async function executeTask({env,auth,requestId,permitId}){
     const changed=Number(results?.[1]?.meta?.changes??results?.[1]?.changes??0);
     if(permitChanged!==1||changed!==1)throw new Error("execution_conflict");
   }catch{
-    const existing=await safeFirst(env,`SELECT r.id receipt_id,r.result_entity_id task_id,t.title,t.description,t.priority,t.due_at,t.status,t.created_at
-      FROM agent_execution_receipts r JOIN agent_internal_tasks t ON t.id=r.result_entity_id AND t.tenant_id=r.tenant_id
-      WHERE r.action_intent_id=? AND r.tenant_id=? LIMIT 1`,[row.intent_id,auth.tenant_id]);
-    if(existing)return json({ok:true,replayed:true,task:{id:existing.task_id,title:existing.title,description:existing.description,priority:existing.priority,dueAt:existing.due_at,status:existing.status,createdAt:existing.created_at},receiptId:existing.receipt_id});
+    const permitState=await safeFirst(env,`SELECT status,use_count,consumed_by_user_id,consumed_at FROM agent_jit_execution_permits WHERE id=? AND tenant_id=? LIMIT 1`,[jitPermitId,auth.tenant_id]);
+    if(String(permitState?.status||"")==="consumed"||Number(permitState?.use_count||0)>=1){
+      return json({error:"jit_permit_already_consumed"},409);
+    }
     return json({error:"task_execution_failed"},500);
   }
 
