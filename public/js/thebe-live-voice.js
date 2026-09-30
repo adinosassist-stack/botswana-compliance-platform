@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20260930-view-sync-v202";
+  const RELEASE="20260930-yield-exit-v203";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -552,7 +552,7 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20260930-view-sync-v202";
+  const DOCK_RELEASE="20260930-yield-exit-v203";
   const STORE_KEY="thebe_ai_dock_collapsed_v5";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
@@ -1419,11 +1419,15 @@
     const alerts=document.getElementById("navAlerts");
     if(alerts)new MutationObserver(syncAttention).observe(alerts,{childList:true,characterData:true,subtree:true});
     const pageTitle=document.getElementById("pageTitle");
+    let lastViewYielded=dockShouldYield();
     const syncAfterWorkspaceViewChange=()=>{
-      recoverVisibility();
+      const wasYielded=lastViewYielded;
+      const yielded=dockShouldYield();
+      lastViewYielded=yielded;
+      syncVisibility();
       syncContextBar();
       renderQuickActions(surfaceMode());
-      global.requestAnimationFrame?.(()=>{recoverVisibility();recoverDockPresentation()});
+      if(wasYielded&&!yielded)global.requestAnimationFrame?.(()=>{recoverVisibility();recoverDockPresentation()});
     };
     if(pageTitle)new MutationObserver(syncAfterWorkspaceViewChange).observe(pageTitle,{childList:true,characterData:true,subtree:true});
     document.querySelectorAll(".view").forEach(view=>new MutationObserver(syncAfterWorkspaceViewChange).observe(view,{attributes:true,attributeFilter:["class"]}));
