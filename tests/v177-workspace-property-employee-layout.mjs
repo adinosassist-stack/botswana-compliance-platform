@@ -125,3 +125,10 @@ assert.match(html,/protected-workflow-launch/,"HR protected workflows must use a
 assert.match(html,/ops-visual-brief/,"Daily Reports must expose an at-a-glance visual brief");
 assert.match(runtime,/opsVisualExpected/,"Daily Reports visual brief must use live expected-report data");
 assert.match(runtime,/opsCoverageTrack/,"Daily Reports coverage visualization must be driven by live coverage");
+
+assert.match(html,/ai-scope-disclosure/,"Thebe AI explanatory scope must use progressive disclosure");
+assert.match(html,/ai-scope-visual/,"Thebe AI scope must use a compact visual flow");
+assert.match(html,/corporate-change-launch/,"Corporate change workflows must use one guided launcher instead of six persistent buttons");
+assert.match(html,/cipa-reconciliation-disclosure/,"dense CIPA reconciliation must be progressive disclosure");
+assert.match(html,/notification-radar/,"Notifications must use a compact attention visualization");
+assert.match(html,/notification-policy-disclosure/,"notification policy detail must not consume default viewport height");
