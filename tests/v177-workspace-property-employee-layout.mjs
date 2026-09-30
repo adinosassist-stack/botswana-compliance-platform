@@ -108,3 +108,9 @@ assert.match(propertyRuntime,/incrementalNoi:x\.noi/,"portfolio impact must use 
 assert.match(propertyRuntime,/Purchase price is <b>not<\/b> added to recorded professional portfolio value/,"scenario purchase price must never become professional portfolio value");
 assert.doesNotMatch(propertyRuntime,/proFormaValue\s*[:=][^\n;]*x\.purchase/,"scenario purchase price must not be promoted into pro-forma professional value");
 assert.match(ownerCommand,/__thebePropertyPortfolioImpact/,"canonical portfolio context must be explicitly bounded for scenario impact");
+
+for(const visual of ["property-capital-bar","property-income-flow","property-coverage-ring"])assert.match(ownerCommand,new RegExp(visual),"Property Intelligence missing visual infographic: "+visual);
+assert.match(ownerCommand,/Rent <b id="propertyFlowRent">—<\/b>/,"income-flow infographic must begin from recorded rent");
+assert.match(ownerCommand,/NOI <b id="propertyFlowNoi">—<\/b>/,"income-flow infographic must expose recorded NOI");
+assert.match(ownerCommand,/Valuation readiness/,"valuation coverage must be shown visually");
+assert.match(ownerCommand,/property-more-actions/,"secondary register actions must be consolidated instead of adding another persistent button");
