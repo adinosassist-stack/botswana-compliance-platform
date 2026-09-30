@@ -158,3 +158,10 @@ assert.match(ownerCommand,/ownerPulseCompliance/,"Owner pulse must expose compli
 assert.match(html,/visual-summary-shell/,"dense assurance surfaces must use one primary visual summary");
 assert.match(html,/metric-data-only/,"legacy metric hooks must remain runtime-compatible without duplicate visible KPI cards");
 assert.match(css,/\.metric-data-only\{display:none!important\}/,"duplicate metric hooks must remain visually suppressed");
+
+assert.match(ownerCommand,/propertyAssetVisual/,"Property infographic must retain active asset count after KPI strip removal");
+assert.match(ownerCommand,/propertyValueVisual/,"Property infographic must retain professional portfolio value after KPI strip removal");
+assert.match(html,/ops-primary-summary/,"Daily Operations must use one primary visual summary");
+assert.doesNotMatch(html,/ops-kpi-grid/,"Daily Operations must not repeat its visual brief in four KPI cards");
+assert.match(html,/hr-people-summary/,"HR must use an evidence-first compact summary");
+assert.doesNotMatch(html,/Employment risk/,"HR must not present an unsupported employee risk score");
