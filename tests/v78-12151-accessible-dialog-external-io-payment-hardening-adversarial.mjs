@@ -21,6 +21,7 @@ for(const file of publicFiles){const s=read(file);ok(!/(^|[^.\w$])confirm\s*\(/m
 ok(html.includes('src="/js/dialog-service.js"'),"production /app/ must load the accessible dialog service from the root asset path");
 ok(builder.includes('"notifications.js","dialog-service.js","api-client.js"'),"standalone preview builder must inline the accessible dialog service in production script order");
 ok(dialog.includes('role","dialog"')&&dialog.includes('aria-modal","true"')&&dialog.includes("textContent")&&dialog.includes("stopImmediatePropagation")&&dialog.includes("exactValue"),"dialog service must be accessible, safe-text based, validated and isolate keyboard cancellation");
+ok(dialog.includes('root.style.setProperty("z-index","10000","important")'),"dialog service must own a topmost inline stacking layer so assistant overlays cannot intercept dialog controls");
 ok(lint.includes("must not use native confirm()")&&lint.includes("must not use native prompt()")&&lint.includes("public/js/dialog-service.js"),"production lint must permanently ban native browser dialogs and require the dialog service");
 ok(html.includes("BW.dialog.confirm")&&html.includes("BW.dialog.prompt"),"sensitive workflows must use the accessible dialog service");
 ok(profile.native_browser_confirm_prompt_calls===0&&profile.accessible_async_dialog_service===true,"release profile must record zero native browser dialogs");
