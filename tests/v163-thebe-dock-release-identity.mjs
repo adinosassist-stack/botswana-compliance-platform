@@ -1,3 +1,4 @@
+// V210 recovery scheduler refresh: pointer-lane contract remains unchanged.
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 
