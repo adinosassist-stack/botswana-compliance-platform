@@ -3268,8 +3268,8 @@
       propertyEvidenceOptions=propertyPortfolioEligibleEvidence(evidencePayload);
       const set=(id,value)=>{const node=q("#"+id);if(node)node.textContent=value};
       if(portfolio?.available!==true){
-        set("propertyPortfolioAssetCount","Unavailable");
-        set("propertyPortfolioRecordedValue","—");
+        set("propertyPortfolioAssetCount","Unavailable");set("propertyAssetVisual","Unavailable");
+        set("propertyPortfolioRecordedValue","—");set("propertyValueVisual","—");
         set("propertyPortfolioDebt","—");
         set("propertyPortfolioCoverage","—");
         if(list){
@@ -3278,8 +3278,8 @@
         }
         return;
       }
-      set("propertyPortfolioAssetCount",String(Number(portfolio.assetCount||0)));
-      set("propertyPortfolioRecordedValue",propertyPortfolioMoneyMinor(portfolio.recordedProfessionalValueMinor));
+      set("propertyPortfolioAssetCount",String(Number(portfolio.assetCount||0)));set("propertyAssetVisual",String(Number(portfolio.assetCount||0)));
+      set("propertyPortfolioRecordedValue",propertyPortfolioMoneyMinor(portfolio.recordedProfessionalValueMinor));set("propertyValueVisual",propertyPortfolioMoneyMinor(portfolio.recordedProfessionalValueMinor));
       set("propertyPortfolioDebt",propertyPortfolioMoneyMinor(portfolio.debtBalanceMinor));
       set("propertyPortfolioCoverage",portfolio.valuationCoveragePct==null?"—":pct(Number(portfolio.valuationCoveragePct)));
       const activeItems=(Array.isArray(portfolio.items)?portfolio.items:[]).filter(item=>String(item?.status||"active")==="active");
