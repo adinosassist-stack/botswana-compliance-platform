@@ -883,7 +883,8 @@
     if(foot)foot.textContent=workspace
       ?"Advisory by default · governed actions still require the existing approval controls."
       :"Public sample · no workspace data · voice sample limited to 60 seconds.";
-    document.body.classList.toggle("thebe-ai-dock-open",workspace&&!isCollapsed);\n    document.body.classList.toggle("thebe-ai-dock-yield",workspace&&yielded);
+    document.body.classList.toggle("thebe-ai-dock-open",workspace&&!isCollapsed);
+    document.body.classList.toggle("thebe-ai-dock-yield",workspace&&yielded);
   }
   function recoverVisibility(){
     if(!dock||!pill)return;
