@@ -497,7 +497,9 @@ export async function handleAgenticTaskExecutionRequest({request,logicalPath,env
   if(cancel&&request.method==="POST")return cancelTask({env,auth,requestId:cancel[1]});
   const approve=path.match(/^\/api\/agentic\/task-execution\/requests\/([^/]+)\/approve$/);
   if(approve&&request.method==="POST")return approveTask({env,auth,requestId:approve[1]});
-  const permit=path.match(/^\/api\/agentic\/task-execution\/requests\/([^/]+)\/jit-permit$/);\n  if(permit&&request.method==="POST")return issueJitPermit({env,auth,requestId:permit[1]});\n  const execute=path.match(/^\/api\/agentic\/task-execution\/requests\/([^/]+)\/execute$/);
+  const permit=path.match(/^\/api\/agentic\/task-execution\/requests\/([^/]+)\/jit-permit$/);
+  if(permit&&request.method==="POST")return issueJitPermit({env,auth,requestId:permit[1]});
+  const execute=path.match(/^\/api\/agentic\/task-execution\/requests\/([^/]+)\/execute$/);
   if(execute&&request.method==="POST"){
     let body;try{body=await readJson(request)}catch(error){return json({error:error.message},requestBodyErrorStatus(error))}
     return executeTask({env,auth,requestId:execute[1],permitId:body?.permitId});
