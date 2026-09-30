@@ -455,9 +455,7 @@ async function executeTask({env,auth,requestId,permitId}){
           auth.tenant_id,auth.user_id,taskId,JSON.stringify({requestId,intentId:row.intent_id,executionGrantId:row.execution_grant_id,jitPermitId,payloadHash:row.payload_hash,guardVersion:decision.guardVersion,executionMode:executionMode(env)})
         )
     ]);
-    const changed=Number(results?.[0]?.meta?.changes??results?.[0]?.changes??0);
-    if(changed!==1)throw new Error("execution_conflict");
-  }catch{
+    const permitChanged=Number(results?.[0]?.meta?.changes??results?.[0]?.changes??0);\n    const changed=Number(results?.[1]?.meta?.changes??results?.[1]?.changes??0);\n    if(permitChanged!==1||changed!==1)throw new Error("execution_conflict");\n  }catch{
     const existing=await safeFirst(env,`SELECT r.id receipt_id,r.result_entity_id task_id,t.title,t.description,t.priority,t.due_at,t.status,t.created_at
       FROM agent_execution_receipts r JOIN agent_internal_tasks t ON t.id=r.result_entity_id AND t.tenant_id=r.tenant_id
       WHERE r.action_intent_id=? AND r.tenant_id=? LIMIT 1`,[row.intent_id,auth.tenant_id]);
