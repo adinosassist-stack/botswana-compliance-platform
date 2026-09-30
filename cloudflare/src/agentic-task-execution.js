@@ -433,8 +433,14 @@ async function executeTask({env,auth,requestId,permitId}){
   const taskId=id(),receiptId=id();
   try{
     const results=await env.DB.batch([
+      env.DB.prepare(`UPDATE agent_jit_execution_permits SET status='consumed',use_count=1,consumed_at=CURRENT_TIMESTAMP,consumed_by_user_id=?
+        WHERE id=? AND tenant_id=? AND agent_id=? AND human_user_id=? AND task_request_id=? AND execution_grant_id=? AND action_key=? AND payload_hash=?
+          AND status='active' AND max_uses=1 AND use_count=0 AND expires_at>CURRENT_TIMESTAMP`).bind(
+          auth.user_id,jitPermitId,auth.tenant_id,THEBE_AGENT_ID,auth.user_id,requestId,row.execution_grant_id,ACTION_KEY,row.payload_hash
+        ),
       env.DB.prepare(`UPDATE agent_task_requests SET status='executed',executed_at=CURRENT_TIMESTAMP
-        WHERE id=? AND tenant_id=? AND status='approved' AND approved_payload_hash=payload_hash`).bind(requestId,auth.tenant_id),
+        WHERE id=? AND tenant_id=? AND status='approved' AND approved_payload_hash=payload_hash
+          AND EXISTS(SELECT 1 FROM agent_jit_execution_permits p WHERE p.id=? AND p.tenant_id=? AND p.status='consumed' AND p.use_count=1)`).bind(requestId,auth.tenant_id,jitPermitId,auth.tenant_id),
       env.DB.prepare(`INSERT INTO agent_internal_tasks(id,tenant_id,title,description,priority,due_at,status,source_request_id,source_intent_id,execution_grant_id,requested_by_user_id,created_by_agent_key)
         SELECT ?,?,?,?,?,?,'open',?,?,?,?, 'thebe' WHERE changes()=1`).bind(
           taskId,auth.tenant_id,text(payload.title,MAX_TITLE),text(payload.description,MAX_DESCRIPTION)||null,Number(payload.priority||2),payload.dueAt||null,
@@ -446,7 +452,7 @@ async function executeTask({env,auth,requestId,permitId}){
         ),
       env.DB.prepare(`INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data)
         SELECT ?,?,'AGENT_TASK_EXECUTED','agent_internal_task',?,? WHERE changes()=1`).bind(
-          auth.tenant_id,auth.user_id,taskId,JSON.stringify({requestId,intentId:row.intent_id,executionGrantId:row.execution_grant_id,payloadHash:row.payload_hash,guardVersion:decision.guardVersion,executionMode:executionMode(env)})
+          auth.tenant_id,auth.user_id,taskId,JSON.stringify({requestId,intentId:row.intent_id,executionGrantId:row.execution_grant_id,jitPermitId,payloadHash:row.payload_hash,guardVersion:decision.guardVersion,executionMode:executionMode(env)})
         )
     ]);
     const changed=Number(results?.[0]?.meta?.changes??results?.[0]?.changes??0);
