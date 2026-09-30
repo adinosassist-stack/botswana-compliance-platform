@@ -19,7 +19,7 @@ for(const value of [productionLive,productionDock,runtimeLive,runtimeDock]){
 }
 assert.equal(productionLive,runtimeLive,'production must cache-bust the exact Thebe Live Voice runtime');
 assert.equal(productionDock,runtimeDock,'production must cache-bust the exact Thebe AI dock runtime');
-assert.equal(productionDock,'20260930-anchor-v200','live Thebe Command Dock V200 must ship under the current release token');
+assert.equal(productionDock,'20260930-billing-yield-v201','live Thebe Command Dock V201 must ship under the current release token');
 assert(production.includes('const THEBE_PUBLIC_API_CLIENT_RELEASE="20260930a";'),'V200 must cache-bust the shared API client that carries caller cancellation');
 assert(production.includes('const OWNER_COMMAND_CENTRE_RELEASE="20260929-v185";'),'production must cache-bust the Property service runtime that owns the valuation panel');
 assert(production.includes('const THEBE_AI_DOCK_HOTFIX_ASSET="/assets/thebe-ai-dock-v184-hotfix.css";'),'production must publish the path-busted V184 dock hotfix asset');
@@ -46,6 +46,11 @@ assert(runtime.includes('\"flex-direction\":\"column\"')&&runtime.includes('\"wi
 assert(runtime.includes('function workspaceDockLeftPx()'),'V200 must retain one dock-anchor resolver');
 assert(runtime.includes('document.getElementById("workspaceSidebar")'),'V200 must anchor the desktop dock to the sidebar rather than the moving main workspace column');
 assert(runtime.includes('Math.round(rect.right+20)'),'V200 dock anchor must sit 20px beyond the sidebar edge');
+assert(runtime.includes('function dockShouldYield()'),'V201 must explicitly yield the fixed dock on protected Billing views');
+assert(runtime.includes('subscription|payment plan'),'V201 Billing yield must cover billing, subscription and payment-plan context');
+assert(runtime.includes('function effectiveCollapsed(){return collapsed||dockShouldYield()}'),'V201 effective dock visibility must include the Billing yield state');
+assert(runtime.includes('pill.hidden=!visible||!isCollapsed||yielded'),'V201 must hide the collapsed pill while Billing owns the interaction surface');
+assert(runtime.includes('document.querySelectorAll(".view").forEach(view=>new MutationObserver(()=>syncVisibility())'),'V201 must react immediately when the active workspace view changes');
 assert(!runtime.includes('Math.round(rect.left+20)'),'V200 must remove the self-chasing main-column dock anchor');
 assert(runtime.includes('?{"left":workspaceDockLeftPx()+"px"'),'V191 emergency recovery must still restore the resolved workspace lower-left position');
 assert(runtime.includes('pill.style.setProperty("display",visible&&isCollapsed?"inline-flex":"none","important")'),'V191 must make desktop minimise/reopen usable without depending on stylesheet state');
