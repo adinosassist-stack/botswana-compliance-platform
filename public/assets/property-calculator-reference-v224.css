@@ -1,0 +1,45 @@
+/* V224 Property calculator — LeaseIQ-inspired compact interaction adapted to Thebe Desk. */
+.property-layout-v224{display:block;max-width:680px;margin:0 auto}
+.property-calculator-v224{padding:16px 16px 14px;border-radius:18px}
+.property-calculator-head-v224{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.property-calculator-title-v224{display:flex;align-items:center;gap:10px;min-width:0}
+.property-calculator-icon-v224{width:36px;height:36px;flex:0 0 36px;border:1px solid #c9def8;border-radius:11px;background:#edf5ff;display:grid;place-items:center;color:#0b66d6;font-size:17px;font-weight:800}
+.property-calculator-title-v224 h3{margin:2px 0 0;font-size:18px;letter-spacing:-.02em}
+.property-calculator-title-v224 p{margin:2px 0 0;color:var(--muted);font-size:11px}
+.property-quick-rows{display:grid;gap:8px;margin-top:14px}
+.property-input-row{min-height:44px;padding:7px 11px;border:1px solid var(--line);border-radius:12px;background:#fafcff;display:flex;align-items:center;justify-content:space-between;gap:14px;transition:border-color .16s ease,box-shadow .16s ease}
+.property-input-row:focus-within{border-color:#8bb8ee;box-shadow:0 0 0 3px rgba(11,102,214,.08)}
+.property-input-row label{margin:0;font-size:11px;font-weight:720;color:var(--muted);white-space:nowrap}
+.property-input-control{display:flex;align-items:center;justify-content:flex-end;gap:4px;min-width:0;color:var(--muted);font-size:12px}
+.property-input-control input{width:min(205px,42vw)!important;min-width:0!important;border:0!important;background:transparent!important;box-shadow:none!important;padding:4px 0!important;text-align:right;font-size:13px;font-weight:650;color:var(--text)}
+.property-input-control input:focus{outline:none!important;box-shadow:none!important}
+.property-input-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.property-input-pair .property-input-row{gap:8px}
+.property-input-pair .property-input-control input{width:min(105px,20vw)!important}
+.property-calculator-v224 .property-advanced-details{margin-top:8px}
+.property-analyse-button{width:100%;min-height:44px;margin-top:10px;border-radius:12px}
+.property-results-v224{margin-top:9px}
+.property-empty-inline{min-height:52px;padding:9px 11px;border:1px solid var(--line);border-radius:12px;background:#fafbfc;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.property-empty-inline>div{display:grid;gap:2px}.property-empty-inline b{font-size:12px}.property-empty-inline span:not(.badge){font-size:11px;color:var(--muted)}
+.property-result-grid-v224 .property-metric{min-height:64px;padding:9px 10px;gap:2px}
+.property-result-grid-v224 .property-metric b{font-size:18px}
+.property-result-grid-v224 .property-metric small{display:none}
+.property-calculator-v224 .property-risk-summary{padding:8px 10px}
+.property-calculator-v224 .property-analysis-details summary{min-height:38px;padding:0 2px}
+.property-calculator-v224 .property-portfolio-impact{margin:0 0 8px;padding:10px}
+.property-secondary-actions{margin-top:8px;gap:6px}
+.property-secondary-actions .btn{min-height:34px;padding:7px 10px;font-size:11px}
+.property-calculator-v224 .property-scenario-comparison{margin-top:8px}
+@media(max-width:620px){
+  .property-layout-v224{max-width:none}
+  .property-calculator-v224{padding:14px}
+  .property-input-pair{grid-template-columns:1fr}
+  .property-input-control input,.property-input-pair .property-input-control input{width:min(190px,45vw)!important}
+  .property-result-grid-v224{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+@media(max-width:390px){
+  .property-input-row{align-items:flex-start;flex-direction:column;gap:4px}
+  .property-input-control{width:100%}
+  .property-input-control input,.property-input-pair .property-input-control input{width:100%!important;text-align:left}
+  .property-result-grid-v224{grid-template-columns:1fr!important}
+}

@@ -10,7 +10,8 @@ const budget=fs.readFileSync("scripts/bundle-budget.mjs","utf8");
 const fresh='const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20261001a-";';
 assert.ok(runtime.includes(fresh),"runtime must request the fresh immutable fragment generation");
 assert.ok(production.includes(fresh),"production shell must advertise the same fragment generation");
-assert.ok(production.includes('const WORKSPACE_RUNTIME_RELEASE="20261001-property-fragment-cache-v222";'),"runtime query identity must rotate with the fragment boundary");
+assert.ok(production.includes('const WORKSPACE_RUNTIME_RELEASE="20261001-property-reference-card-v224";'),"runtime query identity must rotate with the latest Property delivery boundary");
+assert.ok(production.includes('const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20261001a.js";'),"production must rotate the physical workspace runtime asset for V224");
 assert.ok(html.includes(fresh),"canonical inline runtime must match the fresh fragment generation");
 assert.ok(budget.includes("workspace-view-fragments-20261001a-"),"bundle budget must verify the deployed fragment generation");
 

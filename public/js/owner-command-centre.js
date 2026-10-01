@@ -3058,7 +3058,7 @@
     history.style.marginTop="14px";
     shell.append(listHead,list,history);
 
-    view.insertBefore(shell,scenario);
+    view.insertBefore(shell,scenario.nextSibling);
     valuationDetails.hidden=role()!=="owner";
     return shell;
   }
