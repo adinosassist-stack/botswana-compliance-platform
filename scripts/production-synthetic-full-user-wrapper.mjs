@@ -858,6 +858,9 @@ async function runFullUserJourney(credentials){
         dock.querySelectorAll('.thebe-mascot-image').length===0&&
         dock.querySelectorAll('.thebe-mascot-svg').length===0;
     },null,{timeout:VIEW_TIMEOUT_MS});
+    const serviceDisclosure=page.locator('#propertyValuationServicePanel');
+    const serviceSummary=serviceDisclosure.locator(':scope > summary');
+    if(await serviceSummary.count()&&!(await serviceDisclosure.evaluate(node=>node.open)))await serviceSummary.click();
     const v182WorkspaceVisual=await page.evaluate(()=>{
       const orb=document.querySelector('#thebeAiDock .thebe-ai-orb-button');
       const core=document.querySelector('#thebeAiDock .thebe-particle-core');

@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20261001-unified-goal-flow-v244";
+  const RELEASE="20261001-spatial-voice-v246";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -9,6 +9,7 @@
   let pc=null,dc=null,media=null,remoteAudio=null,sessionId=null,sessionTimer=null,closeTimer=null,delegationDrainTimer=null;
   const audioMeters=[];
   let inputTranscript="",outputTranscript="",state="idle",button=null,statusEl=null,languageSelect=null,transcriptRevision=0,maxSessionSeconds=600,lastError=null,closeRequested=false,sessionMode="workspace";
+  let voiceStartGeneration=0,microphoneMuted=false;
   const activeDelegations=new Set();
 
   let publicTransport=null;
@@ -337,10 +338,14 @@
     if(!global.isSecureContext)throw new Error("Thebe live voice requires HTTPS.");
     if(!global.RTCPeerConnection||!navigator.mediaDevices?.getUserMedia)throw new Error("This browser does not support Thebe live voice.");
 
+    const generation=++voiceStartGeneration;
+    const cancelled=()=>generation!==voiceStartGeneration;
+    microphoneMuted=false;
     sessionMode=String(options?.mode||"workspace")==="marketing"?"marketing":"workspace";
     const requestApi=api;
     const statusPath=sessionMode==="marketing"?"/api/agentic/live/marketing/status":"/api/agentic/live/status";
     const status=await requestApi(statusPath);
+    if(cancelled())return {state:"idle",cancelled:true};
     if(status?.sessionCreationAllowed!==true){
       const gate=text(status?.gateCode,120);
       if(status?.runtimeKillSwitch)throw new Error("Thebe live voice is paused by the runtime safety switch.");
@@ -354,7 +359,10 @@
     const minimum=sessionMode==="marketing"?30:60;
     maxSessionSeconds=Math.max(minimum,Math.min(1800,Number(status?.maxSessionSeconds||(sessionMode==="marketing"?60:600))));
     try{
-      media=await navigator.mediaDevices.getUserMedia({audio:true});
+      const acquired=await navigator.mediaDevices.getUserMedia({audio:true});
+      if(cancelled()){acquired.getTracks().forEach(track=>track.stop());return {state:"idle",cancelled:true}}
+      media=acquired;
+      media.getAudioTracks().forEach(track=>{track.enabled=!microphoneMuted});
       startAudioMeter(media,"input");
       remoteAudio=document.createElement("audio");
       remoteAudio.autoplay=true;
@@ -388,17 +396,22 @@
       dc.addEventListener("error",()=>rememberError("Thebe live data channel failed.","data_channel"));
 
       const offer=await pc.createOffer();
+      if(cancelled())return {state:"idle",cancelled:true};
       await pc.setLocalDescription(offer);
+      if(cancelled())return {state:"idle",cancelled:true};
       await waitForIce(pc);
+      if(cancelled())return {state:"idle",cancelled:true};
       const sessionPath=sessionMode==="marketing"?"/api/agentic/live/marketing/session":"/api/agentic/live/session";
       const session=await requestApi(sessionPath,{
         method:"POST",
         body:JSON.stringify({sdp:pc.localDescription?.sdp||offer.sdp})
       });
+      if(cancelled())return {state:"idle",cancelled:true};
       sessionId=text(session?.session?.id,240)||null;
       const answerSdp=String(session?.transport?.sdp||"");
       if(!answerSdp)throw new Error("Thebe live session did not return a WebRTC answer.");
       await pc.setRemoteDescription({type:"answer",sdp:answerSdp});
+      if(cancelled())return {state:"idle",cancelled:true};
       const serverLimit=Number(session?.limits?.maxSessionSeconds||maxSessionSeconds);
       maxSessionSeconds=Math.max(sessionMode==="marketing"?30:60,Math.min(1800,Number.isFinite(serverLimit)?serverLimit:(sessionMode==="marketing"?60:600)));
       sessionTimer=setTimeout(()=>{
@@ -407,6 +420,7 @@
       },maxSessionSeconds*1000);
       return {state:"connecting",sessionId,maxSessionSeconds,mode:sessionMode};
     }catch(error){
+      if(cancelled())return {state:"idle",cancelled:true};
       cleanup("idle",{preserveStatus:true});
       throw error;
     }
@@ -429,6 +443,7 @@
   }
 
   function stop(){
+    voiceStartGeneration++;
     if(state==="closing")return;
     if(state==="connected"&&dc?.readyState==="open"){
       setState("closing");
@@ -530,6 +545,7 @@
     release:RELEASE,
     start,
     stop,
+    setMuted:muted=>{microphoneMuted=Boolean(muted);media?.getAudioTracks?.().forEach(track=>{track.enabled=!microphoneMuted});return microphoneMuted},
     status:()=>({state,sessionId,mode:sessionMode,inputTranscript,outputTranscript,transcriptRevision,maxSessionSeconds,lastError,pendingDelegations:activeDelegations.size,closeRequested,preferredLanguage:languageSelect?.value||"auto"}),
     diagnostics:()=>({
       release:RELEASE,
@@ -552,11 +568,12 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20261001-unified-goal-flow-v244";
+  const DOCK_RELEASE="20261001-spatial-voice-v246";
   const STORE_KEY="thebe_ai_dock_collapsed_v5";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
   let dock=null,pill=null,pillLabel=null,orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,scrollRegion=null,input=null,sendButton=null,attentionButton=null,quick=null,foot=null,mascot=null,missionRail=null,missionLabel=null,missionMeta=null,missionAction=null,contextBar=null,contextLabel=null,modeRail=null,clearButton=null,latestResponseButton=null;
+  let voiceScreen=null,voiceScreenStatus=null,voiceScreenOrb=null,voiceReturnFocus=null;
   let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",mascotState="idle",mascotContext="general",mascotFocus="ambient",ownerCommandState=null,collapsed=false,assistantMode="ask",lastAnswer="",lastGoal="",lastAdvisorTrust="neutral",autoFollowResponse=true,responseScrollLock=false,textRunId=0,textAbortController=null;
 
   const api=(url,options={})=>{
@@ -615,6 +632,7 @@
   }
   function recoverDockPresentation(){
     if(!dock||dock.hidden)return;
+    if(getComputedStyle(dock).getPropertyValue("--thebe-spatial-dock").trim()==="1"){dock.dataset.cssRecovery="0";return}
     const head=dock.querySelector(".thebe-ai-dock-head");
     const scroll=dock.querySelector(".thebe-ai-dock-scroll");
     const compose=dock.querySelector(".thebe-ai-compose");
@@ -917,6 +935,7 @@
     document.body.classList.toggle("thebe-ai-expanded",visible&&!mobile&&dock.dataset.expanded==="true");
     pill.hidden=!visible||!isCollapsed||yielded;
     pill.style.setProperty("display",visible&&isCollapsed&&!yielded?"inline-flex":"none","important");
+    document.body.classList.toggle("thebe-ai-mobile-open",mobile&&visible&&!isCollapsed);
     dock.dataset.surface=surface;
     pill.dataset.surface=surface;
     syncWorkspaceVisualInvariants();
@@ -972,8 +991,47 @@
     if(phase==="error")return "error";
     return "idle";
   }
+  function openVoiceScreen(){
+    if(!voiceScreen){
+      voiceScreen=el("dialog","thebe-voice-screen");voiceScreen.id="thebeVoiceScreen";
+      voiceScreen.setAttribute("aria-labelledby","thebeVoiceScreenTitle");
+      const title=el("h2","","Talk to Thebe");title.id="thebeVoiceScreenTitle";
+      const context=el("p","thebe-voice-context",shellVisible()?"Your workspace, in conversation":"Thebe Desk · public voice sample");
+      voiceScreenOrb=el("div","thebe-voice-sphere");voiceScreenOrb.setAttribute("aria-hidden","true");
+      voiceScreenStatus=el("p","thebe-voice-screen-status","Connecting…");voiceScreenStatus.setAttribute("role","status");
+      const controls=el("div","thebe-voice-screen-controls");
+      const mute=el("button","","Mute microphone");mute.type="button";mute.setAttribute("aria-pressed","false");
+      mute.addEventListener("click",()=>{const muted=mute.getAttribute("aria-pressed")!=="true";global.ThebeLiveVoice?.setMuted?.(muted);mute.setAttribute("aria-pressed",String(muted));mute.textContent=muted?"Unmute microphone":"Mute microphone"});
+      const exit=el("button","thebe-voice-exit","End voice");exit.type="button";exit.autofocus=true;
+      exit.addEventListener("click",()=>closeVoiceScreen(true));
+      controls.append(mute,exit);voiceScreen.append(title,context,voiceScreenOrb,voiceScreenStatus,controls);
+      voiceScreen.addEventListener("cancel",event=>{event.preventDefault();closeVoiceScreen(true)});
+      voiceScreen.addEventListener("keydown",event=>{
+        if(event.key!=="Tab")return;
+        const buttons=[...voiceScreen.querySelectorAll('button:not([disabled])')];
+        const first=buttons[0],last=buttons[buttons.length-1];
+        if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}
+        else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}
+      });
+      document.body.append(voiceScreen);
+    }
+    if(!voiceScreen.open){
+      voiceReturnFocus=document.activeElement;
+      voiceScreen.querySelector('.thebe-voice-context').textContent=shellVisible()?"Your workspace, in conversation":"Thebe Desk · public voice sample";
+      const mute=voiceScreen.querySelector('[aria-pressed]');mute.setAttribute("aria-pressed","false");mute.textContent="Mute microphone";
+      voiceScreen.showModal();document.body.classList.add("thebe-voice-active");
+    }
+  }
+  function closeVoiceScreen(stopSession=false){
+    if(stopSession)global.ThebeLiveVoice?.stop?.();
+    if(voiceScreen?.open)voiceScreen.close();
+    document.body.classList.remove("thebe-voice-active");
+    if(voiceReturnFocus?.isConnected)voiceReturnFocus.focus({preventScroll:true});
+  }
   function setPhase(phase,label,sub){
     voicePhase=phase||"idle";
+    if(voiceScreenOrb)voiceScreenOrb.dataset.phase=voicePhase;
+    if(voiceScreenStatus)voiceScreenStatus.textContent=label||"Talk to Thebe";
     if(orb){
       orb.dataset.phase=voicePhase;
       const active=["ready","connecting","listening","speaking","thinking"].includes(voicePhase);
@@ -1501,6 +1559,7 @@
     orb.append(wave,core);
     orbButton.append(orb);
     orbButton.addEventListener("click",()=>{
+      openVoiceScreen();
       const liveApi=global.ThebeLiveVoice;
       if(!shellVisible()){
         if(!liveApi){responseMessage("The public voice sample is not available in this browser right now.","error");return}
@@ -1509,12 +1568,16 @@
         responseMessage("Opening a short Thebe voice sample…","thinking");
         liveApi.start({mode:"marketing"}).catch(error=>{
           responseMessage(clean(error?.message||"The public voice sample could not start.",320),"error");
+          closeVoiceScreen();
         });
         return;
       }
-      const live=document.getElementById("thebeLiveVoiceButton");
-      if(live&&!live.disabled){live.click();return}
-      responseMessage("Thebe Live Voice is not available for this workspace right now.","error");
+      if(!liveApi){responseMessage("Thebe Live Voice is not available for this workspace right now.","error");closeVoiceScreen();return}
+      const liveState=liveApi.status?.().state||"idle";
+      if(["connected","connecting","closing"].includes(liveState)){closeVoiceScreen(true);return}
+      liveApi.start({mode:"workspace"}).catch(error=>{
+        responseMessage(clean(error?.message||"Thebe voice could not start.",320),"error");closeVoiceScreen();
+      });
     });
     voiceLabel=el("div","thebe-ai-voice-label","Talk to Thebe");
     voiceLabel.setAttribute("role","status");
@@ -1635,6 +1698,8 @@
   global.addEventListener("thebe-live-state",event=>{
     const next=event?.detail?.state||"idle";
     const marketing=event?.detail?.mode==="marketing"||surfaceMode()==="public";
+    if(next==="connecting"||next==="connected")openVoiceScreen();
+    if(next==="idle")closeVoiceScreen();
     if(next==="connecting")setPhase("connecting","Connecting…",marketing?"Opening the 60-second sample":"Opening the secure voice session");
     else if(next==="connected")setPhase("ready","Voice connected",marketing?"Ask me about Thebe Desk":"Speak naturally — you can interrupt Thebe");
     else if(next==="closing")setPhase("thinking","Ending voice…","Closing the voice session");
@@ -1668,6 +1733,7 @@
     const ring=relevant?(8+level*5):8;
     const blur=relevant?(28+level*20):28;
     orb.style.setProperty("--thebe-audio-scale",scale.toFixed(3));
+    voiceScreenOrb?.style.setProperty("--thebe-voice-energy",scale.toFixed(3));
     orb.style.setProperty("--thebe-audio-ring",ring.toFixed(1)+"px");
     orb.style.setProperty("--thebe-audio-blur",blur.toFixed(1)+"px");
   });

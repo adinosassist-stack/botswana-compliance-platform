@@ -5,7 +5,7 @@ const dock=fs.readFileSync("public/assets/thebe-ai-dock.css","utf8");
 const workspace=fs.readFileSync("public/assets/workspace-command-center-v231.css","utf8");
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
 
-assert.match(production,/const THEBE_AI_DOCK_RELEASE="20261001-unified-goal-flow-v244";/,
+assert.match(production,/const THEBE_AI_DOCK_RELEASE="20261001-spatial-voice-v246";/,
   "V233 must rotate the dock stylesheet cache identity");
 
 assert.match(dock,/V233 adversarial workspace density closure/);

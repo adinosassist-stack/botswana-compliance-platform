@@ -109,6 +109,7 @@ jobs:
           set -euo pipefail
           node scripts/production-synthetic-interruption-recovery.mjs
           npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+          node tests/v246-spatial-dock-browser.mjs
           node scripts/production-synthetic-full-user-wrapper.mjs
 
       - name: One-shot bounded legacy orphan cleanup
