@@ -3770,10 +3770,10 @@
 
   const BUSINESS_GOAL_CARDS=Object.freeze([
     {key:"protect_cash",label:"Protect cash",copy:"Watch cash pressure, data quality and receivables. Surface material risks before they become emergencies."},
-    {key:"grow_sales",label:"Grow sales",copy:"Watch quotations, receivables and operating signals for measurable follow-up opportunities."},
+    {key:"grow_sales",label:"Grow sales",copy:"Watch receivables and aggregate operating signals for measurable follow-up opportunities."},
     {key:"stay_compliant",label:"Stay compliant",copy:"Watch recorded compliance status and surface obligations that need owner attention."},
     {key:"watch_operations",label:"Watch operations",copy:"Watch daily operating exceptions without inferring employee intent or hidden performance."},
-    {key:"protect_property",label:"Protect property",copy:"Connect recorded property, finance and business context to surface portfolio risks and evidence gaps."},
+    {key:"protect_property",label:"Protect property",copy:"Watch business and finance pressure relevant to property decisions. Asset and valuation records stay in Property."},
     {key:"morning_brief",label:"Morning brief",copy:"Bring only material business exceptions and useful next steps to the owner."}
   ]);
   const BUSINESS_GOAL_BY_KEY=new Map(BUSINESS_GOAL_CARDS.map(goal=>[goal.key,goal]));
@@ -3837,7 +3837,7 @@
     copy.append(
       text("div","Goals & Ideas","section-eyebrow"),
       text("h4","Tell Thebe what outcome to keep watching"),
-      text("p","Thebe can work in the background on bounded business goals, surface material ideas, and prepare next steps. It cannot send, spend, publish or make high-impact changes from these goals.","muted")
+      text("p","Thebe checks bounded business signals on schedule and keeps the outcome visible here. It cannot send, spend, publish or make high-impact changes from these goals.","muted")
     );
     head.append(copy);
     box.append(head);
