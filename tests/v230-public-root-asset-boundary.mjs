@@ -22,7 +22,6 @@ assert.ok(workspaceAssets.includes("source.includes(PROPERTY_VISIBILITY_JS_ASSET
   "authenticated workspace must guard the Property visibility script injection");
 assert.ok(workspaceAssets.includes("propertyVisibilityJsSrc"),
   "authenticated workspace must inject the Property visibility repair URL");
-assert.equal((production.match(/if\\\(!source\\.includes\\\(PROPERTY_VISIBILITY_JS_ASSET\\\)\\\)/g)||[]).length,1,
-  "Property visibility script must have exactly one injection boundary");
+assert.equal(production.split("source.includes(PROPERTY_VISIBILITY_JS_ASSET)").length-1,1,\n  "Property visibility script must have exactly one injection boundary");
 
 console.log("PASS: V230 Property visibility runtime is workspace-only and cannot break the public root.");
