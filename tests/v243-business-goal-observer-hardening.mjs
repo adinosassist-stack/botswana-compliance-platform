@@ -1,10 +1,17 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import {createHash} from "node:crypto";
 import {DatabaseSync} from "node:sqlite";
 import {BUSINESS_GOAL_OBSERVER_AGENT_ID,FINANCE_OBSERVER_AGENT_ID,evaluateCanonicalAgentDrift} from "../cloudflare/src/agent-control-plane.js";
 import {__agentReadToolsTest,executeAgentReadTool} from "../cloudflare/src/agent-read-tools.js";
 
-const migration=fs.readFileSync("cloudflare/migrations/065_v243_business_goal_observer.sql","utf8");
+const migrationPath="cloudflare/migrations/065_v243_business_goal_observer.sql";
+const migrationBytes=fs.readFileSync(migrationPath);
+const migration=migrationBytes.toString("utf8");
+const migrationBlobSha=createHash("sha1")
+  .update(Buffer.from(`blob ${migrationBytes.length}\0`))
+  .update(migrationBytes)
+  .digest("hex");
 const loop=fs.readFileSync("cloudflare/src/business-goal-durable-loop.js","utf8");
 const entry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
 const engine=fs.readFileSync("cloudflare/src/agentic-persistent-tasks.js","utf8");
@@ -101,6 +108,9 @@ assert.match(migration,/'SYS-BIZ-OBS-001','business_goal_observer','system_obser
 assert.match(migration,/'low','active',0,'platform'/);
 assert.match(migration,/trg_business_goal_no_duplicate_insert/);
 assert.match(migration,/trg_business_goal_no_duplicate_update/);
+assert.equal(migration.endsWith("\n"),true,"reviewed migration blob must retain its final newline");
+assert.equal(migrationBlobSha,"7652d1367899300f24f2c65e0f761bffa5681761",
+  "migration 065 bytes must match the production runner's reviewed blob pin");
 assert.doesNotMatch(migration,/execution_capable[^\n]*1/);
 
 const db=new DatabaseSync(":memory:");
