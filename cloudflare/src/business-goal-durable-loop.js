@@ -88,21 +88,25 @@ export function summarizeBusinessGoalSnapshot(templateKey,snapshot={}){
       overdueComplianceCount:metric(health,"overdueComplianceCount")
     })
   });
-  if(key==="morning_brief")return frozen({
-    code:overdueMinor>0||metric(compliance,"overdueObligationCount")>0||metric(health,"criticalPerformanceSignals")>0||metric(health,"failedWorkflowCount")>0||reconExceptions>0?"owner_attention":"brief_recorded",
-    tone:overdueMinor>0||metric(compliance,"overdueObligationCount")>0||metric(health,"criticalPerformanceSignals")>0||metric(health,"failedWorkflowCount")>0||reconExceptions>0?"risk":"neutral",
-    metrics:frozen({
-      cashPositionMinor:metric(financial,"cashPositionMinor"),
-      overdueReceivablesMinor:overdueMinor,
-      overdueObligationCount:metric(compliance,"overdueObligationCount"),
-      dueWithin14Days:metric(compliance,"dueWithin14Days"),
-      criticalPerformanceSignals:metric(health,"criticalPerformanceSignals"),
-      failedWorkflowCount:metric(health,"failedWorkflowCount"),
-      reconciliationExceptionCount:reconExceptions,
-      operationsAvailable:operations?.available===true,
-      operationExceptions:metric(opsMetrics,"exceptions")
-    })
-  });
+  if(key==="morning_brief"){
+    const needsAttention=overdueMinor>0||metric(compliance,"overdueObligationCount")>0||metric(health,"criticalPerformanceSignals")>0||metric(health,"failedWorkflowCount")>0||reconExceptions>0||dataIssues>0||metric(opsMetrics,"exceptions")>0;
+    return frozen({
+      code:needsAttention?"owner_attention":"brief_recorded",
+      tone:needsAttention?"risk":"neutral",
+      metrics:frozen({
+        cashPositionMinor:metric(financial,"cashPositionMinor"),
+        overdueReceivablesMinor:overdueMinor,
+        overdueObligationCount:metric(compliance,"overdueObligationCount"),
+        dueWithin14Days:metric(compliance,"dueWithin14Days"),
+        criticalPerformanceSignals:metric(health,"criticalPerformanceSignals"),
+        failedWorkflowCount:metric(health,"failedWorkflowCount"),
+        reconciliationExceptionCount:reconExceptions,
+        dataIssueCount:dataIssues,
+        operationsAvailable:operations?.available===true,
+        operationExceptions:metric(opsMetrics,"exceptions")
+      })
+    });
+  }
   return frozen({code:"goal_snapshot_recorded",tone:"neutral",metrics:frozen({})});
 }
 

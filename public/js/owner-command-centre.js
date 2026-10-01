@@ -795,11 +795,15 @@
   }
 
   async function executeBoundedTask(requestId){
-    return runAgenticTaskMutation(
+    const result=await runAgenticTaskMutation(
       "Revalidating Runtime Guard and executing the approved internal task…",
       "Internal task executed and verified.",
       ()=>request(`/api/agentic/task-execution/requests/${encodeURIComponent(requestId)}/execute`,{method:"POST",body:"{}"})
     );
+    if(result?.ok===true&&result?.verified===true&&result?.task?.id&&result?.receiptId){
+      global.dispatchEvent(new CustomEvent("thebe:verified-task-result",{detail:{task:result.task,receiptId:result.receiptId,verified:true}}));
+    }
+    return result;
   }
 
   function boundedTaskRequestCard(item,{executionEnabled=false}={}){
@@ -1305,8 +1309,11 @@
     }
   }
 
-  async function generateAgenticPlan(){
+  async function generateAgenticPlan(requestedGoal){
+    if(!["owner","manager"].includes(role()))throw new Error("Only workspace owners and managers can prepare a governed plan.");
     if(agenticBusy)return;
+    const goal=typeof requestedGoal==="string"?cleanText(requestedGoal,500):"Protect the business and identify the safest next actions from current authoritative workspace signals.";
+    if(goal.length<3)throw new Error("Enter a business goal to plan.");
     agenticBusy=true;
     const status=agenticStatusNode();
     if(status)status.textContent="Observing business state and generating a governed plan…";
@@ -1314,20 +1321,32 @@
     try{
       agenticLatestPlan=await request("/api/agentic/plan",{
         method:"POST",
-        body:JSON.stringify({goal:"Protect the business and identify the safest next actions from current authoritative workspace signals."})
+        body:JSON.stringify({goal})
       });
       if(status)status.textContent="Plan generated. Review proposals before recording any decision.";
       emitSuperAgentControlState("plan_ready","Plan generated. Review proposals before recording any decision.");
       await renderAgenticGovernance(false);
+      return agenticLatestPlan;
     }catch(error){
       const message=String(error?.message||"Could not generate governed plan").slice(0,180);
       if(status)status.textContent=message;
       emitSuperAgentControlState("error",message);
+      if(typeof requestedGoal==="string")throw error;
     }finally{
       agenticBusy=false;
       const buttonNode=q("#ownerAgenticBody .owner-agentic-control-buttons .btn");
       if(buttonNode)buttonNode.disabled=false;
     }
+  }
+
+  async function loadLatestAgenticPlan(){
+    if(!["owner","manager"].includes(role()))throw new Error("Only workspace owners and managers can review saved plans.");
+    const saved=await request("/api/agentic/runs");
+    const run=Array.isArray(saved?.items)?saved.items[0]:null;
+    if(!run)throw new Error("No saved plan yet. Enter a goal and choose Plan.");
+    const proposals=(Array.isArray(saved?.proposals)?saved.proposals:[]).filter(item=>String(item.run_id||item.runId||"")===String(run.id));
+    agenticLatestPlan={run,proposals};
+    return agenticLatestPlan;
   }
 
   function createShell(){
@@ -4161,6 +4180,8 @@
     openSales:openSalesWorkspace,
     refreshAgentic:()=>renderAgenticGovernance(true),
     refreshGoals:()=>renderGoalsAndIdeas(true),
+    latestPlan:()=>agenticLatestPlan,
+    loadLatestPlan:loadLatestAgenticPlan,
     refreshPropertyPortfolio:()=>renderPropertyPortfolio(true),
     generatePlan:generateAgenticPlan
   });

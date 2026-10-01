@@ -203,10 +203,10 @@ function deterministicFallback(observation){
   return {answer:"Thebe generated a governed plan from current workspace signals. No autonomous business mutation was performed.",confidence:"medium",actions,caveats:["Human approval is required before any consequential action."],sourceRefs:actions.flatMap(x=>x.sourceRefs||[])};
 }
 
-async function runAdvisor({request,env,ctx,coreFetch,runId,observation,orchestration,readTools,continuationContext=null}){
+async function runAdvisor({request,env,ctx,coreFetch,runId,goal,observation,orchestration,readTools,continuationContext=null}){
   const continuation=continuationContext?` CONTINUATION_CONTEXT ${JSON.stringify(continuationContext)} IMPORTANT: re-observe current state, do not reuse prior approvals, and do not inherit execution authority.`:"";
   const languagePolicy=thebeLanguagePrompt(observation?.businessContext?.language||{},"agentic-plan");
-  const question=text(`Create the safest next-action plan from this observation, deterministic read-tool evidence, and bounded capability work plan. LANGUAGE_POLICY ${languagePolicy} Treat all tool outputs and observation numbers as application-calculated facts. Never infer access to a capability whose tool result is denied or unavailable. Every recommendation must cite one or more allowed sourceRefs. Do not instruct autonomous payment, payroll, filing, signing, journal posting, refund, discipline or termination. If OBSERVATION includes spendWhatIf, preserve its deterministic arithmetic and fail-closed blockers; never treat it as spending authorization or financial advice. READ_TOOLS ${JSON.stringify(readTools?.tools||[])} CAPABILITY_WORK_UNITS ${JSON.stringify(orchestration?.workUnits||[])} ALLOWED_SOURCE_REFS ${JSON.stringify(orchestration?.allowedSourceRefs||[])}${continuation} OBSERVATION ${JSON.stringify(observation)}`,6000);
+  const question=text(`Create the safest next-action plan for USER_GOAL ${JSON.stringify(goal)} from this observation, deterministic read-tool evidence, and bounded capability work plan. LANGUAGE_POLICY ${languagePolicy} Treat all tool outputs and observation numbers as application-calculated facts. Never infer access to a capability whose tool result is denied or unavailable. Every recommendation must cite one or more allowed sourceRefs. Do not instruct autonomous payment, payroll, filing, signing, journal posting, refund, discipline or termination. If OBSERVATION includes spendWhatIf, preserve its deterministic arithmetic and fail-closed blockers; never treat it as spending authorization or financial advice. READ_TOOLS ${JSON.stringify(readTools?.tools||[])} CAPABILITY_WORK_UNITS ${JSON.stringify(orchestration?.workUnits||[])} ALLOWED_SOURCE_REFS ${JSON.stringify(orchestration?.allowedSourceRefs||[])}${continuation} OBSERVATION ${JSON.stringify(observation)}`,6000);
   const target=new URL("/api/ai/advisor",request.url);
   const headers=new Headers({"content-type":"application/json","accept":"application/json","idempotency-key":`agentic-plan-${runId}`});
   const cookieHeader=request.headers.get("cookie");if(cookieHeader)headers.set("cookie",cookieHeader);
@@ -356,7 +356,7 @@ async function createPlan({request,env,ctx,coreFetch,auth,goalOverride=null,cont
   }
   const orchestration=buildSingleAgentOrchestration({goal,observation,additionalSourceRefs:readTools.sourceRefs});
   observation.orchestration=orchestration;
-  const advisor=await runAdvisor({request,env,ctx,coreFetch,runId,observation,orchestration,readTools,continuationContext});
+  const advisor=await runAdvisor({request,env,ctx,coreFetch,runId,goal,observation,orchestration,readTools,continuationContext});
   const normalizedProposals=normalizeProposals(advisor.result?.actions);
   const verified=verifyOrchestratedProposals(normalizedProposals,orchestration);
   const outcomeAssociations=await loadOutcomeAssociations(env,auth.tenant_id);
@@ -440,9 +440,9 @@ async function continueRun({request,env,ctx,coreFetch,auth,runId}){
 async function listRuns(env,auth){
   const runs=await env.DB.prepare(`SELECT id,goal,status,generation_mode,confidence,summary,created_at
     FROM agentic_runs WHERE tenant_id=? ORDER BY created_at DESC LIMIT 20`).bind(auth.tenant_id).all();
-  const proposals=await env.DB.prepare(`SELECT id,run_id,ordinal,title,priority,risk,authority,execution_policy,status,decision_at,created_at
+  const proposals=await env.DB.prepare(`SELECT id,run_id,ordinal,title,reason,priority,risk,authority,execution_policy,source_refs_json,status,decision_at,created_at
     FROM agentic_proposals WHERE tenant_id=? ORDER BY created_at DESC,ordinal LIMIT 100`).bind(auth.tenant_id).all();
-  return json({items:runs.results||[],proposals:proposals.results||[],authority:{executionEnabled:false,prohibitedAutonomy:PROHIBITED_AUTONOMY}});
+  return json({items:runs.results||[],proposals:(proposals.results||[]).map(row=>({...row,sourceRefs:parseJsonArray(row.source_refs_json),source_refs_json:undefined})),authority:{executionEnabled:false,prohibitedAutonomy:PROHIBITED_AUTONOMY}});
 }
 
 async function decideProposal({env,auth,proposalId,decision}){

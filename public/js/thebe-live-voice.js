@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20261001-workspace-density-v233";
+  const RELEASE="20261001-unified-goal-flow-v244";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -552,7 +552,7 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20261001-workspace-density-v233";
+  const DOCK_RELEASE="20261001-unified-goal-flow-v244";
   const STORE_KEY="thebe_ai_dock_collapsed_v5";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
@@ -670,7 +670,8 @@
     setCriticalStyle(scroll,{"display":"flex","flex":"1 1 auto","flex-direction":"column","align-items":"stretch","width":"100%","min-width":"0","max-width":"100%","box-sizing":"border-box","gap":"10px","padding":"12px 14px 14px","overflow":"auto","overflow-x":"hidden","background":"#07131f"});
     setCriticalStyle(context,{"display":"flex","width":"100%","min-width":"0","box-sizing":"border-box","align-items":"center","justify-content":"space-between","gap":"10px","padding":"9px 10px","border":"1px solid rgba(125,180,255,.16)","border-radius":"14px","background":"#0b1b2a"});
     setCriticalStyle(contextLead,{"display":"grid","grid-template-columns":"auto auto minmax(0,1fr)","align-items":"center","gap":"7px","min-width":"0","flex":"1 1 auto"});
-    setCriticalStyle(modeRail,{"display":"grid","width":"100%","min-width":"0","grid-template-columns":"repeat(3,minmax(0,1fr))","gap":"7px"});
+    const planVisible=modeRail?.querySelector('[data-thebe-mode="goal_plan"]')?.hidden===false;
+    setCriticalStyle(modeRail,{"display":"grid","width":"100%","min-width":"0","grid-template-columns":planVisible?(global.innerWidth<=520?"repeat(2,minmax(0,1fr))":"repeat(4,minmax(0,1fr))"):"repeat(3,minmax(0,1fr))","gap":"7px"});
     dock.querySelectorAll(".thebe-ai-mode-button,.thebe-ai-quick button,.thebe-ai-context-action,.thebe-ai-response-tools button").forEach(button=>setCriticalStyle(button,{"min-width":"0","border":"1px solid rgba(125,180,255,.18)","border-radius":"12px","background":"#0d2236","color":"#eaf6ff","padding":"9px","font-family":"inherit"}));
     setCriticalStyle(voiceCard,{"display":"grid","width":"100%","min-width":"0","box-sizing":"border-box","grid-template-columns":"82px minmax(0,1fr)","gap":"4px 12px","align-items":"center","padding":"11px 12px","border":"1px solid rgba(125,180,255,.18)","border-radius":"16px","background":"#0b1c2c"});
     if(workspace&&!mobile)setCriticalStyle(orbButton,{"width":"82px","min-width":"82px","max-width":"82px","height":"82px","min-height":"82px","max-height":"82px","box-sizing":"border-box","flex":"0 0 82px"});
@@ -710,7 +711,8 @@
   const modeCopy=Object.freeze({
     ask:{label:"Ask",placeholder:"Ask Thebe about this screen or your business…",hint:"Direct answer"},
     management_brief:{label:"Brief",placeholder:"What should the management brief focus on?",hint:"Management brief"},
-    next_actions:{label:"Priorities",placeholder:"What should Thebe prioritise next?",hint:"Next actions"}
+    next_actions:{label:"Priorities",placeholder:"What should Thebe prioritise next?",hint:"Next actions"},
+    goal_plan:{label:"Plan",placeholder:"What business outcome should Thebe plan for?",hint:"Saved goal and next steps"}
   });
   function syncContextBar(){
     if(!contextBar||!contextLabel)return;
@@ -728,6 +730,7 @@
       });
     }
     if(input)input.placeholder=surfaceMode()==="workspace"?modeCopy[assistantMode].placeholder:"Ask about Thebe Desk…";
+    if(quick){quick.dataset.mode="";renderQuickActions(surfaceMode())}
     if(options.focus!==false)input?.focus({preventScroll:true});
   }
   function clearConversation(){
@@ -928,11 +931,13 @@
     if(presence){
       presence.replaceChildren(el("span","thebe-ai-presence-dot"),document.createTextNode(workspace?"Your business assistant":"Public assistant · try Thebe"));
     }
-    if(voicePhase==="idle"){
+    if(voicePhase==="idle"&&dock.dataset.conversation!=="true"){
       if(workspace)setPhase("idle","Talk to Thebe","What would you like to get done?");
       else if(surface==="public")setPhase("idle","Talk to Thebe","Ask about Thebe Desk or tap the particles to sample voice");
     }
     if(input)input.placeholder=workspace?modeCopy[assistantMode].placeholder:"Ask about Thebe Desk…";
+    const planMode=modeRail?.querySelector('[data-thebe-mode="goal_plan"]');
+    if(planMode)planMode.hidden=!workspace||!["owner","manager"].includes(commandCentreRole());
     syncContextBar();
     if(pillLabel)pillLabel.textContent=workspace?"Thebe":"Ask Thebe";
     renderQuickActions(surface);
@@ -1176,6 +1181,44 @@
     responseBox.append(tools);
     surfaceLatestResponse();
   }
+  function renderGoalPlan(plan){
+    if(!plan?.run?.id)throw new Error("Thebe did not return a saved plan. Retry from the Command Centre.");
+    const proposals=Array.isArray(plan.proposals)?plan.proposals:[];
+    const sourceRefs=[...new Set(proposals.flatMap(item=>Array.isArray(item.sourceRefs)?item.sourceRefs:[]))];
+    renderResult({
+      answer:plan.run.summary||"Plan saved. Review the proposed next steps before acting.",
+      references:sourceRefs.map(ref=>({type:"workspace_source",ref,label:ref})),
+      actions:[],caveats:["Plan saved · no action executed"]
+    });
+    const artifact=el("details","thebe-ai-plan-artifact");
+    artifact.dataset.runId=String(plan.run.id);
+    artifact.append(el("summary","","Saved plan · evidence and next steps"));
+    artifact.append(el("small","",`Run · ${clean(plan.run.id,80)}`));
+    for(const proposal of proposals.slice(0,8)){
+      const card=el("article","thebe-ai-action");
+      card.append(el("b","",clean(proposal.title||"Proposed next step",180)));
+      card.append(el("span","",clean(proposal.reason||"",320)));
+      card.append(el("small","",`${clean(proposal.status||"pending",30)} · ${clean(proposal.execution_policy||proposal.executionPolicy||"Review required",80)}`));
+      const refs=Array.isArray(proposal.sourceRefs)?proposal.sourceRefs:[];
+      if(refs.length)card.append(el("small","",`Evidence · ${refs.slice(0,4).map(ref=>clean(ref,80)).join(" · ")}`));
+      artifact.append(card);
+    }
+    if(!proposals.length)artifact.append(el("p","","No proposed action met the evidence requirements."));
+    const controls=el("div","thebe-ai-response-tools");
+    const review=el("button","thebe-ai-open-full","Review plan");review.type="button";
+    review.addEventListener("click",()=>openOwnerCommandCentre());
+    const watch=el("button","thebe-ai-open-full","Keep watching");watch.type="button";
+    watch.addEventListener("click",()=>{
+      openOwnerCommandCentre();
+      void global.ThebeOwnerCommandCentre?.refreshGoals?.();
+      setTimeout(()=>document.getElementById("ownerGoalsIdeas")?.scrollIntoView({behavior:"smooth",block:"start"}),220);
+    });
+    watch.hidden=commandCentreRole()!=="owner";
+    controls.append(review,watch);
+    responseBox.append(artifact,controls);
+    setMascotState(proposals.some(item=>String(item.status||"pending")==="pending")?"approval":"success");
+    surfaceLatestResponse();
+  }
   function showPublicSignIn(message){
     responseMessage(message||"Sign in to use Thebe with your business workspace.");
     if(!responseBox)return;
@@ -1239,7 +1282,7 @@
     if(!quick)return;
     const context=activeContext();
     syncMascotContext(context);
-    const mode=surface==="public"?"public":context.id+":"+context.title;
+    const mode=surface==="public"?"public":context.id+":"+context.title+":"+assistantMode;
     if(quick.dataset.mode===mode)return;
     quick.dataset.mode=mode;
     quick.replaceChildren();
@@ -1248,6 +1291,11 @@
       ["What is Thebe Desk?","A quick introduction","ask","What is Thebe Desk and who is it for?"],
       ["Explore Thebe AI","See how it helps","ask","What can Thebe AI do?"],
       ["Compare plans","Pricing and trial","ask","What does Thebe Desk cost?"]
+    ];
+    else if(assistantMode==="goal_plan")suggestions=[
+      ["Latest saved plan","Review previous work","resume_plan","Show my latest saved plan"],
+      ["Plan priorities","Prepare useful next steps","goal_plan","Identify the safest next steps from current business evidence."],
+      ["Cash protection plan","Use available finance evidence","goal_plan","Prepare a plan to protect cash and prioritise overdue collections. Do not execute changes."]
     ];
     else if(/finance|money|recon|cash/i.test(context.id+context.title))suggestions=[
       ["Cash position","Understand the available records","ask","Explain my cash position and identify any missing financial data."],
@@ -1289,7 +1337,22 @@
     responseMessage("Reviewing the current workspace and this screen…","thinking");
     scrollResponseIntoView(true);
     try{
+      if(mode==="resume_plan"){
+        const plan=await global.ThebeOwnerCommandCentre?.loadLatestPlan?.();
+        if(runId!==textRunId)return;
+        lastGoal=clean(plan?.run?.goal,MAX_QUESTION);
+        renderGoalPlan(plan);
+        return;
+      }
       const requestedMode=Object.prototype.hasOwnProperty.call(modeCopy,mode)?mode:assistantMode;
+      if(requestedMode==="goal_plan"){
+        if(!["owner","manager"].includes(commandCentreRole()))throw new Error("Only owners and managers can prepare a business plan.");
+        if(typeof global.ThebeOwnerCommandCentre?.generatePlan!=="function")throw new Error("The planner is still loading. Open Home and try again.");
+        const plan=await global.ThebeOwnerCommandCentre.generatePlan(q);
+        if(runId!==textRunId)return;
+        renderGoalPlan(plan);
+        return;
+      }
       const result=await api("/api/ai/advisor",{
         method:"POST",
         headers:{"content-type":"application/json"},
@@ -1645,6 +1708,19 @@
     responseMessage("This voice session reached its configured safety limit and was ended. Start a new session to continue.","ready");
   });
 
+
+  global.addEventListener("thebe:verified-task-result",event=>{
+    const result=event?.detail;
+    if(surfaceMode()!=="workspace"||!["owner","manager"].includes(commandCentreRole())||result?.verified!==true||!result?.task?.id||!result?.receiptId||textBusy)return;
+    lastAdvisorTrust="verified";
+    responseMessage("Internal task created and verified against the saved execution receipt.");
+    const artifact=el("article","thebe-ai-action");
+    artifact.append(el("b","",clean(result.task.title||"Internal task",180)),el("span","",`Task · ${clean(result.task.id,80)}`),el("small","",`Receipt · ${clean(result.receiptId,80)}`));
+    const open=el("button","thebe-ai-open-full","Open task and audit");open.type="button";
+    open.addEventListener("click",()=>openOwnerCommandCentre());
+    artifact.append(open);responseBox?.append(artifact);
+    setMascotState("success");surfaceLatestResponse();
+  });
 
   global.addEventListener("thebe:owner-agent-state",event=>{
     const detail=event?.detail&&typeof event.detail==="object"?event.detail:{};
