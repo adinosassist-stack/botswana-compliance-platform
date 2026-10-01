@@ -2463,7 +2463,7 @@ async function buildAiAdvisorContext(env,tenantId,{includeFinance=false,actorRol
   const referenceCatalog=[
     ...(businessMemory?[{ref:businessMemory.ref,type:"business_context",label:"Unified Thebe Business Context"}]:[]),
     ...(finance?[{ref:finance.ref,type:"finance",label:"Canonical Finance Core and receivables snapshot"}]:[]),
-    ...sources.map(x=>({ref:x.ref,type:"official_source",label:`${x.authority}: ${x.title}`,url:x.url})),
+    ...sources.map(x=>({ref:x.ref,type:"official_source",label:`${x.authority}: ${x.title}`,url:x.url,verificationStatus:x.verificationStatus})),
     ...obligations.map(x=>({ref:x.ref,type:"obligation",label:x.title})),
     ...risks.map(x=>({ref:x.ref,type:"risk_event",label:x.title})),
     ...controls.map(x=>({ref:x.ref,type:"control",label:x.name})),
