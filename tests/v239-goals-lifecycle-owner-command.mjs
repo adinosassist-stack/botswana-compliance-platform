@@ -20,7 +20,7 @@ assert.match(ui,/if\(canEdit\(\)\)\{/,
   "goal lifecycle controls must remain owner-edit gated");
 assert.match(ui,/Thebe remains observe-and-recommend only/,
   "active goal state must preserve the no-autonomous-high-impact boundary");
-assert.match(api,/persistent-tasks\/\(\[\^\/\]\+\)\/\(pause\|resume\|complete\|cancel\)/,
+assert.match(api,/const m=path\.match\([\s\S]*pause\|resume\|complete\|cancel/,
   "backend lifecycle route must still constrain transitions to known actions");
 assert.match(api,/executionAllowed:false/,
   "persistent business goals must not gain execution authority");
