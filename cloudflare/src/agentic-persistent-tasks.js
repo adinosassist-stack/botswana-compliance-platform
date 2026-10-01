@@ -2,7 +2,7 @@ import {validatePersistentTaskAllowedTools} from "./agent-tool-trust-registry.js
 import {buildBusinessGoalTask} from "./business-goals.js";
 import {authenticate,roleAllowed,originAllowed,csrfAllowed,readJson,requestBodyErrorStatus,safeFirst} from "./agentic-authority-core.js";
 
-export const PERSISTENT_TASK_ENGINE_VERSION="2026-10-01.v2";
+export const PERSISTENT_TASK_ENGINE_VERSION="2026-09-25.v1";
 const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"}});
 const clean=(v,max)=>String(v??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
 const newId=()=>crypto.randomUUID();
