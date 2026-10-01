@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import {DatabaseSync} from "node:sqlite";
 import {BUSINESS_GOAL_OBSERVER_AGENT_ID,FINANCE_OBSERVER_AGENT_ID} from "../cloudflare/src/agent-control-plane.js";
-import {__agentReadToolsTest} from "../cloudflare/src/agent-read-tools.js";
+import {__agentReadToolsTest,executeAgentReadTool} from "../cloudflare/src/agent-read-tools.js";
 
 const migration=fs.readFileSync("cloudflare/migrations/065_v243_business_goal_observer.sql","utf8");
 const loop=fs.readFileSync("cloudflare/src/business-goal-durable-loop.js","utf8");
@@ -30,6 +30,19 @@ for(const action of [
 assert.equal(systemObserverIdentityAllowed("receivables_customer.read",biz),false,
   "background observer must not perform parameterized customer lookup");
 assert.equal(systemObserverIdentityAllowed("financial_position.read",{role:"system_observer",systemActor:true,agentId:"unknown"}),false);
+
+const missingSystemActor=await executeAgentReadTool("financial_position.read",{
+  env:{DB:{}},auth:{tenant_id:"tenant-a",role:"system_observer",agentId:FINANCE_OBSERVER_AGENT_ID}
+});
+assert.equal(missingSystemActor.allowed,false);
+assert.equal(missingSystemActor.error,"system_actor_required",
+  "trusted systemActor boundary must fail before observer identity routing");
+
+const wrongObserverIdentity=await executeAgentReadTool("financial_position.read",{
+  env:{DB:{}},auth:{tenant_id:"tenant-a",role:"system_observer",systemActor:true,agentId:"unknown"}
+});
+assert.equal(wrongObserverIdentity.allowed,false);
+assert.equal(wrongObserverIdentity.error,"system_observer_identity_forbidden");
 
 assert.match(loop,/BUSINESS_GOAL_OBSERVER_AGENT_ID/);
 assert.doesNotMatch(loop,/FINANCE_OBSERVER_AGENT_ID/);
