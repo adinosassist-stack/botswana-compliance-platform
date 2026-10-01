@@ -12,7 +12,7 @@ assert.ok(production.includes('const WORKSPACE_RUNTIME_ASSET="/js/workspace-runt
 assert.ok(production.includes('const WORKSPACE_RUNTIME_RELEASE="20261001-property-visibility-v226";'),"V224 compact design successor must carry the V225 visibility release identity");
 assert.ok(production.includes('const PROPERTY_REFERENCE_CSS_ASSET="/assets/property-calculator-reference-v224.css";'),"V224 compact reference stylesheet missing");
 assert.ok(production.includes('if(!source.includes(PROPERTY_REFERENCE_CSS_ASSET))source=injectBeforeFinalClosingTag(source,"head"'),"workspace shell must inject V224 reference stylesheet");
-assert.ok(production.includes('headers.set("cache-control","no-store")')&&production.includes('headers.set("x-thebe-property-ui","v228-resident-compact-calculator")'),"workspace document must expose the current resident Property freshness boundary");
+assert.ok(production.includes('headers.set("cache-control","no-store")')&&production.includes('headers.set("x-thebe-property-ui","v229-resident-compact-calculator")'),"workspace document must expose the current resident Property freshness boundary");
 
 for(const source of [production,runtime]){
   assert.ok(source.includes('const PROPERTY_VIEW_FRAGMENT_ASSET="/assets/workspace-view-fragments-20261001a-4.json?v=20261001-property-visibility-v226";'),"Property must use the proven shared fragment transport in the V226 successor");
