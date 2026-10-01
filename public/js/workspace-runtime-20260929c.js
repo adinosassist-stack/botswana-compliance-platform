@@ -3429,7 +3429,7 @@ function leavePublicPassport(){document.getElementById("publicPassportGate")?.cl
 
 
 const WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT=12;
-const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20260929g-";
+const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20261001a-";
 const workspaceViewShardPromises=new Map();
 let workspaceViewNavigationEpoch=0;
 function workspaceViewShard(id){
