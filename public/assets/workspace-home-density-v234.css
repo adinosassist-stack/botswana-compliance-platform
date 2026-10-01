@@ -1,0 +1,22 @@
+/* V234 Home live-brief density — remove duplicate first-screen metrics and reflow the owner snapshot in dock-constrained desktop lanes. */
+#dashboard .home-status-strip{
+  display:none!important;
+}
+@media(min-width:1180px) and (max-width:1500px){
+  body.thebe-ai-dock-open #dashboard .owner-today-grid{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  }
+  body.thebe-ai-dock-open #dashboard .home-decision-grid{
+    grid-template-columns:1fr!important;
+  }
+  body.thebe-ai-dock-open #dashboard .daily-brief-side{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    grid-template-rows:auto!important;
+  }
+}
+@media(max-width:760px){
+  #dashboard .home-decision-head .btn{
+    width:auto!important;
+    align-self:flex-start!important;
+  }
+}
