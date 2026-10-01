@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 
-const source=fs.readFileSync(new URL('../public/js/workspace-runtime-20260929c.js',import.meta.url),'utf8');
 const production=fs.readFileSync(new URL('../cloudflare/src/production-entry.js',import.meta.url),'utf8');
+const workspaceRuntimeAsset=production.match(/const WORKSPACE_RUNTIME_ASSET="([^"]+)";/)?.[1]||'';
+assert.match(workspaceRuntimeAsset,/^\/js\/workspace-runtime-[a-z0-9.-]+\.js$/i,'workspace runtime identity must stay versioned and first-party');
+const source=fs.readFileSync(new URL(`../public${workspaceRuntimeAsset}`,import.meta.url),'utf8');
 assert(/const WORKSPACE_RUNTIME_RELEASE="\d{8}-[a-z0-9-]+-v\d+";/.test(production)&&production.includes('${WORKSPACE_RUNTIME_ASSET}?v=${WORKSPACE_RUNTIME_RELEASE}'),'the changed workspace runtime must be cache-busted');
 const start=source.indexOf('let opsLiveRefreshInFlight=false;');
 const end=source.indexOf('async function renderPeopleReportingSetup(){',start);
