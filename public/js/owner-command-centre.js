@@ -3776,6 +3776,41 @@
     {key:"protect_property",label:"Protect property",copy:"Connect recorded property, finance and business context to surface portfolio risks and evidence gaps."},
     {key:"morning_brief",label:"Morning brief",copy:"Bring only material business exceptions and useful next steps to the owner."}
   ]);
+  const BUSINESS_GOAL_BY_KEY=new Map(BUSINESS_GOAL_CARDS.map(goal=>[goal.key,goal]));
+
+  const businessGoalTaskKey=task=>cleanText(task?.triggerSpec?.templateKey,40);
+  const businessGoalTaskCurrent=task=>BUSINESS_GOAL_BY_KEY.has(businessGoalTaskKey(task))
+    &&["active","paused"].includes(String(task?.status||""));
+
+  function businessGoalTime(value){
+    if(!value)return "Not checked yet";
+    const date=new Date(value);
+    if(Number.isNaN(date.getTime()))return "Recorded";
+    try{
+      return new Intl.DateTimeFormat("en-BW",{
+        timeZone:"Africa/Gaborone",
+        month:"short",
+        day:"numeric",
+        hour:"2-digit",
+        minute:"2-digit"
+      }).format(date);
+    }catch{
+      return date.toISOString().slice(0,16).replace("T"," ");
+    }
+  }
+
+  async function transitionBusinessGoal(task,action,statusNode){
+    if(role()!=="owner"||!task?.id)return;
+    const safeAction=["pause","resume","cancel"].includes(action)?action:null;
+    if(!safeAction)return;
+    if(statusNode)statusNode.textContent=safeAction==="cancel"?"Stopping goal…":"Updating goal…";
+    try{
+      await request(`/api/agentic/persistent-tasks/${encodeURIComponent(String(task.id))}/${safeAction}`,{method:"POST"});
+      await renderGoalsAndIdeas(true);
+    }catch(error){
+      if(statusNode)statusNode.textContent=String(error?.message||"Could not update this goal").slice(0,180);
+    }
+  }
 
   async function createBusinessGoal(templateKey,statusNode){
     if(role()!=="owner")return;
@@ -3806,20 +3841,84 @@
     );
     head.append(copy);
     box.append(head);
-    const status=text("div",force?"Refreshing goals…":"Choose an outcome. You stay in control.","muted small");
+    const status=text("div",force?"Refreshing goals…":"Loading goal status…","muted small");
     status.id="ownerGoalsIdeasStatus";
     box.append(status);
-    const grid=document.createElement("div");
-    grid.className="owner-signal-list";
-    for(const goal of BUSINESS_GOAL_CARDS){
-      const card=document.createElement("article");
-      card.className="owner-signal";
-      card.dataset.tone="neutral";
-      card.append(text("span","Persistent objective","owner-signal-label"),text("h4",goal.label),text("p",goal.copy));
-      if(canEdit())card.append(button("Keep watching",()=>createBusinessGoal(goal.key,status),"btn soft"));
-      grid.append(card);
+
+    let tasks=[],readError=null;
+    try{
+      const envelope=await request("/api/agentic/persistent-tasks");
+      tasks=Array.isArray(envelope?.tasks)?envelope.tasks:[];
+    }catch(error){
+      readError=error;
     }
-    box.append(grid);
+
+    const watched=tasks
+      .filter(businessGoalTaskCurrent)
+      .sort((a,b)=>String(a.status)==="active"&&String(b.status)!=="active"?-1:String(b.status)==="active"&&String(a.status)!=="active"?1:String(b.updated_at||b.created_at||"").localeCompare(String(a.updated_at||a.created_at||"")));
+    const watchedKeys=new Set(watched.map(businessGoalTaskKey).filter(Boolean));
+    status.textContent=readError
+      ?"Goal status is temporarily unavailable. Existing authority limits remain in force."
+      :watched.length
+        ?`${watched.filter(task=>String(task.status)==="active").length} active · ${watched.filter(task=>String(task.status)==="paused").length} paused`
+        :"Choose an outcome. You stay in control.";
+
+    if(watched.length){
+      box.append(text("div","Currently watching","section-eyebrow"));
+      const activeGrid=document.createElement("div");
+      activeGrid.className="owner-signal-list";
+      for(const task of watched){
+        const key=businessGoalTaskKey(task),goal=BUSINESS_GOAL_BY_KEY.get(key);
+        const taskStatus=String(task.status||"active");
+        const cadence=cleanText(task?.triggerSpec?.cadence||"daily",40)||"daily";
+        const card=document.createElement("article");
+        card.className="owner-signal";
+        card.dataset.tone=taskStatus==="paused"?"neutral":"positive";
+        const top=document.createElement("div");
+        top.className="owner-signal-top";
+        top.append(
+          text("span",taskStatus==="paused"?"Paused":"Watching","owner-signal-label"),
+          text("span",cadence.replace(/^./,ch=>ch.toUpperCase()),"owner-signal-value")
+        );
+        card.append(
+          top,
+          text("h4",goal?.label||cleanText(task?.triggerSpec?.label||task?.objective||"Business goal",90)),
+          text("p",`Last check · ${businessGoalTime(task.last_run_at)}. ${taskStatus==="paused"?"No scheduled checks run while paused.":"Thebe remains observe-and-recommend only."}`)
+        );
+        if(canEdit()){
+          const controls=document.createElement("div");
+          controls.style.display="flex";
+          controls.style.gap="6px";
+          controls.style.flexWrap="wrap";
+          controls.append(
+            button(taskStatus==="paused"?"Resume":"Pause",()=>transitionBusinessGoal(task,taskStatus==="paused"?"resume":"pause",status),"btn soft"),
+            button("Stop watching",()=>transitionBusinessGoal(task,"cancel",status),"btn alt")
+          );
+          card.append(controls);
+        }
+        activeGrid.append(card);
+      }
+      box.append(activeGrid);
+    }
+
+    const availableGoals=BUSINESS_GOAL_CARDS.filter(goal=>!watchedKeys.has(goal.key));
+    if(availableGoals.length){
+      box.append(text("div",watched.length?"Add another outcome":"Available outcomes","section-eyebrow"));
+      const grid=document.createElement("div");
+      grid.className="owner-signal-list";
+      for(const goal of availableGoals){
+        const card=document.createElement("article");
+        card.className="owner-signal";
+        card.dataset.tone="neutral";
+        card.append(text("span","Persistent objective","owner-signal-label"),text("h4",goal.label),text("p",goal.copy));
+        if(canEdit())card.append(button("Keep watching",()=>createBusinessGoal(goal.key,status),"btn soft"));
+        grid.append(card);
+      }
+      box.append(grid);
+    }else if(!readError){
+      box.append(text("div","All available goal types are already being watched. Pause or stop one above to change the set.","owner-command-empty"));
+    }
+
     const boundary=text("div","Authority boundary · Observe → reason → recommend. Consequential actions still require the existing approval and Runtime Guard path.","notice small");
     boundary.style.marginTop="10px";
     box.append(boundary);
