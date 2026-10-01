@@ -11,7 +11,7 @@ const THEBE_LOGO_FAVICON="/assets/thebe-desk-favicon-512.png?v=20260912b";
 const OWNER_COMMAND_CENTRE_RELEASE="20261001-property-reference-v224";
 const EXECUTIVE_PERSONALIZATION_RELEASE="20261001-property-reference-v224";
 const BUSINESS_DATA_BRIDGE_RELEASE="20260913d";
-const THEBE_LIVE_VOICE_RELEASE="20261001-common-work-yield-v219";
+const THEBE_LIVE_VOICE_RELEASE="20261001-goal-evidence-plan-v225";
 const THEBE_PUBLIC_API_CLIENT_RELEASE="20260930a";
 const THEBE_AI_DOCK_RELEASE="20261001-goal-evidence-plan-v225";
 const THEBE_AI_DOCK_HOTFIX_ASSET="/assets/thebe-ai-dock-v184-hotfix.css";
