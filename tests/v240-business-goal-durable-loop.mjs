@@ -39,8 +39,10 @@ const finance=fs.readFileSync("cloudflare/src/finance-watch-contract.js","utf8")
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const ui=fs.readFileSync("public/js/owner-command-centre.js","utf8");
 
-assert.match(runner,/loadCanonicalAgentAuthority\(env,FINANCE_OBSERVER_AGENT_ID\)/,
-  "background goals must use a canonical non-execution observer identity");
+assert.match(runner,/loadCanonicalAgentAuthority\(env,BUSINESS_GOAL_OBSERVER_AGENT_ID\)/,
+  "background goals must use their dedicated canonical non-execution observer identity");
+assert.doesNotMatch(runner,/FINANCE_OBSERVER_AGENT_ID/,
+  "business goals must not borrow the canonical Finance observer identity");
 assert.match(runner,/observerAuthority\.executionCapable!==false/,
   "background goal observer must fail closed if execution capable");
 assert.doesNotMatch(runner,/\bfetch\s*\(/,

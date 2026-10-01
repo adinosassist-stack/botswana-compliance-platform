@@ -17,6 +17,11 @@ try{
     "d1","execute","thebe-d1-agent-control-plane","--local","--config",config,
     "--persist-to",persist,"--file",migration
   ],{cwd:root,env:{...process.env,CI:"true"},stdio:["ignore","pipe","pipe"]});
+  execFileSync(wrangler,[
+    "d1","execute","thebe-d1-agent-control-plane","--local","--config",config,
+    "--persist-to",persist,"--command",
+    "INSERT OR IGNORE INTO agent_registry(agent_id,canonical_name,actor_type,purpose,risk_tier,authority_state,execution_capable,owner_scope) VALUES('SYS-BIZ-OBS-001','business_goal_observer','system_observer','Governed read-only business goal observation','low','active',0,'platform')"
+  ],{cwd:root,env:{...process.env,CI:"true"},stdio:["ignore","pipe","pipe"]});
 
   const child=spawn(wrangler,["dev","--config",config,"--persist-to",persist,"--ip","127.0.0.1","--port",String(port),"--log-level","error"],{
     cwd:root,env:{...process.env,CI:"true"},stdio:["ignore","pipe","pipe"]

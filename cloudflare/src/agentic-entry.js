@@ -9,7 +9,7 @@ import {handleAgenticFinanceReconciliationRequest} from "./agentic-finance-recon
 import {preparePlatformOwnerLogin,withPlatformOwnerAdminEnv} from "./platform-owner-access.js";
 import {applyClientRuntimeIdentity} from "./client-runtime-identity.js";
 
-const V81_SCHEMA_DELTA="064_v217_jit_execution_permits.sql";
+const V81_SCHEMA_DELTA="065_v243_business_goal_observer.sql";
 const COLD_START_REDUNDANT_RENDER="if(!options?.skipDataRefresh)queueMicrotask(()=>renderAll())";
 const COLD_START_GUARDED_RENDER="if(!options?.skipDataRefresh&&!options?.roleRedirect)queueMicrotask(()=>renderAll())";
 const SYNTHETIC_BOOT_TRACE_PREFIX="THEBE_SYNTHETIC_BOOT";
@@ -121,7 +121,15 @@ async function delegatedAuthoritySchemaReady(env){
     await env.DB.prepare("SELECT scheduled_for FROM agent_observation_checkpoints LIMIT 1").first();
     const occurrenceIndex=await env.DB.prepare("SELECT 1 ok FROM sqlite_master WHERE type='index' AND name='uq_agent_observation_checkpoint_occurrence' LIMIT 1").first();
     const schedulerIndex=await env.DB.prepare("SELECT 1 ok FROM sqlite_master WHERE type='index' AND name='agent_persistent_tasks_scheduler_due' LIMIT 1").first();
-    return !!occurrenceIndex&&!!schedulerIndex;
+    const businessGoalObserver=await env.DB.prepare(`SELECT 1 ok FROM agent_registry
+      WHERE agent_id='SYS-BIZ-OBS-001'
+        AND canonical_name='business_goal_observer'
+        AND actor_type='system_observer'
+        AND authority_state='active'
+        AND execution_capable=0
+        AND owner_scope='platform'
+      LIMIT 1`).first();
+    return !!occurrenceIndex&&!!schedulerIndex&&!!businessGoalObserver;
   }catch{return false}
 }
 

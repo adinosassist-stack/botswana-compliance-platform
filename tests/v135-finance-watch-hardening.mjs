@@ -2,6 +2,7 @@ import assert from "node:assert/strict";import fs from "node:fs";
 import {__financeWatchDurableLoopTest} from "../cloudflare/src/finance-watch-durable-loop.js";
 import {evaluateAgentAction} from "../cloudflare/src/agent-policy.js";
 import {executeAgentReadTool} from "../cloudflare/src/agent-read-tools.js";
+import {FINANCE_OBSERVER_AGENT_ID} from "../cloudflare/src/agent-control-plane.js";
 const loop=fs.readFileSync("cloudflare/src/finance-watch-durable-loop.js","utf8");
 assert.deepEqual(__financeWatchDurableLoopTest.nextRunAt({trigger_spec_json:'{"cadence":"daily"}'},"2026-09-26T08:00:00.000Z",{now:"2026-09-26T08:00:00.000Z"}),{nextRunAt:"2026-09-27T08:00:00.000Z",skippedOccurrences:0,cadence:"daily"});
 assert.deepEqual(__financeWatchDurableLoopTest.nextRunAt({trigger_spec_json:'{"cadence":"weekly"}'},"2026-09-26T08:00:00.000Z",{now:"2026-09-26T08:00:00.000Z"}),{nextRunAt:"2026-10-03T08:00:00.000Z",skippedOccurrences:0,cadence:"weekly"});
@@ -13,7 +14,7 @@ assert.equal(evaluateAgentAction({agentKey:"thebe",actionKey:"financial_position
 assert.equal(evaluateAgentAction({agentKey:"thebe",actionKey:"finance_brief.prepare",actorRole:"system_observer",systemActor:true,tenantScoped:true,phase:"phase1"}).allowed,false);
 assert.equal(evaluateAgentAction({agentKey:"thebe",actionKey:"task.create",actorRole:"system_observer",systemActor:true,tenantScoped:true,phase:"bounded_v1"}).allowed,false);
 const failingDB={prepare(){return {bind(){return this},async first(){throw new Error("db down")},async all(){throw new Error("db down")}}}};
-const unavailable=await executeAgentReadTool("finance_data_quality.read",{env:{DB:failingDB},auth:{tenant_id:"tenant-a",role:"system_observer",systemActor:true}});
+const unavailable=await executeAgentReadTool("finance_data_quality.read",{env:{DB:failingDB},auth:{tenant_id:"tenant-a",role:"system_observer",systemActor:true,agentId:FINANCE_OBSERVER_AGENT_ID}});
 assert.equal(unavailable.allowed,true);assert.equal(unavailable.available,false);assert.equal(unavailable.error,"authoritative_read_unavailable");
 assert.match(loop,/observation_finalization_guard_failed/);
 assert.match(loop,/claimChanges!==1\|\|taskChanges!==1/);

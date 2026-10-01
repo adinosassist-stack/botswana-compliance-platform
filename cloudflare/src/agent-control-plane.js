@@ -1,6 +1,7 @@
 export const AGENT_CONTROL_PLANE_VERSION="2026-09-26.v1";
 export const THEBE_AGENT_ID="THEBE-001";
 export const FINANCE_OBSERVER_AGENT_ID="SYS-FIN-OBS-001";
+export const BUSINESS_GOAL_OBSERVER_AGENT_ID="SYS-BIZ-OBS-001";
 
 const VALID_STATES=new Set(["active","restricted","suspended","revoked"]);
 const VALID_ACTORS=new Set(["platform_admin","system"]);
@@ -14,6 +15,10 @@ const EXPECTED=Object.freeze({
   [FINANCE_OBSERVER_AGENT_ID]:Object.freeze({
     agentId:FINANCE_OBSERVER_AGENT_ID,canonicalName:"system_observer",actorType:"system_observer",
     purpose:"Governed read-only Finance observation",riskTier:"low",ownerScope:"platform",executionCapable:false
+  }),
+  [BUSINESS_GOAL_OBSERVER_AGENT_ID]:Object.freeze({
+    agentId:BUSINESS_GOAL_OBSERVER_AGENT_ID,canonicalName:"business_goal_observer",actorType:"system_observer",
+    purpose:"Governed read-only business goal observation",riskTier:"low",ownerScope:"platform",executionCapable:false
   })
 });
 
@@ -98,7 +103,7 @@ export async function evaluateCanonicalAgentDrift(env,{persist=false}={}){
     if(drifted){
       const finding=frozen({agentId:expected.agentId,findingType:"canonical_identity_drift",expectedHash,effectiveHash,expected:expectedValue,effective:effectiveValue});
       findings.push(finding);
-      if(persist){
+      if(persist&&authority.ready===true){
         const current=await env.DB.prepare("SELECT id FROM agent_authority_drift_findings WHERE agent_id=? AND finding_type='canonical_identity_drift' AND status='open' LIMIT 1").bind(expected.agentId).first();
         if(current?.id){
           await env.DB.prepare("UPDATE agent_authority_drift_findings SET effective_hash=?,detail_json=?,detected_at=CURRENT_TIMESTAMP WHERE id=? AND status='open'")
