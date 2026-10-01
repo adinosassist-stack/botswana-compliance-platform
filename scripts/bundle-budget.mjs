@@ -1,8 +1,8 @@
 import fs from "node:fs";import path from "node:path";import zlib from "node:zlib";
 const root=process.cwd(),bytes=p=>fs.readFileSync(path.join(root,p)),kb=n=>Math.round(n/1024);
 let checks=0;const ok=(v,m)=>{checks++;if(!v)throw new Error(`FAIL ${checks}: ${m}`)};
-const worker=bytes("cloudflare/src/worker.js"),html=bytes("public/index.html"),workspaceRuntime=bytes("public/js/workspace-runtime-20260929c.js"),workspaceStyles=bytes("public/assets/workspace-inline-styles-20260929b.css"),workspaceVisuals=bytes("public/assets/workspace-visuals-20260930a.css"),workspaceViews=bytes("public/assets/workspace-view-fragments-20260929g.json");
-const workspaceViewShards=Array.from({length:12},(_,i)=>bytes(`public/assets/workspace-view-fragments-20260929g-${i}.json`));
+const worker=bytes("cloudflare/src/worker.js"),html=bytes("public/index.html"),workspaceRuntime=bytes("public/js/workspace-runtime-20260929c.js"),workspaceStyles=bytes("public/assets/workspace-inline-styles-20260929b.css"),workspaceVisuals=bytes("public/assets/workspace-visuals-20260930a.css"),workspaceViews=bytes("public/assets/workspace-view-fragments-20261001a.json");
+const workspaceViewShards=Array.from({length:12},(_,i)=>bytes(`public/assets/workspace-view-fragments-20261001a-${i}.json`));
 const htmlText=html.toString("utf8"),runtimeText=workspaceRuntime.toString("utf8"),stylesText=workspaceStyles.toString("utf8"),visualStylesText=workspaceVisuals.toString("utf8"),workspaceViewsPayload=JSON.parse(workspaceViews.toString("utf8"));
 const workspaceViewShardPayloads=workspaceViewShards.map(buffer=>JSON.parse(buffer.toString("utf8")));
 const workspaceViewShardFor=id=>{let hash=0;for(const ch of String(id||""))hash=(Math.imul(hash,31)+ch.charCodeAt(0))>>>0;return hash%12};
