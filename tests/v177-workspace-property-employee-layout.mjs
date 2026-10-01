@@ -163,6 +163,17 @@ assert.match(ownerCommand,/ownerPulseSales/,"Owner pulse must expose recorded sa
 assert.match(ownerCommand,/ownerPulseOps/,"Owner pulse must expose operational exception state");
 assert.match(ownerCommand,/ownerPulseCompliance/,"Owner pulse must expose compliance pressure");
 
+assert.match(ownerCommand,/if\(target\?\.tagName==="DETAILS"\)target\.open=true/,"Property journey must open collapsed workflow sections before scrolling");
+assert.match(ownerCommand,/propertyJourneyCard\("2","Performance"[^\n]+,"propertyPortfolioVisuals"\)/,"Performance journey step must target the live portfolio infographic instead of duplicating the portfolio-list destination");
+assert.match(ownerCommand,/infographic\.id="propertyPortfolioVisuals"/,"Property performance infographic needs a stable navigation anchor");
+assert.match(ownerCommand,/servicePanel=document\.createElement\("details"\)/,"professional valuation request workflow must default to a compact disclosure");
+assert.match(ownerCommand,/property-service-summary/,"professional valuation disclosure must retain a prominent summary surface");
+assert.match(ownerCommand,/if\(panel\.tagName==="DETAILS"\)panel\.open=true/,"contextual valuation CTA must expand the collapsed workflow");
+assert.match(visualCss,/V215 Property Intelligence scroll compression/,"Property workspace must ship the V215 density layer");
+assert.match(visualCss,/\.property-service-disclosure\{padding:0!important;overflow:visible\}/,"valuation service disclosure must remove redundant card padding");
+assert.match(visualCss,/@media\(max-width:760px\)\{\s*\.property-intelligence-journey\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)\}/,"Property journey must compress cleanly on smaller workspaces");
+
+
 assert.match(propertyFragment,/visual-summary-shell/,"dense assurance surfaces must use one primary visual summary");
 assert.match(propertyFragment,/metric-data-only/,"legacy metric hooks must remain runtime-compatible without duplicate visible KPI cards");
 assert.match(css,/\.metric-data-only\{display:none!important\}/,"duplicate metric hooks must remain visually suppressed");
