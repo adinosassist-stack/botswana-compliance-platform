@@ -884,6 +884,10 @@ async function runFullUserJourney(credentials){
         serviceBackground:service?getComputedStyle(service).backgroundColor:'missing',
         serviceBeforeForms:!!service&&!!forms&&shellChildren.indexOf(service)>=0&&shellChildren.indexOf(forms)>=0&&shellChildren.indexOf(service)<shellChildren.indexOf(forms),
         requestButtonVisible:!!document.getElementById('propertyValuationServiceRequestButton')&&document.getElementById('propertyValuationServiceRequestButton').offsetParent!==null,
+        calculatorWidth:inputRect?.width||0,
+        spatialStyle:getComputedStyle(document.getElementById('thebeAiDock')).getPropertyValue('--thebe-spatial-dock').trim(),
+        calculatorInline:input?.getAttribute('style')||'',
+        dockGeometry:{left:document.getElementById('thebeAiDock').getBoundingClientRect().left,mainRight:document.getElementById('mainContent').getBoundingClientRect().right},
         propertyLayoutStacked:compactReference?!!inputRect&&inputRect.width>0&&inputRect.width<=700:!!inputRect&&!!resultsRect&&Math.abs(inputRect.left-resultsRect.left)<=2&&resultsRect.top>inputRect.top+20
       };
     });
