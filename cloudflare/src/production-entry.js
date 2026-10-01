@@ -20,6 +20,9 @@ const WORKSPACE_RUNTIME_RELEASE="20261001-property-visibility-v226";
 const WORKSPACE_STYLES_ASSET="/assets/workspace-inline-styles-20260929b.css";
 const PROPERTY_COMPACT_CSS_ASSET="/assets/property-calculator-compact-v223.css";
 const PROPERTY_REFERENCE_CSS_ASSET="/assets/property-calculator-reference-v224.css";
+const PROPERTY_VISIBILITY_CSS_ASSET="/assets/property-visibility-v230.css";
+const WORKSPACE_COMMAND_CENTER_CSS_ASSET="/assets/workspace-command-center-v230.css";
+const PROPERTY_VISIBILITY_JS_ASSET="/js/property-visibility-v230.js";
 const WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT=12;
 const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20261001a-";
 const WORKSPACE_RESIDENT_VIEW_IDS=Object.freeze(["dashboard","moneyhub","workhub","sites","peopleops","businesshub","obligations","evidencehub","automationhub"]);
@@ -129,6 +132,7 @@ function injectPublicThebeAssets(html){
   if(!source.includes(THEBE_AI_DOCK_HOTFIX_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${aiDockHotfixHref}" />\n`);
   if(!source.includes("/js/api-client.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${publicApiClientJsSrc}" defer></script>\n`);
   if(!source.includes("/js/thebe-live-voice.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${liveVoiceJsSrc}" defer></script>\n`);
+  if(!source.includes(PROPERTY_VISIBILITY_JS_ASSET))source=injectBeforeFinalClosingTag(source,"body",`<script src="${propertyVisibilityJsSrc}" defer></script>\n`);
   return source;
 }
 
@@ -324,11 +328,16 @@ function injectOwnerCommandCentreAssets(html){
   const aiDockHotfixHref=`${THEBE_AI_DOCK_HOTFIX_ASSET}?v=${THEBE_AI_DOCK_RELEASE}`;
   const propertyCompactCssHref=PROPERTY_COMPACT_CSS_ASSET;
   const propertyReferenceCssHref=PROPERTY_REFERENCE_CSS_ASSET;
+  const propertyVisibilityCssHref=PROPERTY_VISIBILITY_CSS_ASSET;
+  const workspaceCommandCenterCssHref=WORKSPACE_COMMAND_CENTER_CSS_ASSET;
+  const propertyVisibilityJsSrc=PROPERTY_VISIBILITY_JS_ASSET;
   if(!source.includes("/assets/owner-command-centre.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${cssHref}" />\n`);
   if(!source.includes("/assets/executive-personalization.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${personalizationCssHref}" />\n`);
   if(!source.includes("/assets/business-data-bridge.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${bridgeCssHref}" />\n`);
   if(!source.includes(PROPERTY_COMPACT_CSS_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${propertyCompactCssHref}" />\n`);
   if(!source.includes(PROPERTY_REFERENCE_CSS_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${propertyReferenceCssHref}" />\n`);
+  if(!source.includes(PROPERTY_VISIBILITY_CSS_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${propertyVisibilityCssHref}" />\n`);
+  if(!source.includes(WORKSPACE_COMMAND_CENTER_CSS_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${workspaceCommandCenterCssHref}" />\n`);
   if(!source.includes("/assets/thebe-ai-dock.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${aiDockCssHref}" />\n`);
   if(!source.includes(THEBE_AI_DOCK_HOTFIX_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${aiDockHotfixHref}" />\n`);
   if(!source.includes("/js/api-client.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${publicApiClientJsSrc}" defer></script>\n`);
@@ -515,7 +524,7 @@ async function fetchWithTurnstileCspRepair(request,env,ctx){
     headers.set("x-thebe-executive-personalization",EXECUTIVE_PERSONALIZATION_RELEASE);
     headers.set("x-thebe-business-data-bridge",BUSINESS_DATA_BRIDGE_RELEASE);
     headers.set("cache-control","no-store");
-    headers.set("x-thebe-property-ui","v229-resident-compact-calculator");
+    headers.set("x-thebe-property-ui","v230-resident-visible-command-center");
   }
   if(workspaceSurface||publicSurface)headers.set("x-thebe-ai-dock",THEBE_AI_DOCK_RELEASE);
   return new Response(repaired,{status:response.status,statusText:response.statusText,headers});
