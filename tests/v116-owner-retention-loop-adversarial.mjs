@@ -2,14 +2,19 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import {execFileSync} from "node:child_process";
 
+const productionEntry=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
+const runtimeAsset=(productionEntry.match(/const WORKSPACE_RUNTIME_ASSET="([^"]+)"/)||[])[1];
+assert.ok(runtimeAsset?.startsWith("/js/workspace-runtime-"),"production entry must declare the active workspace runtime");
+const runtimePath="public"+runtimeAsset;
+
 for(const path of [
-  "public/js/workspace-runtime-20260923m.js",
+  runtimePath,
   "cloudflare/src/finance-core.js",
   "cloudflare/src/worker.js"
 ])execFileSync(process.execPath,["--check",path],{stdio:"pipe"});
 
 const html=fs.readFileSync("public/index.html","utf8");
-const runtime=fs.readFileSync("public/js/workspace-runtime-20260923m.js","utf8");
+const runtime=fs.readFileSync(runtimePath,"utf8");
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const finance=fs.readFileSync("cloudflare/src/finance-core.js","utf8");
 const events=fs.readFileSync("public/js/event-delegation.js","utf8");
@@ -30,7 +35,7 @@ assert.match(html,/id="thebeAgentLauncher"[^>]*hidden[^>]*data-bw-onclick="openT
 assert.match(runtime,/function roleLandingView\(role=currentWorkspaceRole\(\)\)[\s\S]*return "dashboard"/);
 
 // Pass 2 — business truth: the daily surface reads canonical sources and degrades independently.
-const daily=(runtime.match(/async function renderDailyOperatingBrief\(\)\{([\s\S]*?)\n\}\n\n\nasync function renderPartnerPortal/)||[])[1]||"";
+const daily=(runtime.match(/async function renderDailyOperatingBrief\(\)\{([\s\S]*?)\n\}\s*let ownerBriefRefreshInFlight=/)||[])[1]||"";
 assert.ok(daily,"daily operating brief must remain parseable");
 assert.match(daily,/Promise\.allSettled/);
 assert.match(daily,/apiJson\("\/api\/daily-brief"\)/);

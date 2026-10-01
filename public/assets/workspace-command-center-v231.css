@@ -1,3 +1,6 @@
+/* Runtime-only metric hooks feed visual summaries without rendering duplicate counters. */
+.metric-data-only{display:none!important}
+
 /* V231 Workspace command-center system
    Reference direction: compact white/blue control room, low prose, scan-first hierarchy.
    Presentation only. Safety boundaries/notices remain visible. */

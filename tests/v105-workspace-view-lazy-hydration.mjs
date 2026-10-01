@@ -14,7 +14,9 @@ for(const script of coreWorkspaceScripts){
 assert.ok(!html.includes('src="js/')&&!html.includes("src=\'js/"),"workspace core scripts must not resolve under /app/js/");
 
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
-const runtime=fs.readFileSync("public/js/workspace-runtime-20260929c.js","utf8");
+const runtimeAsset=(production.match(/const WORKSPACE_RUNTIME_ASSET="([^"]+)"/)||[])[1];
+assert.ok(runtimeAsset?.startsWith("/js/workspace-runtime-"),"production must declare the active workspace runtime");
+const runtime=fs.readFileSync("public"+runtimeAsset,"utf8");
 const delegatedEvents=fs.readFileSync("public/js/event-delegation.js","utf8");
 assert.match(delegatedEvents,/\'linkSocial\'/,"social connect action must remain in delegated event allowlist");
 

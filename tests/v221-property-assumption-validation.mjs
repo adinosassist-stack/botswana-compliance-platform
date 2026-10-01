@@ -2,7 +2,10 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 
-const runtime=fs.readFileSync(new URL('../public/js/workspace-runtime-20260929c.js',import.meta.url),'utf8');
+const production=fs.readFileSync(new URL('../cloudflare/src/production-entry.js',import.meta.url),'utf8');
+const workspaceRuntimeAsset=production.match(/const WORKSPACE_RUNTIME_ASSET="([^"]+)";/)?.[1]||'';
+assert.match(workspaceRuntimeAsset,/^\/js\/workspace-runtime-[a-z0-9.-]+\.js$/i,'workspace runtime identity must stay versioned and first-party');
+const runtime=fs.readFileSync(new URL(`../public${workspaceRuntimeAsset}`,import.meta.url),'utf8');
 const section=runtime.slice(runtime.indexOf('function propertyNumber('),runtime.indexOf('function propertyRiskNotes('));
 assert.ok(section.startsWith('function propertyNumber(')&&section.includes('function propertyDealScenario()'),'property calculation seam exists');
 const values={propertyPurchasePrice:'2400000',propertyMonthlyRent:'15000',propertyDeposit:'600000',propertyInterestRate:'7.5',propertyLoanYears:'20'};

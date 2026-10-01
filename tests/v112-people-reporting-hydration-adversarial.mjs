@@ -2,9 +2,12 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import {spawnSync} from "node:child_process";
 
-const runtime=fs.readFileSync("public/js/workspace-runtime-20260929c.js","utf8");
 const html=fs.readFileSync("public/index.html","utf8");
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
+const runtimeAsset=(production.match(/const WORKSPACE_RUNTIME_ASSET="([^"]+)"/)||[])[1];
+assert.ok(runtimeAsset?.startsWith("/js/workspace-runtime-"),"production must declare the active workspace runtime");
+const runtimePath="public"+runtimeAsset;
+const runtime=fs.readFileSync(runtimePath,"utf8");
 const fragments=JSON.parse(fs.readFileSync("public/assets/workspace-view-fragments-20260929g.json","utf8"));
 
 function sectionInner(source,id){
@@ -24,7 +27,7 @@ function sectionInner(source,id){
 const peopleMarkup=sectionInner(html,"peopleops");
 const dailyMarkup=sectionInner(html,"dailyreports");
 
-const syntax=spawnSync(process.execPath,["--check","public/js/workspace-runtime-20260929c.js"],{encoding:"utf8"});
+const syntax=spawnSync(process.execPath,["--check",runtimePath],{encoding:"utf8"});
 assert.equal(syntax.status,0,syntax.stderr||syntax.stdout);
 
 // Pass 1: People owns the reporting setup DOM and must hydrate it on view open.

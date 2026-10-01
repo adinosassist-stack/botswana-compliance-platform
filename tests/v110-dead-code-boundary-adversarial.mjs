@@ -9,7 +9,9 @@ const html=fs.readFileSync("public/index.html","utf8");
 const delegation=fs.readFileSync("public/js/event-delegation.js","utf8");
 
 const obsoleteRuntimes=[
-  "20260921a","20260921b","20260921c","20260921d","20260921e","20260921f","20260922a","20260923k"
+  "20260921a","20260921b","20260921c","20260921d","20260921e","20260921f","20260922a","20260922b",
+  "20260923a","20260923b","20260923c","20260923d","20260923e","20260923f","20260923g","20260923h",
+  "20260923i","20260923j","20260923k","20260923l","20260923m","20260926b","20260929c","20261001a"
 ].map(v=>`public/js/workspace-runtime-${v}.js`);
 for(const path of obsoleteRuntimes)assert.equal(fs.existsSync(path),false,`obsolete runtime must stay deleted: ${path}`);
 
@@ -20,9 +22,10 @@ for(const version of ["20260921b","20260921c"]){
   }
 }
 
-assert.ok(fs.existsSync("public/js/workspace-runtime-20260929c.js"));
+const runtimeAsset=(production.match(/const WORKSPACE_RUNTIME_ASSET="([^"]+)"/)||[])[1];
+assert.equal(runtimeAsset,"/js/workspace-runtime-20261001b.js");
+assert.ok(fs.existsSync("public"+runtimeAsset),"active production workspace runtime must exist");
 for(let i=0;i<12;i++)assert.ok(fs.existsSync(`public/assets/workspace-view-fragments-20261001a-${i}.json`));
-assert.match(production,/WORKSPACE_RUNTIME_ASSET="\/js\/workspace-runtime-20261001b\.js"/);
 assert.match(production,/WORKSPACE_VIEW_FRAGMENT_PREFIX="\/assets\/workspace-view-fragments-20261001a-"/);
 
 assert.doesNotMatch(inbound,/intent\.kind==="unavailable"&&intent\.reason==="receivables"/);
