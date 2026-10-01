@@ -7,6 +7,10 @@ const owner=fs.readFileSync("public/js/owner-command-centre.js","utf8");
 const css=fs.readFileSync("public/assets/property-calculator-reference-v224.css","utf8");
 const payload=JSON.parse(fs.readFileSync("public/assets/workspace-view-fragments-20261001a-4.json","utf8"));
 const property=String(payload.views?.propertyintelligence||"");
+const workspaceDocument=fs.readFileSync("public/index.html","utf8");
+const residentProperty=workspaceDocument.match(/<section\b[^>]*\bid="propertyintelligence"[^>]*>([\s\S]*?)<\/section>/)?.[1];
+assert.ok(residentProperty,"authenticated workspace must contain the resident Property view");
+assert.ok(residentProperty.trim()===property.trim(),"resident Property markup must match the compact fragment; production retains this section without lazy hydration");
 
 assert.ok(production.includes('const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20261001b.js";'),"V224 compact design successor must use the V225 workspace runtime asset");
 assert.ok(production.includes('const WORKSPACE_RUNTIME_RELEASE="20261001-home-live-brief-v234";'),"V224 compact design successor must carry the V225 visibility release identity");
