@@ -670,7 +670,8 @@
     setCriticalStyle(scroll,{"display":"flex","flex":"1 1 auto","flex-direction":"column","align-items":"stretch","width":"100%","min-width":"0","max-width":"100%","box-sizing":"border-box","gap":"10px","padding":"12px 14px 14px","overflow":"auto","overflow-x":"hidden","background":"#07131f"});
     setCriticalStyle(context,{"display":"flex","width":"100%","min-width":"0","box-sizing":"border-box","align-items":"center","justify-content":"space-between","gap":"10px","padding":"9px 10px","border":"1px solid rgba(125,180,255,.16)","border-radius":"14px","background":"#0b1b2a"});
     setCriticalStyle(contextLead,{"display":"grid","grid-template-columns":"auto auto minmax(0,1fr)","align-items":"center","gap":"7px","min-width":"0","flex":"1 1 auto"});
-    setCriticalStyle(modeRail,{"display":"grid","width":"100%","min-width":"0","grid-template-columns":"repeat(3,minmax(0,1fr))","gap":"7px"});
+    const planVisible=modeRail?.querySelector('[data-thebe-mode="goal_plan"]')?.hidden===false;
+    setCriticalStyle(modeRail,{"display":"grid","width":"100%","min-width":"0","grid-template-columns":planVisible?(global.innerWidth<=520?"repeat(2,minmax(0,1fr))":"repeat(4,minmax(0,1fr))"):"repeat(3,minmax(0,1fr))","gap":"7px"});
     dock.querySelectorAll(".thebe-ai-mode-button,.thebe-ai-quick button,.thebe-ai-context-action,.thebe-ai-response-tools button").forEach(button=>setCriticalStyle(button,{"min-width":"0","border":"1px solid rgba(125,180,255,.18)","border-radius":"12px","background":"#0d2236","color":"#eaf6ff","padding":"9px","font-family":"inherit"}));
     setCriticalStyle(voiceCard,{"display":"grid","width":"100%","min-width":"0","box-sizing":"border-box","grid-template-columns":"82px minmax(0,1fr)","gap":"4px 12px","align-items":"center","padding":"11px 12px","border":"1px solid rgba(125,180,255,.18)","border-radius":"16px","background":"#0b1c2c"});
     if(workspace&&!mobile)setCriticalStyle(orbButton,{"width":"82px","min-width":"82px","max-width":"82px","height":"82px","min-height":"82px","max-height":"82px","box-sizing":"border-box","flex":"0 0 82px"});
@@ -930,7 +931,7 @@
     if(presence){
       presence.replaceChildren(el("span","thebe-ai-presence-dot"),document.createTextNode(workspace?"Your business assistant":"Public assistant · try Thebe"));
     }
-    if(voicePhase==="idle"){
+    if(voicePhase==="idle"&&dock.dataset.conversation!=="true"){
       if(workspace)setPhase("idle","Talk to Thebe","What would you like to get done?");
       else if(surface==="public")setPhase("idle","Talk to Thebe","Ask about Thebe Desk or tap the particles to sample voice");
     }
