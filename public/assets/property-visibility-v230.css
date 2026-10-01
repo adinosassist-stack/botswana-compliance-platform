@@ -1,0 +1,20 @@
+/* V230 Property visibility contract — resident Property must be visibly usable when active. */
+#propertyintelligence.view.active{
+  display:block!important;
+  visibility:visible!important;
+  opacity:1!important;
+}
+#propertyintelligence.view.active .property-layout-v224{
+  display:block!important;
+  visibility:visible!important;
+  opacity:1!important;
+}
+#propertyintelligence.view.active .property-calculator-v224{
+  display:block!important;
+  visibility:visible!important;
+  opacity:1!important;
+}
+#propertyintelligence.view.active .property-quick-rows{display:grid!important}
+#propertyintelligence.view.active .property-input-row{display:flex!important}
+#propertyintelligence.view.active .property-input-pair{display:grid!important}
+#propertyintelligence.view.active .property-analyse-button{display:block!important}
