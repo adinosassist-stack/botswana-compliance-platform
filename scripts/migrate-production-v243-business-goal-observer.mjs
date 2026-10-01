@@ -13,7 +13,7 @@ const execFile=promisify(execFileCallback);
 const spec=Object.freeze({
   number:65,
   path:'cloudflare/migrations/065_v243_business_goal_observer.sql',
-  blob:'7652d1367899300f24f2c65e0f761bffa5681761'
+  blob:'df826bdf93143e52de4c12f1b90f2a9ef4dbbd35'
 });
 
 function fail(message){throw new Error(`Production D1 migration 065 refused: ${message}`)}
@@ -58,6 +58,22 @@ async function verifyPrerequisites(){
   if(!requestColumns.has('jit_permit_id'))fail('prerequisite migration 064 is incomplete: agent_task_requests.jit_permit_id missing');
 }
 
+async function verifyNoActiveGoalDuplicates(){
+  const rows=await query(`SELECT tenant_id,
+      json_extract(CASE WHEN json_valid(trigger_spec_json) THEN trigger_spec_json ELSE '{}' END,'$.templateKey') templateKey,
+      COUNT(*) duplicateCount
+    FROM agent_persistent_tasks
+    WHERE status IN ('active','paused')
+      AND trigger_kind='scheduled'
+      AND json_extract(CASE WHEN json_valid(trigger_spec_json) THEN trigger_spec_json ELSE '{}' END,'$.templateKey') IN (
+        'protect_cash','grow_sales','stay_compliant','watch_operations','protect_property','morning_brief'
+      )
+    GROUP BY tenant_id,templateKey
+    HAVING COUNT(*)>1
+    LIMIT 20`);
+  if(rows.length)fail(`existing active/paused business-goal duplicates require reconciliation before migration: ${safe(JSON.stringify(rows))}`);
+}
+
 async function verify065(){
   const rows=await query(`SELECT agent_id,canonical_name,actor_type,purpose,risk_tier,authority_state,execution_capable,owner_scope
     FROM agent_registry WHERE agent_id='SYS-BIZ-OBS-001' LIMIT 1`);
@@ -96,6 +112,7 @@ async function executeMigration(){
 }
 
 await verifyPrerequisites();
+await verifyNoActiveGoalDuplicates();
 const sql=await readFile(spec.path,'utf8');
 const actualBlob=createHash('sha1').update(`blob ${Buffer.byteLength(sql)}\0`).update(sql).digest('hex');
 if(actualBlob!==spec.blob)fail(`reviewed migration blob changed expected=${spec.blob} actual=${actualBlob}`);
@@ -114,6 +131,7 @@ console.log(`Pre-migration Time Travel bookmark captured: ${bookmark}`);
 
 await executeMigration();
 if(!(await verify065()))fail('post-migration verification failed');
+await verifyNoActiveGoalDuplicates();
 const fk=await query('PRAGMA foreign_key_check');
 if(fk.length)fail(`foreign key verification failed with ${fk.length} violation(s)`);
 
