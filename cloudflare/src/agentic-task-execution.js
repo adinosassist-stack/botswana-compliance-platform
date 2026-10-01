@@ -275,7 +275,7 @@ async function listTaskRequests(env,auth){
   if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
   if(!(await schemaReady(env)))return json({error:"bounded_execution_schema_not_ready"},503);
   const rows=await env.DB.prepare(`SELECT q.id,q.status,q.payload_json,q.payload_hash,q.approved_payload_hash,
-      q.delegation_id,q.execution_grant_id,q.approved_at,q.executed_at,q.created_at,
+      q.delegation_id,q.execution_grant_id,q.jit_permit_id,q.approved_at,q.executed_at,q.created_at,
       i.run_id,i.proposal_id
     FROM agent_task_requests q
     JOIN agent_action_intents i ON i.id=q.action_intent_id AND i.tenant_id=q.tenant_id
@@ -293,6 +293,7 @@ async function listTaskRequests(env,auth){
       approvedPayloadHash:row.approved_payload_hash||null,
       delegationId:row.delegation_id,
       executionGrantId:row.execution_grant_id,
+      jitPermitId:row.jit_permit_id||null,
       runId:row.run_id||null,
       proposalId:row.proposal_id||null,
       approvedAt:row.approved_at||null,
@@ -344,10 +345,10 @@ async function issueJitPermit({env,auth,requestId}){
       env.DB.prepare(`INSERT INTO agent_jit_execution_permits(id,tenant_id,agent_id,human_user_id,task_request_id,execution_grant_id,action_key,payload_hash,expires_at)
         VALUES(?,?,?,?,?,?,?,?,?)`).bind(permitId,auth.tenant_id,THEBE_AGENT_ID,auth.user_id,requestId,row.execution_grant_id,ACTION_KEY,row.payload_hash,expiresAt),
       env.DB.prepare(`INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data)
-        VALUES(?,?,'AGENT_JIT_PERMIT_ISSUED','agent_jit_execution_permit',?,?)`).bind(auth.tenant_id,auth.user_id,permitId,JSON.stringify({requestId,agentId:THEBE_AGENT_ID,actionKey:ACTION_KEY,payloadHash:row.payload_hash,expiresAt,maxUses:1}))
+        VALUES(?,?,'AGENT_JIT_PERMIT_ISSUED','agent_jit_execution_permit',?,?)`).bind(auth.tenant_id,auth.user_id,permitId,JSON.stringify({requestId,agentId:THEBE_AGENT_ID,actionKey:ACTION_KEY,payloadHash:row.payload_hash,expiresAt,maxUses:1,sameOwnerBound:true}))
     ]);
   }catch{return json({error:"jit_permit_issue_failed"},500)}
-  return json({ok:true,permit:{id:permitId,requestId,agentId:THEBE_AGENT_ID,actionKey:ACTION_KEY,payloadHash:row.payload_hash,expiresAt,maxUses:1}},201);
+  return json({ok:true,permit:{id:permitId,requestId,agentId:THEBE_AGENT_ID,actionKey:ACTION_KEY,payloadHash:row.payload_hash,expiresAt,maxUses:1,sameOwnerBound:true}},201);
 }
 
 async function executeTask({env,auth,requestId,permitId}){
@@ -423,7 +424,7 @@ async function executeTask({env,auth,requestId,permitId}){
     try{
       await env.DB.prepare(`INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data)
         VALUES(?,?,'AGENT_TASK_EXECUTION_DENIED','agent_task_request',?,?)`).bind(
-          auth.tenant_id,auth.user_id,requestId,JSON.stringify({intentId:row.intent_id,executionGrantId:row.execution_grant_id,code:decision.code,guardVersion:decision.guardVersion,executionMode:executionMode(env)})
+          auth.tenant_id,auth.user_id,requestId,JSON.stringify({intentId:row.intent_id,executionGrantId:row.execution_grant_id,jitPermitId,code:decision.code,guardVersion:decision.guardVersion,executionMode:executionMode(env)})
         ).run();
     }catch{}
     return json({error:"task_execution_denied",decision:{code:decision.code,reason:decision.reason,guardVersion:decision.guardVersion}},409);
@@ -461,9 +462,11 @@ async function executeTask({env,auth,requestId,permitId}){
     return json({error:"task_execution_failed"},500);
   }
 
-  const verified=await safeFirst(env,`SELECT t.id task_id,t.title,t.description,t.priority,t.due_at,t.status,t.created_at,r.id receipt_id
-    FROM agent_internal_tasks t JOIN agent_execution_receipts r ON r.result_entity_id=t.id AND r.tenant_id=t.tenant_id
-    WHERE t.id=? AND t.tenant_id=? AND t.source_request_id=? AND r.action_intent_id=? LIMIT 1`,[taskId,auth.tenant_id,requestId,row.intent_id]);
+  const verified=await safeFirst(env,`SELECT t.id task_id,t.title,t.description,t.priority,t.due_at,t.status,t.created_at,r.id receipt_id,q.jit_permit_id
+    FROM agent_internal_tasks t
+    JOIN agent_execution_receipts r ON r.result_entity_id=t.id AND r.tenant_id=t.tenant_id
+    JOIN agent_task_requests q ON q.id=t.source_request_id AND q.tenant_id=t.tenant_id
+    WHERE t.id=? AND t.tenant_id=? AND t.source_request_id=? AND r.action_intent_id=? AND q.jit_permit_id=? LIMIT 1`,[taskId,auth.tenant_id,requestId,row.intent_id,jitPermitId]);
   if(!verified)return json({error:"task_execution_verification_failed",taskId,receiptId},500);
 
   return json({ok:true,replayed:false,task:{id:verified.task_id,title:verified.title,description:verified.description,priority:verified.priority,dueAt:verified.due_at,status:verified.status,createdAt:verified.created_at},receiptId:verified.receipt_id,jitPermitId,guard:{version:decision.guardVersion,code:decision.code},verified:true},201);
