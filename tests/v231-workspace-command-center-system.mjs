@@ -69,4 +69,11 @@ assert.doesNotMatch(css,/\.property-scenario-boundary[^}]*display\s*:\s*none/i,
 assert.doesNotMatch(css,/\.notice[^}]*display\s*:\s*none/i,
   "workspace notices must not be blanket-hidden by the visual system");
 
+
+
+assert.match(css,/@media\(max-width:620px\)\{[\s\S]*#dashboard \.owner-today-grid,[\s\S]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)!important;/,
+  "V232 mobile command center must keep short KPI and status cards in a compact two-column scan grid");
+assert.match(css,/@media\(max-width:390px\)\{[\s\S]*\.outcome-grid,\.people-outcome-grid[\s\S]*grid-template-columns:1fr!important/,
+  "V232 must still collapse action cards on very narrow phones");
+
 console.log("PASS: V231 workspace uses the compact blue command-center hierarchy while preserving safety and drill-down boundaries.");
