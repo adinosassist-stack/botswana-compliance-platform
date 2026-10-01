@@ -22,7 +22,7 @@ for(const marker of [
   'id="propertyintelligence"'
 ]) assert.ok(html.includes(marker),"workspace reference marker missing: "+marker);
 
-assert.match(production,/const WORKSPACE_RUNTIME_RELEASE="20261001-property-command-center-v231";/,
+assert.match(production,/const WORKSPACE_RUNTIME_RELEASE="20261001-home-live-brief-v234";/,
   "V231 must rotate the canonical workspace runtime after the Property activation fix");
 assert.match(runtime,/function enforceResidentPropertyVisibility\(target\)/,
   "Property visibility must be owned by the canonical workspace runtime");
