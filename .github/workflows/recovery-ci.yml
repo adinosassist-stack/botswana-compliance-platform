@@ -131,6 +131,7 @@ jobs:
           npm run test:static
           npm run test:release-regressions
           node tests/v220-live-daily-reporting.mjs
+          node tests/v221-property-assumption-validation.mjs
           npm run check:dependency-policy
           npm run check:bundle-budget
           npm run check:d1-backup-shape
