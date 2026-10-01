@@ -2994,7 +2994,8 @@
 
     const servicePanel=document.createElement("details");
     servicePanel.id="propertyValuationServicePanel";
-    servicePanel.className="card property-valuation-service-card property-service-disclosure";
+    servicePanel.className="card property-valuation-service-card";
+    servicePanel.classList.add("property-service-disclosure");
     servicePanel.style.marginTop="14px";
     servicePanel.style.setProperty("background","#f7fbff","important");
     servicePanel.style.setProperty("border-color","#a9c8ef","important");
