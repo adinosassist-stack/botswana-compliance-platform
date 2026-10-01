@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import {delegatedAuthoritySchemaReady,V81_SCHEMA_DELTA} from "../cloudflare/src/agentic-entry.js";
 
-assert.equal(V81_SCHEMA_DELTA,"063_v179_property_valuer_credential_binding.sql");
+assert.equal(V81_SCHEMA_DELTA,"064_v217_jit_execution_permits.sql");
 
-function db({missingClaims=false,missingScheduledFor=false,missingOccurrenceIndex=false,missingSchedulerIndex=false,missingRegistry=false,missingMemory=false,missingProperty=false,missingPropertyV175=false,missingPropertyV176=false,missingPropertyV179=false}={}){
+function db({missingClaims=false,missingScheduledFor=false,missingOccurrenceIndex=false,missingSchedulerIndex=false,missingRegistry=false,missingMemory=false,missingProperty=false,missingPropertyV175=false,missingPropertyV176=false,missingPropertyV179=false,missingJitV217=false}={}){
   return {
     prepare(sql){
       return {
@@ -15,6 +15,7 @@ function db({missingClaims=false,missingScheduledFor=false,missingOccurrenceInde
           if(missingPropertyV175&&(sql.includes("property_valuation_evidence_links")||sql.includes("property_operating_snapshots")))throw new Error("no such table: property_operating_snapshots");
           if(missingPropertyV176&&(sql.includes("property_valuation_service_requests")||sql.includes("property_valuation_service_events")))throw new Error("no such table: property_valuation_service_requests");
           if(missingPropertyV179&&sql.includes("professional_credential_events"))throw new Error("no such table: professional_credential_events");
+          if(missingJitV217&&sql.includes("agent_jit_execution_permits"))throw new Error("no such table: agent_jit_execution_permits");
           if(missingScheduledFor&&sql.includes("SELECT scheduled_for FROM agent_observation_checkpoints"))throw new Error("no such column: scheduled_for");
           if(sql.includes("uq_agent_observation_checkpoint_occurrence"))return missingOccurrenceIndex?null:{ok:1};
           if(sql.includes("agent_persistent_tasks_scheduler_due"))return missingSchedulerIndex?null:{ok:1};
@@ -36,6 +37,7 @@ assert.equal(await delegatedAuthoritySchemaReady({DB:db({missingProperty:true})}
 assert.equal(await delegatedAuthoritySchemaReady({DB:db({missingPropertyV175:true})}),false,"migration 060 property evidence and operating history tables are required");
 assert.equal(await delegatedAuthoritySchemaReady({DB:db({missingPropertyV176:true})}),false,"migration 061 property valuation service tables are required");
 assert.equal(await delegatedAuthoritySchemaReady({DB:db({missingPropertyV179:true})}),false,"migration 063 professional credential ledger is required");
+assert.equal(await delegatedAuthoritySchemaReady({DB:db({missingJitV217:true})}),false,"migration 064 JIT execution permit table is required");
 assert.equal(await delegatedAuthoritySchemaReady({}),false);
 
 console.log("v152 agentic readiness migration-tip integrity passed");
