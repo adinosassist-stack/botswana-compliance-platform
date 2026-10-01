@@ -15,8 +15,8 @@ const THEBE_LIVE_VOICE_RELEASE="20261001-goal-evidence-plan-v225";
 const THEBE_PUBLIC_API_CLIENT_RELEASE="20260930a";
 const THEBE_AI_DOCK_RELEASE="20261001-goal-evidence-plan-v225";
 const THEBE_AI_DOCK_HOTFIX_ASSET="/assets/thebe-ai-dock-v184-hotfix.css";
-const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20261001a.js";
-const WORKSPACE_RUNTIME_RELEASE="20261001-property-reference-card-v224";
+const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20261001b.js";
+const WORKSPACE_RUNTIME_RELEASE="20261001-property-visibility-v226";
 const WORKSPACE_STYLES_ASSET="/assets/workspace-inline-styles-20260929b.css";
 const PROPERTY_COMPACT_CSS_ASSET="/assets/property-calculator-compact-v223.css";
 const PROPERTY_REFERENCE_CSS_ASSET="/assets/property-calculator-reference-v224.css";
@@ -197,7 +197,7 @@ function injectWorkspaceLazyViewClient(runtime){
   const hydrationBlock=`
 const WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT=12;
 const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20261001a-";
-const PROPERTY_VIEW_FRAGMENT_ASSET="/assets/property-view-v224.json";
+const PROPERTY_VIEW_FRAGMENT_ASSET="/assets/workspace-view-fragments-20261001a-4.json?v=20261001-property-visibility-v226";
 const workspaceViewShardPromises=new Map();
 let workspaceViewNavigationEpoch=0;
 function workspaceViewShard(id){
@@ -216,7 +216,7 @@ async function fetchWorkspaceViewShard(asset,shard){
 async function workspaceViewFragments(id){
   const shard=workspaceViewShard(id);
   const propertyView=String(id||"")==="propertyintelligence";
-  const cacheKey=propertyView?"property-v224":String(shard);
+  const cacheKey=propertyView?"property-v226":String(shard);
   if(workspaceViewShardPromises.has(cacheKey))return workspaceViewShardPromises.get(cacheKey);
   const asset=propertyView?PROPERTY_VIEW_FRAGMENT_ASSET:WORKSPACE_VIEW_FRAGMENT_PREFIX+shard+".json";
   const promise=fetchWorkspaceViewShard(asset,shard).catch(error=>{workspaceViewShardPromises.delete(cacheKey);throw error});
