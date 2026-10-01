@@ -12,6 +12,7 @@ const directRegistration=read('public/js/register-direct.js');
 const oauthUi=read('public/js/oauth-availability.js');
 const syntheticHold=read('scripts/production-synthetic-hold-wrapper.mjs');
 const mobileSmoke=read('scripts/production-mobile-postdeploy-smoke.mjs');
+const thebeDockCss=read('public/assets/thebe-ai-dock.css');
 const remediationWorkflow=read('.github/workflows/audit-remediation-ci.yml');
 const recoveryWorkflow=read('.github/workflows/recovery-ci.yml');
 const dependencyAudit=read('scripts/dependency-audit.mjs');
@@ -94,6 +95,13 @@ assert.match(mobileSmoke,/unavailable Facebook sign-in control must be hidden di
 assert.match(mobileSmoke,/HOLD must hide public registration CTA/,'mobile smoke must prove HOLD closes the public registration CTA');
 assert.match(mobileSmoke,/direct registration form must fail closed during HOLD/,'mobile smoke must prove direct registration fails closed during HOLD');
 assert.match(mobileWorkflow,/node scripts\/production-mobile-postdeploy-smoke\.mjs/,'automatic mobile audit must execute reusable source script');
+
+assert.match(thebeDockCss,/V216 closes descendant hit-testing leaks found by the live Phase 0 synthetic lifecycle/,'desktop dock must retain the V216 pointer-lane closure');
+assert.match(thebeDockCss,/#thebeAiDock\[data-surface="workspace"\]\s*\*,?\s*\{[\s\S]*?pointer-events:none!important;/,'decorative dock descendants must never intercept desktop workspace pointer actions');
+assert.match(thebeDockCss,/#thebeAiDock\[data-surface="workspace"\] :is\([\s\S]*?button,[\s\S]*?textarea,[\s\S]*?\[contenteditable="true"\][\s\S]*?\)\{\s*pointer-events:auto!important;/,'only explicit interactive dock controls may re-enter desktop hit testing');
+assert.match(thebeDockCss,/body\.thebe-ai-dock-open #workspaceQuickbar\{\s*margin-left:0!important;\s*width:100%!important;\s*max-width:100%!important;/,'workspace quickbar must remain inside the already-reserved V199 main lane');
+assert.match(thebeDockCss,/@media\(min-width:1024px\) and \(max-width:1500px\)\{[\s\S]*?body\.thebe-ai-dock-open #workspaceQuickbar \.workspace-quick-actions\{\s*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)!important;/,'dock-open quick actions must collapse to two columns before they can overflow back under Thebe');
+
 assert.match(launchWorkflow,/node scripts\/production-synthetic-full-user-wrapper\.mjs/,'automatic Phase 0 lifecycle must execute the mandatory full-user wrapper');
 
 assert.match(remediationWorkflow,/run-name: Audit remediation CI \$\{\{ github\.event\.pull_request\.head\.sha \}\}/,'remediation CI run identity must name the exact PR head');
