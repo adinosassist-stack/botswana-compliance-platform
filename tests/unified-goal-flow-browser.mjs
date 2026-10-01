@@ -43,6 +43,7 @@ try{
  assert.equal(await page.evaluate(()=>window.calls.some(call=>/approve|execute|permit/.test(call.path))),false,"review handoff cannot execute or approve");
  await page.evaluate(()=>window.ThebeAiDock.ask("Show my latest saved plan","resume_plan"));
  assert.equal((await page.evaluate(()=>window.ThebeAiDock.state())).lastGoal,"Protect cash");
+ await page.locator(".thebe-ai-plan-artifact summary").click();
  assert.match(await page.locator(".thebe-ai-plan-artifact").innerText(),/Recorded overdue balance/);
  await page.evaluate(()=>{window.failPlan=true;return window.ThebeAiDock.ask("Check cash","goal_plan")});
  assert.match(await page.locator("#thebeAiDockResponse").innerText(),/Source unavailable/);
