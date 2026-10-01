@@ -3784,7 +3784,9 @@
 
   function businessGoalTime(value){
     if(!value)return "Not checked yet";
-    const date=new Date(value);
+    const raw=String(value).trim();
+    const normalized=/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(raw)?raw.replace(" ","T")+"Z":raw;
+    const date=new Date(normalized);
     if(Number.isNaN(date.getTime()))return "Recorded";
     try{
       return new Intl.DateTimeFormat("en-BW",{
