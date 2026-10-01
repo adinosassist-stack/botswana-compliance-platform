@@ -1774,9 +1774,13 @@
 }
 
 /* V212 desktop workspace pointer lanes — decorative dock surfaces must never block workspace actions beneath the fixed command surface. */
+/* V216 closes descendant hit-testing leaks found by the live Phase 0 synthetic lifecycle. */
 @media(min-width:1024px){
   #thebeAiDock[data-surface="workspace"]{
     pointer-events:none;
+  }
+  #thebeAiDock[data-surface="workspace"] *{
+    pointer-events:none!important;
   }
   #thebeAiDock[data-surface="workspace"] :is(
     button,
@@ -1784,9 +1788,26 @@
     input,
     select,
     a[href],
+    summary,
+    label[for],
     [role="button"],
-    [tabindex="0"]
+    [tabindex="0"],
+    [contenteditable="true"]
   ){
-    pointer-events:auto;
+    pointer-events:auto!important;
+  }
+
+  /* The main workspace is already moved into a dock-safe lane by V199.
+     Keep the quickbar inside that lane instead of shifting it a second time. */
+  body.thebe-ai-dock-open #workspaceQuickbar{
+    margin-left:0!important;
+    width:100%!important;
+    max-width:100%!important;
+    box-sizing:border-box;
+  }
+}
+@media(min-width:1024px) and (max-width:1500px){
+  body.thebe-ai-dock-open #workspaceQuickbar .workspace-quick-actions{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
   }
 }
