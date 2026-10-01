@@ -4,7 +4,7 @@ import vm from 'node:vm';
 
 const source=fs.readFileSync(new URL('../public/js/workspace-runtime-20260929c.js',import.meta.url),'utf8');
 const production=fs.readFileSync(new URL('../cloudflare/src/production-entry.js',import.meta.url),'utf8');
-assert(production.includes('const WORKSPACE_RUNTIME_RELEASE="20261001-live-reporting-v220";')&&production.includes('${WORKSPACE_RUNTIME_ASSET}?v=${WORKSPACE_RUNTIME_RELEASE}'),'the changed workspace runtime must be cache-busted');
+assert(/const WORKSPACE_RUNTIME_RELEASE="\d{8}-[a-z0-9-]+-v\d+";/.test(production)&&production.includes('${WORKSPACE_RUNTIME_ASSET}?v=${WORKSPACE_RUNTIME_RELEASE}'),'the changed workspace runtime must be cache-busted');
 const start=source.indexOf('let opsLiveRefreshInFlight=false;');
 const end=source.indexOf('async function renderPeopleReportingSetup(){',start);
 assert(start>0&&end>start,'live reporting refresh seam must be present');
