@@ -1992,6 +1992,30 @@ function renderOpsLocations(items){const box=document.getElementById("opsLocatio
 function renderOpsAccess(items){const box=document.getElementById("opsReporterAccessList");if(!box)return;const active=(items||[]).filter(x=>x.status==="active");box.safeHTML=active.length?active.map(x=>`<div class="item"><div class="between row"><div><b>${escapeHtml(x.full_name)}</b><div class="muted small">${escapeHtml(x.location_name)} · expires ${new Date(x.expires_at).toLocaleDateString()}${x.last_used_at?` · last used ${new Date(x.last_used_at).toLocaleDateString()}`:" · not used yet"}</div></div><button class="btn alt" data-bw-onclick="revokeOpsReporterAccess('${escapeHtml(x.id)}')">Revoke</button></div></div>`).join(""):'<div class="muted small">No active employee reporting links yet.</div>'}
 function fillSelectPreserve(select,items,labelFn,emptyLabel){if(!select)return;const old=select.value;select.safeHTML=(emptyLabel?`<option value="">${escapeHtml(emptyLabel)}</option>`:"")+(items||[]).map(x=>`<option value="${escapeHtml(x.id)}">${escapeHtml(labelFn(x))}</option>`).join("");if([...select.options].some(o=>o.value===old))select.value=old}
 let opsReportingSetupEpoch=0;
+function applyOpsDashboard(dashboard){
+  const received=dashboard.reports?.length||0,expected=dashboard.reportingPopulation?.expected??dashboard.accesses?.length??0,followup=dashboard.missing?.length||0,coverage=Math.max(0,Math.min(100,Number(dashboard.coverage||0)));
+  setText("opsCoverage",`${coverage}%`);setText("opsReportsReceived",received);setText("opsReportOrb",received);setText("opsVisualReceived",received);setText("opsVisualExpected",expected);setText("opsVisualFollowup",followup);
+  const coverageTrack=document.getElementById("opsCoverageTrack");if(coverageTrack)coverageTrack.style.width=coverage+"%";
+  setText("opsExpectedReports",expected);setText("opsLocationsReporting",dashboard.locationsReporting||0);setText("opsLocationOrb",dashboard.locationsReporting||0);
+  setText("opsAttention",dashboard.totals?.attention||0);setText("opsAttentionOrb",dashboard.totals?.attention||0);
+  renderOpsBranches(dashboard.branches||[]);renderOpsMissing(dashboard.missing||[]);renderOpsExceptions(dashboard.exceptions||[]);renderOpsReports(dashboard.reports||[]);
+  setTimeout(()=>document.querySelectorAll('#dailyreports .metric-ring[data-ring-target]').forEach(syncMetricRing),10);
+}
+let opsLiveRefreshInFlight=false;
+async function refreshLiveDailyOperations(){
+  if(opsLiveRefreshInFlight||document.visibilityState!=="visible"||!window.__THEBE_WORKSPACE_READY__||!document.getElementById("dailyreports")?.classList.contains("active")||!["owner","manager"].includes(currentWorkspaceRole()))return;
+  const epoch=opsReportingSetupEpoch,date=document.getElementById("opsReportDate")?.value||browserGaboroneDate(),locationId=document.getElementById("opsLocationFilter")?.value||"";
+  opsLiveRefreshInFlight=true;
+  try{
+    const dashboard=await reportingAnalyticsJson(`/api/daily-reporting/dashboard?date=${encodeURIComponent(date)}${locationId?`&locationId=${encodeURIComponent(locationId)}`:""}`);
+    if(epoch!==opsReportingSetupEpoch||document.visibilityState!=="visible"||!document.getElementById("dailyreports")?.classList.contains("active")||date!==(document.getElementById("opsReportDate")?.value||browserGaboroneDate())||locationId!==(document.getElementById("opsLocationFilter")?.value||""))return;
+    applyOpsDashboard(dashboard);
+  }catch(_){/* Keep the last confirmed dashboard visible; manual Refresh surfaces errors. */}
+  finally{opsLiveRefreshInFlight=false}
+}
+setInterval(()=>void refreshLiveDailyOperations(),30000);
+window.addEventListener("focus",()=>void refreshLiveDailyOperations());
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")void refreshLiveDailyOperations()});
 async function renderPeopleReportingSetup(){
   if(!document.getElementById("peopleops")?.classList.contains("active"))return;
   const reportingSetupDetails=document.getElementById("opsReportingSetupDetails");
@@ -2061,10 +2085,7 @@ async function renderDailyOperations(){
     if(box)box.safeHTML=planBlocked?'<div class="notice info"><b>Employee reporting is not available on the current plan.</b><div class="small">Locations still work independently. Upgrade the workspace plan to issue restricted employee reporting links.</div></div>':`<div class="notice bad">Employee reporting access could not load. ${escapeHtml(err?.message||"Retry this section.")}</div>`;
   }
 
-  const received=dashboard.reports?.length||0,expected=dashboard.reportingPopulation?.expected??dashboard.accesses?.length??0,followup=dashboard.missing?.length||0,coverage=Math.max(0,Math.min(100,Number(dashboard.coverage||0)));setText("opsCoverage",`${coverage}%`);setText("opsReportsReceived",received);setText("opsReportOrb",received);setText("opsVisualReceived",received);setText("opsVisualExpected",expected);setText("opsVisualFollowup",followup);const coverageTrack=document.getElementById("opsCoverageTrack");if(coverageTrack)coverageTrack.style.width=coverage+"%";
-  setText("opsExpectedReports",dashboard.reportingPopulation?.expected??dashboard.accesses?.length??0);setText("opsLocationsReporting",dashboard.locationsReporting||0);setText("opsLocationOrb",dashboard.locationsReporting||0);
-  setText("opsAttention",dashboard.totals?.attention||0);setText("opsAttentionOrb",dashboard.totals?.attention||0);
-  renderOpsBranches(dashboard.branches||[]);renderOpsMissing(dashboard.missing||[]);renderOpsExceptions(dashboard.exceptions||[]);renderOpsReports(dashboard.reports||[]);
+  applyOpsDashboard(dashboard);
   const [settingsR,summariesR]=await Promise.allSettled([
     apiJson("/api/daily-reporting/settings"),
     reportingAnalyticsJson(`/api/daily-reporting/summaries?date=${encodeURIComponent(date)}`)
@@ -2077,7 +2098,6 @@ async function renderDailyOperations(){
     const first=reason(reportingFailures[0]),box=document.getElementById("opsAiSummary"),planBlocked=reportingFailures.some(x=>Number(reason(x)?.status||0)===402||String(reason(x)?.code||"")==="feature_not_in_plan");
     if(box)box.safeHTML=planBlocked?'<div class="notice info"><b>Daily reporting analytics are not available on the current plan.</b><div class="small">Location setup remains available.</div></div>':`<div class="notice bad"><b>Reporting analytics are temporarily unavailable.</b><div class="small">${escapeHtml(first?.message||"Retry this section.")}</div><button class="btn alt" type="button" style="margin-top:8px" data-bw-onclick="renderDailyOperations()">Retry analytics</button></div>`;
   }
-  setTimeout(()=>document.querySelectorAll('#dailyreports .metric-ring[data-ring-target]').forEach(syncMetricRing),10);
 }
 async function loadOpsPerformanceLearning(){const date=document.getElementById("opsReportDate")?.value||browserGaboroneDate(),locationId=document.getElementById("opsLocationFilter")?.value||"",status=document.getElementById("opsLearningUpdated");if(status)status.textContent="Loading performance learning…";try{const performance=await reportingAnalyticsJson(`/api/daily-reporting/performance?date=${encodeURIComponent(date)}${locationId?`&locationId=${encodeURIComponent(locationId)}`:""}`);renderOpsPerformance(performance);if(status&&!String(status.textContent||"").includes("historical"))status.textContent="Performance learning loaded."}catch(e){if(status)status.textContent="Performance learning could not load. "+e.message}}
 async function addOpsLocation(){const name=document.getElementById("opsLocationName").value.trim();if(!name)return notifyUser("Enter a location name.");try{const saved=await apiJson("/api/daily-reporting/locations",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({name,code:document.getElementById("opsLocationCode").value,town:document.getElementById("opsLocationTown").value})});document.getElementById("opsLocationName").value="";document.getElementById("opsLocationCode").value="";document.getElementById("opsLocationTown").value="";if(document.getElementById("peopleops")?.classList.contains("active"))await renderPeopleReportingSetup();if(document.getElementById("dailyreports")?.classList.contains("active"))await renderDailyOperations();notifyUser(saved?.reusedDefault?"Location saved. The initial Head Office placeholder was replaced.":"Location added.",{type:"success"})}catch(e){notifyUser(e.message)}}

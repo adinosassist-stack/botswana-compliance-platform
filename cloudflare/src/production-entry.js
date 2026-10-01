@@ -16,6 +16,7 @@ const THEBE_PUBLIC_API_CLIENT_RELEASE="20260930a";
 const THEBE_AI_DOCK_RELEASE="20261001-common-work-yield-v219";
 const THEBE_AI_DOCK_HOTFIX_ASSET="/assets/thebe-ai-dock-v184-hotfix.css";
 const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20260929c.js";
+const WORKSPACE_RUNTIME_RELEASE="20261001-live-reporting-v220";
 const WORKSPACE_STYLES_ASSET="/assets/workspace-inline-styles-20260929b.css";
 const WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT=12;
 const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20260929g-";
@@ -133,7 +134,7 @@ function externalizeWorkspaceRuntime(html){
   const source=String(html||"");
   const pattern=/<script id="thebe-workspace-runtime-inline">[\s\S]*?<\/script>/;
   if(!pattern.test(source))return source;
-  return source.replace(pattern,`<script id="thebe-workspace-runtime" src="${WORKSPACE_RUNTIME_ASSET}"></script>`);
+  return source.replace(pattern,`<script id="thebe-workspace-runtime" src="${WORKSPACE_RUNTIME_ASSET}?v=${WORKSPACE_RUNTIME_RELEASE}"></script>`);
 }
 
 function externalizeWorkspaceHeadStyles(html){
