@@ -6,8 +6,8 @@ assert.equal(occurrences('<style id="v17-behance-polish">'),0,"dead premium work
 assert.equal(occurrences("/* v17 — Behance-inspired premium compliance SaaS system */"),0,"dead premium polish must stay removed");
 assert.equal(occurrences("/* v18 motion system */"),1,"motion system must not be duplicated");
 assert.ok(runtime.includes(".shell{grid-template-columns:232px minmax(0,1fr)}"));
-assert.ok(runtime.includes("@media(max-width:1000px){main{padding:18px!important}.top{margin:-18px -18px 18px!important;padding:11px 18px!important}.actionstrip{grid-template-columns:1fr!important}.shell{grid-template-columns:1fr!important}}"));
-assert.ok(runtime.includes("@media(max-width:650px){main{padding:12px 12px 84px!important}"));
+assert.ok(runtime.includes("@media(max-width:1000px){.shell{grid-template-columns:1fr}aside{height:auto;position:relative;padding:11px 10px}"),"single tablet/mobile shell contract must survive");
+assert.ok(runtime.includes("@media(max-width:650px){main{padding:14px 12px 32px}.top{margin:-14px -12px 14px;padding:10px 12px}"),"single compact geometry contract must survive");
 assert.ok(runtime.includes("propertyintelligence"),"Property must remain workspace-resident");
 assert.ok(runtime.includes("peopleops"),"People must remain workspace-resident");
 console.log("V237_WORKSPACE_GEOMETRY_CLEANUP_PASS");
