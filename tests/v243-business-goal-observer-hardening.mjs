@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import {DatabaseSync} from "node:sqlite";
-import {BUSINESS_GOAL_OBSERVER_AGENT_ID,FINANCE_OBSERVER_AGENT_ID} from "../cloudflare/src/agent-control-plane.js";
+import {BUSINESS_GOAL_OBSERVER_AGENT_ID,FINANCE_OBSERVER_AGENT_ID,evaluateCanonicalAgentDrift} from "../cloudflare/src/agent-control-plane.js";
 import {__agentReadToolsTest,executeAgentReadTool} from "../cloudflare/src/agent-read-tools.js";
 
 const migration=fs.readFileSync("cloudflare/migrations/065_v243_business_goal_observer.sql","utf8");
@@ -43,6 +43,51 @@ const wrongObserverIdentity=await executeAgentReadTool("financial_position.read"
 });
 assert.equal(wrongObserverIdentity.allowed,false);
 assert.equal(wrongObserverIdentity.error,"system_observer_identity_forbidden");
+
+let missingIdentityPersistAttempted=false;
+const driftRows={
+  "THEBE-001":{
+    agent_id:"THEBE-001",canonical_name:"thebe",actor_type:"agent",
+    purpose:"Canonical Thebe Super Agent",risk_tier:"high",authority_state:"active",
+    execution_capable:1,owner_scope:"platform"
+  },
+  "SYS-FIN-OBS-001":{
+    agent_id:"SYS-FIN-OBS-001",canonical_name:"system_observer",actor_type:"system_observer",
+    purpose:"Governed read-only Finance observation",risk_tier:"low",authority_state:"active",
+    execution_capable:0,owner_scope:"platform"
+  }
+};
+const driftDb={
+  prepare(sql){
+    return {
+      bind(...bindings){
+        return {
+          async first(){
+            if(sql.includes("FROM agent_registry"))return driftRows[String(bindings[0])]||null;
+            if(sql.includes("FROM agent_authority_drift_findings")){
+              if(String(bindings[0])===BUSINESS_GOAL_OBSERVER_AGENT_ID)missingIdentityPersistAttempted=true;
+              return null;
+            }
+            return null;
+          },
+          async run(){
+            if(sql.includes("agent_authority_drift_findings")&&String(bindings[0])===BUSINESS_GOAL_OBSERVER_AGENT_ID){
+              missingIdentityPersistAttempted=true;
+              throw new Error("missing identity must not write an FK-backed drift child row");
+            }
+            return {changes:0};
+          }
+        };
+      }
+    };
+  }
+};
+const missingIdentityDrift=await evaluateCanonicalAgentDrift({DB:driftDb},{persist:true});
+assert.equal(missingIdentityDrift.ok,true);
+assert.equal(missingIdentityDrift.drifted,true);
+assert.equal(missingIdentityDrift.findings.some(finding=>finding.agentId===BUSINESS_GOAL_OBSERVER_AGENT_ID),true);
+assert.equal(missingIdentityPersistAttempted,false,
+  "missing canonical identities must be reported as drift without attempting an impossible FK child insert");
 
 assert.match(loop,/BUSINESS_GOAL_OBSERVER_AGENT_ID/);
 assert.doesNotMatch(loop,/FINANCE_OBSERVER_AGENT_ID/);
