@@ -600,8 +600,20 @@
   #dashboard .home-status-strip,
   .simplified-hub :is(.outcome-status-strip,.people-status-strip),
   .simplified-hub :is(.outcome-grid,.people-outcome-grid),
-  #evidencehub .proof-summary-grid{grid-template-columns:1fr!important}
+  #evidencehub .proof-summary-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:8px!important;
+  }
+  #dashboard .owner-today-card{min-height:92px!important;padding:11px 12px!important}
+  #dashboard .owner-today-value{font-size:20px!important}
+  #dashboard .home-status-chip{min-height:54px!important}
+  .simplified-hub :is(.outcome-status-chip,.people-status-chip){min-height:66px!important;padding:11px 12px 10px 14px!important}
+  .simplified-hub :is(.outcome-card,.people-outcome-card,.hub-card){min-height:104px!important;padding:11px 12px!important}
+  #evidencehub .proof-work-grid{grid-template-columns:1fr!important}
   #dashboard>.owner-command-hero{padding:13px!important}
   #dashboard #ownerGreeting{font-size:21px!important}
   .simplified-hub>.hub-hero h2{font-size:21px!important}
+}
+@media(max-width:390px){
+  .simplified-hub :is(.outcome-grid,.people-outcome-grid){grid-template-columns:1fr!important}
 }
