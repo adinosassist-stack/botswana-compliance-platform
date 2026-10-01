@@ -3801,12 +3801,25 @@
     }
   }
 
+  function businessGoalAttentionCopy(code){
+    const key=cleanText(code,120);
+    const messages={
+      business_goal_source_unavailable:"A required source could not be read after repeated checks. Review the source, then resume to retry.",
+      business_goal_observer_identity_contained:"The governed observer identity is unavailable. Thebe paused rather than widening authority.",
+      business_goal_external_action_budget_forbidden:"The stored goal budget requested external-action authority. Thebe blocked it and paused.",
+      business_goal_budget_repair_conflict:"Thebe could not safely reconcile this goal’s read budget. Review it, then resume to retry.",
+      business_goal_observation_failed:"The scheduled check failed repeatedly. Review the goal before retrying."
+    };
+    return messages[key]||"This goal paused after repeated check failures. Review it, then resume to retry.";
+  }
+
   function businessGoalOutcome(task){
     const key=businessGoalTaskKey(task),checkpoint=task?.checkpoint&&typeof task.checkpoint==="object"?task.checkpoint:{};
     const signal=checkpoint?.signal&&typeof checkpoint.signal==="object"?checkpoint.signal:{};
     const metrics=signal?.metrics&&typeof signal.metrics==="object"?signal.metrics:{};
     const taskStatus=String(task?.status||"active");
-    if(taskStatus==="paused")return {state:"Paused",tone:"neutral",detail:"Scheduled checks are paused."};
+    if(checkpoint.ownerAttention===true)return {state:"Needs attention",tone:"risk",detail:businessGoalAttentionCopy(checkpoint.errorCode),ownerAttention:true};
+    if(taskStatus==="paused")return {state:"Paused",tone:"neutral",detail:"Scheduled checks are paused.",ownerAttention:false};
     if(!task?.last_run_at)return {state:"Queued",tone:"neutral",detail:"Awaiting the first governed check."};
     const state=checkpoint.baselineEstablished===true?"Baseline":checkpoint.changed===true?"Changed":"Steady";
     const tone=signal.tone==="risk"?"risk":signal.tone==="positive"?"positive":"neutral";
@@ -3854,7 +3867,7 @@
     try{
       const result=await request("/api/agentic/business-goals",{
         method:"POST",
-        body:JSON.stringify({templateKey,cadence:"daily",maxToolCallsPerRun:4})
+        body:JSON.stringify({templateKey,cadence:"daily"})
       });
       if(statusNode)statusNode.textContent=result?.notice||"Goal activated. Thebe will observe and recommend within its authority boundary.";
       await renderGoalsAndIdeas(true);
@@ -3910,7 +3923,7 @@
         const outcome=businessGoalOutcome(task);
         const card=document.createElement("article");
         card.className="owner-signal";
-        card.dataset.tone=taskStatus==="paused"?"neutral":outcome.tone;
+        card.dataset.tone=outcome.tone;
         const top=document.createElement("div");
         top.className="owner-signal-top";
         top.append(
@@ -3929,7 +3942,7 @@
           controls.style.gap="6px";
           controls.style.flexWrap="wrap";
           controls.append(
-            button(taskStatus==="paused"?"Resume":"Pause",()=>transitionBusinessGoal(task,taskStatus==="paused"?"resume":"pause",status),"btn soft"),
+            button(taskStatus==="paused"?(outcome.ownerAttention?"Resume & retry":"Resume"):"Pause",()=>transitionBusinessGoal(task,taskStatus==="paused"?"resume":"pause",status),"btn soft"),
             button("Stop watching",()=>transitionBusinessGoal(task,"cancel",status),"btn alt")
           );
           card.append(controls);
