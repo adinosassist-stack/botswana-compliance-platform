@@ -39,6 +39,7 @@ assert.equal(external.code,"business_goal_external_action_budget_forbidden",
   "background business goals must never acquire an external-action budget");
 
 const runner=fs.readFileSync("cloudflare/src/business-goal-durable-loop.js","utf8");
+const api=fs.readFileSync("cloudflare/src/agentic-persistent-tasks.js","utf8");
 const ui=fs.readFileSync("public/js/owner-command-centre.js","utf8");
 const pkgText=fs.readFileSync("package.json","utf8");
 
@@ -54,8 +55,13 @@ assert.match(runner,/ownerAttention:false,errorCode:null/,
 assert.match(runner,/baselineEstablished,changed,signal/,
   "V242 must preserve the V241 compact governed outcome checkpoint");
 
+assert.match(api,/business_goal_tool_budget_too_small/,
+  "new callers that explicitly under-budget a goal must be rejected rather than silently widened");
+assert.match(api,/p\.budget\.maxToolCallsPerRun<p\.allowedTools\.length/,
+  "explicit tool budgets must be compared to the pinned template read contract before persistence");
 assert.match(ui,/businessGoalAttentionCopy/,"goal failures must be translated into bounded owner-facing copy");
-assert.match(ui,/state:"Needs attention"/,"auto-paused failures must become an explicit governed outcome");
+assert.match(ui,/retryPending\?"Retry pending":"Needs attention"/,
+  "auto-paused failures and resumed retries must have distinct visible states");
 assert.match(ui,/Resume & retry/,"owners need an explicit recovery action");
 assert.doesNotMatch(ui,/body:JSON\.stringify\(\{templateKey,cadence:"daily",maxToolCallsPerRun:4\}\)/,
   "normal Owner Command Centre goal creation must not force the obsolete four-call default");
