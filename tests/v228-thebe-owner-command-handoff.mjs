@@ -11,7 +11,7 @@ assert.match(production,/const THEBE_AI_DOCK_RELEASE="20261001-owner-command-han
 assert.match(dock,/const RELEASE="20261001-owner-command-handoff-v228";/);
 assert.match(dock,/const DOCK_RELEASE="20261001-owner-command-handoff-v228";/);
 
-assert.match(html,/data-view="dashboard"[\s\S]{0,180}<span>Home<\/span>/,
+assert.match(html,/<button[^>]*class="active nav-primary"[^>]*data-view="dashboard"[^>]*>[\s\S]*?<span>Home<\/span><\/button>/,
   "workspace Home must remain the dashboard route used by the handoff");
 assert.match(html,/class="home-decision-center" id="homeDecisionCenter"/,
   "Owner Command Centre must retain its Home decision-centre mount");
