@@ -1,0 +1,42 @@
+import fs from "node:fs";
+import assert from "node:assert/strict";
+
+const runtime=fs.readFileSync("public/js/workspace-runtime-20261001b.js","utf8");
+const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
+const css=fs.readFileSync("public/assets/workspace-home-density-v234.css","utf8");
+const html=fs.readFileSync("public/index.html","utf8");
+
+assert.match(production,/const WORKSPACE_RUNTIME_RELEASE="20261001-home-live-brief-v234";/,
+  "V234 must rotate the workspace runtime cache identity");
+assert.match(production,/WORKSPACE_HOME_DENSITY_V234_CSS_ASSET="\/assets\/workspace-home-density-v234\.css"/,
+  "V234 must publish a unique cache-safe Home density stylesheet");
+assert.match(production,/source\.includes\(WORKSPACE_HOME_DENSITY_V234_CSS_ASSET\)[\s\S]*workspaceHomeDensityV234CssHref/,
+  "authenticated workspace asset injection must include V234 after the command-center layer");
+
+assert.match(html,/class="owner-today-grid"/);
+assert.match(html,/class="home-status-strip daily-status-strip"/);
+assert.match(css,/#dashboard \.home-status-strip\{[\s\S]*display:none!important/,
+  "the duplicate six-chip Home metric strip must be removed from the default visual scan");
+assert.doesNotMatch(css,/#dashboard \.owner-today-grid[^}]*display\s*:\s*none/i,
+  "the primary five-card business snapshot must remain visible");
+assert.match(css,/body\.thebe-ai-dock-open #dashboard \.owner-today-grid\{[\s\S]*repeat\(3,minmax\(0,1fr\)\)/,
+  "dock-constrained medium desktops must reflow the owner snapshot instead of squeezing five cards");
+assert.match(css,/body\.thebe-ai-dock-open #dashboard \.home-decision-grid\{[\s\S]*grid-template-columns:1fr/,
+  "dock-constrained medium desktops must stack the decision bento rather than compress it");
+assert.doesNotMatch(css,/\.notice[^}]*display\s*:\s*none/i,
+  "V234 must not hide fail-closed notices or warnings");
+
+assert.match(runtime,/let ownerBriefRefreshInFlight=false;/);
+assert.match(runtime,/async function refreshLiveOwnerBrief\(\)/);
+assert.match(runtime,/ownerBriefRefreshInFlight\|\|document\.visibilityState!==\"visible\"/);
+assert.match(runtime,/!window\.__THEBE_WORKSPACE_READY__/);
+assert.match(runtime,/!document\.getElementById\(\"dashboard\"\)\?\.classList\.contains\(\"active\"\)/);
+assert.match(runtime,/!\[\"owner\",\"manager\"\]\.includes\(currentWorkspaceRole\(\)\)/);
+assert.match(runtime,/setInterval\(\(\)=>void refreshLiveOwnerBrief\(\),60000\)/,
+  "Home live brief must refresh at a bounded one-minute cadence");
+assert.match(runtime,/window\.addEventListener\(\"focus\",\(\)=>void refreshLiveOwnerBrief\(\)\)/);
+assert.match(runtime,/visibilitychange[\s\S]*refreshLiveOwnerBrief/);
+assert.match(runtime,/if\(ownerBriefLastGoodAt\)[\s\S]*last confirmed; refresh failed/,
+  "live refresh must preserve the last confirmed brief on transient failure");
+
+console.log("PASS: V234 removes duplicate Home metrics, reflows dock-constrained desktop Home and keeps the owner brief live without page reloads.");
