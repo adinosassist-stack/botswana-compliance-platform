@@ -3801,6 +3801,18 @@
     }
   }
 
+  function businessGoalAttentionCopy(code){
+    const key=cleanText(code,120);
+    const messages={
+      business_goal_source_unavailable:"A required source could not be read after repeated checks. Review the source, then resume to retry.",
+      business_goal_observer_identity_contained:"The governed observer identity is unavailable. Thebe paused rather than widening authority.",
+      business_goal_external_action_budget_forbidden:"The stored goal budget requested external action authority. Thebe blocked it and paused.",
+      business_goal_observation_failed:"The scheduled check failed repeatedly. Review the goal before retrying.",
+      business_goal_budget_repair_conflict:"Thebe could not safely reconcile this goal’s read budget. Review it, then resume to retry."
+    };
+    return messages[key]||"This goal paused after repeated check failures. Review it, then resume to retry.";
+  }
+
   async function transitionBusinessGoal(task,action,statusNode){
     if(role()!=="owner"||!task?.id)return;
     const safeAction=["pause","resume","cancel"].includes(action)?action:null;
@@ -3873,19 +3885,24 @@
         const key=businessGoalTaskKey(task),goal=BUSINESS_GOAL_BY_KEY.get(key);
         const taskStatus=String(task.status||"active");
         const cadence=cleanText(task?.triggerSpec?.cadence||"daily",40)||"daily";
+        const checkpoint=task?.checkpoint&&typeof task.checkpoint==="object"&&!Array.isArray(task.checkpoint)?task.checkpoint:{};
+        const ownerAttention=checkpoint.ownerAttention===true;
         const card=document.createElement("article");
         card.className="owner-signal";
-        card.dataset.tone=taskStatus==="paused"?"neutral":"positive";
+        card.dataset.tone=ownerAttention?"risk":taskStatus==="paused"?"neutral":"positive";
         const top=document.createElement("div");
         top.className="owner-signal-top";
         top.append(
-          text("span",taskStatus==="paused"?"Paused":"Watching","owner-signal-label"),
+          text("span",ownerAttention?(taskStatus==="paused"?"Needs attention":"Retry pending"):(taskStatus==="paused"?"Paused":"Watching"),"owner-signal-label"),
           text("span",cadence.replace(/^./,ch=>ch.toUpperCase()),"owner-signal-value")
         );
+        const detail=ownerAttention
+          ?`${businessGoalAttentionCopy(checkpoint.errorCode)} Last attempt · ${businessGoalTime(checkpoint.lastCheckedAt||task.updated_at)}.`
+          :`Last check · ${businessGoalTime(task.last_run_at)}. ${taskStatus==="paused"?"No scheduled checks run while paused.":`Next check · ${businessGoalTime(task.next_run_at)}.`}`;
         card.append(
           top,
           text("h4",goal?.label||cleanText(task?.triggerSpec?.label||task?.objective||"Business goal",90)),
-          text("p",`Last check · ${businessGoalTime(task.last_run_at)}. ${taskStatus==="paused"?"No scheduled checks run while paused.":"Thebe remains observe-and-recommend only."}`)
+          text("p",detail)
         );
         if(canEdit()){
           const controls=document.createElement("div");
@@ -3893,7 +3910,7 @@
           controls.style.gap="6px";
           controls.style.flexWrap="wrap";
           controls.append(
-            button(taskStatus==="paused"?"Resume":"Pause",()=>transitionBusinessGoal(task,taskStatus==="paused"?"resume":"pause",status),"btn soft"),
+            button(taskStatus==="paused"?(ownerAttention?"Resume & retry":"Resume"):"Pause",()=>transitionBusinessGoal(task,taskStatus==="paused"?"resume":"pause",status),"btn soft"),
             button("Stop watching",()=>transitionBusinessGoal(task,"cancel",status),"btn alt")
           );
           card.append(controls);
