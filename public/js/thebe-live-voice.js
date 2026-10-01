@@ -1233,18 +1233,18 @@
     responseBox.append(actions);
   }
   function publishedPricing(){
-    const cards=[...document.querySelectorAll("#pricing .pricecard")].slice(0,4);
+    const cards=[...document.querySelectorAll("#pricing .pricecard")];
     const values=cards.map(card=>{
       const name=clean(card.querySelector("h3")?.textContent,40);
       const price=clean(card.querySelector(".price")?.textContent,60);
       return name&&price?`${name} ${price}`:"";
     }).filter(Boolean);
-    return values.length?values.join(" · "):"Monitor P149/month · Protect P349/month · Control P699/month · Network P1,299/month";
+    return values.length?values.join(" · "):"Monitor P149/month · Protect P349/month · Control P699/month · Network P1,299/month · Partner P2,499/month";
   }
   function marketingAnswer(question){
     const q=clean(question,MAX_QUESTION).toLowerCase();
     if(/price|pricing|cost|plan|subscription|trial/.test(q)){
-      return `Thebe Desk has four published plans: ${publishedPricing()}. Every new workspace starts with a 14-day trial, so an SME can start lean and upgrade as it needs more locations, controls and AI capacity.`;
+      return `Thebe Desk's published plans are: ${publishedPricing()}. Every new workspace starts with a 14-day trial, so an SME can start lean and upgrade as it needs more locations, controls and AI capacity.`;
     }
     if(/cipa|burs|tax|vat|paye|licen[cs]e|compliance|regulat/.test(q)){
       return "Thebe Desk keeps recurring Botswana compliance work visible in one place: CIPA company records and annual-return work, BURS tax obligations, employment compliance, business and industrial licences, tender deadlines, controls and inspection-ready evidence. It turns confirmed obligations into practical actions and keeps the supporting proof attached.";
