@@ -162,7 +162,7 @@ assert.match(owner,/needs both owner assumptions and current finance evidence/);
 assert.match(owner,/not spending authorization/);
 
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
-assert.match(production,/OWNER_COMMAND_CENTRE_RELEASE="20260929-v185"/);
+assert.match(production,/OWNER_COMMAND_CENTRE_RELEASE="20261001-property-reference-v224"/);
 assert.match(production,/EXECUTIVE_PERSONALIZATION_RELEASE="20260929-v185"/);
 
 const profile=JSON.parse(fs.readFileSync("RELEASE_PROFILE.json","utf8"));
