@@ -3818,7 +3818,17 @@
     const signal=checkpoint?.signal&&typeof checkpoint.signal==="object"?checkpoint.signal:{};
     const metrics=signal?.metrics&&typeof signal.metrics==="object"?signal.metrics:{};
     const taskStatus=String(task?.status||"active");
-    if(checkpoint.ownerAttention===true)return {state:"Needs attention",tone:"risk",detail:businessGoalAttentionCopy(checkpoint.errorCode),ownerAttention:true};
+    if(checkpoint.ownerAttention===true){
+      const retryPending=taskStatus==="active";
+      return {
+        state:retryPending?"Retry pending":"Needs attention",
+        tone:"risk",
+        detail:retryPending
+          ?`${businessGoalAttentionCopy(checkpoint.errorCode)} Retry is scheduled for ${businessGoalTime(task.next_run_at)}.`
+          :businessGoalAttentionCopy(checkpoint.errorCode),
+        ownerAttention:true
+      };
+    }
     if(taskStatus==="paused")return {state:"Paused",tone:"neutral",detail:"Scheduled checks are paused.",ownerAttention:false};
     if(!task?.last_run_at)return {state:"Queued",tone:"neutral",detail:"Awaiting the first governed check."};
     const state=checkpoint.baselineEstablished===true?"Baseline":checkpoint.changed===true?"Changed":"Steady";
