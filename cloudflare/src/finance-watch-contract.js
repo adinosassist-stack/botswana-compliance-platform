@@ -25,6 +25,10 @@ export function buildFinanceWatchDueQuery(limit=25){
           SELECT 1 FROM json_each(${safeToolsJson})
           WHERE type<>'text' OR value NOT IN (${placeholders})
         )
+        AND NOT (
+          json_valid(trigger_spec_json) AND
+          json_extract(trigger_spec_json,'$.templateKey') IN ('protect_cash','grow_sales','stay_compliant','watch_operations','protect_property','morning_brief')
+        )
       ORDER BY next_run_at,id LIMIT ?`,
     bindings:Object.freeze([...FINANCE_WATCH_READ_ACTIONS,cap])
   });
