@@ -136,7 +136,7 @@ function injectPublicThebeAssets(html){
   if(!source.includes(THEBE_AI_DOCK_HOTFIX_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${aiDockHotfixHref}" />\n`);
   if(!source.includes("/js/api-client.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${publicApiClientJsSrc}" defer></script>\n`);
   if(!source.includes("/js/thebe-live-voice.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${liveVoiceJsSrc}" defer></script>\n`);
-  if(!source.includes("/assets/thebe-spatial-dock-v246.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="/assets/thebe-spatial-dock-v246.css" />\n`);
+  if(!source.includes("/assets/thebe-spatial-dock-v246.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="/assets/thebe-spatial-dock-v246.css?v=20261001-public-spacing" />\n`);
   return source;
 }
 
@@ -357,8 +357,8 @@ function injectOwnerCommandCentreAssets(html){
   if(!source.includes("/js/executive-personalization.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${personalizationJsSrc}" defer></script>\n`);
   if(!source.includes("/js/business-data-bridge.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${bridgeJsSrc}" defer></script>\n`);
   if(!source.includes("/js/thebe-live-voice.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${liveVoiceJsSrc}" defer></script>\n`);
-  if(!source.includes(PROPERTY_VISIBILITY_JS_ASSET))source=injectBeforeFinalClosingTag(source,"body",`<script src="${propertyVisibilityJsSrc}" defer></script>\n`);
-  if(!source.includes("/assets/thebe-spatial-dock-v246.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="/assets/thebe-spatial-dock-v246.css" />\n`);
+  if(!source.includes(PROPERTY_VISIBILITY_JS_ASSET))source=injectBeforeFinalClosingTag(source,"body",`<script src="${propertyVisibilityJsSrc}?v=20261001-compact-recovery" defer></script>\n`);
+  if(!source.includes("/assets/thebe-spatial-dock-v246.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="/assets/thebe-spatial-dock-v246.css?v=20261001-public-spacing" />\n`);
   return source;
 }
 
