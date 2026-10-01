@@ -79,12 +79,12 @@ assert.match(owner,/Send to professional review/);
 assert.match(owner,/Final issuance requires the governed signed valuation record/);
 assert.doesNotMatch(owner,/OPERATIONS_SECRET|x-operations-secret/);
 
-assert.equal(profile.latest_cloudflare_migration,"064_v217_jit_execution_permits.sql");
+assert.equal(profile.latest_cloudflare_migration,"065_v241_business_goal_observer.sql");
 assert.equal(profile.property_valuation_service_reliability_v177,true);
 assert.equal(profile.property_valuation_quote_expiry_enforced,true);
 assert.equal(profile.property_valuation_assigned_credential_bound,true);
 assert.equal(profile.property_valuation_duplicate_active_request_blocked,true);
-assert.match(agentic,/064_v217_jit_execution_permits\.sql/);
+assert.match(agentic,/065_v241_business_goal_observer\.sql/);
 assert.match(runner,/number:62/);
 assert.match(runner,/062_v177_property_valuation_service_reliability\.sql/);
 assert.match(runner,/blob:'de15b22de9d6547c5b138b4400b54b67827b79d3'/);
