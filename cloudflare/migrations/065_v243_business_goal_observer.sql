@@ -14,7 +14,7 @@ BEFORE INSERT ON agent_persistent_tasks
 WHEN NEW.status IN ('active','paused')
   AND NEW.trigger_kind='scheduled'
   AND json_valid(NEW.trigger_spec_json)
-  AND json_extract(NEW.trigger_spec_json,'$.templateKey') IN (
+  AND json_extract(CASE WHEN json_valid(NEW.trigger_spec_json) THEN NEW.trigger_spec_json ELSE '{}' END,'$.templateKey') IN (
     'protect_cash','grow_sales','stay_compliant','watch_operations','protect_property','morning_brief'
   )
   AND EXISTS(
@@ -23,7 +23,7 @@ WHEN NEW.status IN ('active','paused')
       AND t.status IN ('active','paused')
       AND t.trigger_kind='scheduled'
       AND json_valid(t.trigger_spec_json)
-      AND json_extract(t.trigger_spec_json,'$.templateKey')=json_extract(NEW.trigger_spec_json,'$.templateKey')
+      AND json_extract(CASE WHEN json_valid(t.trigger_spec_json) THEN t.trigger_spec_json ELSE '{}' END,'$.templateKey')=json_extract(CASE WHEN json_valid(NEW.trigger_spec_json) THEN NEW.trigger_spec_json ELSE '{}' END,'$.templateKey')
   )
 BEGIN
   SELECT RAISE(ABORT,'duplicate_business_goal');
@@ -34,7 +34,7 @@ BEFORE UPDATE OF tenant_id,status,trigger_kind,trigger_spec_json ON agent_persis
 WHEN NEW.status IN ('active','paused')
   AND NEW.trigger_kind='scheduled'
   AND json_valid(NEW.trigger_spec_json)
-  AND json_extract(NEW.trigger_spec_json,'$.templateKey') IN (
+  AND json_extract(CASE WHEN json_valid(NEW.trigger_spec_json) THEN NEW.trigger_spec_json ELSE '{}' END,'$.templateKey') IN (
     'protect_cash','grow_sales','stay_compliant','watch_operations','protect_property','morning_brief'
   )
   AND EXISTS(
@@ -44,7 +44,7 @@ WHEN NEW.status IN ('active','paused')
       AND t.status IN ('active','paused')
       AND t.trigger_kind='scheduled'
       AND json_valid(t.trigger_spec_json)
-      AND json_extract(t.trigger_spec_json,'$.templateKey')=json_extract(NEW.trigger_spec_json,'$.templateKey')
+      AND json_extract(CASE WHEN json_valid(t.trigger_spec_json) THEN t.trigger_spec_json ELSE '{}' END,'$.templateKey')=json_extract(CASE WHEN json_valid(NEW.trigger_spec_json) THEN NEW.trigger_spec_json ELSE '{}' END,'$.templateKey')
   )
 BEGIN
   SELECT RAISE(ABORT,'duplicate_business_goal');
