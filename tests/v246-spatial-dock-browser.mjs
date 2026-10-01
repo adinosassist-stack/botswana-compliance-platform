@@ -26,6 +26,15 @@ try{
  if(process.env.THEBE_SCREENSHOT_DIR){fs.mkdirSync(process.env.THEBE_SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.THEBE_SCREENSHOT_DIR,'dock-desktop.png')})}
  await page.getByRole('button',{name:'Expand Thebe panel',exact:true}).click();
  assert(await page.evaluate(()=>document.getElementById('mainContent').getBoundingClientRect().right<=document.getElementById('thebeAiDock').getBoundingClientRect().left),'expanded dock must reserve its width');
+ // Business dialogs must own the interaction layer above the assistant.
+ await page.evaluate(()=>{
+  const modal=document.createElement('div');modal.className='modal open';modal.id='testBusinessModal';
+  const action=document.createElement('button');action.textContent='Modal action';action.style.cssText='position:fixed;right:30px;top:150px;width:180px;height:50px';
+  action.onclick=()=>{window.modalActionWorked=true};modal.append(action);document.body.append(modal);
+ });
+ await page.getByRole('button',{name:'Modal action',exact:true}).click();
+ assert.equal(await page.evaluate(()=>window.modalActionWorked),true,'dock cannot occlude dialog actions');
+ await page.evaluate(()=>document.getElementById('testBusinessModal').remove());
  // Controlled status boundary: no live service or real microphone access.
  await page.evaluate(()=>{window.mediaRequests=0;window.apiJson=()=>new Promise(resolve=>window.resolveVoiceGate=resolve);navigator.mediaDevices.getUserMedia=async()=>{window.mediaRequests++;throw Error('unexpected microphone acquisition')}});
  await page.locator('.thebe-ai-orb-button').click();
