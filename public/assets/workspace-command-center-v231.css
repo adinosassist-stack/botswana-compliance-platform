@@ -617,3 +617,30 @@
 @media(max-width:390px){
   .simplified-hub :is(.outcome-grid,.people-outcome-grid){grid-template-columns:1fr!important}
 }
+
+
+/* V233 adversarial alignment closure — equal-height action cards and a dock-safe top bar. */
+.simplified-hub :is(.outcome-card,.people-outcome-card,.hub-card){
+  display:flex!important;
+  flex-direction:column!important;
+  height:100%!important;
+}
+#dashboard .owner-today-card,
+#evidencehub .proof-summary-card,
+#evidencehub .proof-work-card{
+  height:100%!important;
+}
+#dashboard .home-thebe-agent-quick{
+  display:flex!important;
+  flex-wrap:nowrap!important;
+  overflow-x:auto!important;
+  overscroll-behavior-inline:contain;
+  scrollbar-width:thin;
+}
+#dashboard .home-thebe-agent-quick .btn{flex:0 0 auto}
+@media(min-width:1024px) and (max-width:1500px){
+  body.thebe-ai-dock-open #mainContent .global-search{
+    min-width:min(30vw,360px)!important;
+    max-width:360px!important;
+  }
+}
