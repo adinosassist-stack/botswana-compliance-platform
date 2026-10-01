@@ -14,6 +14,97 @@ function sameToolSet(left,right){
   const a=[...left].sort(),b=[...right].sort();
   return a.every((value,index)=>value===b[index]);
 }
+const number=value=>Number.isFinite(Number(value))?Number(value):0;
+const metric=(object,key)=>number(object&&Object.prototype.hasOwnProperty.call(object,key)?object[key]:0);
+
+export function summarizeBusinessGoalSnapshot(templateKey,snapshot={}){
+  const key=clean(templateKey,40);
+  const financial=snapshot["financial_position.read"]||{};
+  const quality=snapshot["finance_data_quality.read"]||{};
+  const receivables=snapshot["receivables_summary.read"]||{};
+  const compliance=snapshot["compliance_status.read"]||{};
+  const operations=snapshot["daily_operations_summary.read"]||{};
+  const health=snapshot["business_health.read"]||{};
+  const opsMetrics=operations?.metrics&&typeof operations.metrics==="object"?operations.metrics:{};
+  const overdueMinor=metric(receivables,"overdueMinor")||metric(financial,"receivablesOverdueMinor");
+  const outstandingMinor=metric(receivables,"outstandingMinor")||metric(financial,"receivablesOutstandingMinor");
+  const reconExceptions=Math.max(metric(financial,"reconciliationExceptionCount"),metric(quality,"reconciliationExceptionCount"));
+  const dataIssues=metric(quality,"failedImportBatchCount")+metric(quality,"missingSourceFingerprintCount");
+
+  if(key==="protect_cash")return frozen({
+    code:overdueMinor>0?"overdue_receivables":reconExceptions>0||dataIssues>0?"finance_evidence_review":"cash_watch_recorded",
+    tone:overdueMinor>0||reconExceptions>0||dataIssues>0?"risk":"neutral",
+    metrics:frozen({
+      cashPositionMinor:metric(financial,"cashPositionMinor"),
+      outstandingMinor,overdueMinor,
+      overdueInvoiceCount:metric(receivables,"overdueInvoiceCount")||metric(financial,"overdueInvoiceCount"),
+      reconciliationExceptionCount:reconExceptions,
+      dataIssueCount:dataIssues
+    })
+  });
+  if(key==="grow_sales")return frozen({
+    code:overdueMinor>0?"receivables_follow_up":outstandingMinor>0?"receivables_open":"operating_watch",
+    tone:overdueMinor>0?"risk":"neutral",
+    metrics:frozen({
+      outstandingMinor,overdueMinor,
+      outstandingInvoiceCount:metric(receivables,"outstandingInvoiceCount"),
+      overdueInvoiceCount:metric(receivables,"overdueInvoiceCount"),
+      operationsAvailable:operations?.available===true,
+      reportedRevenue:metric(opsMetrics,"reportedRevenue")||metric(opsMetrics,"revenue"),
+      orders:metric(opsMetrics,"orders"),
+      customers:metric(opsMetrics,"customers")
+    })
+  });
+  if(key==="stay_compliant")return frozen({
+    code:metric(compliance,"overdueObligationCount")>0?"compliance_overdue":metric(compliance,"dueWithin14Days")>0?"compliance_due_soon":"compliance_watch_recorded",
+    tone:metric(compliance,"overdueObligationCount")>0?"risk":"neutral",
+    metrics:frozen({
+      openObligationCount:metric(compliance,"openObligationCount"),
+      overdueObligationCount:metric(compliance,"overdueObligationCount"),
+      dueWithin14Days:metric(compliance,"dueWithin14Days"),
+      nextDueAt:compliance?.nextDueAt||null
+    })
+  });
+  if(key==="watch_operations")return frozen({
+    code:operations?.available===true?(metric(opsMetrics,"exceptions")>0||metric(opsMetrics,"jobsPending")>0?"operations_attention":"operations_recorded"):"operations_not_reported",
+    tone:metric(opsMetrics,"exceptions")>0?"risk":"neutral",
+    metrics:frozen({
+      available:operations?.available===true,
+      summaryDate:operations?.summaryDate||null,
+      exceptions:metric(opsMetrics,"exceptions"),
+      jobsPending:metric(opsMetrics,"jobsPending"),
+      jobsCompleted:metric(opsMetrics,"jobsCompleted"),
+      locationsReporting:metric(opsMetrics,"locationsReporting")
+    })
+  });
+  if(key==="protect_property")return frozen({
+    code:metric(health,"criticalPerformanceSignals")>0||metric(health,"failedWorkflowCount")>0||metric(health,"overdueComplianceCount")>0?"business_pressure":"business_watch_recorded",
+    tone:metric(health,"criticalPerformanceSignals")>0||metric(health,"failedWorkflowCount")>0||metric(health,"overdueComplianceCount")>0?"risk":"neutral",
+    metrics:frozen({
+      cashPositionMinor:metric(financial,"cashPositionMinor"),
+      overdueReceivablesMinor:metric(financial,"receivablesOverdueMinor"),
+      criticalPerformanceSignals:metric(health,"criticalPerformanceSignals"),
+      failedWorkflowCount:metric(health,"failedWorkflowCount"),
+      overdueComplianceCount:metric(health,"overdueComplianceCount")
+    })
+  });
+  if(key==="morning_brief")return frozen({
+    code:overdueMinor>0||metric(compliance,"overdueObligationCount")>0||metric(health,"criticalPerformanceSignals")>0||metric(health,"failedWorkflowCount")>0||reconExceptions>0?"owner_attention":"brief_recorded",
+    tone:overdueMinor>0||metric(compliance,"overdueObligationCount")>0||metric(health,"criticalPerformanceSignals")>0||metric(health,"failedWorkflowCount")>0||reconExceptions>0?"risk":"neutral",
+    metrics:frozen({
+      cashPositionMinor:metric(financial,"cashPositionMinor"),
+      overdueReceivablesMinor:overdueMinor,
+      overdueObligationCount:metric(compliance,"overdueObligationCount"),
+      dueWithin14Days:metric(compliance,"dueWithin14Days"),
+      criticalPerformanceSignals:metric(health,"criticalPerformanceSignals"),
+      failedWorkflowCount:metric(health,"failedWorkflowCount"),
+      reconciliationExceptionCount:reconExceptions,
+      operationsAvailable:operations?.available===true,
+      operationExceptions:metric(opsMetrics,"exceptions")
+    })
+  });
+  return frozen({code:"goal_snapshot_recorded",tone:"neutral",metrics:frozen({})});
+}
 
 export function validateBusinessGoalTask(task={}){
   const triggerSpec=parse(task.trigger_spec_json,task.triggerSpec??{});
@@ -145,17 +236,21 @@ export async function runBusinessGoalTask({env,task,claim}={}){
   const snapshotJson=JSON.stringify(snapshot),snapshotHash=await sha256Hex(snapshotJson);
   const previous=await env.DB.prepare("SELECT snapshot_hash FROM agent_observation_checkpoints WHERE tenant_id=? AND persistent_task_id=? ORDER BY observed_at DESC,id DESC LIMIT 1")
     .bind(tenantId,taskId).first();
+  const baselineEstablished=!previous;
   const changed=!!previous&&String(previous.snapshot_hash||"")!==snapshotHash;
+  const signal=summarizeBusinessGoalSnapshot(validated.templateKey,snapshot);
   const schedule=nextBusinessGoalRunAt(task,claim?.scheduledFor);
   if(!claim?.id||!claim?.scheduledFor||!schedule)return frozen({ok:false,persisted:false,code:"invalid_business_goal_schedule",executionAllowed:false,externalActions:0});
 
   const checkpointId=crypto.randomUUID();
   const checkpointState={
-    templateKey:validated.templateKey,snapshotHash,changed,lastCheckedAt:new Date().toISOString(),
-    nextRunAt:schedule.nextRunAt,toolCount:validated.tools.length,executionAllowed:false,externalActions:0
+    templateKey:validated.templateKey,snapshotHash,baselineEstablished,changed,signal,
+    lastCheckedAt:new Date().toISOString(),nextRunAt:schedule.nextRunAt,
+    toolCount:validated.tools.length,executionAllowed:false,externalActions:0
   };
   const eventData=JSON.stringify({
-    checkpointId,templateKey:validated.templateKey,snapshotHash,changed,
+    checkpointId,templateKey:validated.templateKey,snapshotHash,baselineEstablished,changed,
+    signalCode:signal.code,signalTone:signal.tone,
     scheduledFor:claim.scheduledFor,nextRunAt:schedule.nextRunAt,
     skippedOccurrences:schedule.skippedOccurrences,cadence:schedule.cadence,
     toolCount:validated.tools.length,executionAllowed:false,externalActions:0
@@ -178,7 +273,8 @@ export async function runBusinessGoalTask({env,task,claim}={}){
   const taskChanges=Number(batch?.[3]?.meta?.changes??batch?.[3]?.changes??0);
   if(claimChanges!==1||taskChanges!==1)throw new Error("business_goal_finalization_guard_failed");
   return frozen({
-    ok:true,persisted:true,checkpointId,templateKey:validated.templateKey,changed,
+    ok:true,persisted:true,checkpointId,templateKey:validated.templateKey,
+    baselineEstablished,changed,signal,
     nextRunAt:schedule.nextRunAt,skippedOccurrences:schedule.skippedOccurrences,
     executionAllowed:false,externalActions:0,toolCalls:validated.tools.length
   });
@@ -222,5 +318,5 @@ export async function runDueBusinessGoalTasks(env,{limit=25}={}){
 }
 
 export const __businessGoalDurableLoopTest=Object.freeze({
-  BUSINESS_GOAL_KEYS,sameToolSet,nextBusinessGoalRunAt,validateBusinessGoalTask,buildBusinessGoalDueQuery
+  BUSINESS_GOAL_KEYS,sameToolSet,nextBusinessGoalRunAt,validateBusinessGoalTask,buildBusinessGoalDueQuery,summarizeBusinessGoalSnapshot
 });
