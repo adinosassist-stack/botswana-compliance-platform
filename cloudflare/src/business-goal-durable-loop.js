@@ -3,7 +3,7 @@ import {validatePersistentTaskAllowedTools} from "./agent-tool-trust-registry.js
 import {businessGoalTemplate} from "./business-goals.js";
 import {FINANCE_OBSERVER_AGENT_ID,loadCanonicalAgentAuthority} from "./agent-control-plane.js";
 
-export const BUSINESS_GOAL_DURABLE_LOOP_VERSION="2026-10-01.v1";
+export const BUSINESS_GOAL_DURABLE_LOOP_VERSION="2026-10-01.v2";
 const frozen=value=>Object.freeze(value);
 const clean=(value,max=160)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
 const parse=(value,fallback)=>{try{return JSON.parse(String(value??""))}catch{return fallback}};
@@ -117,7 +117,14 @@ export function validateBusinessGoalTask(task={}){
   if(!sameToolSet(trusted.tools,[...template.allowedTools]))return frozen({valid:false,code:"business_goal_tool_contract_mismatch",templateKey});
   const cadence=clean(triggerSpec?.cadence,40)||"daily";
   if(!["daily","weekly"].includes(cadence))return frozen({valid:false,code:"invalid_business_goal_cadence",templateKey});
-  return frozen({valid:true,templateKey,template,cadence,tools:frozen([...trusted.tools])});
+  const budgetRaw=parse(task.budget_json,task.budget??{});
+  const budget=budgetRaw&&typeof budgetRaw==="object"&&!Array.isArray(budgetRaw)?budgetRaw:{};
+  const requestedToolCalls=Number(budget.maxToolCallsPerRun);
+  const requestedExternalActions=budget.maxExternalActions==null?0:Number(budget.maxExternalActions);
+  if(!Number.isFinite(requestedExternalActions)||requestedExternalActions!==0)return frozen({valid:false,code:"business_goal_external_action_budget_forbidden",templateKey});
+  const maxToolCallsPerRun=Math.min(8,Math.max(trusted.tools.length,Number.isFinite(requestedToolCalls)?Math.round(requestedToolCalls):trusted.tools.length));
+  const budgetAdjusted=maxToolCallsPerRun!==requestedToolCalls;
+  return frozen({valid:true,templateKey,template,cadence,tools:frozen([...trusted.tools]),budget:frozen({maxToolCallsPerRun,maxExternalActions:0}),budgetAdjusted});
 }
 
 export function nextBusinessGoalRunAt(task,scheduledFor,{now=new Date()}={}){
@@ -184,17 +191,15 @@ async function failClaim(env,task,claim,code){
 
 async function pauseForOwnerAttention(env,task,claim,code){
   const errorCode=clean(code,120)||"business_goal_observation_failed";
-  const eventData=JSON.stringify({
-    claimId:claim.id,scheduledFor:claim.scheduledFor,attempts:Number(claim.attempts||0),
-    errorCode,executionAllowed:false,externalActions:0
-  });
+  const attentionState={ownerAttention:true,errorCode,attempts:Number(claim.attempts||0),scheduledFor:claim.scheduledFor,lastCheckedAt:new Date().toISOString(),executionAllowed:false,externalActions:0};
+  const eventData=JSON.stringify({claimId:claim.id,...attentionState});
   const results=await env.DB.batch([
     env.DB.prepare("SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM agent_observation_claims WHERE id=? AND tenant_id=? AND persistent_task_id=? AND scheduled_for=? AND status='running') OR NOT EXISTS (SELECT 1 FROM agent_persistent_tasks WHERE id=? AND tenant_id=? AND status='active' AND next_run_at=?) THEN json_extract('invalid','$.') ELSE 1 END")
       .bind(claim.id,task.tenant_id,task.id,claim.scheduledFor,task.id,task.tenant_id,claim.scheduledFor),
     env.DB.prepare("UPDATE agent_observation_claims SET status='failed',checkpoint_id=NULL,error_code=?,completed_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND persistent_task_id=? AND scheduled_for=? AND status='running'")
       .bind(errorCode,claim.id,task.tenant_id,task.id,claim.scheduledFor),
-    env.DB.prepare("UPDATE agent_persistent_tasks SET status='paused',updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND status='active' AND next_run_at=?")
-      .bind(task.id,task.tenant_id,claim.scheduledFor),
+    env.DB.prepare("UPDATE agent_persistent_tasks SET status='paused',checkpoint_json=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND status='active' AND next_run_at=?")
+      .bind(JSON.stringify(attentionState),task.id,task.tenant_id,claim.scheduledFor),
     env.DB.prepare("INSERT INTO agent_persistent_task_events(id,tenant_id,persistent_task_id,event_type,event_data) VALUES(?,?,?,'OWNER_ATTENTION_REQUIRED',?)")
       .bind(crypto.randomUUID(),task.tenant_id,task.id,eventData),
     env.DB.prepare("INSERT INTO audit_events(tenant_id,event_type,entity_type,entity_id,event_data) VALUES(?,'AGENT_BUSINESS_GOAL_OWNER_ATTENTION','agent_persistent_task',?,?)")
@@ -203,7 +208,7 @@ async function pauseForOwnerAttention(env,task,claim,code){
   const claimChanges=Number(results?.[1]?.meta?.changes??results?.[1]?.changes??0);
   const taskChanges=Number(results?.[2]?.meta?.changes??results?.[2]?.changes??0);
   if(claimChanges!==1||taskChanges!==1)throw new Error("business_goal_owner_attention_guard_failed");
-  return frozen({paused:true,errorCode,executionAllowed:false,externalActions:0});
+  return frozen({paused:true,ownerAttention:true,errorCode,executionAllowed:false,externalActions:0});
 }
 
 export async function runBusinessGoalTask({env,task,claim}={}){
@@ -221,6 +226,12 @@ export async function runBusinessGoalTask({env,task,claim}={}){
     return frozen({ok:false,persisted:false,code:"business_goal_observer_identity_contained",executionAllowed:false,externalActions:0});
   }
 
+  if(validated.tools.length>validated.budget.maxToolCallsPerRun)return frozen({ok:false,persisted:false,code:"business_goal_tool_budget_exceeded",executionAllowed:false,externalActions:0});
+  if(validated.budgetAdjusted){
+    const repaired=await env.DB.prepare("UPDATE agent_persistent_tasks SET budget_json=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND status='active'")
+      .bind(JSON.stringify(validated.budget),taskId,tenantId).run();
+    if(Number(repaired?.meta?.changes??repaired?.changes??0)!==1)return frozen({ok:false,persisted:false,code:"business_goal_budget_repair_conflict",executionAllowed:false,externalActions:0});
+  }
   const auth=frozen({tenant_id:tenantId,role:"system_observer",systemActor:true,agentId:FINANCE_OBSERVER_AGENT_ID});
   const results={};
   for(const actionKey of validated.tools)results[actionKey]=await executeAgentReadTool(actionKey,{env,auth});
@@ -245,7 +256,7 @@ export async function runBusinessGoalTask({env,task,claim}={}){
   const checkpointId=crypto.randomUUID();
   const checkpointState={
     templateKey:validated.templateKey,snapshotHash,baselineEstablished,changed,signal,
-    lastCheckedAt:new Date().toISOString(),nextRunAt:schedule.nextRunAt,
+    ownerAttention:false,errorCode:null,lastCheckedAt:new Date().toISOString(),nextRunAt:schedule.nextRunAt,
     toolCount:validated.tools.length,executionAllowed:false,externalActions:0
   };
   const eventData=JSON.stringify({
