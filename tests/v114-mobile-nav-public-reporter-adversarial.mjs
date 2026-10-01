@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const html=fs.readFileSync("public/index.html","utf8");
-const styles=fs.readFileSync("public/assets/workspace-inline-styles-20260926b.css","utf8");
-const uxStyles=fs.readFileSync("public/assets/workspace-ui-ux-10.css","utf8");
+const productionEntry=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
+const workspaceStylesAsset=(productionEntry.match(/const WORKSPACE_STYLES_ASSET="([^"]+)"/)||[])[1];
+assert.ok(workspaceStylesAsset?.startsWith("/assets/workspace-inline-styles-"),"production entry must declare the active workspace stylesheet");
+const styles=fs.readFileSync("public"+workspaceStylesAsset,"utf8");
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const redirect=fs.readFileSync("public/js/reporter-link-redirect.js","utf8");
 const reportHtml=fs.readFileSync("public/report/index.html","utf8");
@@ -25,9 +27,10 @@ for(const source of [html,styles]){
   assert.ok(source.includes("body.mobile-nav-open #mainContent{visibility:hidden!important}"),"workspace text must not remain visible below the open mobile drawer");
   assert.ok(source.includes("#workspaceSidebar{display:flex!important;position:fixed!important;z-index:220!important")&&source.includes(".mobile-nav-backdrop{display:block;position:fixed;z-index:210"),"drawer layering must keep the sidebar above the opaque backdrop and all workspace text below it");
 }
-assert.ok(uxStyles.includes("#appShell .mobilebar{")&&uxStyles.includes("background:#fff!important")&&uxStyles.includes("background-color:#fff!important")&&uxStyles.includes("backdrop-filter:none!important"),"production UX override must keep the wide-mobile bottom navigation fully opaque");
-assert.ok(!uxStyles.includes("background:rgba(255,255,255,.96)!important"),"production UX override must not reintroduce translucent wide-mobile navigation");
-assert.ok(html.includes('/assets/workspace-ui-ux-10.css?v=20260924b'),"workspace UX stylesheet cache token must rotate with the opacity fix");
+const translucentMobileBar=styles.lastIndexOf("background:rgba(255,255,255,.96)");
+const opaqueMobileBar=styles.lastIndexOf("background:#fff!important;box-shadow:0 14px 38px rgba(10,20,14,.22)!important;isolation:isolate");
+assert.ok(opaqueMobileBar>translucentMobileBar,"final wide-mobile navigation rule must override the historical translucent bar with an opaque white dock");
+assert.ok(productionEntry.includes(`WORKSPACE_STYLES_ASSET="${workspaceStylesAsset}"`),"mobile navigation proof must follow the production-owned workspace stylesheet instead of a retired filename");
 assert.ok(html.includes('document.getElementById("mainContent")?.setAttribute("inert","")'),"workspace content must be inert while the mobile menu is open");
 assert.ok(html.includes('document.getElementById("mainContent")?.removeAttribute("inert")'),"workspace content must be restored after closing the mobile menu");
 assert.ok(html.includes("const MOBILE_MAX=1000;"),"mobile drawer runtime breakpoint must match the 1000px CSS/bottom-navigation breakpoint");
