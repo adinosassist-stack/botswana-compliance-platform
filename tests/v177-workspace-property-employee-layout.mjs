@@ -102,7 +102,7 @@ const propertyReferenceCss=fs.readFileSync("public/assets/property-calculator-re
 const commandCenterCss=fs.readFileSync("public/assets/workspace-command-center-v231.css","utf8");
 const productionEntry=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
 const css=[baseCss,propertyReferenceCss,commandCenterCss].join("\n");
-assert.match(productionEntry,/WORKSPACE_STYLES_ASSET="\/assets\/workspace-inline-styles-20260929b\.css"/,"production must own the canonical externalized workspace stylesheet");
+assert.match(productionEntry,/WORKSPACE_STYLES_ASSET="\/assets\/workspace-inline-styles-20261001c\.css"/,"production must own the canonical externalized workspace stylesheet");
 assert.match(productionEntry,/WORKSPACE_COMMAND_CENTER_V231_CSS_ASSET="\/assets\/workspace-command-center-v231\.css"/,"production must inject the active compact command-center layer");
 assert.doesNotMatch(productionEntry,/workspace-visuals-20260930a\.css/,"retired V214 visual bundle must not re-enter production routing");
 const propertyFragment=propertyFragments.join("\n");

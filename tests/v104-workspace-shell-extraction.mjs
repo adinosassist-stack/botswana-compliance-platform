@@ -47,7 +47,7 @@ assert.match(wrangler,/\/assets\/workspace-view-fragments-\*/,"versioned workspa
 assert.match(worker,/url\.pathname\.startsWith\("\/js\/"\).*cache-control","no-store, max-age=0"/s);
 
 assert.match(production,/const WORKSPACE_RUNTIME_ASSET="\/js\/workspace-runtime-20261001b\.js"/);
-assert.match(production,/const WORKSPACE_STYLES_ASSET="\/assets\/workspace-inline-styles-20260929b\.css"/);
+assert.match(production,/const WORKSPACE_STYLES_ASSET="\/assets\/workspace-inline-styles-20261001c\.css"/);
 assert.match(production,/function externalizeWorkspaceRuntime\(html\)/);
 assert.match(production,/function externalizeWorkspaceHeadStyles\(html\)/);
 assert.match(production,/thebe-workspace-runtime-inline/);
