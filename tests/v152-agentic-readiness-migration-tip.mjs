@@ -3,7 +3,7 @@ import {delegatedAuthoritySchemaReady,V81_SCHEMA_DELTA} from "../cloudflare/src/
 
 assert.equal(V81_SCHEMA_DELTA,"065_v241_business_goal_observer.sql");
 
-function db({missingClaims=false,missingScheduledFor=false,missingOccurrenceIndex=false,missingSchedulerIndex=false,missingRegistry=false,missingMemory=false,missingProperty=false,missingPropertyV175=false,missingPropertyV176=false,missingPropertyV179=false,missingJitV217=false}={}){
+function db({missingClaims=false,missingScheduledFor=false,missingOccurrenceIndex=false,missingSchedulerIndex=false,missingRegistry=false,missingMemory=false,missingProperty=false,missingPropertyV175=false,missingPropertyV176=false,missingPropertyV179=false,missingJitV217=false,missingBusinessGoalObserver=false}={}){
   return {
     prepare(sql){
       return {
@@ -19,6 +19,7 @@ function db({missingClaims=false,missingScheduledFor=false,missingOccurrenceInde
           if(missingScheduledFor&&sql.includes("SELECT scheduled_for FROM agent_observation_checkpoints"))throw new Error("no such column: scheduled_for");
           if(sql.includes("uq_agent_observation_checkpoint_occurrence"))return missingOccurrenceIndex?null:{ok:1};
           if(sql.includes("agent_persistent_tasks_scheduler_due"))return missingSchedulerIndex?null:{ok:1};
+          if(sql.includes("SYS-BIZ-OBS-001"))return missingBusinessGoalObserver?null:{ok:1};
           return {ok:1};
         }
       };
@@ -38,6 +39,7 @@ assert.equal(await delegatedAuthoritySchemaReady({DB:db({missingPropertyV175:tru
 assert.equal(await delegatedAuthoritySchemaReady({DB:db({missingPropertyV176:true})}),false,"migration 061 property valuation service tables are required");
 assert.equal(await delegatedAuthoritySchemaReady({DB:db({missingPropertyV179:true})}),false,"migration 063 professional credential ledger is required");
 assert.equal(await delegatedAuthoritySchemaReady({DB:db({missingJitV217:true})}),false,"migration 064 JIT execution permit table is required");
+assert.equal(await delegatedAuthoritySchemaReady({DB:db({missingBusinessGoalObserver:true})}),false,"migration 065 business-goal observer identity is required");
 assert.equal(await delegatedAuthoritySchemaReady({}),false);
 
 console.log("v152 agentic readiness migration-tip integrity passed");
