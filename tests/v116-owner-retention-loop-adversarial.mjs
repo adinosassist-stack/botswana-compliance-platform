@@ -35,7 +35,7 @@ assert.match(html,/id="thebeAgentLauncher"[^>]*hidden[^>]*data-bw-onclick="openT
 assert.match(runtime,/function roleLandingView\(role=currentWorkspaceRole\(\)\)[\s\S]*return "dashboard"/);
 
 // Pass 2 — business truth: the daily surface reads canonical sources and degrades independently.
-const daily=(runtime.match(/async function renderDailyOperatingBrief\(\)\{([\s\S]*?)\n\}\s*async function renderPartnerPortal/)||[])[1]||"";
+const daily=(runtime.match(/async function renderDailyOperatingBrief\(\)\{([\s\S]*?)\n\}\s*let ownerBriefRefreshInFlight=/)||[])[1]||"";
 assert.ok(daily,"daily operating brief must remain parseable");
 assert.match(daily,/Promise\.allSettled/);
 assert.match(daily,/apiJson\("\/api\/daily-brief"\)/);
