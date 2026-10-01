@@ -49,13 +49,21 @@ assert.match(runtime,/setInterval\(\(\)=>void refreshLiveOwnerBrief\(\),60000\)/
 assert.match(runtime,/window\.addEventListener\(\"focus\",\(\)=>void refreshLiveOwnerBrief\(\)\)/);
 assert.match(runtime,/visibilitychange[\s\S]*refreshLiveOwnerBrief/);
 assert.match(runtime,/function removeStandaloneSuppliersSurface\(\)/,
-  "V235 must remove the duplicate standalone Suppliers surface");
+  "V236 must keep the duplicate standalone Suppliers surface removed");
 assert.match(runtime,/document\.getElementById\("workspaceSidebar"\)/,
   "Suppliers removal must be scoped to workspace navigation");
 assert.match(runtime,/document\.getElementById\("dashboard"\)/,
   "Suppliers removal must be scoped to the Home module surface");
 assert.match(runtime,/label==="suppliers"\|\|label\.startsWith\("suppliers "\)/,
-  "V235 must match the standalone Suppliers label without deleting supplier/payable finance logic");
+  "V236 must match the standalone Suppliers label without deleting supplier/payable finance logic");
+assert.match(runtime,/function scheduleStandaloneSuppliersRemoval\(\)[\s\S]*queueMicrotask\(removeStandaloneSuppliersSurface\)/,
+  "Suppliers cleanup should be scheduled once at startup without continuous DOM observation");
+assert.doesNotMatch(runtime,/function bindStandaloneSuppliersRemoval\([\s\S]{0,1600}MutationObserver/,
+  "V236 must not keep a permanent MutationObserver just to hide Suppliers");
+assert.match(runtime,/applyRoleUi\(\);\s*removeStandaloneSuppliersSurface\(\);/,
+  "normal workspace rerenders must reassert the simplified navigation");
+assert.match(runtime,/updateMobileNav\(id\);removeStandaloneSuppliersSurface\(\);/,
+  "view changes must preserve the simplified workspace even when data refresh is skipped");
 
 assert.match(runtime,/if\(ownerBriefLastGoodAt\)[\s\S]*last confirmed; refresh failed/,
   "live refresh must preserve the last confirmed brief on transient failure");
