@@ -27,6 +27,16 @@ assert.match(css,/body\.thebe-ai-dock-open #dashboard \.home-decision-grid\{[\s\
   "dock-constrained medium desktops must stack the decision bento rather than compress it");
 assert.doesNotMatch(css,/\.notice[^}]*display\s*:\s*none/i,
   "V234 must not hide fail-closed notices or warnings");
+assert.match(css,/#dashboard>\.owner-command-hero\{[\s\S]*min-height:164px!important/,
+  "Home hero must have stronger first-screen presence without adding content");
+assert.match(css,/#dashboard #ownerGreeting\{[\s\S]*font-size:clamp\(28px,2\.7vw,40px\)!important/,
+  "owner greeting must read as the primary first-screen question");
+assert.match(css,/#dashboard \.home-thebe-agent-compose\{[\s\S]*border-radius:999px!important/,
+  "Talk to Thebe must use a prominent pill command surface");
+assert.match(css,/#dashboard \.home-thebe-agent-compose \.btn\{[\s\S]*border-radius:50%!important/,
+  "Talk to Thebe submit control must remain compact and visually distinct");
+assert.match(css,/#dashboard \.home-decision-grid\{[\s\S]*minmax\(0,1\.1fr\) minmax\(300px,\.9fr\)/,
+  "priorities and business snapshot must share a balanced desktop bento row");
 
 assert.match(runtime,/let ownerBriefRefreshInFlight=false;/);
 assert.match(runtime,/async function refreshLiveOwnerBrief\(\)/);
@@ -41,4 +51,4 @@ assert.match(runtime,/visibilitychange[\s\S]*refreshLiveOwnerBrief/);
 assert.match(runtime,/if\(ownerBriefLastGoodAt\)[\s\S]*last confirmed; refresh failed/,
   "live refresh must preserve the last confirmed brief on transient failure");
 
-console.log("PASS: V234 removes duplicate Home metrics, reflows dock-constrained desktop Home and keeps the owner brief live without page reloads.");
+console.log("PASS: V235 sharpens the Home command hierarchy while V234 keeps the live brief, density and dock-safe layout guarantees.");
