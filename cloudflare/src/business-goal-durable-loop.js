@@ -1,9 +1,9 @@
 import {executeAgentReadTool} from "./agent-read-tools.js";
 import {validatePersistentTaskAllowedTools} from "./agent-tool-trust-registry.js";
 import {businessGoalTemplate} from "./business-goals.js";
-import {FINANCE_OBSERVER_AGENT_ID,loadCanonicalAgentAuthority} from "./agent-control-plane.js";
+import {BUSINESS_GOAL_OBSERVER_AGENT_ID,loadCanonicalAgentAuthority} from "./agent-control-plane.js";
 
-export const BUSINESS_GOAL_DURABLE_LOOP_VERSION="2026-10-01.v2";
+export const BUSINESS_GOAL_DURABLE_LOOP_VERSION="2026-10-01.v3";
 const frozen=value=>Object.freeze(value);
 const clean=(value,max=160)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
 const parse=(value,fallback)=>{try{return JSON.parse(String(value??""))}catch{return fallback}};
@@ -217,9 +217,9 @@ export async function runBusinessGoalTask({env,task,claim}={}){
   const validated=validateBusinessGoalTask(task);
   if(!validated.valid)return frozen({...validated,ok:false,persisted:false,executionAllowed:false,externalActions:0});
 
-  const observerAuthority=await loadCanonicalAgentAuthority(env,FINANCE_OBSERVER_AGENT_ID);
+  const observerAuthority=await loadCanonicalAgentAuthority(env,BUSINESS_GOAL_OBSERVER_AGENT_ID);
   if(observerAuthority.ready!==true||
-    observerAuthority.agentId!==FINANCE_OBSERVER_AGENT_ID||
+    observerAuthority.agentId!==BUSINESS_GOAL_OBSERVER_AGENT_ID||
     observerAuthority.actorType!=="system_observer"||
     observerAuthority.state!=="active"||
     observerAuthority.executionCapable!==false){
@@ -232,7 +232,7 @@ export async function runBusinessGoalTask({env,task,claim}={}){
       .bind(JSON.stringify(validated.budget),taskId,tenantId).run();
     if(Number(repaired?.meta?.changes??repaired?.changes??0)!==1)return frozen({ok:false,persisted:false,code:"business_goal_budget_repair_conflict",executionAllowed:false,externalActions:0});
   }
-  const auth=frozen({tenant_id:tenantId,role:"system_observer",systemActor:true,agentId:FINANCE_OBSERVER_AGENT_ID});
+  const auth=frozen({tenant_id:tenantId,role:"system_observer",systemActor:true,agentId:BUSINESS_GOAL_OBSERVER_AGENT_ID});
   const results={};
   for(const actionKey of validated.tools)results[actionKey]=await executeAgentReadTool(actionKey,{env,auth});
   const unavailable=Object.values(results).filter(result=>result?.allowed!==true||result?.available!==true);
