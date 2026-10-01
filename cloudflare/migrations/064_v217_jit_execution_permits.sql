@@ -2,6 +2,8 @@
 -- This is an additional execution boundary. It does not replace delegation,
 -- exact owner approval, canonical authority, Runtime Guard, kill switch, or verification.
 
+ALTER TABLE agent_task_requests ADD COLUMN jit_permit_id TEXT;
+
 CREATE TABLE IF NOT EXISTS agent_jit_execution_permits(
   id TEXT PRIMARY KEY,
   tenant_id TEXT NOT NULL,
@@ -35,6 +37,10 @@ CREATE TABLE IF NOT EXISTS agent_jit_execution_permits(
 
 CREATE INDEX IF NOT EXISTS agent_jit_execution_permits_lookup_idx
   ON agent_jit_execution_permits(tenant_id,task_request_id,status,expires_at);
+
+CREATE UNIQUE INDEX IF NOT EXISTS agent_task_requests_jit_permit_uq
+  ON agent_task_requests(jit_permit_id)
+  WHERE jit_permit_id IS NOT NULL;
 
 CREATE TRIGGER IF NOT EXISTS agent_jit_execution_permits_request_guard
 BEFORE INSERT ON agent_jit_execution_permits
@@ -85,4 +91,59 @@ WHEN
   OR datetime(OLD.expires_at)<=CURRENT_TIMESTAMP
 BEGIN
   SELECT RAISE(ABORT,'agent_jit_permit_invalid_consume');
+END;
+
+CREATE TRIGGER IF NOT EXISTS agent_task_requests_jit_execute_guard
+BEFORE UPDATE OF status,jit_permit_id ON agent_task_requests
+WHEN NEW.status='executed'
+BEGIN
+  SELECT CASE WHEN
+    OLD.status<>'approved'
+    OR OLD.approved_by_user_id IS NULL
+    OR OLD.approved_payload_hash<>OLD.payload_hash
+    OR NEW.jit_permit_id IS NULL
+    OR NOT EXISTS(
+      SELECT 1
+      FROM agent_jit_execution_permits p
+      JOIN agent_execution_grants g
+        ON g.id=p.execution_grant_id
+       AND g.tenant_id=p.tenant_id
+      WHERE p.id=NEW.jit_permit_id
+        AND p.tenant_id=NEW.tenant_id
+        AND p.agent_id='THEBE-001'
+        AND p.human_user_id=OLD.approved_by_user_id
+        AND p.task_request_id=NEW.id
+        AND p.execution_grant_id=NEW.execution_grant_id
+        AND p.action_key='task.create'
+        AND p.payload_hash=NEW.payload_hash
+        AND p.status='active'
+        AND p.max_uses=1
+        AND p.use_count=0
+        AND datetime(p.expires_at)>CURRENT_TIMESTAMP
+        AND g.status='active'
+    )
+  THEN RAISE(ABORT,'agent_jit_permit_invalid_or_expired') END;
+END;
+
+CREATE TRIGGER IF NOT EXISTS agent_task_requests_jit_consume
+AFTER UPDATE OF status,jit_permit_id ON agent_task_requests
+WHEN OLD.status='approved' AND NEW.status='executed'
+BEGIN
+  UPDATE agent_jit_execution_permits
+     SET status='consumed',
+         use_count=1,
+         consumed_at=CURRENT_TIMESTAMP,
+         consumed_by_user_id=OLD.approved_by_user_id
+   WHERE id=NEW.jit_permit_id
+     AND tenant_id=NEW.tenant_id
+     AND task_request_id=NEW.id
+     AND human_user_id=OLD.approved_by_user_id
+     AND execution_grant_id=NEW.execution_grant_id
+     AND payload_hash=NEW.payload_hash
+     AND status='active'
+     AND use_count=0
+     AND datetime(expires_at)>CURRENT_TIMESTAMP;
+  SELECT CASE WHEN changes()<>1
+    THEN RAISE(ABORT,'agent_jit_permit_consume_conflict')
+  END;
 END;
