@@ -2008,6 +2008,7 @@
 
 /* Unified governed plan and result artifacts. */
 .thebe-ai-mode-button[hidden]{display:none!important}
+.thebe-ai-response-tools button[hidden]{display:none!important}
 .thebe-ai-plan-artifact{border:1px solid rgba(125,180,255,.2);border-radius:12px;padding:10px;min-width:0;overflow-wrap:anywhere}
 .thebe-ai-plan-artifact>summary{cursor:pointer;font-size:12px;font-weight:650;min-height:28px}
 .thebe-ai-plan-artifact>small{display:block;margin:6px 0;color:#b7c8d9}
