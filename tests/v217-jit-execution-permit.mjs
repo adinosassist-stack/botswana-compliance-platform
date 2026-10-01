@@ -154,7 +154,8 @@ assert.throws(
   /agent_jit_permit_invalid_consume/
 );
 row=db.prepare("SELECT status,use_count FROM agent_jit_execution_permits WHERE id='p2'").get();
-assert.deepEqual(row,{status:"active",use_count:0});
+assert.equal(row.status,"active");
+assert.equal(row.use_count,0);
 
 db.close();
 console.log("v217 JIT execution permit adversarial gate passed");
