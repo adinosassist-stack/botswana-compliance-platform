@@ -1,0 +1,13 @@
+import fs from "node:fs";
+import assert from "node:assert/strict";
+const runtime=fs.readFileSync(new URL("../public/js/workspace-runtime-20261001b.js",import.meta.url),"utf8");
+const occurrences=(needle)=>runtime.split(needle).length-1;
+assert.equal(occurrences('<style id="v17-behance-polish">'),1,"premium workspace polish must have one owner");
+assert.equal(occurrences("/* v17 — Behance-inspired premium compliance SaaS system */"),1,"duplicate premium polish is conflicting UI code");
+assert.equal(occurrences("/* v18 motion system */"),1,"motion system must not be duplicated");
+assert.ok(runtime.includes(".shell{grid-template-columns:238px 1fr}"));
+assert.ok(runtime.includes("@media(max-width:1000px){main{padding:18px!important}.top{margin:-18px -18px 18px!important;padding:11px 18px!important}.actionstrip{grid-template-columns:1fr!important}.shell{grid-template-columns:1fr!important}}"));
+assert.ok(runtime.includes("@media(max-width:650px){main{padding:12px 12px 84px!important}"));
+assert.ok(runtime.includes("propertyintelligence"),"Property must remain workspace-resident");
+assert.ok(runtime.includes("peopleops"),"People must remain workspace-resident");
+console.log("V237_WORKSPACE_GEOMETRY_CLEANUP_PASS");
