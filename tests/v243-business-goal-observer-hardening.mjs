@@ -43,6 +43,10 @@ assert.match(migration,/'SYS-BIZ-OBS-001','business_goal_observer','system_obser
 assert.match(migration,/'low','active',0,'platform'/);
 assert.match(migration,/trg_business_goal_no_duplicate_insert/);
 assert.match(migration,/trg_business_goal_no_duplicate_update/);
+assert.match(migration,/CASE WHEN json_valid\(NEW\.trigger_spec_json\) THEN NEW\.trigger_spec_json ELSE '\{\}' END/,
+  "duplicate trigger must safely contain malformed legacy task JSON");
+assert.match(migration,/CASE WHEN json_valid\(t\.trigger_spec_json\) THEN t\.trigger_spec_json ELSE '\{\}' END/,
+  "duplicate lookup must safely contain malformed legacy stored JSON");
 assert.doesNotMatch(migration,/execution_capable[^\n]*1/);
 
 const db=new DatabaseSync(":memory:");
@@ -78,6 +82,9 @@ assert.throws(()=>insert.run("g2","tenant-a","paused","scheduled",JSON.stringify
 insert.run("g3","tenant-b","active","scheduled",JSON.stringify({templateKey:"protect_cash"}));
 insert.run("g4","tenant-a","cancelled","scheduled",JSON.stringify({templateKey:"protect_cash"}));
 assert.throws(()=>db.prepare("UPDATE agent_persistent_tasks SET status='paused' WHERE id='g4'").run(),/duplicate_business_goal/);
+insert.run("legacy-invalid","tenant-a","cancelled","scheduled","{not-json");
+assert.doesNotThrow(()=>db.prepare("UPDATE agent_persistent_tasks SET status='paused' WHERE id='legacy-invalid'").run(),
+  "duplicate guards must not turn malformed legacy JSON into a database-wide update failure");
 
 assert.equal(profile.latest_cloudflare_migration,"065_v243_business_goal_observer.sql");
 assert.equal(profile.business_goal_observer_v243,true);
@@ -87,7 +94,10 @@ assert.equal(profile.business_goal_duplicate_guard_db_enforced,true);
 
 assert.match(runner,/number:65/);
 assert.match(runner,/065_v243_business_goal_observer\.sql/);
-assert.match(runner,/blob:'7652d1367899300f24f2c65e0f761bffa5681761'/);
+assert.match(runner,/blob:'df826bdf93143e52de4c12f1b90f2a9ef4dbbd35'/);
+assert.match(runner,/verifyNoActiveGoalDuplicates/);
+assert.match(runner,/HAVING COUNT\(\*\)>1/);
+assert.match(runner,/existing active\/paused business-goal duplicates require reconciliation before migration/);
 assert.match(runner,/time_travel\/bookmark/);
 assert.match(runner,/SYS-BIZ-OBS-001/);
 assert.match(workflow,/\[migrate-065\]/);
