@@ -1,7 +1,11 @@
 import fs from "node:fs";import path from "node:path";import zlib from "node:zlib";
 const root=process.cwd(),bytes=p=>fs.readFileSync(path.join(root,p)),kb=n=>Math.round(n/1024);
 let checks=0;const ok=(v,m)=>{checks++;if(!v)throw new Error(`FAIL ${checks}: ${m}`)};
-const worker=bytes("cloudflare/src/worker.js"),html=bytes("public/index.html"),workspaceRuntime=bytes("public/js/workspace-runtime-20260929c.js"),workspaceStyles=bytes("public/assets/workspace-inline-styles-20260929b.css"),workspaceVisuals=bytes("public/assets/workspace-visuals-20260930a.css"),workspaceViews=bytes("public/assets/workspace-view-fragments-20261001a.json");
+const productionText=bytes("cloudflare/src/production-entry.js").toString("utf8");
+const workspaceRuntimeAsset=productionText.match(/const WORKSPACE_RUNTIME_ASSET="([^"]+)"/)?.[1]||"",workspaceStylesAsset=productionText.match(/const WORKSPACE_STYLES_ASSET="([^"]+)"/)?.[1]||"";
+ok(/^\/js\/workspace-runtime-[a-z0-9.-]+\.js$/i.test(workspaceRuntimeAsset),"workspace runtime budget target must be versioned and first-party");
+ok(/^\/assets\/workspace-inline-styles-[a-z0-9.-]+\.css$/i.test(workspaceStylesAsset),"workspace stylesheet budget target must be versioned and first-party");
+const worker=bytes("cloudflare/src/worker.js"),html=bytes("public/index.html"),workspaceRuntime=bytes(`public${workspaceRuntimeAsset}`),workspaceStyles=bytes(`public${workspaceStylesAsset}`),workspaceVisuals=bytes("public/assets/workspace-visuals-20260930a.css"),workspaceViews=bytes("public/assets/workspace-view-fragments-20261001a.json");
 const workspaceViewShards=Array.from({length:12},(_,i)=>bytes(`public/assets/workspace-view-fragments-20261001a-${i}.json`));
 const htmlText=html.toString("utf8"),runtimeText=workspaceRuntime.toString("utf8"),stylesText=workspaceStyles.toString("utf8"),visualStylesText=workspaceVisuals.toString("utf8"),workspaceViewsPayload=JSON.parse(workspaceViews.toString("utf8"));
 const workspaceViewShardPayloads=workspaceViewShards.map(buffer=>JSON.parse(buffer.toString("utf8")));
@@ -39,11 +43,11 @@ for(const id of lazyViewIds){
   ok(fragment.trim().length>0,`lazy view fragment empty (${id})`);
   ok(!/<(?:script|iframe|object|embed|base|meta|link|img|svg|math|video|audio|source|track)\\b/i.test(fragment),`lazy view fragment violates sanitizer boundary (${id})`);
 }
-const runtimeExternalizedHtml=htmlText.replace(/<script id="thebe-workspace-runtime-inline">[\s\S]*?<\/script>/,'<script id="thebe-workspace-runtime" src="/js/workspace-runtime-20260929c.js"></script>');
+const runtimeExternalizedHtml=htmlText.replace(/<script id="thebe-workspace-runtime-inline">[\s\S]*?<\/script>/,`<script id="thebe-workspace-runtime" src="${workspaceRuntimeAsset}"></script>`);
 const runtimeHeadEnd=runtimeExternalizedHtml.toLowerCase().indexOf("</head>");
 const runtimeHead=runtimeExternalizedHtml.slice(0,runtimeHeadEnd),runtimeTail=runtimeExternalizedHtml.slice(runtimeHeadEnd);
 let styleCount=0;
-const deployedHead=runtimeHead.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,()=>{styleCount++;return styleCount===1?'<link id="thebe-workspace-inline-styles" rel="stylesheet" href="/assets/workspace-inline-styles-20260929b.css" />':""});
+const deployedHead=runtimeHead.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,()=>{styleCount++;return styleCount===1?`<link id="thebe-workspace-inline-styles" rel="stylesheet" href="${workspaceStylesAsset}" />`:""});
 ok(styleCount===49,`deployed workspace style extraction count mismatch (${styleCount})`);
 let deployedHtmlText=deployedHead+runtimeTail;
 const viewReplacements=[];
