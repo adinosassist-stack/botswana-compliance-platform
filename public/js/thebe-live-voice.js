@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20261001-pointer-lanes-v218";
+  const RELEASE="20261001-pointer-lanes-v219";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -552,7 +552,7 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20261001-pointer-lanes-v218";
+  const DOCK_RELEASE="20261001-pointer-lanes-v219";
   const STORE_KEY="thebe_ai_dock_collapsed_v5";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
@@ -849,10 +849,23 @@
     voiceCard?.style.removeProperty("grid-template-columns");
     for(const property of ["width","min-width","max-width","height","min-height"])orbButton?.style.removeProperty(property);
   }
+  const pointerLaneNodes=new Set();
+  const pointerLaneInteractiveSelector='button,textarea,input,select,a[href],summary,label[for],[role="button"],[tabindex="0"],[contenteditable="true"]';
+  function syncWorkspacePointerLanes(){
+    for(const node of pointerLaneNodes)node?.style?.removeProperty?.("pointer-events");
+    pointerLaneNodes.clear();
+    if(!dock||dock.dataset.surface!=="workspace"||mobileDockMode())return;
+    for(const node of [dock,...dock.querySelectorAll("*")]){
+      const interactive=node!==dock&&node.matches?.(pointerLaneInteractiveSelector);
+      node.style.setProperty("pointer-events",interactive?"auto":"none","important");
+      pointerLaneNodes.add(node);
+    }
+  }
   function syncWorkspaceVisualInvariants(){
     if(!dock)return;
     clearLegacyWorkspaceDockPadding();
     clearRoutineWorkspaceInlineGeometry();
+    syncWorkspacePointerLanes();
     if(dock.dataset.surface!=="workspace"){
       dock.style.removeProperty("--thebe-workspace-left");
       pill?.style.removeProperty("--thebe-workspace-left");
@@ -1432,6 +1445,7 @@
     if(marketing)new MutationObserver(syncVisibility).observe(marketing,{attributes:true,attributeFilter:["style","class"]});
     const alerts=document.getElementById("navAlerts");
     if(alerts)new MutationObserver(syncAttention).observe(alerts,{childList:true,characterData:true,subtree:true});
+    if(dock)new MutationObserver(syncWorkspacePointerLanes).observe(dock,{childList:true,subtree:true});
     const pageTitle=document.getElementById("pageTitle");
     let lastViewYielded=dockShouldYield();
     const syncAfterWorkspaceViewChange=()=>{
