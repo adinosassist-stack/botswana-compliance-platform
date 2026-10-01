@@ -1,0 +1,11 @@
+/* V223 compact Property deal calculator — hide empty comparison chrome and tighten the default footprint. */
+.property-calculator-compact .property-scenario-comparison:not(:has(.property-scenario-compare-grid)){display:none}
+.property-calculator-compact .property-scenario-comparison{margin-top:8px;padding:9px 10px}
+.property-calculator-compact .property-core-grid{gap:8px}
+.property-calculator-compact .property-advanced-details{margin-top:8px}
+.property-calculator-compact .property-calculator-actions{margin-top:10px;gap:6px}
+.property-calculator-compact .property-calculator-note{margin-top:8px;line-height:1.35}
+@media(max-width:620px){
+  .property-calculator-compact .property-scenario-comparison{padding:8px}
+  .property-calculator-compact .property-calculator-actions .btn{min-height:40px}
+}
