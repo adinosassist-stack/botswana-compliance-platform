@@ -178,7 +178,10 @@ function externalizeWorkspaceViews(html){
     const bounds=findMatchingSectionBounds(source,match.index);
     if(!bounds)return source;
     const openTag=source.slice(match.index,bounds.openEnd);
-    const placeholder=`${openTag.slice(0,-1)} data-lazy-view="1" data-lazy-view-id="${id}" aria-busy="false"></section>`;
+    const propertyResident=id==="propertyintelligence";
+    const placeholder=propertyResident
+      ?source.slice(match.index,bounds.end)
+      :`${openTag.slice(0,-1)} data-lazy-view="1" data-lazy-view-id="${id}" aria-busy="false"></section>`;
     replacements.push({start:match.index,end:bounds.end,placeholder});
   }
   if(replacements.length!==WORKSPACE_LAZY_VIEW_IDS.length)return source;
@@ -512,7 +515,7 @@ async function fetchWithTurnstileCspRepair(request,env,ctx){
     headers.set("x-thebe-executive-personalization",EXECUTIVE_PERSONALIZATION_RELEASE);
     headers.set("x-thebe-business-data-bridge",BUSINESS_DATA_BRIDGE_RELEASE);
     headers.set("cache-control","no-store");
-    headers.set("x-thebe-property-ui","v224-reference-card");
+    headers.set("x-thebe-property-ui","v228-resident-compact-calculator");
   }
   if(workspaceSurface||publicSurface)headers.set("x-thebe-ai-dock",THEBE_AI_DOCK_RELEASE);
   return new Response(repaired,{status:response.status,statusText:response.statusText,headers});
