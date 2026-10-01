@@ -69,15 +69,15 @@ async function createBusinessGoal(request,env,auth){
     SELECT ?,?,?,?,?,?,?,?,?,?,?
     WHERE NOT EXISTS (
       SELECT 1 FROM agent_persistent_tasks
-      WHERE tenant_id=? AND status IN ('active','paused') AND json_valid(trigger_spec_json)
-        AND json_extract(trigger_spec_json,'$.templateKey')=?
+      WHERE tenant_id=? AND status IN ('active','paused')
+        AND json_extract(CASE WHEN json_valid(trigger_spec_json) THEN trigger_spec_json ELSE '{}' END,'$.templateKey')=?
     )`)
     .bind(id,auth.tenant_id,auth.user_id,p.objective,p.triggerKind,triggerSpec,JSON.stringify(p.allowedTools),JSON.stringify(p.riskPolicy),JSON.stringify(p.approvalPolicy),JSON.stringify(p.budget),nextRunAt,auth.tenant_id,p.templateKey).run();
   const changes=Number(inserted?.meta?.changes??inserted?.changes??0);
   if(changes!==1){
     const existing=await safeFirst(env,`SELECT id,status FROM agent_persistent_tasks
-      WHERE tenant_id=? AND status IN ('active','paused') AND json_valid(trigger_spec_json)
-        AND json_extract(trigger_spec_json,'$.templateKey')=? ORDER BY created_at DESC LIMIT 1`,[auth.tenant_id,p.templateKey]);
+      WHERE tenant_id=? AND status IN ('active','paused')
+        AND json_extract(CASE WHEN json_valid(trigger_spec_json) THEN trigger_spec_json ELSE '{}' END,'$.templateKey')=? ORDER BY created_at DESC LIMIT 1`,[auth.tenant_id,p.templateKey]);
     if(existing)return json({ok:true,id:existing.id,status:existing.status,templateKey:p.templateKey,replayed:true,executionAllowed:false,notice:"This goal is already being watched."},200);
     return json({error:"business_goal_create_conflict"},409);
   }
