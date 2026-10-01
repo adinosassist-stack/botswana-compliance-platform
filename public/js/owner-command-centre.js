@@ -2826,6 +2826,7 @@
     card.append(text("span",step,"property-journey-step"),text("b",title),text("small",copy));
     card.addEventListener("click",()=>{
       const target=q("#"+targetId);
+      if(target?.tagName==="DETAILS")target.open=true;
       if(target?.tagName==="INPUT")target.focus({preventScroll:true});
       target?.scrollIntoView({behavior:"smooth",block:"center"});
     });
@@ -2858,10 +2859,10 @@
     const journey=document.createElement("div");
     journey.className="property-intelligence-journey";
     journey.append(
-      propertyJourneyCard("1","Portfolio","Track owned land and buildings, rent, operating costs, debt and professional value.","propertyPortfolioList"),
-      propertyJourneyCard("2","Performance","See NOI, yield, debt exposure and valuation coverage from canonical records.","propertyPortfolioList"),
-      propertyJourneyCard("3","Deal check","Test a purchase or rental scenario without turning assumptions into market value.","propertyPurchasePrice"),
-      propertyJourneyCard("4","Professional valuation","Request or record a signed valuation through the governed human-valuer workflow.","propertyValuationServicePanel")
+      propertyJourneyCard("1","Portfolio","Owned land and buildings, records and evidence.","propertyPortfolioList"),
+      propertyJourneyCard("2","Performance","NOI, yield, debt exposure and valuation coverage.","propertyPortfolioVisuals"),
+      propertyJourneyCard("3","Deal check","Fast assumption-based purchase or rental scenario.","propertyPurchasePrice"),
+      propertyJourneyCard("4","Professional valuation","Human-valuer quote, inspection and signed report workflow.","propertyValuationServicePanel")
     );
     shell.append(journey);
 
@@ -2879,6 +2880,7 @@
     metricHooks.safeHTML='<span id="propertyPortfolioAssetCount">—</span><span id="propertyPortfolioRecordedValue">—</span><span id="propertyPortfolioDebt">—</span><span id="propertyPortfolioCoverage">—</span><span id="propertyPortfolioAnnualRent">—</span><span id="propertyPortfolioNoi">—</span><span id="propertyPortfolioEquity">—</span><span id="propertyPortfolioNoiYield">—</span>';
     shell.append(metricHooks);
     const infographic=document.createElement("div");
+    infographic.id="propertyPortfolioVisuals";
     infographic.className="property-portfolio-infographic";
     infographic.safeHTML='<div class="property-info-panel"><div class="section-eyebrow">Portfolio</div><div class="property-primary-stat"><b id="propertyAssetVisual">—</b><small>active assets</small></div><div class="property-primary-stat"><b id="propertyValueVisual">—</b><small>professional value</small></div></div><div class="property-info-panel"><div class="section-eyebrow">Capital structure</div><div class="property-capital-bar"><span id="propertyEquityBar"></span><i id="propertyDebtBar"></i></div><div class="property-info-legend"><span><b id="propertyEquityLegend">—</b> equity</span><span><b id="propertyDebtLegend">—</b> debt</span></div></div><div class="property-info-panel"><div class="section-eyebrow">Income flow</div><div class="property-income-flow"><span>Rent <b id="propertyFlowRent">—</b></span><em>→</em><span>NOI <b id="propertyFlowNoi">—</b></span><em>→</em><span>Yield <b id="propertyFlowYield">—</b></span></div></div><div class="property-info-panel"><div class="section-eyebrow">Valuation readiness</div><div class="property-coverage-ring" id="propertyCoverageRing"><b id="propertyCoverageRingValue">—</b><small>covered</small></div></div>';
     shell.append(infographic);
@@ -2990,19 +2992,20 @@
     forms.append(assetDetails,valuationDetails);
     shell.append(forms);
 
-    const servicePanel=document.createElement("div");
+    const servicePanel=document.createElement("details");
     servicePanel.id="propertyValuationServicePanel";
-    servicePanel.className="card property-valuation-service-card";
+    servicePanel.className="card property-valuation-service-card property-service-disclosure";
     servicePanel.style.marginTop="14px";
     servicePanel.style.setProperty("background","#f7fbff","important");
     servicePanel.style.setProperty("border-color","#a9c8ef","important");
     servicePanel.style.setProperty("box-shadow","0 12px 30px rgba(11,102,214,.08)","important");
-    const serviceHead=document.createElement("div");
-    serviceHead.className="between row";
-    const serviceHeadText=document.createElement("div");
-    serviceHeadText.append(text("div","Professional service","section-eyebrow"),text("h3","Request a professional property valuation"));
-    serviceHead.append(serviceHeadText,text("span","Quote required","badge info"));
-    servicePanel.append(serviceHead);
+    const serviceSummary=document.createElement("summary");
+    serviceSummary.className="property-service-summary";
+    const serviceHeadText=document.createElement("span");
+    serviceHeadText.className="property-service-title";
+    serviceHeadText.append(text("span","Professional service","section-eyebrow"),text("b","Request a professional property valuation"),text("small","Open only when you need a quote, inspection or signed report workflow."));
+    serviceSummary.append(serviceHeadText,text("span","Quote required","badge info"));
+    servicePanel.append(serviceSummary);
     const serviceBoundary=text("div","Thebe coordinates the workflow and payment. A verified human valuer must inspect, prepare, review and sign the professional report; Thebe does not create or sign the valuation.","notice small");
     serviceBoundary.style.marginTop="10px";servicePanel.append(serviceBoundary);
     const serviceGrid=document.createElement("div");
@@ -3173,6 +3176,7 @@
     const panel=q("#propertyValuationServicePanel");
     if(!propertyId||!select||!panel){propertyPortfolioNotify("Valuation quote form is unavailable.","error");return}
     if([...select.options].some(option=>option.value===propertyId))select.value=propertyId;
+    if(panel.tagName==="DETAILS")panel.open=true;
     propertyPortfolioStatus("propertyValuationServiceStatus","Property selected. Add the request details, then request a quote.");
     panel.scrollIntoView({behavior:"smooth",block:"center"});
     setTimeout(()=>q("#portfolioValuationServicePurpose")?.focus({preventScroll:true}),180);
