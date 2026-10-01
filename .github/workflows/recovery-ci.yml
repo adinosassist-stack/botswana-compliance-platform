@@ -135,7 +135,7 @@ jobs:
           node tests/v223-property-calculator-density.mjs
           node tests/v224-property-reference-card.mjs
           node tests/v226-property-calculator-live-visibility.mjs
-          node tests/v228-property-resident-render.mjs
+          node tests/v229-property-resident-render.mjs
           npm run check:dependency-policy
           npm run check:bundle-budget
           npm run check:d1-backup-shape
