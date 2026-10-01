@@ -1,7 +1,140 @@
-/* V234 Home live-brief density — remove duplicate first-screen metrics and reflow the owner snapshot in dock-constrained desktop lanes. */
+/* V234 Home live-brief density — remove duplicate first-screen metrics, improve scan hierarchy, and reflow the owner snapshot in dock-constrained desktop lanes. */
 #dashboard .home-status-strip{
   display:none!important;
 }
+
+/* Screenshot-informed Home polish: stronger visual hierarchy without adding copy or changing authority. */
+#dashboard>.owner-command-hero{
+  position:relative!important;
+  overflow:hidden!important;
+  min-height:164px!important;
+  padding:22px 24px!important;
+  border-radius:18px!important;
+  border:1px solid #d8e7f7!important;
+  background:
+    radial-gradient(circle at 84% 10%,rgba(71,169,247,.26),transparent 21rem),
+    radial-gradient(circle at 70% 95%,rgba(11,102,214,.10),transparent 19rem),
+    linear-gradient(112deg,#f8fbff 0%,#edf6ff 52%,#f7fbff 100%)!important;
+  box-shadow:0 14px 34px rgba(53,96,151,.08)!important;
+}
+#dashboard>.owner-command-hero::after{
+  content:"";
+  position:absolute;
+  right:-54px;
+  bottom:-82px;
+  width:360px;
+  height:210px;
+  border-radius:55% 45% 0 0;
+  background:
+    linear-gradient(165deg,transparent 0 48%,rgba(22,135,238,.16) 49% 62%,rgba(7,28,77,.06) 63% 100%);
+  pointer-events:none;
+}
+#dashboard #ownerGreeting{
+  position:relative!important;
+  z-index:1!important;
+  max-width:700px!important;
+  margin:4px 0 5px!important;
+  font-size:clamp(28px,2.7vw,40px)!important;
+  line-height:1.04!important;
+  letter-spacing:-.045em!important;
+}
+#dashboard .owner-command-kicker,
+#dashboard .owner-command-company,
+#dashboard .health-chip{
+  position:relative!important;
+  z-index:1!important;
+}
+
+/* Make Thebe the obvious command surface, similar to the reference without creating another dock. */
+#dashboard .home-thebe-agent{
+  grid-template-columns:1fr!important;
+  gap:10px!important;
+  min-height:0!important;
+  padding:14px 16px 13px!important;
+  border-radius:17px!important;
+  border:1px solid #d9e7f6!important;
+  background:#fff!important;
+  box-shadow:0 10px 28px rgba(49,91,145,.065)!important;
+}
+#dashboard .home-thebe-agent>div:first-child{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:12px!important;
+}
+#dashboard .home-thebe-agent h3{
+  margin:0!important;
+  font-size:14px!important;
+  letter-spacing:-.02em!important;
+}
+#dashboard .home-thebe-agent-compose{
+  width:min(100%,860px)!important;
+  min-height:54px!important;
+  margin:0 auto!important;
+  padding:5px 6px 5px 15px!important;
+  border-radius:999px!important;
+  border:1px solid #cfe0f3!important;
+  background:#fbfdff!important;
+  box-shadow:0 8px 22px rgba(31,86,153,.075)!important;
+}
+#dashboard .home-thebe-agent-compose input{
+  min-height:42px!important;
+  font-size:13px!important;
+}
+#dashboard .home-thebe-agent-compose .btn{
+  flex:0 0 42px!important;
+  width:42px!important;
+  min-width:42px!important;
+  min-height:42px!important;
+  padding:0!important;
+  border-radius:50%!important;
+  box-shadow:0 7px 18px rgba(11,102,214,.20)!important;
+}
+#dashboard .home-thebe-agent-quick{
+  width:min(100%,860px)!important;
+  margin:0 auto!important;
+  justify-content:flex-start!important;
+  gap:7px!important;
+}
+#dashboard .home-thebe-agent-quick .btn{
+  min-height:30px!important;
+  padding:6px 11px!important;
+  border-radius:999px!important;
+  background:#f8fbff!important;
+  border-color:#d9e7f6!important;
+}
+
+/* Module/snapshot cards read as one clean family instead of unrelated boxes. */
+#dashboard .owner-today-grid{
+  gap:9px!important;
+}
+#dashboard .owner-today-card{
+  min-height:100px!important;
+  border-radius:15px!important;
+  border-color:#dfe9f5!important;
+  box-shadow:0 8px 22px rgba(56,91,139,.05)!important;
+}
+#dashboard .owner-today-card::before{
+  width:30px!important;
+  height:5px!important;
+  margin-bottom:9px!important;
+  background:linear-gradient(90deg,#0b66d6,#39a6f4)!important;
+}
+#dashboard .owner-today-card:hover{
+  border-color:#b9d6f2!important;
+  box-shadow:0 12px 28px rgba(45,91,149,.085)!important;
+}
+#dashboard .home-decision-grid{
+  align-items:stretch!important;
+  grid-template-columns:minmax(0,1.1fr) minmax(300px,.9fr)!important;
+}
+#dashboard :is(.home-queue-card,.daily-change-card,.home-signal-card){
+  border-radius:15px!important;
+  border-color:#dfe8f3!important;
+  box-shadow:0 8px 22px rgba(52,88,136,.045)!important;
+}
+
+/* Keep the dock-open workspace compact and readable at medium desktop widths. */
 @media(min-width:1180px) and (max-width:1500px){
   body.thebe-ai-dock-open #dashboard .owner-today-grid{
     grid-template-columns:repeat(3,minmax(0,1fr))!important;
@@ -14,9 +147,32 @@
     grid-template-rows:auto!important;
   }
 }
+@media(max-width:900px){
+  #dashboard>.owner-command-hero{
+    min-height:136px!important;
+    padding:18px!important;
+  }
+  #dashboard>.owner-command-hero::after{
+    width:270px;
+    height:170px;
+    opacity:.72;
+  }
+  #dashboard .home-decision-grid{
+    grid-template-columns:1fr!important;
+  }
+}
 @media(max-width:760px){
   #dashboard .home-decision-head .btn{
     width:auto!important;
     align-self:flex-start!important;
+  }
+  #dashboard #ownerGreeting{
+    font-size:27px!important;
+  }
+  #dashboard .home-thebe-agent{
+    padding:12px!important;
+  }
+  #dashboard .home-thebe-agent-compose{
+    padding-left:12px!important;
   }
 }
