@@ -779,6 +779,35 @@ async function runFullUserJourney(credentials){
     };
 
     await openOwnerViewThroughNav('propertyintelligence');
+    await page.waitForFunction(()=>{
+      const view=document.getElementById('propertyintelligence');
+      const calculator=view?.querySelector('.property-calculator-v224');
+      const price=view?.querySelector('#propertyPurchasePrice');
+      const rent=view?.querySelector('#propertyMonthlyRent');
+      const analyse=view?.querySelector('.property-analyse-button');
+      return !!view&&!!calculator&&!!price&&!!rent&&!!analyse&&
+        view.dataset.lazyView!=='1'&&
+        calculator.offsetParent!==null&&price.offsetParent!==null&&rent.offsetParent!==null&&analyse.offsetParent!==null;
+    },null,{timeout:WORKSPACE_TIMEOUT_MS});
+    const propertyCalculatorState=await page.evaluate(()=>{
+      const view=document.getElementById('propertyintelligence');
+      const calculator=view?.querySelector('.property-calculator-v224');
+      const heading=calculator?.querySelector('h3');
+      const rect=calculator?.getBoundingClientRect?.();
+      return {
+        resident:view?.dataset?.lazyView!=='1',
+        hydrated:view?.dataset?.lazyHydrated||'',
+        heading:String(heading?.textContent||'').trim(),
+        visible:!!calculator&&calculator.offsetParent!==null,
+        width:rect?Math.round(rect.width):0,
+        priceVisible:!!document.getElementById('propertyPurchasePrice')&&document.getElementById('propertyPurchasePrice').offsetParent!==null,
+        rentVisible:!!document.getElementById('propertyMonthlyRent')&&document.getElementById('propertyMonthlyRent').offsetParent!==null,
+        analyseVisible:!!view?.querySelector('.property-analyse-button')&&view.querySelector('.property-analyse-button').offsetParent!==null
+      };
+    });
+    assert(propertyCalculatorState.resident&&propertyCalculatorState.visible&&/Compact Property Calculator/i.test(propertyCalculatorState.heading)&&propertyCalculatorState.priceVisible&&propertyCalculatorState.rentVisible&&propertyCalculatorState.analyseVisible,
+      `Compact Property Calculator is not resident and visible in the authenticated Property workspace: ${safe(JSON.stringify(propertyCalculatorState))}`);
+    mark('V228 resident Compact Property Calculator',`resident=true width=${propertyCalculatorState.width}px with price, rent and Analyze visible before any fragment hydration`);
     await page.waitForFunction(()=>document.getElementById('propertyPortfolioWorkspace')&&document.getElementById('propertyValuationServicePanel'),null,{timeout:WORKSPACE_TIMEOUT_MS});
     await page.waitForFunction(()=>{
       const dock=document.getElementById('thebeAiDock');
@@ -798,6 +827,7 @@ async function runFullUserJourney(credentials){
       const results=layout?.querySelector('.property-results-wrap');
       const inputRect=input?.getBoundingClientRect?.();
       const resultsRect=results?.getBoundingClientRect?.();
+      const compactReference=layout?.classList.contains('property-layout-v224')&&input?.classList.contains('property-calculator-v224');
       const shellChildren=shell?[...shell.children]:[];
       return {
         mascotImages:document.querySelectorAll('#thebeAiDock .thebe-mascot-image').length,
@@ -809,7 +839,7 @@ async function runFullUserJourney(credentials){
         serviceBackground:service?getComputedStyle(service).backgroundColor:'missing',
         serviceBeforeForms:!!service&&!!forms&&shellChildren.indexOf(service)>=0&&shellChildren.indexOf(forms)>=0&&shellChildren.indexOf(service)<shellChildren.indexOf(forms),
         requestButtonVisible:!!document.getElementById('propertyValuationServiceRequestButton')&&document.getElementById('propertyValuationServiceRequestButton').offsetParent!==null,
-        propertyLayoutStacked:!!inputRect&&!!resultsRect&&Math.abs(inputRect.left-resultsRect.left)<=2&&resultsRect.top>inputRect.top+20
+        propertyLayoutStacked:compactReference?!!inputRect&&inputRect.width>0&&inputRect.width<=700:!!inputRect&&!!resultsRect&&Math.abs(inputRect.left-resultsRect.left)<=2&&resultsRect.top>inputRect.top+20
       };
     });
     assert(v182WorkspaceVisual.mascotImages===0&&v182WorkspaceVisual.mascotSvgs===0,
