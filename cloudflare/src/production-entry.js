@@ -22,6 +22,7 @@ const PROPERTY_COMPACT_CSS_ASSET="/assets/property-calculator-compact-v223.css";
 const PROPERTY_REFERENCE_CSS_ASSET="/assets/property-calculator-reference-v224.css";
 const PROPERTY_VISIBILITY_CSS_ASSET="/assets/property-visibility-v230.css";
 const WORKSPACE_COMMAND_CENTER_CSS_ASSET="/assets/workspace-command-center-v230.css";
+const WORKSPACE_COMMAND_CENTER_V231_CSS_ASSET="/assets/workspace-command-center-v231.css";
 const PROPERTY_VISIBILITY_JS_ASSET="/js/property-visibility-v230.js";
 const WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT=12;
 const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20261001a-";
@@ -330,6 +331,7 @@ function injectOwnerCommandCentreAssets(html){
   const propertyReferenceCssHref=PROPERTY_REFERENCE_CSS_ASSET;
   const propertyVisibilityCssHref=PROPERTY_VISIBILITY_CSS_ASSET;
   const workspaceCommandCenterCssHref=WORKSPACE_COMMAND_CENTER_CSS_ASSET;
+  const workspaceCommandCenterV231CssHref=WORKSPACE_COMMAND_CENTER_V231_CSS_ASSET;
   const propertyVisibilityJsSrc=PROPERTY_VISIBILITY_JS_ASSET;
   if(!source.includes("/assets/owner-command-centre.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${cssHref}" />\n`);
   if(!source.includes("/assets/executive-personalization.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${personalizationCssHref}" />\n`);
@@ -338,6 +340,7 @@ function injectOwnerCommandCentreAssets(html){
   if(!source.includes(PROPERTY_REFERENCE_CSS_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${propertyReferenceCssHref}" />\n`);
   if(!source.includes(PROPERTY_VISIBILITY_CSS_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${propertyVisibilityCssHref}" />\n`);
   if(!source.includes(WORKSPACE_COMMAND_CENTER_CSS_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${workspaceCommandCenterCssHref}" />\n`);
+  if(!source.includes(WORKSPACE_COMMAND_CENTER_V231_CSS_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${workspaceCommandCenterV231CssHref}" />\n`);
   if(!source.includes("/assets/thebe-ai-dock.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${aiDockCssHref}" />\n`);
   if(!source.includes(THEBE_AI_DOCK_HOTFIX_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${aiDockHotfixHref}" />\n`);
   if(!source.includes("/js/api-client.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${publicApiClientJsSrc}" defer></script>\n`);
