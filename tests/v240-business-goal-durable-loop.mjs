@@ -31,7 +31,7 @@ assert.ok(!BUSINESS_GOAL_TEMPLATES.grow_sales.allowedTools.includes("receivables
 const due=buildBusinessGoalDueQuery(25);
 assert.equal(due.bindings.at(-1),25);
 assert.match(due.sql,/next_run_at IS NOT NULL/);
-assert.match(due.sql,/json_extract\(trigger_spec_json,'\$\.templateKey'\)/);
+assert.match(due.sql,/json_extract\(CASE WHEN json_valid\(trigger_spec_json\) THEN trigger_spec_json ELSE '\{\}' END,'\$\.templateKey'\)/);
 
 const runner=fs.readFileSync("cloudflare/src/business-goal-durable-loop.js","utf8");
 const engine=fs.readFileSync("cloudflare/src/agentic-persistent-tasks.js","utf8");
@@ -62,7 +62,9 @@ assert.match(engine,/parseJson\(r\.trigger_spec_json,\{\}\)/,
   "task listing must tolerate malformed historical JSON without crashing the whole panel");
 assert.match(engine,/next_run_at=CASE WHEN \?='active' AND next_run_at IS NULL/,
   "resume must repair a missing schedule");
-assert.match(finance,/json_extract\(trigger_spec_json,'\$\.templateKey'\) IN/,
+assert.match(finance,/safeTriggerJson/,
+  "Finance Watch must parse historical trigger JSON through a malformed-JSON-safe boundary");
+assert.match(finance,/templateKey'\),'\)' NOT IN|templateKey/,
   "Finance Watch must exclude business-goal tasks so one occurrence has one scheduler owner");
 assert.match(worker,/summary\.businessGoals=await runDueBusinessGoalTasks\(env,\{limit:25\}\)/,
   "platform cron must actually execute due business goals");
@@ -70,5 +72,7 @@ assert.doesNotMatch(ui,/Watch quotations/,
   "UI must not claim quotation monitoring when no quotation read tool is in the goal contract");
 assert.match(ui,/checks bounded business signals on schedule/,
   "UI must describe the real scheduled behavior rather than generic background work");
+assert.match(ui,/raw\.replace\(" ","T"\)\+"Z"/,
+  "D1 UTC timestamps without a timezone suffix must be normalized before Gaborone display");
 
 console.log("PASS: V240 repairs the V239 business-goal scheduler, duplicate, parsing and truthfulness gaps.");
