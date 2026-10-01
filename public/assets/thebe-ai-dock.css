@@ -1811,3 +1811,95 @@
     grid-template-columns:repeat(2,minmax(0,1fr))!important;
   }
 }
+
+
+/* V225 governed run summary — compact goal/evidence/plan visibility with deterministic trust labels. */
+.thebe-ai-run-summary{
+  display:grid;
+  gap:8px;
+  margin:0 0 10px;
+  padding:9px;
+  border:1px solid rgba(125,180,255,.14);
+  border-radius:12px;
+  background:#081725;
+}
+.thebe-ai-run-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  min-width:0;
+}
+.thebe-ai-run-head small{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:#7893ad;
+  font-size:8.5px;
+}
+.thebe-ai-run-status{
+  flex:none;
+  padding:3px 7px;
+  border:1px solid rgba(125,180,255,.24);
+  border-radius:999px;
+  background:#0d2236;
+  color:#bfe0ff;
+  font-size:8.5px;
+  font-weight:800;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.thebe-ai-run-summary[data-trust="verified"] .thebe-ai-run-status{
+  border-color:rgba(131,231,184,.38);
+  background:#0b2a22;
+  color:#bff7d9;
+}
+.thebe-ai-run-summary[data-trust="grounded"] .thebe-ai-run-status{
+  border-color:rgba(85,180,255,.38);
+  color:#cbe8ff;
+}
+.thebe-ai-run-summary[data-trust="advisory"] .thebe-ai-run-status{
+  border-color:rgba(255,190,92,.30);
+  background:#262114;
+  color:#ffd08a;
+}
+.thebe-ai-run-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:6px;
+}
+.thebe-ai-run-cell{
+  min-width:0;
+  padding:7px 8px;
+  border:1px solid rgba(125,180,255,.10);
+  border-radius:9px;
+  background:#0b1b2a;
+}
+.thebe-ai-run-key{
+  display:block;
+  margin-bottom:3px;
+  color:#6786a3;
+  font-size:7.5px;
+  font-weight:800;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+}
+.thebe-ai-run-value{
+  display:-webkit-box;
+  overflow:hidden;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+  color:#e7f2fc;
+  font-size:9px;
+  font-weight:650;
+  line-height:1.3;
+}
+.thebe-ai-run-summary + .thebe-ai-response-answer{margin-top:2px}
+@media(max-width:420px){
+  .thebe-ai-run-summary{padding:8px;gap:7px}
+  .thebe-ai-run-head small{display:none}
+  .thebe-ai-run-grid{gap:4px}
+  .thebe-ai-run-cell{padding:6px}
+  .thebe-ai-run-value{font-size:8.5px}
+}

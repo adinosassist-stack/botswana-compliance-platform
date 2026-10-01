@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20261001-common-work-yield-v219";
+  const RELEASE="20261001-goal-evidence-plan-v225";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -552,12 +552,12 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20261001-common-work-yield-v219";
+  const DOCK_RELEASE="20261001-goal-evidence-plan-v225";
   const STORE_KEY="thebe_ai_dock_collapsed_v5";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
   let dock=null,pill=null,pillLabel=null,orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,scrollRegion=null,input=null,sendButton=null,attentionButton=null,quick=null,foot=null,mascot=null,missionRail=null,missionLabel=null,missionMeta=null,contextBar=null,contextLabel=null,modeRail=null,clearButton=null,latestResponseButton=null;
-  let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",mascotState="idle",mascotContext="general",mascotFocus="ambient",ownerCommandState=null,collapsed=false,assistantMode="ask",lastAnswer="",autoFollowResponse=true,responseScrollLock=false,textRunId=0,textAbortController=null;
+  let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",mascotState="idle",mascotContext="general",mascotFocus="ambient",ownerCommandState=null,collapsed=false,assistantMode="ask",lastAnswer="",lastGoal="",lastAdvisorTrust="neutral",autoFollowResponse=true,responseScrollLock=false,textRunId=0,textAbortController=null;
 
   const api=(url,options={})=>{
     if(typeof global.apiJson!=="function")throw new Error("The secure Thebe API transport is not available.");
@@ -736,7 +736,7 @@
     textAbortController=null;
     textRunId+=1;
     textBusy=false;
-    voiceInput="";voiceOutput="";lastAnswer="";
+    voiceInput="";voiceOutput="";lastAnswer="";lastGoal="";lastAdvisorTrust="neutral";
     dock.dataset.conversation="false";
     renderVoiceTranscript();
     responseMessage("Ready when you are. Ask about this screen, request a brief, or choose a priority action.");
@@ -759,14 +759,16 @@
 
   function missionDescriptor(){
     if(mascotState==="error")return {stage:0,tone:"error",label:"Needs attention"};
-    if(mascotState==="approval")return {stage:4,tone:"review",label:"Owner review required"};
-    if(mascotState==="success")return {stage:4,tone:"success",label:"Complete"};
-    if(mascotState==="acting")return {stage:3,tone:"active",label:"Preparing governed work"};
-    if(mascotState==="thinking")return {stage:2,tone:"active",label:"Reasoning with workspace context"};
+    if(mascotState==="approval")return {stage:4,tone:"review",label:"Waiting for you"};
+    if(mascotState==="success")return lastAdvisorTrust==="verified"
+      ?{stage:4,tone:"success",label:"Verified"}
+      :{stage:4,tone:"success",label:lastAdvisorTrust==="grounded"?"Grounded result":"Complete"};
+    if(mascotState==="acting")return {stage:3,tone:"active",label:"Working · preparing governed work"};
+    if(mascotState==="thinking")return {stage:2,tone:"active",label:"Working"};
     if(mascotState==="speaking")return {stage:2,tone:"active",label:"Responding"};
     if(mascotState==="listening")return {stage:1,tone:"active",label:"Understanding request"};
     const pending=Math.max(0,Number(ownerCommandState?.pendingReviews||0));
-    if(pending)return {stage:4,tone:"review",label:`${pending} item${pending===1?"":"s"} waiting for owner review`};
+    if(pending)return {stage:4,tone:"review",label:`Waiting for you · ${pending} owner review${pending===1?"":"s"}`};
     const approved=Math.max(0,Number(ownerCommandState?.approvedRequests||0));
     if(approved){
       const noun=approved===1?"task":"tasks";
@@ -776,8 +778,8 @@
     }
     const phase=String(ownerCommandState?.phase||"");
     const message=clean(ownerCommandState?.message||"",90);
-    if(phase==="working")return {stage:3,tone:"active",label:message||"Preparing governed work"};
-    if(phase==="reasoning"||phase==="syncing")return {stage:2,tone:"active",label:message||"Reasoning with workspace context"};
+    if(phase==="working")return {stage:3,tone:"active",label:message||"Working"};
+    if(phase==="reasoning"||phase==="syncing")return {stage:2,tone:"active",label:message||"Working"};
     if(phase==="error")return {stage:0,tone:"error",label:message||"Command Centre needs attention"};
     if(phase==="complete"||phase==="plan_ready")return {stage:4,tone:"success",label:message||"Command Centre updated"};
     return {stage:0,tone:"neutral",label:"Ready"};
@@ -1028,6 +1030,50 @@
     }
     syncComposerState();
   }
+  function advisorTrust(result){
+    const references=Array.isArray(result?.references)?result.references:[];
+    const official=references.filter(item=>item?.type==="official_source");
+    const verifiedOfficial=official.filter(item=>String(item?.verificationStatus||"").toLowerCase()==="verified");
+    if(references.length>0&&references.length===official.length&&verifiedOfficial.length===official.length){
+      return {key:"verified",label:"Verified",detail:`${verifiedOfficial.length} verified official source${verifiedOfficial.length===1?"":"s"}`};
+    }
+    if(references.length>0){
+      return {key:"grounded",label:"Grounded",detail:`${references.length} workspace source${references.length===1?"":"s"}`};
+    }
+    return {key:"advisory",label:"Advisory",detail:"No workspace source references returned"};
+  }
+  function runSummaryCell(label,value){
+    const cell=el("div","thebe-ai-run-cell");
+    cell.append(el("span","thebe-ai-run-key",label),el("strong","thebe-ai-run-value",value));
+    return cell;
+  }
+  function appendAdvisorRunSummary(result){
+    if(!responseBox)return;
+    const trust=advisorTrust(result);
+    lastAdvisorTrust=trust.key;
+    const references=Array.isArray(result?.references)?result.references:[];
+    const actions=Array.isArray(result?.actions)?result.actions:[];
+    const summary=el("div","thebe-ai-run-summary");
+    summary.dataset.trust=trust.key;
+    const head=el("div","thebe-ai-run-head");
+    head.append(el("span","thebe-ai-run-status",trust.label),el("small","",trust.detail));
+    const grid=el("div","thebe-ai-run-grid");
+    const evidence=references.length
+      ?clean(references.slice(0,2).map(item=>item?.label||item?.ref).filter(Boolean).join(" · "),180)
+      :"No cited workspace evidence";
+    const plan=actions.length
+      ?`${actions.length} suggested next step${actions.length===1?"":"s"}`
+      :"Answer only · no action executed";
+    grid.append(
+      runSummaryCell("Goal",clean(lastGoal,160)||"Review the current workspace"),
+      runSummaryCell("Evidence",evidence||trust.detail),
+      runSummaryCell("Plan",plan)
+    );
+    summary.append(head,grid);
+    responseBox.append(summary);
+    syncMission();
+  }
+
   function responseAnswer(message){
     const answer=el("div","thebe-ai-response-answer",message);
     const long=String(message??"").length>700;
@@ -1055,6 +1101,7 @@
     responseBox.setAttribute("aria-busy","false");
     responseBox.replaceChildren();
     responseBox.append(el("div","thebe-ai-response-title",result?.generationMode==="workers_ai"?"Grounded workspace response":"Thebe workspace response"));
+    appendAdvisorRunSummary(result);
     lastAnswer=cleanMultiline(result?.answer||"No grounded answer was returned.",3200);
     responseBox.append(responseAnswer(lastAnswer));
     const actions=Array.isArray(result?.actions)?result.actions.slice(0,3):[];
@@ -1194,6 +1241,9 @@
     const controller=new AbortController();
     textAbortController=controller;
     textBusy=true;
+    lastGoal=q;
+    lastAdvisorTrust="working";
+    syncMission();
     autoFollowResponse=true;
     if(latestResponseButton)latestResponseButton.hidden=true;
     syncBusyControls();
@@ -1585,6 +1635,6 @@
     clear:clearConversation,
     setMode:mode=>setAssistantMode(mode),
     ask:(question,mode=assistantMode)=>ask(mode,question),
-    state:()=>({collapsed:effectiveCollapsed(),collapsedPreference:collapsed,mobile:mobileDockMode(),assistantMode,voicePhase,mascotState,mascotContext,mascotFocus,ownerCommandState,textBusy,workspaceVisible:shellVisible(),dockHidden:dock?.hidden??true,pillHidden:pill?.hidden??true,cssRecovery:dock?.dataset?.cssRecovery==="1",context:activeContext()})
+    state:()=>({collapsed:effectiveCollapsed(),collapsedPreference:collapsed,mobile:mobileDockMode(),assistantMode,voicePhase,mascotState,mascotContext,mascotFocus,ownerCommandState,textBusy,lastGoal,lastAdvisorTrust,workspaceVisible:shellVisible(),dockHidden:dock?.hidden??true,pillHidden:pill?.hidden??true,cssRecovery:dock?.dataset?.cssRecovery==="1",context:activeContext()})
   });
 })(window);
