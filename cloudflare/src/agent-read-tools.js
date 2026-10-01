@@ -58,12 +58,7 @@ function systemObserverIdentityAllowed(actionKey,auth){
   return false;
 }
 function policyDecision(actionKey,auth){
-  if(!systemObserverIdentityAllowed(actionKey,auth))return Object.freeze({
-    allowed:false,decision:"deny",code:"system_observer_identity_forbidden",
-    reason:"The canonical observer identity is not authorized for this read capability.",
-    policyVersion:"observer-identity-v1",action:null
-  });
-  return evaluateAgentAction({
+  const policy=evaluateAgentAction({
     agentKey:"thebe",
     actionKey,
     actorRole:String(auth?.role||"").toLowerCase(),
@@ -71,6 +66,13 @@ function policyDecision(actionKey,auth){
     systemActor:auth?.systemActor===true,
     phase:"phase1"
   });
+  if(policy.allowed!==true)return policy;
+  if(!systemObserverIdentityAllowed(actionKey,auth))return Object.freeze({
+    allowed:false,decision:"deny",code:"system_observer_identity_forbidden",
+    reason:"The canonical observer identity is not authorized for this read capability.",
+    policyVersion:"observer-identity-v1",action:policy.action
+  });
+  return policy;
 }
 function baseResult(actionKey,decision){
   return {
