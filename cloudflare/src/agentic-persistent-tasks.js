@@ -2,7 +2,7 @@ import {validatePersistentTaskAllowedTools} from "./agent-tool-trust-registry.js
 import {buildBusinessGoalTask} from "./business-goals.js";
 import {authenticate,roleAllowed,originAllowed,csrfAllowed,readJson,requestBodyErrorStatus,safeFirst} from "./agentic-authority-core.js";
 
-export const PERSISTENT_TASK_ENGINE_VERSION="2026-09-25.v1";
+export const PERSISTENT_TASK_ENGINE_VERSION="2026-10-01.v2";
 const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"}});
 const clean=(v,max)=>String(v??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
 const newId=()=>crypto.randomUUID();
@@ -11,6 +11,7 @@ const allowedStatus=new Set(["active","paused","completed","cancelled"]);
 function arrayOfStrings(value,max=20){if(!Array.isArray(value)||value.length>max)return null;const out=value.map(v=>clean(v,120)).filter(Boolean);return out.length===value.length?[...new Set(out)]:null}
 function plainObject(value){return value&&typeof value==="object"&&!Array.isArray(value)?value:{}}
 function validIso(value){if(value==null||value==="")return null;const d=new Date(value);return Number.isFinite(d.getTime())?d.toISOString():undefined}
+function parseJson(value,fallback){try{return JSON.parse(String(value??""))}catch{return fallback}}
 export function normalizePersistentTask(body={}){
   const objective=clean(body.objective,500);
   if(!objective)return {error:"objective_required"};
@@ -29,9 +30,16 @@ export function normalizePersistentTask(body={}){
 async function ready(env){try{await env.DB.prepare("SELECT COUNT(*) c FROM agent_persistent_tasks").first();return true}catch{return false}}
 async function list(env,auth){
   if(!(await ready(env)))return json({error:"persistent_task_schema_not_ready"},503);
-  const rows=await env.DB.prepare(`SELECT id,objective,status,trigger_kind,trigger_spec_json,allowed_tools_json,risk_policy_json,approval_policy_json,budget_json,next_run_at,last_run_at,created_at,updated_at
+  const rows=await env.DB.prepare(`SELECT id,objective,status,trigger_kind,trigger_spec_json,allowed_tools_json,risk_policy_json,approval_policy_json,budget_json,checkpoint_json,next_run_at,last_run_at,created_at,updated_at
     FROM agent_persistent_tasks WHERE tenant_id=? ORDER BY created_at DESC LIMIT 100`).bind(auth.tenant_id).all();
-  return json({version:PERSISTENT_TASK_ENGINE_VERSION,tasks:(rows.results||[]).map(r=>({...r,triggerSpec:JSON.parse(r.trigger_spec_json||"{}"),allowedTools:JSON.parse(r.allowed_tools_json||"[]"),riskPolicy:JSON.parse(r.risk_policy_json||"{}"),approvalPolicy:JSON.parse(r.approval_policy_json||"{}"),budget:JSON.parse(r.budget_json||"{}")}))});
+  return json({version:PERSISTENT_TASK_ENGINE_VERSION,tasks:(rows.results||[]).map(r=>({...r,
+    triggerSpec:parseJson(r.trigger_spec_json,{}),
+    allowedTools:parseJson(r.allowed_tools_json,[]),
+    riskPolicy:parseJson(r.risk_policy_json,{}),
+    approvalPolicy:parseJson(r.approval_policy_json,{}),
+    budget:parseJson(r.budget_json,{}),
+    checkpoint:parseJson(r.checkpoint_json,null)
+  }))});
 }
 async function create(request,env,auth){
   if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);
@@ -53,21 +61,46 @@ async function createBusinessGoal(request,env,auth){
   let body;try{body=await readJson(request)}catch(e){return json({error:e.message},requestBodyErrorStatus(e))}
   const built=buildBusinessGoalTask(body);if(built.error)return json({error:built.error},400);
   const id=newId(),p=built.payload;
+  const triggerSpec=JSON.stringify({...p.triggerSpec,templateKey:p.templateKey,label:p.label});
+  const nextRunAt=new Date().toISOString();
+  const inserted=await env.DB.prepare(`INSERT INTO agent_persistent_tasks(
+      id,tenant_id,owner_user_id,objective,trigger_kind,trigger_spec_json,allowed_tools_json,risk_policy_json,approval_policy_json,budget_json,next_run_at
+    )
+    SELECT ?,?,?,?,?,?,?,?,?,?,?
+    WHERE NOT EXISTS (
+      SELECT 1 FROM agent_persistent_tasks
+      WHERE tenant_id=? AND status IN ('active','paused') AND json_valid(trigger_spec_json)
+        AND json_extract(trigger_spec_json,'$.templateKey')=?
+    )`)
+    .bind(id,auth.tenant_id,auth.user_id,p.objective,p.triggerKind,triggerSpec,JSON.stringify(p.allowedTools),JSON.stringify(p.riskPolicy),JSON.stringify(p.approvalPolicy),JSON.stringify(p.budget),nextRunAt,auth.tenant_id,p.templateKey).run();
+  const changes=Number(inserted?.meta?.changes??inserted?.changes??0);
+  if(changes!==1){
+    const existing=await safeFirst(env,`SELECT id,status FROM agent_persistent_tasks
+      WHERE tenant_id=? AND status IN ('active','paused') AND json_valid(trigger_spec_json)
+        AND json_extract(trigger_spec_json,'$.templateKey')=? ORDER BY created_at DESC LIMIT 1`,[auth.tenant_id,p.templateKey]);
+    if(existing)return json({ok:true,id:existing.id,status:existing.status,templateKey:p.templateKey,replayed:true,executionAllowed:false,notice:"This goal is already being watched."},200);
+    return json({error:"business_goal_create_conflict"},409);
+  }
   await env.DB.batch([
-    env.DB.prepare(`INSERT INTO agent_persistent_tasks(id,tenant_id,owner_user_id,objective,trigger_kind,trigger_spec_json,allowed_tools_json,risk_policy_json,approval_policy_json,budget_json,next_run_at)
-      VALUES(?,?,?,?,?,?,?,?,?,?,?)`).bind(id,auth.tenant_id,auth.user_id,p.objective,p.triggerKind,JSON.stringify({...p.triggerSpec,templateKey:p.templateKey,label:p.label}),JSON.stringify(p.allowedTools),JSON.stringify(p.riskPolicy),JSON.stringify(p.approvalPolicy),JSON.stringify(p.budget),null),
-    env.DB.prepare("INSERT INTO agent_persistent_task_events(id,tenant_id,persistent_task_id,event_type,event_data) VALUES(?,?,?,'BUSINESS_GOAL_CREATED',?)").bind(newId(),auth.tenant_id,id,JSON.stringify({templateKey:p.templateKey,executionAllowed:false})),
-    env.DB.prepare("INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data) VALUES(?,?,'AGENT_BUSINESS_GOAL_CREATED','agent_persistent_task',?,?)").bind(auth.tenant_id,auth.user_id,id,JSON.stringify({templateKey:p.templateKey,allowedTools:p.allowedTools}))
+    env.DB.prepare("INSERT INTO agent_persistent_task_events(id,tenant_id,persistent_task_id,event_type,event_data) VALUES(?,?,?,'BUSINESS_GOAL_CREATED',?)")
+      .bind(newId(),auth.tenant_id,id,JSON.stringify({templateKey:p.templateKey,nextRunAt,executionAllowed:false,externalActions:0})),
+    env.DB.prepare("INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data) VALUES(?,?,'AGENT_BUSINESS_GOAL_CREATED','agent_persistent_task',?,?)")
+      .bind(auth.tenant_id,auth.user_id,id,JSON.stringify({templateKey:p.templateKey,allowedTools:p.allowedTools,nextRunAt,executionAllowed:false,externalActions:0}))
   ]);
-  return json({ok:true,id,status:"active",templateKey:p.templateKey,executionAllowed:false,notice:"Goal active. Thebe may observe and recommend; consequential actions still require approval and Runtime Guard."},201);
+  return json({ok:true,id,status:"active",templateKey:p.templateKey,nextRunAt,executionAllowed:false,notice:"Goal active. Thebe will check the governed sources on schedule; consequential actions still require approval and Runtime Guard."},201);
 }
 async function transition(env,auth,id,status){
   if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);
-  if(!allowedStatus.has(status)||status==="active"&&false)return json({error:"invalid_status"},400);
-  const row=await safeFirst(env,"SELECT id,status FROM agent_persistent_tasks WHERE id=? AND tenant_id=? LIMIT 1",[id,auth.tenant_id]);
+  if(!allowedStatus.has(status))return json({error:"invalid_status"},400);
+  const row=await safeFirst(env,"SELECT id,status,next_run_at FROM agent_persistent_tasks WHERE id=? AND tenant_id=? LIMIT 1",[id,auth.tenant_id]);
   if(!row)return json({error:"persistent_task_not_found"},404);
   if(["completed","cancelled"].includes(row.status))return json({error:"terminal_task"},409);
-  const result=await env.DB.prepare("UPDATE agent_persistent_tasks SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND status NOT IN ('completed','cancelled')").bind(status,id,auth.tenant_id).run();
+  const result=await env.DB.prepare(`UPDATE agent_persistent_tasks
+    SET status=?,
+        next_run_at=CASE WHEN ?='active' AND next_run_at IS NULL THEN strftime('%Y-%m-%dT%H:%M:%fZ','now') ELSE next_run_at END,
+        updated_at=CURRENT_TIMESTAMP
+    WHERE id=? AND tenant_id=? AND status NOT IN ('completed','cancelled')`)
+    .bind(status,status,id,auth.tenant_id).run();
   if(Number(result?.meta?.changes??result?.changes??0)!==1)return json({error:"persistent_task_transition_conflict"},409);
   await env.DB.batch([
     env.DB.prepare("INSERT INTO agent_persistent_task_events(id,tenant_id,persistent_task_id,event_type,event_data) VALUES(?,?,?,?,?)").bind(newId(),auth.tenant_id,id,"STATUS_CHANGED",JSON.stringify({from:row.status,to:status})),
@@ -91,4 +124,4 @@ export async function handleAgenticPersistentTaskRequest({request,logicalPath,en
   }
   return json({error:"not_found"},404);
 }
-export const __persistentTaskTest=Object.freeze({normalizePersistentTask,allowedTrigger,allowedStatus});
+export const __persistentTaskTest=Object.freeze({normalizePersistentTask,allowedTrigger,allowedStatus,parseJson});
