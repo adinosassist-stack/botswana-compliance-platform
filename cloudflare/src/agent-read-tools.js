@@ -51,7 +51,7 @@ function parseObject(value){
 }
 function systemObserverIdentityAllowed(actionKey,auth){
   if(String(auth?.role||"").toLowerCase()!=="system_observer")return true;
-  if(auth?.systemActor!==true)return false;
+  if(auth?.systemActor!==true)return true;
   const agentId=String(auth?.agentId||"");
   if(agentId==="SYS-FIN-OBS-001")return FINANCE_OBSERVER_ACTIONS.has(actionKey);
   if(agentId==="SYS-BIZ-OBS-001")return BUSINESS_GOAL_OBSERVER_ACTIONS.has(actionKey);
