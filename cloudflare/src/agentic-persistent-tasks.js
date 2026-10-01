@@ -63,16 +63,22 @@ async function createBusinessGoal(request,env,auth){
   const id=newId(),p=built.payload;
   const triggerSpec=JSON.stringify({...p.triggerSpec,templateKey:p.templateKey,label:p.label});
   const nextRunAt=new Date().toISOString();
-  const inserted=await env.DB.prepare(`INSERT INTO agent_persistent_tasks(
-      id,tenant_id,owner_user_id,objective,trigger_kind,trigger_spec_json,allowed_tools_json,risk_policy_json,approval_policy_json,budget_json,next_run_at
-    )
-    SELECT ?,?,?,?,?,?,?,?,?,?,?
-    WHERE NOT EXISTS (
-      SELECT 1 FROM agent_persistent_tasks
-      WHERE tenant_id=? AND status IN ('active','paused')
-        AND json_extract(CASE WHEN json_valid(trigger_spec_json) THEN trigger_spec_json ELSE '{}' END,'$.templateKey')=?
-    )`)
-    .bind(id,auth.tenant_id,auth.user_id,p.objective,p.triggerKind,triggerSpec,JSON.stringify(p.allowedTools),JSON.stringify(p.riskPolicy),JSON.stringify(p.approvalPolicy),JSON.stringify(p.budget),nextRunAt,auth.tenant_id,p.templateKey).run();
+  let inserted;
+  try{
+    inserted=await env.DB.prepare(`INSERT INTO agent_persistent_tasks(
+        id,tenant_id,owner_user_id,objective,trigger_kind,trigger_spec_json,allowed_tools_json,risk_policy_json,approval_policy_json,budget_json,next_run_at
+      )
+      SELECT ?,?,?,?,?,?,?,?,?,?,?
+      WHERE NOT EXISTS (
+        SELECT 1 FROM agent_persistent_tasks
+        WHERE tenant_id=? AND status IN ('active','paused')
+          AND json_extract(CASE WHEN json_valid(trigger_spec_json) THEN trigger_spec_json ELSE '{}' END,'$.templateKey')=?
+      )`)
+      .bind(id,auth.tenant_id,auth.user_id,p.objective,p.triggerKind,triggerSpec,JSON.stringify(p.allowedTools),JSON.stringify(p.riskPolicy),JSON.stringify(p.approvalPolicy),JSON.stringify(p.budget),nextRunAt,auth.tenant_id,p.templateKey).run();
+  }catch(error){
+    if(!String(error?.message||error).includes("duplicate_business_goal"))throw error;
+    inserted={changes:0};
+  }
   const changes=Number(inserted?.meta?.changes??inserted?.changes??0);
   if(changes!==1){
     const existing=await safeFirst(env,`SELECT id,status FROM agent_persistent_tasks
@@ -95,12 +101,18 @@ async function transition(env,auth,id,status){
   const row=await safeFirst(env,"SELECT id,status,next_run_at FROM agent_persistent_tasks WHERE id=? AND tenant_id=? LIMIT 1",[id,auth.tenant_id]);
   if(!row)return json({error:"persistent_task_not_found"},404);
   if(["completed","cancelled"].includes(row.status))return json({error:"terminal_task"},409);
-  const result=await env.DB.prepare(`UPDATE agent_persistent_tasks
-    SET status=?,
-        next_run_at=CASE WHEN ?='active' AND next_run_at IS NULL THEN strftime('%Y-%m-%dT%H:%M:%fZ','now') ELSE next_run_at END,
-        updated_at=CURRENT_TIMESTAMP
-    WHERE id=? AND tenant_id=? AND status NOT IN ('completed','cancelled')`)
-    .bind(status,status,id,auth.tenant_id).run();
+  let result;
+  try{
+    result=await env.DB.prepare(`UPDATE agent_persistent_tasks
+      SET status=?,
+          next_run_at=CASE WHEN ?='active' AND next_run_at IS NULL THEN strftime('%Y-%m-%dT%H:%M:%fZ','now') ELSE next_run_at END,
+          updated_at=CURRENT_TIMESTAMP
+      WHERE id=? AND tenant_id=? AND status NOT IN ('completed','cancelled')`)
+      .bind(status,status,id,auth.tenant_id).run();
+  }catch(error){
+    if(String(error?.message||error).includes("duplicate_business_goal"))return json({error:"business_goal_duplicate_active"},409);
+    throw error;
+  }
   if(Number(result?.meta?.changes??result?.changes??0)!==1)return json({error:"persistent_task_transition_conflict"},409);
   await env.DB.batch([
     env.DB.prepare("INSERT INTO agent_persistent_task_events(id,tenant_id,persistent_task_id,event_type,event_data) VALUES(?,?,?,?,?)").bind(newId(),auth.tenant_id,id,"STATUS_CHANGED",JSON.stringify({from:row.status,to:status})),
