@@ -4,6 +4,7 @@ const origin = String(process.env.PROPERTY_ORIGIN || "https://thebedesk.com").re
 const expectedRelease = "20261001-property-visibility-v226";
 const runtimePath = "/js/workspace-runtime-20261001b.js";
 const fragmentPath = `/assets/workspace-view-fragments-20261001a-4.json?v=${expectedRelease}`;
+const workspacePath = "/";
 
 async function fetchText(path) {
   const url = `${origin}${path}${path.includes("?") ? "&" : "?"}live_proof=${Date.now()}`;
@@ -21,6 +22,14 @@ async function fetchText(path) {
   assert.ok(body.length > 0, `${path} must return a non-empty body`);
   return { body, response, url };
 }
+
+const workspace = await fetchText(workspacePath);
+assert.equal(workspace.response.headers.get("x-thebe-property-ui"), "v228-resident-compact-calculator", "live workspace must expose the resident Property release marker");
+assert.match(workspace.body, /<section\b[^>]*\bid=["']propertyintelligence["'][^>]*>/i, "live workspace HTML must contain Property Intelligence");
+const propertySectionOpen = workspace.body.match(/<section\b[^>]*\bid=["']propertyintelligence["'][^>]*>/i)?.[0] || "";
+assert.ok(propertySectionOpen && !/data-lazy-view=["']1["']/i.test(propertySectionOpen), "live Property section must not be an empty lazy placeholder");
+assert.match(workspace.body, /Compact Property Calculator/, "live workspace HTML must embed Compact Property Calculator before lazy hydration");
+assert.match(workspace.body, /id=["']propertyPurchasePrice["']/, "live workspace HTML must embed the purchase-price input");
 
 const runtime = await fetchText(runtimePath);
 assert.match(runtime.body, /PROPERTY_VIEW_FRAGMENT_ASSET="\/assets\/workspace-view-fragments-20261001a-4\.json\?v=20261001-property-visibility-v226"/, "live runtime must point Property at the V226 shared fragment transport");
@@ -46,14 +55,18 @@ assert.match(property, /not a professional property valuation/, "live Property v
 
 const proof = {
   origin,
+  workspace: workspacePath,
   runtime: runtimePath,
   fragment: fragmentPath,
   propertyRelease: expectedRelease,
   calculatorVisible: true,
+  workspacePropertyUi: workspace.response.headers.get("x-thebe-property-ui"),
+  workspaceCacheControl: workspace.response.headers.get("cache-control"),
   runtimeCacheControl: runtime.response.headers.get("cache-control"),
   fragmentCacheControl: fragment.response.headers.get("cache-control"),
+  workspaceCfRay: workspace.response.headers.get("cf-ray"),
   runtimeCfRay: runtime.response.headers.get("cf-ray"),
   fragmentCfRay: fragment.response.headers.get("cf-ray"),
 };
 console.log(JSON.stringify(proof, null, 2));
-console.log("V227_PROPERTY_LIVE_PROOF_PASS");
+console.log("V228_PROPERTY_RESIDENT_LIVE_PROOF_PASS");
