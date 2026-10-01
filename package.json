@@ -289,6 +289,7 @@
     "config:generate": "node scripts/generate-foundation-pack.mjs",
     "test:regulatory-pack-v180": "node tests/v180-regulatory-pack-integrity.mjs",
     "test:property-valuer-credential-v179": "node tests/v179-property-valuer-credential-binding.mjs",
+    "test:jit-execution-permit-v217": "node --no-warnings tests/v217-jit-execution-permit.mjs",
     "test:regulatory-activation-v181": "node tests/v181-regulatory-activation-audit.mjs"
   },
   "dependencies": {

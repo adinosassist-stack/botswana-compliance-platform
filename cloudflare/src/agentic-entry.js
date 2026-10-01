@@ -9,7 +9,7 @@ import {handleAgenticFinanceReconciliationRequest} from "./agentic-finance-recon
 import {preparePlatformOwnerLogin,withPlatformOwnerAdminEnv} from "./platform-owner-access.js";
 import {applyClientRuntimeIdentity} from "./client-runtime-identity.js";
 
-const V81_SCHEMA_DELTA="063_v179_property_valuer_credential_binding.sql";
+const V81_SCHEMA_DELTA="064_v217_jit_execution_permits.sql";
 const COLD_START_REDUNDANT_RENDER="if(!options?.skipDataRefresh)queueMicrotask(()=>renderAll())";
 const COLD_START_GUARDED_RENDER="if(!options?.skipDataRefresh&&!options?.roleRedirect)queueMicrotask(()=>renderAll())";
 const SYNTHETIC_BOOT_TRACE_PREFIX="THEBE_SYNTHETIC_BOOT";
@@ -95,6 +95,7 @@ async function delegatedAuthoritySchemaReady(env){
       (SELECT COUNT(*) FROM agent_task_requests) task_request_count,
       (SELECT COUNT(*) FROM agent_internal_tasks) internal_task_count,
       (SELECT COUNT(*) FROM agent_execution_receipts) execution_receipt_count,
+      (SELECT COUNT(*) FROM agent_jit_execution_permits) jit_execution_permit_count,
       (SELECT COUNT(*) FROM agent_persistent_tasks) persistent_task_count,
       (SELECT COUNT(*) FROM agent_observation_checkpoints) observation_checkpoint_count,
       (SELECT COUNT(*) FROM agent_observation_claims) observation_claim_count,
