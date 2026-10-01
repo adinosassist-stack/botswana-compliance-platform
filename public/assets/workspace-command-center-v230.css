@@ -1,0 +1,77 @@
+/* V230 command-center workspace rhythm — compact, visual, low-prose. */
+#dashboard,#ownerCommandCentre{
+  --v230-card-radius:14px;
+}
+#dashboard .home-decision-center,
+#ownerCommandCentre{
+  background:transparent;
+}
+#ownerCommandCentre .owner-command-head,
+#ownerCommandCentre .owner-agentic-head{
+  align-items:center;
+  gap:12px;
+}
+#ownerCommandCentre .owner-command-head p,
+#ownerCommandCentre .owner-agentic-head p{
+  display:none!important;
+}
+#ownerCommandCentre .owner-command-summary{
+  max-width:760px;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+  line-height:1.45;
+}
+#ownerCommandCentre :is(.owner-panel,.owner-agentic-panel,.owner-agentic-boundary,.owner-agentic-run,.owner-signal-card,.owner-sim-card){
+  border-radius:var(--v230-card-radius)!important;
+  box-shadow:0 1px 2px rgba(15,23,42,.04),0 8px 22px rgba(15,23,42,.035);
+}
+#ownerCommandCentre .owner-signal-list{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+}
+#ownerCommandCentre .owner-signal-card{
+  min-height:96px;
+  padding:12px!important;
+}
+#ownerCommandCentre :is(.owner-signal-card,.owner-agentic-run,.owner-command-empty) p,
+#ownerCommandCentre :is(.owner-signal-card,.owner-agentic-run,.owner-command-empty) span{
+  line-height:1.35;
+}
+#ownerCommandCentre .owner-agentic-controls{
+  gap:10px;
+  padding:12px!important;
+}
+#ownerCommandCentre .owner-agentic-control-buttons{
+  flex-wrap:nowrap;
+}
+#ownerCommandCentre .btn{
+  min-height:34px;
+  padding:7px 10px;
+  border-radius:9px;
+  font-size:11px;
+}
+#ownerCommandCentre .section-eyebrow{
+  font-size:9px!important;
+  letter-spacing:.12em;
+}
+#ownerCommandCentre h3{font-size:18px;margin:2px 0}
+#ownerCommandCentre h4{font-size:14px;margin:2px 0}
+#dashboard .home-status-strip{
+  gap:8px;
+}
+#dashboard .home-status-strip>*{
+  border-radius:12px!important;
+  min-height:72px!important;
+}
+#dashboard .home-action-row{
+  padding:10px 0!important;
+}
+@media(max-width:900px){
+  #ownerCommandCentre .owner-signal-list{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:620px){
+  #ownerCommandCentre .owner-signal-list{grid-template-columns:1fr}
+}
