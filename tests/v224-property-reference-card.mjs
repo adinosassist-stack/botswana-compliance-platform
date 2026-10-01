@@ -2,22 +2,22 @@ import fs from "node:fs";
 import assert from "node:assert/strict";
 
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
-const runtime=fs.readFileSync("public/js/workspace-runtime-20261001a.js","utf8");
+const runtime=fs.readFileSync("public/js/workspace-runtime-20261001b.js","utf8");
 const owner=fs.readFileSync("public/js/owner-command-centre.js","utf8");
 const css=fs.readFileSync("public/assets/property-calculator-reference-v224.css","utf8");
-const payload=JSON.parse(fs.readFileSync("public/assets/property-view-v224.json","utf8"));
+const payload=JSON.parse(fs.readFileSync("public/assets/workspace-view-fragments-20261001a-4.json","utf8"));
 const property=String(payload.views?.propertyintelligence||"");
 
-assert.ok(production.includes('const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20261001a.js";'),"V224 must rotate the physical workspace runtime asset");
-assert.ok(production.includes('const WORKSPACE_RUNTIME_RELEASE="20261001-property-reference-card-v224";'),"V224 runtime release identity missing");
+assert.ok(production.includes('const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20261001b.js";'),"V224 compact design successor must use the V225 workspace runtime asset");
+assert.ok(production.includes('const WORKSPACE_RUNTIME_RELEASE="20261001-property-visibility-v226";'),"V224 compact design successor must carry the V225 visibility release identity");
 assert.ok(production.includes('const PROPERTY_REFERENCE_CSS_ASSET="/assets/property-calculator-reference-v224.css";'),"V224 compact reference stylesheet missing");
 assert.ok(production.includes('if(!source.includes(PROPERTY_REFERENCE_CSS_ASSET))source=injectBeforeFinalClosingTag(source,"head"'),"workspace shell must inject V224 reference stylesheet");
 assert.ok(production.includes('headers.set("cache-control","no-store")')&&production.includes('headers.set("x-thebe-property-ui","v224-reference-card")'),"workspace document must expose the V224 freshness boundary");
 
 for(const source of [production,runtime]){
-  assert.ok(source.includes('const PROPERTY_VIEW_FRAGMENT_ASSET="/assets/property-view-v224.json";'),"Property must use a dedicated immutable V224 fragment asset");
-  assert.ok(source.includes('const cacheKey=propertyView?"property-v224":String(shard);'),"Property fragment cache must be isolated from other shard-4 views");
-  assert.ok(source.includes('propertyView?PROPERTY_VIEW_FRAGMENT_ASSET:WORKSPACE_VIEW_FRAGMENT_PREFIX+shard+".json"'),"Property must route to the dedicated V224 fragment");
+  assert.ok(source.includes('const PROPERTY_VIEW_FRAGMENT_ASSET="/assets/workspace-view-fragments-20261001a-4.json?v=20261001-property-visibility-v226";'),"Property must use the proven shared fragment transport in the V226 successor");
+  assert.ok(source.includes('const cacheKey=propertyView?"property-v226":String(shard);'),"Property fragment cache must be isolated and rotated for V225");
+  assert.ok(source.includes('propertyView?PROPERTY_VIEW_FRAGMENT_ASSET:WORKSPACE_VIEW_FRAGMENT_PREFIX+shard+".json"'),"Property must retain explicit fragment routing");
 }
 
 assert.equal(payload.schema,2);
