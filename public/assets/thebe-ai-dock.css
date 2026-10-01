@@ -1903,3 +1903,32 @@
   .thebe-ai-run-cell{padding:6px}
   .thebe-ai-run-value{font-size:8.5px}
 }
+
+
+/* V228 Owner Command Centre handoff — one compact navigation action; never an execution control. */
+.thebe-ai-mission-action{
+  flex:none;
+  min-height:28px;
+  border:1px solid rgba(143,210,255,.46);
+  border-radius:9px;
+  padding:5px 9px;
+  background:#0b63bd;
+  color:#f7fbff;
+  font:inherit;
+  font-size:9px;
+  font-weight:700;
+  letter-spacing:.015em;
+  line-height:1;
+  cursor:pointer;
+  box-shadow:0 0 0 1px rgba(143,210,255,.06),0 5px 16px rgba(0,24,58,.22);
+}
+.thebe-ai-mission-action:hover{background:#1170d0;border-color:#b9e3ff}
+.thebe-ai-mission-action:focus-visible{outline:2px solid #c8e9ff;outline-offset:2px}
+.thebe-ai-mission-action[hidden]{display:none!important}
+.thebe-ai-mission[data-tone="review"] .thebe-ai-mission-action{border-color:rgba(255,210,122,.56);background:#7c5112;color:#fff3d8}
+.thebe-ai-mission[data-tone="error"] .thebe-ai-mission-action{border-color:rgba(255,177,181,.58);background:#7b2f38;color:#fff0f1}
+@media(max-width:420px){
+  .thebe-ai-mission-copy{grid-template-columns:minmax(0,1fr) auto;align-items:center}
+  .thebe-ai-mission-label,.thebe-ai-mission-meta{grid-column:1}
+  .thebe-ai-mission-action{grid-column:2;grid-row:1/3;align-self:center}
+}
