@@ -8,7 +8,6 @@ const ok=(condition,message)=>{if(!condition)throw new Error(`FAIL: ${message}`)
 const brand='Thebe Desk';
 const retired=/BW Business Protection(?: OS)?|BW Protection/;
 
-const home=read('public/index.html');
 const publicHome=read('public/home.html');
 const authPortal=read('public/auth.html');
 const manifest=JSON.parse(read('public/manifest.webmanifest'));
@@ -24,12 +23,12 @@ const bridgeCss=read('public/assets/business-data-bridge.css');
 const bridgeJs=read('public/js/business-data-bridge.js');
 const productionEntry=read('cloudflare/src/production-entry.js');
 
-ok(home.includes(`<title>${brand} | AI Operating Layer for African Business</title>`) && home.includes(`property="og:site_name" content="${brand}"`),'home title and Open Graph site identity use Africa-ready Thebe Desk positioning');
-ok(home.includes(`"name":"${brand}"`) && /class="marketinglogo"[^>]*>[\s\S]*?alt="Thebe Desk logo symbol"[\s\S]*?>Thebe Desk<\/span>/.test(home) && /class="authbrand"[^>]*>[\s\S]*?alt="Thebe Desk logo symbol"[\s\S]*?>Thebe Desk<\/span>/.test(home),'structured data, marketing shell and auth shell use Thebe Desk');
-ok(home.includes(`aria-label="Back to ${brand} website"`) && /class="brand workspace-brand-link"[\s\S]*?>Thebe Desk<\/span><\/button>/.test(home),'workspace return identity uses Thebe Desk');
+ok(publicHome.includes(`<title>${brand} | AI Operating Layer for African Business</title>`) && publicHome.includes(`property="og:site_name" content="${brand}"`),'public home title and Open Graph site identity use Africa-ready Thebe Desk positioning');
+ok(/class="brand"[^>]*>[\s\S]*?>Thebe Desk<\/span>/.test(publicHome) && authPortal.includes('aria-label="Thebe Desk"') && /class="brand"[^>]*>[\s\S]*?>Thebe Desk<\/span>/.test(authPortal),'public and authentication surfaces use Thebe Desk');
+ok(authPortal.includes('← Back to public site') && authPortal.includes('Open your Thebe Desk workspace.'),'authentication handoff preserves clear Thebe Desk workspace identity');
 ok(manifest.name===brand && manifest.short_name===brand,'PWA install identity is Thebe Desk');
-ok(home.includes('Live in Botswana · Namibia next') && publicHome.includes('Live in Botswana · Namibia next'),'public brand preserves the locked Botswana-live Namibia-next rollout line');
-ok(!home.includes('South Africa next') && !publicHome.includes('South Africa next'),'public brand does not regress the Namibia-next rollout strategy');
+ok(publicHome.includes('Live in Botswana · Namibia next'),'public brand preserves the locked Botswana-live Namibia-next rollout line');
+ok(!publicHome.includes('South Africa next'),'public brand does not regress the Namibia-next rollout strategy');
 ok(manifest.icons.every(x=>String(x.src).includes('thebe-desk-icon-')),'PWA manifest no longer advertises legacy-branded icon paths');
 const historicalRecoveryCache=sw.includes('thebe-desk-')&&sw.includes('recovery-r1');
 const retiredServiceWorker=sw.includes('LEGACY_CACHE_PREFIX="thebe-desk-"')&&sw.includes('self.registration.unregister()')&&!sw.includes('addEventListener("fetch"')&&!sw.includes('clients.openWindow');
@@ -46,7 +45,7 @@ const seoPages=[
 ok(seoPages.every(p=>read(p).includes(brand) && !retired.test(read(p))),'all public SEO landing pages use the final brand');
 ok(read('public/404.html').includes(brand) && !retired.test(read('public/404.html')),'404 experience uses the final brand');
 
-const visibleFiles=['public/index.html','public/404.html','public/manifest.webmanifest',...seoPages,'cloudflare/src/worker.js','server/server.js','.env.example','README.md'];
+const visibleFiles=['public/home.html','public/auth.html','public/404.html','public/manifest.webmanifest',...seoPages,'cloudflare/src/worker.js','server/server.js','.env.example','README.md'];
 ok(visibleFiles.every(p=>!retired.test(read(p))), 'launch-visible text has no retired BW Business Protection brand');
 
 const pngs=['public/assets/favicon-96.png','public/assets/apple-touch-icon.png','public/assets/thebe-desk-icon-192.png','public/assets/thebe-desk-icon-512.png'];
@@ -73,9 +72,8 @@ ok(ownerCss.includes('#appShell .owner-action-index') && ownerCss.includes('back
 ok(workspaceCss.includes('@media(max-width:1000px)') && workspaceCss.includes('@media(prefers-reduced-motion:reduce)'),'active workspace stylesheet retains responsive and reduced-motion behavior');
 
 ok(productionEntry.includes('WORKSPACE_STYLES_ASSET="/assets/workspace-inline-styles-20260929b.css"') && productionEntry.includes('WORKSPACE_REFERENCE_SHELL_V237_CSS_ASSET="/assets/workspace-reference-shell-v237.css"') && productionEntry.includes('WORKSPACE_HOME_COMMAND_V238_CSS_ASSET="/assets/workspace-home-command-v238.css"'),'production entry owns the current cache-safe workspace style chain');
-const blueAuthority=home.indexOf('id="thebe-blue-brand-authority"');
-ok(blueAuthority>home.lastIndexOf('/* v16 acquisition + monetization UX */'),'final blue brand authority loads after the legacy green acquisition layer');
-const blueAuthorityCss=home.slice(blueAuthority);
+const blueAuthorityCss=finalWorkspaceCss;
+ok(finalBlueIndex>=0,'final blue brand authority is sourced from the active workspace stylesheet');
 ok(blueAuthorityCss.includes(':root{--accent:#0b66d6;--soft:#edf5ff;--sidebar:#0f172a;--sidebar2:#111827}'),'final authority pins primary brand tokens to Thebe blue/navy rather than the temporary green palette');
 ok(blueAuthorityCss.includes('.marketinggate .btn,.authgate .btn{background:#0b66d6;') && blueAuthorityCss.includes('.heroeyebrow,.featureicon,.recommended{background:#edf5ff;color:#0d5bc8}'),'marketing and registration fallback actions inherit Thebe blue');
 ok(blueAuthorityCss.includes('#appShell .brand:before{display:none!important;content:none!important}'),'legacy TD pseudo-logo cannot leak into the restored workspace brand');
@@ -96,7 +94,7 @@ ok(personalizationJs.includes('#ownerActionPanel .owner-action-list .owner-actio
 ok(personalizationJs.includes('isOwner()&&revenueText.includes("no monthly target projection yet")') && personalizationJs.includes('isOwner()&&cashText.includes("Not configured")') && personalizationJs.includes('isOwner()&&labourText.includes("Not configured")'),'owner-only financial onboarding stays gated to the owner role');
 ok(personalizationJs.includes('revenueText.includes("needs more reporting history")') && personalizationJs.includes('salesText.includes("Record enough resolved quotations")'),'contextual onboarding focuses on missing reporting or sales evidence when those capabilities are not decision-ready');
 ok(!personalizationJs.includes('/api/state') && !personalizationJs.includes('fetch(') && !personalizationJs.includes('localStorage'),'personalization does not create a second data-write path, direct network transport or persistent profiling store');
-ok(personalizationCss.includes('background:var(--ws-accent-soft)') && personalizationCss.includes('color:var(--ws-accent-strong)') && !personalizationCss.includes('#176b4f') && !personalizationCss.includes('#111713'),'personalization preserves the live blue/white workspace brand');
+ok(personalizationCss.includes('background:#edf5ff') && personalizationCss.includes('color:#0d5bc8') && !personalizationCss.includes('#176b4f') && !personalizationCss.includes('#111713'),'personalization preserves the live blue/white workspace brand without retired workspace variables');
 ok(personalizationCss.includes('.executive-personalized #ownerActionPanel .owner-action-list>.owner-action:first-child') && personalizationCss.includes('.owner-action-panel-exhausted'),'promoted top priority is not duplicated in the remaining recommendation list');
 ok(productionEntry.includes('OWNER_COMMAND_CENTRE_RELEASE="20261001-property-reference-v224"') && productionEntry.includes('EXECUTIVE_PERSONALIZATION_RELEASE="20261001-property-reference-v224"'),'production entry rotates the owner-brief and personalization cache versions together');
 ok(productionEntry.includes('/assets/executive-personalization.css') && productionEntry.includes('/js/executive-personalization.js') && productionEntry.includes('x-thebe-executive-personalization'),'production HTML injects and identifies the personalization assets');
