@@ -1777,7 +1777,7 @@
 /* V216 closes descendant hit-testing leaks found by the live Phase 0 synthetic lifecycle. */
 @media(min-width:1024px){
   #thebeAiDock[data-surface="workspace"]{
-    pointer-events:none;
+    pointer-events:none!important;
   }
   #thebeAiDock[data-surface="workspace"] *{
     pointer-events:none!important;
