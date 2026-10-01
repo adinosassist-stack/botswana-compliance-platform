@@ -1,7 +1,7 @@
 (function initOwnerCommandCentre(global){
   "use strict";
 
-  const RELEASE="20260929-v185";
+  const RELEASE="20261001-v236";
   const MAX_OPPORTUNITIES=500;
   const MAX_CAMPAIGNS=50;
   const PROFILE_KEYS=Object.freeze({
@@ -1395,6 +1395,11 @@
     simulation.id="ownerSimulationPanel";
     grid.append(actions,simulation);
     shell.append(grid);
+
+    const goals=document.createElement("section");
+    goals.className="owner-panel owner-goals-panel";
+    goals.id="ownerGoalsIdeas";
+    shell.append(goals);
 
     const agentic=document.createElement("section");
     agentic.className="owner-agentic-panel";
@@ -3763,6 +3768,63 @@
     }
   }
 
+  const BUSINESS_GOAL_CARDS=Object.freeze([
+    {key:"protect_cash",label:"Protect cash",copy:"Watch cash pressure, data quality and receivables. Surface material risks before they become emergencies."},
+    {key:"grow_sales",label:"Grow sales",copy:"Watch quotations, receivables and operating signals for measurable follow-up opportunities."},
+    {key:"stay_compliant",label:"Stay compliant",copy:"Watch recorded compliance status and surface obligations that need owner attention."},
+    {key:"watch_operations",label:"Watch operations",copy:"Watch daily operating exceptions without inferring employee intent or hidden performance."},
+    {key:"protect_property",label:"Protect property",copy:"Connect recorded property, finance and business context to surface portfolio risks and evidence gaps."},
+    {key:"morning_brief",label:"Morning brief",copy:"Bring only material business exceptions and useful next steps to the owner."}
+  ]);
+
+  async function createBusinessGoal(templateKey,statusNode){
+    if(role()!=="owner")return;
+    if(statusNode)statusNode.textContent="Preparing governed goal…";
+    try{
+      const result=await request("/api/agentic/business-goals",{
+        method:"POST",
+        body:JSON.stringify({templateKey,cadence:"daily",maxToolCallsPerRun:4})
+      });
+      if(statusNode)statusNode.textContent=result?.notice||"Goal activated. Thebe will observe and recommend within its authority boundary.";
+      await renderGoalsAndIdeas(true);
+    }catch(error){
+      if(statusNode)statusNode.textContent=String(error?.message||"Could not activate this goal").slice(0,180);
+    }
+  }
+
+  async function renderGoalsAndIdeas(force=false){
+    const box=q("#ownerGoalsIdeas");
+    if(!box)return;
+    box.replaceChildren();
+    const head=document.createElement("div");
+    head.className="between row";
+    const copy=document.createElement("div");
+    copy.append(
+      text("div","Goals & Ideas","section-eyebrow"),
+      text("h4","Tell Thebe what outcome to keep watching"),
+      text("p","Thebe can work in the background on bounded business goals, surface material ideas, and prepare next steps. It cannot send, spend, publish or make high-impact changes from these goals.","muted")
+    );
+    head.append(copy);
+    box.append(head);
+    const status=text("div",force?"Refreshing goals…":"Choose an outcome. You stay in control.","muted small");
+    status.id="ownerGoalsIdeasStatus";
+    box.append(status);
+    const grid=document.createElement("div");
+    grid.className="owner-signal-list";
+    for(const goal of BUSINESS_GOAL_CARDS){
+      const card=document.createElement("article");
+      card.className="owner-signal";
+      card.dataset.tone="neutral";
+      card.append(text("span","Persistent objective","owner-signal-label"),text("h4",goal.label),text("p",goal.copy));
+      if(canEdit())card.append(button("Keep watching",()=>createBusinessGoal(goal.key,status),"btn soft"));
+      grid.append(card);
+    }
+    box.append(grid);
+    const boundary=text("div","Authority boundary · Observe → reason → recommend. Consequential actions still require the existing approval and Runtime Guard path.","notice small");
+    boundary.style.marginTop="10px";
+    box.append(boundary);
+  }
+
   function renderSummary(model){
     const box=q("#ownerCommandSummary");
     if(!box)return;
@@ -3859,6 +3921,7 @@
       renderSimulation(model);
       renderSalesWorkspace(inputs.company,sales);
       renderInputs(inputs);
+      await renderGoalsAndIdeas();
       await renderAgenticGovernance();
     }catch(error){
       if(seq!==renderSeq)return;
@@ -3937,6 +4000,7 @@
     refresh:()=>renderOwnerBrief(true),
     openSales:openSalesWorkspace,
     refreshAgentic:()=>renderAgenticGovernance(true),
+    refreshGoals:()=>renderGoalsAndIdeas(true),
     refreshPropertyPortfolio:()=>renderPropertyPortfolio(true),
     generatePlan:generateAgenticPlan
   });
