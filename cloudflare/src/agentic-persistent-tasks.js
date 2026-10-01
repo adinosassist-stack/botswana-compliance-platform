@@ -61,6 +61,9 @@ async function createBusinessGoal(request,env,auth){
   let body;try{body=await readJson(request)}catch(e){return json({error:e.message},requestBodyErrorStatus(e))}
   const built=buildBusinessGoalTask(body);if(built.error)return json({error:built.error},400);
   const id=newId(),p=built.payload;
+  if(Object.prototype.hasOwnProperty.call(body,"maxToolCallsPerRun")&&p.budget.maxToolCallsPerRun<p.allowedTools.length){
+    return json({error:"business_goal_tool_budget_too_small",requiredToolCalls:p.allowedTools.length},400);
+  }
   const triggerSpec=JSON.stringify({...p.triggerSpec,templateKey:p.templateKey,label:p.label});
   const nextRunAt=new Date().toISOString();
   let inserted;
