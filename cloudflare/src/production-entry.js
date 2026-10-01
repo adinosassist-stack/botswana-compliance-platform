@@ -8,7 +8,7 @@ const LEGACY_TURNSTILE_CONFIGURATION_ERROR="turnstile_configuration_error";
 const META_CSP_RE=/<meta\b(?=[^>]*\bhttp-equiv\s*=\s*["']Content-Security-Policy["'])[^>]*>/i;
 const ICON_LINK_RE=/<link\b(?=[^>]*\brel\s*=\s*["'](?:icon|shortcut icon|apple-touch-icon)["'])[^>]*>\s*/gi;
 const THEBE_LOGO_FAVICON="/assets/thebe-desk-favicon-512.png?v=20260912b";
-const OWNER_COMMAND_CENTRE_RELEASE="20261002-pricing-voice-continuity-v247";
+const OWNER_COMMAND_CENTRE_RELEASE="20261001-spatial-voice-v246";
 const EXECUTIVE_PERSONALIZATION_RELEASE="20261001-unified-goal-flow-v244";
 const BUSINESS_DATA_BRIDGE_RELEASE="20260913d";
 const THEBE_LIVE_VOICE_RELEASE="20261002-pricing-voice-continuity-v247";
