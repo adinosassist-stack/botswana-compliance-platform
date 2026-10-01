@@ -24,8 +24,10 @@ export function buildBusinessGoalTask(body={}){
   const cadence=clean(body.cadence,40)||"daily";
   if(!["daily","weekly"].includes(cadence))return {error:"invalid_business_goal_cadence"};
   const requiredToolCalls=trusted.tools.length;
-  const requestedToolCalls=Math.round(Number(body.maxToolCallsPerRun)||requiredToolCalls);
-  const maxToolCallsPerRun=Math.min(8,Math.max(requiredToolCalls,requestedToolCalls));
+  const hasExplicitToolBudget=Object.prototype.hasOwnProperty.call(body,"maxToolCallsPerRun");
+  const maxToolCallsPerRun=hasExplicitToolBudget
+    ?Math.min(8,Math.max(1,Math.round(Number(body.maxToolCallsPerRun)||4)))
+    :Math.min(8,Math.max(1,requiredToolCalls));
   return {payload:frozen({
     templateKey,label:template.label,objective,
     triggerKind:"scheduled",
