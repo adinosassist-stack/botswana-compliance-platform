@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20261001-spatial-voice-v246";
+  const RELEASE="20261002-pricing-voice-continuity-v247";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
