@@ -3801,6 +3801,40 @@
     }
   }
 
+  function businessGoalOutcome(task){
+    const key=businessGoalTaskKey(task),checkpoint=task?.checkpoint&&typeof task.checkpoint==="object"?task.checkpoint:{};
+    const signal=checkpoint?.signal&&typeof checkpoint.signal==="object"?checkpoint.signal:{};
+    const metrics=signal?.metrics&&typeof signal.metrics==="object"?signal.metrics:{};
+    const taskStatus=String(task?.status||"active");
+    if(taskStatus==="paused")return {state:"Paused",tone:"neutral",detail:"Scheduled checks are paused."};
+    if(!task?.last_run_at)return {state:"Queued",tone:"neutral",detail:"Awaiting the first governed check."};
+    const state=checkpoint.baselineEstablished===true?"Baseline":checkpoint.changed===true?"Changed":"Steady";
+    const tone=signal.tone==="risk"?"risk":signal.tone==="positive"?"positive":"neutral";
+    const minor=value=>money(Number(value||0)/100);
+    let detail="";
+    if(key==="protect_cash"){
+      detail=signal.code==="overdue_receivables"
+        ?`Overdue receivables ${minor(metrics.overdueMinor)} · recorded cash ${minor(metrics.cashPositionMinor)}.`
+        :signal.code==="finance_evidence_review"
+          ?`Finance evidence needs review · ${Number(metrics.reconciliationExceptionCount||0)} reconciliation exception(s) · ${Number(metrics.dataIssueCount||0)} data issue(s).`
+          :`Recorded cash ${minor(metrics.cashPositionMinor)} · no overdue receivable balance recorded.`;
+    }else if(key==="grow_sales"){
+      detail=`Receivables ${minor(metrics.outstandingMinor)} outstanding · ${minor(metrics.overdueMinor)} overdue · ${Number(metrics.outstandingInvoiceCount||0)} open invoice(s).`;
+    }else if(key==="stay_compliant"){
+      detail=`${Number(metrics.overdueObligationCount||0)} overdue · ${Number(metrics.dueWithin14Days||0)} due within 14 days · ${Number(metrics.openObligationCount||0)} open recorded obligation(s).`;
+    }else if(key==="watch_operations"){
+      detail=metrics.available===false
+        ?"Daily Operations has not produced a recorded aggregate summary yet."
+        :`${Number(metrics.exceptions||0)} exception(s) · ${Number(metrics.jobsPending||0)} pending job(s) · ${Number(metrics.jobsCompleted||0)} completed.`;
+    }else if(key==="protect_property"){
+      detail=`${Number(metrics.criticalPerformanceSignals||0)} critical business signal(s) · ${Number(metrics.failedWorkflowCount||0)} failed workflow(s) · recorded cash ${minor(metrics.cashPositionMinor)}. Asset facts stay in Property.`;
+    }else if(key==="morning_brief"){
+      detail=`${minor(metrics.overdueReceivablesMinor)} overdue receivables · ${Number(metrics.overdueObligationCount||0)} overdue compliance item(s) · ${Number(metrics.criticalPerformanceSignals||0)} critical business signal(s).`;
+    }
+    if(!detail)detail=checkpoint.changed===true?"Governed source data changed since the previous check.":"Governed sources were checked without a recorded source change.";
+    return {state,tone,detail};
+  }
+
   async function transitionBusinessGoal(task,action,statusNode){
     if(role()!=="owner"||!task?.id)return;
     const safeAction=["pause","resume","cancel"].includes(action)?action:null;
@@ -3873,19 +3907,21 @@
         const key=businessGoalTaskKey(task),goal=BUSINESS_GOAL_BY_KEY.get(key);
         const taskStatus=String(task.status||"active");
         const cadence=cleanText(task?.triggerSpec?.cadence||"daily",40)||"daily";
+        const outcome=businessGoalOutcome(task);
         const card=document.createElement("article");
         card.className="owner-signal";
-        card.dataset.tone=taskStatus==="paused"?"neutral":"positive";
+        card.dataset.tone=taskStatus==="paused"?"neutral":outcome.tone;
         const top=document.createElement("div");
         top.className="owner-signal-top";
         top.append(
-          text("span",taskStatus==="paused"?"Paused":"Watching","owner-signal-label"),
+          text("span",outcome.state,"owner-signal-label"),
           text("span",cadence.replace(/^./,ch=>ch.toUpperCase()),"owner-signal-value")
         );
         card.append(
           top,
           text("h4",goal?.label||cleanText(task?.triggerSpec?.label||task?.objective||"Business goal",90)),
-          text("p",`Last check · ${businessGoalTime(task.last_run_at)}. ${taskStatus==="paused"?"No scheduled checks run while paused.":"Thebe remains observe-and-recommend only."}`)
+          text("p",outcome.detail),
+          text("p",`Last · ${businessGoalTime(task.last_run_at)} · Next · ${taskStatus==="paused"?"Paused":businessGoalTime(task.next_run_at)}`,"muted small")
         );
         if(canEdit()){
           const controls=document.createElement("div");
