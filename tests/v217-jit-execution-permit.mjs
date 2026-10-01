@@ -127,7 +127,9 @@ let row=db.prepare("SELECT status,jit_permit_id FROM agent_task_requests WHERE i
 assert.equal(row.status,"executed");
 assert.equal(row.jit_permit_id,"p1");
 row=db.prepare("SELECT status,use_count,consumed_by_user_id FROM agent_jit_execution_permits WHERE id='p1'").get();
-assert.equal(row.status,"consumed");\nassert.equal(row.use_count,1);\nassert.equal(row.consumed_by_user_id,"owner1");
+assert.equal(row.status,"consumed");
+assert.equal(row.use_count,1);
+assert.equal(row.consumed_by_user_id,"owner1");
 
 db.prepare("INSERT INTO agent_action_intents(id,tenant_id,agent_key,action_key) VALUES(?,?,?,?)").run("i2","t1","thebe","task.create");
 insertRequest.run("q2","t1","i2","g1","hash-2","hash-2","owner1");
@@ -147,7 +149,8 @@ row=db.prepare("SELECT status,jit_permit_id FROM agent_task_requests WHERE id='q
 assert.equal(row.status,"approved");
 assert.equal(row.jit_permit_id,null);
 row=db.prepare("SELECT status,use_count FROM agent_jit_execution_permits WHERE id='p2'").get();
-assert.equal(row.status,"active");\nassert.equal(row.use_count,0);
+assert.equal(row.status,"active");
+assert.equal(row.use_count,0);
 
 assert.throws(
   ()=>db.prepare("UPDATE agent_jit_execution_permits SET status='consumed',use_count=1,consumed_at=CURRENT_TIMESTAMP,consumed_by_user_id='owner2' WHERE id='p2'").run(),
