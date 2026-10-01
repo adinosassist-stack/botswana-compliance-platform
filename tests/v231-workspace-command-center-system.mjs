@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
 const css=fs.readFileSync("public/assets/workspace-command-center-v231.css","utf8");
+const runtime=fs.readFileSync("public/js/workspace-runtime-20261001b.js","utf8");
 const html=fs.readFileSync("public/index.html","utf8");
 
 assert.match(production,/WORKSPACE_COMMAND_CENTER_V231_CSS_ASSET="\/assets\/workspace-command-center-v231\.css"/);
@@ -20,6 +21,17 @@ for(const marker of [
   'class="proof-summary-grid"',
   'id="propertyintelligence"'
 ]) assert.ok(html.includes(marker),"workspace reference marker missing: "+marker);
+
+assert.match(production,/const WORKSPACE_RUNTIME_RELEASE="20261001-property-command-center-v231";/,
+  "V231 must rotate the canonical workspace runtime after the Property activation fix");
+assert.match(runtime,/function enforceResidentPropertyVisibility\(target\)/,
+  "Property visibility must be owned by the canonical workspace runtime");
+assert.match(runtime,/target\.removeAttribute\("data-lazy-view"\)/,
+  "resident Property activation must clear stale lazy-view state before rendering");
+assert.match(runtime,/if\(id==="propertyintelligence"\)scheduleResidentPropertyVisibility\(target\)/,
+  "showView must synchronously enforce resident Property visibility after activation");
+assert.match(runtime,/renderAll\(\);if\(id==="propertyintelligence"\)scheduleResidentPropertyVisibility\(target\)/,
+  "Property visibility must be reasserted after renderAll so late owner/portfolio rendering cannot hide the calculator");
 
 assert.match(css,/V231 Workspace command-center system/);
 assert.match(css,/#workspaceSidebar\{[\s\S]*background:#fff!important/,
