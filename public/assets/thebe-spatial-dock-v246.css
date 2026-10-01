@@ -51,3 +51,8 @@ body.thebe-voice-active{overflow:hidden!important}
 .thebe-voice-screen button:focus-visible{outline:3px solid #96dfff;outline-offset:4px}
 @keyframes thebe-voice-breathe{50%{transform:scale(calc(var(--thebe-voice-energy) * 1.045));filter:brightness(1.13)}}
 @media(prefers-reduced-motion:reduce){.thebe-voice-sphere{animation:none!important}}
+
+/* V247: voice is a continuous Thebe AI conversation, with lightweight live captions. */
+.thebe-voice-screen-transcript{width:min(680px,92vw);max-height:22vh;overflow:auto;display:grid;gap:7px;padding:10px 12px;border:1px solid #29465e;border-radius:16px;background:#091b2b;text-align:left}
+.thebe-voice-screen-transcript[hidden]{display:none!important}.thebe-voice-caption{display:grid;grid-template-columns:52px minmax(0,1fr);gap:10px;font-size:13px;line-height:1.45;color:#dceaf4}.thebe-voice-caption b{color:#87cfff;font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding-top:2px}.thebe-voice-caption span{min-width:0}
+@media(max-width:620px){.thebe-voice-screen{gap:14px!important;padding-inline:16px!important}.thebe-voice-sphere{width:clamp(150px,47vw,220px)}.thebe-voice-screen-transcript{max-height:25vh}.thebe-voice-screen-controls{position:sticky;bottom:0;padding-top:2px}}
