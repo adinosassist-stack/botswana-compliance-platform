@@ -27,6 +27,29 @@ const operations=summarizeBusinessGoalSnapshot("watch_operations",{
 assert.equal(operations.code,"operations_not_reported");
 assert.equal(operations.metrics.available,false);
 
+const operatingExceptionBrief=summarizeBusinessGoalSnapshot("morning_brief",{
+  "daily_operations_summary.read":{available:true,metrics:{exceptions:2}}
+});
+assert.equal(operatingExceptionBrief.code,"owner_attention",
+  "reported operating exceptions must reach the owner's morning brief");
+assert.equal(operatingExceptionBrief.tone,"risk");
+assert.equal(operatingExceptionBrief.metrics.operationExceptions,2);
+
+const financeEvidenceBrief=summarizeBusinessGoalSnapshot("morning_brief",{
+  "finance_data_quality.read":{failedImportBatchCount:1,missingSourceFingerprintCount:0}
+});
+assert.equal(financeEvidenceBrief.code,"owner_attention",
+  "failed finance imports must reach the owner's morning brief");
+assert.equal(financeEvidenceBrief.tone,"risk");
+assert.equal(financeEvidenceBrief.metrics.dataIssueCount,1);
+
+const quietBrief=summarizeBusinessGoalSnapshot("morning_brief",{
+  "daily_operations_summary.read":{available:true,metrics:{exceptions:0}},
+  "finance_data_quality.read":{failedImportBatchCount:0,missingSourceFingerprintCount:0}
+});
+assert.equal(quietBrief.code,"brief_recorded");
+assert.equal(quietBrief.tone,"neutral");
+
 const runner=fs.readFileSync("cloudflare/src/business-goal-durable-loop.js","utf8");
 const ui=fs.readFileSync("public/js/owner-command-centre.js","utf8");
 assert.match(runner,/baselineEstablished=!previous/,"first verified run must be marked as a baseline rather than a no-change conclusion");

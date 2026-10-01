@@ -22,7 +22,7 @@ for(const value of [productionLive,productionDock,runtimeLive,runtimeDock]){
 }
 assert.equal(productionLive,runtimeLive,'production must cache-bust the exact Thebe Live Voice runtime');
 assert.equal(productionDock,runtimeDock,'production must cache-bust the exact Thebe AI dock runtime');
-assert.equal(productionDock,'20261001-workspace-density-v233','live Thebe Command Dock V233 must ship under the current release token');
+assert.equal(productionDock,'20261001-unified-goal-flow-v244','live Thebe Command Dock V233 must ship under the current release token');
 assert(production.includes('const THEBE_PUBLIC_API_CLIENT_RELEASE="20260930a";'),'V200 must cache-bust the shared API client that carries caller cancellation');
 assert.match(production,/const OWNER_COMMAND_CENTRE_RELEASE="20261001-[a-z0-9-]+-v\d+";/,'production must cache-bust the current Owner Command Centre runtime');
 assert(production.includes('const THEBE_AI_DOCK_HOTFIX_ASSET="/assets/thebe-ai-dock-v184-hotfix.css";'),'production must publish the path-busted V184 dock hotfix asset');

@@ -48,3 +48,11 @@ jobs:
           node --check scripts/production-client-runtime-proof.mjs
           node tests/v82-client-runtime-identity.mjs
           node tests/v82-idempotent-transport-fallback-runtime.mjs
+          node tests/unified-goal-flow-runtime.mjs
+
+      - name: Verify unified goal and result conversation in Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+          node tests/unified-goal-flow-browser.mjs

@@ -2005,3 +2005,11 @@
   #thebeAiDock[data-surface="workspace"] .thebe-ai-quick{gap:6px}
   #thebeAiDock[data-surface="workspace"] .thebe-ai-quick button{padding-left:8px;padding-right:26px}
 }
+
+/* Unified governed plan and result artifacts. */
+.thebe-ai-mode-button[hidden]{display:none!important}
+.thebe-ai-plan-artifact{border:1px solid rgba(125,180,255,.2);border-radius:12px;padding:10px;min-width:0;overflow-wrap:anywhere}
+.thebe-ai-plan-artifact>summary{cursor:pointer;font-size:12px;font-weight:650;min-height:28px}
+.thebe-ai-plan-artifact>small{display:block;margin:6px 0;color:#b7c8d9}
+body.thebe-ai-dock-open .thebe-ai-mode-rail:has([data-thebe-mode="goal_plan"]:not([hidden])){grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:520px){body.thebe-ai-dock-open .thebe-ai-mode-rail:has([data-thebe-mode="goal_plan"]:not([hidden])){grid-template-columns:repeat(2,minmax(0,1fr))}}
