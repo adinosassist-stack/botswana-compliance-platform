@@ -15,6 +15,7 @@ export function buildFinanceWatchDueQuery(limit=25){
   const cap=Math.max(1,Math.min(50,Number(limit)||25));
   const placeholders=FINANCE_WATCH_READ_ACTIONS.map(()=>"?").join(",");
   const safeToolsJson="CASE WHEN json_valid(agent_persistent_tasks.allowed_tools_json) THEN agent_persistent_tasks.allowed_tools_json ELSE '[]' END";
+  const safeTriggerJson="CASE WHEN json_valid(agent_persistent_tasks.trigger_spec_json) THEN agent_persistent_tasks.trigger_spec_json ELSE '{}' END";
   return Object.freeze({
     sql:`SELECT id,tenant_id,status,objective,trigger_spec_json,allowed_tools_json,budget_json,next_run_at
       FROM agent_persistent_tasks
@@ -25,6 +26,7 @@ export function buildFinanceWatchDueQuery(limit=25){
           SELECT 1 FROM json_each(${safeToolsJson})
           WHERE type<>'text' OR value NOT IN (${placeholders})
         )
+        AND COALESCE(json_extract(${safeTriggerJson},'$.templateKey'),'') NOT IN ('protect_cash','grow_sales','stay_compliant','watch_operations','protect_property','morning_brief')
       ORDER BY next_run_at,id LIMIT ?`,
     bindings:Object.freeze([...FINANCE_WATCH_READ_ACTIONS,cap])
   });
