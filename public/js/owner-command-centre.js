@@ -3832,7 +3832,7 @@
     try{
       const result=await request("/api/agentic/business-goals",{
         method:"POST",
-        body:JSON.stringify({templateKey,cadence:"daily",maxToolCallsPerRun:4})
+        body:JSON.stringify({templateKey,cadence:"daily"})
       });
       if(statusNode)statusNode.textContent=result?.notice||"Goal activated. Thebe will observe and recommend within its authority boundary.";
       await renderGoalsAndIdeas(true);
