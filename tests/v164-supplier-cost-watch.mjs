@@ -91,8 +91,8 @@ assert.match(owner,/not a unit-price inflation claim/);
 const personalization=fs.readFileSync("public/js/executive-personalization.js","utf8");
 assert.match(personalization,/const RELEASE="20260929-v180"/);
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
-assert.match(production,/OWNER_COMMAND_CENTRE_RELEASE="20260929-v185"/);
-assert.match(production,/EXECUTIVE_PERSONALIZATION_RELEASE="20260929-v185"/);
+assert.match(production,/OWNER_COMMAND_CENTRE_RELEASE="20261001-property-reference-v224"/);
+assert.match(production,/EXECUTIVE_PERSONALIZATION_RELEASE="20261001-property-reference-v224"/);
 
 const profile=JSON.parse(fs.readFileSync("RELEASE_PROFILE.json","utf8"));
 assert.equal(profile.money_intelligence_v4,true);

@@ -133,6 +133,7 @@ jobs:
           node tests/v220-live-daily-reporting.mjs
           node tests/v221-property-assumption-validation.mjs
           node tests/v223-property-calculator-density.mjs
+          node tests/v224-property-reference-card.mjs
           npm run check:dependency-policy
           npm run check:bundle-budget
           npm run check:d1-backup-shape

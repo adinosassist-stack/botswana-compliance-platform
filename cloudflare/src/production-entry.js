@@ -8,17 +8,18 @@ const LEGACY_TURNSTILE_CONFIGURATION_ERROR="turnstile_configuration_error";
 const META_CSP_RE=/<meta\b(?=[^>]*\bhttp-equiv\s*=\s*["']Content-Security-Policy["'])[^>]*>/i;
 const ICON_LINK_RE=/<link\b(?=[^>]*\brel\s*=\s*["'](?:icon|shortcut icon|apple-touch-icon)["'])[^>]*>\s*/gi;
 const THEBE_LOGO_FAVICON="/assets/thebe-desk-favicon-512.png?v=20260912b";
-const OWNER_COMMAND_CENTRE_RELEASE="20260929-v185";
-const EXECUTIVE_PERSONALIZATION_RELEASE="20260929-v185";
+const OWNER_COMMAND_CENTRE_RELEASE="20261001-property-reference-v224";
+const EXECUTIVE_PERSONALIZATION_RELEASE="20261001-property-reference-v224";
 const BUSINESS_DATA_BRIDGE_RELEASE="20260913d";
 const THEBE_LIVE_VOICE_RELEASE="20261001-common-work-yield-v219";
 const THEBE_PUBLIC_API_CLIENT_RELEASE="20260930a";
 const THEBE_AI_DOCK_RELEASE="20261001-common-work-yield-v219";
 const THEBE_AI_DOCK_HOTFIX_ASSET="/assets/thebe-ai-dock-v184-hotfix.css";
-const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20260929c.js";
-const WORKSPACE_RUNTIME_RELEASE="20261001-property-fragment-cache-v222";
+const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20261001a.js";
+const WORKSPACE_RUNTIME_RELEASE="20261001-property-reference-card-v224";
 const WORKSPACE_STYLES_ASSET="/assets/workspace-inline-styles-20260929b.css";
 const PROPERTY_COMPACT_CSS_ASSET="/assets/property-calculator-compact-v223.css";
+const PROPERTY_REFERENCE_CSS_ASSET="/assets/property-calculator-reference-v224.css";
 const WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT=12;
 const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20261001a-";
 const WORKSPACE_RESIDENT_VIEW_IDS=Object.freeze(["dashboard","moneyhub","workhub","sites","peopleops","businesshub","obligations","evidencehub","automationhub"]);
@@ -196,6 +197,7 @@ function injectWorkspaceLazyViewClient(runtime){
   const hydrationBlock=`
 const WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT=12;
 const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20261001a-";
+const PROPERTY_VIEW_FRAGMENT_ASSET="/assets/property-view-v224.json";
 const workspaceViewShardPromises=new Map();
 let workspaceViewNavigationEpoch=0;
 function workspaceViewShard(id){
@@ -213,10 +215,12 @@ async function fetchWorkspaceViewShard(asset,shard){
 }
 async function workspaceViewFragments(id){
   const shard=workspaceViewShard(id);
-  if(workspaceViewShardPromises.has(shard))return workspaceViewShardPromises.get(shard);
-  const asset=WORKSPACE_VIEW_FRAGMENT_PREFIX+shard+".json";
-  const promise=fetchWorkspaceViewShard(asset,shard).catch(error=>{workspaceViewShardPromises.delete(shard);throw error});
-  workspaceViewShardPromises.set(shard,promise);
+  const propertyView=String(id||"")==="propertyintelligence";
+  const cacheKey=propertyView?"property-v224":String(shard);
+  if(workspaceViewShardPromises.has(cacheKey))return workspaceViewShardPromises.get(cacheKey);
+  const asset=propertyView?PROPERTY_VIEW_FRAGMENT_ASSET:WORKSPACE_VIEW_FRAGMENT_PREFIX+shard+".json";
+  const promise=fetchWorkspaceViewShard(asset,shard).catch(error=>{workspaceViewShardPromises.delete(cacheKey);throw error});
+  workspaceViewShardPromises.set(cacheKey,promise);
   return promise;
 }
 function lazyWorkspaceViewLabel(id){
@@ -316,10 +320,12 @@ function injectOwnerCommandCentreAssets(html){
   const aiDockCssHref=`/assets/thebe-ai-dock.css?v=${THEBE_AI_DOCK_RELEASE}`;
   const aiDockHotfixHref=`${THEBE_AI_DOCK_HOTFIX_ASSET}?v=${THEBE_AI_DOCK_RELEASE}`;
   const propertyCompactCssHref=PROPERTY_COMPACT_CSS_ASSET;
+  const propertyReferenceCssHref=PROPERTY_REFERENCE_CSS_ASSET;
   if(!source.includes("/assets/owner-command-centre.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${cssHref}" />\n`);
   if(!source.includes("/assets/executive-personalization.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${personalizationCssHref}" />\n`);
   if(!source.includes("/assets/business-data-bridge.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${bridgeCssHref}" />\n`);
   if(!source.includes(PROPERTY_COMPACT_CSS_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${propertyCompactCssHref}" />\n`);
+  if(!source.includes(PROPERTY_REFERENCE_CSS_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${propertyReferenceCssHref}" />\n`);
   if(!source.includes("/assets/thebe-ai-dock.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${aiDockCssHref}" />\n`);
   if(!source.includes(THEBE_AI_DOCK_HOTFIX_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${aiDockHotfixHref}" />\n`);
   if(!source.includes("/js/api-client.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${publicApiClientJsSrc}" defer></script>\n`);
@@ -505,6 +511,8 @@ async function fetchWithTurnstileCspRepair(request,env,ctx){
     headers.set("x-thebe-owner-brief",OWNER_COMMAND_CENTRE_RELEASE);
     headers.set("x-thebe-executive-personalization",EXECUTIVE_PERSONALIZATION_RELEASE);
     headers.set("x-thebe-business-data-bridge",BUSINESS_DATA_BRIDGE_RELEASE);
+    headers.set("cache-control","no-store");
+    headers.set("x-thebe-property-ui","v224-reference-card");
   }
   if(workspaceSurface||publicSurface)headers.set("x-thebe-ai-dock",THEBE_AI_DOCK_RELEASE);
   return new Response(repaired,{status:response.status,statusText:response.statusText,headers});

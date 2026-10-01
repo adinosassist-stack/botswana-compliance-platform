@@ -68,3 +68,12 @@ jobs:
       - name: Prove exact browser API client runtime
         shell: bash
         run: node scripts/production-client-runtime-proof.mjs
+
+      - name: Prove Property V224 static delivery
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error --retry 5 --retry-all-errors 'https://thebedesk.com/assets/property-view-v224.json' | grep -F 'Compact Property Calculator' >/dev/null
+          curl --fail-with-body --silent --show-error --retry 5 --retry-all-errors 'https://thebedesk.com/assets/property-calculator-reference-v224.css' | grep -F 'V224 Property calculator' >/dev/null
+          curl --fail-with-body --silent --show-error --retry 5 --retry-all-errors 'https://thebedesk.com/js/workspace-runtime-20261001a.js?v=20261001-property-reference-card-v224' | grep -F 'PROPERTY_VIEW_FRAGMENT_ASSET="/assets/property-view-v224.json"' >/dev/null
+          echo 'PROPERTY_V224_STATIC_DELIVERY_PASS'
