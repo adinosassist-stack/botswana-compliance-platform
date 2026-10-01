@@ -36,3 +36,35 @@
 
 /* V214 compact daily operations and evidence-first HR */
 .ops-primary-summary{display:grid;grid-template-columns:78px minmax(0,1fr) 110px;gap:12px;align-items:center}.ops-primary-summary .ops-coverage-ring{width:70px;height:70px}.ops-primary-summary .ops-coverage-track{grid-column:2/-1}.ops-site-signal,.hr-people-stat,.hr-evidence-stat{display:grid;gap:2px}.ops-site-signal b,.hr-people-stat b,.hr-evidence-stat b{font-size:18px}.ops-site-signal small,.hr-people-stat small,.hr-evidence-stat small,.hr-risk-boundary small{font-size:9px;color:var(--muted)}.hr-people-summary{display:grid;grid-template-columns:120px 150px minmax(0,1fr);gap:8px;margin-bottom:14px;padding:10px 12px;border:1px solid var(--line);border-radius:15px;background:#f8fafc;align-items:center}.hr-evidence-stat,.hr-risk-boundary{border-left:1px solid var(--line);padding-left:12px}.hr-risk-boundary{display:grid;gap:3px}.hr-risk-boundary b{font-size:11px}@media(max-width:650px){.ops-primary-summary{grid-template-columns:70px 1fr}.ops-site-signal{grid-column:1/-1}.ops-primary-summary .ops-coverage-track{grid-column:1/-1}.hr-people-summary{grid-template-columns:1fr 1fr}.hr-risk-boundary{grid-column:1/-1;border-left:0;border-top:1px solid var(--line);padding:7px 0 0}}
+
+/* V215 Property Intelligence scroll compression */
+.property-intelligence-journey{gap:7px}
+.property-journey-card{min-height:76px;padding:9px 10px}
+.property-journey-card small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.property-journey-card:focus-visible{outline:3px solid rgba(11,102,214,.22);outline-offset:2px}
+#propertyPortfolioVisuals{scroll-margin-top:18px}
+.property-service-disclosure{padding:0!important;overflow:visible}
+.property-service-summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 14px}
+.property-service-summary::-webkit-details-marker{display:none}
+.property-service-title{display:grid;gap:2px;min-width:0}
+.property-service-title>b{font-size:14px;color:var(--text)}
+.property-service-title>small{font-size:10px;color:var(--muted);font-weight:500}
+.property-service-summary:after{content:"+";font-size:18px;line-height:1;color:var(--muted);margin-left:auto}
+.property-service-disclosure[open]>.property-service-summary:after{content:"−"}
+.property-service-disclosure>.notice,
+.property-service-disclosure>.formgrid,
+.property-service-disclosure>.actions,
+.property-service-disclosure>#propertyValuationServiceList,
+.property-service-disclosure>.property-valuation-pipeline{margin-left:14px!important;margin-right:14px!important}
+.property-service-disclosure>#propertyValuationServiceList{margin-bottom:14px}
+.property-service-disclosure[open]>.property-service-summary{border-bottom:1px solid var(--line)}
+@media(max-width:760px){
+  .property-intelligence-journey{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .property-journey-card{min-height:70px}
+  .property-service-summary{align-items:flex-start;flex-wrap:wrap}
+}
+@media(max-width:460px){
+  .property-intelligence-journey{grid-template-columns:1fr}
+  .property-journey-card small{white-space:normal}
+}
+
