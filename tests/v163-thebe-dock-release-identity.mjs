@@ -22,7 +22,7 @@ for(const value of [productionLive,productionDock,runtimeLive,runtimeDock]){
 }
 assert.equal(productionLive,runtimeLive,'production must cache-bust the exact Thebe Live Voice runtime');
 assert.equal(productionDock,runtimeDock,'production must cache-bust the exact Thebe AI dock runtime');
-assert.equal(productionDock,'20261001-unified-goal-flow-v244','live Thebe Command Dock V233 must ship under the current release token');
+assert.equal(productionDock,'20261001-spatial-voice-v246','live Thebe Command Dock V233 must ship under the current release token');
 assert(production.includes('const THEBE_PUBLIC_API_CLIENT_RELEASE="20260930a";'),'V200 must cache-bust the shared API client that carries caller cancellation');
 assert.match(production,/const OWNER_COMMAND_CENTRE_RELEASE="20261001-[a-z0-9-]+-v\d+";/,'production must cache-bust the current Owner Command Centre runtime');
 assert(production.includes('const THEBE_AI_DOCK_HOTFIX_ASSET="/assets/thebe-ai-dock-v184-hotfix.css";'),'production must publish the path-busted V184 dock hotfix asset');
@@ -34,7 +34,7 @@ assert(runtime.includes('function clearLegacyWorkspaceDockPadding()'),'V191 must
 assert(runtime.includes('function clearRoutineWorkspaceInlineGeometry()'),'V191 must clear obsolete normal-path inline geometry ownership');
 assert(runtime.includes('dock.style.setProperty("--thebe-workspace-left",left)'),'V191 must pass only the dynamic workspace-left coordinate into canonical CSS');
 assert((runtime.match(/syncWorkspaceVisualInvariants\(\);/g)||[]).length>=3,'V191 must re-assert workspace geometry across visibility and conversation-state changes');
-assert(ownerRuntime.includes('const RELEASE="20260929-v185";'),'Property runtime must carry the V185 cache identity');
+assert(ownerRuntime.includes('const RELEASE="20261001-v246";'),'Property runtime must carry the V185 cache identity');
 assert(ownerRuntime.includes('servicePanel.style.setProperty("background","#f7fbff","important")'),'Property professional-service emphasis must survive late or stale stylesheet state');
 assert(ownerRuntime.includes('servicePanel.style.setProperty("border-color","#a9c8ef","important")'),'Property professional-service border emphasis must be runtime-owned');
 assert(runtime.includes('const modeCopy=Object.freeze({'),'V191 must expose explicit Ask, Brief and Priorities modes');

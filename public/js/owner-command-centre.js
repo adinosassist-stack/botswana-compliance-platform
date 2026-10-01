@@ -1,7 +1,7 @@
 (function initOwnerCommandCentre(global){
   "use strict";
 
-  const RELEASE="20260929-v185";
+  const RELEASE="20261001-v246";
   const MAX_OPPORTUNITIES=500;
   const MAX_CAMPAIGNS=50;
   const PROFILE_KEYS=Object.freeze({
@@ -2861,7 +2861,13 @@
     const view=q("#propertyintelligence");
     if(!view)return null;
     const existing=q("#propertyPortfolioWorkspace",view);
-    if(existing)return existing;
+    if(existing){
+      const service=q("#propertyValuationServicePanel",existing);
+      const valuation=q("#propertyValuationFormPanel",existing);
+      if(service)service.hidden=!canView();
+      if(valuation)valuation.hidden=!canEdit();
+      return existing;
+    }
     const scenario=q(".property-layout",view);
     if(!scenario)return null;
 
@@ -3268,8 +3274,8 @@
   }
 
   async function renderPropertyPortfolio(force=false){
-    if(!canView())return;
     const shell=ensurePropertyPortfolioShell();
+    if(!canView())return;
     if(!shell||propertyPortfolioBusy)return;
     propertyPortfolioBusy=true;
     const list=q("#propertyPortfolioList");
