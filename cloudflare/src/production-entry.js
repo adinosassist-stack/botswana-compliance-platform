@@ -515,7 +515,7 @@ async function fetchWithTurnstileCspRepair(request,env,ctx){
     headers.set("x-thebe-executive-personalization",EXECUTIVE_PERSONALIZATION_RELEASE);
     headers.set("x-thebe-business-data-bridge",BUSINESS_DATA_BRIDGE_RELEASE);
     headers.set("cache-control","no-store");
-    headers.set("x-thebe-property-ui","v228-resident-compact-calculator");
+    headers.set("x-thebe-property-ui","v229-resident-compact-calculator");
   }
   if(workspaceSurface||publicSurface)headers.set("x-thebe-ai-dock",THEBE_AI_DOCK_RELEASE);
   return new Response(repaired,{status:response.status,statusText:response.statusText,headers});
