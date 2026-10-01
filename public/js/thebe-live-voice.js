@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20261001-pointer-lanes-v218";
+  const RELEASE="20261001-common-work-yield-v219";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -552,7 +552,7 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20261001-pointer-lanes-v218";
+  const DOCK_RELEASE="20261001-common-work-yield-v219";
   const STORE_KEY="thebe_ai_dock_collapsed_v5";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
@@ -587,6 +587,8 @@
   }
   function dockShouldYield(){
     if(surfaceMode()!=="workspace")return false;
+    const quickbar=document.getElementById("workspaceQuickbar");
+    if(quickbar?.open&&quickbar.getClientRects().length>0)return true;
     const context=activeContext();
     const key=`${context.id} ${context.title}`.toLowerCase();
     return /(^|\s)billing(\s|$)|subscription|payment plan/.test(key);
@@ -1430,6 +1432,8 @@
     if(shell)new MutationObserver(syncVisibility).observe(shell,{attributes:true,attributeFilter:["style","class"]});
     const marketing=document.getElementById("marketingGate");
     if(marketing)new MutationObserver(syncVisibility).observe(marketing,{attributes:true,attributeFilter:["style","class"]});
+    const quickbar=document.getElementById("workspaceQuickbar");
+    if(quickbar)new MutationObserver(syncVisibility).observe(quickbar,{attributes:true,attributeFilter:["open"]});
     const alerts=document.getElementById("navAlerts");
     if(alerts)new MutationObserver(syncAttention).observe(alerts,{childList:true,characterData:true,subtree:true});
     const pageTitle=document.getElementById("pageTitle");
