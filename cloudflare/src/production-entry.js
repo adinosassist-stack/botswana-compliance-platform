@@ -25,6 +25,7 @@ const WORKSPACE_COMMAND_CENTER_CSS_ASSET="/assets/workspace-command-center-v230.
 const WORKSPACE_COMMAND_CENTER_V231_CSS_ASSET="/assets/workspace-command-center-v231.css";
 const WORKSPACE_HOME_DENSITY_V234_CSS_ASSET="/assets/workspace-home-density-v234.css";
 const WORKSPACE_REFERENCE_SHELL_V237_CSS_ASSET="/assets/workspace-reference-shell-v237.css";
+const WORKSPACE_HOME_COMMAND_V238_CSS_ASSET="/assets/workspace-home-command-v238.css";
 const PROPERTY_VISIBILITY_JS_ASSET="/js/property-visibility-v230.js";
 const WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT=12;
 const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20261001a-";
@@ -335,6 +336,7 @@ function injectOwnerCommandCentreAssets(html){
   const workspaceCommandCenterV231CssHref=WORKSPACE_COMMAND_CENTER_V231_CSS_ASSET;
   const workspaceHomeDensityV234CssHref=WORKSPACE_HOME_DENSITY_V234_CSS_ASSET;
   const workspaceReferenceShellV237CssHref=WORKSPACE_REFERENCE_SHELL_V237_CSS_ASSET;
+  const workspaceHomeCommandV238CssHref=WORKSPACE_HOME_COMMAND_V238_CSS_ASSET;
   const propertyVisibilityJsSrc=PROPERTY_VISIBILITY_JS_ASSET;
   if(!source.includes("/assets/owner-command-centre.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${cssHref}" />\n`);
   if(!source.includes("/assets/executive-personalization.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${personalizationCssHref}" />\n`);
@@ -346,6 +348,7 @@ function injectOwnerCommandCentreAssets(html){
   if(!source.includes(WORKSPACE_COMMAND_CENTER_V231_CSS_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${workspaceCommandCenterV231CssHref}" />\n`);
   if(!source.includes(WORKSPACE_HOME_DENSITY_V234_CSS_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${workspaceHomeDensityV234CssHref}" />\n`);
   if(!source.includes(WORKSPACE_REFERENCE_SHELL_V237_CSS_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${workspaceReferenceShellV237CssHref}" />\n`);
+  if(!source.includes(WORKSPACE_HOME_COMMAND_V238_CSS_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${workspaceHomeCommandV238CssHref}" />\n`);
   if(!source.includes("/assets/thebe-ai-dock.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${aiDockCssHref}" />\n`);
   if(!source.includes(THEBE_AI_DOCK_HOTFIX_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${aiDockHotfixHref}" />\n`);
   if(!source.includes("/js/api-client.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${publicApiClientJsSrc}" defer></script>\n`);

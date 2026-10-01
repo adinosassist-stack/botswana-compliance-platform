@@ -1,0 +1,133 @@
+/* V238 Home command canvas
+   Integrates the greeting and Thebe command entry into one first-screen composition.
+   Presentation only: no data, authority, safety or execution behavior changes. */
+
+#dashboard{
+  width:min(100%,1180px)!important;
+  margin-inline:auto!important;
+}
+
+/* The hero and command bar should read as one product surface instead of stacked boxes. */
+#dashboard>.owner-command-hero{
+  min-height:154px!important;
+  padding:22px 24px 54px!important;
+  margin-bottom:0!important;
+}
+#dashboard .home-thebe-agent{
+  position:relative!important;
+  z-index:3!important;
+  width:calc(100% - 36px)!important;
+  margin:-38px auto 12px!important;
+  padding:10px 12px 11px!important;
+  border-radius:18px!important;
+  box-shadow:0 14px 34px rgba(33,77,130,.10)!important;
+}
+#dashboard .home-thebe-agent>div:first-child{
+  min-height:24px!important;
+  justify-content:flex-start!important;
+}
+#dashboard .home-thebe-agent h3{
+  font-size:11px!important;
+  font-weight:760!important;
+  letter-spacing:.04em!important;
+  text-transform:uppercase!important;
+  color:#53729a!important;
+}
+#dashboard .home-thebe-agent-compose{
+  width:100%!important;
+  max-width:none!important;
+  min-height:52px!important;
+  margin:0!important;
+  background:#fff!important;
+}
+#dashboard .home-thebe-agent-compose::before{
+  content:"";
+  flex:0 0 9px!important;
+  width:9px!important;
+  height:9px!important;
+  border-radius:50%!important;
+  background:#0b66d6!important;
+  box-shadow:0 0 0 5px rgba(11,102,214,.09)!important;
+}
+#dashboard .home-thebe-agent-compose input{
+  font-size:13.5px!important;
+}
+#dashboard .home-thebe-agent-quick{
+  width:100%!important;
+  max-width:none!important;
+  margin-top:1px!important;
+}
+
+/* Keep first-screen information visually balanced under the command bar. */
+#dashboard .owner-today-grid{
+  margin-top:2px!important;
+}
+#dashboard .owner-today-card{
+  min-height:94px!important;
+  padding:12px 13px!important;
+}
+#dashboard .owner-today-value{
+  font-size:21px!important;
+}
+#dashboard .home-decision-head{
+  padding-top:2px!important;
+}
+#dashboard .home-decision-head h2{
+  font-size:18px!important;
+}
+#dashboard .home-decision-grid{
+  gap:9px!important;
+}
+#dashboard :is(.home-queue-card,.daily-change-card,.home-signal-card){
+  padding-top:11px!important;
+  padding-bottom:11px!important;
+}
+
+/* Dock-open layouts should preserve the single command-canvas rhythm. */
+@media(min-width:1180px) and (max-width:1500px){
+  body.thebe-ai-dock-open #dashboard{
+    width:100%!important;
+  }
+  body.thebe-ai-dock-open #dashboard .home-thebe-agent{
+    width:calc(100% - 24px)!important;
+  }
+}
+@media(max-width:900px){
+  #dashboard{
+    width:100%!important;
+  }
+  #dashboard>.owner-command-hero{
+    min-height:130px!important;
+    padding:18px 18px 44px!important;
+  }
+  #dashboard .home-thebe-agent{
+    width:calc(100% - 20px)!important;
+    margin:-30px auto 10px!important;
+  }
+}
+@media(max-width:620px){
+  #dashboard>.owner-command-hero{
+    padding:16px 15px 38px!important;
+  }
+  #dashboard .home-thebe-agent{
+    width:calc(100% - 12px)!important;
+    margin:-25px auto 9px!important;
+    padding:9px!important;
+    border-radius:15px!important;
+  }
+  #dashboard .home-thebe-agent>div:first-child{
+    min-height:20px!important;
+  }
+  #dashboard .home-thebe-agent h3{
+    font-size:9px!important;
+  }
+  #dashboard .home-thebe-agent-compose{
+    min-height:48px!important;
+  }
+  #dashboard .home-thebe-agent-compose::before{
+    flex-basis:7px!important;
+    width:7px!important;
+    height:7px!important;
+    box-shadow:0 0 0 4px rgba(11,102,214,.08)!important;
+  }
+}
