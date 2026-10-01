@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20261001-spatial-voice-v246";
+  const RELEASE="20261002-pricing-voice-continuity-v247";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -568,12 +568,12 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20261001-spatial-voice-v246";
+  const DOCK_RELEASE="20261002-pricing-voice-continuity-v247";
   const STORE_KEY="thebe_ai_dock_collapsed_v5";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
   let dock=null,pill=null,pillLabel=null,orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,scrollRegion=null,input=null,sendButton=null,attentionButton=null,quick=null,foot=null,mascot=null,missionRail=null,missionLabel=null,missionMeta=null,missionAction=null,contextBar=null,contextLabel=null,modeRail=null,clearButton=null,latestResponseButton=null;
-  let voiceScreen=null,voiceScreenStatus=null,voiceScreenOrb=null,voiceReturnFocus=null;
+  let voiceScreen=null,voiceScreenStatus=null,voiceScreenOrb=null,voiceScreenTranscript=null,voiceReturnFocus=null;
   let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",mascotState="idle",mascotContext="general",mascotFocus="ambient",ownerCommandState=null,collapsed=false,assistantMode="ask",lastAnswer="",lastGoal="",lastAdvisorTrust="neutral",autoFollowResponse=true,responseScrollLock=false,textRunId=0,textAbortController=null;
 
   const api=(url,options={})=>{
@@ -996,15 +996,15 @@
       voiceScreen=el("dialog","thebe-voice-screen");voiceScreen.id="thebeVoiceScreen";
       voiceScreen.setAttribute("aria-labelledby","thebeVoiceScreenTitle");
       const title=el("h2","","Talk to Thebe");title.id="thebeVoiceScreenTitle";
-      const context=el("p","thebe-voice-context",shellVisible()?"Your workspace, in conversation":"Thebe Desk · public voice sample");
+      const context=el("p","thebe-voice-context",shellVisible()?"Same Thebe AI · current workspace context":"Thebe Desk · public voice sample · no workspace data");
       voiceScreenOrb=el("div","thebe-voice-sphere");voiceScreenOrb.setAttribute("aria-hidden","true");
-      voiceScreenStatus=el("p","thebe-voice-screen-status","Connecting…");voiceScreenStatus.setAttribute("role","status");
+      voiceScreenStatus=el("p","thebe-voice-screen-status","Connecting…");voiceScreenStatus.setAttribute("role","status");voiceScreenTranscript=el("div","thebe-voice-screen-transcript");voiceScreenTranscript.hidden=true;voiceScreenTranscript.setAttribute("aria-live","polite");
       const controls=el("div","thebe-voice-screen-controls");
       const mute=el("button","","Mute microphone");mute.type="button";mute.setAttribute("aria-pressed","false");
       mute.addEventListener("click",()=>{const muted=mute.getAttribute("aria-pressed")!=="true";global.ThebeLiveVoice?.setMuted?.(muted);mute.setAttribute("aria-pressed",String(muted));mute.textContent=muted?"Unmute microphone":"Mute microphone"});
       const exit=el("button","thebe-voice-exit","End voice");exit.type="button";exit.autofocus=true;
       exit.addEventListener("click",()=>closeVoiceScreen(true));
-      controls.append(mute,exit);voiceScreen.append(title,context,voiceScreenOrb,voiceScreenStatus,controls);
+      controls.append(mute,exit);voiceScreen.append(title,context,voiceScreenOrb,voiceScreenStatus,voiceScreenTranscript,controls);
       voiceScreen.addEventListener("cancel",event=>{event.preventDefault();closeVoiceScreen(true)});
       voiceScreen.addEventListener("keydown",event=>{
         if(event.key!=="Tab")return;
@@ -1017,7 +1017,7 @@
     }
     if(!voiceScreen.open){
       voiceReturnFocus=document.activeElement;
-      voiceScreen.querySelector('.thebe-voice-context').textContent=shellVisible()?"Your workspace, in conversation":"Thebe Desk · public voice sample";
+      voiceScreen.querySelector('.thebe-voice-context').textContent=shellVisible()?"Same Thebe AI · current workspace context":"Thebe Desk · public voice sample · no workspace data";
       const mute=voiceScreen.querySelector('[aria-pressed]');mute.setAttribute("aria-pressed","false");mute.textContent="Mute microphone";
       voiceScreen.showModal();document.body.classList.add("thebe-voice-active");
     }
@@ -1054,9 +1054,10 @@
     if(dock)dock.dataset.agentAttention=count?"true":"false";
   }
   function renderVoiceTranscript(){
+    const user=clean(voiceInput,360),assistant=clean(voiceOutput,360);
+    if(voiceScreenTranscript){voiceScreenTranscript.replaceChildren();voiceScreenTranscript.hidden=!user&&!assistant;if(user){const line=el("div","thebe-voice-caption");line.append(el("b","","You"),el("span","",user));voiceScreenTranscript.append(line)}if(assistant){const line=el("div","thebe-voice-caption");line.append(el("b","","Thebe"),el("span","",assistant));voiceScreenTranscript.append(line)}}
     if(!transcriptBox)return;
     transcriptBox.replaceChildren();
-    const user=clean(voiceInput,360),assistant=clean(voiceOutput,360);
     if(!user&&!assistant){transcriptBox.hidden=true;return}
     if(dock){
       dock.dataset.conversation="true";
@@ -1314,7 +1315,7 @@
       return "Tender Control tracks bid-specific requirements, mandatory evidence and closing dates. Compliance Passport can share scoped, revocable proof, while remediation and inspection-readiness workflows turn control failures into owned cases and evidence packs.";
     }
     if(/ai|thebe ai|agent|voice|assistant/.test(q)){
-      return "Thebe AI is the decision-support layer inside Thebe Desk. In a signed-in workspace it can turn permitted business data into management briefs, explain risks and suggest next actions, while approvals, evidence and human judgement stay in control. This public dock is a safe sample and cannot access private workspace data.";
+      return "Thebe AI is the decision-support layer inside Thebe Desk. In a signed-in workspace, typed chat and full-screen voice use the same role-aware assistant context: Thebe can explain risks, prepare briefs or plans and route governed work to approval controls, while high-impact actions remain under human control. This public dock is a safe sample and cannot access private workspace data.";
     }
     if(/account|finance|cash|reconcil|revenue|expense|bookkeep/.test(q)){
       return "Accounting and financial intelligence brings bookkeeping outputs into the management picture so owners can understand revenue, expenses, cash position, payroll and tax readiness. Thebe Desk analyses the business picture without pretending to replace the accounting ledger.";
@@ -1700,12 +1701,12 @@
     const marketing=event?.detail?.mode==="marketing"||surfaceMode()==="public";
     if(next==="connecting"||next==="connected")openVoiceScreen();
     if(next==="idle")closeVoiceScreen();
-    if(next==="connecting")setPhase("connecting","Connecting…",marketing?"Opening the 60-second sample":"Opening the secure voice session");
+    if(next==="connecting"){voiceInput="";voiceOutput="";renderVoiceTranscript();setPhase("connecting","Connecting…",marketing?"Opening the 60-second sample":"Opening the secure voice session")}
     else if(next==="connected")setPhase("ready","Voice connected",marketing?"Ask me about Thebe Desk":"Speak naturally — you can interrupt Thebe");
     else if(next==="closing")setPhase("thinking","Ending voice…","Closing the voice session");
     else {
-      setPhase("idle","Talk to Thebe",marketing?"Try Thebe voice — ask about Thebe Desk":"What would you like to get done?");
-      voiceInput="";voiceOutput="";renderVoiceTranscript()
+      setPhase("idle","Talk to Thebe",marketing?"Try Thebe voice — ask about Thebe Desk":"Continue by voice or typing");
+      renderVoiceTranscript()
     }
   });
   global.addEventListener("thebe-live-event",event=>{
