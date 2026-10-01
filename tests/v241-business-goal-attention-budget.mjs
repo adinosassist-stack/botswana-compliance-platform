@@ -5,12 +5,16 @@ import {__businessGoalDurableLoopTest} from "../cloudflare/src/business-goal-dur
 
 const {validateBusinessGoalTask}=__businessGoalDurableLoopTest;
 
-const morning=buildBusinessGoalTask({templateKey:"morning_brief",cadence:"daily",maxToolCallsPerRun:4});
+const morning=buildBusinessGoalTask({templateKey:"morning_brief",cadence:"daily"});
 assert.ok(!morning.error,"morning brief must build");
 assert.equal(morning.payload.allowedTools.length,BUSINESS_GOAL_TEMPLATES.morning_brief.allowedTools.length);
 assert.equal(morning.payload.budget.maxToolCallsPerRun,morning.payload.allowedTools.length,
-  "goal builder must never create a read budget below its pinned tool contract");
+  "default goal creation must size the read budget to its pinned tool contract");
 assert.equal(morning.payload.budget.maxExternalActions,0);
+
+const explicit=buildBusinessGoalTask({templateKey:"protect_cash",maxToolCallsPerRun:1});
+assert.equal(explicit.payload.budget.maxToolCallsPerRun,1,
+  "explicit bounded budgets must preserve the historical V235 normalization contract");
 
 const baseTask={
   id:"task-morning",
@@ -50,6 +54,8 @@ assert.match(runner,/validated\.tools\.length>validated\.budget\.maxToolCallsPer
 assert.match(runner,/ownerAttention:false,errorCode:null/,
   "a verified retry must clear stale attention state");
 
+assert.doesNotMatch(ui,/body:JSON\.stringify\(\{templateKey,cadence:"daily",maxToolCallsPerRun:4\}\)/,
+  "normal Owner Command Centre goal creation must not force the old four-call budget");
 assert.match(ui,/Needs attention/,"Owner Command Centre must make auto-paused goals visible");
 assert.match(ui,/Resume & retry/,"owners need an explicit recovery action");
 assert.match(ui,/businessGoalAttentionCopy/,"goal failures must be translated into bounded owner-facing copy");
