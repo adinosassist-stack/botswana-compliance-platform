@@ -97,7 +97,7 @@ jobs:
           node tests/v80-agentic-owner-centre.mjs
           node tests/v80-agentic-stage2.mjs
           node tests/v80-agentic-stage2-runtime.mjs
-          node tests/v81-delegated-authority-static.mjs
+          node tests/v81-delegated-authority-static.mjs\n          npm run test:jit-execution-permit-v217
           node tests/v82-whatsapp-prepare.mjs
           node tests/v82-whatsapp-owner-centre.mjs
 
