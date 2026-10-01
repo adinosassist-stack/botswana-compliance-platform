@@ -71,11 +71,12 @@ assert.match(html,/\.property-valuation-service-card\{[^}]*background:#f7fbff/,'
 const propertyShard=JSON.parse(propertyFragments[1]);
 const compactProperty=String(propertyShard.views?.propertyintelligence||"");
 assert.match(compactProperty,/property-calculator-compact/,"Property scenario must use the compact calculator shell");
-assert.match(compactProperty,/property-core-grid/,"Property scenario must keep the core deal inputs immediately visible");
+assert.match(compactProperty,/property-(?:core-grid|quick-rows)/,"Property scenario must keep the core deal inputs immediately visible");
 assert.match(compactProperty,/<details class="property-advanced-details">/,"secondary underwriting assumptions must collapse behind More assumptions");
 for(const id of ["propertyPurchasePrice","propertyMonthlyRent","propertyDeposit","propertyInterestRate"])assert.match(compactProperty,new RegExp('id="'+id+'"'),"compact calculator missing core input "+id);
 for(const id of ["propertyVacancy","propertyOperatingCosts","propertyAcquisitionCosts","propertyLoanYears","propertyAppreciation"])assert.match(compactProperty,new RegExp('id="'+id+'"'),"compact calculator missing advanced input "+id);
-assert.match(compactProperty,/Price \+ rent first\./,"empty result state must be concise and action-oriented");
+assert.match(compactProperty,/Deal snapshot/,"empty result state must be concise and action-oriented");
+assert.match(compactProperty,/Add price and rent to see the key numbers\.|Price \+ rent first\./,"empty result state must tell the user how to start");
 assert.match(html,/property-risk-summary/,"calculated Property results must keep warning status visible in the compact view");
 assert.match(html,/property-analysis-details/,"secondary Property metrics must collapse behind one Full analysis disclosure");
 assert.match(html,/Full analysis/,"compact Property results must retain access to full underwriting detail");
@@ -94,7 +95,7 @@ assert.match(html,/@media\(max-width:900px\)\{\.hub-grid,\.hub-grid-3\{grid-temp
 
 console.log("V177_WORKSPACE_ADVERSARIAL_PASS");
 
-const propertyRuntime=fs.readFileSync("public/js/workspace-runtime-20260929c.js","utf8");
+const propertyRuntime=fs.readFileSync("public/js/workspace-runtime-20261001b.js","utf8");
 const runtime=propertyRuntime;
 const baseCss=fs.readFileSync("public/assets/workspace-inline-styles-20260929b.css","utf8");
 const visualCss=fs.readFileSync("public/assets/workspace-visuals-20260930a.css","utf8");
