@@ -2626,6 +2626,17 @@ async function renderDailyOperatingBrief(){
 }
 
 
+let ownerBriefRefreshInFlight=false;
+async function refreshLiveOwnerBrief(){
+  if(ownerBriefRefreshInFlight||document.visibilityState!=="visible"||!window.__THEBE_WORKSPACE_READY__||!document.getElementById("dashboard")?.classList.contains("active")||!["owner","manager"].includes(currentWorkspaceRole()))return;
+  ownerBriefRefreshInFlight=true;
+  try{await renderDailyOperatingBrief()}
+  finally{ownerBriefRefreshInFlight=false}
+}
+setInterval(()=>void refreshLiveOwnerBrief(),60000);
+window.addEventListener("focus",()=>void refreshLiveOwnerBrief());
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")void refreshLiveOwnerBrief()});
+
 async function renderPartnerPortal(){
   const clients=document.getElementById("partnerClientList");if(!clients)return;
   try{
