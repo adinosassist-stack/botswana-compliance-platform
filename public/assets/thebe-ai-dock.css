@@ -1776,7 +1776,9 @@
 /* V212 desktop workspace pointer lanes — decorative dock surfaces must never block workspace actions beneath the fixed command surface. */
 /* V216 closes descendant hit-testing leaks found by the live Phase 0 synthetic lifecycle. */
 @media(min-width:1024px){
-  #thebeAiDock[data-surface="workspace"],
+  #thebeAiDock[data-surface="workspace"]{
+    pointer-events:none;
+  }
   #thebeAiDock[data-surface="workspace"] *{
     pointer-events:none!important;
   }
