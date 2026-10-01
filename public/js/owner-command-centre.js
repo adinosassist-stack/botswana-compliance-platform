@@ -3898,7 +3898,7 @@
         );
         const detail=ownerAttention
           ?`${businessGoalAttentionCopy(checkpoint.errorCode)} Last attempt · ${businessGoalTime(checkpoint.lastCheckedAt||task.updated_at)}.`
-          :`Last check · ${businessGoalTime(task.last_run_at)}. ${taskStatus==="paused"?"No scheduled checks run while paused.":`Next check · ${businessGoalTime(task.next_run_at)}.`}`;
+          :`Last check · ${businessGoalTime(task.last_run_at)}. ${taskStatus==="paused"?"No scheduled checks run while paused.":`Thebe remains observe-and-recommend only. Next check · ${businessGoalTime(task.next_run_at)}.`}`;
         card.append(
           top,
           text("h4",goal?.label||cleanText(task?.triggerSpec?.label||task?.objective||"Business goal",90)),
