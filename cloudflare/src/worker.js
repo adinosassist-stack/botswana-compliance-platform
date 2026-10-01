@@ -3,6 +3,7 @@ import {handleFinanceRequest,financeSummary} from "./finance-core.js";
 import {financeReceivablesSummary} from "./finance-receivables.js";
 import {processWhatsAppInboundMessages} from "./whatsapp-inbound-core.js";
 import {runDueFinanceWatchTasks} from "./finance-watch-durable-loop.js";
+import {runDueBusinessGoalTasks} from "./business-goal-durable-loop.js";
 import {buildBusinessContext,handleBusinessContextRequest} from "./business-context.js";
 import {extractSpendWhatIfMinor,simulateWeeklySpendDecision} from "./money-intelligence.js";
 import {handleBusinessMemoryRequest} from "./business-memory.js";
@@ -8221,6 +8222,7 @@ export default {
           summary.continuousAssurance=await runContinuousAssuranceSweep(env,25);
           summary.assurance=await runAssuranceSweep(env,25);
           summary.financeWatch=await runDueFinanceWatchTasks(env,{limit:25});
+          summary.businessGoals=await runDueBusinessGoalTasks(env,{limit:25});
           if(new Date().getUTCDay()===0)summary.industryBenchmarks=await refreshIndustryBenchmarks(env);
           summary.notifications=await processNotificationOutbox(env,100);
           const pendingDeletes=await env.DB.prepare(
