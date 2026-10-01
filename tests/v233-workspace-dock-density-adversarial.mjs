@@ -13,13 +13,13 @@ assert.match(dock,/@media\(min-width:1180px\)\{[\s\S]*?--thebe-dock-w:376px[\s\S
   "wide desktop must reserve only the compact dock lane and its explicit expanded lane");
 assert.match(dock,/@media\(min-width:1024px\) and \(max-width:1179px\)\{[\s\S]*?--thebe-dock-w:320px[\s\S]*?margin-left:344px!important/,
   "medium desktop dock width must fit inside the reserved 344px workspace lane");
-assert.match(dock,/\.thebe-ai-dock\[data-surface="workspace"\] \.thebe-ai-mode-button>small\{display:none\}/,
+assert.match(dock,/#thebeAiDock\[data-surface="workspace"\] \.thebe-ai-mode-button>small\{display:none\}/,
   "default desktop dock must suppress secondary mode prose");
-assert.match(dock,/\.thebe-ai-dock\[data-surface="workspace"\] \.thebe-ai-quick button small\{display:none\}/,
+assert.match(dock,/#thebeAiDock\[data-surface="workspace"\] \.thebe-ai-quick button small\{display:none\}/,
   "default desktop dock must suppress quick-action helper prose");
-assert.match(dock,/body\.thebe-ai-expanded \.thebe-ai-dock\[data-surface="workspace"\] \.thebe-ai-mode-button>small,[\s\S]*?button small\{display:block\}/,
+assert.match(dock,/body\.thebe-ai-expanded #thebeAiDock\[data-surface="workspace"\] \.thebe-ai-mode-button>small,[\s\S]*?button small\{display:block\}/,
   "explicit expansion may reveal secondary command detail");
-assert.match(dock,/\.thebe-ai-dock\[data-surface="workspace"\] \.thebe-ai-orb-button\{[\s\S]*?width:68px!important[\s\S]*?height:68px!important/,
+assert.match(dock,/#thebeAiDock\[data-surface="workspace"\] \.thebe-ai-orb-button\{[\s\S]*?width:68px!important[\s\S]*?height:68px!important/,
   "desktop voice affordance must stay compact rather than dominate the command surface");
 
 assert.match(workspace,/V233 adversarial alignment closure/);
