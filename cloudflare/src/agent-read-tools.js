@@ -1,7 +1,7 @@
 import {evaluateAgentAction} from "./agent-policy.js";
 import {financeDailyCollections,financeReceivablesSummary,financeReceivableCustomerLookup} from "./finance-receivables.js";
 
-export const AGENT_READ_TOOLS_VERSION="2026-09-26.read-tools-v4";
+export const AGENT_READ_TOOLS_VERSION="2026-10-01.read-tools-v5";
 
 const TOOL_ACTIONS=Object.freeze([
   "business_health.read",
@@ -14,6 +14,13 @@ const TOOL_ACTIONS=Object.freeze([
 ]);
 const PARAMETERIZED_TOOL_ACTIONS=Object.freeze(["receivables_customer.read"]);
 const SUPPORTED_TOOL_ACTIONS=Object.freeze([...TOOL_ACTIONS,...PARAMETERIZED_TOOL_ACTIONS]);
+const FINANCE_OBSERVER_ACTIONS=new Set([
+  "financial_position.read","finance_data_quality.read","finance_daily_inflows.read","receivables_summary.read"
+]);
+const BUSINESS_GOAL_OBSERVER_ACTIONS=new Set([
+  "business_health.read","financial_position.read","finance_data_quality.read","finance_daily_inflows.read",
+  "receivables_summary.read","compliance_status.read","daily_operations_summary.read"
+]);
 
 const SOURCE_REFS=Object.freeze({
   "business_health.read":"tool:business_health",
@@ -42,7 +49,20 @@ function parseObject(value){
     return parsed&&typeof parsed==="object"&&!Array.isArray(parsed)?parsed:{};
   }catch{return {}}
 }
+function systemObserverIdentityAllowed(actionKey,auth){
+  if(String(auth?.role||"").toLowerCase()!=="system_observer")return true;
+  if(auth?.systemActor!==true)return false;
+  const agentId=String(auth?.agentId||"");
+  if(agentId==="SYS-FIN-OBS-001")return FINANCE_OBSERVER_ACTIONS.has(actionKey);
+  if(agentId==="SYS-BIZ-OBS-001")return BUSINESS_GOAL_OBSERVER_ACTIONS.has(actionKey);
+  return false;
+}
 function policyDecision(actionKey,auth){
+  if(!systemObserverIdentityAllowed(actionKey,auth))return Object.freeze({
+    allowed:false,decision:"deny",code:"system_observer_identity_forbidden",
+    reason:"The canonical observer identity is not authorized for this read capability.",
+    policyVersion:"observer-identity-v1",action:null
+  });
   return evaluateAgentAction({
     agentKey:"thebe",
     actionKey,
@@ -230,4 +250,4 @@ export async function buildAgentReadToolContext({env,auth}={}){
   });
 }
 
-export const __agentReadToolsTest=Object.freeze({TOOL_ACTIONS,PARAMETERIZED_TOOL_ACTIONS,SUPPORTED_TOOL_ACTIONS,SOURCE_REFS,parseObject});
+export const __agentReadToolsTest=Object.freeze({TOOL_ACTIONS,PARAMETERIZED_TOOL_ACTIONS,SUPPORTED_TOOL_ACTIONS,SOURCE_REFS,parseObject,systemObserverIdentityAllowed,FINANCE_OBSERVER_ACTIONS,BUSINESS_GOAL_OBSERVER_ACTIONS});
