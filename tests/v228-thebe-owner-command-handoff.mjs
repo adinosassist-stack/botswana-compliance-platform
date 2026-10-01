@@ -9,7 +9,7 @@ const html=fs.readFileSync("public/index.html","utf8");
 assert.match(production,/const THEBE_LIVE_VOICE_RELEASE="20261001-owner-command-handoff-v228";/);
 assert.match(production,/const THEBE_AI_DOCK_RELEASE="20261001-workspace-density-v233";/);
 assert.match(dock,/const RELEASE="20261001-owner-command-handoff-v228";/);
-assert.match(dock,/const DOCK_RELEASE="20261001-owner-command-handoff-v228";/);
+assert.match(dock,/const DOCK_RELEASE="20261001-workspace-density-v233";/);
 
 assert.match(html,/<button[^>]*class="active nav-primary"[^>]*data-view="dashboard"[^>]*>[\s\S]*?<span>Home<\/span><\/button>/,
   "workspace Home must remain the dashboard route used by the handoff");
