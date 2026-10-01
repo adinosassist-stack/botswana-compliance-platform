@@ -2637,6 +2637,45 @@ setInterval(()=>void refreshLiveOwnerBrief(),60000);
 window.addEventListener("focus",()=>void refreshLiveOwnerBrief());
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")void refreshLiveOwnerBrief()});
 
+/* V235: Suppliers is no longer a standalone workspace surface.
+   Supplier/payable intelligence remains available inside Finance/Money; only the duplicate
+   top-level navigation and Home module entry are removed. */
+function removeStandaloneSuppliersSurface(){
+  const normalized=node=>String(node?.textContent||"").replace(/\s+/g," ").trim().toLowerCase();
+  const sidebar=document.getElementById("workspaceSidebar");
+  if(sidebar){
+    for(const candidate of sidebar.querySelectorAll("a,button,[role=\"button\"]")){
+      const label=normalized(candidate);
+      if(label==="suppliers"||label.startsWith("suppliers ")){
+        const navItem=candidate.closest(".nav-primary,.nav-more-tools,[data-view],[data-target]")||candidate;
+        navItem.remove();
+      }
+    }
+  }
+  const dashboard=document.getElementById("dashboard");
+  if(dashboard){
+    const candidates=dashboard.querySelectorAll("a,button,[role=\"button\"],.card,.hub-card,.owner-today-card,[data-view],[data-target]");
+    for(const candidate of candidates){
+      const heading=candidate.querySelector?.("h1,h2,h3,h4,strong,b,.title,.label");
+      const label=normalized(heading||candidate);
+      if(label==="suppliers"||label.startsWith("suppliers ")){
+        const moduleCard=candidate.closest(".card,.hub-card,.owner-today-card,[data-view],[data-target],a,button")||candidate;
+        moduleCard.remove();
+      }
+    }
+  }
+}
+function bindStandaloneSuppliersRemoval(){
+  removeStandaloneSuppliersSurface();
+  const roots=[document.getElementById("workspaceSidebar"),document.getElementById("dashboard")].filter(Boolean);
+  for(const root of roots){
+    const observer=new MutationObserver(()=>removeStandaloneSuppliersSurface());
+    observer.observe(root,{childList:true,subtree:true});
+  }
+}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",bindStandaloneSuppliersRemoval,{once:true});
+else bindStandaloneSuppliersRemoval();
+
 async function renderPartnerPortal(){
   const clients=document.getElementById("partnerClientList");if(!clients)return;
   try{

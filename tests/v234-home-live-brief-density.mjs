@@ -27,6 +27,16 @@ assert.match(css,/body\.thebe-ai-dock-open #dashboard \.home-decision-grid\{[\s\
   "dock-constrained medium desktops must stack the decision bento rather than compress it");
 assert.doesNotMatch(css,/\.notice[^}]*display\s*:\s*none/i,
   "V234 must not hide fail-closed notices or warnings");
+assert.match(css,/#dashboard>\.owner-command-hero\{[\s\S]*min-height:164px!important/,
+  "Home hero must have stronger first-screen presence without adding content");
+assert.match(css,/#dashboard #ownerGreeting\{[\s\S]*font-size:clamp\(28px,2\.7vw,40px\)!important/,
+  "owner greeting must read as the primary first-screen question");
+assert.match(css,/#dashboard \.home-thebe-agent-compose\{[\s\S]*border-radius:999px!important/,
+  "Talk to Thebe must use a prominent pill command surface");
+assert.match(css,/#dashboard \.home-thebe-agent-compose \.btn\{[\s\S]*border-radius:50%!important/,
+  "Talk to Thebe submit control must remain compact and visually distinct");
+assert.match(css,/#dashboard \.home-decision-grid\{[\s\S]*minmax\(0,1\.1fr\) minmax\(300px,\.9fr\)/,
+  "priorities and business snapshot must share a balanced desktop bento row");
 
 assert.match(runtime,/let ownerBriefRefreshInFlight=false;/);
 assert.match(runtime,/async function refreshLiveOwnerBrief\(\)/);
@@ -38,6 +48,15 @@ assert.match(runtime,/setInterval\(\(\)=>void refreshLiveOwnerBrief\(\),60000\)/
   "Home live brief must refresh at a bounded one-minute cadence");
 assert.match(runtime,/window\.addEventListener\(\"focus\",\(\)=>void refreshLiveOwnerBrief\(\)\)/);
 assert.match(runtime,/visibilitychange[\s\S]*refreshLiveOwnerBrief/);
+assert.match(runtime,/function removeStandaloneSuppliersSurface\(\)/,
+  "V235 must remove the duplicate standalone Suppliers surface");
+assert.match(runtime,/document\.getElementById\("workspaceSidebar"\)/,
+  "Suppliers removal must be scoped to workspace navigation");
+assert.match(runtime,/document\.getElementById\("dashboard"\)/,
+  "Suppliers removal must be scoped to the Home module surface");
+assert.match(runtime,/label==="suppliers"\|\|label\.startsWith\("suppliers "\)/,
+  "V235 must match the standalone Suppliers label without deleting supplier/payable finance logic");
+
 assert.match(runtime,/if\(ownerBriefLastGoodAt\)[\s\S]*last confirmed; refresh failed/,
   "live refresh must preserve the last confirmed brief on transient failure");
 
