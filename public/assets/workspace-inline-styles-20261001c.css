@@ -2275,3 +2275,5 @@ body.thebe-ai-dock-open .property-valuation-service-card .formgrid{grid-template
   .property-portfolio-workspace>.between.row:first-child,
   .property-valuation-service-card>.between.row:first-child{align-items:flex-start;flex-direction:column}
 }
+
+/* Standalone preview visibility guard. */\n.previewmode{display:none;position:fixed;right:14px;bottom:14px;z-index:120;background:#14201a;color:#dff1e8;border:1px solid #284336;border-radius:999px;padding:7px 10px;font-size:10px;font-weight:800}.standalone-preview .previewmode{display:block}@media(max-width:650px){.previewmode{bottom:78px}}

@@ -16,7 +16,7 @@ const server=read('server/server.js');
 const sw=read('public/sw.js');
 const profile=JSON.parse(read('RELEASE_PROFILE.json'));
 const ownerCss=read('public/assets/owner-command-centre.css');
-const workspaceCss=read('public/assets/workspace-inline-styles-20260929b.css');
+const workspaceCss=read('public/assets/workspace-inline-styles-20261001c.css');
 const personalizationCss=read('public/assets/executive-personalization.css');
 const personalizationJs=read('public/js/executive-personalization.js');
 const bridgeCss=read('public/assets/business-data-bridge.css');
@@ -71,7 +71,7 @@ ok(!ownerCss.includes('workspace-ui-ux-10.css'),'owner command centre has no run
 ok(ownerCss.includes('#appShell .owner-action-index') && ownerCss.includes('background:#edf5ff!important') && ownerCss.includes('color:#0d5bc8!important'),'owner decision layer remains visually unified with the live blue workspace brand');
 ok(workspaceCss.includes('@media(max-width:1000px)') && workspaceCss.includes('@media(prefers-reduced-motion:reduce)'),'active workspace stylesheet retains responsive and reduced-motion behavior');
 
-ok(productionEntry.includes('WORKSPACE_STYLES_ASSET="/assets/workspace-inline-styles-20260929b.css"') && productionEntry.includes('WORKSPACE_REFERENCE_SHELL_V237_CSS_ASSET="/assets/workspace-reference-shell-v237.css"') && productionEntry.includes('WORKSPACE_HOME_COMMAND_V238_CSS_ASSET="/assets/workspace-home-command-v238.css"'),'production entry owns the current cache-safe workspace style chain');
+ok(productionEntry.includes('WORKSPACE_STYLES_ASSET="/assets/workspace-inline-styles-20261001c.css"') && productionEntry.includes('WORKSPACE_REFERENCE_SHELL_V237_CSS_ASSET="/assets/workspace-reference-shell-v237.css"') && productionEntry.includes('WORKSPACE_HOME_COMMAND_V238_CSS_ASSET="/assets/workspace-home-command-v238.css"'),'production entry owns the current cache-safe workspace style chain');
 const blueAuthorityCss=finalWorkspaceCss;
 ok(finalBlueIndex>=0,'final blue brand authority is sourced from the active workspace stylesheet');
 ok(blueAuthorityCss.includes(':root{--accent:#0b66d6;--soft:#edf5ff;--sidebar:#0f172a;--sidebar2:#111827}'),'final authority pins primary brand tokens to Thebe blue/navy rather than the temporary green palette');

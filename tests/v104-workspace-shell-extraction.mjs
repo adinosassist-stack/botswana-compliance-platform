@@ -8,7 +8,7 @@ const runtimeAsset=(production.match(/const WORKSPACE_RUNTIME_ASSET="([^"]+)"/)|
 assert.ok(runtimeAsset?.startsWith("/js/workspace-runtime-"),"production must declare the active workspace runtime");
 const runtimePath="public"+runtimeAsset;
 const runtime=fs.readFileSync(runtimePath,"utf8");
-const styles=fs.readFileSync("public/assets/workspace-inline-styles-20260929b.css","utf8");
+const styles=fs.readFileSync("public/assets/workspace-inline-styles-20261001c.css","utf8");
 const commandCenterStyles=fs.readFileSync("public/assets/workspace-command-center-v231.css","utf8");
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const budget=fs.readFileSync("scripts/bundle-budget.mjs","utf8");

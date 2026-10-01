@@ -97,7 +97,7 @@ console.log("V177_WORKSPACE_ADVERSARIAL_PASS");
 
 const propertyRuntime=fs.readFileSync("public/js/workspace-runtime-20261001b.js","utf8");
 const runtime=propertyRuntime;
-const baseCss=fs.readFileSync("public/assets/workspace-inline-styles-20260929b.css","utf8");
+const baseCss=fs.readFileSync("public/assets/workspace-inline-styles-20261001c.css","utf8");
 const propertyReferenceCss=fs.readFileSync("public/assets/property-calculator-reference-v224.css","utf8");
 const commandCenterCss=fs.readFileSync("public/assets/workspace-command-center-v231.css","utf8");
 const productionEntry=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
