@@ -80,7 +80,8 @@ async function schemaReady(env){
       (SELECT COUNT(*) FROM agent_execution_grants) grant_count,
       (SELECT COUNT(*) FROM agent_task_requests) request_count,
       (SELECT COUNT(*) FROM agent_internal_tasks) task_count,
-      (SELECT COUNT(*) FROM agent_execution_receipts) receipt_count`).first();
+      (SELECT COUNT(*) FROM agent_execution_receipts) receipt_count,
+      (SELECT COUNT(*) FROM agent_jit_execution_permits) jit_permit_count`).first();
     return true;
   }catch{return false}
 }
@@ -136,7 +137,7 @@ async function status(env,auth){
     activeExecutionGrants:activeGrants.length,
     activeGrants,
     openTasks,
-    guarantees:["task_create_only","no_external_side_effect","explicit_owner_approval","payload_hash_binding","idempotent_execution","runtime_guard_required","canonical_agent_containment_required","platform_admin_canary_is_owner_only"]
+    guarantees:["task_create_only","no_external_side_effect","explicit_owner_approval","payload_hash_binding","idempotent_execution","runtime_guard_required","canonical_agent_containment_required","platform_admin_canary_is_owner_only","single_use_jit_permit_required","same_owner_jit_execution"]
   });
 }
 
@@ -453,8 +454,13 @@ export async function handleAgenticTaskExecutionRequest({request,logicalPath,env
   if(cancel&&request.method==="POST")return cancelTask({env,auth,requestId:cancel[1]});
   const approve=path.match(/^\/api\/agentic\/task-execution\/requests\/([^/]+)\/approve$/);
   if(approve&&request.method==="POST")return approveTask({env,auth,requestId:approve[1]});
+  const permit=path.match(/^\/api\/agentic\/task-execution\/requests\/([^/]+)\/jit-permit$/);
+  if(permit&&request.method==="POST")return issueJitPermit({env,auth,requestId:permit[1]});
   const execute=path.match(/^\/api\/agentic\/task-execution\/requests\/([^/]+)\/execute$/);
-  if(execute&&request.method==="POST")return executeTask({env,auth,requestId:execute[1]});
+  if(execute&&request.method==="POST"){
+    let body;try{body=await readJson(request)}catch(error){return json({error:error.message},requestBodyErrorStatus(error))}
+    return executeTask({env,auth,requestId:execute[1],permitId:body?.permitId});
+  }
   if(path==="/api/agentic/task-execution/tasks"&&request.method==="GET")return listTasks(env,auth);
   return json({error:"not_found"},404);
 }
