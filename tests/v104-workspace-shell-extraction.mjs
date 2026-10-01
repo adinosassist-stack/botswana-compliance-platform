@@ -3,11 +3,14 @@ import assert from "node:assert/strict";
 import {execFileSync} from "node:child_process";
 
 const html=fs.readFileSync("public/index.html","utf8");
-const runtime=fs.readFileSync("public/js/workspace-runtime-20260929c.js","utf8");
-const styles=fs.readFileSync("public/assets/workspace-inline-styles-20260929b.css","utf8");
-const visualStyles=fs.readFileSync("public/assets/workspace-visuals-20260930a.css","utf8");
-const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
+const runtimeAsset=(production.match(/const WORKSPACE_RUNTIME_ASSET="([^"]+)"/)||[])[1];
+assert.ok(runtimeAsset?.startsWith("/js/workspace-runtime-"),"production must declare the active workspace runtime");
+const runtimePath="public"+runtimeAsset;
+const runtime=fs.readFileSync(runtimePath,"utf8");
+const styles=fs.readFileSync("public/assets/workspace-inline-styles-20260929b.css","utf8");
+const commandCenterStyles=fs.readFileSync("public/assets/workspace-command-center-v231.css","utf8");
+const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const budget=fs.readFileSync("scripts/bundle-budget.mjs","utf8");
 const wrangler=fs.readFileSync("cloudflare/wrangler.toml","utf8");
 
@@ -21,9 +24,11 @@ const canonicalStyles=[...html.slice(0,headEnd).matchAll(/<style\b[^>]*>([\s\S]*
 assert.equal(canonicalStyles.length,49,"workspace must keep the audited 49 canonical head style blocks");
 assert.equal(canonicalStyles.join("\n\n")+"\n",styles,"external workspace stylesheet must be byte-equivalent to canonical head styles");
 assert.match(html,/id="thebe-employee-directory-styles" rel="stylesheet" href="\/assets\/employee-directory-v188\.css"/,"workspace shell must retain the separately versioned employee directory stylesheet");
-assert.match(html,/id="thebe-workspace-visuals-v214-styles" rel="stylesheet" href="\/assets\/workspace-visuals-20260930a\.css"/,"workspace shell must load the bounded V214 visual stylesheet");
-assert.ok(Buffer.byteLength(styles)<224_000,"versioned workspace stylesheet must stay below 220 KB raw");
-assert.ok(Buffer.byteLength(visualStyles)<32_000,"V214 visual stylesheet must stay below 32 KB raw");
+assert.doesNotMatch(production,/workspace-visuals-20260930a\.css/,"retired V214 visual stylesheet must not return to production routing");
+assert.match(production,/WORKSPACE_COMMAND_CENTER_V231_CSS_ASSET="\/assets\/workspace-command-center-v231\.css"/,"workspace shell must inject the active compact command-center visual layer");
+assert.ok(commandCenterStyles.includes(".metric-data-only{display:none!important}"),"active visual layer must suppress runtime-only metric hooks");
+assert.ok(Buffer.byteLength(styles)<224_000,"versioned workspace stylesheet must stay below 224 KB raw");
+assert.ok(Buffer.byteLength(commandCenterStyles)<32_000,"active command-center stylesheet must stay below 32 KB raw");
 assert.ok(Buffer.byteLength(runtime)<550_000,"versioned workspace runtime must stay below 550 KB raw");
 assert.match(runtime,/const DEFAULT_COMPANY=/);
 assert.match(runtime,/async function bootstrap\(\)/);
@@ -31,7 +36,7 @@ assert.match(runtime,/function hydrateLazyWorkspaceView\(id,target,options=\{\}\
 assert.match(runtime,/const workspaceFragmentClient=window\.BW\?\.api\?\.createClient\?\.\(\{timeoutMs:6000,retries:1\}\)/,"versioned runtime must use the centralized bounded fragment transport");
 assert.match(runtime,/function fetchWorkspaceViewShard\(asset,shard\)/,"versioned runtime must contain fragment transport wrapper");
 assert.match(runtime,/let turnstileWidgetId=/);
-execFileSync(process.execPath,["--check","public/js/workspace-runtime-20260929c.js"],{stdio:"pipe"});
+execFileSync(process.execPath,["--check",runtimePath],{stdio:"pipe"});
 
 assert.match(worker,/immutableWorkspaceRuntime=\/\^\\\/js\\\/workspace-runtime-\[a-z0-9\.\-\]\+\\\.js\$\/i\.test\(url\.pathname\)/);
 assert.match(worker,/immutableWorkspaceStyles=\/\^\\\/assets\\\/workspace-inline-styles-\[a-z0-9\.\-\]\+\\\.css\$\/i\.test\(url\.pathname\)/);
