@@ -47,13 +47,13 @@ export function nextBusinessGoalRunAt(task,scheduledFor,{now=new Date()}={}){
 export function buildBusinessGoalDueQuery(limit=25){
   const cap=Math.max(1,Math.min(50,Number(limit)||25));
   const placeholders=BUSINESS_GOAL_KEYS.map(()=>"?").join(",");
+  const safeTriggerJson="CASE WHEN json_valid(trigger_spec_json) THEN trigger_spec_json ELSE '{}' END";
   return frozen({
     sql:`SELECT id,tenant_id,status,objective,trigger_spec_json,allowed_tools_json,budget_json,next_run_at
       FROM agent_persistent_tasks
       WHERE status='active' AND trigger_kind='scheduled' AND next_run_at IS NOT NULL
         AND next_run_at<=strftime('%Y-%m-%dT%H:%M:%fZ','now')
-        AND json_valid(trigger_spec_json)
-        AND json_extract(trigger_spec_json,'$.templateKey') IN (${placeholders})
+        AND json_extract(${safeTriggerJson},'$.templateKey') IN (${placeholders})
       ORDER BY next_run_at,id LIMIT ?`,
     bindings:frozen([...BUSINESS_GOAL_KEYS,cap])
   });
@@ -98,6 +98,8 @@ async function pauseForOwnerAttention(env,task,claim,code){
     errorCode,executionAllowed:false,externalActions:0
   });
   const results=await env.DB.batch([
+    env.DB.prepare("SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM agent_observation_claims WHERE id=? AND tenant_id=? AND persistent_task_id=? AND scheduled_for=? AND status='running') OR NOT EXISTS (SELECT 1 FROM agent_persistent_tasks WHERE id=? AND tenant_id=? AND status='active' AND next_run_at=?) THEN json_extract('invalid','$.') ELSE 1 END")
+      .bind(claim.id,task.tenant_id,task.id,claim.scheduledFor,task.id,task.tenant_id,claim.scheduledFor),
     env.DB.prepare("UPDATE agent_observation_claims SET status='failed',checkpoint_id=NULL,error_code=?,completed_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND persistent_task_id=? AND scheduled_for=? AND status='running'")
       .bind(errorCode,claim.id,task.tenant_id,task.id,claim.scheduledFor),
     env.DB.prepare("UPDATE agent_persistent_tasks SET status='paused',updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND status='active' AND next_run_at=?")
@@ -107,8 +109,8 @@ async function pauseForOwnerAttention(env,task,claim,code){
     env.DB.prepare("INSERT INTO audit_events(tenant_id,event_type,entity_type,entity_id,event_data) VALUES(?,'AGENT_BUSINESS_GOAL_OWNER_ATTENTION','agent_persistent_task',?,?)")
       .bind(task.tenant_id,task.id,eventData)
   ]);
-  const claimChanges=Number(results?.[0]?.meta?.changes??results?.[0]?.changes??0);
-  const taskChanges=Number(results?.[1]?.meta?.changes??results?.[1]?.changes??0);
+  const claimChanges=Number(results?.[1]?.meta?.changes??results?.[1]?.changes??0);
+  const taskChanges=Number(results?.[2]?.meta?.changes??results?.[2]?.changes??0);
   if(claimChanges!==1||taskChanges!==1)throw new Error("business_goal_owner_attention_guard_failed");
   return frozen({paused:true,errorCode,executionAllowed:false,externalActions:0});
 }
@@ -188,8 +190,7 @@ export async function runDueBusinessGoalTasks(env,{limit=25}={}){
   const repaired=await env.DB.prepare(`UPDATE agent_persistent_tasks
     SET next_run_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),updated_at=CURRENT_TIMESTAMP
     WHERE status='active' AND trigger_kind='scheduled' AND next_run_at IS NULL
-      AND json_valid(trigger_spec_json)
-      AND json_extract(trigger_spec_json,'$.templateKey') IN (${placeholders})`).bind(...BUSINESS_GOAL_KEYS).run();
+      AND json_extract(CASE WHEN json_valid(trigger_spec_json) THEN trigger_spec_json ELSE '{}' END,'$.templateKey') IN (${placeholders})`).bind(...BUSINESS_GOAL_KEYS).run();
 
   const due=buildBusinessGoalDueQuery(cap);
   const rows=await env.DB.prepare(due.sql).bind(...due.bindings).all();
