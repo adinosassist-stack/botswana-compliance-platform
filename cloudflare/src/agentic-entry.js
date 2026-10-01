@@ -121,7 +121,15 @@ async function delegatedAuthoritySchemaReady(env){
     await env.DB.prepare("SELECT scheduled_for FROM agent_observation_checkpoints LIMIT 1").first();
     const occurrenceIndex=await env.DB.prepare("SELECT 1 ok FROM sqlite_master WHERE type='index' AND name='uq_agent_observation_checkpoint_occurrence' LIMIT 1").first();
     const schedulerIndex=await env.DB.prepare("SELECT 1 ok FROM sqlite_master WHERE type='index' AND name='agent_persistent_tasks_scheduler_due' LIMIT 1").first();
-    return !!occurrenceIndex&&!!schedulerIndex;
+    const businessGoalObserver=await env.DB.prepare(`SELECT 1 ok FROM agent_registry
+      WHERE agent_id='SYS-BIZ-OBS-001'
+        AND canonical_name='business_goal_observer'
+        AND actor_type='system_observer'
+        AND authority_state='active'
+        AND execution_capable=0
+        AND owner_scope='platform'
+      LIMIT 1`).first();
+    return !!occurrenceIndex&&!!schedulerIndex&&!!businessGoalObserver;
   }catch{return false}
 }
 
