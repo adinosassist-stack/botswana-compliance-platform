@@ -98,9 +98,13 @@ console.log("V177_WORKSPACE_ADVERSARIAL_PASS");
 const propertyRuntime=fs.readFileSync("public/js/workspace-runtime-20261001b.js","utf8");
 const runtime=propertyRuntime;
 const baseCss=fs.readFileSync("public/assets/workspace-inline-styles-20260929b.css","utf8");
-const visualCss=fs.readFileSync("public/assets/workspace-visuals-20260930a.css","utf8");
-const css=baseCss+"\n"+visualCss;
-assert.match(html,/id="thebe-workspace-visuals-v214-styles" rel="stylesheet" href="\/assets\/workspace-visuals-20260930a\.css"/,"workspace must load the bounded V214 visual stylesheet");
+const propertyReferenceCss=fs.readFileSync("public/assets/property-calculator-reference-v224.css","utf8");
+const commandCenterCss=fs.readFileSync("public/assets/workspace-command-center-v231.css","utf8");
+const productionEntry=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
+const css=[baseCss,propertyReferenceCss,commandCenterCss].join("\n");
+assert.match(productionEntry,/WORKSPACE_STYLES_ASSET="\/assets\/workspace-inline-styles-20260929b\.css"/,"production must own the canonical externalized workspace stylesheet");
+assert.match(productionEntry,/WORKSPACE_COMMAND_CENTER_V231_CSS_ASSET="\/assets\/workspace-command-center-v231\.css"/,"production must inject the active compact command-center layer");
+assert.doesNotMatch(productionEntry,/workspace-visuals-20260930a\.css/,"retired V214 visual bundle must not re-enter production routing");
 const propertyFragment=propertyFragments.join("\n");
 assert.match(propertyFragment,/Save scenario/,"compact Property calculator must allow assumption scenarios to be saved");
 assert.match(propertyFragment,/Saved deal scenarios/,"Property must expose compact scenario comparison");
@@ -170,9 +174,9 @@ assert.match(ownerCommand,/infographic\.id="propertyPortfolioVisuals"/,"Property
 assert.match(ownerCommand,/servicePanel=document\.createElement\("details"\)/,"professional valuation request workflow must default to a compact disclosure");
 assert.match(ownerCommand,/property-service-summary/,"professional valuation disclosure must retain a prominent summary surface");
 assert.match(ownerCommand,/if\(panel\.tagName==="DETAILS"\)panel\.open=true/,"contextual valuation CTA must expand the collapsed workflow");
-assert.match(visualCss,/V215 Property Intelligence scroll compression/,"Property workspace must ship the V215 density layer");
-assert.match(visualCss,/\.property-service-disclosure\{padding:0!important;overflow:visible\}/,"valuation service disclosure must remove redundant card padding");
-assert.match(visualCss,/@media\(max-width:760px\)\{\s*\.property-intelligence-journey\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)\}/,"Property journey must compress cleanly on smaller workspaces");
+assert.match(propertyReferenceCss,/\.property-layout-v224\{display:block;max-width:680px;margin:0 auto\}/,"Property workspace must keep the compact centered calculator contract");
+assert.match(commandCenterCss,/#propertyintelligence \.property-layout-v224\{\s*max-width:720px!important;/,"command-center layer must keep Property bounded instead of stretching across the workspace");
+assert.match(propertyReferenceCss,/@media\(max-width:620px\)\{\s*\.property-layout-v224\{max-width:none\}/,"Property calculator must expand safely on smaller workspaces");
 
 
 assert.match(propertyFragment,/visual-summary-shell/,"dense assurance surfaces must use one primary visual summary");
