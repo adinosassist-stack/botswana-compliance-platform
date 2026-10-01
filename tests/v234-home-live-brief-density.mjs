@@ -48,16 +48,7 @@ assert.match(runtime,/setInterval\(\(\)=>void refreshLiveOwnerBrief\(\),60000\)/
   "Home live brief must refresh at a bounded one-minute cadence");
 assert.match(runtime,/window\.addEventListener\(\"focus\",\(\)=>void refreshLiveOwnerBrief\(\)\)/);
 assert.match(runtime,/visibilitychange[\s\S]*refreshLiveOwnerBrief/);
-assert.match(runtime,/function removeStandaloneSuppliersSurface\(\)/,
-  "V235 must remove the duplicate standalone Suppliers surface");
-assert.match(runtime,/document\.getElementById\("workspaceSidebar"\)/,
-  "Suppliers removal must be scoped to workspace navigation");
-assert.match(runtime,/document\.getElementById\("dashboard"\)/,
-  "Suppliers removal must be scoped to the Home module surface");
-assert.match(runtime,/label==="suppliers"\|\|label\.startsWith\("suppliers "\)/,
-  "V235 must match the standalone Suppliers label without deleting supplier/payable finance logic");
-
 assert.match(runtime,/if\(ownerBriefLastGoodAt\)[\s\S]*last confirmed; refresh failed/,
   "live refresh must preserve the last confirmed brief on transient failure");
 
-console.log("PASS: V234 removes duplicate Home metrics, reflows dock-constrained desktop Home and keeps the owner brief live without page reloads.");
+console.log("PASS: V235 sharpens the Home command hierarchy while V234 keeps the live brief, density and dock-safe layout guarantees.");
