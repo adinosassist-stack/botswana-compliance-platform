@@ -1034,7 +1034,7 @@
     const references=Array.isArray(result?.references)?result.references:[];
     const official=references.filter(item=>item?.type==="official_source");
     const verifiedOfficial=official.filter(item=>String(item?.verificationStatus||"").toLowerCase()==="verified");
-    if(official.length>0&&verifiedOfficial.length===official.length){
+    if(references.length>0&&references.length===official.length&&verifiedOfficial.length===official.length){
       return {key:"verified",label:"Verified",detail:`${verifiedOfficial.length} verified official source${verifiedOfficial.length===1?"":"s"}`};
     }
     if(references.length>0){
