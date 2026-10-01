@@ -103,7 +103,7 @@ export async function evaluateCanonicalAgentDrift(env,{persist=false}={}){
     if(drifted){
       const finding=frozen({agentId:expected.agentId,findingType:"canonical_identity_drift",expectedHash,effectiveHash,expected:expectedValue,effective:effectiveValue});
       findings.push(finding);
-      if(persist){
+      if(persist&&authority.ready===true){
         const current=await env.DB.prepare("SELECT id FROM agent_authority_drift_findings WHERE agent_id=? AND finding_type='canonical_identity_drift' AND status='open' LIMIT 1").bind(expected.agentId).first();
         if(current?.id){
           await env.DB.prepare("UPDATE agent_authority_drift_findings SET effective_hash=?,detail_json=?,detected_at=CURRENT_TIMESTAMP WHERE id=? AND status='open'")
