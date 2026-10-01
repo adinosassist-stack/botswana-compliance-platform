@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
 const shard=JSON.parse(fs.readFileSync("public/assets/workspace-view-fragments-20261001a-4.json","utf8"));
 const property=String(shard.views?.propertyintelligence||"");
+// V229 merge-candidate refresh: qualify resident Property rendering against the current main release line.
 
 assert.match(property,/Compact Property Calculator/,"canonical Property fragment must still contain the compact calculator");
 assert.match(production,/const propertyResident=id==="propertyintelligence";/,"production externalization must special-case Property as resident");
