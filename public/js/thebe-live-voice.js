@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
 
-  const RELEASE="20261001-goal-evidence-plan-v225";
+  const RELEASE="20261001-owner-command-handoff-v228";
   const DELEGATION_TOOL="delegate_to_thebe_backend";
   const MAX_TRANSCRIPT_CHARS=6000;
   const CLOSE_TIMEOUT_MS=15000;
@@ -552,11 +552,11 @@
 (function(global){
   "use strict";
 
-  const DOCK_RELEASE="20261001-goal-evidence-plan-v225";
+  const DOCK_RELEASE="20261001-owner-command-handoff-v228";
   const STORE_KEY="thebe_ai_dock_collapsed_v5";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
-  let dock=null,pill=null,pillLabel=null,orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,scrollRegion=null,input=null,sendButton=null,attentionButton=null,quick=null,foot=null,mascot=null,missionRail=null,missionLabel=null,missionMeta=null,contextBar=null,contextLabel=null,modeRail=null,clearButton=null,latestResponseButton=null;
+  let dock=null,pill=null,pillLabel=null,orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,scrollRegion=null,input=null,sendButton=null,attentionButton=null,quick=null,foot=null,mascot=null,missionRail=null,missionLabel=null,missionMeta=null,missionAction=null,contextBar=null,contextLabel=null,modeRail=null,clearButton=null,latestResponseButton=null;
   let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",mascotState="idle",mascotContext="general",mascotFocus="ambient",ownerCommandState=null,collapsed=false,assistantMode="ask",lastAnswer="",lastGoal="",lastAdvisorTrust="neutral",autoFollowResponse=true,responseScrollLock=false,textRunId=0,textAbortController=null;
 
   const api=(url,options={})=>{
@@ -784,6 +784,7 @@
     if(phase==="complete"||phase==="plan_ready")return {stage:4,tone:"success",label:message||"Command Centre updated"};
     return {stage:0,tone:"neutral",label:"Ready"};
   }
+  const commandCentreRole=()=>{try{return String(global.currentWorkspaceRole?.()||global.currentUser?.role||"").toLowerCase()}catch{return ""}};
   function ownerCommandSummary(){
     if(surfaceMode()!=="workspace")return "Public assistant";
     if(!ownerCommandState)return "Owner Command Centre · governed state";
@@ -802,6 +803,36 @@
     if(ownerCommandState?.boundedExecutionAvailable===true)return "Owner Command Centre · governed lane ready";
     return "Owner Command Centre · governed lane controlled";
   }
+  function ownerCommandActionDescriptor(){
+    if(surfaceMode()!=="workspace"||!["owner","manager"].includes(commandCentreRole())||!ownerCommandState)return null;
+    const reviews=Math.max(0,Number(ownerCommandState?.pendingReviews||0));
+    const approved=Math.max(0,Number(ownerCommandState?.approvedRequests||0));
+    const open=Math.max(0,Number(ownerCommandState?.openTasks||0));
+    const phase=String(ownerCommandState?.phase||"");
+    if(ownerCommandState?.runtimeKillSwitch===true)return {label:"Inspect guard",aria:"Open Owner Command Centre to inspect the Runtime Guard"};
+    if(reviews)return {label:"Review",aria:`Open Owner Command Centre to review ${reviews} pending owner item${reviews===1?"":"s"}`};
+    if(approved)return {label:"Open tasks",aria:`Open Owner Command Centre to review ${approved} approved task${approved===1?"":"s"}`};
+    if(open)return {label:"Open tasks",aria:`Open Owner Command Centre to review ${open} open task${open===1?"":"s"}`};
+    if(phase==="error")return {label:"Inspect",aria:"Open Owner Command Centre to inspect the current agent issue"};
+    if(phase==="plan_ready"||phase==="complete")return {label:"Open plan",aria:"Open Owner Command Centre to review the latest governed plan"};
+    return null;
+  }
+  function openOwnerCommandCentre(){
+    if(!["owner","manager"].includes(commandCentreRole()))return false;
+    const opened=openView("dashboard");
+    if(opened===false)return false;
+    const focusCommandCentre=()=>{
+      const target=document.getElementById("ownerAgenticPanel")||document.getElementById("ownerCommandCentre");
+      if(!target)return;
+      target.scrollIntoView({behavior:"smooth",block:"start"});
+      target.setAttribute("tabindex","-1");
+      try{target.focus({preventScroll:true})}catch{}
+    };
+    setTimeout(focusCommandCentre,0);
+    setTimeout(focusCommandCentre,180);
+    if(mobileDockMode())setCollapsed(true);
+    return true;
+  }
   function syncMission(){
     if(!missionRail)return;
     const descriptor=missionDescriptor();
@@ -809,6 +840,14 @@
     missionRail.dataset.tone=descriptor.tone;
     if(missionLabel)missionLabel.textContent=descriptor.label;
     if(missionMeta)missionMeta.textContent=ownerCommandSummary();
+    if(missionAction){
+      const action=ownerCommandActionDescriptor();
+      missionAction.hidden=!action;
+      if(action){
+        missionAction.textContent=action.label;
+        missionAction.setAttribute("aria-label",action.aria);
+      }
+    }
   }
   function syncMascotContext(context=activeContext()){
     mascotContext=surfaceMode()==="workspace"?mascotContextFor(context):"general";
@@ -1426,7 +1465,11 @@
     const missionCopy=el("div","thebe-ai-mission-copy");
     missionLabel=el("b","thebe-ai-mission-label","Ready");
     missionMeta=el("span","thebe-ai-mission-meta","Owner Command Centre · governed state");
-    missionCopy.append(missionLabel,missionMeta);
+    missionAction=el("button","thebe-ai-mission-action","Open Command Centre");
+    missionAction.type="button";
+    missionAction.hidden=true;
+    missionAction.addEventListener("click",()=>openOwnerCommandCentre());
+    missionCopy.append(missionLabel,missionMeta,missionAction);
     missionRail.append(missionTrack,missionCopy);
     const voiceMount=el("div","thebe-ai-voice-mount");voiceMount.id="thebeAiDockVoiceMount";
     transcriptBox=el("div","thebe-ai-live-transcript");transcriptBox.id="thebeAiDockTranscript";transcriptBox.hidden=true;
@@ -1635,6 +1678,7 @@
     clear:clearConversation,
     setMode:mode=>setAssistantMode(mode),
     ask:(question,mode=assistantMode)=>ask(mode,question),
+    openCommandCentre:()=>openOwnerCommandCentre(),
     state:()=>({collapsed:effectiveCollapsed(),collapsedPreference:collapsed,mobile:mobileDockMode(),assistantMode,voicePhase,mascotState,mascotContext,mascotFocus,ownerCommandState,textBusy,lastGoal,lastAdvisorTrust,workspaceVisible:shellVisible(),dockHidden:dock?.hidden??true,pillHidden:pill?.hidden??true,cssRecovery:dock?.dataset?.cssRecovery==="1",context:activeContext()})
   });
 })(window);
