@@ -22,7 +22,7 @@ assert.equal(productionLive,runtimeLive,'production must cache-bust the exact Th
 assert.equal(productionDock,runtimeDock,'production must cache-bust the exact Thebe AI dock runtime');
 assert.equal(productionDock,'20261001-common-work-yield-v219','live Thebe Command Dock V219 must ship under the current release token');
 assert(production.includes('const THEBE_PUBLIC_API_CLIENT_RELEASE="20260930a";'),'V200 must cache-bust the shared API client that carries caller cancellation');
-assert(production.includes('const OWNER_COMMAND_CENTRE_RELEASE="20260929-v185";'),'production must cache-bust the Property service runtime that owns the valuation panel');
+assert(production.includes('const OWNER_COMMAND_CENTRE_RELEASE="20261001-property-reference-v224";'),'production must cache-bust the Property service runtime that owns the valuation panel');
 assert(production.includes('const THEBE_AI_DOCK_HOTFIX_ASSET="/assets/thebe-ai-dock-v184-hotfix.css";'),'production must publish the path-busted V184 dock hotfix asset');
 assert.equal((production.match(/THEBE_AI_DOCK_HOTFIX_ASSET/g)||[]).length>=3,true,'V184 dock hotfix must be declared and injected across public/workspace surfaces');
 assert(!hotfix.includes('.thebe-ai-dock[data-surface="workspace"]'),'V191 must retire duplicate dock geometry from the legacy V184 hotfix');
