@@ -5,7 +5,9 @@ const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
 const css=fs.readFileSync("public/assets/property-calculator-compact-v223.css","utf8");
 const shard=JSON.parse(fs.readFileSync("public/assets/workspace-view-fragments-20261001a-4.json","utf8"));
 const property=String(shard.views?.propertyintelligence||"");
-const runtime=fs.readFileSync("public/js/workspace-runtime-20260929c.js","utf8");
+const workspaceRuntimeAsset=production.match(/const WORKSPACE_RUNTIME_ASSET="([^"]+)";/)?.[1]||"";
+assert.match(workspaceRuntimeAsset,/^\/js\/workspace-runtime-[a-z0-9.-]+\.js$/i,"workspace runtime identity must stay versioned and first-party");
+const runtime=fs.readFileSync(`public${workspaceRuntimeAsset}`,"utf8");
 
 assert.ok(production.includes('const PROPERTY_COMPACT_CSS_ASSET="/assets/property-calculator-compact-v223.css";'),"workspace must use an immutable V223 Property density asset");
 assert.ok(production.includes('if(!source.includes(PROPERTY_COMPACT_CSS_ASSET))source=injectBeforeFinalClosingTag(source,"head"'),"workspace shell must inject the compact Property density asset");

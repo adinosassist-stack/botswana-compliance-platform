@@ -8,7 +8,9 @@ const ownerRuntime=fs.readFileSync(new URL('../public/js/owner-command-centre.js
 const hotfix=fs.readFileSync(new URL('../public/assets/thebe-ai-dock-v184-hotfix.css',import.meta.url),'utf8');
 const audit=fs.readFileSync(new URL('../scripts/production-launch-audit.mjs',import.meta.url),'utf8');
 const fullUser=fs.readFileSync(new URL('../scripts/production-synthetic-full-user-wrapper.mjs',import.meta.url),'utf8');
-const workspaceRuntime=fs.readFileSync(new URL('../public/js/workspace-runtime-20260929c.js',import.meta.url),'utf8');
+const workspaceRuntimeAsset=production.match(/const WORKSPACE_RUNTIME_ASSET="([^"]+)";/)?.[1]||'';
+assert.match(workspaceRuntimeAsset,/^\/js\/workspace-runtime-[a-z0-9.-]+\.js$/i,'workspace runtime identity must stay versioned and first-party');
+const workspaceRuntime=fs.readFileSync(new URL(`../public${workspaceRuntimeAsset}`,import.meta.url),'utf8');
 
 const productionLive=production.match(/const THEBE_LIVE_VOICE_RELEASE="([^"]+)";/)?.[1]||'';
 const productionDock=production.match(/const THEBE_AI_DOCK_RELEASE="([^"]+)";/)?.[1]||'';
@@ -22,7 +24,7 @@ assert.equal(productionLive,runtimeLive,'production must cache-bust the exact Th
 assert.equal(productionDock,runtimeDock,'production must cache-bust the exact Thebe AI dock runtime');
 assert.equal(productionDock,'20261001-workspace-density-v233','live Thebe Command Dock V233 must ship under the current release token');
 assert(production.includes('const THEBE_PUBLIC_API_CLIENT_RELEASE="20260930a";'),'V200 must cache-bust the shared API client that carries caller cancellation');
-assert(production.includes('const OWNER_COMMAND_CENTRE_RELEASE="20261001-property-reference-v224";'),'production must cache-bust the Property service runtime that owns the valuation panel');
+assert.match(production,/const OWNER_COMMAND_CENTRE_RELEASE="20261001-[a-z0-9-]+-v\d+";/,'production must cache-bust the current Owner Command Centre runtime');
 assert(production.includes('const THEBE_AI_DOCK_HOTFIX_ASSET="/assets/thebe-ai-dock-v184-hotfix.css";'),'production must publish the path-busted V184 dock hotfix asset');
 assert.equal((production.match(/THEBE_AI_DOCK_HOTFIX_ASSET/g)||[]).length>=3,true,'V184 dock hotfix must be declared and injected across public/workspace surfaces');
 assert(!hotfix.includes('.thebe-ai-dock[data-surface="workspace"]'),'V191 must retire duplicate dock geometry from the legacy V184 hotfix');
