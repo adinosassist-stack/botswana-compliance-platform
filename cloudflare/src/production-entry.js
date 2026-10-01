@@ -8,12 +8,12 @@ const LEGACY_TURNSTILE_CONFIGURATION_ERROR="turnstile_configuration_error";
 const META_CSP_RE=/<meta\b(?=[^>]*\bhttp-equiv\s*=\s*["']Content-Security-Policy["'])[^>]*>/i;
 const ICON_LINK_RE=/<link\b(?=[^>]*\brel\s*=\s*["'](?:icon|shortcut icon|apple-touch-icon)["'])[^>]*>\s*/gi;
 const THEBE_LOGO_FAVICON="/assets/thebe-desk-favicon-512.png?v=20260912b";
-const OWNER_COMMAND_CENTRE_RELEASE="20261001-spatial-voice-v246";
+const OWNER_COMMAND_CENTRE_RELEASE="20261002-pricing-voice-continuity-v247";
 const EXECUTIVE_PERSONALIZATION_RELEASE="20261001-unified-goal-flow-v244";
 const BUSINESS_DATA_BRIDGE_RELEASE="20260913d";
-const THEBE_LIVE_VOICE_RELEASE="20261001-spatial-voice-v246";
+const THEBE_LIVE_VOICE_RELEASE="20261002-pricing-voice-continuity-v247";
 const THEBE_PUBLIC_API_CLIENT_RELEASE="20260930a";
-const THEBE_AI_DOCK_RELEASE="20261001-spatial-voice-v246";
+const THEBE_AI_DOCK_RELEASE="20261002-pricing-voice-continuity-v247";
 const THEBE_AI_DOCK_HOTFIX_ASSET="/assets/thebe-ai-dock-v184-hotfix.css";
 const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20261001b.js";
 const WORKSPACE_RUNTIME_RELEASE="20261001-home-live-brief-v234";
@@ -136,7 +136,7 @@ function injectPublicThebeAssets(html){
   if(!source.includes(THEBE_AI_DOCK_HOTFIX_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${aiDockHotfixHref}" />\n`);
   if(!source.includes("/js/api-client.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${publicApiClientJsSrc}" defer></script>\n`);
   if(!source.includes("/js/thebe-live-voice.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${liveVoiceJsSrc}" defer></script>\n`);
-  if(!source.includes("/assets/thebe-spatial-dock-v246.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="/assets/thebe-spatial-dock-v246.css?v=20261001-public-spacing" />\n`);
+  if(!source.includes("/assets/thebe-spatial-dock-v246.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="/assets/thebe-spatial-dock-v246.css?v=20261002-v247" />\n`);
   return source;
 }
 
@@ -358,7 +358,7 @@ function injectOwnerCommandCentreAssets(html){
   if(!source.includes("/js/business-data-bridge.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${bridgeJsSrc}" defer></script>\n`);
   if(!source.includes("/js/thebe-live-voice.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${liveVoiceJsSrc}" defer></script>\n`);
   if(!source.includes(PROPERTY_VISIBILITY_JS_ASSET))source=injectBeforeFinalClosingTag(source,"body",`<script src="${propertyVisibilityJsSrc}?v=20261001-compact-recovery" defer></script>\n`);
-  if(!source.includes("/assets/thebe-spatial-dock-v246.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="/assets/thebe-spatial-dock-v246.css?v=20261001-public-spacing" />\n`);
+  if(!source.includes("/assets/thebe-spatial-dock-v246.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="/assets/thebe-spatial-dock-v246.css?v=20261002-v247" />\n`);
   return source;
 }
 
