@@ -3530,8 +3530,61 @@ async function hydrateLazyWorkspaceView(id,target,options={}){
   }
 }
 
+function enforceResidentPropertyVisibility(target){
+  if(!target||target.id!=="propertyintelligence")return false;
+  target.removeAttribute("data-lazy-view");
+  target.removeAttribute("data-lazy-view-id");
+  target.removeAttribute("aria-busy");
+  delete target.dataset.lazyLoading;
+  delete target.dataset.lazyError;
+  target.hidden=false;
+  target.removeAttribute("hidden");
+  target.removeAttribute("inert");
+  target.removeAttribute("aria-hidden");
+  target.style.setProperty("display","block","important");
+  target.style.setProperty("visibility","visible","important");
+  target.style.setProperty("opacity","1","important");
+  const repair=(selector,display)=>{
+    const node=target.querySelector(selector);
+    if(!node)return null;
+    node.hidden=false;
+    node.removeAttribute("hidden");
+    node.removeAttribute("inert");
+    node.removeAttribute("aria-hidden");
+    node.style.setProperty("display",display,"important");
+    node.style.setProperty("visibility","visible","important");
+    node.style.setProperty("opacity","1","important");
+    return node;
+  };
+  const layout=repair(".property-layout-v224","block");
+  const calculator=repair(".property-calculator-v224","block");
+  repair(".property-quick-rows","grid");
+  target.querySelectorAll(".property-input-row").forEach(node=>{
+    node.hidden=false;
+    node.removeAttribute("hidden");
+    node.style.setProperty("display","flex","important");
+    node.style.setProperty("visibility","visible","important");
+    node.style.setProperty("opacity","1","important");
+  });
+  repair(".property-input-pair","grid");
+  const price=repair("#propertyPurchasePrice","block");
+  const rent=repair("#propertyMonthlyRent","block");
+  const analyse=repair(".property-analyse-button","block");
+  const ready=[layout,calculator,price,rent,analyse].every(Boolean);
+  target.dataset.propertyVisibility=ready?"ready":"missing";
+  return ready;
+}
+function scheduleResidentPropertyVisibility(target){
+  if(!target||target.id!=="propertyintelligence")return;
+  enforceResidentPropertyVisibility(target);
+  queueMicrotask(()=>enforceResidentPropertyVisibility(target));
+  requestAnimationFrame(()=>requestAnimationFrame(()=>enforceResidentPropertyVisibility(target)));
+  setTimeout(()=>enforceResidentPropertyVisibility(target),180);
+  setTimeout(()=>enforceResidentPropertyVisibility(target),700);
+}
+
 let lastWorkspaceView="dashboard";
-function showView(id,options={}){if(!roleCanView(id)){console.warn("Role denied view",id,currentWorkspaceRole());if(!options?.silent){let sr=document.getElementById("srStatus");if(sr)sr.textContent="This area is not available for your role."}return false}const target=document.getElementById(id);if(!target){console.warn("Unknown view",id);return false}const workspaceNavigationEpoch=options?.preserveNavigationEpoch===true?workspaceViewNavigationEpoch:++workspaceViewNavigationEpoch;if(target.dataset.lazyView==="1"&&options?.lazyHydrated!==true){target.dataset.lazyNavigationEpoch=String(workspaceNavigationEpoch);activateLazyWorkspacePlaceholder(id,target);void hydrateLazyWorkspaceView(id,target,options);return true}lastWorkspaceView=id;document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));target.classList.add("active");document.querySelectorAll(".nav button").forEach(b=>{let active=b.dataset.view===id;b.classList.toggle("active",active);if(active)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});const nb=document.querySelector(`[data-view="${id}"]`),meta=(typeof COMMAND_META!=="undefined"?COMMAND_META[id]:null);document.getElementById("pageTitle").textContent=meta?.[0]||nb?.textContent?.trim()||"BW Compliance OS";updateMobileNav(id);let sr=document.getElementById("srStatus");if(sr)sr.textContent="Opened "+document.getElementById("pageTitle").textContent;window.scrollTo({top:0,behavior:prefersReducedMotion()?"auto":"smooth"});setTimeout(animateViewItems,20);if(!options?.skipDataRefresh&&!options?.roleRedirect)queueMicrotask(()=>renderAll());globalThis.dispatchEvent?.(new CustomEvent("thebe:workspace-view-change",{detail:{id}}));if(!STANDALONE_PREVIEW&&!options?.skipDataRefresh&&!options?.roleRedirect){if(id==="billing")queueMicrotask(()=>void loadBilling());if(id==="audit")queueMicrotask(()=>void hydrateWorkspaceAudit())}return true}
+function showView(id,options={}){if(!roleCanView(id)){console.warn("Role denied view",id,currentWorkspaceRole());if(!options?.silent){let sr=document.getElementById("srStatus");if(sr)sr.textContent="This area is not available for your role."}return false}const target=document.getElementById(id);if(!target){console.warn("Unknown view",id);return false}const workspaceNavigationEpoch=options?.preserveNavigationEpoch===true?workspaceViewNavigationEpoch:++workspaceViewNavigationEpoch;if(target.dataset.lazyView==="1"&&options?.lazyHydrated!==true){target.dataset.lazyNavigationEpoch=String(workspaceNavigationEpoch);activateLazyWorkspacePlaceholder(id,target);void hydrateLazyWorkspaceView(id,target,options);return true}lastWorkspaceView=id;document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));target.classList.add("active");if(id==="propertyintelligence")scheduleResidentPropertyVisibility(target);document.querySelectorAll(".nav button").forEach(b=>{let active=b.dataset.view===id;b.classList.toggle("active",active);if(active)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});const nb=document.querySelector(`[data-view="${id}"]`),meta=(typeof COMMAND_META!=="undefined"?COMMAND_META[id]:null);document.getElementById("pageTitle").textContent=meta?.[0]||nb?.textContent?.trim()||"BW Compliance OS";updateMobileNav(id);let sr=document.getElementById("srStatus");if(sr)sr.textContent="Opened "+document.getElementById("pageTitle").textContent;window.scrollTo({top:0,behavior:prefersReducedMotion()?"auto":"smooth"});setTimeout(animateViewItems,20);if(!options?.skipDataRefresh&&!options?.roleRedirect)queueMicrotask(()=>{renderAll();if(id==="propertyintelligence")scheduleResidentPropertyVisibility(target)});globalThis.dispatchEvent?.(new CustomEvent("thebe:workspace-view-change",{detail:{id}}));if(!STANDALONE_PREVIEW&&!options?.skipDataRefresh&&!options?.roleRedirect){if(id==="billing")queueMicrotask(()=>void loadBilling());if(id==="audit")queueMicrotask(()=>void hydrateWorkspaceAudit())}return true}
 
 let wizardStep=0;
 let firstValueTopTarget="workhub";

@@ -7,7 +7,7 @@ const shard=JSON.parse(fs.readFileSync("public/assets/workspace-view-fragments-2
 const property=String(shard.views?.propertyintelligence||"");
 
 assert.ok(production.includes('const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20261001b.js";'),"V226 must rotate the workspace runtime asset");
-assert.ok(production.includes('const WORKSPACE_RUNTIME_RELEASE="20261001-property-visibility-v226";'),"V226 runtime release identity missing");
+assert.ok(production.includes('const WORKSPACE_RUNTIME_RELEASE="20261001-property-command-center-v231";'),"V226 runtime release identity missing");
 for(const source of [production,runtime]){
   assert.ok(source.includes('const PROPERTY_VIEW_FRAGMENT_ASSET="/assets/workspace-view-fragments-20261001a-4.json?v=20261001-property-visibility-v226";'),"Property must use the proven shared fragment transport with a fresh cache identity");
   assert.ok(source.includes('const cacheKey=propertyView?"property-v226":String(shard);'),"Property fragment cache must rotate for V226");

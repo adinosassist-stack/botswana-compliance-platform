@@ -779,16 +779,59 @@ async function runFullUserJourney(credentials){
     };
 
     await openOwnerViewThroughNav('propertyintelligence');
-    await page.waitForFunction(()=>{
-      const view=document.getElementById('propertyintelligence');
-      const calculator=view?.querySelector('.property-calculator-v224');
-      const price=view?.querySelector('#propertyPurchasePrice');
-      const rent=view?.querySelector('#propertyMonthlyRent');
-      const analyse=view?.querySelector('.property-analyse-button');
-      return !!view&&!!calculator&&!!price&&!!rent&&!!analyse&&
-        view.dataset.lazyView!=='1'&&
-        calculator.offsetParent!==null&&price.offsetParent!==null&&rent.offsetParent!==null&&analyse.offsetParent!==null;
-    },null,{timeout:WORKSPACE_TIMEOUT_MS});
+    try{
+      await page.waitForFunction(()=>{
+        const view=document.getElementById('propertyintelligence');
+        const calculator=view?.querySelector('.property-calculator-v224');
+        const price=view?.querySelector('#propertyPurchasePrice');
+        const rent=view?.querySelector('#propertyMonthlyRent');
+        const analyse=view?.querySelector('.property-analyse-button');
+        return !!view&&!!calculator&&!!price&&!!rent&&!!analyse&&
+          view.dataset.lazyView!=='1'&&
+          calculator.offsetParent!==null&&price.offsetParent!==null&&rent.offsetParent!==null&&analyse.offsetParent!==null;
+      },null,{timeout:WORKSPACE_TIMEOUT_MS});
+    }catch(error){
+      const propertyVisibilityDiagnostic=await page.evaluate(()=>{
+        const describe=node=>{
+          if(!node)return null;
+          const style=getComputedStyle(node),rect=node.getBoundingClientRect();
+          return {
+            tag:node.tagName,
+            id:node.id||'',
+            className:String(node.className||''),
+            hidden:node.hidden===true,
+            ariaHidden:node.getAttribute('aria-hidden'),
+            inert:node.hasAttribute('inert'),
+            display:style.display,
+            visibility:style.visibility,
+            opacity:style.opacity,
+            width:Math.round(rect.width),
+            height:Math.round(rect.height),
+            offsetParent:node.offsetParent?.id||node.offsetParent?.className||null
+          };
+        };
+        const view=document.getElementById('propertyintelligence');
+        const calculator=view?.querySelector('.property-calculator-v224');
+        const price=view?.querySelector('#propertyPurchasePrice');
+        const rent=view?.querySelector('#propertyMonthlyRent');
+        const analyse=view?.querySelector('.property-analyse-button');
+        const chain=[];
+        let node=calculator;
+        while(node&&chain.length<8){chain.push(describe(node));node=node.parentElement}
+        return {
+          view:describe(view),
+          viewDataset:{...view?.dataset},
+          calculator:describe(calculator),
+          price:describe(price),
+          rent:describe(rent),
+          analyse:describe(analyse),
+          ancestorChain:chain,
+          visibilityRuntime:globalThis.ThebePropertyVisibility?.state?.()||null
+        };
+      });
+      console.error('FAIL Property visibility diagnostic '+JSON.stringify(propertyVisibilityDiagnostic));
+      throw error;
+    }
     const propertyCalculatorState=await page.evaluate(()=>{
       const view=document.getElementById('propertyintelligence');
       const calculator=view?.querySelector('.property-calculator-v224');

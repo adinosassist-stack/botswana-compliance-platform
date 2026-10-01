@@ -9,7 +9,7 @@ const payload=JSON.parse(fs.readFileSync("public/assets/workspace-view-fragments
 const property=String(payload.views?.propertyintelligence||"");
 
 assert.ok(production.includes('const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20261001b.js";'),"V224 compact design successor must use the V225 workspace runtime asset");
-assert.ok(production.includes('const WORKSPACE_RUNTIME_RELEASE="20261001-property-visibility-v226";'),"V224 compact design successor must carry the V225 visibility release identity");
+assert.ok(production.includes('const WORKSPACE_RUNTIME_RELEASE="20261001-property-command-center-v231";'),"V224 compact design successor must carry the V225 visibility release identity");
 assert.ok(production.includes('const PROPERTY_REFERENCE_CSS_ASSET="/assets/property-calculator-reference-v224.css";'),"V224 compact reference stylesheet missing");
 assert.ok(production.includes('if(!source.includes(PROPERTY_REFERENCE_CSS_ASSET))source=injectBeforeFinalClosingTag(source,"head"'),"workspace shell must inject V224 reference stylesheet");
 assert.ok(production.includes('headers.set("cache-control","no-store")')&&production.includes('headers.set("x-thebe-property-ui","v230-resident-visible-command-center")'),"workspace document must expose the current resident Property freshness boundary");
