@@ -5,9 +5,9 @@ const productionText=bytes("cloudflare/src/production-entry.js").toString("utf8"
 const workspaceRuntimeAsset=productionText.match(/const WORKSPACE_RUNTIME_ASSET="([^"]+)"/)?.[1]||"",workspaceStylesAsset=productionText.match(/const WORKSPACE_STYLES_ASSET="([^"]+)"/)?.[1]||"";
 ok(/^\/js\/workspace-runtime-[a-z0-9.-]+\.js$/i.test(workspaceRuntimeAsset),"workspace runtime budget target must be versioned and first-party");
 ok(/^\/assets\/workspace-inline-styles-[a-z0-9.-]+\.css$/i.test(workspaceStylesAsset),"workspace stylesheet budget target must be versioned and first-party");
-const worker=bytes("cloudflare/src/worker.js"),html=bytes("public/index.html"),workspaceRuntime=bytes(`public${workspaceRuntimeAsset}`),workspaceStyles=bytes(`public${workspaceStylesAsset}`),workspaceVisuals=bytes("public/assets/workspace-visuals-20260930a.css"),workspaceViews=bytes("public/assets/workspace-view-fragments-20261001a.json");
+const worker=bytes("cloudflare/src/worker.js"),html=bytes("public/index.html"),workspaceRuntime=bytes(`public${workspaceRuntimeAsset}`),workspaceStyles=bytes(`public${workspaceStylesAsset}`),workspaceViews=bytes("public/assets/workspace-view-fragments-20261001a.json");
 const workspaceViewShards=Array.from({length:12},(_,i)=>bytes(`public/assets/workspace-view-fragments-20261001a-${i}.json`));
-const htmlText=html.toString("utf8"),runtimeText=workspaceRuntime.toString("utf8"),stylesText=workspaceStyles.toString("utf8"),visualStylesText=workspaceVisuals.toString("utf8"),workspaceViewsPayload=JSON.parse(workspaceViews.toString("utf8"));
+const htmlText=html.toString("utf8"),runtimeText=workspaceRuntime.toString("utf8"),stylesText=workspaceStyles.toString("utf8"),workspaceViewsPayload=JSON.parse(workspaceViews.toString("utf8"));
 const workspaceViewShardPayloads=workspaceViewShards.map(buffer=>JSON.parse(buffer.toString("utf8")));
 const workspaceViewShardFor=id=>{let hash=0;for(const ch of String(id||""))hash=(Math.imul(hash,31)+ch.charCodeAt(0))>>>0;return hash%12};
 const inlineMatch=htmlText.match(/<script id="thebe-workspace-runtime-inline">([\s\S]*?)<\/script>/);
@@ -21,8 +21,6 @@ const canonicalStyles=[...headText.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/g
 ok(canonicalStyles.length===49,`unexpected canonical workspace style count (${canonicalStyles.length})`);
 const normalizedStyles=canonicalStyles.join("\n\n")+"\n";
 ok(normalizedStyles===stylesText,"versioned workspace stylesheet must exactly match canonical head styles");
-ok(htmlText.includes('id="thebe-workspace-visuals-v214-styles" rel="stylesheet" href="/assets/workspace-visuals-20260930a.css"'),"bounded V214 visual stylesheet link missing");
-ok(visualStylesText.includes("V214 Property Intelligence 2.0"),"V214 visual stylesheet marker missing");
 
 const residentViews=new Set(workspaceViewsPayload.residentViews||[]);
 const lazyViewIds=Object.keys(workspaceViewsPayload.views||{});
@@ -69,7 +67,6 @@ ok(deployedHtml.length<170_000,`deployed application HTML budget exceeded (${kb(
 ok(deployedHtmlGzip.length<300_000,`deployed application HTML gzip budget exceeded (${kb(deployedHtmlGzip.length)} KiB)`);
 ok(workspaceRuntime.length<550_000,`workspace runtime budget exceeded (${kb(workspaceRuntime.length)} KiB)`);
 ok(workspaceStyles.length<224_000,`workspace stylesheet budget exceeded (${kb(workspaceStyles.length)} KiB)`);
-ok(workspaceVisuals.length<32_000,`workspace visual stylesheet budget exceeded (${kb(workspaceVisuals.length)} KiB)`);
 ok(workspaceViews.length<180_000,`workspace lazy-view bundle budget exceeded (${kb(workspaceViews.length)} KiB)`);
 ok(workspaceViewShardPayloads.length===12,"workspace view shard count mismatch");
 const shardedIds=[];
@@ -91,4 +88,4 @@ ok(staticFiles.length<2_000,`static asset count safety budget exceeded (${static
 const largest=staticFiles.reduce((best,p)=>fs.statSync(p).size>best.size?{p,size:fs.statSync(p).size}:best,{p:"",size:0});
 ok(largest.size<10*1024*1024,`single static asset safety budget exceeded (${path.relative(root,largest.p)} ${kb(largest.size)} KiB)`);
 const total=staticFiles.reduce((n,p)=>n+fs.statSync(p).size,0);ok(total<20*1024*1024,`total public asset safety budget exceeded (${kb(total)} KiB)`);
-console.log(`Bundle budget: ${checks}/${checks} PASS · worker ${kb(worker.length)} KiB raw/${kb(workerGzip.length)} KiB gzip · canonical HTML ${kb(html.length)} KiB · deployed HTML ${kb(deployedHtml.length)} KiB raw/${kb(deployedHtmlGzip.length)} KiB gzip · workspace runtime ${kb(workspaceRuntime.length)} KiB · workspace styles ${kb(workspaceStyles.length)} KiB + visuals ${kb(workspaceVisuals.length)} KiB · lazy views ${kb(workspaceViews.length)} KiB canonical / max shard ${kb(maxWorkspaceViewShard)} KiB · ${staticFiles.length} public files`);
+console.log(`Bundle budget: ${checks}/${checks} PASS · worker ${kb(worker.length)} KiB raw/${kb(workerGzip.length)} KiB gzip · canonical HTML ${kb(html.length)} KiB · deployed HTML ${kb(deployedHtml.length)} KiB raw/${kb(deployedHtmlGzip.length)} KiB gzip · workspace runtime ${kb(workspaceRuntime.length)} KiB · workspace styles ${kb(workspaceStyles.length)} KiB · lazy views ${kb(workspaceViews.length)} KiB canonical / max shard ${kb(maxWorkspaceViewShard)} KiB · ${staticFiles.length} public files`);
