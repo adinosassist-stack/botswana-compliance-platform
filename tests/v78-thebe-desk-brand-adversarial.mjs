@@ -17,7 +17,7 @@ const server=read('server/server.js');
 const sw=read('public/sw.js');
 const profile=JSON.parse(read('RELEASE_PROFILE.json'));
 const ownerCss=read('public/assets/owner-command-centre.css');
-const workspaceUx=read('public/assets/workspace-ui-ux-10.css');
+const workspaceCss=read('public/assets/workspace-inline-styles-20260929b.css');
 const personalizationCss=read('public/assets/executive-personalization.css');
 const personalizationJs=read('public/js/executive-personalization.js');
 const bridgeCss=read('public/assets/business-data-bridge.css');
@@ -61,15 +61,18 @@ ok(publicTree.every(p=>!retired.test(read(p))), 'entire public text tree is free
 
 ok(!/\bTD\b/.test(manifest.name) && !/\bTD\b/.test(manifest.short_name),'public install name does not collapse the brand to a TD monogram');
 
-// Workspace UX must preserve the live visual identity instead of rebranding the product.
-ok(workspaceUx.includes('--ws-accent:#0b66d6;') && workspaceUx.includes('--ws-bg:#f7f7f5;') && workspaceUx.includes('--ws-sidebar:#f1f2ef;'),'workspace UX 10 preserves the live blue, warm-white and light-sidebar brand tokens');
-ok(!workspaceUx.includes('--ws-accent:#176b4f;') && !workspaceUx.includes('--ws-sidebar:#111713;'),'workspace UX 10 does not reintroduce the retired green/charcoal base-theme direction');
-ok(workspaceUx.includes('#appShell') && !workspaceUx.includes('.marketinggate{'),'workspace UX refinement is scoped to the authenticated workspace and does not restyle the public marketing site');
-ok(ownerCss.startsWith('@import url("/assets/workspace-ui-ux-10.css?v=20260913b");'),'owner command centre loads the cache-versioned workspace UX refinement before component rules');
-ok(workspaceUx.includes('#appShell .owner-action-index') && workspaceUx.includes('background:var(--ws-accent-soft)!important') && workspaceUx.includes('color:var(--ws-accent-strong)!important'),'owner decision layer is visually unified with the live blue workspace brand');
-ok(workspaceUx.includes('@media(max-width:1000px)') && workspaceUx.includes('@media(prefers-reduced-motion:reduce)'),'workspace UX 10 retains responsive and reduced-motion behavior');
+// Workspace UX must preserve the live visual identity while using the current production-owned asset chain.
+const finalBlueIndex=workspaceCss.lastIndexOf(':root{--accent:#0b66d6;--soft:#edf5ff;--sidebar:#0f172a;--sidebar2:#111827}');
+const legacyGreenIndex=workspaceCss.lastIndexOf('--accent:#176b4f;');
+ok(finalBlueIndex>legacyGreenIndex,'final workspace visual authority resolves to Thebe blue/navy after historical green rules');
+const finalWorkspaceCss=workspaceCss.slice(finalBlueIndex);
+ok(finalWorkspaceCss.includes('#appShell .brand:before{display:none!important;content:none!important}'),'final workspace authority suppresses the retired TD pseudo-logo');
+ok(finalWorkspaceCss.includes('#appShell *{min-width:0}#appShell .view{overflow-x:clip}'),'final workspace authority preserves shrink-safe authenticated geometry');
+ok(!ownerCss.includes('workspace-ui-ux-10.css'),'owner command centre has no runtime dependency on the retired workspace UX bundle');
+ok(ownerCss.includes('#appShell .owner-action-index') && ownerCss.includes('background:#edf5ff!important') && ownerCss.includes('color:#0d5bc8!important'),'owner decision layer remains visually unified with the live blue workspace brand');
+ok(workspaceCss.includes('@media(max-width:1000px)') && workspaceCss.includes('@media(prefers-reduced-motion:reduce)'),'active workspace stylesheet retains responsive and reduced-motion behavior');
 
-ok(home.includes('/assets/workspace-ui-ux-10.css?v=20260924b') && home.includes('--accent:#0b66d6;--soft:#edf5ff;'),'authenticated shell loads the established blue workspace layer at first paint');
+ok(productionEntry.includes('WORKSPACE_STYLES_ASSET="/assets/workspace-inline-styles-20260929b.css"') && productionEntry.includes('WORKSPACE_REFERENCE_SHELL_V237_CSS_ASSET="/assets/workspace-reference-shell-v237.css"') && productionEntry.includes('WORKSPACE_HOME_COMMAND_V238_CSS_ASSET="/assets/workspace-home-command-v238.css"'),'production entry owns the current cache-safe workspace style chain');
 const blueAuthority=home.indexOf('id="thebe-blue-brand-authority"');
 ok(blueAuthority>home.lastIndexOf('/* v16 acquisition + monetization UX */'),'final blue brand authority loads after the legacy green acquisition layer');
 const blueAuthorityCss=home.slice(blueAuthority);
