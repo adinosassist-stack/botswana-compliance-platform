@@ -1,0 +1,117 @@
+/* V237 Reference-shell declutter
+   Continue the screenshot-informed direction: quieter navigation, compact controls,
+   one obvious Thebe command path, and less first-screen text. Presentation only. */
+
+#workspaceSidebar{
+  padding-top:10px!important;
+}
+#workspaceSidebar .workspace-brand-link{
+  margin-bottom:12px!important;
+}
+#workspaceSidebar .navgroup{
+  margin:10px 10px 4px!important;
+  font-size:8px!important;
+  letter-spacing:.11em!important;
+  opacity:.62!important;
+}
+#workspaceSidebar .nav-primary,
+#workspaceSidebar .nav-more-tools{
+  min-height:40px!important;
+  margin:2px 7px!important;
+  padding:8px 10px!important;
+  border-radius:12px!important;
+  font-size:13px!important;
+}
+#workspaceSidebar .nav-primary-icon{
+  width:28px!important;
+  height:28px!important;
+  border-radius:9px!important;
+}
+
+/* Keep the top bar useful without letting search dominate the product shell. */
+#mainContent>.top{
+  min-height:62px!important;
+}
+#mainContent .global-search{
+  min-width:220px!important;
+  width:min(24vw,280px)!important;
+  max-width:280px!important;
+  min-height:40px!important;
+  padding:7px 10px!important;
+  border-radius:12px!important;
+}
+#mainContent .global-search input{
+  min-width:0!important;
+  font-size:12px!important;
+}
+#mainContent .global-search .searchhint{
+  display:none!important;
+}
+#mainContent .companyswitch{
+  min-height:40px!important;
+  padding:5px 8px!important;
+}
+#mainContent .companyswitch select{
+  max-width:150px!important;
+}
+
+/* The Home command strip should read like the three concise actions in the reference. */
+#dashboard .home-thebe-agent{
+  margin-bottom:2px!important;
+}
+#dashboard .home-thebe-agent-quick{
+  flex-wrap:wrap!important;
+}
+#dashboard .home-thebe-agent-quick .btn:nth-child(n+4){
+  display:none!important;
+}
+
+/* Shorter scan copy: details remain available in their source workspaces. */
+#dashboard .owner-today-detail{
+  -webkit-line-clamp:1!important;
+  min-height:1.35em!important;
+}
+#dashboard .home-action-meta{
+  gap:5px!important;
+}
+#dashboard .home-action-meta span:nth-child(n+4){
+  display:none!important;
+}
+#dashboard .daily-change-copy small{
+  display:-webkit-box!important;
+  -webkit-box-orient:vertical!important;
+  -webkit-line-clamp:1!important;
+  overflow:hidden!important;
+}
+
+/* Reduce decorative weight so the business signals, not containers, lead the eye. */
+#dashboard .owner-today-card,
+#dashboard :is(.home-queue-card,.daily-change-card,.home-signal-card),
+.simplified-hub :is(.outcome-card,.people-outcome-card,.hub-card){
+  box-shadow:0 6px 18px rgba(45,84,132,.04)!important;
+}
+#dashboard .owner-today-card:hover,
+.simplified-hub :is(.outcome-card,.people-outcome-card):hover{
+  transform:none!important;
+}
+
+@media(max-width:1180px){
+  #mainContent .global-search{
+    min-width:180px!important;
+    width:220px!important;
+  }
+}
+@media(max-width:900px){
+  #mainContent .global-search{
+    min-width:0!important;
+    width:min(100%,240px)!important;
+  }
+  #workspaceSidebar .navgroup{
+    opacity:.72!important;
+  }
+}
+@media(max-width:620px){
+  #dashboard .home-thebe-agent-quick .btn:nth-child(n+3){
+    display:none!important;
+  }
+}
