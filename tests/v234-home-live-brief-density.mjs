@@ -10,8 +10,10 @@ assert.match(production,/const WORKSPACE_RUNTIME_RELEASE="20261001-home-live-bri
   "V234 must rotate the workspace runtime cache identity");
 assert.match(production,/WORKSPACE_HOME_DENSITY_V234_CSS_ASSET="\/assets\/workspace-home-density-v234\.css"/,
   "V234 must publish a unique cache-safe Home density stylesheet");
-assert.match(production,/source\.includes\(WORKSPACE_HOME_DENSITY_V234_CSS_ASSET\)[\s\S]*workspaceHomeDensityV234CssHref/,
-  "authenticated workspace asset injection must include V234 after the command-center layer");
+assert.match(production,/const workspaceHomeDensityV234CssHref=WORKSPACE_HOME_DENSITY_V234_CSS_ASSET;/,
+  "V234 workspace CSS must have a dedicated injected href");
+assert.match(production,/if\(!source\.includes\(WORKSPACE_HOME_DENSITY_V234_CSS_ASSET\)\)source=injectBeforeFinalClosingTag\(source,"head",`<link rel="stylesheet" href="\$\{workspaceHomeDensityV234CssHref\}" \/>\\n`\);/,
+  "authenticated workspace asset injection must include the V234 density layer");
 
 assert.match(html,/class="owner-today-grid"/);
 assert.match(html,/class="home-status-strip daily-status-strip"/);
