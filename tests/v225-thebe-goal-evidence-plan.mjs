@@ -16,8 +16,8 @@ assert.match(trust,/item\?\.type==="official_source"/,
   "Verified must be based on official sources rather than arbitrary workspace references");
 assert.match(trust,/verificationStatus\|\|""\)\.toLowerCase\(\)==="verified"/,
   "Verified must require explicit verified status from the server");
-assert.match(trust,/official\.length>0&&verifiedOfficial\.length===official\.length/,
-  "every cited official source must be verified before the dock claims Verified");
+assert.match(trust,/references\.length>0&&references\.length===official\.length&&verifiedOfficial\.length===official\.length/,
+  "Verified requires an official-only cited evidence set and every cited official source must be verified");
 assert.doesNotMatch(trust,/confidence/,
   "AI confidence must never be used as a verification signal");
 assert.match(trust,/key:"grounded"/);
