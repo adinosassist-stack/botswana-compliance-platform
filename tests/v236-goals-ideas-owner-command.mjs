@@ -1,0 +1,14 @@
+import fs from "node:fs";
+import assert from "node:assert/strict";
+const ui=fs.readFileSync(new URL("../public/js/owner-command-centre.js",import.meta.url),"utf8");
+const api=fs.readFileSync(new URL("../cloudflare/src/agentic-persistent-tasks.js",import.meta.url),"utf8");
+assert.match(ui,/Goals & Ideas/);
+for(const key of ["protect_cash","grow_sales","stay_compliant","watch_operations","protect_property","morning_brief"])assert.ok(ui.includes(key));
+assert.match(ui,/\/api\/agentic\/business-goals/);
+assert.match(ui,/It cannot send, spend, publish or make high-impact changes/);
+assert.match(api,/buildBusinessGoalTask/);
+assert.match(api,/AGENT_BUSINESS_GOAL_CREATED/);
+assert.match(api,/executionAllowed:false/);
+assert.match(api,/consequential actions still require approval and Runtime Guard/);
+assert.doesNotMatch(api,/maxExternalActions\s*:\s*[1-9]/);
+console.log("V236_GOALS_IDEAS_OWNER_COMMAND_PASS");

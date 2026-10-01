@@ -1,4 +1,5 @@
 import {validatePersistentTaskAllowedTools} from "./agent-tool-trust-registry.js";
+import {buildBusinessGoalTask} from "./business-goals.js";
 import {authenticate,roleAllowed,originAllowed,csrfAllowed,readJson,requestBodyErrorStatus,safeFirst} from "./agentic-authority-core.js";
 
 export const PERSISTENT_TASK_ENGINE_VERSION="2026-09-25.v1";
@@ -46,6 +47,20 @@ async function create(request,env,auth){
   ]);
   return json({ok:true,id,status:"active",executionAllowed:false,notice:"Persistent tasks create responsibility state only; every consequential action must still pass Runtime Guard."},201);
 }
+async function createBusinessGoal(request,env,auth){
+  if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);
+  if(!(await ready(env)))return json({error:"persistent_task_schema_not_ready"},503);
+  let body;try{body=await readJson(request)}catch(e){return json({error:e.message},requestBodyErrorStatus(e))}
+  const built=buildBusinessGoalTask(body);if(built.error)return json({error:built.error},400);
+  const id=newId(),p=built.payload;
+  await env.DB.batch([
+    env.DB.prepare(`INSERT INTO agent_persistent_tasks(id,tenant_id,owner_user_id,objective,trigger_kind,trigger_spec_json,allowed_tools_json,risk_policy_json,approval_policy_json,budget_json,next_run_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?)`).bind(id,auth.tenant_id,auth.user_id,p.objective,p.triggerKind,JSON.stringify({...p.triggerSpec,templateKey:p.templateKey,label:p.label}),JSON.stringify(p.allowedTools),JSON.stringify(p.riskPolicy),JSON.stringify(p.approvalPolicy),JSON.stringify(p.budget),null),
+    env.DB.prepare("INSERT INTO agent_persistent_task_events(id,tenant_id,persistent_task_id,event_type,event_data) VALUES(?,?,?,'BUSINESS_GOAL_CREATED',?)").bind(newId(),auth.tenant_id,id,JSON.stringify({templateKey:p.templateKey,executionAllowed:false})),
+    env.DB.prepare("INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data) VALUES(?,?,'AGENT_BUSINESS_GOAL_CREATED','agent_persistent_task',?,?)").bind(auth.tenant_id,auth.user_id,id,JSON.stringify({templateKey:p.templateKey,allowedTools:p.allowedTools}))
+  ]);
+  return json({ok:true,id,status:"active",templateKey:p.templateKey,executionAllowed:false,notice:"Goal active. Thebe may observe and recommend; consequential actions still require approval and Runtime Guard."},201);
+}
 async function transition(env,auth,id,status){
   if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);
   if(!allowedStatus.has(status)||status==="active"&&false)return json({error:"invalid_status"},400);
@@ -62,12 +77,13 @@ async function transition(env,auth,id,status){
 }
 export async function handleAgenticPersistentTaskRequest({request,logicalPath,env}){
   const path=String(logicalPath||"");
-  if(!path.startsWith("/api/agentic/persistent-tasks"))return null;
+  if(!path.startsWith("/api/agentic/persistent-tasks")&&path!=="/api/agentic/business-goals")return null;
   const auth=await authenticate(request,env);if(!auth)return json({error:"unauthorized"},401);
   if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
   if(request.method==="GET"&&path==="/api/agentic/persistent-tasks")return list(env,auth);
   if(!originAllowed(request,env)||!csrfAllowed(request,auth))return json({error:"forbidden"},403);
   if(request.method==="POST"&&path==="/api/agentic/persistent-tasks")return create(request,env,auth);
+  if(request.method==="POST"&&path==="/api/agentic/business-goals")return createBusinessGoal(request,env,auth);
   const m=path.match(/^\/api\/agentic\/persistent-tasks\/([^/]+)\/(pause|resume|complete|cancel)$/);
   if(request.method==="POST"&&m){
     const status={pause:"paused",resume:"active",complete:"completed",cancel:"cancelled"}[m[2]];
