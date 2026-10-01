@@ -1,6 +1,6 @@
 import {validatePersistentTaskAllowedTools} from "./agent-tool-trust-registry.js";
 
-export const BUSINESS_GOALS_VERSION="2026-10-01.v1";
+export const BUSINESS_GOALS_VERSION="2026-10-01.v2";
 const frozen=value=>Object.freeze(value);
 const clean=(v,max=500)=>String(v??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
 
@@ -23,7 +23,11 @@ export function buildBusinessGoalTask(body={}){
   const objective=clean(body.objective,500)||template.objective;
   const cadence=clean(body.cadence,40)||"daily";
   if(!["daily","weekly"].includes(cadence))return {error:"invalid_business_goal_cadence"};
-  const maxToolCallsPerRun=Math.min(8,Math.max(1,Math.round(Number(body.maxToolCallsPerRun)||4)));
+  const requiredToolCalls=trusted.tools.length;
+  const hasExplicitToolBudget=Object.prototype.hasOwnProperty.call(body,"maxToolCallsPerRun");
+  const maxToolCallsPerRun=hasExplicitToolBudget
+    ?Math.min(8,Math.max(1,Math.round(Number(body.maxToolCallsPerRun)||4)))
+    :Math.min(8,Math.max(1,requiredToolCalls));
   return {payload:frozen({
     templateKey,label:template.label,objective,
     triggerKind:"scheduled",
