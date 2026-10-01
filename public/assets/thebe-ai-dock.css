@@ -1553,7 +1553,7 @@
   cursor:not-allowed;
   box-shadow:none;
 }
-.thebe-ai-dock[data-surface="workspace"][data-conversation="true"]>.thebe-ai-dock-scroll{gap:9px!important}
+#thebeAiDock[data-surface="workspace"][data-conversation="true"]>.thebe-ai-dock-scroll{gap:9px!important}
 .thebe-ai-dock[data-surface="workspace"][data-conversation="true"] .thebe-ai-mode-button{
   min-height:44px;
   padding-top:7px;
@@ -1936,43 +1936,43 @@
 
 /* V233 adversarial workspace density closure — keep the AI command surface useful without stealing the workspace. */
 @media(min-width:1024px){
-  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-context-bar{min-height:42px;padding:8px 9px 8px 10px}
-  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-button{
+  #thebeAiDock[data-surface="workspace"] .thebe-ai-context-bar{min-height:42px;padding:8px 9px 8px 10px}
+  #thebeAiDock[data-surface="workspace"] .thebe-ai-mode-button{
     min-height:44px;
     padding:7px 8px 7px 12px;
   }
-  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-button>small{display:none}
-  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-voice-card{
+  #thebeAiDock[data-surface="workspace"] .thebe-ai-mode-button>small{display:none}
+  #thebeAiDock[data-surface="workspace"] .thebe-ai-voice-card{
     grid-template-columns:68px minmax(0,1fr)!important;
     padding:9px 10px;
   }
-  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-orb-button{
+  #thebeAiDock[data-surface="workspace"] .thebe-ai-orb-button{
     width:68px!important;
     min-width:68px!important;
     max-width:68px!important;
     height:68px!important;
     min-height:68px!important;
   }
-  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button{
+  #thebeAiDock[data-surface="workspace"] .thebe-ai-quick button{
     min-height:54px;
     padding:9px 30px 8px 9px;
   }
-  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button:before{
+  #thebeAiDock[data-surface="workspace"] .thebe-ai-quick button:before{
     width:18px;
     height:18px;
     margin-bottom:6px;
   }
-  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button small{display:none}
-  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-compose{
+  #thebeAiDock[data-surface="workspace"] .thebe-ai-quick button small{display:none}
+  #thebeAiDock[data-surface="workspace"] .thebe-ai-compose{
     margin:0 var(--thebe-workspace-pad) 10px!important;
     padding:8px;
   }
-  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-compose textarea{min-height:40px}
-  body.thebe-ai-expanded .thebe-ai-dock[data-surface="workspace"] .thebe-ai-mode-button>small,
-  body.thebe-ai-expanded .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button small{display:block}
+  #thebeAiDock[data-surface="workspace"] .thebe-ai-compose textarea{min-height:40px}
+  body.thebe-ai-expanded #thebeAiDock[data-surface="workspace"] .thebe-ai-mode-button>small,
+  body.thebe-ai-expanded #thebeAiDock[data-surface="workspace"] .thebe-ai-quick button small{display:block}
 }
 @media(min-width:1180px){
-  .thebe-ai-dock[data-surface="workspace"]{
+  #thebeAiDock[data-surface="workspace"]{
     --thebe-dock-w:376px;
     --thebe-workspace-pad:14px;
   }
@@ -1988,7 +1988,7 @@
   }
 }
 @media(min-width:1024px) and (max-width:1179px){
-  .thebe-ai-dock[data-surface="workspace"]{
+  #thebeAiDock[data-surface="workspace"]{
     --thebe-dock-w:320px;
     --thebe-workspace-pad:12px;
   }
@@ -2002,6 +2002,6 @@
     margin-left:464px!important;
     width:calc(100% - 464px)!important;
   }
-  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick{gap:6px}
-  .thebe-ai-dock[data-surface="workspace"] .thebe-ai-quick button{padding-left:8px;padding-right:26px}
+  #thebeAiDock[data-surface="workspace"] .thebe-ai-quick{gap:6px}
+  #thebeAiDock[data-surface="workspace"] .thebe-ai-quick button{padding-left:8px;padding-right:26px}
 }
