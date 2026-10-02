@@ -58,3 +58,4 @@ jobs:
           node tests/unified-goal-flow-browser.mjs
           node tests/v246-spatial-dock-browser.mjs
           node tests/v255-pricing-selector-browser.mjs
+          node tests/v256-workspace-ui-defects-browser.mjs
