@@ -574,7 +574,7 @@
   const MOBILE_DOCK_MAX=1023;
   let dock=null,pill=null,pillLabel=null,orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,scrollRegion=null,input=null,sendButton=null,attentionButton=null,quick=null,foot=null,mascot=null,missionRail=null,missionLabel=null,missionMeta=null,missionAction=null,contextBar=null,contextLabel=null,modeRail=null,clearButton=null,latestResponseButton=null;
   let voiceScreen=null,voiceScreenStatus=null,voiceScreenOrb=null,voiceScreenTranscript=null,voiceReturnFocus=null;
-  let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",mascotState="idle",mascotContext="general",mascotFocus="ambient",ownerCommandState=null,collapsed=false,assistantMode="ask",lastAnswer="",lastGoal="",lastAdvisorTrust="neutral",autoFollowResponse=true,responseScrollLock=false,textRunId=0,textAbortController=null;
+  let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",mascotState="idle",mascotContext="general",mascotFocus="ambient",ownerCommandState=null,persistentObjectiveState=null,collapsed=false,assistantMode="ask",lastAnswer="",lastGoal="",lastAdvisorTrust="neutral",autoFollowResponse=true,responseScrollLock=false,textRunId=0,textAbortController=null;
 
   const api=(url,options={})=>{
     if(typeof global.apiJson!=="function")throw new Error("The secure Thebe API transport is not available.");
@@ -813,6 +813,10 @@
     const approved=Math.max(0,Number(ownerCommandState?.approvedRequests||0));
     const open=Math.max(0,Number(ownerCommandState?.openTasks||0));
     if(ownerCommandState?.runtimeKillSwitch===true)return "Owner Command Centre · Runtime Guard locked";
+    const objectiveNeeds=Math.max(0,Number(persistentObjectiveState?.needsApproval||0));
+    const objectiveWorking=Math.max(0,Number(persistentObjectiveState?.working||0));
+    if(objectiveNeeds)return `Persistent objectives · ${objectiveNeeds} need${objectiveNeeds===1?"s":""} you · ${objectiveWorking} working`;
+    if(objectiveWorking)return `Persistent objectives · ${objectiveWorking} working`;
     if(reviews)return `Owner Command Centre · ${reviews} awaiting review`;
     if(approved){
       const noun=approved===1?"task":"tasks";
@@ -1789,7 +1793,7 @@
     setMascotState("success");surfaceLatestResponse();
   });
 
-  global.addEventListener("thebe:owner-agent-state",event=>{
+  global.addEventListener("thebe:persistent-objective-state",event=>{\n    const detail=event?.detail&&typeof event.detail==="object"?event.detail:{};\n    persistentObjectiveState={\n      working:Math.max(0,Number(detail.working||0)),\n      needsApproval:Math.max(0,Number(detail.needsApproval||0)),\n      retryPending:Math.max(0,Number(detail.retryPending||0)),\n      total:Math.max(0,Number(detail.total||0)),\n      available:detail.available!==false\n    };\n    syncMission();\n    if(pillLabel&&surfaceMode()==="workspace"){\n      const needs=persistentObjectiveState.needsApproval;\n      const working=persistentObjectiveState.working;\n      pillLabel.textContent=needs?`Thebe · ${needs} need${needs===1?"s":""} you`:working?`Thebe · ${working} working`:"Thebe";\n    }\n  });\n\n  global.addEventListener("thebe:owner-agent-state",event=>{
     const detail=event?.detail&&typeof event.detail==="object"?event.detail:{};
     ownerCommandState={
       phase:clean(detail.phase||"snapshot",40)||"snapshot",
@@ -1822,6 +1826,6 @@
     setMode:mode=>setAssistantMode(mode),
     ask:(question,mode=assistantMode)=>ask(mode,question),
     openCommandCentre:()=>openOwnerCommandCentre(),
-    state:()=>({collapsed:effectiveCollapsed(),collapsedPreference:collapsed,mobile:mobileDockMode(),assistantMode,voicePhase,mascotState,mascotContext,mascotFocus,ownerCommandState,textBusy,lastGoal,lastAdvisorTrust,workspaceVisible:shellVisible(),dockHidden:dock?.hidden??true,pillHidden:pill?.hidden??true,cssRecovery:dock?.dataset?.cssRecovery==="1",context:activeContext()})
+    state:()=>({collapsed:effectiveCollapsed(),collapsedPreference:collapsed,mobile:mobileDockMode(),assistantMode,voicePhase,mascotState,mascotContext,mascotFocus,ownerCommandState,persistentObjectiveState,textBusy,lastGoal,lastAdvisorTrust,workspaceVisible:shellVisible(),dockHidden:dock?.hidden??true,pillHidden:pill?.hidden??true,cssRecovery:dock?.dataset?.cssRecovery==="1",context:activeContext()})
   });
 })(window);
