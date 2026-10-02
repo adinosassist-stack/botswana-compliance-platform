@@ -1117,7 +1117,10 @@ async function removeEmployeeRecord(id){
    if(globalThis.__activeEmployeesById)delete globalThis.__activeEmployeesById[String(id)];
    if(globalThis.__employeeReporterLinks)delete globalThis.__employeeReporterLinks[String(id)];
    await renderEmployeeRegister();
-   if(document.getElementById("peopleops")?.classList.contains("active")){await renderPeopleOperationsHub();await renderPeopleReportingSetup()}
+   await renderPeopleOperationsHub();
+   await renderPeopleReportingSetup();
+   if(typeof renderEmployeesForHr==="function")await renderEmployeesForHr();
+   if(typeof renderOwnerDailyBrief==="function")await renderOwnerDailyBrief();
    if(document.getElementById("dailyreports")?.classList.contains("active"))await renderDailyOperations();
    notifyUser("Employee removed from active staff. Historical records were retained and reporting access was revoked.",{type:"success"});
  }catch(e){notifyUser(e.message)}
