@@ -3948,7 +3948,7 @@
         :"Choose an outcome. You stay in control.";
 
     if(watched.length){
-      box.append(text("div","Persistent objectives","section-eyebrow"));
+      box.append(text("div","Persistent objectives · Currently watching","section-eyebrow"));
       const activeGrid=document.createElement("div");
       activeGrid.className="owner-signal-list";
       for(const task of watched){
