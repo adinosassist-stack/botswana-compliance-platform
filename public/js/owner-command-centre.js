@@ -3846,7 +3846,7 @@
     if(checkpoint.ownerAttention===true){
       const retryPending=taskStatus==="active";
       return {
-        state:retryPending?"Working":"Needs approval",
+        state:retryPending?"Retry pending":"Needs attention",
         tone:"risk",
         detail:retryPending
           ?`${businessGoalAttentionCopy(checkpoint.errorCode)} Retry is scheduled for ${businessGoalTime(task.next_run_at)}.`
