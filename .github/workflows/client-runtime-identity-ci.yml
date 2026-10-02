@@ -62,3 +62,4 @@ jobs:
           node tests/v257-market-ui-regression.mjs
           node tests/v258-employee-removal-browser.mjs
           node tests/v259-market-lazy-fragment-integrity.mjs
+          node tests/v260-redteam-live-session-binding.mjs
