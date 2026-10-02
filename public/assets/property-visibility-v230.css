@@ -18,3 +18,10 @@
 #propertyintelligence.view.active .property-input-row{display:flex!important}
 #propertyintelligence.view.active .property-input-pair{display:grid!important}
 #propertyintelligence.view.active .property-analyse-button{display:block!important}
+
+/* V250: retire the legacy V184 dock hotfix while preserving the Property service emphasis in the active Property layer. */
+#propertyValuationServicePanel{
+  background:#f7fbff!important;
+  border-color:#a9c8ef!important;
+  box-shadow:0 12px 30px rgba(11,102,214,.08)!important;
+}
