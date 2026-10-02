@@ -1,4 +1,3 @@
-
 const DEFAULT_COMPANY={
  id:"co_demo_1",
  profile:{name:"Kgetsi Trading (Pty) Ltd",incorporationDate:"2024-05-14",entityType:"company",industry:"Retail",employees:8,town:"Gaborone",vat:true,vatCategory:"C",paye:true,trade:true,data:true,tender:true,premises:true,tradeAnniversary:"2027-02-28",cipaMonth:"May",cipaUin:"BW00001234567",cipaStatus:"active",registeredOffice:"Gaborone",citizenOwned:true,turnover:1800000,annualTaxableSupplies:null,highestMonthlyEmployeePay:null,manufacturing:false,mfgActivity:"",mfgFactory:false,mfgAnniversary:""},
