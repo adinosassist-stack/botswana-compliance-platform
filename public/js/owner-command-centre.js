@@ -3854,9 +3854,10 @@
         ownerAttention:true
       };
     }
-    if(taskStatus==="paused")return {state:"Paused",tone:"neutral",detail:"Scheduled checks are paused.",ownerAttention:false};
-    if(!task?.last_run_at)return {state:"Queued",tone:"neutral",detail:"Awaiting the first governed check."};
-    const state=checkpoint.baselineEstablished===true?"Baseline":checkpoint.changed===true?"Changed":"Steady";
+    if(taskStatus==="paused")return {state:"Needs approval",tone:"neutral",detail:"Scheduled checks are paused. Resume when you want Thebe to continue.",ownerAttention:false};
+    if(!task?.last_run_at)return {state:"Working",tone:"neutral",detail:"Awaiting the first governed check."};
+    const observation=checkpoint.baselineEstablished===true?"Baseline":checkpoint.changed===true?"Changed":"Steady";
+    const state="Working";
     const tone=signal.tone==="risk"?"risk":signal.tone==="positive"?"positive":"neutral";
     const minor=value=>money(Number(value||0)/100);
     let detail="";
@@ -3880,7 +3881,7 @@
       detail=`${minor(metrics.overdueReceivablesMinor)} overdue receivables · ${Number(metrics.overdueObligationCount||0)} overdue compliance item(s) · ${Number(metrics.criticalPerformanceSignals||0)} critical business signal(s).`;
     }
     if(!detail)detail=checkpoint.changed===true?"Governed source data changed since the previous check.":"Governed sources were checked without a recorded source change.";
-    return {state,tone,detail};
+    return {state,tone,detail,observation};
   }
 
   async function transitionBusinessGoal(task,action,statusNode){
@@ -3911,6 +3912,16 @@
     }
   }
 
+  function emitPersistentObjectiveState(tasks=[],readError=null){
+    const current=Array.isArray(tasks)?tasks.filter(businessGoalTaskCurrent):[];
+    const working=current.filter(task=>String(task?.status||"")==="active"&&task?.checkpoint?.ownerAttention!==true).length;
+    const needsApproval=current.filter(task=>String(task?.status||"")==="paused"||task?.checkpoint?.ownerAttention===true).length;
+    const retryPending=current.filter(task=>String(task?.status||"")==="active"&&task?.checkpoint?.ownerAttention===true).length;
+    const detail={working,needsApproval,retryPending,total:current.length,available:!readError};
+    try{global.dispatchEvent(new CustomEvent("thebe:persistent-objective-state",{detail}))}catch{}
+    return detail;
+  }
+
   async function renderGoalsAndIdeas(force=false){
     const box=q("#ownerGoalsIdeas");
     if(!box)return;
@@ -3920,8 +3931,8 @@
     const copy=document.createElement("div");
     copy.append(
       text("div","Goals & Ideas","section-eyebrow"),
-      text("h4","Tell Thebe what outcome to keep watching"),
-      text("p","Thebe checks bounded business signals on schedule and keeps the outcome visible here. It cannot send, spend, publish or make high-impact changes from these goals.","muted")
+      text("h4","Thebe keeps working on the outcomes you set"),
+      text("p","Persistent objectives continue across sessions. Thebe checks bounded business signals on schedule, records evidence and surfaces only what needs you. It cannot send, spend, publish or make high-impact changes from these goals; consequential actions still require an explicit governed approval path.","muted")
     );
     head.append(copy);
     box.append(head);
@@ -3941,14 +3952,15 @@
       .filter(businessGoalTaskCurrent)
       .sort((a,b)=>String(a.status)==="active"&&String(b.status)!=="active"?-1:String(b.status)==="active"&&String(a.status)!=="active"?1:String(b.updated_at||b.created_at||"").localeCompare(String(a.updated_at||a.created_at||"")));
     const watchedKeys=new Set(watched.map(businessGoalTaskKey).filter(Boolean));
+    emitPersistentObjectiveState(tasks,readError);
     status.textContent=readError
       ?"Goal status is temporarily unavailable. Existing authority limits remain in force."
       :watched.length
-        ?`${watched.filter(task=>String(task.status)==="active").length} active · ${watched.filter(task=>String(task.status)==="paused").length} paused`
+        ?`${watched.filter(task=>String(task.status)==="active").length} working · ${watched.filter(task=>String(task.status)==="paused").length} need approval`
         :"Choose an outcome. You stay in control.";
 
     if(watched.length){
-      box.append(text("div","Currently watching","section-eyebrow"));
+      box.append(text("div","Persistent objectives · Currently watching","section-eyebrow"));
       const activeGrid=document.createElement("div");
       activeGrid.className="owner-signal-list";
       for(const task of watched){
@@ -3963,7 +3975,7 @@
         top.className="owner-signal-top";
         top.append(
           text("span",outcome.state,"owner-signal-label"),
-          text("span",cadence.replace(/^./,ch=>ch.toUpperCase()),"owner-signal-value")
+          text("span",outcome.observation?`${outcome.observation} · ${cadence.replace(/^./,ch=>ch.toUpperCase())}`:cadence.replace(/^./,ch=>ch.toUpperCase()),"owner-signal-value")
         );
         card.append(
           top,
