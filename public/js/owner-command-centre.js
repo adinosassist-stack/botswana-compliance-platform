@@ -3846,7 +3846,7 @@
     if(checkpoint.ownerAttention===true){
       const retryPending=taskStatus==="active";
       return {
-        state:retryPending?"Retry pending":"Needs attention",
+        state:retryPending?"Working":"Needs approval",
         tone:"risk",
         detail:retryPending
           ?`${businessGoalAttentionCopy(checkpoint.errorCode)} Retry is scheduled for ${businessGoalTime(task.next_run_at)}.`
@@ -3854,9 +3854,9 @@
         ownerAttention:true
       };
     }
-    if(taskStatus==="paused")return {state:"Paused",tone:"neutral",detail:"Scheduled checks are paused.",ownerAttention:false};
-    if(!task?.last_run_at)return {state:"Queued",tone:"neutral",detail:"Awaiting the first governed check."};
-    const state=checkpoint.baselineEstablished===true?"Baseline":checkpoint.changed===true?"Changed":"Steady";
+    if(taskStatus==="paused")return {state:"Needs approval",tone:"neutral",detail:"This persistent objective is paused. Owner action is required before Thebe resumes governed checks.",ownerAttention:false};
+    if(!task?.last_run_at)return {state:"Working",tone:"neutral",detail:"Persistent objective is active and awaiting its first governed check."};
+    const state=checkpoint.changed===true?"Completed":checkpoint.baselineEstablished===true?"Completed":"Working";
     const tone=signal.tone==="risk"?"risk":signal.tone==="positive"?"positive":"neutral";
     const minor=value=>money(Number(value||0)/100);
     let detail="";
@@ -3920,8 +3920,8 @@
     const copy=document.createElement("div");
     copy.append(
       text("div","Goals & Ideas","section-eyebrow"),
-      text("h4","Tell Thebe what outcome to keep watching"),
-      text("p","Thebe checks bounded business signals on schedule and keeps the outcome visible here. It cannot send, spend, publish or make high-impact changes from these goals.","muted")
+      text("h4","Thebe keeps working on the outcomes you set"),
+      text("p","Persistent objectives continue across sessions. Thebe observes bounded business signals, records evidence and surfaces only what needs you. Send, spend, publish and other consequential actions still require an explicit governed approval path.","muted")
     );
     head.append(copy);
     box.append(head);
@@ -3944,11 +3944,11 @@
     status.textContent=readError
       ?"Goal status is temporarily unavailable. Existing authority limits remain in force."
       :watched.length
-        ?`${watched.filter(task=>String(task.status)==="active").length} active · ${watched.filter(task=>String(task.status)==="paused").length} paused`
+        ?`${watched.filter(task=>String(task.status)==="active").length} working · ${watched.filter(task=>String(task.status)==="paused").length} need approval`
         :"Choose an outcome. You stay in control.";
 
     if(watched.length){
-      box.append(text("div","Currently watching","section-eyebrow"));
+      box.append(text("div","Persistent objectives","section-eyebrow"));
       const activeGrid=document.createElement("div");
       activeGrid.className="owner-signal-list";
       for(const task of watched){
