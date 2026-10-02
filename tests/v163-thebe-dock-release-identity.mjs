@@ -5,7 +5,7 @@ const production=fs.readFileSync(new URL('../cloudflare/src/production-entry.js'
 const runtime=fs.readFileSync(new URL('../public/js/thebe-live-voice.js',import.meta.url),'utf8');
 const apiClient=fs.readFileSync(new URL('../public/js/api-client.js',import.meta.url),'utf8');
 const ownerRuntime=fs.readFileSync(new URL('../public/js/owner-command-centre.js',import.meta.url),'utf8');
-const hotfix=fs.readFileSync(new URL('../public/assets/thebe-ai-dock-v184-hotfix.css',import.meta.url),'utf8');
+const propertyVisibility=fs.readFileSync(new URL('../public/assets/property-visibility-v230.css',import.meta.url),'utf8');
 const audit=fs.readFileSync(new URL('../scripts/production-launch-audit.mjs',import.meta.url),'utf8');
 const fullUser=fs.readFileSync(new URL('../scripts/production-synthetic-full-user-wrapper.mjs',import.meta.url),'utf8');
 const workspaceRuntimeAsset=production.match(/const WORKSPACE_RUNTIME_ASSET="([^"]+)";/)?.[1]||'';
@@ -25,10 +25,8 @@ assert.equal(productionDock,runtimeDock,'production must cache-bust the exact Th
 assert.equal(productionDock,'20261002-pricing-voice-continuity-v247','live Thebe Command Dock must ship under the current V247 release token');
 assert(production.includes('const THEBE_PUBLIC_API_CLIENT_RELEASE="20260930a";'),'V200 must cache-bust the shared API client that carries caller cancellation');
 assert.match(production,/const OWNER_COMMAND_CENTRE_RELEASE="20261001-[a-z0-9-]+-v\d+";/,'production must cache-bust the current Owner Command Centre runtime');
-assert(production.includes('const THEBE_AI_DOCK_HOTFIX_ASSET="/assets/thebe-ai-dock-v184-hotfix.css";'),'production must publish the path-busted V184 dock hotfix asset');
-assert.equal((production.match(/THEBE_AI_DOCK_HOTFIX_ASSET/g)||[]).length>=3,true,'V184 dock hotfix must be declared and injected across public/workspace surfaces');
-assert(!hotfix.includes('.thebe-ai-dock[data-surface="workspace"]'),'V191 must retire duplicate dock geometry from the legacy V184 hotfix');
-assert(hotfix.includes('#propertyValuationServicePanel')&&hotfix.includes('background:#f7fbff!important'),'V184 must visibly restore the professional Property service emphasis');
+assert(!production.includes('thebe-ai-dock-v184-hotfix.css'),'production must not publish the retired V184 dock hotfix asset');
+assert(propertyVisibility.includes('#propertyValuationServicePanel')&&propertyVisibility.includes('background:#f7fbff!important'),'active Property CSS must retain the professional Property service emphasis after V184 retirement');
 assert(runtime.includes('function syncWorkspaceVisualInvariants()'),'V191 must retain authenticated dock geometry ownership at runtime, not only through CSS');
 assert(runtime.includes('function clearLegacyWorkspaceDockPadding()'),'V191 must clean the obsolete dock-owned workspace right padding');
 assert(runtime.includes('function clearRoutineWorkspaceInlineGeometry()'),'V191 must clear obsolete normal-path inline geometry ownership');
