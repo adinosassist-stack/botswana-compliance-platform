@@ -14,7 +14,6 @@ const BUSINESS_DATA_BRIDGE_RELEASE="20260913d";
 const THEBE_LIVE_VOICE_RELEASE="20261002-pricing-voice-continuity-v247";
 const THEBE_PUBLIC_API_CLIENT_RELEASE="20260930a";
 const THEBE_AI_DOCK_RELEASE="20261002-pricing-voice-continuity-v247";
-const THEBE_AI_DOCK_HOTFIX_ASSET="/assets/thebe-ai-dock-v184-hotfix.css";
 const WORKSPACE_RUNTIME_ASSET="/js/workspace-runtime-20261001b.js";
 const WORKSPACE_RUNTIME_RELEASE="20261001-home-live-brief-v234";
 const WORKSPACE_STYLES_ASSET="/assets/workspace-inline-styles-20261001c.css";
@@ -131,9 +130,7 @@ function injectPublicThebeAssets(html){
   const liveVoiceJsSrc=`/js/thebe-live-voice.js?v=${THEBE_LIVE_VOICE_RELEASE}`;
   const publicApiClientJsSrc=`/js/api-client.js?v=${THEBE_PUBLIC_API_CLIENT_RELEASE}`;
   const aiDockCssHref=`/assets/thebe-ai-dock.css?v=${THEBE_AI_DOCK_RELEASE}`;
-  const aiDockHotfixHref=`${THEBE_AI_DOCK_HOTFIX_ASSET}?v=${THEBE_AI_DOCK_RELEASE}`;
   if(!source.includes("/assets/thebe-ai-dock.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${aiDockCssHref}" />\n`);
-  if(!source.includes(THEBE_AI_DOCK_HOTFIX_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${aiDockHotfixHref}" />\n`);
   if(!source.includes("/js/api-client.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${publicApiClientJsSrc}" defer></script>\n`);
   if(!source.includes("/js/thebe-live-voice.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${liveVoiceJsSrc}" defer></script>\n`);
   if(!source.includes("/assets/thebe-spatial-dock-v246.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="/assets/thebe-spatial-dock-v246.css?v=20261002-v247" />\n`);
@@ -329,10 +326,9 @@ function injectOwnerCommandCentreAssets(html){
   const liveVoiceJsSrc=`/js/thebe-live-voice.js?v=${THEBE_LIVE_VOICE_RELEASE}`;
   const publicApiClientJsSrc=`/js/api-client.js?v=${THEBE_PUBLIC_API_CLIENT_RELEASE}`;
   const aiDockCssHref=`/assets/thebe-ai-dock.css?v=${THEBE_AI_DOCK_RELEASE}`;
-  const aiDockHotfixHref=`${THEBE_AI_DOCK_HOTFIX_ASSET}?v=${THEBE_AI_DOCK_RELEASE}`;
   const propertyCompactCssHref=PROPERTY_COMPACT_CSS_ASSET;
   const propertyReferenceCssHref=PROPERTY_REFERENCE_CSS_ASSET;
-  const propertyVisibilityCssHref=PROPERTY_VISIBILITY_CSS_ASSET;
+  const propertyVisibilityCssHref=`${PROPERTY_VISIBILITY_CSS_ASSET}?v=20261002-v250`;
   const workspaceCommandCenterCssHref=WORKSPACE_COMMAND_CENTER_CSS_ASSET;
   const workspaceCommandCenterV231CssHref=WORKSPACE_COMMAND_CENTER_V231_CSS_ASSET;
   const workspaceHomeDensityV234CssHref=WORKSPACE_HOME_DENSITY_V234_CSS_ASSET;
@@ -351,7 +347,6 @@ function injectOwnerCommandCentreAssets(html){
   if(!source.includes(WORKSPACE_REFERENCE_SHELL_V237_CSS_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${workspaceReferenceShellV237CssHref}" />\n`);
   if(!source.includes(WORKSPACE_HOME_COMMAND_V238_CSS_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${workspaceHomeCommandV238CssHref}" />\n`);
   if(!source.includes("/assets/thebe-ai-dock.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${aiDockCssHref}" />\n`);
-  if(!source.includes(THEBE_AI_DOCK_HOTFIX_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${aiDockHotfixHref}" />\n`);
   if(!source.includes("/js/api-client.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${publicApiClientJsSrc}" defer></script>\n`);
   if(!source.includes("/js/owner-command-centre.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${jsSrc}" defer></script>\n`);
   if(!source.includes("/js/executive-personalization.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${personalizationJsSrc}" defer></script>\n`);
