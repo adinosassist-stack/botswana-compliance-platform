@@ -3921,7 +3921,7 @@
     copy.append(
       text("div","Goals & Ideas","section-eyebrow"),
       text("h4","Thebe keeps working on the outcomes you set"),
-      text("p","Persistent objectives continue across sessions. Thebe observes bounded business signals, records evidence and surfaces only what needs you. Send, spend, publish and other consequential actions still require an explicit governed approval path.","muted")
+      text("p","Persistent objectives continue across sessions. Thebe observes bounded business signals, records evidence and surfaces only what needs you. It cannot send, spend, publish or make high-impact changes from these goals; consequential actions still require an explicit governed approval path.","muted")
     );
     head.append(copy);
     box.append(head);
