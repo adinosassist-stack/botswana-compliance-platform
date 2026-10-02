@@ -56,3 +56,16 @@ body.thebe-voice-active{overflow:hidden!important}
 .thebe-voice-screen-transcript{width:min(680px,92vw);max-height:22vh;overflow:auto;display:grid;gap:7px;padding:10px 12px;border:1px solid #29465e;border-radius:16px;background:#091b2b;text-align:left}
 .thebe-voice-screen-transcript[hidden]{display:none!important}.thebe-voice-caption{display:grid;grid-template-columns:52px minmax(0,1fr);gap:10px;font-size:13px;line-height:1.45;color:#dceaf4}.thebe-voice-caption b{color:#87cfff;font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding-top:2px}.thebe-voice-caption span{min-width:0}
 @media(max-width:620px){.thebe-voice-screen{gap:14px!important;padding-inline:16px!important}.thebe-voice-sphere{width:clamp(150px,47vw,220px)}.thebe-voice-screen-transcript{max-height:25vh}.thebe-voice-screen-controls{position:sticky;bottom:0;padding-top:2px}}
+
+/* V253 pre-release workspace lane closure — keep the final-loaded spatial dock compact
+   on medium desktop widths and preserve room for the workspace top controls. */
+@media(min-width:1024px) and (max-width:1199px){
+ body{--thebe-spatial-width:280px}
+ body.thebe-ai-expanded{--thebe-spatial-width:360px}
+ body.thebe-ai-dock-open #mainContent>.top{gap:10px!important}
+ body.thebe-ai-dock-open #mainContent .global-search{
+  min-width:0!important;
+  max-width:260px!important;
+  flex:1 1 220px!important;
+ }
+}
