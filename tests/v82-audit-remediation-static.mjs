@@ -7,6 +7,7 @@ const wrangler=read('cloudflare/wrangler.toml');
 const governance=read('cloudflare/src/release-governance-entry.js');
 const registrationBoundary=read('cloudflare/src/registration-boundary.js');
 const production=read('cloudflare/src/production-entry.js');
+const worker=read('cloudflare/src/worker.js');
 const directRegistrationHtml=read('public/register-direct.html');
 const directRegistration=read('public/js/register-direct.js');
 const oauthUi=read('public/js/oauth-availability.js');
@@ -103,6 +104,15 @@ assert.match(thebeDockCss,/body\.thebe-ai-dock-open #workspaceQuickbar\{\s*margi
 assert.match(thebeDockCss,/@media\(min-width:1024px\) and \(max-width:1500px\)\{[\s\S]*?body\.thebe-ai-dock-open #workspaceQuickbar \.workspace-quick-actions\{\s*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)!important;/,'dock-open quick actions must collapse to two columns before they can overflow back under Thebe');
 
 assert.match(launchWorkflow,/node scripts\/production-synthetic-full-user-wrapper\.mjs/,'automatic Phase 0 lifecycle must execute the mandatory full-user wrapper');
+
+const employeeCreateStart=worker.indexOf('if(url.pathname==="/api/employees"&&req.method==="POST")');
+const employeeCreateEnd=worker.indexOf('if(url.pathname==="/api/employees"&&req.method==="GET")',employeeCreateStart);
+assert.ok(employeeCreateStart>0&&employeeCreateEnd>employeeCreateStart,'employee create route must remain present');
+const employeeCreateRoute=worker.slice(employeeCreateStart,employeeCreateEnd);
+assert.match(employeeCreateRoute,/eventType:"employee_hired"[\s\S]*processNow:false/,'employee save must durably queue business-event effects without awaiting the full effect chain');
+assert.match(employeeCreateRoute,/ctx\?\.waitUntil\)ctx\.waitUntil\(processBusinessEvent\(env,event\.id,\{maxEffects:1\}\)/,'employee save must kick one queued effect after the HTTP response through the Worker lifecycle');
+assert.match(employeeCreateRoute,/employee_business_event_processing_failed/,'background employee event processing must retain an observable failure breadcrumb');
+assert.doesNotMatch(employeeCreateRoute,/eventType:"employee_hired"[\s\S]*processNow:true/,'employee save must not block the visible register on regulatory and assurance recomputation');
 
 assert.match(remediationWorkflow,/run-name: Audit remediation CI \$\{\{ github\.event\.pull_request\.head\.sha \}\}/,'remediation CI run identity must name the exact PR head');
 assert.match(remediationWorkflow,/EXPECTED_HEAD_SHA: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/,'remediation CI must bind expected SHA to the PR head');

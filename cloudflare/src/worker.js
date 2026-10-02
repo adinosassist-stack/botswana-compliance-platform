@@ -6894,7 +6894,11 @@ export default {
             .bind(eid,a.tenant_id,fullName,roleTitle,employmentType,startDate,endDate).run();
           await incrementUsage(env,a.tenant_id,"employees_active");
           await writeAudit(env,a.tenant_id,a.user_id,"EMPLOYEE_CREATED",{employeeId:eid});
-          const event=await createBusinessEvent(env,{tenantId:a.tenant_id,eventType:"employee_hired",sourceType:"employee",sourceId:eid,eventKey:`employee:${eid}:hired`,eventData:{employeeId:eid},actorUserId:a.user_id,processNow:true});
+          const event=await createBusinessEvent(env,{tenantId:a.tenant_id,eventType:"employee_hired",sourceType:"employee",sourceId:eid,eventKey:`employee:${eid}:hired`,eventData:{employeeId:eid},actorUserId:a.user_id,processNow:false});
+          // Keep the employee save interactive. The event and all effects are durably queued
+          // before returning; one effect is kicked after the response, and the scheduled
+          // business-event sweep continues any remaining work or recovers an interrupted kick.
+          if(ctx?.waitUntil)ctx.waitUntil(processBusinessEvent(env,event.id,{maxEffects:1}).catch(error=>console.error("employee_business_event_processing_failed",{eventId:event.id,error:String(error?.message||error).slice(0,240)})));
           return {status:201,body:{ok:true,id:eid,businessEventId:event.id}};
         });
       }
