@@ -404,6 +404,7 @@ label{font-size:13px!important}.badge,.billingbadge,.recommended{font-size:11.5p
 
 }
 
+
 </style>
 
 <style id="v17-behance-polish">
@@ -4286,21 +4287,33 @@ body.thebe-ai-dock-open .property-valuation-service-card .formgrid{grid-template
 </section>
 
 
-<section id="servicesmarketplace" class="view">
-  <div class="grid g4">
-    <div class="card"><div class="kpi">Available services</div><div class="score" id="serviceCatalogCount">0</div></div>
-    <div class="card"><div class="kpi">Open orders</div><div class="score" id="serviceOpenOrders">0</div></div>
-    <div class="card"><div class="kpi">In review</div><div class="score" id="serviceInReview">0</div></div>
-    <div class="card"><div class="kpi">Completed</div><div class="score" id="serviceCompleted">0</div></div>
+<section id="servicesmarketplace" class="view market-v257">
+  <div class="market-v257-hero card">
+    <div class="market-v257-copy">
+      <div class="kpi">Thebe Market · trusted business support</div>
+      <h2>Get specialist help without leaving your workspace.</h2>
+      <p class="muted">Start with the service you need. Thebe keeps the request, evidence and order status together while regulated work stays with appropriately authorised professionals.</p>
+      <div class="row market-v257-actions"><button type="button" class="btn market-v257-start" data-bw-onclick="focusMarketServices()">Start here</button><button type="button" class="btn soft" data-bw-onclick="focusMarketOrders()">My orders</button></div>
+    </div>
+    <div class="market-v257-visual" aria-label="Thebe Market connects business owners with governed professional support">
+      <img src="/assets/gaborone-entrepreneurs-v67.webp" width="1536" height="1024" alt="Business owners working together in Gaborone" loading="lazy">
+      <div class="market-v257-signal"><b>Workspace connected</b><span>Request → evidence → professional review</span></div>
+    </div>
   </div>
-  <div class="grid g2" style="margin-top:16px">
+  <div class="market-v257-stats" aria-label="Market activity">
+    <div><span>Services</span><b id="serviceCatalogCount">0</b></div>
+    <div><span>Open</span><b id="serviceOpenOrders">0</b></div>
+    <div><span>In review</span><b id="serviceInReview">0</b></div>
+    <div><span>Completed</span><b id="serviceCompleted">0</b></div>
+  </div>
+  <div class="grid g2 market-v257-body">
     <div class="card">
-      <h2>Professional services</h2>
-      <div class="notice warn" style="margin-bottom:12px"><b>Professional boundary</b><div class="small">Thebe Desk is the workflow and evidence platform. Tax-return preparation, tax objections, BURS representation and other regulated professional work must be delivered by an appropriately authorised professional or registered tax agent with explicit client authority. Paid service orders do not bypass that requirement.</div></div>
+      <div class="between row"><div><div class="kpi">Start here</div><h2>Professional services</h2></div></div>
       <div id="serviceCatalogList" class="grid g2"></div>
+      <details class="market-v257-boundary"><summary>Professional-service boundary · Tax-service delivery boundary verified</summary><div class="small muted">Thebe Desk is the workflow and evidence platform. Tax-return preparation, tax objections, BURS representation and other regulated professional work must be delivered by an appropriately authorised professional or registered tax agent with explicit client authority. Paid service orders do not bypass that requirement.</div></details>
     </div>
     <div class="card">
-      <h2>Your service orders</h2>
+      <div class="kpi">Track work</div><h2>Your service orders</h2>
       <div id="serviceOrderList" class="muted small">No service orders yet.</div>
     </div>
   </div>
@@ -6004,6 +6017,8 @@ async function renderBusinessHub(){
   }
 }
 
+function focusMarketServices(){document.getElementById("serviceCatalogList")?.scrollIntoView({behavior:"smooth",block:"start"})}
+function focusMarketOrders(){document.getElementById("serviceOrderList")?.scrollIntoView({behavior:"smooth",block:"start"})}
 async function addEmployeeRecord(){
   const name=document.getElementById("eName")?.value.trim()||"";if(!name)return notifyUser("Enter an employee name or work reference.");
   if(STANDALONE_PREVIEW){

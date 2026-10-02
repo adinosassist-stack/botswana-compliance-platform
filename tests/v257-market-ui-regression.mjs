@@ -1,0 +1,13 @@
+import fs from "node:fs";import assert from "node:assert/strict";
+const h=fs.readFileSync("public/index.html","utf8"),css=fs.readFileSync("public/assets/workspace-command-center-v231.css","utf8");
+const a=h.indexOf('<section id="servicesmarketplace" class="view market-v257">'),b=h.indexOf("</section>",a),m=h.slice(a,b);
+assert(a>=0,"Market must use v257 discovery surface");
+assert.match(m,/gaborone-entrepreneurs-v67\.webp/,"Market visual must remain present");
+assert.match(m,/market-v257-start[^>]*>[\s\S]*?Start here/,"Market must retain a visible Start here action");
+assert.match(css,/\.market-v257-start\{[^}]*background:#fff!important/,"Start here must remain white");
+for(const id of ["serviceCatalogCount","serviceOpenOrders","serviceInReview","serviceCompleted","serviceCatalogList","serviceOrderList"])assert.match(m,new RegExp('id="'+id+'"'),id+" runtime contract must remain");
+assert.match(m,/appropriately authorised professional or registered tax agent/);
+assert.match(m,/Paid service orders do not bypass that requirement/);
+assert.doesNotMatch(m,/<div class="grid g4">/,"Market must not regress to four large KPI cards");
+assert.match(css,/@media\(max-width:520px\)[^{]*\{[\s\S]*?\.market-v257-body\{grid-template-columns:1fr!important\}/);
+console.log("V257_MARKET_UI_REGRESSION_PASS");

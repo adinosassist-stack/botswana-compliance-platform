@@ -1072,6 +1072,8 @@ async function renderBusinessHub(){
   }
 }
 
+function focusMarketServices(){document.getElementById("serviceCatalogList")?.scrollIntoView({behavior:"smooth",block:"start"})}
+function focusMarketOrders(){document.getElementById("serviceOrderList")?.scrollIntoView({behavior:"smooth",block:"start"})}
 async function addEmployeeRecord(){
   const name=document.getElementById("eName")?.value.trim()||"";if(!name)return notifyUser("Enter an employee name or work reference.");
   if(STANDALONE_PREVIEW){
