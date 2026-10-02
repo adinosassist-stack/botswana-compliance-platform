@@ -1793,7 +1793,24 @@
     setMascotState("success");surfaceLatestResponse();
   });
 
-  global.addEventListener("thebe:persistent-objective-state",event=>{\n    const detail=event?.detail&&typeof event.detail==="object"?event.detail:{};\n    persistentObjectiveState={\n      working:Math.max(0,Number(detail.working||0)),\n      needsApproval:Math.max(0,Number(detail.needsApproval||0)),\n      retryPending:Math.max(0,Number(detail.retryPending||0)),\n      total:Math.max(0,Number(detail.total||0)),\n      available:detail.available!==false\n    };\n    syncMission();\n    if(pillLabel&&surfaceMode()==="workspace"){\n      const needs=persistentObjectiveState.needsApproval;\n      const working=persistentObjectiveState.working;\n      pillLabel.textContent=needs?`Thebe · ${needs} need${needs===1?"s":""} you`:working?`Thebe · ${working} working`:"Thebe";\n    }\n  });\n\n  global.addEventListener("thebe:owner-agent-state",event=>{
+  global.addEventListener("thebe:persistent-objective-state",event=>{
+    const detail=event?.detail&&typeof event.detail==="object"?event.detail:{};
+    persistentObjectiveState={
+      working:Math.max(0,Number(detail.working||0)),
+      needsApproval:Math.max(0,Number(detail.needsApproval||0)),
+      retryPending:Math.max(0,Number(detail.retryPending||0)),
+      total:Math.max(0,Number(detail.total||0)),
+      available:detail.available!==false
+    };
+    syncMission();
+    if(pillLabel&&surfaceMode()==="workspace"){
+      const needs=persistentObjectiveState.needsApproval;
+      const working=persistentObjectiveState.working;
+      pillLabel.textContent=needs?`Thebe · ${needs} need${needs===1?"s":""} you`:working?`Thebe · ${working} working`:"Thebe";
+    }
+  });
+
+  global.addEventListener("thebe:owner-agent-state",event=>{
     const detail=event?.detail&&typeof event.detail==="object"?event.detail:{};
     ownerCommandState={
       phase:clean(detail.phase||"snapshot",40)||"snapshot",
