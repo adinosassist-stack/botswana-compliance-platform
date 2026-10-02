@@ -7,7 +7,7 @@ const engine=fs.readFileSync(new URL("../cloudflare/src/agentic-persistent-tasks
 
 assert.match(ui,/Persistent objectives/);
 assert.match(ui,/state:retryPending\?"Working":"Needs approval"/);
-assert.match(ui,/state:"Needs approval".*paused/s);
+assert.match(ui,/state:"Needs approval".*paused/s);\nassert.match(ui,/checkpoint\\.ownerAttention===true/);
 assert.match(ui,/state:"Working".*first governed check/s);
 assert.match(ui,/checkpoint\.changed===true\?"Completed"/);
 assert.match(ui,/consequential actions still require an explicit governed approval path/);
