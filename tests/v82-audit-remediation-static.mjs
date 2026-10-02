@@ -110,9 +110,16 @@ const employeeCreateEnd=worker.indexOf('if(url.pathname==="/api/employees"&&req.
 assert.ok(employeeCreateStart>0&&employeeCreateEnd>employeeCreateStart,'employee create route must remain present');
 const employeeCreateRoute=worker.slice(employeeCreateStart,employeeCreateEnd);
 assert.match(employeeCreateRoute,/eventType:"employee_hired"[\s\S]*processNow:false/,'employee save must durably queue business-event effects without awaiting the full effect chain');
-assert.match(employeeCreateRoute,/ctx\?\.waitUntil\)ctx\.waitUntil\(processBusinessEvent\(env,event\.id,\{maxEffects:1\}\)/,'employee save must kick one queued effect after the HTTP response through the Worker lifecycle');
-assert.match(employeeCreateRoute,/employee_business_event_processing_failed/,'background employee event processing must retain an observable failure breadcrumb');
+assert.match(employeeCreateRoute,/kickBusinessEventProcessing\(ctx,env,event\.id,"employee_hired"\)/,'employee save must hand queued recomputation to the shared Worker-lifecycle processor');
 assert.doesNotMatch(employeeCreateRoute,/eventType:"employee_hired"[\s\S]*processNow:true/,'employee save must not block the visible register on regulatory and assurance recomputation');
+
+assert.match(worker,/function kickBusinessEventProcessing\(ctx,env,eventId,source="business_event"\)/,'interactive business-event mutations must share one deferred processor');
+assert.match(worker,/ctx\.waitUntil\(processBusinessEvent\(env,eventId,\{maxEffects:7\}\)\.catch/,'deferred business-event processing must run through the Worker lifecycle outside response latency');
+assert.match(worker,/business_event_processing_failed/,'deferred business-event failures must retain an observable breadcrumb');
+assert.doesNotMatch(worker,/processNow:true/,'ordinary API mutations must not synchronously block on the full business-event effect chain');
+assert.equal((worker.match(/kickBusinessEventProcessing\(ctx,env/g)||[]).length,9,'the shared helper plus all eight interactive business-event producers must be present');
+assert.match(worker,/async function statePut\(req,env,a,ctx\)/,'workspace profile saves must receive Worker lifecycle context for deferred event processing');
+assert.match(worker,/req\.method==="PUT"\)return statePut\(req,env,a,ctx\)/,'workspace state route must pass lifecycle context into the profile mutation');
 
 assert.match(remediationWorkflow,/run-name: Audit remediation CI \$\{\{ github\.event\.pull_request\.head\.sha \}\}/,'remediation CI run identity must name the exact PR head');
 assert.match(remediationWorkflow,/EXPECTED_HEAD_SHA: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/,'remediation CI must bind expected SHA to the PR head');
