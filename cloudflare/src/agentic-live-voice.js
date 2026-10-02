@@ -801,6 +801,25 @@ function spokenResult(plan){
   return cleanText(parts.join(" "),1500);
 }
 
+async function activeOwnedLiveSession(env,auth,sessionId){
+  const id=cleanText(sessionId,240);
+  if(!id)return Object.freeze({ok:false,code:"live_session_id_required"});
+  let row;
+  try{
+    row=await safeFirst(env,`SELECT actor_user_id,event_type,created_at FROM audit_events
+      WHERE tenant_id=? AND entity_type='thebe_live_session' AND entity_id=?
+        AND event_type IN ('THEBE_LIVE_SESSION_STARTED','THEBE_LIVE_SESSION_FAILED')
+      ORDER BY created_at DESC LIMIT 1`,[auth.tenant_id,id]);
+  }catch{return Object.freeze({ok:false,code:"live_session_verification_unavailable"})}
+  if(!row||String(row.event_type)!=="THEBE_LIVE_SESSION_STARTED")return Object.freeze({ok:false,code:"live_session_not_active"});
+  if(String(row.actor_user_id||"")!==String(auth.user_id||""))return Object.freeze({ok:false,code:"live_session_owner_mismatch"});
+  const started=new Date(String(row.created_at||"").replace(" ","T")+"Z");
+  if(!Number.isFinite(started.getTime()))return Object.freeze({ok:false,code:"live_session_timestamp_invalid"});
+  const maxAgeMs=(boundedSessionSeconds(env?.THEBE_LIVE_VOICE_MAX_SESSION_SECONDS)+60)*1000;
+  if(Date.now()-started.getTime()>maxAgeMs)return Object.freeze({ok:false,code:"live_session_expired"});
+  return Object.freeze({ok:true,sessionId:id});
+}
+
 async function delegateBusinessWork({request,env,ctx,auth,coreFetch,taskFetch}){
   if(!liveAllowed(env))return json({error:"live_voice_unavailable"},503);
   if(typeof coreFetch!=="function")return json({error:"governed_backend_unavailable"},503);
@@ -815,6 +834,11 @@ async function delegateBusinessWork({request,env,ctx,auth,coreFetch,taskFetch}){
   const intent=normalizeVoiceIntent(body?.intent);
   if(!delegationId)return json({error:"delegation_id_required"},400);
   if(!taskText)return json({error:"delegation_task_text_required"},400);
+  const sessionAuthority=await activeOwnedLiveSession(env,auth,sessionId);
+  if(!sessionAuthority.ok){
+    await audit(env,auth,"THEBE_LIVE_DELEGATION_DENIED",sessionId||delegationId,{delegationId,code:sessionAuthority.code,executionPerformed:false});
+    return json({error:sessionAuthority.code,executionPerformed:false},403);
+  }
 
   if(intent===VOICE_INTENT_PREPARE_INTERNAL_TASK){
     const normalized=normalizeVoiceTask(body?.task);
@@ -962,5 +986,6 @@ export const __agenticLiveVoiceTest=Object.freeze({
   marketingRealtimeSessionConfig,
   spokenResult,
   preparedTaskContent,
-  taskPreparationNoopContent
+  taskPreparationNoopContent,
+  activeOwnedLiveSession
 });
