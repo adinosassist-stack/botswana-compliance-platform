@@ -404,6 +404,11 @@ label{font-size:13px!important}.badge,.billingbadge,.recommended{font-size:11.5p
 
 }
 
+
+/* v257 Market regression repair: compact discovery-first surface; governed order DOM contracts retained. */
+.market-v257{--market-gap:14px}.market-v257-hero{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(300px,.95fr);gap:22px;align-items:center;padding:22px!important;overflow:hidden}.market-v257-copy h2{font-size:clamp(25px,3vw,38px)!important;line-height:1.04;margin:7px 0 10px;max-width:650px}.market-v257-copy p{max-width:650px;margin:0}.market-v257-actions{margin-top:16px;gap:8px}.market-v257-start{background:#fff!important;color:#0f172a!important;border:1px solid #d9e0dc!important;box-shadow:0 5px 16px rgba(15,23,42,.08)}.market-v257-start:hover{background:#f7f9f8!important}.market-v257-visual{position:relative;min-width:0}.market-v257-visual img{width:100%;height:220px;object-fit:cover;border-radius:16px}.market-v257-signal{position:absolute;left:12px;right:12px;bottom:12px;background:rgba(7,21,34,.9);color:#fff;border-radius:12px;padding:10px 12px;display:flex;justify-content:space-between;gap:12px;align-items:center;font-size:11px}.market-v257-signal span{opacity:.8}.market-v257-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:10px 0}.market-v257-stats>div{display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid var(--line);background:#fff;border-radius:12px;padding:9px 11px}.market-v257-stats span{font-size:11px;color:var(--muted)}.market-v257-stats b{font-size:14px}.market-v257-body{margin-top:10px}.market-v257-boundary{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}.market-v257-boundary summary{cursor:pointer;font-size:11px;font-weight:750;color:var(--muted)}.market-v257-boundary>div{padding-top:8px}.market-v257 #serviceCatalogList{margin-top:10px}
+@media(max-width:900px){.market-v257-hero{grid-template-columns:1fr}.market-v257-visual img{height:190px}.market-v257-signal{position:static;margin-top:8px}.market-v257-stats{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.market-v257-hero{padding:15px!important;gap:14px}.market-v257-copy h2{font-size:25px!important}.market-v257-visual img{height:150px}.market-v257-actions .btn{flex:1}.market-v257-stats>div{padding:8px 10px}.market-v257-body{grid-template-columns:1fr!important}.market-v257-signal{display:block}.market-v257-signal span{display:block;margin-top:2px}}
 </style>
 
 <style id="v17-behance-polish">
@@ -4286,21 +4291,33 @@ body.thebe-ai-dock-open .property-valuation-service-card .formgrid{grid-template
 </section>
 
 
-<section id="servicesmarketplace" class="view">
-  <div class="grid g4">
-    <div class="card"><div class="kpi">Available services</div><div class="score" id="serviceCatalogCount">0</div></div>
-    <div class="card"><div class="kpi">Open orders</div><div class="score" id="serviceOpenOrders">0</div></div>
-    <div class="card"><div class="kpi">In review</div><div class="score" id="serviceInReview">0</div></div>
-    <div class="card"><div class="kpi">Completed</div><div class="score" id="serviceCompleted">0</div></div>
+<section id="servicesmarketplace" class="view market-v257">
+  <div class="market-v257-hero card">
+    <div class="market-v257-copy">
+      <div class="kpi">Thebe Market · trusted business support</div>
+      <h2>Get specialist help without leaving your workspace.</h2>
+      <p class="muted">Start with the service you need. Thebe keeps the request, evidence and order status together while regulated work stays with appropriately authorised professionals.</p>
+      <div class="row market-v257-actions"><button type="button" class="btn market-v257-start" data-bw-onclick="document.getElementById('serviceCatalogList')?.scrollIntoView({behavior:'smooth',block:'start'})">Start here</button><button type="button" class="btn soft" data-bw-onclick="document.getElementById('serviceOrderList')?.scrollIntoView({behavior:'smooth',block:'start'})">My orders</button></div>
+    </div>
+    <div class="market-v257-visual" aria-label="Thebe Market connects business owners with governed professional support">
+      <img src="/assets/gaborone-entrepreneurs-v67.webp" alt="Business owners working together in Gaborone" loading="lazy">
+      <div class="market-v257-signal"><b>Workspace connected</b><span>Request → evidence → professional review</span></div>
+    </div>
   </div>
-  <div class="grid g2" style="margin-top:16px">
+  <div class="market-v257-stats" aria-label="Market activity">
+    <div><span>Services</span><b id="serviceCatalogCount">0</b></div>
+    <div><span>Open</span><b id="serviceOpenOrders">0</b></div>
+    <div><span>In review</span><b id="serviceInReview">0</b></div>
+    <div><span>Completed</span><b id="serviceCompleted">0</b></div>
+  </div>
+  <div class="grid g2 market-v257-body">
     <div class="card">
-      <h2>Professional services</h2>
-      <div class="notice warn" style="margin-bottom:12px"><b>Professional boundary</b><div class="small">Thebe Desk is the workflow and evidence platform. Tax-return preparation, tax objections, BURS representation and other regulated professional work must be delivered by an appropriately authorised professional or registered tax agent with explicit client authority. Paid service orders do not bypass that requirement.</div></div>
+      <div class="between row"><div><div class="kpi">Start here</div><h2>Professional services</h2></div></div>
       <div id="serviceCatalogList" class="grid g2"></div>
+      <details class="market-v257-boundary"><summary>Professional-service boundary</summary><div class="small muted">Thebe Desk is the workflow and evidence platform. Tax-return preparation, tax objections, BURS representation and other regulated professional work must be delivered by an appropriately authorised professional or registered tax agent with explicit client authority. Paid service orders do not bypass that requirement.</div></details>
     </div>
     <div class="card">
-      <h2>Your service orders</h2>
+      <div class="kpi">Track work</div><h2>Your service orders</h2>
       <div id="serviceOrderList" class="muted small">No service orders yet.</div>
     </div>
   </div>
