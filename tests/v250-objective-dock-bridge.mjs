@@ -1,7 +1,7 @@
 import fs from "node:fs";import assert from "node:assert/strict";
 const owner=fs.readFileSync("public/js/owner-command-centre.js","utf8");
 const dock=fs.readFileSync("public/js/thebe-live-voice.js","utf8");
-assert.match(owner,/thebe:persistent-objective-state/);
+assert.match(owner,/thebe:persistent-objective-state/);\nassert.match(owner,/const state="Working"/);\nassert.match(owner,/state:"Needs approval"/);\nassert.match(owner,/Retry pending/);\nassert.match(owner,/Persistent objectives · Currently watching/);\nassert.match(owner,/checks bounded business signals on schedule/);\nassert.match(owner,/cannot send, spend, publish or make high-impact changes/);
 assert.match(owner,/working,needsApproval,retryPending,total:current\.length,available:!readError/);
 assert.match(dock,/persistentObjectiveState=null/);
 assert.match(dock,/thebe:persistent-objective-state/);
