@@ -373,7 +373,7 @@ async function stateGet(env,a){
   const raw=r?JSON.parse(r.state_json||"{}"):{};
   return {version:r?.version||1,state:projectWorkspaceStateForRole(raw,a.role)};
 }
-async function statePut(req,env,a){
+async function statePut(req,env,a,ctx){
   if(!roleAllowed(a,"owner","manager"))return json({error:"forbidden"},403);
   const body=await readJson(req),expected=Number(body.version||0);
   const current=await env.DB.prepare("SELECT version,state_json FROM app_state WHERE tenant_id=?").bind(a.tenant_id).first();
@@ -386,7 +386,8 @@ async function statePut(req,env,a){
   if(detected.length){
     const fields=[...new Set(detected.map(x=>x.eventData?.field).filter(Boolean))];
     const event=await createBusinessEvent(env,{tenantId:a.tenant_id,eventType:"profile_material_change",sourceType:"workspace_profile",
-      eventKey:`profile:${next}:material`,eventData:{fields,profileVersion:next},actorUserId:a.user_id,processNow:true});
+      eventKey:`profile:${next}:material`,eventData:{fields,profileVersion:next},actorUserId:a.user_id,processNow:false});
+    kickBusinessEventProcessing(ctx,env,event.id,"workspace_profile");
     events.push(event);
   }
   await writeAudit(env,a.tenant_id,a.user_id,"WORKSPACE_STATE_UPDATED",{fromVersion:currentVersion,toVersion:next,changedProfileFields:detected.map(x=>x.eventData?.field).filter(Boolean),businessEventId:events[0]?.id||null});
@@ -4682,6 +4683,11 @@ async function createBusinessEvent(env,{tenantId,eventType,sourceType,sourceId=n
   if(processNow)await processBusinessEvent(env,eid,{maxEffects:7});
   return {ok:true,id:eid,status:"queued",deduplicated:false};
 }
+function kickBusinessEventProcessing(ctx,env,eventId,source="business_event"){
+  if(!eventId||!ctx||typeof ctx.waitUntil!=="function")return false;
+  ctx.waitUntil(processBusinessEvent(env,eventId,{maxEffects:7}).catch(error=>console.error("business_event_processing_failed",{source,eventId,error:String(error?.message||error).slice(0,240)})));
+  return true;
+}
 function profileValue(p,k){return p&&Object.prototype.hasOwnProperty.call(p,k)?p[k]:undefined}
 function detectProfileBusinessEvents(previousState,nextState,nextVersion){
   const prev=previousState?.profile||{},next=nextState?.profile||{},events=[];
@@ -5918,7 +5924,7 @@ export default {
         let businessEventId=null,businessEventError=false;
         try{const detected=detectProfileBusinessEvents(currentState,nextState,nextVersion);if(detected.length){const fields=[...new Set(detected.map(x=>x.eventData?.field).filter(Boolean))];
           const event=await createBusinessEvent(env,{tenantId:a.tenant_id,eventType:"profile_material_change",sourceType:"cipa_registry_reconciliation",
-            eventKey:`cipa:${item.snapshot_id}:${item.field_key}:${nextVersion}`,eventData:{fields,profileVersion:nextVersion,snapshotId:item.snapshot_id},actorUserId:a.user_id,processNow:true});businessEventId=event?.id||null}}
+            eventKey:`cipa:${item.snapshot_id}:${item.field_key}:${nextVersion}`,eventData:{fields,profileVersion:nextVersion,snapshotId:item.snapshot_id},actorUserId:a.user_id,processNow:false});businessEventId=event?.id||null;kickBusinessEventProcessing(ctx,env,event?.id,"cipa_registry_reconciliation")}}
         catch{businessEventError=true}
         await writeAudit(env,a.tenant_id,a.user_id,"CIPA_RECONCILIATION_APPLIED",{reconciliationId,snapshotId:item.snapshot_id,companyId:item.company_id,fieldKey:item.field_key,
           fromVersion:expectedStateVersion,toVersion:nextVersion,businessEventId,businessEventError});
@@ -5926,7 +5932,7 @@ export default {
       }
 
       if(url.pathname==="/api/state"&&req.method==="GET"){if(!workspaceSessionRole(a))return json({error:"forbidden"},403);return json(await stateGet(env,a));}
-      if(url.pathname==="/api/state"&&req.method==="PUT")return statePut(req,env,a);
+      if(url.pathname==="/api/state"&&req.method==="PUT")return statePut(req,env,a,ctx);
       if(url.pathname==="/api/evidence"&&req.method==="GET"){if(!roleAllowed(a,"owner","manager","reviewer","auditor"))return json({error:"forbidden"},403);return listEvidence(env,a);}
       if(url.pathname==="/api/account/deletion-status"&&req.method==="GET"){
         if(!roleAllowed(a,"owner"))return json({error:"forbidden"},403);
@@ -5952,7 +5958,8 @@ export default {
           "INSERT INTO tender_items(id,tenant_id,title,issuer,closing_at,source_url,status,requirements_json) VALUES(?,?,?,?,?,?,?,?)"
         ).bind(tenderId,a.tenant_id,title,issuer,closingAt,sourceUrl,"watching","{}").run();
         await incrementUsage(env,a.tenant_id,"tenders_active");
-        const event=await createBusinessEvent(env,{tenantId:a.tenant_id,eventType:"tender_started",sourceType:"tender",sourceId:tenderId,eventKey:`tender:${tenderId}:started`,eventData:{tenderId},actorUserId:a.user_id,processNow:true});
+        const event=await createBusinessEvent(env,{tenantId:a.tenant_id,eventType:"tender_started",sourceType:"tender",sourceId:tenderId,eventKey:`tender:${tenderId}:started`,eventData:{tenderId},actorUserId:a.user_id,processNow:false});
+        kickBusinessEventProcessing(ctx,env,event.id,"tender_started");
         return json({ok:true,id:tenderId,businessEventId:event.id},201);
       }
       if(url.pathname.match(/^\/api\/tenders\/[^/]+\/requirements$/)&&req.method==="GET"){
@@ -6896,9 +6903,8 @@ export default {
           await writeAudit(env,a.tenant_id,a.user_id,"EMPLOYEE_CREATED",{employeeId:eid});
           const event=await createBusinessEvent(env,{tenantId:a.tenant_id,eventType:"employee_hired",sourceType:"employee",sourceId:eid,eventKey:`employee:${eid}:hired`,eventData:{employeeId:eid},actorUserId:a.user_id,processNow:false});
           // Keep the employee save interactive. The event and all effects are durably queued
-          // before returning; one effect is kicked after the response, and the scheduled
-          // business-event sweep continues any remaining work or recovers an interrupted kick.
-          if(ctx?.waitUntil)ctx.waitUntil(processBusinessEvent(env,event.id,{maxEffects:1}).catch(error=>console.error("employee_business_event_processing_failed",{eventId:event.id,error:String(error?.message||error).slice(0,240)})));
+          // before returning; downstream recomputation runs outside response latency.
+          kickBusinessEventProcessing(ctx,env,event.id,"employee_hired");
           return {status:201,body:{ok:true,id:eid,businessEventId:event.id}};
         });
       }
@@ -7768,7 +7774,8 @@ export default {
           ).bind(actionId,a.tenant_id,actionType,dueAt,payloadJson).run();
           await env.DB.prepare("INSERT INTO company_action_events(action_id,tenant_id,event_type,event_data) VALUES(?,?,?,?)")
             .bind(actionId,a.tenant_id,"ACTION_CREATED",JSON.stringify({actionType})).run();
-          const event=await createBusinessEvent(env,{tenantId:a.tenant_id,eventType:"corporate_action_created",sourceType:"company_action",sourceId:actionId,eventKey:`company-action:${actionId}:created`,eventData:{actionId},actorUserId:a.user_id,processNow:true});
+          const event=await createBusinessEvent(env,{tenantId:a.tenant_id,eventType:"corporate_action_created",sourceType:"company_action",sourceId:actionId,eventKey:`company-action:${actionId}:created`,eventData:{actionId},actorUserId:a.user_id,processNow:false});
+          kickBusinessEventProcessing(ctx,env,event.id,"corporate_action_created");
           return {status:201,body:{ok:true,id:actionId,status:"draft",businessEventId:event.id}};
         });
       }
@@ -7815,7 +7822,8 @@ export default {
           await env.DB.prepare("INSERT INTO licence_events(licence_id,tenant_id,event_type,event_data) VALUES(?,?,?,?)")
             .bind(licenceId,a.tenant_id,"LICENCE_CREATED",JSON.stringify({licenceType})).run();
           await incrementUsage(env,a.tenant_id,"licences_active");
-          const event=await createBusinessEvent(env,{tenantId:a.tenant_id,eventType:"licence_created",sourceType:"licence",sourceId:licenceId,eventKey:`licence:${licenceId}:created`,eventData:{licenceId},actorUserId:a.user_id,processNow:true});
+          const event=await createBusinessEvent(env,{tenantId:a.tenant_id,eventType:"licence_created",sourceType:"licence",sourceId:licenceId,eventKey:`licence:${licenceId}:created`,eventData:{licenceId},actorUserId:a.user_id,processNow:false});
+          kickBusinessEventProcessing(ctx,env,event.id,"licence_created");
           return {status:201,body:{ok:true,id:licenceId,businessEventId:event.id}};
         });
       }
@@ -7841,7 +7849,8 @@ export default {
           }
           await env.DB.prepare("INSERT INTO licence_events(licence_id,tenant_id,event_type,event_data) VALUES(?,?,?,?)")
             .bind(licenceId,a.tenant_id,"LICENCE_RENEWED",JSON.stringify({renewalDueAt})).run();
-          const event=await createBusinessEvent(env,{tenantId:a.tenant_id,eventType:"licence_renewed",sourceType:"licence",sourceId:licenceId,eventKey:`licence:${licenceId}:renewed:${renewalDueAt}`,eventData:{licenceId},actorUserId:a.user_id,processNow:true});
+          const event=await createBusinessEvent(env,{tenantId:a.tenant_id,eventType:"licence_renewed",sourceType:"licence",sourceId:licenceId,eventKey:`licence:${licenceId}:renewed:${renewalDueAt}`,eventData:{licenceId},actorUserId:a.user_id,processNow:false});
+          kickBusinessEventProcessing(ctx,env,event.id,"licence_renewed");
           return {body:{ok:true,businessEventId:event.id,renewalDueAt}};
         });
       }
@@ -7882,7 +7891,8 @@ export default {
         const allowed=new Set(["ownership_changed","premises_changed","new_branch_opened","business_activity_changed","manufacturing_started","manufacturing_stopped","vat_registration_changed","paye_registration_changed"]);
         if(!allowed.has(type))return json({error:"unsupported_business_event"},400);
         return idempotentJsonMutation(env,a,req,"business-event-report",{type,reason},async()=>{
-          const eventKey=`manual:${type}:${crypto.randomUUID()}`,event=await createBusinessEvent(env,{tenantId:a.tenant_id,eventType:type,sourceType:"manual_report",eventKey,eventData:{manualEventType:type,reason},actorUserId:a.user_id,processNow:true});
+          const eventKey=`manual:${type}:${crypto.randomUUID()}`,event=await createBusinessEvent(env,{tenantId:a.tenant_id,eventType:type,sourceType:"manual_report",eventKey,eventData:{manualEventType:type,reason},actorUserId:a.user_id,processNow:false});
+          kickBusinessEventProcessing(ctx,env,event.id,"manual_business_event");
           await writeAudit(env,a.tenant_id,a.user_id,"BUSINESS_EVENT_REPORTED",{eventId:event.id,eventType:type});
           return {status:201,body:event};
         });
