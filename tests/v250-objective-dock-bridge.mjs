@@ -1,0 +1,13 @@
+import fs from "node:fs";import assert from "node:assert/strict";
+const owner=fs.readFileSync("public/js/owner-command-centre.js","utf8");
+const dock=fs.readFileSync("public/js/thebe-live-voice.js","utf8");
+assert.match(owner,/thebe:persistent-objective-state/);
+assert.match(owner,/working,needsApproval,retryPending,total:current\.length,available:!readError/);
+assert.match(dock,/persistentObjectiveState=null/);
+assert.match(dock,/thebe:persistent-objective-state/);
+assert.match(dock,/Persistent objectives · \$\{objectiveNeeds\}/);
+assert.match(dock,/pillLabel\.textContent=needs\?/);
+assert.match(dock,/persistentObjectiveState,textBusy/);
+assert.doesNotMatch(owner,/executionAllowed:true/);
+assert.doesNotMatch(dock,/persistent-objective-state[^\n]+execute/);
+console.log("V250_OBJECTIVE_DOCK_BRIDGE_PASS");
