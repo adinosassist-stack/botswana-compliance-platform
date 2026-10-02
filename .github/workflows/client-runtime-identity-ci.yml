@@ -60,3 +60,4 @@ jobs:
           node tests/v255-pricing-selector-browser.mjs
           node tests/v256-workspace-ui-defects-browser.mjs
           node tests/v257-market-ui-regression.mjs
+          node tests/v258-employee-removal-browser.mjs
