@@ -4,10 +4,10 @@ const a=h.indexOf('<section id="servicesmarketplace" class="view market-v257">')
 assert(a>=0,"Market must use v257 discovery surface");
 assert.match(m,/gaborone-entrepreneurs-v67\.webp/,"Market visual must remain present");
 assert.match(m,/market-v257-start[^>]*>[\s\S]*?Start here/,"Market must retain a visible Start here action");
-assert.match(h,/\.market-v257-start\{[^}]*background:#fff!important/,"Start here must remain white");
+assert.match(css,/\.market-v257-start\{[^}]*background:#fff!important/,"Start here must remain white");
 for(const id of ["serviceCatalogCount","serviceOpenOrders","serviceInReview","serviceCompleted","serviceCatalogList","serviceOrderList"])assert.match(m,new RegExp('id="'+id+'"'),id+" runtime contract must remain");
 assert.match(m,/appropriately authorised professional or registered tax agent/);
 assert.match(m,/Paid service orders do not bypass that requirement/);
 assert.doesNotMatch(m,/<div class="grid g4">/,"Market must not regress to four large KPI cards");
-assert.match(h,/@media\(max-width:520px\)[^{]*\{[\s\S]*?\.market-v257-body\{grid-template-columns:1fr!important\}/);
+assert.match(css,/@media\(max-width:520px\)[^{]*\{[\s\S]*?\.market-v257-body\{grid-template-columns:1fr!important\}/);
 console.log("V257_MARKET_UI_REGRESSION_PASS");
