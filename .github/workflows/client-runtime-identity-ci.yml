@@ -50,9 +50,10 @@ jobs:
           node tests/v82-idempotent-transport-fallback-runtime.mjs
           node tests/unified-goal-flow-runtime.mjs
 
-      - name: Verify unified goal and result conversation in Chromium
+      - name: Verify unified goal flow and spatial dock geometry in Chromium
         shell: bash
         run: |
           set -euo pipefail
           npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
           node tests/unified-goal-flow-browser.mjs
+          node tests/v246-spatial-dock-browser.mjs
