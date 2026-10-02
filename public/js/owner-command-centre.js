@@ -3911,6 +3911,16 @@
     }
   }
 
+  function emitPersistentObjectiveState(tasks=[],readError=null){
+    const current=Array.isArray(tasks)?tasks.filter(businessGoalTaskCurrent):[];
+    const working=current.filter(task=>String(task?.status||"")==="active"&&task?.checkpoint?.ownerAttention!==true).length;
+    const needsApproval=current.filter(task=>String(task?.status||"")==="paused"||task?.checkpoint?.ownerAttention===true).length;
+    const retryPending=current.filter(task=>String(task?.status||"")==="active"&&task?.checkpoint?.ownerAttention===true).length;
+    const detail={working,needsApproval,retryPending,total:current.length,available:!readError};
+    try{global.dispatchEvent(new CustomEvent("thebe:persistent-objective-state",{detail}))}catch{}
+    return detail;
+  }
+
   async function renderGoalsAndIdeas(force=false){
     const box=q("#ownerGoalsIdeas");
     if(!box)return;
@@ -3941,6 +3951,7 @@
       .filter(businessGoalTaskCurrent)
       .sort((a,b)=>String(a.status)==="active"&&String(b.status)!=="active"?-1:String(b.status)==="active"&&String(a.status)!=="active"?1:String(b.updated_at||b.created_at||"").localeCompare(String(a.updated_at||a.created_at||"")));
     const watchedKeys=new Set(watched.map(businessGoalTaskKey).filter(Boolean));
+    emitPersistentObjectiveState(tasks,readError);
     status.textContent=readError
       ?"Goal status is temporarily unavailable. Existing authority limits remain in force."
       :watched.length
