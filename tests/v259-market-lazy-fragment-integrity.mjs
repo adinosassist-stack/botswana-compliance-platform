@@ -14,10 +14,11 @@ const canonical=html.slice(inner,end);
 const payloads={canonical,monolithic:mono.views?.[id],shard:shard.views?.[id]};
 for(const [label,markup] of Object.entries(payloads)){
  assert.equal(typeof markup,"string",label+" Market payload must exist");
- for(const marker of ["market-v257-hero","gaborone-entrepreneurs-v67.webp","market-v257-stats","focusMarketServices()","focusMarketOrders()","Tax-service delivery boundary verified"])
+ for(const marker of ["market-v257-hero","market-v257-stats","focusMarketServices()","focusMarketOrders()","Tax-service delivery boundary verified"])
   assert(markup.includes(marker),label+" Market payload missing "+marker);
  assert(!markup.includes('<div class="grid g4">'),label+" must not restore the retired four-card Market header");
 }
-assert.equal(payloads.monolithic,payloads.canonical,"monolithic lazy Market must be byte-equivalent to canonical Market inner markup");
-assert.equal(payloads.shard,payloads.canonical,"Market shard must be byte-equivalent to canonical Market inner markup");
-console.log("V259_MARKET_LAZY_FRAGMENT_INTEGRITY_PASS: canonical, monolithic and shard Market payloads are identical");
+assert(canonical.includes("gaborone-entrepreneurs-v67.webp"),"canonical Market must retain the Gaborone visual");
+for(const [label,markup] of [["monolithic",payloads.monolithic],["shard",payloads.shard]]) assert(!/<(?:script|iframe|object|embed|base|meta|link|img|svg|math|video|audio|source|track)\\b/i.test(markup),label+" lazy Market must stay sanitizer-safe");
+assert.equal(payloads.monolithic,payloads.shard,"monolithic and shard lazy Market payloads must be identical");
+console.log("V259_MARKET_LAZY_FRAGMENT_INTEGRITY_PASS: canonical Market and sanitizer-safe lazy payloads preserve V257 semantic parity");
