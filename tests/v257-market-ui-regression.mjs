@@ -1,5 +1,5 @@
 import fs from "node:fs";import assert from "node:assert/strict";
-const h=fs.readFileSync("public/index.html","utf8");
+const h=fs.readFileSync("public/index.html","utf8"),css=fs.readFileSync("public/assets/workspace-command-center-v231.css","utf8");
 const a=h.indexOf('<section id="servicesmarketplace" class="view market-v257">'),b=h.indexOf("</section>",a),m=h.slice(a,b);
 assert(a>=0,"Market must use v257 discovery surface");
 assert.match(m,/gaborone-entrepreneurs-v67\.webp/,"Market visual must remain present");
