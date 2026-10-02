@@ -1,3 +1,4 @@
+
 const DEFAULT_COMPANY={
  id:"co_demo_1",
  profile:{name:"Kgetsi Trading (Pty) Ltd",incorporationDate:"2024-05-14",entityType:"company",industry:"Retail",employees:8,town:"Gaborone",vat:true,vatCategory:"C",paye:true,trade:true,data:true,tender:true,premises:true,tradeAnniversary:"2027-02-28",cipaMonth:"May",cipaUin:"BW00001234567",cipaStatus:"active",registeredOffice:"Gaborone",citizenOwned:true,turnover:1800000,annualTaxableSupplies:null,highestMonthlyEmployeePay:null,manufacturing:false,mfgActivity:"",mfgFactory:false,mfgAnniversary:""},
@@ -1117,7 +1118,10 @@ async function removeEmployeeRecord(id){
    if(globalThis.__activeEmployeesById)delete globalThis.__activeEmployeesById[String(id)];
    if(globalThis.__employeeReporterLinks)delete globalThis.__employeeReporterLinks[String(id)];
    await renderEmployeeRegister();
-   if(document.getElementById("peopleops")?.classList.contains("active")){await renderPeopleOperationsHub();await renderPeopleReportingSetup()}
+   await renderPeopleOperationsHub();
+   await renderPeopleReportingSetup();
+   if(typeof renderEmployeesForHr==="function")await renderEmployeesForHr();
+   if(typeof renderOwnerDailyBrief==="function")await renderOwnerDailyBrief();
    if(document.getElementById("dailyreports")?.classList.contains("active"))await renderDailyOperations();
    notifyUser("Employee removed from active staff. Historical records were retained and reporting access was revoked.",{type:"success"});
  }catch(e){notifyUser(e.message)}
