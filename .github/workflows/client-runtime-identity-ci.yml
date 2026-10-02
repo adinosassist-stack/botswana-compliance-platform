@@ -57,3 +57,4 @@ jobs:
           npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
           node tests/unified-goal-flow-browser.mjs
           node tests/v246-spatial-dock-browser.mjs
+          node tests/v255-pricing-selector-browser.mjs
