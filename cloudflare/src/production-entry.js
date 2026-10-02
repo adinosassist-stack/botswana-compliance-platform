@@ -328,7 +328,7 @@ function injectOwnerCommandCentreAssets(html){
   const aiDockCssHref=`/assets/thebe-ai-dock.css?v=${THEBE_AI_DOCK_RELEASE}`;
   const propertyCompactCssHref=PROPERTY_COMPACT_CSS_ASSET;
   const propertyReferenceCssHref=PROPERTY_REFERENCE_CSS_ASSET;
-  const propertyVisibilityCssHref=PROPERTY_VISIBILITY_CSS_ASSET;
+  const propertyVisibilityCssHref=`${PROPERTY_VISIBILITY_CSS_ASSET}?v=20261002-v250`;
   const workspaceCommandCenterCssHref=WORKSPACE_COMMAND_CENTER_CSS_ASSET;
   const workspaceCommandCenterV231CssHref=WORKSPACE_COMMAND_CENTER_V231_CSS_ASSET;
   const workspaceHomeDensityV234CssHref=WORKSPACE_HOME_DENSITY_V234_CSS_ASSET;
