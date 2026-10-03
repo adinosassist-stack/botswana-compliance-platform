@@ -38,11 +38,16 @@ assert.match(commandCss,/\.owner-signal-list\{[\s\S]*grid-template-columns:repea
 assert.match(commandCss,/#dashboard \.home-status-strip\{[\s\S]*gap:8px/,
   "Home management status should remain a compact scan row");
 
-// V260: compact Property navigation and Property-sourced AI must stay presentation-only.
-assert.match(visibility,/const COMPACT_RELEASE="20261003-property-compact-ai-v260"/);
-for(const label of ["Today","Properties","Analyse","Operations"]){
-  assert.ok(visibility.includes(`compactButton("${label}"`),`compact Property navigation missing ${label}`);
+// V261: Property behaves as a focused product workspace, while Property AI remains grounded and full-screen.
+assert.match(visibility,/const COMPACT_RELEASE="20261003-property-workspace-v261"/);
+for(const [label,pane] of [["Today","today"],["Properties","properties"],["Analyse","analyse"],["Operations","operations"]]){
+  assert.ok(visibility.includes(`compactButton("${label}","${pane}")`),`compact Property navigation missing ${label}`);
 }
+assert.match(visibility,/PROPERTY_PANES=new Set\(\["today","properties","analyse","operations"\]\)/);
+assert.match(visibility,/view\.dataset\.propertyActivePane=pane/);
+assert.match(visibility,/property-overview-v261/);
+assert.match(visibility,/Gross annual yield/);
+assert.match(visibility,/snapshot\.grossYield/);
 assert.match(visibility,/propertyPortfolioWorkspace/);
 assert.match(visibility,/propertyValuationServicePanel/);
 assert.match(visibility,/property-ai-fullscreen-v260/);
@@ -51,11 +56,20 @@ assert.match(visibility,/aiAdvisorQuestion/);
 assert.match(visibility,/aiAdvisorOutput/);
 assert.match(visibility,/New Property AI chat/);
 assert.match(visibility,/Open voice/);
+assert.match(visibility,/setPane:setPropertyPane/);
+assert.match(visibility,/updateOverview:updatePropertyOverview/);
+
 assert.match(visibilityCss,/#propertyintelligence\.property-compact-v260/);
 assert.match(visibilityCss,/\.property-primary-v260/);
+assert.match(visibilityCss,/data-property-active-pane="today"/);
+assert.match(visibilityCss,/\.property-overview-v261/);
+assert.match(visibilityCss,/\.property-yield-ring-v261/);
+assert.match(visibilityCss,/conic-gradient/);
+assert.match(visibilityCss,/overflow-wrap:anywhere/);
 assert.match(visibilityCss,/body\.property-ai-fullscreen-v260 #aiservices\.view\.active/);
+assert.match(visibilityCss,/100dvh/);
 assert.match(visibilityCss,/#aiAdvisorQuestion/);
 assert.match(visibilityCss,/\.copilot-compose/);
 assert.match(visibilityCss,/env\(safe-area-inset-bottom\)/);
 
-console.log("PASS: V260 keeps resident Property compact, visibly usable, and opens Property-sourced Thebe AI as a full-screen grounded workspace.");
+console.log("PASS: V261 keeps Property compact and visible, adds focused workspace modes with a live yield overview, hardens overflow, and preserves full-screen grounded Property AI.");

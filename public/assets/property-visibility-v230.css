@@ -113,17 +113,78 @@ body.property-ai-fullscreen-v260 #aiservices #aiAdvisorButton{float:right!import
 body.property-ai-fullscreen-v260 #aiservices .copilot-truth{clear:both!important;margin-top:8px!important;padding:7px 9px!important;font-size:8px!important;border:0!important;background:#f5f6f2!important}
 .property-ai-empty-v260{display:grid;gap:5px;text-align:center}.property-ai-empty-v260 b{font-size:18px}.property-ai-empty-v260 span{color:#72786f;font-size:10px}
 
+/* V261: true workspace modes, live infographic overview, and overflow hardening. */
+#propertyintelligence.property-compact-v260[data-property-active-pane="today"] [data-property-pane]:not([data-property-pane="today"]),
+#propertyintelligence.property-compact-v260[data-property-active-pane="properties"] [data-property-pane]:not([data-property-pane="properties"]),
+#propertyintelligence.property-compact-v260[data-property-active-pane="analyse"] [data-property-pane]:not([data-property-pane="analyse"]),
+#propertyintelligence.property-compact-v260[data-property-active-pane="operations"] [data-property-pane]:not([data-property-pane="operations"]){display:none!important}
+#propertyintelligence.property-compact-v260 [data-property-pane]{animation:property-pane-in-v261 .16s ease both}
+@keyframes property-pane-in-v261{from{opacity:.55;transform:translateY(3px)}to{opacity:1;transform:none}}
+
+#propertyintelligence.property-compact-v260 :is(.card,.property-layout-v224,.property-calculator-v224,.property-input-row,.property-result-grid,.property-metric,#propertyPortfolioWorkspace,#propertyValuationServicePanel){min-width:0!important;max-inline-size:100%}
+#propertyintelligence.property-compact-v260 :is(h1,h2,h3,h4,p,span,b,strong,label,button,summary){overflow-wrap:anywhere}
+#propertyintelligence.property-compact-v260 :is(input,select,textarea,button){max-width:100%;box-sizing:border-box}
+#propertyintelligence.property-compact-v260 .property-input-row>*{min-width:0}
+
+.property-overview-v261{
+  width:min(940px,100%);margin:8px auto 12px;padding:14px;box-sizing:border-box;display:grid;grid-template-columns:190px minmax(0,1fr);gap:14px;align-items:stretch;
+  border:1px solid var(--property-line);border-radius:16px;background:linear-gradient(135deg,#fbfcf8,#f3f5ef)
+}
+.property-yield-card-v261{display:grid;place-items:center;align-content:center;gap:8px;min-height:168px;border-radius:13px;background:#11140f;color:#fff;text-align:center}
+.property-yield-card-v261>span{font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#cbd0c7}
+.property-yield-ring-v261{
+  --property-yield-angle:0deg;width:112px;height:112px;border-radius:50%;display:grid;place-items:center;position:relative;
+  background:conic-gradient(var(--property-accent) var(--property-yield-angle),rgba(255,255,255,.13) 0)
+}
+.property-yield-ring-v261::after{content:"";position:absolute;inset:9px;border-radius:inherit;background:#11140f}
+.property-yield-value-v261{position:relative;z-index:1;font-size:24px;letter-spacing:-.04em}
+.property-overview-summary-v261{min-width:0;display:flex;flex-direction:column;justify-content:center;gap:12px}
+.property-overview-heading-v261{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;min-width:0}
+.property-overview-heading-v261>div{min-width:0}
+.property-overview-eyebrow-v261{display:block;margin-bottom:4px;font-size:8px;font-weight:800;letter-spacing:.12em;color:var(--property-muted)}
+.property-overview-title-v261{margin:0;font-size:19px;line-height:1.12;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.property-overview-ai-v261,.property-overview-action-v261{
+  border:1px solid var(--property-line);background:#fff;color:var(--property-ink);border-radius:10px;font-weight:760;cursor:pointer
+}
+.property-overview-ai-v261{flex:0 0 auto;padding:8px 11px;background:var(--property-ink);border-color:var(--property-ink);color:#fff;font-size:10px}
+.property-overview-metrics-v261{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.property-overview-metric-v261{min-width:0;padding:10px 11px;border:1px solid var(--property-line);border-radius:11px;background:#fff}
+.property-overview-metric-v261 span{display:block;font-size:8px;color:var(--property-muted);text-transform:uppercase;letter-spacing:.07em}
+.property-overview-metric-v261 strong{display:block;margin-top:4px;font-size:15px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.property-overview-actions-v261{display:flex;gap:6px;flex-wrap:wrap}
+.property-overview-action-v261{padding:7px 10px;font-size:9px}
+.property-overview-action-v261:hover,.property-overview-action-v261:focus-visible{border-color:#9fa69a;background:#f7f8f5}
+.property-primary-v260 button:focus-visible,.property-overview-v261 button:focus-visible,.property-ai-toolbar-v260 button:focus-visible{outline:2px solid #6b8f00;outline-offset:2px}
+
+body.property-ai-fullscreen-v260 #aiservices.view.active{height:100dvh!important;max-height:100dvh!important;overscroll-behavior:contain!important}
+body.property-ai-fullscreen-v260 #aiservices .copilot-shell>*{min-width:0!important}
+body.property-ai-fullscreen-v260 #aiservices .copilot-response{min-height:calc(100dvh - 310px)!important;overflow-wrap:anywhere!important}
+body.property-ai-fullscreen-v260 #aiservices .copilot-compose{width:min(820px,100%)!important;margin-inline:auto!important;box-sizing:border-box!important}
+body.property-ai-fullscreen-v260 #aiservices #aiAdvisorQuestion{line-height:1.35!important;overflow:auto!important}
+.property-ai-title-v260{overflow:hidden}.property-ai-title-v260 :is(b,span){white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
 @media(max-width:760px){
   #propertyintelligence.property-compact-v260 .property-hero-compact{min-height:128px!important;padding:15px!important}
   #propertyintelligence.property-compact-v260 .property-hero-compact h2{font-size:21px!important}
-  .property-primary-v260{top:4px;width:100%;justify-content:space-between}
-  .property-primary-v260 button{padding:7px 8px;font-size:9px}
+  .property-primary-v260{top:4px;width:100%;justify-content:space-between;box-sizing:border-box}
+  .property-primary-v260 button{padding:7px 8px;font-size:9px;flex:1 0 auto}
+  .property-overview-v261{grid-template-columns:1fr;padding:10px;gap:9px}
+  .property-yield-card-v261{min-height:118px;grid-template-columns:auto auto;gap:12px;padding:10px}
+  .property-yield-ring-v261{width:82px;height:82px}.property-yield-ring-v261::after{inset:7px}.property-yield-value-v261{font-size:18px}
+  .property-overview-heading-v261{align-items:center}.property-overview-title-v261{font-size:16px}.property-overview-ai-v261{padding:7px 9px}
+  .property-overview-metrics-v261{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+  .property-overview-metric-v261{padding:8px}.property-overview-metric-v261 strong{font-size:12px}.property-overview-metric-v261 span{font-size:7px}
+  .property-overview-actions-v261{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.property-overview-action-v261{padding:7px 5px}
   body.property-ai-fullscreen-v260 #aiservices.view.active{padding:0 8px 110px!important}
   .property-ai-toolbar-v260{height:54px;margin:0 -8px 7px;padding:0 8px}
   .property-ai-chip-v260{display:none}
-  body.property-ai-fullscreen-v260 #aiservices .copilot-response{min-height:calc(100vh - 330px)!important;padding:2px!important}
+  body.property-ai-fullscreen-v260 #aiservices .copilot-response{min-height:calc(100dvh - 330px)!important;padding:2px!important}
   body.property-ai-fullscreen-v260 #aiservices .copilot-compose{bottom:max(8px,env(safe-area-inset-bottom))!important;padding:8px!important}
   body.property-ai-fullscreen-v260 #aiservices .copilot-compose .stack{grid-template-columns:1fr!important}
   body.property-ai-fullscreen-v260 #aiservices #aiAdvisorMode{height:34px!important}
 }
-@media(prefers-reduced-motion:reduce){.property-primary-v260{scroll-behavior:auto!important}}
+@media(max-width:420px){
+  .property-overview-metrics-v261{grid-template-columns:1fr}.property-overview-metric-v261{display:flex;align-items:center;justify-content:space-between;gap:8px}.property-overview-metric-v261 strong{margin-top:0}
+  .property-overview-actions-v261{grid-template-columns:1fr 1fr}.property-overview-actions-v261 .property-overview-action-v261:last-child{grid-column:1/-1}
+}
+@media(prefers-reduced-motion:reduce){.property-primary-v260{scroll-behavior:auto!important}#propertyintelligence.property-compact-v260 [data-property-pane]{animation:none!important}}
