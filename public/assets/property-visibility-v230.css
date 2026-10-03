@@ -25,3 +25,105 @@
   border-color:#a9c8ef!important;
   box-shadow:0 12px 30px rgba(11,102,214,.08)!important;
 }
+
+/* V260 compact Property operating layer. */
+#propertyintelligence.property-compact-v260{
+  --property-accent:#c7ef32;
+  --property-ink:#11140f;
+  --property-muted:#72786f;
+  --property-line:#e2e7df;
+  max-width:1240px!important;
+  margin-inline:auto!important;
+}
+#propertyintelligence.property-compact-v260 .property-hero-compact{
+  min-height:150px!important;
+  padding:18px 20px!important;
+  margin-bottom:8px!important;
+  border-radius:18px!important;
+  background:linear-gradient(120deg,#151812,#46513f)!important;
+  color:#fff!important;
+}
+#propertyintelligence.property-compact-v260 .property-hero-compact h2{font-size:25px!important;line-height:1.08!important;margin:4px 0 6px!important}
+#propertyintelligence.property-compact-v260 .property-hero-compact p{max-width:720px!important;color:#d6dbd2!important;font-size:12px!important;margin:0!important}
+#propertyintelligence.property-compact-v260 .property-hero-compact .badge{background:var(--property-accent)!important;color:#10130e!important;border:0!important}
+.property-primary-v260{
+  position:sticky;top:8px;z-index:8;display:flex;gap:4px;width:max-content;max-width:100%;overflow:auto;
+  margin:0 auto 8px;padding:4px;border:1px solid var(--property-line);border-radius:12px;background:rgba(255,255,255,.94);backdrop-filter:blur(12px)
+}
+.property-primary-v260 button{
+  border:0;background:transparent;color:var(--property-muted);border-radius:9px;padding:8px 12px;font-weight:750;font-size:11px;white-space:nowrap
+}
+.property-primary-v260 button.active,.property-primary-v260 button:hover{background:var(--property-ink);color:#fff}
+#propertyintelligence.property-compact-v260 .card{border-color:var(--property-line)!important;border-radius:14px!important;box-shadow:none!important}
+#propertyintelligence.property-compact-v260 .property-layout-v224,
+#propertyintelligence.property-compact-v260 .property-calculator-v224{max-width:760px!important;margin-inline:auto!important}
+#propertyintelligence.property-compact-v260 .property-calculator-v224{padding:14px!important}
+#propertyintelligence.property-compact-v260 .property-calculator-head-v224{margin-bottom:8px!important}
+#propertyintelligence.property-compact-v260 .property-calculator-title-v224 p{display:none!important}
+#propertyintelligence.property-compact-v260 .property-quick-rows{gap:7px!important}
+#propertyintelligence.property-compact-v260 .property-input-row{min-height:42px!important;padding:7px 9px!important}
+#propertyintelligence.property-compact-v260 .property-input-row label{margin:0!important;font-size:11px!important}
+#propertyintelligence.property-compact-v260 .property-result-grid{gap:7px!important}
+#propertyintelligence.property-compact-v260 .property-metric{padding:10px!important;border-radius:10px!important}
+#propertyintelligence.property-compact-v260 .property-metric b{font-size:17px!important}
+#propertyintelligence.property-compact-v260 .property-analysis-details>summary{padding:10px!important}
+#propertyintelligence.property-compact-v260 #propertyPortfolioWorkspace{margin:8px auto!important;max-width:1080px!important;padding:14px!important}
+#propertyintelligence.property-compact-v260 #propertyValuationServicePanel{background:#fff!important;border-color:var(--property-line)!important;box-shadow:none!important}
+#propertyintelligence.property-compact-v260 [data-property-pane]{scroll-margin-top:68px}
+
+/* Property-sourced AI becomes a full-screen ChatGPT-style workspace while retaining the canonical grounded AI runtime. */
+body.property-ai-fullscreen-v260{overflow:hidden!important}
+body.property-ai-fullscreen-v260 #aiservices.view.active{
+  position:fixed!important;inset:0!important;z-index:10000!important;display:block!important;overflow:auto!important;
+  margin:0!important;max-width:none!important;padding:0 16px 120px!important;background:#f7f8f5!important;color:#11140f!important
+}
+body.property-ai-fullscreen-v260 #aiservices>.hub-hero,
+body.property-ai-fullscreen-v260 #aiservices>.grid.g4{display:none!important}
+.property-ai-toolbar-v260{
+  position:sticky;top:0;z-index:12;height:58px;display:flex;align-items:center;gap:8px;margin:0 -16px 10px;padding:0 14px;
+  border-bottom:1px solid #e2e7df;background:rgba(255,255,255,.96);backdrop-filter:blur(14px)
+}
+.property-ai-back-v260,.property-ai-icon-v260,.property-ai-chip-v260{
+  border:1px solid #e2e7df;background:#fff;color:#11140f;min-height:36px;border-radius:10px;font-weight:750
+}
+.property-ai-back-v260,.property-ai-icon-v260{width:36px;padding:0;font-size:16px}
+.property-ai-chip-v260{margin-left:auto;padding:0 10px;font-size:9px}
+.property-ai-voice-v260{background:var(--property-accent,#c7ef32);border-color:var(--property-accent,#c7ef32)}
+.property-ai-title-v260{min-width:0}.property-ai-title-v260 b{display:block;font-size:12px}.property-ai-title-v260 span{display:block;color:#72786f;font-size:8px;margin-top:1px}
+body.property-ai-fullscreen-v260 #aiservices .copilot-shell{
+  display:flex!important;flex-direction:column!important;gap:8px!important;width:min(820px,100%)!important;margin:0 auto!important;padding-top:6px!important
+}
+body.property-ai-fullscreen-v260 #aiservices .copilot-response{
+  order:1!important;min-height:calc(100vh - 310px)!important;border:0!important;background:transparent!important;box-shadow:none!important;padding:8px!important
+}
+body.property-ai-fullscreen-v260 #aiservices .copilot-empty{min-height:280px!important;border:0!important;background:transparent!important}
+body.property-ai-fullscreen-v260 #aiservices .copilot-compose{
+  order:2!important;position:sticky!important;bottom:10px!important;z-index:10!important;min-height:0!important;padding:10px!important;
+  border:1px solid #dfe4dc!important;border-radius:18px!important;background:#fff!important;box-shadow:0 12px 34px rgba(20,24,16,.10)!important
+}
+body.property-ai-fullscreen-v260 #aiservices .copilot-compose>.section-eyebrow,
+body.property-ai-fullscreen-v260 #aiservices .copilot-compose>h2,
+body.property-ai-fullscreen-v260 #aiservices .copilot-compose>p{display:none!important}
+body.property-ai-fullscreen-v260 #aiservices .copilot-compose .stack{display:grid!important;grid-template-columns:130px 1fr!important;gap:7px!important;align-items:end!important}
+body.property-ai-fullscreen-v260 #aiservices #aiAdvisorMode{height:42px!important;border-radius:12px!important;padding:7px!important;font-size:10px!important}
+body.property-ai-fullscreen-v260 #aiservices #aiAdvisorQuestion{min-height:42px!important;max-height:120px!important;resize:vertical!important;border-radius:12px!important;padding:10px 12px!important}
+body.property-ai-fullscreen-v260 #aiservices .copilot-quick{margin:6px 0!important;flex-wrap:nowrap!important;overflow:auto!important}
+body.property-ai-fullscreen-v260 #aiservices .copilot-quick .btn{min-height:28px!important;padding:6px 8px!important;font-size:8px!important;white-space:nowrap!important}
+body.property-ai-fullscreen-v260 #aiservices #aiAdvisorButton{float:right!important;min-width:112px!important;border-radius:999px!important;padding:9px 13px!important;background:#11140f!important}
+body.property-ai-fullscreen-v260 #aiservices .copilot-truth{clear:both!important;margin-top:8px!important;padding:7px 9px!important;font-size:8px!important;border:0!important;background:#f5f6f2!important}
+.property-ai-empty-v260{display:grid;gap:5px;text-align:center}.property-ai-empty-v260 b{font-size:18px}.property-ai-empty-v260 span{color:#72786f;font-size:10px}
+
+@media(max-width:760px){
+  #propertyintelligence.property-compact-v260 .property-hero-compact{min-height:128px!important;padding:15px!important}
+  #propertyintelligence.property-compact-v260 .property-hero-compact h2{font-size:21px!important}
+  .property-primary-v260{top:4px;width:100%;justify-content:space-between}
+  .property-primary-v260 button{padding:7px 8px;font-size:9px}
+  body.property-ai-fullscreen-v260 #aiservices.view.active{padding:0 8px 110px!important}
+  .property-ai-toolbar-v260{height:54px;margin:0 -8px 7px;padding:0 8px}
+  .property-ai-chip-v260{display:none}
+  body.property-ai-fullscreen-v260 #aiservices .copilot-response{min-height:calc(100vh - 330px)!important;padding:2px!important}
+  body.property-ai-fullscreen-v260 #aiservices .copilot-compose{bottom:max(8px,env(safe-area-inset-bottom))!important;padding:8px!important}
+  body.property-ai-fullscreen-v260 #aiservices .copilot-compose .stack{grid-template-columns:1fr!important}
+  body.property-ai-fullscreen-v260 #aiservices #aiAdvisorMode{height:34px!important}
+}
+@media(prefers-reduced-motion:reduce){.property-primary-v260{scroll-behavior:auto!important}}
