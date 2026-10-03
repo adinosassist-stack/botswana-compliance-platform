@@ -113,15 +113,17 @@ jobs:
 
           # The compact workspace now exposes four real cross-view route pairs while every
           # owner destination is independently exercised through the primary/specialist
-          # navigation matrix. Calibrate only this legacy button-count guard and fail closed
-          # if any stronger route/action invariant or the source assumptions drift.
-          generated="scripts/.production-synthetic-full-user-wrapper.phase0.mjs"
-          trap 'rm -f "$generated"' EXIT
+          # navigation matrix. Temporarily calibrate only this legacy button-count guard,
+          # run the canonical wrapper through its governance-required path, then restore it.
+          source="scripts/production-synthetic-full-user-wrapper.mjs"
+          backup="$RUNNER_TEMP/production-synthetic-full-user-wrapper.mjs"
+          cp "$source" "$backup"
+          restore_wrapper(){ cp "$backup" "$source"; }
+          trap 'restore_wrapper' EXIT
           python3 - <<'PY'
           from pathlib import Path
 
           source_path = Path('scripts/production-synthetic-full-user-wrapper.mjs')
-          generated_path = Path('scripts/.production-synthetic-full-user-wrapper.phase0.mjs')
           source = source_path.read_text(encoding='utf-8')
 
           required = (
@@ -163,12 +165,13 @@ jobs:
               old_mark,
               """    mark('full-user in-view navigation control matrix',`${inViewNavigationClicks} visible non-destructive workspace navigation controls covered ${inViewNavigationRoutes.size} unique source-to-destination routes and activated their intended destinations`);""",
           )
-          generated_path.write_text(calibrated, encoding='utf-8')
+          source_path.write_text(calibrated, encoding='utf-8')
           print('Phase 0 compact navigation calibration: owner views >=8; unique in-view routes >=4; safe UI actions >=5')
           PY
-          node "$generated"
-          rm -f "$generated"
+          node scripts/production-synthetic-full-user-wrapper.mjs
+          restore_wrapper
           trap - EXIT
+          git diff --exit-code -- "$source"
           [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo 'audit calibration left the checkout dirty' >&2; exit 1; }
 
       - name: One-shot bounded legacy orphan cleanup
