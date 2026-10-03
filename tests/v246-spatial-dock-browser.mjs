@@ -15,7 +15,7 @@ try{
  const page=await browser.newPage({viewport:{width:1440,height:960}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('http://localhost/**',route=>{const pathname=new URL(route.request().url()).pathname;if(pathname==='/public-page')return route.fulfill({contentType:'text/html',body:publicFixture});if(pathname==='/')return route.fulfill({contentType:'text/html',body:fixture});if(pathname.endsWith('.js')&&!pathname.includes('thebe-live-voice')&&!pathname.includes('property-visibility'))return route.fulfill({contentType:'application/javascript',body:''});if(process.env.THEBE_DOCK_BASELINE&&pathname==='/assets/thebe-spatial-dock-v246.css')return route.fulfill({contentType:'text/css',body:''});const file='public'+pathname;return fs.existsSync(file)?route.fulfill({path:file}):route.fulfill({status:404,body:''})});
  await page.addInitScript(()=>{window.currentWorkspaceRole=()=> 'owner';window.apiJson=async()=>({sessionCreationAllowed:false});});
- await page.goto('http://localhost/');await page.waitForSelector('#thebeAiDock');await page.waitForSelector('#thebeLiveVoiceStatus');
+ await page.goto('http://localhost/');await page.waitForSelector('#thebeAiDock');await page.waitForSelector('#thebeLiveVoiceStatus',{state:'attached'});
  const compactVoice=await page.evaluate(()=>{
   const dock=document.getElementById('thebeAiDock');
   const orb=dock.querySelector('.thebe-ai-orb-button');
@@ -23,6 +23,7 @@ try{
   const answer=dock.querySelector('.thebe-ai-response-answer');
   const status=document.getElementById('thebeLiveVoiceStatus');
   answer.textContent='RevenueAndComplianceSignalWithoutNaturalBreaks'.repeat(12);
+  status.hidden=false;
   status.textContent='LiveVoiceStatusWithoutNaturalBreaks'.repeat(12);
   const orbRect=orb.getBoundingClientRect();
   return {orbWidth:orbRect.width,orbHeight:orbRect.height,legacyDisplay:legacy?getComputedStyle(legacy).display:null,dockClientWidth:dock.clientWidth,dockScrollWidth:dock.scrollWidth,answerClientWidth:answer.clientWidth,answerScrollWidth:answer.scrollWidth,statusClientWidth:status.clientWidth,statusScrollWidth:status.scrollWidth};
