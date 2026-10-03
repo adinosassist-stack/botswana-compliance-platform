@@ -7,6 +7,8 @@ const html='<html><head><link rel="stylesheet" href="/assets/workspace-inline-st
 const fresh=versionReleaseAssets(html,a);
 assert(fresh.includes('workspace-runtime-old.js?v=old&amp;release='+a));
 assert(fresh.includes('workspace-inline-styles-old.css?v=old&amp;release='+a));
+assert(fresh.includes('thebe-dock-recovery-geometry-v269.js?release='+a));
+assert.equal((fresh.match(/thebe-dock-recovery-geometry-v269\.js/g)||[]).length,1,'V269 recovery guard is injected once');
 assert(fresh.includes('src="https://external.example/script.js"'));
 assert(fresh.includes('<a href="/app/">'));
 assert.equal(versionReleaseAssets(fresh,a),fresh,'identity decoration is idempotent');
@@ -15,7 +17,7 @@ assert.equal((next.match(/name="thebe-assets-release"/g)||[]).length,1);
 assert.equal(versionReleaseAssets(html,'invalid'),html);
 for(const path of ['/','/app/','/auth/','/pricing/']){
  const response=await applyAssetReleaseIdentity(new Request('https://thebedesk.com'+path),new Response(html,{headers:{'content-type':'text/html','etag':'old','content-length':'100'}}));
- assert.match(response.headers.get('cache-control'),/no-store/);assert.equal(response.headers.get('etag'),null);assert.equal(response.headers.get('content-length'),null);assert((await response.text()).includes('thebe-assets-release'));
+ assert.match(response.headers.get('cache-control'),/no-store/);assert.equal(response.headers.get('etag'),null);assert.equal(response.headers.get('content-length'),null);const body=await response.text();assert(body.includes('thebe-assets-release'));assert(body.includes('thebe-dock-recovery-geometry-v269.js'));
 }
 const head=await applyAssetReleaseIdentity(new Request('https://thebedesk.com/',{method:'HEAD'}),new Response(html,{headers:{'content-type':'text/html'}}));assert.equal(await head.text(),'');
 const json=new Response('{}',{headers:{'content-type':'application/json'}});assert.equal(await applyAssetReleaseIdentity(new Request('https://thebedesk.com/api/state'),json),json);
@@ -30,4 +32,5 @@ for(const file of ['public/js/workspace-runtime-20261001b.js','public/index.html
  assert.equal(urls[0],'/assets/workspace-view-fragments-old-4.json?v=old&release='+b,file+' must bind dynamically loaded fragments to release identity');
 }
 assert.match(fs.readFileSync('cloudflare/src/release-governance-entry.js','utf8'),/next=await applyAssetReleaseIdentity\(request,next\)/);
-console.log('PASS: release-specific script/style/fragment URLs, idempotence, external URL preservation, HTML cache policy, HEAD and all three fragment transports');
+await import('./v269-emergency-dock-geometry.mjs');
+console.log('PASS: release-specific script/style/fragment URLs, V269 recovery guard delivery, idempotence, external URL preservation, HTML cache policy, HEAD and all three fragment transports');
