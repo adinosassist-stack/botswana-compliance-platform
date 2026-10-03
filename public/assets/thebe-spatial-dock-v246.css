@@ -80,3 +80,11 @@ body.thebe-voice-active{overflow:hidden!important}
   flex:1 1 220px!important;
  }
 }
+
+/* V264: Thebe is a vertical right-edge workspace assistant; never a bottom workspace bar. */
+@media(min-width:761px){
+ body #thebeAiDock[data-surface="workspace"]{left:auto!important;right:12px!important;top:84px!important;bottom:16px!important;height:auto!important;max-height:none!important;border-radius:18px!important}
+ body #thebeAiDockPill[data-surface="workspace"]{left:auto!important;right:14px!important;top:96px!important;bottom:auto!important;writing-mode:vertical-rl;transform:none!important;border-radius:999px!important;padding:14px 10px!important}
+ body.thebe-ai-dock-open #appShell main,body.thebe-ai-dock-open.thebe-ai-expanded #appShell main{margin-right:calc(var(--thebe-spatial-width) + 28px)!important;width:calc(100% - var(--thebe-spatial-width) - 28px)!important;padding-bottom:20px!important}
+ #mainContent{padding-bottom:20px!important;scroll-padding-bottom:20px!important}
+}
