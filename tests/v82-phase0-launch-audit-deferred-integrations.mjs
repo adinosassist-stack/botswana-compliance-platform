@@ -48,7 +48,7 @@ ok(
   fullUserWrapper.includes("serviceBeforeForms")&&
   fullUserWrapper.includes("getByRole('tab',{name:'Operations',exact:true}).click()")&&
   fullUserWrapper.includes("activePropertyPane==='operations'")&&
-  fullUserWrapper.includes("serviceBackground==='rgb(255, 255, 255)'")&&
+  fullUserWrapper.includes("serviceBackground==='rgb(247, 251, 255)'")&&
   fullUserWrapper.includes("orbWidth===68"),
   'mandatory full-user lifecycle proves mascot-free marketing, workspace and Talk to Thebe treatment while preserving Property hierarchy and dock geometry'
 );

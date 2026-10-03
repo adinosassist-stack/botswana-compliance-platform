@@ -901,7 +901,7 @@ async function runFullUserJourney(credentials){
       `workspace dock changed the authoritative 68px voice-control geometry: ${safe(JSON.stringify(v182WorkspaceVisual))}`);
     assert(v182WorkspaceVisual.dockOpen&&v182WorkspaceVisual.propertyLayoutStacked,
       `Property analysis did not stack cleanly beside the open desktop Thebe dock: ${safe(JSON.stringify(v182WorkspaceVisual))}`);
-    assert(v182WorkspaceVisual.serviceVisible&&v182WorkspaceVisual.serviceBackground==='rgb(255, 255, 255)'&&v182WorkspaceVisual.activePropertyPane==='operations'&&v182WorkspaceVisual.serviceBeforeForms&&v182WorkspaceVisual.requestButtonVisible,
+    assert(v182WorkspaceVisual.serviceVisible&&v182WorkspaceVisual.serviceBackground==='rgb(247, 251, 255)'&&v182WorkspaceVisual.activePropertyPane==='operations'&&v182WorkspaceVisual.serviceBeforeForms&&v182WorkspaceVisual.requestButtonVisible,
       `professional valuation service is not visibly promoted ahead of Property setup forms: ${safe(JSON.stringify(v182WorkspaceVisual))}`);
     mark('V182 live marketing + workspace presentation','restored market photo, mascot removed everywhere, dock-safe Property layout and readable CTA verified');
 
