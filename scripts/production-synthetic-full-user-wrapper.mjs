@@ -160,7 +160,8 @@ async function runFullUserJourney(credentials){
       const dock=document.getElementById('thebeAiDock'),pill=document.getElementById('thebeAiDockPill');
       if(!dock||!pill)return false;
       const style=getComputedStyle(dock),rect=dock.getBoundingClientRect(),pillStyle=getComputedStyle(pill);
-      return !dock.hidden&&style.display!=='none'&&style.visibility!=='hidden'&&rect.width>280&&rect.height>300&&
+      const expectedWidth=parseFloat(getComputedStyle(document.body).getPropertyValue('--thebe-spatial-width'));
+      return !dock.hidden&&style.display!=='none'&&style.visibility!=='hidden'&&expectedWidth>0&&Math.abs(rect.width-expectedWidth)<=1&&rect.height>300&&
         pill.hidden&&pillStyle.display==='none'&&dock.dataset.surface==='public';
     },null,{timeout:15000});
     const publicDock=await page.evaluate(()=>{
