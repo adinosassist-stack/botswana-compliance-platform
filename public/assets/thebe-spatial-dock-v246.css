@@ -26,7 +26,14 @@ body .modal.open,body .commandshade.open{z-index:1000!important}
  body #marketingGate{padding-right:calc(var(--thebe-spatial-width) + 32px)!important}
  body #marketingGate main,body #marketingGate>.footer{padding-right:0!important}
 }
-@media(max-width:1023px){
+/* V266: tablet workspace stays visible beside the same contextual right rail. */
+@media(min-width:761px) and (max-width:1023px){
+ body #thebeAiDock[data-surface="workspace"]{width:var(--thebe-spatial-width)!important;max-width:var(--thebe-spatial-width)!important;min-width:0!important}
+ body.thebe-ai-dock-open #mainContent{visibility:visible!important}
+ body.thebe-ai-dock-open #mainContent>.top{gap:8px!important}
+ body.thebe-ai-dock-open #mainContent .global-search{min-width:0!important;max-width:220px!important;flex:1 1 180px!important}
+}
+@media(max-width:760px){
  #thebeAiDock[data-surface]{left:8px!important;right:8px!important;top:8px!important;bottom:calc(104px + env(safe-area-inset-bottom))!important;width:auto!important;max-width:none!important;max-height:calc(100dvh - 112px - env(safe-area-inset-bottom))!important;height:auto!important;min-height:0!important}
  body.thebe-ai-dock-open #mainContent,body.thebe-ai-mobile-open #marketingGate{visibility:hidden!important}
  #marketingGate{padding-bottom:180px!important}
@@ -92,3 +99,10 @@ body.thebe-voice-active{overflow:hidden!important}
 /* V264 final geometry authority: preserve the wide, balanced Property canvas while the compact right-edge assistant is active. */
 body #propertyintelligence .property-layout-v224{display:block!important;width:100%!important;max-width:1180px!important;min-width:0!important;margin-left:auto!important;margin-right:auto!important;box-sizing:border-box!important}
 body #propertyintelligence .property-layout-v224>.property-calculator-v224{width:100%!important;max-width:none!important;min-width:0!important;box-sizing:border-box!important}
+
+/* V266 workspace accessibility and interaction clarity. */
+#appShell :is(button,a,input,select,textarea,summary):focus-visible{outline:3px solid #2f8fe6!important;outline-offset:2px!important}
+#workspaceSidebar :is(.nav-primary,.nav-more-tools):focus-visible{border-color:#8bc3f4!important;box-shadow:0 0 0 3px rgba(47,143,230,.16)!important}
+#mainContent .global-search:focus-within{border-color:#87bff0!important;box-shadow:0 0 0 3px rgba(47,143,230,.12)!important}
+@media(min-width:761px) and (max-width:900px){#mainContent>.top{position:sticky!important;top:0!important}}
+@media(prefers-reduced-motion:reduce){#appShell :is(button,a,.card,.outcome-card,.people-outcome-card,.owner-today-card){transition:none!important}}
