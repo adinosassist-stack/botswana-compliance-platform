@@ -646,8 +646,14 @@
       view.querySelector(".property-primary-v260")?.insertAdjacentElement("afterend",tools);
     }
     const portfolio=view.querySelector("#propertyPortfolioWorkspace");
-    if(portfolio)portfolio.dataset.propertyPane="properties";
     const valuation=view.querySelector("#propertyValuationServicePanel");
+    // Pane content must be siblings: a hidden Properties parent would hide Operations too.
+    if(portfolio){
+      for(const panel of [view.querySelector(".property-operations-v262"),valuation,view.querySelector(".property-optimise-v263"),view.querySelector(".property-compare-v264")]){
+        if(panel&&portfolio.contains(panel))portfolio.insertAdjacentElement("beforebegin",panel);
+      }
+      portfolio.dataset.propertyPane="properties";
+    }
     if(valuation)valuation.dataset.propertyPane="operations";
     mountPropertyOverview();
     mountPropertyOperations();

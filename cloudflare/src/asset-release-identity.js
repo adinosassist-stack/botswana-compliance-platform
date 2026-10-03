@@ -20,7 +20,7 @@ export function versionReleaseAssets(html,sha=releaseSourceSha()){
     return start+(url.pathname+url.search+url.hash).replaceAll('&','&amp;')+end;
   });
   source=source.replace(/<meta\b[^>]*\bname=["']thebe-assets-release["'][^>]*>\s*/gi,'');
-  return injectAtFinalClosingTag(source,"head",`<meta name="thebe-assets-release" content="${sha}">\n`);
+  return source.replace(/<\/head\s*>/i,`<meta name="thebe-assets-release" content="${sha}">\n</head>`);
 }
 
 export async function applyAssetReleaseIdentity(request,response){

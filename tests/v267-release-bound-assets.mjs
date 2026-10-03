@@ -60,6 +60,7 @@ for(const input of [canonical,secured]){
 }
 // The printable compliance document contains closing head/body tags inside runtime text.
 const decorated=versionReleaseAssets(secured,a);
+assert(decorated.slice(0,decorated.indexOf("</head>")).includes('name="thebe-assets-release"'),'release metadata stays in the actual document head');
 const runtimeBlock=decorated.match(/<script\b[^>]*id="thebe-workspace-runtime-inline"[^>]*>([\s\S]*?)<\/script>/)[1];
 assert(!runtimeBlock.includes('<script src="/js/thebe-dock-recovery'),'dock injection stays outside executable script');
 assert.doesNotThrow(()=>new vm.Script(runtimeBlock),'release decoration cannot break inline fallback runtime');
