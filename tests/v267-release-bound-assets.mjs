@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 import {versionReleaseAssets,applyAssetReleaseIdentity} from '../cloudflare/src/asset-release-identity.js';
+import {externalizeWorkspaceRuntime,externalizeWorkspaceHeadStyles,externalizeWorkspaceViews,injectFirstPartyRegistrationClient} from '../cloudflare/src/production-entry.js';
 const a='1'.repeat(40),b='2'.repeat(40);
 const html='<html><head><link rel="stylesheet" href="/assets/workspace-inline-styles-old.css?v=old"><script src="/js/workspace-runtime-old.js?v=old" defer></script><script src="https://external.example/script.js"></script></head><body><a href="/app/">Workspace</a></body></html>';
 const fresh=versionReleaseAssets(html,a);
@@ -36,3 +37,31 @@ for(const file of ['public/js/workspace-runtime-20261001b.js','public/index.html
 assert.match(fs.readFileSync('cloudflare/src/release-governance-entry.js','utf8'),/next=await applyAssetReleaseIdentity\(request,next\)/);
 await import('./v269-emergency-dock-geometry.mjs');
 console.log('PASS: release-specific assets, V269 recovery guard and V272 preview bridge delivery remain idempotent with no-store HTML and fragment identity');
+
+// Reproduce the actual Worker security -> production extraction -> release decoration order.
+const workerSource=fs.readFileSync('cloudflare/src/worker.js','utf8');
+const nonceContext=vm.createContext({});
+for(const name of ['nonceInlineScripts','nonceInlineStyles','nonceHtmlExecutableBlocks']){
+ const line=workerSource.split('\n').find(line=>line.startsWith(`function ${name}(`));
+ assert(line,`Worker nonce function ${name} exists`);vm.runInContext(line,nonceContext);
+}
+const canonical=fs.readFileSync('public/index.html','utf8');
+const secured=nonceContext.nonceHtmlExecutableBlocks(canonical,'workspace-test-nonce');
+for(const input of [canonical,secured]){
+ const extracted=externalizeWorkspaceViews(externalizeWorkspaceHeadStyles(externalizeWorkspaceRuntime(injectFirstPartyRegistrationClient(input))));
+ assert(!extracted.includes('id="thebe-workspace-runtime-inline"'),'nonce does not prevent runtime extraction');
+ assert(extracted.includes('id="thebe-workspace-runtime" src="/js/workspace-runtime-20261001b.js'),'external runtime retained');
+ const delivered=versionReleaseAssets(extracted,a);
+ assert(delivered.includes('id="appShell"')&&delivered.includes('peopleInfographicsMount'),'workspace shell and People survive delivery');
+ for(const block of delivered.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)){
+  if(/\btype=["']application\//.test(block[1])||!block[2].trim())continue;
+  assert.doesNotThrow(()=>new vm.Script(block[2]),'delivered executable inline scripts must parse');
+ }
+}
+// The printable compliance document contains closing head/body tags inside runtime text.
+const decorated=versionReleaseAssets(secured,a);
+const runtimeBlock=decorated.match(/<script\b[^>]*id="thebe-workspace-runtime-inline"[^>]*>([\s\S]*?)<\/script>/)[1];
+assert(!runtimeBlock.includes('<script src="/js/thebe-dock-recovery'),'dock injection stays outside executable script');
+assert.doesNotThrow(()=>new vm.Script(runtimeBlock),'release decoration cannot break inline fallback runtime');
+assert.equal(versionReleaseAssets(decorated,a),decorated,'real workspace decoration is idempotent');
+console.log('PASS: nonce-bearing production workspace extraction and embedded printable-document delivery');

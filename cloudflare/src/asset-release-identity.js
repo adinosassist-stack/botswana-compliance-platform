@@ -3,18 +3,24 @@ import {releaseSourceSha} from './client-runtime-identity.js';
 const DOCK_RECOVERY_GEOMETRY_SRC='/js/thebe-dock-recovery-geometry-v269.js';
 const LIVE_PREVIEW_FALLBACK_SRC='/js/thebe-live-preview-fallback-v272.js';
 
+function injectAtFinalClosingTag(source,tag,markup){
+  const pattern=new RegExp(`<\\/${tag}\\s*>`, 'gi');
+  let match,last=null;while((match=pattern.exec(source)))last=match;
+  return last?source.slice(0,last.index)+markup+source.slice(last.index):source;
+}
+
 export function versionReleaseAssets(html,sha=releaseSourceSha()){
   if(!/^[0-9a-f]{40}$/.test(sha))return String(html||'');
   let source=String(html||'');
-  if(!source.includes(DOCK_RECOVERY_GEOMETRY_SRC))source=source.replace(/<\/body\s*>/i,`<script src="${DOCK_RECOVERY_GEOMETRY_SRC}" defer></script>\n</body>`);
-  if(!source.includes(LIVE_PREVIEW_FALLBACK_SRC))source=source.replace(/<\/body\s*>/i,`<script src="${LIVE_PREVIEW_FALLBACK_SRC}" defer></script>\n</body>`);
+  if(!source.includes(DOCK_RECOVERY_GEOMETRY_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${DOCK_RECOVERY_GEOMETRY_SRC}" defer></script>\n`);
+  if(!source.includes(LIVE_PREVIEW_FALLBACK_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${LIVE_PREVIEW_FALLBACK_SRC}" defer></script>\n`);
   source=source.replace(/(<(?:script|link)\b[^>]*\b(?:src|href)=["'])(\/(?:js|assets)\/[^"']+)(["'][^>]*>)/gi,(_match,start,path,end)=>{
     const url=new URL(path.replaceAll('&amp;','&'),'https://thebe.invalid');
     url.searchParams.set('release',sha);
     return start+(url.pathname+url.search+url.hash).replaceAll('&','&amp;')+end;
   });
   source=source.replace(/<meta\b[^>]*\bname=["']thebe-assets-release["'][^>]*>\s*/gi,'');
-  return source.replace(/<\/head\s*>/i,`<meta name="thebe-assets-release" content="${sha}">\n</head>`);
+  return injectAtFinalClosingTag(source,"head",`<meta name="thebe-assets-release" content="${sha}">\n`);
 }
 
 export async function applyAssetReleaseIdentity(request,response){

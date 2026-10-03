@@ -29,7 +29,11 @@ if(fs.existsSync('public/assets/people-workspace-20261003.css')){
   const runtime=await get('/js/workspace-runtime-20261001b.js?release='+release.sourceSha);
   const infographic=await get('/assets/people-infographics-20261003.css?release='+release.sourceSha);
   assert.equal(hash(infographic.body),hash(fs.readFileSync('public/assets/people-infographics-20261003.css','utf8')),'People infographics: exact live bytes');
-  assert(root.body.includes('peopleInfographicsMount'),'People infographic markup delivered');
+  const workspace=await get('/?desktop-owner-proof=ui-release');
+  assert(workspace.body.includes('peopleInfographicsMount'),'People infographic mount delivered on workspace surface');
+  assert(workspace.body.includes('id="thebe-workspace-runtime"'),'workspace runtime externalized after nonce application');
+  assert(!workspace.body.includes('id="thebe-workspace-runtime-inline"'),'inline workspace runtime removed');
+  assert(!root.body.includes('peopleInfographicsMount'),'public homepage stays independent of private workspace');
   for(const marker of ['function renderPeopleInfographics(', 'async function refreshPeopleWorkspace()','peopleRefreshStatus','peopleReportingProgress'])assert(runtime.body.includes(marker),`People runtime missing ${marker}`);
 }
 if(fs.existsSync('public/js/thebe-live-preview-fallback-v272.js')){
