@@ -1,0 +1,14 @@
+import fs from 'node:fs';import path from 'node:path';import {createRequire} from 'node:module';import assert from 'node:assert/strict';
+const require=createRequire(import.meta.url),{chromium}=require(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES?path.join(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES,'playwright'):'playwright-core');
+const html=fs.readFileSync('public/index.html','utf8');const section=html.slice(html.indexOf('<section id="peopleops"'),html.indexOf('<section id="businesshub"'));
+const styles=[...html.slice(0,html.indexOf('</head>')).matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(x=>x[1]).join('\n')+['workspace-command-center-v230.css','workspace-command-center-v231.css','workspace-reference-shell-v237.css','people-workspace-20261003.css'].map(f=>fs.readFileSync('public/assets/'+f,'utf8')).join('\n');
+const executablePath=[process.env.CHROMIUM_EXECUTABLE_PATH,'/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium'].filter(Boolean).find(p=>fs.existsSync(p));
+const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox']});
+try{for(const width of [390,768,1280]){
+const page=await browser.newPage({viewport:{width,height:900}});await page.setContent(`<style>${styles}</style><div id="appShell"><main id="mainContent" style="margin:0;padding:16px">${section.replace('view simplified-hub','view active simplified-hub')}</main></div>`);
+await page.evaluate(()=>{document.getElementById('peopleActiveEmployees').textContent='5';document.getElementById('peopleReportingCoverage').textContent='75%';document.getElementById('peopleOpenCases').textContent='1';document.getElementById('peopleProtectionBand').textContent='Low';const progress=document.getElementById('peopleReportingProgress');progress.hidden=false;progress.value=75;document.getElementById('peopleRefreshStatus').textContent='Updated 18:30 · Botswana time';});
+assert(await page.locator('#peopleops').isVisible());const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);assert.equal(overflow,false,`no horizontal overflow at ${width}`);
+for(const id of ['peopleActiveEmployees','peopleOpenCases','opsLocationName','opsReporterEmployee'])assert(await page.locator('#'+id).isVisible(),id+' visible');
+assert.equal(await page.locator('.people-automation-details').getAttribute('open'),null);await page.locator('.people-automation-details summary').click();assert(await page.locator('#opsAutoSummary').isVisible());
+await page.screenshot({path:`/tmp/people-${width}.png`,fullPage:true});await page.close();}
+console.log('People layout PASS at 390, 768, 1280px; no horizontal overflow; setup and native automation disclosure work');}finally{await browser.close()}

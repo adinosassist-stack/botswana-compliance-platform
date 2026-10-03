@@ -11,7 +11,7 @@ const patch=Number((pkg.version.match(/^1\.21\.(\d+)$/)||[])[1]||0);
 check('package is 1.21.22 or later',patch>=22);
 check('release profile matches package version',profile.package_version===pkg.version);
 check('service worker cache matches package version',sw.includes(`bw-business-protection-v78-${pkg.version}`));
-check('people hub is outcome first',html.includes('See today’s reporting, staff gaps and follow-up in one place.'));
+check('people hub is outcome first',html.includes('Your team, at a glance.'));
 check('people hub has daily reporting outcome',html.includes('data-hub-target="dailyreports"')&&html.includes('Open daily reports →'));
 check('people hub has employee records outcome',html.includes('data-hub-target="employees"')&&html.includes('Open employee records →'));
 check('people hub has employment protection outcome',html.includes('data-hub-target="employershield"')&&html.includes('Review protection gaps →'));
