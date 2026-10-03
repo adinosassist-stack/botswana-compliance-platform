@@ -57,6 +57,8 @@ try{
   }
 
   await page.setViewportSize({width:390,height:844});
+  await page.locator("#thebeAiDockPill").waitFor({state:"visible"});
+  await page.locator("#thebeAiDockPill").click();
   await page.waitForFunction(()=>{
     const d=document.getElementById('thebeAiDock')?.getBoundingClientRect();
     return d&&Math.abs(d.left-8)<=1&&Math.abs(d.right-(innerWidth-8))<=1;
