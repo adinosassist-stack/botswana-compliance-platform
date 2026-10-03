@@ -678,6 +678,18 @@ async function runFullUserJourney(credentials){
     },null,{timeout:VIEW_TIMEOUT_MS});
     mark('Thebe dock authenticated visibility',`release=${dockInitial.release} visible after workspace-ready; desktop close() remained a no-op and pill stayed hidden`);
 
+    // Open real sidebar disclosures before collecting role-visible specialist pages.
+    // Keep the in-view minimum: a collapsed menu must not shrink the audit coverage.
+    for(let pass=0;pass<3;pass++){
+      const closedMenus=page.locator('#nav details:not([open]) > summary:visible');
+      const count=await closedMenus.count();
+      if(!count)break;
+      for(let index=0;index<count;index++){
+        const nextMenu=page.locator('#nav details:not([open]) > summary:visible').first();
+        if(!(await nextMenu.count()))break;
+        await nextMenu.click();
+      }
+    }
     const views=await page.evaluate(()=>{
       const roleCheck=typeof globalThis.roleCanView==='function'?globalThis.roleCanView:null;
       const unique=[];
