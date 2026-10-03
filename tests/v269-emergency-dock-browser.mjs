@@ -31,6 +31,27 @@ try{
   await page.waitForSelector('#thebeAiDock');
   await page.waitForFunction(()=>{const d=document.getElementById('thebeAiDock');return d?.dataset.cssRecovery==='1'&&d?.dataset.geometryRecovery==='20261003-emergency-dock-geometry-v269'});
 
+  // Property recovery may leave root-level !important visibility styles behind after navigation.
+  // The global recovery observer must strip those stale root styles as soon as Property is inactive.
+  await page.evaluate(()=>{
+    const property=document.getElementById('propertyintelligence');
+    property.classList.remove('active');
+    property.style.setProperty('display','block','important');
+    property.style.setProperty('visibility','visible','important');
+    property.style.setProperty('opacity','1','important');
+  });
+  await page.waitForFunction(()=>{
+    const property=document.getElementById('propertyintelligence');
+    return property&&!property.classList.contains('active')&&!property.style.getPropertyValue('display')&&!property.style.getPropertyValue('visibility')&&!property.style.getPropertyValue('opacity')&&getComputedStyle(property).display==='none';
+  });
+  const propertyIsolation=await page.evaluate(()=>{
+    const property=document.getElementById('propertyintelligence');
+    return {marker:property.dataset.propertyViewIsolation,display:property.style.getPropertyValue('display'),visibility:property.style.getPropertyValue('visibility'),opacity:property.style.getPropertyValue('opacity'),computed:getComputedStyle(property).display};
+  });
+  assert.equal(propertyIsolation.marker,'20261003-property-view-isolation-v273');
+  assert.deepEqual({display:propertyIsolation.display,visibility:propertyIsolation.visibility,opacity:propertyIsolation.opacity,computed:propertyIsolation.computed},{display:'',visibility:'',opacity:'',computed:'none'},`inactive Property root must not leak into other workspace views: ${JSON.stringify(propertyIsolation)}`);
+  await page.evaluate(()=>document.getElementById('propertyintelligence').classList.add('active'));
+
   const assertGeometry=async(expectedWidth,label)=>{
     await page.waitForFunction(expected=>Math.abs(document.getElementById('thebeAiDock').getBoundingClientRect().width-expected)<=1,expectedWidth);
     const geometry=await page.evaluate(()=>{
@@ -66,5 +87,5 @@ try{
   const mobile=await page.evaluate(()=>{const d=document.getElementById('thebeAiDock').getBoundingClientRect();return {left:d.left,right:d.right,width:d.width,viewport:innerWidth}});
   assert(Math.abs(mobile.left-8)<=1&&Math.abs(mobile.right-(mobile.viewport-8))<=1,`mobile emergency dock keeps 8px gutters: ${JSON.stringify(mobile)}`);
   assert.deepEqual(errors,[],'forced CSS recovery must not throw browser errors');
-  console.log('V269_EMERGENCY_DOCK_BROWSER_PASS: forced stylesheet failure preserves current compact dock, reserved workspace lane, 68px voice and mobile gutters');
+  console.log('V269_EMERGENCY_DOCK_BROWSER_PASS: forced stylesheet failure preserves current compact dock, Property view isolation, reserved workspace lane, 68px voice and mobile gutters');
 }finally{await browser.close()}
