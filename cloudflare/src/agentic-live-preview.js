@@ -1,4 +1,5 @@
 import {authenticate,roleAllowed,originAllowed,csrfAllowed} from "./agentic-authority-core.js";
+import {appendSealedAuditEvent} from "./audit-lineage-writer.js";
 import {
   GPT_LIVE_MODEL,
   GPT_LIVE_API_URL,
@@ -108,16 +109,16 @@ function safeProviderCode(payload){
 async function previewAudit(env,auth,eventType,entityId,detail={}){
   if(!env?.DB||!auth?.tenant_id||!auth?.user_id)return false;
   try{
-    await env.DB.prepare(`INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data)
-      VALUES(?,?,?,?,?,?)`).bind(
-        auth.tenant_id,
-        auth.user_id,
-        eventType,
-        "thebe_live_session",
-        entityId||null,
-        JSON.stringify(detail)
-      ).run();
-    return true;
+    const result=await appendSealedAuditEvent(env,{
+      tenantId:auth.tenant_id,
+      actorUserId:auth.user_id,
+      eventType,
+      entityType:"thebe_live_session",
+      entityId:entityId||null,
+      eventData:detail,
+      writeSource:"gpt_live_preview"
+    });
+    return result?.ok===true;
   }catch{return false}
 }
 
