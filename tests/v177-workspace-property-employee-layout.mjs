@@ -112,7 +112,7 @@ assert.match(propertyRuntime,/PROPERTY_SCENARIO_KEY="thebe\.property\.scenarios\
 assert.match(propertyRuntime,/sessionStorage\.getItem\(PROPERTY_SCENARIO_KEY\)/,"saved Property comparisons must be session-only");
 assert.doesNotMatch(propertyRuntime,/localStorage/,"workspace runtime must not persist Property scenario data in localStorage");
 assert.match(propertyRuntime,/rows\.slice\(0,3\)/,"scenario comparison must remain bounded to three scenarios");
-assert.match(propertyRuntime,/Saved scenario only — not a valuation or portfolio record/,"saved scenarios must preserve the valuation and canonical-record boundary");
+assert.match(propertyRuntime,/property-card-kicker-v272">Saved scenario[\s\S]{0,1200}Scenario only · not a valuation or portfolio record\./,"saved scenarios must keep explicit saved-scenario labeling together with the valuation and canonical-record boundary");
 assert.doesNotMatch(propertyRuntime,/savePropertyScenario[\s\S]{0,2500}\/api\/property\/portfolio/,"saving a scenario must not silently write assumptions into the canonical property portfolio");
 
 assert.match(propertyRuntime,/function propertyPortfolioImpact\(x\)/,"Property deal analysis must expose canonical portfolio impact");
