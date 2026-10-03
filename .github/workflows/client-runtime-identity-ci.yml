@@ -65,6 +65,7 @@ jobs:
           node tests/unified-goal-flow-browser.mjs
           node tests/v246-spatial-dock-browser.mjs
           node tests/v269-emergency-dock-browser.mjs
+          node tests/v272-property-navigation-browser.mjs
           node tests/v255-pricing-selector-browser.mjs
           node tests/v256-workspace-ui-defects-browser.mjs
           node tests/v257-market-ui-regression.mjs

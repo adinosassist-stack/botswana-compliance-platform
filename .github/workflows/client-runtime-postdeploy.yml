@@ -74,3 +74,4 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/production-property-live-proof.mjs
+          node scripts/production-ui-release-proof.mjs

@@ -188,3 +188,7 @@ body.property-ai-fullscreen-v260 #aiservices #aiAdvisorQuestion{line-height:1.35
   .property-overview-actions-v261{grid-template-columns:1fr 1fr}.property-overview-actions-v261 .property-overview-action-v261:last-child{grid-column:1/-1}
 }
 @media(prefers-reduced-motion:reduce){.property-primary-v260{scroll-behavior:auto!important}#propertyintelligence.property-compact-v260 [data-property-pane]{animation:none!important}}
+
+/* V272: four primary spaces; deeper analysis remains in its own context. */
+.property-analysis-tools-v272{display:none;gap:6px;flex-wrap:wrap;width:min(940px,100%);margin:8px auto}
+#propertyintelligence:is([data-property-active-pane="analyse"],[data-property-active-pane="optimise"],[data-property-active-pane="compare"]) .property-analysis-tools-v272{display:flex}

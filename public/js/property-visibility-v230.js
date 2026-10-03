@@ -1,7 +1,7 @@
 (function(global){
   "use strict";
   const RELEASE="20261001-property-visible-v230";
-  const COMPACT_RELEASE="20261003-property-workspace-v264";
+  const COMPACT_RELEASE="20261003-property-workspace-v272";
   const OPERATIONS_RELEASE="20261003-property-operations-v262";
   const OPTIMISE_RELEASE="20261003-property-optimise-v263";
   const COMPARE_RELEASE="20261003-property-compare-v264";
@@ -32,6 +32,12 @@
     const view=document.getElementById("propertyintelligence");
     if(!view||!view.classList.contains("active"))return false;
     repairNode(view,"block");
+    if(view.dataset.propertyActivePane&&view.dataset.propertyActivePane!=="analyse"){
+      const target=paneTarget(view,view.dataset.propertyActivePane);
+      const ok=visible(target);
+      view.dataset.propertyVisibility=ok?"ready":"repairing";
+      return ok;
+    }
     const layout=view.querySelector(".property-layout-v224");
     const calculator=view.querySelector(".property-calculator-v224");
     const price=view.querySelector("#propertyPurchasePrice");
@@ -161,11 +167,16 @@
     }
   }
 
+  function propertyAssetUrl(path){
+    const release=document.querySelector('meta[name="thebe-assets-release"]')?.content||"";
+    return /^[0-9a-f]{40}$/.test(release)?`${path}?release=${release}`:path;
+  }
+
   function ensureOperationsStyles(){
     if(document.querySelector('link[data-thebe-property-operations-v262="true"]'))return true;
     const link=document.createElement("link");
     link.rel="stylesheet";
-    link.href="/assets/property-operations-v262.css";
+    link.href=propertyAssetUrl("/assets/property-operations-v262.css");
     link.dataset.thebePropertyOperationsV262="true";
     document.head.append(link);
     return true;
@@ -286,7 +297,7 @@
     if(document.querySelector('link[data-thebe-property-optimise-v263="true"]'))return true;
     const link=document.createElement("link");
     link.rel="stylesheet";
-    link.href="/assets/property-optimise-v263.css";
+    link.href=propertyAssetUrl("/assets/property-optimise-v263.css");
     link.dataset.thebePropertyOptimiseV263="true";
     document.head.append(link);
     return true;
@@ -409,7 +420,7 @@
     if(document.querySelector('link[data-thebe-property-compare-v264="true"]'))return true;
     const link=document.createElement("link");
     link.rel="stylesheet";
-    link.href="/assets/property-compare-v264.css";
+    link.href=propertyAssetUrl("/assets/property-compare-v264.css");
     link.dataset.thebePropertyCompareV264="true";
     document.head.append(link);
     return true;
@@ -570,12 +581,16 @@
     if(!view)return false;
     const pane=PROPERTY_PANES.has(nextPane)?nextPane:"today";
     view.dataset.propertyActivePane=pane;
+    const primaryPane=pane==="optimise"||pane==="compare"?"analyse":pane;
+    const calculator=view.querySelector(".property-calculator-v224");
+    if(pane!=="analyse")calculator?.style.removeProperty("display");
     view.querySelectorAll(".property-primary-v260 button[data-property-pane-button]").forEach(button=>{
-      const active=button.dataset.propertyPaneButton===pane;
+      const active=button.dataset.propertyPaneButton===primaryPane;
       button.classList.toggle("active",active);
       button.setAttribute("aria-selected",active?"true":"false");
       button.tabIndex=active?0:-1;
     });
+    if(pane==="analyse")ensurePropertyVisible();
     const target=paneTarget(view,pane);
     if(target&&options.focus){
       target.setAttribute("tabindex","-1");
@@ -617,12 +632,19 @@
       nav.className="property-primary-v260";
       nav.setAttribute("aria-label","Property workspace");
       nav.setAttribute("role","tablist");
-      nav.append(compactButton("Today","today"),compactButton("Properties","properties"),compactButton("Analyse","analyse"),compactButton("Operations","operations"),compactButton("Optimise","optimise"),compactButton("Compare","compare"));
+      nav.append(compactButton("Today","today"),compactButton("Properties","properties"),compactButton("Analyse","analyse"),compactButton("Operations","operations"));
       const hero=view.querySelector(".property-hero-compact");
       if(hero)hero.insertAdjacentElement("afterend",nav);else view.prepend(nav);
     }
     const calculator=view.querySelector(".property-calculator-v224");
     if(calculator)calculator.dataset.propertyPane="analyse";
+    if(!view.querySelector(".property-analysis-tools-v272")){
+      const tools=document.createElement("div");
+      tools.className="property-analysis-tools-v272";
+      tools.setAttribute("aria-label","Property analysis tools");
+      tools.append(createOverviewAction("Deal calculator","analyse"),createOverviewAction("Optimise","optimise"),createOverviewAction("Compare properties","compare"));
+      view.querySelector(".property-primary-v260")?.insertAdjacentElement("afterend",tools);
+    }
     const portfolio=view.querySelector("#propertyPortfolioWorkspace");
     if(portfolio)portfolio.dataset.propertyPane="properties";
     const valuation=view.querySelector("#propertyValuationServicePanel");
