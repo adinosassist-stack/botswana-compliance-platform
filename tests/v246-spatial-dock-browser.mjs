@@ -16,22 +16,22 @@ try{
  await page.route('http://localhost/**',route=>{const pathname=new URL(route.request().url()).pathname;if(pathname==='/public-page')return route.fulfill({contentType:'text/html',body:publicFixture});if(pathname==='/')return route.fulfill({contentType:'text/html',body:fixture});if(pathname.endsWith('.js')&&!pathname.includes('thebe-live-voice')&&!pathname.includes('property-visibility'))return route.fulfill({contentType:'application/javascript',body:''});if(process.env.THEBE_DOCK_BASELINE&&pathname==='/assets/thebe-spatial-dock-v246.css')return route.fulfill({contentType:'text/css',body:''});const file='public'+pathname;return fs.existsSync(file)?route.fulfill({path:file}):route.fulfill({status:404,body:''})});
  await page.addInitScript(()=>{window.currentWorkspaceRole=()=> 'owner';window.apiJson=async()=>({sessionCreationAllowed:false});});
  await page.goto('http://localhost/');await page.waitForSelector('#thebeAiDock');
- const normalDockWidths=new Map([[1440,304],[1200,304],[1199,280],[1180,280],[1024,280]]);
+ const normalDockWidths=new Map([[1440,272],[1200,272],[1199,256],[1180,256],[1024,256]]);
  for(const [width,expectedDockWidth] of normalDockWidths){
   await page.setViewportSize({width,height:960});
   await page.waitForFunction(expected=>Math.abs(document.getElementById('thebeAiDock').getBoundingClientRect().width-expected)<=1,expectedDockWidth);
   const geometry=await page.evaluate(()=>{const d=document.getElementById('thebeAiDock').getBoundingClientRect(),m=document.getElementById('mainContent').getBoundingClientRect(),c=document.querySelector('.property-calculator-v224').getBoundingClientRect();return {dock:{left:d.left,right:d.right,width:d.width},main:{left:m.left,right:m.right},card:{left:c.left,right:c.right,width:c.width},recovery:document.getElementById('thebeAiDock').dataset.cssRecovery}});
   assert(Math.abs(geometry.dock.width-expectedDockWidth)<=1,`unexpected dock width at ${width}: expected ${expectedDockWidth}, got ${geometry.dock.width}`);
   assert(geometry.main.right<=geometry.dock.left,`dock overlaps business content at ${width}: ${JSON.stringify(geometry)}`);
-  assert(geometry.card.width<=680&&geometry.card.width>0,`calculator must remain compact at ${width}: ${JSON.stringify(geometry)}`);
+  assert(geometry.card.width<=1180&&geometry.card.width>0,`calculator must use the available canvas without overflow at ${width}: ${JSON.stringify(geometry)}`);
   await page.locator('#businessAction').click();
  }
  await page.evaluate(()=>{document.querySelector('.property-calculator-v224').style.setProperty('max-width','none','important');window.ThebePropertyVisibility.repair()});
- assert((await page.locator('.property-calculator-v224').boundingBox()).width<=680,'visibility recovery keeps compact geometry after a late style repair');
+ assert((await page.locator('.property-calculator-v224').boundingBox()).width<=1180,'visibility recovery keeps responsive calculator geometry after a late style repair');
  await page.setViewportSize({width:1440,height:960});
  if(process.env.THEBE_SCREENSHOT_DIR){fs.mkdirSync(process.env.THEBE_SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.THEBE_SCREENSHOT_DIR,'dock-desktop.png')})}
  await page.getByRole('button',{name:'Expand Thebe panel',exact:true}).click();
- const expandedDockWidths=new Map([[1440,400],[1200,400],[1199,360],[1024,360]]);
+ const expandedDockWidths=new Map([[1440,344],[1200,344],[1199,324],[1024,324]]);
  for(const [width,expectedDockWidth] of expandedDockWidths){
   await page.setViewportSize({width,height:960});
   await page.waitForFunction(expected=>Math.abs(document.getElementById('thebeAiDock').getBoundingClientRect().width-expected)<=1,expectedDockWidth);
@@ -75,5 +75,5 @@ try{
  assert.equal(publicGeometry.padding,0,'public content must reserve the dock lane only once');
  assert(publicGeometry.mainRight<=publicGeometry.dockLeft,'public dock stays outside page content');
  assert.deepEqual(errors,[],'no browser errors');
- console.log('V246_SPATIAL_DOCK_BROWSER_PASS: compact Property, reserved dock, expansion, full-screen voice, focus, cancellation, mobile');
+ console.log('V246_SPATIAL_DOCK_BROWSER_PASS: responsive Property, compact reserved dock, expansion, full-screen voice, focus, cancellation, mobile');
 }finally{await browser.close()}
