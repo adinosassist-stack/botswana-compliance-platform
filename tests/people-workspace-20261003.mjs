@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 const html=fs.readFileSync('public/index.html','utf8');
 const source=html.slice(html.indexOf('async function renderPeopleOperationsHub(){'),html.indexOf('\nasync function renderBusinessHub()'));
 const elements=new Map();
-const context=vm.createContext({document:{getElementById:id=>{if(!elements.has(id))elements.set(id,{textContent:'',setAttribute(){}});return elements.get(id)}},store:{activeCompanyId:'a'},roleCanView:()=>true,currentWorkspaceRole:()=> 'owner',browserGaboroneDate:()=> '2026-10-03',recentlyRemovedEmployeeIds:new Set(),escapeHtml:value=>String(value).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])),Intl,Date});
+const context=vm.createContext({document:{getElementById:id=>{if(!elements.has(id))elements.set(id,{textContent:'',style:{},setAttribute(){}});return elements.get(id)}},store:{activeCompanyId:'a'},roleCanView:()=>true,currentWorkspaceRole:()=> 'owner',browserGaboroneDate:()=> '2026-10-03',recentlyRemovedEmployeeIds:new Set(),escapeHtml:value=>String(value).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])),Intl,Date});
 vm.runInContext(source,context);
 const values={'/api/employees':{items:[{id:1,status:'active'},{id:2,status:'removed'}]},'/api/hr/cases':{items:[{status:'closed'},{status:'open'}]},'/api/employer-risk':{riskBand:'low',dimensions:{contractCoverage:100},findings:[]}};
 context.apiJson=async url=>values[url];context.reportingAnalyticsJson=async()=>({coverage:75,missing:[{}],totals:{attention:0},reportingPopulation:{expected:4,expectedSubmitted:3},branches:[{name:'<Office>',expected:2,submittedExpected:2},{name:'Branch',expected:2,submittedExpected:1}]});

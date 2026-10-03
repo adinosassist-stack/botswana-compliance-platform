@@ -5,9 +5,8 @@
 #peopleops .people-info-heading h3{font-size:14px;line-height:1.3;margin:0;color:#18375a}
 #peopleops .people-info-heading span{font-size:11px;color:#667a93}
 #peopleops .people-report-ring-row{display:flex;align-items:center;gap:16px}
-#peopleops .people-report-ring{width:100px;height:100px;flex:0 0 100px;overflow:visible}
-#peopleops .people-ring-track{stroke:#eaf0f7;fill:none;stroke-width:9}
-#peopleops .people-ring-value{stroke:#3377bd;fill:none;stroke-width:9;transform:rotate(-90deg);transform-origin:60px 60px;transition:stroke-dasharray .3s ease}
+#peopleops .people-report-ring{position:relative;width:100px;height:100px;flex:0 0 100px;overflow:visible}
+#peopleops .people-ring-value{position:absolute;inset:0;border-radius:50%;background:#eaf0f7}
 #peopleops .people-ring-percent{font-size:24px;font-weight:700;fill:#18375a;text-anchor:middle}
 #peopleops .people-ring-caption{font-size:10px;fill:#617791;text-anchor:middle}
 #peopleops .people-info-legend{display:grid;gap:10px;font-size:12px;min-width:0}
@@ -34,3 +33,8 @@
 
 #peopleops .people-progress-hook{display:none!important}
 
+
+#peopleops .people-ring-center{position:absolute;inset:9px;border-radius:50%;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+#peopleops .people-ring-percent{color:#18375a;line-height:1.1}
+#peopleops .people-ring-caption{color:#617791;font-size:11px}
+#peopleops .people-info-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
