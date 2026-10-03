@@ -15,6 +15,14 @@
     try{return new URL(String(value||""),global.location?.origin||"https://thebedesk.invalid").pathname}catch{return ""}
   }
 
+  function previewClientCompatible(){
+    try{
+      const status=global.ThebeLiveVoice?.status?.();
+      const runtimes=Array.isArray(status?.supportedRuntimes)?status.supportedRuntimes:[];
+      return status?.gptLiveEventCompatibility===true&&runtimes.includes("gpt-live");
+    }catch{return false}
+  }
+
   function retryablePreviewError(error){
     const status=errorStatus(error),code=errorCode(error);
     if(status===400||status===401||status===403||status===413||status===415)return false;
@@ -32,6 +40,10 @@
   async function request(url,options={}){
     const path=exactLogicalPath(url);
     if(path!==PRODUCTION_SESSION_PATH||String(options?.method||"GET").toUpperCase()!=="POST")return originalApi(url,options);
+    if(!previewClientCompatible()){
+      emit({requestedRuntime:"realtime",actualRuntime:"realtime",fallback:false,reason:"gpt_live_event_adapter_unavailable"});
+      return originalApi(url,options);
+    }
     const status=await readPreviewStatus();
     if(status?.sessionCreationAllowed!==true){
       emit({requestedRuntime:"realtime",actualRuntime:"realtime",fallback:false,reason:status?.gateCode||"preview_not_enabled"});
@@ -80,5 +92,5 @@
   if(global.document?.readyState==="loading")global.document.addEventListener("DOMContentLoaded",scheduleInstall,{once:true});
   else scheduleInstall();
 
-  global.ThebeLivePreviewFallback=Object.freeze({release:RELEASE,install,request,readPreviewStatus,retryablePreviewError,state:()=>({installed,status:previewStatus,statusCheckedAt})});
+  global.ThebeLivePreviewFallback=Object.freeze({release:RELEASE,install,request,readPreviewStatus,retryablePreviewError,previewClientCompatible,state:()=>({installed,status:previewStatus,statusCheckedAt})});
 })(window);
