@@ -69,7 +69,7 @@ has(governance,'headers.set("x-thebe-surface","auth")','worker labels the auth s
 has(governance,'headers.set("x-thebe-surface","app")','worker labels the app surface explicitly');
 has(governance,'SYNTHETIC_LEGACY_ROOT_PARAMS','legacy root compatibility is explicitly bounded to synthetic proof markers');
 
-has(wrangler,'html_handling = "auto-trailing-slash"','existing SEO pretty-route behavior remains unchanged globally');
+has(wrangler,'html_handling = "none"','Static Assets HTML rewriting is disabled so explicit worker asset paths resolve exact release files');
 has(wrangler,'"/auth", "/auth/*", "/app", "/app/*"','Cloudflare worker-first routing covers auth and app boundaries');
 has(boundaryRuntime,"if(location.pathname!==\"/app\"&&location.pathname!==\"/app/\")return",'workspace boundary runtime cannot affect the public or auth routes');
 has(boundaryRuntime,'window.returnToPublicWebsite','workspace public-exit action is routed to the real public site');
