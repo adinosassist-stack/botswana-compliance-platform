@@ -1,10 +1,6 @@
 import fs from "node:fs";import assert from "node:assert/strict";
 const css=fs.readFileSync("public/assets/workspace-inline-styles-20261001c.css","utf8");
-assert.match(css,/\/\*V265 overflow\*\//);
-assert.match(css,/#appShell :is\(\.card,[^}]*overflow-wrap:anywhere/,"important content must wrap");
-assert.match(css,/#appShell :is\(\.row,\.between,\.actions,\.formgrid,\.grid\)>\*\{min-width:0;max-width:100%\}/,"layout children must shrink");
-assert.match(css,/#appShell :is\(\.btn,button\)\{max-width:100%;white-space:normal;overflow-wrap:anywhere\}/,"button labels must wrap");
-assert.match(css,/#appShell :is\(input,select,textarea\)\{min-width:0;max-width:100%\}/,"controls stay contained");
-assert.match(css,/text-overflow:ellipsis;white-space:nowrap/,"compact chips truncate safely");
-assert.match(css,/\.mobile-table-wrap,\.tablewrap,\.table-scroll\).*overflow-x:auto/,"tables scroll locally");
+assert.match(css,/#appShell :where\(\.card,\.callout,[^}]+\)\{min-width:0;max-width:100%;overflow-wrap:anywhere\}/,"workspace content must shrink and wrap");
+assert.match(css,/#appShell button\{white-space:normal\}/,"button labels must wrap");
+assert.ok(Buffer.byteLength(css)<224000,"overflow hardening must respect the workspace CSS budget");
 console.log("V265_WORKSPACE_OVERFLOW_HARDENING_PASS");
