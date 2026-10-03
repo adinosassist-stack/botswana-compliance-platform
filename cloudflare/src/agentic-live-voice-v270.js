@@ -1,8 +1,28 @@
-export const THEBE_GPT_LIVE_PREVIEW_VERSION="2026-10-03.gpt-live-migration-v271";
+export const THEBE_GPT_LIVE_PREVIEW_VERSION="2026-10-03.gpt-live-migration-v272";
 export const GPT_LIVE_API_URL="https://api.openai.com/v1/live/sessions";
 export const GPT_LIVE_MODEL="gpt-live-1";
 export const GPT_LIVE_DELEGATION_MODE="client";
 export const GPT_LIVE_APPEND_MAX_CHARS=1600;
+export const GPT_LIVE_ALLOWED_CLIENT_EVENTS=Object.freeze([
+  "session.close",
+  "session.thinking.append",
+  "session.commentary.append",
+  "session.instructions.append"
+]);
+export const GPT_LIVE_ALLOWED_SERVER_EVENTS=Object.freeze([
+  Object.freeze({type:"session.started"}),
+  Object.freeze({type:"session.updated"}),
+  Object.freeze({type:"session.input_transcript.delta"}),
+  Object.freeze({type:"session.output_transcript.delta"}),
+  Object.freeze({type:"session.delegation.created"}),
+  Object.freeze({type:"session.usage.updated"}),
+  Object.freeze({type:"session.commentary.appended"}),
+  Object.freeze({type:"session.thinking.appended"}),
+  Object.freeze({type:"session.instructions.appended"}),
+  Object.freeze({type:"session.closed"}),
+  Object.freeze({type:"info"}),
+  Object.freeze({type:"error"})
+]);
 
 const envTrue=value=>["1","true","on","yes"].includes(String(value??"").trim().toLowerCase());
 const cleanText=(value,max=16384)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
@@ -23,6 +43,12 @@ export function gptLiveSessionConfig({instructions,voice="marin"}={}){
     model:GPT_LIVE_MODEL,
     instructions:prompt,
     audio:{output:{voice:cleanText(voice,80)||"marin"}},
+    client:{
+      data_channel:{
+        allowed_client_events:GPT_LIVE_ALLOWED_CLIENT_EVENTS,
+        allowed_server_events:GPT_LIVE_ALLOWED_SERVER_EVENTS
+      }
+    },
     delegation:{type:GPT_LIVE_DELEGATION_MODE},
     store:false
   });
@@ -190,6 +216,7 @@ export function gptLiveMigrationStatus(env={}){
     delegation:GPT_LIVE_DELEGATION_MODE,
     eventCompatibility:true,
     comparativeTelemetry:true,
+    dataChannelRestricted:true,
     productionSwitchAllowed:false
   });
 }

@@ -8,7 +8,9 @@ const fresh=versionReleaseAssets(html,a);
 assert(fresh.includes('workspace-runtime-old.js?v=old&amp;release='+a));
 assert(fresh.includes('workspace-inline-styles-old.css?v=old&amp;release='+a));
 assert(fresh.includes('thebe-dock-recovery-geometry-v269.js?release='+a));
+assert(fresh.includes('thebe-live-preview-fallback-v272.js?release='+a));
 assert.equal((fresh.match(/thebe-dock-recovery-geometry-v269\.js/g)||[]).length,1,'V269 recovery guard is injected once');
+assert.equal((fresh.match(/thebe-live-preview-fallback-v272\.js/g)||[]).length,1,'V272 preview bridge is injected once');
 assert(fresh.includes('src="https://external.example/script.js"'));
 assert(fresh.includes('<a href="/app/">'));
 assert.equal(versionReleaseAssets(fresh,a),fresh,'identity decoration is idempotent');
@@ -17,7 +19,7 @@ assert.equal((next.match(/name="thebe-assets-release"/g)||[]).length,1);
 assert.equal(versionReleaseAssets(html,'invalid'),html);
 for(const path of ['/','/app/','/auth/','/pricing/']){
  const response=await applyAssetReleaseIdentity(new Request('https://thebedesk.com'+path),new Response(html,{headers:{'content-type':'text/html','etag':'old','content-length':'100'}}));
- assert.match(response.headers.get('cache-control'),/no-store/);assert.equal(response.headers.get('etag'),null);assert.equal(response.headers.get('content-length'),null);const body=await response.text();assert(body.includes('thebe-assets-release'));assert(body.includes('thebe-dock-recovery-geometry-v269.js'));
+ assert.match(response.headers.get('cache-control'),/no-store/);assert.equal(response.headers.get('etag'),null);assert.equal(response.headers.get('content-length'),null);const body=await response.text();assert(body.includes('thebe-assets-release'));assert(body.includes('thebe-dock-recovery-geometry-v269.js'));assert(body.includes('thebe-live-preview-fallback-v272.js'));
 }
 const head=await applyAssetReleaseIdentity(new Request('https://thebedesk.com/',{method:'HEAD'}),new Response(html,{headers:{'content-type':'text/html'}}));assert.equal(await head.text(),'');
 const json=new Response('{}',{headers:{'content-type':'application/json'}});assert.equal(await applyAssetReleaseIdentity(new Request('https://thebedesk.com/api/state'),json),json);
@@ -33,4 +35,4 @@ for(const file of ['public/js/workspace-runtime-20261001b.js','public/index.html
 }
 assert.match(fs.readFileSync('cloudflare/src/release-governance-entry.js','utf8'),/next=await applyAssetReleaseIdentity\(request,next\)/);
 await import('./v269-emergency-dock-geometry.mjs');
-console.log('PASS: release-specific script/style/fragment URLs, V269 recovery guard delivery, idempotence, external URL preservation, HTML cache policy, HEAD and all three fragment transports');
+console.log('PASS: release-specific assets, V269 recovery guard and V272 preview bridge delivery remain idempotent with no-store HTML and fragment identity');
