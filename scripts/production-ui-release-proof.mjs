@@ -16,6 +16,8 @@ const root=await get('/');
 assert.equal(root.response.headers.get('x-thebe-source-sha'),release.sourceSha);
 assert(root.body.includes(`name="thebe-assets-release" content="${release.sourceSha}"`));
 assert(root.body.includes('thebe-dock-recovery-geometry-v269.js?release='+release.sourceSha),'current dock recovery is delivered');
+const pricing=await get('/pricing/');
+assert(pricing.body.includes('.pricegrid .pricecard{display:none;flex-direction:column;align-items:stretch;'),'live pricing card layout');
 const hash=value=>createHash('sha256').update(value).digest('hex');
 for(const asset of ['/js/property-visibility-v230.js','/assets/property-visibility-v230.css','/assets/property-operations-v262.css','/assets/property-optimise-v263.css','/assets/property-compare-v264.css','/js/thebe-dock-recovery-geometry-v269.js']){
   const live=await get(asset+'?release='+release.sourceSha);
