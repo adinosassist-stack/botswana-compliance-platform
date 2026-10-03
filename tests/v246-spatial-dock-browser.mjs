@@ -99,6 +99,7 @@ try{
  await page.evaluate(()=>window.ThebeAiDock.close());
  await page.waitForFunction(()=>getComputedStyle(document.getElementById('mainContent')).visibility!=='hidden');
  await page.setViewportSize({width:1024,height:844});
+ await page.locator('#thebeAiDock').waitFor({state:'visible'});
  assert(await page.locator('#thebeAiDock').isVisible(),'desktop rail returns at desktop breakpoint');
  await page.setViewportSize({width:1023,height:844});
  await page.waitForFunction(()=>!document.body.classList.contains('thebe-ai-dock-open')&&getComputedStyle(document.getElementById('mainContent')).visibility!=='hidden');
