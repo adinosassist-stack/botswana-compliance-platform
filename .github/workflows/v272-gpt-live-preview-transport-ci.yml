@@ -6,7 +6,10 @@ on:
       - "cloudflare/src/agentic-live-preview.js"
       - "cloudflare/src/agentic-entry.js"
       - "cloudflare/src/agentic-live-voice-v270.js"
+      - "cloudflare/src/asset-release-identity.js"
+      - "public/js/thebe-live-preview-fallback-v272.js"
       - "tests/v272-gpt-live-preview-transport.mjs"
+      - "tests/v272-client-preview-fallback.mjs"
       - ".github/workflows/v272-gpt-live-preview-transport-ci.yml"
       - "docs/releases/v272-gpt-live-preview-transport.md"
   push:
@@ -27,13 +30,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Syntax check preview transport
+      - name: Syntax check preview transport and selector
         run: |
           node --check cloudflare/src/agentic-live-preview.js
           node --check cloudflare/src/agentic-entry.js
+          node --check public/js/thebe-live-preview-fallback-v272.js
       - name: Preserve V271 event compatibility
         run: node tests/v271-gpt-live-event-compat-evals.mjs
       - name: Qualify V272 isolated preview transport
         run: node tests/v272-gpt-live-preview-transport.mjs
+      - name: Qualify fail-closed browser preview selector
+        run: node tests/v272-client-preview-fallback.mjs
       - name: Preserve production Realtime guard
         run: node tests/v101-gpt-live-voice-foundation.mjs
