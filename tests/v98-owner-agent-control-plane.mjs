@@ -3,6 +3,7 @@ import fs from "node:fs";
 import {loadTenantOperatorTelemetry} from "../cloudflare/src/agentic-control-plane.js";
 
 const source=fs.readFileSync("public/js/owner-command-centre.js","utf8");
+const executiveSource=fs.readFileSync("public/js/executive-personalization.js","utf8");
 const controlPlaneSource=fs.readFileSync("cloudflare/src/agentic-control-plane.js","utf8");
 
 assert.match(source,/\/api\/agentic\/task-execution\/status/);
@@ -44,6 +45,18 @@ const telemetrySection=controlPlaneSource.slice(
 );
 assert.ok(telemetrySection.length>500,"operator telemetry implementation should be present");
 assert.doesNotMatch(telemetrySection,/\b(?:INSERT|UPDATE|DELETE|REPLACE)\b/i,"operator telemetry must stay read-only");
+
+// V261 UI is intentionally compact, read-only and explicit about unavailable spend metering.
+assert.match(executiveSource,/20261002-v261-agent-operator-telemetry/);
+assert.match(executiveSource,/ownerAgentOperatorTelemetry/);
+assert.match(executiveSource,/\/api\/agentic\/control-plane\/operator-telemetry/);
+assert.match(executiveSource,/Agent activity & cost/);
+assert.match(executiveSource,/Provider cost/);
+assert.match(executiveSource,/Not metered/);
+assert.match(executiveSource,/cannot mutate state or grant authority/);
+assert.match(executiveSource,/TELEMETRY_TTL_MS=30000/);
+assert.doesNotMatch(executiveSource,/control-plane\/agents\/.*\/state/);
+assert.doesNotMatch(executiveSource,/drift\/evaluate/);
 
 const calls=[];
 const tenant="tenant-v261";
