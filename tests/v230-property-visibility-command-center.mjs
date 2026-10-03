@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
 const visibility=fs.readFileSync("public/js/property-visibility-v230.js","utf8");
 const visibilityCss=fs.readFileSync("public/assets/property-visibility-v230.css","utf8");
+const operationsCss=fs.readFileSync("public/assets/property-operations-v262.css","utf8");
 const commandCss=fs.readFileSync("public/assets/workspace-command-center-v230.css","utf8");
 
 assert.ok(production.includes('const PROPERTY_VISIBILITY_CSS_ASSET="/assets/property-visibility-v230.css";'));
@@ -23,6 +24,8 @@ assert.match(visibility,/property-analyse-button/);
 assert.match(visibility,/view\.dataset\.propertyVisibility=ok\?"ready":"repairing"/);
 assert.doesNotMatch(visibility,/fetch\(|XMLHttpRequest|apiJson|method:"POST"/,
   "Property visibility repair must be presentation-only and never mutate or fetch application state");
+assert.doesNotMatch(visibility,/\.innerHTML\s*=/,
+  "Property presentation code must not bypass DOM-safety with native innerHTML assignments");
 
 assert.match(visibilityCss,/#propertyintelligence\.view\.active\{/);
 assert.match(visibilityCss,/\.property-layout-v224\{[\s\S]*display:block!important/);
@@ -38,8 +41,9 @@ assert.match(commandCss,/\.owner-signal-list\{[\s\S]*grid-template-columns:repea
 assert.match(commandCss,/#dashboard \.home-status-strip\{[\s\S]*gap:8px/,
   "Home management status should remain a compact scan row");
 
-// V261: Property behaves as a focused product workspace, while Property AI remains grounded and full-screen.
-assert.match(visibility,/const COMPACT_RELEASE="20261003-property-workspace-v261"/);
+// V262: Property remains a focused product workspace and gains a truthful post-acquisition operations command centre.
+assert.match(visibility,/const COMPACT_RELEASE="20261003-property-workspace-v262"/);
+assert.match(visibility,/const OPERATIONS_RELEASE="20261003-property-operations-v262"/);
 for(const [label,pane] of [["Today","today"],["Properties","properties"],["Analyse","analyse"],["Operations","operations"]]){
   assert.ok(visibility.includes(`compactButton("${label}","${pane}")`),`compact Property navigation missing ${label}`);
 }
@@ -59,6 +63,20 @@ assert.match(visibility,/Open voice/);
 assert.match(visibility,/setPane:setPropertyPane/);
 assert.match(visibility,/updateOverview:updatePropertyOverview/);
 
+assert.match(visibility,/href="\/assets\/property-operations-v262\.css"/);
+assert.match(visibility,/property-operations-v262/);
+assert.match(visibility,/Run the asset after acquisition/);
+assert.match(visibility,/Tenant, payment, maintenance and expense records are not treated as live until those data sources are connected/);
+assert.match(visibility,/Lease & tenant/);
+assert.match(visibility,/Rent collection/);
+assert.match(visibility,/Maintenance/);
+assert.match(visibility,/Expenses/);
+assert.match(visibility,/Connect data/);
+assert.match(visibility,/openPropertyAiWithPrompt/);
+assert.match(visibility,/operationsRelease:OPERATIONS_RELEASE/);
+assert.match(visibility,/updateOperations:updatePropertyOperations/);
+assert.match(visibility,/operationsMounted/);
+
 assert.match(visibilityCss,/#propertyintelligence\.property-compact-v260/);
 assert.match(visibilityCss,/\.property-primary-v260/);
 assert.match(visibilityCss,/data-property-active-pane="today"/);
@@ -72,4 +90,14 @@ assert.match(visibilityCss,/#aiAdvisorQuestion/);
 assert.match(visibilityCss,/\.copilot-compose/);
 assert.match(visibilityCss,/env\(safe-area-inset-bottom\)/);
 
-console.log("PASS: V261 keeps Property compact and visible, adds focused workspace modes with a live yield overview, hardens overflow, and preserves full-screen grounded Property AI.");
+assert.match(operationsCss,/V262 Property Operations/);
+assert.match(operationsCss,/\.property-operations-v262/);
+assert.match(operationsCss,/\.property-ops-metrics-v262\{[\s\S]*grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+assert.match(operationsCss,/\.property-ops-grid-v262\{[\s\S]*grid-template-columns:220px minmax\(0,1fr\)/);
+assert.match(operationsCss,/\.property-ops-ring-v262/);
+assert.match(operationsCss,/conic-gradient/);
+assert.match(operationsCss,/data-property-active-pane="operations"/);
+assert.match(operationsCss,/@media\(max-width:760px\)/);
+assert.match(operationsCss,/@media\(max-width:420px\)/);
+
+console.log("PASS: V262 keeps Property compact and visible, adds truthful post-acquisition operations with AI-assisted setup, and preserves full-screen grounded Property AI.");
