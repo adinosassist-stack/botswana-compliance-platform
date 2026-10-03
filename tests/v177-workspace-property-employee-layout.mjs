@@ -174,9 +174,9 @@ assert.match(ownerCommand,/infographic\.id="propertyPortfolioVisuals"/,"Property
 assert.match(ownerCommand,/servicePanel=document\.createElement\("details"\)/,"professional valuation request workflow must default to a compact disclosure");
 assert.match(ownerCommand,/property-service-summary/,"professional valuation disclosure must retain a prominent summary surface");
 assert.match(ownerCommand,/if\(panel\.tagName==="DETAILS"\)panel\.open=true/,"contextual valuation CTA must expand the collapsed workflow");
-assert.match(propertyReferenceCss,/\.property-layout-v224\{display:block;max-width:680px;margin:0 auto\}/,"Property workspace must keep the compact centered calculator contract");
+assert.match(propertyReferenceCss,/\.property-layout-v224\{display:block;width:min\(100%,680px\);max-width:100%;min-width:0;margin:0 auto;box-sizing:border-box\}/,"Property workspace must keep the compact shrink-safe calculator shell");
 assert.match(commandCenterCss,/#propertyintelligence \.property-layout-v224\{\s*max-width:720px!important;/,"command-center layer must keep Property bounded instead of stretching across the workspace");
-assert.match(propertyReferenceCss,/@media\(max-width:620px\)\{\s*\.property-layout-v224\{max-width:none\}/,"Property calculator must expand safely on smaller workspaces");
+assert.match(propertyReferenceCss,/@media\(max-width:620px\)\{\s*\.property-layout-v224\{width:100%;max-width:100%;margin:0\}/,"Property calculator must use the full available width on smaller workspaces");
 
 
 assert.match(propertyFragment,/visual-summary-shell/,"dense assurance surfaces must use one primary visual summary");
