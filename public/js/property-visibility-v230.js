@@ -1,10 +1,11 @@
 (function(global){
   "use strict";
   const RELEASE="20261001-property-visible-v230";
-  const COMPACT_RELEASE="20261003-property-workspace-v263";
+  const COMPACT_RELEASE="20261003-property-workspace-v264";
   const OPERATIONS_RELEASE="20261003-property-operations-v262";
   const OPTIMISE_RELEASE="20261003-property-optimise-v263";
-  const PROPERTY_PANES=new Set(["today","properties","analyse","operations","optimise"]);
+  const COMPARE_RELEASE="20261003-property-compare-v264";
+  const PROPERTY_PANES=new Set(["today","properties","analyse","operations","optimise","compare"]);
   let propertyAiPending=false;
   let propertyAiDraft="";
   let compactObserver=null;
@@ -127,7 +128,7 @@
     const metrics=document.createElement("div");metrics.className="property-overview-metrics-v261";
     metrics.append(createMetric("Purchase price","property-overview-price-v261"),createMetric("Monthly rent","property-overview-rent-v261"),createMetric("Annual rent","property-overview-annual-v261"));
     const actions=document.createElement("div");actions.className="property-overview-actions-v261";
-    actions.append(createOverviewAction("Properties","properties"),createOverviewAction("Analyse deal","analyse"),createOverviewAction("Operations","operations"));
+    actions.append(createOverviewAction("Properties","properties"),createOverviewAction("Analyse deal","analyse"),createOverviewAction("Operations","operations"),createOverviewAction("Compare","compare"));
     summary.append(heading,metrics,actions);
     overview.append(yieldCard,summary);
 
@@ -404,6 +405,161 @@
     }
   }
 
+  function ensureCompareStyles(){
+    if(document.querySelector('link[data-thebe-property-compare-v264="true"]'))return true;
+    const link=document.createElement("link");
+    link.rel="stylesheet";
+    link.href="/assets/property-compare-v264.css";
+    link.dataset.thebePropertyCompareV264="true";
+    document.head.append(link);
+    return true;
+  }
+
+  function readCompareScenario(prefix,fallbackName){
+    const name=String(document.getElementById(`${prefix}Name`)?.value||"").trim()||fallbackName;
+    const price=parseMoney(document.getElementById(`${prefix}Price`)?.value||"");
+    const rent=parseMoney(document.getElementById(`${prefix}Rent`)?.value||"");
+    const grossYield=price>0&&rent>0?(rent*12/price)*100:0;
+    return {name,price,rent,annualRent:rent*12,grossYield,complete:price>0&&rent>0};
+  }
+
+  function currentCompareScenario(){
+    const snapshot=propertySnapshot();
+    return {name:snapshot.name,price:snapshot.price,rent:snapshot.rent,annualRent:snapshot.rent*12,grossYield:snapshot.grossYield,complete:snapshot.price>0&&snapshot.rent>0};
+  }
+
+  function createCompareInput(label,id,placeholder,type="text"){
+    const wrap=document.createElement("label");wrap.className="property-compare-field-v264";wrap.htmlFor=id;
+    const caption=document.createElement("span");caption.textContent=label;
+    const input=document.createElement("input");input.id=id;input.type=type;input.placeholder=placeholder;input.autocomplete="off";
+    if(type==="number"){input.min="0";input.step="100";input.inputMode="decimal"}
+    input.addEventListener("input",updatePropertyCompare);
+    wrap.append(caption,input);
+    return wrap;
+  }
+
+  function createCompareMetricRow(label,key){
+    const row=document.createElement("div");row.className="property-compare-row-v264";row.dataset.compareMetric=key;
+    const name=document.createElement("b");name.textContent=label;
+    const current=document.createElement("span");current.className=`property-compare-current-${key}-v264`;current.textContent="—";
+    const b=document.createElement("span");b.className=`property-compare-b-${key}-v264`;b.textContent="—";
+    const c=document.createElement("span");c.className=`property-compare-c-${key}-v264`;c.textContent="—";
+    row.append(name,current,b,c);
+    return row;
+  }
+
+  function createCompareSignal(label,className){
+    const card=document.createElement("div");card.className="property-compare-signal-v264";
+    const caption=document.createElement("span");caption.textContent=label;
+    const value=document.createElement("strong");value.className=className;value.textContent="Need inputs";
+    const note=document.createElement("small");note.textContent="Objective signal from entered values only";
+    card.append(caption,value,note);
+    return card;
+  }
+
+  function propertyComparePrompt(){
+    const scenarios=[currentCompareScenario(),readCompareScenario("propertyCompareB","Alternative 1"),readCompareScenario("propertyCompareC","Alternative 2")];
+    const describe=scenario=>`${scenario.name}: purchase price ${formatPula(scenario.price)}, monthly rent ${formatPula(scenario.rent)}, gross yield ${scenario.grossYield>0?`${scenario.grossYield.toFixed(1)}%`:"unavailable"}`;
+    return `Compare these user-entered property scenarios: ${scenarios.map(describe).join("; ")}. Explain the trade-offs visible from price, rent, annual rent and gross yield only. State which inputs are missing for deeper analysis, separate facts from assumptions, and do not choose an investment outcome for me.`;
+  }
+
+  function mountPropertyCompare(){
+    const view=document.getElementById("propertyintelligence");
+    if(!view)return null;
+    let shell=view.querySelector(".property-compare-v264");
+    if(shell)return shell;
+    ensureCompareStyles();
+    shell=document.createElement("section");
+    shell.className="property-compare-v264";
+    shell.dataset.propertyPane="compare";
+    shell.dataset.propertyCompareRelease=COMPARE_RELEASE;
+    shell.setAttribute("aria-label","Property comparison workspace");
+
+    const head=document.createElement("div");head.className="property-compare-head-v264";
+    const copy=document.createElement("div");copy.className="property-compare-copy-v264";
+    const eyebrow=document.createElement("span");eyebrow.className="property-compare-eyebrow-v264";eyebrow.textContent="COMPARE";
+    const title=document.createElement("h3");title.className="property-compare-title-v264";title.textContent="Compare assets without fabricated comparables";
+    const note=document.createElement("p");note.className="property-compare-note-v264";note.textContent="The current deal is compared with up to two alternatives you enter. Thebe calculates only direct input-derived metrics; this is not a live market feed or investment recommendation.";
+    copy.append(eyebrow,title,note);
+    const ai=document.createElement("button");ai.type="button";ai.className="property-compare-ai-v264";ai.textContent="Ask Property AI";ai.addEventListener("click",()=>openPropertyAiWithPrompt(propertyComparePrompt()));
+    head.append(copy,ai);
+
+    const candidates=document.createElement("div");candidates.className="property-compare-candidates-v264";
+    const current=document.createElement("div");current.className="property-compare-card-v264 property-compare-current-card-v264";
+    const currentLabel=document.createElement("span");currentLabel.className="property-compare-card-label-v264";currentLabel.textContent="CURRENT DEAL";
+    const currentName=document.createElement("strong");currentName.className="property-compare-current-name-v264";currentName.textContent="Current property scenario";
+    const currentDetail=document.createElement("small");currentDetail.className="property-compare-current-detail-v264";currentDetail.textContent="Add purchase price and rent in Analyse to complete this baseline.";
+    current.append(currentLabel,currentName,currentDetail);
+
+    const altB=document.createElement("div");altB.className="property-compare-card-v264 property-compare-input-card-v264";altB.dataset.compareCard="b";
+    const altBLabel=document.createElement("span");altBLabel.className="property-compare-card-label-v264";altBLabel.textContent="ALTERNATIVE 1";
+    altB.append(altBLabel,createCompareInput("Name","propertyCompareBName","Alternative 1"),createCompareInput("Purchase price","propertyCompareBPrice","0","number"),createCompareInput("Monthly rent","propertyCompareBRent","0","number"));
+
+    const altC=document.createElement("div");altC.className="property-compare-card-v264 property-compare-input-card-v264";altC.dataset.compareCard="c";
+    const altCLabel=document.createElement("span");altCLabel.className="property-compare-card-label-v264";altCLabel.textContent="ALTERNATIVE 2";
+    altC.append(altCLabel,createCompareInput("Name","propertyCompareCName","Alternative 2"),createCompareInput("Purchase price","propertyCompareCPrice","0","number"),createCompareInput("Monthly rent","propertyCompareCRent","0","number"));
+    candidates.append(current,altB,altC);
+
+    const matrix=document.createElement("div");matrix.className="property-compare-matrix-v264";
+    const matrixHead=document.createElement("div");matrixHead.className="property-compare-row-v264 property-compare-row-head-v264";
+    const metric=document.createElement("b");metric.textContent="Metric";
+    const headCurrent=document.createElement("span");headCurrent.textContent="Current";
+    const headB=document.createElement("span");headB.textContent="Alt 1";
+    const headC=document.createElement("span");headC.textContent="Alt 2";
+    matrixHead.append(metric,headCurrent,headB,headC);
+    matrix.append(matrixHead,createCompareMetricRow("Purchase price","price"),createCompareMetricRow("Monthly rent","rent"),createCompareMetricRow("Annual rent","annual"),createCompareMetricRow("Gross yield","yield"));
+
+    const signals=document.createElement("div");signals.className="property-compare-signals-v264";
+    signals.append(createCompareSignal("Lowest entered price","property-compare-lowest-price-v264"),createCompareSignal("Highest entered rent","property-compare-highest-rent-v264"),createCompareSignal("Highest entered gross yield","property-compare-highest-yield-v264"));
+
+    const actions=document.createElement("div");actions.className="property-compare-actions-v264";
+    const compare=document.createElement("button");compare.type="button";compare.className="property-compare-action-v264";compare.textContent="Compare trade-offs";compare.addEventListener("click",()=>openPropertyAiWithPrompt(propertyComparePrompt()));
+    const missing=document.createElement("button");missing.type="button";missing.className="property-compare-action-v264";missing.textContent="List deeper-analysis inputs";missing.addEventListener("click",()=>openPropertyAiWithPrompt("For the property scenarios currently entered in Compare, list the additional inputs required for financing, DSCR, operating cash flow, capex, tax and exit analysis. Do not invent values and do not select an investment."));
+    actions.append(compare,missing);
+    shell.append(head,candidates,matrix,signals,actions);
+
+    const optimise=view.querySelector(".property-optimise-v263");
+    if(optimise)optimise.insertAdjacentElement("afterend",shell);else view.append(shell);
+    updatePropertyCompare();
+    return shell;
+  }
+
+  function updatePropertyCompare(){
+    const shell=document.querySelector("#propertyintelligence .property-compare-v264");
+    if(!shell)return;
+    const current=currentCompareScenario();
+    const b=readCompareScenario("propertyCompareB","Alternative 1");
+    const c=readCompareScenario("propertyCompareC","Alternative 2");
+    const scenarios=[current,b,c];
+    const set=(selector,value)=>{const node=shell.querySelector(selector);if(node)node.textContent=value};
+    set(".property-compare-current-name-v264",current.name);
+    set(".property-compare-current-detail-v264",current.complete?`${formatPula(current.price)} · ${formatPula(current.rent)}/month · ${current.grossYield.toFixed(1)}% gross yield`:"Add purchase price and rent in Analyse to complete this baseline.");
+    const keys=[
+      ["price",scenario=>formatPula(scenario.price)],
+      ["rent",scenario=>formatPula(scenario.rent)],
+      ["annual",scenario=>formatPula(scenario.annualRent)],
+      ["yield",scenario=>scenario.grossYield>0?`${scenario.grossYield.toFixed(1)}%`:"—"]
+    ];
+    for(const [key,format] of keys){
+      set(`.property-compare-current-${key}-v264`,format(current));
+      set(`.property-compare-b-${key}-v264`,format(b));
+      set(`.property-compare-c-${key}-v264`,format(c));
+    }
+    const priced=scenarios.filter(scenario=>scenario.price>0);
+    const rented=scenarios.filter(scenario=>scenario.rent>0);
+    const yielded=scenarios.filter(scenario=>scenario.grossYield>0);
+    const lowest=priced.length?priced.reduce((best,scenario)=>scenario.price<best.price?scenario:best):null;
+    const highestRent=rented.length?rented.reduce((best,scenario)=>scenario.rent>best.rent?scenario:best):null;
+    const highestYield=yielded.length?yielded.reduce((best,scenario)=>scenario.grossYield>best.grossYield?scenario:best):null;
+    set(".property-compare-lowest-price-v264",lowest?`${lowest.name} · ${formatPula(lowest.price)}`:"Need inputs");
+    set(".property-compare-highest-rent-v264",highestRent?`${highestRent.name} · ${formatPula(highestRent.rent)}`:"Need inputs");
+    set(".property-compare-highest-yield-v264",highestYield?`${highestYield.name} · ${highestYield.grossYield.toFixed(1)}%`:"Need inputs");
+    const bCard=shell.querySelector('[data-compare-card="b"]');
+    const cCard=shell.querySelector('[data-compare-card="c"]');
+    bCard?.classList.toggle("ready",b.complete);
+    cCard?.classList.toggle("ready",c.complete);
+  }
+
   function paneTarget(view,pane){
     if(pane==="today")return view?.querySelector(".property-overview-v261");
     return view?.querySelector(`[data-property-pane="${pane}"]`);
@@ -455,12 +611,13 @@
     view.dataset.propertyCompactRelease=COMPACT_RELEASE;
     ensureOperationsStyles();
     ensureOptimiseStyles();
+    ensureCompareStyles();
     if(!view.querySelector(".property-primary-v260")){
       const nav=document.createElement("nav");
       nav.className="property-primary-v260";
       nav.setAttribute("aria-label","Property workspace");
       nav.setAttribute("role","tablist");
-      nav.append(compactButton("Today","today"),compactButton("Properties","properties"),compactButton("Analyse","analyse"),compactButton("Operations","operations"),compactButton("Optimise","optimise"));
+      nav.append(compactButton("Today","today"),compactButton("Properties","properties"),compactButton("Analyse","analyse"),compactButton("Operations","operations"),compactButton("Optimise","optimise"),compactButton("Compare","compare"));
       const hero=view.querySelector(".property-hero-compact");
       if(hero)hero.insertAdjacentElement("afterend",nav);else view.prepend(nav);
     }
@@ -473,6 +630,7 @@
     mountPropertyOverview();
     mountPropertyOperations();
     mountPropertyOptimise();
+    mountPropertyCompare();
     setPropertyPane(view.dataset.propertyActivePane||"today");
     return true;
   }
@@ -588,6 +746,7 @@
     updatePropertyOverview();
     updatePropertyOperations();
     updatePropertyOptimise();
+    updatePropertyCompare();
   }
 
   function schedule(){
@@ -627,15 +786,17 @@
     compactRelease:COMPACT_RELEASE,
     operationsRelease:OPERATIONS_RELEASE,
     optimiseRelease:OPTIMISE_RELEASE,
+    compareRelease:COMPARE_RELEASE,
     repair:ensurePropertyVisible,
     mount:mountCompactPropertyChrome,
     setPane:setPropertyPane,
     updateOverview:updatePropertyOverview,
     updateOperations:updatePropertyOperations,
     updateOptimise:updatePropertyOptimise,
+    updateCompare:updatePropertyCompare,
     openAi:()=>{propertyAiPending=true;return mountPropertyAiToolbar()},
     openAiWithPrompt:openPropertyAiWithPrompt,
     closeAi:closePropertyAi,
-    state:()=>({ready:ensurePropertyVisible(),compact:!!document.getElementById("propertyintelligence")?.classList.contains("property-compact-v260"),pane:document.getElementById("propertyintelligence")?.dataset.propertyActivePane||"today",operationsMounted:!!document.querySelector("#propertyintelligence .property-operations-v262"),optimiseMounted:!!document.querySelector("#propertyintelligence .property-optimise-v263"),aiFullscreen:document.body.classList.contains("property-ai-fullscreen-v260")})
+    state:()=>({ready:ensurePropertyVisible(),compact:!!document.getElementById("propertyintelligence")?.classList.contains("property-compact-v260"),pane:document.getElementById("propertyintelligence")?.dataset.propertyActivePane||"today",operationsMounted:!!document.querySelector("#propertyintelligence .property-operations-v262"),optimiseMounted:!!document.querySelector("#propertyintelligence .property-optimise-v263"),compareMounted:!!document.querySelector("#propertyintelligence .property-compare-v264"),aiFullscreen:document.body.classList.contains("property-ai-fullscreen-v260")})
   });
 })(window);

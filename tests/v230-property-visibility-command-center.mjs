@@ -6,6 +6,7 @@ const visibility=fs.readFileSync("public/js/property-visibility-v230.js","utf8")
 const visibilityCss=fs.readFileSync("public/assets/property-visibility-v230.css","utf8");
 const operationsCss=fs.readFileSync("public/assets/property-operations-v262.css","utf8");
 const optimiseCss=fs.readFileSync("public/assets/property-optimise-v263.css","utf8");
+const compareCss=fs.readFileSync("public/assets/property-compare-v264.css","utf8");
 const commandCss=fs.readFileSync("public/assets/workspace-command-center-v230.css","utf8");
 
 assert.ok(production.includes('const PROPERTY_VISIBILITY_CSS_ASSET="/assets/property-visibility-v230.css";'));
@@ -42,14 +43,15 @@ assert.match(commandCss,/\.owner-signal-list\{[\s\S]*grid-template-columns:repea
 assert.match(commandCss,/#dashboard \.home-status-strip\{[\s\S]*gap:8px/,
   "Home management status should remain a compact scan row");
 
-// V263: compact Property modes now cover post-acquisition operations and scenario-driven optimisation.
-assert.match(visibility,/const COMPACT_RELEASE="20261003-property-workspace-v263"/);
+// V264: compact Property modes cover operations, optimisation and user-entered asset comparison.
+assert.match(visibility,/const COMPACT_RELEASE="20261003-property-workspace-v264"/);
 assert.match(visibility,/const OPERATIONS_RELEASE="20261003-property-operations-v262"/);
 assert.match(visibility,/const OPTIMISE_RELEASE="20261003-property-optimise-v263"/);
-for(const [label,pane] of [["Today","today"],["Properties","properties"],["Analyse","analyse"],["Operations","operations"],["Optimise","optimise"]]){
+assert.match(visibility,/const COMPARE_RELEASE="20261003-property-compare-v264"/);
+for(const [label,pane] of [["Today","today"],["Properties","properties"],["Analyse","analyse"],["Operations","operations"],["Optimise","optimise"],["Compare","compare"]]){
   assert.ok(visibility.includes(`compactButton("${label}","${pane}")`),`compact Property navigation missing ${label}`);
 }
-assert.match(visibility,/PROPERTY_PANES=new Set\(\["today","properties","analyse","operations","optimise"\]\)/);
+assert.match(visibility,/PROPERTY_PANES=new Set\(\["today","properties","analyse","operations","optimise","compare"\]\)/);
 assert.match(visibility,/view\.dataset\.propertyActivePane=pane/);
 assert.match(visibility,/property-overview-v261/);
 assert.match(visibility,/Gross annual yield/);
@@ -100,6 +102,23 @@ assert.match(visibility,/optimiseRelease:OPTIMISE_RELEASE/);
 assert.match(visibility,/updateOptimise:updatePropertyOptimise/);
 assert.match(visibility,/optimiseMounted/);
 
+assert.match(visibility,/href="\/assets\/property-compare-v264\.css"/);
+assert.match(visibility,/property-compare-v264/);
+assert.match(visibility,/Compare assets without fabricated comparables/);
+assert.match(visibility,/this is not a live market feed or investment recommendation/);
+assert.match(visibility,/propertyCompareBPrice/);
+assert.match(visibility,/propertyCompareBRent/);
+assert.match(visibility,/propertyCompareCPrice/);
+assert.match(visibility,/propertyCompareCRent/);
+assert.match(visibility,/const grossYield=price>0&&rent>0\?\(rent\*12\/price\)\*100:0/);
+assert.match(visibility,/Lowest entered price/);
+assert.match(visibility,/Highest entered rent/);
+assert.match(visibility,/Highest entered gross yield/);
+assert.match(visibility,/do not choose an investment outcome for me/);
+assert.match(visibility,/compareRelease:COMPARE_RELEASE/);
+assert.match(visibility,/updateCompare:updatePropertyCompare/);
+assert.match(visibility,/compareMounted/);
+
 assert.match(visibilityCss,/#propertyintelligence\.property-compact-v260/);
 assert.match(visibilityCss,/\.property-primary-v260/);
 assert.match(visibilityCss,/data-property-active-pane="today"/);
@@ -132,4 +151,14 @@ assert.match(optimiseCss,/\.property-opt-levers-v263\{[\s\S]*grid-template-colum
 assert.match(optimiseCss,/@media\(max-width:760px\)/);
 assert.match(optimiseCss,/@media\(max-width:480px\)/);
 
-console.log("PASS: V263 keeps Property compact and visible, preserves truthful Operations, adds scenario-driven Optimise decision support, and retains grounded full-screen Property AI.");
+assert.match(compareCss,/V264 Property Compare/);
+assert.match(compareCss,/data-property-active-pane="compare"/);
+assert.match(compareCss,/\.property-compare-v264/);
+assert.match(compareCss,/\.property-compare-candidates-v264\{[\s\S]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+assert.match(compareCss,/\.property-compare-row-v264\{[\s\S]*grid-template-columns:minmax\(110px,1\.15fr\) repeat\(3,minmax\(0,1fr\)\)/);
+assert.match(compareCss,/\.property-compare-signals-v264\{[\s\S]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+assert.match(compareCss,/@media\(max-width:760px\)/);
+assert.match(compareCss,/@media\(max-width:480px\)/);
+assert.match(compareCss,/overflow-wrap:anywhere/);
+
+console.log("PASS: V264 keeps Property compact and visible, preserves truthful Operations and Optimise, adds input-driven Compare decision support, and retains grounded full-screen Property AI.");
