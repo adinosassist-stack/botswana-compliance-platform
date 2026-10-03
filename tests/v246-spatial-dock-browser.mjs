@@ -36,7 +36,7 @@ try{
  assert(compactVoice.dockScrollWidth<=compactVoice.dockClientWidth+1,`dock text must not spill horizontally: ${JSON.stringify(compactVoice)}`);
  assert(compactVoice.answerScrollWidth<=compactVoice.answerClientWidth+1,`AI answer must wrap inside the dock: ${JSON.stringify(compactVoice)}`);
  assert(compactVoice.statusScrollWidth<=compactVoice.statusClientWidth+1,`voice status must wrap inside the dock: ${JSON.stringify(compactVoice)}`);
- const normalDockWidths=new Map([[1440,304],[1200,304],[1199,280],[1180,280],[1024,280]]);
+ const normalDockWidths=new Map([[1440,272],[1200,272],[1199,256],[1180,256],[1024,256]]);
  for(const [width,expectedDockWidth] of normalDockWidths){
   await page.setViewportSize({width,height:960});
   await page.waitForFunction(expected=>Math.abs(document.getElementById('thebeAiDock').getBoundingClientRect().width-expected)<=1,expectedDockWidth);
@@ -51,7 +51,7 @@ try{
  await page.setViewportSize({width:1440,height:960});
  if(process.env.THEBE_SCREENSHOT_DIR){fs.mkdirSync(process.env.THEBE_SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.THEBE_SCREENSHOT_DIR,'dock-desktop.png')})}
  await page.getByRole('button',{name:'Expand Thebe panel',exact:true}).click();
- const expandedDockWidths=new Map([[1440,400],[1200,400],[1199,360],[1024,360]]);
+ const expandedDockWidths=new Map([[1440,344],[1200,344],[1199,324],[1024,324]]);
  for(const [width,expectedDockWidth] of expandedDockWidths){
   await page.setViewportSize({width,height:960});
   await page.waitForFunction(expected=>Math.abs(document.getElementById('thebeAiDock').getBoundingClientRect().width-expected)<=1,expectedDockWidth);

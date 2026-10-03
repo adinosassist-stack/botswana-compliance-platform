@@ -650,3 +650,17 @@
 
 /* v257 Market discovery surface */
 .market-v257-hero{display:grid;grid-template-columns:1.05fr .95fr;gap:16px;align-items:center;padding:18px!important}.market-v257-copy h2{font-size:clamp(25px,3vw,38px)!important;line-height:1.04}.market-v257-start{background:#fff!important;color:#0f172a!important}.market-v257-visual{position:relative}.market-v257-visual img{width:100%;height:210px;object-fit:cover;border-radius:12px}.market-v257-signal{position:absolute;inset:auto 10px 10px;background:#071522e6;color:#fff;padding:8px;display:flex;justify-content:space-between;font-size:11px}.market-v257-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:8px 0}.market-v257-stats>div{display:flex;justify-content:space-between;border:1px solid var(--line);padding:8px}.market-v257-stats span,.market-v257-boundary summary{font-size:11px;color:var(--muted)}.market-v257-boundary{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}@media(max-width:900px){.market-v257-hero{grid-template-columns:1fr}.market-v257-signal{position:static}.market-v257-stats{grid-template-columns:repeat(2,1fr)}}@media(max-width:520px){.market-v257-hero{padding:14px!important}.market-v257-visual img{height:145px}.market-v257-actions .btn{flex:1}.market-v257-body{grid-template-columns:1fr!important}.market-v257-signal{display:block}}
+
+/* V265 surface-specific containment and compactness */
+#dashboard .owner-today-card,#dashboard .home-queue-card,#dashboard .daily-change-card,#dashboard .home-signal-card,#workhub .management-review-card,#evidencehub .proof-summary-card,#evidencehub .proof-work-card{min-width:0;overflow:hidden}
+#dashboard .home-action-copy,#dashboard .home-queue-head,#dashboard .daily-change-card,#dashboard .home-signal-card{overflow-wrap:anywhere}
+.market-v257-copy,.market-v257-visual,.market-v257-stats>div{min-width:0}
+.market-v257-stats>div{gap:8px;align-items:flex-start}
+.market-v257-stats>div>*{min-width:0;overflow-wrap:anywhere}
+.market-v257-signal{gap:8px;flex-wrap:wrap}
+#workhub .management-review-metrics span,#evidencehub .proof-summary-card,#evidencehub .proof-work-card{min-width:0;overflow-wrap:anywhere}
+@media(max-width:760px){.market-v257-stats{grid-template-columns:1fr 1fr}.market-v257-stats>div{display:grid;gap:3px}.market-v257-actions{display:grid;grid-template-columns:1fr}.market-v257-actions .btn{width:100%}}
+@media(max-width:390px){.market-v257-stats{grid-template-columns:1fr}}
+
+/* V268 shrink-safe shared workspace controls. */
+#appShell :where(.card,h1,h2,p,.row>*,.grid>*,button,input){min-width:0;max-width:100%;overflow-wrap:anywhere}
