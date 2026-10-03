@@ -2460,15 +2460,7 @@ body.thebe-ai-dock-open .property-valuation-service-card .formgrid{grid-template
 
 .previewmode{display:none}.standalone-preview .previewmode{display:block}
 
-/*V265 overflow*/
-#appShell :is(.card,.notice,.callout,.hub-hero,h1,h2,h3,h4,h5,h6,p,label,small,.muted,.owner-agentic-panel,.owner-agentic-proposal){min-width:0;max-width:100%;overflow-wrap:anywhere}
-#appShell :is(.row,.between,.actions,.formgrid,.grid)>*{min-width:0;max-width:100%}
-#appShell :is(.btn,button){max-width:100%;white-space:normal;overflow-wrap:anywhere}
-#appShell :is(input,select,textarea){min-width:0;max-width:100%}
-#appShell :is(.badge,.pill,.rolechip){max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#appShell a:not(.btn){overflow-wrap:anywhere}
-#appShell :is(.mobile-table-wrap,.tablewrap,.table-scroll){max-width:100%;overflow-x:auto}
-@media(max-width:760px){#appShell :is(.between.row,.actions){flex-wrap:wrap}#appShell .between.row>.actions{width:100%}}
+#appShell :where(.card,.callout,h1,h2,h3,p,label,.row>*,.actions>*,.grid>*,button,input,select,textarea){min-width:0;max-width:100%;overflow-wrap:anywhere}#appShell button{white-space:normal}
 </style>
 <link id="thebe-employee-directory-styles" rel="stylesheet" href="/assets/employee-directory-v188.css" />
 </head>
