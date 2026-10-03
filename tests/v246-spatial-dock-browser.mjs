@@ -23,11 +23,11 @@ try{
   const geometry=await page.evaluate(()=>{const d=document.getElementById('thebeAiDock').getBoundingClientRect(),m=document.getElementById('mainContent').getBoundingClientRect(),c=document.querySelector('.property-calculator-v224').getBoundingClientRect();return {dock:{left:d.left,right:d.right,width:d.width},main:{left:m.left,right:m.right},card:{left:c.left,right:c.right,width:c.width},recovery:document.getElementById('thebeAiDock').dataset.cssRecovery}});
   assert(Math.abs(geometry.dock.width-expectedDockWidth)<=1,`unexpected dock width at ${width}: expected ${expectedDockWidth}, got ${geometry.dock.width}`);
   assert(geometry.main.right<=geometry.dock.left,`dock overlaps business content at ${width}: ${JSON.stringify(geometry)}`);
-  assert(geometry.card.width<=1180&&geometry.card.width>0,`calculator must use the available canvas without overflow at ${width}: ${JSON.stringify(geometry)}`);
+  assert(geometry.card.width<=560&&geometry.card.width>0,`calculator must remain compact at ${width}: ${JSON.stringify(geometry)}`);
   await page.locator('#businessAction').click();
  }
  await page.evaluate(()=>{document.querySelector('.property-calculator-v224').style.setProperty('max-width','none','important');window.ThebePropertyVisibility.repair()});
- assert((await page.locator('.property-calculator-v224').boundingBox()).width<=1180,'visibility recovery keeps responsive calculator geometry after a late style repair');
+ assert((await page.locator('.property-calculator-v224').boundingBox()).width<=560,'visibility recovery keeps compact calculator geometry after a late style repair');
  await page.setViewportSize({width:1440,height:960});
  if(process.env.THEBE_SCREENSHOT_DIR){fs.mkdirSync(process.env.THEBE_SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.THEBE_SCREENSHOT_DIR,'dock-desktop.png')})}
  await page.getByRole('button',{name:'Expand Thebe panel',exact:true}).click();
