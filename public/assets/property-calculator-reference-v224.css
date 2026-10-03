@@ -1,5 +1,7 @@
 /* V224 Property calculator — LeaseIQ-inspired compact interaction adapted to Thebe Desk. */
-.property-layout-v224{display:block;max-width:680px;margin:0 auto}
+.property-layout-v224{display:block;width:min(100%,680px);max-width:100%;min-width:0;margin:0 auto;box-sizing:border-box}
+.property-layout-v224,.property-calculator-v224{overflow:visible}
+.property-calculator-v224{width:100%;max-width:100%;min-width:0;box-sizing:border-box}
 .property-calculator-v224{padding:16px 16px 14px;border-radius:18px}
 .property-calculator-head-v224{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .property-calculator-title-v224{display:flex;align-items:center;gap:10px;min-width:0}
@@ -31,8 +33,10 @@
 .property-secondary-actions .btn{min-height:34px;padding:7px 10px;font-size:11px}
 .property-calculator-v224 .property-scenario-comparison{margin-top:8px}
 @media(max-width:620px){
-  .property-layout-v224{max-width:none}
-  .property-calculator-v224{padding:14px}
+  .property-layout-v224{width:100%;max-width:100%;margin:0}
+  .property-calculator-v224{padding:12px;border-radius:14px}
+  .property-calculator-head-v224{gap:8px}
+  .property-calculator-title-v224 p{display:none}
   .property-input-pair{grid-template-columns:1fr}
   .property-input-control input,.property-input-pair .property-input-control input{width:min(190px,45vw)!important}
   .property-result-grid-v224{grid-template-columns:repeat(2,minmax(0,1fr))!important}
