@@ -1,6 +1,7 @@
 (function bootstrapThebeDockRecoveryGeometry(global){
   "use strict";
   const RELEASE="20261003-emergency-dock-geometry-v269";
+  const RECOVERY_STYLE_ID="thebe-dock-recovery-geometry-v269-style";
   const managed=new Map();
   let queued=false;
 
@@ -22,6 +23,22 @@
     }
     const dockWidth=widthFor(width,expanded);
     return {position:"fixed",left:"auto",right:"16px",top:"88px",bottom:"auto",width:`${dockWidth}px`,"max-width":`${dockWidth}px`,height:"min(610px,calc(100dvh - 104px))","min-height":"0","max-height":"calc(100dvh - 104px)","border-radius":"20px","z-index":"900"};
+  }
+
+  function ensureRecoveryStyle(){
+    const document=global.document;
+    if(!document||document.getElementById(RECOVERY_STYLE_ID))return;
+    const style=document.createElement("style");
+    style.id=RECOVERY_STYLE_ID;
+    style.textContent=`
+#thebeAiDock[data-css-recovery="1"]{position:fixed!important;left:auto!important;right:16px!important;top:88px!important;bottom:auto!important;width:272px!important;max-width:272px!important;height:min(610px,calc(100dvh - 104px))!important;min-height:0!important;max-height:calc(100dvh - 104px)!important;border-radius:20px!important;z-index:900!important}
+#thebeAiDock[data-css-recovery="1"][data-expanded="true"]{width:344px!important;max-width:344px!important}
+#thebeAiDock[data-css-recovery="1"] .thebe-ai-orb-button{width:68px!important;min-width:68px!important;max-width:68px!important;height:68px!important;min-height:68px!important;max-height:68px!important;box-sizing:border-box!important;flex:0 0 68px!important}
+#thebeAiDock[data-css-recovery="1"] .thebe-ai-voice-card{grid-template-columns:68px minmax(0,1fr)!important;gap:8px!important}
+@media (min-width:1024px) and (max-width:1199px){#thebeAiDock[data-css-recovery="1"]{width:256px!important;max-width:256px!important}#thebeAiDock[data-css-recovery="1"][data-expanded="true"]{width:324px!important;max-width:324px!important}}
+@media (max-width:1023px){#thebeAiDock[data-css-recovery="1"],#thebeAiDock[data-css-recovery="1"][data-expanded="true"]{left:8px!important;right:8px!important;top:8px!important;bottom:calc(104px + env(safe-area-inset-bottom))!important;width:auto!important;max-width:none!important;height:auto!important;min-height:0!important;max-height:calc(100dvh - 112px - env(safe-area-inset-bottom))!important;border-radius:20px!important;z-index:900!important}}
+`;
+    (document.head||document.documentElement||document.body)?.appendChild(style);
   }
 
   function setOwned(node,styles,{restore=true}={}){
@@ -92,6 +109,7 @@
       clearMarker(dock);
       return false;
     }
+    ensureRecoveryStyle();
     const width=viewportWidth();
     const expanded=dock.dataset.expanded==="true";
     setOwned(dock,geometryFor(width,expanded),{restore:false});

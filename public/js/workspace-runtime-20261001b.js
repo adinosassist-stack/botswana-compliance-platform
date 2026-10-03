@@ -1049,8 +1049,36 @@ async function renderPeopleOperationsHub(){
   set("peopleFollowupDetail",!riskReady||!casesReady?"Employment follow-up is incomplete. Refresh to retry.":`${high||0} high-priority control gap${high===1?"":"s"}${openCases?` · ${openCases} open employment case${openCases===1?"":"s"}`:""}${attention?` · ${attention} report flag${attention===1?"":"s"}`:""}.`);
   const progress=document.getElementById("peopleReportingProgress");
   if(progress){progress.hidden=coverage==null;progress.value=coverage??0;progress.setAttribute("aria-valuetext",coverage==null?"Reporting coverage unavailable":`${coverage}% reporting coverage`)}
+  renderPeopleInfographics({dash,coverage,high:riskReady?high:null,openCases:casesReady?openCases:null});
   const failed=results.filter(r=>r.status==="rejected").length;
   set("peopleRefreshStatus",failed?`${failed} source${failed===1?"":"s"} unavailable · refresh to retry`:`Updated ${new Intl.DateTimeFormat("en-BW",{timeZone:"Africa/Gaborone",hour:"2-digit",minute:"2-digit"}).format(new Date())} · Botswana time`);
+}
+
+
+function renderPeopleInfographics({dash,coverage,high,openCases}){
+  const mount=document.getElementById("peopleInfographicsMount");
+  if(mount&&!document.getElementById("peopleReportingDonut"))mount.safeHTML=`<div class="people-infographics" aria-label="People infographics "><article class="people-info-panel"><div class="people-info-heading"><h3>Today’s reporting</h3><span>Today</span></div><div class="people-report-ring-row"><div id="peopleReportingDonut" class="people-report-ring" role="img" aria-labelledby="peopleDonutTitle"><span id="peopleDonutTitle" class="people-info-sr">Reporting coverage</span><div id="peopleDonutArc" class="people-ring-value"></div><div class="people-ring-center"><span id="peopleDonutPercent" class="people-ring-percent">—</span><span class="people-ring-caption">received</span></div></div><div class="people-info-legend"><button type="button" data-view="dailyreports"><span class="people-info-dot"></span><span>Received</span><b id="peopleInfoReceived">—</b></button><button type="button" data-view="dailyreports"><span class="people-info-dot pending"></span><span>Awaiting</span><b id="peopleInfoAwaiting">—</b></button></div></div></article><article class="people-info-panel"><div class="people-info-heading"><h3>Reporting by location</h3><span id="peopleInfoTeamTotal">— locations</span></div><div id="peopleLocationBars" class="people-location-bars"></div><p class="people-info-foot">Received / expected reports.</p></article><article class="people-info-panel"><div class="people-info-heading"><h3>Follow-up</h3><span>Review items</span></div><div class="people-followup-flow"><button type="button" class="people-followup-step" data-view="employmentcontrols"><strong id="peopleInfoContractGaps">—</strong><span>Priority control gaps</span><span aria-hidden="true">→</span></button><button type="button" class="people-followup-step" data-view="employer"><strong id="peopleInfoCases">—</strong><span>Open cases</span><span aria-hidden="true">→</span></button></div><p class="people-info-foot">Review records and evidence.</p></article></div>`;
+
+  const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value};
+  const population=dash?.reportingPopulation;
+  const count=value=>value!=null&&Number.isFinite(Number(value))&&Number(value)>=0?Number(value):null;
+  const expected=count(population?.expected),received=count(population?.expectedSubmitted);
+  const awaiting=expected!=null&&received!=null?Math.max(0,expected-received):null;
+  const percent=expected===0?null:coverage;
+  const arc=document.getElementById("peopleDonutArc");
+  if(arc)arc.style.background=`conic-gradient(#3377bd ${percent??0}%,#eaf0f7 0)`;
+  set("peopleDonutPercent",percent==null?"—":percent+"%");
+  set("peopleDonutTitle",expected===0?"No reports expected today":percent==null?"Reporting coverage unavailable":`${percent}% reporting coverage. ${received==null?"Received count unavailable":received+" expected reports received"}; ${awaiting==null?"awaiting count unavailable":awaiting+" awaiting"}.`);
+  set("peopleInfoReceived",received??"—");set("peopleInfoAwaiting",awaiting??"—");
+  const branches=Array.isArray(dash?.branches)?dash.branches:null;
+  set("peopleInfoTeamTotal",branches?branches.length+" locations":"Unavailable");
+  const box=document.getElementById("peopleLocationBars");
+  if(box)box.safeHTML=branches?branches.length?branches.map(branch=>{
+    const expected=count(branch.expected),received=count(branch.submittedExpected),percent=expected>0&&received!=null?Math.min(100,received/expected*100):0;
+    const label=expected===0?"None due":expected!=null&&received!=null?`${received}/${expected}`:"Unavailable";
+    return `<button type="button" class="people-location-bar" data-hub-target="dailyreports" data-bw-onclick="showView('dailyreports')" aria-label="${escapeHtml(branch.name||"Location")}: ${escapeHtml(label)} expected reports received. Open daily reports."><span class="people-location-label"><span>${escapeHtml(branch.name||"Location")}</span><b>${escapeHtml(label)}</b></span><span class="people-bar-track" aria-hidden="true"><span class="people-bar-fill" style="width:${percent}%"></span></span></button>`;
+  }).join(""):'<p class="people-info-foot">No reporting locations configured.</p>':'<p class="people-info-foot">Location reporting unavailable. Refresh to retry.</p>';
+  set("peopleInfoContractGaps",high??"—");set("peopleInfoCases",openCases??"—");
 }
 
 async function refreshPeopleWorkspace(){

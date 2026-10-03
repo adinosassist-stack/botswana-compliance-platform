@@ -27,7 +27,10 @@ if(fs.existsSync('public/assets/people-workspace-20261003.css')){
   const people=await get('/assets/people-workspace-20261003.css?release='+release.sourceSha);
   assert.equal(hash(people.body),hash(fs.readFileSync('public/assets/people-workspace-20261003.css','utf8')),'People stylesheet: exact live bytes');
   const runtime=await get('/js/workspace-runtime-20261001b.js?release='+release.sourceSha);
-  for(const marker of ['async function refreshPeopleWorkspace()','peopleRefreshStatus','peopleReportingProgress'])assert(runtime.body.includes(marker),`People runtime missing ${marker}`);
+  const infographic=await get('/assets/people-infographics-20261003.css?release='+release.sourceSha);
+  assert.equal(hash(infographic.body),hash(fs.readFileSync('public/assets/people-infographics-20261003.css','utf8')),'People infographics: exact live bytes');
+  assert(root.body.includes('peopleInfographicsMount'),'People infographic markup delivered');
+  for(const marker of ['function renderPeopleInfographics(', 'async function refreshPeopleWorkspace()','peopleRefreshStatus','peopleReportingProgress'])assert(runtime.body.includes(marker),`People runtime missing ${marker}`);
 }
 if(fs.existsSync('public/js/thebe-live-preview-fallback-v272.js')){
   const bridge=await get('/js/thebe-live-preview-fallback-v272.js?release='+release.sourceSha);
