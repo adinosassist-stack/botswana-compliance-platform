@@ -2277,13 +2277,12 @@ body.thebe-ai-dock-open .property-valuation-service-card .formgrid{grid-template
 
 .previewmode{display:none}.standalone-preview .previewmode{display:block}
 
-/* V265 workspace overflow hardening */
-#appShell .card,#appShell .notice,#appShell .callout,#appShell .hub-hero,#appShell .owner-agentic-panel,#appShell .owner-agentic-proposal,#appShell .property-metric,#appShell .property-summary,#appShell .property-risk-item,#appShell .property-risk-summary{max-width:100%;min-width:0;overflow-wrap:anywhere}
-#appShell h1,#appShell h2,#appShell h3,#appShell h4,#appShell h5,#appShell h6,#appShell p,#appShell label,#appShell small,#appShell .muted,#appShell .section-eyebrow,#appShell .owner-action-copy,#appShell .home-action-copy,#appShell .thebe-ai-response{max-width:100%;overflow-wrap:anywhere}
-#appShell .row>*,#appShell .between>*,#appShell .actions>*,#appShell .formgrid>*,#appShell .grid>*{min-width:0;max-width:100%}
-#appShell .btn,#appShell button{max-width:100%;white-space:normal;overflow-wrap:anywhere;line-height:1.25}
-#appShell input,#appShell select,#appShell textarea{max-width:100%;min-width:0}
-#appShell .badge,#appShell .pill,#appShell .rolechip{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/*V265 overflow*/
+#appShell :is(.card,.notice,.callout,.hub-hero,h1,h2,h3,h4,h5,h6,p,label,small,.muted,.owner-agentic-panel,.owner-agentic-proposal){min-width:0;max-width:100%;overflow-wrap:anywhere}
+#appShell :is(.row,.between,.actions,.formgrid,.grid)>*{min-width:0;max-width:100%}
+#appShell :is(.btn,button){max-width:100%;white-space:normal;overflow-wrap:anywhere}
+#appShell :is(input,select,textarea){min-width:0;max-width:100%}
+#appShell :is(.badge,.pill,.rolechip){max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #appShell a:not(.btn){overflow-wrap:anywhere}
-#appShell .mobile-table-wrap,#appShell .tablewrap,#appShell .table-scroll{max-width:100%;overflow-x:auto}
-@media(max-width:760px){#appShell .between.row,#appShell .actions{flex-wrap:wrap}#appShell .between.row>.actions{width:100%}#appShell .actions>.btn,#appShell .actions>button{flex:1 1 140px}}
+#appShell :is(.mobile-table-wrap,.tablewrap,.table-scroll){max-width:100%;overflow-x:auto}
+@media(max-width:760px){#appShell :is(.between.row,.actions){flex-wrap:wrap}#appShell .between.row>.actions{width:100%}}
