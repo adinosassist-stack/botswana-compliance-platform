@@ -8142,6 +8142,12 @@ function workspaceViewShard(id){
 const workspaceFragmentClient=window.BW?.api?.createClient?.({timeoutMs:6000,retries:1})||null;
 async function fetchWorkspaceViewShard(asset,shard){
   if(!workspaceFragmentClient)throw new Error("Workspace fragment transport is unavailable.");
+  const assetRelease=document.querySelector('meta[name="thebe-assets-release"]')?.content;
+  if(/^[0-9a-f]{40}$/.test(assetRelease||"")){
+    const versionedAsset=new URL(asset,window.location.origin);
+    versionedAsset.searchParams.set("release",assetRelease);
+    asset=versionedAsset.pathname+versionedAsset.search;
+  }
   const payload=await workspaceFragmentClient.request(asset,{method:"GET"});
   if(!payload||payload.schema!==2||payload.shard!==shard||!payload.views||typeof payload.views!=="object")throw new Error("Workspace view shard is invalid.");
   return payload.views;
