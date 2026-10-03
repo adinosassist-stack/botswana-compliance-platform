@@ -182,16 +182,25 @@ async function enhanceReadiness(request,env,response){
 export default {
   async fetch(request,env,ctx){
     const logicalPath=logicalRequestPath(request);
-    const livePreviewResponse=await handleAgenticLivePreviewRequest({request,logicalPath,env});
+    const liveCoreFetch=(innerRequest,innerEnv=env,innerCtx=ctx)=>base.fetch(innerRequest,innerEnv,innerCtx);
+    const liveTaskFetch=(innerRequest,innerEnv=env)=>handleAgenticTaskExecutionRequest({
+      request:innerRequest,
+      logicalPath:logicalRequestPath(innerRequest),
+      env:innerEnv
+    });
+    const previewDelegateRequest=innerRequest=>handleAgenticLiveVoiceRequest({
+      request:innerRequest,
+      logicalPath:"/api/agentic/live/delegation",
+      env,ctx,
+      coreFetch:liveCoreFetch,
+      taskFetch:liveTaskFetch
+    });
+    const livePreviewResponse=await handleAgenticLivePreviewRequest({request,logicalPath,env,delegateRequest:previewDelegateRequest});
     if(livePreviewResponse)return livePreviewResponse;
     const liveVoiceResponse=await handleAgenticLiveVoiceRequest({
       request,logicalPath,env,ctx,
-      coreFetch:(innerRequest,innerEnv=env,innerCtx=ctx)=>base.fetch(innerRequest,innerEnv,innerCtx),
-      taskFetch:(innerRequest,innerEnv=env)=>handleAgenticTaskExecutionRequest({
-        request:innerRequest,
-        logicalPath:logicalRequestPath(innerRequest),
-        env:innerEnv
-      })
+      coreFetch:liveCoreFetch,
+      taskFetch:liveTaskFetch
     });
     if(liveVoiceResponse)return liveVoiceResponse;
     const whatsappResponse=await handleAgenticWhatsAppRequest({request,logicalPath,env});
