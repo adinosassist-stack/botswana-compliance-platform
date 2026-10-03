@@ -9,9 +9,9 @@ assert.match(workflow,/Verify unified goal flow and spatial dock geometry in Chr
   "PR Chromium CI must explicitly own the spatial dock geometry gate");
 assert.match(workflow,/node tests\/unified-goal-flow-browser\.mjs[\s\S]*node tests\/v246-spatial-dock-browser\.mjs/,
   "PR Chromium CI must run the dock browser test after the unified goal flow");
-assert.match(browserTest,/new Map\(\[\[1440,304\],\[1200,304\],\[1199,280\],\[1180,280\],\[1024,280\]\]\)/,
+assert.match(browserTest,/new Map\(\[\[1440,272\],\[1200,272\],\[1199,256\],\[1180,256\],\[1024,256\]\]\)/,
   "normal dock browser coverage must straddle the V253 1199/1200 breakpoint");
-assert.match(browserTest,/new Map\(\[\[1440,400\],\[1200,400\],\[1199,360\],\[1024,360\]\]\)/,
+assert.match(browserTest,/new Map\(\[\[1440,344\],\[1200,344\],\[1199,324\],\[1024,324\]\]\)/,
   "expanded dock browser coverage must straddle the V253 1199/1200 breakpoint");
 assert.match(browserTest,/unexpected dock width at \$\{width\}/,
   "browser gate must assert actual normal dock width, not only non-overlap");

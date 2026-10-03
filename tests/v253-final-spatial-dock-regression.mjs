@@ -7,7 +7,7 @@ const packageJson=JSON.parse(fs.readFileSync("package.json","utf8"));
 
 assert.match(spatial,/V253 pre-release workspace lane closure/,
   "V253 final-loaded spatial stylesheet must own the medium-desktop dock lane");
-assert.match(spatial,/@media\(min-width:1024px\) and \(max-width:1199px\)\{[\s\S]*?--thebe-spatial-width:280px[\s\S]*?body\.thebe-ai-expanded\{--thebe-spatial-width:360px\}/,
+assert.match(spatial,/@media\(min-width:1024px\) and \(max-width:1199px\)\{[\s\S]*?--thebe-spatial-width:256px[\s\S]*?body\.thebe-ai-expanded\{--thebe-spatial-width:324px\}/,
   "medium desktop must keep the normal and expanded Thebe dock compact");
 assert.match(spatial,/body\.thebe-ai-dock-open #mainContent \.global-search\{[\s\S]*?min-width:0!important;[\s\S]*?max-width:260px!important;[\s\S]*?flex:1 1 220px!important;/,
   "workspace search must remain shrinkable inside the reserved final dock lane");

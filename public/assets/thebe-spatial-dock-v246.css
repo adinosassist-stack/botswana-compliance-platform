@@ -1,6 +1,6 @@
 /* One reserved command rail. Voice is an intentional modal in the top layer. */
-body{--thebe-spatial-width:304px}
-body.thebe-ai-expanded{--thebe-spatial-width:400px}
+body{--thebe-spatial-width:272px}
+body.thebe-ai-expanded{--thebe-spatial-width:344px}
 #thebeAiDock{--thebe-spatial-dock:1;border:1px solid #27465e!important;background:#071522!important;border-radius:20px!important;box-shadow:0 12px 38px #051b3326!important}
 #thebeAiDock [hidden]{display:none!important}
 #thebeAiDock .thebe-ai-dock-head{padding:12px!important}
@@ -21,7 +21,7 @@ body.thebe-ai-expanded{--thebe-spatial-width:400px}
 body .modal.open,body .commandshade.open{z-index:1000!important}
 @media(min-width:1024px){
  body.thebe-ai-dock-open #appShell main,body.thebe-ai-dock-open.thebe-ai-expanded #appShell main{margin-left:0!important;margin-right:calc(var(--thebe-spatial-width) + 32px)!important;width:calc(100% - var(--thebe-spatial-width) - 32px)!important;max-width:none!important;padding-left:20px!important;padding-right:20px!important}
- body #thebeAiDock[data-surface="workspace"],body #thebeAiDock[data-surface="public"]{left:auto!important;right:16px!important;top:88px!important;bottom:auto!important;width:var(--thebe-spatial-width)!important;max-width:var(--thebe-spatial-width)!important;height:min(680px,calc(100dvh - 104px))!important;max-height:calc(100dvh - 104px)!important;min-height:0!important}
+ body #thebeAiDock[data-surface="workspace"],body #thebeAiDock[data-surface="public"]{left:auto!important;right:16px!important;top:88px!important;bottom:auto!important;width:var(--thebe-spatial-width)!important;max-width:var(--thebe-spatial-width)!important;height:min(610px,calc(100dvh - 104px))!important;max-height:calc(100dvh - 104px)!important;min-height:0!important}
  body #thebeAiDock .thebe-ai-orb-button{width:82px!important;min-width:82px!important;max-width:82px!important;height:82px!important;min-height:82px!important}
  body #marketingGate{padding-right:calc(var(--thebe-spatial-width) + 32px)!important}
  body #marketingGate main,body #marketingGate>.footer{padding-right:0!important}
@@ -60,8 +60,8 @@ body.thebe-voice-active{overflow:hidden!important}
 /* V253 pre-release workspace lane closure — keep the final-loaded spatial dock compact
    on medium desktop widths and preserve room for the workspace top controls. */
 @media(min-width:1024px) and (max-width:1199px){
- body{--thebe-spatial-width:280px}
- body.thebe-ai-expanded{--thebe-spatial-width:360px}
+ body{--thebe-spatial-width:256px}
+ body.thebe-ai-expanded{--thebe-spatial-width:324px}
  body.thebe-ai-dock-open #mainContent>.top{gap:10px!important}
  body.thebe-ai-dock-open #mainContent .global-search{
   min-width:0!important;
@@ -84,3 +84,10 @@ body.thebe-voice-active{overflow:hidden!important}
  body #thebeAiDock .thebe-ai-orb-button{width:68px!important;min-width:68px!important;max-width:68px!important;height:68px!important;min-height:68px!important;max-height:68px!important}
  #thebeAiDock[data-surface="workspace"] .thebe-ai-voice-card{grid-template-columns:68px minmax(0,1fr)!important}
 }
+
+/* V268 pending workspace accessibility improvements. */
+#appShell :is(button,a,input,select,textarea,summary):focus-visible{outline:3px solid #2f8fe6!important;outline-offset:2px!important}
+#workspaceSidebar :is(.nav-primary,.nav-more-tools):focus-visible{border-color:#8bc3f4!important;box-shadow:0 0 0 3px rgba(47,143,230,.16)!important}
+#mainContent .global-search:focus-within{border-color:#87bff0!important;box-shadow:0 0 0 3px rgba(47,143,230,.12)!important}
+@media(min-width:761px) and (max-width:900px){#mainContent>.top{position:sticky!important;top:0!important}}
+@media(prefers-reduced-motion:reduce){#appShell :is(button,a,.card,.outcome-card,.people-outcome-card,.owner-today-card){transition:none!important}}
