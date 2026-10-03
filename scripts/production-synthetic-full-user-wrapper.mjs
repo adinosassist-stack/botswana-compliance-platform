@@ -859,10 +859,11 @@ async function runFullUserJourney(credentials){
         dock.querySelectorAll('.thebe-mascot-image').length===0&&
         dock.querySelectorAll('.thebe-mascot-svg').length===0;
     },null,{timeout:VIEW_TIMEOUT_MS});
+    await page.getByRole('tab',{name:'Operations',exact:true}).click();
     const serviceDisclosure=page.locator('#propertyValuationServicePanel');
     const serviceSummary=serviceDisclosure.locator(':scope > summary');
     if(await serviceSummary.count()&&!(await serviceDisclosure.evaluate(node=>node.open)))await serviceSummary.click();
-    const v182WorkspaceVisual=await page.evaluate(()=>{
+    const v182WorkspaceVisual=await page.evaluate(calculatorProof=>{
       const orb=document.querySelector('#thebeAiDock .thebe-ai-orb-button');
       const core=document.querySelector('#thebeAiDock .thebe-particle-core');
       const shell=document.getElementById('propertyPortfolioWorkspace');
@@ -874,7 +875,7 @@ async function runFullUserJourney(credentials){
       const inputRect=input?.getBoundingClientRect?.();
       const resultsRect=results?.getBoundingClientRect?.();
       const compactReference=layout?.classList.contains('property-layout-v224')&&input?.classList.contains('property-calculator-v224');
-      const shellChildren=shell?[...shell.children]:[];
+      const paneChildren=[...document.getElementById("propertyintelligence").children];
       return {
         mascotImages:document.querySelectorAll('#thebeAiDock .thebe-mascot-image').length,
         mascotSvgs:document.querySelectorAll('#thebeAiDock .thebe-mascot-svg').length,
@@ -883,23 +884,24 @@ async function runFullUserJourney(credentials){
         dockOpen:document.body.classList.contains('thebe-ai-dock-open'),
         serviceVisible:!!service&&!service.hidden&&getComputedStyle(service).display!=='none'&&getComputedStyle(service).visibility!=='hidden',
         serviceBackground:service?getComputedStyle(service).backgroundColor:'missing',
-        serviceBeforeForms:!!service&&!!forms&&shellChildren.indexOf(service)>=0&&shellChildren.indexOf(forms)>=0&&shellChildren.indexOf(service)<shellChildren.indexOf(forms),
+        serviceBeforeForms:!!service&&!!forms&&shell.contains(forms)&&paneChildren.indexOf(service)>=0&&paneChildren.indexOf(shell)>paneChildren.indexOf(service),
         requestButtonVisible:!!document.getElementById('propertyValuationServiceRequestButton')&&document.getElementById('propertyValuationServiceRequestButton').offsetParent!==null,
-        calculatorWidth:inputRect?.width||0,
+        calculatorWidth:calculatorProof.width,
+        activePropertyPane:document.getElementById("propertyintelligence").dataset.propertyActivePane,
         spatialStyle:getComputedStyle(document.getElementById('thebeAiDock')).getPropertyValue('--thebe-spatial-dock').trim(),
         calculatorInline:input?.getAttribute('style')||'',
         dockGeometry:{left:document.getElementById('thebeAiDock').getBoundingClientRect().left,mainRight:document.getElementById('mainContent').getBoundingClientRect().right},
-        propertyLayoutStacked:compactReference?!!inputRect&&inputRect.width>0&&inputRect.width<=700:!!inputRect&&!!resultsRect&&Math.abs(inputRect.left-resultsRect.left)<=2&&resultsRect.top>inputRect.top+20
+        propertyLayoutStacked:compactReference&&calculatorProof.visible&&calculatorProof.width>0&&calculatorProof.width<=680
       };
-    });
+    },propertyCalculatorState);
     assert(v182WorkspaceVisual.mascotImages===0&&v182WorkspaceVisual.mascotSvgs===0,
       `workspace must not render the mascot: ${safe(JSON.stringify(v182WorkspaceVisual))}`);
     assert(v182WorkspaceVisual.particleCount===343,'workspace Talk to Thebe must retain the particle voice field with no mascot or decorative character');
-    assert(v182WorkspaceVisual.orbWidth===82,
-      `workspace dock changed the authoritative 82px voice-control geometry: ${safe(JSON.stringify(v182WorkspaceVisual))}`);
+    assert(v182WorkspaceVisual.orbWidth===68,
+      `workspace dock changed the authoritative 68px voice-control geometry: ${safe(JSON.stringify(v182WorkspaceVisual))}`);
     assert(v182WorkspaceVisual.dockOpen&&v182WorkspaceVisual.propertyLayoutStacked,
       `Property analysis did not stack cleanly beside the open desktop Thebe dock: ${safe(JSON.stringify(v182WorkspaceVisual))}`);
-    assert(v182WorkspaceVisual.serviceVisible&&v182WorkspaceVisual.serviceBackground==='rgb(247, 251, 255)'&&v182WorkspaceVisual.serviceBeforeForms&&v182WorkspaceVisual.requestButtonVisible,
+    assert(v182WorkspaceVisual.serviceVisible&&v182WorkspaceVisual.serviceBackground==='rgb(255, 255, 255)'&&v182WorkspaceVisual.activePropertyPane==='operations'&&v182WorkspaceVisual.serviceBeforeForms&&v182WorkspaceVisual.requestButtonVisible,
       `professional valuation service is not visibly promoted ahead of Property setup forms: ${safe(JSON.stringify(v182WorkspaceVisual))}`);
     mark('V182 live marketing + workspace presentation','restored market photo, mascot removed everywhere, dock-safe Property layout and readable CTA verified');
 

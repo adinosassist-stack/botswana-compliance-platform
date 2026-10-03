@@ -9,7 +9,7 @@ const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES?path.join(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES,'playwright'):'playwright-core');
 const html=fs.readFileSync('public/index.html','utf8');
 const propertyStart=html.indexOf('  <section id="propertyintelligence"');
-const property=html.slice(propertyStart,html.indexOf('</section>',propertyStart)+10).replace('class="view simplified-hub','class="view active simplified-hub');
+const property=html.slice(propertyStart,html.indexOf('</section>',propertyStart)+10).replace('class="view simplified-hub','class="view active simplified-hub').replace('</section>','<section id="propertyPortfolioWorkspace"><details id="propertyValuationServicePanel"><summary>Professional valuation</summary><button id="propertyValuationServiceRequestButton">Request valuation</button></details><details id="propertyAssetFormPanel"><summary>Add property</summary></details></section></section>');
 let fixture=externalizeWorkspaceHeadStyles('<!doctype html>'+html.slice(html.indexOf('<html'),html.indexOf('</head>')+7)+'<body><section id="marketingGate" class="hidden" style="display:none"></section><section id="appShell" class="shell"><aside id="workspaceSidebar"><button>Home</button></aside><main id="mainContent"><div class="top"><h1 id="pageTitle">Property</h1></div>'+property+'</main></section></body></html>');
 fixture=injectOwnerCommandCentreAssets(fixture);
 fixture=versionReleaseAssets(fixture,'9'.repeat(40));
@@ -41,6 +41,19 @@ try{
  await page.locator('.property-analysis-tools-v272').getByRole('button',{name:'Optimise',exact:true}).click();
  assert.equal(await page.locator('.property-optimise-v263').isVisible(),true);
  assert.equal(await page.locator('.property-compare-v264').isVisible(),false);
+ await page.getByRole('tab',{name:'Operations',exact:true}).click();
+ assert.equal(await page.locator('.property-operations-v262').isVisible(),true,'operations are outside hidden Properties parent');
+ assert.equal(await page.locator('#propertyValuationServicePanel > summary').isVisible(),true,'valuation disclosure is reachable through Operations');
+ await page.locator('#propertyValuationServicePanel > summary').click();
+ assert.equal(await page.locator('#propertyValuationServiceRequestButton').isVisible(),true,'valuation request is reachable through the visible disclosure');
+ assert.equal(await page.locator('#propertyPortfolioWorkspace').isVisible(),false,'Properties stays scoped to its tab');
+ await page.getByRole('tab',{name:'Properties',exact:true}).click();
+ assert.equal(await page.locator('#propertyPortfolioWorkspace').isVisible(),true);
+ assert.equal(await page.locator('#propertyValuationServicePanel').isVisible(),false,'valuation stays scoped to Operations');
+ // Repair an existing nested operational panel without recreating or losing controls.
+ await page.evaluate(()=>{document.getElementById('propertyPortfolioWorkspace').append(document.querySelector('.property-operations-v262'));window.ThebePropertyVisibility.repair()});
+ await page.getByRole('tab',{name:'Operations',exact:true}).click();
+ assert.equal(await page.locator('.property-operations-v262').isVisible(),true,'repair promotes already-mounted operational panels');
  await page.getByRole('tab',{name:'Today',exact:true}).click();
  assert.equal(await page.locator('.property-calculator-v224').isVisible(),false,'late visibility recovery must respect the selected pane');
  assert.equal(await page.locator('.property-analysis-tools-v272').isVisible(),false);
