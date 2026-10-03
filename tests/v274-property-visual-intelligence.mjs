@@ -1,0 +1,12 @@
+import fs from "node:fs";import assert from "node:assert/strict";
+const shard=JSON.parse(fs.readFileSync("public/assets/workspace-view-fragments-20261001a-4.json","utf8")).views.propertyintelligence;
+const master=JSON.parse(fs.readFileSync("public/assets/workspace-view-fragments-20261001a.json","utf8")).views.propertyintelligence;
+const css=fs.readFileSync("public/assets/property-calculator-reference-v224.css","utf8");
+const runtime=fs.readFileSync("public/js/workspace-runtime-20261001b.js","utf8");
+assert.equal(master,shard,"Property lazy fragment must stay synchronized");
+for(const token of ["property-glance-v270","propertyLiveSnapshot","property-due-grid-v273"])assert.ok(shard.includes(token),token+" missing");
+for(const token of ["property-visuals-v269","property-signal-pair-v270","property-scenario-yield-v272"])assert.ok(css.includes(token),token+" CSS missing");
+assert.ok(runtime.includes("function propertyScenarioVisuals(x)"),"scenario visuals missing");
+assert.ok(runtime.includes("Driven only by the appreciation assumption entered. Not a market valuation forecast."),"visual must retain scenario boundary");
+assert.ok(runtime.includes("property-scenario-yield-v272"),"saved scenario infographic missing");
+console.log("V274_PROPERTY_VISUAL_INTELLIGENCE_PASS");
