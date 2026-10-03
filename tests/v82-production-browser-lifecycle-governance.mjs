@@ -91,7 +91,9 @@ must(fullUserWrapper,/await import\('\.\/production-synthetic-hold-wrapper\.mjs'
 must(fullUserWrapper,/Object\.defineProperty\(globalThis,'__thebeSyntheticBrowserProof'/,'full-user wrapper composes with the canonical browser proof hook');
 must(fullUserWrapper,/await originalProof\(credentials\);[\s\S]*await runFullUserJourney\(credentials\)/,'canonical browser proof runs before the exhaustive full-user journey');
 must(fullUserWrapper,/MIN_OWNER_VIEW_COUNT=8/,'full-user proof fails closed if the approved eight-destination primary navigation is incomplete');
-must(fullUserWrapper,/MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=7/,'full-user proof preserves the current Property-separated in-view navigation baseline');
+must(fullUserWrapper,/MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=4/,'full-user proof preserves the compact four-route navigation inventory');
+must(fullUserWrapper,/const inViewNavigationRoutes=new Set\(\)/,'full-user proof counts unique source-to-destination routes');
+must(fullUserWrapper,/assert\(inViewNavigationRoutes\.size>=MIN_OWNER_INVIEW_NAV_CONTROL_COUNT/,'full-user proof enforces the unique route floor');
 mustNot(fullUserWrapper,/MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=8/,'full-user proof must not restore the stale pre-separation in-view navigation baseline');
 mustNot(fullUserWrapper,/MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=25/,'full-user proof must not retain the superseded 25-control in-view navigation threshold');
 must(fullUserWrapper,/button\.closest\('\[hidden\]'\)/,'full-user proof excludes specialist controls inside hidden search indexes from the primary visible-navigation matrix');
