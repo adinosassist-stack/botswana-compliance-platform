@@ -38,4 +38,24 @@ assert.match(commandCss,/\.owner-signal-list\{[\s\S]*grid-template-columns:repea
 assert.match(commandCss,/#dashboard \.home-status-strip\{[\s\S]*gap:8px/,
   "Home management status should remain a compact scan row");
 
-console.log("PASS: V230 keeps resident Property visibly usable and moves Home/Owner surfaces toward a compact command-center layout.");
+// V260: compact Property navigation and Property-sourced AI must stay presentation-only.
+assert.match(visibility,/const COMPACT_RELEASE="20261003-property-compact-ai-v260"/);
+for(const label of ["Today","Properties","Analyse","Operations"]){
+  assert.ok(visibility.includes(`compactButton("${label}"`),`compact Property navigation missing ${label}`);
+}
+assert.match(visibility,/propertyPortfolioWorkspace/);
+assert.match(visibility,/propertyValuationServicePanel/);
+assert.match(visibility,/property-ai-fullscreen-v260/);
+assert.match(visibility,/property-ai-toolbar-v260/);
+assert.match(visibility,/aiAdvisorQuestion/);
+assert.match(visibility,/aiAdvisorOutput/);
+assert.match(visibility,/New Property AI chat/);
+assert.match(visibility,/Open voice/);
+assert.match(visibilityCss,/#propertyintelligence\.property-compact-v260/);
+assert.match(visibilityCss,/\.property-primary-v260/);
+assert.match(visibilityCss,/body\.property-ai-fullscreen-v260 #aiservices\.view\.active/);
+assert.match(visibilityCss,/#aiAdvisorQuestion/);
+assert.match(visibilityCss,/\.copilot-compose/);
+assert.match(visibilityCss,/env\(safe-area-inset-bottom\)/);
+
+console.log("PASS: V260 keeps resident Property compact, visibly usable, and opens Property-sourced Thebe AI as a full-screen grounded workspace.");
