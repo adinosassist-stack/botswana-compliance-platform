@@ -4,12 +4,14 @@ on:
   pull_request:
     paths:
       - "cloudflare/src/agentic-live-preview.js"
+      - "cloudflare/src/audit-lineage-writer.js"
       - "cloudflare/src/agentic-entry.js"
       - "cloudflare/src/agentic-live-voice-v270.js"
       - "cloudflare/src/asset-release-identity.js"
       - "public/js/thebe-live-preview-fallback-v272.js"
       - "tests/v272-gpt-live-preview-transport.mjs"
       - "tests/v272-client-preview-fallback.mjs"
+      - "tests/v272-preview-audit-lineage.mjs"
       - ".github/workflows/v272-gpt-live-preview-transport-ci.yml"
       - "docs/releases/v272-gpt-live-preview-transport.md"
   push:
@@ -32,6 +34,7 @@ jobs:
           node-version: "22"
       - name: Syntax check preview transport and selector
         run: |
+          node --check cloudflare/src/audit-lineage-writer.js
           node --check cloudflare/src/agentic-live-preview.js
           node --check cloudflare/src/agentic-entry.js
           node --check public/js/thebe-live-preview-fallback-v272.js
@@ -39,6 +42,8 @@ jobs:
         run: node tests/v271-gpt-live-event-compat-evals.mjs
       - name: Qualify V272 isolated preview transport
         run: node tests/v272-gpt-live-preview-transport.mjs
+      - name: Qualify sealed preview audit lineage
+        run: node tests/v272-preview-audit-lineage.mjs
       - name: Qualify fail-closed browser preview selector
         run: node tests/v272-client-preview-fallback.mjs
       - name: Preserve production Realtime guard
