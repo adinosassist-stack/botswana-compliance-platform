@@ -120,3 +120,10 @@
 @media(prefers-reduced-motion:reduce){
   #appShell .owner-daily-priority *,#appShell .owner-onboarding-next *{scroll-behavior:auto!important}
 }
+
+/* V265 long-content resilience */
+#appShell .owner-daily-priority,#appShell .owner-onboarding-next,#appShell .owner-daily-priority-meta,#appShell .owner-daily-priority-controls{min-width:0;max-width:100%}
+#appShell .owner-daily-priority-copy,#appShell .owner-daily-priority-copy h4,#appShell .owner-daily-priority-copy p,#appShell .owner-priority-reason,#appShell .owner-priority-evidence,#appShell .owner-onboarding-copy{min-width:0;overflow-wrap:anywhere}
+#appShell .owner-daily-priority-meta{flex-wrap:wrap}
+#appShell .owner-priority-chip{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+#appShell .owner-onboarding-next>.btn{max-width:100%;white-space:normal}
