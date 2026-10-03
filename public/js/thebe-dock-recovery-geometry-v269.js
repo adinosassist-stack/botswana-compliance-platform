@@ -1,6 +1,7 @@
 (function bootstrapThebeDockRecoveryGeometry(global){
   "use strict";
   const RELEASE="20261003-emergency-dock-geometry-v269";
+  const PROPERTY_ISOLATION_RELEASE="20261003-property-view-isolation-v273";
   const RECOVERY_STYLE_ID="thebe-dock-recovery-geometry-v269-style";
   const managed=new Map();
   let queued=false;
@@ -70,6 +71,19 @@
 
   function releaseAll(){for(const node of [...managed.keys()])releaseNode(node)}
 
+  function isolateInactiveProperty(){
+    const property=global.document?.getElementById?.("propertyintelligence");
+    if(!property||property.classList.contains("active"))return false;
+    let changed=false;
+    for(const name of ["display","visibility","opacity"]){
+      if(!property.style.getPropertyValue(name))continue;
+      property.style.removeProperty(name);
+      changed=true;
+    }
+    property.dataset.propertyViewIsolation=PROPERTY_ISOLATION_RELEASE;
+    return changed;
+  }
+
   function compactVoice(dock){
     const orb=dock.querySelector?.(".thebe-ai-orb-button");
     const card=dock.querySelector?.(".thebe-ai-voice-card");
@@ -102,6 +116,7 @@
   function repair(){
     const document=global.document;
     if(!document)return false;
+    isolateInactiveProperty();
     const dock=document.getElementById("thebeAiDock");
     if(!dock){releaseAll();return false}
     if(dock.dataset.cssRecovery!=="1"){
@@ -144,5 +159,5 @@
     else start();
   }
 
-  global.ThebeDockRecoveryGeometry=Object.freeze({release:RELEASE,widthFor,geometryFor,repair});
+  global.ThebeDockRecoveryGeometry=Object.freeze({release:RELEASE,propertyIsolationRelease:PROPERTY_ISOLATION_RELEASE,widthFor,geometryFor,repair,isolateInactiveProperty});
 })(typeof window!=="undefined"?window:globalThis);
