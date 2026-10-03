@@ -1024,25 +1024,40 @@ function runEvent(k){
 
 async function renderPeopleOperationsHub(){
   if(!roleCanView("peopleops")||!["owner","manager"].includes(currentWorkspaceRole()))return;
+  const epoch=(renderPeopleOperationsHub.epoch||0)+1;renderPeopleOperationsHub.epoch=epoch;
+  const companyId=store.activeCompanyId;
   const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value};
   const date=browserGaboroneDate();
   const results=await Promise.allSettled([apiJson("/api/employees"),reportingAnalyticsJson(`/api/daily-reporting/dashboard?date=${encodeURIComponent(date)}`),apiJson("/api/hr/cases"),apiJson("/api/employer-risk")]);
+  if(epoch!==renderPeopleOperationsHub.epoch||companyId!==store.activeCompanyId||!["owner","manager"].includes(currentWorkspaceRole()))return;
+  const employeesReady=results[0].status==="fulfilled",casesReady=results[2].status==="fulfilled",riskReady=results[3].status==="fulfilled";
   const employees=results[0].status==="fulfilled"?(results[0].value.items||[]):[];
   const dash=results[1].status==="fulfilled"?results[1].value:null;
   const cases=results[2].status==="fulfilled"?(results[2].value.items||[]):[];
   const risk=results[3].status==="fulfilled"?results[3].value:null;
   const activeEmployees=employees.filter(x=>String(x.status||"active").trim().toLowerCase()==="active"&&!recentlyRemovedEmployeeIds.has(String(x.id))).length;
   const openCases=cases.filter(x=>String(x.status||"")!=="closed").length;
-  const coverage=dash&&Number.isFinite(Number(dash.coverage))?Math.max(0,Math.min(100,Math.round(Number(dash.coverage)))):null;
+  const coverage=dash&&dash.coverage!=null&&Number.isFinite(Number(dash.coverage))?Math.max(0,Math.min(100,Math.round(Number(dash.coverage)))):null;
   const missing=Array.isArray(dash?.missing)?dash.missing.length:0;
   const attention=Number(dash?.totals?.attention||0);
   const band=String(risk?.riskBand||"");
-  set("peopleActiveEmployees",activeEmployees||0);set("peopleOpenCases",openCases);set("peopleReportingCoverage",coverage==null?"—":coverage+"%");set("peopleProtectionBand",band?band[0].toUpperCase()+band.slice(1):"Review");
+  set("peopleActiveEmployees",employeesReady?activeEmployees:"—");set("peopleOpenCases",casesReady?openCases:"—");set("peopleReportingCoverage",coverage==null?"—":coverage+"%");set("peopleProtectionBand",band?band[0].toUpperCase()+band.slice(1):riskReady?"Not assessed":"Unavailable");
   set("peopleReportingDetail",coverage==null?"Open daily reports to check today’s reporting status.":`${coverage}% reporting coverage today${missing?` · ${missing} report${missing===1?"":"s"} not received`:" · all expected reports received"}.`);
   const contractCoverage=Number(risk?.dimensions?.contractCoverage);
-  set("peopleEmployeeDetail",Number.isFinite(contractCoverage)?`${activeEmployees} active employee${activeEmployees===1?"":"s"} · ${Math.round(contractCoverage)}% contract coverage.`:`${activeEmployees} active employee${activeEmployees===1?"":"s"}. Keep staff and contract records current.`);
+  set("peopleEmployeeDetail",!employeesReady?"Employee records unavailable. Refresh to retry.":risk?.dimensions?.contractCoverage!=null&&Number.isFinite(contractCoverage)?`${activeEmployees} active employee${activeEmployees===1?"":"s"} · ${Math.round(contractCoverage)}% contract coverage.`:`${activeEmployees} active employee${activeEmployees===1?"":"s"}. Keep staff and contract records current.`);
   const findings=Array.isArray(risk?.findings)?risk.findings:[];const high=findings.filter(x=>["high","critical"].includes(String(x.severity||""))).length;
-  set("peopleFollowupDetail",`${high||0} high-priority control gap${high===1?"":"s"}${openCases?` · ${openCases} open employment case${openCases===1?"":"s"}`:""}${attention?` · ${attention} report flag${attention===1?"":"s"}`:""}.`);
+  set("peopleFollowupDetail",!riskReady||!casesReady?"Employment follow-up is incomplete. Refresh to retry.":`${high||0} high-priority control gap${high===1?"":"s"}${openCases?` · ${openCases} open employment case${openCases===1?"":"s"}`:""}${attention?` · ${attention} report flag${attention===1?"":"s"}`:""}.`);
+  const progress=document.getElementById("peopleReportingProgress");
+  if(progress){progress.hidden=coverage==null;progress.value=coverage??0;progress.setAttribute("aria-valuetext",coverage==null?"Reporting coverage unavailable":`${coverage}% reporting coverage`)}
+  const failed=results.filter(r=>r.status==="rejected").length;
+  set("peopleRefreshStatus",failed?`${failed} source${failed===1?"":"s"} unavailable · refresh to retry`:`Updated ${new Intl.DateTimeFormat("en-BW",{timeZone:"Africa/Gaborone",hour:"2-digit",minute:"2-digit"}).format(new Date())} · Botswana time`);
+}
+
+async function refreshPeopleWorkspace(){
+  const button=document.getElementById("peopleRefreshButton");if(button?.disabled)return;
+  if(button){button.disabled=true;button.textContent="Refreshing…"}
+  try{await Promise.all([renderPeopleOperationsHub(),renderPeopleReportingSetup()])}
+  finally{if(button){button.disabled=false;button.textContent="Refresh"}}
 }
 
 async function renderBusinessHub(){

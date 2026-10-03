@@ -69,6 +69,8 @@ jobs:
           node tests/v255-pricing-selector-browser.mjs
           node tests/v256-workspace-ui-defects-browser.mjs
           node tests/v257-market-ui-regression.mjs
+          node tests/people-workspace-20261003.mjs
+          node tests/people-workspace-browser-20261003.mjs
           node tests/v258-employee-removal-browser.mjs
           node tests/v259-market-lazy-fragment-integrity.mjs
           node tests/v260-redteam-live-session-binding.mjs

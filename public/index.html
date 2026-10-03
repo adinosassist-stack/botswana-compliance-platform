@@ -2460,6 +2460,7 @@ body.thebe-ai-dock-open .property-valuation-service-card .formgrid{grid-template
 
 .previewmode{display:none}.standalone-preview .previewmode{display:block}
 </style>
+<link rel="stylesheet" href="/assets/people-workspace-20261003.css" />
 <link id="thebe-employee-directory-styles" rel="stylesheet" href="/assets/employee-directory-v188.css" />
 </head>
 <style id="thebe-market-photo-style">
@@ -3045,13 +3046,14 @@ body.thebe-ai-dock-open .property-valuation-service-card .formgrid{grid-template
   </section>
 
   <section id="peopleops" class="view simplified-hub people-hub" data-hub-name="People">
-    <div class="hub-hero"><div><div class="section-eyebrow">People & operations</div><h2>See today’s reporting, staff gaps and follow-up in one place.</h2><p class="muted">Start with what needs attention today. Employee records, reporting setup and specialist employment controls stay available without crowding the first screen.</p></div><button class="btn alt" type="button" data-bw-onclick="openCommandPaletteWithQuery('people')">Find a people tool</button></div>
+    <div class="hub-hero"><div><div class="section-eyebrow">People & operations</div><h2>Your team, at a glance.</h2><p class="muted">Today’s reports, employee records and follow-up.</p></div><div class="people-toolbar"><button id="peopleRefreshButton" class="btn alt" type="button" data-bw-onclick="refreshPeopleWorkspace()">Refresh</button><button class="btn" type="button" data-hub-target="employees" data-bw-onclick="showView('employees')">Manage employees</button></div></div>
     <div class="people-status-strip" aria-label="People and operations status">
-      <span class="people-status-chip"><b id="peopleActiveEmployees">—</b> active employees</span>
-      <span class="people-status-chip"><b id="peopleReportingCoverage">—</b> reporting coverage today</span>
-      <span class="people-status-chip"><b id="peopleOpenCases">—</b> open employment cases</span>
-      <span class="people-status-chip"><b id="peopleProtectionBand">—</b> employment protection</span>
+      <button type="button" class="people-status-chip" data-hub-target="employees" data-bw-onclick="showView('employees')"><b id="peopleActiveEmployees">—</b><span>Active employees</span></button>
+      <button type="button" class="people-status-chip" data-hub-target="dailyreports" data-bw-onclick="showView('dailyreports')"><b id="peopleReportingCoverage">—</b><span>Reports received today</span></button>
+      <button type="button" class="people-status-chip" data-hub-target="employer" data-bw-onclick="showView('employer')"><b id="peopleOpenCases">—</b><span>Open employment cases</span></button>
+      <button type="button" class="people-status-chip" data-hub-target="employershield" data-bw-onclick="showView('employershield')"><b id="peopleProtectionBand">—</b><span>Employment protection</span></button>
     </div>
+    <div class="people-reporting-pulse"><label for="peopleReportingProgress">Today’s reporting coverage</label><progress id="peopleReportingProgress" max="100" value="0" aria-label="Today’s reporting coverage" hidden></progress><span id="peopleRefreshStatus" class="muted small" role="status" aria-live="polite">Loading people overview…</span></div>
     <div class="people-outcome-grid">
       <button class="people-outcome-card" type="button" data-hub-target="dailyreports" data-bw-onclick="showView('dailyreports')"><span class="section-eyebrow">Today</span><b>Daily reporting</b><span id="peopleReportingDetail" class="people-outcome-status">Check whether expected reports arrived and which locations need follow-up.</span><span class="people-outcome-action">Open daily reports →</span></button>
       <button class="people-outcome-card" type="button" data-hub-target="employees" data-bw-onclick="showView('employees')"><span class="section-eyebrow">Staff records</span><b>Employees</b><span id="peopleEmployeeDetail" class="people-outcome-status">Keep the staff register and core employment-control records current.</span><span class="people-outcome-action">Open employee records →</span></button>
@@ -3070,11 +3072,11 @@ body.thebe-ai-dock-open .property-valuation-service-card .formgrid{grid-template
     <details id="opsReportingSetupDetails" class="ops-specialist-details" open>
           <summary>Reporting setup <span class="muted small">Locations, employee links and automation</span></summary>
           <div class="ops-specialist-inner">
-            <div class="card"><div class="section-eyebrow">Automation</div><h2 style="margin:3px 0 10px">Daily leadership digest</h2><div class="ops-setting-row"><div><b>Auto-generate at 18:15 Botswana time</b><div class="muted small">Creates a daily summary and in-app notification. Uses Workers AI credits when available; otherwise produces a structured factual roll-up.</div></div><input id="opsAutoSummary" type="checkbox" aria-label="Ops auto summary"></div><button type="button" class="btn alt" style="margin-top:14px" data-bw-onclick="saveOpsReportingSettings()">Save automation</button><div id="opsAutomationStatus" class="muted small" style="margin-top:8px"></div></div>
             <div class="grid g2" style="margin-top:16px">
               <div class="card"><h2>Locations</h2><div class="muted small">Create the offices, branches, shops, sites or teams you want to track separately.</div><div class="formgrid" style="margin-top:12px"><div><label for="opsLocationName">Location name</label><input id="opsLocationName" placeholder="e.g. Gaborone Main Office"></div><div><label for="opsLocationCode">Code</label><input id="opsLocationCode" maxlength="16" placeholder="GBE"></div><div><label for="opsLocationTown">Town / area</label><input id="opsLocationTown" placeholder="Gaborone"></div></div><button type="button" class="btn" style="margin-top:10px" data-bw-onclick="addOpsLocation()">Add location</button><div id="opsLocationsList" style="margin-top:12px"></div></div>
               <div class="card"><h2>Employee reporting access</h2><div class="muted small">Issue a restricted reporting link. The link can submit daily reports only; it does not open the compliance workspace.</div><div class="formgrid" style="margin-top:12px"><div><label for="opsReporterEmployee">Employee</label><select id="opsReporterEmployee"></select></div><div><label for="opsReporterLocation">Location</label><select id="opsReporterLocation"></select></div><div><label for="opsReporterExpiry">Link expires</label><select id="opsReporterExpiry"><option value="90">90 days</option><option value="180" selected>180 days</option><option value="365">365 days</option></select></div></div><button type="button" class="btn" style="margin-top:10px" data-bw-onclick="createOpsReporterLink()">Create / rotate reporting link</button><div id="opsReporterLinkResult"></div><div id="opsReporterAccessList" style="margin-top:12px"></div></div>
             </div>
+            <details class="people-automation-details"><summary>Daily digest automation</summary><div class="card"><div class="section-eyebrow">Automation</div><h2 style="margin:3px 0 10px">Daily leadership digest</h2><div class="ops-setting-row"><div><b>Auto-generate at 18:15 Botswana time</b><div class="muted small">Creates a daily summary and in-app notification. Uses Workers AI credits when available; otherwise produces a structured factual roll-up.</div></div><input id="opsAutoSummary" type="checkbox" aria-label="Ops auto summary"></div><button type="button" class="btn alt" style="margin-top:14px" data-bw-onclick="saveOpsReportingSettings()">Save automation</button><div id="opsAutomationStatus" class="muted small" style="margin-top:8px"></div></div></details>
           </div>
         </details>
 </section>
@@ -5969,25 +5971,40 @@ function runEvent(k){
 
 async function renderPeopleOperationsHub(){
   if(!roleCanView("peopleops")||!["owner","manager"].includes(currentWorkspaceRole()))return;
+  const epoch=(renderPeopleOperationsHub.epoch||0)+1;renderPeopleOperationsHub.epoch=epoch;
+  const companyId=store.activeCompanyId;
   const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value};
   const date=browserGaboroneDate();
   const results=await Promise.allSettled([apiJson("/api/employees"),reportingAnalyticsJson(`/api/daily-reporting/dashboard?date=${encodeURIComponent(date)}`),apiJson("/api/hr/cases"),apiJson("/api/employer-risk")]);
+  if(epoch!==renderPeopleOperationsHub.epoch||companyId!==store.activeCompanyId||!["owner","manager"].includes(currentWorkspaceRole()))return;
+  const employeesReady=results[0].status==="fulfilled",casesReady=results[2].status==="fulfilled",riskReady=results[3].status==="fulfilled";
   const employees=results[0].status==="fulfilled"?(results[0].value.items||[]):[];
   const dash=results[1].status==="fulfilled"?results[1].value:null;
   const cases=results[2].status==="fulfilled"?(results[2].value.items||[]):[];
   const risk=results[3].status==="fulfilled"?results[3].value:null;
   const activeEmployees=employees.filter(x=>String(x.status||"active").trim().toLowerCase()==="active"&&!recentlyRemovedEmployeeIds.has(String(x.id))).length;
   const openCases=cases.filter(x=>String(x.status||"")!=="closed").length;
-  const coverage=dash&&Number.isFinite(Number(dash.coverage))?Math.max(0,Math.min(100,Math.round(Number(dash.coverage)))):null;
+  const coverage=dash&&dash.coverage!=null&&Number.isFinite(Number(dash.coverage))?Math.max(0,Math.min(100,Math.round(Number(dash.coverage)))):null;
   const missing=Array.isArray(dash?.missing)?dash.missing.length:0;
   const attention=Number(dash?.totals?.attention||0);
   const band=String(risk?.riskBand||"");
-  set("peopleActiveEmployees",activeEmployees||0);set("peopleOpenCases",openCases);set("peopleReportingCoverage",coverage==null?"—":coverage+"%");set("peopleProtectionBand",band?band[0].toUpperCase()+band.slice(1):"Review");
+  set("peopleActiveEmployees",employeesReady?activeEmployees:"—");set("peopleOpenCases",casesReady?openCases:"—");set("peopleReportingCoverage",coverage==null?"—":coverage+"%");set("peopleProtectionBand",band?band[0].toUpperCase()+band.slice(1):riskReady?"Not assessed":"Unavailable");
   set("peopleReportingDetail",coverage==null?"Open daily reports to check today’s reporting status.":`${coverage}% reporting coverage today${missing?` · ${missing} report${missing===1?"":"s"} not received`:" · all expected reports received"}.`);
   const contractCoverage=Number(risk?.dimensions?.contractCoverage);
-  set("peopleEmployeeDetail",Number.isFinite(contractCoverage)?`${activeEmployees} active employee${activeEmployees===1?"":"s"} · ${Math.round(contractCoverage)}% contract coverage.`:`${activeEmployees} active employee${activeEmployees===1?"":"s"}. Keep staff and contract records current.`);
+  set("peopleEmployeeDetail",!employeesReady?"Employee records unavailable. Refresh to retry.":risk?.dimensions?.contractCoverage!=null&&Number.isFinite(contractCoverage)?`${activeEmployees} active employee${activeEmployees===1?"":"s"} · ${Math.round(contractCoverage)}% contract coverage.`:`${activeEmployees} active employee${activeEmployees===1?"":"s"}. Keep staff and contract records current.`);
   const findings=Array.isArray(risk?.findings)?risk.findings:[];const high=findings.filter(x=>["high","critical"].includes(String(x.severity||""))).length;
-  set("peopleFollowupDetail",`${high||0} high-priority control gap${high===1?"":"s"}${openCases?` · ${openCases} open employment case${openCases===1?"":"s"}`:""}${attention?` · ${attention} report flag${attention===1?"":"s"}`:""}.`);
+  set("peopleFollowupDetail",!riskReady||!casesReady?"Employment follow-up is incomplete. Refresh to retry.":`${high||0} high-priority control gap${high===1?"":"s"}${openCases?` · ${openCases} open employment case${openCases===1?"":"s"}`:""}${attention?` · ${attention} report flag${attention===1?"":"s"}`:""}.`);
+  const progress=document.getElementById("peopleReportingProgress");
+  if(progress){progress.hidden=coverage==null;progress.value=coverage??0;progress.setAttribute("aria-valuetext",coverage==null?"Reporting coverage unavailable":`${coverage}% reporting coverage`)}
+  const failed=results.filter(r=>r.status==="rejected").length;
+  set("peopleRefreshStatus",failed?`${failed} source${failed===1?"":"s"} unavailable · refresh to retry`:`Updated ${new Intl.DateTimeFormat("en-BW",{timeZone:"Africa/Gaborone",hour:"2-digit",minute:"2-digit"}).format(new Date())} · Botswana time`);
+}
+
+async function refreshPeopleWorkspace(){
+  const button=document.getElementById("peopleRefreshButton");if(button?.disabled)return;
+  if(button){button.disabled=true;button.textContent="Refreshing…"}
+  try{await Promise.all([renderPeopleOperationsHub(),renderPeopleReportingSetup()])}
+  finally{if(button){button.disabled=false;button.textContent="Refresh"}}
 }
 
 async function renderBusinessHub(){

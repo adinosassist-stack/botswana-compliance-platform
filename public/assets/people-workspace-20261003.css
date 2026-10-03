@@ -1,0 +1,29 @@
+/* People overview: compact navigation with readable, source-backed status. */
+#peopleops .hub-hero{align-items:center!important;gap:16px!important}
+#peopleops .hub-hero h2{font-size:clamp(22px,3vw,30px)!important;line-height:1.15!important}
+#peopleops .hub-hero p{font-size:13px!important;margin:6px 0 0!important}
+#peopleops .people-toolbar{display:flex;flex-wrap:wrap;gap:8px;flex-shrink:0}
+#peopleops .people-status-strip{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px!important;margin:0 0 12px!important}
+#peopleops .people-status-chip{appearance:none;display:flex!important;align-items:flex-start!important;flex-direction:column;gap:6px!important;padding:14px!important;border:1px solid var(--line)!important;border-radius:14px!important;background:#fff!important;text-align:left;color:var(--text,#172b4d);font:inherit;cursor:pointer;min-width:0;min-height:88px}
+#peopleops .people-status-chip b{font-size:23px!important;line-height:1.15;overflow-wrap:anywhere;color:var(--v231-navy,#18375a)}
+#peopleops .people-status-chip span{font-size:12px;line-height:1.35;color:var(--muted,#63748b)}
+#peopleops .people-status-chip:hover{border-color:#698bc0!important;background:#f7faff!important}
+#peopleops :is(button,summary):focus-visible{outline:3px solid #497fc1;outline-offset:3px}
+#peopleops .people-reporting-pulse{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin-bottom:14px;padding:10px 12px;border-radius:10px;background:#eef4fb}
+#peopleops .people-reporting-pulse label{font-size:12px;margin:0}
+#peopleops progress{width:140px;height:8px;accent-color:#376faa}
+#peopleops .people-reporting-pulse [role=status]{margin-left:auto;font-size:12px}
+#peopleops .people-outcome-card{min-height:128px!important;padding:14px!important}
+#peopleops .people-outcome-status{display:block!important;font-size:13px!important;line-height:1.45!important;overflow:visible!important}
+#peopleops .people-outcome-action{font-size:12px!important}
+#peopleops #opsReportingSetupDetails{margin-top:12px}
+#peopleops #opsReportingSetupDetails .ops-specialist-inner{padding:12px!important}
+#peopleops #opsReportingSetupDetails .grid.g2{margin-top:0!important;gap:12px}
+#peopleops #opsReportingSetupDetails .card{padding:14px!important;min-width:0}
+#peopleops #opsReportingSetupDetails h2{font-size:16px!important;margin:0 0 6px}
+#peopleops #opsReportingSetupDetails :is(input,select){min-width:0;max-width:100%}
+#peopleops .people-automation-details{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+#peopleops .people-automation-details summary{font-size:13px;cursor:pointer;padding:8px 0}
+#peopleops .people-automation-details .card{margin-top:8px}
+@media(max-width:1100px){#peopleops .people-status-strip{grid-template-columns:repeat(2,minmax(0,1fr))}#peopleops .hub-hero{align-items:flex-start!important;flex-wrap:wrap}}
+@media(max-width:620px){#peopleops .hub-hero{display:flex!important;flex-direction:column}#peopleops .people-toolbar{width:100%}#peopleops .people-toolbar .btn{flex:1;min-height:44px}#peopleops .people-status-chip{padding:12px!important;min-height:84px}#peopleops .people-status-chip b{font-size:21px!important}#peopleops .people-reporting-pulse [role=status]{width:100%;margin-left:0}#peopleops #opsReportingSetupDetails .grid.g2{grid-template-columns:1fr!important}#peopleops #opsReportingSetupDetails .formgrid{grid-template-columns:1fr!important}#peopleops .people-outcome-card{min-height:112px!important}}
