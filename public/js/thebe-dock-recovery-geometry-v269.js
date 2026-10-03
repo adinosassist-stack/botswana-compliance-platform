@@ -18,10 +18,10 @@
   function geometryFor(viewport,expanded=false){
     const width=Math.max(0,Number(viewport)||0);
     if(width<1024){
-      return {left:"8px",right:"8px",top:"8px",bottom:"calc(104px + env(safe-area-inset-bottom))",width:"auto","max-width":"none",height:"auto","min-height":"0","max-height":"calc(100dvh - 112px - env(safe-area-inset-bottom))","border-radius":"20px"};
+      return {position:"fixed",left:"8px",right:"8px",top:"8px",bottom:"calc(104px + env(safe-area-inset-bottom))",width:"auto","max-width":"none",height:"auto","min-height":"0","max-height":"calc(100dvh - 112px - env(safe-area-inset-bottom))","border-radius":"20px","z-index":"900"};
     }
     const dockWidth=widthFor(width,expanded);
-    return {left:"auto",right:"16px",top:"88px",bottom:"auto",width:`${dockWidth}px`,"max-width":`${dockWidth}px`,height:"min(610px,calc(100dvh - 104px))","min-height":"0","max-height":"calc(100dvh - 104px)","border-radius":"20px"};
+    return {position:"fixed",left:"auto",right:"16px",top:"88px",bottom:"auto",width:`${dockWidth}px`,"max-width":`${dockWidth}px`,height:"min(610px,calc(100dvh - 104px))","min-height":"0","max-height":"calc(100dvh - 104px)","border-radius":"20px","z-index":"900"};
   }
 
   function setOwned(node,styles,{restore=true}={}){
