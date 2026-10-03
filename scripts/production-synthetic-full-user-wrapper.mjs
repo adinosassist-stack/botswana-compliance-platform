@@ -7,8 +7,8 @@ const WORKSPACE_TIMEOUT_MS=40000;
 const VIEW_TIMEOUT_MS=5000;
 const CLOSE_TIMEOUT_MS=5000;
 const MIN_OWNER_VIEW_COUNT=8;
-// Property/Money separation intentionally removed the two reciprocal cross-hub buttons; retain a seven-control minimum as the current non-destructive in-view navigation baseline.
-const MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=7;
+// Compact owner pages expose four cross-view routes; the separate sidebar matrix covers every discoverable owner destination.
+const MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=4;
 const MIN_SAFE_UI_ACTION_COUNT=5;
 const executablePath=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(path=>fs.existsSync(path));
 
@@ -990,6 +990,7 @@ async function runFullUserJourney(credentials){
     mark('full-user safe UI action matrix',safeUiActionClicks+' real non-navigation controls opened and closed their intended UI state without issuing same-origin mutation requests');
 
     let inViewNavigationClicks=0;
+    const inViewNavigationRoutes=new Set();
     for(const sourceView of views){
       const sourceNav=page.locator(`#nav button[data-view="${sourceView}"]`).first();
       assert(await sourceNav.count(),`source navigation button missing for in-view audit ${sourceView}`);
@@ -1051,16 +1052,17 @@ async function runFullUserJourney(credentials){
           `in-view navigation control failed: ${sourceView} -> ${control.targetView} ${safe(JSON.stringify(targetState))}`);
         assert(targetState.title.length>0,`in-view navigation control reached ${control.targetView} without a page title`);
         inViewNavigationClicks++;
+        inViewNavigationRoutes.add(`${sourceView}->${control.targetView}`);
       }
     }
-    assert(inViewNavigationClicks>=MIN_OWNER_INVIEW_NAV_CONTROL_COUNT,
-      `only ${inViewNavigationClicks} visible owner in-view navigation controls were exercised; expected at least ${MIN_OWNER_INVIEW_NAV_CONTROL_COUNT}`);
+    assert(inViewNavigationRoutes.size>=MIN_OWNER_INVIEW_NAV_CONTROL_COUNT,
+      `only ${inViewNavigationRoutes.size} unique owner in-view navigation routes were exercised across ${inViewNavigationClicks} controls; expected at least ${MIN_OWNER_INVIEW_NAV_CONTROL_COUNT}`);
 
     assert(pageErrors.length===0,`page errors: ${safe(pageErrors.join(' | '))}`);
     assert(assetFailures.length===0,`critical asset failures: ${safe(assetFailures.join(' | '))}`);
     assert(apiServerFailures.length===0,`same-origin API 5xx responses: ${safe(apiServerFailures.join(' | '))}`);
     mark('full-user owner navigation click matrix',`${views.length} role-visible navigation buttons were clicked through the live DOM; every lazy view completed hydration with non-empty content and no page, asset, or API 5xx failures`);
-    mark('full-user in-view navigation control matrix',`${inViewNavigationClicks} visible non-destructive workspace navigation controls were clicked from their real source views and activated their intended destinations`);
+    mark('full-user in-view navigation control matrix',`${inViewNavigationClicks} controls covered ${inViewNavigationRoutes.size} unique routes: ${[...inViewNavigationRoutes].join(', ')}; each activated its intended destination`);
     await context.close();
   }finally{
     await withDeadline('full-user browser close',browser.close().catch(()=>{}),CLOSE_TIMEOUT_MS).catch(()=>{});

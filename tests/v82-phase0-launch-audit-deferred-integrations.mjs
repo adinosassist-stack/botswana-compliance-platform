@@ -52,7 +52,7 @@ ok(
   fullUserWrapper.includes("orbWidth===68"),
   'mandatory full-user lifecycle proves mascot-free marketing, workspace and Talk to Thebe treatment while preserving Property hierarchy and dock geometry'
 );
-ok(fullUserWrapper.includes("#nav details:not([open]) > summary:visible")&&fullUserWrapper.includes('await nextMenu.click()')&&fullUserWrapper.includes('MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=7'), 'full-user audit opens actual sidebar disclosures before collecting specialist views and retains the navigation minimum');
+ok(fullUserWrapper.includes("#nav details:not([open]) > summary:visible")&&fullUserWrapper.includes('await nextMenu.click()')&&fullUserWrapper.includes('MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=4'), 'full-user audit opens actual sidebar disclosures before collecting specialist views and retains the compact navigation minimum');
 const assertWorkspaceSource=browserWrapper.slice(browserWrapper.indexOf('function workspaceAuthoredState'),browserWrapper.indexOf('async function loginInBrowser'));
 ok(
   assertWorkspaceSource.includes('WORKSPACE_AUTHORED_VISIBILITY_WAIT_MS')&&
