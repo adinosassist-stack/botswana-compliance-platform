@@ -956,9 +956,15 @@
     dock.style.setProperty("--thebe-workspace-left",left);
     pill?.style.setProperty("--thebe-workspace-left",left);
   }
+  let lastDockMobileMode=null;
   function syncVisibility(){
     if(!dock||!pill)return;
-    const surface=surfaceMode(),visible=surface!=="hidden",workspace=surface==="workspace",mobile=mobileDockMode(),yielded=dockShouldYield(),isCollapsed=effectiveCollapsed();
+    const mobile=mobileDockMode();
+    // A desktop rail must become a mobile launcher instead of covering the workspace.
+    // Explicitly opened mobile conversations stay open when the mobile viewport changes.
+    if(mobile&&lastDockMobileMode===false){collapsed=true;safeSessionSet(STORE_KEY,"1")}
+    lastDockMobileMode=mobile;
+    const surface=surfaceMode(),visible=surface!=="hidden",workspace=surface==="workspace",yielded=dockShouldYield(),isCollapsed=effectiveCollapsed();
     dock.hidden=!visible||isCollapsed;
     dock.style.setProperty("display",visible&&!isCollapsed?"flex":"none","important");
     pill.setAttribute("aria-expanded",String(visible&&!isCollapsed));

@@ -88,6 +88,21 @@ try{
  await page.waitForFunction(()=>typeof window.resolveMicrophone==='function');
  await page.evaluate(async()=>{window.ThebeLiveVoice.stop();window.stoppedTracks=0;window.resolveMicrophone({getTracks:()=>[{stop:()=>window.stoppedTracks++}]});await window.pendingVoice});
  assert.equal(await page.evaluate(()=>window.stoppedTracks),1,'microphone acquired after cancellation must be stopped');
+ // Crossing into mobile must not inherit the always-open desktop rail.
+ await page.setViewportSize({width:844,height:390});
+ await page.waitForFunction(()=>!document.body.classList.contains('thebe-ai-dock-open')&&getComputedStyle(document.getElementById('mainContent')).visibility!=='hidden');
+ assert(!(await page.locator('#thebeAiDock').isVisible()),'desktop rail collapses on entering wide mobile');
+ assert(await page.locator('#thebeAiDockPill').isVisible(),'mobile launcher is available after breakpoint transition');
+ await page.locator('#thebeAiDockPill').click();
+ await page.setViewportSize({width:390,height:844});
+ assert(await page.locator('#thebeAiDock').isVisible(),'explicit mobile conversation survives mobile resize');
+ await page.evaluate(()=>window.ThebeAiDock.close());
+ await page.waitForFunction(()=>getComputedStyle(document.getElementById('mainContent')).visibility!=='hidden');
+ await page.setViewportSize({width:1024,height:844});
+ assert(await page.locator('#thebeAiDock').isVisible(),'desktop rail returns at desktop breakpoint');
+ await page.setViewportSize({width:1023,height:844});
+ await page.waitForFunction(()=>!document.body.classList.contains('thebe-ai-dock-open')&&getComputedStyle(document.getElementById('mainContent')).visibility!=='hidden');
+ assert(!(await page.locator('#thebeAiDock').isVisible()),'each desktop-to-mobile crossing restores workspace visibility');
  await page.setViewportSize({width:390,height:844});await page.evaluate(()=>window.ThebeAiDock.close());
  await page.locator('#thebeAiDockPill').click();assert(await page.locator('#thebeAiDock').isVisible(),'mobile launcher opens compact conversation');
  await page.getByRole('button',{name:'Minimise Thebe dock'}).click();assert(!(await page.locator('#thebeAiDock').isVisible()),'mobile conversation closes');
