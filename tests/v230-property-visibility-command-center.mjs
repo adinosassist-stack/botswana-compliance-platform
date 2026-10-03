@@ -44,11 +44,11 @@ assert.match(commandCss,/#dashboard \.home-status-strip\{[\s\S]*gap:8px/,
   "Home management status should remain a compact scan row");
 
 // V264: compact Property modes cover operations, optimisation and user-entered asset comparison.
-assert.match(visibility,/const COMPACT_RELEASE="20261003-property-workspace-v264"/);
+assert.match(visibility,/const COMPACT_RELEASE="20261003-property-workspace-v272"/);
 assert.match(visibility,/const OPERATIONS_RELEASE="20261003-property-operations-v262"/);
 assert.match(visibility,/const OPTIMISE_RELEASE="20261003-property-optimise-v263"/);
 assert.match(visibility,/const COMPARE_RELEASE="20261003-property-compare-v264"/);
-for(const [label,pane] of [["Today","today"],["Properties","properties"],["Analyse","analyse"],["Operations","operations"],["Optimise","optimise"],["Compare","compare"]]){
+for(const [label,pane] of [["Today","today"],["Properties","properties"],["Analyse","analyse"],["Operations","operations"]]){
   assert.ok(visibility.includes(`compactButton("${label}","${pane}")`),`compact Property navigation missing ${label}`);
 }
 assert.match(visibility,/PROPERTY_PANES=new Set\(\["today","properties","analyse","operations","optimise","compare"\]\)/);
@@ -67,7 +67,7 @@ assert.match(visibility,/Open voice/);
 assert.match(visibility,/setPane:setPropertyPane/);
 assert.match(visibility,/updateOverview:updatePropertyOverview/);
 
-assert.match(visibility,/href="\/assets\/property-operations-v262\.css"/);
+assert.match(visibility,/href=propertyAssetUrl\("\/assets\/property-operations-v262\.css"\)/);
 assert.match(visibility,/property-operations-v262/);
 assert.match(visibility,/Run the asset after acquisition/);
 assert.match(visibility,/Tenant, payment, maintenance and expense records are not treated as live until those data sources are connected/);
@@ -81,7 +81,7 @@ assert.match(visibility,/operationsRelease:OPERATIONS_RELEASE/);
 assert.match(visibility,/updateOperations:updatePropertyOperations/);
 assert.match(visibility,/operationsMounted/);
 
-assert.match(visibility,/href="\/assets\/property-optimise-v263\.css"/);
+assert.match(visibility,/href=propertyAssetUrl\("\/assets\/property-optimise-v263\.css"\)/);
 assert.match(visibility,/property-optimise-v263/);
 assert.match(visibility,/Improve the asset without inventing the data/);
 assert.match(visibility,/Scenario support uses only current deal inputs/);
@@ -102,7 +102,7 @@ assert.match(visibility,/optimiseRelease:OPTIMISE_RELEASE/);
 assert.match(visibility,/updateOptimise:updatePropertyOptimise/);
 assert.match(visibility,/optimiseMounted/);
 
-assert.match(visibility,/href="\/assets\/property-compare-v264\.css"/);
+assert.match(visibility,/href=propertyAssetUrl\("\/assets\/property-compare-v264\.css"\)/);
 assert.match(visibility,/property-compare-v264/);
 assert.match(visibility,/Compare assets without fabricated comparables/);
 assert.match(visibility,/this is not a live market feed or investment recommendation/);

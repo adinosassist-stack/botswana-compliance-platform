@@ -61,6 +61,13 @@ async function verifySurface(page,{url,radioKey,panelKey,tabsSelector}){
       url+' selected card heading must match '+plan.name);
     assert((await page.locator('#'+panel+' .price').textContent()).includes(plan.price),
       url+' selected card must keep published '+plan.name+' price');
+    const geometry=await page.locator('#'+panel).evaluate(el=>{
+      const heading=el.querySelector('h3').getBoundingClientRect(),price=el.querySelector('.price').getBoundingClientRect(),description=el.querySelector('p').getBoundingClientRect(),action=el.querySelector('.btn').getBoundingClientRect();
+      return {direction:getComputedStyle(el).flexDirection,headingBottom:heading.bottom,priceTop:price.top,priceBottom:price.bottom,descriptionTop:description.top,descriptionBottom:description.bottom,actionTop:action.top,width:el.clientWidth,scrollWidth:el.scrollWidth};
+    });
+    assert.equal(geometry.direction,'column',url+' selected card must stack its plan details');
+    assert(geometry.priceTop>=geometry.headingBottom-1&&geometry.descriptionTop>=geometry.priceBottom-1&&geometry.actionTop>=geometry.descriptionBottom-1,url+' plan heading, price, description and action must remain ordered vertically');
+    assert(geometry.scrollWidth<=geometry.width+1,url+' plan card must fit its container');
   }
 
   const tabs=await page.locator(tabsSelector).evaluate(el=>({
