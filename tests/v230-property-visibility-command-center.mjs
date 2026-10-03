@@ -12,7 +12,7 @@ assert.match(production,/WORKSPACE_COMMAND_CENTER_CSS_ASSET="\/assets\/workspace
 assert.match(production,/PROPERTY_VISIBILITY_JS_ASSET="\/js\/property-visibility-v230\.js"/);
 assert.match(production,/x-thebe-property-ui","v230-resident-visible-command-center"/);
 
-assert.match(visibility,/const RELEASE="20261001-property-visible-v230"/);
+assert.match(visibility,/const RELEASE="20261003-property-compact-lifecycle-v262"/);
 assert.match(visibility,/thebe:workspace-view-change/);
 assert.match(visibility,/propertyintelligence/);
 assert.match(visibility,/view\.classList\.contains\("active"\)/);
