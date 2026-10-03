@@ -70,7 +70,7 @@
     const marketingGate=document?.getElementById?.("marketingGate");
     if(dock.dataset.surface==="workspace"){
       releaseNode(marketingGate);
-      setOwned(workspaceMain,{"margin-left":"0","margin-right":`calc(${dockWidth}px + 32px)`,width:`calc(100% - ${dockWidth}px - 32px)`,`max-width`:"none","padding-left":"20px","padding-right":"20px"});
+      setOwned(workspaceMain,{"margin-left":"0","margin-right":`calc(${dockWidth}px + 32px)`,width:`calc(100% - ${dockWidth}px - 32px)`,"max-width":"none","padding-left":"20px","padding-right":"20px"});
       return;
     }
     releaseNode(workspaceMain);
@@ -84,6 +84,10 @@
     releaseNode(document?.getElementById?.("marketingGate"));
   }
 
+  function clearMarker(dock){
+    if(dock?.dataset?.geometryRecovery===RELEASE)delete dock.dataset.geometryRecovery;
+  }
+
   function repair(){
     const document=global.document;
     if(!document)return false;
@@ -91,6 +95,7 @@
     if(!dock){releaseAll();return false}
     if(dock.dataset.cssRecovery!=="1"){
       releaseAll();
+      clearMarker(dock);
       return false;
     }
     const width=viewportWidth();
