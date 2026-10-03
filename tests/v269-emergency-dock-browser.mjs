@@ -57,6 +57,10 @@ try{
   }
 
   await page.setViewportSize({width:390,height:844});
+  await page.waitForFunction(()=>{
+    const d=document.getElementById('thebeAiDock')?.getBoundingClientRect();
+    return d&&Math.abs(d.left-8)<=1&&Math.abs(d.right-(innerWidth-8))<=1;
+  });
   const mobile=await page.evaluate(()=>{const d=document.getElementById('thebeAiDock').getBoundingClientRect();return {left:d.left,right:d.right,width:d.width,viewport:innerWidth}});
   assert(Math.abs(mobile.left-8)<=1&&Math.abs(mobile.right-(mobile.viewport-8))<=1,`mobile emergency dock keeps 8px gutters: ${JSON.stringify(mobile)}`);
   assert.deepEqual(errors,[],'forced CSS recovery must not throw browser errors');
