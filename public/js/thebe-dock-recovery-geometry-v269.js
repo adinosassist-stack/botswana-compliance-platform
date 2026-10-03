@@ -118,8 +118,9 @@
         const observer=new global.MutationObserver(schedule);
         observer.observe(root,{subtree:true,childList:true,attributes:true,attributeFilter:["style","class","data-css-recovery","data-expanded","data-surface"]});
       }
-      global.addEventListener?.("resize",schedule,{passive:true});
-      global.addEventListener?.("thebe:workspace-view-change",schedule);
+      global.addEventListener?.("resize",repair,{passive:true});
+      global.visualViewport?.addEventListener?.("resize",repair,{passive:true});
+      global.addEventListener?.("thebe:workspace-view-change",repair);
     };
     if(global.document.readyState==="loading")global.document.addEventListener("DOMContentLoaded",start,{once:true});
     else start();
