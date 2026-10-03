@@ -1,0 +1,11 @@
+import fs from "node:fs";import assert from "node:assert/strict";
+const css=fs.readFileSync("public/assets/thebe-spatial-dock-v246.css","utf8");
+const voice=fs.readFileSync("cloudflare/src/agentic-live-voice.js","utf8");
+assert.match(css,/body\{--thebe-spatial-width:272px\}/,"desktop dock must remain compact");
+assert.match(css,/body\.thebe-ai-expanded\{--thebe-spatial-width:344px\}/,"expanded dock must remain bounded");
+assert.match(css,/property-layout-v224\{width:100%!important;max-width:1180px!important/,"Property calculator must use the available desktop canvas");
+assert.match(css,/@media\(min-width:860px\)[\s\S]*property-calculator-v224\{display:grid!important;grid-template-columns:minmax\(360px,\.9fr\) minmax\(420px,1\.1fr\)/,"desktop Property calculator must compose inputs and results side by side");
+assert.match(voice,/ordinary general-knowledge and conversational questions directly/,"workspace voice must answer general questions directly");
+assert.match(voice,/including Market, must never restrict the user to page-specific questions/,"Market must not narrow live voice scope");
+assert.match(voice,/current company facts, finance, compliance, operations, customer work, business analysis[\s\S]*delegate_to_thebe_backend/,"private business questions must retain governed delegation");
+console.log("V263_PROPERTY_DOCK_GENERAL_VOICE_PASS");
