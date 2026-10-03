@@ -1,0 +1,10 @@
+import fs from "node:fs";import assert from "node:assert/strict";
+const css=fs.readFileSync("public/assets/workspace-inline-styles-20261001c.css","utf8");
+assert.match(css,/V265 workspace overflow hardening/);
+assert.match(css,/#appShell h1[\s\S]*overflow-wrap:anywhere/,"important copy must wrap inside its container");
+assert.match(css,/#appShell \.row>\*,#appShell \.between>\*,#appShell \.actions>\*,#appShell \.formgrid>\*,#appShell \.grid>\*\{min-width:0;max-width:100%\}/,"flex and grid children must be shrinkable");
+assert.match(css,/#appShell \.btn,#appShell button\{max-width:100%;white-space:normal;overflow-wrap:anywhere/,"button labels must wrap instead of spilling");
+assert.match(css,/#appShell input,#appShell select,#appShell textarea\{max-width:100%;min-width:0\}/,"form controls must stay inside cards");
+assert.match(css,/#appShell \.badge,#appShell \.pill,#appShell \.rolechip\{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap\}/,"compact status chips may truncate safely");
+assert.match(css,/#appShell \.mobile-table-wrap,#appShell \.tablewrap,#appShell \.table-scroll\{max-width:100%;overflow-x:auto\}/,"data tables must scroll locally rather than widen the workspace");
+console.log("V265_WORKSPACE_OVERFLOW_HARDENING_PASS");
