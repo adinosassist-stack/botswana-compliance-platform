@@ -1,0 +1,51 @@
+name: V272 GPT-Live preview transport
+
+on:
+  pull_request:
+    paths:
+      - "cloudflare/src/agentic-live-preview.js"
+      - "cloudflare/src/audit-lineage-writer.js"
+      - "cloudflare/src/agentic-entry.js"
+      - "cloudflare/src/agentic-live-voice-v270.js"
+      - "cloudflare/src/asset-release-identity.js"
+      - "public/js/thebe-live-preview-fallback-v272.js"
+      - "tests/v272-gpt-live-preview-transport.mjs"
+      - "tests/v272-client-preview-fallback.mjs"
+      - "tests/v272-preview-audit-lineage.mjs"
+      - ".github/workflows/v272-gpt-live-preview-transport-ci.yml"
+      - "docs/releases/v272-gpt-live-preview-transport.md"
+  push:
+    branches:
+      - "chatgpt/v272-gpt-live-preview-transport"
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: ".nvmrc"
+          package-manager-cache: false
+      - name: Syntax check preview transport and selector
+        run: |
+          node --check cloudflare/src/audit-lineage-writer.js
+          node --check cloudflare/src/agentic-live-preview.js
+          node --check cloudflare/src/agentic-entry.js
+          node --check public/js/thebe-live-preview-fallback-v272.js
+      - name: Preserve V271 event compatibility
+        run: node tests/v271-gpt-live-event-compat-evals.mjs
+      - name: Qualify V272 isolated preview transport
+        run: node tests/v272-gpt-live-preview-transport.mjs
+      - name: Qualify sealed preview audit lineage
+        run: node tests/v272-preview-audit-lineage.mjs
+      - name: Qualify fail-closed browser preview selector
+        run: node tests/v272-client-preview-fallback.mjs
+      - name: Preserve production Realtime guard
+        run: node tests/v101-gpt-live-voice-foundation.mjs

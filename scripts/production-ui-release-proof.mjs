@@ -23,6 +23,16 @@ for(const asset of ['/js/property-visibility-v230.js','/assets/property-visibili
   const live=await get(asset+'?release='+release.sourceSha);
   assert.equal(hash(live.body),hash(fs.readFileSync('public'+asset,'utf8')),`${asset}: live bytes match qualified source`);
 }
+if(fs.existsSync('public/assets/people-workspace-20261003.css')){
+  const people=await get('/assets/people-workspace-20261003.css?release='+release.sourceSha);
+  assert.equal(hash(people.body),hash(fs.readFileSync('public/assets/people-workspace-20261003.css','utf8')),'People stylesheet: exact live bytes');
+  const runtime=await get('/js/workspace-runtime-20261001b.js?release='+release.sourceSha);
+  for(const marker of ['async function refreshPeopleWorkspace()','peopleRefreshStatus','peopleReportingProgress'])assert(runtime.body.includes(marker),`People runtime missing ${marker}`);
+}
+if(fs.existsSync('public/js/thebe-live-preview-fallback-v272.js')){
+  const bridge=await get('/js/thebe-live-preview-fallback-v272.js?release='+release.sourceSha);
+  assert.equal(hash(bridge.body),hash(fs.readFileSync('public/js/thebe-live-preview-fallback-v272.js','utf8')),'voice fallback bridge: exact live bytes');
+}
 const production=fs.readFileSync('cloudflare/src/production-entry.js','utf8');
 const prefix=production.match(/const WORKSPACE_VIEW_FRAGMENT_PREFIX="([^"]+)"/)?.[1];
 assert(prefix,'workspace fragment prefix');

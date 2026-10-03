@@ -5,6 +5,7 @@ import {handleAgenticWhatsAppRequest} from "./agentic-whatsapp-core.js";
 import {handleAgenticTaskExecutionRequest} from "./agentic-task-execution.js";
 import {handleAgenticPersistentTaskRequest} from "./agentic-persistent-tasks.js";
 import {handleAgenticLiveVoiceRequest} from "./agentic-live-voice.js";
+import {handleAgenticLivePreviewRequest} from "./agentic-live-preview.js";
 import {handleAgenticFinanceReconciliationRequest} from "./agentic-finance-reconciliation.js";
 import {preparePlatformOwnerLogin,withPlatformOwnerAdminEnv} from "./platform-owner-access.js";
 import {applyClientRuntimeIdentity} from "./client-runtime-identity.js";
@@ -181,14 +182,25 @@ async function enhanceReadiness(request,env,response){
 export default {
   async fetch(request,env,ctx){
     const logicalPath=logicalRequestPath(request);
+    const liveCoreFetch=(innerRequest,innerEnv=env,innerCtx=ctx)=>base.fetch(innerRequest,innerEnv,innerCtx);
+    const liveTaskFetch=(innerRequest,innerEnv=env)=>handleAgenticTaskExecutionRequest({
+      request:innerRequest,
+      logicalPath:logicalRequestPath(innerRequest),
+      env:innerEnv
+    });
+    const previewDelegateRequest=innerRequest=>handleAgenticLiveVoiceRequest({
+      request:innerRequest,
+      logicalPath:"/api/agentic/live/delegation",
+      env,ctx,
+      coreFetch:liveCoreFetch,
+      taskFetch:liveTaskFetch
+    });
+    const livePreviewResponse=await handleAgenticLivePreviewRequest({request,logicalPath,env,delegateRequest:previewDelegateRequest});
+    if(livePreviewResponse)return livePreviewResponse;
     const liveVoiceResponse=await handleAgenticLiveVoiceRequest({
       request,logicalPath,env,ctx,
-      coreFetch:(innerRequest,innerEnv=env,innerCtx=ctx)=>base.fetch(innerRequest,innerEnv,innerCtx),
-      taskFetch:(innerRequest,innerEnv=env)=>handleAgenticTaskExecutionRequest({
-        request:innerRequest,
-        logicalPath:logicalRequestPath(innerRequest),
-        env:innerEnv
-      })
+      coreFetch:liveCoreFetch,
+      taskFetch:liveTaskFetch
     });
     if(liveVoiceResponse)return liveVoiceResponse;
     const whatsappResponse=await handleAgenticWhatsAppRequest({request,logicalPath,env});
