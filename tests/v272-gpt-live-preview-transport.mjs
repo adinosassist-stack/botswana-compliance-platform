@@ -113,16 +113,8 @@ try{
   assert.equal((await invalidProviderResponse.json()).error,"gpt_live_preview_invalid_response");
 }finally{globalThis.fetch=originalFetch}
 
-const auditRows=[];
-const db={prepare(sql){return {bind(...args){return {async run(){auditRows.push({sql,args});return {success:true}}}}}}};
-const auth={tenant_id:"tenant-1",user_id:"user-1"};
-assert.equal(await __gptLivePreviewTransportTest.previewAudit({DB:db},auth,"THEBE_LIVE_SESSION_STARTED","live-a",{runtime:"gpt-live-preview"}),true);
-assert.equal(auditRows.length,1);
-assert.equal(auditRows[0].args[2],"THEBE_LIVE_SESSION_STARTED");
-assert.equal(auditRows[0].args[3],"thebe_live_session");
-assert.equal(auditRows[0].args[4],"live-a");
-assert.match(auditRows[0].args[5],/gpt-live-preview/);
-
+// Sealed audit lineage is qualified separately in v272-preview-audit-lineage.mjs.
+// Keep this file focused on the transport/provider contract and governed delegation bridge.
 const governedResponse=new Response(JSON.stringify({
   ok:true,mode:"analyze",content:"Verified governed result.",authority:{executionPerformed:false,runtimeGuardBypassed:false}
 }),{status:201,headers:{"content-type":"application/json"}});
@@ -135,19 +127,19 @@ const taskPreparedResponse=new Response(JSON.stringify({
   ok:true,mode:"prepare_internal_task",content:"Task prepared.",authority:{executionPerformed:false,taskPrepared:true}
 }),{status:201,headers:{"content-type":"application/json"}});
 const unverified=await __gptLivePreviewTransportTest.verifiedPreviewDelegation(async()=>taskPreparedResponse,new Request("https://thebedesk.test/api/agentic/live/preview/delegation",{method:"POST"}));
-assert.equal((await unverified.json()).verified,false,'GPT-Live preview cannot speak task-preparation results');
+assert.equal((await unverified.json()).verified,false,"GPT-Live preview cannot speak task-preparation results");
 
 const entry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
 const previewIndex=entry.indexOf("handleAgenticLivePreviewRequest");
 const productionIndex=entry.indexOf("handleAgenticLiveVoiceRequest");
 assert.ok(previewIndex>=0&&productionIndex>=0);
 assert.ok(entry.indexOf("const livePreviewResponse=")<entry.indexOf("const liveVoiceResponse="),"preview route is checked before the production live-prefix handler");
-assert.match(entry,/previewDelegateRequest=innerRequest=>handleAgenticLiveVoiceRequest/,'preview delegates through the existing governed voice backend');
-assert.match(entry,/logicalPath:"\/api\/agentic\/live\/delegation"/,'preview delegation explicitly reuses the qualified backend path');
+assert.match(entry,/previewDelegateRequest=innerRequest=>handleAgenticLiveVoiceRequest/,"preview delegates through the existing governed voice backend");
+assert.match(entry,/logicalPath:"\/api\/agentic\/live\/delegation"/,"preview delegation explicitly reuses the qualified backend path");
 
 const production=fs.readFileSync("cloudflare/src/agentic-live-voice.js","utf8");
 assert.match(production,/gpt-realtime-2\.1/);
 assert.match(production,/\/v1\/realtime\/calls/);
 assert.doesNotMatch(production,/\/api\/agentic\/live\/preview\/session/);
 
-console.log("PASS: V272 isolated GPT-Live transport, audit lineage, least-privilege channel, verified governed delegation and Realtime production boundary qualified");
+console.log("PASS: V272 isolated GPT-Live transport, least-privilege channel, verified governed delegation and Realtime production boundary qualified");
