@@ -1,6 +1,6 @@
 (function(global){
   "use strict";
-  const RELEASE="20261001-property-visible-v230";
+  const RELEASE="20261003-property-compact-lifecycle-v262";
   function visible(node){
     if(!node)return false;
     const style=global.getComputedStyle?.(node);
@@ -28,14 +28,7 @@
     const analyse=view.querySelector(".property-analyse-button");
     repairNode(layout,"block");
     repairNode(calculator,"block");
-    // Visibility recovery must retain the compact geometry after a late style repair.
-    for(const node of [layout,calculator])if(node){
-      node.style.setProperty("width","100%","important");
-      node.style.setProperty("max-width","680px","important");
-      node.style.setProperty("min-width","0","important");
-      node.style.setProperty("margin-inline","auto","important");
-      node.style.setProperty("box-sizing","border-box","important");
-    }
+    // Recovery owns visibility only. Responsive geometry remains CSS-owned so mobile/desktop rules cannot be pinned by stale inline !important styles.
     repairNode(view.querySelector(".property-quick-rows"),"grid");
     view.querySelectorAll(".property-input-row").forEach(node=>repairNode(node,"flex"));
     repairNode(view.querySelector(".property-input-pair"),"grid");
