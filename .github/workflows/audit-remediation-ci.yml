@@ -109,6 +109,7 @@ jobs:
         run: |
           set -euo pipefail
           node tests/v82-registration-owner-navigation-hardening.mjs
+          node tests/v262-property-calculator-lifecycle.mjs
           npm run test:thebe-desk-brand
           npm run test:thebe-desk-deployment
 
