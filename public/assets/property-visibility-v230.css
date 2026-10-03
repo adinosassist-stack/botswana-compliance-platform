@@ -56,7 +56,7 @@
 .property-primary-v260 button.active,.property-primary-v260 button:hover{background:var(--property-ink);color:#fff}
 #propertyintelligence.property-compact-v260 .card{border-color:var(--property-line)!important;border-radius:14px!important;box-shadow:none!important}
 #propertyintelligence.property-compact-v260 .property-layout-v224,
-#propertyintelligence.property-compact-v260 .property-calculator-v224{max-width:760px!important;margin-inline:auto!important}
+#propertyintelligence.property-compact-v260 .property-calculator-v224{max-width:680px!important;margin-inline:auto!important}
 #propertyintelligence.property-compact-v260 .property-calculator-v224{padding:14px!important}
 #propertyintelligence.property-compact-v260 .property-calculator-head-v224{margin-bottom:8px!important}
 #propertyintelligence.property-compact-v260 .property-calculator-title-v224 p{display:none!important}
