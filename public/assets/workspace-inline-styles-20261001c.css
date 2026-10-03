@@ -2276,4 +2276,4 @@ body.thebe-ai-dock-open .property-valuation-service-card .formgrid{grid-template
 }
 
 .previewmode{display:none}.standalone-preview .previewmode{display:block}
-#appShell :where(.card,.notice,.callout,h1,h2,h3,p,label,.row>*,.actions>*,.grid>*,button,input,select,textarea){min-width:0;max-width:100%;overflow-wrap:anywhere}#appShell button{white-space:normal}
+#appShell :where(.card,.callout,h1,h2,h3,p,label,.row>*,.actions>*,.grid>*,button,input,select,textarea){min-width:0;max-width:100%;overflow-wrap:anywhere}#appShell button{white-space:normal}
