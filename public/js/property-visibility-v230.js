@@ -1,9 +1,10 @@
 (function(global){
   "use strict";
   const RELEASE="20261001-property-visible-v230";
-  const COMPACT_RELEASE="20261003-property-workspace-v262";
+  const COMPACT_RELEASE="20261003-property-workspace-v263";
   const OPERATIONS_RELEASE="20261003-property-operations-v262";
-  const PROPERTY_PANES=new Set(["today","properties","analyse","operations"]);
+  const OPTIMISE_RELEASE="20261003-property-optimise-v263";
+  const PROPERTY_PANES=new Set(["today","properties","analyse","operations","optimise"]);
   let propertyAiPending=false;
   let propertyAiDraft="";
   let compactObserver=null;
@@ -61,6 +62,11 @@
   function formatPula(value){
     if(!Number.isFinite(value)||value<=0)return "—";
     try{return new Intl.NumberFormat("en-BW",{style:"currency",currency:"BWP",maximumFractionDigits:0}).format(value)}catch(_error){return `P${Math.round(value).toLocaleString()}`}
+  }
+
+  function formatSignedPula(value){
+    if(!Number.isFinite(value))return "—";
+    try{return new Intl.NumberFormat("en-BW",{style:"currency",currency:"BWP",maximumFractionDigits:0,signDisplay:"exceptZero"}).format(value)}catch(_error){const rounded=Math.round(value);return `${rounded>0?"+":""}P${rounded.toLocaleString()}`}
   }
 
   function propertySnapshot(){
@@ -275,6 +281,129 @@
     if(ring){ring.style.setProperty("--property-ops-angle",`${score*3.6}deg`);ring.setAttribute("aria-label",`Operational setup readiness ${score} percent`)}
   }
 
+  function ensureOptimiseStyles(){
+    if(document.querySelector('link[data-thebe-property-optimise-v263="true"]'))return true;
+    const link=document.createElement("link");
+    link.rel="stylesheet";
+    link.href="/assets/property-optimise-v263.css";
+    link.dataset.thebePropertyOptimiseV263="true";
+    document.head.append(link);
+    return true;
+  }
+
+  function createOptMetric(label,className,hint){
+    const metric=document.createElement("div");metric.className="property-opt-metric-v263";
+    const caption=document.createElement("span");caption.textContent=label;
+    const value=document.createElement("strong");value.className=className;value.textContent="—";
+    const note=document.createElement("small");note.textContent=hint;
+    metric.append(caption,value,note);
+    return metric;
+  }
+
+  function createOptLever(title,detail,status,className){
+    const card=document.createElement("div");card.className="property-opt-lever-v263";
+    const heading=document.createElement("b");heading.textContent=title;
+    const text=document.createElement("p");text.textContent=detail;
+    const badge=document.createElement("span");badge.className=`property-opt-status-v263 ${className||""}`.trim();badge.textContent=status;
+    card.append(heading,text,badge);
+    return card;
+  }
+
+  function createOptAction(label,prompt){
+    const button=document.createElement("button");button.type="button";button.className="property-opt-action-v263";button.textContent=label;button.addEventListener("click",()=>openPropertyAiWithPrompt(prompt));return button;
+  }
+
+  function mountPropertyOptimise(){
+    const view=document.getElementById("propertyintelligence");
+    if(!view)return null;
+    let shell=view.querySelector(".property-optimise-v263");
+    if(shell)return shell;
+    ensureOptimiseStyles();
+    shell=document.createElement("section");
+    shell.className="property-optimise-v263";
+    shell.dataset.propertyPane="optimise";
+    shell.dataset.propertyOptimiseRelease=OPTIMISE_RELEASE;
+    shell.setAttribute("aria-label","Property optimisation workspace");
+
+    const head=document.createElement("div");head.className="property-opt-head-v263";
+    const copy=document.createElement("div");copy.className="property-opt-copy-v263";
+    const eyebrow=document.createElement("span");eyebrow.className="property-opt-eyebrow-v263";eyebrow.textContent="OPTIMISE";
+    const title=document.createElement("h3");title.className="property-opt-title-v263";title.textContent="Improve the asset without inventing the data";
+    const note=document.createElement("p");note.className="property-opt-note-v263";note.textContent="Scenario support uses only current deal inputs. Refinance, capex and hold/sell signals remain incomplete until the required debt, cost and valuation inputs are available.";
+    copy.append(eyebrow,title,note);
+    const ai=document.createElement("button");ai.type="button";ai.className="property-opt-ai-v263";ai.textContent="Ask Property AI";ai.addEventListener("click",()=>openPropertyAiWithPrompt("Help me optimise this property. Separate scenario assumptions from facts and list the data needed before any refinance, capex or hold/sell decision."));
+    head.append(copy,ai);
+
+    const metrics=document.createElement("div");metrics.className="property-opt-metrics-v263";
+    metrics.append(
+      createOptMetric("Baseline rent","property-opt-base-rent-v263","Current deal input"),
+      createOptMetric("Scenario rent","property-opt-target-rent-v263","After selected rent change"),
+      createOptMetric("Annual change","property-opt-annual-delta-v263","Scenario versus baseline"),
+      createOptMetric("Scenario yield","property-opt-yield-v263","Gross yield at scenario rent")
+    );
+
+    const grid=document.createElement("div");grid.className="property-opt-grid-v263";
+    const scenario=document.createElement("div");scenario.className="property-opt-scenario-v263";
+    const scenarioTitle=document.createElement("b");scenarioTitle.textContent="Rent review scenario";
+    const scenarioNote=document.createElement("p");scenarioNote.textContent="Adjust the assumption; this does not represent a market recommendation or live rent estimate.";
+    const control=document.createElement("div");control.className="property-opt-control-v263";
+    const label=document.createElement("label");label.htmlFor="propertyOptimiseRentUplift";label.textContent="Rent change (%)";
+    const input=document.createElement("input");input.id="propertyOptimiseRentUplift";input.type="number";input.min="-50";input.max="100";input.step="0.5";input.value="5";input.inputMode="decimal";input.addEventListener("input",updatePropertyOptimise);
+    control.append(label,input);
+    const result=document.createElement("div");result.className="property-opt-result-v263";
+    const rentResult=document.createElement("div");const rentLabel=document.createElement("span");rentLabel.textContent="Scenario rent";const rentValue=document.createElement("strong");rentValue.className="property-opt-result-rent-v263";rentValue.textContent="—";rentResult.append(rentLabel,rentValue);
+    const deltaResult=document.createElement("div");const deltaLabel=document.createElement("span");deltaLabel.textContent="Annual change";const deltaValue=document.createElement("strong");deltaValue.className="property-opt-result-delta-v263";deltaValue.textContent="—";deltaResult.append(deltaLabel,deltaValue);
+    result.append(rentResult,deltaResult);
+    scenario.append(scenarioTitle,scenarioNote,control,result);
+
+    const levers=document.createElement("div");levers.className="property-opt-levers-v263";
+    levers.append(
+      createOptLever("Rent review","Model the effect of a user-selected rent change against the current deal input.","Add rent input","property-opt-rent-status-v263"),
+      createOptLever("Refinance","Needs current loan balance, rate, term and refinance costs before debt savings can be compared.","Connect debt data",""),
+      createOptLever("Capex","Needs a capex budget plus expected rent, occupancy or operating-cost effect before return can be modelled.","Add capex budget",""),
+      createOptLever("Hold / sell","Needs current valuation, selling costs, debt settlement and tax inputs before proceeds can be compared.","Add valuation + costs","")
+    );
+    grid.append(scenario,levers);
+
+    const actions=document.createElement("div");actions.className="property-opt-actions-v263";
+    actions.append(
+      createOptAction("Stress rent change","Stress-test several rent-change assumptions for this property using only the known deal inputs. Label every assumption clearly."),
+      createOptAction("Prepare refinance data","List the exact debt and refinance inputs needed before comparing the existing loan with a refinance scenario."),
+      createOptAction("Plan capex analysis","Build a concise capex analysis checklist for this property, including cost, timing, expected benefit and evidence required."),
+      createOptAction("Build hold/sell checklist","Build a hold-versus-sell input checklist for this property without choosing an outcome for me.")
+    );
+    shell.append(head,metrics,grid,actions);
+
+    const valuation=view.querySelector("#propertyValuationServicePanel");
+    if(valuation)valuation.insertAdjacentElement("afterend",shell);else view.append(shell);
+    updatePropertyOptimise();
+    return shell;
+  }
+
+  function updatePropertyOptimise(){
+    const shell=document.querySelector("#propertyintelligence .property-optimise-v263");
+    if(!shell)return;
+    const snapshot=propertySnapshot();
+    const input=shell.querySelector("#propertyOptimiseRentUplift");
+    const raw=Number(input?.value||0);
+    const uplift=Number.isFinite(raw)?Math.max(-50,Math.min(100,raw)):0;
+    const targetRent=snapshot.rent>0?snapshot.rent*(1+uplift/100):0;
+    const annualDelta=snapshot.rent>0?(targetRent-snapshot.rent)*12:NaN;
+    const scenarioYield=snapshot.price>0&&targetRent>0?(targetRent*12/snapshot.price)*100:0;
+    const set=(selector,value)=>{const node=shell.querySelector(selector);if(node)node.textContent=value};
+    set(".property-opt-base-rent-v263",formatPula(snapshot.rent));
+    set(".property-opt-target-rent-v263",formatPula(targetRent));
+    set(".property-opt-annual-delta-v263",Number.isFinite(annualDelta)?formatSignedPula(annualDelta):"—");
+    set(".property-opt-yield-v263",scenarioYield>0?`${scenarioYield.toFixed(1)}%`:"—");
+    set(".property-opt-result-rent-v263",formatPula(targetRent));
+    set(".property-opt-result-delta-v263",Number.isFinite(annualDelta)?formatSignedPula(annualDelta):"—");
+    const status=shell.querySelector(".property-opt-rent-status-v263");
+    if(status){
+      status.textContent=snapshot.rent>0?"Scenario ready":"Add rent input";
+      status.classList.toggle("ready",snapshot.rent>0);
+    }
+  }
+
   function paneTarget(view,pane){
     if(pane==="today")return view?.querySelector(".property-overview-v261");
     return view?.querySelector(`[data-property-pane="${pane}"]`);
@@ -325,12 +454,13 @@
     view.classList.add("property-compact-v260");
     view.dataset.propertyCompactRelease=COMPACT_RELEASE;
     ensureOperationsStyles();
+    ensureOptimiseStyles();
     if(!view.querySelector(".property-primary-v260")){
       const nav=document.createElement("nav");
       nav.className="property-primary-v260";
       nav.setAttribute("aria-label","Property workspace");
       nav.setAttribute("role","tablist");
-      nav.append(compactButton("Today","today"),compactButton("Properties","properties"),compactButton("Analyse","analyse"),compactButton("Operations","operations"));
+      nav.append(compactButton("Today","today"),compactButton("Properties","properties"),compactButton("Analyse","analyse"),compactButton("Operations","operations"),compactButton("Optimise","optimise"));
       const hero=view.querySelector(".property-hero-compact");
       if(hero)hero.insertAdjacentElement("afterend",nav);else view.prepend(nav);
     }
@@ -342,6 +472,7 @@
     if(valuation)valuation.dataset.propertyPane="operations";
     mountPropertyOverview();
     mountPropertyOperations();
+    mountPropertyOptimise();
     setPropertyPane(view.dataset.propertyActivePane||"today");
     return true;
   }
@@ -456,6 +587,7 @@
   function updatePropertyWorkspace(){
     updatePropertyOverview();
     updatePropertyOperations();
+    updatePropertyOptimise();
   }
 
   function schedule(){
@@ -494,14 +626,16 @@
     release:RELEASE,
     compactRelease:COMPACT_RELEASE,
     operationsRelease:OPERATIONS_RELEASE,
+    optimiseRelease:OPTIMISE_RELEASE,
     repair:ensurePropertyVisible,
     mount:mountCompactPropertyChrome,
     setPane:setPropertyPane,
     updateOverview:updatePropertyOverview,
     updateOperations:updatePropertyOperations,
+    updateOptimise:updatePropertyOptimise,
     openAi:()=>{propertyAiPending=true;return mountPropertyAiToolbar()},
     openAiWithPrompt:openPropertyAiWithPrompt,
     closeAi:closePropertyAi,
-    state:()=>({ready:ensurePropertyVisible(),compact:!!document.getElementById("propertyintelligence")?.classList.contains("property-compact-v260"),pane:document.getElementById("propertyintelligence")?.dataset.propertyActivePane||"today",operationsMounted:!!document.querySelector("#propertyintelligence .property-operations-v262"),aiFullscreen:document.body.classList.contains("property-ai-fullscreen-v260")})
+    state:()=>({ready:ensurePropertyVisible(),compact:!!document.getElementById("propertyintelligence")?.classList.contains("property-compact-v260"),pane:document.getElementById("propertyintelligence")?.dataset.propertyActivePane||"today",operationsMounted:!!document.querySelector("#propertyintelligence .property-operations-v262"),optimiseMounted:!!document.querySelector("#propertyintelligence .property-optimise-v263"),aiFullscreen:document.body.classList.contains("property-ai-fullscreen-v260")})
   });
 })(window);

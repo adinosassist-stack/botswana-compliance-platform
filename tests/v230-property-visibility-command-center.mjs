@@ -5,6 +5,7 @@ const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
 const visibility=fs.readFileSync("public/js/property-visibility-v230.js","utf8");
 const visibilityCss=fs.readFileSync("public/assets/property-visibility-v230.css","utf8");
 const operationsCss=fs.readFileSync("public/assets/property-operations-v262.css","utf8");
+const optimiseCss=fs.readFileSync("public/assets/property-optimise-v263.css","utf8");
 const commandCss=fs.readFileSync("public/assets/workspace-command-center-v230.css","utf8");
 
 assert.ok(production.includes('const PROPERTY_VISIBILITY_CSS_ASSET="/assets/property-visibility-v230.css";'));
@@ -23,7 +24,7 @@ assert.match(visibility,/propertyMonthlyRent/);
 assert.match(visibility,/property-analyse-button/);
 assert.match(visibility,/view\.dataset\.propertyVisibility=ok\?"ready":"repairing"/);
 assert.doesNotMatch(visibility,/fetch\(|XMLHttpRequest|apiJson|method:"POST"/,
-  "Property visibility repair must be presentation-only and never mutate or fetch application state");
+  "Property presentation code must not fetch or mutate application state directly");
 assert.doesNotMatch(visibility,/\.innerHTML\s*=/,
   "Property presentation code must not bypass DOM-safety with native innerHTML assignments");
 
@@ -41,13 +42,14 @@ assert.match(commandCss,/\.owner-signal-list\{[\s\S]*grid-template-columns:repea
 assert.match(commandCss,/#dashboard \.home-status-strip\{[\s\S]*gap:8px/,
   "Home management status should remain a compact scan row");
 
-// V262: Property remains a focused product workspace and gains a truthful post-acquisition operations command centre.
-assert.match(visibility,/const COMPACT_RELEASE="20261003-property-workspace-v262"/);
+// V263: compact Property modes now cover post-acquisition operations and scenario-driven optimisation.
+assert.match(visibility,/const COMPACT_RELEASE="20261003-property-workspace-v263"/);
 assert.match(visibility,/const OPERATIONS_RELEASE="20261003-property-operations-v262"/);
-for(const [label,pane] of [["Today","today"],["Properties","properties"],["Analyse","analyse"],["Operations","operations"]]){
+assert.match(visibility,/const OPTIMISE_RELEASE="20261003-property-optimise-v263"/);
+for(const [label,pane] of [["Today","today"],["Properties","properties"],["Analyse","analyse"],["Operations","operations"],["Optimise","optimise"]]){
   assert.ok(visibility.includes(`compactButton("${label}","${pane}")`),`compact Property navigation missing ${label}`);
 }
-assert.match(visibility,/PROPERTY_PANES=new Set\(\["today","properties","analyse","operations"\]\)/);
+assert.match(visibility,/PROPERTY_PANES=new Set\(\["today","properties","analyse","operations","optimise"\]\)/);
 assert.match(visibility,/view\.dataset\.propertyActivePane=pane/);
 assert.match(visibility,/property-overview-v261/);
 assert.match(visibility,/Gross annual yield/);
@@ -77,6 +79,27 @@ assert.match(visibility,/operationsRelease:OPERATIONS_RELEASE/);
 assert.match(visibility,/updateOperations:updatePropertyOperations/);
 assert.match(visibility,/operationsMounted/);
 
+assert.match(visibility,/href="\/assets\/property-optimise-v263\.css"/);
+assert.match(visibility,/property-optimise-v263/);
+assert.match(visibility,/Improve the asset without inventing the data/);
+assert.match(visibility,/Scenario support uses only current deal inputs/);
+assert.match(visibility,/Rent review scenario/);
+assert.match(visibility,/Adjust the assumption; this does not represent a market recommendation or live rent estimate/);
+assert.match(visibility,/propertyOptimiseRentUplift/);
+assert.match(visibility,/const targetRent=snapshot\.rent>0\?snapshot\.rent\*\(1\+uplift\/100\):0/);
+assert.match(visibility,/const annualDelta=snapshot\.rent>0\?\(targetRent-snapshot\.rent\)\*12:NaN/);
+assert.match(visibility,/const scenarioYield=snapshot\.price>0&&targetRent>0\?\(targetRent\*12\/snapshot\.price\)\*100:0/);
+assert.match(visibility,/Refinance/);
+assert.match(visibility,/Connect debt data/);
+assert.match(visibility,/Capex/);
+assert.match(visibility,/Add capex budget/);
+assert.match(visibility,/Hold \/ sell/);
+assert.match(visibility,/Add valuation \+ costs/);
+assert.match(visibility,/without choosing an outcome for me/);
+assert.match(visibility,/optimiseRelease:OPTIMISE_RELEASE/);
+assert.match(visibility,/updateOptimise:updatePropertyOptimise/);
+assert.match(visibility,/optimiseMounted/);
+
 assert.match(visibilityCss,/#propertyintelligence\.property-compact-v260/);
 assert.match(visibilityCss,/\.property-primary-v260/);
 assert.match(visibilityCss,/data-property-active-pane="today"/);
@@ -100,4 +123,13 @@ assert.match(operationsCss,/data-property-active-pane="operations"/);
 assert.match(operationsCss,/@media\(max-width:760px\)/);
 assert.match(operationsCss,/@media\(max-width:420px\)/);
 
-console.log("PASS: V262 keeps Property compact and visible, adds truthful post-acquisition operations with AI-assisted setup, and preserves full-screen grounded Property AI.");
+assert.match(optimiseCss,/V263 Property Optimise/);
+assert.match(optimiseCss,/data-property-active-pane="optimise"/);
+assert.match(optimiseCss,/\.property-optimise-v263/);
+assert.match(optimiseCss,/\.property-opt-metrics-v263\{[\s\S]*grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+assert.match(optimiseCss,/\.property-opt-grid-v263\{[\s\S]*grid-template-columns:230px minmax\(0,1fr\)/);
+assert.match(optimiseCss,/\.property-opt-levers-v263\{[\s\S]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+assert.match(optimiseCss,/@media\(max-width:760px\)/);
+assert.match(optimiseCss,/@media\(max-width:480px\)/);
+
+console.log("PASS: V263 keeps Property compact and visible, preserves truthful Operations, adds scenario-driven Optimise decision support, and retains grounded full-screen Property AI.");
