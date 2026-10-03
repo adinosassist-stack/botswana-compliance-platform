@@ -1,4 +1,5 @@
 import base from "./agentic-entry.js";
+import {applyAssetReleaseIdentity} from "./asset-release-identity.js";
 import releaseMetadata from "../../release/production.json" with {type:"json"};
 import {durableRegistrationChallengeGate,validateAndClaimRegistrationProof} from "./registration-boundary.js";
 
@@ -322,6 +323,7 @@ async function decorateResponse(request,env,response){
     }
   }
 
+  next=await applyAssetReleaseIdentity(request,next);
   const headers=new Headers(next.headers);
   const voicePolicy=voiceSurfacePermissionsPolicy(path,headers.get("content-type"));
   if(voicePolicy)headers.set("permissions-policy",voicePolicy);
