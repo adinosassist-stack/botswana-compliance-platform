@@ -75,6 +75,7 @@ function previewInstructions(){
     "The client application owns authentication, permissions, confirmations, business records, governed tools, audit records and task state.",
     "Never claim a business action succeeded unless the client application returns a verified result.",
     "Never independently approve or execute payments, statutory filings, signatures, employment termination, financing acceptance or accounting journal posting.",
+    "During this preview, client delegation supports analysis and business-data review only. Do not claim that voice created or prepared an internal task.",
     "If the application reports that approval is required, preserve that requirement in the spoken response."
   ].join(" ");
 }
@@ -93,6 +94,7 @@ export function gptLivePreviewStatus(env={}){
     model:GPT_LIVE_MODEL,
     transport:"webrtc",
     delegation:"client",
+    delegatedIntent:"analyze",
     productionSwitchAllowed:false,
     fallback:Object.freeze({runtime:"realtime",path:REALTIME_FALLBACK_PATH})
   });
@@ -102,7 +104,23 @@ function safeProviderCode(payload){
   return cleanText(payload?.error?.code||payload?.code||"upstream_rejected",120)||"upstream_rejected";
 }
 
-export async function createGptLivePreviewSession({request,env}){
+async function previewAudit(env,auth,eventType,entityId,detail={}){
+  if(!env?.DB||!auth?.tenant_id||!auth?.user_id)return false;
+  try{
+    await env.DB.prepare(`INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data)
+      VALUES(?,?,?,?,?,?)`).bind(
+        auth.tenant_id,
+        auth.user_id,
+        eventType,
+        "thebe_live_session",
+        entityId||null,
+        JSON.stringify(detail)
+      ).run();
+    return true;
+  }catch{return false}
+}
+
+export async function createGptLivePreviewSession({request,env,auth=null}){
   const gate=gptLivePreviewGate(env);
   if(!gate.allowed)return json({
     error:gate.code,
@@ -126,6 +144,14 @@ export async function createGptLivePreviewSession({request,env}){
     });
   }catch(error){return json({error:cleanText(error?.message,160)||"invalid_preview_request"},400)}
 
+  const requestId=crypto.randomUUID();
+  if(auth&&env?.DB){
+    const requested=await previewAudit(env,auth,"THEBE_LIVE_SESSION_REQUESTED",requestId,{
+      runtime:"gpt-live-preview",model:GPT_LIVE_MODEL,transport:"webrtc",delegation:"client",voiceAuthority:"none"
+    });
+    if(!requested)return json({error:"gpt_live_preview_audit_unavailable",runtime:"gpt-live",fallback:{runtime:"realtime",path:REALTIME_FALLBACK_PATH}},503);
+  }
+
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort("gpt_live_preview_timeout"),boundedTimeout(env?.THEBE_LIVE_VOICE_UPSTREAM_TIMEOUT_MS));
   let upstream;
@@ -142,20 +168,20 @@ export async function createGptLivePreviewSession({request,env}){
     });
   }catch(error){
     clearTimeout(timeout);
-    return json({
-      error:error?.name==="AbortError"?"gpt_live_preview_timeout":"gpt_live_preview_unavailable",
-      runtime:"gpt-live",
-      fallback:{runtime:"realtime",path:REALTIME_FALLBACK_PATH}
-    },error?.name==="AbortError"?504:502);
+    const code=error?.name==="AbortError"?"gpt_live_preview_timeout":"gpt_live_preview_unavailable";
+    if(auth&&env?.DB)await previewAudit(env,auth,"THEBE_LIVE_SESSION_FAILED",requestId,{runtime:"gpt-live-preview",code});
+    return json({error:code,runtime:"gpt-live",fallback:{runtime:"realtime",path:REALTIME_FALLBACK_PATH}},error?.name==="AbortError"?504:502);
   }
   clearTimeout(timeout);
 
   let payload={};
   try{payload=await upstream.json()}catch{}
   if(!upstream.ok){
+    const providerCode=safeProviderCode(payload);
+    if(auth&&env?.DB)await previewAudit(env,auth,"THEBE_LIVE_SESSION_FAILED",requestId,{runtime:"gpt-live-preview",code:"upstream_rejected",status:upstream.status,providerCode});
     return json({
       error:"gpt_live_preview_upstream_failed",
-      providerCode:safeProviderCode(payload),
+      providerCode,
       runtime:"gpt-live",
       fallback:{runtime:"realtime",path:REALTIME_FALLBACK_PATH}
     },502);
@@ -164,11 +190,15 @@ export async function createGptLivePreviewSession({request,env}){
   const sessionId=cleanText(payload?.id||payload?.session?.id,240);
   const answerSdp=String(payload?.transport?.sdp||"");
   if(!sessionId||!answerSdp||answerSdp.length>MAX_SDP_CHARS||!/^v=0(?:\r?\n|$)/.test(answerSdp)){
-    return json({
-      error:"gpt_live_preview_invalid_response",
-      runtime:"gpt-live",
-      fallback:{runtime:"realtime",path:REALTIME_FALLBACK_PATH}
-    },502);
+    if(auth&&env?.DB)await previewAudit(env,auth,"THEBE_LIVE_SESSION_FAILED",requestId,{runtime:"gpt-live-preview",code:"invalid_upstream_response"});
+    return json({error:"gpt_live_preview_invalid_response",runtime:"gpt-live",fallback:{runtime:"realtime",path:REALTIME_FALLBACK_PATH}},502);
+  }
+
+  if(auth&&env?.DB){
+    const started=await previewAudit(env,auth,"THEBE_LIVE_SESSION_STARTED",sessionId,{
+      requestId,runtime:"gpt-live-preview",model:GPT_LIVE_MODEL,transport:"webrtc",delegation:"client"
+    });
+    if(!started)return json({error:"gpt_live_preview_audit_unavailable",runtime:"gpt-live",fallback:{runtime:"realtime",path:REALTIME_FALLBACK_PATH}},503);
   }
 
   return json({
@@ -178,7 +208,7 @@ export async function createGptLivePreviewSession({request,env}){
     model:GPT_LIVE_MODEL,
     session:{id:sessionId},
     transport:{type:"webrtc",sdp:answerSdp},
-    delegation:{type:"client"},
+    delegation:{type:"client",intent:"analyze"},
     productionSwitchAllowed:false,
     fallback:{runtime:"realtime",path:REALTIME_FALLBACK_PATH}
   });
@@ -198,7 +228,7 @@ export async function handleAgenticLivePreviewRequest({request,logicalPath,env})
   }
 
   if(path==="/api/agentic/live/preview/status"&&request.method==="GET")return json(gptLivePreviewStatus(env));
-  if(path==="/api/agentic/live/preview/session"&&request.method==="POST")return createGptLivePreviewSession({request,env});
+  if(path==="/api/agentic/live/preview/session"&&request.method==="POST")return createGptLivePreviewSession({request,env,auth});
   return json({error:"not_found"},404);
 }
 
@@ -209,5 +239,6 @@ export const __gptLivePreviewTransportTest=Object.freeze({
   REALTIME_FALLBACK_PATH,
   previewInstructions,
   safeProviderCode,
-  boundedTimeout
+  boundedTimeout,
+  previewAudit
 });
