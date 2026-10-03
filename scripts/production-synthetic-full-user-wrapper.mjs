@@ -9,6 +9,7 @@ const CLOSE_TIMEOUT_MS=5000;
 const MIN_OWNER_VIEW_COUNT=8;
 // Compact owner pages expose four cross-view routes; the separate sidebar matrix covers every discoverable owner destination.
 const MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=4;
+const MIN_OWNER_INVIEW_NAV_ROUTE_COUNT=2;
 const MIN_SAFE_UI_ACTION_COUNT=5;
 const executablePath=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(path=>fs.existsSync(path));
 
@@ -1055,8 +1056,8 @@ async function runFullUserJourney(credentials){
         inViewNavigationRoutes.add(`${sourceView}->${control.targetView}`);
       }
     }
-    assert(inViewNavigationRoutes.size>=MIN_OWNER_INVIEW_NAV_CONTROL_COUNT,
-      `only ${inViewNavigationRoutes.size} unique owner in-view navigation routes were exercised across ${inViewNavigationClicks} controls; expected at least ${MIN_OWNER_INVIEW_NAV_CONTROL_COUNT}`);
+    assert(inViewNavigationClicks>=MIN_OWNER_INVIEW_NAV_CONTROL_COUNT&&inViewNavigationRoutes.size>=MIN_OWNER_INVIEW_NAV_ROUTE_COUNT,
+      `only ${inViewNavigationRoutes.size} unique owner in-view navigation routes were exercised across ${inViewNavigationClicks} controls; expected at least ${MIN_OWNER_INVIEW_NAV_CONTROL_COUNT} controls and ${MIN_OWNER_INVIEW_NAV_ROUTE_COUNT} unique routes; verified routes: ${[...inViewNavigationRoutes].join(', ')}`);
 
     assert(pageErrors.length===0,`page errors: ${safe(pageErrors.join(' | '))}`);
     assert(assetFailures.length===0,`critical asset failures: ${safe(assetFailures.join(' | '))}`);

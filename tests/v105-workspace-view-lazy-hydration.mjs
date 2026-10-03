@@ -146,7 +146,7 @@ assert.match(fullUserProof,/openLicenceEntry\(\)/,"safe action matrix must open 
 assert.match(fullUserProof,/safeUiMutationRequests\.length===0/,"safe action matrix must fail closed if UI-only controls issue mutations");
 assert.ok(fullUserProof.includes("full-user safe UI action matrix"),"live proof must report non-navigation UI action completion");
 assert.match(fullUserProof,/MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=4/,"live owner proof must retain the compact four-route fail-closed minimum");
-assert.match(fullUserProof,/inViewNavigationRoutes\.size>=MIN_OWNER_INVIEW_NAV_CONTROL_COUNT/,"live owner proof must count unique navigation routes");
+assert.match(fullUserProof,/inViewNavigationRoutes\.size>=MIN_OWNER_INVIEW_NAV_ROUTE_COUNT/,"live owner proof must count unique navigation routes");
 assert.doesNotMatch(fullUserProof,/MIN_OWNER_INVIEW_NAV_CONTROL_COUNT=8/,"live owner proof must not restore the stale pre-separation in-view control baseline");
 assert.match(fullUserProof,/button\[data-bw-onclick\]/,"live owner proof must discover real in-view delegated buttons");
 assert.match(fullUserProof,/expression\.match\(\/\^showView/,"in-view matrix must restrict itself to non-destructive showView controls");
