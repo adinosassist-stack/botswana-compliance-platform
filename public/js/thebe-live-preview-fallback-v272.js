@@ -5,6 +5,8 @@
   const PREVIEW_STATUS_PATH="/api/agentic/live/preview/status";
   const PREVIEW_SESSION_PATH="/api/agentic/live/preview/session";
   const PREVIEW_DELEGATION_PATH="/api/agentic/live/preview/delegation";
+  const LEGACY_BRIDGE_MARKER="__thebe_gpt_live_legacy_bridge";
+  const LIVE_EVENT_BRIDGE_VERSION="session-v1";
   const MAX_TASK_TEXT=2400;
   let installed=false,bridgeInstalled=false,originalApi=null,previewStatus=null,statusCheckedAt=0;
   let activeRuntime="realtime",activeSessionId=null,latestInputEndMs=0,lastSpeaker="",inputSegments=[];
@@ -188,9 +190,10 @@
 
   function syntheticMessage(channel,payload){
     try{
+      const bridgedPayload={...payload,[LEGACY_BRIDGE_MARKER]:LIVE_EVENT_BRIDGE_VERSION};
       const event=typeof global.MessageEvent==="function"
-        ?new global.MessageEvent("message",{data:JSON.stringify(payload)})
-        :{type:"message",data:JSON.stringify(payload)};
+        ?new global.MessageEvent("message",{data:JSON.stringify(bridgedPayload)})
+        :{type:"message",data:JSON.stringify(bridgedPayload)};
       channel.dispatchEvent(event);
     }catch{}
   }
@@ -198,7 +201,7 @@
   function handlePreviewChannelMessage(event,channel){
     if(activeRuntime!=="gpt-live")return;
     const message=parseEvent(event?.data);
-    if(!message)return;
+    if(!message||message?.[LEGACY_BRIDGE_MARKER]===LIVE_EVENT_BRIDGE_VERSION)return;
     if(message.type==="session.delegation.created"){
       syntheticMessage(channel,{type:"input_audio_buffer.speech_stopped"});
       void handlePreviewDelegation(message,channel);
