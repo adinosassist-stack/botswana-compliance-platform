@@ -1,7 +1,8 @@
 (function initExecutivePersonalization(global){
   "use strict";
 
-  const RELEASE="20261002-v261-agent-operator-telemetry";
+  const RELEASE="20260929-v180";
+  const AGENT_TELEMETRY_RELEASE="20261002-v261-agent-operator-telemetry";
   const q=(selector,root=document)=>root.querySelector(selector);
   const qa=(selector,root=document)=>Array.from(root.querySelectorAll(selector));
   let scheduled=false;
@@ -81,7 +82,7 @@
     shell=document.createElement("details");
     shell.id="ownerAgentOperatorTelemetry";
     shell.className="owner-agentic-boundary";
-    shell.dataset.release=RELEASE;
+    shell.dataset.release=AGENT_TELEMETRY_RELEASE;
     shell.style.display="block";
     shell.style.marginTop="12px";
     const summary=document.createElement("summary");
@@ -390,6 +391,7 @@
 
   global.ThebeExecutivePersonalization=Object.freeze({
     release:RELEASE,
+    telemetryRelease:AGENT_TELEMETRY_RELEASE,
     refresh:schedule,
     refreshAgentTelemetry:()=>{
       telemetryLoadedAt=0;
