@@ -16,6 +16,26 @@ try{
  await page.route('http://localhost/**',route=>{const pathname=new URL(route.request().url()).pathname;if(pathname==='/public-page')return route.fulfill({contentType:'text/html',body:publicFixture});if(pathname==='/')return route.fulfill({contentType:'text/html',body:fixture});if(pathname.endsWith('.js')&&!pathname.includes('thebe-live-voice')&&!pathname.includes('property-visibility'))return route.fulfill({contentType:'application/javascript',body:''});if(process.env.THEBE_DOCK_BASELINE&&pathname==='/assets/thebe-spatial-dock-v246.css')return route.fulfill({contentType:'text/css',body:''});const file='public'+pathname;return fs.existsSync(file)?route.fulfill({path:file}):route.fulfill({status:404,body:''})});
  await page.addInitScript(()=>{window.currentWorkspaceRole=()=> 'owner';window.apiJson=async()=>({sessionCreationAllowed:false});});
  await page.goto('http://localhost/');await page.waitForSelector('#thebeAiDock');
+ const compactVoice=await page.evaluate(()=>{
+  const dock=document.getElementById('thebeAiDock');
+  const orb=dock.querySelector('.thebe-ai-orb-button');
+  const mount=dock.querySelector('.thebe-ai-voice-mount');
+  const legacy=dock.querySelector('.thebe-ai-voice-mount .btn');
+  const answer=dock.querySelector('.thebe-ai-response-answer');
+  let status=document.getElementById('thebeLiveVoiceStatus');
+  if(!status){status=document.createElement('div');status.id='thebeLiveVoiceStatus';mount.append(status)}
+  answer.textContent='RevenueAndComplianceSignalWithoutNaturalBreaks'.repeat(12);
+  status.hidden=false;
+  status.textContent='LiveVoiceStatusWithoutNaturalBreaks'.repeat(12);
+  const orbRect=orb.getBoundingClientRect();
+  return {orbWidth:orbRect.width,orbHeight:orbRect.height,legacyPresent:Boolean(legacy),legacyDisplay:legacy?getComputedStyle(legacy).display:null,dockClientWidth:dock.clientWidth,dockScrollWidth:dock.scrollWidth,answerClientWidth:answer.clientWidth,answerScrollWidth:answer.scrollWidth,statusClientWidth:status.clientWidth,statusScrollWidth:status.scrollWidth};
+ });
+ assert.equal(Math.round(compactVoice.orbWidth),68,'desktop voice orb stays compact');
+ assert.equal(Math.round(compactVoice.orbHeight),68,'desktop voice orb stays compact vertically');
+ assert(!compactVoice.legacyPresent||compactVoice.legacyDisplay==='none','dock exposes one voice entry point rather than a duplicate legacy button');
+ assert(compactVoice.dockScrollWidth<=compactVoice.dockClientWidth+1,`dock text must not spill horizontally: ${JSON.stringify(compactVoice)}`);
+ assert(compactVoice.answerScrollWidth<=compactVoice.answerClientWidth+1,`AI answer must wrap inside the dock: ${JSON.stringify(compactVoice)}`);
+ assert(compactVoice.statusScrollWidth<=compactVoice.statusClientWidth+1,`voice status must wrap inside the dock: ${JSON.stringify(compactVoice)}`);
  const normalDockWidths=new Map([[1440,304],[1200,304],[1199,280],[1180,280],[1024,280]]);
  for(const [width,expectedDockWidth] of normalDockWidths){
   await page.setViewportSize({width,height:960});
@@ -75,5 +95,5 @@ try{
  assert.equal(publicGeometry.padding,0,'public content must reserve the dock lane only once');
  assert(publicGeometry.mainRight<=publicGeometry.dockLeft,'public dock stays outside page content');
  assert.deepEqual(errors,[],'no browser errors');
- console.log('V246_SPATIAL_DOCK_BROWSER_PASS: compact Property, reserved dock, expansion, full-screen voice, focus, cancellation, mobile');
+ console.log('V246_SPATIAL_DOCK_BROWSER_PASS: compact Property, reserved dock, compact single-entry voice, overflow containment, expansion, full-screen voice, focus, cancellation, mobile');
 }finally{await browser.close()}

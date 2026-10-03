@@ -69,3 +69,18 @@ body.thebe-voice-active{overflow:hidden!important}
   flex:1 1 220px!important;
  }
 }
+
+/* V265 compact dock + voice cleanup — preserve the reserved right rail while reducing visual obstruction. */
+#thebeAiDock :is(.thebe-ai-dock-title,.thebe-ai-title-copy,.thebe-ai-presence,.thebe-ai-context-copy,.thebe-ai-voice-copy,.thebe-ai-response,.thebe-ai-response-answer,.thebe-ai-live-transcript,.thebe-ai-compose,textarea){min-width:0!important}
+#thebeAiDock :is(.thebe-ai-title-copy b,.thebe-ai-presence,.thebe-ai-context-copy,.thebe-ai-voice-label,.thebe-ai-response,.thebe-ai-response-answer,.thebe-ai-live-transcript,#thebeLiveVoiceStatus){overflow-wrap:anywhere;word-break:normal}
+#thebeAiDock .thebe-ai-voice-card{gap:8px!important}
+#thebeAiDock .thebe-ai-voice-label{font-size:16px!important;line-height:1.2!important}
+#thebeAiDock .thebe-ai-voice-mount{margin-top:6px!important;gap:4px!important;min-width:0!important}
+#thebeAiDock .thebe-ai-voice-mount .btn{display:none!important}
+#thebeAiDock .thebe-ai-voice-mount #thebeLiveVoiceStatus{max-width:100%!important;font-size:10px!important;line-height:1.35!important}
+#thebeAiDock .thebe-live-language{width:100%!important;min-width:0!important;min-height:36px!important;padding:6px 8px!important}
+#thebeAiDock .thebe-ai-compose textarea{max-width:100%!important;overflow-wrap:anywhere}
+@media(min-width:1024px){
+ body #thebeAiDock .thebe-ai-orb-button{width:68px!important;min-width:68px!important;max-width:68px!important;height:68px!important;min-height:68px!important;max-height:68px!important}
+ #thebeAiDock[data-surface="workspace"] .thebe-ai-voice-card{grid-template-columns:68px minmax(0,1fr)!important}
+}
