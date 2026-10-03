@@ -13,6 +13,7 @@ const MAX_BODY_BYTES=96*1024;
 const MAX_SDP_CHARS=72*1024;
 const DEFAULT_TIMEOUT_MS=12000;
 const REALTIME_FALLBACK_PATH="/api/agentic/live/session";
+const PREVIEW_DELEGATION_PATH="/api/agentic/live/preview/delegation";
 
 const json=(body,status=200)=>new Response(JSON.stringify(body),{
   status,
@@ -214,7 +215,24 @@ export async function createGptLivePreviewSession({request,env,auth=null}){
   });
 }
 
-export async function handleAgenticLivePreviewRequest({request,logicalPath,env}){
+async function verifiedPreviewDelegation(delegateRequest,request){
+  if(typeof delegateRequest!=="function")return json({error:"gpt_live_preview_delegation_unavailable",verified:false},503);
+  let response;
+  try{response=await delegateRequest(request)}catch{return json({error:"gpt_live_preview_delegation_unavailable",verified:false},502)}
+  let body=null;
+  try{body=await response.clone().json()}catch{}
+  if(!body||typeof body!=="object"||Array.isArray(body))return json({error:"gpt_live_preview_delegation_invalid_response",verified:false},502);
+  const content=cleanText(body?.content,1500);
+  const authority=body?.authority&&typeof body.authority==="object"&&!Array.isArray(body.authority)?body.authority:null;
+  const verified=response.ok&&!!content&&authority?.executionPerformed===false&&authority?.taskPrepared!==true&&String(body?.mode||"analyze")!=="prepare_internal_task";
+  return json({
+    ...body,
+    verified,
+    verification:{source:"governed_live_backend",runtime:"gpt-live-preview",executionPerformed:authority?.executionPerformed===true}
+  },response.status);
+}
+
+export async function handleAgenticLivePreviewRequest({request,logicalPath,env,delegateRequest=null}){
   const path=String(logicalPath||new URL(request.url).pathname);
   if(!path.startsWith("/api/agentic/live/preview"))return null;
 
@@ -229,6 +247,7 @@ export async function handleAgenticLivePreviewRequest({request,logicalPath,env})
 
   if(path==="/api/agentic/live/preview/status"&&request.method==="GET")return json(gptLivePreviewStatus(env));
   if(path==="/api/agentic/live/preview/session"&&request.method==="POST")return createGptLivePreviewSession({request,env,auth});
+  if(path===PREVIEW_DELEGATION_PATH&&request.method==="POST")return verifiedPreviewDelegation(delegateRequest,request);
   return json({error:"not_found"},404);
 }
 
@@ -237,8 +256,10 @@ export const __gptLivePreviewTransportTest=Object.freeze({
   MAX_SDP_CHARS,
   DEFAULT_TIMEOUT_MS,
   REALTIME_FALLBACK_PATH,
+  PREVIEW_DELEGATION_PATH,
   previewInstructions,
   safeProviderCode,
   boundedTimeout,
-  previewAudit
+  previewAudit,
+  verifiedPreviewDelegation
 });
