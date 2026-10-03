@@ -2862,7 +2862,7 @@
     if(!view)return null;
     const existing=q("#propertyPortfolioWorkspace",view);
     if(existing){
-      const service=q("#propertyValuationServicePanel",existing);
+      const service=q("#propertyValuationServicePanel",view);
       const valuation=q("#propertyValuationFormPanel",existing);
       if(service)service.hidden=!canView();
       if(valuation)valuation.hidden=!canEdit();

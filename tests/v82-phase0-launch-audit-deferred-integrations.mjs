@@ -46,8 +46,10 @@ ok(
   !fullUserWrapper.includes("return !!image&&image.complete&&image.naturalWidth===2048&&image.naturalHeight===2048")&&
   fullUserWrapper.includes("propertyLayoutStacked")&&
   fullUserWrapper.includes("serviceBeforeForms")&&
-  fullUserWrapper.includes("serviceBackground==='rgb(247, 251, 255)'")&&
-  fullUserWrapper.includes("orbWidth===82"),
+  fullUserWrapper.includes("getByRole('tab',{name:'Operations',exact:true}).click()")&&
+  fullUserWrapper.includes("activePropertyPane==='operations'")&&
+  fullUserWrapper.includes("serviceBackground==='rgb(255, 255, 255)'")&&
+  fullUserWrapper.includes("orbWidth===68"),
   'mandatory full-user lifecycle proves mascot-free marketing, workspace and Talk to Thebe treatment while preserving Property hierarchy and dock geometry'
 );
 const assertWorkspaceSource=browserWrapper.slice(browserWrapper.indexOf('function workspaceAuthoredState'),browserWrapper.indexOf('async function loginInBrowser'));
