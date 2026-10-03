@@ -32,7 +32,6 @@
     const analyse=view.querySelector(".property-analyse-button");
     repairNode(layout,"block");
     repairNode(calculator,"block");
-    // Visibility recovery must retain the compact geometry after a late style repair.
     for(const node of [layout,calculator])if(node){
       node.style.setProperty("width","100%","important");
       node.style.setProperty("max-width","760px","important");
@@ -123,7 +122,11 @@
     if(output){
       const empty=document.createElement("div");
       empty.className="property-ai-empty-v260";
-      empty.innerHTML="<b>Property AI</b><span>Ask about this deal, documents, risk, cash flow or next actions.</span>";
+      const heading=document.createElement("b");
+      heading.textContent="Property AI";
+      const detail=document.createElement("span");
+      detail.textContent="Ask about this deal, documents, risk, cash flow or next actions.";
+      empty.append(heading,detail);
       output.replaceChildren(empty);
       output.className="copilot-empty";
     }
@@ -152,7 +155,10 @@
       toolbar=document.createElement("header");
       toolbar.className="property-ai-toolbar-v260";
       const back=document.createElement("button");back.type="button";back.className="property-ai-back-v260";back.textContent="←";back.setAttribute("aria-label","Back to Property");back.addEventListener("click",closePropertyAi);
-      const title=document.createElement("div");title.className="property-ai-title-v260";title.innerHTML="<b>Property AI</b><span>Grounded in the current Property workspace</span>";
+      const title=document.createElement("div");title.className="property-ai-title-v260";
+      const titleName=document.createElement("b");titleName.textContent="Property AI";
+      const titleDetail=document.createElement("span");titleDetail.textContent="Grounded in the current Property workspace";
+      title.append(titleName,titleDetail);
       const context=document.createElement("button");context.type="button";context.className="property-ai-chip-v260";context.textContent="+ Context";context.addEventListener("click",()=>{const q=document.getElementById("aiAdvisorQuestion");if(q){q.value=`Use this Property context: ${propertyPromptSnapshot()}. `+q.value;q.focus()}});
       const fresh=document.createElement("button");fresh.type="button";fresh.className="property-ai-icon-v260";fresh.textContent="＋";fresh.title="New chat";fresh.setAttribute("aria-label","New Property AI chat");fresh.addEventListener("click",clearPropertyAiConversation);
       const voice=document.createElement("button");voice.type="button";voice.className="property-ai-icon-v260 property-ai-voice-v260";voice.textContent="◉";voice.title="Voice";voice.setAttribute("aria-label","Open voice");voice.addEventListener("click",activatePropertyAiVoice);
