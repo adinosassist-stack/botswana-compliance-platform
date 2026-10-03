@@ -1,0 +1,39 @@
+name: V272 GPT-Live preview transport
+
+on:
+  pull_request:
+    paths:
+      - "cloudflare/src/agentic-live-preview.js"
+      - "cloudflare/src/agentic-entry.js"
+      - "cloudflare/src/agentic-live-voice-v270.js"
+      - "tests/v272-gpt-live-preview-transport.mjs"
+      - ".github/workflows/v272-gpt-live-preview-transport-ci.yml"
+      - "docs/releases/v272-gpt-live-preview-transport.md"
+  push:
+    branches:
+      - "chatgpt/v272-gpt-live-preview-transport"
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+      - name: Setup pinned Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Syntax check preview transport
+        run: |
+          node --check cloudflare/src/agentic-live-preview.js
+          node --check cloudflare/src/agentic-entry.js
+      - name: Preserve V271 event compatibility
+        run: node tests/v271-gpt-live-event-compat-evals.mjs
+      - name: Qualify V272 isolated preview transport
+        run: node tests/v272-gpt-live-preview-transport.mjs
+      - name: Preserve production Realtime guard
+        run: node tests/v101-gpt-live-voice-foundation.mjs
