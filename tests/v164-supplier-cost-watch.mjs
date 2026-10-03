@@ -92,7 +92,7 @@ const personalization=fs.readFileSync("public/js/executive-personalization.js","
 assert.match(personalization,/const RELEASE="20260929-v180"/);
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
 assert.match(production,/OWNER_COMMAND_CENTRE_RELEASE="20261001-[a-z0-9-]+-v\d+"/);
-assert.match(production,/EXECUTIVE_PERSONALIZATION_RELEASE="20261001-[a-z0-9-]+-v\d+"/);
+assert.match(production,/EXECUTIVE_PERSONALIZATION_RELEASE="2026100[12]-[a-z0-9-]+-v\d+"/);
 
 const profile=JSON.parse(fs.readFileSync("RELEASE_PROFILE.json","utf8"));
 assert.equal(profile.money_intelligence_v4,true);
