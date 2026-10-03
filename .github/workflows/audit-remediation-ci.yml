@@ -111,6 +111,7 @@ jobs:
           node tests/v82-registration-owner-navigation-hardening.mjs
           node tests/v262-property-calculator-lifecycle.mjs
           node tests/v263-property-dock-general-voice.mjs
+          node tests/v265-workspace-overflow-hardening.mjs
           npm run test:thebe-desk-brand
           npm run test:thebe-desk-deployment
 
