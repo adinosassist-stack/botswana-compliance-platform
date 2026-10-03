@@ -91,3 +91,27 @@ body.thebe-voice-active{overflow:hidden!important}
 #mainContent .global-search:focus-within{border-color:#87bff0!important;box-shadow:0 0 0 3px rgba(47,143,230,.12)!important}
 @media(min-width:761px) and (max-width:900px){#mainContent>.top{position:sticky!important;top:0!important}}
 @media(prefers-reduced-motion:reduce){#appShell :is(button,a,.card,.outcome-card,.people-outcome-card,.owner-today-card){transition:none!important}}
+
+/* V269: reserve the assistant lane at the workspace-shell boundary.
+   The fixed dock no longer competes with the main grid for the same viewport pixels. */
+@media(min-width:1024px){
+ body.thebe-ai-dock-open #appShell,
+ body.thebe-ai-dock-open.thebe-ai-expanded #appShell{
+  width:100%!important;
+  max-width:100%!important;
+  padding-right:calc(var(--thebe-spatial-width) + 32px)!important;
+  box-sizing:border-box!important;
+ }
+ body.thebe-ai-dock-open #appShell main,
+ body.thebe-ai-dock-open.thebe-ai-expanded #appShell main{
+  margin-left:auto!important;
+  margin-right:auto!important;
+  width:100%!important;
+  max-width:1400px!important;
+  min-width:0!important;
+  padding-left:20px!important;
+  padding-right:20px!important;
+  box-sizing:border-box!important;
+ }
+ body.thebe-ai-dock-open #mainContent>.top{max-width:100%!important}
+}
