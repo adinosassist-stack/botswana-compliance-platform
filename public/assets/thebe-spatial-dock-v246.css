@@ -89,6 +89,6 @@ body.thebe-voice-active{overflow:hidden!important}
  #mainContent{padding-bottom:20px!important;scroll-padding-bottom:20px!important}
 }
 
-/* V264 final geometry authority: loaded last in this asset to defeat legacy V263 wide rules. */
-body #propertyintelligence .property-layout-v224{display:block!important;width:min(100%,560px)!important;max-width:560px!important;min-width:0!important;margin-left:0!important;margin-right:auto!important;box-sizing:border-box!important}
-body #propertyintelligence .property-layout-v224>.property-calculator-v224{display:block!important;width:100%!important;max-width:560px!important;min-width:0!important;padding:12px!important;box-sizing:border-box!important}
+/* V264 final geometry authority: preserve the wide, balanced Property canvas while the compact right-edge assistant is active. */
+body #propertyintelligence .property-layout-v224{display:block!important;width:100%!important;max-width:1180px!important;min-width:0!important;margin-left:auto!important;margin-right:auto!important;box-sizing:border-box!important}
+body #propertyintelligence .property-layout-v224>.property-calculator-v224{width:100%!important;max-width:none!important;min-width:0!important;box-sizing:border-box!important}
