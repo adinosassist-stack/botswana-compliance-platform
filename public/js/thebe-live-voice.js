@@ -611,9 +611,34 @@
     return /(^|\s)billing(\s|$)|subscription|payment plan/.test(key);
   }
   function effectiveCollapsed(){return (mobileDockMode()?collapsed:false)||dockShouldYield()}
+  // Emergency styles are temporary. Keep the original declarations so a late
+  // stylesheet can reclaim presentation without erasing unrelated inline work.
+  const dockRecoveryStyles=new Map();
   function setCriticalStyle(node,styles){
     if(!node)return;
-    for(const [property,value] of Object.entries(styles))node.style.setProperty(property,value,"important");
+    let records=dockRecoveryStyles.get(node);
+    if(!records){records=new Map();dockRecoveryStyles.set(node,records)}
+    for(const [property,value] of Object.entries(styles)){
+      let record=records.get(property);
+      if(!record){
+        record={value:node.style.getPropertyValue(property),priority:node.style.getPropertyPriority(property)};
+        records.set(property,record);
+      }
+      node.style.setProperty(property,value,"important");
+      record.appliedValue=node.style.getPropertyValue(property);
+      record.appliedPriority=node.style.getPropertyPriority(property);
+    }
+  }
+  function releaseDockRecoveryStyles(){
+    for(const [node,records] of dockRecoveryStyles){
+      for(const [property,record] of records){
+        if(node.style.getPropertyValue(property)!==record.appliedValue||
+           node.style.getPropertyPriority(property)!==record.appliedPriority)continue;
+        if(record.value)node.style.setProperty(property,record.value,record.priority);
+        else node.style.removeProperty(property);
+      }
+    }
+    dockRecoveryStyles.clear();
   }
   function workspaceDockLeftPx(){
     const sidebar=document.getElementById("workspaceSidebar");
@@ -632,7 +657,7 @@
   }
   function recoverDockPresentation(){
     if(!dock||dock.hidden)return;
-    if(getComputedStyle(dock).getPropertyValue("--thebe-spatial-dock").trim()==="1"){dock.dataset.cssRecovery="0";return}
+    if(getComputedStyle(dock).getPropertyValue("--thebe-spatial-dock").trim()==="1"){releaseDockRecoveryStyles();dock.dataset.cssRecovery="0";return}
     const head=dock.querySelector(".thebe-ai-dock-head");
     const scroll=dock.querySelector(".thebe-ai-dock-scroll");
     const compose=dock.querySelector(".thebe-ai-compose");
@@ -920,6 +945,7 @@
   function syncWorkspaceVisualInvariants(){
     if(!dock)return;
     clearLegacyWorkspaceDockPadding();
+    if(getComputedStyle(dock).getPropertyValue("--thebe-spatial-dock").trim()==="1")releaseDockRecoveryStyles();
     clearRoutineWorkspaceInlineGeometry();
     if(dock.dataset.surface!=="workspace"){
       dock.style.removeProperty("--thebe-workspace-left");
