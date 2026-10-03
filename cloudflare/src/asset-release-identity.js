@@ -1,8 +1,11 @@
 import {releaseSourceSha} from './client-runtime-identity.js';
 
+const DOCK_RECOVERY_GEOMETRY_SRC='/js/thebe-dock-recovery-geometry-v270.js';
+
 export function versionReleaseAssets(html,sha=releaseSourceSha()){
   if(!/^[0-9a-f]{40}$/.test(sha))return String(html||'');
   let source=String(html||'');
+  if(!source.includes(DOCK_RECOVERY_GEOMETRY_SRC))source=source.replace(/<\/body\s*>/i,`<script src="${DOCK_RECOVERY_GEOMETRY_SRC}" defer></script>\n</body>`);
   source=source.replace(/(<(?:script|link)\b[^>]*\b(?:src|href)=["'])(\/(?:js|assets)\/[^"']+)(["'][^>]*>)/gi,(_match,start,path,end)=>{
     const url=new URL(path.replaceAll('&amp;','&'),'https://thebe.invalid');
     url.searchParams.set('release',sha);
