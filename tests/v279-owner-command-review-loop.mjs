@@ -9,7 +9,7 @@ assert.match(js,/Record approval/);
 assert.match(js,/decideAgenticProposal\(proposal\.id,"approve"\)/);
 assert.match(js,/decideAgenticProposal\(proposal\.id,"reject"\)/);
 assert.match(js,/request\("\/api\/agentic\/runs"\)\.catch/);
-assert.match(js,/loadOperatorAttention\(model,agenticRuns\)/);
+assert.match(js,/loadOperatorAttention\(model,agenticRuns,agenticOutcomes\)/);
 assert.match(js,/Decision recorded\. No action was executed\./);
 assert.doesNotMatch(js,/\/api\/agentic\/execute/);
 assert.match(css,/\.owner-review-inbox/);
