@@ -73,7 +73,7 @@
   #evidencehub,
   #dashboard
 ) :is(
-  h1,h2,h3,h4,p,label,small,
+  h1,h2,h3,h4,p,label,small,strong,span,a,
   .muted,
   .owner-command-company,
   .owner-command-copy,
