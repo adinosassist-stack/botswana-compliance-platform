@@ -27,12 +27,24 @@ for(const [viewport,normal,expanded] of [[1440,272,344],[1200,272,344],[1199,256
 const mobile=guard.geometryFor(390,false);
 assert.equal(guard.widthFor(390,false),0);
 assert.equal(mobile.position,'fixed');
-assert.equal(mobile.left,'8px');
-assert.equal(mobile.right,'8px');
-assert.equal(mobile.top,'8px');
-assert.equal(mobile.width,'auto');
+assert.equal(mobile.left,'auto');
+assert.equal(mobile.right,'12px');
+assert.equal(mobile.top,'auto');
+assert.equal(mobile.width,'76px');
+assert.equal(mobile.height,'76px');
+assert.equal(mobile['max-width'],'76px');
+assert.equal(mobile['max-height'],'76px');
+assert.equal(mobile['border-radius'],'999px');
 assert.match(mobile.bottom,/104px/);
-assert.match(mobile['max-height'],/112px/);
+
+const mobileExpanded=guard.geometryFor(390,true);
+assert.equal(mobileExpanded.position,'fixed');
+assert.equal(mobileExpanded.left,'8px');
+assert.equal(mobileExpanded.right,'8px');
+assert.equal(mobileExpanded.top,'8px');
+assert.equal(mobileExpanded.width,'auto');
+assert.match(mobileExpanded.bottom,/104px/);
+assert.match(mobileExpanded['max-height'],/112px/);
 
 assert.match(source,/width:"68px","min-width":"68px","max-width":"68px",height:"68px"/,'emergency voice entry remains compact');
 assert.match(source,/"grid-template-columns":"68px minmax\(0,1fr\)"/,'voice card follows compact orb geometry');
@@ -47,4 +59,4 @@ assert.match(decorated,new RegExp(`thebe-dock-recovery-geometry-v269\\.js\\?rele
 assert.equal((decorated.match(/thebe-dock-recovery-geometry-v269\.js/g)||[]).length,1,'guard is injected once');
 assert.equal(versionReleaseAssets(decorated,sha),decorated,'guard injection remains idempotent');
 
-console.log('PASS: V269 emergency dock mirrors production compact desktop/mobile geometry, compact voice sizing, recovery cleanup and release-bound delivery');
+console.log('PASS: V269 emergency dock preserves desktop lane geometry while keeping collapsed mobile recovery compact and expanded mobile recovery full-width');
