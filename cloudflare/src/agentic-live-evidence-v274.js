@@ -6,7 +6,7 @@ import {
   THEBE_GPT_LIVE_EVAL_VERSION
 } from "./agentic-live-eval-v273.js";
 
-export const THEBE_LIVE_EVIDENCE_VERSION="2026-10-04.voice-evidence-v279";
+export const THEBE_LIVE_EVIDENCE_VERSION="2026-10-04.voice-evidence-v281";
 export const VOICE_EVIDENCE_EVENT="THEBE_LIVE_EVAL_EVIDENCE_RECORDED";
 export const VOICE_EVIDENCE_MAX_ROWS=200;
 
@@ -30,6 +30,7 @@ const cleanLanguageTag=value=>{
   return raw.split("-").map((part,index)=>index===0?part.toLowerCase():(/^[A-Za-z]{2}$/.test(part)?part.toUpperCase():part.toLowerCase())).join("-");
 };
 const cleanLanguageTags=value=>[...new Set((Array.isArray(value)?value:[]).map(cleanLanguageTag).filter(Boolean))].slice(0,12);
+const cleanAcousticRecoveryKinds=value=>[...new Set((Array.isArray(value)?value:[]).map(item=>String(item||"").trim().toLowerCase()).filter(item=>item==="silence"||item==="noise"))].sort();
 
 export function normalizeVoiceEvalEvidence(body={}){
   if(!body||typeof body!=="object"||Array.isArray(body))throw new Error("voice_eval_evidence_object_required");
@@ -58,7 +59,10 @@ export function normalizeVoiceEvalEvidence(body={}){
     usageSeconds:toMetric(body.usageSeconds,24*60*60),
     languageContinuityChecks:toInt(body.languageContinuityChecks,1000),
     languageContinuityPasses:toInt(body.languageContinuityPasses,1000),
-    languageTags:cleanLanguageTags(body.languageTags)
+    languageTags:cleanLanguageTags(body.languageTags),
+    acousticRecoveryChecks:toInt(body.acousticRecoveryChecks,1000),
+    acousticRecoveryPasses:toInt(body.acousticRecoveryPasses,1000),
+    acousticRecoveryKinds:cleanAcousticRecoveryKinds(body.acousticRecoveryKinds)
   });
 
   return Object.freeze({
@@ -81,7 +85,7 @@ export async function recordVoiceEvalEvidence({env,auth,body}={}){
     entityType:"thebe_live_eval",
     entityId:evidence.sessionId,
     eventData:evidence,
-    writeSource:"voice_eval_v279"
+    writeSource:"voice_eval_v281"
   });
   return Object.freeze({
     ok:true,
@@ -144,7 +148,7 @@ export async function readVoiceEvalEvidenceSummary({env,auth,limit=VOICE_EVIDENC
     evidenceRows:rows.length,
     pairedScenarios:pairs.length,
     evaluation,
-    privacy:Object.freeze({rawAudioStored:false,transcriptStored:false,taskTextStored:false,languageContentStored:false,providerPriceStored:false}),
+    privacy:Object.freeze({rawAudioStored:false,transcriptStored:false,taskTextStored:false,languageContentStored:false,acousticContentStored:false,providerPriceStored:false}),
     productionSwitchAllowed:false
   });
 }
