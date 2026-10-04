@@ -15,16 +15,30 @@ assert.match(panel,/ThebeVoiceEval\?\.summary/);
 assert.match(panel,/ThebeVoiceEval\?\.beginScenario/);
 assert.match(panel,/Ready for human review/);
 assert.match(panel,/HOLD/);
+assert.match(panel,/V279 review thresholds/);
 assert.match(panel,/Production switching remains blocked/);
 assert.match(panel,/No provider switch is available from this panel/);
-assert.match(panel,/raw audio, transcript or task text/);
+assert.match(panel,/Language continuity/);
+assert.match(panel,/Median usage \/ baseline/);
+assert.match(panel,/languageTags/);
+assert.match(panel,/medianUsageSeconds/);
+assert.match(panel,/realtime\?\.medianUsageSeconds/);
+assert.match(panel,/raw audio, transcript, language content or provider pricing/);
+assert.doesNotMatch(panel,/GPT-Live failures/,"V280 keeps the cockpit at six cards by prioritizing actionable comparison signals");
 assert.doesNotMatch(panel,/productionSwitchAllowed\s*=\s*true/);
 assert.doesNotMatch(panel,/deploy|promote to production|switch provider/i,"cockpit must not expose deployment or provider-switch controls");
 assert.doesNotMatch(panel,/localStorage/,"evaluation scenario must remain session-scoped");
 
+const initialStats=(panel.match(/stat\("/g)||[]).length;
+assert.ok(initialStats>=6,"cockpit must keep its compact six-stat initialization");
+assert.match(panel,/grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+assert.match(panel,/@media\(max-width:560px\)\{\.thebe-eval-grid\{grid-template-columns:1fr 1fr\}/);
+
 assert.match(evidence,/sessionStorage/);
 assert.match(evidence,/ThebeVoiceEval/);
 assert.match(evidence,/beginScenario/);
+assert.match(evidence,/markLanguageContinuity/);
+assert.match(evidence,/usageSeconds/);
 
 const sha="a".repeat(40);
 const html="<!doctype html><html><head></head><body><main>workspace</main></body></html>";
@@ -39,4 +53,4 @@ assert.match(production,/gpt-realtime-2\.1/);
 assert.match(production,/\/v1\/realtime\/calls/);
 assert.doesNotMatch(production,/thebe-voice-eval-panel-v275/);
 
-console.log("PASS: V275 voice evaluation cockpit is owner-only, compact, app-scoped and production-inert");
+console.log("PASS: V280 owner cockpit surfaces language and usage evidence without expanding controls or production authority");
