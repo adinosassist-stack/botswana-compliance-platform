@@ -585,7 +585,7 @@ async function passportScore(env,tenantId){
 async function deliverPasswordReset(env,email,rawToken){
   const publicApp=validPublicAppUrl(env.PUBLIC_APP_URL),from=String(env.EMAIL_FROM||"").trim();
   if(!env.RESEND_API_KEY||!publicApp||!validEmailFrom(from))return false;
-  const reset=new URL(publicApp);reset.pathname="/reset-password.html";reset.search="";reset.hash=`reset_token=${encodeURIComponent(String(rawToken||""))}`;
+  const reset=new URL(publicApp);reset.search="";reset.hash=`reset_token=${encodeURIComponent(String(rawToken||""))}`;
   const tokenDigest=await sha256Hex(String(rawToken||""));
   try{
     const r=await externalFetch("https://api.resend.com/emails",{method:"POST",headers:{
