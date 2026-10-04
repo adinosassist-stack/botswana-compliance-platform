@@ -15,6 +15,15 @@
 #mainContent :is(
   .view,
   .simplified-hub,
+  .card,
+  .hub-card,
+  .outcome-card,
+  .people-outcome-card,
+  .owner-today-card,
+  .home-status-chip,
+  .proof-summary-card,
+  .property-summary-card,
+  .property-service-card,
   .owner-command-centre,
   .owner-command-section,
   .owner-command-grid,
@@ -28,11 +37,14 @@
   .property-record-form,
   .market-v257-body,
   .market-v257-stats,
+  .outcome-status-strip,
+  .outcome-grid,
   .people-status-strip,
   .people-outcome-grid
 ){min-width:0;max-width:100%;box-sizing:border-box}
 
 #mainContent :is(
+  .grid,
   .owner-command-head,
   .owner-command-grid,
   .owner-input-grid,
@@ -45,6 +57,8 @@
   .property-lease-head,
   .property-field-actions,
   .market-v257-stats,
+  .outcome-status-strip,
+  .outcome-grid,
   .people-status-strip,
   .people-outcome-grid
 )>*{min-width:0;max-width:100%;box-sizing:border-box}
@@ -142,6 +156,8 @@
     .owner-command-grid,
     .owner-input-grid,
     .owner-agentic-controls,
+    .outcome-status-strip,
+    .outcome-grid,
     .property-summary-grid,
     .property-service-grid,
     .property-record-form,
