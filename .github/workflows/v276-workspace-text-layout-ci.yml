@@ -1,0 +1,59 @@
+name: V276 workspace text layout CI
+
+on:
+  pull_request:
+    paths:
+      - "public/js/workspace-text-layout-guard-v276.js"
+      - "cloudflare/src/asset-release-identity.js"
+      - "tests/v276-workspace-text-layout-guard.mjs"
+      - "tests/v276-workspace-text-layout-browser.mjs"
+      - ".github/workflows/v276-workspace-text-layout-ci.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "public/js/workspace-text-layout-guard-v276.js"
+      - "cloudflare/src/asset-release-identity.js"
+      - "tests/v276-workspace-text-layout-guard.mjs"
+      - "tests/v276-workspace-text-layout-browser.mjs"
+      - ".github/workflows/v276-workspace-text-layout-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  workspace-layout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@v4
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Install exact dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Install Chromium driver
+        run: npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+
+      - name: Syntax and delivery contract
+        run: |
+          node --check public/js/workspace-text-layout-guard-v276.js
+          node --check tests/v276-workspace-text-layout-guard.mjs
+          node --check tests/v276-workspace-text-layout-browser.mjs
+          node tests/v276-workspace-text-layout-guard.mjs
+
+      - name: Prove text visibility and alignment in Chromium
+        run: node tests/v276-workspace-text-layout-browser.mjs
+
+      - name: Preserve workspace, Property, People and Market UI regressions
+        run: |
+          node tests/v256-workspace-ui-defects-browser.mjs
+          node tests/v272-property-navigation-browser.mjs
+          node tests/people-workspace-browser-20261003.mjs
+          node tests/v257-market-ui-regression.mjs
