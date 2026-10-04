@@ -1,0 +1,49 @@
+name: V275 voice evaluation cockpit CI
+
+on:
+  pull_request:
+    paths:
+      - "public/js/thebe-voice-eval-panel-v275.js"
+      - "public/js/thebe-live-evidence-v274.js"
+      - "cloudflare/src/asset-release-identity.js"
+      - "cloudflare/src/agentic-live-voice.js"
+      - "tests/v275-voice-eval-cockpit.mjs"
+      - ".github/workflows/v275-voice-eval-cockpit-ci.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "public/js/thebe-voice-eval-panel-v275.js"
+      - "public/js/thebe-live-evidence-v274.js"
+      - "cloudflare/src/asset-release-identity.js"
+      - "cloudflare/src/agentic-live-voice.js"
+      - "tests/v275-voice-eval-cockpit.mjs"
+      - ".github/workflows/v275-voice-eval-cockpit-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cockpit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@v4
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.6.0"
+
+      - name: Syntax-check V275 cockpit
+        run: |
+          node --check public/js/thebe-voice-eval-panel-v275.js
+          node --check tests/v275-voice-eval-cockpit.mjs
+
+      - name: Preserve V274 privacy-minimized evidence capture
+        run: node tests/v274-voice-evidence-capture.mjs
+
+      - name: Prove compact owner evaluation cockpit
+        run: node tests/v275-voice-eval-cockpit.mjs
