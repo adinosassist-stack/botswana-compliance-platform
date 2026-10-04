@@ -47,8 +47,19 @@ assert.match(caps.invariant,/cannot grant itself permissions/i);
 console.log("Owner Operator governance tests passed");
 
 // Owner Command Centre contract: attention items must carry bounded evidence, recommendation, approval and outcome linkage.
-assert.match(operator, /attention_evidence_recommendation_approval_outcome/);
-assert.match(operator, /cleanEvidence\(signal\)/);
-assert.match(operator, /approvalRequired:route\.humanReviewRequired===true/);
-assert.match(operator, /status:"not_recorded"/);
-assert.match(operator, /maxEvidenceItemsPerAttention:8/);
+const attention=buildOwnerOperatorQueue([{
+  id:"evidence-case",domain:"compliance",severity:"high",prepare:true,title:"Evidence gap",
+  evidence:[{id:"doc-1",label:"Tax certificate",source:"document",value:"Missing"}],
+  recommendation:"Prepare the missing evidence pack.",actionLabel:"Review pack"
+}],{actorRole:"owner",tenantScoped:true})[0];
+assert.equal(attention.evidence.length,1);
+assert.equal(attention.evidence[0].id,"doc-1");
+assert.equal(attention.recommendation.summary,"Prepare the missing evidence pack.");
+assert.equal(attention.recommendation.approvalRequired,true);
+assert.match(attention.recommendation.approvalKey,/^operator:compliance:/);
+assert.equal(attention.outcome.status,"not_recorded");
+assert.match(attention.outcome.outcomeKey,/^operator-outcome:compliance:/);
+assert.equal(caps.commandCentre.contract,"attention_evidence_recommendation_approval_outcome");
+assert.equal(caps.commandCentre.maxEvidenceItemsPerAttention,8);
+
+console.log("Owner Command attention contract tests passed");
