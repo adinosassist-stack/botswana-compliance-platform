@@ -100,3 +100,14 @@
 #appShell .owner-review-row>.owner-agentic-sources{grid-column:1}
 #appShell .owner-review-row>.owner-agentic-actions{grid-column:2;grid-row:1/4;align-self:center}
 @media(max-width:760px){#appShell .owner-review-row{grid-template-columns:1fr}#appShell .owner-review-row>span,#appShell .owner-review-row>.owner-agentic-sources,#appShell .owner-review-row>.owner-agentic-actions{grid-column:1;grid-row:auto}}
+
+#appShell .owner-outcome-inbox{margin-top:10px;padding:11px;border:1px solid #dfe5eb;border-radius:13px;background:#fff}
+#appShell .owner-outcome-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 12px;align-items:center;padding:8px 0;border-bottom:1px solid #e6eaee}
+#appShell .owner-outcome-row:last-child{border-bottom:0}
+#appShell .owner-outcome-row>b{font-size:12.5px}
+#appShell .owner-outcome-row>span{grid-column:1;font-size:11px;color:#69717b}
+#appShell .owner-outcome-actions{grid-column:2;grid-row:1/3;display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+#appShell .owner-outcome-history{margin-top:9px;border-top:1px solid #e6eaee;padding-top:8px;font-size:11.5px}
+#appShell .owner-outcome-history>summary{cursor:pointer;font-weight:700}
+#appShell .owner-outcome-history-row{padding:5px 0;color:#59616b}
+@media(max-width:760px){#appShell .owner-outcome-row{grid-template-columns:1fr}#appShell .owner-outcome-row>span,#appShell .owner-outcome-actions{grid-column:1;grid-row:auto}#appShell .owner-outcome-actions{justify-content:flex-start}}
