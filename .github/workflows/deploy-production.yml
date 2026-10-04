@@ -201,7 +201,7 @@ jobs:
         run: |
           set -euo pipefail
           required=(
-            D1_DATABASE_ID TURNSTILE_SITE_KEY PLATFORM_ADMIN_EMAILS PLATFORM_REGULATORY_REVIEWERS
+            D1_DATABASE_ID TURNSTILE_SITE_KEY PLATFORM_ADMIN_EMAILS PLATFORM_REGULATORY_REVIEWERS EMAIL_FROM
             GOOGLE_OAUTH_REDIRECT_URI FACEBOOK_OAUTH_REDIRECT_URI
           )
           for key in "${required[@]}"; do
@@ -210,6 +210,8 @@ jobs:
           [[ "$D1_DATABASE_ID" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]] || { echo 'D1_DATABASE_ID must be a provisioned D1 UUID' >&2; exit 1; }
           [[ "$GOOGLE_OAUTH_REDIRECT_URI" == 'https://thebedesk.com/api/auth/oauth/google/callback' ]] || { echo 'GOOGLE_OAUTH_REDIRECT_URI must use the exact production callback' >&2; exit 1; }
           [[ "$FACEBOOK_OAUTH_REDIRECT_URI" == 'https://thebedesk.com/api/auth/oauth/facebook/callback' ]] || { echo 'FACEBOOK_OAUTH_REDIRECT_URI must use the exact production callback' >&2; exit 1; }
+          printf '%s\n' "$EMAIL_FROM" | grep -Eq '@[^[:space:]<>]+\.[^[:space:]<>]+>?$' || { echo 'EMAIL_FROM must contain a valid production sender email address' >&2; exit 1; }
+          printf '%s\n' "$EMAIL_FROM" | grep -Eqi 'example\.invalid|example\.com|REPLACE_WITH' && { echo 'EMAIL_FROM must not be a placeholder sender' >&2; exit 1; } || true
 
       - name: Diagnose Cloudflare authorization boundary
         env:
@@ -391,7 +393,7 @@ jobs:
           required_secrets=(
             CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID SESSION_SECRET AUDIT_INTEGRITY_SECRET
             OPERATIONS_SECRET AUTOMATION_SECRET TURNSTILE_SECRET_KEY PAYMENT_WEBHOOK_SECRET BILLING_WEBHOOK_SECRET
-            OPENAI_API_KEY
+            RESEND_API_KEY OPENAI_API_KEY
           )
           missing_secrets=()
           for key in "${required_secrets[@]}"; do
@@ -405,7 +407,7 @@ jobs:
 
           google_enabled=false
           facebook_enabled=false
-          email_enabled=false
+          email_enabled=true
           if [[ -n "${GOOGLE_OAUTH_CLIENT_ID:-}" || -n "${GOOGLE_OAUTH_CLIENT_SECRET:-}" ]]; then
             [[ -n "${GOOGLE_OAUTH_CLIENT_ID:-}" && -n "${GOOGLE_OAUTH_CLIENT_SECRET:-}" ]] || { echo 'Google OAuth must be configured with both client ID and client secret, or deferred completely' >&2; exit 1; }
             google_enabled=true
@@ -414,10 +416,7 @@ jobs:
             [[ -n "${FACEBOOK_APP_ID:-}" && -n "${FACEBOOK_APP_SECRET:-}" ]] || { echo 'Facebook OAuth must be configured with both app ID and app secret, or deferred completely' >&2; exit 1; }
             facebook_enabled=true
           fi
-          if [[ -n "${EMAIL_FROM:-}" || -n "${RESEND_API_KEY:-}" ]]; then
-            [[ -n "${EMAIL_FROM:-}" && -n "${RESEND_API_KEY:-}" ]] || { echo 'Transactional email must be configured with both EMAIL_FROM and RESEND_API_KEY, or deferred completely' >&2; exit 1; }
-            email_enabled=true
-          fi
+          [[ -n "${EMAIL_FROM:-}" && -n "${RESEND_API_KEY:-}" ]] || { echo 'Production password recovery requires both EMAIL_FROM and RESEND_API_KEY' >&2; exit 1; }
 
           test -f "$WRANGLER_JS"
           actual_config_sha256="$(sha256sum "$PROD_CONFIG" | awk '{print $1}')"
@@ -441,9 +440,9 @@ jobs:
           const fs = require('node:fs');
           const coreNames = [
             'SESSION_SECRET','AUDIT_INTEGRITY_SECRET','OPERATIONS_SECRET','AUTOMATION_SECRET',
-            'TURNSTILE_SECRET_KEY','PAYMENT_WEBHOOK_SECRET','BILLING_WEBHOOK_SECRET','OPENAI_API_KEY'
+            'TURNSTILE_SECRET_KEY','PAYMENT_WEBHOOK_SECRET','BILLING_WEBHOOK_SECRET','RESEND_API_KEY','OPENAI_API_KEY'
           ];
-          const optionalNames = ['GOOGLE_OAUTH_CLIENT_SECRET','FACEBOOK_APP_SECRET','RESEND_API_KEY'];
+          const optionalNames = ['GOOGLE_OAUTH_CLIENT_SECRET','FACEBOOK_APP_SECRET'];
           const out = {};
           for (const name of coreNames) {
             const value = process.env[name] || '';
