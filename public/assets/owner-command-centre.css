@@ -75,3 +75,19 @@
 @media(max-width:1050px){#appShell .owner-decision-grid{grid-template-columns:1fr!important}}
 @media(max-width:700px){#appShell .owner-command-head{padding:15px!important}#appShell .owner-command-head .btn{width:auto!important;margin-top:10px!important}#appShell .owner-command-summary{margin:0 15px 10px!important;padding:30px 14px 13px!important;font-size:15.5px!important}#appShell .owner-command-summary:before{left:14px!important}#appShell .owner-signal-list{grid-template-columns:1fr!important;padding:0 15px 12px!important}#appShell .owner-signal{min-height:0!important}#appShell .owner-decision-grid{padding:0 15px 12px!important}#appShell .owner-source-note{margin:0 15px 10px!important}#appShell .owner-sales-workspace,#appShell .owner-inputs{margin-left:15px!important;margin-right:15px!important}.owner-action .btn{width:fit-content!important}}
 @media(prefers-reduced-motion:reduce){#appShell .owner-signal{transition:none!important}#appShell .owner-signal:hover{transform:none!important}}
+
+/* Owner Command Centre v2 — governed attention queue. */
+#appShell .owner-attention-panel{margin:0 20px 12px!important;padding:15px 16px!important;border-color:#dfe5eb!important;background:#fff!important}
+#appShell .owner-attention-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+#appShell .owner-attention-item{min-width:0;padding:13px 14px;border:1px solid #e3e7eb;border-radius:14px;background:#fbfcfd}
+#appShell .owner-attention-item[data-severity="critical"],#appShell .owner-attention-item[data-severity="high"]{border-color:#ead9cf;background:#fffaf7}
+#appShell .owner-attention-top,#appShell .owner-attention-meta{display:flex;align-items:center;justify-content:space-between;gap:10px}
+#appShell .owner-attention-domain,#appShell .owner-attention-severity{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#69717b}
+#appShell .owner-attention-item h5{margin:7px 0 4px;font-size:14px;line-height:1.35;color:#22272d}
+#appShell .owner-attention-reason{margin:0;color:#68717a;font-size:12.5px;line-height:1.45}
+#appShell .owner-attention-recommendation{margin-top:9px;padding:9px 10px;border-radius:10px;background:#f2f7fd;color:#254d79;font-size:12px;font-weight:700;line-height:1.4}
+#appShell .owner-attention-evidence{margin-top:8px;border-top:1px solid #e7ebef;padding-top:7px}
+#appShell .owner-attention-evidence summary{cursor:pointer;color:#4f5964;font-size:11.5px;font-weight:750}
+#appShell .owner-attention-evidence-row{padding:5px 0 0;color:#6b747d;font-size:11.5px;line-height:1.4}
+#appShell .owner-attention-meta{margin-top:9px;color:#7a828a;font-size:10.5px}
+@media(max-width:760px){#appShell .owner-attention-panel{margin:0 16px 10px!important}#appShell .owner-attention-list{grid-template-columns:1fr}}
