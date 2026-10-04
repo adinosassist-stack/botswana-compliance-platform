@@ -1,0 +1,58 @@
+name: V279 voice language and usage evidence CI
+
+on:
+  pull_request:
+    paths:
+      - "cloudflare/src/agentic-live-eval-v273.js"
+      - "cloudflare/src/agentic-live-evidence-v274.js"
+      - "public/js/thebe-live-evidence-v274.js"
+      - "tests/v273-gpt-live-eval-readiness.mjs"
+      - "tests/v274-voice-evidence-capture.mjs"
+      - ".github/workflows/v279-voice-language-usage-evidence-ci.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "cloudflare/src/agentic-live-eval-v273.js"
+      - "cloudflare/src/agentic-live-evidence-v274.js"
+      - "public/js/thebe-live-evidence-v274.js"
+      - "tests/v273-gpt-live-eval-readiness.mjs"
+      - "tests/v274-voice-evidence-capture.mjs"
+      - ".github/workflows/v279-voice-language-usage-evidence-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  language-usage-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@v4
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.6.0"
+
+      - name: Syntax-check V279 evaluation path
+        run: |
+          node --check cloudflare/src/agentic-live-eval-v273.js
+          node --check cloudflare/src/agentic-live-evidence-v274.js
+          node --check public/js/thebe-live-evidence-v274.js
+          node --check tests/v273-gpt-live-eval-readiness.mjs
+          node --check tests/v274-voice-evidence-capture.mjs
+
+      - name: Prove V279 paired rollout policy
+        run: node tests/v273-gpt-live-eval-readiness.mjs
+
+      - name: Prove V279 privacy-minimized capture
+        run: node tests/v274-voice-evidence-capture.mjs
+
+      - name: Fail if content or provider price is persisted
+        run: |
+          ! grep -Eq 'sample\.(transcript|audio|taskText|languageContent|providerPrice)' cloudflare/src/agentic-live-evidence-v274.js
+          grep -q 'languageContentStored:false' cloudflare/src/agentic-live-evidence-v274.js
+          grep -q 'providerPriceStored:false' cloudflare/src/agentic-live-evidence-v274.js
