@@ -57,11 +57,13 @@ jobs:
           node --check tests/v82-audit-remediation-static.mjs
           node --check tests/v83-surface-boundary-static.mjs
           node --check tests/v217-jit-execution-permit.mjs
+          node --check tests/v249-voice-motion-visual-contract.mjs
           node --check scripts/migrate-production-v217-jit-execution-permits.mjs
           node tests/v82-audit-remediation-static.mjs
           node tests/v82-phase0-launch-audit-deferred-integrations.mjs
           node tests/v83-surface-boundary-static.mjs
           node --no-warnings tests/v217-jit-execution-permit.mjs
+          node tests/v249-voice-motion-visual-contract.mjs
 
       - name: Signed HOLD browser lifecycle governance
         shell: bash
