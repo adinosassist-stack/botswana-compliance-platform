@@ -4094,13 +4094,33 @@
     return rows;
   }
 
-  function renderOperatorAttention(items=[]){
+  function pendingAgenticReviews(runsPayload){
+    const proposals=Array.isArray(runsPayload?.proposals)?runsPayload.proposals:[];
+    return proposals.filter(item=>String(item?.status||"pending")==="pending").slice(0,8);
+  }
+
+  function renderOperatorAttention(items=[],reviews=[]){
     const box=q("#ownerAttentionPanel");if(!box)return;
     box.replaceChildren();
     const head=document.createElement("div");head.className="owner-panel-head";
     const copy=document.createElement("div");copy.append(text("div","Priority queue","section-eyebrow"),text("h4","What Thebe wants you to review first"));
-    head.append(copy,text("span",String(items.length),"badge"));box.append(head);
-    if(!items.length){box.append(text("div","No governed priority items are available from the current business records.","owner-command-empty"));return}
+    head.append(copy,text("span",String(items.length+reviews.length),"badge"));box.append(head);
+    if(reviews.length){
+      const reviewBox=document.createElement("div");reviewBox.className="owner-review-inbox";
+      reviewBox.append(text("div","Owner approval inbox","section-eyebrow"));
+      for(const proposal of reviews){
+        const row=document.createElement("article");row.className="owner-review-row";
+        row.append(text("b",cleanText(proposal?.title||"Governed proposal",180)),text("span",cleanText(proposal?.reason||"Review the proposal and supporting sources.",300)));
+        const refs=Array.isArray(proposal?.sourceRefs)?proposal.sourceRefs:[];
+        if(refs.length){const sources=document.createElement("div");sources.className="owner-agentic-sources";refs.slice(0,6).forEach(ref=>sources.append(text("span",String(ref),"owner-agentic-source")));row.append(sources)}
+        const actions=document.createElement("div");actions.className="owner-agentic-actions";
+        if(role()==="owner")actions.append(button("Record approval",()=>decideAgenticProposal(proposal.id,"approve"),"btn soft"));
+        if(["owner","manager"].includes(role()))actions.append(button("Reject",()=>decideAgenticProposal(proposal.id,"reject"),"btn soft"));
+        row.append(actions);reviewBox.append(row);
+      }
+      box.append(reviewBox);
+    }
+    if(!items.length&&!reviews.length){box.append(text("div","No governed priority items or pending owner reviews are available from the current business records.","owner-command-empty"));return}
     const list=document.createElement("div");list.className="owner-attention-list";
     for(const item of items.slice(0,7)){
       const card=document.createElement("article");card.className="owner-attention-item";card.dataset.severity=cleanText(item?.severity||"medium",20);
@@ -4112,14 +4132,14 @@
       const meta=document.createElement("div");meta.className="owner-attention-meta";meta.append(text("span",recommendation.approvalRequired?"Approval required":"Review only"),text("span",item?.outcome?.status==="not_recorded"?"Outcome pending":"Outcome recorded"));card.append(meta);
       list.append(card);
     }
-    box.append(list);
+    if(items.length)box.append(list);
   }
 
-  async function loadOperatorAttention(model){
+  async function loadOperatorAttention(model,runsPayload=null){
     const signals=operatorSignals(model);
     if(!signals.length){renderOperatorAttention([]);return}
-    try{const payload=await request("/api/ai/operator/queue",{method:"POST",body:JSON.stringify({signals})});renderOperatorAttention(Array.isArray(payload?.items)?payload.items:[])}
-    catch(error){const box=q("#ownerAttentionPanel");if(box)box.replaceChildren(text("div","Priority queue unavailable. Existing business brief remains available; Thebe will not invent attention items.","owner-command-empty"))}
+    try{const payload=await request("/api/ai/operator/queue",{method:"POST",body:JSON.stringify({signals})});renderOperatorAttention(Array.isArray(payload?.items)?payload.items:[],pendingAgenticReviews(runsPayload))}
+    catch(error){const reviews=pendingAgenticReviews(runsPayload);if(reviews.length){renderOperatorAttention([],reviews);return}const box=q("#ownerAttentionPanel");if(box)box.replaceChildren(text("div","Priority queue unavailable. Existing business brief remains available; Thebe will not invent attention items.","owner-command-empty"))}
   }
 
   async function renderOwnerBrief(force=false){
@@ -4141,11 +4161,12 @@
 
     try{
       const date=gaboroneDate();
-      const [performance,stateEnvelope,finance,businessEnvelope]=await Promise.all([
+      const [performance,stateEnvelope,finance,businessEnvelope,agenticRuns]=await Promise.all([
         request(`/api/daily-reporting/performance?date=${encodeURIComponent(date)}`),
         request("/api/state"),
         request("/api/finance/summary").catch(()=>null),
-        request("/api/business-context/brief").catch(()=>null)
+        request("/api/business-context/brief").catch(()=>null),
+        request("/api/agentic/runs").catch(()=>({items:[],proposals:[]}))
       ]);
       if(seq!==renderSeq)return;
 
@@ -4156,7 +4177,7 @@
       model.businessAnalytics=businessEnvelope?.analytics||businessEnvelope?.brief?.analytics||null;
 
       renderSummary(model);
-      await loadOperatorAttention(model);
+      await loadOperatorAttention(model,agenticRuns);
       if(seq!==renderSeq)return;
       renderSources(model,inputs);
       renderSignals(model);
