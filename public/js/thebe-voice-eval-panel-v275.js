@@ -1,7 +1,7 @@
 (function installThebeVoiceEvalCockpit(global){
   "use strict";
 
-  const RELEASE="20261004-voice-eval-cockpit-v275";
+  const RELEASE="20261004-voice-eval-cockpit-v280";
   const PANEL_ID="thebeVoiceEvalCockpit";
   const DIALOG_ID="thebeVoiceEvalDialog";
   let dialog=null;
@@ -27,6 +27,8 @@
     node.addEventListener("click",fn);
     return node;
   };
+  const percent=value=>value==null?"—":`${Math.round(Number(value)*100)}%`;
+  const seconds=value=>value==null?"—":`${Number(value).toFixed(Number(value)>=10?0:1)} s`;
 
   function ensureStyle(){
     if(q("#thebeVoiceEvalCockpitStyle"))return;
@@ -69,7 +71,7 @@
     if(evaluation?.readyForHumanReview===true){
       return {
         title:"Ready for human review",
-        copy:"The recorded evidence meets the V273 review thresholds. Production switching remains blocked and requires a separate governed release decision."
+        copy:"The recorded evidence meets the V279 review thresholds. Production switching remains blocked and requires a separate governed release decision."
       };
     }
     const failed=Array.isArray(evaluation?.failedCriteria)?evaluation.failedCriteria:[];
@@ -93,13 +95,18 @@
       const summary=await global.ThebeVoiceEval.summary();
       const evaluation=summary?.evaluation||{};
       const live=evaluation?.live||{};
+      const realtime=evaluation?.realtime||{};
+      const languageTags=Array.isArray(live?.languageTags)?live.languageTags:[];
+      const languageValue=live?.languageContinuityRate==null?"—":`${percent(live.languageContinuityRate)} · ${languageTags.length} lang`;
+      const usageValue=live?.medianUsageSeconds==null?"—":`${seconds(live.medianUsageSeconds)} · base ${seconds(realtime?.medianUsageSeconds)}`;
+      const matchedValue=`${Number(summary?.pairedScenarios||0)} / ${Number(summary?.evidenceRows||0)}`;
       const copy=decisionCopy(summary);
       grid?.replaceChildren(
-        stat("Evidence rows",Number(summary?.evidenceRows||0)),
-        stat("Matched scenarios",Number(summary?.pairedScenarios||0)),
-        stat("GPT-Live failures",Number(live?.providerFailures||0)),
-        stat("Delegation completion",live?.delegationCompletionRate==null?"—":`${Math.round(Number(live.delegationCompletionRate)*100)}%`),
-        stat("Interruption recovery",live?.interruptionRecoveryRate==null?"—":`${Math.round(Number(live.interruptionRecoveryRate)*100)}%`),
+        stat("Matched / evidence",matchedValue),
+        stat("Language continuity",languageValue),
+        stat("Median usage / baseline",usageValue),
+        stat("Delegation completion",percent(live?.delegationCompletionRate)),
+        stat("Interruption recovery",percent(live?.interruptionRecoveryRate)),
         stat("Median useful answer",live?.medianFirstUsefulAnswerMs==null?"—":`${Math.round(Number(live.medianFirstUsefulAnswerMs))} ms`)
       );
       decision?.replaceChildren(text("strong",copy.title),text("span",copy.copy));
@@ -142,7 +149,7 @@
     copy.append(
       text("div","Controlled preview","thebe-eval-kicker"),
       text("div","Voice evaluation","thebe-eval-title"),
-      text("div","Capture matched Realtime and GPT-Live metrics without storing raw audio, transcript or task text.","thebe-eval-copy")
+      text("div","Compare Realtime and GPT-Live performance, language continuity and usage without storing raw audio, transcript, language content or provider pricing.","thebe-eval-copy")
     );
     copy.querySelector(".thebe-eval-title").id="thebeVoiceEvalTitle";
     const close=button("×",()=>node.close(),"thebe-eval-close");
@@ -152,7 +159,7 @@
     const grid=document.createElement("div");
     grid.className="thebe-eval-grid";
     grid.append(
-      stat("Evidence rows","—"),stat("Matched scenarios","—"),stat("GPT-Live failures","—"),
+      stat("Matched / evidence","—"),stat("Language continuity","—"),stat("Median usage / baseline","—"),
       stat("Delegation completion","—"),stat("Interruption recovery","—"),stat("Median useful answer","—")
     );
 
@@ -164,6 +171,7 @@
     input.autocomplete="off";
     input.placeholder="Scenario ID e.g. cashflow-check-01";
     input.setAttribute("aria-label","Voice evaluation scenario ID");
+    const error=text("div","","thebe-eval-error");
     const arm=button("Arm scenario",()=>startScenario(input,error));
     form.append(input,arm);
 
@@ -184,7 +192,6 @@
     );
 
     const note=text("div","Use the same scenario ID once under each controlled runtime. No provider switch is available from this panel.","thebe-eval-note");
-    const error=text("div","","thebe-eval-error");
     shell.append(head,grid,form,decision,actions,note,error);
     node.append(shell);
     document.body.append(node);
