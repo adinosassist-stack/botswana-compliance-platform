@@ -21,28 +21,37 @@ const base={
   delegationsCompleted:1,
   providerFailures:0,
   sessionSeconds:90,
+  usageSeconds:78,
+  languageContinuityChecks:2,
+  languageContinuityPasses:2,
+  languageTags:["en-bw","tn-BW"],
   transcript:"private words must never be stored",
   audio:"raw audio must never be stored",
-  taskText:"sensitive business request must never be stored"
+  taskText:"sensitive business request must never be stored",
+  languageContent:"private language content must never be stored",
+  providerPrice:"provider pricing must never be stored"
 };
 
-const realtime=normalizeVoiceEvalEvidence({...base,runtime:"realtime",sessionId:"rt-1",connectMs:850,firstUsefulAnswerMs:3000});
+const realtime=normalizeVoiceEvalEvidence({...base,runtime:"realtime",sessionId:"rt-1",connectMs:850,firstUsefulAnswerMs:3000,usageSeconds:80});
 const live=normalizeVoiceEvalEvidence({...base,runtime:"gpt-live",sessionId:"live-1"});
 assert.equal(realtime.version,THEBE_LIVE_EVIDENCE_VERSION);
 assert.equal(live.sample.runtime,"gpt-live");
 assert.equal(live.sample.scenarioId,"cashflow-check-01");
-assert.equal("transcript" in live,false);
-assert.equal("audio" in live,false);
-assert.equal("taskText" in live,false);
-assert.equal("transcript" in live.sample,false);
-assert.equal("audio" in live.sample,false);
-assert.equal("taskText" in live.sample,false);
+assert.equal(live.sample.usageSeconds,78);
+assert.equal(live.sample.languageContinuityChecks,2);
+assert.equal(live.sample.languageContinuityPasses,2);
+assert.deepEqual(live.sample.languageTags,["en-BW","tn-BW"]);
+for(const key of ["transcript","audio","taskText","languageContent","providerPrice"]){
+  assert.equal(key in live,false);
+  assert.equal(key in live.sample,false);
+}
 assert.equal(VOICE_EVIDENCE_EVENT,"THEBE_LIVE_EVAL_EVIDENCE_RECORDED");
 
 assert.throws(()=>normalizeVoiceEvalEvidence({...base,runtime:"other"}),/invalid_voice_eval_runtime/);
 assert.throws(()=>normalizeVoiceEvalEvidence({...base,runtime:"realtime",scenarioId:""}),/voice_eval_scenario_id_required/);
 assert.throws(()=>normalizeVoiceEvalEvidence({...base,runtime:"realtime",sessionId:""}),/voice_eval_session_id_required/);
 assert.throws(()=>normalizeVoiceEvalEvidence({...base,runtime:"gpt-live",interruptions:1,interruptionsHandled:2}),/voice_eval_interruption_outcomes_exceed_events/);
+assert.throws(()=>normalizeVoiceEvalEvidence({...base,runtime:"gpt-live",languageContinuityChecks:1,languageContinuityPasses:2}),/voice_eval_language_passes_exceed_checks/);
 
 const rows=[
   {event_data:JSON.stringify(live)},
@@ -59,14 +68,21 @@ const evaluation=evaluateGptLivePromotionReadiness({pairs,policy:{
   minPairedSessions:1,
   minDelegationEvents:1,
   minInterruptionEvents:1,
+  minLanguageContinuityChecks:1,
+  minDistinctLanguageTags:1,
+  minUsageSamples:1,
   maxProviderFailureRate:1,
   maxProviderFailureRateRegression:1,
   minDelegationCompletionRate:0,
   maxDelegationCompletionRateRegression:1,
   minInterruptionRecoveryRate:0,
   maxInterruptionRecoveryRateRegression:1,
+  minLanguageContinuityRate:0,
+  maxLanguageContinuityRateRegression:1,
   maxMedianFirstUsefulAnswerRegressionMs:10000,
-  maxP95ConnectRegressionMs:10000
+  maxP95ConnectRegressionMs:10000,
+  maxMedianUsageSecondsRegressionRatio:10,
+  maxMedianUsageSecondsRegressionSeconds:3600
 }});
 assert.equal(evaluation.readyForHumanReview,true);
 assert.equal(evaluation.productionSwitchAllowed,false);
@@ -83,10 +99,14 @@ assert.match(preview,/taskTextStored:false/);
 const browser=fs.readFileSync("public/js/thebe-live-evidence-v274.js","utf8");
 assert.match(browser,/ThebeVoiceEval/);
 assert.match(browser,/beginScenario/);
+assert.match(browser,/markLanguageContinuity/);
 assert.match(browser,/sessionStorage/);
 assert.match(browser,/thebe-live-state/);
 assert.match(browser,/thebe-live-event/);
+assert.match(browser,/thebe-live-language-continuity/);
 assert.match(browser,/thebe-live-delegation-result/);
+assert.match(browser,/session\.usage\.updated/);
+assert.match(browser,/usageSeconds/);
 assert.match(browser,/\/api\/agentic\/live\/preview\/evidence/);
 assert.doesNotMatch(browser,/localStorage/,"evaluation opt-in must remain session-scoped rather than persistent");
 
@@ -100,6 +120,6 @@ assert.doesNotMatch(assets,/if\(!source\.includes\(LIVE_EVIDENCE_SRC\)\)/,"voice
 const production=fs.readFileSync("cloudflare/src/agentic-live-voice.js","utf8");
 assert.match(production,/gpt-realtime-2\.1/);
 assert.match(production,/\/v1\/realtime\/calls/);
-assert.doesNotMatch(production,/agentic-live-evidence-v274/,"V274 evidence capture must not alter the production voice provider path");
+assert.doesNotMatch(production,/agentic-live-evidence-v274/,"V279 evidence capture must not alter the production voice provider path");
 
-console.log("PASS: V274 sealed voice evidence capture is opt-in, privacy-minimized, workspace-scoped and production-inert");
+console.log("PASS: V279 sealed voice evidence adds language and usage signals without storing content or provider pricing");
