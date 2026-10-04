@@ -5,7 +5,7 @@ const css=fs.readFileSync("public/assets/owner-command-centre.css","utf8");
 assert.match(js,/ownerAttentionPanel/);
 assert.match(js,/\/api\/ai\/operator\/queue/);
 assert.match(js,/function operatorSignals\(model\)/);
-assert.ok(js.includes("function renderOperatorAttention(items=[],reviews=[])"),"attention renderer must retain items and governed reviews inputs");
+assert.ok(js.includes("function renderOperatorAttention(items=[],reviews=[],outcomePending=[],outcomes=[]){"),"attention renderer must retain items, governed reviews and measured outcome inputs");
 assert.match(js,/Why\? · \$\{evidence\.length\} evidence item/);
 assert.match(js,/Approval required/);
 assert.match(js,/Outcome pending/);
