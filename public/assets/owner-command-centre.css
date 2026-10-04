@@ -91,3 +91,12 @@
 #appShell .owner-attention-evidence-row{padding:5px 0 0;color:#6b747d;font-size:11.5px;line-height:1.4}
 #appShell .owner-attention-meta{margin-top:9px;color:#7a828a;font-size:10.5px}
 @media(max-width:760px){#appShell .owner-attention-panel{margin:0 16px 10px!important}#appShell .owner-attention-list{grid-template-columns:1fr}}
+
+#appShell .owner-review-inbox{margin:0 0 10px;padding:11px;border:1px solid #dfe5eb;border-radius:13px;background:#f8fafc}
+#appShell .owner-review-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:9px 0;border-bottom:1px solid #e6eaee}
+#appShell .owner-review-row:last-child{border-bottom:0}
+#appShell .owner-review-row>b{font-size:13px;color:#22272d}
+#appShell .owner-review-row>span{grid-column:1;color:#69717b;font-size:11.5px;line-height:1.4}
+#appShell .owner-review-row>.owner-agentic-sources{grid-column:1}
+#appShell .owner-review-row>.owner-agentic-actions{grid-column:2;grid-row:1/4;align-self:center}
+@media(max-width:760px){#appShell .owner-review-row{grid-template-columns:1fr}#appShell .owner-review-row>span,#appShell .owner-review-row>.owner-agentic-sources,#appShell .owner-review-row>.owner-agentic-actions{grid-column:1;grid-row:auto}}
