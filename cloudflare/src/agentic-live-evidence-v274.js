@@ -5,10 +5,13 @@ import {
   evaluateGptLivePromotionReadiness,
   THEBE_GPT_LIVE_EVAL_VERSION
 } from "./agentic-live-eval-v273.js";
+import {VOICE_RUNTIME_EVIDENCE_MINIMUMS} from "./voice-runtime-evidence.js";
+import {VOICE_RUNTIME_PROMOTION_THRESHOLDS} from "./voice-runtime-evaluation.js";
 
-export const THEBE_LIVE_EVIDENCE_VERSION="2026-10-04.voice-evidence-v274";
+export const THEBE_LIVE_EVIDENCE_VERSION="2026-10-04.voice-evidence-v277";
 export const VOICE_EVIDENCE_EVENT="THEBE_LIVE_EVAL_EVIDENCE_RECORDED";
 export const VOICE_EVIDENCE_MAX_ROWS=200;
+export const VOICE_PROMOTION_QUALIFICATION_VERSION="2026-10-04.voice-promotion-hold-v277";
 
 const cleanText=(value,max=160)=>String(value??"")
   .replace(/[\u0000-\u001f\u007f]/g," ")
@@ -114,6 +117,27 @@ export function pairVoiceEvalEvidenceRows(rows=[]){
   return Object.freeze(pairs);
 }
 
+export function voiceRuntimePromotionQualificationHold(){
+  return Object.freeze({
+    version:VOICE_PROMOTION_QUALIFICATION_VERSION,
+    eligibleForReview:false,
+    eligible:false,
+    code:"strict_evidence_capture_required",
+    decision:"hold",
+    productionSwitchAllowed:false,
+    automaticPromotion:false,
+    automaticFallback:false,
+    evidenceMinimums:VOICE_RUNTIME_EVIDENCE_MINIMUMS,
+    thresholds:VOICE_RUNTIME_PROMOTION_THRESHOLDS,
+    missingStrictEvidence:Object.freeze([
+      "silence_noise_recovery_outcomes",
+      "graceful_provider_failure_outcomes",
+      "authority_escape_count"
+    ]),
+    reason:"The V274 paired browser recorder does not capture every field required by the strict runtime-promotion evidence contract. Paired comparison readiness is not production-promotion readiness."
+  });
+}
+
 export async function readVoiceEvalEvidenceSummary({env,auth,limit=VOICE_EVIDENCE_MAX_ROWS}={}){
   if(!env?.DB)throw new Error("voice_eval_database_unavailable");
   if(!auth?.tenant_id)throw new Error("voice_eval_identity_required");
@@ -127,13 +151,16 @@ export async function readVoiceEvalEvidenceSummary({env,auth,limit=VOICE_EVIDENC
     .all();
   const rows=Array.isArray(result?.results)?result.results:[];
   const pairs=pairVoiceEvalEvidenceRows(rows);
-  const evaluation=evaluateGptLivePromotionReadiness({pairs});
+  const comparisonEvaluation=evaluateGptLivePromotionReadiness({pairs});
+  const promotionQualification=voiceRuntimePromotionQualificationHold();
   return Object.freeze({
     ok:true,
     version:THEBE_LIVE_EVIDENCE_VERSION,
     evidenceRows:rows.length,
     pairedScenarios:pairs.length,
-    evaluation,
+    evaluation:comparisonEvaluation,
+    comparisonEvaluation,
+    promotionQualification,
     privacy:Object.freeze({rawAudioStored:false,transcriptStored:false,taskTextStored:false}),
     productionSwitchAllowed:false
   });
