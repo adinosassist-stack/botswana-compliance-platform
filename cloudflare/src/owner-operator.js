@@ -33,7 +33,7 @@ export function routeOwnerOperatorWork({domain,intent="read",actorRole="owner",t
   if(!normalizedDomain)return Object.freeze({allowed:false,decision:"deny",code:"unknown_domain",reason:"Owner Operator only routes to registered specialist domains.",operatorVersion:OWNER_OPERATOR_VERSION});
   const route=ROUTES[normalizedDomain], normalizedIntent=cleanIntent(intent), actionKey=route[normalizedIntent];
   const policy=evaluateAgentAction({agentKey:route.agentKey,actionKey,actorRole,tenantScoped,strongAuth,approvalState,phase:"phase1"});
-  return Object.freeze({ ...policy, operatorVersion:OWNER_OPERATOR_VERSION, domain:normalizedDomain, intent:normalizedIntent, specialist:Object.freeze({key:route.agentKey,label:THEBE_AGENTS[route.agentKey].label}), actionKey });
+  return Object.freeze({ ...policy, operatorVersion:OWNER_OPERATOR_VERSION, domain:normalizedDomain, intent:normalizedIntent, specialist:Object.freeze({key:route.agentKey,label:THEBE_AGENTS.thebe?.label||"Thebe"}), actionKey });
 }
 
 export function buildOwnerOperatorQueue(signals=[],context={}){
