@@ -80,12 +80,20 @@ try{
   await page.setViewportSize({width:390,height:844});
   await page.locator("#thebeAiDockPill").waitFor({state:"visible"});
   await page.locator("#thebeAiDockPill").click();
+
+  await page.evaluate(()=>{document.getElementById('thebeAiDock').dataset.expanded='false'});
+  await page.waitForFunction(()=>Math.abs(document.getElementById('thebeAiDock').getBoundingClientRect().width-76)<=1);
+  const mobileCollapsed=await page.evaluate(()=>{const d=document.getElementById('thebeAiDock').getBoundingClientRect();return {left:d.left,right:d.right,width:d.width,height:d.height,viewport:innerWidth}});
+  assert(Math.abs(mobileCollapsed.width-76)<=1&&Math.abs(mobileCollapsed.height-76)<=1,`collapsed mobile emergency dock stays compact: ${JSON.stringify(mobileCollapsed)}`);
+  assert(Math.abs(mobileCollapsed.right-(mobileCollapsed.viewport-12))<=1,`collapsed mobile emergency dock keeps a 12px right gutter: ${JSON.stringify(mobileCollapsed)}`);
+
+  await page.evaluate(()=>{document.getElementById('thebeAiDock').dataset.expanded='true'});
   await page.waitForFunction(()=>{
     const d=document.getElementById('thebeAiDock')?.getBoundingClientRect();
     return d&&Math.abs(d.left-8)<=1&&Math.abs(d.right-(innerWidth-8))<=1;
   });
-  const mobile=await page.evaluate(()=>{const d=document.getElementById('thebeAiDock').getBoundingClientRect();return {left:d.left,right:d.right,width:d.width,viewport:innerWidth}});
-  assert(Math.abs(mobile.left-8)<=1&&Math.abs(mobile.right-(mobile.viewport-8))<=1,`mobile emergency dock keeps 8px gutters: ${JSON.stringify(mobile)}`);
+  const mobileExpanded=await page.evaluate(()=>{const d=document.getElementById('thebeAiDock').getBoundingClientRect();return {left:d.left,right:d.right,width:d.width,viewport:innerWidth}});
+  assert(Math.abs(mobileExpanded.left-8)<=1&&Math.abs(mobileExpanded.right-(mobileExpanded.viewport-8))<=1,`expanded mobile emergency dock keeps 8px gutters: ${JSON.stringify(mobileExpanded)}`);
   assert.deepEqual(errors,[],'forced CSS recovery must not throw browser errors');
-  console.log('V269_EMERGENCY_DOCK_BROWSER_PASS: forced stylesheet failure preserves current compact dock, Property view isolation, reserved workspace lane, 68px voice and mobile gutters');
+  console.log('V269_EMERGENCY_DOCK_BROWSER_PASS: forced stylesheet failure preserves desktop lane recovery, compact collapsed mobile geometry, expanded mobile gutters, Property isolation and 68px voice');
 }finally{await browser.close()}
