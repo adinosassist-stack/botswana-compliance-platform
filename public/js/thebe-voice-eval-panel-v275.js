@@ -142,7 +142,7 @@
     copy.append(
       text("div","Controlled preview","thebe-eval-kicker"),
       text("div","Voice evaluation","thebe-eval-title"),
-      text("div","Capture matched Realtime and GPT-Live metrics without storing audio, transcript or task text.","thebe-eval-copy")
+      text("div","Capture matched Realtime and GPT-Live metrics without storing raw audio, transcript or task text.","thebe-eval-copy")
     );
     copy.querySelector(".thebe-eval-title").id="thebeVoiceEvalTitle";
     const close=button("×",()=>node.close(),"thebe-eval-close");
