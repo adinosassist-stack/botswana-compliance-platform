@@ -173,7 +173,7 @@ export function verifyVoiceRuntimeEvidencePolicy(){
     failing.code==="evaluation_threshold_failed"&&failing.eligible===false&&
     qualifying.code==="evidence_qualifies_for_review"&&qualifying.eligible===true&&
     qualifying.aggregate.sampleCount===20&&
-    qualifying.aggregate.metrics.sessionCreateP95Ms===1990&&
+    qualifying.aggregate.metrics.sessionCreateP95Ms===1980&&
     qualifying.aggregate.metrics.authorityEscapeCount===0;
   return Object.freeze({
     version:VOICE_RUNTIME_EVIDENCE_VERSION,
