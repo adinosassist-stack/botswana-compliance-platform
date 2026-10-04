@@ -1,0 +1,17 @@
+import fs from "node:fs";
+import assert from "node:assert/strict";
+const js=fs.readFileSync("public/js/owner-command-centre.js","utf8");
+const css=fs.readFileSync("public/assets/owner-command-centre.css","utf8");
+assert.match(js,/ownerAttentionPanel/);
+assert.match(js,/\/api\/ai\/operator\/queue/);
+assert.match(js,/function operatorSignals\(model\)/);
+assert.match(js,/function renderOperatorAttention\(items=\[\]\)/);
+assert.match(js,/Why\? · \$\{evidence\.length\} evidence item/);
+assert.match(js,/Approval required/);
+assert.match(js,/Outcome pending/);
+assert.match(js,/Thebe will not invent attention items/);
+assert.doesNotMatch(js,/fetch\("\/api\/ai\/operator\/queue/,"Owner Command must use centralized secure API transport");
+assert.match(css,/\.owner-attention-list\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+assert.match(css,/@media\(max-width:760px\)[\s\S]*\.owner-attention-list\{grid-template-columns:1fr\}/);
+assert.doesNotMatch(css,/owner-attention[\s\S]*linear-gradient|owner-attention[\s\S]*radial-gradient/i);
+console.log("PASS: Owner Command v2 renders governed attention, evidence, approval state and outcome linkage compactly.");
