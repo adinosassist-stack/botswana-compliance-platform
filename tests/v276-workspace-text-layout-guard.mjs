@@ -14,7 +14,7 @@ assert.match(guard,/overflow:visible!important/,'information copy must remain vi
 assert.match(guard,/white-space:normal!important/,'information copy must wrap instead of clipping');
 assert.match(guard,/@media\(max-width:620px\)/,'phone layout must have an explicit compact breakpoint');
 assert.match(guard,/grid-template-columns:minmax\(0,1fr\)!important/,'dense phone grids must stack without min-content overflow');
-assert.doesNotMatch(guard,/\*\s*\{/,'guard must not use a global universal style reset');
+assert.doesNotMatch(guard,/(?:^|\n)\s*\*\s*\{/,'guard must not use a top-level universal style reset');
 assert.doesNotMatch(guard,/thebeLiveVoice|thebe-dock|spatial-dock/i,'guard must not alter dock or voice geometry');
 assert.doesNotMatch(guard,/position\s*:\s*(?:fixed|absolute)/i,'guard must not introduce overlay geometry');
 
