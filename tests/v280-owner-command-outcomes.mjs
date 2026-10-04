@@ -1,0 +1,16 @@
+import fs from "node:fs";
+import assert from "node:assert/strict";
+const js=fs.readFileSync("public/js/owner-command-centre.js","utf8");
+const css=fs.readFileSync("public/assets/owner-command-centre.css","utf8");
+assert.match(js,/function decidedAgenticProposals\(runsPayload,outcomesPayload\)/);
+assert.match(js,/\/api\/agentic\/outcomes/);
+assert.match(js,/\/api\/agentic\/proposals\/\$\{encodeURIComponent\(proposalId\)\}\/outcome/);
+assert.match(js,/measurementOnly===true/);
+assert.match(js,/Outcome recorded as measurement only\. No action was executed\./);
+for(const state of ["improved","unchanged","worsened","resolved","not_applicable"])assert.match(js,new RegExp('"'+state+'"'));
+assert.match(js,/Measure decisions/);
+assert.match(js,/Recent measured outcomes/);
+assert.match(css,/\.owner-outcome-inbox/);
+assert.match(css,/@media\(max-width:760px\)[\s\S]*\.owner-outcome-row/);
+assert.doesNotMatch(js,/\/api\/agentic\/execute/);
+console.log("PASS: Owner Command closes the governed loop with measurement-only outcomes and compact history.");
