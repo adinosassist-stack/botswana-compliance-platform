@@ -801,7 +801,7 @@
   "route_security_inventory": true,
   "route_security_feature_families": 26,
   "authenticated_route_branches": 254,
-  "preauth_route_allowlist": 23,
+  "preauth_route_allowlist": 24,
   "csp_inline_event_execution_disabled": true,
   "delegated_ui_actions_allowlisted": true,
   "preview_modules_not_loaded_in_production": true,
