@@ -4,7 +4,7 @@
 
 import { evaluateAgentAction, THEBE_AGENTS } from "./agent-policy.js";
 
-export const OWNER_OPERATOR_VERSION = "2026-10-04.owner-operator-v1";
+export const OWNER_OPERATOR_VERSION = "2026-10-04.owner-command-attention-v1";
 
 const ROUTES = Object.freeze({
   compliance: Object.freeze({ agentKey:"compliance", read:"compliance_status.read", prepare:"compliance_action_plan.prepare" }),
@@ -18,6 +18,17 @@ const DOMAIN_PRIORITY = Object.freeze(["compliance","finance","operations","tend
 
 function cleanDomain(value){const key=String(value||"").trim().toLowerCase();return ROUTES[key]?key:null}
 function cleanIntent(value){return String(value||"").trim().toLowerCase()==="prepare"?"prepare":"read"}
+function cleanText(value,max){return String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max)}
+function cleanEvidence(signal){
+  const rows=Array.isArray(signal?.evidence)?signal.evidence:[];
+  return Object.freeze(rows.slice(0,8).map((row,index)=>Object.freeze({
+    id:cleanText(row?.id||`evidence-${index+1}`,128),
+    label:cleanText(row?.label||row?.title||"Evidence",120),
+    source:cleanText(row?.source||"business_record",80),
+    value:cleanText(row?.value,240)||null,
+    observedAt:cleanText(row?.observedAt||row?.observed_at,64)||null
+  })));
+}
 function priorityScore(signal){
   const severity=String(signal?.severity||"").toLowerCase();
   const severityScore={critical:400,high:300,medium:200,low:100}[severity]||0;
@@ -51,7 +62,18 @@ export function buildOwnerOperatorQueue(signals=[],context={}){
       domain,
       severity:String(signal?.severity||"unknown").toLowerCase(),
       title:String(signal?.title||"Needs attention").slice(0,180),
-      reason:String(signal?.reason||"").slice(0,500),
+      reason:cleanText(signal?.reason,500),
+      evidence:cleanEvidence(signal),
+      recommendation:Object.freeze({
+        summary:cleanText(signal?.recommendation||signal?.recommendedAction||"Review the evidence and decide the next action.",300),
+        actionLabel:cleanText(signal?.actionLabel||"Review",80),
+        approvalRequired:route.humanReviewRequired===true,
+        approvalKey:route.humanReviewRequired===true?cleanText(signal?.approvalKey||`operator:${domain}:${String(signal?.id||"item").slice(0,80)}`,180):null
+      }),
+      outcome:Object.freeze({
+        status:"not_recorded",
+        outcomeKey:cleanText(signal?.outcomeKey||`operator-outcome:${domain}:${String(signal?.id||"item").slice(0,80)}`,180)
+      }),
       score:priorityScore(signal),
       specialist:route.specialist,
       actionKey:route.actionKey,
@@ -70,6 +92,7 @@ export function ownerOperatorCapabilities(){
     mode:"governed_persistent_operator",
     domains:Object.freeze(Object.keys(ROUTES)),
     autonomous:Object.freeze(["detect","prioritise","route","read_authorised_data","prepare_bounded_drafts"]),
+    commandCentre:Object.freeze({contract:"attention_evidence_recommendation_approval_outcome",maxAttentionItems:25,maxEvidenceItemsPerAttention:8}),
     approvalGated:Object.freeze(["external_side_effects","payments","government_filings","signatures","employment_termination","financing_acceptance"]),
     invariant:"The Owner Operator cannot grant itself permissions, bypass specialist policy, or execute external side effects in Phase 1."
   });
