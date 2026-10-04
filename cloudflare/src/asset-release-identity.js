@@ -6,6 +6,7 @@ const LIVE_EVIDENCE_SRC='/js/thebe-live-evidence-v274.js';
 const LIVE_EVAL_COCKPIT_SRC='/js/thebe-voice-eval-panel-v275.js';
 const WORKSPACE_TEXT_LAYOUT_SRC='/js/workspace-text-layout-guard-v276.js';
 const WORKSPACE_PROPERTY_ROUTE_ISOLATION_SRC='/js/workspace-property-route-isolation-v277.js';
+const WORKSPACE_FOCUS_VISIBLE_SRC='/js/workspace-focus-visible-v278.js';
 
 function injectAtFinalClosingTag(source,tag,markup){
   const pattern=new RegExp(`<\\/${tag}\\s*>`, 'gi');
@@ -22,6 +23,7 @@ export function versionReleaseAssets(html,sha=releaseSourceSha(),options={}){
   if(options?.includeVoiceEvidence===true&&!source.includes(LIVE_EVAL_COCKPIT_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${LIVE_EVAL_COCKPIT_SRC}" defer></script>\n`);
   if(options?.includeWorkspaceFixes===true&&!source.includes(WORKSPACE_TEXT_LAYOUT_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${WORKSPACE_TEXT_LAYOUT_SRC}" defer></script>\n`);
   if(options?.includeWorkspaceFixes===true&&!source.includes(WORKSPACE_PROPERTY_ROUTE_ISOLATION_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${WORKSPACE_PROPERTY_ROUTE_ISOLATION_SRC}" defer></script>\n`);
+  if(options?.includeWorkspaceFixes===true&&!source.includes(WORKSPACE_FOCUS_VISIBLE_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${WORKSPACE_FOCUS_VISIBLE_SRC}" defer></script>\n`);
   source=source.replace(/(<(?:script|link)\b[^>]*\b(?:src|href)=["'])(\/(?:js|assets)\/[^"']+)(["'][^>]*>)/gi,(_match,start,path,end)=>{
     const url=new URL(path.replaceAll('&amp;','&'),'https://thebe.invalid');
     url.searchParams.set('release',sha);
