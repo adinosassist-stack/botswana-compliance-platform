@@ -1,0 +1,54 @@
+name: V273 GPT-Live evaluation readiness CI
+
+on:
+  pull_request:
+    paths:
+      - "cloudflare/src/agentic-live-eval-v273.js"
+      - "cloudflare/src/agentic-live-voice-v270.js"
+      - "cloudflare/src/agentic-live-voice.js"
+      - "tests/v273-gpt-live-eval-readiness.mjs"
+      - "tests/v271-gpt-live-event-compat-evals.mjs"
+      - "tests/v101-gpt-live-voice-foundation.mjs"
+      - ".github/workflows/v273-gpt-live-eval-readiness-ci.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "cloudflare/src/agentic-live-eval-v273.js"
+      - "cloudflare/src/agentic-live-voice-v270.js"
+      - "cloudflare/src/agentic-live-voice.js"
+      - "tests/v273-gpt-live-eval-readiness.mjs"
+      - "tests/v271-gpt-live-event-compat-evals.mjs"
+      - "tests/v101-gpt-live-voice-foundation.mjs"
+      - ".github/workflows/v273-gpt-live-eval-readiness-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  comparative-eval-readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@v4
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.6.0"
+
+      - name: Syntax-check V273 evaluation contract
+        run: |
+          node --check cloudflare/src/agentic-live-eval-v273.js
+          node --check tests/v273-gpt-live-eval-readiness.mjs
+
+      - name: Preserve current production voice boundary
+        run: node tests/v101-gpt-live-voice-foundation.mjs
+
+      - name: Preserve V271 event compatibility and telemetry
+        run: node tests/v271-gpt-live-event-compat-evals.mjs
+
+      - name: Prove V273 paired evaluation readiness gates
+        run: node tests/v273-gpt-live-eval-readiness.mjs
