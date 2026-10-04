@@ -1,7 +1,7 @@
 (function installThebeVoiceEvalCockpit(global){
   "use strict";
 
-  const RELEASE="20261004-voice-eval-cockpit-v280";
+  const RELEASE="20261004-voice-eval-cockpit-v282";
   const PANEL_ID="thebeVoiceEvalCockpit";
   const DIALOG_ID="thebeVoiceEvalDialog";
   let dialog=null;
@@ -71,7 +71,7 @@
     if(evaluation?.readyForHumanReview===true){
       return {
         title:"Ready for human review",
-        copy:"The recorded evidence meets the V279 review thresholds. Production switching remains blocked and requires a separate governed release decision."
+        copy:"The recorded evidence meets the V281 review thresholds. Production switching remains blocked and requires a separate governed release decision."
       };
     }
     const failed=Array.isArray(evaluation?.failedCriteria)?evaluation.failedCriteria:[];
@@ -100,13 +100,16 @@
       const languageValue=live?.languageContinuityRate==null?"—":`${percent(live.languageContinuityRate)} · ${languageTags.length} lang`;
       const usageValue=live?.medianUsageSeconds==null?"—":`${seconds(live.medianUsageSeconds)} · base ${seconds(realtime?.medianUsageSeconds)}`;
       const matchedValue=`${Number(summary?.pairedScenarios||0)} / ${Number(summary?.evidenceRows||0)}`;
+      const acousticKinds=Array.isArray(live?.acousticRecoveryKinds)?live.acousticRecoveryKinds:[];
+      const recoveryValue=`${percent(live?.interruptionRecoveryRate)} / ${percent(live?.acousticRecoveryRate)}`;
+      const recoveryLabel=acousticKinds.length?`Interrupt / acoustic recovery · ${acousticKinds.length} modes`:"Interrupt / acoustic recovery";
       const copy=decisionCopy(summary);
       grid?.replaceChildren(
         stat("Matched / evidence",matchedValue),
         stat("Language continuity",languageValue),
         stat("Median usage / baseline",usageValue),
         stat("Delegation completion",percent(live?.delegationCompletionRate)),
-        stat("Interruption recovery",percent(live?.interruptionRecoveryRate)),
+        stat(recoveryLabel,recoveryValue),
         stat("Median useful answer",live?.medianFirstUsefulAnswerMs==null?"—":`${Math.round(Number(live.medianFirstUsefulAnswerMs))} ms`)
       );
       decision?.replaceChildren(text("strong",copy.title),text("span",copy.copy));
@@ -149,7 +152,7 @@
     copy.append(
       text("div","Controlled preview","thebe-eval-kicker"),
       text("div","Voice evaluation","thebe-eval-title"),
-      text("div","Compare Realtime and GPT-Live performance, language continuity and usage without storing raw audio, transcript, language content or provider pricing.","thebe-eval-copy")
+      text("div","Compare Realtime and GPT-Live performance, language continuity, usage and silence/noise recovery without storing raw audio, transcript, acoustic content, language content or provider pricing.","thebe-eval-copy")
     );
     copy.querySelector(".thebe-eval-title").id="thebeVoiceEvalTitle";
     const close=button("×",()=>node.close(),"thebe-eval-close");
@@ -160,7 +163,7 @@
     grid.className="thebe-eval-grid";
     grid.append(
       stat("Matched / evidence","—"),stat("Language continuity","—"),stat("Median usage / baseline","—"),
-      stat("Delegation completion","—"),stat("Interruption recovery","—"),stat("Median useful answer","—")
+      stat("Delegation completion","—"),stat("Interrupt / acoustic recovery","— / —"),stat("Median useful answer","—")
     );
 
     const form=document.createElement("div");
@@ -191,7 +194,7 @@
       },"btn soft")
     );
 
-    const note=text("div","Use the same scenario ID once under each controlled runtime. No provider switch is available from this panel.","thebe-eval-note");
+    const note=text("div","Use the same scenario ID once under each controlled runtime. Mark silence/noise recovery through the controlled evaluator. No provider switch is available from this panel.","thebe-eval-note");
     shell.append(head,grid,form,decision,actions,note,error);
     node.append(shell);
     document.body.append(node);
