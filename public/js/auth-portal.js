@@ -1,5 +1,5 @@
 (()=>{
-"use strict";
+"use strict";const resetFragment=String(location.hash||"");if(resetFragment.startsWith("#reset_token=")){history.replaceState(null,"",location.pathname+location.search);location.replace("/reset-password.html"+resetFragment);return}
 const $=id=>document.getElementById(id);
 const form=$("authForm"),heading=$("authHeading"),intro=$("authIntro"),loginTab=$("loginTab"),registerTab=$("registerTab"),companyField=$("companyNameField"),company=$("authCompany"),email=$("authEmail"),password=$("authPassword"),workspaceField=$("workspaceField"),workspace=$("authWorkspace"),submit=$("authSubmit"),status=$("authError"),holdNotice=$("registrationHoldNotice"),signedNotice=$("signedNotice"),google=$("googleAuthButton"),facebook=$("facebookAuthButton");
 const encoder=new TextEncoder();
