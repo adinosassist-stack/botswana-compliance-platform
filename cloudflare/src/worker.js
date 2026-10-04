@@ -1,5 +1,6 @@
 import {BOTSWANA_FOUNDATION_PACK_V1,BOTSWANA_FOUNDATION_PACK_V1_HASH} from "./regulatory-pack-registry.js";
 import {handleFinanceRequest,financeSummary} from "./finance-core.js";
+import {handleOwnerOperatorRequest,isOwnerOperatorPath} from "./owner-operator-api.js";
 import {financeReceivablesSummary} from "./finance-receivables.js";
 import {processWhatsAppInboundMessages} from "./whatsapp-inbound-core.js";
 import {runDueFinanceWatchTasks} from "./finance-watch-durable-loop.js";
@@ -302,7 +303,7 @@ function restrictedWorkspaceMutationAllowed(path,method,role){
   if(r==="auditor")return false;
   if([
     "/api/evidence/presign","/api/statutory-calendar/recalculate","/api/inspection-simulations/run",
-    "/api/control-assurance/test","/api/ai/advisor"
+    "/api/control-assurance/test","/api/ai/advisor","/api/ai/operator/route"
   ].includes(path))return true;
   if(/^\/api\/evidence\/integrity\/[^/]+\/review$/.test(path))return true;
   if(/^\/api\/evidence\/[^/]+\/(upload|complete|scan-retry|validity)$/.test(path))return true;
@@ -5569,6 +5570,7 @@ export default {
       if(propertyValuationServicesResponse)return propertyValuationServicesResponse;
       const propertyPortfolioResponse=await handlePropertyPortfolioRequest({request:req,url,env,auth:a,json,readJson,id,writeAudit,roleAllowed});
       if(propertyPortfolioResponse)return propertyPortfolioResponse;
+      if(isOwnerOperatorPath(url.pathname))return handleOwnerOperatorRequest(req,{auth:a});
       const financeResponse=await handleFinanceRequest({request:req,url,env,auth:a,json,readJson,id,writeAudit,roleAllowed,sha256Hex,enqueueTenantAlert,whatsappTemplateAvailable:key=>!!parseWhatsAppTemplateMap(env)[key]});
       if(financeResponse)return financeResponse;
       if(url.pathname==="/api/auth/me"&&req.method==="GET")return json({user:{id:a.user_id,email:a.email,displayName:a.display_name,role:a.role,tenantId:a.tenant_id,tenantName:a.tenant_name,onboardingComplete:!!a.onboarding_complete},csrfToken:a.csrf_token});
