@@ -1,24 +1,11 @@
-export const VOICE_RUNTIME_EVALUATION_VERSION="2026-10-04.v272";
+import {
+  VOICE_PRODUCTION_PROFILE,
+  VOICE_EVALUATION_PROFILES
+} from "./voice-provider-routing.js";
 
-export const VOICE_RUNTIME_PRODUCTION_PROFILE=Object.freeze({
-  id:"openai-realtime-ga",
-  provider:"openai",
-  model:"gpt-realtime-2.1",
-  endpoint:"https://api.openai.com/v1/realtime/calls",
-  transport:"webrtc",
-  delegation:"function_tool",
-  activation:"production"
-});
-
-export const VOICE_RUNTIME_CANDIDATE_PROFILE=Object.freeze({
-  id:"openai-gpt-live-1",
-  provider:"openai",
-  model:"gpt-live-1",
-  endpoint:"https://api.openai.com/v1/live/sessions",
-  transport:"webrtc",
-  delegation:"backend",
-  activation:"evaluation_only"
-});
+export const VOICE_RUNTIME_EVALUATION_VERSION="2026-10-04.v273";
+export const VOICE_RUNTIME_PRODUCTION_PROFILE=VOICE_PRODUCTION_PROFILE;
+export const VOICE_RUNTIME_CANDIDATE_PROFILE=VOICE_EVALUATION_PROFILES[0];
 
 export const VOICE_RUNTIME_PROMOTION_THRESHOLDS=Object.freeze({
   interruptionPassRate:0.98,
@@ -64,14 +51,14 @@ export function evaluateVoiceRuntimeCandidate(metrics={}){
 export function verifyVoiceRuntimeProductionBoundary(source){
   const text=String(source||"");
   const checks=Object.freeze({
-    productionModel:/const LIVE_MODEL="gpt-realtime-2\.1";/.test(text),
-    productionEndpoint:/const OPENAI_REALTIME_CALLS_URL="https:\/\/api\.openai\.com\/v1\/realtime\/calls";/.test(text),
+    productionModel:new RegExp(`const LIVE_MODEL="${VOICE_PRODUCTION_PROFILE.model.replaceAll(".","\\.")}";`).test(text),
+    productionEndpoint:text.includes(`const OPENAI_REALTIME_CALLS_URL="${VOICE_PRODUCTION_PROFILE.endpoint}";`),
     webRtcTransport:text.includes('transport:"webrtc"'),
     semanticVad:text.includes('turn_detection:{type:"semantic_vad"}'),
     governedDelegation:text.includes('const DELEGATION_TOOL_NAME="delegate_to_thebe_backend";')&&text.includes('tool_choice:"auto"'),
     safetyIdentifier:text.includes('"OpenAI-Safety-Identifier"'),
-    noCandidateModelActivation:!text.includes('gpt-live-1'),
-    noCandidateEndpointActivation:!text.includes('/v1/live/sessions')
+    noCandidateModelActivation:VOICE_EVALUATION_PROFILES.every(profile=>!text.includes(profile.model)),
+    noCandidateEndpointActivation:VOICE_EVALUATION_PROFILES.every(profile=>!text.includes(new URL(profile.endpoint).pathname))
   });
   const failed=Object.entries(checks).filter(([,ok])=>!ok).map(([key])=>key);
   return Object.freeze({pass:failed.length===0,failed:Object.freeze(failed),checks});
@@ -97,7 +84,7 @@ export function runVoiceRuntimeEvaluationGate({source}={}){
     authorityEscapeCount:0
   });
   const pass=production.pass&&
-    VOICE_RUNTIME_CANDIDATE_PROFILE.activation==="evaluation_only"&&
+    VOICE_RUNTIME_CANDIDATE_PROFILE?.activation==="evaluation_only"&&
     unmeasured.eligible===false&&unmeasured.code==="evaluation_evidence_required"&&
     belowThreshold.eligible===false&&belowThreshold.code==="evaluation_threshold_failed"&&
     qualifyingEvidence.eligible===true&&qualifyingEvidence.code==="evidence_qualifies_for_review";
