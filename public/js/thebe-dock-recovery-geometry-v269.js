@@ -116,6 +116,11 @@
 
   function clearMarker(dock){if(dock?.dataset?.geometryRecovery===RELEASE)delete dock.dataset.geometryRecovery}
 
+  function spatialStylesheetHealthy(dock){
+    try{return global.getComputedStyle?.(dock)?.getPropertyValue("--thebe-spatial-dock").trim()==="1"}
+    catch{return false}
+  }
+
   function repair(){
     const document=global.document;
     if(!document)return false;
@@ -123,9 +128,12 @@
     const dock=document.getElementById("thebeAiDock");
     if(!dock){releaseAll();return false}
     if(dock.dataset.cssRecovery!=="1"){
-      releaseAll();
-      clearMarker(dock);
-      return false;
+      if(spatialStylesheetHealthy(dock)){
+        releaseAll();
+        clearMarker(dock);
+        return false;
+      }
+      dock.dataset.cssRecovery="1";
     }
     ensureRecoveryStyle();
     const width=viewportWidth();
