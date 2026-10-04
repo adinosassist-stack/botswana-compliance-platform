@@ -1,6 +1,6 @@
 (function bootstrapThebeDockRecoveryGeometry(global){
   "use strict";
-  const RELEASE="20261004-mobile-dock-geometry-v270";
+  const RELEASE="20261003-emergency-dock-geometry-v269";
   const PROPERTY_ISOLATION_RELEASE="20261003-property-view-isolation-v273";
   const RECOVERY_STYLE_ID="thebe-dock-recovery-geometry-v269-style";
   const managed=new Map();
