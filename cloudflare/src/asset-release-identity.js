@@ -10,12 +10,12 @@ function injectAtFinalClosingTag(source,tag,markup){
   return last?source.slice(0,last.index)+markup+source.slice(last.index):source;
 }
 
-export function versionReleaseAssets(html,sha=releaseSourceSha()){
+export function versionReleaseAssets(html,sha=releaseSourceSha(),options={}){
   if(!/^[0-9a-f]{40}$/.test(sha))return String(html||'');
   let source=String(html||'');
   if(!source.includes(DOCK_RECOVERY_GEOMETRY_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${DOCK_RECOVERY_GEOMETRY_SRC}" defer></script>\n`);
   if(!source.includes(LIVE_PREVIEW_FALLBACK_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${LIVE_PREVIEW_FALLBACK_SRC}" defer></script>\n`);
-  if(!source.includes(LIVE_EVIDENCE_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${LIVE_EVIDENCE_SRC}" defer></script>\n`);
+  if(options?.includeVoiceEvidence===true&&!source.includes(LIVE_EVIDENCE_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${LIVE_EVIDENCE_SRC}" defer></script>\n`);
   source=source.replace(/(<(?:script|link)\b[^>]*\b(?:src|href)=["'])(\/(?:js|assets)\/[^"']+)(["'][^>]*>)/gi,(_match,start,path,end)=>{
     const url=new URL(path.replaceAll('&amp;','&'),'https://thebe.invalid');
     url.searchParams.set('release',sha);
@@ -32,5 +32,10 @@ export async function applyAssetReleaseIdentity(request,response){
   headers.set('cache-control','no-store, max-age=0, must-revalidate');
   headers.set('cdn-cache-control','no-store');
   if(request.method==='HEAD')return new Response(null,{status:response.status,statusText:response.statusText,headers});
-  return new Response(versionReleaseAssets(await response.text()),{status:response.status,statusText:response.statusText,headers});
+  let includeVoiceEvidence=false;
+  try{
+    const pathname=new URL(request.url).pathname;
+    includeVoiceEvidence=pathname==='/app'||pathname==='/app/';
+  }catch{}
+  return new Response(versionReleaseAssets(await response.text(),releaseSourceSha(),{includeVoiceEvidence}),{status:response.status,statusText:response.statusText,headers});
 }
