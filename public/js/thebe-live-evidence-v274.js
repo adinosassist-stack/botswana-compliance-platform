@@ -1,19 +1,35 @@
 (function installThebeVoiceEvidence(global){
   "use strict";
 
-  const RELEASE="20261004-voice-evidence-v274";
+  const RELEASE="20261004-voice-evidence-v279";
   const EVIDENCE_PATH="/api/agentic/live/preview/evidence";
   const SUMMARY_PATH="/api/agentic/live/preview/evidence/summary";
-  const SCENARIO_KEY="thebe.voice.eval.scenario.v274";
+  const SCENARIO_KEY="thebe.voice.eval.scenario.v279";
   let active=null,lastSubmission=null;
 
   const now=()=>performance?.now?.()??Date.now();
   const cleanId=(value,max=120)=>String(value??"").trim().replace(/[^A-Za-z0-9._:-]/g,"_").slice(0,max);
+  const cleanLanguageTag=value=>{
+    const raw=String(value??"").trim().slice(0,32);
+    if(!/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8}){0,2}$/.test(raw))return "";
+    return raw.split("-").map((part,index)=>index===0?part.toLowerCase():(/^[A-Za-z]{2}$/.test(part)?part.toUpperCase():part.toLowerCase())).join("-");
+  };
   const safeApi=(url,options={})=>{
     if(typeof global.apiJson!=="function")throw new Error("The secure Thebe API transport is not available.");
     return global.apiJson(url,options);
   };
   const emit=(name,detail={})=>{try{global.dispatchEvent(new CustomEvent(name,{detail:{release:RELEASE,...detail}}))}catch{}};
+  const boundedUsage=value=>{
+    const parsed=Number(value);
+    return Number.isFinite(parsed)&&parsed>=0?Math.min(24*60*60,parsed):null;
+  };
+  const parseUsageSeconds=event=>{
+    if(!event||typeof event!=="object")return null;
+    const type=String(event.type||"");
+    if(!["session.usage.updated","session.usage","usage.updated"].includes(type))return null;
+    const usage=event.usage&&typeof event.usage==="object"?event.usage:{};
+    return boundedUsage(event.seconds??usage.seconds??usage.audio_seconds??usage.total_seconds);
+  };
 
   function savedScenario(){
     try{return cleanId(global.sessionStorage?.getItem(SCENARIO_KEY)||"")}catch{return ""}
@@ -56,6 +72,10 @@
       delegationsCompleted:0,
       delegationsFailed:0,
       providerFailures:0,
+      usageSeconds:0,
+      languageContinuityChecks:0,
+      languageContinuityPasses:0,
+      languageTags:new Set(),
       submitted:false
     };
     emit("thebe-voice-eval-started",{scenarioId,sessionId:active.sessionId});
@@ -72,6 +92,8 @@
     const sessionId=cleanId(detail.sessionId,240);
     if(sessionId)active.sessionId=sessionId;
     if(Number.isFinite(Number(detail.elapsedMs))&&Number(detail.elapsedMs)>=0)active.connectMs=Number(detail.elapsedMs);
+    const usage=boundedUsage(detail.usageSeconds);
+    if(usage!==null)active.usageSeconds=Math.max(active.usageSeconds,usage);
     if(detail.fallback===true&&runtime==="realtime")active.providerFailures+=1;
   }
 
@@ -84,6 +106,8 @@
     if(!active)return;
     const sessionId=cleanId(detail.sessionId,240);
     if(sessionId)active.sessionId=sessionId;
+    const usage=boundedUsage(detail.usageSeconds);
+    if(usage!==null)active.usageSeconds=Math.max(active.usageSeconds,usage);
     if(state==="connected"&&!active.connectedAt){
       active.connectedAt=now();
       if(!active.connectMs)active.connectMs=Math.max(0,active.connectedAt-active.startedAt);
@@ -96,6 +120,8 @@
     if(!active)return;
     const event=detail.event||detail;
     const type=String(event?.type||"");
+    const usage=parseUsageSeconds(event);
+    if(usage!==null)active.usageSeconds=Math.max(active.usageSeconds,usage);
     if(type==="conversation.item.input_audio_transcription.delta"||type==="session.input_transcript.delta"){
       if(!active.firstInputTranscriptMs)active.firstInputTranscriptMs=elapsed();
       return;
@@ -115,6 +141,17 @@
       return;
     }
     if(type==="error")active.providerFailures+=1;
+  }
+
+  function markLanguageContinuity(detail={}){
+    if(!active)return false;
+    const languageTag=cleanLanguageTag(detail.languageTag||detail.tag||"");
+    if(!languageTag)throw new Error("voice_eval_language_tag_required");
+    active.languageContinuityChecks+=1;
+    if(detail.passed===true)active.languageContinuityPasses+=1;
+    active.languageTags.add(languageTag);
+    emit("thebe-voice-eval-language",{languageTag,passed:detail.passed===true});
+    return true;
   }
 
   function markDelegation(detail={}){
@@ -158,7 +195,11 @@
       delegationsCompleted:active.delegationsCompleted,
       delegationsFailed:active.delegationsFailed+pendingDelegations,
       providerFailures:active.providerFailures,
-      sessionSeconds:Number((elapsed()/1000).toFixed(3))
+      sessionSeconds:Number((elapsed()/1000).toFixed(3)),
+      usageSeconds:Number(active.usageSeconds.toFixed(3)),
+      languageContinuityChecks:active.languageContinuityChecks,
+      languageContinuityPasses:active.languageContinuityPasses,
+      languageTags:[...active.languageTags].sort()
     };
   }
 
@@ -185,6 +226,7 @@
   global.addEventListener?.("thebe-live-runtime-selection",event=>markRuntime(event.detail||{}));
   global.addEventListener?.("thebe-live-state",event=>markVoiceState(event.detail||{}));
   global.addEventListener?.("thebe-live-event",event=>markServerEvent(event.detail||{}));
+  global.addEventListener?.("thebe-live-language-continuity",event=>markLanguageContinuity(event.detail||{}));
   global.addEventListener?.("thebe-live-delegation",event=>markDelegation(event.detail||{}));
   global.addEventListener?.("thebe-live-delegation-result",event=>markDelegationResult(event.detail||{}));
   global.addEventListener?.("thebe-live-error",event=>markError(event.detail||{}));
@@ -193,8 +235,9 @@
     release:RELEASE,
     beginScenario,
     clearScenario,
+    markLanguageContinuity,
     finalize:finalizeEvidence,
     summary,
-    state:()=>({scenarioId:savedScenario()||null,active:active?{...active}:null,lastSubmission})
+    state:()=>({scenarioId:savedScenario()||null,active:active?{...active,languageTags:[...active.languageTags]}:null,lastSubmission})
   });
 })(window);
