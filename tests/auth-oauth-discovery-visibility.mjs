@@ -1,0 +1,12 @@
+import assert from "node:assert/strict";import fs from "node:fs";
+const worker=fs.readFileSync("cloudflare/src/worker.js","utf8"),portal=fs.readFileSync("public/js/auth-portal.js","utf8"),auth=fs.readFileSync("public/auth.html","utf8"),reset=fs.readFileSync("public/reset-password.html","utf8");
+assert.match(worker,/\/api\/auth\/oauth\/providers/);
+assert.match(worker,/google:!!oauthProviderConfig\(env,"google"\),facebook:!!oauthProviderConfig\(env,"facebook"\)/);
+assert.match(portal,/api\("\/api\/auth\/oauth\/providers"\)/);
+assert.match(portal,/google\.hidden=providers\?\.google!==true/);
+assert.match(portal,/facebook\.hidden=providers\?\.facebook!==true/);
+assert.match(worker,/if\(provider==="google"&&!profile\.emailVerified\)return json\(\{error:"google_email_not_verified"\},400\)/);
+assert.match(worker,/SELECT id,email,display_name FROM users WHERE lower\(email\)=lower\(\?\) LIMIT 1/);
+assert.match(auth,/id="authPasswordToggle"/);assert.match(portal,/password\.type=showing\?"password":"text"/);
+assert.equal((reset.match(/data-password-toggle=/g)||[]).length,2);
+console.log("OAuth discovery and password visibility: PASS");
