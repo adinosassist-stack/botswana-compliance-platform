@@ -20,6 +20,9 @@
   function geometryFor(viewport,expanded=false){
     const width=Math.max(0,Number(viewport)||0);
     if(width<1024){
+      if(!expanded){
+        return {position:"fixed",left:"auto",right:"12px",top:"auto",bottom:"calc(104px + env(safe-area-inset-bottom))",width:"76px","max-width":"76px",height:"76px","min-height":"0","max-height":"76px","border-radius":"999px","z-index":"900"};
+      }
       return {position:"fixed",left:"8px",right:"8px",top:"8px",bottom:"calc(104px + env(safe-area-inset-bottom))",width:"auto","max-width":"none",height:"auto","min-height":"0","max-height":"calc(100dvh - 112px - env(safe-area-inset-bottom))","border-radius":"20px","z-index":"900"};
     }
     const dockWidth=widthFor(width,expanded);
@@ -37,7 +40,7 @@
 #thebeAiDock[data-css-recovery="1"] .thebe-ai-orb-button{width:68px!important;min-width:68px!important;max-width:68px!important;height:68px!important;min-height:68px!important;max-height:68px!important;box-sizing:border-box!important;flex:0 0 68px!important}
 #thebeAiDock[data-css-recovery="1"] .thebe-ai-voice-card{grid-template-columns:68px minmax(0,1fr)!important;gap:8px!important}
 @media (min-width:1024px) and (max-width:1199px){#thebeAiDock[data-css-recovery="1"]{width:256px!important;max-width:256px!important}#thebeAiDock[data-css-recovery="1"][data-expanded="true"]{width:324px!important;max-width:324px!important}}
-@media (max-width:1023px){#thebeAiDock[data-css-recovery="1"],#thebeAiDock[data-css-recovery="1"][data-expanded="true"]{left:8px!important;right:8px!important;top:8px!important;bottom:calc(104px + env(safe-area-inset-bottom))!important;width:auto!important;max-width:none!important;height:auto!important;min-height:0!important;max-height:calc(100dvh - 112px - env(safe-area-inset-bottom))!important;border-radius:20px!important;z-index:900!important}}
+@media (max-width:1023px){#thebeAiDock[data-css-recovery="1"]{left:auto!important;right:12px!important;top:auto!important;bottom:calc(104px + env(safe-area-inset-bottom))!important;width:76px!important;max-width:76px!important;height:76px!important;min-height:0!important;max-height:76px!important;border-radius:999px!important;z-index:900!important}#thebeAiDock[data-css-recovery="1"][data-expanded="true"]{left:8px!important;right:8px!important;top:8px!important;bottom:calc(104px + env(safe-area-inset-bottom))!important;width:auto!important;max-width:none!important;height:auto!important;min-height:0!important;max-height:calc(100dvh - 112px - env(safe-area-inset-bottom))!important;border-radius:20px!important;z-index:900!important}}
 `;
     (document.head||document.documentElement||document.body)?.appendChild(style);
   }
