@@ -92,8 +92,11 @@ try{
     const d=document.getElementById('thebeAiDock')?.getBoundingClientRect();
     return d&&Math.abs(d.left-8)<=1&&Math.abs(d.right-(innerWidth-8))<=1;
   });
-  const mobileExpanded=await page.evaluate(()=>{const d=document.getElementById('thebeAiDock').getBoundingClientRect();return {left:d.left,right:d.right,width:d.width,viewport:innerWidth}});
-  assert(Math.abs(mobileExpanded.left-8)<=1&&Math.abs(mobileExpanded.right-(mobileExpanded.viewport-8))<=1,`expanded mobile emergency dock keeps 8px gutters: ${JSON.stringify(mobileExpanded)}`);
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  const mobileExpanded=await page.evaluate(()=>{const dock=document.getElementById('thebeAiDock'),d=dock.getBoundingClientRect();return {left:d.left,right:d.right,width:d.width,viewport:innerWidth,recovery:dock.dataset.cssRecovery,guard:dock.dataset.geometryRecovery}});
+  assert(Math.abs(mobileExpanded.left-8)<=1&&Math.abs(mobileExpanded.right-(mobileExpanded.viewport-8))<=1,`expanded mobile emergency dock keeps stable 8px gutters: ${JSON.stringify(mobileExpanded)}`);
+  assert.equal(mobileExpanded.recovery,'1','missing dock stylesheets must keep emergency recovery engaged');
+  assert.equal(mobileExpanded.guard,'20261003-emergency-dock-geometry-v269','dedicated emergency geometry guard must remain the active owner');
   assert.deepEqual(errors,[],'forced CSS recovery must not throw browser errors');
-  console.log('V269_EMERGENCY_DOCK_BROWSER_PASS: forced stylesheet failure preserves desktop lane recovery, compact collapsed mobile geometry, expanded mobile gutters, Property isolation and 68px voice');
+  console.log('V269_EMERGENCY_DOCK_BROWSER_PASS: forced stylesheet failure preserves desktop lane recovery, compact collapsed mobile geometry, stable expanded mobile gutters, Property isolation and 68px voice');
 }finally{await browser.close()}
