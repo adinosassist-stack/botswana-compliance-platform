@@ -2,6 +2,7 @@ import {releaseSourceSha} from './client-runtime-identity.js';
 
 const DOCK_RECOVERY_GEOMETRY_SRC='/js/thebe-dock-recovery-geometry-v269.js';
 const LIVE_PREVIEW_FALLBACK_SRC='/js/thebe-live-preview-fallback-v272.js';
+const LIVE_EVIDENCE_SRC='/js/thebe-live-evidence-v274.js';
 
 function injectAtFinalClosingTag(source,tag,markup){
   const pattern=new RegExp(`<\\/${tag}\\s*>`, 'gi');
@@ -14,6 +15,7 @@ export function versionReleaseAssets(html,sha=releaseSourceSha()){
   let source=String(html||'');
   if(!source.includes(DOCK_RECOVERY_GEOMETRY_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${DOCK_RECOVERY_GEOMETRY_SRC}" defer></script>\n`);
   if(!source.includes(LIVE_PREVIEW_FALLBACK_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${LIVE_PREVIEW_FALLBACK_SRC}" defer></script>\n`);
+  if(!source.includes(LIVE_EVIDENCE_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${LIVE_EVIDENCE_SRC}" defer></script>\n`);
   source=source.replace(/(<(?:script|link)\b[^>]*\b(?:src|href)=["'])(\/(?:js|assets)\/[^"']+)(["'][^>]*>)/gi,(_match,start,path,end)=>{
     const url=new URL(path.replaceAll('&amp;','&'),'https://thebe.invalid');
     url.searchParams.set('release',sha);
