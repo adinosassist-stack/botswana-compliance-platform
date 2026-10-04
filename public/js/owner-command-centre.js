@@ -1,7 +1,7 @@
 (function initOwnerCommandCentre(global){
   "use strict";
 
-  const RELEASE="20261001-v246";
+  const RELEASE="20261004-owner-command-v2";
   const MAX_OPPORTUNITIES=500;
   const MAX_CAMPAIGNS=50;
   const PROFILE_KEYS=Object.freeze({
@@ -1391,6 +1391,12 @@
     signals.className="owner-signal-list";
     signals.id="ownerSignalList";
     shell.append(signals);
+
+    const attention=document.createElement("section");
+    attention.className="owner-panel owner-attention-panel";
+    attention.id="ownerAttentionPanel";
+    attention.setAttribute("aria-label","Priority attention");
+    shell.append(attention);
 
     const pulse=document.createElement("section");
     pulse.className="owner-pulse";
@@ -4077,6 +4083,45 @@
     box.dataset.tone=tone;
   }
 
+  function operatorSignals(model){
+    const rows=[];
+    const add=(item)=>{if(rows.length<12)rows.push(item)};
+    for(const priority of (model.businessBrief?.priorities||[]).slice(0,6)){
+      add({id:cleanText(priority?.id||priority?.key||newId("brief"),128),domain:cleanText(priority?.domain||"management",40),severity:cleanText(priority?.severity||"medium",20),title:cleanText(priority?.title||priority?.label||"Business priority",180),reason:cleanText(priority?.reason||priority?.detail||"",500),prepare:priority?.prepare===true,recommendation:cleanText(priority?.recommendation||priority?.action||"Review the supporting business records.",300),actionLabel:"Review",evidence:Array.isArray(priority?.evidence)?priority.evidence.slice(0,8):[]});
+    }
+    if(model.daysToBuffer!==null&&model.daysToBuffer<60)add({id:"cash-buffer",domain:"finance",severity:model.daysToBuffer<30?"high":"medium",title:"Cash buffer needs attention",reason:`Current projections reach the minimum cash buffer in about ${Math.max(0,Math.floor(model.daysToBuffer))} days.`,recommendation:"Review cash commitments and near-term collections before approving discretionary spend.",actionLabel:"Review finance",evidence:[{id:"cash-runway",label:"Projected cash runway",source:"business_context",value:`${Math.max(0,Math.floor(model.daysToBuffer))} days`}]});
+    if(model.sales?.dormantCount>0)add({id:"dormant-quotes",domain:"operations",severity:model.sales.dormantCount>=5?"high":"medium",title:"Dormant quotations need follow-up",reason:`${model.sales.dormantCount} recorded quotation${model.sales.dormantCount===1?"":"s"} worth ${money(model.sales.dormantValue)} need follow-up.`,recommendation:"Review dormant quotations and prepare the highest-value follow-ups first.",actionLabel:"Review sales",evidence:[{id:"dormant-value",label:"Dormant quote value",source:"owner_workspace_sales",value:money(model.sales.dormantValue)}]});
+    return rows;
+  }
+
+  function renderOperatorAttention(items=[]){
+    const box=q("#ownerAttentionPanel");if(!box)return;
+    box.replaceChildren();
+    const head=document.createElement("div");head.className="owner-panel-head";
+    const copy=document.createElement("div");copy.append(text("div","Priority queue","section-eyebrow"),text("h4","What Thebe wants you to review first"));
+    head.append(copy,text("span",String(items.length),"badge"));box.append(head);
+    if(!items.length){box.append(text("div","No governed priority items are available from the current business records.","owner-command-empty"));return}
+    const list=document.createElement("div");list.className="owner-attention-list";
+    for(const item of items.slice(0,7)){
+      const card=document.createElement("article");card.className="owner-attention-item";card.dataset.severity=cleanText(item?.severity||"medium",20);
+      const top=document.createElement("div");top.className="owner-attention-top";top.append(text("span",cleanText(item?.domain||"business",30),"owner-attention-domain"),text("span",cleanText(item?.severity||"medium",20),"owner-attention-severity"));
+      card.append(top,text("h5",cleanText(item?.title||"Needs attention",180)),text("p",cleanText(item?.reason||"",500),"owner-attention-reason"));
+      const recommendation=item?.recommendation||{};card.append(text("div",cleanText(recommendation.summary||"Review the evidence and decide the next action.",300),"owner-attention-recommendation"));
+      const evidence=Array.isArray(item?.evidence)?item.evidence:[];
+      if(evidence.length){const details=document.createElement("details");details.className="owner-attention-evidence";const summary=document.createElement("summary");summary.textContent=`Why? · ${evidence.length} evidence item${evidence.length===1?"":"s"}`;details.append(summary);for(const row of evidence.slice(0,8))details.append(text("div",`${cleanText(row?.label||"Evidence",120)}${row?.value?": "+cleanText(row.value,240):""}`,"owner-attention-evidence-row"));card.append(details)}
+      const meta=document.createElement("div");meta.className="owner-attention-meta";meta.append(text("span",recommendation.approvalRequired?"Approval required":"Review only"),text("span",item?.outcome?.status==="not_recorded"?"Outcome pending":"Outcome recorded"));card.append(meta);
+      list.append(card);
+    }
+    box.append(list);
+  }
+
+  async function loadOperatorAttention(model){
+    const signals=operatorSignals(model);
+    if(!signals.length){renderOperatorAttention([]);return}
+    try{const payload=await request("/api/ai/operator/queue",{method:"POST",body:JSON.stringify({signals})});renderOperatorAttention(Array.isArray(payload?.items)?payload.items:[])}
+    catch(error){const box=q("#ownerAttentionPanel");if(box)box.replaceChildren(text("div","Priority queue unavailable. Existing business brief remains available; Thebe will not invent attention items.","owner-command-empty"))}
+  }
+
   async function renderOwnerBrief(force=false){
     const seq=++renderSeq;
     const shell=createShell();
@@ -4111,6 +4156,8 @@
       model.businessAnalytics=businessEnvelope?.analytics||businessEnvelope?.brief?.analytics||null;
 
       renderSummary(model);
+      await loadOperatorAttention(model);
+      if(seq!==renderSeq)return;
       renderSources(model,inputs);
       renderSignals(model);
       renderBusinessAnalytics(model.businessAnalytics);
