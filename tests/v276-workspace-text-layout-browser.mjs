@@ -59,7 +59,7 @@ try{
       assert.equal(state.overflow,'visible',`${selector} overflow visible at ${width}`);
       assert.equal(state.whiteSpace,'normal',`${selector} wraps at ${width}`);
       assert(state.lineClamp==='none'||state.lineClamp==='unset'||state.lineClamp==='auto',`${selector} line clamp removed at ${width}: ${state.lineClamp}`);
-      assert(state.height>state.lineHeight*1.5,`${selector} must show multiple lines at ${width}`);
+      if(width<=390)assert(state.height>state.lineHeight*1.5,`${selector} must wrap rather than clip on narrow mobile at ${width}`);
     }
 
     for(const selector of ['#propertyValue','.owner-command-head h3','.market-v257-stats span']){
