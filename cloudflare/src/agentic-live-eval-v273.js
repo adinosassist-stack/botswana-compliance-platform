@@ -1,6 +1,6 @@
 import {gptLiveEvalSample} from "./agentic-live-voice-v270.js";
 
-export const THEBE_GPT_LIVE_EVAL_VERSION="2026-10-04.gpt-live-eval-v279";
+export const THEBE_GPT_LIVE_EVAL_VERSION="2026-10-04.gpt-live-eval-v281";
 
 // These are Thebe rollout criteria, not vendor performance guarantees. Passing them only
 // permits a human production review; it never authorizes a runtime switch by itself.
@@ -11,6 +11,8 @@ export const DEFAULT_GPT_LIVE_EVAL_POLICY=Object.freeze({
   minLanguageContinuityChecks:6,
   minDistinctLanguageTags:2,
   minUsageSamples:10,
+  minAcousticRecoveryChecks:6,
+  minAcousticRecoveryKinds:2,
   maxProviderFailureRate:0.05,
   maxProviderFailureRateRegression:0.01,
   minDelegationCompletionRate:0.95,
@@ -19,6 +21,8 @@ export const DEFAULT_GPT_LIVE_EVAL_POLICY=Object.freeze({
   maxInterruptionRecoveryRateRegression:0.05,
   minLanguageContinuityRate:0.95,
   maxLanguageContinuityRateRegression:0.05,
+  minAcousticRecoveryRate:0.90,
+  maxAcousticRecoveryRateRegression:0.05,
   maxMedianFirstUsefulAnswerRegressionMs:150,
   maxP95ConnectRegressionMs:200,
   maxMedianUsageSecondsRegressionRatio:0.25,
@@ -51,6 +55,7 @@ const normalizeLanguageTag=value=>{
   return raw.split("-").map((part,index)=>index===0?part.toLowerCase():(/^[A-Za-z]{2}$/.test(part)?part.toUpperCase():part.toLowerCase())).join("-");
 };
 const normalizeLanguageTags=value=>Object.freeze([...new Set((Array.isArray(value)?value:[]).map(normalizeLanguageTag).filter(Boolean))].slice(0,12));
+const normalizeAcousticRecoveryKinds=value=>Object.freeze([...new Set((Array.isArray(value)?value:[]).map(item=>String(item||"").trim().toLowerCase()).filter(item=>item==="silence"||item==="noise"))].sort());
 
 export function gptLiveEvalReadinessSample({
   scenarioId,
@@ -70,7 +75,10 @@ export function gptLiveEvalReadinessSample({
   usageSeconds=0,
   languageContinuityChecks=0,
   languageContinuityPasses=0,
-  languageTags=[]
+  languageTags=[],
+  acousticRecoveryChecks=0,
+  acousticRecoveryPasses=0,
+  acousticRecoveryKinds=[]
 }={}){
   const safeScenarioId=cleanText(scenarioId,120);
   if(!safeScenarioId)throw new Error("voice_eval_scenario_id_required");
@@ -91,9 +99,12 @@ export function gptLiveEvalReadinessSample({
   const delegationFailures=count(delegationsFailed);
   const continuityChecks=count(languageContinuityChecks);
   const continuityPasses=count(languageContinuityPasses);
+  const acousticChecks=count(acousticRecoveryChecks);
+  const acousticPasses=count(acousticRecoveryPasses);
   if(handled+interruptionFailures>base.interruptions)throw new Error("voice_eval_interruption_outcomes_exceed_events");
   if(completed+delegationFailures>base.delegations)throw new Error("voice_eval_delegation_outcomes_exceed_events");
   if(continuityPasses>continuityChecks)throw new Error("voice_eval_language_passes_exceed_checks");
+  if(acousticPasses>acousticChecks)throw new Error("voice_eval_acoustic_passes_exceed_checks");
   return Object.freeze({
     ...base,
     scenarioId:safeScenarioId,
@@ -104,7 +115,10 @@ export function gptLiveEvalReadinessSample({
     usageSeconds:boundedNumber(usageSeconds,{max:24*60*60}),
     languageContinuityChecks:continuityChecks,
     languageContinuityPasses:continuityPasses,
-    languageTags:normalizeLanguageTags(languageTags)
+    languageTags:normalizeLanguageTags(languageTags),
+    acousticRecoveryChecks:acousticChecks,
+    acousticRecoveryPasses:acousticPasses,
+    acousticRecoveryKinds:normalizeAcousticRecoveryKinds(acousticRecoveryKinds)
   });
 }
 
@@ -119,6 +133,7 @@ export function pairGptLiveEvalSamples({scenarioId,realtime,live}={}){
 function summarizeRuntime(pairs,key){
   const rows=pairs.map(pair=>pair[key]);
   const languageSet=new Set();
+  const acousticSet=new Set();
   const usageValues=[];
   const totals=rows.reduce((acc,row)=>{
     acc.providerFailures+=row.providerFailures;
@@ -131,7 +146,10 @@ function summarizeRuntime(pairs,key){
     acc.sessionSeconds+=row.sessionSeconds;
     acc.languageContinuityChecks+=row.languageContinuityChecks||0;
     acc.languageContinuityPasses+=row.languageContinuityPasses||0;
+    acc.acousticRecoveryChecks+=row.acousticRecoveryChecks||0;
+    acc.acousticRecoveryPasses+=row.acousticRecoveryPasses||0;
     for(const tag of row.languageTags||[])languageSet.add(tag);
+    for(const kind of row.acousticRecoveryKinds||[])acousticSet.add(kind);
     if(Number(row.usageSeconds)>0)usageValues.push(Number(row.usageSeconds));
     return acc;
   },{
@@ -144,7 +162,9 @@ function summarizeRuntime(pairs,key){
     interruptionsFailed:0,
     sessionSeconds:0,
     languageContinuityChecks:0,
-    languageContinuityPasses:0
+    languageContinuityPasses:0,
+    acousticRecoveryChecks:0,
+    acousticRecoveryPasses:0
   });
   return Object.freeze({
     sessions:rows.length,
@@ -166,6 +186,10 @@ function summarizeRuntime(pairs,key){
     languageContinuityPasses:totals.languageContinuityPasses,
     languageContinuityRate:rate(totals.languageContinuityPasses,totals.languageContinuityChecks),
     languageTags:Object.freeze([...languageSet].sort()),
+    acousticRecoveryChecks:totals.acousticRecoveryChecks,
+    acousticRecoveryPasses:totals.acousticRecoveryPasses,
+    acousticRecoveryRate:rate(totals.acousticRecoveryPasses,totals.acousticRecoveryChecks),
+    acousticRecoveryKinds:Object.freeze([...acousticSet].sort()),
     usageSamples:usageValues.length,
     medianUsageSeconds:median(usageValues),
     p95UsageSeconds:percentile(usageValues,95),
@@ -182,6 +206,8 @@ function normalizePolicy(policy={}){
     minLanguageContinuityChecks:count(merged.minLanguageContinuityChecks),
     minDistinctLanguageTags:count(merged.minDistinctLanguageTags),
     minUsageSamples:count(merged.minUsageSamples),
+    minAcousticRecoveryChecks:count(merged.minAcousticRecoveryChecks),
+    minAcousticRecoveryKinds:count(merged.minAcousticRecoveryKinds),
     maxProviderFailureRate:boundedNumber(merged.maxProviderFailureRate,{max:1,fallback:DEFAULT_GPT_LIVE_EVAL_POLICY.maxProviderFailureRate}),
     maxProviderFailureRateRegression:boundedNumber(merged.maxProviderFailureRateRegression,{max:1,fallback:DEFAULT_GPT_LIVE_EVAL_POLICY.maxProviderFailureRateRegression}),
     minDelegationCompletionRate:boundedNumber(merged.minDelegationCompletionRate,{max:1,fallback:DEFAULT_GPT_LIVE_EVAL_POLICY.minDelegationCompletionRate}),
@@ -190,6 +216,8 @@ function normalizePolicy(policy={}){
     maxInterruptionRecoveryRateRegression:boundedNumber(merged.maxInterruptionRecoveryRateRegression,{max:1,fallback:DEFAULT_GPT_LIVE_EVAL_POLICY.maxInterruptionRecoveryRateRegression}),
     minLanguageContinuityRate:boundedNumber(merged.minLanguageContinuityRate,{max:1,fallback:DEFAULT_GPT_LIVE_EVAL_POLICY.minLanguageContinuityRate}),
     maxLanguageContinuityRateRegression:boundedNumber(merged.maxLanguageContinuityRateRegression,{max:1,fallback:DEFAULT_GPT_LIVE_EVAL_POLICY.maxLanguageContinuityRateRegression}),
+    minAcousticRecoveryRate:boundedNumber(merged.minAcousticRecoveryRate,{max:1,fallback:DEFAULT_GPT_LIVE_EVAL_POLICY.minAcousticRecoveryRate}),
+    maxAcousticRecoveryRateRegression:boundedNumber(merged.maxAcousticRecoveryRateRegression,{max:1,fallback:DEFAULT_GPT_LIVE_EVAL_POLICY.maxAcousticRecoveryRateRegression}),
     maxMedianFirstUsefulAnswerRegressionMs:boundedNumber(merged.maxMedianFirstUsefulAnswerRegressionMs,{max:60000,fallback:DEFAULT_GPT_LIVE_EVAL_POLICY.maxMedianFirstUsefulAnswerRegressionMs}),
     maxP95ConnectRegressionMs:boundedNumber(merged.maxP95ConnectRegressionMs,{max:60000,fallback:DEFAULT_GPT_LIVE_EVAL_POLICY.maxP95ConnectRegressionMs}),
     maxMedianUsageSecondsRegressionRatio:boundedNumber(merged.maxMedianUsageSecondsRegressionRatio,{max:5,fallback:DEFAULT_GPT_LIVE_EVAL_POLICY.maxMedianUsageSecondsRegressionRatio}),
@@ -211,6 +239,8 @@ export function evaluateGptLivePromotionReadiness({pairs=[],policy={}}={}){
   const liveInterruptionRate=live.interruptionRecoveryRate??0;
   const rtLanguageRate=realtime.languageContinuityRate??0;
   const liveLanguageRate=live.languageContinuityRate??0;
+  const rtAcousticRate=realtime.acousticRecoveryRate??0;
+  const liveAcousticRate=live.acousticRecoveryRate??0;
   const usageBaseline=realtime.medianUsageSeconds;
   const usageCandidate=live.medianUsageSeconds;
   const usageBudget=usageBaseline==null?null:usageBaseline*(1+resolvedPolicy.maxMedianUsageSecondsRegressionRatio)+resolvedPolicy.maxMedianUsageSecondsRegressionSeconds;
@@ -220,10 +250,12 @@ export function evaluateGptLivePromotionReadiness({pairs=[],policy={}}={}){
     Object.freeze({id:"interruption_evidence",pass:live.interruptions>=resolvedPolicy.minInterruptionEvents,actual:live.interruptions,required:resolvedPolicy.minInterruptionEvents}),
     Object.freeze({id:"language_continuity_evidence",pass:realtime.languageContinuityChecks>=resolvedPolicy.minLanguageContinuityChecks&&live.languageContinuityChecks>=resolvedPolicy.minLanguageContinuityChecks&&realtime.languageTags.length>=resolvedPolicy.minDistinctLanguageTags&&live.languageTags.length>=resolvedPolicy.minDistinctLanguageTags,actual:live.languageContinuityChecks,baseline:realtime.languageContinuityChecks,required:resolvedPolicy.minLanguageContinuityChecks,distinctTags:live.languageTags.length}),
     Object.freeze({id:"usage_evidence",pass:realtime.usageSamples>=resolvedPolicy.minUsageSamples&&live.usageSamples>=resolvedPolicy.minUsageSamples,actual:live.usageSamples,baseline:realtime.usageSamples,required:resolvedPolicy.minUsageSamples}),
+    Object.freeze({id:"acoustic_recovery_evidence",pass:realtime.acousticRecoveryChecks>=resolvedPolicy.minAcousticRecoveryChecks&&live.acousticRecoveryChecks>=resolvedPolicy.minAcousticRecoveryChecks&&realtime.acousticRecoveryKinds.length>=resolvedPolicy.minAcousticRecoveryKinds&&live.acousticRecoveryKinds.length>=resolvedPolicy.minAcousticRecoveryKinds,actual:live.acousticRecoveryChecks,baseline:realtime.acousticRecoveryChecks,required:resolvedPolicy.minAcousticRecoveryChecks,kinds:live.acousticRecoveryKinds.length}),
     Object.freeze({id:"provider_failure_rate",pass:live.providerFailureRate<=resolvedPolicy.maxProviderFailureRate&&live.providerFailureRate<=realtime.providerFailureRate+resolvedPolicy.maxProviderFailureRateRegression,actual:live.providerFailureRate,baseline:realtime.providerFailureRate}),
     Object.freeze({id:"delegation_completion",pass:liveDelegationRate>=resolvedPolicy.minDelegationCompletionRate&&liveDelegationRate>=rtDelegationRate-resolvedPolicy.maxDelegationCompletionRateRegression,actual:round(liveDelegationRate),baseline:round(rtDelegationRate)}),
     Object.freeze({id:"interruption_recovery",pass:liveInterruptionRate>=resolvedPolicy.minInterruptionRecoveryRate&&liveInterruptionRate>=rtInterruptionRate-resolvedPolicy.maxInterruptionRecoveryRateRegression,actual:round(liveInterruptionRate),baseline:round(rtInterruptionRate)}),
     Object.freeze({id:"language_continuity",pass:liveLanguageRate>=resolvedPolicy.minLanguageContinuityRate&&liveLanguageRate>=rtLanguageRate-resolvedPolicy.maxLanguageContinuityRateRegression,actual:round(liveLanguageRate),baseline:round(rtLanguageRate)}),
+    Object.freeze({id:"acoustic_recovery",pass:liveAcousticRate>=resolvedPolicy.minAcousticRecoveryRate&&liveAcousticRate>=rtAcousticRate-resolvedPolicy.maxAcousticRecoveryRateRegression,actual:round(liveAcousticRate),baseline:round(rtAcousticRate)}),
     Object.freeze({id:"median_first_useful_answer",pass:(live.medianFirstUsefulAnswerMs??Infinity)-(realtime.medianFirstUsefulAnswerMs??0)<=resolvedPolicy.maxMedianFirstUsefulAnswerRegressionMs,actual:live.medianFirstUsefulAnswerMs,baseline:realtime.medianFirstUsefulAnswerMs}),
     Object.freeze({id:"p95_connect",pass:(live.p95ConnectMs??Infinity)-(realtime.p95ConnectMs??0)<=resolvedPolicy.maxP95ConnectRegressionMs,actual:live.p95ConnectMs,baseline:realtime.p95ConnectMs}),
     Object.freeze({id:"usage_efficiency",pass:usageBaseline!=null&&usageCandidate!=null&&usageCandidate<=usageBudget,actual:usageCandidate,baseline:usageBaseline,maximum:usageBudget})
