@@ -3,29 +3,37 @@ import fs from "node:fs";
 import {execFileSync} from "node:child_process";
 
 const componentsPath="public/js/components.js";
+const spatialPath="public/assets/thebe-spatial-dock-v246.css";
 const clientPath="public/js/thebe-live-voice.js";
+const productionPath="cloudflare/src/production-entry.js";
 
-for(const path of [componentsPath,clientPath]){
+for(const path of [componentsPath,clientPath,productionPath]){
   execFileSync(process.execPath,["--check",path],{stdio:"pipe"});
 }
 
 const components=fs.readFileSync(componentsPath,"utf8");
+const spatial=fs.readFileSync(spatialPath,"utf8");
 const client=fs.readFileSync(clientPath,"utf8");
+const production=fs.readFileSync(productionPath,"utf8");
 
-const start=components.indexOf("(function installThebeVoiceStratumMotion");
-assert.ok(start>=0,"Thebe voice motion installer must remain present");
-const end=components.indexOf("})(window);",start);
-assert.ok(end>start,"Thebe voice motion installer must remain self-contained");
-const visual=components.slice(start,end+")(window);".length);
+const start=spatial.indexOf("/* V270 shared Stratum voice motion");
+assert.ok(start>=0,"shared spatial voice stylesheet must own the Stratum motion contract");
+const visual=spatial.slice(start);
 
+assert.doesNotMatch(components,/installThebeVoiceStratumMotion|thebeVoiceStratumMotion/,
+  "general components runtime must not inject a competing fullscreen voice stylesheet");
 assert.match(visual,/\.thebe-voice-screen \.thebe-voice-sphere\{/,
   "voice motion must stay scoped to the fullscreen voice surface");
 assert.doesNotMatch(visual,/(^|\n)\s*\.thebe-voice-sphere(?:\{|::|\[)/m,
-  "voice sphere styling must never become a global workspace selector");
+  "V270 voice sphere styling must never become a global workspace selector");
 assert.match(visual,/transform:scale\(var\(--thebe-voice-energy,1\)\)/,
   "fullscreen motion must remain driven by live audio energy");
 assert.match(visual,/filter:saturate\(var\(--thebe-voice-saturation\)\) brightness\(var\(--thebe-voice-brightness\)\)/,
   "phase brightness and saturation must be composed through stable custom properties");
+assert.match(visual,/rgba\(219,255,85,.62\)/,
+  "shared fullscreen motion must retain the luminous lime reference palette");
+assert.match(visual,/repeating-conic-gradient/,
+  "shared fullscreen motion must retain the folded ribbon layer rather than fall back to a plain orb");
 
 const phaseContracts=[
   ["connecting","9s","1.05",".94"],
@@ -34,24 +42,39 @@ const phaseContracts=[
   ["speaking","2.8s","1.25","1.12"]
 ];
 for(const [phase,speed,saturation,brightness] of phaseContracts){
-  const escapedPhase=phase.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
-  const pattern=new RegExp(`data-phase=\\"${escapedPhase}\\"\\][^\\n]*--thebe-fold-speed:${speed.replace(".","\\.")};[^\\n]*--thebe-voice-saturation:${saturation.replace(".","\\.")};[^\\n]*--thebe-voice-brightness:${brightness.replace(".","\\.")}`);
+  const pattern=new RegExp(`data-phase=\\"${phase}\\"[^}]*--thebe-fold-speed:${speed.replace(".","\\.")};[^}]*--thebe-voice-saturation:${saturation.replace(".","\\.")};[^}]*--thebe-voice-brightness:${brightness.replace(".","\\.")}`);
   assert.match(visual,pattern,`${phase} phase must keep its explicit visual-state contract`);
 }
-assert.match(visual,/data-phase=\"listening\"\],\n\.thebe-voice-screen \.thebe-voice-sphere\[data-phase=\"ready\"\]/,
+assert.match(visual,/data-phase="listening"\],\.thebe-voice-screen \.thebe-voice-sphere\[data-phase="ready"\]/,
   "listening and ready must share the calm motion profile");
-assert.match(visual,/data-phase=\"speaking\"[^\n]*box-shadow:/,
+assert.match(visual,/data-phase="speaking"[^}]*box-shadow:/,
   "speaking must keep the stronger live glow");
 
-const bodyKeyframes=visual.match(/@keyframes thebeVoiceBody\{([\s\S]*?)\n\}/);
-assert.ok(bodyKeyframes,"main voice morph keyframes must remain present");
-assert.doesNotMatch(bodyKeyframes[1],/\bfilter\s*:/,
+const bodyStart=visual.indexOf("@keyframes thebeVoiceBody");
+const bodyEnd=visual.indexOf("@keyframes thebeVoiceFoldA",bodyStart);
+assert.ok(bodyStart>=0&&bodyEnd>bodyStart,"main voice morph keyframes must remain present");
+assert.doesNotMatch(visual.slice(bodyStart,bodyEnd),/\bfilter\s*:/,
   "body morph keyframes must not override phase brightness or saturation");
 
-assert.match(visual,/@media \(max-width:600px\)\{\.thebe-voice-screen \.thebe-voice-sphere\{width:clamp\(174px,58vw,260px\)\}\}/,
+assert.match(visual,/@media\(max-width:600px\)\{\.thebe-voice-screen \.thebe-voice-sphere\{width:clamp\(174px,58vw,260px\)\}\}/,
   "mobile voice sphere sizing must remain bounded");
-assert.match(visual,/@media \(prefers-reduced-motion:reduce\)\{[\s\S]*animation:none!important;transition:none!important/,
+assert.match(visual,/@media\(prefers-reduced-motion:reduce\)\{[^}]*\.thebe-voice-screen \.thebe-voice-sphere[^}]*animation:none!important;transition:none!important/,
   "reduced-motion users must not receive the continuous morph animation");
+
+function functionSlice(name,nextName){
+  const from=production.indexOf(`function ${name}(`);
+  const to=nextName?production.indexOf(`function ${nextName}(`,from+1):production.length;
+  assert.ok(from>=0&&to>from,`${name} must remain present in the production entry`);
+  return production.slice(from,to);
+}
+const publicInjector=functionSlice("injectPublicThebeAssets","externalizeWorkspaceRuntime");
+const workspaceInjector=functionSlice("injectOwnerCommandCentreAssets","injectFirstPartyRegistrationClient");
+for(const [surface,injector] of [["public",publicInjector],["workspace",workspaceInjector]]){
+  assert.match(injector,/\/assets\/thebe-spatial-dock-v246\.css/,
+    `${surface} voice surface must load the shared spatial voice stylesheet`);
+}
+assert.doesNotMatch(publicInjector,/components\.js/,
+  "public voice motion must not depend on the workspace components runtime");
 
 assert.match(client,/voiceScreen=el\("dialog","thebe-voice-screen"\)/,
   "voice mode must remain a modal dialog rather than an in-workspace overlay");
@@ -72,4 +95,4 @@ assert.match(client,/voiceScreenOrb\?\.style\.setProperty\("--thebe-voice-energy
 assert.match(client,/\(voicePhase==="listening"&&channel==="input"\)\|\|\(voicePhase==="speaking"&&channel==="output"\)/,
   "only relevant input/output channels may animate the active voice phase");
 
-console.log("v249 Thebe voice motion visual contract: PASS");
+console.log("v249 Thebe shared voice motion visual contract: PASS");
