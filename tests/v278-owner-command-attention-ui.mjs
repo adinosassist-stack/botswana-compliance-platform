@@ -5,7 +5,7 @@ const css=fs.readFileSync("public/assets/owner-command-centre.css","utf8");
 assert.match(js,/ownerAttentionPanel/);
 assert.match(js,/\/api\/ai\/operator\/queue/);
 assert.match(js,/function operatorSignals\(model\)/);
-assert.match(js,/function renderOperatorAttention\(items=\[\]\)/);
+assert.match(js,/function renderOperatorAttention\\(items=\\[\\](?:,reviews=\\[\\])?\\)/);
 assert.match(js,/Why\? · \$\{evidence\.length\} evidence item/);
 assert.match(js,/Approval required/);
 assert.match(js,/Outcome pending/);
