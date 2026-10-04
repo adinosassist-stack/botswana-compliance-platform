@@ -1,0 +1,17 @@
+import fs from "node:fs";
+import assert from "node:assert/strict";
+const js=fs.readFileSync("public/js/owner-command-centre.js","utf8");
+const css=fs.readFileSync("public/assets/owner-command-centre.css","utf8");
+assert.match(js,/function pendingAgenticReviews\(runsPayload\)/);
+assert.match(js,/status\|\|"pending"\)==="pending"/);
+assert.match(js,/Owner approval inbox/);
+assert.match(js,/Record approval/);
+assert.match(js,/decideAgenticProposal\(proposal\.id,"approve"\)/);
+assert.match(js,/decideAgenticProposal\(proposal\.id,"reject"\)/);
+assert.match(js,/request\("\/api\/agentic\/runs"\)\.catch/);
+assert.match(js,/loadOperatorAttention\(model,agenticRuns\)/);
+assert.match(js,/Decision recorded\. No action was executed\./);
+assert.doesNotMatch(js,/\/api\/agentic\/execute/);
+assert.match(css,/\.owner-review-inbox/);
+assert.match(css,/@media\(max-width:760px\)[\s\S]*\.owner-review-row/);
+console.log("PASS: Owner Command review loop promotes authoritative pending proposals without adding execution authority.");
