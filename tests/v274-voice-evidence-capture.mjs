@@ -93,10 +93,13 @@ assert.doesNotMatch(browser,/localStorage/,"evaluation opt-in must remain sessio
 const assets=fs.readFileSync("cloudflare/src/asset-release-identity.js","utf8");
 assert.match(assets,/thebe-live-evidence-v274\.js/);
 assert.match(assets,/LIVE_EVIDENCE_SRC/);
+assert.match(assets,/options\?\.includeVoiceEvidence===true/);
+assert.match(assets,/pathname==='\/app'\|\|pathname==='\/app\/'/);
+assert.doesNotMatch(assets,/if\(!source\.includes\(LIVE_EVIDENCE_SRC\)\)/,"voice evidence asset must not be injected globally");
 
 const production=fs.readFileSync("cloudflare/src/agentic-live-voice.js","utf8");
 assert.match(production,/gpt-realtime-2\.1/);
 assert.match(production,/\/v1\/realtime\/calls/);
 assert.doesNotMatch(production,/agentic-live-evidence-v274/,"V274 evidence capture must not alter the production voice provider path");
 
-console.log("PASS: V274 sealed voice evidence capture is opt-in, privacy-minimized and production-inert");
+console.log("PASS: V274 sealed voice evidence capture is opt-in, privacy-minimized, workspace-scoped and production-inert");
