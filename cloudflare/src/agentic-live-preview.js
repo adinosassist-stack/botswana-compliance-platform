@@ -7,6 +7,10 @@ import {
   gptLiveCreateRequest,
   gptLiveMigrationStatus
 } from "./agentic-live-voice-v270.js";
+import {
+  recordVoiceEvalEvidence,
+  readVoiceEvalEvidenceSummary
+} from "./agentic-live-evidence-v274.js";
 
 export const THEBE_GPT_LIVE_PREVIEW_TRANSPORT_VERSION="2026-10-03.v272";
 
@@ -15,6 +19,8 @@ const MAX_SDP_CHARS=72*1024;
 const DEFAULT_TIMEOUT_MS=12000;
 const REALTIME_FALLBACK_PATH="/api/agentic/live/session";
 const PREVIEW_DELEGATION_PATH="/api/agentic/live/preview/delegation";
+const PREVIEW_EVIDENCE_PATH="/api/agentic/live/preview/evidence";
+const PREVIEW_EVIDENCE_SUMMARY_PATH="/api/agentic/live/preview/evidence/summary";
 
 const json=(body,status=200)=>new Response(JSON.stringify(body),{
   status,
@@ -98,6 +104,13 @@ export function gptLivePreviewStatus(env={}){
     delegation:"client",
     delegatedIntent:"analyze",
     productionSwitchAllowed:false,
+    evaluation:Object.freeze({
+      evidencePath:PREVIEW_EVIDENCE_PATH,
+      summaryPath:PREVIEW_EVIDENCE_SUMMARY_PATH,
+      rawAudioStored:false,
+      transcriptStored:false,
+      taskTextStored:false
+    }),
     fallback:Object.freeze({runtime:"realtime",path:REALTIME_FALLBACK_PATH})
   });
 }
@@ -233,6 +246,19 @@ async function verifiedPreviewDelegation(delegateRequest,request){
   },response.status);
 }
 
+async function recordPreviewEvidence(request,env,auth){
+  let body;
+  try{body=await readBoundedJson(request)}
+  catch(error){return json({error:error.message},bodyErrorStatus(error))}
+  try{return json(await recordVoiceEvalEvidence({env,auth,body}),201)}
+  catch(error){return json({error:cleanText(error?.message,160)||"voice_eval_evidence_failed"},400)}
+}
+
+async function previewEvidenceSummary(env,auth){
+  try{return json(await readVoiceEvalEvidenceSummary({env,auth}))}
+  catch(error){return json({error:cleanText(error?.message,160)||"voice_eval_summary_failed"},503)}
+}
+
 export async function handleAgenticLivePreviewRequest({request,logicalPath,env,delegateRequest=null}){
   const path=String(logicalPath||new URL(request.url).pathname);
   if(!path.startsWith("/api/agentic/live/preview"))return null;
@@ -249,6 +275,8 @@ export async function handleAgenticLivePreviewRequest({request,logicalPath,env,d
   if(path==="/api/agentic/live/preview/status"&&request.method==="GET")return json(gptLivePreviewStatus(env));
   if(path==="/api/agentic/live/preview/session"&&request.method==="POST")return createGptLivePreviewSession({request,env,auth});
   if(path===PREVIEW_DELEGATION_PATH&&request.method==="POST")return verifiedPreviewDelegation(delegateRequest,request);
+  if(path===PREVIEW_EVIDENCE_PATH&&request.method==="POST")return recordPreviewEvidence(request,env,auth);
+  if(path===PREVIEW_EVIDENCE_SUMMARY_PATH&&request.method==="GET")return previewEvidenceSummary(env,auth);
   return json({error:"not_found"},404);
 }
 
@@ -258,9 +286,13 @@ export const __gptLivePreviewTransportTest=Object.freeze({
   DEFAULT_TIMEOUT_MS,
   REALTIME_FALLBACK_PATH,
   PREVIEW_DELEGATION_PATH,
+  PREVIEW_EVIDENCE_PATH,
+  PREVIEW_EVIDENCE_SUMMARY_PATH,
   previewInstructions,
   safeProviderCode,
   boundedTimeout,
   previewAudit,
-  verifiedPreviewDelegation
+  verifiedPreviewDelegation,
+  recordPreviewEvidence,
+  previewEvidenceSummary
 });
