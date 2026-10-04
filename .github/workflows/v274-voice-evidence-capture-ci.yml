@@ -1,0 +1,55 @@
+name: V274 voice evidence capture CI
+
+on:
+  pull_request:
+    paths:
+      - "cloudflare/src/agentic-live-evidence-v274.js"
+      - "cloudflare/src/agentic-live-eval-v273.js"
+      - "cloudflare/src/agentic-live-preview.js"
+      - "cloudflare/src/asset-release-identity.js"
+      - "public/js/thebe-live-evidence-v274.js"
+      - "tests/v274-voice-evidence-capture.mjs"
+      - "tests/v273-gpt-live-eval-readiness.mjs"
+      - ".github/workflows/v274-voice-evidence-capture-ci.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "cloudflare/src/agentic-live-evidence-v274.js"
+      - "cloudflare/src/agentic-live-eval-v273.js"
+      - "cloudflare/src/agentic-live-preview.js"
+      - "cloudflare/src/asset-release-identity.js"
+      - "public/js/thebe-live-evidence-v274.js"
+      - "tests/v274-voice-evidence-capture.mjs"
+      - "tests/v273-gpt-live-eval-readiness.mjs"
+      - ".github/workflows/v274-voice-evidence-capture-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  evidence-capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@v4
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.6.0"
+
+      - name: Syntax-check V274 evidence path
+        run: |
+          node --check cloudflare/src/agentic-live-evidence-v274.js
+          node --check cloudflare/src/agentic-live-preview.js
+          node --check public/js/thebe-live-evidence-v274.js
+          node --check tests/v274-voice-evidence-capture.mjs
+
+      - name: Preserve V273 readiness policy
+        run: node tests/v273-gpt-live-eval-readiness.mjs
+
+      - name: Prove V274 privacy-minimized evidence capture
+        run: node tests/v274-voice-evidence-capture.mjs
