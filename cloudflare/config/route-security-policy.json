@@ -51,6 +51,15 @@
     },
     {
       "methods": [
+        "GET"
+      ],
+      "kind": "exact",
+      "pattern": "/api/auth/oauth/providers",
+      "security": "public_config",
+      "feature": "authentication"
+    },
+    {
+      "methods": [
         "POST"
       ],
       "kind": "exact",

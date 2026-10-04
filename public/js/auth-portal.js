@@ -1,5 +1,5 @@
 (()=>{
-"use strict";
+"use strict";const resetFragment=String(location.hash||"");if(resetFragment.startsWith("#reset_token=")){history.replaceState(null,"",location.pathname+location.search);location.replace("/reset-password.html"+resetFragment);return}
 const $=id=>document.getElementById(id);
 const form=$("authForm"),heading=$("authHeading"),intro=$("authIntro"),loginTab=$("loginTab"),registerTab=$("registerTab"),companyField=$("companyNameField"),company=$("authCompany"),email=$("authEmail"),password=$("authPassword"),workspaceField=$("workspaceField"),workspace=$("authWorkspace"),submit=$("authSubmit"),status=$("authError"),holdNotice=$("registrationHoldNotice"),signedNotice=$("signedNotice"),google=$("googleAuthButton"),facebook=$("facebookAuthButton");
 const encoder=new TextEncoder();
@@ -99,6 +99,7 @@ async function submitForm(event){
  finally{busy=false;submit.disabled=false;submit.textContent=mode==="register"?"Create account & workspace":"Sign in";if(original&&mode==="login"&&workspaceField.hidden)submit.textContent="Sign in"}
 }
 function oauth(provider){if(!["google","facebook"].includes(provider))return;location.assign(`/api/auth/oauth/${provider}/start?next=${encodeURIComponent(next)}`)}
+const passwordToggle=$("authPasswordToggle");passwordToggle?.addEventListener("click",()=>{const showing=password.type==="text";password.type=showing?"password":"text";passwordToggle.textContent=showing?"Show":"Hide";passwordToggle.setAttribute("aria-pressed",String(!showing))});
 loginTab?.addEventListener("click",()=>setMode("login"));registerTab?.addEventListener("click",()=>setMode("register"));form?.addEventListener("submit",submitForm);google?.addEventListener("click",()=>oauth("google"));facebook?.addEventListener("click",()=>oauth("facebook"));
 (async()=>{await loadCapabilities();await detectExistingSession()})().catch(error=>setStatus(error?.message||"Authentication service is temporarily unavailable."));
 })();

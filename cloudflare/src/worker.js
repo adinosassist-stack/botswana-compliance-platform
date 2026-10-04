@@ -5150,6 +5150,7 @@ export default {
       let body={};try{body=JSON.parse(raw)}catch{return json({error:"invalid_json"},400)}
       try{return json({ok:true,...await processWhatsAppWebhookBody(env,body)})}catch{return json({error:"whatsapp_webhook_processing_failed"},500)}
     }
+    if(url.pathname==="/api/auth/oauth/providers"&&req.method==="GET")return json({google:!!oauthProviderConfig(env,"google"),facebook:!!oauthProviderConfig(env,"facebook")});
     if(url.pathname==="/api/auth/anti-bot-config"&&req.method==="GET")return json({provider:"turnstile",siteKey:String(env.TURNSTILE_SITE_KEY||""),action:"register",required:String(env.APP_ENV||"production")==="production"});
     if(url.pathname==="/api/auth/register"&&req.method==="POST"){
       if(!requestOriginAllowed(req,env))return json({error:"origin_failed"},403);
