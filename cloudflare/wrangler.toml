@@ -10,7 +10,7 @@ pattern = "thebedesk.com"
 custom_domain = true
 
 [secrets]
-required = ["SESSION_SECRET", "AUDIT_INTEGRITY_SECRET", "OPERATIONS_SECRET", "AUTOMATION_SECRET", "TURNSTILE_SECRET_KEY", "PAYMENT_WEBHOOK_SECRET", "BILLING_WEBHOOK_SECRET", "OPENAI_API_KEY"]
+required = ["SESSION_SECRET", "AUDIT_INTEGRITY_SECRET", "OPERATIONS_SECRET", "AUTOMATION_SECRET", "TURNSTILE_SECRET_KEY", "PAYMENT_WEBHOOK_SECRET", "BILLING_WEBHOOK_SECRET", "OPENAI_API_KEY", "RESEND_API_KEY"]
 
 [vars]
 APP_ENV = "production"
@@ -93,8 +93,8 @@ crons = ["15 6 * * *", "15 16 * * *"]
 # https://thebedesk.com/api/auth/oauth/google/callback
 # https://thebedesk.com/api/auth/oauth/facebook/callback
 
-# Transactional email / password reset is optional for the Phase 0 launch and remains fail-closed until configured.
-# To enable it, set RESEND_API_KEY and configure EMAIL_FROM to a verified sender together.
+# Transactional email / password reset is launch-required after the production recovery hardening.
+# Set RESEND_API_KEY and configure EMAIL_FROM to a verified sender together before promotion.
 # PUBLIC_APP_URL and PUBLIC_ORIGIN must resolve to the same final HTTPS app origin.
 # PUBLIC_ORIGIN is required for fail-closed browser-origin enforcement.
 
@@ -149,6 +149,7 @@ crons = ["15 6 * * *", "15 16 * * *"]
 # wrangler secret put SESSION_SECRET
 # wrangler secret put AUDIT_INTEGRITY_SECRET
 # wrangler secret put OPERATIONS_SECRET
+# wrangler secret put RESEND_API_KEY and configure EMAIL_FROM to a verified sender.
 # Configure PLATFORM_ADMIN_EMAILS, PLATFORM_REGULATORY_REVIEWERS, PUBLIC_APP_URL and PUBLIC_ORIGIN.
 # The EVIDENCE R2 and DB D1 bindings must also be valid.
 

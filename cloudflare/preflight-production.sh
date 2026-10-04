@@ -15,10 +15,10 @@ grep -Eq '^workers_dev[[:space:]]*=[[:space:]]*false[[:space:]]*$' "$WRANGLER_TO
 grep -Eq '^preview_urls[[:space:]]*=[[:space:]]*false[[:space:]]*$' "$WRANGLER_TOML" || fail "preview_urls must be false"
 grep -Fq 'pattern = "thebedesk.com"' "$WRANGLER_TOML" || fail "thebedesk.com custom-domain route is missing"
 grep -Eq '^custom_domain[[:space:]]*=[[:space:]]*true[[:space:]]*$' "$WRANGLER_TOML" || fail "custom-domain routing must be enabled"
-for secret in SESSION_SECRET AUDIT_INTEGRITY_SECRET OPERATIONS_SECRET AUTOMATION_SECRET TURNSTILE_SECRET_KEY PAYMENT_WEBHOOK_SECRET BILLING_WEBHOOK_SECRET; do
+for secret in SESSION_SECRET AUDIT_INTEGRITY_SECRET OPERATIONS_SECRET AUTOMATION_SECRET TURNSTILE_SECRET_KEY PAYMENT_WEBHOOK_SECRET BILLING_WEBHOOK_SECRET OPENAI_API_KEY RESEND_API_KEY; do
   grep -Fq "\"$secret\"" "$WRANGLER_TOML" || fail "required secret contract is missing $secret"
 done
-for optional_secret in GOOGLE_OAUTH_CLIENT_SECRET FACEBOOK_APP_SECRET RESEND_API_KEY; do
+for optional_secret in GOOGLE_OAUTH_CLIENT_SECRET FACEBOOK_APP_SECRET; do
   if grep -Eq "^required[[:space:]]*=.*\"${optional_secret}\"" "$WRANGLER_TOML"; then
     fail "deferred optional secret must not be launch-required: $optional_secret"
   fi
@@ -68,7 +68,7 @@ else
   [ -z "$FACEBOOK_REDIRECT" ] || fail "FACEBOOK_OAUTH_REDIRECT_URI must be empty while Facebook OAuth is deferred"
 fi
 [ -n "$EMAIL_FROM_VALUE" ] || fail "EMAIL_FROM must be configured for production password recovery"
-printf '%s\n' "$EMAIL_FROM_VALUE" | grep -Eq '@[^[:space:]<>]+\.[^[:space:]<>]+>?$' || fail "EMAIL_FROM must contain a real sender email address when transactional email is enabled"
+printf '%s\n' "$EMAIL_FROM_VALUE" | grep -Eq '@[^[:space:]<>]+\.[^[:space:]<>]+>?$' || fail "EMAIL_FROM must contain a real sender email address for production password recovery"
 printf '%s\n' "$EMAIL_FROM_VALUE" | grep -Eqi 'example\.invalid|example\.com|REPLACE_WITH' && fail "EMAIL_FROM must not be a placeholder" || true
 
 grep -Fq 'binding = "DB"' "$WRANGLER_TOML" || fail "D1 DB binding is missing"
