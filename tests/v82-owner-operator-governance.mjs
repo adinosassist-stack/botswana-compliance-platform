@@ -45,3 +45,10 @@ assert.ok(caps.approvalGated.includes("payments"));
 assert.match(caps.invariant,/cannot grant itself permissions/i);
 
 console.log("Owner Operator governance tests passed");
+
+// Owner Command Centre contract: attention items must carry bounded evidence, recommendation, approval and outcome linkage.
+assert.match(operator, /attention_evidence_recommendation_approval_outcome/);
+assert.match(operator, /cleanEvidence\(signal\)/);
+assert.match(operator, /approvalRequired:route\.humanReviewRequired===true/);
+assert.match(operator, /status:"not_recorded"/);
+assert.match(operator, /maxEvidenceItemsPerAttention:8/);
