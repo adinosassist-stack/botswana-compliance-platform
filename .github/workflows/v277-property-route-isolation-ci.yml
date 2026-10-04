@@ -1,0 +1,59 @@
+name: V277 Property route isolation CI
+
+on:
+  pull_request:
+    paths:
+      - "public/js/workspace-property-route-isolation-v277.js"
+      - "cloudflare/src/asset-release-identity.js"
+      - "tests/v277-property-route-isolation-contract.mjs"
+      - "tests/v277-property-route-isolation-browser.mjs"
+      - ".github/workflows/v277-property-route-isolation-ci.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "public/js/workspace-property-route-isolation-v277.js"
+      - "cloudflare/src/asset-release-identity.js"
+      - "tests/v277-property-route-isolation-contract.mjs"
+      - "tests/v277-property-route-isolation-browser.mjs"
+      - ".github/workflows/v277-property-route-isolation-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  property-route-isolation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@v4
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Install exact dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Install Chromium driver
+        run: npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+
+      - name: Syntax and delivery contract
+        run: |
+          node --check public/js/workspace-property-route-isolation-v277.js
+          node --check cloudflare/src/asset-release-identity.js
+          node --check tests/v277-property-route-isolation-contract.mjs
+          node --check tests/v277-property-route-isolation-browser.mjs
+          node tests/v277-property-route-isolation-contract.mjs
+
+      - name: Reproduce and block delayed Property visibility leak in Chromium
+        run: node tests/v277-property-route-isolation-browser.mjs
+
+      - name: Preserve surrounding workspace navigation regressions
+        run: |
+          node tests/v272-property-navigation-browser.mjs
+          node tests/v256-workspace-ui-defects-browser.mjs
+          node tests/people-workspace-browser-20261003.mjs
