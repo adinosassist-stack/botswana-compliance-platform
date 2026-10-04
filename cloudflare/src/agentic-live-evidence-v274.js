@@ -6,7 +6,7 @@ import {
   THEBE_GPT_LIVE_EVAL_VERSION
 } from "./agentic-live-eval-v273.js";
 
-export const THEBE_LIVE_EVIDENCE_VERSION="2026-10-04.voice-evidence-v274";
+export const THEBE_LIVE_EVIDENCE_VERSION="2026-10-04.voice-evidence-v279";
 export const VOICE_EVIDENCE_EVENT="THEBE_LIVE_EVAL_EVIDENCE_RECORDED";
 export const VOICE_EVIDENCE_MAX_ROWS=200;
 
@@ -24,6 +24,12 @@ const toMetric=(value,max=60*60*1000)=>{
   const parsed=Number(value);
   return Number.isFinite(parsed)&&parsed>=0?Math.min(max,parsed):0;
 };
+const cleanLanguageTag=value=>{
+  const raw=cleanText(value,32);
+  if(!/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8}){0,2}$/.test(raw))return "";
+  return raw.split("-").map((part,index)=>index===0?part.toLowerCase():(/^[A-Za-z]{2}$/.test(part)?part.toUpperCase():part.toLowerCase())).join("-");
+};
+const cleanLanguageTags=value=>[...new Set((Array.isArray(value)?value:[]).map(cleanLanguageTag).filter(Boolean))].slice(0,12);
 
 export function normalizeVoiceEvalEvidence(body={}){
   if(!body||typeof body!=="object"||Array.isArray(body))throw new Error("voice_eval_evidence_object_required");
@@ -48,7 +54,11 @@ export function normalizeVoiceEvalEvidence(body={}){
     delegationsCompleted:toInt(body.delegationsCompleted),
     delegationsFailed:toInt(body.delegationsFailed),
     providerFailures:toInt(body.providerFailures),
-    sessionSeconds:toMetric(body.sessionSeconds,24*60*60)
+    sessionSeconds:toMetric(body.sessionSeconds,24*60*60),
+    usageSeconds:toMetric(body.usageSeconds,24*60*60),
+    languageContinuityChecks:toInt(body.languageContinuityChecks,1000),
+    languageContinuityPasses:toInt(body.languageContinuityPasses,1000),
+    languageTags:cleanLanguageTags(body.languageTags)
   });
 
   return Object.freeze({
@@ -71,7 +81,7 @@ export async function recordVoiceEvalEvidence({env,auth,body}={}){
     entityType:"thebe_live_eval",
     entityId:evidence.sessionId,
     eventData:evidence,
-    writeSource:"voice_eval_v274"
+    writeSource:"voice_eval_v279"
   });
   return Object.freeze({
     ok:true,
@@ -134,7 +144,7 @@ export async function readVoiceEvalEvidenceSummary({env,auth,limit=VOICE_EVIDENC
     evidenceRows:rows.length,
     pairedScenarios:pairs.length,
     evaluation,
-    privacy:Object.freeze({rawAudioStored:false,transcriptStored:false,taskTextStored:false}),
+    privacy:Object.freeze({rawAudioStored:false,transcriptStored:false,taskTextStored:false,languageContentStored:false,providerPriceStored:false}),
     productionSwitchAllowed:false
   });
 }
