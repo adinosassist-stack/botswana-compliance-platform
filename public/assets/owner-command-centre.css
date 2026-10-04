@@ -100,3 +100,12 @@
 #appShell .owner-review-row>.owner-agentic-sources{grid-column:1}
 #appShell .owner-review-row>.owner-agentic-actions{grid-column:2;grid-row:1/4;align-self:center}
 @media(max-width:760px){#appShell .owner-review-row{grid-template-columns:1fr}#appShell .owner-review-row>span,#appShell .owner-review-row>.owner-agentic-sources,#appShell .owner-review-row>.owner-agentic-actions{grid-column:1;grid-row:auto}}
+
+#appShell .owner-outcome-loop{margin:0 0 10px;padding:11px;border:1px solid #dfe5eb;border-radius:13px;background:#fff}
+#appShell .owner-outcome-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:9px 0;border-bottom:1px solid #e6eaee}
+#appShell .owner-outcome-row>b{font-size:13px;color:#22272d}
+#appShell .owner-outcome-row>span{grid-column:1;color:#69717b;font-size:11.5px}
+#appShell .owner-outcome-actions{grid-column:2;grid-row:1/3;display:flex;flex-wrap:wrap;gap:5px;justify-content:flex-end}
+#appShell .owner-outcome-history{display:grid;gap:5px;padding-top:8px}
+#appShell .owner-outcome-history-item{font-size:11.5px;color:#59616b}
+@media(max-width:760px){#appShell .owner-outcome-row{grid-template-columns:1fr}#appShell .owner-outcome-row>span,#appShell .owner-outcome-actions{grid-column:1;grid-row:auto}#appShell .owner-outcome-actions{justify-content:flex-start}}
