@@ -55,7 +55,8 @@
   style.textContent=`
 .thebe-voice-screen .thebe-voice-sphere{
   --thebe-fold-speed:6.6s;
-  --thebe-fold-glow:.72;
+  --thebe-voice-saturation:1.15;
+  --thebe-voice-brightness:1.04;
   position:relative;
   width:clamp(188px,34vw,336px);
   aspect-ratio:1;
@@ -66,7 +67,7 @@
     radial-gradient(circle at 31% 69%,rgba(150,244,19,.72) 0 15%,transparent 48%),
     conic-gradient(from 208deg at 50% 49%,rgba(14,19,4,.88),rgba(185,255,25,.9) 18%,rgba(61,87,7,.48) 33%,rgba(239,255,127,.9) 48%,rgba(17,24,4,.74) 62%,rgba(166,255,18,.8) 81%,rgba(14,19,4,.88));
   box-shadow:0 0 30px rgba(183,255,30,.18),0 0 72px rgba(156,240,15,.11)!important;
-  filter:saturate(1.15) brightness(1.04);
+  filter:saturate(var(--thebe-voice-saturation)) brightness(var(--thebe-voice-brightness));
   isolation:isolate;
   overflow:visible;
   transform:scale(var(--thebe-voice-energy,1));
@@ -104,15 +105,15 @@
   opacity:.82;
   animation:thebeVoiceFoldB calc(var(--thebe-fold-speed)*.78) ease-in-out infinite alternate-reverse;
 }
-.thebe-voice-screen .thebe-voice-sphere[data-phase="connecting"]{--thebe-fold-speed:9s;--thebe-fold-glow:.45;filter:saturate(1.05) brightness(.94)}
+.thebe-voice-screen .thebe-voice-sphere[data-phase="connecting"]{--thebe-fold-speed:9s;--thebe-voice-saturation:1.05;--thebe-voice-brightness:.94}
 .thebe-voice-screen .thebe-voice-sphere[data-phase="listening"],
-.thebe-voice-screen .thebe-voice-sphere[data-phase="ready"]{--thebe-fold-speed:6.4s;--thebe-fold-glow:.72}
-.thebe-voice-screen .thebe-voice-sphere[data-phase="thinking"]{--thebe-fold-speed:4.1s;--thebe-fold-glow:.82;filter:saturate(1.2) brightness(1.02)}
-.thebe-voice-screen .thebe-voice-sphere[data-phase="speaking"]{--thebe-fold-speed:2.8s;--thebe-fold-glow:1;filter:saturate(1.25) brightness(1.12);box-shadow:0 0 40px rgba(190,255,35,.3),0 0 92px rgba(145,232,14,.18)!important}
+.thebe-voice-screen .thebe-voice-sphere[data-phase="ready"]{--thebe-fold-speed:6.4s;--thebe-voice-saturation:1.15;--thebe-voice-brightness:1.04}
+.thebe-voice-screen .thebe-voice-sphere[data-phase="thinking"]{--thebe-fold-speed:4.1s;--thebe-voice-saturation:1.2;--thebe-voice-brightness:1.02}
+.thebe-voice-screen .thebe-voice-sphere[data-phase="speaking"]{--thebe-fold-speed:2.8s;--thebe-voice-saturation:1.25;--thebe-voice-brightness:1.12;box-shadow:0 0 40px rgba(190,255,35,.3),0 0 92px rgba(145,232,14,.18)!important}
 @keyframes thebeVoiceBody{
-  0%{border-radius:48% 52% 60% 40%/55% 43% 57% 45%;filter:saturate(1.1) brightness(.98)}
-  50%{border-radius:58% 42% 43% 57%/39% 62% 38% 61%;filter:saturate(1.18) brightness(1.08)}
-  100%{border-radius:38% 62% 55% 45%/61% 36% 64% 39%;filter:saturate(1.12) brightness(1.02)}
+  0%{border-radius:48% 52% 60% 40%/55% 43% 57% 45%}
+  50%{border-radius:58% 42% 43% 57%/39% 62% 38% 61%}
+  100%{border-radius:38% 62% 55% 45%/61% 36% 64% 39%}
 }
 @keyframes thebeVoiceFoldA{
   0%{transform:rotate(-18deg) scale(.9,1.06) skewX(-4deg);border-radius:42% 58% 65% 35%/62% 38% 61% 39%;filter:blur(12px) contrast(1.04)}
