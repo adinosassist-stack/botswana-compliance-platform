@@ -4094,18 +4094,34 @@
     return rows;
   }
 
+  function latestOutcomesByProposal(outcomesPayload){
+    const map=new Map();
+    for(const item of (Array.isArray(outcomesPayload?.items)?outcomesPayload.items:[])){
+      const key=String(item?.proposal_id||item?.proposalId||"");if(key&&!map.has(key))map.set(key,item);
+    }
+    return map;
+  }
+
+  async function recordAgenticOutcome(proposalId,outcomeStatus){
+    const result=await request(`/api/agentic/proposals/${encodeURIComponent(proposalId)}/outcome`,{
+      method:"POST",body:JSON.stringify({outcomeStatus})
+    });
+    await renderOwnerBrief(true);
+    return result;
+  }
+
   function pendingAgenticReviews(runsPayload){
     const proposals=Array.isArray(runsPayload?.proposals)?runsPayload.proposals:[];
     return proposals.filter(item=>String(item?.status||"pending")==="pending").slice(0,8);
   }
 
-  function renderOperatorAttention(items=[],reviews=[]){
+  function renderOperatorAttention(items=[],reviews=[],outcomesPayload=null){
     const box=q("#ownerAttentionPanel");if(!box)return;
     box.replaceChildren();
     const head=document.createElement("div");head.className="owner-panel-head";
     const copy=document.createElement("div");copy.append(text("div","Priority queue","section-eyebrow"),text("h4","What Thebe wants you to review first"));
     head.append(copy,text("span",String(items.length+reviews.length),"badge"));box.append(head);
-    if(reviews.length){
+    const outcomes=latestOutcomesByProposal(outcomesPayload);\n    if(reviews.length){
       const reviewBox=document.createElement("div");reviewBox.className="owner-review-inbox";
       reviewBox.append(text("div","Owner approval inbox","section-eyebrow"));
       for(const proposal of reviews){
@@ -4132,14 +4148,14 @@
       const meta=document.createElement("div");meta.className="owner-attention-meta";meta.append(text("span",recommendation.approvalRequired?"Approval required":"Review only"),text("span",item?.outcome?.status==="not_recorded"?"Outcome pending":"Outcome recorded"));card.append(meta);
       list.append(card);
     }
-    if(items.length)box.append(list);
+    if(items.length)box.append(list);\n    const decided=(Array.isArray(outcomesPayload?.decided)?outcomesPayload.decided:[]).slice(0,6);\n    if(decided.length){const timeline=document.createElement("div");timeline.className="owner-outcome-timeline";timeline.append(text("div","Decision outcomes","section-eyebrow"));for(const proposal of decided){const last=outcomes.get(String(proposal.id));const row=document.createElement("article");row.className="owner-outcome-row";row.append(text("b",cleanText(proposal.title||"Governed decision",180)),text("span",last?`Outcome · ${cleanText(last.outcome_status||"observed",40).replaceAll("_"," ")}`:`Decision · ${cleanText(proposal.status||"recorded",40)}`));if(!last&&["owner","manager"].includes(role())){const actions=document.createElement("div");actions.className="owner-agentic-actions";for(const state of ["improved","unchanged","worsened","resolved","not_applicable"])actions.append(button(state.replaceAll("_"," "),()=>recordAgenticOutcome(proposal.id,state),"btn soft"));row.append(actions)}timeline.append(row)}box.append(timeline)}
   }
 
-  async function loadOperatorAttention(model,runsPayload=null){
+  async function loadOperatorAttention(model,runsPayload=null,outcomesPayload=null){
     const signals=operatorSignals(model);
     if(!signals.length){renderOperatorAttention([]);return}
-    try{const payload=await request("/api/ai/operator/queue",{method:"POST",body:JSON.stringify({signals})});renderOperatorAttention(Array.isArray(payload?.items)?payload.items:[],pendingAgenticReviews(runsPayload))}
-    catch(error){const reviews=pendingAgenticReviews(runsPayload);if(reviews.length){renderOperatorAttention([],reviews);return}const box=q("#ownerAttentionPanel");if(box)box.replaceChildren(text("div","Priority queue unavailable. Existing business brief remains available; Thebe will not invent attention items.","owner-command-empty"))}
+    try{const payload=await request("/api/ai/operator/queue",{method:"POST",body:JSON.stringify({signals})});renderOperatorAttention(Array.isArray(payload?.items)?payload.items:[],pendingAgenticReviews(runsPayload),outcomesPayload)}
+    catch(error){const reviews=pendingAgenticReviews(runsPayload);if(reviews.length){renderOperatorAttention([],reviews,outcomesPayload);return}const box=q("#ownerAttentionPanel");if(box)box.replaceChildren(text("div","Priority queue unavailable. Existing business brief remains available; Thebe will not invent attention items.","owner-command-empty"))}
   }
 
   async function renderOwnerBrief(force=false){
@@ -4161,7 +4177,7 @@
 
     try{
       const date=gaboroneDate();
-      const [performance,stateEnvelope,finance,businessEnvelope,agenticRuns]=await Promise.all([
+      const [performance,stateEnvelope,finance,businessEnvelope,agenticRuns,agenticOutcomes]=await Promise.all([
         request(`/api/daily-reporting/performance?date=${encodeURIComponent(date)}`),
         request("/api/state"),
         request("/api/finance/summary").catch(()=>null),
@@ -4177,7 +4193,7 @@
       model.businessAnalytics=businessEnvelope?.analytics||businessEnvelope?.brief?.analytics||null;
 
       renderSummary(model);
-      await loadOperatorAttention(model,agenticRuns);
+      const decided=(Array.isArray(agenticRuns?.proposals)?agenticRuns.proposals:[]).filter(item=>String(item?.status||"pending")!=="pending");\n      agenticOutcomes.decided=decided;\n      await loadOperatorAttention(model,agenticRuns,agenticOutcomes);
       if(seq!==renderSeq)return;
       renderSources(model,inputs);
       renderSignals(model);
