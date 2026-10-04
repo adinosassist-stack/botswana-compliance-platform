@@ -20,15 +20,16 @@ const provenanceCore=read('scripts/bf07-provenance-core.mjs');
 const projectedState=worker.slice(worker.indexOf('function projectWorkspaceStateForRole'),worker.indexOf('function mergeManagerWorkspaceState'));
 let pass=0;const ok=(c,m)=>{if(!c)throw new Error('FAIL: '+m);pass++;console.log('PASS',m)};
 
-const requiredSecrets=['SESSION_SECRET','AUDIT_INTEGRITY_SECRET','OPERATIONS_SECRET','AUTOMATION_SECRET','TURNSTILE_SECRET_KEY','PAYMENT_WEBHOOK_SECRET','BILLING_WEBHOOK_SECRET'];
-const optionalIntegrationSecrets=['GOOGLE_OAUTH_CLIENT_SECRET','FACEBOOK_APP_SECRET','RESEND_API_KEY'];
+const requiredSecrets=['SESSION_SECRET','AUDIT_INTEGRITY_SECRET','OPERATIONS_SECRET','AUTOMATION_SECRET','TURNSTILE_SECRET_KEY','PAYMENT_WEBHOOK_SECRET','BILLING_WEBHOOK_SECRET','RESEND_API_KEY'];
+const optionalIntegrationSecrets=['GOOGLE_OAUTH_CLIENT_SECRET','FACEBOOK_APP_SECRET'];
 const requiredVars=['PUBLIC_APP_URL','PUBLIC_ORIGIN','TURNSTILE_SITE_KEY','PLATFORM_ADMIN_EMAILS','PLATFORM_REGULATORY_REVIEWERS','EVIDENCE_SCAN_API_URL','GOOGLE_OAUTH_CLIENT_ID','GOOGLE_OAUTH_REDIRECT_URI','FACEBOOK_APP_ID','FACEBOOK_OAUTH_REDIRECT_URI','EMAIL_FROM'];
 const requiredSecretContract=(wrangler.match(/^required\s*=\s*\[[^\n]*\]/m)||[''])[0];
 
 ok(requiredSecrets.every(k=>worker.includes(`env.${k}`)), 'runtime references every launch-critical secret');
-ok(optionalIntegrationSecrets.every(k=>worker.includes(`env.${k}`)), 'runtime retains deferred integration secret support');
+ok(optionalIntegrationSecrets.every(k=>worker.includes(`env.${k}`)), 'runtime retains deferred OAuth secret support');
 ok(requiredSecrets.every(k=>deploy.includes(`secret put ${k}`)), 'deploy sequence explicitly provisions every launch-critical secret');
-ok(optionalIntegrationSecrets.every(k=>!requiredSecretContract.includes(`"${k}"`)), 'deferred integration secrets are not launch-required');
+ok(requiredSecrets.every(k=>requiredSecretContract.includes(`"${k}"`)), 'Wrangler template marks every launch-critical secret as required');
+ok(optionalIntegrationSecrets.every(k=>!requiredSecretContract.includes(`"${k}"`)), 'deferred OAuth secrets are not launch-required');
 ok(!deploy.includes('secret put EVIDENCE_SCAN_SECRET'), 'deploy sequence does not provision a scanner secret while evidence uploads are disabled');
 ok(requiredVars.every(k=>worker.includes(`env.${k}`)), 'runtime references every readiness-critical non-secret variable');
 ok(requiredVars.every(k=>wrangler.includes(`${k} = "REPLACE_WITH_${k}"`)), 'template declares every readiness-critical non-secret variable as a source-safe placeholder');
@@ -38,7 +39,7 @@ ok(wrangler.includes('keep_vars = true')&&preflight.includes('keep_vars must be 
 ok(renderer.includes('PUBLIC_APP_URL and PUBLIC_ORIGIN must be the same exact HTTPS origin')&&preflight.includes('PUBLIC_APP_URL and PUBLIC_ORIGIN must match exactly'), 'public URL/origin mismatch fails before deployment and at preflight');
 ok(renderer.includes('GOOGLE_OAUTH_REDIRECT_URI must equal')&&renderer.includes('FACEBOOK_OAUTH_REDIRECT_URI must equal')&&preflight.includes('GOOGLE_OAUTH_REDIRECT_URI must equal the exact same-origin callback')&&preflight.includes('FACEBOOK_OAUTH_REDIRECT_URI must equal the exact same-origin callback'), 'OAuth callbacks fail closed unless they are exact same-origin production paths');
 ok(renderer.includes('safe_optional_toml_value GOOGLE_OAUTH_CLIENT_ID')&&renderer.includes('safe_optional_toml_value FACEBOOK_APP_ID')&&preflight.includes('must be rendered, even when deferred'), 'OAuth public identities may be fully deferred without placeholders');
-ok(renderer.includes('if [ -n "$EMAIL_FROM_VALUE" ]')&&renderer.includes('when transactional email is enabled')&&preflight.includes('when transactional email is enabled'), 'transactional email may be deferred but configured senders remain validated');
+ok(requiredSecretContract.includes('"RESEND_API_KEY"')&&preflight.includes('EMAIL_FROM must be configured for production password recovery')&&preflight.includes('RESEND_API_KEY')&&deploy.includes('secret put RESEND_API_KEY'), 'production password recovery requires a verified sender plus the Resend runtime secret');
 ok(wrangler.includes('EVIDENCE_UPLOADS_ENABLED = "false"')&&preflight.includes('EVIDENCE_UPLOADS_ENABLED must remain false')&&preflight.includes('EVIDENCE_SCAN_API_URL must be empty while evidence uploads are disabled'), 'no-scanner production launch keeps evidence uploads fail closed');
 ok(deploy.includes('requiredConfigReady=true')&&deploy.includes('evidence upload/mutation routes fail closed'), 'runbook closes runtime readiness and verifies evidence mutations remain disabled');
 ok(!deploy.includes('Configure PLATFORM_ADMIN_EMAILS, PLATFORM_REGULATORY_REVIEWERS, PUBLIC_APP_URL and PUBLIC_ORIGIN for this Worker'), 'old ambiguous dashboard-only readiness instruction is removed');
@@ -55,9 +56,9 @@ ok(provenanceCore.includes('expectedGithubSource(env)')&&provenanceCore.includes
 ok(productionDeploy.indexOf('Restore exact BF-07 seal evidence')>=0&&productionDeploy.indexOf('npm run launch:gate')>productionDeploy.indexOf('Restore exact BF-07 seal evidence'), 'production launch gate runs only after exact BF-07 evidence restoration');
 ok(productionDeploy.includes('environment: production')&&productionDeploy.includes('CLOUDFLARE_API_TOKEN')&&productionDeploy.includes('CLOUDFLARE_ACCOUNT_ID'), 'production automation is isolated behind the GitHub production environment and Cloudflare credentials');
 ok(requiredSecrets.every(k=>productionDeploy.includes(`secrets.${k}`)), 'production automation sources every launch-critical runtime secret from GitHub secrets');
-ok(optionalIntegrationSecrets.every(k=>productionDeploy.includes(`secrets.${k}`))&&productionDeploy.includes('optionalNames'), 'production automation can source deferred integration secrets without requiring them');
-ok(['GOOGLE_OAUTH_CLIENT_ID','FACEBOOK_APP_ID','EMAIL_FROM'].every(k=>productionDeploy.includes(`vars.${k}`))&&productionDeploy.includes('GOOGLE_OAUTH_REDIRECT_URI: https://thebedesk.com/api/auth/oauth/google/callback')&&productionDeploy.includes('FACEBOOK_OAUTH_REDIRECT_URI: https://thebedesk.com/api/auth/oauth/facebook/callback'), 'production automation sources optional public integration identities and pins exact OAuth callbacks');
-ok(productionDeploy.includes('Google OAuth must be configured with both client ID and client secret, or deferred completely')&&productionDeploy.includes('Facebook OAuth must be configured with both app ID and app secret, or deferred completely')&&productionDeploy.includes('Transactional email must be configured with both EMAIL_FROM and RESEND_API_KEY, or deferred completely'), 'production automation rejects partially configured deferred integrations');
+ok(optionalIntegrationSecrets.every(k=>productionDeploy.includes(`secrets.${k}`))&&productionDeploy.includes('optionalNames'), 'production automation can source deferred OAuth secrets without requiring them');
+ok(['GOOGLE_OAUTH_CLIENT_ID','FACEBOOK_APP_ID','EMAIL_FROM'].every(k=>productionDeploy.includes(`vars.${k}`))&&productionDeploy.includes('GOOGLE_OAUTH_REDIRECT_URI: https://thebedesk.com/api/auth/oauth/google/callback')&&productionDeploy.includes('FACEBOOK_OAUTH_REDIRECT_URI: https://thebedesk.com/api/auth/oauth/facebook/callback'), 'production automation sources integration identities and pins exact OAuth callbacks');
+ok(productionDeploy.includes('Google OAuth must be configured with both client ID and client secret, or deferred completely')&&productionDeploy.includes('Facebook OAuth must be configured with both app ID and app secret, or deferred completely')&&productionDeploy.includes('Transactional email must be configured with both EMAIL_FROM and RESEND_API_KEY, or deferred completely'), 'production automation preserves pair-validation while mandatory preflight prevents transactional email from being deferred in production');
 ok(productionDeploy.includes('render-production-config.sh')&&productionDeploy.includes('preflight-production.sh')&&productionDeploy.includes('deploy --dry-run'), 'production automation renders an ephemeral config and dry-runs Wrangler before promotion');
 ok(!productionDeploy.includes('wrangler@4.135.0 deploy --yes'), 'production deploy uses only supported Wrangler 4.135.0 flags');
 ok(productionDeploy.includes('--secrets-file')&&productionDeploy.includes('thebe-worker-secrets.json'), 'production automation uploads runtime secrets from an ephemeral file rather than source control');
