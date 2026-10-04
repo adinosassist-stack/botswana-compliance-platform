@@ -113,7 +113,7 @@
 ){overflow-wrap:anywhere;word-break:normal;min-width:0;max-width:100%}
 
 /* Remove information-text clipping introduced by compact card line clamps. */
-#mainContent .simplified-hub :is(.outcome-card-status,.people-outcome-status),
+#mainContent :is(.outcome-card-status,.people-outcome-status),
 #mainContent #dashboard .owner-today-detail,
 #mainContent #dashboard .home-signal-card .muted.small,
 #mainContent #evidencehub #proofNextDetail,
