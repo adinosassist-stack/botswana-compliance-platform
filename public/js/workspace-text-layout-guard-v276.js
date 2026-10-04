@@ -43,6 +43,21 @@
   .people-outcome-grid
 ){min-width:0;max-width:100%;box-sizing:border-box}
 
+/* Card primitives can contain direct text nodes, so make the card itself a safe wrapping context. */
+#mainContent :is(
+  .card,
+  .hub-card,
+  .outcome-card,
+  .people-outcome-card,
+  .owner-today-card,
+  .home-status-chip,
+  .proof-summary-card,
+  .property-summary-card,
+  .property-service-card,
+  .outcome-status-chip,
+  .people-status-chip
+){overflow-wrap:anywhere;word-break:normal}
+
 #mainContent :is(
   .grid,
   .owner-command-head,
