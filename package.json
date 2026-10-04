@@ -300,7 +300,8 @@
     "test:goals-ideas-v236": "node tests/v236-goals-ideas-owner-command.mjs",
     "test:workspace-geometry-v237": "node tests/v237-workspace-geometry-cleanup.mjs",
     "test:dead-runtime-v237": "node tests/v237-dead-runtime-boundary.mjs",
-    "test:dead-workspace-assets-v237": "node tests/v237-dead-workspace-assets.mjs"
+    "test:dead-workspace-assets-v237": "node tests/v237-dead-workspace-assets.mjs",
+    "test:password-reset-browser": "node tests/password-reset-browser-flow.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1126.0",
