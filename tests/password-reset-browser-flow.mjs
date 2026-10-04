@@ -5,6 +5,6 @@ assert.doesNotMatch(auth,/href="\/recover\.html">Forgot password/);
 assert.match(forgot,/id="resetRequestForm"/);assert.match(forgot,/\/js\/api-client\.js/);assert.match(client,/\/api\/auth\/password-reset\/request/);assert.doesNotMatch(client,/\bfetch\s*\(/);assert.match(client,/BW\?\.api\?\.createClient/);
 assert.match(reset,/id="resetCompleteForm"/);assert.match(reset,/\/js\/api-client\.js/);assert.match(client,/\/api\/auth\/password-reset\/complete/);
 assert.match(client,/new URLSearchParams\(location\.hash\.slice\(1\)\)/);assert.match(client,/history\.replaceState\(null,"",location\.pathname\+location\.search\)/);
-assert.match(worker,/const reset=new URL\(publicApp\);reset\.pathname="\/reset-password\.html"/);
+assert.match(worker,/const reset=new URL\\(publicApp\\);reset.search="";reset.hash=/);assert.match(portal,/startsWith\\("#reset_token="\\)/);assert.match(portal,/location\\.replace\\("\\/reset-password\\.html"\\+resetFragment\\)/);
 assert.match(worker,/reset\.hash=`reset_token=/);
 console.log("Password reset browser flow: PASS");
