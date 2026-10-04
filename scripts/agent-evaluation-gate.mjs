@@ -2,6 +2,7 @@ import fs from "node:fs";
 import {runAgentEvaluationSuite} from "../cloudflare/src/agent-evaluation.js";
 import {runVoiceRuntimeEvaluationGate} from "../cloudflare/src/voice-runtime-evaluation.js";
 import {verifyVoiceProviderRoutingPolicy} from "../cloudflare/src/voice-provider-routing.js";
+import {verifyVoiceRuntimeEvidencePolicy} from "../cloudflare/src/voice-runtime-evidence.js";
 
 const report=runAgentEvaluationSuite();
 if(!report.pass){
@@ -46,6 +47,17 @@ if(!routing.pass){
   process.exit(1);
 }
 
+const evidence=verifyVoiceRuntimeEvidencePolicy();
+if(!evidence.pass){
+  console.error(JSON.stringify({
+    gate:"voice-runtime-evidence",
+    version:evidence.version,
+    minimums:evidence.minimums,
+    cases:evidence.cases
+  },null,2));
+  process.exit(1);
+}
+
 console.log(JSON.stringify({
   gate:"agent-evaluation",
   suiteVersion:report.suiteVersion,
@@ -59,6 +71,8 @@ console.log(JSON.stringify({
     candidateModel:voice.candidate.model,
     candidateActivation:voice.candidate.activation,
     promotionEvidenceRequired:true,
+    evidenceMinimums:evidence.minimums,
+    evidenceVolumeRequired:evidence.cases.insufficient.code==="evaluation_evidence_volume_required",
     productionRoutingPinned:routing.routes.productionCandidateRequest.code==="production_profile_pinned",
     candidateReviewPermitRequired:routing.routes.noReviewPermit.code==="voice_candidate_review_permit_required",
     status:"PASS"
