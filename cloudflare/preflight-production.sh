@@ -30,12 +30,12 @@ grep -Eq '^AI_FEATURES_DEFAULT[[:space:]]*=[[:space:]]*"on"[[:space:]]*$' "$WRAN
 grep -Eq '^AGENT_BOUNDED_TASK_EXECUTION_MODE[[:space:]]*=[[:space:]]*"platform_admin_canary"[[:space:]]*$' "$WRANGLER_TOML" || fail "bounded task execution must remain restricted to the reviewed platform-admin canary"
 grep -Eq '^PAYMENT_PROVIDER[[:space:]]*=[[:space:]]*"(none|dpo)"[[:space:]]*$' "$WRANGLER_TOML" || fail "PAYMENT_PROVIDER must be none or dpo; orange_money is blocked pending a reviewed readiness fix"
 
-for key in PUBLIC_APP_URL PUBLIC_ORIGIN TURNSTILE_SITE_KEY PLATFORM_ADMIN_EMAILS PLATFORM_REGULATORY_REVIEWERS; do
+for key in PUBLIC_APP_URL PUBLIC_ORIGIN TURNSTILE_SITE_KEY PLATFORM_ADMIN_EMAILS PLATFORM_REGULATORY_REVIEWERS EMAIL_FROM; do
   grep -Eq "^[[:space:]]*${key}[[:space:]]*=[[:space:]]*\"[^\"]+\"[[:space:]]*$" "$WRANGLER_TOML" || fail "$key must be rendered into production config"
   if grep -Eq "^[[:space:]]*${key}[[:space:]]*=[[:space:]]*\"REPLACE_WITH_" "$WRANGLER_TOML"; then fail "$key still contains a placeholder"; fi
 done
 
-for optional_key in GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_REDIRECT_URI FACEBOOK_APP_ID FACEBOOK_OAUTH_REDIRECT_URI EMAIL_FROM; do
+for optional_key in GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_REDIRECT_URI FACEBOOK_APP_ID FACEBOOK_OAUTH_REDIRECT_URI; do
   grep -Eq "^[[:space:]]*${optional_key}[[:space:]]*=[[:space:]]*\"[^\"]*\"[[:space:]]*$" "$WRANGLER_TOML" || fail "$optional_key must be rendered, even when deferred"
   if grep -Eq "^[[:space:]]*${optional_key}[[:space:]]*=[[:space:]]*\"REPLACE_WITH_" "$WRANGLER_TOML"; then fail "$optional_key still contains a placeholder"; fi
 done
@@ -67,10 +67,9 @@ if [ -n "$FACEBOOK_APP_ID_VALUE" ]; then
 else
   [ -z "$FACEBOOK_REDIRECT" ] || fail "FACEBOOK_OAUTH_REDIRECT_URI must be empty while Facebook OAuth is deferred"
 fi
-if [ -n "$EMAIL_FROM_VALUE" ]; then
-  printf '%s\n' "$EMAIL_FROM_VALUE" | grep -Eq '@[^[:space:]<>]+\.[^[:space:]<>]+>?$' || fail "EMAIL_FROM must contain a real sender email address when transactional email is enabled"
-  printf '%s\n' "$EMAIL_FROM_VALUE" | grep -Eqi 'example\.invalid|example\.com|REPLACE_WITH' && fail "EMAIL_FROM must not be a placeholder" || true
-fi
+[ -n "$EMAIL_FROM_VALUE" ] || fail "EMAIL_FROM must be configured for production password recovery"
+printf '%s\n' "$EMAIL_FROM_VALUE" | grep -Eq '@[^[:space:]<>]+\.[^[:space:]<>]+>?$' || fail "EMAIL_FROM must contain a real sender email address when transactional email is enabled"
+printf '%s\n' "$EMAIL_FROM_VALUE" | grep -Eqi 'example\.invalid|example\.com|REPLACE_WITH' && fail "EMAIL_FROM must not be a placeholder" || true
 
 grep -Fq 'binding = "DB"' "$WRANGLER_TOML" || fail "D1 DB binding is missing"
 grep -Fq 'database_name = "bw-compliance-os"' "$WRANGLER_TOML" || fail "production D1 database name is missing"
