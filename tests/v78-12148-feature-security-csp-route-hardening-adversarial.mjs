@@ -72,7 +72,7 @@ ok(api.includes('credentials:"omit"'),"presigned upload omits application creden
 ok(api.includes('referrerPolicy:"no-referrer"'),"presigned upload suppresses referrer leakage");
 ok(api.includes('target.protocol!=="https:"&&!localHttp'),"presigned upload blocks insecure non-local destinations");
 
-ok(policy.preAuthRoutes.flatMap(r=>r.methods).length===24,"pre-auth method/route allowlist count is locked");
+ok(policy.preAuthRoutes.flatMap(r=>r.methods).length===25,"pre-auth method/route allowlist count is locked");
 ok(Object.keys(policy.workspaceFeaturePrefixes).length===26,"authenticated feature-family inventory count is locked");
 ok(Array.isArray(policy.workspaceFeaturePrefixes.property)&&policy.workspaceFeaturePrefixes.property.includes("/api/property/"),"Property workspace API family is explicitly classified");
 ok(routeAudit.includes('Unclassified pre-auth route(s)'),"route audit fails on unexpected pre-auth routes");
@@ -85,7 +85,7 @@ for(const [key,value] of Object.entries({
  route_security_inventory:true,
  route_security_feature_families:26,
  authenticated_route_branches:expectedAuthenticatedRoutes,
- preauth_route_allowlist:23,
+ preauth_route_allowlist:24,
  csp_inline_event_execution_disabled:true,
  delegated_ui_actions_allowlisted:true,
  preview_modules_not_loaded_in_production:true,
