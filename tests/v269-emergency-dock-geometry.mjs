@@ -48,8 +48,9 @@ assert.match(mobileExpanded['max-height'],/112px/);
 
 assert.match(source,/width:"68px","min-width":"68px","max-width":"68px",height:"68px"/,'emergency voice entry remains compact');
 assert.match(source,/"grid-template-columns":"68px minmax\(0,1fr\)"/,'voice card follows compact orb geometry');
-assert.match(source,/dock\.dataset\.cssRecovery!=="1"/,'guard must disengage outside emergency recovery');
-assert.match(source,/releaseAll\(\);\s*clearMarker\(dock\)/,'normal CSS recovery releases V269 inline geometry');
+assert.match(source,/function spatialStylesheetHealthy\(dock\)/,'guard explicitly distinguishes real stylesheet health from repaired geometry');
+assert.match(source,/if\(dock\.dataset\.cssRecovery!=="1"\)\{\s*if\(spatialStylesheetHealthy\(dock\)\)\{[\s\S]*?return false;\s*\}\s*dock\.dataset\.cssRecovery="1";/,'missing stylesheet keeps emergency geometry recovery authoritative even if another layer clears the marker');
+assert.match(source,/releaseAll\(\);\s*clearMarker\(dock\)/,'healthy real CSS releases V269 inline geometry');
 assert.doesNotMatch(source,/(?:420|408|560|82)px/,'V269 must not reintroduce legacy oversized dock/orb dimensions');
 
 const sha='a'.repeat(40);
@@ -59,4 +60,4 @@ assert.match(decorated,new RegExp(`thebe-dock-recovery-geometry-v269\\.js\\?rele
 assert.equal((decorated.match(/thebe-dock-recovery-geometry-v269\.js/g)||[]).length,1,'guard is injected once');
 assert.equal(versionReleaseAssets(decorated,sha),decorated,'guard injection remains idempotent');
 
-console.log('PASS: V269 emergency dock preserves desktop lane geometry while keeping collapsed mobile recovery compact and expanded mobile recovery full-width');
+console.log('PASS: V269 emergency dock preserves desktop lane geometry, owns missing-stylesheet recovery and keeps mobile recovery stable');
