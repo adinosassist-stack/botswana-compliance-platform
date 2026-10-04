@@ -1,0 +1,58 @@
+name: V281 voice acoustic recovery evidence CI
+
+on:
+  pull_request:
+    paths:
+      - "cloudflare/src/agentic-live-eval-v273.js"
+      - "cloudflare/src/agentic-live-evidence-v274.js"
+      - "public/js/thebe-live-evidence-v274.js"
+      - "tests/v273-gpt-live-eval-readiness.mjs"
+      - "tests/v274-voice-evidence-capture.mjs"
+      - ".github/workflows/v281-voice-acoustic-recovery-evidence-ci.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "cloudflare/src/agentic-live-eval-v273.js"
+      - "cloudflare/src/agentic-live-evidence-v274.js"
+      - "public/js/thebe-live-evidence-v274.js"
+      - "tests/v273-gpt-live-eval-readiness.mjs"
+      - "tests/v274-voice-evidence-capture.mjs"
+      - ".github/workflows/v281-voice-acoustic-recovery-evidence-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  acoustic-recovery-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@v4
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.6.0"
+
+      - name: Syntax-check V281 evaluation path
+        run: |
+          node --check cloudflare/src/agentic-live-eval-v273.js
+          node --check cloudflare/src/agentic-live-evidence-v274.js
+          node --check public/js/thebe-live-evidence-v274.js
+          node --check tests/v273-gpt-live-eval-readiness.mjs
+          node --check tests/v274-voice-evidence-capture.mjs
+
+      - name: Prove V281 paired rollout policy
+        run: node tests/v273-gpt-live-eval-readiness.mjs
+
+      - name: Prove V281 privacy-minimized capture
+        run: node tests/v274-voice-evidence-capture.mjs
+
+      - name: Fail if acoustic content is persisted
+        run: |
+          ! grep -Eq 'sample\.(audio|acousticContent|transcript|taskText)' cloudflare/src/agentic-live-evidence-v274.js
+          grep -q 'acousticContentStored:false' cloudflare/src/agentic-live-evidence-v274.js
+          grep -q 'kind==="silence"||kind==="noise"' public/js/thebe-live-evidence-v274.js

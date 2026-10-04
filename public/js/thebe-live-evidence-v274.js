@@ -1,10 +1,10 @@
 (function installThebeVoiceEvidence(global){
   "use strict";
 
-  const RELEASE="20261004-voice-evidence-v279";
+  const RELEASE="20261004-voice-evidence-v281";
   const EVIDENCE_PATH="/api/agentic/live/preview/evidence";
   const SUMMARY_PATH="/api/agentic/live/preview/evidence/summary";
-  const SCENARIO_KEY="thebe.voice.eval.scenario.v279";
+  const SCENARIO_KEY="thebe.voice.eval.scenario.v281";
   let active=null,lastSubmission=null;
 
   const now=()=>performance?.now?.()??Date.now();
@@ -13,6 +13,10 @@
     const raw=String(value??"").trim().slice(0,32);
     if(!/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8}){0,2}$/.test(raw))return "";
     return raw.split("-").map((part,index)=>index===0?part.toLowerCase():(/^[A-Za-z]{2}$/.test(part)?part.toUpperCase():part.toLowerCase())).join("-");
+  };
+  const cleanAcousticKind=value=>{
+    const kind=String(value??"").trim().toLowerCase();
+    return kind==="silence"||kind==="noise"?kind:"";
   };
   const safeApi=(url,options={})=>{
     if(typeof global.apiJson!=="function")throw new Error("The secure Thebe API transport is not available.");
@@ -76,6 +80,9 @@
       languageContinuityChecks:0,
       languageContinuityPasses:0,
       languageTags:new Set(),
+      acousticRecoveryChecks:0,
+      acousticRecoveryPasses:0,
+      acousticRecoveryKinds:new Set(),
       submitted:false
     };
     emit("thebe-voice-eval-started",{scenarioId,sessionId:active.sessionId});
@@ -154,6 +161,17 @@
     return true;
   }
 
+  function markAcousticRecovery(detail={}){
+    if(!active)return false;
+    const kind=cleanAcousticKind(detail.kind);
+    if(!kind)throw new Error("voice_eval_acoustic_kind_required");
+    active.acousticRecoveryChecks+=1;
+    if(detail.passed===true)active.acousticRecoveryPasses+=1;
+    active.acousticRecoveryKinds.add(kind);
+    emit("thebe-voice-eval-acoustic",{kind,passed:detail.passed===true});
+    return true;
+  }
+
   function markDelegation(detail={}){
     if(!active)return;
     active.delegations+=1;
@@ -199,7 +217,10 @@
       usageSeconds:Number(active.usageSeconds.toFixed(3)),
       languageContinuityChecks:active.languageContinuityChecks,
       languageContinuityPasses:active.languageContinuityPasses,
-      languageTags:[...active.languageTags].sort()
+      languageTags:[...active.languageTags].sort(),
+      acousticRecoveryChecks:active.acousticRecoveryChecks,
+      acousticRecoveryPasses:active.acousticRecoveryPasses,
+      acousticRecoveryKinds:[...active.acousticRecoveryKinds].sort()
     };
   }
 
@@ -227,6 +248,7 @@
   global.addEventListener?.("thebe-live-state",event=>markVoiceState(event.detail||{}));
   global.addEventListener?.("thebe-live-event",event=>markServerEvent(event.detail||{}));
   global.addEventListener?.("thebe-live-language-continuity",event=>markLanguageContinuity(event.detail||{}));
+  global.addEventListener?.("thebe-live-acoustic-recovery",event=>markAcousticRecovery(event.detail||{}));
   global.addEventListener?.("thebe-live-delegation",event=>markDelegation(event.detail||{}));
   global.addEventListener?.("thebe-live-delegation-result",event=>markDelegationResult(event.detail||{}));
   global.addEventListener?.("thebe-live-error",event=>markError(event.detail||{}));
@@ -236,8 +258,9 @@
     beginScenario,
     clearScenario,
     markLanguageContinuity,
+    markAcousticRecovery,
     finalize:finalizeEvidence,
     summary,
-    state:()=>({scenarioId:savedScenario()||null,active:active?{...active,languageTags:[...active.languageTags]}:null,lastSubmission})
+    state:()=>({scenarioId:savedScenario()||null,active:active?{...active,languageTags:[...active.languageTags],acousticRecoveryKinds:[...active.acousticRecoveryKinds]}:null,lastSubmission})
   });
 })(window);

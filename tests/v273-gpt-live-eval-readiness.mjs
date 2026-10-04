@@ -8,7 +8,7 @@ import {
 } from "../cloudflare/src/agentic-live-eval-v273.js";
 import {GPT_LIVE_MODEL,GPT_LIVE_API_URL,gptLiveMigrationStatus} from "../cloudflare/src/agentic-live-voice-v270.js";
 
-const makePair=(index,{liveFailures=0,liveDelegationCompleted=1,liveInterruptionHandled=1,liveLanguagePasses=2,liveUsageSeconds=82}={})=>{
+const makePair=(index,{liveFailures=0,liveDelegationCompleted=1,liveInterruptionHandled=1,liveLanguagePasses=2,liveUsageSeconds=82,liveAcousticPasses=2}={})=>{
   const scenarioId=`scenario-${String(index).padStart(2,"0")}`;
   const realtime=gptLiveEvalReadinessSample({
     scenarioId,
@@ -26,7 +26,10 @@ const makePair=(index,{liveFailures=0,liveDelegationCompleted=1,liveInterruption
     usageSeconds:80,
     languageContinuityChecks:2,
     languageContinuityPasses:2,
-    languageTags:["en-BW","tn-BW"]
+    languageTags:["en-BW","tn-BW"],
+    acousticRecoveryChecks:2,
+    acousticRecoveryPasses:2,
+    acousticRecoveryKinds:["silence","noise"]
   });
   const live=gptLiveEvalReadinessSample({
     scenarioId,
@@ -46,7 +49,10 @@ const makePair=(index,{liveFailures=0,liveDelegationCompleted=1,liveInterruption
     usageSeconds:liveUsageSeconds,
     languageContinuityChecks:2,
     languageContinuityPasses:liveLanguagePasses,
-    languageTags:["en-BW","tn-BW"]
+    languageTags:["en-BW","tn-BW"],
+    acousticRecoveryChecks:2,
+    acousticRecoveryPasses:liveAcousticPasses,
+    acousticRecoveryKinds:["silence","noise"]
   });
   return pairGptLiveEvalSamples({scenarioId,realtime,live});
 };
@@ -63,6 +69,8 @@ assert.equal(healthy.live.delegationCompletionRate,1);
 assert.equal(healthy.live.interruptionRecoveryRate,1);
 assert.equal(healthy.live.languageContinuityRate,1);
 assert.deepEqual(healthy.live.languageTags,["en-BW","tn-BW"]);
+assert.equal(healthy.live.acousticRecoveryRate,1);
+assert.deepEqual(healthy.live.acousticRecoveryKinds,["noise","silence"]);
 assert.equal(healthy.live.usageSamples,DEFAULT_GPT_LIVE_EVAL_POLICY.minPairedSessions);
 
 const insufficient=evaluateGptLivePromotionReadiness({pairs:healthyPairs.slice(0,3)});
@@ -94,6 +102,12 @@ const languageRegression=evaluateGptLivePromotionReadiness({
 assert.equal(languageRegression.readyForHumanReview,false);
 assert.ok(languageRegression.failedCriteria.includes("language_continuity"));
 
+const acousticRegression=evaluateGptLivePromotionReadiness({
+  pairs:healthyPairs.map((_,index)=>makePair(index,{liveAcousticPasses:index<3?0:2}))
+});
+assert.equal(acousticRegression.readyForHumanReview,false);
+assert.ok(acousticRegression.failedCriteria.includes("acoustic_recovery"));
+
 const usageRegression=evaluateGptLivePromotionReadiness({
   pairs:healthyPairs.map((_,index)=>makePair(index,{liveUsageSeconds:130}))
 });
@@ -120,6 +134,12 @@ assert.throws(()=>gptLiveEvalReadinessSample({
   languageContinuityChecks:1,
   languageContinuityPasses:2
 }),/voice_eval_language_passes_exceed_checks/);
+assert.throws(()=>gptLiveEvalReadinessSample({
+  scenarioId:"bad-acoustic-count",
+  runtime:"gpt-live",
+  acousticRecoveryChecks:1,
+  acousticRecoveryPasses:2
+}),/voice_eval_acoustic_passes_exceed_checks/);
 assert.throws(()=>pairGptLiveEvalSamples({
   scenarioId:"one",
   realtime:gptLiveEvalReadinessSample({scenarioId:"one",runtime:"realtime"}),
@@ -134,6 +154,6 @@ assert.equal(migration.productionSwitchAllowed,false);
 const production=fs.readFileSync("cloudflare/src/agentic-live-voice.js","utf8");
 assert.match(production,/gpt-realtime-2\.1/);
 assert.match(production,/\/v1\/realtime\/calls/);
-assert.doesNotMatch(production,/agentic-live-eval-v273/,"V273/V279 evaluation must remain outside the production voice path");
+assert.doesNotMatch(production,/agentic-live-eval-v273/,"V273/V281 evaluation must remain outside the production voice path");
 
-console.log("PASS: V279 GPT-Live paired evaluation holds production behind language, usage and human-review gates");
+console.log("PASS: V281 GPT-Live paired evaluation holds production behind acoustic, language, usage and human-review gates");
