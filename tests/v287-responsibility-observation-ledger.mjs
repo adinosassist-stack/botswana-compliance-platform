@@ -11,6 +11,8 @@ assert.match(api,/responsibility_inactive/);
 assert.match(api,/proposal_out_of_scope/);
 assert.match(api,/toolScope\.includes\(actionKey\)/);
 assert.match(api,/executionAuthority:false/);
+assert.match(api,/actorType="human"/);
+assert.doesNotMatch(api,/ownerOnly\(auth\)\?"human":"human"/);
 assert.match(api,/evidence_hash/);
 assert.match(api,/crypto\.subtle\.digest\("SHA-256"/);
 assert.match(api,/WHERE tenant_id=\? AND id=\?/);
