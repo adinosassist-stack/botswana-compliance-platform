@@ -4224,7 +4224,7 @@
           if(when)row.append(text("time",when,"owner-responsibility-activity-time"));
           activity.append(row);
         }
-        if(Number(item?.eventCount||0)>recent.length)activity.append(button("View evidence",()=>toggleResponsibilityEvidenceDetail(activity,item),"btn soft owner-responsibility-evidence-view"));
+        activity.append(button("Evidence details",()=>toggleResponsibilityEvidenceDetail(activity,item),"btn soft owner-responsibility-evidence-view"));
         card.append(activity);
       }
       const status=String(item?.status||"draft");
