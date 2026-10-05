@@ -4209,7 +4209,7 @@
         text("div",cleanText(item?.workspace||"business",30),"owner-attention-domain"),
         text("h5",cleanText(item?.title||"Responsibility",160)),
         text("p",cleanText(item?.objective||"",420),"owner-attention-reason"),
-        text("div",`${cleanText(item?.status||"draft",20)} · autonomy ${Number(item?.autonomyCeiling??item?.autonomy_ceiling??0)} · ${cleanText(item?.scheduleKind||item?.schedule_kind||"manual",20)}`,"owner-attention-meta")
+        text("div",`${cleanText(item?.status||"draft",20)} · autonomy ${Number(item?.autonomyCeiling??item?.autonomy_ceiling??0)} · ${cleanText(item?.scheduleKind||item?.schedule_kind||"manual",20)} · ${Number(item?.eventCount||0)} audit event${Number(item?.eventCount||0)===1?"":"s"}`,"owner-attention-meta")
       );
       list.append(card);
     }
