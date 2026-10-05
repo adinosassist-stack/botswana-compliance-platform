@@ -141,7 +141,7 @@ function externalizeWorkspaceRuntime(html){
   const source=String(html||"");
   const pattern=/<script\b(?=[^>]*\bid=["']thebe-workspace-runtime-inline["'])[^>]*>[\s\S]*?<\/script>/i;
   if(!pattern.test(source))return source;
-  return source.replace(pattern,`<script id="thebe-workspace-runtime" src="${WORKSPACE_RUNTIME_ASSET}?v=${WORKSPACE_RUNTIME_RELEASE}"></script>`);
+  return source.replace(pattern,`<script id="thebe-workspace-runtime" src="${WORKSPACE_RUNTIME_ASSET}?v=${WORKSPACE_RUNTIME_RELEASE}" defer></script>`);
 }
 
 function externalizeWorkspaceHeadStyles(html){
