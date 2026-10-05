@@ -32,7 +32,7 @@ assert(runtime.includes('function clearLegacyWorkspaceDockPadding()'),'V191 must
 assert(runtime.includes('function clearRoutineWorkspaceInlineGeometry()'),'V191 must clear obsolete normal-path inline geometry ownership');
 assert(runtime.includes('dock.style.setProperty("--thebe-workspace-left",left)'),'V191 must pass only the dynamic workspace-left coordinate into canonical CSS');
 assert((runtime.match(/syncWorkspaceVisualInvariants\(\);/g)||[]).length>=3,'V191 must re-assert workspace geometry across visibility and conversation-state changes');
-assert.match(ownerRuntime,/const RELEASE="(?:20261001-v246|20261005-v285)";/,'Owner Command Centre must carry an approved cache identity including the V285 responsibilities surface');
+assert.match(ownerRuntime,/const RELEASE="(?:20261001-v246|20261005-v285|20261005-v286)";/,'Owner Command Centre must carry an approved cache identity including the governed V285/V286 responsibilities surface');
 assert(ownerRuntime.includes('servicePanel.style.setProperty("background","#f7fbff","important")'),'Property professional-service emphasis must survive late or stale stylesheet state');
 assert(ownerRuntime.includes('servicePanel.style.setProperty("border-color","#a9c8ef","important")'),'Property professional-service border emphasis must be runtime-owned');
 assert(runtime.includes('const modeCopy=Object.freeze({'),'V191 must expose explicit Ask, Brief and Priorities modes');
