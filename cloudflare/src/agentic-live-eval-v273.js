@@ -15,6 +15,7 @@ export const DEFAULT_GPT_LIVE_EVAL_POLICY=Object.freeze({
   minAcousticRecoveryKinds:2,
   maxProviderFailureRate:0.05,
   maxProviderFailureRateRegression:0.01,
+  minGracefulFallbackRate:1,
   minDelegationCompletionRate:0.95,
   maxDelegationCompletionRateRegression:0.02,
   minInterruptionRecoveryRate:0.90,
@@ -71,6 +72,8 @@ export function gptLiveEvalReadinessSample({
   delegationsCompleted=0,
   delegationsFailed=0,
   providerFailures=0,
+  fallbackAttempts=0,
+  fallbackRecoveries=0,
   sessionSeconds=0,
   usageSeconds=0,
   languageContinuityChecks=0,
@@ -101,10 +104,13 @@ export function gptLiveEvalReadinessSample({
   const continuityPasses=count(languageContinuityPasses);
   const acousticChecks=count(acousticRecoveryChecks);
   const acousticPasses=count(acousticRecoveryPasses);
+  const fallbackAttemptCount=count(fallbackAttempts);
+  const fallbackRecoveryCount=count(fallbackRecoveries);
   if(handled+interruptionFailures>base.interruptions)throw new Error("voice_eval_interruption_outcomes_exceed_events");
   if(completed+delegationFailures>base.delegations)throw new Error("voice_eval_delegation_outcomes_exceed_events");
   if(continuityPasses>continuityChecks)throw new Error("voice_eval_language_passes_exceed_checks");
   if(acousticPasses>acousticChecks)throw new Error("voice_eval_acoustic_passes_exceed_checks");
+  if(fallbackRecoveryCount>fallbackAttemptCount)throw new Error("voice_eval_fallback_recoveries_exceed_attempts");
   return Object.freeze({
     ...base,
     scenarioId:safeScenarioId,
@@ -118,7 +124,9 @@ export function gptLiveEvalReadinessSample({
     languageTags:normalizeLanguageTags(languageTags),
     acousticRecoveryChecks:acousticChecks,
     acousticRecoveryPasses:acousticPasses,
-    acousticRecoveryKinds:normalizeAcousticRecoveryKinds(acousticRecoveryKinds)
+    acousticRecoveryKinds:normalizeAcousticRecoveryKinds(acousticRecoveryKinds),
+    fallbackAttempts:fallbackAttemptCount,
+    fallbackRecoveries:fallbackRecoveryCount
   });
 }
 
@@ -137,6 +145,8 @@ function summarizeRuntime(pairs,key){
   const usageValues=[];
   const totals=rows.reduce((acc,row)=>{
     acc.providerFailures+=row.providerFailures;
+    acc.fallbackAttempts+=row.fallbackAttempts||0;
+    acc.fallbackRecoveries+=row.fallbackRecoveries||0;
     acc.delegations+=row.delegations;
     acc.delegationsCompleted+=row.delegationsCompleted;
     acc.delegationsFailed+=row.delegationsFailed;
@@ -154,6 +164,8 @@ function summarizeRuntime(pairs,key){
     return acc;
   },{
     providerFailures:0,
+    fallbackAttempts:0,
+    fallbackRecoveries:0,
     delegations:0,
     delegationsCompleted:0,
     delegationsFailed:0,
@@ -174,6 +186,9 @@ function summarizeRuntime(pairs,key){
     p95FirstUsefulAnswerMs:percentile(rows.map(row=>row.firstUsefulAnswerMs),95),
     providerFailures:totals.providerFailures,
     providerFailureRate:round(rate(totals.providerFailures,rows.length)??0),
+    fallbackAttempts:totals.fallbackAttempts,
+    fallbackRecoveries:totals.fallbackRecoveries,
+    gracefulFallbackRate:rate(totals.fallbackRecoveries,totals.fallbackAttempts),
     delegations:totals.delegations,
     delegationsCompleted:totals.delegationsCompleted,
     delegationsFailed:totals.delegationsFailed,
@@ -210,6 +225,7 @@ function normalizePolicy(policy={}){
     minAcousticRecoveryKinds:count(merged.minAcousticRecoveryKinds),
     maxProviderFailureRate:boundedNumber(merged.maxProviderFailureRate,{max:1,fallback:DEFAULT_GPT_LIVE_EVAL_POLICY.maxProviderFailureRate}),
     maxProviderFailureRateRegression:boundedNumber(merged.maxProviderFailureRateRegression,{max:1,fallback:DEFAULT_GPT_LIVE_EVAL_POLICY.maxProviderFailureRateRegression}),
+    minGracefulFallbackRate:boundedNumber(merged.minGracefulFallbackRate,{max:1,fallback:DEFAULT_GPT_LIVE_EVAL_POLICY.minGracefulFallbackRate}),
     minDelegationCompletionRate:boundedNumber(merged.minDelegationCompletionRate,{max:1,fallback:DEFAULT_GPT_LIVE_EVAL_POLICY.minDelegationCompletionRate}),
     maxDelegationCompletionRateRegression:boundedNumber(merged.maxDelegationCompletionRateRegression,{max:1,fallback:DEFAULT_GPT_LIVE_EVAL_POLICY.maxDelegationCompletionRateRegression}),
     minInterruptionRecoveryRate:boundedNumber(merged.minInterruptionRecoveryRate,{max:1,fallback:DEFAULT_GPT_LIVE_EVAL_POLICY.minInterruptionRecoveryRate}),
@@ -252,6 +268,7 @@ export function evaluateGptLivePromotionReadiness({pairs=[],policy={}}={}){
     Object.freeze({id:"usage_evidence",pass:realtime.usageSamples>=resolvedPolicy.minUsageSamples&&live.usageSamples>=resolvedPolicy.minUsageSamples,actual:live.usageSamples,baseline:realtime.usageSamples,required:resolvedPolicy.minUsageSamples}),
     Object.freeze({id:"acoustic_recovery_evidence",pass:realtime.acousticRecoveryChecks>=resolvedPolicy.minAcousticRecoveryChecks&&live.acousticRecoveryChecks>=resolvedPolicy.minAcousticRecoveryChecks&&realtime.acousticRecoveryKinds.length>=resolvedPolicy.minAcousticRecoveryKinds&&live.acousticRecoveryKinds.length>=resolvedPolicy.minAcousticRecoveryKinds,actual:live.acousticRecoveryChecks,baseline:realtime.acousticRecoveryChecks,required:resolvedPolicy.minAcousticRecoveryChecks,kinds:live.acousticRecoveryKinds.length}),
     Object.freeze({id:"provider_failure_rate",pass:live.providerFailureRate<=resolvedPolicy.maxProviderFailureRate&&live.providerFailureRate<=realtime.providerFailureRate+resolvedPolicy.maxProviderFailureRateRegression,actual:live.providerFailureRate,baseline:realtime.providerFailureRate}),
+    Object.freeze({id:"graceful_fallback",pass:live.fallbackAttempts===0||live.gracefulFallbackRate>=resolvedPolicy.minGracefulFallbackRate,actual:live.gracefulFallbackRate,attempts:live.fallbackAttempts,recoveries:live.fallbackRecoveries,required:resolvedPolicy.minGracefulFallbackRate}),
     Object.freeze({id:"delegation_completion",pass:liveDelegationRate>=resolvedPolicy.minDelegationCompletionRate&&liveDelegationRate>=rtDelegationRate-resolvedPolicy.maxDelegationCompletionRateRegression,actual:round(liveDelegationRate),baseline:round(rtDelegationRate)}),
     Object.freeze({id:"interruption_recovery",pass:liveInterruptionRate>=resolvedPolicy.minInterruptionRecoveryRate&&liveInterruptionRate>=rtInterruptionRate-resolvedPolicy.maxInterruptionRecoveryRateRegression,actual:round(liveInterruptionRate),baseline:round(rtInterruptionRate)}),
     Object.freeze({id:"language_continuity",pass:liveLanguageRate>=resolvedPolicy.minLanguageContinuityRate&&liveLanguageRate>=rtLanguageRate-resolvedPolicy.maxLanguageContinuityRateRegression,actual:round(liveLanguageRate),baseline:round(rtLanguageRate)}),

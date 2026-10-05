@@ -76,6 +76,8 @@
       delegationsCompleted:0,
       delegationsFailed:0,
       providerFailures:0,
+      fallbackAttempts:0,
+      fallbackRecoveries:0,
       usageSeconds:0,
       languageContinuityChecks:0,
       languageContinuityPasses:0,
@@ -101,7 +103,11 @@
     if(Number.isFinite(Number(detail.elapsedMs))&&Number(detail.elapsedMs)>=0)active.connectMs=Number(detail.elapsedMs);
     const usage=boundedUsage(detail.usageSeconds);
     if(usage!==null)active.usageSeconds=Math.max(active.usageSeconds,usage);
-    if(detail.fallback===true&&runtime==="realtime")active.providerFailures+=1;
+    if(detail.fallback===true){
+      active.fallbackAttempts+=1;
+      if(runtime==="realtime")active.fallbackRecoveries+=1;
+      active.providerFailures+=1;
+    }
   }
 
   function markVoiceState(detail={}){
@@ -213,6 +219,8 @@
       delegationsCompleted:active.delegationsCompleted,
       delegationsFailed:active.delegationsFailed+pendingDelegations,
       providerFailures:active.providerFailures,
+      fallbackAttempts:active.fallbackAttempts,
+      fallbackRecoveries:active.fallbackRecoveries,
       sessionSeconds:Number((elapsed()/1000).toFixed(3)),
       usageSeconds:Number(active.usageSeconds.toFixed(3)),
       languageContinuityChecks:active.languageContinuityChecks,
