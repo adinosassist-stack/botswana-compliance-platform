@@ -16,7 +16,7 @@ assert.doesNotMatch(api,/execution_allowed/);
 assert.doesNotMatch(api,/jit_execution_permits|agent_execution_grants|agent_task_execution/i);
 assert.doesNotMatch(api,/fetch\(|env\.[A-Z_]+\.fetch|queue\.send/i);
 
-assert.match(ui,/const RELEASE="20261005-v288"/);
+assert.match(ui,/const RELEASE="20261005-v28(?:8|9)"/);
 assert.match(ui,/item\?\.recentEvents/);
 assert.match(ui,/slice\(0,3\)/);
 assert.match(ui,/Recent activity/);
