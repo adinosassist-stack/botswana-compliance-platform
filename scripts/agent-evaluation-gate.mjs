@@ -25,7 +25,7 @@ if(!report.pass){
 
 try{
   await import(new URL("../tests/v217-jit-execution-permit.mjs",import.meta.url));
-  await import(new URL("../tests/v281-jit-expiry-no-side-effect.mjs",import.meta.url));
+  await import(new URL("../tests/v283-jit-expiry-no-side-effect.mjs",import.meta.url));
 }catch(error){
   console.error(JSON.stringify({
     gate:"jit-execution-permit-safety",
@@ -78,7 +78,7 @@ console.log(JSON.stringify({
   executionEscapes:report.executionEscapes,
   jitExecutionPermitSafety:{
     v217:"PASS",
-    expiredPermitNoSideEffectV281:"PASS"
+    expiredPermitNoSideEffectV283:"PASS"
   },
   voiceRuntime:{
     version:voice.version,
