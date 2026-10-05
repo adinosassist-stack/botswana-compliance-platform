@@ -13,7 +13,7 @@ assert.match(api,/request\.method!=="GET"/);
 assert.match(api,/WHERE tenant_id=\?/);
 assert.match(api,/agent_responsibility_events/);
 assert.match(api,/eventCount:Number\(row\.event_count\|\|0\)/);
-assert.doesNotMatch(api,/INSERT|UPDATE|DELETE FROM agent_responsibilities/i);
+assert.doesNotMatch(api,/(?:INSERT|UPDATE|DELETE)\s+(?:INTO\s+|FROM\s+)?agent_responsibilities\b/i);
 assert.match(entry,/handleAgenticResponsibilityRequest/);
 assert.match(ui,/ownerResponsibilityPanel/);
 assert.match(ui,/request\("\/api\/agentic\/responsibilities"\)/);
