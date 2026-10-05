@@ -16,6 +16,7 @@
   const clean=(value,max=1600)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
   const emit=(detail={})=>{try{global.dispatchEvent(new CustomEvent("thebe-live-runtime-selection",{detail:{release:RELEASE,...detail}}))}catch{}};
   const emitLive=(name,detail={})=>{try{global.dispatchEvent(new CustomEvent(name,{detail}))}catch{}};
+  const emitFallback=(stage,detail={})=>emitLive("thebe-live-provider-fallback",{release:RELEASE,stage,...detail});
   const errorCode=error=>String(error?.code||error?.data?.error||error?.body?.error||"").trim();
   const errorStatus=error=>Number(error?.status||error?.data?.status||0)||0;
   const eventId=()=>global.crypto?.randomUUID?.()||`thebe-preview-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -78,10 +79,19 @@
       const reason=errorCode(error)||"preview_transport_failure";
       const previewElapsedMs=Math.max(0,now()-started);
       const fallbackStarted=now();
-      const realtime=await originalApi(url,options);
-      resetRuntime("realtime",clean(realtime?.session?.id,240)||null);
-      emit({requestedRuntime:"gpt-live",actualRuntime:"realtime",fallback:true,reason,previewElapsedMs,fallbackElapsedMs:Math.max(0,now()-fallbackStarted),sessionId:activeSessionId});
-      return realtime;
+      emitFallback("attempt",{requestedRuntime:"gpt-live",actualRuntime:"realtime",reason,previewElapsedMs});
+      try{
+        const realtime=await originalApi(url,options);
+        resetRuntime("realtime",clean(realtime?.session?.id,240)||null);
+        const fallbackElapsedMs=Math.max(0,now()-fallbackStarted);
+        emitFallback("recovered",{requestedRuntime:"gpt-live",actualRuntime:"realtime",reason,previewElapsedMs,fallbackElapsedMs,sessionId:activeSessionId});
+        emit({requestedRuntime:"gpt-live",actualRuntime:"realtime",fallback:true,reason,previewElapsedMs,fallbackElapsedMs,sessionId:activeSessionId});
+        return realtime;
+      }catch(fallbackError){
+        resetRuntime("realtime");
+        emitFallback("failed",{requestedRuntime:"gpt-live",actualRuntime:"none",reason,status:errorStatus(fallbackError),fallbackReason:errorCode(fallbackError)||"realtime_fallback_failed",previewElapsedMs,fallbackElapsedMs:Math.max(0,now()-fallbackStarted)});
+        throw fallbackError;
+      }
     }
   }
 
