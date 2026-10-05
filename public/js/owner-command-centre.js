@@ -1,7 +1,7 @@
 (function initOwnerCommandCentre(global){
   "use strict";
 
-  const RELEASE="20261005-v286";
+  const RELEASE="20261005-v287";
   const MAX_OPPORTUNITIES=500;
   const MAX_CAMPAIGNS=50;
   const PROFILE_KEYS=Object.freeze({
@@ -4212,9 +4212,17 @@
         text("p",cleanText(item?.objective||"",420),"owner-attention-reason"),
         text("div",`${cleanText(item?.status||"draft",20)} · autonomy ${Number(item?.autonomyCeiling??item?.autonomy_ceiling??0)} · ${cleanText(item?.scheduleKind||item?.schedule_kind||"manual",20)} · ${Number(item?.eventCount||0)} audit event${Number(item?.eventCount||0)===1?"":"s"}`,"owner-attention-meta")
       );
+      const status=String(item?.status||"draft");
+      if(status==="active"&&canView()){
+        const evidenceActions=document.createElement("div");evidenceActions.className="owner-responsibility-evidence-actions";
+        evidenceActions.append(
+          button("Add observation",()=>openResponsibilityEvidence(card,item,"observation"),"btn soft"),
+          button("Propose action",()=>openResponsibilityEvidence(card,item,"proposal"),"btn soft")
+        );
+        card.append(evidenceActions);
+      }
       if(canEdit()){
         const actions=document.createElement("div");actions.className="owner-responsibility-actions";
-        const status=String(item?.status||"draft");
         const options=status==="draft"?[["Activate","activate"],["Cancel","cancel"]]
           :status==="active"?[["Pause","pause"],["Complete","complete"]]
           :status==="paused"?[["Resume","resume"]]:[];
@@ -4224,6 +4232,37 @@
       list.append(card);
     }
     host.append(list);
+  }
+
+  function openResponsibilityEvidence(card,item,kind){
+    if(!canView()||responsibilityBusy||String(item?.status||"")!=="active")return;
+    q(".owner-responsibility-evidence-form",card)?.remove();
+    const proposal=kind==="proposal";
+    const form=document.createElement("form");form.className="owner-responsibility-evidence-form";
+    const summary=document.createElement("textarea");summary.name="summary";summary.required=true;summary.maxLength=600;summary.rows=3;summary.placeholder=proposal?"What action should Thebe prepare for owner review?":"What did you observe?";
+    form.append(text("div",proposal?"Proposed action":"Observation","owner-responsibility-evidence-title"),summary);
+    let actionKey=null;
+    if(proposal){
+      actionKey=document.createElement("select");actionKey.name="actionKey";actionKey.required=true;
+      const first=document.createElement("option");first.value="";first.textContent="Choose approved tool";actionKey.append(first);
+      for(const value of Array.isArray(item?.toolScope)?item.toolScope:[]){const option=document.createElement("option");option.value=String(value);option.textContent=String(value);actionKey.append(option)}
+      form.append(actionKey);
+    }
+    form.append(text("div","Evidence only. This does not approve or execute the action.","owner-responsibility-note"));
+    const actions=document.createElement("div");actions.className="owner-responsibility-actions";
+    actions.append(button("Cancel",()=>form.remove(),"btn soft"));
+    const submit=button(proposal?"Record proposal":"Record observation",()=>{},"btn primary");submit.type="submit";actions.append(submit);form.append(actions);
+    form.addEventListener("submit",async event=>{
+      event.preventDefault();if(responsibilityBusy)return;
+      const payload={id:item?.id,kind,summary:cleanText(summary.value,600)};
+      if(proposal)payload.actionKey=cleanText(actionKey?.value,120);
+      if(!payload.summary||(proposal&&!payload.actionKey))return;
+      responsibilityBusy=true;submit.disabled=true;
+      try{await request("/api/agentic/responsibilities",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});await loadResponsibilities()}
+      catch(error){global.alert?.(String(error?.message||"Responsibility evidence failed.").slice(0,220))}
+      finally{responsibilityBusy=false;submit.disabled=false}
+    });
+    card.append(form);summary.focus();
   }
 
   function openResponsibilityCreator(host){
