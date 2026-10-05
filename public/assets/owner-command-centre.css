@@ -125,3 +125,10 @@
 #appShell .owner-responsibility-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;padding-top:8px;border-top:1px solid #edf0f3}
 #appShell .owner-responsibility-actions .btn{min-height:30px!important;padding:5px 9px!important;font-size:11px!important}
 @media(max-width:760px){#appShell .owner-responsibility-actions{gap:5px}#appShell .owner-responsibility-actions .btn{width:auto!important}}
+
+#appShell .owner-responsibility-create{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0 0 10px;padding:11px;border:1px solid #dce6f2;border-radius:13px;background:#fff}
+#appShell .owner-responsibility-create label{display:grid;gap:4px;min-width:0;color:#626b75;font-size:10.5px;font-weight:750}
+#appShell .owner-responsibility-create input,#appShell .owner-responsibility-create select{width:100%;min-width:0;min-height:34px;padding:7px 9px;border:1px solid #dfe4e9;border-radius:9px;background:#fff;font:inherit;color:#242a31}
+#appShell .owner-responsibility-note{grid-column:1/-1;color:#6d7680;font-size:10.5px;line-height:1.4}
+#appShell .owner-responsibility-create>.owner-responsibility-actions{grid-column:1/-1;margin-top:0}
+@media(max-width:760px){#appShell .owner-responsibility-create{grid-template-columns:1fr}}
