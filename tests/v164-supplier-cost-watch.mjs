@@ -82,7 +82,7 @@ assert.match(context,/payable_cover_shortfall_14d/);
 assert.match(context,/payableCoverage14dRatio/);
 
 const owner=fs.readFileSync("public/js/owner-command-centre.js","utf8");
-assert.match(owner,/const RELEASE="(?:20261001-v246|20261005-v285|20261005-v286|20261005-v287)"/);
+assert.match(owner,/const RELEASE="(?:20261001-v246|20261005-v285|20261005-v286|20261005-v287|20261005-v288)"/);
 assert.match(owner,/Supplier cost watch/);
 assert.match(owner,/Supplier payable concentration/);
 assert.match(owner,/Payable cover:/);
