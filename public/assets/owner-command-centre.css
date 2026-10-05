@@ -120,3 +120,8 @@
 #appShell .owner-responsibility-panel .owner-attention-item[data-severity="risk"]{opacity:.72}
 #appShell .owner-responsibility-panel .owner-attention-meta{justify-content:flex-start;flex-wrap:wrap}
 @media(max-width:760px){#appShell .owner-responsibility-panel{margin:0 16px 10px!important}#appShell .owner-responsibility-panel .owner-attention-list{grid-template-columns:1fr}}
+
+/* V286 — owner-only responsibility lifecycle controls. */
+#appShell .owner-responsibility-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;padding-top:8px;border-top:1px solid #edf0f3}
+#appShell .owner-responsibility-actions .btn{min-height:30px!important;padding:5px 9px!important;font-size:11px!important}
+@media(max-width:760px){#appShell .owner-responsibility-actions{gap:5px}#appShell .owner-responsibility-actions .btn{width:auto!important}}
