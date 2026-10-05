@@ -41,11 +41,16 @@ export async function handleAgenticResponsibilityRequest({request,logicalPath,en
       const stamp=action==="activate"?", activated_by_user_id=?, activated_at=?":action==="pause"?", paused_at=?":action==="complete"?", completed_at=?":action==="cancel"?", cancelled_at=?":"";
       const values=action==="activate"?[rule[1],now,actor,now,auth.tenant_id,rid,rule[0]]:[rule[1],now,now,auth.tenant_id,rid,rule[0]];
       const detail=JSON.stringify({from:rule[0],to:rule[1],action}),evidence=await hash(`${rid}|${rule[2]}|${actor}|${detail}`);
-      const results=await env.DB.batch([
-        env.DB.prepare(`UPDATE agent_responsibilities SET status=?, updated_at=?${stamp} WHERE tenant_id=? AND id=? AND status=?`).bind(...values),
-        env.DB.prepare(`INSERT INTO agent_responsibility_events(id,tenant_id,responsibility_id,event_type,actor_type,actor_id,detail_json,evidence_hash,created_at) SELECT ?,?,?,?,"human",?,?,?,?,? WHERE EXISTS(SELECT 1 FROM agent_responsibilities WHERE tenant_id=? AND id=? AND status=?)`).bind(id("revt"),auth.tenant_id,rid,rule[2],actor,detail,evidence,now,auth.tenant_id,rid,rule[1])
-      ]);
-      if(Number(results?.[0]?.meta?.changes||0)!==1||Number(results?.[1]?.meta?.changes||0)!==1)return json({error:"transition_conflict"},409);
+      const update=env.DB.prepare(`UPDATE agent_responsibilities SET status=?, updated_at=?${stamp} WHERE tenant_id=? AND id=? AND status=?`).bind(...values);
+      const event=env.DB.prepare(`INSERT INTO agent_responsibility_events(id,tenant_id,responsibility_id,event_type,actor_type,actor_id,detail_json,evidence_hash,created_at) SELECT ?,?,?,?,"human",?,?,?,?,? WHERE EXISTS(SELECT 1 FROM agent_responsibilities WHERE tenant_id=? AND id=? AND status=?)`).bind(id("revt"),auth.tenant_id,rid,rule[2],actor,detail,evidence,now,auth.tenant_id,rid,rule[1]);
+      const results=await env.DB.batch([update,event]);
+      if(Number(results?.[0]?.meta?.changes||0)!==1)return json({error:"transition_conflict"},409);
+      if(Number(results?.[1]?.meta?.changes||0)!==1){
+        const rollbackStamp=action==="activate"?", activated_by_user_id=NULL, activated_at=NULL":action==="pause"?", paused_at=NULL":action==="complete"?", completed_at=NULL":action==="cancel"?", cancelled_at=NULL":"";
+        const rolledBack=await env.DB.prepare(`UPDATE agent_responsibilities SET status=?, updated_at=?${rollbackStamp} WHERE tenant_id=? AND id=? AND status=?`).bind(rule[0],now,auth.tenant_id,rid,rule[1]).run();
+        if(Number(rolledBack?.meta?.changes||0)!==1)return json({error:"audit_write_failed_manual_review_required"},503);
+        return json({error:"audit_write_failed_transition_reverted"},503);
+      }
       return json({ok:true,id:rid,status:rule[1]});
     }
     if(request.method!=="GET")return json({error:"method_not_allowed"},405);
