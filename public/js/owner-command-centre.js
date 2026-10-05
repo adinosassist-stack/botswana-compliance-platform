@@ -1399,6 +1399,12 @@
     attention.setAttribute("aria-label","Priority attention");
     shell.append(attention);
 
+    const responsibilities=document.createElement("section");
+    responsibilities.className="owner-panel owner-responsibility-panel";
+    responsibilities.id="ownerResponsibilityPanel";
+    responsibilities.setAttribute("aria-label","Persistent responsibilities");
+    shell.append(responsibilities);
+
     const pulse=document.createElement("section");
     pulse.className="owner-pulse";
     pulse.id="ownerPulse";
