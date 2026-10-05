@@ -47,7 +47,7 @@ assert.doesNotMatch(executeBody,/UPDATE agent_jit_execution_permits\s+SET\s+stat
 assert.match(executeBody,/jit_permit_already_consumed/);
 assert.match(executeBody,/approved_by_user_id=\?/);
 
-assert.equal(profile.latest_cloudflare_migration,"065_v243_business_goal_observer.sql");
+assert.match(profile.latest_cloudflare_migration,/^(?:065_v243_business_goal_observer|066_v285_agent_responsibilities)\.sql$/,"release tip must retain migration 065 or the reviewed responsibility successor 066");
 assert.equal(profile.jit_execution_permits_v217,true);
 assert.equal(profile.jit_execution_permit_single_use,true);
 assert.equal(profile.jit_execution_permit_same_owner_bound,true);
