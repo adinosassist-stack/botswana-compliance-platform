@@ -27,6 +27,7 @@ try{
   await import(new URL("../tests/v217-jit-execution-permit.mjs",import.meta.url));
   await import(new URL("../tests/v283-jit-expiry-no-side-effect.mjs",import.meta.url));
   await import(new URL("../tests/v284-jit-cancellation-race-no-side-effect.mjs",import.meta.url));
+  await import(new URL("../tests/v285-agent-responsibility-governance.mjs",import.meta.url));
 }catch(error){
   console.error(JSON.stringify({
     gate:"jit-execution-permit-safety",
@@ -80,7 +81,8 @@ console.log(JSON.stringify({
   jitExecutionPermitSafety:{
     v217:"PASS",
     expiredPermitNoSideEffectV283:"PASS",
-    cancellationRaceNoSideEffectV284:"PASS"
+    cancellationRaceNoSideEffectV284:"PASS",
+    governedResponsibilitiesV285:"PASS"
   },
   voiceRuntime:{
     version:voice.version,
