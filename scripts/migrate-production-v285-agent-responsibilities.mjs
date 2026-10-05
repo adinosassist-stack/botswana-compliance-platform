@@ -66,7 +66,7 @@ async function verify066(){
   const eventColumns=await columns('agent_responsibility_events');
   for(const name of ['tenant_id','responsibility_id','event_type','actor_type','evidence_hash','created_at'])if(!eventColumns.has(name))fail(`agent_responsibility_events missing reviewed column ${name}`);
   const triggers=await names('trigger');
-  for(const name of ['trg_agent_responsibility_no_authority_escalation','trg_agent_responsibility_terminal_state','trg_agent_responsibility_activation_guard']){
+  for(const name of ['trg_agent_responsibility_no_authority_escalation','trg_agent_responsibility_terminal','trg_agent_responsibility_scope_required']){
     if(!triggers.has(name))return false;
   }
   return true;
