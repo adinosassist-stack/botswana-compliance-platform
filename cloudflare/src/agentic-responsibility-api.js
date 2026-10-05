@@ -12,7 +12,9 @@ export async function handleAgenticResponsibilityRequest({request,logicalPath,en
   if(request.method!=="GET")return json({error:"method_not_allowed"},405);
   try{
     const result=await env.DB.prepare(`SELECT
-      id,title,objective,workspace,status,autonomy_ceiling,schedule_kind,schedule_spec,\n      tool_scope_json,data_scope_json,budget_minor,owner_user_id,activated_at,updated_at,\n      (SELECT COUNT(*) FROM agent_responsibility_events e WHERE e.tenant_id=agent_responsibilities.tenant_id AND e.responsibility_id=agent_responsibilities.id) event_count,\n      (SELECT MAX(created_at) FROM agent_responsibility_events e WHERE e.tenant_id=agent_responsibilities.tenant_id AND e.responsibility_id=agent_responsibilities.id) last_event_at
+      id,title,objective,workspace,status,autonomy_ceiling,schedule_kind,schedule_spec,
+      tool_scope_json,data_scope_json,budget_minor,owner_user_id,activated_at,updated_at,
+      (SELECT COUNT(*) FROM agent_responsibility_events e WHERE e.tenant_id=agent_responsibilities.tenant_id AND e.responsibility_id=agent_responsibilities.id) event_count,\n      (SELECT MAX(created_at) FROM agent_responsibility_events e WHERE e.tenant_id=agent_responsibilities.tenant_id AND e.responsibility_id=agent_responsibilities.id) last_event_at
       FROM agent_responsibilities
       WHERE tenant_id=?
       ORDER BY CASE status WHEN 'active' THEN 0 WHEN 'paused' THEN 1 WHEN 'draft' THEN 2 ELSE 3 END, updated_at DESC
