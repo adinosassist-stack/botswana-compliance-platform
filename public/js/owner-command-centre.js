@@ -1,7 +1,7 @@
 (function initOwnerCommandCentre(global){
   "use strict";
 
-  const RELEASE="20261001-v246";
+  const RELEASE="20261005-v285";
   const MAX_OPPORTUNITIES=500;
   const MAX_CAMPAIGNS=50;
   const PROFILE_KEYS=Object.freeze({
@@ -32,6 +32,7 @@
   let propertyPortfolioBusy=false;
   let propertyAssetEditingId=null;
   let propertyEvidenceOptions=[];
+  let responsibilityBusy=false;
 
   const q=(selector,root=document)=>root.querySelector(selector);
   const num=value=>{
@@ -4175,6 +4176,51 @@
     catch(error){const reviews=pendingAgenticReviews(runsPayload);if(reviews.length){renderOperatorAttention([],reviews,outcomePendingReviews(runsPayload,outcomesPayload),Array.isArray(outcomesPayload?.items)?outcomesPayload.items:[]);return}const box=q("#ownerAttentionPanel");if(box)box.replaceChildren(text("div","Priority queue unavailable. Existing business brief remains available; Thebe will not invent attention items.","owner-command-empty"))}
   }
 
+
+  function responsibilityTone(item){
+    const status=String(item?.status||"draft");
+    return status==="active"?"positive":status==="paused"?"neutral":status==="cancelled"?"risk":"neutral";
+  }
+
+  function renderResponsibilities(payload){
+    const host=q("#ownerResponsibilityPanel");
+    if(!host)return;
+    host.replaceChildren();
+    const items=Array.isArray(payload?.items)?payload.items:[];
+    const head=document.createElement("div");head.className="owner-panel-head";
+    const copy=document.createElement("div");
+    copy.append(text("div","Persistent responsibilities","section-eyebrow"),text("h4","What Thebe is continuously responsible for"));
+    head.append(copy,text("span",String(items.filter(x=>String(x?.status)==="active").length),"badge"));
+    host.append(head);
+    if(!items.length){
+      host.append(text("div","No active responsibilities yet. Thebe will not create or activate one without an owner-defined objective and bounded scope.","owner-command-empty"));
+      return;
+    }
+    const list=document.createElement("div");list.className="owner-attention-list";
+    for(const item of items.slice(0,8)){
+      const card=document.createElement("article");card.className="owner-attention-item";card.dataset.severity=responsibilityTone(item);
+      card.append(
+        text("div",cleanText(item?.workspace||"business",30),"owner-attention-domain"),
+        text("h5",cleanText(item?.title||"Responsibility",160)),
+        text("p",cleanText(item?.objective||"",420),"owner-attention-reason"),
+        text("div",`${cleanText(item?.status||"draft",20)} · autonomy ${Number(item?.autonomyCeiling??item?.autonomy_ceiling??0)} · ${cleanText(item?.scheduleKind||item?.schedule_kind||"manual",20)}`,"owner-attention-meta")
+      );
+      list.append(card);
+    }
+    host.append(list);
+  }
+
+  async function loadResponsibilities(){
+    try{
+      const payload=await request("/api/agentic/responsibilities");
+      renderResponsibilities(payload);
+      return payload;
+    }catch{
+      renderResponsibilities({items:[]});
+      return {items:[]};
+    }
+  }
+
   async function renderOwnerBrief(force=false){
     const seq=++renderSeq;
     const shell=createShell();
@@ -4221,7 +4267,7 @@
       renderSalesWorkspace(inputs.company,sales);
       renderInputs(inputs);
       await renderGoalsAndIdeas();
-      await renderAgenticGovernance();
+      await Promise.all([renderAgenticGovernance(),loadResponsibilities()]);
     }catch(error){
       if(seq!==renderSeq)return;
       const box=q("#ownerCommandSummary");
@@ -4299,6 +4345,7 @@
     refresh:()=>renderOwnerBrief(true),
     openSales:openSalesWorkspace,
     refreshAgentic:()=>renderAgenticGovernance(true),
+    refreshResponsibilities:()=>loadResponsibilities(),
     refreshGoals:()=>renderGoalsAndIdeas(true),
     latestPlan:()=>agenticLatestPlan,
     loadLatestPlan:loadLatestAgenticPlan,
