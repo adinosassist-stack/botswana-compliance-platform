@@ -1,0 +1,20 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+const api=fs.readFileSync("cloudflare/src/agentic-responsibility-api.js","utf8");
+
+assert.match(api,/request\.method==="PUT"/);
+assert.match(api,/kind==="observation"\?"OBSERVED":kind==="proposal"\?"PROPOSED_ACTION"/);
+assert.match(api,/found\.status!=="active"/);
+assert.match(api,/responsibility_inactive/);
+assert.match(api,/proposal_out_of_scope/);
+assert.match(api,/toolScope\.includes\(actionKey\)/);
+assert.match(api,/executionAuthority:false/);
+assert.match(api,/evidence_hash/);
+assert.match(api,/crypto\.subtle\.digest\("SHA-256"/);
+assert.match(api,/WHERE tenant_id=\? AND id=\?/);
+assert.match(api,/WHERE EXISTS\(SELECT 1 FROM agent_responsibilities WHERE tenant_id=\? AND id=\? AND status="active"\)/);
+assert.match(api,/!\["GET","PUT"\]\.includes\(request\.method\)&&!ownerOnly\(auth\)/);
+assert.doesNotMatch(api,/execution_allowed/);
+assert.doesNotMatch(api,/jit_execution_permits|agent_execution_grants|agent_task_execution/i);
+assert.doesNotMatch(api,/fetch\(|env\.[A-Z_]+\.fetch|queue\.send/i);
+console.log("v287 responsibility observation ledger: ok");
