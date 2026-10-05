@@ -1,6 +1,7 @@
 import base from "./production-entry.js";
 import {handleAgenticAuthorityRequest} from "./agentic-authority-core.js";
 import {handleAgenticControlPlaneRequest} from "./agentic-control-plane.js";
+import {handleAgenticResponsibilityRequest} from "./agentic-responsibility-api.js";
 import {handleAgenticWhatsAppRequest} from "./agentic-whatsapp-core.js";
 import {handleAgenticTaskExecutionRequest} from "./agentic-task-execution.js";
 import {handleAgenticPersistentTaskRequest} from "./agentic-persistent-tasks.js";
@@ -10,7 +11,7 @@ import {handleAgenticFinanceReconciliationRequest} from "./agentic-finance-recon
 import {preparePlatformOwnerLogin,withPlatformOwnerAdminEnv} from "./platform-owner-access.js";
 import {applyClientRuntimeIdentity} from "./client-runtime-identity.js";
 
-const V81_SCHEMA_DELTA="065_v243_business_goal_observer.sql";
+const V81_SCHEMA_DELTA="066_v285_agent_responsibilities.sql";
 const COLD_START_REDUNDANT_RENDER="if(!options?.skipDataRefresh)queueMicrotask(()=>renderAll())";
 const COLD_START_GUARDED_RENDER="if(!options?.skipDataRefresh&&!options?.roleRedirect)queueMicrotask(()=>renderAll())";
 const SYNTHETIC_BOOT_TRACE_PREFIX="THEBE_SYNTHETIC_BOOT";
@@ -118,7 +119,9 @@ async function delegatedAuthoritySchemaReady(env){
       (SELECT COUNT(*) FROM property_operating_snapshots) property_operating_snapshot_count,
       (SELECT COUNT(*) FROM property_valuation_service_requests) property_valuation_service_request_count,
       (SELECT COUNT(*) FROM property_valuation_service_events) property_valuation_service_event_count,
-      (SELECT COUNT(*) FROM professional_credential_events) professional_credential_event_count`).first();
+      (SELECT COUNT(*) FROM professional_credential_events) professional_credential_event_count,
+      (SELECT COUNT(*) FROM agent_responsibilities) responsibility_count,
+      (SELECT COUNT(*) FROM agent_responsibility_events) responsibility_event_count`).first();
     await env.DB.prepare("SELECT scheduled_for FROM agent_observation_checkpoints LIMIT 1").first();
     const occurrenceIndex=await env.DB.prepare("SELECT 1 ok FROM sqlite_master WHERE type='index' AND name='uq_agent_observation_checkpoint_occurrence' LIMIT 1").first();
     const schedulerIndex=await env.DB.prepare("SELECT 1 ok FROM sqlite_master WHERE type='index' AND name='agent_persistent_tasks_scheduler_due' LIMIT 1").first();
@@ -209,6 +212,8 @@ export default {
     if(financeReconciliationResponse)return financeReconciliationResponse;
     const persistentTaskResponse=await handleAgenticPersistentTaskRequest({request,logicalPath,env});
     if(persistentTaskResponse)return persistentTaskResponse;
+    const responsibilityResponse=await handleAgenticResponsibilityRequest({request,logicalPath,env});
+    if(responsibilityResponse)return responsibilityResponse;
     const controlPlaneResponse=await handleAgenticControlPlaneRequest({request,logicalPath,env});
     if(controlPlaneResponse)return controlPlaneResponse;
     const taskExecutionResponse=await handleAgenticTaskExecutionRequest({request,logicalPath,env});

@@ -733,7 +733,7 @@
   "control_replacement_no_people_scoring": true,
   "control_replacement_no_second_notification_stream": true,
   "control_replacement_fail_closed": true,
-  "latest_cloudflare_migration": "065_v243_business_goal_observer.sql",
+  "latest_cloudflare_migration": "066_v285_agent_responsibilities.sql",
   "property_valuation_service_reliability_v177": true,
   "property_valuation_quote_expiry_enforced": true,
   "property_valuation_assigned_credential_bound": true,
@@ -1281,5 +1281,12 @@
   "property_valuation_valuer_credential_binding_v179": true,
   "property_valuation_assignment_uses_verified_profile_registration": true,
   "property_valuation_professional_credential_expiry_enforced": true,
-  "property_valuation_professional_credential_events": true
+  "property_valuation_professional_credential_events": true,
+  "v285_agent_responsibilities": true,
+  "v285_responsibilities_execution_authority": false,
+  "v285_responsibility_autonomy_ceiling": 2,
+  "v285_owner_responsibility_surface": true,
+  "v285_responsibility_surface_read_only": true,
+  "v285_responsibility_tenant_scoped": true,
+  "v285_responsibility_terminal_states_enforced": true
 }
