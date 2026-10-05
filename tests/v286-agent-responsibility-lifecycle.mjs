@@ -13,6 +13,9 @@ for(const event of ["ACTIVATED","PAUSED","RESUMED","COMPLETED","CANCELLED"])asse
 assert.match(api,/transition_conflict/);
 assert.match(api,/bounded_scope_required/);
 assert.match(api,/env\.DB\.batch/);
+assert.match(api,/audit_write_failed_transition_reverted/);
+assert.match(api,/audit_write_failed_manual_review_required/);
+assert.match(api,/rollbackStamp/);
 assert.match(api,/WHERE EXISTS\(SELECT 1 FROM agent_responsibilities WHERE tenant_id=\? AND id=\? AND status=\?\)/);
 assert.match(api,/evidence_hash/);
 assert.match(api,/crypto\.subtle\.digest\("SHA-256"/);
