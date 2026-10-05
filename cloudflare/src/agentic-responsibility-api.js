@@ -81,8 +81,8 @@ export async function handleAgenticResponsibilityRequest({request,logicalPath,en
       WHERE tenant_id=?
       ORDER BY CASE status WHEN 'active' THEN 0 WHEN 'paused' THEN 1 WHEN 'draft' THEN 2 ELSE 3 END, updated_at DESC
       LIMIT 100`).bind(auth.tenant_id).all();
-    const activity=await env.DB.prepare(`SELECT responsibility_id,event_type,actor_type,detail_json,created_at FROM (
-      SELECT responsibility_id,event_type,actor_type,detail_json,created_at,
+    const activity=await env.DB.prepare(`SELECT responsibility_id,event_type,actor_type,detail_json,evidence_hash,created_at FROM (
+      SELECT responsibility_id,event_type,actor_type,detail_json,evidence_hash,created_at,
         ROW_NUMBER() OVER (PARTITION BY responsibility_id ORDER BY created_at DESC,id DESC) activity_rank
       FROM agent_responsibility_events
       WHERE tenant_id=?
@@ -91,7 +91,7 @@ export async function handleAgenticResponsibilityRequest({request,logicalPath,en
     for(const event of rows(activity)){
       let detail={};try{detail=JSON.parse(event.detail_json||"{}")}catch{}
       const list=recentByResponsibility.get(event.responsibility_id)||[];
-      list.push({eventType:event.event_type,actorType:event.actor_type,summary:clean(detail.summary||detail.actionKey||detail.status||event.event_type,180),actionKey:detail.actionKey?clean(detail.actionKey,120):null,createdAt:event.created_at});
+      list.push({eventType:event.event_type,actorType:event.actor_type,summary:clean(detail.summary||detail.actionKey||detail.status||event.event_type,180),actionKey:detail.actionKey?clean(detail.actionKey,120):null,evidenceHash:clean(event.evidence_hash,80)||null,createdAt:event.created_at});
       recentByResponsibility.set(event.responsibility_id,list);
     }
     return json({items:rows(result).map(row=>({
