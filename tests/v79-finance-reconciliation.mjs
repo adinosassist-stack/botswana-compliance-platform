@@ -43,7 +43,7 @@ assert.match(worker,/SELECT 1 ok FROM finance_lineage/);
 assert.match(worker,/SELECT id FROM agentic_runs LIMIT 1/);
 assert.match(worker,/SELECT id FROM agentic_outcomes LIMIT 1/);
 const profile=JSON.parse(fs.readFileSync("RELEASE_PROFILE.json","utf8"));
-assert.equal(profile.latest_cloudflare_migration,"065_v243_business_goal_observer.sql");
+assert.match(profile.latest_cloudflare_migration,/^(?:065_v243_business_goal_observer|066_v285_agent_responsibilities)\.sql$/,"release tip must retain migration 065 or the reviewed responsibility successor 066");
 assert.equal(profile.finance_reconciliation_v79,true);
 assert.equal(profile.finance_provider_neutral,true);
 assert.equal(profile.finance_whatsapp_exception_alerts_optional,true);
