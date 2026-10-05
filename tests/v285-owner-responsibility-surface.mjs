@@ -6,7 +6,6 @@ const ui=fs.readFileSync("public/js/owner-command-centre.js","utf8");
 const deploy=fs.readFileSync("cloudflare/deploy-free.sh","utf8");
 const css=fs.readFileSync("public/assets/owner-command-centre.css","utf8");
 const profile=JSON.parse(fs.readFileSync("RELEASE_PROFILE.json","utf8"));
-const entry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
 
 assert.match(api,/path!==["']\/api\/agentic\/responsibilities["']/);
 assert.match(api,/roleAllowed\(auth,"owner","manager"\)/);

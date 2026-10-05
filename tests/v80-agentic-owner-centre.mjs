@@ -9,7 +9,7 @@ const core=read('cloudflare/src/agentic-core.js');
 let checks=0;
 const ok=(value,message)=>{assert.ok(value,message);checks++};
 
-ok(/const RELEASE="202610(?:01-v246|05-v285)";/.test(js),'browser release is an approved outcome-informed or responsibility-governed agentic UI release');
+ok(/const RELEASE="202610(?:01-v246|05-v285|05-v286)";/.test(js),'browser release is an approved outcome-informed or responsibility-governed agentic UI release');
 const runtimeAssetsSafe=(sw.includes('function criticalRuntimeAsset(url){return url.origin===self.location.origin&&url.pathname.startsWith("/js/")}')&&sw.includes('fetch(request,{cache:"no-store"})'))||(sw.includes('self.registration.unregister()')&&!sw.includes('addEventListener("fetch"'));
 ok(runtimeAssetsSafe,'JS runtime assets must be network-first under the legacy worker or fully outside service-worker interception under the decommissioned model');
 ok(html.includes('id="ownerAgenticStyles"')&&html.includes('.owner-agentic-panel{'),'responsive agentic panel styles are present');
