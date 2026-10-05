@@ -20,6 +20,8 @@ const base={
   delegations:1,
   delegationsCompleted:1,
   providerFailures:0,
+  fallbackAttempts:1,
+  fallbackRecoveries:1,
   sessionSeconds:90,
   usageSeconds:78,
   languageContinuityChecks:2,
@@ -48,6 +50,8 @@ assert.deepEqual(live.sample.languageTags,["en-BW","tn-BW"]);
 assert.equal(live.sample.acousticRecoveryChecks,2);
 assert.equal(live.sample.acousticRecoveryPasses,2);
 assert.deepEqual(live.sample.acousticRecoveryKinds,["noise","silence"]);
+assert.equal(live.sample.fallbackAttempts,1);
+assert.equal(live.sample.fallbackRecoveries,1);
 for(const key of ["transcript","audio","taskText","languageContent","acousticContent","providerPrice"]){
   assert.equal(key in live,false);
   assert.equal(key in live.sample,false);
@@ -60,6 +64,7 @@ assert.throws(()=>normalizeVoiceEvalEvidence({...base,runtime:"realtime",session
 assert.throws(()=>normalizeVoiceEvalEvidence({...base,runtime:"gpt-live",interruptions:1,interruptionsHandled:2}),/voice_eval_interruption_outcomes_exceed_events/);
 assert.throws(()=>normalizeVoiceEvalEvidence({...base,runtime:"gpt-live",languageContinuityChecks:1,languageContinuityPasses:2}),/voice_eval_language_passes_exceed_checks/);
 assert.throws(()=>normalizeVoiceEvalEvidence({...base,runtime:"gpt-live",acousticRecoveryChecks:1,acousticRecoveryPasses:2}),/voice_eval_acoustic_passes_exceed_checks/);
+assert.throws(()=>normalizeVoiceEvalEvidence({...base,runtime:"gpt-live",fallbackAttempts:1,fallbackRecoveries:2}),/voice_eval_fallback_recoveries_exceed_attempts/);
 
 const rows=[
   {event_data:JSON.stringify(live)},
@@ -83,6 +88,7 @@ const evaluation=evaluateGptLivePromotionReadiness({pairs,policy:{
   minAcousticRecoveryKinds:1,
   maxProviderFailureRate:1,
   maxProviderFailureRateRegression:1,
+  minGracefulFallbackRate:1,
   minDelegationCompletionRate:0,
   maxDelegationCompletionRateRegression:1,
   minInterruptionRecoveryRate:0,
@@ -98,6 +104,11 @@ const evaluation=evaluateGptLivePromotionReadiness({pairs,policy:{
 }});
 assert.equal(evaluation.readyForHumanReview,true);
 assert.equal(evaluation.productionSwitchAllowed,false);
+assert.equal(evaluation.live.gracefulFallbackRate,1);
+assert.equal(evaluation.criteria.find(item=>item.id==="graceful_fallback")?.pass,true);
+const failedFallback=evaluateGptLivePromotionReadiness({pairs:[{scenarioId:"cashflow-check-01",realtime:pairs[0].realtime,live:{...pairs[0].live,fallbackAttempts:1,fallbackRecoveries:0}}],policy:{...evaluation.policy,minPairedSessions:1,minDelegationEvents:1,minInterruptionEvents:1,minLanguageContinuityChecks:1,minDistinctLanguageTags:1,minUsageSamples:1,minAcousticRecoveryChecks:1,minAcousticRecoveryKinds:1,maxProviderFailureRate:1,maxProviderFailureRateRegression:1,minGracefulFallbackRate:1,minDelegationCompletionRate:0,maxDelegationCompletionRateRegression:1,minInterruptionRecoveryRate:0,maxInterruptionRecoveryRateRegression:1,minLanguageContinuityRate:0,maxLanguageContinuityRateRegression:1,minAcousticRecoveryRate:0,maxAcousticRecoveryRateRegression:1,maxMedianFirstUsefulAnswerRegressionMs:10000,maxP95ConnectRegressionMs:10000,maxMedianUsageSecondsRegressionRatio:5,maxMedianUsageSecondsRegressionSeconds:3600}});
+assert.equal(failedFallback.criteria.find(item=>item.id==="graceful_fallback")?.pass,false);
+assert.equal(failedFallback.readyForHumanReview,false);
 
 const preview=fs.readFileSync("cloudflare/src/agentic-live-preview.js","utf8");
 assert.match(preview,/\/api\/agentic\/live\/preview\/evidence/);
@@ -127,6 +138,8 @@ assert.match(browser,/usageSeconds/);
 assert.match(browser,/acousticRecoveryChecks/);
 assert.match(browser,/acousticRecoveryPasses/);
 assert.match(browser,/acousticRecoveryKinds/);
+assert.match(browser,/fallbackAttempts/);
+assert.match(browser,/fallbackRecoveries/);
 assert.match(browser,/kind==="silence"\|\|kind==="noise"/);
 assert.match(browser,/\/api\/agentic\/live\/preview\/evidence/);
 assert.doesNotMatch(browser,/localStorage/,"evaluation opt-in must remain session-scoped rather than persistent");
