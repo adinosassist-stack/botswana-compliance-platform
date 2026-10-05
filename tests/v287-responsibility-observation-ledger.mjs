@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 const api=fs.readFileSync("cloudflare/src/agentic-responsibility-api.js","utf8");
+const ui=fs.readFileSync("public/js/owner-command-centre.js","utf8");
+const css=fs.readFileSync("public/assets/owner-command-centre.css","utf8");
 
 assert.match(api,/request\.method==="PUT"/);
 assert.match(api,/kind==="observation"\?"OBSERVED":kind==="proposal"\?"PROPOSED_ACTION"/);
@@ -17,4 +19,14 @@ assert.match(api,/!\["GET","PUT"\]\.includes\(request\.method\)&&!ownerOnly\(aut
 assert.doesNotMatch(api,/execution_allowed/);
 assert.doesNotMatch(api,/jit_execution_permits|agent_execution_grants|agent_task_execution/i);
 assert.doesNotMatch(api,/fetch\(|env\.[A-Z_]+\.fetch|queue\.send/i);
+assert.match(ui,/const RELEASE="20261005-v287"/);
+assert.match(ui,/openResponsibilityEvidence/);
+assert.match(ui,/Add observation/);
+assert.match(ui,/Propose action/);
+assert.match(ui,/method:"PUT"/);
+assert.match(ui,/Evidence only\. This does not approve or execute the action\./);
+assert.match(ui,/Array\.isArray\(item\?\.toolScope\)\?item\.toolScope:\[\]/);
+assert.doesNotMatch(ui,/executeResponsibility/);
+assert.match(css,/owner-responsibility-evidence-actions/);
+assert.match(css,/owner-responsibility-evidence-form/);
 console.log("v287 responsibility observation ledger: ok");
