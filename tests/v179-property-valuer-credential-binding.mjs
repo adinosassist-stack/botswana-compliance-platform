@@ -79,9 +79,9 @@ assert.match(runner,/foreign_key_check/);
 assert.match(workflow,/\[migrate-063\]/);
 assert.match(workflow,/thebe\/production-d1-063/);
 assert.match(workflow,/migration authority must be a two-parent merged PR commit/);
-assert.match(deploy,/Current reviewed schema delta: 065_v243_business_goal_observer\.sql/);
+assert.match(deploy,/Current reviewed schema delta: 066_v285_agent_responsibilities\.sql/);
 assert.match(deploy,/063_v179_property_valuer_credential_binding\.sql/);
-assert.match(launch,/through `065_v243_business_goal_observer\.sql`/);
+assert.match(launch,/through `066_v285_agent_responsibilities\.sql`/);
 assert.match(launch,/063_v179_property_valuer_credential_binding\.sql/,"launch guidance must preserve migration 063 as a prerequisite");
 
 console.log("v179 property valuer professional-profile credential binding checks passed");
