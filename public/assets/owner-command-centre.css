@@ -150,3 +150,9 @@
 .owner-responsibility-activity-row{display:grid;grid-template-columns:minmax(86px,.55fr) minmax(0,1.7fr) auto;gap:8px;align-items:start;font-size:12px;line-height:1.35}
 .owner-responsibility-activity-type{font-weight:650;text-transform:capitalize}.owner-responsibility-activity-summary{min-width:0;overflow-wrap:anywhere}.owner-responsibility-activity-time{white-space:nowrap;font-size:11px;opacity:.65}
 @media(max-width:640px){.owner-responsibility-activity-row{grid-template-columns:1fr}.owner-responsibility-activity-time{white-space:normal}}
+
+/* V289 — read-only responsibility evidence detail. */
+.owner-responsibility-evidence-view{justify-self:start;margin-top:2px}
+.owner-responsibility-evidence-detail{display:grid;gap:7px;padding:8px 9px;border:1px solid var(--line,#e5e7eb);border-radius:10px;background:rgba(127,127,127,.04)}
+.owner-responsibility-evidence-detail-row{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:11px;line-height:1.35}
+.owner-responsibility-evidence-detail-row strong{text-transform:capitalize}.owner-responsibility-evidence-detail-row code{font-size:10px;overflow-wrap:anywhere;opacity:.72}
