@@ -76,11 +76,13 @@ assert.throws(
 );
 
 let row=db.prepare("SELECT status,jit_permit_id FROM agent_task_requests WHERE id='q1'").get();
-assert.deepEqual(row,{status:"approved",jit_permit_id:null},
-  "expired permit failure must not transition the request or attach a permit");
+assert.equal(row.status,"approved","expired permit failure must not execute the request");
+assert.equal(row.jit_permit_id,null,"expired permit failure must not attach a permit to the request");
 row=db.prepare("SELECT status,use_count,consumed_at,consumed_by_user_id FROM agent_jit_execution_permits WHERE id='p-expired'").get();
-assert.deepEqual(row,{status:"active",use_count:0,consumed_at:null,consumed_by_user_id:null},
-  "expired permit failure must not consume or mutate the permit");
+assert.equal(row.status,"active","expired permit failure must not mutate permit status");
+assert.equal(row.use_count,0,"expired permit failure must not consume a use");
+assert.equal(row.consumed_at,null,"expired permit failure must not stamp a consumption time");
+assert.equal(row.consumed_by_user_id,null,"expired permit failure must not stamp a consumer");
 
 assert.throws(
   ()=>db.prepare("UPDATE agent_jit_execution_permits SET status='consumed',use_count=1,consumed_at=CURRENT_TIMESTAMP,consumed_by_user_id='owner1' WHERE id='p-expired'").run(),
@@ -88,7 +90,8 @@ assert.throws(
   "an expired permit must not be manually consumable after expiry"
 );
 row=db.prepare("SELECT status,use_count FROM agent_jit_execution_permits WHERE id='p-expired'").get();
-assert.deepEqual(row,{status:"active",use_count:0},"failed consume must leave the expired permit untouched");
+assert.equal(row.status,"active","failed consume must preserve active audit state");
+assert.equal(row.use_count,0,"failed consume must preserve zero use count");
 
 db.close();
 console.log("v281 expired JIT permit no-side-effect gate passed");
