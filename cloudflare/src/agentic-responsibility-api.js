@@ -36,13 +36,16 @@ export async function handleAgenticResponsibilityRequest({request,logicalPath,en
       const found=rows(await env.DB.prepare(`SELECT id,status,tool_scope_json,data_scope_json FROM agent_responsibilities WHERE tenant_id=? AND id=? LIMIT 1`).bind(auth.tenant_id,rid).all())[0];
       if(!found)return json({error:"responsibility_not_found"},404); if(found.status!==rule[0])return json({error:"transition_conflict",status:found.status},409);
       const actor=String(auth.user_id||auth.sub||"owner"),now=new Date().toISOString();
-      if(action==="activate"&&(!Array.isArray(JSON.parse(found.tool_scope_json||"[]"))||!Array.isArray(JSON.parse(found.data_scope_json||"[]"))))return json({error:"scope_invalid"},400);
+      let toolScope=[],dataScope=[]; try{toolScope=JSON.parse(found.tool_scope_json||"[]");dataScope=JSON.parse(found.data_scope_json||"[]")}catch{return json({error:"scope_invalid"},400)}
+      if(action==="activate"&&(!Array.isArray(toolScope)||!toolScope.length||!Array.isArray(dataScope)||!dataScope.length))return json({error:"bounded_scope_required"},400);
       const stamp=action==="activate"?", activated_by_user_id=?, activated_at=?":action==="pause"?", paused_at=?":action==="complete"?", completed_at=?":action==="cancel"?", cancelled_at=?":"";
       const values=action==="activate"?[rule[1],now,actor,now,auth.tenant_id,rid,rule[0]]:[rule[1],now,now,auth.tenant_id,rid,rule[0]];
-      const changed=await env.DB.prepare(`UPDATE agent_responsibilities SET status=?, updated_at=?${stamp} WHERE tenant_id=? AND id=? AND status=?`).bind(...values).run();
-      if(Number(changed?.meta?.changes||0)!==1)return json({error:"transition_conflict"},409);
       const detail=JSON.stringify({from:rule[0],to:rule[1],action}),evidence=await hash(`${rid}|${rule[2]}|${actor}|${detail}`);
-      await env.DB.prepare(`INSERT INTO agent_responsibility_events(id,tenant_id,responsibility_id,event_type,actor_type,actor_id,detail_json,evidence_hash,created_at) VALUES(?,?,?,?,"human",?,?,?,?,?)`).bind(id("revt"),auth.tenant_id,rid,rule[2],actor,detail,evidence,now).run();
+      const results=await env.DB.batch([
+        env.DB.prepare(`UPDATE agent_responsibilities SET status=?, updated_at=?${stamp} WHERE tenant_id=? AND id=? AND status=?`).bind(...values),
+        env.DB.prepare(`INSERT INTO agent_responsibility_events(id,tenant_id,responsibility_id,event_type,actor_type,actor_id,detail_json,evidence_hash,created_at) SELECT ?,?,?,?,"human",?,?,?,?,? WHERE EXISTS(SELECT 1 FROM agent_responsibilities WHERE tenant_id=? AND id=? AND status=?)`).bind(id("revt"),auth.tenant_id,rid,rule[2],actor,detail,evidence,now,auth.tenant_id,rid,rule[1])
+      ]);
+      if(Number(results?.[0]?.meta?.changes||0)!==1||Number(results?.[1]?.meta?.changes||0)!==1)return json({error:"transition_conflict"},409);
       return json({ok:true,id:rid,status:rule[1]});
     }
     if(request.method!=="GET")return json({error:"method_not_allowed"},405);
