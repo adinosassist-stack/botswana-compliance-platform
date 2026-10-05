@@ -94,4 +94,4 @@ assert.equal(row.status,"active","failed consume must preserve active audit stat
 assert.equal(row.use_count,0,"failed consume must preserve zero use count");
 
 db.close();
-console.log("v281 expired JIT permit no-side-effect gate passed");
+console.log("v283 expired JIT permit no-side-effect gate passed");
