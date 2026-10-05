@@ -34,4 +34,18 @@ assert.match(deploy,/066_v285_agent_responsibilities\.sql/);
 const i65=deploy.indexOf("migrations/065_v243_business_goal_observer.sql");
 const i66=deploy.indexOf("migrations/066_v285_agent_responsibilities.sql");
 assert.ok(i65>=0&&i66>i65,"recovery deploy must preserve 065 before 066");
+
+const migration066Runner=fs.readFileSync("scripts/migrate-production-v285-agent-responsibilities.mjs","utf8");
+const migration066Workflow=fs.readFileSync(".github/workflows/migrate-production-v285-agent-responsibilities.yml","utf8");
+assert.match(migration066Runner,/number:66/);
+assert.match(migration066Runner,/a20319aa8c18b5ff2683e84a97ef1ca4503101f5/);
+assert.match(migration066Runner,/time_travel\/bookmark/);
+assert.match(migration066Runner,/agent_responsibilities/);
+assert.match(migration066Runner,/agent_responsibility_events/);
+assert.match(migration066Workflow,/\[migrate-066\]/);
+assert.match(migration066Workflow,/environment: production/);
+assert.match(migration066Workflow,/migration authority must be a two-parent merged PR commit/);
+assert.match(migration066Workflow,/migrate-production-v285-agent-responsibilities\.mjs/);
+assert.match(migration066Workflow,/thebe\/production-d1-066/);
+
 console.log("v285 owner responsibility surface: ok");
