@@ -30,6 +30,9 @@ const base={
   acousticRecoveryChecks:2,
   acousticRecoveryPasses:2,
   acousticRecoveryKinds:["silence","noise"],
+  pronunciationChecks:2,
+  pronunciationPasses:2,
+  pronunciationTags:["thebe-brand","setswana-name"],
   transcript:"private words must never be stored",
   audio:"raw audio must never be stored",
   taskText:"sensitive business request must never be stored",
@@ -52,6 +55,9 @@ assert.equal(live.sample.acousticRecoveryPasses,2);
 assert.deepEqual(live.sample.acousticRecoveryKinds,["noise","silence"]);
 assert.equal(live.sample.fallbackAttempts,1);
 assert.equal(live.sample.fallbackRecoveries,1);
+assert.equal(live.pronunciation.checks,2);
+assert.equal(live.pronunciation.passes,2);
+assert.deepEqual(live.pronunciation.tags,["thebe-brand","setswana-name"]);
 for(const key of ["transcript","audio","taskText","languageContent","acousticContent","providerPrice"]){
   assert.equal(key in live,false);
   assert.equal(key in live.sample,false);
@@ -121,6 +127,9 @@ assert.match(preview,/taskTextStored:false/);
 
 const evidenceSource=fs.readFileSync("cloudflare/src/agentic-live-evidence-v274.js","utf8");
 assert.match(evidenceSource,/acousticContentStored:false/);
+assert.match(evidenceSource,/pronunciationChecks/);
+assert.match(evidenceSource,/pronunciationPasses/);
+assert.match(evidenceSource,/pronunciationTags/);
 
 const browser=fs.readFileSync("public/js/thebe-live-evidence-v274.js","utf8");
 assert.match(browser,/ThebeVoiceEval/);
