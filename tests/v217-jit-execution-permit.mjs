@@ -52,7 +52,7 @@ assert.equal(profile.jit_execution_permits_v217,true);
 assert.equal(profile.jit_execution_permit_single_use,true);
 assert.equal(profile.jit_execution_permit_same_owner_bound,true);
 assert.equal(profile.jit_execution_permit_ttl_seconds,300);
-assert.match(entry,/065_v243_business_goal_observer\.sql/);
+assert.match(entry,/066_v285_agent_responsibilities\.sql/);
 assert.match(entry,/agent_jit_execution_permits/);
 
 assert.match(runner,/number:64/);
