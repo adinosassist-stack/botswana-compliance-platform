@@ -6,6 +6,7 @@ const ui=fs.readFileSync("public/js/owner-command-centre.js","utf8");
 const deploy=fs.readFileSync("cloudflare/deploy-free.sh","utf8");
 const css=fs.readFileSync("public/assets/owner-command-centre.css","utf8");
 const profile=JSON.parse(fs.readFileSync("RELEASE_PROFILE.json","utf8"));
+const entry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
 
 assert.match(api,/path!==["']\/api\/agentic\/responsibilities["']/);
 assert.match(api,/roleAllowed\(auth,"owner","manager"\)/);
@@ -26,6 +27,9 @@ assert.equal(profile.v285_agent_responsibilities,true);
 assert.equal(profile.v285_responsibilities_execution_authority,false);
 assert.equal(profile.v285_responsibility_surface_read_only,true);
 assert.equal(profile.latest_cloudflare_migration,"066_v285_agent_responsibilities.sql");
+assert.match(entry,/const V81_SCHEMA_DELTA="066_v285_agent_responsibilities\.sql"/);
+assert.match(entry,/FROM agent_responsibilities/);
+assert.match(entry,/FROM agent_responsibility_events/);
 assert.match(deploy,/066_v285_agent_responsibilities\.sql/);
 const i65=deploy.indexOf("migrations/065_v243_business_goal_observer.sql");
 const i66=deploy.indexOf("migrations/066_v285_agent_responsibilities.sql");
