@@ -6,7 +6,7 @@ import {
   THEBE_GPT_LIVE_EVAL_VERSION
 } from "./agentic-live-eval-v273.js";
 
-export const THEBE_LIVE_EVIDENCE_VERSION="2026-10-04.voice-evidence-v281";
+export const THEBE_LIVE_EVIDENCE_VERSION="2026-10-05.voice-evidence-v295";
 export const VOICE_EVIDENCE_EVENT="THEBE_LIVE_EVAL_EVIDENCE_RECORDED";
 export const VOICE_EVIDENCE_MAX_ROWS=200;
 
@@ -30,6 +30,7 @@ const cleanLanguageTag=value=>{
   return raw.split("-").map((part,index)=>index===0?part.toLowerCase():(/^[A-Za-z]{2}$/.test(part)?part.toUpperCase():part.toLowerCase())).join("-");
 };
 const cleanLanguageTags=value=>[...new Set((Array.isArray(value)?value:[]).map(cleanLanguageTag).filter(Boolean))].slice(0,12);
+const cleanPronunciationTags=value=>[...new Set((Array.isArray(value)?value:[]).map(item=>cleanId(item,80).toLowerCase()).filter(Boolean))].slice(0,20);
 const cleanAcousticRecoveryKinds=value=>[...new Set((Array.isArray(value)?value:[]).map(item=>String(item||"").trim().toLowerCase()).filter(item=>item==="silence"||item==="noise"))].sort();
 
 export function normalizeVoiceEvalEvidence(body={}){
@@ -67,12 +68,19 @@ export function normalizeVoiceEvalEvidence(body={}){
     acousticRecoveryKinds:cleanAcousticRecoveryKinds(body.acousticRecoveryKinds)
   });
 
+  const pronunciation=Object.freeze({
+    checks:toInt(body.pronunciationChecks,1000),
+    passes:toInt(body.pronunciationPasses,1000),
+    tags:cleanPronunciationTags(body.pronunciationTags)
+  });
+
   return Object.freeze({
     version:THEBE_LIVE_EVIDENCE_VERSION,
     evalVersion:THEBE_GPT_LIVE_EVAL_VERSION,
     sessionId,
     recordedAt:new Date().toISOString(),
-    sample
+    sample,
+    pronunciation
   });
 }
 
@@ -95,6 +103,7 @@ export async function recordVoiceEvalEvidence({env,auth,body}={}){
     seq:sealed.seq,
     scenarioId:evidence.sample.scenarioId,
     runtime:evidence.sample.runtime,
+    pronunciation:evidence.pronunciation,
     productionSwitchAllowed:false
   });
 }
@@ -142,6 +151,10 @@ export async function readVoiceEvalEvidenceSummary({env,auth,limit=VOICE_EVIDENC
     .bind(auth.tenant_id,VOICE_EVIDENCE_EVENT,safeLimit)
     .all();
   const rows=Array.isArray(result?.results)?result.results:[];
+  const pronunciationRows=rows.map(row=>parseEventData(row?.event_data??row?.eventData)?.pronunciation).filter(Boolean);
+  const pronunciationChecks=pronunciationRows.reduce((sum,item)=>sum+toInt(item.checks,1000),0);
+  const pronunciationPasses=pronunciationRows.reduce((sum,item)=>sum+Math.min(toInt(item.passes,1000),toInt(item.checks,1000)),0);
+  const pronunciationTags=[...new Set(pronunciationRows.flatMap(item=>cleanPronunciationTags(item.tags)))].slice(0,40);
   const pairs=pairVoiceEvalEvidenceRows(rows);
   const evaluation=evaluateGptLivePromotionReadiness({pairs});
   return Object.freeze({
@@ -150,6 +163,7 @@ export async function readVoiceEvalEvidenceSummary({env,auth,limit=VOICE_EVIDENC
     evidenceRows:rows.length,
     pairedScenarios:pairs.length,
     evaluation,
+    pronunciation:Object.freeze({checks:pronunciationChecks,passes:pronunciationPasses,rate:pronunciationChecks?pronunciationPasses/pronunciationChecks:null,tags:pronunciationTags}),
     privacy:Object.freeze({rawAudioStored:false,transcriptStored:false,taskTextStored:false,languageContentStored:false,acousticContentStored:false,providerPriceStored:false}),
     productionSwitchAllowed:false
   });
