@@ -365,7 +365,7 @@ async function runBrowserProof(credentials){
     assert(authDirectState.ok,`desktop auth-surface direct state probe failed HTTP ${authDirectState.status} ${safe(authDirectState.error)}`);
     activeStage='desktop app navigation';
     info('desktop synthetic stage','opening authenticated /app/ workspace');
-    const desktopApp=await page.goto(`${ORIGIN}/app/?desktop-owner-proof=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:BROWSER_NAVIGATION_TIMEOUT_MS});
+    const desktopApp=await page.goto(`${ORIGIN}/app/?desktop-owner-proof=${Date.now()}`,{waitUntil:'commit',timeout:BROWSER_NAVIGATION_TIMEOUT_MS});
     assert(desktopApp?.status()===200,'desktop authenticated /app/ route did not return 200');
     activeStage='desktop pre-reload diagnostic';
     await withDeadline('desktop pre-reload diagnostic',observeWorkspaceBootstrap(page,'desktop pre-reload',pageErrors),DIAGNOSTIC_EXTERNAL_DEADLINE_MS);
@@ -405,7 +405,7 @@ async function runBrowserProof(credentials){
     await loginInBrowser(mobilePage,credentials);
     mark('mobile browser login','same owner login returned 200');
     activeStage='mobile app navigation';
-    const mobileApp=await mobilePage.goto(`${ORIGIN}/app/?authenticated-mobile-proof=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:BROWSER_NAVIGATION_TIMEOUT_MS});
+    const mobileApp=await mobilePage.goto(`${ORIGIN}/app/?authenticated-mobile-proof=${Date.now()}`,{waitUntil:'commit',timeout:BROWSER_NAVIGATION_TIMEOUT_MS});
     assert(mobileApp?.status()===200,'mobile authenticated /app/ route did not return 200');
     activeStage='mobile pre-reload diagnostic';
     await withDeadline('mobile pre-reload diagnostic',observeWorkspaceBootstrap(mobilePage,'mobile pre-reload',mobilePageErrors),DIAGNOSTIC_EXTERNAL_DEADLINE_MS);
