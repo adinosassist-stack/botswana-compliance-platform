@@ -1,7 +1,7 @@
 (function installThebeVoiceEvidence(global){
   "use strict";
 
-  const RELEASE="20261004-voice-evidence-v281";
+  const RELEASE="20261005-voice-evidence-v296";
   const EVIDENCE_PATH="/api/agentic/live/preview/evidence";
   const SUMMARY_PATH="/api/agentic/live/preview/evidence/summary";
   const SCENARIO_KEY="thebe.voice.eval.scenario.v281";
@@ -14,6 +14,7 @@
     if(!/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8}){0,2}$/.test(raw))return "";
     return raw.split("-").map((part,index)=>index===0?part.toLowerCase():(/^[A-Za-z]{2}$/.test(part)?part.toUpperCase():part.toLowerCase())).join("-");
   };
+  const cleanPronunciationTag=value=>cleanId(value,80).toLowerCase();
   const cleanAcousticKind=value=>{
     const kind=String(value??"").trim().toLowerCase();
     return kind==="silence"||kind==="noise"?kind:"";
@@ -85,6 +86,9 @@
       acousticRecoveryChecks:0,
       acousticRecoveryPasses:0,
       acousticRecoveryKinds:new Set(),
+      pronunciationChecks:0,
+      pronunciationPasses:0,
+      pronunciationTags:new Set(),
       submitted:false
     };
     emit("thebe-voice-eval-started",{scenarioId,sessionId:active.sessionId});
@@ -185,6 +189,17 @@
     return true;
   }
 
+  function markPronunciation(detail={}){
+    if(!active)return false;
+    const tag=cleanPronunciationTag(detail.tag||detail.pronunciationTag||"");
+    if(!tag)throw new Error("voice_eval_pronunciation_tag_required");
+    active.pronunciationChecks+=1;
+    if(detail.passed===true)active.pronunciationPasses+=1;
+    active.pronunciationTags.add(tag);
+    emit("thebe-voice-eval-pronunciation",{tag,passed:detail.passed===true});
+    return true;
+  }
+
   function markDelegation(detail={}){
     if(!active)return;
     active.delegations+=1;
@@ -235,7 +250,10 @@
       languageTags:[...active.languageTags].sort(),
       acousticRecoveryChecks:active.acousticRecoveryChecks,
       acousticRecoveryPasses:active.acousticRecoveryPasses,
-      acousticRecoveryKinds:[...active.acousticRecoveryKinds].sort()
+      acousticRecoveryKinds:[...active.acousticRecoveryKinds].sort(),
+      pronunciationChecks:active.pronunciationChecks,
+      pronunciationPasses:active.pronunciationPasses,
+      pronunciationTags:[...active.pronunciationTags].sort()
     };
   }
 
@@ -265,6 +283,7 @@
   global.addEventListener?.("thebe-live-event",event=>markServerEvent(event.detail||{}));
   global.addEventListener?.("thebe-live-language-continuity",event=>markLanguageContinuity(event.detail||{}));
   global.addEventListener?.("thebe-live-acoustic-recovery",event=>markAcousticRecovery(event.detail||{}));
+  global.addEventListener?.("thebe-live-pronunciation",event=>markPronunciation(event.detail||{}));
   global.addEventListener?.("thebe-live-delegation",event=>markDelegation(event.detail||{}));
   global.addEventListener?.("thebe-live-delegation-result",event=>markDelegationResult(event.detail||{}));
   global.addEventListener?.("thebe-live-error",event=>markError(event.detail||{}));
@@ -275,8 +294,9 @@
     clearScenario,
     markLanguageContinuity,
     markAcousticRecovery,
+    markPronunciation,
     finalize:finalizeEvidence,
     summary,
-    state:()=>({scenarioId:savedScenario()||null,active:active?{...active,languageTags:[...active.languageTags],acousticRecoveryKinds:[...active.acousticRecoveryKinds]}:null,lastSubmission})
+    state:()=>({scenarioId:savedScenario()||null,active:active?{...active,languageTags:[...active.languageTags],acousticRecoveryKinds:[...active.acousticRecoveryKinds],pronunciationTags:[...active.pronunciationTags]}:null,lastSubmission})
   });
 })(window);
