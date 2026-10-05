@@ -6,6 +6,7 @@ const source=fs.readFileSync('public/js/api-client.js','utf8');
 const calls=[];
 let rootAbortCount=0;
 let stateCounter=0;
+let identityCounter=0;
 let fallbackCounter=0;
 
 function jsonResponse(data,status=200){
@@ -27,6 +28,13 @@ async function mockedFetch(raw,{signal}={}){
   }
   if(url.searchParams.get('__thebe_api_path')==='/api/state'){
     throw new Error('workspace state must use the direct route before tunnel fallback');
+  }
+  if(url.pathname==='/api/auth/me'){
+    identityCounter+=1;
+    return jsonResponse({user:{id:'user-1',role:'owner'},csrfToken:'csrf-1'});
+  }
+  if(url.searchParams.get('__thebe_api_path')==='/api/auth/me'){
+    throw new Error('workspace identity must use the direct route before tunnel fallback');
   }
   if(url.searchParams.get('__thebe_api_path')==='/api/fallback-probe'){
     return new Promise(()=>{
@@ -55,7 +63,7 @@ const document={
 const window={
   document,
   location:{href:'https://thebedesk.com/',origin:'https://thebedesk.com',replace(){throw new Error('unexpected canonical redirect')}},
-  crypto:{randomUUID(){return `test-${stateCounter}-${fallbackCounter}-${calls.length}`}}
+  crypto:{randomUUID(){return `test-${stateCounter}-${identityCounter}-${fallbackCounter}-${calls.length}`}}
 };
 const context={window,URL,Headers,AbortController,FormData,setTimeout,clearTimeout,console,fetch:mockedFetch,Error,Date,Math,Object,String,Number,JSON,Promise};
 vm.runInNewContext(source,context,{filename:'public/js/api-client.js'});
@@ -68,6 +76,13 @@ const state=await stateClient.request('/api/state');
 assert.equal(state.version,1,'direct state read did not return the workspace state');
 assert.equal(new URL(calls[stateStart]).pathname,'/api/state','cold workspace state must use the direct API route first');
 assert.ok(!calls.slice(stateStart).some(raw=>new URL(raw).searchParams.get('__thebe_api_path')==='/api/state'),'cold workspace state unexpectedly entered the root tunnel');
+
+const identityClient=window.BW.api.createClient({timeoutMs:240,retries:0});
+const identityStart=calls.length;
+const identity=await identityClient.request('/api/auth/me');
+assert.equal(identity.user?.id,'user-1','direct identity read did not return the authenticated user');
+assert.equal(new URL(calls[identityStart]).pathname,'/api/auth/me','cold workspace identity must use the direct API route first');
+assert.ok(!calls.slice(identityStart).some(raw=>new URL(raw).searchParams.get('__thebe_api_path')==='/api/auth/me'),'cold workspace identity unexpectedly entered the root tunnel');
 
 const fallbackClient=window.BW.api.createClient({timeoutMs:240,retries:0});
 const fallbackStart=calls.length;
@@ -87,4 +102,4 @@ assert.equal(new URL(calls[beforeSecond]).pathname,'/__thebe_api/fallback-probe'
 assert.equal(rootAbortCount,1,'preferred shadow transport unexpectedly retried the hung root route');
 assert.equal(appended.length,1,'owner WhatsApp loader contract changed unexpectedly');
 
-console.log('Idempotent transport fallback runtime: direct-first workspace state + bounded generic fallback PASS');
+console.log('Idempotent transport fallback runtime: direct-first workspace identity/state + bounded generic fallback PASS');
