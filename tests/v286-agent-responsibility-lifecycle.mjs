@@ -1,0 +1,16 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+const api=fs.readFileSync("cloudflare/src/agentic-responsibility-api.js","utf8");
+assert.match(api,/request\.method==="POST"/);
+assert.match(api,/request\.method==="PATCH"/);
+assert.match(api,/owner_required/);
+assert.match(api,/validateResponsibility/);
+assert.match(api,/WHERE tenant_id=\? AND id=\?/);
+assert.match(api,/CREATED/);
+for(const event of ["ACTIVATED","PAUSED","RESUMED","COMPLETED","CANCELLED"])assert.match(api,new RegExp(event));
+assert.match(api,/transition_conflict/);
+assert.match(api,/evidence_hash/);
+assert.match(api,/crypto\.subtle\.digest\("SHA-256"/);
+assert.doesNotMatch(api,/execution_allowed/);
+assert.doesNotMatch(api,/jit_execution_permits|agent_task_execution/i);
+console.log("v286 responsibility lifecycle: ok");
