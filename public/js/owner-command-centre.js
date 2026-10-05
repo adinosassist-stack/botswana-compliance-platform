@@ -1,7 +1,7 @@
 (function initOwnerCommandCentre(global){
   "use strict";
 
-  const RELEASE="20261005-v288";
+  const RELEASE="20261005-v289";
   const MAX_OPPORTUNITIES=500;
   const MAX_CAMPAIGNS=50;
   const PROFILE_KEYS=Object.freeze({
@@ -4224,6 +4224,7 @@
           if(when)row.append(text("time",when,"owner-responsibility-activity-time"));
           activity.append(row);
         }
+        if(Number(item?.eventCount||0)>recent.length)activity.append(button("View evidence",()=>toggleResponsibilityEvidenceDetail(activity,item),"btn soft owner-responsibility-evidence-view"));
         card.append(activity);
       }
       const status=String(item?.status||"draft");
@@ -4246,6 +4247,21 @@
       list.append(card);
     }
     host.append(list);
+  }
+
+  function toggleResponsibilityEvidenceDetail(activity,item){
+    const existing=q(".owner-responsibility-evidence-detail",activity);if(existing){existing.remove();return}
+    const detail=document.createElement("div");detail.className="owner-responsibility-evidence-detail";
+    for(const event of Array.isArray(item?.recentEvents)?item.recentEvents.slice(0,3):[]){
+      const row=document.createElement("div");row.className="owner-responsibility-evidence-detail-row";
+      const label=String(event?.eventType||"EVENT").replaceAll("_"," ").toLowerCase();
+      row.append(text("strong",label),text("span",`actor: ${cleanText(event?.actorType||"unknown",20)}`));
+      if(event?.actionKey)row.append(text("span",`tool: ${cleanText(event.actionKey,120)}`));
+      if(event?.evidenceHash)row.append(text("code",`evidence ${cleanText(event.evidenceHash,16)}…`));
+      detail.append(row);
+    }
+    detail.append(text("div","Read-only evidence. Viewing this record grants no execution authority.","owner-responsibility-note"));
+    activity.append(detail);
   }
 
   function openResponsibilityEvidence(card,item,kind){
