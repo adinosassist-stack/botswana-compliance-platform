@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 const api=fs.readFileSync("cloudflare/src/agentic-responsibility-api.js","utf8");
+const ui=fs.readFileSync("public/js/owner-command-centre.js","utf8");
+const css=fs.readFileSync("public/assets/owner-command-centre.css","utf8");
 assert.match(api,/request\.method==="POST"/);
 assert.match(api,/request\.method==="PATCH"/);
 assert.match(api,/owner_required/);
@@ -16,4 +18,9 @@ assert.match(api,/evidence_hash/);
 assert.match(api,/crypto\.subtle\.digest\("SHA-256"/);
 assert.doesNotMatch(api,/execution_allowed/);
 assert.doesNotMatch(api,/jit_execution_permits|agent_task_execution/i);
+assert.match(ui,/transitionResponsibility/);
+assert.match(ui,/canEdit\(\)/);
+for(const action of ["activate","pause","resume","complete","cancel"])assert.match(ui,new RegExp(action));
+assert.doesNotMatch(ui,/executeResponsibility/);
+assert.match(css,/owner-responsibility-actions/);
 console.log("v286 responsibility lifecycle: ok");
