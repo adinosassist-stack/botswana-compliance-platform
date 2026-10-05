@@ -2,6 +2,7 @@ import base from "./production-entry.js";
 import {handleAgenticAuthorityRequest} from "./agentic-authority-core.js";
 import {handleAgenticControlPlaneRequest} from "./agentic-control-plane.js";
 import {handleAgenticResponsibilityRequest} from "./agentic-responsibility-api.js";
+import {handleAgenticResponsibilityCommand} from "./agentic-responsibility-command.js";
 import {handleAgenticWhatsAppRequest} from "./agentic-whatsapp-core.js";
 import {handleAgenticTaskExecutionRequest} from "./agentic-task-execution.js";
 import {handleAgenticPersistentTaskRequest} from "./agentic-persistent-tasks.js";
@@ -212,6 +213,8 @@ export default {
     if(financeReconciliationResponse)return financeReconciliationResponse;
     const persistentTaskResponse=await handleAgenticPersistentTaskRequest({request,logicalPath,env});
     if(persistentTaskResponse)return persistentTaskResponse;
+    const responsibilityCommandResponse=await handleAgenticResponsibilityCommand({request,logicalPath,env});
+    if(responsibilityCommandResponse)return responsibilityCommandResponse;
     const responsibilityResponse=await handleAgenticResponsibilityRequest({request,logicalPath,env});
     if(responsibilityResponse)return responsibilityResponse;
     const controlPlaneResponse=await handleAgenticControlPlaneRequest({request,logicalPath,env});

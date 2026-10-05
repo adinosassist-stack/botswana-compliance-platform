@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
-const api=fs.readFileSync("cloudflare/src/agentic-responsibility-api.js","utf8");
+const api=fs.readFileSync("cloudflare/src/agentic-responsibility-command.js","utf8");
 const ui=fs.readFileSync("public/js/owner-command-centre.js","utf8");
 const css=fs.readFileSync("public/assets/owner-command-centre.css","utf8");
 assert.match(api,/request\.method==="POST"/);

@@ -4288,7 +4288,7 @@
       if(proposal)payload.actionKey=cleanText(actionKey?.value,120);
       if(!payload.summary||(proposal&&!payload.actionKey))return;
       responsibilityBusy=true;submit.disabled=true;
-      try{await request("/api/agentic/responsibilities",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});await loadResponsibilities()}
+      try{await request("/api/agentic/responsibilities/commands",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});await loadResponsibilities()}
       catch(error){global.alert?.(String(error?.message||"Responsibility evidence failed.").slice(0,220))}
       finally{responsibilityBusy=false;submit.disabled=false}
     });
@@ -4317,7 +4317,7 @@
       const payload={title:values.title,objective:values.objective,workspace:values.workspace,autonomyCeiling:1,scheduleKind:"manual",toolScope:split(values.toolScope),dataScope:split(values.dataScope)};
       if(!payload.toolScope.length||!payload.dataScope.length){global.alert?.("Define at least one approved tool and data scope before creating the draft.");return}
       responsibilityBusy=true;submit.disabled=true;
-      try{await request("/api/agentic/responsibilities",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});await loadResponsibilities()}
+      try{await request("/api/agentic/responsibilities/commands",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});await loadResponsibilities()}
       catch(error){global.alert?.(String(error?.message||"Responsibility creation failed.").slice(0,220))}
       finally{responsibilityBusy=false;submit.disabled=false}
     });
@@ -4331,7 +4331,7 @@
     if((action==="activate"||action==="complete"||action==="cancel")&&!global.confirm?.(`Confirm ${labels[action]} for “${cleanText(item?.title||"this responsibility",80)}”? This changes its governed lifecycle state.`))return;
     responsibilityBusy=true;
     try{
-      await request("/api/agentic/responsibilities",{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({id:item?.id,action})});
+      await request("/api/agentic/responsibilities/commands",{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({id:item?.id,action})});
       await loadResponsibilities();
     }catch(error){
       global.alert?.(String(error?.message||"Responsibility update failed.").slice(0,220));
