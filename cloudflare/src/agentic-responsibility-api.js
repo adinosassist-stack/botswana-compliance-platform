@@ -15,7 +15,7 @@ export async function handleAgenticResponsibilityRequest({request,logicalPath,en
   const auth=await authenticate(request,env);
   if(!auth)return json({error:"unauthenticated"},401);
   if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
-  if(request.method!=="GET"&&!ownerOnly(auth))return json({error:"owner_required"},403);
+  if(!["GET","PUT"].includes(request.method)&&!ownerOnly(auth))return json({error:"owner_required"},403);
   try{
     if(request.method==="POST"){
       const body=await request.json().catch(()=>null); if(!body)return json({error:"invalid_json"},400);
@@ -40,10 +40,10 @@ export async function handleAgenticResponsibilityRequest({request,logicalPath,en
       if(!summary)return json({error:"responsibility_evidence_invalid"},400);
       let toolScope=[]; try{toolScope=JSON.parse(found.tool_scope_json||"[]")}catch{return json({error:"scope_invalid"},400)}
       if(eventType==="PROPOSED_ACTION"&&(!actionKey||!Array.isArray(toolScope)||!toolScope.includes(actionKey)))return json({error:"proposal_out_of_scope"},403);
-      const actor=String(auth.user_id||auth.sub||"owner"),now=new Date().toISOString();
+      const actor=String(auth.user_id||auth.sub||"manager"),actorType=ownerOnly(auth)?"human":"human",now=new Date().toISOString();
       const detail=JSON.stringify(eventType==="OBSERVED"?{summary}:{summary,actionKey,executionAuthority:false});
       const evidence=await hash(`${rid}|${eventType}|${actor}|${detail}`);
-      const written=await env.DB.prepare(`INSERT INTO agent_responsibility_events(id,tenant_id,responsibility_id,event_type,actor_type,actor_id,detail_json,evidence_hash,created_at) SELECT ?,?,?,?,"human",?,?,?,?,? WHERE EXISTS(SELECT 1 FROM agent_responsibilities WHERE tenant_id=? AND id=? AND status="active")`).bind(id("revt"),auth.tenant_id,rid,eventType,actor,detail,evidence,now,auth.tenant_id,rid).run();
+      const written=await env.DB.prepare(`INSERT INTO agent_responsibility_events(id,tenant_id,responsibility_id,event_type,actor_type,actor_id,detail_json,evidence_hash,created_at) SELECT ?,?,?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM agent_responsibilities WHERE tenant_id=? AND id=? AND status="active")`).bind(id("revt"),auth.tenant_id,rid,eventType,actorType,actor,detail,evidence,now,auth.tenant_id,rid).run();
       if(Number(written?.meta?.changes||0)!==1)return json({error:"responsibility_evidence_conflict"},409);
       return json({ok:true,id:rid,eventType,executionAuthority:false},201);
     }
