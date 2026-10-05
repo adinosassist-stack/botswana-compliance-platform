@@ -55,6 +55,8 @@ export function normalizeVoiceEvalEvidence(body={}){
     delegationsCompleted:toInt(body.delegationsCompleted),
     delegationsFailed:toInt(body.delegationsFailed),
     providerFailures:toInt(body.providerFailures),
+    fallbackAttempts:toInt(body.fallbackAttempts),
+    fallbackRecoveries:toInt(body.fallbackRecoveries),
     sessionSeconds:toMetric(body.sessionSeconds,24*60*60),
     usageSeconds:toMetric(body.usageSeconds,24*60*60),
     languageContinuityChecks:toInt(body.languageContinuityChecks,1000),
