@@ -4197,6 +4197,7 @@
     const copy=document.createElement("div");
     copy.append(text("div","Persistent responsibilities","section-eyebrow"),text("h4","What Thebe is continuously responsible for"));
     head.append(copy,text("span",String(items.filter(x=>String(x?.status)==="active").length),"badge"));
+    if(canEdit())head.append(button("New responsibility",()=>openResponsibilityCreator(host),"btn soft"));
     host.append(head);
     if(!items.length){
       host.append(text("div","No active responsibilities yet. Thebe will not create or activate one without an owner-defined objective and bounded scope.","owner-command-empty"));
@@ -4223,6 +4224,35 @@
       list.append(card);
     }
     host.append(list);
+  }
+
+  function openResponsibilityCreator(host){
+    if(!canEdit()||responsibilityBusy||q(".owner-responsibility-create",host))return;
+    const form=document.createElement("form");form.className="owner-responsibility-create";
+    const field=(label,name,placeholder="")=>{const wrap=document.createElement("label");wrap.append(text("span",label));const input=document.createElement("input");input.name=name;input.placeholder=placeholder;input.required=true;wrap.append(input);return wrap};
+    const title=field("Title","title","e.g. Watch overdue receivables");
+    const objective=field("Objective","objective","What should Thebe continuously watch or prepare?");
+    const workspace=document.createElement("select");workspace.name="workspace";for(const value of ["owner","finance","property","people","compliance","market","operations"]){const o=document.createElement("option");o.value=value;o.textContent=value;workspace.append(o)}
+    const workspaceWrap=document.createElement("label");workspaceWrap.append(text("span","Workspace"),workspace);
+    const tools=field("Tool scope","toolScope","comma-separated approved tools");
+    const data=field("Data scope","dataScope","comma-separated approved data scopes");
+    const note=text("div","Creates a draft only. Activation remains a separate owner decision and still grants no execution authority.","owner-responsibility-note");
+    const actions=document.createElement("div");actions.className="owner-responsibility-actions";
+    actions.append(button("Cancel",()=>form.remove(),"btn soft"));
+    const submit=button("Create draft",()=>{},"btn primary");submit.type="submit";actions.append(submit);
+    form.append(title,objective,workspaceWrap,tools,data,note,actions);
+    form.addEventListener("submit",async event=>{
+      event.preventDefault();if(responsibilityBusy)return;
+      const values=Object.fromEntries(new FormData(form).entries());
+      const split=value=>String(value||"").split(",").map(x=>cleanText(x,120)).filter(Boolean);
+      const payload={title:values.title,objective:values.objective,workspace:values.workspace,autonomyCeiling:1,scheduleKind:"manual",toolScope:split(values.toolScope),dataScope:split(values.dataScope)};
+      if(!payload.toolScope.length||!payload.dataScope.length){global.alert?.("Define at least one approved tool and data scope before creating the draft.");return}
+      responsibilityBusy=true;submit.disabled=true;
+      try{await request("/api/agentic/responsibilities",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});await loadResponsibilities()}
+      catch(error){global.alert?.(String(error?.message||"Responsibility creation failed.").slice(0,220))}
+      finally{responsibilityBusy=false;submit.disabled=false}
+    });
+    host.insertBefore(form,host.children[1]||null);
   }
 
   async function transitionResponsibility(item,action){
