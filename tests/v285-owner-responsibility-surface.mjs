@@ -1,0 +1,22 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+const api=fs.readFileSync("cloudflare/src/agentic-responsibility-api.js","utf8");
+const entry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
+const ui=fs.readFileSync("public/js/owner-command-centre.js","utf8");
+const deploy=fs.readFileSync("cloudflare/deploy-free.sh","utf8");
+
+assert.match(api,/path!==["']\/api\/agentic\/responsibilities["']/);
+assert.match(api,/roleAllowed\(auth,"owner","manager"\)/);
+assert.match(api,/request\.method!=="GET"/);
+assert.match(api,/WHERE tenant_id=\?/);
+assert.doesNotMatch(api,/INSERT|UPDATE|DELETE FROM agent_responsibilities/i);
+assert.match(entry,/handleAgenticResponsibilityRequest/);
+assert.match(ui,/ownerResponsibilityPanel/);
+assert.match(ui,/request\("\/api\/agentic\/responsibilities"\)/);
+assert.match(ui,/No active responsibilities yet/);
+assert.doesNotMatch(ui,/activateResponsibility|executeResponsibility/);
+assert.match(deploy,/066_v285_agent_responsibilities\.sql/);
+const i65=deploy.indexOf("migrations/065_v243_business_goal_observer.sql");
+const i66=deploy.indexOf("migrations/066_v285_agent_responsibilities.sql");
+assert.ok(i65>=0&&i66>i65,"recovery deploy must preserve 065 before 066");
+console.log("v285 owner responsibility surface: ok");
