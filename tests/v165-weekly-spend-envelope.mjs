@@ -154,7 +154,7 @@ assert.match(worker,/conservative planning envelope/);
 assert.match(worker,/never present it as spending authorization or financial advice/);
 
 const owner=fs.readFileSync("public/js/owner-command-centre.js","utf8");
-assert.match(owner,/const RELEASE="(?:20261001-v246|20261005-v285|20261005-v286|20261005-v287)"/);
+assert.match(owner,/const RELEASE="(?:20261001-v246|20261005-v285|20261005-v286|20261005-v287|20261005-v288)"/);
 assert.match(owner,/label:"Spend this week"/);
 assert.match(owner,/Finance review/);
 assert.match(owner,/withholding the spend envelope/);
