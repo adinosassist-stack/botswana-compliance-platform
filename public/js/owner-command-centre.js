@@ -1,7 +1,7 @@
 (function initOwnerCommandCentre(global){
   "use strict";
 
-  const RELEASE="20261005-v287";
+  const RELEASE="20261005-v288";
   const MAX_OPPORTUNITIES=500;
   const MAX_CAMPAIGNS=50;
   const PROFILE_KEYS=Object.freeze({
@@ -4212,6 +4212,20 @@
         text("p",cleanText(item?.objective||"",420),"owner-attention-reason"),
         text("div",`${cleanText(item?.status||"draft",20)} · autonomy ${Number(item?.autonomyCeiling??item?.autonomy_ceiling??0)} · ${cleanText(item?.scheduleKind||item?.schedule_kind||"manual",20)} · ${Number(item?.eventCount||0)} audit event${Number(item?.eventCount||0)===1?"":"s"}`,"owner-attention-meta")
       );
+      const recent=Array.isArray(item?.recentEvents)?item.recentEvents.slice(0,3):[];
+      if(recent.length){
+        const activity=document.createElement("div");activity.className="owner-responsibility-activity";
+        activity.append(text("div","Recent activity","owner-responsibility-activity-title"));
+        for(const event of recent){
+          const row=document.createElement("div");row.className="owner-responsibility-activity-row";
+          const label=String(event?.eventType||"EVENT").replaceAll("_"," ").toLowerCase();
+          const when=event?.createdAt?new Date(event.createdAt).toLocaleString(): "";
+          row.append(text("span",label,"owner-responsibility-activity-type"),text("span",cleanText(event?.summary||label,180),"owner-responsibility-activity-summary"));
+          if(when)row.append(text("time",when,"owner-responsibility-activity-time"));
+          activity.append(row);
+        }
+        card.append(activity);
+      }
       const status=String(item?.status||"draft");
       if(status==="active"&&canView()){
         const evidenceActions=document.createElement("div");evidenceActions.className="owner-responsibility-evidence-actions";

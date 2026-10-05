@@ -19,7 +19,7 @@ assert.match(api,/!\["GET","PUT"\]\.includes\(request\.method\)&&!ownerOnly\(aut
 assert.doesNotMatch(api,/execution_allowed/);
 assert.doesNotMatch(api,/jit_execution_permits|agent_execution_grants|agent_task_execution/i);
 assert.doesNotMatch(api,/fetch\(|env\.[A-Z_]+\.fetch|queue\.send/i);
-assert.match(ui,/const RELEASE="20261005-v287"/);
+assert.match(ui,/const RELEASE="20261005-v28(?:7|8)"/);
 assert.match(ui,/openResponsibilityEvidence/);
 assert.match(ui,/Add observation/);
 assert.match(ui,/Propose action/);

@@ -143,3 +143,10 @@
 #appShell .owner-responsibility-evidence-form textarea{resize:vertical;min-height:72px}
 #appShell .owner-responsibility-evidence-form .owner-responsibility-actions{margin-top:0}
 @media(max-width:760px){#appShell .owner-responsibility-evidence-actions{gap:5px}#appShell .owner-responsibility-evidence-actions .btn{width:auto!important}}
+
+/* V288 — bounded read-only responsibility evidence timeline. */
+.owner-responsibility-activity{display:grid;gap:6px;margin-top:10px;padding-top:9px;border-top:1px solid var(--line,#e5e7eb)}
+.owner-responsibility-activity-title{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;opacity:.7}
+.owner-responsibility-activity-row{display:grid;grid-template-columns:minmax(86px,.55fr) minmax(0,1.7fr) auto;gap:8px;align-items:start;font-size:12px;line-height:1.35}
+.owner-responsibility-activity-type{font-weight:650;text-transform:capitalize}.owner-responsibility-activity-summary{min-width:0;overflow-wrap:anywhere}.owner-responsibility-activity-time{white-space:nowrap;font-size:11px;opacity:.65}
+@media(max-width:640px){.owner-responsibility-activity-row{grid-template-columns:1fr}.owner-responsibility-activity-time{white-space:normal}}
