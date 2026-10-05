@@ -1,7 +1,7 @@
 (function initOwnerCommandCentre(global){
   "use strict";
 
-  const RELEASE="20261005-v285";
+  const RELEASE="20261005-v286";
   const MAX_OPPORTUNITIES=500;
   const MAX_CAMPAIGNS=50;
   const PROFILE_KEYS=Object.freeze({
@@ -4211,9 +4211,32 @@
         text("p",cleanText(item?.objective||"",420),"owner-attention-reason"),
         text("div",`${cleanText(item?.status||"draft",20)} · autonomy ${Number(item?.autonomyCeiling??item?.autonomy_ceiling??0)} · ${cleanText(item?.scheduleKind||item?.schedule_kind||"manual",20)} · ${Number(item?.eventCount||0)} audit event${Number(item?.eventCount||0)===1?"":"s"}`,"owner-attention-meta")
       );
+      if(canEdit()){
+        const actions=document.createElement("div");actions.className="owner-responsibility-actions";
+        const status=String(item?.status||"draft");
+        const options=status==="draft"?[["Activate","activate"],["Cancel","cancel"]]
+          :status==="active"?[["Pause","pause"],["Complete","complete"]]
+          :status==="paused"?[["Resume","resume"]]:[];
+        for(const [label,action] of options)actions.append(button(label,()=>transitionResponsibility(item,action),"btn soft"));
+        if(options.length)card.append(actions);
+      }
       list.append(card);
     }
     host.append(list);
+  }
+
+  async function transitionResponsibility(item,action){
+    if(!canEdit()||responsibilityBusy)return;
+    const labels={activate:"activate",pause:"pause",resume:"resume",complete:"complete",cancel:"cancel"};
+    if(!labels[action])return;
+    if((action==="activate"||action==="complete"||action==="cancel")&&!global.confirm?.(`Confirm ${labels[action]} for “${cleanText(item?.title||"this responsibility",80)}”? This changes its governed lifecycle state.`))return;
+    responsibilityBusy=true;
+    try{
+      await request("/api/agentic/responsibilities",{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({id:item?.id,action})});
+      await loadResponsibilities();
+    }catch(error){
+      global.alert?.(String(error?.message||"Responsibility update failed.").slice(0,220));
+    }finally{responsibilityBusy=false}
   }
 
   async function loadResponsibilities(){
