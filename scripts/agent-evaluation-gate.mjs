@@ -23,6 +23,17 @@ if(!report.pass){
   process.exit(1);
 }
 
+try{
+  await import(new URL("../tests/v217-jit-execution-permit.mjs",import.meta.url));
+  await import(new URL("../tests/v281-jit-expiry-no-side-effect.mjs",import.meta.url));
+}catch(error){
+  console.error(JSON.stringify({
+    gate:"jit-execution-permit-safety",
+    error:String(error?.stack||error?.message||error)
+  },null,2));
+  process.exit(1);
+}
+
 const voiceSource=fs.readFileSync(new URL("../cloudflare/src/agentic-live-voice.js",import.meta.url),"utf8");
 const voice=runVoiceRuntimeEvaluationGate({source:voiceSource});
 if(!voice.pass){
@@ -65,6 +76,10 @@ console.log(JSON.stringify({
   passed:report.passed,
   falseAllows:report.falseAllows,
   executionEscapes:report.executionEscapes,
+  jitExecutionPermitSafety:{
+    v217:"PASS",
+    expiredPermitNoSideEffectV281:"PASS"
+  },
   voiceRuntime:{
     version:voice.version,
     productionModel:"gpt-realtime-2.1",
