@@ -132,3 +132,14 @@
 #appShell .owner-responsibility-note{grid-column:1/-1;color:#6d7680;font-size:10.5px;line-height:1.4}
 #appShell .owner-responsibility-create>.owner-responsibility-actions{grid-column:1/-1;margin-top:0}
 @media(max-width:760px){#appShell .owner-responsibility-create{grid-template-columns:1fr}}
+
+
+/* V287 — governed responsibility evidence controls; evidence never executes actions. */
+#appShell .owner-responsibility-evidence-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+#appShell .owner-responsibility-evidence-actions .btn{min-height:30px!important;padding:5px 9px!important;font-size:11px!important}
+#appShell .owner-responsibility-evidence-form{display:grid;gap:7px;margin-top:9px;padding:9px;border:1px solid #dce6f2;border-radius:11px;background:#f8fbff}
+#appShell .owner-responsibility-evidence-title{font-size:11px;font-weight:800;color:#3f4d5b}
+#appShell .owner-responsibility-evidence-form textarea,#appShell .owner-responsibility-evidence-form select{width:100%;min-width:0;padding:7px 9px;border:1px solid #dfe4e9;border-radius:9px;background:#fff;font:inherit;color:#242a31}
+#appShell .owner-responsibility-evidence-form textarea{resize:vertical;min-height:72px}
+#appShell .owner-responsibility-evidence-form .owner-responsibility-actions{margin-top:0}
+@media(max-width:760px){#appShell .owner-responsibility-evidence-actions{gap:5px}#appShell .owner-responsibility-evidence-actions .btn{width:auto!important}}
