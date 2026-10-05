@@ -93,7 +93,27 @@ assert.equal(fallback.runtime,'realtime');
 assert.deepEqual(fallbackCalls.map(row=>row[0]),['/api/agentic/live/preview/status','/api/agentic/live/preview/session','/api/agentic/live/session']);
 assert.equal(fallbackCalls[1][1].body,offer,'preview and Realtime receive the same WebRTC offer');
 assert.equal(fallbackCalls[2][1].body,offer,'fallback preserves the exact original session body');
+assert.equal(second.events.some(event=>event.type==='thebe-live-provider-fallback'&&event.detail?.stage==='attempt'),true);
+assert.equal(second.events.some(event=>event.type==='thebe-live-provider-fallback'&&event.detail?.stage==='recovered'),true);
 assert.equal(second.events.some(event=>event.detail?.actualRuntime==='realtime'&&event.detail?.fallback===true),true);
+
+const failedFallbackCalls=[];
+const failedFallback=runtime(async(url)=>{
+  failedFallbackCalls.push(url);
+  if(url==='/api/agentic/live/preview/status')return {sessionCreationAllowed:true};
+  if(url==='/api/agentic/live/preview/session'){
+    const error=new Error('preview unavailable');error.status=502;error.code='gpt_live_preview_upstream_failed';throw error;
+  }
+  if(url==='/api/agentic/live/session'){
+    const error=new Error('realtime unavailable');error.status=503;error.code='realtime_upstream_failed';throw error;
+  }
+  throw new Error('unexpected');
+});
+await assert.rejects(()=>failedFallback.context.apiJson('/api/agentic/live/session',{method:'POST',body:offer}),/realtime unavailable/);
+assert.deepEqual(failedFallbackCalls,['/api/agentic/live/preview/status','/api/agentic/live/preview/session','/api/agentic/live/session']);
+assert.equal(failedFallback.events.some(event=>event.type==='thebe-live-provider-fallback'&&event.detail?.stage==='attempt'),true);
+assert.equal(failedFallback.events.some(event=>event.type==='thebe-live-provider-fallback'&&event.detail?.stage==='failed'&&event.detail?.status===503),true);
+assert.equal(failedFallback.events.some(event=>event.detail?.fallback===true),false,'failed Realtime fallback must not masquerade as a recovered runtime selection');
 
 const disabledCalls=[];
 const third=runtime(async(url,options={})=>{

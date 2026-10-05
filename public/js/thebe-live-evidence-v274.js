@@ -103,11 +103,18 @@
     if(Number.isFinite(Number(detail.elapsedMs))&&Number(detail.elapsedMs)>=0)active.connectMs=Number(detail.elapsedMs);
     const usage=boundedUsage(detail.usageSeconds);
     if(usage!==null)active.usageSeconds=Math.max(active.usageSeconds,usage);
-    if(detail.fallback===true){
+  }
+
+  function markProviderFallback(detail={}){
+    if(!active&&savedScenario())newSession(detail);
+    if(!active)return;
+    const stage=String(detail.stage||"").trim().toLowerCase();
+    if(stage==="attempt"){
       active.fallbackAttempts+=1;
-      if(runtime==="realtime")active.fallbackRecoveries+=1;
       active.providerFailures+=1;
+      return;
     }
+    if(stage==="recovered")active.fallbackRecoveries=Math.min(active.fallbackAttempts,active.fallbackRecoveries+1);
   }
 
   function markVoiceState(detail={}){
@@ -253,6 +260,7 @@
   async function summary(){return safeApi(SUMMARY_PATH)}
 
   global.addEventListener?.("thebe-live-runtime-selection",event=>markRuntime(event.detail||{}));
+  global.addEventListener?.("thebe-live-provider-fallback",event=>markProviderFallback(event.detail||{}));
   global.addEventListener?.("thebe-live-state",event=>markVoiceState(event.detail||{}));
   global.addEventListener?.("thebe-live-event",event=>markServerEvent(event.detail||{}));
   global.addEventListener?.("thebe-live-language-continuity",event=>markLanguageContinuity(event.detail||{}));
