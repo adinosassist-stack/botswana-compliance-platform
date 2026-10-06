@@ -1,3 +1,4 @@
+import "./v305-workspace-readiness-order.mjs";
 import fs from "node:fs";
 import assert from "node:assert/strict";
 
