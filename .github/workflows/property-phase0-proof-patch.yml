@@ -1,0 +1,61 @@
+name: Apply Property Phase0 Proof Fix
+
+on:
+  push:
+    branches:
+      - chatgpt/phase0-property-analyse-proof
+    paths:
+      - '.github/workflows/property-phase0-proof-patch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: chatgpt/phase0-property-analyse-proof
+          persist-credentials: true
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Patch synthetic Property journey
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path=Path('scripts/production-synthetic-full-user-wrapper.mjs')
+          text=path.read_text()
+          old="""    await openOwnerViewThroughNav('propertyintelligence');
+    try{
+"""
+          new="""    await openOwnerViewThroughNav('propertyintelligence');
+    const propertyAnalyseTab=page.getByRole('tab',{name:'Analyse',exact:true});
+    assert(await propertyAnalyseTab.count(),'Property Analyse tab is missing from the authenticated Property workspace');
+    await propertyAnalyseTab.click();
+    await page.waitForFunction(()=>document.getElementById('propertyintelligence')?.dataset?.propertyActivePane==='analyse',null,{timeout:VIEW_TIMEOUT_MS});
+    mark('Property Analyse tab','opened through the real Property workspace tab before calculator proof');
+    try{
+"""
+          if text.count(old)!=1:
+              raise SystemExit(f'expected exactly one Property proof insertion point, found {text.count(old)}')
+          path.write_text(text.replace(old,new,1))
+          PY
+          node --check scripts/production-synthetic-full-user-wrapper.mjs
+          grep -n -A 10 -B 2 "Property Analyse tab" scripts/production-synthetic-full-user-wrapper.mjs
+      - name: Commit only the proof correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/property-phase0-proof-patch.yml
+          git add scripts/production-synthetic-full-user-wrapper.mjs
+          git config user.name 'thebe-release-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git commit -m 'test: navigate to Property Analyse before calculator proof'
+          git push origin HEAD:chatgpt/phase0-property-analyse-proof
