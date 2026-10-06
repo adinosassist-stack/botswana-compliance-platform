@@ -7,6 +7,7 @@ const VALID_REGISTRATION_MODES=new Set(["hold","cohort","open"]);
 const WORKSPACE_SURFACE_ROLES=new Set(["owner","manager","reviewer","auditor"]);
 const OAUTH_VISIBILITY_SCRIPT="/js/oauth-availability.js?v=20260916b";
 const WORKSPACE_BOUNDARY_SCRIPT="/js/surface-boundaries.js?v=20260918-no-layout-read";
+const WORKSPACE_IDENTITY_BOOTSTRAP_SCRIPT="/js/workspace-identity-bootstrap-v303.js?v=20261006-v303";
 const PUBLIC_HOME_ASSET="/home";
 const AUTH_PORTAL_ASSET="/auth";
 const VOICE_SURFACE_PERMISSIONS_POLICY="camera=(), microphone=(self), geolocation=(), payment=()";
@@ -233,6 +234,19 @@ function injectInitialWorkspaceState(html,payload){
   return source.slice(0,index)+tag+source.slice(index);
 }
 
+function injectInitialWorkspaceIdentity(html,payload){
+  const source=String(html||"");
+  const bootstrapBare=WORKSPACE_IDENTITY_BOOTSTRAP_SCRIPT.split("?",1)[0];
+  if(!payload||source.includes('id="thebe-initial-workspace-identity"')||source.includes(bootstrapBare))return source;
+  const serialized=safeEmbeddedJson(payload);
+  if(!serialized)return source;
+  const runtimeTag=/<script\b(?=[^>]*\bid=["']thebe-workspace-runtime["'])[^>]*><\/script>/i;
+  if(!runtimeTag.test(source))return source;
+  const data=`<script type="application/json" id="thebe-initial-workspace-identity">${serialized}</script>\n`;
+  const loader=`<script src="${WORKSPACE_IDENTITY_BOOTSTRAP_SCRIPT}" defer></script>\n`;
+  return source.replace(runtimeTag,match=>data+loader+match);
+}
+
 async function prefetchedWorkspaceState(request,env,ctx){
   try{
     const stateUrl=new URL("/api/state",request.url);
@@ -260,24 +274,29 @@ async function workspaceSurfaceResponse(request,env,ctx){
   }
   if(!probe.ok)return workspaceUnavailableResponse();
 
-  let probeRole="";
+  let probeBody=null,probeRole="";
   try{
-    const probeBody=await probe.clone().json();
+    probeBody=await probe.clone().json();
     probeRole=String(probeBody?.user?.role||"");
   }catch{}
   const workspaceRole=WORKSPACE_SURFACE_ROLES.has(probeRole);
+  const probeCsrfToken=String(probeBody?.csrfToken||"");
+  const initialIdentity=workspaceRole&&probeBody?.user?.id&&probeCsrfToken.length>=16?{user:probeBody.user,csrfToken:probeCsrfToken}:null;
   const initialState=request.method==="GET"&&workspaceRole?await prefetchedWorkspaceState(request,env,ctx):null;
   const shellRequest=rewriteSurfaceRequest(request,"/",{clearSearch:false});
   const shell=await base.fetch(shellRequest,env,ctx);
   if(!initialState||request.method!=="GET"||!String(shell.headers.get("content-type")||"").toLowerCase().includes("text/html"))return shell;
 
   try{
-    const html=await shell.clone().text(),injected=injectInitialWorkspaceState(html,initialState);
+    const html=await shell.clone().text();
+    let injected=injectInitialWorkspaceState(html,initialState);
+    injected=injectInitialWorkspaceIdentity(injected,initialIdentity);
     if(injected===html)return shell;
     const headers=new Headers(shell.headers);
     headers.delete("content-length");headers.delete("etag");
     headers.set("cache-control","no-store");
     headers.set("x-thebe-initial-state","embedded-v1");
+    if(initialIdentity)headers.set("x-thebe-identity-bootstrap","server-authorized-v1");
     return new Response(injected,{status:shell.status,statusText:shell.statusText,headers});
   }catch{return shell}
 }
