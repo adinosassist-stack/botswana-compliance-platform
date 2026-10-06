@@ -32,17 +32,16 @@ jobs:
 
           path=Path('scripts/production-synthetic-full-user-wrapper.mjs')
           source=path.read_text()
-          old="""    await openOwnerViewThroughNav('propertyintelligence');
-          try{
-          """
-          new="""    await openOwnerViewThroughNav('propertyintelligence');
-          const propertyAnalyseTab=page.getByRole('tab',{name:'Analyse',exact:true});
-          assert(await propertyAnalyseTab.count(),'Property Analyse tab is missing from the authenticated Property workspace');
-          await propertyAnalyseTab.click();
-          await page.waitForFunction(()=>document.getElementById('propertyintelligence')?.dataset?.propertyActivePane==='analyse',null,{timeout:VIEW_TIMEOUT_MS});
-          mark('Property Analyse tab','opened through the real Property workspace tab before calculator proof');
-          try{
-          """
+          old="    await openOwnerViewThroughNav('propertyintelligence');\n    try{\n"
+          new=(
+              "    await openOwnerViewThroughNav('propertyintelligence');\n"
+              "    const propertyAnalyseTab=page.getByRole('tab',{name:'Analyse',exact:true});\n"
+              "    assert(await propertyAnalyseTab.count(),'Property Analyse tab is missing from the authenticated Property workspace');\n"
+              "    await propertyAnalyseTab.click();\n"
+              "    await page.waitForFunction(()=>document.getElementById('propertyintelligence')?.dataset?.propertyActivePane==='analyse',null,{timeout:VIEW_TIMEOUT_MS});\n"
+              "    mark('Property Analyse tab','opened through the real Property workspace tab before calculator proof');\n"
+              "    try{\n"
+          )
           if source.count(old)!=1:
               raise SystemExit(f'expected exactly one Property proof insertion point, found {source.count(old)}')
           path.write_text(source.replace(old,new,1))
