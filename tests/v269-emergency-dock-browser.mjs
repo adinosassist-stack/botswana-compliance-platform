@@ -22,7 +22,7 @@ try{
     const pathname=new URL(route.request().url()).pathname;
     if(pathname==='/')return route.fulfill({contentType:'text/html',body:fixture});
     if(pathname==='/assets/thebe-ai-dock.css'||pathname==='/assets/thebe-spatial-dock-v246.css')return route.fulfill({contentType:'text/css',body:''});
-    if(pathname.endsWith('.js')&&!pathname.includes('thebe-live-voice')&&!pathname.includes('property-visibility')&&!pathname.includes('thebe-dock-recovery-geometry-v269'))return route.fulfill({contentType:'application/javascript',body:''});
+    if(pathname.endsWith('.js')&&!pathname.includes('thebe-live-voice')&&!pathname.includes('property-visibility')&&!pathname.includes('thebe-dock-recovery-geometry-v269')&&!pathname.includes('workspace-property-route-isolation-v277'))return route.fulfill({contentType:'application/javascript',body:''});
     const file='public'+pathname;
     return fs.existsSync(file)?route.fulfill({path:file}):route.fulfill({status:404,body:''});
   });
@@ -72,7 +72,7 @@ try{
   try{
     await Promise.race([
       (async()=>{
-        await page.addScriptTag({content:fs.readFileSync('public/js/workspace-property-route-isolation-v277.js','utf8')});
+        await page.addScriptTag({url:'http://localhost/js/workspace-property-route-isolation-v277.js'});
         return page.evaluate(()=>new Promise(resolve=>setTimeout(()=>{
           const property=document.getElementById('propertyintelligence');
           resolve({display:property.style.getPropertyValue('display'),priority:property.style.getPropertyPriority('display'),hidden:property.getAttribute('aria-hidden'),inert:property.hasAttribute('inert')});
