@@ -11,7 +11,7 @@ try{
   const body=JSON.parse(captured.options.body);
   ok(Array.isArray(body.to)&&body.to[0]==='user@example.com','recipient encoded as provider array');
   ok(body.from==='Security <security@app.example>','configured sender preserved');
-  ok(body.text.includes('https://app.example/#reset_token=a%20b%26c'),'reset token safely encoded in fragment and omitted from request query');
+  ok(body.text.includes('https://app.example/reset-password.html#reset_token=a%20b%26c'),'reset token safely encoded in fragment and omitted from request query');
   captured=null;
   ok(!(await __v782162Test.deliverPasswordReset({PUBLIC_APP_URL:'https://app.example/',EMAIL_FROM:'Security <security@app.example>'},'user@example.com','abc'))&&captured===null,'missing Resend key fails before network');
   ok(!(await __v782162Test.deliverPasswordReset({RESEND_API_KEY:'x'.repeat(40),PUBLIC_APP_URL:'https://app.example/'},'user@example.com','abc'))&&captured===null,'missing sender fails before network');
