@@ -32,8 +32,12 @@ const context=vm.createContext({
   withDeadline:async()=>{throw new Error("diagnostic deadline exceeded")},
   DIAGNOSTIC_EXTERNAL_DEADLINE_MS:1,
   safe:value=>String(value??"").slice(0,300),
-  summarizeProbe:value=>JSON.stringify(value)
+  cookieState:value=>value===true?"present":value===false?"absent":"unknown"
 });
+const summaryStart=wrapper.indexOf("function summarizeProbe(");
+const summaryEnd=wrapper.indexOf("\nasync function observeWorkspaceBootstrap",summaryStart);
+assert(summaryStart>=0&&summaryEnd>summaryStart,"browser diagnostic summary must be available");
+vm.runInContext(wrapper.slice(summaryStart,summaryEnd),context);
 vm.runInContext(wrapper.slice(start,end),context);
 await assert.rejects(
   context.assertWorkspace({},"desktop",["ReferenceError: startupTarget is not defined"]),
