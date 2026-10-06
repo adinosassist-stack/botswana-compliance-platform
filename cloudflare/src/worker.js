@@ -583,9 +583,12 @@ async function passportScore(env,tenantId){
 }
 
 
-async function deliverPasswordReset(env,email,rawToken){
+async function deliverPasswordReset(env,email,rawToken,diagnostic=null){
   const publicApp=validPublicAppUrl(env.PUBLIC_APP_URL),from=String(env.EMAIL_FROM||"").trim();
-  if(!env.RESEND_API_KEY||!publicApp||!validEmailFrom(from))return false;
+  if(!env.RESEND_API_KEY||!publicApp||!validEmailFrom(from)){
+    if(diagnostic)diagnostic.stage=!env.RESEND_API_KEY?'missing_key':!publicApp?'invalid_public_url':'invalid_sender';
+    return false;
+  }
   const reset=new URL("/reset-password.html",publicApp);reset.search="";reset.hash=`reset_token=${encodeURIComponent(String(rawToken||""))}`;
   const tokenDigest=await sha256Hex(String(rawToken||""));
   try{
@@ -599,8 +602,21 @@ async function deliverPasswordReset(env,email,rawToken){
       subject:"Reset your Thebe Desk password",
       text:`We received a request to reset your password. Use this secure link within 30 minutes: ${reset.toString()}\n\nIf you did not request this, you can ignore this email.`
     })});
+    if(diagnostic){
+      diagnostic.stage=r.ok?'accepted':'provider_http';diagnostic.status=r.status;
+      if(!r.ok){
+        try{
+          const error=await externalJsonBounded(r.clone(),8192);
+          const names=['validation_error','missing_api_key','restricted_api_key','suspended_api_key','invalid_permission','daily_quota_exceeded','monthly_quota_exceeded','rate_limit_exceeded','invalid_idempotency_key','application_error','service_unavailable'];
+          diagnostic.error=names.includes(error?.name)?error.name:'unknown';
+        }catch{diagnostic.error='unknown'}
+      }
+    }
     return r.ok;
-  }catch{return false}
+  }catch{
+    if(diagnostic)diagnostic.stage='provider_network';
+    return false;
+  }
 }
 async function enqueueNotification(env,{tenantId,recipientRef=null,channel="in_app",templateKey,subject=null,payload={},scheduledAt=null,dedupeKey=null}){
   const nid=id(),key=dedupeKey?String(dedupeKey).slice(0,240):null;
@@ -5217,8 +5233,15 @@ export default {
           await env.DB.prepare("INSERT INTO password_reset_tokens(token_hash,user_id,expires_at) VALUES(?,?,datetime('now','+30 minutes'))").bind(hash,u.id).run();
           const deliveryTask=(async()=>{
             let delivered=false;
-            try{delivered=await deliverPasswordReset(env,email,raw)}catch{}
+            const diagnostic={};
+            try{delivered=await deliverPasswordReset(env,email,raw,diagnostic)}catch{diagnostic.stage='delivery_exception'}
             if(!delivered){try{await env.DB.prepare("UPDATE password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE token_hash=? AND user_id=? AND used_at IS NULL").bind(hash,u.id).run()}catch{}}
+            if(email==='delivered@resend.dev'){
+              try{
+                const synthetic=await env.DB.prepare("SELECT t.id,t.name FROM memberships m JOIN tenants t ON t.id=m.tenant_id WHERE m.user_id=? AND m.role='owner' AND m.status='active' LIMIT 1").bind(u.id).first();
+                if(/^Thebe Desk Recovery Smoke \d+-\d+-[a-f0-9]{12}$/.test(String(synthetic?.name||'')))await writeAudit(env,synthetic.id,u.id,'SYNTHETIC_PASSWORD_RESET_DELIVERY',diagnostic);
+              }catch{}
+            }
           })();
           if(ctx?.waitUntil)ctx.waitUntil(deliveryTask);else deliveryTask.catch(()=>{});
         }

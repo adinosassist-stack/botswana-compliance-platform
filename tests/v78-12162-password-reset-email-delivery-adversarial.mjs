@@ -13,7 +13,7 @@ const end=worker.indexOf('\nfunction oauthProviderConfig',start);
 const fn=worker.slice(start,end);
 ok(start>=0&&end>start,'password reset delivery function located');
 ok(fn.includes('validPublicAppUrl(env.PUBLIC_APP_URL)'),'reset link uses validated public app URL');
-ok(fn.includes('if(!env.RESEND_API_KEY||!publicApp||!validEmailFrom(from))return false'),'reset email fails closed without provider, safe public URL, or valid sender');
+ok(fn.includes('if(!env.RESEND_API_KEY||!publicApp||!validEmailFrom(from)){')&&fn.includes('return false'),'reset email fails closed without provider, safe public URL, or valid sender');
 ok(fn.includes('externalFetch("https://api.resend.com/emails"'),'reset email uses documented Resend endpoint');
 ok(fn.includes('`Bearer ${env.RESEND_API_KEY}`'),'reset email uses documented Resend API key');
 ok(fn.includes('from,'),'reset email uses validated documented sender configuration');

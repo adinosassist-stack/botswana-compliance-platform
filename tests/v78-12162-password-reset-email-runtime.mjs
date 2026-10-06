@@ -18,5 +18,16 @@ try{
   ok(!(await __v782162Test.deliverPasswordReset({RESEND_API_KEY:'x'.repeat(40),PUBLIC_APP_URL:'https://app.example/',EMAIL_FROM:'Thebe Desk <no-reply@example.invalid>'},'user@example.com','abc'))&&captured===null,'placeholder sender fails before network');
   ok(!(await __v782162Test.deliverPasswordReset({RESEND_API_KEY:'x'.repeat(40),PUBLIC_APP_URL:'http://app.example/'},'user@example.com','abc'))&&captured===null,'insecure public app URL fails before network');
   ok(!(await __v782162Test.deliverPasswordReset({RESEND_API_KEY:'x'.repeat(40),PUBLIC_APP_URL:'https://user:pass@app.example/'},'user@example.com','abc'))&&captured===null,'credential-bearing public app URL fails before network');
+  const configured={RESEND_API_KEY:'PRIVATE_KEY',PUBLIC_APP_URL:'https://app.example/',EMAIL_FROM:'Security <security@app.example>'};
+  globalThis.fetch=async()=>new Response(JSON.stringify({name:'daily_quota_exceeded',message:'PRIVATE_PROVIDER_MESSAGE',token:'PRIVATE_RESET_TOKEN'}),{status:429});
+  const rejected={};
+  ok(!(await __v782162Test.deliverPasswordReset(configured,'delivered@resend.dev','PRIVATE_RESET_TOKEN',rejected)),'provider rejection still fails closed');
+  ok(JSON.stringify(rejected)===JSON.stringify({stage:'provider_http',status:429,error:'daily_quota_exceeded'}),'synthetic diagnostic retains only stage, status and allowlisted error');
+  ok(!JSON.stringify(rejected).includes('PRIVATE'),'provider details and secrets cannot enter diagnostic metadata');
+  globalThis.fetch=async()=>{throw new Error('PRIVATE_NETWORK_ERROR')};
+  const network={};await __v782162Test.deliverPasswordReset(configured,'delivered@resend.dev','token',network);
+  ok(network.stage==='provider_network'&&!JSON.stringify(network).includes('PRIVATE'),'network failures have a bounded secret-free category');
+  const invalid={};await __v782162Test.deliverPasswordReset({...configured,PUBLIC_APP_URL:'http://app.example'},'delivered@resend.dev','token',invalid);
+  ok(invalid.stage==='invalid_public_url','configuration failures are distinguished before the provider request');
 }finally{globalThis.fetch=originalFetch}
 console.log(`V78 1.21.62 password reset email runtime: ${checks}/${checks} PASS`);

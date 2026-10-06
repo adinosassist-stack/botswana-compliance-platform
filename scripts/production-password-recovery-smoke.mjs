@@ -169,7 +169,14 @@ async function waitForResetEmail(startedAt){
   const resetState=await one(`SELECT COUNT(*) AS issued,COALESCE(SUM(CASE WHEN used_at IS NOT NULL THEN 1 ELSE 0 END),0) AS invalidated FROM password_reset_tokens WHERE user_id=?`,[synthetic.userId]);
   const issued=Number(resetState?.issued||0),invalidated=Number(resetState?.invalidated||0);
   const senderStatus=await readSenderDomainStatus({cfHeaders,resendHeaders,accountId});
-  fail(`reset email did not appear in Resend sent-email API within the bounded polling window; synthetic reset tokens issued=${issued} invalidated=${invalidated} senderDomainStatus=${senderStatus}`);
+  const trace=await one("SELECT event_data FROM audit_events WHERE tenant_id=? AND event_type='SYNTHETIC_PASSWORD_RESET_DELIVERY' ORDER BY occurred_at DESC LIMIT 1",[synthetic.tenantId]);
+  let delivery={};try{delivery=typeof trace?.event_data==='string'?JSON.parse(trace.event_data):trace?.event_data||{}}catch{}
+  const stages=['missing_key','invalid_public_url','invalid_sender','accepted','provider_http','provider_network','delivery_exception'];
+  const stage=stages.includes(delivery.stage)?delivery.stage:'unavailable';
+  const status=Number.isInteger(delivery.status)&&delivery.status>=100&&delivery.status<=599?delivery.status:0;
+  const errors=['validation_error','missing_api_key','restricted_api_key','suspended_api_key','invalid_permission','daily_quota_exceeded','monthly_quota_exceeded','rate_limit_exceeded','invalid_idempotency_key','application_error','service_unavailable'];
+  const error=errors.includes(delivery.error)?delivery.error:'unknown';
+  fail(`reset email did not appear in Resend sent-email API within the bounded polling window; synthetic reset tokens issued=${issued} invalidated=${invalidated} senderDomainStatus=${senderStatus} workerDeliveryStage=${stage} workerDeliveryStatus=${status} workerDeliveryError=${error}`);
 }
 
 async function verifyResetPage(){
