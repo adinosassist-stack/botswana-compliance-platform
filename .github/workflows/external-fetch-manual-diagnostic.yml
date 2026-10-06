@@ -1,0 +1,79 @@
+name: External Fetch Manual Diagnostic
+
+on:
+  push:
+    branches:
+      - chatgpt/recovery-worker-egress-diagnostic
+    paths:
+      - '.github/workflows/external-fetch-manual-diagnostic.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Prepare Wrangler
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/wrangler-cli" --no-audit --no-fund --no-save --package-lock=false wrangler@4.135.0
+      - name: Probe manual redirect behavior
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/probe.mjs" <<'JS'
+          const targets={
+            resend:'https://api.resend.com/emails?limit=1',
+            example:'https://example.com/',
+            cloudflare:'https://api.cloudflare.com/client/v4/'
+          };
+          export default {async fetch(request){
+            const key=new URL(request.url).searchParams.get('target')||'resend';
+            const target=targets[key];
+            if(!target)return Response.json({error:'bad_target'},{status:400});
+            try{
+              const response=await fetch(target,{method:'GET',headers:{accept:'application/json'},redirect:'manual'});
+              const location=response.headers.get('location')||'';
+              let locationRelation='none';
+              if(location){
+                try{
+                  const from=new URL(target),to=new URL(location,from);
+                  locationRelation=to.origin===from.origin?'same-origin':'cross-origin';
+                }catch{locationRelation='invalid'}
+              }
+              return Response.json({ok:true,target:key,status:response.status,redirected:response.status>=300&&response.status<400,locationRelation});
+            }catch(error){
+              const message=String(error?.message||'').toLowerCase();
+              return Response.json({ok:false,target:key,errorName:String(error?.name||'Error').slice(0,64),redirectMention:/redirect/.test(message),timeout:/abort|timeout/.test(message)},{status:502});
+            }
+          }};
+          JS
+          WRANGLER="$RUNNER_TEMP/wrangler-cli/node_modules/wrangler/bin/wrangler.js"
+          node "$WRANGLER" dev "$RUNNER_TEMP/probe.mjs" --remote --ip 127.0.0.1 --port 8790 --compatibility-date 2026-03-30 --name thebe-redirect-manual-probe >"$RUNNER_TEMP/wrangler.log" 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --silent --show-error --max-time 5 --output /dev/null 'http://127.0.0.1:8790/?target=example'; then break; fi
+            sleep 2
+          done
+          for target in resend example cloudflare; do
+            out="$RUNNER_TEMP/$target.json"
+            curl --fail-with-body --silent --show-error --max-time 20 --output "$out" "http://127.0.0.1:8790/?target=$target"
+            TARGET="$target" python3 - "$out" <<'PY'
+          import json,os,sys
+          body=json.load(open(sys.argv[1],encoding='utf-8'))
+          print(os.environ['TARGET']+': '+json.dumps(body,sort_keys=True,separators=(',',':')))
+          allowed={'ok','target','status','redirected','locationRelation','errorName','redirectMention','timeout'}
+          if set(body)-allowed: raise SystemExit('unexpected diagnostic field')
+          PY
+          done
