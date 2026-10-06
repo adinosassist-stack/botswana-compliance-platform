@@ -4,11 +4,14 @@ on:
     branches: [main]
     paths:
       - 'scripts/production-recovery-provider-log.mjs'
+      - 'scripts/production-recovery-direct-provider.mjs'
       - '.github/workflows/recovery-provider-diagnostic.yml'
   pull_request:
     paths:
       - 'scripts/production-recovery-provider-log.mjs'
+      - 'scripts/production-recovery-direct-provider.mjs'
       - 'tests/production-recovery-provider-log.mjs'
+      - 'tests/production-recovery-direct-provider.mjs'
       - '.github/workflows/recovery-provider-diagnostic.yml'
 permissions:
   contents: read
@@ -25,6 +28,7 @@ jobs:
           node-version-file: '.nvmrc'
           package-manager-cache: false
       - run: node tests/production-recovery-provider-log.mjs
+      - run: node tests/production-recovery-direct-provider.mjs
   diagnose:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: qualify
@@ -43,3 +47,9 @@ jobs:
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
         run: node scripts/production-recovery-provider-log.mjs
+      - name: Probe deployed sender against provider simulation mailbox
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: node scripts/production-recovery-direct-provider.mjs
