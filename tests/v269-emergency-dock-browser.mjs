@@ -50,6 +50,22 @@ try{
   });
   assert.equal(propertyIsolation.marker,'20261003-property-view-isolation-v273');
   assert.deepEqual({display:propertyIsolation.display,visibility:propertyIsolation.visibility,opacity:propertyIsolation.opacity,computed:propertyIsolation.computed},{display:'',visibility:'',opacity:'',computed:'none'},`inactive Property root must not leak into other workspace views: ${JSON.stringify(propertyIsolation)}`);
+  // The actual route guard and dock observer must settle together. A browser
+  // timer cannot fire while competing mutation microtasks starve its task queue.
+  let coexistenceTimer;
+  try{
+    await Promise.race([
+      (async()=>{
+        await page.addScriptTag({url:'http://localhost/js/workspace-property-route-isolation-v277.js'});
+        return page.evaluate(()=>new Promise(resolve=>setTimeout(()=>{
+          const property=document.getElementById('propertyintelligence');
+          resolve({display:property.style.getPropertyValue('display'),priority:property.style.getPropertyPriority('display'),hidden:property.getAttribute('aria-hidden'),inert:property.hasAttribute('inert')});
+        },20)));
+      })(),
+      new Promise((_,reject)=>{coexistenceTimer=setTimeout(()=>reject(new Error('Property/dock observer coexistence starved browser task queue')),5000)})
+    ]).then(result=>assert.deepEqual(result,{display:'none',priority:'important',hidden:'true',inert:true}));
+  }finally{clearTimeout(coexistenceTimer)}
+
   await page.evaluate(()=>document.getElementById('propertyintelligence').classList.add('active'));
 
   const assertGeometry=async(expectedWidth,label)=>{
@@ -66,23 +82,7 @@ try{
   };
 
   for(const [viewport,expected] of [[1440,272],[1200,272],[1199,256],[1024,256]]){
-    // The actual route guard and dock observer must settle together. A browser
-  // timer cannot fire while competing mutation microtasks starve its task queue.
-  let coexistenceTimer;
-  try{
-    await Promise.race([
-      (async()=>{
-        await page.addScriptTag({url:'http://localhost/js/workspace-property-route-isolation-v277.js'});
-        return page.evaluate(()=>new Promise(resolve=>setTimeout(()=>{
-          const property=document.getElementById('propertyintelligence');
-          resolve({display:property.style.getPropertyValue('display'),priority:property.style.getPropertyPriority('display'),hidden:property.getAttribute('aria-hidden'),inert:property.hasAttribute('inert')});
-        },20)));
-      })(),
-      new Promise((_,reject)=>{coexistenceTimer=setTimeout(()=>reject(new Error('Property/dock observer coexistence starved browser task queue')),5000)})
-    ]).then(result=>assert.deepEqual(result,{display:'none',priority:'important',hidden:'true',inert:true}));
-  }finally{clearTimeout(coexistenceTimer)}
-
-  await page.setViewportSize({width:viewport,height:960});
+    await page.setViewportSize({width:viewport,height:960});
     await assertGeometry(expected,`normal ${viewport}`);
   }
 
