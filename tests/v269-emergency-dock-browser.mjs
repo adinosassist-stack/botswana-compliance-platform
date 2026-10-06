@@ -22,7 +22,7 @@ try{
     const pathname=new URL(route.request().url()).pathname;
     if(pathname==='/')return route.fulfill({contentType:'text/html',body:fixture});
     if(pathname==='/assets/thebe-ai-dock.css'||pathname==='/assets/thebe-spatial-dock-v246.css')return route.fulfill({contentType:'text/css',body:''});
-    if(pathname.endsWith('.js')&&!pathname.includes('thebe-live-voice')&&!pathname.includes('property-visibility')&&!pathname.includes('thebe-dock-recovery-geometry-v269'))return route.fulfill({contentType:'application/javascript',body:''});
+    if(pathname.endsWith('.js')&&!pathname.includes('thebe-live-voice')&&!pathname.includes('property-visibility')&&!pathname.includes('thebe-dock-recovery-geometry-v269')&&!pathname.includes('workspace-property-route-isolation-v277'))return route.fulfill({contentType:'application/javascript',body:''});
     const file='public'+pathname;
     return fs.existsSync(file)?route.fulfill({path:file}):route.fulfill({status:404,body:''});
   });
@@ -50,6 +50,22 @@ try{
   });
   assert.equal(propertyIsolation.marker,'20261003-property-view-isolation-v273');
   assert.deepEqual({display:propertyIsolation.display,visibility:propertyIsolation.visibility,opacity:propertyIsolation.opacity,computed:propertyIsolation.computed},{display:'',visibility:'',opacity:'',computed:'none'},`inactive Property root must not leak into other workspace views: ${JSON.stringify(propertyIsolation)}`);
+  // The actual route guard and dock observer must settle together. A browser
+  // timer cannot fire while competing mutation microtasks starve its task queue.
+  let coexistenceTimer;
+  try{
+    await Promise.race([
+      (async()=>{
+        await page.addScriptTag({url:'http://localhost/js/workspace-property-route-isolation-v277.js'});
+        return page.evaluate(()=>new Promise(resolve=>setTimeout(()=>{
+          const property=document.getElementById('propertyintelligence');
+          resolve({display:property.style.getPropertyValue('display'),priority:property.style.getPropertyPriority('display'),hidden:property.getAttribute('aria-hidden'),inert:property.hasAttribute('inert')});
+        },20)));
+      })(),
+      new Promise((_,reject)=>{coexistenceTimer=setTimeout(()=>reject(new Error('Property/dock observer coexistence starved browser task queue')),5000)})
+    ]).then(result=>assert.deepEqual(result,{display:'none',priority:'important',hidden:'true',inert:true}));
+  }finally{clearTimeout(coexistenceTimer)}
+
   await page.evaluate(()=>document.getElementById('propertyintelligence').classList.add('active'));
 
   const assertGeometry=async(expectedWidth,label)=>{

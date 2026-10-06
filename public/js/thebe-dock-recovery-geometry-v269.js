@@ -78,7 +78,12 @@
     const property=global.document?.getElementById?.("propertyintelligence");
     if(!property||property.classList.contains("active"))return false;
     let changed=false;
+    // Route isolation owns inactive Property display; removing its rule would
+    // cause the two mutation observers to continuously undo each other.
+    const routeIsolation=global.ThebeWorkspacePropertyRouteIsolation;
+    const routeOwnsDisplay=!!routeIsolation?.release&&property.dataset.propertyRouteIsolation===routeIsolation.release;
     for(const name of ["display","visibility","opacity"]){
+      if(name==="display"&&routeOwnsDisplay)continue;
       if(!property.style.getPropertyValue(name))continue;
       property.style.removeProperty(name);
       changed=true;
