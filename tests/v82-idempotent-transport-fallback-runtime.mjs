@@ -8,6 +8,7 @@ let rootAbortCount=0;
 let stateCounter=0;
 let identityCounter=0;
 let fallbackCounter=0;
+let identityUnauthorized=false;
 
 function jsonResponse(data,status=200){
   return {
@@ -29,12 +30,13 @@ async function mockedFetch(raw,{signal}={}){
   if(url.searchParams.get('__thebe_api_path')==='/api/state'){
     throw new Error('workspace state must use the direct route before tunnel fallback');
   }
-  if(url.searchParams.get('__thebe_api_path')==='/api/auth/me'){
+  if(url.pathname==='/api/auth/me'){
     identityCounter+=1;
+    if(identityUnauthorized)return jsonResponse({error:'unauthenticated'},401);
     return jsonResponse({user:{id:'user-1',role:'owner'},csrfToken:'csrf-1'});
   }
-  if(url.pathname==='/api/auth/me'){
-    throw new Error('cold workspace identity must not enter the direct route before the healthy root tunnel');
+  if(url.searchParams.get('__thebe_api_path')==='/api/auth/me'){
+    throw new Error('workspace identity must use the direct route before tunnel fallback');
   }
   if(url.searchParams.get('__thebe_api_path')==='/api/fallback-probe'){
     return new Promise(()=>{
@@ -80,9 +82,23 @@ assert.ok(!calls.slice(stateStart).some(raw=>new URL(raw).searchParams.get('__th
 const identityClient=window.BW.api.createClient({timeoutMs:240,retries:0});
 const identityStart=calls.length;
 const identity=await identityClient.request('/api/auth/me');
-assert.equal(identity.user?.id,'user-1','root-tunnel identity read did not return the authenticated user');
-assert.equal(new URL(calls[identityStart]).searchParams.get('__thebe_api_path'),'/api/auth/me','cold workspace identity must start with the preferred root tunnel');
-assert.ok(!calls.slice(identityStart).some(raw=>new URL(raw).pathname==='/api/auth/me'),'cold workspace identity unexpectedly entered the direct route after the root tunnel succeeded');
+assert.equal(identity.user?.id,'user-1','direct identity read did not return the authenticated user');
+assert.equal(new URL(calls[identityStart]).pathname,'/api/auth/me','cold workspace identity must use the direct API route first');
+assert.ok(!calls.slice(identityStart).some(raw=>new URL(raw).searchParams.get('__thebe_api_path')==='/api/auth/me'),'cold workspace identity unexpectedly entered the root tunnel after the direct route succeeded');
+
+identityUnauthorized=true;
+let unauthorizedCount=0;
+const unauthorizedClient=window.BW.api.createClient({timeoutMs:240,retries:0,onUnauthorized(){unauthorizedCount+=1}});
+const unauthorizedStart=calls.length;
+await assert.rejects(
+  ()=>unauthorizedClient.request('/api/auth/me'),
+  error=>error?.status===401&&error?.code==='unauthenticated',
+  'direct identity 401 must remain authoritative'
+);
+assert.equal(unauthorizedCount,1,'direct identity 401 did not invoke unauthorized handling exactly once');
+assert.equal(new URL(calls[unauthorizedStart]).pathname,'/api/auth/me','unauthenticated identity check did not start on the direct route');
+assert.ok(!calls.slice(unauthorizedStart).some(raw=>new URL(raw).searchParams.get('__thebe_api_path')==='/api/auth/me'),'direct identity 401 incorrectly fell through to the root tunnel');
+identityUnauthorized=false;
 
 const fallbackClient=window.BW.api.createClient({timeoutMs:240,retries:0});
 const fallbackStart=calls.length;
@@ -102,4 +118,4 @@ assert.equal(new URL(calls[beforeSecond]).pathname,'/__thebe_api/fallback-probe'
 assert.equal(rootAbortCount,1,'preferred shadow transport unexpectedly retried the hung root route');
 assert.equal(appended.length,1,'owner WhatsApp loader contract changed unexpectedly');
 
-console.log('Idempotent transport fallback runtime: direct-first workspace state + root-first identity + bounded generic fallback PASS');
+console.log('Idempotent transport fallback runtime: direct-first workspace state + identity + authoritative 401 + bounded generic fallback PASS');
