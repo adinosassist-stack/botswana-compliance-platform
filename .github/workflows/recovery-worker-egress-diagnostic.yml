@@ -1,0 +1,131 @@
+name: Recovery Worker Egress Diagnostic
+
+on:
+  push:
+    branches:
+      - chatgpt/recovery-worker-egress-diagnostic
+    paths:
+      - '.github/workflows/recovery-worker-egress-diagnostic.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    environment: production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          package-manager-cache: false
+
+      - name: Prepare pinned Wrangler CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          WRANGLER_ROOT="$RUNNER_TEMP/wrangler-cli"
+          NPM_HOME="$RUNNER_TEMP/npm-home"
+          mkdir -p "$WRANGLER_ROOT" "$NPM_HOME"
+          (
+            cd "$RUNNER_TEMP"
+            HOME="$NPM_HOME" \
+            NPM_CONFIG_USERCONFIG=/dev/null \
+            NPM_CONFIG_REGISTRY=https://registry.npmjs.org/ \
+            NPM_CONFIG_IGNORE_SCRIPTS=true \
+            npm install --prefix "$WRANGLER_ROOT" --no-audit --no-fund --no-save --package-lock=false wrangler@4.135.0
+          )
+          WRANGLER_JS="$WRANGLER_ROOT/node_modules/wrangler/bin/wrangler.js"
+          test -f "$WRANGLER_JS"
+          node "$WRANGLER_JS" --version | grep -F '4.135.0'
+
+      - name: Build secret-free remote Worker probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/recovery-egress-probe.mjs" <<'JS'
+          function safeError(error) {
+            const name = typeof error?.name === 'string' ? error.name.slice(0, 64) : 'Error';
+            const code = typeof error?.code === 'number' || typeof error?.code === 'string' ? String(error.code).slice(0, 32) : '';
+            const message = String(error?.message || '');
+            const cfCode = message.match(/\b(10\d{2})\b/)?.[1] || '';
+            const timeout = name === 'AbortError' || /abort|timeout/i.test(message);
+            return {name, code, cfCode, timeout};
+          }
+
+          export default {
+            async fetch() {
+              const controller = new AbortController();
+              const timer = setTimeout(() => controller.abort('diagnostic_timeout'), 15000);
+              try {
+                const response = await fetch('https://api.resend.com/emails?limit=1', {
+                  method: 'GET',
+                  headers: {accept: 'application/json'},
+                  redirect: 'error',
+                  signal: controller.signal,
+                });
+                return Response.json({networkReachedProvider: true, status: response.status});
+              } catch (error) {
+                return Response.json({networkReachedProvider: false, status: 0, error: safeError(error)}, {status: 502});
+              } finally {
+                clearTimeout(timer);
+              }
+            },
+          };
+          JS
+          node --check "$RUNNER_TEMP/recovery-egress-probe.mjs"
+
+      - name: Compare baseline and strictly-public Worker egress
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "$CLOUDFLARE_API_TOKEN" ]] || { echo 'CLOUDFLARE_API_TOKEN is empty' >&2; exit 1; }
+          [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[0-9a-fA-F]{32}$ ]] || { echo 'CLOUDFLARE_ACCOUNT_ID is invalid' >&2; exit 1; }
+          WRANGLER_JS="$RUNNER_TEMP/wrangler-cli/node_modules/wrangler/bin/wrangler.js"
+          PROBE="$RUNNER_TEMP/recovery-egress-probe.mjs"
+
+          run_probe() {
+            local label="$1" port="$2" flag="${3:-}" log="$RUNNER_TEMP/${label}.log" out="$RUNNER_TEMP/${label}.json"
+            local args=(dev "$PROBE" --remote --ip 127.0.0.1 --port "$port" --compatibility-date 2026-03-30 --name "thebe-recovery-egress-${label}")
+            if [[ -n "$flag" ]]; then args+=(--compatibility-flag "$flag"); fi
+            node "$WRANGLER_JS" "${args[@]}" >"$log" 2>&1 &
+            local pid=$!
+            cleanup_probe(){ kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; }
+            trap cleanup_probe RETURN
+            local ready=false
+            for attempt in $(seq 1 30); do
+              if curl --silent --show-error --max-time 5 --output "$out" "http://127.0.0.1:$port/"; then ready=true; break; fi
+              sleep 2
+            done
+            if [[ "$ready" != true ]]; then
+              echo "$label remote Worker never became reachable" >&2
+              sed -E 's/(Bearer|token|secret)[=: ]+[^ ]+/\1=[REDACTED]/Ig' "$log" | tail -80 >&2 || true
+              exit 1
+            fi
+            LABEL="$label" python3 - "$out" <<'PY'
+          import json, os, sys
+          with open(sys.argv[1], encoding='utf-8') as handle:
+              body=json.load(handle)
+          label=os.environ['LABEL']
+          reached=body.get('networkReachedProvider') is True
+          status=body.get('status',0)
+          error=body.get('error') if isinstance(body.get('error'),dict) else {}
+          print(f"{label}: networkReachedProvider={str(reached).lower()} status={status} errorName={error.get('name','')} errorCode={error.get('code','')} cfCode={error.get('cfCode','')} timeout={str(bool(error.get('timeout'))).lower()}")
+          if reached:
+              if not isinstance(status,int) or status < 100 or status > 599:
+                  raise SystemExit(f'{label}: provider response status malformed')
+          else:
+              allowed={'name','code','cfCode','timeout'}
+              if set(error)-allowed:
+                  raise SystemExit(f'{label}: diagnostic leaked unexpected error fields')
+          PY
+            cleanup_probe
+            trap - RETURN
+          }
+
+          run_probe baseline 8787
+          run_probe strictly-public 8788 global_fetch_strictly_public
