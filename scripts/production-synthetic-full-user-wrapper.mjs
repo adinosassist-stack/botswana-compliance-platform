@@ -794,6 +794,11 @@ async function runFullUserJourney(credentials){
     };
 
     await openOwnerViewThroughNav('propertyintelligence');
+    const propertyAnalyseTab=page.getByRole('tab',{name:'Analyse',exact:true});
+    assert(await propertyAnalyseTab.count(),'Property Analyse tab is missing from the authenticated Property workspace');
+    await propertyAnalyseTab.click();
+    await page.waitForFunction(()=>document.getElementById('propertyintelligence')?.dataset?.propertyActivePane==='analyse',null,{timeout:VIEW_TIMEOUT_MS});
+    mark('Property Analyse tab','opened through the real Property workspace tab before calculator proof');
     try{
       await page.waitForFunction(()=>{
         const view=document.getElementById('propertyintelligence');
