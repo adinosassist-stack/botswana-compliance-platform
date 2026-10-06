@@ -119,9 +119,23 @@ async function readJson(req,{maxBytes=MAX_JSON_BODY_BYTES}={}){
   const text=await readTextBounded(req,{maxBytes});if(!text)return {};
   try{return JSON.parse(text)}catch{throw new HttpError(400,"invalid_json")}
 }
+const EXTERNAL_MANUAL_REDIRECT_ORIGINS=new Set(["https://api.resend.com"]);
+function externalRedirectStatus(status){return status===301||status===302||status===303||status===307||status===308}
 async function externalFetch(url,options={},timeoutMs=20000){
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort("external_timeout"),Math.max(1000,Math.min(60000,Number(timeoutMs)||20000)));
-  try{return await fetch(url,{...options,signal:controller.signal,redirect:"error"})}finally{clearTimeout(timer)}
+  const initialUrl=new URL(String(url)),manualRedirects=EXTERNAL_MANUAL_REDIRECT_ORIGINS.has(initialUrl.origin);let target=initialUrl;
+  try{
+    for(let redirects=0;;redirects++){
+      const redirect=manualRedirects?"manual":"error",response=await fetch(target.toString(),{...options,signal:controller.signal,redirect});
+      if(!manualRedirects||!externalRedirectStatus(response.status))return response;
+      if(redirects>=2)throw new Error("external_redirect_limit");
+      const location=response.headers.get("location");if(!location)return response;
+      const next=new URL(location,target);if(next.origin!==initialUrl.origin)throw new Error("external_redirect_cross_origin");
+      const method=String(options.method||"GET").toUpperCase();
+      if(method!=="GET"&&method!=="HEAD"&&response.status!==307&&response.status!==308)throw new Error("external_redirect_method_change");
+      target=next;
+    }
+  }finally{clearTimeout(timer)}
 }
 const MAX_EXTERNAL_RESPONSE_BYTES=512*1024;
 function boundedExternalResponseMax(maxBytes){const n=Number(maxBytes);return Math.max(1024,Math.min(2*1024*1024,Number.isFinite(n)&&n>0?n:MAX_EXTERNAL_RESPONSE_BYTES))}
