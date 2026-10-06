@@ -1,0 +1,28 @@
+name: External Fetch Caller Audit
+
+on:
+  push:
+    branches:
+      - chatgpt/recovery-worker-egress-diagnostic
+    paths:
+      - '.github/workflows/external-fetch-caller-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Enumerate callers and redirect assertions
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== externalFetch callers ==='
+          grep -n -C 3 'externalFetch(' cloudflare/src/worker.js || true
+          echo '=== redirect:error assertions ==='
+          grep -RIn -C 2 --exclude-dir=node_modules 'redirect[[:space:]]*:[[:space:]]*["'"']error["'"']' tests cloudflare scripts || true
