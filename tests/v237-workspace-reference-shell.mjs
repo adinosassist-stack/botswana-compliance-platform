@@ -1,3 +1,4 @@
+import "./v304-workspace-bootstrap-contract.mjs";
 import fs from "node:fs";
 import assert from "node:assert/strict";
 
