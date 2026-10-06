@@ -89,19 +89,24 @@ jobs:
           PROBE="$RUNNER_TEMP/recovery-egress-probe.mjs"
 
           run_probe() {
-            local label="$1" port="$2" flag="${3:-}" log="$RUNNER_TEMP/${label}.log" out="$RUNNER_TEMP/${label}.json"
+            local label port flag log out pid ready
+            label="$1"
+            port="$2"
+            flag="${3:-}"
+            log="$RUNNER_TEMP/${label}.log"
+            out="$RUNNER_TEMP/${label}.json"
             local args=(dev "$PROBE" --remote --ip 127.0.0.1 --port "$port" --compatibility-date 2026-03-30 --name "thebe-recovery-egress-${label}")
             if [[ -n "$flag" ]]; then args+=(--compatibility-flag "$flag"); fi
             node "$WRANGLER_JS" "${args[@]}" >"$log" 2>&1 &
-            local pid=$!
-            cleanup_probe(){ kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; }
-            trap cleanup_probe RETURN
-            local ready=false
+            pid=$!
+            ready=false
             for attempt in $(seq 1 30); do
               if curl --silent --show-error --max-time 5 --output "$out" "http://127.0.0.1:$port/"; then ready=true; break; fi
               sleep 2
             done
             if [[ "$ready" != true ]]; then
+              kill "$pid" 2>/dev/null || true
+              wait "$pid" 2>/dev/null || true
               echo "$label remote Worker never became reachable" >&2
               sed -E 's/(Bearer|token|secret)[=: ]+[^ ]+/\1=[REDACTED]/Ig' "$log" | tail -80 >&2 || true
               exit 1
@@ -123,8 +128,8 @@ jobs:
               if set(error)-allowed:
                   raise SystemExit(f'{label}: diagnostic leaked unexpected error fields')
           PY
-            cleanup_probe
-            trap - RETURN
+            kill "$pid" 2>/dev/null || true
+            wait "$pid" 2>/dev/null || true
           }
 
           run_probe baseline 8787
