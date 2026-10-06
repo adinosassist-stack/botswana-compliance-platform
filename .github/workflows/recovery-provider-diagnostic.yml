@@ -1,0 +1,45 @@
+name: Recovery Provider Diagnostic
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/production-recovery-provider-log.mjs'
+      - '.github/workflows/recovery-provider-diagnostic.yml'
+  pull_request:
+    paths:
+      - 'scripts/production-recovery-provider-log.mjs'
+      - 'tests/production-recovery-provider-log.mjs'
+      - '.github/workflows/recovery-provider-diagnostic.yml'
+permissions:
+  contents: read
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+      - run: node tests/production-recovery-provider-log.mjs
+  diagnose:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: qualify
+    environment: production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+      - name: Read sanitized synthetic send result
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: node scripts/production-recovery-provider-log.mjs
