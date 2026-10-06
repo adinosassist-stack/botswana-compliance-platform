@@ -12,6 +12,7 @@ permissions:
 
 jobs:
   diagnose:
+    environment: production
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -31,6 +32,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          [[ -n "$CLOUDFLARE_API_TOKEN" ]] || { echo 'CLOUDFLARE_API_TOKEN is empty' >&2; exit 1; }
+          [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[0-9a-fA-F]{32}$ ]] || { echo 'CLOUDFLARE_ACCOUNT_ID is invalid' >&2; exit 1; }
           cat > "$RUNNER_TEMP/probe.mjs" <<'JS'
           const targets={
             resend:'https://api.resend.com/emails?limit=1',
@@ -62,10 +65,12 @@ jobs:
           node "$WRANGLER" dev "$RUNNER_TEMP/probe.mjs" --remote --ip 127.0.0.1 --port 8790 --compatibility-date 2026-03-30 --name thebe-redirect-manual-probe >"$RUNNER_TEMP/wrangler.log" 2>&1 &
           pid=$!
           trap 'kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true' EXIT
+          ready=false
           for attempt in $(seq 1 30); do
-            if curl --silent --show-error --max-time 5 --output /dev/null 'http://127.0.0.1:8790/?target=example'; then break; fi
+            if curl --silent --show-error --max-time 5 --output /dev/null 'http://127.0.0.1:8790/?target=example'; then ready=true; break; fi
             sleep 2
           done
+          [[ "$ready" == true ]] || { echo 'remote Worker did not start' >&2; tail -80 "$RUNNER_TEMP/wrangler.log" >&2 || true; exit 1; }
           for target in resend example cloudflare; do
             out="$RUNNER_TEMP/$target.json"
             curl --fail-with-body --silent --show-error --max-time 20 --output "$out" "http://127.0.0.1:8790/?target=$target"
