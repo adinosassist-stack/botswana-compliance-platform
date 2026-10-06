@@ -132,7 +132,7 @@ async function probeWorkspaceBootstrap(page,pageErrors=[]){
 }
 
 function summarizeProbe(d){
-  return `sessionCookie=${cookieState(d?.sessionCookiePresent)} directMe=${d?.directMe?.status||0}/${safe(d?.directMe?.error||d?.directMe?.role||'ok')} directState=${d?.directState?.status||0}/${safe(d?.directState?.error||`companies=${d?.directState?.companies}`)} clientMe=${d?.clientMe?.ok?`ok/${safe(d?.clientMe?.role||'role-missing')}`:safe(d?.clientMe?.error||'failed')} clientState=${d?.clientState?.ok?`ok/companies=${d?.clientState?.companies}`:safe(d?.clientState?.error||'failed')} gates=${safe(JSON.stringify(d?.gates||{}))}${d?.pageError?` pageError=${safe(d.pageError)}`:''}`;
+  return `sessionCookie=${cookieState(d?.sessionCookiePresent)} directMe=${d?.directMe?.status||0}/${safe(d?.directMe?.error||d?.directMe?.role||'ok')} directState=${d?.directState?.status||0}/${safe(d?.directState?.error||`companies=${d?.directState?.companies}`)} clientMe=${d?.clientMe?.ok?`ok/${safe(d?.clientMe?.role||'role-missing')}`:safe(d?.clientMe?.error||'failed')} clientState=${d?.clientState?.ok?`ok/companies=${d?.clientState?.companies}`:safe(d?.clientState?.error||'failed')} gates=${safe(JSON.stringify(d?.gates||{}))}${d?.pageError?` pageError=${safe(d.pageError)}`:''}${d?.diagnosticError?` diagnosticError=${safe(d.diagnosticError)}`:''}`;
 }
 
 async function observeWorkspaceBootstrap(page,label,pageErrors=[]){
@@ -216,7 +216,7 @@ async function assertWorkspace(page,label,pageErrors=[]){
   try{
     await waitForWorkspaceAuthoredState(page,label);
   }catch(error){
-    const d=await withDeadline(`${label} timeout diagnostic`,probeWorkspaceBootstrap(page,pageErrors),DIAGNOSTIC_EXTERNAL_DEADLINE_MS).catch(probeError=>({sessionCookiePresent:null,directMe:{status:0,error:'probe_failed'},directState:{status:0,error:'probe_failed'},clientMe:{ok:false,error:'probe_failed'},clientState:{ok:false,error:'probe_failed'},gates:{},pageError:safe(probeError?.message||probeError)}));
+    const d=await withDeadline(`${label} timeout diagnostic`,probeWorkspaceBootstrap(page,pageErrors),DIAGNOSTIC_EXTERNAL_DEADLINE_MS).catch(probeError=>({sessionCookiePresent:null,directMe:{status:0,error:'probe_failed'},directState:{status:0,error:'probe_failed'},clientMe:{ok:false,error:'probe_failed'},clientState:{ok:false,error:'probe_failed'},gates:{},pageError:safe(pageErrors[0]||''),diagnosticError:safe(probeError?.message||probeError)}));
     throw new Error(`Synthetic browser proof failed: ${safe(error?.message||error)} ${summarizeProbe(d)}`);
   }
   const rendered=await withDeadline(
