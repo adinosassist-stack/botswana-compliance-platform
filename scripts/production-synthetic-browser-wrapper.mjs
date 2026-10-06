@@ -13,7 +13,7 @@ const WORKSPACE_POLL_INTERVAL_MS=125;
 const WORKSPACE_COMPUTED_VISIBILITY_DEADLINE_MS=6000;
 const ONBOARDING_MODAL_WAIT_MS=2500;
 const ONBOARDING_MODAL_ACTION_MS=5000;
-const WORKSPACE_EXTERNAL_DEADLINE_MS=40000;
+const WORKSPACE_EXTERNAL_DEADLINE_MS=45000;
 const BROWSER_CLOSE_DEADLINE_MS=5000;
 const API_BREADCRUMB_PATHS=new Set(['/api/auth/me','/api/state','/api/audit','/api/billing/status']);
 const SYNTHETIC_BOOT_TRACE_PREFIX='THEBE_SYNTHETIC_BOOT ';
@@ -35,7 +35,7 @@ function withDeadline(label,promise,ms){
   ]).finally(()=>clearTimeout(timer));
 }
 assert(
-  WORKSPACE_AUTHORED_VISIBILITY_WAIT_MS+Math.max(DIAGNOSTIC_EXTERNAL_DEADLINE_MS,WORKSPACE_COMPUTED_VISIBILITY_DEADLINE_MS)+2000<WORKSPACE_EXTERNAL_DEADLINE_MS,
+  WORKSPACE_AUTHORED_VISIBILITY_WAIT_MS+Math.max(DIAGNOSTIC_EXTERNAL_DEADLINE_MS,WORKSPACE_COMPUTED_VISIBILITY_DEADLINE_MS)+6000<WORKSPACE_EXTERNAL_DEADLINE_MS,
   'workspace visibility diagnostics must finish before the outer workspace deadline'
 );
 function logicalApiPath(raw){
@@ -212,10 +212,42 @@ async function waitForWorkspaceAuthoredState(page,label){
   throw new Error(`${label} workspace authored-readiness timeout${detail}`);
 }
 
+
+const workspaceDebugSessions=new WeakMap();
+async function prepareWorkspaceStackCapture(page){
+  const session=await page.context().newCDPSession(page);
+  await session.send('Debugger.enable');
+  workspaceDebugSessions.set(page,session);
+}
+async function captureWorkspaceStack(page,label){
+  const session=workspaceDebugSessions.get(page);
+  if(!session)return;
+  let listener;
+  try{
+    const paused=new Promise(resolve=>{
+      listener=event=>resolve(event.callFrames||[]);
+      session.once('Debugger.paused',listener);
+    });
+    await withDeadline(label+' debugger pause',session.send('Debugger.pause'),1500);
+    const frames=await withDeadline(label+' debugger stack',paused,1500);
+    const stack=frames.slice(0,8).map(frame=>{
+      let path='unknown';
+      try{path=new URL(frame.url||'',ORIGIN).pathname}catch{}
+      return {function:safe(frame.functionName||'(anonymous)'),path,line:Number(frame.location?.lineNumber??-1)+1,column:Number(frame.location?.columnNumber??-1)+1};
+    });
+    info(label+' stalled execution stack',JSON.stringify(stack));
+  }catch(error){info(label+' stalled execution stack','unavailable: '+safe(error?.message||error))}
+  finally{
+    if(listener)session.off('Debugger.paused',listener);
+    await withDeadline(label+' debugger resume',session.send('Debugger.resume'),1000).catch(()=>{});
+  }
+}
+
 async function assertWorkspace(page,label,pageErrors=[]){
   try{
     await waitForWorkspaceAuthoredState(page,label);
   }catch(error){
+    await captureWorkspaceStack(page,label);
     const d=await withDeadline(`${label} timeout diagnostic`,probeWorkspaceBootstrap(page,pageErrors),DIAGNOSTIC_EXTERNAL_DEADLINE_MS).catch(probeError=>({sessionCookiePresent:null,directMe:{status:0,error:'probe_failed'},directState:{status:0,error:'probe_failed'},clientMe:{ok:false,error:'probe_failed'},clientState:{ok:false,error:'probe_failed'},gates:{},pageError:safe(pageErrors[0]||''),diagnosticError:safe(probeError?.message||probeError)}));
     throw new Error(`Synthetic browser proof failed: ${safe(error?.message||error)} ${summarizeProbe(d)}`);
   }
@@ -363,6 +395,7 @@ async function runBrowserProof(credentials){
     activeStage='desktop auth-surface direct state probe';
     const authDirectState=await probeAuthSurfaceState(page,'direct','/api/state');
     assert(authDirectState.ok,`desktop auth-surface direct state probe failed HTTP ${authDirectState.status} ${safe(authDirectState.error)}`);
+    await prepareWorkspaceStackCapture(page);
     activeStage='desktop app navigation';
     info('desktop synthetic stage','opening authenticated /app/ workspace');
     const desktopApp=await page.goto(`${ORIGIN}/app/?desktop-owner-proof=${Date.now()}`,{waitUntil:'commit',timeout:BROWSER_NAVIGATION_TIMEOUT_MS});
