@@ -172,6 +172,20 @@ async function waitForResetEmail(startedAt){
   fail(`reset email did not appear in Resend sent-email API within the bounded polling window; synthetic reset tokens issued=${issued} invalidated=${invalidated} senderDomainStatus=${senderStatus}`);
 }
 
+async function verifyResetPage(){
+  const options={redirect:'manual',headers:{'user-agent':agent},signal:AbortSignal.timeout(15000)};
+  let response=await fetch(`${ORIGIN}/reset-password.html`,options);
+  if([301,302,303,307,308].includes(response.status)){
+    const location=response.headers.get('location');
+    assert(location,'reset page redirect is missing its destination');
+    const destination=new URL(location,ORIGIN);
+    assert(destination.origin===ORIGIN&&destination.pathname==='/reset-password'&&!destination.search&&!destination.hash&&!destination.username&&!destination.password,'reset page redirect is not the canonical same-origin page');
+    response=await fetch(destination.href,{...options,signal:AbortSignal.timeout(15000)});
+  }
+  assert(response.status===200,'reset page is not publicly reachable');
+  assert((await response.text()).includes('id="resetCompleteForm"'),'reset page does not contain the password completion form');
+}
+
 try{
   assert(await count('SELECT COUNT(*) AS count FROM users WHERE email=?',[TEST_EMAIL])===0,'Resend test address already exists in production; refusing collision');
   assert(await count('SELECT COUNT(*) AS count FROM tenants WHERE name=?',[companyName])===0,'generated recovery-smoke company marker already exists');
@@ -196,8 +210,7 @@ try{
   const resetToken=await waitForResetEmail(requestStarted);
   mark('real reset delivery','Resend message retrieved privately; reset link path and fragment contract verified');
 
-  const resetPage=await fetch(`${ORIGIN}/reset-password.html`,{redirect:'error',headers:{'user-agent':agent}});
-  assert(resetPage.status===200,'reset-password.html is not publicly reachable');
+  await verifyResetPage();
 
   const completion=await publicJson('/api/auth/password-reset/complete',{body:{token:resetToken,password:newPassword}});
   assert(completion.response.status===200,`password reset complete HTTP ${completion.response.status}: ${safe(completion.text)}`);

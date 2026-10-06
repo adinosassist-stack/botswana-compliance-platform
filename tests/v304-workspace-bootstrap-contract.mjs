@@ -92,3 +92,32 @@ assert.equal(senderDomainStatus("Support@thebedesk.com",{data:[],has_more:true})
 assert.equal(senderDomainStatus("Support@thebedesk.com",{data:[],has_more:false}),"not_listed");
 assert.equal(senderDomainStatus("Support@thebedesk.com",{data:[{name:"thebedesk.com",status:"PRIVATE_PROVIDER_TEXT"}]}),"status_unknown");
 console.log("PASS: synthetic audit excludes only the computed queue POST and reports bounded sender status.");
+
+const recoverySmoke=fs.readFileSync('scripts/production-password-recovery-smoke.mjs','utf8');
+const pageCheckStart=recoverySmoke.indexOf('async function verifyResetPage(');
+const pageCheckEnd=recoverySmoke.indexOf('\ntry{',pageCheckStart);
+assert(pageCheckStart>=0&&pageCheckEnd>pageCheckStart,'recovery smoke must verify the canonical reset page');
+const form='<!doctype html><form id="resetCompleteForm"></form>';
+async function runResetPageCheck(responses){
+  const requests=[];
+  const pageContext=vm.createContext({URL,AbortSignal,ORIGIN:'https://thebedesk.com',agent:'test',assert:(ok,message)=>assert(ok,message),fetch:async(url,options)=>{
+    requests.push({url:String(url),options});
+    assert(responses.length,'unexpected additional reset page request');
+    return responses.shift();
+  }});
+  vm.runInContext(recoverySmoke.slice(pageCheckStart,pageCheckEnd),pageContext);
+  await pageContext.verifyResetPage();
+  return requests;
+}
+const direct=await runResetPageCheck([new Response(form)]);
+assert.equal(direct.length,1);
+const canonical=await runResetPageCheck([new Response(null,{status:307,headers:{location:'/reset-password'}}),new Response(form)]);
+assert.equal(canonical[1].url,'https://thebedesk.com/reset-password');
+assert(canonical.every(r=>r.options.redirect==='manual'&&r.options.signal instanceof AbortSignal));
+for(const location of ['https://other.example/reset-password','/auth/','/reset-password?reset_token=secret','/reset-password#secret','https://user:password@thebedesk.com/reset-password']){
+  await assert.rejects(runResetPageCheck([new Response(null,{status:307,headers:{location}})]),/canonical same-origin/);
+}
+await assert.rejects(runResetPageCheck([new Response(null,{status:307})]),/missing its destination/);
+await assert.rejects(runResetPageCheck([new Response(null,{status:307,headers:{location:'/reset-password'}}),new Response(null,{status:307,headers:{location:'/reset-password'}})]),/not publicly reachable/);
+await assert.rejects(runResetPageCheck([new Response('login page')]),/completion form/);
+console.log('PASS: recovery page accepts one canonical redirect and rejects external, credentialed, token-bearing, repeated and wrong-page responses.');
