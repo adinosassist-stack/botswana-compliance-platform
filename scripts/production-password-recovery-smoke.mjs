@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import {readSenderDomainStatus} from './production-email-sender-diagnostic.mjs';
 
 const ORIGIN='https://thebedesk.com';
 const CF_API='https://api.cloudflare.com/client/v4';
@@ -167,7 +168,8 @@ async function waitForResetEmail(startedAt){
   }
   const resetState=await one(`SELECT COUNT(*) AS issued,COALESCE(SUM(CASE WHEN used_at IS NOT NULL THEN 1 ELSE 0 END),0) AS invalidated FROM password_reset_tokens WHERE user_id=?`,[synthetic.userId]);
   const issued=Number(resetState?.issued||0),invalidated=Number(resetState?.invalidated||0);
-  fail(`reset email did not appear in Resend sent-email API within the bounded polling window; synthetic reset tokens issued=${issued} invalidated=${invalidated}`);
+  const senderStatus=await readSenderDomainStatus({cfHeaders,resendHeaders,accountId});
+  fail(`reset email did not appear in Resend sent-email API within the bounded polling window; synthetic reset tokens issued=${issued} invalidated=${invalidated} senderDomainStatus=${senderStatus}`);
 }
 
 try{

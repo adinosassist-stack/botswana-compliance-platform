@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import {isSafeUiMutation} from './production-synthetic-request-policy.mjs';
 import {chromium} from 'playwright-core';
 
 const ORIGIN='https://thebedesk.com';
@@ -109,7 +110,7 @@ async function runFullUserJourney(credentials){
     page.on('request',request=>{
       if(!safeUiActionProbeActive)return;
       const path=logicalApiPath(request.url()),method=request.method().toUpperCase();
-      if(path&&!['GET','HEAD','OPTIONS'].includes(method))safeUiMutationRequests.push(method+' '+path);
+      if(isSafeUiMutation(method,path))safeUiMutationRequests.push(method+' '+path);
     });
     page.on('response',response=>{
       const path=logicalApiPath(response.url());

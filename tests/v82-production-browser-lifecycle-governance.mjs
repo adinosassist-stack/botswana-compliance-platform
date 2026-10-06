@@ -119,7 +119,12 @@ must(fullUserWrapper,/full-user owner navigation click matrix/,'full-user proof 
 must(fullUserWrapper,/MIN_SAFE_UI_ACTION_COUNT=5/,'full-user proof requires a bounded set of real non-navigation UI actions');
 must(fullUserWrapper,/safeUiActionProbeActive=true/,'full-user proof explicitly scopes the non-mutating UI action probe');
 must(fullUserWrapper,/page\.on\('request',request=>/,'full-user proof observes network traffic while safe UI actions are exercised');
-must(fullUserWrapper,/\['GET','HEAD','OPTIONS'\]\.includes\(method\)/,'safe UI action probe classifies non-idempotent API requests');
+must(fullUserWrapper,/isSafeUiMutation\(method,path\)/,'safe UI action probe uses the explicit read-only request policy');
+const {isSafeUiMutation}=await import('../scripts/production-synthetic-request-policy.mjs');
+assert.equal(isSafeUiMutation('POST','/api/ai/operator/queue'),false,'computed queue is read-only');
+for(const [method,path] of [['PUT','/api/ai/operator/queue'],['POST','/api/ai/operator/queue/execute'],['POST','/api/ai/operator/route'],['POST','/api/employees'],['DELETE','/api/employees/1']]){
+  assert.equal(isSafeUiMutation(method,path),true,method+' '+path+' must remain a mutation');
+}
 must(fullUserWrapper,/#quickNav:visible/,'safe UI action proof clicks the real command-palette trigger');
 must(fullUserWrapper,/openAddEvidence\(\)/,'safe UI action proof exercises the real Add evidence control');
 must(fullUserWrapper,/openModal\('scanModal'\)/,'safe UI action proof exercises the compliance-scan modal trigger without running the scan');
