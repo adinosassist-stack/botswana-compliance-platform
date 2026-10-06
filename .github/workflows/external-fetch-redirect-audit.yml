@@ -1,0 +1,27 @@
+name: External Fetch Redirect Audit
+
+on:
+  push:
+    branches:
+      - chatgpt/recovery-worker-egress-diagnostic
+    paths:
+      - '.github/workflows/external-fetch-redirect-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Find redirect hardening expectations
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -RIn -C 3 --exclude-dir=node_modules 'redirect:"error"' tests cloudflare scripts || true
+          echo '=== externalFetch references in tests ==='
+          grep -RIn -C 3 --exclude-dir=node_modules 'externalFetch' tests || true
