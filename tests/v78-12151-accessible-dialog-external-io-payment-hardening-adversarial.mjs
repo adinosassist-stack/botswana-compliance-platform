@@ -26,10 +26,11 @@ ok(lint.includes("must not use native confirm()")&&lint.includes("must not use n
 ok(html.includes("BW.dialog.confirm")&&html.includes("BW.dialog.prompt"),"sensitive workflows must use the accessible dialog service");
 ok(profile.native_browser_confirm_prompt_calls===0&&profile.accessible_async_dialog_service===true,"release profile must record zero native browser dialogs");
 
-ok(worker.includes("async function externalFetch(url,options={},timeoutMs=20000)")&&worker.includes('redirect:"error"')&&worker.includes('controller.abort("external_timeout")'),"outbound provider calls must use bounded timeout and reject redirects");
+ok(worker.includes("async function externalFetch(url,options={},timeoutMs=20000)")&&worker.includes('manualRedirects?"manual":"error"')&&worker.includes('controller.abort("external_timeout")'),"outbound provider calls must use bounded timeout and reject redirects by default");
+ok(worker.includes('const EXTERNAL_MANUAL_REDIRECT_ORIGINS=new Set(["https://api.resend.com"])')&&worker.includes('next.origin!==initialUrl.origin')&&worker.includes('external_redirect_cross_origin'),"only Resend may use manual redirect handling and cross-origin redirects must fail closed");
 const outboundCalls=(worker.match(/await externalFetch\(/g)||[]).length;ok(outboundCalls>=10,"all material outbound integrations must use the centralized external fetch guard");
-ok((worker.match(/await fetch\(/g)||[]).length===1&&worker.includes('try{return await fetch(url,{...options,signal:controller.signal,redirect:"error"})'),"Worker business logic must not bypass externalFetch for bare outbound fetch calls");
-ok(profile.outbound_external_fetch_timeout_ms===20000&&profile.outbound_external_fetch_redirect_policy==="error","release profile must record outbound I/O policy");
+ok((worker.match(/await fetch\(/g)||[]).length===1&&worker.includes('response=await fetch(target.toString(),{...options,signal:controller.signal,redirect})'),"Worker business logic must not bypass externalFetch for bare outbound fetch calls");
+ok(profile.outbound_external_fetch_timeout_ms===20000&&profile.outbound_external_fetch_redirect_policy==="error","release profile must record default outbound I/O policy");
 
 ok(worker.includes('const DPO_DEFAULT_HOSTS=new Set(["secure.3gdirectpay.com"])')&&worker.includes("function trustedDpoUrl"),"DPO endpoints must use an explicit HTTPS host allowlist");
 ok(worker.includes("trustedDpoUrl(env,env.DPO_VERIFY_API_URL||env.DPO_API_URL")&&worker.includes("trustedDpoUrl(env,env.DPO_REFUND_API_URL||env.DPO_API_URL")&&worker.includes("trustedDpoUrl(env,env.DPO_API_URL")&&worker.includes("trustedDpoUrl(env,env.DPO_CHECKOUT_URL"),"DPO create/verify/refund/checkout endpoints must all be allowlisted");
@@ -49,7 +50,19 @@ const originalFetch=globalThis.fetch;let captured=null;
 try{
   globalThis.fetch=async(url,options)=>{captured={url:String(url),options};return new Response("ok",{status:200})};
   const r=await __v782151Test.externalFetch("https://provider.example/test",{method:"POST",body:"x"},1000);
-  ok(r.ok&&captured?.options?.redirect==="error"&&captured?.options?.signal instanceof AbortSignal,"externalFetch runtime must inject redirect refusal and an abort signal");
+  ok(r.ok&&captured?.options?.redirect==="error"&&captured?.options?.signal instanceof AbortSignal,"externalFetch runtime must inject redirect refusal and an abort signal for non-allowlisted providers");
+
+  captured=null;
+  const resend=await __v782151Test.externalFetch("https://api.resend.com/emails",{method:"POST",body:"x"},1000);
+  ok(resend.ok&&captured?.options?.redirect==="manual","Resend transport must use manual redirect handling rather than unsafe automatic follow");
+
+  globalThis.fetch=async()=>new Response("",{status:307,headers:{location:"https://evil.example/leak"}});
+  await assert.rejects(()=>__v782151Test.externalFetch("https://api.resend.com/emails",{method:"POST",body:"secret"},1000),/external_redirect_cross_origin/);
+
+  let calls=0;
+  globalThis.fetch=async(url,options)=>{calls++;return calls===1?new Response("",{status:307,headers:{location:"/v2/emails"}}):new Response("ok",{status:200})};
+  const sameOrigin=await __v782151Test.externalFetch("https://api.resend.com/emails",{method:"POST",body:"x"},1000);
+  ok(sameOrigin.ok&&calls===2,"Resend transport may follow a bounded same-origin method-preserving redirect");
 }finally{globalThis.fetch=originalFetch}
 
 ok(worker.includes("LIMIT 1000\").bind(a.tenant_id).all()")&&worker.includes("LIMIT 3000\").bind(a.tenant_id).all()")&&worker.includes("obligation_escalations WHERE tenant_id=? ORDER BY created_at DESC LIMIT 1000"),"inspection-pack snapshot collections must be bounded");
