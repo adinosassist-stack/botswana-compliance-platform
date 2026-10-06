@@ -1,0 +1,126 @@
+name: Apply Resend Worker Redirect Fix
+
+on:
+  push:
+    branches:
+      - chatgpt/fix-resend-worker-redirect
+    paths:
+      - '.github/workflows/apply-resend-worker-redirect-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: chatgpt/fix-resend-worker-redirect
+          fetch-depth: 1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Apply exact scoped transport patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          worker_path=Path('cloudflare/src/worker.js')
+          worker=worker_path.read_text()
+          old='''async function externalFetch(url,options={},timeoutMs=20000){
+            const controller=new AbortController(),timer=setTimeout(()=>controller.abort("external_timeout"),Math.max(1000,Math.min(60000,Number(timeoutMs)||20000)));
+            try{return await fetch(url,{...options,signal:controller.signal,redirect:"error"})}finally{clearTimeout(timer)}
+          }'''
+          new='''const EXTERNAL_MANUAL_REDIRECT_ORIGINS=new Set(["https://api.resend.com"]);
+          function externalRedirectStatus(status){return status===301||status===302||status===303||status===307||status===308}
+          async function externalFetch(url,options={},timeoutMs=20000){
+            const controller=new AbortController(),timer=setTimeout(()=>controller.abort("external_timeout"),Math.max(1000,Math.min(60000,Number(timeoutMs)||20000)));
+            const initialUrl=new URL(String(url)),manualRedirects=EXTERNAL_MANUAL_REDIRECT_ORIGINS.has(initialUrl.origin);let target=initialUrl;
+            try{
+              for(let redirects=0;;redirects++){
+                const redirect=manualRedirects?"manual":"error",response=await fetch(target.toString(),{...options,signal:controller.signal,redirect});
+                if(!manualRedirects||!externalRedirectStatus(response.status))return response;
+                if(redirects>=2)throw new Error("external_redirect_limit");
+                const location=response.headers.get("location");if(!location)return response;
+                const next=new URL(location,target);if(next.origin!==initialUrl.origin)throw new Error("external_redirect_cross_origin");
+                const method=String(options.method||"GET").toUpperCase();
+                if(method!=="GET"&&method!=="HEAD"&&response.status!==307&&response.status!==308)throw new Error("external_redirect_method_change");
+                target=next;
+              }
+            }finally{clearTimeout(timer)}
+          }'''
+          if worker.count(old)!=1:
+              raise SystemExit(f'expected exactly one externalFetch block, found {worker.count(old)}')
+          worker=worker.replace(old,new)
+          worker_path.write_text(worker)
+
+          test_path=Path('tests/v78-12151-accessible-dialog-external-io-payment-hardening-adversarial.mjs')
+          test=test_path.read_text()
+          old_checks='''ok(worker.includes("async function externalFetch(url,options={},timeoutMs=20000)")&&worker.includes('redirect:"error"')&&worker.includes('controller.abort("external_timeout")'),"outbound provider calls must use bounded timeout and reject redirects");
+          const outboundCalls=(worker.match(/await externalFetch\\(/g)||[]).length;ok(outboundCalls>=10,"all material outbound integrations must use the centralized external fetch guard");
+          ok((worker.match(/await fetch\\(/g)||[]).length===1&&worker.includes('try{return await fetch(url,{...options,signal:controller.signal,redirect:"error"})'),"Worker business logic must not bypass externalFetch for bare outbound fetch calls");
+          ok(profile.outbound_external_fetch_timeout_ms===20000&&profile.outbound_external_fetch_redirect_policy==="error","release profile must record outbound I/O policy");'''
+          new_checks='''ok(worker.includes("async function externalFetch(url,options={},timeoutMs=20000)")&&worker.includes('manualRedirects?"manual":"error"')&&worker.includes('controller.abort("external_timeout")'),"outbound provider calls must use bounded timeout and reject redirects by default");
+          ok(worker.includes('const EXTERNAL_MANUAL_REDIRECT_ORIGINS=new Set(["https://api.resend.com"])')&&worker.includes('next.origin!==initialUrl.origin')&&worker.includes('external_redirect_cross_origin'),"only Resend may use manual redirect handling and cross-origin redirects must fail closed");
+          const outboundCalls=(worker.match(/await externalFetch\\(/g)||[]).length;ok(outboundCalls>=10,"all material outbound integrations must use the centralized external fetch guard");
+          ok((worker.match(/await fetch\\(/g)||[]).length===1&&worker.includes('response=await fetch(target.toString(),{...options,signal:controller.signal,redirect})'),"Worker business logic must not bypass externalFetch for bare outbound fetch calls");
+          ok(profile.outbound_external_fetch_timeout_ms===20000&&profile.outbound_external_fetch_redirect_policy==="error","release profile must record default outbound I/O policy");'''
+          if test.count(old_checks)!=1:
+              raise SystemExit('external fetch hardening assertion block did not match exactly')
+          test=test.replace(old_checks,new_checks)
+
+          old_runtime='''const originalFetch=globalThis.fetch;let captured=null;
+          try{
+            globalThis.fetch=async(url,options)=>{captured={url:String(url),options};return new Response("ok",{status:200})};
+            const r=await __v782151Test.externalFetch("https://provider.example/test",{method:"POST",body:"x"},1000);
+            ok(r.ok&&captured?.options?.redirect==="error"&&captured?.options?.signal instanceof AbortSignal,"externalFetch runtime must inject redirect refusal and an abort signal");
+          }finally{globalThis.fetch=originalFetch}'''
+          new_runtime='''const originalFetch=globalThis.fetch;let captured=null;
+          try{
+            globalThis.fetch=async(url,options)=>{captured={url:String(url),options};return new Response("ok",{status:200})};
+            const r=await __v782151Test.externalFetch("https://provider.example/test",{method:"POST",body:"x"},1000);
+            ok(r.ok&&captured?.options?.redirect==="error"&&captured?.options?.signal instanceof AbortSignal,"externalFetch runtime must inject redirect refusal and an abort signal for non-allowlisted providers");
+
+            captured=null;
+            const resend=await __v782151Test.externalFetch("https://api.resend.com/emails",{method:"POST",body:"x"},1000);
+            ok(resend.ok&&captured?.options?.redirect==="manual","Resend transport must use manual redirect handling rather than unsafe automatic follow");
+
+            globalThis.fetch=async()=>new Response("",{status:307,headers:{location:"https://evil.example/leak"}});
+            await assert.rejects(()=>__v782151Test.externalFetch("https://api.resend.com/emails",{method:"POST",body:"secret"},1000),/external_redirect_cross_origin/);
+
+            let calls=0;
+            globalThis.fetch=async(url,options)=>{calls++;return calls===1?new Response("",{status:307,headers:{location:"/v2/emails"}}):new Response("ok",{status:200})};
+            const sameOrigin=await __v782151Test.externalFetch("https://api.resend.com/emails",{method:"POST",body:"x"},1000);
+            ok(sameOrigin.ok&&calls===2,"Resend transport may follow a bounded same-origin method-preserving redirect");
+          }finally{globalThis.fetch=originalFetch}'''
+          if test.count(old_runtime)!=1:
+              raise SystemExit('external fetch runtime assertion block did not match exactly')
+          test=test.replace(old_runtime,new_runtime)
+          test_path.write_text(test)
+          PY
+
+      - name: Run focused security and recovery gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check cloudflare/src/worker.js
+          node tests/v78-12151-accessible-dialog-external-io-payment-hardening-adversarial.mjs
+          node tests/v78-12162-password-reset-email-delivery-adversarial.mjs
+          node tests/v78-12190-outbound-scanner-endpoint-hardening-adversarial.mjs
+          git diff --check
+
+      - name: Commit tested patch to fix branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'thebe-release-bot'
+          git config user.email 'thebe-release-bot@users.noreply.github.com'
+          git add cloudflare/src/worker.js tests/v78-12151-accessible-dialog-external-io-payment-hardening-adversarial.mjs
+          git diff --cached --quiet && { echo 'no patch produced' >&2; exit 1; }
+          git commit -m 'fix: allow safe Resend redirects in Worker transport'
+          git push origin HEAD:chatgpt/fix-resend-worker-redirect
