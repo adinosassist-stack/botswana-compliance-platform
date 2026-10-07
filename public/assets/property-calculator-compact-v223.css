@@ -10,21 +10,63 @@
   .property-calculator-compact .property-calculator-actions .btn{min-height:40px}
 }
 
-/* V294 flat Property colour system — preserve calculator geometry and placement. */
+/* V304 Property colour consistency + contrast — presentation only; preserve calculator geometry and placement. */
 #propertyintelligence.property-compact-v260{
-  background:#f4f7fb!important;
+  --property-shell:#f4f7fb;
+  --property-surface:#ffffff;
+  --property-surface-soft:#f8fafc;
+  --property-border:#d9e2ee;
+  --property-text:#102a43;
+  --property-text-muted:#62748a;
+  --property-brand:#1769d2;
+  --property-brand-strong:#0f56b3;
+  --property-dark:#102a43;
+  --property-dark-2:#173a63;
+  --property-dark-border:#244a73;
+  --property-on-dark:#f7fbff;
+  --property-on-dark-muted:#d7e5f4;
+  --property-accent:#dbeafe;
+  background:var(--property-shell)!important;
+  color:var(--property-text)!important;
 }
+
 #propertyintelligence.property-compact-v260 .property-hero-compact{
-  background:#182016!important;
-  background-image:none!important;
-  border:1px solid #2c3729!important;
-  color:#f7fff1!important;
+  background:linear-gradient(135deg,var(--property-dark) 0%,var(--property-dark-2) 100%)!important;
+  background-image:linear-gradient(135deg,var(--property-dark) 0%,var(--property-dark-2) 100%)!important;
+  border:1px solid var(--property-dark-border)!important;
+  color:var(--property-on-dark)!important;
 }
+#propertyintelligence.property-compact-v260 .property-hero-compact :is(h1,h2,h3,h4,h5,h6,p,span,small,strong){
+  color:var(--property-on-dark)!important;
+}
+#propertyintelligence.property-compact-v260 .property-hero-compact :is(.muted,.subtitle,.eyebrow,.property-eyebrow){
+  color:var(--property-on-dark-muted)!important;
+}
+#propertyintelligence.property-compact-v260 .property-hero-compact .badge{
+  background:var(--property-accent)!important;
+  background-image:none!important;
+  border-color:#b8d5fb!important;
+  color:var(--property-text)!important;
+}
+#propertyintelligence.property-compact-v260 .property-hero-compact .badge *{
+  color:var(--property-text)!important;
+}
+
 #propertyintelligence.property-compact-v260 .property-primary-v260{
-  background:#ffffff!important;
+  background:var(--property-surface-soft)!important;
   background-image:none!important;
-  border-color:#dde4dc!important;
+  border-color:var(--property-border)!important;
 }
+#propertyintelligence.property-compact-v260 .property-primary-v260 button{
+  color:var(--property-text-muted)!important;
+}
+#propertyintelligence.property-compact-v260 .property-primary-v260 button.active{
+  background:var(--property-dark)!important;
+  background-image:none!important;
+  border-color:var(--property-dark)!important;
+  color:#ffffff!important;
+}
+
 #propertyintelligence.property-compact-v260 :is(
   .property-overview-v261,
   .property-calculator-v224,
@@ -35,33 +77,63 @@
   .property-overview-metric-v261,
   .property-input-row
 ){
-  background:#ffffff!important;
+  background:var(--property-surface)!important;
   background-image:none!important;
+  border-color:var(--property-border)!important;
+  color:var(--property-text)!important;
 }
 #propertyintelligence.property-compact-v260 .property-overview-v261{
-  border-color:#dfe5dc!important;
+  border-color:var(--property-border)!important;
 }
-#propertyintelligence.property-compact-v260 .property-yield-card-v261{
-  background:#11140f!important;
+
+#propertyintelligence.property-compact-v260 .property-yield-card-v261,
+#propertyintelligence.property-compact-v260 .property-overview-ai-v261{
+  background:var(--property-dark)!important;
   background-image:none!important;
+  border-color:var(--property-dark-border)!important;
+  color:var(--property-on-dark)!important;
+}
+#propertyintelligence.property-compact-v260 .property-yield-card-v261 :is(h1,h2,h3,h4,h5,h6,p,span,small,strong),
+#propertyintelligence.property-compact-v260 .property-overview-ai-v261 :is(h1,h2,h3,h4,h5,h6,p,span,small,strong){
+  color:var(--property-on-dark)!important;
 }
 #propertyintelligence.property-compact-v260 .property-yield-ring-v261{
-  background:#11140f!important;
+  background:var(--property-dark)!important;
   background-image:none!important;
-  border:10px solid #343a31!important;
+  border:10px solid #35516d!important;
+  color:var(--property-on-dark)!important;
 }
 #propertyintelligence.property-compact-v260 .property-yield-ring-v261::after{
-  background:#11140f!important;
+  background:var(--property-dark)!important;
   background-image:none!important;
 }
-#propertyintelligence.property-compact-v260 .property-overview-ai-v261,
-#propertyintelligence.property-compact-v260 .property-primary-v260 button.active{
-  background:#11140f!important;
+
+#propertyintelligence.property-compact-v260 :is(input,select,textarea){
+  background:var(--property-surface)!important;
+  border-color:var(--property-border)!important;
+  color:var(--property-text)!important;
+}
+#propertyintelligence.property-compact-v260 :is(input,textarea)::placeholder{
+  color:var(--property-text-muted)!important;
+  opacity:1!important;
+}
+
+#propertyintelligence.property-compact-v260 :is(.btn-primary,.property-primary-action,.property-add-evidence){
+  background:var(--property-brand)!important;
   background-image:none!important;
+  border-color:var(--property-brand)!important;
   color:#ffffff!important;
 }
-#propertyintelligence.property-compact-v260 .property-hero-compact .badge{
-  background:#c7ef32!important;
-  background-image:none!important;
-  color:#11140f!important;
+#propertyintelligence.property-compact-v260 :is(.btn-primary,.property-primary-action,.property-add-evidence):hover{
+  background:var(--property-brand-strong)!important;
+  border-color:var(--property-brand-strong)!important;
+  color:#ffffff!important;
+}
+
+/* Keep Property text readable on both light and dark containers. */
+#propertyintelligence.property-compact-v260 :is(.property-overview-title-v261,.property-calculator-v224 h1,.property-calculator-v224 h2,.property-calculator-v224 h3){
+  color:var(--property-text)!important;
+}
+#propertyintelligence.property-compact-v260 :is(.property-label,.property-meta,.property-caption){
+  color:var(--property-text-muted)!important;
 }
