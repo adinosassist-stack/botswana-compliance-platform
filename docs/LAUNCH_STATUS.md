@@ -17,6 +17,10 @@ Do not copy a production SHA, sequence number, main SHA or deployment timestamp 
 
 ## Current technical status
 
+Schema requirement: current v1.21.101 schema. Existing production databases must reach the current packaged Cloudflare migration tip using only pending release migrations; code/schema drift fails closed.
+
+Public go-live: CONDITIONAL. Code readiness and successful production qualification do not fabricate readiness for optional external integrations that remain deliberately deferred.
+
 - **Production release gate:** GREEN when the exact manifest-selected source has completed Recovery CI, BF-07 sealing, guarded production deployment and exact-SHA post-deploy verification.
 - **BF-07:** CLOSED as a launch blocker. Every future production release must still pass the BF-07 gate from clean registry state; any BF-07 failure fails the release closed.
 - **Cloudflare production path:** Worker + D1 + R2 remains the primary production profile.
