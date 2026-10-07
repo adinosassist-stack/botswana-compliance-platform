@@ -29,10 +29,11 @@ try{
       receivables:{businessDate:'2026-10-07',outstandingInvoiceCount:4,outstandingMinor:800000,overdueInvoiceCount:2,overdueMinor:300000,due7dMinor:200000,overdueCustomerCount:2,customers:[{customerName:'Customer Alpha',outstandingInvoiceCount:2,outstandingMinor:500000,overdueInvoiceCount:1,overdueMinor:200000,earliestDueOn:'2026-10-01'}],invoices:[{invoiceNumber:'INV-001',customerName:'Customer Alpha',dueOn:'2026-10-01',outstandingMinor:200000,overdue:true}]},
       payables:{available:true,businessDate:'2026-10-07',outstandingPayableCount:3,outstandingMinor:450000,overduePayableCount:1,overdueMinor:100000,due7dMinor:150000,supplierCount:2,suppliers:[{supplierName:'Supplier One',outstandingPayableCount:2,outstandingMinor:300000,overduePayableCount:1,overdueMinor:100000,earliestDueOn:'2026-10-02'}],payables:[{payableNumber:'BILL-01',supplierName:'Supplier One',dueOn:'2026-10-02',outstandingMinor:100000,overdue:true,expenseCategory:'materials'}]}
     };
-    globalThis.fetch=async()=>{
+    globalThis.BW={api:{createClient:()=>({request:async(path,options)=>{
+      if(path!=='/api/finance/summary'||options?.method!=='GET')throw new Error('unexpected finance client request');
       if(globalThis.__moneyFetchMode==='fail')throw new TypeError('simulated finance outage');
-      return new Response(JSON.stringify(payload),{status:200,headers:{'content-type':'application/json'}});
-    };
+      return payload;
+    }})}};
   });
   const before=await page.evaluate(()=>({property:document.getElementById('protectedPropertyCalculator').getBoundingClientRect().toJSON(),dock:document.getElementById('thebeAiDock').getBoundingClientRect().toJSON()}));
   await page.addScriptTag({path:'public/js/money-workspace-v307.js'});
@@ -65,5 +66,5 @@ try{
   assert.match(unavailable,/Money workspace unavailable/);assert.match(unavailable,/Do not interpret missing cash, receivables, payables or reconciliation figures as zero/);
   assert.doesNotMatch(unavailable,/P0(?:\.|\b)/,'failed source must not render a synthetic zero balance');
   assert.deepEqual(errors,[],'V307 browser page errors');
-  console.log('PASS: V307 Money phone layout, deterministic finance lanes, AI secondary action, fail-closed state, Property and dock geometry');
+  console.log('PASS: V307 Money phone layout, deterministic finance lanes, AI secondary action, centralized API transport, fail-closed state, Property and dock geometry');
 }finally{await browser.close()}

@@ -10,10 +10,8 @@
   let loading=false;
   let observer=null;
   let scheduled=false;
+  let apiClient=null;
 
-  const escapeHtml=value=>String(value??'')
-    .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
-    .replaceAll('"','&quot;').replaceAll("'",'&#039;');
   const number=value=>Number.isFinite(Number(value))?Number(value):0;
   const count=value=>number(value).toLocaleString('en-BW');
   const moneyMinor=value=>{
@@ -37,6 +35,93 @@
     try{return new Intl.DateTimeFormat('en-BW',{timeZone:'Africa/Gaborone',dateStyle:'medium'}).format(date)}
     catch{return raw}
   };
+
+  function createElement(tag,{className='',text,attrs={},dataset={}}={},children=[]){
+    const node=document.createElement(tag);
+    if(className)node.className=className;
+    if(text!==undefined)node.textContent=String(text);
+    for(const [name,value] of Object.entries(attrs))node.setAttribute(name,String(value));
+    for(const [name,value] of Object.entries(dataset))node.dataset[name]=String(value);
+    for(const child of children)if(child)node.append(child);
+    return node;
+  }
+
+  function textElement(tag,className,text){
+    return createElement(tag,{className,text});
+  }
+
+  function actionButton(label,action,{alt=false}={}){
+    return createElement('button',{
+      className:alt?'btn alt':'btn',
+      text:label,
+      attrs:{type:'button'},
+      dataset:{moneyV307Action:action}
+    });
+  }
+
+  function emptyState(text){
+    return textElement('div','money-v307-empty',text);
+  }
+
+  function rowNode(title,meta,amount){
+    const copy=createElement('div',{},[
+      textElement('b','',title),
+      textElement('span','',meta)
+    ]);
+    return createElement('div',{className:'money-v307-row'},[
+      copy,
+      textElement('strong','',amount)
+    ]);
+  }
+
+  function metricNode(label,value){
+    return createElement('div',{className:'money-v307-metric'},[
+      textElement('span','',label),
+      textElement('b','',value)
+    ]);
+  }
+
+  function statNode(label,value,detail,tone=''){
+    const node=createElement('div',{className:'money-v307-stat'},[
+      textElement('span','',label),
+      textElement('b','',value),
+      textElement('small','',detail)
+    ]);
+    if(tone)node.dataset.tone=tone;
+    return node;
+  }
+
+  function badgeNode(text,tone=''){
+    return textElement('span',`money-v307-badge${tone?` ${tone}`:''}`,text);
+  }
+
+  function detailsNode(label,...children){
+    return createElement('details',{className:'money-v307-detail'},[
+      textElement('summary','',label),
+      ...children
+    ]);
+  }
+
+  function listNode(children=[]){
+    return createElement('div',{className:'money-v307-list'},children);
+  }
+
+  function laneNode(eyebrow,title,badgeText,badgeTone,description,metrics,details){
+    const heading=createElement('div',{},[
+      textElement('div','money-v307-eyebrow',eyebrow),
+      textElement('h3','',title)
+    ]);
+    const head=createElement('div',{className:'money-v307-lane-head'},[
+      heading,
+      badgeNode(badgeText,badgeTone)
+    ]);
+    return createElement('article',{className:'money-v307-lane'},[
+      head,
+      textElement('p','',description),
+      createElement('div',{className:'money-v307-metrics'},metrics),
+      details
+    ]);
+  }
 
   function injectStyles(){
     if(document.getElementById('moneyWorkspaceV307Styles'))return;
@@ -80,50 +165,106 @@
   function mount(root){
     if(!root||document.getElementById(MOUNT_ID))return document.getElementById(MOUNT_ID);
     injectStyles();
-    const node=document.createElement('section');
-    node.id=MOUNT_ID;
-    node.className='money-v307-shell';
-    node.dataset.release=RELEASE;
-    node.setAttribute('aria-label','Money workspace');
-    node.innerHTML=`<div class="money-v307-command"><div class="money-v307-command-copy"><b>Confirmed money position</b><span id="moneyV307Freshness" role="status" aria-live="polite">Open Money to load the canonical finance ledger.</span></div><div class="money-v307-actions"><button type="button" class="btn" data-money-v307-action="refresh">Refresh money</button><button type="button" class="btn alt" data-money-v307-action="explain">Explain with Thebe</button></div></div><div id="moneyV307Body"><div class="money-v307-empty">Open Money to load the finance workspace.</div></div>`;
+    const node=createElement('section',{
+      className:'money-v307-shell',
+      attrs:{id:MOUNT_ID,'aria-label':'Money workspace'},
+      dataset:{release:RELEASE}
+    });
+    const freshness=createElement('span',{
+      text:'Open Money to load the canonical finance ledger.',
+      attrs:{id:'moneyV307Freshness',role:'status','aria-live':'polite'}
+    });
+    const commandCopy=createElement('div',{className:'money-v307-command-copy'},[
+      textElement('b','','Confirmed money position'),
+      freshness
+    ]);
+    const actions=createElement('div',{className:'money-v307-actions'},[
+      actionButton('Refresh money','refresh'),
+      actionButton('Explain with Thebe','explain',{alt:true})
+    ]);
+    const command=createElement('div',{className:'money-v307-command'},[commandCopy,actions]);
+    const body=createElement('div',{attrs:{id:'moneyV307Body'}},[
+      emptyState('Open Money to load the finance workspace.')
+    ]);
+    node.append(command,body);
     const hero=root.querySelector('.hub-hero');
     if(hero)hero.insertAdjacentElement('afterend',node);else root.prepend(node);
     root.classList.add('money-v307-ready');
     return node;
   }
 
+  function financeApiClient(){
+    if(apiClient)return apiClient;
+    const createClient=globalThis.BW?.api?.createClient;
+    if(typeof createClient!=='function')throw new Error('finance_api_client_unavailable');
+    apiClient=createClient();
+    return apiClient;
+  }
+
   async function getSummary(){
-    const response=await fetch(API,{method:'GET',credentials:'same-origin',redirect:'error',cache:'no-store',headers:{accept:'application/json'}});
-    if(!response.ok)throw new Error(`finance_summary_http_${response.status}`);
-    const body=await response.json();
+    const body=await financeApiClient().request(API,{method:'GET'});
     if(!body||body.authority?.canonical!==true)throw new Error('finance_summary_not_canonical');
     return body;
   }
 
   function topReceivableRows(receivables){
     const rows=Array.isArray(receivables?.customers)?receivables.customers:[];
-    if(!rows.length)return '<div class="money-v307-empty">No outstanding customer balance is returned by the canonical invoice ledger.</div>';
-    return rows.slice(0,5).map(row=>`<div class="money-v307-row"><div><b>${escapeHtml(row.customerName||'Customer')}</b><span>${count(row.outstandingInvoiceCount)} open · ${count(row.overdueInvoiceCount)} overdue${row.earliestDueOn?` · earliest ${escapeHtml(row.earliestDueOn)}`:''}</span></div><strong>${moneyMinor(row.outstandingMinor)}</strong></div>`).join('');
+    if(!rows.length)return [emptyState('No outstanding customer balance is returned by the canonical invoice ledger.')];
+    return rows.slice(0,5).map(row=>rowNode(
+      row.customerName||'Customer',
+      `${count(row.outstandingInvoiceCount)} open · ${count(row.overdueInvoiceCount)} overdue${row.earliestDueOn?` · earliest ${row.earliestDueOn}`:''}`,
+      moneyMinor(row.outstandingMinor)
+    ));
   }
 
   function topPayableRows(payables){
-    if(payables?.available===false)return '<div class="money-v307-empty">Supplier payables are unavailable. Do not treat this as a zero balance.</div>';
+    if(payables?.available===false)return [emptyState('Supplier payables are unavailable. Do not treat this as a zero balance.')];
     const rows=Array.isArray(payables?.suppliers)?payables.suppliers:[];
-    if(!rows.length)return '<div class="money-v307-empty">No outstanding supplier payable is returned by the canonical payable ledger.</div>';
-    return rows.slice(0,5).map(row=>`<div class="money-v307-row"><div><b>${escapeHtml(row.supplierName||'Supplier')}</b><span>${count(row.outstandingPayableCount)} open · ${count(row.overduePayableCount)} overdue${row.earliestDueOn?` · earliest ${escapeHtml(row.earliestDueOn)}`:''}</span></div><strong>${moneyMinor(row.outstandingMinor)}</strong></div>`).join('');
+    if(!rows.length)return [emptyState('No outstanding supplier payable is returned by the canonical payable ledger.')];
+    return rows.slice(0,5).map(row=>rowNode(
+      row.supplierName||'Supplier',
+      `${count(row.outstandingPayableCount)} open · ${count(row.overduePayableCount)} overdue${row.earliestDueOn?` · earliest ${row.earliestDueOn}`:''}`,
+      moneyMinor(row.outstandingMinor)
+    ));
   }
 
   function invoiceRows(receivables){
     const rows=Array.isArray(receivables?.invoices)?receivables.invoices:[];
-    if(!rows.length)return '';
-    return `<div class="money-v307-list">${rows.slice(0,5).map(row=>`<div class="money-v307-row"><div><b>${escapeHtml(row.invoiceNumber||'Invoice')} · ${escapeHtml(row.customerName||'Customer')}</b><span>${row.overdue?'Overdue':'Due'} ${escapeHtml(row.dueOn||'date not recorded')}</span></div><strong>${moneyMinor(row.outstandingMinor)}</strong></div>`).join('')}</div>`;
+    if(!rows.length)return null;
+    return listNode(rows.slice(0,5).map(row=>rowNode(
+      `${row.invoiceNumber||'Invoice'} · ${row.customerName||'Customer'}`,
+      `${row.overdue?'Overdue':'Due'} ${row.dueOn||'date not recorded'}`,
+      moneyMinor(row.outstandingMinor)
+    )));
   }
 
   function payableRows(payables){
-    if(payables?.available===false)return '';
+    if(payables?.available===false)return null;
     const rows=Array.isArray(payables?.payables)?payables.payables:[];
-    if(!rows.length)return '';
-    return `<div class="money-v307-list">${rows.slice(0,5).map(row=>`<div class="money-v307-row"><div><b>${escapeHtml(row.payableNumber||'Payable')} · ${escapeHtml(row.supplierName||'Supplier')}</b><span>${row.overdue?'Overdue':'Due'} ${escapeHtml(row.dueOn||'date not recorded')}${row.expenseCategory?` · ${escapeHtml(String(row.expenseCategory).replaceAll('_',' '))}`:''}</span></div><strong>${moneyMinor(row.outstandingMinor)}</strong></div>`).join('')}</div>`;
+    if(!rows.length)return null;
+    return listNode(rows.slice(0,5).map(row=>rowNode(
+      `${row.payableNumber||'Payable'} · ${row.supplierName||'Supplier'}`,
+      `${row.overdue?'Overdue':'Due'} ${row.dueOn||'date not recorded'}${row.expenseCategory?` · ${String(row.expenseCategory).replaceAll('_',' ')}`:''}`,
+      moneyMinor(row.outstandingMinor)
+    )));
+  }
+
+  function accountRows(accounts){
+    if(!accounts.length)return [emptyState('No active Finance Core account is returned.')];
+    return accounts.slice(0,8).map(account=>rowNode(
+      account.name||'Finance account',
+      `${String(account.account_type||'account').replaceAll('_',' ')} · ${count(account.transaction_count)} transaction${number(account.transaction_count)===1?'':'s'}`,
+      moneyMinor(account.balance_minor)
+    ));
+  }
+
+  function sourceBoundary(){
+    const source=createElement('div',{className:'money-v307-source'});
+    source.append(
+      textElement('b','','Canonical boundary:'),
+      document.createTextNode(' Cash comes from Finance Core; customer balances come from issued invoices plus transaction allocations; supplier balances come from recorded payables plus allocations. This workspace is read-only and provider-neutral. Missing or unavailable source data is never presented as a zero balance.')
+    );
+    return source;
   }
 
   function render(summary){
@@ -146,35 +287,75 @@
 
     const payablesStat=payablesAvailable?moneyMinor(payables.outstandingMinor):'Unavailable';
     const payableTone=payablesAvailable&&number(payables.overduePayableCount)>0?'risk':payablesAvailable&&number(payables.due7dMinor)>0?'warn':'';
-    body.innerHTML=`
-      <div class="money-v307-status-grid" aria-label="Confirmed finance status">
-        <div class="money-v307-stat"><span>Cash position</span><b>${moneyMinor(summary.cashPositionMinor)}</b><small>${count(accounts.length)} active finance account${accounts.length===1?'':'s'}</small></div>
-        <div class="money-v307-stat" data-tone="${overdueReceivables>0?'risk':''}"><span>Customers owe</span><b>${moneyMinor(receivables.outstandingMinor)}</b><small>${count(overdueReceivables)} overdue · ${moneyMinor(overdueReceivableMinor)}</small></div>
-        <div class="money-v307-stat" data-tone="${payableTone}"><span>Bills to pay</span><b>${payablesStat}</b><small>${payablesAvailable?`${count(payables.outstandingPayableCount)} open · ${count(payables.overduePayableCount)} overdue`:'Payable ledger could not be confirmed'}</small></div>
-        <div class="money-v307-stat" data-tone="${reconCount>0?'risk':recon.stale?'warn':''}"><span>Reconciliation</span><b>${count(reconCount)}</b><small>${reconCount?`${moneyMinor(reconExposure)} unresolved exposure`:recon.stale?'Last reconciliation is stale':'No unresolved exception returned'}</small></div>
-      </div>
-      <div class="money-v307-work-grid" aria-label="Money work">
-        <article class="money-v307-lane">
-          <div class="money-v307-lane-head"><div><div class="money-v307-eyebrow">Cash control</div><h3>Reconcile cash</h3></div><span class="money-v307-badge ${reconCount>0?'risk':recon.stale?'warn':''}">${reconCount>0?`${count(reconCount)} exception${reconCount===1?'':'s'}`:recon.stale?'Review freshness':'Current'}</span></div>
-          <p>Start from the canonical ledger and unresolved reconciliation runs before asking AI to interpret the position.</p>
-          <div class="money-v307-metrics"><div class="money-v307-metric"><span>Cash position</span><b>${moneyMinor(summary.cashPositionMinor)}</b></div><div class="money-v307-metric"><span>Exception exposure</span><b>${moneyMinor(reconExposure)}</b></div><div class="money-v307-metric"><span>Completed imports</span><b>${count(summary.imports?.count)}</b></div><div class="money-v307-metric"><span>Imported transactions</span><b>${count(summary.imports?.transactions)}</b></div></div>
-          <details class="money-v307-detail"><summary>Finance source details</summary><div class="money-v307-list">${accounts.length?accounts.slice(0,8).map(account=>`<div class="money-v307-row"><div><b>${escapeHtml(account.name||'Finance account')}</b><span>${escapeHtml(String(account.account_type||'account').replaceAll('_',' '))} · ${count(account.transaction_count)} transaction${number(account.transaction_count)===1?'':'s'}</span></div><strong>${moneyMinor(account.balance_minor)}</strong></div>`).join(''):'<div class="money-v307-empty">No active Finance Core account is returned.</div>'}</div></details>
-        </article>
-        <article class="money-v307-lane">
-          <div class="money-v307-lane-head"><div><div class="money-v307-eyebrow">Collections</div><h3>Collect customer money</h3></div><span class="money-v307-badge ${overdueReceivables>0?'risk':''}">${overdueReceivables>0?`${count(overdueReceivables)} overdue`:'No overdue invoice'}</span></div>
-          <p>Work the customer balances and due dates first. Thebe can explain priorities after the ledger is visible.</p>
-          <div class="money-v307-metrics"><div class="money-v307-metric"><span>Outstanding</span><b>${moneyMinor(receivables.outstandingMinor)}</b></div><div class="money-v307-metric"><span>Overdue</span><b>${moneyMinor(overdueReceivableMinor)}</b></div><div class="money-v307-metric"><span>Due in 7 days</span><b>${moneyMinor(receivables.due7dMinor)}</b></div><div class="money-v307-metric"><span>Customers overdue</span><b>${count(receivables.overdueCustomerCount)}</b></div></div>
-          <details class="money-v307-detail"><summary>Customers & invoices</summary><div class="money-v307-list">${topReceivableRows(receivables)}</div>${invoiceRows(receivables)}</details>
-        </article>
-        <article class="money-v307-lane">
-          <div class="money-v307-lane-head"><div><div class="money-v307-eyebrow">Payables</div><h3>Pay suppliers deliberately</h3></div><span class="money-v307-badge ${!payablesAvailable?'unavailable':overduePayables>0?'risk':number(payables.due7dMinor)>0?'warn':''}">${!payablesAvailable?'Unavailable':overduePayables>0?`${count(overduePayables)} overdue`:number(payables.due7dMinor)>0?'Due soon':'No overdue payable'}</span></div>
-          <p>See recorded supplier obligations alongside cash and collections. This view never moves money or marks a bill paid.</p>
-          <div class="money-v307-metrics"><div class="money-v307-metric"><span>Outstanding</span><b>${payablesAvailable?moneyMinor(payables.outstandingMinor):'—'}</b></div><div class="money-v307-metric"><span>Overdue</span><b>${payablesAvailable?moneyMinor(payables.overdueMinor):'—'}</b></div><div class="money-v307-metric"><span>Due in 7 days</span><b>${payablesAvailable?moneyMinor(payables.due7dMinor):'—'}</b></div><div class="money-v307-metric"><span>Suppliers</span><b>${payablesAvailable?count(payables.supplierCount):'—'}</b></div></div>
-          <details class="money-v307-detail"><summary>Suppliers & bills</summary><div class="money-v307-list">${topPayableRows(payables)}</div>${payableRows(payables)}</details>
-        </article>
-      </div>
-      <div class="money-v307-source"><b>Canonical boundary:</b> Cash comes from Finance Core; customer balances come from issued invoices plus transaction allocations; supplier balances come from recorded payables plus allocations. This workspace is read-only and provider-neutral. Missing or unavailable source data is never presented as a zero balance.</div>`;
+    const statusGrid=createElement('div',{
+      className:'money-v307-status-grid',
+      attrs:{'aria-label':'Confirmed finance status'}
+    },[
+      statNode('Cash position',moneyMinor(summary.cashPositionMinor),`${count(accounts.length)} active finance account${accounts.length===1?'':'s'}`),
+      statNode('Customers owe',moneyMinor(receivables.outstandingMinor),`${count(overdueReceivables)} overdue · ${moneyMinor(overdueReceivableMinor)}`,overdueReceivables>0?'risk':''),
+      statNode('Bills to pay',payablesStat,payablesAvailable?`${count(payables.outstandingPayableCount)} open · ${count(payables.overduePayableCount)} overdue`:'Payable ledger could not be confirmed',payableTone),
+      statNode('Reconciliation',count(reconCount),reconCount?`${moneyMinor(reconExposure)} unresolved exposure`:recon.stale?'Last reconciliation is stale':'No unresolved exception returned',reconCount>0?'risk':recon.stale?'warn':'')
+    ]);
+
+    const cashDetails=detailsNode('Finance source details',listNode(accountRows(accounts)));
+    const cashLane=laneNode(
+      'Cash control',
+      'Reconcile cash',
+      reconCount>0?`${count(reconCount)} exception${reconCount===1?'':'s'}`:recon.stale?'Review freshness':'Current',
+      reconCount>0?'risk':recon.stale?'warn':'',
+      'Start from the canonical ledger and unresolved reconciliation runs before asking AI to interpret the position.',
+      [
+        metricNode('Cash position',moneyMinor(summary.cashPositionMinor)),
+        metricNode('Exception exposure',moneyMinor(reconExposure)),
+        metricNode('Completed imports',count(summary.imports?.count)),
+        metricNode('Imported transactions',count(summary.imports?.transactions))
+      ],
+      cashDetails
+    );
+
+    const receivableDetailsChildren=[listNode(topReceivableRows(receivables))];
+    const invoiceList=invoiceRows(receivables);if(invoiceList)receivableDetailsChildren.push(invoiceList);
+    const collectionsLane=laneNode(
+      'Collections',
+      'Collect customer money',
+      overdueReceivables>0?`${count(overdueReceivables)} overdue`:'No overdue invoice',
+      overdueReceivables>0?'risk':'',
+      'Work the customer balances and due dates first. Thebe can explain priorities after the ledger is visible.',
+      [
+        metricNode('Outstanding',moneyMinor(receivables.outstandingMinor)),
+        metricNode('Overdue',moneyMinor(overdueReceivableMinor)),
+        metricNode('Due in 7 days',moneyMinor(receivables.due7dMinor)),
+        metricNode('Customers overdue',count(receivables.overdueCustomerCount))
+      ],
+      detailsNode('Customers & invoices',...receivableDetailsChildren)
+    );
+
+    const payableDetailsChildren=[listNode(topPayableRows(payables))];
+    const payableList=payableRows(payables);if(payableList)payableDetailsChildren.push(payableList);
+    const payableBadgeTone=!payablesAvailable?'unavailable':overduePayables>0?'risk':number(payables.due7dMinor)>0?'warn':'';
+    const payablesLane=laneNode(
+      'Payables',
+      'Pay suppliers deliberately',
+      !payablesAvailable?'Unavailable':overduePayables>0?`${count(overduePayables)} overdue`:number(payables.due7dMinor)>0?'Due soon':'No overdue payable',
+      payableBadgeTone,
+      'See recorded supplier obligations alongside cash and collections. This view never moves money or marks a bill paid.',
+      [
+        metricNode('Outstanding',payablesAvailable?moneyMinor(payables.outstandingMinor):'—'),
+        metricNode('Overdue',payablesAvailable?moneyMinor(payables.overdueMinor):'—'),
+        metricNode('Due in 7 days',payablesAvailable?moneyMinor(payables.due7dMinor):'—'),
+        metricNode('Suppliers',payablesAvailable?count(payables.supplierCount):'—')
+      ],
+      detailsNode('Suppliers & bills',...payableDetailsChildren)
+    );
+
+    const workGrid=createElement('div',{
+      className:'money-v307-work-grid',
+      attrs:{'aria-label':'Money work'}
+    },[cashLane,collectionsLane,payablesLane]);
+
+    body.replaceChildren(statusGrid,workGrid,sourceBoundary());
     root.dataset.moneyV307State='ready';
+    delete root.dataset.moneyV307Error;
     lastLoadedAt=Date.now();
   }
 
@@ -182,7 +363,12 @@
     const root=document.getElementById(ROOT_ID),body=document.getElementById('moneyV307Body'),fresh=document.getElementById('moneyV307Freshness');
     if(!root||!body||!fresh)return;
     fresh.textContent='Canonical finance data could not be confirmed.';
-    body.innerHTML=`<div class="money-v307-unavailable"><b>Money workspace unavailable</b><p>The canonical finance summary could not be confirmed. Do not interpret missing cash, receivables, payables or reconciliation figures as zero.</p><button type="button" class="btn alt" data-money-v307-action="refresh">Retry finance data</button></div>`;
+    const unavailable=createElement('div',{className:'money-v307-unavailable'},[
+      textElement('b','','Money workspace unavailable'),
+      textElement('p','','The canonical finance summary could not be confirmed. Do not interpret missing cash, receivables, payables or reconciliation figures as zero.'),
+      actionButton('Retry finance data','refresh',{alt:true})
+    ]);
+    body.replaceChildren(unavailable);
     root.dataset.moneyV307State='unavailable';
     root.dataset.moneyV307Error=String(error?.message||error||'finance_unavailable').slice(0,120);
   }

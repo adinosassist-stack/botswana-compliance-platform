@@ -8,7 +8,9 @@ const sha='7'.repeat(40);
 
 assert.match(source,/20261007-money-workspace-v307/,'explicit V307 release identity');
 assert.match(source,/const API='\/api\/finance\/summary'/,'Money reads the canonical aggregate finance summary');
-assert.match(source,/credentials:'same-origin'/,'finance read keeps workspace authentication boundary');
+assert.match(source,/globalThis\.BW\?\.api\?\.createClient/,'Money uses the centralized authenticated API client');
+assert.match(source,/financeApiClient\(\)\.request\(API,\{method:'GET'\}\)/,'finance summary uses centralized read transport');
+assert.doesNotMatch(source,/\bfetch\s*\(/,'V307 must not bypass the centralized API transport');
 assert.match(source,/method:'GET'/,'V307 finance request is read-only');
 assert.doesNotMatch(source,/method:\s*['"](?:POST|PUT|PATCH|DELETE)['"]/i,'V307 must not introduce finance writes');
 assert.match(source,/Reconcile cash/,'cash reconciliation is a deterministic work lane');
@@ -27,6 +29,8 @@ assert.match(source,/:focus-visible/,'keyboard focus is explicit');
 assert.match(source,/@media\(forced-colors:active\)/,'forced-colors accessibility is preserved');
 assert.match(source,/MutationObserver/,'lazy workspace fragments are enhanced after insertion');
 assert.match(source,/root\.classList\.contains\('active'\)/,'finance data is fetched only when Money is active unless explicitly refreshed');
+assert.doesNotMatch(source,/\.innerHTML\s*=/,'V307 uses safe DOM construction');
+assert.match(source,/replaceChildren/,'V307 replaces finance views with DOM nodes');
 
 for(const forbidden of ['propertyCalculator','property-calculator','calculator-shell','--thebe-spatial-width','thebe-ai-voice-main','thebe-particle-core']){
   assert.equal(source.includes(forbidden),false,`V307 must not alter protected Property/dock contract: ${forbidden}`);
