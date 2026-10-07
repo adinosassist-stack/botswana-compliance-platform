@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS customer_followups(
   message_hash TEXT NOT NULL,
   idempotency_key TEXT NOT NULL,
   prepared_by TEXT NOT NULL DEFAULT 'human' CHECK(prepared_by IN ('human','thebe')),
-  status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','approved','cancelled','queued','sent','failed')),
+  status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','approved','cancelled')),
   requested_by_user_id TEXT,
   approved_by_user_id TEXT,
   approved_at TEXT,
@@ -72,6 +72,18 @@ BEGIN
     )
     THEN RAISE(ABORT,'customer_contact_scope_invalid')
   END);
+END;
+
+CREATE TRIGGER IF NOT EXISTS customer_contacts_identity_immutable_guard
+BEFORE UPDATE ON customer_contacts
+WHEN NEW.tenant_id<>OLD.tenant_id
+  OR NEW.customer_id<>OLD.customer_id
+  OR NEW.channel<>OLD.channel
+  OR NEW.contact_value<>OLD.contact_value
+  OR NEW.contact_hash<>OLD.contact_hash
+  OR COALESCE(NEW.created_by_user_id,'')<>COALESCE(OLD.created_by_user_id,'')
+BEGIN
+  SELECT RAISE(ABORT,'customer_contact_identity_immutable');
 END;
 
 CREATE TRIGGER IF NOT EXISTS customer_followups_scope_guard
@@ -116,4 +128,30 @@ WHEN NEW.tenant_id<>OLD.tenant_id
   OR COALESCE(NEW.requested_by_user_id,'')<>COALESCE(OLD.requested_by_user_id,'')
 BEGIN
   SELECT RAISE(ABORT,'customer_followup_payload_immutable');
+END;
+
+CREATE TRIGGER IF NOT EXISTS customer_followups_status_guard
+BEFORE UPDATE ON customer_followups
+WHEN NEW.status<>OLD.status
+BEGIN
+  SELECT (CASE
+    WHEN NOT (
+      (OLD.status='draft' AND NEW.status IN ('approved','cancelled'))
+      OR (OLD.status='approved' AND NEW.status='cancelled')
+    )
+    THEN RAISE(ABORT,'customer_followup_status_transition_invalid')
+  END);
+  SELECT (CASE
+    WHEN NEW.status='approved' AND (
+      NEW.approved_by_user_id IS NULL
+      OR NEW.approved_at IS NULL
+      OR NOT EXISTS(
+        SELECT 1 FROM customer_contacts cc
+        WHERE cc.id=NEW.contact_id AND cc.tenant_id=NEW.tenant_id
+          AND cc.customer_id=NEW.customer_id AND cc.status='active'
+          AND cc.consent_status='opted_in'
+      )
+    )
+    THEN RAISE(ABORT,'customer_followup_approval_invalid')
+  END);
 END;
