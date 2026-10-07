@@ -16,10 +16,11 @@ const root=await get('/');
 assert.equal(root.response.headers.get('x-thebe-source-sha'),release.sourceSha);
 assert(root.body.includes(`name="thebe-assets-release" content="${release.sourceSha}"`));
 assert(root.body.includes('thebe-dock-recovery-geometry-v269.js?release='+release.sourceSha),'current dock recovery is delivered');
+assert(!root.body.includes('money-workspace-v307.js'),'private Money enhancement must not leak onto public root');
 const pricing=await get('/pricing/');
 assert(pricing.body.includes('.pricegrid .pricecard{display:none;flex-direction:column;align-items:stretch;'),'live pricing card layout');
 const hash=value=>createHash('sha256').update(value).digest('hex');
-for(const asset of ['/js/property-visibility-v230.js','/assets/property-visibility-v230.css','/assets/property-operations-v262.css','/assets/property-optimise-v263.css','/assets/property-compare-v264.css','/js/thebe-dock-recovery-geometry-v269.js']){
+for(const asset of ['/js/property-visibility-v230.js','/assets/property-visibility-v230.css','/assets/property-operations-v262.css','/assets/property-optimise-v263.css','/assets/property-compare-v264.css','/js/thebe-dock-recovery-geometry-v269.js','/js/money-workspace-v307.js']){
   const live=await get(asset+'?release='+release.sourceSha);
   assert.equal(hash(live.body),hash(fs.readFileSync('public'+asset,'utf8')),`${asset}: live bytes match qualified source`);
 }
@@ -52,4 +53,4 @@ for(const [id,markers] of [
   assert.equal(shard.schema,2);
   for(const marker of markers)assert(String(shard.views?.[id]||'').includes(marker),`${id}: missing live UI marker ${marker}`);
 }
-console.log(`UI_RELEASE_PROOF_PASS sequence=${release.sequence} source=${release.sourceSha} property=exact-assets market=current-lazy-fragment dock=exact-recovery`);
+console.log(`UI_RELEASE_PROOF_PASS sequence=${release.sequence} source=${release.sourceSha} property=exact-assets market=current-lazy-fragment money=v307-exact-asset dock=exact-recovery`);
