@@ -10,7 +10,7 @@ try{
   const context=await browser.newContext({viewport:{width:390,height:844},screen:{width:390,height:844},isMobile:true,hasTouch:true,deviceScaleFactor:2});
   const page=await context.newPage();
   const errors=[];page.on('pageerror',error=>errors.push(String(error?.stack||error)));
-  await page.setContent(`<!doctype html><html><head><style>
+  await page.setContent(`<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="style-src 'self'; style-src-elem 'self' 'nonce-workspace-style-test'; style-src-attr 'unsafe-inline'"><style nonce="workspace-style-test">
     :root{--line:#e3e6e8;--muted:#6b7176;--ink:#131516}*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif}.view{display:none}.view.active{display:block}.btn{padding:8px 11px}.hub-hero{padding:12px}.outcome-status-strip,.outcome-grid,.notice{margin:8px}.property-calculator-v224{width:280px;height:160px}.thebe-ai-dock{position:fixed;width:320px;height:500px}
   </style></head><body>
     <section id="protecthub" class="view active simplified-hub protect-hub"><div class="hub-hero"><div><b>Protect</b><h2>Keep the business protected.</h2></div><button class="btn">Ask Thebe</button></div><div class="outcome-status-strip">Legacy status</div><div class="outcome-grid">Legacy cards</div><div class="notice">Legacy disclaimer</div></section>
@@ -58,6 +58,7 @@ try{
     const legacy=[...root.children].filter(node=>node.classList.contains('outcome-grid')||node.classList.contains('outcome-status-strip')||node.classList.contains('notice')).map(node=>getComputedStyle(node).display);
     return {release:globalThis.ThebeProtectWorkspaceV308?.release,lanes:mount.querySelectorAll('.protect-v308-lane').length,text:mount.innerText,scrollWidth:document.documentElement.scrollWidth,innerWidth,buttons,legacy,property:document.getElementById('protectedPropertyCalculator').getBoundingClientRect().toJSON(),dock:document.getElementById('thebeAiDock').getBoundingClientRect().toJSON()};
   });
+  assert.equal(await page.locator('#protectWorkspaceV308Styles').evaluate(style=>style.nonce),'workspace-style-test','dynamic Protect styles must inherit the authorized page nonce');
   assert.equal(state.release,'20261007-protect-workspace-v308');
   assert.equal(state.lanes,3,'three deterministic protection work lanes');
   assert.match(state.text,/Fix action gaps/);assert.match(state.text,/Meet filing dates/);assert.match(state.text,/Close proof gaps/);
@@ -87,3 +88,4 @@ try{
   assert.deepEqual(errors,[],'V308 browser page errors');
   console.log('PASS: V308 Protect phone layout, deterministic compliance lanes, AI secondary action, partial/full fail-closed state, Property and dock geometry');
 }finally{await browser.close()}
+

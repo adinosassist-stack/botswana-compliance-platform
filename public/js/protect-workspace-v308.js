@@ -46,6 +46,8 @@
   function injectStyles(){
     if(document.getElementById('protectWorkspaceV308Styles'))return;
     const style=document.createElement('style');
+    const nonce=document.querySelector('style[nonce],script[nonce]')?.nonce;
+    if(nonce)style.nonce=nonce;
     style.id='protectWorkspaceV308Styles';
     style.textContent=`
       #${ROOT_ID}.protect-v308-ready>.outcome-status-strip,
@@ -294,3 +296,4 @@
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
+

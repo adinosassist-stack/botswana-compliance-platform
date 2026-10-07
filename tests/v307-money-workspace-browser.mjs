@@ -10,7 +10,7 @@ try{
   const context=await browser.newContext({viewport:{width:390,height:844},screen:{width:390,height:844},isMobile:true,hasTouch:true,deviceScaleFactor:2});
   const page=await context.newPage();
   const errors=[];page.on('pageerror',error=>errors.push(String(error?.stack||error)));
-  await page.setContent(`<!doctype html><html><head><style>
+  await page.setContent(`<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="style-src 'self'; style-src-elem 'self' 'nonce-workspace-style-test'; style-src-attr 'unsafe-inline'"><style nonce="workspace-style-test">
     :root{--line:#e3e6e8;--muted:#6b7176;--ink:#131516}*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif}.view{display:none}.view.active{display:block}.btn{padding:8px 11px}.hub-hero{padding:12px}.outcome-status-strip,.outcome-grid,.notice{margin:8px}.property-calculator-v224{width:280px;height:160px}.thebe-ai-dock{position:fixed;width:320px;height:500px}
   </style></head><body>
     <section id="moneyhub" class="view active simplified-hub money-hub"><div class="hub-hero"><div><b>Money</b><h2>See the money picture first.</h2></div><button class="btn">Ask Thebe about money</button></div><div class="outcome-status-strip">Legacy status</div><div class="outcome-grid">Legacy cards</div><div class="notice">Legacy source boundary</div></section>
@@ -40,12 +40,13 @@ try{
   await page.waitForFunction(()=>document.getElementById('moneyhub')?.dataset.moneyV307State==='ready',null,{timeout:5000});
   const state=await page.evaluate(()=>{
     const root=document.getElementById('moneyhub'),mount=document.getElementById('moneyWorkspaceV307');
-    const buttons=[...mount.querySelectorAll('button')].map(button=>button.getBoundingClientRect().height);
+    const buttons=[...root.querySelectorAll('button,summary')].filter(control=>control.getBoundingClientRect().height>0).map(control=>control.getBoundingClientRect().height);
     const legacy=[...root.children].filter(node=>node.classList.contains('outcome-grid')||node.classList.contains('outcome-status-strip')||node.classList.contains('notice')).map(node=>getComputedStyle(node).display);
     const property=document.getElementById('protectedPropertyCalculator').getBoundingClientRect().toJSON();
     const dock=document.getElementById('thebeAiDock').getBoundingClientRect().toJSON();
     return {release:globalThis.ThebeMoneyWorkspaceV307?.release,lanes:mount.querySelectorAll('.money-v307-lane').length,text:mount.innerText,width:mount.getBoundingClientRect().width,scrollWidth:document.documentElement.scrollWidth,innerWidth,buttons,legacy,property,dock};
   });
+  assert.equal(await page.locator('#moneyWorkspaceV307Styles').evaluate(style=>style.nonce),'workspace-style-test','dynamic Money styles must inherit the authorized page nonce');
   assert.equal(state.release,'20261007-money-workspace-v307');
   assert.equal(state.lanes,3,'three deterministic finance work lanes');
   assert.match(state.text,/Reconcile cash/);assert.match(state.text,/Collect customer money/);assert.match(state.text,/Pay suppliers deliberately/);
@@ -68,3 +69,4 @@ try{
   assert.deepEqual(errors,[],'V307 browser page errors');
   console.log('PASS: V307 Money phone layout, deterministic finance lanes, AI secondary action, centralized API transport, fail-closed state, Property and dock geometry');
 }finally{await browser.close()}
+
