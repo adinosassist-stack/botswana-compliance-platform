@@ -1,0 +1,25 @@
+@import url("./workspace-home-command-v238-v287-original.css");
+
+/* V288 desktop dock compatibility.
+   Keep the long-standing 68px spatial voice-entry contract while stripping surrounding chrome. */
+@media(min-width:1024px){
+  html body #thebeAiDock[data-surface="workspace"] .thebe-ai-dock-scroll .thebe-ai-voice-card{
+    grid-template-columns:68px!important;
+    grid-template-rows:68px!important;
+    width:68px!important;
+    max-width:68px!important;
+    min-height:68px!important;
+    gap:0!important;
+  }
+  html body #thebeAiDock[data-surface="workspace"] .thebe-ai-voice-card .thebe-ai-orb-button{
+    width:68px!important;
+    min-width:68px!important;
+    max-width:68px!important;
+    height:68px!important;
+    min-height:68px!important;
+    max-height:68px!important;
+  }
+  html body #thebeAiDock[data-surface="workspace"] .thebe-ai-voice-card .thebe-ai-voice-label{
+    display:none!important;
+  }
+}
