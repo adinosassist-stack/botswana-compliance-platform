@@ -99,7 +99,7 @@ assert.equal(missingIdentityPersistAttempted,false,
 assert.match(loop,/BUSINESS_GOAL_OBSERVER_AGENT_ID/);
 assert.doesNotMatch(loop,/FINANCE_OBSERVER_AGENT_ID/);
 assert.match(loop,/executionAllowed:false,externalActions:0/);
-assert.match(entry,/066_v285_agent_responsibilities\.sql/);
+assert.match(entry,/067_v286_customer_relationships\.sql/);
 assert.match(entry,/agent_id='SYS-BIZ-OBS-001'/);
 assert.match(entry,/execution_capable=0/);
 assert.match(engine,/business_goal_duplicate_active/);
