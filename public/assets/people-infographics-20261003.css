@@ -3,32 +3,34 @@
 #peopleops .people-info-panel{background:#fff;border:1px solid #dce7f5;border-radius:14px;padding:15px;min-width:0}
 #peopleops .people-info-heading{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:0 0 12px}
 #peopleops .people-info-heading h3{font-size:14px;line-height:1.3;margin:0;color:#18375a}
-#peopleops .people-info-heading span{font-size:11px;color:#667a93}
+#peopleops .people-info-heading span{font-size:11px;color:#526a86}
 #peopleops .people-report-ring-row{display:flex;align-items:center;gap:16px}
 #peopleops .people-report-ring{position:relative;width:100px;height:100px;flex:0 0 100px;overflow:visible}
 #peopleops .people-ring-value{position:absolute;inset:0;border-radius:50%;background:#eaf0f7}
 #peopleops .people-ring-percent{font-size:24px;font-weight:700;fill:#18375a;text-anchor:middle}
-#peopleops .people-ring-caption{font-size:10px;fill:#617791;text-anchor:middle}
+#peopleops .people-ring-caption{font-size:10px;fill:#526a86;text-anchor:middle}
 #peopleops .people-info-legend{display:grid;gap:10px;font-size:12px;min-width:0}
 #peopleops .people-info-legend button{appearance:none;display:flex;gap:8px;align-items:center;background:none;border:0;padding:0;color:#526a86;font:inherit;text-align:left;cursor:pointer;min-height:30px}
 #peopleops .people-info-legend b{color:#203d5e;margin-left:auto;padding-left:8px;font-size:17px}
 #peopleops .people-info-dot{width:8px;height:8px;border-radius:50%;background:#3377bd;flex-shrink:0}
 #peopleops .people-info-dot.pending{background:#e2a342}
 #peopleops .people-location-bars{display:grid;gap:12px}
-#peopleops .people-location-bar{appearance:none;background:none;border:0;padding:0;text-align:left;color:#536b87;font:inherit;cursor:pointer;min-width:0}
+#peopleops .people-location-bar{appearance:none;background:none;border:0;padding:0;text-align:left;color:#526a86;font:inherit;cursor:pointer;min-width:0}
 #peopleops .people-location-label{display:flex;justify-content:space-between;gap:8px;font-size:12px;margin-bottom:5px;overflow-wrap:anywhere}
 #peopleops .people-location-label b{color:#203d5e;white-space:nowrap}
 #peopleops .people-bar-track{display:block;height:7px;border-radius:5px;background:#eaf0f7;overflow:hidden}
 #peopleops .people-bar-fill{display:block;height:100%;background:#3377bd;border-radius:5px;transition:width .3s ease}
-#peopleops .people-info-foot{margin:10px 0 0;font-size:11px;color:#6b7f96;line-height:1.4}
+#peopleops .people-location-more{appearance:none;display:flex;align-items:center;justify-content:center;border:1px solid #d4e0ef;border-radius:9px;background:#f7faff;color:#244f78;font:inherit;font-size:12px;font-weight:600;padding:8px 10px;cursor:pointer;min-height:38px}
+#peopleops .people-location-more:hover{background:#edf3fb;border-color:#698bc0}
+#peopleops .people-info-foot{margin:10px 0 0;font-size:11px;color:#526a86;line-height:1.4}
 #peopleops .people-followup-flow{display:grid;gap:8px}
 #peopleops .people-followup-step{appearance:none;display:flex;align-items:center;gap:9px;background:#f5f8fc;border:0;border-radius:9px;padding:10px;color:#516984;font:inherit;font-size:12px;text-align:left;cursor:pointer;min-width:0}
 #peopleops .people-followup-step strong{display:grid;place-items:center;background:#fff3dc;color:#87621e;border-radius:8px;width:30px;height:30px;font-size:17px;flex:0 0 30px}
 #peopleops .people-followup-step span:last-child{margin-left:auto;color:#3377bd}
 #peopleops .people-followup-step:hover{background:#edf3fb}
-#peopleops .people-location-bars:empty::after{content:'No sample employees assigned';font-size:12px;color:#6b7f96}
+#peopleops .people-location-bars:empty::after{content:'No sample employees assigned';font-size:12px;color:#526a86}
 @media(max-width:1050px){#peopleops .people-infographics{grid-template-columns:1fr 1fr}#peopleops .people-info-panel:first-child{grid-column:1/-1}#peopleops .people-report-ring-row{gap:22px}#peopleops .people-info-legend{grid-template-columns:1fr 1fr;flex:1;gap:18px}}
-@media(max-width:620px){#peopleops .people-info-panel{padding:12px}#peopleops .people-infographics{gap:9px}#peopleops .people-info-heading{flex-wrap:wrap;gap:3px;margin-bottom:10px}#peopleops .people-info-heading h3{font-size:13px}#peopleops .people-info-legend{grid-template-columns:1fr;gap:5px}#peopleops .people-report-ring{width:86px;height:86px;flex-basis:86px}#peopleops .people-followup-step{flex-wrap:wrap;padding:8px;gap:6px}#peopleops .people-followup-step span:last-child{display:none}#peopleops .people-info-foot{font-size:11px}}
+@media(max-width:620px){#peopleops .people-info-panel{padding:12px}#peopleops .people-infographics{grid-template-columns:1fr;gap:9px}#peopleops .people-info-panel:first-child{grid-column:auto}#peopleops .people-info-heading{flex-wrap:wrap;gap:3px;margin-bottom:10px}#peopleops .people-info-heading h3{font-size:13px}#peopleops .people-info-legend{grid-template-columns:1fr;gap:5px}#peopleops .people-report-ring{width:86px;height:86px;flex-basis:86px}#peopleops .people-info-legend button,#peopleops .people-location-bar,#peopleops .people-followup-step,#peopleops .people-location-more{min-height:44px}#peopleops .people-location-bar{display:grid;align-content:center}#peopleops .people-followup-step{flex-wrap:wrap;padding:8px;gap:6px}#peopleops .people-followup-step span:last-child{display:none}#peopleops .people-info-foot{font-size:11px}}
 @media(prefers-reduced-motion:reduce){#peopleops .people-ring-value,#peopleops .people-bar-fill{transition:none}}
 
 #peopleops .people-progress-hook{display:none!important}
@@ -36,5 +38,5 @@
 
 #peopleops .people-ring-center{position:absolute;inset:9px;border-radius:50%;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
 #peopleops .people-ring-percent{color:#18375a;line-height:1.1}
-#peopleops .people-ring-caption{color:#617791;font-size:11px}
+#peopleops .people-ring-caption{color:#526a86;font-size:11px}
 #peopleops .people-info-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}

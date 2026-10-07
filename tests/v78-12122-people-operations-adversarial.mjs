@@ -4,6 +4,8 @@ const worker=fs.readFileSync('cloudflare/src/worker.js','utf8');
 const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
 const profile=JSON.parse(fs.readFileSync('RELEASE_PROFILE.json','utf8'));
 const sw=fs.readFileSync('public/sw.js','utf8');
+const peopleCss=fs.readFileSync('public/assets/people-infographics-20261003.css','utf8');
+const readiness=fs.readFileSync('public/js/workspace-readiness-v305.js','utf8');
 const checks=[];
 const check=(name,ok)=>{checks.push([name,!!ok]);if(!ok)console.error('FAIL',name)};
 
@@ -30,7 +32,7 @@ check('daily page keeps reporting coverage KPI',html.includes('id="opsCoverage"'
 check('daily page keeps missing reports primary',html.includes('Reports not received')&&html.includes('id="opsMissingReports"'));
 check('daily page keeps source reports but progressive',html.includes('<details class="ops-source-details">')&&html.includes('View submitted source reports'));
 check('performance intelligence collapsed',html.includes('id="opsIntelligenceDetails"')&&html.includes('Performance learning & alerts'));
-check('reporting administration collapsed',html.includes('id="opsReportingSetupDetails"')&&html.includes('Reporting setup'));
+check('reporting setup defaults collapsed after workspace readiness',readiness.includes('opsReportingSetupDetails')&&readiness.includes('removeAttribute("open")')&&readiness.includes('v306DefaultCollapse'));
 check('location setup preserved',html.includes('id="opsLocationName"')&&html.includes('Add location'));
 check('employee reporting link setup preserved',html.includes('id="opsReporterEmployee"')&&html.includes('Create / rotate reporting link'));
 check('daily digest automation preserved',html.includes('id="opsAutoSummary"')&&html.includes('18:15 Botswana time'));
@@ -47,6 +49,12 @@ check('people hub excluded from reviewer allowed views',!html.match(/const REVIE
 check('people hub excluded from auditor allowed views',!html.match(/const AUDIT_ALLOWED=new Set\(\[[^\]]*"peopleops"/s));
 check('people hub rendered role safely',html.includes('run("peopleops",renderPeopleOperationsHub)'));
 check('advanced people CSS becomes one column mobile',html.includes('@media(max-width:900px){.people-outcome-grid,.ops-primary-grid{grid-template-columns:1fr}}'));
+check('People infographics become one column on phones',peopleCss.includes('#peopleops .people-infographics{grid-template-columns:1fr;gap:9px}')&&peopleCss.includes('#peopleops .people-info-panel:first-child{grid-column:auto}'));
+check('People mobile infographic controls use 44px targets',peopleCss.includes('#peopleops .people-info-legend button,#peopleops .people-location-bar,#peopleops .people-followup-step,#peopleops .people-location-more{min-height:44px}'));
+check('People secondary infographic text uses stronger contrast',!peopleCss.includes('#667a93')&&!peopleCss.includes('#6b7f96')&&peopleCss.includes('#526a86'));
+check('People location overview is bounded with a full-list action',readiness.includes('row.hidden=index>=4')&&readiness.includes('people-location-more')&&readiness.includes('View all ${rows.length} locations'));
+check('People location observer is mutation-stable',readiness.includes('if(more.textContent!==label)more.textContent=label')&&readiness.includes('if(more.getAttribute("aria-label")!==ariaLabel)more.setAttribute("aria-label",ariaLabel)'));
+check('People V306 waits behind authenticated workspace readiness',readiness.includes('window.whenThebeWorkspaceReady(installPeopleV306Polish)')&&readiness.includes('typeof document==="undefined"'));
 check('no blanket people centering rule',!html.includes('.people-outcome-card{')||html.includes('.people-outcome-card{appearance:none')&&html.includes('text-align:left'));
 check('release flag people outcome first',profile.people_operations_outcome_first===true);
 check('release flag progressive daily ops',profile.daily_operations_progressive_disclosure===true);
@@ -55,5 +63,5 @@ check('release flag reporter privacy preserved',profile.employee_reporting_priva
 check('release flag AI not employee scoring',profile.daily_ops_ai_not_employee_scoring===true);
 
 const failed=checks.filter(x=>!x[1]);
-console.log(`V78 1.21.22 People & operations adversarial: ${checks.length-failed.length}/${checks.length} PASS`);
+console.log(`V78 People & operations adversarial: ${checks.length-failed.length}/${checks.length} PASS`);
 if(failed.length)process.exit(1);
