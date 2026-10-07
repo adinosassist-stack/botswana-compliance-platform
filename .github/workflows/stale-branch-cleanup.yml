@@ -1,6 +1,6 @@
 name: Stale chatgpt branch cleanup
 run-name: >-
-  Stale branch cleanup ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'self-test' }}
+  Stale branch cleanup ${{ github.event_name == 'workflow_dispatch' && inputs.mode || github.event_name == 'push' && 'inventory' || 'self-test' }}
 
 on:
   pull_request:
@@ -74,7 +74,7 @@ jobs:
 
   dry-run:
     name: Inventory old merged chatgpt branches without writes
-    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'dry-run'
+    if: (github.event_name == 'workflow_dispatch' && inputs.mode == 'dry-run') || github.event_name == 'push'
     needs: selftest
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -82,11 +82,11 @@ jobs:
       contents: read
       pull-requests: read
     steps:
-      - name: Restrict dispatch to main
+      - name: Restrict inventory to main
         shell: bash
         run: |
           set -euo pipefail
-          [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo "dispatch must run from main, got $GITHUB_REF" >&2; exit 1; }
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo "inventory must run from main, got $GITHUB_REF" >&2; exit 1; }
 
       - name: Checkout current main
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -103,8 +103,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           MODE: dry-run
-          MIN_AGE_DAYS: ${{ inputs.min_age_days }}
-          MAX_DELETIONS: ${{ inputs.max_deletions }}
+          MIN_AGE_DAYS: ${{ github.event_name == 'workflow_dispatch' && inputs.min_age_days || '30' }}
+          MAX_DELETIONS: ${{ github.event_name == 'workflow_dispatch' && inputs.max_deletions || '20' }}
         shell: bash
         run: bash .github/scripts/stale-branch-cleanup.sh
 
