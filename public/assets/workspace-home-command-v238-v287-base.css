@@ -1,25 +1,48 @@
 @import url("./workspace-home-command-v238-v287-original.css");
 
-/* V288 desktop dock compatibility.
-   Keep the long-standing 68px spatial voice-entry contract while stripping surrounding chrome. */
+/* V289 compact desktop dock compatibility.
+   Preserve the production dock/runtime contract while removing the legacy 68px voice-entry footprint. */
 @media(min-width:1024px){
+  html body #thebeAiDock[data-surface="workspace"] .thebe-ai-dock-scroll{
+    min-width:0!important;
+    overflow-x:hidden!important;
+  }
   html body #thebeAiDock[data-surface="workspace"] .thebe-ai-dock-scroll .thebe-ai-voice-card{
-    grid-template-columns:68px!important;
-    grid-template-rows:68px!important;
-    width:68px!important;
-    max-width:68px!important;
-    min-height:68px!important;
-    gap:0!important;
+    grid-template-columns:40px auto!important;
+    grid-template-rows:40px!important;
+    width:max-content!important;
+    max-width:180px!important;
+    min-height:40px!important;
+    gap:8px!important;
   }
   html body #thebeAiDock[data-surface="workspace"] .thebe-ai-voice-card .thebe-ai-orb-button{
-    width:68px!important;
-    min-width:68px!important;
-    max-width:68px!important;
-    height:68px!important;
-    min-height:68px!important;
-    max-height:68px!important;
+    width:40px!important;
+    min-width:40px!important;
+    max-width:40px!important;
+    height:40px!important;
+    min-height:40px!important;
+    max-height:40px!important;
   }
-  html body #thebeAiDock[data-surface="workspace"] .thebe-ai-voice-card .thebe-ai-voice-label{
-    display:none!important;
+  html body #thebeAiDock[data-surface="workspace"] :is(.thebe-ai-response,.thebe-ai-response-answer,.thebe-ai-compose,.thebe-ai-compose textarea){
+    min-width:0!important;
+    max-width:100%!important;
+    box-sizing:border-box!important;
+  }
+  html body #thebeAiDock[data-surface="workspace"] .thebe-ai-response-answer{
+    overflow-wrap:anywhere!important;
+    word-break:break-word!important;
+  }
+  html body #thebeAiDock[data-surface="workspace"] .thebe-ai-quick{
+    min-width:0!important;
+    max-width:100%!important;
+  }
+  html body #thebeAiDock[data-surface="workspace"] .thebe-ai-quick button:is(.active,[aria-current="true"],[aria-pressed="true"]){
+    border-color:#666!important;
+    background:#3a3a3a!important;
+    color:#fff!important;
+  }
+  html body #thebeAiDock[data-surface="workspace"] :is(.thebe-ai-icon-btn,.thebe-ai-quick button,.thebe-ai-send,.thebe-ai-orb-button):focus-visible{
+    outline:2px solid #8fc3ff!important;
+    outline-offset:2px!important;
   }
 }
