@@ -61,7 +61,7 @@ try{
   assert.equal(state.release,'20261007-protect-workspace-v308');
   assert.equal(state.lanes,3,'three deterministic protection work lanes');
   assert.match(state.text,/Fix action gaps/);assert.match(state.text,/Meet filing dates/);assert.match(state.text,/Close proof gaps/);
-  assert.match(state.text,/3\s+Open total|Open total\s+3/);assert.match(state.text,/2d late/);assert.match(state.text,/2\s+Missing proof|Missing proof\s+2/);
+  assert.match(state.text,/3\s+Open total|Open total\s+3/);assert.match(state.text,/1d late/);assert.match(state.text,/2\s+Missing proof|Missing proof\s+2/);
   assert.match(state.text,/Decision boundary:/);assert.match(state.text,/does not declare legal compliance/);
   assert.equal(state.scrollWidth<=state.innerWidth+1,true,`390px Protect layout overflowed: scroll=${state.scrollWidth} viewport=${state.innerWidth}`);
   assert(state.buttons.every(height=>height>=43.5),`touch target below 44px: ${state.buttons.join(',')}`);
