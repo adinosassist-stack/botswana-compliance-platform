@@ -1,13 +1,17 @@
 const CONTACT_CHANNELS=new Set(["whatsapp","email"]);
 const CONSENT_STATUSES=new Set(["unknown","opted_in","opted_out"]);
 const FOLLOWUP_PURPOSES=new Set(["receivable","quote","appointment","general"]);
-const FOLLOWUP_STATUSES=new Set(["draft","approved","cancelled","queued","sent","failed"]);
+const FOLLOWUP_STATUSES=new Set(["draft","approved","cancelled"]);
 const MAX_LIST=100;
 const text=(value,max=500)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
 
 function customerContactsPath(pathname){
   const match=String(pathname||"").match(/^\/api\/finance\/customers\/([^/]+)\/contacts$/);
   return match?{customerId:text(match[1],64)}:null;
+}
+function contactConsentPath(pathname){
+  const match=String(pathname||"").match(/^\/api\/finance\/customer-contacts\/([^/]+)\/consent$/);
+  return match?{contactId:text(match[1],64)}:null;
 }
 function customerFollowupsPath(pathname){
   const match=String(pathname||"").match(/^\/api\/finance\/customers\/([^/]+)\/followups$/);
@@ -155,7 +159,7 @@ export async function handleCustomerRelationshipRequest({request,url,env,auth,js
     const existing=await customerContact(env,auth.tenant_id,contactId);
     if(existing){
       if(existing.customer_id!==contactsRoute.customerId)return json({error:"customer_contact_scope_conflict"},409);
-      return json({ok:true,replayed:true,contact:contactDto(existing)});
+      return json({ok:true,replayed:true,contact:contactDto(existing),consentUpdatePath:`/api/finance/customer-contacts/${contactId}/consent`});
     }
     try{
       await env.DB.prepare(`INSERT INTO customer_contacts(
@@ -170,7 +174,34 @@ export async function handleCustomerRelationshipRequest({request,url,env,auth,js
     await appendLineage({env,tenantId:auth.tenant_id,userId:auth.user_id,eventType:"CUSTOMER_CONTACT_CREATED",entityType:"customer_contact",entityId:contactId,payload:{customerId:contactsRoute.customerId,channel:normalized.channel,contactHash,consentStatus,consentSource},sha256Hex,id});
     await writeAudit(env,auth.tenant_id,auth.user_id,"CUSTOMER_CONTACT_CREATED",{contactId,customerId:contactsRoute.customerId,channel:normalized.channel,consentStatus});
     const row=await customerContact(env,auth.tenant_id,contactId);
-    return json({ok:true,contact:contactDto(row)},201);
+    return json({ok:true,contact:contactDto(row),consentUpdatePath:`/api/finance/customer-contacts/${contactId}/consent`},201);
+  }
+
+  const consentRoute=contactConsentPath(path);
+  if(consentRoute&&request.method==="POST"){
+    const body=await readJson(request,{maxBytes:8*1024});
+    const nextStatus=text(body.consentStatus,20).toLowerCase(),consentSource=text(body.consentSource,120);
+    if(!["opted_in","opted_out"].includes(nextStatus))return json({error:"invalid_customer_consent_status"},400);
+    if(consentSource.length<2)return json({error:"customer_consent_source_required"},400);
+    const current=await customerContact(env,auth.tenant_id,consentRoute.contactId);
+    if(!current||current.status!=="active")return json({error:"customer_contact_not_found"},404);
+    if(current.consent_status===nextStatus&&current.consent_source===consentSource){
+      return json({ok:true,replayed:true,contact:contactDto(current),cancelledFollowupCount:0});
+    }
+    const updated=await env.DB.prepare(`UPDATE customer_contacts
+      SET consent_status=?,consent_source=?,consent_recorded_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP
+      WHERE id=? AND tenant_id=? AND status='active'`).bind(nextStatus,consentSource,consentRoute.contactId,auth.tenant_id).run();
+    if(Number(updated?.meta?.changes??updated?.changes??0)!==1)return json({error:"customer_contact_state_conflict"},409);
+    let cancelledFollowupCount=0;
+    if(nextStatus==="opted_out"){
+      const cancelled=await env.DB.prepare(`UPDATE customer_followups SET status='cancelled',updated_at=CURRENT_TIMESTAMP
+        WHERE tenant_id=? AND contact_id=? AND status IN ('draft','approved')`).bind(auth.tenant_id,consentRoute.contactId).run();
+      cancelledFollowupCount=Number(cancelled?.meta?.changes??cancelled?.changes??0);
+    }
+    await appendLineage({env,tenantId:auth.tenant_id,userId:auth.user_id,eventType:"CUSTOMER_CONTACT_CONSENT_UPDATED",entityType:"customer_contact",entityId:consentRoute.contactId,payload:{customerId:current.customer_id,channel:current.channel,previousConsentStatus:current.consent_status,consentStatus:nextStatus,consentSource,cancelledFollowupCount},sha256Hex,id});
+    await writeAudit(env,auth.tenant_id,auth.user_id,"CUSTOMER_CONTACT_CONSENT_UPDATED",{contactId:consentRoute.contactId,customerId:current.customer_id,previousConsentStatus:current.consent_status,consentStatus:nextStatus,cancelledFollowupCount});
+    const row=await customerContact(env,auth.tenant_id,consentRoute.contactId);
+    return json({ok:true,contact:contactDto(row),cancelledFollowupCount});
   }
 
   const customerFollowupRoute=customerFollowupsPath(path);
@@ -202,7 +233,7 @@ export async function handleCustomerRelationshipRequest({request,url,env,auth,js
       WHERE f.tenant_id=?${requestedStatus?" AND f.status=?":""}
       ORDER BY f.created_at DESC LIMIT ?`;
     const stmt=env.DB.prepare(sql),rows=requestedStatus?await stmt.bind(auth.tenant_id,requestedStatus,limit).all():await stmt.bind(auth.tenant_id,limit).all();
-    return json({items:(rows.results||[]).map(followupDto),executionPolicy:{externalDispatchEnabled:false,ownerApprovalRequired:true,customerConsentRequired:true}});
+    return json({items:(rows.results||[]).map(followupDto),executionPolicy:{externalDispatchEnabled:false,ownerApprovalRequired:true,customerConsentRequired:true,allowedStatuses:[...FOLLOWUP_STATUSES]}});
   }
 
   const actionRoute=followupActionPath(path);
@@ -239,6 +270,6 @@ export async function handleCustomerRelationshipRequest({request,url,env,auth,js
 }
 
 export const __customerRelationshipsTest=Object.freeze({
-  customerContactsPath,customerFollowupsPath,followupActionPath,normalizeEmail,normalizeBotswanaWhatsApp,maskContact,
+  customerContactsPath,contactConsentPath,customerFollowupsPath,followupActionPath,normalizeEmail,normalizeBotswanaWhatsApp,maskContact,
   CONTACT_CHANNELS,CONSENT_STATUSES,FOLLOWUP_PURPOSES,FOLLOWUP_STATUSES,MAX_LIST
 });
