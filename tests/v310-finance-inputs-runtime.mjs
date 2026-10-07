@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {financeFixture} from './helpers/finance-input-fixture.mjs';
+import {versionReleaseAssets} from '../cloudflare/src/asset-release-identity.js';
+const {sqlite,request,audits}=financeFixture();
+const post=async(path,body)=>{const response=await request(path,{method:'POST',body:JSON.stringify(body)});const value=await response.json();assert(response.ok,JSON.stringify(value));return value};
+try{
+ const account=await post('accounts',{name:'Operating bank',accountType:'bank',openingBalanceMinor:100000});
+ const customer=await post('customers',{name:'Customer A',customerCode:'CA'});
+ const supplier=await post('suppliers',{name:'Supplier A',supplierCode:'SA',defaultExpenseCategory:'materials'});
+ const invoice=await post('invoices',{customerId:customer.id,invoiceNumber:'INV-1',issuedOn:'2026-10-01',dueOn:'2026-10-07',totalMinor:90000});
+ const bill=await post('payables',{supplierId:supplier.id,payableNumber:'BILL-1',issuedOn:'2026-10-01',dueOn:'2026-10-07',totalMinor:50000});
+ const imported=await post('imports',{accountId:account.id,sourceType:'manual',idempotencyKey:'test-payments-001',rows:[{postedOn:'2026-10-07',description:'Customer deposit',reference:'R1',amountMinor:40000},{postedOn:'2026-10-07',description:'Supplier payment',reference:'R2',amountMinor:-20000}]});
+ assert.equal(imported.importedCount,2);
+ const transactions=(await (await request('transactions')).json()).items;
+ const incoming=transactions.find(x=>x.amount_minor>0),outgoing=transactions.find(x=>x.amount_minor<0);
+ await post('invoices/'+invoice.id+'/allocations',{transactionId:incoming.id,amountMinor:40000,idempotencyKey:'invoice-payment-001'});
+ await post('payables/'+bill.id+'/allocations',{transactionId:outgoing.id,amountMinor:20000,idempotencyKey:'bill-payment-001'});
+ const summary=await (await request('summary')).json();assert.equal(summary.cashPositionMinor,120000);assert.equal(summary.receivables.outstandingMinor,50000);assert.equal(summary.payables.outstandingMinor,30000);
+ const replay=await post('imports',{accountId:account.id,sourceType:'manual',idempotencyKey:'test-payments-001',rows:[{postedOn:'2026-10-07',description:'Customer deposit',reference:'R1',amountMinor:40000},{postedOn:'2026-10-07',description:'Supplier payment',reference:'R2',amountMinor:-20000}]});assert.equal(replay.replayed,true);
+ assert.equal((await (await request('summary')).json()).cashPositionMinor,120000,'retry cannot double count cash');
+ const over=await request('invoices/'+invoice.id+'/allocations',{method:'POST',body:JSON.stringify({transactionId:incoming.id,amountMinor:1,idempotencyKey:'invoice-overallocation'})});assert.equal(over.status,409);
+ for(const role of ['employee','auditor','reviewer'])assert.equal((await request('accounts',{method:'POST',body:JSON.stringify({name:'Forbidden',accountType:'cash'})},{tenant_id:'t1',user_id:'u1',role})).status,403);
+ assert.equal((await (await request('accounts',{}, {tenant_id:'t2',user_id:'u1',role:'owner'})).json()).items.length,0);
+ const foreign=await request('imports',{method:'POST',body:JSON.stringify({accountId:account.id,sourceType:'manual',idempotencyKey:'cross-tenant-test',rows:[{postedOn:'2026-10-07',description:'Bad',amountMinor:100}]})},{tenant_id:'t2',user_id:'u1',role:'owner'});assert.equal(foreign.status,404);
+ const reconcile=await post('reconciliations',{accountId:account.id,statementFrom:'2026-10-07',statementTo:'2026-10-07',openingBalanceMinor:100000,closingBalanceMinor:120000});assert.equal(reconcile.differenceMinor,0);
+ assert(audits.length>=8);assert.equal(sqlite.prepare('PRAGMA foreign_key_check').all().length,0);
+ const base='<html><head></head><body>App</body></html>',sha='8'.repeat(40);const app=versionReleaseAssets(base,sha,{includeWorkspaceFixes:true});assert(app.includes('/js/money-inputs-v310.js?release='+sha));assert(app.includes('/assets/money-inputs-v310.css?release='+sha));assert.equal(versionReleaseAssets(app,sha,{includeWorkspaceFixes:true}),app);assert(!versionReleaseAssets(base,sha).includes('money-inputs-v310'));
+ const source=fs.readFileSync('public/js/money-inputs-v310.js','utf8');assert(!/\.innerHTML\s*=|\bfetch\s*\(/.test(source));assert(source.includes("globalThis.apiJson('/api/finance/'"),'writes must reuse the CSRF-aware workspace transport');
+ console.log('PASS: V310 real finance persistence, balances, allocations, retries, reconciliation, tenant isolation, role restrictions, audit and app-only release delivery');
+}finally{sqlite.close()}

@@ -31,6 +31,8 @@ export function versionReleaseAssets(html,sha=releaseSourceSha(),options={}){
   if(options?.includeWorkspaceFixes===true&&!source.includes(MONEY_WORKSPACE_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${MONEY_WORKSPACE_SRC}" defer></script>\n`);
   if(options?.includeWorkspaceFixes===true&&!source.includes(PROTECT_WORKSPACE_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${PROTECT_WORKSPACE_SRC}" defer></script>\n`);
   if(options?.includeWorkspaceFixes===true){
+    if(!source.includes('/assets/money-inputs-v310.css'))source=injectAtFinalClosingTag(source,'head','<link rel="stylesheet" href="/assets/money-inputs-v310.css">\n');
+    if(!source.includes('/js/money-inputs-v310.js'))source=injectAtFinalClosingTag(source,'body','<script src="/js/money-inputs-v310.js" defer></script>\n');
     if(!source.includes('/assets/workspace-infographics-v309.css'))source=injectAtFinalClosingTag(source,'head','<link rel="stylesheet" href="/assets/workspace-infographics-v309.css">\n');
     if(!source.includes('/js/workspace-infographics-v309.js'))source=injectAtFinalClosingTag(source,'body','<script src="/js/workspace-infographics-v309.js" defer></script>\n');
   }
