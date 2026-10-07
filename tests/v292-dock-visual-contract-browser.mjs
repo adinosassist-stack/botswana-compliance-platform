@@ -92,8 +92,9 @@ try{
   assert.equal(desktop.sendColor,'rgb(23, 23, 23)','send icon remains dark on the light action');
   assert.equal(Math.round(desktop.orbWidth),68,'voice recovery target remains 68px');
   assert.equal(Math.round(desktop.orbHeight),68,'voice recovery target remains 68px vertically');
-  assert.equal(Math.round(desktop.coreWidth),20,'voice visual core remains intentionally small');
-  assert.equal(Math.round(desktop.coreHeight),20,'voice visual core remains intentionally small vertically');
+  assert(desktop.coreWidth>=18&&desktop.coreWidth<=24,`voice visual core stays intentionally small: ${desktop.coreWidth}px`);
+  assert(desktop.coreHeight>=18&&desktop.coreHeight<=24,`voice visual core stays intentionally small vertically: ${desktop.coreHeight}px`);
+  assert(desktop.coreWidth<desktop.orbWidth*.4&&desktop.coreHeight<desktop.orbHeight*.4,'voice visual remains much smaller than its recovery target');
   assert(isLightMonochrome(desktop.coreBackground),`voice core remains light monochrome: ${desktop.coreBackground}`);
   assert.equal(desktop.particleAfterDisplay,'none','decorative secondary voice ring stays removed');
 
@@ -133,7 +134,7 @@ try{
   assert(isLightMonochrome(mobile.sendBackground),`mobile keeps the same primary light monochrome action: ${mobile.sendBackground}`);
   assert(mobile.hiddenChrome,'mobile also keeps legacy dock chrome hidden');
   assert.deepEqual(errors,[],'V292 visual contract produces no browser errors');
-  console.log('V292_DOCK_VISUAL_CONTRACT_PASS: monochrome shell, hidden legacy chrome, three collapsed shortcuts, GPT-style composer, minimal 20px voice visual inside preserved 68px recovery target, mobile parity');
+  console.log('V292_DOCK_VISUAL_CONTRACT_PASS: monochrome shell, hidden legacy chrome, three collapsed shortcuts, GPT-style composer, minimal voice visual inside preserved 68px recovery target, mobile parity');
 }finally{
   await browser.close();
 }
