@@ -13,6 +13,15 @@ is_uint() {
   [[ "${1:-}" =~ ^[0-9]+$ ]]
 }
 
+batch_digest() {
+  local file="$1"
+  if [[ ! -s "$file" ]]; then
+    printf '%s\n' 'none'
+    return 0
+  fi
+  sha256sum "$file" | awk '{print $1}'
+}
+
 classify_branch() {
   local name="$1"
   local tip_epoch="$2"
@@ -53,6 +62,18 @@ self_test() {
   assert_case 'unmerged branch is protected' 'not-merged-into-main' 'chatgpt/unmerged' "$old" 0 0 "$cutoff"
   assert_case 'non-chatgpt branch is outside scope' 'wrong-prefix' 'release/production' "$old" 0 1 "$cutoff"
   assert_case 'empty chatgpt prefix is invalid' 'empty-suffix' 'chatgpt/' "$old" 0 1 "$cutoff"
+
+  local digest_fixture digest_a digest_b empty_fixture
+  digest_fixture="$(mktemp)"
+  empty_fixture="$(mktemp)"
+  trap 'rm -f "$digest_fixture" "$empty_fixture"' RETURN
+  printf '%s\n' 'chatgpt/a|aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|100' 'chatgpt/b|bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb|200' > "$digest_fixture"
+  digest_a="$(batch_digest "$digest_fixture")"
+  digest_b="$(batch_digest "$digest_fixture")"
+  [[ "$digest_a" =~ ^[0-9a-f]{64}$ ]] || fail 'self-test batch digest must be a lowercase SHA-256'
+  [[ "$digest_a" == "$digest_b" ]] || fail 'self-test batch digest must be deterministic'
+  [[ "$(batch_digest "$empty_fixture")" == 'none' ]] || fail 'self-test empty batch digest must be none'
+  echo "PASS deterministic reviewed-batch digest -> $digest_a"
   echo 'stale-branch-cleanup self-test PASS'
 }
 
@@ -65,6 +86,7 @@ MODE="${MODE:-dry-run}"
 MIN_AGE_DAYS="${MIN_AGE_DAYS:-30}"
 MAX_DELETIONS="${MAX_DELETIONS:-20}"
 EXPECTED_MAIN_SHA="${EXPECTED_MAIN_SHA:-}"
+EXPECTED_BATCH_SHA256="${EXPECTED_BATCH_SHA256:-}"
 CONFIRMATION="${CONFIRMATION:-}"
 
 [[ "$MODE" == 'dry-run' || "$MODE" == 'delete' ]] || fail "MODE must be dry-run or delete, got '$MODE'"
@@ -84,6 +106,7 @@ local_main_sha="$(git rev-parse refs/remotes/origin/main)"
 if [[ "$MODE" == 'delete' ]]; then
   [[ "$EXPECTED_MAIN_SHA" =~ ^[0-9a-f]{40}$ ]] || fail 'delete mode requires EXPECTED_MAIN_SHA as a full lowercase 40-character SHA'
   [[ "$EXPECTED_MAIN_SHA" == "$current_main_sha" ]] || fail "delete mode main SHA mismatch: expected=$EXPECTED_MAIN_SHA current=$current_main_sha"
+  [[ "$EXPECTED_BATCH_SHA256" =~ ^[0-9a-f]{64}$ ]] || fail 'delete mode requires EXPECTED_BATCH_SHA256 from a reviewed dry-run'
   [[ "$CONFIRMATION" == "$CONFIRM_PHRASE" ]] || fail "delete mode confirmation must exactly equal: $CONFIRM_PHRASE"
 fi
 
@@ -95,8 +118,10 @@ cutoff_30=$((now_epoch - 30 * 86400))
 
 open_pr_heads="$(mktemp)"
 candidates="$(mktemp)"
+sorted_candidates="$(mktemp)"
+selected_batch="$(mktemp)"
 merged_no_pr="$(mktemp)"
-trap 'rm -f "$open_pr_heads" "$candidates" "$merged_no_pr"' EXIT
+trap 'rm -f "$open_pr_heads" "$candidates" "$sorted_candidates" "$selected_batch" "$merged_no_pr"' EXIT
 
 gh api --paginate "/repos/${GITHUB_REPOSITORY}/pulls?state=open&per_page=100" --jq '.[].head.ref' | sort -u > "$open_pr_heads"
 
@@ -135,6 +160,12 @@ while IFS='|' read -r branch sha tip_epoch; do
   fi
 done < <(git for-each-ref --format='%(refname:strip=3)|%(objectname)|%(committerdate:unix)' 'refs/remotes/origin/chatgpt/*')
 
+sort -t'|' -k3,3n -k1,1 "$candidates" > "$sorted_candidates"
+sed -n "1,${MAX_DELETIONS}p" "$sorted_candidates" > "$selected_batch"
+selected_count="$(wc -l < "$selected_batch" | tr -d ' ')"
+remaining_count=$((eligible - selected_count))
+selection_digest="$(batch_digest "$selected_batch")"
+
 {
   echo '### Stale `chatgpt/*` branch cleanup'
   echo
@@ -144,7 +175,10 @@ done < <(git for-each-ref --format='%(refname:strip=3)|%(objectname)|%(committer
   echo "- Branches scanned: $scanned"
   echo "- Merged branches without open PRs: $merged_no_pr_count"
   echo "- Eligible merged branches at selected cutoff: $eligible"
-  echo "- Delete safety cap: $MAX_DELETIONS"
+  echo "- Selected oldest-first batch: $selected_count"
+  echo "- Remaining after this batch: $remaining_count"
+  echo "- Batch safety cap: $MAX_DELETIONS"
+  echo "- Reviewed batch digest: \`$selection_digest\`"
   echo
   echo '#### Read-only age cohorts'
   echo
@@ -159,52 +193,60 @@ done < <(git for-each-ref --format='%(refname:strip=3)|%(objectname)|%(committer
     echo
     echo '| Branch | Expected tip | Last commit (UTC) |'
     echo '| --- | --- | --- |'
-    sort -t'|' -k3,3n "$merged_no_pr" | sed -n '1,20p' | while IFS='|' read -r branch sha tip_epoch; do
+    sort -t'|' -k3,3n -k1,1 "$merged_no_pr" | sed -n '1,20p' | while IFS='|' read -r branch sha tip_epoch; do
       last_commit="$(date -u -d "@$tip_epoch" '+%Y-%m-%d')"
       echo "| \`$branch\` | \`${sha:0:12}\` | $last_commit |"
     done
     echo
   fi
-  if (( eligible > 0 )); then
-    echo '#### Selected-cutoff candidates'
+  if (( selected_count > 0 )); then
+    echo '#### Reviewed oldest-first batch'
     echo
     echo '| Branch | Expected tip | Last commit (UTC) |'
     echo '| --- | --- | --- |'
     while IFS='|' read -r branch sha tip_epoch; do
       last_commit="$(date -u -d "@$tip_epoch" '+%Y-%m-%d')"
       echo "| \`$branch\` | \`${sha:0:12}\` | $last_commit |"
-    done < "$candidates"
+    done < "$selected_batch"
   else
     echo 'No branches meet the selected deletion cutoff.'
   fi
 } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
 
 if [[ "$MODE" == 'dry-run' ]]; then
-  echo "dry-run: $eligible branch(es) eligible at ${MIN_AGE_DAYS} days; no refs changed"
+  echo "dry-run: $eligible branch(es) eligible at ${MIN_AGE_DAYS} days; selected oldest-first batch=$selected_count remaining=$remaining_count; no refs changed"
   echo "cohorts: 7d=$cohort_7 14d=$cohort_14 30d=$cohort_30 merged-no-open-pr=$merged_no_pr_count scanned=$scanned"
-  echo 'oldest merged/no-open-PR branches:'
-  sort -t'|' -k3,3n "$merged_no_pr" | sed -n '1,20p'
-  echo 'selected-cutoff candidates:'
-  cat "$candidates"
+  echo "reviewed-batch-sha256: $selection_digest"
+  echo 'reviewed oldest-first batch:'
+  cat "$selected_batch"
   exit 0
 fi
 
-(( eligible <= MAX_DELETIONS )) || fail "refusing deletion: $eligible eligible branches exceeds explicit MAX_DELETIONS=$MAX_DELETIONS"
-
-if (( eligible == 0 )); then
+if (( selected_count == 0 )); then
   echo 'delete mode: no eligible refs to delete'
   exit 0
 fi
 
+[[ "$EXPECTED_BATCH_SHA256" == "$selection_digest" ]] || fail "reviewed batch digest mismatch: expected=$EXPECTED_BATCH_SHA256 current=$selection_digest"
+
+final_main_sha="$(gh api "/repos/${GITHUB_REPOSITORY}/branches/main" --jq '.commit.sha')"
+[[ "$final_main_sha" == "$EXPECTED_MAIN_SHA" ]] || fail "main advanced before deletion boundary: expected=$EXPECTED_MAIN_SHA current=$final_main_sha"
+
+repo_owner="${GITHUB_REPOSITORY%%/*}"
 while IFS='|' read -r branch expected_sha tip_epoch; do
   current_sha="$(git ls-remote --heads origin "refs/heads/$branch" | awk '{print $1}')"
   [[ -n "$current_sha" ]] || fail "branch disappeared before deletion boundary: $branch"
   [[ "$current_sha" == "$expected_sha" ]] || fail "branch advanced before deletion boundary: $branch expected=$expected_sha current=$current_sha"
 
-  # Force-with-lease binds deletion to the exact tip classified above. If the
-  # branch moves between the final read and push, Git refuses the deletion.
+  open_pr_count="$(gh api --method GET "/repos/${GITHUB_REPOSITORY}/pulls" -f state=open -f "head=${repo_owner}:${branch}" --jq 'length')"
+  [[ "$open_pr_count" == '0' ]] || fail "branch gained an open PR before deletion boundary: $branch"
+
+  git merge-base --is-ancestor "$expected_sha" refs/remotes/origin/main || fail "branch is no longer merged into reviewed main: $branch"
+
+  # Force-with-lease binds deletion to the exact tip classified and reviewed
+  # above. If the branch moves between the final read and push, Git refuses it.
   git push --force-with-lease="refs/heads/$branch:$expected_sha" origin ":refs/heads/$branch"
   echo "deleted $branch at $expected_sha"
-done < "$candidates"
+done < "$selected_batch"
 
-echo "delete mode complete: removed $eligible stale merged chatgpt branch(es)"
+echo "delete mode complete: removed reviewed batch of $selected_count branch(es); $remaining_count eligible branch(es) remain at this cutoff"
