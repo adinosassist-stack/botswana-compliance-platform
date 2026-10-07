@@ -7,7 +7,7 @@ const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES?path.join(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES,'playwright'):'playwright-core');
 const html=fs.readFileSync('public/index.html','utf8');
 const ids=['workhub','businesshub','evidencehub','tenderhub','automationhub','sites','servicesmarketplace'];
-const sections=ids.map(id=>html.match(new RegExp('<section id="'+id+'"[\\s\\S]*?</section>'))[0]).join('');
+const sections=[...ids,'accounthub'].map(id=>html.match(new RegExp('<section id="'+id+'"[\\s\\S]*?</section>'))[0]).join('');
 const inline=[...html.slice(0,html.indexOf('</head>')).matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(x=>x[1]).join('\n');
 const assets=['workspace-command-center-v230.css','workspace-command-center-v231.css','workspace-reference-shell-v237.css','property-calculator-compact-v223.css','property-calculator-reference-v224.css','property-visibility-v230.css','property-operations-v262.css','property-optimise-v263.css','property-compare-v264.css'];
 const styles=inline+'\n'+assets.map(f=>fs.readFileSync('public/assets/'+f,'utf8')).join('\n');
@@ -38,6 +38,7 @@ try{
    assert(await page.locator('#'+id+' .workspace-info-icon-v309').count()>0,`visual summary ${id}`);
    if(width<=620&&!['evidencehub','sites','servicesmarketplace'].includes(id))assert.equal(await page.locator('#'+id+' .workspace-info-grid-v309').evaluate(el=>getComputedStyle(el).gridTemplateColumns.trim().split(/\s+/).length),width<=360?1:2);
   }
+  if(width<=620){for(const id of [...ids,'accounthub']){await page.evaluate(id=>document.querySelectorAll('.view').forEach(view=>view.classList.toggle('active',view.id===id)),id);const heights=await page.locator('#'+id+' > .hub-hero > .btn').evaluateAll(controls=>controls.filter(control=>control.getBoundingClientRect().height>0).map(control=>control.getBoundingClientRect().height));assert(heights.every(height=>height>=44),id+' mobile header actions below 44px: '+heights.join(','));}}
   await page.evaluate(()=>{document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='workhub'));document.getElementById('workOpenActions').textContent='8';document.getElementById('workWaitingReviews').textContent='2';window.dispatchEvent(new Event('thebe:workspace-view-change'))});
   await page.waitForFunction(()=>document.getElementById('workWaitingReviews').parentElement.querySelector('.workspace-info-bar-v309>span').style.width==='25%');
   assert.equal(await page.locator('#workOpenActions').textContent(),'8');
@@ -53,3 +54,4 @@ try{
  }
  console.log('PASS V309: app-only release delivery, seven workspace visuals, 320–1280px containment, count truth/loading/role hiding, Property solid fills/aligned edges, calculator geometry and observer stability');
 }finally{await browser.close()}
+

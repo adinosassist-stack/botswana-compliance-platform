@@ -2,6 +2,13 @@
    Continue the screenshot-informed direction: quieter navigation, compact controls,
    one obvious Thebe command path, and less first-screen text. Presentation only. */
 
+/* Shared mobile header actions must retain the same usable touch target as cards. */
+@media(max-width:620px){
+  #mainContent .simplified-hub > .hub-hero > .btn{
+    min-height:44px!important;
+  }
+}
+
 #workspaceSidebar{
   padding-top:10px!important;
 }
@@ -388,3 +395,4 @@
     border-radius:999px!important;
   }
 }
+
