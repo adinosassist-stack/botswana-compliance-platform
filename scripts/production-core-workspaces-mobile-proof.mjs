@@ -76,6 +76,9 @@ async function inspectView(page,viewId){
       nodeBottom:Math.round(rect.bottom),
       moneyRelease:view==='moneyhub'?String(globalThis.ThebeMoneyWorkspaceV307?.release||''):'',
       moneyState:view==='moneyhub'?String(document.getElementById('moneyhub')?.dataset?.moneyV307State||''):'',
+      moneyInputsRelease:view==='moneyhub'?String(document.getElementById('moneyInputsV310')?.dataset?.release||''):'',
+      moneyInputActions:view==='moneyhub'?document.querySelectorAll('#moneyInputsV310 [data-money-input-action]').length:0,
+      moneyLanes:view==='moneyhub'?[...document.querySelectorAll('#moneyWorkspaceV307 .money-v307-lane h3')].map(node=>node.textContent):[],
       text:(node.innerText||'').slice(0,500)
     };
   },viewId);
@@ -107,10 +110,12 @@ async function runCoreMobileJourney(credentials){
     const money=results.find(result=>result.view==='moneyhub');
     check(money.moneyRelease==='20261007-money-workspace-v307',`Money release mismatch ${safe(money.moneyRelease)}`);
     check(['ready','unavailable'].includes(money.moneyState),`Money did not settle into an explicit source state: ${safe(money.moneyState)}`);
-    check(/Reconcile cash|Money workspace unavailable/.test(money.text),`Money V307 deterministic surface missing: ${safe(money.text)}`);
+    check(money.moneyState==='unavailable'||money.moneyLanes.includes('Reconcile cash'),`Money deterministic surface missing: ${safe(JSON.stringify(money.moneyLanes))}`);
+    check(money.moneyInputsRelease==='20261007-money-inputs-v310',`Money input release missing: ${safe(money.moneyInputsRelease)}`);
+    check(money.moneyInputActions>=11,`Money record entry actions missing: ${money.moneyInputActions}`);
     check(pageErrors.length===0,`page errors ${safe(JSON.stringify(pageErrors))}`);
     check(assetFailures.length===0,`asset failures ${safe(JSON.stringify(assetFailures))}`);
-    mark('authenticated core mobile workspace matrix','Money + Work + Protect + Settings at 390x844; V307 present; no asset/page errors');
+    mark('authenticated core mobile workspace matrix','Money + Work + Protect + Settings at 390x844; V307 summary + V310 input actions present; no asset/page errors');
   }finally{
     await withDeadline('core mobile browser close',browser.close().catch(()=>{}),CLOSE_TIMEOUT_MS).catch(()=>{});
   }
