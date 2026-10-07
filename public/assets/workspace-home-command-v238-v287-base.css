@@ -51,3 +51,96 @@
     outline-offset:2px!important;
   }
 }
+
+/* V290 dock polish.
+   Improve density, icon hierarchy and expansion motion without changing tested lane widths or the 68px voice recovery target. */
+@media(min-width:1024px){
+  html body #thebeAiDock[data-surface="workspace"]{
+    transition:width 220ms cubic-bezier(.2,.8,.2,1),box-shadow 180ms ease,border-color 180ms ease!important;
+    will-change:width;
+  }
+  html body.thebe-ai-dock-open #appShell{
+    transition:padding-right 220ms cubic-bezier(.2,.8,.2,1)!important;
+  }
+  html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"]>.thebe-ai-dock-head{
+    min-height:48px!important;
+    padding:6px 8px!important;
+  }
+  html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-dock-title{
+    gap:8px!important;
+  }
+  html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-mark{
+    width:28px!important;
+    height:28px!important;
+    border-radius:8px!important;
+    background-size:21px 21px!important;
+  }
+  html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-title-copy b{
+    font-size:14px!important;
+    font-weight:620!important;
+    letter-spacing:-.012em!important;
+  }
+  html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-head-actions{
+    gap:2px!important;
+  }
+  html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-icon-btn{
+    width:34px!important;
+    min-width:34px!important;
+    height:34px!important;
+    min-height:34px!important;
+    border:1px solid transparent!important;
+    border-radius:10px!important;
+    background:transparent!important;
+    color:#d9dee7!important;
+    font-size:16px!important;
+    transition:background-color 140ms ease,border-color 140ms ease,transform 140ms ease!important;
+  }
+  html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-icon-btn:hover{
+    background:#303030!important;
+    border-color:#454545!important;
+    transform:translateY(-1px)!important;
+  }
+  html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-compose{
+    min-height:50px!important;
+    margin:0 10px 10px!important;
+    padding:6px 6px 6px 11px!important;
+    gap:6px!important;
+    border-radius:24px!important;
+  }
+  html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-compose textarea{
+    min-height:36px!important;
+    max-height:84px!important;
+    padding:8px 6px 6px!important;
+    font-size:14px!important;
+    line-height:1.35!important;
+    resize:none!important;
+  }
+  html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-send{
+    width:36px!important;
+    min-width:36px!important;
+    height:36px!important;
+    min-height:36px!important;
+    border-radius:50%!important;
+    font-size:18px!important;
+    transition:transform 140ms ease,background-color 140ms ease!important;
+  }
+  html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-send:not(:disabled):hover{
+    transform:translateY(-1px) scale(1.02)!important;
+  }
+  html body.thebe-ai-expanded #thebeAiDock[data-surface="workspace"]>.thebe-ai-dock-scroll{
+    transition:padding 220ms cubic-bezier(.2,.8,.2,1)!important;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  html body #thebeAiDock[data-surface="workspace"],
+  html body.thebe-ai-dock-open #appShell,
+  html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] :is(.thebe-ai-icon-btn,.thebe-ai-send),
+  html body.thebe-ai-expanded #thebeAiDock[data-surface="workspace"]>.thebe-ai-dock-scroll{
+    transition:none!important;
+  }
+  html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-icon-btn:hover,
+  html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-send:not(:disabled):hover{
+    transform:none!important;
+  }
+}
