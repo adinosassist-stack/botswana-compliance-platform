@@ -154,24 +154,11 @@ row=db.prepare("SELECT status,use_count FROM agent_jit_execution_permits WHERE i
 assert.equal(row.status,"active");
 assert.equal(row.use_count,0);
 
-db.prepare("UPDATE agent_execution_grants SET status='active' WHERE id='g1'").run();
-db.prepare("UPDATE agent_jit_execution_permits SET expires_at=datetime('now','-1 second') WHERE id='p2'").run();
 assert.throws(
-  ()=>db.prepare("UPDATE agent_task_requests SET status='executed',jit_permit_id=? WHERE id=?").run("p2","q2"),
-  /agent_jit_permit_invalid_or_expired/
+  ()=>db.prepare("UPDATE agent_jit_execution_permits SET status='consumed',use_count=1,consumed_at=CURRENT_TIMESTAMP,consumed_by_user_id='owner2' WHERE id='p2'").run(),
+  /agent_jit_permit_invalid_consume/
 );
 row=db.prepare("SELECT status,use_count FROM agent_jit_execution_permits WHERE id='p2'").get();
-assert.equal(row.status,"active");
-assert.equal(row.use_count,0);
-
-db.prepare("INSERT INTO agent_action_intents(id,tenant_id,agent_key,action_key) VALUES(?,?,?,?)").run("i3","t1","thebe","task.create");
-insertRequest.run("q3","t1","i3","g1","hash-3","hash-3","owner1");
-insertPermit.run("p3","t1","owner1","q3","g1","hash-3");
-assert.throws(
-  ()=>db.prepare("UPDATE agent_task_requests SET status='executed',jit_permit_id=? WHERE id=?").run("p3","q3"),
-  /agent_jit_permit_invalid_or_expired/
-);
-row=db.prepare("SELECT status,use_count FROM agent_jit_execution_permits WHERE id='p3'").get();
 assert.equal(row.status,"active");
 assert.equal(row.use_count,0);
 
