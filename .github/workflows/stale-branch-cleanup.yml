@@ -29,7 +29,7 @@ on:
         default: '30'
         type: string
       max_deletions:
-        description: 'Oldest-first batch size / hard deletion cap (maximum 50)'
+        description: 'Oldest-first reviewed batch size / hard deletion cap (maximum 50)'
         required: true
         default: '20'
         type: string
