@@ -29,8 +29,10 @@
         box.appendChild(more);
       }
       more.hidden=false;
-      more.textContent=`View all ${rows.length} locations →`;
-      more.setAttribute("aria-label",`View all ${rows.length} reporting locations`);
+      const label=`View all ${rows.length} locations →`;
+      const ariaLabel=`View all ${rows.length} reporting locations`;
+      if(more.textContent!==label)more.textContent=label;
+      if(more.getAttribute("aria-label")!==ariaLabel)more.setAttribute("aria-label",ariaLabel);
     }else if(more){
       more.remove();
     }
