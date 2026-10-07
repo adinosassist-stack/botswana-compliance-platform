@@ -65,9 +65,51 @@
 /* The Home command strip should read like the three concise actions in the reference. */
 #dashboard .home-thebe-agent{
   margin-bottom:2px!important;
+  --home-thebe-agent-gap:10px;
+}
+#dashboard .home-thebe-agent :is(form,.home-thebe-agent-form,.home-thebe-agent-input,.home-thebe-agent-prompt,.home-thebe-agent-row){
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+  grid-column:1/-1!important;
+  justify-self:stretch!important;
+  align-items:stretch!important;
+  gap:var(--home-thebe-agent-gap)!important;
+  width:100%!important;
+  margin-inline:0!important;
+  padding-inline:0!important;
+  position:static!important;
+  inset:auto!important;
+  transform:none!important;
+}
+#dashboard .home-thebe-agent :is(input,textarea){
+  width:100%!important;
+  min-height:48px!important;
+  margin:0!important;
+}
+#dashboard .home-thebe-agent :is(form,.home-thebe-agent-form,.home-thebe-agent-input,.home-thebe-agent-prompt,.home-thebe-agent-row) > :is(button,.btn){
+  position:static!important;
+  inset:auto!important;
+  transform:none!important;
+  margin:0!important;
+  align-self:stretch!important;
+  min-height:48px!important;
 }
 #dashboard .home-thebe-agent-quick{
+  display:flex!important;
+  grid-column:1/-1!important;
+  justify-self:stretch!important;
+  align-items:center!important;
+  gap:8px!important;
+  width:100%!important;
+  margin-inline:0!important;
+  padding-inline:0!important;
+  position:static!important;
+  inset:auto!important;
+  transform:none!important;
   flex-wrap:wrap!important;
+}
+#dashboard .home-thebe-agent-quick .btn{
+  margin:0!important;
 }
 #dashboard .home-thebe-agent-quick .btn:nth-child(n+4){
   display:none!important;
@@ -118,6 +160,13 @@
   }
 }
 @media(max-width:620px){
+  #dashboard .home-thebe-agent :is(form,.home-thebe-agent-form,.home-thebe-agent-input,.home-thebe-agent-prompt,.home-thebe-agent-row){
+    grid-template-columns:minmax(0,1fr)!important;
+  }
+  #dashboard .home-thebe-agent :is(form,.home-thebe-agent-form,.home-thebe-agent-input,.home-thebe-agent-prompt,.home-thebe-agent-row) > :is(button,.btn),
+  #dashboard .home-thebe-agent-quick .btn{
+    min-height:44px!important;
+  }
   #dashboard .home-thebe-agent-quick .btn:nth-child(n+3){
     display:none!important;
   }
@@ -395,4 +444,3 @@
     border-radius:999px!important;
   }
 }
-
