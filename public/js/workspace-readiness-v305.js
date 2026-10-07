@@ -37,6 +37,7 @@
   }
 
   function bindPeopleV306Polish(){
+    if(typeof document==="undefined")return false;
     const people=document.getElementById("peopleops");
     if(!people)return false;
     applyPeopleV306Polish(people);
@@ -48,6 +49,7 @@
   }
 
   function installPeopleV306Polish(){
+    if(typeof document==="undefined")return;
     if(bindPeopleV306Polish())return;
     if(typeof MutationObserver!=="function")return;
     const root=document.getElementById("mainContent")||document.body||document.documentElement;
