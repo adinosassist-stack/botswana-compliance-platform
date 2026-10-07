@@ -112,7 +112,7 @@ assert.throws(
 
 db.prepare("UPDATE customer_followups SET status='cancelled' WHERE id='f1'").run();
 const followup=db.prepare("SELECT tenant_id,customer_id,contact_id,invoice_id,status,message_body FROM customer_followups WHERE id='f1'").get();
-assert.deepEqual(followup,{tenant_id:"t1",customer_id:"c1",contact_id:"cc1",invoice_id:"i1",status:"cancelled",message_body:"Please review invoice i1."});
+assert.deepEqual({...followup},{tenant_id:"t1",customer_id:"c1",contact_id:"cc1",invoice_id:"i1",status:"cancelled",message_body:"Please review invoice i1."});
 db.close();
 
 const relationships=fs.readFileSync("cloudflare/src/customer-relationships.js","utf8");
