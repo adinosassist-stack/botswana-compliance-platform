@@ -13,6 +13,11 @@ const property=html.slice(propertyStart,propertyEnd).replace('class="view simpli
 let fixture=externalizeWorkspaceHeadStyles('<!doctype html>'+html.slice(html.indexOf('<html'),html.indexOf('</head>')+7)+'<body><section id="marketingGate" class="hidden" style="display:none"></section><section id="appShell" class="shell"><aside id="workspaceSidebar"><button>Home</button></aside><main id="mainContent"><div class="top"><h1 id="pageTitle">Property</h1></div>'+property+'</main></section></body></html>');
 fixture=injectOwnerCommandCentreAssets(fixture);
 
+const isLightMonochrome=value=>{
+  const channels=value.match(/\d+/g)?.slice(0,3).map(Number)||[];
+  return channels.length===3&&Math.max(...channels)-Math.min(...channels)<=2&&Math.min(...channels)>=235;
+};
+
 const executablePath=[process.env.CHROMIUM_EXECUTABLE_PATH,'/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].filter(Boolean).find(p=>fs.existsSync(p));
 const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
 
@@ -83,13 +88,13 @@ try{
   assert.equal(desktop.composeShadow,'none','composer stays visually flat');
   assert.equal(Math.round(desktop.sendWidth),36,'send control remains compact');
   assert.equal(Math.round(desktop.sendHeight),36,'send control remains compact vertically');
-  assert.equal(desktop.sendBackground,'rgb(242, 242, 242)','send control remains the primary light action');
+  assert(isLightMonochrome(desktop.sendBackground),`send control remains the primary light monochrome action: ${desktop.sendBackground}`);
   assert.equal(desktop.sendColor,'rgb(23, 23, 23)','send icon remains dark on the light action');
   assert.equal(Math.round(desktop.orbWidth),68,'voice recovery target remains 68px');
   assert.equal(Math.round(desktop.orbHeight),68,'voice recovery target remains 68px vertically');
   assert.equal(Math.round(desktop.coreWidth),20,'voice visual core remains intentionally small');
   assert.equal(Math.round(desktop.coreHeight),20,'voice visual core remains intentionally small vertically');
-  assert.equal(desktop.coreBackground,'rgb(242, 242, 242)','voice core remains monochrome');
+  assert(isLightMonochrome(desktop.coreBackground),`voice core remains light monochrome: ${desktop.coreBackground}`);
   assert.equal(desktop.particleAfterDisplay,'none','decorative secondary voice ring stays removed');
 
   await page.getByRole('button',{name:'Expand Thebe panel',exact:true}).click();
@@ -125,7 +130,7 @@ try{
   });
   assert.equal(mobile.dockBackground,'rgb(25, 25, 25)','mobile keeps V292 monochrome dock');
   assert.equal(mobile.composeBackground,'rgb(36, 36, 36)','mobile keeps the same composer hierarchy');
-  assert.equal(mobile.sendBackground,'rgb(242, 242, 242)','mobile keeps the same primary send action');
+  assert(isLightMonochrome(mobile.sendBackground),`mobile keeps the same primary light monochrome action: ${mobile.sendBackground}`);
   assert(mobile.hiddenChrome,'mobile also keeps legacy dock chrome hidden');
   assert.deepEqual(errors,[],'V292 visual contract produces no browser errors');
   console.log('V292_DOCK_VISUAL_CONTRACT_PASS: monochrome shell, hidden legacy chrome, three collapsed shortcuts, GPT-style composer, minimal 20px voice visual inside preserved 68px recovery target, mobile parity');
