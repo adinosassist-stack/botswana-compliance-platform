@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'dry-run only, or bounded deletion'
+        description: 'dry-run only, or reviewed bounded deletion'
         required: true
         default: dry-run
         type: choice
@@ -29,12 +29,17 @@ on:
         default: '30'
         type: string
       max_deletions:
-        description: 'Delete mode fails closed if eligible count exceeds this cap (maximum 50)'
+        description: 'Oldest-first batch size / hard deletion cap (maximum 50)'
         required: true
         default: '20'
         type: string
       expected_main_sha:
-        description: 'Delete mode only: exact 40-character current main SHA reviewed before cleanup'
+        description: 'Delete mode only: exact 40-character current main SHA from reviewed dry-run'
+        required: false
+        default: ''
+        type: string
+      expected_batch_sha256:
+        description: 'Delete mode only: reviewed-batch-sha256 from the matching dry-run'
         required: false
         default: ''
         type: string
@@ -68,7 +73,7 @@ jobs:
         shell: bash
         run: bash -n .github/scripts/stale-branch-cleanup.sh
 
-      - name: Exercise allow and deny fixtures
+      - name: Exercise allow, deny and digest fixtures
         shell: bash
         run: bash .github/scripts/stale-branch-cleanup.sh --self-test
 
@@ -99,7 +104,7 @@ jobs:
         shell: bash
         run: git fetch --prune origin '+refs/heads/*:refs/remotes/origin/*'
 
-      - name: Dry-run stale branch classification
+      - name: Dry-run stale branch classification and reviewed batch selection
         env:
           GH_TOKEN: ${{ github.token }}
           MODE: dry-run
@@ -109,7 +114,7 @@ jobs:
         run: bash .github/scripts/stale-branch-cleanup.sh
 
   delete:
-    name: Delete only reviewed old merged chatgpt branches
+    name: Delete only exact reviewed oldest-first batch
     if: github.event_name == 'workflow_dispatch' && inputs.mode == 'delete'
     needs: selftest
     runs-on: ubuntu-24.04
@@ -136,13 +141,14 @@ jobs:
         shell: bash
         run: git fetch --prune origin '+refs/heads/*:refs/remotes/origin/*'
 
-      - name: Delete reviewed stale branches with exact-tip leases
+      - name: Delete exact reviewed stale branch batch with race checks
         env:
           GH_TOKEN: ${{ github.token }}
           MODE: delete
           MIN_AGE_DAYS: ${{ inputs.min_age_days }}
           MAX_DELETIONS: ${{ inputs.max_deletions }}
           EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          EXPECTED_BATCH_SHA256: ${{ inputs.expected_batch_sha256 }}
           CONFIRMATION: ${{ inputs.confirmation }}
         shell: bash
         run: bash .github/scripts/stale-branch-cleanup.sh
