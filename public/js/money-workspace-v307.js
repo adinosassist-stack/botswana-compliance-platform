@@ -127,6 +127,8 @@
   function injectStyles(){
     if(document.getElementById('moneyWorkspaceV307Styles'))return;
     const style=document.createElement('style');
+    const nonce=document.querySelector('style[nonce],script[nonce]')?.nonce;
+    if(nonce)style.nonce=nonce;
     style.id='moneyWorkspaceV307Styles';
     style.textContent=`
       #${ROOT_ID}.money-v307-ready>.outcome-status-strip,
@@ -415,3 +417,4 @@
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
+
