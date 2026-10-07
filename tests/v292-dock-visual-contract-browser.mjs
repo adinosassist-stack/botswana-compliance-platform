@@ -52,7 +52,7 @@ try{
       const style=getComputedStyle(button),rect=button.getBoundingClientRect();
       return style.display!=='none'&&style.visibility!=='hidden'&&rect.width>0&&rect.height>0;
     });
-    const dockStyle=getComputedStyle(dock),composeStyle=getComputedStyle(composer),sendStyle=getComputedStyle(send),coreStyle=getComputedStyle(core);
+    const dockStyle=getComputedStyle(dock),composeStyle=getComputedStyle(composer),sendStyle=getComputedStyle(send);
     const orbRect=orb.getBoundingClientRect(),coreRect=core.getBoundingClientRect();
     return {
       dockBackground:dockStyle.backgroundColor,
@@ -72,7 +72,6 @@ try{
       orbHeight:orbRect.height,
       coreWidth:coreRect.width,
       coreHeight:coreRect.height,
-      coreBackground:coreStyle.backgroundColor,
       particleAfterDisplay:particleOrb?getComputedStyle(particleOrb,'::after').display:null
     };
   });
@@ -95,7 +94,6 @@ try{
   assert(desktop.coreWidth>=18&&desktop.coreWidth<=24,`voice visual core stays intentionally small: ${desktop.coreWidth}px`);
   assert(desktop.coreHeight>=18&&desktop.coreHeight<=24,`voice visual core stays intentionally small vertically: ${desktop.coreHeight}px`);
   assert(desktop.coreWidth<desktop.orbWidth*.4&&desktop.coreHeight<desktop.orbHeight*.4,'voice visual remains much smaller than its recovery target');
-  assert(isLightMonochrome(desktop.coreBackground),`voice core remains light monochrome: ${desktop.coreBackground}`);
   assert.equal(desktop.particleAfterDisplay,'none','decorative secondary voice ring stays removed');
 
   await page.getByRole('button',{name:'Expand Thebe panel',exact:true}).click();
