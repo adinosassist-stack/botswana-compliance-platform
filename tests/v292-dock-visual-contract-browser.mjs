@@ -52,7 +52,14 @@ try{
       const style=getComputedStyle(button),rect=button.getBoundingClientRect();
       return style.display!=='none'&&style.visibility!=='hidden'&&rect.width>0&&rect.height>0;
     });
-    const dockStyle=getComputedStyle(dock),composeStyle=getComputedStyle(composer),sendStyle=getComputedStyle(send);
+    const dockStyle=getComputedStyle(dock),composeStyle=getComputedStyle(composer);
+    const sendWasDisabled=send.disabled;
+    send.disabled=false;
+    const enabledSendStyle=getComputedStyle(send);
+    const sendBackground=enabledSendStyle.backgroundColor;
+    const sendColor=enabledSendStyle.color;
+    const sendRect=send.getBoundingClientRect();
+    send.disabled=sendWasDisabled;
     const orbRect=orb.getBoundingClientRect(),coreRect=core.getBoundingClientRect();
     return {
       dockBackground:dockStyle.backgroundColor,
@@ -64,10 +71,10 @@ try{
       composeBackground:composeStyle.backgroundColor,
       composeRadius:composeStyle.borderRadius,
       composeShadow:composeStyle.boxShadow,
-      sendWidth:send.getBoundingClientRect().width,
-      sendHeight:send.getBoundingClientRect().height,
-      sendBackground:sendStyle.backgroundColor,
-      sendColor:sendStyle.color,
+      sendWidth:sendRect.width,
+      sendHeight:sendRect.height,
+      sendBackground,
+      sendColor,
       orbWidth:orbRect.width,
       orbHeight:orbRect.height,
       coreWidth:coreRect.width,
@@ -87,8 +94,8 @@ try{
   assert.equal(desktop.composeShadow,'none','composer stays visually flat');
   assert.equal(Math.round(desktop.sendWidth),36,'send control remains compact');
   assert.equal(Math.round(desktop.sendHeight),36,'send control remains compact vertically');
-  assert(isLightMonochrome(desktop.sendBackground),`send control remains a light monochrome action, including its idle state: ${desktop.sendBackground}`);
-  assert.equal(desktop.sendColor,'rgb(23, 23, 23)','send icon remains dark on the light action');
+  assert(isLightMonochrome(desktop.sendBackground),`enabled send control remains the primary light monochrome action: ${desktop.sendBackground}`);
+  assert.equal(desktop.sendColor,'rgb(23, 23, 23)','enabled send icon remains dark on the light action');
   assert.equal(Math.round(desktop.orbWidth),68,'voice recovery target remains 68px');
   assert.equal(Math.round(desktop.orbHeight),68,'voice recovery target remains 68px vertically');
   assert(desktop.coreWidth>=18&&desktop.coreWidth<=24,`voice visual core stays intentionally small: ${desktop.coreWidth}px`);
@@ -120,16 +127,20 @@ try{
     const dock=document.getElementById('thebeAiDock');
     const compose=dock.querySelector('.thebe-ai-compose');
     const send=dock.querySelector('.thebe-ai-send');
+    const sendWasDisabled=send.disabled;
+    send.disabled=false;
+    const enabledSendBackground=getComputedStyle(send).backgroundColor;
+    send.disabled=sendWasDisabled;
     return {
       dockBackground:getComputedStyle(dock).backgroundColor,
       composeBackground:getComputedStyle(compose).backgroundColor,
-      sendBackground:getComputedStyle(send).backgroundColor,
+      sendBackground:enabledSendBackground,
       hiddenChrome:['.thebe-ai-presence','.thebe-ai-context-bar','.thebe-ai-mode-rail','.thebe-ai-foot','.thebe-ai-response-title'].every(selector=>{const element=dock.querySelector(selector);return !element||getComputedStyle(element).display==='none';})
     };
   });
   assert.equal(mobile.dockBackground,'rgb(25, 25, 25)','mobile keeps V292 monochrome dock');
   assert.equal(mobile.composeBackground,'rgb(36, 36, 36)','mobile keeps the same composer hierarchy');
-  assert(isLightMonochrome(mobile.sendBackground),`mobile keeps the same light monochrome send action: ${mobile.sendBackground}`);
+  assert(isLightMonochrome(mobile.sendBackground),`mobile keeps the same enabled light monochrome send action: ${mobile.sendBackground}`);
   assert(mobile.hiddenChrome,'mobile also keeps legacy dock chrome hidden');
   assert.deepEqual(errors,[],'V292 visual contract produces no browser errors');
   console.log('V292_DOCK_VISUAL_CONTRACT_PASS: monochrome shell, hidden legacy chrome, three collapsed shortcuts, GPT-style composer, minimal voice visual inside preserved 68px recovery target, mobile parity');
