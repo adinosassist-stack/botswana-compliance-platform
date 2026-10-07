@@ -85,7 +85,8 @@
 
   function setMetric(strip,key,value){
     const node=q(`[data-focus-metric="${key}"] .owner-focus-value`,strip);
-    if(node)node.textContent=String(value);
+    const next=String(value);
+    if(node&&node.textContent!==next)node.textContent=next;
   }
 
   function sync(){
@@ -100,8 +101,12 @@
       strip.dataset.state="unavailable";
       return;
     }
-    setMetric(strip,"action",qa(".owner-attention-list > .owner-attention-item",panel).length);
-    setMetric(strip,"approvals",qa(".owner-review-inbox > .owner-review-row",panel).length);
+    const approvals=qa(".owner-review-inbox > .owner-review-row",panel).length;
+    const total=Number(q(".owner-panel-head .badge",panel)?.textContent);
+    const visibleActions=qa(".owner-attention-list > .owner-attention-item",panel).length;
+    const needsAction=Number.isFinite(total)?Math.max(0,total-approvals):visibleActions;
+    setMetric(strip,"action",needsAction);
+    setMetric(strip,"approvals",approvals);
     setMetric(strip,"outcomes",qa(".owner-outcome-loop > .owner-outcome-row",panel).length);
     strip.dataset.state="ready";
   }
