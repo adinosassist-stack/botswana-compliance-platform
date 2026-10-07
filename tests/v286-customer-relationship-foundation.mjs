@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import {execFileSync} from "node:child_process";
+import {DatabaseSync} from "node:sqlite";
 import {normalizeCustomerContact,__customerRelationshipsTest} from "../cloudflare/src/customer-relationships.js";
 
 for(const path of [
@@ -33,6 +34,66 @@ assert.match(migration,/customer_followups_scope_guard/);
 assert.match(migration,/customer_followups_immutable_payload_guard/);
 assert.match(migration,/FOREIGN KEY\(tenant_id\) REFERENCES tenants\(id\) ON DELETE CASCADE/);
 
+const db=new DatabaseSync(":memory:");
+db.exec("PRAGMA foreign_keys=ON");
+db.exec(`
+  CREATE TABLE tenants(id TEXT PRIMARY KEY);
+  CREATE TABLE users(id TEXT PRIMARY KEY);
+  CREATE TABLE finance_customers(
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+  );
+  CREATE TABLE finance_invoices(
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    customer_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+    FOREIGN KEY(customer_id) REFERENCES finance_customers(id) ON DELETE CASCADE
+  );
+`);
+db.exec(migration);
+
+db.prepare("INSERT INTO tenants(id) VALUES(?)").run("t1");
+db.prepare("INSERT INTO tenants(id) VALUES(?)").run("t2");
+db.prepare("INSERT INTO users(id) VALUES(?)").run("u1");
+db.prepare("INSERT INTO finance_customers(id,tenant_id,status) VALUES(?,?,?)").run("c1","t1","active");
+db.prepare("INSERT INTO finance_customers(id,tenant_id,status) VALUES(?,?,?)").run("c2","t2","active");
+db.prepare("INSERT INTO finance_invoices(id,tenant_id,customer_id,status) VALUES(?,?,?,?)").run("i1","t1","c1","issued");
+db.prepare("INSERT INTO finance_invoices(id,tenant_id,customer_id,status) VALUES(?,?,?,?)").run("i2","t2","c2","issued");
+
+db.prepare(`INSERT INTO customer_contacts(
+  id,tenant_id,customer_id,channel,contact_value,contact_hash,consent_status,consent_source,consent_recorded_at,created_by_user_id
+) VALUES(?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,?)`).run("cc1","t1","c1","whatsapp","+26774123456","h1","opted_in","customer_request","u1");
+
+assert.throws(
+  ()=>db.prepare(`INSERT INTO customer_contacts(
+    id,tenant_id,customer_id,channel,contact_value,contact_hash,consent_status
+  ) VALUES(?,?,?,?,?,?,?)`).run("cc-cross","t2","c1","email","person@example.com","h2","unknown"),
+  /customer_contact_scope_invalid/
+);
+
+db.prepare(`INSERT INTO customer_followups(
+  id,tenant_id,customer_id,contact_id,invoice_id,purpose,message_body,message_hash,idempotency_key,prepared_by,requested_by_user_id
+) VALUES(?,?,?,?,?,?,?,?,?,'human',?)`).run("f1","t1","c1","cc1","i1","receivable","Please review invoice i1.","m1","idem-0001","u1");
+
+assert.throws(
+  ()=>db.prepare(`INSERT INTO customer_followups(
+    id,tenant_id,customer_id,contact_id,invoice_id,purpose,message_body,message_hash,idempotency_key,prepared_by
+  ) VALUES(?,?,?,?,?,?,?,?,?,'human')`).run("f-cross","t1","c1","cc1","i2","receivable","Wrong invoice.","m2","idem-0002"),
+  /customer_followup_invoice_scope_invalid/
+);
+
+assert.throws(
+  ()=>db.prepare("UPDATE customer_followups SET message_body='changed' WHERE id='f1'").run(),
+  /customer_followup_payload_immutable/
+);
+const followup=db.prepare("SELECT tenant_id,customer_id,contact_id,invoice_id,status,message_body FROM customer_followups WHERE id='f1'").get();
+assert.deepEqual(followup,{tenant_id:"t1",customer_id:"c1",contact_id:"cc1",invoice_id:"i1",status:"draft",message_body:"Please review invoice i1."});
+db.close();
+
 const relationships=fs.readFileSync("cloudflare/src/customer-relationships.js","utf8");
 assert.match(relationships,/customer_contact_consent_required/);
 assert.match(relationships,/explicit_customer_followup_confirmation_required/);
@@ -45,4 +106,4 @@ const receivables=fs.readFileSync("cloudflare/src/finance-receivables.js","utf8"
 assert.match(receivables,/handleCustomerRelationshipRequest/);
 assert.match(receivables,/customer-relationships\.js/);
 
-console.log("v286 customer relationship foundation: consent + approval + no-dispatch boundary PASS");
+console.log("v286 customer relationship foundation: runtime scope + consent + approval + no-dispatch boundary PASS");
