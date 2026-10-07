@@ -1,27 +1,32 @@
 @import url("./workspace-home-command-v238-v287-original.css");
 
-/* V289 compact desktop dock compatibility.
-   Preserve the production dock/runtime contract while removing the legacy 68px voice-entry footprint. */
+/* V289 compact desktop dock hardening.
+   Preserve the production 68px recovery/tap-target contract while tightening the visual dock around it. */
 @media(min-width:1024px){
   html body #thebeAiDock[data-surface="workspace"] .thebe-ai-dock-scroll{
     min-width:0!important;
     overflow-x:hidden!important;
+    overscroll-behavior:contain!important;
+    scrollbar-gutter:stable!important;
   }
   html body #thebeAiDock[data-surface="workspace"] .thebe-ai-dock-scroll .thebe-ai-voice-card{
-    grid-template-columns:40px auto!important;
-    grid-template-rows:40px!important;
-    width:max-content!important;
-    max-width:180px!important;
-    min-height:40px!important;
-    gap:8px!important;
+    grid-template-columns:68px!important;
+    grid-template-rows:68px!important;
+    width:68px!important;
+    max-width:68px!important;
+    min-height:68px!important;
+    gap:0!important;
   }
   html body #thebeAiDock[data-surface="workspace"] .thebe-ai-voice-card .thebe-ai-orb-button{
-    width:40px!important;
-    min-width:40px!important;
-    max-width:40px!important;
-    height:40px!important;
-    min-height:40px!important;
-    max-height:40px!important;
+    width:68px!important;
+    min-width:68px!important;
+    max-width:68px!important;
+    height:68px!important;
+    min-height:68px!important;
+    max-height:68px!important;
+  }
+  html body #thebeAiDock[data-surface="workspace"] .thebe-ai-voice-card .thebe-ai-voice-label{
+    display:none!important;
   }
   html body #thebeAiDock[data-surface="workspace"] :is(.thebe-ai-response,.thebe-ai-response-answer,.thebe-ai-compose,.thebe-ai-compose textarea){
     min-width:0!important;
