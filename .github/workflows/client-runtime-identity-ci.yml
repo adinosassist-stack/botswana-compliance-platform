@@ -67,6 +67,7 @@ jobs:
           node tests/v278-workspace-focus-visible-browser.mjs
           node tests/unified-goal-flow-browser.mjs
           node tests/v246-spatial-dock-browser.mjs
+          node tests/v292-dock-visual-contract-browser.mjs
           node tests/v269-emergency-dock-browser.mjs
           node tests/v272-property-navigation-browser.mjs
           node tests/v255-pricing-selector-browser.mjs
