@@ -1,0 +1,41 @@
+/* Same solid surfaces, directly labelled visuals and responsive tracks as People. */
+#mainContent .workspace-infographic-v309 .workspace-info-grid-v309{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr))!important;gap:12px!important;align-items:stretch;margin:0 0 8px}
+#mainContent .workspace-infographic-v309 .workspace-info-card-v309{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:7px;padding:15px;border:1px solid #dce7f5;border-radius:14px;background:#fff;color:#526a86;min-width:0}
+#mainContent .workspace-infographic-v309 .workspace-info-card-v309>b{font-size:24px;line-height:1.2;color:#18375a;overflow-wrap:anywhere}
+.workspace-info-label-v309{font-size:12px;line-height:1.4}
+.workspace-info-bar-v309{display:block;width:100%;height:7px;background:#eaf0f7;border-radius:5px;overflow:hidden;margin-top:auto}
+.workspace-info-bar-v309[hidden]{display:none}
+.workspace-info-bar-v309>span{display:block;height:100%;background:#3377bd;border-radius:inherit}
+.workspace-info-scale-v309{font-size:11px;color:#526a86;margin:0 0 14px;line-height:1.4}
+#mainContent .workspace-infographic-v309 :is(.outcome-grid,.business-outcome-grid,.proof-summary-grid){align-items:stretch!important;gap:12px!important}
+#mainContent .workspace-infographic-v309 :is(.outcome-card,.business-outcome-card,.proof-summary-card){min-width:0;display:flex;flex-direction:column;align-items:flex-start!important;text-align:left!important;border-color:#dce7f5;background:#fff;border-radius:14px}
+#mainContent .workspace-infographic-v309 :is(.outcome-card-action,.business-outcome-action,.proof-summary-link){margin-top:auto;padding-top:12px;color:#244f78}
+#mainContent .workspace-infographic-v309 :is(.money-v307-stat,.protect-v308-stat){border-color:#dce7f5;border-radius:14px;background:#fff}
+#mainContent .workspace-infographic-v309 :is(.money-v307-stat,.protect-v308-stat)>b{color:#18375a}
+/* Align section shells to their common parent edge, without moving the calculator. */
+#propertyintelligence.property-compact-v260 :is(.property-overview-v261,.property-operations-v262,.property-optimise-v263,.property-compare-v264,#propertyPortfolioWorkspace,#propertyValuationServicePanel){width:100%;max-width:1080px!important;box-sizing:border-box;margin-inline:auto!important}
+#propertyintelligence.property-compact-v260 :is(.property-overview-heading-v261,.property-ops-head-v262,.property-opt-head-v263,.property-compare-head-v264){align-items:flex-start;gap:12px;flex-wrap:wrap}
+#propertyintelligence.property-compact-v260 .property-overview-title-v261{white-space:normal;overflow:visible;text-overflow:clip}
+#propertyintelligence.property-compact-v260 :is(.property-overview-metrics-v261,.property-ops-metrics-v262,.property-opt-metrics-v263,.property-compare-signals-v264){align-items:stretch}
+/* Remove all decorative gradient fills, including the legacy readiness/yield discs. */
+#propertyintelligence.property-compact-v260 :is(.card,.property-overview-v261,.property-calculator-v224,.property-hero-compact,.property-yield-ring-v261,.property-ops-ring-v262){background-image:none!important}
+#propertyintelligence.property-compact-v260 .property-ops-ring-v262{background:#102a43;border:0}
+#propertyintelligence.property-compact-v260 .property-ops-ring-v262::after{background:#102a43}
+@media(max-width:620px){
+ #mainContent .workspace-infographic-v309 .workspace-info-grid-v309{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:9px!important}
+ #mainContent .workspace-infographic-v309 .workspace-info-card-v309{padding:12px}
+ #mainContent .workspace-infographic-v309 :is(.outcome-grid,.business-outcome-grid,.proof-summary-grid){grid-template-columns:1fr!important}
+ #mainContent .workspace-infographic-v309 :is(.outcome-card,.business-outcome-card,.proof-summary-card){min-height:44px}
+}
+
+.workspace-info-icon-v309{display:block;width:30px;height:30px;padding:5px;box-sizing:border-box;border-radius:8px;background:#edf3fb;fill:none;stroke:#3377bd;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;margin-bottom:4px;flex-shrink:0}
+
+#servicesmarketplace .workspace-info-icon-v309{width:22px;height:22px;padding:3px;margin:0 0 4px}
+#servicesmarketplace .workspace-info-bar-v309{margin-top:8px}
+#sites.workspace-infographic-v309 .sites-kpi{border-color:#dce7f5;background:#fff;border-radius:14px}
+
+.workspace-info-ring-v309{position:absolute;inset:0;width:100%;height:100%;z-index:1;transform:rotate(-90deg);fill:none;stroke-width:8}
+.workspace-info-ring-v309 .track{stroke:#35516d}
+.workspace-info-ring-v309 .value{stroke:#75b4ff}
+
+@media(max-width:360px){#mainContent .workspace-infographic-v309 .workspace-info-grid-v309{grid-template-columns:1fr!important}}

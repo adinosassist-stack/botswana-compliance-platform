@@ -12,7 +12,7 @@ const propertyStart=html.indexOf('  <section id="propertyintelligence"');
 const property=html.slice(propertyStart,html.indexOf('</section>',propertyStart)+10).replace('class="view simplified-hub','class="view active simplified-hub').replace('</section>','<section id="propertyPortfolioWorkspace"><details id="propertyValuationServicePanel"><summary>Professional valuation</summary><button id="propertyValuationServiceRequestButton">Request valuation</button></details><details id="propertyAssetFormPanel"><summary>Add property</summary></details></section></section>');
 let fixture=externalizeWorkspaceHeadStyles('<!doctype html>'+html.slice(html.indexOf('<html'),html.indexOf('</head>')+7)+'<body><section id="marketingGate" class="hidden" style="display:none"></section><section id="appShell" class="shell"><aside id="workspaceSidebar"><button>Home</button></aside><main id="mainContent"><div class="top"><h1 id="pageTitle">Property</h1></div>'+property+'</main></section></body></html>');
 fixture=injectOwnerCommandCentreAssets(fixture);
-fixture=versionReleaseAssets(fixture,'9'.repeat(40));
+fixture=versionReleaseAssets(fixture,'9'.repeat(40),{includeWorkspaceFixes:true});
 
 const browser=await chromium.launch({headless:true,executablePath:[process.env.CHROMIUM_EXECUTABLE_PATH,'/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].filter(Boolean).find(p=>fs.existsSync(p)),args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
 try{
@@ -21,7 +21,7 @@ try{
  await page.route('http://localhost/**',route=>{
    const pathname=new URL(route.request().url()).pathname;
    if(pathname==='/')return route.fulfill({contentType:'text/html',body:fixture});
-   if(pathname.endsWith('.js')&&!pathname.includes('property-visibility'))return route.fulfill({contentType:'application/javascript',body:''});
+   if(pathname.endsWith('.js')&&!pathname.includes('property-visibility')&&!pathname.includes('workspace-infographics-v309'))return route.fulfill({contentType:'application/javascript',body:''});
    const file='public'+pathname;
    return fs.existsSync(file)?route.fulfill({path:file}):route.fulfill({status:404,body:''});
  });
@@ -62,6 +62,15 @@ try{
  assert.equal(await page.locator('.property-primary-v260 [role="tab"]').count(),4);
  const geometry=await page.evaluate(()=>({width:document.documentElement.clientWidth,scroll:document.documentElement.scrollWidth}));
  assert(geometry.scroll<=geometry.width+1,'Property must fit mobile width');
+ for(const width of [390,1280]){
+   await page.setViewportSize({width,height:960});
+   for(const pane of ['today','analyse','operations','optimise','compare']){
+     await page.evaluate(pane=>window.ThebePropertyVisibility.setPane(pane),pane);
+     const gradients=await page.locator('#propertyintelligence').evaluate(root=>[...root.querySelectorAll('*')].filter(el=>el.getBoundingClientRect().width&&el.getBoundingClientRect().height&&/gradient/.test(getComputedStyle(el).backgroundImage)).map(el=>el.className));
+     assert.deepEqual(gradients,[],`Property ${pane} has no gradient containers at ${width}`);
+     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`Property ${pane} contains content at ${width}`);
+   }
+ }
  assert.deepEqual(errors,[]);
  console.log('V272_PROPERTY_NAVIGATION_BROWSER_PASS');
 }finally{await browser.close()}
