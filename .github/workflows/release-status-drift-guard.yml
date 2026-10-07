@@ -5,6 +5,7 @@ on:
     paths:
       - 'release/production.json'
       - 'docs/LAUNCH_STATUS.md'
+      - 'README.md'
       - '.github/workflows/release-status-drift-guard.yml'
   push:
     branches:
@@ -12,6 +13,7 @@ on:
     paths:
       - 'release/production.json'
       - 'docs/LAUNCH_STATUS.md'
+      - 'README.md'
       - '.github/workflows/release-status-drift-guard.yml'
 
 permissions:
@@ -37,8 +39,10 @@ jobs:
 
           const manifestPath = 'release/production.json';
           const statusPath = 'docs/LAUNCH_STATUS.md';
+          const readmePath = 'README.md';
           const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
           const status = fs.readFileSync(statusPath, 'utf8');
+          const readme = fs.readFileSync(readmePath, 'utf8');
 
           const fail = (message) => {
             console.error(`release-status-drift-guard: ${message}`);
@@ -83,6 +87,19 @@ jobs:
           const copiedShas = status.match(/\b[0-9a-f]{40}\b/gi) || [];
           if (copiedShas.length) {
             fail(`LAUNCH_STATUS.md must not copy mutable full SHAs (${[...new Set(copiedShas)].join(', ')})`);
+          }
+
+          if (!readme.includes('Historical hardening baseline:')) {
+            fail('README must label the V78 hardening baseline as historical');
+          }
+          if (readme.includes('Current hardening candidate:')) {
+            fail('README must not present the historical V78 hardening baseline as the current production candidate');
+          }
+          if (!readme.includes('release/production.json') || !readme.includes('docs/LAUNCH_STATUS.md')) {
+            fail('README current-status note must point to canonical release authority and launch-status policy');
+          }
+          if (/Current hardening candidate:[^\n]*BF-07[^\n]*(blocking final launch|release blocker)/i.test(readme)) {
+            fail('README must not claim BF-07 is a current launch blocker');
           }
 
           if (!process.exitCode) {
