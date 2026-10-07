@@ -9,3 +9,59 @@
   .property-calculator-compact .property-scenario-comparison{padding:8px}
   .property-calculator-compact .property-calculator-actions .btn{min-height:40px}
 }
+
+/* V289 flat Property colour system — no gradients on Property containers. */
+#propertyintelligence.property-compact-v260{
+  background:#f4f7fb!important;
+}
+#propertyintelligence.property-compact-v260 .property-hero-compact{
+  background:#182016!important;
+  background-image:none!important;
+  border:1px solid #2c3729!important;
+  color:#f7fff1!important;
+}
+#propertyintelligence.property-compact-v260 .property-primary-v260{
+  background:#ffffff!important;
+  background-image:none!important;
+  border-color:#dde4dc!important;
+}
+#propertyintelligence.property-compact-v260 :is(
+  .property-overview-v261,
+  .property-calculator-v224,
+  #propertyPortfolioWorkspace,
+  #propertyValuationServicePanel,
+  .property-scenario-comparison,
+  .property-metric,
+  .property-overview-metric-v261,
+  .property-input-row
+){
+  background:#ffffff!important;
+  background-image:none!important;
+}
+#propertyintelligence.property-compact-v260 .property-overview-v261{
+  border-color:#dfe5dc!important;
+}
+#propertyintelligence.property-compact-v260 .property-yield-card-v261{
+  background:#11140f!important;
+  background-image:none!important;
+}
+#propertyintelligence.property-compact-v260 .property-yield-ring-v261{
+  background:#11140f!important;
+  background-image:none!important;
+  border:10px solid #343a31!important;
+}
+#propertyintelligence.property-compact-v260 .property-yield-ring-v261::after{
+  background:#11140f!important;
+  background-image:none!important;
+}
+#propertyintelligence.property-compact-v260 .property-overview-ai-v261,
+#propertyintelligence.property-compact-v260 .property-primary-v260 button.active{
+  background:#11140f!important;
+  background-image:none!important;
+  color:#ffffff!important;
+}
+#propertyintelligence.property-compact-v260 .property-hero-compact .badge{
+  background:#c7ef32!important;
+  background-image:none!important;
+  color:#11140f!important;
+}
