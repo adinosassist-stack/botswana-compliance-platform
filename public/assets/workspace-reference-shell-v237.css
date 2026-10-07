@@ -274,3 +274,117 @@
     text-overflow:clip!important;
   }
 }
+
+/* V294 mobile Property polish from live-device QA.
+   Preserve the approved calculator geometry; only tighten surrounding shell, spacing,
+   contrast and assistant clearance. */
+@media(max-width:620px){
+  #mainContent{
+    padding-bottom:calc(148px + env(safe-area-inset-bottom))!important;
+    scroll-padding-bottom:calc(148px + env(safe-area-inset-bottom))!important;
+  }
+  #mainContent>.top{
+    min-height:0!important;
+    padding:10px 14px!important;
+    gap:8px!important;
+    align-items:center!important;
+  }
+  #mainContent>.top :is(h1,h2){
+    margin:0!important;
+    font-size:21px!important;
+    line-height:1.15!important;
+  }
+  #mainContent>.top>div:last-child{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) auto!important;
+    align-items:center!important;
+    gap:8px!important;
+    width:100%!important;
+  }
+  #mainContent .global-search{
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    min-height:44px!important;
+    height:44px!important;
+    padding:6px 11px!important;
+    border-radius:12px!important;
+  }
+  #mainContent>.top>div:last-child>.btn,
+  #mainContent>.top>div:last-child>button,
+  #mainContent>.top .companyswitch{
+    width:auto!important;
+    min-height:44px!important;
+    height:44px!important;
+    padding:7px 12px!important;
+    border-radius:12px!important;
+    white-space:nowrap!important;
+  }
+
+  #propertyintelligence.property-compact-v260{
+    padding-inline:8px!important;
+  }
+  #propertyintelligence.property-compact-v260 .property-hero-compact{
+    min-height:0!important;
+    height:auto!important;
+    margin-bottom:8px!important;
+    padding:14px 16px!important;
+    border-radius:16px!important;
+  }
+  #propertyintelligence.property-compact-v260 .property-hero-compact :is(h1,h2,h3){
+    color:#f7fff1!important;
+    margin:3px 0 7px!important;
+  }
+  #propertyintelligence.property-compact-v260 .property-hero-compact p{
+    color:#dce5d7!important;
+  }
+  #propertyintelligence.property-compact-v260 .property-primary-v260{
+    min-height:44px!important;
+    margin-bottom:8px!important;
+    padding:4px!important;
+  }
+  #propertyintelligence.property-compact-v260 .property-primary-v260 button{
+    min-height:36px!important;
+    padding:6px 7px!important;
+    font-size:9px!important;
+  }
+  #propertyintelligence.property-compact-v260 .property-overview-v261{
+    margin-top:6px!important;
+    padding:9px!important;
+    gap:8px!important;
+    border-radius:14px!important;
+  }
+  #propertyintelligence.property-compact-v260 .property-yield-card-v261{
+    min-height:104px!important;
+    padding:8px 10px!important;
+    border-radius:12px!important;
+  }
+  #propertyintelligence.property-compact-v260 .property-yield-ring-v261{
+    width:74px!important;
+    height:74px!important;
+  }
+  #propertyintelligence.property-compact-v260 .property-overview-summary-v261{
+    gap:9px!important;
+  }
+  #propertyintelligence.property-compact-v260 .property-overview-heading-v261{
+    gap:8px!important;
+  }
+  #propertyintelligence.property-compact-v260 .property-overview-ai-v261{
+    min-height:38px!important;
+    padding:7px 10px!important;
+    white-space:nowrap!important;
+  }
+
+  body #thebeAiDockPill[data-surface],
+  body #thebeAiDockPill{
+    left:auto!important;
+    right:12px!important;
+    bottom:calc(124px + env(safe-area-inset-bottom))!important;
+    width:auto!important;
+    min-width:0!important;
+    max-width:142px!important;
+    min-height:44px!important;
+    padding:8px 12px!important;
+    border-radius:999px!important;
+  }
+}
