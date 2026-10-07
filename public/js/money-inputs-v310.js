@@ -19,13 +19,14 @@
   }
   function validDate(value){return /^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value+'T00:00:00Z'))&&new Date(value+'T00:00:00Z').toISOString().slice(0,10)===value}
   function parseCSV(text){
-    const rows=[];let row=[],cell='',quoted=false;
+    const rows=[];let row=[],cell='',quoted=false,closedQuote=false;
     text=String(text).replace(/^\uFEFF/,'');
     for(let i=0;i<text.length;i++){
       const char=text[i];
-      if(char==='"'){if(quoted&&text[i+1]==='"'){cell+='"';i++}else if(!quoted&&cell!=='')throw new Error('CSV quotes must begin at the start of a field.');else quoted=!quoted}
-      else if(char===','&&!quoted){row.push(cell);cell=''}
-      else if((char==='\n'||char==='\r')&&!quoted){if(char==='\r'&&text[i+1]==='\n')i++;row.push(cell);if(row.some(x=>x.trim()))rows.push(row);row=[];cell=''}
+      if(closedQuote&&char!==','&&char!=='\n'&&char!=='\r')throw new Error('CSV has unexpected text after a closing quote.');
+      if(char==='"'){if(quoted&&text[i+1]==='"'){cell+='"';i++}else if(!quoted&&cell!=='')throw new Error('CSV quotes must begin at the start of a field.');else{quoted=!quoted;if(!quoted)closedQuote=true}}
+      else if(char===','&&!quoted){row.push(cell);cell='';closedQuote=false}
+      else if((char==='\n'||char==='\r')&&!quoted){if(char==='\r'&&text[i+1]==='\n')i++;row.push(cell);if(row.some(x=>x.trim()))rows.push(row);row=[];cell='';closedQuote=false}
       else cell+=char;
     }
     if(quoted)throw new Error('CSV has an unclosed quoted field.');
@@ -112,13 +113,19 @@
     const values=Object.fromEntries(new FormData(form));
     busy=true;panel.setAttribute('aria-busy','true');for(const b of root.querySelectorAll('button'))b.disabled=true;
     try{
+      for(const input of form.querySelectorAll('input[required]')){if(input.type!=='file'&&!input.disabled&&!input.value.trim())throw new Error('Enter '+input.closest('label').querySelector('span').textContent.toLowerCase()+'.');}
       if(selection==='import'&&!preview){
         const file=form.elements.namedItem('file').files[0];if(!file||file.size>700*1024)throw new Error('Choose a CSV file smaller than 700 KB.');
         const rows=parseCSV(await file.text());preview={accountId:values.accountId,rows};
         const sum=rows.reduce((total,row)=>total+row.amountMinor,0);const review=node('div',undefined,{class:'money-import-review'});review.append(node('b',rows.length+' transactions · net change '+money(sum)));
         const table=node('table');const head=node('tr');for(const label of ['Date','Description','Amount','Reference'])head.append(node('th',label));table.append(head);
-        for(const row of rows.slice(0,10)){const tr=node('tr');for(const value of [row.postedOn,row.description,money(row.amountMinor),row.reference])tr.append(node('td',value));table.append(tr)}
-        const wrap=node('div',undefined,{class:'money-import-table',tabindex:'0',role:'region','aria-label':'Statement preview'});wrap.append(table);review.append(wrap,node('p','Showing the first '+Math.min(10,rows.length)+' rows. Exact repeat imports are blocked. Do not import overlapping periods or transactions already entered manually.'));
+        const body=node('tbody');table.append(body);
+        const wrap=node('div',undefined,{class:'money-import-table',tabindex:'0',role:'region','aria-label':'Statement preview'});wrap.append(table);
+        const paging=node('div',undefined,{class:'money-input-form-actions'}),range=node('span',undefined,{role:'status','aria-live':'polite'});
+        const previous=node('button','Previous rows',{type:'button',class:'btn alt'}),next=node('button','Next rows',{type:'button',class:'btn alt'});let pageIndex=0;
+        const renderRows=()=>{body.replaceChildren();const start=pageIndex*10;for(const row of rows.slice(start,start+10)){const tr=node('tr');for(const value of [row.postedOn,row.description,money(row.amountMinor),row.reference])tr.append(node('td',value));body.append(tr)}range.textContent='Rows '+(start+1)+'–'+Math.min(start+10,rows.length)+' of '+rows.length;previous.hidden=pageIndex===0;next.hidden=start+10>=rows.length;};
+        previous.addEventListener('click',()=>{if(busy||pageIndex===0)return;pageIndex--;renderRows()});next.addEventListener('click',()=>{if(busy||(pageIndex+1)*10>=rows.length)return;pageIndex++;renderRows()});paging.append(previous,range,next);renderRows();
+        review.append(wrap,paging,node('p','Review all pages before confirming. Exact repeat imports are blocked. Do not import overlapping periods or transactions already entered manually.'));
         form.querySelector('.money-input-form-actions').before(review);form.querySelector('[type="submit"]').textContent='Confirm import';form.querySelectorAll('input,select').forEach(el=>el.disabled=true);message('Review the account, transactions and net change. Nothing has been saved.');return;
       }
       let result;
@@ -173,3 +180,4 @@
   function boot(){mount();new MutationObserver(mount).observe(document.body,{childList:true,subtree:true});globalThis.ThebeMoneyInputsV310=Object.freeze({release:RELEASE,parseCSV,minor})}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
+

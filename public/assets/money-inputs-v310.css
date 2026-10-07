@@ -7,3 +7,6 @@
 .money-record-list{grid-column:1/-1;display:grid;gap:8px;min-width:0;max-height:420px;overflow:auto}.money-record-row{padding:10px;border:1px solid var(--line,#e3e6e8);border-radius:8px;overflow-wrap:anywhere}.money-record-row b,.money-record-row span{display:block;font-size:12px}.money-record-row span{margin-top:4px;color:var(--muted,#6b7176)}
 
 .money-input-disclosure>summary{display:flex;align-items:center;justify-content:space-between;min-height:44px;cursor:pointer;font-size:13px;font-weight:700;list-style:none}.money-input-disclosure>summary:after{content:"+";font-size:20px}.money-input-disclosure[open]>summary:after{content:"−"}.money-input-disclosure>summary::-webkit-details-marker{display:none}.money-input-disclosure[open]>.money-input-actions{margin-top:8px}.money-input-disclosure>summary:focus-visible{outline:3px solid #3775cc;outline-offset:2px}
+
+
+.money-inputs-v310 button[hidden]{display:none!important}.money-import-review .money-input-form-actions{margin:10px 0;align-items:center}
