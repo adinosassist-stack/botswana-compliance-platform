@@ -1,3 +1,5 @@
+import {handleCustomerRelationshipRequest} from "./customer-relationships.js";
+
 const ISO_DATE=/^\d{4}-\d{2}-\d{2}$/;
 const MAX_RECEIVABLE_LIST=100;
 
@@ -242,6 +244,11 @@ export async function handleFinanceReceivablesRequest({
 }){
   const path=String(url?.pathname||"");
   if(!path.startsWith("/api/finance/"))return null;
+
+  const customerRelationshipResponse=await handleCustomerRelationshipRequest({
+    request,url,env,auth,json,readJson,id,appendLineage,writeAudit,sha256Hex
+  });
+  if(customerRelationshipResponse)return customerRelationshipResponse;
 
   if(path==="/api/finance/receivables/summary"&&request.method==="GET"){
     return json(await financeReceivablesSummary(env,auth.tenant_id));
