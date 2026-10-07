@@ -17,21 +17,26 @@ assert.equal(normalizeCustomerContact("email","bad-address").error,"invalid_cust
 assert.equal(normalizeCustomerContact("sms","74123456").error,"invalid_customer_contact_channel");
 
 assert.deepEqual(__customerRelationshipsTest.customerContactsPath("/api/finance/customers/c-1/contacts"),{customerId:"c-1"});
+assert.deepEqual(__customerRelationshipsTest.contactConsentPath("/api/finance/customer-contacts/cc-1/consent"),{contactId:"cc-1"});
 assert.deepEqual(__customerRelationshipsTest.customerFollowupsPath("/api/finance/customers/c-1/followups"),{customerId:"c-1"});
 assert.deepEqual(__customerRelationshipsTest.followupActionPath("/api/finance/customer-followups/f-1/approve"),{followupId:"f-1",action:"approve"});
 assert.deepEqual(__customerRelationshipsTest.followupActionPath("/api/finance/customer-followups/f-1/cancel"),{followupId:"f-1",action:"cancel"});
 assert.equal(__customerRelationshipsTest.maskContact("whatsapp","+26774123456"),"***3456");
 assert.equal(__customerRelationshipsTest.maskContact("email","owner@example.com"),"o***@example.com");
 assert.ok(__customerRelationshipsTest.CONSENT_STATUSES.has("opted_in"));
-assert.ok(__customerRelationshipsTest.FOLLOWUP_STATUSES.has("approved"));
-assert.ok(!__customerRelationshipsTest.FOLLOWUP_STATUSES.has("dispatched_without_approval"));
+assert.deepEqual([...__customerRelationshipsTest.FOLLOWUP_STATUSES].sort(),["approved","cancelled","draft"]);
+assert.ok(!__customerRelationshipsTest.FOLLOWUP_STATUSES.has("sent"));
 
 const migration=fs.readFileSync("cloudflare/migrations/067_v286_customer_relationships.sql","utf8");
 assert.match(migration,/CREATE TABLE IF NOT EXISTS customer_contacts/);
 assert.match(migration,/CREATE TABLE IF NOT EXISTS customer_followups/);
 assert.match(migration,/consent_status IN \('unknown','opted_in','opted_out'\)/);
+assert.match(migration,/status IN \('draft','approved','cancelled'\)/);
+assert.match(migration,/customer_contacts_identity_immutable_guard/);
 assert.match(migration,/customer_followups_scope_guard/);
 assert.match(migration,/customer_followups_immutable_payload_guard/);
+assert.match(migration,/customer_followups_status_guard/);
+assert.match(migration,/customer_followup_approval_invalid/);
 assert.match(migration,/FOREIGN KEY\(tenant_id\) REFERENCES tenants\(id\) ON DELETE CASCADE/);
 
 const db=new DatabaseSync(":memory:");
@@ -74,6 +79,10 @@ assert.throws(
   ) VALUES(?,?,?,?,?,?,?)`).run("cc-cross","t2","c1","email","person@example.com","h2","unknown"),
   /customer_contact_scope_invalid/
 );
+assert.throws(
+  ()=>db.prepare("UPDATE customer_contacts SET customer_id='c2' WHERE id='cc1'").run(),
+  /customer_contact_identity_immutable/
+);
 
 db.prepare(`INSERT INTO customer_followups(
   id,tenant_id,customer_id,contact_id,invoice_id,purpose,message_body,message_hash,idempotency_key,prepared_by,requested_by_user_id
@@ -85,16 +94,30 @@ assert.throws(
   ) VALUES(?,?,?,?,?,?,?,?,?,'human')`).run("f-cross","t1","c1","cc1","i2","receivable","Wrong invoice.","m2","idem-0002"),
   /customer_followup_invoice_scope_invalid/
 );
-
 assert.throws(
   ()=>db.prepare("UPDATE customer_followups SET message_body='changed' WHERE id='f1'").run(),
   /customer_followup_payload_immutable/
 );
+assert.throws(
+  ()=>db.prepare("UPDATE customer_followups SET status='approved' WHERE id='f1'").run(),
+  /customer_followup_approval_invalid/
+);
+
+db.prepare("UPDATE customer_followups SET status='approved',approved_by_user_id='u1',approved_at=CURRENT_TIMESTAMP WHERE id='f1'").run();
+assert.equal(db.prepare("SELECT status FROM customer_followups WHERE id='f1'").get().status,"approved");
+assert.throws(
+  ()=>db.prepare("UPDATE customer_followups SET status='sent' WHERE id='f1'").run(),
+  /CHECK constraint failed|customer_followup_status_transition_invalid/
+);
+
+db.prepare("UPDATE customer_followups SET status='cancelled' WHERE id='f1'").run();
 const followup=db.prepare("SELECT tenant_id,customer_id,contact_id,invoice_id,status,message_body FROM customer_followups WHERE id='f1'").get();
-assert.deepEqual(followup,{tenant_id:"t1",customer_id:"c1",contact_id:"cc1",invoice_id:"i1",status:"draft",message_body:"Please review invoice i1."});
+assert.deepEqual(followup,{tenant_id:"t1",customer_id:"c1",contact_id:"cc1",invoice_id:"i1",status:"cancelled",message_body:"Please review invoice i1."});
 db.close();
 
 const relationships=fs.readFileSync("cloudflare/src/customer-relationships.js","utf8");
+assert.match(relationships,/CUSTOMER_CONTACT_CONSENT_UPDATED/);
+assert.match(relationships,/status IN \('draft','approved'\)/);
 assert.match(relationships,/customer_contact_consent_required/);
 assert.match(relationships,/explicit_customer_followup_confirmation_required/);
 assert.match(relationships,/customer_dispatch_not_enabled/);
@@ -106,4 +129,4 @@ const receivables=fs.readFileSync("cloudflare/src/finance-receivables.js","utf8"
 assert.match(receivables,/handleCustomerRelationshipRequest/);
 assert.match(receivables,/customer-relationships\.js/);
 
-console.log("v286 customer relationship foundation: runtime scope + consent + approval + no-dispatch boundary PASS");
+console.log("v286 customer relationship foundation: runtime scope + consent lifecycle + approval + database no-dispatch PASS");
