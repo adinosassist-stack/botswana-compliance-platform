@@ -55,7 +55,7 @@ assert.match(owner,/\/api\/property\/valuation-services/);
 assert.match(owner,/\/api\/payments\/service-checkout/);
 assert.match(owner,/\/api\/payments\/create-checkout/);
 
-assert.equal(profile.latest_cloudflare_migration,"066_v285_agent_responsibilities.sql");
+assert.equal(profile.latest_cloudflare_migration,"067_v286_customer_relationships.sql");
 assert.match(agentic,/066_v285_agent_responsibilities\.sql/);
 assert.match(runner,/number:61/);
 assert.match(runner,/061_v176_property_valuation_services\.sql/);

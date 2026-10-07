@@ -61,7 +61,7 @@ assert.match(service,/thebeCertifiesProfessionalCredentials:false/);
 assert.match(service,/PROPERTY_VALUER_CREDENTIAL_RECORDED/);
 assert.doesNotMatch(service,/const professionalUserId=text\(body\.professionalUserId,64\),registrationRef=text\(body\.registrationRef,120\)/);
 
-assert.equal(profile.latest_cloudflare_migration,"066_v285_agent_responsibilities.sql");
+assert.equal(profile.latest_cloudflare_migration,"067_v286_customer_relationships.sql");
 assert.equal(profile.property_valuation_valuer_credential_binding_v179,true);
 assert.equal(profile.property_valuation_assignment_uses_verified_profile_registration,true);
 assert.equal(profile.property_valuation_professional_credential_expiry_enforced,true);
