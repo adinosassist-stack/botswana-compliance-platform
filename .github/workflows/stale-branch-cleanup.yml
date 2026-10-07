@@ -1,0 +1,148 @@
+name: Stale chatgpt branch cleanup
+run-name: >-
+  Stale branch cleanup ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'self-test' }}
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/scripts/stale-branch-cleanup.sh'
+      - '.github/workflows/stale-branch-cleanup.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/stale-branch-cleanup.sh'
+      - '.github/workflows/stale-branch-cleanup.yml'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'dry-run only, or bounded deletion'
+        required: true
+        default: dry-run
+        type: choice
+        options:
+          - dry-run
+          - delete
+      min_age_days:
+        description: 'Only consider branch tips at least this old (minimum 7)'
+        required: true
+        default: '30'
+        type: string
+      max_deletions:
+        description: 'Delete mode fails closed if eligible count exceeds this cap (maximum 50)'
+        required: true
+        default: '20'
+        type: string
+      expected_main_sha:
+        description: 'Delete mode only: exact 40-character current main SHA reviewed before cleanup'
+        required: false
+        default: ''
+        type: string
+      confirmation:
+        description: 'Delete mode only: enter DELETE MERGED CHATGPT BRANCHES exactly'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: stale-chatgpt-branch-cleanup-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  selftest:
+    name: Prove stale-branch cleanup predicates
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact workflow revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Syntax check cleanup script
+        shell: bash
+        run: bash -n .github/scripts/stale-branch-cleanup.sh
+
+      - name: Exercise allow and deny fixtures
+        shell: bash
+        run: bash .github/scripts/stale-branch-cleanup.sh --self-test
+
+  dry-run:
+    name: Inventory old merged chatgpt branches without writes
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'dry-run'
+    needs: selftest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Restrict dispatch to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo "dispatch must run from main, got $GITHUB_REF" >&2; exit 1; }
+
+      - name: Checkout current main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fetch branch inventory
+        shell: bash
+        run: git fetch --prune origin '+refs/heads/*:refs/remotes/origin/*'
+
+      - name: Dry-run stale branch classification
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODE: dry-run
+          MIN_AGE_DAYS: ${{ inputs.min_age_days }}
+          MAX_DELETIONS: ${{ inputs.max_deletions }}
+        shell: bash
+        run: bash .github/scripts/stale-branch-cleanup.sh
+
+  delete:
+    name: Delete only reviewed old merged chatgpt branches
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'delete'
+    needs: selftest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: branch-cleanup
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - name: Restrict dispatch to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo "dispatch must run from main, got $GITHUB_REF" >&2; exit 1; }
+
+      - name: Checkout current main with bounded write credential
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Fetch branch inventory
+        shell: bash
+        run: git fetch --prune origin '+refs/heads/*:refs/remotes/origin/*'
+
+      - name: Delete reviewed stale branches with exact-tip leases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODE: delete
+          MIN_AGE_DAYS: ${{ inputs.min_age_days }}
+          MAX_DELETIONS: ${{ inputs.max_deletions }}
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        shell: bash
+        run: bash .github/scripts/stale-branch-cleanup.sh
