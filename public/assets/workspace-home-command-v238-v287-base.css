@@ -144,3 +144,59 @@
     transform:none!important;
   }
 }
+
+/* V291 interaction polish.
+   Make the dock calmer at rest, clearer when engaged and make expanded state visually obvious without changing runtime state. */
+@media(min-width:1024px){
+  html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"]{
+    border-color:#343434!important;
+    box-shadow:0 12px 30px rgba(0,0,0,.18)!important;
+  }
+  html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"]:is(:hover,:focus-within){
+    border-color:#484848!important;
+    box-shadow:0 16px 38px rgba(0,0,0,.24)!important;
+  }
+  html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-expand{
+    position:relative!important;
+    border-color:transparent!important;
+    background:transparent!important;
+    color:#cbd1da!important;
+  }
+  html body.thebe-ai-expanded #thebeAiDock[data-surface="workspace"] .thebe-ai-expand,
+  html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-expand[aria-expanded="true"],
+  html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-expand[aria-pressed="true"]{
+    border-color:#4a4a4a!important;
+    background:#343434!important;
+    color:#fff!important;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.03)!important;
+  }
+  html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-compose{
+    border-color:#3d3d3d!important;
+    background:#2d2d2d!important;
+  }
+  html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-compose:focus-within{
+    border-color:#575757!important;
+    background:#303030!important;
+    box-shadow:0 0 0 2px rgba(143,195,255,.07)!important;
+  }
+  html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-compose textarea::placeholder{
+    color:#959595!important;
+  }
+  html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-quick button{
+    transition:background-color 140ms ease,border-color 140ms ease,color 140ms ease!important;
+  }
+  html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-quick button:hover{
+    background:#303030!important;
+    border-color:#505050!important;
+    color:#fff!important;
+  }
+  html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-response:empty{
+    display:none!important;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-quick button{
+    transition:none!important;
+  }
+}
