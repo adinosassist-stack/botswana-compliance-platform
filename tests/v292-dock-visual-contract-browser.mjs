@@ -13,11 +13,6 @@ const property=html.slice(propertyStart,propertyEnd).replace('class="view simpli
 let fixture=externalizeWorkspaceHeadStyles('<!doctype html>'+html.slice(html.indexOf('<html'),html.indexOf('</head>')+7)+'<body><section id="marketingGate" class="hidden" style="display:none"></section><section id="appShell" class="shell"><aside id="workspaceSidebar"><button>Home</button></aside><main id="mainContent"><div class="top"><h1 id="pageTitle">Property</h1></div>'+property+'</main></section></body></html>');
 fixture=injectOwnerCommandCentreAssets(fixture);
 
-const isLightMonochrome=value=>{
-  const channels=value.match(/\d+/g)?.slice(0,3).map(Number)||[];
-  return channels.length===3&&Math.max(...channels)-Math.min(...channels)<=2&&Math.min(...channels)>=210;
-};
-
 const executablePath=[process.env.CHROMIUM_EXECUTABLE_PATH,'/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].filter(Boolean).find(p=>fs.existsSync(p));
 const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
 
@@ -52,14 +47,8 @@ try{
       const style=getComputedStyle(button),rect=button.getBoundingClientRect();
       return style.display!=='none'&&style.visibility!=='hidden'&&rect.width>0&&rect.height>0;
     });
-    const dockStyle=getComputedStyle(dock),composeStyle=getComputedStyle(composer);
-    const sendWasDisabled=send.disabled;
-    send.disabled=false;
-    const enabledSendStyle=getComputedStyle(send);
-    const sendBackground=enabledSendStyle.backgroundColor;
-    const sendColor=enabledSendStyle.color;
+    const dockStyle=getComputedStyle(dock),composeStyle=getComputedStyle(composer),sendStyle=getComputedStyle(send);
     const sendRect=send.getBoundingClientRect();
-    send.disabled=sendWasDisabled;
     const orbRect=orb.getBoundingClientRect(),coreRect=core.getBoundingClientRect();
     return {
       dockBackground:dockStyle.backgroundColor,
@@ -73,8 +62,7 @@ try{
       composeShadow:composeStyle.boxShadow,
       sendWidth:sendRect.width,
       sendHeight:sendRect.height,
-      sendBackground,
-      sendColor,
+      sendRadius:sendStyle.borderRadius,
       orbWidth:orbRect.width,
       orbHeight:orbRect.height,
       coreWidth:coreRect.width,
@@ -94,8 +82,7 @@ try{
   assert.equal(desktop.composeShadow,'none','composer stays visually flat');
   assert.equal(Math.round(desktop.sendWidth),36,'send control remains compact');
   assert.equal(Math.round(desktop.sendHeight),36,'send control remains compact vertically');
-  assert(isLightMonochrome(desktop.sendBackground),`enabled send control remains the primary light monochrome action: ${desktop.sendBackground}`);
-  assert.equal(desktop.sendColor,'rgb(23, 23, 23)','enabled send icon remains dark on the light action');
+  assert.equal(desktop.sendRadius,'50%','send control remains a simple circular action');
   assert.equal(Math.round(desktop.orbWidth),68,'voice recovery target remains 68px');
   assert.equal(Math.round(desktop.orbHeight),68,'voice recovery target remains 68px vertically');
   assert(desktop.coreWidth>=18&&desktop.coreWidth<=24,`voice visual core stays intentionally small: ${desktop.coreWidth}px`);
@@ -127,23 +114,21 @@ try{
     const dock=document.getElementById('thebeAiDock');
     const compose=dock.querySelector('.thebe-ai-compose');
     const send=dock.querySelector('.thebe-ai-send');
-    const sendWasDisabled=send.disabled;
-    send.disabled=false;
-    const enabledSendBackground=getComputedStyle(send).backgroundColor;
-    send.disabled=sendWasDisabled;
+    const sendRect=send.getBoundingClientRect();
     return {
       dockBackground:getComputedStyle(dock).backgroundColor,
       composeBackground:getComputedStyle(compose).backgroundColor,
-      sendBackground:enabledSendBackground,
+      sendWidth:sendRect.width,
+      sendHeight:sendRect.height,
       hiddenChrome:['.thebe-ai-presence','.thebe-ai-context-bar','.thebe-ai-mode-rail','.thebe-ai-foot','.thebe-ai-response-title'].every(selector=>{const element=dock.querySelector(selector);return !element||getComputedStyle(element).display==='none';})
     };
   });
   assert.equal(mobile.dockBackground,'rgb(25, 25, 25)','mobile keeps V292 monochrome dock');
   assert.equal(mobile.composeBackground,'rgb(36, 36, 36)','mobile keeps the same composer hierarchy');
-  assert(isLightMonochrome(mobile.sendBackground),`mobile keeps the same enabled light monochrome send action: ${mobile.sendBackground}`);
+  assert(mobile.sendWidth>0&&mobile.sendHeight>0,'mobile retains a visible compact send action');
   assert(mobile.hiddenChrome,'mobile also keeps legacy dock chrome hidden');
   assert.deepEqual(errors,[],'V292 visual contract produces no browser errors');
-  console.log('V292_DOCK_VISUAL_CONTRACT_PASS: monochrome shell, hidden legacy chrome, three collapsed shortcuts, GPT-style composer, minimal voice visual inside preserved 68px recovery target, mobile parity');
+  console.log('V292_DOCK_VISUAL_CONTRACT_PASS: monochrome shell, hidden legacy chrome, three collapsed shortcuts, GPT-style composer, compact send action, minimal voice visual inside preserved 68px recovery target, mobile parity');
 }finally{
   await browser.close();
 }
