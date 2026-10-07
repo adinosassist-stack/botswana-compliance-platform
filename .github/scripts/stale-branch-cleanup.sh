@@ -159,7 +159,7 @@ done < <(git for-each-ref --format='%(refname:strip=3)|%(objectname)|%(committer
     echo
     echo '| Branch | Expected tip | Last commit (UTC) |'
     echo '| --- | --- | --- |'
-    sort -t'|' -k3,3n "$merged_no_pr" | head -20 | while IFS='|' read -r branch sha tip_epoch; do
+    sort -t'|' -k3,3n "$merged_no_pr" | sed -n '1,20p' | while IFS='|' read -r branch sha tip_epoch; do
       last_commit="$(date -u -d "@$tip_epoch" '+%Y-%m-%d')"
       echo "| \`$branch\` | \`${sha:0:12}\` | $last_commit |"
     done
@@ -183,7 +183,7 @@ if [[ "$MODE" == 'dry-run' ]]; then
   echo "dry-run: $eligible branch(es) eligible at ${MIN_AGE_DAYS} days; no refs changed"
   echo "cohorts: 7d=$cohort_7 14d=$cohort_14 30d=$cohort_30 merged-no-open-pr=$merged_no_pr_count scanned=$scanned"
   echo 'oldest merged/no-open-PR branches:'
-  sort -t'|' -k3,3n "$merged_no_pr" | head -20 || true
+  sort -t'|' -k3,3n "$merged_no_pr" | sed -n '1,20p'
   echo 'selected-cutoff candidates:'
   cat "$candidates"
   exit 0
