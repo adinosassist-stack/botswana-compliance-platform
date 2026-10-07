@@ -8,6 +8,7 @@
   const STALE_AFTER_MS=30000;
   let lastLoadedAt=0;
   let loading=false;
+  let activeRead=null;
   let observer=null;
   let scheduled=false;
   let apiClient=null;
@@ -262,7 +263,7 @@
     const source=createElement('div',{className:'money-v307-source'});
     source.append(
       textElement('b','','Canonical boundary:'),
-      document.createTextNode(' Cash comes from Finance Core; customer balances come from issued invoices plus transaction allocations; supplier balances come from recorded payables plus allocations. This workspace is read-only and provider-neutral. Missing or unavailable source data is never presented as a zero balance.')
+      document.createTextNode(' Cash comes from Finance Core; customer balances come from issued invoices plus transaction allocations; supplier balances come from recorded payables plus allocations. This summary is read-only and provider-neutral. Use the money record forms to enter confirmed data. Missing or unavailable source data is never presented as a zero balance.')
     );
     return source;
   }
@@ -377,11 +378,12 @@
     const root=document.getElementById(ROOT_ID);if(!root)return;
     const mountNode=mount(root);if(!mountNode)return;
     if(!root.classList.contains('active')&&!force)return;
-    if(loading)return;
+    if(loading){if(force){try{await activeRead}catch{}return refresh({force:true})}return;}
     if(!force&&lastLoadedAt&&Date.now()-lastLoadedAt<STALE_AFTER_MS)return;
     loading=true;root.dataset.moneyV307State='loading';
     const fresh=document.getElementById('moneyV307Freshness');if(fresh)fresh.textContent='Checking canonical Finance Core…';
-    try{render(await getSummary())}catch(error){renderUnavailable(error)}finally{loading=false}
+    activeRead=getSummary();
+    try{render(await activeRead)}catch(error){renderUnavailable(error)}finally{loading=false}
   }
 
   function explain(){
