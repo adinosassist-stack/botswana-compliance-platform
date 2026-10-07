@@ -115,3 +115,162 @@
     display:none!important;
   }
 }
+
+/* V286 container + text alignment closure.
+   Shared presentation-only guardrails: keep nested content inside its card, align copy
+   consistently, and let controls wrap without creating horizontal spill. */
+#mainContent,
+#mainContent *{
+  box-sizing:border-box;
+}
+
+#mainContent>.top{
+  align-items:center!important;
+  gap:12px!important;
+}
+#mainContent>.top>div{
+  min-width:0!important;
+}
+#mainContent>.top>div:last-child{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  gap:8px!important;
+  flex-wrap:wrap!important;
+}
+
+#mainContent .view,
+#mainContent .view.active,
+#mainContent :is(.simplified-hub,#dashboard,#peopleops,#propertyintelligence,#workhub,#evidencehub,#aiservices){
+  min-width:0!important;
+  max-width:100%!important;
+}
+#mainContent .view.active{
+  overflow-x:clip!important;
+}
+
+#mainContent :is(.grid,.row,.stack,.formgrid,.actions),
+#mainContent :is(.card,.hub-card,.outcome-card,.people-outcome-card,.owner-today-card,.home-queue-card,.daily-change-card,.home-signal-card),
+#mainContent :is(.hub-hero,.home-decision-head,.management-review-head,.property-calculator-head-v224,.property-overview-heading-v261){
+  min-width:0!important;
+  max-width:100%!important;
+}
+#mainContent :is(.grid,.row,.stack,.formgrid,.actions)>*,
+#mainContent :is(.hub-hero,.home-decision-head,.management-review-head,.property-calculator-head-v224,.property-overview-heading-v261)>*{
+  min-width:0!important;
+}
+
+#mainContent :is(.card,.hub-card,.outcome-card,.people-outcome-card,.owner-today-card,.home-queue-card,.daily-change-card,.home-signal-card){
+  text-align:left!important;
+}
+#mainContent :is(h1,h2,h3,h4,p,label,small,strong,b,.muted),
+#mainContent :is(.owner-today-label,.owner-today-value,.owner-today-detail,.outcome-card-status,.people-outcome-status,.home-action-copy){
+  max-width:100%!important;
+  overflow-wrap:anywhere!important;
+  word-break:normal!important;
+}
+#mainContent :is(input,select,textarea,button,.btn){
+  min-width:0!important;
+  max-width:100%!important;
+}
+#mainContent :is(button,.btn){
+  align-items:center!important;
+  justify-content:center!important;
+  text-align:center!important;
+}
+
+#dashboard :is(.owner-today-grid,.home-status-strip,.home-decision-grid,.executive-exception-metrics),
+#peopleops :is(.people-status-strip,.people-outcome-grid),
+#propertyintelligence :is(.property-result-grid,.property-overview-metrics-v261),
+#workhub .management-review-metrics,
+#evidencehub :is(.proof-summary-grid,.proof-work-grid),
+.market-v257-stats{
+  align-items:stretch!important;
+}
+#dashboard :is(.owner-today-grid,.home-status-strip,.home-decision-grid,.executive-exception-metrics)>*,
+#peopleops :is(.people-status-strip,.people-outcome-grid)>*,
+#propertyintelligence :is(.property-result-grid,.property-overview-metrics-v261)>*,
+#workhub .management-review-metrics>*,
+#evidencehub :is(.proof-summary-grid,.proof-work-grid)>*,
+.market-v257-stats>*{
+  min-width:0!important;
+  max-width:100%!important;
+}
+
+#propertyintelligence :is(.property-hero-compact,.property-layout-v224,.property-calculator-v224,#propertyPortfolioWorkspace,#propertyValuationServicePanel,.property-overview-v261){
+  width:100%!important;
+  margin-left:auto!important;
+  margin-right:auto!important;
+}
+#propertyintelligence :is(.property-input-row,.property-input-pair,.property-metric,.property-overview-metric-v261)>*{
+  min-width:0!important;
+  max-width:100%!important;
+}
+#propertyintelligence :is(.property-hero-compact,.property-calculator-v224,#propertyPortfolioWorkspace,#propertyValuationServicePanel,.property-overview-summary-v261){
+  text-align:left!important;
+}
+#propertyintelligence .property-yield-card-v261{
+  text-align:center!important;
+}
+
+#peopleops :is(.people-toolbar,.people-reporting-pulse,.people-status-chip,.people-outcome-card){
+  min-width:0!important;
+  max-width:100%!important;
+}
+#peopleops :is(.people-status-chip,.people-outcome-card,#opsReportingSetupDetails .card){
+  text-align:left!important;
+}
+
+#mainContent table{
+  max-width:100%!important;
+}
+#mainContent :is(.tablewrap,.table-wrap,.table-scroll,.table-responsive){
+  max-width:100%!important;
+  overflow-x:auto!important;
+  overscroll-behavior-inline:contain;
+}
+
+@media(max-width:900px){
+  #mainContent>.top{
+    align-items:flex-start!important;
+    flex-wrap:wrap!important;
+  }
+  #mainContent>.top>div:last-child{
+    width:100%!important;
+    justify-content:flex-start!important;
+  }
+  #mainContent .global-search{
+    flex:1 1 220px!important;
+    width:auto!important;
+    max-width:100%!important;
+  }
+  #mainContent .companyswitch{
+    flex:0 1 auto!important;
+    max-width:100%!important;
+  }
+  #mainContent .companyswitch select{
+    max-width:100%!important;
+  }
+}
+
+@media(max-width:620px){
+  #mainContent>.top{
+    gap:8px!important;
+  }
+  #mainContent>.top>div:last-child{
+    align-items:stretch!important;
+  }
+  #mainContent .global-search,
+  #mainContent .companyswitch{
+    flex:1 1 100%!important;
+    width:100%!important;
+  }
+  #mainContent :is(.hub-hero,.home-decision-head,.management-review-head,.property-calculator-head-v224,.property-overview-heading-v261){
+    align-items:flex-start!important;
+  }
+  #propertyintelligence .property-overview-title-v261{
+    white-space:normal!important;
+    overflow:visible!important;
+    text-overflow:clip!important;
+  }
+}
