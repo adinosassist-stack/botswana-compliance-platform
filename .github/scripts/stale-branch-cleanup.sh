@@ -89,15 +89,23 @@ fi
 
 now_epoch="$(date -u +%s)"
 cutoff_epoch=$((now_epoch - MIN_AGE_DAYS * 86400))
+cutoff_7=$((now_epoch - 7 * 86400))
+cutoff_14=$((now_epoch - 14 * 86400))
+cutoff_30=$((now_epoch - 30 * 86400))
 
 open_pr_heads="$(mktemp)"
 candidates="$(mktemp)"
-trap 'rm -f "$open_pr_heads" "$candidates"' EXIT
+merged_no_pr="$(mktemp)"
+trap 'rm -f "$open_pr_heads" "$candidates" "$merged_no_pr"' EXIT
 
 gh api --paginate "/repos/${GITHUB_REPOSITORY}/pulls?state=open&per_page=100" --jq '.[].head.ref' | sort -u > "$open_pr_heads"
 
 scanned=0
 eligible=0
+cohort_7=0
+cohort_14=0
+cohort_30=0
+merged_no_pr_count=0
 while IFS='|' read -r branch sha tip_epoch; do
   [[ -n "$branch" ]] || continue
   scanned=$((scanned + 1))
@@ -108,6 +116,14 @@ while IFS='|' read -r branch sha tip_epoch; do
   merged_into_main=0
   if git merge-base --is-ancestor "$sha" refs/remotes/origin/main; then
     merged_into_main=1
+  fi
+
+  if [[ "$has_open_pr" == '0' && "$merged_into_main" == '1' ]]; then
+    printf '%s|%s|%s\n' "$branch" "$sha" "$tip_epoch" >> "$merged_no_pr"
+    merged_no_pr_count=$((merged_no_pr_count + 1))
+    (( tip_epoch <= cutoff_7 )) && cohort_7=$((cohort_7 + 1))
+    (( tip_epoch <= cutoff_14 )) && cohort_14=$((cohort_14 + 1))
+    (( tip_epoch <= cutoff_30 )) && cohort_30=$((cohort_30 + 1))
   fi
 
   reason=''
@@ -126,10 +142,32 @@ done < <(git for-each-ref --format='%(refname:strip=3)|%(objectname)|%(committer
   echo "- Current main: \`$current_main_sha\`"
   echo "- Minimum age: $MIN_AGE_DAYS days"
   echo "- Branches scanned: $scanned"
-  echo "- Eligible merged branches: $eligible"
+  echo "- Merged branches without open PRs: $merged_no_pr_count"
+  echo "- Eligible merged branches at selected cutoff: $eligible"
   echo "- Delete safety cap: $MAX_DELETIONS"
   echo
+  echo '#### Read-only age cohorts'
+  echo
+  echo '| Minimum age | Merged + no open PR |'
+  echo '| ---: | ---: |'
+  echo "| 7 days | $cohort_7 |"
+  echo "| 14 days | $cohort_14 |"
+  echo "| 30 days | $cohort_30 |"
+  echo
+  if (( merged_no_pr_count > 0 )); then
+    echo '#### Oldest merged branches without open PRs'
+    echo
+    echo '| Branch | Expected tip | Last commit (UTC) |'
+    echo '| --- | --- | --- |'
+    sort -t'|' -k3,3n "$merged_no_pr" | sed -n '1,20p' | while IFS='|' read -r branch sha tip_epoch; do
+      last_commit="$(date -u -d "@$tip_epoch" '+%Y-%m-%d')"
+      echo "| \`$branch\` | \`${sha:0:12}\` | $last_commit |"
+    done
+    echo
+  fi
   if (( eligible > 0 )); then
+    echo '#### Selected-cutoff candidates'
+    echo
     echo '| Branch | Expected tip | Last commit (UTC) |'
     echo '| --- | --- | --- |'
     while IFS='|' read -r branch sha tip_epoch; do
@@ -137,12 +175,16 @@ done < <(git for-each-ref --format='%(refname:strip=3)|%(objectname)|%(committer
       echo "| \`$branch\` | \`${sha:0:12}\` | $last_commit |"
     done < "$candidates"
   else
-    echo 'No eligible stale branches were found.'
+    echo 'No branches meet the selected deletion cutoff.'
   fi
 } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
 
 if [[ "$MODE" == 'dry-run' ]]; then
-  echo "dry-run: $eligible branch(es) eligible; no refs changed"
+  echo "dry-run: $eligible branch(es) eligible at ${MIN_AGE_DAYS} days; no refs changed"
+  echo "cohorts: 7d=$cohort_7 14d=$cohort_14 30d=$cohort_30 merged-no-open-pr=$merged_no_pr_count scanned=$scanned"
+  echo 'oldest merged/no-open-PR branches:'
+  sort -t'|' -k3,3n "$merged_no_pr" | sed -n '1,20p'
+  echo 'selected-cutoff candidates:'
   cat "$candidates"
   exit 0
 fi
