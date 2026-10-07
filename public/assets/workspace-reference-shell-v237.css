@@ -70,10 +70,16 @@
 #dashboard .home-thebe-agent :is(form,.home-thebe-agent-form,.home-thebe-agent-input,.home-thebe-agent-prompt,.home-thebe-agent-row){
   display:grid!important;
   grid-template-columns:minmax(0,1fr) auto!important;
+  grid-column:1/-1!important;
+  justify-self:stretch!important;
   align-items:stretch!important;
   gap:var(--home-thebe-agent-gap)!important;
   width:100%!important;
   margin-inline:0!important;
+  padding-inline:0!important;
+  position:static!important;
+  inset:auto!important;
+  transform:none!important;
 }
 #dashboard .home-thebe-agent :is(input,textarea){
   width:100%!important;
@@ -90,10 +96,16 @@
 }
 #dashboard .home-thebe-agent-quick{
   display:flex!important;
+  grid-column:1/-1!important;
+  justify-self:stretch!important;
   align-items:center!important;
   gap:8px!important;
+  width:100%!important;
   margin-inline:0!important;
   padding-inline:0!important;
+  position:static!important;
+  inset:auto!important;
+  transform:none!important;
   flex-wrap:wrap!important;
 }
 #dashboard .home-thebe-agent-quick .btn{
