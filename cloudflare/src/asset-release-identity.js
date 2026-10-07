@@ -7,7 +7,7 @@ const LIVE_EVAL_COCKPIT_SRC='/js/thebe-voice-eval-panel-v275.js';
 const WORKSPACE_TEXT_LAYOUT_SRC='/js/workspace-text-layout-guard-v276.js';
 const WORKSPACE_PROPERTY_ROUTE_ISOLATION_SRC='/js/workspace-property-route-isolation-v277.js';
 const WORKSPACE_FOCUS_VISIBLE_SRC='/js/workspace-focus-visible-v278.js';
-const OWNER_FOCUS_STRIP_SRC='/js/owner-focus-strip-v295.js';
+const OWNER_FOCUS_STRIP_SRC='/js/owner-focus-strip-v296.js';
 
 function injectAtFinalClosingTag(source,tag,markup){
   const pattern=new RegExp(`<\\/${tag}\\s*>`, 'gi');
