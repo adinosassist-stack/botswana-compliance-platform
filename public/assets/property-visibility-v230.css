@@ -40,7 +40,8 @@
   padding:18px 20px!important;
   margin-bottom:8px!important;
   border-radius:18px!important;
-  background:linear-gradient(120deg,#151812,#46513f)!important;
+  background:var(--property-dark,#102a43)!important;
+  background-image:none!important;
   color:#fff!important;
 }
 #propertyintelligence.property-compact-v260 .property-hero-compact h2{font-size:25px!important;line-height:1.08!important;margin:4px 0 6px!important}
@@ -128,7 +129,7 @@ body.property-ai-fullscreen-v260 #aiservices .copilot-truth{clear:both!important
 
 .property-overview-v261{
   width:min(940px,100%);margin:8px auto 12px;padding:14px;box-sizing:border-box;display:grid;grid-template-columns:190px minmax(0,1fr);gap:14px;align-items:stretch;
-  border:1px solid var(--property-line);border-radius:16px;background:linear-gradient(135deg,#fbfcf8,#f3f5ef)
+  border:1px solid var(--property-line);border-radius:16px;background:var(--property-surface,#fff)
 }
 .property-yield-card-v261{display:grid;place-items:center;align-content:center;gap:8px;min-height:168px;border-radius:13px;background:#11140f;color:#fff;text-align:center}
 .property-yield-card-v261>span{font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#cbd0c7}

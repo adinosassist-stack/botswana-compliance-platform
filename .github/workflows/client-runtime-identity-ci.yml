@@ -51,6 +51,7 @@ jobs:
           node --check public/js/owner-focus-strip-v296.js
           node --check public/js/money-workspace-v307.js
           node --check public/js/protect-workspace-v308.js
+          node --check public/js/workspace-infographics-v309.js
           node --check scripts/production-core-workspaces-mobile-proof.mjs
           node --check scripts/production-client-runtime-proof.mjs
           node tests/v308-protect-workspace.mjs
@@ -71,6 +72,7 @@ jobs:
         run: |
           set -euo pipefail
           npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+          node tests/v309-workspace-infographics-browser.mjs
           node tests/v308-protect-workspace-browser.mjs
           node tests/v307-money-workspace-browser.mjs
           node tests/v278-workspace-focus-visible-browser.mjs

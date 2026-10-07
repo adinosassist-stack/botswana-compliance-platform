@@ -31,8 +31,8 @@
 }
 
 #propertyintelligence.property-compact-v260 .property-hero-compact{
-  background:linear-gradient(135deg,var(--property-dark) 0%,var(--property-dark-2) 100%)!important;
-  background-image:linear-gradient(135deg,var(--property-dark) 0%,var(--property-dark-2) 100%)!important;
+  background:var(--property-dark)!important;
+  background-image:none!important;
   border:1px solid var(--property-dark-border)!important;
   color:var(--property-on-dark)!important;
 }

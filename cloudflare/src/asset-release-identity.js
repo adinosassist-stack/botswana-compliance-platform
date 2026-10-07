@@ -30,6 +30,10 @@ export function versionReleaseAssets(html,sha=releaseSourceSha(),options={}){
   if(options?.includeWorkspaceFixes===true&&!source.includes(OWNER_FOCUS_STRIP_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${OWNER_FOCUS_STRIP_SRC}" defer></script>\n`);
   if(options?.includeWorkspaceFixes===true&&!source.includes(MONEY_WORKSPACE_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${MONEY_WORKSPACE_SRC}" defer></script>\n`);
   if(options?.includeWorkspaceFixes===true&&!source.includes(PROTECT_WORKSPACE_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${PROTECT_WORKSPACE_SRC}" defer></script>\n`);
+  if(options?.includeWorkspaceFixes===true){
+    if(!source.includes('/assets/workspace-infographics-v309.css'))source=injectAtFinalClosingTag(source,'head','<link rel="stylesheet" href="/assets/workspace-infographics-v309.css">\n');
+    if(!source.includes('/js/workspace-infographics-v309.js'))source=injectAtFinalClosingTag(source,'body','<script src="/js/workspace-infographics-v309.js" defer></script>\n');
+  }
   source=source.replace(/(<(?:script|link)\b[^>]*\b(?:src|href)=["'])(\/(?:js|assets)\/[^"']+)(["'][^>]*>)/gi,(_match,start,path,end)=>{
     const url=new URL(path.replaceAll('&amp;','&'),'https://thebe.invalid');
     url.searchParams.set('release',sha);
