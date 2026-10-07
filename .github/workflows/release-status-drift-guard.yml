@@ -1,0 +1,91 @@
+name: Release status drift guard
+
+on:
+  pull_request:
+    paths:
+      - 'release/production.json'
+      - 'docs/LAUNCH_STATUS.md'
+      - '.github/workflows/release-status-drift-guard.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'release/production.json'
+      - 'docs/LAUNCH_STATUS.md'
+      - '.github/workflows/release-status-drift-guard.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  release-status-drift-guard:
+    name: Verify canonical release status policy
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate release manifest and launch-status policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('fs');
+          const cp = require('child_process');
+
+          const manifestPath = 'release/production.json';
+          const statusPath = 'docs/LAUNCH_STATUS.md';
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+          const status = fs.readFileSync(statusPath, 'utf8');
+
+          const fail = (message) => {
+            console.error(`release-status-drift-guard: ${message}`);
+            process.exitCode = 1;
+          };
+
+          if (manifest.schema !== 1) fail('release/production.json schema must be 1');
+          if (manifest.release !== 'production') fail('release/production.json release must be production');
+          if (!Number.isInteger(manifest.sequence) || manifest.sequence < 1) {
+            fail('production sequence must be a positive integer');
+          }
+          if (!/^[0-9a-f]{40}$/i.test(String(manifest.sourceSha || ''))) {
+            fail('sourceSha must be a full 40-character Git SHA');
+          } else {
+            try {
+              cp.execFileSync('git', ['cat-file', '-e', `${manifest.sourceSha}^{commit}`], { stdio: 'ignore' });
+            } catch {
+              fail(`sourceSha ${manifest.sourceSha} is not present as a commit in this checkout`);
+            }
+          }
+
+          if (!status.includes('## Canonical release authority')) {
+            fail('LAUNCH_STATUS.md must declare the canonical release authority');
+          }
+          if (!status.includes('release/production.json')) {
+            fail('LAUNCH_STATUS.md must point readers to release/production.json');
+          }
+
+          const stalePatterns = [
+            /\bProduction SHA:\s*`?[0-9a-f]{40}`?/i,
+            /\bRepository main:\s*`?[0-9a-f]{40}`?/i,
+            /\bproduction sequence\s+\d+\b/i,
+            /\bBF-07\b[^\n]{0,120}\b(remains open|blocking final launch|release blocker until)\b/i,
+          ];
+
+          for (const pattern of stalePatterns) {
+            if (pattern.test(status)) {
+              fail(`LAUNCH_STATUS.md contains mutable/stale status matching ${pattern}`);
+            }
+          }
+
+          const copiedShas = status.match(/\b[0-9a-f]{40}\b/gi) || [];
+          if (copiedShas.length) {
+            fail(`LAUNCH_STATUS.md must not copy mutable full SHAs (${[...new Set(copiedShas)].join(', ')})`);
+          }
+
+          if (!process.exitCode) {
+            console.log(`release status policy OK: production sequence ${manifest.sequence}, source ${manifest.sourceSha}`);
+          }
+          NODE

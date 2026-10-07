@@ -1,111 +1,66 @@
-# Thebe Desk Launch Status — 2026-09-14
+# Thebe Desk Launch Status
 
-## Executive status
+## Canonical release authority
 
-- **Production release: GREEN.** The exact Phase 0 release SHA `a99684e8311d4d831182118043ee328ed86bbe4f` passed Recovery CI, BF-07 sealing, the guarded Cloudflare production deployment, live readiness verification, and an independent exact-SHA post-deploy browser/runtime smoke.
-- **Repository main:** `a99684e8311d4d831182118043ee328ed86bbe4f`, matching the deployed release authority. There is no known application-code/deployment drift at this checkpoint.
-- **Live runtime:** Thebe Desk V78 `1.21.101` on `https://thebedesk.com` with the V81 delegated-authority wrapper active in **shadow-only** mode.
-- **Schema requirement: current v1.21.101 schema** — `/api/ready` reports D1, R2, core schema and V81 delegated-authority schema ready, with `047_v81_delegated_authority.sql` as the latest schema delta.
-- **Recovery qualification:** PASS. Finance, WhatsApp, agentic/V81 boundaries, historical production regressions, supply-chain checks and the production dependency audit all passed on the exact release SHA before deployment.
-- **BF-07:** PASS. The exact release SHA was resolved from clean npm registry state, reconstructed from the committed lockfile, audited, SBOM/provenance bound, sealed and independently re-verified before deployment.
-- **Cloudflare deployment:** PASS. Authorization diagnostic, dry-run, exact candidate deployment and live readiness verification completed successfully.
-- **Post-deploy smoke:** PASS. Exact-SHA drift guard, public/security endpoints, registration proof, deferred-provider fail-closed behavior, V81 auth boundary and browser-level customer navigation all passed without creating customer records.
-- **Registration abuse control:** PASS. Registration uses the signed first-party `thebe_proof` challenge with bounded difficulty/expiry and hardened server validation.
-- **Production data inventory at the release audit:** 0 users, 0 tenants, 0 memberships, 0 operating locations, 0 employees and 0 daily employee reports.
-- **Public go-live: CONDITIONAL** — the technical Phase 0 release is ready for controlled use under the deliberately limited feature envelope below; optional provider integrations remain deferred unless explicitly configured, and intentionally disabled paid checkout/evidence uploads must not be represented as active.
+The mutable production release identity is **not maintained manually in this document**.
 
-## Closed production gates
+The canonical repository authority is [`release/production.json`](../release/production.json). It carries the production sequence and the exact qualified source SHA selected for promotion. The protected release chain then binds that manifest to the exact release merge, BF-07 seal, Cloudflare deployment, live-readiness verification and post-deploy evidence.
 
-- BF-01 through BF-06 security findings are closed.
-- BF-07 supply-chain and provenance controls are closed for the deployed SHA.
-- Production deploys are exact-SHA bound and refuse stale or non-main release authority.
-- Production deployment restores the exact BF-07 artifact, rechecks release closure, renders/preflights Cloudflare configuration, performs a dry-run and verifies live readiness after deployment.
-- Core schema readiness through migration 046 and delegated-authority readiness through migration 047 both pass.
-- D1, R2 evidence and Workers AI bindings are present and healthy.
-- `AI_FEATURES_DEFAULT=on` is active for Phase 0.
-- Security headers pass for HSTS, nosniff, frame denial, referrer policy, CSP, COOP and CORP.
-- First-party registration proof is live and passes exact post-deploy verification.
-- V81 delegated authority remains authenticated, role-bounded and **shadow-only**; autonomous external execution is not enabled.
-- The customer-facing landing/auth navigation passes headless-browser smoke with no critical same-origin JS/asset failures.
+For the current deployed release, use these sources in this order:
 
-## Optional external integrations
+1. `release/production.json` — intended production sequence and qualified source SHA.
+2. Successful **BF-07** workflow for the exact release merge SHA — sealed artifact and provenance evidence.
+3. Successful **Production deploy** workflow for that same SHA — Cloudflare deployment authority and recorded deployed SHA.
+4. Exact-SHA post-deploy workflows — client runtime, mobile smoke, customer UI/fail-closed smoke and Phase 0 launch audit.
 
-These are not Phase 0 blockers when **fully absent**. If any integration is partially configured, readiness must fail closed until its complete contract is present.
+Do not copy a production SHA, sequence number, main SHA or deployment timestamp into this file as mutable status. Those values become stale and can contradict the protected release chain.
 
-### Google OAuth
+## Current technical status
 
-When enabled, production must supply:
+Schema requirement: current v1.21.101 schema. Existing production databases must reach the current packaged Cloudflare migration tip using only pending release migrations; code/schema drift fails closed.
 
-- `GOOGLE_OAUTH_CLIENT_ID`
-- `GOOGLE_OAUTH_CLIENT_SECRET`
-- exact redirect URI `https://thebedesk.com/api/auth/oauth/google/callback`
+Public go-live: CONDITIONAL. Code readiness and successful production qualification do not fabricate readiness for optional external integrations that remain deliberately deferred.
 
-When fully deferred, `/api/auth/oauth/google/start` must return HTTP 503 and must not redirect. When configured, the post-deploy smoke permits only an HTTPS redirect to the expected Google provider host.
+- **Production release gate:** GREEN when the exact manifest-selected source has completed Recovery CI, BF-07 sealing, guarded production deployment and exact-SHA post-deploy verification.
+- **BF-07:** CLOSED as a launch blocker. Every future production release must still pass the BF-07 gate from clean registry state; any BF-07 failure fails the release closed.
+- **Cloudflare production path:** Worker + D1 + R2 remains the primary production profile.
+- **Node/Postgres profile:** retained as a separately qualified fallback/development profile; it is not the authority for the Cloudflare production deployment.
+- **Password recovery:** production verification is part of the exact-SHA client-runtime post-deploy gate.
+- **Mobile:** Android-sized startup, menu and registration behavior are covered by the exact-SHA mobile post-deploy smoke.
+- **Property Calculator:** delivery is explicitly covered by the exact-SHA client-runtime post-deploy gate. Its placement is not changed by release-status maintenance.
+- **Customer UI:** live HTTP, fail-closed contracts and browser navigation are verified without customer writes by post-deploy smoke.
+- **Phase 0 launch audit:** authentication, roles, AI boundaries, live production, synthetic full-user lifecycle and zero-orphan closure must all pass on the deployed authority.
 
-### Facebook OAuth
+## Release chain
 
-When enabled, production must supply:
+Every production release follows this authority chain:
 
-- `FACEBOOK_APP_ID`
-- `FACEBOOK_APP_SECRET`
-- exact redirect URI `https://thebedesk.com/api/auth/oauth/facebook/callback`
-
-When fully deferred, `/api/auth/oauth/facebook/start` must return HTTP 503 and must not redirect. When configured, the post-deploy smoke permits only an HTTPS redirect to the expected Facebook provider host.
-
-### Password-reset email
-
-When enabled, production must supply:
-
-- `RESEND_API_KEY`
-- `EMAIL_FROM` using a verified sender/domain
-
-A fully absent mail integration is an accepted Phase 0 deferred state. Partial configuration or placeholder senders fail closed.
-
-## Deliberately disabled — not Phase 0 blockers
-
-- **Paid checkout:** `PAYMENT_PROVIDER=none`. Payment credentials and reconciliation are required before paid checkout is enabled.
-- **Evidence file uploads:** `EVIDENCE_UPLOADS_ENABLED=false`. A production malware-scanner path is mandatory before accepting evidence bytes.
-- **WhatsApp provider sending:** provider execution remains disabled until Meta credentials/templates and explicit enablement are approved. Existing Phase 0 WhatsApp preparation/owner-centre behavior remains qualified.
-- **CIPA live registry sync:** not claimed until an authorized endpoint, scopes and live reconciliation proof exist.
-- **Orange Money:** remains outside the current Phase 0 release envelope pending its own readiness review.
-- **Thebe Live Voice:** activation release migrates the voice path to the OpenAI Realtime GA WebRTC contract, requires server-side `OPENAI_API_KEY`, and keeps all business work behind the governed single-agent backend. Production enablement is guarded by exact-SHA release checks, rate limits, a failure circuit, and the Runtime Guard.
-
-## Exact release sequence
-
-Every future production release should follow this authority chain:
-
-1. Qualify the exact candidate SHA with Recovery CI.
-2. Seal the same SHA through BF-07 from clean npm registry state and generate the exact provenance-bound artifact.
-3. Allow the production workflow to restore and verify that exact BF-07 artifact.
-4. Render and preflight production configuration without committing credentials.
-5. Run Cloudflare authorization and deployment dry-run checks.
-6. Deploy the exact qualified SHA only after all configured integrations are internally consistent.
-7. Verify `/api/live`, `/api/ready`, registration proof and release-specific production readiness.
-8. Run the **Exact Post-Deploy Smoke** bound to the successful production deployment SHA, covering fail-closed external integrations and customer-facing browser navigation without customer writes.
+1. Qualify the exact candidate source SHA.
+2. Merge only the manifest-only production release change that advances `release/production.json`.
+3. Seal the exact release merge SHA through BF-07 from clean npm registry state.
+4. Reconfirm exact current `main` and restore the exact BF-07 evidence.
+5. Render, preflight and dry-run the Cloudflare candidate without exposing real secrets.
+6. Deploy the exact qualified release SHA only after authorization and closure checks pass.
+7. Verify live readiness and record the deployed SHA.
+8. Run exact-SHA client runtime, password recovery, mobile, customer UI/fail-closed and Phase 0 launch-audit workflows.
 
 No step may substitute evidence from a different SHA.
 
-## V81 delegated-authority status
+## Fail-closed rules
 
-- Production migration `047_v81_delegated_authority.sql` is present and live readiness confirms the authority schema.
-- The authority status endpoint requires authentication; unauthenticated access fails closed.
-- Delegated authority remains **shadow-only**. Intent evaluation may be recorded, but autonomous external execution remains disabled for this release.
+- A stale or non-main release authority must not deploy.
+- A BF-07 failure must block deployment.
+- Missing or inconsistent production environment inputs must block deployment.
+- A schema/runtime mismatch must fail readiness closed.
+- Partially configured external integrations must fail closed rather than silently degrade into a claimed active state.
+- Deployment success is not sufficient by itself; exact-SHA post-deploy verification is required.
 
-## Post-deploy production checkpoint — 2026-09-14
+## Optional integrations
 
-- Production SHA: `a99684e8311d4d831182118043ee328ed86bbe4f`.
-- Recovery CI: PASS on exact release SHA.
-- BF-07 seal: PASS on exact release SHA.
-- Production deploy: PASS.
-- Live readiness: PASS.
-- Exact post-deploy HTTP/fail-closed smoke: PASS.
-- Exact post-deploy browser smoke: PASS for landing runtime, Start Free, Sign in, Explore workspace, See plans and direct registration page.
-- No customer/tenant data was created by the verification flow.
+Optional integrations are not launch blockers when deliberately and fully deferred. If enabled, their complete production contract and exact-SHA verification must pass before they are represented as active. This includes Google/Facebook OAuth, password-reset email delivery, WhatsApp provider sending, paid checkout, evidence-byte uploads, registry integrations and live voice/provider features.
 
-## Remaining governance item
+## Documentation policy
 
-Application and deployment gates are green, but repository-level protection for `main` is not currently enforced by GitHub branch protection/required-status-check settings. This is a repository administration control, separate from the application release gates, and should be enabled when the repository plan/admin surface permits it.
+This file describes **release rules and current gate semantics**, not a manually maintained release number. Historical launch snapshots belong in Git history and workflow evidence. The live mutable release identity belongs in `release/production.json` and the exact-SHA deployment workflow evidence.
 
-## Next-release hardening
-
-Node/Postgres lineage corrections identified by the final red-team branch should be qualified separately before any future Node/Postgres production use. They are not blockers for the current Cloudflare/D1 production release and must not be merged blindly because the older red-team branch contains stale external-integration assumptions.
+The repository release-status drift guard validates this policy so stale copied SHAs/sequences do not reappear here.
