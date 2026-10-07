@@ -53,6 +53,7 @@ check('People infographics become one column on phones',peopleCss.includes('#peo
 check('People mobile infographic controls use 44px targets',peopleCss.includes('#peopleops .people-info-legend button,#peopleops .people-location-bar,#peopleops .people-followup-step,#peopleops .people-location-more{min-height:44px}'));
 check('People secondary infographic text uses stronger contrast',!peopleCss.includes('#667a93')&&!peopleCss.includes('#6b7f96')&&peopleCss.includes('#526a86'));
 check('People location overview is bounded with a full-list action',readiness.includes('row.hidden=index>=4')&&readiness.includes('people-location-more')&&readiness.includes('View all ${rows.length} locations'));
+check('People location observer is mutation-stable',readiness.includes('if(more.textContent!==label)more.textContent=label')&&readiness.includes('if(more.getAttribute("aria-label")!==ariaLabel)more.setAttribute("aria-label",ariaLabel)'));
 check('People V306 waits behind authenticated workspace readiness',readiness.includes('window.whenThebeWorkspaceReady(installPeopleV306Polish)')&&readiness.includes('typeof document==="undefined"'));
 check('no blanket people centering rule',!html.includes('.people-outcome-card{')||html.includes('.people-outcome-card{appearance:none')&&html.includes('text-align:left'));
 check('release flag people outcome first',profile.people_operations_outcome_first===true);
