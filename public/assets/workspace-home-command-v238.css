@@ -503,6 +503,7 @@ html body dialog.thebe-voice-screen .thebe-voice-context{
   text-align:center!important;
 }
 html body dialog.thebe-voice-screen .thebe-voice-sphere{
+  position:relative!important;
   align-self:center!important;
   width:126px!important;
   min-width:126px!important;
@@ -663,4 +664,19 @@ html body dialog.thebe-voice-screen .thebe-voice-screen-controls button:focus-vi
 }
 @media(prefers-reduced-motion:reduce){
   html body dialog.thebe-voice-screen .thebe-voice-sphere{animation:none!important;transform:none!important}
+}
+
+/* Preserve the production spatial dock contract while keeping the V287 visual system. */
+@media(min-width:1024px){
+  html body #thebeAiDock[data-surface="workspace"] .thebe-ai-voice-card{
+    grid-template-columns:72px minmax(0,1fr)!important;
+  }
+  html body #thebeAiDock[data-surface="workspace"] .thebe-ai-orb-button{
+    width:68px!important;
+    min-width:68px!important;
+    max-width:68px!important;
+    height:68px!important;
+    min-height:68px!important;
+    max-height:68px!important;
+  }
 }
