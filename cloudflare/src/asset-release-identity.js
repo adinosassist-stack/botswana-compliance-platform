@@ -8,6 +8,7 @@ const WORKSPACE_TEXT_LAYOUT_SRC='/js/workspace-text-layout-guard-v276.js';
 const WORKSPACE_PROPERTY_ROUTE_ISOLATION_SRC='/js/workspace-property-route-isolation-v277.js';
 const WORKSPACE_FOCUS_VISIBLE_SRC='/js/workspace-focus-visible-v278.js';
 const OWNER_FOCUS_STRIP_SRC='/js/owner-focus-strip-v296.js';
+const MONEY_WORKSPACE_SRC='/js/money-workspace-v307.js';
 
 function injectAtFinalClosingTag(source,tag,markup){
   const pattern=new RegExp(`<\\/${tag}\\s*>`, 'gi');
@@ -26,6 +27,7 @@ export function versionReleaseAssets(html,sha=releaseSourceSha(),options={}){
   if(options?.includeWorkspaceFixes===true&&!source.includes(WORKSPACE_PROPERTY_ROUTE_ISOLATION_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${WORKSPACE_PROPERTY_ROUTE_ISOLATION_SRC}" defer></script>\n`);
   if(options?.includeWorkspaceFixes===true&&!source.includes(WORKSPACE_FOCUS_VISIBLE_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${WORKSPACE_FOCUS_VISIBLE_SRC}" defer></script>\n`);
   if(options?.includeWorkspaceFixes===true&&!source.includes(OWNER_FOCUS_STRIP_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${OWNER_FOCUS_STRIP_SRC}" defer></script>\n`);
+  if(options?.includeWorkspaceFixes===true&&!source.includes(MONEY_WORKSPACE_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${MONEY_WORKSPACE_SRC}" defer></script>\n`);
   source=source.replace(/(<(?:script|link)\b[^>]*\b(?:src|href)=["'])(\/(?:js|assets)\/[^"']+)(["'][^>]*>)/gi,(_match,start,path,end)=>{
     const url=new URL(path.replaceAll('&amp;','&'),'https://thebe.invalid');
     url.searchParams.set('release',sha);
