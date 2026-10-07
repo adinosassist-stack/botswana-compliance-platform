@@ -1,8 +1,14 @@
 @import url("./workspace-home-command-v238-v287-original.css");
 
-/* V288 desktop dock compatibility.
-   Keep the long-standing 68px spatial voice-entry contract while stripping surrounding chrome. */
+/* V289 compact desktop dock hardening.
+   Preserve the production 68px recovery/tap-target contract while tightening the visual dock around it. */
 @media(min-width:1024px){
+  html body #thebeAiDock[data-surface="workspace"] .thebe-ai-dock-scroll{
+    min-width:0!important;
+    overflow-x:hidden!important;
+    overscroll-behavior:contain!important;
+    scrollbar-gutter:stable!important;
+  }
   html body #thebeAiDock[data-surface="workspace"] .thebe-ai-dock-scroll .thebe-ai-voice-card{
     grid-template-columns:68px!important;
     grid-template-rows:68px!important;
@@ -21,5 +27,27 @@
   }
   html body #thebeAiDock[data-surface="workspace"] .thebe-ai-voice-card .thebe-ai-voice-label{
     display:none!important;
+  }
+  html body #thebeAiDock[data-surface="workspace"] :is(.thebe-ai-response,.thebe-ai-response-answer,.thebe-ai-compose,.thebe-ai-compose textarea){
+    min-width:0!important;
+    max-width:100%!important;
+    box-sizing:border-box!important;
+  }
+  html body #thebeAiDock[data-surface="workspace"] .thebe-ai-response-answer{
+    overflow-wrap:anywhere!important;
+    word-break:break-word!important;
+  }
+  html body #thebeAiDock[data-surface="workspace"] .thebe-ai-quick{
+    min-width:0!important;
+    max-width:100%!important;
+  }
+  html body #thebeAiDock[data-surface="workspace"] .thebe-ai-quick button:is(.active,[aria-current="true"],[aria-pressed="true"]){
+    border-color:#666!important;
+    background:#3a3a3a!important;
+    color:#fff!important;
+  }
+  html body #thebeAiDock[data-surface="workspace"] :is(.thebe-ai-icon-btn,.thebe-ai-quick button,.thebe-ai-send,.thebe-ai-orb-button):focus-visible{
+    outline:2px solid #8fc3ff!important;
+    outline-offset:2px!important;
   }
 }
