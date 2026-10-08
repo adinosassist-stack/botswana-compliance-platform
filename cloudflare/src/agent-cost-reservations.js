@@ -3,9 +3,10 @@
 import {evaluateAgentCostAdmission} from "./agent-cost-admission.js";
 const valid=n=>Number.isSafeInteger(n)&&n>=0;
 export async function reserveAgentCost(env,{tenantId,actorTenantId,agentId,runId,reservationId,estimatedCostMinor}={}){
- if(!env?.DB||!tenantId||!agentId||!runId||!reservationId||!valid(estimatedCostMinor))return {allowed:false,code:"cost_reservation_invalid"};
+ if(!env?.DB||!tenantId||tenantId!==actorTenantId||!agentId||!runId||!reservationId||!valid(estimatedCostMinor))return {allowed:false,code:"cost_reservation_invalid"};
  const budget=await env.DB.prepare("SELECT * FROM agent_cost_budgets WHERE tenant_id=? AND agent_id=?").bind(tenantId,agentId).first();
  if(!budget)return {allowed:false,code:"cost_budget_missing"};
+ if(![budget.spent_minor,budget.reserved_minor,budget.budget_minor].every(value=>valid(Number(value))))return {allowed:false,code:"cost_budget_invalid"};
  const decision=evaluateAgentCostAdmission({tenantId,actorTenantId,agentId,estimatedCostMinor,spentMinor:Number(budget.spent_minor)+Number(budget.reserved_minor),budgetMinor:Number(budget.budget_minor),enabled:Number(budget.enabled)===1,suspended:Number(budget.suspended)===1,usageKnown:true});
  if(!decision.allowed)return decision;
  // SQLite D1 batch is transactional; conditional UPDATE is the authoritative admission gate.
