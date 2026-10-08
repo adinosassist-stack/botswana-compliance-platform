@@ -22,3 +22,19 @@ CREATE TABLE IF NOT EXISTS agent_cost_reservations (
  FOREIGN KEY(tenant_id,agent_id) REFERENCES agent_cost_budgets(tenant_id,agent_id)
 );
 CREATE INDEX IF NOT EXISTS idx_agent_cost_reservations_tenant_status ON agent_cost_reservations(tenant_id,agent_id,status);
+
+-- Append-only lifecycle ledger for operator reconciliation. A failed insert must
+-- roll back its paired reservation/budget mutation in the same D1 batch.
+CREATE TABLE IF NOT EXISTS agent_cost_events (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ reservation_id TEXT NOT NULL,
+ tenant_id TEXT NOT NULL,
+ agent_id TEXT NOT NULL,
+ event_type TEXT NOT NULL CHECK(event_type IN ('reserved','settled','released')),
+ estimate_minor INTEGER NOT NULL CHECK(estimate_minor>=0),
+ actual_minor INTEGER CHECK(actual_minor IS NULL OR actual_minor>=0),
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ UNIQUE(reservation_id,event_type),
+ FOREIGN KEY(reservation_id) REFERENCES agent_cost_reservations(id)
+);
+CREATE INDEX IF NOT EXISTS idx_agent_cost_events_tenant_created ON agent_cost_events(tenant_id,agent_id,created_at);
