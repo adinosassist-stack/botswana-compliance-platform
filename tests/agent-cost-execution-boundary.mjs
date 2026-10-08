@@ -17,7 +17,11 @@ const forbidden=await authorizeAndReserveAgentCost(env,{
  reservationInput:{...reservationInput,estimatedCostMinor:2}
 });
 assert.equal(forbidden.allowed,false);
+assert.equal(forbidden.executionAllowed,false);
 assert.equal(calls,0);
+// The runtime guard may deny first; do not mistake that for exercising the
+// reservation estimate identity check. Require an explicit guard denial code.
+assert.notEqual(forbidden.code,"cost_boundary_identity_mismatch");
 const missing=await authorizeAndReserveAgentCost(env,{});
 assert.equal(missing.code,"cost_boundary_invalid");
 assert.equal(calls,0);
