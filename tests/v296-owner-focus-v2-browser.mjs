@@ -35,7 +35,7 @@ try{
     return route.fulfill({status:404,body:''});
   });
   await page.goto('http://localhost/');
-  await page.waitForFunction(()=>document.documentElement.dataset.ownerFocusStrip==='20261007-owner-focus-v2-v296');
+  await page.waitForFunction(()=>['20261007-owner-focus-v2-v296','20261007-owner-focus-v3-v303'].includes(document.documentElement.dataset.ownerFocusStrip||''));
   await page.waitForSelector('#ownerFocusStrip');
 
   const values=await page.evaluate(()=>Object.fromEntries([...document.querySelectorAll('#ownerFocusStrip [data-focus-metric]')].map(node=>[node.dataset.focusMetric,node.querySelector('.owner-focus-value')?.textContent])));
@@ -84,8 +84,20 @@ try{
   const prompt=await page.locator('#thebeAiDock textarea').inputValue();
   assert.match(prompt,/outcome recorded|outcome/i,'Ask Thebe should be primed with the active governed queue context');
 
+  await page.evaluate(()=>document.querySelector('.owner-review-row')?.remove());
+  await page.locator('[data-focus-metric="approvals"]').click();
+  await page.waitForFunction(()=>document.querySelector('.owner-focus-next')?.disabled===true);
+  const emptyApprovalNext=await page.locator('.owner-focus-next').evaluate(node=>({disabled:node.disabled,label:node.getAttribute('aria-label')}));
+  assert.equal(emptyApprovalNext.disabled,true,'Review next must disable when the active filtered queue has no rendered item');
+  assert.match(emptyApprovalNext.label||'',/No approvals to review/i,'disabled Review next must explain the active empty queue');
+
+  await page.locator('[data-focus-metric="action"]').click();
+  await page.waitForFunction(()=>document.querySelector('.owner-focus-next')?.disabled===false);
+  await page.locator('.owner-focus-next').click();
+  assert.match(await page.evaluate(()=>document.activeElement?.className||''),/owner-attention-item/,'Review next must focus the first item in the active non-empty queue');
+
   const calculatorAfter=await page.locator('#propertyCalculator').evaluate(node=>({style:node.getAttribute('style'),rect:{left:node.getBoundingClientRect().left,top:node.getBoundingClientRect().top,width:node.getBoundingClientRect().width,height:node.getBoundingClientRect().height}}));
-  assert.deepEqual(calculatorAfter,calculatorBefore,'V296 must leave the approved Property calculator geometry untouched');
-  assert.deepEqual(errors,[],'V296 must not throw browser errors');
-  console.log('V296_OWNER_FOCUS_V2_BROWSER_PASS: exact queue filtering, scoped live counts, contextual Thebe handoff and Calculator geometry are preserved');
+  assert.deepEqual(calculatorAfter,calculatorBefore,'V296 baseline and compatible upgrades must leave the approved Property calculator geometry untouched');
+  assert.deepEqual(errors,[],'Owner Focus compatible upgrades must not throw browser errors');
+  console.log('V296_OWNER_FOCUS_BROWSER_PASS: exact queue filtering, filter-aware Review next, scoped live counts, contextual Thebe handoff and Calculator geometry remain preserved through compatible Owner Focus upgrades');
 }finally{await browser.close()}
