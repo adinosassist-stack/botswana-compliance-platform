@@ -35,7 +35,8 @@ try{
       await page.evaluate(id=>{document.querySelectorAll('.view').forEach(view=>view.classList.toggle('active',view.id===id));window.dispatchEvent(new CustomEvent('thebe:workspace-view-change',{detail:{id}}));},id);
       await page.waitForFunction(id=>document.getElementById(id).classList.contains('workspace-infographic-v309'),id);
       const geometry=await page.locator('#'+id).evaluate(root=>{
-        const summary=root.querySelector('.workspace-info-grid-v309');
+        const firstIconCard=root.querySelector('.workspace-info-icon-v309')?.parentElement||null;
+        const summary=root.querySelector('.workspace-info-grid-v309,.proof-summary-grid,.market-v257-stats')||firstIconCard?.parentElement||null;
         if(!summary)return null;
         const parent=summary.parentElement;
         const parentRect=parent.getBoundingClientRect();
@@ -43,20 +44,20 @@ try{
         const summaryRect=summary.getBoundingClientRect();
         const px=value=>Number.parseFloat(value)||0;
         const expected={x:parentRect.x+px(parentStyle.paddingLeft),right:parentRect.right-px(parentStyle.paddingRight)};
-        const peers=[...parent.children].filter(el=>el!==summary&&el.matches?.('.outcome-grid,.business-outcome-grid,.proof-summary-grid,.market-v257-stats')&&getComputedStyle(el).display!=='none').map(el=>{const rect=el.getBoundingClientRect();return{x:rect.x,right:rect.right}});
-        return{summary:{x:summaryRect.x,right:summaryRect.right},expected,peers,overflow:root.scrollWidth>root.clientWidth};
+        const peers=[...parent.children].filter(el=>el!==summary&&el.matches?.('.workspace-info-grid-v309,.outcome-grid,.business-outcome-grid,.proof-summary-grid,.money-v307-status-grid,.protect-v308-status-grid,.market-v257-stats')&&getComputedStyle(el).display!=='none').map(el=>{const rect=el.getBoundingClientRect();return{x:rect.x,right:rect.right,className:el.className}});
+        return{summary:{x:summaryRect.x,right:summaryRect.right,className:summary.className},expected,peers,overflow:root.scrollWidth>root.clientWidth};
       });
-      assert(geometry,`V311 summary grid exists ${id} ${width}`);
+      assert(geometry,`V311 visual summary exists ${id} ${width}`);
       assert.equal(geometry.overflow,false,`V311 no workspace overflow ${id} ${width}`);
-      assert(Math.abs(geometry.summary.x-geometry.expected.x)<1,`V311 ${id} left edge fills parent content ${width}`);
-      assert(Math.abs(geometry.summary.right-geometry.expected.right)<1,`V311 ${id} right edge fills parent content ${width}`);
-      assert(geometry.peers.every(peer=>Math.abs(peer.x-geometry.summary.x)<1&&Math.abs(peer.right-geometry.summary.right)<1),`V311 ${id} sibling shell edges align ${width}`);
+      assert(Math.abs(geometry.summary.x-geometry.expected.x)<1,`V311 ${id} left edge fills parent content ${width}; ${geometry.summary.className}`);
+      assert(Math.abs(geometry.summary.right-geometry.expected.right)<1,`V311 ${id} right edge fills parent content ${width}; ${geometry.summary.className}`);
+      assert(geometry.peers.every(peer=>Math.abs(peer.x-geometry.summary.x)<1&&Math.abs(peer.right-geometry.summary.right)<1),`V311 ${id} sibling shell edges align ${width}; ${JSON.stringify(geometry.peers)}`);
     }
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`V311 no document overflow ${width}`);
     assert.deepEqual(errors,[]);
     await page.close();
   }
-  console.log('PASS V311: seven workspace summary shells fill parent content at 320-1280px, aligned sibling grids stay flush, no overflow, release delivery is app-scoped and Property calculator geometry is unchanged');
+  console.log('PASS V311: seven workspace visual-summary shells fill parent content at 320-1280px, aligned sibling grids stay flush, no overflow, release delivery is app-scoped and Property calculator geometry is unchanged');
 }finally{
   await browser.close();
 }
