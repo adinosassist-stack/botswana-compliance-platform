@@ -33,4 +33,6 @@ assert.equal((await settleAgentCost(env,{...settlement,reservationId:"r4",actual
 assert.deepEqual(balance(),{spent:650,reserved:350});
 assert.equal((await releaseAgentCost(env,{...args,reservationId:"r4"})).allowed,true);
 assert.deepEqual(balance(),{spent:650,reserved:0});
-console.log("Agent cost transactional lifecycle tests passed");
+const events=db.prepare("SELECT reservation_id,event_type FROM agent_cost_events ORDER BY id").all().map(row=>({...row}));
+assert.deepEqual(events,[{reservation_id:"r1",event_type:"reserved"},{reservation_id:"r3",event_type:"reserved"},{reservation_id:"r1",event_type:"settled"},{reservation_id:"r3",event_type:"released"},{reservation_id:"r4",event_type:"reserved"},{reservation_id:"r4",event_type:"released"}]);
+console.log("Agent cost transactional lifecycle and audit tests passed");
