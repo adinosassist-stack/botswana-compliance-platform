@@ -56,4 +56,6 @@ assert.throws(() => db.prepare("INSERT INTO agent_cost_events(reservation_id,ten
 const tenantCheck=db.prepare("SELECT count(*) AS n FROM agent_cost_events WHERE tenant_id='t1'").get();
 assert.equal(tenantCheck.n,6);
 assert.throws(() => db.prepare("INSERT INTO agent_cost_events(reservation_id,tenant_id,agent_id,event_type,estimate_minor) VALUES ('r1','t2','thebe','reserved',600)").run(), /cost_event_(tenant_mismatch|reservation_mismatch)/);
+assert.throws(() => db.prepare("UPDATE agent_cost_reservations SET actual_minor=0 WHERE id='r1'").run(), /cost_terminal_usage_immutable/);
+assert.throws(() => db.prepare("UPDATE agent_cost_reservations SET model='changed' WHERE id='r1'").run(), /cost_terminal_usage_immutable/);
 console.log("Agent cost transactional lifecycle and audit tests passed");
