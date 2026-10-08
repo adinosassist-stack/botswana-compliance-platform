@@ -47,12 +47,12 @@ assert.doesNotMatch(executeBody,/UPDATE agent_jit_execution_permits\s+SET\s+stat
 assert.match(executeBody,/jit_permit_already_consumed/);
 assert.match(executeBody,/approved_by_user_id=\?/);
 
-assert.match(profile.latest_cloudflare_migration,/^(?:065_v243_business_goal_observer|066_v285_agent_responsibilities)\.sql$/,"release tip must retain migration 065 or the reviewed responsibility successor 066");
+assert.match(profile.latest_cloudflare_migration,/^(?:065_v243_business_goal_observer|066_v285_agent_responsibilities|067_v286_customer_relationships)\.sql$/,"release tip must retain migration 065 or a reviewed successor through 067");
 assert.equal(profile.jit_execution_permits_v217,true);
 assert.equal(profile.jit_execution_permit_single_use,true);
 assert.equal(profile.jit_execution_permit_same_owner_bound,true);
 assert.equal(profile.jit_execution_permit_ttl_seconds,300);
-assert.match(entry,/066_v285_agent_responsibilities\.sql/);
+assert.match(entry,/067_v286_customer_relationships\.sql/);
 assert.match(entry,/agent_jit_execution_permits/);
 
 assert.match(runner,/number:64/);
@@ -71,9 +71,10 @@ assert.match(workflow,/migrate-production-v217-jit-execution-permits\.mjs/);
 const step063=deploy.indexOf("migrations/063_v179_property_valuer_credential_binding.sql");
 const step064=deploy.indexOf("migrations/064_v217_jit_execution_permits.sql");
 assert.ok(step063>=0&&step064>step063,"fresh D1 deploy sequence must preserve migration 063 before migration 064");
-assert.match(deploy,/Current reviewed schema delta: 066_v285_agent_responsibilities\.sql/);
+assert.match(deploy,/Current reviewed schema delta: 067_v286_customer_relationships\.sql/);
 assert.match(launch,/`065_v243_business_goal_observer\.sql`/,"launch chain must retain migration 065");
-assert.match(launch,/through `066_v285_agent_responsibilities\.sql`/,"launch release tip must advance to migration 066");
+assert.match(launch,/`066_v285_agent_responsibilities\.sql`/,"launch chain must retain migration 066");
+assert.match(launch,/through `067_v286_customer_relationships\.sql`/,"launch release tip must advance to migration 067");
 assert.match(launch,/\[migrate-064\]/);
 
 const db=new DatabaseSync(":memory:");

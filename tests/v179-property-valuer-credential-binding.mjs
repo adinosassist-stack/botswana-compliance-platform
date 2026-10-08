@@ -35,7 +35,7 @@ const workflow=fs.readFileSync(".github/workflows/migrate-production-v179-proper
 const deploy=fs.readFileSync("cloudflare/deploy-free.sh","utf8");
 const launch=fs.readFileSync("docs/LAUNCH.md","utf8");
 
-for(const column of [
+for(const column of[
   "registration_ref","registration_authority","registration_jurisdiction","registration_valid_until",
   "credential_verified_at","credential_verified_by_user_id","credential_verification_note"
 ])assert.match(migration,new RegExp("ALTER TABLE professional_profiles ADD COLUMN "+column));
@@ -61,13 +61,13 @@ assert.match(service,/thebeCertifiesProfessionalCredentials:false/);
 assert.match(service,/PROPERTY_VALUER_CREDENTIAL_RECORDED/);
 assert.doesNotMatch(service,/const professionalUserId=text\(body\.professionalUserId,64\),registrationRef=text\(body\.registrationRef,120\)/);
 
-assert.equal(profile.latest_cloudflare_migration,"066_v285_agent_responsibilities.sql");
+assert.equal(profile.latest_cloudflare_migration,"067_v286_customer_relationships.sql");
 assert.equal(profile.property_valuation_valuer_credential_binding_v179,true);
 assert.equal(profile.property_valuation_assignment_uses_verified_profile_registration,true);
 assert.equal(profile.property_valuation_professional_credential_expiry_enforced,true);
 assert.equal(profile.property_valuation_professional_credential_events,true);
 
-assert.match(agentic,/066_v285_agent_responsibilities\.sql/);
+assert.match(agentic,/067_v286_customer_relationships\.sql/);
 assert.match(agentic,/professional_credential_events/);
 assert.match(runner,/number:63/);
 assert.match(runner,/063_v179_property_valuer_credential_binding\.sql/);
@@ -79,9 +79,9 @@ assert.match(runner,/foreign_key_check/);
 assert.match(workflow,/\[migrate-063\]/);
 assert.match(workflow,/thebe\/production-d1-063/);
 assert.match(workflow,/migration authority must be a two-parent merged PR commit/);
-assert.match(deploy,/Current reviewed schema delta: 066_v285_agent_responsibilities\.sql/);
+assert.match(deploy,/Current reviewed schema delta: 067_v286_customer_relationships\.sql/);
 assert.match(deploy,/063_v179_property_valuer_credential_binding\.sql/);
-assert.match(launch,/through `066_v285_agent_responsibilities\.sql`/);
+assert.match(launch,/through `067_v286_customer_relationships\.sql`/);
 assert.match(launch,/063_v179_property_valuer_credential_binding\.sql/,"launch guidance must preserve migration 063 as a prerequisite");
 
 console.log("v179 property valuer professional-profile credential binding checks passed");

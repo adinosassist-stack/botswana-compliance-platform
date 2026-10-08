@@ -43,7 +43,7 @@ assert.match(worker,/SELECT 1 ok FROM finance_lineage/);
 assert.match(worker,/SELECT id FROM agentic_runs LIMIT 1/);
 assert.match(worker,/SELECT id FROM agentic_outcomes LIMIT 1/);
 const profile=JSON.parse(fs.readFileSync("RELEASE_PROFILE.json","utf8"));
-assert.match(profile.latest_cloudflare_migration,/^(?:065_v243_business_goal_observer|066_v285_agent_responsibilities)\.sql$/,"release tip must retain migration 065 or the reviewed responsibility successor 066");
+assert.match(profile.latest_cloudflare_migration,/^(?:065_v243_business_goal_observer|066_v285_agent_responsibilities|067_v286_customer_relationships)\.sql$/,"release tip must retain migration 065/066 or the reviewed customer successor 067");
 assert.equal(profile.finance_reconciliation_v79,true);
 assert.equal(profile.finance_provider_neutral,true);
 assert.equal(profile.finance_whatsapp_exception_alerts_optional,true);
@@ -54,9 +54,10 @@ assert.equal(profile.authenticated_route_branches,254);
 const launch=fs.readFileSync("docs/LAUNCH.md","utf8"),deploy=fs.readFileSync("cloudflare/deploy-free.sh","utf8"),cloudflareReadme=fs.readFileSync("cloudflare/README.md","utf8");
 assert.match(launch,/Migration 044 remains the finance reconciliation prerequisite/);
 assert.match(launch,/`065_v243_business_goal_observer\.sql`/,"launch chain must retain migration 065");
-assert.match(launch,/through `066_v285_agent_responsibilities\.sql`/,"launch release tip must advance to migration 066");
+assert.match(launch,/`066_v285_agent_responsibilities\.sql`/,"launch chain must retain migration 066");
+assert.match(launch,/through `067_v286_customer_relationships\.sql`/,"launch release tip must advance to migration 067");
 assert.doesNotMatch(launch,/No new schema migration is required\./);
-assert.match(deploy,/Current reviewed schema delta: 066_v285_agent_responsibilities\.sql/);
+assert.match(deploy,/Current reviewed schema delta: 067_v286_customer_relationships\.sql/);
 assert.match(cloudflareReadme,/063_v179_property_valuer_credential_binding\.sql/);
 for(const path of [
   "tests/v78-12167-session-generation-revocation-adversarial.mjs",

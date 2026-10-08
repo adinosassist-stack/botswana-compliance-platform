@@ -1,0 +1,56 @@
+name: Customer relationships CI
+run-name: Customer relationships CI ${{ github.event.pull_request.head.sha }}
+
+on:
+  pull_request:
+    paths:
+      - 'cloudflare/migrations/067_v286_customer_relationships.sql'
+      - 'cloudflare/src/customer-relationships.js'
+      - 'cloudflare/src/finance-receivables.js'
+      - 'tests/v286-customer-relationship-foundation.mjs'
+      - '.github/workflows/customer-relationships-ci.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: customer-relationships-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  focused:
+    name: Customer consent and follow-up boundary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Checkout exact PR head revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Prove exact PR head checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          [[ "$actual" == "$EXPECTED_HEAD_SHA" ]] || { echo "PR head checkout mismatch expected=$EXPECTED_HEAD_SHA actual=$actual" >&2; exit 1; }
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo 'exact PR head checkout is not clean' >&2; exit 1; }
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+
+      - name: Verify customer relationship boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check cloudflare/src/customer-relationships.js
+          node --check cloudflare/src/finance-receivables.js
+          node --check tests/v286-customer-relationship-foundation.mjs
+          node tests/v286-customer-relationship-foundation.mjs
