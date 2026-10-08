@@ -1,0 +1,6 @@
+/* V312: live Property solid-surface override. Historical release assets remain immutable. */
+.property-yield-ring-v261,
+.property-ops-ring-v262 {
+  background: var(--property-accent, #c7ef32);
+  background-image: none;
+}

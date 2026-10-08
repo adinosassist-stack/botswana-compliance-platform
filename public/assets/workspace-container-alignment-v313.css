@@ -1,0 +1,77 @@
+/* V313: align stable top-level workspace containers across the nine V309 roots.
+   Additive/app-only. Property, calculator and dock geometry are intentionally out of scope. */
+#mainContent :is(
+  #workhub,
+  #businesshub,
+  #evidencehub,
+  #tenderhub,
+  #automationhub,
+  #moneyhub,
+  #protecthub,
+  #sites,
+  #servicesmarketplace
+).workspace-infographic-v309{
+  min-width:0!important;
+  max-width:100%!important;
+}
+
+#mainContent :is(
+  #workhub,
+  #businesshub,
+  #evidencehub,
+  #tenderhub,
+  #automationhub,
+  #moneyhub,
+  #protecthub,
+  #sites,
+  #servicesmarketplace
+).workspace-infographic-v309 > :is(
+  .hub-hero,
+  .outcome-status-strip,
+  .outcome-grid,
+  .business-status-strip,
+  .business-outcome-grid,
+  .proof-summary-grid,
+  .proof-work-grid,
+  .money-v307-shell,
+  .protect-v308-shell,
+  .market-v257-stats,
+  .workspace-info-grid-v309,
+  .workspace-info-scale-v309
+){
+  width:100%!important;
+  max-width:100%!important;
+  margin-left:0!important;
+  margin-right:0!important;
+  box-sizing:border-box!important;
+  justify-self:stretch!important;
+}
+
+@media(max-width:620px){
+  #mainContent :is(
+    #workhub,
+    #businesshub,
+    #evidencehub,
+    #tenderhub,
+    #automationhub,
+    #moneyhub,
+    #protecthub,
+    #sites,
+    #servicesmarketplace
+  ).workspace-infographic-v309 > :is(
+    .hub-hero,
+    .outcome-status-strip,
+    .outcome-grid,
+    .business-status-strip,
+    .business-outcome-grid,
+    .proof-summary-grid,
+    .proof-work-grid,
+    .money-v307-shell,
+    .protect-v308-shell,
+    .market-v257-stats,
+    .workspace-info-grid-v309,
+    .workspace-info-scale-v309
+  ){
+    min-width:0!important;
+  }
+}
