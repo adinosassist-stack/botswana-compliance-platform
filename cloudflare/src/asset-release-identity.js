@@ -37,6 +37,7 @@ export function versionReleaseAssets(html,sha=releaseSourceSha(),options={}){
     if(!source.includes('/js/workspace-infographics-v309.js'))source=injectAtFinalClosingTag(source,'body','<script src="/js/workspace-infographics-v309.js" defer></script>\n');
     if(!source.includes('/assets/workspace-shell-alignment-v311.css'))source=injectAtFinalClosingTag(source,'head','<link rel="stylesheet" href="/assets/workspace-shell-alignment-v311.css">\n');
     if(!source.includes('/assets/property-solid-surfaces-v312.css'))source=injectAtFinalClosingTag(source,'head','<link rel="stylesheet" href="/assets/property-solid-surfaces-v312.css">\n');
+    if(!source.includes('/assets/workspace-container-alignment-v313.css'))source=injectAtFinalClosingTag(source,'head','<link rel="stylesheet" href="/assets/workspace-container-alignment-v313.css">\n');
   }
   source=source.replace(/(<(?:script|link)\b[^>]*\b(?:src|href)=["'])(\/(?:js|assets)\/[^"']+)(["'][^>]*>)/gi,(_match,start,path,end)=>{
     const url=new URL(path.replaceAll('&amp;','&'),'https://thebe.invalid');
