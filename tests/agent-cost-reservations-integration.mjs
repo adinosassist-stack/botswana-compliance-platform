@@ -58,4 +58,6 @@ assert.equal(tenantCheck.n,6);
 assert.throws(() => db.prepare("INSERT INTO agent_cost_events(reservation_id,tenant_id,agent_id,event_type,estimate_minor) VALUES ('r1','t2','thebe','reserved',600)").run(), /cost_event_(tenant_mismatch|reservation_mismatch)/);
 assert.throws(() => db.prepare("UPDATE agent_cost_reservations SET actual_minor=0 WHERE id='r1'").run(), /cost_terminal_usage_immutable/);
 assert.throws(() => db.prepare("UPDATE agent_cost_reservations SET model='changed' WHERE id='r1'").run(), /cost_terminal_usage_immutable/);
+const gaps=db.prepare("SELECT reservation_id FROM agent_cost_ledger_gaps ORDER BY reservation_id").all().map(x=>x.reservation_id);
+assert.deepEqual(gaps,["direct"]);
 console.log("Agent cost transactional lifecycle and audit tests passed");
