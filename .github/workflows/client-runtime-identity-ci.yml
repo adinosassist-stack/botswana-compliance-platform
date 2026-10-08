@@ -76,6 +76,7 @@ jobs:
         run: |
           set -euo pipefail
           npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+          node tests/v315-mobile-header-touch-targets-browser.mjs
           node tests/v314-workspace-mobile-readability-browser.mjs
           node tests/v313-workspace-container-alignment-browser.mjs
           node tests/v311-workspace-shell-alignment-browser.mjs
