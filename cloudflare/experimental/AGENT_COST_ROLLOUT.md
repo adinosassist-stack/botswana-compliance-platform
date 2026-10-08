@@ -24,3 +24,13 @@ Status: experimental, not approved for production. The schema in agent_cost_acco
 
 ## Mandatory reconciliation gate
 Before any budget activation, query `SELECT * FROM agent_cost_ledger_gaps;` on the target database. The result must be empty. If any rows appear, halt rollout, disable new reservations, investigate the originating writes, and reconcile with independently recorded provider usage. Do not delete or backfill events without an approved audit-repair process.
+
+## Final go/no-go checklist
+- [ ] Exact release commit passes every required workflow, including Recovery CI and Audit Remediation.
+- [ ] Migration tested on an isolated D1 database with rollback/restore rehearsal.
+- [ ] `agent_cost_ledger_gaps` returns zero rows after a representative lifecycle test.
+- [ ] Database write permissions and application-only audit event creation are reviewed.
+- [ ] Runtime owner authorization and feature flag isolation are demonstrated.
+- [ ] Release owner signs off on tenant budgets, activation scope, monitoring, and rollback.
+
+Do not treat this checklist as complete merely because the CI badge is green.
