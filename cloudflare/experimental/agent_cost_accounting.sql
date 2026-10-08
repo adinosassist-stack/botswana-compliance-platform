@@ -97,3 +97,8 @@ CREATE TRIGGER IF NOT EXISTS agent_cost_no_invalid_transition
 BEFORE UPDATE OF status ON agent_cost_reservations
 WHEN OLD.status!='reserved' OR NEW.status NOT IN ('settled','released')
 BEGIN SELECT RAISE(ABORT,'cost_invalid_transition'); END;
+
+CREATE TRIGGER IF NOT EXISTS agent_cost_event_tenant_match
+BEFORE INSERT ON agent_cost_events
+WHEN NOT EXISTS (SELECT 1 FROM agent_cost_reservations WHERE id=NEW.reservation_id AND tenant_id=NEW.tenant_id AND agent_id=NEW.agent_id)
+BEGIN SELECT RAISE(ABORT,'cost_event_tenant_mismatch'); END;
