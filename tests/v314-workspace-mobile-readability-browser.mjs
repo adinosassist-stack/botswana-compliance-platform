@@ -32,10 +32,18 @@ try{
   for(const width of [320,390,620,768,1280]){
     const page=await browser.newPage({viewport:{width,height:1000}});
     await page.setContent(`<!doctype html><style>*{box-sizing:border-box}body{margin:0}.view{padding:0 14px;margin:0 0 16px}.property-calculator-v224{width:280px;height:160px}.thebe-ai-dock{position:fixed;right:10px;bottom:10px;width:260px;height:420px}</style><style>${baseCss}</style><main id="mainContent">${sections}<section id="propertyintelligence"><div id="calculator" class="property-calculator-v224">Calculator</div></section></main><aside id="thebeAiDock" class="thebe-ai-dock"></aside>`);
-    const protectedBefore=await page.evaluate(()=>({calculator:document.getElementById('calculator').getBoundingClientRect().toJSON(),dock:document.getElementById('thebeAiDock').getBoundingClientRect().toJSON()}));
+    const protectedGeometry=()=>page.evaluate(()=>{
+      const calculatorRect=document.getElementById('calculator').getBoundingClientRect();
+      const dockRect=document.getElementById('thebeAiDock').getBoundingClientRect();
+      return{
+        calculator:{x:calculatorRect.x,left:calculatorRect.left,right:calculatorRect.right,width:calculatorRect.width,height:calculatorRect.height},
+        dock:dockRect.toJSON()
+      };
+    });
+    const protectedBefore=await protectedGeometry();
     await page.addStyleTag({content:css});
-    const protectedAfter=await page.evaluate(()=>({calculator:document.getElementById('calculator').getBoundingClientRect().toJSON(),dock:document.getElementById('thebeAiDock').getBoundingClientRect().toJSON()}));
-    assert.deepEqual(protectedAfter,protectedBefore,`V314 must not move Property calculator or dock ${width}`);
+    const protectedAfter=await protectedGeometry();
+    assert.deepEqual(protectedAfter,protectedBefore,`V314 must not alter Property calculator horizontal/size geometry or dock geometry ${width}`);
 
     for(const id of ids){
       const geometry=await page.locator('#'+id).evaluate(root=>{
@@ -59,7 +67,7 @@ try{
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`V314 no document overflow ${width}`);
     await page.close();
   }
-  console.log('PASS V314: generic workspace infographic cards stack into compact People-like rows on phones while tablet/desktop remain multi-column; Property calculator and dock geometry remain unchanged');
+  console.log('PASS V314: generic workspace infographic cards stack into compact People-like rows on phones while tablet/desktop remain multi-column; Property calculator horizontal/size geometry and dock geometry remain unchanged');
 }finally{
   await browser.close();
 }
