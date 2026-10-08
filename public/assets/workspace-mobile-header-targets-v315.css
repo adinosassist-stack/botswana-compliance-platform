@@ -1,0 +1,10 @@
+/* V315: keep primary Work and Settings header actions touch-safe on phones.
+   Additive/app-only. Other workspace hubs, Property and Thebe AI dock geometry are out of scope. */
+@media(max-width:620px){
+  #mainContent :is(#workhub,#accounthub)>.hub-hero>.btn,
+  #mainContent :is(#workhub,#accounthub)>.hub-hero>.actions .btn{
+    min-width:44px;
+    min-height:44px!important;
+    padding:9px 12px!important;
+  }
+}
