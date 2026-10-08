@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {versionReleaseAssets} from '../cloudflare/src/asset-release-identity.js';
 
 const source=fs.readFileSync('public/js/owner-focus-strip-v296.js','utf8');
-assert.match(source,/20261007-owner-focus-v2-v296/,'release identity must be explicit');
+assert.match(source,/20261007-owner-focus-v(?:2-v296|3-v303)/,'release identity must remain explicit across the compatible Owner Focus upgrade');
 assert.match(source,/SHELL_ID="ownerCommandCentre"/,'strip must remain owner-command-centre scoped');
 assert.match(source,/ATTENTION_ID="ownerAttentionPanel"/,'metrics must remain derived from the governed attention panel');
 assert.match(source,/\.owner-panel-head \.badge/,'needs-action count must use the governed queue total instead of the truncated visual list');
@@ -14,8 +14,8 @@ assert.match(source,/applyFilter\(activeFilter===key\?"all":key/,'metric control
 assert.match(source,/data-owner-focus-filter/,'queue filtering must stay local to the governed attention panel');
 assert.match(source,/aria-controls/,'metric controls must announce the governed queue they control');
 assert.match(source,/aria-pressed/,'active queue state must be keyboard and screen-reader discoverable');
-assert.match(source,/panelObserver\.observe\(observedPanel,\{childList:true,subtree:true,characterData:true\}\)/,'live resync must observe the attention panel only');
-assert.doesNotMatch(source,/observe\(document\.body/,'V296 must not attach a global body MutationObserver');
+assert.match(source,/panelObserver\.observe\(observedPanel,\{childList:true,subtree:true,characterData:true(?:,attributes:true,attributeFilter:\["datetime","data-created-at","data-updated-at"\])?\}\)/,'live resync must remain scoped to the attention panel, allowing only bounded timestamp-attribute observation');
+assert.doesNotMatch(source,/observe\(document\.body/,'V296 baseline must not attach a global body MutationObserver');
 assert.match(source,/requestAnimationFrame/,'observer-driven refreshes must be coalesced before rescanning');
 assert.match(source,/priority queue unavailable/i,'unavailable governed data must remain explicit');
 assert.doesNotMatch(source,/fetch\s*\(|\/api\/ai\/operator\/queue/,'strip must not duplicate the governed queue API request');
@@ -33,4 +33,4 @@ assert.doesNotMatch(decorated,/owner-focus-strip-v295\.js/,'workspace HTML must 
 assert.equal(versionReleaseAssets(decorated,sha,{includeWorkspaceFixes:true}),decorated,'V296 injection must remain idempotent');
 assert.doesNotMatch(versionReleaseAssets(html,sha),/owner-focus-strip-v296\.js/,'V296 must not load on public surfaces');
 
-console.log('PASS: V296 Owner Focus v2 adds exact queue views, scoped/debounced observation, contextual Thebe handoff, app-only injection and preserves Property calculator placement');
+console.log('PASS: V296 Owner Focus baseline remains intact through compatible priority-context upgrades and preserves Property calculator placement');
