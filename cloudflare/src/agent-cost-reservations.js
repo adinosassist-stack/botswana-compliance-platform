@@ -2,8 +2,9 @@
 // Call reserve only after the existing runtime guard and owner authority checks pass.
 import {evaluateAgentCostAdmission} from "./agent-cost-admission.js";
 const valid=n=>Number.isSafeInteger(n)&&n>=0;
+const identifier=s=>typeof s==="string"&&s.trim().length>0;
 export async function reserveAgentCost(env,{tenantId,actorTenantId,agentId,runId,reservationId,estimatedCostMinor}={}){
- if(!env?.DB||!tenantId||tenantId!==actorTenantId||!agentId||!runId||!reservationId||!valid(estimatedCostMinor))return {allowed:false,code:"cost_reservation_invalid"};
+ if(!env?.DB||!identifier(tenantId)||tenantId!==actorTenantId||!identifier(agentId)||!identifier(runId)||!identifier(reservationId)||!valid(estimatedCostMinor))return {allowed:false,code:"cost_reservation_invalid"};
  const budget=await env.DB.prepare("SELECT * FROM agent_cost_budgets WHERE tenant_id=? AND agent_id=?").bind(tenantId,agentId).first();
  if(!budget)return {allowed:false,code:"cost_budget_missing"};
  if(![budget.spent_minor,budget.reserved_minor,budget.budget_minor].every(value=>valid(Number(value))))return {allowed:false,code:"cost_budget_invalid"};
@@ -26,7 +27,7 @@ export async function reserveAgentCost(env,{tenantId,actorTenantId,agentId,runId
  * budget remains. Unknown usage must remain reserved for reconciliation.
  */
 export async function settleAgentCost(env,{tenantId,actorTenantId,agentId,reservationId,actualCostMinor,provider,model,inputTokens,outputTokens}={}){
- if(!env?.DB||!tenantId||tenantId!==actorTenantId||!agentId||!reservationId||
+ if(!env?.DB||!identifier(tenantId)||tenantId!==actorTenantId||!identifier(agentId)||!identifier(reservationId)||
     ![actualCostMinor,inputTokens,outputTokens].every(valid)||
     typeof provider!=="string"||!provider.trim()||typeof model!=="string"||!model.trim()){
    return {allowed:false,code:"cost_settlement_invalid"};
@@ -45,7 +46,7 @@ export async function settleAgentCost(env,{tenantId,actorTenantId,agentId,reserv
  }catch{return {allowed:false,code:"cost_settlement_conflict"}}
 }
 export async function releaseAgentCost(env,{tenantId,actorTenantId,agentId,reservationId}={}){
- if(!env?.DB||!tenantId||tenantId!==actorTenantId||!agentId||!reservationId)return {allowed:false,code:"cost_release_invalid"};
+ if(!env?.DB||!identifier(tenantId)||tenantId!==actorTenantId||!identifier(agentId)||!identifier(reservationId))return {allowed:false,code:"cost_release_invalid"};
  try{
   const results=await env.DB.batch([
    env.DB.prepare("UPDATE agent_cost_reservations SET status='released',settled_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND agent_id=? AND status='reserved'").bind(reservationId,tenantId,agentId),
