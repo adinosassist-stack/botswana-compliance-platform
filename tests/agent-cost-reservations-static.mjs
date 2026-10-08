@@ -1,0 +1,10 @@
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+const src=readFileSync(new URL("../cloudflare/src/agent-cost-reservations.js",import.meta.url),"utf8");
+const schema=readFileSync(new URL("../cloudflare/migrations/068_agent_cost_accounting.sql",import.meta.url),"utf8");
+for(const fn of ["reserveAgentCost","settleAgentCost","releaseAgentCost"])assert.match(src,new RegExp("export async function "+fn+"\\("));
+assert.match(src,/status='reserved'/);
+assert.match(src,/changes\(\)=1/);
+assert.match(schema,/UNIQUE\(tenant_id,agent_id,run_id\)/);
+assert.match(schema,/CHECK\(spent_minor\+reserved_minor<=budget_minor\)/);
+console.log("Agent cost reservation static checks passed");
