@@ -12,6 +12,7 @@ const inline=[...html.slice(0,html.indexOf('</head>')).matchAll(/<style[^>]*>([\
 const assets=['workspace-command-center-v230.css','workspace-command-center-v231.css','workspace-reference-shell-v237.css','property-calculator-compact-v223.css','property-calculator-reference-v224.css','property-visibility-v230.css','property-operations-v262.css','property-optimise-v263.css','property-compare-v264.css'];
 const styles=inline+'\n'+assets.map(f=>fs.readFileSync('public/assets/'+f,'utf8')).join('\n');
 const newStyles=fs.readFileSync('public/assets/workspace-infographics-v309.css','utf8');
+const dashboardFixture='<section id="dashboard" class="view active"><div class="home-thebe-agent" style="width:100%;max-width:900px;padding:16px"><div><strong>Thebe Super Agent</strong></div><form><input aria-label="Ask Thebe" placeholder="Ask: What needs management attention today?"><button class="btn" type="button">Ask Thebe</button></form><div class="home-thebe-agent-quick"><button class="btn" type="button">Today\'s priorities</button><button class="btn" type="button">Cash & collections</button><button class="btn" type="button">Follow-up</button></div></div></section>';
 const sha='a'.repeat(40),base='<html><head></head><body></body></html>';
 assert(!versionReleaseAssets(base,sha).includes('workspace-infographics-v309'));
 const decorated=versionReleaseAssets(base,sha,{includeWorkspaceFixes:true});
@@ -22,7 +23,19 @@ const browser=await chromium.launch({headless:true,executablePath:[process.env.C
 try{
  for(const width of [320,390,768,1280]){
   const page=await browser.newPage({viewport:{width,height:900}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.setContent(`<style>${styles}*{animation:none!important;transition:none!important}</style><div id="appShell"><main id="mainContent" style="margin:0;padding:16px">${sections}<section id="propertyintelligence" class="view active property-compact-v260"><div class="property-calculator-v224" id="calculator" style="width:280px;height:160px">Calculator</div><div class="property-hero-compact"><h2>Property</h2></div><div class="property-overview-v261"><h3 class="property-overview-title-v261">A very long property title that should remain readable on a small phone</h3></div><div class="property-operations-v262">Operations</div><div class="property-optimise-v263">Optimise</div><div class="property-compare-v264">Compare</div><div class="property-ops-ring-v262"><strong>67%</strong></div></section></main></div>`);
+  await page.setContent(`<style>${styles}*{animation:none!important;transition:none!important}</style><div id="appShell"><main id="mainContent" style="margin:0;padding:16px">${dashboardFixture}${sections}<section id="propertyintelligence" class="view active property-compact-v260"><div class="property-calculator-v224" id="calculator" style="width:280px;height:160px">Calculator</div><div class="property-hero-compact"><h2>Property</h2></div><div class="property-overview-v261"><h3 class="property-overview-title-v261">A very long property title that should remain readable on a small phone</h3></div><div class="property-operations-v262">Operations</div><div class="property-optimise-v263">Optimise</div><div class="property-compare-v264">Compare</div><div class="property-ops-ring-v262"><strong>67%</strong></div></section></main></div>`);
+  const agentGeometry=await page.locator('#dashboard .home-thebe-agent').evaluate(agent=>{const form=agent.querySelector('form'),input=agent.querySelector('input'),button=form.querySelector('button'),quick=agent.querySelector('.home-thebe-agent-quick'),firstQuick=quick.querySelector('.btn');const rect=el=>{const r=el.getBoundingClientRect();return{x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height}};return{form:rect(form),input:rect(input),button:rect(button),quick:rect(quick),firstQuick:rect(firstQuick),overflow:agent.scrollWidth>agent.clientWidth};});
+  assert.equal(agentGeometry.overflow,false,`Home Thebe agent overflow ${width}`);
+  assert(Math.abs(agentGeometry.form.x-agentGeometry.quick.x)<1,`Home Thebe prompt and quick actions left edge ${width}`);
+  if(width>620){
+   assert(Math.abs(agentGeometry.input.y-agentGeometry.button.y)<1,`Home Thebe input/button baseline ${width}`);
+   assert(Math.abs(agentGeometry.input.height-agentGeometry.button.height)<1,`Home Thebe input/button height ${width}`);
+   assert(agentGeometry.input.right<=agentGeometry.button.x+0.5,`Home Thebe input/button overlap ${width}`);
+  }else{
+   assert(agentGeometry.button.y>=agentGeometry.input.bottom-0.5,`Home Thebe mobile button follows input ${width}`);
+   assert(agentGeometry.button.height>=44,`Home Thebe mobile Ask target ${width}`);
+   assert(agentGeometry.firstQuick.height>=44,`Home Thebe mobile quick target ${width}`);
+  }
   const before=await page.locator('#calculator').evaluate(el=>el.getBoundingClientRect().toJSON());
   await page.addStyleTag({content:newStyles});
   await page.addScriptTag({path:'public/js/workspace-infographics-v309.js'});
@@ -52,6 +65,6 @@ try{
   await page.waitForTimeout(80);assert.equal(await page.evaluate(()=>window.__mutations),0,'repeat rendering is stable, no observer starvation');
   assert.deepEqual(errors,[]);await page.close();
  }
- console.log('PASS V309: app-only release delivery, seven workspace visuals, 320–1280px containment, count truth/loading/role hiding, Property solid fills/aligned edges, calculator geometry and observer stability');
+ console.log('PASS V309: app-only release delivery, Home Thebe agent alignment, seven workspace visuals, 320–1280px containment, count truth/loading/role hiding, Property solid fills/aligned edges, calculator geometry and observer stability');
 }finally{await browser.close()}
 

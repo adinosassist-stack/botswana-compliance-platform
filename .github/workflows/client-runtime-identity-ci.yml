@@ -52,6 +52,7 @@ jobs:
           node --check public/js/money-inputs-v310.js
           node tests/v310-finance-inputs-runtime.mjs
           node tests/v310-workspace-input-coverage.mjs
+          node tests/v312-property-solid-surfaces.mjs
           node --check public/js/money-workspace-v307.js
           node --check public/js/protect-workspace-v308.js
           node --check public/js/workspace-infographics-v309.js
@@ -75,6 +76,10 @@ jobs:
         run: |
           set -euo pipefail
           npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+          node tests/v315-mobile-header-touch-targets-browser.mjs
+          node tests/v314-workspace-mobile-readability-browser.mjs
+          node tests/v313-workspace-container-alignment-browser.mjs
+          node tests/v311-workspace-shell-alignment-browser.mjs
           node tests/v310-money-inputs-browser.mjs
           node tests/v309-workspace-infographics-browser.mjs
           node tests/v308-protect-workspace-browser.mjs

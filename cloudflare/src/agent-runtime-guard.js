@@ -1,3 +1,4 @@
+import {evaluateAgentCostAdmission} from "./agent-cost-admission.js";
 import {AGENT_ACTION_CATALOG,evaluateAgentAction} from "./agent-policy.js";
 import {evaluateDelegatedAuthority,isNeverAutonomousAction} from "./delegated-authority.js";
 
@@ -31,6 +32,7 @@ export function evaluateAgentRuntimeGuard({
   agentStatus="enabled",
   killSwitchActive=false,
   budgetStatus="within_limit",
+  costAdmission=null,
   approvalState="none",
   approvalPayloadHash=null,
   actionPayloadHash=null,
@@ -57,6 +59,11 @@ export function evaluateAgentRuntimeGuard({
   if(String(agentStatus)!=="enabled")return deny("agent_disabled","Thebe execution is disabled for this agent identity.",{action:definition});
   if(killSwitchActive===true)return deny("runtime_kill_switch_active","The tenant or platform agent kill switch is active.",{action:definition});
   if(String(budgetStatus)!=="within_limit")return deny("agent_budget_exceeded","The applicable agent/model/action budget is not within its allowed limit.",{action:definition});
+
+  if(costAdmission!==null){
+    const cost=evaluateAgentCostAdmission(costAdmission);
+    if(cost.allowed!==true)return deny(cost.code,"Agent cost admission denied this tool call.",{action:definition});
+  }
 
   if(isNeverAutonomousAction(key)){
     return deny("human_only_action","This action is permanently human-only and cannot be made autonomous by a model or delegation.",{action:definition});

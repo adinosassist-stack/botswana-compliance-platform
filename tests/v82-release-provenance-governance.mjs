@@ -1,4 +1,8 @@
-import { existsSync, readFileSync } from 'node:fs';
+import assert from 'node:assert/strict';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { existsSync, readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const bf07 = readFileSync('.github/workflows/bf07-seal.yml', 'utf8');
 const deploy = readFileSync('.github/workflows/deploy-production.yml', 'utf8');
@@ -31,7 +35,7 @@ const checks = [
   ['release merge must have successful Recovery CI', bf07.includes('/actions/workflows/recovery-ci.yml/runs?branch=main&per_page=100&page=1') && bf07.includes('/actions/workflows/recovery-ci.yml/runs?branch=main&per_page=100&page=2') && bf07.includes('fetch_recovery_runs') && bf07.includes('release merge has no successful completed Recovery CI run on main')],
   ['release Recovery CI synchronization is bounded and fail-closed', bf07.includes('for attempt in $(seq 1 37)') && bf07.includes('bounded wait $attempt/36') && bf07.includes('release merge Recovery CI failed closed') && bf07.includes("[[ \"$recovery_confirmed\" == '1' ]]")],
   ['closed-release workflow history is paginated beyond the first 100 runs without GitHub workflow_run branch filtering', bf07.includes('fetch_workflow_runs(){') && bf07.includes('/actions/workflows/$workflow/runs?per_page=100&page=1') && bf07.includes('/actions/workflows/$workflow/runs?per_page=100&page=2') && !bf07.includes('/actions/workflows/$workflow/runs?branch=main') && bf07.includes('p1.get("workflow_runs",[])+p2.get("workflow_runs",[])')],
-  ['prior closed release is resolved from paginated successful automatic Phase 0 audit ancestry', bf07.includes('fetch_workflow_runs production-launch-audit.yml') && bf07.includes('git merge-base --is-ancestor') && bf07.includes('no prior successful automatic production release audit found on the current first-parent ancestry')],
+  ['prior closed release is resolved from bounded first-parent manifest merges with successful automatic Phase 0 audit', bf07.includes('fetch_workflow_runs production-launch-audit.yml') && bf07.includes('git rev-list --first-parent --max-count="$MAX_RELEASE_LINEAGE_MERGES" "$base_sha"') && bf07.includes('candidate_parent_count') && bf07.includes('candidate_parent="${candidate_line[1]}"') && bf07.includes('git diff --quiet "$candidate_parent" "$candidate_sha" -- release/production.json && continue') && bf07.includes('candidate_launch_audit_success') && bf07.includes('no prior closed production release with a successful automatic launch audit found on bounded first-parent history') && !bf07.includes('git merge-base --is-ancestor')],
   ['prior release baseline must have successful BF-07 from paginated history', bf07.includes('fetch_workflow_runs bf07-seal.yml') && bf07.includes('prior closed release has no successful BF-07 seal on main')],
   ['prior release baseline must have successful automatic production deployment from paginated history', bf07.includes('fetch_workflow_runs deploy-production.yml') && bf07.includes('prior closed release has no successful automatic production deployment on main')],
   ['prior release baseline must have successful automatic post-deploy smoke from paginated history', bf07.includes('fetch_workflow_runs postdeploy-smoke.yml') && bf07.includes('prior closed release has no successful automatic post-deploy smoke on main')],
@@ -64,3 +68,48 @@ if (failures.length) {
   process.exit(1);
 }
 console.log(`V82 release provenance governance PASS (${checks.length}/${checks.length})`);
+
+// Execute the actual workflow selector against real Git ancestry, rather than
+// duplicating its decision logic in the test.
+const selector = bf07.slice(bf07.indexOf("          previous_release_sha=''"), bf07.indexOf('          prior_bf07_json='))
+  .split('\n').map(line => line.replace(/^          /, '')).join('\n');
+assert.ok(selector.includes('while IFS= read -r candidate_sha; do'));
+const fixture = mkdtempSync(join(tmpdir(), 'thebe-release-baseline-'));
+try {
+  const git = (...args) => execFileSync('git', args, { cwd: fixture, encoding: 'utf8' }).trim();
+  git('init', '-q', '-b', 'main');
+  git('config', 'user.name', 'Release test');
+  git('config', 'user.email', 'release-test@example.invalid');
+  mkdirSync(join(fixture, 'release'));
+  writeFileSync(join(fixture, 'release/production.json'), '0\n');
+  git('add', '.'); git('commit', '-qm', 'bootstrap');
+  const merge = (branch, path, value) => {
+    git('checkout', '-qb', branch);
+    writeFileSync(join(fixture, path), value);
+    git('add', '.'); git('commit', '-qm', branch);
+    git('checkout', '-q', 'main'); git('merge', '--no-ff', '-qm', branch, branch);
+    return git('rev-parse', 'HEAD');
+  };
+  const release = merge('closed-release', 'release/production.json', '1\n');
+  const source = merge('ordinary-source', 'source.txt', 'source\n');
+  const failedRelease = merge('failed-release', 'release/production.json', '2\n');
+  // Successful audit alone must not qualify a direct manifest commit either.
+  writeFileSync(join(fixture, 'release/production.json'), '3\n');
+  git('add', '.'); git('commit', '-qm', 'direct manifest write');
+  const direct = git('rev-parse', 'HEAD');
+  const audit = (sha, overrides = {}) => ({ head_sha: sha, head_branch: 'main', event: 'workflow_run', status: 'completed', conclusion: 'success', ...overrides });
+  const select = (runs, limit = 150) => spawnSync('bash', ['-euo', 'pipefail', '-c', `${selector}\nprintf '%s' "$previous_release_sha"`], {
+    cwd: fixture, encoding: 'utf8', env: { ...process.env, base_sha: direct, MAX_RELEASE_LINEAGE_MERGES: String(limit), prior_launch_audit_json: JSON.stringify({ workflow_runs: runs }) }
+  });
+  const result = select([audit(direct), audit(source), audit(failedRelease, { conclusion: 'failure' }), audit(release)]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(result.stdout.endsWith(release), 'select closed release, skipping source merges, failed releases and direct commits');
+  for (const overrides of [{ head_branch: 'feature' }, { event: 'workflow_dispatch' }, { status: 'in_progress' }, { conclusion: 'failure' }]) {
+    assert.notEqual(select([audit(release, overrides)]).status, 0, 'ineligible audit must fail closed');
+  }
+  assert.notEqual(select([audit(release)], 2).status, 0, 'history cap must fail closed instead of accepting an older release');
+  assert.notEqual(select([]).status, 0, 'missing audit evidence must fail closed');
+  console.log('PASS real Git release baseline selection and fail-closed audit/history boundaries');
+} finally {
+  rmSync(fixture, { recursive: true, force: true });
+}
