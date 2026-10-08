@@ -48,4 +48,8 @@ assert.equal(db.prepare("SELECT status FROM agent_cost_reservations WHERE id='di
 assert.throws(()=>db.prepare("UPDATE agent_cost_reservations SET status='reserved' WHERE id='direct'").run(),/cost_invalid_transition/);
 db.prepare("UPDATE agent_cost_reservations SET status='released' WHERE id='direct'").run();
 assert.deepEqual(balance(),{spent:650,reserved:0});
+// A ledger entry cannot impersonate another tenant or invent a lifecycle event.
+assert.throws(()=>db.prepare("INSERT INTO agent_cost_events(reservation_id,tenant_id,agent_id,event_type,estimate_minor) VALUES('r1','other','thebe','released',600)").run(),/cost_event_reservation_mismatch/);
+assert.throws(()=>db.prepare("INSERT INTO agent_cost_events(reservation_id,tenant_id,agent_id,event_type,estimate_minor) VALUES('r1','t1','thebe','released',600)").run(),/cost_event_reservation_mismatch/);
+assert.throws(()=>db.prepare("INSERT INTO agent_cost_events(reservation_id,tenant_id,agent_id,event_type,estimate_minor) VALUES('direct','t1','thebe','reserved',100)").run(),/cost_event_reservation_mismatch/);
 console.log("Agent cost transactional lifecycle and audit tests passed");
