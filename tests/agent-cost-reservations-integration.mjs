@@ -3,7 +3,7 @@ import {readFileSync} from "node:fs";
 import {DatabaseSync} from "node:sqlite";
 import {reserveAgentCost,settleAgentCost,releaseAgentCost} from "../cloudflare/src/agent-cost-reservations.js";
 const db=new DatabaseSync(":memory:");
-db.exec(readFileSync(new URL("../cloudflare/migrations/068_agent_cost_accounting.sql",import.meta.url),"utf8"));
+db.exec(readFileSync(new URL("../cloudflare/experimental/agent_cost_accounting.sql",import.meta.url),"utf8"));
 db.prepare("INSERT INTO agent_cost_budgets(tenant_id,agent_id,budget_minor,enabled) VALUES('t1','thebe',1000,1)").run();
 const env={DB:{
  prepare(sql){let values=[];return {bind(...v){values=v;return this},first(){return db.prepare(sql).get(...values)},run(){return db.prepare(sql).run(...values)}}},
