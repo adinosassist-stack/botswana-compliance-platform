@@ -21,7 +21,7 @@
 .property-ops-readiness-v262{display:grid;place-items:center;align-content:center;gap:7px;min-height:198px;padding:12px;border-radius:13px;background:#11140f;color:#fff;text-align:center}
 .property-ops-ring-v262{
   --property-ops-angle:0deg;position:relative;width:104px;height:104px;border-radius:50%;display:grid;place-items:center;
-  background:var(--property-accent,#c7ef32)
+  background:conic-gradient(var(--property-accent,#c7ef32) var(--property-ops-angle),rgba(255,255,255,.13) 0)
 }
 .property-ops-ring-v262::after{content:"";position:absolute;inset:8px;border-radius:inherit;background:#11140f}
 .property-ops-readiness-value-v262{position:relative;z-index:1;font-size:22px;letter-spacing:-.04em}

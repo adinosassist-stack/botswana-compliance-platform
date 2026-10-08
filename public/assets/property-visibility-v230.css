@@ -135,7 +135,7 @@ body.property-ai-fullscreen-v260 #aiservices .copilot-truth{clear:both!important
 .property-yield-card-v261>span{font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#cbd0c7}
 .property-yield-ring-v261{
   --property-yield-angle:0deg;width:112px;height:112px;border-radius:50%;display:grid;place-items:center;position:relative;
-  background:var(--property-accent,#c7ef32)
+  background:conic-gradient(var(--property-accent) var(--property-yield-angle),rgba(255,255,255,.13) 0)
 }
 .property-yield-ring-v261::after{content:"";position:absolute;inset:9px;border-radius:inherit;background:#11140f}
 .property-yield-value-v261{position:relative;z-index:1;font-size:24px;letter-spacing:-.04em}
