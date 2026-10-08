@@ -102,3 +102,20 @@ CREATE TRIGGER IF NOT EXISTS agent_cost_event_tenant_match
 BEFORE INSERT ON agent_cost_events
 WHEN NOT EXISTS (SELECT 1 FROM agent_cost_reservations WHERE id=NEW.reservation_id AND tenant_id=NEW.tenant_id AND agent_id=NEW.agent_id)
 BEGIN SELECT RAISE(ABORT,'cost_event_tenant_mismatch'); END;
+
+-- Tenant-scoped ledger entries must always refer to the reservation they claim.
+-- Reject forged or mismatched tenant, agent, estimate or event lifecycle data.
+CREATE TRIGGER IF NOT EXISTS agent_cost_event_validate
+BEFORE INSERT ON agent_cost_events
+BEGIN
+ SELECT CASE WHEN NOT EXISTS (
+   SELECT 1 FROM agent_cost_reservations r
+   WHERE r.id=NEW.reservation_id
+     AND r.tenant_id=NEW.tenant_id
+     AND r.agent_id=NEW.agent_id
+     AND r.estimate_minor=NEW.estimate_minor
+     AND ((NEW.event_type='reserved' AND r.status='reserved' AND NEW.actual_minor IS NULL)
+       OR (NEW.event_type='settled' AND r.status='settled' AND NEW.actual_minor=r.actual_minor)
+       OR (NEW.event_type='released' AND r.status='released' AND NEW.actual_minor IS NULL))
+ ) THEN RAISE(ABORT,'cost_event_reservation_mismatch') END;
+END;
