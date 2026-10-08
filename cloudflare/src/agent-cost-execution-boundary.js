@@ -15,6 +15,8 @@ export async function authorizeAndReserveAgentCost(env,{guardInput,reservationIn
  if(!tenantId||tenantId!==actorTenantId||tenantId!==targetTenantId||
     reservationInput.tenantId!==tenantId||reservationInput.actorTenantId!==tenantId||
     !reservationInput.agentId||reservationInput.agentId!==String(guardInput.agentKey||"thebe")||
+    typeof reservationInput.runId!=="string"||!reservationInput.runId.trim()||
+    typeof reservationInput.reservationId!=="string"||!reservationInput.reservationId.trim()||
     guardInput.costAdmission===null||!guardInput.costAdmission||
     guardInput.costAdmission.tenantId!==tenantId||
     guardInput.costAdmission.actorTenantId!==tenantId||
