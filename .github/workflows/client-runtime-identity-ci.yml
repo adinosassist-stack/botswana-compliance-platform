@@ -52,6 +52,7 @@ jobs:
           node --check public/js/money-inputs-v310.js
           node tests/v310-finance-inputs-runtime.mjs
           node tests/v310-workspace-input-coverage.mjs
+          node tests/v312-property-solid-surfaces.mjs
           node --check public/js/money-workspace-v307.js
           node --check public/js/protect-workspace-v308.js
           node --check public/js/workspace-infographics-v309.js
