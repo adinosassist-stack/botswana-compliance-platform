@@ -56,3 +56,44 @@ BEGIN SELECT RAISE(ABORT,'cost_event_immutable'); END;
 CREATE TRIGGER IF NOT EXISTS agent_cost_events_no_delete
 BEFORE DELETE ON agent_cost_events
 BEGIN SELECT RAISE(ABORT,'cost_event_delete_forbidden'); END;
+
+-- Enforce atomic budget movement from inside the reservation statement.
+-- Unlike checking batch metadata after COMMIT, a rejected transition aborts
+-- the entire statement and its accounting mutation.
+CREATE TRIGGER IF NOT EXISTS agent_cost_reserve_budget
+AFTER INSERT ON agent_cost_reservations
+BEGIN
+ UPDATE agent_cost_budgets
+ SET reserved_minor=reserved_minor+NEW.estimate_minor,updated_at=CURRENT_TIMESTAMP
+ WHERE tenant_id=NEW.tenant_id AND agent_id=NEW.agent_id
+   AND enabled=1 AND suspended=0
+   AND spent_minor+reserved_minor+NEW.estimate_minor<=budget_minor;
+ SELECT CASE WHEN changes()!=1 THEN RAISE(ABORT,'cost_reservation_budget_rejected') END;
+END;
+CREATE TRIGGER IF NOT EXISTS agent_cost_settle_budget
+AFTER UPDATE OF status ON agent_cost_reservations
+WHEN NEW.status='settled' AND OLD.status='reserved'
+BEGIN
+ UPDATE agent_cost_budgets
+ SET reserved_minor=reserved_minor-OLD.estimate_minor,
+     spent_minor=spent_minor+NEW.actual_minor,updated_at=CURRENT_TIMESTAMP
+ WHERE tenant_id=OLD.tenant_id AND agent_id=OLD.agent_id
+   AND NEW.actual_minor IS NOT NULL
+   AND reserved_minor>=OLD.estimate_minor
+   AND spent_minor+reserved_minor-OLD.estimate_minor+NEW.actual_minor<=budget_minor;
+ SELECT CASE WHEN changes()!=1 THEN RAISE(ABORT,'cost_settlement_budget_rejected') END;
+END;
+CREATE TRIGGER IF NOT EXISTS agent_cost_release_budget
+AFTER UPDATE OF status ON agent_cost_reservations
+WHEN NEW.status='released' AND OLD.status='reserved'
+BEGIN
+ UPDATE agent_cost_budgets
+ SET reserved_minor=reserved_minor-OLD.estimate_minor,updated_at=CURRENT_TIMESTAMP
+ WHERE tenant_id=OLD.tenant_id AND agent_id=OLD.agent_id
+   AND reserved_minor>=OLD.estimate_minor;
+ SELECT CASE WHEN changes()!=1 THEN RAISE(ABORT,'cost_release_budget_rejected') END;
+END;
+CREATE TRIGGER IF NOT EXISTS agent_cost_no_invalid_transition
+BEFORE UPDATE OF status ON agent_cost_reservations
+WHEN OLD.status!='reserved' OR NEW.status NOT IN ('settled','released')
+BEGIN SELECT RAISE(ABORT,'cost_invalid_transition'); END;
