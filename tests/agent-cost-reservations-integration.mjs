@@ -35,4 +35,8 @@ assert.equal((await releaseAgentCost(env,{...args,reservationId:"r4"})).allowed,
 assert.deepEqual(balance(),{spent:650,reserved:0});
 const events=db.prepare("SELECT reservation_id,event_type FROM agent_cost_events ORDER BY id").all().map(row=>({...row}));
 assert.deepEqual(events,[{reservation_id:"r1",event_type:"reserved"},{reservation_id:"r3",event_type:"reserved"},{reservation_id:"r1",event_type:"settled"},{reservation_id:"r3",event_type:"released"},{reservation_id:"r4",event_type:"reserved"},{reservation_id:"r4",event_type:"released"}]);
+assert.throws(()=>db.prepare("DELETE FROM agent_cost_events WHERE reservation_id='r1'").run(),/cost_event_delete_forbidden/);
+assert.throws(()=>db.prepare("UPDATE agent_cost_events SET actual_minor=0 WHERE reservation_id='r1'").run(),/cost_event_immutable/);
+assert.throws(()=>db.prepare("DELETE FROM agent_cost_reservations WHERE id='r1'").run(),/cost_reservation_delete_forbidden/);
+assert.throws(()=>db.prepare("UPDATE agent_cost_reservations SET estimate_minor=0 WHERE id='r1'").run(),/cost_reservation_identity_immutable/);
 console.log("Agent cost transactional lifecycle and audit tests passed");
