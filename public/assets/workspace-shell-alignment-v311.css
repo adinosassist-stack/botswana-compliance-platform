@@ -1,0 +1,41 @@
+/* V311 workspace shell alignment.
+   Presentation-only guard: top-level summary/status grids should use the full content
+   width of their own parent shell, without introducing a second horizontal inset. */
+#mainContent .workspace-infographic-v309 :is(
+  .workspace-info-grid-v309,
+  .outcome-grid,
+  .business-outcome-grid,
+  .proof-summary-grid,
+  .money-v307-status-grid,
+  .protect-v308-status-grid,
+  .market-v257-stats
+){
+  width:100%!important;
+  max-width:100%!important;
+  margin-left:0!important;
+  margin-right:0!important;
+  box-sizing:border-box!important;
+  justify-self:stretch!important;
+}
+
+#mainContent .workspace-infographic-v309 .workspace-info-scale-v309{
+  width:100%!important;
+  max-width:100%!important;
+  margin-left:0!important;
+  margin-right:0!important;
+  box-sizing:border-box!important;
+}
+
+@media(max-width:620px){
+  #mainContent .workspace-infographic-v309 :is(
+    .workspace-info-grid-v309,
+    .outcome-grid,
+    .business-outcome-grid,
+    .proof-summary-grid,
+    .money-v307-status-grid,
+    .protect-v308-status-grid,
+    .market-v257-stats
+  ){
+    min-width:0!important;
+  }
+}
