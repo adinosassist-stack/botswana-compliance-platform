@@ -141,3 +141,9 @@ CREATE TRIGGER IF NOT EXISTS agent_cost_terminal_status_immutable
 BEFORE UPDATE OF status ON agent_cost_reservations
 WHEN OLD.status IN ('settled','released')
 BEGIN SELECT RAISE(ABORT,'cost_terminal_status_immutable'); END;
+
+-- Reservation evidence cannot be pre-populated while still pending.
+CREATE TRIGGER IF NOT EXISTS agent_cost_pending_usage_immutable
+BEFORE UPDATE OF actual_minor,provider,model,input_tokens,output_tokens,settled_at ON agent_cost_reservations
+WHEN OLD.status='reserved' AND NEW.status='reserved'
+BEGIN SELECT RAISE(ABORT,'cost_pending_usage_immutable'); END;
