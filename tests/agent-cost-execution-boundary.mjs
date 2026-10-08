@@ -22,6 +22,13 @@ assert.equal(calls,0);
 // The runtime guard may deny first; do not mistake that for exercising the
 // reservation estimate identity check. Require an explicit guard denial code.
 assert.notEqual(forbidden.code,"cost_boundary_identity_mismatch");
+// Missing reservation identity must never reach storage, even if execution is denied earlier.
+for(const invalid of [{runId:""},{reservationId:""},{runId:null},{reservationId:null}]){
+ const result=await authorizeAndReserveAgentCost(env,{guardInput:{...guardInput,mode:"execute",costAdmission:admission},reservationInput:{...reservationInput,...invalid}});
+ assert.equal(result.allowed,false);
+ assert.equal(result.executionAllowed,false);
+ assert.equal(calls,0);
+}
 const missing=await authorizeAndReserveAgentCost(env,{});
 assert.equal(missing.code,"cost_boundary_invalid");
 assert.equal(calls,0);
