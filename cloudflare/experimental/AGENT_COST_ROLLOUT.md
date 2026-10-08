@@ -21,3 +21,6 @@ Status: experimental, not approved for production. The schema in agent_cost_acco
 - Application transactional batches write ledger events; direct SQL reservation changes can update budget counters without producing corresponding audit events. Restrict direct database writes.
 - The reservation module is not proven to be connected to live execution.
 - CI success is not migration rehearsal or deployment approval.
+
+## Mandatory reconciliation gate
+Before any budget activation, query `SELECT * FROM agent_cost_ledger_gaps;` on the target database. The result must be empty. If any rows appear, halt rollout, disable new reservations, investigate the originating writes, and reconcile with independently recorded provider usage. Do not delete or backfill events without an approved audit-repair process.
