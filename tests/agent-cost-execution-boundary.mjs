@@ -11,6 +11,13 @@ assert.equal(calls,0);
 const mismatch=await authorizeAndReserveAgentCost(env,{guardInput:{...guardInput,mode:"execute",targetTenantId:"other"},reservationInput});
 assert.equal(mismatch.allowed,false);
 assert.equal(calls,0);
+const admission={tenantId:"t1",actorTenantId:"t1",agentId:"thebe",estimatedCostMinor:1,spentMinor:0,budgetMinor:100,usageKnown:true,enabled:true};
+const forbidden=await authorizeAndReserveAgentCost(env,{
+ guardInput:{...guardInput,mode:"execute",costAdmission:admission},
+ reservationInput:{...reservationInput,estimatedCostMinor:2}
+});
+assert.equal(forbidden.allowed,false);
+assert.equal(calls,0);
 const missing=await authorizeAndReserveAgentCost(env,{});
 assert.equal(missing.code,"cost_boundary_invalid");
 assert.equal(calls,0);
