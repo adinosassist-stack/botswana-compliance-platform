@@ -125,3 +125,12 @@ CREATE TRIGGER IF NOT EXISTS agent_cost_terminal_usage_immutable
 BEFORE UPDATE OF actual_minor,provider,model,input_tokens,output_tokens,settled_at ON agent_cost_reservations
 WHEN OLD.status IN ('settled','released')
 BEGIN SELECT RAISE(ABORT,'cost_terminal_usage_immutable'); END;
+
+-- Only authenticated application paths should write reservations. Until
+-- automatic trigger-owned journaling is implemented, detect any missing
+-- event records during operator reconciliation with this read-only view.
+CREATE VIEW IF NOT EXISTS agent_cost_ledger_gaps AS
+SELECT r.id AS reservation_id,r.tenant_id,r.agent_id,r.status
+FROM agent_cost_reservations r
+WHERE NOT EXISTS (SELECT 1 FROM agent_cost_events e WHERE e.reservation_id=r.id AND e.event_type='reserved')
+   OR (r.status IN ('settled','released') AND NOT EXISTS (SELECT 1 FROM agent_cost_events e WHERE e.reservation_id=r.id AND e.event_type=r.status));
