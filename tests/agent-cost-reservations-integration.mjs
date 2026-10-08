@@ -61,5 +61,5 @@ assert.throws(() => db.prepare("UPDATE agent_cost_reservations SET model='change
 const gaps=db.prepare("SELECT reservation_id FROM agent_cost_ledger_gaps ORDER BY reservation_id").all().map(x=>x.reservation_id);
 assert.deepEqual(gaps,["direct"]);
 assert.throws(() => db.prepare("UPDATE agent_cost_reservations SET status='released' WHERE id='r1'").run(), /cost_(terminal_status_immutable|invalid_transition)/);
-assert.throws(() => db.prepare("UPDATE agent_cost_reservations SET actual_minor=1 WHERE id='r5'").run(), /cost_pending_usage_immutable/);
+assert.throws(() => db.prepare("UPDATE agent_cost_reservations SET actual_minor=1 WHERE id='direct'").run(), /cost_pending_usage_immutable/);
 console.log("Agent cost transactional lifecycle and audit tests passed");
