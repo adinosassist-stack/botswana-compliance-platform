@@ -52,4 +52,6 @@ assert.deepEqual(balance(),{spent:650,reserved:0});
 assert.throws(()=>db.prepare("INSERT INTO agent_cost_events(reservation_id,tenant_id,agent_id,event_type,estimate_minor) VALUES('r1','other','thebe','released',600)").run(),/cost_event_reservation_mismatch/);
 assert.throws(()=>db.prepare("INSERT INTO agent_cost_events(reservation_id,tenant_id,agent_id,event_type,estimate_minor) VALUES('r1','t1','thebe','released',600)").run(),/cost_event_reservation_mismatch/);
 assert.throws(()=>db.prepare("INSERT INTO agent_cost_events(reservation_id,tenant_id,agent_id,event_type,estimate_minor) VALUES('direct','t1','thebe','reserved',100)").run(),/cost_event_reservation_mismatch/);
+const tenantCheck=db.prepare("SELECT count(*) AS n FROM agent_cost_events WHERE tenant_id='t1'").get();
+assert.equal(tenantCheck.n,6);
 console.log("Agent cost transactional lifecycle and audit tests passed");
