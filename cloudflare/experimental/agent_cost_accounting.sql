@@ -119,3 +119,9 @@ BEGIN
        OR (NEW.event_type='released' AND r.status='released' AND NEW.actual_minor IS NULL))
  ) THEN RAISE(ABORT,'cost_event_reservation_mismatch') END;
 END;
+
+-- Once a reservation is terminal, its usage and provider evidence is frozen.
+CREATE TRIGGER IF NOT EXISTS agent_cost_terminal_usage_immutable
+BEFORE UPDATE OF actual_minor,provider,model,input_tokens,output_tokens,settled_at ON agent_cost_reservations
+WHEN OLD.status IN ('settled','released')
+BEGIN SELECT RAISE(ABORT,'cost_terminal_usage_immutable'); END;
