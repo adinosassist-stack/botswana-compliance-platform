@@ -1,5 +1,14 @@
 name: Agent cost accounting
 on:
+  push:
+    branches:
+      - 'chatgpt/agent-runtime-economics-20261008'
+    paths:
+      - 'cloudflare/src/agent-cost-*.js'
+      - 'cloudflare/src/agent-runtime-guard.js'
+      - 'cloudflare/experimental/agent_cost_accounting.sql'
+      - 'tests/agent-cost-*.mjs'
+      - '.github/workflows/agent-cost-accounting.yml'
   pull_request:
     paths:
       - 'cloudflare/src/agent-cost-*.js'
