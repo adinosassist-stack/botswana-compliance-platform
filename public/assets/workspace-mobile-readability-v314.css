@@ -1,0 +1,88 @@
+/* V314: make generic workspace infographic summaries scan like People on phones.
+   Additive/app-only. Property, calculator and dock geometry are intentionally out of scope. */
+@media(max-width:620px){
+  #mainContent :is(
+    #workhub,
+    #businesshub,
+    #evidencehub,
+    #tenderhub,
+    #automationhub,
+    #moneyhub,
+    #protecthub,
+    #sites,
+    #servicesmarketplace
+  ).workspace-infographic-v309 .workspace-info-grid-v309{
+    grid-template-columns:1fr!important;
+    gap:9px!important;
+  }
+
+  #mainContent :is(
+    #workhub,
+    #businesshub,
+    #evidencehub,
+    #tenderhub,
+    #automationhub,
+    #moneyhub,
+    #protecthub,
+    #sites,
+    #servicesmarketplace
+  ).workspace-infographic-v309 .workspace-info-card-v309{
+    display:grid!important;
+    grid-template-columns:36px minmax(0,1fr)!important;
+    grid-template-areas:
+      "icon value"
+      "icon label"
+      "bar bar";
+    column-gap:10px!important;
+    row-gap:2px!important;
+    align-items:center!important;
+    min-height:82px;
+    padding:12px 14px!important;
+  }
+
+  #mainContent .workspace-infographic-v309 .workspace-info-card-v309>.workspace-info-icon-v309{
+    grid-area:icon;
+    align-self:center;
+    margin:0;
+    width:32px;
+    height:32px;
+  }
+
+  #mainContent .workspace-infographic-v309 .workspace-info-card-v309>b{
+    grid-area:value;
+    align-self:end;
+    font-size:22px;
+    line-height:1.1;
+  }
+
+  #mainContent .workspace-infographic-v309 .workspace-info-card-v309>.workspace-info-label-v309{
+    grid-area:label;
+    align-self:start;
+    min-width:0;
+    overflow-wrap:anywhere;
+  }
+
+  #mainContent .workspace-infographic-v309 .workspace-info-card-v309>.workspace-info-bar-v309{
+    grid-area:bar;
+    margin-top:7px;
+  }
+
+  #mainContent .workspace-infographic-v309 .workspace-info-scale-v309{
+    margin-top:2px;
+    margin-bottom:12px;
+    line-height:1.35;
+  }
+}
+
+@media(max-width:360px){
+  #mainContent .workspace-infographic-v309 .workspace-info-card-v309{
+    grid-template-columns:32px minmax(0,1fr)!important;
+    column-gap:9px!important;
+    padding:11px 12px!important;
+  }
+
+  #mainContent .workspace-infographic-v309 .workspace-info-card-v309>.workspace-info-icon-v309{
+    width:30px;
+    height:30px;
+  }
+}
