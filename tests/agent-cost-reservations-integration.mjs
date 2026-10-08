@@ -12,6 +12,13 @@ const env={DB:{
 const args={tenantId:"t1",actorTenantId:"t1",agentId:"thebe"};
 const reserve=(id,amount)=>reserveAgentCost(env,{...args,runId:id,reservationId:id,estimatedCostMinor:amount});
 const balance=()=>({...db.prepare("SELECT spent_minor spent,reserved_minor reserved FROM agent_cost_budgets WHERE tenant_id='t1' AND agent_id='thebe'").get()});
+// Reject malformed identifiers before any accounting mutation.
+for(const bad of ["", "  ", null, 42]){
+ const result=await reserveAgentCost(env,{...args,runId:bad,reservationId:"invalid-id",estimatedCostMinor:1});
+ assert.equal(result.code,"cost_reservation_invalid");
+}
+assert.equal((await settleAgentCost(env,{...args,reservationId:"  ",actualCostMinor:1,provider:"test",model:"mock",inputTokens:0,outputTokens:0})).code,"cost_settlement_invalid");
+assert.equal((await releaseAgentCost(env,{...args,reservationId:"  "})).code,"cost_release_invalid");
 assert.equal((await reserve("r1",600)).allowed,true);
 assert.deepEqual(balance(),{spent:0,reserved:600});
 assert.equal((await reserve("r2",500)).allowed,false);
