@@ -17,5 +17,6 @@ jobs:
         with:
           node-version: '22'
       - run: node tests/agent-cost-admission.mjs
+      - run: node tests/agent-cost-execution-boundary.mjs
       - run: node tests/agent-cost-reservations-static.mjs
       - run: node --disable-warning=ExperimentalWarning tests/agent-cost-reservations-integration.mjs
