@@ -38,3 +38,21 @@ CREATE TABLE IF NOT EXISTS agent_cost_events (
  FOREIGN KEY(reservation_id) REFERENCES agent_cost_reservations(id)
 );
 CREATE INDEX IF NOT EXISTS idx_agent_cost_events_tenant_created ON agent_cost_events(tenant_id,agent_id,created_at);
+
+-- Database-level invariant: reservation transitions and budget accounting must
+-- not be separable by callers. These triggers reject invalid lifecycle changes.
+CREATE TRIGGER IF NOT EXISTS agent_cost_budget_immutable_keys
+BEFORE UPDATE OF tenant_id,agent_id ON agent_cost_budgets
+BEGIN SELECT RAISE(ABORT,'cost_budget_identity_immutable'); END;
+CREATE TRIGGER IF NOT EXISTS agent_cost_reservation_immutable
+BEFORE UPDATE OF id,tenant_id,agent_id,run_id,estimate_minor ON agent_cost_reservations
+BEGIN SELECT RAISE(ABORT,'cost_reservation_identity_immutable'); END;
+CREATE TRIGGER IF NOT EXISTS agent_cost_reservation_no_delete
+BEFORE DELETE ON agent_cost_reservations
+BEGIN SELECT RAISE(ABORT,'cost_reservation_delete_forbidden'); END;
+CREATE TRIGGER IF NOT EXISTS agent_cost_events_no_update
+BEFORE UPDATE ON agent_cost_events
+BEGIN SELECT RAISE(ABORT,'cost_event_immutable'); END;
+CREATE TRIGGER IF NOT EXISTS agent_cost_events_no_delete
+BEFORE DELETE ON agent_cost_events
+BEGIN SELECT RAISE(ABORT,'cost_event_delete_forbidden'); END;
