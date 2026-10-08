@@ -230,14 +230,19 @@ jobs:
           previous_release_sha=''
           while IFS= read -r candidate_sha; do
             [[ "$candidate_sha" =~ ^[0-9a-f]{40}$ ]] || continue
-            [[ "$candidate_sha" != "$release_sha" ]] || continue
             git cat-file -e "$candidate_sha^{commit}" 2>/dev/null || continue
-            if git merge-base --is-ancestor "$candidate_sha" "$release_sha"; then
+            read -r -a candidate_line <<< "$(git rev-list --parents -n 1 "$candidate_sha")"
+            candidate_parent_count=$(( ${#candidate_line[@]} - 1 ))
+            [[ "$candidate_parent_count" == '2' ]] || continue
+            candidate_parent="${candidate_line[1]}"
+            git diff --quiet "$candidate_parent" "$candidate_sha" -- release/production.json && continue
+            candidate_launch_audit_success="$(printf '%s' "$prior_launch_audit_json" | CANDIDATE_SHA="$candidate_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["CANDIDATE_SHA"]; runs=body.get("workflow_runs",[]); print("1" if any(run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("event")=="workflow_run" and run.get("status")=="completed" and run.get("conclusion")=="success" for run in runs) else "0")')"
+            if [[ "$candidate_launch_audit_success" == '1' ]]; then
               previous_release_sha="$candidate_sha"
               break
             fi
-          done < <(printf '%s' "$prior_launch_audit_json" | python3 -c 'import json,sys; body=json.load(sys.stdin); runs=body.get("workflow_runs",[]); [print(run.get("head_sha")) for run in runs if run.get("event")=="workflow_run" and run.get("status")=="completed" and run.get("conclusion")=="success" and isinstance(run.get("head_sha"),str)]')
-          [[ "$previous_release_sha" =~ ^[0-9a-f]{40}$ ]] || { echo 'no prior successful automatic production release audit found on the current first-parent ancestry' >&2; exit 1; }
+          done < <(git rev-list --first-parent --max-count="$MAX_RELEASE_LINEAGE_MERGES" "$base_sha")
+          [[ "$previous_release_sha" =~ ^[0-9a-f]{40}$ ]] || { echo 'no prior closed production release with a successful automatic launch audit found on bounded first-parent history' >&2; exit 1; }
           echo "Prior closed production release resolved: ${previous_release_sha:0:12}"
 
           prior_bf07_json="$(fetch_workflow_runs bf07-seal.yml)"
