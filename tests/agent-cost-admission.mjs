@@ -21,4 +21,3 @@ assert.equal(guard.code,"agent_cost_budget_exceeded");
 const unknown=evaluateAgentRuntimeGuard({actionKey:"task.create",tenantScoped:true,tenantId:"t1",actorTenantId:"t1",targetTenantId:"t1",costAdmission:{...base,usageKnown:false}});
 assert.equal(unknown.code,"cost_usage_unknown");
 console.log("Agent cost admission tests passed");
-\n
