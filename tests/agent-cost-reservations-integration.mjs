@@ -39,4 +39,13 @@ assert.throws(()=>db.prepare("DELETE FROM agent_cost_events WHERE reservation_id
 assert.throws(()=>db.prepare("UPDATE agent_cost_events SET actual_minor=0 WHERE reservation_id='r1'").run(),/cost_event_immutable/);
 assert.throws(()=>db.prepare("DELETE FROM agent_cost_reservations WHERE id='r1'").run(),/cost_reservation_delete_forbidden/);
 assert.throws(()=>db.prepare("UPDATE agent_cost_reservations SET estimate_minor=0 WHERE id='r1'").run(),/cost_reservation_identity_immutable/);
+// A malicious direct SQL transition must not bypass the budget invariant.
+db.prepare("INSERT INTO agent_cost_reservations(id,tenant_id,agent_id,run_id,estimate_minor,status) VALUES('direct','t1','thebe','direct',100,'reserved')").run();
+assert.deepEqual(balance(),{spent:650,reserved:100});
+assert.throws(()=>db.prepare("UPDATE agent_cost_reservations SET status='settled',actual_minor=400 WHERE id='direct'").run(),/cost_settlement_budget_rejected/);
+assert.deepEqual(balance(),{spent:650,reserved:100});
+assert.equal(db.prepare("SELECT status FROM agent_cost_reservations WHERE id='direct'").get().status,'reserved');
+assert.throws(()=>db.prepare("UPDATE agent_cost_reservations SET status='reserved' WHERE id='direct'").run(),/cost_invalid_transition/);
+db.prepare("UPDATE agent_cost_reservations SET status='released' WHERE id='direct'").run();
+assert.deepEqual(balance(),{spent:650,reserved:0});
 console.log("Agent cost transactional lifecycle and audit tests passed");
