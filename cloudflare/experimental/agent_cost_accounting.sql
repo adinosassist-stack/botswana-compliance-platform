@@ -134,3 +134,10 @@ SELECT r.id AS reservation_id,r.tenant_id,r.agent_id,r.status
 FROM agent_cost_reservations r
 WHERE NOT EXISTS (SELECT 1 FROM agent_cost_events e WHERE e.reservation_id=r.id AND e.event_type='reserved')
    OR (r.status IN ('settled','released') AND NOT EXISTS (SELECT 1 FROM agent_cost_events e WHERE e.reservation_id=r.id AND e.event_type=r.status));
+
+-- Reject modifications to the financial fields of a settled or released row.
+-- A terminal reservation is an immutable accounting fact.
+CREATE TRIGGER IF NOT EXISTS agent_cost_terminal_status_immutable
+BEFORE UPDATE OF status ON agent_cost_reservations
+WHEN OLD.status IN ('settled','released')
+BEGIN SELECT RAISE(ABORT,'cost_terminal_status_immutable'); END;
