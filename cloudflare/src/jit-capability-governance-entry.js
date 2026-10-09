@@ -1,4 +1,3 @@
-import base,{logicalRequestPath} from "./release-governance-entry.js";
 import {authenticate,roleAllowed} from "./agentic-authority-core.js";
 import {
   AGENT_JIT_EXECUTION_TOOL_ID,
@@ -51,12 +50,12 @@ function augmentedJsonResponse(response,body){
   return new Response(JSON.stringify(body),{status:response.status,statusText:response.statusText,headers});
 }
 
-async function issueBoundCapability(request,env,ctx,requestId,auth){
+async function issueBoundCapability(request,env,ctx,requestId,auth,taskFetch){
   if(!capabilitySecretReady(env))return json({error:"jit_capability_signing_unavailable"},503,{"retry-after":"60"});
   const requestGrant=await taskRequestGrant(env,auth.tenant_id,requestId);
   if(requestGrant===undefined)return json({error:"jit_capability_authority_unavailable"},503,{"retry-after":"30"});
-  const downstream=await base.fetch(request,env,ctx);
-  if(!downstream.ok)return downstream;
+  const downstream=await taskFetch(request,env,ctx);
+  if(!downstream?.ok)return downstream;
   let body;
   try{body=await downstream.clone().json()}catch{return json({error:"jit_capability_issue_failed"},503)}
   const permit=body?.permit;
@@ -80,7 +79,7 @@ async function issueBoundCapability(request,env,ctx,requestId,auth){
   }});
 }
 
-async function verifyBoundCapability(request,env,ctx,requestId,auth){
+async function verifyBoundCapability(request,env,ctx,requestId,auth,taskFetch){
   if(!capabilitySecretReady(env))return json({error:"jit_capability_verification_unavailable"},503,{"retry-after":"60"});
   const parsed=await readBoundedJsonClone(request);
   if(!parsed.ok)return parsed.response;
@@ -99,23 +98,23 @@ async function verifyBoundCapability(request,env,ctx,requestId,auth){
     String(permit.status)!=="active"||Number(permit.max_uses)!==1||Number(permit.use_count)!==0||new Date(permit.expires_at).getTime()<=Date.now()){
     return json({error:"jit_capability_invalid"},409);
   }
-  return base.fetch(request,env,ctx);
+  return taskFetch(request,env,ctx);
 }
 
-export default {
-  async fetch(request,env,ctx){
-    const path=logicalRequestPath(request),method=request.method;
-    const permit=path.match(/^\/api\/agentic\/task-execution\/requests\/([^/]+)\/jit-permit$/);
-    const execute=path.match(/^\/api\/agentic\/task-execution\/requests\/([^/]+)\/execute$/);
-    if(method!=="POST"||(!permit&&!execute))return base.fetch(request,env,ctx);
+export async function handleJitCapabilityGovernanceRequest({request,logicalPath,env,ctx,taskFetch}){
+  const path=String(logicalPath||new URL(request.url).pathname);
+  if(!path.startsWith("/api/agentic/task-execution"))return null;
+  if(typeof taskFetch!=="function")return json({error:"jit_capability_task_boundary_unavailable"},503,{"retry-after":"30"});
+  const method=String(request.method||"GET").toUpperCase();
+  const permit=path.match(/^\/api\/agentic\/task-execution\/requests\/([^/]+)\/jit-permit$/);
+  const execute=path.match(/^\/api\/agentic\/task-execution\/requests\/([^/]+)\/execute$/);
+  if(method!=="POST"||(!permit&&!execute))return taskFetch(request,env,ctx);
 
-    const auth=await authenticate(request,env);
-    if(!auth||!roleAllowed(auth,"owner"))return base.fetch(request,env,ctx);
-    if(permit)return issueBoundCapability(request,env,ctx,permit[1],auth);
-    return verifyBoundCapability(request,env,ctx,execute[1],auth);
-  },
-  async scheduled(event,env,ctx){return base.scheduled(event,env,ctx)}
-};
+  const auth=await authenticate(request,env);
+  if(!auth||!roleAllowed(auth,"owner"))return taskFetch(request,env,ctx);
+  if(permit)return issueBoundCapability(request,env,ctx,permit[1],auth,taskFetch);
+  return verifyBoundCapability(request,env,ctx,execute[1],auth,taskFetch);
+}
 
 export const __jitCapabilityGovernanceTest=Object.freeze({
   ACTION_KEY,THEBE_AGENT_ID,MAX_EXECUTE_BODY_BYTES,capabilitySecretReady,readBoundedJsonClone
