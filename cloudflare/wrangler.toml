@@ -1,5 +1,5 @@
 name = "bw-compliance-os"
-main = "src/release-governance-entry.js"
+main = "src/jit-capability-governance-entry.js"
 compatibility_date = "2026-09-03"
 workers_dev = false
 preview_urls = false
@@ -10,7 +10,7 @@ pattern = "thebedesk.com"
 custom_domain = true
 
 [secrets]
-required = ["SESSION_SECRET", "AUDIT_INTEGRITY_SECRET", "OPERATIONS_SECRET", "AUTOMATION_SECRET", "TURNSTILE_SECRET_KEY", "PAYMENT_WEBHOOK_SECRET", "BILLING_WEBHOOK_SECRET", "OPENAI_API_KEY", "RESEND_API_KEY"]
+required = ["SESSION_SECRET", "AUDIT_INTEGRITY_SECRET", "OPERATIONS_SECRET", "AUTOMATION_SECRET", "TURNSTILE_SECRET_KEY", "PAYMENT_WEBHOOK_SECRET", "BILLING_WEBHOOK_SECRET", "OPENAI_API_KEY", "RESEND_API_KEY", "AGENT_CAPABILITY_SECRET"]
 
 [vars]
 APP_ENV = "production"
@@ -77,6 +77,7 @@ run_worker_first = ["/", "/index.html", "/auth", "/auth/*", "/app", "/app/*", "/
 # Set with: npx wrangler secret put BILLING_WEBHOOK_SECRET
 # Set with: npx wrangler secret put AUTOMATION_SECRET
 # Set with: npx wrangler secret put TURNSTILE_SECRET_KEY
+# Set with: npx wrangler secret put AGENT_CAPABILITY_SECRET
 # Configure TURNSTILE_SITE_KEY as a public environment variable for the production hostname.
 
 [triggers]
@@ -115,6 +116,8 @@ crons = ["15 6 * * *", "15 16 * * *"]
 # can execute the internal task.create lane. All other customer sessions fail closed.
 # The existing owner delegation, separate execution grant, exact-payload approval, Runtime Guard,
 # kill switch, budget controls and daily caps remain mandatory.
+# JIT execution additionally requires a short-lived HMAC capability bound to the exact owner,
+# request, permit, execution grant, payload hash and ephemeral execution environment.
 
 # Payment provider configuration
 # Safe launch default is PAYMENT_PROVIDER="none"; paid checkout stays disabled until an approved provider is explicitly enabled.
