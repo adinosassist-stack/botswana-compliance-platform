@@ -104,7 +104,8 @@ assert.match(core,/executionAuthorityInherited:false/);
 assert.match(core,/goalOverride:loaded\.bundle\.run\.goal/);
 assert.match(core,/do not reuse prior approvals/);
 assert.match(core,/WHERE id=\? AND tenant_id=\? LIMIT 1/,"run continuation lookup must be tenant scoped");
-assert.match(core,/WHERE tenant_id=\? AND run_id=\? AND event_type='RUN_CHECKPOINTED'/,"checkpoint lookup must be tenant and run scoped");
+assert.match(core,/WHERE tenant_id=\? AND run_id=\? AND/,"checkpoint lookup must be tenant and run scoped");
+assert.match(core,/json_type\(detail_json,'\$\.checkpoint'\)='object'/,"checkpoints use the schema-supported plan event");
 assert.match(core,/env\.DB\.batch\(\[/,"plan, proposals and checkpoint should share one persistence batch");
 assert.match(core,/observe_decompose_route_reason_verify_checkpoint_recommend/);
 

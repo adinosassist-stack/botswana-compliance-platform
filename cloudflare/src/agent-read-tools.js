@@ -1,4 +1,5 @@
 import {evaluateAgentAction} from "./agent-policy.js";
+import {evaluateAgentRuntimeGuard} from "./agent-runtime-guard.js";
 import {financeDailyCollections,financeReceivablesSummary,financeReceivableCustomerLookup} from "./finance-receivables.js";
 
 export const AGENT_READ_TOOLS_VERSION="2026-10-01.read-tools-v5";
@@ -85,6 +86,20 @@ function baseResult(actionKey,decision){
     decisionCode:decision?.code||"unknown",
     policyVersion:decision?.policyVersion||null
   };
+}
+
+export function evaluateReadRuntime(actionKey,{env,auth}={}){
+  return evaluateAgentRuntimeGuard({
+    actionKey,
+    actorRole:auth?.role,
+    systemActor:auth?.systemActor===true,
+    tenantScoped:!!auth?.tenant_id,
+    tenantId:auth?.tenant_id,
+    agentStatus:String(env?.AGENT_RUNTIME_ENABLED??"1").trim()==="0"?"disabled":"enabled",
+    killSwitchActive:["1","true","on","yes"].includes(String(env?.AGENT_RUNTIME_KILL_SWITCH??"").trim().toLowerCase()),
+    budgetStatus:String(env?.AGENT_RUNTIME_BUDGET_STATUS??"within_limit"),
+    phase:"phase1"
+  });
 }
 
 async function businessHealth(env,tenantId){
@@ -214,6 +229,8 @@ async function executeOne(actionKey,{env,auth,params={}}){
   const decision=policyDecision(actionKey,auth);
   const result=baseResult(actionKey,decision);
   if(decision.allowed!==true)return Object.freeze({...result,available:false,allowed:false,error:decision.code});
+  const runtime=evaluateReadRuntime(actionKey,{env,auth});
+  if(runtime.allowed!==true)return Object.freeze({...result,available:false,allowed:false,error:runtime.code});
   let data;
   try{
   if(actionKey==="business_health.read")data=await businessHealth(env,auth.tenant_id);
