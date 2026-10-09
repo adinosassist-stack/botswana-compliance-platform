@@ -25,6 +25,7 @@ export function normalizePersistentTask(body={}){
   const trustedTools=validatePersistentTaskAllowedTools(requestedTools);
   if(!trustedTools.valid)return {error:trustedTools.code};
   const allowedTools=trustedTools.tools;
+  if(body.nextRunAt!=null&&typeof body.nextRunAt!=="string")return {error:"invalid_next_run_at"};
   const nextRunAt=validIso(body.nextRunAt);
   if(nextRunAt===undefined)return {error:"invalid_next_run_at"};
   const riskPolicy=plainObject(body.riskPolicy),approvalPolicy=plainObject(body.approvalPolicy),budget=plainObject(body.budget),triggerSpec=plainObject(body.triggerSpec);
