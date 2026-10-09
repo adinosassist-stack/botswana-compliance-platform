@@ -10,6 +10,8 @@ on:
       - 'cloudflare/experimental/agent_cost_accounting.sql'
       - 'tests/agent-cost-*.mjs'
       - 'tests/helpers/agent-cost-schema.mjs'
+      - 'scripts/agent-cost-schema-preflight.mjs'
+      - 'scripts/manifests/agent-cost-schema.json'
       - '.github/workflows/agent-cost-accounting.yml'
   pull_request:
     paths:
@@ -18,6 +20,8 @@ on:
       - 'cloudflare/experimental/agent_cost_accounting.sql'
       - 'tests/agent-cost-*.mjs'
       - 'tests/helpers/agent-cost-schema.mjs'
+      - 'scripts/agent-cost-schema-preflight.mjs'
+      - 'scripts/manifests/agent-cost-schema.json'
       - '.github/workflows/agent-cost-accounting.yml'
   workflow_dispatch:
 jobs:
@@ -41,6 +45,7 @@ jobs:
       - run: node tests/agent-cost-admission.mjs
       - run: node tests/agent-cost-execution-boundary.mjs
       - run: node tests/agent-cost-reservations-static.mjs
+      - run: node tests/agent-cost-schema-preflight.mjs
       - run: node --disable-warning=ExperimentalWarning tests/agent-cost-reservations-integration.mjs
       - run: node --disable-warning=ExperimentalWarning tests/agent-cost-tenant-purge.mjs
       - run: node --disable-warning=ExperimentalWarning tests/agent-cost-outcome-telemetry.mjs

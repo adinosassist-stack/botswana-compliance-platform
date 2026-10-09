@@ -3,6 +3,7 @@ import {execFileSync} from "node:child_process";
 import {mkdtempSync,readFileSync,readdirSync,writeFileSync,rmSync} from "node:fs";
 import {tmpdir} from "node:os";
 import {resolve,join} from "node:path";
+import {inspectAgentCostSchema} from "../scripts/agent-cost-schema-preflight.mjs";
 
 // Qualification only: a throwaway local D1 database with a synthetic binding.
 // Do not load the production Wrangler config, environment files or credentials.
@@ -30,8 +31,11 @@ try{
   const files=readdirSync(join(root,'cloudflare/migrations')).filter(f=>/^\d{3}_.*\.sql$/.test(f)&&Number(f.slice(0,3))>=44).sort();
   assert.equal(files.at(-1),JSON.parse(readFileSync(join(root,'RELEASE_PROFILE.json'),'utf8')).latest_cloudflare_migration);
   const schema=readFileSync(join(root,'cloudflare/experimental/agent_cost_accounting.sql'),'utf8');
-  execute([readFileSync(join(root,'cloudflare/schema.sql'),'utf8'),...files.map(f=>readFileSync(join(root,'cloudflare/migrations',f),'utf8')),schema].join('\n'));
+  execute([readFileSync(join(root,'cloudflare/schema.sql'),'utf8'),...files.map(f=>readFileSync(join(root,'cloudflare/migrations',f),'utf8'))].join('\n'));
+  assert.equal((await inspectAgentCostSchema(rows)).code,'accounting_schema_absent');
   execute(schema);
+  execute(schema);
+  assert.equal((await inspectAgentCostSchema(rows)).code,'accounting_schema_compatible');
   assert.deepEqual(rows('PRAGMA foreign_key_check;'),[]);
   execute("INSERT INTO tenants(id,name) VALUES('t1','Purge'),('t2','Keep'); INSERT INTO users(id,email) VALUES('u1','purge@example.test'); INSERT INTO memberships(tenant_id,user_id,role,status) VALUES('t1','u1','owner','active'); INSERT INTO agent_cost_budgets(tenant_id,agent_id,budget_minor) VALUES('t1','thebe',100),('t2','thebe',100);");
   rejects("INSERT INTO agent_cost_budgets(tenant_id,agent_id,budget_minor) VALUES('missing','thebe',1);",'FOREIGN KEY');
