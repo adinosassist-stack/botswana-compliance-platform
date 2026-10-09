@@ -2,6 +2,9 @@
 
 Status: experimental, not approved for production. The schema in agent_cost_accounting.sql is intentionally outside production migrations.
 
+## V317 shadow telemetry boundary
+V317 adds a provider-neutral cost-to-outcome telemetry contract and recorder that stores measurement-only evidence in the existing `agentic_events` lifecycle. It does **not** promote the experimental accounting schema, enable tenant budgets, reserve spend, authorize execution, or claim provider billing is metered. Missing token usage is recorded as `unknown`, never coerced to zero. BWP estimates require explicit BWP-per-million-token pricing supplied by a trusted caller; no live FX or provider credential is used. Verified cost, when explicitly supplied, is kept distinct from estimates. Outcome linkage uses the existing `agentic_outcomes.run_id` relationship. Automatic live provider-usage ingestion remains a separate gated step.
+
 ## Release gates
 1. Confirm all required CI workflows pass on the same reviewed commit.
 2. Export a D1 backup and rehearse restoration in a nonproduction environment.
@@ -20,6 +23,7 @@ Status: experimental, not approved for production. The schema in agent_cost_acco
 - Schema has not been promoted into the production migration sequence.
 - Application transactional batches write ledger events; direct SQL reservation changes can update budget counters without producing corresponding audit events. Restrict direct database writes.
 - The reservation module is not proven to be connected to live execution.
+- Automatic live provider-usage ingestion is not activated; V317 shadow telemetry must not be represented as a provider billing ledger.
 - CI success is not migration rehearsal or deployment approval.
 
 ## Mandatory reconciliation gate
