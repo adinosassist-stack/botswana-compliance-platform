@@ -33,6 +33,7 @@ assert.match(source,/preflightAgentObservation/);
 assert.match(source,/AGENT_APPROVED_MODELS_JSON/);
 assert.match(source,/tenantId:auth\.tenant_id,actorId:auth\.user_id/);
 assert.doesNotMatch(source,/models:body\.models/);
+assert.match(source,/new TextEncoder\(\)\.encode\(JSON\.stringify\(body\)\)\.byteLength/);
 const migration=fs.readFileSync("cloudflare/migrations/051_v117_persistent_agent_tasks.sql","utf8");
 assert.match(migration,/CREATE TABLE IF NOT EXISTS agent_persistent_tasks/);
 assert.match(migration,/agent_persistent_task_event_tenant_guard/);
