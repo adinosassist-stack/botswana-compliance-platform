@@ -1,0 +1,58 @@
+name: V317 Workspace controls CI
+
+on:
+  pull_request:
+    paths:
+      - "public/js/owner-command-centre.js"
+      - "public/js/owner-focus-strip-v296.js"
+      - "public/assets/workspace-control-polish-v317.css"
+      - "cloudflare/src/asset-release-identity.js"
+      - "tests/v317-workspace-control-polish-browser.mjs"
+      - ".github/workflows/v317-workspace-controls-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "public/js/owner-command-centre.js"
+      - "public/js/owner-focus-strip-v296.js"
+      - "public/assets/workspace-control-polish-v317.css"
+      - "cloudflare/src/asset-release-identity.js"
+      - "tests/v317-workspace-control-polish-browser.mjs"
+      - ".github/workflows/v317-workspace-controls-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  workspace-controls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Install exact dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Install Chromium driver
+        run: npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+
+      - name: Syntax and owner-control regressions
+        run: |
+          node --check public/js/owner-command-centre.js
+          node --check public/js/owner-focus-strip-v296.js
+          node tests/v296-owner-focus-v2.mjs
+          node tests/v303-owner-focus-priority-context.mjs
+      - name: Prove CSP, mobile geometry and failed-data states
+        env:
+          CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome
+        run: node tests/v317-workspace-control-polish-browser.mjs
+      - name: Preserve Owner Focus interactions
+        env:
+          CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome
+        run: node tests/v296-owner-focus-v2-browser.mjs
