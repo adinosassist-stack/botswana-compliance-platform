@@ -124,7 +124,7 @@ assert.match(owner,/historical behavior, not a probability of future payment/);
 assert.match(owner,/Management signal only/);
 
 const agenticEntry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
-assert.match(agenticEntry,/const V81_SCHEMA_DELTA="(?:066_v285_agent_responsibilities|067_v286_customer_relationships)\.sql"/,"Money runtime must retain migration 066 or reviewed customer successor 067");
+assert.match(agenticEntry,/const V81_SCHEMA_DELTA="(?:066_v285_agent_responsibilities|067_v286_customer_relationships|068_agent_cost_accounting)\.sql"/,"Money runtime must retain migration 066 or reviewed customer successor 067");
 const profile=JSON.parse(fs.readFileSync("RELEASE_PROFILE.json","utf8"));
 assert.equal(profile.finance_suppliers_payables_v161,true);
 assert.equal(profile.money_intelligence_v3,true);

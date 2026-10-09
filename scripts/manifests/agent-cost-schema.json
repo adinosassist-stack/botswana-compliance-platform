@@ -1,0 +1,149 @@
+{
+  "version": 1,
+  "source": {
+    "path": "cloudflare/migrations/068_agent_cost_accounting.sql",
+    "sha256": "e5f3db240dc9d18f3625fd63a0c680b15f46d2fffe3697f98c38476d962dd7df"
+  },
+  "objects": [
+    {
+      "type": "index",
+      "name": "idx_agent_cost_events_tenant_created",
+      "sqlSha256": "047a513a4fbf57980279a0b751e9fce2d943266f919792db930cdfad38bbb4ba"
+    },
+    {
+      "type": "index",
+      "name": "idx_agent_cost_reservations_tenant_status",
+      "sqlSha256": "4562d91172d27d1796ee6eb8fb45523c05a9e455df7fdaeacf4cc6485c90ef32"
+    },
+    {
+      "type": "table",
+      "name": "agent_cost_budgets",
+      "sqlSha256": "f08aa14e19618b0bd1545b5598fcd1dc7acec0f4c3d79603a3823b04532017a1"
+    },
+    {
+      "type": "table",
+      "name": "agent_cost_events",
+      "sqlSha256": "177da9c74df15d91f502884e0f964f3fe088b99abc4c6e2411006fe588e80664"
+    },
+    {
+      "type": "table",
+      "name": "agent_cost_purge_authorizations",
+      "sqlSha256": "4fe70160bdfec7b9335d077b44e1a28483935c71e9b1d06c9bc9abcc945f3d75"
+    },
+    {
+      "type": "table",
+      "name": "agent_cost_reservations",
+      "sqlSha256": "ccae824b65e80770ea8333f757083be525823136ae024cfd0b4d0c9b31ba08dc"
+    },
+    {
+      "type": "trigger",
+      "name": "agent_cost_budget_immutable_keys",
+      "sqlSha256": "400737006999d6c9a7acb400a2ef29e45cbe8ebcb63f6512cf3b397c54118f57"
+    },
+    {
+      "type": "trigger",
+      "name": "agent_cost_budget_no_delete",
+      "sqlSha256": "59290d7d7b7a64b89349642d92c87c10adeaf9bb37f8158899fe7e33064f0a84"
+    },
+    {
+      "type": "trigger",
+      "name": "agent_cost_capture_purge_claim",
+      "sqlSha256": "c4e85ccbb7e8e5c35d8df22f5dc47345d4cf56663654f271d0ec38bf096b7969"
+    },
+    {
+      "type": "trigger",
+      "name": "agent_cost_event_tenant_match",
+      "sqlSha256": "15186d535e3971dab9a08e2db9db6b6c84567e95beb11a45266602e14345defc"
+    },
+    {
+      "type": "trigger",
+      "name": "agent_cost_event_validate",
+      "sqlSha256": "7597128b054f8e0c7263f4b3262bb2f60d88d6b95c936754720fe077ce78c299"
+    },
+    {
+      "type": "trigger",
+      "name": "agent_cost_events_no_delete",
+      "sqlSha256": "8e91c0bc4ef55596d73907f53d3e99173fdcd4f233dc62aaf8633d9c700d7fd6"
+    },
+    {
+      "type": "trigger",
+      "name": "agent_cost_events_no_update",
+      "sqlSha256": "de13103a634719b790a7db8f0406a11005d651fe67e03f27547bff9a736bde92"
+    },
+    {
+      "type": "trigger",
+      "name": "agent_cost_no_invalid_transition",
+      "sqlSha256": "e9fe4abd50c8fbc3bd1b7198e372e7a641d2f46767fc8167a25026b44f563389"
+    },
+    {
+      "type": "trigger",
+      "name": "agent_cost_pending_usage_immutable",
+      "sqlSha256": "2b0fe895e59f7ad5ac35b98591e062fac1b91773396cad7ca876ba59a7fc54f2"
+    },
+    {
+      "type": "trigger",
+      "name": "agent_cost_purge_authorization_guard",
+      "sqlSha256": "805b06ce250040657f5d17cc83a02fb53ac8ecac61ca70ddd41fdf10396db6d1"
+    },
+    {
+      "type": "trigger",
+      "name": "agent_cost_purge_authorization_no_delete",
+      "sqlSha256": "4958803d789b33cd6ebf5350a9098f23f9d683725b7e1a91d4972fff5e81602d"
+    },
+    {
+      "type": "trigger",
+      "name": "agent_cost_purge_authorization_no_update",
+      "sqlSha256": "97ab9d313a6214aecfa5de7b00473f949310efeeee332d479ec3eb464da20276"
+    },
+    {
+      "type": "trigger",
+      "name": "agent_cost_release_budget",
+      "sqlSha256": "18451f677d8f0d53f47aeee4d4338b4b8da7bc1332b895dd9c8bf86ce3db29c0"
+    },
+    {
+      "type": "trigger",
+      "name": "agent_cost_reservation_immutable",
+      "sqlSha256": "af799d56050f87832a56d93491deac08db808044ad71fdae89d10477cf0fa075"
+    },
+    {
+      "type": "trigger",
+      "name": "agent_cost_reservation_no_delete",
+      "sqlSha256": "6068824fd30c033dc31a2a9cbebd67ddc6edb8cc8e6e4c0e6d18cb8985a733d2"
+    },
+    {
+      "type": "trigger",
+      "name": "agent_cost_reserve_budget",
+      "sqlSha256": "e9aebda30c58ffbd85c17c450a2456c3c12d8e1158ba8ebb2b41932873c4e6b6"
+    },
+    {
+      "type": "trigger",
+      "name": "agent_cost_reserve_deletion_guard",
+      "sqlSha256": "6ba1bd57ab71c2f1ded3578020e69f983aa4370e3e190450441e6a2de11efd22"
+    },
+    {
+      "type": "trigger",
+      "name": "agent_cost_settle_budget",
+      "sqlSha256": "4238515a49f3edc6ee9caad187af9316aa4d1fb72e1dbe7d29ce56d5f2a6d5b0"
+    },
+    {
+      "type": "trigger",
+      "name": "agent_cost_tenant_purge_guard",
+      "sqlSha256": "69d78cdbf611a0cdfac659721def422cef73bb40ae0e904a2f5a6106e01a222c"
+    },
+    {
+      "type": "trigger",
+      "name": "agent_cost_terminal_status_immutable",
+      "sqlSha256": "e660c00e29c8e34ec00043a8a0bd6a0b49e379bcaa7ae96378f874531da6dd85"
+    },
+    {
+      "type": "trigger",
+      "name": "agent_cost_terminal_usage_immutable",
+      "sqlSha256": "8a745155503cae962ba5cff5db3f10876cbc6f0fd83cf313baa097ec60255c14"
+    },
+    {
+      "type": "view",
+      "name": "agent_cost_ledger_gaps",
+      "sqlSha256": "99f91e6f6596786eaf5db7ba7db9572b1365235525e48802f766fbfd273a2a94"
+    }
+  ]
+}

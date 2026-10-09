@@ -1,5 +1,7 @@
 import {validatePersistentTaskAllowedTools} from "./agent-tool-trust-registry.js";
 import {buildBusinessGoalTask} from "./business-goals.js";
+import {preflightAgentObservation} from "./agent-observation-preflight.js";
+import {evaluateReadRuntime} from "./agent-read-tools.js";
 import {authenticate,roleAllowed,originAllowed,csrfAllowed,readJson,requestBodyErrorStatus,safeFirst} from "./agentic-authority-core.js";
 
 export const PERSISTENT_TASK_ENGINE_VERSION="2026-09-25.v1";
@@ -8,13 +10,17 @@ const clean=(v,max)=>String(v??"").replace(/[\u0000-\u001f\u007f]/g," ").replace
 const newId=()=>crypto.randomUUID();
 const allowedTrigger=new Set(["scheduled","event","manual"]);
 const allowedStatus=new Set(["active","paused","completed","cancelled"]);
-function arrayOfStrings(value,max=20){if(!Array.isArray(value)||value.length>max)return null;const out=value.map(v=>clean(v,120)).filter(Boolean);return out.length===value.length?[...new Set(out)]:null}
+function arrayOfStrings(value,max=20){if(!Array.isArray(value)||value.length>max)return null;const out=[];for(const item of value){if(typeof item!=="string")return null;const normalized=clean(item,120);if(!normalized)return null;out.push(normalized)}return [...new Set(out)]}
 function plainObject(value){return value&&typeof value==="object"&&!Array.isArray(value)?value:{}}
+function optionalObject(value){return value==null||(typeof value==="object"&&!Array.isArray(value)&&Object.getPrototypeOf(value)===Object.prototype)}
 function validIso(value){if(value==null||value==="")return null;const d=new Date(value);return Number.isFinite(d.getTime())?d.toISOString():undefined}
 function parseJson(value,fallback){try{return JSON.parse(String(value??""))}catch{return fallback}}
 export function normalizePersistentTask(body={}){
+  if(!body||typeof body!=="object"||Array.isArray(body))return {error:"invalid_task_payload"};
+  if(typeof body.objective!=="string")return {error:"objective_required"};
   const objective=clean(body.objective,500);
   if(!objective)return {error:"objective_required"};
+  if(body.triggerKind!=null&&typeof body.triggerKind!=="string")return {error:"invalid_trigger_kind"};
   const triggerKind=clean(body.triggerKind,20)||"manual";
   if(!allowedTrigger.has(triggerKind))return {error:"invalid_trigger_kind"};
   const requestedTools=arrayOfStrings(body.allowedTools??[]);
@@ -22,8 +28,12 @@ export function normalizePersistentTask(body={}){
   const trustedTools=validatePersistentTaskAllowedTools(requestedTools);
   if(!trustedTools.valid)return {error:trustedTools.code};
   const allowedTools=trustedTools.tools;
+  if(body.nextRunAt!=null&&typeof body.nextRunAt!=="string")return {error:"invalid_next_run_at"};
   const nextRunAt=validIso(body.nextRunAt);
   if(nextRunAt===undefined)return {error:"invalid_next_run_at"};
+  for(const field of ["riskPolicy","approvalPolicy","budget","triggerSpec"]){
+    if(!optionalObject(body[field]))return {error:"invalid_"+field};
+  }
   const riskPolicy=plainObject(body.riskPolicy),approvalPolicy=plainObject(body.approvalPolicy),budget=plainObject(body.budget),triggerSpec=plainObject(body.triggerSpec);
   return {payload:{objective,triggerKind,triggerSpec,allowedTools,riskPolicy,approvalPolicy,budget,nextRunAt}};
 }
@@ -40,6 +50,30 @@ async function list(env,auth){
     budget:parseJson(r.budget_json,{}),
     checkpoint:parseJson(r.checkpoint_json,null)
   }))});
+}
+async function observationPreflight(request,env,auth){
+  if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
+  if(String(env.AGENT_MODEL_PREFLIGHT_ENABLED??"").trim()!=="1")
+    return json({error:"model_preflight_disabled",executionAllowed:false},503);
+  let body;try{body=await readJson(request)}catch(e){return json({error:e.message},requestBodyErrorStatus(e))}
+  if(!body||typeof body!=="object"||Array.isArray(body))return json({error:"invalid_input"},400);
+  // The approved model catalog is operator-controlled; never trust models supplied by the caller.
+  let models;
+  try{models=JSON.parse(String(env.AGENT_APPROVED_MODELS_JSON||"[]"))}catch{return json({error:"model_catalog_unavailable",executionAllowed:false},503)}
+  if(!Array.isArray(models)||models.length>100)return json({error:"model_catalog_unavailable",executionAllowed:false},503);
+  if(Object.prototype.hasOwnProperty.call(body,"models"))return json({error:"caller_model_catalog_forbidden",executionAllowed:false},400);
+  const decision=preflightAgentObservation({
+    tenantId:auth.tenant_id,actorId:auth.user_id,actionKey:body.actionKey,
+    taskClass:body.taskClass,models,budgetUsd:body.budgetUsd,
+    requiredRegion:body.requiredRegion??null,payloadBytes:new TextEncoder().encode(JSON.stringify(body)).byteLength
+  });
+  if(!decision.ok)return json(decision,403);
+  // Reuse the same server-owned controls and authenticated scope as real read tools.
+  // A successful preflight is advisory; execution must check the guard again.
+  const runtime=evaluateReadRuntime(decision.actionKey,{env,auth});
+  if(runtime.allowed!==true||runtime.executionAllowed!==false)
+    return json({ok:false,reason:runtime.code,executionAllowed:false},403);
+  return json({...decision,runtimeGuardVersion:runtime.guardVersion},200);
 }
 async function create(request,env,auth){
   if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);
@@ -130,6 +164,7 @@ export async function handleAgenticPersistentTaskRequest({request,logicalPath,en
   if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
   if(request.method==="GET"&&path==="/api/agentic/persistent-tasks")return list(env,auth);
   if(!originAllowed(request,env)||!csrfAllowed(request,auth))return json({error:"forbidden"},403);
+  if(request.method==="POST"&&path==="/api/agentic/persistent-tasks/preflight")return observationPreflight(request,env,auth);
   if(request.method==="POST"&&path==="/api/agentic/persistent-tasks")return create(request,env,auth);
   if(request.method==="POST"&&path==="/api/agentic/business-goals")return createBusinessGoal(request,env,auth);
   const m=path.match(/^\/api\/agentic\/persistent-tasks\/([^/]+)\/(pause|resume|complete|cancel)$/);

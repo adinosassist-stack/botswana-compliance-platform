@@ -9,6 +9,15 @@ on:
       - 'cloudflare/src/agent-runtime-guard.js'
       - 'cloudflare/experimental/agent_cost_accounting.sql'
       - 'tests/agent-cost-*.mjs'
+      - 'tests/helpers/agent-cost-schema.mjs'
+      - 'scripts/agent-cost-schema-preflight.mjs'
+      - 'scripts/manifests/agent-cost-schema.json'
+      - 'scripts/migrate-agent-cost-accounting.mjs'
+      - 'cloudflare/migrations/068_agent_cost_accounting.sql'
+      - 'cloudflare/src/ledger-schema-readiness.js'
+      - 'scripts/agent-cost-production-*.mjs'
+      - 'scripts/migrate-production-agent-cost-accounting.mjs'
+      - '.github/workflows/migrate-production-agent-cost-accounting.yml'
       - '.github/workflows/agent-cost-accounting.yml'
   pull_request:
     paths:
@@ -16,9 +25,28 @@ on:
       - 'cloudflare/src/agent-runtime-guard.js'
       - 'cloudflare/experimental/agent_cost_accounting.sql'
       - 'tests/agent-cost-*.mjs'
+      - 'tests/helpers/agent-cost-schema.mjs'
+      - 'scripts/agent-cost-schema-preflight.mjs'
+      - 'scripts/manifests/agent-cost-schema.json'
+      - 'scripts/migrate-agent-cost-accounting.mjs'
+      - 'cloudflare/migrations/068_agent_cost_accounting.sql'
+      - 'cloudflare/src/ledger-schema-readiness.js'
+      - 'scripts/agent-cost-production-*.mjs'
+      - 'scripts/migrate-production-agent-cost-accounting.mjs'
+      - '.github/workflows/migrate-production-agent-cost-accounting.yml'
       - '.github/workflows/agent-cost-accounting.yml'
   workflow_dispatch:
 jobs:
+  local-d1-transport:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run test:agent-cost-d1
   test:
     runs-on: ubuntu-latest
     steps:
@@ -29,5 +57,9 @@ jobs:
       - run: node tests/agent-cost-admission.mjs
       - run: node tests/agent-cost-execution-boundary.mjs
       - run: node tests/agent-cost-reservations-static.mjs
+      - run: node tests/agent-cost-schema-preflight.mjs
+      - run: node tests/agent-cost-migration.mjs
+      - run: node tests/agent-cost-production-migration.mjs
       - run: node --disable-warning=ExperimentalWarning tests/agent-cost-reservations-integration.mjs
+      - run: node --disable-warning=ExperimentalWarning tests/agent-cost-tenant-purge.mjs
       - run: node --disable-warning=ExperimentalWarning tests/agent-cost-outcome-telemetry.mjs
