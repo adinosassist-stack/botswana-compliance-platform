@@ -2,6 +2,7 @@ name: Agent cost accounting
 on:
   push:
     branches:
+      - main
       - 'chatgpt/agent-runtime-economics-20261008'
     paths:
       - 'cloudflare/src/agent-cost-*.js'
@@ -29,3 +30,4 @@ jobs:
       - run: node tests/agent-cost-execution-boundary.mjs
       - run: node tests/agent-cost-reservations-static.mjs
       - run: node --disable-warning=ExperimentalWarning tests/agent-cost-reservations-integration.mjs
+      - run: node --disable-warning=ExperimentalWarning tests/agent-cost-outcome-telemetry.mjs
