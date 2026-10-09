@@ -46,3 +46,31 @@
     }
   };
 })(window);
+
+(function installWorkspaceInteractionContract(global){
+  "use strict";
+  const doc=global.document;if(!doc)return;
+  const STYLE_ID="thebe-workspace-interactions-v250";
+  function ensureStyles(){
+    if(doc.getElementById(STYLE_ID))return;
+    const link=doc.createElement("link");
+    link.id=STYLE_ID;link.rel="stylesheet";link.href="/assets/workspace-interactions-v250.css";
+    link.dataset.workspaceOnly="true";
+    (doc.head||doc.documentElement).appendChild(link);
+  }
+  function annotateAddCompany(root=doc){
+    const button=(root?.id==="addCompanyBtn"?root:root?.querySelector?.("#addCompanyBtn"))||doc.getElementById("addCompanyBtn");
+    if(!button)return;
+    if(!button.hasAttribute("aria-label"))button.setAttribute("aria-label","Add company");
+    if(!button.hasAttribute("title"))button.setAttribute("title","Add company");
+  }
+  function start(){
+    ensureStyles();annotateAddCompany();
+    const shell=doc.getElementById("appShell");if(!shell||!global.MutationObserver)return;
+    const observer=new global.MutationObserver(records=>{
+      for(const record of records){for(const node of record.addedNodes||[]){if(node?.nodeType===1)annotateAddCompany(node)}}
+    });
+    observer.observe(shell,{childList:true,subtree:true});
+  }
+  if(doc.readyState==="loading")doc.addEventListener("DOMContentLoaded",start,{once:true});else start();
+})(window);
