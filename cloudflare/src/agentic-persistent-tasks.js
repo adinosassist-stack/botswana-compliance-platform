@@ -23,7 +23,9 @@ export function normalizePersistentTask(body={}){
   const trustedTools=validatePersistentTaskAllowedTools(requestedTools);
   if(!trustedTools.valid)return {error:trustedTools.code};
   const allowedTools=trustedTools.tools;
-  // Preflight each declared capability without authorizing runtime execution.
+  // Declaration-only trust preflight: these sentinel identifiers are NOT authenticated tenant IDs.
+  // Actual tenant boundaries are enforced by authenticated request handlers and storage queries.
+  // This check never authorizes runtime execution.
   for(const tool of allowedTools){
     const decision=evaluateAgentAction({tool,allowedTools,tenantId:"task_definition",taskTenantId:"task_definition"});
     if(!decision.allowed||decision.executionAllowed)return {error:decision.reason||"agent_security_gate_rejected"};
