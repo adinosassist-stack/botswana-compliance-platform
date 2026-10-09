@@ -10,6 +10,7 @@ const allowedTrigger=new Set(["scheduled","event","manual"]);
 const allowedStatus=new Set(["active","paused","completed","cancelled"]);
 function arrayOfStrings(value,max=20){if(!Array.isArray(value)||value.length>max)return null;const out=[];for(const item of value){if(typeof item!=="string")return null;const normalized=clean(item,120);if(!normalized)return null;out.push(normalized)}return [...new Set(out)]}
 function plainObject(value){return value&&typeof value==="object"&&!Array.isArray(value)?value:{}}
+function optionalObject(value){return value==null||plainObject(value)===value}
 function validIso(value){if(value==null||value==="")return null;const d=new Date(value);return Number.isFinite(d.getTime())?d.toISOString():undefined}
 function parseJson(value,fallback){try{return JSON.parse(String(value??""))}catch{return fallback}}
 export function normalizePersistentTask(body={}){
@@ -28,6 +29,9 @@ export function normalizePersistentTask(body={}){
   if(body.nextRunAt!=null&&typeof body.nextRunAt!=="string")return {error:"invalid_next_run_at"};
   const nextRunAt=validIso(body.nextRunAt);
   if(nextRunAt===undefined)return {error:"invalid_next_run_at"};
+  for(const field of ["riskPolicy","approvalPolicy","budget","triggerSpec"]){
+    if(!optionalObject(body[field]))return {error:"invalid_"+field};
+  }
   const riskPolicy=plainObject(body.riskPolicy),approvalPolicy=plainObject(body.approvalPolicy),budget=plainObject(body.budget),triggerSpec=plainObject(body.triggerSpec);
   return {payload:{objective,triggerKind,triggerSpec,allowedTools,riskPolicy,approvalPolicy,budget,nextRunAt}};
 }
