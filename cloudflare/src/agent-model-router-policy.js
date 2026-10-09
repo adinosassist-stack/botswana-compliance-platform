@@ -6,8 +6,9 @@ export function selectAgentModel({taskClass,models=[],budgetUsd=0,requiredRegion
   if(!TASK_CLASSES.includes(taskClass))return {ok:false,reason:"unsupported_task_class"};
   if(!Number.isFinite(budgetUsd)||budgetUsd<=0)return {ok:false,reason:"invalid_budget"};
   if(!Array.isArray(models))return {ok:false,reason:"invalid_models"};
+  if(models.length>100)return {ok:false,reason:"too_many_models"};
   if(requiredRegion!==null&&(typeof requiredRegion!=="string"||!requiredRegion.trim()))return {ok:false,reason:"invalid_region"};
-  const eligible=models.filter(m=>m&&m.enabled===true&&typeof m.id==="string"&&m.id.length>0&&
+  const eligible=models.filter(m=>m&&m.enabled===true&&typeof m.id==="string"&&m.id.trim().length>0&&m.id.length<=120&&
     Array.isArray(m.taskClasses)&&m.taskClasses.includes(taskClass)&&
     Number.isFinite(m.estimatedCostUsd)&&m.estimatedCostUsd>=0&&m.estimatedCostUsd<=budgetUsd&&
     Number.isFinite(m.evalPassRate)&&m.evalPassRate>=0.95&&m.evalPassRate<=1&&
