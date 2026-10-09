@@ -5,6 +5,8 @@ assert.equal(PERSISTENT_TASK_ENGINE_VERSION,"2026-09-25.v1");
 let n=normalizePersistentTask({objective:" Watch cash exceptions ",triggerKind:"scheduled",allowedTools:["financial_position.read"],nextRunAt:"2026-09-26T08:00:00+02:00"});
 assert.equal(n.error,undefined);assert.equal(n.payload.objective,"Watch cash exceptions");assert.deepEqual(n.payload.allowedTools,["financial_position.read"]);assert.ok(n.payload.nextRunAt.endsWith("Z"));
 assert.equal(normalizePersistentTask({objective:""}).error,"objective_required");
+assert.equal(normalizePersistentTask(null).error,"invalid_task_payload");
+assert.equal(normalizePersistentTask([]).error,"invalid_task_payload");
 assert.equal(normalizePersistentTask({objective:"x",triggerKind:"browser"}).error,"invalid_trigger_kind");
 assert.equal(normalizePersistentTask({objective:"x",allowedTools:"*"}).error,"invalid_allowed_tools");
 assert.equal(normalizePersistentTask({objective:"x",nextRunAt:"never"}).error,"invalid_next_run_at");
