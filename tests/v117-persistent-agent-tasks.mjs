@@ -10,6 +10,8 @@ assert.equal(normalizePersistentTask([]).error,"invalid_task_payload");
 assert.equal(normalizePersistentTask({objective:{toString(){return "unsafe";}}}).error,"objective_required");
 assert.equal(normalizePersistentTask({objective:42}).error,"objective_required");
 assert.equal(normalizePersistentTask({objective:"x",triggerKind:"browser"}).error,"invalid_trigger_kind");
+assert.equal(normalizePersistentTask({objective:"x",triggerKind:42}).error,"invalid_trigger_kind");
+assert.equal(normalizePersistentTask({objective:"x",triggerKind:{}}).error,"invalid_trigger_kind");
 assert.equal(normalizePersistentTask({objective:"x",allowedTools:"*"}).error,"invalid_allowed_tools");
 assert.equal(normalizePersistentTask({objective:"x",nextRunAt:"never"}).error,"invalid_next_run_at");
 const source=fs.readFileSync("cloudflare/src/agentic-persistent-tasks.js","utf8");
