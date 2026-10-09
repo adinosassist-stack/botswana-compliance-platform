@@ -7,6 +7,8 @@ const reporterLink=fs.readFileSync("public/js/reporter-link-redirect.js","utf8")
 const publicMarketing=fs.readFileSync("public/js/public-marketing-v249.js","utf8");
 const publicMarketingCss=fs.readFileSync("public/assets/public-marketing-v249.css","utf8");
 const publicSeoCss=fs.readFileSync("public/assets/public-seo-v249.css","utf8");
+const workspaceComponents=fs.readFileSync("public/js/components.js","utf8");
+const workspaceInteractionCss=fs.readFileSync("public/assets/workspace-interactions-v250.css","utf8");
 const seoPages=[
   "public/cipa-compliance-botswana/index.html",
   "public/burs-tax-compliance-botswana/index.html",
@@ -70,5 +72,28 @@ assert.match(publicSeoCss,/#pricingPlanProtect:checked~\.plan-tabs/,
   "pricing selected-plan state must be explicitly unified with the public theme");
 assert.doesNotMatch(publicSeoCss,/\.workspace|#workspace|\.view\.active/,
   "SEO theme must not style authenticated workspace surfaces");
+
+assert.match(workspaceComponents,/\/assets\/workspace-interactions-v250\.css/,
+  "authenticated workspace component bootstrap must load the interaction contract");
+assert.match(workspaceComponents,/setAttribute\("aria-label","Add company"\)/,
+  "Add company icon control must receive an accessible name");
+assert.match(workspaceComponents,/setAttribute\("title","Add company"\)/,
+  "Add company icon control must expose a visible hover hint");
+assert.match(workspaceInteractionCss,/#appShell button:disabled/,
+  "workspace buttons must have a unified native disabled state");
+assert.match(workspaceInteractionCss,/button\[aria-busy="true"\]/,
+  "workspace buttons must have a unified loading state");
+assert.match(workspaceInteractionCss,/min-width:40px!important/,
+  "desktop icon controls must expose at least a 40px target");
+assert.match(workspaceInteractionCss,/min-width:44px!important/,
+  "mobile icon controls must expose at least a 44px target");
+assert.match(workspaceInteractionCss,/prefers-reduced-motion:reduce/,
+  "workspace controls must respect reduced-motion preference");
+assert.doesNotMatch(workspaceInteractionCss,/marketinggate|authgate|pricingPlan|public-marketing/,
+  "workspace interaction CSS must not style public marketing, auth or pricing surfaces");
+assert.doesNotMatch(home,/workspace-interactions-v250/,
+  "public homepage must not directly load authenticated workspace interaction styling");
+assert.ok(seoPages.every(path=>!fs.readFileSync(path,"utf8").includes("workspace-interactions-v250")),
+  "pricing and Botswana SEO guides must not load workspace interaction styling");
 
 console.log("PASS: V230 public assets stay isolated from workspace runtime and preserve one public Thebe design system.");
