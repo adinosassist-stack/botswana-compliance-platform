@@ -21,6 +21,8 @@ assert.equal(gate({...base,taskStatus:"completed"}).executionAllowed,false);
 assert.equal(gate({...base,suspended:true}).reason,"responsibility_inactive");
 assert.equal(gate({...base,suspended:"unknown"}).reason,"responsibility_inactive");
 assert.equal(gate({...base,suspended:null}).reason,"responsibility_inactive");
+assert.equal(gate({...base,suspended:0}).reason,"responsibility_inactive");
+assert.equal(gate({...base,suspended:[]}).reason,"responsibility_inactive");
 assert.equal(gate({...base,tool:"records.delete"}).allowed,false);
 assert.equal(gate({...base,tool:"payment.execute"}).reason,"tool_not_trusted");
 for(const dangerousTool of ["government_filing.submit","records.delete","external_message.send"]){
