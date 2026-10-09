@@ -25,6 +25,49 @@ assert.equal(result.executionAllowed,false);
 assert.equal(result.preExecutionMonitor,true);
 assert.equal(result.auditRequired,true);
 
+result=evaluateAgentRuntimeGuard({...base,actionKey:"financial_position.read",tenantScoped:false});
+assert.equal(result.allowed,false);
+assert.equal(result.code,"tenant_scope_required");
+
+result=evaluateAgentRuntimeGuard({...base,actionKey:"financial_position.read",actorTenantId:"tenant-B"});
+assert.equal(result.allowed,false);
+assert.equal(result.code,"cross_tenant_forbidden");
+
+result=evaluateAgentRuntimeGuard({...base,actionKey:"financial_position.read",agentStatus:"disabled"});
+assert.equal(result.allowed,false);
+assert.equal(result.code,"agent_disabled");
+
+result=evaluateAgentRuntimeGuard({
+  ...base,
+  actionKey:"financial_position.read",
+  costAdmission:{enabled:false}
+});
+assert.equal(result.allowed,false);
+assert.equal(result.code,"cost_admission_disabled");
+
+const admittedCost={
+  tenantId:"tenant-A",
+  actorTenantId:"tenant-A",
+  agentId:"thebe",
+  estimatedCostMinor:5,
+  spentMinor:10,
+  budgetMinor:100,
+  usageKnown:true,
+  enabled:true,
+  suspended:false
+};
+result=evaluateAgentRuntimeGuard({...base,actionKey:"financial_position.read",costAdmission:admittedCost});
+assert.equal(result.allowed,true);
+assert.equal(result.executionAllowed,false);
+
+result=evaluateAgentRuntimeGuard({...base,actionKey:"business_health.read",actorRole:"system_observer",systemActor:false});
+assert.equal(result.allowed,false);
+assert.equal(result.code,"system_actor_required");
+
+result=evaluateAgentRuntimeGuard({...base,actionKey:"business_health.read",actorRole:"system_observer",systemActor:true});
+assert.equal(result.allowed,true);
+assert.equal(result.executionAllowed,false);
+
 result=evaluateAgentRuntimeGuard({...base,actionKey:"finance_brief.prepare"});
 assert.equal(result.allowed,true);
 assert.equal(result.executionAllowed,false);
