@@ -8,7 +8,7 @@ const publicMarketing=fs.readFileSync("public/js/public-marketing-v249.js","utf8
 const publicMarketingCss=fs.readFileSync("public/assets/public-marketing-v249.css","utf8");
 const publicSeoCss=fs.readFileSync("public/assets/public-seo-v249.css","utf8");
 const workspaceComponents=fs.readFileSync("public/js/components.js","utf8");
-const workspaceInteractionCss=fs.readFileSync("public/assets/workspace-interactions-v250.css","utf8");
+const workspaceInteractionCss=fs.readFileSync("public/assets/workspace-interactions-v318.css","utf8");
 const seoPages=[
   "public/cipa-compliance-botswana/index.html",
   "public/burs-tax-compliance-botswana/index.html",
@@ -73,27 +73,45 @@ assert.match(publicSeoCss,/#pricingPlanProtect:checked~\.plan-tabs/,
 assert.doesNotMatch(publicSeoCss,/\.workspace|#workspace|\.view\.active/,
   "SEO theme must not style authenticated workspace surfaces");
 
-assert.match(workspaceComponents,/\/assets\/workspace-interactions-v250\.css/,
-  "authenticated workspace component bootstrap must load the interaction contract");
+assert.match(workspaceComponents,/\/assets\/workspace-interactions-v318\.css/,
+  "authenticated workspace component bootstrap must load the v318 interaction contract");
+assert.match(workspaceComponents,/bw-empty-state/,
+  "shared list rendering must produce an explicit empty-state surface");
+assert.match(workspaceComponents,/attrs:\{role:"status","aria-live":"polite"\}/,
+  "shared empty states must expose a polite status update to assistive technology");
 assert.match(workspaceComponents,/setAttribute\("aria-label","Add company"\)/,
   "Add company icon control must receive an accessible name");
 assert.match(workspaceComponents,/setAttribute\("title","Add company"\)/,
   "Add company icon control must expose a visible hover hint");
+assert.match(workspaceInteractionCss,/#appShell \.btn\{/,
+  "generic workspace buttons must use one authoritative visual primitive");
+assert.match(workspaceInteractionCss,/#appShell \.btn\.alt\{/,
+  "secondary workspace buttons must have an explicit role");
+assert.match(workspaceInteractionCss,/#appShell \.btn\.soft\{/,
+  "soft workspace buttons must have an explicit role");
+assert.match(workspaceInteractionCss,/#appShell \.btn\.danger\{/,
+  "danger workspace buttons must have an explicit role");
+assert.match(workspaceInteractionCss,/#appShell \.bw-empty-state\{/,
+  "empty list panels must render as intentional workspace surfaces");
 assert.match(workspaceInteractionCss,/#appShell button:disabled/,
   "workspace buttons must have a unified native disabled state");
 assert.match(workspaceInteractionCss,/button\[aria-busy="true"\]/,
   "workspace buttons must have a unified loading state");
+assert.match(workspaceInteractionCss,/thebe-control-spin/,
+  "loading buttons must include a visible progress affordance");
 assert.match(workspaceInteractionCss,/min-width:40px!important/,
   "desktop icon controls must expose at least a 40px target");
 assert.match(workspaceInteractionCss,/min-width:44px!important/,
   "mobile icon controls must expose at least a 44px target");
 assert.match(workspaceInteractionCss,/prefers-reduced-motion:reduce/,
   "workspace controls must respect reduced-motion preference");
+assert.doesNotMatch(workspaceInteractionCss,/gradient\(/,
+  "workspace interaction surfaces must stay flat and must not reintroduce gradients");
 assert.doesNotMatch(workspaceInteractionCss,/marketinggate|authgate|pricingPlan|public-marketing/,
   "workspace interaction CSS must not style public marketing, auth or pricing surfaces");
-assert.doesNotMatch(home,/workspace-interactions-v250/,
+assert.doesNotMatch(home,/workspace-interactions-v318/,
   "public homepage must not directly load authenticated workspace interaction styling");
-assert.ok(seoPages.every(path=>!fs.readFileSync(path,"utf8").includes("workspace-interactions-v250")),
+assert.ok(seoPages.every(path=>!fs.readFileSync(path,"utf8").includes("workspace-interactions-v318")),
   "pricing and Botswana SEO guides must not load workspace interaction styling");
 
 console.log("PASS: V230 public assets stay isolated from workspace runtime and preserve one public Thebe design system.");
