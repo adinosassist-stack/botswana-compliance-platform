@@ -34,6 +34,8 @@ assert.equal(gate({...base,externalDestination:0}).reason,"external_destination_
 assert.equal(gate({...base,policyViolation:true}).allowed,false);
 assert.equal(gate({...base,policyViolation:"unknown"}).reason,"policy_violation");
 assert.equal(gate({...base,policyViolation:null}).reason,"policy_violation");
+assert.equal(gate({...base,policyViolation:0}).reason,"policy_violation");
+assert.equal(gate({...base,policyViolation:[]}).reason,"policy_violation");
 assert.equal(gate({...base,allowedTools:null}).reason,"tool_not_authorized");
 assert.equal(gate({...base,allowedTools:"financial_position.read"}).reason,"tool_not_authorized");
 assert.equal(gate({...base,tool:42,allowedTools:[42]}).reason,"tool_not_authorized");
