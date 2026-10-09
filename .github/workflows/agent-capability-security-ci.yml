@@ -4,17 +4,27 @@ on:
   pull_request:
     paths:
       - "cloudflare/src/agent-capability-security.js"
+      - "cloudflare/src/jit-capability-governance-entry.js"
+      - "cloudflare/src/agentic-entry.js"
+      - "cloudflare/src/agentic-task-execution.js"
       - "cloudflare/src/agent-tool-trust-registry.js"
       - "cloudflare/src/super-agent-planner.js"
       - "tests/v176-agent-capability-security.mjs"
+      - "tests/v217-jit-execution-permit.mjs"
+      - "tests/v312-jit-capability-execution-binding.mjs"
       - ".github/workflows/agent-capability-security-ci.yml"
   push:
     branches: [main]
     paths:
       - "cloudflare/src/agent-capability-security.js"
+      - "cloudflare/src/jit-capability-governance-entry.js"
+      - "cloudflare/src/agentic-entry.js"
+      - "cloudflare/src/agentic-task-execution.js"
       - "cloudflare/src/agent-tool-trust-registry.js"
       - "cloudflare/src/super-agent-planner.js"
       - "tests/v176-agent-capability-security.mjs"
+      - "tests/v217-jit-execution-permit.mjs"
+      - "tests/v312-jit-capability-execution-binding.mjs"
 
 permissions:
   contents: read
@@ -33,6 +43,10 @@ jobs:
       - run: node tests/v118-tool-trust-registry.mjs
       - run: node tests/v119-super-agent-finance-watcher.mjs
       - run: node tests/v176-agent-capability-security.mjs
+      - run: node tests/v217-jit-execution-permit.mjs
+      - run: node tests/v312-jit-capability-execution-binding.mjs
       - run: node --check cloudflare/src/agent-capability-security.js
+      - run: node --check cloudflare/src/jit-capability-governance-entry.js
+      - run: node --check cloudflare/src/agentic-entry.js
       - run: node --check cloudflare/src/agent-tool-trust-registry.js
       - run: node --check cloudflare/src/super-agent-planner.js
