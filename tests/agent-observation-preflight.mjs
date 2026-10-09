@@ -1,0 +1,10 @@
+import assert from "node:assert/strict";
+import {preflightAgentObservation} from "../cloudflare/src/agent-observation-preflight.js";
+const base={tenantId:"tenant-a",actorId:"owner-a",taskClass:"summary",actionKey:"financial_position.read",budgetUsd:0.1,models:[{id:"evaluated",enabled:true,taskClasses:["summary"],estimatedCostUsd:0.01,evalPassRate:0.99}]};
+assert.equal(preflightAgentObservation(base).ok,true);
+assert.equal(preflightAgentObservation(base).executionAllowed,false);
+assert.equal(preflightAgentObservation({...base,tenantId:""}).reason,"missing_authority_context");
+assert.equal(preflightAgentObservation({...base,actionKey:"payment.execute"}).reason,"tool_not_trusted");
+assert.equal(preflightAgentObservation({...base,budgetUsd:0.001}).reason,"no_approved_model");
+assert.equal(preflightAgentObservation({...base,payloadBytes:999999}).ok,false);
+console.log("agent observation preflight: PASS");
