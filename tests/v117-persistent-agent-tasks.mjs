@@ -7,6 +7,8 @@ assert.equal(n.error,undefined);assert.equal(n.payload.objective,"Watch cash exc
 assert.equal(normalizePersistentTask({objective:""}).error,"objective_required");
 assert.equal(normalizePersistentTask(null).error,"invalid_task_payload");
 assert.equal(normalizePersistentTask([]).error,"invalid_task_payload");
+assert.equal(normalizePersistentTask({objective:{toString(){return "unsafe";}}}).error,"objective_required");
+assert.equal(normalizePersistentTask({objective:42}).error,"objective_required");
 assert.equal(normalizePersistentTask({objective:"x",triggerKind:"browser"}).error,"invalid_trigger_kind");
 assert.equal(normalizePersistentTask({objective:"x",allowedTools:"*"}).error,"invalid_allowed_tools");
 assert.equal(normalizePersistentTask({objective:"x",nextRunAt:"never"}).error,"invalid_next_run_at");
