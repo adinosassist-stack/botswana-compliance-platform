@@ -28,6 +28,8 @@ assert.equal(gate({...base,policyViolation:true}).allowed,false);
 assert.equal(gate({...base,policyViolation:"unknown"}).reason,"policy_violation");
 assert.equal(gate({...base,policyViolation:null}).reason,"policy_violation");
 assert.equal(gate({...base,allowedTools:null}).reason,"tool_not_authorized");
+assert.equal(gate({...base,allowedTools:"financial_position.read"}).reason,"tool_not_authorized");
+assert.equal(gate({...base,tool:42,allowedTools:[42]}).reason,"tool_not_authorized");
 assert.equal(gate({...base,allowedTools:["other.read"]}).reason,"tool_not_authorized");
 assert.equal(gate({...base,tool:"toString",allowedTools:["toString"]}).allowed,false);
 assert.equal(gate({...base,tool:"",allowedTools:[""]}).allowed,false);
