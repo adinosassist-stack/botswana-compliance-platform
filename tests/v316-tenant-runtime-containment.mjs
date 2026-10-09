@@ -46,7 +46,7 @@ assert.match(wrapper,/containment\.allowed!==true/);
 assert.match(wrapper,/issueBoundCapability/);
 assert.match(wrapper,/verifyBoundCapability/);
 const authIndex=wrapper.indexOf("const auth=await authenticate(request,env)");
-const containmentIndex=wrapper.indexOf("evaluateBoundContainment(env,auth)");
+const containmentIndex=wrapper.indexOf("const containment=await evaluateBoundContainment(env,auth)");
 const permitIndex=wrapper.indexOf("if(permit)return issueBoundCapability");
 assert.ok(authIndex>=0&&containmentIndex>authIndex&&permitIndex>containmentIndex,"containment must run after auth and before JIT permit issue/execute");
 assert.doesNotMatch(wrapper,/UPDATE\s+agent_jit_execution_permits/i);
