@@ -4,6 +4,7 @@ import {handleAgenticControlPlaneRequest} from "./agentic-control-plane.js";
 import {handleAgenticResponsibilityRequest} from "./agentic-responsibility-api.js";
 import {handleAgenticResponsibilityCommand} from "./agentic-responsibility-command.js";
 import {handleAgenticWhatsAppRequest} from "./agentic-whatsapp-core.js";
+import {handleAgenticTaskExecutionRequest} from "./agentic-task-execution.js";
 import {handleJitCapabilityGovernanceRequest} from "./jit-capability-governance-entry.js";
 import {handleAgenticPersistentTaskRequest} from "./agentic-persistent-tasks.js";
 import {handleAgenticLiveVoiceRequest} from "./agentic-live-voice.js";
@@ -219,7 +220,8 @@ export default {
     if(responsibilityResponse)return responsibilityResponse;
     const controlPlaneResponse=await handleAgenticControlPlaneRequest({request,logicalPath,env});
     if(controlPlaneResponse)return controlPlaneResponse;
-    const taskExecutionResponse=await liveTaskFetch(request,env);
+    const taskExecutionResponse=await handleJitCapabilityGovernanceRequest({request,logicalPath,env})
+      ??await handleAgenticTaskExecutionRequest({request,logicalPath,env});
     if(taskExecutionResponse)return taskExecutionResponse;
     const authorityResponse=await handleAgenticAuthorityRequest({request,logicalPath,env});
     if(authorityResponse)return authorityResponse;
