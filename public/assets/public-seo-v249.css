@@ -30,7 +30,8 @@ a{color:#0b66d6}
 .plan-tabs label{border-color:#e4e8ee!important;background:#fff!important;color:#667085!important}
 .plan-tabs label:hover{border-color:#a9c8ef!important;background:#f8fbff!important}
 .plan-tabs label b{color:#101828!important}
-.plan-choice:checked+label{border-color:#0b66d6!important;background:#edf5ff!important;box-shadow:0 0 0 1px #0b66d6 inset!important;color:#0b66d6!important}
+#pricingPlanMonitor:checked~.plan-tabs label[for="pricingPlanMonitor"],#pricingPlanProtect:checked~.plan-tabs label[for="pricingPlanProtect"],#pricingPlanControl:checked~.plan-tabs label[for="pricingPlanControl"],#pricingPlanNetwork:checked~.plan-tabs label[for="pricingPlanNetwork"],#pricingPlanPartner:checked~.plan-tabs label[for="pricingPlanPartner"]{border-color:#0b66d6!important;background:#edf5ff!important;color:#0b66d6!important;box-shadow:inset 0 0 0 1px rgba(11,102,214,.12)!important}
+#pricingPlanMonitor:focus-visible~.plan-tabs label[for="pricingPlanMonitor"],#pricingPlanProtect:focus-visible~.plan-tabs label[for="pricingPlanProtect"],#pricingPlanControl:focus-visible~.plan-tabs label[for="pricingPlanControl"],#pricingPlanNetwork:focus-visible~.plan-tabs label[for="pricingPlanNetwork"],#pricingPlanPartner:focus-visible~.plan-tabs label[for="pricingPlanPartner"]{outline:3px solid rgba(11,102,214,.24)!important;outline-offset:2px}
 footer{border-top-color:#e4e8ee;color:#737c88}.footlinks a{color:#5f6875}.footlinks a:hover,.footlinks a:focus-visible{color:#0b66d6}
 @media(max-width:760px){.btn{min-height:44px}.navin{padding-inline:18px}.hero{padding-inline:18px}.content,.guides{padding-inline:18px}}
 @media(prefers-reduced-motion:reduce){.btn,.guide{transition:none!important}.btn:hover,.guide:hover{transform:none!important}}
