@@ -12,5 +12,8 @@ assert.equal(gate({...base,tool:"records.delete"}).allowed,false);
 assert.equal(gate({...base,tool:"payment.execute"}).reason,"tool_not_trusted");
 assert.equal(gate({...base,externalDestination:true}).allowed,false);
 assert.equal(gate({...base,policyViolation:true}).allowed,false);
+assert.equal(gate({...base,allowedTools:null}).reason,"tool_not_authorized");
+assert.equal(gate({...base,tenantId:123,taskTenantId:123}).reason,"tenant_boundary");
+assert.equal(gate({...base,allowedTools:["financial_position.read"],externalDestination:true}).executionAllowed,false);
 assert.equal(gate({...base,tool:"payment.execute",approval:{ownerApproved:true,tenantId:"a",tool:"payment.execute",expiresAt:"2099-01-01T00:00:00Z"}}).allowed,false);
 console.log("agent security gate tests PASS");
