@@ -10,7 +10,7 @@ const allowedTrigger=new Set(["scheduled","event","manual"]);
 const allowedStatus=new Set(["active","paused","completed","cancelled"]);
 function arrayOfStrings(value,max=20){if(!Array.isArray(value)||value.length>max)return null;const out=[];for(const item of value){if(typeof item!=="string")return null;const normalized=clean(item,120);if(!normalized)return null;out.push(normalized)}return [...new Set(out)]}
 function plainObject(value){return value&&typeof value==="object"&&!Array.isArray(value)?value:{}}
-function optionalObject(value){return value==null||plainObject(value)===value}
+function optionalObject(value){return value==null||(typeof value==="object"&&!Array.isArray(value)&&Object.getPrototypeOf(value)===Object.prototype)}
 function validIso(value){if(value==null||value==="")return null;const d=new Date(value);return Number.isFinite(d.getTime())?d.toISOString():undefined}
 function parseJson(value,fallback){try{return JSON.parse(String(value??""))}catch{return fallback}}
 export function normalizePersistentTask(body={}){
