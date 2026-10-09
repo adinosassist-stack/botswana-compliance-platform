@@ -1,0 +1,215 @@
+/* Thebe Desk workspace interaction + component contract v318.
+   Workspace-only. Flat surfaces; no gradients. */
+
+#appShell{
+  --thebe-control-accent:#0b66d6;
+  --thebe-control-accent-hover:#095ab8;
+  --thebe-control-border:#cbd8e6;
+  --thebe-control-text:#20334a;
+  --thebe-control-muted:#526579;
+  --thebe-control-soft:#eef5ff;
+  --thebe-control-surface:#fff;
+  --thebe-control-panel:#f8fafc;
+  --thebe-control-danger:#b42318;
+  --thebe-control-danger-hover:#912018;
+  --thebe-control-disabled-opacity:.52;
+}
+
+#appShell .btn{
+  appearance:none!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:8px!important;
+  min-height:40px;
+  padding:9px 14px!important;
+  border:1px solid var(--thebe-control-accent)!important;
+  border-radius:12px!important;
+  background:var(--thebe-control-accent)!important;
+  color:#fff!important;
+  font:700 13px/1.35 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  text-decoration:none!important;
+  cursor:pointer;
+  box-shadow:0 1px 2px rgba(15,23,42,.12)!important;
+  transition:background-color .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease;
+}
+
+#appShell .btn:hover:not(:disabled):not([aria-disabled="true"]):not([aria-busy="true"]){
+  background:var(--thebe-control-accent-hover)!important;
+  border-color:var(--thebe-control-accent-hover)!important;
+  box-shadow:0 3px 8px rgba(15,23,42,.14)!important;
+  transform:translateY(-1px);
+}
+
+#appShell .btn:active:not(:disabled):not([aria-disabled="true"]){
+  transform:translateY(0)!important;
+  box-shadow:0 1px 2px rgba(15,23,42,.12)!important;
+}
+
+#appShell .btn.alt{
+  background:var(--thebe-control-surface)!important;
+  color:var(--thebe-control-text)!important;
+  border-color:var(--thebe-control-border)!important;
+}
+#appShell .btn.alt:hover:not(:disabled):not([aria-disabled="true"]):not([aria-busy="true"]){
+  background:#f4f7fb!important;
+  border-color:#9fb4ca!important;
+  color:#163a62!important;
+}
+
+#appShell .btn.soft{
+  background:var(--thebe-control-soft)!important;
+  color:var(--thebe-control-accent)!important;
+  border-color:#c9dcf7!important;
+}
+#appShell .btn.soft:hover:not(:disabled):not([aria-disabled="true"]):not([aria-busy="true"]){
+  background:#e2efff!important;
+  border-color:#9dc4f2!important;
+}
+
+#appShell .btn.danger{
+  background:var(--thebe-control-danger)!important;
+  color:#fff!important;
+  border-color:var(--thebe-control-danger)!important;
+}
+#appShell .btn.danger:hover:not(:disabled):not([aria-disabled="true"]):not([aria-busy="true"]){
+  background:var(--thebe-control-danger-hover)!important;
+  border-color:var(--thebe-control-danger-hover)!important;
+}
+
+#appShell .btn:focus-visible,
+#appShell .workspace-action:focus-visible,
+#appShell .home-status-chip:focus-visible,
+#appShell .home-signal-card:focus-visible,
+#appShell .outcome-card:focus-visible,
+#appShell .business-outcome-card:focus-visible,
+#appShell .hub-card:focus-visible,
+#appShell .proof-summary-card:focus-visible,
+#appShell .area-arrow:focus-visible{
+  outline:3px solid var(--thebe-control-accent)!important;
+  outline-offset:3px!important;
+}
+
+#appShell button:disabled,
+#appShell .btn:disabled,
+#appShell .social-auth-btn:disabled,
+#appShell .workspace-action:disabled,
+#appShell .home-status-chip:disabled,
+#appShell .home-signal-card:disabled,
+#appShell .outcome-card:disabled,
+#appShell .business-outcome-card:disabled,
+#appShell .hub-card:disabled,
+#appShell .proof-summary-card:disabled,
+#appShell .area-arrow:disabled,
+#appShell button[aria-disabled="true"],
+#appShell [role="button"][aria-disabled="true"]{
+  opacity:var(--thebe-control-disabled-opacity)!important;
+  cursor:not-allowed!important;
+  transform:none!important;
+  box-shadow:none!important;
+  filter:none!important;
+}
+
+#appShell button:disabled:hover,
+#appShell .btn:disabled:hover,
+#appShell button[aria-disabled="true"]:hover,
+#appShell [role="button"][aria-disabled="true"]:hover{
+  transform:none!important;
+  box-shadow:none!important;
+}
+
+#appShell button[aria-busy="true"],
+#appShell .btn[aria-busy="true"],
+#appShell button.is-loading,
+#appShell .btn.is-loading{
+  cursor:progress!important;
+  transform:none!important;
+  box-shadow:none!important;
+  opacity:.78;
+}
+
+#appShell .btn[aria-busy="true"]::after,
+#appShell .btn.is-loading::after{
+  content:"";
+  width:13px;
+  height:13px;
+  flex:0 0 13px;
+  border:2px solid currentColor;
+  border-right-color:transparent;
+  border-radius:50%;
+  animation:thebe-control-spin .8s linear infinite;
+  box-sizing:border-box;
+}
+
+@keyframes thebe-control-spin{to{transform:rotate(360deg)}}
+
+#appShell .area-arrow,
+#appShell #addCompanyBtn{
+  min-width:40px!important;
+  min-height:40px!important;
+  display:inline-grid;
+  place-items:center;
+}
+
+#appShell .area-arrow{padding:0!important}
+
+#appShell .bw-empty-state{
+  width:100%;
+  min-height:48px;
+  display:flex;
+  align-items:center;
+  box-sizing:border-box;
+  padding:12px 14px;
+  border:1px dashed var(--thebe-control-border);
+  border-radius:12px;
+  background:var(--thebe-control-panel);
+  color:var(--thebe-control-muted)!important;
+  font:600 12px/1.45 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+
+#appShell .bw-empty-state[hidden]{display:none!important}
+
+@media (max-width:700px){
+  #appShell .btn{min-height:44px}
+  #appShell .area-arrow,
+  #appShell #addCompanyBtn,
+  #appShell .mobile-nav-close{
+    min-width:44px!important;
+    min-height:44px!important;
+  }
+}
+
+@media (prefers-reduced-motion:reduce){
+  #appShell button,
+  #appShell .btn,
+  #appShell .workspace-action,
+  #appShell .home-status-chip,
+  #appShell .home-signal-card,
+  #appShell .outcome-card,
+  #appShell .business-outcome-card,
+  #appShell .hub-card,
+  #appShell .proof-summary-card,
+  #appShell .area-arrow{
+    transition:none!important;
+    scroll-behavior:auto!important;
+  }
+  #appShell button:hover,
+  #appShell button:active,
+  #appShell .btn:hover,
+  #appShell .btn:active{
+    transform:none!important;
+  }
+  #appShell .btn[aria-busy="true"]::after,
+  #appShell .btn.is-loading::after{
+    animation:none!important;
+  }
+}
+
+@media (forced-colors:active){
+  #appShell .btn,
+  #appShell .bw-empty-state{
+    border:1px solid ButtonText!important;
+  }
+}

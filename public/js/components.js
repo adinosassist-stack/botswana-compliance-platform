@@ -7,7 +7,7 @@
   }
   function renderList(target,items,renderItem,{emptyText="Nothing to show."}={}){
     if(!target)return;const frag=document.createDocumentFragment();
-    if(!Array.isArray(items)||!items.length)frag.appendChild(element("div",{className:"muted small",text:emptyText}));
+    if(!Array.isArray(items)||!items.length)frag.appendChild(element("div",{className:"muted small bw-empty-state",text:emptyText,attrs:{role:"status","aria-live":"polite"}}));
     else for(const item of items){const node=renderItem(item);if(node)frag.appendChild(node)}
     target.replaceChildren(frag);
   }
@@ -50,11 +50,11 @@
 (function installWorkspaceInteractionContract(global){
   "use strict";
   const doc=global.document;if(!doc)return;
-  const STYLE_ID="thebe-workspace-interactions-v250";
+  const STYLE_ID="thebe-workspace-interactions-v318";
   function ensureStyles(){
     if(doc.getElementById(STYLE_ID))return;
     const link=doc.createElement("link");
-    link.id=STYLE_ID;link.rel="stylesheet";link.href="/assets/workspace-interactions-v250.css";
+    link.id=STYLE_ID;link.rel="stylesheet";link.href="/assets/workspace-interactions-v318.css";
     link.dataset.workspaceOnly="true";
     (doc.head||doc.documentElement).appendChild(link);
   }
