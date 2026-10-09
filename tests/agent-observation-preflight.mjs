@@ -33,7 +33,7 @@ try{
   sqlite.prepare("INSERT INTO sessions(token_hash,user_id,tenant_id,role,csrf_token,expires_at) VALUES(?,?,?,?,?,datetime('now','+1 day'))")
     .run(hash,"owner-a","tenant-a","owner",csrf);
   const DB={prepare(sql){const statement=sqlite.prepare(sql);return {bind(...args){return {first(){return statement.get(...args)??null}}}}}};
-  const env={DB,SESSION_SECRET:secret,PUBLIC_ORIGIN:"https://app.example",AGENT_APPROVED_MODELS_JSON:JSON.stringify(base.models)};
+  const env={DB,SESSION_SECRET:secret,PUBLIC_ORIGIN:"https://app.example",AGENT_MODEL_PREFLIGHT_ENABLED:"1",AGENT_APPROVED_MODELS_JSON:JSON.stringify(base.models)};
   const path="/api/agentic/persistent-tasks/preflight";
   const payload={actionKey:base.actionKey,taskClass:base.taskClass,budgetUsd:base.budgetUsd};
   async function call(body=payload,{headers={},environment={},method="POST",rawBody}={}){
@@ -57,6 +57,18 @@ try{
   assert.equal(accepted.body.modelId,"evaluated");
   assert.equal(accepted.body.executionAllowed,false);
   assert.equal(accepted.body.requiresRuntimeGuard,true);
+  assert.equal(typeof accepted.body.runtimeGuardVersion,"string");
+  await rejected(payload,{environment:{AGENT_MODEL_PREFLIGHT_ENABLED:undefined}},503,"model_preflight_disabled");
+  for(const disabled of ["0","false","true","on"]){
+    await rejected(payload,{environment:{AGENT_MODEL_PREFLIGHT_ENABLED:disabled}},503,"model_preflight_disabled");
+  }
+  await rejected(payload,{environment:{AGENT_RUNTIME_ENABLED:"0"}},403,"agent_disabled");
+  for(const enabled of ["1","true","on","yes"]){
+    await rejected(payload,{environment:{AGENT_RUNTIME_KILL_SWITCH:enabled}},403,"runtime_kill_switch_active");
+  }
+  await rejected(payload,{environment:{AGENT_RUNTIME_BUDGET_STATUS:"exceeded"}},403,"agent_budget_exceeded");
+  await rejected({...payload,AGENT_RUNTIME_ENABLED:"1",killSwitchActive:false,budgetStatus:"within_limit",actorRole:"owner"},
+    {environment:{AGENT_RUNTIME_KILL_SWITCH:"1"}},403,"runtime_kill_switch_active");
   await rejected(payload,{headers:{cookie:""}},401,"unauthorized");
   await rejected(payload,{headers:{cookie:"__Host-bw_session=forged"}},401,"unauthorized");
   await rejected(payload,{headers:{"x-csrf-token":"wrong"}},403,"forbidden");

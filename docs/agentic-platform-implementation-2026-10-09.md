@@ -25,3 +25,10 @@ Implement a model-independent, governed agent execution layer for Thebe Desk wit
 - Run existing agent, finance, tenancy, security, regression and release checks.
 - Keep all new integrations feature-flagged and disabled by default.
 - No production deploy or merge until CI and security review pass.
+
+## Read-only model preflight configuration
+- `AGENT_MODEL_PREFLIGHT_ENABLED=1` explicitly enables the authenticated preflight endpoint. Missing or other values keep it disabled; this change does not set production variables.
+- `AGENT_APPROVED_MODELS_JSON` is the operator-owned model catalog. Requests cannot replace it or supply tenant/actor authority.
+- The endpoint applies the existing read-tool Runtime Guard using the authenticated session and server-owned runtime enable, kill-switch and budget-status controls.
+- A successful response reports the guard version and always retains `executionAllowed: false`. It is an advisory model selection, not a tool-execution grant or a cost reservation.
+- `budgetUsd` is a selection ceiling, not proof of available tenant funds. Actual model calls still require authoritative usage accounting, budget reservation and a fresh runtime decision before execution.

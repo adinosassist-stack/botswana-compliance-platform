@@ -1,6 +1,7 @@
 import {validatePersistentTaskAllowedTools} from "./agent-tool-trust-registry.js";
 import {buildBusinessGoalTask} from "./business-goals.js";
 import {preflightAgentObservation} from "./agent-observation-preflight.js";
+import {evaluateReadRuntime} from "./agent-read-tools.js";
 import {authenticate,roleAllowed,originAllowed,csrfAllowed,readJson,requestBodyErrorStatus,safeFirst} from "./agentic-authority-core.js";
 
 export const PERSISTENT_TASK_ENGINE_VERSION="2026-09-25.v1";
@@ -52,6 +53,8 @@ async function list(env,auth){
 }
 async function observationPreflight(request,env,auth){
   if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
+  if(String(env.AGENT_MODEL_PREFLIGHT_ENABLED??"").trim()!=="1")
+    return json({error:"model_preflight_disabled",executionAllowed:false},503);
   let body;try{body=await readJson(request)}catch(e){return json({error:e.message},requestBodyErrorStatus(e))}
   if(!body||typeof body!=="object"||Array.isArray(body))return json({error:"invalid_input"},400);
   // The approved model catalog is operator-controlled; never trust models supplied by the caller.
@@ -64,7 +67,13 @@ async function observationPreflight(request,env,auth){
     taskClass:body.taskClass,models,budgetUsd:body.budgetUsd,
     requiredRegion:body.requiredRegion??null,payloadBytes:new TextEncoder().encode(JSON.stringify(body)).byteLength
   });
-  return json(decision,decision.ok?200:403);
+  if(!decision.ok)return json(decision,403);
+  // Reuse the same server-owned controls and authenticated scope as real read tools.
+  // A successful preflight is advisory; execution must check the guard again.
+  const runtime=evaluateReadRuntime(decision.actionKey,{env,auth});
+  if(runtime.allowed!==true||runtime.executionAllowed!==false)
+    return json({ok:false,reason:runtime.code,executionAllowed:false},403);
+  return json({...decision,runtimeGuardVersion:runtime.guardVersion},200);
 }
 async function create(request,env,auth){
   if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);
