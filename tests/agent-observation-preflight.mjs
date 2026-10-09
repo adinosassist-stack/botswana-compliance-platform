@@ -13,4 +13,6 @@ assert.equal(preflightAgentObservation({...base,models:[]}).reason,"no_approved_
 assert.equal(preflightAgentObservation({...base,payloadBytes:-1}).reason,"invalid_payload_size");
 assert.equal(preflightAgentObservation({...base,payloadBytes:NaN}).reason,"invalid_payload_size");
 assert.equal(preflightAgentObservation({...base,payloadBytes:0.5}).reason,"invalid_payload_size");
+assert.equal(preflightAgentObservation(null).reason,"invalid_input");
+assert.equal(preflightAgentObservation([]).reason,"invalid_input");
 console.log("agent observation preflight: PASS");
