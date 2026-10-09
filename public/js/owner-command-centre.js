@@ -1396,12 +1396,14 @@
     const attention=document.createElement("section");
     attention.className="owner-panel owner-attention-panel";
     attention.id="ownerAttentionPanel";
+    attention.append(text("div","Priority queue loading…","owner-command-empty"));
     attention.setAttribute("aria-label","Priority attention");
     shell.append(attention);
 
     const responsibilities=document.createElement("section");
     responsibilities.className="owner-panel owner-responsibility-panel";
     responsibilities.id="ownerResponsibilityPanel";
+    responsibilities.append(text("div","Loading your saved responsibilities…","owner-command-empty"));
     responsibilities.setAttribute("aria-label","Persistent responsibilities");
     shell.append(responsibilities);
 
@@ -1415,6 +1417,7 @@
     const analytics=document.createElement("section");
     analytics.className="owner-panel owner-analytics-panel";
     analytics.id="ownerAnalyticsPanel";
+    analytics.append(text("div","Loading business analytics…","owner-command-empty"));
     shell.append(analytics);
 
     const grid=document.createElement("div");
@@ -1422,15 +1425,18 @@
     const actions=document.createElement("section");
     actions.className="owner-panel";
     actions.id="ownerActionPanel";
+    actions.append(text("div","Loading recommended actions…","owner-command-empty"));
     const simulation=document.createElement("section");
     simulation.className="owner-panel owner-sim-card";
     simulation.id="ownerSimulationPanel";
+    simulation.append(text("div","Loading financial scenarios…","owner-command-empty"));
     grid.append(actions,simulation);
     shell.append(grid);
 
     const goals=document.createElement("section");
     goals.className="owner-panel owner-goals-panel";
     goals.id="ownerGoalsIdeas";
+    goals.append(text("div","Loading your business goals…","owner-command-empty"));
     shell.append(goals);
 
     const agentic=document.createElement("section");
@@ -4415,12 +4421,16 @@
           action:()=>renderOwnerBrief(true)
         }));
       }
+      for(const [id,message] of [["ownerAttentionPanel","Priority queue unavailable. Refresh the brief to retry."],["ownerResponsibilityPanel","Responsibilities unavailable. Refresh the brief to retry."],["ownerGoalsIdeas","Business goals unavailable. Refresh the brief to retry."]]){
+        const panel=q("#"+id);
+        if(panel)panel.replaceChildren(text("div",message,"owner-command-empty"));
+      }
       const analytics=q("#ownerAnalyticsPanel");
       if(analytics)analytics.replaceChildren(text("div","Analytics unavailable until source data can be read securely.","owner-command-empty"));
       const actions=q("#ownerActionPanel");
-      if(actions)actions.replaceChildren();
+      if(actions)actions.replaceChildren(text("div","Recommended actions unavailable. Refresh the brief to retry.","owner-command-empty"));
       const simulation=q("#ownerSimulationPanel");
-      if(simulation)simulation.replaceChildren();
+      if(simulation)simulation.replaceChildren(text("div","Financial scenarios unavailable until source data is loaded.","owner-command-empty"));
       const sales=q("#ownerSalesBody");
       if(sales){
         sales.replaceChildren(text(

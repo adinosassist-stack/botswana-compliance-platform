@@ -26,6 +26,8 @@
     if(document.getElementById(STYLE_ID))return;
     const style=document.createElement("style");
     style.id=STYLE_ID;
+    const nonce=document.querySelector("style[nonce],script[nonce]")?.nonce;
+    if(nonce)style.nonce=nonce;
     style.dataset.release=RELEASE;
     style.textContent=`
 #${STRIP_ID}{display:grid;grid-template-columns:minmax(170px,.95fr) repeat(3,minmax(112px,1fr)) auto auto;gap:10px;align-items:stretch;margin:14px 0 18px;padding:10px;border:1px solid color-mix(in srgb,currentColor 14%,transparent);border-radius:18px;background:color-mix(in srgb,var(--surface,#fff) 92%,transparent);box-shadow:0 10px 28px rgba(15,23,42,.06)}
@@ -231,18 +233,19 @@
     const panel=q(`#${ATTENTION_ID}`);
     if(!strip||!panel)return;
     const unavailable=/priority queue unavailable/i.test(panel.textContent||"");
+    const loading=/priority queue loading/i.test(panel.textContent||"");
     const title=q("[data-owner-focus-title]",strip);
     const next=q(".owner-focus-next",strip);
-    if(unavailable){
+    if(unavailable||loading){
       setMetric(strip,"action","—");
       setMetric(strip,"approvals","—");
       setMetric(strip,"outcomes","—");
-      if(title)title.textContent="Priority queue unavailable";
+      if(title)title.textContent=loading?"Loading priorities…":"Priority queue unavailable";
       if(next){
         next.disabled=true;
-        next.setAttribute("aria-label","Priority queue unavailable");
+        next.setAttribute("aria-label",loading?"Priority queue loading":"Priority queue unavailable");
       }
-      strip.dataset.state="unavailable";
+      strip.dataset.state=loading?"loading":"unavailable";
       return;
     }
     const approvals=qa(".owner-review-inbox > .owner-review-row",panel).length;

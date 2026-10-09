@@ -39,6 +39,7 @@ export function versionReleaseAssets(html,sha=releaseSourceSha(),options={}){
     if(!source.includes('/assets/property-solid-surfaces-v312.css'))source=injectAtFinalClosingTag(source,'head','<link rel="stylesheet" href="/assets/property-solid-surfaces-v312.css">\n');
     if(!source.includes('/assets/workspace-container-alignment-v313.css'))source=injectAtFinalClosingTag(source,'head','<link rel="stylesheet" href="/assets/workspace-container-alignment-v313.css">\n');
     if(!source.includes('/assets/workspace-mobile-readability-v314.css'))source=injectAtFinalClosingTag(source,'head','<link rel="stylesheet" href="/assets/workspace-mobile-readability-v314.css">\n');
+    if(!source.includes('/assets/workspace-control-polish-v317.css'))source=injectAtFinalClosingTag(source,'head','<link rel="stylesheet" href="/assets/workspace-control-polish-v317.css">\n');
     if(!source.includes('/assets/workspace-mobile-header-targets-v315.css'))source=injectAtFinalClosingTag(source,'head','<link rel="stylesheet" href="/assets/workspace-mobile-header-targets-v315.css">\n');
   }
   source=source.replace(/(<(?:script|link)\b[^>]*\b(?:src|href)=["'])(\/(?:js|assets)\/[^"']+)(["'][^>]*>)/gi,(_match,start,path,end)=>{
