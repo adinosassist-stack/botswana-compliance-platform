@@ -3,6 +3,7 @@ import fs from 'node:fs';
 const cleanup=fs.readFileSync('scripts/production-legacy-orphan-cleanup.mjs','utf8');
 const zeroAudit=fs.readFileSync('scripts/production-zero-orphan-audit.mjs','utf8');
 const workflow=fs.readFileSync('.github/workflows/production-launch-audit.yml','utf8');
+const replayWorkflow=fs.readFileSync('.github/workflows/production-audit-replay.yml','utf8');
 const auditLineageMigration=fs.readFileSync('cloudflare/migrations/004_v56_audit_lineage.sql','utf8');
 const worker=fs.readFileSync('cloudflare/src/worker.js','utf8');
 let pass=0;
@@ -21,6 +22,19 @@ ok(
   !workflow.includes('[[ "$target" == "$main_sha" ]]')&&
   !workflow.includes('\n  push:'),
   'launch audit binds cleanup authority to the exact deployed release while allowing later unreleased main descendants'
+);
+ok(
+  replayWorkflow.includes('workflow_dispatch:')&&
+  replayWorkflow.includes('AUDIT_SHA: ${{ inputs.target_sha }}')&&
+  replayWorkflow.includes('compare/$AUDIT_SHA...$main_sha')&&
+  replayWorkflow.includes('status in {"ahead","identical"}')&&
+  replayWorkflow.includes('contents/release/production.json?ref=$main_sha')&&
+  replayWorkflow.includes("keys=('schema','release','sequence','sourceSha')")&&
+  replayWorkflow.includes('https://thebedesk.com/api/version')&&
+  replayWorkflow.includes('require_success deploy-production.yml "production deploy"')&&
+  replayWorkflow.includes('require_success postdeploy-smoke.yml "exact post-deploy smoke"')&&
+  !replayWorkflow.includes('[[ "$target" == "$main_sha" ]]'),
+  'manual replay preserves exact deployed-release authority after current main advances'
 );
 ok(workflow.includes("grep -Fq '[legacy-orphan-cleanup]'")&&workflow.includes('Legacy orphan cleanup marker absent; keeping this step read-only.'),'destructive cleanup is one-shot marker gated');
 ok(workflow.includes('AUDIT_INTEGRITY_SECRET: ${{ secrets.AUDIT_INTEGRITY_SECRET }}')&&workflow.includes('node scripts/production-legacy-orphan-cleanup.mjs'),'cleanup secret is isolated to the destructive step');
@@ -41,4 +55,4 @@ ok(zeroAudit.includes("assert(/^SELECT\\b/i.test(statement)")&&zeroAudit.include
 ok(zeroAudit.includes('assert(orphanTenants===0')&&zeroAudit.includes('assert(orphanUsers===0'),'permanent baseline rejects orphan tenants and orphan users');
 ok(zeroAudit.includes('dangling tenant-reference rows detected')&&zeroAudit.includes('body.matchAll(/\\b([A-Za-z0-9_]*tenant_id)\\b/gi)'),'permanent baseline dynamically rejects dangling tenant references');
 
-console.log(`Legacy orphan cleanup and zero-baseline contract: ${pass}/18 PASS`);
+console.log(`Legacy orphan cleanup and zero-baseline contract: ${pass}/19 PASS`);
