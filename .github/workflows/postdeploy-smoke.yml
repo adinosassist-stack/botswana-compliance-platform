@@ -205,7 +205,7 @@ jobs:
           await page.goto(process.env.ORIGIN+'/',{waitUntil:'networkidle',timeout:45000});
           assert.match(await page.title(),/Thebe Desk/i);
           const rootState=await page.evaluate(()=>({hero:(document.querySelector('.hero h1')?.textContent||'').trim(),app:!!document.getElementById('appShell'),auth:!!document.getElementById('authForm'),role:!!document.getElementById('roleAccessPortal')}));
-          assert.match(rootState.hero,/Run your business with intelligence\./i);assert.equal(rootState.app,false);assert.equal(rootState.auth,false);assert.equal(rootState.role,false);
+          assert.equal(rootState.hero,'Run your whole business from one intelligent desk.');assert.equal(rootState.app,false);assert.equal(rootState.auth,false);assert.equal(rootState.role,false);
           await page.waitForTimeout(600);
           assert.equal(context.pages().length,1,'desktop startup must not create extra tabs/windows');
           assert.deepEqual(popupUrls,[],'desktop startup must not create popups');
