@@ -34,6 +34,7 @@ for(const dangerousTool of ["government_filing.submit","records.delete","externa
 }
 assert.equal(gate({...base,externalDestination:true}).allowed,false);
 assert.equal(gate({...base,externalDestination:true}).reason,"external_destination_denied");
+assert.equal(gate({...base,externalDestination:true,tool:"payment.execute"}).reason,"external_destination_denied");
 assert.equal(gate({...base,externalDestination:"unknown"}).reason,"external_destination_denied");
 assert.equal(gate({...base,externalDestination:null}).reason,"external_destination_denied");
 assert.equal(gate({...base,externalDestination:0}).reason,"external_destination_denied");
