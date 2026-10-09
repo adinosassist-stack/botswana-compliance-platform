@@ -8,7 +8,7 @@ export function evaluateAgentAction({tool,allowedTools=[],approval=null,tenantId
   if(typeof tenantId!=="string"||!tenantId.trim()||typeof taskTenantId!=="string"||tenantId!==taskTenantId)return deny("tenant_boundary");
   if(suspended||taskStatus!=="active")return deny("responsibility_inactive");
   if(policyViolation)return deny("policy_violation");
-  if(typeof tool!=="string"||!Array.isArray(allowedTools)||!Object.hasOwn(allowedTools,allowedTools.indexOf(tool))||!allowedTools.includes(tool))return deny("tool_not_authorized");
+  if(typeof tool!=="string"||!Array.isArray(allowedTools)||!allowedTools.includes(tool))return deny("tool_not_authorized");
   // No approval token can elevate a tool absent from the trusted read-only registry.
   const trust=evaluateToolTrust({actionKey:tool,destination:externalDestination?"external":"internal"});
   if(!trust.allowed)return deny(trust.code);
