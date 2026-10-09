@@ -6,6 +6,8 @@ assert.equal(gate(base).executionAllowed,false);
 assert.equal(gate(base).reason,"preflight_eligible");
 assert.equal(Object.isFrozen(gate(base)),true);
 assert.equal(Object.isFrozen(gate({...base,taskTenantId:"other"})),true);
+assert.throws(()=>{gate(base).executionAllowed=true},TypeError);
+assert.throws(()=>{gate({...base,taskTenantId:"other"}).allowed=true},TypeError);
 assert.equal(gate(base).requiresOwnerApproval,false);
 assert.equal(gate({...base,taskStatus:"active",suspended:false,policyViolation:false,externalDestination:false}).allowed,true);
 assert.equal(gate({...base,taskTenantId:"b"}).reason,"tenant_boundary");
