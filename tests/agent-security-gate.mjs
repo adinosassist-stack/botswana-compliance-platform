@@ -19,7 +19,10 @@ assert.equal(gate({...base,policyViolation:"unknown"}).reason,"policy_violation"
 assert.equal(gate({...base,allowedTools:null}).reason,"tool_not_authorized");
 assert.equal(gate({...base,allowedTools:["other.read"]}).reason,"tool_not_authorized");
 assert.equal(gate({...base,tool:"toString",allowedTools:["toString"]}).allowed,false);
+assert.equal(gate({...base,tool:"",allowedTools:[""]}).allowed,false);
 assert.equal(gate({...base,tenantId:123,taskTenantId:123}).reason,"tenant_boundary");
+assert.equal(gate({...base,tenantId:"",taskTenantId:""}).reason,"tenant_boundary");
+assert.equal(gate({...base,taskTenantId:"other"}).executionAllowed,false);
 assert.equal(gate({...base,allowedTools:["financial_position.read"],externalDestination:true}).executionAllowed,false);
 assert.equal(gate({...base,tool:"payment.execute",approval:{ownerApproved:true,tenantId:"a",tool:"payment.execute",expiresAt:"2099-01-01T00:00:00Z"}}).allowed,false);
 console.log("agent security gate tests PASS");
