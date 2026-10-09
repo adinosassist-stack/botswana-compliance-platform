@@ -10,4 +10,6 @@ assert.equal(selectAgentModel({taskClass:"summary",models,budgetUsd:0.005}).reas
 assert.equal(selectAgentModel({taskClass:"write",models,budgetUsd:1}).reason,"unsupported_task_class");
 assert.equal(selectAgentModel({taskClass:"summary",models,budgetUsd:1,requiredRegion:"bw"}).reason,"no_approved_model");
 assert.equal(selectAgentModel({taskClass:"summary",models,budgetUsd:-1}).reason,"invalid_budget");
+assert.equal(selectAgentModel({taskClass:"summary",models,budgetUsd:1,requiredRegion:""}).reason,"invalid_region");
+assert.equal(selectAgentModel({taskClass:"summary",models,budgetUsd:1,requiredRegion:42}).reason,"invalid_region");
 console.log("agent model routing policy: PASS");
