@@ -58,6 +58,7 @@ await assert.rejects(()=>issueJitExecutionCapabilityCredential({...scope,secret:
 assert.equal((await verifyJitExecutionCapabilityCredential({...scope,secret:"short",token:issued.token})).code,"jit_capability_secret_required");
 
 const wrapper=fs.readFileSync(new URL("../cloudflare/src/jit-capability-governance-entry.js",import.meta.url),"utf8");
+assert.match(wrapper,/handleAgenticTaskExecutionRequest/);
 assert.match(wrapper,/jit_capability_signing_unavailable/);
 assert.match(wrapper,/jit_capability_verification_unavailable/);
 assert.match(wrapper,/capabilityToken/);
@@ -65,7 +66,7 @@ assert.match(wrapper,/executionEnvId/);
 assert.match(wrapper,/authoritativePermit/);
 assert.match(wrapper,/verifyJitExecutionCapabilityCredential/);
 assert.match(wrapper,/agent_jit_execution_permits/);
-assert.match(wrapper,/taskFetch\(request,env,ctx\)/);
+assert.match(wrapper,/const taskFetch=.*handleAgenticTaskExecutionRequest/);
 assert.doesNotMatch(wrapper,/release-governance-entry\.js/);
 assert.doesNotMatch(wrapper,/UPDATE\s+agent_jit_execution_permits/i);
 assert.doesNotMatch(wrapper,/DELETE\s+FROM\s+agent_jit_execution_permits/i);
@@ -73,10 +74,13 @@ assert.doesNotMatch(wrapper,/INSERT\s+INTO\s+agent_jit_execution_permits/i);
 
 const agenticEntry=fs.readFileSync(new URL("../cloudflare/src/agentic-entry.js",import.meta.url),"utf8");
 assert.match(agenticEntry,/handleJitCapabilityGovernanceRequest/);
-assert.match(agenticEntry,/const rawTaskFetch=/);
-assert.match(agenticEntry,/const liveTaskFetch=async/);
-assert.match(agenticEntry,/taskFetch:rawTaskFetch/);
-assert.match(agenticEntry,/const taskExecutionResponse=await liveTaskFetch\(request,env,ctx\)/);
+assert.match(agenticEntry,/const liveTaskFetch=/);
+assert.match(agenticEntry,/const taskExecutionResponse=await handleJitCapabilityGovernanceRequest\(\{request,logicalPath,env\}\)/);
+assert.match(agenticEntry,/\?\?await handleAgenticTaskExecutionRequest\(\{request,logicalPath,env\}\)/);
+const financeRoute=agenticEntry.indexOf("handleAgenticFinanceReconciliationRequest({request,logicalPath,env})");
+const guardedTaskRoute=agenticEntry.indexOf("handleJitCapabilityGovernanceRequest({request,logicalPath,env})");
+const rawFallback=agenticEntry.indexOf("handleAgenticTaskExecutionRequest({request,logicalPath,env})");
+assert.ok(financeRoute>=0&&guardedTaskRoute>financeRoute&&rawFallback>guardedTaskRoute,"finance must stay before guarded task execution and raw fallback");
 
 const wrangler=fs.readFileSync(new URL("../cloudflare/wrangler.toml",import.meta.url),"utf8");
 assert.match(wrangler,/main = "src\/release-governance-entry\.js"/);
