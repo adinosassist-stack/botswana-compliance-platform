@@ -5,6 +5,7 @@ assert.equal(gate(base).allowed,true);
 assert.equal(gate(base).executionAllowed,false);
 assert.equal(gate(base).reason,"preflight_eligible");
 assert.equal(gate(base).requiresOwnerApproval,false);
+assert.equal(gate({...base,taskStatus:"active",suspended:false,policyViolation:false,externalDestination:false}).allowed,true);
 assert.equal(gate({...base,taskTenantId:"b"}).reason,"tenant_boundary");
 assert.equal(gate({...base,taskTenantId:"b"}).executionAllowed,false);
 assert.equal(gate({...base,suspended:true}).allowed,false);
@@ -26,6 +27,7 @@ assert.equal(gate({...base,tool:"toString",allowedTools:["toString"]}).allowed,f
 assert.equal(gate({...base,tool:"",allowedTools:[""]}).allowed,false);
 assert.equal(gate({...base,tenantId:123,taskTenantId:123}).reason,"tenant_boundary");
 assert.equal(gate({...base,tenantId:"",taskTenantId:""}).reason,"tenant_boundary");
+assert.equal(gate({...base,tenantId:" ",taskTenantId:" "}).reason,"tenant_boundary");
 assert.equal(gate({...base,taskTenantId:"other"}).executionAllowed,false);
 assert.equal(gate({...base,allowedTools:["financial_position.read"],externalDestination:true}).executionAllowed,false);
 assert.equal(gate({...base,allowedTools:["financial_position.read"],externalDestination:true}).allowed,false);
