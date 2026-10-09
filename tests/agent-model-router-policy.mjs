@@ -12,4 +12,6 @@ assert.equal(selectAgentModel({taskClass:"summary",models,budgetUsd:1,requiredRe
 assert.equal(selectAgentModel({taskClass:"summary",models,budgetUsd:-1}).reason,"invalid_budget");
 assert.equal(selectAgentModel({taskClass:"summary",models,budgetUsd:1,requiredRegion:""}).reason,"invalid_region");
 assert.equal(selectAgentModel({taskClass:"summary",models,budgetUsd:1,requiredRegion:42}).reason,"invalid_region");
+assert.equal(selectAgentModel({taskClass:"summary",models:Array(101).fill(models[0]),budgetUsd:1}).reason,"too_many_models");
+assert.equal(selectAgentModel({taskClass:"summary",models:[{...models[0],id:" "}],budgetUsd:1}).reason,"no_approved_model");
 console.log("agent model routing policy: PASS");
