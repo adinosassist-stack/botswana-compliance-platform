@@ -61,7 +61,7 @@ async function observationPreflight(request,env,auth){
   const decision=preflightAgentObservation({
     tenantId:auth.tenant_id,actorId:auth.user_id,actionKey:body.actionKey,
     taskClass:body.taskClass,models,budgetUsd:body.budgetUsd,
-    requiredRegion:body.requiredRegion??null,payloadBytes:0
+    requiredRegion:body.requiredRegion??null,payloadBytes:new TextEncoder().encode(JSON.stringify(body)).byteLength
   });
   return json(decision,decision.ok?200:403);
 }
