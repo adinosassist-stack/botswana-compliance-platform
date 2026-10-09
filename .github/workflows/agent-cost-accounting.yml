@@ -21,6 +21,16 @@ on:
       - '.github/workflows/agent-cost-accounting.yml'
   workflow_dispatch:
 jobs:
+  local-d1-transport:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run test:agent-cost-d1
   test:
     runs-on: ubuntu-latest
     steps:
