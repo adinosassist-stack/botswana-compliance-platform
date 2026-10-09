@@ -31,6 +31,8 @@ assert.equal(gate({...base,allowedTools:null}).reason,"tool_not_authorized");
 assert.equal(gate({...base,allowedTools:["other.read"]}).reason,"tool_not_authorized");
 assert.equal(gate({...base,tool:"toString",allowedTools:["toString"]}).allowed,false);
 assert.equal(gate({...base,tool:"",allowedTools:[""]}).allowed,false);
+assert.equal(gate({...base,tool:" financial_position.read",allowedTools:[" financial_position.read"]}).allowed,false);
+assert.equal(gate({...base,tool:"financial_position.read ",allowedTools:["financial_position.read "]}).allowed,false);
 assert.equal(gate({...base,tenantId:123,taskTenantId:123}).reason,"tenant_boundary");
 assert.equal(gate({...base,tenantId:"",taskTenantId:""}).reason,"tenant_boundary");
 assert.equal(gate({...base,tenantId:" ",taskTenantId:" "}).reason,"tenant_boundary");
