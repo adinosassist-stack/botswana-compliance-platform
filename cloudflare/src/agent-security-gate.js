@@ -1,9 +1,9 @@
 import {evaluateToolTrust} from "./agent-tool-trust-registry.js";
-// Fail-closed policy gate for Thebe agent tool execution.
+// Fail-closed preflight for Thebe persistent-task capability declarations.
 // This module is pure and has no network or database side effects.
 export const AGENT_SECURITY_GATE_VERSION = "2026-10-09.v2";
 
-export function evaluateAgentAction({tool,allowedTools=[],approval=null,tenantId,taskTenantId,taskStatus="active",suspended=false,externalDestination=false,policyViolation=false}={}){
+export function evaluateAgentAction({tool,allowedTools=[],tenantId,taskTenantId,taskStatus="active",suspended=false,externalDestination=false,policyViolation=false}={}){
   const deny=(reason)=>({allowed:false,executionAllowed:false,reason,requiresOwnerApproval:false});
   if(typeof tenantId!=="string"||!tenantId.trim()||typeof taskTenantId!=="string"||tenantId!==taskTenantId)return deny("tenant_boundary");
   if(suspended===true||taskStatus!=="active")return deny("responsibility_inactive");
