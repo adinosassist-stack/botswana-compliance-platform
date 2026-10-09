@@ -5,6 +5,9 @@ on:
       - 'cloudflare/src/agent-security-gate.js'
       - 'tests/agent-security-gate.mjs'
       - 'cloudflare/src/agentic-persistent-tasks.js'
+      - 'cloudflare/src/agent-tool-trust-registry.js'
+      - 'cloudflare/src/agent-capability-security.js'
+      - 'cloudflare/src/agent-policy.js'
       - 'tests/v117-persistent-agent-tasks.mjs'
       - '.github/workflows/agent-gate-tests.yml'
   workflow_dispatch:
