@@ -3,6 +3,8 @@ import {evaluateAgentAction as gate} from "../cloudflare/src/agent-security-gate
 const base={tenantId:"a",taskTenantId:"a",tool:"financial_position.read",allowedTools:["financial_position.read","payment.execute"]};
 assert.equal(gate(base).allowed,true);
 assert.equal(gate(base).executionAllowed,false);
+assert.equal(gate(base).allowed,true);
+assert.equal(gate(base).reason,"preflight_eligible");
 assert.equal(gate(base).reason,"preflight_eligible");
 assert.equal(Object.isFrozen(gate(base)),true);
 assert.equal(Object.isFrozen(gate({...base,taskTenantId:"other"})),true);
