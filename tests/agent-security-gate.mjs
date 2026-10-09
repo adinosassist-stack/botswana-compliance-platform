@@ -47,6 +47,8 @@ assert.equal(gate({...base,tenantId:"",taskTenantId:""}).reason,"tenant_boundary
 assert.equal(gate({...base,tenantId:" ",taskTenantId:" "}).reason,"tenant_boundary");
 assert.equal(gate({...base,tenantId:" a",taskTenantId:" a"}).reason,"tenant_boundary");
 assert.equal(gate({...base,tenantId:"a ",taskTenantId:"a "}).reason,"tenant_boundary");
+assert.equal(gate({...base,tenantId:"a",taskTenantId:"A"}).reason,"tenant_boundary");
+assert.equal(gate({...base,tenantId:"a",taskTenantId:null}).reason,"tenant_boundary");
 assert.equal(gate({...base,taskTenantId:"other"}).executionAllowed,false);
 assert.equal(gate({...base,allowedTools:["financial_position.read"],externalDestination:true}).executionAllowed,false);
 assert.equal(gate({...base,allowedTools:["financial_position.read"],externalDestination:true}).allowed,false);
