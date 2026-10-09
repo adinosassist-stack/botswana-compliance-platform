@@ -3,6 +3,7 @@ import {
   AGENT_CONTROL_PLANE_VERSION,THEBE_AGENT_ID,FINANCE_OBSERVER_AGENT_ID,BUSINESS_GOAL_OBSERVER_AGENT_ID,
   loadCanonicalAgentAuthority,authorityPermitsExecution,evaluateCanonicalAgentDrift,transitionCanonicalAgentAuthority
 } from "./agent-control-plane.js";
+import {loadAgentCostOutcomeSummary} from "./agent-cost-outcome-telemetry.js";
 
 const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"}});
 const clean=(value,max=160)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
@@ -54,7 +55,7 @@ export async function loadTenantOperatorTelemetry(env,tenantId){
   const tenant=clean(tenantId,120);
   if(!env?.DB||!tenant)return Object.freeze({available:false,reason:"operator_telemetry_unavailable"});
   try{
-    const [persistent,claims7d,runs7d,requests,receipts30d,grants,budgetResult,lastActivity]=await Promise.all([
+    const [persistent,claims7d,runs7d,requests,receipts30d,grants,budgetResult,lastActivity,costToOutcome]=await Promise.all([
       env.DB.prepare(`SELECT
         COUNT(*) total,
         SUM(CASE WHEN status='active' THEN 1 ELSE 0 END) active,
@@ -93,7 +94,8 @@ export async function loadTenantOperatorTelemetry(env,tenantId){
           SELECT created_at activity_at FROM agentic_runs WHERE tenant_id=?
           UNION ALL SELECT created_at FROM agent_observation_claims WHERE tenant_id=?
           UNION ALL SELECT created_at FROM agent_execution_receipts WHERE tenant_id=?
-        )`).bind(tenant,tenant,tenant).first()
+        )`).bind(tenant,tenant,tenant).first(),
+      loadAgentCostOutcomeSummary(env,tenant,{windowDays:7})
     ]);
 
     let configuredReadCeilingPerRun=0,externalActionBudgetViolations=0;
@@ -133,8 +135,14 @@ export async function loadTenantOperatorTelemetry(env,tenantId){
         telemetryCanMutate:false,
         telemetryCanGrantAuthority:false
       }),
+      costToOutcome,
       providerSpend:Object.freeze({
-        metered:false,currency:null,amountMinor:null,reason:"provider_cost_not_metered"
+        metered:false,
+        mode:costToOutcome?.available===true?"shadow":"unavailable",
+        currency:costToOutcome?.available===true?"BWP":null,
+        amountMinor:null,
+        budgetEnforcement:false,
+        reason:costToOutcome?.available===true?"shadow_telemetry_not_provider_billing_ledger":"provider_cost_not_metered"
       }),
       lastActivityAt:clean(lastActivity?.last_activity_at,64)||null
     });
