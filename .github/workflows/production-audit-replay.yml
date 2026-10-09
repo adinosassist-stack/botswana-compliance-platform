@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       target_sha:
-        description: Exact current main release SHA whose successful production deploy is being audited
+        description: Exact deployed production release SHA to audit
         required: true
         type: string
 
@@ -44,7 +44,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Prove current main and successful deployment ancestry
+      - name: Prove deployed release authority and successful deployment ancestry
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -58,7 +58,46 @@ jobs:
             --header 'X-GitHub-Api-Version: 2022-11-28' \
             "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main" \
             | python3 -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])')"
-          [[ "$target" == "$main_sha" ]] || { echo "refusing stale replay target=$target current-main=$main_sha" >&2; exit 1; }
+
+          comparison="$(curl --fail-with-body --silent --show-error \
+            --header 'Accept: application/vnd.github+json' \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header 'X-GitHub-Api-Version: 2022-11-28' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/compare/$AUDIT_SHA...$main_sha")"
+          printf '%s' "$comparison" | python3 -c 'import json,sys; data=json.load(sys.stdin); status=data.get("status"); assert status in {"ahead","identical"}, f"replay target is not in current main lineage: status={status!r}"'
+
+          curl --fail-with-body --silent --show-error \
+            --header 'Accept: application/vnd.github.raw+json' \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header 'X-GitHub-Api-Version: 2022-11-28' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/contents/release/production.json?ref=$main_sha" \
+            --output /tmp/current-main-release.json
+          python3 - <<'PY'
+          import json
+          target=json.load(open('release/production.json',encoding='utf-8'))
+          current=json.load(open('/tmp/current-main-release.json',encoding='utf-8'))
+          keys=('schema','release','sequence','sourceSha')
+          assert all(target.get(k)==current.get(k) for k in keys), 'current main release authority differs from replay target'
+          assert target.get('release')=='production', 'replay target is not a production release'
+          assert isinstance(target.get('sequence'),int) and target['sequence']>0, 'invalid production release sequence'
+          source=str(target.get('sourceSha') or '')
+          assert len(source)==40 and all(c in '0123456789abcdef' for c in source), 'invalid production source SHA'
+          PY
+
+          curl --fail-with-body --silent --show-error --retry 3 --retry-delay 2 \
+            --header 'Accept: application/json' \
+            --header 'Cache-Control: no-store' \
+            "$ORIGIN/api/version" \
+            --output /tmp/live-version.json
+          python3 - <<'PY'
+          import json
+          expected=json.load(open('release/production.json',encoding='utf-8'))
+          live=json.load(open('/tmp/live-version.json',encoding='utf-8'))
+          assert live.get('ok') is True, 'live version endpoint is not healthy'
+          assert live.get('release')==expected.get('release'), 'live production release name mismatch'
+          assert live.get('releaseSequence')==expected.get('sequence'), 'live production release sequence mismatch'
+          assert live.get('sourceSha')==expected.get('sourceSha'), 'live production source SHA mismatch'
+          PY
 
           require_success() {
             workflow="$1"
@@ -73,6 +112,8 @@ jobs:
           require_success deploy-production.yml "production deploy"
           require_success postdeploy-smoke.yml "exact post-deploy smoke"
           [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo 'checkout is not clean' >&2; exit 1; }
+          echo "Replay authority confirmed target=$AUDIT_SHA current-main=$main_sha"
+          echo 'Release identity is authoritative; refusing stale replay only when lineage, manifest, or live identity diverges.'
 
       - name: Setup pinned Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
