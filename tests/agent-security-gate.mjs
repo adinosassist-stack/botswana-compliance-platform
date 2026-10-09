@@ -39,6 +39,7 @@ assert.equal(gate({...base,externalDestination:"unknown"}).reason,"external_dest
 assert.equal(gate({...base,externalDestination:null}).reason,"external_destination_denied");
 assert.equal(gate({...base,externalDestination:0}).reason,"external_destination_denied");
 assert.equal(gate({...base,policyViolation:true}).allowed,false);
+assert.equal(gate({...base,policyViolation:true,tool:"payment.execute"}).reason,"policy_violation");
 assert.equal(gate({...base,policyViolation:"unknown"}).reason,"policy_violation");
 assert.equal(gate({...base,policyViolation:null}).reason,"policy_violation");
 assert.equal(gate({...base,policyViolation:0}).reason,"policy_violation");
