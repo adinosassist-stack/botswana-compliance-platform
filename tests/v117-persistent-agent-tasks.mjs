@@ -21,6 +21,7 @@ assert.equal(normalizePersistentTask({objective:"x",nextRunAt:{}}).error,"invali
 for(const field of ["riskPolicy","approvalPolicy","budget","triggerSpec"]){
   assert.equal(normalizePersistentTask({objective:"x",[field]:[]}).error,"invalid_"+field);
   assert.equal(normalizePersistentTask({objective:"x",[field]:"invalid"}).error,"invalid_"+field);
+  assert.equal(normalizePersistentTask({objective:"x",[field]:new Date()}).error,"invalid_"+field);
 }
 const source=fs.readFileSync("cloudflare/src/agentic-persistent-tasks.js","utf8");
 assert.doesNotMatch(source,/payment\.execute|government_filing\.submit/);
