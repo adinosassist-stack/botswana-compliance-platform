@@ -4,6 +4,7 @@ const base={tenantId:"a",taskTenantId:"a",tool:"financial_position.read",allowed
 assert.equal(gate(base).allowed,true);
 assert.equal(gate(base).executionAllowed,false);
 assert.equal(gate(base).reason,"preflight_eligible");
+assert.equal(gate(base).requiresOwnerApproval,false);
 assert.equal(gate({...base,taskTenantId:"b"}).reason,"tenant_boundary");
 assert.equal(gate({...base,taskTenantId:"b"}).executionAllowed,false);
 assert.equal(gate({...base,suspended:true}).allowed,false);
@@ -24,5 +25,6 @@ assert.equal(gate({...base,tenantId:123,taskTenantId:123}).reason,"tenant_bounda
 assert.equal(gate({...base,tenantId:"",taskTenantId:""}).reason,"tenant_boundary");
 assert.equal(gate({...base,taskTenantId:"other"}).executionAllowed,false);
 assert.equal(gate({...base,allowedTools:["financial_position.read"],externalDestination:true}).executionAllowed,false);
+assert.equal(gate({...base,allowedTools:["financial_position.read"],externalDestination:true}).allowed,false);
 assert.equal(gate({...base,tool:"payment.execute",approval:{ownerApproved:true,tenantId:"a",tool:"payment.execute",expiresAt:"2099-01-01T00:00:00Z"}}).allowed,false);
 console.log("agent security gate tests PASS");
