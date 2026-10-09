@@ -12,6 +12,8 @@ assert.throws(()=>{gate(base).executionAllowed=true},TypeError);
 assert.throws(()=>{gate({...base,taskTenantId:"other"}).allowed=true},TypeError);
 assert.equal(gate(base).requiresOwnerApproval,false);
 assert.equal(gate({...base,taskStatus:"active",approval:{ownerApproved:true}}).executionAllowed,false);
+assert.equal(gate({...base,approval:{ownerApproved:true},externalDestination:true}).allowed,false);
+assert.equal(gate({...base,approval:{ownerApproved:true},policyViolation:true}).allowed,false);
 assert.equal(gate({...base,taskStatus:"active",suspended:false,policyViolation:false,externalDestination:false}).allowed,true);
 assert.equal(gate({...base,taskTenantId:"b"}).reason,"tenant_boundary");
 assert.equal(gate({...base,taskTenantId:"b",tool:"payment.execute"}).reason,"tenant_boundary");
