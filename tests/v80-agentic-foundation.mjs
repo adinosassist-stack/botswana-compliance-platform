@@ -38,7 +38,8 @@ ok(core.includes('Stage 1 records governance decisions only'),'approval cannot m
 ok(core.includes('csrfAllowed(request,auth)'),'mutations require CSRF');
 ok(core.includes('originAllowed(request,env)'),'mutations enforce configured origin');
 ok(core.includes('roleAllowed(auth,"owner"')||core.includes('roleAllowed(auth,"owner")'),'approval requires owner authority');
-ok(core.includes('worker')===false,'agentic core is provider-neutral and delegates AI through injected coreFetch only');
+ok(!/(?:from|import)[^\n]*["'][^"']*worker/.test(core)&&!(/\benv\.AI\b|\bfetch\s*\(/.test(core)),
+  'agentic core delegates provider calls through injected coreFetch; generation-mode metadata is permitted');
 
 const high=__agenticFoundationTest.classifyProposal({title:'Transfer payroll payment',reason:'Pay salaries now'});
 assert.deepEqual(high,{risk:'high',authority:'human_only',executionPolicy:'prohibited_autonomy'});checks++;

@@ -51,7 +51,9 @@ const verified=verifyOrchestratedProposals([
 ],orchestration);
 
 assert.deepEqual(verified.proposals[0].sourceRefs,["finance_reconciliation"]);
-assert.equal(verified.proposals[0].verification.status,"verified_recommendation");
+assert.equal(verified.proposals[0].verification.status,"needs_human_review");
+assert.equal(verified.proposals[0].verification.sourceRefsValidated,true);
+assert.equal(verified.proposals[0].verification.claimsVerified,false);
 assert.equal(verified.proposals[0].verification.droppedSourceRefCount,1);
 assert.equal(verified.proposals[1].verification.status,"needs_human_review");
 assert.equal(verified.proposals[1].verification.grounded,false);

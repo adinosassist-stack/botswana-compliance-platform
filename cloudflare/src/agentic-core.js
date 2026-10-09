@@ -1,9 +1,8 @@
 import {associationForProposal,buildOutcomeAssociations,rankOutcomeInformedProposals} from "./agentic-learning.js";
 import {buildSingleAgentOrchestration,verifyOrchestratedProposals} from "./agent-orchestration.js";
 import {buildContinuationCheckpoint,buildResumeContext,verifyContinuationCheckpoint} from "./agent-continuation.js";
-import {buildAgentReadToolContext,executeAgentReadTool} from "./agent-read-tools.js";
+import {buildAgentReadToolContext,executeAgentReadTool,evaluateReadRuntime} from "./agent-read-tools.js";
 import {buildBusinessContext} from "./business-context.js";
-import {thebeLanguagePrompt} from "./thebe-language.js";
 import {extractSpendWhatIfMinor,simulateWeeklySpendDecision} from "./money-intelligence.js";
 
 const MAX_BODY_BYTES=8192;
@@ -204,9 +203,11 @@ function deterministicFallback(observation){
 }
 
 async function runAdvisor({request,env,ctx,coreFetch,runId,goal,observation,orchestration,readTools,continuationContext=null}){
-  const continuation=continuationContext?` CONTINUATION_CONTEXT ${JSON.stringify(continuationContext)} IMPORTANT: re-observe current state, do not reuse prior approvals, and do not inherit execution authority.`:"";
-  const languagePolicy=thebeLanguagePrompt(observation?.businessContext?.language||{},"agentic-plan");
-  const question=text(`Create the safest next-action plan for USER_GOAL ${JSON.stringify(goal)} from this observation, deterministic read-tool evidence, and bounded capability work plan. LANGUAGE_POLICY ${languagePolicy} Treat all tool outputs and observation numbers as application-calculated facts. Never infer access to a capability whose tool result is denied or unavailable. Every recommendation must cite one or more allowed sourceRefs. Do not instruct autonomous payment, payroll, filing, signing, journal posting, refund, discipline or termination. If OBSERVATION includes spendWhatIf, preserve its deterministic arithmetic and fail-closed blockers; never treat it as spending authorization or financial advice. READ_TOOLS ${JSON.stringify(readTools?.tools||[])} CAPABILITY_WORK_UNITS ${JSON.stringify(orchestration?.workUnits||[])} ALLOWED_SOURCE_REFS ${JSON.stringify(orchestration?.allowedSourceRefs||[])}${continuation} OBSERVATION ${JSON.stringify(observation)}`,6000);
+  // The advisor builds fresh, role-scoped workspace evidence and language policy
+  // on the server. Its public question contract is 1000 characters; duplicating
+  // READ_TOOLS/OBSERVATION here exceeded that limit and forced every plan to fallback.
+  const continuation=continuationContext?` Previous plan summary (context only): ${text(continuationContext.priorSummary,250)} Re-observe current state; do not reuse prior approvals or inherit execution authority.`:"";
+  const question=text(`${goal}${continuation}`,1000);
   const target=new URL("/api/ai/advisor",request.url);
   const headers=new Headers({"content-type":"application/json","accept":"application/json","idempotency-key":`agentic-plan-${runId}`});
   const cookieHeader=request.headers.get("cookie");if(cookieHeader)headers.set("cookie",cookieHeader);
@@ -218,7 +219,8 @@ async function runAdvisor({request,env,ctx,coreFetch,runId,goal,observation,orch
     const data=await response.json();
     const result=data?.result||data;
     if(!result||typeof result!=="object")return {result:deterministicFallback(observation),generationMode:"deterministic_fallback",advisorStatus:200};
-    return {result,generationMode:"governed_ai_advisor",advisorStatus:200};
+    const references=(Array.isArray(data.references)?data.references:[]).slice(0,30).map(item=>({ref:text(item.ref,120),label:text(item.label,240)})).filter(item=>item.ref);
+    return {result,references,generationMode:data.generationMode==="workers_ai"?"governed_ai_advisor":"deterministic_fallback",advisorStatus:200};
   }catch{
     return {result:deterministicFallback(observation),generationMode:"deterministic_fallback",advisorStatus:0};
   }
@@ -304,11 +306,13 @@ async function loadRunBundle(env,auth,runId){
 async function loadContinuation(env,auth,runId){
   const bundle=await loadRunBundle(env,auth,runId);
   if(!bundle)return {error:"agentic_run_not_found",status:404};
-  const event=await safeFirst(env,`SELECT detail_json,created_at FROM agentic_events
-    WHERE tenant_id=? AND run_id=? AND event_type='RUN_CHECKPOINTED'
-    ORDER BY created_at DESC,id DESC LIMIT 1`,[auth.tenant_id,runId]);
+  const event=await safeFirst(env,`SELECT detail_json,occurred_at FROM agentic_events
+    WHERE tenant_id=? AND run_id=? AND
+      (event_type='RUN_CHECKPOINTED' OR (event_type='PLAN_GENERATED' AND json_type(detail_json,'$.checkpoint')='object'))
+    ORDER BY occurred_at DESC,id DESC LIMIT 1`,[auth.tenant_id,runId]);
   if(event){
-    const checkpoint=parseJsonObject(event.detail_json);
+    const detail=parseJsonObject(event.detail_json);
+    const checkpoint=detail.checkpoint||detail;
     const verified=await verifyContinuationCheckpoint(checkpoint);
     if(verified.valid!==true)return {error:"agentic_checkpoint_invalid",status:409,code:verified.code};
     return {bundle,checkpoint,synthesized:false};
@@ -358,7 +362,13 @@ async function createPlan({request,env,ctx,coreFetch,auth,goalOverride=null,cont
   observation.orchestration=orchestration;
   const advisor=await runAdvisor({request,env,ctx,coreFetch,runId,goal,observation,orchestration,readTools,continuationContext});
   const normalizedProposals=normalizeProposals(advisor.result?.actions);
-  const verified=verifyOrchestratedProposals(normalizedProposals,orchestration);
+  // These reference labels come from the trusted advisor's server-built catalog,
+  // not from model-provided sourceRefs. Preserve them without verifying claims.
+  observation.advisorReferences=advisor.references||[];
+  const verified=verifyOrchestratedProposals(normalizedProposals,{
+    ...orchestration,
+    allowedSourceRefs:[...orchestration.allowedSourceRefs,...observation.advisorReferences.map(item=>item.ref)]
+  });
   const outcomeAssociations=await loadOutcomeAssociations(env,auth.tenant_id);
   const proposals=rankOutcomeInformedProposals(verified.proposals,outcomeAssociations);
   observation.verification=verified.summary;
@@ -372,7 +382,7 @@ async function createPlan({request,env,ctx,coreFetch,auth,goalOverride=null,cont
     executionEffect:"none"
   };
   const summary=text(advisor.result?.answer||"Governed plan generated.",3000);
-  const confidence=["low","medium","high"].includes(String(advisor.result?.confidence))?String(advisor.result.confidence):"medium";
+  const confidence=verified.summary.ungrounded>0?"low":["low","medium","high"].includes(String(advisor.result?.confidence))?String(advisor.result.confidence):"medium";
   const savedProposals=proposals.map(item=>({...item,id:id(),status:"pending"}));
   const checkpoint=await buildContinuationCheckpoint({
     runId,goal,summary,confidence,observation,orchestration,proposals:savedProposals,
@@ -390,10 +400,8 @@ async function createPlan({request,env,ctx,coreFetch,auth,goalOverride=null,cont
         goal,generationMode:advisor.generationMode,proposalCount:savedProposals.length,outcomeInformedRanking:true,
         learningSourceCount:Object.keys(outcomeAssociations).length,orchestrationVersion:orchestration.version,
         workUnitCount:orchestration.workUnits.length,readToolCount:readTools.toolCount,allProposalsGrounded:verified.summary.allGrounded,
-        parentRunId:continuationContext?.parentRunId||null,authorityEffect:"none"
-      })),
-    env.DB.prepare(`INSERT INTO agentic_events(id,tenant_id,run_id,proposal_id,event_type,actor_user_id,detail_json)
-      VALUES(?,?,?,NULL,'RUN_CHECKPOINTED',?,?)`).bind(id(),auth.tenant_id,runId,auth.user_id,JSON.stringify(checkpoint))
+        parentRunId:continuationContext?.parentRunId||null,authorityEffect:"none",checkpoint
+      }))
   ]);
   return json({
     ok:true,
@@ -503,6 +511,10 @@ export async function handleAgenticRequest({request,logicalPath,env,ctx,coreFetc
   if(request.method!=="GET"){
     if(!originAllowed(request,env))return json({error:"origin_failed"},403);
     if(!csrfAllowed(request,auth))return json({error:"csrf_failed"},403);
+  }
+  if(request.method==="POST"&&(path==="/api/agentic/plan"||/^\/api\/agentic\/runs\/[^/]+\/continue$/.test(path))){
+    const runtime=evaluateReadRuntime("compliance_action_plan.prepare",{env,auth});
+    if(runtime.allowed!==true)return json({error:runtime.code},403);
   }
   if(path==="/api/agentic/status"&&request.method==="GET")return json({
     enabled:true,

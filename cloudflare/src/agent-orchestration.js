@@ -134,14 +134,20 @@ export function verifyOrchestratedProposals(proposals=[],orchestration={}){
     const requestedRefs=unique(proposal?.sourceRefs);
     const sourceRefs=requestedRefs.filter(ref=>allowed.has(ref));
     const dropped=requestedRefs.filter(ref=>!allowed.has(ref));
-    const grounded=sourceRefs.length>0;
+    // Reference membership establishes provenance, not whether the model's
+    // claims follow from the referenced records. Keep those claims unverified.
+    const sourceRefsValidated=sourceRefs.length>0;
+    const grounded=false;
     const humanOnly=String(proposal?.authority||"")==="human_only"||String(proposal?.risk||"")==="high";
     return {
       ...proposal,
       sourceRefs,
       verification:Object.freeze({
         grounded,
-        status:humanOnly?"human_only":grounded?"verified_recommendation":"needs_human_review",
+        sourceRefsValidated,
+        claimsVerified:false,
+        humanReviewRequired:true,
+        status:humanOnly?"human_only":"needs_human_review",
         droppedSourceRefCount:dropped.length,
         authorityExpanded:false,
         executionAllowed:false
@@ -156,6 +162,8 @@ export function verifyOrchestratedProposals(proposals=[],orchestration={}){
       grounded:groundedCount,
       ungrounded:verified.length-groundedCount,
       allGrounded:verified.length===groundedCount,
+      claimsVerified:false,
+      humanReviewRequired:true,
       authorityExpanded:false,
       executionAllowed:false,
       orchestrationVersion:String(orchestration?.version||AGENT_ORCHESTRATION_VERSION)

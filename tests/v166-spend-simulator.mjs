@@ -88,7 +88,7 @@ const agenticSource=fs.readFileSync("cloudflare/src/agentic-core.js","utf8");
 assert.match(agenticSource,/extractSpendWhatIfMinor\(goal,\{marketCode:observation\?\.market\?\.code\}\)/);
 assert.match(agenticSource,/observation\.spendWhatIf=simulateWeeklySpendDecision/);
 assert.match(agenticSource,/channelParity:"web_voice_whatsapp"/);
-assert.match(agenticSource,/never treat it as spending authorization or financial advice/);
+assert.match(workerSource,/never present it as spending authorization or financial advice/,"the canonical advisor owns the planning safety prompt");
 assert.doesNotMatch(agenticSource,/executionEnabled:true/);
 
 const moneySource=fs.readFileSync("cloudflare/src/money-intelligence.js","utf8");

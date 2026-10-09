@@ -119,8 +119,7 @@ const moneySource=fs.readFileSync("cloudflare/src/money-intelligence.js","utf8")
 
 assert.match(worker,/LANGUAGE_POLICY/);
 assert.match(worker,/thebeLanguagePrompt/);
-assert.match(agent,/LANGUAGE_POLICY/);
-assert.match(agent,/thebeLanguagePrompt/);
+assert.match(agent,/new URL\("\/api\/ai\/advisor",request.url\)/,"planning delegates language policy to the canonical advisor");
 assert.match(whatsapp,/loadThebeLanguagePreference/);
 assert.match(whatsapp,/deterministicLanguagePolicy/);
 assert.match(voice,/sharedLanguageGuidance/);

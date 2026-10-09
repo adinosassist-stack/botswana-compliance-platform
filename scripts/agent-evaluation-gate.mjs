@@ -3,6 +3,8 @@ import {runAgentEvaluationSuite} from "../cloudflare/src/agent-evaluation.js";
 import {runVoiceRuntimeEvaluationGate} from "../cloudflare/src/voice-runtime-evaluation.js";
 import {verifyVoiceProviderRoutingPolicy} from "../cloudflare/src/voice-provider-routing.js";
 import {verifyVoiceRuntimeEvidencePolicy} from "../cloudflare/src/voice-runtime-evidence.js";
+await import("../tests/ai-audit-regressions.mjs");
+await import("../tests/ai-advisor-planner-integration.mjs");
 
 const report=runAgentEvaluationSuite();
 if(!report.pass){

@@ -143,7 +143,8 @@ const verified=verifyOrchestratedProposals([{
   sourceRefs:["tool:financial_position","invented:source"]
 }],orchestration);
 assert.deepEqual(verified.proposals[0].sourceRefs,["tool:financial_position"]);
-assert.equal(verified.proposals[0].verification.grounded,true);
+assert.equal(verified.proposals[0].verification.grounded,false);
+assert.equal(verified.proposals[0].verification.sourceRefsValidated,true);
 assert.equal(verified.proposals[0].verification.droppedSourceRefCount,1);
 
 const moduleSource=fs.readFileSync("cloudflare/src/agent-read-tools.js","utf8");
