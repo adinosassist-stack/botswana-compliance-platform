@@ -7,12 +7,15 @@ assert.equal(n.error,undefined);assert.equal(n.payload.objective,"Watch cash exc
 assert.equal(normalizePersistentTask({objective:""}).error,"objective_required");
 assert.equal(normalizePersistentTask({objective:"x",triggerKind:"browser"}).error,"invalid_trigger_kind");
 assert.equal(normalizePersistentTask({objective:"x",allowedTools:"*"}).error,"invalid_allowed_tools");
+assert.equal(normalizePersistentTask({objective:"x",allowedTools:["toString"]}).error!==undefined,true);
+assert.equal(normalizePersistentTask({objective:"x",allowedTools:["financial_position.read"]}).payload.allowedTools[0],"financial_position.read");
 assert.equal(normalizePersistentTask({objective:"x",nextRunAt:"never"}).error,"invalid_next_run_at");
 const source=fs.readFileSync("cloudflare/src/agentic-persistent-tasks.js","utf8");
 assert.doesNotMatch(source,/payment\.execute|government_filing\.submit/);
 assert.doesNotMatch(source,/\bfetch\s*\(/,"persistent responsibility state must not execute network actions");
 assert.match(source,/executionAllowed:false/);
 assert.match(source,/Runtime Guard/);
+assert.match(source,/evaluateAgentAction/);
 const migration=fs.readFileSync("cloudflare/migrations/051_v117_persistent_agent_tasks.sql","utf8");
 assert.match(migration,/CREATE TABLE IF NOT EXISTS agent_persistent_tasks/);
 assert.match(migration,/agent_persistent_task_event_tenant_guard/);
