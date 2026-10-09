@@ -29,7 +29,8 @@ export async function runAgentModelObservation({env,auth,input,adapters}={}){
   const promptBytes=new TextEncoder().encode(input.prompt).byteLength;
   if(promptBytes>16384)return deny("model_input_too_large");
   let models;
-  try{models=JSON.parse(String(env.AGENT_APPROVED_MODELS_JSON||"[]"))}catch{return deny("model_catalog_unavailable")}
+  const catalogSnapshot=String(env.AGENT_APPROVED_MODELS_JSON||"[]");
+  try{models=JSON.parse(catalogSnapshot)}catch{return deny("model_catalog_unavailable")}
   if(!Array.isArray(models)||models.length>100||new Set(models.map(m=>m?.id)).size!==models.length)return deny("model_catalog_unavailable");
   const decision=preflightAgentObservation({tenantId:auth.tenant_id,actorId:auth.user_id,
     actionKey:input.actionKey,taskClass:input.taskClass,models,budgetUsd:input.budgetUsd,
@@ -54,9 +55,12 @@ export async function runAgentModelObservation({env,auth,input,adapters}={}){
   if(reserved.allowed!==true)return deny(reserved.code);
   // Controls may change while the asynchronous reservation is being written.
   runtime=evaluateReadRuntime(decision.actionKey,{env,auth});
-  if(runtime.allowed!==true||runtime.executionAllowed!==false){
+  const catalogChanged=String(env.AGENT_APPROVED_MODELS_JSON||"[]")!==catalogSnapshot;
+  const executionDisabled=String(env.AGENT_MODEL_EXECUTION_ENABLED??"").trim()!=="1";
+  if(executionDisabled||catalogChanged||runtime.allowed!==true||runtime.executionAllowed!==false){
     const released=await releaseAgentCost(env,identity);
-    return deny(runtime.code,{reservationId:identity.reservationId,costStatus:released.allowed?"released":"reconciliation_required"});
+    return deny(executionDisabled?"model_execution_disabled":catalogChanged?"model_catalog_changed":runtime.code,
+      {reservationId:identity.reservationId,costStatus:released.allowed?"released":"reconciliation_required"});
   }
   let response,timer;
   const controller=new AbortController();
@@ -79,5 +83,6 @@ export async function runAgentModelObservation({env,auth,input,adapters}={}){
   if(typeof response.text!=="string"||!response.text.trim()||new TextEncoder().encode(response.text).byteLength>262144)
     return deny("model_output_invalid",{reservationId:identity.reservationId,costStatus:"settled",actualCostMinor:actual});
   return {ok:true,code:"model_observation_completed",executionAllowed:false,outputVerified:false,
-    modelId:model.id,text:response.text,reservationId:identity.reservationId,costStatus:"settled",actualCostMinor:actual};
+    modelId:model.id,text:response.text,reservationId:identity.reservationId,costStatus:"settled",actualCostMinor:actual,
+    costBasis:"provider_usage_at_configured_rates",providerBillVerified:false};
 }

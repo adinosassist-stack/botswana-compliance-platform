@@ -34,10 +34,19 @@ Implement a model-independent, governed agent execution layer for Thebe Desk wit
 - `budgetUsd` is a selection ceiling, not proof of available tenant funds. Actual model calls still require authoritative usage accounting, budget reservation and a fresh runtime decision before execution.
 
 ## Internal model observation runner
-- `runAgentModelObservation` orchestrates server-supplied provider adapters. It is not mounted as an HTTP route and does not instantiate an OpenAI client or make live calls in this change.
+- `runAgentModelObservation` orchestrates server-supplied provider adapters. It is not mounted as an HTTP route. Tests use synthetic adapters and mocked HTTP; no live calls were made.
 - `AGENT_MODEL_EXECUTION_ENABLED=1` is required, as are owner/manager session context, an approved model catalog entry with `externalProcessingApproved: true`, explicit BWP-minor token pricing and a bounded input/output configuration.
 - Before dispatch it snapshots identity and prompt, applies the existing read Runtime Guard, reserves cost through the existing transactional ledger and rechecks runtime controls. Duplicate tenant/agent/run IDs cannot invoke the adapter twice.
 - Input-byte bounds plus catalog-configured input overhead and the output-token ceiling determine the conservative reservation. Provider-reported usage is priced using that same catalog; no exchange rate or price is hard-coded.
+- Usage-priced settlement records budget consumption at configured rates, not a reconciled provider invoice. Successful results retain `providerBillVerified: false` and identify their cost basis.
 - Missing usage, timeout, adapter errors or failed settlement retain the reservation for reconciliation. A runtime denial before dispatch releases it. Invalid output with valid usage is still settled. Raw adapter errors are not returned.
 - Successful text remains `outputVerified: false` and `executionAllowed: false`; this is neither financial-answer verification nor tool-action authority.
-- Production wiring still requires the experimental accounting schema to be qualified for deployment, a reviewed provider adapter and authoritative-data grounding. No new credentials, production variables, migrations or provider activation are included here.
+- Production wiring still requires the experimental accounting schema to be qualified for deployment and authoritative-data grounding. No new credentials, production variables, migrations or provider activation are included here.
+
+## OpenAI adapter
+- `runOpenAIModelObservation` composes the cost runner with a server-only Responses API adapter using the existing `OPENAI_API_KEY` configuration. It is not mounted as a public route.
+- Both `AGENT_MODEL_EXECUTION_ENABLED=1` and `AGENT_MODEL_OPENAI_ENABLED=1` are required, along with catalog approval, explicit pricing and a tenant budget. The adapter independently checks its enable flag, approved model and output-token ceiling before dispatch.
+- The only endpoint is `https://api.openai.com/v1/responses`; redirects and automatic retries are disabled. Requests use `store: false`, `stream: false` and `tools: []`. Tenant and actor identifiers are not added to the provider request.
+- Catalog IDs must pin the expected response model. A model mismatch or missing usage keeps the budget reserved for reconciliation. Incomplete output with valid usage is still billed through settlement but is not returned as a successful answer.
+- Raw provider response bodies are bounded to 1 MiB before parsing. The runner bounds returned text and imposes an abort timeout. Raw upstream error details and credentials are not returned.
+- API contract reference: [OpenAI Responses creation](https://developers.openai.com/api/reference/resources/responses/methods/create).

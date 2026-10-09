@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {DatabaseSync} from "node:sqlite";
 import {runAgentModelObservation} from "../cloudflare/src/agent-model-observation-runner.js";
+import {runOpenAIModelObservation} from "../cloudflare/src/agent-openai-observation-adapter.js";
 
 const db=new DatabaseSync(":memory:");
 try{
@@ -45,6 +46,8 @@ try{
   assert.equal(result.outputVerified,false);
   assert.equal(result.costStatus,"settled");
   assert.equal(result.actualCostMinor,1);
+  assert.equal(result.costBasis,"provider_usage_at_configured_rates");
+  assert.equal(result.providerBillVerified,false);
   assert.deepEqual(budget(),{spent_minor:1,reserved_minor:0});
   assert.equal((await run()).ok,false);
   assert.equal(calls,1,"duplicate run must never invoke the provider twice");
@@ -68,6 +71,15 @@ try{
   assert.equal(calls,3,"a kill switch activated during reservation must stop provider dispatch");
   DB.batch=batch;
   delete env.AGENT_RUNTIME_KILL_SWITCH;
+  const catalog=env.AGENT_APPROVED_MODELS_JSON;
+  DB.batch=async function(statements){const r=await batch(statements);env.AGENT_APPROVED_MODELS_JSON="[]";return r};
+  const changedCatalog=await run({input:{...input,runId:"changed-catalog"}});
+  assert.equal(changedCatalog.code,"model_catalog_changed");assert.equal(changedCatalog.costStatus,"released");assert.equal(calls,3);
+  DB.batch=batch;env.AGENT_APPROVED_MODELS_JSON=catalog;
+  DB.batch=async function(statements){const r=await batch(statements);env.AGENT_MODEL_EXECUTION_ENABLED="0";return r};
+  const disabledDuringReservation=await run({input:{...input,runId:"disabled-during-reservation"}});
+  assert.equal(disabledDuringReservation.code,"model_execution_disabled");assert.equal(disabledDuringReservation.costStatus,"released");assert.equal(calls,3);
+  DB.batch=batch;env.AGENT_MODEL_EXECUTION_ENABLED="1";
   const mutableInput={...input,runId:"snapshot"},mutableAuth={...auth};
   DB.batch=async function(statements){const r=await batch(statements);mutableInput.prompt="changed after admission";mutableAuth.tenant_id="other";return r};
   const snapshot=await run({input:mutableInput,auth:mutableAuth,adapters:{test:async request=>{
@@ -83,6 +95,22 @@ try{
   const timedOut=await run({env:{...env,AGENT_MODEL_TIMEOUT_MS:1000},input:{...input,runId:"timeout"},adapters:{test:request=>new Promise(resolve=>request.signal.addEventListener("abort",()=>resolve({}),{once:true}))}});
   assert.equal(timedOut.ok,false);
   assert.equal(timedOut.costStatus,"reconciliation_required");
+  let httpCalls=0;
+  const openAIEnv={...env,AGENT_MODEL_OPENAI_ENABLED:"1",OPENAI_API_KEY:"synthetic-test-credential-not-valid",
+    AGENT_APPROVED_MODELS_JSON:JSON.stringify([{...model,provider:"openai",maxOutputTokens:32}])};
+  const openAIInput={...input,runId:"openai-pipeline"};
+  const fetchImpl=async(_url,options)=>{
+    httpCalls++;
+    assert.equal(db.prepare("SELECT status FROM agent_cost_reservations WHERE run_id='openai-pipeline'").get().status,"reserved");
+    assert.equal(JSON.parse(options.body).input,"hello");
+    return new Response(JSON.stringify({model:"tested-model",status:"completed",usage:{input_tokens:5,output_tokens:5},
+      output:[{type:"message",role:"assistant",status:"completed",content:[{type:"output_text",text:"API contract summary"}]}]}));
+  };
+  const integrated=await runOpenAIModelObservation({env:openAIEnv,auth,input:openAIInput,fetchImpl});
+  assert.equal(integrated.ok,true);assert.equal(integrated.costStatus,"settled");assert.equal(integrated.actualCostMinor,1);
+  assert.equal(httpCalls,1);
+  assert.equal((await runOpenAIModelObservation({env:openAIEnv,auth,input:openAIInput,fetchImpl})).ok,false);
+  assert.equal(httpCalls,1,"integrated OpenAI pipeline must reject duplicate runs before HTTP dispatch");
   assert.equal(db.prepare("SELECT COUNT(*) n FROM agent_cost_reservations WHERE tenant_id<>'t1'").get().n,0);
   console.log("governed model observation reservation, usage and failure lifecycle: PASS");
 }finally{db.close()}
