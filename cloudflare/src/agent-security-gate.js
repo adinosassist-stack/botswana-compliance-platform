@@ -11,8 +11,10 @@ export function evaluateAgentAction({tool,allowedTools=[],tenantId,taskTenantId,
   if(typeof tool!=="string"||!tool.trim()||tool!==tool.trim()||tool.length>120||!Array.isArray(allowedTools)||!allowedTools.includes(tool))return deny("tool_not_authorized");
   // Owner approval, if supplied by a caller, cannot elevate untrusted tools.
   if(externalDestination!==false)return deny("external_destination_denied");
-  const trust=evaluateToolTrust({actionKey:tool,destination:"internal"});
-  if(!trust.allowed)return deny(trust.code);
+  let trust;
+  try{trust=evaluateToolTrust({actionKey:tool,destination:"internal"});}
+  catch{return deny("trust_evaluation_failed");}
+  if(!trust||trust.allowed!==true||trust.executionAllowed!==false)return deny(trust?.code||"trust_evaluation_failed");
   // Eligibility is a preflight result, never permission to execute a tool.
   return Object.freeze({allowed:true,executionAllowed:false,reason:"preflight_eligible",requiresOwnerApproval:false});
 }
