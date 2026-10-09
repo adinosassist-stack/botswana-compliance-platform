@@ -4,6 +4,8 @@ const base={tenantId:"a",taskTenantId:"a",tool:"financial_position.read",allowed
 assert.equal(gate(base).allowed,true);
 assert.equal(gate(base).executionAllowed,false);
 assert.equal(gate(base).reason,"preflight_eligible");
+assert.equal(Object.isFrozen(gate(base)),true);
+assert.equal(Object.isFrozen(gate({...base,taskTenantId:"other"})),true);
 assert.equal(gate(base).requiresOwnerApproval,false);
 assert.equal(gate({...base,taskStatus:"active",suspended:false,policyViolation:false,externalDestination:false}).allowed,true);
 assert.equal(gate({...base,taskTenantId:"b"}).reason,"tenant_boundary");
