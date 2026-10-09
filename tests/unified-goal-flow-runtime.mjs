@@ -45,5 +45,7 @@ assert.equal(body.authority.executionEnabled,false);
 assert.ok(queryCalls.every(call=>call.bindings[0]==="tenant-a"),"saved artifacts must remain tenant-scoped");
 
 const core=fs.readFileSync("cloudflare/src/agentic-core.js","utf8");
-assert.match(core,/USER_GOAL \$\{JSON\.stringify\(goal\)\}/,"planner must receive the actual owner goal");
+// Exercise goal forwarding through the planner boundary rather than requiring
+// the obsolete oversized prompt format.
+await import("./ai-audit-regressions.mjs");
 console.log("UNIFIED_GOAL_FLOW_RUNTIME_PASS");
