@@ -22,5 +22,8 @@ jobs:
         with:
           node-version: '22'
       - run: node --check cloudflare/src/agent-security-gate.js
+      - run: node --check cloudflare/src/agentic-persistent-tasks.js
+      - run: node --check tests/agent-security-gate.mjs
+      - run: node --check tests/v117-persistent-agent-tasks.mjs
       - run: node tests/agent-security-gate.mjs
       - run: node tests/v117-persistent-agent-tasks.mjs
