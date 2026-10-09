@@ -35,6 +35,7 @@ const env={DB,SESSION_SECRET:secret,AUDIT_INTEGRITY_SECRET:"test-only-audit-secr
   providerCalls++;
   assert.match(input.prompt,/Recorded issue/,"actual advisor must assemble workspace records");
   assert.match(input.prompt,/LANGUAGE_POLICY/,"language policy must be built by the actual advisor");
+  assert.match(input.prompt,/never present it as spending authorization or financial advice/);
   return {response:JSON.stringify({answer:"Review the recorded issue.",confidence:"high",actions:[{title:"Review the recorded issue",reason:"An issue is recorded.",priority:"high",sourceRefs:["RISK-1","invented-ref"]}],caveats:[],sourceRefs:["RISK-1"]})};
 }}};
 function request(path,goal){return new Request(`https://app.example${path}`,{method:"POST",headers:{cookie:`__Host-bw_session=${session}`,origin:"https://app.example","x-csrf-token":csrf,"content-type":"application/json"},body:JSON.stringify(goal?{goal}:{})})}
