@@ -10,6 +10,11 @@ const prerequisites=Object.freeze({
 });
 const prefix=name=>name.startsWith("agent_cost_")||name.startsWith("idx_agent_cost_");
 const result=(code,extra={})=>({ok:false,code,executionAllowed:false,migrationAllowed:false,...extra});
+export const AGENT_COST_INSPECTION_SQL=Object.freeze({
+  objects:"SELECT type,name,sql FROM sqlite_master ORDER BY type,name",
+  columns:Object.keys(prerequisites).map(table=>`SELECT '${table}' AS table_name,name FROM pragma_table_info('${table}')`).join(" UNION ALL "),
+  foreignKeys:"PRAGMA foreign_key_check"
+});
 
 // Read-only inspection. This module neither selects a database nor applies SQL.
 // The caller supplies a trusted query transport returning an array of rows.
@@ -18,17 +23,16 @@ export async function inspectAgentCostSchema(query){
   try{
     const source=readFileSync(new URL("../"+manifest.source.path,import.meta.url),"utf8");
     if(sha(source)!==manifest.source.sha256)return result("schema_manifest_source_mismatch");
-    const objects=await query("SELECT type,name,sql FROM sqlite_master ORDER BY type,name");
+    const objects=await query(AGENT_COST_INSPECTION_SQL.objects);
     if(!Array.isArray(objects)||objects.some(r=>typeof r.name!=="string"||typeof r.type!=="string"))return result("schema_inspection_unavailable");
     const missingTables=Object.keys(prerequisites).filter(name=>!objects.some(r=>r.type==="table"&&r.name===name));
     if(missingTables.length)return result("schema_prerequisites_missing",{missingTables});
-    const columns=await query(Object.keys(prerequisites).map(table=>
-      `SELECT '${table}' AS table_name,name FROM pragma_table_info('${table}')`).join(" UNION ALL "));
+    const columns=await query(AGENT_COST_INSPECTION_SQL.columns);
     if(!Array.isArray(columns))return result("schema_inspection_unavailable");
     const missingColumns=Object.entries(prerequisites).flatMap(([table,names])=>names
       .filter(name=>!columns.some(r=>r.table_name===table&&r.name===name)).map(name=>table+"."+name));
     if(missingColumns.length)return result("schema_prerequisites_missing",{missingColumns});
-    const violations=await query("PRAGMA foreign_key_check");
+    const violations=await query(AGENT_COST_INSPECTION_SQL.foreignKeys);
     if(!Array.isArray(violations))return result("schema_inspection_unavailable");
     if(violations.length)return result("schema_foreign_key_violations",{violationCount:violations.length});
     const present=objects.filter(r=>prefix(r.name));
