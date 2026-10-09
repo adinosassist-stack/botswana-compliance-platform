@@ -16,6 +16,8 @@ assert.equal(gate({...base,suspended:"unknown"}).reason,"responsibility_inactive
 assert.equal(gate({...base,tool:"records.delete"}).allowed,false);
 assert.equal(gate({...base,tool:"payment.execute"}).reason,"tool_not_trusted");
 assert.equal(gate({...base,externalDestination:true}).allowed,false);
+assert.equal(gate({...base,externalDestination:true}).reason,"external_destination_denied");
+assert.equal(gate({...base,externalDestination:"unknown"}).reason,"external_destination_denied");
 assert.equal(gate({...base,policyViolation:true}).allowed,false);
 assert.equal(gate({...base,policyViolation:"unknown"}).reason,"policy_violation");
 assert.equal(gate({...base,allowedTools:null}).reason,"tool_not_authorized");
