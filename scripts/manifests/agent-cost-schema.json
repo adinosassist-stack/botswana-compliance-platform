@@ -1,7 +1,7 @@
 {
   "version": 1,
   "source": {
-    "path": "cloudflare/experimental/agent_cost_accounting.sql",
+    "path": "cloudflare/migrations/068_agent_cost_accounting.sql",
     "sha256": "e5f3db240dc9d18f3625fd63a0c680b15f46d2fffe3697f98c38476d962dd7df"
   },
   "objects": [

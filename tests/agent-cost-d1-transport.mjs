@@ -30,8 +30,8 @@ function rejects(sql,code){assert.throws(()=>execute(sql),error=>(String(error.s
 try{
   const files=readdirSync(join(root,'cloudflare/migrations')).filter(f=>/^\d{3}_.*\.sql$/.test(f)&&Number(f.slice(0,3))>=44).sort();
   assert.equal(files.at(-1),JSON.parse(readFileSync(join(root,'RELEASE_PROFILE.json'),'utf8')).latest_cloudflare_migration);
-  const schema=readFileSync(join(root,'cloudflare/experimental/agent_cost_accounting.sql'),'utf8');
-  execute([readFileSync(join(root,'cloudflare/schema.sql'),'utf8'),...files.map(f=>readFileSync(join(root,'cloudflare/migrations',f),'utf8'))].join('\n'));
+  const schema=readFileSync(join(root,'cloudflare/migrations/068_agent_cost_accounting.sql'),'utf8');
+  execute([readFileSync(join(root,'cloudflare/schema.sql'),'utf8'),...files.filter(f=>Number(f.slice(0,3))<68).map(f=>readFileSync(join(root,'cloudflare/migrations',f),'utf8'))].join('\n'));
   assert.equal((await inspectAgentCostSchema(rows)).code,'accounting_schema_absent');
   execute(schema);
   execute(schema);
