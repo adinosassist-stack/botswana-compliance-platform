@@ -61,6 +61,7 @@ assert.equal(gate({...base,taskTenantId:"other"}).executionAllowed,false);
 assert.equal(gate({...base,allowedTools:["financial_position.read"],externalDestination:true}).executionAllowed,false);
 assert.equal(gate({...base,allowedTools:["financial_position.read"],externalDestination:true}).allowed,false);
 assert.equal(gate({...base,tool:"payment.execute",approval:{ownerApproved:true,tenantId:"a",tool:"payment.execute",expiresAt:"2099-01-01T00:00:00Z"}}).allowed,false);
+assert.equal(gate({...base,tool:"payment.execute",allowedTools:["payment.execute"],approval:{ownerApproved:true}}).executionAllowed,false);
 // Every preflight outcome, including denials, must remain non-executable.
 for(const candidate of [base,{...base,taskTenantId:"other"},{...base,suspended:true},{...base,policyViolation:true},{...base,externalDestination:true},{...base,tool:"payment.execute"}]){
   assert.equal(gate(candidate).executionAllowed,false);
