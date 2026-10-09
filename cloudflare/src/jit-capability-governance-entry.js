@@ -1,5 +1,7 @@
 import {authenticate,roleAllowed} from "./agentic-authority-core.js";
 import {handleAgenticTaskExecutionRequest} from "./agentic-task-execution.js";
+import {THEBE_AGENT_ID,loadCanonicalAgentAuthority} from "./agent-control-plane.js";
+import {tenantContainmentFromEnv} from "./agent-runtime-containment.js";
 import {
   AGENT_JIT_EXECUTION_TOOL_ID,
   issueJitExecutionCapabilityCredential,
@@ -7,7 +9,6 @@ import {
 } from "./agent-capability-security.js";
 
 const ACTION_KEY="task.create";
-const THEBE_AGENT_ID="THEBE-001";
 const MAX_EXECUTE_BODY_BYTES=16*1024;
 const json=(body,status=200,headers={})=>new Response(JSON.stringify(body),{status,headers:{
   "content-type":"application/json; charset=utf-8",
@@ -49,6 +50,22 @@ function augmentedJsonResponse(response,body){
   headers.set("content-type","application/json; charset=utf-8");
   headers.set("cache-control","no-store");
   return new Response(JSON.stringify(body),{status:response.status,statusText:response.statusText,headers});
+}
+
+async function evaluateBoundContainment(env,auth){
+  const authority=await loadCanonicalAgentAuthority(env,THEBE_AGENT_ID);
+  return tenantContainmentFromEnv(env,auth?.tenant_id,authority);
+}
+function containmentResponse(containment){
+  const unavailable=new Set(["agent_authority_unavailable","tenant_control_config_invalid"]);
+  const status=unavailable.has(String(containment?.code||""))?503:409;
+  return json({
+    error:String(containment?.code||"runtime_containment_denied"),
+    containment:{
+      version:containment?.version||null,
+      authorityState:containment?.authorityState||null
+    }
+  },status,status===503?{"retry-after":"30"}:{});
 }
 
 async function issueBoundCapability(request,env,requestId,auth,taskFetch){
@@ -113,10 +130,12 @@ export async function handleJitCapabilityGovernanceRequest({request,logicalPath,
 
   const auth=await authenticate(request,env);
   if(!auth||!roleAllowed(auth,"owner"))return taskFetch(request,env);
+  const containment=await evaluateBoundContainment(env,auth);
+  if(containment.allowed!==true)return containmentResponse(containment);
   if(permit)return issueBoundCapability(request,env,permit[1],auth,taskFetch);
   return verifyBoundCapability(request,env,execute[1],auth,taskFetch);
 }
 
 export const __jitCapabilityGovernanceTest=Object.freeze({
-  ACTION_KEY,THEBE_AGENT_ID,MAX_EXECUTE_BODY_BYTES,capabilitySecretReady,readBoundedJsonClone
+  ACTION_KEY,THEBE_AGENT_ID,MAX_EXECUTE_BODY_BYTES,capabilitySecretReady,readBoundedJsonClone,evaluateBoundContainment,containmentResponse
 });
