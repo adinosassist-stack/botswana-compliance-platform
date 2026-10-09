@@ -1,8 +1,11 @@
 export const AGENT_CAPABILITY_SECURITY_VERSION="2026-09-27.v1";
+export const AGENT_JIT_EXECUTION_CAPABILITY_VERSION="2026-10-09.v1";
+export const AGENT_JIT_EXECUTION_TOOL_ID="thebe.task_create";
 
 const frozen=value=>Object.freeze(value);
 const clean=(value,max=240)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
 const MAX_TTL_SECONDS=300;
+const MIN_CAPABILITY_SECRET_LENGTH=32;
 
 function bytes(value){return new TextEncoder().encode(String(value??""))}
 function base64url(input){
@@ -27,6 +30,11 @@ function safeEqual(a,b){
   let diff=0;
   for(let i=0;i<left.length;i++)diff|=left[i]^right[i];
   return diff===0;
+}
+function strongCapabilitySecret(secret){return clean(secret,4096).length>=MIN_CAPABILITY_SECRET_LENGTH}
+function canonicalPermitExpiry(value){
+  const date=new Date(value);
+  return Number.isFinite(date.getTime())?date.toISOString():"";
 }
 
 export function evaluateToolDataBoundary({
@@ -100,6 +108,74 @@ export async function verifyToolCapabilityCredential({
   return frozen({valid:true,code:"capability_valid",payload:frozen(payload)});
 }
 
+export async function issueJitExecutionCapabilityCredential({
+  secret,tenantId,agentId="THEBE-001",humanUserId,requestId,permitId,executionGrantId,
+  actionKey="task.create",toolId=AGENT_JIT_EXECUTION_TOOL_ID,payloadHash,executionEnvId,permitExpiresAt,
+  ttlSeconds=MAX_TTL_SECONDS,now=Date.now(),nonce=crypto.randomUUID()
+}={}){
+  if(!strongCapabilitySecret(secret))throw new Error("jit_capability_secret_required");
+  const permitExpiry=canonicalPermitExpiry(permitExpiresAt);
+  const scope={
+    tenantId:clean(tenantId,120),agentId:clean(agentId,120),humanUserId:clean(humanUserId,120),
+    requestId:clean(requestId,120),permitId:clean(permitId,120),executionGrantId:clean(executionGrantId,120),
+    actionKey:clean(actionKey,120),toolId:clean(toolId,160),payloadHash:clean(payloadHash,160),
+    executionEnvId:clean(executionEnvId,160),permitExpiresAt:permitExpiry
+  };
+  if(Object.values(scope).some(value=>!value))throw new Error("jit_capability_scope_required");
+  const issuedAt=Math.floor(Number(now)/1000);
+  const permitExpirySeconds=Math.floor(new Date(permitExpiry).getTime()/1000);
+  const ttl=Math.min(MAX_TTL_SECONDS,Math.max(1,Math.floor(Number(ttlSeconds)||MAX_TTL_SECONDS)));
+  const expiresAt=Math.min(issuedAt+ttl,permitExpirySeconds);
+  if(!Number.isFinite(issuedAt)||!Number.isFinite(expiresAt)||expiresAt<=issuedAt)throw new Error("jit_capability_permit_expired");
+  const payload=frozen({
+    v:AGENT_JIT_EXECUTION_CAPABILITY_VERSION,
+    purpose:"jit_task_execution",
+    jti:clean(nonce,160),
+    ...scope,
+    issuedAt,
+    expiresAt,
+    maxUses:1,
+    nonInheritable:true,
+    reusable:false
+  });
+  const encoded=base64url(JSON.stringify(payload));
+  const signature=base64url(await hmac(secret,encoded));
+  return frozen({token:`${encoded}.${signature}`,payload});
+}
+
+export async function verifyJitExecutionCapabilityCredential({
+  secret,token,tenantId,agentId="THEBE-001",humanUserId,requestId,permitId,executionGrantId,
+  actionKey="task.create",toolId=AGENT_JIT_EXECUTION_TOOL_ID,payloadHash,executionEnvId,permitExpiresAt,now=Date.now()
+}={}){
+  if(!strongCapabilitySecret(secret))return frozen({valid:false,code:"jit_capability_secret_required"});
+  const parts=String(token||"").split(".");
+  if(parts.length!==2||!parts[0]||!parts[1])return frozen({valid:false,code:"jit_capability_token_invalid"});
+  let signatureValid=false;
+  try{
+    const expected=base64url(await hmac(secret,parts[0]));
+    signatureValid=safeEqual(parts[1],expected);
+  }catch{return frozen({valid:false,code:"jit_capability_token_invalid"})}
+  if(!signatureValid)return frozen({valid:false,code:"jit_capability_signature_invalid"});
+  let payload;
+  try{payload=JSON.parse(new TextDecoder().decode(fromBase64url(parts[0])))}catch{return frozen({valid:false,code:"jit_capability_payload_invalid"})}
+  if(payload.v!==AGENT_JIT_EXECUTION_CAPABILITY_VERSION||payload.purpose!=="jit_task_execution"||payload.nonInheritable!==true||payload.reusable!==false||payload.maxUses!==1){
+    return frozen({valid:false,code:"jit_capability_contract_invalid"});
+  }
+  const nowSeconds=Math.floor(Number(now)/1000),permitExpiry=canonicalPermitExpiry(permitExpiresAt);
+  const permitExpirySeconds=permitExpiry?Math.floor(new Date(permitExpiry).getTime()/1000):0;
+  if(!Number.isFinite(nowSeconds)||!Number.isInteger(payload.issuedAt)||!Number.isInteger(payload.expiresAt)||nowSeconds<payload.issuedAt-30||nowSeconds>=payload.expiresAt||payload.expiresAt>permitExpirySeconds){
+    return frozen({valid:false,code:"jit_capability_expired"});
+  }
+  const expectedScope={
+    tenantId:clean(tenantId,120),agentId:clean(agentId,120),humanUserId:clean(humanUserId,120),
+    requestId:clean(requestId,120),permitId:clean(permitId,120),executionGrantId:clean(executionGrantId,120),
+    actionKey:clean(actionKey,120),toolId:clean(toolId,160),payloadHash:clean(payloadHash,160),
+    executionEnvId:clean(executionEnvId,160),permitExpiresAt:permitExpiry
+  };
+  if(Object.entries(expectedScope).some(([key,value])=>!value||payload[key]!==value))return frozen({valid:false,code:"jit_capability_scope_mismatch"});
+  return frozen({valid:true,code:"jit_capability_valid",payload:frozen(payload)});
+}
+
 export function createEphemeralExecutionContext({tenantId,runId,executionEnvId=crypto.randomUUID()}={}){
   const tenant=clean(tenantId,120),run=clean(runId,120),environment=clean(executionEnvId,160);
   if(!tenant||!run||!environment)throw new Error("execution_context_scope_required");
@@ -118,4 +194,4 @@ export function createEphemeralExecutionContext({tenantId,runId,executionEnvId=c
   });
 }
 
-export const __agentCapabilitySecurityTest=frozen({MAX_TTL_SECONDS,base64url,fromBase64url,safeEqual});
+export const __agentCapabilitySecurityTest=frozen({MAX_TTL_SECONDS,MIN_CAPABILITY_SECRET_LENGTH,base64url,fromBase64url,safeEqual,strongCapabilitySecret,canonicalPermitExpiry});
