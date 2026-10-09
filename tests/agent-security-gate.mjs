@@ -80,4 +80,19 @@ assert.equal(gate({...base,tool:"payment.execute",allowedTools:["payment.execute
 for(const candidate of [base,{...base,taskTenantId:"other"},{...base,suspended:true},{...base,policyViolation:true},{...base,externalDestination:true},{...base,tool:"payment.execute"}]){
   assert.equal(gate(candidate).executionAllowed,false);
 }
+// Security invariant matrix: every untrusted or ambiguous input stays non-executable.
+const invalidCases=[
+  {tenantId:undefined},{tenantId:null},{tenantId:{}},{taskTenantId:undefined},
+  {taskTenantId:[]},{taskStatus:undefined},{taskStatus:"revoked"},
+  {suspended:1},{suspended:{}},{policyViolation:1},{policyViolation:{}},
+  {externalDestination:1},{externalDestination:{}},{allowedTools:false},
+  {allowedTools:{}},{tool:null},{tool:[]},{tool:"payment.execute"},
+  {tool:"government_filing.submit"},{tool:"external_message.send"},
+];
+for(const change of invalidCases){
+  const decision=gate({...base,...change});
+  assert.equal(decision.allowed,false,JSON.stringify(change));
+  assert.equal(decision.executionAllowed,false,JSON.stringify(change));
+  assert.equal(Object.isFrozen(decision),true,JSON.stringify(change));
+}
 console.log("agent security gate tests PASS");
