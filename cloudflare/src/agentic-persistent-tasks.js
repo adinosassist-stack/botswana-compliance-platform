@@ -57,7 +57,8 @@ async function observationPreflight(request,env,auth){
   // The approved model catalog is operator-controlled; never trust models supplied by the caller.
   let models;
   try{models=JSON.parse(String(env.AGENT_APPROVED_MODELS_JSON||"[]"))}catch{return json({error:"model_catalog_unavailable",executionAllowed:false},503)}
-  if(!Array.isArray(models))return json({error:"model_catalog_unavailable",executionAllowed:false},503);
+  if(!Array.isArray(models)||models.length>100)return json({error:"model_catalog_unavailable",executionAllowed:false},503);
+  if(Object.prototype.hasOwnProperty.call(body,"models"))return json({error:"caller_model_catalog_forbidden",executionAllowed:false},400);
   const decision=preflightAgentObservation({
     tenantId:auth.tenant_id,actorId:auth.user_id,actionKey:body.actionKey,
     taskClass:body.taskClass,models,budgetUsd:body.budgetUsd,
