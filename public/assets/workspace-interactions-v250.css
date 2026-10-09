@@ -1,0 +1,96 @@
+/* Thebe Desk workspace interaction contract v250
+   Presentation-only: disabled/loading states, icon touch targets and reduced-motion behavior.
+   This file is loaded by the authenticated workspace runtime only. */
+
+:root{
+  --thebe-control-disabled-opacity:.52;
+}
+
+#appShell button:disabled,
+#appShell .btn:disabled,
+#appShell .social-auth-btn:disabled,
+#appShell .workspace-action:disabled,
+#appShell .home-status-chip:disabled,
+#appShell .home-signal-card:disabled,
+#appShell .outcome-card:disabled,
+#appShell .business-outcome-card:disabled,
+#appShell .hub-card:disabled,
+#appShell .proof-summary-card:disabled,
+#appShell .area-arrow:disabled,
+#appShell button[aria-disabled="true"],
+#appShell [role="button"][aria-disabled="true"]{
+  opacity:var(--thebe-control-disabled-opacity)!important;
+  cursor:not-allowed!important;
+  transform:none!important;
+  box-shadow:none!important;
+  filter:none!important;
+}
+
+#appShell button:disabled:hover,
+#appShell .btn:disabled:hover,
+#appShell button[aria-disabled="true"]:hover,
+#appShell [role="button"][aria-disabled="true"]:hover{
+  transform:none!important;
+  box-shadow:none!important;
+}
+
+#appShell button[aria-busy="true"],
+#appShell .btn[aria-busy="true"],
+#appShell button.is-loading,
+#appShell .btn.is-loading{
+  cursor:progress!important;
+  transform:none!important;
+  box-shadow:none!important;
+  opacity:.78;
+}
+
+#appShell button[aria-busy="true"]:hover,
+#appShell .btn[aria-busy="true"]:hover,
+#appShell button.is-loading:hover,
+#appShell .btn.is-loading:hover{
+  transform:none!important;
+  box-shadow:none!important;
+}
+
+#appShell .area-arrow,
+#appShell #addCompanyBtn{
+  min-width:40px!important;
+  min-height:40px!important;
+  display:inline-grid;
+  place-items:center;
+}
+
+#appShell .area-arrow{
+  padding:0!important;
+}
+
+@media (max-width:700px){
+  #appShell .area-arrow,
+  #appShell #addCompanyBtn,
+  #appShell .mobile-nav-close{
+    min-width:44px!important;
+    min-height:44px!important;
+  }
+}
+
+@media (prefers-reduced-motion:reduce){
+  #appShell button,
+  #appShell .btn,
+  #appShell .workspace-action,
+  #appShell .home-status-chip,
+  #appShell .home-signal-card,
+  #appShell .outcome-card,
+  #appShell .business-outcome-card,
+  #appShell .hub-card,
+  #appShell .proof-summary-card,
+  #appShell .area-arrow{
+    transition:none!important;
+    scroll-behavior:auto!important;
+  }
+  #appShell button:hover,
+  #appShell button:active,
+  #appShell .btn:hover,
+  #appShell .btn:active{
+    transform:none!important;
+  }
+}
