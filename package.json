@@ -304,8 +304,8 @@
     "test:password-reset-browser": "node tests/password-reset-browser-flow.mjs",
     "test:auth-oauth-ui": "node tests/auth-oauth-discovery-visibility.mjs",
     "test:owner-operator": "node tests/v82-owner-operator-governance.mjs && node tests/v82-owner-operator-api.mjs && node tests/v278-owner-command-attention-ui.mjs && node tests/v279-owner-command-review-loop.mjs && node tests/v280-owner-command-outcome-loop.mjs",
-    "test:agent-preflight": "node tests/agent-model-router-policy.mjs && node tests/agent-observation-preflight.mjs",
-    "check:agent-preflight": "node --check cloudflare/src/agent-model-router-policy.js && node --check cloudflare/src/agent-observation-preflight.js && npm run test:agent-preflight"
+    "test:agent-preflight": "node tests/agent-model-router-policy.mjs && node tests/agent-observation-preflight.mjs && node tests/agent-model-observation-runner.mjs && node tests/agent-cost-reservations-integration.mjs",
+    "check:agent-preflight": "node --check cloudflare/src/agent-model-router-policy.js && node --check cloudflare/src/agent-observation-preflight.js && node --check cloudflare/src/agent-model-observation-runner.js && npm run test:agent-preflight"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1126.0",
