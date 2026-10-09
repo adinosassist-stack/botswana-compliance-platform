@@ -14,6 +14,7 @@ function validIso(value){if(value==null||value==="")return null;const d=new Date
 function parseJson(value,fallback){try{return JSON.parse(String(value??""))}catch{return fallback}}
 export function normalizePersistentTask(body={}){
   if(!body||typeof body!=="object"||Array.isArray(body))return {error:"invalid_task_payload"};
+  if(typeof body.objective!=="string")return {error:"objective_required"};
   const objective=clean(body.objective,500);
   if(!objective)return {error:"objective_required"};
   const triggerKind=clean(body.triggerKind,20)||"manual";
