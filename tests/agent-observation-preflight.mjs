@@ -7,4 +7,7 @@ assert.equal(preflightAgentObservation({...base,tenantId:""}).reason,"missing_au
 assert.equal(preflightAgentObservation({...base,actionKey:"payment.execute"}).reason,"tool_not_trusted");
 assert.equal(preflightAgentObservation({...base,budgetUsd:0.001}).reason,"no_approved_model");
 assert.equal(preflightAgentObservation({...base,payloadBytes:999999}).ok,false);
+assert.equal(preflightAgentObservation({...base,actorId:""}).reason,"missing_authority_context");
+assert.equal(preflightAgentObservation({...base,taskClass:"write"}).reason,"unsupported_task_class");
+assert.equal(preflightAgentObservation({...base,models:[]}).reason,"no_approved_model");
 console.log("agent observation preflight: PASS");
