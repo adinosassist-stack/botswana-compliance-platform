@@ -1,4 +1,5 @@
 import {validatePersistentTaskAllowedTools} from "./agent-tool-trust-registry.js";
+import {evaluateAgentAction} from "./agent-security-gate.js";
 import {buildBusinessGoalTask} from "./business-goals.js";
 import {authenticate,roleAllowed,originAllowed,csrfAllowed,readJson,requestBodyErrorStatus,safeFirst} from "./agentic-authority-core.js";
 
@@ -22,6 +23,11 @@ export function normalizePersistentTask(body={}){
   const trustedTools=validatePersistentTaskAllowedTools(requestedTools);
   if(!trustedTools.valid)return {error:trustedTools.code};
   const allowedTools=trustedTools.tools;
+  // Preflight each declared capability without authorizing runtime execution.
+  for(const tool of allowedTools){
+    const decision=evaluateAgentAction({tool,allowedTools,tenantId:"task_definition",taskTenantId:"task_definition"});
+    if(!decision.allowed||decision.executionAllowed)return {error:decision.reason||"agent_security_gate_rejected"};
+  }
   const nextRunAt=validIso(body.nextRunAt);
   if(nextRunAt===undefined)return {error:"invalid_next_run_at"};
   const riskPolicy=plainObject(body.riskPolicy),approvalPolicy=plainObject(body.approvalPolicy),budget=plainObject(body.budget),triggerSpec=plainObject(body.triggerSpec);
