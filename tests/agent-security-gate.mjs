@@ -5,6 +5,7 @@ assert.equal(gate(base).allowed,true);
 assert.equal(gate(base).executionAllowed,false);
 assert.equal(gate(base).allowed,true);
 assert.equal(gate(base).reason,"preflight_eligible");
+assert.deepEqual(Object.keys(gate(base)).sort(),["allowed","executionAllowed","reason","requiresOwnerApproval"].sort());
 assert.equal(gate(base).reason,"preflight_eligible");
 assert.equal(Object.isFrozen(gate(base)),true);
 assert.equal(Object.isFrozen(gate({...base,taskTenantId:"other"})),true);
