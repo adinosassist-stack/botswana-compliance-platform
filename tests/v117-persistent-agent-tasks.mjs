@@ -14,6 +14,8 @@ assert.equal(normalizePersistentTask({objective:"x",triggerKind:42}).error,"inva
 assert.equal(normalizePersistentTask({objective:"x",triggerKind:{}}).error,"invalid_trigger_kind");
 assert.equal(normalizePersistentTask({objective:"x",allowedTools:"*"}).error,"invalid_allowed_tools");
 assert.equal(normalizePersistentTask({objective:"x",nextRunAt:"never"}).error,"invalid_next_run_at");
+assert.equal(normalizePersistentTask({objective:"x",nextRunAt:42}).error,"invalid_next_run_at");
+assert.equal(normalizePersistentTask({objective:"x",nextRunAt:{}}).error,"invalid_next_run_at");
 const source=fs.readFileSync("cloudflare/src/agentic-persistent-tasks.js","utf8");
 assert.doesNotMatch(source,/payment\.execute|government_filing\.submit/);
 assert.doesNotMatch(source,/\bfetch\s*\(/,"persistent responsibility state must not execute network actions");
