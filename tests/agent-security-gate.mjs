@@ -83,7 +83,7 @@ for(const candidate of [base,{...base,taskTenantId:"other"},{...base,suspended:t
 // Security invariant matrix: every untrusted or ambiguous input stays non-executable.
 const invalidCases=[
   {tenantId:undefined},{tenantId:null},{tenantId:{}},{taskTenantId:undefined},
-  {taskTenantId:[]},{taskStatus:undefined},{taskStatus:"revoked"},
+  {taskTenantId:[]},{taskStatus:null},{taskStatus:"revoked"},
   {suspended:1},{suspended:{}},{policyViolation:1},{policyViolation:{}},
   {externalDestination:1},{externalDestination:{}},{allowedTools:false},
   {allowedTools:{}},{tool:null},{tool:[]},{tool:"payment.execute"},
