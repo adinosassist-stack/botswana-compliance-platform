@@ -12,6 +12,7 @@ assert.equal(gate({...base,taskStatus:"paused"}).allowed,false);
 assert.equal(gate({...base,taskStatus:"cancelled"}).reason,"responsibility_inactive");
 assert.equal(gate({...base,taskStatus:"completed"}).executionAllowed,false);
 assert.equal(gate({...base,suspended:true}).reason,"responsibility_inactive");
+assert.equal(gate({...base,suspended:"unknown"}).reason,"responsibility_inactive");
 assert.equal(gate({...base,tool:"records.delete"}).allowed,false);
 assert.equal(gate({...base,tool:"payment.execute"}).reason,"tool_not_trusted");
 assert.equal(gate({...base,externalDestination:true}).allowed,false);
