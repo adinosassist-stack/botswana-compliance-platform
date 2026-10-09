@@ -1,3 +1,4 @@
+import {installAgentCostTestSchema} from "./helpers/agent-cost-schema.mjs";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {DatabaseSync} from "node:sqlite";
@@ -6,7 +7,8 @@ import {runOpenAIModelObservation} from "../cloudflare/src/agent-openai-observat
 
 const db=new DatabaseSync(":memory:");
 try{
-  db.exec(readFileSync(new URL("../cloudflare/experimental/agent_cost_accounting.sql",import.meta.url),"utf8"));
+  installAgentCostTestSchema(db);
+  db.exec("INSERT INTO tenants(id,name) VALUES('t1','Pilot')");
   db.prepare("INSERT INTO agent_cost_budgets(tenant_id,agent_id,budget_minor,enabled) VALUES('t1','thebe',100,1)").run();
   const DB={
     prepare(sql){let args=[];return {bind(...v){args=v;return this},first(){return db.prepare(sql).get(...args)},run(){return db.prepare(sql).run(...args)}}},

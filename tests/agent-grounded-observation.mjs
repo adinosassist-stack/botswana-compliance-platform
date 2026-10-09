@@ -42,9 +42,8 @@ try{
   assert.equal((await run({input:{...input,runId:'missing-source'}})).code,'authoritative_read_unavailable');assert.equal(calls,1);
   assert.equal(db.prepare("SELECT count(*) n FROM agent_cost_reservations WHERE run_id='missing-source'").get().n,0);
   db.exec(readFileSync("cloudflare/migrations/044_v79_finance_reconciliation.sql","utf8"));
-  // Document the promotion blocker rather than claiming production readiness:
-  // experimental balances can outlive a deleted tenant (no tenant FK).
-  db.exec("INSERT INTO tenants(id,name) VALUES('purge-probe','Probe'); INSERT INTO agent_cost_budgets(tenant_id,agent_id,budget_minor) VALUES('purge-probe','thebe',1); DELETE FROM tenants WHERE id='purge-probe'");
-  assert.equal(db.prepare("SELECT count(*) n FROM agent_cost_budgets WHERE tenant_id='purge-probe'").get().n,1);
-  console.log("Accounting schema qualified over release migration chain; grounded financial observation tenant isolation and fail-closed lifecycle: PASS (experimental purge blocker remains)");
+  db.exec("INSERT INTO tenants(id,name) VALUES('purge-probe','Probe'); INSERT INTO agent_cost_budgets(tenant_id,agent_id,budget_minor) VALUES('purge-probe','thebe',1)");
+  assert.throws(()=>db.exec("DELETE FROM tenants WHERE id='purge-probe'"),/cost_purge_governance_required/);
+  assert.throws(()=>db.exec("INSERT INTO agent_cost_budgets(tenant_id,agent_id,budget_minor) VALUES('missing','thebe',1)"),/FOREIGN KEY/);
+  console.log("Accounting schema qualified over release migration chain; grounded financial observation tenant isolation and fail-closed lifecycle: PASS");
 }finally{db.close()}

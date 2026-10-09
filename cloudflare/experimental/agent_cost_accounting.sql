@@ -1,3 +1,4 @@
+-- Fresh-install experimental schema, not an upgrade for previously created tables.
 -- Agent cost accounting foundation. No autonomous execution is enabled by this migration.
 CREATE TABLE IF NOT EXISTS agent_cost_budgets (
  tenant_id TEXT NOT NULL, agent_id TEXT NOT NULL,
@@ -8,6 +9,7 @@ CREATE TABLE IF NOT EXISTS agent_cost_budgets (
  suspended INTEGER NOT NULL DEFAULT 0 CHECK(suspended IN(0,1)),
  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
  PRIMARY KEY(tenant_id,agent_id),
+ FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
  CHECK(spent_minor+reserved_minor<=budget_minor)
 );
 CREATE TABLE IF NOT EXISTS agent_cost_reservations (
@@ -19,7 +21,7 @@ CREATE TABLE IF NOT EXISTS agent_cost_reservations (
  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
  settled_at TEXT,
  UNIQUE(tenant_id,agent_id,run_id),
- FOREIGN KEY(tenant_id,agent_id) REFERENCES agent_cost_budgets(tenant_id,agent_id)
+ FOREIGN KEY(tenant_id,agent_id) REFERENCES agent_cost_budgets(tenant_id,agent_id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_agent_cost_reservations_tenant_status ON agent_cost_reservations(tenant_id,agent_id,status);
 
@@ -35,7 +37,7 @@ CREATE TABLE IF NOT EXISTS agent_cost_events (
  actual_minor INTEGER CHECK(actual_minor IS NULL OR actual_minor>=0),
  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
  UNIQUE(reservation_id,event_type),
- FOREIGN KEY(reservation_id) REFERENCES agent_cost_reservations(id)
+ FOREIGN KEY(reservation_id) REFERENCES agent_cost_reservations(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_agent_cost_events_tenant_created ON agent_cost_events(tenant_id,agent_id,created_at);
 
@@ -49,13 +51,79 @@ BEFORE UPDATE OF id,tenant_id,agent_id,run_id,estimate_minor ON agent_cost_reser
 BEGIN SELECT RAISE(ABORT,'cost_reservation_identity_immutable'); END;
 CREATE TRIGGER IF NOT EXISTS agent_cost_reservation_no_delete
 BEFORE DELETE ON agent_cost_reservations
+WHEN EXISTS (SELECT 1 FROM tenants WHERE id=OLD.tenant_id)
 BEGIN SELECT RAISE(ABORT,'cost_reservation_delete_forbidden'); END;
 CREATE TRIGGER IF NOT EXISTS agent_cost_events_no_update
 BEFORE UPDATE ON agent_cost_events
 BEGIN SELECT RAISE(ABORT,'cost_event_immutable'); END;
 CREATE TRIGGER IF NOT EXISTS agent_cost_events_no_delete
 BEFORE DELETE ON agent_cost_events
+WHEN EXISTS (SELECT 1 FROM tenants WHERE id=OLD.tenant_id)
 BEGIN SELECT RAISE(ABORT,'cost_event_delete_forbidden'); END;
+
+-- Live-tenant journals remain immutable. Cascades run after the tenant row
+-- has been removed, and only the existing governed purge can remove it.
+CREATE TRIGGER IF NOT EXISTS agent_cost_budget_no_delete
+BEFORE DELETE ON agent_cost_budgets
+WHEN EXISTS (SELECT 1 FROM tenants WHERE id=OLD.tenant_id)
+BEGIN SELECT RAISE(ABORT,'cost_budget_delete_forbidden'); END;
+
+-- The worker deletes orphan users before tenants; their deletion requests
+-- cascade away. Capture the valid claim when its tombstone is inserted in
+-- that same atomic purge batch, then remove this marker with the tenant.
+CREATE TABLE IF NOT EXISTS agent_cost_purge_authorizations (
+ tenant_id TEXT PRIMARY KEY,
+ request_id TEXT NOT NULL UNIQUE,
+ FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+ FOREIGN KEY(request_id) REFERENCES deletion_tombstones(request_id)
+);
+CREATE TRIGGER IF NOT EXISTS agent_cost_purge_authorization_guard
+BEFORE INSERT ON agent_cost_purge_authorizations
+BEGIN
+ SELECT CASE WHEN NOT EXISTS (
+   SELECT 1 FROM deletion_requests d JOIN deletion_tombstones t ON t.request_id=d.id
+   WHERE d.id=NEW.request_id AND d.tenant_id=NEW.tenant_id AND d.status='processing'
+     AND d.processing_token IS NOT NULL AND trim(d.processing_token)!=''
+ ) THEN RAISE(ABORT,'cost_purge_governance_required') END;
+ SELECT CASE WHEN EXISTS (SELECT 1 FROM legal_holds WHERE tenant_id=NEW.tenant_id AND status='active' AND active=1)
+   THEN RAISE(ABORT,'cost_purge_legal_hold_active') END;
+ SELECT CASE WHEN EXISTS (SELECT 1 FROM agent_cost_reservations WHERE tenant_id=NEW.tenant_id AND status='reserved')
+   THEN RAISE(ABORT,'cost_purge_reconciliation_required') END;
+END;
+CREATE TRIGGER IF NOT EXISTS agent_cost_capture_purge_claim
+AFTER INSERT ON deletion_tombstones
+BEGIN
+ INSERT INTO agent_cost_purge_authorizations(tenant_id,request_id)
+ SELECT d.tenant_id,d.id FROM deletion_requests d
+ WHERE d.id=NEW.request_id AND EXISTS (SELECT 1 FROM agent_cost_budgets b WHERE b.tenant_id=d.tenant_id);
+END;
+CREATE TRIGGER IF NOT EXISTS agent_cost_purge_authorization_no_update
+BEFORE UPDATE ON agent_cost_purge_authorizations
+BEGIN SELECT RAISE(ABORT,'cost_purge_authorization_immutable'); END;
+CREATE TRIGGER IF NOT EXISTS agent_cost_purge_authorization_no_delete
+BEFORE DELETE ON agent_cost_purge_authorizations
+WHEN EXISTS (SELECT 1 FROM tenants WHERE id=OLD.tenant_id)
+BEGIN SELECT RAISE(ABORT,'cost_purge_authorization_delete_forbidden'); END;
+CREATE TRIGGER IF NOT EXISTS agent_cost_tenant_purge_guard
+BEFORE DELETE ON tenants
+WHEN EXISTS (SELECT 1 FROM agent_cost_budgets WHERE tenant_id=OLD.id)
+BEGIN
+ SELECT CASE WHEN EXISTS (SELECT 1 FROM legal_holds WHERE tenant_id=OLD.id AND status='active' AND active=1)
+   THEN RAISE(ABORT,'cost_purge_legal_hold_active') END;
+ SELECT CASE WHEN EXISTS (SELECT 1 FROM agent_cost_reservations WHERE tenant_id=OLD.id AND status='reserved')
+   THEN RAISE(ABORT,'cost_purge_reconciliation_required') END;
+ SELECT CASE WHEN NOT EXISTS (
+   SELECT 1 FROM agent_cost_purge_authorizations WHERE tenant_id=OLD.id
+ ) THEN RAISE(ABORT,'cost_purge_governance_required') END;
+ SELECT CASE WHEN EXISTS (SELECT 1 FROM deletion_requests d JOIN agent_cost_purge_authorizations a ON a.request_id=d.id
+   WHERE a.tenant_id=OLD.id AND d.status!='processing')
+   THEN RAISE(ABORT,'cost_purge_governance_required') END;
+END;
+CREATE TRIGGER IF NOT EXISTS agent_cost_reserve_deletion_guard
+BEFORE INSERT ON agent_cost_reservations
+WHEN EXISTS (SELECT 1 FROM deletion_requests WHERE tenant_id=NEW.tenant_id
+  AND status IN ('approved','processing','failed','blocked'))
+BEGIN SELECT RAISE(ABORT,'cost_tenant_deletion_pending'); END;
 
 -- Enforce atomic budget movement from inside the reservation statement.
 -- Unlike checking batch metadata after COMMIT, a rejected transition aborts
