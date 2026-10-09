@@ -8,7 +8,7 @@ export function evaluateAgentAction({tool,allowedTools=[],tenantId,taskTenantId,
   if(typeof tenantId!=="string"||!tenantId.trim()||tenantId!==tenantId.trim()||typeof taskTenantId!=="string"||!taskTenantId.trim()||taskTenantId!==taskTenantId.trim()||tenantId!==taskTenantId)return deny("tenant_boundary");
   if(suspended!==false||taskStatus!=="active")return deny("responsibility_inactive");
   if(policyViolation!==false)return deny("policy_violation");
-  if(typeof tool!=="string"||!tool.trim()||!Array.isArray(allowedTools)||!allowedTools.includes(tool))return deny("tool_not_authorized");
+  if(typeof tool!=="string"||!tool.trim()||tool!==tool.trim()||!Array.isArray(allowedTools)||!allowedTools.includes(tool))return deny("tool_not_authorized");
   // Owner approval, if supplied by a caller, cannot elevate untrusted tools.
   if(externalDestination!==false)return deny("external_destination_denied");
   const trust=evaluateToolTrust({actionKey:tool,destination:"internal"});
