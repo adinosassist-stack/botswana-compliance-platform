@@ -17,6 +17,7 @@ export function normalizePersistentTask(body={}){
   if(typeof body.objective!=="string")return {error:"objective_required"};
   const objective=clean(body.objective,500);
   if(!objective)return {error:"objective_required"};
+  if(body.triggerKind!=null&&typeof body.triggerKind!=="string")return {error:"invalid_trigger_kind"};
   const triggerKind=clean(body.triggerKind,20)||"manual";
   if(!allowedTrigger.has(triggerKind))return {error:"invalid_trigger_kind"};
   const requestedTools=arrayOfStrings(body.allowedTools??[]);
