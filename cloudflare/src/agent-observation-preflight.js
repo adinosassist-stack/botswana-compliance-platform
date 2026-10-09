@@ -6,6 +6,8 @@ export function preflightAgentObservation(input={}){
   const {tenantId,actorId,actionKey,taskClass,models,budgetUsd,requiredRegion=null,payloadBytes=0}=input;
   if(typeof tenantId!=="string"||!tenantId.trim()||typeof actorId!=="string"||!actorId.trim())
     return {ok:false,reason:"missing_authority_context",executionAllowed:false};
+  if(!Number.isSafeInteger(payloadBytes)||payloadBytes<0)
+    return {ok:false,reason:"invalid_payload_size",executionAllowed:false};
   const tool=trustedToolDefinition(actionKey);
   if(!tool)return {ok:false,reason:"tool_not_trusted",executionAllowed:false};
   const trust=evaluateToolTrust({actionKey,requestedToolId:tool.toolId,requestedTransport:"internal",destination:"internal",payloadBytes});
