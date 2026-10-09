@@ -4,6 +4,8 @@ on:
     paths:
       - 'cloudflare/src/agent-security-gate.js'
       - 'tests/agent-security-gate.mjs'
+      - 'cloudflare/src/agentic-persistent-tasks.js'
+      - 'tests/v117-persistent-agent-tasks.mjs'
       - '.github/workflows/agent-gate-tests.yml'
   workflow_dispatch:
 permissions:
@@ -18,3 +20,4 @@ jobs:
           node-version: '22'
       - run: node --check cloudflare/src/agent-security-gate.js
       - run: node tests/agent-security-gate.mjs
+      - run: node tests/v117-persistent-agent-tasks.mjs
