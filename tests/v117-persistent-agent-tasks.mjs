@@ -16,6 +16,8 @@ assert.doesNotMatch(source,/\bfetch\s*\(/,"persistent responsibility state must 
 assert.match(source,/executionAllowed:false/);
 assert.match(source,/Runtime Guard/);
 assert.match(source,/evaluateAgentAction/);
+assert.match(source,/NOT authenticated tenant IDs/);
+assert.match(source,/tenant_id=\?/);
 const migration=fs.readFileSync("cloudflare/migrations/051_v117_persistent_agent_tasks.sql","utf8");
 assert.match(migration,/CREATE TABLE IF NOT EXISTS agent_persistent_tasks/);
 assert.match(migration,/agent_persistent_task_event_tenant_guard/);
