@@ -18,6 +18,10 @@ assert.equal(normalizePersistentTask({objective:"x",allowedTools:[{}]}).error,"i
 assert.equal(normalizePersistentTask({objective:"x",nextRunAt:"never"}).error,"invalid_next_run_at");
 assert.equal(normalizePersistentTask({objective:"x",nextRunAt:42}).error,"invalid_next_run_at");
 assert.equal(normalizePersistentTask({objective:"x",nextRunAt:{}}).error,"invalid_next_run_at");
+for(const field of ["riskPolicy","approvalPolicy","budget","triggerSpec"]){
+  assert.equal(normalizePersistentTask({objective:"x",[field]:[]}).error,"invalid_"+field);
+  assert.equal(normalizePersistentTask({objective:"x",[field]:"invalid"}).error,"invalid_"+field);
+}
 const source=fs.readFileSync("cloudflare/src/agentic-persistent-tasks.js","utf8");
 assert.doesNotMatch(source,/payment\.execute|government_filing\.submit/);
 assert.doesNotMatch(source,/\bfetch\s*\(/,"persistent responsibility state must not execute network actions");
