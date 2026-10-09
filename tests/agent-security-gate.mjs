@@ -17,6 +17,8 @@ assert.equal(gate({...base,suspended:true}).allowed,false);
 assert.equal(gate({...base,taskStatus:"paused"}).allowed,false);
 assert.equal(gate({...base,taskStatus:null}).reason,"responsibility_inactive");
 assert.equal(gate({...base,taskStatus:"ACTIVE"}).reason,"responsibility_inactive");
+assert.equal(gate({...base,taskStatus:"active "}).reason,"responsibility_inactive");
+assert.equal(gate({...base,taskStatus:1}).reason,"responsibility_inactive");
 assert.equal(gate({...base,taskStatus:"cancelled"}).reason,"responsibility_inactive");
 assert.equal(gate({...base,taskStatus:"completed"}).executionAllowed,false);
 assert.equal(gate({...base,suspended:true}).reason,"responsibility_inactive");
