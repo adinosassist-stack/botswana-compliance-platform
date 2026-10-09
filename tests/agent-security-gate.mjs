@@ -1,0 +1,13 @@
+import assert from "node:assert/strict";
+import {evaluateAgentAction as gate} from "../cloudflare/src/agent-security-gate.js";
+const base={tenantId:"a",taskTenantId:"a",tool:"financial_position.read",allowedTools:["financial_position.read","payment.execute"]};
+assert.equal(gate(base).allowed,true);
+assert.equal(gate({...base,taskTenantId:"b"}).reason,"tenant_boundary");
+assert.equal(gate({...base,suspended:true}).allowed,false);
+assert.equal(gate({...base,taskStatus:"paused"}).allowed,false);
+assert.equal(gate({...base,tool:"records.delete"}).allowed,false);
+assert.equal(gate({...base,tool:"payment.execute"}).reason,"owner_approval_required");
+assert.equal(gate({...base,externalDestination:true}).allowed,false);
+assert.equal(gate({...base,policyViolation:true}).allowed,false);
+assert.equal(gate({...base,tool:"payment.execute",approval:{ownerApproved:true,tenantId:"a",tool:"payment.execute",expiresAt:"2099-01-01T00:00:00Z"}}).allowed,true);
+console.log("agent security gate tests PASS");
