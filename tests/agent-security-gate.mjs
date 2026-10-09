@@ -18,6 +18,7 @@ assert.equal(gate({...base,taskStatus:"cancelled"}).reason,"responsibility_inact
 assert.equal(gate({...base,taskStatus:"completed"}).executionAllowed,false);
 assert.equal(gate({...base,suspended:true}).reason,"responsibility_inactive");
 assert.equal(gate({...base,suspended:"unknown"}).reason,"responsibility_inactive");
+assert.equal(gate({...base,suspended:null}).reason,"responsibility_inactive");
 assert.equal(gate({...base,tool:"records.delete"}).allowed,false);
 assert.equal(gate({...base,tool:"payment.execute"}).reason,"tool_not_trusted");
 assert.equal(gate({...base,externalDestination:true}).allowed,false);
@@ -25,6 +26,7 @@ assert.equal(gate({...base,externalDestination:true}).reason,"external_destinati
 assert.equal(gate({...base,externalDestination:"unknown"}).reason,"external_destination_denied");
 assert.equal(gate({...base,policyViolation:true}).allowed,false);
 assert.equal(gate({...base,policyViolation:"unknown"}).reason,"policy_violation");
+assert.equal(gate({...base,policyViolation:null}).reason,"policy_violation");
 assert.equal(gate({...base,allowedTools:null}).reason,"tool_not_authorized");
 assert.equal(gate({...base,allowedTools:["other.read"]}).reason,"tool_not_authorized");
 assert.equal(gate({...base,tool:"toString",allowedTools:["toString"]}).allowed,false);
