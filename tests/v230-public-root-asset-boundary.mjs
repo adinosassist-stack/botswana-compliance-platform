@@ -6,6 +6,16 @@ const home=fs.readFileSync("public/home.html","utf8");
 const reporterLink=fs.readFileSync("public/js/reporter-link-redirect.js","utf8");
 const publicMarketing=fs.readFileSync("public/js/public-marketing-v249.js","utf8");
 const publicMarketingCss=fs.readFileSync("public/assets/public-marketing-v249.css","utf8");
+const publicSeoCss=fs.readFileSync("public/assets/public-seo-v249.css","utf8");
+const seoPages=[
+  "public/cipa-compliance-botswana/index.html",
+  "public/burs-tax-compliance-botswana/index.html",
+  "public/business-licences-botswana/index.html",
+  "public/employment-compliance-botswana/index.html",
+  "public/tender-readiness-botswana/index.html",
+  "public/compliance-evidence-botswana/index.html",
+  "public/pricing/index.html"
+];
 
 function block(name,nextName){
   const start=production.indexOf("function "+name+"(");
@@ -52,4 +62,13 @@ assert.match(publicMarketingCss,/\.marketinggate \.pillar-grid/,
 assert.doesNotMatch(publicMarketingCss,/\.workspace|#workspace|\.view\.active/,
   "public marketing CSS must not style authenticated workspace surfaces");
 
-console.log("PASS: V230 public homepage assets stay isolated from workspace runtime and preserve the public operating-system story.");
+assert.ok(seoPages.every(path=>fs.readFileSync(path,"utf8").includes("/assets/public-seo-v249.css")),
+  "pricing and every Botswana SEO guide must use the shared public Thebe theme");
+assert.match(publicSeoCss,/--green:#0b66d6!important/,
+  "legacy SEO green token must resolve to the live Thebe blue accent");
+assert.match(publicSeoCss,/#pricingPlanProtect:checked~\.plan-tabs/,
+  "pricing selected-plan state must be explicitly unified with the public theme");
+assert.doesNotMatch(publicSeoCss,/\.workspace|#workspace|\.view\.active/,
+  "SEO theme must not style authenticated workspace surfaces");
+
+console.log("PASS: V230 public assets stay isolated from workspace runtime and preserve one public Thebe design system.");
