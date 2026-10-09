@@ -13,6 +13,7 @@ function plainObject(value){return value&&typeof value==="object"&&!Array.isArra
 function validIso(value){if(value==null||value==="")return null;const d=new Date(value);return Number.isFinite(d.getTime())?d.toISOString():undefined}
 function parseJson(value,fallback){try{return JSON.parse(String(value??""))}catch{return fallback}}
 export function normalizePersistentTask(body={}){
+  if(!body||typeof body!=="object"||Array.isArray(body))return {error:"invalid_task_payload"};
   const objective=clean(body.objective,500);
   if(!objective)return {error:"objective_required"};
   const triggerKind=clean(body.triggerKind,20)||"manual";
