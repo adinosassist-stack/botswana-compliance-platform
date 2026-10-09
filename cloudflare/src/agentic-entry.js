@@ -4,7 +4,6 @@ import {handleAgenticControlPlaneRequest} from "./agentic-control-plane.js";
 import {handleAgenticResponsibilityRequest} from "./agentic-responsibility-api.js";
 import {handleAgenticResponsibilityCommand} from "./agentic-responsibility-command.js";
 import {handleAgenticWhatsAppRequest} from "./agentic-whatsapp-core.js";
-import {handleAgenticTaskExecutionRequest} from "./agentic-task-execution.js";
 import {handleJitCapabilityGovernanceRequest} from "./jit-capability-governance-entry.js";
 import {handleAgenticPersistentTaskRequest} from "./agentic-persistent-tasks.js";
 import {handleAgenticLiveVoiceRequest} from "./agentic-live-voice.js";
@@ -188,21 +187,11 @@ export default {
   async fetch(request,env,ctx){
     const logicalPath=logicalRequestPath(request);
     const liveCoreFetch=(innerRequest,innerEnv=env,innerCtx=ctx)=>base.fetch(innerRequest,innerEnv,innerCtx);
-    const rawTaskFetch=(innerRequest,innerEnv=env)=>handleAgenticTaskExecutionRequest({
+    const liveTaskFetch=(innerRequest,innerEnv=env)=>handleJitCapabilityGovernanceRequest({
       request:innerRequest,
       logicalPath:logicalRequestPath(innerRequest),
       env:innerEnv
     });
-    const liveTaskFetch=async(innerRequest,innerEnv=env,innerCtx=ctx)=>{
-      const response=await handleJitCapabilityGovernanceRequest({
-        request:innerRequest,
-        logicalPath:logicalRequestPath(innerRequest),
-        env:innerEnv,
-        ctx:innerCtx,
-        taskFetch:rawTaskFetch
-      });
-      return response??rawTaskFetch(innerRequest,innerEnv);
-    };
     const previewDelegateRequest=innerRequest=>handleAgenticLiveVoiceRequest({
       request:innerRequest,
       logicalPath:"/api/agentic/live/delegation",
@@ -230,7 +219,7 @@ export default {
     if(responsibilityResponse)return responsibilityResponse;
     const controlPlaneResponse=await handleAgenticControlPlaneRequest({request,logicalPath,env});
     if(controlPlaneResponse)return controlPlaneResponse;
-    const taskExecutionResponse=await liveTaskFetch(request,env,ctx);
+    const taskExecutionResponse=await liveTaskFetch(request,env);
     if(taskExecutionResponse)return taskExecutionResponse;
     const authorityResponse=await handleAgenticAuthorityRequest({request,logicalPath,env});
     if(authorityResponse)return authorityResponse;
