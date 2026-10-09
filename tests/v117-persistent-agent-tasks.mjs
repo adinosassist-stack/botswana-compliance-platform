@@ -13,6 +13,8 @@ assert.equal(normalizePersistentTask({objective:"x",triggerKind:"browser"}).erro
 assert.equal(normalizePersistentTask({objective:"x",triggerKind:42}).error,"invalid_trigger_kind");
 assert.equal(normalizePersistentTask({objective:"x",triggerKind:{}}).error,"invalid_trigger_kind");
 assert.equal(normalizePersistentTask({objective:"x",allowedTools:"*"}).error,"invalid_allowed_tools");
+assert.equal(normalizePersistentTask({objective:"x",allowedTools:[42]}).error,"invalid_allowed_tools");
+assert.equal(normalizePersistentTask({objective:"x",allowedTools:[{}]}).error,"invalid_allowed_tools");
 assert.equal(normalizePersistentTask({objective:"x",nextRunAt:"never"}).error,"invalid_next_run_at");
 assert.equal(normalizePersistentTask({objective:"x",nextRunAt:42}).error,"invalid_next_run_at");
 assert.equal(normalizePersistentTask({objective:"x",nextRunAt:{}}).error,"invalid_next_run_at");
