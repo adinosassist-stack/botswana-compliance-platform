@@ -9,7 +9,10 @@ export function evaluateAgentAction({tool,allowedTools=[],approval=null,tenantId
   if(suspended||taskStatus!=="active")return deny("responsibility_inactive");
   if(policyViolation)return deny("policy_violation");
   if(typeof tool!=="string"||!allowedTools.includes(tool))return deny("tool_not_authorized");
-  // No approval token can elevate a tool absent from the trusted read-only registry.\n  const trust=evaluateToolTrust({actionKey:tool,destination:externalDestination?"external":"internal"});\n  if(!trust.allowed)return deny(trust.code);\n  const consequential=HIGH_RISK.has(tool)||externalDestination;
+  // No approval token can elevate a tool absent from the trusted read-only registry.
+  const trust=evaluateToolTrust({actionKey:tool,destination:externalDestination?"external":"internal"});
+  if(!trust.allowed)return deny(trust.code);
+  const consequential=HIGH_RISK.has(tool)||externalDestination;
   if(consequential && !(approval?.ownerApproved===true && approval?.tenantId===tenantId && approval?.tool===tool && approval?.expiresAt && Date.parse(approval.expiresAt)>Date.now())){
     return {allowed:false,reason:"owner_approval_required",requiresOwnerApproval:true};
   }
