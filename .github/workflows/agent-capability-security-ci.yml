@@ -5,10 +5,10 @@ on:
     paths:
       - "cloudflare/src/agent-capability-security.js"
       - "cloudflare/src/jit-capability-governance-entry.js"
+      - "cloudflare/src/agentic-entry.js"
       - "cloudflare/src/agentic-task-execution.js"
       - "cloudflare/src/agent-tool-trust-registry.js"
       - "cloudflare/src/super-agent-planner.js"
-      - "cloudflare/wrangler.toml"
       - "tests/v176-agent-capability-security.mjs"
       - "tests/v217-jit-execution-permit.mjs"
       - "tests/v312-jit-capability-execution-binding.mjs"
@@ -18,10 +18,10 @@ on:
     paths:
       - "cloudflare/src/agent-capability-security.js"
       - "cloudflare/src/jit-capability-governance-entry.js"
+      - "cloudflare/src/agentic-entry.js"
       - "cloudflare/src/agentic-task-execution.js"
       - "cloudflare/src/agent-tool-trust-registry.js"
       - "cloudflare/src/super-agent-planner.js"
-      - "cloudflare/wrangler.toml"
       - "tests/v176-agent-capability-security.mjs"
       - "tests/v217-jit-execution-permit.mjs"
       - "tests/v312-jit-capability-execution-binding.mjs"
@@ -47,5 +47,6 @@ jobs:
       - run: node tests/v312-jit-capability-execution-binding.mjs
       - run: node --check cloudflare/src/agent-capability-security.js
       - run: node --check cloudflare/src/jit-capability-governance-entry.js
+      - run: node --check cloudflare/src/agentic-entry.js
       - run: node --check cloudflare/src/agent-tool-trust-registry.js
       - run: node --check cloudflare/src/super-agent-planner.js
