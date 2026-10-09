@@ -4,27 +4,33 @@ on:
   pull_request:
     paths:
       - "cloudflare/src/agent-capability-security.js"
+      - "cloudflare/src/agent-runtime-containment.js"
       - "cloudflare/src/jit-capability-governance-entry.js"
       - "cloudflare/src/agentic-entry.js"
       - "cloudflare/src/agentic-task-execution.js"
       - "cloudflare/src/agent-tool-trust-registry.js"
       - "cloudflare/src/super-agent-planner.js"
+      - "docs/agent-runtime-containment.md"
       - "tests/v176-agent-capability-security.mjs"
       - "tests/v217-jit-execution-permit.mjs"
       - "tests/v312-jit-capability-execution-binding.mjs"
+      - "tests/v316-tenant-runtime-containment.mjs"
       - ".github/workflows/agent-capability-security-ci.yml"
   push:
     branches: [main]
     paths:
       - "cloudflare/src/agent-capability-security.js"
+      - "cloudflare/src/agent-runtime-containment.js"
       - "cloudflare/src/jit-capability-governance-entry.js"
       - "cloudflare/src/agentic-entry.js"
       - "cloudflare/src/agentic-task-execution.js"
       - "cloudflare/src/agent-tool-trust-registry.js"
       - "cloudflare/src/super-agent-planner.js"
+      - "docs/agent-runtime-containment.md"
       - "tests/v176-agent-capability-security.mjs"
       - "tests/v217-jit-execution-permit.mjs"
       - "tests/v312-jit-capability-execution-binding.mjs"
+      - "tests/v316-tenant-runtime-containment.mjs"
 
 permissions:
   contents: read
@@ -45,7 +51,9 @@ jobs:
       - run: node tests/v176-agent-capability-security.mjs
       - run: node tests/v217-jit-execution-permit.mjs
       - run: node tests/v312-jit-capability-execution-binding.mjs
+      - run: node tests/v316-tenant-runtime-containment.mjs
       - run: node --check cloudflare/src/agent-capability-security.js
+      - run: node --check cloudflare/src/agent-runtime-containment.js
       - run: node --check cloudflare/src/jit-capability-governance-entry.js
       - run: node --check cloudflare/src/agentic-entry.js
       - run: node --check cloudflare/src/agent-tool-trust-registry.js
