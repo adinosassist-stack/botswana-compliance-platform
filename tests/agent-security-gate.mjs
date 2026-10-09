@@ -16,6 +16,7 @@ assert.equal(gate({...base,taskTenantId:"b",tool:"payment.execute"}).reason,"ten
 assert.equal(gate({...base,taskTenantId:"b"}).executionAllowed,false);
 assert.equal(gate({...base,suspended:true}).allowed,false);
 assert.equal(gate({...base,taskStatus:"paused"}).allowed,false);
+assert.equal(gate({...base,taskStatus:"paused",policyViolation:true}).reason,"responsibility_inactive");
 assert.equal(gate({...base,taskStatus:null}).reason,"responsibility_inactive");
 assert.equal(gate({...base,taskStatus:"ACTIVE"}).reason,"responsibility_inactive");
 assert.equal(gate({...base,taskStatus:"active "}).reason,"responsibility_inactive");
