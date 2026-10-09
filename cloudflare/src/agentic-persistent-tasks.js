@@ -1,5 +1,6 @@
 import {validatePersistentTaskAllowedTools} from "./agent-tool-trust-registry.js";
 import {buildBusinessGoalTask} from "./business-goals.js";
+import {preflightAgentObservation} from "./agent-observation-preflight.js";
 import {authenticate,roleAllowed,originAllowed,csrfAllowed,readJson,requestBodyErrorStatus,safeFirst} from "./agentic-authority-core.js";
 
 export const PERSISTENT_TASK_ENGINE_VERSION="2026-09-25.v1";
@@ -48,6 +49,21 @@ async function list(env,auth){
     budget:parseJson(r.budget_json,{}),
     checkpoint:parseJson(r.checkpoint_json,null)
   }))});
+}
+async function observationPreflight(request,env,auth){
+  if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
+  let body;try{body=await readJson(request)}catch(e){return json({error:e.message},requestBodyErrorStatus(e))}
+  if(!body||typeof body!=="object"||Array.isArray(body))return json({error:"invalid_input"},400);
+  // The approved model catalog is operator-controlled; never trust models supplied by the caller.
+  let models;
+  try{models=JSON.parse(String(env.AGENT_APPROVED_MODELS_JSON||"[]"))}catch{return json({error:"model_catalog_unavailable",executionAllowed:false},503)}
+  if(!Array.isArray(models))return json({error:"model_catalog_unavailable",executionAllowed:false},503);
+  const decision=preflightAgentObservation({
+    tenantId:auth.tenant_id,actorId:auth.user_id,actionKey:body.actionKey,
+    taskClass:body.taskClass,models,budgetUsd:body.budgetUsd,
+    requiredRegion:body.requiredRegion??null,payloadBytes:0
+  });
+  return json(decision,decision.ok?200:403);
 }
 async function create(request,env,auth){
   if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);
@@ -138,6 +154,7 @@ export async function handleAgenticPersistentTaskRequest({request,logicalPath,en
   if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
   if(request.method==="GET"&&path==="/api/agentic/persistent-tasks")return list(env,auth);
   if(!originAllowed(request,env)||!csrfAllowed(request,auth))return json({error:"forbidden"},403);
+  if(request.method==="POST"&&path==="/api/agentic/persistent-tasks/preflight")return observationPreflight(request,env,auth);
   if(request.method==="POST"&&path==="/api/agentic/persistent-tasks")return create(request,env,auth);
   if(request.method==="POST"&&path==="/api/agentic/business-goals")return createBusinessGoal(request,env,auth);
   const m=path.match(/^\/api\/agentic\/persistent-tasks\/([^/]+)\/(pause|resume|complete|cancel)$/);
