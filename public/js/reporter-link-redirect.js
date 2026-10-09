@@ -2,7 +2,8 @@
   const hash=String(location.hash||"");
   const path=location.pathname.replace(/\/+$/,"")||"/";
   if(hash.startsWith("#report=")){
-    if(path!=="/report")location.replace("/report/?entry=legacy-link&v=20260923e"+hash);
+    if(path==="/report")return;
+    location.replace("/report/?entry=legacy-link&v=20260923e"+hash);
     return;
   }
   if(path!=="/"&&path!=="/home.html")return;
