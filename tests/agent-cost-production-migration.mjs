@@ -54,6 +54,11 @@ try{
   };
   const run=overrides=>runProductionAgentCostMigration({env:{...env,...overrides},fetchImpl,execImpl});
   assert.equal((await run()).code,'migration_plan_ready');assert.equal(execs,0);assert.equal(bookmarks,0);
+  assert.equal((await run({GITHUB_EVENT_NAME:'push',ACCOUNTING_068_AUTOPLAN:'1'})).code,'migration_plan_ready');
+  const beforeRejectedAutoApply=cfCalls;
+  await assert.rejects(run({GITHUB_EVENT_NAME:'push',ACCOUNTING_068_AUTOPLAN:'1',MIGRATION_MODE:'apply'}),/migration_workflow_context_invalid/);
+  assert.equal(cfCalls,beforeRejectedAutoApply,'automatic push must reject apply before Cloudflare access');
+  await assert.rejects(run({GITHUB_EVENT_NAME:'push'}),/migration_workflow_context_invalid/);
   // GitHub omits merged PR associations on historical successful runs.
   emptyRefs=true;assert.equal((await run()).code,'migration_plan_ready');
   assert.equal(execs,0);assert.equal(bookmarks,0);
@@ -81,9 +86,12 @@ try{
   await assert.rejects(verifyAgentCostProductionAuthority({sha:'bad',token:'synthetic',fetchImpl}),/migration_authority_invalid/);
   const workflow=readFileSync('.github/workflows/migrate-production-agent-cost-accounting.yml','utf8');
   const triggers=workflow.slice(workflow.indexOf('on:'),workflow.indexOf('permissions:'));
-  assert.ok(triggers.includes('workflow_dispatch:'));assert.ok(!triggers.includes('push:'));assert.ok(!triggers.includes('pull_request:'));
+  assert.ok(triggers.includes('workflow_dispatch:'));assert.ok(triggers.includes('push:'));assert.ok(!triggers.includes('pull_request:'));
+  assert.match(triggers,/branches: \[main\]/);assert.match(triggers,/migrate-production-agent-cost-accounting\.yml/);
   assert.match(triggers,/default: plan/);
+  assert.match(workflow,/ACCOUNTING_068_AUTOPLAN/);
+  assert.match(workflow,/github\.event_name == 'workflow_dispatch' && inputs\.mode \|\| 'plan'/);
   assert.ok(workflow.indexOf('secrets.CLOUDFLARE_API_TOKEN')>workflow.indexOf('name: Inspect or apply governed migration 068'),'production credentials must be confined to the gated operation step');
   assert.doesNotMatch(workflow,/wrangler[^\n]*deploy|AGENT_MODEL_EXECUTION_ENABLED/);
-  console.log('Production migration 068: exact-main/review/latest-CI gates, target identity, read-only plan, recorded bookmark and pinned mocked remote apply PASS');
+  console.log('Production migration 068: exact-main/review/latest-CI gates, target identity, dispatch and plan-only push, read-only plan, recorded bookmark and pinned mocked remote apply PASS');
 }finally{db.close();rmSync(dir,{recursive:true,force:true});if(previousToken===undefined)delete process.env.GH_TOKEN;else process.env.GH_TOKEN=previousToken}
