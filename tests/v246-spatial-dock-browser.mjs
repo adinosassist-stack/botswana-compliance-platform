@@ -47,8 +47,14 @@ try{
   assert(geometry.card.width<=680&&geometry.card.width>0,`calculator must remain compact at ${width}: ${JSON.stringify(geometry)}`);
   await page.locator('#businessAction').click();
  }
- await page.evaluate(()=>{document.querySelector('.property-calculator-v224').style.setProperty('max-width','none','important');window.ThebePropertyVisibility.repair()});
- assert((await page.locator('.property-calculator-v224').boundingBox()).width<=680,'visibility recovery keeps compact geometry after a late style repair');
+ await page.evaluate(()=>{
+  const view=document.getElementById('propertyintelligence');
+  view.classList.remove('active');
+  view.getBoundingClientRect();
+  view.classList.add('active');
+ });
+ await page.waitForFunction(()=>{const card=document.querySelector('.property-calculator-v224');return card&&card.getBoundingClientRect().width>0});
+ assert((await page.locator('.property-calculator-v224').boundingBox()).width<=680,'Property calculator stays compact after native view reactivation without invoking legacy repair');
  await page.setViewportSize({width:1440,height:960});
  if(process.env.THEBE_SCREENSHOT_DIR){fs.mkdirSync(process.env.THEBE_SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.THEBE_SCREENSHOT_DIR,'dock-desktop.png')})}
  await page.getByRole('button',{name:'Expand Thebe panel',exact:true}).click();
