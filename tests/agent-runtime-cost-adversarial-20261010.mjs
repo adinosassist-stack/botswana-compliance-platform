@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {evaluateAgentCostAdmission,normalizeAgentUsage} from "../cloudflare/src/agent-cost-admission.js";
 import {evaluateAgentRuntimeGuard} from "../cloudflare/src/agent-runtime-guard.js";
 import {authorizeAndReserveAgentCost} from "../cloudflare/src/agent-cost-execution-boundary.js";
+import {reserveAgentCost} from "../cloudflare/src/agent-cost-reservations.js";
 
 // Adversarial checks for the disabled-by-default experimental accounting path.
 // All denied requests must terminate before touching D1.
@@ -78,5 +79,9 @@ const guardedOutage={DB:{prepare(){throw new Error("D1 unavailable");}}};
 const guardedResult=await authorizeAndReserveAgentCost(guardedOutage,{guardInput:guard,reservationInput:reserve});
 assert.equal(guardedResult.allowed,false);
 assert.equal(guardedResult.executionAllowed,false);
+
+// A D1 budget read outage must deny deterministically without throwing.
+const readOutage={DB:{prepare(){throw new Error("D1 unavailable");}}};
+assert.deepEqual(await reserveAgentCost(readOutage,reserve),{allowed:false,code:"cost_reservation_unavailable"});
 
 console.log("Agent runtime adversarial cost/authority denial tests passed");
