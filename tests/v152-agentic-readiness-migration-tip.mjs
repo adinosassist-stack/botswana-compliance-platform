@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import {delegatedAuthoritySchemaReady,V81_SCHEMA_DELTA} from "../cloudflare/src/agentic-entry.js";
 
-assert.equal(V81_SCHEMA_DELTA,"067_v286_customer_relationships.sql");
+assert.equal(V81_SCHEMA_DELTA,"068_agent_cost_accounting.sql");
 
-function db({missingClaims=false,missingScheduledFor=false,missingOccurrenceIndex=false,missingSchedulerIndex=false,missingRegistry=false,missingMemory=false,missingProperty=false,missingPropertyV175=false,missingPropertyV176=false,missingPropertyV179=false,missingJitV217=false,missingBusinessGoalObserver=false}={}){
+function db({missingClaims=false,missingScheduledFor=false,missingOccurrenceIndex=false,missingSchedulerIndex=false,missingRegistry=false,missingMemory=false,missingProperty=false,missingPropertyV175=false,missingPropertyV176=false,missingPropertyV179=false,missingJitV217=false,missingBusinessGoalObserver=false,missingLedger=false}={}){
   return {
     prepare(sql){
       return {
         async first(){
+          if(missingLedger&&sql.includes("WITH required(type,name)"))return null;
           if(missingClaims&&sql.includes("agent_observation_claims"))throw new Error("no such table: agent_observation_claims");
           if(missingRegistry&&sql.includes("agent_registry"))throw new Error("no such table: agent_registry");
           if(missingMemory&&(sql.includes("business_memory_items")||sql.includes("business_memory_events")))throw new Error("no such table: business_memory_items");
@@ -40,6 +41,7 @@ assert.equal(await delegatedAuthoritySchemaReady({DB:db({missingPropertyV176:tru
 assert.equal(await delegatedAuthoritySchemaReady({DB:db({missingPropertyV179:true})}),false,"migration 063 professional credential ledger is required");
 assert.equal(await delegatedAuthoritySchemaReady({DB:db({missingJitV217:true})}),false,"migration 064 JIT execution permit table is required");
 assert.equal(await delegatedAuthoritySchemaReady({DB:db({missingBusinessGoalObserver:true})}),false,"migration 065 business-goal observer identity is required");
+assert.equal(await delegatedAuthoritySchemaReady({DB:db({missingLedger:true})}),false,"migration 068 ledger guards are required");
 assert.equal(await delegatedAuthoritySchemaReady({}),false);
 
 console.log("v152 agentic readiness migration-tip integrity passed");
