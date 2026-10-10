@@ -7,7 +7,14 @@ on:
       - 'cloudflare/src/agent-runtime-guard.js'
       - 'cloudflare/src/delegated-authority.js'
       - 'cloudflare/src/agent-cost-admission.js'
+      - 'cloudflare/src/agentic-task-execution.js'
+      - 'cloudflare/preflight-production.sh'
+      - 'cloudflare/wrangler.toml'
+      - 'public/js/owner-command-centre.js'
       - 'tests/agent-runtime-guard-regression-20261009.mjs'
+      - 'tests/v100-platform-admin-task-canary.mjs'
+      - 'docs/AGENT_RUNTIME_GOVERNANCE.md'
+      - 'docs/LAUNCH_STATUS.md'
       - '.github/workflows/agent-runtime-guard-regression.yml'
   workflow_dispatch:
 
@@ -29,4 +36,6 @@ jobs:
       - name: Syntax and authorization regression
         run: |
           node --check tests/agent-runtime-guard-regression-20261009.mjs
+          node --check tests/v100-platform-admin-task-canary.mjs
           node tests/agent-runtime-guard-regression-20261009.mjs
+          node tests/v100-platform-admin-task-canary.mjs
