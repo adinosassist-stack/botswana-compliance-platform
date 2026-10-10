@@ -1,1 +1,0 @@
-Review note: this PR intentionally removes only the dedicated Property presentation repair loop. The separate canonical workspace-runtime repair is not modified in this PR because `public/index.html` and `public/js/workspace-runtime-20261001b.js` are protected by a byte-equivalence contract and must be migrated together. This separation avoids an unsynchronised runtime change.
