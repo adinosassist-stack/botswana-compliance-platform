@@ -44,6 +44,17 @@ try{
   assert.equal(rows("SELECT reserved_minor FROM agent_cost_budgets WHERE tenant_id='t1';")[0].reserved_minor,20);
   rejects("INSERT INTO agent_cost_reservations(id,tenant_id,agent_id,run_id,estimate_minor) VALUES('duplicate','t1','thebe','run',20);",'UNIQUE');
   rejects("INSERT INTO agent_cost_events(reservation_id,tenant_id,agent_id,event_type,estimate_minor) VALUES('r1','t2','thebe','settled',20);",'cost_event_');
+  // Multiple reservations in one transaction must not oversubscribe the
+  // remaining budget. A rejected statement must leave no orphan accounting.
+  rejects("INSERT INTO agent_cost_reservations(id,tenant_id,agent_id,run_id,estimate_minor) VALUES('over-a','t2','thebe','over-a',60),('over-b','t2','thebe','over-b',60);",'cost_reservation_budget_rejected');
+  assert.deepEqual(rows("SELECT spent_minor,reserved_minor FROM agent_cost_budgets WHERE tenant_id='t2';"),[{spent_minor:0,reserved_minor:0}]);
+  assert.equal(rows("SELECT count(*) n FROM agent_cost_reservations WHERE tenant_id='t2';")[0].n,0);
+  assert.equal(rows("SELECT count(*) n FROM agent_cost_events WHERE tenant_id='t2';")[0].n,0);
+  execute("INSERT INTO agent_cost_reservations(id,tenant_id,agent_id,run_id,estimate_minor) VALUES('cap-a','t2','thebe','cap-a',60); INSERT INTO agent_cost_events(reservation_id,tenant_id,agent_id,event_type,estimate_minor) VALUES('cap-a','t2','thebe','reserved',60);");
+  rejects("INSERT INTO agent_cost_reservations(id,tenant_id,agent_id,run_id,estimate_minor) VALUES('cap-b','t2','thebe','cap-b',41);",'cost_reservation_budget_rejected');
+  assert.equal(rows("SELECT reserved_minor FROM agent_cost_budgets WHERE tenant_id='t2';")[0].reserved_minor,60);
+  assert.equal(rows("SELECT count(*) n FROM agent_cost_reservations WHERE tenant_id='t2';")[0].n,1);
+  assert.equal(rows("SELECT count(*) n FROM agent_cost_events WHERE tenant_id='t2';")[0].n,1);
   execute("INSERT INTO deletion_requests(id,tenant_id,user_id,status,processing_token) VALUES('dr1','t1','u1','processing','synthetic-claim');");
   const tombstone="INSERT INTO deletion_tombstones(request_id,tenant_fingerprint) VALUES('dr1','synthetic-fingerprint');";
   rejects(tombstone,'cost_purge_reconciliation_required');
