@@ -2534,6 +2534,10 @@ function aiAdvisorFallback(mode,bundle){
   if(mode==="tender_readiness")for(const t of c.tenders.filter(x=>x.missingRequired>0).slice(0,Math.max(0,6-actions.length)))actions.push({title:`Close tender gaps: ${t.title}`,reason:`${t.missingRequired} of ${t.mandatoryCount} mandatory requirements are not ready.`,priority:"high",sourceRefs:[t.ref]});
   const tenderMissing=c.tenders.reduce((n,x)=>n+x.missingRequired,0);
   if(mode==="ask"){
+    if(c.contextAvailability?.financeAndBusiness==="unavailable")return {
+      answer:"Thebe could not retrieve Finance, Sales, Business Memory and Analytics from this workspace right now. Other workspace records may still be available; please retry before relying on a complete business overview.",
+      confidence:"low",actions:[],caveats:["Business context retrieval failed; unavailable values are not zero.","No action was performed."],sourceRefs:[]
+    };
     const setswana=languagePolicy.render==="setswana";
     return {
       answer:setswana
