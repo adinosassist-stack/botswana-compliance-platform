@@ -45,5 +45,30 @@ for(const [name,patch] of [
 assert.equal(evaluateAgentCostAdmission({...base,estimatedCostMinor:25}).remainingMinor,0);
 assert.equal(normalizeAgentUsage({provider:"provider",model:"model",runId:"run",inputTokens:1,outputTokens:2,estimatedCostMinor:25}).verifiedCost,false);
 assert.equal(normalizeAgentUsage({provider:"provider",model:"model",runId:"run",inputTokens:1,outputTokens:2,estimatedCostMinor:NaN}),null);
+
+// A cost reservation is never an authorization token. An absent policy
+// snapshot, a mismatched reservation identity, or a stale approval cannot
+// reach storage even if a caller requests execution.
+for(const [name,guardPatch,reservePatch] of [
+ ["missing cost policy",{costAdmission:null},{}],
+ ["missing tenant",{tenantId:""},{}],
+ ["reservation cross-tenant",{}, {tenantId:"tenant-b"}],
+ ["reservation actor mismatch",{}, {actorTenantId:"tenant-b"}],
+ ["reservation agent mismatch",{}, {agentId:"other-agent"}],
+ ["reservation amount mismatch",{}, {estimatedCostMinor:24}],
+ ["missing run id",{}, {runId:""}],
+ ["missing reservation id",{}, {reservationId:""}],
+ ["policy tenant mismatch",{costAdmission:{...base,tenantId:"tenant-b"}},{}],
+ ["policy actor mismatch",{costAdmission:{...base,actorTenantId:"tenant-b"}},{}],
+ ["policy agent mismatch",{costAdmission:{...base,agentId:"other-agent"}},{}]
+]){
+ const result=await authorizeAndReserveAgentCost(env,{
+  guardInput:{...guard,...guardPatch},
+  reservationInput:{...reserve,...reservePatch}
+ });
+ assert.equal(result.allowed,false,name);
+ assert.equal(result.executionAllowed,false,name);
+ assert.equal(databaseCalls,0,name);
+}
 assert.equal(databaseCalls,0);
 console.log("Agent runtime adversarial cost/authority denial tests passed");
