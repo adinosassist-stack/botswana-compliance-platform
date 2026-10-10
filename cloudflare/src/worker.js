@@ -2458,6 +2458,7 @@ async function buildAiAdvisorContext(env,tenantId,{includeFinance=false,actorRol
       earliestDueOn:x.earliestDueOn||null
     }))
   }:null;
+  const propertyContext=businessPayload?.property?{ref:"PROP-1",summary:businessPayload.property}:null;
   const businessMemory=businessPayload?{
     ref:"BIZ-1",
     businessDate:businessPayload.businessDate||null,
@@ -2492,12 +2493,13 @@ async function buildAiAdvisorContext(env,tenantId,{includeFinance=false,actorRol
     customerCollectionsTodayMinor:Number(businessPayload.finance?.today?.customerCollectionMinor||0),
     provenanceRule:String(businessPayload.provenance?.rule||"")
   }:null;
-  const context={contextAvailability:{financeAndBusiness:includeFinance?(businessContextAvailable?"available":"unavailable"):"role_restricted",financeAndBusinessComplete:businessContextAvailable},profile:profile.record,workspaceVersion:Number(stateRow?.version||0),market:activeMarket,language:businessPayload?.language||{},protection,finance,businessMemory,obligations,risks,controls,tenders,cipa,operations,sources};
-  const counts={obligations:obligations.length,risks:risks.length,controls:controls.length,tenders:tenders.length,sources:sources.length,cipaSnapshots:cipa?.snapshotAvailable?1:0,operations:operations?1:0,finance:finance?1:0,businessMemory:businessMemory?1:0};
-  const allowedRefs=new Set(["SCORE-1",...obligations.map(x=>x.ref),...risks.map(x=>x.ref),...controls.map(x=>x.ref),...tenders.map(x=>x.ref),...sources.map(x=>x.ref),...(cipa?[cipa.ref]:[]),...(operations?[operations.ref]:[]),...(finance?[finance.ref]:[]),...(businessMemory?[businessMemory.ref]:[])]);
+  const context={contextAvailability:{financeAndBusiness:includeFinance?(businessContextAvailable?"available":"unavailable"):"role_restricted",financeAndBusinessComplete:businessContextAvailable},profile:profile.record,workspaceVersion:Number(stateRow?.version||0),market:activeMarket,language:businessPayload?.language||{},protection,finance,propertyContext,businessMemory,obligations,risks,controls,tenders,cipa,operations,sources};
+  const counts={obligations:obligations.length,risks:risks.length,controls:controls.length,tenders:tenders.length,sources:sources.length,cipaSnapshots:cipa?.snapshotAvailable?1:0,operations:operations?1:0,finance:finance?1:0,property:propertyContext?1:0,businessMemory:businessMemory?1:0};
+  const allowedRefs=new Set(["SCORE-1",...obligations.map(x=>x.ref),...risks.map(x=>x.ref),...controls.map(x=>x.ref),...tenders.map(x=>x.ref),...sources.map(x=>x.ref),...(cipa?[cipa.ref]:[]),...(operations?[operations.ref]:[]),...(finance?[finance.ref]:[]),...(propertyContext?[propertyContext.ref]:[]),...(businessMemory?[businessMemory.ref]:[])]);
   const referenceCatalog=[
     ...(businessMemory?[{ref:businessMemory.ref,type:"business_context",label:"Unified Thebe Business Context"}]:[]),
     ...(finance?[{ref:finance.ref,type:"finance",label:"Canonical Finance Core and receivables snapshot"}]:[]),
+    ...(propertyContext?[{ref:propertyContext.ref,type:"property",label:"Governed property portfolio snapshot"}]:[]),
     ...sources.map(x=>({ref:x.ref,type:"official_source",label:`${x.authority}: ${x.title}`,url:x.url,verificationStatus:x.verificationStatus})),
     ...obligations.map(x=>({ref:x.ref,type:"obligation",label:x.title})),
     ...risks.map(x=>({ref:x.ref,type:"risk_event",label:x.title})),
