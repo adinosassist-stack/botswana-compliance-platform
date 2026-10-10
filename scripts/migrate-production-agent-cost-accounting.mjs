@@ -4,6 +4,7 @@ import {verifyAgentCostProductionAuthority} from "./agent-cost-production-author
 import {createAgentCostProductionTransport} from "./agent-cost-production-transport.mjs";
 import {runAgentCostMigration} from "./migrate-agent-cost-accounting.mjs";
 
+// Operational no-op: refresh exact-main Accounting 068 read-only plan qualification after release 459 merged.
 export async function runProductionAgentCostMigration({env=process.env,fetchImpl=globalThis.fetch,execImpl}={}){
   const dispatch=env.GITHUB_EVENT_NAME==="workflow_dispatch";
   const automaticPlan=env.GITHUB_EVENT_NAME==="push"&&env.ACCOUNTING_068_AUTOPLAN==="1"&&env.MIGRATION_MODE==="plan";
