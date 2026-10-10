@@ -203,5 +203,17 @@ for(const id of ["4","5"]){
   assert.equal(permit.use_count,0);
 }
 
+// An approval cannot be reused after its request payload changes.
+db.prepare("INSERT INTO agent_action_intents(id,tenant_id,agent_key,action_key) VALUES(?,?,?,?)").run("i6","t1","thebe","task.create");
+insertRequest.run("q6","t1","i6","g1","hash-6","hash-6","owner1");
+insertPermit.run("p6","t1","owner1","q6","g1","hash-6");
+db.prepare("UPDATE agent_task_requests SET payload_hash='tampered-6' WHERE id='q6'").run();
+assert.throws(
+  ()=>db.prepare("UPDATE agent_task_requests SET status='executed',jit_permit_id='p6' WHERE id='q6'").run(),
+  /agent_jit_permit_invalid_or_expired/
+);
+assert.equal(db.prepare("SELECT status FROM agent_task_requests WHERE id='q6'").get().status,"approved");
+assert.equal(db.prepare("SELECT use_count FROM agent_jit_execution_permits WHERE id='p6'").get().use_count,0);
+
 db.close();
 console.log("v217 JIT execution permit adversarial gate passed");
