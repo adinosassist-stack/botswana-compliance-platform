@@ -52,6 +52,8 @@ const preflight=fs.readFileSync("cloudflare/preflight-production.sh","utf8");
 assert.match(preflight,/AGENT_BOUNDED_TASK_EXECUTION_MODE/);
 assert.match(preflight,/platform_admin_canary/);
 assert.match(preflight,/reviewed platform-admin canary/);
+assert.match(preflight,/AGENT_BOUNDED_TASK_EXECUTION_ENABLED/);
+assert.match(preflight,/legacy bounded-task global compatibility flag must remain explicitly disabled/);
 
 const ui=fs.readFileSync("public/js/owner-command-centre.js","utf8");
 assert.match(ui,/sessionExecutionEnabled===true/);
