@@ -146,23 +146,28 @@ async function transition(env,auth,id,status){
   const row=await safeFirst(env,"SELECT id,status,next_run_at FROM agent_persistent_tasks WHERE id=? AND tenant_id=? LIMIT 1",[id,auth.tenant_id]);
   if(!row)return json({error:"persistent_task_not_found"},404);
   if(["completed","cancelled"].includes(row.status))return json({error:"terminal_task"},409);
-  let result;
+  let results;
   try{
-    result=await env.DB.prepare(`UPDATE agent_persistent_tasks
-      SET status=?,
-          next_run_at=CASE WHEN ?='active' AND next_run_at IS NULL THEN strftime('%Y-%m-%dT%H:%M:%fZ','now') ELSE next_run_at END,
-          updated_at=CURRENT_TIMESTAMP
-      WHERE id=? AND tenant_id=? AND status NOT IN ('completed','cancelled')`)
-      .bind(status,status,id,auth.tenant_id).run();
+    // D1 batch is transactional: a receipt failure must roll back the status change.
+    // Compare the observed state so concurrent transitions cannot record stale history.
+    results=await env.DB.batch([
+      env.DB.prepare(`UPDATE agent_persistent_tasks
+        SET status=?,
+            next_run_at=CASE WHEN ?='active' AND next_run_at IS NULL THEN strftime('%Y-%m-%dT%H:%M:%fZ','now') ELSE next_run_at END,
+            updated_at=CURRENT_TIMESTAMP
+        WHERE id=? AND tenant_id=? AND status=? AND status NOT IN ('completed','cancelled')`)
+        .bind(status,status,id,auth.tenant_id,row.status),
+      // changes() links each receipt to the preceding successful statement in this batch.
+      env.DB.prepare("INSERT INTO agent_persistent_task_events(id,tenant_id,persistent_task_id,event_type,event_data) SELECT ?,?,?,?,? WHERE changes()=1")
+        .bind(newId(),auth.tenant_id,id,"STATUS_CHANGED",JSON.stringify({from:row.status,to:status})),
+      env.DB.prepare("INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data) SELECT ?,?,'AGENT_PERSISTENT_TASK_STATUS_CHANGED','agent_persistent_task',?,? WHERE changes()=1")
+        .bind(auth.tenant_id,auth.user_id,id,JSON.stringify({from:row.status,to:status}))
+    ]);
   }catch(error){
     if(String(error?.message||error).includes("duplicate_business_goal"))return json({error:"business_goal_duplicate_active"},409);
     throw error;
   }
-  if(Number(result?.meta?.changes??result?.changes??0)!==1)return json({error:"persistent_task_transition_conflict"},409);
-  await env.DB.batch([
-    env.DB.prepare("INSERT INTO agent_persistent_task_events(id,tenant_id,persistent_task_id,event_type,event_data) VALUES(?,?,?,?,?)").bind(newId(),auth.tenant_id,id,"STATUS_CHANGED",JSON.stringify({from:row.status,to:status})),
-    env.DB.prepare("INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data) VALUES(?,?,'AGENT_PERSISTENT_TASK_STATUS_CHANGED','agent_persistent_task',?,?)").bind(auth.tenant_id,auth.user_id,id,JSON.stringify({from:row.status,to:status}))
-  ]);
+  if(Number(results?.[0]?.meta?.changes??results?.[0]?.changes??0)!==1)return json({error:"persistent_task_transition_conflict"},409);
   return json({ok:true,id,status});
 }
 export async function handleAgenticPersistentTaskRequest({request,logicalPath,env}){
