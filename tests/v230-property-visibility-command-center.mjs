@@ -41,11 +41,14 @@ assert.doesNotMatch(visibility,/fetch\(|XMLHttpRequest|apiJson|method:"POST"/,
 assert.doesNotMatch(visibility,/\.innerHTML\s*=/,
   "Property presentation code must not bypass DOM-safety with native innerHTML assignments");
 
-// CSS remains the declarative active-view presentation contract while runtime repair code is retired.
-assert.match(visibilityCss,/#propertyintelligence\.view\.active\{/);
-assert.match(visibilityCss,/\.property-layout-v224\{[\s\S]*display:block!important/);
-assert.match(visibilityCss,/\.property-calculator-v224\{[\s\S]*display:block!important/);
-assert.match(visibilityCss,/\.property-analyse-button\{display:block!important\}/);
+assert.match(visibilityCss,/V273 Property presentation contract/);
+assert.match(visibilityCss,/#propertyintelligence\.view\{min-width:0\}/);
+assert.match(visibilityCss,/#propertyintelligence\.view\.active\{visibility:visible;opacity:1\}/);
+assert.match(visibilityCss,/#propertyintelligence\.view\.active :is\(\.property-layout-v224,\.property-calculator-v224\)\{min-width:0;max-width:100%\}/);
+assert.doesNotMatch(visibilityCss,/#propertyintelligence\.view\.active\{[^}]*display:block!important/,
+  "active Property visibility must come from the canonical view contract, not a force-show override");
+assert.doesNotMatch(visibilityCss,/#propertyintelligence\.view\.active \.property-(?:layout|calculator)-v224\{[^}]*display:block!important/,
+  "Property layout/calculator must not carry force-show CSS");
 assert.ok(visibilityCss.includes("#propertyValuationServicePanel{")&&visibilityCss.includes("background:#f7fbff!important"));
 
 assert.match(commandCss,/V230 command-center workspace rhythm/);
@@ -159,7 +162,7 @@ assert.match(optimiseCss,/V263 Property Optimise/);
 assert.match(optimiseCss,/data-property-active-pane="optimise"/);
 assert.match(optimiseCss,/\.property-optimise-v263/);
 assert.match(optimiseCss,/\.property-opt-metrics-v263\{[\s\S]*grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
-assert.match(optimiseCss,/\.property-opt-grid-v263\{[\s\S]*grid-template-columns:230px minmax\(0,1fr\)/);
+assert.match(optimiseCss,/\.property-opt-grid-v263\{[\s\S]*grid-template-columns:230px minmax\(0,1fr\)\)/);
 assert.match(optimiseCss,/\.property-opt-levers-v263\{[\s\S]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
 assert.match(optimiseCss,/@media\(max-width:760px\)/);
 assert.match(optimiseCss,/@media\(max-width:480px\)/);
