@@ -71,4 +71,12 @@ for(const [name,guardPatch,reservePatch] of [
  assert.equal(databaseCalls,0,name);
 }
 assert.equal(databaseCalls,0);
+
+// The baseline request lacks delegated execution authority, so the guard
+// denies before reaching D1. Do not mislabel this as an outage-path test.
+const guardedOutage={DB:{prepare(){throw new Error("D1 unavailable");}}};
+const guardedResult=await authorizeAndReserveAgentCost(guardedOutage,{guardInput:guard,reservationInput:reserve});
+assert.equal(guardedResult.allowed,false);
+assert.equal(guardedResult.executionAllowed,false);
+
 console.log("Agent runtime adversarial cost/authority denial tests passed");

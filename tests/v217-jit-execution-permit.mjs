@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import {DatabaseSync} from "node:sqlite";
+import {Worker} from "node:worker_threads";
+import os from "node:os";
+import path from "node:path";
 
 const source=fs.readFileSync("cloudflare/src/agentic-task-execution.js","utf8");
 const migration=fs.readFileSync("cloudflare/migrations/064_v217_jit_execution_permits.sql","utf8");
@@ -133,6 +136,13 @@ assert.equal(row.status,"consumed");
 assert.equal(row.use_count,1);
 assert.equal(row.consumed_by_user_id,"owner1");
 
+// A consumed single-use permit cannot execute a second request or replay its own.
+assert.throws(
+  ()=>db.prepare("UPDATE agent_task_requests SET status='executed',jit_permit_id=? WHERE id=?").run("p1","q1"),
+  /agent_jit_permit_invalid_or_expired/
+);
+assert.equal(db.prepare("SELECT use_count FROM agent_jit_execution_permits WHERE id='p1'").get().use_count,1);
+
 db.prepare("INSERT INTO agent_action_intents(id,tenant_id,agent_key,action_key) VALUES(?,?,?,?)").run("i2","t1","thebe","task.create");
 insertRequest.run("q2","t1","i2","g1","hash-2","hash-2","owner1");
 assert.throws(
@@ -161,6 +171,176 @@ assert.throws(
 row=db.prepare("SELECT status,use_count FROM agent_jit_execution_permits WHERE id='p2'").get();
 assert.equal(row.status,"active");
 assert.equal(row.use_count,0);
+
+// A consumed permit cannot be reassigned to a different approved request.
+db.prepare("UPDATE agent_execution_grants SET status='active' WHERE id='g1'").run();
+db.prepare("INSERT INTO agent_action_intents(id,tenant_id,agent_key,action_key) VALUES(?,?,?,?)").run("i3","t1","thebe","task.create");
+insertRequest.run("q3","t1","i3","g1","hash-3","hash-3","owner1");
+assert.throws(
+  ()=>db.prepare("UPDATE agent_task_requests SET status='executed',jit_permit_id=? WHERE id=?").run("p1","q3"),
+  /agent_jit_permit_invalid_or_expired/
+);
+assert.equal(db.prepare("SELECT status,jit_permit_id FROM agent_task_requests WHERE id='q3'").get().status,"approved");
+assert.equal(db.prepare("SELECT jit_permit_id FROM agent_task_requests WHERE id='q3'").get().jit_permit_id,null);
+assert.equal(db.prepare("SELECT use_count FROM agent_jit_execution_permits WHERE id='p1'").get().use_count,1);
+
+// Atomicity: a batch execution must not consume a valid permit if another
+// request in the same statement has a revoked grant.
+db.prepare("INSERT INTO agent_execution_grants(id,tenant_id,status) VALUES(?,?,?)").run("g2","t1","active");
+for(const [id,intent,hash] of [["q4","i4","hash-4"],["q5","i5","hash-5"]]){
+  db.prepare("INSERT INTO agent_action_intents(id,tenant_id,agent_key,action_key) VALUES(?,?,?,?)").run(intent,"t1","thebe","task.create");
+  insertRequest.run(id,"t1",intent,"g2",hash,hash,"owner1");
+  insertPermit.run("p"+id.slice(1),"t1","owner1",id,"g2",hash);
+}
+db.prepare("UPDATE agent_execution_grants SET status='revoked' WHERE id='g2'").run();
+assert.throws(
+  ()=>db.prepare("UPDATE agent_task_requests SET status='executed',jit_permit_id=CASE id WHEN 'q4' THEN 'p4' ELSE 'p5' END WHERE id IN ('q4','q5')").run(),
+  /agent_jit_permit_invalid_or_expired/
+);
+for(const id of ["4","5"]){
+  const request=db.prepare("SELECT status,jit_permit_id FROM agent_task_requests WHERE id=?").get("q"+id);
+  const permit=db.prepare("SELECT status,use_count FROM agent_jit_execution_permits WHERE id=?").get("p"+id);
+  assert.equal(request.status,"approved");
+  assert.equal(request.jit_permit_id,null);
+  assert.equal(permit.status,"active");
+  assert.equal(permit.use_count,0);
+}
+
+// An approval cannot be reused after its request payload changes.
+db.prepare("INSERT INTO agent_action_intents(id,tenant_id,agent_key,action_key) VALUES(?,?,?,?)").run("i6","t1","thebe","task.create");
+insertRequest.run("q6","t1","i6","g1","hash-6","hash-6","owner1");
+insertPermit.run("p6","t1","owner1","q6","g1","hash-6");
+db.prepare("UPDATE agent_task_requests SET payload_hash='tampered-6' WHERE id='q6'").run();
+assert.throws(
+  ()=>db.prepare("UPDATE agent_task_requests SET status='executed',jit_permit_id='p6' WHERE id='q6'").run(),
+  /agent_jit_permit_invalid_or_expired/
+);
+assert.equal(db.prepare("SELECT status FROM agent_task_requests WHERE id='q6'").get().status,"approved");
+assert.equal(db.prepare("SELECT use_count FROM agent_jit_execution_permits WHERE id='p6'").get().use_count,0);
+
+// Two independent SQLite connections race to consume the SAME permit.
+// SQLite serializes writers; the loser must observe a rejected replay.
+db.prepare("INSERT INTO agent_action_intents(id,tenant_id,agent_key,action_key) VALUES(?,?,?,?)").run("i7","t1","thebe","task.create");
+insertRequest.run("q7","t1","i7","g1","hash-7","hash-7","owner1");
+insertPermit.run("p7","t1","owner1","q7","g1","hash-7");
+const raceFile=path.join(os.tmpdir(),"thebe-jit-race-"+process.pid+"-"+Date.now()+".sqlite");
+try {
+  db.exec("VACUUM INTO '"+raceFile.replaceAll("'","''")+"'");
+  const workerCode=`
+    const {parentPort,workerData}=require('node:worker_threads');
+    const {DatabaseSync}=require('node:sqlite');
+    const conn=new DatabaseSync(workerData.file);
+    conn.exec('PRAGMA busy_timeout=10000');
+    parentPort.once('message',()=>{
+      try {
+        conn.prepare("UPDATE agent_task_requests SET status='executed',jit_permit_id='p7' WHERE id='q7'").run();
+        parentPort.postMessage({ok:true});
+      } catch(e) {
+        parentPort.postMessage({ok:false,error:String(e.message)});
+      } finally { conn.close(); }
+    });
+    parentPort.postMessage({ready:true});
+  `;
+  const workers=[0,1].map(()=>new Worker(workerCode,{eval:true,workerData:{file:raceFile}}));
+  const results=await Promise.all(workers.map(worker=>new Promise((resolve,reject)=>{
+    let ready=false;
+    worker.on("error",reject);
+    worker.on("message",message=>{
+      if(message.ready&&!ready){ready=true;worker.postMessage("start");}
+      else if("ok" in message) resolve(message);
+    });
+  })));
+  await Promise.all(workers.map(w=>w.terminate()));
+  assert.equal(results.filter(r=>r.ok).length,1,"exactly one connection must execute");
+  assert.equal(results.filter(r=>!r.ok).length,1,"replay must be denied");
+  assert.match(results.find(r=>!r.ok).error,/agent_jit_permit_invalid_or_expired/);
+  const verify=new DatabaseSync(raceFile);
+  assert.equal(verify.prepare("SELECT status FROM agent_task_requests WHERE id='q7'").get().status,"executed");
+  assert.equal(verify.prepare("SELECT use_count FROM agent_jit_execution_permits WHERE id='p7'").get().use_count,1);
+  verify.close();
+} finally {
+  fs.rmSync(raceFile,{force:true});
+}
+
+// A permit issued before revocation cannot execute even if its grant is
+// revoked from a second connection immediately before the execution attempt.
+db.prepare("INSERT INTO agent_action_intents(id,tenant_id,agent_key,action_key) VALUES(?,?,?,?)").run("i8","t1","thebe","task.create");
+insertRequest.run("q8","t1","i8","g1","hash-8","hash-8","owner1");
+insertPermit.run("p8","t1","owner1","q8","g1","hash-8");
+const revokeFile=path.join(os.tmpdir(),"thebe-jit-revoke-"+process.pid+"-"+Date.now()+".sqlite");
+try {
+  db.exec("VACUUM INTO '"+revokeFile.replaceAll("'","''")+"'");
+  const revoker=new DatabaseSync(revokeFile);
+  const executor=new DatabaseSync(revokeFile);
+  revoker.prepare("UPDATE agent_execution_grants SET status='revoked' WHERE id='g1'").run();
+  assert.throws(
+    ()=>executor.prepare("UPDATE agent_task_requests SET status='executed',jit_permit_id='p8' WHERE id='q8'").run(),
+    /agent_jit_permit_invalid_or_expired/
+  );
+  assert.equal(executor.prepare("SELECT status FROM agent_task_requests WHERE id='q8'").get().status,"approved");
+  assert.equal(executor.prepare("SELECT use_count FROM agent_jit_execution_permits WHERE id='p8'").get().use_count,0);
+  revoker.close();
+  executor.close();
+} finally {
+  fs.rmSync(revokeFile,{force:true});
+}
+
+// Expiry after approval but before execution must fail closed. The permit's
+// expiry is constrained by its original creation timestamp, so advance the
+// database clock using a separate connection rather than rewriting expiry.
+db.prepare("INSERT INTO agent_action_intents(id,tenant_id,agent_key,action_key) VALUES(?,?,?,?)").run("i9","t1","thebe","task.create");
+insertRequest.run("q9","t1","i9","g1","hash-9","hash-9","owner1");
+insertPermit.run("p9","t1","owner1","q9","g1","hash-9");
+const expiryFile=path.join(os.tmpdir(),"thebe-jit-expiry-"+process.pid+"-"+Date.now()+".sqlite");
+try {
+  db.exec("VACUUM INTO '"+expiryFile.replaceAll("'","''")+"'");
+  const expired=new DatabaseSync(expiryFile);
+  // Preserve all constraints: backdate the creation and expiration together
+  // through a fresh permit inserted with historical timestamps is blocked by
+  // the request guard only if its underlying approval is invalid.
+  const oldPermit=expired.prepare("SELECT * FROM agent_jit_execution_permits WHERE id='p9'").get();
+  expired.prepare("DELETE FROM agent_jit_execution_permits WHERE id='p9'").run();
+  expired.prepare("INSERT INTO agent_jit_execution_permits(id,tenant_id,agent_id,human_user_id,task_request_id,execution_grant_id,action_key,payload_hash,status,max_uses,use_count,expires_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)")
+    .run(oldPermit.id,oldPermit.tenant_id,oldPermit.agent_id,oldPermit.human_user_id,oldPermit.task_request_id,oldPermit.execution_grant_id,oldPermit.action_key,oldPermit.payload_hash,"active",1,0,"2020-01-01 00:04:00","2020-01-01 00:00:00");
+  assert.throws(
+    ()=>expired.prepare("UPDATE agent_task_requests SET status='executed',jit_permit_id='p9' WHERE id='q9'").run(),
+    /agent_jit_permit_invalid_or_expired/
+  );
+  assert.equal(expired.prepare("SELECT status FROM agent_task_requests WHERE id='q9'").get().status,"approved");
+  assert.equal(expired.prepare("SELECT use_count FROM agent_jit_execution_permits WHERE id='p9'").get().use_count,0);
+  expired.close();
+} finally {
+  fs.rmSync(expiryFile,{force:true});
+}
+
+// Simulate a stale preflight read: execution is approved, then authority is
+// revoked on a different connection before the write can consume the permit.
+// The trigger must re-evaluate grant status at the write boundary.
+db.prepare("INSERT INTO agent_execution_grants(id,tenant_id,status) VALUES(?,?,?)").run("g10","t1","active");
+db.prepare("INSERT INTO agent_action_intents(id,tenant_id,agent_key,action_key) VALUES(?,?,?,?)").run("i10","t1","thebe","task.create");
+insertRequest.run("q10","t1","i10","g10","hash-10","hash-10","owner1");
+insertPermit.run("p10","t1","owner1","q10","g10","hash-10");
+const staleFile=path.join(os.tmpdir(),"thebe-jit-stale-"+process.pid+"-"+Date.now()+".sqlite");
+try {
+  db.exec("VACUUM INTO '"+staleFile.replaceAll("'","''")+"'");
+  const preflight=new DatabaseSync(staleFile);
+  const revoker=new DatabaseSync(staleFile);
+  const approved=preflight.prepare("SELECT p.status,p.use_count,g.status AS grant_status FROM agent_jit_execution_permits p JOIN agent_execution_grants g ON g.id=p.execution_grant_id WHERE p.id='p10'").get();
+  assert.equal(approved.status,"active");
+  assert.equal(approved.use_count,0);
+  assert.equal(approved.grant_status,"active");
+  revoker.prepare("UPDATE agent_execution_grants SET status='revoked' WHERE id='g10'").run();
+  assert.throws(
+    ()=>preflight.prepare("UPDATE agent_task_requests SET status='executed',jit_permit_id='p10' WHERE id='q10'").run(),
+    /agent_jit_permit_invalid_or_expired/
+  );
+  assert.equal(preflight.prepare("SELECT status FROM agent_task_requests WHERE id='q10'").get().status,"approved");
+  assert.equal(preflight.prepare("SELECT use_count FROM agent_jit_execution_permits WHERE id='p10'").get().use_count,0);
+  preflight.close();
+  revoker.close();
+} finally {
+  fs.rmSync(staleFile,{force:true});
+}
 
 db.close();
 console.log("v217 JIT execution permit adversarial gate passed");

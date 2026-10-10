@@ -64,8 +64,10 @@ assert.equal((await verifyJitExecutionCapabilityCredential({...scope,permitExpir
 assert.equal((await verifyJitExecutionCapabilityCredential({...scope,token:issued.token,now:now+60*1000})).valid,true);
 
 const [encoded,signature]=issued.token.split(".");
-const last=signature.at(-1)==="A"?"B":"A";
-const tampered=`${encoded}.${signature.slice(0,-1)}${last}`;
+// Mutate the FIRST base64url character: trailing characters can carry unused
+// padding bits and may decode to the same signature bytes.
+const first=signature.at(0)==="A"?"B":"A";
+const tampered=`${encoded}.${first}${signature.slice(1)}`;
 assert.equal((await verifyJitExecutionCapabilityCredential({...scope,token:tampered})).valid,false);
 assert.equal((await verifyJitExecutionCapabilityCredential({...scope,token:issued.token,now:now+5*60*1000})).code,"jit_capability_expired");
 await assert.rejects(()=>issueJitExecutionCapabilityCredential({...scope,secret:"short"}),/jit_capability_secret_required/);

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import {execFileSync} from "node:child_process";
+import {execFileSync,spawn} from "node:child_process";
 import {mkdtempSync,readFileSync,readdirSync,writeFileSync,rmSync} from "node:fs";
 import {tmpdir} from "node:os";
 import {resolve,join} from "node:path";
@@ -55,6 +55,28 @@ try{
   assert.equal(rows("SELECT reserved_minor FROM agent_cost_budgets WHERE tenant_id='t2';")[0].reserved_minor,60);
   assert.equal(rows("SELECT count(*) n FROM agent_cost_reservations WHERE tenant_id='t2';")[0].n,1);
   assert.equal(rows("SELECT count(*) n FROM agent_cost_events WHERE tenant_id='t2';")[0].n,1);
+  // Independent Wrangler processes race for one shared local D1 budget.
+  // This is stronger than a multi-row INSERT but does not claim remote D1 parity.
+  execute("INSERT INTO tenants(id,name) VALUES('t3','Concurrent'); INSERT INTO agent_cost_budgets(tenant_id,agent_id,budget_minor,enabled) VALUES('t3','thebe',100,1);");
+  async function concurrentReservation(id){
+    const file=join(dir,`concurrent-${id}.sql`);
+    writeFileSync(file,`INSERT INTO agent_cost_reservations(id,tenant_id,agent_id,run_id,estimate_minor) VALUES('${id}','t3','thebe','${id}',60); INSERT INTO agent_cost_events(reservation_id,tenant_id,agent_id,event_type,estimate_minor) VALUES('${id}','t3','thebe','reserved',60);`);
+    return await new Promise(resolveResult=>{
+      const child=spawn(process.execPath,[wrangler,'d1','execute','DB','--local','--config',config,'--persist-to',join(dir,'state'),'--file',file,'--json'],{cwd:dir,env:childEnv,stdio:['ignore','pipe','pipe']});
+      let stdout='',stderr='';
+      child.stdout.on('data',chunk=>stdout+=chunk);
+      child.stderr.on('data',chunk=>stderr+=chunk);
+      child.on('error',error=>resolveResult({ok:false,details:String(error)}));
+      child.on('close',code=>resolveResult({ok:code===0,details:stdout+stderr}));
+    });
+  }
+  const competing=await Promise.all([concurrentReservation('race-a'),concurrentReservation('race-b')]);
+  assert.equal(competing.filter(result=>result.ok).length,1,'exactly one competing D1 reservation must commit: '+JSON.stringify(competing));
+  assert.deepEqual(rows("SELECT spent_minor,reserved_minor FROM agent_cost_budgets WHERE tenant_id='t3';"),[{spent_minor:0,reserved_minor:60}]);
+  assert.equal(rows("SELECT count(*) n FROM agent_cost_reservations WHERE tenant_id='t3';")[0].n,1);
+  assert.equal(rows("SELECT count(*) n FROM agent_cost_events WHERE tenant_id='t3';")[0].n,1);
+  assert.deepEqual(rows("SELECT reservation_id FROM agent_cost_ledger_gaps WHERE tenant_id='t3';"),[]);
+  assert.deepEqual(rows('PRAGMA foreign_key_check;'),[]);
   // Suspension and budget shutdown must reject fresh reservations while
   // preserving previously booked amounts for explicit reconciliation.
   // A retried request must not book a second reservation for the same run.
