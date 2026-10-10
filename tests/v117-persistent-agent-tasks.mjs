@@ -13,6 +13,8 @@ assert.equal(normalizePersistentTask({objective:"x",triggerKind:"browser"}).erro
 assert.equal(normalizePersistentTask({objective:"x",triggerKind:42}).error,"invalid_trigger_kind");
 assert.equal(normalizePersistentTask({objective:"x",triggerKind:{}}).error,"invalid_trigger_kind");
 assert.equal(normalizePersistentTask({objective:"x",allowedTools:"*"}).error,"invalid_allowed_tools");
+assert.equal(normalizePersistentTask({objective:"x",allowedTools:["toString"]}).error!==undefined,true);
+assert.equal(normalizePersistentTask({objective:"x",allowedTools:["financial_position.read"]}).payload.allowedTools[0],"financial_position.read");
 assert.equal(normalizePersistentTask({objective:"x",allowedTools:[42]}).error,"invalid_allowed_tools");
 assert.equal(normalizePersistentTask({objective:"x",allowedTools:[{}]}).error,"invalid_allowed_tools");
 assert.equal(normalizePersistentTask({objective:"x",nextRunAt:"never"}).error,"invalid_next_run_at");
@@ -28,6 +30,9 @@ assert.doesNotMatch(source,/payment\.execute|government_filing\.submit/);
 assert.doesNotMatch(source,/\bfetch\s*\(/,"persistent responsibility state must not execute network actions");
 assert.match(source,/executionAllowed:false/);
 assert.match(source,/Runtime Guard/);
+assert.match(source,/evaluateAgentAction/);
+assert.match(source,/NOT authenticated tenant IDs/);
+assert.match(source,/tenant_id=\?/);
 assert.match(source,/\/api\/agentic\/persistent-tasks\/preflight/);
 assert.match(source,/preflightAgentObservation/);
 assert.match(source,/AGENT_APPROVED_MODELS_JSON/);
