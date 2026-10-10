@@ -1,23 +1,7 @@
-/* V230 Property visibility contract — resident Property must be visibly usable when active. */
-#propertyintelligence.view.active{
-  display:block!important;
-  visibility:visible!important;
-  opacity:1!important;
-}
-#propertyintelligence.view.active .property-layout-v224{
-  display:block!important;
-  visibility:visible!important;
-  opacity:1!important;
-}
-#propertyintelligence.view.active .property-calculator-v224{
-  display:block!important;
-  visibility:visible!important;
-  opacity:1!important;
-}
-#propertyintelligence.view.active .property-quick-rows{display:grid!important}
-#propertyintelligence.view.active .property-input-row{display:flex!important}
-#propertyintelligence.view.active .property-input-pair{display:grid!important}
-#propertyintelligence.view.active .property-analyse-button{display:block!important}
+/* V273 Property presentation contract — rely on the canonical .view/.active state instead of force-show repairs. */
+#propertyintelligence.view{min-width:0}
+#propertyintelligence.view.active{visibility:visible;opacity:1}
+#propertyintelligence.view.active :is(.property-layout-v224,.property-calculator-v224){min-width:0;max-width:100%}
 
 /* V250: retire the legacy V184 dock hotfix while preserving the Property service emphasis in the active Property layer. */
 #propertyValuationServicePanel{
