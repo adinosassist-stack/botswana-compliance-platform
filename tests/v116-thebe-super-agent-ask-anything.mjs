@@ -31,6 +31,8 @@ assert.doesNotMatch(worker,/mode==="ask"[\s\S]{0,1200}(?:payment\.execute|journa
 assert.match(worker,/buildBusinessContext\(env,tenantId,\{actorRole\}\)\.then\(value=>\(\{ok:true,value\}\),\(\)=>\(\{ok:false,value:null\}\)\)/);
 assert.match(worker,/financeAndBusiness:includeFinance\?/);
 assert.match(worker,/financeAndBusinessComplete:businessContextAvailable/);
+assert.match(worker,/c\.contextAvailability\?\.financeAndBusiness==="unavailable"/);
+assert.match(worker,/unavailable values are not zero/);
 assert.match(worker,/Finance, Sales, Business Memory and Analytics could not be retrieved/);
 assert.doesNotMatch(worker,/buildBusinessContext\(env,tenantId,\{actorRole\}\)\.catch\(\(\)=>null\)/);
 
