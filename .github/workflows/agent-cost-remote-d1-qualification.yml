@@ -1,0 +1,92 @@
+name: Agent cost remote D1 qualification
+run-name: Remote D1 qualification ${{ inputs.expected_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact current main SHA to qualify
+        required: true
+        type: string
+      confirm_ephemeral_only:
+        description: Confirm creation of a disposable remote D1 database only
+        required: true
+        type: choice
+        default: DO_NOT_RUN
+        options:
+          - DO_NOT_RUN
+          - CREATE_EPHEMERAL_D1
+
+permissions:
+  contents: read
+
+concurrency:
+  group: thebe-agent-cost-remote-d1-qualification
+  cancel-in-progress: false
+
+jobs:
+  qualify:
+    if: inputs.confirm_ephemeral_only == 'CREATE_EPHEMERAL_D1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - name: Checkout immutable qualification authority
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate owner dispatch and exact main
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          CONFIRM_EPHEMERAL_ONLY: ${{ inputs.confirm_ephemeral_only }}
+          PRODUCTION_D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]]
+          [[ "$GITHUB_ACTOR" == 'adinosassist-stack' ]]
+          [[ "$CONFIRM_EPHEMERAL_ONLY" == 'CREATE_EPHEMERAL_D1' ]]
+          [[ "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$EXPECTED_SHA" == "$GITHUB_SHA" ]]
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SHA" ]]
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]]
+          [[ -n "$PRODUCTION_D1_DATABASE_ID" ]]
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Qualify migration 068 on disposable remote D1
+        timeout-minutes: 8
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PRODUCTION_D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
+          QUALIFICATION_RUN_ID: ${{ github.run_id }}
+          QUALIFICATION_RUN_ATTEMPT: ${{ github.run_attempt }}
+          QUALIFICATION_STATE_FILE: .agent-cost-remote-d1-state.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/qualify-agent-cost-remote-d1.mjs
+
+      - name: Enforce disposable D1 cleanup
+        if: always()
+        timeout-minutes: 3
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PRODUCTION_D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
+          QUALIFICATION_RUN_ID: ${{ github.run_id }}
+          QUALIFICATION_RUN_ATTEMPT: ${{ github.run_attempt }}
+          QUALIFICATION_STATE_FILE: .agent-cost-remote-d1-state.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/qualify-agent-cost-remote-d1.mjs --cleanup-only
