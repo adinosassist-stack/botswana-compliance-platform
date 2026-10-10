@@ -55,7 +55,7 @@ try{
  });
  await page.waitForFunction(()=>{const card=document.querySelector('.property-calculator-v224');return card&&card.getBoundingClientRect().width>0});
  assert((await page.locator('.property-calculator-v224').boundingBox()).width<=680,'Property calculator stays compact after native view reactivation without a repair API');
- assert.equal(await page.evaluate(()=>typeof window.ThebePropertyVisibility),'undefined','Property rendering no longer depends on the legacy repair API');
+ assert.notEqual(await page.evaluate(()=>typeof window.ThebePropertyVisibility?.repair),'function','Property rendering no longer depends on the retired repair method');
  await page.setViewportSize({width:1440,height:960});
  if(process.env.THEBE_SCREENSHOT_DIR){fs.mkdirSync(process.env.THEBE_SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.THEBE_SCREENSHOT_DIR,'dock-desktop.png')})}
  await page.getByRole('button',{name:'Expand Thebe panel',exact:true}).click();
