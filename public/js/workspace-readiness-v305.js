@@ -62,3 +62,23 @@
 
   window.whenThebeWorkspaceReady(installPeopleV306Polish);
 })();
+
+(()=>{
+  "use strict";
+  const baseRelease="20261010-property-construction-v311";
+  const workflowRelease="20261010-property-construction-workflow-v312";
+  let requested=false;
+  function loadPropertyConstruction(){
+    if(requested)return;
+    requested=true;
+    import(`/js/property-construction-v311.js?release=${baseRelease}`)
+      .then(()=>import(`/js/property-construction-workflow-v312.js?release=${workflowRelease}`))
+      .catch(error=>{
+        requested=false;
+        console.error("Property construction extension failed to load",error);
+      });
+  }
+  if(typeof window.whenThebeWorkspaceReady==="function")window.whenThebeWorkspaceReady(loadPropertyConstruction);
+  else if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",loadPropertyConstruction,{once:true});
+  else loadPropertyConstruction();
+})();
