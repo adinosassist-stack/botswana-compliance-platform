@@ -13,6 +13,8 @@ export async function verifyAgentCostProductionAuthority({sha,token,fetchImpl=gl
   const matches=Array.isArray(pulls)?pulls.filter(p=>p.merged_at&&p.merge_commit_sha===sha&&p.base?.ref==="main"&&p.base?.repo?.full_name===REPO):[];
   if(matches.length!==1||matches[0].draft||matches[0].head?.sha!==commit.parents[1].sha)fail("migration_authority_not_merged_pr");
   const pr=matches[0];
+  if(pr.head.repo?.full_name!==REPO||!Number.isSafeInteger(pr.head.repo?.id)||
+    typeof pr.head.ref!=="string"||!pr.head.ref)fail("migration_authority_not_merged_pr");
   const marker=String(pr.body||"").match(/<!-- THEBE_AGENT_COST_REVIEW\s*([\s\S]*?)\s*-->/);
   let review;try{review=JSON.parse(marker?.[1]||"")}catch{fail("migration_adversarial_review_missing")}
   if(review.headSha!==pr.head.sha||review.sourceScope!=="pass"||review.runtimeSecurity!=="pass"||
@@ -27,9 +29,17 @@ export async function verifyAgentCostProductionAuthority({sha,token,fetchImpl=gl
   for(const [workflow,head,event] of requirements){
     const response=await get(`actions/workflows/${workflow}/runs?head_sha=${head}&event=${event}&per_page=100`);
     const runs=(response.workflow_runs||[]).filter(r=>r.head_sha===head&&r.event===event&&
-      (event==="pull_request"?r.pull_requests?.some(p=>p.number===pr.number):r.head_branch==="main"))
+      r.head_repository?.id===pr.head.repo.id&&r.head_repository?.full_name===REPO&&
+      r.head_branch===(event==="pull_request"?pr.head.ref:"main"))
       .sort((a,b)=>b.id-a.id);
-    if(!runs.length||runs[0].status!=="completed"||runs[0].conclusion!=="success")fail("migration_qualification_missing");
+    const latest=runs[0];
+    if(!latest||latest.status!=="completed"||latest.conclusion!=="success")fail("migration_qualification_missing");
+    // GitHub can clear historical PR links after merge. The reviewed PR is already
+    // bound to the merge's second parent; retain exact SHA/repository/branch/event
+    // qualification and reject contradictory associations on the latest run.
+    if(event==="pull_request"&&(!Array.isArray(latest.pull_requests)||
+      (latest.pull_requests.length>0&&!latest.pull_requests.some(p=>p.number===pr.number))))
+      fail("migration_qualification_missing");
   }
   return {sha,prNumber:pr.number,headSha:pr.head.sha,activation:"HOLD"};
 }
