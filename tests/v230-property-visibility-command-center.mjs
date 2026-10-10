@@ -10,29 +10,45 @@ const compareCss=fs.readFileSync("public/assets/property-compare-v264.css","utf8
 const commandCss=fs.readFileSync("public/assets/workspace-command-center-v230.css","utf8");
 
 assert.ok(production.includes('const PROPERTY_VISIBILITY_CSS_ASSET="/assets/property-visibility-v230.css";'));
-assert.ok(production.includes('const PROPERTY_VISIBILITY_CSS_ASSET="/assets/property-visibility-v230.css";'));
 assert.match(production,/WORKSPACE_COMMAND_CENTER_CSS_ASSET="\/assets\/workspace-command-center-v230\.css"/);
 assert.match(production,/PROPERTY_VISIBILITY_JS_ASSET="\/js\/property-visibility-v230\.js"/);
 assert.match(production,/x-thebe-property-ui","v230-resident-visible-command-center"/);
 
-assert.match(visibility,/const RELEASE="20261001-property-visible-v230"/);
+assert.match(visibility,/const RELEASE="20261010-property-stable-v273"/);
 assert.match(visibility,/thebe:workspace-view-change/);
 assert.match(visibility,/propertyintelligence/);
-assert.match(visibility,/view\.classList\.contains\("active"\)/);
+assert.match(visibility,/function activatePropertyWorkspace\(\)/);
+assert.match(visibility,/mountCompactPropertyChrome\(\)/);
+assert.match(visibility,/ensureCompactObserver\(\)/);
+assert.match(visibility,/updatePropertyWorkspace\(\)/);
 assert.match(visibility,/property-calculator-v224/);
 assert.match(visibility,/propertyPurchasePrice/);
 assert.match(visibility,/propertyMonthlyRent/);
-assert.match(visibility,/property-analyse-button/);
-assert.match(visibility,/view\.dataset\.propertyVisibility=ok\?"ready":"repairing"/);
+assert.doesNotMatch(visibility,/function repairNode\(/,
+  "Property presentation must not repair visibility through imperative DOM style mutation");
+assert.doesNotMatch(visibility,/function ensurePropertyVisible\(/,
+  "Property presentation must not carry a second visibility-repair state machine");
+assert.doesNotMatch(visibility,/setProperty\("display"[^\n]*"important"/,
+  "Property presentation must not force inline display!important");
+assert.doesNotMatch(visibility,/setTimeout\?\.\(\(\)=>\{[^\n]*(?:180|600)\)/,
+  "Property activation must not depend on delayed repair passes");
+assert.doesNotMatch(visibility,/requestAnimationFrame\?\.\(\(\)=>global\.requestAnimationFrame/,
+  "Property activation must not depend on double-animation-frame visibility repair");
+assert.doesNotMatch(visibility,/propertyVisibility=ok\?"ready":"repairing"/,
+  "Property state must not expose a repairing visibility phase");
 assert.doesNotMatch(visibility,/fetch\(|XMLHttpRequest|apiJson|method:"POST"/,
   "Property presentation code must not fetch or mutate application state directly");
 assert.doesNotMatch(visibility,/\.innerHTML\s*=/,
   "Property presentation code must not bypass DOM-safety with native innerHTML assignments");
 
-assert.match(visibilityCss,/#propertyintelligence\.view\.active\{/);
-assert.match(visibilityCss,/\.property-layout-v224\{[\s\S]*display:block!important/);
-assert.match(visibilityCss,/\.property-calculator-v224\{[\s\S]*display:block!important/);
-assert.match(visibilityCss,/\.property-analyse-button\{display:block!important\}/);
+assert.match(visibilityCss,/V273 Property presentation contract/);
+assert.match(visibilityCss,/#propertyintelligence\.view\{min-width:0\}/);
+assert.match(visibilityCss,/#propertyintelligence\.view\.active\{visibility:visible;opacity:1\}/);
+assert.match(visibilityCss,/#propertyintelligence\.view\.active :is\(\.property-layout-v224,\.property-calculator-v224\)\{min-width:0;max-width:100%\}/);
+assert.doesNotMatch(visibilityCss,/#propertyintelligence\.view\.active\{[^}]*display:block!important/,
+  "active Property visibility must come from the canonical view contract, not a force-show override");
+assert.doesNotMatch(visibilityCss,/#propertyintelligence\.view\.active \.property-(?:layout|calculator)-v224\{[^}]*display:block!important/,
+  "Property layout/calculator must not carry force-show CSS");
 assert.ok(visibilityCss.includes("#propertyValuationServicePanel{")&&visibilityCss.includes("background:#f7fbff!important"));
 
 assert.match(commandCss,/V230 command-center workspace rhythm/);
@@ -161,4 +177,4 @@ assert.match(compareCss,/@media\(max-width:760px\)/);
 assert.match(compareCss,/@media\(max-width:480px\)/);
 assert.match(compareCss,/overflow-wrap:anywhere/);
 
-console.log("PASS: V264 keeps Property compact and visible, preserves truthful Operations and Optimise, adds input-driven Compare decision support, and retains grounded full-screen Property AI.");
+console.log("PASS: Property uses deterministic activation with no presentation repair loop, while preserving compact modes, truthful Operations and Optimise, input-driven Compare, and grounded full-screen Property AI.");

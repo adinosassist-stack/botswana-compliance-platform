@@ -50,12 +50,11 @@ try{
  await page.getByRole('tab',{name:'Properties',exact:true}).click();
  assert.equal(await page.locator('#propertyPortfolioWorkspace').isVisible(),true);
  assert.equal(await page.locator('#propertyValuationServicePanel').isVisible(),false,'valuation stays scoped to Operations');
- // Repair an existing nested operational panel without recreating or losing controls.
- await page.evaluate(()=>{document.getElementById('propertyPortfolioWorkspace').append(document.querySelector('.property-operations-v262'));window.ThebePropertyVisibility.repair()});
- await page.getByRole('tab',{name:'Operations',exact:true}).click();
- assert.equal(await page.locator('.property-operations-v262').isVisible(),true,'repair promotes already-mounted operational panels');
- await page.getByRole('tab',{name:'Today',exact:true}).click();
- assert.equal(await page.locator('.property-calculator-v224').isVisible(),false,'late visibility recovery must respect the selected pane');
+ assert.equal(await page.evaluate(()=>typeof window.ThebePropertyVisibility.repair),'undefined','retired Property repair API must stay absent');
+ await page.evaluate(()=>window.ThebePropertyVisibility.setPane('operations'));
+ assert.equal(await page.locator('.property-operations-v262').isVisible(),true,'deterministic pane routing must restore Operations without a repair pass');
+ await page.evaluate(()=>window.ThebePropertyVisibility.setPane('today'));
+ assert.equal(await page.locator('.property-calculator-v224').isVisible(),false,'deterministic pane routing must respect the selected pane');
  assert.equal(await page.locator('.property-analysis-tools-v272').isVisible(),false);
  for(const href of await page.locator('link[data-thebe-property-operations-v262],link[data-thebe-property-optimise-v263],link[data-thebe-property-compare-v264]').evaluateAll(nodes=>nodes.map(node=>node.href)))assert.equal(new URL(href).searchParams.get('release'),'9'.repeat(40));
  await page.setViewportSize({width:390,height:844});

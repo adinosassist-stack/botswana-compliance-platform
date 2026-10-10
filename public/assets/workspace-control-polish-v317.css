@@ -29,3 +29,187 @@
 
 #appShell #ownerFocusStrip :is(.owner-focus-kicker,.owner-focus-label,.owner-focus-state){opacity:1}
 #appShell #ownerCommandCentre .owner-command-empty::before{content:none!important}
+
+/* V319 container audit: prevent dense cards from collapsing into label/value collisions. */
+#appShell #propertyintelligence :is(
+  .property-overview-metric-v261,
+  .property-ops-metric-v262,
+  .property-ops-item-v262,
+  .property-opt-metric-v263,
+  .property-opt-lever-v263,
+  .property-compare-card-v264,
+  .property-compare-signal-v264
+){
+  min-width:0!important;
+  box-sizing:border-box!important;
+  padding:14px!important;
+  border-radius:14px!important;
+  overflow:hidden!important;
+}
+#appShell #propertyintelligence :is(
+  .property-overview-metrics-v261,
+  .property-ops-metrics-v262,
+  .property-opt-metrics-v263
+){
+  grid-template-columns:repeat(auto-fit,minmax(min(165px,100%),1fr))!important;
+  gap:10px!important;
+}
+#appShell #propertyintelligence .property-ops-queue-v262{
+  grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr))!important;
+  gap:10px!important;
+}
+#appShell #propertyintelligence .property-opt-levers-v263{
+  grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr))!important;
+  gap:10px!important;
+}
+#appShell #propertyintelligence .property-compare-candidates-v264{
+  grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr))!important;
+  gap:10px!important;
+}
+#appShell #propertyintelligence .property-compare-signals-v264{
+  grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr))!important;
+  gap:10px!important;
+}
+#appShell #propertyintelligence :is(.property-overview-metric-v261,.property-ops-metric-v262,.property-opt-metric-v263) span,
+#appShell #propertyintelligence :is(.property-compare-card-label-v264,.property-compare-signal-v264>span){
+  font-size:10px!important;
+  line-height:1.35!important;
+}
+#appShell #propertyintelligence :is(.property-overview-metric-v261,.property-ops-metric-v262,.property-opt-metric-v263) strong{
+  margin-top:6px!important;
+  font-size:17px!important;
+  line-height:1.25!important;
+  white-space:normal!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+}
+#appShell #propertyintelligence :is(.property-ops-metric-v262,.property-opt-metric-v263) small,
+#appShell #propertyintelligence :is(.property-compare-card-v264,.property-compare-signal-v264) small{
+  margin-top:5px!important;
+  font-size:10.5px!important;
+  line-height:1.45!important;
+}
+#appShell #propertyintelligence :is(.property-ops-item-copy-v262 b,.property-opt-lever-v263 b,.property-compare-current-card-v264 strong){
+  font-size:13px!important;
+  line-height:1.35!important;
+}
+#appShell #propertyintelligence :is(.property-ops-item-copy-v262 span,.property-opt-lever-v263 p){
+  font-size:11px!important;
+  line-height:1.45!important;
+}
+#appShell #propertyintelligence :is(.property-ops-note-v262,.property-opt-note-v263,.property-compare-note-v264){
+  font-size:11.5px!important;
+  line-height:1.5!important;
+}
+#appShell #propertyintelligence :is(.property-ops-status-v262,.property-opt-status-v263){
+  font-size:9.5px!important;
+  line-height:1.25!important;
+  padding:4px 7px!important;
+}
+#appShell #propertyintelligence .property-opt-scenario-v263{
+  padding:16px!important;
+  border-radius:14px!important;
+}
+#appShell #propertyintelligence .property-opt-scenario-v263>b{
+  font-size:14px!important;
+  line-height:1.35!important;
+}
+#appShell #propertyintelligence .property-opt-scenario-v263 p{
+  font-size:11px!important;
+  line-height:1.45!important;
+}
+#appShell #propertyintelligence .property-opt-control-v263 label,
+#appShell #propertyintelligence .property-opt-result-v263 span,
+#appShell #propertyintelligence .property-compare-field-v264 span{
+  font-size:10px!important;
+  line-height:1.35!important;
+}
+#appShell #propertyintelligence .property-opt-result-v263{
+  gap:8px!important;
+}
+#appShell #propertyintelligence .property-opt-result-v263 div{
+  padding:10px!important;
+}
+#appShell #propertyintelligence .property-opt-result-v263 strong{
+  font-size:14px!important;
+  line-height:1.25!important;
+}
+#appShell #propertyintelligence .property-compare-field-v264 input{
+  padding:9px 10px!important;
+  font-size:12px!important;
+}
+#appShell #propertyintelligence :is(
+  .property-opt-action-v263,.property-opt-ai-v263,
+  .property-compare-action-v264,.property-compare-ai-v264,
+  .property-overview-action-v261,.property-overview-ai-v261
+){
+  appearance:none;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:42px;
+  padding:9px 12px;
+  border-radius:11px;
+  font:650 12px/1.35 system-ui,sans-serif;
+  text-align:center;
+  white-space:normal;
+}
+#appShell #propertyintelligence .property-compare-matrix-v264{
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+}
+#appShell #propertyintelligence .property-compare-row-v264{
+  min-width:620px!important;
+  grid-template-columns:minmax(130px,1.15fr) repeat(3,minmax(120px,1fr))!important;
+}
+#appShell #propertyintelligence .property-compare-row-v264>*{
+  padding:10px 12px!important;
+  font-size:11px!important;
+  line-height:1.35!important;
+  white-space:normal!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+}
+#appShell #propertyintelligence .property-compare-row-v264 b,
+#appShell #propertyintelligence .property-compare-row-head-v264>*{
+  font-size:10px!important;
+}
+#appShell #servicesmarketplace .market-v257-stats{
+  grid-template-columns:repeat(auto-fit,minmax(min(160px,100%),1fr))!important;
+  gap:10px!important;
+}
+#appShell #servicesmarketplace .market-v257-stats>div{
+  min-width:0!important;
+  display:flex!important;
+  flex-direction:column!important;
+  gap:5px!important;
+  padding:12px!important;
+  border-radius:12px!important;
+  background:#fff!important;
+  box-sizing:border-box!important;
+}
+#appShell #servicesmarketplace .market-v257-stats>div>*{
+  min-width:0!important;
+  overflow-wrap:anywhere!important;
+}
+@media(max-width:620px){
+  #appShell #propertyintelligence :is(.property-ops-grid-v262,.property-opt-grid-v263){
+    grid-template-columns:1fr!important;
+  }
+  #appShell #propertyintelligence :is(.property-ops-queue-v262,.property-opt-levers-v263,.property-compare-candidates-v264,.property-compare-signals-v264){
+    grid-template-columns:1fr!important;
+  }
+  #appShell #propertyintelligence :is(.property-ops-actions-v262,.property-opt-actions-v263,.property-compare-actions-v264){
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:8px!important;
+  }
+  #appShell #propertyintelligence :is(.property-ops-action-v262,.property-opt-action-v263,.property-compare-action-v264){
+    width:100%!important;
+  }
+}
+@media(max-width:420px){
+  #appShell #propertyintelligence :is(.property-overview-metrics-v261,.property-ops-metrics-v262,.property-opt-metrics-v263){
+    grid-template-columns:1fr!important;
+  }
+}
