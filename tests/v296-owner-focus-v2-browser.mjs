@@ -37,6 +37,12 @@ try{
   await page.goto('http://localhost/');
   await page.waitForFunction(()=>['20261007-owner-focus-v2-v296','20261007-owner-focus-v3-v303'].includes(document.documentElement.dataset.ownerFocusStrip||''));
   await page.waitForSelector('#ownerFocusStrip');
+  // The strip is inserted before its requestAnimationFrame queue-count sync.
+  // Wait for the governed values, not just for the initial placeholder DOM.
+  await page.waitForFunction(()=>{
+    const metrics=Object.fromEntries([...document.querySelectorAll('#ownerFocusStrip [data-focus-metric]')].map(node=>[node.dataset.focusMetric,node.querySelector('.owner-focus-value')?.textContent]));
+    return metrics.action==='3'&&metrics.approvals==='1'&&metrics.outcomes==='1';
+  });
 
   const values=await page.evaluate(()=>Object.fromEntries([...document.querySelectorAll('#ownerFocusStrip [data-focus-metric]')].map(node=>[node.dataset.focusMetric,node.querySelector('.owner-focus-value')?.textContent])));
   assert.deepEqual(values,{action:'3',approvals:'1',outcomes:'1'},'V296 metrics must preserve governed queue math');
