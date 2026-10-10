@@ -1,6 +1,6 @@
 (function(global){
   "use strict";
-  const RELEASE="20261001-property-visible-v230";
+  const RELEASE="20261010-property-stable-v273";
   const COMPACT_RELEASE="20261003-property-workspace-v272";
   const OPERATIONS_RELEASE="20261003-property-operations-v262";
   const OPTIMISE_RELEASE="20261003-property-optimise-v263";
@@ -9,57 +9,6 @@
   let propertyAiPending=false;
   let propertyAiDraft="";
   let compactObserver=null;
-
-  function visible(node){
-    if(!node)return false;
-    const style=global.getComputedStyle?.(node);
-    const rect=node.getBoundingClientRect?.();
-    return !!style&&style.display!=="none"&&style.visibility!=="hidden"&&Number(style.opacity||1)>0&&!!rect&&rect.width>0&&rect.height>0;
-  }
-
-  function repairNode(node,display){
-    if(!node)return;
-    node.hidden=false;
-    node.removeAttribute("hidden");
-    node.removeAttribute("inert");
-    node.removeAttribute("aria-hidden");
-    node.style.removeProperty("visibility");
-    node.style.removeProperty("opacity");
-    if(global.getComputedStyle?.(node)?.display==="none")node.style.setProperty("display",display,"important");
-  }
-
-  function ensurePropertyVisible(){
-    const view=document.getElementById("propertyintelligence");
-    if(!view||!view.classList.contains("active"))return false;
-    repairNode(view,"block");
-    if(view.dataset.propertyActivePane&&view.dataset.propertyActivePane!=="analyse"){
-      const target=paneTarget(view,view.dataset.propertyActivePane);
-      const ok=visible(target);
-      view.dataset.propertyVisibility=ok?"ready":"repairing";
-      return ok;
-    }
-    const layout=view.querySelector(".property-layout-v224");
-    const calculator=view.querySelector(".property-calculator-v224");
-    const price=view.querySelector("#propertyPurchasePrice");
-    const rent=view.querySelector("#propertyMonthlyRent");
-    const analyse=view.querySelector(".property-analyse-button");
-    repairNode(layout,"block");
-    repairNode(calculator,"block");
-    for(const node of [layout,calculator])if(node){
-      node.style.setProperty("width","100%","important");
-      node.style.setProperty("max-width","680px","important");
-      node.style.setProperty("min-width","0","important");
-      node.style.setProperty("margin-inline","auto","important");
-      node.style.setProperty("box-sizing","border-box","important");
-    }
-    repairNode(view.querySelector(".property-quick-rows"),"grid");
-    view.querySelectorAll(".property-input-row").forEach(node=>repairNode(node,"flex"));
-    repairNode(view.querySelector(".property-input-pair"),"grid");
-    repairNode(analyse,"block");
-    const ok=[calculator,price,rent,analyse].every(visible);
-    view.dataset.propertyVisibility=ok?"ready":"repairing";
-    return ok;
-  }
 
   function parseMoney(value){
     const parsed=Number(String(value??"").replace(/[^0-9.-]/g,""));
@@ -590,7 +539,6 @@
       button.setAttribute("aria-selected",active?"true":"false");
       button.tabIndex=active?0:-1;
     });
-    if(pane==="analyse")ensurePropertyVisible();
     const target=paneTarget(view,pane);
     if(target&&options.focus){
       target.setAttribute("tabindex","-1");
@@ -647,7 +595,6 @@
     }
     const portfolio=view.querySelector("#propertyPortfolioWorkspace");
     const valuation=view.querySelector("#propertyValuationServicePanel");
-    // Pane content must be siblings: a hidden Properties parent would hide Operations too.
     if(portfolio){
       for(const panel of [view.querySelector(".property-operations-v262"),valuation,view.querySelector(".property-optimise-v263"),view.querySelector(".property-compare-v264")]){
         if(panel&&portfolio.contains(panel))portfolio.insertAdjacentElement("beforebegin",panel);
@@ -777,14 +724,10 @@
     updatePropertyCompare();
   }
 
-  function schedule(){
-    ensurePropertyVisible();
+  function activatePropertyWorkspace(){
     mountCompactPropertyChrome();
     ensureCompactObserver();
     updatePropertyWorkspace();
-    global.requestAnimationFrame?.(()=>global.requestAnimationFrame?.(()=>{ensurePropertyVisible();mountCompactPropertyChrome();updatePropertyWorkspace()}));
-    global.setTimeout?.(()=>{ensurePropertyVisible();mountCompactPropertyChrome();updatePropertyWorkspace()},180);
-    global.setTimeout?.(()=>{ensurePropertyVisible();mountCompactPropertyChrome();updatePropertyWorkspace()},600);
   }
 
   document.addEventListener("click",markPropertyAiSource,true);
@@ -798,7 +741,7 @@
     const id=String(event?.detail?.id||"");
     if(id==="propertyintelligence"){
       document.body.classList.remove("property-ai-fullscreen-v260");
-      schedule();
+      activatePropertyWorkspace();
       return;
     }
     if(id==="aiservices"&&(propertyAiPending||document.documentElement.dataset.propertyAiSource==="property")){
@@ -808,14 +751,13 @@
     }
     if(id!=="aiservices")document.body.classList.remove("property-ai-fullscreen-v260");
   });
-  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",schedule,{once:true});else schedule();
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",activatePropertyWorkspace,{once:true});else activatePropertyWorkspace();
   global.ThebePropertyVisibility=Object.freeze({
     release:RELEASE,
     compactRelease:COMPACT_RELEASE,
     operationsRelease:OPERATIONS_RELEASE,
     optimiseRelease:OPTIMISE_RELEASE,
     compareRelease:COMPARE_RELEASE,
-    repair:ensurePropertyVisible,
     mount:mountCompactPropertyChrome,
     setPane:setPropertyPane,
     updateOverview:updatePropertyOverview,
@@ -825,6 +767,6 @@
     openAi:()=>{propertyAiPending=true;return mountPropertyAiToolbar()},
     openAiWithPrompt:openPropertyAiWithPrompt,
     closeAi:closePropertyAi,
-    state:()=>({ready:ensurePropertyVisible(),compact:!!document.getElementById("propertyintelligence")?.classList.contains("property-compact-v260"),pane:document.getElementById("propertyintelligence")?.dataset.propertyActivePane||"today",operationsMounted:!!document.querySelector("#propertyintelligence .property-operations-v262"),optimiseMounted:!!document.querySelector("#propertyintelligence .property-optimise-v263"),compareMounted:!!document.querySelector("#propertyintelligence .property-compare-v264"),aiFullscreen:document.body.classList.contains("property-ai-fullscreen-v260")})
+    state:()=>({ready:!!document.getElementById("propertyintelligence")?.classList.contains("property-compact-v260"),compact:!!document.getElementById("propertyintelligence")?.classList.contains("property-compact-v260"),pane:document.getElementById("propertyintelligence")?.dataset.propertyActivePane||"today",operationsMounted:!!document.querySelector("#propertyintelligence .property-operations-v262"),optimiseMounted:!!document.querySelector("#propertyintelligence .property-optimise-v263"),compareMounted:!!document.querySelector("#propertyintelligence .property-compare-v264"),aiFullscreen:document.body.classList.contains("property-ai-fullscreen-v260")})
   });
 })(window);

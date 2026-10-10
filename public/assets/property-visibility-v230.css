@@ -1,23 +1,7 @@
-/* V230 Property visibility contract — resident Property must be visibly usable when active. */
-#propertyintelligence.view.active{
-  display:block!important;
-  visibility:visible!important;
-  opacity:1!important;
-}
-#propertyintelligence.view.active .property-layout-v224{
-  display:block!important;
-  visibility:visible!important;
-  opacity:1!important;
-}
-#propertyintelligence.view.active .property-calculator-v224{
-  display:block!important;
-  visibility:visible!important;
-  opacity:1!important;
-}
-#propertyintelligence.view.active .property-quick-rows{display:grid!important}
-#propertyintelligence.view.active .property-input-row{display:flex!important}
-#propertyintelligence.view.active .property-input-pair{display:grid!important}
-#propertyintelligence.view.active .property-analyse-button{display:block!important}
+/* V273 Property presentation contract — rely on the canonical .view/.active state instead of force-show repairs. */
+#propertyintelligence.view{min-width:0}
+#propertyintelligence.view.active{visibility:visible;opacity:1}
+#propertyintelligence.view.active :is(.property-layout-v224,.property-calculator-v224){min-width:0;max-width:100%}
 
 /* V250: retire the legacy V184 dock hotfix while preserving the Property service emphasis in the active Property layer. */
 #propertyValuationServicePanel{
@@ -193,3 +177,206 @@ body.property-ai-fullscreen-v260 #aiservices #aiAdvisorQuestion{line-height:1.35
 /* V272: four primary spaces; deeper analysis remains in its own context. */
 .property-analysis-tools-v272{display:none;gap:6px;flex-wrap:wrap;width:min(940px,100%);margin:8px auto}
 #propertyintelligence:is([data-property-active-pane="analyse"],[data-property-active-pane="optimise"],[data-property-active-pane="compare"]) .property-analysis-tools-v272{display:flex}
+
+/* V273: Property portfolio interaction cards and data panels. */
+#propertyintelligence.property-compact-v260 #propertyPortfolioWorkspace .property-intelligence-journey{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:12px!important;
+  margin:14px 0 16px!important;
+}
+#propertyintelligence.property-compact-v260 #propertyPortfolioWorkspace .property-journey-card{
+  appearance:none!important;
+  width:100%!important;
+  min-width:0!important;
+  min-height:112px!important;
+  display:grid!important;
+  grid-template-columns:38px minmax(0,1fr)!important;
+  grid-template-rows:auto 1fr!important;
+  column-gap:12px!important;
+  row-gap:5px!important;
+  align-items:start!important;
+  align-content:start!important;
+  padding:16px!important;
+  border:1px solid #dfe4df!important;
+  border-radius:14px!important;
+  background:#fff!important;
+  color:var(--property-ink)!important;
+  text-align:left!important;
+  font:inherit!important;
+  box-shadow:0 1px 2px rgba(17,20,15,.025)!important;
+  cursor:pointer!important;
+  transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease,background .16s ease!important;
+}
+#propertyintelligence.property-compact-v260 #propertyPortfolioWorkspace .property-journey-step{
+  grid-column:1!important;
+  grid-row:1 / span 2!important;
+  width:34px!important;
+  height:34px!important;
+  display:grid!important;
+  place-items:center!important;
+  border-radius:10px!important;
+  background:#f1f4ee!important;
+  color:#565e54!important;
+  font-size:11px!important;
+  font-weight:850!important;
+  line-height:1!important;
+}
+#propertyintelligence.property-compact-v260 #propertyPortfolioWorkspace .property-journey-card>b{
+  grid-column:2!important;
+  display:block!important;
+  min-width:0!important;
+  margin:0!important;
+  color:#1c211b!important;
+  font-size:14px!important;
+  font-weight:780!important;
+  line-height:1.25!important;
+}
+#propertyintelligence.property-compact-v260 #propertyPortfolioWorkspace .property-journey-card>small{
+  grid-column:2!important;
+  display:block!important;
+  min-width:0!important;
+  margin:0!important;
+  color:#6f766d!important;
+  font-size:11.5px!important;
+  line-height:1.45!important;
+}
+#propertyintelligence.property-compact-v260 #propertyPortfolioWorkspace .property-journey-card:hover{
+  border-color:#b9c3b8!important;
+  background:#fbfcfa!important;
+  box-shadow:0 8px 22px rgba(17,20,15,.055)!important;
+  transform:translateY(-1px)!important;
+}
+#propertyintelligence.property-compact-v260 #propertyPortfolioWorkspace .property-journey-card:focus-visible{
+  outline:2px solid #6b8f00!important;
+  outline-offset:2px!important;
+}
+#propertyintelligence.property-compact-v260 #propertyPortfolioWorkspace>.notice.small{
+  max-width:100%!important;
+  margin:0 0 14px!important;
+  padding:12px 14px!important;
+  border:1px solid #e1e5df!important;
+  border-radius:12px!important;
+  background:#f7f8f5!important;
+  color:#62685f!important;
+  font-size:11.5px!important;
+  line-height:1.5!important;
+  overflow-wrap:anywhere!important;
+}
+#propertyintelligence.property-compact-v260 #propertyPortfolioVisuals.property-portfolio-infographic{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:10px!important;
+  margin:14px 0!important;
+}
+#propertyintelligence.property-compact-v260 #propertyPortfolioVisuals .property-info-panel{
+  min-width:0!important;
+  min-height:126px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:center!important;
+  gap:8px!important;
+  padding:14px!important;
+  border:1px solid #e1e5df!important;
+  border-radius:13px!important;
+  background:#fff!important;
+}
+#propertyintelligence.property-compact-v260 #propertyPortfolioVisuals .property-info-panel .section-eyebrow{
+  margin:0!important;
+  color:#7b8179!important;
+  font-size:8px!important;
+  font-weight:820!important;
+  letter-spacing:.09em!important;
+  text-transform:uppercase!important;
+}
+#propertyintelligence.property-compact-v260 #propertyPortfolioVisuals .property-primary-stat{
+  display:flex!important;
+  align-items:baseline!important;
+  gap:5px!important;
+  min-width:0!important;
+}
+#propertyintelligence.property-compact-v260 #propertyPortfolioVisuals .property-primary-stat b{
+  font-size:18px!important;
+  line-height:1.15!important;
+  color:#20251f!important;
+}
+#propertyintelligence.property-compact-v260 #propertyPortfolioVisuals .property-primary-stat small{
+  color:#777e75!important;
+  font-size:9.5px!important;
+  line-height:1.25!important;
+}
+#propertyintelligence.property-compact-v260 #propertyPortfolioVisuals .property-capital-bar{
+  display:flex!important;
+  width:100%!important;
+  height:8px!important;
+  overflow:hidden!important;
+  border-radius:999px!important;
+  background:#edf0eb!important;
+}
+#propertyintelligence.property-compact-v260 #propertyPortfolioVisuals .property-capital-bar span{
+  display:block!important;
+  min-width:0!important;
+  height:100%!important;
+  background:#11140f!important;
+}
+#propertyintelligence.property-compact-v260 #propertyPortfolioVisuals .property-capital-bar i{
+  display:block!important;
+  min-width:0!important;
+  height:100%!important;
+  background:#c7ef32!important;
+}
+#propertyintelligence.property-compact-v260 #propertyPortfolioVisuals .property-info-legend{
+  display:flex!important;
+  justify-content:space-between!important;
+  gap:8px!important;
+  color:#737a71!important;
+  font-size:9.5px!important;
+}
+#propertyintelligence.property-compact-v260 #propertyPortfolioVisuals .property-info-legend span{min-width:0!important}
+#propertyintelligence.property-compact-v260 #propertyPortfolioVisuals .property-info-legend b{color:#252a24!important;font-size:10.5px!important}
+#propertyintelligence.property-compact-v260 #propertyPortfolioVisuals .property-income-flow{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr)!important;
+  align-items:center!important;
+  gap:5px!important;
+  min-width:0!important;
+}
+#propertyintelligence.property-compact-v260 #propertyPortfolioVisuals .property-income-flow span{
+  min-width:0!important;
+  padding:7px 5px!important;
+  border:1px solid #edf0eb!important;
+  border-radius:9px!important;
+  background:#fafbfa!important;
+  color:#767d74!important;
+  font-size:8.5px!important;
+  text-align:center!important;
+}
+#propertyintelligence.property-compact-v260 #propertyPortfolioVisuals .property-income-flow b{
+  display:block!important;
+  margin-top:3px!important;
+  color:#222720!important;
+  font-size:11px!important;
+}
+#propertyintelligence.property-compact-v260 #propertyPortfolioVisuals .property-income-flow em{color:#a0a69e!important;font-size:9px!important;font-style:normal!important}
+#propertyintelligence.property-compact-v260 #propertyPortfolioVisuals .property-coverage-ring{
+  width:74px!important;
+  height:74px!important;
+  margin:auto!important;
+  display:grid!important;
+  place-items:center!important;
+  align-content:center!important;
+  border:7px solid #edf0eb!important;
+  border-radius:50%!important;
+  background:#fff!important;
+}
+#propertyintelligence.property-compact-v260 #propertyPortfolioVisuals .property-coverage-ring b{font-size:14px!important;line-height:1.1!important}
+#propertyintelligence.property-compact-v260 #propertyPortfolioVisuals .property-coverage-ring small{margin-top:2px!important;color:#777e75!important;font-size:8px!important}
+@media(max-width:920px){
+  #propertyintelligence.property-compact-v260 #propertyPortfolioVisuals.property-portfolio-infographic{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+@media(max-width:680px){
+  #propertyintelligence.property-compact-v260 #propertyPortfolioWorkspace .property-intelligence-journey{grid-template-columns:1fr!important;gap:9px!important}
+  #propertyintelligence.property-compact-v260 #propertyPortfolioWorkspace .property-journey-card{min-height:96px!important;padding:13px!important}
+  #propertyintelligence.property-compact-v260 #propertyPortfolioVisuals.property-portfolio-infographic{grid-template-columns:1fr!important;gap:8px!important}
+  #propertyintelligence.property-compact-v260 #propertyPortfolioVisuals .property-info-panel{min-height:104px!important}
+}
