@@ -68,6 +68,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           PRODUCTION_D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
+          EXPECTED_SOURCE_SHA256: e5f3db240dc9d18f3625fd63a0c680b15f46d2fffe3697f98c38476d962dd7df
           QUALIFICATION_RUN_ID: ${{ github.run_id }}
           QUALIFICATION_RUN_ATTEMPT: ${{ github.run_attempt }}
           QUALIFICATION_STATE_FILE: .agent-cost-remote-d1-state.json
