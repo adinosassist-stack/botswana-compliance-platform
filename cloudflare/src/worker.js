@@ -2458,7 +2458,7 @@ async function buildAiAdvisorContext(env,tenantId,{includeFinance=false,actorRol
       earliestDueOn:x.earliestDueOn||null
     }))
   }:null;
-  const propertyContext=businessPayload?.property?{ref:"PROP-1",summary:businessPayload.property}:null;
+  const propertyContext=businessPayload?.property?{ref:"PROP-1",available:businessPayload.property.available!==false,restricted:businessPayload.property.restricted===true,metrics:businessPayload.property.metrics||null,items:(businessPayload.property.items||[]).slice(0,8).map(x=>({name:advisorText(x.name,120),type:advisorText(x.propertyType,40),status:advisorText(x.status,30),location:advisorText(x.location,120),latestProfessionalValuation:x.latestProfessionalValuation?{valuationDate:x.latestProfessionalValuation.valuationDate,marketValueMinor:x.latestProfessionalValuation.marketValueMinor,sourceKind:"external_professional_report"}:null}))}:null;
   const businessMemory=businessPayload?{
     ref:"BIZ-1",
     businessDate:businessPayload.businessDate||null,
