@@ -62,3 +62,20 @@
 
   window.whenThebeWorkspaceReady(installPeopleV306Polish);
 })();
+
+(()=>{
+  "use strict";
+  const release="20261010-property-construction-v311";
+  let requested=false;
+  function loadPropertyConstruction(){
+    if(requested)return;
+    requested=true;
+    import(`/js/property-construction-v311.js?release=${release}`).catch(error=>{
+      requested=false;
+      console.error("Property construction extension failed to load",error);
+    });
+  }
+  if(typeof window.whenThebeWorkspaceReady==="function")window.whenThebeWorkspaceReady(loadPropertyConstruction);
+  else if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",loadPropertyConstruction,{once:true});
+  else loadPropertyConstruction();
+})();
