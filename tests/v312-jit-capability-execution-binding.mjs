@@ -49,6 +49,20 @@ for(const [field,value] of [
   assert.equal(result.code,"jit_capability_scope_mismatch");
 }
 
+// A fallback tool or changed operation cannot reuse the signed JIT scope.
+for(const [field,value] of [
+  ["toolId","fallback.unapproved"],
+  ["actionKey","task.delete"],
+  ["agentId","OTHER-AGENT"]
+]){
+  const result=await verifyJitExecutionCapabilityCredential({...scope,[field]:value,token:issued.token});
+  assert.equal(result.valid,false,`${field} fallback must be denied`);
+  assert.equal(result.code,"jit_capability_scope_mismatch");
+}
+const shorterPermit=new Date(now+60*1000).toISOString();
+assert.equal((await verifyJitExecutionCapabilityCredential({...scope,permitExpiresAt:shorterPermit,token:issued.token})).valid,false);
+assert.equal((await verifyJitExecutionCapabilityCredential({...scope,token:issued.token,now:now+60*1000})).valid,true);
+
 const [encoded,signature]=issued.token.split(".");
 const last=signature.at(-1)==="A"?"B":"A";
 const tampered=`${encoded}.${signature.slice(0,-1)}${last}`;
