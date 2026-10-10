@@ -30,6 +30,7 @@ Public go-live: CONDITIONAL. Code readiness and successful production qualificat
 - **Property Calculator:** delivery is explicitly covered by the exact-SHA client-runtime post-deploy gate. Its placement is not changed by release-status maintenance.
 - **Customer UI:** live HTTP, fail-closed contracts and browser navigation are verified without customer writes by post-deploy smoke.
 - **Phase 0 launch audit:** authentication, roles, AI boundaries, live production, synthetic full-user lifecycle and zero-orphan closure must all pass on the deployed authority.
+- **Thebe bounded execution:** production is restricted to the reviewed internal `task.create` `platform_admin_canary`. An eligible session must be an authenticated `owner` whose email is already in `PLATFORM_ADMIN_EMAILS`, and execution still requires canonical Thebe authority, same-tenant delegation, separate execution grant, exact payload-bound owner approval, same-owner single-use JIT permit, Runtime Guard success, budget/kill-switch/daily-cap clearance, receipt/read-back verification and audit. Managers, ordinary owners and non-allowlisted owner emails remain fail-closed. This is not general customer/autonomous execution.
 
 ## Release chain
 
@@ -54,6 +55,9 @@ No step may substitute evidence from a different SHA.
 - A schema/runtime mismatch must fail readiness closed.
 - Partially configured external integrations must fail closed rather than silently degrade into a claimed active state.
 - Deployment success is not sufficient by itself; exact-SHA post-deploy verification is required.
+- Bounded `task.create` execution must remain closed unless the reviewed production mode is exactly `platform_admin_canary` and the complete canary eligibility/control chain passes at execution time.
+- The legacy global compatibility path is not the reviewed production canary posture and must not be substituted for it without a separate authority-expansion release review.
+- Payments, filings, signatures, employment termination, financing acceptance, journal posting and external messaging remain outside the bounded internal-task canary.
 
 ## Optional integrations
 
