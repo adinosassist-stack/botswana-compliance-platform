@@ -5,8 +5,10 @@ import {createAgentCostProductionTransport} from "./agent-cost-production-transp
 import {runAgentCostMigration} from "./migrate-agent-cost-accounting.mjs";
 
 export async function runProductionAgentCostMigration({env=process.env,fetchImpl=globalThis.fetch,execImpl}={}){
+  const dispatch=env.GITHUB_EVENT_NAME==="workflow_dispatch";
+  const automaticPlan=env.GITHUB_EVENT_NAME==="push"&&env.ACCOUNTING_068_AUTOPLAN==="1"&&env.MIGRATION_MODE==="plan";
   if(env.GITHUB_REPOSITORY!=="adinosassist-stack/botswana-compliance-platform"||env.GITHUB_REF!=="refs/heads/main"||
-    env.GITHUB_EVENT_NAME!=="workflow_dispatch"||env.GITHUB_ACTOR!=="adinosassist-stack"||
+    !(dispatch||automaticPlan)||env.GITHUB_ACTOR!=="adinosassist-stack"||
     env.EXPECTED_MAIN_SHA!==env.GITHUB_SHA||!/^[a-f0-9]{40}$/.test(env.EXPECTED_MAIN_SHA)||
     !["plan","apply"].includes(env.MIGRATION_MODE))throw new Error("migration_workflow_context_invalid");
   const verifyAuthority=()=>verifyAgentCostProductionAuthority({sha:env.EXPECTED_MAIN_SHA,token:env.GH_TOKEN,fetchImpl});
