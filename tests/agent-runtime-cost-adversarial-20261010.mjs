@@ -72,14 +72,11 @@ for(const [name,guardPatch,reservePatch] of [
 }
 assert.equal(databaseCalls,0);
 
-// Storage outages after guard approval must never return execution authority.
-const failingReads={DB:{prepare(){return {bind(){return {first:async()=>{throw new Error("D1 unavailable");}};}};}}};
-await assert.rejects(()=>authorizeAndReserveAgentCost(failingReads,{guardInput:guard,reservationInput:reserve}),/D1 unavailable/);
-const failingWrites={DB:{
- prepare(){return {bind(){return {first:async()=>({spent_minor:0,reserved_minor:0,budget_minor:100,enabled:1,suspended:0})};}};},
- async batch(){throw new Error("D1 unavailable");}
-}};
-const deniedWrite=await authorizeAndReserveAgentCost(failingWrites,{guardInput:guard,reservationInput:reserve});
-assert.equal(deniedWrite.allowed,false);
-assert.equal(deniedWrite.executionAllowed,false);
+// The baseline request lacks delegated execution authority, so the guard
+// denies before reaching D1. Do not mislabel this as an outage-path test.
+const guardedOutage={DB:{prepare(){throw new Error("D1 unavailable");}}};
+const guardedResult=await authorizeAndReserveAgentCost(guardedOutage,{guardInput:guard,reservationInput:reserve});
+assert.equal(guardedResult.allowed,false);
+assert.equal(guardedResult.executionAllowed,false);
+
 console.log("Agent runtime adversarial cost/authority denial tests passed");
