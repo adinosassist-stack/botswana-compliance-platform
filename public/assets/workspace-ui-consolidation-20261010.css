@@ -344,3 +344,33 @@ body.thebe-ai-dock-open #appShell .thebe-agent-launcher{display:none!important}
 @media(prefers-reduced-motion:reduce){
   #appShell *,#appShell *::before,#appShell *::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}
 }
+
+/* V249 accessible workspace action polish: preserve clear actions and card geometry. */
+#appShell :is(.btn,.workspace-action,.hub-card button,.outcome-card button):focus-visible{
+  outline:3px solid var(--ui-accent)!important;
+  outline-offset:3px!important;
+  box-shadow:0 0 0 5px var(--ui-accent-soft)!important;
+}
+#appShell :is(.btn,.workspace-action):disabled,
+#appShell :is(.btn,.workspace-action)[aria-disabled="true"]{
+  cursor:not-allowed!important;
+  opacity:.58!important;
+  transform:none!important;
+  box-shadow:none!important;
+}
+#appShell :is(.hub-card,.outcome-card){min-width:0!important}
+#appShell :is(.hub-card,.outcome-card) :is(.btn,.workspace-action){
+  max-width:100%!important;
+  overflow-wrap:anywhere!important;
+}
+#appShell :is(.hub-card,.outcome-card) .actions{
+  display:flex!important;
+  flex-wrap:wrap!important;
+  align-items:stretch!important;
+  gap:8px!important;
+  margin-top:auto!important;
+}
+#appShell :is(.hub-card,.outcome-card) .actions>.btn{flex:1 1 auto!important}
+@media(max-width:650px){
+  #appShell :is(.hub-card,.outcome-card) .actions>.btn{flex:1 1 100%!important}
+}
