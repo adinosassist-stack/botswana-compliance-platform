@@ -20,7 +20,7 @@ assert.doesNotMatch(base,/\.innerHTML\s*=/,
   "Property construction presentation must preserve the DOM-safety boundary");
 
 assert.match(workflow,/20261010-property-construction-workflow-v312/);
-assert.match(workflow,/data-property-construction-tab/);
+assert.match(workflow,/propertyConstructionTab="estimating"/);
 assert.match(workflow,/Estimating/);
 assert.match(workflow,/Scope \/ takeoff/);
 assert.match(workflow,/Itemized BOQ/);
