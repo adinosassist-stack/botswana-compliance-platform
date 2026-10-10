@@ -285,5 +285,33 @@ try {
   fs.rmSync(revokeFile,{force:true});
 }
 
+// Expiry after approval but before execution must fail closed. The permit's
+// expiry is constrained by its original creation timestamp, so advance the
+// database clock using a separate connection rather than rewriting expiry.
+db.prepare("INSERT INTO agent_action_intents(id,tenant_id,agent_key,action_key) VALUES(?,?,?,?)").run("i9","t1","thebe","task.create");
+insertRequest.run("q9","t1","i9","g1","hash-9","hash-9","owner1");
+insertPermit.run("p9","t1","owner1","q9","g1","hash-9");
+const expiryFile=path.join(os.tmpdir(),"thebe-jit-expiry-"+process.pid+"-"+Date.now()+".sqlite");
+try {
+  db.exec("VACUUM INTO '"+expiryFile.replaceAll("'","''")+"'");
+  const expired=new DatabaseSync(expiryFile);
+  // Preserve all constraints: backdate the creation and expiration together
+  // through a fresh permit inserted with historical timestamps is blocked by
+  // the request guard only if its underlying approval is invalid.
+  const oldPermit=expired.prepare("SELECT * FROM agent_jit_execution_permits WHERE id='p9'").get();
+  expired.prepare("DELETE FROM agent_jit_execution_permits WHERE id='p9'").run();
+  expired.prepare("INSERT INTO agent_jit_execution_permits(id,tenant_id,agent_id,human_user_id,task_request_id,execution_grant_id,action_key,payload_hash,status,max_uses,use_count,expires_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)")
+    .run(oldPermit.id,oldPermit.tenant_id,oldPermit.agent_id,oldPermit.human_user_id,oldPermit.task_request_id,oldPermit.execution_grant_id,oldPermit.action_key,oldPermit.payload_hash,"active",1,0,"2020-01-01 00:04:00","2020-01-01 00:00:00");
+  assert.throws(
+    ()=>expired.prepare("UPDATE agent_task_requests SET status='executed',jit_permit_id='p9' WHERE id='q9'").run(),
+    /agent_jit_permit_invalid_or_expired/
+  );
+  assert.equal(expired.prepare("SELECT status FROM agent_task_requests WHERE id='q9'").get().status,"approved");
+  assert.equal(expired.prepare("SELECT use_count FROM agent_jit_execution_permits WHERE id='p9'").get().use_count,0);
+  expired.close();
+} finally {
+  fs.rmSync(expiryFile,{force:true});
+}
+
 db.close();
 console.log("v217 JIT execution permit adversarial gate passed");
