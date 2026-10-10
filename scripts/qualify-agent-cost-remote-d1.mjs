@@ -67,6 +67,17 @@ function assertEphemeralState(state){
   assert.equal(String(state.runId),runId,"qualification state belongs to a different workflow run");
 }
 
+function assertQualificationTarget(databaseId){
+  const target=String(databaseId||"");
+  assert.match(target,/^[a-f0-9-]{32,40}$/i,"remote qualification query target is invalid");
+  assert.notEqual(target,productionDatabaseId,"refusing to query the production D1 database");
+  const state=readState();
+  assertEphemeralState(state);
+  assert.equal(state.deleted,false,"refusing to query a deleted qualification database");
+  assert.equal(target,state.databaseId,"remote qualification query target must match recorded ephemeral D1");
+  return target;
+}
+
 function writeState(state){
   writeFileSync(STATE_FILE,JSON.stringify(state,null,2)+"\n",{mode:0o600});
 }
@@ -134,7 +145,8 @@ let primaryError=null;
 let cleanupError=null;
 
 async function query(databaseId,sql){
-  return await api("POST",`${baseUrl}/${databaseId}/query`,{sql});
+  const target=assertQualificationTarget(databaseId);
+  return await api("POST",`${baseUrl}/${target}/query`,{sql});
 }
 
 async function mustQuery(databaseId,sql,label){
