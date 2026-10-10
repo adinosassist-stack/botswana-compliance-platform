@@ -1,3 +1,5 @@
+@import url("/assets/workspace-ui-consolidation-20261010.css");
+
 /* People overview: compact navigation with readable, source-backed status. */
 #peopleops .hub-hero{align-items:center!important;gap:16px!important}
 #peopleops .hub-hero h2{font-size:clamp(22px,3vw,30px)!important;line-height:1.15!important}

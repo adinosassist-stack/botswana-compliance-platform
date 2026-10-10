@@ -1,0 +1,346 @@
+/*
+ * Thebe Desk workspace UI consolidation — 2026-10-10
+ *
+ * Loaded after the legacy inline workspace layers. This file is intentionally
+ * scoped to #appShell so the public marketing and auth surfaces remain isolated.
+ * It establishes one final visual contract for buttons, cards, inputs, hubs,
+ * empty states, Thebe entry points and the Property workspace while older CSS is
+ * progressively retired from public/index.html.
+ */
+
+#appShell{
+  --ui-bg:#f7f7f5;
+  --ui-surface:#ffffff;
+  --ui-surface-soft:#f7f9fb;
+  --ui-ink:#17191c;
+  --ui-muted:#68717a;
+  --ui-line:#e1e4e7;
+  --ui-line-strong:#d2d7dc;
+  --ui-accent:#0b66d6;
+  --ui-accent-strong:#0955b7;
+  --ui-accent-soft:#edf5ff;
+  --ui-good:#147853;
+  --ui-good-soft:#edf8f2;
+  --ui-warn:#996208;
+  --ui-warn-soft:#fff7e8;
+  --ui-bad:#b42318;
+  --ui-bad-soft:#fff0ed;
+  --ui-radius-sm:10px;
+  --ui-radius:14px;
+  --ui-radius-lg:18px;
+  --ui-shadow:0 1px 2px rgba(17,25,35,.025),0 10px 28px rgba(17,25,35,.045);
+  --ui-shadow-hover:0 12px 30px rgba(11,102,214,.09);
+  color:var(--ui-ink);
+}
+
+/* Global workspace rhythm */
+#appShell main{background:var(--ui-bg)!important}
+#appShell .view{min-width:0}
+#appShell .view.active{isolation:isolate}
+#appShell .grid{gap:14px!important}
+#appShell .row,#appShell .between{min-width:0}
+#appShell :is(h1,h2,h3,p,b,span,label,small,td,th){overflow-wrap:break-word}
+
+/* One button system */
+#appShell .btn,
+#appShell .workspace-action,
+#appShell .outcome-card,
+#appShell .hub-card{
+  font-family:inherit!important;
+}
+#appShell .btn{
+  min-height:42px!important;
+  border-radius:11px!important;
+  padding:9px 14px!important;
+  border:1px solid transparent!important;
+  font-size:13px!important;
+  line-height:1.2!important;
+  font-weight:720!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:7px!important;
+  white-space:normal!important;
+  text-align:center!important;
+  box-shadow:none!important;
+  transform:none!important;
+  transition:background-color .16s ease,border-color .16s ease,color .16s ease,box-shadow .16s ease,transform .16s ease!important;
+}
+#appShell .btn:not(.alt):not(.soft):not(.danger){background:var(--ui-accent)!important;color:#fff!important}
+#appShell .btn:not(.alt):not(.soft):not(.danger):hover{background:var(--ui-accent-strong)!important;box-shadow:0 7px 18px rgba(11,102,214,.14)!important;transform:translateY(-1px)!important}
+#appShell .btn.alt{background:var(--ui-surface)!important;color:#343a40!important;border-color:var(--ui-line)!important}
+#appShell .btn.alt:hover{border-color:#b9c6d4!important;background:#f9fbfd!important}
+#appShell .btn.soft{background:var(--ui-accent-soft)!important;color:var(--ui-accent-strong)!important;border-color:#d8e9ff!important}
+#appShell .btn.soft:hover{background:#e2efff!important;border-color:#c5dcf8!important}
+#appShell .btn.danger{background:var(--ui-bad)!important;color:#fff!important}
+#appShell .btn:disabled{opacity:.55!important;cursor:not-allowed!important;transform:none!important;box-shadow:none!important}
+#appShell :is(.btn,.workspace-action,.outcome-card,.hub-card):focus-visible{outline:3px solid rgba(11,102,214,.22)!important;outline-offset:2px!important}
+
+/* One card/container system */
+#appShell .card,
+#appShell .eventcard,
+#appShell .sourcebox,
+#appShell .metricmini,
+#appShell .miniplan,
+#appShell .nextaction,
+#appShell .setupmeter{
+  min-width:0!important;
+  background:var(--ui-surface)!important;
+  border:1px solid var(--ui-line)!important;
+  border-radius:var(--ui-radius-lg)!important;
+  box-shadow:var(--ui-shadow)!important;
+}
+#appShell .card{padding:18px!important}
+#appShell .card:hover{border-color:#d5dae0!important}
+#appShell .card>.between.row,
+#appShell .item>.between.row,
+#appShell .eventcard>.between.row,
+#appShell .notice>.between.row{
+  align-items:flex-start!important;
+  flex-wrap:wrap!important;
+  gap:10px 14px!important;
+}
+#appShell .card>.between.row>:first-child,
+#appShell .item>.between.row>:first-child,
+#appShell .eventcard>.between.row>:first-child{
+  flex:1 1 260px!important;
+  min-width:0!important;
+}
+#appShell .card>.between.row>.actions,
+#appShell .item>.between.row>.actions,
+#appShell .eventcard>.between.row>.actions{
+  flex:0 1 auto!important;
+  max-width:100%!important;
+}
+
+/* Headings and supporting text */
+#appShell .section-eyebrow,#appShell .kpi{
+  color:#76808a!important;
+  font-size:12px!important;
+  line-height:1.3!important;
+  font-weight:760!important;
+  text-transform:none!important;
+  letter-spacing:.015em!important;
+}
+#appShell .muted{color:var(--ui-muted)!important}
+#appShell .small,#appShell .muted.small{font-size:13.5px!important;line-height:1.5!important}
+#appShell h2{line-height:1.15!important}
+#appShell h3{line-height:1.3!important}
+
+/* Form system */
+#appShell :is(input,select,textarea){
+  width:100%;
+  min-width:0!important;
+  min-height:42px!important;
+  border:1px solid var(--ui-line-strong)!important;
+  border-radius:11px!important;
+  background:#fff!important;
+  color:var(--ui-ink)!important;
+  padding:10px 12px!important;
+  font-size:13.5px!important;
+  box-shadow:none!important;
+}
+#appShell textarea{min-height:92px!important;resize:vertical}
+#appShell :is(input,select,textarea):focus{
+  outline:none!important;
+  border-color:#79adeb!important;
+  box-shadow:0 0 0 3px rgba(11,102,214,.11)!important;
+}
+#appShell label{font-size:12.5px!important;line-height:1.35!important;color:#444c55!important}
+#appShell .formgrid{gap:11px!important}
+
+/* Empty, loading and notice states should feel intentional instead of blank. */
+#appShell .empty,
+#appShell .copilot-empty,
+#appShell .property-empty-inline,
+#appShell .property-empty-compact{
+  min-height:86px;
+  border:1px dashed #ccd4dc!important;
+  border-radius:14px!important;
+  background:#fafbfd!important;
+  color:var(--ui-muted)!important;
+  padding:16px!important;
+}
+#appShell .empty b,
+#appShell .copilot-empty b,
+#appShell .property-empty-inline b,
+#appShell .property-empty-compact b{color:var(--ui-ink)!important}
+#appShell .notice{border-radius:13px!important;padding:12px 14px!important}
+#appShell .notice:not(.good):not(.bad){background:var(--ui-warn-soft)!important;border-color:#ead7aa!important}
+#appShell .notice.good{background:var(--ui-good-soft)!important;border-color:#cae4d4!important}
+#appShell .notice.bad{background:var(--ui-bad-soft)!important;border-color:#efcdc7!important}
+
+/* Hub pages: stable hierarchy and aligned actions. */
+#appShell .hub-hero{
+  display:flex!important;
+  align-items:flex-start!important;
+  justify-content:space-between!important;
+  gap:18px!important;
+  padding:2px 0 18px!important;
+  margin-bottom:18px!important;
+  border-bottom:1px solid var(--ui-line)!important;
+}
+#appShell .hub-hero>div:first-child{min-width:0!important;flex:1 1 auto!important}
+#appShell .hub-hero h2{margin:3px 0 7px!important;font-size:clamp(25px,2.3vw,34px)!important;letter-spacing:-.035em!important;line-height:1.08!important}
+#appShell .hub-hero p{max-width:780px!important;margin:0!important;line-height:1.55!important}
+#appShell .hub-hero>.btn{flex:0 0 auto!important}
+
+#appShell .outcome-status-strip{gap:8px!important;margin-bottom:14px!important}
+#appShell .outcome-status-chip{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:5px!important;
+  min-height:36px!important;
+  padding:7px 10px!important;
+  border:1px solid var(--ui-line)!important;
+  border-radius:999px!important;
+  background:#fff!important;
+  color:var(--ui-muted)!important;
+  font-size:12.5px!important;
+}
+#appShell .outcome-status-chip b{color:var(--ui-ink)!important}
+#appShell .outcome-grid{gap:12px!important}
+#appShell .outcome-card{
+  min-height:148px!important;
+  padding:17px!important;
+  border:1px solid var(--ui-line)!important;
+  border-radius:16px!important;
+  background:#fff!important;
+  color:var(--ui-ink)!important;
+  box-shadow:0 1px 2px rgba(17,25,35,.02)!important;
+}
+#appShell .outcome-card:hover{border-color:#b9cee8!important;background:#fbfdff!important;box-shadow:var(--ui-shadow-hover)!important;transform:translateY(-2px)!important}
+#appShell .outcome-card>b{font-size:18px!important;line-height:1.2!important}
+#appShell .outcome-card-status{font-size:13.5px!important;line-height:1.45!important;color:var(--ui-muted)!important;min-height:0!important}
+#appShell .outcome-card-action{margin-top:auto!important;color:var(--ui-accent-strong)!important;font-size:12.5px!important;font-weight:740!important}
+
+/* Workspace quick actions */
+#appShell .workspace-quickbar{border-color:var(--ui-line)!important;border-radius:16px!important;box-shadow:var(--ui-shadow)!important}
+#appShell .workspace-quick-actions{gap:8px!important}
+#appShell .workspace-action{
+  min-height:48px!important;
+  border:1px solid var(--ui-line)!important;
+  border-radius:12px!important;
+  background:#fff!important;
+  color:#30363d!important;
+  box-shadow:none!important;
+}
+#appShell .workspace-action:hover{background:var(--ui-accent-soft)!important;border-color:#bfd8f5!important;color:var(--ui-accent-strong)!important}
+
+/* Thebe: one visual language everywhere; contextual entry points open the same agent. */
+#appShell .home-thebe-agent,
+#appShell .copilot-compose,
+#appShell .copilot-response{
+  border:1px solid #cfe0f5!important;
+  border-radius:18px!important;
+  background:#fff!important;
+  box-shadow:0 10px 30px rgba(11,102,214,.055)!important;
+}
+#appShell .home-thebe-agent{gap:18px!important;padding:18px!important;align-items:center!important}
+#appShell .home-thebe-agent-compose{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:8px!important;align-items:center!important}
+#appShell .home-thebe-agent-compose .btn{min-width:112px!important}
+#appShell .home-thebe-agent-quick{display:flex!important;gap:7px!important;flex-wrap:wrap!important;margin-top:8px!important}
+#appShell .home-thebe-agent-quick .btn{min-height:38px!important;padding:7px 10px!important}
+#appShell .thebe-agent-launcher{
+  right:18px!important;
+  bottom:18px!important;
+  left:auto!important;
+  min-height:46px!important;
+  border-radius:999px!important;
+  padding:10px 15px!important;
+  border:1px solid #c8dcf4!important;
+  background:#fff!important;
+  color:var(--ui-accent-strong)!important;
+  box-shadow:0 14px 36px rgba(15,23,42,.14)!important;
+  font-weight:760!important;
+  z-index:26!important;
+}
+#appShell .thebe-agent-launcher:hover{background:var(--ui-accent-soft)!important;border-color:#9fc2eb!important}
+body.thebe-ai-dock-open #appShell .thebe-agent-launcher{display:none!important}
+
+/* Property: flat surfaces, compact calculator, no decorative gradients. */
+#appShell #propertyintelligence,
+#appShell #propertyintelligence *,
+#appShell .property-portfolio-workspace,
+#appShell .property-valuation-service-card{
+  background-image:none!important;
+}
+#appShell #propertyintelligence .hub-hero{align-items:center!important}
+#appShell .property-layout{gap:14px!important}
+#appShell .property-input-card,
+#appShell .property-scenario-comparison,
+#appShell .property-summary,
+#appShell .property-analysis-details,
+#appShell .property-advanced-details,
+#appShell .property-metric{
+  border-color:var(--ui-line)!important;
+  box-shadow:none!important;
+}
+#appShell .property-input-card{padding:16px!important}
+#appShell .property-calculator-head-v224{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;margin-bottom:12px!important}
+#appShell .property-input-row{min-width:0!important}
+#appShell .property-input-control{min-width:0!important;border-color:var(--ui-line-strong)!important;border-radius:11px!important;background:#fff!important}
+#appShell .property-input-control input{border:0!important;box-shadow:none!important;background:transparent!important}
+#appShell .property-input-control:focus-within{border-color:#79adeb!important;box-shadow:0 0 0 3px rgba(11,102,214,.1)!important}
+#appShell .property-analyse-button{width:100%!important;margin-top:12px!important}
+#appShell .property-secondary-actions{margin-top:8px!important}
+#appShell .property-metric{min-height:82px!important;padding:12px!important;background:#fff!important}
+#appShell .property-metric b{color:var(--ui-ink)!important}
+#appShell .property-risk-summary{border-radius:11px!important}
+#appShell .property-scenario-comparison{margin-top:12px!important;background:#fff!important}
+#appShell .property-scenario-compare-card{border:1px solid var(--ui-line)!important;border-radius:12px!important;background:#fafbfd!important}
+#appShell .property-valuation-service-card{background:#f8fbff!important;border-color:#cfe1f7!important}
+
+/* Tables should never spill across containers. */
+#appShell .table-scroll{max-width:100%!important;overflow-x:auto!important;overscroll-behavior-inline:contain!important}
+#appShell .table-scroll table{min-width:680px!important}
+#appShell table{max-width:100%!important}
+#appShell th{font-size:12px!important;color:#77818b!important}
+#appShell td{font-size:13.5px!important}
+
+/* Sidebar and topbar alignment */
+#appShell aside{min-width:0!important}
+#appShell .nav button{align-items:center!important;gap:10px!important}
+#appShell .nav-primary-icon{flex:0 0 24px!important}
+#appShell .top{min-width:0!important}
+#appShell .top>.actions{gap:8px!important}
+#appShell .top .global-search,#appShell .top .companyswitch{min-width:0!important}
+
+@media(max-width:900px){
+  #appShell .hub-hero{flex-direction:column!important;align-items:stretch!important}
+  #appShell .hub-hero>.btn{width:100%!important}
+  #appShell .home-thebe-agent{grid-template-columns:1fr!important}
+  #appShell .property-layout{grid-template-columns:1fr!important}
+  #appShell .workspace-quick-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+
+@media(max-width:650px){
+  #appShell .card{padding:15px!important;border-radius:15px!important}
+  #appShell .btn{min-height:44px!important}
+  #appShell .actions{width:100%;gap:7px!important}
+  #appShell .actions .btn{flex:1 1 140px!important}
+  #appShell .hub-hero h2{font-size:26px!important}
+  #appShell .outcome-status-strip{display:grid!important;grid-template-columns:1fr 1fr!important}
+  #appShell .outcome-status-chip{border-radius:12px!important;justify-content:space-between!important}
+  #appShell .outcome-grid,#appShell .outcome-grid.outcome-grid-2{grid-template-columns:1fr!important}
+  #appShell .outcome-card{min-height:126px!important;padding:15px!important}
+  #appShell .workspace-quick-actions{grid-template-columns:1fr!important}
+  #appShell .home-thebe-agent-compose{grid-template-columns:1fr!important}
+  #appShell .home-thebe-agent-compose .btn{width:100%!important}
+  #appShell .home-thebe-agent-quick{display:grid!important;grid-template-columns:1fr!important}
+  #appShell .thebe-agent-launcher{right:12px!important;bottom:82px!important}
+  #appShell .property-input-pair,
+  #appShell .property-result-grid,
+  #appShell .property-core-grid,
+  #appShell .property-advanced-grid{grid-template-columns:1fr!important}
+  #appShell .table-scroll table{min-width:620px!important}
+}
+
+@media(max-width:390px){
+  #appShell .outcome-status-strip{grid-template-columns:1fr!important}
+  #appShell .actions .btn{flex-basis:100%!important}
+}
+
+@media(prefers-reduced-motion:reduce){
+  #appShell *,#appShell *::before,#appShell *::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}
+}
