@@ -92,8 +92,12 @@ if(process.argv.includes("--cleanup-only")){
   process.exit(0);
 }
 
+const expectedSourceSha256=required("EXPECTED_SOURCE_SHA256").toLowerCase();
+assert.match(expectedSourceSha256,/^[a-f0-9]{64}$/,"expected migration SHA-256 must be 64 hex characters");
 const databaseName=`${PREFIX}${runId}-${runAttempt}`.slice(0,62);
 const migration=readFileSync("cloudflare/migrations/068_agent_cost_accounting.sql","utf8");
+const migrationSha256=createHash("sha256").update(migration).digest("hex");
+assert.equal(migrationSha256,expectedSourceSha256,"migration 068 source hash does not match reviewed authority");
 assert.match(migration,/CREATE TRIGGER IF NOT EXISTS agent_cost_reserve_budget/);
 assert.match(migration,/cost_reservation_budget_rejected/);
 
@@ -205,6 +209,7 @@ try{
     databaseIdSha256_16:hashId(databaseId),
     productionDatabaseMatched:false,
     migration068:"applied_twice",
+    migration068Sha256:migrationSha256,
     race:{requests:2,winners:1,losers:1,durationMs:Date.now()-startedAt,loserReason:"cost_reservation_budget_rejected"},
     final:{spentMinor:0,reservedMinor:60,reservations:1,ledgerEvents:1,ledgerGaps:0,foreignKeyViolations:0},
     retry:"unique_run_id_rejected",
@@ -213,7 +218,7 @@ try{
   };
   console.log(JSON.stringify(evidence,null,2));
   if(process.env.GITHUB_STEP_SUMMARY){
-    appendFileSync(process.env.GITHUB_STEP_SUMMARY,`## Remote D1 cost-accounting qualification\n\n- Ephemeral database: \`${databaseName}\`\n- Production DB matched: **no**\n- Migration 068: applied twice successfully\n- Concurrent requests: 2; winners: 1; budget-trigger rejections: 1\n- Final budget: 60 / 100 minor units reserved; 0 spent\n- Ledger gaps: 0; foreign-key violations: 0\n- Retry of winning run identity: rejected\n- Production/customer activation: unchanged\n`);
+    appendFileSync(process.env.GITHUB_STEP_SUMMARY,`## Remote D1 cost-accounting qualification\n\n- Ephemeral database: \`${databaseName}\`\n- Production DB matched: **no**\n- Migration 068 SHA-256: \`${migrationSha256}\`\n- Migration 068: applied twice successfully\n- Concurrent requests: 2; winners: 1; budget-trigger rejections: 1\n- Final budget: 60 / 100 minor units reserved; 0 spent\n- Ledger gaps: 0; foreign-key violations: 0\n- Retry of winning run identity: rejected\n- Production/customer activation: unchanged\n`);
   }
 }catch(error){
   primaryError=error;
