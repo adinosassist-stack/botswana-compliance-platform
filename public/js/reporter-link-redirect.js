@@ -10,13 +10,13 @@
   if(!document.querySelector('link[data-public-marketing-v249]')){
     const link=document.createElement("link");
     link.rel="stylesheet";
-    link.href="/assets/public-marketing-v249.css?v=20261009a";
+    link.href="/assets/public-marketing-v249.css?v=20261010a";
     link.dataset.publicMarketingV249="1";
     document.head.appendChild(link);
   }
   if(!document.querySelector('script[data-public-marketing-v249]')){
     const script=document.createElement("script");
-    script.src="/js/public-marketing-v249.js?v=20261009a";
+    script.src="/js/public-marketing-v249.js?v=20261010a";
     script.dataset.publicMarketingV249="1";
     script.async=false;
     document.head.appendChild(script);
