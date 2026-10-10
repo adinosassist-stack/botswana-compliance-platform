@@ -162,7 +162,7 @@ assert.match(optimiseCss,/V263 Property Optimise/);
 assert.match(optimiseCss,/data-property-active-pane="optimise"/);
 assert.match(optimiseCss,/\.property-optimise-v263/);
 assert.match(optimiseCss,/\.property-opt-metrics-v263\{[\s\S]*grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
-assert.match(optimiseCss,/\.property-opt-grid-v263\{[\s\S]*grid-template-columns:230px minmax\(0,1fr\)\)/);
+assert.match(optimiseCss,/\.property-opt-grid-v263\{[\s\S]*grid-template-columns:230px minmax\(0,1fr\)/);
 assert.match(optimiseCss,/\.property-opt-levers-v263\{[\s\S]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
 assert.match(optimiseCss,/@media\(max-width:760px\)/);
 assert.match(optimiseCss,/@media\(max-width:480px\)/);
