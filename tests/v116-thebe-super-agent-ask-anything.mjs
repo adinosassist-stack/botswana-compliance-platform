@@ -26,4 +26,12 @@ assert.match(owner,/Answer ready · no action was executed/);
 assert.doesNotMatch(owner,/fetch\s*\(/,"Ask Thebe UI must use the secure first-party API client");
 assert.doesNotMatch(worker,/mode==="ask"[\s\S]{0,1200}(?:payment\.execute|journal_entry\.post)/,"Ask mode must not gain a direct high-impact execution path");
 
+
+// Workspace-context availability must never be silently converted into an empty business.
+assert.match(worker,/buildBusinessContext\(env,tenantId,\{actorRole\}\)\.then\(value=>\(\{ok:true,value\}\),\(\)=>\(\{ok:false,value:null\}\)\)/);
+assert.match(worker,/financeAndBusiness:includeFinance\?/);
+assert.match(worker,/financeAndBusinessComplete:businessContextAvailable/);
+assert.match(worker,/Finance, Sales, Business Memory and Analytics could not be retrieved/);
+assert.doesNotMatch(worker,/buildBusinessContext\(env,tenantId,\{actorRole\}\)\.catch\(\(\)=>null\)/);
+
 console.log("Thebe Super Agent free-form Q&A guardrails: PASS");
