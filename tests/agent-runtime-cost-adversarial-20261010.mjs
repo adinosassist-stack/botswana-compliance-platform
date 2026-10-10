@@ -75,7 +75,10 @@ assert.equal(databaseCalls,0);
 // Storage outages after guard approval must never return execution authority.
 const failingReads={DB:{prepare(){return {bind(){return {first:async()=>{throw new Error("D1 unavailable");}};}};}}};
 await assert.rejects(()=>authorizeAndReserveAgentCost(failingReads,{guardInput:guard,reservationInput:reserve}),/D1 unavailable/);
-const failingWrites={DB:{prepare(){return {bind(){return {first:async()=>({spent_minor:0,reserved_minor:0,budget_minor:100,enabled:1,suspended:0})};}};}},batch:async()=>{throw new Error("D1 unavailable");}}};
+const failingWrites={DB:{
+ prepare(){return {bind(){return {first:async()=>({spent_minor:0,reserved_minor:0,budget_minor:100,enabled:1,suspended:0})};}};},
+ async batch(){throw new Error("D1 unavailable");}
+}};
 const deniedWrite=await authorizeAndReserveAgentCost(failingWrites,{guardInput:guard,reservationInput:reserve});
 assert.equal(deniedWrite.allowed,false);
 assert.equal(deniedWrite.executionAllowed,false);
