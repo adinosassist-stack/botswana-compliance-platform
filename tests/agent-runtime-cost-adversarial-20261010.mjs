@@ -80,4 +80,12 @@ const guardedResult=await authorizeAndReserveAgentCost(guardedOutage,{guardInput
 assert.equal(guardedResult.allowed,false);
 assert.equal(guardedResult.executionAllowed,false);
 
+
+// An outage while reading the budget must deny deterministically, not throw.
+// Exercise the reservation function directly because the baseline runtime guard
+// intentionally denies before any storage operation.
+const readOutage={DB:{prepare(){throw new Error("D1 unavailable");}}};
+const deniedRead=await reserveAgentCost(readOutage,reserve);
+assert.deepEqual(deniedRead,{allowed:false,code:"cost_reservation_unavailable"});
+
 console.log("Agent runtime adversarial cost/authority denial tests passed");
