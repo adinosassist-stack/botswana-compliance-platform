@@ -45,6 +45,8 @@ assert.doesNotMatch(backend,/government_filing\.submit/);
 const wrangler=fs.readFileSync("cloudflare/wrangler.toml","utf8");
 assert.match(wrangler,/AGENT_BOUNDED_TASK_EXECUTION_MODE = "platform_admin_canary"/);
 assert.doesNotMatch(wrangler,/AGENT_BOUNDED_TASK_EXECUTION_MODE = "global"/);
+assert.match(wrangler,/AGENT_BOUNDED_TASK_EXECUTION_ENABLED = "0"/);
+assert.doesNotMatch(wrangler,/AGENT_BOUNDED_TASK_EXECUTION_ENABLED = "1"/);
 
 const preflight=fs.readFileSync("cloudflare/preflight-production.sh","utf8");
 assert.match(preflight,/AGENT_BOUNDED_TASK_EXECUTION_MODE/);
