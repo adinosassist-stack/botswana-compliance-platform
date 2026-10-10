@@ -82,6 +82,14 @@ assert.match(wrapper,/permit\.status/);
 assert.match(wrapper,/permit\.use_count/);
 assert.match(wrapper,/permit\.expires_at/);
 assert.match(wrapper,/return taskFetch\(request,env\)/);
+const liveGateStart=wrapper.indexOf("async function verifyBoundCapability(");
+const liveGateEnd=wrapper.indexOf("export async function handleJitCapabilityGovernanceRequest",liveGateStart);
+assert.ok(liveGateStart>=0&&liveGateEnd>liveGateStart);
+const liveGate=wrapper.slice(liveGateStart,liveGateEnd);
+assert.ok(liveGate.indexOf("await authoritativePermit(")>=0);
+assert.ok(liveGate.indexOf("await authoritativePermit(")<liveGate.indexOf("await verifyJitExecutionCapabilityCredential("));
+assert.ok(liveGate.indexOf('String(permit.status)!=="active"')<liveGate.lastIndexOf("return taskFetch(request,env)"));
+
 assert.match(wrapper,/verifyJitExecutionCapabilityCredential/);
 assert.match(wrapper,/agent_jit_execution_permits/);
 assert.match(wrapper,/const taskFetch=.*handleAgenticTaskExecutionRequest/);
