@@ -57,6 +57,11 @@ try{
   assert.equal(rows("SELECT count(*) n FROM agent_cost_events WHERE tenant_id='t2';")[0].n,1);
   // Suspension and budget shutdown must reject fresh reservations while
   // preserving previously booked amounts for explicit reconciliation.
+  // A retried request must not book a second reservation for the same run.
+  rejects("INSERT INTO agent_cost_reservations(id,tenant_id,agent_id,run_id,estimate_minor) VALUES('cap-a-retry','t2','thebe','cap-a',1);",'UNIQUE');
+  assert.deepEqual(rows("SELECT spent_minor,reserved_minor FROM agent_cost_budgets WHERE tenant_id='t2';"),[{spent_minor:0,reserved_minor:60}]);
+  assert.equal(rows("SELECT count(*) n FROM agent_cost_reservations WHERE tenant_id='t2';")[0].n,1);
+  assert.equal(rows("SELECT count(*) n FROM agent_cost_events WHERE tenant_id='t2';")[0].n,1);
   execute("UPDATE agent_cost_budgets SET suspended=1 WHERE tenant_id='t2';");
   rejects("INSERT INTO agent_cost_reservations(id,tenant_id,agent_id,run_id,estimate_minor) VALUES('suspended','t2','thebe','suspended',1);",'cost_reservation_budget_rejected');
   execute("UPDATE agent_cost_budgets SET suspended=0,enabled=0 WHERE tenant_id='t2';");
