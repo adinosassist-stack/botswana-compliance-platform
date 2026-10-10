@@ -11,6 +11,6 @@ assert.match(reservation,/cost_reservation_conflict/);
 assert.match(schema,/UNIQUE\(tenant_id,agent_id,run_id\)/);
 assert.match(schema,/CHECK\(spent_minor\+reserved_minor<=budget_minor\)/);
 assert.match(reservation,/status='reserved' AND estimate_minor=\?/);
-assert.match(reservation,/status='reserved' AND changes\(\)=1/);
+assert.match(reservation,/status='settled' AND changes\(\)=1/);
 assert.match(reservation,/changes\(\)=1/);
 console.log("Agent reservation concurrency prerequisites present (static only)");
