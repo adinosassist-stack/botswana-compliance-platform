@@ -47,7 +47,7 @@ assert.match(readiness,/\.then\(\(\)=>import/,
   "V312 workflow must load only after the V311 construction base");
 
 assert.match(baseCss,/\.property-construction-v311/);
-assert.match(workflowCss,/#propertyintelligence \[data-property-construction-mode/);
+assert.match(workflowCss,/#propertyintelligence\[data-property-construction-mode="estimating"\]/);
 assert.match(workflowCss,/construction-boq-row-v312/);
 assert.match(workflowCss,/construction-workflow-metrics-v312/);
 assert.match(workflowCss,/@media\(max-width:640px\)/);
