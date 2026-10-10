@@ -1,0 +1,1 @@
+Scope: retire the dedicated Property presentation visibility-repair loop while preserving Property workspace features. The canonical workspace-runtime fallback remains a separate synchronized source/runtime migration because it is byte-bound to public/index.html.
