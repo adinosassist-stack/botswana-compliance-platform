@@ -169,5 +169,17 @@ row=db.prepare("SELECT status,use_count FROM agent_jit_execution_permits WHERE i
 assert.equal(row.status,"active");
 assert.equal(row.use_count,0);
 
+// A consumed permit cannot be reassigned to a different approved request.
+db.prepare("UPDATE agent_execution_grants SET status='active' WHERE id='g1'").run();
+db.prepare("INSERT INTO agent_action_intents(id,tenant_id,agent_key,action_key) VALUES(?,?,?,?)").run("i3","t1","thebe","task.create");
+insertRequest.run("q3","t1","i3","g1","hash-3","hash-3","owner1");
+assert.throws(
+  ()=>db.prepare("UPDATE agent_task_requests SET status='executed',jit_permit_id=? WHERE id=?").run("p1","q3"),
+  /agent_jit_permit_invalid_or_expired/
+);
+assert.equal(db.prepare("SELECT status,jit_permit_id FROM agent_task_requests WHERE id='q3'").get().status,"approved");
+assert.equal(db.prepare("SELECT jit_permit_id FROM agent_task_requests WHERE id='q3'").get().jit_permit_id,null);
+assert.equal(db.prepare("SELECT use_count FROM agent_jit_execution_permits WHERE id='p1'").get().use_count,1);
+
 db.close();
 console.log("v217 JIT execution permit adversarial gate passed");
