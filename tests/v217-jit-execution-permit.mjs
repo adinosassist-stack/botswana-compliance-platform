@@ -181,5 +181,27 @@ assert.equal(db.prepare("SELECT status,jit_permit_id FROM agent_task_requests WH
 assert.equal(db.prepare("SELECT jit_permit_id FROM agent_task_requests WHERE id='q3'").get().jit_permit_id,null);
 assert.equal(db.prepare("SELECT use_count FROM agent_jit_execution_permits WHERE id='p1'").get().use_count,1);
 
+// Atomicity: a batch execution must not consume a valid permit if another
+// request in the same statement has a revoked grant.
+db.prepare("INSERT INTO agent_execution_grants(id,tenant_id,status) VALUES(?,?,?)").run("g2","t1","active");
+for(const [id,intent,hash] of [["q4","i4","hash-4"],["q5","i5","hash-5"]]){
+  db.prepare("INSERT INTO agent_action_intents(id,tenant_id,agent_key,action_key) VALUES(?,?,?,?)").run(intent,"t1","thebe","task.create");
+  insertRequest.run(id,"t1",intent,"g2",hash,hash,"owner1");
+  insertPermit.run("p"+id.slice(1),"t1","owner1",id,"g2",hash);
+}
+db.prepare("UPDATE agent_execution_grants SET status='revoked' WHERE id='g2'").run();
+assert.throws(
+  ()=>db.prepare("UPDATE agent_task_requests SET status='executed',jit_permit_id=CASE id WHEN 'q4' THEN 'p4' ELSE 'p5' END WHERE id IN ('q4','q5')").run(),
+  /agent_jit_permit_invalid_or_expired/
+);
+for(const id of ["4","5"]){
+  const request=db.prepare("SELECT status,jit_permit_id FROM agent_task_requests WHERE id=?").get("q"+id);
+  const permit=db.prepare("SELECT status,use_count FROM agent_jit_execution_permits WHERE id=?").get("p"+id);
+  assert.equal(request.status,"approved");
+  assert.equal(request.jit_permit_id,null);
+  assert.equal(permit.status,"active");
+  assert.equal(permit.use_count,0);
+}
+
 db.close();
 console.log("v217 JIT execution permit adversarial gate passed");
