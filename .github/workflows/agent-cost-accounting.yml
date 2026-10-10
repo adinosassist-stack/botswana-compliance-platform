@@ -9,6 +9,7 @@ on:
       - 'cloudflare/src/agent-runtime-guard.js'
       - 'cloudflare/experimental/agent_cost_accounting.sql'
       - 'tests/agent-cost-*.mjs'
+      - 'tests/agent-runtime-cost-adversarial-*.mjs'
       - 'tests/helpers/agent-cost-schema.mjs'
       - 'scripts/agent-cost-schema-preflight.mjs'
       - 'scripts/manifests/agent-cost-schema.json'
@@ -25,6 +26,7 @@ on:
       - 'cloudflare/src/agent-runtime-guard.js'
       - 'cloudflare/experimental/agent_cost_accounting.sql'
       - 'tests/agent-cost-*.mjs'
+      - 'tests/agent-runtime-cost-adversarial-*.mjs'
       - 'tests/helpers/agent-cost-schema.mjs'
       - 'scripts/agent-cost-schema-preflight.mjs'
       - 'scripts/manifests/agent-cost-schema.json'
@@ -56,6 +58,7 @@ jobs:
           node-version: '22'
       - run: node tests/agent-cost-admission.mjs
       - run: node tests/agent-cost-execution-boundary.mjs
+      - run: node tests/agent-runtime-cost-adversarial-20261010.mjs
       - run: node tests/agent-cost-reservations-static.mjs
       - run: node tests/agent-cost-schema-preflight.mjs
       - run: node tests/agent-cost-migration.mjs
