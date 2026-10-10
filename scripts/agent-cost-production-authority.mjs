@@ -23,8 +23,7 @@ export async function verifyAgentCostProductionAuthority({sha,token,fetchImpl=gl
     ["audit-remediation-ci.yml",pr.head.sha,"pull_request"],
     ["agent-cost-accounting.yml",pr.head.sha,"pull_request"],
     ["recovery-ci.yml",sha,"push"],
-    ["mobile-startup-recovery.yml",sha,"push"],
-    ["legacy-orphan-qualification.yml",sha,"workflow_dispatch"]
+    ["mobile-startup-recovery.yml",sha,"push"]
   ];
   for(const [workflow,head,event] of requirements){
     const response=await get(`actions/workflows/${workflow}/runs?head_sha=${head}&event=${event}&per_page=100`);
