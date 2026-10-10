@@ -1,1 +1,0 @@
-Safety boundary: no API, authorization, finance, compliance, schema, deployment or customer-activation behavior is changed by this migration.
