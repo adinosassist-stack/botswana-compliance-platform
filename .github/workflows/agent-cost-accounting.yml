@@ -14,11 +14,13 @@ on:
       - 'scripts/agent-cost-schema-preflight.mjs'
       - 'scripts/manifests/agent-cost-schema.json'
       - 'scripts/migrate-agent-cost-accounting.mjs'
+      - 'scripts/qualify-agent-cost-remote-d1.mjs'
       - 'cloudflare/migrations/068_agent_cost_accounting.sql'
       - 'cloudflare/src/ledger-schema-readiness.js'
       - 'scripts/agent-cost-production-*.mjs'
       - 'scripts/migrate-production-agent-cost-accounting.mjs'
       - '.github/workflows/migrate-production-agent-cost-accounting.yml'
+      - '.github/workflows/agent-cost-remote-d1-qualification.yml'
       - '.github/workflows/agent-cost-accounting.yml'
   pull_request:
     paths:
@@ -31,11 +33,13 @@ on:
       - 'scripts/agent-cost-schema-preflight.mjs'
       - 'scripts/manifests/agent-cost-schema.json'
       - 'scripts/migrate-agent-cost-accounting.mjs'
+      - 'scripts/qualify-agent-cost-remote-d1.mjs'
       - 'cloudflare/migrations/068_agent_cost_accounting.sql'
       - 'cloudflare/src/ledger-schema-readiness.js'
       - 'scripts/agent-cost-production-*.mjs'
       - 'scripts/migrate-production-agent-cost-accounting.mjs'
       - '.github/workflows/migrate-production-agent-cost-accounting.yml'
+      - '.github/workflows/agent-cost-remote-d1-qualification.yml'
       - '.github/workflows/agent-cost-accounting.yml'
   workflow_dispatch:
 jobs:
@@ -63,6 +67,7 @@ jobs:
       - run: node tests/agent-cost-schema-preflight.mjs
       - run: node tests/agent-cost-migration.mjs
       - run: node tests/agent-cost-production-migration.mjs
+      - run: node tests/agent-cost-remote-d1-qualification-static.mjs
       - run: node --disable-warning=ExperimentalWarning tests/agent-cost-reservations-integration.mjs
       - run: node --disable-warning=ExperimentalWarning tests/agent-cost-tenant-purge.mjs
       - run: node --disable-warning=ExperimentalWarning tests/agent-cost-outcome-telemetry.mjs
