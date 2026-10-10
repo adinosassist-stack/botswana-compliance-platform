@@ -34,7 +34,7 @@ assert.match(worker,/financeAndBusinessComplete:businessContextAvailable/);
 assert.match(worker,/c\.contextAvailability\?\.financeAndBusiness==="unavailable"/);
 assert.match(worker,/unavailable values are not zero/);
 assert.match(worker,/propertyContext=businessPayload\?\.property\?/);
-assert.match(worker,/propertyContext\.items\|\|\[\]/);
+assert.match(worker,/businessPayload\.property\.items\|\|\[\]/);
 assert.match(worker,/type:"property",label:"Governed property portfolio snapshot"/);
 assert.match(worker,/property:propertyContext\?1:0/);
 assert.match(worker,/Finance, Sales, Business Memory and Analytics could not be retrieved/);
