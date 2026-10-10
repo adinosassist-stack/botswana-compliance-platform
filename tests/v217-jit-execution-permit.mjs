@@ -133,6 +133,13 @@ assert.equal(row.status,"consumed");
 assert.equal(row.use_count,1);
 assert.equal(row.consumed_by_user_id,"owner1");
 
+// A consumed single-use permit cannot execute a second request or replay its own.
+assert.throws(
+  ()=>db.prepare("UPDATE agent_task_requests SET status='executed',jit_permit_id=? WHERE id=?").run("p1","q1"),
+  /agent_jit_permit_invalid_or_expired/
+);
+assert.equal(db.prepare("SELECT use_count FROM agent_jit_execution_permits WHERE id='p1'").get().use_count,1);
+
 db.prepare("INSERT INTO agent_action_intents(id,tenant_id,agent_key,action_key) VALUES(?,?,?,?)").run("i2","t1","thebe","task.create");
 insertRequest.run("q2","t1","i2","g1","hash-2","hash-2","owner1");
 assert.throws(
