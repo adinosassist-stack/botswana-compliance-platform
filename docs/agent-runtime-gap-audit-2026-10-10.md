@@ -43,3 +43,15 @@ Never treat cost reservation as execution authority. No unrestricted credentials
 
 ### Release decision
 **NO-GO for general customer/autonomous agent execution or production cost-accounting activation.** The existing Release 463 `platform_admin_canary` is separately governed and is not widened by this PR. Passing CI establishes only that the checked regressions pass; it does not satisfy the pending concurrency, broader runtime-race, audit, operator, migration, or UI evidence required for expansion. Keep this PR in draft until review; do not merge or deploy on the basis of this matrix alone.
+
+## PR #1323 verification checkpoint — 2026-10-10
+
+The draft PR modifies only `tests/v217-jit-execution-permit.mjs` and `tests/v312-jit-capability-execution-binding.mjs` (184 additions, 2 deletions). All seven GitHub checks passed at `2aaa50426de470c9803cfbe894d93bf527263b57`. These results qualify the test additions, not general execution or cost-accounting activation.
+
+Verified JIT regression cases: single-use and cross-request replay rejection; atomic rollback of multi-request execution after grant revocation; post-approval payload tampering; two independent SQLite connections competing to consume one permit; cross-connection grant revocation; expired permit rejection; and stale preflight authorization invalidated by a later grant revocation. The signature-tampering test now mutates a significant base64url character rather than an unused trailing padding bit.
+
+**Remaining execution gap:** the concurrent SQLite test is not a production D1 end-to-end external-tool execution race. It does not demonstrate cancellation of an already-dispatched side effect after mid-run revocation, and no such rollback guarantee should be claimed.
+
+**Cost-accounting review:** `tests/agent-cost-d1-transport.mjs` verifies budget-trigger rollback for a two-row INSERT, retry uniqueness, suspension and disabled-budget rejection, accounting events and governed purge on disposable local D1. It does **not** launch two simultaneous independent reservation requests. `cloudflare/src/agent-cost-reservations.js` reads a budget before calling `DB.batch`, relying on database triggers to recheck atomic admission; this is a defensible design to test, not proof of the missing concurrency gate. The independent-request, no-overspend, no-orphan-ledger scenario remains **UNVERIFIED**.
+
+**Review decision:** retain draft/no-go for general customer or autonomous execution, and keep production flags and migrations unchanged. Next qualification should exercise simultaneous independent local D1 reservation requests and verify the winning reservation, losing response, budget totals, and ledger correspondence.
