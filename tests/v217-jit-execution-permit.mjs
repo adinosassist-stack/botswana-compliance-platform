@@ -262,5 +262,28 @@ try {
   fs.rmSync(raceFile,{force:true});
 }
 
+// A permit issued before revocation cannot execute even if its grant is
+// revoked from a second connection immediately before the execution attempt.
+db.prepare("INSERT INTO agent_action_intents(id,tenant_id,agent_key,action_key) VALUES(?,?,?,?)").run("i8","t1","thebe","task.create");
+insertRequest.run("q8","t1","i8","g1","hash-8","hash-8","owner1");
+insertPermit.run("p8","t1","owner1","q8","g1","hash-8");
+const revokeFile=path.join(os.tmpdir(),"thebe-jit-revoke-"+process.pid+"-"+Date.now()+".sqlite");
+try {
+  db.exec("VACUUM INTO '"+revokeFile.replaceAll("'","''")+"'");
+  const revoker=new DatabaseSync(revokeFile);
+  const executor=new DatabaseSync(revokeFile);
+  revoker.prepare("UPDATE agent_execution_grants SET status='revoked' WHERE id='g1'").run();
+  assert.throws(
+    ()=>executor.prepare("UPDATE agent_task_requests SET status='executed',jit_permit_id='p8' WHERE id='q8'").run(),
+    /agent_jit_permit_invalid_or_expired/
+  );
+  assert.equal(executor.prepare("SELECT status FROM agent_task_requests WHERE id='q8'").get().status,"approved");
+  assert.equal(executor.prepare("SELECT use_count FROM agent_jit_execution_permits WHERE id='p8'").get().use_count,0);
+  revoker.close();
+  executor.close();
+} finally {
+  fs.rmSync(revokeFile,{force:true});
+}
+
 db.close();
 console.log("v217 JIT execution permit adversarial gate passed");
