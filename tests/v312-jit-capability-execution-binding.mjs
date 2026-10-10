@@ -49,6 +49,20 @@ for(const [field,value] of [
   assert.equal(result.code,"jit_capability_scope_mismatch");
 }
 
+// A fallback tool or changed operation cannot reuse the signed JIT scope.
+for(const [field,value] of [
+  ["toolId","fallback.unapproved"],
+  ["actionKey","task.delete"],
+  ["agentId","OTHER-AGENT"]
+]){
+  const result=await verifyJitExecutionCapabilityCredential({...scope,[field]:value,token:issued.token});
+  assert.equal(result.valid,false,`${field} fallback must be denied`);
+  assert.equal(result.code,"jit_capability_scope_mismatch");
+}
+const shorterPermit=new Date(now+60*1000).toISOString();
+assert.equal((await verifyJitExecutionCapabilityCredential({...scope,permitExpiresAt:shorterPermit,token:issued.token})).valid,false);
+assert.equal((await verifyJitExecutionCapabilityCredential({...scope,token:issued.token,now:now+60*1000})).valid,true);
+
 const [encoded,signature]=issued.token.split(".");
 const last=signature.at(-1)==="A"?"B":"A";
 const tampered=`${encoded}.${signature.slice(0,-1)}${last}`;
@@ -64,6 +78,22 @@ assert.match(wrapper,/jit_capability_verification_unavailable/);
 assert.match(wrapper,/capabilityToken/);
 assert.match(wrapper,/executionEnvId/);
 assert.match(wrapper,/authoritativePermit/);
+assert.match(wrapper,/permit\.status/);
+assert.match(wrapper,/permit\.use_count/);
+assert.match(wrapper,/permit\.expires_at/);
+assert.match(wrapper,/return taskFetch\(request,env\)/);
+const liveGateStart=wrapper.indexOf("async function verifyBoundCapability(");
+const liveGateEnd=wrapper.indexOf("export async function handleJitCapabilityGovernanceRequest",liveGateStart);
+assert.ok(liveGateStart>=0&&liveGateEnd>liveGateStart);
+const liveGate=wrapper.slice(liveGateStart,liveGateEnd);
+assert.ok(liveGate.indexOf("await authoritativePermit(")>=0);
+assert.ok(liveGate.indexOf("await authoritativePermit(")<liveGate.indexOf("await verifyJitExecutionCapabilityCredential("));
+assert.ok(liveGate.indexOf('String(permit.status)!=="active"')<liveGate.lastIndexOf("return taskFetch(request,env)"));
+assert.ok(liveGate.indexOf("Number(permit.use_count)!==0")<liveGate.lastIndexOf("return taskFetch(request,env)"));
+assert.ok(liveGate.indexOf("new Date(permit.expires_at).getTime()<=Date.now()")<liveGate.lastIndexOf("return taskFetch(request,env)"));
+assert.ok(liveGate.indexOf("if(!verification.valid)")<liveGate.lastIndexOf("return taskFetch(request,env)"));
+
+
 assert.match(wrapper,/verifyJitExecutionCapabilityCredential/);
 assert.match(wrapper,/agent_jit_execution_permits/);
 assert.match(wrapper,/const taskFetch=.*handleAgenticTaskExecutionRequest/);
