@@ -13,6 +13,48 @@
     step.append(make("em","",String(number)),make("b","",title),make("span","",copy));
     return step
   }
+  function initMobileNav(gate){
+    const navin=gate.querySelector(".navin"),desktopLinks=gate.querySelector(".nav .links");
+    if(!navin||!desktopLinks||navin.querySelector(".mobile-nav-toggle"))return;
+    const button=make("button","mobile-nav-toggle");
+    button.type="button";
+    button.setAttribute("aria-label","Open navigation");
+    button.setAttribute("aria-expanded","false");
+    button.setAttribute("aria-controls","publicMobileNav");
+    const bars=make("span","");
+    bars.setAttribute("aria-hidden","true");
+    bars.append(make("i",""),make("i",""),make("i",""));
+    button.append(bars);
+    const panel=make("nav","mobile-nav-panel");
+    panel.id="publicMobileNav";
+    panel.setAttribute("aria-label","Mobile public navigation");
+    for(const source of desktopLinks.querySelectorAll("a")){
+      const link=make("a","",source.textContent.trim());
+      link.href=source.getAttribute("href")||"#";
+      panel.append(link)
+    }
+    navin.insertBefore(button,navin.querySelector(".actions"));
+    gate.querySelector(".nav")?.append(panel);
+    const close=({restoreFocus=false}={})=>{
+      panel.classList.remove("open");
+      button.setAttribute("aria-expanded","false");
+      button.setAttribute("aria-label","Open navigation");
+      if(restoreFocus)button.focus()
+    };
+    const open=()=>{
+      panel.classList.add("open");
+      button.setAttribute("aria-expanded","true");
+      button.setAttribute("aria-label","Close navigation");
+      panel.querySelector("a")?.focus()
+    };
+    button.addEventListener("click",()=>panel.classList.contains("open")?close():open());
+    panel.addEventListener("click",event=>{if(event.target.closest("a"))close()});
+    document.addEventListener("keydown",event=>{if(event.key==="Escape"&&panel.classList.contains("open"))close({restoreFocus:true})});
+    document.addEventListener("click",event=>{if(panel.classList.contains("open")&&!panel.contains(event.target)&&!button.contains(event.target))close()});
+    const mq=matchMedia("(min-width:1001px)");
+    const sync=()=>{if(mq.matches)close()};
+    if(typeof mq.addEventListener==="function")mq.addEventListener("change",sync);else mq.addListener?.(sync)
+  }
   function init(){
     const gate=document.getElementById("marketingGate");
     if(!gate||gate.dataset.publicStoryV249==="1")return;
@@ -23,6 +65,8 @@
     setMeta("description",description);
     setProperty("og:title","Thebe Desk | Run Your Business from One Intelligent Desk");
     setProperty("og:description","Money, work, people and protection in one intelligent business workspace. Live in Botswana.");
+
+    initMobileNav(gate);
 
     const eyebrow=gate.querySelector(".hero .eyebrow");
     if(eyebrow){eyebrow.dataset.v249Eyebrow="1";eyebrow.replaceChildren(make("span","dot"),document.createTextNode("AI operating layer for African business · Live in Botswana"))}
