@@ -89,6 +89,10 @@ const liveGate=wrapper.slice(liveGateStart,liveGateEnd);
 assert.ok(liveGate.indexOf("await authoritativePermit(")>=0);
 assert.ok(liveGate.indexOf("await authoritativePermit(")<liveGate.indexOf("await verifyJitExecutionCapabilityCredential("));
 assert.ok(liveGate.indexOf('String(permit.status)!=="active"')<liveGate.lastIndexOf("return taskFetch(request,env)"));
+assert.ok(liveGate.indexOf("Number(permit.use_count)!==0")<liveGate.lastIndexOf("return taskFetch(request,env)"));
+assert.ok(liveGate.indexOf("new Date(permit.expires_at).getTime()<=Date.now()")<liveGate.lastIndexOf("return taskFetch(request,env)"));
+assert.ok(liveGate.indexOf("if(!verification.valid)")<liveGate.lastIndexOf("return taskFetch(request,env)"));
+
 
 assert.match(wrapper,/verifyJitExecutionCapabilityCredential/);
 assert.match(wrapper,/agent_jit_execution_permits/);
