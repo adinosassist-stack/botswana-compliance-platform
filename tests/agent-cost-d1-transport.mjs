@@ -55,6 +55,15 @@ try{
   assert.equal(rows("SELECT reserved_minor FROM agent_cost_budgets WHERE tenant_id='t2';")[0].reserved_minor,60);
   assert.equal(rows("SELECT count(*) n FROM agent_cost_reservations WHERE tenant_id='t2';")[0].n,1);
   assert.equal(rows("SELECT count(*) n FROM agent_cost_events WHERE tenant_id='t2';")[0].n,1);
+  // Suspension and budget shutdown must reject fresh reservations while
+  // preserving previously booked amounts for explicit reconciliation.
+  execute("UPDATE agent_cost_budgets SET suspended=1 WHERE tenant_id='t2';");
+  rejects("INSERT INTO agent_cost_reservations(id,tenant_id,agent_id,run_id,estimate_minor) VALUES('suspended','t2','thebe','suspended',1);",'cost_reservation_budget_rejected');
+  execute("UPDATE agent_cost_budgets SET suspended=0,enabled=0 WHERE tenant_id='t2';");
+  rejects("INSERT INTO agent_cost_reservations(id,tenant_id,agent_id,run_id,estimate_minor) VALUES('disabled','t2','thebe','disabled',1);",'cost_reservation_budget_rejected');
+  assert.equal(rows("SELECT reserved_minor FROM agent_cost_budgets WHERE tenant_id='t2';")[0].reserved_minor,60);
+  assert.equal(rows("SELECT count(*) n FROM agent_cost_reservations WHERE tenant_id='t2';")[0].n,1);
+  assert.equal(rows("SELECT count(*) n FROM agent_cost_events WHERE tenant_id='t2';")[0].n,1);
   execute("INSERT INTO deletion_requests(id,tenant_id,user_id,status,processing_token) VALUES('dr1','t1','u1','processing','synthetic-claim');");
   const tombstone="INSERT INTO deletion_tombstones(request_id,tenant_fingerprint) VALUES('dr1','synthetic-fingerprint');";
   rejects(tombstone,'cost_purge_reconciliation_required');
