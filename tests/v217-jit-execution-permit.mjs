@@ -313,5 +313,34 @@ try {
   fs.rmSync(expiryFile,{force:true});
 }
 
+// Simulate a stale preflight read: execution is approved, then authority is
+// revoked on a different connection before the write can consume the permit.
+// The trigger must re-evaluate grant status at the write boundary.
+db.prepare("INSERT INTO agent_execution_grants(id,tenant_id,status) VALUES(?,?,?)").run("g10","t1","active");
+db.prepare("INSERT INTO agent_action_intents(id,tenant_id,agent_key,action_key) VALUES(?,?,?,?)").run("i10","t1","thebe","task.create");
+insertRequest.run("q10","t1","i10","g10","hash-10","hash-10","owner1");
+insertPermit.run("p10","t1","owner1","q10","g10","hash-10");
+const staleFile=path.join(os.tmpdir(),"thebe-jit-stale-"+process.pid+"-"+Date.now()+".sqlite");
+try {
+  db.exec("VACUUM INTO '"+staleFile.replaceAll("'","''")+"'");
+  const preflight=new DatabaseSync(staleFile);
+  const revoker=new DatabaseSync(staleFile);
+  const approved=preflight.prepare("SELECT p.status,p.use_count,g.status AS grant_status FROM agent_jit_execution_permits p JOIN agent_execution_grants g ON g.id=p.execution_grant_id WHERE p.id='p10'").get();
+  assert.equal(approved.status,"active");
+  assert.equal(approved.use_count,0);
+  assert.equal(approved.grant_status,"active");
+  revoker.prepare("UPDATE agent_execution_grants SET status='revoked' WHERE id='g10'").run();
+  assert.throws(
+    ()=>preflight.prepare("UPDATE agent_task_requests SET status='executed',jit_permit_id='p10' WHERE id='q10'").run(),
+    /agent_jit_permit_invalid_or_expired/
+  );
+  assert.equal(preflight.prepare("SELECT status FROM agent_task_requests WHERE id='q10'").get().status,"approved");
+  assert.equal(preflight.prepare("SELECT use_count FROM agent_jit_execution_permits WHERE id='p10'").get().use_count,0);
+  preflight.close();
+  revoker.close();
+} finally {
+  fs.rmSync(staleFile,{force:true});
+}
+
 db.close();
 console.log("v217 JIT execution permit adversarial gate passed");
