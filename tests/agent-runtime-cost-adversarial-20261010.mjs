@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {evaluateAgentCostAdmission,normalizeAgentUsage} from "../cloudflare/src/agent-cost-admission.js";
 import {evaluateAgentRuntimeGuard} from "../cloudflare/src/agent-runtime-guard.js";
 import {authorizeAndReserveAgentCost} from "../cloudflare/src/agent-cost-execution-boundary.js";
+import {reserveAgentCost} from "../cloudflare/src/agent-cost-reservations.js";
 
 // Adversarial checks for the disabled-by-default experimental accounting path.
 // All denied requests must terminate before touching D1.
