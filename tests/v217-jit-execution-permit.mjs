@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import {DatabaseSync} from "node:sqlite";
+import {Worker} from "node:worker_threads";
+import os from "node:os";
+import path from "node:path";
 
 const source=fs.readFileSync("cloudflare/src/agentic-task-execution.js","utf8");
 const migration=fs.readFileSync("cloudflare/migrations/064_v217_jit_execution_permits.sql","utf8");
@@ -214,6 +217,50 @@ assert.throws(
 );
 assert.equal(db.prepare("SELECT status FROM agent_task_requests WHERE id='q6'").get().status,"approved");
 assert.equal(db.prepare("SELECT use_count FROM agent_jit_execution_permits WHERE id='p6'").get().use_count,0);
+
+// Two independent SQLite connections race to consume the SAME permit.
+// SQLite serializes writers; the loser must observe a rejected replay.
+db.prepare("INSERT INTO agent_action_intents(id,tenant_id,agent_key,action_key) VALUES(?,?,?,?)").run("i7","t1","thebe","task.create");
+insertRequest.run("q7","t1","i7","g1","hash-7","hash-7","owner1");
+insertPermit.run("p7","t1","owner1","q7","g1","hash-7");
+const raceFile=path.join(os.tmpdir(),"thebe-jit-race-"+process.pid+"-"+Date.now()+".sqlite");
+try {
+  db.exec("VACUUM INTO '"+raceFile.replaceAll("'","''")+"'");
+  const workerCode=`
+    const {parentPort,workerData}=require('node:worker_threads');
+    const {DatabaseSync}=require('node:sqlite');
+    const conn=new DatabaseSync(workerData.file);
+    conn.exec('PRAGMA busy_timeout=10000');
+    parentPort.once('message',()=>{
+      try {
+        conn.prepare("UPDATE agent_task_requests SET status='executed',jit_permit_id='p7' WHERE id='q7'").run();
+        parentPort.postMessage({ok:true});
+      } catch(e) {
+        parentPort.postMessage({ok:false,error:String(e.message)});
+      } finally { conn.close(); }
+    });
+    parentPort.postMessage({ready:true});
+  `;
+  const workers=[0,1].map(()=>new Worker(workerCode,{eval:true,workerData:{file:raceFile}}));
+  const results=await Promise.all(workers.map(worker=>new Promise((resolve,reject)=>{
+    let ready=false;
+    worker.on("error",reject);
+    worker.on("message",message=>{
+      if(message.ready&&!ready){ready=true;worker.postMessage("start");}
+      else if("ok" in message) resolve(message);
+    });
+  })));
+  await Promise.all(workers.map(w=>w.terminate()));
+  assert.equal(results.filter(r=>r.ok).length,1,"exactly one connection must execute");
+  assert.equal(results.filter(r=>!r.ok).length,1,"replay must be denied");
+  assert.match(results.find(r=>!r.ok).error,/agent_jit_permit_invalid_or_expired/);
+  const verify=new DatabaseSync(raceFile);
+  assert.equal(verify.prepare("SELECT status FROM agent_task_requests WHERE id='q7'").get().status,"executed");
+  assert.equal(verify.prepare("SELECT use_count FROM agent_jit_execution_permits WHERE id='p7'").get().use_count,1);
+  verify.close();
+} finally {
+  fs.rmSync(raceFile,{force:true});
+}
 
 db.close();
 console.log("v217 JIT execution permit adversarial gate passed");
