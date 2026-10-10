@@ -1,0 +1,120 @@
+name: Property regression bisect
+run-name: Property regression bisect ${{ github.event.pull_request.head.sha }}
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: property-regression-bisect-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bisect:
+    name: Property historical regression bisect
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Checkout exact PR head revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Prove exact PR head checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+          test -z "$(git status --porcelain --untracked-files=all)"
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+      - name: Install exact dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: V180 regulatory pack integrity
+        run: node tests/v180-regulatory-pack-integrity.mjs
+      - name: V181 regulatory activation audit
+        run: node tests/v181-regulatory-activation-audit.mjs
+      - name: Agent preflight
+        run: npm run check:agent-preflight
+      - name: Owner operator
+        run: npm run test:owner-operator
+      - name: V248 pricing selector parity
+        run: node tests/v248-pricing-selector-parity.mjs
+      - name: V235 business goals adversarial
+        run: node tests/v235-business-goals-adversarial.mjs
+      - name: V236 goals ideas owner command
+        run: node tests/v236-goals-ideas-owner-command.mjs
+      - name: V239 goals lifecycle owner command
+        run: node tests/v239-goals-lifecycle-owner-command.mjs
+      - name: V240 business goal durable loop
+        run: node tests/v240-business-goal-durable-loop.mjs
+      - name: V241 goal outcomes
+        run: node tests/v241-goal-outcomes.mjs
+      - name: V242 goal attention budget
+        run: node tests/v242-goal-attention-budget.mjs
+      - name: V243 business goal observer hardening
+        run: node tests/v243-business-goal-observer-hardening.mjs
+      - name: Unified goal flow runtime
+        run: node tests/unified-goal-flow-runtime.mjs
+      - name: V237 workspace geometry cleanup
+        run: node tests/v237-workspace-geometry-cleanup.mjs
+      - name: V237 dead workspace assets
+        run: node tests/v237-dead-workspace-assets.mjs
+      - name: V237 dead runtime boundary
+        run: node tests/v237-dead-runtime-boundary.mjs
+      - name: V238 home command canvas
+        run: node tests/v238-home-command-canvas.mjs
+      - name: V237 workspace reference shell
+        run: node tests/v237-workspace-reference-shell.mjs
+      - name: V234 home live brief density
+        run: node tests/v234-home-live-brief-density.mjs
+      - name: V233 workspace dock density adversarial
+        run: node tests/v233-workspace-dock-density-adversarial.mjs
+      - name: V231 workspace command center system
+        run: node tests/v231-workspace-command-center-system.mjs
+      - name: V230 public root asset boundary
+        run: node tests/v230-public-root-asset-boundary.mjs
+      - name: V230 Property visibility command center
+        run: node tests/v230-property-visibility-command-center.mjs
+      - name: V228 owner command handoff
+        run: node tests/v228-thebe-owner-command-handoff.mjs
+      - name: V225 goal evidence plan
+        run: node tests/v225-thebe-goal-evidence-plan.mjs
+      - name: V179 Property valuer credential binding
+        run: node tests/v179-property-valuer-credential-binding.mjs
+      - name: V179 compliance coverage truth
+        run: node tests/v179-compliance-coverage-truth.mjs
+      - name: V178 user journey destructive
+        run: node tests/v178-user-journey-destructive.mjs
+      - name: V177 workspace Property employee layout
+        run: node tests/v177-workspace-property-employee-layout.mjs
+      - name: V176 Property valuation services
+        run: node tests/v176-property-valuation-services.mjs
+      - name: V175 Property evidence profitability
+        run: node tests/v175-property-evidence-profitability.mjs
+      - name: V174 Property portfolio valuation
+        run: node tests/v174-property-portfolio-valuation.mjs
+      - name: V173 business analytics
+        run: node tests/v173-business-analytics.mjs
+      - name: V172 market activation gate
+        run: node tests/v172-market-activation-gate.mjs
+      - name: V171 AI execution market parity
+        run: node tests/v171-ai-execution-market-parity.mjs
+      - name: V170 agent market context
+        run: node tests/v170-agent-market-context.mjs
+      - name: V169 regulatory pack registry
+        run: node tests/v169-regulatory-pack-registry.mjs
+      - name: V168 market profile foundation
+        run: node tests/v168-market-profile-foundation.mjs
+      - name: V167 production migration suppliers payables
+        run: node tests/v167-production-migration-v161-suppliers-payables.mjs
+      - name: V160 Property intelligence adversarial
+        run: node tests/v160-property-intelligence-adversarial.mjs
