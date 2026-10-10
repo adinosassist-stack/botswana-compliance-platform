@@ -69,5 +69,6 @@ jobs:
       - run: node tests/agent-cost-production-migration.mjs
       - run: node tests/agent-cost-remote-d1-qualification-static.mjs
       - run: node --disable-warning=ExperimentalWarning tests/agent-cost-reservations-integration.mjs
+      - run: node --disable-warning=ExperimentalWarning tests/agent-cost-terminal-race.mjs
       - run: node --disable-warning=ExperimentalWarning tests/agent-cost-tenant-purge.mjs
       - run: node --disable-warning=ExperimentalWarning tests/agent-cost-outcome-telemetry.mjs
