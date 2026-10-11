@@ -65,19 +65,22 @@
 
 (()=>{
   "use strict";
-  const release="20261011-owner-ask-render-v319";
+  const renderRelease="20261011-owner-ask-render-v319";
+  const controlRelease="20261011-owner-ask-control-v320";
   let requested=false;
-  function loadOwnerAskRender(){
+  function loadOwnerAsk(){
     if(requested)return;
     requested=true;
-    import(`/js/owner-ask-thebe-render-v319.js?release=${release}`).catch(error=>{
-      requested=false;
-      console.error("Owner Ask Thebe render extension failed to load",error);
-    });
+    import(`/js/owner-ask-thebe-render-v319.js?release=${renderRelease}`)
+      .then(()=>import(`/js/owner-ask-thebe-stable-v320.js?release=${controlRelease}`))
+      .catch(error=>{
+        requested=false;
+        console.error("Owner Ask Thebe extensions failed to load",error);
+      });
   }
-  if(typeof window.whenThebeWorkspaceReady==="function")window.whenThebeWorkspaceReady(loadOwnerAskRender);
-  else if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",loadOwnerAskRender,{once:true});
-  else loadOwnerAskRender();
+  if(typeof window.whenThebeWorkspaceReady==="function")window.whenThebeWorkspaceReady(loadOwnerAsk);
+  else if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",loadOwnerAsk,{once:true});
+  else loadOwnerAsk();
 })();
 
 (()=>{
