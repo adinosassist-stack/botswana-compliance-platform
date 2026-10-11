@@ -2,6 +2,10 @@ name: Thebe Desk Regulatory Reviewer Provisioning
 run-name: Regulatory reviewer provisioning ${{ github.sha }}
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'operations/regulatory-reviewer-provision-trigger.json'
   workflow_dispatch:
     inputs:
       confirmation:
@@ -22,7 +26,10 @@ jobs:
     name: Governed distinct reviewer provisioning
     if: >-
       github.ref == 'refs/heads/main' &&
-      (inputs.confirmation == 'VALIDATE_ONLY' || inputs.confirmation == 'PROVISION_SINGLE_REGULATORY_REVIEWER')
+      (
+        (github.event_name == 'workflow_dispatch' && (inputs.confirmation == 'VALIDATE_ONLY' || inputs.confirmation == 'PROVISION_SINGLE_REGULATORY_REVIEWER')) ||
+        (github.event_name == 'push' && contains(github.event.head_commit.message, '[provision-regulatory-reviewer]'))
+      )
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment: production
@@ -54,9 +61,25 @@ jobs:
           [[ -n "$CLOUDFLARE_API_TOKEN" ]] || { echo 'CLOUDFLARE_API_TOKEN is not configured.' >&2; exit 1; }
           [[ -n "$CLOUDFLARE_ACCOUNT_ID" ]] || { echo 'CLOUDFLARE_ACCOUNT_ID is not configured.' >&2; exit 1; }
           [[ -n "$D1_DATABASE_ID" ]] || { echo 'D1_DATABASE_ID is not configured.' >&2; exit 1; }
-          [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]] || { echo 'workflow_dispatch is required' >&2; exit 1; }
           [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo 'refusing non-main execution' >&2; exit 1; }
-          [[ "$PROVISION_CONFIRMATION" == 'VALIDATE_ONLY' || "$PROVISION_CONFIRMATION" == 'PROVISION_SINGLE_REGULATORY_REVIEWER' ]] || { echo 'unsupported confirmation' >&2; exit 1; }
+          if [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]; then
+            [[ "$PROVISION_CONFIRMATION" == 'VALIDATE_ONLY' || "$PROVISION_CONFIRMATION" == 'PROVISION_SINGLE_REGULATORY_REVIEWER' ]] || { echo 'unsupported confirmation' >&2; exit 1; }
+          elif [[ "$GITHUB_EVENT_NAME" == 'push' ]]; then
+            python3 - <<'PY'
+          import json
+          data=json.load(open('operations/regulatory-reviewer-provision-trigger.json',encoding='utf-8'))
+          assert data.get('schema') == 1, 'invalid provisioning trigger schema'
+          assert data.get('requested') is True, 'provisioning was not explicitly requested'
+          assert data.get('apply') is True, 'provisioning trigger is not authorized to apply'
+          assert data.get('purpose') == 'provision-single-distinct-regulatory-reviewer', 'unexpected provisioning purpose'
+          assert data.get('safety') == 'existing allowlisted member only; reviewer role only; no content approval, publication, identity creation, password reset, or deletion', 'unexpected provisioning safety contract'
+          print('One-shot governed reviewer provisioning trigger validated.')
+          PY
+            echo 'PROVISION_CONFIRMATION=PROVISION_SINGLE_REGULATORY_REVIEWER' >> "$GITHUB_ENV"
+          else
+            echo 'unsupported trigger event' >&2
+            exit 1
+          fi
 
       - name: Prove provisioning safety contract
         shell: bash
