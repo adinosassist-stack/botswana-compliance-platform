@@ -137,21 +137,17 @@ function shapeAvailability(source,validator){
   return validator(source.value)?source:{available:false,value:source.value,reason:"invalid_shape"};
 }
 
-async function ownerAttentionDailyBrief({request,env,ctx,coreFetch,controlPlaneFetch}){
+async function ownerAttentionDailyBrief({request,env,ctx,coreFetch}){
   const dailyResponse=await coreFetch(request,env,ctx);
   if(!dailyResponse.ok)return dailyResponse;
   const dailySource=shapeAvailability(await readJsonSource(dailyResponse),validDailyShape);
-  if(!dailySource.available){
-    const headers=new Headers(dailyResponse.headers);headers.set("x-thebe-owner-attention-state","unavailable");
-    return new Response(dailyResponse.body,{status:dailyResponse.status,statusText:dailyResponse.statusText,headers});
-  }
 
   const runsRequest=readPathRequest(request,RUNS_PATH);
   const outcomesRequest=readPathRequest(request,OUTCOMES_PATH);
   const businessRequest=readPathRequest(request,BUSINESS_CONTEXT_PATH);
   const [runsResponse,outcomesResponse,businessResponse]=await Promise.all([
-    controlPlaneFetch(runsRequest,RUNS_PATH,env,ctx),
-    controlPlaneFetch(outcomesRequest,OUTCOMES_PATH,env,ctx),
+    coreFetch(runsRequest,env,ctx),
+    coreFetch(outcomesRequest,env,ctx),
     coreFetch(businessRequest,env,ctx)
   ]);
   const [rawRunsSource,rawOutcomesSource,businessSource]=await Promise.all([
@@ -160,14 +156,14 @@ async function ownerAttentionDailyBrief({request,env,ctx,coreFetch,controlPlaneF
   const runsSource=shapeAvailability(rawRunsSource,validRunsShape);
   const outcomesApiSource=shapeAvailability(rawOutcomesSource,validOutcomesShape);
 
-  const daily=enrichDailyActions(dailySource.value);
+  const daily=dailySource.available?enrichDailyActions(dailySource.value):null;
   const approvals=runsSource.available?approvalRows(runsSource.value):[];
   const outcomesAvailable=runsSource.available&&outcomesApiSource.available;
   const outcomes=outcomesAvailable?pendingOutcomeRows(runsSource.value,outcomesApiSource.value):[];
   const businessBrief=businessSource.available?(businessSource.value?.brief||businessSource.value):null;
   const market=runtimeMarketProfile(DEFAULT_RUNTIME_MARKET_CODE);
   const sourceAvailability={
-    dailyBrief:availability(true,null,true),
+    dailyBrief:availability(dailySource.available,dailySource.reason,true),
     businessContext:availability(businessSource.available,businessSource.reason,false),
     approvals:availability(runsSource.available,runsSource.reason,true),
     outcomes:availability(outcomesAvailable,!runsSource.available?runsSource.reason:outcomesApiSource.reason,true)
@@ -185,7 +181,7 @@ async function ownerAttentionDailyBrief({request,env,ctx,coreFetch,controlPlaneF
   const ownerAttention=Object.freeze({
     ...baseProjection,
     counts:authoritativeCounts(baseProjection,daily,approvals,outcomes,{
-      dailyAvailable:true,
+      dailyAvailable:dailySource.available,
       approvalsAvailable:runsSource.available,
       outcomesAvailable
     })
@@ -196,7 +192,8 @@ async function ownerAttentionDailyBrief({request,env,ctx,coreFetch,controlPlaneF
   headers.set("cache-control","no-store");
   headers.set("x-thebe-owner-attention-version",String(ownerAttention.version||"unknown"));
   headers.set("x-thebe-owner-attention-state",String(ownerAttention.state||"unknown"));
-  return new Response(JSON.stringify({...dailySource.value,ownerAttention}),{status:dailyResponse.status,statusText:dailyResponse.statusText,headers});
+  const dailyPayload=dailySource.value&&typeof dailySource.value==="object"&&!Array.isArray(dailySource.value)?dailySource.value:{};
+  return new Response(JSON.stringify({...dailyPayload,ownerAttention}),{status:dailyResponse.status,statusText:dailyResponse.statusText,headers});
 }
 
 export {DAILY_BRIEF_PATH,ownerAttentionDailyBrief};
