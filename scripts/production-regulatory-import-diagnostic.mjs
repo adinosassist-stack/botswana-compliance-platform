@@ -41,7 +41,7 @@ const seedRows=await query(`SELECT entity_type, COUNT(*) AS count FROM regulator
 const sourceRows=await query(`SELECT status, COUNT(*) AS count FROM regulatory_sources GROUP BY status ORDER BY status`);
 const ruleRows=await query(`SELECT status, COUNT(*) AS count FROM regulatory_rules GROUP BY status ORDER BY status`);
 const conflictRows=await query(`SELECT status, COUNT(*) AS count FROM regulatory_conflicts GROUP BY status ORDER BY status`);
-const importRows=await query(`SELECT pack_key, CAST(pack_version AS TEXT) AS pack_version, status, sources_created, sources_reused, rules_created, rules_reused, conflicts_created, conflicts_reused, created_at FROM regulatory_pack_imports WHERE pack_key=? ORDER BY created_at DESC LIMIT 10`,[pack.packKey]);
+const importRows=await query(`SELECT pack_key, CAST(pack_version AS TEXT) AS pack_version, status, sources_created, sources_existing, rules_created, rules_existing, conflicts_created, conflicts_existing, created_at FROM regulatory_pack_imports WHERE pack_key=? ORDER BY created_at DESC LIMIT 10`,[pack.packKey]);
 
 const seeds=Object.fromEntries(seedRows.map(r=>[String(r.entity_type||'unknown'),number(r.count)]));
 const expected={source:pack.sources.length,conflict:pack.conflicts.length,rule:pack.rules.length};
@@ -54,6 +54,6 @@ console.log(`ruleStatus=${JSON.stringify(countByStatus(ruleRows))}`);
 console.log(`conflictStatus=${JSON.stringify(countByStatus(conflictRows))}`);
 console.log(`importRecords=${importRows.length}`);
 for(const row of importRows){
-  console.log(`import pack=${String(row.pack_key)} version=${String(row.pack_version)} status=${String(row.status)} sourcesCreated=${number(row.sources_created)} sourcesReused=${number(row.sources_reused)} rulesCreated=${number(row.rules_created)} rulesReused=${number(row.rules_reused)} conflictsCreated=${number(row.conflicts_created)} conflictsReused=${number(row.conflicts_reused)} createdAt=${String(row.created_at||'')}`);
+  console.log(`import pack=${String(row.pack_key)} version=${String(row.pack_version)} status=${String(row.status)} sourcesCreated=${number(row.sources_created)} sourcesExisting=${number(row.sources_existing)} rulesCreated=${number(row.rules_created)} rulesExisting=${number(row.rules_existing)} conflictsCreated=${number(row.conflicts_created)} conflictsExisting=${number(row.conflicts_existing)} createdAt=${String(row.created_at||'')}`);
 }
 console.log('Diagnostic completed with fixed SELECT-only queries; no production data was mutated.');
