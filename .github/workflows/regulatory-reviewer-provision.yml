@@ -1,0 +1,72 @@
+name: Thebe Desk Regulatory Reviewer Provisioning
+run-name: Regulatory reviewer provisioning ${{ github.sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type VALIDATE_ONLY or PROVISION_SINGLE_REGULATORY_REVIEWER
+        required: true
+        default: VALIDATE_ONLY
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: thebe-desk-regulatory-reviewer-provisioning
+  cancel-in-progress: false
+
+jobs:
+  provision:
+    name: Governed distinct reviewer provisioning
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (inputs.confirmation == 'VALIDATE_ONLY' || inputs.confirmation == 'PROVISION_SINGLE_REGULATORY_REVIEWER')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
+      CF_WORKER_SCRIPT_NAME: bw-compliance-os
+      PROVISION_CONFIRMATION: ${{ inputs.confirmation }}
+
+    steps:
+      - name: Checkout exact provisioning authority
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+
+      - name: Refuse missing authority or unsafe trigger
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "$CLOUDFLARE_API_TOKEN" ]] || { echo 'CLOUDFLARE_API_TOKEN is not configured.' >&2; exit 1; }
+          [[ -n "$CLOUDFLARE_ACCOUNT_ID" ]] || { echo 'CLOUDFLARE_ACCOUNT_ID is not configured.' >&2; exit 1; }
+          [[ -n "$D1_DATABASE_ID" ]] || { echo 'D1_DATABASE_ID is not configured.' >&2; exit 1; }
+          [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]] || { echo 'workflow_dispatch is required' >&2; exit 1; }
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo 'refusing non-main execution' >&2; exit 1; }
+          [[ "$PROVISION_CONFIRMATION" == 'VALIDATE_ONLY' || "$PROVISION_CONFIRMATION" == 'PROVISION_SINGLE_REGULATORY_REVIEWER' ]] || { echo 'unsupported confirmation' >&2; exit 1; }
+
+      - name: Prove provisioning safety contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/provision-regulatory-reviewer.mjs
+          node tests/regulatory-reviewer-provisioning-static.mjs
+
+      - name: Validate or provision the single approved reviewer
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/provision-regulatory-reviewer.mjs
