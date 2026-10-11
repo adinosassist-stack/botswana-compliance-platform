@@ -1,4 +1,4 @@
-name: Export AI context sources
+name: Apply verified AI context patch
 
 on:
   push:
@@ -7,23 +7,51 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  export:
+  apply:
+    if: ${{ !contains(github.event.head_commit.message || '', 'fix: bound advisor workspace context truthfully') }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Checkout exact branch head
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
-      - name: Upload exact AI context sources
-        uses: actions/upload-artifact@v4
+          fetch-depth: 0
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@v4
         with:
-          name: ai-context-sources
-          path: |
-            cloudflare/src/worker.js
-            public/js/owner-command-centre.js
-          if-no-files-found: error
-          retention-days: 1
+          node-version: "22.20.0"
+
+      - name: Apply exact scoped patch
+        run: node scripts/apply-ai-context-compaction.mjs
+
+      - name: Verify syntax and context contracts
+        run: |
+          node --check cloudflare/src/ai-advisor-context-compaction.js
+          node --check cloudflare/src/worker.js
+          node --check public/js/owner-command-centre.js
+          node tests/v116-thebe-super-agent-ask-anything.mjs
+          node tests/v329-ai-advisor-context-compaction.mjs
+          git diff --check
+
+      - name: Remove temporary patch machinery
+        run: |
+          rm scripts/apply-ai-context-compaction.mjs
+          rm .github/workflows/export-worker-snapshot.yml
+
+      - name: Verify final scoped file set
+        run: |
+          git add -A
+          git diff --cached --name-only
+          test "$(git diff --cached --name-only | sort | tr '\n' ' ')" = "cloudflare/src/ai-advisor-context-compaction.js cloudflare/src/worker.js public/js/owner-command-centre.js tests/v329-ai-advisor-context-compaction.mjs "
+          git diff --cached --check
+
+      - name: Commit verified patch
+        run: |
+          git config user.name "adinosassist-stack"
+          git config user.email "adinosassist@gmail.com"
+          git commit -m "fix: bound advisor workspace context truthfully"
+          git push origin HEAD:chatgpt/ai-context-compaction
