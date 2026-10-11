@@ -149,14 +149,62 @@ async function proveAskThebe(page){
   await form.waitFor({state:'visible',timeout:VIEW_TIMEOUT});
   const submit=form.locator('button[type="submit"]:has-text("Ask Thebe")').first();
   await submit.waitFor({state:'visible',timeout:VIEW_TIMEOUT});
+
+  const preflight=await page.evaluate(()=>({
+    release:String(globalThis.__THEBE_OWNER_ASK_RENDER_RELEASE__||''),
+    apiJson:typeof globalThis.apiJson,
+    workspaceReady:globalThis.__THEBE_WORKSPACE_READY__===true,
+    formBoundary:!!document.querySelector('form[aria-label="Ask Thebe a question"]')?.closest('.owner-agentic-boundary'),
+    status:String(document.getElementById('ownerAgenticStatus')?.textContent||'').trim(),
+    existingAnswer:String(document.querySelector('#ownerAgenticPanel .owner-agentic-run')?.textContent||'').trim().slice(0,180)
+  }));
+  console.log(`INFO P0 Ask Thebe preflight: ${safe(JSON.stringify(preflight))}`);
+
+  const advisorResponses=[];
+  const responseListener=async response=>{
+    if(!response.url().includes('/api/ai/advisor'))return;
+    let body='';
+    try{body=await response.text()}catch{}
+    advisorResponses.push({status:response.status(),url:response.url(),body:safe(body)});
+    console.log(`INFO P0 Ask Thebe network: ${safe(JSON.stringify(advisorResponses.at(-1)))}`);
+  };
+  page.on('response',responseListener);
+
   await question.fill('In one short sentence, what should this synthetic owner review first today? Use only this workspace context.');
   await submit.click();
-  await page.waitForFunction(()=>{
-    const status=document.getElementById('ownerAgenticStatus');
-    const panel=document.getElementById('ownerAgenticPanel');
-    const answer=panel?.querySelector('.owner-agentic-run');
-    return /Answer ready/i.test(String(status?.textContent||''))&&String(answer?.textContent||'').trim().length>20;
-  },null,{timeout:WORKSPACE_TIMEOUT});
+  try{
+    await page.waitForFunction(()=>{
+      const status=document.getElementById('ownerAgenticStatus');
+      const panel=document.getElementById('ownerAgenticPanel');
+      const answer=panel?.querySelector('.owner-agentic-run');
+      return /Answer ready/i.test(String(status?.textContent||''))&&String(answer?.textContent||'').trim().length>20;
+    },null,{timeout:WORKSPACE_TIMEOUT});
+  }catch(error){
+    const diagnostic=await page.evaluate(()=>{
+      const status=document.getElementById('ownerAgenticStatus');
+      const panel=document.getElementById('ownerAgenticPanel');
+      const answers=[...(panel?.querySelectorAll('.owner-agentic-run')||[])];
+      const form=document.querySelector('form[aria-label="Ask Thebe a question"]');
+      const submit=form?.querySelector('button[type="submit"]');
+      return {
+        release:String(globalThis.__THEBE_OWNER_ASK_RENDER_RELEASE__||''),
+        apiJson:typeof globalThis.apiJson,
+        workspaceReady:globalThis.__THEBE_WORKSPACE_READY__===true,
+        formBoundary:!!form?.closest('.owner-agentic-boundary'),
+        status:String(status?.textContent||'').trim().slice(0,220),
+        answerCount:answers.length,
+        answerText:String(answers.at(-1)?.textContent||'').trim().slice(0,400),
+        answerRelease:String(answers.at(-1)?.dataset?.askRenderRelease||''),
+        submitText:String(submit?.textContent||''),
+        submitDisabled:!!submit?.disabled
+      };
+    });
+    console.log(`FAIL P0 Ask Thebe diagnostic: ${safe(JSON.stringify(diagnostic))}`);
+    console.log(`FAIL P0 Ask Thebe responses: ${safe(JSON.stringify(advisorResponses))}`);
+    throw error;
+  }finally{
+    page.off('response',responseListener);
+  }
   const status=safe(await page.locator('#ownerAgenticStatus').innerText());
   const answer=safe(await panel.locator('.owner-agentic-run').last().innerText());
   check(/Answer ready/i.test(status),`Ask Thebe did not reach ready state: ${status}`);
