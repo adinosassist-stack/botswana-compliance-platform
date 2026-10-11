@@ -13,7 +13,7 @@ export function sanitizeAgentRun(input) {
   const outcome = OUTCOMES.has(input.outcome) ? input.outcome : "unverified";
   // Explicit allowlist: never spread input or retain prompts, tool payloads or secrets.
   return Object.freeze({
-    tenantId, traceId,
+    tenantId, actorTenantId, traceId,
     workflow: safeKey(input.workflow),
     agentId: safeKey(input.agentId),
     toolKey: safeKey(input.toolKey),
