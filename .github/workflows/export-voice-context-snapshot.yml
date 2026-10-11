@@ -1,4 +1,4 @@
-name: Export voice context sources
+name: Apply verified voice context disclosure
 
 on:
   push:
@@ -7,23 +7,51 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  export:
+  apply:
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Checkout exact branch head
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
-      - name: Upload exact voice context sources
-        uses: actions/upload-artifact@v4
+          fetch-depth: 0
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@v4
         with:
-          name: voice-context-sources
-          path: |
-            cloudflare/src/agentic-core.js
-            cloudflare/src/agentic-live-voice.js
-          if-no-files-found: error
-          retention-days: 1
+          node-version: "22.20.0"
+
+      - name: Apply exact scoped voice patch
+        run: node scripts/apply-voice-context-disclosure.mjs
+
+      - name: Verify voice context contracts
+        run: |
+          node --check cloudflare/src/agentic-core.js
+          node --check cloudflare/src/agentic-live-voice.js
+          node --check tests/v330-live-voice-context-disclosure.mjs
+          node tests/v330-live-voice-context-disclosure.mjs
+          node tests/v329-ai-advisor-context-compaction.mjs
+          node tests/v116-thebe-super-agent-ask-anything.mjs
+          git diff --check
+
+      - name: Remove temporary voice patch machinery
+        run: |
+          rm scripts/apply-voice-context-disclosure.mjs
+          rm .github/workflows/export-voice-context-snapshot.yml
+
+      - name: Verify exact one-shot staged scope
+        run: |
+          git add -A
+          git diff --cached --name-only
+          test "$(git diff --cached --name-only | sort | tr '\n' ' ')" = ".github/workflows/export-voice-context-snapshot.yml cloudflare/src/agentic-core.js cloudflare/src/agentic-live-voice.js scripts/apply-voice-context-disclosure.mjs "
+          git diff --cached --check
+
+      - name: Commit verified voice patch
+        run: |
+          git config user.name "adinosassist-stack"
+          git config user.email "adinosassist@gmail.com"
+          git commit -m "fix: disclose partial workspace context in voice"
+          git push origin HEAD:chatgpt/ai-context-compaction
