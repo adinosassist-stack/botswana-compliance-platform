@@ -33,8 +33,11 @@ ok(ui.includes('payload?.execution?.providerSend===false'),'prepared response mu
 ok(ui.includes('payload?.execution?.recipientTargeting===false'),'prepared response must prove no recipient targeting');
 
 ok(ui.includes('preview.readOnly=true'),'prepared draft preview is read-only');
-ok(ui.includes('global.navigator.clipboard.writeText(currentDraft)'),'manual copy is the only transfer action');
+ok(ui.includes('global.navigator.clipboard.writeText(currentDraft)'),'manual copy remains an available transfer action');
 ok(ui.includes('copyDraftButton.textContent="Copy reviewed draft"'),'copy action is explicitly review-oriented');
+ok(ui.includes('openWhatsAppButton.textContent="Open WhatsApp"'),'reviewed handoff is explicitly labeled');
+ok(ui.includes('https://wa.me/?text=${encodeURIComponent(currentDraft)}'),'WhatsApp handoff contains only the reviewed draft and no recipient');
+ok(ui.includes('choose the recipient and send it yourself.'),'handoff keeps recipient selection and final send with the user');
 ok(ui.includes('Thebe Desk did not send anything.'),'UI states that copy does not send');
 ok(ui.includes('No recipient targeting · no automatic sending · every draft requires your review.'),'human boundary is visible in the panel');
 ok(ui.includes('["owner","manager"].includes(role())'),'browser panel is role-gated to Owner/Manager');
@@ -42,8 +45,8 @@ ok(ui.includes('["owner","manager"].includes(role())'),'browser panel is role-ga
 for(const forbidden of ["WHATSAPP_ACCESS_TOKEN","WHATSAPP_PHONE_NUMBER_ID","graph.facebook.com","notification_outbox","phone_e164"]){
   ok(!ui.includes(forbidden),`UI cannot access ${forbidden}`);
 }
-ok(!ui.includes('href="https://wa.me')&&!ui.includes("wa.me/"),'UI cannot launch a recipient-addressed WhatsApp link');
-ok(!ui.includes('window.open('),'UI cannot open an outbound messaging window');
+ok(!/wa\.me\/\d/.test(ui),'UI cannot launch a recipient-addressed WhatsApp link');
+ok(!ui.includes('window.open('),'UI cannot directly open an outbound messaging window');
 ok(!ui.includes('/messages'),'UI contains no provider message endpoint');
 ok(!ui.includes('.innerHTML='),'UI renders draft text without direct innerHTML assignment');
 

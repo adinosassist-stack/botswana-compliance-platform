@@ -1,7 +1,7 @@
 (function initOwnerWhatsAppPrepare(global){
   "use strict";
 
-  const RELEASE="20260914a";
+  const RELEASE="20261011a";
   const PANEL_ID="ownerWhatsAppPreparePanel";
   const PURPOSES=Object.freeze([
     Object.freeze({key:"owner_daily_brief",label:"Owner daily brief"}),
@@ -40,6 +40,7 @@
   const statusNode=()=>q("#ownerWhatsAppPrepareStatus");
   const prepareButton=()=>q("#ownerWhatsAppPrepareButton");
   const copyButton=()=>q("#ownerWhatsAppCopyButton");
+  const openButton=()=>q("#ownerWhatsAppOpenButton");
   const previewNode=()=>q("#ownerWhatsAppPreview");
 
   function setStatus(message){
@@ -48,12 +49,13 @@
   }
 
   function setControls(){
-    const prepare=prepareButton(),copy=copyButton();
+    const prepare=prepareButton(),copy=copyButton(),open=openButton();
     if(prepare){
       prepare.disabled=busy||!capabilityReady||!roleAllowed();
       prepare.textContent=busy?"Preparing…":"Prepare draft";
     }
     if(copy)copy.disabled=busy||!currentDraft;
+    if(open)open.disabled=busy||!currentDraft;
   }
 
   function validateCapability(payload){
@@ -173,6 +175,20 @@
     }
   }
 
+  function openWhatsApp(){
+    if(!currentDraft)return;
+    const url=`https://wa.me/?text=${encodeURIComponent(currentDraft)}`;
+    const anchor=document.createElement("a");
+    anchor.href=url;
+    anchor.target="_blank";
+    anchor.rel="noopener noreferrer";
+    anchor.setAttribute("aria-label","Open reviewed draft in WhatsApp");
+    document.body.append(anchor);
+    setStatus("Opening WhatsApp with the reviewed draft · choose the recipient and send it yourself.");
+    anchor.click();
+    anchor.remove();
+  }
+
   function buildPanel(){
     const panel=document.createElement("section");
     panel.id=PANEL_ID;
@@ -185,7 +201,7 @@
     copy.append(
       text("div","WhatsApp · governed preparation","section-eyebrow"),
       text("h4","Prepare a business update for human review"),
-      text("p","Thebe builds a draft from recorded workspace data. It does not choose a recipient, open WhatsApp or send a message.","muted")
+      text("p","Thebe builds a draft from recorded workspace data. After you review it, you can open WhatsApp with the draft prefilled; you still choose the recipient and press send.","muted")
     );
     const status=text("span","Checking capability…","owner-input-status");
     status.id="ownerWhatsAppPrepareStatus";
@@ -244,7 +260,14 @@
     copyDraftButton.textContent="Copy reviewed draft";
     copyDraftButton.disabled=true;
     copyDraftButton.addEventListener("click",copyDraft);
-    actions.append(copyDraftButton);
+    const openWhatsAppButton=document.createElement("button");
+    openWhatsAppButton.id="ownerWhatsAppOpenButton";
+    openWhatsAppButton.type="button";
+    openWhatsAppButton.className="btn";
+    openWhatsAppButton.textContent="Open WhatsApp";
+    openWhatsAppButton.disabled=true;
+    openWhatsAppButton.addEventListener("click",openWhatsApp);
+    actions.append(copyDraftButton,openWhatsAppButton);
     panel.append(actions);
     return panel;
   }
