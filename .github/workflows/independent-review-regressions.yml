@@ -129,3 +129,11 @@ jobs:
           set -euo pipefail
           node --check tests/v322-reviewer-ui-contract.mjs
           node tests/v322-reviewer-ui-contract.mjs
+
+      - name: Copilot credit wallet runtime hydration
+        shell: bash
+        run: node tests/v333-copilot-credit-wallet-runtime.mjs
+
+      - name: Owner priority Worker routing and authority boundaries
+        shell: bash
+        run: node --no-warnings tests/v334-owner-priority-worker-routing.mjs

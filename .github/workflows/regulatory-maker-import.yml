@@ -1,0 +1,230 @@
+name: Thebe Desk Regulatory Maker Import
+run-name: Regulatory maker import ${{ github.sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type IMPORT_CURRENT_FOUNDATION_PACK to run the maker-side import
+        required: true
+        type: string
+  push:
+    branches: [main]
+    paths:
+      - 'operations/regulatory-maker-import-trigger.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: thebe-desk-regulatory-maker-import
+  cancel-in-progress: false
+
+jobs:
+  import-foundation-pack:
+    name: Import current Botswana foundation pack through governed API
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (
+        (github.event_name == 'workflow_dispatch' && inputs.confirmation == 'IMPORT_CURRENT_FOUNDATION_PACK') ||
+        (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-regulatory-maker-import]'))
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: production
+    env:
+      APP_ORIGIN: https://thebedesk.com
+      MAKER_EMAIL: ${{ secrets.PLATFORM_REGULATORY_MAKER_EMAIL }}
+      MAKER_PASSWORD: ${{ secrets.PLATFORM_REGULATORY_MAKER_PASSWORD }}
+
+    steps:
+      - name: Checkout exact workflow authority
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Refuse missing maker credentials or trigger authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "$MAKER_EMAIL" ]] || { echo 'PLATFORM_REGULATORY_MAKER_EMAIL is not configured.' >&2; exit 1; }
+          [[ -n "$MAKER_PASSWORD" ]] || { echo 'PLATFORM_REGULATORY_MAKER_PASSWORD is not configured.' >&2; exit 1; }
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo "refusing non-main execution: $GITHUB_REF" >&2; exit 1; }
+
+          if [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]; then
+            [[ "${{ inputs.confirmation }}" == 'IMPORT_CURRENT_FOUNDATION_PACK' ]] || { echo 'explicit workflow-dispatch confirmation missing' >&2; exit 1; }
+          elif [[ "$GITHUB_EVENT_NAME" == 'push' ]]; then
+            python3 - <<'PY'
+          import json
+          data=json.load(open('operations/regulatory-maker-import-trigger.json',encoding='utf-8'))
+          assert data.get('schema') == 1, 'invalid maker trigger schema'
+          assert data.get('requested') is True, 'maker trigger is not explicitly requested'
+          assert data.get('packKey') == 'botswana-foundation-v1', 'unexpected maker trigger pack key'
+          assert str(data.get('purpose') or '') == 'governed-production-foundation-pack-import', 'unexpected maker trigger purpose'
+          print('One-shot governed maker trigger validated.')
+          PY
+          else
+            echo "unsupported trigger event: $GITHUB_EVENT_NAME" >&2
+            exit 1
+          fi
+
+      - name: Authenticate production maker and prove platform role
+        id: auth
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          cookie_jar="$(mktemp)"
+          login_body="$(mktemp)"
+          status_body="$(mktemp)"
+          printf '%s' "$cookie_jar" > /tmp/thebe-maker-cookie-path
+
+          python3 - <<'PY' > /tmp/thebe-maker-login.json
+          import json, os
+          print(json.dumps({"email": os.environ["MAKER_EMAIL"], "password": os.environ["MAKER_PASSWORD"]}))
+          PY
+
+          login_status="$(curl --silent --show-error --output "$login_body" --write-out '%{http_code}' \
+            --cookie-jar "$cookie_jar" \
+            --request POST "$APP_ORIGIN/api/auth/login" \
+            --header 'Accept: application/json' \
+            --header 'Content-Type: application/json' \
+            --header "Origin: $APP_ORIGIN" \
+            --data-binary @/tmp/thebe-maker-login.json)"
+          [[ "$login_status" == '200' ]] || { echo "maker login failed HTTP $login_status" >&2; exit 1; }
+
+          csrf="$(python3 - "$login_body" <<'PY'
+          import json, sys
+          data=json.load(open(sys.argv[1], encoding='utf-8'))
+          assert data.get('ok') is True, 'login did not return ok=true'
+          csrf=str(data.get('csrfToken') or '')
+          assert len(csrf) >= 20, 'login csrf token missing'
+          print(csrf)
+          PY
+          )"
+          printf '%s' "$csrf" > /tmp/thebe-maker-csrf
+
+          status_http="$(curl --silent --show-error --output "$status_body" --write-out '%{http_code}' \
+            --cookie "$cookie_jar" \
+            --header 'Accept: application/json' \
+            "$APP_ORIGIN/api/platform/regulatory/status")"
+          [[ "$status_http" == '200' ]] || { echo "platform regulatory status failed HTTP $status_http" >&2; exit 1; }
+
+          python3 - "$status_body" <<'PY'
+          import json, sys
+          data=json.load(open(sys.argv[1], encoding='utf-8'))
+          assert data.get('ok') is True, 'platform regulatory status is not ok'
+          role=str(data.get('role') or '')
+          assert role in {'editor','admin'}, f'maker account is not editor/admin: {role or "missing"}'
+          print(f'Authenticated governed maker role: {role}')
+          PY
+
+      - name: Inspect current pack and readiness
+        id: preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          cookie_jar="$(cat /tmp/thebe-maker-cookie-path)"
+          pack_body="$(mktemp)"
+          ready_body="$(mktemp)"
+
+          pack_http="$(curl --silent --show-error --output "$pack_body" --write-out '%{http_code}' \
+            --cookie "$cookie_jar" --header 'Accept: application/json' \
+            "$APP_ORIGIN/api/platform/regulatory/foundation-pack")"
+          [[ "$pack_http" == '200' ]] || { echo "foundation-pack preflight failed HTTP $pack_http" >&2; exit 1; }
+
+          ready_http="$(curl --silent --show-error --output "$ready_body" --write-out '%{http_code}' \
+            --cookie "$cookie_jar" --header 'Accept: application/json' \
+            "$APP_ORIGIN/api/platform/regulatory/readiness")"
+          [[ "$ready_http" == '200' ]] || { echo "regulatory readiness preflight failed HTTP $ready_http" >&2; exit 1; }
+
+          python3 - "$pack_body" "$ready_body" "$GITHUB_OUTPUT" <<'PY'
+          import json, sys
+          pack=json.load(open(sys.argv[1], encoding='utf-8'))
+          ready=json.load(open(sys.argv[2], encoding='utf-8'))
+          current=pack.get('pack') or {}
+          version=str(current.get('version') or '')
+          key=str(current.get('packKey') or '')
+          assert key=='botswana-foundation-v1', f'unexpected foundation pack key: {key}'
+          assert version, 'foundation pack version missing'
+          imports=pack.get('imports') or []
+          already=any(str(row.get('pack_version') or '')==version and str(row.get('status') or '')=='completed' for row in imports)
+          with open(sys.argv[3], 'a', encoding='utf-8') as out:
+            out.write(f'already_imported={str(already).lower()}\n')
+            out.write(f'pack_version={version}\n')
+          principals=ready.get('principals') or {}
+          print(f'Preflight pack={key} version={version} alreadyImported={already}')
+          print(f'Preflight principals active={principals.get("active")} editorCapable={principals.get("editorCapable")} reviewerCapable={principals.get("reviewerCapable")} makerCheckerReady={ready.get("makerCheckerReady")}')
+          print('Preflight blockers=' + ','.join(ready.get('blockers') or []))
+          PY
+
+      - name: Import current foundation pack through application API
+        if: steps.preflight.outputs.already_imported != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cookie_jar="$(cat /tmp/thebe-maker-cookie-path)"
+          csrf="$(cat /tmp/thebe-maker-csrf)"
+          import_body="$(mktemp)"
+
+          import_http="$(curl --silent --show-error --output "$import_body" --write-out '%{http_code}' \
+            --cookie "$cookie_jar" \
+            --request POST "$APP_ORIGIN/api/platform/regulatory/foundation-pack/import" \
+            --header 'Accept: application/json' \
+            --header 'Content-Type: application/json' \
+            --header "Origin: $APP_ORIGIN" \
+            --header "X-CSRF-Token: $csrf" \
+            --data '{}')"
+          [[ "$import_http" == '201' ]] || { echo "governed foundation import failed HTTP $import_http" >&2; exit 1; }
+
+          python3 - "$import_body" <<'PY'
+          import json, sys
+          data=json.load(open(sys.argv[1], encoding='utf-8'))
+          assert data.get('ok') is True, 'foundation import did not return ok=true'
+          print('Foundation pack import completed through the governed application API.')
+          for key in ('packKey','version','sourcesCreated','sourcesReused','rulesCreated','rulesReused'):
+              if key in data:
+                  print(f'{key}={data[key]}')
+          PY
+
+      - name: Verify maker-side result without checker actions
+        shell: bash
+        run: |
+          set -euo pipefail
+          cookie_jar="$(cat /tmp/thebe-maker-cookie-path)"
+          pack_body="$(mktemp)"
+          ready_body="$(mktemp)"
+
+          curl --fail-with-body --silent --show-error --cookie "$cookie_jar" --header 'Accept: application/json' \
+            "$APP_ORIGIN/api/platform/regulatory/foundation-pack" --output "$pack_body"
+          curl --fail-with-body --silent --show-error --cookie "$cookie_jar" --header 'Accept: application/json' \
+            "$APP_ORIGIN/api/platform/regulatory/readiness" --output "$ready_body"
+
+          python3 - "$pack_body" "$ready_body" <<'PY'
+          import json, sys
+          pack=json.load(open(sys.argv[1], encoding='utf-8'))
+          ready=json.load(open(sys.argv[2], encoding='utf-8'))
+          current=pack.get('pack') or {}
+          version=str(current.get('version') or '')
+          imports=pack.get('imports') or []
+          assert any(str(row.get('pack_version') or '')==version and str(row.get('status') or '')=='completed' for row in imports), 'current foundation pack does not have a completed import record'
+          sources=ready.get('sources') or {}
+          rules=ready.get('rules') or {}
+          assert int(sources.get('total') or 0) > 0, 'maker import produced no regulatory sources'
+          assert int(rules.get('total') or 0) > 0, 'maker import produced no regulatory rules'
+          print(f'Post-import sources total={sources.get("total")} pending={sources.get("pending")} approved={sources.get("approved")} verifiedApproved={sources.get("verifiedApproved")}')
+          print(f'Post-import rules total={rules.get("total")} draft={rules.get("draft")} review={rules.get("review")} approved={rules.get("approved")} published={rules.get("published")}')
+          print(f'Maker-checker ready={ready.get("makerCheckerReady")}; blockers={",".join(ready.get("blockers") or [])}')
+          print('No source approval, rule approval, rule publication, reviewer provisioning, or direct database mutation was performed by this workflow.')
+          PY
+
+      - name: Remove local authentication material
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          cookie_path="$(cat /tmp/thebe-maker-cookie-path 2>/dev/null)"
+          [[ -n "$cookie_path" ]] && rm -f "$cookie_path"
+          rm -f /tmp/thebe-maker-cookie-path /tmp/thebe-maker-csrf /tmp/thebe-maker-login.json
