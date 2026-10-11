@@ -84,11 +84,7 @@ jobs:
         run: |
           set -euo pipefail
           node --check scripts/production-regulatory-reviewer-readiness.mjs
-          grep -Fq "diagnostic permits SELECT statements only" scripts/production-regulatory-reviewer-readiness.mjs
-          if grep -Eq "\b(INSERT|UPDATE|DELETE|REPLACE|DROP|ALTER|CREATE)\b|/foundation-pack/import|/approve|/publish" scripts/production-regulatory-reviewer-readiness.mjs; then
-            echo 'reviewer diagnostic contains forbidden mutation authority' >&2
-            exit 1
-          fi
+          node tests/regulatory-reviewer-readiness-workflow-static.mjs
 
       - name: Inspect reviewer readiness
         shell: bash
