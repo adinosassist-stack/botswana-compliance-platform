@@ -66,6 +66,7 @@ async function submit(event){
   try{
     const data=await request("/public/daily-reporting/submit",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
     setMessage("reporterPortalSuccess",(data.message||"Daily report submitted.")+" You can update the same reporting date if you need to correct something.");
+    window.dispatchEvent(new CustomEvent("thebe:daily-report-submitted",{detail:{reportDate:payload.reportDate,reportId:data.reportId||data.id||null}}));
     window.scrollTo({top:0,behavior:"smooth"});
   }catch(err){setMessage("reporterPortalError",errorMessage(err))}
   finally{button.disabled=false;button.textContent="Send daily report"}

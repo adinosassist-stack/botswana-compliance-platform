@@ -6,8 +6,12 @@ import {runGroundedFinancialObservation} from "../cloudflare/src/agent-grounded-
 const db=new DatabaseSync(":memory:");
 try{
   db.exec(readFileSync("cloudflare/schema.sql","utf8"));
-  const migrations=readdirSync("cloudflare/migrations").filter(f=>/^\d{3}_.*\.sql$/.test(f)&&Number(f.slice(0,3))>=44).sort();
-  assert.equal(migrations.at(-1),JSON.parse(readFileSync("RELEASE_PROFILE.json","utf8")).latest_cloudflare_migration);
+  const profile=JSON.parse(readFileSync("RELEASE_PROFILE.json","utf8"));
+  const availableMigrations=readdirSync("cloudflare/migrations").filter(f=>/^\d{3}_.*\.sql$/.test(f)&&Number(f.slice(0,3))>=44).sort();
+  const releaseTipIndex=availableMigrations.indexOf(profile.latest_cloudflare_migration);
+  assert.ok(releaseTipIndex>=0,`release migration tip ${profile.latest_cloudflare_migration} must exist`);
+  const migrations=availableMigrations.slice(0,releaseTipIndex+1);
+  assert.equal(migrations.at(-1),profile.latest_cloudflare_migration);
   for(const file of migrations)db.exec(readFileSync("cloudflare/migrations/"+file,"utf8"));
   const schema=readFileSync("cloudflare/experimental/agent_cost_accounting.sql","utf8");
   db.exec(schema);db.exec(schema); // Qualification includes reapplication without changing existing rows.

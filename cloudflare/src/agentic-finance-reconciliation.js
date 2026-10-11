@@ -1,5 +1,6 @@
 import {evaluateAgentRuntimeGuard} from "./agent-runtime-guard.js";
 import {prepareFinanceReconciliationSnapshot} from "./finance-core.js";
+import {handleDailyReportEvidenceRequest} from "./report-evidence-governance-entry-v332.js";
 import {
   authenticate,roleAllowed,originAllowed,csrfAllowed,readJson,requestBodyErrorStatus,safeFirst
 } from "./agentic-authority-core.js";
@@ -169,6 +170,8 @@ export async function prepareFinanceReconciliationForPrincipal({request,env,auth
 
 export async function handleAgenticFinanceReconciliationRequest({request,logicalPath,env}){
   const path=String(logicalPath||new URL(request.url).pathname);
+  const evidenceResponse=await handleDailyReportEvidenceRequest({request,logicalPath:path,env});
+  if(evidenceResponse)return evidenceResponse;
   if(!path.startsWith("/api/agentic/finance/reconciliation"))return null;
   const auth=await authenticate(request,env);
   if(!auth)return json({error:"unauthenticated"},401);

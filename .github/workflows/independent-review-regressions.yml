@@ -74,6 +74,15 @@ jobs:
           node --check tests/v331-report-money-fnb-surface.mjs
           node tests/v331-report-money-fnb-surface.mjs
 
+      - name: Report evidence and reconciliation qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check cloudflare/src/report-evidence-governance-entry-v332.js
+          node --check public/js/reporter-evidence-v332.js
+          node --check tests/v332-report-evidence-reconciliation.mjs
+          node tests/v332-report-evidence-reconciliation.mjs
+
       - name: Property valuation reliability regression
         shell: bash
         run: |
