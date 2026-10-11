@@ -44,9 +44,9 @@ function sourceRefs(item,id){
   return [...new Set([...explicit.map(value=>clean(value,120)).filter(Boolean),`agentic_proposal:${id}`])];
 }
 function proposalTitle(item,fallback){return clean(item?.title||item?.summary||item?.action||item?.goal||fallback,220)||fallback}
-function proposalSeverity(item){return clean(item?.severity||item?.riskLevel||item?.risk_level||"medium",24)||"medium"}
+function proposalSeverity(item){return clean(item?.severity||item?.risk||item?.riskLevel||item?.risk_level||"medium",24)||"medium"}
 function proposalRoute(item){return clean(item?.actionRoute||item?.action_route||item?.target||"agentic",180)||"agentic"}
-function proposalUpdatedAt(item){return item?.updatedAt||item?.updated_at||item?.decidedAt||item?.decided_at||item?.createdAt||item?.created_at||null}
+function proposalUpdatedAt(item){return item?.updatedAt||item?.updated_at||item?.decision_at||item?.decidedAt||item?.decided_at||item?.createdAt||item?.created_at||null}
 
 function validRunsShape(value){
   return Array.isArray(value?.proposals)&&value.proposals.every(item=>proposalId(item));
