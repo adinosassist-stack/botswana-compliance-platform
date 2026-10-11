@@ -1,0 +1,36 @@
+name: Owner Attention contract
+
+on:
+  pull_request:
+    paths:
+      - "cloudflare/src/owner-attention.js"
+      - "tests/owner-attention-contract.mjs"
+      - ".github/workflows/owner-attention-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.20.0"
+
+      - name: Verify Owner Attention syntax
+        run: |
+          node --check cloudflare/src/owner-attention.js
+          node --check tests/owner-attention-contract.mjs
+
+      - name: Run Owner Attention contract regression
+        run: node tests/owner-attention-contract.mjs
