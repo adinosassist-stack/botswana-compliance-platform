@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import {handleAgenticWhatsAppRequest,__whatsappAgenticTest} from "../cloudflare/src/agentic-whatsapp-core.js";
 
 for(const [purpose,spec] of Object.entries(__whatsappAgenticTest.ACTION_KEY_BY_PURPOSE)){
@@ -64,4 +65,11 @@ assert.ok(body.messagePreview.includes("Thebe Desk owner brief"));
 assert.ok(DB.calls.some(call=>call.sql==="__batch__"&&call.count===3),"prepare must atomically persist run, intent and audit event");
 assert.ok(DB.calls.some(call=>String(call.sql).includes("INSERT INTO agent_action_intents"))||DB.calls.some(call=>call.sql==="__batch__"),"prepare persistence path must be exercised");
 
-console.log("v92 WhatsApp canonical single-agent runtime: PASS");
+const ownerWhatsAppSource=fs.readFileSync("public/js/owner-whatsapp-prepare.js","utf8");
+assert.match(ownerWhatsAppSource,/id=\"ownerWhatsAppOpenButton\"|openWhatsAppButton\.id=\"ownerWhatsAppOpenButton\"/,"workspace must expose a reviewed WhatsApp handoff control");
+assert.match(ownerWhatsAppSource,/https:\/\/wa\.me\/\?text=/,"handoff must use WhatsApp's user-initiated share URL");
+assert.match(ownerWhatsAppSource,/encodeURIComponent\(currentDraft\)/,"reviewed draft text must be URL encoded before handoff");
+assert.match(ownerWhatsAppSource,/choose the recipient and press send/i,"UI must preserve human recipient selection and sending");
+assert.doesNotMatch(ownerWhatsAppSource,/WHATSAPP_ACCESS_TOKEN|WHATSAPP_PHONE_NUMBER_ID|graph\.facebook\.com/,"browser handoff must remain provider-credential blind");
+
+console.log("v92 WhatsApp canonical single-agent runtime + reviewed handoff: PASS");
