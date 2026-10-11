@@ -1,0 +1,66 @@
+name: Release regression chunk diagnostic
+
+on:
+  pull_request:
+    paths:
+      - "public/js/owner-focus-strip-v296.js"
+      - "tests/**"
+      - "package.json"
+      - ".github/workflows/release-regression-chunk-diagnostic.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - id: plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          matrix="$(node <<'NODE'
+          const pkg=require('./package.json');
+          const commands=String(pkg.scripts['test:release-regressions']||'').split(/\s*&&\s*/).filter(Boolean);
+          const size=25;
+          const include=[];
+          for(let start=0;start<commands.length;start+=size){
+            const end=Math.min(commands.length,start+size);
+            include.push({label:`${start}-${end-1}`,script:commands.slice(start,end).join(' && ')});
+          }
+          process.stdout.write(JSON.stringify({include}));
+          NODE
+          )"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  chunk:
+    needs: discover
+    name: release commands ${{ matrix.label }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.20.0"
+      - run: npm ci --ignore-scripts
+      - name: Run release regression chunk
+        env:
+          CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          ${{ matrix.script }}
