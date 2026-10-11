@@ -60,23 +60,34 @@ async function dismissOnboarding(page,{waitMs=0}={}){
   mark('onboarding','first-run modal dismissed before workspace navigation');
 }
 
+async function visibleNavButton(page,view){
+  let button=page.locator(`#nav button[data-view="${view}"]:visible`).first();
+  if(await button.count())return button;
+  const candidates=page.locator(`#nav button[data-view="${view}"]`);
+  const count=await candidates.count();
+  for(let i=0;i<count;i+=1){
+    const details=candidates.nth(i).locator('xpath=ancestor::details[1]');
+    if(!await details.count())continue;
+    const summary=details.locator(':scope > summary:visible').first();
+    if(!await summary.count())continue;
+    if(!(await details.evaluate(node=>node.open===true)))await summary.click();
+    button=page.locator(`#nav button[data-view="${view}"]:visible`).first();
+    if(await button.count())return button;
+  }
+  return button;
+}
+
 async function openView(page,view){
   await dismissOnboarding(page);
-  const button=page.locator(`#nav button[data-view="${view}"]`).first();
-  check(await button.count(),`navigation control missing for ${view}`);
-  const details=button.locator('xpath=ancestor::details[1]');
-  if(await details.count()&&!(await details.evaluate(node=>node.open===true))){
-    const summary=details.locator(':scope > summary').first();
-    check(await summary.count(),`collapsed navigation group for ${view} has no summary`);
-    await summary.click();
-  }
+  const button=await visibleNavButton(page,view);
+  check(await button.count(),`visible navigation control missing for ${view}`);
   await button.waitFor({state:'visible',timeout:VIEW_TIMEOUT});
   await button.click();
   await page.waitForFunction(target=>{
     const node=document.getElementById(target);if(!node)return false;
     const style=getComputedStyle(node);return node.classList.contains('active')&&style.display!=='none'&&style.visibility!=='hidden'&&node.getBoundingClientRect().width>0;
   },view,{timeout:VIEW_TIMEOUT});
-  mark(view,'real navigation control opened the workspace view');
+  mark(view,'real visible navigation control opened the workspace view');
 }
 
 async function stateFingerprint(page){
