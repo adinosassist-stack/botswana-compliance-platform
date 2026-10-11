@@ -1,0 +1,54 @@
+name: Independent review regressions
+run-name: Independent review regressions ${{ github.event.pull_request.head.sha }}
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: independent-review-regressions-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reviewer-regressions:
+    name: Reviewer regression entry points
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          [[ "$actual" == "$EXPECTED_HEAD_SHA" ]] || { echo "head mismatch expected=$EXPECTED_HEAD_SHA actual=$actual" >&2; exit 1; }
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo 'checkout is not clean' >&2; exit 1; }
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+
+      - name: Install exact dependencies
+        shell: bash
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Run reviewer-identified regression entry points
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tests/password-reset-browser-flow.mjs
+          node --check tests/v177-property-valuation-service-reliability.mjs
+          node tests/password-reset-browser-flow.mjs
+          node tests/v177-property-valuation-service-reliability.mjs
