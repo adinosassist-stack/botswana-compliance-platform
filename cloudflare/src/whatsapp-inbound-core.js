@@ -16,7 +16,7 @@ export function normalizeWhatsAppInboundNumber(value){
 
 function normalizedCommand(value){
   let command=clean(value,500).toLowerCase().replace(/[^a-z0-9.+,'"-]+/g," ").replace(/\s+/g," ").trim();
-  return command.replace(/^(?:hey\s+)?thebe\s+/,"");
+  return command.replace(/^(?:hey\s+)?thebe(?:\s*,)?\s+/,"");
 }
 
 export function classifyWhatsAppInboundCommand(value){
