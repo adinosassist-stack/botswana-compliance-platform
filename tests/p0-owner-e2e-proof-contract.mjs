@@ -15,11 +15,18 @@ assert.match(source,/openAddEvidence\(\)/,'evidence UI must be exercised through
 assert.match(source,/aiAdvisorQuestion/,'authenticated Ask Thebe question field must be exercised');
 assert.match(source,/aiAdvisorButton/,'authenticated Ask Thebe submit control must be exercised');
 assert.match(source,/\/api\/auth\/logout/,'real logout endpoint must be exercised');
+assert.match(source,/\/api\/auth\/me/,'authenticated tenant and user identity must be re-read from the real session endpoint');
+assert.match(source,/beforeIdentity\.userId/,'pre-logout authenticated user identity must be captured');
+assert.match(source,/afterIdentity\.userId===beforeIdentity\.userId/,'post-login user identity must match the original authenticated identity');
+assert.match(source,/afterIdentity\.tenantId===beforeIdentity\.tenantId/,'post-login tenant identity must match the original authenticated tenant');
 assert.match(source,/\/api\/account\/onboarding\/complete/,'synthetic server-side persistence marker must be written');
 assert.match(source,/\/api\/account\/onboarding/,'synthetic persistence marker must be re-read after re-login');
-assert.match(source,/\/api\/state/,'workspace state must be compared across logout and re-login');
+assert.match(source,/\/api\/state/,'workspace state endpoint must be verified across logout and re-login');
+assert.match(source,/Number\.isFinite\(beforeState\.version\)/,'first-run empty state is valid only when the authoritative state version is present');
+assert.match(source,/afterState\.version===beforeState\.version/,'read-only navigation must not silently mutate workspace state');
 assert.match(source,/complete chain.*auth -> workspace -> compliance -> evidence -> finance -> property -> people -> Ask Thebe -> logout\/login -> persistence/s,'required P0 chain must be explicit in proof output');
 
+assert.doesNotMatch(source,/beforeState\.activeCompanyId&&beforeState\.companies\.length>=1/,'first-run proof must not invent an app_state company row that registration does not create');
 assert.doesNotMatch(source,/\/api\/evidence\/(?:upload|presign|integrity-upload)/,'P0 proof must not upload evidence or bypass the safe launch hold');
 assert.doesNotMatch(source,/\/api\/ai\/cost-control/,'P0 proof must not change AI cost controls');
 assert.doesNotMatch(source,/\/api\/agentic\/.*(?:execute|approve|delegation)/,'P0 proof must not widen agent execution authority');
