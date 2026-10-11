@@ -74,3 +74,198 @@
   }
   if(doc.readyState==="loading")doc.addEventListener("DOMContentLoaded",start,{once:true});else start();
 })(window);
+
+(function installReviewerP1Remediations(global){
+  "use strict";
+  if(!global||!global.document||typeof global.fetch!=="function")return;
+
+  const doc=global.document;
+  const nativeFetch=global.fetch.bind(global);
+  const MAX_IN_PROGRESS_RETRIES=6;
+
+  function logicalPath(input){
+    let raw="";
+    if(typeof input==="string")raw=input;
+    else if(input instanceof URL)raw=input.toString();
+    else if(input&&typeof input.url==="string")raw=input.url;
+    if(!raw)return "";
+    try{
+      const url=new URL(raw,global.location?.href||"https://invalid.local/");
+      return url.searchParams.get("__thebe_api_path")||url.pathname;
+    }catch{return ""}
+  }
+
+  function methodOf(input,init){return String(init?.method||input?.method||"GET").toUpperCase()}
+  function signalOf(input,init){return init?.signal||input?.signal||null}
+  function retryAfterMs(response){
+    const raw=String(response?.headers?.get?.("retry-after")||"").trim();if(!raw)return 2000;
+    const seconds=Number(raw);if(Number.isFinite(seconds))return Math.max(250,Math.min(5000,Math.round(seconds*1000)));
+    const at=Date.parse(raw);return Number.isFinite(at)?Math.max(250,Math.min(5000,at-Date.now())):2000;
+  }
+  function wait(ms,signal){
+    return new Promise((resolve,reject)=>{
+      if(signal?.aborted){reject(signal.reason instanceof Error?signal.reason:new DOMException("Aborted","AbortError"));return}
+      const timer=global.setTimeout(done,ms);
+      function done(){cleanup();resolve()}
+      function aborted(){cleanup();reject(signal.reason instanceof Error?signal.reason:new DOMException("Aborted","AbortError"))}
+      function cleanup(){global.clearTimeout(timer);signal?.removeEventListener?.("abort",aborted)}
+      signal?.addEventListener?.("abort",aborted,{once:true});
+    });
+  }
+  async function isAdvisorInProgress(response){
+    if(response?.status!==425)return false;
+    try{const body=await response.clone().json();return String(body?.error||body?.code||"")==="idempotency_request_in_progress"}catch{return true}
+  }
+  global.fetch=async function recoverInProgressAiRequest(input,init={}){
+    if(methodOf(input,init)!=="POST"||logicalPath(input)!=="/api/ai/advisor")return nativeFetch(input,init);
+    const requestTemplate=(typeof Request!=="undefined"&&input instanceof Request)?input.clone():null;
+    const signal=signalOf(input,init);let attempt=0;
+    while(true){
+      const requestInput=requestTemplate?requestTemplate.clone():input;
+      const response=await nativeFetch(requestInput,init);
+      if(!(await isAdvisorInProgress(response))||attempt>=MAX_IN_PROGRESS_RETRIES)return response;
+      attempt+=1;await wait(retryAfterMs(response),signal);
+    }
+  };
+
+  function employmentAssuranceItem(label,status,tone){
+    const row=doc.createElement("div");row.className="item";
+    const text=doc.createElement("span");text.textContent=label;
+    const badge=doc.createElement("span");badge.className=`badge ${tone}`;badge.textContent=status;
+    row.append(text,badge);return row;
+  }
+  function renderTruthfulEmploymentAssurance(){
+    const root=doc.getElementById("employeesList");if(!root)return;
+    const gaps=doc.getElementById("employeesGaps");if(gaps){gaps.textContent="—";gaps.title="Evidence gaps are not estimated. They are shown only when backed by linked employee evidence."}
+    root.replaceChildren(
+      employmentAssuranceItem("Employment contracts","Evidence review required","warn"),
+      employmentAssuranceItem("Leave records","Evidence review required","warn"),
+      employmentAssuranceItem("Disciplinary files","Evidence review required","warn")
+    );
+    root.dataset.assuranceSource="linked-evidence-required";
+    root.setAttribute("aria-label","Employment assurance. Verification is not inferred without linked evidence.");
+  }
+
+  let employeePatchInstalled=false,aiPatchInstalled=false;
+  function patchWorkspaceGlobals(){
+    if(!employeePatchInstalled&&typeof global.renderEmployees==="function"){
+      const original=global.renderEmployees;
+      if(!original.__thebeTruthfulEmploymentAssurance){
+        const patched=function(){const result=original.apply(this,arguments);renderTruthfulEmploymentAssurance();return result};
+        patched.__thebeTruthfulEmploymentAssurance=true;global.renderEmployees=patched;
+      }
+      employeePatchInstalled=true;renderTruthfulEmploymentAssurance();
+    }
+    if(!aiPatchInstalled&&typeof global.askAiAdvisor==="function"){
+      const original=global.askAiAdvisor;
+      if(!original.__thebeCreditRefreshOnFailure){
+        const patched=async function(){try{return await original.apply(this,arguments)}finally{try{if(typeof global.renderAiCredits==="function")await global.renderAiCredits()}catch{}}};
+        patched.__thebeCreditRefreshOnFailure=true;global.askAiAdvisor=patched;
+      }
+      aiPatchInstalled=true;
+    }
+    return employeePatchInstalled&&aiPatchInstalled;
+  }
+  function start(){
+    if(patchWorkspaceGlobals())return;
+    let attempts=0;const timer=global.setInterval(()=>{attempts+=1;if(patchWorkspaceGlobals()||attempts>=80)global.clearInterval(timer)},250);
+  }
+  if(doc.readyState==="loading")doc.addEventListener("DOMContentLoaded",start,{once:true});else start();
+})(window);
+
+(function installDocumentGenerationCapabilityBoundary(global){
+  "use strict";
+  const doc=global?.document;if(!doc)return;
+  function enforceDocumentBoundary(){
+    const grid=doc.getElementById("docGrid");if(!grid)return;
+    const buttons=grid.querySelectorAll?.('button[data-bw-onclick^="generateDoc("]')||[];
+    for(const button of buttons){button.disabled=true;button.textContent="Draft generation unavailable";button.setAttribute("aria-disabled","true");button.title="Document generation is not enabled in this qualified release."}
+    const cards=grid.querySelectorAll?.(".card")||[];
+    for(const card of cards){const note=card.querySelector?.(".muted.small");if(note)note.textContent="Controlled template · generation not enabled in this release"}
+    grid.dataset.documentGeneration="disabled";
+  }
+  function install(){
+    let renderReady=false,generateReady=false;
+    if(typeof global.renderDocs==="function"&&!global.renderDocs.__thebeDocumentCapabilityBoundary){
+      const originalRender=global.renderDocs;
+      const patchedRender=function(){const result=originalRender.apply(this,arguments);enforceDocumentBoundary();return result};
+      patchedRender.__thebeDocumentCapabilityBoundary=true;global.renderDocs=patchedRender;renderReady=true;enforceDocumentBoundary();
+    }else renderReady=typeof global.renderDocs==="function";
+    if(typeof global.generateDoc==="function"&&!global.generateDoc.__thebeDocumentCapabilityBoundary){
+      const blocked=function(name){
+        const label=String(name||"Document");
+        try{if(typeof global.logEvent==="function")global.logEvent("DOCUMENT_DRAFT_UNAVAILABLE",{name:label})}catch{}
+        if(typeof global.notifyUser==="function")global.notifyUser(`${label} draft generation is not available in this release. No document or background workflow has been created.`);
+        return false;
+      };
+      blocked.__thebeDocumentCapabilityBoundary=true;global.generateDoc=blocked;generateReady=true;
+    }else generateReady=typeof global.generateDoc==="function";
+    return renderReady&&generateReady;
+  }
+  function start(){
+    if(install())return;
+    let attempts=0;const timer=global.setInterval(()=>{attempts+=1;if(install()||attempts>=80)global.clearInterval(timer)},250);
+  }
+  if(doc.readyState==="loading")doc.addEventListener("DOMContentLoaded",start,{once:true});else start();
+})(window);
+
+(function installEvidenceUploadCapabilityBoundary(global){
+  "use strict";
+  const doc=global?.document;if(!doc)return;
+  function productionMode(){return String(doc.querySelector?.('meta[name="bw-runtime-mode"]')?.content||"production").toLowerCase()==="production"}
+  function uploadsEnabled(){return global.__THEBE_EVIDENCE_UPLOADS_ENABLED__===true}
+  function uploadsClosed(){return productionMode()&&!uploadsEnabled()}
+  function role(){try{return typeof global.currentWorkspaceRole==="function"?String(global.currentWorkspaceRole()||""):""}catch{return ""}}
+  function message(text){
+    if(typeof global.notifyUser==="function")global.notifyUser(text);
+    else{const status=doc.getElementById("srStatus");if(status)status.textContent=text}
+  }
+  function ensureBoundaryNote(input){
+    if(doc.getElementById("evidenceUploadBoundaryNote"))return;
+    const note=doc.createElement("div");note.id="evidenceUploadBoundaryNote";note.className="notice";note.setAttribute("role","status");
+    const heading=doc.createElement("b");heading.textContent="File uploads are temporarily unavailable.";
+    const detail=doc.createElement("div");detail.className="small";detail.textContent="This release can record metadata-only evidence for owner/manager setup, but it cannot accept a file or create file-backed assurance until the secure scanner/storage path is enabled.";
+    note.replaceChildren(heading,detail);
+    if(input?.insertAdjacentElement)input.insertAdjacentElement("afterend",note);else input?.parentElement?.appendChild?.(note);
+  }
+  function enforceEvidenceBoundary(){
+    if(!uploadsClosed())return;
+    const input=doc.getElementById("evFile");
+    if(input){input.disabled=true;input.value="";input.setAttribute("aria-disabled","true");input.title="Secure evidence file uploads are temporarily unavailable in this release.";ensureBoundaryNote(input)}
+    const addCard=doc.getElementById("vaultAddCard");if(addCard)addCard.dataset.fileUploads="disabled";
+  }
+  function install(){
+    let uiReady=false,addReady=false,openReady=false;
+    if(typeof global.syncEvidenceRoleUi==="function"&&!global.syncEvidenceRoleUi.__thebeEvidenceCapabilityBoundary){
+      const original=global.syncEvidenceRoleUi;
+      const patched=function(){const result=original.apply(this,arguments);enforceEvidenceBoundary();return result};
+      patched.__thebeEvidenceCapabilityBoundary=true;global.syncEvidenceRoleUi=patched;uiReady=true;enforceEvidenceBoundary();
+    }else uiReady=typeof global.syncEvidenceRoleUi==="function";
+    if(typeof global.addEvidence==="function"&&!global.addEvidence.__thebeEvidenceCapabilityBoundary){
+      const original=global.addEvidence;
+      const patched=async function(){
+        if(uploadsClosed()){
+          const file=doc.getElementById("evFile")?.files?.[0];
+          if(file){message("Secure evidence file uploads are temporarily unavailable in this release. No file or evidence record was saved.");return false}
+          if(role()==="reviewer"){message("Reviewer evidence requires the secure file scan and approval path, which is temporarily unavailable in this release. No evidence record was saved.");return false}
+        }
+        return original.apply(this,arguments);
+      };
+      patched.__thebeEvidenceCapabilityBoundary=true;global.addEvidence=patched;addReady=true;
+    }else addReady=typeof global.addEvidence==="function";
+    if(typeof global.openAddEvidence==="function"&&!global.openAddEvidence.__thebeEvidenceCapabilityBoundary){
+      const original=global.openAddEvidence;
+      const patched=function(){
+        if(uploadsClosed()&&role()==="reviewer"){message("Reviewer evidence submission is temporarily unavailable because secure file uploads are closed in this release.");return false}
+        const result=original.apply(this,arguments);enforceEvidenceBoundary();return result;
+      };
+      patched.__thebeEvidenceCapabilityBoundary=true;global.openAddEvidence=patched;openReady=true;
+    }else openReady=typeof global.openAddEvidence==="function";
+    return uiReady&&addReady&&openReady;
+  }
+  function start(){
+    enforceEvidenceBoundary();if(install())return;
+    let attempts=0;const timer=global.setInterval(()=>{attempts+=1;enforceEvidenceBoundary();if(install()||attempts>=80)global.clearInterval(timer)},250);
+  }
+  if(doc.readyState==="loading")doc.addEventListener("DOMContentLoaded",start,{once:true});else start();
+})(window);

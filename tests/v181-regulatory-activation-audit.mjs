@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const audit=fs.readFileSync("scripts/production-launch-audit.mjs","utf8");
+const activationGate=fs.readFileSync("scripts/regulatory-production-activation-gate.mjs","utf8");
+const launchWorkflow=fs.readFileSync(".github/workflows/production-launch-audit.yml","utf8");
 const packageJson=JSON.parse(fs.readFileSync("package.json","utf8"));
 const start=audit.indexOf("// v181 regulatory activation diagnostic begin");
 const end=audit.indexOf("// v181 regulatory activation diagnostic end");
@@ -37,6 +39,25 @@ assert.ok(block.includes("'active'"));
 assert.doesNotMatch(block,/\b(?:INSERT|UPDATE|DELETE|DROP|ALTER|CREATE)\b/i);
 assert.doesNotMatch(block,/SELECT\s+[^\n;]*\bemail\b/i);
 assert.match(audit,/refusing non-read-only D1 audit query/);
+
+assert.match(activationGate,/FOUNDATION_PACK_KEY='botswana-foundation-v1'/);
+assert.match(activationGate,/assert\(state\.packImported,/);
+assert.match(activationGate,/assert\(state\.packCompleted,/);
+assert.match(activationGate,/assert\(state\.makerCheckerReady,/);
+assert.match(activationGate,/assert\(state\.verifiedApprovedSources>0,/);
+assert.match(activationGate,/assert\(state\.publishedRules>0,/);
+assert.match(activationGate,/assert\(state\.openConflicts===0,/);
+assert.match(activationGate,/REGULATORY_PRODUCTION_ACTIVATION_GATE_PASS/);
+assert.doesNotMatch(activationGate,/\b(?:INSERT|UPDATE|DELETE|DROP|ALTER|CREATE)\b/i);
+assert.match(activationGate,/refusing non-read-only D1 query/);
+
+const diagnosticStep=launchWorkflow.indexOf("node scripts/production-launch-audit.mjs");
+const activationStep=launchWorkflow.indexOf("node scripts/regulatory-production-activation-gate.mjs");
+const browserStep=launchWorkflow.indexOf("Mandatory browser-backed synthetic full-user lifecycle closure");
+assert.ok(diagnosticStep>=0,"production launch audit workflow must run the live diagnostic");
+assert.ok(activationStep>diagnosticStep,"regulatory activation gate must run after live diagnostic");
+assert.ok(browserStep>activationStep,"regulatory activation gate must block before full-user lifecycle closure");
+
 assert.match(packageJson.scripts["test:regulatory-activation-v181"]||"",/v181-regulatory-activation-audit\.mjs/);
 
 const chain=packageJson.scripts["test:release-regressions"]||"";
