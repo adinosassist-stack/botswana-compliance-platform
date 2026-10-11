@@ -2,16 +2,19 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const entry=fs.readFileSync("cloudflare/src/report-evidence-governance-entry-v332.js","utf8");
+const financeRouter=fs.readFileSync("cloudflare/src/agentic-finance-reconciliation.js","utf8");
 const migration=fs.readFileSync("cloudflare/migrations/069_v332_daily_report_evidence.sql","utf8");
 const client=fs.readFileSync("public/js/reporter-evidence-v332.js","utf8");
 const reporter=fs.readFileSync("public/js/employee-reporting-portal.js","utf8");
 const redirect=fs.readFileSync("public/js/reporter-link-redirect.js","utf8");
 const wrangler=fs.readFileSync("cloudflare/wrangler.toml","utf8");
 
-assert.ok(wrangler.includes('main = "src/report-evidence-governance-entry-v332.js"'),"v332 governance wrapper must own the production entry");
+assert.ok(wrangler.includes('main = "src/release-governance-entry.js"'),"canonical release governance must remain the production entry");
 assert.ok(wrangler.includes('EVIDENCE_UPLOADS_ENABLED = "false"'),"evidence uploads must remain fail-closed by default");
-assert.ok(entry.includes('import base from "./release-governance-entry.js"'),"v332 must preserve release governance");
-assert.ok(entry.includes('logicalPath(request)==="/public/daily-reporting/evidence"'),"public evidence endpoint missing");
+assert.ok(!entry.includes('import base from "./release-governance-entry.js"'),"v332 must not replace or wrap the production entry");
+assert.ok(entry.includes('logicalPath!=="/public/daily-reporting/evidence"'),"public evidence endpoint missing");
+assert.ok(financeRouter.includes('import {handleDailyReportEvidenceRequest} from "./report-evidence-governance-entry-v332.js"'),"canonical agentic dispatch must load the report evidence handler");
+assert.ok(financeRouter.includes("handleDailyReportEvidenceRequest({request,logicalPath:path,env})"),"canonical agentic dispatch must route report evidence requests");
 assert.ok(entry.indexOf("!uploadsEnabled(env)")<entry.indexOf("reporterAccess(env,token)"),"upload feature gate must fail closed before bearer access/data work");
 assert.ok(entry.includes("!scannerConfigured(env)"),"scanner configuration gate missing");
 assert.ok(entry.includes("EVIDENCE_SCAN_SECRET")&&entry.includes("EVIDENCE_SCAN_API_URL"),"scanner URL and secret must both be required");
