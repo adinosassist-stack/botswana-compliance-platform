@@ -2,8 +2,17 @@
   const hash=String(location.hash||"");
   const path=location.pathname.replace(/\/+$/,"")||"/";
   if(hash.startsWith("#report=")){
-    if(path==="/report")return;
-    location.replace("/report/?entry=legacy-link&v=20260923e"+hash);
+    if(path!=="/report"){
+      location.replace("/report/?entry=legacy-link&v=20260923e"+hash);
+      return;
+    }
+    if(!document.querySelector('script[data-reporter-money-v331]')){
+      const script=document.createElement("script");
+      script.src="/js/reporter-money-v331.js?v=20261011a";
+      script.dataset.reporterMoneyV331="1";
+      script.async=false;
+      document.head.appendChild(script);
+    }
     return;
   }
   if(path!=="/"&&path!=="/home.html")return;
