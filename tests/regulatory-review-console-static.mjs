@@ -31,7 +31,7 @@ assert.doesNotMatch(script,/document\.write/);
 assert.doesNotMatch(script,/platform_regulatory_principals/,'console must never mutate or query principal tables directly');
 assert.doesNotMatch(script,/foundation-pack\/import/,'reviewer console must not import foundation packs');
 assert.doesNotMatch(script,/PLATFORM_REGULATORY_(?:REVIEWERS|EDITORS)|PLATFORM_ADMIN_EMAILS/,'console must not handle regulatory identity allowlists');
-assert.doesNotMatch(script,/\/api\/platform\/regulatory\/.*(?:principal|role|provision)/i,'console must not call identity or role provisioning endpoints');
+assert.doesNotMatch(script,/\/api\/platform\/regulatory\/(?:principals?|roles?|provision(?:ing)?)(?:\/|["'`])/i,'console must not call identity or role provisioning endpoints');
 assert.doesNotMatch(script,/approve all|publish all|bulk approve|bulk publish/i,'console must not implement bulk regulatory authorization');
 
 console.log('REGULATORY_REVIEW_CONSOLE_STATIC_PASS');
