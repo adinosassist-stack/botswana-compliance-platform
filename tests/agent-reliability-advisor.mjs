@@ -3,6 +3,8 @@ import {sanitizeAgentRun,evaluateAgentRuns} from "../cloudflare/src/agent-reliab
 const base={tenantId:"tenant-A",actorTenantId:"tenant-A",traceId:"run-1",workflow:"reconciliation",outcome:"success",authorization:"allow",costMinor:10,inputTokens:20,outputTokens:5};
 const sanitized=sanitizeAgentRun({...base,prompt:"secret",apiKey:"sk-private",toolArguments:{account:"123"}});
 assert.equal(sanitized.prompt,undefined);
+assert.equal(sanitizeAgentRun(sanitized)?.traceId,'run-1');
+assert.equal(evaluateAgentRuns([sanitized],'tenant-A').total,1);
 assert.equal(sanitized.apiKey,undefined);
 assert.equal(sanitized.toolArguments,undefined);
 assert.equal(sanitizeAgentRun({...base,actorTenantId:"tenant-B"}),null);
