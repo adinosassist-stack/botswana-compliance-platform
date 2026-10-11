@@ -65,13 +65,13 @@
 
 (()=>{
   "use strict";
-  const renderRelease="20261011-owner-ask-render-v319";
+  const renderRelease="20261011-owner-ask-render-v321";
   const controlRelease="20261011-owner-ask-control-v320";
   let requested=false;
   function loadOwnerAsk(){
     if(requested)return;
     requested=true;
-    import(`/js/owner-ask-thebe-render-v319.js?release=${renderRelease}`)
+    import(`/js/owner-ask-thebe-render-v321.js?release=${renderRelease}`)
       .then(()=>import(`/js/owner-ask-thebe-stable-v320.js?release=${controlRelease}`))
       .catch(error=>{
         requested=false;

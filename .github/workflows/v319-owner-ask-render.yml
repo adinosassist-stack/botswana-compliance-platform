@@ -1,5 +1,5 @@
-name: V319/V320 Ask Thebe qualification
-run-name: V319/V320 Ask Thebe ${{ github.event.pull_request.head.sha }}
+name: V321/V320 Ask Thebe qualification
+run-name: V321/V320 Ask Thebe ${{ github.event.pull_request.head.sha }}
 
 on:
   pull_request:
@@ -22,11 +22,11 @@ jobs:
         with:
           node-version-file: '.nvmrc'
           package-manager-cache: false
-      - name: Syntax and authority boundary
+      - name: Syntax, credit initialization and authority boundary
         shell: bash
         run: |
           set -euo pipefail
-          node --check public/js/owner-ask-thebe-render-v319.js
+          node --check public/js/owner-ask-thebe-render-v321.js
           node --check public/js/owner-ask-thebe-stable-v320.js
           node --check public/js/workspace-readiness-v305.js
           node --check tests/v319-owner-ask-render-decoupling.mjs
