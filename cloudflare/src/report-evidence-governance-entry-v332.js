@@ -1,5 +1,3 @@
-import base from "./release-governance-entry.js";
-
 const RELEASE="20261011-report-evidence-v332";
 const ALLOWED_TYPES=new Set(["image/jpeg","image/png","image/webp","application/pdf"]);
 const ALLOWED_CATEGORIES=new Set(["receipt","payment_proof","work_photo","other"]);
@@ -16,9 +14,6 @@ function json(data,status=200,headers={}){
     "x-thebe-report-evidence-release":RELEASE,
     ...headers
   }});
-}
-function logicalPath(request){
-  try{return new URL(request.url).pathname}catch{return ""}
 }
 function safeText(value,max){return String(value||"").trim().slice(0,max)}
 function safeName(value){return safeText(value||"evidence.bin",MAX_NAME).replace(/[^a-zA-Z0-9._ -]/g,"_").replace(/\s+/g,"_")||"evidence.bin"}
@@ -142,10 +137,9 @@ async function handleUpload(request,env){
   }
 }
 
-export default {
-  async fetch(request,env,ctx){
-    if(logicalPath(request)==="/public/daily-reporting/evidence"&&request.method==="POST")return handleUpload(request,env);
-    return base.fetch(request,env,ctx);
-  },
-  async scheduled(event,env,ctx){return base.scheduled(event,env,ctx)}
-};
+async function handleDailyReportEvidenceRequest({request,logicalPath,env}){
+  if(logicalPath!=="/public/daily-reporting/evidence"||request.method!=="POST")return null;
+  return handleUpload(request,env);
+}
+
+export {handleDailyReportEvidenceRequest,handleUpload,originAllowed,reporterAccess,scannerConfigured,signatureMatches,uploadsEnabled,validReportDate};
