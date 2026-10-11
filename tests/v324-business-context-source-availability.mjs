@@ -21,7 +21,7 @@ function envWith({workflow={pending_count:0,failed_count:0,next_due_at:null},sum
   };
 }
 
-assert.equal(BUSINESS_CONTEXT_VERSION,"2026-10-11.v324");
+assert.equal(BUSINESS_CONTEXT_VERSION,"2026-09-27.v175","availability hardening is backward-compatible with the existing business-context contract version");
 
 const empty=await __businessContextTest.operationsContext(envWith(),"tenant-1");
 assert.equal(empty.available,true,"successful empty operational reads must remain available");
