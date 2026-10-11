@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "requested": true,
+  "apply": true,
+  "purpose": "provision-single-distinct-regulatory-reviewer",
+  "safety": "existing allowlisted member only; reviewer role only; no content approval, publication, identity creation, password reset, or deletion"
+}
