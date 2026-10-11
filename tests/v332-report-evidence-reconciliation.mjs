@@ -3,7 +3,7 @@ import fs from "node:fs";
 
 const entry=fs.readFileSync("cloudflare/src/report-evidence-governance-entry-v332.js","utf8");
 const financeRouter=fs.readFileSync("cloudflare/src/agentic-finance-reconciliation.js","utf8");
-const migration=fs.readFileSync("cloudflare/migrations/069_v332_daily_report_evidence.sql","utf8");
+const migration=fs.readFileSync("cloudflare/experimental/v332_daily_report_evidence.sql","utf8");
 const client=fs.readFileSync("public/js/reporter-evidence-v332.js","utf8");
 const reporter=fs.readFileSync("public/js/employee-reporting-portal.js","utf8");
 const redirect=fs.readFileSync("public/js/reporter-link-redirect.js","utf8");
@@ -38,6 +38,7 @@ assert.ok(entry.includes("PUBLIC_RATE_LIMITER")&&entry.includes("report-evidence
 assert.ok(entry.includes("originAllowed(request,env)"),"same-origin mutation boundary missing");
 for(const secretName of ["FNB_USERNAME","FNB_PASSWORD","FNB_PIN","FNB_OTP","BANK_USERNAME","BANK_PASSWORD","BANK_PIN","BANK_OTP"])assert.ok(!entry.includes(secretName),`report evidence path must not introduce ${secretName}`);
 
+assert.ok(migration.includes("This is not a production migration"),"v332 schema must remain explicitly staged until release promotion");
 assert.ok(migration.includes("CREATE TABLE IF NOT EXISTS daily_report_evidence"),"daily-report evidence relation missing");
 assert.ok(migration.includes("FOREIGN KEY(report_id) REFERENCES daily_employee_reports(id) ON DELETE CASCADE"),"report FK missing");
 assert.ok(migration.includes("FOREIGN KEY(evidence_id) REFERENCES evidence(id) ON DELETE CASCADE"),"evidence FK missing");
