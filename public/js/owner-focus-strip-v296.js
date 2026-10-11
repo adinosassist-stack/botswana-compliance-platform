@@ -1,7 +1,8 @@
 (function installOwnerFocusV3(global){
   "use strict";
 
-  const RELEASE="20261007-owner-focus-v3-v303";
+  const RELEASE="20261011-owner-focus-recovery-v322";
+  const PRIOR_RELEASE="20261007-owner-focus-v3-v303";
   const STRIP_ID="ownerFocusStrip";
   const STYLE_ID="ownerFocusStripStyle";
   const ATTENTION_ID="ownerAttentionPanel";
@@ -21,6 +22,8 @@
   let retryTimer=0;
   let syncFrame=0;
   let activeFilter="all";
+  let queueRetryBusy=false;
+  let lastReadyAt=0;
 
   function installStyle(){
     if(document.getElementById(STYLE_ID))return;
@@ -30,26 +33,27 @@
     if(nonce)style.nonce=nonce;
     style.dataset.release=RELEASE;
     style.textContent=`
-#${STRIP_ID}{display:grid;grid-template-columns:minmax(170px,.95fr) repeat(3,minmax(112px,1fr)) auto auto;gap:10px;align-items:stretch;margin:14px 0 18px;padding:10px;border:1px solid color-mix(in srgb,currentColor 14%,transparent);border-radius:18px;background:color-mix(in srgb,var(--surface,#fff) 92%,transparent);box-shadow:0 10px 28px rgba(15,23,42,.06)}
+#${STRIP_ID}{display:grid;grid-template-columns:minmax(170px,.95fr) repeat(3,minmax(112px,1fr)) auto auto auto;gap:10px;align-items:stretch;margin:14px 0 18px;padding:10px;border:1px solid color-mix(in srgb,currentColor 14%,transparent);border-radius:18px;background:color-mix(in srgb,var(--surface,#fff) 92%,transparent);box-shadow:0 10px 28px rgba(15,23,42,.06)}
 #${STRIP_ID} .owner-focus-intro{display:flex;flex-direction:column;justify-content:center;padding:2px 8px;min-width:0}
 #${STRIP_ID} .owner-focus-kicker{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;opacity:.6}
 #${STRIP_ID} .owner-focus-title{font-size:14px;font-weight:800;line-height:1.2;margin-top:3px}
 #${STRIP_ID} .owner-focus-state{display:flex;align-items:center;gap:7px;min-width:0;margin-top:5px;font-size:10px;font-weight:700;opacity:.68}
 #${STRIP_ID} .owner-focus-state span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #${STRIP_ID} .owner-focus-clear{appearance:none;border:0;background:transparent;color:inherit;padding:0;text-decoration:underline;text-underline-offset:2px;font:inherit;font-weight:800;cursor:pointer}
-#${STRIP_ID} .owner-focus-clear[hidden]{display:none!important}
+#${STRIP_ID} .owner-focus-clear[hidden],#${STRIP_ID} .owner-focus-retry[hidden]{display:none!important}
 #${STRIP_ID} .owner-focus-metric{appearance:none;border:1px solid color-mix(in srgb,currentColor 12%,transparent);border-radius:14px;background:color-mix(in srgb,var(--surface,#fff) 96%,transparent);padding:10px 12px;text-align:left;cursor:pointer;color:inherit;min-width:0;transition:border-color .16s ease,transform .16s ease,background .16s ease}
 #${STRIP_ID} .owner-focus-metric:hover{border-color:color-mix(in srgb,currentColor 24%,transparent);transform:translateY(-1px)}
 #${STRIP_ID} .owner-focus-metric[aria-pressed="true"]{border-color:color-mix(in srgb,currentColor 38%,transparent);background:color-mix(in srgb,var(--surface,#fff) 86%,currentColor 6%)}
 #${STRIP_ID} .owner-focus-value{display:block;font-size:20px;font-weight:850;line-height:1}
 #${STRIP_ID} .owner-focus-label{display:block;margin-top:5px;font-size:11px;font-weight:700;opacity:.66;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#${STRIP_ID} .owner-focus-next,#${STRIP_ID} .owner-focus-ask{border-radius:14px;padding:0 14px;font:inherit;font-weight:800;cursor:pointer;white-space:nowrap;min-height:44px}
-#${STRIP_ID} .owner-focus-next{border:1px solid color-mix(in srgb,currentColor 18%,transparent);background:color-mix(in srgb,var(--surface,#fff) 96%,transparent);color:inherit}
+#${STRIP_ID} .owner-focus-next,#${STRIP_ID} .owner-focus-retry,#${STRIP_ID} .owner-focus-ask{border-radius:14px;padding:0 14px;font:inherit;font-weight:800;cursor:pointer;white-space:nowrap;min-height:44px}
+#${STRIP_ID} .owner-focus-next,#${STRIP_ID} .owner-focus-retry{border:1px solid color-mix(in srgb,currentColor 18%,transparent);background:color-mix(in srgb,var(--surface,#fff) 96%,transparent);color:inherit}
+#${STRIP_ID} .owner-focus-retry{border-color:#b42318;color:#8f1d16;background:#fff4f2}
 #${STRIP_ID} .owner-focus-ask{border:0;background:#111827;color:#fff}
-#${STRIP_ID} .owner-focus-next:hover{border-color:color-mix(in srgb,currentColor 34%,transparent)}
+#${STRIP_ID} .owner-focus-next:hover,#${STRIP_ID} .owner-focus-retry:hover{border-color:color-mix(in srgb,currentColor 34%,transparent)}
 #${STRIP_ID} .owner-focus-ask:hover{filter:brightness(1.08)}
-#${STRIP_ID} .owner-focus-next:disabled{opacity:.45;cursor:default}
-#${STRIP_ID} :focus-visible{outline:3px solid #fff;outline-offset:2px;box-shadow:0 0 0 6px #075985}
+#${STRIP_ID} .owner-focus-next:disabled,#${STRIP_ID} .owner-focus-retry:disabled{opacity:.45;cursor:default}
+#${STRIP_ID} :focus-visible{outline:3px solid #fff;outline-offset:2px;box-shadow:0 0 0 6px #8f1d16}
 #${ATTENTION_ID}[data-owner-focus-filter="action"] .owner-review-inbox,
 #${ATTENTION_ID}[data-owner-focus-filter="action"] .owner-outcome-loop{display:none!important}
 #${ATTENTION_ID}[data-owner-focus-filter="approvals"] .owner-attention-list,
@@ -57,11 +61,11 @@
 #${ATTENTION_ID}[data-owner-focus-filter="outcomes"] .owner-review-inbox,
 #${ATTENTION_ID}[data-owner-focus-filter="outcomes"] .owner-attention-list,
 #${ATTENTION_ID}[data-owner-focus-filter="outcomes"] .owner-outcome-history{display:none!important}
-@media(max-width:900px){#${STRIP_ID}{grid-template-columns:1fr 1fr 1fr}#${STRIP_ID} .owner-focus-intro{grid-column:1/-1;padding:3px 4px 1px}#${STRIP_ID} .owner-focus-next{grid-column:1/2}#${STRIP_ID} .owner-focus-ask{grid-column:2/4}}
+@media(max-width:1050px){#${STRIP_ID}{grid-template-columns:1fr 1fr 1fr}#${STRIP_ID} .owner-focus-intro{grid-column:1/-1;padding:3px 4px 1px}#${STRIP_ID} .owner-focus-next,#${STRIP_ID} .owner-focus-retry,#${STRIP_ID} .owner-focus-ask{grid-column:auto}}
 @media(max-width:760px){#${STRIP_ID}{margin:12px 0 16px}#${STRIP_ID} .owner-focus-metric{padding:9px 10px}#${STRIP_ID} .owner-focus-value{font-size:18px}}
-@media(max-width:410px){#${STRIP_ID}{gap:7px;padding:8px;border-radius:16px}#${STRIP_ID} .owner-focus-label{font-size:10px}#${STRIP_ID} .owner-focus-value{font-size:17px}#${STRIP_ID} .owner-focus-next,#${STRIP_ID} .owner-focus-ask{grid-column:1/-1}}
+@media(max-width:410px){#${STRIP_ID}{gap:7px;padding:8px;border-radius:16px}#${STRIP_ID} .owner-focus-label{font-size:10px}#${STRIP_ID} .owner-focus-value{font-size:17px}#${STRIP_ID} .owner-focus-next,#${STRIP_ID} .owner-focus-retry,#${STRIP_ID} .owner-focus-ask{grid-column:1/-1}}
 @media(prefers-reduced-motion:reduce){#${STRIP_ID} .owner-focus-metric{transition:none}#${STRIP_ID} .owner-focus-metric:hover{transform:none}}
-@media(forced-colors:active){#${STRIP_ID},#${STRIP_ID} .owner-focus-metric,#${STRIP_ID} .owner-focus-next,#${STRIP_ID} .owner-focus-ask{border:1px solid ButtonText}#${STRIP_ID} :focus-visible{outline:3px solid Highlight;box-shadow:none}}
+@media(forced-colors:active){#${STRIP_ID},#${STRIP_ID} .owner-focus-metric,#${STRIP_ID} .owner-focus-next,#${STRIP_ID} .owner-focus-retry,#${STRIP_ID} .owner-focus-ask{border:1px solid ButtonText}#${STRIP_ID} :focus-visible{outline:3px solid Highlight;box-shadow:none}}
 `;
     document.head.append(style);
   }
@@ -95,6 +99,7 @@
     strip.id=STRIP_ID;
     strip.className="owner-focus-strip";
     strip.dataset.release=RELEASE;
+    strip.dataset.priorRelease=PRIOR_RELEASE;
     strip.dataset.filter=activeFilter;
     strip.setAttribute("aria-label","Owner focus");
 
@@ -129,12 +134,20 @@
     next.setAttribute("aria-controls",ATTENTION_ID);
     next.addEventListener("click",reviewNext);
 
+    const retry=document.createElement("button");
+    retry.type="button";
+    retry.className="owner-focus-retry";
+    retry.textContent="Retry priorities";
+    retry.hidden=true;
+    retry.setAttribute("aria-controls",ATTENTION_ID);
+    retry.addEventListener("click",retryPriorities);
+
     const ask=document.createElement("button");
     ask.type="button";
     ask.className="owner-focus-ask";
     ask.textContent="Ask Thebe";
     ask.addEventListener("click",focusThebe);
-    strip.append(intro,metric("Needs action","action"),metric("Approvals","approvals"),metric("Pending outcomes","outcomes"),next,ask);
+    strip.append(intro,metric("Needs action","action"),metric("Approvals","approvals"),metric("Pending outcomes","outcomes"),next,retry,ask);
 
     const head=q(".owner-command-head",shell);
     if(head)head.insertAdjacentElement("afterend",strip);else shell.prepend(strip);
@@ -215,6 +228,30 @@
     focusQueueTarget(panel,queueTarget(panel,activeFilter));
   }
 
+  async function retryPriorities(){
+    if(queueRetryBusy)return;
+    const strip=ensureStrip(),panel=q(`#${ATTENTION_ID}`),retry=strip&&q(".owner-focus-retry",strip),title=strip&&q("[data-owner-focus-title]",strip);
+    const refresh=global.ThebeOwnerCommandCentre?.refresh;
+    if(typeof refresh!=="function"){
+      if(title)title.textContent="Priority retry unavailable";
+      return;
+    }
+    queueRetryBusy=true;
+    if(retry){retry.disabled=true;retry.textContent="Retrying…"}
+    if(title)title.textContent="Retrying priority queue…";
+    if(panel)panel.dataset.ownerFocusRetry="true";
+    try{
+      await Promise.resolve(refresh());
+    }catch{
+      if(title)title.textContent="Priority queue unavailable";
+    }finally{
+      queueRetryBusy=false;
+      if(retry){retry.disabled=false;retry.textContent="Retry priorities"}
+      if(panel)delete panel.dataset.ownerFocusRetry;
+      scheduleSync();
+    }
+  }
+
   function applyFilter(key,{focus=false}={}){
     activeFilter=FILTERS[key]?key:"all";
     const panel=q(`#${ATTENTION_ID}`);
@@ -233,9 +270,10 @@
     const panel=q(`#${ATTENTION_ID}`);
     if(!strip||!panel)return;
     const unavailable=/priority queue unavailable/i.test(panel.textContent||"");
-    const loading=/priority queue loading/i.test(panel.textContent||"");
+    const loading=/priority queue loading/i.test(panel.textContent||"")||panel.dataset.ownerFocusRetry==="true";
     const title=q("[data-owner-focus-title]",strip);
     const next=q(".owner-focus-next",strip);
+    const retry=q(".owner-focus-retry",strip);
     if(unavailable||loading){
       setMetric(strip,"action","—");
       setMetric(strip,"approvals","—");
@@ -244,6 +282,11 @@
       if(next){
         next.disabled=true;
         next.setAttribute("aria-label",loading?"Priority queue loading":"Priority queue unavailable");
+      }
+      if(retry){
+        retry.hidden=loading;
+        retry.disabled=queueRetryBusy;
+        retry.setAttribute("aria-label","Retry priority queue without changing approval or execution authority");
       }
       strip.dataset.state=loading?"loading":"unavailable";
       return;
@@ -265,6 +308,9 @@
       next.disabled=!activeTarget;
       next.setAttribute("aria-label",activeTarget?`Review next ${activeLabel}`:`No ${activeLabel} to review`);
     }
+    if(retry)retry.hidden=true;
+    lastReadyAt=Date.now();
+    strip.dataset.lastReadyAt=String(lastReadyAt);
     strip.dataset.state=totalOpen===0?"clear":"ready";
     strip.dataset.openCount=String(totalOpen);
     if(activeFilter!=="all")panel.dataset.ownerFocusFilter=activeFilter;
@@ -338,7 +384,7 @@
     global.addEventListener("thebe:auth:state",scheduleSync);
     global.addEventListener("thebe:identity:ready",scheduleSync);
     global.addEventListener("thebe:workspace:view",scheduleSync);
-    global.ThebeOwnerFocusStrip=Object.freeze({release:RELEASE,sync:scheduleSync,focusThebe,applyFilter,reviewNext});
+    global.ThebeOwnerFocusStrip=Object.freeze({release:RELEASE,sync:scheduleSync,focusThebe,applyFilter,reviewNext,retryPriorities,lastReadyAt:()=>lastReadyAt});
   }
 
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",install,{once:true});

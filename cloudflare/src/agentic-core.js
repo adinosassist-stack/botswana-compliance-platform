@@ -89,25 +89,47 @@ async function safeFirst(env,sql,bindings=[]){
   try{return await env.DB.prepare(sql).bind(...bindings).first()}catch{return null}
 }
 
-async function observeWorkspace(env,tenantId,actorRole){
-  const context=await buildBusinessContext(env,tenantId,{actorRole});
-  const market=context.market||{},finance=context.finance||{},reconciliation=finance.reconciliation||{},receivables=finance.receivables||{},today=finance.today||{};
-  const operations=context.operations||{},roleScope=context.roleScope||{},compliance=context.compliance||{};
+function sourceAvailable(operations,key){
+  if(operations?.restricted===true)return false;
+  const explicit=operations?.sourceStatus?.[key]?.available;
+  if(explicit===true)return true;
+  if(explicit===false)return false;
+  return operations?.available!==false;
+}
+function nullableNumber(value){
+  if(value==null)return null;
+  const n=Number(value);return Number.isFinite(n)?n:null;
+}
+function nonNegativeKnown(value){
+  const n=nullableNumber(value);return n==null?null:Math.max(0,n);
+}
+
+function workspaceObservationFromContext(context,actorRole){
+  const market=context?.market||{},finance=context?.finance||{},reconciliation=finance.reconciliation||{},receivables=finance.receivables||{},today=finance.today||{};
+  const operations=context?.operations||{},roleScope=context?.roleScope||{},compliance=context?.compliance||{};
+  const workflowAvailable=sourceAvailable(operations,"workflowJobs");
+  const summaryAvailable=sourceAvailable(operations,"dailyOperations");
+  const performanceAvailable=sourceAvailable(operations,"performanceInsights");
+  const allOperationsAvailable=workflowAvailable&&summaryAvailable&&performanceAvailable;
   const performance=operations?.restricted===true
     ?{restricted:true}
     :{
-      openSignals:Number(operations.openPerformanceSignals||0),
-      criticalSignals:Number(operations.criticalPerformanceSignals||0),
-      warningSignals:Number(operations.warningPerformanceSignals||0),
-      latestSignalAt:operations.latestPerformanceSignalAt||null
+      available:performanceAvailable,
+      unavailable:!performanceAvailable,
+      sourceStatus:operations.sourceStatus?.performanceInsights||null,
+      openSignals:performanceAvailable?nullableNumber(operations.openPerformanceSignals):null,
+      criticalSignals:performanceAvailable?nullableNumber(operations.criticalPerformanceSignals):null,
+      warningSignals:performanceAvailable?nullableNumber(operations.warningPerformanceSignals):null,
+      latestSignalAt:performanceAvailable?(operations.latestPerformanceSignalAt||null):null
     };
   return {
-    observedAt:context.observedAt,
-    market:context.market,
+    observedAt:context?.observedAt,
+    market:context?.market,
     roleScope:Object.freeze({
       actorRole:String(actorRole||"").toLowerCase(),
       businessHealth:roleScope.managementContext===true,
       operations:roleScope.managementContext===true,
+      operationsDataAvailable:allOperationsAvailable,
       finance:true,
       compliance:true
     }),
@@ -127,12 +149,15 @@ async function observeWorkspace(env,tenantId,actorRole){
     operations:operations?.restricted===true
       ?{restricted:true}
       :{
-        pendingWorkflowCount:Number(operations.pendingWorkflowCount||0),
-        failedWorkflowCount:Number(operations.failedWorkflowCount||0),
-        nextWorkflowDueAt:operations.nextWorkflowDueAt||null,
-        latestSummaryDate:operations.latestSummaryDate||null,
-        latestSummaryMode:operations.latestSummaryMode||null,
-        latestCoverage:operations.latestCoverage
+        available:workflowAvailable&&summaryAvailable,
+        unavailable:!(workflowAvailable&&summaryAvailable),
+        sourceStatus:operations.sourceStatus||null,
+        pendingWorkflowCount:workflowAvailable?nullableNumber(operations.pendingWorkflowCount):null,
+        failedWorkflowCount:workflowAvailable?nullableNumber(operations.failedWorkflowCount):null,
+        nextWorkflowDueAt:workflowAvailable?(operations.nextWorkflowDueAt||null):null,
+        latestSummaryDate:summaryAvailable?(operations.latestSummaryDate||null):null,
+        latestSummaryMode:summaryAvailable?(operations.latestSummaryMode||null):null,
+        latestCoverage:summaryAvailable?nullableNumber(operations.latestCoverage):null
       },
     performance,
     compliance:{
@@ -141,39 +166,46 @@ async function observeWorkspace(env,tenantId,actorRole){
       nextDueAt:compliance.nextDueAt||null
     },
     businessContext:{
-      version:context.version,
-      businessDate:context.businessDate,
-      market:context.market,
-      identity:context.identity,
-      language:context.language,
-      memory:context.memory,
-      sales:context.sales,
+      version:context?.version,
+      businessDate:context?.businessDate,
+      market:context?.market,
+      identity:context?.identity,
+      language:context?.language,
+      memory:context?.memory,
+      sales:context?.sales,
       moneyIntelligence:Object.freeze({
-        version:context.moneyIntelligence?.version||null,
-        spendEnvelope:context.moneyIntelligence?.spendEnvelope||null
+        version:context?.moneyIntelligence?.version||null,
+        spendEnvelope:context?.moneyIntelligence?.spendEnvelope||null
       }),
-      provenance:context.provenance,
+      provenance:context?.provenance,
       channelParity:"web_voice_whatsapp"
     }
   };
 }
 
+async function observeWorkspace(env,tenantId,actorRole){
+  const context=await buildBusinessContext(env,tenantId,{actorRole});
+  return workspaceObservationFromContext(context,actorRole);
+}
+
 function deterministicSimulation(observation){
   const cash=Number(observation?.finance?.cashPositionMinor||0);
   const reconciliationExposure=Math.max(0,Number(observation?.finance?.reconciliationExposureMinor||0));
-  const pending=Math.max(0,Number(observation?.operations?.pendingWorkflowCount||0));
-  const failed=Math.max(0,Number(observation?.operations?.failedWorkflowCount||0));
+  const pending=nonNegativeKnown(observation?.operations?.pendingWorkflowCount);
+  const failed=nonNegativeKnown(observation?.operations?.failedWorkflowCount);
   const overdue=Math.max(0,Number(observation?.compliance?.overdueCount||0));
-  const critical=Math.max(0,Number(observation?.performance?.criticalSignals||0));
+  const critical=nonNegativeKnown(observation?.performance?.criticalSignals);
+  const operationalSignalsAvailable=observation?.operations?.restricted!==true&&observation?.performance?.restricted!==true&&observation?.operations?.available!==false&&observation?.performance?.available!==false&&pending!=null&&failed!=null&&critical!=null;
   return {
     type:"deterministic_non_mutating",
     currency:String(observation?.market?.currency||observation?.finance?.currency||""),
     cashStress:{recordedCashMinor:cash,reconciliationExposureMinor:reconciliationExposure,exposureAdjustedCashMinor:cash-reconciliationExposure},
-    operatingLoad:{pendingWorkflowCount:pending,failedWorkflowCount:failed,overdueComplianceCount:overdue,criticalPerformanceSignals:critical},
-    pressureScore:Math.min(100,failed*20+overdue*15+critical*15+Math.min(pending,20)*2),
+    operatingLoad:{available:operationalSignalsAvailable,pendingWorkflowCount:pending,failedWorkflowCount:failed,overdueComplianceCount:overdue,criticalPerformanceSignals:critical},
+    pressureScore:operationalSignalsAvailable?Math.min(100,failed*20+overdue*15+critical*15+Math.min(pending,20)*2):null,
     assumptions:[
       "Reconciliation exposure is treated as downside uncertainty, not a forecasted loss.",
       "Pressure score is a deterministic triage aid and not a financial, legal or employment decision.",
+      "Unavailable operational sources remain unknown and are never converted into reassuring zeroes.",
       "No simulation output changes business records or authorizes execution."
     ]
   };
@@ -181,25 +213,30 @@ function deterministicSimulation(observation){
 
 function deterministicFallback(observation){
   const actions=[];
-  if(observation.finance.reconciliationExceptions>0){
+  const operationsUnavailable=observation?.operations?.restricted!==true&&observation?.operations?.available===false;
+  const performanceUnavailable=observation?.performance?.restricted!==true&&observation?.performance?.available===false;
+  if(operationsUnavailable||performanceUnavailable){
+    actions.push({title:"Verify operational data availability",reason:"One or more authoritative operational sources could not be read. Workflow or performance counts are unknown, not zero, until those source reads recover.",priority:"high",sourceRefs:["workflow_jobs","daily_operations_summaries","performance_insights"]});
+  }
+  if(observation?.finance?.reconciliationExceptions>0){
     actions.push({title:"Review reconciliation exceptions",reason:`${observation.finance.reconciliationExceptions} reconciliation exception(s) remain unresolved.`,priority:"high",sourceRefs:["finance_reconciliation"]});
   }
-  if(observation.operations.failedWorkflowCount>0){
+  if(observation?.operations?.failedWorkflowCount!=null&&Number(observation.operations.failedWorkflowCount)>0){
     actions.push({title:"Review failed workflows",reason:`${observation.operations.failedWorkflowCount} workflow job(s) are in a failed state.`,priority:"high",sourceRefs:["workflow_jobs"]});
   }
-  if(!observation.finance.latestReconciliationAt){
+  if(!observation?.finance?.latestReconciliationAt){
     actions.push({title:"Run the first finance reconciliation",reason:"No reconciliation snapshot is available yet, so finance certainty is limited.",priority:"medium",sourceRefs:["finance_reconciliation"]});
   }
   if(Number(observation?.compliance?.overdueCount||0)>0){
     actions.push({title:"Review overdue compliance obligations",reason:`${observation.compliance.overdueCount} compliance obligation(s) are overdue and require human review.`,priority:"high",sourceRefs:["compliance_obligations"]});
   }
-  if(Number(observation?.performance?.criticalSignals||0)>0){
+  if(observation?.performance?.criticalSignals!=null&&Number(observation.performance.criticalSignals)>0){
     actions.push({title:"Review critical performance signals",reason:`${observation.performance.criticalSignals} critical operating signal(s) are open. Check source reports before acting.`,priority:"high",sourceRefs:["performance_insights"]});
   }
   if(!actions.length){
     actions.push({title:"Review the current owner brief",reason:"No deterministic exception crossed the Stage 1 agent threshold. Review the latest operating signals before choosing the next action.",priority:"low",sourceRefs:["workspace_observation"]});
   }
-  return {answer:"Thebe generated a governed plan from current workspace signals. No autonomous business mutation was performed.",confidence:"medium",actions,caveats:["Human approval is required before any consequential action."],sourceRefs:actions.flatMap(x=>x.sourceRefs||[])};
+  return {answer:"Thebe generated a governed plan from current workspace signals. No autonomous business mutation was performed.",confidence:(operationsUnavailable||performanceUnavailable)?"low":"medium",actions,caveats:["Human approval is required before any consequential action."],sourceRefs:actions.flatMap(x=>x.sourceRefs||[])};
 }
 
 async function runAdvisor({request,env,ctx,coreFetch,runId,goal,observation,orchestration,readTools,continuationContext=null}){
@@ -549,7 +586,9 @@ export async function handleAgenticRequest({request,logicalPath,env,ctx,coreFetc
 export const __agenticFoundationTest=Object.freeze({
   classifyProposal,
   normalizeProposals,
+  workspaceObservationFromContext,
   deterministicSimulation,
+  deterministicFallback,
   originAllowed,
   csrfAllowed,
   prohibitedAutonomy:PROHIBITED_AUTONOMY

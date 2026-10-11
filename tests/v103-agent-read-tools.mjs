@@ -162,7 +162,8 @@ assert.match(moduleSource,/substr\(id,1,2\)<>'__'/);
 
 assert.match(coreSource,/observeWorkspace\(env,tenantId,actorRole\)/);
 assert.match(coreSource,/buildBusinessContext\(env,tenantId,\{actorRole\}\)/);
-assert.match(businessContextSource,/if\(!allowed\)return frozen\(\{restricted:true\}\)/,"canonical Business Context must fail closed before operations reads for non-management roles");
+assert.match(businessContextSource,/if\(!allowed\)return frozen\(\{/ ,"canonical Business Context must short-circuit before operations reads for non-management roles");
+assert.match(businessContextSource,/restricted:true,available:false/ ,"canonical Business Context must fail closed with restricted/unavailable metadata for non-management roles");
 assert.match(businessContextSource,/operationsContext\(env,tenantId,\{allowed:management\}\)/,"role scope must be passed into the canonical operations context");
 assert.doesNotMatch(businessContextSource,/SELECT summary_date,generation_mode,metrics_json,narrative_json/,"canonical planning context must not read operations narrative");
 assert.match(coreSource,/buildAgentReadToolContext\(\{env,auth\}\)/);

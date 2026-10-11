@@ -35,7 +35,7 @@ try{
     return route.fulfill({status:404,body:''});
   });
   await page.goto('http://localhost/');
-  await page.waitForFunction(()=>['20261007-owner-focus-v2-v296','20261007-owner-focus-v3-v303'].includes(document.documentElement.dataset.ownerFocusStrip||''));
+  await page.waitForFunction(()=>['20261007-owner-focus-v2-v296','20261007-owner-focus-v3-v303','20261011-owner-focus-recovery-v322'].includes(document.documentElement.dataset.ownerFocusStrip||''));
   await page.waitForSelector('#ownerFocusStrip');
   // The strip is inserted before its requestAnimationFrame queue-count sync.
   // Wait for the governed values, not just for the initial placeholder DOM.

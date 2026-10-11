@@ -2,16 +2,16 @@
    Workspace-only. Flat surfaces; no gradients. */
 
 #appShell{
-  --thebe-control-accent:#0b66d6;
-  --thebe-control-accent-hover:#095ab8;
-  --thebe-control-border:#cbd8e6;
-  --thebe-control-text:#20334a;
-  --thebe-control-muted:#526579;
-  --thebe-control-soft:#eef5ff;
+  --thebe-control-accent:#b42318;
+  --thebe-control-accent-hover:#8f1d16;
+  --thebe-control-border:#decac7;
+  --thebe-control-text:#2f2928;
+  --thebe-control-muted:#675a58;
+  --thebe-control-soft:#fff1ef;
   --thebe-control-surface:#fff;
-  --thebe-control-panel:#f8fafc;
-  --thebe-control-danger:#b42318;
-  --thebe-control-danger-hover:#912018;
+  --thebe-control-panel:#fbfaf9;
+  --thebe-control-danger:#8f1d16;
+  --thebe-control-danger-hover:#741713;
   --thebe-control-disabled-opacity:.52;
 }
 
@@ -52,19 +52,19 @@
   border-color:var(--thebe-control-border)!important;
 }
 #appShell .btn.alt:hover:not(:disabled):not([aria-disabled="true"]):not([aria-busy="true"]){
-  background:#f4f7fb!important;
-  border-color:#9fb4ca!important;
-  color:#163a62!important;
+  background:#fcf6f5!important;
+  border-color:#d6aaa5!important;
+  color:#74231c!important;
 }
 
 #appShell .btn.soft{
   background:var(--thebe-control-soft)!important;
   color:var(--thebe-control-accent)!important;
-  border-color:#c9dcf7!important;
+  border-color:#efc5c0!important;
 }
 #appShell .btn.soft:hover:not(:disabled):not([aria-disabled="true"]):not([aria-busy="true"]){
-  background:#e2efff!important;
-  border-color:#9dc4f2!important;
+  background:#ffe5e2!important;
+  border-color:#dc9e97!important;
 }
 
 #appShell .btn.danger{
@@ -170,6 +170,87 @@
 }
 
 #appShell .bw-empty-state[hidden]{display:none!important}
+
+/* Reviewer TD-008: reflow by the width the module actually receives beside
+   the workspace navigation and AI dock, not only by viewport width. */
+#appShell .money-v307-shell{
+  container-type:inline-size;
+  min-width:0;
+}
+#appShell .money-v307-lane,
+#appShell .money-v307-lane-head,
+#appShell .money-v307-row,
+#appShell .money-v307-command-copy{
+  min-width:0;
+}
+#appShell .money-v307-lane-head{
+  flex-wrap:wrap;
+}
+#appShell .money-v307-badge{
+  max-width:100%;
+  white-space:normal!important;
+  overflow-wrap:anywhere;
+  text-align:center;
+}
+#appShell .money-v307-row>strong{
+  max-width:100%;
+  white-space:normal!important;
+  overflow-wrap:anywhere;
+}
+@container (max-width:900px){
+  #appShell .money-v307-work-grid{
+    grid-template-columns:1fr!important;
+  }
+  #appShell .money-v307-command{
+    align-items:flex-start;
+    flex-wrap:wrap;
+  }
+  #appShell .money-v307-actions{
+    width:100%;
+    justify-content:flex-start;
+  }
+}
+@container (max-width:560px){
+  #appShell .money-v307-status-grid,
+  #appShell .money-v307-metrics{
+    grid-template-columns:1fr!important;
+  }
+  #appShell .money-v307-actions{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+  }
+  #appShell .money-v307-actions .btn{
+    width:100%;
+  }
+}
+
+/* Keep constrained headers, badges and dock controls contained instead of
+   clipping when the workspace dock is open. */
+#appShell .between.row,
+#appShell .owner-panel-head,
+#appShell .owner-command-head{
+  min-width:0;
+  flex-wrap:wrap;
+}
+#appShell .badge{
+  max-width:100%;
+  overflow-wrap:anywhere;
+}
+#appShell #thebeAiDock button,
+#appShell #thebeAiDockPill{
+  min-width:0;
+  max-width:100%;
+}
+#appShell #thebeAiDock button{
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+
+/* Reviewer TD-011: the demo reset is not a production capability. Keep the
+   control available only on explicit non-production/preview documents. */
+html:has(meta[name="bw-runtime-mode"][content="production"]) #appShell [data-bw-onclick^="resetDemo("]{
+  display:none!important;
+}
 
 @media (max-width:700px){
   #appShell .btn{min-height:44px}
