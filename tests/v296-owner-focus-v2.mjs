@@ -4,21 +4,21 @@ import {versionReleaseAssets} from '../cloudflare/src/asset-release-identity.js'
 
 const source=fs.readFileSync('public/js/owner-focus-strip-v296.js','utf8');
 assert.match(source,/20261007-owner-focus-v(?:2-v296|3-v303)/,'historical compatible Owner Focus release identity must remain explicit');
-assert.match(source,/20261011-owner-focus-canonical-v326/,'canonical backend-driven release identity must be explicit');
+assert.match(source,/20261011-owner-focus-canonical-v327/,'canonical payload-driven release identity must be explicit');
 assert.match(source,/SHELL_ID="ownerCommandCentre"/,'strip must remain owner-command-centre scoped');
 assert.match(source,/ATTENTION_ID="ownerAttentionPanel"/,'rendering and navigation must remain scoped to the governed attention panel');
 
-assert.match(source,/global\.apiJson\("\/api\/daily-brief"\)/,'needs-action truth must come from the authenticated daily brief');
-assert.match(source,/daily\?\.status\?\.openWork/,'needs-action count must use authoritative daily open work');
-assert.match(source,/global\.apiJson\("\/api\/agentic\/runs"\)/,'approval truth must come from persisted agentic proposals');
-assert.match(source,/String\(item\?\.status\|\|"pending"\)==="pending"/,'approvals must count pending persisted proposals');
-assert.match(source,/global\.apiJson\("\/api\/agentic\/outcomes"\)/,'outcome truth must use persisted outcomes');
-assert.match(source,/!measured\.has\(String\(item\?\.id\|\|""\)\)/,'pending outcomes must be decided proposals without a recorded outcome');
-assert.match(source,/global\.apiJson\("\/api\/business-context\/brief"\)/,'business-context recommendations must remain available as non-authoritative context');
-assert.match(source,/authoritativeForCounts:false/,'business-context recommendations must not become authoritative counts');
+assert.match(source,/global\.apiJson\("\/api\/daily-brief"\)/,'Owner Focus truth must come from the authenticated Daily Brief canonical payload');
+assert.match(source,/dailyResult\?\.value\?\.ownerAttention/,'Owner Focus must consume the server-built Owner Attention projection directly');
+assert.doesNotMatch(source,/global\.apiJson\("\/api\/agentic\/runs"\)/,'browser must not reconstruct approval truth from a second API');
+assert.doesNotMatch(source,/global\.apiJson\("\/api\/agentic\/outcomes"\)/,'browser must not reconstruct outcome truth from a second API');
+assert.doesNotMatch(source,/global\.apiJson\("\/api\/business-context\/brief"\)/,'browser must not reconstruct recommendation truth from a second API');
+assert.doesNotMatch(source,/daily\?\.status\?\.openWork/,'browser must not reconstruct action counts from Daily Brief fields outside the canonical projection');
+assert.match(source,/Owner Focus never recomputes authoritative queue facts in the browser/,'browser business-truth boundary must be explicit');
+assert.match(source,/owner_attention_missing/,'missing canonical projection must fail closed');
+assert.match(source,/owner_attention_ready_counts_invalid/,'malformed ready counts must fail closed');
 assert.match(source,/value==null\?"—":String\(value\)/,'unavailable authoritative counts must render unknown rather than zero');
 assert.match(source,/Priority data incomplete — retry to verify/,'incomplete canonical data must be explicit');
-assert.match(source,/DOM rows are navigation\/rendering evidence only and never define canonical Owner Focus counts/,'DOM rows must not be a source of business truth');
 
 assert.match(source,/\.owner-review-inbox > \.owner-review-row/,'rendered approvals must remain available for filter-aware navigation');
 assert.match(source,/\.owner-outcome-loop > \.owner-outcome-row/,'rendered outcomes must remain available for filter-aware navigation');
@@ -47,4 +47,4 @@ assert.doesNotMatch(decorated,/owner-focus-strip-v295\.js/,'workspace HTML must 
 assert.equal(versionReleaseAssets(decorated,sha,{includeWorkspaceFixes:true}),decorated,'Owner Focus injection must remain idempotent');
 assert.doesNotMatch(versionReleaseAssets(html,sha),/owner-focus-strip-v296\.js/,'Owner Focus must not load on public surfaces');
 
-console.log('PASS: Owner Focus preserves scoped navigation while canonical metrics come only from authenticated backend truth');
+console.log('PASS: Owner Focus preserves scoped navigation while consuming only canonical Owner Attention backend truth');
