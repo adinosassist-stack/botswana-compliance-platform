@@ -82,3 +82,20 @@
   else if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",loadPropertyConstruction,{once:true});
   else loadPropertyConstruction();
 })();
+
+(()=>{
+  "use strict";
+  const release="20261011-report-money-v331";
+  let requested=false;
+  function loadReportMoney(){
+    if(requested)return;
+    requested=true;
+    import(`/js/daily-report-money-v331.js?release=${release}`).catch(error=>{
+      requested=false;
+      console.error("Daily report money extension failed to load",error);
+    });
+  }
+  if(typeof window.whenThebeWorkspaceReady==="function")window.whenThebeWorkspaceReady(loadReportMoney);
+  else if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",loadReportMoney,{once:true});
+  else loadReportMoney();
+})();
