@@ -28,6 +28,7 @@ const fixture=`<!doctype html><html><head><meta charset="utf-8"></head><body>
 const bootstrap=`
 window.currentWorkspaceRole=()=>"owner";
 window.fixtureApiCalls=[];
+window.fixtureRefreshCount=0;
 window.fixtureCanonical={
   daily:{
     date:"2026-10-11",
@@ -57,12 +58,13 @@ window.fixtureCanonical={
     }
   }
 };
+window.fixtureReadyAttention=structuredClone(window.fixtureCanonical.daily.ownerAttention);
 window.apiJson=async url=>{
   window.fixtureApiCalls.push(url);
   if(url==="/api/daily-brief")return structuredClone(window.fixtureCanonical.daily);
   throw new Error("unexpected fixture API "+url);
 };
-window.ThebeOwnerCommandCentre={refresh:async()=>true};
+window.ThebeOwnerCommandCentre={refresh:async()=>{window.fixtureRefreshCount+=1;return true}};
 `;
 
 const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
@@ -84,10 +86,18 @@ try{
     return metrics.action==='3'&&metrics.approvals==='1'&&metrics.outcomes==='1';
   });
 
-  const values=await page.evaluate(()=>Object.fromEntries([...document.querySelectorAll('#ownerFocusStrip [data-focus-metric]')].map(node=>[node.dataset.focusMetric,node.querySelector('.owner-focus-value')?.textContent])));
+  const readMetrics=()=>page.evaluate(()=>Object.fromEntries([...document.querySelectorAll('#ownerFocusStrip [data-focus-metric]')].map(node=>[node.dataset.focusMetric,node.querySelector('.owner-focus-value')?.textContent])));
+  const values=await readMetrics();
   assert.deepEqual(values,{action:'3',approvals:'1',outcomes:'1'},'Owner Focus metrics must reflect the exact canonical Owner Attention payload, not contradictory DOM or sibling Daily Brief fields');
   assert.equal(await page.locator('#ownerAttentionPanel .badge').innerText(),'999','fixture must retain a contradictory DOM count to prove it is not authoritative');
   assert.deepEqual(await page.evaluate(()=>[...new Set(window.fixtureApiCalls)]),['/api/daily-brief'],'Owner Focus must consume one canonical backend payload rather than rebuilding truth from multiple APIs');
+
+  await page.setViewportSize({width:1440,height:900});
+  await page.waitForTimeout(80);
+  assert.deepEqual(await readMetrics(),values,'desktop and mobile layouts must display the exact same canonical metrics');
+  await page.setViewportSize({width:390,height:844});
+  await page.waitForTimeout(80);
+  assert.deepEqual(await readMetrics(),values,'returning to mobile must not alter canonical metrics');
 
   const calculatorBefore=await page.locator('#propertyCalculator').evaluate(node=>({style:node.getAttribute('style'),rect:{left:node.getBoundingClientRect().left,top:node.getBoundingClientRect().top,width:node.getBoundingClientRect().width,height:node.getBoundingClientRect().height}}));
 
@@ -169,8 +179,21 @@ try{
   assert.equal(await page.locator('[data-focus-metric="approvals"] .owner-focus-value').innerText(),'—');
   assert.equal(await page.locator('[data-focus-metric="outcomes"] .owner-focus-value').innerText(),'—');
 
+  // Retry must restore only from a new canonical payload and must not widen into approval/execution endpoints.
+  await page.evaluate(()=>{
+    const restored=structuredClone(window.fixtureReadyAttention);
+    restored.counts={...restored.counts,action:4,approvals:2,outcomes:1,total:7};
+    restored.generatedAt='2026-10-11T09:00:00Z';
+    window.fixtureCanonical.daily.ownerAttention=restored;
+  });
+  await page.locator('.owner-focus-retry').click();
+  await page.waitForFunction(()=>document.querySelector('#ownerFocusStrip')?.dataset.state==='ready');
+  assert.deepEqual(await readMetrics(),{action:'4',approvals:'2',outcomes:'1'},'retry must restore metrics from the refreshed canonical payload');
+  assert.ok(await page.evaluate(()=>window.fixtureRefreshCount>=1),'retry must invoke the existing Owner Command Centre refresh path');
+  assert.deepEqual(await page.evaluate(()=>[...new Set(window.fixtureApiCalls)]),['/api/daily-brief'],'retry must not call approval, outcome or execution APIs directly');
+
   const calculatorAfter=await page.locator('#propertyCalculator').evaluate(node=>({style:node.getAttribute('style'),rect:{left:node.getBoundingClientRect().left,top:node.getBoundingClientRect().top,width:node.getBoundingClientRect().width,height:node.getBoundingClientRect().height}}));
   assert.deepEqual(calculatorAfter,calculatorBefore,'Owner Focus upgrades must leave the approved Property calculator geometry untouched');
   assert.deepEqual(errors,[],'Owner Focus canonical upgrade must not throw browser errors');
-  console.log('OWNER_FOCUS_CANONICAL_BROWSER_PASS: exact canonical payload resists DOM and sibling-field tampering while scoped navigation, Thebe handoff and calculator geometry remain preserved');
+  console.log('OWNER_FOCUS_CANONICAL_BROWSER_PASS: exact canonical payload resists DOM and sibling-field tampering, remains viewport-stable, and recovers without widening authority');
 }finally{await browser.close()}
