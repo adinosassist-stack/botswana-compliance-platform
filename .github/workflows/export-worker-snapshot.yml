@@ -1,4 +1,4 @@
-name: Export worker snapshot
+name: Export AI context sources
 
 on:
   push:
@@ -18,10 +18,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      - name: Upload exact worker source
+      - name: Upload exact AI context sources
         uses: actions/upload-artifact@v4
         with:
-          name: worker-source
-          path: cloudflare/src/worker.js
+          name: ai-context-sources
+          path: |
+            cloudflare/src/worker.js
+            public/js/owner-command-centre.js
           if-no-files-found: error
           retention-days: 1
