@@ -65,6 +65,23 @@
 
 (()=>{
   "use strict";
+  const release="20261011-owner-ask-render-v319";
+  let requested=false;
+  function loadOwnerAskRender(){
+    if(requested)return;
+    requested=true;
+    import(`/js/owner-ask-thebe-render-v319.js?release=${release}`).catch(error=>{
+      requested=false;
+      console.error("Owner Ask Thebe render extension failed to load",error);
+    });
+  }
+  if(typeof window.whenThebeWorkspaceReady==="function")window.whenThebeWorkspaceReady(loadOwnerAskRender);
+  else if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",loadOwnerAskRender,{once:true});
+  else loadOwnerAskRender();
+})();
+
+(()=>{
+  "use strict";
   const baseRelease="20261010-property-construction-v311";
   const workflowRelease="20261010-property-construction-workflow-v312";
   let requested=false;
