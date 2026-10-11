@@ -44,11 +44,16 @@ jobs:
         shell: bash
         run: npm ci --ignore-scripts --no-audit --no-fund
 
-      - name: Run reviewer-identified regression entry points
+      - name: Password recovery source-contract regression
         shell: bash
         run: |
           set -euo pipefail
           node --check tests/password-reset-browser-flow.mjs
-          node --check tests/v177-property-valuation-service-reliability.mjs
           node tests/password-reset-browser-flow.mjs
+
+      - name: Property valuation reliability regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tests/v177-property-valuation-service-reliability.mjs
           node tests/v177-property-valuation-service-reliability.mjs
