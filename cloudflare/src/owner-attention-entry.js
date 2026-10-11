@@ -28,6 +28,11 @@ function clean(value,max=240){
   return String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
 }
 
+async function fetchJsonSource(coreFetch,request,env,ctx){
+  try{return await readJsonSource(await coreFetch(request,env,ctx))}
+  catch(error){return {available:false,value:null,reason:`fetch_failed:${clean(error?.message||error,120)||"source_exception"}`}}
+}
+
 function knownCount(value){
   if(value===null||value===undefined||value==="")return null;
   const n=Number(value);
@@ -137,21 +142,59 @@ function shapeAvailability(source,validator){
   return validator(source.value)?source:{available:false,value:source.value,reason:"invalid_shape"};
 }
 
+function unavailableProjection(reason="daily_brief_unavailable"){
+  const market=runtimeMarketProfile(DEFAULT_RUNTIME_MARKET_CODE);
+  return buildOwnerAttentionProjection({
+    generatedAt:new Date().toISOString(),
+    businessDate:marketBusinessDate(),
+    market,
+    dailyBrief:null,
+    businessBrief:null,
+    approvals:[],
+    outcomes:[],
+    sourceAvailability:{
+      dailyBrief:availability(false,reason,true),
+      businessContext:availability(false,reason,false),
+      approvals:availability(false,reason,true),
+      outcomes:availability(false,reason,true)
+    }
+  });
+}
+
+function ownerAttentionResponse(dailyResponse,dailyPayload,ownerAttention,{status=dailyResponse?.status||200,statusText=dailyResponse?.statusText||""}={}){
+  const headers=new Headers(dailyResponse?.headers||{});
+  headers.delete("content-length");headers.delete("etag");
+  headers.set("content-type","application/json; charset=utf-8");
+  headers.set("cache-control","no-store");
+  headers.set("x-thebe-owner-attention-version",String(ownerAttention.version||"unknown"));
+  headers.set("x-thebe-owner-attention-state",String(ownerAttention.state||"unknown"));
+  return new Response(JSON.stringify({...dailyPayload,ownerAttention}),{status,statusText,headers});
+}
+
 async function ownerAttentionDailyBrief({request,env,ctx,coreFetch}){
-  const dailyResponse=await coreFetch(request,env,ctx);
-  if(!dailyResponse.ok)return dailyResponse;
+  let dailyResponse;
+  try{dailyResponse=await coreFetch(request,env,ctx)}
+  catch(error){
+    const reason=`fetch_failed:${clean(error?.message||error,120)||"daily_brief_exception"}`;
+    return ownerAttentionResponse(null,{error:"daily_brief_unavailable"},unavailableProjection(reason),{status:503,statusText:"Service Unavailable"});
+  }
+  if(!dailyResponse.ok){
+    if(dailyResponse.status===401||dailyResponse.status===403)return dailyResponse;
+    if(dailyResponse.status>=500){
+      const reason=`http_${dailyResponse.status}`;
+      return ownerAttentionResponse(dailyResponse,{error:"daily_brief_unavailable"},unavailableProjection(reason));
+    }
+    return dailyResponse;
+  }
   const dailySource=shapeAvailability(await readJsonSource(dailyResponse),validDailyShape);
 
   const runsRequest=readPathRequest(request,RUNS_PATH);
   const outcomesRequest=readPathRequest(request,OUTCOMES_PATH);
   const businessRequest=readPathRequest(request,BUSINESS_CONTEXT_PATH);
-  const [runsResponse,outcomesResponse,businessResponse]=await Promise.all([
-    coreFetch(runsRequest,env,ctx),
-    coreFetch(outcomesRequest,env,ctx),
-    coreFetch(businessRequest,env,ctx)
-  ]);
   const [rawRunsSource,rawOutcomesSource,businessSource]=await Promise.all([
-    readJsonSource(runsResponse),readJsonSource(outcomesResponse),readJsonSource(businessResponse)
+    fetchJsonSource(coreFetch,runsRequest,env,ctx),
+    fetchJsonSource(coreFetch,outcomesRequest,env,ctx),
+    fetchJsonSource(coreFetch,businessRequest,env,ctx)
   ]);
   const runsSource=shapeAvailability(rawRunsSource,validRunsShape);
   const outcomesApiSource=shapeAvailability(rawOutcomesSource,validOutcomesShape);
@@ -186,14 +229,8 @@ async function ownerAttentionDailyBrief({request,env,ctx,coreFetch}){
       outcomesAvailable
     })
   });
-  const headers=new Headers(dailyResponse.headers);
-  headers.delete("content-length");headers.delete("etag");
-  headers.set("content-type","application/json; charset=utf-8");
-  headers.set("cache-control","no-store");
-  headers.set("x-thebe-owner-attention-version",String(ownerAttention.version||"unknown"));
-  headers.set("x-thebe-owner-attention-state",String(ownerAttention.state||"unknown"));
   const dailyPayload=dailySource.value&&typeof dailySource.value==="object"&&!Array.isArray(dailySource.value)?dailySource.value:{};
-  return new Response(JSON.stringify({...dailyPayload,ownerAttention}),{status:dailyResponse.status,statusText:dailyResponse.statusText,headers});
+  return ownerAttentionResponse(dailyResponse,dailyPayload,ownerAttention);
 }
 
 export {DAILY_BRIEF_PATH,ownerAttentionDailyBrief};
@@ -201,6 +238,7 @@ export const __ownerAttentionEntryTest=Object.freeze({
   approvalRows,
   authoritativeCounts,
   enrichDailyActions,
+  fetchJsonSource,
   knownCount,
   outcomeProposalId,
   pendingOutcomeRows,
@@ -209,6 +247,7 @@ export const __ownerAttentionEntryTest=Object.freeze({
   readJsonSource,
   readPathRequest,
   shapeAvailability,
+  unavailableProjection,
   validDailyShape,
   validOutcomesShape,
   validRunsShape
