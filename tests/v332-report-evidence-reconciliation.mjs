@@ -15,7 +15,15 @@ assert.ok(!entry.includes('import base from "./release-governance-entry.js"'),"v
 assert.ok(entry.includes('logicalPath!=="/public/daily-reporting/evidence"'),"public evidence endpoint missing");
 assert.ok(financeRouter.includes('import {handleDailyReportEvidenceRequest} from "./report-evidence-governance-entry-v332.js"'),"canonical agentic dispatch must load the report evidence handler");
 assert.ok(financeRouter.includes("handleDailyReportEvidenceRequest({request,logicalPath:path,env})"),"canonical agentic dispatch must route report evidence requests");
-assert.ok(entry.indexOf("!uploadsEnabled(env)")<entry.indexOf("reporterAccess(env,token)"),"upload feature gate must fail closed before bearer access/data work");
+const handleStart=entry.indexOf("async function handleUpload");
+assert.ok(handleStart>=0,"report evidence upload handler missing");
+const handle=entry.slice(handleStart);
+assert.ok(
+  handle.indexOf("!uploadsEnabled(env)")>=0&&
+  handle.indexOf("const access=await reporterAccess(env,token)")>=0&&
+  handle.indexOf("!uploadsEnabled(env)")<handle.indexOf("const access=await reporterAccess(env,token)"),
+  "upload feature gate must fail closed before bearer access/data work"
+);
 assert.ok(entry.includes("!scannerConfigured(env)"),"scanner configuration gate missing");
 assert.ok(entry.includes("EVIDENCE_SCAN_SECRET")&&entry.includes("EVIDENCE_SCAN_API_URL"),"scanner URL and secret must both be required");
 assert.ok(entry.includes("const hash=await sha256Hex(raw)"),"report bearer token must be hashed before DB lookup");
@@ -38,6 +46,7 @@ assert.ok(migration.includes("evidence_id TEXT NOT NULL UNIQUE"),"one evidence o
 
 assert.ok(client.includes("BW?.api?.createClient")||client.includes("BW?.api?.createClient?."),"report evidence client must use centralized API transport");
 assert.ok(!client.includes("fetch("),"report evidence client must not bypass centralized API transport");
+assert.ok(!client.includes("innerHTML"),"report evidence client must build reporter content with safe DOM APIs");
 assert.ok(client.includes("x-report-token")&&client.includes("x-report-date")&&client.includes("x-evidence-category"),"evidence request binding headers missing");
 assert.ok(client.includes("does not automatically verify revenue"),"employee UI must distinguish reported proof from verified revenue");
 assert.ok(client.includes("private evidence")&&!client.includes("objectKey"),"client must not expose storage object keys");
