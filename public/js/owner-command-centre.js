@@ -33,6 +33,7 @@
   let propertyAssetEditingId=null;
   let propertyEvidenceOptions=[];
   let responsibilityBusy=false;
+  let reliabilityAdvisorBusy=false;
 
   const q=(selector,root=document)=>root.querySelector(selector);
   const num=value=>{
@@ -1399,6 +1400,13 @@
     attention.append(text("div","Priority queue loading…","owner-command-empty"));
     attention.setAttribute("aria-label","Priority attention");
     shell.append(attention);
+
+    const reliability=document.createElement("section");
+    reliability.className="owner-panel owner-reliability-panel";
+    reliability.id="ownerReliabilityPanel";
+    reliability.hidden=true;
+    reliability.setAttribute("aria-label","Thebe AI reliability advisor");
+    shell.append(reliability);
 
     const responsibilities=document.createElement("section");
     responsibilities.className="owner-panel owner-responsibility-panel";
@@ -4355,6 +4363,87 @@
     }
   }
 
+  function reliabilityMetric(label,value,detail){
+    const card=document.createElement("article");
+    card.className="owner-signal";
+    card.append(
+      text("span",label,"owner-signal-label"),
+      text("strong",value,"owner-signal-value"),
+      text("p",detail,"muted")
+    );
+    return card;
+  }
+
+  async function renderReliabilityAdvisor(){
+    const panel=q("#ownerReliabilityPanel");
+    if(!panel)return null;
+    if(!canEdit()){
+      panel.hidden=true;
+      panel.replaceChildren();
+      return null;
+    }
+    if(reliabilityAdvisorBusy)return null;
+    reliabilityAdvisorBusy=true;
+    try{
+      const payload=await request("/api/ai/operator/reliability?days=7");
+      if(payload?.ok!==true||payload?.mode!=="advisor_only"||payload?.canMutate!==false){
+        panel.hidden=true;
+        panel.replaceChildren();
+        return null;
+      }
+      const summary=payload.summary&&typeof payload.summary==="object"?payload.summary:{};
+      const counts=summary.counts&&typeof summary.counts==="object"?summary.counts:{};
+      const total=Math.max(0,Number(summary.total||0));
+      const verified=Math.max(0,Number(counts.success||0));
+      const unverified=Math.max(0,Number(counts.unverified||0));
+      const denied=Math.max(0,Number(counts.denied||0));
+      const errors=Math.max(0,Number(counts.error||0));
+      const timeouts=Math.max(0,Number(counts.timeout||0));
+      const costLimits=Math.max(0,Number(counts.cost_limit||0));
+      const recommendations=Array.isArray(summary.recommendations)?summary.recommendations.slice(0,4):[];
+      panel.replaceChildren();
+      const head=document.createElement("div");
+      head.className="between row";
+      const copy=document.createElement("div");
+      copy.append(
+        text("div","Thebe AI reliability · Advisor only","section-eyebrow"),
+        text("h4","Execution evidence, not an autonomy control"),
+        text("p",`Last ${Number(payload.windowDays||7)} days · Read-only · Tenant-scoped · Cost telemetry never proves task success.`,"muted")
+      );
+      head.append(copy);
+      panel.append(head);
+      const metrics=document.createElement("div");
+      metrics.className="owner-signal-list";
+      const score=summary.status==="evaluated"&&total>0?`${Math.round(verified/total*100)}%`:"—";
+      metrics.append(
+        reliabilityMetric("Reliability score",score,score==="—"?"Unavailable until outcome evidence is verified.":"Share of evaluated runs with verified successful outcomes."),
+        reliabilityMetric("Verified / unverified",`${verified} / ${unverified}`,"Unverified runs are never counted as successful."),
+        reliabilityMetric("Denied · errors · timeouts",`${denied} · ${errors} · ${timeouts}`,"Authorization denials and failures stay visible."),
+        reliabilityMetric("Cost-limit events",String(costLimits),"Cost controls are signals only; they do not grant execution authority.")
+      );
+      panel.append(metrics);
+      const advice=document.createElement("div");
+      advice.className="owner-command-summary";
+      advice.append(text("strong","Recommendation-only improvements"));
+      if(recommendations.length){
+        const list=document.createElement("ul");
+        for(const item of recommendations)list.append(text("li",cleanText(item,220)));
+        advice.append(list);
+      }else{
+        advice.append(text("p","No reliability recommendation is available from the current verified evidence.","muted"));
+      }
+      panel.append(advice);
+      panel.hidden=false;
+      return payload;
+    }catch{
+      panel.hidden=true;
+      panel.replaceChildren();
+      return null;
+    }finally{
+      reliabilityAdvisorBusy=false;
+    }
+  }
+
   async function renderOwnerBrief(force=false){
     const seq=++renderSeq;
     const shell=createShell();
@@ -4401,7 +4490,7 @@
       renderSalesWorkspace(inputs.company,sales);
       renderInputs(inputs);
       await renderGoalsAndIdeas();
-      await Promise.all([renderAgenticGovernance(),loadResponsibilities()]);
+      await Promise.all([renderAgenticGovernance(),loadResponsibilities(),renderReliabilityAdvisor()]);
     }catch(error){
       if(seq!==renderSeq)return;
       const box=q("#ownerCommandSummary");
@@ -4484,6 +4573,7 @@
     openSales:openSalesWorkspace,
     refreshAgentic:()=>renderAgenticGovernance(true),
     refreshResponsibilities:()=>loadResponsibilities(),
+    refreshReliability:()=>renderReliabilityAdvisor(),
     refreshGoals:()=>renderGoalsAndIdeas(true),
     latestPlan:()=>agenticLatestPlan,
     loadLatestPlan:loadLatestAgenticPlan,
