@@ -25,10 +25,11 @@ assert.match(helper,/DAILY_BRIEF_PATH="\/api\/daily-brief"/);
 assert.match(helper,/RUNS_PATH="\/api\/agentic\/runs"/);
 assert.match(helper,/OUTCOMES_PATH="\/api\/agentic\/outcomes"/);
 assert.match(helper,/BUSINESS_CONTEXT_PATH="\/api\/business-context\/brief"/);
-assert.match(helper,/fetchJsonSource\(coreFetch,runsRequest,env,ctx\)/);
-assert.match(helper,/fetchJsonSource\(coreFetch,outcomesRequest,env,ctx\)/);
-assert.match(helper,/fetchJsonSource\(coreFetch,businessRequest,env,ctx\)/);
-assert.match(helper,/fetch_failed:/);
+assert.match(helper,/fetchJsonSource\(coreFetch,runsRequest,env,ctx,"agentic_runs_fetch_failed"\)/);
+assert.match(helper,/fetchJsonSource\(coreFetch,outcomesRequest,env,ctx,"agentic_outcomes_fetch_failed"\)/);
+assert.match(helper,/fetchJsonSource\(coreFetch,businessRequest,env,ctx,"business_context_fetch_failed"\)/);
+assert.match(helper,/daily_brief_fetch_failed/);
+assert.match(helper,/not_read_due_to_daily_brief_failure/);
 assert.match(helper,/unavailableProjection/);
 assert.match(helper,/dailyResponse\.status===401\|\|dailyResponse\.status===403/);
 assert.match(helper,/dailyResponse\.status>=500/);
@@ -36,6 +37,8 @@ assert.match(helper,/shapeAvailability/);
 assert.match(helper,/validDailyShape/);
 assert.match(helper,/validRunsShape/);
 assert.match(helper,/validOutcomesShape/);
+assert.match(helper,/knownCount\(value\?\.status\?\.urgent\)!==null/);
+assert.match(helper,/knownCount\(value\?\.status\?\.overdue\)!==null/);
 assert.match(helper,/x-thebe-owner-attention-state/);
 assert.match(helper,/x-thebe-owner-attention-version/);
 assert.match(helper,/dailyBrief:availability\(dailySource\.available,dailySource\.reason,true\)/);
@@ -48,11 +51,13 @@ const {__ownerAttentionEntryTest:test,ownerAttentionDailyBrief}=await import("..
 assert.equal(test.validRunsShape({proposals:[]}),true);
 assert.equal(test.validRunsShape({}),false);
 assert.equal(test.validRunsShape({proposals:[{}]}),false);
+assert.equal(test.validRunsShape({proposals:[{id:"p1"}]}),false,'proposal status is required for authoritative approval/outcome state');
 assert.equal(test.validOutcomesShape({items:[]}),true);
 assert.equal(test.validOutcomesShape({}),false);
 assert.equal(test.validOutcomesShape({items:[{}]}),false);
-assert.equal(test.validDailyShape({topActions:[],status:{openWork:0}}),true);
-assert.equal(test.validDailyShape({topActions:[],status:{}}),false);
+assert.equal(test.validDailyShape({topActions:[],status:{openWork:0,urgent:0,overdue:0}}),true);
+assert.equal(test.validDailyShape({topActions:[],status:{openWork:0}}),false,'ready Daily Brief must expose urgent and overdue counts as well as open work');
+assert.equal(test.validDailyShape({topActions:[],status:{openWork:0,urgent:0}}),false);
 
 const invalidRuns=test.shapeAvailability({available:true,value:{},reason:null},test.validRunsShape);
 assert.equal(invalidRuns.available,false);
@@ -128,6 +133,8 @@ assert.equal(healthyBody.ownerAttention.counts.action,2,"authoritative action co
 assert.equal(healthyBody.ownerAttention.counts.approvals,1);
 assert.equal(healthyBody.ownerAttention.counts.outcomes,0);
 assert.equal(healthyBody.ownerAttention.counts.total,3);
+assert.equal(healthyBody.ownerAttention.counts.urgent,1);
+assert.equal(healthyBody.ownerAttention.counts.overdue,0);
 assert.deepEqual(new Set(observedPaths),new Set(["/api/daily-brief","/api/agentic/runs","/api/agentic/outcomes","/api/business-context/brief"]));
 const authoritativeItems=healthyBody.ownerAttention.items.filter(item=>item.authoritative===true);
 assert.ok(authoritativeItems.length>=2);
@@ -137,7 +144,7 @@ assert.equal(recommendation?.authoritative,false,"source-less recommendations ma
 
 const malformedDailyFetch=async request=>{
   const path=new URL(request.url).pathname;
-  if(path==="/api/daily-brief")return jsonResponse({status:{},topActions:[]});
+  if(path==="/api/daily-brief")return jsonResponse({status:{openWork:0},topActions:[]});
   if(path==="/api/agentic/runs")return jsonResponse({proposals:[]});
   if(path==="/api/agentic/outcomes")return jsonResponse({items:[]});
   if(path==="/api/business-context/brief")return jsonResponse({brief:{priorities:[]}});
@@ -154,7 +161,7 @@ assert.equal(malformedBody.ownerAttention.sourceAvailability.dailyBrief.reason,"
 const throwingRunsFetch=async request=>{
   const path=new URL(request.url).pathname;
   if(path==="/api/daily-brief")return jsonResponse({date:"2026-10-11",status:{openWork:1,urgent:0,overdue:0},topActions:[{source:"hr",id:"h1",title:"One action"}]});
-  if(path==="/api/agentic/runs")throw new Error("runs_db_unavailable");
+  if(path==="/api/agentic/runs")throw new Error("sensitive database detail must not leak");
   if(path==="/api/agentic/outcomes")return jsonResponse({items:[]});
   if(path==="/api/business-context/brief")return jsonResponse({brief:{priorities:[]}});
   return jsonResponse({error:"unexpected_path"},404);
@@ -168,19 +175,22 @@ assert.equal(throwingRunsBody.ownerAttention.counts.approvals,null);
 assert.equal(throwingRunsBody.ownerAttention.counts.outcomes,null);
 assert.equal(throwingRunsBody.ownerAttention.counts.total,null);
 assert.equal(throwingRunsBody.ownerAttention.sourceAvailability.approvals.available,false);
-assert.match(throwingRunsBody.ownerAttention.sourceAvailability.approvals.reason,/^fetch_failed:runs_db_unavailable$/);
+assert.equal(throwingRunsBody.ownerAttention.sourceAvailability.approvals.reason,"agentic_runs_fetch_failed");
+assert.doesNotMatch(JSON.stringify(throwingRunsBody),/sensitive database detail/,'internal exception messages must not leak into canonical API state');
 
 const dailyExceptionResponse=await ownerAttentionDailyBrief({
   request:baseRequest,
   env:{},ctx:{},
-  coreFetch:async()=>{throw new Error("daily_db_unavailable")}
+  coreFetch:async()=>{throw new Error("secret daily database detail")}
 });
 assert.equal(dailyExceptionResponse.status,503);
 assert.equal(dailyExceptionResponse.headers.get("x-thebe-owner-attention-state"),"unavailable");
 const dailyExceptionBody=await dailyExceptionResponse.json();
 assert.equal(dailyExceptionBody.ownerAttention.state,"unavailable");
 assert.equal(dailyExceptionBody.ownerAttention.counts.total,null);
-assert.match(dailyExceptionBody.ownerAttention.sourceAvailability.dailyBrief.reason,/^fetch_failed:daily_db_unavailable$/);
+assert.equal(dailyExceptionBody.ownerAttention.sourceAvailability.dailyBrief.reason,"daily_brief_fetch_failed");
+assert.equal(dailyExceptionBody.ownerAttention.sourceAvailability.approvals.reason,"not_read_due_to_daily_brief_failure");
+assert.doesNotMatch(JSON.stringify(dailyExceptionBody),/secret daily database detail/,'primary-source exceptions must expose stable codes rather than internals');
 
 const authFailure=await ownerAttentionDailyBrief({
   request:baseRequest,
