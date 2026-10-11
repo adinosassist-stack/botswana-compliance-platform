@@ -8,7 +8,7 @@ assert.equal(adaptShadowCostEvent(event,"tenant-A").prompt,undefined);
 const db={prepare(sql){assert.match(sql,/tenant_id=\?/);return {bind(tenant){assert.equal(tenant,"tenant-A");return {async all(){return {results:[{detail_json:JSON.stringify(event)},{detail_json:"{bad"},{detail_json:JSON.stringify({...event,tenantId:"tenant-B"})}]}}}}}}};
 const result=await loadReliabilityAdvisorSummary({DB:db},"tenant-A");
 assert.equal(result.available,true);
-assert.equal(result.summary.total,1);
+assert.equal(result.summary.total,1,JSON.stringify(result));
 assert.equal(result.summary.counts.unverified,1);
 assert.equal(result.canMutate,false);
 assert.equal((await loadReliabilityAdvisorSummary({DB:db},"../unsafe")).available,false);
