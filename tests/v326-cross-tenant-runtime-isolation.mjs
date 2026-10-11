@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import worker from "../cloudflare/src/worker.js";
 
 const secret="review-isolation-secret-20261011-abcdefghijklmnopqrstuvwxyz";
+const auditSecret="review-audit-integrity-secret-20261011-abcdefghijklmnopqrstuvwxyz";
 const origin="https://app.example";
 const markers={
   "tenant-a":"ALPHA_PRIVATE_7f21",
@@ -38,6 +39,11 @@ class Statement{
 class IsolationDB{
   constructor(){this.runs=[]}
   prepare(sql){return new Statement(this,sql)}
+  async batch(statements){
+    const results=[];
+    for(const statement of statements)results.push(await statement.run());
+    return results;
+  }
   tenantFrom(bindings){return bindings.find(v=>v==="tenant-a"||v==="tenant-b")||null}
   first(sql,bindings){
     if(sql.includes("FROM sessions s JOIN users u"))return sessions.get(String(bindings[0]))||null;
@@ -45,6 +51,7 @@ class IsolationDB{
     if(sql.includes("FROM subscriptions WHERE tenant_id=?"))return {plan:"control",status:"active"};
     if(sql.includes("FROM entitlement_overrides WHERE tenant_id=?"))return {enabled:1,limit_value:null,expires_at:null};
     if(sql.includes("SELECT count FROM auth_rate_limits"))return {count:1};
+    if(sql.includes("FROM audit_chain_state WHERE tenant_id=?"))return null;
     if(sql.includes("FROM app_state WHERE tenant_id=?")){
       const marker=markers[tenant];
       return {version:1,state_json:JSON.stringify({activeCompanyId:`company-${tenant}`,companies:[{id:`company-${tenant}`,profile:{name:`Company ${marker}`,industry:`Services ${marker}`,employees:2,town:"Gaborone"}}]})};
@@ -78,7 +85,7 @@ class IsolationDB{
 }
 
 const db=new IsolationDB();
-const env={DB:db,SESSION_SECRET:secret,PUBLIC_ORIGIN:origin,PUBLIC_APP_URL:origin,ASSETS:{fetch:async()=>new Response("asset")},EVIDENCE:{get:async()=>null}};
+const env={DB:db,SESSION_SECRET:secret,AUDIT_INTEGRITY_SECRET:auditSecret,PUBLIC_ORIGIN:origin,PUBLIC_APP_URL:origin,ASSETS:{fetch:async()=>new Response("asset")},EVIDENCE:{get:async()=>null}};
 const ctx={waitUntil(){}};
 async function api(raw,path,{method="GET",csrf=null,body=null}={}){
   const headers={cookie:`bw_session=${raw}`,origin};
