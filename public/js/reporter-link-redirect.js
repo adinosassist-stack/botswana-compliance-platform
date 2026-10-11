@@ -8,6 +8,13 @@
     script.async=false;
     document.head.appendChild(script);
   }
+  if(path==="/report"&&!document.querySelector('script[data-reporter-evidence-v332]')){
+    const evidence=document.createElement("script");
+    evidence.src="/js/reporter-evidence-v332.js?v=20261011a";
+    evidence.dataset.reporterEvidenceV332="1";
+    evidence.async=false;
+    document.head.appendChild(evidence);
+  }
   if(hash.startsWith("#report=")){
     if(path==="/report")return;
     location.replace("/report/?entry=legacy-link&v=20260923e"+hash);
