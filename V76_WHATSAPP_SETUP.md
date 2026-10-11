@@ -6,12 +6,18 @@ v76 sends only approved utility templates for existing Thebe Desk obligations, r
 
 The connector is disabled until every production gate below is complete.
 
+## Official Thebe Desk WhatsApp Business number
+
+The customer-facing WhatsApp Business number for Thebe Desk is **+267 77723273**.
+
+For links and API-safe formatting use `26777723273` (for example `https://wa.me/26777723273`). This business number is not the same as Meta's opaque Cloud API `WHATSAPP_PHONE_NUMBER_ID`; keep those values separate in configuration.
+
 ## Production gates
 
-1. Create or select the Meta Business Portfolio, WhatsApp Business Account and production business phone number.
+1. Create or select the Meta Business Portfolio, WhatsApp Business Account and production business phone number. Thebe Desk's production business number is `+267 77723273`.
 2. Obtain the Cloud API phone-number ID and production access token with the minimum required WhatsApp messaging permissions.
 3. Create and obtain approval for all six utility templates using the exact parameter order below.
-4. Configure `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_GRAPH_VERSION` and `WHATSAPP_TEMPLATE_MAP_JSON`.
+4. Configure `WHATSAPP_BUSINESS_NUMBER`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_GRAPH_VERSION` and `WHATSAPP_TEMPLATE_MAP_JSON`.
 5. Store `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_APP_SECRET` and `WHATSAPP_VERIFY_TOKEN` as Cloudflare secrets. Never place live values in source, ZIPs, screenshots or support tickets.
 6. Configure the callback as `https://<production-domain>/api/webhooks/whatsapp`, complete the verification handshake and subscribe the app to WhatsApp `messages` webhooks.
 7. Confirm the Notification workspace reports six of six template mappings and allows consent capture.
@@ -34,6 +40,7 @@ Template names may differ, but the environment map must bind each internal key t
 ## Configuration example
 
 ```text
+WHATSAPP_BUSINESS_NUMBER=+26777723273
 WHATSAPP_PHONE_NUMBER_ID=<production phone number id>
 WHATSAPP_GRAPH_VERSION=v26.0
 WHATSAPP_TEMPLATE_MAP_JSON={"obligation_due":{"name":"bw_obligation_due","language":"en_US"},"compliance_schedule_due":{"name":"bw_compliance_schedule_due","language":"en_US"},"daily_operations_summary_ready":{"name":"bw_daily_operations_summary_ready","language":"en_US"},"critical_business_risk":{"name":"bw_critical_business_risk","language":"en_US"},"control_assurance_stale":{"name":"bw_control_assurance_stale","language":"en_US"},"performance_intelligence_alert":{"name":"bw_performance_intelligence_alert","language":"en_US"}}
