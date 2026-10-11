@@ -33,7 +33,9 @@ assert.match(home,/See Network and Partner plans →/);
 assert.doesNotMatch(home,/>P1,299 <small>\/ month<\/small>|>P2,499 <small>\/ month<\/small>/,'specialist plan prices should stay on the dedicated pricing page');
 
 // Market-page conversion contract.
-assert.match(home,/Know what needs attention\. Run your business from one place\./);
+assert.match(home,/Run your Botswana business from one place\./);
+assert.match(home,/No payment card required · Pula pricing/);
+assert.match(home,/Talk to us on WhatsApp/);
 for(const area of ['Money','Work','People','Protect']) assert.match(home,new RegExp(`<h3>${area}<\\/h3>`));
 assert.match(home,/Ask the business, not a blank chatbot\./);
 assert.match(home,/paid plan activates after Thebe Desk confirms the funds have been received/);
