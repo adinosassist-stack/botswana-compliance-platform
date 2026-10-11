@@ -58,6 +58,13 @@ jobs:
           node --check tests/v328-password-reset-session-invalidation.mjs
           node tests/v328-password-reset-session-invalidation.mjs
 
+      - name: Saved finance lifecycle qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tests/v329-saved-finance-lifecycle.mjs
+          node tests/v329-saved-finance-lifecycle.mjs
+
       - name: Property valuation reliability regression
         shell: bash
         run: |
