@@ -3,9 +3,13 @@ import fs from 'node:fs';
 const workflow=fs.readFileSync(new URL('../.github/workflows/regulatory-maker-import.yml',import.meta.url),'utf8');
 
 const checks=[
-  ['manual trigger only',workflow.includes('workflow_dispatch:')&&!/\n\s*(push|pull_request|schedule|workflow_run):/.test(workflow)],
+  ['manual trigger retained',workflow.includes('workflow_dispatch:')],
+  ['push trigger limited to main',workflow.includes('push:')&&workflow.includes('branches: [main]')],
+  ['push trigger limited to one trigger file',workflow.includes("- 'operations/regulatory-maker-import-trigger.json'")&&!workflow.includes("- '.github/workflows/regulatory-maker-import.yml'",workflow.indexOf('push:'))],
   ['main ref guard',workflow.includes("github.ref == 'refs/heads/main'")&&workflow.includes("refusing non-main execution")],
-  ['explicit confirmation',workflow.includes('IMPORT_CURRENT_FOUNDATION_PACK')],
+  ['manual explicit confirmation',workflow.includes("inputs.confirmation == 'IMPORT_CURRENT_FOUNDATION_PACK'")&&workflow.includes('explicit workflow-dispatch confirmation missing')],
+  ['push explicit commit marker',workflow.includes("contains(github.event.head_commit.message, '[run-regulatory-maker-import]')")],
+  ['push trigger payload validated',workflow.includes("data.get('schema') == 1")&&workflow.includes("data.get('requested') is True")&&workflow.includes("data.get('packKey') == 'botswana-foundation-v1'")&&workflow.includes("governed-production-foundation-pack-import")],
   ['production environment',workflow.includes('environment: production')],
   ['dedicated maker credentials',workflow.includes('PLATFORM_REGULATORY_MAKER_EMAIL')&&workflow.includes('PLATFORM_REGULATORY_MAKER_PASSWORD')],
   ['governed login',workflow.includes('/api/auth/login')],

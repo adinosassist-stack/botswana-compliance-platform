@@ -8,6 +8,10 @@ on:
         description: Type IMPORT_CURRENT_FOUNDATION_PACK to run the maker-side import
         required: true
         type: string
+  push:
+    branches: [main]
+    paths:
+      - 'operations/regulatory-maker-import-trigger.json'
 
 permissions:
   contents: read
@@ -19,7 +23,12 @@ concurrency:
 jobs:
   import-foundation-pack:
     name: Import current Botswana foundation pack through governed API
-    if: github.ref == 'refs/heads/main' && inputs.confirmation == 'IMPORT_CURRENT_FOUNDATION_PACK'
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (
+        (github.event_name == 'workflow_dispatch' && inputs.confirmation == 'IMPORT_CURRENT_FOUNDATION_PACK') ||
+        (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-regulatory-maker-import]'))
+      )
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment: production
@@ -36,14 +45,30 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Refuse missing maker credentials
+      - name: Refuse missing maker credentials or trigger authority
         shell: bash
         run: |
           set -euo pipefail
           [[ -n "$MAKER_EMAIL" ]] || { echo 'PLATFORM_REGULATORY_MAKER_EMAIL is not configured.' >&2; exit 1; }
           [[ -n "$MAKER_PASSWORD" ]] || { echo 'PLATFORM_REGULATORY_MAKER_PASSWORD is not configured.' >&2; exit 1; }
           [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo "refusing non-main execution: $GITHUB_REF" >&2; exit 1; }
-          [[ "${{ inputs.confirmation }}" == 'IMPORT_CURRENT_FOUNDATION_PACK' ]] || { echo 'explicit confirmation missing' >&2; exit 1; }
+
+          if [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]; then
+            [[ "${{ inputs.confirmation }}" == 'IMPORT_CURRENT_FOUNDATION_PACK' ]] || { echo 'explicit workflow-dispatch confirmation missing' >&2; exit 1; }
+          elif [[ "$GITHUB_EVENT_NAME" == 'push' ]]; then
+            python3 - <<'PY'
+          import json
+          data=json.load(open('operations/regulatory-maker-import-trigger.json',encoding='utf-8'))
+          assert data.get('schema') == 1, 'invalid maker trigger schema'
+          assert data.get('requested') is True, 'maker trigger is not explicitly requested'
+          assert data.get('packKey') == 'botswana-foundation-v1', 'unexpected maker trigger pack key'
+          assert str(data.get('purpose') or '') == 'governed-production-foundation-pack-import', 'unexpected maker trigger purpose'
+          print('One-shot governed maker trigger validated.')
+          PY
+          else
+            echo "unsupported trigger event: $GITHUB_EVENT_NAME" >&2
+            exit 1
+          fi
 
       - name: Authenticate production maker and prove platform role
         id: auth
