@@ -1,0 +1,39 @@
+name: Regulatory Reviewer Console CI
+
+on:
+  pull_request:
+    paths:
+      - 'public/regulatory-review.html'
+      - 'public/js/regulatory-review-console.js'
+      - 'tests/regulatory-review-console-static.mjs'
+      - '.github/workflows/regulatory-review-console-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'public/regulatory-review.html'
+      - 'public/js/regulatory-review-console.js'
+      - 'tests/regulatory-review-console-static.mjs'
+      - '.github/workflows/regulatory-review-console-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: Reviewer console safety contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+      - name: Enforce governed reviewer console contract
+        run: |
+          node --check public/js/regulatory-review-console.js
+          node tests/regulatory-review-console-static.mjs
