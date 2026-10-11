@@ -1,7 +1,7 @@
 (function installOwnerFocusV3(global){
   "use strict";
 
-  const RELEASE="20261011-owner-focus-canonical-v326";
+  const RELEASE="20261011-owner-focus-canonical-v327";
   const PRIOR_RECOVERY_RELEASE="20261011-owner-focus-recovery-v322";
   const PRIOR_RELEASE="20261007-owner-focus-v3-v303";
   const STRIP_ID="ownerFocusStrip";
@@ -238,6 +238,7 @@
   }
 
   function knownCount(value){
+    if(value===null||value===undefined||value==="")return null;
     const n=Number(value);
     return Number.isFinite(n)&&n>=0?Math.floor(n):null;
   }
@@ -248,55 +249,57 @@
 
   function sourceReason(result){
     if(result?.status==="fulfilled")return null;
-    return String(result?.reason?.message||result?.reason||"source_unavailable").replace(/\s+/g," ").slice(0,160);
+    return String(result?.reason?.message||result?.reason||"canonical_owner_attention_unavailable").replace(/\s+/g," ").slice(0,160);
   }
 
-  function buildCanonicalSnapshot(dailyResult,runsResult,outcomesResult,businessResult){
-    const dailyAvailable=dailyResult?.status==="fulfilled";
-    const runsAvailable=runsResult?.status==="fulfilled";
-    const outcomesAvailable=outcomesResult?.status==="fulfilled";
-    const businessAvailable=businessResult?.status==="fulfilled";
-    const daily=dailyAvailable?(dailyResult.value||{}):{};
-    const runs=runsAvailable?(runsResult.value||{}):{};
-    const outcomes=outcomesAvailable?(outcomesResult.value||{}):{};
-    const business=businessAvailable?(businessResult.value||{}):{};
-    const proposals=Array.isArray(runs?.proposals)?runs.proposals:[];
-    const recordedOutcomes=Array.isArray(outcomes?.items)?outcomes.items:[];
-    const measured=new Set(recordedOutcomes.map(item=>String(item?.proposal_id||item?.proposalId||"")).filter(Boolean));
-    const action=dailyAvailable?(knownCount(daily?.status?.openWork)??(Array.isArray(daily?.topActions)?daily.topActions.length:0)):null;
-    const approvals=runsAvailable?proposals.filter(item=>String(item?.status||"pending")==="pending").length:null;
-    const pendingOutcomes=runsAvailable&&outcomesAvailable
-      ?proposals.filter(item=>String(item?.status||"pending")!=="pending"&&!measured.has(String(item?.id||""))).length
-      :null;
-    const priorities=business?.brief?.priorities||business?.priorities;
-    const recommendations=businessAvailable&&Array.isArray(priorities)?priorities.length:(businessAvailable?0:null);
-    const authoritativeKnown=[action,approvals,pendingOutcomes].every(value=>value!==null);
+  function unavailableCanonicalSnapshot(reason="canonical_owner_attention_unavailable"){
     return Object.freeze({
-      version:"2026-10-11.owner-focus-canonical-v1",
-      state:authoritativeKnown?"ready":"unavailable",
-      generatedAt:String(daily?.generatedAt||business?.observedAt||new Date().toISOString()),
-      businessDate:String(daily?.date||business?.businessDate||"")||null,
-      counts:Object.freeze({
-        action,
-        approvals,
-        outcomes:pendingOutcomes,
-        recommendations,
-        total:authoritativeKnown?action+approvals+pendingOutcomes:null
-      }),
-      sourceAvailability:Object.freeze({
-        dailyBrief:Object.freeze({available:dailyAvailable,reason:sourceReason(dailyResult)}),
-        agenticRuns:Object.freeze({available:runsAvailable,reason:sourceReason(runsResult)}),
-        agenticOutcomes:Object.freeze({available:outcomesAvailable,reason:sourceReason(outcomesResult)}),
-        businessContext:Object.freeze({available:businessAvailable,reason:sourceReason(businessResult),authoritativeForCounts:false})
-      }),
+      version:"unknown",
+      state:"unavailable",
+      generatedAt:new Date().toISOString(),
+      businessDate:null,
+      market:null,
+      counts:Object.freeze({action:null,approvals:null,outcomes:null,recommendations:null,total:null,urgent:null,overdue:null}),
+      items:Object.freeze([]),
+      sourceAvailability:Object.freeze({dailyBrief:Object.freeze({available:false,required:true,reason:String(reason||"canonical_owner_attention_unavailable").slice(0,160)})}),
       provenance:Object.freeze({
-        authority:"authenticated_backend_records",
-        action:"/api/daily-brief status.openWork",
-        approvals:"/api/agentic/runs pending proposals",
-        outcomes:"/api/agentic/runs non-pending proposals without /api/agentic/outcomes record",
-        recommendations:"/api/business-context/brief priorities (non-authoritative)",
-        rule:"DOM rows are navigation/rendering evidence only and never define canonical Owner Focus counts."
+        authority:"canonical_owner_attention_payload",
+        rule:"Owner Focus never recomputes authoritative queue facts in the browser. Missing or malformed canonical payloads remain unavailable."
       })
+    });
+  }
+
+  function canonicalSnapshotFromDailyResult(dailyResult){
+    if(dailyResult?.status!=="fulfilled")return unavailableCanonicalSnapshot(sourceReason(dailyResult));
+    const projection=dailyResult?.value?.ownerAttention;
+    if(!projection||typeof projection!=="object"||Array.isArray(projection))return unavailableCanonicalSnapshot("owner_attention_missing");
+    const state=String(projection.state||"").toLowerCase();
+    if(!["ready","loading","unavailable"].includes(state))return unavailableCanonicalSnapshot("owner_attention_state_invalid");
+    const rawCounts=projection.counts;
+    if(!rawCounts||typeof rawCounts!=="object"||Array.isArray(rawCounts))return unavailableCanonicalSnapshot("owner_attention_counts_invalid");
+    const counts=Object.freeze({
+      action:knownCount(rawCounts.action),
+      approvals:knownCount(rawCounts.approvals),
+      outcomes:knownCount(rawCounts.outcomes),
+      recommendations:knownCount(rawCounts.recommendations),
+      total:knownCount(rawCounts.total),
+      urgent:knownCount(rawCounts.urgent),
+      overdue:knownCount(rawCounts.overdue)
+    });
+    if(state==="ready"&&[counts.action,counts.approvals,counts.outcomes,counts.total].some(value=>value===null))return unavailableCanonicalSnapshot("owner_attention_ready_counts_invalid");
+    const items=Array.isArray(projection.items)?projection.items.filter(item=>item&&typeof item==="object"&&!Array.isArray(item)):[];
+    const sourceAvailability=projection.sourceAvailability&&typeof projection.sourceAvailability==="object"&&!Array.isArray(projection.sourceAvailability)?projection.sourceAvailability:{};
+    const provenance=projection.provenance&&typeof projection.provenance==="object"&&!Array.isArray(projection.provenance)?projection.provenance:{};
+    return Object.freeze({
+      version:String(projection.version||"unknown"),
+      state,
+      generatedAt:String(projection.generatedAt||new Date().toISOString()),
+      businessDate:projection.businessDate?String(projection.businessDate):null,
+      market:projection.market&&typeof projection.market==="object"?Object.freeze({...projection.market}):null,
+      counts,
+      items:Object.freeze(items.map(item=>Object.freeze({...item}))),
+      sourceAvailability:Object.freeze({...sourceAvailability}),
+      provenance:Object.freeze({...provenance})
     });
   }
 
@@ -308,23 +311,18 @@
     scheduleSync();
     canonicalPromise=(async()=>{
       if(typeof global.apiJson!=="function"){
-        canonicalSnapshot=buildCanonicalSnapshot(
-          {status:"rejected",reason:new Error("secure_api_transport_unavailable")},
-          {status:"rejected",reason:new Error("secure_api_transport_unavailable")},
-          {status:"rejected",reason:new Error("secure_api_transport_unavailable")},
-          {status:"rejected",reason:new Error("secure_api_transport_unavailable")}
-        );
+        canonicalSnapshot=unavailableCanonicalSnapshot("secure_api_transport_unavailable");
         canonicalFetchedAt=Date.now();
         return canonicalSnapshot;
       }
-      const results=await Promise.allSettled([
-        global.apiJson("/api/daily-brief"),
-        global.apiJson("/api/agentic/runs"),
-        global.apiJson("/api/agentic/outcomes"),
-        global.apiJson("/api/business-context/brief")
-      ]);
+      let dailyResult;
+      try{
+        dailyResult={status:"fulfilled",value:await global.apiJson("/api/daily-brief")};
+      }catch(error){
+        dailyResult={status:"rejected",reason:error};
+      }
       if(seq!==canonicalSeq)return canonicalSnapshot;
-      canonicalSnapshot=buildCanonicalSnapshot(results[0],results[1],results[2],results[3]);
+      canonicalSnapshot=canonicalSnapshotFromDailyResult(dailyResult);
       canonicalFetchedAt=Date.now();
       return canonicalSnapshot;
     })().finally(()=>{
@@ -386,7 +384,7 @@
     const panel=q(`#${ATTENTION_ID}`);
     if(!strip||!panel)return;
     const panelUnavailable=/priority queue unavailable/i.test(panel.textContent||"");
-    const loading=/priority queue loading/i.test(panel.textContent||"")||panel.dataset.ownerFocusRetry==="true"||(canonicalBusy&&!canonicalSnapshot);
+    const loading=/priority queue loading/i.test(panel.textContent||"")||panel.dataset.ownerFocusRetry==="true"||(canonicalBusy&&!canonicalSnapshot)||canonicalSnapshot?.state==="loading";
     const title=q("[data-owner-focus-title]",strip);
     const next=q(".owner-focus-next",strip);
     const retry=q(".owner-focus-retry",strip);
