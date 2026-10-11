@@ -76,6 +76,13 @@ jobs:
           node --check tests/v326-cross-tenant-runtime-isolation.mjs
           node tests/v326-cross-tenant-runtime-isolation.mjs
 
+      - name: Privileged workspace role isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tests/v327-privileged-role-runtime-isolation.mjs
+          node tests/v327-privileged-role-runtime-isolation.mjs
+
       - name: Owner priority recovery regression
         shell: bash
         run: |
