@@ -4,18 +4,45 @@ const RELEASE="20261011-reporter-evidence-v332";
 const MAX_BYTES=Math.floor(3.5*1024*1024);
 const ALLOWED=new Set(["image/jpeg","image/png","image/webp","application/pdf"]);
 const byId=id=>document.getElementById(id);
+const node=(tag,{id="",className="",text="",attrs={}}={})=>{
+  const el=document.createElement(tag);
+  if(id)el.id=id;
+  if(className)el.className=className;
+  if(text)el.textContent=text;
+  for(const [name,value] of Object.entries(attrs)){
+    if(value===true)el.setAttribute(name,"");
+    else if(value!==false&&value!=null)el.setAttribute(name,String(value));
+  }
+  return el;
+};
 function readToken(){const hash=String(location.hash||"");if(!hash.startsWith("#report="))return "";try{return decodeURIComponent(hash.slice(8)).trim()}catch{return ""}}
 function setStatus(text,state=""){const el=byId("reporterEvidenceStatus");if(!el)return;el.textContent=String(text||"");el.dataset.state=state}
 function api(){return globalThis.BW?.api?.createClient?.({timeoutMs:30000,retries:0})||null}
 function injectCss(){if(document.querySelector('link[data-reporter-evidence-v332]'))return;const link=document.createElement("link");link.rel="stylesheet";link.href="/assets/reporter-evidence-v332.css?v=20261011a";link.dataset.reporterEvidenceV332="1";document.head.appendChild(link)}
 function rowLabel(category){return {receipt:"Receipt",payment_proof:"Payment proof",work_photo:"Work photo",other:"Other"}[category]||"Evidence"}
-function addQueueItem(file,category,result){const list=byId("reporterEvidenceQueue");if(!list)return;const li=document.createElement("li"),strong=document.createElement("strong"),span=document.createElement("span");strong.textContent=`${rowLabel(category)} · ${file.name}`;span.textContent=result.scanStatus==="clean"?"Scan clean":"Queued for scan";li.append(strong,span);list.prepend(li)}
+function addQueueItem(file,category,result){const list=byId("reporterEvidenceQueue");if(!list)return;const li=node("li"),strong=node("strong",{text:`${rowLabel(category)} · ${file.name}`}),span=node("span",{text:result.scanStatus==="clean"?"Scan clean":"Queued for scan"});li.append(strong,span);list.prepend(li)}
+function field(labelText,control,{className=""}={}){const label=node("label",{className,text:labelText});label.appendChild(control);return label}
+function option(value,text){const item=node("option",{text});item.value=value;return item}
+function buildEvidenceSection(){
+  const section=node("section",{id:"reporterEvidenceV332",className:"reporter-evidence-v332"});section.dataset.release=RELEASE;
+  section.appendChild(node("h3",{text:"Receipts & photos"}));
+  const intro=node("p");intro.append("Attach proof to this daily report. Evidence stays ",node("strong",{text:"Reported"})," and quarantined until Thebe's malware scan and management review clear it. Uploading proof does not automatically verify revenue.");section.appendChild(intro);
+  const grid=node("div",{className:"reporter-evidence-grid"});
+  const category=node("select",{id:"reporterEvidenceCategory"});category.append(option("receipt","Receipt"),option("payment_proof","Payment / deposit proof"),option("work_photo","Work / site photo"),option("other","Other"));
+  const amount=node("input",{id:"reporterEvidenceAmount",attrs:{type:"number",min:"0",step:"0.01",inputmode:"decimal",placeholder:"0.00"}});
+  const file=node("input",{id:"reporterEvidenceFile",attrs:{type:"file",accept:"image/jpeg,image/png,image/webp,application/pdf"}});
+  const reference=node("input",{id:"reporterEvidenceReference",attrs:{maxlength:"160",autocomplete:"off",placeholder:"Receipt / deposit reference"}});
+  const note=node("textarea",{id:"reporterEvidenceNote",attrs:{maxlength:"500",placeholder:"What this evidence supports"}});
+  grid.append(field("Evidence type",category),field("Amount (P), optional",amount),field("Photo or PDF",file,{className:"reporter-evidence-file"}),field("Reference, optional",reference),field("Note, optional",note,{className:"reporter-evidence-note"}));section.appendChild(grid);
+  const actions=node("div",{className:"reporter-evidence-actions"});actions.append(node("button",{id:"reporterEvidenceUpload",className:"reporter-evidence-upload",text:"Attach evidence",attrs:{type:"button"}}),node("span",{id:"reporterEvidenceStatus",className:"reporter-evidence-status",text:"Submit the daily report first if it has not been saved yet."}));section.appendChild(actions);
+  section.append(node("ul",{id:"reporterEvidenceQueue",className:"reporter-evidence-queue",attrs:{"aria-live":"polite"}}),node("p",{className:"reporter-evidence-privacy",text:"Accepted: JPG, PNG, WebP or PDF up to 3.5 MB. Files are private evidence; no public file URL is created."}));
+  return section;
+}
 function mount(){
   if(byId("reporterEvidenceV332"))return;
   const form=byId("reporterDailyForm");if(!form)return;
   injectCss();
-  const section=document.createElement("section");section.id="reporterEvidenceV332";section.className="reporter-evidence-v332";section.dataset.release=RELEASE;
-  section.innerHTML=`<h3>Receipts & photos</h3><p>Attach proof to this daily report. Evidence stays <strong>Reported</strong> and quarantined until Thebe's malware scan and management review clear it. Uploading proof does not automatically verify revenue.</p><div class="reporter-evidence-grid"><label>Evidence type<select id="reporterEvidenceCategory"><option value="receipt">Receipt</option><option value="payment_proof">Payment / deposit proof</option><option value="work_photo">Work / site photo</option><option value="other">Other</option></select></label><label>Amount (P), optional<input id="reporterEvidenceAmount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></label><label class="reporter-evidence-file">Photo or PDF<input id="reporterEvidenceFile" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label><label>Reference, optional<input id="reporterEvidenceReference" maxlength="160" autocomplete="off" placeholder="Receipt / deposit reference"></label><label class="reporter-evidence-note">Note, optional<textarea id="reporterEvidenceNote" maxlength="500" placeholder="What this evidence supports"></textarea></label></div><div class="reporter-evidence-actions"><button id="reporterEvidenceUpload" class="reporter-evidence-upload" type="button">Attach evidence</button><span id="reporterEvidenceStatus" class="reporter-evidence-status">Submit the daily report first if it has not been saved yet.</span></div><ul id="reporterEvidenceQueue" class="reporter-evidence-queue" aria-live="polite"></ul><p class="reporter-evidence-privacy">Accepted: JPG, PNG, WebP or PDF up to 3.5 MB. Files are private evidence; no public file URL is created.</p>`;
+  const section=buildEvidenceSection();
   const submit=byId("reporterSubmitBtn");if(submit?.parentNode)submit.parentNode.insertBefore(section,submit);else form.appendChild(section);
   byId("reporterEvidenceUpload")?.addEventListener("click",upload);
 }
