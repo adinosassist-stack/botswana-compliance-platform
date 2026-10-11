@@ -24,7 +24,7 @@
     panel.dataset.reportMoneyV331="1";
     panel.innerHTML=`
       <div class="row between" style="align-items:flex-start;gap:16px">
-        <div><div class="kpi">Money from daily reports</div><h2 style="margin:0">Revenue overview</h2><div class="muted small">Reported revenue is operational data from employee daily reports. Bank matching and verification remain separate.</div></div>
+        <div><div class="kpi">Money from daily reports</div><h2 style="margin:0">Revenue overview</h2><div class="muted small">Reported revenue is reported operational data from employee daily reports. Bank matching and verification remain separate.</div></div>
         <button type="button" class="btn alt" data-report-money-refresh>Refresh</button>
       </div>
       <div class="grid g3" style="margin-top:14px">
