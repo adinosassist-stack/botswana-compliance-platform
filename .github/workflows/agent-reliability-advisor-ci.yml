@@ -4,6 +4,10 @@ on:
     paths:
       - 'cloudflare/src/agent-reliability-advisor.js'
       - 'tests/agent-reliability-advisor.mjs'
+      - 'cloudflare/src/agent-reliability-telemetry-adapter.js'
+      - 'tests/agent-reliability-telemetry-adapter.mjs'
+      - 'cloudflare/src/agent-reliability-telemetry-adapter.js'
+      - 'tests/agent-reliability-telemetry-adapter.mjs'
       - '.github/workflows/agent-reliability-advisor-ci.yml'
   push:
     branches:
@@ -25,3 +29,5 @@ jobs:
           node-version: '22'
       - run: node --check cloudflare/src/agent-reliability-advisor.js
       - run: node tests/agent-reliability-advisor.mjs
+      - run: node --check cloudflare/src/agent-reliability-telemetry-adapter.js
+      - run: node tests/agent-reliability-telemetry-adapter.mjs
