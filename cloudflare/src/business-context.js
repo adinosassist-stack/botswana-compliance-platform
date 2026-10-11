@@ -8,7 +8,7 @@ import {DEFAULT_RUNTIME_MARKET_CODE,runtimeMarketProfile,marketBusinessDate,form
 import {buildBusinessAnalytics} from "./business-analytics.js";
 import {propertyPortfolioSummary} from "./property-portfolio.js";
 
-export const BUSINESS_CONTEXT_VERSION="2026-09-27.v175";
+export const BUSINESS_CONTEXT_VERSION="2026-10-11.v324";
 
 const PROFILE_KEYS=Object.freeze({
   monthlyRevenueTargetBwp:"decisionMonthlyRevenueTargetBwp",
@@ -42,6 +42,11 @@ function activeMarketContext(){
 const activeBusinessDate=(now=new Date(),marketCode=DEFAULT_RUNTIME_MARKET_CODE)=>marketBusinessDate(now,marketCode);
 const activeMarketMinor=(value,marketCode=DEFAULT_RUNTIME_MARKET_CODE)=>formatMarketMinor(value,{marketCode});
 async function safeFirst(env,sql,bindings=[]){try{return await env.DB.prepare(sql).bind(...bindings).first()}catch{return null}}
+async function firstStatus(env,sql,bindings=[]){
+  const observedAt=new Date().toISOString();
+  try{return frozen({available:true,row:await env.DB.prepare(sql).bind(...bindings).first(),observedAt})}
+  catch{return frozen({available:false,row:null,observedAt})}
+}
 
 function activeCompany(state){
   const companies=Array.isArray(state?.companies)?state.companies:[];
@@ -134,33 +139,41 @@ function salesMemory(state,{businessDate=activeBusinessDate()}={}){
 }
 
 async function operationsContext(env,tenantId,{allowed=true}={}){
-  if(!allowed)return frozen({restricted:true});
-  const [workflow,ops,performance]=await Promise.all([
-    safeFirst(env,`SELECT
+  if(!allowed)return frozen({restricted:true,available:false,sourceStatus:frozen({})});
+  const [workflowRead,summaryRead,performanceRead]=await Promise.all([
+    firstStatus(env,`SELECT
       SUM(CASE WHEN status IN ('queued','pending','retry') THEN 1 ELSE 0 END) pending_count,
       SUM(CASE WHEN status IN ('failed','dead') THEN 1 ELSE 0 END) failed_count,
       MIN(CASE WHEN status IN ('queued','pending','retry') THEN due_at END) next_due_at
       FROM workflow_jobs WHERE tenant_id=?`,[tenantId]),
-    safeFirst(env,`SELECT summary_date,generation_mode,metrics_json FROM daily_operations_summaries
+    firstStatus(env,`SELECT summary_date,generation_mode,metrics_json FROM daily_operations_summaries
       WHERE tenant_id=? ORDER BY summary_date DESC,created_at DESC LIMIT 1`,[tenantId]),
-    safeFirst(env,`SELECT COUNT(*) open_count,
+    firstStatus(env,`SELECT COUNT(*) open_count,
       SUM(CASE WHEN severity='critical' THEN 1 ELSE 0 END) critical_count,
       SUM(CASE WHEN severity='warning' THEN 1 ELSE 0 END) warning_count,
       MAX(created_at) latest_signal_at
       FROM performance_insights WHERE tenant_id=? AND status IN ('open','acknowledged')`,[tenantId])
   ]);
+  const workflow=workflowRead.row,ops=summaryRead.row,performance=performanceRead.row;
   const metrics=safeJson(ops?.metrics_json,{});
+  const available=workflowRead.available&&summaryRead.available&&performanceRead.available;
   return frozen({
-    pendingWorkflowCount:Number(workflow?.pending_count||0),
-    failedWorkflowCount:Number(workflow?.failed_count||0),
-    nextWorkflowDueAt:workflow?.next_due_at||null,
-    latestSummaryDate:ops?.summary_date||null,
-    latestSummaryMode:ops?.generation_mode||null,
-    latestCoverage:finite(metrics?.coverage),
-    openPerformanceSignals:Number(performance?.open_count||0),
-    criticalPerformanceSignals:Number(performance?.critical_count||0),
-    warningPerformanceSignals:Number(performance?.warning_count||0),
-    latestPerformanceSignalAt:performance?.latest_signal_at||null
+    available,
+    sourceStatus:frozen({
+      workflowJobs:frozen({available:workflowRead.available,observedAt:workflowRead.observedAt,recordPresent:workflowRead.available}),
+      dailyOperations:frozen({available:summaryRead.available,observedAt:summaryRead.observedAt,recordPresent:summaryRead.available?!!ops:null}),
+      performanceInsights:frozen({available:performanceRead.available,observedAt:performanceRead.observedAt,recordPresent:performanceRead.available})
+    }),
+    pendingWorkflowCount:workflowRead.available?Number(workflow?.pending_count||0):null,
+    failedWorkflowCount:workflowRead.available?Number(workflow?.failed_count||0):null,
+    nextWorkflowDueAt:workflowRead.available?(workflow?.next_due_at||null):null,
+    latestSummaryDate:summaryRead.available?(ops?.summary_date||null):null,
+    latestSummaryMode:summaryRead.available?(ops?.generation_mode||null):null,
+    latestCoverage:summaryRead.available?finite(metrics?.coverage):null,
+    openPerformanceSignals:performanceRead.available?Number(performance?.open_count||0):null,
+    criticalPerformanceSignals:performanceRead.available?Number(performance?.critical_count||0):null,
+    warningPerformanceSignals:performanceRead.available?Number(performance?.warning_count||0):null,
+    latestPerformanceSignalAt:performanceRead.available?(performance?.latest_signal_at||null):null
   });
 }
 
@@ -243,8 +256,9 @@ async function buildBusinessContextBase(env,tenantId,{actorRole="owner",now=new 
     moneyIntelligence,
     provenance:frozen({
       authoritative:frozen(["finance_accounts","finance_transactions","finance_reconciliation_runs","finance_invoices","finance_invoice_allocations","finance_suppliers","finance_supplier_aliases","finance_payables","finance_payable_allocations","property_assets","property_professional_valuations","property_valuation_evidence_links","property_operating_snapshots","evidence","daily_operations_summaries","workflow_jobs","performance_insights","compliance_obligations"]),
+      availability:frozen({operations:operations?.sourceStatus||null}),
       ownerEntered:management?frozen(["app_state.active_company.profile","app_state.active_company.salesIntelligence","business_memory_items"]):frozen([]),
-      rule:"Authoritative records and owner-entered assumptions remain explicitly separated; Thebe must not promote assumptions into observed facts."
+      rule:"Authoritative records and owner-entered assumptions remain explicitly separated; unavailable sources remain unavailable and must not be promoted into reassuring zeroes."
     })
   });
 }
@@ -297,17 +311,22 @@ function briefHeadline({finance={},receivables={},compliance={},ops={},language,
     :coverageStatus==="unknown"
       ?"Regulatory coverage unknown"
       :`${Number(compliance.overdueCount||0)} overdue compliance item(s)`;
+  const operationsHeadline=ops?.available===false
+    ?(language?.render==="setswana"?"Maemo a operations ga a bonale":"Operations status unavailable")
+    :language?.render==="setswana"
+      ?`${Number(ops.failedWorkflowCount||0)} workflow tse di paletsweng`
+      :`${Number(ops.failedWorkflowCount||0)} failed workflow(s)`;
   if(language?.render==="setswana")return [
     `Madi a a rekotilweng ${money(finance.cashPositionMinor)}`,
     `${money(receivables.outstandingMinor)} ya dikoloto tsa bareki`,
     complianceHeadline,
-    `${Number(ops.failedWorkflowCount||0)} workflow tse di paletsweng`
+    operationsHeadline
   ].join(" · ");
   return [
     `Recorded cash ${money(finance.cashPositionMinor)}`,
     `${money(receivables.outstandingMinor)} customer receivables`,
     complianceHeadline,
-    `${Number(ops.failedWorkflowCount||0)} failed workflow(s)`
+    operationsHeadline
   ].join(" · ");
 }
 
@@ -353,16 +372,23 @@ export function deriveBusinessPriorities(context){
     `${Number(compliance.overdueCount||0)} compliance obligation(s) are recorded as overdue.`,
     ["compliance_obligations"],"compliance_action_plan.prepare"
   ));
-  if(Number(ops.failedWorkflowCount||0)>0)out.push(priority(
-    "failed_workflows","high","Resolve failed operational workflows",
-    `${Number(ops.failedWorkflowCount||0)} workflow(s) are recorded as failed or dead.`,
-    ["workflow_jobs"],"daily_operations_brief.prepare"
+  if(ops?.available===false)out.push(priority(
+    "operations_data_unavailable","high","Verify operations data availability",
+    "Thebe could not read one or more authoritative operational sources. Workflow and performance counts are unknown, not zero, until those reads recover.",
+    ["workflow_jobs","daily_operations_summaries","performance_insights"],null
   ));
-  if(Number(ops.criticalPerformanceSignals||0)>0)out.push(priority(
-    "critical_performance","medium","Review critical business signals",
-    `${Number(ops.criticalPerformanceSignals||0)} critical performance signal(s) remain open or acknowledged.`,
-    ["performance_insights"],"management_brief.prepare"
-  ));
+  else{
+    if(Number(ops.failedWorkflowCount||0)>0)out.push(priority(
+      "failed_workflows","high","Resolve failed operational workflows",
+      `${Number(ops.failedWorkflowCount||0)} workflow(s) are recorded as failed or dead.`,
+      ["workflow_jobs"],"daily_operations_brief.prepare"
+    ));
+    if(Number(ops.criticalPerformanceSignals||0)>0)out.push(priority(
+      "critical_performance","medium","Review critical business signals",
+      `${Number(ops.criticalPerformanceSignals||0)} critical performance signal(s) remain open or acknowledged.`,
+      ["performance_insights"],"management_brief.prepare"
+    ));
+  }
   if(Number(sales.dormantQuotationCount||0)>0)out.push(priority(
     "dormant_quotations","medium","Follow up dormant quotations",
     `${Number(sales.dormantQuotationCount||0)} dormant quotation(s) represent ${formatMarketMajor(sales.dormantQuotationValueBwp,{marketCode:"BW",maximumFractionDigits:2})} of owner-recorded quote value.`,
@@ -415,9 +441,11 @@ export function buildDailyBusinessBrief(context){
     reconciliationStale:finance?.reconciliation?.stale===true,
     overdueComplianceCount:Number(compliance.overdueCount||0),
     complianceDueWithin14Days:Number(compliance.dueWithin14Days||0),
-    pendingWorkflowCount:Number(ops.pendingWorkflowCount||0),
-    failedWorkflowCount:Number(ops.failedWorkflowCount||0),
-    criticalPerformanceSignals:Number(ops.criticalPerformanceSignals||0),
+    operationsAvailable:ops?.available!==false,
+    operationsSourceStatus:ops?.sourceStatus||null,
+    pendingWorkflowCount:ops.pendingWorkflowCount==null?null:Number(ops.pendingWorkflowCount),
+    failedWorkflowCount:ops.failedWorkflowCount==null?null:Number(ops.failedWorkflowCount),
+    criticalPerformanceSignals:ops.criticalPerformanceSignals==null?null:Number(ops.criticalPerformanceSignals),
     dormantQuotationCount:Number(sales.dormantQuotationCount||0),
     dormantQuotationValueBwp:Number(sales.dormantQuotationValueBwp||0),
     current30InflowMinor:Number(trend?.current30?.inflow||0),
@@ -527,6 +555,7 @@ export const __businessContextTest=frozen({
   ownerEnteredMemory,
   mergeConfirmedMemory,
   salesMemory,
+  operationsContext,
   localizeBriefPriority,
   briefHeadline,
   deriveBusinessPriorities,
