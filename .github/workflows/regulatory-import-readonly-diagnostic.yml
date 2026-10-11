@@ -1,0 +1,94 @@
+name: Thebe Desk Regulatory Import Read-Only Diagnostic
+run-name: Regulatory import diagnostic ${{ github.sha }}
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'operations/regulatory-import-diagnostic-trigger.json'
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type RUN_READ_ONLY_REGULATORY_IMPORT_DIAGNOSTIC
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: thebe-desk-regulatory-import-readonly-diagnostic
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    name: Inspect foundation-pack import state without mutation
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (
+        (github.event_name == 'workflow_dispatch' && inputs.confirmation == 'RUN_READ_ONLY_REGULATORY_IMPORT_DIAGNOSTIC') ||
+        (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-regulatory-import-diagnostic]'))
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
+
+    steps:
+      - name: Checkout exact diagnostic authority
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+
+      - name: Refuse missing authority or unsafe trigger
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "$CLOUDFLARE_API_TOKEN" ]] || { echo 'CLOUDFLARE_API_TOKEN is not configured.' >&2; exit 1; }
+          [[ -n "$CLOUDFLARE_ACCOUNT_ID" ]] || { echo 'CLOUDFLARE_ACCOUNT_ID is not configured.' >&2; exit 1; }
+          [[ -n "$D1_DATABASE_ID" ]] || { echo 'D1_DATABASE_ID is not configured.' >&2; exit 1; }
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo 'refusing non-main execution' >&2; exit 1; }
+          if [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]; then
+            [[ "${{ inputs.confirmation }}" == 'RUN_READ_ONLY_REGULATORY_IMPORT_DIAGNOSTIC' ]] || { echo 'explicit diagnostic confirmation missing' >&2; exit 1; }
+          elif [[ "$GITHUB_EVENT_NAME" == 'push' ]]; then
+            python3 - <<'PY'
+          import json
+          data=json.load(open('operations/regulatory-import-diagnostic-trigger.json',encoding='utf-8'))
+          assert data.get('schema') == 1, 'invalid diagnostic trigger schema'
+          assert data.get('requested') is True, 'diagnostic is not explicitly requested'
+          assert data.get('purpose') == 'inspect-partial-regulatory-foundation-import', 'unexpected diagnostic purpose'
+          assert data.get('safety') == 'read-only SELECT queries only; no regulatory or customer data mutation', 'unexpected diagnostic safety contract'
+          print('One-shot read-only diagnostic trigger validated.')
+          PY
+          else
+            echo 'unsupported trigger event' >&2
+            exit 1
+          fi
+
+      - name: Prove diagnostic is read-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/production-regulatory-import-diagnostic.mjs
+          grep -Fq "diagnostic permits SELECT statements only" scripts/production-regulatory-import-diagnostic.mjs
+          if grep -Eq "env\.DB|/foundation-pack/import|/approve|/publish" scripts/production-regulatory-import-diagnostic.mjs; then
+            echo 'diagnostic contains forbidden application mutation authority' >&2
+            exit 1
+          fi
+
+      - name: Inspect partial import state
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/production-regulatory-import-diagnostic.mjs
