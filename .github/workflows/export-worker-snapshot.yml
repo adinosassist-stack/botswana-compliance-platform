@@ -45,7 +45,7 @@ jobs:
         run: |
           git add -A
           git diff --cached --name-only
-          test "$(git diff --cached --name-only | sort | tr '\n' ' ')" = "cloudflare/src/ai-advisor-context-compaction.js cloudflare/src/worker.js public/js/owner-command-centre.js tests/v329-ai-advisor-context-compaction.mjs "
+          test "$(git diff --cached --name-only | sort | tr '\n' ' ')" = "cloudflare/src/ai-advisor-context-compaction.js cloudflare/src/worker.js public/js/owner-command-centre.js tests/v116-thebe-super-agent-ask-anything.mjs tests/v329-ai-advisor-context-compaction.mjs "
           git diff --cached --check
 
       - name: Commit verified patch
