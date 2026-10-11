@@ -1,0 +1,29 @@
+name: Export voice context sources
+
+on:
+  push:
+    branches:
+      - chatgpt/ai-context-compaction
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Upload exact voice context sources
+        uses: actions/upload-artifact@v4
+        with:
+          name: voice-context-sources
+          path: |
+            cloudflare/src/agentic-core.js
+            cloudflare/src/agentic-live-voice.js
+          if-no-files-found: error
+          retention-days: 1
