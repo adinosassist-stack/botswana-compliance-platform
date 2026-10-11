@@ -58,6 +58,14 @@ jobs:
           node --check tests/v177-property-valuation-service-reliability.mjs
           node tests/v177-property-valuation-service-reliability.mjs
 
+      - name: Owner priority recovery regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check public/js/owner-focus-strip-v296.js
+          node tests/v303-owner-focus-priority-context.mjs
+          node tests/v323-owner-focus-recovery.mjs
+
       - name: Constrained workspace and preview UI contract
         shell: bash
         run: |
