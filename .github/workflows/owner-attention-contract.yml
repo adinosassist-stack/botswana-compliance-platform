@@ -4,7 +4,9 @@ on:
   pull_request:
     paths:
       - "cloudflare/src/owner-attention.js"
+      - "public/js/owner-focus-strip-v296.js"
       - "tests/owner-attention-contract.mjs"
+      - "tests/owner-focus-canonical-backend.mjs"
       - ".github/workflows/owner-attention-contract.yml"
   workflow_dispatch:
 
@@ -30,7 +32,13 @@ jobs:
       - name: Verify Owner Attention syntax
         run: |
           node --check cloudflare/src/owner-attention.js
+          node --check public/js/owner-focus-strip-v296.js
           node --check tests/owner-attention-contract.mjs
+          node --check tests/owner-focus-canonical-backend.mjs
 
-      - name: Run Owner Attention contract regression
-        run: node tests/owner-attention-contract.mjs
+      - name: Run Owner Attention contract regressions
+        run: |
+          node tests/owner-attention-contract.mjs
+          node tests/owner-focus-canonical-backend.mjs
+          node tests/v303-owner-focus-priority-context.mjs
+          node tests/v323-owner-focus-recovery.mjs
