@@ -27,17 +27,39 @@ const fixture=`<!doctype html><html><head><meta charset="utf-8"></head><body>
 
 const bootstrap=`
 window.currentWorkspaceRole=()=>"owner";
+window.fixtureApiCalls=[];
 window.fixtureCanonical={
-  daily:{date:"2026-10-11",generatedAt:"2026-10-11T08:00:00Z",status:{openWork:3},topActions:[{id:"a1"},{id:"a2"},{id:"a3"}]},
-  runs:{proposals:[{id:"p1",status:"pending"},{id:"p2",status:"approved"}]},
-  outcomes:{items:[]},
-  business:{observedAt:"2026-10-11T08:00:00Z",brief:{priorities:[{key:"r1",title:"Recommendation"}]}}
+  daily:{
+    date:"2026-10-11",
+    generatedAt:"2026-10-11T08:00:00Z",
+    status:{openWork:999,urgent:999,overdue:999},
+    topActions:[{id:"misleading-client-field"}],
+    ownerAttention:{
+      version:"2026-10-11.v1",
+      state:"ready",
+      generatedAt:"2026-10-11T08:00:00Z",
+      businessDate:"2026-10-11",
+      market:{code:"BW",country:"Botswana",jurisdiction:"Botswana",currency:"BWP",timeZone:"Africa/Gaborone"},
+      counts:{action:3,approvals:1,outcomes:1,recommendations:1,total:5,urgent:1,overdue:0},
+      items:[
+        {key:"work:a1",sourceType:"work",sourceId:"a1",category:"action",title:"Cash gap",sourceRefs:["work:a1"],authoritative:true},
+        {key:"agentic_proposal:p1",sourceType:"agentic_proposal",sourceId:"p1",category:"approval",title:"Approve supplier plan",sourceRefs:["agentic_proposal:p1"],authoritative:true},
+        {key:"agentic_proposal_outcome:p2",sourceType:"agentic_proposal_outcome",sourceId:"p2",category:"outcome",title:"Pricing change",sourceRefs:["agentic_proposal:p2"],authoritative:true},
+        {key:"business_priority:r1",sourceType:"business_priority",sourceId:"r1",category:"recommendation",title:"Recommendation",sourceRefs:[],authoritative:false}
+      ],
+      sourceAvailability:{
+        dailyBrief:{available:true,required:true},
+        approvals:{available:true,required:true},
+        outcomes:{available:true,required:true},
+        businessContext:{available:true,required:false}
+      },
+      provenance:{authority:"server_canonical_owner_attention"}
+    }
+  }
 };
 window.apiJson=async url=>{
+  window.fixtureApiCalls.push(url);
   if(url==="/api/daily-brief")return structuredClone(window.fixtureCanonical.daily);
-  if(url==="/api/agentic/runs")return structuredClone(window.fixtureCanonical.runs);
-  if(url==="/api/agentic/outcomes")return structuredClone(window.fixtureCanonical.outcomes);
-  if(url==="/api/business-context/brief")return structuredClone(window.fixtureCanonical.business);
   throw new Error("unexpected fixture API "+url);
 };
 window.ThebeOwnerCommandCentre={refresh:async()=>true};
@@ -55,7 +77,7 @@ try{
     return route.fulfill({status:404,body:''});
   });
   await page.goto('http://localhost/');
-  await page.waitForFunction(()=>document.documentElement.dataset.ownerFocusStrip==='20261011-owner-focus-canonical-v326');
+  await page.waitForFunction(()=>document.documentElement.dataset.ownerFocusStrip==='20261011-owner-focus-canonical-v327');
   await page.waitForSelector('#ownerFocusStrip');
   await page.waitForFunction(()=>{
     const metrics=Object.fromEntries([...document.querySelectorAll('#ownerFocusStrip [data-focus-metric]')].map(node=>[node.dataset.focusMetric,node.querySelector('.owner-focus-value')?.textContent]));
@@ -63,8 +85,9 @@ try{
   });
 
   const values=await page.evaluate(()=>Object.fromEntries([...document.querySelectorAll('#ownerFocusStrip [data-focus-metric]')].map(node=>[node.dataset.focusMetric,node.querySelector('.owner-focus-value')?.textContent])));
-  assert.deepEqual(values,{action:'3',approvals:'1',outcomes:'1'},'Owner Focus metrics must reflect authenticated backend records, not the intentionally false DOM badge');
+  assert.deepEqual(values,{action:'3',approvals:'1',outcomes:'1'},'Owner Focus metrics must reflect the exact canonical Owner Attention payload, not contradictory DOM or sibling Daily Brief fields');
   assert.equal(await page.locator('#ownerAttentionPanel .badge').innerText(),'999','fixture must retain a contradictory DOM count to prove it is not authoritative');
+  assert.deepEqual(await page.evaluate(()=>[...new Set(window.fixtureApiCalls)]),['/api/daily-brief'],'Owner Focus must consume one canonical backend payload rather than rebuilding truth from multiple APIs');
 
   const calculatorBefore=await page.locator('#propertyCalculator').evaluate(node=>({style:node.getAttribute('style'),rect:{left:node.getBoundingClientRect().left,top:node.getBoundingClientRect().top,width:node.getBoundingClientRect().width,height:node.getBoundingClientRect().height}}));
 
@@ -111,9 +134,12 @@ try{
   await page.waitForTimeout(250);
   assert.equal(await page.locator('[data-focus-metric="outcomes"] .owner-focus-value').innerText(),'1','adding a DOM row must not change the canonical pending-outcome count');
 
-  // A persisted-backend-equivalent change must update the canonical metric.
+  // Only a changed canonical backend payload may update a canonical metric.
   await page.evaluate(async()=>{
-    window.fixtureCanonical.runs.proposals.push({id:'p3',status:'approved'});
+    const attention=window.fixtureCanonical.daily.ownerAttention;
+    attention.counts.outcomes=2;
+    attention.counts.total=6;
+    attention.items.push({key:'agentic_proposal_outcome:p3',sourceType:'agentic_proposal_outcome',sourceId:'p3',category:'outcome',title:'Second pending outcome',sourceRefs:['agentic_proposal:p3'],authoritative:true});
     await window.ThebeOwnerFocusStrip.refreshCanonical({force:true});
   });
   await page.waitForFunction(()=>document.querySelector('[data-focus-metric="outcomes"] .owner-focus-value')?.textContent==='2');
@@ -122,7 +148,7 @@ try{
   await page.evaluate(()=>document.querySelector('.owner-review-row')?.remove());
   await page.locator('[data-focus-metric="approvals"]').click();
   await page.waitForFunction(()=>document.querySelector('.owner-focus-next')?.disabled===true);
-  assert.equal(await page.locator('[data-focus-metric="approvals"] .owner-focus-value').innerText(),'1','removing the rendered approval row must not erase the persisted approval count');
+  assert.equal(await page.locator('[data-focus-metric="approvals"] .owner-focus-value').innerText(),'1','removing the rendered approval row must not erase the canonical approval count');
   const emptyApprovalNext=await page.locator('.owner-focus-next').evaluate(node=>({disabled:node.disabled,label:node.getAttribute('aria-label')}));
   assert.equal(emptyApprovalNext.disabled,true,'Review next must disable when the active filtered queue has no rendered item');
   assert.match(emptyApprovalNext.label||'',/No approvals to review/i,'disabled Review next must explain the active empty rendered queue');
@@ -132,8 +158,19 @@ try{
   await page.locator('.owner-focus-next').click();
   assert.match(await page.evaluate(()=>document.activeElement?.className||''),/owner-attention-item/,'Review next must focus the first rendered item in the active non-empty queue');
 
+  // A malformed/missing canonical projection must fail closed even when sibling Daily Brief fields look healthy.
+  await page.evaluate(async()=>{
+    delete window.fixtureCanonical.daily.ownerAttention;
+    window.fixtureCanonical.daily.status.openWork=0;
+    await window.ThebeOwnerFocusStrip.refreshCanonical({force:true});
+  });
+  await page.waitForFunction(()=>document.querySelector('#ownerFocusStrip')?.dataset.state==='unavailable');
+  assert.equal(await page.locator('[data-focus-metric="action"] .owner-focus-value').innerText(),'—');
+  assert.equal(await page.locator('[data-focus-metric="approvals"] .owner-focus-value').innerText(),'—');
+  assert.equal(await page.locator('[data-focus-metric="outcomes"] .owner-focus-value').innerText(),'—');
+
   const calculatorAfter=await page.locator('#propertyCalculator').evaluate(node=>({style:node.getAttribute('style'),rect:{left:node.getBoundingClientRect().left,top:node.getBoundingClientRect().top,width:node.getBoundingClientRect().width,height:node.getBoundingClientRect().height}}));
   assert.deepEqual(calculatorAfter,calculatorBefore,'Owner Focus upgrades must leave the approved Property calculator geometry untouched');
   assert.deepEqual(errors,[],'Owner Focus canonical upgrade must not throw browser errors');
-  console.log('OWNER_FOCUS_CANONICAL_BROWSER_PASS: backend truth resists DOM tampering while scoped navigation, Thebe handoff and calculator geometry remain preserved');
+  console.log('OWNER_FOCUS_CANONICAL_BROWSER_PASS: exact canonical payload resists DOM and sibling-field tampering while scoped navigation, Thebe handoff and calculator geometry remain preserved');
 }finally{await browser.close()}
