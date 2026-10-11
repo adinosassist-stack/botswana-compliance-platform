@@ -8,9 +8,10 @@ assert.match(source,/__thebeSyntheticBrowserProof/,'proof must extend the canoni
 assert.match(source,/await originalProof\(credentials\);await runP0Journey\(credentials\)/,'canonical proof must run before the P0 journey');
 assert.match(source,/finally\{await browser\.close/,'browser cleanup must be guaranteed');
 
-for(const view of ['protecthub','moneyhub','propertyintelligence','peopleops','automationhub']){
+for(const view of ['protecthub','moneyhub','propertyintelligence','peopleops','aiservices']){
   assert.ok(source.includes(`'${view}'`),`P0 proof must cover ${view}`);
 }
+assert.doesNotMatch(source,/openView\(page,'automationhub'\)/,'Ask Thebe proof must target the actual AI Services workspace rather than Automation');
 assert.match(source,/openAddEvidence\(\)/,'evidence UI must be exercised through the real delegated control');
 assert.match(source,/aiAdvisorQuestion/,'authenticated Ask Thebe question field must be exercised');
 assert.match(source,/aiAdvisorButton/,'authenticated Ask Thebe submit control must be exercised');
