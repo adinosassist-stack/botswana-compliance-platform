@@ -49,15 +49,19 @@ async function waitWorkspace(page){
   },null,{timeout:WORKSPACE_TIMEOUT});
 }
 
-async function dismissOnboarding(page){
+async function dismissOnboarding(page,{waitMs=0}={}){
   const modal=page.locator('#onboardModal.open').first();
-  if(!await modal.count())return;
+  if(waitMs>0)await modal.waitFor({state:'visible',timeout:waitMs}).catch(()=>{});
+  if(!await modal.count()||!await modal.isVisible().catch(()=>false))return;
   const later=modal.locator('[data-bw-onclick="dismissOnboarding()"],button:has-text("Finish later")').first();
-  if(await later.count())await later.click();
-  await page.waitForFunction(()=>!document.getElementById('onboardModal')?.classList.contains('open'),null,{timeout:5000}).catch(()=>{});
+  check(await later.count(),'first-run onboarding opened without a Finish later control');
+  await later.click();
+  await page.waitForFunction(()=>!document.getElementById('onboardModal')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT});
+  mark('onboarding','first-run modal dismissed before workspace navigation');
 }
 
 async function openView(page,view){
+  await dismissOnboarding(page);
   const button=page.locator(`#nav button[data-view="${view}"]`).first();
   check(await button.count(),`navigation control missing for ${view}`);
   const details=button.locator('xpath=ancestor::details[1]');
@@ -206,7 +210,7 @@ async function runP0Journey(credentials){
 
     const app=await page.goto(`${ORIGIN}/app/?p0-owner-e2e=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:NAV_TIMEOUT});
     check(app?.status()===200,'workspace route did not return 200');
-    await waitWorkspace(page);await dismissOnboarding(page);
+    await waitWorkspace(page);await dismissOnboarding(page,{waitMs:5000});
     mark('workspace','authenticated workspace became authoritatively ready');
 
     const beforeIdentity=await sessionIdentity(page);
@@ -233,7 +237,7 @@ async function runP0Journey(credentials){
     check(secondLogin.userId===firstLogin.userId&&secondLogin.tenantId===firstLogin.tenantId,'re-login response resolved a different synthetic identity');
     const appAgain=await page.goto(`${ORIGIN}/app/?p0-relogin=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:NAV_TIMEOUT});
     check(appAgain?.status()===200,'workspace route failed after re-login');
-    await waitWorkspace(page);await dismissOnboarding(page);
+    await waitWorkspace(page);await dismissOnboarding(page,{waitMs:5000});
     const afterIdentity=await sessionIdentity(page);
     await verifyPersistence(page,beforeState,beforeIdentity,afterIdentity);
 
