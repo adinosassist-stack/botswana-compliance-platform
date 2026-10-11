@@ -25,11 +25,15 @@ export async function loadReliabilityAdvisorSummary(env, tenantId, {windowDays=7
       ORDER BY created_at DESC LIMIT 500`)
       .bind(tenantId,AGENT_COST_TELEMETRY_EVENT,`-${windowDays} days`).all();
     const rows=[];
+    const seenRuns=new Set();
     for (const row of Array.isArray(result?.results)?result.results:[]) {
       let event;
       try {event=JSON.parse(String(row.detail_json||""));}catch{continue;}
       const adapted=adaptShadowCostEvent(event,tenantId);
-      if(adapted)rows.push(adapted);
+      if(adapted && !seenRuns.has(adapted.traceId)) {
+        seenRuns.add(adapted.traceId);
+        rows.push(adapted);
+      }
     }
     return Object.freeze({available:true,mode:"advisor_only",windowDays,summary:evaluateAgentRuns(rows,tenantId),
       executionAuthorityEffect:"none",canMutate:false});
