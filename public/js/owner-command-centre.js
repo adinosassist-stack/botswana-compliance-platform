@@ -1069,6 +1069,13 @@
     return card;
   }
 
+  function advisorContextNotice(result){
+    const availability=String(result?.contextAvailability?.financeAndBusiness||"");
+    if(availability==="unavailable")return "Live workspace context is incomplete. Finance, Sales, Business Memory or Analytics could not be retrieved, so verify before relying on a full business overview.";
+    if(result?.contextCompaction?.applied===true)return "This answer used a bounded workspace snapshot. Lower-priority context was compacted to stay within the AI context limit; cited sources remain available for verification.";
+    return "";
+  }
+
   async function askThebe(question){
     if(agenticAskBusy)return;
     const normalized=String(question||"").trim().replace(/\s+/g," ").slice(0,1000);
@@ -1094,7 +1101,10 @@
     if(answered){
       await renderAgenticGovernance(false);
       const refreshedStatus=agenticStatusNode();
-      if(refreshedStatus)refreshedStatus.textContent="Answer ready · no action was executed.";
+      if(refreshedStatus){
+        const contextNotice=advisorContextNotice(agenticAskResult);
+        refreshedStatus.textContent=contextNotice?"Answer ready · workspace context is partial · no action was executed.":"Answer ready · no action was executed.";
+      }
     }
   }
 
@@ -1141,6 +1151,8 @@
         text("h4","Thebe"),
         text("p",String(result.answer),"owner-agentic-reason")
       );
+      const contextNotice=advisorContextNotice(result);
+      if(contextNotice)card.append(text("div",contextNotice,"owner-agentic-policy"));
 
       const references=Array.isArray(result.references)?result.references:[];
       if(references.length){
