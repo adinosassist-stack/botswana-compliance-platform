@@ -13,6 +13,7 @@ import {handleAgenticLivePreviewRequest} from "./agentic-live-preview.js";
 import {handleAgenticFinanceReconciliationRequest} from "./agentic-finance-reconciliation.js";
 import {preparePlatformOwnerLogin,withPlatformOwnerAdminEnv} from "./platform-owner-access.js";
 import {applyClientRuntimeIdentity} from "./client-runtime-identity.js";
+import {DAILY_BRIEF_PATH,ownerAttentionDailyBrief} from "./owner-attention-entry.js";
 
 const V81_SCHEMA_DELTA="068_agent_cost_accounting.sql";
 const COLD_START_REDUNDANT_RENDER="if(!options?.skipDataRefresh)queueMicrotask(()=>renderAll())";
@@ -221,6 +222,18 @@ export default {
     if(responsibilityResponse)return responsibilityResponse;
     const controlPlaneResponse=await handleAgenticControlPlaneRequest({request,logicalPath,env});
     if(controlPlaneResponse)return controlPlaneResponse;
+    if(request.method==="GET"&&logicalPath===DAILY_BRIEF_PATH){
+      const ownerEnv=withPlatformOwnerAdminEnv(env);
+      const ownerRequest=await preparePlatformOwnerLogin(request,ownerEnv);
+      const ownerResponse=await ownerAttentionDailyBrief({
+        request:ownerRequest,
+        env:ownerEnv,
+        ctx,
+        coreFetch:liveCoreFetch
+      });
+      const runtimeResponse=await applyClientRuntimeIdentity(ownerRequest,ownerResponse);
+      return enhanceReadiness(ownerRequest,ownerEnv,runtimeResponse);
+    }
     const taskExecutionResponse=await handleJitCapabilityGovernanceRequest({request,logicalPath,env})
       ??await handleAgenticTaskExecutionRequest({request,logicalPath,env});
     if(taskExecutionResponse)return taskExecutionResponse;
