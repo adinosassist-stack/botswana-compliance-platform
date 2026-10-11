@@ -144,13 +144,16 @@ jobs:
           node scripts/production-launch-audit.mjs
 
       - name: Require active regulatory coverage for unrestricted launch
+        id: regulatory_activation
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
           node scripts/regulatory-production-activation-gate.mjs
 
       - name: Mandatory browser-backed synthetic full-user lifecycle closure
-        if: github.event_name == 'workflow_run'
+        id: synthetic_lifecycle
+        if: always() && github.event_name == 'workflow_run'
         env:
           AUDIT_INTEGRITY_SECRET: ${{ secrets.AUDIT_INTEGRITY_SECRET }}
         shell: bash
@@ -163,7 +166,8 @@ jobs:
           node scripts/production-core-workspaces-mobile-proof.mjs
 
       - name: One-shot bounded legacy orphan cleanup
-        if: github.event_name == 'workflow_run'
+        id: legacy_orphan_cleanup
+        if: always() && github.event_name == 'workflow_run'
         env:
           AUDIT_INTEGRITY_SECRET: ${{ secrets.AUDIT_INTEGRITY_SECRET }}
         shell: bash
@@ -176,8 +180,40 @@ jobs:
           node scripts/production-legacy-orphan-cleanup.mjs
 
       - name: Enforce permanent zero-orphan baseline
-        if: github.event_name == 'workflow_run'
+        id: zero_orphan_baseline
+        if: always() && github.event_name == 'workflow_run'
         shell: bash
         run: |
           set -euo pipefail
           node scripts/production-zero-orphan-audit.mjs
+
+      - name: Enforce aggregate unrestricted-launch verdict
+        if: always()
+        env:
+          REGULATORY_OUTCOME: ${{ steps.regulatory_activation.outcome }}
+          LIFECYCLE_OUTCOME: ${{ steps.synthetic_lifecycle.outcome }}
+          CLEANUP_OUTCOME: ${{ steps.legacy_orphan_cleanup.outcome }}
+          ORPHAN_BASELINE_OUTCOME: ${{ steps.zero_orphan_baseline.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          failed=0
+          check_outcome() {
+            local label="$1"
+            local outcome="$2"
+            if [[ "$outcome" != "success" ]]; then
+              echo "Launch gate failed: $label outcome=$outcome" >&2
+              failed=1
+            else
+              echo "Launch gate passed: $label"
+            fi
+          }
+          check_outcome 'regulatory activation' "$REGULATORY_OUTCOME"
+          check_outcome 'synthetic full-user lifecycle' "$LIFECYCLE_OUTCOME"
+          check_outcome 'legacy orphan cleanup' "$CLEANUP_OUTCOME"
+          check_outcome 'zero-orphan baseline' "$ORPHAN_BASELINE_OUTCOME"
+          if (( failed != 0 )); then
+            echo 'Unrestricted launch remains blocked; all safe audit evidence above has still been collected.' >&2
+            exit 1
+          fi
+          echo 'UNRESTRICTED_LAUNCH_AUDIT_PASS'
