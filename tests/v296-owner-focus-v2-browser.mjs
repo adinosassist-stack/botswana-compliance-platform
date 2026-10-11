@@ -11,7 +11,7 @@ const fixture=`<!doctype html><html><head><meta charset="utf-8"></head><body>
   <section id="ownerCommandCentre">
     <div class="owner-command-head"><h2>Owner command centre</h2></div>
     <section id="ownerAttentionPanel">
-      <div class="owner-panel-head"><span class="badge">4</span></div>
+      <div class="owner-panel-head"><span class="badge">999</span></div>
       <div class="owner-review-inbox"><div class="section-eyebrow">Owner approval inbox</div><article class="owner-review-row"><b>Approve supplier plan</b><button type="button">Record approval</button></article></div>
       <div class="owner-outcome-loop"><div class="section-eyebrow">Measured outcomes</div><article class="owner-outcome-row"><b>Pricing change</b><div class="owner-outcome-actions"><button type="button">resolved</button></div></article><div class="owner-outcome-history"><div>Previous outcome</div></div></div>
       <div class="owner-attention-list"><article class="owner-attention-item">Cash gap</article><article class="owner-attention-item">Late licence</article><article class="owner-attention-item">Sales follow-up</article></div>
@@ -21,8 +21,27 @@ const fixture=`<!doctype html><html><head><meta charset="utf-8"></head><body>
 </main>
 <button id="thebeAiDockPill" type="button">Open Thebe</button>
 <div id="thebeAiDock" data-surface="workspace"><textarea aria-label="Ask Thebe"></textarea></div>
+<script src="/fixture.js"></script>
 <script src="/js/owner-focus-strip-v296.js"></script>
 </body></html>`;
+
+const bootstrap=`
+window.currentWorkspaceRole=()=>"owner";
+window.fixtureCanonical={
+  daily:{date:"2026-10-11",generatedAt:"2026-10-11T08:00:00Z",status:{openWork:3},topActions:[{id:"a1"},{id:"a2"},{id:"a3"}]},
+  runs:{proposals:[{id:"p1",status:"pending"},{id:"p2",status:"approved"}]},
+  outcomes:{items:[]},
+  business:{observedAt:"2026-10-11T08:00:00Z",brief:{priorities:[{key:"r1",title:"Recommendation"}]}}
+};
+window.apiJson=async url=>{
+  if(url==="/api/daily-brief")return structuredClone(window.fixtureCanonical.daily);
+  if(url==="/api/agentic/runs")return structuredClone(window.fixtureCanonical.runs);
+  if(url==="/api/agentic/outcomes")return structuredClone(window.fixtureCanonical.outcomes);
+  if(url==="/api/business-context/brief")return structuredClone(window.fixtureCanonical.business);
+  throw new Error("unexpected fixture API "+url);
+};
+window.ThebeOwnerCommandCentre={refresh:async()=>true};
+`;
 
 const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
 try{
@@ -31,21 +50,21 @@ try{
   await page.route('http://localhost/**',route=>{
     const pathname=new URL(route.request().url()).pathname;
     if(pathname==='/')return route.fulfill({contentType:'text/html',body:fixture});
+    if(pathname==='/fixture.js')return route.fulfill({contentType:'application/javascript',body:bootstrap});
     if(pathname==='/js/owner-focus-strip-v296.js')return route.fulfill({contentType:'application/javascript',path:'public/js/owner-focus-strip-v296.js'});
     return route.fulfill({status:404,body:''});
   });
   await page.goto('http://localhost/');
-  await page.waitForFunction(()=>['20261007-owner-focus-v2-v296','20261007-owner-focus-v3-v303','20261011-owner-focus-recovery-v322'].includes(document.documentElement.dataset.ownerFocusStrip||''));
+  await page.waitForFunction(()=>document.documentElement.dataset.ownerFocusStrip==='20261011-owner-focus-canonical-v326');
   await page.waitForSelector('#ownerFocusStrip');
-  // The strip is inserted before its requestAnimationFrame queue-count sync.
-  // Wait for the governed values, not just for the initial placeholder DOM.
   await page.waitForFunction(()=>{
     const metrics=Object.fromEntries([...document.querySelectorAll('#ownerFocusStrip [data-focus-metric]')].map(node=>[node.dataset.focusMetric,node.querySelector('.owner-focus-value')?.textContent]));
     return metrics.action==='3'&&metrics.approvals==='1'&&metrics.outcomes==='1';
   });
 
   const values=await page.evaluate(()=>Object.fromEntries([...document.querySelectorAll('#ownerFocusStrip [data-focus-metric]')].map(node=>[node.dataset.focusMetric,node.querySelector('.owner-focus-value')?.textContent])));
-  assert.deepEqual(values,{action:'3',approvals:'1',outcomes:'1'},'V296 metrics must preserve governed queue math');
+  assert.deepEqual(values,{action:'3',approvals:'1',outcomes:'1'},'Owner Focus metrics must reflect authenticated backend records, not the intentionally false DOM badge');
+  assert.equal(await page.locator('#ownerAttentionPanel .badge').innerText(),'999','fixture must retain a contradictory DOM count to prove it is not authoritative');
 
   const calculatorBefore=await page.locator('#propertyCalculator').evaluate(node=>({style:node.getAttribute('style'),rect:{left:node.getBoundingClientRect().left,top:node.getBoundingClientRect().top,width:node.getBoundingClientRect().width,height:node.getBoundingClientRect().height}}));
 
@@ -63,7 +82,7 @@ try{
   assert.equal(approvalState.attentionDisplay,'none');
   assert.notEqual(approvalState.reviewDisplay,'none');
   assert.equal(approvalState.outcomeDisplay,'none');
-  assert.match(approvalState.activeTag,/owner-review-row/,'approval filter should focus the first governed review row');
+  assert.match(approvalState.activeTag,/owner-review-row/,'approval filter should focus the first rendered review row');
 
   await page.locator('[data-focus-metric="approvals"]').click();
   assert.equal(await page.locator('#ownerAttentionPanel').getAttribute('data-owner-focus-filter'),null,'second click must return to the all-priorities view');
@@ -78,32 +97,43 @@ try{
   assert.equal(outcomeState.historyDisplay,'none','pending-outcomes view must hide already-recorded outcome history');
   assert.notEqual(outcomeState.outcomeDisplay,'none');
 
-  await page.evaluate(()=>{
-    const row=document.createElement('article');
-    row.className='owner-outcome-row';
-    row.textContent='New unresolved outcome';
-    document.querySelector('.owner-outcome-loop').insertBefore(row,document.querySelector('.owner-outcome-history'));
-  });
-  await page.waitForFunction(()=>document.querySelector('[data-focus-metric="outcomes"] .owner-focus-value')?.textContent==='2');
-
   await page.locator('.owner-focus-ask').click();
   const prompt=await page.locator('#thebeAiDock textarea').inputValue();
   assert.match(prompt,/outcome recorded|outcome/i,'Ask Thebe should be primed with the active governed queue context');
 
+  // DOM tampering must not alter canonical business counts.
+  await page.evaluate(()=>{
+    const row=document.createElement('article');
+    row.className='owner-outcome-row';
+    row.textContent='DOM-only unresolved outcome';
+    document.querySelector('.owner-outcome-loop').insertBefore(row,document.querySelector('.owner-outcome-history'));
+  });
+  await page.waitForTimeout(250);
+  assert.equal(await page.locator('[data-focus-metric="outcomes"] .owner-focus-value').innerText(),'1','adding a DOM row must not change the canonical pending-outcome count');
+
+  // A persisted-backend-equivalent change must update the canonical metric.
+  await page.evaluate(async()=>{
+    window.fixtureCanonical.runs.proposals.push({id:'p3',status:'approved'});
+    await window.ThebeOwnerFocusStrip.refreshCanonical({force:true});
+  });
+  await page.waitForFunction(()=>document.querySelector('[data-focus-metric="outcomes"] .owner-focus-value')?.textContent==='2');
+
+  // Rendering may be incomplete while backend truth remains known: navigation disables, count stays canonical.
   await page.evaluate(()=>document.querySelector('.owner-review-row')?.remove());
   await page.locator('[data-focus-metric="approvals"]').click();
   await page.waitForFunction(()=>document.querySelector('.owner-focus-next')?.disabled===true);
+  assert.equal(await page.locator('[data-focus-metric="approvals"] .owner-focus-value').innerText(),'1','removing the rendered approval row must not erase the persisted approval count');
   const emptyApprovalNext=await page.locator('.owner-focus-next').evaluate(node=>({disabled:node.disabled,label:node.getAttribute('aria-label')}));
   assert.equal(emptyApprovalNext.disabled,true,'Review next must disable when the active filtered queue has no rendered item');
-  assert.match(emptyApprovalNext.label||'',/No approvals to review/i,'disabled Review next must explain the active empty queue');
+  assert.match(emptyApprovalNext.label||'',/No approvals to review/i,'disabled Review next must explain the active empty rendered queue');
 
   await page.locator('[data-focus-metric="action"]').click();
   await page.waitForFunction(()=>document.querySelector('.owner-focus-next')?.disabled===false);
   await page.locator('.owner-focus-next').click();
-  assert.match(await page.evaluate(()=>document.activeElement?.className||''),/owner-attention-item/,'Review next must focus the first item in the active non-empty queue');
+  assert.match(await page.evaluate(()=>document.activeElement?.className||''),/owner-attention-item/,'Review next must focus the first rendered item in the active non-empty queue');
 
   const calculatorAfter=await page.locator('#propertyCalculator').evaluate(node=>({style:node.getAttribute('style'),rect:{left:node.getBoundingClientRect().left,top:node.getBoundingClientRect().top,width:node.getBoundingClientRect().width,height:node.getBoundingClientRect().height}}));
-  assert.deepEqual(calculatorAfter,calculatorBefore,'V296 baseline and compatible upgrades must leave the approved Property calculator geometry untouched');
-  assert.deepEqual(errors,[],'Owner Focus compatible upgrades must not throw browser errors');
-  console.log('V296_OWNER_FOCUS_BROWSER_PASS: exact queue filtering, filter-aware Review next, scoped live counts, contextual Thebe handoff and Calculator geometry remain preserved through compatible Owner Focus upgrades');
+  assert.deepEqual(calculatorAfter,calculatorBefore,'Owner Focus upgrades must leave the approved Property calculator geometry untouched');
+  assert.deepEqual(errors,[],'Owner Focus canonical upgrade must not throw browser errors');
+  console.log('OWNER_FOCUS_CANONICAL_BROWSER_PASS: backend truth resists DOM tampering while scoped navigation, Thebe handoff and calculator geometry remain preserved');
 }finally{await browser.close()}
