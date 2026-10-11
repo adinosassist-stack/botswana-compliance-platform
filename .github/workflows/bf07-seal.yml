@@ -51,6 +51,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # GitHub API reads remain fail-closed, but avoid transient HTTP/2 stream truncation
+          # and retry bounded transport/API errors before provenance parsing.
+          curl() {
+            command curl --http1.1 --retry 5 --retry-all-errors --retry-delay 2 --retry-max-time 30 "$@"
+          }
           [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo "release authority is restricted to main, got $GITHUB_REF" >&2; exit 1; }
           [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'release SHA must be a full lowercase 40-character commit SHA' >&2; exit 1; }
           if [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]; then
@@ -358,6 +363,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Apply the same bounded transport hardening to the final current-main proof.
+          curl() {
+            command curl --http1.1 --retry 5 --retry-all-errors --retry-delay 2 --retry-max-time 30 "$@"
+          }
           [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]] || { echo 'BF-07 checkout moved before seal publication' >&2; exit 1; }
           live_main_sha="$(
             curl --fail-with-body --silent --show-error \
