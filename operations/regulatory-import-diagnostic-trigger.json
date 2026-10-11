@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "requested": true,
+  "purpose": "inspect-partial-regulatory-foundation-import",
+  "requestedAt": "2026-10-11",
+  "triggerNonce": "foundation-import-500-diagnostic-r1",
+  "safety": "read-only SELECT queries only; no regulatory or customer data mutation"
+}
