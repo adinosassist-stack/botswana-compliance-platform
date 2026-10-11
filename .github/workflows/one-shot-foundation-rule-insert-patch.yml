@@ -1,0 +1,46 @@
+name: One-shot foundation rule INSERT patch
+
+on:
+  push:
+    branches:
+      - chatgpt/fix-foundation-rule-insert-20261011
+    paths:
+      - '.github/workflows/one-shot-foundation-rule-insert-patch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: chatgpt/fix-foundation-rule-insert-20261011
+          fetch-depth: 1
+          persist-credentials: true
+      - name: Apply exact one-line SQL fix and self-remove
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('cloudflare/src/worker.js')
+          s=p.read_text(encoding='utf-8')
+          old="VALUES(?,?,?,?,?,?,?,?,?,?,'draft',?,?,?,?,?)"
+          new="VALUES(?,?,?,?,?,?,?,?,?,?,'draft',?,?,?,?)"
+          count=s.count(old)
+          if count != 1:
+              raise SystemExit(f'refusing patch: expected exactly one malformed foundation-rule INSERT, found {count}')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          PY
+          node --check cloudflare/src/worker.js
+          node tests/v58-foundation-pack-rule-insert-contract.mjs
+          rm .github/workflows/one-shot-foundation-rule-insert-patch.yml
+          git config user.name 'thebe-release-automation'
+          git config user.email 'actions@users.noreply.github.com'
+          git add cloudflare/src/worker.js tests/v58-foundation-pack-rule-insert-contract.mjs .github/workflows/regulatory-foundation-import-ci.yml .github/workflows/one-shot-foundation-rule-insert-patch.yml
+          git commit -m 'Fix foundation-pack regulatory rule INSERT placeholder count'
+          git push origin HEAD:chatgpt/fix-foundation-rule-insert-20261011
