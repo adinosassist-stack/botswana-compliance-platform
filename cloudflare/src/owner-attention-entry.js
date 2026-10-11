@@ -28,9 +28,9 @@ function clean(value,max=240){
   return String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
 }
 
-async function fetchJsonSource(coreFetch,request,env,ctx){
+async function fetchJsonSource(coreFetch,request,env,ctx,failureReason="source_fetch_failed"){
   try{return await readJsonSource(await coreFetch(request,env,ctx))}
-  catch(error){return {available:false,value:null,reason:`fetch_failed:${clean(error?.message||error,120)||"source_exception"}`}}
+  catch{return {available:false,value:null,reason:clean(failureReason,120)||"source_fetch_failed"}}
 }
 
 function knownCount(value){
@@ -54,13 +54,14 @@ function proposalRoute(item){return clean(item?.actionRoute||item?.action_route|
 function proposalUpdatedAt(item){return item?.updatedAt||item?.updated_at||item?.decision_at||item?.decidedAt||item?.decided_at||item?.createdAt||item?.created_at||null}
 
 function validRunsShape(value){
-  return Array.isArray(value?.proposals)&&value.proposals.every(item=>proposalId(item));
+  return Array.isArray(value?.proposals)&&value.proposals.every(item=>proposalId(item)&&clean(item?.status,40));
 }
 function validOutcomesShape(value){
   return Array.isArray(value?.items)&&value.items.every(item=>outcomeProposalId(item));
 }
 function validDailyShape(value){
-  return !!value&&typeof value==="object"&&Array.isArray(value.topActions)&&knownCount(value?.status?.openWork)!==null;
+  return !!value&&typeof value==="object"&&Array.isArray(value.topActions)&&
+    knownCount(value?.status?.openWork)!==null&&knownCount(value?.status?.urgent)!==null&&knownCount(value?.status?.overdue)!==null;
 }
 
 function approvalRows(runs){
@@ -154,9 +155,9 @@ function unavailableProjection(reason="daily_brief_unavailable"){
     outcomes:[],
     sourceAvailability:{
       dailyBrief:availability(false,reason,true),
-      businessContext:availability(false,reason,false),
-      approvals:availability(false,reason,true),
-      outcomes:availability(false,reason,true)
+      businessContext:availability(false,"not_read_due_to_daily_brief_failure",false),
+      approvals:availability(false,"not_read_due_to_daily_brief_failure",true),
+      outcomes:availability(false,"not_read_due_to_daily_brief_failure",true)
     }
   });
 }
@@ -174,9 +175,8 @@ function ownerAttentionResponse(dailyResponse,dailyPayload,ownerAttention,{statu
 async function ownerAttentionDailyBrief({request,env,ctx,coreFetch}){
   let dailyResponse;
   try{dailyResponse=await coreFetch(request,env,ctx)}
-  catch(error){
-    const reason=`fetch_failed:${clean(error?.message||error,120)||"daily_brief_exception"}`;
-    return ownerAttentionResponse(null,{error:"daily_brief_unavailable"},unavailableProjection(reason),{status:503,statusText:"Service Unavailable"});
+  catch{
+    return ownerAttentionResponse(null,{error:"daily_brief_unavailable"},unavailableProjection("daily_brief_fetch_failed"),{status:503,statusText:"Service Unavailable"});
   }
   if(!dailyResponse.ok){
     if(dailyResponse.status===401||dailyResponse.status===403)return dailyResponse;
@@ -192,9 +192,9 @@ async function ownerAttentionDailyBrief({request,env,ctx,coreFetch}){
   const outcomesRequest=readPathRequest(request,OUTCOMES_PATH);
   const businessRequest=readPathRequest(request,BUSINESS_CONTEXT_PATH);
   const [rawRunsSource,rawOutcomesSource,businessSource]=await Promise.all([
-    fetchJsonSource(coreFetch,runsRequest,env,ctx),
-    fetchJsonSource(coreFetch,outcomesRequest,env,ctx),
-    fetchJsonSource(coreFetch,businessRequest,env,ctx)
+    fetchJsonSource(coreFetch,runsRequest,env,ctx,"agentic_runs_fetch_failed"),
+    fetchJsonSource(coreFetch,outcomesRequest,env,ctx,"agentic_outcomes_fetch_failed"),
+    fetchJsonSource(coreFetch,businessRequest,env,ctx,"business_context_fetch_failed")
   ]);
   const runsSource=shapeAvailability(rawRunsSource,validRunsShape);
   const outcomesApiSource=shapeAvailability(rawOutcomesSource,validOutcomesShape);
