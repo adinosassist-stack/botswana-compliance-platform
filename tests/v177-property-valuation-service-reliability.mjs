@@ -19,11 +19,11 @@ assert.equal(summary.quotedPipelineBwp,3700);
 assert.equal(summary.completedRevenueBwp,2500);
 assert.equal(summary.expiredQuotes,1);
 
-const migration=fs.readFileSync("cloudflare/migrations/062_v177_property_valuation_service_reliability.sql","utf8");
+const migrationPath="cloudflare/migrations/062_v177_property_valuation_service_reliability.sql";
+const migration=fs.readFileSync(migrationPath,"utf8");
 const service=fs.readFileSync("cloudflare/src/property-valuation-services.js","utf8");
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const owner=fs.readFileSync("public/js/owner-command-centre.js","utf8");
-const agentic=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
 const profile=JSON.parse(fs.readFileSync("RELEASE_PROFILE.json","utf8"));
 const runner=fs.readFileSync("scripts/migrate-production-v177-property-valuation-service-reliability.mjs","utf8");
 const workflow=fs.readFileSync(".github/workflows/migrate-production-v177-property-valuation-service-reliability.yml","utf8");
@@ -79,14 +79,15 @@ assert.match(owner,/Send to professional review/);
 assert.match(owner,/Final issuance requires the governed signed valuation record/);
 assert.doesNotMatch(owner,/OPERATIONS_SECRET|x-operations-secret/);
 
-assert.equal(profile.latest_cloudflare_migration,"065_v243_business_goal_observer.sql");
+// V177 must assert its own capability markers, not the repository's moving
+// global "latest migration" pointer. Later migrations are expected to advance.
 assert.equal(profile.property_valuation_service_reliability_v177,true);
 assert.equal(profile.property_valuation_quote_expiry_enforced,true);
 assert.equal(profile.property_valuation_assigned_credential_bound,true);
 assert.equal(profile.property_valuation_duplicate_active_request_blocked,true);
-assert.match(agentic,/065_v243_business_goal_observer\.sql/);
+
 assert.match(runner,/number:62/);
-assert.match(runner,/062_v177_property_valuation_service_reliability\.sql/);
+assert.match(runner,new RegExp(migrationPath.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));
 assert.match(runner,/blob:'de15b22de9d6547c5b138b4400b54b67827b79d3'/);
 assert.match(runner,/time_travel\/bookmark/);
 assert.match(runner,/foreign_key_check/);
