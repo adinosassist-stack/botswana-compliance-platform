@@ -65,13 +65,25 @@ const existingReady=makerCheckerReady(principals);
 const placeholders=live.map(()=>'?').join(',');
 const users=await query(`SELECT u.id, COUNT(m.user_id) AS membership_count FROM users u LEFT JOIN memberships m ON m.user_id=u.id WHERE lower(u.email) IN (${placeholders}) GROUP BY u.id ORDER BY u.id`,live);
 const principalByUser=new Map(principals.map(row=>[String(row.user_id),row]));
-const eligible=users.filter(user=>{
+const exclusion={activeEditor:0,incompatiblePrincipal:0,noMembership:0};
+const eligible=[];
+for(const user of users){
   const id=String(user.id);
-  if(activeEditorIds.has(id)) return false;
+  if(activeEditorIds.has(id)){
+    exclusion.activeEditor+=1;
+    continue;
+  }
   const principal=principalByUser.get(id);
-  if(principal&&(principal.role!=='reviewer'||number(principal.active)!==0)) return false;
-  return number(user.membership_count)>0;
-});
+  if(principal&&(principal.role!=='reviewer'||number(principal.active)!==0)){
+    exclusion.incompatiblePrincipal+=1;
+    continue;
+  }
+  if(number(user.membership_count)<=0){
+    exclusion.noMembership+=1;
+    continue;
+  }
+  eligible.push(user);
+}
 
 console.log('READ_ONLY_REGULATORY_REVIEWER_READINESS');
 console.log(`liveReviewerAllowlistCount=${live.length}`);
@@ -80,8 +92,12 @@ console.log(`activeEditorCapable=${activePrincipals.filter(row=>row.role==='edit
 console.log(`activeReviewerCapable=${activePrincipals.filter(row=>row.role==='reviewer'||row.role==='admin').length}`);
 console.log(`makerCheckerReady=${existingReady}`);
 console.log(`allowlistedExistingUsers=${users.length}`);
+console.log(`excludedBecauseActiveEditor=${exclusion.activeEditor}`);
+console.log(`excludedBecauseIncompatiblePrincipal=${exclusion.incompatiblePrincipal}`);
+console.log(`excludedBecauseNoMembership=${exclusion.noMembership}`);
 console.log(`eligibleDistinctReviewerCandidates=${eligible.length}`);
 console.log(`reviewerProvisioningPreflightReady=${existingReady||eligible.length===1}`);
+console.log('Exclusion counters are aggregate only; no reviewer identity or credential values are emitted.');
 console.log('No user identities, credentials, regulatory approvals, publications, role changes, or production data mutations were emitted or performed.');
 
 if(!existingReady&&eligible.length!==1){

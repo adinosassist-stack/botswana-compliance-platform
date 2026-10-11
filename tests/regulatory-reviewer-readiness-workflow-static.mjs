@@ -19,7 +19,11 @@ assert.match(script,/item\?\.name==='PLATFORM_REGULATORY_REVIEWERS'/,'diagnostic
 assert.doesNotMatch(script,/process\.env\.PLATFORM_REGULATORY_REVIEWERS/,'diagnostic must not read reviewer identity from Actions environment');
 assert.match(script,/\/d1\/database\/\$\{databaseId\}\/query/);
 assert.match(script,/makerCheckerReady/);
+assert.match(script,/excludedBecauseActiveEditor/,'diagnostic must distinguish same-principal editor exclusion without revealing identity');
+assert.match(script,/excludedBecauseIncompatiblePrincipal/,'diagnostic must report incompatible-principal exclusion as an aggregate count');
+assert.match(script,/excludedBecauseNoMembership/,'diagnostic must report missing-membership exclusion as an aggregate count');
 assert.match(script,/eligibleDistinctReviewerCandidates/);
+assert.match(script,/Exclusion counters are aggregate only; no reviewer identity or credential values are emitted/);
 assert.match(script,/No user identities, credentials, regulatory approvals, publications, role changes, or production data mutations/);
 assert.doesNotMatch(script,/query\(\s*[`'"]\s*(?:INSERT|UPDATE|DELETE|REPLACE|DROP|ALTER|CREATE)\b/i,'diagnostic must not issue mutation SQL');
 assert.doesNotMatch(script,/\/foundation-pack\/import|\/sources\/[^'"`]*status|\/rules\/[^'"`]*advance/i,'diagnostic must not call regulatory mutation APIs');
