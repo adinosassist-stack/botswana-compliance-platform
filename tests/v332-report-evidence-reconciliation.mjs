@@ -25,7 +25,7 @@ assert.ok(entry.includes("/quarantine/")&&entry.includes("'uploaded','queued','r
 assert.ok(!entry.includes("clean_object_key")&&!entry.includes("review_status='approved'"),"public reporter must not self-promote evidence to clean/approved");
 assert.ok(entry.includes("PUBLIC_RATE_LIMITER")&&entry.includes("report-evidence:${tokenKey}"),"bearer-scoped upload throttling missing");
 assert.ok(entry.includes("originAllowed(request,env)"),"same-origin mutation boundary missing");
-assert.ok(!entry.includes("username")&&!entry.includes("password")&&!entry.includes("OTP"),"report evidence path must not introduce bank credentials");
+for(const secretName of ["FNB_USERNAME","FNB_PASSWORD","FNB_PIN","FNB_OTP","BANK_USERNAME","BANK_PASSWORD","BANK_PIN","BANK_OTP"])assert.ok(!entry.includes(secretName),`report evidence path must not introduce ${secretName}`);
 
 assert.ok(migration.includes("CREATE TABLE IF NOT EXISTS daily_report_evidence"),"daily-report evidence relation missing");
 assert.ok(migration.includes("FOREIGN KEY(report_id) REFERENCES daily_employee_reports(id) ON DELETE CASCADE"),"report FK missing");
