@@ -1,4 +1,3 @@
-import base from "./release-governance-entry.js";
 import {buildOwnerAttentionProjection} from "./owner-attention.js";
 import {DEFAULT_RUNTIME_MARKET_CODE,marketBusinessDate,runtimeMarketProfile} from "./market-profile.js";
 
@@ -6,19 +5,6 @@ const DAILY_BRIEF_PATH="/api/daily-brief";
 const RUNS_PATH="/api/agentic/runs";
 const OUTCOMES_PATH="/api/agentic/outcomes";
 const BUSINESS_CONTEXT_PATH="/api/business-context/brief";
-
-function logicalRequestPath(request){
-  try{
-    const url=new URL(request.url);
-    if(url.pathname==="/"){
-      const tunneled=url.searchParams.get("__thebe_api_path");
-      if(tunneled)return String(tunneled);
-    }
-    if(url.pathname.startsWith("/__thebe_api/"))return `/api/${url.pathname.slice("/__thebe_api/".length)}`;
-    if(url.pathname==="/__thebe_api")return "/api";
-    return url.pathname;
-  }catch{return ""}
-}
 
 function readPathRequest(request,path){
   const url=new URL(request.url);
@@ -51,6 +37,7 @@ function knownCount(value){
 function proposalsFrom(runs){return Array.isArray(runs?.proposals)?runs.proposals:[]}
 function outcomesFrom(outcomes){return Array.isArray(outcomes?.items)?outcomes.items:[]}
 function proposalId(item){return clean(item?.id||item?.proposal_id||item?.proposalId,160)}
+function outcomeProposalId(item){return clean(item?.proposal_id||item?.proposalId,160)}
 function proposalStatus(item){return clean(item?.status||"pending",40).toLowerCase()||"pending"}
 function sourceRefs(item,id){
   const explicit=Array.isArray(item?.sourceRefs)?item.sourceRefs:Array.isArray(item?.source_refs)?item.source_refs:[];
@@ -61,9 +48,19 @@ function proposalSeverity(item){return clean(item?.severity||item?.riskLevel||it
 function proposalRoute(item){return clean(item?.actionRoute||item?.action_route||item?.target||"agentic",180)||"agentic"}
 function proposalUpdatedAt(item){return item?.updatedAt||item?.updated_at||item?.decidedAt||item?.decided_at||item?.createdAt||item?.created_at||null}
 
+function validRunsShape(value){
+  return Array.isArray(value?.proposals)&&value.proposals.every(item=>proposalId(item));
+}
+function validOutcomesShape(value){
+  return Array.isArray(value?.items)&&value.items.every(item=>outcomeProposalId(item));
+}
+function validDailyShape(value){
+  return !!value&&typeof value==="object"&&Array.isArray(value.topActions)&&knownCount(value?.status?.openWork)!==null;
+}
+
 function approvalRows(runs){
   return proposalsFrom(runs).filter(item=>proposalStatus(item)==="pending").map(item=>{
-    const id=proposalId(item);if(!id)return null;
+    const id=proposalId(item);
     return {
       sourceType:"agentic_proposal",
       sourceId:id,
@@ -80,13 +77,13 @@ function approvalRows(runs){
       status:"pending",
       detail:clean(item?.detail||item?.reason,500)||null
     };
-  }).filter(Boolean);
+  });
 }
 
 function pendingOutcomeRows(runs,outcomes){
-  const measured=new Set(outcomesFrom(outcomes).map(item=>clean(item?.proposal_id||item?.proposalId,160)).filter(Boolean));
+  const measured=new Set(outcomesFrom(outcomes).map(outcomeProposalId));
   return proposalsFrom(runs).filter(item=>proposalStatus(item)!=="pending").map(item=>{
-    const id=proposalId(item);if(!id||measured.has(id))return null;
+    const id=proposalId(item);if(measured.has(id))return null;
     const status=proposalStatus(item);
     return {
       sourceType:"agentic_proposal_outcome",
@@ -111,12 +108,13 @@ function enrichDailyActions(daily){
   const rows=Array.isArray(daily?.topActions)?daily.topActions:[];
   return {
     ...daily,
-    topActions:rows.map((item,index)=>{
+    topActions:rows.map(item=>{
       const source=clean(item?.source||item?.sourceType||item?.kind||"daily_brief",80)||"daily_brief";
-      const id=clean(item?.id||item?.sourceId||item?.key,160)||`priority-${index+1}`;
+      const id=clean(item?.id||item?.sourceId||item?.key,160);
+      if(!id)return null;
       const refs=Array.isArray(item?.sourceRefs)?item.sourceRefs:Array.isArray(item?.evidenceRefs)?item.evidenceRefs:[];
       return {...item,source,sourceId:id,sourceRefs:[...new Set([...refs.map(value=>clean(value,120)).filter(Boolean),`${source}:${id}`])]};
-    })
+    }).filter(Boolean)
   };
 }
 
@@ -124,42 +122,55 @@ function availability(available,reason,required){
   return {available:available===true,required,observedAt:new Date().toISOString(),reason:available?null:clean(reason,180)||"source_unavailable"};
 }
 
-function authoritativeCounts(projection,daily,approvals,outcomes,{approvalsAvailable,outcomesAvailable}={}){
-  const action=knownCount(daily?.status?.openWork);
+function authoritativeCounts(projection,daily,approvals,outcomes,{dailyAvailable,approvalsAvailable,outcomesAvailable}={}){
+  const action=dailyAvailable?knownCount(daily?.status?.openWork):null;
   const approvalCount=approvalsAvailable?approvals.length:null;
   const outcomeCount=outcomesAvailable?outcomes.length:null;
   const total=[action,approvalCount,outcomeCount].every(value=>value!==null)?action+approvalCount+outcomeCount:null;
-  const urgent=knownCount(daily?.status?.urgent);
-  const overdue=knownCount(daily?.status?.overdue);
+  const urgent=dailyAvailable?knownCount(daily?.status?.urgent):null;
+  const overdue=dailyAvailable?knownCount(daily?.status?.overdue):null;
   return Object.freeze({...projection.counts,action,approvals:approvalCount,outcomes:outcomeCount,total,urgent,overdue});
 }
 
-async function ownerAttentionDailyBrief(request,env,ctx){
-  const dailyResponse=await base.fetch(request,env,ctx);
-  if(!dailyResponse.ok)return dailyResponse;
-  const dailySource=await readJsonSource(dailyResponse);
-  if(!dailySource.available)return dailyResponse;
+function shapeAvailability(source,validator){
+  if(!source.available)return source;
+  return validator(source.value)?source:{available:false,value:source.value,reason:"invalid_shape"};
+}
 
+async function ownerAttentionDailyBrief({request,env,ctx,coreFetch,controlPlaneFetch}){
+  const dailyResponse=await coreFetch(request,env,ctx);
+  if(!dailyResponse.ok)return dailyResponse;
+  const dailySource=shapeAvailability(await readJsonSource(dailyResponse),validDailyShape);
+  if(!dailySource.available){
+    const headers=new Headers(dailyResponse.headers);headers.set("x-thebe-owner-attention-state","unavailable");
+    return new Response(dailyResponse.body,{status:dailyResponse.status,statusText:dailyResponse.statusText,headers});
+  }
+
+  const runsRequest=readPathRequest(request,RUNS_PATH);
+  const outcomesRequest=readPathRequest(request,OUTCOMES_PATH);
+  const businessRequest=readPathRequest(request,BUSINESS_CONTEXT_PATH);
   const [runsResponse,outcomesResponse,businessResponse]=await Promise.all([
-    base.fetch(readPathRequest(request,RUNS_PATH),env,ctx),
-    base.fetch(readPathRequest(request,OUTCOMES_PATH),env,ctx),
-    base.fetch(readPathRequest(request,BUSINESS_CONTEXT_PATH),env,ctx)
+    controlPlaneFetch(runsRequest,RUNS_PATH,env,ctx),
+    controlPlaneFetch(outcomesRequest,OUTCOMES_PATH,env,ctx),
+    coreFetch(businessRequest,env,ctx)
   ]);
-  const [runsSource,outcomesSource,businessSource]=await Promise.all([
+  const [rawRunsSource,rawOutcomesSource,businessSource]=await Promise.all([
     readJsonSource(runsResponse),readJsonSource(outcomesResponse),readJsonSource(businessResponse)
   ]);
+  const runsSource=shapeAvailability(rawRunsSource,validRunsShape);
+  const outcomesApiSource=shapeAvailability(rawOutcomesSource,validOutcomesShape);
 
-  const daily=enrichDailyActions(dailySource.value||{});
+  const daily=enrichDailyActions(dailySource.value);
   const approvals=runsSource.available?approvalRows(runsSource.value):[];
-  const outcomeSourceAvailable=runsSource.available&&outcomesSource.available;
-  const outcomes=outcomeSourceAvailable?pendingOutcomeRows(runsSource.value,outcomesSource.value):[];
+  const outcomesAvailable=runsSource.available&&outcomesApiSource.available;
+  const outcomes=outcomesAvailable?pendingOutcomeRows(runsSource.value,outcomesApiSource.value):[];
   const businessBrief=businessSource.available?(businessSource.value?.brief||businessSource.value):null;
   const market=runtimeMarketProfile(DEFAULT_RUNTIME_MARKET_CODE);
   const sourceAvailability={
     dailyBrief:availability(true,null,true),
     businessContext:availability(businessSource.available,businessSource.reason,false),
     approvals:availability(runsSource.available,runsSource.reason,true),
-    outcomes:availability(outcomeSourceAvailable,!runsSource.available?runsSource.reason:outcomesSource.reason,true)
+    outcomes:availability(outcomesAvailable,!runsSource.available?runsSource.reason:outcomesApiSource.reason,true)
   };
   const baseProjection=buildOwnerAttentionProjection({
     generatedAt:daily?.generatedAt||new Date().toISOString(),
@@ -171,33 +182,37 @@ async function ownerAttentionDailyBrief(request,env,ctx){
     outcomes,
     sourceAvailability
   });
-  const ownerAttention=Object.freeze({...baseProjection,counts:authoritativeCounts(baseProjection,daily,approvals,outcomes,{approvalsAvailable:runsSource.available,outcomesAvailable:outcomeSourceAvailable})});
+  const ownerAttention=Object.freeze({
+    ...baseProjection,
+    counts:authoritativeCounts(baseProjection,daily,approvals,outcomes,{
+      dailyAvailable:true,
+      approvalsAvailable:runsSource.available,
+      outcomesAvailable
+    })
+  });
   const headers=new Headers(dailyResponse.headers);
   headers.delete("content-length");headers.delete("etag");
   headers.set("content-type","application/json; charset=utf-8");
   headers.set("cache-control","no-store");
   headers.set("x-thebe-owner-attention-version",String(ownerAttention.version||"unknown"));
+  headers.set("x-thebe-owner-attention-state",String(ownerAttention.state||"unknown"));
   return new Response(JSON.stringify({...dailySource.value,ownerAttention}),{status:dailyResponse.status,statusText:dailyResponse.statusText,headers});
 }
 
-export default {
-  async fetch(request,env,ctx){
-    const path=logicalRequestPath(request);
-    if(request.method==="GET"&&path===DAILY_BRIEF_PATH)return ownerAttentionDailyBrief(request,env,ctx);
-    return base.fetch(request,env,ctx);
-  },
-  async scheduled(event,env,ctx){return base.scheduled(event,env,ctx)}
-};
-
+export {DAILY_BRIEF_PATH,ownerAttentionDailyBrief};
 export const __ownerAttentionEntryTest=Object.freeze({
   approvalRows,
   authoritativeCounts,
   enrichDailyActions,
   knownCount,
-  logicalRequestPath,
+  outcomeProposalId,
   pendingOutcomeRows,
   proposalId,
   proposalStatus,
   readJsonSource,
-  readPathRequest
+  readPathRequest,
+  shapeAvailability,
+  validDailyShape,
+  validOutcomesShape,
+  validRunsShape
 });
