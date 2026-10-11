@@ -9,6 +9,9 @@ assert.equal(normalizeWhatsAppInboundNumber("+27123456789"),null);
 assert.equal(classifyWhatsAppInboundCommand("Thebe finance"),"finance_exception");
 assert.equal(classifyWhatsAppInboundCommand("compliance"),"compliance_followup");
 assert.equal(classifyWhatsAppInboundCommand("daily operations"),"operations_update");
+assert.equal(classifyWhatsAppInboundCommand("How is my business doing?"),"owner_daily_brief");
+assert.equal(classifyWhatsAppInboundCommand("Thebe, give me a business update"),"owner_daily_brief");
+assert.equal(classifyWhatsAppInboundCommand("what needs my attention"),"owner_daily_brief");
 assert.equal(classifyWhatsAppInboundCommand("tell me anything"),null);
 
 function mockDb({bindings=[{tenant_id:"tenant-A",user_id:"u1",role:"owner"}]}={}){
@@ -60,6 +63,26 @@ function mockDb({bindings=[{tenant_id:"tenant-A",user_id:"u1",role:"owner"}]}={}
   const run=DB.calls.find(call=>call.sql.includes("INSERT INTO agentic_runs"));
   assert.ok(run.bindings.some(value=>String(value).includes('"channel":"whatsapp_inbound"')),"inbound state must be recorded in the governed agent run");
   assert.equal(DB.calls.some(call=>String(call.sql).includes("notification_outbox")),false,"inbound preparation must not enqueue a WhatsApp send");
+}
+
+{
+  const DB=mockDb(),deliveries=[];
+  const result=await processWhatsAppInboundMessages({DB,WHATSAPP_PHONE_NUMBER_ID:"12345"},[{
+    phoneNumberId:"12345",
+    message:{id:"wamid.business-health.1",from:"26771234567",type:"text",timestamp:"1789862400",text:{body:"How is my business doing?"}}
+  }],{deliverReply:async reply=>{deliveries.push(reply);return {ok:true,id:"reply-business-health-1"}}});
+  assert.equal(result.received,1);
+  assert.equal(result.prepared,1);
+  assert.equal(result.replyQueued,1);
+  assert.equal(result.questionsAnswered,0,"business health must use the governed owner brief rather than generic Q&A");
+  assert.equal(deliveries.length,1);
+  assert.equal(deliveries[0].to,"+26771234567");
+  assert.equal(deliveries[0].replyToMessageId,"wamid.business-health.1");
+  assert.equal(deliveries[0].kind,"prepared_brief");
+  assert.match(deliveries[0].text,/Thebe Desk owner brief|Kakaretso ya kgwebo/i);
+  const intent=DB.calls.find(call=>call.sql.includes("INSERT INTO agent_action_intents"));
+  assert.ok(intent,"business-health question must create a governed owner-brief intent");
+  assert.ok(intent.bindings.includes("management_brief.prepare"),"business-health question must use the canonical management brief action");
 }
 
 {
