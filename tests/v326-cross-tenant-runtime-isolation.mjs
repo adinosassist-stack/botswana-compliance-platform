@@ -52,6 +52,12 @@ class IsolationDB{
     if(sql.includes("FROM entitlement_overrides WHERE tenant_id=?"))return {enabled:1,limit_value:null,expires_at:null};
     if(sql.includes("SELECT count FROM auth_rate_limits"))return {count:1};
     if(sql.includes("FROM audit_chain_state WHERE tenant_id=?"))return null;
+    if(sql.includes("FROM ai_cost_controls WHERE tenant_id=?"))return null;
+    if(sql.includes("FROM ai_credit_ledger WHERE tenant_id=?")&&sql.includes("entry_type='usage'"))return {used:0};
+    if(sql.includes("FROM ai_provider_costs WHERE tenant_id=?"))return {cost:0};
+    if(sql.includes("FROM ai_credit_wallets WHERE tenant_id=?"))return {balance:100,monthly_allowance:100,monthly_reset_at:"2026-11-01T00:00:00Z",lifetime_purchased:0,lifetime_used:0};
+    if(sql.includes("FROM payment_refund_requests rr")&&sql.includes("po.tenant_id=?"))return null;
+    if(sql.includes("UPDATE ai_credit_wallets SET balance=balance-?")&&sql.includes("RETURNING balance"))return {balance:94};
     if(sql.includes("FROM app_state WHERE tenant_id=?")){
       const marker=markers[tenant];
       return {version:1,state_json:JSON.stringify({activeCompanyId:`company-${tenant}`,companies:[{id:`company-${tenant}`,profile:{name:`Company ${marker}`,industry:`Services ${marker}`,employees:2,town:"Gaborone"}}]})};
@@ -85,7 +91,16 @@ class IsolationDB{
 }
 
 const db=new IsolationDB();
-const env={DB:db,SESSION_SECRET:secret,AUDIT_INTEGRITY_SECRET:auditSecret,PUBLIC_ORIGIN:origin,PUBLIC_APP_URL:origin,ASSETS:{fetch:async()=>new Response("asset")},EVIDENCE:{get:async()=>null}};
+const fakeAI={
+  async run(_model,{prompt}){
+    const present=Object.entries(markers).filter(([,marker])=>String(prompt).includes(marker));
+    assert.equal(present.length,1,`grounded AI prompt must contain exactly one tenant marker, got ${present.map(([tenant])=>tenant).join(",")||"none"}`);
+    const [tenant,marker]=present[0];
+    assert.doesNotMatch(String(prompt),new RegExp(markers[otherTenant(tenant)]),"grounded AI prompt must not contain the other tenant marker");
+    return {response:JSON.stringify({answer:`Grounded answer for ${marker}`,confidence:"high",actions:[],caveats:[],sourceRefs:[]})};
+  }
+};
+const env={DB:db,AI:fakeAI,SESSION_SECRET:secret,AUDIT_INTEGRITY_SECRET:auditSecret,PUBLIC_ORIGIN:origin,PUBLIC_APP_URL:origin,ASSETS:{fetch:async()=>new Response("asset")},EVIDENCE:{get:async()=>null}};
 const ctx={waitUntil(){}};
 async function api(raw,path,{method="GET",csrf=null,body=null}={}){
   const headers={cookie:`bw_session=${raw}`,origin};
@@ -122,11 +137,11 @@ for(const [tenant,raw] of [["tenant-a","owner-a"],["tenant-b","owner-b"]]){
 
 for(const [tenant,raw] of [["tenant-a","reviewer-a"],["tenant-b","reviewer-b"]]){
   const ai=await api(raw,"/api/ai/advisor",{method:"POST",csrf:`csrf-${tenant}-reviewer`,body:{mode:"ask",question:"What compliance work should I prioritise next?"}});
-  assert.equal(ai.response.status,200,`AI advisor must complete its structured fallback for ${tenant}: ${ai.text}`);
-  assert.equal(ai.data.generationMode,"structured_fallback");
+  assert.equal(ai.response.status,200,`AI advisor must complete grounded generation for ${tenant}: ${ai.text}`);
+  assert.equal(ai.data.generationMode,"workers_ai");
   assertTenantOnly(ai.text,tenant,"AI advisor response");
 }
 
-const sensitiveSql=db.runs.filter(x=>/evidence|ai_advisor_runs|audit/i.test(x.sql));
-assert.ok(sensitiveSql.length>0,"qualification must exercise evidence/AI persistence or audit paths");
-console.log("V326 cross-tenant runtime isolation: employee, evidence, reporting and AI boundaries PASS");
+const sensitiveSql=db.runs.filter(x=>/evidence|ai_advisor_runs|audit|ai_credit/i.test(x.sql));
+assert.ok(sensitiveSql.length>0,"qualification must exercise evidence/AI persistence, credit or audit paths");
+console.log("V326 cross-tenant runtime isolation: employee, evidence, reporting and grounded AI boundaries PASS");
