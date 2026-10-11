@@ -1,0 +1,109 @@
+/* Shared Thebe AI dock treatment for Market and Workspace. */
+.thebe-ai-dock[data-unified-dock-v330="1"]{
+  --thebe-unified-surface:#fff;
+  --thebe-unified-border:#d9dee7;
+  --thebe-unified-text:#121722;
+  --thebe-unified-muted:#667085;
+}
+
+/* Market now uses the same full voice/chat shell as Workspace. */
+.thebe-ai-dock[data-unified-dock-v330="1"][data-surface="public"] .thebe-ai-voice-mount{
+  display:flex!important;
+}
+.thebe-ai-dock[data-unified-dock-v330="1"][data-surface="public"] .thebe-ai-voice-card,
+.thebe-ai-dock[data-unified-dock-v330="1"][data-surface="workspace"] .thebe-ai-voice-card{
+  display:flex;
+}
+
+.thebe-voice-settings-v330{
+  position:relative;
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+  margin-left:auto;
+  z-index:6;
+}
+.thebe-voice-settings-trigger-v330{
+  appearance:none;
+  border:1px solid var(--thebe-unified-border);
+  background:var(--thebe-unified-surface);
+  color:var(--thebe-unified-text);
+  min-height:34px;
+  padding:0 12px;
+  border-radius:999px;
+  font:inherit;
+  font-size:12px;
+  font-weight:700;
+  cursor:pointer;
+}
+.thebe-voice-settings-trigger-v330:hover,
+.thebe-voice-settings-trigger-v330:focus-visible{
+  border-color:#b4bdca;
+  outline:2px solid rgba(11,102,214,.18);
+  outline-offset:2px;
+}
+.thebe-voice-settings-panel-v330{
+  position:absolute;
+  top:calc(100% + 8px);
+  right:0;
+  width:min(290px,calc(100vw - 32px));
+  padding:14px;
+  border:1px solid var(--thebe-unified-border);
+  border-radius:18px;
+  background:var(--thebe-unified-surface);
+  box-shadow:0 14px 34px rgba(16,24,40,.14);
+  color:var(--thebe-unified-text);
+}
+.thebe-voice-settings-panel-v330[hidden]{display:none!important}
+.thebe-voice-settings-panel-v330>strong{
+  display:block;
+  font-size:14px;
+  margin-bottom:3px;
+}
+.thebe-voice-settings-note-v330{
+  display:block;
+  color:var(--thebe-unified-muted);
+  font-size:12px;
+  line-height:1.4;
+  margin-bottom:10px;
+}
+.thebe-voice-option-v330{
+  display:grid;
+  grid-template-columns:18px 1fr;
+  gap:9px;
+  align-items:start;
+  padding:10px;
+  border-radius:12px;
+  cursor:pointer;
+}
+.thebe-voice-option-v330:hover{background:#f5f7fa}
+.thebe-voice-option-v330 input{margin-top:2px}
+.thebe-voice-option-v330 b,
+.thebe-voice-option-v330 small{display:block}
+.thebe-voice-option-v330 b{font-size:13px}
+.thebe-voice-option-v330 small{
+  margin-top:2px;
+  color:var(--thebe-unified-muted);
+  font-size:11px;
+  line-height:1.35;
+}
+
+@media(max-width:1023px){
+  .thebe-ai-dock[data-unified-dock-v330="1"] .thebe-voice-settings-panel-v330{
+    position:fixed;
+    left:12px;
+    right:12px;
+    bottom:calc(env(safe-area-inset-bottom,0px) + 12px);
+    top:auto;
+    width:auto;
+    max-width:none;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  .thebe-ai-dock[data-unified-dock-v330="1"] *,
+  .thebe-ai-dock[data-unified-dock-v330="1"] *::before,
+  .thebe-ai-dock[data-unified-dock-v330="1"] *::after{
+    scroll-behavior:auto!important;
+  }
+}
