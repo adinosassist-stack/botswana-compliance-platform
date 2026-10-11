@@ -28,7 +28,7 @@ async function queue({role='owner',csrf=true,requestOrigin=origin,signals=[],met
   if(role)headers.cookie=`__Host-bw_session=${role}-session`;
   if(csrf&&role)headers['x-csrf-token']=`${role}-csrf`;
   const response=await worker.fetch(new Request(origin+path,{method,headers,...(method==='GET'?{}:{body:body??JSON.stringify({signals,tenantId:'other-tenant',actorRole:'owner'})})}),env,{});
-  return {status:response.status,body:await response.json()};
+  return {status:response.status,headers:response.headers,body:await response.json()};
 }
 for(const role of ['owner','manager']){
   const out=await queue({role,signals:[{id:'fixture-1',domain:'finance',severity:'high',title:'Review recorded finance evidence'}]});
@@ -36,6 +36,10 @@ for(const role of ['owner','manager']){
   assert.equal(out.body.items.length,1);
   assert.equal(out.body.items[0].externalSideEffect,false);
   assert.equal(out.body.items[0].outcome.status,'not_recorded');
+  assert.equal(out.headers.get('cache-control'),'no-store');
+  assert.equal(out.headers.get('x-frame-options'),'DENY');
+  assert.equal(out.headers.get('x-content-type-options'),'nosniff');
+  assert.match(out.headers.get('strict-transport-security'),/max-age=/);
 }
 assert.equal((await queue()).body.items.length,0);
 for(const role of ['reviewer','auditor'])assert.equal((await queue({role})).status,403,'client role claims cannot override the authenticated membership');
