@@ -1,0 +1,35 @@
+name: Regulatory Foundation Import CI
+
+on:
+  pull_request:
+    paths:
+      - 'cloudflare/src/worker.js'
+      - 'tests/v58-foundation-pack-rule-insert-contract.mjs'
+      - '.github/workflows/regulatory-foundation-import-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'cloudflare/src/worker.js'
+      - 'tests/v58-foundation-pack-rule-insert-contract.mjs'
+      - '.github/workflows/regulatory-foundation-import-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: Foundation-pack rule INSERT contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+      - name: Validate foundation-pack rule INSERT
+        run: node tests/v58-foundation-pack-rule-insert-contract.mjs
