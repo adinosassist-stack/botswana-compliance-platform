@@ -1,0 +1,37 @@
+import {readFileSync} from 'node:fs';
+import assert from 'node:assert/strict';
+
+const html=readFileSync('public/regulatory-review.html','utf8');
+const script=readFileSync('public/js/regulatory-review-console.js','utf8');
+
+assert.match(html,/meta name="robots" content="noindex,nofollow"/);
+assert.match(html,/src="\/js\/api-client\.js"/);
+assert.match(html,/src="\/js\/regulatory-review-console\.js"/);
+assert.doesNotMatch(html,/<script(?![^>]*\bsrc=)[^>]*>/i,'reviewer console must not add inline executable script');
+assert.match(html,/No bulk approval is available/);
+
+assert.match(script,/BW\?\.api\?\.createClient/);
+assert.match(script,/\/api\/auth\/me/);
+assert.match(script,/\/api\/platform\/regulatory\/status/);
+assert.match(script,/\/api\/platform\/regulatory\/readiness/);
+assert.match(script,/\/api\/platform\/regulatory\/sources/);
+assert.match(script,/\/api\/platform\/regulatory\/rules/);
+assert.match(script,/makerCheckerReady/);
+assert.match(script,/verification_status/);
+assert.match(script,/latest_snapshot_version/);
+assert.match(script,/minimum 10 characters/);
+assert.match(script,/sources\/\$\{encodeURIComponent\(source\.id\)\}\/status/);
+assert.match(script,/rules\/\$\{encodeURIComponent\(rule\.id\)\}\/advance/);
+assert.match(script,/status:"approved"/);
+assert.match(script,/status:action\.next/);
+assert.match(script,/getCsrfToken:\(\)=>csrfToken/);
+assert.doesNotMatch(script,/\bfetch\s*\(/,'console must use the hardened first-party API client');
+assert.doesNotMatch(script,/\.innerHTML\s*=/,'console must render untrusted regulatory data with DOM text APIs');
+assert.doesNotMatch(script,/document\.write/);
+assert.doesNotMatch(script,/platform_regulatory_principals/,'console must never mutate or query principal tables directly');
+assert.doesNotMatch(script,/foundation-pack\/import/,'reviewer console must not import foundation packs');
+assert.doesNotMatch(script,/PLATFORM_REGULATORY_(?:REVIEWERS|EDITORS)|PLATFORM_ADMIN_EMAILS/,'console must not handle regulatory identity allowlists');
+assert.doesNotMatch(script,/\/api\/platform\/regulatory\/(?:principals?|roles?|provision(?:ing)?)(?:\/|["'`])/i,'console must not call identity or role provisioning endpoints');
+assert.doesNotMatch(script,/approve all|publish all|bulk approve|bulk publish/i,'console must not implement bulk regulatory authorization');
+
+console.log('REGULATORY_REVIEW_CONSOLE_STATIC_PASS');
