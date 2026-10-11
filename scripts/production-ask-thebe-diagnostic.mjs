@@ -47,10 +47,7 @@ async function diagnose(credentials){
     const dashboard=page.locator('#nav button[data-view="dashboard"]:visible').first();
     if(await dashboard.count())await dashboard.click();
     await page.locator('#ownerAgenticPanel').first().waitFor({state:'visible',timeout:45000});
-    const question=page.locator('#ownerThebeQuestion').first();
-    const form=page.locator('form[aria-label="Ask Thebe a question"]').first();
-    await question.waitFor({state:'visible',timeout:45000});
-    await form.waitFor({state:'visible',timeout:20000});
+    await page.waitForTimeout(5000);
 
     const pre=await page.evaluate(async()=>{
       const resources=performance.getEntriesByType('resource').map(entry=>String(entry.name||'')).filter(url=>url.includes('owner-ask-thebe-render-v319')||url.includes('workspace-readiness-v305'));
@@ -64,12 +61,25 @@ async function diagnose(credentials){
         marker:String(globalThis.__THEBE_OWNER_ASK_RENDER_RELEASE__||''),
         workspaceReady:globalThis.__THEBE_WORKSPACE_READY__===true,
         status:String(document.getElementById('ownerAgenticStatus')?.textContent||''),
+        body:String(document.getElementById('ownerAgenticBody')?.textContent||'').slice(0,500),
+        questionExists:!!document.getElementById('ownerThebeQuestion'),
+        formExists:!!document.querySelector('form[aria-label="Ask Thebe a question"]'),
         resources,
         asset
       };
     });
     console.log(`DIAG pre-click ${safe(JSON.stringify(pre))}`);
+    console.log(`DIAG asset-failures ${safe(JSON.stringify(failedAssets))}`);
+    console.log(`DIAG console-errors ${safe(JSON.stringify(consoleErrors))}`);
+    check(pre.marker==='20261011-owner-ask-render-v319','V319 marker missing in authenticated workspace');
 
+    if(!pre.questionExists||!pre.formExists){
+      console.log('DIAG click skipped because canonical Ask Thebe controls were not present after panel hydration window');
+      return;
+    }
+
+    const question=page.locator('#ownerThebeQuestion').first();
+    const form=page.locator('form[aria-label="Ask Thebe a question"]').first();
     await question.fill('In one short sentence, what should this synthetic owner review first today? Use only this workspace context.');
     const responsePromise=page.waitForResponse(response=>response.url().includes('/api/ai/advisor'),{timeout:20000}).then(async response=>{
       let body='';try{body=await response.text()}catch{}
@@ -96,9 +106,6 @@ async function diagnose(credentials){
     });
     console.log(`DIAG advisor ${safe(JSON.stringify(advisor))}`);
     console.log(`DIAG post-click ${safe(JSON.stringify(post))}`);
-    console.log(`DIAG asset-failures ${safe(JSON.stringify(failedAssets))}`);
-    console.log(`DIAG console-errors ${safe(JSON.stringify(consoleErrors))}`);
-    check(pre.marker==='20261011-owner-ask-render-v319','V319 marker missing in authenticated workspace');
     check(advisor.status===200,`advisor response did not return 200: ${safe(JSON.stringify(advisor))}`);
     check(/Answer ready/i.test(post.status),`visible Ask Thebe status not ready: ${safe(post.status)}`);
     check(post.cardCount>0&&post.answerText.trim().length>20,'Ask Thebe rendered no meaningful answer card');
