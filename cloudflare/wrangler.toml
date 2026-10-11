@@ -1,5 +1,5 @@
 name = "bw-compliance-os"
-main = "src/report-evidence-governance-entry-v332.js"
+main = "src/release-governance-entry.js"
 compatibility_date = "2026-09-03"
 workers_dev = false
 preview_urls = false
@@ -74,12 +74,100 @@ not_found_handling = "404-page"
 html_handling = "auto-trailing-slash"
 run_worker_first = ["/", "/index.html", "/auth", "/auth/*", "/app", "/app/*", "/report", "/report/*", "/robots.txt", "/sitemap.xml", "/cipa-compliance-botswana/*", "/burs-tax-compliance-botswana/*", "/business-licences-botswana/*", "/employment-compliance-botswana/*", "/tender-readiness-botswana/*", "/compliance-evidence-botswana/*", "/pricing/*", "/api/*", "/public/*", "/js/workspace-runtime-*", "/assets/workspace-inline-styles-*", "/assets/workspace-view-fragments-*"]
 
+# Set with: npx wrangler secret put PAYMENT_WEBHOOK_SECRET
+# Set with: npx wrangler secret put BILLING_WEBHOOK_SECRET
+# Set with: npx wrangler secret put AUTOMATION_SECRET
+# Set with: npx wrangler secret put TURNSTILE_SECRET_KEY
+# Configure TURNSTILE_SITE_KEY as a public environment variable for the production hostname.
+
 [triggers]
 crons = ["15 6 * * *", "15 16 * * *"]
 
-# Evidence remains fail-closed until an approved scanner is configured.
-# Do not enable EVIDENCE_UPLOADS_ENABLED without EVIDENCE_SCAN_API_URL and EVIDENCE_SCAN_SECRET.
+# Public registration is owner-authorized through the reviewed activation release.
+# Change REGISTRATION_MODE only through reviewed release governance; hold remains the rollback mode.
+# When REGISTRATION_MODE="cohort", approved customer emails must be supplied only through the
+# REGISTRATION_COHORT_EMAILS_SECRET Worker secret. Never commit cohort identities to this file.
+# An empty or missing cohort secret fails closed at runtime.
 
+# Social OAuth is optional for the Phase 0 launch and remains fail-closed until configured.
+# To enable Google: set GOOGLE_OAUTH_CLIENT_SECRET and GOOGLE_OAUTH_CLIENT_ID together.
+# To enable Facebook: set FACEBOOK_APP_SECRET and FACEBOOK_APP_ID together.
+# Production callbacks must remain exactly:
+# https://thebedesk.com/api/auth/oauth/google/callback
+# https://thebedesk.com/api/auth/oauth/facebook/callback
+
+# Transactional email / password reset is launch-required after the production recovery hardening.
+# Set RESEND_API_KEY and configure EMAIL_FROM to a verified sender together before promotion.
+# PUBLIC_APP_URL and PUBLIC_ORIGIN must resolve to the same final HTTPS app origin.
+# PUBLIC_ORIGIN is required for fail-closed browser-origin enforcement.
+
+# Thebe Live Voice — OpenAI Realtime GA activation
+# Public marketing voice is separately constrained to a short no-tools sample with no workspace data access.
+# Production voice is enabled only through this reviewed release and requires OPENAI_API_KEY.
+# The standard API key remains server-side; the browser receives only the WebRTC answer.
+# Authenticated owner/manager evaluation sessions may opt into the GPT-Live candidate path for evidence capture.
+# THEBE_GPT_LIVE_PREVIEW_ENABLED and THEBE_LIVE_VOICE_RUNTIME enable only that evaluation lane;
+# production voice remains on gpt-realtime-2.1 and candidate auto-promotion remains disabled in provider routing.
+# The default controls cap workspace/user session starts, bound each browser session to 10 minutes,
+# time out upstream session creation, and open a short failure circuit after repeated provider errors.
+# OPENAI_API_KEY is supplied from the GitHub production environment into the Worker secret set.
+# Bounded task execution canary
+# Only authenticated workspace owners whose email is already present in PLATFORM_ADMIN_EMAILS
+# can execute the internal task.create lane. All other customer sessions fail closed.
+# The legacy AGENT_BOUNDED_TASK_EXECUTION_ENABLED compatibility flag is pinned to 0 so it cannot
+# override the reviewed platform_admin_canary mode through a retained dashboard variable.
+# The existing owner delegation, separate execution grant, exact-payload approval, Runtime Guard,
+# kill switch, budget controls and daily caps remain mandatory.
+
+# Payment provider configuration
+# Safe launch default is PAYMENT_PROVIDER="none"; paid checkout stays disabled until an approved provider is explicitly enabled.
+# For DPO enablement, render a temporary production config with PAYMENT_PROVIDER_OVERRIDE=dpo only after all DPO credentials/endpoints are verified.
+# PUBLIC_APP_URL = "https://your-domain.example"
+# PUBLIC_ORIGIN = "https://your-domain.example"
+# DPO_SERVICE_TYPE = "provided-by-dpo"
+# DPO_ALLOWED_HOSTS = "secure.3gdirectpay.com" # comma-separated exact HTTPS hosts only when DPO authorizes another endpoint
+# Set DPO_COMPANY_TOKEN with wrangler secret put DPO_COMPANY_TOKEN
+# Set PAYMENT_WEBHOOK_SECRET with wrangler secret put PAYMENT_WEBHOOK_SECRET
+# Set BILLING_WEBHOOK_SECRET with wrangler secret put BILLING_WEBHOOK_SECRET
+
+# Meta WhatsApp Cloud API utility notifications (optional, fail-closed):
+# WHATSAPP_PHONE_NUMBER_ID and WHATSAPP_GRAPH_VERSION=v26.0 are environment variables.
+# Set WHATSAPP_TEMPLATE_MAP_JSON only after all six utility templates are approved.
+# wrangler secret put WHATSAPP_ACCESS_TOKEN
+# wrangler secret put WHATSAPP_APP_SECRET
+# wrangler secret put WHATSAPP_VERIFY_TOKEN
+# Configure the Meta callback as https://your-domain/api/webhooks/whatsapp and subscribe to messages.
+
+# Orange Money Web Payment Botswana is merchant-gated.
+# Production renderer/preflight currently blocks orange_money until its readiness-key mismatch is separately fixed and reviewed.
+# wrangler secret put ORANGE_MONEY_CLIENT_ID
+# wrangler secret put ORANGE_MONEY_CLIENT_SECRET
+# wrangler secret put ORANGE_MONEY_MERCHANT_KEY
+# ORANGE_MONEY_API_BASE and ORANGE_MONEY_CREATE_PAYMENT_PATH must come from merchant-specific production documentation.
+
+# Dedicated keyed audit-ledger integrity secret (required; no SESSION_SECRET fallback)
+# Set with: npx wrangler secret put AUDIT_INTEGRITY_SECRET
+
+# Platform regulatory governance lists (comma-separated verified user emails)
+# PLATFORM_REGULATORY_EDITORS = "editor@example.com"
+# PLATFORM_REGULATORY_REVIEWERS = "reviewer@example.com"
+# PLATFORM_ADMIN_EMAILS = "admin@example.com"
+
+# Required core production secrets / settings before /api/ready returns ready:
+# wrangler secret put SESSION_SECRET
+# wrangler secret put AUDIT_INTEGRITY_SECRET
+# wrangler secret put OPERATIONS_SECRET
+# wrangler secret put RESEND_API_KEY and configure EMAIL_FROM to a verified sender.
+# Configure PLATFORM_ADMIN_EMAILS, PLATFORM_REGULATORY_REVIEWERS, PUBLIC_APP_URL and PUBLIC_ORIGIN.
+# The EVIDENCE R2 and DB D1 bindings must also be valid.
+
+# Evidence malware scanning:
+# No third-party malware-scanning provider is configured for this launch.
+# EVIDENCE_UPLOADS_ENABLED remains false and evidence mutations fail closed.
+# EVIDENCE_SCAN_API_URL must render empty for this release; no scanner secret is required.
+
+# Native edge throttling for public bearer-link endpoints. Counters are maintained by
+# Cloudflare's Rate Limiting binding rather than consuming D1 rows.
 [[ratelimits]]
 name = "PUBLIC_RATE_LIMITER"
 namespace_id = "78212150"
