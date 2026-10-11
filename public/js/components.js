@@ -218,3 +218,68 @@
 
   if(doc.readyState==="loading")doc.addEventListener("DOMContentLoaded",start,{once:true});else start();
 })(window);
+
+(function installDocumentGenerationCapabilityBoundary(global){
+  "use strict";
+  const doc=global?.document;if(!doc)return;
+
+  function enforceDocumentBoundary(){
+    const grid=doc.getElementById("docGrid");if(!grid)return;
+    const buttons=grid.querySelectorAll?.('button[data-bw-onclick^="generateDoc("]')||[];
+    for(const button of buttons){
+      button.disabled=true;
+      button.textContent="Draft generation unavailable";
+      button.setAttribute("aria-disabled","true");
+      button.title="Document generation is not enabled in this qualified release.";
+    }
+    const cards=grid.querySelectorAll?.(".card")||[];
+    for(const card of cards){
+      const note=card.querySelector?.(".muted.small");
+      if(note)note.textContent="Controlled template · generation not enabled in this release";
+    }
+    grid.dataset.documentGeneration="disabled";
+  }
+
+  function install(){
+    let renderReady=false,generateReady=false;
+    if(typeof global.renderDocs==="function"&&!global.renderDocs.__thebeDocumentCapabilityBoundary){
+      const originalRender=global.renderDocs;
+      const patchedRender=function(){
+        const result=originalRender.apply(this,arguments);
+        enforceDocumentBoundary();
+        return result;
+      };
+      patchedRender.__thebeDocumentCapabilityBoundary=true;
+      global.renderDocs=patchedRender;
+      renderReady=true;
+      enforceDocumentBoundary();
+    }else renderReady=typeof global.renderDocs==="function";
+
+    if(typeof global.generateDoc==="function"&&!global.generateDoc.__thebeDocumentCapabilityBoundary){
+      const blocked=function(name){
+        const label=String(name||"Document");
+        try{if(typeof global.logEvent==="function")global.logEvent("DOCUMENT_DRAFT_UNAVAILABLE",{name:label})}catch{}
+        if(typeof global.notifyUser==="function"){
+          global.notifyUser(`${label} draft generation is not available in this release. No document or background workflow has been created.`);
+        }
+        return false;
+      };
+      blocked.__thebeDocumentCapabilityBoundary=true;
+      global.generateDoc=blocked;
+      generateReady=true;
+    }else generateReady=typeof global.generateDoc==="function";
+
+    return renderReady&&generateReady;
+  }
+
+  function start(){
+    if(install())return;
+    let attempts=0;
+    const timer=global.setInterval(()=>{
+      attempts+=1;
+      if(install()||attempts>=80)global.clearInterval(timer);
+    },250);
+  }
+
+  if(doc.readyState==="loading")doc.addEventListener("DOMContentLoaded",start,{once:true});else start();
+})(window);
