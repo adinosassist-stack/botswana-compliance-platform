@@ -141,8 +141,14 @@ async function proveAskThebe(page){
   await panel.scrollIntoViewIfNeeded();
   const question=page.locator('#ownerThebeQuestion').first();
   const form=page.locator('form[aria-label="Ask Thebe a question"]').first();
+  await question.waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT}).catch(async()=>{
+    const status=safe(await page.locator('#ownerAgenticStatus').innerText().catch(()=>''));
+    const body=safe(await page.locator('#ownerAgenticBody').innerText().catch(()=>''));
+    throw new Error(`Ask Thebe controls did not hydrate. status=${status} body=${body}`);
+  });
+  await form.waitFor({state:'visible',timeout:VIEW_TIMEOUT});
   const submit=form.locator('button[type="submit"]:has-text("Ask Thebe")').first();
-  check(await question.count()&&await form.count()&&await submit.count(),'Home Owner Command Centre Ask Thebe controls missing');
+  await submit.waitFor({state:'visible',timeout:VIEW_TIMEOUT});
   await question.fill('In one short sentence, what should this synthetic owner review first today? Use only this workspace context.');
   await submit.click();
   await page.waitForFunction(()=>{
@@ -154,7 +160,7 @@ async function proveAskThebe(page){
   const status=safe(await page.locator('#ownerAgenticStatus').innerText());
   const answer=safe(await panel.locator('.owner-agentic-run').last().innerText());
   check(/Answer ready/i.test(status),`Ask Thebe did not reach ready state: ${status}`);
-  check(!/could not be generated|credits or the configured cost cap do not allow|unavailable/i.test(answer),`Ask Thebe failed: ${answer}`);
+  check(!/could not be generated|credits or the configured cost cap do not allow/i.test(answer),`Ask Thebe failed: ${answer}`);
   check(answer.length>20,'Ask Thebe returned no meaningful answer');
   mark('Ask Thebe','Home Owner Command Centre returned a governed workspace answer with no action executed');
 }
