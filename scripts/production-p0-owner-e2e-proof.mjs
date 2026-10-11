@@ -17,14 +17,7 @@ async function login(page,credentials){
   const result=await page.evaluate(async({email,password})=>{
     const response=await fetch('/api/auth/login',{method:'POST',credentials:'same-origin',redirect:'error',headers:{accept:'application/json','content-type':'application/json'},body:JSON.stringify({email,password})});
     let body=null;try{body=await response.json()}catch{}
-    return {
-      status:response.status,
-      ok:body?.ok===true,
-      role:String(body?.user?.role||''),
-      userId:String(body?.user?.id||''),
-      tenantId:String(body?.user?.tenantId||''),
-      error:String(body?.error||'')
-    };
+    return {status:response.status,ok:body?.ok===true,role:String(body?.user?.role||''),userId:String(body?.user?.id||''),tenantId:String(body?.user?.tenantId||''),error:String(body?.error||'')};
   },credentials);
   check(result.status===200&&result.ok&&result.role==='owner'&&result.userId&&result.tenantId,`owner login failed HTTP ${result.status} ${safe(result.error)}`);
   return result;
@@ -96,12 +89,7 @@ async function stateFingerprint(page){
     let body=null;try{body=await response.json()}catch{}
     const state=body?.state&&typeof body.state==='object'?body.state:{};
     const version=Number(body?.version);
-    return {
-      status:response.status,
-      version:Number.isFinite(version)?version:null,
-      activeCompanyId:String(state?.activeCompanyId||''),
-      companies:(Array.isArray(state?.companies)?state.companies:[]).map(company=>String(company?.id||'')).filter(Boolean).sort()
-    };
+    return {status:response.status,version:Number.isFinite(version)?version:null,activeCompanyId:String(state?.activeCompanyId||''),companies:(Array.isArray(state?.companies)?state.companies:[]).map(company=>String(company?.id||'')).filter(Boolean).sort()};
   });
 }
 
@@ -121,10 +109,7 @@ async function proveEvidence(page){
 
 async function proveFinance(page){
   await openView(page,'moneyhub');
-  await page.waitForFunction(()=>{
-    const root=document.getElementById('moneyhub');
-    return ['ready','unavailable'].includes(String(root?.dataset?.moneyV307State||''));
-  },null,{timeout:VIEW_TIMEOUT});
+  await page.waitForFunction(()=>['ready','unavailable'].includes(String(document.getElementById('moneyhub')?.dataset?.moneyV307State||'')),null,{timeout:VIEW_TIMEOUT});
   const state=await page.locator('#moneyhub').getAttribute('data-money-v307-state');
   check(['ready','unavailable'].includes(String(state||'')),`Money source state was not explicit: ${safe(state)}`);
   mark('finance',`Money workspace settled to explicit source state=${state}`);
@@ -150,21 +135,28 @@ async function provePeople(page){
 }
 
 async function proveAskThebe(page){
-  await openView(page,'aiservices');
-  const question=page.locator('#aiAdvisorQuestion').first();
-  const button=page.locator('#aiAdvisorButton').first();
-  const output=page.locator('#aiAdvisorOutput').first();
-  check(await question.count()&&await button.count()&&await output.count(),'Ask Thebe grounded advisor controls missing');
+  await openView(page,'dashboard');
+  const panel=page.locator('#ownerAgenticPanel').first();
+  await panel.waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT});
+  await panel.scrollIntoViewIfNeeded();
+  const question=page.locator('#ownerThebeQuestion').first();
+  const form=page.locator('form[aria-label="Ask Thebe a question"]').first();
+  const submit=form.locator('button[type="submit"]:has-text("Ask Thebe")').first();
+  check(await question.count()&&await form.count()&&await submit.count(),'Home Owner Command Centre Ask Thebe controls missing');
   await question.fill('In one short sentence, what should this synthetic owner review first today? Use only this workspace context.');
-  await button.click();
+  await submit.click();
   await page.waitForFunction(()=>{
-    const button=document.getElementById('aiAdvisorButton'),region=document.getElementById('aiAdvisorRegion'),output=document.getElementById('aiAdvisorOutput');
-    return !!button&&!button.disabled&&region?.getAttribute('aria-busy')!=='true'&&String(output?.innerText||'').trim().length>20&&!/Building a grounded answer/i.test(String(output?.innerText||''));
+    const status=document.getElementById('ownerAgenticStatus');
+    const panel=document.getElementById('ownerAgenticPanel');
+    const answer=panel?.querySelector('.owner-agentic-run');
+    return /Answer ready/i.test(String(status?.textContent||''))&&String(answer?.textContent||'').trim().length>20;
   },null,{timeout:WORKSPACE_TIMEOUT});
-  const text=safe(await output.innerText());
-  check(!/could not be generated|credits or the configured cost cap do not allow/i.test(text),`Ask Thebe failed: ${text}`);
-  check(text.length>20,'Ask Thebe returned no meaningful answer');
-  mark('Ask Thebe','authenticated grounded advisor returned a real workspace answer');
+  const status=safe(await page.locator('#ownerAgenticStatus').innerText());
+  const answer=safe(await panel.locator('.owner-agentic-run').last().innerText());
+  check(/Answer ready/i.test(status),`Ask Thebe did not reach ready state: ${status}`);
+  check(!/could not be generated|credits or the configured cost cap do not allow|unavailable/i.test(answer),`Ask Thebe failed: ${answer}`);
+  check(answer.length>20,'Ask Thebe returned no meaningful answer');
+  mark('Ask Thebe','Home Owner Command Centre returned a governed workspace answer with no action executed');
 }
 
 async function markPersistence(page){
