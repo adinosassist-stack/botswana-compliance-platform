@@ -58,13 +58,16 @@ jobs:
           node --check tests/v177-property-valuation-service-reliability.mjs
           node tests/v177-property-valuation-service-reliability.mjs
 
-      - name: Operational source availability regression
+      - name: Operational and agentic source availability regressions
         shell: bash
         run: |
           set -euo pipefail
           node --check cloudflare/src/business-context.js
+          node --check cloudflare/src/agentic-core.js
           node --check tests/v324-business-context-source-availability.mjs
+          node --check tests/v325-agentic-source-availability.mjs
           node tests/v324-business-context-source-availability.mjs
+          node tests/v325-agentic-source-availability.mjs
 
       - name: Owner priority recovery regression
         shell: bash
