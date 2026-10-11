@@ -14,8 +14,11 @@ const homepage=fs.readFileSync(new URL("../public/index.html",import.meta.url),"
 
 assert.match(agentic,/extractSpendWhatIfMinor/);
 assert.doesNotMatch(agentic,/import \{extractSpendWhatIfBwpMinor/);
-assert.match(agentic,/market:context\.market/);
-assert.match(agentic,/market:context\.market,\n\s+identity:context\.identity/);
+// The agentic context may use null-safe optional access while preserving the
+// same dynamic market/identity source. This test protects semantics, not one
+// particular property-access spelling.
+assert.match(agentic,/market:context\?\.market/);
+assert.match(agentic,/market:context\?\.market,\n\s+identity:context\?\.identity/);
 assert.match(agentic,/currency:String\(market\.currency\|\|finance\.currency\|\|""\)/);
 assert.match(agentic,/currency:String\(observation\?\.market\?\.currency\|\|observation\?\.finance\?\.currency\|\|""\)/);
 assert.match(agentic,/extractSpendWhatIfMinor\(goal,\{marketCode:observation\?\.market\?\.code\}\)/);
