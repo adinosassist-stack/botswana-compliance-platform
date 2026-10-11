@@ -8,13 +8,16 @@ assert.match(source,/__thebeSyntheticBrowserProof/,'proof must extend the canoni
 assert.match(source,/await originalProof\(credentials\);await runP0Journey\(credentials\)/,'canonical proof must run before the P0 journey');
 assert.match(source,/finally\{await browser\.close/,'browser cleanup must be guaranteed');
 
-for(const view of ['protecthub','moneyhub','propertyintelligence','peopleops','aiservices']){
+for(const view of ['protecthub','moneyhub','propertyintelligence','peopleops','dashboard']){
   assert.ok(source.includes(`'${view}'`),`P0 proof must cover ${view}`);
 }
-assert.doesNotMatch(source,/openView\(page,'automationhub'\)/,'Ask Thebe proof must target the actual AI Services workspace rather than Automation');
+assert.doesNotMatch(source,/openView\(page,'aiservices'\)/,'Ask Thebe proof must not depend on the retired AI Services navigation route');
+assert.doesNotMatch(source,/openView\(page,'automationhub'\)/,'Ask Thebe proof must target the Home Owner Command Centre rather than Automation');
 assert.match(source,/openAddEvidence\(\)/,'evidence UI must be exercised through the real delegated control');
-assert.match(source,/aiAdvisorQuestion/,'authenticated Ask Thebe question field must be exercised');
-assert.match(source,/aiAdvisorButton/,'authenticated Ask Thebe submit control must be exercised');
+assert.match(source,/ownerAgenticPanel/,'authenticated Ask Thebe proof must use the Home Owner Command Centre panel');
+assert.match(source,/ownerThebeQuestion/,'authenticated Ask Thebe question field must be exercised');
+assert.match(source,/form\[aria-label="Ask Thebe a question"\]/,'authenticated Ask Thebe form must be exercised');
+assert.match(source,/ownerAgenticStatus/,'authenticated Ask Thebe ready status must be verified');
 assert.match(source,/\/api\/auth\/logout/,'real logout endpoint must be exercised');
 assert.match(source,/\/api\/auth\/me/,'authenticated tenant and user identity must be re-read from the real session endpoint');
 assert.match(source,/beforeIdentity\.userId/,'pre-logout authenticated user identity must be captured');
