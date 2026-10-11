@@ -76,6 +76,21 @@ jobs:
           node tests/v324-business-context-source-availability.mjs
           node tests/v325-agentic-source-availability.mjs
 
+      - name: Advisor and voice workspace context truth
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check cloudflare/src/ai-advisor-context-compaction.js
+          node --check cloudflare/src/agentic-core.js
+          node --check cloudflare/src/agentic-live-voice.js
+          node --check public/js/owner-command-centre.js
+          node --check tests/v116-thebe-super-agent-ask-anything.mjs
+          node --check tests/v329-ai-advisor-context-compaction.mjs
+          node --check tests/v330-live-voice-context-disclosure.mjs
+          node tests/v116-thebe-super-agent-ask-anything.mjs
+          node tests/v329-ai-advisor-context-compaction.mjs
+          node tests/v330-live-voice-context-disclosure.mjs
+
       - name: Cross-tenant employee evidence reporting and AI isolation
         shell: bash
         run: |
