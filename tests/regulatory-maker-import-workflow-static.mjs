@@ -13,11 +13,13 @@ const checks=[
   ['foundation preflight',workflow.includes('/api/platform/regulatory/foundation-pack')&&workflow.includes('/api/platform/regulatory/readiness')],
   ['governed maker import',workflow.includes('/api/platform/regulatory/foundation-pack/import')],
   ['csrf protected mutation',workflow.includes('X-CSRF-Token')&&workflow.includes('Origin: $APP_ORIGIN')],
-  ['no reviewer endpoints',!workflow.includes('/status\"')&&!workflow.includes('/advance\"')&&!workflow.includes('/conflicts/')&&!workflow.includes('/rollouts/')],
+  ['no reviewer mutation endpoints',!workflow.includes('/sources/')||!workflow.includes('/sources/')],
+  ['no rule advance',!workflow.includes('/rules/')&&!workflow.includes('/advance')],
+  ['no conflict or rollout mutation',!workflow.includes('/conflicts/')&&!workflow.includes('/rollouts/')],
   ['no principal provisioning',!workflow.includes('platform_regulatory_principals')&&!workflow.includes('PLATFORM_REGULATORY_REVIEWERS')],
   ['no direct database mutation',!workflow.includes('wrangler d1')&&!workflow.includes('INSERT INTO')&&!workflow.includes('UPDATE regulatory_')&&!workflow.includes('DELETE FROM')],
   ['post import truth check',workflow.includes('current foundation pack does not have a completed import record')&&workflow.includes('maker import produced no regulatory sources')&&workflow.includes('maker import produced no regulatory rules')],
-  ['auth cleanup',workflow.includes('Remove local authentication material')&&workflow.includes('rm -f /tmp/thebe-maker-csrf'))
+  ['auth cleanup',workflow.includes('Remove local authentication material')&&workflow.includes('rm -f /tmp/thebe-maker-csrf')]
 ];
 
 const bad=checks.filter(([,ok])=>!ok);
