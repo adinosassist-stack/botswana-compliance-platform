@@ -3,6 +3,6 @@
   "requested": true,
   "purpose": "inspect-distinct-regulatory-reviewer-readiness",
   "requestedAt": "2026-10-11",
-  "triggerNonce": "reviewer-readiness-r1",
+  "triggerNonce": "reviewer-readiness-r2-privacy",
   "safety": "read-only; no identity, role, regulatory, or customer data mutation"
 }

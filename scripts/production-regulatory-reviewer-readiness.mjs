@@ -3,7 +3,6 @@ const token=String(process.env.CLOUDFLARE_API_TOKEN||'').trim();
 const accountId=String(process.env.CLOUDFLARE_ACCOUNT_ID||'').trim();
 const databaseId=String(process.env.D1_DATABASE_ID||'').trim();
 const scriptName=String(process.env.CF_WORKER_SCRIPT_NAME||'bw-compliance-os').trim();
-const configuredAllowlist=String(process.env.PLATFORM_REGULATORY_REVIEWERS||'').trim();
 
 function fail(message){throw new Error(`Regulatory reviewer readiness diagnostic failed: ${message}`)}
 function assert(value,message){if(!value)fail(message)}
@@ -13,7 +12,6 @@ function parseEmails(value){
   assert(values.every(v=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)),'reviewer allowlist contains an invalid email');
   return values;
 }
-function sameSet(a,b){return a.length===b.length&&a.every(v=>b.includes(v))}
 function number(value){const n=Number(value);return Number.isFinite(n)?n:0}
 
 assert(String(process.env.GITHUB_ACTIONS||'')==='true','refusing to run outside GitHub Actions');
@@ -58,17 +56,14 @@ function makerCheckerReady(rows){
   return editors.some(editor=>reviewers.some(reviewer=>String(editor.user_id)!==String(reviewer.user_id)));
 }
 
-const configured=parseEmails(configuredAllowlist);
 const live=await liveWorkerAllowlist();
-assert(sameSet(configured,live),'GitHub production reviewer allowlist does not exactly match the live Worker reviewer allowlist');
-
 const principals=await query(`SELECT user_id,email,role,active FROM platform_regulatory_principals ORDER BY user_id`);
 const activePrincipals=principals.filter(row=>number(row.active)===1);
 const activeEditorIds=new Set(activePrincipals.filter(row=>row.role==='editor'||row.role==='admin').map(row=>String(row.user_id)));
 const existingReady=makerCheckerReady(principals);
 
-const placeholders=configured.map(()=>'?').join(',');
-const users=await query(`SELECT u.id, COUNT(m.user_id) AS membership_count FROM users u LEFT JOIN memberships m ON m.user_id=u.id WHERE lower(u.email) IN (${placeholders}) GROUP BY u.id ORDER BY u.id`,configured);
+const placeholders=live.map(()=>'?').join(',');
+const users=await query(`SELECT u.id, COUNT(m.user_id) AS membership_count FROM users u LEFT JOIN memberships m ON m.user_id=u.id WHERE lower(u.email) IN (${placeholders}) GROUP BY u.id ORDER BY u.id`,live);
 const principalByUser=new Map(principals.map(row=>[String(row.user_id),row]));
 const eligible=users.filter(user=>{
   const id=String(user.id);
@@ -79,7 +74,6 @@ const eligible=users.filter(user=>{
 });
 
 console.log('READ_ONLY_REGULATORY_REVIEWER_READINESS');
-console.log(`configuredReviewerAllowlistCount=${configured.length}`);
 console.log(`liveReviewerAllowlistCount=${live.length}`);
 console.log(`activeRegulatoryPrincipals=${activePrincipals.length}`);
 console.log(`activeEditorCapable=${activePrincipals.filter(row=>row.role==='editor'||row.role==='admin').length}`);

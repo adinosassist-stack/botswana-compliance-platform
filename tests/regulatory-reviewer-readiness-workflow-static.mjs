@@ -7,7 +7,7 @@ const trigger=JSON.parse(readFileSync('operations/regulatory-reviewer-readiness-
 
 assert.match(workflow,/environment: production/);
 assert.match(workflow,/RUN_READ_ONLY_REGULATORY_REVIEWER_READINESS/);
-assert.match(workflow,/PLATFORM_REGULATORY_REVIEWERS: \$\{\{ vars\.PLATFORM_REGULATORY_REVIEWERS \}\}/);
+assert.doesNotMatch(workflow,/PLATFORM_REGULATORY_REVIEWERS:\s*\$\{\{ vars\.PLATFORM_REGULATORY_REVIEWERS \}\}/,'workflow must not expose reviewer allowlist through the Actions environment banner');
 assert.match(workflow,/CF_WORKER_SCRIPT_NAME: bw-compliance-os/);
 assert.doesNotMatch(workflow,/reviewer_email:/i,'workflow must not accept reviewer identity as a dispatch input');
 assert.match(workflow,/node scripts\/production-regulatory-reviewer-readiness\.mjs/);
@@ -15,6 +15,8 @@ assert.match(workflow,/node scripts\/production-regulatory-reviewer-readiness\.m
 assert.match(script,/diagnostic permits SELECT statements only/);
 assert.match(script,/^const CF_API=/m);
 assert.match(script,/\/workers\/scripts\/\$\{scriptName\}\/settings/);
+assert.match(script,/item\?\.name==='PLATFORM_REGULATORY_REVIEWERS'/,'diagnostic must derive reviewer allowlist from the live Worker binding');
+assert.doesNotMatch(script,/process\.env\.PLATFORM_REGULATORY_REVIEWERS/,'diagnostic must not read reviewer identity from Actions environment');
 assert.match(script,/\/d1\/database\/\$\{databaseId\}\/query/);
 assert.match(script,/makerCheckerReady/);
 assert.match(script,/eligibleDistinctReviewerCandidates/);
