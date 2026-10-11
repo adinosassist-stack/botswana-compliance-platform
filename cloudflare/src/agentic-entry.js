@@ -190,11 +190,6 @@ export default {
   async fetch(request,env,ctx){
     const logicalPath=logicalRequestPath(request);
     const liveCoreFetch=(innerRequest,innerEnv=env,innerCtx=ctx)=>base.fetch(innerRequest,innerEnv,innerCtx);
-    const liveControlPlaneFetch=(innerRequest,innerLogicalPath=logicalRequestPath(innerRequest),innerEnv=env)=>handleAgenticControlPlaneRequest({
-      request:innerRequest,
-      logicalPath:innerLogicalPath,
-      env:innerEnv
-    });
     const liveTaskFetch=(innerRequest,innerEnv=env)=>handleJitCapabilityGovernanceRequest({
       request:innerRequest,
       logicalPath:logicalRequestPath(innerRequest),
@@ -234,8 +229,7 @@ export default {
         request:ownerRequest,
         env:ownerEnv,
         ctx,
-        coreFetch:liveCoreFetch,
-        controlPlaneFetch:liveControlPlaneFetch
+        coreFetch:liveCoreFetch
       });
       const runtimeResponse=await applyClientRuntimeIdentity(ownerRequest,ownerResponse);
       return enhanceReadiness(ownerRequest,ownerEnv,runtimeResponse);
