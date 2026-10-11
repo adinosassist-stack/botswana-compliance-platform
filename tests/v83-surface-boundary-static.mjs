@@ -19,7 +19,8 @@ const ok=(condition,message)=>{assert.ok(condition,message);pass++;console.log('
 const has=(source,needle,message)=>ok(source.includes(needle),message);
 const lacks=(source,needle,message)=>ok(!source.includes(needle),message);
 
-has(home,'Run your business with intelligence.','public root preserves the canonical Africa-ready homepage hero');
+has(home,'Know what needs attention. Run your business from one place.','public root preserves the canonical outcome-led homepage hero');
+has(home,'Live in Botswana · Namibia next','public root preserves the Africa-ready launch position');
 has(home,'href="/auth/?mode=login"','public root links sign-in to the dedicated auth surface');
 has(home,'href="/app/"','public root links workspace access to the dedicated app surface');
 lacks(home,'/api/auth/me','public root has no session bootstrap dependency');
