@@ -57,3 +57,10 @@ jobs:
           set -euo pipefail
           node --check tests/v177-property-valuation-service-reliability.mjs
           node tests/v177-property-valuation-service-reliability.mjs
+
+      - name: Constrained workspace and preview UI contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tests/v322-reviewer-ui-contract.mjs
+          node tests/v322-reviewer-ui-contract.mjs
