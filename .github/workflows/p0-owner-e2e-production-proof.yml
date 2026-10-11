@@ -1,0 +1,74 @@
+name: P0 Owner E2E production proof
+
+on:
+  pull_request:
+    paths:
+      - "scripts/production-p0-owner-e2e-proof.mjs"
+      - "tests/p0-owner-e2e-proof-contract.mjs"
+      - ".github/workflows/p0-owner-e2e-production-proof.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p0-owner-e2e-production-proof-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - name: Setup pinned Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Syntax and safety contract
+        run: |
+          set -euo pipefail
+          node --check scripts/production-p0-owner-e2e-proof.mjs
+          node --check tests/p0-owner-e2e-proof-contract.mjs
+          node tests/p0-owner-e2e-proof-contract.mjs
+
+  production-proof:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    needs: contract
+    environment: production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      AUDIT_INTEGRITY_SECRET: ${{ secrets.AUDIT_INTEGRITY_SECRET }}
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - name: Prove exact checkout
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$EXPECTED_HEAD_SHA"
+          test -z "$(git status --porcelain --untracked-files=all)"
+      - name: Setup pinned Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Install exact dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install pinned browser client
+        run: npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+      - name: Require signed synthetic lifecycle secret
+        run: |
+          set -euo pipefail
+          test "${#AUDIT_INTEGRITY_SECRET}" -ge 32 || { echo 'AUDIT_INTEGRITY_SECRET missing or too short' >&2; exit 1; }
+      - name: Run P0 owner production journey
+        run: node scripts/production-p0-owner-e2e-proof.mjs
