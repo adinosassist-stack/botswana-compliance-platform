@@ -17,9 +17,27 @@ async function login(page,credentials){
   const result=await page.evaluate(async({email,password})=>{
     const response=await fetch('/api/auth/login',{method:'POST',credentials:'same-origin',redirect:'error',headers:{accept:'application/json','content-type':'application/json'},body:JSON.stringify({email,password})});
     let body=null;try{body=await response.json()}catch{}
-    return {status:response.status,ok:body?.ok===true,role:String(body?.user?.role||''),error:String(body?.error||'')};
+    return {
+      status:response.status,
+      ok:body?.ok===true,
+      role:String(body?.user?.role||''),
+      userId:String(body?.user?.id||''),
+      tenantId:String(body?.user?.tenantId||''),
+      error:String(body?.error||'')
+    };
   },credentials);
-  check(result.status===200&&result.ok&&result.role==='owner',`owner login failed HTTP ${result.status} ${safe(result.error)}`);
+  check(result.status===200&&result.ok&&result.role==='owner'&&result.userId&&result.tenantId,`owner login failed HTTP ${result.status} ${safe(result.error)}`);
+  return result;
+}
+
+async function sessionIdentity(page){
+  const result=await page.evaluate(async()=>{
+    const response=await fetch('/api/auth/me',{credentials:'same-origin',headers:{accept:'application/json'}});
+    let body=null;try{body=await response.json()}catch{}
+    return {status:response.status,role:String(body?.user?.role||''),userId:String(body?.user?.id||''),tenantId:String(body?.user?.tenantId||'')};
+  });
+  check(result.status===200&&result.role==='owner'&&result.userId&&result.tenantId,'authenticated owner identity unavailable');
+  return result;
 }
 
 async function waitWorkspace(page){
@@ -61,8 +79,14 @@ async function stateFingerprint(page){
   return page.evaluate(async()=>{
     const response=await fetch('/api/state',{credentials:'same-origin',headers:{accept:'application/json'}});
     let body=null;try{body=await response.json()}catch{}
-    const state=body?.state||body||{};
-    return {status:response.status,activeCompanyId:String(state?.activeCompanyId||''),companies:(Array.isArray(state?.companies)?state.companies:[]).map(company=>String(company?.id||'')).filter(Boolean).sort()};
+    const state=body?.state&&typeof body.state==='object'?body.state:{};
+    const version=Number(body?.version);
+    return {
+      status:response.status,
+      version:Number.isFinite(version)?version:null,
+      activeCompanyId:String(state?.activeCompanyId||''),
+      companies:(Array.isArray(state?.companies)?state.companies:[]).map(company=>String(company?.id||'')).filter(Boolean).sort()
+    };
   });
 }
 
@@ -150,17 +174,20 @@ async function logout(page){
   mark('logout','session invalidated before re-login');
 }
 
-async function verifyPersistence(page,before){
+async function verifyPersistence(page,beforeState,beforeIdentity,afterIdentity){
+  check(afterIdentity.userId===beforeIdentity.userId&&afterIdentity.tenantId===beforeIdentity.tenantId,'authenticated synthetic tenant/user identity changed across logout/login');
   const onboarding=await page.evaluate(async()=>{
     const response=await fetch('/api/account/onboarding',{credentials:'same-origin',headers:{accept:'application/json'}});
     let body=null;try{body=await response.json()}catch{}
     return {status:response.status,complete:body?.complete===true};
   });
   check(onboarding.status===200&&onboarding.complete,'server persistence marker did not survive logout/login');
-  const after=await stateFingerprint(page);
-  check(after.status===200,'state unavailable after re-login');
-  check(after.activeCompanyId===before.activeCompanyId&&JSON.stringify(after.companies)===JSON.stringify(before.companies),'tenant workspace identity changed across logout/login');
-  mark('login + persistence','same synthetic tenant state and persisted owner marker survived a new authenticated session');
+  const afterState=await stateFingerprint(page);
+  check(afterState.status===200&&Number.isFinite(afterState.version),'state endpoint unavailable after re-login');
+  check(afterState.version===beforeState.version,'workspace state version changed during read-only navigation and onboarding-marker persistence proof');
+  if(beforeState.activeCompanyId)check(afterState.activeCompanyId===beforeState.activeCompanyId,'active workspace company changed across logout/login');
+  if(beforeState.companies.length)check(JSON.stringify(afterState.companies)===JSON.stringify(beforeState.companies),'workspace company set changed across logout/login');
+  mark('login + persistence','same synthetic tenant/user identity and persisted owner marker survived a new authenticated session');
 }
 
 async function runP0Journey(credentials){
@@ -174,7 +201,7 @@ async function runP0Journey(credentials){
 
     const auth=await page.goto(`${ORIGIN}/auth/?p0-owner-e2e=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:NAV_TIMEOUT});
     check(auth?.status()===200,'auth surface did not return 200');
-    await login(page,credentials);
+    const firstLogin=await login(page,credentials);
     mark('auth','synthetic owner authenticated');
 
     const app=await page.goto(`${ORIGIN}/app/?p0-owner-e2e=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:NAV_TIMEOUT});
@@ -182,8 +209,11 @@ async function runP0Journey(credentials){
     await waitWorkspace(page);await dismissOnboarding(page);
     mark('workspace','authenticated workspace became authoritatively ready');
 
-    const before=await stateFingerprint(page);
-    check(before.status===200&&before.activeCompanyId&&before.companies.length>=1,'initial persisted workspace state unavailable');
+    const beforeIdentity=await sessionIdentity(page);
+    check(beforeIdentity.userId===firstLogin.userId&&beforeIdentity.tenantId===firstLogin.tenantId,'workspace session identity differs from login identity');
+    const beforeState=await stateFingerprint(page);
+    check(beforeState.status===200&&Number.isFinite(beforeState.version),'initial workspace state endpoint unavailable');
+    mark('state contract',`first-run workspace state readable at version=${beforeState.version} companyCount=${beforeState.companies.length}`);
 
     await openView(page,'protecthub');
     const protectText=await page.locator('#protecthub').innerText();
@@ -199,11 +229,13 @@ async function runP0Journey(credentials){
     await logout(page);
     const relogin=await page.goto(`${ORIGIN}/auth/?mode=login&p0-relogin=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:NAV_TIMEOUT});
     check(relogin?.status()===200,'auth surface did not return 200 for re-login');
-    await login(page,credentials);
+    const secondLogin=await login(page,credentials);
+    check(secondLogin.userId===firstLogin.userId&&secondLogin.tenantId===firstLogin.tenantId,'re-login response resolved a different synthetic identity');
     const appAgain=await page.goto(`${ORIGIN}/app/?p0-relogin=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:NAV_TIMEOUT});
     check(appAgain?.status()===200,'workspace route failed after re-login');
     await waitWorkspace(page);await dismissOnboarding(page);
-    await verifyPersistence(page,before);
+    const afterIdentity=await sessionIdentity(page);
+    await verifyPersistence(page,beforeState,beforeIdentity,afterIdentity);
 
     check(pageErrors.length===0,`page errors ${safe(JSON.stringify(pageErrors))}`);
     check(assetFailures.length===0,`asset failures ${safe(JSON.stringify(assetFailures))}`);
