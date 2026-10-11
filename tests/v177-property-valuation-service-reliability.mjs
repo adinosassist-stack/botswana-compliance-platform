@@ -19,7 +19,7 @@ assert.equal(summary.quotedPipelineBwp,3700);
 assert.equal(summary.completedRevenueBwp,2500);
 assert.equal(summary.expiredQuotes,1);
 
-const migration=fs.readFileSync("cloudflare/migrations/063_v179_property_valuer_credential_binding.sql","utf8");
+const migration=fs.readFileSync("cloudflare/migrations/062_v177_property_valuation_service_reliability.sql","utf8");
 const service=fs.readFileSync("cloudflare/src/property-valuation-services.js","utf8");
 const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const owner=fs.readFileSync("public/js/owner-command-centre.js","utf8");
@@ -50,7 +50,7 @@ assert.match(service,/Number\(changed\.meta\?\.changes\|\|0\)===1/);
 assert.match(service,/summary:serviceSummary\(items\)/);
 assert.match(service,/credentialBoundIssuance:true/);
 assert.match(service,/valuation_quote_checkout_already_created/);
-assert.match(service,/UPDATE payment_orders SET status=\'canceled\'/);
+assert.match(service,/UPDATE payment_orders SET status='canceled'/);
 assert.match(service,/CUSTOMER_CANCELED/);
 
 assert.match(worker,/valuation_quote_expired/);
