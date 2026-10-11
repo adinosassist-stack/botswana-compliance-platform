@@ -65,6 +65,15 @@ jobs:
           node --check tests/v329-saved-finance-lifecycle.mjs
           node tests/v329-saved-finance-lifecycle.mjs
 
+      - name: Report money and FNB surface qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check public/js/daily-report-money-v331.js
+          node --check public/js/reporter-money-v331.js
+          node --check tests/v331-report-money-fnb-surface.mjs
+          node tests/v331-report-money-fnb-surface.mjs
+
       - name: Property valuation reliability regression
         shell: bash
         run: |
