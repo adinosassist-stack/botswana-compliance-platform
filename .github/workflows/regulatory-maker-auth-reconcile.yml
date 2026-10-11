@@ -86,10 +86,24 @@ jobs:
           grep -Fq '/api/auth/password-reset/request' scripts/reconcile-regulatory-maker-auth.mjs
           grep -Fq '/api/auth/password-reset/complete' scripts/reconcile-regulatory-maker-auth.mjs
           grep -Fq '/api/platform/regulatory/status' scripts/reconcile-regulatory-maker-auth.mjs
-          if grep -Eq '/foundation-pack/import|approve|publish|D1_DATABASE_ID|CLOUDFLARE_API_TOKEN' scripts/reconcile-regulatory-maker-auth.mjs; then
-            echo 'reconciliation script contains forbidden regulatory/data mutation authority' >&2
-            exit 1
-          fi
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          text=Path('scripts/reconcile-regulatory-maker-auth.mjs').read_text(encoding='utf-8')
+          forbidden_tokens=[
+              '/api/platform/regulatory/foundation-pack/import',
+              'D1_DATABASE_ID',
+              'CLOUDFLARE_API_TOKEN',
+          ]
+          hits=[token for token in forbidden_tokens if token in text]
+          if hits:
+              raise SystemExit('reconciliation script contains forbidden regulatory/data mutation authority: '+', '.join(hits))
+          platform_paths=set(re.findall(r"['\"](/api/platform/regulatory/[^'\"]+)['\"]",text))
+          allowed={'/api/platform/regulatory/status'}
+          if platform_paths != allowed:
+              raise SystemExit(f'unexpected platform regulatory endpoint set: {sorted(platform_paths)}')
+          print('Reconciliation endpoint allowlist validated.')
+          PY
 
       - name: Reconcile maker authentication through production recovery API
         shell: bash
