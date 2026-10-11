@@ -791,6 +791,16 @@ async function prepareInternalTaskFromVoice({request,env,auth,taskFetch,delegati
   },201);
 }
 
+function spokenContextNotice(plan){
+  const state=cleanText(plan?.run?.contextAvailability?.financeAndBusiness,40).toLowerCase();
+  const notices=[];
+  if(state==="unavailable")notices.push("Some live workspace context was unavailable, so this is not a complete workspace review.");
+  else if(state==="role_restricted")notices.push("This review is limited to the workspace context permitted for this role.");
+  else if(state!=="available")notices.push("Workspace context completeness could not be verified, so confirm the supporting records before relying on a full business overview.");
+  if(plan?.run?.contextCompaction?.applied===true)notices.push("Some lower-priority workspace context was compacted to stay within the bounded AI context; cited and retained records remain the basis for this review.");
+  return cleanText(notices.join(" "),700);
+}
+
 function spokenResult(plan){
   const summary=cleanText(plan?.run?.summary||"Thebe completed the governed business review.",700);
   const proposals=(Array.isArray(plan?.proposals)?plan.proposals:[])
@@ -803,6 +813,8 @@ function spokenResult(plan){
     .filter(Boolean);
   const parts=[summary];
   if(proposals.length)parts.push(`The main next steps are: ${proposals.join(" ")}`);
+  const contextNotice=spokenContextNotice(plan);
+  if(contextNotice)parts.push(contextNotice);
   parts.push("No business action was executed from this voice delegation.");
   return cleanText(parts.join(" "),1500);
 }
@@ -906,6 +918,8 @@ async function delegateBusinessWork({request,env,ctx,auth,coreFetch,taskFetch}){
     taskHash,
     runId:cleanText(plan?.run?.id,160)||null,
     proposalCount:Array.isArray(plan?.proposals)?plan.proposals.length:0,
+    contextAvailability:cleanText(plan?.run?.contextAvailability?.financeAndBusiness,40)||null,
+    contextCompacted:plan?.run?.contextCompaction?.applied===true,
     executionPerformed:false
   });
 
@@ -919,10 +933,14 @@ async function delegateBusinessWork({request,env,ctx,auth,coreFetch,taskFetch}){
     runId:plan?.run?.id||null,
     proposalIds:(Array.isArray(plan?.proposals)?plan.proposals:[]).map(item=>item?.id).filter(Boolean),
     content,
+    contextAvailability:plan?.run?.contextAvailability||null,
+    contextCompaction:plan?.run?.contextCompaction||null,
     toolOutput:{
       ok:true,
       runId:plan?.run?.id||null,
       content,
+      contextAvailability:plan?.run?.contextAvailability||null,
+      contextCompaction:plan?.run?.contextCompaction||null,
       authority
     },
     authority
@@ -990,6 +1008,7 @@ export const __agenticLiveVoiceTest=Object.freeze({
   delegationTool,
   realtimeSessionConfig,
   marketingRealtimeSessionConfig,
+  spokenContextNotice,
   spokenResult,
   preparedTaskContent,
   taskPreparationNoopContent,
