@@ -20,7 +20,7 @@ const checks=[
   ['no principal provisioning',!workflow.includes('platform_regulatory_principals')&&!workflow.includes('PLATFORM_REGULATORY_REVIEWERS')],
   ['no direct database mutation',!workflow.includes('wrangler d1')&&!workflow.includes('INSERT INTO')&&!workflow.includes('UPDATE regulatory_')&&!workflow.includes('DELETE FROM')],
   ['post import truth check',workflow.includes('current foundation pack does not have a completed import record')&&workflow.includes('maker import produced no regulatory sources')&&workflow.includes('maker import produced no regulatory rules')],
-  ['auth cleanup',workflow.includes('Remove local authentication material')&&workflow.includes('rm -f /tmp/thebe-maker-csrf')]
+  ['auth cleanup',workflow.includes('Remove local authentication material')&&workflow.includes('/tmp/thebe-maker-csrf')&&workflow.includes('/tmp/thebe-maker-cookie-path')&&workflow.includes('/tmp/thebe-maker-login.json')]
 ];
 
 const bad=checks.filter(([,ok])=>!ok);
