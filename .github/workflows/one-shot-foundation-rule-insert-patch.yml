@@ -29,11 +29,12 @@ jobs:
           from pathlib import Path
           p=Path('cloudflare/src/worker.js')
           s=p.read_text(encoding='utf-8')
-          old="VALUES(?,?,?,?,?,?,?,?,?,?,'draft',?,?,?,?,?)"
-          new="VALUES(?,?,?,?,?,?,?,?,?,?,'draft',?,?,?,?)"
+          marker='INSERT INTO regulatory_rules(id,rule_key,version,title,summary,applicability_json,action_json,source_ids_json,effective_from,effective_to,status,confidence,created_by_user_id,definition_hash,supersedes_rule_id) '
+          old=marker+"VALUES(?,?,?,?,?,?,?,?,?,?,'draft',?,?,?,?,?)"
+          new=marker+"VALUES(?,?,?,?,?,?,?,?,?,?,'draft',?,?,?,?)"
           count=s.count(old)
           if count != 1:
-              raise SystemExit(f'refusing patch: expected exactly one malformed foundation-rule INSERT, found {count}')
+              raise SystemExit(f'refusing patch: expected exactly one malformed foundation-pack rule INSERT, found {count}')
           p.write_text(s.replace(old,new,1),encoding='utf-8')
           PY
           node --check cloudflare/src/worker.js
