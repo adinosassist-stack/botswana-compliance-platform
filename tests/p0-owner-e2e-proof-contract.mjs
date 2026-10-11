@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 
 const source=fs.readFileSync('scripts/production-p0-owner-e2e-proof.mjs','utf8');
+const ownerSource=fs.readFileSync('public/js/owner-command-centre.js','utf8');
 
 assert.match(source,/production-synthetic-hold-wrapper\.mjs/,'proof must run inside the signed synthetic tenant lifecycle');
 assert.match(source,/__thebeSyntheticBrowserProof/,'proof must extend the canonical synthetic lifecycle rather than inventing registration bypasses');
@@ -29,6 +30,14 @@ assert.match(source,/\/api\/state/,'workspace state endpoint must be verified ac
 assert.match(source,/Number\.isFinite\(beforeState\.version\)/,'first-run empty state is valid only when the authoritative state version is present');
 assert.match(source,/afterState\.version===beforeState\.version/,'read-only navigation must not silently mutate workspace state');
 assert.match(source,/complete chain.*auth -> workspace -> compliance -> evidence -> finance -> property -> people -> Ask Thebe -> logout\/login -> persistence/s,'required P0 chain must be explicit in proof output');
+
+const askStart=ownerSource.indexOf('async function askThebe(question)');
+const askEnd=ownerSource.indexOf('\n  function renderAskThebeControl()',askStart);
+assert.ok(askStart>=0&&askEnd>askStart,'owner command centre must expose the authenticated Ask Thebe implementation');
+const askSource=ownerSource.slice(askStart,askEnd);
+assert.doesNotMatch(askSource,/await renderAgenticGovernance\(false\)/,'Ask Thebe answer rendering must not wait on unrelated governance reads');
+assert.match(askSource,/renderAskThebeControl\(\)/,'successful Ask Thebe responses must render through the canonical Ask Thebe control');
+assert.match(ownerSource,/section\.id="ownerAskThebeControl"/,'Ask Thebe control must expose a stable replacement boundary for immediate answer rendering');
 
 assert.doesNotMatch(source,/beforeState\.activeCompanyId&&beforeState\.companies\.length>=1/,'first-run proof must not invent an app_state company row that registration does not create');
 assert.doesNotMatch(source,/\/api\/evidence\/(?:upload|presign|integrity-upload)/,'P0 proof must not upload evidence or bypass the safe launch hold');
