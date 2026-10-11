@@ -25,9 +25,13 @@ assert.match(helper,/DAILY_BRIEF_PATH="\/api\/daily-brief"/);
 assert.match(helper,/RUNS_PATH="\/api\/agentic\/runs"/);
 assert.match(helper,/OUTCOMES_PATH="\/api\/agentic\/outcomes"/);
 assert.match(helper,/BUSINESS_CONTEXT_PATH="\/api\/business-context\/brief"/);
-assert.match(helper,/coreFetch\(runsRequest,env,ctx\)/);
-assert.match(helper,/coreFetch\(outcomesRequest,env,ctx\)/);
-assert.match(helper,/coreFetch\(businessRequest,env,ctx\)/);
+assert.match(helper,/fetchJsonSource\(coreFetch,runsRequest,env,ctx\)/);
+assert.match(helper,/fetchJsonSource\(coreFetch,outcomesRequest,env,ctx\)/);
+assert.match(helper,/fetchJsonSource\(coreFetch,businessRequest,env,ctx\)/);
+assert.match(helper,/fetch_failed:/);
+assert.match(helper,/unavailableProjection/);
+assert.match(helper,/dailyResponse\.status===401\|\|dailyResponse\.status===403/);
+assert.match(helper,/dailyResponse\.status>=500/);
 assert.match(helper,/shapeAvailability/);
 assert.match(helper,/validDailyShape/);
 assert.match(helper,/validRunsShape/);
@@ -111,7 +115,7 @@ const healthyCoreFetch=async request=>{
     {id:"p2",status:"approved",title:"Approved proposal",risk:"low",decision_at:"2026-10-11T07:30:00Z"}
   ]});
   if(path==="/api/agentic/outcomes")return jsonResponse({items:[{proposal_id:"p2"}]});
-  if(path==="/api/business-context/brief")return jsonResponse({brief:{observedAt:"2026-10-11T08:00:00Z",priorities:[]}});
+  if(path==="/api/business-context/brief")return jsonResponse({brief:{observedAt:"2026-10-11T08:00:00Z",priorities:[{key:"r1",title:"Advisory recommendation"}]}});
   return jsonResponse({error:"unexpected_path"},404);
 };
 
@@ -125,6 +129,11 @@ assert.equal(healthyBody.ownerAttention.counts.approvals,1);
 assert.equal(healthyBody.ownerAttention.counts.outcomes,0);
 assert.equal(healthyBody.ownerAttention.counts.total,3);
 assert.deepEqual(new Set(observedPaths),new Set(["/api/daily-brief","/api/agentic/runs","/api/agentic/outcomes","/api/business-context/brief"]));
+const authoritativeItems=healthyBody.ownerAttention.items.filter(item=>item.authoritative===true);
+assert.ok(authoritativeItems.length>=2);
+assert.equal(authoritativeItems.every(item=>Array.isArray(item.sourceRefs)&&item.sourceRefs.length>0),true,"every authoritative canonical item must retain at least one canonical source reference");
+const recommendation=healthyBody.ownerAttention.items.find(item=>item.category==="recommendation");
+assert.equal(recommendation?.authoritative,false,"source-less recommendations may exist only when explicitly non-authoritative");
 
 const malformedDailyFetch=async request=>{
   const path=new URL(request.url).pathname;
@@ -141,5 +150,45 @@ assert.equal(malformedBody.ownerAttention.counts.action,null);
 assert.equal(malformedBody.ownerAttention.counts.total,null);
 assert.equal(malformedBody.ownerAttention.sourceAvailability.dailyBrief.available,false);
 assert.equal(malformedBody.ownerAttention.sourceAvailability.dailyBrief.reason,"invalid_shape");
+
+const throwingRunsFetch=async request=>{
+  const path=new URL(request.url).pathname;
+  if(path==="/api/daily-brief")return jsonResponse({date:"2026-10-11",status:{openWork:1,urgent:0,overdue:0},topActions:[{source:"hr",id:"h1",title:"One action"}]});
+  if(path==="/api/agentic/runs")throw new Error("runs_db_unavailable");
+  if(path==="/api/agentic/outcomes")return jsonResponse({items:[]});
+  if(path==="/api/business-context/brief")return jsonResponse({brief:{priorities:[]}});
+  return jsonResponse({error:"unexpected_path"},404);
+};
+const throwingRunsResponse=await ownerAttentionDailyBrief({request:baseRequest,env:{},ctx:{},coreFetch:throwingRunsFetch});
+assert.equal(throwingRunsResponse.status,200,"a secondary-source failure must not erase the authenticated Daily Brief response");
+const throwingRunsBody=await throwingRunsResponse.json();
+assert.equal(throwingRunsBody.ownerAttention.state,"unavailable");
+assert.equal(throwingRunsBody.ownerAttention.counts.action,1);
+assert.equal(throwingRunsBody.ownerAttention.counts.approvals,null);
+assert.equal(throwingRunsBody.ownerAttention.counts.outcomes,null);
+assert.equal(throwingRunsBody.ownerAttention.counts.total,null);
+assert.equal(throwingRunsBody.ownerAttention.sourceAvailability.approvals.available,false);
+assert.match(throwingRunsBody.ownerAttention.sourceAvailability.approvals.reason,/^fetch_failed:runs_db_unavailable$/);
+
+const dailyExceptionResponse=await ownerAttentionDailyBrief({
+  request:baseRequest,
+  env:{},ctx:{},
+  coreFetch:async()=>{throw new Error("daily_db_unavailable")}
+});
+assert.equal(dailyExceptionResponse.status,503);
+assert.equal(dailyExceptionResponse.headers.get("x-thebe-owner-attention-state"),"unavailable");
+const dailyExceptionBody=await dailyExceptionResponse.json();
+assert.equal(dailyExceptionBody.ownerAttention.state,"unavailable");
+assert.equal(dailyExceptionBody.ownerAttention.counts.total,null);
+assert.match(dailyExceptionBody.ownerAttention.sourceAvailability.dailyBrief.reason,/^fetch_failed:daily_db_unavailable$/);
+
+const authFailure=await ownerAttentionDailyBrief({
+  request:baseRequest,
+  env:{},ctx:{},
+  coreFetch:async()=>jsonResponse({error:"unauthenticated"},401)
+});
+assert.equal(authFailure.status,401,"authentication failures must pass through without synthesizing business data");
+const authFailureBody=await authFailure.json();
+assert.equal(authFailureBody.ownerAttention,undefined);
 
 console.log("owner-attention production entry contract: PASS");
