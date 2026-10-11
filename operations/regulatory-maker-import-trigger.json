@@ -4,5 +4,6 @@
   "packKey": "botswana-foundation-v1",
   "purpose": "governed-production-foundation-pack-import",
   "requestedAt": "2026-10-11",
+  "triggerNonce": "release-471-maker-import-r2",
   "safety": "maker-only; no reviewer provisioning, approval, publication, rollout, conflict resolution, or direct database mutation"
 }
