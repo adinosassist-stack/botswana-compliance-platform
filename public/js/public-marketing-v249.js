@@ -55,9 +55,9 @@
     const sync=()=>{if(mq.matches)close()};
     if(typeof mq.addEventListener==="function")mq.addEventListener("change",sync);else mq.addListener?.(sync)
   }
-  function updatePrimaryWhatsAppCta(gate){
-    const primary=gate.querySelector('a[href^="https://wa.me/26777723273?text="]');
-    if(primary)primary.href=`https://wa.me/26777723273?text=${encodeURIComponent("Thebe, brief me.")}`
+  function updateGuidedWhatsAppCtas(gate){
+    const guided=gate.querySelectorAll('a[href^="https://wa.me/26777723273?text="]');
+    for(const link of guided)link.href=`https://wa.me/26777723273?text=${encodeURIComponent("Thebe, brief me.")}`
   }
   function init(){
     const gate=document.getElementById("marketingGate");
@@ -71,7 +71,7 @@
     setProperty("og:description","Money, work, people and protection in one intelligent business workspace. Live in Botswana.");
 
     initMobileNav(gate);
-    updatePrimaryWhatsAppCta(gate);
+    updateGuidedWhatsAppCtas(gate);
 
     const eyebrow=gate.querySelector(".hero .eyebrow");
     if(eyebrow){eyebrow.dataset.v249Eyebrow="1";eyebrow.replaceChildren(make("span","dot"),document.createTextNode("AI operating layer for African business · Live in Botswana"))}
