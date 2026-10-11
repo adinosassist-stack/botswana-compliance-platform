@@ -1,0 +1,27 @@
+name: Export worker snapshot
+
+on:
+  push:
+    branches:
+      - chatgpt/ai-context-compaction
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Upload exact worker source
+        uses: actions/upload-artifact@v4
+        with:
+          name: worker-source
+          path: cloudflare/src/worker.js
+          if-no-files-found: error
+          retention-days: 1
