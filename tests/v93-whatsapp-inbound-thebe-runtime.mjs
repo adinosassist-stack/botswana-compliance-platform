@@ -11,6 +11,7 @@ assert.equal(classifyWhatsAppInboundCommand("compliance"),"compliance_followup")
 assert.equal(classifyWhatsAppInboundCommand("daily operations"),"operations_update");
 assert.equal(classifyWhatsAppInboundCommand("How is my business doing?"),"owner_daily_brief");
 assert.equal(classifyWhatsAppInboundCommand("Thebe, give me a business update"),"owner_daily_brief");
+assert.equal(classifyWhatsAppInboundCommand("Thebe, brief me."),"owner_daily_brief");
 assert.equal(classifyWhatsAppInboundCommand("what needs my attention"),"owner_daily_brief");
 assert.equal(classifyWhatsAppInboundCommand("tell me anything"),null);
 
@@ -141,7 +142,7 @@ function mockDb({bindings=[{tenant_id:"tenant-A",user_id:"u1",role:"owner"}]}={}
   }]);
   assert.equal(result.unrecognized,1);
   assert.equal(result.prepared,0);
-  assert.equal(DB.calls.some(call=>call.sql.includes("INSERT INTO agentic_runs")),false,"unrecognized free-form text must not reach the agent persistence path");
+  assert.equal(DB.calls.some(call=>String(call.sql).includes("INSERT INTO agentic_runs")),false,"unrecognized free-form text must not reach the agent persistence path");
 }
 
 {
