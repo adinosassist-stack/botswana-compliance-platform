@@ -11,7 +11,10 @@
     return node;
   };
 
-  function statusNode(){return document.getElementById("ownerAgenticStatus")}
+  function statusNode(form=null){
+    const section=form?.closest?.(".owner-agentic-boundary");
+    return section?.querySelector?.("#ownerAskThebeStatus")||document.getElementById("ownerAgenticStatus");
+  }
 
   function renderAnswer(form,result){
     const section=form.closest(".owner-agentic-boundary");
@@ -67,7 +70,7 @@
 
     const question=form.querySelector("#ownerThebeQuestion");
     const normalized=String(question?.value||"").trim().replace(/\s+/g," ").slice(0,1000);
-    const status=statusNode();
+    const status=statusNode(form);
     if(normalized.length<3){
       if(status)status.textContent="Enter a question for Thebe.";
       return;
@@ -88,10 +91,10 @@
         body:JSON.stringify({mode:"ask",question:normalized})
       });
       if(!renderAnswer(form,result))throw new Error("Thebe returned no answer.");
-      const refreshedStatus=statusNode();
+      const refreshedStatus=statusNode(form);
       if(refreshedStatus)refreshedStatus.textContent="Answer ready · no action was executed.";
     }catch(error){
-      const refreshedStatus=statusNode();
+      const refreshedStatus=statusNode(form);
       if(refreshedStatus)refreshedStatus.textContent=String(error?.message||"Thebe could not answer that question.").slice(0,180);
     }finally{
       busy=false;

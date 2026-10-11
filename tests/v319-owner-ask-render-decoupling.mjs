@@ -2,17 +2,30 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 
 const readiness=fs.readFileSync('public/js/workspace-readiness-v305.js','utf8');
-const source=fs.readFileSync('public/js/owner-ask-thebe-render-v319.js','utf8');
+const renderSource=fs.readFileSync('public/js/owner-ask-thebe-render-v319.js','utf8');
+const controlSource=fs.readFileSync('public/js/owner-ask-thebe-stable-v320.js','utf8');
 
 assert.match(readiness,/owner-ask-thebe-render-v319\.js/,'workspace readiness must load the isolated authenticated Ask Thebe render extension');
-assert.match(readiness,/whenThebeWorkspaceReady\(loadOwnerAskRender\)/,'Ask Thebe extension must load only after authoritative workspace readiness');
-assert.match(source,/document\.addEventListener\("submit",handleAskSubmit,true\)/,'Ask Thebe extension must intercept the canonical submit in capture phase');
-assert.match(source,/form\.getAttribute\("aria-label"\)!=="Ask Thebe a question"/,'extension must be scoped to the authenticated Ask Thebe form');
-assert.match(source,/window\.apiJson\("\/api\/ai\/advisor"/,'extension must use the existing authenticated API transport and canonical advisor endpoint');
-assert.match(source,/mode:"ask",question:normalized/,'extension must preserve the read-only ask request contract');
-assert.match(source,/Answer ready · no action was executed\./,'successful responses must disclose that no action was executed');
-assert.doesNotMatch(source,/renderAgenticGovernance/,'answer rendering must not wait on unrelated governance reads');
-assert.doesNotMatch(source,/\/api\/agentic\//,'read-only Ask Thebe rendering must not call agentic authority endpoints');
-assert.doesNotMatch(source,/innerHTML|safeHTML/,'extension must render returned content through text nodes rather than HTML injection');
+assert.match(readiness,/owner-ask-thebe-stable-v320\.js/,'workspace readiness must load the stable Ask Thebe control extension');
+assert.match(readiness,/whenThebeWorkspaceReady\(loadOwnerAsk\)/,'Ask Thebe extensions must load only after authoritative workspace readiness');
+assert.match(readiness,/\.then\(\(\)=>import\(`\/js\/owner-ask-thebe-stable-v320\.js/,'stable control must load after the capture-phase answer renderer');
 
-console.log('V319 owner Ask Thebe render decoupling: PASS');
+assert.match(renderSource,/document\.addEventListener\("submit",handleAskSubmit,true\)/,'Ask Thebe renderer must intercept the canonical submit in capture phase');
+assert.match(renderSource,/form\.getAttribute\("aria-label"\)!=="Ask Thebe a question"/,'renderer must be scoped to the authenticated Ask Thebe form');
+assert.match(renderSource,/window\.apiJson\("\/api\/ai\/advisor"/,'renderer must use the existing authenticated API transport and canonical advisor endpoint');
+assert.match(renderSource,/mode:"ask",question:normalized/,'renderer must preserve the read-only ask request contract');
+assert.match(renderSource,/ownerAskThebeStatus/,'renderer must prefer the Ask-specific status node so governance refreshes cannot overwrite answer state');
+assert.match(renderSource,/Answer ready · no action was executed\./,'successful responses must disclose that no action was executed');
+assert.doesNotMatch(renderSource,/renderAgenticGovernance/,'answer rendering must not wait on unrelated governance reads');
+assert.doesNotMatch(renderSource,/\/api\/agentic\//,'read-only Ask Thebe rendering must not call agentic authority endpoints');
+assert.doesNotMatch(renderSource,/innerHTML|safeHTML/,'renderer must use text nodes rather than HTML injection');
+
+assert.match(controlSource,/ownerAskThebeStableHost/,'control extension must create a stable host outside the replaceable governance body');
+assert.match(controlSource,/body\.after\(host\)/,'stable Ask Thebe host must be a sibling after the governance body');
+assert.match(controlSource,/ownerThebeQuestion/,'stable host must expose the canonical Ask Thebe textarea immediately');
+assert.match(controlSource,/MutationObserver/,'stable control must survive later governance body replacement');
+assert.match(controlSource,/duplicates\.forEach/,'governance refreshes must not leave duplicate Ask Thebe forms');
+assert.doesNotMatch(controlSource,/apiJson|fetch\(|\/api\//,'control hydration must not depend on any API or governance read');
+assert.doesNotMatch(controlSource,/innerHTML|safeHTML/,'control extension must create UI through DOM text nodes only');
+
+console.log('V319/V320 owner Ask Thebe render and control decoupling: PASS');

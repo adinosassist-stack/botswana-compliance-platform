@@ -1,5 +1,5 @@
-name: V319 Ask Thebe render qualification
-run-name: V319 Ask Thebe render ${{ github.event.pull_request.head.sha }}
+name: V319/V320 Ask Thebe qualification
+run-name: V319/V320 Ask Thebe ${{ github.event.pull_request.head.sha }}
 
 on:
   pull_request:
@@ -27,6 +27,7 @@ jobs:
         run: |
           set -euo pipefail
           node --check public/js/owner-ask-thebe-render-v319.js
+          node --check public/js/owner-ask-thebe-stable-v320.js
           node --check public/js/workspace-readiness-v305.js
           node --check tests/v319-owner-ask-render-decoupling.mjs
           node tests/v319-owner-ask-render-decoupling.mjs
