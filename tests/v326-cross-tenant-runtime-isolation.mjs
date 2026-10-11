@@ -56,8 +56,8 @@ class IsolationDB{
     if(sql.includes("FROM ai_credit_ledger WHERE tenant_id=?")&&sql.includes("entry_type='usage'"))return {used:0};
     if(sql.includes("FROM ai_provider_costs WHERE tenant_id=?"))return {cost:0};
     if(sql.includes("FROM ai_credit_wallets WHERE tenant_id=?"))return {balance:100,monthly_allowance:100,monthly_reset_at:"2026-11-01T00:00:00Z",lifetime_purchased:0,lifetime_used:0};
-    if(sql.includes("FROM payment_refund_requests rr")&&sql.includes("po.tenant_id=?"))return null;
-    if(sql.includes("UPDATE ai_credit_wallets SET balance=balance-?")&&sql.includes("RETURNING balance"))return {balance:94};
+    if(sql.includes("UPDATE ai_credit_wallets")&&sql.includes("balance=balance-?")&&sql.includes("RETURNING balance"))return {balance:94};
+    if(sql.trimStart().startsWith("SELECT 1 x FROM payment_refund_requests rr")&&sql.includes("po.tenant_id=?"))return null;
     if(sql.includes("FROM app_state WHERE tenant_id=?")){
       const marker=markers[tenant];
       return {version:1,state_json:JSON.stringify({activeCompanyId:`company-${tenant}`,companies:[{id:`company-${tenant}`,profile:{name:`Company ${marker}`,industry:`Services ${marker}`,employees:2,town:"Gaborone"}}]})};
