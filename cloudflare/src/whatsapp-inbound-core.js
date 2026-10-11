@@ -22,7 +22,11 @@ function normalizedCommand(value){
 export function classifyWhatsAppInboundCommand(value){
   const command=normalizedCommand(value).replace(/[^a-z0-9]+/g," ").replace(/\s+/g," ").trim();
   const groups=[
-    ["owner_daily_brief",new Set(["brief","daily brief","owner brief","business brief","business status","status","overview"])],
+    ["owner_daily_brief",new Set([
+      "brief","daily brief","owner brief","business brief","business status","status","overview","business update",
+      "how is my business doing","how is the business doing","how is business doing","how is business going","how are we doing","how are things going",
+      "give me a business update","give me an update","update me on my business","what needs my attention","what needs attention","what should i focus on","what should we focus on"
+    ])],
     ["finance_exception",new Set(["finance","finance brief","reconciliation"])],
     ["compliance_followup",new Set(["compliance","compliance follow up","deadline","deadlines","burs","cipa","licence","license"])],
     ["operations_update",new Set(["operations","operations update","workflow","workflows","daily operations"])]
