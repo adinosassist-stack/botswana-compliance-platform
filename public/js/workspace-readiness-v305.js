@@ -82,3 +82,20 @@
   else if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",loadPropertyConstruction,{once:true});
   else loadPropertyConstruction();
 })();
+
+(()=>{
+  "use strict";
+  const unifiedDockRelease="20261011-unified-dock-voice-v330";
+  let requested=false;
+  function loadUnifiedDock(){
+    if(requested)return;
+    requested=true;
+    import(`/js/thebe-unified-dock-v330.js?release=${unifiedDockRelease}`).catch(error=>{
+      requested=false;
+      console.error("Thebe unified dock extension failed to load",error);
+    });
+  }
+  if(typeof window.whenThebeWorkspaceReady==="function")window.whenThebeWorkspaceReady(loadUnifiedDock);
+  else if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",loadUnifiedDock,{once:true});
+  else loadUnifiedDock();
+})();
