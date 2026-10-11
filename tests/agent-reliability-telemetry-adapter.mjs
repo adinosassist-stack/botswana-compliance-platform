@@ -5,7 +5,7 @@ const event={version:AGENT_COST_TELEMETRY_VERSION,telemetryMode:"shadow",tenantI
 assert.equal(adaptShadowCostEvent(event,"tenant-B"),null);
 assert.equal(adaptShadowCostEvent(event,"tenant-A").outcome,"unverified");
 assert.equal(adaptShadowCostEvent(event,"tenant-A").prompt,undefined);
-const db={prepare(sql){assert.match(sql,/tenant_id=\?/);return {bind(tenant){assert.equal(tenant,"tenant-A");return {async all(){return {results:[{detail_json:JSON.stringify(event)},{detail_json:"{bad"},{detail_json:JSON.stringify({...event,tenantId:"tenant-B"})}]}}}}}}};
+const db={prepare(sql){assert.match(sql,/tenant_id=\?/);return {bind(tenant){assert.equal(tenant,"tenant-A");return {async all(){return {results:[{detail_json:JSON.stringify(event)},{detail_json:JSON.stringify(event)},{detail_json:"{bad"},{detail_json:JSON.stringify({...event,tenantId:"tenant-B"})}]}}}}}}};
 assert.equal(adaptShadowCostEvent(JSON.parse(JSON.stringify(event)),"tenant-A")?.traceId,"run-1");
 const result=await loadReliabilityAdvisorSummary({DB:db},"tenant-A");
 assert.equal(result.available,true);
