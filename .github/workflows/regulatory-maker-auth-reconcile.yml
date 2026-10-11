@@ -1,0 +1,98 @@
+name: Thebe Desk Regulatory Maker Auth Reconcile
+run-name: Regulatory maker auth reconcile ${{ github.sha }}
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'operations/regulatory-maker-auth-reconcile-trigger.json'
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type RECONCILE_REGULATORY_MAKER_AUTH to run the credential reconciliation
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: thebe-desk-regulatory-maker-auth-reconcile
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    name: Reconcile regulatory maker login to existing production secret
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (
+        (github.event_name == 'workflow_dispatch' && inputs.confirmation == 'RECONCILE_REGULATORY_MAKER_AUTH') ||
+        (github.event_name == 'push' && contains(github.event.head_commit.message, '[reconcile-regulatory-maker-auth]'))
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: production
+    env:
+      MAKER_EMAIL: ${{ secrets.PLATFORM_REGULATORY_MAKER_EMAIL }}
+      MAKER_PASSWORD: ${{ secrets.PLATFORM_REGULATORY_MAKER_PASSWORD }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+
+    steps:
+      - name: Checkout exact reconciliation authority
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+
+      - name: Refuse missing authority or unsafe trigger
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "$MAKER_EMAIL" ]] || { echo 'PLATFORM_REGULATORY_MAKER_EMAIL is not configured.' >&2; exit 1; }
+          [[ -n "$MAKER_PASSWORD" ]] || { echo 'PLATFORM_REGULATORY_MAKER_PASSWORD is not configured.' >&2; exit 1; }
+          [[ -n "$RESEND_API_KEY" ]] || { echo 'RESEND_API_KEY is not configured.' >&2; exit 1; }
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo "refusing non-main execution" >&2; exit 1; }
+
+          if [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]; then
+            [[ "${{ inputs.confirmation }}" == 'RECONCILE_REGULATORY_MAKER_AUTH' ]] || { echo 'explicit workflow-dispatch confirmation missing' >&2; exit 1; }
+          elif [[ "$GITHUB_EVENT_NAME" == 'push' ]]; then
+            python3 - <<'PY'
+          import json
+          data=json.load(open('operations/regulatory-maker-auth-reconcile-trigger.json',encoding='utf-8'))
+          assert data.get('schema') == 1, 'invalid reconciliation trigger schema'
+          assert data.get('requested') is True, 'reconciliation is not explicitly requested'
+          assert data.get('purpose') == 'reconcile-regulatory-maker-login-to-existing-secret', 'unexpected reconciliation purpose'
+          assert data.get('safety') == 'auth-only; no regulatory import, approval, publication, rollout, reviewer provisioning, or direct database mutation', 'unexpected reconciliation safety contract'
+          print('One-shot regulatory maker auth reconciliation trigger validated.')
+          PY
+          else
+            echo "unsupported trigger event" >&2
+            exit 1
+          fi
+
+      - name: Validate reconciliation implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/reconcile-regulatory-maker-auth.mjs
+          ! grep -Eq 'console\.log\([^)]*(makerEmail|makerPassword|token)' scripts/reconcile-regulatory-maker-auth.mjs
+          grep -Fq '/api/auth/password-reset/request' scripts/reconcile-regulatory-maker-auth.mjs
+          grep -Fq '/api/auth/password-reset/complete' scripts/reconcile-regulatory-maker-auth.mjs
+          grep -Fq '/api/platform/regulatory/status' scripts/reconcile-regulatory-maker-auth.mjs
+          if grep -Eq '/foundation-pack/import|approve|publish|D1_DATABASE_ID|CLOUDFLARE_API_TOKEN' scripts/reconcile-regulatory-maker-auth.mjs; then
+            echo 'reconciliation script contains forbidden regulatory/data mutation authority' >&2
+            exit 1
+          fi
+
+      - name: Reconcile maker authentication through production recovery API
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/reconcile-regulatory-maker-auth.mjs
