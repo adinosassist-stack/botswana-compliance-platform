@@ -8,11 +8,16 @@ function has(source,pattern,message){assert.match(source,pattern,message)}
 function lacks(source,pattern,message){assert.doesNotMatch(source,pattern,message)}
 
 has(script,/GITHUB_ACTIONS[^\n]+true/,'provisioning must refuse execution outside GitHub Actions');
-has(script,/GITHUB_EVENT_NAME[^\n]+workflow_dispatch/,'production mutation must require workflow_dispatch');
+has(script,/eventName==='workflow_dispatch'\|\|eventName==='push'/,'production mutation must be limited to workflow dispatch or the governed one-shot push trigger');
 has(script,/GITHUB_REF[^\n]+refs\/heads\/main/,'production mutation must require main');
 has(script,/PLATFORM_REGULATORY_REVIEWERS/,'live Worker reviewer allowlist must be authoritative');
 has(script,/PROVISION_SINGLE_REGULATORY_REVIEWER/,'apply mode must require an exact confirmation token');
 has(script,/PROVISION_CONFIRMATION\|\|'VALIDATE_ONLY'/,'default execution mode must be validate-only');
+has(script,/PUSH_TRIGGER_PATH='operations\/regulatory-reviewer-provision-trigger\.json'/,'one-shot push authority must be bound to the exact trigger file');
+has(script,/validatePushTrigger\(\)/,'push mutation path must revalidate the trigger inside the provisioning script');
+has(script,/trigger\?\.schema===1/,'push trigger schema must be checked');
+has(script,/trigger\?\.requested===true/,'push trigger must be explicitly requested');
+has(script,/trigger\?\.apply===true/,'push trigger must explicitly authorize apply mode');
 has(script,/eligible\.length===1/,'preflight must require exactly one eligible reviewer candidate');
 has(script,/membership_count/,'reviewer candidate must be an existing member');
 has(script,/activeEditorIds\.has\(id\)/,'active editors must be excluded from reviewer candidacy');
@@ -29,14 +34,19 @@ lacks(script,/UPDATE\s+regulatory_sources\b/i,'provisioning must not approve reg
 lacks(script,/UPDATE\s+regulatory_rules\b/i,'provisioning must not publish regulatory rules');
 lacks(script,/console\.log\([^\n]*(candidateId|candidateEmail)/,'provisioning must not emit reviewer identity values');
 
-has(workflow,/^\s*workflow_dispatch:/m,'provisioning must be manually dispatched');
-lacks(workflow,/^\s*push:/m,'provisioning must not run automatically on push');
+has(workflow,/^\s*workflow_dispatch:/m,'manual validation/apply dispatch must remain available');
+has(workflow,/^\s*push:\s*\n\s*branches:\s*\[main\][\s\S]*operations\/regulatory-reviewer-provision-trigger\.json/m,'one-shot push trigger must be main-only and path scoped');
+has(workflow,/github\.event_name == 'push'[\s\S]*\[provision-regulatory-reviewer\]/,'one-shot push execution must require the explicit merge-message marker');
+has(workflow,/operations\/regulatory-reviewer-provision-trigger\.json/,'workflow must validate the exact trigger artifact');
+has(workflow,/data\.get\('schema'\) == 1/,'workflow must validate trigger schema');
+has(workflow,/data\.get\('requested'\) is True/,'workflow must require explicit provisioning request');
+has(workflow,/data\.get\('apply'\) is True/,'workflow must require explicit apply authority');
+has(workflow,/PROVISION_CONFIRMATION=PROVISION_SINGLE_REGULATORY_REVIEWER/,'governed push trigger must elevate only to the exact apply confirmation');
 has(workflow,/permissions:\s*\n\s*contents:\s*read/,'repository token must remain read-only');
 has(workflow,/environment:\s*production/,'provisioning must run behind the production environment');
 has(workflow,/github\.ref == 'refs\/heads\/main'/,'workflow job must be main-only');
 has(workflow,/actions\/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1/,'checkout action must remain pinned');
 has(workflow,/actions\/setup-node@820762786026740c76f36085b0efc47a31fe5020/,'setup-node action must remain pinned');
-has(workflow,/PROVISION_CONFIRMATION:\s*\$\{\{ inputs\.confirmation \}\}/,'workflow must pass the exact operator confirmation to the script');
 has(workflow,/node tests\/regulatory-reviewer-provisioning-static\.mjs/,'workflow must run its safety regression before provisioning');
 has(workflow,/node scripts\/provision-regulatory-reviewer\.mjs/,'workflow must run the governed provisioning script');
 lacks(workflow,/reviewer[_-]?email/i,'workflow must not accept an arbitrary reviewer email input');
