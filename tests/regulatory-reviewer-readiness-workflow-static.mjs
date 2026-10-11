@@ -15,11 +15,12 @@ assert.match(workflow,/node scripts\/production-regulatory-reviewer-readiness\.m
 assert.match(script,/diagnostic permits SELECT statements only/);
 assert.match(script,/^const CF_API=/m);
 assert.match(script,/\/workers\/scripts\/\$\{scriptName\}\/settings/);
+assert.match(script,/item\?\.name==='PLATFORM_REGULATORY_REVIEWERS'/,'diagnostic must derive reviewer allowlist from the live Worker binding');
+assert.doesNotMatch(script,/process\.env\.PLATFORM_REGULATORY_REVIEWERS/,'diagnostic must not read reviewer identity from Actions environment');
 assert.match(script,/\/d1\/database\/\$\{databaseId\}\/query/);
 assert.match(script,/makerCheckerReady/);
 assert.match(script,/eligibleDistinctReviewerCandidates/);
 assert.match(script,/No user identities, credentials, regulatory approvals, publications, role changes, or production data mutations/);
-assert.doesNotMatch(script,/PLATFORM_REGULATORY_REVIEWERS/,'diagnostic must derive reviewer allowlist from the live Worker rather than Actions env');
 assert.doesNotMatch(script,/query\(\s*[`'"]\s*(?:INSERT|UPDATE|DELETE|REPLACE|DROP|ALTER|CREATE)\b/i,'diagnostic must not issue mutation SQL');
 assert.doesNotMatch(script,/\/foundation-pack\/import|\/sources\/[^'"`]*status|\/rules\/[^'"`]*advance/i,'diagnostic must not call regulatory mutation APIs');
 assert.doesNotMatch(script,/console\.log\([^\n]*(?:email|user_id|candidateId|candidateEmail)/i,'diagnostic must not log user identities');
