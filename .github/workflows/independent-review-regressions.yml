@@ -137,3 +137,11 @@ jobs:
       - name: Owner priority Worker routing and authority boundaries
         shell: bash
         run: node --no-warnings tests/v334-owner-priority-worker-routing.mjs
+
+      - name: Regulatory reviewer provisioning governance
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/provision-regulatory-reviewer.mjs
+          node --check tests/regulatory-reviewer-provisioning-static.mjs
+          node tests/regulatory-reviewer-provisioning-static.mjs
