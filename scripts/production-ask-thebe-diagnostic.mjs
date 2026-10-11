@@ -36,9 +36,12 @@ async function diagnose(credentials){
     await page.waitForFunction(()=>globalThis.__THEBE_WORKSPACE_READY__===true&&!!document.getElementById('appShell'),null,{timeout:45000});
 
     const modal=page.locator('#onboardModal.open').first();
+    await modal.waitFor({state:'visible',timeout:5000}).catch(()=>{});
     if(await modal.count()&&await modal.isVisible().catch(()=>false)){
       const later=modal.locator('[data-bw-onclick="dismissOnboarding()"],button:has-text("Finish later")').first();
-      if(await later.count())await later.click();
+      check(await later.count(),'onboarding modal opened without Finish later control');
+      await later.click();
+      await page.waitForFunction(()=>!document.getElementById('onboardModal')?.classList.contains('open'),null,{timeout:20000});
     }
 
     const dashboard=page.locator('#nav button[data-view="dashboard"]:visible').first();
@@ -86,6 +89,7 @@ async function diagnose(credentials){
         status:String(document.getElementById('ownerAgenticStatus')?.textContent||''),
         cardCount:cards.length,
         answerText:String(cards.at(-1)?.textContent||'').slice(0,500),
+        answerRelease:String(cards.at(-1)?.dataset?.askRenderRelease||''),
         submitText:String(submit?.textContent||''),
         submitDisabled:!!submit?.disabled
       };
@@ -94,6 +98,10 @@ async function diagnose(credentials){
     console.log(`DIAG post-click ${safe(JSON.stringify(post))}`);
     console.log(`DIAG asset-failures ${safe(JSON.stringify(failedAssets))}`);
     console.log(`DIAG console-errors ${safe(JSON.stringify(consoleErrors))}`);
+    check(pre.marker==='20261011-owner-ask-render-v319','V319 marker missing in authenticated workspace');
+    check(advisor.status===200,`advisor response did not return 200: ${safe(JSON.stringify(advisor))}`);
+    check(/Answer ready/i.test(post.status),`visible Ask Thebe status not ready: ${safe(post.status)}`);
+    check(post.cardCount>0&&post.answerText.trim().length>20,'Ask Thebe rendered no meaningful answer card');
   }finally{
     await browser.close().catch(()=>{});
   }
