@@ -135,7 +135,7 @@ async function provePeople(page){
 }
 
 async function proveAskThebe(page){
-  await openView(page,'automationhub');
+  await openView(page,'aiservices');
   const question=page.locator('#aiAdvisorQuestion').first();
   const button=page.locator('#aiAdvisorButton').first();
   const output=page.locator('#aiAdvisorOutput').first();
