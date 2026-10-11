@@ -14,6 +14,7 @@ import {handleAgenticFinanceReconciliationRequest} from "./agentic-finance-recon
 import {preparePlatformOwnerLogin,withPlatformOwnerAdminEnv} from "./platform-owner-access.js";
 import {applyClientRuntimeIdentity} from "./client-runtime-identity.js";
 import {DAILY_BRIEF_PATH,ownerAttentionDailyBrief} from "./owner-attention-entry.js";
+import {withRegulatoryRuleInsertFix} from "./regulatory-rule-insert-sql-fix.js";
 
 const V81_SCHEMA_DELTA="068_agent_cost_accounting.sql";
 const COLD_START_REDUNDANT_RENDER="if(!options?.skipDataRefresh)queueMicrotask(()=>renderAll())";
@@ -26,6 +27,17 @@ const SYNTHETIC_STORE_BOOT_SOURCE='nextStore.activeRole=currentUser.role;nextSto
 const SYNTHETIC_RENDER_BOOT_SOURCE='renderAll();applyRoleUi();hideAuth();logEvent("APP_OPENED",{ruleset:"BW-2026.08.30-launch"});';
 const SYNTHETIC_LANDING_BOOT_SOURCE='const landing=roleLandingView(currentUser.role);if(landing&&roleCanView(landing))showView(landing,{roleRedirect:true});';
 const SYNTHETIC_READY_BOOT_SOURCE='try{await loadServerState();if(isWorkspaceRole(currentUser?.role))markWorkspaceReady()}';
+
+function withRegulatorySqlGuard(env){
+  if(!env?.DB||typeof env.DB.prepare!=="function")return env;
+  const guardedDb=withRegulatoryRuleInsertFix(env.DB);
+  return new Proxy(env,{
+    get(target,prop,receiver){
+      if(prop==="DB")return guardedDb;
+      return Reflect.get(target,prop,receiver);
+    }
+  });
+}
 
 function logicalRequestPath(request){
   try{
@@ -241,6 +253,7 @@ export default {
     if(authorityResponse)return authorityResponse;
     env=withPlatformOwnerAdminEnv(env);
     request=await preparePlatformOwnerLogin(request,env);
+    env=withRegulatorySqlGuard(env);
     const response=await base.fetch(request,env,ctx);
     const runtimeResponse=await applyClientRuntimeIdentity(request,response);
     const hardenedResponse=await hardenAuthenticatedColdStart(request,runtimeResponse);
@@ -248,8 +261,9 @@ export default {
     return enhanceReadiness(request,env,runtimeResponse);
   },
   async scheduled(event,env,ctx){
+    env=withRegulatorySqlGuard(env);
     return base.scheduled(event,env,ctx);
   }
 };
 
-export {delegatedAuthoritySchemaReady,enhanceReadiness,hardenAuthenticatedColdStart,injectSyntheticBootTrace,logicalRequestPath,syntheticBootTraceRequested,V81_SCHEMA_DELTA};
+export {delegatedAuthoritySchemaReady,enhanceReadiness,hardenAuthenticatedColdStart,injectSyntheticBootTrace,logicalRequestPath,syntheticBootTraceRequested,V81_SCHEMA_DELTA,withRegulatorySqlGuard};
