@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+
 const CF_API='https://api.cloudflare.com/client/v4';
 const token=String(process.env.CLOUDFLARE_API_TOKEN||'').trim();
 const accountId=String(process.env.CLOUDFLARE_ACCOUNT_ID||'').trim();
@@ -5,6 +7,8 @@ const databaseId=String(process.env.D1_DATABASE_ID||'').trim();
 const scriptName=String(process.env.CF_WORKER_SCRIPT_NAME||'bw-compliance-os').trim();
 const confirmation=String(process.env.PROVISION_CONFIRMATION||'VALIDATE_ONLY').trim();
 const APPLY_CONFIRMATION='PROVISION_SINGLE_REGULATORY_REVIEWER';
+const PUSH_TRIGGER_PATH='operations/regulatory-reviewer-provision-trigger.json';
+const PUSH_TRIGGER_SAFETY='existing allowlisted member only; reviewer role only; no content approval, publication, identity creation, password reset, or deletion';
 
 function fail(message){throw new Error(`Regulatory reviewer provisioning failed: ${message}`)}
 function assert(value,message){if(!value)fail(message)}
@@ -14,6 +18,15 @@ function parseEmails(value){
   assert(values.length>0,'reviewer allowlist is empty');
   assert(values.every(v=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)),'reviewer allowlist contains an invalid email');
   return values;
+}
+function validatePushTrigger(){
+  let trigger=null;
+  try{trigger=JSON.parse(fs.readFileSync(PUSH_TRIGGER_PATH,'utf8'))}catch{fail('one-shot provisioning trigger is missing or invalid JSON')}
+  assert(trigger?.schema===1,'one-shot provisioning trigger schema is invalid');
+  assert(trigger?.requested===true,'one-shot provisioning trigger was not explicitly requested');
+  assert(trigger?.apply===true,'one-shot provisioning trigger is not authorized to apply');
+  assert(trigger?.purpose==='provision-single-distinct-regulatory-reviewer','one-shot provisioning trigger purpose is invalid');
+  assert(trigger?.safety===PUSH_TRIGGER_SAFETY,'one-shot provisioning trigger safety contract is invalid');
 }
 
 assert(String(process.env.GITHUB_ACTIONS||'')==='true','refusing to run outside GitHub Actions');
@@ -101,14 +114,16 @@ console.log(`allowlistedExistingUsers=${users.length}`);
 console.log(`eligibleDistinctReviewerCandidates=${eligible.length}`);
 assert(eligible.length===1,`expected exactly one eligible distinct existing reviewer candidate; found ${eligible.length}`);
 
-if(confirmation!=='PROVISION_SINGLE_REGULATORY_REVIEWER'){
+if(confirmation!==APPLY_CONFIRMATION){
   console.log('reviewerProvisioningPreflightReady=true');
   console.log('Validate-only mode completed without identity, role, regulatory content, or customer-data mutation.');
   process.exit(0);
 }
 
-assert(String(process.env.GITHUB_EVENT_NAME||'')==='workflow_dispatch','production mutation requires workflow_dispatch');
+const eventName=String(process.env.GITHUB_EVENT_NAME||'');
+assert(eventName==='workflow_dispatch'||eventName==='push','production mutation requires workflow_dispatch or the governed one-shot push trigger');
 assert(String(process.env.GITHUB_REF||'')==='refs/heads/main','production mutation requires the main branch');
+if(eventName==='push') validatePushTrigger();
 
 const candidate=eligible[0];
 const candidateId=String(candidate.id);
