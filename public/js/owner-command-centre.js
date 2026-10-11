@@ -1406,6 +1406,7 @@
     reliability.id="ownerReliabilityPanel";
     reliability.hidden=true;
     reliability.setAttribute("aria-label","Thebe AI reliability advisor");
+    reliability.append(text("div","Loading Thebe AI reliability evidence…","owner-command-empty"));
     shell.append(reliability);
 
     const responsibilities=document.createElement("section");
