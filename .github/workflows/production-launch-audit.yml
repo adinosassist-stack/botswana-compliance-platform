@@ -143,6 +143,12 @@ jobs:
           set -euo pipefail
           node scripts/production-launch-audit.mjs
 
+      - name: Require active regulatory coverage for unrestricted launch
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/regulatory-production-activation-gate.mjs
+
       - name: Mandatory browser-backed synthetic full-user lifecycle closure
         if: github.event_name == 'workflow_run'
         env:
