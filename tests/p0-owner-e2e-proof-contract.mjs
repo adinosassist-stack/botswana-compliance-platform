@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 
 const source=fs.readFileSync('scripts/production-p0-owner-e2e-proof.mjs','utf8');
-const ownerSource=fs.readFileSync('public/js/owner-command-centre.js','utf8');
+const readinessSource=fs.readFileSync('public/js/workspace-readiness-v305.js','utf8');
+const askRenderSource=fs.readFileSync('public/js/owner-ask-thebe-render-v319.js','utf8');
 
 assert.match(source,/production-synthetic-hold-wrapper\.mjs/,'proof must run inside the signed synthetic tenant lifecycle');
 assert.match(source,/__thebeSyntheticBrowserProof/,'proof must extend the canonical synthetic lifecycle rather than inventing registration bypasses');
@@ -31,13 +32,14 @@ assert.match(source,/Number\.isFinite\(beforeState\.version\)/,'first-run empty 
 assert.match(source,/afterState\.version===beforeState\.version/,'read-only navigation must not silently mutate workspace state');
 assert.match(source,/complete chain.*auth -> workspace -> compliance -> evidence -> finance -> property -> people -> Ask Thebe -> logout\/login -> persistence/s,'required P0 chain must be explicit in proof output');
 
-const askStart=ownerSource.indexOf('async function askThebe(question)');
-const askEnd=ownerSource.indexOf('\n  function renderAskThebeControl()',askStart);
-assert.ok(askStart>=0&&askEnd>askStart,'owner command centre must expose the authenticated Ask Thebe implementation');
-const askSource=ownerSource.slice(askStart,askEnd);
-assert.doesNotMatch(askSource,/await renderAgenticGovernance\(false\)/,'Ask Thebe answer rendering must not wait on unrelated governance reads');
-assert.match(askSource,/renderAskThebeControl\(\)/,'successful Ask Thebe responses must render through the canonical Ask Thebe control');
-assert.match(ownerSource,/section\.id="ownerAskThebeControl"/,'Ask Thebe control must expose a stable replacement boundary for immediate answer rendering');
+assert.match(readinessSource,/owner-ask-thebe-render-v319\.js/,'workspace readiness must load the isolated authenticated Ask Thebe render extension');
+assert.match(readinessSource,/whenThebeWorkspaceReady\(loadOwnerAskRender\)/,'Ask Thebe render extension must load only after authoritative workspace readiness');
+assert.match(askRenderSource,/document\.addEventListener\("submit",handleAskSubmit,true\)/,'Ask Thebe hotfix must intercept the canonical submit before the legacy governance-coupled handler');
+assert.match(askRenderSource,/window\.apiJson\("\/api\/ai\/advisor"/,'Ask Thebe hotfix must retain the secure authenticated API transport and canonical advisor endpoint');
+assert.match(askRenderSource,/mode:"ask",question:normalized/,'Ask Thebe hotfix must preserve the read-only ask contract');
+assert.match(askRenderSource,/Answer ready · no action was executed\./,'successful Ask Thebe responses must disclose that no action was executed');
+assert.doesNotMatch(askRenderSource,/renderAgenticGovernance/,'Ask Thebe answer rendering must not wait on unrelated governance reads');
+assert.doesNotMatch(askRenderSource,/\/api\/agentic\/.*(?:execute|approve|delegation)/,'Ask Thebe render extension must not widen or invoke agent execution authority');
 
 assert.doesNotMatch(source,/beforeState\.activeCompanyId&&beforeState\.companies\.length>=1/,'first-run proof must not invent an app_state company row that registration does not create');
 assert.doesNotMatch(source,/\/api\/evidence\/(?:upload|presign|integrity-upload)/,'P0 proof must not upload evidence or bypass the safe launch hold');
