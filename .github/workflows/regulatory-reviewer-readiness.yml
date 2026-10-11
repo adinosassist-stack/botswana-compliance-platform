@@ -36,7 +36,6 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
-      PLATFORM_REGULATORY_REVIEWERS: ${{ vars.PLATFORM_REGULATORY_REVIEWERS }}
       CF_WORKER_SCRIPT_NAME: bw-compliance-os
 
     steps:
@@ -60,7 +59,6 @@ jobs:
           [[ -n "$CLOUDFLARE_API_TOKEN" ]] || { echo 'CLOUDFLARE_API_TOKEN is not configured.' >&2; exit 1; }
           [[ -n "$CLOUDFLARE_ACCOUNT_ID" ]] || { echo 'CLOUDFLARE_ACCOUNT_ID is not configured.' >&2; exit 1; }
           [[ -n "$D1_DATABASE_ID" ]] || { echo 'D1_DATABASE_ID is not configured.' >&2; exit 1; }
-          [[ -n "$PLATFORM_REGULATORY_REVIEWERS" ]] || { echo 'PLATFORM_REGULATORY_REVIEWERS is not configured.' >&2; exit 1; }
           [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo 'refusing non-main execution' >&2; exit 1; }
           if [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]; then
             [[ "${{ inputs.confirmation }}" == 'RUN_READ_ONLY_REGULATORY_REVIEWER_READINESS' ]] || { echo 'explicit diagnostic confirmation missing' >&2; exit 1; }
