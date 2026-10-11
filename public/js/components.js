@@ -74,3 +74,147 @@
   }
   if(doc.readyState==="loading")doc.addEventListener("DOMContentLoaded",start,{once:true});else start();
 })(window);
+
+(function installReviewerP1Remediations(global){
+  "use strict";
+  if(!global||!global.document||typeof global.fetch!=="function")return;
+
+  const doc=global.document;
+  const nativeFetch=global.fetch.bind(global);
+  const MAX_IN_PROGRESS_RETRIES=6;
+
+  function logicalPath(input){
+    let raw="";
+    if(typeof input==="string")raw=input;
+    else if(input instanceof URL)raw=input.toString();
+    else if(input&&typeof input.url==="string")raw=input.url;
+    if(!raw)return "";
+    try{
+      const url=new URL(raw,global.location?.href||"https://invalid.local/");
+      return url.searchParams.get("__thebe_api_path")||url.pathname;
+    }catch{return ""}
+  }
+
+  function methodOf(input,init){
+    return String(init?.method||input?.method||"GET").toUpperCase();
+  }
+
+  function signalOf(input,init){
+    return init?.signal||input?.signal||null;
+  }
+
+  function retryAfterMs(response){
+    const raw=String(response?.headers?.get?.("retry-after")||"").trim();
+    if(!raw)return 2000;
+    const seconds=Number(raw);
+    if(Number.isFinite(seconds))return Math.max(250,Math.min(5000,Math.round(seconds*1000)));
+    const at=Date.parse(raw);
+    return Number.isFinite(at)?Math.max(250,Math.min(5000,at-Date.now())):2000;
+  }
+
+  function wait(ms,signal){
+    return new Promise((resolve,reject)=>{
+      if(signal?.aborted){
+        reject(signal.reason instanceof Error?signal.reason:new DOMException("Aborted","AbortError"));return;
+      }
+      const timer=global.setTimeout(done,ms);
+      function done(){cleanup();resolve()}
+      function aborted(){cleanup();reject(signal.reason instanceof Error?signal.reason:new DOMException("Aborted","AbortError"))}
+      function cleanup(){global.clearTimeout(timer);signal?.removeEventListener?.("abort",aborted)}
+      signal?.addEventListener?.("abort",aborted,{once:true});
+    });
+  }
+
+  async function isAdvisorInProgress(response){
+    if(response?.status!==425)return false;
+    try{
+      const body=await response.clone().json();
+      return String(body?.error||body?.code||"")==="idempotency_request_in_progress";
+    }catch{return true}
+  }
+
+  global.fetch=async function recoverInProgressAiRequest(input,init={}){
+    if(methodOf(input,init)!=="POST"||logicalPath(input)!=="/api/ai/advisor")return nativeFetch(input,init);
+    const requestTemplate=(typeof Request!=="undefined"&&input instanceof Request)?input.clone():null;
+    const signal=signalOf(input,init);
+    let attempt=0;
+    while(true){
+      const requestInput=requestTemplate?requestTemplate.clone():input;
+      const response=await nativeFetch(requestInput,init);
+      if(!(await isAdvisorInProgress(response))||attempt>=MAX_IN_PROGRESS_RETRIES)return response;
+      attempt+=1;
+      await wait(retryAfterMs(response),signal);
+    }
+  };
+
+  function employmentAssuranceItem(label,status,tone){
+    const row=doc.createElement("div");row.className="item";
+    const text=doc.createElement("span");text.textContent=label;
+    const badge=doc.createElement("span");badge.className=`badge ${tone}`;badge.textContent=status;
+    row.append(text,badge);return row;
+  }
+
+  function renderTruthfulEmploymentAssurance(){
+    const root=doc.getElementById("employeesList");
+    if(!root)return;
+    const gaps=doc.getElementById("employeesGaps");
+    if(gaps){
+      gaps.textContent="—";
+      gaps.title="Evidence gaps are not estimated. They are shown only when backed by linked employee evidence.";
+    }
+    root.replaceChildren(
+      employmentAssuranceItem("Employment contracts","Evidence review required","warn"),
+      employmentAssuranceItem("Leave records","Evidence review required","warn"),
+      employmentAssuranceItem("Disciplinary files","Evidence review required","warn")
+    );
+    root.dataset.assuranceSource="linked-evidence-required";
+    root.setAttribute("aria-label","Employment assurance. Verification is not inferred without linked evidence.");
+  }
+
+  let employeePatchInstalled=false;
+  let aiPatchInstalled=false;
+
+  function patchWorkspaceGlobals(){
+    if(!employeePatchInstalled&&typeof global.renderEmployees==="function"){
+      const original=global.renderEmployees;
+      if(!original.__thebeTruthfulEmploymentAssurance){
+        const patched=function(){
+          const result=original.apply(this,arguments);
+          renderTruthfulEmploymentAssurance();
+          return result;
+        };
+        patched.__thebeTruthfulEmploymentAssurance=true;
+        global.renderEmployees=patched;
+      }
+      employeePatchInstalled=true;
+      renderTruthfulEmploymentAssurance();
+    }
+
+    if(!aiPatchInstalled&&typeof global.askAiAdvisor==="function"){
+      const original=global.askAiAdvisor;
+      if(!original.__thebeCreditRefreshOnFailure){
+        const patched=async function(){
+          try{return await original.apply(this,arguments)}
+          finally{
+            try{if(typeof global.renderAiCredits==="function")await global.renderAiCredits()}catch{}
+          }
+        };
+        patched.__thebeCreditRefreshOnFailure=true;
+        global.askAiAdvisor=patched;
+      }
+      aiPatchInstalled=true;
+    }
+    return employeePatchInstalled&&aiPatchInstalled;
+  }
+
+  function start(){
+    if(patchWorkspaceGlobals())return;
+    let attempts=0;
+    const timer=global.setInterval(()=>{
+      attempts+=1;
+      if(patchWorkspaceGlobals()||attempts>=80)global.clearInterval(timer);
+    },250);
+  }
+
+  if(doc.readyState==="loading")doc.addEventListener("DOMContentLoaded",start,{once:true});else start();
+})(window);
