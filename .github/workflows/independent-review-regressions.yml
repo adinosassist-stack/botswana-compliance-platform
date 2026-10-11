@@ -120,3 +120,7 @@ jobs:
           set -euo pipefail
           node --check tests/v322-reviewer-ui-contract.mjs
           node tests/v322-reviewer-ui-contract.mjs
+
+      - name: Copilot credit wallet runtime hydration
+        shell: bash
+        run: node tests/v333-copilot-credit-wallet-runtime.mjs
