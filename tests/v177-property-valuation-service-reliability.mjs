@@ -65,8 +65,9 @@ assert.match(worker,/SELECT id FROM property_valuation_service_requests WHERE id
 assert.match(worker,/headers\.set\("x-operations-secret",env\.OPERATIONS_SECRET\)/);
 assert.deepEqual(routePolicy.workspaceFeaturePrefixes.property,["/api/property/"]);
 
-assert.match(owner,/awaiting-payment pipeline/);
-assert.match(owner,/completed service value/);
+// Assert stable product semantics rather than stale presentation copy.
+assert.match(owner,/professional valuation quote/);
+assert.match(owner,/completed valuation-service value/);
 assert.match(owner,/View timeline/);
 assert.match(owner,/Quote expired · a fresh quote is required before payment/);
 assert.match(owner,/registration /);
