@@ -1,0 +1,54 @@
+name: Diagnose release regressions
+
+on:
+  push:
+    branches:
+      - chatgpt/ai-context-compaction
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+      - name: Install exact dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Find exact failing historical command
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import {spawnSync} from 'node:child_process';
+          const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+          const commands=String(pkg.scripts['test:release-regressions']||'').split(/\s+&&\s+/).filter(Boolean);
+          console.log(`DIAGNOSTIC_COMMAND_COUNT=${commands.length}`);
+          for(let i=0;i<commands.length;i++){
+            const command=commands[i];
+            console.log(`DIAGNOSTIC_START ${i+1}/${commands.length} ${command}`);
+            const result=spawnSync(command,{shell:true,encoding:'utf8',maxBuffer:16*1024*1024});
+            if(result.status!==0){
+              const output=`${result.stdout||''}\n${result.stderr||''}`.split(/\r?\n/).filter(Boolean);
+              console.error(`DIAGNOSTIC_FAILED_INDEX=${i+1}`);
+              console.error(`DIAGNOSTIC_FAILED_COMMAND=${command}`);
+              console.error('DIAGNOSTIC_FAILURE_TAIL_BEGIN');
+              console.error(output.slice(-80).join('\n'));
+              console.error('DIAGNOSTIC_FAILURE_TAIL_END');
+              process.exit(result.status||1);
+            }
+          }
+          console.log('DIAGNOSTIC_ALL_RELEASE_COMMANDS_PASS');
+          NODE
