@@ -153,7 +153,7 @@ jobs:
 
       - name: Mandatory browser-backed synthetic full-user lifecycle closure
         id: synthetic_lifecycle
-        if: always() && github.event_name == 'workflow_run'
+        if: github.event_name == 'workflow_run'
         env:
           AUDIT_INTEGRITY_SECRET: ${{ secrets.AUDIT_INTEGRITY_SECRET }}
         shell: bash
@@ -167,7 +167,7 @@ jobs:
 
       - name: One-shot bounded legacy orphan cleanup
         id: legacy_orphan_cleanup
-        if: always() && github.event_name == 'workflow_run'
+        if: always() && github.event_name == 'workflow_run' && steps.synthetic_lifecycle.outcome != 'skipped'
         env:
           AUDIT_INTEGRITY_SECRET: ${{ secrets.AUDIT_INTEGRITY_SECRET }}
         shell: bash
@@ -181,7 +181,7 @@ jobs:
 
       - name: Enforce permanent zero-orphan baseline
         id: zero_orphan_baseline
-        if: always() && github.event_name == 'workflow_run'
+        if: always() && github.event_name == 'workflow_run' && steps.synthetic_lifecycle.outcome != 'skipped'
         shell: bash
         run: |
           set -euo pipefail
