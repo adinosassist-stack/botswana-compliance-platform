@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "requested": true,
+  "purpose": "reconcile-regulatory-maker-login-to-existing-secret",
+  "requestedAt": "2026-10-11",
+  "triggerNonce": "release-476-maker-auth-reconcile-r1",
+  "safety": "auth-only; no regulatory import, approval, publication, rollout, reviewer provisioning, or direct database mutation"
+}
