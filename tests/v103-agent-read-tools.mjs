@@ -162,8 +162,21 @@ assert.match(moduleSource,/substr\(id,1,2\)<>'__'/);
 
 assert.match(coreSource,/observeWorkspace\(env,tenantId,actorRole\)/);
 assert.match(coreSource,/buildBusinessContext\(env,tenantId,\{actorRole\}\)/);
-assert.match(businessContextSource,/if\(!allowed\)return frozen\(\{/ ,"canonical Business Context must short-circuit before operations reads for non-management roles");
-assert.match(businessContextSource,/restricted:true,available:false/ ,"canonical Business Context must fail closed with restricted/unavailable metadata for non-management roles");
+assert.match(
+  businessContextSource,
+  /if\(!allowed\)return frozen\(\{restricted:true,available:false,sourceStatus:frozen\(\{\}\)\}\)/,
+  "canonical Business Context must fail closed before operations reads for non-management roles and explicitly mark the source unavailable"
+);
+assert.match(
+  businessContextSource,
+  /pendingWorkflowCount:workflowRead\.available\?Number\(workflow\?\.pending_count\|\|0\):null/,
+  "failed workflow source reads must remain unknown instead of becoming a reassuring zero"
+);
+assert.match(
+  businessContextSource,
+  /failedWorkflowCount:workflowRead\.available\?Number\(workflow\?\.failed_count\|\|0\):null/,
+  "failed operational counts must remain null until the authoritative source read succeeds"
+);
 assert.match(businessContextSource,/operationsContext\(env,tenantId,\{allowed:management\}\)/,"role scope must be passed into the canonical operations context");
 assert.doesNotMatch(businessContextSource,/SELECT summary_date,generation_mode,metrics_json,narrative_json/,"canonical planning context must not read operations narrative");
 assert.match(coreSource,/buildAgentReadToolContext\(\{env,auth\}\)/);
