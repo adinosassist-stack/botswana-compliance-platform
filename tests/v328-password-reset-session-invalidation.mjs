@@ -4,7 +4,7 @@ import worker from "../cloudflare/src/worker.js";
 
 const origin="https://app.example";
 const sessionSecret="review-password-reset-secret-20261011-abcdefghijklmnopqrstuvwxyz";
-const rawToken="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-abcdefgh";
+const rawToken="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 const newPassword="N!review-password-reset-2026-Strong";
 const userId="user-recovery-1";
 
