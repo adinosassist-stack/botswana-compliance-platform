@@ -223,7 +223,9 @@
   function ensureBoundaryNote(input){
     if(doc.getElementById("evidenceUploadBoundaryNote"))return;
     const note=doc.createElement("div");note.id="evidenceUploadBoundaryNote";note.className="notice";note.setAttribute("role","status");
-    note.innerHTML="<b>File uploads are temporarily unavailable.</b><div class=\"small\">This release can record metadata-only evidence for owner/manager setup, but it cannot accept a file or create file-backed assurance until the secure scanner/storage path is enabled.</div>";
+    const heading=doc.createElement("b");heading.textContent="File uploads are temporarily unavailable.";
+    const detail=doc.createElement("div");detail.className="small";detail.textContent="This release can record metadata-only evidence for owner/manager setup, but it cannot accept a file or create file-backed assurance until the secure scanner/storage path is enabled.";
+    note.replaceChildren(heading,detail);
     if(input?.insertAdjacentElement)input.insertAdjacentElement("afterend",note);else input?.parentElement?.appendChild?.(note);
   }
   function enforceEvidenceBoundary(){
