@@ -37,14 +37,15 @@ jobs:
 
           source=Path('cloudflare/src/agent-cost-outcome-telemetry.js')
           text=source.read_text()
-          old="""SELECT run_id,detail_json,created_at FROM agentic_events
-                WHERE tenant_id=? AND event_type=? AND created_at>=datetime('now',?)
-                ORDER BY created_at DESC"""
-          new="""SELECT run_id,detail_json,occurred_at FROM agentic_events
-                WHERE tenant_id=? AND event_type=? AND occurred_at>=datetime('now',?)
-                ORDER BY occurred_at DESC"""
-          assert text.count(old)==1, 'expected exactly one stale production timestamp query'
-          source.write_text(text.replace(old,new,1))
+          replacements=[
+            ('SELECT run_id,detail_json,created_at FROM agentic_events','SELECT run_id,detail_json,occurred_at FROM agentic_events'),
+            ("event_type=? AND created_at>=datetime('now',?)","event_type=? AND occurred_at>=datetime('now',?)"),
+            ('ORDER BY created_at DESC','ORDER BY occurred_at DESC'),
+          ]
+          for old,new in replacements:
+              assert text.count(old)==1, f'expected one stale production token: {old}'
+              text=text.replace(old,new,1)
+          source.write_text(text)
 
           test=Path('tests/agent-cost-outcome-telemetry.mjs')
           t=test.read_text()
