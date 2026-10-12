@@ -4,6 +4,12 @@ const encoder=new TextEncoder();
 const clean=(value,max=180)=>String(value??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
 const bytes=value=>encoder.encode(typeof value==="string"?value:JSON.stringify(value)).byteLength;
 const plain=value=>value&&typeof value==="object"&&!Array.isArray(value);
+const amountOrNull=value=>{
+  if(value===null||value===undefined||value==="")return null;
+  if(typeof value!=="number"&&typeof value!=="string")return null;
+  const parsed=Number(value);
+  return Number.isSafeInteger(parsed)?parsed:null;
+};
 
 function bounded(value,{depth=3,arrayLimit=6,keyLimit=24,stringLimit=180}={},level=0){
   if(value==null||typeof value==="number"||typeof value==="boolean")return value;
@@ -71,8 +77,8 @@ function compactBusinessMemory(memory,nested){
     analytics:bounded(memory.analytics,nested),
     spendEnvelope:bounded(memory.spendEnvelope,{...nested,depth:3}),
     proposedSpendScenario:bounded(memory.proposedSpendScenario,{...nested,depth:3}),
-    positiveInflowTodayMinor:Number(memory.positiveInflowTodayMinor||0),
-    customerCollectionsTodayMinor:Number(memory.customerCollectionsTodayMinor||0),
+    positiveInflowTodayMinor:amountOrNull(memory.positiveInflowTodayMinor),
+    customerCollectionsTodayMinor:amountOrNull(memory.customerCollectionsTodayMinor),
     provenanceRule:clean(memory.provenanceRule,240)
   };
 }
@@ -117,7 +123,7 @@ function essential(context){
       identity:bounded(context.businessMemory.identity,nested),ownerEnteredMemory:bounded(context.businessMemory.ownerEnteredMemory,nested),
       sales:bounded(context.businessMemory.sales,nested),analytics:bounded(context.businessMemory.analytics,nested),
       spendEnvelope:bounded(context.businessMemory.spendEnvelope,nested),proposedSpendScenario:bounded(context.businessMemory.proposedSpendScenario,nested),
-      positiveInflowTodayMinor:Number(context.businessMemory.positiveInflowTodayMinor||0),customerCollectionsTodayMinor:Number(context.businessMemory.customerCollectionsTodayMinor||0),
+      positiveInflowTodayMinor:amountOrNull(context.businessMemory.positiveInflowTodayMinor),customerCollectionsTodayMinor:amountOrNull(context.businessMemory.customerCollectionsTodayMinor),
       provenanceRule:clean(context.businessMemory.provenanceRule,180)
     }:null,
     obligations:(context?.obligations||[]).slice(0,4).map(row=>({ref:row.ref,title:clean(row.title,110),status:row.status,priority:row.priority,dueAt:row.dueAt||null,sourceRefs:(row.sourceRefs||[]).slice(0,4)})),
@@ -184,8 +190,24 @@ export function compactAiAdvisorContext(context,{maxBytes=DEFAULT_MAX_BYTES}={})
       cipa:bounded(context?.cipa,{depth:1,arrayLimit:1,keyLimit:8,stringLimit:80}),operations:bounded(context?.operations,{depth:1,arrayLimit:1,keyLimit:8,stringLimit:80}),
       sources:(context?.sources||[]).slice(0,3).map(row=>compactSource(row,{dropUrl:true,stringLimit:80})).filter(Boolean)
     };
+    // Bound every retained string/array in the final projection as well. This closes
+    // the previous hole where a retained field such as finance.currency could exceed
+    // the global byte ceiling even after refs_only compaction.
+    candidate=bounded(candidate,{depth:6,arrayLimit:4,keyLimit:32,stringLimit:120});
     serialized=JSON.stringify(candidate);finalBytes=bytes(serialized);
   }
+  if(finalBytes>maxBytes){
+    stage="unavailable";
+    candidate={contextAvailability:{
+      financeAndBusiness:"unavailable",
+      financeAndBusinessComplete:false,
+      financeAndBusinessReason:"ai_advisor_context_limit_exceeded",
+      contextCompaction:"compacted",
+      contextComplete:false
+    }};
+    serialized=JSON.stringify(candidate);finalBytes=bytes(serialized);
+  }
+  if(finalBytes>maxBytes)throw new Error("ai_advisor_context_limit_exceeded");
   return Object.freeze({
     context:candidate,serialized,bytes:finalBytes,originalBytes,
     compaction:Object.freeze({applied:true,stage,maxBytes,omittedCounts:Object.freeze(omittedCounts(context,candidate))})
