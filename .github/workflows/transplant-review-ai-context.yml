@@ -48,23 +48,6 @@ jobs:
           test -s /tmp/ai-context-truthfulness.patch
           git apply --3way --index /tmp/ai-context-truthfulness.patch
 
-      - name: Add permanent current-main regression entry
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-          path=Path('.github/workflows/independent-review-regressions.yml')
-          text=path.read_text()
-          if 'AI advisor bounded-context truthfulness' not in text:
-              marker='      - name: Report money and FNB surface qualification\n'
-              assert marker in text, 'independent review insertion marker missing'
-              step='''      - name: AI advisor bounded-context truthfulness\n        shell: bash\n        run: |\n          set -euo pipefail\n          node --check cloudflare/src/ai-advisor-context-compaction.js\n          node --check tests/v329-ai-advisor-context-compaction.mjs\n          node tests/v329-ai-advisor-context-compaction.mjs\n\n'''
-              text=text.replace(marker,step+marker,1)
-              path.write_text(text)
-          PY
-          git add .github/workflows/independent-review-regressions.yml
-
       - name: Install exact dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
 
@@ -82,12 +65,18 @@ jobs:
           node tests/v329-ai-advisor-context-compaction.mjs
           node tests/v78-ai-copilot-motion-security.mjs
 
-      - name: Commit clean transplant and remove one-shot workflow
+      - name: Commit only code and test changes
         shell: bash
         run: |
           set -euo pipefail
-          rm .github/workflows/transplant-review-ai-context.yml
-          git add -A
+          git reset
+          git add \
+            cloudflare/src/ai-advisor-context-compaction.js \
+            cloudflare/src/worker.js \
+            public/js/owner-command-centre.js \
+            tests/v116-thebe-super-agent-ask-anything.mjs \
+            tests/v329-ai-advisor-context-compaction.mjs \
+            tests/v78-ai-copilot-motion-security.mjs
           git diff --cached --check
           git diff --cached --stat
           git config user.name 'github-actions[bot]'
