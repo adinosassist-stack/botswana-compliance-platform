@@ -5,7 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 import worker from "../cloudflare/src/worker.js";
 
 const read=path=>fs.readFileSync(new URL(`../${path}`,import.meta.url),"utf8");
-const workerSource=read("cloudflare/src/worker.js"),schema=read("cloudflare/schema.sql"),migration=read("cloudflare/migrations/020_v78_ai_copilot_motion_security.sql"),html=read("public/index.html"),previewApiSource=read("preview/preview-api.js"),pkg=JSON.parse(read("package.json"));
+const workerSource=read("cloudflare/src/worker.js"),contextCompactionSource=read("cloudflare/src/ai-advisor-context-compaction.js"),schema=read("cloudflare/schema.sql"),migration=read("cloudflare/migrations/020_v78_ai_copilot_motion_security.sql"),html=read("public/index.html"),previewApiSource=read("preview/preview-api.js"),pkg=JSON.parse(read("package.json"));
 
 class TestD1Statement{
   constructor(database,sql){this.database=database;this.sql=sql;this.args=[]}
@@ -54,7 +54,8 @@ response=await worker.fetch(request("/api/ai/advisor",{method:"POST",headers:{or
 response=await worker.fetch(new Request("https://app.example/api/ai/advisor",{method:"POST",headers:{cookie:`__Host-bw_session=${rawSession}`,"content-type":"application/json"},body:JSON.stringify({mode:"ask",question:"What needs attention?"})}),env,{});assert.equal(response.status,403);
 response=await worker.fetch(request("/api/ai/advisor",{method:"POST",body:JSON.stringify({mode:"tender_readiness",question:injection})}),env,{});
 assert.equal(response.status,200);let payload=await response.json();
-assert.equal(payload.generationMode,"workers_ai");assert.equal(payload.creditsUsed,6);assert.equal(payload.confidence,"high");
+assert.equal(payload.generationMode,"workers_ai");assert.equal(payload.creditsUsed,6);assert.equal(payload.confidence,"low");
+assert.equal(payload.contextAvailability?.financeAndBusiness,"unavailable");assert.equal(payload.contextAvailability?.financeAndBusinessReason,"business_context_unavailable");assert.ok(payload.caveats.some(x=>/Live Finance, Sales, Business Memory or Analytics context was unavailable/i.test(x)));
 assert.ok(payload.references.some(x=>x.ref==="TND-1"&&x.type==="tender"));assert.ok(payload.references.some(x=>x.ref==="SRC-1"&&x.url==="https://www.cipa.co.bw/"));
 assert.ok(!payload.references.some(x=>x.ref==="OTHER-TENANT"));assert.ok(payload.actions.every(x=>!x.sourceRefs.includes("OTHER-TENANT")));
 assert.equal(capturedAiInput.model,"@cf/zai-org/glm-4.7-flash");assert.equal(capturedAiInput.input.response_format.type,"json_schema");assert.equal(capturedAiInput.input.temperature,0.1);assert.ok(capturedAiInput.input.max_tokens<=1000);
@@ -118,7 +119,7 @@ const checks=[
   ["destructive no-tender migration absent",!fs.existsSync(new URL("../cloudflare/migrations/020_v78_remove_tendering.sql",import.meta.url))&&!migration.includes("DROP TABLE")],
   ["data-minimised run schema",schema.includes("CREATE TABLE IF NOT EXISTS ai_advisor_runs")&&!/ai_advisor_runs\([\s\S]{0,1200}(question|answer|prompt|response)/i.test(schema)],
   ["fresh/migration parity",migration.includes("ai_advisor_runs")&&schema.includes("ai_advisor_runs")],
-  ["bounded input and context",workerSource.includes("question_too_long")&&workerSource.includes("request_too_large")&&workerSource.includes("ai_advisor_context_limit_exceeded")],
+  ["bounded input and context",workerSource.includes("question_too_long")&&workerSource.includes("request_too_large")&&contextCompactionSource.includes("ai_advisor_context_limit_exceeded")],
   ["tenant rate limit",workerSource.includes('authSubjectRateLimit(env,"ai-advisor-tenant",a.tenant_id,{limit:10,windowSeconds:60})')&&workerSource.includes("ai_advisor_rate_limited")&&!workerSource.includes("SELECT count(*) count FROM ai_advisor_runs WHERE tenant_id=? AND created_at>=datetime('now','-1 minute')")],
   ["monthly grant race recovery",workerSource.includes("const raced=await env.DB.prepare(\"SELECT 1 ok FROM ai_credit_grants WHERE tenant_id=? AND grant_key=? LIMIT 1\")")&&workerSource.includes("if(raced)return {granted:false,allowance}")],
   ["advisor persistence failure refunds reserved credits",workerSource.includes('"advisor_persistence_failed"')&&workerSource.includes('await refundFailedAiCredit(env,a.tenant_id,"business_advisor",runId,"advisor_persistence_failed",consumption)')&&workerSource.includes("SET status='failed',credits_used=0,error_code='advisor_persistence_failed'")],

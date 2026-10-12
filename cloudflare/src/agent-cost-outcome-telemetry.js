@@ -148,9 +148,9 @@ export async function loadAgentCostOutcomeSummary(env,tenantId,{windowDays=7}={}
   }
   try{
     const [eventResult,outcomeResult]=await Promise.all([
-      env.DB.prepare(`SELECT run_id,detail_json,created_at FROM agentic_events
-        WHERE tenant_id=? AND event_type=? AND created_at>=datetime('now',?)
-        ORDER BY created_at DESC`).bind(tenant,AGENT_COST_TELEMETRY_EVENT,`-${windowDays} days`).all(),
+      env.DB.prepare(`SELECT run_id,detail_json,occurred_at FROM agentic_events
+        WHERE tenant_id=? AND event_type=? AND occurred_at>=datetime('now',?)
+        ORDER BY occurred_at DESC`).bind(tenant,AGENT_COST_TELEMETRY_EVENT,`-${windowDays} days`).all(),
       env.DB.prepare("SELECT DISTINCT run_id FROM agentic_outcomes WHERE tenant_id=?").bind(tenant).all()
     ]);
     const linkedRuns=new Set(rows(outcomeResult).map(row=>String(row?.run_id||"")).filter(Boolean));

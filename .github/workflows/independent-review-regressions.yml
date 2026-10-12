@@ -65,6 +65,14 @@ jobs:
           node --check tests/v329-saved-finance-lifecycle.mjs
           node tests/v329-saved-finance-lifecycle.mjs
 
+      - name: AI advisor bounded-context truthfulness
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check cloudflare/src/ai-advisor-context-compaction.js
+          node --check tests/v329-ai-advisor-context-compaction.mjs
+          node tests/v329-ai-advisor-context-compaction.mjs
+
       - name: Report money and FNB surface qualification
         shell: bash
         run: |

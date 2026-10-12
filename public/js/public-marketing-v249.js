@@ -1,8 +1,6 @@
 (()=>{
   function text(node,value){if(node)node.textContent=value}
   function make(tag,className,content){const node=document.createElement(tag);if(className)node.className=className;if(content!=null)node.textContent=content;return node}
-  function setMeta(name,content){const node=document.querySelector(`meta[name="${name}"]`);if(node)node.setAttribute("content",content)}
-  function setProperty(property,content){const node=document.querySelector(`meta[property="${property}"]`);if(node)node.setAttribute("content",content)}
   function pillar(title,kicker,copy,signal){
     const card=make("article","pillar-card");
     card.append(make("div","pillar-kicker",kicker),make("h3","",title),make("p","",copy),make("div","pillar-signal",signal));
@@ -64,20 +62,10 @@
     if(!gate||gate.dataset.publicStoryV249==="1")return;
     gate.dataset.publicStoryV249="1";
 
-    document.title="Thebe Desk | Run Your Business from One Intelligent Desk";
-    const description="Run money, work, people and business protection from one intelligent desk. Thebe Desk connects operations, finance, compliance, evidence and decision support for Botswana businesses, with Africa-ready expansion.";
-    setMeta("description",description);
-    setProperty("og:title","Thebe Desk | Run Your Business from One Intelligent Desk");
-    setProperty("og:description","Money, work, people and protection in one intelligent business workspace. Live in Botswana.");
-
+    // Launch identity is server-rendered and governed by the production smoke contract.
+    // This enhancement layer must not overwrite title/meta, hero copy, rollout copy or footer identity.
     initMobileNav(gate);
     updateGuidedWhatsAppCtas(gate);
-
-    const eyebrow=gate.querySelector(".hero .eyebrow");
-    if(eyebrow){eyebrow.dataset.v249Eyebrow="1";eyebrow.replaceChildren(make("span","dot"),document.createTextNode("AI operating layer for African business · Live in Botswana"))}
-    text(gate.querySelector(".hero h1"),"Run your whole business from one intelligent desk.");
-    const heroCopy=gate.querySelector(".hero h1 + p");
-    if(heroCopy){heroCopy.dataset.v249Subline="1";text(heroCopy,"See your money, work, people and business protection in one place. Thebe shows what needs attention, connects the supporting evidence and helps you move the next action forward.")}
 
     const navFeature=gate.querySelector('.nav .links a[href="#features"]');
     if(navFeature){text(navFeature,"How it works");navFeature.dataset.v249Nav="pillars"}
@@ -165,8 +153,6 @@
 
     const final=gate.querySelector(".final .cta-box");
     if(final){text(final.querySelector("h2"),"Put the whole business on one desk.");text(final.querySelector("p"),"Start with Money, Work, People and Protect—then let Thebe help you focus on what needs attention next.")}
-    const footerLead=gate.querySelector(".footerin > div:first-child");
-    if(footerLead)footerLead.textContent="© 2026 Thebe Desk · Money · Work · People · Protect · Live in Botswana.";
   }
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init,{once:true});else init();
 })();

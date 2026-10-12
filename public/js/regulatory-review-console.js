@@ -2,7 +2,9 @@
   "use strict";
 
   const ALLOWED_PLATFORM_ROLES=new Set(["editor","reviewer","admin"]);
+  const MAKER_ROLES=new Set(["editor","admin"]);
   const REVIEWER_ROLES=new Set(["reviewer","admin"]);
+  const MAX_SOURCE_SNAPSHOT_CHARS=262144;
   let csrfToken="";
   let platformRole="";
   let readiness=null;
@@ -24,7 +26,7 @@
   }
   function clientErrorMessage(error){
     const code=String(error?.code||error?.data?.error||"");
-    const known={maker_checker_required:"A different authorized checker must complete this action.",verified_source_snapshot_required:"This source needs a verified current snapshot before approval.",review_notes_required:"Enter review notes of at least 10 characters.",rule_must_be_approved_first:"Approve this rule before publishing it.",approval_review_record_required:"A governed approval record is required before publication.",rule_changed_after_approval:"The rule changed after approval and must be reviewed again.",sources_changed_after_approval:"A linked source changed after approval and the rule must be reviewed again.",open_source_conflict:"Resolve the linked source conflict before progressing this rule.",invalid_state_transition:"This rule is no longer in the expected state. Refresh the page."};
+    const known={maker_checker_required:"A different authorized checker must complete this action.",verified_source_snapshot_required:"This source needs a verified current snapshot before approval.",review_notes_required:"Enter review notes of at least 10 characters.",source_content_required:"Paste the authoritative full source text before capturing a snapshot.",source_content_too_large:"The source text exceeds the 262,144 byte evidence limit.",regulatory_source_storage_not_configured:"Regulatory evidence storage is not configured; no snapshot was saved.",rule_must_be_approved_first:"Approve this rule before publishing it.",approval_review_record_required:"A governed approval record is required before publication.",rule_changed_after_approval:"The rule changed after approval and must be reviewed again.",sources_changed_after_approval:"A linked source changed after approval and the rule must be reviewed again.",open_source_conflict:"Resolve the linked source conflict before progressing this rule.",invalid_state_transition:"This rule is no longer in the expected state. Refresh the page."};
     return known[code]||String(error?.message||"The governed action could not be completed.");
   }
   async function api(path,options={}){return client.request(path,options)}
@@ -39,9 +41,21 @@
   function notesBox(id,placeholder){
     const box=el("textarea");box.id=id;box.maxLength=1000;box.placeholder=placeholder;box.setAttribute("aria-label",placeholder);return box;
   }
+  function sourceTextBox(id){
+    const box=el("textarea");
+    box.id=id;box.maxLength=MAX_SOURCE_SNAPSHOT_CHARS;box.rows=6;box.spellcheck=false;
+    box.placeholder="Paste authoritative full source text from the official source — not a summary.";
+    box.setAttribute("aria-label","Authoritative full source text for evidence snapshot");
+    return box;
+  }
   function requireNotes(id){
     const value=String(byId(id)?.value||"").trim();
     if(value.length<10)throw new Error("Enter review notes of at least 10 characters.");
+    return value;
+  }
+  function requireSourceText(id){
+    const value=String(byId(id)?.value||"").trim();
+    if(!value)throw new Error("Paste the authoritative full source text before capturing a snapshot.");
     return value;
   }
   async function governedAction(button,action){
@@ -53,6 +67,7 @@
     finally{busy=false;root?.classList.remove("loading");if(button){button.disabled=false;button.textContent=original}}
   }
 
+  function sourceSnapshotAllowed(){return MAKER_ROLES.has(platformRole)}
   function sourceActionAllowed(source){
     return REVIEWER_ROLES.has(platformRole)&&!!readiness?.makerCheckerReady&&String(source.status)==="pending"&&String(source.verification_status)==="verified"&&Number(source.latest_snapshot_version||0)>0;
   }
@@ -65,6 +80,16 @@
       left.append(title,el("div","meta",`${source.authority||"Unknown authority"} · ${source.status||"unknown"} · snapshot ${Number(source.latest_snapshot_version||0)} · ${source.verification_status||"unverified"}`));
       top.append(left,el("span","pill",source.status||"unknown"));card.append(top);
       if(source.source_url){const link=el("a","source-link","Open official source");link.href=String(source.source_url);link.target="_blank";link.rel="noopener noreferrer";card.append(link)}
+      if(sourceSnapshotAllowed()){
+        const capture=el("div","review"),snapshotId=`source-snapshot-${source.id}`;
+        capture.append(el("div","meta","Evidence preparation · paste the authoritative full source text from the official source. Do not paste a summary. Capturing evidence does not approve or publish it."));
+        const box=sourceTextBox(snapshotId),button=makeButton("Capture source snapshot",{primary:true});
+        button.addEventListener("click",()=>governedAction(button,async()=>{
+          const content=requireSourceText(snapshotId);
+          await post(`/api/platform/regulatory/sources/${encodeURIComponent(source.id)}/snapshot`,{content});
+        }));
+        capture.append(box,button);card.append(capture);
+      }
       if(["pending","conflict"].includes(String(source.status||""))){
         const review=el("div","review"),notesId=`source-notes-${source.id}`,box=notesBox(notesId,"Review notes (minimum 10 characters)");
         const row=el("div","row"),canApprove=sourceActionAllowed(source);
