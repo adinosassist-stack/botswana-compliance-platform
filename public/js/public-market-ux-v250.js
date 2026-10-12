@@ -119,13 +119,17 @@
     const launcher=doc.getElementById("marketAskThebe");
     if(launcher){
       launcher.setAttribute("aria-expanded",String(expanded));
+      launcher.setAttribute("aria-label",expanded?"Close Thebe AI assistant":"Open Thebe AI assistant");
       launcher.textContent=expanded?"Close Thebe":"Ask Thebe";
     }
     const dock=doc.getElementById("thebeAiDock");
     if(expanded){
+      window.ThebeAiDock?.open?.();
+      dock?.removeAttribute("hidden");
       dock?.removeAttribute("aria-hidden");
       window.setTimeout(()=>dock?.querySelector("textarea")?.focus({preventScroll:true}),80);
     }else{
+      window.ThebeAiDock?.close?.();
       dock?.setAttribute("aria-hidden","true");
       launcher?.focus({preventScroll:true});
     }
