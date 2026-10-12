@@ -1,0 +1,68 @@
+/* Thebe Desk public market UI/UX refinement — 2026-10-12. Public /home only. */
+:root{
+  --market-accent:#b42318;
+  --market-accent-strong:#8f1d15;
+  --market-accent-soft:#fff1ef;
+  --market-ink:#131416;
+  --market-line:#e6e7ea;
+}
+#marketingGate .marketinghero[data-market-hero-v250="1"],
+#marketingGate .hero[data-market-hero-v250="1"]{
+  grid-template-columns:minmax(0,1.3fr) minmax(320px,.7fr)!important;
+  gap:clamp(30px,4vw,64px)!important;
+  align-items:center!important;
+}
+#marketingGate .marketinghero[data-market-hero-v250="1"] h1,
+#marketingGate .hero[data-market-hero-v250="1"] h1{max-width:760px!important}
+#marketingGate [data-market-actions-v250="1"]{display:flex!important;align-items:center!important;flex-wrap:wrap!important;gap:10px!important}
+#marketingGate .market-primary-action{background:var(--market-accent)!important;border-color:var(--market-accent)!important;color:#fff!important;box-shadow:none!important}
+#marketingGate .market-primary-action:hover{background:var(--market-accent-strong)!important;border-color:var(--market-accent-strong)!important}
+#marketingGate .market-whatsapp-cta{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-height:44px!important;border:1px solid var(--market-accent)!important;background:#fff!important;color:var(--market-accent)!important;text-decoration:none!important;font-weight:650!important}
+#marketingGate .market-whatsapp-cta:hover{background:var(--market-accent-soft)!important;color:var(--market-accent-strong)!important}
+#marketingGate .market-secondary-action{background:#fff!important;border-color:#d6d8dc!important;color:var(--market-ink)!important}
+#marketingGate .market-tertiary-action{background:transparent!important;border-color:transparent!important;color:#4b4f55!important;box-shadow:none!important}
+#marketingGate .market-tertiary-action:hover{color:var(--market-accent)!important;background:var(--market-accent-soft)!important}
+#marketingGate a:focus-visible,#marketingGate button:focus-visible,.market-ai-launcher:focus-visible{outline:3px solid rgba(180,35,24,.28)!important;outline-offset:3px!important}
+#marketingGate .marketinglinks a:hover,#marketingGate .mobile-nav-panel a:hover{color:var(--market-accent)!important}
+#marketingGate .trustline span:before{color:var(--market-accent)!important}
+#marketingGate #trust[data-market-trust-v250="1"] .section-eyebrow,
+#marketingGate #trust[data-market-trust-v250="1"] .kicker{color:var(--market-accent)!important}
+#marketingGate #trust[data-market-trust-v250="1"] .sectiontitle,
+#marketingGate #trust[data-market-trust-v250="1"] .section-head{max-width:860px!important}
+#marketingGate #pricing[data-market-pricing-v250="1"] .pricecard{display:flex!important;flex-direction:column!important}
+#marketingGate #pricing[data-market-pricing-v250="1"] .pricecard ul{flex:1!important}
+#marketingGate #pricing[data-market-pricing-v250="1"] .market-plan-cta{display:flex!important;align-items:center!important;justify-content:center!important;width:100%!important;min-height:46px!important;margin-top:auto!important;text-align:center!important;text-decoration:none!important}
+#marketingGate #pricing[data-market-pricing-v250="1"] .market-protect-card{border-color:var(--market-accent)!important;box-shadow:0 0 0 1px var(--market-accent)!important;background:#fffafa!important}
+#marketingGate #pricing[data-market-pricing-v250="1"] .market-protect-card .market-plan-cta{background:var(--market-accent)!important;border-color:var(--market-accent)!important;color:#fff!important}
+#marketingGate #pricing[data-market-pricing-v250="1"] .market-partner-card .market-plan-cta{border-color:#d6d8dc!important;background:#fff!important;color:var(--market-ink)!important}
+#marketingGate .market-footer-card{display:grid!important;gap:26px!important;padding:34px clamp(20px,3vw,42px)!important}
+#marketingGate .market-footer-brand{max-width:620px!important}
+#marketingGate .market-footer-brand>b{display:block!important;font-size:18px!important;margin-bottom:7px!important}
+#marketingGate .market-footer-brand p{margin:0!important;line-height:1.6!important}
+#marketingGate .market-footer-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:24px!important}
+#marketingGate .market-footer-group>b{display:block!important;margin-bottom:10px!important;font-size:13px!important;letter-spacing:.02em!important}
+#marketingGate .market-footer-group nav{display:grid!important;gap:8px!important}
+#marketingGate .market-footer-group a{color:inherit!important;text-decoration:none!important;opacity:.78!important}
+#marketingGate .market-footer-group a:hover{opacity:1!important;color:var(--market-accent)!important}
+#marketingGate .market-footer-disclaimer{margin:0!important;padding-top:18px!important;border-top:1px solid var(--market-line)!important;font-size:12px!important;line-height:1.6!important;opacity:.72!important}
+body.market-ai-public #thebeAiDockPill{display:none!important;visibility:hidden!important;pointer-events:none!important}
+body.market-ai-public #thebeAiDock{transition:opacity .2s ease,visibility .2s ease,transform .24s ease!important}
+body.market-ai-public.market-ai-collapsed #thebeAiDock{visibility:hidden!important;opacity:0!important;pointer-events:none!important;transform:translateX(calc(100% + 28px))!important}
+body.market-ai-public.market-ai-expanded #thebeAiDock{visibility:visible!important;opacity:1!important;pointer-events:auto!important;transform:none!important}
+body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-minimize{display:inline-flex!important}
+.market-ai-launcher{position:fixed;z-index:182;right:18px;bottom:calc(24px + env(safe-area-inset-bottom));min-height:46px;padding:0 18px;border:1px solid #2c2e32;border-radius:999px;background:#111315;color:#fff;font:inherit;font-size:13px;font-weight:650;letter-spacing:-.01em;box-shadow:0 10px 28px rgba(0,0,0,.18);cursor:pointer}
+.market-ai-launcher:before{content:"";display:inline-block;width:7px;height:7px;margin-right:9px;border-radius:50%;background:#fff;vertical-align:1px}
+.market-ai-launcher:hover{background:#202226}
+body.market-ai-expanded .market-ai-launcher{background:var(--market-accent);border-color:var(--market-accent)}
+@media(max-width:1000px){
+  #marketingGate .marketinghero[data-market-hero-v250="1"],#marketingGate .hero[data-market-hero-v250="1"]{grid-template-columns:1fr!important;gap:32px!important}
+  #marketingGate .market-footer-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+@media(max-width:640px){
+  #marketingGate [data-market-actions-v250="1"]>*{width:100%!important}
+  #marketingGate .market-footer-grid{grid-template-columns:1fr!important}
+  .market-ai-launcher{right:12px;bottom:calc(16px + env(safe-area-inset-bottom));min-height:48px}
+  body.market-ai-public.market-ai-collapsed #thebeAiDock{transform:translateY(calc(100% + 36px))!important}
+  body.market-ai-public.market-ai-expanded #thebeAiDock{left:10px!important;right:10px!important;bottom:calc(76px + env(safe-area-inset-bottom))!important;max-height:calc(100dvh - 96px - env(safe-area-inset-bottom))!important;border-radius:18px!important}
+}
+@media(prefers-reduced-motion:reduce){body.market-ai-public #thebeAiDock,.market-ai-launcher{transition:none!important}}
