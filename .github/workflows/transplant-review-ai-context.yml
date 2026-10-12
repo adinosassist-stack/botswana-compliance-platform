@@ -1,0 +1,96 @@
+name: Transplant review AI context truthfulness
+
+on:
+  push:
+    branches:
+      - fix/review-ai-context-truthfulness-20261012
+    paths:
+      - '.github/workflows/transplant-review-ai-context.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  transplant:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact feature branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: fix/review-ai-context-truthfulness-20261012
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+
+      - name: Apply only the review truthfulness files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin chatgpt/ai-context-compaction
+          SOURCE_BASE=9ccfb0e8e4d5180ea0db942f092544bce48abe1a
+          SOURCE_HEAD=25723e00aafd2730c6e2452a6ca53d9ea32c262a
+          git cat-file -e "$SOURCE_BASE^{commit}"
+          git cat-file -e "$SOURCE_HEAD^{commit}"
+          git diff --binary "$SOURCE_BASE" "$SOURCE_HEAD" -- \
+            cloudflare/src/ai-advisor-context-compaction.js \
+            cloudflare/src/worker.js \
+            public/js/owner-command-centre.js \
+            tests/v116-thebe-super-agent-ask-anything.mjs \
+            tests/v329-ai-advisor-context-compaction.mjs \
+            tests/v78-ai-copilot-motion-security.mjs \
+            > /tmp/ai-context-truthfulness.patch
+          test -s /tmp/ai-context-truthfulness.patch
+          git apply --3way --index /tmp/ai-context-truthfulness.patch
+
+      - name: Add permanent current-main regression entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path=Path('.github/workflows/independent-review-regressions.yml')
+          text=path.read_text()
+          if 'AI advisor bounded-context truthfulness' not in text:
+              marker='      - name: Report money and FNB surface qualification\n'
+              assert marker in text, 'independent review insertion marker missing'
+              step='''      - name: AI advisor bounded-context truthfulness\n        shell: bash\n        run: |\n          set -euo pipefail\n          node --check cloudflare/src/ai-advisor-context-compaction.js\n          node --check tests/v329-ai-advisor-context-compaction.mjs\n          node tests/v329-ai-advisor-context-compaction.mjs\n\n'''
+              text=text.replace(marker,step+marker,1)
+              path.write_text(text)
+          PY
+          git add .github/workflows/independent-review-regressions.yml
+
+      - name: Install exact dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Qualify transplanted review fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check cloudflare/src/ai-advisor-context-compaction.js
+          node --check cloudflare/src/worker.js
+          node --check public/js/owner-command-centre.js
+          node --check tests/v116-thebe-super-agent-ask-anything.mjs
+          node --check tests/v329-ai-advisor-context-compaction.mjs
+          node --check tests/v78-ai-copilot-motion-security.mjs
+          node tests/v116-thebe-super-agent-ask-anything.mjs
+          node tests/v329-ai-advisor-context-compaction.mjs
+          node tests/v78-ai-copilot-motion-security.mjs
+
+      - name: Commit clean transplant and remove one-shot workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/transplant-review-ai-context.yml
+          git add -A
+          git diff --cached --check
+          git diff --cached --stat
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Fix bounded AI context truthfulness on current main'
+          git push origin HEAD:refs/heads/fix/review-ai-context-truthfulness-20261012
