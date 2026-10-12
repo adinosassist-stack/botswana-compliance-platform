@@ -26,6 +26,30 @@ jobs:
           package-manager-cache: false
       - name: Install exact dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Classify v78 confidence oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import {spawnSync} from 'node:child_process';
+          const sourcePath='tests/v78-ai-copilot-motion-security.mjs';
+          const diagnosticPath='tests/.tmp-v78-ai-copilot-motion-security-diagnostic.mjs';
+          const source=fs.readFileSync(sourcePath,'utf8');
+          const needle='assert.equal(payload.generationMode,"workers_ai");assert.equal(payload.creditsUsed,6);assert.equal(payload.confidence,"high");';
+          if(!source.includes(needle))throw new Error('v78 confidence oracle changed; diagnostic must be reviewed');
+          const replacement='assert.equal(payload.generationMode,"workers_ai");assert.equal(payload.creditsUsed,6);console.error("R6_CONTEXT_DIAGNOSTIC="+JSON.stringify({confidence:payload.confidence,contextAvailability:payload.contextAvailability,contextCompaction:payload.contextCompaction,caveats:payload.caveats}));';
+          fs.writeFileSync(diagnosticPath,source.replace(needle,replacement));
+          const result=spawnSync(process.execPath,[diagnosticPath],{encoding:'utf8',maxBuffer:16*1024*1024});
+          fs.rmSync(diagnosticPath,{force:true});
+          const combined=`${result.stdout||''}\n${result.stderr||''}`;
+          const diagnostic=combined.split(/\r?\n/).find(line=>line.startsWith('R6_CONTEXT_DIAGNOSTIC='));
+          console.log(diagnostic||'R6_CONTEXT_DIAGNOSTIC=missing');
+          if(result.status!==0){
+            console.error(combined.split(/\r?\n/).filter(Boolean).slice(-80).join('\n'));
+            process.exit(result.status||1);
+          }
+          NODE
       - name: Find exact failing historical command
         shell: bash
         run: |
