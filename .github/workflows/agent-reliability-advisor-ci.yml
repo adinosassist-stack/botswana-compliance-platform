@@ -8,14 +8,12 @@ on:
       - 'tests/agent-reliability-telemetry-adapter.mjs'
       - 'cloudflare/src/agent-reliability-api.js'
       - 'tests/agent-reliability-api.mjs'
+      - 'cloudflare/src/agent-cost-outcome-telemetry.js'
+      - 'tests/agent-cost-outcome-telemetry.mjs'
       - 'cloudflare/src/worker.js'
       - 'tests/agent-reliability-worker-routing.mjs'
       - 'public/js/owner-command-centre.js'
       - 'tests/agent-reliability-owner-panel.mjs'
-      - 'cloudflare/src/agent-reliability-telemetry-adapter.js'
-      - 'tests/agent-reliability-telemetry-adapter.mjs'
-      - 'cloudflare/src/agent-reliability-api.js'
-      - 'tests/agent-reliability-api.mjs'
       - '.github/workflows/agent-reliability-advisor-ci.yml'
   push:
     branches:
@@ -27,6 +25,8 @@ on:
       - 'tests/agent-reliability-telemetry-adapter.mjs'
       - 'cloudflare/src/agent-reliability-api.js'
       - 'tests/agent-reliability-api.mjs'
+      - 'cloudflare/src/agent-cost-outcome-telemetry.js'
+      - 'tests/agent-cost-outcome-telemetry.mjs'
       - 'cloudflare/src/worker.js'
       - 'tests/agent-reliability-worker-routing.mjs'
       - 'public/js/owner-command-centre.js'
@@ -49,6 +49,8 @@ jobs:
       - run: node tests/agent-reliability-telemetry-adapter.mjs
       - run: node --check cloudflare/src/agent-reliability-api.js
       - run: node tests/agent-reliability-api.mjs
+      - run: node --check cloudflare/src/agent-cost-outcome-telemetry.js
+      - run: node tests/agent-cost-outcome-telemetry.mjs
       - run: node --check cloudflare/src/worker.js
       - run: node tests/agent-reliability-worker-routing.mjs
       - run: node --check public/js/owner-command-centre.js
