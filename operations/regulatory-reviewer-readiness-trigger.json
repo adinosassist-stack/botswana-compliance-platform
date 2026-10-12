@@ -2,7 +2,7 @@
   "schema": 1,
   "requested": true,
   "purpose": "inspect-distinct-regulatory-reviewer-readiness",
-  "requestedAt": "2026-10-11",
-  "triggerNonce": "reviewer-readiness-r3-exclusion-counters",
+  "requestedAt": "2026-10-12",
+  "triggerNonce": "reviewer-readiness-20261012-r4-live-check",
   "safety": "read-only; no identity, role, regulatory, or customer data mutation"
 }
