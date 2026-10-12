@@ -120,7 +120,7 @@ async function runFullUserJourney(credentials){
     const publicRoot=await page.goto(`${ORIGIN}/?full-user-public-proof=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:NAVIGATION_TIMEOUT_MS});
     assert(publicRoot?.status()===200,`public root returned HTTP ${publicRoot?.status()||0}`);
     const publicState=await page.evaluate(()=>({hero:(document.querySelector('.hero h1')?.textContent||'').trim(),hasWorkspace:!!document.getElementById('appShell'),hasAuthForm:!!document.getElementById('authForm')}));
-    assert(publicState.hero==='Run your whole business from one intelligent desk.','public root hero missing or stale');
+    assert(publicState.hero==='Know what needs attention. Run your business from one place.','public root hero missing or stale');
     assert(!publicState.hasWorkspace&&!publicState.hasAuthForm,'public root leaked workspace or authentication shell');
 
     const readMarketingHeroComposition=async()=>page.evaluate(()=>{
@@ -283,8 +283,6 @@ async function runFullUserJourney(credentials){
     assert(delegatedRuntime.badNestedAssets.length===0,`workspace requested nested /app assets: ${safe(delegatedRuntime.badNestedAssets.join(', '))}`);
     await dismissFirstRunOnboardingIfNeeded(page);
 
-    // Wide-mobile / landscape regression: the bottom dock is enabled up to 1000px,
-    // so prove its opaque shield and drawer at a viewport that used to miss the <=760px hardening.
     await page.setViewportSize({width:844,height:390});
     await page.waitForFunction(()=>{
       const bar=document.getElementById('mobileBar'),shield=document.querySelector('.mobile-nav-occlusion');
@@ -296,16 +294,7 @@ async function runFullUserJourney(credentials){
       const bar=document.getElementById('mobileBar'),shield=document.querySelector('.mobile-nav-occlusion'),main=document.querySelector('main');
       const barStyle=getComputedStyle(bar),shieldStyle=getComputedStyle(shield),mainRect=main.getBoundingClientRect(),shieldRect=shield.getBoundingClientRect();
       const opaque=value=>!/^rgba\([^)]*,\s*0(?:\.0+)?\)$/.test(String(value||''))&&String(value||'')!=='transparent';
-      return {
-        barDisplay:barStyle.display,
-        barOpaque:opaque(barStyle.backgroundColor),
-        shieldDisplay:shieldStyle.display,
-        shieldOpaque:opaque(shieldStyle.backgroundColor),
-        shieldHeight:Math.round(shieldRect.height),
-        mainBottom:Math.round(mainRect.bottom),
-        shieldTop:Math.round(shieldRect.top),
-        mainOverflowY:getComputedStyle(main).overflowY
-      };
+      return {barDisplay:barStyle.display,barOpaque:opaque(barStyle.backgroundColor),shieldDisplay:shieldStyle.display,shieldOpaque:opaque(shieldStyle.backgroundColor),shieldHeight:Math.round(shieldRect.height),mainBottom:Math.round(mainRect.bottom),shieldTop:Math.round(shieldRect.top),mainOverflowY:getComputedStyle(main).overflowY};
     });
     assert(wideMobileOcclusion.barDisplay!=='none'&&wideMobileOcclusion.barOpaque,'wide-mobile bottom navigation is missing or translucent');
     assert(wideMobileOcclusion.shieldDisplay!=='none'&&wideMobileOcclusion.shieldOpaque&&wideMobileOcclusion.shieldHeight>=80,'wide-mobile bottom navigation lacks an opaque occlusion shield');
@@ -314,22 +303,11 @@ async function runFullUserJourney(credentials){
     await page.waitForFunction(()=>{
       const sidebar=document.getElementById('workspaceSidebar');
       if(!document.body.classList.contains('mobile-nav-open')||!sidebar)return false;
-      const rect=sidebar.getBoundingClientRect();
-      return Math.abs(rect.left)<=1&&rect.width>0&&rect.right>0;
+      const rect=sidebar.getBoundingClientRect();return Math.abs(rect.left)<=1&&rect.width>0&&rect.right>0;
     },null,{timeout:VIEW_TIMEOUT_MS});
     const wideMobileDrawer=await page.evaluate(()=>{
-      const sidebar=document.getElementById('workspaceSidebar');
-      const sidebarRect=sidebar.getBoundingClientRect();
-      return {
-        mainVisibility:getComputedStyle(document.getElementById('mainContent')).visibility,
-        backdropVisibility:getComputedStyle(document.querySelector('.mobile-nav-backdrop')).visibility,
-        backdropOpacity:Number.parseFloat(getComputedStyle(document.querySelector('.mobile-nav-backdrop')).opacity)||0,
-        barVisibility:getComputedStyle(document.getElementById('mobileBar')).visibility,
-        shieldDisplay:getComputedStyle(document.querySelector('.mobile-nav-occlusion')).display,
-        sidebarLeft:Math.round(sidebarRect.left),
-        sidebarWidth:Math.round(sidebarRect.width),
-        sidebarTransform:getComputedStyle(sidebar).transform
-      };
+      const sidebar=document.getElementById('workspaceSidebar');const sidebarRect=sidebar.getBoundingClientRect();
+      return {mainVisibility:getComputedStyle(document.getElementById('mainContent')).visibility,backdropVisibility:getComputedStyle(document.querySelector('.mobile-nav-backdrop')).visibility,backdropOpacity:Number.parseFloat(getComputedStyle(document.querySelector('.mobile-nav-backdrop')).opacity)||0,barVisibility:getComputedStyle(document.getElementById('mobileBar')).visibility,shieldDisplay:getComputedStyle(document.querySelector('.mobile-nav-occlusion')).display,sidebarLeft:Math.round(sidebarRect.left),sidebarWidth:Math.round(sidebarRect.width),sidebarTransform:getComputedStyle(sidebar).transform};
     });
     assert(wideMobileDrawer.mainVisibility==='hidden','wide-mobile drawer leaves workspace text visible underneath');
     assert(wideMobileDrawer.backdropVisibility==='visible'&&wideMobileDrawer.backdropOpacity>=.99,'wide-mobile drawer backdrop is not fully visible');
@@ -339,741 +317,159 @@ async function runFullUserJourney(credentials){
       const sidebar=document.getElementById('workspaceSidebar'),main=document.getElementById('mainContent'),bar=document.getElementById('mobileBar'),shield=document.querySelector('.mobile-nav-occlusion'),button=document.getElementById('mobileMenuButton');
       if(!sidebar||!main||!bar||!shield||!button||document.body.classList.contains('mobile-nav-open'))return false;
       const rect=sidebar.getBoundingClientRect();
-      return rect.right<=2&&getComputedStyle(main).visibility!=='hidden'&&!main.hasAttribute('inert')&&
-        button.getAttribute('aria-expanded')==='false'&&getComputedStyle(bar).visibility!=='hidden'&&getComputedStyle(shield).display!=='none';
+      return rect.right<=2&&getComputedStyle(main).visibility!=='hidden'&&!main.hasAttribute('inert')&&button.getAttribute('aria-expanded')==='false'&&getComputedStyle(bar).visibility!=='hidden'&&getComputedStyle(shield).display!=='none';
     },null,{timeout:VIEW_TIMEOUT_MS});
-
-    await page.keyboard.press('Escape');
-    await waitForWideMobileDrawerClosed();
-
+    await page.keyboard.press('Escape');await waitForWideMobileDrawerClosed();
     for(let cycle=0;cycle<3;cycle+=1){
       await page.locator('#mobileMenuButton').click();
-      await page.waitForFunction(()=>{
-        const sidebar=document.getElementById('workspaceSidebar');
-        if(!document.body.classList.contains('mobile-nav-open')||!sidebar)return false;
-        const rect=sidebar.getBoundingClientRect();
-        return Math.abs(rect.left)<=1&&rect.width>0;
-      },null,{timeout:VIEW_TIMEOUT_MS});
-      await page.keyboard.press('Escape');
-      await waitForWideMobileDrawerClosed();
+      await page.waitForFunction(()=>{const sidebar=document.getElementById('workspaceSidebar');if(!document.body.classList.contains('mobile-nav-open')||!sidebar)return false;const rect=sidebar.getBoundingClientRect();return Math.abs(rect.left)<=1&&rect.width>0;},null,{timeout:VIEW_TIMEOUT_MS});
+      await page.keyboard.press('Escape');await waitForWideMobileDrawerClosed();
     }
-
     await page.locator('#mobileMenuButton').click();
     await page.waitForFunction(()=>document.body.classList.contains('mobile-nav-open')&&document.getElementById('mainContent')?.hasAttribute('inert'),null,{timeout:VIEW_TIMEOUT_MS});
-    await page.evaluate(()=>window.dispatchEvent(new Event('orientationchange')));
-    await waitForWideMobileDrawerClosed();
-
-    await page.locator('#mobileMenuButton').click();
-    await page.waitForFunction(()=>document.body.classList.contains('mobile-nav-open'),null,{timeout:VIEW_TIMEOUT_MS});
+    await page.evaluate(()=>window.dispatchEvent(new Event('orientationchange')));await waitForWideMobileDrawerClosed();
+    await page.locator('#mobileMenuButton').click();await page.waitForFunction(()=>document.body.classList.contains('mobile-nav-open'),null,{timeout:VIEW_TIMEOUT_MS});
     await page.setViewportSize({width:1001,height:390});
     await page.waitForFunction(()=>!document.body.classList.contains('mobile-nav-open')&&!document.getElementById('mainContent')?.hasAttribute('inert'),null,{timeout:VIEW_TIMEOUT_MS});
     await page.setViewportSize({width:844,height:390});
-    await page.waitForFunction(()=>{
-      const bar=document.getElementById('mobileBar'),shield=document.querySelector('.mobile-nav-occlusion');
-      return bar&&shield&&getComputedStyle(bar).display!=='none'&&getComputedStyle(shield).display!=='none';
-    },null,{timeout:VIEW_TIMEOUT_MS});
+    await page.waitForFunction(()=>{const bar=document.getElementById('mobileBar'),shield=document.querySelector('.mobile-nav-occlusion');return bar&&shield&&getComputedStyle(bar).display!=='none'&&getComputedStyle(shield).display!=='none';},null,{timeout:VIEW_TIMEOUT_MS});
     mark('wide-mobile drawer state stress','3 reopen cycles + Escape + orientationchange + 1000px breakpoint crossing restored a clean closed state');
-
-    await page.setViewportSize({width:1440,height:1100});
-    mark('wide-mobile navigation occlusion','844px landscape breakpoint keeps workspace text out from under the bottom dock and full drawer');
+    await page.setViewportSize({width:1440,height:1100});mark('wide-mobile navigation occlusion','844px landscape breakpoint keeps workspace text out from under the bottom dock and full drawer');
 
     await page.evaluate(()=>globalThis.showView?.('dashboard',{skipDataRefresh:true}));
     await dismissFirstRunOnboardingIfNeeded(page);
     await page.waitForFunction(()=>document.getElementById('dashboard')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
     const delegatedWorkButton=page.locator("[data-bw-onclick=\"showView('workhub')\"]:visible").first();
     assert(await delegatedWorkButton.count(),'visible delegated Home -> Work button missing');
-    await delegatedWorkButton.click();
-    await page.waitForFunction(()=>document.getElementById('workhub')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
+    await delegatedWorkButton.click();await page.waitForFunction(()=>document.getElementById('workhub')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
     mark('workspace delegated button actions','visible data-bw-onclick navigation executed through event-delegation.js on /app/');
 
     const delegatedPeopleButton=page.locator('#nav button[data-view="peopleops"]:visible').first();
     assert(await delegatedPeopleButton.count(),'visible delegated People button missing');
-    const peoplePreClick=await page.evaluate(()=>{
-      const view=document.getElementById('peopleops');
-      return {lazy:view?.dataset?.lazyView||'',hydrated:view?.dataset?.lazyHydrated||'',text:String(view?.innerText||'').slice(0,500)};
-    });
+    const peoplePreClick=await page.evaluate(()=>{const view=document.getElementById('peopleops');return {lazy:view?.dataset?.lazyView||'',hydrated:view?.dataset?.lazyHydrated||'',text:String(view?.innerText||'').slice(0,500)};});
     assert(!peoplePreClick.lazy,'People must be resident before click and must not depend on a lazy fragment');
     assert(/People & operations/i.test(peoplePreClick.text),`resident People markup missing before click: ${safe(peoplePreClick.text)}`);
-    await delegatedPeopleButton.click();
-    await page.waitForFunction(()=>document.getElementById('peopleops')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
-    const peopleState=await page.evaluate(()=>{
-      const view=document.getElementById('peopleops');
-      return {active:!!view?.classList.contains('active'),lazy:view?.dataset?.lazyView||'',error:view?.dataset?.lazyError||'',text:String(view?.innerText||'').slice(0,700)};
-    });
+    await delegatedPeopleButton.click();await page.waitForFunction(()=>document.getElementById('peopleops')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
+    const peopleState=await page.evaluate(()=>{const view=document.getElementById('peopleops');return {active:!!view?.classList.contains('active'),lazy:view?.dataset?.lazyView||'',error:view?.dataset?.lazyError||'',text:String(view?.innerText||'').slice(0,700)};});
     assert(peopleState.active&&!peopleState.lazy&&!peopleState.error,`resident People navigation failed: ${safe(JSON.stringify(peopleState))}`);
     assert(/People & operations/i.test(peopleState.text),`People view showed unexpected content: ${safe(peopleState.text)}`);
     assert(!/Ruleset integrity|Sources in this prototype/i.test(peopleState.text),`People view leaked regulatory-source prototype copy: ${safe(peopleState.text)}`);
-    const workspaceRuntimeProof=await page.evaluate(()=>({
-      peopleLazy:document.getElementById('peopleops')?.dataset?.lazyView||'',
-      deepLazy:document.getElementById('employees')?.dataset?.lazyView||'',
-      showViewReady:typeof globalThis.showView==='function',
-      hydrateReady:typeof globalThis.hydrateLazyWorkspaceView==='function'
-    }));
-    assert(!workspaceRuntimeProof.peopleLazy,'People unexpectedly became lazy in delivered /app/ HTML');
-    assert(workspaceRuntimeProof.deepLazy==='1','deep workspace tools must remain lazy after primary hubs are made resident');
-    assert(workspaceRuntimeProof.showViewReady,'live showView function missing from workspace runtime');
-    assert(workspaceRuntimeProof.hydrateReady,'live lazy hydration function missing from workspace runtime');
+    const workspaceRuntimeProof=await page.evaluate(()=>({peopleLazy:document.getElementById('peopleops')?.dataset?.lazyView||'',deepLazy:document.getElementById('employees')?.dataset?.lazyView||'',showViewReady:typeof globalThis.showView==='function',hydrateReady:typeof globalThis.hydrateLazyWorkspaceView==='function'}));
+    assert(!workspaceRuntimeProof.peopleLazy,'People unexpectedly became lazy in delivered /app/ HTML');assert(workspaceRuntimeProof.deepLazy==='1','deep workspace tools must remain lazy after primary hubs are made resident');assert(workspaceRuntimeProof.showViewReady,'live showView function missing from workspace runtime');assert(workspaceRuntimeProof.hydrateReady,'live lazy hydration function missing from workspace runtime');
 
     const openEmployeesTool=async()=>{
-      const findTools=page.locator('#nav .nav-more-tools:visible').first();
-      assert(await findTools.count(),'visible Find tools control missing before Employees navigation');
-      await findTools.click();
+      const findTools=page.locator('#nav .nav-more-tools:visible').first();assert(await findTools.count(),'visible Find tools control missing before Employees navigation');await findTools.click();
       await page.locator('#commandShade.open').waitFor({state:'visible',timeout:VIEW_TIMEOUT_MS});
-      const commandInput=page.locator('#commandInput:visible').first();
-      assert(await commandInput.count(),'Find tools search input missing');
-      await commandInput.fill('employee');
-      const employeesCommand=page.locator('#commandResults .commanditem:visible').filter({hasText:'Employees'}).first();
-      assert(await employeesCommand.count(),'Employees command missing from Find tools search results');
-      await employeesCommand.click();
+      const commandInput=page.locator('#commandInput:visible').first();assert(await commandInput.count(),'Find tools search input missing');await commandInput.fill('employee');
+      const employeesCommand=page.locator('#commandResults .commanditem:visible').filter({hasText:'Employees'}).first();assert(await employeesCommand.count(),'Employees command missing from Find tools search results');await employeesCommand.click();
       await page.waitForFunction(()=>document.getElementById('employees')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
     };
     await openEmployeesTool();
-    await page.waitForFunction(()=>{
-      const view=document.getElementById('employees');
-      return view?.dataset?.lazyHydrated==='1'||view?.dataset?.lazyError==='1';
-    },null,{timeout:WORKSPACE_TIMEOUT_MS});
-    const employeeLazyState=await page.evaluate(()=>{
-      const view=document.getElementById('employees');
-      return {
-        active:!!view?.classList.contains('active'),
-        hydrated:view?.dataset?.lazyHydrated==='1',
-        error:view?.dataset?.lazyError==='1',
-        stillLazy:view?.dataset?.lazyView||'',
-        text:String(view?.innerText||'').slice(0,900)
-      };
-    });
+    await page.waitForFunction(()=>{const view=document.getElementById('employees');return view?.dataset?.lazyHydrated==='1'||view?.dataset?.lazyError==='1';},null,{timeout:WORKSPACE_TIMEOUT_MS});
+    const employeeLazyState=await page.evaluate(()=>{const view=document.getElementById('employees');return {active:!!view?.classList.contains('active'),hydrated:view?.dataset?.lazyHydrated==='1',error:view?.dataset?.lazyError==='1',stillLazy:view?.dataset?.lazyView||'',text:String(view?.innerText||'').slice(0,900)};});
     assert(employeeLazyState.active&&employeeLazyState.hydrated&&!employeeLazyState.error&&!employeeLazyState.stillLazy,`functional lazy workspace hydration failed: ${safe(JSON.stringify(employeeLazyState))}`);
     assert(/Employee records|Employee register|Employees|Staff register|staff/i.test(employeeLazyState.text),`Employees lazy view hydrated unexpected content: ${safe(employeeLazyState.text)}`);
-    mark('workspace deep-tool discovery','Find tools -> Employees opened and hydrated the specialist employee register');
-    mark('workspace lazy runtime functional proof','real Employees click hydrated a deep lazy view through the self-contained versioned runtime');
+    mark('workspace deep-tool discovery','Find tools -> Employees opened and hydrated the specialist employee register');mark('workspace lazy runtime functional proof','real Employees click hydrated a deep lazy view through the self-contained versioned runtime');
 
-    await delegatedPeopleButton.click();
-    await page.waitForFunction(()=>document.getElementById('peopleops')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
+    await delegatedPeopleButton.click();await page.waitForFunction(()=>document.getElementById('peopleops')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
     mark('workspace People resident content','real People click opened resident People & operations immediately with no Ruleset/source leakage and no fragment dependency');
 
-    // Mutating proof is safe here because the canonical lifecycle owns this isolated synthetic tenant and purges it after the browser returns.
-    await openEmployeesTool();
-    await page.waitForFunction(()=>document.getElementById('employees')?.classList.contains('active')&&document.getElementById('eName'),null,{timeout:VIEW_TIMEOUT_MS});
+    await openEmployeesTool();await page.waitForFunction(()=>document.getElementById('employees')?.classList.contains('active')&&document.getElementById('eName'),null,{timeout:VIEW_TIMEOUT_MS});
     const syntheticEmployeeName=`Synthetic Reporter ${Date.now()}`;
-    await page.locator('#eName').fill(syntheticEmployeeName);
-    await page.locator('#eRole').fill('Synthetic Operations Tester');
-    await page.locator('#eStart').fill(new Date().toISOString().slice(0,10));
-    await page.locator('#eContract').selectOption('true');
-    await page.locator('#eAsset').selectOption('true');
-    const addEmployee=page.locator('#employees [data-bw-onclick="addEmployeeRecord()"]:visible').first();
-    assert(await addEmployee.count(),'authoritative Add employee control missing');
-    await addEmployee.click();
-    await page.locator('#employeeRegister .item',{hasText:syntheticEmployeeName}).first().waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
-    mark('authoritative employee register','employee created through visible workspace form and reloaded from /api/employees');
+    await page.locator('#eName').fill(syntheticEmployeeName);await page.locator('#eRole').fill('Synthetic Operations Tester');await page.locator('#eStart').fill(new Date().toISOString().slice(0,10));await page.locator('#eContract').selectOption('true');await page.locator('#eAsset').selectOption('true');
+    const addEmployee=page.locator('#employees [data-bw-onclick="addEmployeeRecord()"]:visible').first();assert(await addEmployee.count(),'authoritative Add employee control missing');await addEmployee.click();
+    await page.locator('#employeeRegister .item',{hasText:syntheticEmployeeName}).first().waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});mark('authoritative employee register','employee created through visible workspace form and reloaded from /api/employees');
 
-    // Reporting setup is owned by resident People & Operations. Return there after
-    // creating the employee instead of relying on the old Daily Reports DOM location.
-    await delegatedPeopleButton.click();
-    await page.waitForFunction(()=>document.getElementById('peopleops')?.classList.contains('active')&&document.getElementById('opsReportingSetupDetails'),null,{timeout:VIEW_TIMEOUT_MS});
-    const setup=page.locator('#peopleops #opsReportingSetupDetails').first();assert(await setup.count(),'People reporting setup disclosure missing');
-    if(!(await setup.evaluate(node=>node.open===true)))await setup.locator(':scope > summary').first().click();
+    await delegatedPeopleButton.click();await page.waitForFunction(()=>document.getElementById('peopleops')?.classList.contains('active')&&document.getElementById('opsReportingSetupDetails'),null,{timeout:VIEW_TIMEOUT_MS});
+    const setup=page.locator('#peopleops #opsReportingSetupDetails').first();assert(await setup.count(),'People reporting setup disclosure missing');if(!(await setup.evaluate(node=>node.open===true)))await setup.locator(':scope > summary').first().click();
     let locationName=`Synthetic Branch ${Date.now()}`;const locationCode=`S${String(Date.now()).slice(-7)}`;
     await page.locator('#peopleops #opsLocationName').fill(locationName);await page.locator('#peopleops #opsLocationCode').fill(locationCode);await page.locator('#peopleops #opsLocationTown').fill('Gaborone');
-    const addLocation=page.locator('#peopleops [data-bw-onclick="addOpsLocation()"]:visible').first();assert(await addLocation.count(),'Add location control missing');
-    await addLocation.click();
+    const addLocation=page.locator('#peopleops [data-bw-onclick="addOpsLocation()"]:visible').first();assert(await addLocation.count(),'Add location control missing');await addLocation.click();
     await page.waitForFunction(name=>String(document.getElementById('opsLocationsList')?.innerText||'').includes(name),locationName,{timeout:WORKSPACE_TIMEOUT_MS});
-    const editedLocationName=`${locationName} Updated`;
-    const locationRow=page.locator('#opsLocationsList .item',{hasText:locationName}).first();
-    await locationRow.waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
-    const editLocation=locationRow.locator('button[data-bw-onclick^="editOpsLocation("]').first();
-    await editLocation.waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
-    assert(await editLocation.isEnabled(),'visible Edit location control is disabled');
-    await editLocation.click();
-    let editDialog=page.locator('.bw-dialog-service:visible').first();
-    await editDialog.waitFor({state:'visible',timeout:VIEW_TIMEOUT_MS});
-    await editDialog.locator('input').fill(editedLocationName);
-    await editDialog.getByRole('button',{name:'Next'}).click();
-    editDialog=page.locator('.bw-dialog-service:visible').first();
-    await editDialog.waitFor({state:'visible',timeout:VIEW_TIMEOUT_MS});
-    await editDialog.getByRole('button',{name:'Next'}).click();
-    editDialog=page.locator('.bw-dialog-service:visible').first();
-    await editDialog.waitFor({state:'visible',timeout:VIEW_TIMEOUT_MS});
-    await editDialog.getByRole('button',{name:'Save location'}).click();
-    locationName=editedLocationName;
-    await page.waitForFunction(name=>String(document.getElementById('opsLocationsList')?.innerText||'').includes(name),locationName,{timeout:15000});
-    mark('operating location edit lifecycle','location created and renamed through the visible reporting setup controls');
-    const analyticsProbe=await page.evaluate(async()=>{
-      try{
-        const date=document.getElementById('opsReportDate')?.value||new Date().toISOString().slice(0,10);
-        const value=await globalThis.reportingAnalyticsJson('/api/daily-reporting/dashboard?date='+encodeURIComponent(date));
-        return {ok:!!value&&typeof value==='object',coverage:value?.coverage??null,error:''};
-      }catch(error){return {ok:false,coverage:null,error:String(error?.message||error||'')}}
-    });
-    assert(analyticsProbe.ok&&!/timed out/i.test(analyticsProbe.error),`reporting analytics slow-path failed: ${safe(JSON.stringify(analyticsProbe))}`);
-    mark('reporting analytics bounded slow path','daily reporting dashboard completed through the longer bounded analytics transport');
+    const editedLocationName=`${locationName} Updated`;const locationRow=page.locator('#opsLocationsList .item',{hasText:locationName}).first();await locationRow.waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
+    const editLocation=locationRow.locator('button[data-bw-onclick^="editOpsLocation("]').first();await editLocation.waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});assert(await editLocation.isEnabled(),'visible Edit location control is disabled');await editLocation.click();
+    let editDialog=page.locator('.bw-dialog-service:visible').first();await editDialog.waitFor({state:'visible',timeout:VIEW_TIMEOUT_MS});await editDialog.locator('input').fill(editedLocationName);await editDialog.getByRole('button',{name:'Next'}).click();
+    editDialog=page.locator('.bw-dialog-service:visible').first();await editDialog.waitFor({state:'visible',timeout:VIEW_TIMEOUT_MS});await editDialog.getByRole('button',{name:'Next'}).click();
+    editDialog=page.locator('.bw-dialog-service:visible').first();await editDialog.waitFor({state:'visible',timeout:VIEW_TIMEOUT_MS});await editDialog.getByRole('button',{name:'Save location'}).click();locationName=editedLocationName;
+    await page.waitForFunction(name=>String(document.getElementById('opsLocationsList')?.innerText||'').includes(name),locationName,{timeout:15000});mark('operating location edit lifecycle','location created and renamed through the visible reporting setup controls');
+    const analyticsProbe=await page.evaluate(async()=>{try{const date=document.getElementById('opsReportDate')?.value||new Date().toISOString().slice(0,10);const value=await globalThis.reportingAnalyticsJson('/api/daily-reporting/dashboard?date='+encodeURIComponent(date));return {ok:!!value&&typeof value==='object',coverage:value?.coverage??null,error:''};}catch(error){return {ok:false,coverage:null,error:String(error?.message||error||'')}}});
+    assert(analyticsProbe.ok&&!/timed out/i.test(analyticsProbe.error),`reporting analytics slow-path failed: ${safe(JSON.stringify(analyticsProbe))}`);mark('reporting analytics bounded slow path','daily reporting dashboard completed through the longer bounded analytics transport');
     await page.waitForFunction(name=>[...document.querySelectorAll('#opsReporterEmployee option')].some(option=>String(option.textContent||'').includes(name)),syntheticEmployeeName,{timeout:WORKSPACE_TIMEOUT_MS});
     const employeeValue=await page.locator('#opsReporterEmployee option').evaluateAll((options,name)=>options.find(option=>String(option.textContent||'').includes(name))?.value||'',syntheticEmployeeName);
     const locationValue=await page.locator('#opsReporterLocation option').evaluateAll((options,name)=>options.find(option=>String(option.textContent||'').includes(name))?.value||'',locationName);
-    assert(employeeValue&&locationValue,'reporting selectors did not receive authoritative employee/location records');
-    await page.locator('#opsReporterEmployee').selectOption(employeeValue);await page.locator('#opsReporterLocation').selectOption(locationValue);
-    const createLink=page.locator('#peopleops [data-bw-onclick="createOpsReporterLink()"]:visible').first();assert(await createLink.count()&&!(await createLink.isDisabled()),'Create reporting link control remained unavailable after valid setup');
-    await createLink.click();
-    await page.waitForFunction(()=>String(document.getElementById('opsNewReporterLink')?.value||'').includes('#report='),null,{timeout:15000});
-    let reporterLink=await page.locator('#opsNewReporterLink').inputValue();
-    const reporterPage=await context.newPage();
-    const reporterResponse=await reporterPage.goto(reporterLink,{waitUntil:'domcontentloaded',timeout:NAVIGATION_TIMEOUT_MS});
-    assert(reporterResponse?.status()===200,`restricted reporter portal HTTP ${reporterResponse?.status()||0}`);
-    assert(new URL(reporterPage.url()).pathname==='/report/','issued employee reporting link did not use the dedicated public report route');
-    await reporterPage.locator('#reporterPortal').waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
-    await reporterPage.locator('#reporterEmployeeName',{hasText:syntheticEmployeeName}).waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
-    await reporterPage.locator('#reporterLocationName',{hasText:locationName}).waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
-    const reporterText=await reporterPage.locator('#reporterPortal').innerText();
-    assert(reporterText.includes(syntheticEmployeeName)&&reporterText.includes(locationName),'restricted reporter portal did not bind the employee and location from the issued link');
-    assert(!(await reporterPage.locator('#authForm,#authGate,#appShell').count()),'public employee reporter leaked a sign-in or workspace surface');
-    await reporterPage.close();
+    assert(employeeValue&&locationValue,'reporting selectors did not receive authoritative employee/location records');await page.locator('#opsReporterEmployee').selectOption(employeeValue);await page.locator('#opsReporterLocation').selectOption(locationValue);
+    const createLink=page.locator('#peopleops [data-bw-onclick="createOpsReporterLink()"]:visible').first();assert(await createLink.count()&&!(await createLink.isDisabled()),'Create reporting link control remained unavailable after valid setup');await createLink.click();
+    await page.waitForFunction(()=>String(document.getElementById('opsNewReporterLink')?.value||'').includes('#report='),null,{timeout:15000});let reporterLink=await page.locator('#opsNewReporterLink').inputValue();
+    const reporterPage=await context.newPage();const reporterResponse=await reporterPage.goto(reporterLink,{waitUntil:'domcontentloaded',timeout:NAVIGATION_TIMEOUT_MS});assert(reporterResponse?.status()===200,`restricted reporter portal HTTP ${reporterResponse?.status()||0}`);assert(new URL(reporterPage.url()).pathname==='/report/','issued employee reporting link did not use the dedicated public report route');
+    await reporterPage.locator('#reporterPortal').waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});await reporterPage.locator('#reporterEmployeeName',{hasText:syntheticEmployeeName}).waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});await reporterPage.locator('#reporterLocationName',{hasText:locationName}).waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
+    const reporterText=await reporterPage.locator('#reporterPortal').innerText();assert(reporterText.includes(syntheticEmployeeName)&&reporterText.includes(locationName),'restricted reporter portal did not bind the employee and location from the issued link');assert(!(await reporterPage.locator('#authForm,#authGate,#appShell').count()),'public employee reporter leaked a sign-in or workspace surface');await reporterPage.close();
+    const mobileReporterContext=await browser.newContext({viewport:{width:390,height:844},screen:{width:390,height:844},isMobile:true,hasTouch:true});const mobileReporterPage=await mobileReporterContext.newPage();const mobileReporterResponse=await mobileReporterPage.goto(reporterLink,{waitUntil:'domcontentloaded',timeout:NAVIGATION_TIMEOUT_MS});assert(mobileReporterResponse?.status()===200,`mobile reporter portal HTTP ${mobileReporterResponse?.status()||0}`);assert(new URL(mobileReporterPage.url()).pathname==='/report/','mobile employee report link left the dedicated public report route');await mobileReporterPage.locator('#reporterPortal').waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});await mobileReporterPage.locator('#reporterEmployeeName',{hasText:syntheticEmployeeName}).waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});assert(!(await mobileReporterPage.locator('#authForm,#authGate,#appShell').count()),'mobile employee report link required or exposed workspace sign-in');await mobileReporterContext.close();mark('employee reporting access lifecycle','employee -> location -> passwordless desktop/mobile reporter portal verified in the disposable production tenant');
 
-    const mobileReporterContext=await browser.newContext({viewport:{width:390,height:844},screen:{width:390,height:844},isMobile:true,hasTouch:true});
-    const mobileReporterPage=await mobileReporterContext.newPage();
-    const mobileReporterResponse=await mobileReporterPage.goto(reporterLink,{waitUntil:'domcontentloaded',timeout:NAVIGATION_TIMEOUT_MS});
-    assert(mobileReporterResponse?.status()===200,`mobile reporter portal HTTP ${mobileReporterResponse?.status()||0}`);
-    assert(new URL(mobileReporterPage.url()).pathname==='/report/','mobile employee report link left the dedicated public report route');
-    await mobileReporterPage.locator('#reporterPortal').waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
-    await mobileReporterPage.locator('#reporterEmployeeName',{hasText:syntheticEmployeeName}).waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
-    assert(!(await mobileReporterPage.locator('#authForm,#authGate,#appShell').count()),'mobile employee report link required or exposed workspace sign-in');
-    await mobileReporterContext.close();
-    mark('employee reporting access lifecycle','employee -> location -> passwordless desktop/mobile reporter portal verified in the disposable production tenant');
+    await openEmployeesTool();await page.waitForFunction(()=>document.getElementById('employees')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});const employeeAccessRow=page.locator('#employeeRegister .item',{hasText:syntheticEmployeeName}).first();await employeeAccessRow.waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});const employeeAccessButton=employeeAccessRow.locator('button[aria-label^="Open reporting access for "][data-bw-onclick^="openEmployeeReportingAccess("]:visible').first();assert(await employeeAccessButton.count(),'clickable employee row reporting-access control missing');await employeeAccessButton.click();const employeeAccessPanel=page.locator(`[id="employeeReportingAccess_${employeeValue}"]`).first();await employeeAccessPanel.waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});await page.waitForFunction(id=>/Employee reporting access/i.test(String(document.getElementById(`employeeReportingAccess_${id}`)?.innerText||'')),employeeValue,{timeout:WORKSPACE_TIMEOUT_MS});assert(/Employee reporting access/i.test(await employeeAccessPanel.innerText()),'employee click did not reveal reporting access');const employeeLocationSelect=page.locator(`[id="employeeReportingLocation_${employeeValue}"]`).first();assert(await employeeLocationSelect.count(),'employee reporting-access location selector missing');await employeeLocationSelect.selectOption(locationValue);const createEmployeeLink=employeeAccessPanel.locator('button[data-bw-onclick^="createEmployeeReportingLinkFromCard("]:visible').first();assert(await createEmployeeLink.count(),'employee-row create/rotate reporting link control missing');let linkAlreadyIssued=false;try{await page.waitForFunction(id=>String(document.getElementById(`employeeReporterLink_${id}`)?.value||'').includes('#report='),employeeValue,{timeout:5000});linkAlreadyIssued=true;}catch{}if(!linkAlreadyIssued)await createEmployeeLink.click();await page.waitForFunction(id=>String(document.getElementById(`employeeReporterLink_${id}`)?.value||'').includes('#report='),employeeValue,{timeout:WORKSPACE_TIMEOUT_MS});reporterLink=await page.locator(`[id="employeeReporterLink_${employeeValue}"]`).inputValue();mark('employee row reporting access','clicking the employee opened reporting access and produced a fresh viewable private reporting link');
 
-    // Prove employee-row access opens reporting status and can issue a fresh viewable private link.
-    await openEmployeesTool();
-    await page.waitForFunction(()=>document.getElementById('employees')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
-    const employeeAccessRow=page.locator('#employeeRegister .item',{hasText:syntheticEmployeeName}).first();
-    await employeeAccessRow.waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
-    const employeeAccessButton=employeeAccessRow.locator('button[aria-label^="Open reporting access for "][data-bw-onclick^="openEmployeeReportingAccess("]:visible').first();
-    assert(await employeeAccessButton.count(),'clickable employee row reporting-access control missing');
-    await employeeAccessButton.click();
-    const employeeAccessPanel=page.locator(`[id="employeeReportingAccess_${employeeValue}"]`).first();
-    await employeeAccessPanel.waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
-    await page.waitForFunction(id=>/Employee reporting access/i.test(String(document.getElementById(`employeeReportingAccess_${id}`)?.innerText||'')),employeeValue,{timeout:WORKSPACE_TIMEOUT_MS});
-    assert(/Employee reporting access/i.test(await employeeAccessPanel.innerText()),'employee click did not reveal reporting access');
-    const employeeLocationSelect=page.locator(`[id="employeeReportingLocation_${employeeValue}"]`).first();
-    assert(await employeeLocationSelect.count(),'employee reporting-access location selector missing');
-    await employeeLocationSelect.selectOption(locationValue);
-    const createEmployeeLink=employeeAccessPanel.locator('button[data-bw-onclick^="createEmployeeReportingLinkFromCard("]:visible').first();
-    assert(await createEmployeeLink.count(),'employee-row create/rotate reporting link control missing');
-    let linkAlreadyIssued=false;
-    try{
-      await page.waitForFunction(id=>String(document.getElementById(`employeeReporterLink_${id}`)?.value||'').includes('#report='),employeeValue,{timeout:5000});
-      linkAlreadyIssued=true;
-    }catch{}
-    if(!linkAlreadyIssued)await createEmployeeLink.click();
-    await page.waitForFunction(id=>String(document.getElementById(`employeeReporterLink_${id}`)?.value||'').includes('#report='),employeeValue,{timeout:WORKSPACE_TIMEOUT_MS});
-    reporterLink=await page.locator(`[id="employeeReporterLink_${employeeValue}"]`).inputValue();
-    mark('employee row reporting access','clicking the employee opened reporting access and produced a fresh viewable private reporting link');
+    await openEmployeesTool();await page.waitForFunction(()=>document.getElementById('employees')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});const syntheticEmployeeRow=page.locator('#employeeRegister .item',{hasText:syntheticEmployeeName}).first();await syntheticEmployeeRow.waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});const removeEmployee=syntheticEmployeeRow.locator('button[data-bw-onclick^="removeEmployeeRecord("]:visible').first();assert(await removeEmployee.count(),'visible Remove employee control missing for the synthetic employee');await removeEmployee.click();const removalDialog=page.locator('.bw-dialog-service:visible').first();await removalDialog.waitFor({state:'visible',timeout:VIEW_TIMEOUT_MS});const confirmRemoval=removalDialog.getByRole('button',{name:'Remove employee'}).first();assert(await confirmRemoval.count(),'Remove employee confirmation control missing');await confirmRemoval.click();await page.waitForFunction(name=>![...document.querySelectorAll('#employeeRegister .item')].some(item=>String(item.textContent||'').includes(name)),syntheticEmployeeName,{timeout:WORKSPACE_TIMEOUT_MS});const reporterToken=new URLSearchParams(new URL(reporterLink).hash.slice(1)).get('report')||'';assert(reporterToken.length>=32,'issued reporting link token could not be recovered for revocation proof');const revokedAccess=await page.evaluate(async token=>{const response=await fetch('/public/daily-reporting/access',{method:'POST',credentials:'same-origin',headers:{'accept':'application/json','content-type':'application/json'},body:JSON.stringify({token})});let body=null;try{body=await response.json()}catch{}return {status:response.status,error:String(body?.error||'')};},reporterToken);assert(revokedAccess.status===404&&revokedAccess.error==='reporting_link_invalid_or_expired',`removed employee reporting link remained usable: HTTP ${revokedAccess.status} ${safe(revokedAccess.error)}`);mark('employee removal and reporting revocation','visible Remove employee flow removed the employee from the active register and invalidated the previously issued reporting link');
 
-    // Prove employee removal through the visible UI and fail closed on the bearer reporting link.
-    await openEmployeesTool();
-    await page.waitForFunction(()=>document.getElementById('employees')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
-    const syntheticEmployeeRow=page.locator('#employeeRegister .item',{hasText:syntheticEmployeeName}).first();
-    await syntheticEmployeeRow.waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
-    const removeEmployee=syntheticEmployeeRow.locator('button[data-bw-onclick^="removeEmployeeRecord("]:visible').first();
-    assert(await removeEmployee.count(),'visible Remove employee control missing for the synthetic employee');
-    await removeEmployee.click();
-    const removalDialog=page.locator('.bw-dialog-service:visible').first();
-    await removalDialog.waitFor({state:'visible',timeout:VIEW_TIMEOUT_MS});
-    const confirmRemoval=removalDialog.getByRole('button',{name:'Remove employee'}).first();
-    assert(await confirmRemoval.count(),'Remove employee confirmation control missing');
-    await confirmRemoval.click();
-    await page.waitForFunction(name=>![...document.querySelectorAll('#employeeRegister .item')].some(item=>String(item.textContent||'').includes(name)),syntheticEmployeeName,{timeout:WORKSPACE_TIMEOUT_MS});
-    const reporterToken=new URLSearchParams(new URL(reporterLink).hash.slice(1)).get('report')||'';
-    assert(reporterToken.length>=32,'issued reporting link token could not be recovered for revocation proof');
-    const revokedAccess=await page.evaluate(async token=>{
-      const response=await fetch('/public/daily-reporting/access',{method:'POST',credentials:'same-origin',headers:{'accept':'application/json','content-type':'application/json'},body:JSON.stringify({token})});
-      let body=null;try{body=await response.json()}catch{}
-      return {status:response.status,error:String(body?.error||'')};
-    },reporterToken);
-    assert(revokedAccess.status===404&&revokedAccess.error==='reporting_link_invalid_or_expired',
-      `removed employee reporting link remained usable: HTTP ${revokedAccess.status} ${safe(revokedAccess.error)}`);
-    mark('employee removal and reporting revocation','visible Remove employee flow removed the employee from the active register and invalidated the previously issued reporting link');
+    await delegatedPeopleButton.click();await page.waitForFunction(()=>document.getElementById('peopleops')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});const peopleReportingSetup=page.locator('#opsReportingSetupDetails').first();assert(await peopleReportingSetup.count(),'People reporting setup disclosure missing before location removal');if(!(await peopleReportingSetup.evaluate(node=>node.open===true)))await peopleReportingSetup.locator(':scope > summary').first().click();const syntheticLocationRow=page.locator('#opsLocationsList .item',{hasText:locationName}).first();await syntheticLocationRow.waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});const removeLocation=syntheticLocationRow.locator('button[data-bw-onclick^="removeOpsLocation("]:visible').first();assert(await removeLocation.count(),'visible Remove location control missing for the synthetic location');await removeLocation.click();const locationRemovalDialog=page.locator('.bw-dialog-service:visible').first();await locationRemovalDialog.waitFor({state:'visible',timeout:VIEW_TIMEOUT_MS});const confirmLocationRemoval=locationRemovalDialog.getByRole('button',{name:'Remove location'}).first();assert(await confirmLocationRemoval.count(),'Remove location confirmation control missing');await confirmLocationRemoval.click();await page.waitForFunction(name=>{const row=[...document.querySelectorAll('#opsLocationsList .item')].find(item=>String(item.textContent||'').includes(name));return !!row&&/Removed/.test(String(row.textContent||''))&&!!row.querySelector('button[data-bw-onclick^="reactivateOpsLocation("]');},locationName,{timeout:WORKSPACE_TIMEOUT_MS});await page.waitForFunction(id=>![...document.querySelectorAll('#opsReporterLocation option')].some(option=>option.value===id),locationValue,{timeout:WORKSPACE_TIMEOUT_MS});const archivedLocation=await page.evaluate(async id=>{const response=await fetch('/api/daily-reporting/locations',{credentials:'same-origin',headers:{accept:'application/json'}});let body=null;try{body=await response.json()}catch{}const items=Array.isArray(body?.items)?body.items:[];const item=items.find(row=>String(row.id)===String(id));return {status:response.status,found:!!item,active:Number(item?.active),activeCount:items.filter(row=>Number(row?.active)===1).length,names:items.map(row=>String(row?.name||''))};},locationValue);assert(archivedLocation.status===200&&archivedLocation.found&&archivedLocation.active===0&&archivedLocation.activeCount===0,'last location removal did not retain exactly an inactive historical row: '+safe(JSON.stringify(archivedLocation)));mark('location removal lifecycle','visible Remove location flow removed the last active location, retained it as history and did not recreate Head Office');
 
-    // Prove the last active location can be removed without erasing historical location/reporting facts.
-    await delegatedPeopleButton.click();
-    await page.waitForFunction(()=>document.getElementById('peopleops')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
-    const peopleReportingSetup=page.locator('#opsReportingSetupDetails').first();
-    assert(await peopleReportingSetup.count(),'People reporting setup disclosure missing before location removal');
-    if(!(await peopleReportingSetup.evaluate(node=>node.open===true)))await peopleReportingSetup.locator(':scope > summary').first().click();
-    const syntheticLocationRow=page.locator('#opsLocationsList .item',{hasText:locationName}).first();
-    await syntheticLocationRow.waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
-    const removeLocation=syntheticLocationRow.locator('button[data-bw-onclick^="removeOpsLocation("]:visible').first();
-    assert(await removeLocation.count(),'visible Remove location control missing for the synthetic location');
-    await removeLocation.click();
-    const locationRemovalDialog=page.locator('.bw-dialog-service:visible').first();
-    await locationRemovalDialog.waitFor({state:'visible',timeout:VIEW_TIMEOUT_MS});
-    const confirmLocationRemoval=locationRemovalDialog.getByRole('button',{name:'Remove location'}).first();
-    assert(await confirmLocationRemoval.count(),'Remove location confirmation control missing');
-    await confirmLocationRemoval.click();
-    await page.waitForFunction(name=>{
-      const row=[...document.querySelectorAll('#opsLocationsList .item')].find(item=>String(item.textContent||'').includes(name));
-      return !!row&&/Removed/.test(String(row.textContent||''))&&!!row.querySelector('button[data-bw-onclick^="reactivateOpsLocation("]');
-    },locationName,{timeout:WORKSPACE_TIMEOUT_MS});
-    await page.waitForFunction(id=>![...document.querySelectorAll('#opsReporterLocation option')].some(option=>option.value===id),locationValue,{timeout:WORKSPACE_TIMEOUT_MS});
-    const archivedLocation=await page.evaluate(async id=>{
-      const response=await fetch('/api/daily-reporting/locations',{credentials:'same-origin',headers:{accept:'application/json'}});
-      let body=null;try{body=await response.json()}catch{}
-      const items=Array.isArray(body?.items)?body.items:[];
-      const item=items.find(row=>String(row.id)===String(id));
-      return {status:response.status,found:!!item,active:Number(item?.active),activeCount:items.filter(row=>Number(row?.active)===1).length,names:items.map(row=>String(row?.name||''))};
-    },locationValue);
-    assert(archivedLocation.status===200&&archivedLocation.found&&archivedLocation.active===0&&archivedLocation.activeCount===0,
-      'last location removal did not retain exactly an inactive historical row: '+safe(JSON.stringify(archivedLocation)));
-    mark('location removal lifecycle','visible Remove location flow removed the last active location, retained it as history and did not recreate Head Office');
-
-    // Prove the live manual-bank customer path without falsely approving synthetic funds.
-    await page.evaluate(()=>globalThis.showView?.('billing'));
-    await page.waitForFunction(()=>document.getElementById('billing')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});
-    const starterPlanButton=page.locator('#billing button.eventcard:visible').filter({hasText:'Monitor'}).first();
-    await starterPlanButton.waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
-    await starterPlanButton.click();
-    await page.locator('#manualBankReference').waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
-    const manualTransferUi=await page.locator('#upgradeResult').innerText();
-    assert(/First National Bank/i.test(manualTransferUi)&&/Account number:/i.test(manualTransferUi)&&/Branch:/i.test(manualTransferUi)&&/SWIFT:/i.test(manualTransferUi),
-      'manual-bank checkout did not render complete public bank instructions');
-    assert(!/Account name:/i.test(manualTransferUi),'manual-bank checkout unexpectedly exposed an account-name field');
-    assert(/Submission does not activate the plan\./i.test(manualTransferUi),'manual-bank checkout omitted pending-verification warning');
-    const syntheticBankReference=('SYNTH-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10)).toUpperCase();
-    await page.locator('#manualBankReference').fill(syntheticBankReference);
-    const paidButton=page.locator('#upgradeResult button[data-bw-onclick^="submitManualBankPayment("]:visible').first();
-    assert(await paidButton.count(),'manual-bank checkout missing I have paid control');
-    await paidButton.click();
-    await page.waitForFunction(()=>/Payment submitted for verification\./i.test(String(document.getElementById('manualBankSubmitResult')?.textContent||'')),null,{timeout:WORKSPACE_TIMEOUT_MS});
-    const manualPaymentState=await page.evaluate(async bankReference=>{
-      const [statusResponse,billingResponse]=await Promise.all([
-        fetch('/api/payments/manual-bank/status',{credentials:'same-origin',headers:{accept:'application/json'}}),
-        fetch('/api/billing/status',{credentials:'same-origin',headers:{accept:'application/json'}})
-      ]);
-      let statusBody=null,billingBody=null;try{statusBody=await statusResponse.json()}catch{}try{billingBody=await billingResponse.json()}catch{}
-      const match=(Array.isArray(statusBody?.items)?statusBody.items:[]).find(row=>String(row?.bank_reference||'')===bankReference);
-      return {statusHttp:statusResponse.status,billingHttp:billingResponse.status,submissionStatus:String(match?.status||''),billingStatus:String(billingBody?.status||''),found:!!match};
-    },syntheticBankReference);
-    assert(manualPaymentState.statusHttp===200&&manualPaymentState.billingHttp===200&&manualPaymentState.found&&manualPaymentState.submissionStatus==='submitted',
-      'manual-bank submission was not retained in submitted state: '+safe(JSON.stringify(manualPaymentState)));
-    assert(manualPaymentState.billingStatus!=='active',
-      'synthetic manual-bank submission activated the subscription before funds verification: '+safe(JSON.stringify(manualPaymentState)));
-    mark('manual bank pending-verification lifecycle','checkout rendered reviewed bank instructions, customer submission persisted, and the plan remained inactive pending admin verification');
+    await page.evaluate(()=>globalThis.showView?.('billing'));await page.waitForFunction(()=>document.getElementById('billing')?.classList.contains('active'),null,{timeout:VIEW_TIMEOUT_MS});const starterPlanButton=page.locator('#billing button.eventcard:visible').filter({hasText:'Monitor'}).first();await starterPlanButton.waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});await starterPlanButton.click();await page.locator('#manualBankReference').waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});const manualTransferUi=await page.locator('#upgradeResult').innerText();assert(/First National Bank/i.test(manualTransferUi)&&/Account number:/i.test(manualTransferUi)&&/Branch:/i.test(manualTransferUi)&&/SWIFT:/i.test(manualTransferUi),'manual-bank checkout did not render complete public bank instructions');assert(!/Account name:/i.test(manualTransferUi),'manual-bank checkout unexpectedly exposed an account-name field');assert(/Submission does not activate the plan\./i.test(manualTransferUi),'manual-bank checkout omitted pending-verification warning');const syntheticBankReference=('SYNTH-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10)).toUpperCase();await page.locator('#manualBankReference').fill(syntheticBankReference);const paidButton=page.locator('#upgradeResult button[data-bw-onclick^="submitManualBankPayment("]:visible').first();assert(await paidButton.count(),'manual-bank checkout missing I have paid control');await paidButton.click();await page.waitForFunction(()=>/Payment submitted for verification\./i.test(String(document.getElementById('manualBankSubmitResult')?.textContent||'')),null,{timeout:WORKSPACE_TIMEOUT_MS});const manualPaymentState=await page.evaluate(async bankReference=>{const [statusResponse,billingResponse]=await Promise.all([fetch('/api/payments/manual-bank/status',{credentials:'same-origin',headers:{accept:'application/json'}}),fetch('/api/billing/status',{credentials:'same-origin',headers:{accept:'application/json'}})]);let statusBody=null,billingBody=null;try{statusBody=await statusResponse.json()}catch{}try{billingBody=await billingResponse.json()}catch{}const match=(Array.isArray(statusBody?.items)?statusBody.items:[]).find(row=>String(row?.bank_reference||'')===bankReference);return {statusHttp:statusResponse.status,billingHttp:billingResponse.status,submissionStatus:String(match?.status||''),billingStatus:String(billingBody?.status||''),found:!!match};},syntheticBankReference);assert(manualPaymentState.statusHttp===200&&manualPaymentState.billingHttp===200&&manualPaymentState.found&&manualPaymentState.submissionStatus==='submitted','manual-bank submission was not retained in submitted state: '+safe(JSON.stringify(manualPaymentState)));assert(manualPaymentState.billingStatus!=='active','synthetic manual-bank submission activated the subscription before funds verification: '+safe(JSON.stringify(manualPaymentState)));mark('manual bank pending-verification lifecycle','checkout rendered reviewed bank instructions, customer submission persisted, and the plan remained inactive pending admin verification');
 
     await page.evaluate(()=>globalThis.showView?.('dashboard',{skipDataRefresh:true}));
+    await page.waitForFunction(()=>{const api=globalThis.ThebeAiDock,dock=document.getElementById('thebeAiDock'),pill=document.getElementById('thebeAiDockPill');if(!api||!dock||!pill)return false;const state=typeof api.state==='function'?api.state():null;const style=getComputedStyle(dock),rect=dock.getBoundingClientRect();return state?.workspaceVisible===true&&state?.collapsed===false&&dock.hidden===false&&style.display!=='none'&&style.visibility!=='hidden'&&rect.width>250&&rect.height>250&&rect.right<=innerWidth+1;},null,{timeout:WORKSPACE_TIMEOUT_MS});
+    const dockInitial=await page.evaluate(()=>({release:String(globalThis.ThebeAiDock?.release||''),state:globalThis.ThebeAiDock?.state?.()||null}));const appHeaders=await app.allHeaders();const expectedDockRelease=String(appHeaders['x-thebe-ai-dock']||'');assert(/^[0-9]{8}[A-Za-z0-9._-]{1,48}$/.test(dockInitial.release),`unexpected Thebe dock release ${safe(dockInitial.release||'missing')}`);assert(expectedDockRelease&&dockInitial.release===expectedDockRelease,`Thebe dock release mismatch runtime=${safe(dockInitial.release||'missing')} server=${safe(expectedDockRelease||'missing')}`);assert(dockInitial.state?.workspaceVisible===true&&dockInitial.state?.dockHidden===false,'Thebe dock was not visibly mounted after owner workspace readiness');
+    await page.evaluate(()=>globalThis.ThebeAiDock.close());await page.waitForFunction(()=>{const dock=document.getElementById('thebeAiDock'),pill=document.getElementById('thebeAiDockPill');if(!dock||!pill)return false;const dockStyle=getComputedStyle(dock),pillStyle=getComputedStyle(pill),state=globalThis.ThebeAiDock?.state?.();return state?.mobile===false&&state?.collapsed===false&&dock.hidden===false&&dockStyle.display!=='none'&&dockStyle.visibility!=='hidden'&&pill.hidden===true&&pillStyle.display==='none';},null,{timeout:VIEW_TIMEOUT_MS});mark('Thebe dock authenticated visibility',`release=${dockInitial.release} visible after workspace-ready; desktop close() remained a no-op and pill stayed hidden`);
 
-    await page.waitForFunction(()=>{
-      const api=globalThis.ThebeAiDock,dock=document.getElementById('thebeAiDock'),pill=document.getElementById('thebeAiDockPill');
-      if(!api||!dock||!pill)return false;
-      const state=typeof api.state==='function'?api.state():null;
-      const style=getComputedStyle(dock),rect=dock.getBoundingClientRect();
-      return state?.workspaceVisible===true&&state?.collapsed===false&&dock.hidden===false&&style.display!=='none'&&style.visibility!=='hidden'&&rect.width>250&&rect.height>250&&rect.right<=innerWidth+1;
-    },null,{timeout:WORKSPACE_TIMEOUT_MS});
-    const dockInitial=await page.evaluate(()=>({release:String(globalThis.ThebeAiDock?.release||''),state:globalThis.ThebeAiDock?.state?.()||null}));
-    const appHeaders=await app.allHeaders();
-    const expectedDockRelease=String(appHeaders['x-thebe-ai-dock']||'');
-    assert(/^[0-9]{8}[A-Za-z0-9._-]{1,48}$/.test(dockInitial.release),`unexpected Thebe dock release ${safe(dockInitial.release||'missing')}`);
-    assert(expectedDockRelease&&dockInitial.release===expectedDockRelease,`Thebe dock release mismatch runtime=${safe(dockInitial.release||'missing')} server=${safe(expectedDockRelease||'missing')}`);
-    assert(dockInitial.state?.workspaceVisible===true&&dockInitial.state?.dockHidden===false,'Thebe dock was not visibly mounted after owner workspace readiness');
-
-    await page.evaluate(()=>globalThis.ThebeAiDock.close());
-    await page.waitForFunction(()=>{
-      const dock=document.getElementById('thebeAiDock'),pill=document.getElementById('thebeAiDockPill');
-      if(!dock||!pill)return false;
-      const dockStyle=getComputedStyle(dock),pillStyle=getComputedStyle(pill),state=globalThis.ThebeAiDock?.state?.();
-      return state?.mobile===false&&state?.collapsed===false&&dock.hidden===false&&dockStyle.display!=='none'&&dockStyle.visibility!=='hidden'&&pill.hidden===true&&pillStyle.display==='none';
-    },null,{timeout:VIEW_TIMEOUT_MS});
-    mark('Thebe dock authenticated visibility',`release=${dockInitial.release} visible after workspace-ready; desktop close() remained a no-op and pill stayed hidden`);
-
-    // Open real sidebar disclosures before collecting role-visible specialist pages.
-    // Keep the in-view minimum: a collapsed menu must not shrink the audit coverage.
     for(let pass=0;pass<3;pass++){
-      const closedMenus=page.locator('#nav details:not([open]) > summary:visible');
-      const count=await closedMenus.count();
-      if(!count)break;
-      for(let index=0;index<count;index++){
-        const nextMenu=page.locator('#nav details:not([open]) > summary:visible').first();
-        if(!(await nextMenu.count()))break;
-        await nextMenu.click();
-      }
+      const closedMenus=page.locator('#nav details:not([open]) > summary:visible');const count=await closedMenus.count();if(!count)break;
+      for(let index=0;index<count;index++){const nextMenu=page.locator('#nav details:not([open]) > summary:visible').first();if(!(await nextMenu.count()))break;await nextMenu.click();}
     }
-    const views=await page.evaluate(()=>{
-      const roleCheck=typeof globalThis.roleCanView==='function'?globalThis.roleCanView:null;
-      const unique=[];
-      for(const button of document.querySelectorAll('#nav button[data-view]')){
-        const view=String(button.dataset.view||'').trim();
-        const style=getComputedStyle(button);
-        if(!view||unique.includes(view)||button.hidden||button.closest('[hidden]')||button.offsetParent===null||style.display==='none'||style.visibility==='hidden')continue;
-        if(roleCheck&&!roleCheck(view))continue;
-        unique.push(view);
-      }
-      return unique;
-    });
+    const views=await page.evaluate(()=>{const roleCheck=typeof globalThis.roleCanView==='function'?globalThis.roleCanView:null;const unique=[];for(const button of document.querySelectorAll('#nav button[data-view]')){const view=String(button.dataset.view||'').trim();const style=getComputedStyle(button);if(!view||unique.includes(view)||button.hidden||button.closest('[hidden]')||button.offsetParent===null||style.display==='none'||style.visibility==='hidden')continue;if(roleCheck&&!roleCheck(view))continue;unique.push(view);}return unique;});
     assert(views.length>=MIN_OWNER_VIEW_COUNT,`only ${views.length} owner-visible views were discoverable; expected at least ${MIN_OWNER_VIEW_COUNT}`);
-
     for(const view of views){
-      const button=page.locator(`#nav button[data-view="${view}"]`).first();
-      assert(await button.count(),`navigation button missing for owner view ${view}`);
-      const details=button.locator('xpath=ancestor::details[1]');
-      if(await details.count()&&!(await details.evaluate(node=>node.open===true))){
-        const summary=details.locator(':scope > summary').first();
-        assert(await summary.count(),`collapsed navigation group for ${view} has no summary control`);
-        await summary.click();
-        await page.waitForFunction(targetView=>{
-          const button=document.querySelector(`#nav button[data-view="${targetView}"]`);
-          return !!button&&button.offsetParent!==null;
-        },view,{timeout:VIEW_TIMEOUT_MS});
-      }
-      const before=await page.evaluate(targetView=>{
-        const target=document.getElementById(targetView);
-        return {
-          exists:!!target,
-          lazy:target?.dataset?.lazyView==='1'||target?.dataset?.lazyHydrated==='1'
-        };
-      },view);
-      assert(before.exists,`workspace target missing for owner view ${view}`);
-      await button.click();
-      await page.waitForFunction(targetView=>document.getElementById(targetView)?.classList.contains('active'),view,{timeout:VIEW_TIMEOUT_MS});
-      if(before.lazy){
-        await page.waitForFunction(targetView=>{
-          const target=document.getElementById(targetView);
-          return target?.dataset?.lazyHydrated==='1'||target?.dataset?.lazyError==='1';
-        },view,{timeout:WORKSPACE_TIMEOUT_MS});
-      }else{
-        await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>setTimeout(resolve,30))));
-      }
-      const result=await page.evaluate(targetView=>{
-        const target=document.getElementById(targetView);
-        return {
-          exists:!!target,
-          active:!!target?.classList.contains('active'),
-          title:String(document.getElementById('pageTitle')?.textContent||'').trim(),
-          shellVisible:!document.getElementById('appShell')?.classList.contains('hidden'),
-          lazyHydrated:target?.dataset?.lazyHydrated==='1',
-          lazyError:target?.dataset?.lazyError==='1',
-          stillLazy:target?.dataset?.lazyView||'',
-          contentLength:String(target?.textContent||'').trim().length
-        };
-      },view);
-      assert(result.exists&&result.active&&result.shellVisible,`real navigation click did not activate owner view ${view}: ${safe(JSON.stringify(result))}`);
-      assert(result.title.length>0,`view ${view} activated without a page title`);
-      if(before.lazy){
-        assert(result.lazyHydrated&&!result.lazyError&&!result.stillLazy,`lazy view ${view} did not complete hydration after its real navigation click: ${safe(JSON.stringify(result))}`);
-        assert(result.contentLength>0,`lazy view ${view} hydrated with empty content after its real navigation click`);
-      }
+      const button=page.locator(`#nav button[data-view="${view}"]`).first();assert(await button.count(),`navigation button missing for owner view ${view}`);const details=button.locator('xpath=ancestor::details[1]');if(await details.count()&&!(await details.evaluate(node=>node.open===true))){const summary=details.locator(':scope > summary').first();assert(await summary.count(),`collapsed navigation group for ${view} has no summary control`);await summary.click();await page.waitForFunction(targetView=>{const button=document.querySelector(`#nav button[data-view="${targetView}"]`);return !!button&&button.offsetParent!==null;},view,{timeout:VIEW_TIMEOUT_MS});}
+      const before=await page.evaluate(targetView=>{const target=document.getElementById(targetView);return {exists:!!target,lazy:target?.dataset?.lazyView==='1'||target?.dataset?.lazyHydrated==='1'};},view);assert(before.exists,`workspace target missing for owner view ${view}`);await button.click();await page.waitForFunction(targetView=>document.getElementById(targetView)?.classList.contains('active'),view,{timeout:VIEW_TIMEOUT_MS});if(before.lazy){await page.waitForFunction(targetView=>{const target=document.getElementById(targetView);return target?.dataset?.lazyHydrated==='1'||target?.dataset?.lazyError==='1';},view,{timeout:WORKSPACE_TIMEOUT_MS});}else await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>setTimeout(resolve,30))));
+      const result=await page.evaluate(targetView=>{const target=document.getElementById(targetView);return {exists:!!target,active:!!target?.classList.contains('active'),title:String(document.getElementById('pageTitle')?.textContent||'').trim(),shellVisible:!document.getElementById('appShell')?.classList.contains('hidden'),lazyHydrated:target?.dataset?.lazyHydrated==='1',lazyError:target?.dataset?.lazyError==='1',stillLazy:target?.dataset?.lazyView||'',contentLength:String(target?.textContent||'').trim().length};},view);
+      assert(result.exists&&result.active&&result.shellVisible,`real navigation click did not activate owner view ${view}: ${safe(JSON.stringify(result))}`);assert(result.title.length>0,`view ${view} activated without a page title`);if(before.lazy){assert(result.lazyHydrated&&!result.lazyError&&!result.stillLazy,`lazy view ${view} did not complete hydration after its real navigation click: ${safe(JSON.stringify(result))}`);assert(result.contentLength>0,`lazy view ${view} hydrated with empty content after its real navigation click`);}
     }
 
     const openOwnerViewThroughNav=async view=>{
-      const button=page.locator('#nav button[data-view="'+view+'"]').first();
-      assert(await button.count(),'safe UI action source navigation/search index missing for '+view);
-      if(await button.isVisible()){
-        const details=button.locator('xpath=ancestor::details[1]');
-        if(await details.count()&&!(await details.evaluate(node=>node.open===true))){
-          const summary=details.locator(':scope > summary').first();
-          assert(await summary.count(),'safe UI action source group for '+view+' has no summary');
-          await summary.click();
-        }
-        await button.click();
-      }else{
-        const label=safe(await button.textContent())||view;
-        const opened=await page.evaluate(query=>{
-          if(typeof globalThis.openCommandPaletteWithQuery!=='function')return false;
-          globalThis.openCommandPaletteWithQuery(query);
-          return document.getElementById('commandShade')?.classList.contains('open')===true;
-        },label);
-        assert(opened,'Find tools did not open for hidden specialist view '+view);
-        const result=page.locator('#commandResults .commanditem[data-bw-onclick="commandGo(\''+view+'\')"]').first();
-        assert(await result.count(),'Find tools result missing for hidden specialist view '+view);
-        await result.click();
-      }
-      await page.waitForFunction(targetView=>document.getElementById(targetView)?.classList.contains('active'),view,{timeout:VIEW_TIMEOUT_MS});
-      await page.waitForFunction(targetView=>{
-        const target=document.getElementById(targetView);
-        return !!target&&(target.dataset.lazyView!=='1'||target.dataset.lazyHydrated==='1'||target.dataset.lazyError==='1');
-      },view,{timeout:WORKSPACE_TIMEOUT_MS});
-      const state=await page.evaluate(targetView=>{
-        const target=document.getElementById(targetView);
-        return {active:!!target?.classList.contains('active'),lazyError:target?.dataset?.lazyError||''};
-      },view);
-      assert(state.active&&!state.lazyError,'safe UI action source view failed to open: '+view+' '+safe(JSON.stringify(state)));
+      const button=page.locator('#nav button[data-view="'+view+'"]').first();assert(await button.count(),'safe UI action source navigation/search index missing for '+view);
+      if(await button.isVisible()){const details=button.locator('xpath=ancestor::details[1]');if(await details.count()&&!(await details.evaluate(node=>node.open===true))){const summary=details.locator(':scope > summary').first();assert(await summary.count(),'safe UI action source group for '+view+' has no summary');await summary.click();}await button.click();}
+      else{const label=safe(await button.textContent())||view;const opened=await page.evaluate(query=>{if(typeof globalThis.openCommandPaletteWithQuery!=='function')return false;globalThis.openCommandPaletteWithQuery(query);return document.getElementById('commandShade')?.classList.contains('open')===true;},label);assert(opened,'Find tools did not open for hidden specialist view '+view);const result=page.locator('#commandResults .commanditem[data-bw-onclick="commandGo(\''+view+'\')"]').first();assert(await result.count(),'Find tools result missing for hidden specialist view '+view);await result.click();}
+      await page.waitForFunction(targetView=>document.getElementById(targetView)?.classList.contains('active'),view,{timeout:VIEW_TIMEOUT_MS});await page.waitForFunction(targetView=>{const target=document.getElementById(targetView);return !!target&&(target.dataset.lazyView!=='1'||target.dataset.lazyHydrated==='1'||target.dataset.lazyError==='1');},view,{timeout:WORKSPACE_TIMEOUT_MS});const state=await page.evaluate(targetView=>{const target=document.getElementById(targetView);return {active:!!target?.classList.contains('active'),lazyError:target?.dataset?.lazyError||''};},view);assert(state.active&&!state.lazyError,'safe UI action source view failed to open: '+view+' '+safe(JSON.stringify(state)));
     };
 
-    await openOwnerViewThroughNav('propertyintelligence');
-    const propertyAnalyseTab=page.getByRole('tab',{name:'Analyse',exact:true});
-    assert(await propertyAnalyseTab.count(),'Property Analyse tab is missing from the authenticated Property workspace');
-    await propertyAnalyseTab.click();
-    await page.waitForFunction(()=>document.getElementById('propertyintelligence')?.dataset?.propertyActivePane==='analyse',null,{timeout:VIEW_TIMEOUT_MS});
-    mark('Property Analyse tab','opened through the real Property workspace tab before calculator proof');
-    try{
-      await page.waitForFunction(()=>{
-        const view=document.getElementById('propertyintelligence');
-        const calculator=view?.querySelector('.property-calculator-v224');
-        const price=view?.querySelector('#propertyPurchasePrice');
-        const rent=view?.querySelector('#propertyMonthlyRent');
-        const analyse=view?.querySelector('.property-analyse-button');
-        return !!view&&!!calculator&&!!price&&!!rent&&!!analyse&&
-          view.dataset.lazyView!=='1'&&
-          calculator.offsetParent!==null&&price.offsetParent!==null&&rent.offsetParent!==null&&analyse.offsetParent!==null;
-      },null,{timeout:WORKSPACE_TIMEOUT_MS});
-    }catch(error){
-      const propertyVisibilityDiagnostic=await page.evaluate(()=>{
-        const describe=node=>{
-          if(!node)return null;
-          const style=getComputedStyle(node),rect=node.getBoundingClientRect();
-          return {
-            tag:node.tagName,
-            id:node.id||'',
-            className:String(node.className||''),
-            hidden:node.hidden===true,
-            ariaHidden:node.getAttribute('aria-hidden'),
-            inert:node.hasAttribute('inert'),
-            display:style.display,
-            visibility:style.visibility,
-            opacity:style.opacity,
-            width:Math.round(rect.width),
-            height:Math.round(rect.height),
-            offsetParent:node.offsetParent?.id||node.offsetParent?.className||null
-          };
-        };
-        const view=document.getElementById('propertyintelligence');
-        const calculator=view?.querySelector('.property-calculator-v224');
-        const price=view?.querySelector('#propertyPurchasePrice');
-        const rent=view?.querySelector('#propertyMonthlyRent');
-        const analyse=view?.querySelector('.property-analyse-button');
-        const chain=[];
-        let node=calculator;
-        while(node&&chain.length<8){chain.push(describe(node));node=node.parentElement}
-        return {
-          view:describe(view),
-          viewDataset:{...view?.dataset},
-          calculator:describe(calculator),
-          price:describe(price),
-          rent:describe(rent),
-          analyse:describe(analyse),
-          ancestorChain:chain,
-          visibilityRuntime:globalThis.ThebePropertyVisibility?.state?.()||null
-        };
-      });
-      console.error('FAIL Property visibility diagnostic '+JSON.stringify(propertyVisibilityDiagnostic));
-      throw error;
-    }
-    const propertyCalculatorState=await page.evaluate(()=>{
-      const view=document.getElementById('propertyintelligence');
-      const calculator=view?.querySelector('.property-calculator-v224');
-      const heading=calculator?.querySelector('h3');
-      const rect=calculator?.getBoundingClientRect?.();
-      return {
-        resident:view?.dataset?.lazyView!=='1',
-        heading:String(heading?.textContent||'').trim(),
-        visible:!!calculator&&calculator.offsetParent!==null,
-        width:rect?Math.round(rect.width):0,
-        priceVisible:!!document.getElementById('propertyPurchasePrice')&&document.getElementById('propertyPurchasePrice').offsetParent!==null,
-        rentVisible:!!document.getElementById('propertyMonthlyRent')&&document.getElementById('propertyMonthlyRent').offsetParent!==null,
-        analyseVisible:!!view?.querySelector('.property-analyse-button')&&view.querySelector('.property-analyse-button').offsetParent!==null
-      };
-    });
-    assert(propertyCalculatorState.resident&&propertyCalculatorState.visible&&/Compact Property Calculator/i.test(propertyCalculatorState.heading)&&propertyCalculatorState.priceVisible&&propertyCalculatorState.rentVisible&&propertyCalculatorState.analyseVisible,
-      `Compact Property Calculator is not resident and visible in the authenticated Property workspace: ${safe(JSON.stringify(propertyCalculatorState))}`);
-    mark('V229 resident Compact Property Calculator',`resident=true width=${propertyCalculatorState.width}px with price, rent and Analyze visible without fragment hydration`);
-    await page.waitForFunction(()=>document.getElementById('propertyPortfolioWorkspace')&&document.getElementById('propertyValuationServicePanel'),null,{timeout:WORKSPACE_TIMEOUT_MS});
-    await page.waitForFunction(()=>{
-      const dock=document.getElementById('thebeAiDock');
-      const core=dock?.querySelector('.thebe-particle-core');
-      return !!dock&&!!core&&
-        dock.querySelectorAll('.thebe-mascot-image').length===0&&
-        dock.querySelectorAll('.thebe-mascot-svg').length===0;
-    },null,{timeout:VIEW_TIMEOUT_MS});
-    await page.getByRole('tab',{name:'Operations',exact:true}).click();
-    const serviceDisclosure=page.locator('#propertyValuationServicePanel');
-    const serviceSummary=serviceDisclosure.locator(':scope > summary');
-    if(await serviceSummary.count()&&!(await serviceDisclosure.evaluate(node=>node.open)))await serviceSummary.click();
-    const v182WorkspaceVisual=await page.evaluate(calculatorProof=>{
-      const orb=document.querySelector('#thebeAiDock .thebe-ai-orb-button');
-      const core=document.querySelector('#thebeAiDock .thebe-particle-core');
-      const shell=document.getElementById('propertyPortfolioWorkspace');
-      const service=document.getElementById('propertyValuationServicePanel');
-      const forms=document.getElementById('propertyAssetFormPanel')?.parentElement||null;
-      const layout=document.querySelector('#propertyintelligence .property-layout');
-      const input=layout?.querySelector('.property-input-card');
-      const results=layout?.querySelector('.property-results-wrap');
-      const inputRect=input?.getBoundingClientRect?.();
-      const resultsRect=results?.getBoundingClientRect?.();
-      const compactReference=layout?.classList.contains('property-layout-v224')&&input?.classList.contains('property-calculator-v224');
-      const paneChildren=[...document.getElementById("propertyintelligence").children];
-      return {
-        mascotImages:document.querySelectorAll('#thebeAiDock .thebe-mascot-image').length,
-        mascotSvgs:document.querySelectorAll('#thebeAiDock .thebe-mascot-svg').length,
-        particleCount:document.querySelectorAll('#thebeAiDock .thebe-particle').length,
-        orbWidth:orb?Math.round(orb.getBoundingClientRect().width):0,
-        dockOpen:document.body.classList.contains('thebe-ai-dock-open'),
-        serviceVisible:!!service&&!service.hidden&&getComputedStyle(service).display!=='none'&&getComputedStyle(service).visibility!=='hidden',
-        serviceBackground:service?getComputedStyle(service).backgroundColor:'missing',
-        serviceBeforeForms:!!service&&!!forms&&shell.contains(forms)&&paneChildren.indexOf(service)>=0&&paneChildren.indexOf(shell)>paneChildren.indexOf(service),
-        requestButtonVisible:!!document.getElementById('propertyValuationServiceRequestButton')&&document.getElementById('propertyValuationServiceRequestButton').offsetParent!==null,
-        calculatorWidth:calculatorProof.width,
-        activePropertyPane:document.getElementById("propertyintelligence").dataset.propertyActivePane,
-        spatialStyle:getComputedStyle(document.getElementById('thebeAiDock')).getPropertyValue('--thebe-spatial-dock').trim(),
-        calculatorInline:input?.getAttribute('style')||'',
-        dockGeometry:{left:document.getElementById('thebeAiDock').getBoundingClientRect().left,mainRight:document.getElementById('mainContent').getBoundingClientRect().right},
-        propertyLayoutStacked:compactReference&&calculatorProof.visible&&calculatorProof.width>0&&calculatorProof.width<=680
-      };
-    },propertyCalculatorState);
-    assert(v182WorkspaceVisual.mascotImages===0&&v182WorkspaceVisual.mascotSvgs===0,
-      `workspace must not render the mascot: ${safe(JSON.stringify(v182WorkspaceVisual))}`);
-    assert(v182WorkspaceVisual.particleCount===343,'workspace Talk to Thebe must retain the particle voice field with no mascot or decorative character');
-    assert(v182WorkspaceVisual.orbWidth===68,
-      `workspace dock changed the authoritative 68px voice-control geometry: ${safe(JSON.stringify(v182WorkspaceVisual))}`);
-    assert(v182WorkspaceVisual.dockOpen&&v182WorkspaceVisual.propertyLayoutStacked,
-      `Property analysis did not stack cleanly beside the open desktop Thebe dock: ${safe(JSON.stringify(v182WorkspaceVisual))}`);
-    assert(v182WorkspaceVisual.serviceVisible&&v182WorkspaceVisual.serviceBackground==='rgb(247, 251, 255)'&&v182WorkspaceVisual.activePropertyPane==='operations'&&v182WorkspaceVisual.serviceBeforeForms&&v182WorkspaceVisual.requestButtonVisible,
-      `professional valuation service is not visibly promoted ahead of Property setup forms: ${safe(JSON.stringify(v182WorkspaceVisual))}`);
-    mark('V182 live marketing + workspace presentation','restored market photo, mascot removed everywhere, dock-safe Property layout and readable CTA verified');
+    await openOwnerViewThroughNav('propertyintelligence');const propertyAnalyseTab=page.getByRole('tab',{name:'Analyse',exact:true});assert(await propertyAnalyseTab.count(),'Property Analyse tab is missing from the authenticated Property workspace');await propertyAnalyseTab.click();await page.waitForFunction(()=>document.getElementById('propertyintelligence')?.dataset?.propertyActivePane==='analyse',null,{timeout:VIEW_TIMEOUT_MS});mark('Property Analyse tab','opened through the real Property workspace tab before calculator proof');
+    try{await page.waitForFunction(()=>{const view=document.getElementById('propertyintelligence');const calculator=view?.querySelector('.property-calculator-v224');const price=view?.querySelector('#propertyPurchasePrice');const rent=view?.querySelector('#propertyMonthlyRent');const analyse=view?.querySelector('.property-analyse-button');return !!view&&!!calculator&&!!price&&!!rent&&!!analyse&&view.dataset.lazyView!=='1'&&calculator.offsetParent!==null&&price.offsetParent!==null&&rent.offsetParent!==null&&analyse.offsetParent!==null;},null,{timeout:WORKSPACE_TIMEOUT_MS});}catch(error){const propertyVisibilityDiagnostic=await page.evaluate(()=>{const describe=node=>{if(!node)return null;const style=getComputedStyle(node),rect=node.getBoundingClientRect();return {tag:node.tagName,id:node.id||'',className:String(node.className||''),hidden:node.hidden===true,ariaHidden:node.getAttribute('aria-hidden'),inert:node.hasAttribute('inert'),display:style.display,visibility:style.visibility,opacity:style.opacity,width:Math.round(rect.width),height:Math.round(rect.height),offsetParent:node.offsetParent?.id||node.offsetParent?.className||null};};const view=document.getElementById('propertyintelligence');const calculator=view?.querySelector('.property-calculator-v224');const price=view?.querySelector('#propertyPurchasePrice');const rent=view?.querySelector('#propertyMonthlyRent');const analyse=view?.querySelector('.property-analyse-button');const chain=[];let node=calculator;while(node&&chain.length<8){chain.push(describe(node));node=node.parentElement}return {view:describe(view),viewDataset:{...view?.dataset},calculator:describe(calculator),price:describe(price),rent:describe(rent),analyse:describe(analyse),ancestorChain:chain,visibilityRuntime:globalThis.ThebePropertyVisibility?.state?.()||null};});console.error('FAIL Property visibility diagnostic '+JSON.stringify(propertyVisibilityDiagnostic));throw error;}
+    const propertyCalculatorState=await page.evaluate(()=>{const view=document.getElementById('propertyintelligence');const calculator=view?.querySelector('.property-calculator-v224');const heading=calculator?.querySelector('h3');const rect=calculator?.getBoundingClientRect?.();return {resident:view?.dataset?.lazyView!=='1',heading:String(heading?.textContent||'').trim(),visible:!!calculator&&calculator.offsetParent!==null,width:rect?Math.round(rect.width):0,priceVisible:!!document.getElementById('propertyPurchasePrice')&&document.getElementById('propertyPurchasePrice').offsetParent!==null,rentVisible:!!document.getElementById('propertyMonthlyRent')&&document.getElementById('propertyMonthlyRent').offsetParent!==null,analyseVisible:!!view?.querySelector('.property-analyse-button')&&view.querySelector('.property-analyse-button').offsetParent!==null};});assert(propertyCalculatorState.resident&&propertyCalculatorState.visible&&/Compact Property Calculator/i.test(propertyCalculatorState.heading)&&propertyCalculatorState.priceVisible&&propertyCalculatorState.rentVisible&&propertyCalculatorState.analyseVisible,`Compact Property Calculator is not resident and visible in the authenticated Property workspace: ${safe(JSON.stringify(propertyCalculatorState))}`);mark('V229 resident Compact Property Calculator',`resident=true width=${propertyCalculatorState.width}px with price, rent and Analyze visible without fragment hydration`);
+    await page.waitForFunction(()=>document.getElementById('propertyPortfolioWorkspace')&&document.getElementById('propertyValuationServicePanel'),null,{timeout:WORKSPACE_TIMEOUT_MS});await page.waitForFunction(()=>{const dock=document.getElementById('thebeAiDock');const core=dock?.querySelector('.thebe-particle-core');return !!dock&&!!core&&dock.querySelectorAll('.thebe-mascot-image').length===0&&dock.querySelectorAll('.thebe-mascot-svg').length===0;},null,{timeout:VIEW_TIMEOUT_MS});await page.getByRole('tab',{name:'Operations',exact:true}).click();const serviceDisclosure=page.locator('#propertyValuationServicePanel');const serviceSummary=serviceDisclosure.locator(':scope > summary');if(await serviceSummary.count()&&!(await serviceDisclosure.evaluate(node=>node.open)))await serviceSummary.click();
+    const v182WorkspaceVisual=await page.evaluate(calculatorProof=>{const orb=document.querySelector('#thebeAiDock .thebe-ai-orb-button');const core=document.querySelector('#thebeAiDock .thebe-particle-core');const shell=document.getElementById('propertyPortfolioWorkspace');const service=document.getElementById('propertyValuationServicePanel');const forms=document.getElementById('propertyAssetFormPanel')?.parentElement||null;const layout=document.querySelector('#propertyintelligence .property-layout');const input=layout?.querySelector('.property-input-card');const results=layout?.querySelector('.property-results-wrap');const compactReference=layout?.classList.contains('property-layout-v224')&&input?.classList.contains('property-calculator-v224');const paneChildren=[...document.getElementById("propertyintelligence").children];return {mascotImages:document.querySelectorAll('#thebeAiDock .thebe-mascot-image').length,mascotSvgs:document.querySelectorAll('#thebeAiDock .thebe-mascot-svg').length,particleCount:document.querySelectorAll('#thebeAiDock .thebe-particle').length,orbWidth:orb?Math.round(orb.getBoundingClientRect().width):0,dockOpen:document.body.classList.contains('thebe-ai-dock-open'),serviceVisible:!!service&&!service.hidden&&getComputedStyle(service).display!=='none'&&getComputedStyle(service).visibility!=='hidden',serviceBackground:service?getComputedStyle(service).backgroundColor:'missing',serviceBeforeForms:!!service&&!!forms&&shell.contains(forms)&&paneChildren.indexOf(service)>=0&&paneChildren.indexOf(shell)>paneChildren.indexOf(service),requestButtonVisible:!!document.getElementById('propertyValuationServiceRequestButton')&&document.getElementById('propertyValuationServiceRequestButton').offsetParent!==null,calculatorWidth:calculatorProof.width,activePropertyPane:document.getElementById("propertyintelligence").dataset.propertyActivePane,spatialStyle:getComputedStyle(document.getElementById('thebeAiDock')).getPropertyValue('--thebe-spatial-dock').trim(),calculatorInline:input?.getAttribute('style')||'',dockGeometry:{left:document.getElementById('thebeAiDock').getBoundingClientRect().left,mainRight:document.getElementById('mainContent').getBoundingClientRect().right},propertyLayoutStacked:compactReference&&calculatorProof.visible&&calculatorProof.width>0&&calculatorProof.width<=680};},propertyCalculatorState);
+    assert(v182WorkspaceVisual.mascotImages===0&&v182WorkspaceVisual.mascotSvgs===0,`workspace must not render the mascot: ${safe(JSON.stringify(v182WorkspaceVisual))}`);assert(v182WorkspaceVisual.particleCount===343,'workspace Talk to Thebe must retain the particle voice field with no mascot or decorative character');assert(v182WorkspaceVisual.orbWidth===68,`workspace dock changed the authoritative 68px voice-control geometry: ${safe(JSON.stringify(v182WorkspaceVisual))}`);assert(v182WorkspaceVisual.dockOpen&&v182WorkspaceVisual.propertyLayoutStacked,`Property analysis did not stack cleanly beside the open desktop Thebe dock: ${safe(JSON.stringify(v182WorkspaceVisual))}`);assert(v182WorkspaceVisual.serviceVisible&&v182WorkspaceVisual.serviceBackground==='rgb(247, 251, 255)'&&v182WorkspaceVisual.activePropertyPane==='operations'&&v182WorkspaceVisual.serviceBeforeForms&&v182WorkspaceVisual.requestButtonVisible,`professional valuation service is not visibly promoted ahead of Property setup forms: ${safe(JSON.stringify(v182WorkspaceVisual))}`);mark('V182 live marketing + workspace presentation','restored market photo, mascot removed everywhere, dock-safe Property layout and readable CTA verified');
 
-    let safeUiActionClicks=0;
-    safeUiActionProbeActive=true;
+    let safeUiActionClicks=0;safeUiActionProbeActive=true;
     try{
       await openOwnerViewThroughNav('dashboard');
+      const quickNav=page.locator('#quickNav:visible').first();assert(await quickNav.count(),'safe UI action missing: command palette trigger');await quickNav.click();await page.waitForFunction(()=>document.getElementById('commandShade')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});const commandClose=page.locator('#commandShade [data-bw-onclick="closeCommandPalette()"]:visible').first();assert(await commandClose.count(),'safe UI action missing: command palette close');await commandClose.click();await page.waitForFunction(()=>!document.getElementById('commandShade')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});safeUiActionClicks++;
+      const addEvidence=page.locator('[data-bw-onclick="openAddEvidence()"]:visible').first();assert(await addEvidence.count(),'safe UI action missing: Add evidence');await addEvidence.click();await page.waitForFunction(()=>document.getElementById('actionModal')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});const actionClose=page.locator("#actionModal [data-bw-onclick=\"closeModal('actionModal')\"]:visible").first();assert(await actionClose.count(),'safe UI action missing: Add evidence modal close');await actionClose.click();await page.waitForFunction(()=>!document.getElementById('actionModal')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});safeUiActionClicks++;
+      const quickbar=page.locator('#workspaceQuickbar').first();assert(await quickbar.count(),'safe UI action missing: Common work disclosure');if(!(await quickbar.evaluate(node=>node.open===true))){const quickbarSummary=quickbar.locator(':scope > summary').first();assert(await quickbarSummary.count(),'safe UI action missing: Common work summary');await quickbarSummary.click();}
+      const scanOpen=page.locator("#workspaceQuickbar [data-bw-onclick=\"openModal('scanModal')\"]:visible").first();assert(await scanOpen.count(),'safe UI action missing: compliance scan modal trigger');await scanOpen.click();await page.waitForFunction(()=>document.getElementById('scanModal')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});const scanClose=page.locator("#scanModal [data-bw-onclick=\"closeModal('scanModal')\"]:visible").first();assert(await scanClose.count(),'safe UI action missing: compliance scan modal close');await scanClose.click();await page.waitForFunction(()=>!document.getElementById('scanModal')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});safeUiActionClicks++;
+      const onboardingOpen=page.locator('#workspaceQuickbar [data-bw-onclick="openOnboarding()"]:visible').first();assert(await onboardingOpen.count(),'safe UI action missing: Guided setup');await onboardingOpen.click();await page.waitForFunction(()=>document.getElementById('onboardModal')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});const onboardingClose=page.locator('#onboardModal [data-bw-onclick="dismissOnboarding()"]:visible').first();assert(await onboardingClose.count(),'safe UI action missing: Guided setup close');await onboardingClose.click();await page.waitForFunction(()=>!document.getElementById('onboardModal')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});safeUiActionClicks++;
+      await openOwnerViewThroughNav('licenceos');const licenceOpen=page.locator('#licenceos [data-bw-onclick="openLicenceEntry()"]:visible').first();assert(await licenceOpen.count(),'safe UI action missing: Add licence disclosure');await licenceOpen.click();await page.waitForFunction(()=>document.getElementById('licenceEntryDetails')?.open===true,null,{timeout:VIEW_TIMEOUT_MS});const licenceSummary=page.locator('#licenceEntryDetails > summary:visible').first();assert(await licenceSummary.count(),'safe UI action missing: Add licence disclosure summary');await licenceSummary.click();await page.waitForFunction(()=>document.getElementById('licenceEntryDetails')?.open===false,null,{timeout:VIEW_TIMEOUT_MS});safeUiActionClicks++;
+    }finally{safeUiActionProbeActive=false;}
+    assert(safeUiActionClicks>=MIN_SAFE_UI_ACTION_COUNT,'only '+safeUiActionClicks+' safe non-mutating UI actions were exercised; expected at least '+MIN_SAFE_UI_ACTION_COUNT);assert(safeUiMutationRequests.length===0,'safe UI action probes issued mutation requests: '+safe(safeUiMutationRequests.join(' | ')));mark('full-user safe UI action matrix',safeUiActionClicks+' real non-navigation controls opened and closed their intended UI state without issuing same-origin mutation requests');
 
-      const quickNav=page.locator('#quickNav:visible').first();
-      assert(await quickNav.count(),'safe UI action missing: command palette trigger');
-      await quickNav.click();
-      await page.waitForFunction(()=>document.getElementById('commandShade')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});
-      const commandClose=page.locator('#commandShade [data-bw-onclick="closeCommandPalette()"]:visible').first();
-      assert(await commandClose.count(),'safe UI action missing: command palette close');
-      await commandClose.click();
-      await page.waitForFunction(()=>!document.getElementById('commandShade')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});
-      safeUiActionClicks++;
-
-      const addEvidence=page.locator('[data-bw-onclick="openAddEvidence()"]:visible').first();
-      assert(await addEvidence.count(),'safe UI action missing: Add evidence');
-      await addEvidence.click();
-      await page.waitForFunction(()=>document.getElementById('actionModal')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});
-      const actionClose=page.locator("#actionModal [data-bw-onclick=\"closeModal('actionModal')\"]:visible").first();
-      assert(await actionClose.count(),'safe UI action missing: Add evidence modal close');
-      await actionClose.click();
-      await page.waitForFunction(()=>!document.getElementById('actionModal')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});
-      safeUiActionClicks++;
-
-      const quickbar=page.locator('#workspaceQuickbar').first();
-      assert(await quickbar.count(),'safe UI action missing: Common work disclosure');
-      if(!(await quickbar.evaluate(node=>node.open===true))){
-        const quickbarSummary=quickbar.locator(':scope > summary').first();
-        assert(await quickbarSummary.count(),'safe UI action missing: Common work summary');
-        await quickbarSummary.click();
-      }
-
-      const scanOpen=page.locator("#workspaceQuickbar [data-bw-onclick=\"openModal('scanModal')\"]:visible").first();
-      assert(await scanOpen.count(),'safe UI action missing: compliance scan modal trigger');
-      await scanOpen.click();
-      await page.waitForFunction(()=>document.getElementById('scanModal')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});
-      const scanClose=page.locator("#scanModal [data-bw-onclick=\"closeModal('scanModal')\"]:visible").first();
-      assert(await scanClose.count(),'safe UI action missing: compliance scan modal close');
-      await scanClose.click();
-      await page.waitForFunction(()=>!document.getElementById('scanModal')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});
-      safeUiActionClicks++;
-
-      const onboardingOpen=page.locator('#workspaceQuickbar [data-bw-onclick="openOnboarding()"]:visible').first();
-      assert(await onboardingOpen.count(),'safe UI action missing: Guided setup');
-      await onboardingOpen.click();
-      await page.waitForFunction(()=>document.getElementById('onboardModal')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});
-      const onboardingClose=page.locator('#onboardModal [data-bw-onclick="dismissOnboarding()"]:visible').first();
-      assert(await onboardingClose.count(),'safe UI action missing: Guided setup close');
-      await onboardingClose.click();
-      await page.waitForFunction(()=>!document.getElementById('onboardModal')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});
-      safeUiActionClicks++;
-
-      await openOwnerViewThroughNav('licenceos');
-      const licenceOpen=page.locator('#licenceos [data-bw-onclick="openLicenceEntry()"]:visible').first();
-      assert(await licenceOpen.count(),'safe UI action missing: Add licence disclosure');
-      await licenceOpen.click();
-      await page.waitForFunction(()=>document.getElementById('licenceEntryDetails')?.open===true,null,{timeout:VIEW_TIMEOUT_MS});
-      const licenceSummary=page.locator('#licenceEntryDetails > summary:visible').first();
-      assert(await licenceSummary.count(),'safe UI action missing: Add licence disclosure summary');
-      await licenceSummary.click();
-      await page.waitForFunction(()=>document.getElementById('licenceEntryDetails')?.open===false,null,{timeout:VIEW_TIMEOUT_MS});
-      safeUiActionClicks++;
-    }finally{
-      safeUiActionProbeActive=false;
-    }
-    assert(safeUiActionClicks>=MIN_SAFE_UI_ACTION_COUNT,
-      'only '+safeUiActionClicks+' safe non-mutating UI actions were exercised; expected at least '+MIN_SAFE_UI_ACTION_COUNT);
-    assert(safeUiMutationRequests.length===0,
-      'safe UI action probes issued mutation requests: '+safe(safeUiMutationRequests.join(' | ')));
-    mark('full-user safe UI action matrix',safeUiActionClicks+' real non-navigation controls opened and closed their intended UI state without issuing same-origin mutation requests');
-
-    let inViewNavigationClicks=0;
-    const inViewNavigationRoutes=new Set();
+    let inViewNavigationClicks=0;const inViewNavigationRoutes=new Set();
     for(const sourceView of views){
-      const sourceNav=page.locator(`#nav button[data-view="${sourceView}"]`).first();
-      assert(await sourceNav.count(),`source navigation button missing for in-view audit ${sourceView}`);
-      const sourceDetails=sourceNav.locator('xpath=ancestor::details[1]');
-      if(await sourceDetails.count()&&!(await sourceDetails.evaluate(node=>node.open===true))){
-        const summary=sourceDetails.locator(':scope > summary').first();
-        assert(await summary.count(),`collapsed source group for ${sourceView} has no summary control`);
-        await summary.click();
-      }
-      await sourceNav.click();
-      await page.waitForFunction(view=>document.getElementById(view)?.classList.contains('active'),sourceView,{timeout:VIEW_TIMEOUT_MS});
-
-      const controls=await page.locator(`#${sourceView} button[data-bw-onclick]`).evaluateAll((buttons,allowedViews)=>buttons.map((button,index)=>{
-        const expression=String(button.getAttribute('data-bw-onclick')||'').trim();
-        const match=expression.match(/^showView\((['"])([A-Za-z0-9_-]+)\1\)$/);
-        const targetView=match?.[2]||'';
-        const style=getComputedStyle(button);
-        const visible=button.offsetParent!==null&&style.display!=='none'&&style.visibility!=='hidden';
-        if(!visible||button.disabled||!targetView||!allowedViews.includes(targetView))return null;
-        const ordinal=buttons.slice(0,index).filter(other=>String(other.getAttribute('data-bw-onclick')||'').trim()===expression).length;
-        return {ordinal,targetView,expression,label:String(button.textContent||'').replace(/\s+/g,' ').trim().slice(0,120)};
-      }).filter(Boolean),views);
-
+      const sourceNav=page.locator(`#nav button[data-view="${sourceView}"]`).first();assert(await sourceNav.count(),`source navigation button missing for in-view audit ${sourceView}`);const sourceDetails=sourceNav.locator('xpath=ancestor::details[1]');if(await sourceDetails.count()&&!(await sourceDetails.evaluate(node=>node.open===true))){const summary=sourceDetails.locator(':scope > summary').first();assert(await summary.count(),`collapsed source group for ${sourceView} has no summary control`);await summary.click();}await sourceNav.click();await page.waitForFunction(view=>document.getElementById(view)?.classList.contains('active'),sourceView,{timeout:VIEW_TIMEOUT_MS});
+      const controls=await page.locator(`#${sourceView} button[data-bw-onclick]`).evaluateAll((buttons,allowedViews)=>buttons.map((button,index)=>{const expression=String(button.getAttribute('data-bw-onclick')||'').trim();const match=expression.match(/^showView\((['"])([A-Za-z0-9_-]+)\1\)$/);const targetView=match?.[2]||'';const style=getComputedStyle(button);const visible=button.offsetParent!==null&&style.display!=='none'&&style.visibility!=='hidden';if(!visible||button.disabled||!targetView||!allowedViews.includes(targetView))return null;const ordinal=buttons.slice(0,index).filter(other=>String(other.getAttribute('data-bw-onclick')||'').trim()===expression).length;return {ordinal,targetView,expression,label:String(button.textContent||'').replace(/\s+/g,' ').trim().slice(0,120)};}).filter(Boolean),views);
       for(const control of controls){
-        if(!(await page.evaluate(view=>document.getElementById(view)?.classList.contains('active'),sourceView))){
-          if(await sourceDetails.count()&&!(await sourceDetails.evaluate(node=>node.open===true))){
-            const summary=sourceDetails.locator(':scope > summary').first();
-            assert(await summary.count(),`collapsed source group for ${sourceView} lost its summary control`);
-            await summary.click();
-          }
-          await sourceNav.click();
-          await page.waitForFunction(view=>document.getElementById(view)?.classList.contains('active'),sourceView,{timeout:VIEW_TIMEOUT_MS});
-        }
-        const escapedExpression=control.expression.replaceAll('\\','\\\\').replaceAll('"','\\"');
-        const controlButtons=page.locator(`#${sourceView} button[data-bw-onclick="${escapedExpression}"]`);
-        assert(await controlButtons.count()>control.ordinal,`in-view navigation control disappeared before click: ${sourceView} -> ${control.targetView} ${safe(control.label)}`);
-        const controlButton=controlButtons.nth(control.ordinal);
-        if(!(await controlButton.isVisible())){
-          const controlDisclosure=controlButton.locator('xpath=ancestor::details[1]');
-          if(await controlDisclosure.count()&&!(await controlDisclosure.evaluate(node=>node.open===true))){
-            const disclosureSummary=controlDisclosure.locator(':scope > summary').first();
-            assert(await disclosureSummary.count(),`hidden in-view navigation control has no disclosure summary: ${sourceView} -> ${control.targetView} ${safe(control.label)}`);
-            await disclosureSummary.click();
-          }
-        }
-        assert(await controlButton.isVisible(),`in-view navigation control became hidden before click: ${sourceView} -> ${control.targetView} ${safe(control.label)}`);
-        await controlButton.click();
-        await page.waitForFunction(view=>document.getElementById(view)?.classList.contains('active'),control.targetView,{timeout:VIEW_TIMEOUT_MS});
-        const targetState=await page.evaluate(view=>{
-          const target=document.getElementById(view);
-          return {
-            active:!!target?.classList.contains('active'),
-            lazyError:target?.dataset?.lazyError||'',
-            title:String(document.getElementById('pageTitle')?.textContent||'').trim(),
-            shellVisible:!document.getElementById('appShell')?.classList.contains('hidden')
-          };
-        },control.targetView);
-        assert(targetState.active&&targetState.shellVisible&&!targetState.lazyError,
-          `in-view navigation control failed: ${sourceView} -> ${control.targetView} ${safe(JSON.stringify(targetState))}`);
-        assert(targetState.title.length>0,`in-view navigation control reached ${control.targetView} without a page title`);
-        inViewNavigationClicks++;
-        inViewNavigationRoutes.add(`${sourceView}->${control.targetView}`);
+        if(!(await page.evaluate(view=>document.getElementById(view)?.classList.contains('active'),sourceView))){if(await sourceDetails.count()&&!(await sourceDetails.evaluate(node=>node.open===true))){const summary=sourceDetails.locator(':scope > summary').first();assert(await summary.count(),`collapsed source group for ${sourceView} lost its summary control`);await summary.click();}await sourceNav.click();await page.waitForFunction(view=>document.getElementById(view)?.classList.contains('active'),sourceView,{timeout:VIEW_TIMEOUT_MS});}
+        const escapedExpression=control.expression.replaceAll('\\','\\\\').replaceAll('"','\\"');const controlButtons=page.locator(`#${sourceView} button[data-bw-onclick="${escapedExpression}"]`);assert(await controlButtons.count()>control.ordinal,`in-view navigation control disappeared before click: ${sourceView} -> ${control.targetView} ${safe(control.label)}`);const controlButton=controlButtons.nth(control.ordinal);if(!(await controlButton.isVisible())){const controlDisclosure=controlButton.locator('xpath=ancestor::details[1]');if(await controlDisclosure.count()&&!(await controlDisclosure.evaluate(node=>node.open===true))){const disclosureSummary=controlDisclosure.locator(':scope > summary').first();assert(await disclosureSummary.count(),`hidden in-view navigation control has no disclosure summary: ${sourceView} -> ${control.targetView} ${safe(control.label)}`);await disclosureSummary.click();}}
+        assert(await controlButton.isVisible(),`in-view navigation control became hidden before click: ${sourceView} -> ${control.targetView} ${safe(control.label)}`);await controlButton.click();await page.waitForFunction(view=>document.getElementById(view)?.classList.contains('active'),control.targetView,{timeout:VIEW_TIMEOUT_MS});const targetState=await page.evaluate(view=>{const target=document.getElementById(view);return {active:!!target?.classList.contains('active'),lazyError:target?.dataset?.lazyError||'',title:String(document.getElementById('pageTitle')?.textContent||'').trim(),shellVisible:!document.getElementById('appShell')?.classList.contains('hidden')};},control.targetView);assert(targetState.active&&targetState.shellVisible&&!targetState.lazyError,`in-view navigation control failed: ${sourceView} -> ${control.targetView} ${safe(JSON.stringify(targetState))}`);assert(targetState.title.length>0,`in-view navigation control reached ${control.targetView} without a page title`);inViewNavigationClicks++;inViewNavigationRoutes.add(`${sourceView}->${control.targetView}`);
       }
     }
-    assert(inViewNavigationClicks>=MIN_OWNER_INVIEW_NAV_CONTROL_COUNT&&inViewNavigationRoutes.size>=MIN_OWNER_INVIEW_NAV_ROUTE_COUNT,
-      `only ${inViewNavigationRoutes.size} unique owner in-view navigation routes were exercised across ${inViewNavigationClicks} controls; expected at least ${MIN_OWNER_INVIEW_NAV_CONTROL_COUNT} controls and ${MIN_OWNER_INVIEW_NAV_ROUTE_COUNT} unique routes; verified routes: ${[...inViewNavigationRoutes].join(', ')}`);
-
-    assert(pageErrors.length===0,`page errors: ${safe(pageErrors.join(' | '))}`);
-    assert(assetFailures.length===0,`critical asset failures: ${safe(assetFailures.join(' | '))}`);
-    assert(apiServerFailures.length===0,`same-origin API 5xx responses: ${safe(apiServerFailures.join(' | '))}`);
-    mark('full-user owner navigation click matrix',`${views.length} role-visible navigation buttons were clicked through the live DOM; every lazy view completed hydration with non-empty content and no page, asset, or API 5xx failures`);
-    mark('full-user in-view navigation control matrix',`${inViewNavigationClicks} controls covered ${inViewNavigationRoutes.size} unique routes: ${[...inViewNavigationRoutes].join(', ')}; each activated its intended destination`);
-    await context.close();
-  }finally{
-    await withDeadline('full-user browser close',browser.close().catch(()=>{}),CLOSE_TIMEOUT_MS).catch(()=>{});
-  }
+    assert(inViewNavigationClicks>=MIN_OWNER_INVIEW_NAV_CONTROL_COUNT&&inViewNavigationRoutes.size>=MIN_OWNER_INVIEW_NAV_ROUTE_COUNT,`only ${inViewNavigationRoutes.size} unique owner in-view navigation routes were exercised across ${inViewNavigationClicks} controls; expected at least ${MIN_OWNER_INVIEW_NAV_CONTROL_COUNT} controls and ${MIN_OWNER_INVIEW_NAV_ROUTE_COUNT} unique routes; verified routes: ${[...inViewNavigationRoutes].join(', ')}`);
+    assert(pageErrors.length===0,`page errors: ${safe(pageErrors.join(' | '))}`);assert(assetFailures.length===0,`critical asset failures: ${safe(assetFailures.join(' | '))}`);assert(apiServerFailures.length===0,`same-origin API 5xx responses: ${safe(apiServerFailures.join(' | '))}`);mark('full-user owner navigation click matrix',`${views.length} role-visible navigation buttons were clicked through the live DOM; every lazy view completed hydration with non-empty content and no page, asset, or API 5xx failures`);mark('full-user in-view navigation control matrix',`${inViewNavigationClicks} controls covered ${inViewNavigationRoutes.size} unique routes: ${[...inViewNavigationRoutes].join(', ')}; each activated its intended destination`);await context.close();
+  }finally{await withDeadline('full-user browser close',browser.close().catch(()=>{}),CLOSE_TIMEOUT_MS).catch(()=>{});}
 }
 
 const priorDescriptor=Object.getOwnPropertyDescriptor(globalThis,'__thebeSyntheticBrowserProof');
