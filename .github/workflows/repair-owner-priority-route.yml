@@ -1,0 +1,71 @@
+name: Repair owner priority route preservation
+
+on:
+  push:
+    branches:
+      - fix/review-ai-context-truthfulness-20261012
+    paths:
+      - '.github/workflows/repair-owner-priority-route.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact feature branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: fix/review-ai-context-truthfulness-20261012
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+
+      - name: Restore current-main owner priority route
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path=Path('cloudflare/src/worker.js')
+          text=path.read_text()
+          route='      if(url.pathname==="/api/ai/operator/queue"&&req.method==="POST")return secureResponse(await handleOwnerOperatorRequest(req,{auth:a}));\n'
+          if route not in text:
+              marker='      if(!evidenceUploadsEnabled(env)&&evidenceMutationDisabled(url,req.method))return json({error:"evidence_uploads_temporarily_disabled",evidenceUploadsEnabled:false},503);\n'
+              assert marker in text, 'owner priority route insertion marker missing'
+              text=text.replace(marker,marker+route,1)
+              path.write_text(text)
+          PY
+          git diff --check -- cloudflare/src/worker.js
+
+      - name: Install exact dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Prove authority route and AI truthfulness coexist
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check cloudflare/src/worker.js
+          node tests/v334-owner-priority-worker-routing.mjs
+          node tests/v329-ai-advisor-context-compaction.mjs
+          node tests/v116-thebe-super-agent-ask-anything.mjs
+          node tests/v78-ai-copilot-motion-security.mjs
+
+      - name: Commit only Worker route preservation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add cloudflare/src/worker.js
+          git diff --cached --check
+          git diff --cached --stat
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Preserve owner priority Worker route with AI context fix'
+          git push origin HEAD:refs/heads/fix/review-ai-context-truthfulness-20261012
