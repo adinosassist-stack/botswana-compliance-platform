@@ -5,7 +5,6 @@ import {AGENT_COST_TELEMETRY_VERSION,AGENT_COST_TELEMETRY_EVENT} from "./agent-c
 export function adaptShadowCostEvent(event, tenantId) {
   if (!event || event.version !== AGENT_COST_TELEMETRY_VERSION ||
       event.telemetryMode !== "shadow" || event.tenantId !== tenantId) return null;
-  const outcome = event.cost?.state === "unknown" ? "unverified" : "success";
   // Cost telemetry is NOT evidence of task success. Always mark outcome unverified.
   return sanitizeAgentRun({
     tenantId,actorTenantId:tenantId,traceId:event.runId,
@@ -20,9 +19,10 @@ export async function loadReliabilityAdvisorSummary(env, tenantId, {windowDays=7
       !Number.isSafeInteger(windowDays) || windowDays<1 || windowDays>90)
     return Object.freeze({available:false,reason:"reliability_advisor_unavailable"});
   try {
+    // agentic_events is defined by migration 045 with occurred_at (not created_at).
     const result=await env.DB.prepare(`SELECT detail_json FROM agentic_events
-      WHERE tenant_id=? AND event_type=? AND created_at>=datetime('now',?)
-      ORDER BY created_at DESC LIMIT 500`)
+      WHERE tenant_id=? AND event_type=? AND occurred_at>=datetime('now',?)
+      ORDER BY occurred_at DESC LIMIT 500`)
       .bind(tenantId,AGENT_COST_TELEMETRY_EVENT,`-${windowDays} days`).all();
     const rows=[];
     const seenRuns=new Set();
