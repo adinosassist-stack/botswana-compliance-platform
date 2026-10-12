@@ -17,3 +17,19 @@
   }
   global.BW=global.BW||{};global.BW.state=Object.freeze({createStore});
 })(window);
+
+(function loadPublicMarketUx(global){
+  "use strict";
+  const doc=global?.document;if(!doc)return;
+  if(!["/home","/home/"].includes(String(global.location?.pathname||"")))return;
+  const SRC="/js/public-market-ux-v250.js?v=20261012-market-uiux-v250";
+  function load(){
+    if(doc.querySelector('script[data-thebe-public-market-ux="v250"]'))return;
+    const script=doc.createElement("script");
+    script.src=SRC;
+    script.defer=true;
+    script.dataset.thebePublicMarketUx="v250";
+    (doc.body||doc.head||doc.documentElement).appendChild(script);
+  }
+  if(doc.readyState==="loading")doc.addEventListener("DOMContentLoaded",load,{once:true});else load();
+})(window);
