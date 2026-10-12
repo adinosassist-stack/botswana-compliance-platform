@@ -44,6 +44,33 @@ assert.equal(first.context.operations?.date,"2026-10-11","operations freshness m
 assert.ok(collectAiAdvisorContextRefs(first.context).has("OBL-1"),"retained authoritative records must keep stable refs");
 assert.ok(collectAiAdvisorContextRefs(first.context).has("SRC-1"),"retained provenance refs must survive compaction");
 
+const unknownMoney={
+  ...context,
+  businessMemory:{...context.businessMemory,positiveInflowTodayMinor:null,customerCollectionsTodayMinor:null}
+};
+const unknownCompacted=compactAiAdvisorContext(unknownMoney);
+assert.equal(unknownCompacted.context.businessMemory?.positiveInflowTodayMinor,null,"missing inflow must stay unknown, not become zero");
+assert.equal(unknownCompacted.context.businessMemory?.customerCollectionsTodayMinor,null,"missing collections must stay unknown, not become zero");
+const actualZero=compactAiAdvisorContext({...unknownMoney,businessMemory:{...unknownMoney.businessMemory,positiveInflowTodayMinor:0,customerCollectionsTodayMinor:0}});
+assert.equal(actualZero.context.businessMemory?.positiveInflowTodayMinor,0,"an observed zero must remain distinguishable from unknown");
+assert.equal(actualZero.context.businessMemory?.customerCollectionsTodayMinor,0,"an observed zero must remain distinguishable from unknown");
+
+const retainedOversized={
+  contextAvailability:{financeAndBusiness:"available",financeAndBusinessComplete:true,financeAndBusinessReason:null},
+  profile:{industry:"services"},
+  workspaceVersion:20,
+  market:{code:"BW",country:"Botswana"},
+  language:{primary:"en"},
+  finance:{ref:"FIN-OVERSIZED",currency:"BWP"+"X".repeat(26000),cashPositionMinor:1,lastImportAt:"2026-10-11T07:00:00Z",unresolvedReconciliations:0,unresolvedExposureMinor:0,outstandingMinor:0,overdueMinor:0,topReceivables:[]},
+  businessMemory:{ref:"BIZ-OVERSIZED",businessDate:"2026-10-11",positiveInflowTodayMinor:null,customerCollectionsTodayMinor:null,provenanceRule:"verified"},
+  obligations:[],risks:[],controls:[],tenders:[],sources:[]
+};
+const retainedResult=compactAiAdvisorContext(retainedOversized);
+assert.ok(retainedResult.bytes<=AI_ADVISOR_CONTEXT_MAX_BYTES,"retained fields must not bypass the final byte ceiling");
+assert.equal(retainedResult.context.contextAvailability.contextComplete,false);
+assert.notEqual(retainedResult.compaction.stage,"full");
+assert.throws(()=>compactAiAdvisorContext({value:"x".repeat(500)},{maxBytes:1}),/ai_advisor_context_limit_exceeded/,"an impossible configured budget must fail explicitly rather than return an oversized context");
+
 const small={contextAvailability:{financeAndBusiness:"role_restricted",financeAndBusinessComplete:false,financeAndBusinessReason:"role_restricted"},profile:{industry:"services"},obligations:[],risks:[],controls:[],tenders:[],sources:[]};
 const uncompressed=compactAiAdvisorContext(small);
 assert.equal(uncompressed.compaction.applied,false);
