@@ -4,6 +4,8 @@ html body #appShell{
   --ui-accent-strong:#8f1d16;
   --ui-accent-soft:#fff1ee;
 }
+/* Reserve the conversation lane immediately, before the panel can cover work. */
+html body.thebe-ai-dock-open #appShell{transition:none!important}
 html body #appShell .nav-primary.active{
   background:#b42318!important;
   background-image:none!important;

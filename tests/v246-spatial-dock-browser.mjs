@@ -3,12 +3,14 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {injectOwnerCommandCentreAssets,injectPublicThebeAssets,externalizeWorkspaceHeadStyles} from '../cloudflare/src/production-entry.js';
+import {versionReleaseAssets} from '../cloudflare/src/asset-release-identity.js';
 const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES?path.join(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES,'playwright'):'playwright-core');
 const html=fs.readFileSync('public/index.html','utf8');
 const property=html.slice(html.indexOf('  <section id="propertyintelligence"'),html.indexOf('</section>',html.indexOf('  <section id="propertyintelligence"'))+10).replace('class="view simplified-hub','class="view active simplified-hub');
 let fixture=externalizeWorkspaceHeadStyles('<!doctype html>'+html.slice(html.indexOf('<html'),html.indexOf('</head>')+7)+'<body><section id="marketingGate" class="hidden" style="display:none"></section><section id="appShell" class="shell"><aside id="workspaceSidebar"><button>Home</button></aside><main id="mainContent"><div class="top"><h1 id="pageTitle">Property</h1><button id="businessAction">Business action</button></div>'+property+'</main></section></body></html>');
 fixture=injectOwnerCommandCentreAssets(fixture);
+fixture=versionReleaseAssets(fixture,'a'.repeat(40),{includeWorkspaceFixes:true});
 const publicFixture=injectPublicThebeAssets(fs.readFileSync('public/home.html','utf8'));
 const browser=await chromium.launch({headless:true,executablePath:[process.env.CHROMIUM_EXECUTABLE_PATH,'/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].filter(Boolean).find(p=>fs.existsSync(p)),args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
 try{
