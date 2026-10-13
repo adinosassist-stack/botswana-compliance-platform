@@ -49,6 +49,13 @@
     compact.dataset.marketCompactV12="1";
     document.head.appendChild(compact);
   }
+  if(!document.querySelector('link[data-market-conversion-v13]')){
+    const conversion=document.createElement("link");
+    conversion.rel="stylesheet";
+    conversion.href="/assets/market-conversion-v13.css?v=20261013a";
+    conversion.dataset.marketConversionV13="1";
+    document.head.appendChild(conversion);
+  }
   if(!document.querySelector('script[data-market-conversion-v11]')){
     const script=document.createElement("script");
     script.src="/js/market-conversion-v11.js?v=20261013b";
@@ -63,5 +70,12 @@
       }
     },{once:true});
     document.head.appendChild(script);
+  }
+  if(!document.querySelector('script[data-market-conversion-v13]')){
+    const conversion=document.createElement("script");
+    conversion.src="/js/market-conversion-v13.js?v=20261013a";
+    conversion.dataset.marketConversionV13="1";
+    conversion.async=false;
+    document.head.appendChild(conversion);
   }
 })();

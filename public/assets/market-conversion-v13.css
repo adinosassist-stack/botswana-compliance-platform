@@ -1,0 +1,21 @@
+/* Thebe Desk market v13: conversion-first refinements on the compact page. */
+.secondary-plans{display:none!important}
+.conversion-inline-cta{margin-top:14px;padding:13px 14px;border:1px solid #cfe0f4;border-radius:14px;background:#f8fbff;display:flex;align-items:center;justify-content:space-between;gap:14px}
+.conversion-inline-cta b{display:block;font-size:13px}
+.conversion-inline-cta span{display:block;margin-top:2px;color:var(--muted);font-size:11px}
+.conversion-inline-cta .btn{flex:0 0 auto}
+.commercial-callout{display:flex!important}
+
+@media(max-width:760px){
+  .pricing-grid .pricecard.featured{order:-1}
+  .conversion-inline-cta{align-items:stretch;flex-direction:column;padding:12px}
+  .conversion-inline-cta .btn{width:100%}
+  .commercial-callout{display:flex!important;align-items:flex-start;flex-direction:row;padding:10px 11px;gap:10px}
+  .commercial-callout p{display:none}
+  .commercial-callout a{margin-left:auto}
+}
+
+@media(max-width:390px){
+  .commercial-callout{flex-direction:column}
+  .commercial-callout a{margin-left:0}
+}
