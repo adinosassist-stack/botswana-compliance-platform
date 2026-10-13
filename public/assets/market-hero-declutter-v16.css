@@ -1,0 +1,58 @@
+/* Thebe Desk market v16: desktop hero emphasis + repetition cleanup.
+   Built on top of the sanitized product snapshot v15. Mobile stays unchanged. */
+
+@media (min-width:1101px){
+  /* Make the desktop hero visually stronger. v14 capped this area at 485px. */
+  .marketinggate .hero .wrap{width:min(1180px,calc(100% - 44px))}
+  .marketinggate .hero-grid{
+    grid-template-columns:minmax(0,.92fr) minmax(560px,1.08fr);
+    gap:34px;
+    align-items:center;
+  }
+  .marketinggate .hero-grid>div:first-child{max-width:580px}
+  .marketinggate .hero h1{max-width:580px}
+  .marketinggate .hero p{max-width:560px}
+  .marketinggate .market-hero-visual{max-width:620px;width:100%;margin-left:auto}
+  .marketinggate .market-hero-photo{aspect-ratio:16/10;border-radius:22px}
+
+  /* Keep the sanitized product snapshot as supporting evidence rather than a
+     second competing hero. */
+  .marketinggate .market-hero-visual .product-stage,
+  .marketinggate .market-hero-visual .market-product-snapshot-v15{
+    width:82%;
+    max-width:470px;
+    margin:-22px auto 0;
+  }
+
+  /* Repetition audit: these category labels already appear in the snapshot
+     navigation and again in the product cards below. */
+  .marketinggate .hero .control-ribbon{display:none!important}
+
+  /* The proof strip repeated the hero's Botswana focus, Pula pricing,
+     free-trial/no-card reassurance and human-control message. */
+  .marketinggate .proof-strip{display:none!important}
+
+  /* v13 injects another trial CTA after the product cards. The hero, pricing
+     cards and final CTA already cover that conversion path. */
+  .marketinggate #product .conversion-inline-cta{display:none!important}
+
+  /* The Botswana section reused the exact hero photo and repeated rollout
+     positioning. Keep the useful local-workflow checklist only. */
+  .marketinggate #botswana .section-head p{display:none!important}
+  .marketinggate #botswana .country-grid{grid-template-columns:1fr!important}
+  .marketinggate #botswana .country-photo{display:none!important}
+  .marketinggate #botswana .country-card{width:100%;height:auto}
+
+  /* Pricing already has plan CTAs and the hero already explains the free trial. */
+  .marketinggate #pricing .section-head p{display:none!important}
+
+  .marketinggate #product,
+  .marketinggate #thebe-ai,
+  .marketinggate #botswana,
+  .marketinggate #pricing{scroll-margin-top:82px}
+  .marketinggate #product.section{padding-top:30px}
+}
+
+@media (min-width:761px) and (max-width:1100px){
+  .marketinggate .market-hero-visual{max-width:600px}
+}
