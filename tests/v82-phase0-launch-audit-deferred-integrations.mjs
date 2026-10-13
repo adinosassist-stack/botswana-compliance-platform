@@ -31,7 +31,7 @@ ok(workflow.includes('environment: production')&&workflow.includes('CLOUDFLARE_A
 ok(browserWrapper.includes("opening dedicated auth surface")&&browserWrapper.includes("/auth/?mode=login&next=/app/")&&browserWrapper.includes("opening authenticated /app/ workspace"), 'canonical desktop synthetic lifecycle authenticates through the dedicated auth surface and enters /app/');
 ok(browserWrapper.includes("mobile auth surface navigation")&&browserWrapper.includes("mobile authenticated /app/ route did not return 200")&&browserWrapper.includes("reloading authenticated /app/ workspace"), 'canonical mobile synthetic lifecycle reloads the authenticated /app/ boundary instead of legacy root');
 const publicMarketing=fs.readFileSync('public/js/public-marketing-v249.js','utf8');
-const currentHeroAssertion=String.raw`assert(/^(?:Know what needs attention\\. )?Run your (?:Botswana )?business from one place\\.$/.test(publicState.hero),'public root hero missing or stale');`;
+const currentHeroAssertion="assert(/^(?:Know what needs attention\\. )?Run your (?:Botswana )?business from one place\\.$/.test(publicState.hero),'public root hero missing or stale');";
 ok(
   !publicMarketing.includes('text(gate.querySelector(".hero h1"),')&&
   fullUserWrapper.includes(currentHeroAssertion),
