@@ -1,0 +1,117 @@
+name: Thebe Desk WhatsApp Public Entry Verification
+run-name: WhatsApp public entry ${{ github.event.workflow_run.head_sha || github.event.pull_request.head.sha || inputs.expected_sha || github.sha }}
+
+on:
+  push:
+    branches-ignore: [main]
+    paths:
+      - public/home.html
+      - V76_WHATSAPP_SETUP.md
+      - .github/workflows/whatsapp-public-postdeploy.yml
+  pull_request:
+    paths:
+      - public/home.html
+      - V76_WHATSAPP_SETUP.md
+      - .github/workflows/whatsapp-public-postdeploy.yml
+  workflow_run:
+    workflows: ["Thebe Desk Production Deploy"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Optional deployed commit SHA to verify
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: thebe-whatsapp-public-entry-${{ github.event.workflow_run.head_sha || github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify WhatsApp public entry without sending messages
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      TARGET_SHA: ${{ github.event.workflow_run.head_sha || github.event.pull_request.head.sha || inputs.expected_sha || github.sha }}
+      ORIGIN: https://thebedesk.com
+      OFFICIAL_WHATSAPP_NUMBER: '26777723273'
+      EXPECTED_PREFILL: "Hi, I'd like to see how Thebe Desk could work for my business."
+
+    steps:
+      - name: Checkout verification authority
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify source WhatsApp contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+
+          const number=process.env.OFFICIAL_WHATSAPP_NUMBER;
+          const expectedPrefill=process.env.EXPECTED_PREFILL;
+          const html=fs.readFileSync('public/home.html','utf8');
+          const setup=fs.readFileSync('V76_WHATSAPP_SETUP.md','utf8');
+
+          assert.match(setup,/Official Thebe Desk WhatsApp Business number/i);
+          assert.match(setup,/\+267 77723273/,'setup guide must retain the approved customer-facing number');
+          assert.match(setup,/connector is disabled until every production gate below is complete/i,'provider delivery must remain fail-closed until configured');
+
+          const hrefs=[...html.matchAll(/href="([^"]*wa\.me\/[^"]+)"/gi)].map(match=>match[1]);
+          assert.ok(hrefs.length>=2,'marketing page must expose CTA and footer WhatsApp links');
+          for(const href of hrefs){
+            const url=new URL(href);
+            assert.equal(url.protocol,'https:','WhatsApp entry must use HTTPS');
+            assert.equal(url.hostname,'wa.me','WhatsApp entry must use the canonical wa.me host');
+            assert.equal(url.pathname,`/${number}`,'WhatsApp entry must target the approved business number');
+          }
+
+          const guided=hrefs.map(href=>new URL(href)).find(url=>url.searchParams.has('text'));
+          assert.ok(guided,'a guided WhatsApp CTA with prefilled enquiry text is required');
+          assert.equal(guided.searchParams.get('text'),expectedPrefill,'guided CTA prefill changed unexpectedly');
+          assert.match(html,/Talk to us on WhatsApp/i);
+          assert.match(html,/WhatsApp \+267 77 723 273/i);
+          console.log(`PASS source WhatsApp public entry number=+${number} links=${hrefs.length}`);
+          NODE
+
+      - name: Verify deployed WhatsApp entry after production deploy
+        if: github.event_name == 'workflow_run' || github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+
+          const origin=process.env.ORIGIN;
+          const number=process.env.OFFICIAL_WHATSAPP_NUMBER;
+          const expectedPrefill=process.env.EXPECTED_PREFILL;
+          const response=await fetch(origin+'/',{redirect:'manual',headers:{accept:'text/html','user-agent':'ThebeDesk-WhatsApp-Public-Smoke/1.0'}});
+          assert.equal(response.status,200,'public homepage must be reachable');
+          const html=await response.text();
+          const hrefs=[...html.matchAll(/href="([^"]*wa\.me\/[^"]+)"/gi)].map(match=>match[1]);
+          assert.ok(hrefs.length>=2,'deployed page must expose CTA and footer WhatsApp links');
+          for(const href of hrefs){
+            const url=new URL(href);
+            assert.equal(url.protocol,'https:');
+            assert.equal(url.hostname,'wa.me');
+            assert.equal(url.pathname,`/${number}`);
+          }
+          const guided=hrefs.map(href=>new URL(href)).find(url=>url.searchParams.has('text'));
+          assert.ok(guided,'deployed guided WhatsApp CTA missing');
+          assert.equal(guided.searchParams.get('text'),expectedPrefill);
+          assert.match(html,/Talk to us on WhatsApp/i);
+          console.log(`PASS deployed WhatsApp public entry number=+${number}; no external WhatsApp request was made`);
+          NODE
