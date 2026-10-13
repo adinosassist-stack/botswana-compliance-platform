@@ -28,7 +28,9 @@ try{
   });
   await page.addInitScript(()=>{window.currentWorkspaceRole=()=> 'owner';window.apiJson=async()=>({sessionCreationAllowed:false})});
   await page.goto('http://localhost/');
-  await page.waitForSelector('#thebeAiDock');
+  await page.waitForSelector('#thebeAiDock',{state:'attached'});
+ await page.locator('#thebeAiDockPill').click();
+ await page.waitForSelector('#thebeAiDock');
   await page.waitForFunction(()=>{const d=document.getElementById('thebeAiDock');return d?.dataset.cssRecovery==='1'&&d?.dataset.geometryRecovery==='20261003-emergency-dock-geometry-v269'});
 
   // Property recovery may leave root-level !important visibility styles behind after navigation.

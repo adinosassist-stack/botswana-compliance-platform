@@ -30,7 +30,9 @@ try{
  });
  await page.addScriptTag({path:"public/js/owner-command-centre.js"});
  await page.addScriptTag({path:"public/js/thebe-live-voice.js"});
- await page.waitForSelector("#thebeAiDock");
+ await page.waitForSelector('#thebeAiDock',{state:'attached'});
+ await page.locator('#thebeAiDockPill').click();
+ await page.waitForSelector('#thebeAiDock');
  await page.evaluate(()=>window.ThebeAiDock.ask("Reduce overdue collections","goal_plan"));
  assert.equal(await page.evaluate(()=>window.calls[0].body.goal),"Reduce overdue collections");
  assert.equal(await page.locator(".thebe-ai-plan-artifact").getAttribute("data-run-id"),"run-a");

@@ -27,6 +27,7 @@ try{
       return fs.existsSync(file)?route.fulfill({body:fs.readFileSync(file),contentType:url.pathname.endsWith('.css')?'text/css':'application/javascript'}):route.abort();
     });
     await page.goto('http://fixture.test/');
+    await page.getByText('Business analysis & planning',{exact:true}).click();
     await page.waitForFunction(()=>document.querySelector('#ownerFocusStrip')?.dataset.state==='loading');
     const layout=await page.evaluate(()=>{
       const compose=document.querySelector('.home-thebe-agent-compose'),input=compose.querySelector('input'),button=compose.querySelector('button');

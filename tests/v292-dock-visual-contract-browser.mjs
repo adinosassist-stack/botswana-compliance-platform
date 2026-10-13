@@ -29,7 +29,9 @@ try{
   });
   await page.addInitScript(()=>{window.currentWorkspaceRole=()=> 'owner';window.apiJson=async()=>({sessionCreationAllowed:false});});
   await page.goto('http://localhost/');
-  await page.waitForSelector('#thebeAiDock');
+  await page.waitForSelector('#thebeAiDock',{state:'attached'});
+ await page.locator('#thebeAiDockPill').click();
+ await page.waitForSelector('#thebeAiDock');
 
   const desktop=await page.evaluate(()=>{
     const dock=document.getElementById('thebeAiDock');
