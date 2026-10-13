@@ -15,7 +15,7 @@ assert.match(css,/V182 character-free voice field/,'Talk to Thebe must use the V
 assert.match(home,/class="visual market-hero-visual"/,'marketing hero must restore the human business picture composition');
 assert.match(home,/class="market-hero-photo" src="\/assets\/gaborone-entrepreneurs-v67\.webp"/,'marketing hero must restore the original Botswana business photo');
 assert.doesNotMatch(home,/market-hero-mascot|thebe-public-mascot|thebe-mascot-original\.png/,'marketing page must not render mascot artwork');
-assert.match(home,/\.cta-box \.btn\.secondary\{[\s\S]*?color:#0f172a/,'closing white CTA must keep dark readable text');
+assert.match(home,/--dark:#0f172a[\s\S]*?\.cta-box \.btn\.secondary\{[\s\S]*?color:var\(--dark\)/,'closing white CTA must keep dark readable text');
 assert.doesNotMatch(dockJs,/mascotImage\.src="\/assets\/thebe-mascot-original\.png"/,'Talk to Thebe dock must not create or load mascot artwork');
 assert.doesNotMatch(dockJs,/viewBox:"0 0 1000 1000"/,'Talk to Thebe dock must not construct the legacy mascot SVG');
 assert.match(dockJs,/mascot=null;[\s\S]*?orb\.append\(wave,core\)/,'Talk to Thebe must retain the voice field without a mascot');
