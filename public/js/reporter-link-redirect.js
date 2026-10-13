@@ -38,15 +38,23 @@
   if(!document.querySelector('link[data-market-conversion-v11]')){
     const link=document.createElement("link");
     link.rel="stylesheet";
-    link.href="/assets/market-conversion-v11.css?v=20261013a";
+    link.href="/assets/market-conversion-v11.css?v=20261013b";
     link.dataset.marketConversionV11="1";
     document.head.appendChild(link);
   }
   if(!document.querySelector('script[data-market-conversion-v11]')){
     const script=document.createElement("script");
-    script.src="/js/market-conversion-v11.js?v=20261013a";
+    script.src="/js/market-conversion-v11.js?v=20261013b";
     script.dataset.marketConversionV11="1";
-    script.defer=true;
+    script.async=false;
+    script.addEventListener("error",()=>{
+      const photo=document.querySelector('#botswana .country-photo');
+      if(photo){
+        photo.remove();
+        const grid=document.querySelector('#botswana .country-grid');
+        if(grid)grid.style.gridTemplateColumns="1fr";
+      }
+    },{once:true});
     document.head.appendChild(script);
   }
 })();
