@@ -15,6 +15,8 @@ const checks=[
   ["workspace reached requires authenticated html response",entry.includes('path==="/app/"&&response.ok')&&entry.includes('includes("text/html")')],
   ["conversion cookie is short lived",client.includes("Max-Age=1800")&&entry.includes("Max-Age=0")],
   ["events isolated from customer tenants",entry.includes('const PUBLIC_TENANT="public-market"')],
+  ["native rate limiter protects public event writes",entry.includes("PUBLIC_RATE_LIMITER")&&entry.includes("publicRateAllowed")&&entry.includes('error:"rate_limited"')],
+  ["client ip is throttle-only not persisted",entry.includes('request.headers.get("cf-connecting-ip")')&&!entry.includes('event_data:transientIp')&&!entry.includes('ip:transientIp')],
   ["no third-party analytics",!client.includes("google-analytics")&&!client.includes("googletagmanager")&&!client.includes("facebook.com/tr")&&!client.includes("segment.com")]
 ];
 
