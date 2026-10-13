@@ -74,6 +74,7 @@ try{
   assert(Math.abs(desktop.dockWidth-547.2)<=1.5,`1440px desktop panel should occupy about 38vw: ${desktop.dockWidth}`);
 
   await page.getByRole('button',{name:'Expand Thebe panel',exact:true}).click();
+  await page.waitForFunction(()=>Math.abs(document.getElementById('thebeAiDock').getBoundingClientRect().width-633.6)<=1.5);
   const expanded=await page.evaluate(()=>{const dock=document.getElementById('thebeAiDock'),buttons=[...dock.querySelectorAll('.thebe-ai-quick button')];return {expanded:document.body.classList.contains('thebe-ai-expanded'),visible:buttons.filter(button=>getComputedStyle(button).display!=='none'&&button.getBoundingClientRect().width>0).length,width:dock.getBoundingClientRect().width,composerVisible:getComputedStyle(dock.querySelector('.thebe-ai-compose')).display!=='none'};});
   assert(expanded.expanded,'expanded state remains available');
   assert(expanded.visible>=desktop.quickVisible,'expansion never removes primary shortcuts');
