@@ -1,0 +1,44 @@
+/* Thebe Desk market v17: desktop hero emphasis + repetition cleanup.
+   Built on top of the sanitized product snapshot v15. Mobile stays unchanged. */
+
+@media (min-width:1101px){
+  .marketinggate .hero .wrap{width:min(1180px,calc(100% - 44px))}
+  .marketinggate .hero-grid{
+    grid-template-columns:minmax(0,.92fr) minmax(560px,1.08fr);
+    gap:34px;
+    align-items:center;
+  }
+  .marketinggate .hero-grid>div:first-child{max-width:580px}
+  .marketinggate .hero h1{max-width:580px}
+  .marketinggate .hero p{max-width:560px}
+  .marketinggate .market-hero-visual{max-width:620px;width:100%;margin-left:auto}
+  .marketinggate .market-hero-photo{aspect-ratio:16/10;border-radius:22px}
+
+  .marketinggate .market-hero-visual .product-stage,
+  .marketinggate .market-hero-visual .market-product-snapshot-v15{
+    width:82%;
+    max-width:470px;
+    margin:-22px auto 0;
+  }
+
+  .marketinggate .hero .control-ribbon{display:none!important}
+  .marketinggate .proof-strip{display:none!important}
+  .marketinggate #product .conversion-inline-cta{display:none!important}
+
+  .marketinggate #botswana .section-head p{display:none!important}
+  .marketinggate #botswana .country-grid{grid-template-columns:1fr!important}
+  .marketinggate #botswana .country-photo{display:none!important}
+  .marketinggate #botswana .country-card{width:100%;height:auto}
+
+  .marketinggate #pricing .section-head p{display:none!important}
+
+  .marketinggate #product,
+  .marketinggate #thebe-ai,
+  .marketinggate #botswana,
+  .marketinggate #pricing{scroll-margin-top:82px}
+  .marketinggate #product.section{padding-top:30px}
+}
+
+@media (min-width:761px) and (max-width:1100px){
+  .marketinggate .market-hero-visual{max-width:600px}
+}
