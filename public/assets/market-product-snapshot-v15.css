@@ -1,0 +1,74 @@
+/* Thebe Desk market v15: sanitized product snapshot.
+   Presentation-only. The public market page never loads authenticated workspace data. */
+
+.marketinggate .market-product-snapshot-v15{overflow:hidden}
+.marketinggate .market-product-snapshot-v15 .snapshot-top{background:#fbfcfb}
+.marketinggate .market-product-snapshot-v15 .snapshot-badge{white-space:nowrap}
+.marketinggate .market-product-snapshot-v15 .snapshot-body{min-height:0}
+.marketinggate .market-product-snapshot-v15 .snapshot-main{display:grid;gap:8px;min-width:0;background:#fff}
+.marketinggate .market-product-snapshot-v15 .snapshot-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.marketinggate .market-product-snapshot-v15 .snapshot-heading h2{margin:3px 0 0}
+.marketinggate .market-product-snapshot-v15 .snapshot-live-pill{flex:0 0 auto;border:1px solid #d8e5f4;background:#f8fbff;color:#0b66d6;border-radius:999px;font-weight:800;white-space:nowrap}
+.marketinggate .market-product-snapshot-v15 .snapshot-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+.marketinggate .market-product-snapshot-v15 .snapshot-metric{min-width:0;border:1px solid #e5e5e1;background:#fbfcfb;border-radius:9px;padding:7px 8px}
+.marketinggate .market-product-snapshot-v15 .snapshot-metric b{display:block;color:#17191c;line-height:1}
+.marketinggate .market-product-snapshot-v15 .snapshot-metric span{display:block;color:#686d75;margin-top:3px;line-height:1.2}
+.marketinggate .market-product-snapshot-v15 .snapshot-attention{display:grid;gap:4px}
+.marketinggate .market-product-snapshot-v15 .snapshot-attention-row{display:grid;grid-template-columns:6px minmax(0,1fr) auto;gap:7px;align-items:center;border:1px solid #e5e5e1;border-radius:8px;padding:6px 7px;background:#fff;min-width:0}
+.marketinggate .market-product-snapshot-v15 .snapshot-attention-dot{width:6px;height:6px;border-radius:999px;background:#0b66d6}
+.marketinggate .market-product-snapshot-v15 .snapshot-attention-copy{min-width:0}
+.marketinggate .market-product-snapshot-v15 .snapshot-attention-copy b,.marketinggate .market-product-snapshot-v15 .snapshot-attention-copy small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.marketinggate .market-product-snapshot-v15 .snapshot-attention-copy small{color:#686d75}
+.marketinggate .market-product-snapshot-v15 .snapshot-attention-row>strong{color:#0b66d6;background:#edf5ff;border-radius:999px;padding:3px 5px;white-space:nowrap}
+.marketinggate .market-product-snapshot-v15 .snapshot-lower{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.marketinggate .market-product-snapshot-v15 .snapshot-panel{min-width:0;border:1px solid #dfe5e1;border-radius:9px;padding:7px;background:#fbfcfb}
+.marketinggate .market-product-snapshot-v15 .snapshot-panel-head{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:5px}
+.marketinggate .market-product-snapshot-v15 .snapshot-panel-head span{color:#0b66d6;font-weight:850;text-transform:uppercase;letter-spacing:.06em}
+.marketinggate .market-product-snapshot-v15 .snapshot-panel-head strong{color:#47534d;text-align:right}
+.marketinggate .market-product-snapshot-v15 .snapshot-control-line{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+.marketinggate .market-product-snapshot-v15 .snapshot-control-line b{color:#1f7a4d;background:#edf8f2;border-radius:999px;padding:3px 5px}
+.marketinggate .market-product-snapshot-v15 .snapshot-control-line span{color:#9a5a00;background:#fff7e8;border-radius:999px;padding:3px 5px;font-weight:800}
+.marketinggate .market-product-snapshot-v15 .snapshot-panel>small{display:block;color:#686d75;margin-top:5px;line-height:1.25}
+.marketinggate .market-product-snapshot-v15 .snapshot-ai{background:#f8fbff;border-color:#cfe0f3}
+.marketinggate .market-product-snapshot-v15 .snapshot-ai-prompt{display:flex;align-items:center;justify-content:space-between;gap:6px;border:1px solid #d8e5f4;background:#fff;border-radius:7px;padding:6px 7px;color:#53616b;line-height:1.25}
+.marketinggate .market-product-snapshot-v15 .snapshot-ai-prompt span{min-width:0}
+.marketinggate .market-product-snapshot-v15 .snapshot-ai-prompt b{color:#0b66d6}
+.marketinggate .market-product-snapshot-v15 .snapshot-note{border-top:1px solid #edf0ee;background:#fbfcfb}
+
+@media (min-width:1101px){
+  .marketinggate .market-product-snapshot-v15 .snapshot-live-pill{font-size:7px;padding:3px 5px}
+  .marketinggate .market-product-snapshot-v15 .snapshot-metric b{font-size:12px}
+  .marketinggate .market-product-snapshot-v15 .snapshot-metric span{font-size:7px}
+  .marketinggate .market-product-snapshot-v15 .snapshot-attention-copy b{font-size:8.5px}
+  .marketinggate .market-product-snapshot-v15 .snapshot-attention-copy small{font-size:7px}
+  .marketinggate .market-product-snapshot-v15 .snapshot-attention-row>strong{font-size:7px}
+  .marketinggate .market-product-snapshot-v15 .snapshot-panel-head span{font-size:6.5px}
+  .marketinggate .market-product-snapshot-v15 .snapshot-panel-head strong{font-size:7px}
+  .marketinggate .market-product-snapshot-v15 .snapshot-control-line b,.marketinggate .market-product-snapshot-v15 .snapshot-control-line span{font-size:6.5px}
+  .marketinggate .market-product-snapshot-v15 .snapshot-panel>small{font-size:6.5px}
+  .marketinggate .market-product-snapshot-v15 .snapshot-ai-prompt{font-size:6.5px}
+}
+
+@media (min-width:761px) and (max-width:1100px){
+  .marketinggate .market-product-snapshot-v15 .snapshot-live-pill{font-size:9px;padding:4px 7px}
+  .marketinggate .market-product-snapshot-v15 .snapshot-metric b{font-size:15px}
+  .marketinggate .market-product-snapshot-v15 .snapshot-metric span{font-size:9px}
+  .marketinggate .market-product-snapshot-v15 .snapshot-attention-copy b{font-size:11px}
+  .marketinggate .market-product-snapshot-v15 .snapshot-attention-copy small,.marketinggate .market-product-snapshot-v15 .snapshot-attention-row>strong{font-size:9px}
+  .marketinggate .market-product-snapshot-v15 .snapshot-panel-head span,.marketinggate .market-product-snapshot-v15 .snapshot-panel-head strong{font-size:8px}
+  .marketinggate .market-product-snapshot-v15 .snapshot-control-line b,.marketinggate .market-product-snapshot-v15 .snapshot-control-line span,.marketinggate .market-product-snapshot-v15 .snapshot-panel>small,.marketinggate .market-product-snapshot-v15 .snapshot-ai-prompt{font-size:8px}
+}
+
+@media (max-width:760px){
+  .marketinggate .market-product-snapshot-v15 .snapshot-main{gap:10px}
+  .marketinggate .market-product-snapshot-v15 .snapshot-live-pill{font-size:9px;padding:4px 7px}
+  .marketinggate .market-product-snapshot-v15 .snapshot-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .marketinggate .market-product-snapshot-v15 .snapshot-metric{padding:8px}
+  .marketinggate .market-product-snapshot-v15 .snapshot-metric b{font-size:16px}
+  .marketinggate .market-product-snapshot-v15 .snapshot-metric span{font-size:9px}
+  .marketinggate .market-product-snapshot-v15 .snapshot-attention-copy b{font-size:11px}
+  .marketinggate .market-product-snapshot-v15 .snapshot-attention-copy small,.marketinggate .market-product-snapshot-v15 .snapshot-attention-row>strong{font-size:9px}
+  .marketinggate .market-product-snapshot-v15 .snapshot-lower{grid-template-columns:1fr}
+  .marketinggate .market-product-snapshot-v15 .snapshot-panel-head span,.marketinggate .market-product-snapshot-v15 .snapshot-panel-head strong{font-size:8px}
+  .marketinggate .market-product-snapshot-v15 .snapshot-control-line b,.marketinggate .market-product-snapshot-v15 .snapshot-control-line span,.marketinggate .market-product-snapshot-v15 .snapshot-panel>small,.marketinggate .market-product-snapshot-v15 .snapshot-ai-prompt{font-size:8.5px}
+}
