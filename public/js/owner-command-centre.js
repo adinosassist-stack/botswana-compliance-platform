@@ -18,6 +18,7 @@
 
   let latestStateEnvelope=null;
   let renderSeq=0;
+  let scheduledRender=0;
   let stateWriteQueue=Promise.resolve();
   let agenticLatestPlan=null;
   let agenticBusy=false;
@@ -1377,8 +1378,8 @@
     const head=document.createElement("div");
     head.className="owner-command-head";
     const copy=document.createElement("div");
-    copy.append(text("div","Business owner brief","section-eyebrow"));
-    const title=text("h3","What needs your attention today");
+    copy.append(text("div","Business analysis","section-eyebrow"));
+    const title=text("h3","Understand the signals behind today's work");
     title.id="ownerCommandTitle";
     copy.append(
       title,
@@ -1388,7 +1389,7 @@
         "muted"
       )
     );
-    head.append(copy,button("Refresh brief",()=>renderOwnerBrief(true),"btn alt"));
+    head.append(copy,button("Refresh analysis",()=>renderOwnerBrief(true),"btn alt"));
     shell.append(head);
 
     const summary=text("div","Building your business brief…","owner-command-summary");
@@ -1493,8 +1494,14 @@
     settings.append(inputsBody);
     shell.append(settings);
 
-    const anchor=q(".home-status-strip",parent);
-    parent.insertBefore(shell,anchor||null);
+    const analysis=document.createElement("details");
+    analysis.className="owner-analysis-details";
+    analysis.append(text("summary","Business analysis & planning"));
+    analysis.addEventListener("toggle",()=>{if(analysis.open)void renderOwnerBrief(true)});
+    while(shell.firstChild)analysis.append(shell.firstChild);
+    shell.append(analysis);
+    const anchor=q(".daily-brief-grid",parent);
+    parent.insertBefore(shell,anchor?.nextSibling||null);
     return shell;
   }
 
@@ -4376,6 +4383,8 @@
       return;
     }
     shell.hidden=false;
+    // The factual daily brief loads first. Detailed analysis is requested on demand.
+    if(!force&&!q(".owner-analysis-details",shell)?.open)return;
 
     const summary=q("#ownerCommandSummary");
     if(summary){
@@ -4455,7 +4464,8 @@
   }
 
   function scheduleRender(){
-    setTimeout(()=>renderOwnerBrief(false),220);
+    clearTimeout(scheduledRender);
+    scheduledRender=setTimeout(()=>renderOwnerBrief(false),220);
   }
 
   function boot(){

@@ -5167,6 +5167,8 @@ function openCommandPalette(){let sh=document.getElementById("commandShade");if(
 function closeCommandPalette(){document.getElementById("commandShade")?.classList.remove("open")}
 function renderCommandResults(q=""){
   const allowed=allowedCommandIds(),query=q.trim().toLowerCase();
+  const searchTerms=query.split(/\s+/).filter(Boolean);
+  const matchesQuery=value=>searchTerms.every(term=>String(value).toLowerCase().includes(term));
   const sections=getCommandSections().filter(x=>allowed.has(x[0]));
   const role=currentWorkspaceRole();
   const actions=[
@@ -5178,9 +5180,9 @@ function renderCommandResults(q=""){
   ].filter(Boolean);
   syncCommandModeButtons();
   if(query){
-    const actionMatches=actions.filter(x=>(x[1]+" "+x[2]).toLowerCase().includes(query));
+    const actionMatches=actions.filter(x=>matchesQuery(x[1]+" "+x[2]));
     const searchScore=x=>{const label=x[1].toLowerCase(),group=x[2].toLowerCase(),keywords=x[3].toLowerCase();let score=label===query?0:label.startsWith(query)?1:label.includes(query)?2:group.includes(query)?4:keywords.includes(query)?5:9;if(COMMAND_HUBS.has(x[0]))score+=2;return score};
-    const matches=sections.filter(x=>(x[1]+" "+x[2]+" "+x[3]).toLowerCase().includes(query)).sort((a,b)=>searchScore(a)-searchScore(b)||a[1].localeCompare(b[1])).slice(0,24);
+    const matches=sections.filter(x=>matchesQuery(x[1]+" "+x[2]+" "+x[3])).sort((a,b)=>searchScore(a)-searchScore(b)||a[1].localeCompare(b[1])).slice(0,24);
     commandResults.safeHTML=(actionMatches.length||matches.length)?commandHeading("Search results",`${actionMatches.length+matches.length} match${actionMatches.length+matches.length===1?"":"es"}`)+actionMatches.map(x=>commandActionRow(x[0],x[1],x[2],x[3])).join("")+matches.map(commandRow).join(""):`<div class="empty"><b>No matching task</b><span class="muted small">Try a plain word such as employee, licence, tender, tax or document.</span></div>`;
     return;
   }
@@ -7251,6 +7253,13 @@ function setOwnerBriefNotice(message=""){
 function openThebeFromHome(question="",run=false){
   if(!roleCanView("aiservices"))return false;
   const source=document.getElementById("homeThebeQuestion"),prompt=String(question||source?.value||"").trim().slice(0,1000);
+  if(window.ThebeAiDock?.open){
+    window.ThebeAiDock.open();
+    const target=document.querySelector('#thebeAiDock textarea');
+    if(target){if(prompt)target.value=prompt;target.dispatchEvent(new Event("input",{bubbles:true}));target.focus()}
+    if(run&&prompt.length>=3)void window.ThebeAiDock.ask(prompt,"ask");
+    return true;
+  }
   const opened=showView("aiservices");if(!opened)return false;
   requestAnimationFrame(()=>{
     const mode=document.getElementById("aiAdvisorMode"),target=document.getElementById("aiAdvisorQuestion");

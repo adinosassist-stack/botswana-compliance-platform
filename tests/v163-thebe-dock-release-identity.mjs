@@ -47,10 +47,10 @@ assert(runtime.includes('\"flex-direction\":\"column\"')&&runtime.includes('\"wi
 assert(runtime.includes('function workspaceDockLeftPx()'),'V200 must retain one dock-anchor resolver');
 assert(runtime.includes('document.getElementById("workspaceSidebar")'),'V200 must anchor the desktop dock to the sidebar rather than the moving main workspace column');
 assert(runtime.includes('Math.round(rect.right+20)'),'V200 dock anchor must sit 20px beyond the sidebar edge');
-assert(runtime.includes('function effectiveCollapsed(){return (mobileDockMode()?collapsed:false)||dockShouldYield()}'),'V207 desktop dock must ignore stale collapse preference while preserving Billing yield');
-assert(runtime.includes('collapsed=mobile?Boolean(next):false'),'V207 collapse mutations must be mobile-only');
-assert(runtime.includes('collapsed=mobileDockMode()?(storedCollapse==="1"||storedCollapse===null):false'),'V207 desktop mount must start fixed-open even when an older collapse preference exists');
-assert(runtime.includes('if(minimize)minimize.hidden=!mobile'),'V207 desktop dock must not expose a minimise control that contradicts fixed-open behavior');
+assert(runtime.includes('function effectiveCollapsed(){return ((mobileDockMode()||surfaceMode()==="workspace")?collapsed:false)||dockShouldYield()}'),'Workspace collapse preference must preserve public desktop behavior and Billing yield');
+assert(runtime.includes('collapsed=(mobile||surfaceMode()==="workspace")?Boolean(next):false'),'Workspace desktop and mobile allow explicit collapse');
+assert(runtime.includes('collapsed=storedCollapse==="1"||storedCollapse===null'),'Workspace defaults to a launcher and restores the session preference');
+assert(runtime.includes('if(minimize)minimize.hidden=!mobile&&!workspace'),'Workspace desktop exposes an operable minimise control');
 assert(runtime.includes('desktopWorkspaceOrbHealthy'),'V208 recovery health must include the authoritative desktop workspace orb geometry');
 assert(runtime.includes('Math.abs((orbRect?.width||0)-82)<=1'),'V208 must reject recovered workspace orb width drift');
 assert(runtime.includes('setCriticalStyle(orbButton,{"width":"82px"'),'V208 must repair the workspace orb back to 82px during emergency presentation recovery');
