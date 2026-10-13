@@ -1,4 +1,4 @@
-/* Thebe Desk public market UI/UX refinement — 2026-10-12. Public /home only. */
+/* Thebe Desk public market UI/UX refinement — 2026-10-12. Public market only. */
 :root{
   --market-accent:#b42318;
   --market-accent-strong:#8f1d15;
@@ -46,7 +46,7 @@
 #marketingGate .market-footer-group a:hover{opacity:1!important;color:var(--market-accent)!important}
 #marketingGate .market-footer-disclaimer{margin:0!important;padding-top:18px!important;border-top:1px solid var(--market-line)!important;font-size:12px!important;line-height:1.6!important;opacity:.72!important}
 body.market-ai-public #thebeAiDockPill{display:none!important;visibility:hidden!important;pointer-events:none!important}
-body.market-ai-public #thebeAiDock{transition:opacity .2s ease,visibility .2s ease,transform .24s ease!important}
+body.market-ai-public #thebeAiDock{transition:opacity .2s ease,visibility .2s ease,transform .24s ease,width .2s ease!important}
 body.market-ai-public.market-ai-collapsed #thebeAiDock{visibility:hidden!important;opacity:0!important;pointer-events:none!important;transform:translateX(calc(100% + 28px))!important}
 body.market-ai-public.market-ai-expanded #thebeAiDock{visibility:visible!important;opacity:1!important;pointer-events:auto!important;transform:none!important}
 body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-minimize{display:inline-flex!important}
@@ -54,9 +54,100 @@ body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-minimize{dis
 .market-ai-launcher:before{content:"";display:inline-block;width:7px;height:7px;margin-right:9px;border-radius:50%;background:#fff;vertical-align:1px}
 .market-ai-launcher:hover{background:#202226}
 body.market-ai-expanded .market-ai-launcher{background:var(--market-accent);border-color:var(--market-accent)}
+
+/* V251: Gemini-like public Thebe panel — stable side width, minimal chrome and compact actions. */
+body.market-ai-public{
+  --market-ai-panel-width:clamp(460px,35vw,540px);
+  --thebe-spatial-width:var(--market-ai-panel-width)!important;
+  --thebe-dock-w:var(--market-ai-panel-width)!important;
+}
+body.market-ai-public.thebe-ai-expanded,
+body.market-ai-public.market-ai-expanded{
+  --thebe-spatial-width:var(--market-ai-panel-width)!important;
+  --thebe-dock-w:var(--market-ai-panel-width)!important;
+}
+body.market-ai-public #thebeAiDock[data-surface="public"]{
+  background:#1f1f1f!important;
+  border:1px solid #3c4043!important;
+  border-radius:22px!important;
+  box-shadow:0 12px 32px rgba(0,0,0,.16)!important;
+  color:#f1f3f4!important;
+}
+body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-dock-head{
+  min-height:58px!important;
+  padding:10px 12px 10px 14px!important;
+  background:#1f1f1f!important;
+  border-bottom:0!important;
+}
+body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-mark{
+  width:30px!important;height:30px!important;border-radius:9px!important;background-size:23px 23px!important;
+}
+body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-title-copy b{font-size:15px!important;font-weight:600!important}
+body.market-ai-public #thebeAiDock[data-surface="public"] :is(.thebe-ai-presence,.thebe-ai-context-bar,.thebe-ai-mode-rail,.thebe-ai-foot,.thebe-ai-response-title,.thebe-ai-attention,.thebe-ai-expand){display:none!important}
+body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-head-actions{gap:2px!important}
+body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-icon-btn{
+  width:36px!important;height:36px!important;border:0!important;border-radius:50%!important;background:transparent!important;color:#e8eaed!important;
+}
+body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-icon-btn:hover{background:#303134!important}
+body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-dock-scroll{
+  padding:8px 18px 10px!important;gap:14px!important;scrollbar-color:#5f6368 transparent!important;
+}
+body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-voice-card{
+  border:0!important;padding:24px 0 12px!important;min-height:150px!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;
+}
+body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-eyebrow{display:none!important}
+body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-orb-button{
+  width:68px!important;min-width:68px!important;max-width:68px!important;height:68px!important;min-height:68px!important;max-height:68px!important;margin:0 auto 12px!important;border-radius:50%!important;
+}
+body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-voice-label{font-size:18px!important;line-height:1.25!important;font-weight:500!important}
+body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-voice-sub{display:none!important}
+body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-quick{
+  display:flex!important;flex-wrap:wrap!important;gap:8px!important;align-items:center!important;
+}
+body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-quick button{
+  width:auto!important;min-width:0!important;min-height:38px!important;padding:8px 13px!important;border:1px solid #4b4d50!important;border-radius:999px!important;background:#2b2c2f!important;color:#e8eaed!important;font-size:12px!important;line-height:1.2!important;text-align:center!important;white-space:normal!important;box-shadow:none!important;
+}
+body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-quick button:hover{background:#35363a!important;border-color:#6a6d70!important}
+body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-quick button:nth-child(n+4){display:none!important}
+body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-quick button small,
+body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-quick button::before,
+body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-quick button::after{display:none!important;content:none!important}
+body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-response{
+  border:0!important;border-radius:0!important;background:transparent!important;padding:6px 2px!important;color:#e8eaed!important;font-size:13px!important;line-height:1.55!important;box-shadow:none!important;
+}
+body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-public-actions{display:flex!important;gap:7px!important;margin-top:10px!important}
+body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-public-actions :is(button,a){min-height:36px!important;padding:7px 12px!important;border-radius:999px!important;font-size:11px!important}
+body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-public-voice{display:none!important}
+body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-compose{
+  margin:0 12px 12px!important;padding:6px 6px 6px 14px!important;border:1px solid #454746!important;border-radius:26px!important;background:#2b2c2f!important;gap:6px!important;box-shadow:none!important;
+}
+body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-compose textarea{
+  min-height:42px!important;max-height:132px!important;padding:11px 4px!important;border:0!important;border-radius:0!important;background:transparent!important;color:#f1f3f4!important;resize:none!important;box-shadow:none!important;outline:0!important;
+}
+body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-compose textarea::placeholder{color:#9aa0a6!important}
+body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-send{
+  width:38px!important;min-width:38px!important;height:38px!important;min-height:38px!important;border:0!important;border-radius:50%!important;background:#f1f3f4!important;color:#202124!important;font-size:19px!important;
+}
+@media(min-width:1200px) and (hover:hover) and (pointer:fine){
+  body.market-ai-public #thebeAiDock[data-surface="public"]{
+    left:auto!important;right:16px!important;top:16px!important;bottom:16px!important;width:var(--market-ai-panel-width)!important;max-width:var(--market-ai-panel-width)!important;height:auto!important;max-height:none!important;min-height:0!important;
+  }
+  body.market-ai-public #marketingGate{padding-right:calc(var(--market-ai-panel-width) + 32px)!important;box-sizing:border-box!important}
+}
+@media(min-width:1024px) and (max-width:1199px){
+  body.market-ai-public{--market-ai-panel-width:clamp(360px,34vw,410px)}
+  body.market-ai-public #thebeAiDock[data-surface="public"]{
+    left:auto!important;right:12px!important;top:12px!important;bottom:12px!important;width:var(--market-ai-panel-width)!important;max-width:var(--market-ai-panel-width)!important;height:auto!important;max-height:none!important;min-height:0!important;border-radius:20px!important;
+  }
+  body.market-ai-public #marketingGate{padding-right:calc(var(--market-ai-panel-width) + 24px)!important;box-sizing:border-box!important}
+}
 @media(max-width:1000px){
   #marketingGate .marketinghero[data-market-hero-v250="1"],#marketingGate .hero[data-market-hero-v250="1"]{grid-template-columns:1fr!important;gap:32px!important}
   #marketingGate .market-footer-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+@media(max-width:1023px){
+  body.market-ai-public #thebeAiDock[data-surface="public"] :is(.thebe-ai-context-bar,.thebe-ai-mode-rail,.thebe-ai-foot,.thebe-ai-response-title,.thebe-ai-attention){display:none!important}
+  body.market-ai-public #thebeAiDock[data-surface="public"] .thebe-ai-quick button:nth-child(n+4){display:none!important}
 }
 @media(max-width:640px){
   #marketingGate [data-market-actions-v250="1"]>*{width:100%!important}
