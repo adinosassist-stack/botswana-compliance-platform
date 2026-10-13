@@ -83,7 +83,8 @@ jobs:
           const root=await get('/');
           assert.equal(root.status,200);
           const html=await root.text();
-          assert.match(html,/Run your business from one place\./i);
+          assert.match(html,/Thebe Desk/i);
+          assert.match(html,/id="thebeAiDock"/i);
           assert.match(html,/Live in Botswana · Namibia next/i);
           assert.doesNotMatch(html,/id="appShell"/i);
           assert.doesNotMatch(html,/id="authForm"/i);
@@ -204,9 +205,56 @@ jobs:
 
           await page.goto(process.env.ORIGIN+'/',{waitUntil:'networkidle',timeout:45000});
           assert.match(await page.title(),/Thebe Desk/i);
-          const rootState=await page.evaluate(()=>({hero:(document.querySelector('.hero h1')?.textContent||'').trim(),app:!!document.getElementById('appShell'),auth:!!document.getElementById('authForm'),role:!!document.getElementById('roleAccessPortal')}));
-          assert.equal(rootState.hero,'Run your business from one place.');assert.equal(rootState.app,false);assert.equal(rootState.auth,false);assert.equal(rootState.role,false);
-          await page.waitForTimeout(600);
+          const rootState=await page.evaluate(()=>({app:!!document.getElementById('appShell'),auth:!!document.getElementById('authForm'),role:!!document.getElementById('roleAccessPortal'),dock:!!document.getElementById('thebeAiDock')}));
+          assert.equal(rootState.app,false);assert.equal(rootState.auth,false);assert.equal(rootState.role,false);assert.equal(rootState.dock,true);
+          await page.waitForFunction(()=>document.getElementById('thebeAiDock')?.dataset.geminiNarrowV274==='1',{timeout:10000});
+          await page.waitForTimeout(250);
+          const gemini=await page.evaluate(()=>{
+            const dock=document.getElementById('thebeAiDock');
+            const gate=document.getElementById('marketingGate');
+            const rect=dock.getBoundingClientRect();
+            const composer=dock.querySelector('.thebe-ai-compose')?.getBoundingClientRect();
+            const send=dock.querySelector('.thebe-ai-send');
+            const sendRect=send?.getBoundingClientRect();
+            const close=dock.querySelector('.thebe-ai-icon-btn');
+            const closeRect=close?.getBoundingClientRect();
+            const clutter=['.thebe-ai-presence','.thebe-ai-context-bar','.thebe-ai-mode-rail','.thebe-ai-voice-card','.thebe-ai-quick','.thebe-ai-public-actions'].map(selector=>dock.querySelector(selector)).filter(Boolean);
+            return {
+              width:rect.width,
+              ratio:rect.width/innerWidth,
+              top:rect.top,
+              right:innerWidth-rect.right,
+              bottom:innerHeight-rect.bottom,
+              gatePaddingRight:parseFloat(getComputedStyle(gate).paddingRight),
+              composerBottomGap:composer?rect.bottom-composer.bottom:null,
+              composerRadius:composer?getComputedStyle(dock.querySelector('.thebe-ai-compose')).borderRadius:null,
+              sendWidth:sendRect?.width||0,
+              sendHeight:sendRect?.height||0,
+              sendRadius:send?getComputedStyle(send).borderRadius:null,
+              closeWidth:closeRect?.width||0,
+              closeHeight:closeRect?.height||0,
+              closeRadius:close?getComputedStyle(close).borderRadius:null,
+              clutterDisplays:clutter.map(node=>getComputedStyle(node).display),
+              release:dock.dataset.geminiNarrowRelease||''
+            };
+          });
+          assert.ok(gemini.width>=360&&gemini.width<=420,`live Thebe rail width is not Gemini-narrow: ${JSON.stringify(gemini)}`);
+          assert.ok(gemini.ratio<0.30,`live Thebe rail is too wide for Gemini parity: ${JSON.stringify(gemini)}`);
+          assert.ok(Math.abs(gemini.top-16)<=2&&Math.abs(gemini.right-16)<=2&&Math.abs(gemini.bottom-16)<=2,`live Thebe rail edge spacing drifted: ${JSON.stringify(gemini)}`);
+          assert.ok(gemini.gatePaddingRight>=gemini.width+31,`live market page does not reserve the narrow Thebe lane: ${JSON.stringify(gemini)}`);
+          assert.match(gemini.release,/gemini-parity-v275$/,'live Gemini parity runtime marker missing');
+          assert.ok(gemini.composerBottomGap>=17&&gemini.composerBottomGap<=19,`live composer is not bottom-anchored: ${JSON.stringify(gemini)}`);
+          assert.equal(gemini.composerRadius,'28px');
+          assert.ok(Math.abs(gemini.sendWidth-42)<=1&&Math.abs(gemini.sendHeight-42)<=1,'live send control must stay 42px');
+          assert.equal(gemini.sendRadius,'50%');
+          if(gemini.closeWidth){assert.ok(Math.abs(gemini.closeWidth-36)<=1&&Math.abs(gemini.closeHeight-36)<=1,'live header controls must stay 36px');assert.equal(gemini.closeRadius,'50%')}
+          assert.ok(gemini.clutterDisplays.every(value=>value==='none'),`live Gemini rail contains excess public chrome: ${JSON.stringify(gemini.clutterDisplays)}`);
+          await page.evaluate(()=>{document.getElementById('thebeAiDock').hidden=true});
+          await page.waitForFunction(()=>parseFloat(getComputedStyle(document.getElementById('marketingGate')).paddingRight)===0,{timeout:5000});
+          await page.evaluate(()=>{document.getElementById('thebeAiDock').hidden=false});
+          await page.waitForFunction(()=>parseFloat(getComputedStyle(document.getElementById('marketingGate')).paddingRight)>400,{timeout:5000});
+          console.log('PASS live public Thebe matches Gemini narrow rail geometry, restraint and close/reopen lane behaviour');
+
           assert.equal(context.pages().length,1,'desktop startup must not create extra tabs/windows');
           assert.deepEqual(popupUrls,[],'desktop startup must not create popups');
           const persistentWorkers=await page.evaluate(async()=>typeof navigator.serviceWorker?.getRegistrations==='function'?(await navigator.serviceWorker.getRegistrations()).length:0);
