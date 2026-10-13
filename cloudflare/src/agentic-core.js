@@ -239,6 +239,29 @@ function deterministicFallback(observation){
   return {answer:"Thebe generated a governed plan from current workspace signals. No autonomous business mutation was performed.",confidence:(operationsUnavailable||performanceUnavailable)?"low":"medium",actions,caveats:["Human approval is required before any consequential action."],sourceRefs:actions.flatMap(x=>x.sourceRefs||[])};
 }
 
+function advisorContextDisclosure(data){
+  const rawAvailability=data?.contextAvailability&&typeof data.contextAvailability==="object"?data.contextAvailability:{};
+  const rawState=text(rawAvailability.financeAndBusiness,40).toLowerCase();
+  const financeAndBusiness=["available","unavailable","role_restricted"].includes(rawState)?rawState:"unknown";
+  const rawCompaction=data?.contextCompaction&&typeof data.contextCompaction==="object"?data.contextCompaction:{};
+  const contextCompaction=Object.freeze({
+    applied:rawCompaction.applied===true,
+    stage:text(rawCompaction.stage,40)||null
+  });
+  const reason=text(rawAvailability.financeAndBusinessReason,120)||
+    (financeAndBusiness==="unknown"?"advisor_context_unverified":null);
+  return Object.freeze({
+    contextAvailability:Object.freeze({
+      financeAndBusiness,
+      financeAndBusinessComplete:rawAvailability.financeAndBusinessComplete===true,
+      financeAndBusinessReason:reason,
+      contextCompaction:text(rawAvailability.contextCompaction,40)||null,
+      contextComplete:rawAvailability.contextComplete===true
+    }),
+    contextCompaction
+  });
+}
+
 async function runAdvisor({request,env,ctx,coreFetch,runId,goal,observation,orchestration,readTools,continuationContext=null}){
   // The advisor builds fresh, role-scoped workspace evidence and language policy
   // on the server. Its public question contract is 1000 characters; duplicating
@@ -252,14 +275,22 @@ async function runAdvisor({request,env,ctx,coreFetch,runId,goal,observation,orch
   const origin=request.headers.get("origin");if(origin)headers.set("origin",origin);
   try{
     const response=await coreFetch(new Request(target.toString(),{method:"POST",headers,body:JSON.stringify({mode:"next_actions",question})}),env,ctx);
-    if(!response.ok)return {result:deterministicFallback(observation),generationMode:"deterministic_fallback",advisorStatus:response.status};
+    if(!response.ok){
+      const disclosure=advisorContextDisclosure(null);
+      return {result:deterministicFallback(observation),...disclosure,generationMode:"deterministic_fallback",advisorStatus:response.status};
+    }
     const data=await response.json();
     const result=data?.result||data;
-    if(!result||typeof result!=="object")return {result:deterministicFallback(observation),generationMode:"deterministic_fallback",advisorStatus:200};
+    if(!result||typeof result!=="object"){
+      const disclosure=advisorContextDisclosure(data);
+      return {result:deterministicFallback(observation),...disclosure,generationMode:"deterministic_fallback",advisorStatus:200};
+    }
     const references=(Array.isArray(data.references)?data.references:[]).slice(0,30).map(item=>({ref:text(item.ref,120),label:text(item.label,240)})).filter(item=>item.ref);
-    return {result,references,generationMode:data.generationMode==="workers_ai"?"governed_ai_advisor":"deterministic_fallback",advisorStatus:200};
+    const contextDisclosure=advisorContextDisclosure(data);
+    return {result,references,contextAvailability:contextDisclosure.contextAvailability,contextCompaction:contextDisclosure.contextCompaction,generationMode:data.generationMode==="workers_ai"?"governed_ai_advisor":"deterministic_fallback",advisorStatus:200};
   }catch{
-    return {result:deterministicFallback(observation),generationMode:"deterministic_fallback",advisorStatus:0};
+    const disclosure=advisorContextDisclosure(null);
+    return {result:deterministicFallback(observation),...disclosure,generationMode:"deterministic_fallback",advisorStatus:0};
   }
 }
 
@@ -443,7 +474,7 @@ async function createPlan({request,env,ctx,coreFetch,auth,goalOverride=null,cont
   return json({
     ok:true,
     stage:"observe_read_tools_decompose_route_reason_verify_checkpoint_recommend",
-    run:{id:runId,goal,status:"completed",generationMode:advisor.generationMode,confidence,summary,observation},
+    run:{id:runId,goal,status:"completed",generationMode:advisor.generationMode,confidence,summary,contextAvailability:advisor.contextAvailability||null,contextCompaction:advisor.contextCompaction||null,observation},
     proposals:savedProposals.map(proposal=>({...proposal,outcomeLearning:associationForProposal(proposal,outcomeAssociations)})),
     continuation:{
       enabled:true,
