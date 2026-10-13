@@ -331,3 +331,69 @@ body.thebe-voice-active{overflow:hidden!important}
   #thebeAiDock[data-surface="public"] .thebe-ai-quick{overflow-x:auto!important;flex-wrap:nowrap!important;padding-bottom:2px!important}
   #thebeAiDock[data-surface="public"] .thebe-ai-quick button{min-height:34px!important;padding:7px 11px!important}
 }
+
+/* V272 workspace containment — the Gemini treatment belongs to the public market surface.
+   Keep the signed-in operating workspace on its established compact command rail. */
+@media (min-width:1200px) and (hover:hover) and (pointer:fine){
+  body{--thebe-spatial-width:272px}
+  body.thebe-ai-expanded{--thebe-spatial-width:344px}
+  body #thebeAiDock[data-surface="workspace"]{
+    left:auto!important;
+    right:16px!important;
+    top:88px!important;
+    bottom:auto!important;
+    width:var(--thebe-spatial-width)!important;
+    min-width:0!important;
+    max-width:var(--thebe-spatial-width)!important;
+    height:min(610px,calc(100dvh - 104px))!important;
+    min-height:0!important;
+    max-height:calc(100dvh - 104px)!important;
+    border-radius:20px!important;
+  }
+  body.thebe-ai-dock-open #appShell,
+  body.thebe-ai-dock-open.thebe-ai-expanded #appShell{padding-right:calc(var(--thebe-spatial-width) + 32px)!important}
+  body #thebeAiDock[data-surface="workspace"] .thebe-ai-dock-head{padding:12px!important}
+  body #thebeAiDock[data-surface="workspace"] .thebe-ai-dock-scroll{padding:12px!important;gap:10px!important}
+  body #thebeAiDock[data-surface="workspace"] .thebe-ai-voice-card{
+    grid-template-columns:68px minmax(0,1fr)!important;
+    justify-items:stretch!important;
+    align-items:center!important;
+    align-content:normal!important;
+    text-align:left!important;
+    gap:8px!important;
+    min-height:0!important;
+    padding:10px!important;
+  }
+  body #thebeAiDock[data-surface="workspace"] .thebe-ai-orb-button{
+    width:68px!important;min-width:68px!important;max-width:68px!important;
+    height:68px!important;min-height:68px!important;max-height:68px!important;
+  }
+  body #thebeAiDock[data-surface="workspace"] .thebe-ai-voice-label{font-size:16px!important}
+  body #thebeAiDock[data-surface="workspace"] .thebe-ai-voice-mount{justify-items:stretch!important;width:auto!important;margin-top:6px!important}
+  body #thebeAiDock[data-surface="workspace"] .thebe-ai-quick{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
+  body #thebeAiDock[data-surface="workspace"] .thebe-ai-quick button,
+  body #thebeAiDock[data-surface="workspace"] .thebe-ai-quick button:last-child{min-height:44px!important;padding:10px!important;font-size:11px!important;text-align:left!important}
+  body #thebeAiDock[data-surface="workspace"] .thebe-ai-quick button:last-child{grid-column:1/-1!important}
+  body #thebeAiDock[data-surface="workspace"] .thebe-ai-response{font-size:12px!important;line-height:1.5!important}
+  body #thebeAiDock[data-surface="workspace"] .thebe-ai-compose{margin:0 12px 10px!important;padding:8px!important}
+  body #thebeAiDock[data-surface="workspace"] .thebe-ai-compose textarea{min-height:44px!important;max-height:106px!important;font-size:14px!important}
+  body #thebeAiDock[data-surface="workspace"] .thebe-ai-foot{padding:0 12px 10px!important;font-size:9px!important}
+}
+@media (min-width:1024px) and (max-width:1199px){
+  body{--thebe-spatial-width:256px}
+  body.thebe-ai-expanded{--thebe-spatial-width:324px}
+  body #thebeAiDock[data-surface="workspace"]{
+    left:auto!important;
+    right:16px!important;
+    top:88px!important;
+    bottom:auto!important;
+    width:var(--thebe-spatial-width)!important;
+    min-width:0!important;
+    max-width:var(--thebe-spatial-width)!important;
+    height:min(610px,calc(100dvh - 104px))!important;
+    min-height:0!important;
+    max-height:calc(100dvh - 104px)!important;
+  }
+  body.thebe-ai-dock-open #appShell,
+  body.thebe-ai-dock-open.thebe-ai-expanded #appShell{padding-right:calc(var(--thebe-spatial-width) + 32px)!important}
+}
