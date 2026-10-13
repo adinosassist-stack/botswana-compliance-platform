@@ -1,5 +1,5 @@
 name: Thebe Desk WhatsApp Provider Readiness
-run-name: WhatsApp provider readiness ${{ github.event.workflow_run.head_sha || inputs.expected_sha }}
+run-name: WhatsApp provider finalizer ${{ github.event.workflow_run.head_sha || inputs.expected_sha }}
 
 on:
   workflow_run:
@@ -8,47 +8,95 @@ on:
   workflow_dispatch:
     inputs:
       expected_sha:
-        description: Optional deployed main SHA to verify without sending a message
-        required: false
+        description: Deployed main SHA to finalize and verify without sending a WhatsApp message
+        required: true
         type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: thebe-whatsapp-provider-readiness-${{ github.event.workflow_run.head_sha || inputs.expected_sha || github.sha }}
+  group: thebe-whatsapp-provider-finalizer
   cancel-in-progress: false
 
 jobs:
-  verify:
-    name: Prove provider state without Meta traffic
+  finalize:
+    name: Apply and prove provider state without Meta traffic
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-24.04
-    timeout-minutes: 8
+    timeout-minutes: 15
     environment: production
     env:
-      TARGET_SHA: ${{ github.event.workflow_run.head_sha || inputs.expected_sha || github.sha }}
+      TARGET_SHA: ${{ github.event.workflow_run.head_sha || inputs.expected_sha }}
       ORIGIN: https://thebedesk.com
+      D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
+      PUBLIC_APP_URL: https://thebedesk.com
+      PUBLIC_ORIGIN: https://thebedesk.com
+      TURNSTILE_SITE_KEY: ${{ vars.TURNSTILE_SITE_KEY }}
+      PLATFORM_ADMIN_EMAILS: ${{ vars.PLATFORM_ADMIN_EMAILS }}
+      PLATFORM_REGULATORY_REVIEWERS: ${{ vars.PLATFORM_REGULATORY_REVIEWERS }}
+      EVIDENCE_SCAN_API_URL: ''
+      PAYMENT_PROVIDER_OVERRIDE: none
+      GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_REDIRECT_URI: https://thebedesk.com/api/auth/oauth/google/callback
+      FACEBOOK_APP_ID: ${{ vars.FACEBOOK_APP_ID }}
+      FACEBOOK_OAUTH_REDIRECT_URI: https://thebedesk.com/api/auth/oauth/facebook/callback
+      EMAIL_FROM: ${{ vars.EMAIL_FROM }}
+      THEBE_BANK_NAME: ${{ vars.THEBE_BANK_NAME }}
+      THEBE_BANK_ACCOUNT_NUMBER: ${{ vars.THEBE_BANK_ACCOUNT_NUMBER }}
+      THEBE_BANK_ACCOUNT_TYPE: ${{ vars.THEBE_BANK_ACCOUNT_TYPE }}
+      THEBE_BANK_BRANCH_NAME: ${{ vars.THEBE_BANK_BRANCH_NAME }}
+      THEBE_BANK_BRANCH_CODE: ${{ vars.THEBE_BANK_BRANCH_CODE }}
+      THEBE_BANK_SWIFT_CODE: ${{ vars.THEBE_BANK_SWIFT_CODE }}
       WHATSAPP_BUSINESS_NUMBER: ${{ vars.WHATSAPP_BUSINESS_NUMBER }}
       WHATSAPP_PHONE_NUMBER_ID: ${{ vars.WHATSAPP_PHONE_NUMBER_ID }}
       WHATSAPP_GRAPH_VERSION: ${{ vars.WHATSAPP_GRAPH_VERSION }}
       WHATSAPP_TEMPLATE_MAP_JSON: ${{ vars.WHATSAPP_TEMPLATE_MAP_JSON }}
-      WHATSAPP_ACCESS_TOKEN: ${{ secrets.WHATSAPP_ACCESS_TOKEN }}
-      WHATSAPP_APP_SECRET: ${{ secrets.WHATSAPP_APP_SECRET }}
-      WHATSAPP_VERIFY_TOKEN: ${{ secrets.WHATSAPP_VERIFY_TOKEN }}
 
     steps:
       - name: Checkout exact deployed SHA
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.TARGET_SHA }}
-          fetch-depth: 1
+          fetch-depth: 0
           persist-credentials: false
+
+      - name: Verify deployed SHA remains in current main history
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'TARGET_SHA must be a full lowercase commit SHA' >&2; exit 1; }
+          target="$(git rev-parse HEAD)"
+          [[ "$target" == "$TARGET_SHA" ]] || { echo 'provider finalizer checkout mismatch' >&2; exit 1; }
+          if [[ "${{ github.event_name }}" == 'workflow_run' ]]; then
+            [[ "${{ github.event.workflow_run.head_sha }}" == "$TARGET_SHA" ]] || { echo 'Production Deploy trigger SHA mismatch' >&2; exit 1; }
+            [[ "${{ github.event.workflow_run.conclusion }}" == 'success' ]] || { echo 'Production Deploy trigger was not successful' >&2; exit 1; }
+          fi
+          main_sha="$(curl --fail-with-body --silent --show-error \
+            --header 'Accept: application/vnd.github+json' \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header 'X-GitHub-Api-Version: 2022-11-28' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main" \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])')"
+          if ! git cat-file -e "${main_sha}^{commit}" 2>/dev/null; then git fetch --no-tags origin "$main_sha"; fi
+          git merge-base --is-ancestor "$target" "$main_sha" || { echo 'deployed SHA is no longer in current main history' >&2; exit 1; }
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
 
       - name: Resolve expected provider state without exposing values
         id: expected
+        env:
+          WHATSAPP_ACCESS_TOKEN: ${{ secrets.WHATSAPP_ACCESS_TOKEN }}
+          WHATSAPP_APP_SECRET: ${{ secrets.WHATSAPP_APP_SECRET }}
+          WHATSAPP_VERIFY_TOKEN: ${{ secrets.WHATSAPP_VERIFY_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
@@ -58,12 +106,11 @@ jobs:
             'obligation_due','compliance_schedule_due','daily_operations_summary_ready',
             'critical_business_risk','control_assurance_stale','performance_intelligence_alert'
           ];
+          const allowed=new Set([...requiredTemplates,'finance_reconciliation_exception']);
           const bindingNames=['WHATSAPP_BUSINESS_NUMBER','WHATSAPP_PHONE_NUMBER_ID','WHATSAPP_GRAPH_VERSION','WHATSAPP_TEMPLATE_MAP_JSON'];
-          const populated= bindingNames.filter(name=>String(process.env[name]||'').trim()!=='');
+          const populated=bindingNames.filter(name=>String(process.env[name]||'').trim()!=='');
           let enabled=false;
-          if(populated.length===0){
-            enabled=false;
-          }else{
+          if(populated.length!==0){
             if(populated.length!==bindingNames.length)throw new Error('WhatsApp provider bindings are partial; release must fail closed');
             const business=String(process.env.WHATSAPP_BUSINESS_NUMBER||'').replace(/[\s+().-]/g,'');
             if(business!=='26777723273')throw new Error('WhatsApp public business number is not the approved Thebe Desk number');
@@ -73,9 +120,10 @@ jobs:
             let map;
             try{map=JSON.parse(process.env.WHATSAPP_TEMPLATE_MAP_JSON||'');}catch{throw new Error('WhatsApp template map is not valid JSON');}
             if(!map||Array.isArray(map)||typeof map!=='object')throw new Error('WhatsApp template map is not an object');
+            for(const key of Object.keys(map))if(!allowed.has(key))throw new Error(`Unsupported WhatsApp template key: ${key}`);
             for(const key of requiredTemplates){
               const item=map[key];
-              if(!item||typeof item!=='object')throw new Error(`WhatsApp required template missing: ${key}`);
+              if(!item||typeof item!=='object'||Array.isArray(item))throw new Error(`WhatsApp required template missing: ${key}`);
               if(!/^[a-z0-9_]{1,512}$/.test(String(item.name||'')))throw new Error(`WhatsApp template name invalid: ${key}`);
               if(!/^[a-z]{2,3}(?:_[A-Z]{2})?$/.test(String(item.language||'en_US')))throw new Error(`WhatsApp template language invalid: ${key}`);
             }
@@ -85,36 +133,154 @@ jobs:
             enabled=true;
           }
           fs.appendFileSync(process.env.GITHUB_OUTPUT,`enabled=${enabled}\n`);
-          console.log(`WhatsApp provider expected state: ${enabled?'ready':'deferred'}; secret values were not printed`);
+          console.log(`WhatsApp provider release mode=${enabled?'ready':'deferred'}; no secret values were printed`);
           NODE
+
+      - name: Prepare pinned Wrangler outside candidate workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          WRANGLER_ROOT="$RUNNER_TEMP/wrangler-cli"
+          NPM_HOME="$RUNNER_TEMP/npm-home"
+          rm -rf "$WRANGLER_ROOT" "$NPM_HOME"
+          mkdir -p "$WRANGLER_ROOT" "$NPM_HOME"
+          (
+            cd "$RUNNER_TEMP"
+            HOME="$NPM_HOME" NPM_CONFIG_USERCONFIG=/dev/null NPM_CONFIG_REGISTRY=https://registry.npmjs.org/ \
+              NPM_CONFIG_IGNORE_SCRIPTS=true npm install --prefix "$WRANGLER_ROOT" --no-audit --no-fund --no-save --package-lock=false wrangler@4.135.0
+          )
+          WRANGLER_JS="$WRANGLER_ROOT/node_modules/wrangler/bin/wrangler.js"
+          test -f "$WRANGLER_JS"
+          node "$WRANGLER_JS" --version | grep -q '4.135.0'
+
+      - name: Render and dry-run exact provider candidate
+        env:
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          FACEBOOK_APP_SECRET: ${{ secrets.FACEBOOK_APP_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROD_CONFIG="$RUNNER_TEMP/thebe-whatsapp-provider.toml"
+          DRYRUN_SECRETS="$RUNNER_TEMP/thebe-whatsapp-provider-dry-run.json"
+          WRANGLER_JS="$RUNNER_TEMP/wrangler-cli/node_modules/wrangler/bin/wrangler.js"
+          cleanup(){ rm -f "$DRYRUN_SECRETS"; }
+          trap cleanup EXIT
+          sh cloudflare/render-production-config.sh cloudflare/wrangler.toml > "$PROD_CONFIG"
+          chmod 600 "$PROD_CONFIG"
+          sh cloudflare/preflight-production.sh "$PROD_CONFIG"
+          node <<'NODE'
+          const fs=require('node:fs');
+          const names=[
+            'SESSION_SECRET','AUDIT_INTEGRITY_SECRET','OPERATIONS_SECRET','AUTOMATION_SECRET',
+            'TURNSTILE_SECRET_KEY','PAYMENT_WEBHOOK_SECRET','BILLING_WEBHOOK_SECRET',
+            'GOOGLE_OAUTH_CLIENT_SECRET','FACEBOOK_APP_SECRET','RESEND_API_KEY','OPENAI_API_KEY',
+            'WHATSAPP_ACCESS_TOKEN','WHATSAPP_APP_SECRET','WHATSAPP_VERIFY_TOKEN'
+          ];
+          fs.writeFileSync(process.env.RUNNER_TEMP+'/thebe-whatsapp-provider-dry-run.json',JSON.stringify(Object.fromEntries(names.map(n=>[n,`dry-run-${n.toLowerCase()}`]))),{mode:0o600});
+          NODE
+          node "$WRANGLER_JS" deploy --dry-run --outdir "$RUNNER_TEMP/whatsapp-provider-dry-run" --secrets-file "$DRYRUN_SECRETS" --config "$PROD_CONFIG"
+          cleanup
+          trap - EXIT
+
+      - name: Apply exact provider state to deployed release
+        id: apply
+        env:
+          PROVIDER_ENABLED: ${{ steps.expected.outputs.enabled }}
+          GH_TOKEN: ${{ github.token }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          AUDIT_INTEGRITY_SECRET: ${{ secrets.AUDIT_INTEGRITY_SECRET }}
+          OPERATIONS_SECRET: ${{ secrets.OPERATIONS_SECRET }}
+          AUTOMATION_SECRET: ${{ secrets.AUTOMATION_SECRET }}
+          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
+          PAYMENT_WEBHOOK_SECRET: ${{ secrets.PAYMENT_WEBHOOK_SECRET }}
+          BILLING_WEBHOOK_SECRET: ${{ secrets.BILLING_WEBHOOK_SECRET }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          FACEBOOK_APP_SECRET: ${{ secrets.FACEBOOK_APP_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          WHATSAPP_ACCESS_TOKEN: ${{ secrets.WHATSAPP_ACCESS_TOKEN }}
+          WHATSAPP_APP_SECRET: ${{ secrets.WHATSAPP_APP_SECRET }}
+          WHATSAPP_VERIFY_TOKEN: ${{ secrets.WHATSAPP_VERIFY_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROD_CONFIG="$RUNNER_TEMP/thebe-whatsapp-provider.toml"
+          SECRETS_FILE="$RUNNER_TEMP/thebe-whatsapp-provider-secrets.json"
+          WRANGLER_JS="$RUNNER_TEMP/wrangler-cli/node_modules/wrangler/bin/wrangler.js"
+          cleanup(){ rm -f "$SECRETS_FILE" "$PROD_CONFIG"; }
+          trap cleanup EXIT
+          required=(CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID SESSION_SECRET AUDIT_INTEGRITY_SECRET OPERATIONS_SECRET AUTOMATION_SECRET TURNSTILE_SECRET_KEY PAYMENT_WEBHOOK_SECRET BILLING_WEBHOOK_SECRET RESEND_API_KEY OPENAI_API_KEY)
+          for key in "${required[@]}"; do [[ -n "${!key:-}" ]] || { echo "Missing required production credential: $key" >&2; exit 1; }; done
+          [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[0-9a-fA-F]{32}$ ]] || { echo 'CLOUDFLARE_ACCOUNT_ID is malformed' >&2; exit 1; }
+          if [[ "$PROVIDER_ENABLED" == 'true' ]]; then
+            [[ ${#WHATSAPP_ACCESS_TOKEN} -ge 20 && ${#WHATSAPP_APP_SECRET} -ge 16 && ${#WHATSAPP_VERIFY_TOKEN} -ge 16 ]] || { echo 'WhatsApp provider secrets are incomplete' >&2; exit 1; }
+          fi
+          if [[ -n "${GOOGLE_OAUTH_CLIENT_ID:-}" || -n "${GOOGLE_OAUTH_CLIENT_SECRET:-}" ]]; then
+            [[ -n "${GOOGLE_OAUTH_CLIENT_ID:-}" && -n "${GOOGLE_OAUTH_CLIENT_SECRET:-}" ]] || { echo 'Google OAuth configuration is partial' >&2; exit 1; }
+          fi
+          if [[ -n "${FACEBOOK_APP_ID:-}" || -n "${FACEBOOK_APP_SECRET:-}" ]]; then
+            [[ -n "${FACEBOOK_APP_ID:-}" && -n "${FACEBOOK_APP_SECRET:-}" ]] || { echo 'Facebook OAuth configuration is partial' >&2; exit 1; }
+          fi
+          [[ -n "${EMAIL_FROM:-}" && -n "${RESEND_API_KEY:-}" ]] || { echo 'Production email configuration is incomplete' >&2; exit 1; }
+          main_sha="$(curl --fail-with-body --silent --show-error \
+            --header 'Accept: application/vnd.github+json' --header "Authorization: Bearer $GH_TOKEN" --header 'X-GitHub-Api-Version: 2022-11-28' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main" | python3 -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])')"
+          if ! git cat-file -e "${main_sha}^{commit}" 2>/dev/null; then git fetch --no-tags origin "$main_sha"; fi
+          git merge-base --is-ancestor "$TARGET_SHA" "$main_sha" || { echo 'refusing provider finalization for a release outside current main history' >&2; exit 1; }
+          node <<'NODE'
+          const fs=require('node:fs');
+          const required=['SESSION_SECRET','AUDIT_INTEGRITY_SECRET','OPERATIONS_SECRET','AUTOMATION_SECRET','TURNSTILE_SECRET_KEY','PAYMENT_WEBHOOK_SECRET','BILLING_WEBHOOK_SECRET','RESEND_API_KEY','OPENAI_API_KEY'];
+          const out={};
+          for(const name of required){const value=process.env[name]||'';if(!value)throw new Error(`Missing ${name}`);out[name]=value;}
+          for(const name of ['GOOGLE_OAUTH_CLIENT_SECRET','FACEBOOK_APP_SECRET']){const value=process.env[name]||'';if(value)out[name]=value;}
+          const enabled=String(process.env.PROVIDER_ENABLED).toLowerCase()==='true';
+          if(enabled){
+            for(const name of ['WHATSAPP_ACCESS_TOKEN','WHATSAPP_APP_SECRET','WHATSAPP_VERIFY_TOKEN'])out[name]=process.env[name];
+          }else{
+            out.WHATSAPP_ACCESS_TOKEN='deferred';
+            out.WHATSAPP_APP_SECRET='deferred';
+            out.WHATSAPP_VERIFY_TOKEN='deferred';
+          }
+          fs.writeFileSync(process.env.RUNNER_TEMP+'/thebe-whatsapp-provider-secrets.json',JSON.stringify(out),{mode:0o600});
+          NODE
+          test -s "$SECRETS_FILE"
+          node "$WRANGLER_JS" deploy --secrets-file "$SECRETS_FILE" --config "$PROD_CONFIG"
+          printf 'provider_enabled=%s\n' "$PROVIDER_ENABLED" >> "$GITHUB_OUTPUT"
+          cleanup
+          trap - EXIT
 
       - name: Verify live readiness state without a Meta request
         env:
-          EXPECTED_ENABLED: ${{ steps.expected.outputs.enabled }}
+          EXPECTED_ENABLED: ${{ steps.apply.outputs.provider_enabled }}
         shell: bash
         run: |
           set -euo pipefail
           node <<'NODE'
           const expected=String(process.env.EXPECTED_ENABLED).toLowerCase()==='true';
-          const origin=process.env.ORIGIN;
-          const response=await fetch(origin+'/api/ready',{headers:{accept:'application/json','user-agent':'ThebeDesk-WhatsApp-Provider-Readiness/1.0'}});
-          if(response.status!==200)throw new Error(`/api/ready returned HTTP ${response.status}`);
-          const body=await response.json();
+          let body=null;
+          for(let attempt=1;attempt<=12;attempt++){
+            try{
+              const response=await fetch(process.env.ORIGIN+'/api/ready',{headers:{accept:'application/json','user-agent':'ThebeDesk-WhatsApp-Provider-Readiness/1.0'}});
+              if(response.status===200){body=await response.json();break;}
+            }catch{}
+            if(attempt<12)await new Promise(r=>setTimeout(r,3000));
+          }
+          if(!body)throw new Error('/api/ready did not stabilize after provider finalization');
           if(body.ok!==true||body.requiredConfigReady!==true)throw new Error('core production readiness is not green');
           const checks=Array.isArray(body.checks)?body.checks:[];
           const whatsapp=checks.find(item=>item&&item.key==='WHATSAPP_CONNECTOR');
-          if(!whatsapp)throw new Error('/api/ready does not expose the governed WHATSAPP_CONNECTOR readiness check');
-          if(Boolean(whatsapp.configured)!==expected){
-            throw new Error(`live WhatsApp provider state mismatch expected=${expected?'ready':'deferred'} actual=${whatsapp.configured?'ready':'deferred'}`);
-          }
-          console.log(`PASS live WhatsApp provider state=${expected?'ready':'deferred'}; no Meta request was made and no message was sent`);
+          if(!whatsapp)throw new Error('/api/ready does not expose WHATSAPP_CONNECTOR');
+          if(Boolean(whatsapp.configured)!==expected)throw new Error(`live provider state mismatch expected=${expected?'ready':'deferred'} actual=${whatsapp.configured?'ready':'deferred'}`);
+          console.log(`PASS WhatsApp provider state=${expected?'ready':'deferred'}; no Meta request was made and no message was sent`);
           NODE
 
       - name: Record non-secret readiness summary
         env:
-          EXPECTED_ENABLED: ${{ steps.expected.outputs.enabled }}
+          EXPECTED_ENABLED: ${{ steps.apply.outputs.provider_enabled }}
         shell: bash
         run: |
           set -euo pipefail
           if [[ "$EXPECTED_ENABLED" == 'true' ]]; then state=ready; else state=deferred; fi
-          printf 'WhatsApp provider readiness: %s\nNo Meta request was made. No message was sent. Public wa.me entry is verified separately.\n' "$state" >> "$GITHUB_STEP_SUMMARY"
+          printf 'WhatsApp provider readiness: %s\nExact deployed SHA: %s\nNo Meta request was made. No message was sent. Public wa.me entry is verified separately.\n' "$state" "$TARGET_SHA" >> "$GITHUB_STEP_SUMMARY"
