@@ -70,6 +70,13 @@
     snapshot.dataset.marketProductSnapshotV15="1";
     document.head.appendChild(snapshot);
   }
+  if(!document.querySelector('link[data-market-hero-declutter-v16]')){
+    const declutter=document.createElement("link");
+    declutter.rel="stylesheet";
+    declutter.href="/assets/market-hero-declutter-v16.css?v=20261013a";
+    declutter.dataset.marketHeroDeclutterV16="1";
+    document.head.appendChild(declutter);
+  }
   if(!document.querySelector('script[data-market-conversion-v11]')){
     const script=document.createElement("script");
     script.src="/js/market-conversion-v11.js?v=20261013b";
