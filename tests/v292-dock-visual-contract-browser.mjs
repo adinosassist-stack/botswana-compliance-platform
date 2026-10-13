@@ -66,11 +66,11 @@ try{
   assert.equal(Math.round(desktop.sendWidth),36,'send control remains compact');
   assert.equal(Math.round(desktop.sendHeight),36,'send control remains compact vertically');
   assert.equal(desktop.sendRadius,'50%','send control remains circular');
-  assert.equal(Math.round(desktop.orbWidth),96,'wide desktop voice target expands to 96px in the Gemini-style panel');
-  assert.equal(Math.round(desktop.orbHeight),96,'wide desktop voice target expands to 96px vertically');
+  assert.equal(Math.round(desktop.orbWidth),68,'voice target stays compact within the larger Gemini-style panel');
+  assert.equal(Math.round(desktop.orbHeight),68,'voice target stays compact vertically');
   assert(desktop.coreWidth>=18&&desktop.coreWidth<=24,'voice visual core remains intentionally small');
   assert(desktop.coreHeight>=18&&desktop.coreHeight<=24,'voice visual core remains intentionally small vertically');
-  assert(desktop.coreWidth<desktop.orbWidth*.3&&desktop.coreHeight<desktop.orbHeight*.3,'voice core remains subordinate to the larger target');
+  assert(desktop.coreWidth<desktop.orbWidth*.4&&desktop.coreHeight<desktop.orbHeight*.4,'voice core remains subordinate to its target');
   assert(Math.abs(desktop.dockWidth-547.2)<=1.5,`1440px desktop panel should occupy about 38vw: ${desktop.dockWidth}`);
 
   await page.getByRole('button',{name:'Expand Thebe panel',exact:true}).click();
@@ -89,5 +89,5 @@ try{
   assert.equal(mobile.composeBackground,'rgb(36, 36, 36)','mobile keeps composer hierarchy');
   assert(mobile.sendWidth>0&&mobile.sendHeight>0,'mobile retains a visible send action');
   assert.deepEqual(errors,[],'visual contract produces no browser errors');
-  console.log('V292_DOCK_VISUAL_CONTRACT_PASS: Thebe styling, larger Gemini-style desktop panel, 96px voice target, expandable shortcuts and mobile parity');
+  console.log('V292_DOCK_VISUAL_CONTRACT_PASS: Thebe styling, larger Gemini-style desktop panel, compact voice target, expandable shortcuts and mobile parity');
 }finally{await browser.close();}
