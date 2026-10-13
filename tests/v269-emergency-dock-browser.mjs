@@ -12,7 +12,7 @@ const propertyStart=html.indexOf('  <section id="propertyintelligence"');
 const property=html.slice(propertyStart,html.indexOf('</section>',propertyStart)+10).replace('class="view simplified-hub','class="view active simplified-hub');
 let fixture=externalizeWorkspaceHeadStyles('<!doctype html>'+html.slice(html.indexOf('<html'),html.indexOf('</head>')+7)+'<body><section id="marketingGate" class="hidden" style="display:none"></section><section id="appShell" class="shell"><aside id="workspaceSidebar"><button>Home</button></aside><main id="mainContent"><div class="top"><h1 id="pageTitle">Property</h1></div>'+property+'</main></section></body></html>');
 fixture=injectOwnerCommandCentreAssets(fixture);
-fixture=versionReleaseAssets(fixture,'9'.repeat(40));
+fixture=versionReleaseAssets(fixture,'9'.repeat(40),{includeWorkspaceFixes:true});
 
 const browser=await chromium.launch({headless:true,executablePath:[process.env.CHROMIUM_EXECUTABLE_PATH,'/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].filter(Boolean).find(p=>fs.existsSync(p)),args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
 try{
