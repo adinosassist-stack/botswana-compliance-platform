@@ -91,6 +91,16 @@
     alignment.dataset.marketAlignmentV19="1";
     document.head.appendChild(alignment);
   }
+  const loadGeminiPanelCss=()=>{
+    if(document.querySelector('link[data-market-thebe-gemini-v273]'))return;
+    const gemini=document.createElement("link");
+    gemini.rel="stylesheet";
+    gemini.href="/assets/market-thebe-gemini-v273.css?v=20261013a";
+    gemini.dataset.marketThebeGeminiV273="1";
+    document.head.appendChild(gemini);
+  };
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",loadGeminiPanelCss,{once:true});
+  else loadGeminiPanelCss();
   if(!document.querySelector('script[data-market-conversion-v11]')){
     const script=document.createElement("script");
     script.src="/js/market-conversion-v11.js?v=20261013b";
