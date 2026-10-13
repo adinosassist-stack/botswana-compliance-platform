@@ -72,7 +72,8 @@ try{
       dockLeft:rect.left
     };
   });
-  assert(Math.abs(contract.width-547.2)<=2,`Gemini reference width should be about 38vw at 1440px: ${JSON.stringify(contract)}`);
+  assert(contract.width>=360&&contract.width<=420,`Gemini side rail should stay narrow at 1440px: ${JSON.stringify(contract)}`);
+  assert(contract.width/1440<0.30,`Gemini side rail should remain below 30% of the desktop viewport: ${JSON.stringify(contract)}`);
   assert(Math.abs(contract.top-16)<=1&&Math.abs(contract.bottom-16)<=1,`Gemini panel should run nearly full viewport height: ${JSON.stringify(contract)}`);
   assert.equal(contract.background,'rgb(25, 25, 25)','public Thebe keeps the flat dark Thebe/Gemini surface');
   assert.equal(contract.quickDisplay,'none','Gemini reference has no public suggestion-pill row');
@@ -88,7 +89,7 @@ try{
   assert.equal(contract.iconRadius,'50%','header icon control is circular rather than pill-shaped');
   assert(contract.marketingRight<=contract.dockLeft,'market content must stop before the Gemini side panel lane');
   assert.deepEqual(errors,[],'Gemini public-panel contract must not raise browser errors');
-  console.log('V273_PUBLIC_GEMINI_PANEL_PASS: 38vw side panel, full-height geometry, no pills, flat chat canvas, rounded composer, circular controls');
+  console.log('V273_PUBLIC_GEMINI_PANEL_PASS: narrow side rail, full-height geometry, no pills, flat chat canvas, rounded composer, circular controls');
 }finally{
   await browser.close();
 }

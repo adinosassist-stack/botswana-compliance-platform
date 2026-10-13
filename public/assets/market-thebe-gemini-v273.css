@@ -1,6 +1,6 @@
-/* V273 — public Thebe mirrors the supplied Gemini side-panel reference.
-   Scope: market/public surface only. Keep Thebe branding; copy Gemini geometry,
-   restraint and control density. No suggestion pills. */
+/* V275 — public Thebe mirrors Gemini's narrow side rail.
+   Scope: market/public surface only. Keep Thebe branding; match Gemini geometry,
+   restraint, control density and conversation-first hierarchy. No suggestion pills. */
 
 @media (min-width:1200px) and (hover:hover) and (pointer:fine){
   html body #thebeAiDock[data-surface="public"]{
@@ -8,17 +8,17 @@
     right:16px!important;
     top:16px!important;
     bottom:16px!important;
-    width:clamp(480px,38vw,680px)!important;
-    min-width:480px!important;
-    max-width:680px!important;
+    width:clamp(360px,28vw,420px)!important;
+    min-width:360px!important;
+    max-width:420px!important;
     height:auto!important;
     min-height:0!important;
     max-height:none!important;
     border-radius:24px!important;
     overflow:hidden!important;
   }
-  html body #marketingGate{
-    padding-right:calc(clamp(480px,38vw,680px) + 32px)!important;
+  html body:has(#thebeAiDock[data-surface="public"]:not([hidden]):not([aria-hidden="true"])) #marketingGate{
+    padding-right:calc(clamp(360px,28vw,420px) + 32px)!important;
   }
 }
 
@@ -28,17 +28,17 @@
     right:12px!important;
     top:12px!important;
     bottom:12px!important;
-    width:clamp(360px,37vw,440px)!important;
-    min-width:360px!important;
-    max-width:440px!important;
+    width:clamp(332px,31vw,360px)!important;
+    min-width:332px!important;
+    max-width:360px!important;
     height:auto!important;
     min-height:0!important;
     max-height:none!important;
     border-radius:22px!important;
     overflow:hidden!important;
   }
-  html body #marketingGate{
-    padding-right:calc(clamp(360px,37vw,440px) + 24px)!important;
+  html body:has(#thebeAiDock[data-surface="public"]:not([hidden]):not([aria-hidden="true"])) #marketingGate{
+    padding-right:calc(clamp(332px,31vw,360px) + 24px)!important;
   }
 }
 
@@ -85,7 +85,7 @@ html body #thebeAiDock[data-surface="public"] .thebe-ai-icon-btn:hover{
   background:rgba(255,255,255,.08)!important;
 }
 
-/* Remove public chrome that is not present in the supplied Gemini reference. */
+/* Remove public chrome that is not present in Gemini's side-panel treatment. */
 html body #thebeAiDock[data-surface="public"] :is(
   .thebe-ai-presence,
   .thebe-ai-context-bar,
@@ -170,7 +170,7 @@ html body #thebeAiDock[data-surface="public"] .thebe-ai-send{
 }
 
 /* No pill-style suggestion treatment on public Thebe. If legacy actions are
-   re-enabled later, they must remain Gemini-like compact rounded rectangles. */
+   re-enabled later, they must remain compact rounded rectangles. */
 html body #thebeAiDock[data-surface="public"] .thebe-ai-quick button,
 html body #thebeAiDock[data-surface="public"] :is(.thebe-ai-public-signin,.thebe-ai-public-start){
   border-radius:10px!important;
