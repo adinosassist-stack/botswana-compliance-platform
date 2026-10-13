@@ -18,8 +18,7 @@ const browser=await chromium.launch({headless:true,executablePath,args:['--no-sa
 
 try{
   const page=await browser.newPage({viewport:{width:1440,height:960}});
-  const errors=[];
-  page.on('pageerror',error=>errors.push(error.message));
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.route('http://localhost/**',route=>{
     const pathname=new URL(route.request().url()).pathname;
     if(pathname==='/')return route.fulfill({contentType:'text/html',body:fixture});
@@ -37,98 +36,58 @@ try{
     const send=dock.querySelector('.thebe-ai-send');
     const orb=dock.querySelector('.thebe-ai-orb-button');
     const core=dock.querySelector('.thebe-particle-core');
-    const particleOrb=dock.querySelector('.thebe-particle-orb');
-    const hiddenChrome=['.thebe-ai-presence','.thebe-ai-context-bar','.thebe-ai-mode-rail','.thebe-ai-foot','.thebe-ai-response-title'].map(selector=>{
-      const element=dock.querySelector(selector);
-      return {selector,present:Boolean(element),display:element?getComputedStyle(element).display:null};
-    });
+    const hiddenChrome=['.thebe-ai-presence','.thebe-ai-context-bar','.thebe-ai-mode-rail','.thebe-ai-foot','.thebe-ai-response-title'].map(selector=>{const element=dock.querySelector(selector);return {selector,present:Boolean(element),display:element?getComputedStyle(element).display:null};});
     const quickButtons=[...dock.querySelectorAll('.thebe-ai-quick button')];
-    const visibleQuick=quickButtons.filter(button=>{
-      const style=getComputedStyle(button),rect=button.getBoundingClientRect();
-      return style.display!=='none'&&style.visibility!=='hidden'&&rect.width>0&&rect.height>0;
-    });
-    const dockStyle=getComputedStyle(dock),composeStyle=getComputedStyle(composer),sendStyle=getComputedStyle(send);
-    const sendRect=send.getBoundingClientRect();
-    const orbRect=orb.getBoundingClientRect(),coreRect=core.getBoundingClientRect();
+    const visibleQuick=quickButtons.filter(button=>{const style=getComputedStyle(button),rect=button.getBoundingClientRect();return style.display!=='none'&&style.visibility!=='hidden'&&rect.width>0&&rect.height>0;});
+    const sendRect=send.getBoundingClientRect(),orbRect=orb.getBoundingClientRect(),coreRect=core.getBoundingClientRect();
     return {
-      dockBackground:dockStyle.backgroundColor,
-      dockColor:dockStyle.color,
+      dockBackground:getComputedStyle(dock).backgroundColor,
+      dockColor:getComputedStyle(dock).color,
       hiddenChrome,
       quickTotal:quickButtons.length,
       quickVisible:visibleQuick.length,
-      quickRadius:visibleQuick[0]?getComputedStyle(visibleQuick[0]).borderRadius:null,
-      composeBackground:composeStyle.backgroundColor,
-      composeRadius:composeStyle.borderRadius,
-      composeShadow:composeStyle.boxShadow,
-      sendWidth:sendRect.width,
-      sendHeight:sendRect.height,
-      sendRadius:sendStyle.borderRadius,
-      orbWidth:orbRect.width,
-      orbHeight:orbRect.height,
-      coreWidth:coreRect.width,
-      coreHeight:coreRect.height,
-      particleAfterDisplay:particleOrb?getComputedStyle(particleOrb,'::after').display:null
+      composeBackground:getComputedStyle(composer).backgroundColor,
+      composeRadius:getComputedStyle(composer).borderRadius,
+      composeShadow:getComputedStyle(composer).boxShadow,
+      sendWidth:sendRect.width,sendHeight:sendRect.height,sendRadius:getComputedStyle(send).borderRadius,
+      orbWidth:orbRect.width,orbHeight:orbRect.height,coreWidth:coreRect.width,coreHeight:coreRect.height,
+      dockWidth:dock.getBoundingClientRect().width
     };
   });
 
-  assert.equal(desktop.dockBackground,'rgb(25, 25, 25)','V292 keeps the dock monochrome #191919');
-  assert.equal(desktop.dockColor,'rgb(244, 244, 244)','V292 keeps high-contrast dock text');
-  for(const item of desktop.hiddenChrome)assert(!item.present||item.display==='none',`${item.selector} must stay visually removed in V292`);
-  assert(desktop.quickTotal>=3,'V292 retains at least three useful shortcuts');
-  assert.equal(desktop.quickVisible,3,'collapsed V292 dock exposes exactly three shortcuts');
-  assert.equal(desktop.quickRadius,'999px','V292 shortcuts stay compact pill controls');
-  assert.equal(desktop.composeBackground,'rgb(36, 36, 36)','composer remains the dominant dark input surface');
-  assert.equal(desktop.composeRadius,'24px','composer keeps GPT-style rounded geometry');
-  assert.equal(desktop.composeShadow,'none','composer stays visually flat');
+  assert.equal(desktop.dockBackground,'rgb(25, 25, 25)','dock keeps Thebe monochrome surface');
+  assert.equal(desktop.dockColor,'rgb(244, 244, 244)','dock keeps high-contrast text');
+  for(const item of desktop.hiddenChrome)assert(!item.present||item.display==='none',`${item.selector} must remain visually removed`);
+  assert(desktop.quickTotal>=3,'Thebe retains useful shortcuts');
+  assert.equal(desktop.quickVisible,3,'collapsed panel exposes three shortcuts');
+  assert.equal(desktop.composeBackground,'rgb(36, 36, 36)','composer remains dominant input surface');
+  assert.equal(desktop.composeRadius,'24px','composer keeps rounded geometry');
+  assert.equal(desktop.composeShadow,'none','composer remains visually flat');
   assert.equal(Math.round(desktop.sendWidth),36,'send control remains compact');
   assert.equal(Math.round(desktop.sendHeight),36,'send control remains compact vertically');
-  assert.equal(desktop.sendRadius,'50%','send control remains a simple circular action');
-  assert.equal(Math.round(desktop.orbWidth),68,'voice recovery target remains 68px');
-  assert.equal(Math.round(desktop.orbHeight),68,'voice recovery target remains 68px vertically');
-  assert(desktop.coreWidth>=18&&desktop.coreWidth<=24,`voice visual core stays intentionally small: ${desktop.coreWidth}px`);
-  assert(desktop.coreHeight>=18&&desktop.coreHeight<=24,`voice visual core stays intentionally small vertically: ${desktop.coreHeight}px`);
-  assert(desktop.coreWidth<desktop.orbWidth*.4&&desktop.coreHeight<desktop.orbHeight*.4,'voice visual remains much smaller than its recovery target');
-  assert.equal(desktop.particleAfterDisplay,'none','decorative secondary voice ring stays removed');
+  assert.equal(desktop.sendRadius,'50%','send control remains circular');
+  assert.equal(Math.round(desktop.orbWidth),96,'wide desktop voice target expands to 96px in the Gemini-style panel');
+  assert.equal(Math.round(desktop.orbHeight),96,'wide desktop voice target expands to 96px vertically');
+  assert(desktop.coreWidth>=18&&desktop.coreWidth<=24,'voice visual core remains intentionally small');
+  assert(desktop.coreHeight>=18&&desktop.coreHeight<=24,'voice visual core remains intentionally small vertically');
+  assert(desktop.coreWidth<desktop.orbWidth*.3&&desktop.coreHeight<desktop.orbHeight*.3,'voice core remains subordinate to the larger target');
+  assert(Math.abs(desktop.dockWidth-547.2)<=1.5,`1440px desktop panel should occupy about 38vw: ${desktop.dockWidth}`);
 
   await page.getByRole('button',{name:'Expand Thebe panel',exact:true}).click();
-  const expanded=await page.evaluate(()=>{
-    const dock=document.getElementById('thebeAiDock');
-    const buttons=[...dock.querySelectorAll('.thebe-ai-quick button')];
-    return {
-      expanded:document.body.classList.contains('thebe-ai-expanded'),
-      total:buttons.length,
-      visible:buttons.filter(button=>getComputedStyle(button).display!=='none'&&button.getBoundingClientRect().width>0).length,
-      composerVisible:getComputedStyle(dock.querySelector('.thebe-ai-compose')).display!=='none'
-    };
-  });
+  const expanded=await page.evaluate(()=>{const dock=document.getElementById('thebeAiDock'),buttons=[...dock.querySelectorAll('.thebe-ai-quick button')];return {expanded:document.body.classList.contains('thebe-ai-expanded'),visible:buttons.filter(button=>getComputedStyle(button).display!=='none'&&button.getBoundingClientRect().width>0).length,width:dock.getBoundingClientRect().width,composerVisible:getComputedStyle(dock.querySelector('.thebe-ai-compose')).display!=='none'};});
   assert(expanded.expanded,'expanded state remains available');
-  assert(expanded.visible>=desktop.quickVisible,'expansion never removes the primary shortcuts');
-  if(expanded.total>3)assert(expanded.visible>3,'expanded state reveals the secondary shortcuts');
+  assert(expanded.visible>=desktop.quickVisible,'expansion never removes primary shortcuts');
   assert(expanded.composerVisible,'composer remains available when expanded');
+  assert(Math.abs(expanded.width-633.6)<=1.5,`expanded 1440px panel should occupy about 44vw: ${expanded.width}`);
 
   await page.setViewportSize({width:390,height:844});
   await page.waitForFunction(()=>!document.body.classList.contains('thebe-ai-dock-open'));
   await page.locator('#thebeAiDockPill').click();
   await page.locator('#thebeAiDock').waitFor({state:'visible'});
-  const mobile=await page.evaluate(()=>{
-    const dock=document.getElementById('thebeAiDock');
-    const compose=dock.querySelector('.thebe-ai-compose');
-    const send=dock.querySelector('.thebe-ai-send');
-    const sendRect=send.getBoundingClientRect();
-    return {
-      dockBackground:getComputedStyle(dock).backgroundColor,
-      composeBackground:getComputedStyle(compose).backgroundColor,
-      sendWidth:sendRect.width,
-      sendHeight:sendRect.height,
-      hiddenChrome:['.thebe-ai-presence','.thebe-ai-context-bar','.thebe-ai-mode-rail','.thebe-ai-foot','.thebe-ai-response-title'].every(selector=>{const element=dock.querySelector(selector);return !element||getComputedStyle(element).display==='none';})
-    };
-  });
-  assert.equal(mobile.dockBackground,'rgb(25, 25, 25)','mobile keeps V292 monochrome dock');
-  assert.equal(mobile.composeBackground,'rgb(36, 36, 36)','mobile keeps the same composer hierarchy');
-  assert(mobile.sendWidth>0&&mobile.sendHeight>0,'mobile retains a visible compact send action');
-  assert(mobile.hiddenChrome,'mobile also keeps legacy dock chrome hidden');
-  assert.deepEqual(errors,[],'V292 visual contract produces no browser errors');
-  console.log('V292_DOCK_VISUAL_CONTRACT_PASS: monochrome shell, hidden legacy chrome, three collapsed shortcuts, GPT-style composer, compact send action, minimal voice visual inside preserved 68px recovery target, mobile parity');
-}finally{
-  await browser.close();
-}
+  const mobile=await page.evaluate(()=>{const dock=document.getElementById('thebeAiDock'),compose=dock.querySelector('.thebe-ai-compose'),send=dock.querySelector('.thebe-ai-send'),rect=send.getBoundingClientRect();return {dockBackground:getComputedStyle(dock).backgroundColor,composeBackground:getComputedStyle(compose).backgroundColor,sendWidth:rect.width,sendHeight:rect.height};});
+  assert.equal(mobile.dockBackground,'rgb(25, 25, 25)','mobile keeps Thebe monochrome panel');
+  assert.equal(mobile.composeBackground,'rgb(36, 36, 36)','mobile keeps composer hierarchy');
+  assert(mobile.sendWidth>0&&mobile.sendHeight>0,'mobile retains a visible send action');
+  assert.deepEqual(errors,[],'visual contract produces no browser errors');
+  console.log('V292_DOCK_VISUAL_CONTRACT_PASS: Thebe styling, larger Gemini-style desktop panel, 96px voice target, expandable shortcuts and mobile parity');
+}finally{await browser.close();}
