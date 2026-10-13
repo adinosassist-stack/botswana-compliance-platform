@@ -1,0 +1,141 @@
+/* Thebe Desk market alignment v19 — one public rail, consistent card baselines and mobile gutters. */
+
+.marketinggate{--market-rail:1240px;--market-gutter:24px}
+.marketinggate .hero .wrap,
+.marketinggate .proof-strip .wrap,
+.marketinggate #product .wrap,
+.marketinggate #thebe-ai .wrap,
+.marketinggate #botswana .wrap,
+.marketinggate #pricing .wrap,
+.marketinggate #faq .wrap,
+.marketinggate .final .wrap,
+.marketinggate>.footer .wrap{
+  width:min(var(--market-rail),calc(100% - (var(--market-gutter) * 2)))!important;
+  margin-inline:auto!important;
+  box-sizing:border-box;
+}
+
+.marketinggate .hero-grid,
+.marketinggate .pillar-grid,
+.marketinggate .outcome-grid,
+.marketinggate .workflow,
+.marketinggate .ai-panel,
+.marketinggate .country-grid,
+.marketinggate .pricing-grid,
+.marketinggate .faq{
+  width:100%;
+  box-sizing:border-box;
+}
+.marketinggate .hero-grid>*,
+.marketinggate .pillar-grid>*,
+.marketinggate .outcome-grid>*,
+.marketinggate .workflow>*,
+.marketinggate .ai-panel>*,
+.marketinggate .country-grid>*,
+.marketinggate .pricing-grid>*,
+.marketinggate .faq>*{min-width:0}
+
+.marketinggate .section-head{box-sizing:border-box}
+.marketinggate .section-head> :first-child{margin-top:0}
+.marketinggate .section-head> :last-child{margin-bottom:0}
+
+.marketinggate .hero-grid{align-items:center}
+.marketinggate .hero-grid>div:first-child{justify-self:start;width:100%}
+.marketinggate .market-hero-visual{justify-self:end;margin-left:0!important}
+.marketinggate .hero-cta{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.marketinggate .hero-cta .btn{display:inline-flex;align-items:center;justify-content:center;text-align:center}
+.marketinggate .reassure{display:flex;align-items:center;min-height:24px}
+
+.marketinggate .pillar-grid,.marketinggate .outcome-grid{align-items:stretch}
+.marketinggate .pillar-card,.marketinggate .outcome{height:100%;box-sizing:border-box}
+.marketinggate .pillar-card{display:flex;flex-direction:column}
+.marketinggate .pillar-card p{flex:1}
+.marketinggate .pillar-card .pillar-signal{width:100%}
+
+.marketinggate .ai-panel{align-items:stretch}
+.marketinggate .ai-panel>*{height:100%;box-sizing:border-box}
+.marketinggate .ai-example,.marketinggate .ai-copy{display:flex;flex-direction:column}
+.marketinggate .ai-example-a{flex:1}
+
+.marketinggate .country-grid{align-items:stretch}
+.marketinggate .country-grid>*{height:100%;box-sizing:border-box}
+.marketinggate .country-card,.marketinggate .readiness-card{height:100%}
+
+.marketinggate .pricing-grid{max-width:none!important;align-items:stretch}
+.marketinggate .pricecard{height:100%;display:flex;flex-direction:column;box-sizing:border-box}
+.marketinggate .pricecard .label{display:inline-flex;align-items:center;align-self:flex-start;min-height:24px}
+.marketinggate .pricecard h3{margin-top:0}
+.marketinggate .pricecard ul{flex:1}
+.marketinggate .pricecard .marketing-start-action{margin-top:auto;display:flex;align-items:center;justify-content:center;width:100%;text-align:center}
+.marketinggate .payment-note,.marketinggate .commercial-callout{width:100%;max-width:none!important;box-sizing:border-box}
+.marketinggate .payment-steps{align-items:stretch}
+.marketinggate .payment-steps span{justify-content:flex-start}
+
+.marketinggate #faq .faq{align-items:start}
+.marketinggate #faq details{width:100%;box-sizing:border-box}
+.marketinggate #faq summary{display:flex;align-items:center;width:100%;box-sizing:border-box}
+
+.marketinggate .final .cta-box{width:100%;box-sizing:border-box}
+.marketinggate .final .hero-cta{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.marketinggate>.footer .wrap{box-sizing:border-box}
+.marketinggate>.footer .footer-grid,.marketinggate>.footer .footer-inner{align-items:start}
+
+@media (min-width:1101px){
+  .marketinggate .hero-grid{grid-template-columns:minmax(360px,.78fr) minmax(560px,1.22fr);gap:46px}
+  .marketinggate .market-hero-visual{width:100%;max-width:760px}
+  .marketinggate .section-head{max-width:780px}
+  .marketinggate .pricing-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+  .marketinggate .pricecard{padding-left:20px;padding-right:20px}
+  .marketinggate #faq .faq{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+}
+
+@media (min-width:761px) and (max-width:1100px){
+  .marketinggate{--market-gutter:22px}
+  .marketinggate .hero-grid{align-items:start}
+  .marketinggate .market-hero-visual{justify-self:start;width:100%;max-width:680px!important}
+  .marketinggate .pricing-grid{max-width:none!important}
+  .marketinggate .pricecard{height:100%}
+}
+
+@media (max-width:760px){
+  .marketinggate{--market-gutter:16px}
+  .marketinggate .hero .wrap,
+  .marketinggate .proof-strip .wrap,
+  .marketinggate #product .wrap,
+  .marketinggate #thebe-ai .wrap,
+  .marketinggate #botswana .wrap,
+  .marketinggate #pricing .wrap,
+  .marketinggate #faq .wrap,
+  .marketinggate .final .wrap,
+  .marketinggate>.footer .wrap{
+    width:calc(100% - 32px)!important;
+    margin-inline:auto!important;
+  }
+  .marketinggate .hero-grid{grid-template-columns:1fr;align-items:start}
+  .marketinggate .hero-grid>div:first-child,.marketinggate .market-hero-visual{width:100%;max-width:none!important;justify-self:stretch}
+  .marketinggate .hero-cta{display:grid;grid-template-columns:1fr;width:100%;gap:8px}
+  .marketinggate .hero-cta .btn{width:100%;min-width:0}
+  .marketinggate .reassure{justify-content:flex-start;line-height:1.45}
+  .marketinggate .section-head{width:100%;max-width:none!important}
+  .marketinggate .pillar-grid,.marketinggate .outcome-grid,.marketinggate .workflow,.marketinggate .ai-panel,.marketinggate .country-grid,.marketinggate .pricing-grid,.marketinggate .faq{grid-template-columns:1fr!important}
+  .marketinggate .pricecard{width:100%}
+  .marketinggate .payment-steps{width:100%}
+  .marketinggate .payment-steps span{width:100%;box-sizing:border-box}
+  .marketinggate .final .hero-cta{display:grid;grid-template-columns:1fr;width:100%}
+  .marketinggate .final .hero-cta .btn{width:100%;min-width:0}
+  .marketinggate .mobile-sticky{left:16px!important;right:16px!important;width:auto!important}
+}
+
+@media (max-width:390px){
+  .marketinggate{--market-gutter:14px}
+  .marketinggate .hero .wrap,
+  .marketinggate .proof-strip .wrap,
+  .marketinggate #product .wrap,
+  .marketinggate #thebe-ai .wrap,
+  .marketinggate #botswana .wrap,
+  .marketinggate #pricing .wrap,
+  .marketinggate #faq .wrap,
+  .marketinggate .final .wrap,
+  .marketinggate>.footer .wrap{width:calc(100% - 28px)!important}
+  .marketinggate .mobile-sticky{left:14px!important;right:14px!important}
+}
