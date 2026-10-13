@@ -1,7 +1,7 @@
 (()=>{
   "use strict";
-  const RELEASE="20261012-market-uiux-v250";
-  const PUBLIC_PATHS=new Set(["/home","/home/"]);
+  const RELEASE="20261013-market-gemini-panel-v251";
+  const PUBLIC_PATHS=new Set(["/","/home","/home/"]);
   if(!PUBLIC_PATHS.has(window.location.pathname))return;
 
   const doc=document;
