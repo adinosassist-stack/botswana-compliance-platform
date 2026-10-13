@@ -9,6 +9,7 @@ const publicMarketingCss=fs.readFileSync("public/assets/public-marketing-v249.cs
 const publicSeoCss=fs.readFileSync("public/assets/public-seo-v249.css","utf8");
 const marketCro=fs.readFileSync("public/js/market-cro-v18.js","utf8");
 const marketCroCss=fs.readFileSync("public/assets/market-cro-v18.css","utf8");
+const marketAlignmentCss=fs.readFileSync("public/assets/market-alignment-v19.css","utf8");
 const workspaceComponents=fs.readFileSync("public/js/components.js","utf8");
 const workspaceInteractionCss=fs.readFileSync("public/assets/workspace-interactions-v318.css","utf8");
 const seoPages=[
@@ -55,6 +56,8 @@ assert.match(reporterLink,/market-cro-v18\.css/,
   "homepage loader must attach the latest CRO stylesheet after the existing market layers");
 assert.match(reporterLink,/market-cro-v18\.js/,
   "homepage loader must attach the latest CRO behavior after the existing market layers");
+assert.match(reporterLink,/market-alignment-v19\.css/,
+  "homepage loader must attach the alignment stylesheet after the CRO layer");
 assert.doesNotMatch(reporterLink,/workspace-runtime|PROPERTY_VISIBILITY|workspace-command-center/i,
   "public loader must not reference workspace runtime assets");
 assert.match(publicMarketing,/Money/);
@@ -82,6 +85,16 @@ assert.match(marketCroCss,/min-height:48px/,
   "mobile public conversion controls must preserve a touch-friendly minimum height");
 assert.doesNotMatch(marketCroCss,/\.workspace|#workspace|\.view\.active/,
   "market CRO CSS must stay isolated from authenticated workspace surfaces");
+assert.match(marketAlignmentCss,/--market-rail:1240px/,
+  "market alignment layer must define one shared desktop content rail");
+assert.match(marketAlignmentCss,/market-gutter:16px/,
+  "market alignment layer must preserve consistent mobile gutters");
+assert.match(marketAlignmentCss,/\.pricing-grid\{max-width:none!important;align-items:stretch\}/,
+  "pricing cards must share one aligned stretch boundary");
+assert.match(marketAlignmentCss,/\.pricecard\{height:100%;display:flex;flex-direction:column/,
+  "pricing cards must preserve aligned vertical structure");
+assert.doesNotMatch(marketAlignmentCss,/\.workspace|#workspace|\.view\.active/,
+  "market alignment CSS must stay isolated from authenticated workspace surfaces");
 
 assert.ok(seoPages.every(path=>fs.readFileSync(path,"utf8").includes("/assets/public-seo-v249.css")),
   "pricing and every Botswana SEO guide must use the shared public Thebe theme");
