@@ -1,0 +1,97 @@
+/* Thebe Desk market v14: desktop composition and alignment pass.
+   Keeps the hero image unchanged while reducing visual bulk and eliminating reserved empty space. */
+
+@media (min-width:1024px){
+  /* The public market page has no persistent workspace dock. The old reserved
+     rail created a false blank column across the whole desktop page. */
+  .marketinggate main,.marketinggate>.footer{padding-right:0!important}
+}
+
+@media (min-width:1101px){
+  /* One shared content rail keeps hero, proof, product and conversion sections
+     visually aligned instead of drifting between different max widths. */
+  .marketinggate .hero .wrap,
+  .marketinggate .proof-strip .wrap,
+  .marketinggate #product .wrap,
+  .marketinggate #thebe-ai .wrap,
+  .marketinggate #botswana .wrap,
+  .marketinggate #pricing .wrap,
+  .marketinggate #faq .wrap,
+  .marketinggate .final .wrap{width:min(1120px,calc(100% - 44px))}
+
+  .marketinggate .hero{padding:40px 0 22px}
+  .marketinggate .hero-grid{grid-template-columns:minmax(0,1.16fr) minmax(360px,.74fr);gap:40px;align-items:center}
+  .marketinggate .hero-grid>div:first-child{max-width:660px}
+  .marketinggate .hero h1{font-size:clamp(46px,5vw,66px);max-width:660px}
+  .marketinggate .hero p{font-size:17px;max-width:610px}
+
+  /* The preview is supporting evidence, not a second hero. Keep it compact
+     enough to scan quickly while preserving the product hierarchy. */
+  .marketinggate .market-hero-visual{max-width:485px;width:100%;margin-left:auto}
+  .marketinggate .market-hero-photo{aspect-ratio:16/10;border-radius:20px}
+  .marketinggate .market-hero-visual .product-stage{width:88%;max-width:430px;margin:-20px auto 0;border-radius:14px}
+  .marketinggate .product-stage{border-radius:14px;box-shadow:0 16px 36px rgba(15,23,42,.10)}
+  .marketinggate .stage-top{padding:8px 10px}
+  .marketinggate .stage-brand{font-size:10.5px;gap:6px}
+  .marketinggate .stage-brand img{width:20px;height:20px}
+  .marketinggate .stage-live{font-size:8px;padding:3px 6px}
+  .marketinggate .market-hero-visual .stage-body,
+  .marketinggate .stage-body{grid-template-columns:82px 1fr;min-height:0}
+  .marketinggate .stage-nav{padding:8px 6px}
+  .marketinggate .stage-nav span{padding:5px 6px;margin-bottom:2px;font-size:8.5px;border-radius:7px}
+  .marketinggate .stage-main{padding:10px 11px}
+  .marketinggate .stage-kicker{font-size:7.5px}
+  .marketinggate .stage-main h2{font-size:18px;margin:3px 0 7px}
+  .marketinggate .attention{gap:4px}
+  .marketinggate .attention-row{grid-template-columns:6px 1fr auto;gap:6px;padding:6px 7px;border-radius:8px}
+  .marketinggate .attention-row i{width:6px;height:6px}
+  .marketinggate .attention-row b{font-size:9.5px}
+  .marketinggate .attention-row span,.marketinggate .attention-row strong{font-size:7.5px}
+  .marketinggate .attention-row strong{padding:3px 5px}
+  .marketinggate .ask-box{margin-top:6px;padding:7px 8px;border-radius:9px}
+  .marketinggate .ask-box small{font-size:8.5px;margin-bottom:2px}
+  .marketinggate .ask-box p{display:none}
+  .marketinggate .ask-input{padding:5px 6px;font-size:8.5px;border-radius:7px}
+  .marketinggate .preview-note{font-size:7.5px;padding:5px 8px 7px}
+
+  .marketinggate .proof-strip{padding-bottom:20px}
+  .marketinggate .proof-inner{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .marketinggate .proof-item{padding:11px 13px}
+
+  /* Consistent section rhythm prevents dead bands between containers. */
+  .marketinggate .section,.marketinggate .ai-section{padding:32px 0}
+  .marketinggate .section-head{max-width:760px;margin-bottom:16px}
+
+  .marketinggate .outcome-grid{grid-template-columns:repeat(4,minmax(0,1fr));align-items:stretch}
+  .marketinggate .outcome{height:100%;min-width:0}
+  .marketinggate .outcome-head{align-items:flex-start}
+  .marketinggate .workflow{grid-template-columns:repeat(4,minmax(0,1fr));width:100%}
+
+  .marketinggate .ai-panel{grid-template-columns:minmax(0,1.08fr) minmax(310px,.82fr);gap:18px;align-items:stretch}
+  .marketinggate .ai-copy,.marketinggate .ai-prompts,.marketinggate .ai-example{min-width:0}
+
+  .marketinggate .country-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:stretch}
+  .marketinggate .country-grid>*{min-width:0;height:100%}
+  .marketinggate .country-card,.marketinggate .readiness-card{height:100%;min-height:0}
+
+  /* Pricing used to stop at 970px while its section continued, producing an
+     unexplained blank rail. The cards and activation blocks now share the rail. */
+  .marketinggate .pricing-grid{width:100%;max-width:none;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch}
+  .marketinggate .pricecard{height:100%;min-width:0}
+  .marketinggate .payment-note,.marketinggate .commercial-callout{width:100%;max-width:none;box-sizing:border-box}
+
+  .marketinggate #faq .faq{grid-template-columns:repeat(3,minmax(0,1fr));align-items:start}
+  .marketinggate #faq .faq>*{min-width:0}
+
+  .marketinggate .final{padding:26px 0}
+  .marketinggate .cta-box{width:100%;align-items:center;padding:22px 24px}
+}
+
+@media (min-width:761px) and (max-width:1100px){
+  /* On smaller laptops/tablets the base layout stacks. Keep the preview from
+     expanding into a full-width dashboard after the stack. */
+  .marketinggate .market-hero-visual{max-width:540px;margin-left:0}
+  .marketinggate .market-hero-visual .product-stage{max-width:500px}
+  .marketinggate .pricing-grid{max-width:none}
+  .marketinggate .payment-note,.marketinggate .commercial-callout{max-width:none}
+}
