@@ -29,20 +29,22 @@ try{
   status.hidden=false;
   status.textContent='LiveVoiceStatusWithoutNaturalBreaks'.repeat(12);
   const orbRect=orb.getBoundingClientRect();
-  return {orbWidth:orbRect.width,orbHeight:orbRect.height,legacyPresent:Boolean(legacy),legacyDisplay:legacy?getComputedStyle(legacy).display:null,dockClientWidth:dock.clientWidth,dockScrollWidth:dock.scrollWidth,answerClientWidth:answer.clientWidth,answerScrollWidth:answer.scrollWidth,statusClientWidth:status.clientWidth,statusScrollWidth:status.scrollWidth};
+  return {orbWidth:orbRect.width,orbHeight:orbRect.height,legacyPresent:Boolean(legacy),legacyDisplay:legacy?getComputedStyle(legacy).display:null,dockClientWidth:dock.clientWidth,dockScrollWidth:dock.scrollWidth,answerClientWidth:answer.clientWidth,answerScrollWidth:answer.scrollWidth,statusClientWidth:status.clientWidth,statusScrollWidth:status.scrollWidth,geminiDesktop:matchMedia('(min-width:1200px) and (hover:hover) and (pointer:fine)').matches};
  });
- assert.equal(Math.round(compactVoice.orbWidth),68,'desktop voice orb stays compact');
- assert.equal(Math.round(compactVoice.orbHeight),68,'desktop voice orb stays compact vertically');
+ const expectedOrbSize=compactVoice.geminiDesktop?96:68;
+ assert(Math.abs(compactVoice.orbWidth-expectedOrbSize)<=1,`desktop voice orb follows the active side-panel contract: ${JSON.stringify(compactVoice)}`);
+ assert(Math.abs(compactVoice.orbHeight-expectedOrbSize)<=1,`desktop voice orb stays square under the active side-panel contract: ${JSON.stringify(compactVoice)}`);
  assert(!compactVoice.legacyPresent||compactVoice.legacyDisplay==='none','dock exposes one voice entry point rather than a duplicate legacy button');
  assert(compactVoice.dockScrollWidth<=compactVoice.dockClientWidth+1,`dock text must not spill horizontally: ${JSON.stringify(compactVoice)}`);
  assert(compactVoice.answerScrollWidth<=compactVoice.answerClientWidth+1,`AI answer must wrap inside the dock: ${JSON.stringify(compactVoice)}`);
  assert(compactVoice.statusScrollWidth<=compactVoice.statusClientWidth+1,`voice status must wrap inside the dock: ${JSON.stringify(compactVoice)}`);
- const normalDockWidths=new Map([[1440,272],[1200,272],[1199,256],[1180,256],[1024,256]]);
- for(const [width,expectedDockWidth] of normalDockWidths){
+ const expectedNormalDockWidth=width=>width>=1200?Math.min(720,Math.max(430,width*.38)):Math.min(380,Math.max(320,width*.32));
+ for(const width of [1440,1200,1199,1180,1024]){
+  const expectedDockWidth=expectedNormalDockWidth(width);
   await page.setViewportSize({width,height:960});
   await page.waitForFunction(expected=>Math.abs(document.getElementById('thebeAiDock').getBoundingClientRect().width-expected)<=1,expectedDockWidth);
   const geometry=await page.evaluate(()=>{const d=document.getElementById('thebeAiDock').getBoundingClientRect(),m=document.getElementById('mainContent').getBoundingClientRect(),c=document.querySelector('.property-calculator-v224').getBoundingClientRect();return {dock:{left:d.left,right:d.right,width:d.width},main:{left:m.left,right:m.right},card:{left:c.left,right:c.right,width:c.width},recovery:document.getElementById('thebeAiDock').dataset.cssRecovery}});
-  assert(Math.abs(geometry.dock.width-expectedDockWidth)<=1,`unexpected dock width at ${width}: expected ${expectedDockWidth}, got ${geometry.dock.width}`);
+  assert(Math.abs(geometry.dock.width-expectedDockWidth)<=1,`unexpected Gemini side-panel width at ${width}: expected ${expectedDockWidth}, got ${geometry.dock.width}`);
   assert(geometry.main.right<=geometry.dock.left,`dock overlaps business content at ${width}: ${JSON.stringify(geometry)}`);
   assert(geometry.card.width<=680&&geometry.card.width>0,`calculator must remain compact at ${width}: ${JSON.stringify(geometry)}`);
   await page.locator('#businessAction').click();
@@ -58,12 +60,13 @@ try{
  await page.setViewportSize({width:1440,height:960});
  if(process.env.THEBE_SCREENSHOT_DIR){fs.mkdirSync(process.env.THEBE_SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.THEBE_SCREENSHOT_DIR,'dock-desktop.png')})}
  await page.getByRole('button',{name:'Expand Thebe panel',exact:true}).click();
- const expandedDockWidths=new Map([[1440,344],[1200,344],[1199,324],[1024,324]]);
- for(const [width,expectedDockWidth] of expandedDockWidths){
+ const expectedExpandedDockWidth=width=>width>=1200?Math.min(780,Math.max(520,width*.44)):Math.min(430,Math.max(360,width*.36));
+ for(const width of [1440,1200,1199,1024]){
+  const expectedDockWidth=expectedExpandedDockWidth(width);
   await page.setViewportSize({width,height:960});
   await page.waitForFunction(expected=>Math.abs(document.getElementById('thebeAiDock').getBoundingClientRect().width-expected)<=1,expectedDockWidth);
   const geometry=await page.evaluate(()=>{const d=document.getElementById('thebeAiDock').getBoundingClientRect(),m=document.getElementById('mainContent').getBoundingClientRect();return {dock:{left:d.left,right:d.right,width:d.width},main:{left:m.left,right:m.right}}});
-  assert(Math.abs(geometry.dock.width-expectedDockWidth)<=1,`unexpected expanded dock width at ${width}: expected ${expectedDockWidth}, got ${geometry.dock.width}`);
+  assert(Math.abs(geometry.dock.width-expectedDockWidth)<=1,`unexpected expanded Gemini side-panel width at ${width}: expected ${expectedDockWidth}, got ${geometry.dock.width}`);
   assert(geometry.main.right<=geometry.dock.left,`expanded dock overlaps business content at ${width}: ${JSON.stringify(geometry)}`);
  }
  await page.setViewportSize({width:1440,height:960});
@@ -118,5 +121,5 @@ try{
  assert.equal(publicGeometry.padding,0,'public content must reserve the dock lane only once');
  assert(publicGeometry.mainRight<=publicGeometry.dockLeft,'public dock stays outside page content');
  assert.deepEqual(errors,[],'no browser errors');
- console.log('V246_SPATIAL_DOCK_BROWSER_PASS: compact Property, reserved dock, compact single-entry voice, overflow containment, expansion, full-screen voice, focus, cancellation, mobile');
+ console.log('V246_SPATIAL_DOCK_BROWSER_PASS: compact Property, reserved responsive Gemini side panel, single-entry voice, overflow containment, expansion, full-screen voice, focus, cancellation, mobile');
 }finally{await browser.close()}
