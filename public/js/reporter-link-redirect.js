@@ -42,6 +42,13 @@
     link.dataset.marketConversionV11="1";
     document.head.appendChild(link);
   }
+  if(!document.querySelector('link[data-market-compact-v12]')){
+    const compact=document.createElement("link");
+    compact.rel="stylesheet";
+    compact.href="/assets/market-compact-v12.css?v=20261013a";
+    compact.dataset.marketCompactV12="1";
+    document.head.appendChild(compact);
+  }
   if(!document.querySelector('script[data-market-conversion-v11]')){
     const script=document.createElement("script");
     script.src="/js/market-conversion-v11.js?v=20261013b";
