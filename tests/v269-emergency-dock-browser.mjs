@@ -44,14 +44,14 @@ try{
   });
   await page.waitForFunction(()=>{
     const property=document.getElementById('propertyintelligence');
-    return property&&!property.classList.contains('active')&&!property.style.getPropertyValue('display')&&!property.style.getPropertyValue('visibility')&&!property.style.getPropertyValue('opacity')&&getComputedStyle(property).display==='none';
+    return property&&!property.classList.contains('active')&&property.style.getPropertyValue('display')==='none'&&!property.style.getPropertyValue('visibility')&&!property.style.getPropertyValue('opacity')&&getComputedStyle(property).display==='none';
   });
   const propertyIsolation=await page.evaluate(()=>{
     const property=document.getElementById('propertyintelligence');
     return {marker:property.dataset.propertyViewIsolation,display:property.style.getPropertyValue('display'),visibility:property.style.getPropertyValue('visibility'),opacity:property.style.getPropertyValue('opacity'),computed:getComputedStyle(property).display};
   });
   assert.equal(propertyIsolation.marker,'20261003-property-view-isolation-v273');
-  assert.deepEqual({display:propertyIsolation.display,visibility:propertyIsolation.visibility,opacity:propertyIsolation.opacity,computed:propertyIsolation.computed},{display:'',visibility:'',opacity:'',computed:'none'},`inactive Property root must not leak into other workspace views: ${JSON.stringify(propertyIsolation)}`);
+  assert.deepEqual({display:propertyIsolation.display,visibility:propertyIsolation.visibility,opacity:propertyIsolation.opacity,computed:propertyIsolation.computed},{display:'none',visibility:'',opacity:'',computed:'none'},`inactive Property root must retain route isolation without leaking stale visibility styles: ${JSON.stringify(propertyIsolation)}`);
   // The actual route guard and dock observer must settle together. A browser
   // timer cannot fire while competing mutation microtasks starve its task queue.
   let coexistenceTimer;
