@@ -56,6 +56,13 @@
     conversion.dataset.marketConversionV13="1";
     document.head.appendChild(conversion);
   }
+  if(!document.querySelector('link[data-market-layout-v14]')){
+    const layout=document.createElement("link");
+    layout.rel="stylesheet";
+    layout.href="/assets/market-layout-v14.css?v=20261013a";
+    layout.dataset.marketLayoutV14="1";
+    document.head.appendChild(layout);
+  }
   if(!document.querySelector('script[data-market-conversion-v11]')){
     const script=document.createElement("script");
     script.src="/js/market-conversion-v11.js?v=20261013b";
@@ -77,5 +84,12 @@
     conversion.dataset.marketConversionV13="1";
     conversion.async=false;
     document.head.appendChild(conversion);
+  }
+  if(!document.querySelector('script[data-conversion-funnel-v14]')){
+    const funnel=document.createElement("script");
+    funnel.src="/js/conversion-funnel-v14.js?v=20261013b";
+    funnel.dataset.conversionFunnelV14="1";
+    funnel.async=false;
+    document.head.appendChild(funnel);
   }
 })();
