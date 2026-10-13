@@ -33,7 +33,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify exact current main and deploy authority
+      - name: Verify deployed release lineage and deploy authority
         shell: bash
         run: |
           set -euo pipefail
@@ -48,9 +48,15 @@ jobs:
             | python3 -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])'
           )"
           [[ "$target" == "$AUDIT_SHA" ]] || { echo "checkout mismatch target=$target expected=$AUDIT_SHA" >&2; exit 1; }
-          [[ "$target" == "$main_sha" ]] || { echo "refusing stale runtime proof target=$target current-main=$main_sha" >&2; exit 1; }
           [[ "${{ github.event.workflow_run.conclusion }}" == "success" ]] || { echo 'deploy trigger was not successful' >&2; exit 1; }
           [[ "${{ github.event.workflow_run.head_sha }}" == "$AUDIT_SHA" ]] || { echo 'deploy trigger SHA mismatch' >&2; exit 1; }
+          if ! git cat-file -e "${main_sha}^{commit}" 2>/dev/null; then
+            git fetch --no-tags origin "$main_sha"
+          fi
+          if ! git merge-base --is-ancestor "$target" "$main_sha"; then
+            echo "::error::deployed SHA is not an ancestor of current main target=${target} current-main=${main_sha}"
+            exit 1
+          fi
 
       - name: Setup pinned Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -101,7 +107,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify exact current main and deploy authority
+      - name: Verify deployed release lineage and deploy authority
         shell: bash
         run: |
           set -euo pipefail
@@ -116,7 +122,15 @@ jobs:
             | python3 -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])'
           )"
           [[ "$target" == "$AUDIT_SHA" ]] || { echo "checkout mismatch target=$target expected=$AUDIT_SHA" >&2; exit 1; }
-          [[ "$target" == "$main_sha" ]] || { echo "refusing stale recovery proof target=$target current-main=$main_sha" >&2; exit 1; }
+          [[ "${{ github.event.workflow_run.conclusion }}" == "success" ]] || { echo 'deploy trigger was not successful' >&2; exit 1; }
+          [[ "${{ github.event.workflow_run.head_sha }}" == "$AUDIT_SHA" ]] || { echo 'deploy trigger SHA mismatch' >&2; exit 1; }
+          if ! git cat-file -e "${main_sha}^{commit}" 2>/dev/null; then
+            git fetch --no-tags origin "$main_sha"
+          fi
+          if ! git merge-base --is-ancestor "$target" "$main_sha"; then
+            echo "::error::deployed SHA is not an ancestor of current main target=${target} current-main=${main_sha}"
+            exit 1
+          fi
 
       - name: Setup pinned Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
