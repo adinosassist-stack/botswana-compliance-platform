@@ -119,3 +119,20 @@
   else if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",loadReportMoney,{once:true});
   else loadReportMoney();
 })();
+
+(()=>{
+  "use strict";
+  const release="20261013-locations-branches-v333";
+  let requested=false;
+  function loadLocationsBranches(){
+    if(requested)return;
+    requested=true;
+    import(`/js/locations-branches-v333.js?release=${release}`).catch(error=>{
+      requested=false;
+      console.error("Locations & Branches extension failed to load",error);
+    });
+  }
+  if(typeof window.whenThebeWorkspaceReady==="function")window.whenThebeWorkspaceReady(loadLocationsBranches);
+  else if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",loadLocationsBranches,{once:true});
+  else loadLocationsBranches();
+})();
