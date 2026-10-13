@@ -35,4 +35,18 @@
     script.async=false;
     document.head.appendChild(script);
   }
+  if(!document.querySelector('link[data-market-conversion-v11]')){
+    const link=document.createElement("link");
+    link.rel="stylesheet";
+    link.href="/assets/market-conversion-v11.css?v=20261013a";
+    link.dataset.marketConversionV11="1";
+    document.head.appendChild(link);
+  }
+  if(!document.querySelector('script[data-market-conversion-v11]')){
+    const script=document.createElement("script");
+    script.src="/js/market-conversion-v11.js?v=20261013a";
+    script.dataset.marketConversionV11="1";
+    script.defer=true;
+    document.head.appendChild(script);
+  }
 })();
