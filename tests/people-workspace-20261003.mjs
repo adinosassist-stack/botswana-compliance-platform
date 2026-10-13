@@ -36,6 +36,6 @@ assert.match(locations,/modal\.classList\.contains\("open"\)/,'locations runtime
 assert.match(locations,/const dismiss=window\.dismissOnboarding/,'locations runtime must prefer the canonical onboarding dismissal path');
 assert.match(locations,/onboardingObserver\.observe\(modal,\{attributes:true,attributeFilter:\["class","aria-hidden"\]\}\)/,'locations runtime must catch delayed onboarding reopen races');
 assert.match(locations,/\[0,80,240,800,1600\]\.forEach/,'intentional People navigation must recheck the delayed onboarding scheduler window');
-assert.match(locations,/data-view=\\"peopleops\\"/,'People navigation must be recognized without globally disabling onboarding');
-assert.match(locations,/data-bw-onclick=\\"addOpsLocation\(\)\\"/,'Add location must remain bound to the canonical save action');
+assert.ok(locations.includes('[data-view="peopleops"]'),'People navigation must be recognized without globally disabling onboarding');
+assert.ok(locations.includes('[data-bw-onclick="addOpsLocation()"]'),'Add location must remain bound to the canonical save action');
 console.log('People workspace: data truth, empty states, null coverage, request races, company isolation, refresh recovery and onboarding-safe locations PASS');
