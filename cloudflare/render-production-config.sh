@@ -17,6 +17,10 @@ GOOGLE_REDIRECT_URI=${GOOGLE_OAUTH_REDIRECT_URI:-}
 FACEBOOK_APP_ID_VALUE=${FACEBOOK_APP_ID:-}
 FACEBOOK_APP_SECRET_VALUE=${FACEBOOK_APP_SECRET:-}
 FACEBOOK_REDIRECT_URI=${FACEBOOK_OAUTH_REDIRECT_URI:-}
+WHATSAPP_BUSINESS_NUMBER_VALUE=${WHATSAPP_BUSINESS_NUMBER:-}
+WHATSAPP_PHONE_NUMBER_ID_VALUE=${WHATSAPP_PHONE_NUMBER_ID:-}
+WHATSAPP_GRAPH_VERSION_VALUE=${WHATSAPP_GRAPH_VERSION:-}
+WHATSAPP_TEMPLATE_MAP_INPUT=${WHATSAPP_TEMPLATE_MAP_JSON:-}
 EMAIL_FROM_VALUE=${EMAIL_FROM:-}
 THEBE_BANK_NAME_VALUE=${THEBE_BANK_NAME:-First National Bank}
 THEBE_BANK_ACCOUNT_NUMBER_VALUE=${THEBE_BANK_ACCOUNT_NUMBER:-63087687788}
@@ -117,6 +121,66 @@ if [ -n "$FACEBOOK_APP_ID_VALUE" ] || [ -n "$FACEBOOK_APP_SECRET_VALUE" ]; then
   FACEBOOK_RUNTIME_REDIRECT_URI=$FACEBOOK_REDIRECT_URI
 fi
 
+# Meta WhatsApp Cloud API is an optional all-or-none production integration.
+# All four release-controlled bindings must be absent (deferred) or complete.
+WHATSAPP_RUNTIME_BUSINESS_NUMBER=""
+WHATSAPP_RUNTIME_PHONE_NUMBER_ID=""
+WHATSAPP_RUNTIME_GRAPH_VERSION=""
+WHATSAPP_RUNTIME_TEMPLATE_MAP=""
+WHATSAPP_BINDING_COUNT=0
+for value in "$WHATSAPP_BUSINESS_NUMBER_VALUE" "$WHATSAPP_PHONE_NUMBER_ID_VALUE" "$WHATSAPP_GRAPH_VERSION_VALUE" "$WHATSAPP_TEMPLATE_MAP_INPUT"; do
+  [ -n "$value" ] && WHATSAPP_BINDING_COUNT=$((WHATSAPP_BINDING_COUNT + 1))
+done
+if [ "$WHATSAPP_BINDING_COUNT" -ne 0 ]; then
+  [ "$WHATSAPP_BINDING_COUNT" -eq 4 ] || fail "WhatsApp provider bindings must provide business number, Meta phone-number ID, graph version and template map together"
+  WHATSAPP_NORMALIZED_BUSINESS=$(printf '%s' "$WHATSAPP_BUSINESS_NUMBER_VALUE" | tr -d ' +().-')
+  [ "$WHATSAPP_NORMALIZED_BUSINESS" = "26777723273" ] || fail "WHATSAPP_BUSINESS_NUMBER must be the approved +267 77 723 273 customer-facing number"
+  printf '%s\n' "$WHATSAPP_PHONE_NUMBER_ID_VALUE" | grep -Eq '^[0-9]{5,32}$' || fail "WHATSAPP_PHONE_NUMBER_ID must be the opaque Meta numeric identifier"
+  [ "$WHATSAPP_PHONE_NUMBER_ID_VALUE" != "$WHATSAPP_NORMALIZED_BUSINESS" ] || fail "WHATSAPP_PHONE_NUMBER_ID must not be the public business number"
+  printf '%s\n' "$WHATSAPP_GRAPH_VERSION_VALUE" | grep -Eq '^v[0-9]+\.[0-9]+$' || fail "WHATSAPP_GRAPH_VERSION must look like v26.0"
+  if ! WHATSAPP_RUNTIME_TEMPLATE_MAP=$(WHATSAPP_TEMPLATE_MAP_JSON_VALUE="$WHATSAPP_TEMPLATE_MAP_INPUT" node <<'NODE'
+const required = [
+  'obligation_due','compliance_schedule_due','daily_operations_summary_ready',
+  'critical_business_risk','control_assurance_stale','performance_intelligence_alert'
+];
+const optional = ['finance_reconciliation_exception'];
+const allowed = new Set([...required, ...optional]);
+let value;
+try { value = JSON.parse(process.env.WHATSAPP_TEMPLATE_MAP_JSON_VALUE || ''); }
+catch { console.error('WHATSAPP_TEMPLATE_MAP_JSON must be valid JSON'); process.exit(1); }
+if (!value || Array.isArray(value) || typeof value !== 'object') {
+  console.error('WHATSAPP_TEMPLATE_MAP_JSON must be an object'); process.exit(1);
+}
+for (const key of Object.keys(value)) {
+  if (!allowed.has(key)) { console.error(`WHATSAPP_TEMPLATE_MAP_JSON contains unsupported key ${key}`); process.exit(1); }
+}
+for (const key of required) {
+  const item = value[key];
+  if (!item || typeof item !== 'object' || Array.isArray(item)) {
+    console.error(`WHATSAPP_TEMPLATE_MAP_JSON is missing required template ${key}`); process.exit(1);
+  }
+}
+const normalized = {};
+for (const key of [...required, ...optional]) {
+  const item = value[key];
+  if (!item) continue;
+  const name = String(item.name || '');
+  const language = String(item.language || 'en_US');
+  if (!/^[a-z0-9_]{1,512}$/.test(name)) { console.error(`invalid WhatsApp template name for ${key}`); process.exit(1); }
+  if (!/^[a-z]{2,3}(?:_[A-Z]{2})?$/.test(language)) { console.error(`invalid WhatsApp template language for ${key}`); process.exit(1); }
+  normalized[key] = {name, language};
+}
+process.stdout.write(JSON.stringify(normalized));
+NODE
+  ); then
+    fail "WHATSAPP_TEMPLATE_MAP_JSON does not satisfy the six-template utility contract"
+  fi
+  case "$WHATSAPP_RUNTIME_TEMPLATE_MAP" in *\'*) fail "WHATSAPP_TEMPLATE_MAP_JSON contains unsafe TOML literal content" ;; esac
+  WHATSAPP_RUNTIME_BUSINESS_NUMBER="26777723273"
+  WHATSAPP_RUNTIME_PHONE_NUMBER_ID="$WHATSAPP_PHONE_NUMBER_ID_VALUE"
+  WHATSAPP_RUNTIME_GRAPH_VERSION="$WHATSAPP_GRAPH_VERSION_VALUE"
+fi
+
 if [ -n "$EMAIL_FROM_VALUE" ]; then
   printf '%s\n' "$EMAIL_FROM_VALUE" | grep -Eq '@[^[:space:]<>]+\.[^[:space:]<>]+>?$' || fail "EMAIL_FROM must contain a real sender email address when transactional email is enabled"
   printf '%s\n' "$EMAIL_FROM_VALUE" | grep -Eqi 'example\.invalid|example\.com|REPLACE_WITH' && fail "EMAIL_FROM must not be a placeholder" || true
@@ -128,14 +192,16 @@ PAYMENT_LINES=$(grep -Ec '^[[:space:]]*PAYMENT_PROVIDER[[:space:]]*=' "$TEMPLATE
 SAFE_PAYMENT_DEFAULTS=$(grep -Ec '^[[:space:]]*PAYMENT_PROVIDER[[:space:]]*=[[:space:]]*"none"[[:space:]]*$' "$TEMPLATE" || true)
 MAIN_LINES=$(grep -Ec '^[[:space:]]*main[[:space:]]*=[[:space:]]*"src/release-governance-entry\.js"[[:space:]]*$' "$TEMPLATE" || true)
 ASSET_DIR_LINES=$(grep -Ec '^[[:space:]]*directory[[:space:]]*=[[:space:]]*"\.\./public"[[:space:]]*$' "$TEMPLATE" || true)
+WHATSAPP_TEMPLATE_PLACEHOLDERS=$(grep -Ec "^[[:space:]]*WHATSAPP_TEMPLATE_MAP_JSON[[:space:]]*=[[:space:]]*'REPLACE_WITH_WHATSAPP_TEMPLATE_MAP_JSON'[[:space:]]*$" "$TEMPLATE" || true)
 [ "$TOTAL_IDS" -eq 1 ] || fail "template must contain exactly one D1 database_id"
 [ "$PLACEHOLDERS" -eq 1 ] || fail "template must contain exactly one D1 database_id placeholder"
 [ "$PAYMENT_LINES" -eq 1 ] || fail "template must contain exactly one PAYMENT_PROVIDER"
 [ "$SAFE_PAYMENT_DEFAULTS" -eq 1 ] || fail "template PAYMENT_PROVIDER must default to none"
 [ "$MAIN_LINES" -eq 1 ] || fail "template must contain exactly one canonical release governance entrypoint"
 [ "$ASSET_DIR_LINES" -eq 1 ] || fail "template must contain exactly one canonical public assets directory"
+[ "$WHATSAPP_TEMPLATE_PLACEHOLDERS" -eq 1 ] || fail "template must contain exactly one WHATSAPP_TEMPLATE_MAP_JSON literal placeholder"
 
-for key in PUBLIC_APP_URL PUBLIC_ORIGIN TURNSTILE_SITE_KEY PLATFORM_ADMIN_EMAILS PLATFORM_REGULATORY_REVIEWERS EVIDENCE_SCAN_API_URL GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_REDIRECT_URI FACEBOOK_APP_ID FACEBOOK_OAUTH_REDIRECT_URI EMAIL_FROM THEBE_BANK_NAME THEBE_BANK_ACCOUNT_NUMBER THEBE_BANK_ACCOUNT_TYPE THEBE_BANK_BRANCH_NAME THEBE_BANK_BRANCH_CODE THEBE_BANK_SWIFT_CODE; do
+for key in PUBLIC_APP_URL PUBLIC_ORIGIN TURNSTILE_SITE_KEY PLATFORM_ADMIN_EMAILS PLATFORM_REGULATORY_REVIEWERS EVIDENCE_SCAN_API_URL GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_REDIRECT_URI FACEBOOK_APP_ID FACEBOOK_OAUTH_REDIRECT_URI WHATSAPP_BUSINESS_NUMBER WHATSAPP_PHONE_NUMBER_ID WHATSAPP_GRAPH_VERSION EMAIL_FROM THEBE_BANK_NAME THEBE_BANK_ACCOUNT_NUMBER THEBE_BANK_ACCOUNT_TYPE THEBE_BANK_BRANCH_NAME THEBE_BANK_BRANCH_CODE THEBE_BANK_SWIFT_CODE; do
   count=$(grep -Ec "^[[:space:]]*${key}[[:space:]]*=[[:space:]]*\"REPLACE_WITH_${key}\"[[:space:]]*$" "$TEMPLATE" || true)
   [ "$count" -eq 1 ] || fail "template must contain exactly one ${key} placeholder"
 done
@@ -153,6 +219,10 @@ awk \
   -v google_redirect_uri="$GOOGLE_RUNTIME_REDIRECT_URI" \
   -v facebook_app_id="$FACEBOOK_APP_ID_VALUE" \
   -v facebook_redirect_uri="$FACEBOOK_RUNTIME_REDIRECT_URI" \
+  -v whatsapp_business_number="$WHATSAPP_RUNTIME_BUSINESS_NUMBER" \
+  -v whatsapp_phone_number_id="$WHATSAPP_RUNTIME_PHONE_NUMBER_ID" \
+  -v whatsapp_graph_version="$WHATSAPP_RUNTIME_GRAPH_VERSION" \
+  -v whatsapp_template_map="$WHATSAPP_RUNTIME_TEMPLATE_MAP" \
   -v email_from="$EMAIL_FROM_VALUE" \
   -v bank_name="$THEBE_BANK_NAME_VALUE" \
   -v bank_account_number="$THEBE_BANK_ACCOUNT_NUMBER_VALUE" \
@@ -163,6 +233,7 @@ awk \
   -v main_entry="$MAIN_ENTRY" \
   -v assets_directory="$ASSETS_DIRECTORY" '
   function emit(k,v){ print k " = \"" v "\""; replaced[k]++ }
+  function emit_literal(k,v,quote){ quote=sprintf("%c",39); print k " = " quote v quote; replaced[k]++ }
   /^[[:space:]]*main[[:space:]]*=[[:space:]]*"src\/release-governance-entry\.js"[[:space:]]*$/ { print "main = \"" main_entry "\""; main_replaced++; next }
   /^[[:space:]]*directory[[:space:]]*=[[:space:]]*"\.\.\/public"[[:space:]]*$/ { print "directory = \"" assets_directory "\""; assets_replaced++; next }
   /^[[:space:]]*database_id[[:space:]]*=[[:space:]]*"REPLACE_WITH_D1_DATABASE_ID"[[:space:]]*$/ { print "database_id = \"" id "\""; id_replaced++; next }
@@ -177,6 +248,10 @@ awk \
   /^[[:space:]]*GOOGLE_OAUTH_REDIRECT_URI[[:space:]]*=/ { emit("GOOGLE_OAUTH_REDIRECT_URI",google_redirect_uri); next }
   /^[[:space:]]*FACEBOOK_APP_ID[[:space:]]*=/ { emit("FACEBOOK_APP_ID",facebook_app_id); next }
   /^[[:space:]]*FACEBOOK_OAUTH_REDIRECT_URI[[:space:]]*=/ { emit("FACEBOOK_OAUTH_REDIRECT_URI",facebook_redirect_uri); next }
+  /^[[:space:]]*WHATSAPP_BUSINESS_NUMBER[[:space:]]*=/ { emit("WHATSAPP_BUSINESS_NUMBER",whatsapp_business_number); next }
+  /^[[:space:]]*WHATSAPP_PHONE_NUMBER_ID[[:space:]]*=/ { emit("WHATSAPP_PHONE_NUMBER_ID",whatsapp_phone_number_id); next }
+  /^[[:space:]]*WHATSAPP_GRAPH_VERSION[[:space:]]*=/ { emit("WHATSAPP_GRAPH_VERSION",whatsapp_graph_version); next }
+  /^[[:space:]]*WHATSAPP_TEMPLATE_MAP_JSON[[:space:]]*=/ { emit_literal("WHATSAPP_TEMPLATE_MAP_JSON",whatsapp_template_map); next }
   /^[[:space:]]*EMAIL_FROM[[:space:]]*=/ { emit("EMAIL_FROM",email_from); next }
   /^[[:space:]]*THEBE_BANK_NAME[[:space:]]*=/ { emit("THEBE_BANK_NAME",bank_name); next }
   /^[[:space:]]*THEBE_BANK_ACCOUNT_NUMBER[[:space:]]*=/ { emit("THEBE_BANK_ACCOUNT_NUMBER",bank_account_number); next }
@@ -187,7 +262,7 @@ awk \
   { print }
   END {
     if (id_replaced != 1 || payment_replaced != 1 || main_replaced != 1 || assets_replaced != 1) exit 42
-    keys[1]="PUBLIC_APP_URL";keys[2]="PUBLIC_ORIGIN";keys[3]="TURNSTILE_SITE_KEY";keys[4]="PLATFORM_ADMIN_EMAILS";keys[5]="PLATFORM_REGULATORY_REVIEWERS";keys[6]="EVIDENCE_SCAN_API_URL";keys[7]="GOOGLE_OAUTH_CLIENT_ID";keys[8]="GOOGLE_OAUTH_REDIRECT_URI";keys[9]="FACEBOOK_APP_ID";keys[10]="FACEBOOK_OAUTH_REDIRECT_URI";keys[11]="EMAIL_FROM";keys[12]="THEBE_BANK_NAME";keys[13]="THEBE_BANK_ACCOUNT_NUMBER";keys[14]="THEBE_BANK_ACCOUNT_TYPE";keys[15]="THEBE_BANK_BRANCH_NAME";keys[16]="THEBE_BANK_BRANCH_CODE";keys[17]="THEBE_BANK_SWIFT_CODE"
-    for(i=1;i<=17;i++)if(replaced[keys[i]]!=1)exit 43
+    keys[1]="PUBLIC_APP_URL";keys[2]="PUBLIC_ORIGIN";keys[3]="TURNSTILE_SITE_KEY";keys[4]="PLATFORM_ADMIN_EMAILS";keys[5]="PLATFORM_REGULATORY_REVIEWERS";keys[6]="EVIDENCE_SCAN_API_URL";keys[7]="GOOGLE_OAUTH_CLIENT_ID";keys[8]="GOOGLE_OAUTH_REDIRECT_URI";keys[9]="FACEBOOK_APP_ID";keys[10]="FACEBOOK_OAUTH_REDIRECT_URI";keys[11]="WHATSAPP_BUSINESS_NUMBER";keys[12]="WHATSAPP_PHONE_NUMBER_ID";keys[13]="WHATSAPP_GRAPH_VERSION";keys[14]="WHATSAPP_TEMPLATE_MAP_JSON";keys[15]="EMAIL_FROM";keys[16]="THEBE_BANK_NAME";keys[17]="THEBE_BANK_ACCOUNT_NUMBER";keys[18]="THEBE_BANK_ACCOUNT_TYPE";keys[19]="THEBE_BANK_BRANCH_NAME";keys[20]="THEBE_BANK_BRANCH_CODE";keys[21]="THEBE_BANK_SWIFT_CODE"
+    for(i=1;i<=21;i++)if(replaced[keys[i]]!=1)exit 43
   }
 ' "$TEMPLATE"
