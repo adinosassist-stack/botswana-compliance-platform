@@ -122,12 +122,12 @@
 
 (()=>{
   "use strict";
-  const release="20261013-locations-branches-v333";
+  const release="20261013-locations-branches-v334";
   let requested=false;
   function loadLocationsBranches(){
     if(requested)return;
     requested=true;
-    import(`/js/locations-branches-v333.js?release=${release}`).catch(error=>{
+    import(`/js/locations-branches-v334.js?release=${release}`).catch(error=>{
       requested=false;
       console.error("Locations & Branches extension failed to load",error);
     });
