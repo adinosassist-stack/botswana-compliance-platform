@@ -13,7 +13,7 @@ const VALID_PLANS=new Set(["","starter","business","pro","network","partner","mo
 const ID_RE=/^[a-zA-Z0-9_-]{16,64}$/;
 const MAX_BODY_BYTES=2048;
 
-function json(data,status=200){return new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"}})}
+function json(data,status=200,headers={}){return new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff",...headers}})}
 function pathOf(request){try{return new URL(request.url).pathname}catch{return ""}}
 function validId(value){return ID_RE.test(String(value||""))}
 function safeText(value,max=80){return String(value||"").trim().slice(0,max)}
@@ -31,6 +31,12 @@ function sameOrigin(request){
     const url=new URL(request.url),origin=String(request.headers.get("origin")||"");
     return origin===url.origin;
   }catch{return false}
+}
+async function publicRateAllowed(request,env,conversionId){
+  if(!env?.PUBLIC_RATE_LIMITER||typeof env.PUBLIC_RATE_LIMITER.limit!=="function")return true;
+  const transientIp=safeText(request.headers.get("cf-connecting-ip")||"",80);
+  const key=`conversion:${transientIp||conversionId}`;
+  try{const result=await env.PUBLIC_RATE_LIMITER.limit({key});return result?.success!==false}catch{return false}
 }
 async function readEventBody(request){
   const declared=Number(request.headers.get("content-length")||0);
@@ -69,6 +75,7 @@ async function handleClientEvent(request,env,ctx){
   try{body=await readEventBody(request)}catch(error){return json({error:error.message==="payload_too_large"?"payload_too_large":"invalid_json"},error.message==="payload_too_large"?413:400)}
   const conversionId=safeText(body?.conversionId,64),stage=safeText(body?.stage,40),source=safeText(body?.source||"unknown",40),plan=safeText(body?.plan||"",40),path=safeText(body?.path||"",120);
   if(!validId(conversionId)||!CLIENT_EVENTS.has(stage)||!VALID_SOURCES.has(source)||!VALID_PLANS.has(plan))return json({error:"invalid_conversion_event"},400);
+  if(!await publicRateAllowed(request,env,conversionId))return json({error:"rate_limited"},429,{"retry-after":"60"});
   const work=recordEvent(env,{conversionId,stage,source,plan,path});
   if(ctx?.waitUntil)ctx.waitUntil(work);else await work;
   return json({ok:true},202);
@@ -117,4 +124,4 @@ export default {
   async scheduled(event,env,ctx){return base.scheduled(event,env,ctx)}
 };
 
-export {recordEvent,priorRegistrationSuccess,validId,sameOrigin};
+export {recordEvent,priorRegistrationSuccess,publicRateAllowed,validId,sameOrigin};
