@@ -84,6 +84,13 @@
     cro.dataset.marketCroV18="1";
     document.head.appendChild(cro);
   }
+  if(!document.querySelector('link[data-market-alignment-v19]')){
+    const alignment=document.createElement("link");
+    alignment.rel="stylesheet";
+    alignment.href="/assets/market-alignment-v19.css?v=20261013a";
+    alignment.dataset.marketAlignmentV19="1";
+    document.head.appendChild(alignment);
+  }
   if(!document.querySelector('script[data-market-conversion-v11]')){
     const script=document.createElement("script");
     script.src="/js/market-conversion-v11.js?v=20261013b";
