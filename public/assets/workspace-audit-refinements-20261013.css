@@ -1,0 +1,75 @@
+/* Workspace audit: shared brand, readable controls and one assistant surface. */
+html body #appShell{
+  --ui-accent:#b42318;
+  --ui-accent-strong:#8f1d16;
+  --ui-accent-soft:#fff1ee;
+}
+/* Reserve the conversation lane immediately, before the panel can cover work. */
+html body.thebe-ai-dock-open #appShell{transition:none!important}
+html body #appShell .nav-primary.active{
+  background:#b42318!important;
+  background-image:none!important;
+  box-shadow:0 5px 14px rgba(180,35,24,.12)!important;
+}
+html body #appShell .btn:not(.alt):not(.soft):not(.danger){background:#b42318!important}
+html body #appShell .btn.soft{color:#8f1d16!important;background:#fff1ee!important;border-color:#efd1cc!important}
+html body #appShell :is(input,select,textarea):focus{border-color:#b42318!important;box-shadow:0 0 0 3px rgba(180,35,24,.12)!important}
+html body #appShell .owner-command-hero{background:#fff!important;background-image:none!important}
+html body #appShell .owner-today-card{min-width:0!important;text-align:left!important}
+html body #appShell .owner-today-label,
+html body #appShell .owner-today-value{display:block!important}
+html body #appShell .owner-today-detail{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;line-height:1.4!important}
+html body #appShell .owner-analysis-details>summary{
+  min-height:44px;padding:12px 14px;cursor:pointer;font-weight:700;
+  border:1px solid #e1e4e7;border-radius:12px;background:#fff;
+}
+html body #appShell .owner-analysis-details[open]>summary{margin-bottom:14px}
+html body:has(#thebeAiDock) #appShell .home-thebe-agent{display:none!important}
+html body #appShell #ownerFocusStrip .owner-focus-ask{background:#b42318!important;border-color:#b42318!important}
+html body #appShell #ownerFocusStrip .owner-focus-metric[aria-pressed="true"]{background:#fff1ee!important;border-color:#b42318!important}
+html body #appShell #ownerFocusStrip{grid-template-columns:repeat(3,minmax(0,1fr))!important;min-width:0!important}
+html body #appShell #ownerFocusStrip .owner-focus-intro{grid-column:1/-1!important}
+html body #appShell #ownerFocusStrip :is(.owner-focus-next,.owner-focus-retry,.owner-focus-ask){
+  min-width:0!important;min-height:44px!important;white-space:normal!important;overflow-wrap:anywhere!important;
+}
+@media(max-width:410px){
+  html body #appShell #ownerFocusStrip :is(.owner-focus-next,.owner-focus-retry,.owner-focus-ask){grid-column:1/-1!important}
+}
+
+/* Public assistant and full-screen voice remain independent surfaces. */
+html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"]{
+  background:#fff!important;color:#17191c!important;border-color:#e1e4e7!important;
+  color-scheme:light!important;box-shadow:0 12px 36px rgba(17,25,35,.10)!important;
+}
+html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] :is(.thebe-ai-dock-head,.thebe-ai-dock-scroll,.thebe-ai-response){
+  background:#fff!important;color:#17191c!important;border-color:#e1e4e7!important;
+}
+html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] :is(.thebe-ai-title-copy b,.thebe-ai-title-copy small,.thebe-ai-voice-label,.thebe-ai-response-answer,.thebe-ai-icon-btn){color:#343a40!important}
+html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-quick{
+  display:flex!important;flex-wrap:wrap!important;overflow:visible!important;gap:6px!important;
+}
+html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-quick button{
+  flex:1 1 110px!important;min-width:0!important;max-width:100%!important;min-height:44px!important;
+  white-space:normal!important;overflow-wrap:anywhere!important;color:#343a40!important;
+  background:#f7f7f5!important;border-color:#e1e4e7!important;
+}
+html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-compose{background:#f7f7f5!important;border-color:#d2d7dc!important}
+html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-compose textarea{background:transparent!important;color:#17191c!important}
+html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-compose textarea::placeholder{color:#68717a!important}
+html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] :is(.thebe-ai-send,.thebe-ai-credit-recovery){
+  background:#b42318!important;color:#fff!important;border:0;border-radius:10px;min-height:44px;cursor:pointer;
+}
+html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-credit-recovery{padding:10px 12px;margin-top:10px;width:100%;font:inherit}
+html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-send{min-width:44px!important;min-height:44px!important;height:44px!important}
+html body #thebeAiDockPill[data-surface="workspace"]{background:#b42318!important;color:#fff!important;min-height:44px!important}
+html body #thebeAiDockPill[data-surface="workspace"]:not([hidden]){display:inline-flex!important}
+html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-minimize:not([hidden]){display:inline-flex!important}
+html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] :is(button,textarea):focus-visible,
+html body #appShell .owner-analysis-details>summary:focus-visible{outline:3px solid #b42318!important;outline-offset:3px!important}
+@media(max-width:620px){
+  html body #appShell .owner-today-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  html body #appShell .owner-today-card:last-child{grid-column:1/-1}
+}
+
+html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-compose:focus-within{background:#f7f7f5!important;border-color:#b42318!important}
+html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-send:not(:disabled):hover{background:#8f1d16!important;color:#fff!important}

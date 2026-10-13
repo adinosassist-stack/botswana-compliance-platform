@@ -12,7 +12,7 @@ const propertyStart=html.indexOf('  <section id="propertyintelligence"');
 const property=html.slice(propertyStart,html.indexOf('</section>',propertyStart)+10).replace('class="view simplified-hub','class="view active simplified-hub');
 let fixture=externalizeWorkspaceHeadStyles('<!doctype html>'+html.slice(html.indexOf('<html'),html.indexOf('</head>')+7)+'<body><section id="marketingGate" class="hidden" style="display:none"></section><section id="appShell" class="shell"><aside id="workspaceSidebar"><button>Home</button></aside><main id="mainContent"><div class="top"><h1 id="pageTitle">Property</h1></div>'+property+'</main></section></body></html>');
 fixture=injectOwnerCommandCentreAssets(fixture);
-fixture=versionReleaseAssets(fixture,'9'.repeat(40));
+fixture=versionReleaseAssets(fixture,'9'.repeat(40),{includeWorkspaceFixes:true});
 
 const browser=await chromium.launch({headless:true,executablePath:[process.env.CHROMIUM_EXECUTABLE_PATH,'/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].filter(Boolean).find(p=>fs.existsSync(p)),args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
 try{
@@ -28,7 +28,9 @@ try{
   });
   await page.addInitScript(()=>{window.currentWorkspaceRole=()=> 'owner';window.apiJson=async()=>({sessionCreationAllowed:false})});
   await page.goto('http://localhost/');
-  await page.waitForSelector('#thebeAiDock');
+  await page.waitForSelector('#thebeAiDock',{state:'attached'});
+ await page.locator('#thebeAiDockPill').click();
+ await page.waitForSelector('#thebeAiDock');
   await page.waitForFunction(()=>{const d=document.getElementById('thebeAiDock');return d?.dataset.cssRecovery==='1'&&d?.dataset.geometryRecovery==='20261003-emergency-dock-geometry-v269'});
 
   // Property recovery may leave root-level !important visibility styles behind after navigation.
@@ -42,14 +44,14 @@ try{
   });
   await page.waitForFunction(()=>{
     const property=document.getElementById('propertyintelligence');
-    return property&&!property.classList.contains('active')&&!property.style.getPropertyValue('display')&&!property.style.getPropertyValue('visibility')&&!property.style.getPropertyValue('opacity')&&getComputedStyle(property).display==='none';
+    return property&&!property.classList.contains('active')&&property.style.getPropertyValue('display')==='none'&&!property.style.getPropertyValue('visibility')&&!property.style.getPropertyValue('opacity')&&getComputedStyle(property).display==='none';
   });
   const propertyIsolation=await page.evaluate(()=>{
     const property=document.getElementById('propertyintelligence');
     return {marker:property.dataset.propertyViewIsolation,display:property.style.getPropertyValue('display'),visibility:property.style.getPropertyValue('visibility'),opacity:property.style.getPropertyValue('opacity'),computed:getComputedStyle(property).display};
   });
   assert.equal(propertyIsolation.marker,'20261003-property-view-isolation-v273');
-  assert.deepEqual({display:propertyIsolation.display,visibility:propertyIsolation.visibility,opacity:propertyIsolation.opacity,computed:propertyIsolation.computed},{display:'',visibility:'',opacity:'',computed:'none'},`inactive Property root must not leak into other workspace views: ${JSON.stringify(propertyIsolation)}`);
+  assert.deepEqual({display:propertyIsolation.display,visibility:propertyIsolation.visibility,opacity:propertyIsolation.opacity,computed:propertyIsolation.computed},{display:'none',visibility:'',opacity:'',computed:'none'},`inactive Property root must retain route isolation without leaking stale visibility styles: ${JSON.stringify(propertyIsolation)}`);
   // The actual route guard and dock observer must settle together. A browser
   // timer cannot fire while competing mutation microtasks starve its task queue.
   let coexistenceTimer;

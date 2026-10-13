@@ -3,19 +3,23 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {injectOwnerCommandCentreAssets,injectPublicThebeAssets,externalizeWorkspaceHeadStyles} from '../cloudflare/src/production-entry.js';
+import {versionReleaseAssets} from '../cloudflare/src/asset-release-identity.js';
 const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES?path.join(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES,'playwright'):'playwright-core');
 const html=fs.readFileSync('public/index.html','utf8');
 const property=html.slice(html.indexOf('  <section id="propertyintelligence"'),html.indexOf('</section>',html.indexOf('  <section id="propertyintelligence"'))+10).replace('class="view simplified-hub','class="view active simplified-hub');
 let fixture=externalizeWorkspaceHeadStyles('<!doctype html>'+html.slice(html.indexOf('<html'),html.indexOf('</head>')+7)+'<body><section id="marketingGate" class="hidden" style="display:none"></section><section id="appShell" class="shell"><aside id="workspaceSidebar"><button>Home</button></aside><main id="mainContent"><div class="top"><h1 id="pageTitle">Property</h1><button id="businessAction">Business action</button></div>'+property+'</main></section></body></html>');
 fixture=injectOwnerCommandCentreAssets(fixture);
+fixture=versionReleaseAssets(fixture,'a'.repeat(40),{includeWorkspaceFixes:true});
 const publicFixture=injectPublicThebeAssets(fs.readFileSync('public/home.html','utf8'));
 const browser=await chromium.launch({headless:true,executablePath:[process.env.CHROMIUM_EXECUTABLE_PATH,'/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].filter(Boolean).find(p=>fs.existsSync(p)),args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
 try{
  const page=await browser.newPage({viewport:{width:1440,height:960}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('http://localhost/**',route=>{const pathname=new URL(route.request().url()).pathname;if(pathname==='/public-page')return route.fulfill({contentType:'text/html',body:publicFixture});if(pathname==='/')return route.fulfill({contentType:'text/html',body:fixture});if(pathname.endsWith('.js')&&!pathname.includes('thebe-live-voice')&&!pathname.includes('property-visibility'))return route.fulfill({contentType:'application/javascript',body:''});if(process.env.THEBE_DOCK_BASELINE&&pathname==='/assets/thebe-spatial-dock-v246.css')return route.fulfill({contentType:'text/css',body:''});const file='public'+pathname;return fs.existsSync(file)?route.fulfill({path:file}):route.fulfill({status:404,body:''})});
  await page.addInitScript(()=>{window.currentWorkspaceRole=()=> 'owner';window.apiJson=async()=>({sessionCreationAllowed:false});});
- await page.goto('http://localhost/');await page.waitForSelector('#thebeAiDock');
+ await page.goto('http://localhost/');await page.waitForSelector('#thebeAiDock',{state:'attached'});
+ await page.locator('#thebeAiDockPill').click();
+ await page.waitForSelector('#thebeAiDock');
  await page.getByRole('tab',{name:'Analyse',exact:true}).click();
  const compactVoice=await page.evaluate(()=>{
   const dock=document.getElementById('thebeAiDock');
@@ -94,7 +98,7 @@ try{
  await page.waitForFunction(()=>typeof window.resolveMicrophone==='function');
  await page.evaluate(async()=>{window.ThebeLiveVoice.stop();window.stoppedTracks=0;window.resolveMicrophone({getTracks:()=>[{stop:()=>window.stoppedTracks++}]});await window.pendingVoice});
  assert.equal(await page.evaluate(()=>window.stoppedTracks),1,'microphone acquired after cancellation must be stopped');
- // Crossing into mobile must not inherit the always-open desktop rail.
+ // Crossing into mobile must not inherit an explicitly opened desktop rail.
  await page.setViewportSize({width:844,height:390});
  await page.waitForFunction(()=>!document.body.classList.contains('thebe-ai-dock-open')&&getComputedStyle(document.getElementById('mainContent')).visibility!=='hidden');
  assert(!(await page.locator('#thebeAiDock').isVisible()),'desktop rail collapses on entering wide mobile');
@@ -105,8 +109,10 @@ try{
  await page.evaluate(()=>window.ThebeAiDock.close());
  await page.waitForFunction(()=>getComputedStyle(document.getElementById('mainContent')).visibility!=='hidden');
  await page.setViewportSize({width:1024,height:844});
+ assert(!(await page.locator('#thebeAiDock').isVisible()),'an explicit close remains honored at desktop width');
+ await page.locator('#thebeAiDockPill').click();
  await page.locator('#thebeAiDock').waitFor({state:'visible'});
- assert(await page.locator('#thebeAiDock').isVisible(),'desktop rail returns at desktop breakpoint');
+ assert(await page.locator('#thebeAiDock').isVisible(),'the desktop launcher explicitly restores the conversation');
  await page.setViewportSize({width:1023,height:844});
  await page.waitForFunction(()=>!document.body.classList.contains('thebe-ai-dock-open')&&getComputedStyle(document.getElementById('mainContent')).visibility!=='hidden');
  assert(!(await page.locator('#thebeAiDock').isVisible()),'each desktop-to-mobile crossing restores workspace visibility');

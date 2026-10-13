@@ -610,7 +610,7 @@
     const key=`${context.id} ${context.title}`.toLowerCase();
     return /(^|\s)billing(\s|$)|subscription|payment plan/.test(key);
   }
-  function effectiveCollapsed(){return (mobileDockMode()?collapsed:false)||dockShouldYield()}
+  function effectiveCollapsed(){return ((mobileDockMode()||surfaceMode()==="workspace")?collapsed:false)||dockShouldYield()}
   // Emergency styles are temporary. Keep the original declarations so a late
   // stylesheet can reclaim presentation without erasing unrelated inline work.
   const dockRecoveryStyles=new Map();
@@ -926,10 +926,10 @@
   }
   function setCollapsed(next){
     const mobile=mobileDockMode();
-    collapsed=mobile?Boolean(next):false;
+    collapsed=(mobile||surfaceMode()==="workspace")?Boolean(next):false;
     safeSessionSet(STORE_KEY,collapsed?"1":"0");
     syncVisibility();
-    if(mobile&&collapsed)pill?.focus();else input?.focus({preventScroll:true});
+    if(collapsed)pill?.focus();else input?.focus({preventScroll:true});
   }
   function clearRoutineWorkspaceInlineGeometry(){
     if(!dock)return;
@@ -981,7 +981,7 @@
     if(visible&&!isCollapsed)global.requestAnimationFrame?.(recoverDockPresentation);
     if(attentionButton)syncAttention();
     const minimize=dock.querySelector(".thebe-ai-minimize");
-    if(minimize)minimize.hidden=!mobile;
+    if(minimize)minimize.hidden=!mobile&&!workspace;
     const presence=dock.querySelector(".thebe-ai-presence");
     if(presence){
       presence.replaceChildren(el("span","thebe-ai-presence-dot"),document.createTextNode(workspace?"Your business assistant":"Public assistant · try Thebe"));
@@ -1458,10 +1458,22 @@
       renderResult(result||{});
     }catch(error){
       if(runId!==textRunId||error?.code==="aborted")return;
+      const creditMessages={
+        insufficient_ai_credits:"There are not enough AI credits for this question. Review your AI balance or ask the workspace owner to add credits.",
+        monthly_ai_credit_cap_reached:"The monthly AI credit limit has been reached. Ask the workspace owner to review AI cost controls.",
+        monthly_ai_cost_cap_reached:"The monthly AI spending limit has been reached. Ask the workspace owner to review AI cost controls."
+      };
       const message=error?.status===402
-        ?"AI credits or the configured cost cap do not allow this run."
+        ?creditMessages[error?.code]||"AI is unavailable under the current allowance. Ask the workspace owner to review the AI balance and cost controls."
         :clean(error?.message||"Thebe could not complete that workspace review.",320);
       responseMessage(message||"Thebe could not complete that workspace review.","error");
+      if(error?.status===402&&commandCentreRole()==="owner"){
+        const creditBalance=error?.code==="insufficient_ai_credits";
+        const recovery=el("button","thebe-ai-credit-recovery",creditBalance?"Review AI credits":"Review AI limits");
+        recovery.type="button";
+        recovery.addEventListener("click",()=>{setCollapsed(true);openView(creditBalance?"aiservices":"aicontrols")});
+        responseBox?.append(recovery);
+      }
       surfaceLatestResponse();
     }finally{
       if(textAbortController===controller)textAbortController=null;
@@ -1500,7 +1512,7 @@
   function mount(){
     if(document.getElementById("thebeAiDock"))return;
     const storedCollapse=safeSessionGet(STORE_KEY);
-    collapsed=mobileDockMode()?(storedCollapse==="1"||storedCollapse===null):false;
+    collapsed=storedCollapse==="1"||storedCollapse===null;
     if(!mobileDockMode()&&storedCollapse==="1")safeSessionSet(STORE_KEY,"0");
 
     dock=el("section","thebe-ai-dock");

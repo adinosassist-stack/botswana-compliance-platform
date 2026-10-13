@@ -41,7 +41,8 @@
     if(nonce)style.nonce=nonce;
     style.dataset.release=RELEASE;
     style.textContent=`
-#${STRIP_ID}{display:grid;grid-template-columns:minmax(170px,.95fr) repeat(3,minmax(112px,1fr)) auto auto auto;gap:10px;align-items:stretch;margin:14px 0 18px;padding:10px;border:1px solid color-mix(in srgb,currentColor 14%,transparent);border-radius:18px;background:color-mix(in srgb,var(--surface,#fff) 92%,transparent);box-shadow:0 10px 28px rgba(15,23,42,.06)}
+#${STRIP_ID}{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:stretch;margin:14px 0 18px;padding:10px;min-width:0;border:1px solid color-mix(in srgb,currentColor 14%,transparent);border-radius:18px;background:color-mix(in srgb,var(--surface,#fff) 92%,transparent);box-shadow:0 10px 28px rgba(15,23,42,.06)}
+#${STRIP_ID} .owner-focus-intro{grid-column:1/-1}
 #${STRIP_ID} .owner-focus-intro{display:flex;flex-direction:column;justify-content:center;padding:2px 8px;min-width:0}
 #${STRIP_ID} .owner-focus-kicker{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;opacity:.6}
 #${STRIP_ID} .owner-focus-title{font-size:14px;font-weight:800;line-height:1.2;margin-top:3px}
@@ -54,7 +55,7 @@
 #${STRIP_ID} .owner-focus-metric[aria-pressed="true"]{border-color:color-mix(in srgb,currentColor 38%,transparent);background:color-mix(in srgb,var(--surface,#fff) 86%,currentColor 6%)}
 #${STRIP_ID} .owner-focus-value{display:block;font-size:20px;font-weight:850;line-height:1}
 #${STRIP_ID} .owner-focus-label{display:block;margin-top:5px;font-size:11px;font-weight:700;opacity:.66;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#${STRIP_ID} .owner-focus-next,#${STRIP_ID} .owner-focus-retry,#${STRIP_ID} .owner-focus-ask{border-radius:14px;padding:0 14px;font:inherit;font-weight:800;cursor:pointer;white-space:nowrap;min-height:44px}
+#${STRIP_ID} .owner-focus-next,#${STRIP_ID} .owner-focus-retry,#${STRIP_ID} .owner-focus-ask{border-radius:14px;padding:8px 10px;font:inherit;font-weight:800;cursor:pointer;white-space:normal;min-width:0;min-height:44px;overflow-wrap:anywhere}
 #${STRIP_ID} .owner-focus-next,#${STRIP_ID} .owner-focus-retry{border:1px solid color-mix(in srgb,currentColor 18%,transparent);background:color-mix(in srgb,var(--surface,#fff) 96%,transparent);color:inherit}
 #${STRIP_ID} .owner-focus-retry{border-color:#b42318;color:#8f1d16;background:#fff4f2}
 #${STRIP_ID} .owner-focus-ask{border:0;background:#111827;color:#fff}
