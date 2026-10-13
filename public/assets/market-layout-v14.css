@@ -1,0 +1,77 @@
+/* Thebe Desk market v14: desktop composition and alignment pass.
+   Keeps the hero image unchanged while reducing visual bulk and eliminating reserved empty space. */
+
+@media (min-width:1024px){
+  .marketinggate main,.marketinggate>.footer{padding-right:0!important}
+}
+
+@media (min-width:1101px){
+  .marketinggate .hero{padding:42px 0 22px}
+  .marketinggate .hero-grid{grid-template-columns:minmax(0,1.12fr) minmax(390px,.78fr);gap:34px;align-items:center}
+  .marketinggate .hero h1{font-size:clamp(46px,5vw,66px);max-width:690px}
+  .marketinggate .hero p{font-size:17px;max-width:620px}
+
+  .marketinggate .market-hero-visual{max-width:525px;width:100%;margin-left:auto}
+  .marketinggate .market-hero-photo{border-radius:20px}
+  .marketinggate .market-hero-visual .product-stage{width:90%;margin:-22px auto 0;border-radius:15px}
+  .marketinggate .product-stage{border-radius:15px;box-shadow:0 16px 38px rgba(15,23,42,.10)}
+  .marketinggate .stage-top{padding:9px 11px}
+  .marketinggate .stage-brand{font-size:11px}
+  .marketinggate .stage-brand img{width:21px;height:21px}
+  .marketinggate .stage-live{font-size:9px;padding:4px 7px}
+  .marketinggate .market-hero-visual .stage-body,
+  .marketinggate .stage-body{grid-template-columns:86px 1fr;min-height:0}
+  .marketinggate .stage-nav{padding:9px 6px}
+  .marketinggate .stage-nav span{padding:5px 6px;margin-bottom:2px;font-size:9px;border-radius:7px}
+  .marketinggate .stage-main{padding:11px 12px}
+  .marketinggate .stage-kicker{font-size:8px}
+  .marketinggate .stage-main h2{font-size:19px;margin:3px 0 8px}
+  .marketinggate .attention{gap:5px}
+  .marketinggate .attention-row{grid-template-columns:6px 1fr auto;gap:7px;padding:7px 8px;border-radius:9px}
+  .marketinggate .attention-row i{width:6px;height:6px}
+  .marketinggate .attention-row b{font-size:10px}
+  .marketinggate .attention-row span,.marketinggate .attention-row strong{font-size:8px}
+  .marketinggate .attention-row strong{padding:3px 5px}
+  .marketinggate .ask-box{margin-top:7px;padding:8px 9px;border-radius:10px}
+  .marketinggate .ask-box small{font-size:9px;margin-bottom:2px}
+  .marketinggate .ask-box p{display:none}
+  .marketinggate .ask-input{padding:6px 7px;font-size:9px;border-radius:8px}
+  .marketinggate .preview-note{font-size:8px;padding:5px 8px 7px}
+
+  .marketinggate .proof-strip{padding-bottom:20px}
+  .marketinggate .proof-inner{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .marketinggate .proof-item{padding:11px 13px}
+
+  .marketinggate #product .wrap,
+  .marketinggate #thebe-ai .wrap,
+  .marketinggate #botswana .wrap,
+  .marketinggate #pricing .wrap,
+  .marketinggate #faq .wrap,
+  .marketinggate .final .wrap{width:min(1120px,calc(100% - 44px))}
+
+  .marketinggate .outcome-grid{grid-template-columns:repeat(4,minmax(0,1fr));align-items:stretch}
+  .marketinggate .outcome{height:100%;min-width:0}
+  .marketinggate .outcome-head{align-items:flex-start}
+  .marketinggate .workflow{grid-template-columns:repeat(4,minmax(0,1fr))}
+
+  .marketinggate .ai-panel{grid-template-columns:minmax(0,1fr) minmax(320px,.78fr);gap:18px;align-items:stretch}
+  .marketinggate .ai-copy,.marketinggate .ai-prompts,.marketinggate .ai-example{min-width:0}
+
+  .marketinggate .country-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:stretch}
+  .marketinggate .country-card,.marketinggate .readiness-card{height:100%}
+
+  .marketinggate .pricing-grid{max-width:none;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch}
+  .marketinggate .pricecard{height:100%;min-width:0}
+  .marketinggate .payment-note,.marketinggate .commercial-callout{max-width:none}
+
+  .marketinggate #faq .faq{grid-template-columns:repeat(3,minmax(0,1fr));align-items:start}
+  .marketinggate #faq .faq>*{min-width:0}
+
+  .marketinggate .cta-box{align-items:center}
+}
+
+@media (min-width:761px) and (max-width:1100px){
+  .marketinggate .market-hero-visual{max-width:620px}
+  .marketinggate .pricing-grid{max-width:none}
+  .marketinggate .payment-note,.marketinggate .commercial-callout{max-width:none}
+}
