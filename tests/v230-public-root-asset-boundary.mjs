@@ -7,6 +7,8 @@ const reporterLink=fs.readFileSync("public/js/reporter-link-redirect.js","utf8")
 const publicMarketing=fs.readFileSync("public/js/public-marketing-v249.js","utf8");
 const publicMarketingCss=fs.readFileSync("public/assets/public-marketing-v249.css","utf8");
 const publicSeoCss=fs.readFileSync("public/assets/public-seo-v249.css","utf8");
+const marketCro=fs.readFileSync("public/js/market-cro-v16.js","utf8");
+const marketCroCss=fs.readFileSync("public/assets/market-cro-v16.css","utf8");
 const workspaceComponents=fs.readFileSync("public/js/components.js","utf8");
 const workspaceInteractionCss=fs.readFileSync("public/assets/workspace-interactions-v318.css","utf8");
 const seoPages=[
@@ -49,6 +51,10 @@ assert.match(reporterLink,/public-marketing-v249\.css/,
   "homepage loader must attach the public marketing stylesheet");
 assert.match(reporterLink,/public-marketing-v249\.js/,
   "homepage loader must attach the public marketing behavior");
+assert.match(reporterLink,/market-cro-v16\.css/,
+  "homepage loader must attach the latest CRO stylesheet after the existing market layers");
+assert.match(reporterLink,/market-cro-v16\.js/,
+  "homepage loader must attach the latest CRO behavior after the existing market layers");
 assert.doesNotMatch(reporterLink,/workspace-runtime|PROPERTY_VISIBILITY|workspace-command-center/i,
   "public loader must not reference workspace runtime assets");
 assert.match(publicMarketing,/Money/);
@@ -63,6 +69,19 @@ assert.match(publicMarketingCss,/\.marketinggate \.pillar-grid/,
   "public marketing styling must remain scoped under marketinggate");
 assert.doesNotMatch(publicMarketingCss,/\.workspace|#workspace|\.view\.active/,
   "public marketing CSS must not style authenticated workspace surfaces");
+
+assert.match(marketCro,/Built for Botswana SMEs/,
+  "latest market CRO layer must keep the launch-market fit explicit without repeating expansion copy in the hero");
+assert.match(marketCro,/title\.textContent="Business"/,
+  "homepage CRO layer must disambiguate the P349 Business plan from the Protect product pillar");
+assert.match(marketCro,/2 months free on supported plans/,
+  "homepage CRO layer must surface the truthful annual saving cue");
+assert.match(marketCro,/action\.href="\/auth\/\?mode=register"/,
+  "generic trial entry should not encode a paid-plan query in the public CTA URL");
+assert.match(marketCroCss,/min-height:48px/,
+  "mobile public conversion controls must preserve a touch-friendly minimum height");
+assert.doesNotMatch(marketCroCss,/\.workspace|#workspace|\.view\.active/,
+  "market CRO CSS must stay isolated from authenticated workspace surfaces");
 
 assert.ok(seoPages.every(path=>fs.readFileSync(path,"utf8").includes("/assets/public-seo-v249.css")),
   "pricing and every Botswana SEO guide must use the shared public Thebe theme");
