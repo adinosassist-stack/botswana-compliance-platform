@@ -90,6 +90,7 @@ jobs:
           node tests/v296-owner-focus-v2-browser.mjs
           node tests/unified-goal-flow-browser.mjs
           node tests/v246-spatial-dock-browser.mjs
+          node tests/v273-public-gemini-panel-browser.mjs
           node tests/v292-dock-visual-contract-browser.mjs
           node tests/v269-emergency-dock-browser.mjs
           node tests/v272-property-navigation-browser.mjs
