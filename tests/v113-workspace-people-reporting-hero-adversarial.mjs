@@ -50,7 +50,7 @@ assert.match(runtime,/recentlyRemovedEmployeeIds\.add\(String\(id\)\)/);
 assert.match(runtime,/activeAccess\.length===1/);
 assert.match(runtime,/await createEmployeeReportingLinkFromCard\(id\)/);
 
-// Pass 3: reporting reads get a bounded slow-path, location refresh is view-scoped, and hero keeps the restored original photo and remains mascot-free.
+// Pass 3: reporting reads get a bounded slow-path, location refresh is view-scoped, and the public page keeps Botswana visual proof while remaining mascot-free.
 assert.match(apiClient,/candidateTimeoutMs=IDEMPOTENT_TRANSPORT_CANDIDATE_MAX_MS/);
 assert.match(apiClient,/Number\(candidateTimeoutMs\)\|\|IDEMPOTENT_TRANSPORT_CANDIDATE_MAX_MS/);
 assert.match(runtime,/reportingAnalyticsApiClient=BW\.api\.createClient\([\s\S]*timeoutMs:90000,retries:2,candidateTimeoutMs:30000/);
@@ -62,7 +62,7 @@ assert.match(runtime,/if\(document\.getElementById\("dailyreports"\)\?\.classLis
 assert.match(runtime,/Retry analytics/);
 assert.match(runtime,/if\(reportingSetupDetails&&!reportingSetupDetails\.open\)reportingSetupDetails\.open=true;/,"People reporting controls must not collapse during async refresh/navigation");
 assert.match(worker,/const \[locRes,accessRes,reportRes,prevRes,exceptionRes\]=await env\.DB\.batch\(\[/,"dashboard analytics must use one D1 batch round-trip");
-assert.match(home,/class="market-hero-photo" src="\/assets\/gaborone-entrepreneurs-v67\.webp"/,"public marketing hero must restore the original Botswana business photo");
+assert.match(home,/class="country-photo"[\s\S]*?src="\/assets\/gaborone-entrepreneurs-v67\.webp"/,"public marketing page must retain the Botswana business photo in the local-market proof section");
 assert.doesNotMatch(home,/market-hero-mascot|thebe-public-mascot|thebe-mascot-original\.png/,"public marketing hero must remain mascot-free");
 assert.doesNotMatch(html,/thebe-market-mascot|thebe-mascot-original\.png/,"app-entry marketing shell must remain mascot-free");
 assert.match(synthetic,/marketing hero composition/,"production browser lifecycle must prove restored-photo mascot-free composition");
