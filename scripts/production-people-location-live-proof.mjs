@@ -10,6 +10,7 @@ const executablePath=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','
 function assert(condition,message){if(!condition)throw new Error(`People location live proof failed: ${message}`)}
 function safe(value){return String(value??'').replace(/[\u0000-\u001f\u007f]+/g,' ').replace(/\s+/g,' ').slice(0,300)}
 function mark(label,detail=''){console.log(`PASS ${label}${detail?`: ${detail}`:''}`)}
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 
 assert(executablePath,'no Chromium-compatible browser found');
 
@@ -17,9 +18,7 @@ async function login(page,credentials){
   const result=await page.evaluate(async({email,password})=>{
     try{
       const response=await fetch('/api/auth/login',{
-        method:'POST',
-        credentials:'same-origin',
-        redirect:'error',
+        method:'POST',credentials:'same-origin',redirect:'error',
         headers:{accept:'application/json','content-type':'application/json'},
         body:JSON.stringify({email,password})
       });
@@ -42,13 +41,21 @@ async function waitForWorkspace(page){
   },null,{timeout:WORKSPACE_TIMEOUT_MS});
 }
 
-async function dismissOnboardingIfNeeded(page){
-  const modal=page.locator('#onboardModal.open').first();
-  if(!(await modal.count()))return;
-  const finishLater=modal.locator('[data-bw-onclick="dismissOnboarding()"]:visible, button:has-text("Finish later"):visible').first();
-  assert(await finishLater.count(),'first-run onboarding dismissal control missing');
-  await finishLater.click();
-  await page.waitForFunction(()=>!document.getElementById('onboardModal')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});
+async function settleOnboarding(page){
+  for(let attempt=0;attempt<5;attempt+=1){
+    await sleep(attempt===0?500:350);
+    const open=await page.locator('#onboardModal.open').count();
+    if(open){
+      const modal=page.locator('#onboardModal.open').first();
+      const finishLater=modal.locator('[data-bw-onclick="dismissOnboarding()"]:visible, button:has-text("Finish later"):visible').first();
+      assert(await finishLater.count(),'first-run onboarding dismissal control missing');
+      await finishLater.click();
+      await page.waitForFunction(()=>!document.getElementById('onboardModal')?.classList.contains('open'),null,{timeout:VIEW_TIMEOUT_MS});
+      mark('onboarding overlay settled',`dismissed at attempt ${attempt+1}`);
+    }
+  }
+  const stillOpen=await page.locator('#onboardModal.open').count();
+  assert(!stillOpen,'onboarding modal reopened and remained over the workspace');
 }
 
 async function runPeopleLocationProof(credentials){
@@ -66,12 +73,13 @@ async function runPeopleLocationProof(credentials){
     const app=await page.goto(`${ORIGIN}/app/?people-location-live-proof=${Date.now()}`,{waitUntil:'domcontentloaded'});
     assert(app?.status()===200,`authenticated app returned HTTP ${app?.status()||0}`);
     await waitForWorkspace(page);
-    await dismissOnboardingIfNeeded(page);
+    await settleOnboarding(page);
 
     const peopleButton=page.locator('#nav button[data-view="peopleops"]:visible').first();
     assert(await peopleButton.count(),'visible People workspace button missing');
     await peopleButton.click();
     await page.waitForFunction(()=>document.getElementById('peopleops')?.classList.contains('active')&&!!document.getElementById('opsReportingSetupDetails'),null,{timeout:VIEW_TIMEOUT_MS});
+    await settleOnboarding(page);
 
     const setup=page.locator('#peopleops #opsReportingSetupDetails').first();
     assert(await setup.count(),'People reporting setup disclosure missing');
@@ -82,6 +90,7 @@ async function runPeopleLocationProof(credentials){
     await page.locator('#peopleops #opsLocationName').fill(locationName);
     await page.locator('#peopleops #opsLocationCode').fill(locationCode);
     await page.locator('#peopleops #opsLocationTown').fill('Gaborone');
+    await settleOnboarding(page);
 
     const addLocation=page.locator('#peopleops [data-bw-onclick="addOpsLocation()"]:visible').first();
     assert(await addLocation.count(),'Add location control missing');
@@ -100,12 +109,10 @@ async function runPeopleLocationProof(credentials){
       return {status:response.status,found:!!row,active:Number(row?.active),id:String(row?.id||'')};
     },locationName);
     assert(apiState.status===200&&apiState.found&&apiState.active===1,`saved location was not returned by the live API: ${safe(JSON.stringify(apiState))}`);
-    mark('People Add location live proof',`clicked visible Add location control; ${locationName} appeared in the DOM and persisted through /api/daily-reporting/locations id=${apiState.id}`);
+    mark('People Add location live proof',`normal click succeeded; ${locationName} appeared in the DOM and persisted through /api/daily-reporting/locations id=${apiState.id}`);
 
     await context.close();
-  }finally{
-    await browser.close().catch(()=>{});
-  }
+  }finally{await browser.close().catch(()=>{})}
 }
 
 const priorDescriptor=Object.getOwnPropertyDescriptor(globalThis,'__thebeSyntheticBrowserProof');
@@ -116,12 +123,8 @@ Object.defineProperty(globalThis,'__thebeSyntheticBrowserProof',{
     assert(typeof originalProof==='function','canonical browser proof hook assignment was not a function');
     intercepted=true;
     Object.defineProperty(globalThis,'__thebeSyntheticBrowserProof',{
-      configurable:true,
-      writable:true,
-      value:async credentials=>{
-        await originalProof(credentials);
-        await runPeopleLocationProof(credentials);
-      }
+      configurable:true,writable:true,
+      value:async credentials=>{await originalProof(credentials);await runPeopleLocationProof(credentials)}
     });
   }
 });
