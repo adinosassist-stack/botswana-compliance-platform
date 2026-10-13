@@ -1,6 +1,6 @@
-/* V273 — public Thebe mirrors the supplied Gemini side-panel reference.
-   Scope: market/public surface only. Keep Thebe branding; copy Gemini geometry,
-   restraint and control density. No suggestion pills. */
+/* V273.1 — public Thebe mirrors the supplied Gemini side-panel reference.
+   Scope: market/public surface only. Keep Thebe branding, while matching the
+   reference geometry, calm hierarchy, suggestion chips and bottom composer. */
 
 @media (min-width:1200px) and (hover:hover) and (pointer:fine){
   html body #thebeAiDock[data-surface="public"]{
@@ -42,32 +42,29 @@
   }
 }
 
-/* Gemini reference: one quiet header, one conversation canvas, one composer. */
+/* One quiet side panel with restrained chrome and a soft blue voice glow. */
 html body #thebeAiDock[data-surface="public"]{
-  background:#191919!important;
+  background:
+    radial-gradient(circle at 82% 88%,rgba(35,76,190,.24),transparent 30%),
+    #191919!important;
   color:#f4f4f4!important;
   border:1px solid rgba(255,255,255,.12)!important;
   box-shadow:0 18px 48px rgba(0,0,0,.18)!important;
 }
 
 html body #thebeAiDock[data-surface="public"] .thebe-ai-dock-head{
-  min-height:64px!important;
-  padding:12px 16px!important;
-  border-bottom:1px solid rgba(255,255,255,.10)!important;
-  background:#191919!important;
+  min-height:56px!important;
+  padding:10px 14px!important;
+  border-bottom:0!important;
+  background:transparent!important;
+  justify-content:flex-end!important;
 }
-html body #thebeAiDock[data-surface="public"] .thebe-ai-mark{
-  width:32px!important;
-  height:32px!important;
-  border-radius:10px!important;
-}
-html body #thebeAiDock[data-surface="public"] .thebe-ai-title-copy b{
-  font-size:16px!important;
-  font-weight:600!important;
-  letter-spacing:-.02em!important;
+html body #thebeAiDock[data-surface="public"] .thebe-ai-dock-title{
+  display:none!important;
 }
 html body #thebeAiDock[data-surface="public"] .thebe-ai-head-actions{
-  gap:4px!important;
+  margin-left:auto!important;
+  gap:2px!important;
 }
 html body #thebeAiDock[data-surface="public"] .thebe-ai-icon-btn{
   width:36px!important;
@@ -85,7 +82,7 @@ html body #thebeAiDock[data-surface="public"] .thebe-ai-icon-btn:hover{
   background:rgba(255,255,255,.08)!important;
 }
 
-/* Remove public chrome that is not present in the supplied Gemini reference. */
+/* Remove public chrome that is not present in the supplied reference. */
 html body #thebeAiDock[data-surface="public"] :is(
   .thebe-ai-presence,
   .thebe-ai-context-bar,
@@ -94,8 +91,6 @@ html body #thebeAiDock[data-surface="public"] :is(
   .thebe-ai-attention,
   .thebe-ai-expand,
   .thebe-ai-foot,
-  .thebe-ai-voice-card,
-  .thebe-ai-quick,
   .thebe-ai-public-actions
 ){display:none!important}
 
@@ -103,23 +98,97 @@ html body #thebeAiDock[data-surface="public"] .thebe-ai-dock-scroll{
   flex:1 1 auto!important;
   min-height:0!important;
   overflow:auto!important;
-  padding:22px 22px 16px!important;
-  gap:14px!important;
-  background:#191919!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:stretch!important;
+  padding:24px 22px 18px!important;
+  gap:12px!important;
+  background:transparent!important;
 }
 
-/* Conversation output should read like chat, not a separate card. */
-html body #thebeAiDock[data-surface="public"] .thebe-ai-response{
+/* Gemini-style voice greeting: centered symbol and headline, no card chrome. */
+html body #thebeAiDock[data-surface="public"] .thebe-ai-voice-card{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:14px!important;
   width:100%!important;
+  min-height:250px!important;
   margin:0!important;
-  padding:0!important;
+  padding:26px 12px 18px!important;
   border:0!important;
   border-radius:0!important;
   background:transparent!important;
+  box-shadow:none!important;
+  text-align:center!important;
+}
+html body #thebeAiDock[data-surface="public"] .thebe-ai-orb-button{
+  width:58px!important;
+  min-width:58px!important;
+  max-width:58px!important;
+  height:58px!important;
+  min-height:58px!important;
+  max-height:58px!important;
+  border:0!important;
+  border-radius:18px!important;
+  box-shadow:0 0 28px rgba(108,107,255,.26)!important;
+}
+html body #thebeAiDock[data-surface="public"] .thebe-ai-voice-label{
+  margin:0!important;
+  color:#f4f4f4!important;
+  font-size:28px!important;
+  line-height:1.18!important;
+  font-weight:600!important;
+  letter-spacing:-.025em!important;
+  text-align:center!important;
+}
+html body #thebeAiDock[data-surface="public"] .thebe-ai-voice-sub,
+html body #thebeAiDock[data-surface="public"] .thebe-ai-voice-mount{
+  display:none!important;
+}
+
+/* The reference includes three small, stacked suggestion chips. */
+html body #thebeAiDock[data-surface="public"] .thebe-ai-quick{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:flex-start!important;
+  gap:8px!important;
+  width:100%!important;
+  margin:0!important;
+  padding:0 8px!important;
+}
+html body #thebeAiDock[data-surface="public"] .thebe-ai-quick button{
+  width:auto!important;
+  max-width:92%!important;
+  min-height:38px!important;
+  margin:0!important;
+  padding:8px 14px!important;
+  border:1px solid rgba(255,255,255,.09)!important;
+  border-radius:19px!important;
+  background:rgba(255,255,255,.055)!important;
+  color:#f1f1f1!important;
+  box-shadow:none!important;
+  font-size:13px!important;
+  line-height:1.3!important;
+  text-align:left!important;
+}
+html body #thebeAiDock[data-surface="public"] .thebe-ai-quick button:hover{
+  background:rgba(255,255,255,.09)!important;
+}
+
+/* Conversation output reads like a compact Gemini notice/chat surface. */
+html body #thebeAiDock[data-surface="public"] .thebe-ai-response{
+  width:calc(100% - 16px)!important;
+  margin:6px 8px 0!important;
+  padding:14px 16px!important;
+  border:1px solid rgba(255,255,255,.09)!important;
+  border-radius:18px!important;
+  background:rgba(255,255,255,.055)!important;
   color:#ededed!important;
   box-shadow:none!important;
-  font-size:14px!important;
-  line-height:1.6!important;
+  font-size:13px!important;
+  line-height:1.5!important;
 }
 html body #thebeAiDock[data-surface="public"] .thebe-ai-response-title{
   display:none!important;
@@ -129,7 +198,7 @@ html body #thebeAiDock[data-surface="public"] .thebe-ai-response-answer{
   overflow-wrap:anywhere!important;
 }
 
-/* Gemini-like composer: the only visually dominant control at the bottom. */
+/* Bottom composer mirrors the reference: one rounded input with a compact action. */
 html body #thebeAiDock[data-surface="public"] .thebe-ai-compose{
   flex:0 0 auto!important;
   align-items:flex-end!important;
@@ -137,8 +206,8 @@ html body #thebeAiDock[data-surface="public"] .thebe-ai-compose{
   margin:0 18px 18px!important;
   padding:7px 7px 7px 16px!important;
   min-height:56px!important;
-  border:1px solid rgba(255,255,255,.16)!important;
-  border-radius:28px!important;
+  border:1px solid rgba(255,255,255,.14)!important;
+  border-radius:22px!important;
   background:#242424!important;
   box-shadow:none!important;
 }
@@ -169,19 +238,19 @@ html body #thebeAiDock[data-surface="public"] .thebe-ai-send{
   box-shadow:none!important;
 }
 
-/* No pill-style suggestion treatment on public Thebe. If legacy actions are
-   re-enabled later, they must remain Gemini-like compact rounded rectangles. */
-html body #thebeAiDock[data-surface="public"] .thebe-ai-quick button,
-html body #thebeAiDock[data-surface="public"] :is(.thebe-ai-public-signin,.thebe-ai-public-start){
-  border-radius:10px!important;
-}
-
 @media (max-width:1023px){
   html body #thebeAiDock[data-surface="public"]{
     border-radius:22px!important;
   }
   html body #thebeAiDock[data-surface="public"] .thebe-ai-dock-scroll{
-    padding:16px 16px 12px!important;
+    padding:14px 14px 12px!important;
+  }
+  html body #thebeAiDock[data-surface="public"] .thebe-ai-voice-card{
+    min-height:210px!important;
+    padding-top:18px!important;
+  }
+  html body #thebeAiDock[data-surface="public"] .thebe-ai-voice-label{
+    font-size:24px!important;
   }
   html body #thebeAiDock[data-surface="public"] .thebe-ai-compose{
     margin:0 12px 12px!important;
