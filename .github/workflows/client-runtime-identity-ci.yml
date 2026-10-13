@@ -50,6 +50,8 @@ jobs:
           node --check public/js/workspace-focus-visible-v278.js
           node --check public/js/owner-focus-strip-v296.js
           node --check public/js/money-inputs-v310.js
+          node --check tests/v335-client-runtime-postdeploy-authority-race.mjs
+          node tests/v335-client-runtime-postdeploy-authority-race.mjs
           node tests/v310-finance-inputs-runtime.mjs
           node tests/v310-workspace-input-coverage.mjs
           node tests/v312-property-solid-surfaces.mjs
