@@ -3,6 +3,7 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {injectOwnerCommandCentreAssets,externalizeWorkspaceHeadStyles} from '../cloudflare/src/production-entry.js';
+import {versionReleaseAssets} from '../cloudflare/src/asset-release-identity.js';
 
 const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES?path.join(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES,'playwright'):'playwright-core');
@@ -12,6 +13,7 @@ const propertyEnd=html.indexOf('</section>',propertyStart)+10;
 const property=html.slice(propertyStart,propertyEnd).replace('class="view simplified-hub','class="view active simplified-hub');
 let fixture=externalizeWorkspaceHeadStyles('<!doctype html>'+html.slice(html.indexOf('<html'),html.indexOf('</head>')+7)+'<body><section id="marketingGate" class="hidden" style="display:none"></section><section id="appShell" class="shell"><aside id="workspaceSidebar"><button>Home</button></aside><main id="mainContent"><div class="top"><h1 id="pageTitle">Property</h1></div>'+property+'</main></section></body></html>');
 fixture=injectOwnerCommandCentreAssets(fixture);
+fixture=versionReleaseAssets(fixture,'a'.repeat(40),{includeWorkspaceFixes:true});
 
 const executablePath=[process.env.CHROMIUM_EXECUTABLE_PATH,'/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].filter(Boolean).find(p=>fs.existsSync(p));
 const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
@@ -73,17 +75,17 @@ try{
     };
   });
 
-  assert.equal(desktop.dockBackground,'rgb(25, 25, 25)','V292 keeps the dock monochrome #191919');
-  assert.equal(desktop.dockColor,'rgb(244, 244, 244)','V292 keeps high-contrast dock text');
+  assert.equal(desktop.dockBackground,'rgb(255, 255, 255)','workspace uses the current light surface');
+  assert.equal(desktop.dockColor,'rgb(23, 25, 28)','workspace text contrasts with the light surface');
   for(const item of desktop.hiddenChrome)assert(!item.present||item.display==='none',`${item.selector} must stay visually removed in V292`);
   assert(desktop.quickTotal>=3,'V292 retains at least three useful shortcuts');
   assert.equal(desktop.quickVisible,3,'collapsed V292 dock exposes exactly three shortcuts');
   assert.equal(desktop.quickRadius,'999px','V292 shortcuts stay compact pill controls');
-  assert.equal(desktop.composeBackground,'rgb(36, 36, 36)','composer remains the dominant dark input surface');
+  assert.equal(desktop.composeBackground,'rgb(247, 247, 245)','composer retains contrast within the light workspace');
   assert.equal(desktop.composeRadius,'24px','composer keeps GPT-style rounded geometry');
   assert.equal(desktop.composeShadow,'none','composer stays visually flat');
-  assert.equal(Math.round(desktop.sendWidth),36,'send control remains compact');
-  assert.equal(Math.round(desktop.sendHeight),36,'send control remains compact vertically');
+  assert(Math.round(desktop.sendWidth)>=44,'send control provides a 44px horizontal target');
+  assert(Math.round(desktop.sendHeight)>=44,'send control provides a 44px vertical target');
   assert.equal(desktop.sendRadius,'50%','send control remains a simple circular action');
   assert.equal(Math.round(desktop.orbWidth),68,'voice recovery target remains 68px');
   assert.equal(Math.round(desktop.orbHeight),68,'voice recovery target remains 68px vertically');
@@ -125,8 +127,8 @@ try{
       hiddenChrome:['.thebe-ai-presence','.thebe-ai-context-bar','.thebe-ai-mode-rail','.thebe-ai-foot','.thebe-ai-response-title'].every(selector=>{const element=dock.querySelector(selector);return !element||getComputedStyle(element).display==='none';})
     };
   });
-  assert.equal(mobile.dockBackground,'rgb(25, 25, 25)','mobile keeps V292 monochrome dock');
-  assert.equal(mobile.composeBackground,'rgb(36, 36, 36)','mobile keeps the same composer hierarchy');
+  assert.equal(mobile.dockBackground,'rgb(255, 255, 255)','mobile retains the light workspace surface');
+  assert.equal(mobile.composeBackground,'rgb(247, 247, 245)','mobile keeps the same composer hierarchy');
   assert(mobile.sendWidth>0&&mobile.sendHeight>0,'mobile retains a visible compact send action');
   assert(mobile.hiddenChrome,'mobile also keeps legacy dock chrome hidden');
   assert.deepEqual(errors,[],'V292 visual contract produces no browser errors');
