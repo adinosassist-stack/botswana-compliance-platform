@@ -60,7 +60,7 @@ html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] :is(.thebe-a
   background:#b42318!important;color:#fff!important;border:0;border-radius:10px;min-height:44px;cursor:pointer;
 }
 html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-credit-recovery{padding:10px 12px;margin-top:10px;width:100%;font:inherit}
-html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-send{min-width:44px!important}
+html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-send{min-width:44px!important;min-height:44px!important;height:44px!important}
 html body #thebeAiDockPill[data-surface="workspace"]{background:#b42318!important;color:#fff!important;min-height:44px!important}
 html body #thebeAiDockPill[data-surface="workspace"]:not([hidden]){display:inline-flex!important}
 html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-minimize:not([hidden]){display:inline-flex!important}
