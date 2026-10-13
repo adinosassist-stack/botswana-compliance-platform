@@ -29,11 +29,10 @@ try{
   status.hidden=false;
   status.textContent='LiveVoiceStatusWithoutNaturalBreaks'.repeat(12);
   const orbRect=orb.getBoundingClientRect();
-  return {orbWidth:orbRect.width,orbHeight:orbRect.height,legacyPresent:Boolean(legacy),legacyDisplay:legacy?getComputedStyle(legacy).display:null,dockClientWidth:dock.clientWidth,dockScrollWidth:dock.scrollWidth,answerClientWidth:answer.clientWidth,answerScrollWidth:answer.scrollWidth,statusClientWidth:status.clientWidth,statusScrollWidth:status.scrollWidth,geminiDesktop:matchMedia('(min-width:1200px) and (hover:hover) and (pointer:fine)').matches};
+  return {orbWidth:orbRect.width,orbHeight:orbRect.height,legacyPresent:Boolean(legacy),legacyDisplay:legacy?getComputedStyle(legacy).display:null,dockClientWidth:dock.clientWidth,dockScrollWidth:dock.scrollWidth,answerClientWidth:answer.clientWidth,answerScrollWidth:answer.scrollWidth,statusClientWidth:status.clientWidth,statusScrollWidth:status.scrollWidth};
  });
- const expectedOrbSize=compactVoice.geminiDesktop?96:68;
- assert(Math.abs(compactVoice.orbWidth-expectedOrbSize)<=1,`desktop voice orb follows the active side-panel contract: ${JSON.stringify(compactVoice)}`);
- assert(Math.abs(compactVoice.orbHeight-expectedOrbSize)<=1,`desktop voice orb stays square under the active side-panel contract: ${JSON.stringify(compactVoice)}`);
+ assert(Math.abs(compactVoice.orbWidth-68)<=1,`desktop voice target stays compact inside the larger side panel: ${JSON.stringify(compactVoice)}`);
+ assert(Math.abs(compactVoice.orbHeight-68)<=1,`desktop voice target stays square inside the larger side panel: ${JSON.stringify(compactVoice)}`);
  assert(!compactVoice.legacyPresent||compactVoice.legacyDisplay==='none','dock exposes one voice entry point rather than a duplicate legacy button');
  assert(compactVoice.dockScrollWidth<=compactVoice.dockClientWidth+1,`dock text must not spill horizontally: ${JSON.stringify(compactVoice)}`);
  assert(compactVoice.answerScrollWidth<=compactVoice.answerClientWidth+1,`AI answer must wrap inside the dock: ${JSON.stringify(compactVoice)}`);
@@ -49,12 +48,7 @@ try{
   assert(geometry.card.width<=680&&geometry.card.width>0,`calculator must remain compact at ${width}: ${JSON.stringify(geometry)}`);
   await page.locator('#businessAction').click();
  }
- await page.evaluate(()=>{
-  const view=document.getElementById('propertyintelligence');
-  view.classList.remove('active');
-  view.getBoundingClientRect();
-  view.classList.add('active');
- });
+ await page.evaluate(()=>{const view=document.getElementById('propertyintelligence');view.classList.remove('active');view.getBoundingClientRect();view.classList.add('active');});
  await page.waitForFunction(()=>{const card=document.querySelector('.property-calculator-v224');return card&&card.getBoundingClientRect().width>0});
  assert((await page.locator('.property-calculator-v224').boundingBox()).width<=680,'Property calculator stays compact after native view reactivation without invoking legacy repair');
  await page.setViewportSize({width:1440,height:960});
@@ -70,11 +64,7 @@ try{
   assert(geometry.main.right<=geometry.dock.left,`expanded dock overlaps business content at ${width}: ${JSON.stringify(geometry)}`);
  }
  await page.setViewportSize({width:1440,height:960});
- await page.evaluate(()=>{
-  const modal=document.createElement('div');modal.className='modal open';modal.id='testBusinessModal';
-  const action=document.createElement('button');action.textContent='Modal action';action.style.cssText='position:fixed;right:30px;top:150px;width:180px;height:50px';
-  action.onclick=()=>{window.modalActionWorked=true};modal.append(action);document.body.append(modal);
- });
+ await page.evaluate(()=>{const modal=document.createElement('div');modal.className='modal open';modal.id='testBusinessModal';const action=document.createElement('button');action.textContent='Modal action';action.style.cssText='position:fixed;right:30px;top:150px;width:180px;height:50px';action.onclick=()=>{window.modalActionWorked=true};modal.append(action);document.body.append(modal);});
  await page.getByRole('button',{name:'Modal action',exact:true}).click();
  assert.equal(await page.evaluate(()=>window.modalActionWorked),true,'dock cannot occlude dialog actions');
  await page.evaluate(()=>document.getElementById('testBusinessModal').remove());
@@ -87,11 +77,7 @@ try{
  await page.keyboard.press('Escape');assert(!(await screen.isVisible()),'Escape closes voice');
  await page.evaluate(()=>window.resolveVoiceGate({sessionCreationAllowed:true}));
  await page.waitForTimeout(30);assert.equal(await page.evaluate(()=>window.mediaRequests),0,'cancelled connection cannot acquire microphone');
- await page.evaluate(()=>{
-  window.apiJson=async()=>({sessionCreationAllowed:true});
-  navigator.mediaDevices.getUserMedia=()=>new Promise(resolve=>window.resolveMicrophone=resolve);
-  window.pendingVoice=window.ThebeLiveVoice.start();
- });
+ await page.evaluate(()=>{window.apiJson=async()=>({sessionCreationAllowed:true});navigator.mediaDevices.getUserMedia=()=>new Promise(resolve=>window.resolveMicrophone=resolve);window.pendingVoice=window.ThebeLiveVoice.start();});
  await page.waitForFunction(()=>typeof window.resolveMicrophone==='function');
  await page.evaluate(async()=>{window.ThebeLiveVoice.stop();window.stoppedTracks=0;window.resolveMicrophone({getTracks:()=>[{stop:()=>window.stoppedTracks++}]});await window.pendingVoice});
  assert.equal(await page.evaluate(()=>window.stoppedTracks),1,'microphone acquired after cancellation must be stopped');
@@ -99,13 +85,11 @@ try{
  await page.waitForFunction(()=>!document.body.classList.contains('thebe-ai-dock-open')&&getComputedStyle(document.getElementById('mainContent')).visibility!=='hidden');
  assert(!(await page.locator('#thebeAiDock').isVisible()),'desktop rail collapses on entering wide mobile');
  assert(await page.locator('#thebeAiDockPill').isVisible(),'mobile launcher is available after breakpoint transition');
- await page.locator('#thebeAiDockPill').click();
- await page.setViewportSize({width:390,height:844});
+ await page.locator('#thebeAiDockPill').click();await page.setViewportSize({width:390,height:844});
  assert(await page.locator('#thebeAiDock').isVisible(),'explicit mobile conversation survives mobile resize');
  await page.evaluate(()=>window.ThebeAiDock.close());
  await page.waitForFunction(()=>getComputedStyle(document.getElementById('mainContent')).visibility!=='hidden');
- await page.setViewportSize({width:1024,height:844});
- await page.locator('#thebeAiDock').waitFor({state:'visible'});
+ await page.setViewportSize({width:1024,height:844});await page.locator('#thebeAiDock').waitFor({state:'visible'});
  assert(await page.locator('#thebeAiDock').isVisible(),'desktop rail returns at desktop breakpoint');
  await page.setViewportSize({width:1023,height:844});
  await page.waitForFunction(()=>!document.body.classList.contains('thebe-ai-dock-open')&&getComputedStyle(document.getElementById('mainContent')).visibility!=='hidden');
@@ -118,5 +102,5 @@ try{
  assert.equal(publicGeometry.padding,0,'public content must reserve the dock lane only once');
  assert(publicGeometry.mainRight<=publicGeometry.dockLeft,'public dock stays outside page content');
  assert.deepEqual(errors,[],'no browser errors');
- console.log('V246_SPATIAL_DOCK_BROWSER_PASS: compact Property, reserved responsive Gemini side panel, single-entry voice, overflow containment, expansion, full-screen voice, focus, cancellation, mobile');
+ console.log('V246_SPATIAL_DOCK_BROWSER_PASS: compact Property, reserved responsive Gemini side panel, compact single-entry voice, overflow containment, expansion, full-screen voice, focus, cancellation, mobile');
 }finally{await browser.close()}
