@@ -50,6 +50,7 @@ jobs:
           node --check public/js/workspace-focus-visible-v278.js
           node --check public/js/owner-focus-strip-v296.js
           node --check public/js/money-inputs-v310.js
+          node --check public/js/market-thebe-gemini-narrow-v274.js
           node --check tests/v335-client-runtime-postdeploy-authority-race.mjs
           node tests/v335-client-runtime-postdeploy-authority-race.mjs
           node tests/v310-finance-inputs-runtime.mjs
@@ -91,6 +92,7 @@ jobs:
           node tests/unified-goal-flow-browser.mjs
           node tests/v246-spatial-dock-browser.mjs
           node tests/v273-public-gemini-panel-browser.mjs
+          node tests/v274-public-gemini-narrow-browser.mjs
           node tests/v292-dock-visual-contract-browser.mjs
           node tests/v269-emergency-dock-browser.mjs
           node tests/v272-property-navigation-browser.mjs
