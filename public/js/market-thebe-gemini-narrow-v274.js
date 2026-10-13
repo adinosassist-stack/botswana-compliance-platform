@@ -4,7 +4,7 @@
   const RELEASE="20261013-market-thebe-gemini-narrow-v274";
   const DOCK_SELECTOR='#thebeAiDock[data-surface="public"]';
   const GATE_SELECTOR="#marketingGate";
-  const OWNED_PROPS=["left","right","top","bottom","width","min-width","max-width","height","min-height","max-height","border-radius"];
+  const OWNED_PROPS=["left","right","top","bottom","width","min-width","max-width","height","min-height","max-height","border-radius","box-sizing"];
   let frame=0;
 
   const important=(node,property,value)=>node?.style?.setProperty(property,value,"important");
@@ -59,6 +59,7 @@
     important(dock,"min-height","0");
     important(dock,"max-height","none");
     important(dock,"border-radius",`${size.radius}px`);
+    important(dock,"box-sizing","border-box");
     important(gate,"padding-right",`${size.width+size.laneGap}px`);
     return true;
   }
