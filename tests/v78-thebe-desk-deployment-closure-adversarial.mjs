@@ -75,9 +75,9 @@ ok(productionEntry.includes('missing-input-response')&&productionEntry.includes(
 ok(productionEntry.includes('human_verification_retry')&&productionEntry.includes('retryable:true'), 'production registration retains explicit retryable legacy challenge handling');
 ok(productionEntry.includes('/assets/thebe-desk-favicon-512.png?v=20260912b')&&productionEntry.includes('rel="icon"')&&productionEntry.includes('apple-touch-icon'), 'production HTML uses the optimized 512px Thebe Desk favicon asset with cache busting for maximum tab visibility');
 
-// Owner command centre: the first owner-facing screen must explain the business, not merely display metrics.
+// The daily screen keeps business analysis reachable through progressive disclosure.
 ok(productionEntry.includes('injectOwnerCommandCentreAssets')&&productionEntry.includes('/assets/owner-command-centre.css')&&productionEntry.includes('/js/owner-command-centre.js')&&productionEntry.includes('x-thebe-owner-brief'), 'production HTML injects versioned same-origin owner command centre assets');
-ok(ownerBrief.includes('Business owner brief')&&ownerBrief.includes('What needs your attention today')&&ownerBrief.includes('What Thebe recommends now')&&ownerBrief.includes('What happens if you act?'), 'owner command centre presents signal, recommendation and simulation flow');
+ok(ownerBrief.includes('Business analysis')&&ownerBrief.includes("Understand the signals behind today's work")&&ownerBrief.includes('owner-analysis-details')&&ownerBrief.includes('What Thebe recommends now')&&ownerBrief.includes('What happens if you act?'), 'owner command centre retains signal, recommendation and simulation flow in the analysis disclosure');
 ok(ownerBrief.includes('/api/daily-reporting/performance?date=')&&ownerBrief.includes('request("/api/state")'), 'owner brief uses authoritative performance intelligence plus tenant workspace state');
 ok(worker.includes('if(url.pathname==="/api/daily-reporting/performance"&&req.method==="GET")')&&worker.includes('performanceIntelligenceView(env,a.tenant_id,reportDate,locationId)'), 'owner performance source remains tenant-scoped server intelligence');
 ok(ownerBrief.includes('baseline7')&&ownerBrief.includes('baseline30')&&ownerBrief.includes('sampleDays'), 'owner brief compares recent location run-rate with learned historical baselines');
