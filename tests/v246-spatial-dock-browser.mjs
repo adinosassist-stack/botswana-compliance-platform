@@ -96,7 +96,7 @@ try{
  await page.waitForFunction(()=>typeof window.resolveMicrophone==='function');
  await page.evaluate(async()=>{window.ThebeLiveVoice.stop();window.stoppedTracks=0;window.resolveMicrophone({getTracks:()=>[{stop:()=>window.stoppedTracks++}]});await window.pendingVoice});
  assert.equal(await page.evaluate(()=>window.stoppedTracks),1,'microphone acquired after cancellation must be stopped');
- // Crossing into mobile must not inherit the always-open desktop rail.
+ // Crossing into mobile must not inherit an explicitly opened desktop rail.
  await page.setViewportSize({width:844,height:390});
  await page.waitForFunction(()=>!document.body.classList.contains('thebe-ai-dock-open')&&getComputedStyle(document.getElementById('mainContent')).visibility!=='hidden');
  assert(!(await page.locator('#thebeAiDock').isVisible()),'desktop rail collapses on entering wide mobile');
@@ -107,8 +107,10 @@ try{
  await page.evaluate(()=>window.ThebeAiDock.close());
  await page.waitForFunction(()=>getComputedStyle(document.getElementById('mainContent')).visibility!=='hidden');
  await page.setViewportSize({width:1024,height:844});
+ assert(!(await page.locator('#thebeAiDock').isVisible()),'an explicit close remains honored at desktop width');
+ await page.locator('#thebeAiDockPill').click();
  await page.locator('#thebeAiDock').waitFor({state:'visible'});
- assert(await page.locator('#thebeAiDock').isVisible(),'desktop rail returns at desktop breakpoint');
+ assert(await page.locator('#thebeAiDock').isVisible(),'the desktop launcher explicitly restores the conversation');
  await page.setViewportSize({width:1023,height:844});
  await page.waitForFunction(()=>!document.body.classList.contains('thebe-ai-dock-open')&&getComputedStyle(document.getElementById('mainContent')).visibility!=='hidden');
  assert(!(await page.locator('#thebeAiDock').isVisible()),'each desktop-to-mobile crossing restores workspace visibility');
