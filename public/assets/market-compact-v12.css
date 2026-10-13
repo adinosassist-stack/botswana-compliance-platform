@@ -1,0 +1,89 @@
+/* Thebe Desk market v12: reduce vertical scrolling without removing core conversion content. */
+#problem,
+.product-proof,
+#trust,
+.whatsapp-section{display:none!important}
+
+.section,.ai-section{padding:32px 0}
+.section-head{margin-bottom:16px}
+.section h2,.ai-panel h2{font-size:clamp(28px,3.2vw,40px);margin:5px 0 8px}
+.section-head p,.ai-copy p{font-size:15px}
+.local-fit{padding-bottom:20px}
+.local-fit-head{display:none}
+.outcome,.pricecard{padding:16px}
+.outcome-head{margin-bottom:10px}
+.outcome ul{margin-top:9px}
+.outcome li{padding:5px 0}
+.workflow{margin-top:10px}
+.ai-panel{padding:20px;gap:18px}
+.ai-safety{margin-top:9px;padding-top:6px;padding-bottom:6px}
+.country-grid{gap:12px}
+.country-card{padding:16px}
+.country-card .check{padding:6px 0}
+.country-card .check:nth-of-type(n+5){display:none}
+.readiness-card{min-height:240px;padding:18px}
+.readiness-card h3{font-size:25px;margin:12px 0 6px}
+.readiness-grid{margin-top:14px}
+.pricecard h3{font-size:20px;margin-top:5px}
+.price{font-size:31px}
+.pricecard p{margin:7px 0}
+.pricecard ul{margin:6px 0 14px}
+.payment-note{margin-top:10px;padding:11px 13px}
+.commercial-callout{margin-top:8px;padding:11px 13px}
+#faq .section-head{margin-bottom:12px}
+.faq{gap:8px}
+.faq details:nth-child(n+7){display:none}
+.faq summary{padding-top:13px;padding-bottom:13px}
+.faq details p{padding-bottom:13px}
+.final{padding:28px 0}
+.cta-box{padding:22px 24px}
+.footer{padding-top:12px}
+
+@media(max-width:760px){
+  .hero{padding:26px 0 18px}
+  .hero h1{font-size:38px;margin:11px 0 12px}
+  .hero p{font-size:15px;line-height:1.45}
+  .hero-cta{margin-top:15px}
+  .reassure{margin-top:8px}
+  .control-ribbon{margin-top:11px}
+  .market-hero-photo{aspect-ratio:16/10}
+  .market-hero-visual .product-stage{margin-top:8px}
+  .section,.ai-section{padding:24px 0}
+  .section-head{margin-bottom:13px}
+  .section h2,.ai-panel h2{font-size:30px}
+  .section-head p,.ai-copy p{font-size:14px}
+
+  .proof-six{display:flex;grid-template-columns:none;overflow-x:auto;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;gap:8px;background:transparent;border:0;border-radius:0;padding-bottom:4px}
+  .proof-six .proof-item{flex:0 0 46%;scroll-snap-align:start;border:1px solid var(--line)!important;border-radius:12px;background:#fff;padding:10px 11px}
+
+  .outcome-grid,.pricing-grid{display:flex;grid-template-columns:none;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;gap:10px;padding-bottom:6px;max-width:none}
+  .outcome,.pricecard{flex:0 0 84%;scroll-snap-align:start}
+  .workflow{display:flex;grid-template-columns:none;overflow-x:auto;-webkit-overflow-scrolling:touch;gap:7px}
+  .workflow div{flex:0 0 118px;padding:9px 10px}
+
+  .ai-panel{padding:15px;gap:13px}
+  .ai-safety{font-size:11px;line-height:1.4}
+  .ai-prompts{gap:6px}
+  .ai-prompt{padding:9px 10px}
+  .ai-prompts .ai-prompt:nth-child(n+3){display:none}
+  .ai-example{padding:11px}
+  .ai-example-a{padding:10px}
+
+  .country-grid{gap:9px}
+  .country-card{padding:13px}
+  .country-card h3{font-size:18px;margin-bottom:7px}
+  .country-card .check{font-size:12px;padding:5px 0}
+  .readiness-card{min-height:0;padding:15px}
+  .readiness-card h3{font-size:23px;margin:10px 0 5px}
+  .readiness-grid{margin-top:11px;gap:6px}
+  .readiness-grid div{padding:8px}
+
+  .payment-steps{display:none}
+  .commercial-callout{display:none}
+  .faq{gap:7px}
+  .faq summary{padding:12px 43px 12px 14px;font-size:13px}
+  .faq details p{padding:0 14px 12px;font-size:12px}
+  .final{padding:20px 0}
+  .cta-box{padding:18px;gap:14px}
+  .cta-box h2{font-size:29px}
+}
