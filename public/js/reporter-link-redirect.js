@@ -77,6 +77,13 @@
     declutter.dataset.marketHeroDeclutterV17="1";
     document.head.appendChild(declutter);
   }
+  if(!document.querySelector('link[data-market-cro-v18]')){
+    const cro=document.createElement("link");
+    cro.rel="stylesheet";
+    cro.href="/assets/market-cro-v18.css?v=20261013a";
+    cro.dataset.marketCroV18="1";
+    document.head.appendChild(cro);
+  }
   if(!document.querySelector('script[data-market-conversion-v11]')){
     const script=document.createElement("script");
     script.src="/js/market-conversion-v11.js?v=20261013b";
@@ -105,5 +112,12 @@
     snapshot.dataset.marketProductSnapshotV15="1";
     snapshot.async=false;
     document.head.appendChild(snapshot);
+  }
+  if(!document.querySelector('script[data-market-cro-v18]')){
+    const cro=document.createElement("script");
+    cro.src="/js/market-cro-v18.js?v=20261013a";
+    cro.dataset.marketCroV18="1";
+    cro.async=false;
+    document.head.appendChild(cro);
   }
 })();

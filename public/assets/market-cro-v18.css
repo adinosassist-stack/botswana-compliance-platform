@@ -1,0 +1,76 @@
+/* Thebe Desk market CRO v18 — product-first hero, pricing clarity and mobile conversion hierarchy. */
+
+.marketinggate .annual-saving-note{display:inline-flex;align-items:center;gap:3px;margin-top:12px;padding:7px 10px;border:1px solid #cfe0f3;border-radius:999px;background:#f8fbff;color:#52616b;font-size:11px}
+.marketinggate .annual-saving-note strong{color:#0b66d6}
+.marketinggate .cta-box .btn.whatsapp-secondary{background:transparent!important;color:#fff!important;border-color:rgba(255,255,255,.34)!important}
+.marketinggate .cta-box .btn.whatsapp-secondary:hover{border-color:rgba(255,255,255,.72)!important;background:rgba(255,255,255,.06)!important}
+.marketinggate .faq summary{min-height:52px;display:flex;align-items:center}
+.marketinggate .btn{min-height:46px}
+
+@media (min-width:1101px){
+  .marketinggate .hero .wrap{width:min(1240px,calc(100% - 48px))}
+  .marketinggate .hero{padding:46px 0 30px}
+  .marketinggate .hero-grid{grid-template-columns:minmax(360px,.78fr) minmax(560px,1.22fr);gap:46px;align-items:center}
+  .marketinggate .hero-grid>div:first-child{max-width:530px}
+  .marketinggate .hero h1{font-size:clamp(50px,5vw,68px);max-width:560px}
+  .marketinggate .hero p{font-size:18px;max-width:530px}
+  .marketinggate .hero-cta{margin-top:24px}
+  .marketinggate .market-hero-visual{width:100%;max-width:760px;margin-left:auto}
+  .marketinggate .market-hero-visual .product-stage{width:100%!important;max-width:none!important;margin:0!important;border-radius:20px!important}
+  .marketinggate .product-stage{border-radius:20px!important;box-shadow:0 22px 58px rgba(15,23,42,.13)!important}
+  .marketinggate .market-hero-visual .stage-body,.marketinggate .stage-body{grid-template-columns:112px minmax(0,1fr)!important;min-height:390px!important}
+  .marketinggate .stage-top{padding:12px 14px!important}
+  .marketinggate .stage-brand{font-size:12px!important;gap:8px!important}
+  .marketinggate .stage-brand img{width:24px!important;height:24px!important}
+  .marketinggate .stage-live{font-size:9px!important;padding:4px 7px!important}
+  .marketinggate .stage-nav{padding:13px 9px!important}
+  .marketinggate .stage-nav span{padding:7px 8px!important;margin-bottom:3px!important;font-size:10px!important;border-radius:8px!important}
+  .marketinggate .stage-main{padding:16px 18px!important}
+  .marketinggate .stage-kicker{font-size:9px!important}
+  .marketinggate .stage-main h2{font-size:25px!important;margin:4px 0 10px!important}
+  .marketinggate .market-product-snapshot-v15 .snapshot-main{gap:10px!important}
+  .marketinggate .market-product-snapshot-v15 .snapshot-live-pill{font-size:9px!important;padding:4px 7px!important}
+  .marketinggate .market-product-snapshot-v15 .snapshot-metric{padding:9px 10px!important}
+  .marketinggate .market-product-snapshot-v15 .snapshot-metric b{font-size:18px!important}
+  .marketinggate .market-product-snapshot-v15 .snapshot-metric span{font-size:9.5px!important}
+  .marketinggate .market-product-snapshot-v15 .snapshot-attention-row{padding:8px 9px!important;gap:9px!important}
+  .marketinggate .market-product-snapshot-v15 .snapshot-attention-copy b{font-size:11px!important}
+  .marketinggate .market-product-snapshot-v15 .snapshot-attention-copy small{font-size:9px!important}
+  .marketinggate .market-product-snapshot-v15 .snapshot-attention-row>strong{font-size:9px!important;padding:4px 6px!important}
+  .marketinggate .market-product-snapshot-v15 .snapshot-panel{padding:9px!important}
+  .marketinggate .market-product-snapshot-v15 .snapshot-panel-head span,.marketinggate .market-product-snapshot-v15 .snapshot-panel-head strong{font-size:9px!important}
+  .marketinggate .market-product-snapshot-v15 .snapshot-control-line b,.marketinggate .market-product-snapshot-v15 .snapshot-control-line span,.marketinggate .market-product-snapshot-v15 .snapshot-panel>small,.marketinggate .market-product-snapshot-v15 .snapshot-ai-prompt{font-size:9px!important}
+  .marketinggate .preview-note{font-size:9px!important;padding:8px 12px 10px!important}
+}
+
+@media (min-width:761px) and (max-width:1100px){
+  .marketinggate .market-hero-visual{max-width:680px!important;width:100%;margin-left:0}
+  .marketinggate .market-hero-visual .product-stage{width:100%!important;max-width:none!important;margin:0!important}
+}
+
+@media (max-width:760px){
+  .marketinggate .btn{min-height:48px}
+  .marketinggate .hero{padding-top:32px}
+  .marketinggate .hero h1{font-size:clamp(36px,10.5vw,42px);line-height:1.02}
+  .marketinggate .hero-grid{gap:24px}
+  .marketinggate .market-hero-visual{width:100%;max-width:none!important}
+  .marketinggate .market-hero-visual .product-stage{width:100%!important;max-width:none!important;margin:0!important}
+  .marketinggate .mobile-sticky{bottom:max(12px,env(safe-area-inset-bottom));left:12px;right:12px}
+  .marketinggate .mobile-sticky .btn{min-height:50px}
+  .marketinggate .faq summary{min-height:56px;padding-top:14px;padding-bottom:14px}
+  .marketinggate .payment-steps{display:grid;grid-template-columns:1fr 1fr}
+  .marketinggate .payment-steps span{min-height:44px;border-radius:11px}
+  .marketinggate .final .hero-cta{width:100%}
+  .marketinggate .final .hero-cta .btn{width:100%}
+}
+
+@media (max-width:390px){
+  .marketinggate .payment-steps{grid-template-columns:1fr}
+  .marketinggate .snapshot-metrics{grid-template-columns:1fr 1fr!important}
+  .marketinggate .snapshot-metric:last-child{grid-column:1/-1}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .marketinggate *{scroll-behavior:auto!important}
+  .marketinggate .btn{transition:none!important}
+}
