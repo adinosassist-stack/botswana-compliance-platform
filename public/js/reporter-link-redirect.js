@@ -95,14 +95,14 @@
     if(document.querySelector('link[data-market-thebe-gemini-v273]'))return;
     const gemini=document.createElement("link");
     gemini.rel="stylesheet";
-    gemini.href="/assets/market-thebe-gemini-v273.css?v=20261014-gemini-narrow-v276";
+    gemini.href="/assets/market-thebe-gemini-v273.css?v=20261014-gemini-narrow-v277";
     gemini.dataset.marketThebeGeminiV273="1";
     document.head.appendChild(gemini);
   };
   loadGeminiPanelCss();
   if(!document.querySelector('script[data-market-thebe-gemini-narrow-v274]')){
     const narrow=document.createElement("script");
-    narrow.src="/js/market-thebe-gemini-narrow-v274.js?v=20261014-gemini-narrow-v276";
+    narrow.src="/js/market-thebe-gemini-narrow-v274.js?v=20261014-gemini-narrow-v277";
     narrow.dataset.marketThebeGeminiNarrowV274="1";
     narrow.async=false;
     document.head.appendChild(narrow);
