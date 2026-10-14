@@ -1489,6 +1489,8 @@
           const summary=payload.summary||{};
           const total=Number(summary.totalRuns||0);
           const score=summary.status==="evaluated"&&total>0?String(summary.reliabilityScore??"—"):"—";
+          // No verified outcome evidence means no numerical reliability score.
+          if(!canEdit())return;
           reliabilityBody.replaceChildren(
             text("b","Reliability score: "+score),
             text("p","Cost telemetry never proves task success. Unverified runs are never counted as successful."),
