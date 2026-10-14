@@ -1,4 +1,4 @@
-/* V275 — public Thebe mirrors Gemini's narrow side rail.
+/* V277 — public Thebe mirrors Gemini's narrow side rail.
    Scope: market/public surface only. Keep Thebe branding; match Gemini geometry,
    restraint, control density and conversation-first hierarchy. No suggestion pills. */
 
@@ -18,6 +18,8 @@
     overflow:hidden!important;
   }
   html body:has(#thebeAiDock[data-surface="public"]:not([hidden]):not([aria-hidden="true"])) #marketingGate{
+    box-sizing:border-box!important;
+    max-width:100%!important;
     padding-right:calc(clamp(360px,28vw,420px) + 32px)!important;
   }
 }
@@ -38,6 +40,8 @@
     overflow:hidden!important;
   }
   html body:has(#thebeAiDock[data-surface="public"]:not([hidden]):not([aria-hidden="true"])) #marketingGate{
+    box-sizing:border-box!important;
+    max-width:100%!important;
     padding-right:calc(clamp(332px,31vw,360px) + 24px)!important;
   }
 }
