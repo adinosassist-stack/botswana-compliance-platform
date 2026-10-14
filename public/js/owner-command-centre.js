@@ -1480,7 +1480,9 @@
       const reliabilityBody=text("div","Open to load verified reliability signals.","owner-command-empty");
       reliabilityBody.id="ownerReliabilityBody";
       reliability.append(reliabilityBody);
+      let reliabilityRequestSeq=0;
       reliability.addEventListener("toggle",async()=>{
+        const requestSeq=++reliabilityRequestSeq;
         if(!reliability.open||!canEdit())return;
         const activeCompany=q("#companySelect")?.value||"";
         reliabilityBody.replaceChildren(text("div","Checking reliability evidence…","owner-command-empty"));
@@ -1492,7 +1494,7 @@
           const verified=summary.status==="evaluated"&&total>0;
           const score=verified?String(Math.round(100*Number(summary.counts?.success||0)/total))+"%":"—";
           // No verified outcome evidence means no numerical reliability score.
-          if(!canEdit()||!reliability.open||(q("#companySelect")?.value||"")!==activeCompany)return;
+          if(requestSeq!==reliabilityRequestSeq||!canEdit()||!reliability.open||(q("#companySelect")?.value||"")!==activeCompany)return;
           reliabilityBody.replaceChildren(
             text("b","Reliability score: "+score),
             text("p","Observed runs: "+total+" · Unverified: "+Number(summary.counts?.unverified||0)),
@@ -1500,7 +1502,7 @@
             text("p","Recommendation-only improvements. No changes are applied automatically.")
           );
         }catch{
-          if(!canEdit()||!reliability.open||(q("#companySelect")?.value||"")!==activeCompany)return;
+          if(requestSeq!==reliabilityRequestSeq||!canEdit()||!reliability.open||(q("#companySelect")?.value||"")!==activeCompany)return;
           reliabilityBody.replaceChildren(text("div","Reliability advice is unavailable or disabled.","owner-command-empty"));
         }
       });
