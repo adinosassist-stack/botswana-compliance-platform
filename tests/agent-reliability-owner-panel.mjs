@@ -26,4 +26,7 @@ assert.match(source,/!==activeCompany\)return/);
 assert.match(source,/!reliability\.open/);
 assert.match(source,/const requestSeq=\+\+reliabilityRequestSeq/);
 assert.match(source,/requestSeq!==reliabilityRequestSeq/);
+assert.match(source,/event\.target\?\.id!=="companySelect"/);
+assert.match(source,/\+\+reliabilityRequestSeq;/);
+assert.match(source,/reliability\.open=false/);
 console.log("owner reliability panel contract passed");
