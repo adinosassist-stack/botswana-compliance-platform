@@ -177,6 +177,42 @@ html body #thebeAiDock[data-surface="public"] :is(.thebe-ai-public-signin,.thebe
 }
 
 @media (max-width:1023px){
+  /* The launcher owns a viewport lane; padding alone cannot prevent a fixed
+     button from covering the hero and cards as the market page scrolls. */
+  body:has(#thebeAiDockPill[data-surface="public"]:not([hidden])) #marketingGate{
+    bottom:calc(64px + env(safe-area-inset-bottom))!important;
+    height:calc(100dvh - 64px - env(safe-area-inset-bottom))!important;
+    min-height:0!important;
+    padding-bottom:24px!important;
+    box-sizing:border-box!important;
+  }
+  html body #thebeAiDockPill[data-surface="public"]{
+    position:fixed!important;
+    left:0!important;
+    right:0!important;
+    top:auto!important;
+    bottom:0!important;
+    width:100%!important;
+    max-width:none!important;
+    height:calc(64px + env(safe-area-inset-bottom))!important;
+    min-height:64px!important;
+    margin:0!important;
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom))!important;
+    box-sizing:border-box!important;
+    align-items:center!important;
+    justify-content:center!important;
+    border:0!important;
+    border-top:1px solid #dedede!important;
+    border-radius:0!important;
+    background:#fff!important;
+    color:#191919!important;
+    box-shadow:none!important;
+    z-index:181!important;
+  }
+  html body #thebeAiDockPill[data-surface="public"] .thebe-ai-pill-dot{
+    background:#b42332!important;
+    box-shadow:none!important;
+  }
   html body #thebeAiDock[data-surface="public"]{
     border-radius:22px!important;
   }
