@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS legal_acceptances (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  UNIQUE(user_id, terms_version, privacy_version)
+  UNIQUE(tenant_id, user_id, terms_version, privacy_version)
 );
 
 CREATE INDEX IF NOT EXISTS legal_acceptances_tenant_accepted_idx
