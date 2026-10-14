@@ -19,7 +19,9 @@ function ensureLegalUi(){
  }else legalConsent=document.getElementById("authLegalAccept");
  const card=form.closest(".card");
  if(card&&!document.getElementById("authTrustLinks")){
-  const trust=document.createElement("p");trust.id="authTrustLinks";trust.className="tiny";trust.innerHTML='<a href="/trust/">Trust Center</a> · <a href="/security/">Security</a> · <a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a>';
+  const trust=document.createElement("p");trust.id="authTrustLinks";trust.className="tiny";
+  const trustLinks=[["Trust Center","/trust/"],["Security","/security/"],["Privacy","/privacy/"],["Terms","/terms/"]];
+  trustLinks.forEach(([label,href],index)=>{if(index)trust.append(document.createTextNode(" · "));const link=document.createElement("a");link.href=href;link.textContent=label;trust.append(link)});
   card.append(trust);
  }
 }
