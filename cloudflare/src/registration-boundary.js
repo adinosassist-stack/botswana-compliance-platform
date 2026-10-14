@@ -2,6 +2,7 @@ const REGISTRATION_PROOF_TTL_MS=5*60*1000;
 const REGISTRATION_PROOF_MAX_COUNTER=500000;
 const REGISTRATION_CHALLENGE_WINDOW_MS=5*60*1000;
 const REGISTRATION_CHALLENGE_LIMIT=30;
+const REGISTRATION_LEGAL_ACCEPTANCE_VERSION="2026-10-14";
 
 function json(data,status=200,headers={}){
   return new Response(JSON.stringify(data),{status,headers:{
@@ -19,6 +20,10 @@ function registrationProofSecret(env){
 
 function registrationClientIp(request){
   return String(request.headers.get("cf-connecting-ip")||request.headers.get("x-forwarded-for")||"").split(",")[0].trim();
+}
+
+function registrationLegalAcceptanceConfirmed(request){
+  return String(request?.headers?.get?.("x-thebe-legal-acceptance")||"").trim()===REGISTRATION_LEGAL_ACCEPTANCE_VERSION;
 }
 
 async function hmacHex(secret,value){
@@ -116,6 +121,7 @@ async function claimRegistrationNonce(env,secret,nonce,expiresAtMs){
 }
 
 async function validateAndClaimRegistrationProof(request,env,serialized){
+  if(!registrationLegalAcceptanceConfirmed(request))return {ok:false,reason:"legal_acceptance_required",legalVersion:REGISTRATION_LEGAL_ACCEPTANCE_VERSION};
   const secret=registrationProofSecret(env);
   if(!secret)return {ok:false,reason:"secret_unavailable"};
   let proof;
@@ -142,14 +148,16 @@ async function validateAndClaimRegistrationProof(request,env,serialized){
   if(!hasLeadingZeroBits(digest,payload.b))return {ok:false,reason:"work_invalid"};
   const claim=await claimRegistrationNonce(env,secret,payload.n,payload.exp);
   if(!claim.ok)return claim;
-  return {ok:true,reason:"verified_and_claimed"};
+  return {ok:true,reason:"verified_and_claimed",legalVersion:REGISTRATION_LEGAL_ACCEPTANCE_VERSION};
 }
 
 export {
+  REGISTRATION_LEGAL_ACCEPTANCE_VERSION,
   claimRegistrationNonce,
   consumeDurableRegistrationBudget,
   durableRegistrationChallengeGate,
   registrationClientIp,
+  registrationLegalAcceptanceConfirmed,
   registrationProofSecret,
   validateAndClaimRegistrationProof
 };
