@@ -24,4 +24,18 @@ Evidence-backed metrics, tests passing, rollback plan, human-reviewed PR, and in
 
 ## Refresh status — 2026-10-14
 
-Draft PR #1510 ports the pure advisor, read-only telemetry adapter and owner-only API to current main. The worker routes GET `/api/ai/operator/reliability` only after the existing authenticated API security gates. The API requires an authenticated owner, tenant-scoped DB query and `THEBE_AGENT_RELIABILITY_ADVISOR_ENABLED=true` (default off). CI verifies API tenant isolation, default-off behavior, and worker route ordering. No owner UI has been ported and no production flag is enabled. Do not merge or deploy without independent review, runtime smoke testing and rollback signoff.
+Draft PR #1510 ports the pure advisor, read-only telemetry adapter and owner-only API to current main. The worker routes GET `/api/ai/operator/reliability` only after the existing authenticated API security gates. The API requires an authenticated owner, tenant-scoped DB query and `THEBE_AGENT_RELIABILITY_ADVISOR_ENABLED=true` (default off). CI verifies API tenant isolation, default-off behavior, and worker route ordering. An owner-only, collapsed-by-default, read-only dashboard panel is now integrated, using the evaluator's actual total/counts schema and withholding numeric reliability scores for unverified evidence. No production flag is enabled. Do not merge or deploy without independent review, runtime smoke testing and rollback signoff.
+
+## Controlled promotion checklist — 2026-10-14
+
+- [x] Backend adapter, pure evaluator and owner-only authenticated route integrated on the draft branch.
+- [x] Owner-only dashboard panel integrated with DOM-safe text rendering, no write actions and a 7-day read.
+- [x] CI contracts cover tenant isolation, malformed authenticated tenant IDs, role spoofing, feature default-off, worker route ordering, panel rendering and no autonomous fixes.
+- [ ] All required CI checks on the exact promotion commit complete successfully.
+- [ ] Independent reviewer verifies tenant/owner isolation, origin/session gates, no raw secrets in telemetry, bounded queries and default-off behavior.
+- [ ] Runtime smoke test in an isolated tenant with the flag enabled only there: owner sees an advisory-only result; manager receives 403; unrelated tenant cannot access data; disabled flag yields 404; unavailable DB yields 503.
+- [ ] Owner panel checked on mobile and desktop, including a tenant/company switch during an in-flight request.
+- [ ] Rollback owner approves: disable THEBE_AGENT_RELIABILITY_ADVISOR_ENABLED, verify 404, and revert the PR if necessary.
+- [ ] Explicit human approval for merge and any production activation.
+
+**Release decision: HOLD.** CI success alone is not authorization to enable the flag or deploy the advisor. No changes to Thebe voice, execution authority, runtime policy, migrations or autonomous tools.
