@@ -43,6 +43,26 @@
 }
 
 /* Gemini reference: one quiet header, one conversation canvas, one composer. */
+/* The public rail reduces the content lane without changing the viewport.
+   Reflow the hero against that lane rather than retaining desktop minima. */
+@media (min-width:1024px){
+  #marketingGate{container-type:inline-size;container-name:thebe-market}
+  @container thebe-market (max-width:1060px){
+    #marketingGate .hero-grid{
+      grid-template-columns:minmax(0,1fr)!important;
+      gap:28px!important;
+    }
+    #marketingGate .hero-grid>div:first-child,
+    #marketingGate .hero h1,
+    #marketingGate .hero p{max-width:100%!important}
+    #marketingGate .market-hero-visual{
+      width:100%!important;
+      max-width:100%!important;
+      justify-self:stretch!important;
+    }
+  }
+}
+
 html body #thebeAiDock[data-surface="public"]{
   background:#191919!important;
   color:#f4f4f4!important;
