@@ -2,6 +2,28 @@
 "use strict";const resetFragment=String(location.hash||"");if(resetFragment.startsWith("#reset_token=")){history.replaceState(null,"",location.pathname+location.search);location.replace("/reset-password.html"+resetFragment);return}
 const $=id=>document.getElementById(id);
 const form=$("authForm"),heading=$("authHeading"),intro=$("authIntro"),loginTab=$("loginTab"),registerTab=$("registerTab"),companyField=$("companyNameField"),company=$("authCompany"),email=$("authEmail"),password=$("authPassword"),workspaceField=$("workspaceField"),workspace=$("authWorkspace"),submit=$("authSubmit"),status=$("authError"),holdNotice=$("registrationHoldNotice"),signedNotice=$("signedNotice"),google=$("googleAuthButton"),facebook=$("facebookAuthButton");
+const LEGAL_VERSION="2026-10-14";
+let legalWrap=null,legalConsent=null;
+function ensureLegalUi(){
+ if(!form)return;
+ legalWrap=document.getElementById("authLegalConsent");
+ if(!legalWrap){
+  legalWrap=document.createElement("div");legalWrap.id="authLegalConsent";legalWrap.hidden=true;legalWrap.style.marginTop="14px";legalWrap.style.padding="11px 12px";legalWrap.style.border="1px solid #e5e5e1";legalWrap.style.borderRadius="11px";legalWrap.style.background="#fafbf9";
+  const label=document.createElement("label");label.htmlFor="authLegalAccept";label.style.display="flex";label.style.alignItems="flex-start";label.style.gap="9px";label.style.margin="0";label.style.fontSize="11px";label.style.fontWeight="600";label.style.lineHeight="1.5";label.style.color="#5c6661";
+  legalConsent=document.createElement("input");legalConsent.id="authLegalAccept";legalConsent.type="checkbox";legalConsent.style.width="auto";legalConsent.style.minHeight="0";legalConsent.style.margin="3px 0 0";legalConsent.setAttribute("aria-describedby","authLegalCopy");
+  const copy=document.createElement("span");copy.id="authLegalCopy";copy.append("I agree to the ");
+  const terms=document.createElement("a");terms.href="/terms/";terms.target="_blank";terms.rel="noopener";terms.textContent="Terms of Service";terms.style.color="#0b66d6";
+  const and=document.createTextNode(" and acknowledge the ");
+  const privacy=document.createElement("a");privacy.href="/privacy/";privacy.target="_blank";privacy.rel="noopener";privacy.textContent="Privacy Notice";privacy.style.color="#0b66d6";
+  copy.append(terms,and,privacy,document.createTextNode(` (version ${LEGAL_VERSION}).`));label.append(legalConsent,copy);legalWrap.append(label);form.insertBefore(legalWrap,submit);
+ }else legalConsent=document.getElementById("authLegalAccept");
+ const card=form.closest(".card");
+ if(card&&!document.getElementById("authTrustLinks")){
+  const trust=document.createElement("p");trust.id="authTrustLinks";trust.className="tiny";trust.innerHTML='<a href="/trust/">Trust Center</a> · <a href="/security/">Security</a> · <a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a>';
+  card.append(trust);
+ }
+}
+ensureLegalUi();
 const encoder=new TextEncoder();
 const client=window.BW?.api?.createClient?.({getCsrfToken:()=>"",onUnauthorized:()=>{},onError:()=>{}});
 const params=new URLSearchParams(location.search);
@@ -18,6 +40,7 @@ function setMode(nextMode){
  mode=nextMode==="register"?"register":"login";clearStatus();workspaceField.hidden=true;workspace.replaceChildren();
  const registering=mode==="register";
  companyField.hidden=!registering;password.autocomplete=registering?"new-password":"current-password";
+ if(legalWrap){legalWrap.hidden=!registering;if(!registering&&legalConsent)legalConsent.checked=false}
  heading.textContent=registering?"Create your account":"Sign in";
  intro.textContent=registering?"Start a 14-day Thebe Desk workspace trial.":"Open your private Thebe Desk workspace.";
  submit.textContent=registering?"Create account & workspace":"Sign in";
@@ -54,7 +77,7 @@ async function requestRecovery(address){try{await api("/api/auth/password-reset/
 async function registerAccount(payload){
  if(registrationMode!=="open"&&registrationMode!=="cohort")throw new Error("Registration is currently unavailable.");
  const proof=await solveRegistrationProof();
- await api("/api/auth/register",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...payload,turnstileToken:proof})});
+ await api("/api/auth/register",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...payload,turnstileToken:proof,legalAcceptance:{version:LEGAL_VERSION,accepted:true}})});
  try{await login({email:payload.email,password:payload.password})}
  catch(error){
   if(error?.code==="workspace_selection_required"){
@@ -86,6 +109,7 @@ async function submitForm(event){
  const address=String(email.value||"").trim().toLowerCase(),secret=String(password.value||"");
  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)){setStatus("Enter a valid email address.");return}
  if(secret.length<12){setStatus("Use a password with at least 12 characters.");return}
+ if(mode==="register"&&(!legalConsent||!legalConsent.checked)){setStatus("Agree to the Terms of Service and acknowledge the Privacy Notice to create a workspace.");legalConsent?.focus();return}
  busy=true;submit.disabled=true;const original=submit.textContent;submit.textContent=mode==="register"?"Securing registration…":"Signing in…";
  try{
   if(mode==="register"){
