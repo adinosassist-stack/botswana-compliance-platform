@@ -14,6 +14,8 @@ assert.match(source,/Unverified runs are never counted as successful/);
 assert.match(source,/summary\.status==="evaluated"&&total>0/);
 assert.match(source,/summary\.total\|\|0/);
 assert.match(source,/summary\.counts\?\.success\|\|0/);
+assert.match(source,/Number\.isSafeInteger\(success\)/);
+assert.match(source,/success<=total/);
 assert.doesNotMatch(source,/summary\.totalRuns|summary\.reliabilityScore/);
 assert.match(source,/:"—"/);
 assert.doesNotMatch(source,/autofix|auto[- ]?fix|mutate agent|apply recommendation/i);
