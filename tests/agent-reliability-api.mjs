@@ -16,7 +16,7 @@ assert.equal(queriedTenant,"tenant-A");
 assert.equal(response.body.mode,"advisor_only");
 assert.equal(response.body.canMutate,false);
 assert.equal(response.body.summary?.tenantId==="tenant-B",false,"cross-tenant summary must not be returned");
-for(const forgedRole of ["admin","manager","auditor","reviewer","OWNER-ADMIN"]){
+for(const forgedRole of ["admin","manager","auditor","reviewer","OWNER-ADMIN","Owner","OWNER"]){
   const attempt=await read(await handleReliabilityAdvisorRequest(request("https://thebe.example/api/ai/operator/reliability?role=owner&tenantId=tenant-B"),{
     auth:{tenant_id:"tenant-A",role:forgedRole},env:{DB:db,THEBE_AGENT_RELIABILITY_ADVISOR_ENABLED:"true"}
   }));
