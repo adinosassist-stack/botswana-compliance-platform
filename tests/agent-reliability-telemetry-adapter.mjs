@@ -17,7 +17,7 @@ const db={prepare(sql){
   assert.match(sql,/occurred_at>=datetime\('now',\?\)/);
   assert.match(sql,/ORDER BY occurred_at DESC/);
   assert.doesNotMatch(sql,/\bcreated_at\b/);
-  return {bind(tenant){assert.equal(tenant,"tenant-A");return {async all(){return {results:[{detail_json:JSON.stringify(event)},{detail_json:JSON.stringify(event)},{detail_json:"{bad"},{detail_json:JSON.stringify({...event,tenantId:"tenant-B"})}]}}}}}
+  return {bind(tenant){assert.equal(tenant,"tenant-A");return {async all(){return {results:[{detail_json:JSON.stringify(event)},{detail_json:JSON.stringify(event)},{detail_json:"{bad"},{detail_json:"x".repeat(32769)},{detail_json:JSON.stringify({...event,tenantId:"tenant-B"})}]}}}}}
 }};
 assert.equal(adaptShadowCostEvent(JSON.parse(JSON.stringify(event)),"tenant-A")?.traceId,"run-1");
 const result=await loadReliabilityAdvisorSummary({DB:db},"tenant-A");
