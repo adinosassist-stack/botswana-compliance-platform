@@ -143,4 +143,11 @@
     cro.async=false;
     document.head.appendChild(cro);
   }
+  if(!document.querySelector('script[data-market-growth-v20]')){
+    const growth=document.createElement("script");
+    growth.src="/js/market-growth-v20.js?v=20261013a";
+    growth.dataset.marketGrowthV20="1";
+    growth.async=false;
+    document.head.appendChild(growth);
+  }
 })();
