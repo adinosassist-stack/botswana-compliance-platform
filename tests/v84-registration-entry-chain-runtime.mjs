@@ -62,6 +62,7 @@ const env={
 const ip="198.51.100.42";
 const origin="https://thebedesk.com";
 const ctx={waitUntil(){}};
+const legalVersion="2026-10-14";
 
 const challengeRequest=new Request(`${origin}/api/auth/registration-proof/challenge`,{
   method:"POST",
@@ -87,16 +88,17 @@ const registrationBody={
   password:"Sequence84-registration-regression!2026",
   companyName:"Sequence 84 Adversarial",
   plan:"business",
-  turnstileToken:proof
+  turnstileToken:proof,
+  acceptLegal:true
 };
 const registerRequest=()=>new Request(`${origin}/api/auth/register`,{
   method:"POST",
-  headers:{"content-type":"application/json","origin":origin,"cf-connecting-ip":ip},
+  headers:{"content-type":"application/json","origin":origin,"cf-connecting-ip":ip,"x-thebe-legal-acceptance":legalVersion},
   body:JSON.stringify(registrationBody)
 });
 
 const registrationResponse=await releaseEntry.fetch(registerRequest(),env,ctx);
-assert.equal(registrationResponse.status,202,"a valid proof must survive the complete release -> agentic -> production -> Worker chain");
+assert.equal(registrationResponse.status,202,"a valid proof with current legal acceptance must survive the complete release -> agentic -> production -> Worker chain");
 const registrationPayload=await registrationResponse.json();
 assert.equal(registrationPayload.ok,true);
 assert.equal(sqlite.prepare("SELECT count(*) count FROM users WHERE email=?").get(registrationBody.email).count,1);
