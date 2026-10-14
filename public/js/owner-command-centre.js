@@ -1492,7 +1492,8 @@
           const summary=payload.summary||{};
           const total=Number(summary.total||0);
           const verified=summary.status==="evaluated"&&total>0;
-          const score=verified?String(Math.round(100*Number(summary.counts?.success||0)/total))+"%":"—";
+          const success=Number(summary.counts?.success||0);
+          const score=verified&&Number.isSafeInteger(success)&&success>=0&&success<=total?String(Math.round(100*success/total))+"%":"—";
           // No verified outcome evidence means no numerical reliability score.
           if(requestSeq!==reliabilityRequestSeq||!canEdit()||!reliability.open||(q("#companySelect")?.value||"")!==activeCompany)return;
           reliabilityBody.replaceChildren(
