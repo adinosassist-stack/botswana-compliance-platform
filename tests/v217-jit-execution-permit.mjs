@@ -50,7 +50,7 @@ assert.doesNotMatch(executeBody,/UPDATE agent_jit_execution_permits\s+SET\s+stat
 assert.match(executeBody,/jit_permit_already_consumed/);
 assert.match(executeBody,/approved_by_user_id=\?/);
 
-assert.match(profile.latest_cloudflare_migration,/^(?:065_v243_business_goal_observer|066_v285_agent_responsibilities|067_v286_customer_relationships|068_agent_cost_accounting)\.sql$/,"release tip must retain migration 065 or a reviewed successor through 067");
+assert.match(profile.latest_cloudflare_migration,/^(?:065_v243_business_goal_observer|066_v285_agent_responsibilities|067_v286_customer_relationships|068_agent_cost_accounting|069_agent_cost_shadow_events)\.sql$/,"release tip must retain migration 065 or a reviewed successor through 067");
 assert.equal(profile.jit_execution_permits_v217,true);
 assert.equal(profile.jit_execution_permit_single_use,true);
 assert.equal(profile.jit_execution_permit_same_owner_bound,true);
@@ -77,7 +77,7 @@ assert.ok(step063>=0&&step064>step063,"fresh D1 deploy sequence must preserve mi
 assert.match(deploy,/Current reviewed schema delta: 068_agent_cost_accounting\.sql/);
 assert.match(launch,/`065_v243_business_goal_observer\.sql`/,"launch chain must retain migration 065");
 assert.match(launch,/`066_v285_agent_responsibilities\.sql`/,"launch chain must retain migration 066");
-assert.match(launch,/through `068_agent_cost_accounting\.sql`/,"launch release tip must advance to migration 067");
+assert.match(launch,/through `069_agent_cost_shadow_events\.sql`/,"launch release tip must advance to migration 067");
 assert.match(launch,/\[migrate-064\]/);
 
 const db=new DatabaseSync(":memory:");
