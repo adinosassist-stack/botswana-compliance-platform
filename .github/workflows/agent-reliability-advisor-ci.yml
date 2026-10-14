@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'cloudflare/src/agent-reliability-advisor.js'
+      - 'cloudflare/src/agent-cost-outcome-telemetry.js'
+      - 'cloudflare/migrations/069_agent_cost_shadow_events.sql'
       - 'tests/agent-reliability-advisor.mjs'
       - 'cloudflare/src/agent-reliability-telemetry-adapter.js'
       - 'tests/agent-reliability-telemetry-adapter.mjs'
