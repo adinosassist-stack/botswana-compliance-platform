@@ -9,6 +9,7 @@ assert.doesNotMatch(source,/reliability\?[^"']*tenant/i);
 assert.match(source,/payload\?\.mode!=="advisor_only"/);
 assert.match(source,/payload\?\.canMutate!==false/);
 assert.match(source,/if\(!canEdit\(\)\)/);
+assert.match(source,/if\(!canEdit\(\)\|\|!reliability\.open/);
 assert.match(source,/Cost telemetry never proves task success/);
 assert.match(source,/Unverified runs are never counted as successful/);
 assert.match(source,/summary\.status==="evaluated"&&total>0/);
