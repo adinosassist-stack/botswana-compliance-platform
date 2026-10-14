@@ -77,8 +77,8 @@ assert.match(marketCro,/Built for Botswana SMEs/,
   "latest market CRO layer must keep launch-market fit explicit without repeating expansion copy in the hero");
 assert.match(marketCro,/title\.textContent="Business"/,
   "homepage CRO layer must disambiguate the P349 Business plan from the Protect product pillar");
-assert.match(marketCro,/2 months free on supported plans/,
-  "homepage CRO layer must surface the truthful annual saving cue");
+assert.doesNotMatch(marketCro,/2 months free on supported plans|function addAnnualNote/,
+  "homepage CRO layer must not advertise unconfirmed annual savings");
 assert.match(marketCro,/action\.href="\/auth\/\?mode=register"/,
   "generic trial entry should not encode a paid-plan query in the public CTA URL");
 assert.match(marketCroCss,/min-height:48px/,
