@@ -9,6 +9,7 @@ const executablePath=[process.env.CHROMIUM_EXECUTABLE_PATH,'/usr/bin/google-chro
 const css=fs.readFileSync('public/assets/market-thebe-gemini-v273.css','utf8');
 assert.match(css,/clamp\(360px,28vw,420px\)/,'large desktop CSS fallback must match the narrow Gemini rail');
 assert.match(css,/clamp\(332px,31vw,360px\)/,'medium desktop CSS fallback must match the narrow Gemini rail');
+assert.match(css,/box-sizing:border-box!important/,'market lane fallback must stay inside the market gate width');
 assert.doesNotMatch(css,/clamp\(480px,38vw,680px\)/,'old oversized Gemini fallback must not return');
 
 const fixture=`<!doctype html><html><head>
@@ -51,6 +52,9 @@ try{
     const dock=document.getElementById('thebeAiDock');
     const rect=dock.getBoundingClientRect();
     const gate=document.getElementById('marketingGate');
+    const gateRect=gate.getBoundingClientRect();
+    const gateStyle=getComputedStyle(gate);
+    const gatePaddingRight=parseFloat(gateStyle.paddingRight)||0;
     const composer=dock.querySelector('.thebe-ai-compose').getBoundingClientRect();
     const close=dock.querySelector('.thebe-ai-icon-btn').getBoundingClientRect();
     const send=dock.querySelector('.thebe-ai-send').getBoundingClientRect();
@@ -60,7 +64,9 @@ try{
       top:rect.top,
       right:innerWidth-rect.right,
       bottom:innerHeight-rect.bottom,
-      gatePaddingRight:parseFloat(getComputedStyle(gate).paddingRight),
+      gatePaddingRight,
+      gateBoxSizing:gateStyle.boxSizing,
+      gateContentRight:gateRect.right-gatePaddingRight,
       dockLeft:rect.left,
       mainRight:gate.querySelector('main').getBoundingClientRect().right,
       widthInline:dock.style.getPropertyValue('width'),
@@ -75,16 +81,20 @@ try{
       composerWidth:composer.width,
       composerBottomGap:rect.bottom-composer.bottom,
       composerRadius:getComputedStyle(dock.querySelector('.thebe-ai-compose')).borderRadius,
-      clutterDisplays:hiddenSelectors.map(selector=>getComputedStyle(dock.querySelector(selector)).display)
+      clutterDisplays:hiddenSelectors.map(selector=>getComputedStyle(dock.querySelector(selector)).display),
+      scrollWidth:document.documentElement.scrollWidth
     };
   });
   assert(desktop.width>=360&&desktop.width<=420,`desktop Gemini rail must stay narrow: ${JSON.stringify(desktop)}`);
   assert(desktop.width/1440<0.30,`desktop Gemini rail must stay below 30% of a 1440px viewport: ${JSON.stringify(desktop)}`);
   assert(Math.abs(desktop.top-16)<=1&&Math.abs(desktop.right-16)<=1&&Math.abs(desktop.bottom-16)<=1,`desktop rail keeps Gemini edge spacing: ${JSON.stringify(desktop)}`);
   assert.equal(desktop.widthPriority,'important','runtime geometry must own width with inline !important');
-  assert.match(desktop.release,/gemini-parity-v275$/,'runtime must expose the Gemini parity release marker');
+  assert.equal(desktop.release,'20261014-market-thebe-gemini-lane-v277','runtime must expose the current Gemini lane release marker');
+  assert.equal(desktop.gateBoxSizing,'border-box','market gate must reserve the rail inside its own width');
   assert(desktop.gatePaddingRight>=desktop.width+31,`market lane must reserve the narrow assistant width: ${JSON.stringify(desktop)}`);
-  assert(desktop.mainRight<=desktop.dockLeft,'market content must not overlap the narrow Gemini rail');
+  assert(desktop.gateContentRight<=desktop.dockLeft,`market content box must not overlap the narrow Gemini rail: ${JSON.stringify(desktop)}`);
+  assert(desktop.mainRight<=desktop.dockLeft,'market main content must not overlap the narrow Gemini rail');
+  assert(desktop.scrollWidth<=1441,'desktop Gemini lane must not create horizontal overflow');
   assert(Math.abs(desktop.closeWidth-36)<=1&&Math.abs(desktop.closeHeight-36)<=1,'header controls must stay compact like Gemini');
   assert.equal(desktop.closeRadius,'50%','header controls must be circular');
   assert(Math.abs(desktop.sendWidth-42)<=1&&Math.abs(desktop.sendHeight-42)<=1,'send control must stay compact and circular');
@@ -111,9 +121,19 @@ try{
 
   await page.setViewportSize({width:1100,height:900});
   await page.waitForTimeout(80);
-  const medium=await page.evaluate(()=>({width:document.getElementById('thebeAiDock').getBoundingClientRect().width,pad:parseFloat(getComputedStyle(document.getElementById('marketingGate')).paddingRight)}));
+  const medium=await page.evaluate(()=>{
+    const dock=document.getElementById('thebeAiDock');
+    const gate=document.getElementById('marketingGate');
+    const gateRect=gate.getBoundingClientRect();
+    const gateStyle=getComputedStyle(gate);
+    const pad=parseFloat(gateStyle.paddingRight)||0;
+    return {width:dock.getBoundingClientRect().width,pad,boxSizing:gateStyle.boxSizing,contentRight:gateRect.right-pad,dockLeft:dock.getBoundingClientRect().left,scrollWidth:document.documentElement.scrollWidth};
+  });
   assert(medium.width>=332&&medium.width<=360,`medium desktop Gemini rail must stay narrow: ${JSON.stringify(medium)}`);
+  assert.equal(medium.boxSizing,'border-box','medium market lane must stay border-box');
   assert(medium.pad>=medium.width+23,`medium market lane must reserve the narrow rail: ${JSON.stringify(medium)}`);
+  assert(medium.contentRight<=medium.dockLeft,`medium market content must stop before the rail: ${JSON.stringify(medium)}`);
+  assert(medium.scrollWidth<=1101,'medium Gemini lane must not create horizontal overflow');
 
   await page.setViewportSize({width:900,height:900});
   await page.waitForTimeout(80);
@@ -121,14 +141,18 @@ try{
     flag:document.getElementById('thebeAiDock').dataset.geminiNarrowV274||'',
     inlineWidth:document.getElementById('thebeAiDock').style.getPropertyValue('width'),
     inlinePad:document.getElementById('marketingGate').style.getPropertyValue('padding-right'),
+    inlineBoxSizing:document.getElementById('marketingGate').style.getPropertyValue('box-sizing'),
+    inlineMaxWidth:document.getElementById('marketingGate').style.getPropertyValue('max-width'),
     computedPad:parseFloat(getComputedStyle(document.getElementById('marketingGate')).paddingRight)
   }));
   assert.equal(mobile.flag,'','mobile must release desktop narrow-rail ownership');
   assert.equal(mobile.inlineWidth,'','mobile must fall back to the existing responsive overlay contract');
   assert.equal(mobile.inlinePad,'','mobile must release desktop market-lane ownership');
+  assert.equal(mobile.inlineBoxSizing,'','mobile must release desktop market gate sizing ownership');
+  assert.equal(mobile.inlineMaxWidth,'','mobile must release desktop market max-width ownership');
   assert.equal(mobile.computedPad,0,'mobile must not retain a dead desktop lane');
   assert.deepEqual(errors,[],'narrow Gemini runtime contract must not raise browser errors');
-  console.log('V275_PUBLIC_GEMINI_PARITY_PASS: narrow rail, compact controls, clutter-free chat, bottom composer, close/reopen lane recovery, mobile release');
+  console.log('V277_PUBLIC_GEMINI_LANE_PASS: narrow rail, compact controls, clutter-free chat, border-box content lane, close/reopen recovery, mobile release');
 }finally{
   await browser.close();
 }
