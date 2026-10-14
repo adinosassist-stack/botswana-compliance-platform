@@ -1482,6 +1482,7 @@
       reliability.append(reliabilityBody);
       reliability.addEventListener("toggle",async()=>{
         if(!reliability.open||!canEdit())return;
+        const activeCompany=q("#companySelect")?.value||"";
         reliabilityBody.replaceChildren(text("div","Checking reliability evidence…","owner-command-empty"));
         try{
           const payload=await request("/api/ai/operator/reliability?days=7");
@@ -1491,7 +1492,7 @@
           const verified=summary.status==="evaluated"&&total>0;
           const score=verified?String(Math.round(100*Number(summary.counts?.success||0)/total))+"%":"—";
           // No verified outcome evidence means no numerical reliability score.
-          if(!canEdit())return;
+          if(!canEdit()||!reliability.open||(q("#companySelect")?.value||"")!==activeCompany)return;
           reliabilityBody.replaceChildren(
             text("b","Reliability score: "+score),
             text("p","Observed runs: "+total+" · Unverified: "+Number(summary.counts?.unverified||0)),
@@ -1499,6 +1500,7 @@
             text("p","Recommendation-only improvements. No changes are applied automatically.")
           );
         }catch{
+          if(!canEdit()||!reliability.open||(q("#companySelect")?.value||"")!==activeCompany)return;
           reliabilityBody.replaceChildren(text("div","Reliability advice is unavailable or disabled.","owner-command-empty"));
         }
       });
