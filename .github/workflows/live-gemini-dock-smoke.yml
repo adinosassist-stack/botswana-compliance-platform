@@ -70,14 +70,16 @@ jobs:
 
           await page.goto(process.env.ORIGIN+'/',{waitUntil:'networkidle',timeout:45000});
           await page.waitForSelector('#thebeAiDock[data-surface="public"]',{state:'visible',timeout:15000});
-          await page.waitForTimeout(500);
+          await page.waitForTimeout(600);
 
-          const contract=await page.evaluate(()=>{
+          const readContract=()=>page.evaluate(()=>{
             const dock=document.querySelector('#thebeAiDock[data-surface="public"]');
             const gate=document.getElementById('marketingGate');
             const rect=dock.getBoundingClientRect();
             const style=getComputedStyle(dock);
             const gateRect=gate?.getBoundingClientRect();
+            const gateStyle=gate?getComputedStyle(gate):null;
+            const gatePaddingRight=parseFloat(gateStyle?.paddingRight||'0')||0;
             const compose=dock.querySelector('.thebe-ai-compose');
             const textarea=dock.querySelector('.thebe-ai-compose textarea');
             const send=dock.querySelector('.thebe-ai-send');
@@ -86,6 +88,8 @@ jobs:
             const css=[...document.querySelectorAll('link[href*="market-thebe-gemini-v273.css"]')].map(node=>node.href);
             const js=[...document.querySelectorAll('script[src*="market-thebe-gemini-narrow-v274.js"]')].map(node=>node.src);
             return {
+              viewportWidth:innerWidth,
+              viewportHeight:innerHeight,
               width:rect.width,
               ratio:rect.width/innerWidth,
               top:rect.top,
@@ -94,8 +98,12 @@ jobs:
               height:rect.height,
               background:style.backgroundColor,
               radius:style.borderRadius,
-              gateRight:gateRect?.right??0,
               dockLeft:rect.left,
+              gateRight:gateRect?.right??0,
+              gatePaddingRight,
+              gateContentRight:(gateRect?.right??0)-gatePaddingRight,
+              gateBoxSizing:gateStyle?.boxSizing||'',
+              documentScrollWidth:document.documentElement.scrollWidth,
               composerVisible:!!compose&&!hidden(compose),
               composerRadius:compose?getComputedStyle(compose).borderRadius:'',
               textareaVisible:!!textarea&&!hidden(textarea),
@@ -114,6 +122,8 @@ jobs:
             };
           });
 
+          const contract=await readContract();
+          console.log('LIVE_GEMINI_DOCK_CONTRACT',JSON.stringify(contract));
           assert.ok(contract.width>=360&&contract.width<=420,`dock width must stay Gemini-narrow: ${JSON.stringify(contract)}`);
           assert.ok(contract.ratio<0.30,`dock must remain below 30% of 1440px viewport: ${JSON.stringify(contract)}`);
           assert.ok(Math.abs(contract.top-16)<=2,`dock top edge must be about 16px: ${JSON.stringify(contract)}`);
@@ -131,17 +141,45 @@ jobs:
           assert.equal(contract.sendVisible,true,'circular send control must be visible');
           assert.equal(contract.sendRadius,'50%','send control must be circular');
           assert.equal(contract.iconRadius,'50%','header icon controls must be circular');
-          assert.ok(contract.gateRight<=contract.dockLeft+1,'market content must stop before the assistant rail');
-          assert.ok(contract.css.some(url=>url.includes('20261014-gemini-narrow-v276')),'fresh narrow Gemini CSS cache-bust must be live');
-          assert.ok(contract.js.some(url=>url.includes('20261014-gemini-narrow-v276')),'fresh narrow Gemini JS cache-bust must be live');
+          assert.equal(contract.gateBoxSizing,'border-box','market gate must reserve the dock lane inside its own width');
+          assert.ok(Math.abs(contract.gatePaddingRight-(contract.width+32))<=2,`market lane must reserve dock width plus Gemini gap: ${JSON.stringify(contract)}`);
+          assert.ok(contract.gateContentRight<=contract.dockLeft+1,`market content box must stop before the assistant rail: ${JSON.stringify(contract)}`);
+          assert.ok(contract.documentScrollWidth<=contract.viewportWidth+1,`dock reservation must not create horizontal overflow: ${JSON.stringify(contract)}`);
+          assert.ok(contract.css.some(url=>url.includes('20261014-gemini-narrow-v277')),'fresh narrow Gemini CSS cache-bust must be live');
+          assert.ok(contract.js.some(url=>url.includes('20261014-gemini-narrow-v277')),'fresh narrow Gemini JS cache-bust must be live');
           assert.equal(contract.narrowMarker,'1','runtime narrow-rail marker must be active');
+          assert.equal(contract.release,'20261014-market-thebe-gemini-lane-v277','live runtime must report the current Gemini lane release');
 
           const textarea=page.locator('#thebeAiDock[data-surface="public"] .thebe-ai-compose textarea');
           await textarea.fill('Gemini dock interaction check');
           assert.equal(await textarea.inputValue(),'Gemini dock interaction check','composer must accept text without submitting');
           await textarea.fill('');
 
-          console.log('LIVE_GEMINI_DOCK_CONTRACT',JSON.stringify(contract));
+          await page.setViewportSize({width:1100,height:900});
+          await page.waitForTimeout(300);
+          const medium=await readContract();
+          console.log('LIVE_GEMINI_DOCK_MEDIUM',JSON.stringify(medium));
+          assert.ok(medium.width>=332&&medium.width<=360,`medium desktop dock must stay narrow: ${JSON.stringify(medium)}`);
+          assert.ok(Math.abs(medium.top-12)<=2&&Math.abs(medium.right-12)<=2&&Math.abs(medium.bottom-12)<=2,`medium desktop edges must be about 12px: ${JSON.stringify(medium)}`);
+          assert.equal(medium.gateBoxSizing,'border-box','medium market gate must remain border-box');
+          assert.ok(Math.abs(medium.gatePaddingRight-(medium.width+24))<=2,`medium market lane must reserve dock width plus gap: ${JSON.stringify(medium)}`);
+          assert.ok(medium.gateContentRight<=medium.dockLeft+1,`medium market content box must stop before the rail: ${JSON.stringify(medium)}`);
+          assert.ok(medium.documentScrollWidth<=medium.viewportWidth+1,'medium dock must not create horizontal overflow');
+
+          await page.setViewportSize({width:1440,height:1100});
+          await page.waitForTimeout(250);
+          const close=page.locator('#thebeAiDock[data-surface="public"] button[aria-label*="close" i]').first();
+          if(await close.count()){
+            await close.click();
+            await page.waitForTimeout(250);
+            const released=await page.evaluate(()=>({
+              hidden:document.getElementById('thebeAiDock')?.hidden||document.getElementById('thebeAiDock')?.getAttribute('aria-hidden')==='true'||getComputedStyle(document.getElementById('thebeAiDock')).display==='none',
+              gatePaddingRight:parseFloat(getComputedStyle(document.getElementById('marketingGate')).paddingRight||'0')||0
+            }));
+            console.log('LIVE_GEMINI_DOCK_CLOSE',JSON.stringify(released));
+            assert.ok(released.hidden||released.gatePaddingRight===0,'closing/collapsing Thebe must release the market content lane');
+          }
+
           assert.deepEqual(errors,[],'live public dock must not raise browser errors');
           await browser.close();
           console.log('LIVE_GEMINI_DOCK_PASS');
