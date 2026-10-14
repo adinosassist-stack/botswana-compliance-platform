@@ -23,6 +23,7 @@ try{
 
   const root=await page.goto(ORIGIN+'/?mobile-smoke='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});
   assert.equal(root?.status(),200,'mobile root must return HTTP 200');
+  await page.waitForSelector('#marketingGate[data-market-growth-v20="1"]',{state:'visible',timeout:15000});
   const publicState=await page.evaluate(()=>({
     title:document.title,
     hero:(document.querySelector('.hero h1')?.textContent||'').trim(),
