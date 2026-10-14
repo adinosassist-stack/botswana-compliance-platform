@@ -83,6 +83,25 @@
     if(primary)text(primary,"Start free for 14 days");
   }
 
+  function ensureLink(container,label,href){
+    if(!container||container.querySelector(`a[href="${href}"]`))return;
+    const link=document.createElement("a");
+    link.href=href;
+    link.textContent=label;
+    container.append(link);
+  }
+
+  function updateTrustLinks(){
+    const nav=document.querySelector(".nav .links");
+    ensureLink(nav,"Trust","/trust/");
+    const footer=document.querySelector(".footer .footerlinks");
+    ensureLink(footer,"Trust","/trust/");
+    ensureLink(footer,"Privacy","/privacy/");
+    ensureLink(footer,"Terms","/terms/");
+    ensureLink(footer,"Security","/security/");
+    ensureLink(footer,"AI Data Use","/ai-data/");
+  }
+
   function applyGrowthFixes(){
     updateSearchMetadata();
     const gate=document.getElementById("marketingGate");
@@ -93,6 +112,7 @@
       gate.dataset.marketGrowthV20="1";
     }
     updateWorkspacePlanPresentation();
+    updateTrustLinks();
   }
 
   updateSearchMetadata();
