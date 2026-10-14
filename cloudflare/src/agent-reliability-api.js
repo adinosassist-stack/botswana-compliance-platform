@@ -6,7 +6,7 @@ export async function handleReliabilityAdvisorRequest(request,{auth,env}={}){
   if(url.pathname!=="/api/ai/operator/reliability"||request.method!=="GET")return respond({error:"not_found"},404);
   if(!auth?.tenant_id)return respond({error:"unauthorized"},401);
   if(!/^[a-zA-Z0-9_.:-]{1,100}$/.test(String(auth.tenant_id)))return respond({error:"unauthorized"},401);
-  if(String(auth.role||"").toLowerCase()!=="owner")return respond({error:"forbidden"},403);
+  if(auth.role!=="owner")return respond({error:"forbidden"},403);
   if(String(env?.THEBE_AGENT_RELIABILITY_ADVISOR_ENABLED||"").toLowerCase()!=="true")return respond({error:"not_found"},404);
   const raw=url.searchParams.get("days");
   if(raw!==null&&!/^(?:[1-9]|[1-8][0-9]|90)$/.test(raw))return respond({error:"invalid_window"},400);
