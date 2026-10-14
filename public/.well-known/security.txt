@@ -1,0 +1,6 @@
+Contact: https://thebedesk.com/security/
+Expires: 2027-10-14T23:59:59Z
+Preferred-Languages: en
+Canonical: https://thebedesk.com/.well-known/security.txt
+Policy: https://thebedesk.com/security/
+Acknowledgments: https://thebedesk.com/security/
