@@ -1507,6 +1507,12 @@
           reliabilityBody.replaceChildren(text("div","Reliability advice is unavailable or disabled.","owner-command-empty"));
         }
       });
+      document.addEventListener("change",event=>{
+        if(event.target?.id!=="companySelect")return;
+        ++reliabilityRequestSeq;
+        reliability.open=false;
+        reliabilityBody.replaceChildren(text("div","Open to load reliability signals for the selected company.","owner-command-empty"));
+      });
       shell.append(reliability);
     }
 
