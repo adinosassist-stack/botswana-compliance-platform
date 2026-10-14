@@ -1,6 +1,7 @@
 import {BOTSWANA_FOUNDATION_PACK_V1,BOTSWANA_FOUNDATION_PACK_V1_HASH} from "./regulatory-pack-registry.js";
 import {handleFinanceRequest,financeSummary} from "./finance-core.js";
 import {handleOwnerOperatorRequest,isOwnerOperatorPath} from "./owner-operator-api.js";
+import {handleReliabilityAdvisorRequest} from "./agent-reliability-api.js";
 import {financeReceivablesSummary} from "./finance-receivables.js";
 import {processWhatsAppInboundMessages} from "./whatsapp-inbound-core.js";
 import {runDueFinanceWatchTasks} from "./finance-watch-durable-loop.js";
@@ -5594,6 +5595,7 @@ export default {
       if(!mutationCsrfOk(req,a))return json({error:"csrf_failed"},403);
       if(!workspaceSessionRole(a)&&!selfServiceApi(url.pathname,req.method))return json({error:"workspace_role_forbidden"},403);
       if(req.method==="GET"&&!restrictedWorkspaceReadAllowed(url.pathname,a.role))return json({error:"workspace_role_read_forbidden"},403);
+      if(url.pathname==="/api/ai/operator/reliability")return handleReliabilityAdvisorRequest(req,{auth:a,env});
       if(url.pathname==="/api/auth/me"&&req.method==="GET")return json({user:{id:a.user_id,email:a.email,displayName:a.display_name,role:a.role,tenantId:a.tenant_id,tenantName:a.tenant_name,onboardingComplete:!!a.onboarding_complete},csrfToken:a.csrf_token});
       if(!["GET","HEAD","OPTIONS"].includes(req.method)&&!restrictedWorkspaceMutationAllowed(url.pathname,req.method,a.role))return json({error:"workspace_role_mutation_forbidden"},403);
       if(!evidenceUploadsEnabled(env)&&evidenceMutationDisabled(url,req.method))return json({error:"evidence_uploads_temporarily_disabled",evidenceUploadsEnabled:false},503);
