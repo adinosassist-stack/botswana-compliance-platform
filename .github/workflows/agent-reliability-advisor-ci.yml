@@ -9,6 +9,7 @@ on:
       - 'cloudflare/src/agent-reliability-api.js'
       - 'tests/agent-reliability-api.mjs'
       - 'tests/agent-reliability-preintegration.mjs'
+      - 'cloudflare/src/worker.js'
       - '.github/workflows/agent-reliability-advisor-ci.yml'
 permissions:
   contents: read
@@ -27,4 +28,5 @@ jobs:
       - run: node tests/agent-reliability-telemetry-adapter.mjs
       - run: node --check cloudflare/src/agent-reliability-api.js
       - run: node tests/agent-reliability-api.mjs
+      - run: node --check cloudflare/src/worker.js
       - run: node tests/agent-reliability-preintegration.mjs
