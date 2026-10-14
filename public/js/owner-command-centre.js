@@ -1487,12 +1487,14 @@
           const payload=await request("/api/ai/operator/reliability?days=7");
           if(payload?.mode!=="advisor_only"||payload?.canMutate!==false)throw new Error("Invalid advisory response");
           const summary=payload.summary||{};
-          const total=Number(summary.totalRuns||0);
-          const score=summary.status==="evaluated"&&total>0?String(summary.reliabilityScore??"—"):"—";
+          const total=Number(summary.total||0);
+          const verified=summary.status==="evaluated"&&total>0;
+          const score=verified?String(Math.round(100*Number(summary.counts?.success||0)/total))+"%":"—";
           // No verified outcome evidence means no numerical reliability score.
           if(!canEdit())return;
           reliabilityBody.replaceChildren(
             text("b","Reliability score: "+score),
+            text("p","Observed runs: "+total+" · Unverified: "+Number(summary.counts?.unverified||0)),
             text("p","Cost telemetry never proves task success. Unverified runs are never counted as successful."),
             text("p","Recommendation-only improvements. No changes are applied automatically.")
           );
