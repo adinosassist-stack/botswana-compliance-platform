@@ -57,7 +57,7 @@ assert.match(launch,/`065_v243_business_goal_observer\.sql`/,"launch chain must 
 assert.match(launch,/`066_v285_agent_responsibilities\.sql`/,"launch chain must retain migration 066");
 assert.match(launch,/through `069_agent_cost_shadow_events\.sql`/,"launch release tip must advance to migration 067");
 assert.doesNotMatch(launch,/No new schema migration is required\./);
-assert.match(deploy,/Current reviewed schema delta: 068_agent_cost_accounting\.sql/);
+assert.match(deploy,/Current reviewed schema delta: 069_agent_cost_shadow_events\.sql/);
 assert.match(cloudflareReadme,/063_v179_property_valuer_credential_binding\.sql/);
 for(const path of [
   "tests/v78-12167-session-generation-revocation-adversarial.mjs",
