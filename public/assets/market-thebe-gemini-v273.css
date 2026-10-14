@@ -180,11 +180,16 @@ html body #thebeAiDock[data-surface="public"] :is(.thebe-ai-public-signin,.thebe
   /* The launcher owns a viewport lane; padding alone cannot prevent a fixed
      button from covering the hero and cards as the market page scrolls. */
   body:has(#thebeAiDockPill[data-surface="public"]:not([hidden])) #marketingGate{
+    position:fixed!important;
+    top:0!important;
+    left:0!important;
+    right:0!important;
     bottom:calc(64px + env(safe-area-inset-bottom))!important;
     height:calc(100dvh - 64px - env(safe-area-inset-bottom))!important;
     min-height:0!important;
     padding-bottom:24px!important;
     box-sizing:border-box!important;
+    overflow:auto!important;
   }
   html body #thebeAiDockPill[data-surface="public"]{
     position:fixed!important;
