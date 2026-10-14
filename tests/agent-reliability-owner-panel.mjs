@@ -22,4 +22,6 @@ assert.match(source,/Recommendation-only improvements/);
 assert.match(source,/const activeCompany=q\("#companySelect"\)\?\.value\|\|""/);
 assert.match(source,/!==activeCompany\)return/);
 assert.match(source,/!reliability\.open/);
+assert.match(source,/const requestSeq=\+\+reliabilityRequestSeq/);
+assert.match(source,/requestSeq!==reliabilityRequestSeq/);
 console.log("owner reliability panel contract passed");
