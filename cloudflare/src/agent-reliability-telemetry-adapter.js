@@ -27,6 +27,7 @@ export async function loadReliabilityAdvisorSummary(env, tenantId, {windowDays=7
     const rows=[];
     const seenRuns=new Set();
     for (const row of Array.isArray(result?.results)?result.results:[]) {
+      if(typeof row?.detail_json!=="string"||row.detail_json.length>32768)continue;
       let event;
       try {event=JSON.parse(String(row.detail_json||""));}catch{continue;}
       const adapted=adaptShadowCostEvent(event,tenantId);
