@@ -19,4 +19,7 @@ assert.match(source,/:"—"/);
 assert.doesNotMatch(source,/autofix|auto[- ]?fix|mutate agent|apply recommendation/i);
 assert.match(source,/Recommendation-only improvements/);
 
+assert.match(source,/const activeCompany=q\("#companySelect"\)\?\.value\|\|""/);
+assert.match(source,/!==activeCompany\)return/);
+assert.match(source,/!reliability\.open/);
 console.log("owner reliability panel contract passed");
