@@ -5,6 +5,7 @@ export async function handleReliabilityAdvisorRequest(request,{auth,env}={}){
   const url=new URL(request.url);
   if(url.pathname!=="/api/ai/operator/reliability"||request.method!=="GET")return respond({error:"not_found"},404);
   if(!auth?.tenant_id)return respond({error:"unauthorized"},401);
+  if(!/^[a-zA-Z0-9_.:-]{1,100}$/.test(String(auth.tenant_id)))return respond({error:"unauthorized"},401);
   if(String(auth.role||"").toLowerCase()!=="owner")return respond({error:"forbidden"},403);
   if(String(env?.THEBE_AGENT_RELIABILITY_ADVISOR_ENABLED||"").toLowerCase()!=="true")return respond({error:"not_found"},404);
   const raw=url.searchParams.get("days");
