@@ -6,6 +6,7 @@
   ]);
   const VALUE_GLOBALS=new Set(["activeProofAction"]);
   const MAX_EXPRESSION_LENGTH=600;
+  const LEGAL_ACCEPTANCE_VERSION="2026-10-14";
   function splitTopLevel(input,separator){const out=[];let current="",quote=null,escape=false,depth=0;for(const ch of String(input||"")){if(quote){current+=ch;if(escape)escape=false;else if(ch==="\\")escape=true;else if(ch===quote)quote=null;continue}if(ch==="'"||ch==='"'){quote=ch;current+=ch;continue}if(ch==="("){depth++;current+=ch;continue}if(ch===")"){depth--;if(depth<0)throw new Error("Invalid delegated event expression");current+=ch;continue}if(ch===separator&&depth===0){out.push(current.trim());current="";continue}current+=ch}if(quote||depth!==0)throw new Error("Invalid delegated event expression");if(current.trim())out.push(current.trim());return out}
   function decodeQuoted(token){const q=token[0];if((q!=="'"&&q!=='"')||token.at(-1)!==q)throw new Error("Invalid string argument");const body=token.slice(1,-1);let out="",escape=false;for(const ch of body){if(escape){out+=ch==="n"?"\n":ch==="r"?"\r":ch==="t"?"\t":ch;escape=false}else if(ch==="\\")escape=true;else out+=ch}if(escape)out+="\\";return out}
   function parseValue(token,element,event){const t=String(token||"").trim();if(!t)return undefined;if((t.startsWith("'")&&t.endsWith("'"))||(t.startsWith('"')&&t.endsWith('"')))return decodeQuoted(t);if(/^-?\d+(?:\.\d+)?$/.test(t))return Number(t);if(t==="true")return true;if(t==="false")return false;if(t==="null")return null;if(t==="undefined")return undefined;if(t==="event")return event;if(t==="this.value")return element?.value;if(t==="this.checked")return !!element?.checked;if(VALUE_GLOBALS.has(t))return global[t];throw new Error(`Unsupported delegated event argument: ${t.slice(0,80)}`)}
@@ -16,6 +17,46 @@
   function executeStatement(statement,element,event){let s=String(statement||"").trim();if(!s)return;if(s.startsWith("if(event.target===this)")){if(event.target!==element)return;s=s.slice("if(event.target===this)".length).trim()}if(s==="window.print()"){global.print?.();return}let m=s.match(/^window\.location\.assign\((['"])(.*)\1\)$/s);if(m){const dest=safeSameOriginUrl(decodeQuoted(m[1]+m[2]+m[1]));if(!dest)throw new Error("Blocked cross-origin delegated navigation");global.location.assign(dest);return}m=s.match(/^navigator\.clipboard\?\.writeText\(document\.getElementById\((['"])([A-Za-z][A-Za-z0-9_.:-]*)\1\)\.value\)$/);if(m){const value=global.document?.getElementById(m[2])?.value??"";global.navigator?.clipboard?.writeText?.(String(value));return}m=s.match(/^setTimeout\(([A-Za-z_$][\w$]*),\s*(\d{1,5})\)$/);if(m){if(!ALLOWED_ACTIONS.has(m[1])||typeof global[m[1]]!=="function")throw new Error("Blocked delegated timer action");global.setTimeout(()=>global[m[1]](),Math.min(5000,Number(m[2])));return}const call=parseCall(s,element,event);if(!call||typeof global[call.name]!=="function")throw new Error(`Blocked delegated action: ${s.slice(0,100)}`);const result=global[call.name](...call.args);if(call.name==="enterStandalonePreview"&&result===false&&typeof global.openAuthFromMarketing==="function")return global.openAuthFromMarketing("register");return result}
   function runExpression(expression,element,event){if(!isAllowedExpression(expression))throw new Error("Blocked delegated event expression");let result;for(const statement of splitTopLevel(expression,";"))result=executeStatement(statement,element,event);return result}
   function dispatch(event){const attr=`data-bw-on${event.type}`,path=typeof event.composedPath==="function"?event.composedPath():[];const nodes=path.length?path:[event.target];for(const node of nodes){if(!(node instanceof global.Element))continue;const expression=node.getAttribute(attr);if(!expression)continue;try{runExpression(expression,node,event)}catch(error){console.error("BW delegated event blocked/failed",{type:event.type,error:String(error)});global.BW?.notify?.error?.("That action could not be completed safely.")}}}
+  function installRegistrationLegalConsent(){
+    const doc=global.document;if(!doc)return;
+    const isRegistrationTarget=value=>{try{const u=new URL(String(value?.url||value||""),global.location?.href||"https://invalid.local/");return u.pathname==="/api/auth/register"||u.pathname==="/__thebe_api/auth/register"||(u.pathname==="/"&&u.searchParams.get("__thebe_api_path")==="/api/auth/register")}catch{return false}};
+    if(typeof global.fetch==="function"&&global.__THEBE_REGISTRATION_LEGAL_FETCH__!==true){
+      const nativeFetch=global.fetch.bind(global);global.__THEBE_REGISTRATION_LEGAL_FETCH__=true;
+      global.fetch=(input,init={})=>{
+        const method=String(init?.method||input?.method||"GET").toUpperCase();
+        if(method!=="POST"||!isRegistrationTarget(input))return nativeFetch(input,init);
+        const accepted=doc.getElementById("authLegalConsent")?.checked===true||doc.getElementById("acceptLegal")?.checked===true;
+        const headers=new Headers(init?.headers||input?.headers||{});
+        if(accepted)headers.set("x-thebe-legal-acceptance",LEGAL_ACCEPTANCE_VERSION);else headers.delete("x-thebe-legal-acceptance");
+        let body=init?.body;
+        if(accepted&&typeof body==="string")try{const parsed=JSON.parse(body);parsed.acceptLegal=true;body=JSON.stringify(parsed)}catch{}
+        return nativeFetch(input,{...init,headers,body});
+      };
+    }
+    const sync=()=>{
+      const registerTab=doc.getElementById("registerTab"),field=doc.getElementById("authLegalConsentField");if(!field)return;
+      const registering=registerTab?.classList.contains("active")===true;field.hidden=!registering;
+      for(const button of doc.querySelectorAll(".social-auth-btn"))button.style.display=registering?"none":"";
+      if(!registering){const checkbox=doc.getElementById("authLegalConsent");if(checkbox)checkbox.checked=false}
+    };
+    const install=()=>{
+      const submit=doc.getElementById("authSubmit");if(!submit)return;
+      if(!doc.getElementById("authLegalConsentField")){
+        const field=doc.createElement("div");field.id="authLegalConsentField";field.hidden=true;field.style.cssText="display:flex;align-items:flex-start;gap:10px;font-size:13px;line-height:1.45;color:#4f585e";
+        const checkbox=doc.createElement("input");checkbox.id="authLegalConsent";checkbox.type="checkbox";checkbox.style.cssText="width:auto;margin:3px 0 0;flex:0 0 auto";
+        const label=doc.createElement("label");label.htmlFor="authLegalConsent";label.style.cssText="font-size:13px;font-weight:500;margin:0";
+        label.append("I agree to the ");const terms=doc.createElement("a");terms.href="/terms/";terms.target="_blank";terms.rel="noopener noreferrer";terms.textContent="Terms of Service";label.append(terms," and acknowledge the ");const privacy=doc.createElement("a");privacy.href="/privacy/";privacy.target="_blank";privacy.rel="noopener noreferrer";privacy.textContent="Privacy Notice";label.append(privacy,".");
+        field.append(checkbox,label);submit.parentNode?.insertBefore(field,submit);
+      }
+      const registerTab=doc.getElementById("registerTab"),loginTab=doc.getElementById("loginTab");
+      if(global.MutationObserver&&registerTab&&!registerTab.dataset.legalConsentObserver){registerTab.dataset.legalConsentObserver="1";new global.MutationObserver(sync).observe(registerTab,{attributes:true,attributeFilter:["class"]})}
+      registerTab?.addEventListener("click",()=>global.setTimeout?.(sync,0),true);loginTab?.addEventListener("click",()=>global.setTimeout?.(sync,0),true);
+      submit.addEventListener("click",event=>{if(doc.getElementById("registerTab")?.classList.contains("active")!==true)return;if(doc.getElementById("authLegalConsent")?.checked===true)return;event.preventDefault();event.stopImmediatePropagation();const error=doc.getElementById("authError");if(error){error.textContent="Agree to the Terms of Service and acknowledge the Privacy Notice before creating your account.";error.classList.add("show")}doc.getElementById("authLegalConsent")?.focus()},true);
+      sync();
+    };
+    if(doc.readyState==="loading")doc.addEventListener("DOMContentLoaded",install,{once:true});else install();
+  }
+  installRegistrationLegalConsent();
   function installMobileProductionHardening(){const doc=global.document;if(!doc||typeof doc.querySelector!=="function"||typeof doc.querySelectorAll!=="function"||typeof doc.createElement!=="function")return;const mode=(doc.querySelector('meta[name="bw-runtime-mode"]')?.content||"production").toLowerCase();const production=mode!=="preview";let touchGuardActive=false;let previousTouchValue="";let previousTouchPriority="";const syncMobileTouch=()=>{const body=doc.body;if(!body)return;const open=body.classList.contains("mobile-nav-open");if(open){if(!touchGuardActive){previousTouchValue=body.style.getPropertyValue("touch-action");previousTouchPriority=body.style.getPropertyPriority("touch-action");touchGuardActive=true}body.style.setProperty("touch-action","auto","important");body.dataset.bwMobileTouchGuard="1";return}if(touchGuardActive){if(previousTouchValue)body.style.setProperty("touch-action",previousTouchValue,previousTouchPriority);else body.style.removeProperty("touch-action");delete body.dataset.bwMobileTouchGuard;touchGuardActive=false}};const installTouchObserver=()=>{const body=doc.body;if(!body)return;syncMobileTouch();if(body.dataset.bwMobileTouchObserver==="1"||typeof global.MutationObserver!=="function")return;body.dataset.bwMobileTouchObserver="1";new global.MutationObserver(syncMobileTouch).observe(body,{attributes:true,attributeFilter:["class"]})};const apply=()=>{if(!doc.getElementById("bw-mobile-runtime-hardening")){const style=doc.createElement("style");style.id="bw-mobile-runtime-hardening";style.textContent=`@media (max-width:760px){body.mobile-nav-open{overflow:hidden!important;touch-action:auto!important}body.mobile-nav-open #workspaceSidebar,body.mobile-nav-open #workspaceSidebar>.nav{touch-action:pan-y!important;overscroll-behavior:contain!important}.mobile-nav-backdrop{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}}${production?'.previewmode{display:none!important}':''}`;(doc.head||doc.documentElement).appendChild(style)}if(production){doc.body?.classList.remove("standalone-preview");doc.querySelectorAll(".previewmode").forEach(el=>{el.hidden=true;el.setAttribute("aria-hidden","true");el.style.setProperty("display","none","important")})}const nav=doc.querySelector("#workspaceSidebar>.nav");nav?.style.setProperty("touch-action","pan-y","important");nav?.style.setProperty("overscroll-behavior","contain","important");installTouchObserver()};if(doc.readyState==="loading")doc.addEventListener("DOMContentLoaded",apply,{once:true});else apply()}
   installMobileProductionHardening();
   for(const type of ["click","change","input","keydown","keyup","submit"])global.document?.addEventListener(type,dispatch,false);
