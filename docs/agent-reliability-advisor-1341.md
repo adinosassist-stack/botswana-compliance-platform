@@ -31,10 +31,10 @@ Draft PR #1510 ports the pure advisor, read-only telemetry adapter and owner-onl
 - [x] Backend adapter, pure evaluator and owner-only authenticated route integrated on the draft branch.
 - [x] Owner-only dashboard panel integrated with DOM-safe text rendering, no write actions and a 7-day read.
 - [x] CI contracts cover tenant isolation, malformed authenticated tenant IDs, role spoofing, feature default-off, worker route ordering, panel rendering and no autonomous fixes.
-- [ ] All required CI checks on the exact promotion commit complete successfully.
+- [x] All required CI checks on commit `1d3137d` completed successfully (11/11); rerun this gate if the branch changes.
 - [ ] Independent reviewer verifies tenant/owner isolation, origin/session gates, no raw secrets in telemetry, bounded queries and default-off behavior.
 - [ ] Runtime smoke test in an isolated tenant with the flag enabled only there: owner sees an advisory-only result; manager receives 403; unrelated tenant cannot access data; disabled flag yields 404; unavailable DB yields 503.
-- [ ] Owner panel checked on mobile and desktop, including a tenant/company switch during an in-flight request.
+- [ ] Owner panel checked on mobile and desktop, including a tenant/company switch during an in-flight request. Automated company-switch invalidation and out-of-order response contracts are passing, but browser/device smoke testing is still outstanding.
 - [ ] Rollback owner approves: disable THEBE_AGENT_RELIABILITY_ADVISOR_ENABLED, verify 404, and revert the PR if necessary.
 - [ ] Explicit human approval for merge and any production activation.
 
