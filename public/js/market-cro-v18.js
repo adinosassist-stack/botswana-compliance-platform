@@ -61,15 +61,6 @@
     if(safety)safety.textContent="Business-aware · role-aware · human-reviewed. Thebe can prepare and suggest; important business decisions remain with people.";
   }
 
-  function addAnnualNote(section){
-    if(!section||section.querySelector(".annual-saving-note"))return;
-    const head=section.querySelector(".section-head");
-    if(!head)return;
-    const note=make("div","annual-saving-note");
-    note.append(make("strong",null,"Annual billing"),document.createTextNode(" · 2 months free on supported plans"));
-    head.append(note);
-  }
-
   function clarifyPricing(gate){
     const section=gate.querySelector("#pricing");
     if(!section)return;
@@ -91,7 +82,6 @@
       const action=card.querySelector(".marketing-start-action");
       if(action)action.textContent="Start free for 14 days";
     });
-    addAnnualNote(section);
 
     const note=section.querySelector(".payment-note");
     if(note){
