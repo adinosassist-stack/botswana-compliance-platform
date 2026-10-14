@@ -74,7 +74,7 @@ assert.match(workflow,/migrate-production-v217-jit-execution-permits\.mjs/);
 const step063=deploy.indexOf("migrations/063_v179_property_valuer_credential_binding.sql");
 const step064=deploy.indexOf("migrations/064_v217_jit_execution_permits.sql");
 assert.ok(step063>=0&&step064>step063,"fresh D1 deploy sequence must preserve migration 063 before migration 064");
-assert.match(deploy,/Current reviewed schema delta: 068_agent_cost_accounting\.sql/);
+assert.match(deploy,/Current reviewed schema delta: 069_agent_cost_shadow_events\.sql/);
 assert.match(launch,/`065_v243_business_goal_observer\.sql`/,"launch chain must retain migration 065");
 assert.match(launch,/`066_v285_agent_responsibilities\.sql`/,"launch chain must retain migration 066");
 assert.match(launch,/through `069_agent_cost_shadow_events\.sql`/,"launch release tip must advance to migration 067");
