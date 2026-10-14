@@ -1,10 +1,11 @@
 (()=>{
   "use strict";
 
-  const RELEASE="20261013-market-thebe-gemini-parity-v275";
+  const RELEASE="20261014-market-thebe-gemini-lane-v277";
   const DOCK_ID="thebeAiDock";
   const GATE_ID="marketingGate";
   const OWNED_PROPS=["left","right","top","bottom","width","min-width","max-width","height","min-height","max-height","border-radius","box-sizing"];
+  const GATE_OWNED_PROPS=["padding-right","box-sizing","max-width"];
   let frame=0;
 
   function setImportant(node,property,value){
@@ -51,7 +52,7 @@
       delete dock.dataset.geminiNarrowV274;
       delete dock.dataset.geminiNarrowRelease;
     }
-    clear(gate,"padding-right");
+    for(const property of GATE_OWNED_PROPS)clear(gate,property);
   }
 
   function applyGeminiNarrowGeometry(){
@@ -80,8 +81,11 @@
     setImportant(dock,"border-radius",`${size.radius}px`);
     setImportant(dock,"box-sizing","border-box");
 
-    /* Gemini behaviour: the content lane exists only while the rail is visible.
-       Closing/hiding Thebe immediately gives the full market width back. */
+    /* Keep the market's content box left of the Gemini rail even if another
+       market stylesheet gives the gate width:100%. Border-box prevents the
+       reserved padding from expanding the page underneath the fixed rail. */
+    setImportant(gate,"box-sizing","border-box");
+    setImportant(gate,"max-width","100%");
     const reserve=dockIsVisible(dock)?`${size.width+size.laneGap}px`:"0px";
     setImportant(gate,"padding-right",reserve);
     return true;
