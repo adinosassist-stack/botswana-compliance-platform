@@ -26,5 +26,12 @@ const invalidWindow=await read(await handleReliabilityAdvisorRequest(request("ht
   auth:{tenant_id:"tenant-A",role:"owner"},env:{DB:db,THEBE_AGENT_RELIABILITY_ADVISOR_ENABLED:"true"}
 }));
 assert.equal(invalidWindow.status,400);
+for(const tenant of ["../other","tenant with spaces",""]){
+  const attempt=await read(await handleReliabilityAdvisorRequest(request(),{
+    auth:{tenant_id:tenant,role:"owner"},env:{DB:db,THEBE_AGENT_RELIABILITY_ADVISOR_ENABLED:"true"}
+  }));
+  assert.equal(attempt.status,401,"invalid authenticated tenant must be rejected");
+}
+
 
 console.log("reliability API authorization tests passed");
