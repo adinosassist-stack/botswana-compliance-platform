@@ -1,7 +1,15 @@
 name: Thebe Desk Live Gemini Dock Smoke
-run-name: Live Gemini dock ${{ github.event.workflow_run.head_sha || inputs.expected_sha }}
+run-name: Live Gemini dock ${{ github.event.workflow_run.head_sha || inputs.expected_sha || github.event.pull_request.head.sha || github.sha }}
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/live-gemini-dock-smoke.yml'
+      - 'public/assets/market-thebe-gemini-v273.css'
+      - 'public/js/market-thebe-gemini-narrow-v274.js'
+      - 'cloudflare/src/production-entry.js'
+      - 'tests/v274-public-gemini-narrow-browser.mjs'
   workflow_run:
     workflows: ["Thebe Desk Production Deploy"]
     types: [completed]
@@ -16,13 +24,14 @@ permissions:
   contents: read
 
 concurrency:
-  group: thebe-live-gemini-dock-${{ github.event.workflow_run.head_sha || inputs.expected_sha }}
+  group: thebe-live-gemini-dock-${{ github.event.workflow_run.head_sha || inputs.expected_sha || github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: false
 
 jobs:
   verify:
     name: Verify live public Thebe matches Gemini narrow dock contract
     if: >-
+      github.event_name == 'pull_request' ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.head_branch == 'main') ||
@@ -30,16 +39,31 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     env:
-      EXPECTED_SHA: ${{ github.event.workflow_run.head_sha || inputs.expected_sha }}
+      EXPECTED_SHA: ${{ github.event.workflow_run.head_sha || inputs.expected_sha || github.event.pull_request.head.sha || github.sha }}
       ORIGIN: https://thebedesk.com
 
     steps:
-      - name: Checkout exact deployed authority
+      - name: Checkout exact verification authority
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.EXPECTED_SHA }}
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Verify verification authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid EXPECTED_SHA=$EXPECTED_SHA" >&2; exit 1; }
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SHA" ]] || { echo "checkout mismatch" >&2; exit 1; }
+          if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+            [[ "${{ github.event.workflow_run.conclusion }}" == "success" ]] || { echo 'refusing non-success deployment trigger' >&2; exit 1; }
+            [[ "${{ github.event.workflow_run.head_branch }}" == "main" ]] || { echo 'refusing non-main deployment trigger' >&2; exit 1; }
+            [[ "${{ github.event.workflow_run.head_sha }}" == "$EXPECTED_SHA" ]] || { echo 'workflow_run SHA mismatch' >&2; exit 1; }
+          fi
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            [[ "${{ github.event.pull_request.head.sha }}" == "$EXPECTED_SHA" ]] || { echo 'pull_request head SHA mismatch' >&2; exit 1; }
+          fi
 
       - name: Setup pinned Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -66,54 +90,74 @@ jobs:
           const context=await browser.newContext({viewport:{width:1440,height:1100}});
           const page=await context.newPage();
           const errors=[];
+          const criticalFailures=[];
           page.on('pageerror',error=>errors.push(String(error?.stack||error)));
-
-          await page.goto(process.env.ORIGIN+'/',{waitUntil:'networkidle',timeout:45000});
-          await page.waitForSelector('#thebeAiDock[data-surface="public"]',{state:'visible',timeout:15000});
-          await page.waitForTimeout(500);
-
-          const contract=await page.evaluate(()=>{
-            const dock=document.querySelector('#thebeAiDock[data-surface="public"]');
-            const gate=document.getElementById('marketingGate');
-            const rect=dock.getBoundingClientRect();
-            const style=getComputedStyle(dock);
-            const gateRect=gate?.getBoundingClientRect();
-            const compose=dock.querySelector('.thebe-ai-compose');
-            const textarea=dock.querySelector('.thebe-ai-compose textarea');
-            const send=dock.querySelector('.thebe-ai-send');
-            const icon=dock.querySelector('.thebe-ai-icon-btn');
-            const hidden=node=>!node||getComputedStyle(node).display==='none'||node.hidden||node.getAttribute('aria-hidden')==='true';
-            const css=[...document.querySelectorAll('link[href*="market-thebe-gemini-v273.css"]')].map(node=>node.href);
-            const js=[...document.querySelectorAll('script[src*="market-thebe-gemini-narrow-v274.js"]')].map(node=>node.src);
-            return {
-              width:rect.width,
-              ratio:rect.width/innerWidth,
-              top:rect.top,
-              right:innerWidth-rect.right,
-              bottom:innerHeight-rect.bottom,
-              height:rect.height,
-              background:style.backgroundColor,
-              radius:style.borderRadius,
-              gateRight:gateRect?.right??0,
-              dockLeft:rect.left,
-              composerVisible:!!compose&&!hidden(compose),
-              composerRadius:compose?getComputedStyle(compose).borderRadius:'',
-              textareaVisible:!!textarea&&!hidden(textarea),
-              sendVisible:!!send&&!hidden(send),
-              sendRadius:send?getComputedStyle(send).borderRadius:'',
-              iconRadius:icon?getComputedStyle(icon).borderRadius:'',
-              quickHidden:hidden(dock.querySelector('.thebe-ai-quick')),
-              voiceHidden:hidden(dock.querySelector('.thebe-ai-voice-card')),
-              publicActionsHidden:hidden(dock.querySelector('.thebe-ai-public-actions')),
-              contextHidden:hidden(dock.querySelector('.thebe-ai-context-bar')),
-              modeHidden:hidden(dock.querySelector('.thebe-ai-mode-rail')),
-              css,
-              js,
-              release:dock.dataset.geminiNarrowRelease||'',
-              narrowMarker:dock.dataset.geminiNarrowV274||''
-            };
+          page.on('requestfailed',request=>{
+            const url=request.url();
+            if(url.startsWith(process.env.ORIGIN+'/js/')||url.startsWith(process.env.ORIGIN+'/assets/')){
+              criticalFailures.push(`${request.method()} ${url} ${request.failure()?.errorText||''}`);
+            }
           });
 
+          await page.goto(process.env.ORIGIN+'/?gemini-live-smoke='+Date.now(),{waitUntil:'networkidle',timeout:45000});
+          await page.waitForSelector('#thebeAiDock[data-surface="public"]',{state:'visible',timeout:15000});
+          await page.waitForFunction(()=>document.querySelector('#thebeAiDock[data-surface="public"]')?.dataset.geminiNarrowV274==='1',{timeout:10000});
+          await page.waitForTimeout(350);
+
+          async function readContract(){
+            return page.evaluate(()=>{
+              const dock=document.querySelector('#thebeAiDock[data-surface="public"]');
+              const gate=document.getElementById('marketingGate');
+              const rect=dock.getBoundingClientRect();
+              const style=getComputedStyle(dock);
+              const gateRect=gate?.getBoundingClientRect();
+              const gateStyle=gate?getComputedStyle(gate):null;
+              const gatePaddingRight=parseFloat(gateStyle?.paddingRight||'0');
+              const gateBorderRight=parseFloat(gateStyle?.borderRightWidth||'0');
+              const gateContentRight=(gateRect?.right??0)-gateBorderRight-gatePaddingRight;
+              const compose=dock.querySelector('.thebe-ai-compose');
+              const textarea=dock.querySelector('.thebe-ai-compose textarea');
+              const send=dock.querySelector('.thebe-ai-send');
+              const icon=dock.querySelector('.thebe-ai-icon-btn');
+              const hidden=node=>!node||getComputedStyle(node).display==='none'||node.hidden||node.getAttribute('aria-hidden')==='true';
+              const css=[...document.querySelectorAll('link[href*="market-thebe-gemini-v273.css"]')].map(node=>node.href);
+              const js=[...document.querySelectorAll('script[src*="market-thebe-gemini-narrow-v274.js"]')].map(node=>node.src);
+              return {
+                viewportWidth:innerWidth,
+                viewportHeight:innerHeight,
+                width:rect.width,
+                ratio:rect.width/innerWidth,
+                top:rect.top,
+                right:innerWidth-rect.right,
+                bottom:innerHeight-rect.bottom,
+                height:rect.height,
+                background:style.backgroundColor,
+                radius:style.borderRadius,
+                gateRight:gateRect?.right??0,
+                gatePaddingRight,
+                gateContentRight,
+                dockLeft:rect.left,
+                composerVisible:!!compose&&!hidden(compose),
+                composerRadius:compose?getComputedStyle(compose).borderRadius:'',
+                textareaVisible:!!textarea&&!hidden(textarea),
+                sendVisible:!!send&&!hidden(send),
+                sendRadius:send?getComputedStyle(send).borderRadius:'',
+                iconRadius:icon?getComputedStyle(icon).borderRadius:'',
+                quickHidden:hidden(dock.querySelector('.thebe-ai-quick')),
+                voiceHidden:hidden(dock.querySelector('.thebe-ai-voice-card')),
+                publicActionsHidden:hidden(dock.querySelector('.thebe-ai-public-actions')),
+                contextHidden:hidden(dock.querySelector('.thebe-ai-context-bar')),
+                modeHidden:hidden(dock.querySelector('.thebe-ai-mode-rail')),
+                presenceHidden:hidden(dock.querySelector('.thebe-ai-presence')),
+                css,
+                js,
+                release:dock.dataset.geminiNarrowRelease||'',
+                narrowMarker:dock.dataset.geminiNarrowV274||''
+              };
+            });
+          }
+
+          const contract=await readContract();
           assert.ok(contract.width>=360&&contract.width<=420,`dock width must stay Gemini-narrow: ${JSON.stringify(contract)}`);
           assert.ok(contract.ratio<0.30,`dock must remain below 30% of 1440px viewport: ${JSON.stringify(contract)}`);
           assert.ok(Math.abs(contract.top-16)<=2,`dock top edge must be about 16px: ${JSON.stringify(contract)}`);
@@ -126,23 +170,48 @@ jobs:
           assert.equal(contract.publicActionsHidden,true,'extra public CTA row must stay hidden');
           assert.equal(contract.contextHidden,true,'context chrome must stay hidden');
           assert.equal(contract.modeHidden,true,'mode rail must stay hidden');
+          assert.equal(contract.presenceHidden,true,'presence chrome must stay hidden');
           assert.equal(contract.composerVisible,true,'single composer must be visible');
           assert.equal(contract.textareaVisible,true,'composer textarea must be visible');
           assert.equal(contract.sendVisible,true,'circular send control must be visible');
           assert.equal(contract.sendRadius,'50%','send control must be circular');
           assert.equal(contract.iconRadius,'50%','header icon controls must be circular');
-          assert.ok(contract.gateRight<=contract.dockLeft+1,'market content must stop before the assistant rail');
+          assert.ok(contract.gatePaddingRight>=contract.width+30,`market gate must reserve the assistant width plus gap: ${JSON.stringify(contract)}`);
+          assert.ok(contract.gateContentRight<=contract.dockLeft+2,`market content box must stop before the assistant rail: ${JSON.stringify(contract)}`);
           assert.ok(contract.css.some(url=>url.includes('20261014-gemini-narrow-v276')),'fresh narrow Gemini CSS cache-bust must be live');
           assert.ok(contract.js.some(url=>url.includes('20261014-gemini-narrow-v276')),'fresh narrow Gemini JS cache-bust must be live');
           assert.equal(contract.narrowMarker,'1','runtime narrow-rail marker must be active');
+          assert.match(contract.release,/gemini-parity-v275$/,'runtime Gemini parity release marker must be active');
 
-          const textarea=page.locator('#thebeAiDock[data-surface="public"] .thebe-ai-compose textarea');
-          await textarea.fill('Gemini dock interaction check');
-          assert.equal(await textarea.inputValue(),'Gemini dock interaction check','composer must accept text without submitting');
+          const textarea=page.locator('#thebeAiDock[data-surface="public"] .thebe-ai-compose textarea').first();
+          await textarea.fill('Gemini dock interaction check — do not submit');
+          await textarea.focus();
+          assert.equal(await textarea.inputValue(),'Gemini dock interaction check — do not submit','composer must accept text without submitting');
+          assert.equal(await textarea.evaluate(node=>document.activeElement===node),true,'composer must accept focus');
           await textarea.fill('');
 
-          console.log('LIVE_GEMINI_DOCK_CONTRACT',JSON.stringify(contract));
+          await page.setViewportSize({width:1100,height:900});
+          await page.waitForTimeout(300);
+          const medium=await readContract();
+          assert.ok(medium.width>=332&&medium.width<=360,`medium desktop dock must stay Gemini-narrow: ${JSON.stringify(medium)}`);
+          assert.ok(Math.abs(medium.top-12)<=2&&Math.abs(medium.right-12)<=2&&Math.abs(medium.bottom-12)<=2,`medium dock must use 12px edge spacing: ${JSON.stringify(medium)}`);
+          assert.ok(medium.gatePaddingRight>=medium.width+22,`medium market gate must reserve the dock plus gap: ${JSON.stringify(medium)}`);
+          assert.ok(medium.gateContentRight<=medium.dockLeft+2,`medium market content box must stop before the assistant rail: ${JSON.stringify(medium)}`);
+
+          await page.setViewportSize({width:1440,height:1100});
+          await page.waitForTimeout(250);
+          await page.evaluate(()=>document.getElementById('thebeAiDock')?.setAttribute('aria-hidden','true'));
+          await page.waitForFunction(()=>parseFloat(getComputedStyle(document.getElementById('marketingGate')).paddingRight||'0')<=1,{timeout:5000});
+          const releasedPad=await page.evaluate(()=>parseFloat(getComputedStyle(document.getElementById('marketingGate')).paddingRight||'0'));
+          assert.ok(releasedPad<=1,`hiding Thebe must release the market lane immediately: ${releasedPad}`);
+          await page.evaluate(()=>document.getElementById('thebeAiDock')?.setAttribute('aria-hidden','false'));
+          await page.waitForFunction(()=>parseFloat(getComputedStyle(document.getElementById('marketingGate')).paddingRight||'0')>400,{timeout:5000});
+          const restored=await readContract();
+          assert.ok(restored.gatePaddingRight>=restored.width+30,'showing Thebe must restore its market lane');
+
+          console.log('LIVE_GEMINI_DOCK_CONTRACT',JSON.stringify({desktop:contract,medium}));
           assert.deepEqual(errors,[],'live public dock must not raise browser errors');
+          assert.deepEqual(criticalFailures,[],'live public dock must not have critical asset failures');
           await browser.close();
-          console.log('LIVE_GEMINI_DOCK_PASS');
+          console.log(`LIVE_GEMINI_DOCK_PASS desktop=${Math.round(contract.width)}px medium=${Math.round(medium.width)}px lane=clear composer=ready`);
           NODE
