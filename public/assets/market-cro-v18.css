@@ -16,7 +16,8 @@
   .marketinggate .hero p{font-size:18px;max-width:530px}
   .marketinggate .hero-cta{margin-top:24px}
   .marketinggate .market-hero-visual{width:100%;max-width:760px;margin-left:auto}
-  .marketinggate .market-hero-visual .product-stage{width:100%!important;max-width:none!important;margin:0!important;border-radius:20px!important}
+  .marketinggate .market-hero-photo{display:block!important;width:100%!important;height:220px!important;aspect-ratio:auto!important;object-fit:cover!important;object-position:center 42%;border-radius:20px!important;box-shadow:0 18px 44px rgba(15,23,42,.11)!important}
+  .marketinggate .market-hero-visual .product-stage{width:calc(100% - 48px)!important;max-width:none!important;margin:-34px 24px 0!important;border-radius:20px!important}
   .marketinggate .product-stage{border-radius:20px!important;box-shadow:0 22px 58px rgba(15,23,42,.13)!important}
   .marketinggate .market-hero-visual .stage-body,.marketinggate .stage-body{grid-template-columns:112px minmax(0,1fr)!important;min-height:390px!important}
   .marketinggate .stage-top{padding:12px 14px!important}
@@ -45,7 +46,8 @@
 
 @media (min-width:761px) and (max-width:1100px){
   .marketinggate .market-hero-visual{max-width:680px!important;width:100%;margin-left:0}
-  .marketinggate .market-hero-visual .product-stage{width:100%!important;max-width:none!important;margin:0!important}
+  .marketinggate .market-hero-photo{display:block!important;width:100%!important;height:230px!important;aspect-ratio:auto!important;object-fit:cover!important;object-position:center 42%;border-radius:20px!important}
+  .marketinggate .market-hero-visual .product-stage{width:calc(100% - 36px)!important;max-width:none!important;margin:-28px 18px 0!important}
 }
 
 @media (max-width:760px){
@@ -54,7 +56,8 @@
   .marketinggate .hero h1{font-size:clamp(36px,10.5vw,42px);line-height:1.02}
   .marketinggate .hero-grid{gap:24px}
   .marketinggate .market-hero-visual{width:100%;max-width:none!important}
-  .marketinggate .market-hero-visual .product-stage{width:100%!important;max-width:none!important;margin:0!important}
+  .marketinggate .market-hero-photo{display:block!important;width:100%!important;height:180px!important;aspect-ratio:auto!important;object-fit:cover!important;object-position:center 42%;border-radius:18px!important}
+  .marketinggate .market-hero-visual .product-stage{width:calc(100% - 20px)!important;max-width:none!important;margin:-18px 10px 0!important}
   .marketinggate .mobile-sticky{bottom:max(12px,env(safe-area-inset-bottom));left:12px;right:12px}
   .marketinggate .mobile-sticky .btn{min-height:50px}
   .marketinggate .faq summary{min-height:56px;padding-top:14px;padding-bottom:14px}

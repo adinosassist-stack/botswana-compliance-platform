@@ -14,8 +14,10 @@
     const hero=gate.querySelector(".hero");
     if(!hero)return;
 
+    // Keep the real Botswana business-owner photograph as human context.
+    // The sanitized product snapshot remains the primary product proof beneath it.
     const photo=hero.querySelector(".market-hero-photo");
-    if(photo)photo.remove();
+    if(photo)photo.dataset.marketHumanContext="1";
 
     const eyebrow=hero.querySelector(".eyebrow");
     if(eyebrow){
