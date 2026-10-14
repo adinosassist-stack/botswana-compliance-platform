@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {DatabaseSync} from "node:sqlite";
+import {readFileSync} from "node:fs";
 import {
   AGENT_COST_TELEMETRY_EVENT,
   buildAgentCostOutcomeTelemetry,
@@ -57,8 +58,8 @@ const db=new DatabaseSync(":memory:");
 db.exec(`
 CREATE TABLE agentic_runs(id TEXT PRIMARY KEY,tenant_id TEXT NOT NULL);
 CREATE TABLE agentic_outcomes(id TEXT PRIMARY KEY,tenant_id TEXT NOT NULL,run_id TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
-CREATE TABLE agentic_events(
-  id TEXT PRIMARY KEY,tenant_id TEXT NOT NULL,run_id TEXT NOT NULL,proposal_id TEXT,event_type TEXT NOT NULL,
+CREATE TABLE agent_cost_shadow_events(
+  id TEXT PRIMARY KEY,tenant_id TEXT NOT NULL,run_id TEXT NOT NULL,
   actor_user_id TEXT,detail_json TEXT NOT NULL,occurred_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 INSERT INTO agentic_runs(id,tenant_id) VALUES('r1','t1'),('r2','t1'),('other-run','t2');
@@ -83,9 +84,9 @@ assert.equal(first.code,"cost_outcome_shadow_recorded");
 const second=await recordAgentCostOutcomeTelemetry(env,{...base,runId:"r2",provider:"provider-b",model:"model-b",inputTokens:500_000,outputTokens:250_000,pricing:{inputBwpMinorPerMillion:200,outputBwpMinorPerMillion:400},verifiedCostMinor:250,durationMs:2000,retryCount:2,fallbackFromProvider:"provider-a"});
 assert.equal(second.ok,true);
 
-const stored=db.prepare("SELECT event_type,detail_json FROM agentic_events ORDER BY occurred_at,id").all();
+const stored=db.prepare("SELECT detail_json FROM agent_cost_shadow_events ORDER BY occurred_at,id").all();
 assert.equal(stored.length,2);
-assert.ok(stored.every(row=>row.event_type===AGENT_COST_TELEMETRY_EVENT));
+
 assert.ok(stored.every(row=>!row.detail_json.includes("secret prompt")&&!row.detail_json.includes("credentials")));
 assert.ok(stored.every(row=>JSON.parse(row.detail_json).executionAuthorityEffect==="none"));
 assert.ok(stored.every(row=>JSON.parse(row.detail_json).budgetEnforcement===false));
