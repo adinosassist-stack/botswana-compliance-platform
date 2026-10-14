@@ -1,5 +1,5 @@
 import {sanitizeAgentRun,evaluateAgentRuns} from "./agent-reliability-advisor.js";
-import {AGENT_COST_TELEMETRY_VERSION,AGENT_COST_TELEMETRY_EVENT} from "./agent-cost-outcome-telemetry.js";
+import {AGENT_COST_TELEMETRY_VERSION} from "./agent-cost-outcome-telemetry.js";
 
 // Read-only adapter for existing shadow telemetry. Never grants execution authority.
 export function adaptShadowCostEvent(event, tenantId) {
@@ -20,10 +20,10 @@ export async function loadReliabilityAdvisorSummary(env, tenantId, {windowDays=7
     return Object.freeze({available:false,reason:"reliability_advisor_unavailable"});
   try {
     // agentic_events is defined by migration 045 with occurred_at (not created_at).
-    const result=await env.DB.prepare(`SELECT detail_json FROM agentic_events
-      WHERE tenant_id=? AND event_type=? AND occurred_at>=datetime('now',?)
+    const result=await env.DB.prepare(`SELECT detail_json FROM agent_cost_shadow_events
+      WHERE tenant_id=? AND occurred_at>=datetime('now',?)
       ORDER BY occurred_at DESC LIMIT 500`)
-      .bind(tenantId,AGENT_COST_TELEMETRY_EVENT,`-${windowDays} days`).all();
+      .bind(tenantId,`-${windowDays} days`).all();
     const rows=[];
     const seenRuns=new Set();
     for (const row of Array.isArray(result?.results)?result.results:[]) {
