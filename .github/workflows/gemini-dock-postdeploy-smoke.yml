@@ -1,7 +1,14 @@
 name: Gemini Dock Live Post-Deploy Smoke
-run-name: Gemini dock live smoke ${{ github.event.workflow_run.head_sha || inputs.expected_sha }}
+run-name: Gemini dock live smoke ${{ github.event.workflow_run.head_sha || inputs.expected_sha || github.event.pull_request.head.sha || github.sha }}
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'public/assets/market-thebe-gemini-v273.css'
+      - 'public/js/market-thebe-gemini-narrow-v274.js'
+      - 'scripts/production-gemini-dock-postdeploy-smoke.mjs'
+      - '.github/workflows/gemini-dock-postdeploy-smoke.yml'
   workflow_run:
     workflows: ["Thebe Desk Production Deploy"]
     types: [completed]
@@ -16,13 +23,14 @@ permissions:
   contents: read
 
 concurrency:
-  group: gemini-dock-live-${{ github.event.workflow_run.head_sha || inputs.expected_sha }}
+  group: gemini-dock-live-${{ github.event.workflow_run.head_sha || inputs.expected_sha || github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: false
 
 jobs:
   verify:
     name: Verify live Gemini-style public Thebe dock
     if: >-
+      github.event_name == 'pull_request' ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.head_branch == 'main') ||
@@ -30,18 +38,18 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
-      EXPECTED_SHA: ${{ github.event.workflow_run.head_sha || inputs.expected_sha }}
+      EXPECTED_SHA: ${{ github.event.workflow_run.head_sha || inputs.expected_sha || github.event.pull_request.head.sha || github.sha }}
       ORIGIN: https://thebedesk.com
 
     steps:
-      - name: Checkout exact deployed revision
+      - name: Checkout exact verification revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.EXPECTED_SHA }}
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify exact deployed authority
+      - name: Verify exact verification authority
         shell: bash
         run: |
           set -euo pipefail
@@ -51,6 +59,9 @@ jobs:
             [[ "${{ github.event.workflow_run.conclusion }}" == "success" ]] || { echo 'refusing non-success deployment trigger' >&2; exit 1; }
             [[ "${{ github.event.workflow_run.head_branch }}" == "main" ]] || { echo 'refusing non-main deployment trigger' >&2; exit 1; }
             [[ "${{ github.event.workflow_run.head_sha }}" == "$EXPECTED_SHA" ]] || { echo 'workflow_run SHA mismatch' >&2; exit 1; }
+          fi
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            [[ "${{ github.event.pull_request.head.sha }}" == "$EXPECTED_SHA" ]] || { echo 'pull_request head SHA mismatch' >&2; exit 1; }
           fi
 
       - name: Setup pinned Node
