@@ -9,6 +9,7 @@ import { agentArgumentDigest, evaluateAgentAction } from "./agent-action-policy.
  * Transaction MUST commit consumption and audit together or roll back both.
  */
 export async function authorizeAgentExecution({ store, action, args, context, approvalId, policy }) {
+  if (typeof context?.tenantId !== "string" || !context.tenantId.trim() || typeof context?.actorId !== "string" || !context.actorId.trim()) return { allowed: false, reason: "unauthorized_action" };
   if (!store || typeof store.transaction !== "function") return { allowed: false, reason: "governance_unavailable" };
   if (!policy?.enabled || policy?.killSwitch || !policy?.auditAvailable) return { allowed: false, reason: "governance_unavailable" };
   // Validate before starting the transaction: malformed model arguments must fail closed.
