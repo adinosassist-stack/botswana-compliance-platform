@@ -9,7 +9,8 @@ export function canonicalJson(value) {
   return canonicalJsonInner(value, new WeakSet());
 }
 
-function canonicalJsonInner(value, seen) {
+function canonicalJsonInner(value, seen, depth = 0) {
+  if (depth > 32) throw new TypeError("agent_arguments_too_deep");
   // Reject values that cannot be represented consistently as JSON.
   if (value === null || typeof value === "string" || typeof value === "boolean") return JSON.stringify(value);
   if (typeof value === "number") {
@@ -21,7 +22,7 @@ function canonicalJsonInner(value, seen) {
     if (Object.getOwnPropertySymbols(value).length || Object.keys(value).some(key => !/^(0|[1-9]\\d*)$/.test(key) || !("value" in Object.getOwnPropertyDescriptor(value, key)))) throw new TypeError("non_json_argument");
     if (seen.has(value)) throw new TypeError("non_json_argument");
     seen.add(value);
-    try { return "[" + value.map(item => canonicalJsonInner(item, seen)).join(",") + "]"; }
+    try { return "[" + value.map(item => canonicalJsonInner(item, seen, depth + 1)).join(",") + "]"; }
     finally { seen.delete(value); }
   }
   if (typeof value !== "object" || Object.getPrototypeOf(value) !== Object.prototype) throw new TypeError("non_json_argument");
@@ -30,7 +31,7 @@ function canonicalJsonInner(value, seen) {
   try {
     const keys = Object.keys(value).sort();
     if (Object.getOwnPropertySymbols(value).length || keys.some(key => !Object.getOwnPropertyDescriptor(value, key)?.enumerable || !("value" in Object.getOwnPropertyDescriptor(value, key)))) throw new TypeError("non_json_argument");
-    return "{" + keys.map(key => JSON.stringify(key) + ":" + canonicalJsonInner(value[key], seen)).join(",") + "}";
+    return "{" + keys.map(key => JSON.stringify(key) + ":" + canonicalJsonInner(value[key], seen, depth + 1)).join(",") + "}";
   } finally { seen.delete(value); }
 }
 
