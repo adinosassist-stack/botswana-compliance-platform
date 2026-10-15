@@ -1,0 +1,32 @@
+name: Workspace visual consistency v319
+
+on:
+  pull_request:
+    paths:
+      - "public/assets/workspace-visual-consistency-v319.css"
+      - "public/js/workspace-readiness-v305.js"
+      - "tests/v251-workspace-visual-consistency-v319-static.mjs"
+      - ".github/workflows/workspace-visual-consistency-v319.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "public/assets/workspace-visual-consistency-v319.css"
+      - "public/js/workspace-readiness-v305.js"
+      - "tests/v251-workspace-visual-consistency-v319-static.mjs"
+
+permissions:
+  contents: read
+
+jobs:
+  static-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check workspace readiness syntax
+        run: node --check public/js/workspace-readiness-v305.js
+      - name: Run visual consistency regression
+        run: node tests/v251-workspace-visual-consistency-v319-static.mjs

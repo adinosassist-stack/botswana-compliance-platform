@@ -1,0 +1,34 @@
+name: Market refinement v21
+
+on:
+  pull_request:
+    paths:
+      - "public/js/market-refinement-v21.js"
+      - "public/assets/market-refinement-v21.css"
+      - "public/js/reporter-link-redirect.js"
+      - "tests/v250-market-refinement-v21-static.mjs"
+      - ".github/workflows/market-refinement-v21.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "public/js/market-refinement-v21.js"
+      - "public/assets/market-refinement-v21.css"
+      - "public/js/reporter-link-redirect.js"
+      - "tests/v250-market-refinement-v21-static.mjs"
+
+permissions:
+  contents: read
+
+jobs:
+  static-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check JavaScript syntax
+        run: node --check public/js/market-refinement-v21.js && node --check public/js/reporter-link-redirect.js
+      - name: Run market refinement regression
+        run: node tests/v250-market-refinement-v21-static.mjs
