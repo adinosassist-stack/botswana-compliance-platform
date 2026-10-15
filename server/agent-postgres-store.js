@@ -10,7 +10,9 @@ export function createPostgresAgentApprovalStore(pool, tenantId) {
       if (typeof fn !== "function") throw Error("invalid_agent_transaction");
       const client = await pool.connect();
       if (!client || typeof client.query !== "function" || typeof client.release !== "function") {
-        if (typeof client?.release === "function") client.release();
+        if (typeof client?.release === "function") {
+          try { client.release(); } catch {}
+        }
         throw Error("invalid_agent_database_client");
       }
       try {
