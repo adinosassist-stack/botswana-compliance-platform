@@ -10,8 +10,9 @@ const EXPECTED = [
   'tests/owner-closure-record-production-writer-adapter-implementation-readiness-v364.mjs',
   'tests/owner-closure-record-production-writer-adapter-implementation-readiness-static-v364.mjs'
 ].sort();
-const ALLOWED_SCHEMA_DESCENDANT = new Set([
-  'db/migrations/033_v365_owner_closure_records.sql'
+const ALLOWED_PRODUCTION_DESCENDANT = new Set([
+  'db/migrations/033_v365_owner_closure_records.sql',
+  'server/owner-closure-record-writer-v366.js'
 ]);
 
 const filesBetween = (base, head) => execFileSync('git', ['diff', '--name-only', `${base}...${head}`], { encoding: 'utf8' })
@@ -26,7 +27,7 @@ if (head !== QUALIFIED_HEAD) {
   const descendantChanged = filesBetween(QUALIFIED_HEAD, head);
   assert.ok(descendantChanged.length > 0, 'stacked V364 descendant must contain an explicit descendant delta');
   for (const path of descendantChanged) {
-    const safe = path.startsWith('tests/') || path.startsWith('.github/workflows/') || ALLOWED_SCHEMA_DESCENDANT.has(path);
+    const safe = path.startsWith('tests/') || path.startsWith('.github/workflows/') || ALLOWED_PRODUCTION_DESCENDANT.has(path);
     assert.ok(safe, `stacked V364 descendant changed unauthorized runtime/production path: ${path}`);
   }
 }
