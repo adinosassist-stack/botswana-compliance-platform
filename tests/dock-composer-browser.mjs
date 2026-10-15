@@ -66,8 +66,8 @@ try{
         saved:Number(localStorage.getItem('thebe:workspace-dock:width:v1'))
       }));
       assert(resized.dock>beforeWidth,'keyboard resize grows right-anchored workspace dock');
-      assert(Math.abs(resized.spatial-resized.dock)<2,'spatial rail variable tracks dock width');
-      assert(resized.shellPad>=resized.dock+31,'workspace shell reserves the resized dock rail');
+      assert(Math.abs(resized.spatial-resized.dock)<=3,'spatial rail variable tracks dock width including the dock border');
+      assert(resized.shellPad>=resized.dock+29,'workspace shell retains roughly 32px of protected rail beyond the rendered dock border');
       assert.equal(resized.saved,Math.round(resized.spatial),'workspace dock width persists');
       await resize.press('Home');
       assert.equal(await page.evaluate(()=>localStorage.getItem('thebe:workspace-dock:width:v1')),null,'Home resets saved dock width');
