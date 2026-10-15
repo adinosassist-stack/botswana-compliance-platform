@@ -71,6 +71,7 @@
     style.textContent=`
 #thebeAiDock .thebe-workspace-dock-resize-handle{display:none}
 @media (min-width:1024px){
+ body #thebeAiDock[data-surface="workspace"][data-workspace-resizable="true"]{left:auto!important;right:16px!important;top:88px!important;bottom:auto!important;width:var(--thebe-spatial-width)!important;max-width:var(--thebe-spatial-width)!important}
  #thebeAiDock[data-surface="workspace"][data-workspace-resizable="true"] .thebe-workspace-dock-resize-handle{display:flex;position:absolute;left:-8px;top:50%;transform:translateY(-50%);width:16px;height:88px;z-index:8;align-items:center;justify-content:center;border:0;padding:0;background:transparent;cursor:ew-resize;touch-action:none}
  #thebeAiDock[data-surface="workspace"] .thebe-workspace-dock-resize-handle::before{content:"";display:block;width:3px;height:42px;border-radius:999px;background:rgba(142,180,208,.62);box-shadow:0 0 0 1px rgba(5,24,39,.35)}
  #thebeAiDock[data-surface="workspace"] .thebe-workspace-dock-resize-handle:hover::before,#thebeAiDock[data-surface="workspace"] .thebe-workspace-dock-resize-handle:focus-visible::before{background:#8fd2ff;height:52px}
@@ -162,7 +163,7 @@
     if(dock.dataset.surface!=="workspace"||!bounds.defaultWidth||!spatialStylesheetHealthy(dock)){
       dock.dataset.workspaceResizable="false";
       delete dock.dataset.workspaceWidth;
-      body.style.removeProperty("--thebe-spatial-width");
+      if(body.style.getPropertyValue("--thebe-spatial-width"))body.style.removeProperty("--thebe-spatial-width");
       return 0;
     }
     ensureWorkspaceResizeStyle();
@@ -174,7 +175,8 @@
     // manual width is saved, that width becomes authoritative in both states.
     const active=hasStored?base:(body.classList.contains("thebe-ai-expanded")?Math.max(base,bounds.expandedDefault):base);
     const clamped=clampWorkspaceWidth(active,bounds);
-    body.style.setProperty("--thebe-spatial-width",`${clamped}px`);
+    const cssWidth=`${clamped}px`;
+    if(body.style.getPropertyValue("--thebe-spatial-width")!==cssWidth)body.style.setProperty("--thebe-spatial-width",cssWidth);
     dock.dataset.workspaceResizable="true";
     dock.dataset.workspaceWidth=String(clamped);
     dock.dataset.workspaceResizeRelease=WORKSPACE_RESIZE_RELEASE;
@@ -288,7 +290,7 @@
     isolateInactiveProperty();
     const dock=document.getElementById("thebeAiDock");
     if(!dock){
-      document.body?.style?.removeProperty?.("--thebe-spatial-width");
+      if(document.body?.style?.getPropertyValue?.("--thebe-spatial-width"))document.body.style.removeProperty("--thebe-spatial-width");
       releaseAll();
       return false;
     }
@@ -303,7 +305,7 @@
     }
     // Emergency geometry intentionally ignores user sizing. If the primary
     // spatial stylesheet is unavailable, deterministic fallback dimensions win.
-    document.body?.style?.removeProperty?.("--thebe-spatial-width");
+    if(document.body?.style?.getPropertyValue?.("--thebe-spatial-width"))document.body.style.removeProperty("--thebe-spatial-width");
     dock.dataset.workspaceResizable="false";
     ensureRecoveryStyle();
     const width=viewportWidth();
