@@ -41,6 +41,16 @@ export function createPostgresAgentApprovalStore(pool, tenantId) {
               [id, tenantId, nonce]);
             return result.rowCount === 1;
           },
+          async enqueueIntent(event, idempotencyKey) {
+            if (!event?.allowed || event.reason !== "authorized" || event.tenantId !== tenantId || typeof idempotencyKey !== "string" || !idempotencyKey.trim() || idempotencyKey.length > 200) throw Error("invalid_outbox_intent");
+            if (!["invoice.draft", "compliance.reminder.draft", "reconciliation.suggest"].includes(event.action)) throw Error("outbox_action_disabled");
+            const result = await client.query(`insert into agent_action_outbox
+              (id,tenant_id,actor_id,action,argument_digest,authorization_id,idempotency_key)
+              values ($1,$2,$3,$4,$5,$6,$7) returning id`,
+              [event.id,tenantId,event.actorId,event.action,event.argumentDigest,event.id,idempotencyKey]);
+            if (result.rowCount !== 1) throw Error("outbox_insert_failed");
+            return result.rows[0].id;
+          },
           async appendAudit(event) {
             if (!event?.tenantId || event.tenantId !== tenantId || !event.actorId) throw Error("audit_scope_invalid");
             await client.query(
