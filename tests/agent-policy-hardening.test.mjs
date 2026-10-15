@@ -58,3 +58,12 @@ test("array extra properties and accessor indices cannot bypass digest validatio
   assert.throws(() => agentArgumentDigest(accessor), /non_json_argument/);
   assert.equal(accessed, false);
 });
+
+test("sparse and subclassed arrays cannot be authorized", () => {
+  const sparse = [];
+  sparse.length = 2;
+  sparse[0] = "one";
+  assert.throws(() => agentArgumentDigest(sparse), /non_json_argument/);
+  class CustomArray extends Array {}
+  assert.throws(() => agentArgumentDigest(new CustomArray(1, 2)), /non_json_argument/);
+});
