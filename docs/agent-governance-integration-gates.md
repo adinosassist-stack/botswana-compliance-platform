@@ -11,4 +11,4 @@
 9. Keep feature flag disabled until security and product owners explicitly approve.
 10. Roll out to Botswana pilot tenants before Namibia expansion.
 
-The unit tests use a mocked PostgreSQL client for adapter behavior; they do not validate real database locks, transaction isolation or Cloudflare integration.
+The unit tests use a mocked PostgreSQL client for adapter behavior. The separate PostgreSQL integration workflow applies the real migrations and verifies uniqueness, tenant scope, audit/outbox rollback, and approval-consumption rollback under an injected audit INSERT failure. Draft queueing and sensitive authorization are separate test cases: sensitive actions cannot be queued or executed. These tests do not establish Cloudflare integration, executor behavior, or production activation readiness.

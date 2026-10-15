@@ -119,3 +119,18 @@ assert.equal(rootAbortCount,1,'preferred shadow transport unexpectedly retried t
 assert.equal(appended.length,1,'owner WhatsApp loader contract changed unexpectedly');
 
 console.log('Idempotent transport fallback runtime: direct-first workspace state + identity + authoritative 401 + bounded generic fallback PASS');
+
+// Document extraction needs the explicit long request budget on the selected route.
+const documentTimers=[];
+let forwardedOptions;
+const documentWindow={...window,BW:undefined};
+vm.runInNewContext(source,{...context,window:documentWindow,
+  setTimeout(fn,ms){documentTimers.push(ms);return setTimeout(fn,ms)},
+  fetch:async(raw,options)=>{forwardedOptions=options;return jsonResponse({answer:'File reviewed'})}
+});
+const documentClient=documentWindow.BW.api.createClient({retries:0});
+const reviewed=await documentClient.request('/api/ai/advisor',{method:'POST',body:'{}',timeoutMs:120000});
+assert.equal(reviewed.answer,'File reviewed');
+assert(documentTimers.length>=1&&documentTimers.every(ms=>ms>=119000),'document review uses the full explicit request budget');
+assert.equal(forwardedOptions.timeoutMs,undefined,'internal timeout option never leaks to fetch');
+console.log('Document review transport timeout override PASS');

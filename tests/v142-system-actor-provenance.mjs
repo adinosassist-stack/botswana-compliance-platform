@@ -12,5 +12,5 @@ assert.match(policy,/role==="system_observer"&&systemActor!==true/,"policy must 
 const advisor=worker.slice(worker.indexOf('if(url.pathname==="/api/ai/advisor"'),worker.indexOf('if(url.pathname==="/api/ai/credits"'));
 assert.ok(advisor.length>0,"advisor route missing");
 assert.doesNotMatch(advisor,/\.\.\.body|body\.role|body\.systemActor/,"advisor request body must not influence trusted auth");
-assert.match(advisor,/runAiAdvisor\(env,a,\{mode,question\}\)/,"advisor must pass server session auth, not request auth");
+assert.match(advisor,/runAiAdvisor\(env,a,\{mode,question,attachments:checked\.files\}\)/,"advisor must pass server session auth, not request auth");
 console.log("v142 system actor provenance gate passed");

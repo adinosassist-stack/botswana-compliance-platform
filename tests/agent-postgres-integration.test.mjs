@@ -185,7 +185,7 @@ test("duplicate draft queue request does not consume optional approval", async (
   }
 });
 
-test("database conflict rolls back approval consumption and authorized audit", async () => {
+test("draft outbox conflict rolls back audit and preserves optional approval", async () => {
   const client = new pg.Pool({ connectionString: process.env.DATABASE_URL });
   const tenantId = "conflict-" + randomUUID(), actorId = "owner", action = "invoice.draft";
   const args = { invoice: "INV-789" }, digest = agentArgumentDigest(args);
@@ -213,6 +213,39 @@ test("database conflict rolls back approval consumption and authorized audit", a
     assert.equal(audit.rows[0].n,0);
   } finally {
     await client.query("delete from agent_action_outbox where tenant_id=$1",[tenantId]);
+    await client.query("delete from agent_action_audit where tenant_id=$1",[tenantId]);
+    await client.query("delete from agent_action_approvals where tenant_id=$1",[tenantId]);
+    await client.end();
+  }
+});
+
+
+test("sensitive authorization rolls back real approval consumption when audit insertion fails", async () => {
+  const client = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
+  const tenantId = "sensitive-" + randomUUID(), actorId = "owner", action = "money.transfer";
+  const args = { amountMinor: 100, currency: "BWP" }, approvalId = randomUUID();
+  const policy = { enabled: true, auditAvailable: true, killSwitch: false, allowedActions: [action], remainingBudget: 2, estimatedCost: 1 };
+  // Test-only constraint in the disposable CI database faults the actual audit
+  // INSERT after approval consumption, without mocking transaction semantics.
+  const constraint = "audit_fault_" + randomUUID().replaceAll("-", "");
+  try {
+    await client.query(`insert into agent_action_approvals
+      (id,tenant_id,actor_id,action,argument_digest,nonce,status,expires_at)
+      values ($1,$2,$3,$4,$5,$6,'approved',now()+interval '1 hour')`,
+      [approvalId,tenantId,actorId,action,agentArgumentDigest(args),"nonce-"+randomUUID()]);
+    await client.query(`alter table agent_action_audit add constraint ${constraint} check (tenant_id <> '${tenantId}')`);
+    const input = { store: createPostgresAgentApprovalStore(client,tenantId), action,args,context:{tenantId,actorId},approvalId,policy };
+    assert.deepEqual(await authorizeAgentExecution(input),{allowed:false,reason:"governance_unavailable"});
+    assert.equal((await client.query("select consumed_at from agent_action_approvals where id=$1",[approvalId])).rows[0].consumed_at,null);
+    assert.equal((await client.query("select count(*)::int as n from agent_action_audit where tenant_id=$1",[tenantId])).rows[0].n,0);
+    await client.query(`alter table agent_action_audit drop constraint ${constraint}`);
+    assert.equal((await authorizeAgentExecution(input)).allowed,true,"audit recovery allows exactly one authorization");
+    assert.notEqual((await client.query("select consumed_at from agent_action_approvals where id=$1",[approvalId])).rows[0].consumed_at,null);
+    assert.equal((await authorizeAgentExecution(input)).allowed,false,"consumed approval cannot be replayed");
+    assert.equal((await client.query("select count(*)::int as n from agent_action_audit where tenant_id=$1 and allowed=true",[tenantId])).rows[0].n,1);
+    assert.equal((await client.query("select count(*)::int as n from agent_action_outbox where tenant_id=$1",[tenantId])).rows[0].n,0,"sensitive authorization never queues or executes a transfer");
+  } finally {
+    await client.query(`alter table agent_action_audit drop constraint if exists ${constraint}`);
     await client.query("delete from agent_action_audit where tenant_id=$1",[tenantId]);
     await client.query("delete from agent_action_approvals where tenant_id=$1",[tenantId]);
     await client.end();
