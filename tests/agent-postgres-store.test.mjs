@@ -46,3 +46,9 @@ test("approval transactions configure bounded statement and lock waits", async (
   assert.ok(calls.indexOf("BEGIN") < calls.indexOf("SET LOCAL statement_timeout = '5000ms'"));
   assert.ok(calls.indexOf("SET LOCAL lock_timeout = '2000ms'") < calls.indexOf("COMMIT"));
 });
+
+test("invalid tenant and invalid database clients fail closed", async () => {
+  assert.throws(() => createPostgresAgentApprovalStore({ connect() {} }, "  "), /invalid_agent_store_context/);
+  const store = createPostgresAgentApprovalStore({ async connect() { return { query() {} }; } }, "tenant-a");
+  await assert.rejects(store.transaction(async () => true), /invalid_agent_database_client/);
+});
