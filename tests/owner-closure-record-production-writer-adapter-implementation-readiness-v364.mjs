@@ -4,7 +4,9 @@ import { execFileSync } from 'node:child_process';
 
 const read = (path) => fs.readFileSync(path, 'utf8');
 const V364_QUALIFIED_HEAD = '5aefd271b40563df098bcc9451de2461a124363c';
+const V365_QUALIFIED_HEAD = '4e26d7062592b311433fdc94209a2ebe4eaef569';
 const APPROVED_V365_MIGRATION = 'db/migrations/033_v365_owner_closure_records.sql';
+const APPROVED_V366_WRITER = 'server/owner-closure-record-writer-v366.js';
 const head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 const v363 = read('tests/owner-closure-record-production-writer-adapter-design-review-v363.mjs');
 const v362 = read('tests/owner-closure-record-production-persistence-adapter-conformance-v362.mjs');
@@ -68,7 +70,6 @@ const readiness = Object.freeze({
   authority: 'implementation_readiness_only_no_live_writer'
 });
 
-// V363 remains the frozen adapter design contract V364 is assessing for implementation readiness.
 requireAll(v363, [
   "storageModel: 'immutable_append_only_closure_record'",
   "fingerprintSemantics: 'canonical_target_closure_actor_sha256'",
@@ -88,7 +89,6 @@ requireAll(v363, [
   "authority: 'design_review_only_no_live_writer'"
 ], 'V363 frozen design');
 
-// V362 must still prove the actual repository has the transaction/CAS/provenance/replay/rollback primitives needed by a future implementation.
 requireAll(v362, [
   "transactionCapability: 'verified'",
   "casCapability: 'verified'",
@@ -104,20 +104,34 @@ requireAll(v362, [
 const closureSchemaPresent = /create\s+table\s+(?:if\s+not\s+exists\s+)?owner_closure/i.test(migrations)
   || /alter\s+table\s+owner_closure/i.test(migrations);
 
-// Freeze V364's original pre-schema claim at its exact qualified head. Approved descendants may add only
-// the specifically named V365 schema foundation while still having no production writer or route.
-assert.ok(!server.includes('owner_closure_record'), 'V364/V365 stack expects no production owner_closure_record writer');
-assert.ok(!server.includes('/api/owner-closure'), 'V364/V365 stack expects no production owner-closure route');
+// Freeze V364's original state at its exact head, then recognize only the explicitly approved V365/V366 descendants.
+assert.ok(!server.includes('/api/owner-closure'), 'V364 descendant stack must not expose an owner-closure route');
+assert.ok(!server.includes('owner-closure-record-writer-v366'), 'V366 writer core must remain unregistered and non-routable');
 if (head === V364_QUALIFIED_HEAD) {
-  assert.equal(closureSchemaPresent, false, 'frozen V364 head must predate any owner closure schema migration');
+  assert.equal(closureSchemaPresent, false, 'frozen V364 head must predate owner closure schema');
+  assert.equal(fs.existsSync(APPROVED_V366_WRITER), false, 'frozen V364 head must predate V366 writer');
 } else {
   execFileSync('git', ['merge-base', '--is-ancestor', V364_QUALIFIED_HEAD, head]);
-  assert.ok(migrationFiles.includes('033_v365_owner_closure_records.sql'), 'schema-bearing descendant must use the approved V365 migration filename');
+  assert.ok(migrationFiles.includes('033_v365_owner_closure_records.sql'), 'approved descendant must retain V365 schema migration');
   assert.ok(fs.existsSync(APPROVED_V365_MIGRATION), 'approved V365 migration must exist');
-  assert.equal(closureSchemaPresent, true, 'approved schema-bearing descendant must contain the V365 closure schema foundation');
+  assert.equal(closureSchemaPresent, true, 'approved descendant must contain V365 closure schema foundation');
+  if (head === V365_QUALIFIED_HEAD) {
+    assert.equal(fs.existsSync(APPROVED_V366_WRITER), false, 'frozen V365 head must predate V366 writer core');
+  } else {
+    execFileSync('git', ['merge-base', '--is-ancestor', V365_QUALIFIED_HEAD, head]);
+    assert.ok(fs.existsSync(APPROVED_V366_WRITER), 'approved V366 descendant must use the exact non-routable writer module');
+    const writer = read(APPROVED_V366_WRITER);
+    requireAll(writer, [
+      'createOwnerClosureRecordWriter',
+      "productionPersistenceCore: true",
+      'routable: false',
+      'routeAdded: false',
+      'deploymentActivated: false',
+      'liveProductionPersistenceEnabled: false'
+    ], 'V366 approved writer core');
+  }
 }
 
-// The implementation plan must be complete enough to prevent a route-first or client-authoritative writer.
 const requiredPrerequisites = new Set(readiness.implementationPrerequisites);
 for (const requirement of [
   'dedicated_append_only_closure_record_schema',

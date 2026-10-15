@@ -6,7 +6,9 @@ import pg from 'pg';
 
 const { Pool } = pg;
 const BASE = '5aefd271b40563df098bcc9451de2461a124363c';
+const QUALIFIED_HEAD = '4e26d7062592b311433fdc94209a2ebe4eaef569';
 const MIGRATION = 'db/migrations/033_v365_owner_closure_records.sql';
+const V366_WRITER = 'server/owner-closure-record-writer-v366.js';
 const EXPECTED = [
   '.github/workflows/v365-owner-closure-record-schema-foundation-boundary.yml',
   MIGRATION,
@@ -17,9 +19,20 @@ const EXPECTED = [
   'tests/owner-closure-record-schema-foundation-v365.mjs'
 ].sort();
 
-const changed = execFileSync('git', ['diff', '--name-only', `${BASE}...HEAD`], { encoding: 'utf8' })
+const filesBetween = (base, head) => execFileSync('git', ['diff', '--name-only', `${base}...${head}`], { encoding: 'utf8' })
   .trim().split(/\r?\n/).filter(Boolean).sort();
-assert.deepEqual(changed, EXPECTED, 'V365 must change only migration 033, its runtime proof/workflow, and the exact V362/V363/V364 descendant guards required for this approved schema layer');
+const qualifiedChanged = filesBetween(BASE, QUALIFIED_HEAD);
+assert.deepEqual(qualifiedChanged, EXPECTED, 'frozen V365 head must preserve its exact seven-file schema-foundation delta');
+const head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+if (head !== QUALIFIED_HEAD) {
+  execFileSync('git', ['merge-base', '--is-ancestor', QUALIFIED_HEAD, head]);
+  const descendantChanged = filesBetween(QUALIFIED_HEAD, head);
+  assert.ok(descendantChanged.length > 0, 'V365 descendant must contain an explicit delta');
+  for (const path of descendantChanged) {
+    const safe = path.startsWith('tests/') || path.startsWith('.github/workflows/') || path === V366_WRITER;
+    assert.ok(safe, `V365 descendant changed unauthorized production path: ${path}`);
+  }
+}
 
 const migration = fs.readFileSync(MIGRATION, 'utf8');
 const server = fs.readFileSync('server/server.js', 'utf8');
@@ -49,10 +62,11 @@ for (const token of [
   "raise exception 'owner_closure_records_are_append_only' using errcode = '55000'"
 ]) assert.ok(migration.includes(token), `missing V365 migration contract: ${token}`);
 
-assert.ok(!server.includes('owner_closure_records'), 'V365 must not add a Node closure-record writer');
-assert.ok(!server.includes('/api/owner-closure'), 'V365 must not add a Node owner-closure route');
-assert.ok(!worker.includes('owner_closure_records'), 'V365 must not add a Worker closure-record writer');
-assert.ok(!worker.includes('/api/owner-closure'), 'V365 must not add a Worker owner-closure route');
+assert.ok(!server.includes('owner_closure_records'), 'generic Node server must not directly become the closure-record writer');
+assert.ok(!server.includes('/api/owner-closure'), 'V365/V366 stack must not add a Node owner-closure route');
+assert.ok(!server.includes('owner-closure-record-writer-v366'), 'V366 writer must remain unregistered from the Node entry point');
+assert.ok(!worker.includes('owner_closure_records'), 'V365/V366 stack must not add a Worker closure-record writer');
+assert.ok(!worker.includes('/api/owner-closure'), 'V365/V366 stack must not add a Worker owner-closure route');
 
 assert.ok(process.env.DATABASE_URL, 'DATABASE_URL is required for the V365 runtime proof');
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -124,26 +138,20 @@ try {
   assert.equal(inserted.rows[0].record_version, 1, 'closure records start at immutable record version 1');
 
   await expectPgError(() => insertRecord(baseRecord), '23505', 'same tenant/workspace idempotency replay');
-
   const otherWorkspace = await insertRecord({ ...baseRecord, workspaceId: 'workspace-v365-b' });
   assert.equal(otherWorkspace.rowCount, 1, 'same idempotency key may be scoped independently to another workspace');
 
   await expectPgError(
     () => insertRecord({ ...baseRecord, workspaceId: 'workspace-v365-c', idempotencyKey: 'idem-invalid-fingerprint', requestFingerprint: 'not-a-sha256' }),
-    '23514',
-    'invalid request fingerprint'
+    '23514', 'invalid request fingerprint'
   );
-
   await expectPgError(
     () => insertRecord({ ...baseRecord, workspaceId: 'workspace-v365-d', idempotencyKey: 'idem-invalid-residual', residualCarryover: JSON.stringify({ bad: true }) }),
-    '23514',
-    'non-array residual carryover'
+    '23514', 'non-array residual carryover'
   );
-
   await expectPgError(
     () => pool.query('update owner_closure_records set wording=$1 where id=$2', ['mutated wording', inserted.rows[0].id]),
-    '55000',
-    'in-place closure-record update'
+    '55000', 'in-place closure-record update'
   );
 
   await pool.query('delete from tenants where id=$1', [tenantId]);
@@ -156,4 +164,4 @@ try {
 }
 
 console.log('V365 Owner Closure Record Schema Foundation: PASS');
-console.log('V365 adds schema/constraints only — no writer, route, UI trigger, live closure persistence, decision closure, or execution authority.');
+console.log('V365 frozen schema proof remains valid on the approved V366 non-routable writer descendant.');
