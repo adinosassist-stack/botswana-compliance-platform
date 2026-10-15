@@ -37,8 +37,8 @@ assert.match(recovery,/drag\.startWidth-\(event\.clientX-drag\.startX\)/,
   "right-anchored dock must grow when its left resize edge is dragged left");
 assert.match(recovery,/ArrowLeft[\s\S]*?current\+16[\s\S]*?ArrowRight[\s\S]*?current-16/,
   "workspace dock resizing must remain keyboard accessible");
-assert.match(recovery,/body\.style\.setProperty\("--thebe-spatial-width",`\$\{clamped\}px`\)/,
-  "resized dock width must flow through the spatial rail variable so reserved workspace space tracks it");
+assert.match(recovery,/const cssWidth=`\$\{clamped\}px`;[\s\S]*?getPropertyValue\("--thebe-spatial-width"\)!==cssWidth[\s\S]*?setProperty\("--thebe-spatial-width",cssWidth\)/,
+  "resized dock width must flow through a guarded spatial rail update so reserved workspace space tracks it without mutation churn");
 assert.match(recovery,/Emergency geometry intentionally ignores user sizing/,
   "stylesheet recovery must remain deterministic instead of inheriting user resize state");
 
