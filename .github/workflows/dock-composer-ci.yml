@@ -1,0 +1,41 @@
+name: Dock composer CI
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'cloudflare/src/advisor-attachments.js'
+      - 'cloudflare/src/worker.js'
+      - 'cloudflare/src/production-entry.js'
+      - 'public/js/thebe-live-voice.js'
+      - 'public/js/api-client.js'
+      - 'public/assets/thebe-ai-dock.css'
+      - 'tests/dock-composer-browser.mjs'
+      - 'tests/advisor-attachments-integration.mjs'
+      - 'tests/v292-dock-visual-contract-browser.mjs'
+      - '.github/workflows/dock-composer-ci.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22.23.2'
+          package-manager-cache: false
+      - name: Install browser driver only
+        run: npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+      - name: Verify authenticated file review and credit failure handling
+        run: node --no-warnings tests/advisor-attachments-integration.mjs
+      - name: Verify advisor compatibility and API transport
+        run: |
+          node --no-warnings tests/ai-advisor-planner-integration.mjs
+          node tests/v82-idempotent-transport-fallback-runtime.mjs
+      - name: Verify public and workspace composer interactions
+        run: |
+          node tests/dock-composer-browser.mjs
+          node tests/v292-dock-visual-contract-browser.mjs

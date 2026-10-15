@@ -75,7 +75,12 @@ jobs:
         shell: bash
         run: npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
 
+      - name: Verify proposed composer controls
+        if: github.event_name == 'pull_request'
+        run: node tests/dock-composer-browser.mjs
+
       - name: Cross-check live Gemini dock geometry and controls
+        if: github.event_name != 'pull_request'
         shell: bash
         run: |
           set -euo pipefail
@@ -157,6 +162,12 @@ jobs:
             });
           }
 
+          const idleAudio=page.locator('#thebeAiDock .thebe-ai-audio');
+          await idleAudio.waitFor({state:'visible'});
+          assert.equal(await page.locator('#thebeAiDock .thebe-ai-send').isHidden(),true,'idle composer hides send');
+          assert.equal(await page.locator('#thebeAiDock .thebe-ai-attach').isHidden(),true,'public composer hides workspace uploads');
+          await page.locator('#thebeAiDockInput').fill('Check dock controls');
+          assert.equal(await idleAudio.isHidden(),true,'typing hides voice');
           const contract=await readContract();
           assert.ok(contract.width>=360&&contract.width<=420,`dock width must stay Gemini-narrow: ${JSON.stringify(contract)}`);
           assert.ok(contract.ratio<0.30,`dock must remain below 30% of 1440px viewport: ${JSON.stringify(contract)}`);
@@ -189,6 +200,7 @@ jobs:
           assert.equal(await textarea.inputValue(),'Gemini dock interaction check — do not submit','composer must accept text without submitting');
           assert.equal(await textarea.evaluate(node=>document.activeElement===node),true,'composer must accept focus');
           await textarea.fill('');
+          assert.equal(await idleAudio.isVisible(),true,'clearing restores voice');
 
           await page.setViewportSize({width:1100,height:900});
           await page.waitForTimeout(300);
