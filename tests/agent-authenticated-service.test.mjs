@@ -53,3 +53,14 @@ test("whitespace-only identity and invalid pool fail closed", async () => {
   });
   assert.equal(invalidPool.reason, "governance_unavailable");
 });
+
+test("malformed action and approval IDs are rejected before database access", async () => {
+  let touched = false;
+  const pool = { async connect() { touched = true; throw Error("unexpected"); } };
+  const base = { pool, principal: { tenantId: "tenant-a", actorId: "owner-a" }, args: {}, policy };
+  for (const request of [{ action: "" }, { action: 123 }, { action: "invoice.draft", approvalId: {} }, { action: "invoice.draft", approvalId: "  " }]) {
+    const result = await authorizeAuthenticatedAgentAction({ ...base, ...request });
+    assert.deepEqual(result, { allowed: false, reason: "invalid_request" });
+  }
+  assert.equal(touched, false);
+});
