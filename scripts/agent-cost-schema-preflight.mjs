@@ -8,7 +8,8 @@ const prerequisites=Object.freeze({
   deletion_requests:["id","tenant_id","user_id","status","processing_token"],
   deletion_tombstones:["request_id","tenant_fingerprint"]
 });
-const prefix=name=>name.startsWith("agent_cost_")||name.startsWith("idx_agent_cost_");
+// Accounting manifest is intentionally scoped: shadow telemetry has its own migration and lifecycle.
+const prefix=name=>(name.startsWith("agent_cost_")&&!name.startsWith("agent_cost_shadow_"))||name.startsWith("idx_agent_cost_");
 const result=(code,extra={})=>({ok:false,code,executionAllowed:false,migrationAllowed:false,...extra});
 export const AGENT_COST_INSPECTION_SQL=Object.freeze({
   objects:"SELECT type,name,sql FROM sqlite_master ORDER BY type,name",

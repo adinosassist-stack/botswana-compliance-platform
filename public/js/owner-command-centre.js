@@ -1471,6 +1471,50 @@
     agenticBody.id="ownerAgenticBody";
     agentic.append(agenticHead,agenticBody);
     shell.append(agentic);
+    // Read-only reliability advice. Server independently enforces owner role and default-off flag.
+    if(canEdit()){
+      const reliability=document.createElement("details");
+      reliability.id="ownerReliabilityPanel";
+      reliability.className="owner-panel";
+      reliability.append(text("summary","AI reliability · advisory only"));
+      const reliabilityBody=text("div","Open to load verified reliability signals.","owner-command-empty");
+      reliabilityBody.id="ownerReliabilityBody";
+      reliability.append(reliabilityBody);
+      let reliabilityRequestSeq=0;
+      reliability.addEventListener("toggle",async()=>{
+        const requestSeq=++reliabilityRequestSeq;
+        if(!reliability.open||!canEdit())return;
+        const activeCompany=q("#companySelect")?.value||"";
+        reliabilityBody.replaceChildren(text("div","Checking reliability evidence…","owner-command-empty"));
+        try{
+          const payload=await request("/api/ai/operator/reliability?days=7");
+          if(payload?.mode!=="advisor_only"||payload?.canMutate!==false)throw new Error("Invalid advisory response");
+          const summary=payload.summary||{};
+          const total=Number(summary.total||0);
+          const verified=summary.status==="evaluated"&&total>0;
+          const success=Number(summary.counts?.success||0);
+          const score=verified&&Number.isSafeInteger(success)&&success>=0&&success<=total?String(Math.round(100*success/total))+"%":"—";
+          // No verified outcome evidence means no numerical reliability score.
+          if(requestSeq!==reliabilityRequestSeq||!canEdit()||!reliability.open||(q("#companySelect")?.value||"")!==activeCompany)return;
+          reliabilityBody.replaceChildren(
+            text("b","Reliability score: "+score),
+            text("p","Observed runs: "+total+" · Unverified: "+Number(summary.counts?.unverified||0)),
+            text("p","Cost telemetry never proves task success. Unverified runs are never counted as successful."),
+            text("p","Recommendation-only improvements. No changes are applied automatically.")
+          );
+        }catch{
+          if(requestSeq!==reliabilityRequestSeq||!canEdit()||!reliability.open||(q("#companySelect")?.value||"")!==activeCompany)return;
+          reliabilityBody.replaceChildren(text("div","Reliability advice is unavailable or disabled.","owner-command-empty"));
+        }
+      });
+      document.addEventListener("change",event=>{
+        if(event.target?.id!=="companySelect")return;
+        ++reliabilityRequestSeq;
+        reliability.open=false;
+        reliabilityBody.replaceChildren(text("div","Open to load reliability signals for the selected company.","owner-command-empty"));
+      });
+      shell.append(reliability);
+    }
 
     const salesDetails=document.createElement("details");
     salesDetails.className="owner-sales-workspace";
