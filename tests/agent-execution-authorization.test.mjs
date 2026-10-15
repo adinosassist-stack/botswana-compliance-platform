@@ -63,3 +63,13 @@ test("malformed arguments fail closed before database transaction", async () => 
   assert.equal(result.reason, "invalid_arguments");
   assert.equal(touched, false);
 });
+
+test("authorization rejects missing trusted identities before starting transaction", async () => {
+  let transactions = 0;
+  const store = { async transaction() { transactions++; throw Error("should not run"); } };
+  for (const context of [null, {}, { tenantId: " ", actorId: "owner" }, { tenantId: "tenant", actorId: 42 }]) {
+    const result = await authorizeAgentExecution({ store, action: "invoice.draft", args: {}, context, policy: { enabled: true, auditAvailable: true } });
+    assert.deepEqual(result, { allowed: false, reason: "unauthorized_action" });
+  }
+  assert.equal(transactions, 0);
+});
