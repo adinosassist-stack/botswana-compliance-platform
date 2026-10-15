@@ -51,3 +51,15 @@ test("kill switch denies without consuming approval", async () => {
   assert.equal(result.allowed, false);
   assert.equal(store.state.approval.consumed, false);
 });
+
+test("malformed arguments fail closed before database transaction", async () => {
+  let touched = false;
+  const store = { async transaction() { touched = true; throw Error("must not run"); } };
+  const result = await authorizeAgentExecution({
+    store, action: "money.transfer", args: { amount: NaN }, context,
+    approvalId: "p1", policy
+  });
+  assert.equal(result.allowed, false);
+  assert.equal(result.reason, "invalid_arguments");
+  assert.equal(touched, false);
+});
