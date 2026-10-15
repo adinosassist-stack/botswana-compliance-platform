@@ -32,3 +32,12 @@ test("enqueue only reports success for inserted authorized row", async () => {
 test("storage errors fail closed", async () => {
   assert.deepEqual(await enqueueAgentIntent({ ...valid, pool: { async query() { throw Error("db down"); } } }), { queued: false, reason: "storage_unavailable" });
 });
+
+test("sensitive actions cannot be queued even with an authorization reference", async () => {
+  let queries = 0;
+  const pool = { async query() { queries++; return { rows: [{ id: randomUUID() }] }; } };
+  for (const action of ["money.transfer", "payroll.run", "tax.submit", "message.send", "record.delete"]) {
+    assert.deepEqual(await enqueueAgentIntent({ ...valid, action, pool }), { queued: false, reason: "execution_disabled_for_action" });
+  }
+  assert.equal(queries, 0);
+});
