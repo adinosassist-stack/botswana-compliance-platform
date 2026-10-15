@@ -6,6 +6,7 @@ on:
       - "db/migrations/20261016_agent_governance_integrity.sql"
       - "db/migrations/20261017_agent_action_outbox.sql"
       - "db/migrations/20261018_agent_outbox_draft_guard.sql"
+      - "db/migrations/20261019_agent_outbox_lease_integrity.sql"
       - "tests/agent-postgres-integration.test.mjs"
       - "server/agent-outbox.js"
       - ".github/workflows/agent-governance-postgres.yml"
@@ -41,11 +42,13 @@ jobs:
           PGPASSWORD=agent_test_only psql -h localhost -U agent -d governance -v ON_ERROR_STOP=1 -f db/migrations/20261016_agent_governance_integrity.sql
           PGPASSWORD=agent_test_only psql -h localhost -U agent -d governance -v ON_ERROR_STOP=1 -f db/migrations/20261017_agent_action_outbox.sql
           PGPASSWORD=agent_test_only psql -h localhost -U agent -d governance -v ON_ERROR_STOP=1 -f db/migrations/20261018_agent_outbox_draft_guard.sql
+          PGPASSWORD=agent_test_only psql -h localhost -U agent -d governance -v ON_ERROR_STOP=1 -f db/migrations/20261019_agent_outbox_lease_integrity.sql
       - name: Verify governance migrations are idempotent
         run: |
           PGPASSWORD=agent_test_only psql -h localhost -U agent -d governance -v ON_ERROR_STOP=1 -f db/migrations/20261015_agent_action_governance.sql
           PGPASSWORD=agent_test_only psql -h localhost -U agent -d governance -v ON_ERROR_STOP=1 -f db/migrations/20261016_agent_governance_integrity.sql
           PGPASSWORD=agent_test_only psql -h localhost -U agent -d governance -v ON_ERROR_STOP=1 -f db/migrations/20261017_agent_action_outbox.sql
           PGPASSWORD=agent_test_only psql -h localhost -U agent -d governance -v ON_ERROR_STOP=1 -f db/migrations/20261018_agent_outbox_draft_guard.sql
+          PGPASSWORD=agent_test_only psql -h localhost -U agent -d governance -v ON_ERROR_STOP=1 -f db/migrations/20261019_agent_outbox_lease_integrity.sql
       - name: Run real PostgreSQL tests
         run: node --test tests/agent-postgres-integration.test.mjs
