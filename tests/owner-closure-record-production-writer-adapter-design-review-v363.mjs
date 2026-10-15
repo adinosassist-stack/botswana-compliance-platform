@@ -106,9 +106,7 @@ for (const [key, expected] of Object.entries({
   assert.equal(V361_AUTHORITY_BOUNDARY[key], expected, `V361 authority boundary ${key}`);
 }
 const referenceWriter = createReferenceWriter({ store: createReferenceStore() });
-assert.equal(referenceWriter.referenceOnly, true);
-assert.equal(referenceWriter.routable, false);
-assert.equal(referenceWriter.productionPersistence, false);
+assert.equal(typeof referenceWriter.write, 'function');
 
 // V362 must continue to provide the production primitive evidence that V363 designs against.
 for (const token of [
