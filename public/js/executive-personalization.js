@@ -21,7 +21,8 @@
     "/js/owner-first-home-v328.js?v=20261015-owner-decision-memory-v330",
     "/js/owner-decision-follow-through-v331.js?v=20261015-owner-decision-follow-through-v331",
     "/js/owner-decision-outcome-learning-v332.js?v=20261015-owner-decision-outcome-learning-v332",
-    "/js/owner-decision-recommendation-calibration-v333.js?v=20261015-owner-decision-recommendation-calibration-v333"
+    "/js/owner-decision-recommendation-calibration-v333.js?v=20261015-owner-decision-recommendation-calibration-v333",
+    "/js/owner-recommendation-challenge-mode-v334.js?v=20261015-owner-recommendation-challenge-mode-v334"
   ];
   const q=(selector,root=document)=>root.querySelector(selector);
   let telemetryBusy=false;
