@@ -123,9 +123,9 @@ export async function recordAgentCostOutcomeTelemetry(env,input={}){
       if(!outcome)return Object.freeze({ok:false,code:"cost_telemetry_outcome_not_found"});
     }
     const actorUserId=identifier(input?.actorUserId)?text(input.actorUserId,160):null;
-    const result=await env.DB.prepare(`INSERT INTO agentic_events(id,tenant_id,run_id,proposal_id,event_type,actor_user_id,detail_json)
-      VALUES(?,?,?,NULL,?,?,?)`)
-      .bind(crypto.randomUUID(),telemetry.tenantId,telemetry.runId,AGENT_COST_TELEMETRY_EVENT,actorUserId,JSON.stringify(telemetry)).run();
+    const result=await env.DB.prepare(`INSERT INTO agent_cost_shadow_events(id,tenant_id,run_id,actor_user_id,detail_json)
+      VALUES(?,?,?,?,?)`)
+      .bind(crypto.randomUUID(),telemetry.tenantId,telemetry.runId,actorUserId,JSON.stringify(telemetry)).run();
     const changes=Number(result?.meta?.changes??result?.changes??0);
     if(changes!==1)return Object.freeze({ok:false,code:"cost_telemetry_write_conflict"});
     return Object.freeze({ok:true,code:"cost_outcome_shadow_recorded",telemetry});
@@ -148,9 +148,9 @@ export async function loadAgentCostOutcomeSummary(env,tenantId,{windowDays=7}={}
   }
   try{
     const [eventResult,outcomeResult]=await Promise.all([
-      env.DB.prepare(`SELECT run_id,detail_json,occurred_at FROM agentic_events
-        WHERE tenant_id=? AND event_type=? AND occurred_at>=datetime('now',?)
-        ORDER BY occurred_at DESC`).bind(tenant,AGENT_COST_TELEMETRY_EVENT,`-${windowDays} days`).all(),
+      env.DB.prepare(`SELECT run_id,detail_json,occurred_at FROM agent_cost_shadow_events
+        WHERE tenant_id=? AND occurred_at>=datetime('now',?)
+        ORDER BY occurred_at DESC`).bind(tenant,`-${windowDays} days`).all(),
       env.DB.prepare("SELECT DISTINCT run_id FROM agentic_outcomes WHERE tenant_id=?").bind(tenant).all()
     ]);
     const linkedRuns=new Set(rows(outcomeResult).map(row=>String(row?.run_id||"")).filter(Boolean));
