@@ -1,0 +1,93 @@
+name: V367 owner-closure-record-server-integration boundary
+run-name: V367 owner-closure-record-server-integration boundary ${{ github.event.pull_request.head.sha }}
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v367-owner-closure-record-server-integration-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  v367-boundary:
+    name: Owner closure record server integration boundary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/thebe_v367
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: thebe_v367
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d thebe_v367"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          [[ "$actual" == "$EXPECTED_HEAD_SHA" ]] || { echo "head mismatch expected=$EXPECTED_HEAD_SHA actual=$actual" >&2; exit 1; }
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo 'checkout is not clean' >&2; exit 1; }
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+
+      - name: Install exact dependencies
+        shell: bash
+        run: npm ci --ignore-scripts
+
+      - name: Apply full Postgres migration chain
+        shell: bash
+        run: npm run migrate
+
+      - name: Prove inherited V365 schema foundation
+        shell: bash
+        run: node tests/owner-closure-record-schema-foundation-v365.mjs
+
+      - name: Re-prove V366 writer runtime and boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/owner-closure-record-production-writer-core-v366.mjs
+          node tests/owner-closure-record-production-writer-core-static-v366.mjs
+
+      - name: Prove V367 disabled server integration behavior
+        shell: bash
+        run: node tests/owner-closure-record-server-integration-v367.mjs
+
+      - name: Prove V367 unregistered route authority boundary
+        shell: bash
+        run: node tests/owner-closure-record-server-integration-static-v367.mjs
+
+      - name: Re-prove inherited V364 and V362 boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/owner-closure-record-production-writer-adapter-implementation-readiness-v364.mjs
+          node tests/owner-closure-record-production-writer-adapter-implementation-readiness-static-v364.mjs
+          node tests/owner-closure-record-production-persistence-adapter-conformance-v362.mjs
+          node tests/owner-closure-record-production-persistence-adapter-static-v362.mjs
