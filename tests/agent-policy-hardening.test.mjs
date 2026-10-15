@@ -67,3 +67,9 @@ test("sparse and subclassed arrays cannot be authorized", () => {
   class CustomArray extends Array {}
   assert.throws(() => agentArgumentDigest(new CustomArray(1, 2)), /non_json_argument/);
 });
+
+test("agent argument digest enforces UTF-8 byte limit", () => {
+  assert.throws(() => agentArgumentDigest({ text: "x".repeat(70_000) }), /agent_arguments_too_large/);
+  assert.throws(() => agentArgumentDigest({ text: "🦓".repeat(17_000) }), /agent_arguments_too_large/);
+  assert.match(agentArgumentDigest({ text: "x".repeat(100) }), /^[a-f0-9]{64}$/);
+});
