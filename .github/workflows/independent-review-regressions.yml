@@ -186,6 +186,14 @@ jobs:
           node --check tests/owner-decision-review-brief-static.mjs
           node tests/owner-decision-review-brief-static.mjs
 
+      - name: Owner decision review delta boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check public/js/owner-decision-review-delta-v344.js
+          node --check tests/owner-decision-review-delta-static.mjs
+          node tests/owner-decision-review-delta-static.mjs
+
       - name: Regulatory reviewer provisioning governance
         shell: bash
         run: |
