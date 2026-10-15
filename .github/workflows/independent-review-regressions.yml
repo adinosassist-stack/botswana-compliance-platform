@@ -218,6 +218,14 @@ jobs:
           node --check tests/owner-decision-transition-plan-static.mjs
           node tests/owner-decision-transition-plan-static.mjs
 
+      - name: Owner transition stage readiness gate boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check public/js/owner-transition-stage-readiness-gate-v348.js
+          node --check tests/owner-transition-stage-readiness-gate-static.mjs
+          node tests/owner-transition-stage-readiness-gate-static.mjs
+
       - name: Regulatory reviewer provisioning governance
         shell: bash
         run: |
