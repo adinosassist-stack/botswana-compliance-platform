@@ -18,7 +18,7 @@ for(const token of [
   'global.ThebeOwnerDecisionEvidenceReadiness?.readinessSpec?.(record)',
   'global.ThebeOwnerDecisionRecommendationCalibration?.getCalibration?.(sourceType)',
   'Use current verified business context first and re-evaluate every non-persisted analysis fresh',
-  'Do not assume an earlier AI pre-mortem, safeguard review, conflict review, resolution plan, or readiness answer is still valid.',
+  'do not assume an earlier AI pre-mortem, safeguard review, conflict review, resolution plan, or readiness answer is still valid.',
   'Decision in one sentence',
   'Current recommendation',
   'Evidence supporting the recommendation',
