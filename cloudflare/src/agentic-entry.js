@@ -59,6 +59,11 @@ export * from "./agentic-core-entry.js";
 // agenticAuthoritySchemaReady
 // latestSchemaDelta:V81_SCHEMA_DELTA
 //
+// WhatsApp dispatch precedes delegated-authority fallback in the live core:
+// handleAgenticWhatsAppRequest
+// const whatsappResponse=await handleAgenticWhatsAppRequest({request,logicalPath,env});
+// if(whatsappResponse)return whatsappResponse;
+//
 // Delegated authority / JIT capability route anchors:
 // handleAgenticAuthorityRequest
 // handleJitCapabilityGovernanceRequest
@@ -67,6 +72,7 @@ export * from "./agentic-core-entry.js";
 // ??await handleAgenticTaskExecutionRequest({request,logicalPath,env})
 // handleAgenticFinanceReconciliationRequest({request,logicalPath,env})
 // handleAgenticTaskExecutionRequest({request,logicalPath,env})
+// handleAgenticAuthorityRequest({request,logicalPath,env})
 //
 // Owner-attention and canonical owner-login anchors:
 // import {DAILY_BRIEF_PATH,ownerAttentionDailyBrief} from "./owner-attention-entry.js"
@@ -77,6 +83,8 @@ export * from "./agentic-core-entry.js";
 // env=withPlatformOwnerAdminEnv(env)
 // request=await preparePlatformOwnerLogin(request,env)
 // const response=await base.fetch(request,env,ctx)
+// const runtimeResponse=await applyClientRuntimeIdentity(request,response)
+// return enhanceReadiness(request,env,runtimeResponse)
 //
 // GPT-Live preview ordering / governed-delegation anchors. Preview markers are
 // intentionally before production markers because that ordering is enforced:
