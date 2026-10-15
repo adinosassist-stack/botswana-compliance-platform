@@ -44,6 +44,8 @@
 /* Match the current workspace palette: white surfaces, navy text and blue accents. */
 #propertyintelligence.property-compact-v260 .property-hero-compact,
 #propertyintelligence.property-compact-v260 .property-home-hero-v230{
+  min-height:112px!important;
+  padding:16px 18px!important;
   background:#fff!important;
   background-image:none!important;
   color:var(--property-ink)!important;
@@ -76,6 +78,41 @@
   color:#fff!important;
 }
 
+/* Research-backed hierarchy: keep primary navigation high-level and expose analysis modes only inside Analyse. */
+#propertyintelligence.property-compact-v260 .property-analysis-tools-v272{
+  display:flex;
+  width:min(680px,100%);
+  margin:0 auto 10px;
+  padding:4px;
+  gap:4px;
+  border:1px solid var(--property-line);
+  border-radius:12px;
+  background:var(--property-accent-soft);
+  box-sizing:border-box;
+}
+#propertyintelligence.property-compact-v260[data-property-active-pane="today"] .property-analysis-tools-v272,
+#propertyintelligence.property-compact-v260[data-property-active-pane="properties"] .property-analysis-tools-v272,
+#propertyintelligence.property-compact-v260[data-property-active-pane="operations"] .property-analysis-tools-v272{display:none!important}
+#propertyintelligence.property-compact-v260 .property-analysis-tools-v272>.property-overview-action-v261{
+  flex:1 1 0;
+  min-width:0;
+  min-height:38px;
+  padding:8px 10px!important;
+  border-color:transparent!important;
+  background:transparent!important;
+  color:var(--property-muted)!important;
+  font-size:10px!important;
+  text-align:center;
+}
+#propertyintelligence.property-compact-v260[data-property-active-pane="analyse"] .property-analysis-tools-v272>.property-overview-action-v261:nth-child(1),
+#propertyintelligence.property-compact-v260[data-property-active-pane="optimise"] .property-analysis-tools-v272>.property-overview-action-v261:nth-child(2),
+#propertyintelligence.property-compact-v260[data-property-active-pane="compare"] .property-analysis-tools-v272>.property-overview-action-v261:nth-child(3){
+  background:#fff!important;
+  border-color:var(--property-line)!important;
+  color:var(--property-ink)!important;
+  box-shadow:0 2px 8px rgba(24,55,90,.08)!important;
+}
+
 #propertyintelligence.property-compact-v260 .property-action-v230,
 #propertyintelligence.property-compact-v260 .property-overview-action-v261,
 #propertyintelligence.property-compact-v260 .property-ops-action-v262,
@@ -91,10 +128,17 @@
 #propertyintelligence.property-compact-v260 .property-submit-v230,
 #propertyintelligence.property-compact-v260 .property-construction-action-v312,
 #propertyintelligence.property-compact-v260 .property-ops-ai-v262,
-#propertyintelligence.property-compact-v260 .property-overview-ai-v261,
-#propertyintelligence.property-compact-v260 [data-property-tool][aria-pressed="true"]{
+#propertyintelligence.property-compact-v260 .property-overview-ai-v261{
   background:var(--property-accent)!important;
   background-image:none!important;
+  border-color:var(--property-accent)!important;
+  color:#fff!important;
+}
+
+/* Today is a summary, not another tool tray: remove the duplicate Compare shortcut and make Analyse the clear next action. */
+#propertyintelligence.property-compact-v260[data-property-active-pane="today"] .property-overview-actions-v261>.property-overview-action-v261:nth-child(4){display:none!important}
+#propertyintelligence.property-compact-v260[data-property-active-pane="today"] .property-overview-actions-v261>.property-overview-action-v261:nth-child(2){
+  background:var(--property-accent)!important;
   border-color:var(--property-accent)!important;
   color:#fff!important;
 }
@@ -163,7 +207,32 @@
 @media(max-width:760px){
   #propertyintelligence.property-compact-v260{--property-bg:#f7f9fc}
   #propertyintelligence.property-compact-v260 .property-hero-compact,
-  #propertyintelligence.property-compact-v260 .property-home-hero-v230{border-left-width:3px!important}
+  #propertyintelligence.property-compact-v260 .property-home-hero-v230{
+    min-height:96px!important;
+    padding:13px 14px!important;
+    border-left-width:3px!important;
+  }
   #propertyintelligence.property-compact-v260 .property-primary-v260{background:#fff!important}
+  #propertyintelligence.property-compact-v260 .property-analysis-tools-v272{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    width:100%;
+    gap:3px;
+    padding:3px;
+    margin-bottom:8px;
+  }
+  #propertyintelligence.property-compact-v260 .property-analysis-tools-v272>.property-overview-action-v261{
+    min-height:42px;
+    padding:7px 5px!important;
+    font-size:9px!important;
+  }
+  #propertyintelligence.property-compact-v260 .property-overview-metrics-v261{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  #propertyintelligence.property-compact-v260 .property-overview-metrics-v261>.property-overview-metric-v261:last-child{grid-column:1/-1}
   #propertyintelligence.property-compact-v260 :is(input,select,textarea,button){min-height:40px}
+}
+
+@media(max-width:420px){
+  #propertyintelligence.property-compact-v260 .property-analysis-tools-v272>.property-overview-action-v261{font-size:8px!important}
+  #propertyintelligence.property-compact-v260 .property-overview-actions-v261{grid-template-columns:1fr!important}
+  #propertyintelligence.property-compact-v260 .property-overview-actions-v261>.property-overview-action-v261{width:100%}
 }
