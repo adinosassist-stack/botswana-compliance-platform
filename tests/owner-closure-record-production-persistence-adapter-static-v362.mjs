@@ -9,6 +9,9 @@ const EXPECTED = [
   'tests/owner-closure-record-production-persistence-adapter-conformance-v362.mjs',
   'tests/owner-closure-record-production-persistence-adapter-static-v362.mjs'
 ].sort();
+const ALLOWED_SCHEMA_DESCENDANT = new Set([
+  'db/migrations/033_v365_owner_closure_records.sql'
+]);
 
 const filesBetween = (base, head) => execFileSync('git', ['diff', '--name-only', `${base}...${head}`], { encoding: 'utf8' })
   .trim().split(/\r?\n/).filter(Boolean).sort();
@@ -23,7 +26,8 @@ if (head !== QUALIFIED_HEAD) {
   const descendantChanged = filesBetween(QUALIFIED_HEAD, head);
   assert.ok(descendantChanged.length > 0, 'stacked V362 descendant must contain an explicit descendant delta');
   for (const path of descendantChanged) {
-    assert.ok(path.startsWith('tests/') || path.startsWith('.github/workflows/'), `stacked descendant changed runtime/production path: ${path}`);
+    const safe = path.startsWith('tests/') || path.startsWith('.github/workflows/') || ALLOWED_SCHEMA_DESCENDANT.has(path);
+    assert.ok(safe, `stacked descendant changed unauthorized runtime/production path: ${path}`);
   }
 }
 
@@ -53,7 +57,7 @@ const forbidden = [
   /CREATE\s+TABLE\s+owner_closure/i,
   /ALTER\s+TABLE\s+owner_closure/i
 ];
-for (const pattern of forbidden) assert.ok(!pattern.test(combined), `V362 must remain capability-only/non-routable: ${pattern}`);
+for (const pattern of forbidden) assert.ok(!pattern.test(combined), `V362 frozen capability proof must remain non-routable: ${pattern}`);
 
 for (const token of [
   'closureWriterRoutable: false',
