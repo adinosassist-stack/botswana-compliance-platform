@@ -26,6 +26,7 @@ const must=[
   '/api/business-memory',
   'canonical_state_not_ready',
   'advisory_no_persistence_no_execution',
+  'Do not create numeric confidence, probability, risk, urgency, readiness, dependency, reversibility, materiality, completion, success, closure, attribution, fidelity, or causal scores.',
   'Advisory record-confirmation review only — no decision closure, approval, archival, persistence, scheduling, monitoring, decision-change, rollback, or execution authority.'
 ];
 for(const token of must)assert.ok(source.includes(token),`missing ${token}`);
@@ -53,9 +54,11 @@ const forbidden=[
 ];
 for(const pattern of forbidden)assert.ok(!pattern.test(source),`forbidden authority pattern ${pattern}`);
 
-for(const score of ['confidence score','probability score','risk score','urgency score','readiness score','fidelity score','causal score']){
-  assert.ok(!source.toLowerCase().includes(score),`numeric scoring not allowed: ${score}`);
-}
+const numericScorePatterns=[
+  /\b(?:confidence|probability|risk|urgency|readiness|dependency|reversibility|materiality|completion|success|closure|attribution|fidelity|causal)Score\s*[:=]/i,
+  /\bscore\s*[:=]\s*\d/i
+];
+for(const pattern of numericScorePatterns)assert.ok(!pattern.test(source),`numeric scoring construct not allowed: ${pattern}`);
 
 assert.ok(source.includes('do not persist the selected disposition, draft wording, rationale/evidence basis, residual context, confirmation result, or corrected wording'),'must prohibit persistence');
 assert.ok(source.includes('Corrections remain draft wording pending owner review and cannot change the selected disposition'),'corrections must remain human-gated');
