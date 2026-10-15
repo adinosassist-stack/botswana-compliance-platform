@@ -10,13 +10,14 @@ const MIGRATION = 'db/migrations/033_v365_owner_closure_records.sql';
 const EXPECTED = [
   '.github/workflows/v365-owner-closure-record-schema-foundation-boundary.yml',
   MIGRATION,
+  'tests/owner-closure-record-production-persistence-adapter-static-v362.mjs',
   'tests/owner-closure-record-production-writer-adapter-implementation-readiness-static-v364.mjs',
   'tests/owner-closure-record-schema-foundation-v365.mjs'
 ].sort();
 
 const changed = execFileSync('git', ['diff', '--name-only', `${BASE}...HEAD`], { encoding: 'utf8' })
   .trim().split(/\r?\n/).filter(Boolean).sort();
-assert.deepEqual(changed, EXPECTED, 'V365 must change only migration 033, its runtime proof/workflow, and the stack-aware V364 boundary');
+assert.deepEqual(changed, EXPECTED, 'V365 must change only migration 033, its runtime proof/workflow, and the exact V362/V364 stack guards required for this approved schema descendant');
 
 const migration = fs.readFileSync(MIGRATION, 'utf8');
 const server = fs.readFileSync('server/server.js', 'utf8');
