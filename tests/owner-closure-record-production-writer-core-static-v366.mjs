@@ -110,7 +110,7 @@ assert.ok(auditIndex < commitAfterAuditIndex, 'audit insert must precede durable
 
 for (const token of [
   'caller fingerprint must be ignored',
-  'same idempotency key with changed material semantics',
+  'Same idempotency key with changed material semantics',
   'STALE_TARGET_VERSION',
   'AUTHORIZATION_BINDING_MISMATCH',
   'AUTHORIZATION_STALE_OR_REVOKED',
