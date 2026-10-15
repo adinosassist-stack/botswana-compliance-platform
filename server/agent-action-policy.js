@@ -6,9 +6,16 @@ export const SAFE_AGENT_ACTIONS = Object.freeze([...SAFE]);
 export const SENSITIVE_AGENT_ACTIONS = Object.freeze([...SENSITIVE]);
 
 export function canonicalJson(value) {
-  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  // Reject values that cannot be represented consistently as JSON.
+  if (value === null || typeof value === "string" || typeof value === "boolean") return JSON.stringify(value);
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new TypeError("non_json_argument");
+    return JSON.stringify(value);
+  }
   if (Array.isArray(value)) return "[" + value.map(canonicalJson).join(",") + "]";
-  return "{" + Object.keys(value).sort().map(key => JSON.stringify(key) + ":" + canonicalJson(value[key])).join(",") + "}";
+  if (typeof value !== "object" || Object.getPrototypeOf(value) !== Object.prototype) throw new TypeError("non_json_argument");
+  const keys = Object.keys(value).sort();
+  return "{" + keys.map(key => JSON.stringify(key) + ":" + canonicalJson(value[key])).join(",") + "}";
 }
 
 export function agentArgumentDigest(args) {
