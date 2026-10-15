@@ -25,12 +25,15 @@ requireAll(server, [
 
 // Production optimistic concurrency capability: state mutations bind tenant + observed version.
 requireAll(server, [
-  'UPDATE app_state',
   'version=version+1',
   'tenant_id=$1',
-  'version=$3',
-  'RETURNING version'
+  'version=$3'
 ], 'workspace CAS primitive');
+assert.match(
+  server,
+  /update\s+app_state\s+set\s+state=\$2,updated_at=now\(\),version=version\+1\s+where\s+tenant_id=\$1\s+and\s+version=\$3\s+returning\s+version/i,
+  'workspace CAS primitive must bind tenant + observed version and return the new version'
+);
 assert.match(server, /stateSchema=z\.object\(\{state:z\.record\(z\.any\(\)\),version:z\.number\(\)\.int\(\)\.positive\(\)\}\)/, 'state writes require a positive integer observed version');
 
 // The database schema gives the CAS token a durable numeric contract.
