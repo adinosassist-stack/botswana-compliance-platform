@@ -27,6 +27,7 @@ function canonicalJsonInner(value, seen) {
   seen.add(value);
   try {
     const keys = Object.keys(value).sort();
+    if (Object.getOwnPropertySymbols(value).length || keys.some(key => !Object.getOwnPropertyDescriptor(value, key)?.enumerable || !("value" in Object.getOwnPropertyDescriptor(value, key)))) throw new TypeError("non_json_argument");
     return "{" + keys.map(key => JSON.stringify(key) + ":" + canonicalJsonInner(value[key], seen)).join(",") + "}";
   } finally { seen.delete(value); }
 }
