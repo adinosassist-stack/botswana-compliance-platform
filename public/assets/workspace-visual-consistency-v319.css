@@ -1,0 +1,130 @@
+/* Thebe Desk workspace visual consistency v319.
+   Presentation-only: unify visual rhythm across major workspace modules without changing data, actions or status semantics. */
+
+#appShell :where(.people-outcome-grid,.business-outcome-grid,.hub-grid,.hub-grid-3){
+  gap:14px!important;
+}
+
+#appShell :where(
+  .ops-visual-brief,
+  .risk-severity-visual,
+  .control-health-visual,
+  .evidence-integrity-flow,
+  .freshness-visual,
+  .inspection-gauge,
+  .regulatory-pipeline,
+  .audit-chain-visual,
+  .notification-radar,
+  .ai-scope-visual,
+  .property-valuation-pipeline,
+  .property-asset-visual
+){
+  min-width:0;
+  border-radius:16px!important;
+  box-shadow:0 1px 2px rgba(15,23,42,.05);
+}
+
+#appShell :where(
+  .ops-visual-brief,
+  .risk-severity-visual,
+  .control-health-visual,
+  .freshness-visual,
+  .inspection-gauge,
+  .notification-radar
+){
+  padding:14px!important;
+}
+
+#appShell :where(
+  .evidence-integrity-flow,
+  .regulatory-pipeline,
+  .audit-chain-visual,
+  .ai-scope-visual,
+  .property-valuation-pipeline
+){
+  padding:12px!important;
+}
+
+#appShell :where(
+  .property-portfolio-workspace,
+  .property-valuation-service-card,
+  .employee-directory-shell,
+  .protected-workflow-launch,
+  .corporate-change-launch
+){
+  border-radius:18px!important;
+}
+
+#appShell :where(
+  .ops-visual-brief,
+  .risk-severity-visual,
+  .control-health-visual,
+  .evidence-integrity-flow,
+  .freshness-visual,
+  .inspection-gauge,
+  .regulatory-pipeline,
+  .audit-chain-visual,
+  .notification-radar,
+  .ai-scope-visual,
+  .property-valuation-pipeline,
+  .property-asset-visual
+) :is(h2,h3,b,strong){
+  letter-spacing:-.01em;
+}
+
+#appShell :where(
+  .property-advanced-details,
+  .property-analysis-details,
+  .ai-scope-disclosure,
+  .notification-policy-disclosure,
+  .cipa-reconciliation-disclosure,
+  .property-more-actions
+)>summary{
+  min-height:42px;
+  display:flex;
+  align-items:center;
+  cursor:pointer;
+}
+
+#appShell .view :where(.muted.small,.small.muted){
+  line-height:1.5;
+}
+
+#appShell .view :where(.card,.notice){
+  overflow-wrap:anywhere;
+}
+
+body.thebe-ai-dock-open #appShell :where(
+  .people-outcome-grid,
+  .business-outcome-grid,
+  .hub-grid,
+  .hub-grid-3
+){
+  gap:12px!important;
+}
+
+@media (max-width:900px){
+  #appShell :where(.people-outcome-grid,.business-outcome-grid,.hub-grid,.hub-grid-3){
+    gap:12px!important;
+  }
+  #appShell :where(
+    .ops-visual-brief,
+    .risk-severity-visual,
+    .control-health-visual,
+    .evidence-integrity-flow,
+    .freshness-visual,
+    .inspection-gauge,
+    .regulatory-pipeline,
+    .audit-chain-visual,
+    .notification-radar,
+    .ai-scope-visual,
+    .property-valuation-pipeline,
+    .property-asset-visual
+  ){
+    border-radius:14px!important;
+  }
+}
+
+@media (prefers-reduced-motion:reduce){
+  #appShell :where(details,summary){scroll-behavior:auto!important}
+}
