@@ -31,7 +31,8 @@
     "/js/owner-evidence-conflict-detection-v340.js?v=20261015-owner-evidence-conflict-detection-v340",
     "/js/owner-evidence-resolution-plan-v341.js?v=20261015-owner-evidence-resolution-plan-v341",
     "/js/owner-decision-evidence-readiness-v342.js?v=20261015-owner-decision-evidence-readiness-v342",
-    "/js/owner-decision-review-brief-v343.js?v=20261015-owner-decision-review-brief-v343"
+    "/js/owner-decision-review-brief-v343.js?v=20261015-owner-decision-review-brief-v343",
+    "/js/owner-decision-review-delta-v344.js?v=20261015-owner-decision-review-delta-v344"
   ];
   const q=(selector,root=document)=>root.querySelector(selector);
   let telemetryBusy=false;
