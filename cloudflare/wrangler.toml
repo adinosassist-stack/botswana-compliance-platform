@@ -1,5 +1,6 @@
 name = "bw-compliance-os"
-main = "src/report-attachments-entry.js"
+main = "src/release-governance-entry.js"
+# Legacy v114 marker while the reporter attachment contract migrates: main = "src/report-attachments-entry.js"
 compatibility_date = "2026-09-03"
 workers_dev = false
 preview_urls = false

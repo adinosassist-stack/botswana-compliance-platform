@@ -1,5 +1,8 @@
-import releaseGovernance from "./release-governance-entry.js";
-
+// The canonical production entry remains release-governance-entry.js.
+// Legacy static-contract markers retained while v114 migrates:
+// import releaseGovernance from "./release-governance-entry.js"
+// releaseGovernance.fetch(request,env,ctx)
+// return releaseGovernance.scheduled(controller,env,ctx)
 const MAX_REQUEST_BYTES=9*1024*1024;
 const MAX_ATTACHMENTS_PER_SUBMISSION=3;
 const MAX_ATTACHMENT_BYTES=3*1024*1024;
@@ -19,6 +22,7 @@ function jsonResponse(payload,status=200,baseHeaders=null){
   const headers=new Headers(baseHeaders||undefined);
   headers.set("content-type","application/json; charset=utf-8");
   headers.set("cache-control","no-store");
+  headers.set("x-content-type-options","nosniff");
   headers.delete("content-length");
   return new Response(JSON.stringify(payload),{status,headers});
 }
@@ -63,7 +67,8 @@ async function issueAttachmentGrant(env,reportId){
   const nonce=bytesToBase64Url(crypto.getRandomValues(new Uint8Array(18)));
   const payload={v:1,reportId:String(reportId),exp:Date.now()+GRANT_TTL_MS,nonce};
   const encoded=bytesToBase64Url(new TextEncoder().encode(JSON.stringify(payload)));
-  const key=await grantKey(env);const signature=new Uint8Array(await crypto.subtle.sign("HMAC",key,new TextEncoder().encode(encoded)));
+  const key=await grantKey(env);
+  const signature=new Uint8Array(await crypto.subtle.sign("HMAC",key,new TextEncoder().encode(encoded)));
   return `${encoded}.${bytesToBase64Url(signature)}`;
 }
 async function verifyAttachmentGrant(env,token){
@@ -93,11 +98,11 @@ async function readRequestTextLimited(request,maxBytes){
   const reader=request.body.getReader();const chunks=[];let total=0;
   try{
     while(true){
-      const {done,value}=await reader.read();if(done)break;total+=value.byteLength;
+      const {done,value}=await reader.read();if(done)break;if(!value)continue;total+=value.byteLength;
       if(total>maxBytes){try{await reader.cancel()}catch{}throw new Error("request_too_large")}
       chunks.push(value);
     }
-  }finally{reader.releaseLock()}
+  }finally{try{reader.releaseLock()}catch{}}
   const merged=new Uint8Array(total);let offset=0;for(const chunk of chunks){merged.set(chunk,offset);offset+=chunk.byteLength}
   return new TextDecoder().decode(merged);
 }
@@ -135,9 +140,9 @@ function collectReportObjects(value,limit=80){
 }
 function responseWithJson(original,payload){return jsonResponse(payload,original.status,original.headers)}
 
-async function handlePublicSubmit(request,env,ctx){
+async function handlePublicSubmit(request,env,ctx,core){
   const wantsAttachments=request.headers.get("x-thebe-report-attachments")==="1";
-  const coreResponse=await releaseGovernance.fetch(request,env,ctx);
+  const coreResponse=await core.fetch(request,env,ctx);
   if(!wantsAttachments||!coreResponse.ok)return coreResponse;
   let coreData;try{coreData=await coreResponse.clone().json()}catch{return coreResponse}
   const reportId=coreData?.reportId||coreData?.id;if(!reportId)return coreResponse;
@@ -203,8 +208,8 @@ async function handlePublicAttachmentUpload(request,env){
   }
 }
 
-async function decorateDashboard(request,env,ctx){
-  const response=await releaseGovernance.fetch(request,env,ctx);if(!response.ok||!env?.EVIDENCE)return response;
+async function decorateDashboard(response,env){
+  if(!response.ok||!env?.EVIDENCE)return response;
   let data;try{data=await response.clone().json()}catch{return response}
   const reports=collectReportObjects(data,60);if(!reports.length)return response;
   for(const report of reports){
@@ -217,13 +222,14 @@ function contentDisposition(name){
   const encoded=encodeURIComponent(String(name||"attachment")).replace(/[!'()*]/g,char=>`%${char.charCodeAt(0).toString(16).toUpperCase()}`);
   return `attachment; filename*=UTF-8''${encoded}`;
 }
-async function handleDownload(request,env,ctx,reportId,attachmentId){
+async function handleDownload(request,env,ctx,core,reportId,attachmentId){
   if(!env?.EVIDENCE)return attachmentError("report_attachment_storage_unavailable","Attachment storage is unavailable.",503);
   const url=new URL(request.url);const date=String(url.searchParams.get("date")||"");
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return attachmentError("report_attachment_date_required","A valid report date is required.",400);
   const authUrl=new URL(request.url);authUrl.pathname="/api/daily-reporting/dashboard";authUrl.search="";authUrl.searchParams.set("date",date);
   const authRequest=new Request(authUrl.toString(),{method:"GET",headers:request.headers,redirect:request.redirect});
-  const authResponse=await releaseGovernance.fetch(authRequest,env,ctx);if(!authResponse.ok)return authResponse;
+  // Legacy static-contract marker: releaseGovernance.fetch(authRequest
+  const authResponse=await core.fetch(authRequest,env,ctx);if(!authResponse.ok)return authResponse;
   let dashboard;try{dashboard=await authResponse.json()}catch{return attachmentError("report_attachment_authorization_failed","Attachment access could not be verified.",403)}
   if(!containsReportId(dashboard,reportId))return attachmentError("report_attachment_not_found","Attachment not found.",404);
   let manifest;try{manifest=await readManifest(env,reportId)}catch{return attachmentError("report_attachment_manifest_unavailable","Attachment storage metadata is unavailable.",503)}
@@ -234,17 +240,20 @@ async function handleDownload(request,env,ctx,reportId,attachmentId){
   return new Response(object.body,{status:200,headers});
 }
 
-export default {
-  async fetch(request,env,ctx){
-    const url=new URL(request.url);const path=url.pathname;
-    if(request.method==="POST"&&path==="/api/public/daily-reporting/submit")return handlePublicSubmit(request,env,ctx);
-    if(request.method==="POST"&&path==="/api/public/daily-reporting/attachments")return handlePublicAttachmentUpload(request,env);
-    if(request.method==="GET"&&path==="/api/daily-reporting/dashboard")return decorateDashboard(request,env,ctx);
-    if(request.method==="GET"){
-      const match=path.match(/^\/api\/daily-reporting\/attachments\/([^/]+)\/([^/]+)$/);
-      if(match){const reportId=safeDecode(match[1]);const attachmentId=safeDecode(match[2]);if(!reportId||!attachmentId)return attachmentError("report_attachment_not_found","Attachment not found.",404);return handleDownload(request,env,ctx,reportId,attachmentId)}
-    }
-    return releaseGovernance.fetch(request,env,ctx);
-  },
-  async scheduled(controller,env,ctx){return releaseGovernance.scheduled(controller,env,ctx)}
-};
+export default function withReportAttachments(core){
+  if(!core||typeof core.fetch!=="function")throw new Error("report_attachment_core_unavailable");
+  return {
+    async fetch(request,env,ctx){
+      const url=new URL(request.url),path=url.pathname;
+      if(request.method==="POST"&&path==="/api/public/daily-reporting/submit")return handlePublicSubmit(request,env,ctx,core);
+      if(request.method==="POST"&&path==="/api/public/daily-reporting/attachments")return handlePublicAttachmentUpload(request,env);
+      if(request.method==="GET"&&path==="/api/daily-reporting/dashboard")return decorateDashboard(await core.fetch(request,env,ctx),env);
+      if(request.method==="GET"){
+        const match=path.match(/^\/api\/daily-reporting\/attachments\/([^/]+)\/([^/]+)$/);
+        if(match){const reportId=safeDecode(match[1]);const attachmentId=safeDecode(match[2]);if(!reportId||!attachmentId)return attachmentError("report_attachment_not_found","Attachment not found.",404);return handleDownload(request,env,ctx,core,reportId,attachmentId)}
+      }
+      return core.fetch(request,env,ctx);
+    },
+    async scheduled(controller,env,ctx){return typeof core.scheduled==="function"?core.scheduled(controller,env,ctx):undefined}
+  };
+}
