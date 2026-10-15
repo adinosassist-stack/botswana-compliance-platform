@@ -12,7 +12,9 @@ assert.match(script,/Run money, people, work and compliance from one intelligent
 assert.match(script,/Live in Botswana · Namibia next/,"rollout positioning must preserve Botswana-live and Namibia-next strategy");
 assert.match(script,/Built for African businesses/,"market page must carry Africa-scale positioning");
 assert.match(script,/An AI operator that understands the page you are on\./,"AI section must communicate contextual workspace behavior");
-assert.match(script,/Three plans\. One workspace\./,"pricing must communicate a simplified three-plan hierarchy");
+assert.match(script,/Five plans\. One workspace\./,"pricing copy must remain truthful to the five published tiers");
+assert.doesNotMatch(script,/Three plans\. One workspace\./,"pricing refinement must not claim only three plans while additional tiers remain published");
+assert.match(script,/cards\.forEach\(\(card,index\)=>/,"pricing refinement must apply progressive disclosure consistently across all published cards");
 assert.match(script,/details\.plan-more/,"pricing refinement must use progressive disclosure rather than deleting plan detail");
 assert.match(css,/\.plan-more summary/,"progressive-disclosure control must have explicit styling");
 assert.match(css,/@media \(max-width:760px\)/,"v21 refinement must include a mobile treatment");
