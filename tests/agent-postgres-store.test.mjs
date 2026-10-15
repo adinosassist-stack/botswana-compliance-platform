@@ -32,3 +32,17 @@ test("audit rejects cross-tenant event and rolls back", async () => {
   assert.ok(calls.includes("ROLLBACK"));
   assert.ok(!calls.includes("COMMIT"));
 });
+
+test("approval transactions configure bounded statement and lock waits", async () => {
+  const calls = [];
+  const client = {
+    async query(sql) { calls.push(sql); return { rows: [], rowCount: 0 }; },
+    release() {}
+  };
+  const store = createPostgresAgentApprovalStore({ async connect() { return client; } }, "tenant-a");
+  await store.transaction(async () => {});
+  assert.ok(calls.includes("SET LOCAL statement_timeout = '5000ms'"));
+  assert.ok(calls.includes("SET LOCAL lock_timeout = '2000ms'"));
+  assert.ok(calls.indexOf("BEGIN") < calls.indexOf("SET LOCAL statement_timeout = '5000ms'"));
+  assert.ok(calls.indexOf("SET LOCAL lock_timeout = '2000ms'") < calls.indexOf("COMMIT"));
+});
