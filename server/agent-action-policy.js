@@ -54,7 +54,7 @@ function equal(a, b) {
  */
 export function evaluateAgentAction({ action, args, context, approval, policy }) {
   if (!policy?.enabled || policy?.killSwitch || !policy?.auditAvailable) return { allowed: false, reason: "governance_unavailable" };
-  if (!context?.tenantId || !context?.actorId || !Array.isArray(policy.allowedActions) || !policy.allowedActions.includes(action)) return { allowed: false, reason: "unauthorized_action" };
+  if (typeof context?.tenantId !== "string" || !context.tenantId.trim() || typeof context?.actorId !== "string" || !context.actorId.trim() || !Array.isArray(policy.allowedActions) || !policy.allowedActions.includes(action)) return { allowed: false, reason: "unauthorized_action" };
   if (!Number.isFinite(context?.now)) return { allowed: false, reason: "invalid_server_time" };
   if (!Number.isFinite(policy.remainingBudget) || policy.remainingBudget < 0 || !Number.isFinite(policy.estimatedCost) || policy.estimatedCost < 0 || policy.estimatedCost > policy.remainingBudget) return { allowed: false, reason: "budget_exceeded" };
   if (SAFE.has(action)) return { allowed: true, reason: "read_or_draft_only" };
