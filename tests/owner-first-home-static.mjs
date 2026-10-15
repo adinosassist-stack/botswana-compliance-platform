@@ -6,24 +6,25 @@ const owner=fs.readFileSync(new URL('../public/js/owner-first-home-v328.js',impo
 
 for(const token of [
   '/js/executive-personalization-v180.js?v=20260929-v180',
-  '/js/owner-first-home-v328.js?v=20261015-owner-first-home-v328',
+  '/js/owner-first-home-v328.js?v=20261015-owner-attention-v329',
   'script.async=false'
 ]){
   if(!wrapper.includes(token))throw new Error('Owner-first bundle loader missing: '+token);
 }
 
 for(const token of [
-  'const RELEASE="20261015-owner-first-home-v328"',
+  'const RELEASE="20261015-owner-attention-v329"',
   'global.ThebeOwnerFocusStrip?.canonicalSnapshot?.()',
-  'lane("Due soon","due"',
-  'lane("At risk","risk"',
-  'lane("Waiting for you","waiting"',
-  'lane("Money exception","money"',
-  'lane("Thebe recommendation","recommendation"',
-  'if(isRisk(item))return "risk"',
-  'if(isWaiting(item))return "waiting"',
-  'if(isMoney(item))return "money"',
-  'if(isDueSoon(item))return "due"',
+  'lane("Act now","action"',
+  'lane("Needs your decision","decision"',
+  'lane("Waiting / blocked","waiting"',
+  'if(isRisk(item)||isOverdue(item))return "action"',
+  'if(isDecision(item))return "decision"',
+  'if(isBlocked(item))return "waiting"',
+  'summaryPill("act now",lanes.action.length)',
+  'summaryPill("decide",lanes.decision.length)',
+  'summaryPill("waiting",lanes.waiting.length)',
+  'Brief me on my verified owner-attention queue.',
   'Do not execute anything.',
   'Thebe will not infer missing obligations or widen authority.',
   'padding-bottom:max(18px,env(safe-area-inset-bottom))',
