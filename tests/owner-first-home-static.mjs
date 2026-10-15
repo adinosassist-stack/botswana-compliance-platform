@@ -9,6 +9,7 @@ const calibration=fs.readFileSync(new URL('../public/js/owner-decision-recommend
 const challenge=fs.readFileSync(new URL('../public/js/owner-recommendation-challenge-mode-v334.js',import.meta.url),'utf8');
 const premortem=fs.readFileSync(new URL('../public/js/owner-decision-premortem-v335.js',import.meta.url),'utf8');
 const safeguard=fs.readFileSync(new URL('../public/js/owner-decision-safeguard-gate-v336.js',import.meta.url),'utf8');
+const experiment=fs.readFileSync(new URL('../public/js/owner-decision-experiment-planner-v337.js',import.meta.url),'utf8');
 const businessMemory=fs.readFileSync(new URL('../cloudflare/src/business-memory.js',import.meta.url),'utf8');
 
 for(const token of [
@@ -20,6 +21,7 @@ for(const token of [
   '/js/owner-recommendation-challenge-mode-v334.js?v=20261015-owner-recommendation-challenge-mode-v334',
   '/js/owner-decision-premortem-v335.js?v=20261015-owner-decision-premortem-v335',
   '/js/owner-decision-safeguard-gate-v336.js?v=20261015-owner-decision-safeguard-gate-v336',
+  '/js/owner-decision-experiment-planner-v337.js?v=20261015-owner-decision-experiment-planner-v337',
   'script.async=false'
 ]){
   if(!wrapper.includes(token))throw new Error('Owner-first bundle loader missing: '+token);
@@ -307,6 +309,58 @@ for(const forbidden of [
 }
 
 for(const token of [
+  'const RELEASE="20261015-owner-decision-experiment-planner-v337"',
+  'function isOwner(){return role()==="owner"}',
+  'global.ThebeOwnerFocusStrip?.canonicalSnapshot?.()',
+  'global.ThebeOwnerFirstHome?.classify?.(item)',
+  'global.ThebeOwnerDecisionSafeguardGate?.safeguardSpec?.(item)',
+  'return items.filter(item=>classify(item)==="decision");',
+  'if(state!=="ready")',
+  'single most decision-relevant Unknown, Missing, or Partial safeguard',
+  'Do not invent a gap merely to create an experiment.',
+  'no experiment is warranted',
+  'the decision question / hypothesis, clearly labelled as a hypothesis rather than fact',
+  'the smallest reversible test that changes as little business state as possible',
+  'the exact metric or observation to collect and its verified source when available',
+  'the shortest observation window justified by the business cycle or existing evidence',
+  'what evidence would support continuing',
+  'what evidence would support stopping or revising',
+  'owner-defined cap required',
+  'an early stop condition',
+  'the accountable human owner / reviewer',
+  'how the result would update the recommendation',
+  'Do not invent numeric thresholds, budgets, probabilities, sample sizes, or time windows without a verified basis.',
+  'label it as an owner decision required rather than presenting it as fact.',
+  'Keep irreversible commitments outside the experiment.',
+  'This is a planning exercise only.',
+  'Do not launch the experiment, approve anything, pay anything, file anything, send anything, contact anyone, schedule anything, or change any business record.',
+  'authoritative:false',
+  'authority:"context_only_no_execution"',
+  'Experiment Planner is advisory and read-only.',
+  'global.ThebeOwnerDecisionExperimentPlanner=Object.freeze({'
+]){
+  if(!experiment.includes(token))throw new Error('Decision Experiment Planner contract missing: '+token);
+}
+
+for(const forbidden of [
+  'apiJson(',
+  'fetch(',
+  'XMLHttpRequest',
+  'method:"POST"',
+  'method:"PUT"',
+  'method:"PATCH"',
+  'method:"DELETE"',
+  '/api/',
+  '/execute',
+  '/approve',
+  '/payments/',
+  '/file',
+  '/send'
+]){
+  if(experiment.includes(forbidden))throw new Error('Decision Experiment Planner widened authority or added a network/mutation path: '+forbidden);
+}
+
+for(const token of [
   'if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);',
   'sourceKind:"owner_confirmed"',
   'BUSINESS_MEMORY_CONFIRMED',
@@ -330,4 +384,4 @@ for(const forbidden of [
 
 if(!legacy.includes('const RELEASE="20260929-v180"'))throw new Error('Legacy executive personalization was not preserved byte-for-byte as the compatibility layer.');
 
-console.log('Owner Attention + Decision Memory + Follow-through + Outcome Learning + Recommendation Calibration + Challenge Mode + Pre-Mortem + Safeguard Gate static checks passed');
+console.log('Owner Attention + Decision Memory + Follow-through + Outcome Learning + Recommendation Calibration + Challenge Mode + Pre-Mortem + Safeguard Gate + Experiment Planner static checks passed');
