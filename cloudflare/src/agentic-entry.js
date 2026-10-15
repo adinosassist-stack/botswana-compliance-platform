@@ -72,6 +72,8 @@ export * from "./agentic-core-entry.js";
 // handleAgenticAuthorityRequest
 // handleJitCapabilityGovernanceRequest
 // const liveTaskFetch=
+// logicalPath:logicalRequestPath(innerRequest)
+// taskFetch:liveTaskFetch
 // const taskExecutionResponse=await handleJitCapabilityGovernanceRequest({request,logicalPath,env});
 // ??await handleAgenticTaskExecutionRequest({request,logicalPath,env})
 // handleAgenticFinanceReconciliationRequest({request,logicalPath,env})
