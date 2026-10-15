@@ -1,18 +1,22 @@
 (function installOwnerFirstHomeV328(global){
   "use strict";
 
-  const RELEASE="20261015-owner-attention-v329";
+  const RELEASE="20261015-owner-decision-memory-v330";
   const SHELL_ID="ownerDecisionLanes";
   const STYLE_ID="ownerDecisionLanesStyle";
+  const DIALOG_ID="ownerDecisionMemoryDialog";
   const DUE_SOON_MS=7*24*60*60*1000;
   const q=(selector,root=document)=>root.querySelector(selector);
   let scheduled=false;
+  let decisionDialogItem=null;
+  const recordedDecisionKeys=new Set();
 
   function role(){
     try{return String(global.currentWorkspaceRole?.()||global.currentUser?.role||"").toLowerCase()}
     catch{return ""}
   }
   function canView(){return ["owner","manager"].includes(role())}
+  function isOwner(){return role()==="owner"}
   function clean(value){return String(value??"").replace(/\s+/g," ").trim()}
   function node(tag,value,className=""){
     const el=document.createElement(tag);
@@ -63,9 +67,24 @@
 #${SHELL_ID} .owner-decision-empty{margin-top:9px;font-size:10px;color:var(--muted,#6b7176)}
 #${SHELL_ID} .owner-decision-unavailable{padding:12px;border:1px solid var(--line,#e3e6e8);border-radius:14px;background:var(--card,#fff);font-size:12px}
 #${SHELL_ID} :focus-visible{outline:3px solid #fff;outline-offset:2px;box-shadow:0 0 0 6px #8f1d16}
+#${DIALOG_ID}{width:min(560px,calc(100vw - 24px));max-height:min(760px,calc(100vh - 24px));border:1px solid var(--line,#e3e6e8);border-radius:18px;padding:0;background:var(--card,#fff);color:inherit;box-shadow:0 24px 72px rgba(0,0,0,.22)}
+#${DIALOG_ID}::backdrop{background:rgba(0,0,0,.48)}
+#${DIALOG_ID} .decision-memory-form{display:grid;gap:14px;padding:18px}
+#${DIALOG_ID} .decision-memory-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+#${DIALOG_ID} .decision-memory-title{margin:0;font-size:18px;font-weight:850;line-height:1.2}
+#${DIALOG_ID} .decision-memory-item{margin-top:4px;font-size:11px;color:var(--muted,#6b7176)}
+#${DIALOG_ID} .decision-memory-close{min-width:38px;min-height:38px;border-radius:10px}
+#${DIALOG_ID} label{display:grid;gap:6px;font-size:11px;font-weight:800}
+#${DIALOG_ID} textarea,#${DIALOG_ID} input{width:100%;box-sizing:border-box;border:1px solid var(--line,#d8dcdf);border-radius:11px;background:var(--card,#fff);color:inherit;padding:10px 11px;font:inherit}
+#${DIALOG_ID} textarea{resize:vertical;min-height:88px}
+#${DIALOG_ID} .decision-memory-help,#${DIALOG_ID} .decision-memory-status{font-size:10px;line-height:1.4;color:var(--muted,#6b7176)}
+#${DIALOG_ID} .decision-memory-status[data-state="error"]{color:#b42318;font-weight:800}
+#${DIALOG_ID} .decision-memory-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+#${DIALOG_ID} .decision-memory-actions button{min-height:40px;border-radius:10px;padding:8px 12px;font-weight:800}
+#${DIALOG_ID} :focus-visible{outline:3px solid #fff;outline-offset:2px;box-shadow:0 0 0 6px #8f1d16}
 @media(max-width:980px){#${SHELL_ID} .owner-decision-grid{grid-template-columns:1fr 1fr}#${SHELL_ID} .owner-decision-lane:last-child{grid-column:1/-1}}
-@media(max-width:680px){#${SHELL_ID}{padding-bottom:max(18px,env(safe-area-inset-bottom));scroll-margin-bottom:180px}#${SHELL_ID} .owner-decision-head{align-items:center}#${SHELL_ID} .owner-decision-grid{grid-template-columns:1fr}#${SHELL_ID} .owner-decision-lane:last-child{grid-column:auto}}
-@media(max-width:430px){#${SHELL_ID} .owner-decision-head{display:block}#${SHELL_ID} .owner-decision-head-actions{justify-content:flex-start;margin-top:9px}#${SHELL_ID} .owner-decision-ask{flex:1 1 auto}#${SHELL_ID} .owner-decision-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}#${SHELL_ID} .owner-decision-summary-pill{justify-content:center;padding-inline:5px}}
+@media(max-width:680px){#${SHELL_ID}{padding-bottom:max(18px,env(safe-area-inset-bottom));scroll-margin-bottom:180px}#${SHELL_ID} .owner-decision-head{align-items:center}#${SHELL_ID} .owner-decision-grid{grid-template-columns:1fr}#${SHELL_ID} .owner-decision-lane:last-child{grid-column:auto}#${DIALOG_ID}{margin:auto 12px;width:calc(100vw - 24px)}}
+@media(max-width:430px){#${SHELL_ID} .owner-decision-head{display:block}#${SHELL_ID} .owner-decision-head-actions{justify-content:flex-start;margin-top:9px}#${SHELL_ID} .owner-decision-ask{flex:1 1 auto}#${SHELL_ID} .owner-decision-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}#${SHELL_ID} .owner-decision-summary-pill{justify-content:center;padding-inline:5px}#${DIALOG_ID} .decision-memory-actions{display:grid;grid-template-columns:1fr 1fr}#${DIALOG_ID} .decision-memory-actions button{width:100%}}
 `;
     document.head.append(style);
   }
@@ -177,12 +196,199 @@
   }
   function askThebe(item){
     const title=clean(item?.title||"this owner priority");
-    setDockPrompt(`Explain “${title}” using the current verified business context. Show evidence, risk, and the safest next step. Do not execute anything.`);
+    setDockPrompt(`Explain “${title}” using the current verified business context and any owner-confirmed decision note. Show evidence, risk, and the safest next step. Do not execute anything.`);
   }
   function askThebeQueue(items){
     const top=items.slice().sort((a,b)=>priorityScore(b)-priorityScore(a)).slice(0,5).map(item=>clean(item?.title||item?.label||item?.name)).filter(Boolean);
     const focus=top.length?` Focus first on: ${top.join("; ")}.`:"";
-    setDockPrompt(`Brief me on my verified owner-attention queue.${focus} Separate what needs action now, what needs my decision, and what is waiting or blocked. Show evidence and the safest next step for each. Do not execute anything.`);
+    setDockPrompt(`Brief me on my verified owner-attention queue.${focus} Separate what needs action now, what needs my decision, and what is waiting or blocked. Consider owner-confirmed decision notes as context only, not execution authority. Show evidence and the safest next step for each. Do not execute anything.`);
+  }
+
+  function sourceKey(item){
+    const direct=clean(item?.key);
+    if(direct)return direct.slice(0,300);
+    const type=clean(item?.sourceType||item?.kind||"owner_attention");
+    const id=clean(item?.sourceId||item?.id||item?.title||"item");
+    return `${type}:${id}`.slice(0,300);
+  }
+  function tinyHash(value){
+    let hash=2166136261;
+    for(const char of String(value??"")){
+      hash^=char.codePointAt(0)||0;
+      hash=Math.imul(hash,16777619);
+    }
+    return (hash>>>0).toString(36);
+  }
+  function memoryKey(item){
+    const source=sourceKey(item);
+    const slug=source.toLowerCase().replace(/[^a-z0-9.-]+/g,"-").replace(/^-+|-+$/g,"").slice(0,48)||"item";
+    return `decision.${tinyHash(source)}.${slug}`.slice(0,80);
+  }
+  async function apiJson(url,options){
+    if(typeof global.apiJson!=="function")throw new Error("secure_api_unavailable");
+    return global.apiJson(url,options);
+  }
+  async function existingDecision(item){
+    const payload=await apiJson("/api/business-memory");
+    const key=memoryKey(item);
+    const rows=Array.isArray(payload?.items)?payload.items:[];
+    const record=rows.find(row=>row?.namespace==="operations"&&row?.key===key&&row?.value?.kind==="owner_decision_note");
+    if(record)recordedDecisionKeys.add(sourceKey(item));
+    return record?.value||null;
+  }
+  function ensureDecisionDialog(){
+    let dialog=document.getElementById(DIALOG_ID);
+    if(dialog)return dialog;
+    installStyles();
+    dialog=document.createElement("dialog");
+    dialog.id=DIALOG_ID;
+    dialog.setAttribute("aria-labelledby","ownerDecisionMemoryTitle");
+    const form=node("form",undefined,"decision-memory-form");
+    form.noValidate=true;
+    const head=node("div",undefined,"decision-memory-head");
+    const headCopy=node("div");
+    const title=node("h3","Record decision","decision-memory-title");
+    title.id="ownerDecisionMemoryTitle";
+    const itemLabel=node("div","","decision-memory-item");
+    itemLabel.id="ownerDecisionMemoryItem";
+    headCopy.append(title,itemLabel);
+    head.append(headCopy,action("×",()=>closeDecisionDialog(),"btn soft decision-memory-close"));
+
+    const decisionLabel=node("label");
+    decisionLabel.append(node("span","Decision"));
+    const decision=document.createElement("textarea");
+    decision.id="ownerDecisionMemoryText";
+    decision.name="decision";
+    decision.required=true;
+    decision.maxLength=600;
+    decision.placeholder="What did you decide?";
+    decisionLabel.append(decision);
+
+    const rationaleLabel=node("label");
+    rationaleLabel.append(node("span","Why"));
+    const rationale=document.createElement("textarea");
+    rationale.id="ownerDecisionMemoryRationale";
+    rationale.name="rationale";
+    rationale.maxLength=1200;
+    rationale.placeholder="Reason, trade-off, or evidence considered (optional)";
+    rationaleLabel.append(rationale);
+
+    const followLabel=node("label");
+    followLabel.append(node("span","Check outcome on"));
+    const follow=document.createElement("input");
+    follow.id="ownerDecisionMemoryFollowUp";
+    follow.type="date";
+    follow.name="followUpAt";
+    followLabel.append(follow);
+
+    const help=node("div","This saves an owner-confirmed decision note for Thebe’s future context. It does not approve, pay, file, send, or execute anything. Domain records remain authoritative.","decision-memory-help");
+    const status=node("div","","decision-memory-status");
+    status.id="ownerDecisionMemoryStatus";
+    status.setAttribute("role","status");
+    const controls=node("div",undefined,"decision-memory-actions");
+    controls.append(action("Cancel",()=>closeDecisionDialog(),"btn soft"));
+    const save=action("Save decision",()=>{},"btn alt");
+    save.id="ownerDecisionMemorySave";
+    save.type="submit";
+    controls.append(save);
+    form.append(head,decisionLabel,rationaleLabel,followLabel,help,status,controls);
+    form.addEventListener("submit",event=>{
+      event.preventDefault();
+      void saveDecisionNote();
+    });
+    dialog.addEventListener("cancel",event=>{
+      event.preventDefault();
+      closeDecisionDialog();
+    });
+    dialog.append(form);
+    document.body.append(dialog);
+    return dialog;
+  }
+  function closeDecisionDialog(){
+    const dialog=document.getElementById(DIALOG_ID);
+    decisionDialogItem=null;
+    if(dialog?.open){try{dialog.close()}catch{dialog.removeAttribute("open")}}
+  }
+  async function openDecisionDialog(item){
+    if(!isOwner())return;
+    decisionDialogItem=item;
+    const dialog=ensureDecisionDialog();
+    const title=clean(item?.title||"Owner decision");
+    q("#ownerDecisionMemoryItem",dialog).textContent=title;
+    const decision=q("#ownerDecisionMemoryText",dialog),rationale=q("#ownerDecisionMemoryRationale",dialog),follow=q("#ownerDecisionMemoryFollowUp",dialog),status=q("#ownerDecisionMemoryStatus",dialog),save=q("#ownerDecisionMemorySave",dialog);
+    decision.value="";
+    rationale.value="";
+    follow.value="";
+    status.textContent="Checking for an earlier owner-confirmed note…";
+    status.dataset.state="loading";
+    save.disabled=true;
+    try{dialog.showModal()}catch{dialog.setAttribute("open","")}
+    try{
+      const existing=await existingDecision(item);
+      if(decisionDialogItem!==item)return;
+      if(existing){
+        decision.value=clean(existing.decision).slice(0,600);
+        rationale.value=clean(existing.rationale).slice(0,1200);
+        follow.value=/^\d{4}-\d{2}-\d{2}$/.test(String(existing.followUpAt||""))?String(existing.followUpAt):"";
+        q("#ownerDecisionMemoryTitle",dialog).textContent="Update decision note";
+        status.textContent="Earlier owner-confirmed note loaded. Saving will supersede it and preserve history.";
+      }else{
+        q("#ownerDecisionMemoryTitle",dialog).textContent="Record decision";
+        status.textContent="No earlier note is active for this item.";
+      }
+      status.dataset.state="ready";
+    }catch{
+      if(decisionDialogItem!==item)return;
+      q("#ownerDecisionMemoryTitle",dialog).textContent="Record decision";
+      status.textContent="Existing notes could not be checked. You can still save a new owner-confirmed note.";
+      status.dataset.state="error";
+    }finally{
+      if(decisionDialogItem===item){save.disabled=false;try{decision.focus({preventScroll:true})}catch{decision.focus()}}
+    }
+  }
+  async function saveDecisionNote(){
+    const item=decisionDialogItem,dialog=document.getElementById(DIALOG_ID);
+    if(!item||!dialog||!isOwner())return;
+    const decision=q("#ownerDecisionMemoryText",dialog),rationale=q("#ownerDecisionMemoryRationale",dialog),follow=q("#ownerDecisionMemoryFollowUp",dialog),status=q("#ownerDecisionMemoryStatus",dialog),save=q("#ownerDecisionMemorySave",dialog);
+    const decisionText=clean(decision.value).slice(0,600),rationaleText=clean(rationale.value).slice(0,1200),followUpAt=/^\d{4}-\d{2}-\d{2}$/.test(follow.value)?follow.value:null;
+    if(decisionText.length<2){status.textContent="Write the decision before saving.";status.dataset.state="error";decision.focus();return}
+    save.disabled=true;
+    status.textContent="Saving owner-confirmed note…";
+    status.dataset.state="loading";
+    const key=sourceKey(item);
+    try{
+      await apiJson("/api/business-memory",{
+        method:"POST",
+        headers:{"content-type":"application/json"},
+        body:JSON.stringify({
+          namespace:"operations",
+          key:memoryKey(item),
+          value:{
+            kind:"owner_decision_note",
+            version:1,
+            sourceKey:key,
+            sourceType:clean(item?.sourceType||item?.kind||"owner_attention").slice(0,80),
+            sourceId:clean(item?.sourceId||item?.id||"").slice(0,160)||null,
+            title:clean(item?.title||item?.label||"Owner decision").slice(0,220),
+            decision:decisionText,
+            rationale:rationaleText||null,
+            followUpAt,
+            recordedAt:new Date().toISOString(),
+            authority:"context_only_no_execution"
+          }
+        })
+      });
+      recordedDecisionKeys.add(key);
+      status.textContent="Decision note saved. No action was executed.";
+      status.dataset.state="ready";
+      const shell=document.getElementById(SHELL_ID);
+      if(shell)delete shell.dataset.signature;
+      global.setTimeout(()=>{closeDecisionDialog();schedule()},260);
+    }catch(error){
+      status.textContent=String(error?.message||"").includes("owner_required")?"Only the workspace owner can save decision notes.":"Decision note could not be saved. Nothing was executed.";
+      status.dataset.state="error";
+      save.disabled=false;
+    }
   }
 
   function dueLabel(item){
@@ -192,7 +398,7 @@
     if(isDueSoon(item))return "Due soon";
     return "";
   }
-  function itemCard(item){
+  function itemCard(item,laneKey){
     const card=node("article");
     card.className="owner-decision-item";
     const title=clean(item?.title||item?.label||item?.name||"Owner attention item");
@@ -204,15 +410,17 @@
     if(due)tags.push(due);
     if(isMoney(item))tags.push("Money");
     if(isBlocked(item)&&!isRisk(item))tags.push("Waiting");
+    if(recordedDecisionKeys.has(sourceKey(item)))tags.push("Decision saved");
     if(tags.length){
       const meta=node("div");
       meta.className="owner-decision-item-meta";
-      tags.slice(0,2).forEach(tag=>meta.append(node("span",tag,"owner-decision-tag")));
+      tags.slice(0,3).forEach(tag=>meta.append(node("span",tag,"owner-decision-tag")));
       card.append(meta);
     }
     const controls=node("div");
     controls.className="owner-decision-actions";
     if(itemRoute(item))controls.append(action("Review",()=>review(item),"btn soft"));
+    if(laneKey==="decision"&&isOwner())controls.append(action(recordedDecisionKeys.has(sourceKey(item))?"Update decision":"Record decision",()=>openDecisionDialog(item),"btn soft"));
     controls.append(action("Ask Thebe",()=>askThebe(item),"btn alt"));
     card.append(controls);
     return card;
@@ -232,7 +440,7 @@
     }
     const list=node("div");
     list.className="owner-decision-items";
-    items.slice().sort((a,b)=>priorityScore(b)-priorityScore(a)).slice(0,3).forEach(item=>list.append(itemCard(item)));
+    items.slice().sort((a,b)=>priorityScore(b)-priorityScore(a)).slice(0,3).forEach(item=>list.append(itemCard(item,key)));
     section.append(list);
     if(items.length>3)section.append(node("div",`${items.length-3} more in the verified queue`,"owner-decision-empty"));
     return section;
@@ -256,7 +464,8 @@
       clean(item?.id||item?.key||item?.title||item?.name),
       clean(item?.status||item?.priority||item?.severity),
       clean(item?.dueAt||item?.due_at||item?.deadlineAt||item?.deadline||item?.dueDate),
-      Boolean(item?.blocked),Boolean(item?.waiting),Boolean(item?.requiresApproval),Boolean(item?.requiresOwner)
+      Boolean(item?.blocked),Boolean(item?.waiting),Boolean(item?.requiresApproval),Boolean(item?.requiresOwner),
+      recordedDecisionKeys.has(sourceKey(item))
     ]);
     const signature=JSON.stringify({state,generatedAt:data?.generatedAt||null,version:data?.version||null,items:itemSignature});
     if(shell.dataset.signature===signature)return;
@@ -335,5 +544,5 @@
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});
   else boot();
 
-  global.ThebeOwnerFirstHome=Object.freeze({release:RELEASE,refresh:schedule,classify});
+  global.ThebeOwnerFirstHome=Object.freeze({release:RELEASE,refresh:schedule,classify,openDecisionDialog});
 })(window);
