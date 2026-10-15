@@ -73,3 +73,15 @@ test("authorization rejects missing trusted identities before starting transacti
   }
   assert.equal(transactions, 0);
 });
+
+test("authorization core rejects malformed action and approval IDs without database work", async () => {
+  let transactions = 0;
+  const store = { async transaction() { transactions++; throw Error("should not run"); } };
+  const context = { tenantId: "tenant-a", actorId: "owner-a" };
+  const policy = { enabled: true, auditAvailable: true };
+  for (const input of [{ action: 17 }, { action: " " }, { action: "invoice.draft", approvalId: {} }, { action: "invoice.draft", approvalId: " " }]) {
+    const result = await authorizeAgentExecution({ store, context, args: {}, policy, ...input });
+    assert.deepEqual(result, { allowed: false, reason: "invalid_request" });
+  }
+  assert.equal(transactions, 0);
+});
