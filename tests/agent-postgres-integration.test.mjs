@@ -85,3 +85,18 @@ test("outbox enqueue requires matching authorized audit record", async () => {
     await client.end();
   }
 });
+
+test("database itself rejects sensitive action outbox rows", async () => {
+  const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  const id = randomUUID();
+  try {
+    await assert.rejects(client.query(`insert into agent_action_outbox
+      (id,tenant_id,actor_id,action,argument_digest,authorization_id,idempotency_key)
+      values ($1,$2,$3,'money.transfer',$4,$5,$6)`,
+      [id,"tenant-"+randomUUID(),"owner","a".repeat(64),randomUUID(),"blocked-"+randomUUID()]),
+      error => error.code === "23514");
+  } finally {
+    await client.end();
+  }
+});
