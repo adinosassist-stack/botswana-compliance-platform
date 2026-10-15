@@ -24,7 +24,7 @@ try{
     assert.deepEqual(result.outside,[],`focus controls contained and touch-sized at ${width}`);
     assert.deepEqual(result.badgeOutside,[],`protection badges contained at ${width}`);
     assert.equal(result.overflow,false,`no horizontal overflow at ${width}`);
-    assert.equal(await page.locator('.owner-focus-ask').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(180, 35, 24)','production button styles must retain the red accent');
+    assert.equal(await page.locator('.owner-focus-ask').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(11, 102, 214)','production button styles must retain the blue action accent');
     assert.equal(await page.locator('.owner-analysis-details').getAttribute('open'),null,'analysis starts collapsed');
     await page.getByText('Business analysis & planning',{exact:true}).click();
     assert.notEqual(await page.locator('.owner-analysis-details').getAttribute('open'),null,'analysis remains reachable');
