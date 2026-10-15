@@ -9,6 +9,7 @@ const BASE = '5aefd271b40563df098bcc9451de2461a124363c';
 const QUALIFIED_HEAD = '4e26d7062592b311433fdc94209a2ebe4eaef569';
 const MIGRATION = 'db/migrations/033_v365_owner_closure_records.sql';
 const V366_WRITER = 'server/owner-closure-record-writer-v366.js';
+const V367_INTEGRATION = 'server/owner-closure-record-server-integration-v367.js';
 const EXPECTED = [
   '.github/workflows/v365-owner-closure-record-schema-foundation-boundary.yml',
   MIGRATION,
@@ -29,7 +30,7 @@ if (head !== QUALIFIED_HEAD) {
   const descendantChanged = filesBetween(QUALIFIED_HEAD, head);
   assert.ok(descendantChanged.length > 0, 'V365 descendant must contain an explicit delta');
   for (const path of descendantChanged) {
-    const safe = path.startsWith('tests/') || path.startsWith('.github/workflows/') || path === V366_WRITER;
+    const safe = path.startsWith('tests/') || path.startsWith('.github/workflows/') || path === V366_WRITER || path === V367_INTEGRATION;
     assert.ok(safe, `V365 descendant changed unauthorized production path: ${path}`);
   }
 }
@@ -63,10 +64,12 @@ for (const token of [
 ]) assert.ok(migration.includes(token), `missing V365 migration contract: ${token}`);
 
 assert.ok(!server.includes('owner_closure_records'), 'generic Node server must not directly become the closure-record writer');
-assert.ok(!server.includes('/api/owner-closure'), 'V365/V366 stack must not add a Node owner-closure route');
+assert.ok(!server.includes('/api/owner-closure'), 'V365+ stack must not add a Node owner-closure route');
 assert.ok(!server.includes('owner-closure-record-writer-v366'), 'V366 writer must remain unregistered from the Node entry point');
-assert.ok(!worker.includes('owner_closure_records'), 'V365/V366 stack must not add a Worker closure-record writer');
-assert.ok(!worker.includes('/api/owner-closure'), 'V365/V366 stack must not add a Worker owner-closure route');
+assert.ok(!server.includes('owner-closure-record-server-integration-v367'), 'V367 integration adapter must remain unregistered from the Node entry point');
+assert.ok(!worker.includes('owner_closure_records'), 'V365+ stack must not add a Worker closure-record writer');
+assert.ok(!worker.includes('/api/owner-closure'), 'V365+ stack must not add a Worker owner-closure route');
+assert.ok(!worker.includes('owner-closure-record-server-integration-v367'), 'Worker must not import the V367 integration adapter');
 
 assert.ok(process.env.DATABASE_URL, 'DATABASE_URL is required for the V365 runtime proof');
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -164,4 +167,4 @@ try {
 }
 
 console.log('V365 Owner Closure Record Schema Foundation: PASS');
-console.log('V365 frozen schema proof remains valid on the approved V366 non-routable writer descendant.');
+console.log('V365 frozen schema proof remains valid on approved V366/V367 non-routable descendants.');

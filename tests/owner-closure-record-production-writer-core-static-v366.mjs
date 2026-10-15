@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
 const BASE = '4e26d7062592b311433fdc94209a2ebe4eaef569';
+const QUALIFIED_HEAD = 'aa2c20a533cbfcac390da101aa36b34ca76e5858';
 const EXPECTED = [
   '.github/workflows/v366-owner-closure-record-production-writer-core-boundary.yml',
   'server/owner-closure-record-writer-v366.js',
@@ -14,10 +15,25 @@ const EXPECTED = [
   'tests/owner-closure-record-production-writer-core-v366.mjs',
   'tests/owner-closure-record-schema-foundation-v365.mjs'
 ].sort();
+const ALLOWED_PRODUCTION_DESCENDANT = new Set([
+  'server/owner-closure-record-server-integration-v367.js'
+]);
 
-const changed = execFileSync('git', ['diff', '--name-only', `${BASE}...HEAD`], { encoding: 'utf8' })
+const filesBetween = (base, head) => execFileSync('git', ['diff', '--name-only', `${base}...${head}`], { encoding: 'utf8' })
   .trim().split(/\r?\n/).filter(Boolean).sort();
-assert.deepEqual(changed, EXPECTED, 'V366 must remain the exact non-routable writer-core delta plus narrowly scoped ancestor guards');
+const qualifiedChanged = filesBetween(BASE, QUALIFIED_HEAD);
+assert.deepEqual(qualifiedChanged, EXPECTED, 'frozen V366 head must preserve its exact non-routable writer-core delta');
+
+const head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+if (head !== QUALIFIED_HEAD) {
+  execFileSync('git', ['merge-base', '--is-ancestor', QUALIFIED_HEAD, head]);
+  const descendantChanged = filesBetween(QUALIFIED_HEAD, head);
+  assert.ok(descendantChanged.length > 0, 'V366 descendant must contain an explicit delta');
+  for (const path of descendantChanged) {
+    const safe = path.startsWith('tests/') || path.startsWith('.github/workflows/') || ALLOWED_PRODUCTION_DESCENDANT.has(path);
+    assert.ok(safe, `V366 descendant changed unauthorized runtime/production path: ${path}`);
+  }
+}
 
 const writerPath = 'server/owner-closure-record-writer-v366.js';
 const writer = fs.readFileSync(writerPath, 'utf8');
@@ -124,4 +140,4 @@ for (const token of [
 ]) assert.ok(runtime.includes(token), `V366 adversarial runtime proof missing ${token}`);
 
 console.log('V366 Non-Routable Production Closure Writer Core static boundary: PASS');
-console.log('V366 exposes no route, UI trigger, Worker write path, deployment activation, or live production persistence authority.');
+console.log('V366 frozen writer proof remains valid on approved V367 disabled/unregistered server-integration descendants.');
