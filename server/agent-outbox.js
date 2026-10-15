@@ -10,7 +10,7 @@ export async function enqueueAgentIntent({ pool, tenantId, actorId, action, argu
   if (![tenantId, actorId, action, argumentDigest, authorizationId, idempotencyKey].every(v => typeof v === "string" && v.trim())) {
     return { queued: false, reason: "invalid_intent" };
   }
-  if (!/^[a-f0-9]{64}$/i.test(argumentDigest) || !/^[a-f0-9-]{36}$/i.test(authorizationId) || idempotencyKey.length > 200) {
+  if (!/^[a-f0-9]{64}$/i.test(argumentDigest) || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(authorizationId) || idempotencyKey.length > 200) {
     return { queued: false, reason: "invalid_intent" };
   }
   if (!pool || typeof pool.query !== "function") return { queued: false, reason: "storage_unavailable" };
