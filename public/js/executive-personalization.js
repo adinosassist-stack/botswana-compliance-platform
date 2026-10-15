@@ -39,7 +39,8 @@
     "/js/owner-transition-stage-readiness-gate-v348.js?v=20261015-owner-transition-stage-readiness-gate-v348",
     "/js/owner-transition-stage-outcome-checkpoint-v349.js?v=20261015-owner-transition-stage-outcome-checkpoint-v349",
     "/js/owner-transition-completion-evidence-review-v350.js?v=20261015-owner-transition-completion-evidence-review-v350",
-    "/js/owner-transition-outcome-success-review-v351.js?v=20261015-owner-transition-outcome-success-review-v351"
+    "/js/owner-transition-outcome-success-review-v351.js?v=20261015-owner-transition-outcome-success-review-v351",
+    "/js/owner-decision-closure-readiness-review-v352.js?v=20261015-owner-decision-closure-readiness-review-v352"
   ];
   const q=(selector,root=document)=>root.querySelector(selector);
   let telemetryBusy=false;
