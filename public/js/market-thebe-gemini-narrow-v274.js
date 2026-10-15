@@ -1,7 +1,7 @@
 (()=>{
   "use strict";
 
-  const RELEASE="20261013-market-thebe-gemini-parity-v275";
+  const RELEASE="20261015-market-thebe-adjustable-width-v281";
   const DOCK_ID="thebeAiDock";
   const GATE_ID="marketingGate";
   const OWNED_PROPS=["left","right","top","bottom","width","min-width","max-width","height","min-height","max-height","border-radius","box-sizing"];
@@ -18,18 +18,44 @@
     node.style.removeProperty(property);
   }
 
-  function geometry(viewportWidth){
+  function geometry(viewportWidth,expanded=false){
     if(viewportWidth>=1200){
+      if(expanded){
+        return {
+          width:560,
+          minWidth:480,
+          maxWidth:560,
+          edge:16,
+          laneGap:32,
+          radius:24
+        };
+      }
+      const width=Math.round(Math.max(360,Math.min(420,viewportWidth*0.28)));
       return {
-        width:Math.round(Math.max(360,Math.min(420,viewportWidth*0.28))),
+        width,
+        minWidth:width,
+        maxWidth:width,
         edge:16,
         laneGap:32,
         radius:24
       };
     }
     if(viewportWidth>=1024){
+      if(expanded){
+        return {
+          width:460,
+          minWidth:400,
+          maxWidth:460,
+          edge:12,
+          laneGap:24,
+          radius:22
+        };
+      }
+      const width=Math.round(Math.max(332,Math.min(360,viewportWidth*0.31)));
       return {
-        width:Math.round(Math.max(332,Math.min(360,viewportWidth*0.31))),
+        width,
+        minWidth:width,
+        maxWidth:width,
         edge:12,
         laneGap:24,
         radius:22
@@ -50,6 +76,7 @@
       for(const property of OWNED_PROPS)clear(dock,property);
       delete dock.dataset.geminiNarrowV274;
       delete dock.dataset.geminiNarrowRelease;
+      delete dock.dataset.geminiNarrowExpanded;
     }
     clear(gate,"padding-right");
   }
@@ -59,7 +86,8 @@
     const gate=document.getElementById(GATE_ID);
     if(!dock)return false;
 
-    const size=geometry(window.innerWidth);
+    const expanded=dock.dataset.expanded==="true"||document.body?.classList.contains("thebe-ai-expanded");
+    const size=geometry(window.innerWidth,expanded);
     if(dock.dataset.surface!=="public"||!size){
       releaseDesktopGeometry(dock,gate);
       return true;
@@ -67,13 +95,14 @@
 
     dock.dataset.geminiNarrowV274="1";
     dock.dataset.geminiNarrowRelease=RELEASE;
+    dock.dataset.geminiNarrowExpanded=expanded?"1":"0";
     setImportant(dock,"left","auto");
     setImportant(dock,"right",`${size.edge}px`);
     setImportant(dock,"top",`${size.edge}px`);
     setImportant(dock,"bottom",`${size.edge}px`);
     setImportant(dock,"width",`${size.width}px`);
-    setImportant(dock,"min-width",`${size.width}px`);
-    setImportant(dock,"max-width",`${size.width}px`);
+    setImportant(dock,"min-width",`${size.minWidth}px`);
+    setImportant(dock,"max-width",`${size.maxWidth}px`);
     setImportant(dock,"height","auto");
     setImportant(dock,"min-height","0");
     setImportant(dock,"max-height","none");
@@ -118,7 +147,7 @@
       childList:true,
       subtree:true,
       attributes:true,
-      attributeFilter:["hidden","aria-hidden","data-surface","class","style"]
+      attributeFilter:["hidden","aria-hidden","data-surface","data-expanded","class","style"]
     });
   }
 
