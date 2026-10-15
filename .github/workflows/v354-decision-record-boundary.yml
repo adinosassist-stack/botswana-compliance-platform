@@ -1,0 +1,49 @@
+name: V354 decision-record boundary
+run-name: V354 decision-record boundary ${{ github.event.pull_request.head.sha }}
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v354-decision-record-boundary-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  v354-boundary:
+    name: Owner closure decision-record draft boundary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          [[ "$actual" == "$EXPECTED_HEAD_SHA" ]] || { echo "head mismatch expected=$EXPECTED_HEAD_SHA actual=$actual" >&2; exit 1; }
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo 'checkout is not clean' >&2; exit 1; }
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+
+      - name: Owner closure decision-record draft boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check public/js/owner-closure-decision-record-draft-v354.js
+          node --check tests/owner-closure-decision-record-draft-static.mjs
+          node tests/owner-closure-decision-record-draft-static.mjs
