@@ -1,0 +1,30 @@
+name: Thebe dock width v337
+
+on:
+  pull_request:
+    paths:
+      - "public/assets/workspace-interactions-v318.css"
+      - "public/assets/thebe-spatial-dock-v246.css"
+      - "tests/v253-thebe-dock-width-v337-static.mjs"
+      - ".github/workflows/thebe-dock-width-v337.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "public/assets/workspace-interactions-v318.css"
+      - "public/assets/thebe-spatial-dock-v246.css"
+      - "tests/v253-thebe-dock-width-v337-static.mjs"
+
+permissions:
+  contents: read
+
+jobs:
+  static-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run dock width regression
+        run: node tests/v253-thebe-dock-width-v337-static.mjs
