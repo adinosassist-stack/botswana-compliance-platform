@@ -170,6 +170,14 @@ jobs:
           node --check tests/owner-evidence-resolution-plan-static.mjs
           node tests/owner-evidence-resolution-plan-static.mjs
 
+      - name: Owner decision evidence readiness boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check public/js/owner-decision-evidence-readiness-v342.js
+          node --check tests/owner-decision-evidence-readiness-static.mjs
+          node tests/owner-decision-evidence-readiness-static.mjs
+
       - name: Regulatory reviewer provisioning governance
         shell: bash
         run: |
