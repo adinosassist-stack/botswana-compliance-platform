@@ -40,3 +40,16 @@ test("database outage fails closed", async () => {
   assert.equal(result.allowed, false);
   assert.equal(result.reason, "governance_unavailable");
 });
+
+test("whitespace-only identity and invalid pool fail closed", async () => {
+  const whitespace = await authorizeAuthenticatedAgentAction({
+    pool: { connect() {} }, principal: { tenantId: " ", actorId: "owner" },
+    action: "invoice.draft", args: {}, policy
+  });
+  assert.equal(whitespace.allowed, false);
+  const invalidPool = await authorizeAuthenticatedAgentAction({
+    pool: {}, principal: { tenantId: "tenant-a", actorId: "owner" },
+    action: "invoice.draft", args: {}, policy
+  });
+  assert.equal(invalidPool.reason, "governance_unavailable");
+});
