@@ -3,18 +3,36 @@ import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
 const BASE = 'b6769aa1d9bcd1ec5c73fa15d447d86e5b388695';
+const QUALIFIED_HEAD = '5aefd271b40563df098bcc9451de2461a124363c';
 const EXPECTED = [
   '.github/workflows/v364-production-writer-adapter-implementation-readiness-boundary.yml',
   'tests/owner-closure-record-production-writer-adapter-design-static-v363.mjs',
   'tests/owner-closure-record-production-writer-adapter-implementation-readiness-v364.mjs',
   'tests/owner-closure-record-production-writer-adapter-implementation-readiness-static-v364.mjs'
 ].sort();
+const ALLOWED_SCHEMA_DESCENDANT = new Set([
+  'db/migrations/033_v365_owner_closure_records.sql'
+]);
 
-const changed = execFileSync('git', ['diff', '--name-only', `${BASE}...HEAD`], { encoding: 'utf8' })
+const filesBetween = (base, head) => execFileSync('git', ['diff', '--name-only', `${base}...${head}`], { encoding: 'utf8' })
   .trim().split(/\r?\n/).filter(Boolean).sort();
-assert.deepEqual(changed, EXPECTED, 'V364 must change only its readiness tests/workflow and stack-aware V363 static boundary');
-for (const path of changed) {
-  assert.ok(path.startsWith('tests/') || path.startsWith('.github/workflows/'), `runtime/production path changed: ${path}`);
+
+const qualifiedChanged = filesBetween(BASE, QUALIFIED_HEAD);
+assert.deepEqual(qualifiedChanged, EXPECTED, 'frozen V364 head must preserve its exact four-file readiness proof');
+
+const head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+if (head !== QUALIFIED_HEAD) {
+  execFileSync('git', ['merge-base', '--is-ancestor', QUALIFIED_HEAD, head]);
+  const descendantChanged = filesBetween(QUALIFIED_HEAD, head);
+  assert.ok(descendantChanged.length > 0, 'stacked V364 descendant must contain an explicit descendant delta');
+  for (const path of descendantChanged) {
+    const safe = path.startsWith('tests/') || path.startsWith('.github/workflows/') || ALLOWED_SCHEMA_DESCENDANT.has(path);
+    assert.ok(safe, `stacked V364 descendant changed unauthorized runtime/production path: ${path}`);
+  }
+}
+
+for (const path of qualifiedChanged) {
+  assert.ok(path.startsWith('tests/') || path.startsWith('.github/workflows/'), `frozen V364 runtime/production path changed: ${path}`);
 }
 
 const readiness = fs.readFileSync('tests/owner-closure-record-production-writer-adapter-implementation-readiness-v364.mjs', 'utf8');
@@ -39,7 +57,7 @@ const forbidden = [
   /CREATE\s+TABLE\s+owner_closure/i,
   /ALTER\s+TABLE\s+owner_closure/i
 ];
-for (const pattern of forbidden) assert.ok(!pattern.test(combined), `V364 must remain readiness-only/non-routable: ${pattern}`);
+for (const pattern of forbidden) assert.ok(!pattern.test(combined), `V364 frozen readiness proof must remain non-routable: ${pattern}`);
 
 for (const token of [
   "state: 'ready_for_separate_implementation_branch'",
