@@ -8,7 +8,7 @@ const context = { tenantId: "t1", actorId: "a1", now: 1000 };
 const policy = { enabled: true, killSwitch: false, auditAvailable: true, allowedActions: ["money.transfer"], remainingBudget: 2, estimatedCost: 1 };
 
 function makeStore({ auditFails = false } = {}) {
-  const state = { approval: { id: "p1", nonce: "n1", consumed: false, status: "approved", tenantId: "t1", actorId: "a1", action: "money.transfer", argumentDigest: agentArgumentDigest(args), expiresAt: 2000 }, events: [] };
+  const state = { approval: { id: "p1", nonce: "n1", consumed: false, status: "approved", tenantId: "t1", actorId: "a1", action: "money.transfer", argumentDigest: agentArgumentDigest(args), expiresAt: Date.now() + 60_000 }, events: [] };
   return {
     state,
     async transaction(fn) {
