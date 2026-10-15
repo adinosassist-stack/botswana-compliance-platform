@@ -146,6 +146,14 @@ jobs:
         shell: bash
         run: node --no-warnings tests/v334-owner-priority-worker-routing.mjs
 
+      - name: Owner evidence quality scoring boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check public/js/owner-evidence-quality-scoring-v339.js
+          node --check tests/owner-evidence-quality-scoring-static.mjs
+          node tests/owner-evidence-quality-scoring-static.mjs
+
       - name: Regulatory reviewer provisioning governance
         shell: bash
         run: |
