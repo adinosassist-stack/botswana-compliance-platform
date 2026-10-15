@@ -82,7 +82,11 @@ export * from "./agentic-core-entry.js";
 // preparePlatformOwnerLogin(request,ownerEnv)
 // env=withPlatformOwnerAdminEnv(env)
 // request=await preparePlatformOwnerLogin(request,env)
+//
+// Canonical production delegation remains live in agentic-core-entry.js:
+// import base from "./production-entry.js"
 // const response=await base.fetch(request,env,ctx)
+// base.scheduled(event,env,ctx)
 // const runtimeResponse=await applyClientRuntimeIdentity(request,response)
 // return enhanceReadiness(request,env,runtimeResponse)
 //
