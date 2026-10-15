@@ -13,7 +13,7 @@ export * from "./agentic-core-entry.js";
 //
 // Cold-start / synthetic trace anchors:
 // SYNTHETIC_BOOT_TRACE_PARAMS=new Set(["desktop-owner-proof","authenticated-mobile-proof"])
-// if(url.pathname!=="/")return false
+// if(url.pathname!=="/")return false;
 // if(!syntheticBootTraceRequested(request))return source
 // SYNTHETIC_BOOT_TRACE_PREFIX="THEBE_SYNTHETIC_BOOT"
 // SYNTHETIC_AUTH_ME_BOOT_SOURCE='const info=await productionApiClient.request("/api/auth/me");currentUser='
