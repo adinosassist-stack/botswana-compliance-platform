@@ -8,7 +8,7 @@ on:
       - "db/migrations/20261018_agent_outbox_draft_guard.sql"
       - "db/migrations/20261019_agent_outbox_lease_integrity.sql"
       - "tests/agent-postgres-integration.test.mjs"
-      - "server/agent-outbox.js"
+      - "server/agent-*.js"
       - ".github/workflows/agent-governance-postgres.yml"
   workflow_dispatch:
 jobs:
