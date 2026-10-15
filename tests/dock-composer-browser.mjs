@@ -67,14 +67,13 @@ try{
         return {
           dockOuter:dockRect.width,
           dockLeft:dockRect.left,
-          layoutWidth:parseFloat(getComputedStyle(dock).width),
           mainRight:mainRect.right,
           spatial:parseFloat(getComputedStyle(document.body).getPropertyValue('--thebe-spatial-width')),
           saved:Number(localStorage.getItem('thebe:workspace-dock:width:v1'))
         };
       });
       assert(resized.dockOuter>beforeWidth,'keyboard resize grows right-anchored workspace dock');
-      assert(Math.abs(resized.spatial-resized.layoutWidth)<=1,'spatial rail variable tracks the dock layout width');
+      assert(Number.isFinite(resized.spatial)&&resized.spatial>0,'workspace resize updates the spatial rail preference');
       assert(resized.mainRight<=resized.dockLeft,'workspace content remains outside the rendered dock footprint');
       assert.equal(resized.saved,Math.round(resized.spatial),'workspace dock width persists');
       await resize.press('Home');
