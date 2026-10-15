@@ -87,6 +87,12 @@ export * from "./agentic-core-entry.js";
 // env=withPlatformOwnerAdminEnv(env)
 // request=await preparePlatformOwnerLogin(request,env)
 //
+// Regulatory SQL guard anchors remain live in agentic-core-entry.js:
+// import {withRegulatoryRuleInsertFix} from "./regulatory-rule-insert-sql-fix.js";
+// env=withRegulatorySqlGuard(env);
+// base.fetch(request,env,ctx)
+// async scheduled(event,env,ctx){env=withRegulatorySqlGuard(env);return base.scheduled(event,env,ctx);}
+//
 // Canonical production delegation remains live in agentic-core-entry.js:
 // import base from "./production-entry.js"
 // const response=await base.fetch(request,env,ctx)
