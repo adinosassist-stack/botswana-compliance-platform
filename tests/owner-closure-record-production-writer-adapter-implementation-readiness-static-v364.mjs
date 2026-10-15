@@ -94,7 +94,7 @@ for (const token of [
 for (const token of [
   "const QUALIFIED_HEAD = 'b6769aa1d9bcd1ec5c73fa15d447d86e5b388695'",
   "execFileSync('git', ['merge-base', '--is-ancestor', QUALIFIED_HEAD, head])",
-  'stacked V363 descendant changed runtime/production path'
+  'stacked V363 descendant changed unauthorized runtime/production path'
 ]) assert.ok(v363Static.includes(token), `missing V363 descendant-safe boundary: ${token}`);
 
 assert.ok(workflow.includes('Checkout exact PR head'), 'V364 workflow must checkout exact PR head');
