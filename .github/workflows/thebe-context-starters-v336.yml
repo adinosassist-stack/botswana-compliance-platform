@@ -1,0 +1,32 @@
+name: Thebe contextual starters v336
+
+on:
+  pull_request:
+    paths:
+      - "public/js/thebe-context-starters-v336.js"
+      - "public/js/workspace-readiness-v305.js"
+      - "tests/v252-thebe-context-starters-v336-static.mjs"
+      - ".github/workflows/thebe-context-starters-v336.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "public/js/thebe-context-starters-v336.js"
+      - "public/js/workspace-readiness-v305.js"
+      - "tests/v252-thebe-context-starters-v336-static.mjs"
+
+permissions:
+  contents: read
+
+jobs:
+  static-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check JavaScript syntax
+        run: node --check public/js/thebe-context-starters-v336.js && node --check public/js/workspace-readiness-v305.js
+      - name: Run contextual starter regression
+        run: node tests/v252-thebe-context-starters-v336-static.mjs
