@@ -20,6 +20,9 @@ export async function authorizeAuthenticatedAgentAction({
   if (typeof tenantId !== "string" || typeof actorId !== "string" || !tenantId.trim() || !actorId.trim()) {
     return { allowed: false, reason: "invalid_principal" };
   }
+  if (typeof action !== "string" || !action.trim() || typeof approvalId !== "undefined" && approvalId !== null && (typeof approvalId !== "string" || !approvalId.trim())) {
+    return { allowed: false, reason: "invalid_request" };
+  }
   if (typeof pool.connect !== "function") return { allowed: false, reason: "governance_unavailable" };
   const store = createPostgresAgentApprovalStore(pool, tenantId);
   return authorizeAgentExecution({
