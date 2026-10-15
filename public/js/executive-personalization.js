@@ -34,7 +34,8 @@
     "/js/owner-decision-review-brief-v343.js?v=20261015-owner-decision-review-brief-v343",
     "/js/owner-decision-review-delta-v344.js?v=20261015-owner-decision-review-delta-v344",
     "/js/owner-decision-reconsideration-trigger-v345.js?v=20261015-owner-decision-reconsideration-trigger-v345",
-    "/js/owner-decision-change-impact-check-v346.js?v=20261015-owner-decision-change-impact-check-v346"
+    "/js/owner-decision-change-impact-check-v346.js?v=20261015-owner-decision-change-impact-check-v346",
+    "/js/owner-decision-transition-plan-v347.js?v=20261015-owner-decision-transition-plan-v347"
   ];
   const q=(selector,root=document)=>root.querySelector(selector);
   let telemetryBusy=false;
