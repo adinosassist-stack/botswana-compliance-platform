@@ -1,6 +1,7 @@
 import {BOTSWANA_FOUNDATION_PACK_V1,BOTSWANA_FOUNDATION_PACK_V1_HASH} from "./regulatory-pack-registry.js";
 import {handleFinanceRequest,financeSummary} from "./finance-core.js";
 import {handleOwnerOperatorRequest,isOwnerOperatorPath} from "./owner-operator-api.js";
+import {handleReliabilityAdvisorRequest} from "./agent-reliability-api.js";
 import {financeReceivablesSummary} from "./finance-receivables.js";
 import {processWhatsAppInboundMessages} from "./whatsapp-inbound-core.js";
 import {runDueFinanceWatchTasks} from "./finance-watch-durable-loop.js";
@@ -5637,6 +5638,8 @@ export default {
           return response||json({error:"valuation_operations_unavailable"},503);
         }
       }
+      if(url.pathname==="/api/ai/operator/reliability")return handleReliabilityAdvisorRequest(req,{auth:a,env});
+      if(isOwnerOperatorPath(url.pathname))return handleOwnerOperatorRequest(req,{auth:a});
       const propertyValuationServicesResponse=await handlePropertyValuationServicesRequest({request:req,url,env,auth:a,json,readJson,id,writeAudit,roleAllowed,privilegedSecretGate});
       if(propertyValuationServicesResponse)return propertyValuationServicesResponse;
       const propertyPortfolioResponse=await handlePropertyPortfolioRequest({request:req,url,env,auth:a,json,readJson,id,writeAudit,roleAllowed});
