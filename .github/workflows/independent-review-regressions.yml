@@ -234,6 +234,14 @@ jobs:
           node --check tests/owner-transition-stage-outcome-checkpoint-static.mjs
           node tests/owner-transition-stage-outcome-checkpoint-static.mjs
 
+      - name: Owner transition completion evidence review boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check public/js/owner-transition-completion-evidence-review-v350.js
+          node --check tests/owner-transition-completion-evidence-review-static.mjs
+          node tests/owner-transition-completion-evidence-review-static.mjs
+
       - name: Regulatory reviewer provisioning governance
         shell: bash
         run: |
