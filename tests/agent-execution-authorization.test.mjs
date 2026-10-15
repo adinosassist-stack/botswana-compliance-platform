@@ -85,3 +85,50 @@ test("authorization core rejects malformed action and approval IDs without datab
   }
   assert.equal(transactions, 0);
 });
+
+test("draft queueing occurs within authorization transaction", async () => {
+  const calls = [];
+  const store = { async transaction(fn) {
+    const tx = {
+      async getApproval() { return null; },
+      async consumeApproval() { throw Error("unexpected approval"); },
+      async appendAudit(event) { calls.push(["audit", event]); },
+      async enqueueIntent(event, key) { calls.push(["enqueue", event, key]); }
+    };
+    return fn(tx);
+  } };
+  const result = await authorizeAgentExecution({
+    store, action: "invoice.draft", args: {}, context,
+    policy: { enabled: true, auditAvailable: true, allowedActions: ["invoice.draft"], remainingBudget: 2, estimatedCost: 1 },
+    queueIntent: true, idempotencyKey: "invoice-1"
+  });
+  assert.equal(result.allowed, true);
+  assert.equal(result.queued, true);
+  assert.deepEqual(calls.map(x => x[0]), ["audit", "enqueue"]);
+  assert.equal(calls[1][1].id, calls[0][1].id);
+});
+
+test("queue failure fails authorization closed", async () => {
+  const store = { async transaction(fn) {
+    return fn({
+      async getApproval() { return null; },
+      async consumeApproval() { return true; },
+      async appendAudit() {},
+      async enqueueIntent() { throw Error("database unavailable"); }
+    });
+  } };
+  const result = await authorizeAgentExecution({
+    store, action: "invoice.draft", args: {}, context,
+    policy: { enabled: true, auditAvailable: true, allowedActions: ["invoice.draft"], remainingBudget: 2, estimatedCost: 1 },
+    queueIntent: true, idempotencyKey: "invoice-2"
+  });
+  assert.deepEqual(result, { allowed: false, reason: "governance_unavailable" });
+});
+
+test("sensitive actions cannot opt into queueing", async () => {
+  let touched = false;
+  const store = { async transaction() { touched = true; } };
+  const result = await authorizeAgentExecution({ store, action: "money.transfer", args, context, policy, queueIntent: true, idempotencyKey: "sensitive-1" });
+  assert.equal(result.allowed, false);
+  assert.equal(touched, false);
+});
