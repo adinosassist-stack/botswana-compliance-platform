@@ -91,6 +91,13 @@
     alignment.dataset.marketAlignmentV19="1";
     document.head.appendChild(alignment);
   }
+  if(!document.querySelector('link[data-market-refinement-v21]')){
+    const refinement=document.createElement("link");
+    refinement.rel="stylesheet";
+    refinement.href="/assets/market-refinement-v21.css?v=20261015a";
+    refinement.dataset.marketRefinementV21="1";
+    document.head.appendChild(refinement);
+  }
   const loadGeminiPanelCss=()=>{
     if(document.querySelector('link[data-market-thebe-gemini-v273]'))return;
     const gemini=document.createElement("link");
@@ -149,5 +156,12 @@
     growth.dataset.marketGrowthV20="1";
     growth.async=false;
     document.head.appendChild(growth);
+  }
+  if(!document.querySelector('script[data-market-refinement-v21]')){
+    const refinement=document.createElement("script");
+    refinement.src="/js/market-refinement-v21.js?v=20261015a";
+    refinement.dataset.marketRefinementV21="1";
+    refinement.async=false;
+    document.head.appendChild(refinement);
   }
 })();
