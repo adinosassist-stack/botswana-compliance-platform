@@ -17,6 +17,13 @@ on:
       - 'scripts/qualify-agent-cost-remote-d1.mjs'
       - 'cloudflare/migrations/068_agent_cost_accounting.sql'
       - 'cloudflare/src/ledger-schema-readiness.js'
+      - 'scripts/agent-shadow-*.mjs'
+      - 'scripts/migrate-agent-shadow.mjs'
+      - 'scripts/migrate-production-agent-shadow.mjs'
+      - 'scripts/manifests/agent-shadow-schema.json'
+      - 'tests/agent-shadow-*.mjs'
+      - 'cloudflare/migrations/069_agent_cost_shadow_events.sql'
+      - '.github/workflows/migrate-production-agent-shadow.yml'
       - 'scripts/agent-cost-production-*.mjs'
       - 'scripts/migrate-production-agent-cost-accounting.mjs'
       - '.github/workflows/migrate-production-agent-cost-accounting.yml'
@@ -36,6 +43,13 @@ on:
       - 'scripts/qualify-agent-cost-remote-d1.mjs'
       - 'cloudflare/migrations/068_agent_cost_accounting.sql'
       - 'cloudflare/src/ledger-schema-readiness.js'
+      - 'scripts/agent-shadow-*.mjs'
+      - 'scripts/migrate-agent-shadow.mjs'
+      - 'scripts/migrate-production-agent-shadow.mjs'
+      - 'scripts/manifests/agent-shadow-schema.json'
+      - 'tests/agent-shadow-*.mjs'
+      - 'cloudflare/migrations/069_agent_cost_shadow_events.sql'
+      - '.github/workflows/migrate-production-agent-shadow.yml'
       - 'scripts/agent-cost-production-*.mjs'
       - 'scripts/migrate-production-agent-cost-accounting.mjs'
       - '.github/workflows/migrate-production-agent-cost-accounting.yml'
@@ -67,6 +81,8 @@ jobs:
       - run: node tests/agent-cost-schema-preflight.mjs
       - run: node tests/agent-cost-migration.mjs
       - run: node tests/agent-cost-production-migration.mjs
+      - run: node tests/agent-shadow-production-migration.mjs
+      - run: node tests/agent-shadow-migration.mjs
       - run: node tests/agent-cost-remote-d1-qualification-static.mjs
       - run: node --disable-warning=ExperimentalWarning tests/agent-cost-reservations-integration.mjs
       - run: node --disable-warning=ExperimentalWarning tests/agent-cost-terminal-race.mjs
