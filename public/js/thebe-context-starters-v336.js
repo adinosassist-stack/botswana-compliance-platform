@@ -19,7 +19,7 @@
   function suggestionSet(state){
     const key=contextKey(state);
 
-    if(/money|finance|cash|recon|receiv|payment|billing|account/.test(key))return [
+    if(/money|finance|cash|recon|receiv|payment|billing|accounthub/.test(key))return [
       ["Money brief","Cash, collections and exceptions","management_brief","Summarise the money signals on this screen, including cash, collections, reconciliation or payment exceptions that need attention. Distinguish confirmed records from missing data."],
       ["What needs collection?","Prioritise receivables","ask","Which receivables or collection items need attention from the records visible in this workspace? State clearly where information is missing."],
       ["Prepare finance action","Safe next steps only","next_actions","Prepare the safest next finance actions from the current records. Do not execute payments, alter records or send communications."]
