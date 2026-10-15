@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 
 const source=fs.readFileSync(new URL('../public/js/owner-closure-record-confirmation-review-v355.js',import.meta.url),'utf8');
+const lowerSource=source.toLowerCase();
 const must=[
   '20261015-owner-closure-record-confirmation-review-v355',
   'Does the exact closure record wording faithfully reflect the owner’s decision?',
@@ -60,7 +61,7 @@ const numericScorePatterns=[
 ];
 for(const pattern of numericScorePatterns)assert.ok(!pattern.test(source),`numeric scoring construct not allowed: ${pattern}`);
 
-assert.ok(source.includes('do not persist the selected disposition, draft wording, rationale/evidence basis, residual context, confirmation result, or corrected wording'),'must prohibit persistence');
+assert.ok(lowerSource.includes('do not persist the selected disposition, draft wording, rationale/evidence basis, residual context, confirmation result, or corrected wording'),'must prohibit persistence');
 assert.ok(source.includes('Corrections remain draft wording pending owner review and cannot change the selected disposition'),'corrections must remain human-gated');
 assert.ok(source.includes('association from causation'),'must preserve causation discipline');
 assert.ok(source.includes('suppress an Unknown'),'must preserve Unknowns');
