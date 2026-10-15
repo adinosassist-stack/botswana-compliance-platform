@@ -20,7 +20,7 @@ assert.match(css,/@media\(max-width:430px\)[\s\S]*?\.people-status-strip\{grid-t
 assert.match(css,/\.employee-directory-tools-v20261015\{/,'employee directory search toolbar has a styled contract');
 assert.match(css,/:is\(button,input,select,summary\):focus-visible/,'People and employee controls preserve visible keyboard focus');
 
-assert.match(js,/type="search"/,'directory UX mounts a native search input');
+assert.match(js,/search\.type="search"/,'directory UX mounts a native search input');
 assert.match(js,/querySelectorAll\(":scope > \.item"\)/,'directory search is scoped to rendered employee cards only');
 assert.match(js,/item\.hidden=!match/,'directory search filters locally without mutating employee data');
 assert.match(js,/role","status"/,'directory search result count is announced accessibly');
