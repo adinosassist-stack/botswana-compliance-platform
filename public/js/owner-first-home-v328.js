@@ -1,7 +1,7 @@
 (function installOwnerFirstHomeV328(global){
   "use strict";
 
-  const RELEASE="20261015-owner-first-home-v328";
+  const RELEASE="20261015-owner-attention-v329";
   const SHELL_ID="ownerDecisionLanes";
   const STYLE_ID="ownerDecisionLanesStyle";
   const DUE_SOON_MS=7*24*60*60*1000;
@@ -36,13 +36,19 @@
     style.textContent=`
 #${SHELL_ID}{margin:12px 0 16px;min-width:0;scroll-margin-bottom:128px}
 #${SHELL_ID} .owner-decision-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:10px}
-#${SHELL_ID} .owner-decision-title{margin:0;font-size:17px;font-weight:850;line-height:1.2}
+#${SHELL_ID} .owner-decision-copy{min-width:0}
+#${SHELL_ID} .owner-decision-title{margin:0;font-size:18px;font-weight:850;line-height:1.2}
 #${SHELL_ID} .owner-decision-meta{margin-top:4px;font-size:11px;color:var(--muted,#6b7176)}
+#${SHELL_ID} .owner-decision-head-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
 #${SHELL_ID} .owner-decision-state{font-size:11px;font-weight:800;padding:5px 9px;border:1px solid var(--line,#e3e6e8);border-radius:999px;white-space:nowrap;background:var(--card,#fff)}
-#${SHELL_ID} .owner-decision-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px;min-width:0}
+#${SHELL_ID} .owner-decision-ask{min-height:36px;padding:7px 11px;border-radius:10px;font-size:11px;font-weight:850;white-space:nowrap}
+#${SHELL_ID} .owner-decision-summary{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 10px}
+#${SHELL_ID} .owner-decision-summary-pill{display:inline-flex;align-items:center;gap:5px;min-height:28px;padding:4px 8px;border:1px solid var(--line,#e3e6e8);border-radius:999px;background:var(--card,#fff);font-size:10px;font-weight:750}
+#${SHELL_ID} .owner-decision-summary-pill b{font-size:11px}
+#${SHELL_ID} .owner-decision-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;min-width:0}
 #${SHELL_ID} .owner-decision-lane{min-width:0;border:1px solid var(--line,#e3e6e8);border-radius:14px;background:var(--card,#fff);padding:11px}
-#${SHELL_ID} .owner-decision-lane[data-lane="risk"]{border-color:color-mix(in srgb,#b42318 34%,var(--line,#e3e6e8))}
-#${SHELL_ID} .owner-decision-lane[data-lane="money"]{border-color:color-mix(in srgb,#a66a00 34%,var(--line,#e3e6e8))}
+#${SHELL_ID} .owner-decision-lane[data-lane="action"]{border-color:color-mix(in srgb,#b42318 34%,var(--line,#e3e6e8))}
+#${SHELL_ID} .owner-decision-lane[data-lane="decision"]{border-color:color-mix(in srgb,#a66a00 34%,var(--line,#e3e6e8))}
 #${SHELL_ID} .owner-decision-lane-title{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:11px;font-weight:850;letter-spacing:.02em}
 #${SHELL_ID} .owner-decision-count{min-width:22px;text-align:center;border-radius:999px;padding:2px 6px;background:color-mix(in srgb,currentColor 8%,transparent);font-size:10px}
 #${SHELL_ID} .owner-decision-items{display:grid;gap:8px;margin-top:9px}
@@ -50,15 +56,16 @@
 #${SHELL_ID} .owner-decision-item:first-child{border-top:0;padding-top:0}
 #${SHELL_ID} .owner-decision-item b{display:block;font-size:12px;line-height:1.3;overflow-wrap:anywhere}
 #${SHELL_ID} .owner-decision-item p{margin:4px 0 0;font-size:10px;line-height:1.35;color:var(--muted,#6b7176);overflow-wrap:anywhere}
+#${SHELL_ID} .owner-decision-item-meta{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
+#${SHELL_ID} .owner-decision-tag{font-size:9px;font-weight:800;padding:2px 5px;border:1px solid var(--line,#e3e6e8);border-radius:999px;color:var(--muted,#6b7176)}
 #${SHELL_ID} .owner-decision-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
 #${SHELL_ID} .owner-decision-actions button{min-height:34px;padding:6px 8px;border-radius:9px;font-size:10px;font-weight:800}
 #${SHELL_ID} .owner-decision-empty{margin-top:9px;font-size:10px;color:var(--muted,#6b7176)}
 #${SHELL_ID} .owner-decision-unavailable{padding:12px;border:1px solid var(--line,#e3e6e8);border-radius:14px;background:var(--card,#fff);font-size:12px}
 #${SHELL_ID} :focus-visible{outline:3px solid #fff;outline-offset:2px;box-shadow:0 0 0 6px #8f1d16}
-@media(max-width:1180px){#${SHELL_ID} .owner-decision-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:760px){#${SHELL_ID}{padding-bottom:max(18px,env(safe-area-inset-bottom));scroll-margin-bottom:180px}#${SHELL_ID} .owner-decision-grid{display:flex;overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:6px;-webkit-overflow-scrolling:touch}#${SHELL_ID} .owner-decision-lane{flex:0 0 min(82vw,300px);scroll-snap-align:start}#${SHELL_ID} .owner-decision-head{align-items:center}}
-@media(max-width:430px){#${SHELL_ID} .owner-decision-head{display:block}#${SHELL_ID} .owner-decision-state{display:inline-block;margin-top:8px}}
-@media(prefers-reduced-motion:reduce){#${SHELL_ID} .owner-decision-grid{scroll-behavior:auto}}
+@media(max-width:980px){#${SHELL_ID} .owner-decision-grid{grid-template-columns:1fr 1fr}#${SHELL_ID} .owner-decision-lane:last-child{grid-column:1/-1}}
+@media(max-width:680px){#${SHELL_ID}{padding-bottom:max(18px,env(safe-area-inset-bottom));scroll-margin-bottom:180px}#${SHELL_ID} .owner-decision-head{align-items:center}#${SHELL_ID} .owner-decision-grid{grid-template-columns:1fr}#${SHELL_ID} .owner-decision-lane:last-child{grid-column:auto}}
+@media(max-width:430px){#${SHELL_ID} .owner-decision-head{display:block}#${SHELL_ID} .owner-decision-head-actions{justify-content:flex-start;margin-top:9px}#${SHELL_ID} .owner-decision-ask{flex:1 1 auto}#${SHELL_ID} .owner-decision-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}#${SHELL_ID} .owner-decision-summary-pill{justify-content:center;padding-inline:5px}}
 `;
     document.head.append(style);
   }
@@ -70,7 +77,7 @@
     shell=node("section");
     shell.id=SHELL_ID;
     shell.dataset.release=RELEASE;
-    shell.setAttribute("aria-label","Owner decisions");
+    shell.setAttribute("aria-label","Owner attention");
     shell.setAttribute("aria-live","polite");
     const attention=q("#ownerAttentionPanel",centre);
     const focus=q("#ownerFocusStrip",centre);
@@ -86,7 +93,7 @@
   }
 
   function itemText(item){
-    return [item?.title,item?.summary,item?.detail,item?.description,item?.category,item?.sourceType,item?.authority,item?.kind,item?.truthState]
+    return [item?.title,item?.summary,item?.detail,item?.description,item?.category,item?.sourceType,item?.authority,item?.kind,item?.truthState,item?.status]
       .map(clean).filter(Boolean).join(" ").toLowerCase();
   }
   function dueAt(item){
@@ -105,9 +112,13 @@
     const severity=clean(item?.severity||item?.priority||item?.tone).toLowerCase();
     return isOverdue(item)||["critical","urgent","high","red","risk"].includes(severity);
   }
-  function isWaiting(item){
+  function isDecision(item){
     const hay=itemText(item);
-    return item?.requiresApproval===true||item?.requiresOwner===true||/(approval|approve|owner decision|waiting for you|review required|needs review|pending review)/.test(hay);
+    return item?.requiresApproval===true||item?.requiresOwner===true||/(approval|approve|owner decision|decision required|waiting for you|review required|needs review|pending review)/.test(hay);
+  }
+  function isBlocked(item){
+    const hay=itemText(item);
+    return item?.blocked===true||item?.waiting===true||/(blocked|awaiting|waiting on|waiting for|dependency|dependent on|delayed|pending supplier|pending client|pending response|no response)/.test(hay);
   }
   function isMoney(item){
     return /(money|finance|financial|cash|bank|reconcil|payment|invoice|billing|expense|revenue|payroll|tax|burs)/.test(itemText(item));
@@ -116,12 +127,24 @@
     return item?.recommendation===true||/(recommend|suggest|prepared|advice|next best|opportunity)/.test(itemText(item));
   }
   function classify(item){
-    if(isRisk(item))return "risk";
-    if(isWaiting(item))return "waiting";
-    if(isMoney(item))return "money";
-    if(isDueSoon(item))return "due";
-    if(isRecommendation(item))return "recommendation";
-    return "recommendation";
+    if(isRisk(item)||isOverdue(item))return "action";
+    if(isDecision(item))return "decision";
+    if(isBlocked(item))return "waiting";
+    if(isMoney(item)||isDueSoon(item))return "action";
+    if(isRecommendation(item))return "decision";
+    return "action";
+  }
+  function priorityScore(item){
+    let score=0;
+    if(isOverdue(item))score+=100;
+    if(isRisk(item))score+=70;
+    if(isDecision(item))score+=45;
+    if(isDueSoon(item))score+=30;
+    if(isMoney(item))score+=20;
+    if(isBlocked(item))score+=10;
+    const due=dueAt(item);
+    if(due!==null)score+=Math.max(0,8-Math.floor(Math.max(0,due-Date.now())/(24*60*60*1000)));
+    return score;
   }
 
   function itemRoute(item){
@@ -140,20 +163,35 @@
       try{global.showView(view)}catch{}
     }
   }
-  function askThebe(item){
-    const title=clean(item?.title||"this owner priority");
+  function setDockPrompt(prompt){
     const dock=q('#thebeAiDock[data-surface="workspace"]')||q("#thebeAiDock");
     const input=dock&&q('textarea,input[type="text"],input:not([type])',dock);
-    const prompt=`Explain “${title}” using the current verified business context. Show evidence, risk, and the safest next step. Do not execute anything.`;
     if(input){
       input.value=prompt;
       input.dispatchEvent(new Event("input",{bubbles:true}));
       try{input.focus({preventScroll:true})}catch{input.focus()}
-      return;
+      return true;
     }
     global.ThebeOwnerFocusStrip?.focusThebe?.();
+    return false;
+  }
+  function askThebe(item){
+    const title=clean(item?.title||"this owner priority");
+    setDockPrompt(`Explain “${title}” using the current verified business context. Show evidence, risk, and the safest next step. Do not execute anything.`);
+  }
+  function askThebeQueue(items){
+    const top=items.slice().sort((a,b)=>priorityScore(b)-priorityScore(a)).slice(0,5).map(item=>clean(item?.title||item?.label||item?.name)).filter(Boolean);
+    const focus=top.length?` Focus first on: ${top.join("; ")}.`:"";
+    setDockPrompt(`Brief me on my verified owner-attention queue.${focus} Separate what needs action now, what needs my decision, and what is waiting or blocked. Show evidence and the safest next step for each. Do not execute anything.`);
   }
 
+  function dueLabel(item){
+    const due=dueAt(item);
+    if(due===null)return "";
+    if(isOverdue(item))return "Overdue";
+    if(isDueSoon(item))return "Due soon";
+    return "";
+  }
   function itemCard(item){
     const card=node("article");
     card.className="owner-decision-item";
@@ -161,6 +199,17 @@
     const detail=clean(item?.summary||item?.detail||item?.description||item?.reason||"");
     card.append(node("b",title));
     if(detail)card.append(node("p",detail.slice(0,180)));
+    const tags=[];
+    const due=dueLabel(item);
+    if(due)tags.push(due);
+    if(isMoney(item))tags.push("Money");
+    if(isBlocked(item)&&!isRisk(item))tags.push("Waiting");
+    if(tags.length){
+      const meta=node("div");
+      meta.className="owner-decision-item-meta";
+      tags.slice(0,2).forEach(tag=>meta.append(node("span",tag,"owner-decision-tag")));
+      card.append(meta);
+    }
     const controls=node("div");
     controls.className="owner-decision-actions";
     if(itemRoute(item))controls.append(action("Review",()=>review(item),"btn soft"));
@@ -169,7 +218,7 @@
     return card;
   }
 
-  function lane(label,key,items){
+  function lane(label,key,items,emptyCopy){
     const section=node("section");
     section.className="owner-decision-lane";
     section.dataset.lane=key;
@@ -178,15 +227,21 @@
     head.append(node("span",label),node("span",String(items.length),"owner-decision-count"));
     section.append(head);
     if(!items.length){
-      section.append(node("div","Nothing verified here right now.","owner-decision-empty"));
+      section.append(node("div",emptyCopy,"owner-decision-empty"));
       return section;
     }
     const list=node("div");
     list.className="owner-decision-items";
-    items.slice(0,3).forEach(item=>list.append(itemCard(item)));
+    items.slice().sort((a,b)=>priorityScore(b)-priorityScore(a)).slice(0,3).forEach(item=>list.append(itemCard(item)));
     section.append(list);
     if(items.length>3)section.append(node("div",`${items.length-3} more in the verified queue`,"owner-decision-empty"));
     return section;
+  }
+
+  function summaryPill(label,count){
+    const pill=node("span",undefined,"owner-decision-summary-pill");
+    pill.append(node("b",String(count)),node("span",label));
+    return pill;
   }
 
   function render(){
@@ -197,7 +252,13 @@
     const data=snapshot();
     const state=clean(data?.state).toLowerCase();
     const items=Array.isArray(data?.items)?data.items:[];
-    const signature=JSON.stringify({state,generatedAt:data?.generatedAt||null,version:data?.version||null,count:items.length});
+    const itemSignature=items.map(item=>[
+      clean(item?.id||item?.key||item?.title||item?.name),
+      clean(item?.status||item?.priority||item?.severity),
+      clean(item?.dueAt||item?.due_at||item?.deadlineAt||item?.deadline||item?.dueDate),
+      Boolean(item?.blocked),Boolean(item?.waiting),Boolean(item?.requiresApproval),Boolean(item?.requiresOwner)
+    ]);
+    const signature=JSON.stringify({state,generatedAt:data?.generatedAt||null,version:data?.version||null,items:itemSignature});
     if(shell.dataset.signature===signature)return;
     shell.dataset.signature=signature;
     shell.dataset.state=state||"loading";
@@ -205,11 +266,14 @@
 
     const head=node("div");
     head.className="owner-decision-head";
-    const copy=node("div");
-    copy.append(node("div","Owner attention","section-eyebrow"),node("h3","What needs your decision now","owner-decision-title"));
+    const copy=node("div",undefined,"owner-decision-copy");
+    copy.append(node("div","Owner attention","section-eyebrow"),node("h3","What needs you now","owner-decision-title"));
     const generated=data?.generatedAt?new Date(data.generatedAt):null;
     copy.append(node("div",generated&&!Number.isNaN(generated.getTime())?`Verified ${generated.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`:"Canonical owner queue","owner-decision-meta"));
-    head.append(copy,node("span",state==="ready"?"Verified":state==="unavailable"?"Unavailable":"Loading","owner-decision-state"));
+    const headActions=node("div",undefined,"owner-decision-head-actions");
+    headActions.append(node("span",state==="ready"?"Verified":state==="unavailable"?"Unavailable":"Loading","owner-decision-state"));
+    if(state==="ready"&&items.length)headActions.append(action("Ask Thebe",()=>askThebeQueue(items),"btn alt owner-decision-ask"));
+    head.append(copy,headActions);
     shell.append(head);
 
     if(!data||!state||state==="loading"){
@@ -230,16 +294,24 @@
       return;
     }
 
-    const lanes={due:[],risk:[],waiting:[],money:[],recommendation:[]};
+    const lanes={action:[],decision:[],waiting:[]};
     items.forEach(item=>lanes[classify(item)].push(item));
+
+    const summary=node("div",undefined,"owner-decision-summary");
+    summary.setAttribute("aria-label","Owner attention summary");
+    summary.append(
+      summaryPill("act now",lanes.action.length),
+      summaryPill("decide",lanes.decision.length),
+      summaryPill("waiting",lanes.waiting.length)
+    );
+    shell.append(summary);
+
     const grid=node("div");
     grid.className="owner-decision-grid";
     grid.append(
-      lane("Due soon","due",lanes.due),
-      lane("At risk","risk",lanes.risk),
-      lane("Waiting for you","waiting",lanes.waiting),
-      lane("Money exception","money",lanes.money),
-      lane("Thebe recommendation","recommendation",lanes.recommendation)
+      lane("Act now","action",lanes.action,"No verified urgent action right now."),
+      lane("Needs your decision","decision",lanes.decision,"No verified decisions waiting for you."),
+      lane("Waiting / blocked","waiting",lanes.waiting,"Nothing verified as blocked or awaiting a dependency.")
     );
     shell.append(grid);
   }
