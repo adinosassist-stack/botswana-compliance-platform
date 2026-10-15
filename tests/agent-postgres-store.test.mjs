@@ -52,3 +52,12 @@ test("invalid tenant and invalid database clients fail closed", async () => {
   const store = createPostgresAgentApprovalStore({ async connect() { return { query() {} }; } }, "tenant-a");
   await assert.rejects(store.transaction(async () => true), /invalid_agent_database_client/);
 });
+
+test("invalid database client with release callback is returned to pool", async () => {
+  let releases = 0;
+  const store = createPostgresAgentApprovalStore({
+    async connect() { return { release() { releases++; } }; }
+  }, "tenant-a");
+  await assert.rejects(store.transaction(async () => true), /invalid_agent_database_client/);
+  assert.equal(releases, 1);
+});
