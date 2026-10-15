@@ -10,10 +10,10 @@
 <meta name="theme-color" content="#f7f8f9">
 <title>Daily Report | Thebe Desk</title>
 <link rel="icon" type="image/png" sizes="512x512" href="/assets/thebe-desk-favicon-512.png">
-<link rel="stylesheet" href="/assets/employee-reporting-portal.css?v=20260923a">
+<link rel="stylesheet" href="/assets/employee-reporting-portal.css?v=20261015-camera-attachments">
 <script id="reporter-browser-recovery">(()=>{try{if("serviceWorker"in navigator)navigator.serviceWorker.getRegistrations().then(items=>items.forEach(item=>item.unregister())).catch(()=>{});if("caches"in globalThis)caches.keys().then(keys=>Promise.all(keys.filter(key=>String(key).startsWith("thebe-desk-")).map(key=>caches.delete(key)))).catch(()=>{})}catch{}})();</script>
 <script src="/js/api-client.js?v=20260920a" defer></script>
-<script src="/js/employee-reporting-portal.js?v=20260923b" defer></script>
+<script src="/js/employee-reporting-portal.js?v=20261015-camera-attachments" defer></script>
 </head>
 <body>
 <main class="reporter-portal" id="reporterPortal">
@@ -70,6 +70,28 @@
         </div>
 
         <label class="attention-row"><input id="reporterNeedsAttention" type="checkbox"><span><strong>I need manager attention</strong><small>Use this when something should be reviewed soon.</small></span></label>
+
+        <section class="report-attachments" aria-labelledby="reportAttachmentsTitle">
+          <div class="report-attachments__heading">
+            <div>
+              <h2 id="reportAttachmentsTitle">Photos &amp; attachments</h2>
+              <p>Take a photo on site or attach an existing image/PDF. Up to 3 files per submission.</p>
+            </div>
+          </div>
+          <div class="report-attachments__actions">
+            <label class="attachment-action attachment-action--camera" for="reportCameraInput">
+              <span aria-hidden="true">📷</span><strong>Take photo</strong>
+            </label>
+            <input id="reportCameraInput" class="attachment-input" type="file" accept="image/*" capture="environment">
+            <label class="attachment-action" for="reportFileInput">
+              <span aria-hidden="true">＋</span><strong>Choose files</strong>
+            </label>
+            <input id="reportFileInput" class="attachment-input" type="file" accept="image/jpeg,image/png,image/webp,application/pdf,.jpg,.jpeg,.png,.webp,.pdf" multiple>
+          </div>
+          <div id="reportAttachmentStatus" class="report-attachment-status" role="status" aria-live="polite">No attachments selected.</div>
+          <div id="reportAttachmentList" class="report-attachment-list"></div>
+          <p class="attachment-help">Camera photos are resized on this device before upload. Maximum 3 MB per file and 6 MB total.</p>
+        </section>
 
         <button class="submit-button" id="reporterSubmitBtn" type="submit">Send daily report</button>
         <div id="reporterDraftStatus" class="reporter-status" role="status" aria-live="polite">Entries stay on this page until sent. Sensitive report text is not saved in browser storage.</div>
