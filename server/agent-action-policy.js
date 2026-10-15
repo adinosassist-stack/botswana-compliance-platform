@@ -1,6 +1,8 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 
 const SENSITIVE = new Set(["money.transfer","finance.post","payroll.run","tax.submit","regulatory.file","record.delete","access.change","message.send"]);
+const SAFE = new Set(["invoice.draft","compliance.read","finance.read","operations.read","compliance.reminder.draft","reconciliation.suggest","onboarding.exceptions.read"]);
+export const SAFE_AGENT_ACTIONS = Object.freeze([...SAFE]);
 export const SENSITIVE_AGENT_ACTIONS = Object.freeze([...SENSITIVE]);
 
 export function canonicalJson(value) {
@@ -27,8 +29,7 @@ function equal(a, b) {
 export function evaluateAgentAction({ action, args, context, approval, policy }) {
   if (!policy?.enabled || policy?.killSwitch || !policy?.auditAvailable) return { allowed: false, reason: "governance_unavailable" };
   if (!context?.tenantId || !context?.actorId || !Array.isArray(policy.allowedActions) || !policy.allowedActions.includes(action)) return { allowed: false, reason: "unauthorized_action" };
-  if (!Number.isFinite(policy.remainingBudget) || policy.remainingBudget < 0 || !Number.isFinite(policy.estimatedCost) || policy.estimatedCost < 0 || policy.estimatedCost > policy.remainingBudget) return { allowed: false, reason: "budget_exceeded" };
-  const SAFE = new Set(["invoice.draft", "compliance.read", "finance.read", "operations.read", "compliance.reminder.draft", "reconciliation.suggest", "onboarding.exceptions.read"]);
+  if (!Number.isFinite(context?.now) || !Number.isFinite(policy.remainingBudget) || policy.remainingBudget < 0 || !Number.isFinite(policy.estimatedCost) || policy.estimatedCost < 0 || policy.estimatedCost > policy.remainingBudget) return { allowed: false, reason: "budget_exceeded" };
   if (SAFE.has(action)) return { allowed: true, reason: "read_or_draft_only" };
   if (!SENSITIVE.has(action)) return { allowed: false, reason: "unclassified_action" };
   if (!approval || !approval.id || !approval.nonce || approval.consumed !== false || approval.status !== "approved") return { allowed: false, reason: "approval_required" };
