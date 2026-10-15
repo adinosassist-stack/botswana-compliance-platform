@@ -27,6 +27,10 @@ for(const safeguard of [
   assert.ok(starters.includes(safeguard),`missing starter safeguard: ${safeguard}`);
 }
 
+assert.match(starters,/button\.disabled=Boolean\(busy\)/,"contextual starter buttons must inherit the dock busy state");
+assert.match(starters,/if\(button\.disabled\)return;/,"disabled contextual starters must not dispatch requests");
+assert.match(starters,/state\.textBusy\?"busy":"ready"/,"busy state must be part of the starter render signature");
+assert.match(starters,/starterButton\(item,state\.textBusy===true\)/,"new contextual buttons created while busy must render disabled");
 assert.match(starters,/MutationObserver/,"starter actions must resync after dock or page context changes");
 assert.match(starters,/thebe:workspace-view-change/,"starter actions must react to canonical workspace view changes");
 assert.match(starters,/existing===3/,"starter layer must remain bounded to three actions");
