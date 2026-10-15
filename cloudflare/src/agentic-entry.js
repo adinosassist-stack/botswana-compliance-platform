@@ -5,6 +5,7 @@ import withReportAttachments from "./report-attachments-entry.js";
 // Re-export its named API so existing runtime/test imports keep the same module
 // contract while the default Worker is decorated with report attachments.
 export * from "./agentic-core-entry.js";
+export {handleAgenticControlPlaneRequest} from "./agentic-control-plane.js";
 
 // Compatibility proof bridge for historical static audits that intentionally
 // inspect this physical entry file. These markers mirror security-critical
