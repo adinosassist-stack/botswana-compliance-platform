@@ -3,7 +3,8 @@ import fs from 'node:fs';
 
 const read = (path) => fs.readFileSync(path, 'utf8');
 const server = read('server/server.js');
-const versionMigration = read('db/migrations/032_v82_workspace_version_numeric_contract.sql');
+const stateVersionMigration = read('db/migrations/003_state_version.sql');
+const numericVersionMigration = read('db/migrations/032_v82_workspace_version_numeric_contract.sql');
 const replayMigration = read('db/migrations/030_v78_malware_scan_replay_hardening.sql');
 const casTest = read('tests/v82-finance-connection-transition-cas.mjs');
 const replayTest = read('tests/v82-finance-idempotency-replay-integrity.mjs');
@@ -36,14 +37,22 @@ assert.match(
 );
 assert.match(server, /stateSchema=z\.object\(\{state:z\.record\(z\.any\(\)\),version:z\.number\(\)\.int\(\)\.positive\(\)\}\)/, 'state writes require a positive integer observed version');
 
-// The database schema gives the CAS token a durable numeric contract.
-requireAll(versionMigration, [
-  'ALTER TABLE app_state',
-  'ADD COLUMN IF NOT EXISTS version INTEGER',
-  'SET DEFAULT 1',
-  'SET NOT NULL'
-], 'workspace version migration');
-assert.match(versionMigration, /version\s*>?=\s*1/i, 'workspace version migration must reject invalid low versions');
+// The migration chain gives the CAS token a durable positive numeric contract.
+assert.match(
+  stateVersionMigration,
+  /alter\s+table\s+app_state\s+add\s+column\s+if\s+not\s+exists\s+version\s+bigint\s+not\s+null\s+default\s+1/i,
+  'workspace version foundation must create a non-null version with default 1'
+);
+assert.match(
+  numericVersionMigration,
+  /version\s*>\s*2147483647\s+OR\s+version\s*<\s*1/i,
+  'V82 numeric migration must reject versions outside the positive INTEGER range'
+);
+assert.match(
+  numericVersionMigration,
+  /ALTER\s+TABLE\s+app_state\s+ALTER\s+COLUMN\s+version\s+TYPE\s+integer\s+USING\s+version::integer/i,
+  'V82 numeric migration must convert the durable version to INTEGER'
+);
 
 // Production replay/single-consumption capability: authoritative claim is consumed once.
 requireAll(server, [
