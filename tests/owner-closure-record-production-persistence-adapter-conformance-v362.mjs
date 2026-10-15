@@ -54,11 +54,15 @@ assert.match(
   'V82 numeric migration must convert the durable version to INTEGER'
 );
 
-// Production replay/single-consumption capability: authoritative claim is consumed once.
+// Production replay/single-consumption capability: the exact scan claim can be consumed only once.
+assert.match(
+  server,
+  /update\s+evidence\s+set\s+scan_status=\$3,scan_sha256=coalesce\(\$4,scan_sha256\),scan_details=\$5,scanned_at=now\(\),scan_job_consumed_at=now\(\)\s+where\s+id=\$1\s+and\s+scan_job_id=\$2\s+and\s+scan_job_consumed_at\s+is\s+null\s+and\s+scan_status='pending'\s+returning\s+tenant_id,company_id_text/i,
+  'single-consumption replay primitive must atomically bind and consume the exact scan job'
+);
 requireAll(server, [
-  'scan_job_consumed_at',
-  'scan_job_consumed_at IS NULL',
-  'Scan job replay detected'
+  'scan_job_stale_or_consumed',
+  'crypto.timingSafeEqual'
 ], 'single-consumption replay primitive');
 requireAll(replayMigration, [
   'scan_job_id',
