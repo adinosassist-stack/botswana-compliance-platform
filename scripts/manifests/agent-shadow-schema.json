@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "source": {
+    "path": "cloudflare/migrations/069_agent_cost_shadow_events.sql",
+    "sha256": "c743077536d3363dbf15f8f9517ce232daf336ac2a93734ba99b2d59d896100e"
+  },
+  "objects": [
+    {
+      "type": "index",
+      "name": "agent_cost_shadow_events_tenant_time",
+      "sqlSha256": "1f141834f88aeb3601036b4031d16d6748c75825d1546ba7e41b6cc06c29c465"
+    },
+    {
+      "type": "table",
+      "name": "agent_cost_shadow_events",
+      "sqlSha256": "c2b434222442f7103087426d5f3b7a04908f84d90cb0e3ca450485478df19ad6"
+    }
+  ]
+}
