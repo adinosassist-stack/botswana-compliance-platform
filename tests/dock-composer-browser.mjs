@@ -30,7 +30,7 @@ try{
         const document=workspace?fixture:fixture.replace('id="marketingGate" class="hidden" style="display:none"','id="marketingGate"').replace('id="appShell" class="shell"','id="appShell" class="shell hidden" style="display:none"');
         return route.fulfill({contentType:'text/html',body:document});
       }
-      if(pathname.endsWith('.js')&&!pathname.includes('thebe-live-voice'))return route.fulfill({contentType:'application/javascript',body:''});
+      if(pathname.endsWith('.js')&&!pathname.includes('thebe-live-voice')&&!pathname.includes('thebe-dock-recovery-geometry-v269'))return route.fulfill({contentType:'application/javascript',body:''});
       const file='public'+pathname;
       return fs.existsSync(file)?route.fulfill({path:file}):route.fulfill({status:404,body:''});
     });
@@ -54,6 +54,24 @@ try{
     assert.equal(await page.evaluate(()=>voiceStarts[0].mode),workspace?'workspace':'marketing');
     await page.locator('.thebe-voice-exit').click();
     if(workspace){
+      const resize=dock.locator('.thebe-workspace-dock-resize-handle');
+      await resize.waitFor({state:'visible'});
+      const beforeWidth=await dock.evaluate(el=>el.getBoundingClientRect().width);
+      await resize.press('ArrowLeft');
+      await page.waitForFunction(previous=>document.querySelector('#thebeAiDock').getBoundingClientRect().width>previous,beforeWidth);
+      const resized=await page.evaluate(()=>({
+        dock:document.querySelector('#thebeAiDock').getBoundingClientRect().width,
+        spatial:parseFloat(getComputedStyle(document.body).getPropertyValue('--thebe-spatial-width')),
+        shellPad:parseFloat(getComputedStyle(document.querySelector('#appShell')).paddingRight),
+        saved:Number(localStorage.getItem('thebe:workspace-dock:width:v1'))
+      }));
+      assert(resized.dock>beforeWidth,'keyboard resize grows right-anchored workspace dock');
+      assert(Math.abs(resized.spatial-resized.dock)<2,'spatial rail variable tracks dock width');
+      assert(resized.shellPad>=resized.dock+31,'workspace shell reserves the resized dock rail');
+      assert.equal(resized.saved,Math.round(resized.spatial),'workspace dock width persists');
+      await resize.press('Home');
+      assert.equal(await page.evaluate(()=>localStorage.getItem('thebe:workspace-dock:width:v1')),null,'Home resets saved dock width');
+
       const file={name:'sales.txt',mimeType:'text/plain',buffer:Buffer.from('Sales total: P1200')};
       await dock.locator('input[type=file]').setInputFiles(file);
       assert(await send.isVisible(),'file-only draft offers send');assert(await audio.isHidden());
@@ -86,5 +104,5 @@ try{
     }
     assert.deepEqual(errors,[]);await page.close();
   }
-  console.log('DOCK_COMPOSER_PASS public answers, audio activation, typing switch, file review, privacy reset and responsive containment');
+  console.log('DOCK_COMPOSER_PASS public answers, audio activation, typing switch, workspace resize, file review, privacy reset and responsive containment');
 }finally{await browser.close()}
