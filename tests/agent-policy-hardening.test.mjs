@@ -91,3 +91,14 @@ test("null-prototype JSON maps are canonicalized like ordinary objects", () => {
   map.currency = "BWP";
   assert.equal(agentArgumentDigest(map), agentArgumentDigest({ amount: 12, currency: "BWP" }));
 });
+
+test("pure policy rejects non-string and whitespace identities", () => {
+  for (const tenantId of [42, {}, " "]) {
+    const result = evaluateAgentAction({ action: "invoice.draft", args: {}, context: { ...context, tenantId }, policy });
+    assert.deepEqual(result, { allowed: false, reason: "unauthorized_action" });
+  }
+  for (const actorId of [42, {}, " "]) {
+    const result = evaluateAgentAction({ action: "invoice.draft", args: {}, context: { ...context, actorId }, policy });
+    assert.deepEqual(result, { allowed: false, reason: "unauthorized_action" });
+  }
+});
