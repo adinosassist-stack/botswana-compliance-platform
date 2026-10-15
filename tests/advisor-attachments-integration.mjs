@@ -38,6 +38,11 @@ const env={DB,SESSION_SECRET:secret,AUDIT_INTEGRITY_SECRET:"test-only-audit-secr
 const attach=(name,content)=>({name,data:Buffer.from(content).toString("base64")});
 async function ask(attachments,key="",extra={}){return worker.fetch(new Request("https://app.example/api/ai/advisor",{method:"POST",headers:{cookie:`__Host-bw_session=${session}`,origin:"https://app.example","x-csrf-token":csrf,"content-type":"application/json",...(key?{"idempotency-key":key}:{})},body:JSON.stringify({mode:"ask",question:"Review the attachment",attachments,...extra})}),env,{waitUntil(){}})}
 try{
+ const denied=await worker.fetch(new Request("https://app.example/api/ai/advisor",{method:"POST",headers:{origin:"https://app.example","content-type":"application/json"},body:JSON.stringify({question:"Review a file",attachments:[attach("notes.txt","private")]})}),env,{waitUntil(){}});
+ assert.equal(denied.status,401,"file review requires a workspace session");
+ let oversized=await ask(undefined,"",{padding:"x".repeat(9000)});assert.equal(oversized.status,413,"ordinary requests retain the 8 KiB cap");
+ oversized=await ask([],"",{padding:"x".repeat(3*1024*1024)});assert.equal(oversized.status,400,"attachment stream is bounded before parsing");
+ assert.equal(providerCalls,0,"rejected requests do not reach AI");
  let response=await ask([attach("notes.txt","Invoice total P415.00")],"file-review-key-001");
  let body=await response.json();assert.equal(response.status,200,JSON.stringify(body));
  assert.match(lastPrompt,/Invoice total P415/);assert.match(lastPrompt,/ATTACHED_FILES_START/);assert.match(lastPrompt,/unverified user-supplied/);
