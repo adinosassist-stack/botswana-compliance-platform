@@ -82,9 +82,10 @@ assert.match(
 
 // Existing isolated executable tests prove CAS, exact replay binding, and atomic rollback shapes.
 requireAll(casTest, [
-  'expectedEntitySequence:connection.lastSequence',
+  'connection actions must bind the append to the exact state they read',
   'finance_connection_state_conflict',
-  'stale observed connection sequence must not append a second event'
+  'stale observed connection sequence must not append a second event',
+  'a concurrent sync event must also invalidate an older connection observation'
 ], 'existing CAS test');
 requireAll(replayTest, [
   'verifyExistingImportRequest',
