@@ -62,9 +62,10 @@
     ];
   }
 
-  function starterButton([label,detail,mode,question]){
+  function starterButton([label,detail,mode,question],busy=false){
     const button=document.createElement("button");
     button.type="button";
+    button.disabled=Boolean(busy);
     button.setAttribute(STARTER_ATTR,"1");
     button.textContent=label;
     if(detail){
@@ -73,6 +74,7 @@
       button.append(small);
     }
     button.addEventListener("click",()=>{
+      if(button.disabled)return;
       const api=window.ThebeAiDock;
       if(typeof api?.ask!=="function")return;
       void api.ask(question,mode);
@@ -89,11 +91,11 @@
     if(state.workspaceVisible!==true||state.assistantMode==="goal_plan")return true;
 
     const context=state.context||{};
-    const signature=[RELEASE,context.id||"",context.title||"",state.assistantMode||"ask"].join("|");
+    const signature=[RELEASE,context.id||"",context.title||"",state.assistantMode||"ask",state.textBusy?"busy":"ready"].join("|");
     const existing=quick.querySelectorAll(`[${STARTER_ATTR}]`).length;
     if(quick.dataset.contextStartersV336===signature&&existing===3)return true;
 
-    const buttons=suggestionSet(state).map(starterButton);
+    const buttons=suggestionSet(state).map(item=>starterButton(item,state.textBusy===true));
     quick.replaceChildren(...buttons);
     quick.dataset.contextStartersV336=signature;
     quick.setAttribute("aria-label",`Suggested Thebe actions for ${clean(context.title)||"this workspace screen"}`);
