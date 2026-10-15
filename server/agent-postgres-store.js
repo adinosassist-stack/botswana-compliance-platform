@@ -4,11 +4,12 @@
  * The caller must execute the protected action separately after authorization.
  */
 export function createPostgresAgentApprovalStore(pool, tenantId) {
-  if (!pool || typeof pool.connect !== "function" || typeof tenantId !== "string" || !tenantId) throw Error("invalid_agent_store_context");
+  if (!pool || typeof pool.connect !== "function" || typeof tenantId !== "string" || !tenantId.trim()) throw Error("invalid_agent_store_context");
   return {
     async transaction(fn) {
       if (typeof fn !== "function") throw Error("invalid_agent_transaction");
       const client = await pool.connect();
+      if (!client || typeof client.query !== "function" || typeof client.release !== "function") throw Error("invalid_agent_database_client");
       try {
         await client.query("BEGIN");
         await client.query("SET LOCAL statement_timeout = '5000ms'");
