@@ -100,3 +100,21 @@ test("database itself rejects sensitive action outbox rows", async () => {
     await client.end();
   }
 });
+
+test("outbox lease state and timestamp must agree", async () => {
+  const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  const id = randomUUID();
+  try {
+    await client.query(`insert into agent_action_outbox
+      (id,tenant_id,actor_id,action,argument_digest,authorization_id,idempotency_key)
+      values ($1,$2,'owner','invoice.draft',$3,$4,$5)`,
+      [id,"lease-"+randomUUID(),"a".repeat(64),randomUUID(),"lease-"+randomUUID()]);
+    await assert.rejects(client.query("update agent_action_outbox set status='leased' where id=$1", [id]), e => e.code === "23514");
+    await client.query("update agent_action_outbox set status='leased', leased_until=now()+interval '1 minute' where id=$1", [id]);
+    await assert.rejects(client.query("update agent_action_outbox set status='succeeded' where id=$1", [id]), e => e.code === "23514");
+  } finally {
+    await client.query("delete from agent_action_outbox where id=$1", [id]);
+    await client.end();
+  }
+});
