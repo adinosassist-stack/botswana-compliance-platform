@@ -16,3 +16,8 @@ test("consumed approvals must be approved", () => {
 test("approval audit lookup has a partial index", () => {
   assert.match(migration, /on agent_action_audit\s*\(approval_id\)\s*where approval_id is not null/i);
 });
+
+test("integrity constraint migration can be rerun safely", () => {
+  assert.match(migration, /if not exists\s*\(\s*select 1 from pg_constraint/i);
+  assert.match(migration, /conrelid = 'agent_action_approvals'::regclass/i);
+});
