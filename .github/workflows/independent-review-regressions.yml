@@ -154,6 +154,14 @@ jobs:
           node --check tests/owner-evidence-quality-scoring-static.mjs
           node tests/owner-evidence-quality-scoring-static.mjs
 
+      - name: Owner evidence conflict detection boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check public/js/owner-evidence-conflict-detection-v340.js
+          node --check tests/owner-evidence-conflict-detection-static.mjs
+          node tests/owner-evidence-conflict-detection-static.mjs
+
       - name: Regulatory reviewer provisioning governance
         shell: bash
         run: |

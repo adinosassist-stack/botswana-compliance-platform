@@ -27,7 +27,8 @@
     "/js/owner-decision-safeguard-gate-v336.js?v=20261015-owner-decision-safeguard-gate-v336",
     "/js/owner-decision-experiment-planner-v337.js?v=20261015-owner-decision-experiment-planner-v337",
     "/js/owner-experiment-result-review-v338.js?v=20261015-owner-experiment-result-review-v338",
-    "/js/owner-evidence-quality-scoring-v339.js?v=20261015-owner-evidence-quality-scoring-v339"
+    "/js/owner-evidence-quality-scoring-v339.js?v=20261015-owner-evidence-quality-scoring-v339",
+    "/js/owner-evidence-conflict-detection-v340.js?v=20261015-owner-evidence-conflict-detection-v340"
   ];
   const q=(selector,root=document)=>root.querySelector(selector);
   let telemetryBusy=false;
