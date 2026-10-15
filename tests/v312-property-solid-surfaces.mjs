@@ -44,4 +44,4 @@ const fixesBlock=injector.indexOf('if(options?.includeWorkspaceFixes===true){');
 const fixesBlockEnd=injector.indexOf('\n  }',fixesBlock);
 assert(fixesBlock>=0&&v312>fixesBlock&&v312<fixesBlockEnd,'V312 remains app-only inside includeWorkspaceFixes');
 
-console.log('PASS V312: Property matches the workspace palette, uses a clear analysis hierarchy, and preserves pane isolation without mutating historical assets');
+console.log('PASS V312: Property matches the workspace palette, keeps navigation hierarchical, reduces duplicate actions, and preserves pane isolation without mutating historical assets');
