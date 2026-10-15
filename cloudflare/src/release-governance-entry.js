@@ -2,6 +2,15 @@ import base from "./agentic-entry.js";
 import {applyAssetReleaseIdentity} from "./asset-release-identity.js";
 import releaseMetadata from "../../release/production.json" with {type:"json"};
 import {durableRegistrationChallengeGate,validateAndClaimRegistrationProof} from "./registration-boundary.js";
+import {
+  LEGAL_ACCEPTANCE_PATH,
+  enforceLegalAcceptanceGate,
+  existingUserByEmail,
+  handleLegalAcceptanceRequest,
+  legalAcceptanceRequiredResponse,
+  recordRegistrationLegalAcceptance,
+  registrationLegalAccepted
+} from "./legal-acceptance-governance.js";
 
 const VALID_REGISTRATION_MODES=new Set(["hold","cohort","open"]);
 const WORKSPACE_SURFACE_ROLES=new Set(["owner","manager","reviewer","auditor"]);
@@ -360,6 +369,12 @@ export default {
   async fetch(request,env,ctx){
     const path=logicalRequestPath(request),method=request.method;
 
+    if(method==="POST"&&path===LEGAL_ACCEPTANCE_PATH){
+      return decorateResponse(request,env,await handleLegalAcceptanceRequest(request,env));
+    }
+    const legalBlocked=await enforceLegalAcceptanceGate(request,env,path);
+    if(legalBlocked)return decorateResponse(request,env,legalBlocked);
+
     if(["GET","HEAD"].includes(method)&&path==="/"&&!syntheticLegacyRootRequested(request)){
       const response=await base.fetch(rewriteSurfaceRequest(request,PUBLIC_HOME_ASSET,{clearSearch:true}),env,ctx);
       return decorateResponse(request,env,response);
@@ -379,7 +394,7 @@ export default {
     if(method==="GET"&&path==="/api/auth/oauth/providers")return json({ok:true,...oauthProviders(env)});
     if(method==="GET"&&path==="/api/auth/registration-policy")return json({ok:true,mode:registrationMode(env)});
 
-    let downstreamEnv=env;
+    let downstreamEnv=env,registrationContext=null;
     if(method==="POST"&&path===REGISTRATION_PROOF_CHALLENGE_PATH){
       const blocked=await durableRegistrationChallengeGate(request,env);
       if(blocked)return decorateResponse(request,env,blocked);
@@ -392,11 +407,16 @@ export default {
 
       const parsed=await readJsonBoundedClone(request);
       if(parsed.tooLarge)return decorateResponse(request,env,json({error:"payload_too_large",message:"Registration request body is too large."},413));
+      const email=String(parsed.body?.email||"").trim().toLowerCase();
+      const synthetic=await signedSyntheticRegistrationAllowed(request,env,email);
+      if(!synthetic&&!registrationLegalAccepted(parsed.body))return decorateResponse(request,env,legalAcceptanceRequiredResponse());
+      const existing=synthetic?null:await existingUserByEmail(env,email);
       const proof=await validateAndClaimRegistrationProof(request,env,parsed.body?.turnstileToken);
       if(!proof.ok){
         const status=proof.reason==="replay_ledger_unavailable"?503:403;
         return decorateResponse(request,env,registrationProtectionFailure(status));
       }
+      registrationContext={email,synthetic,preexisting:!!existing};
       downstreamEnv=Object.assign({},env,{
         __THEBE_REGISTRATION_PROOF_VERIFIED:true,
         APP_ENV:"registration-proof-verified",
@@ -404,7 +424,19 @@ export default {
       });
     }
 
-    const response=await base.fetch(request,downstreamEnv,ctx);
+    let response=await base.fetch(request,downstreamEnv,ctx);
+    if(registrationContext&&!registrationContext.synthetic&&!registrationContext.preexisting&&response.status===202){
+      try{
+        const recorded=await recordRegistrationLegalAcceptance(env,registrationContext.email);
+        if(!recorded?.ok)throw new Error(recorded?.reason||"legal_acceptance_persistence_failed");
+      }catch{
+        response=json({
+          error:"legal_acceptance_persistence_failed",
+          message:"The account was protected, but legal acceptance could not be sealed. Sign in and complete the legal review before opening the workspace.",
+          legalAcceptUrl:"/legal-accept/"
+        },503,{"retry-after":"30"});
+      }
+    }
     return decorateResponse(request,env,response);
   },
   async scheduled(event,env,ctx){
