@@ -19,4 +19,4 @@ jobs:
         with:
           node-version: '22'
       - name: Agent governance tests
-        run: node --test tests/agent-action-policy.test.mjs tests/agent-execution-authorization.test.mjs tests/agent-postgres-store.test.mjs tests/agent-policy-hardening.test.mjs
+        run: node --test tests/agent-action-policy.test.mjs tests/agent-execution-authorization.test.mjs tests/agent-postgres-store.test.mjs tests/agent-policy-hardening.test.mjs tests/agent-authenticated-service.test.mjs
