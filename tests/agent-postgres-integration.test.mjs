@@ -4,6 +4,8 @@ import pg from "pg";
 import { randomUUID } from "node:crypto";
 import { createPostgresAgentApprovalStore } from "../server/agent-postgres-store.js";
 import { enqueueAgentIntent } from "../server/agent-outbox.js";
+import { authorizeAgentExecution } from "../server/agent-execution-authorization.js";
+import { agentArgumentDigest } from "../server/agent-action-policy.js";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const tenant = "tenant-" + randomUUID();
@@ -115,6 +117,70 @@ test("outbox lease state and timestamp must agree", async () => {
     await assert.rejects(client.query("update agent_action_outbox set status='succeeded' where id=$1", [id]), e => e.code === "23514");
   } finally {
     await client.query("delete from agent_action_outbox where id=$1", [id]);
+    await client.end();
+  }
+});
+
+test("atomic draft authorization commits audit and outbox together", async () => {
+  const client = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+  const tenantId = "atomic-" + randomUUID(), actorId = "owner";
+  const args = { invoice: "INV-123" }, action = "invoice.draft";
+  const policy = { enabled: true, auditAvailable: true, killSwitch: false, allowedActions: [action], remainingBudget: 2, estimatedCost: 1 };
+  const store = createPostgresAgentApprovalStore(client, tenantId);
+  try {
+    const result = await authorizeAgentExecution({
+      store, action, args, context: { tenantId, actorId }, policy,
+      queueIntent: true, idempotencyKey: "invoice-123"
+    });
+    assert.equal(result.allowed, true);
+    assert.equal(result.queued, true);
+    const audit = await client.query("select * from agent_action_audit where id=$1", [result.authorizationId]);
+    const outbox = await client.query("select * from agent_action_outbox where authorization_id=$1", [result.authorizationId]);
+    assert.equal(audit.rowCount, 1);
+    assert.equal(outbox.rowCount, 1);
+    assert.equal(outbox.rows[0].argument_digest, agentArgumentDigest(args));
+    assert.equal(outbox.rows[0].tenant_id, tenantId);
+    const replay = await authorizeAgentExecution({
+      store, action, args, context: { tenantId, actorId }, policy,
+      queueIntent: true, idempotencyKey: "invoice-123"
+    });
+    assert.equal(replay.allowed, false);
+    const auditCount = await client.query("select count(*)::int as n from agent_action_audit where tenant_id=$1 and allowed=true", [tenantId]);
+    assert.equal(auditCount.rows[0].n, 1);
+  } finally {
+    await client.query("delete from agent_action_outbox where tenant_id=$1", [tenantId]);
+    await client.query("delete from agent_action_audit where tenant_id=$1", [tenantId]);
+    await client.end();
+  }
+});
+
+test("atomic queue failure rolls back authorization audit and consumed approval", async () => {
+  const client = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+  const tenantId = "rollback-" + randomUUID(), actorId = "owner", action = "invoice.draft";
+  const args = { invoice: "INV-456" }, digest = agentArgumentDigest(args), approvalId = randomUUID();
+  const policy = { enabled: true, auditAvailable: true, killSwitch: false, allowedActions: [action], remainingBudget: 2, estimatedCost: 1 };
+  try {
+    await client.query(`insert into agent_action_approvals
+      (id,tenant_id,actor_id,action,argument_digest,nonce,status,expires_at)
+      values ($1,$2,$3,$4,$5,$6,'approved',now()+interval '1 hour')`,
+      [approvalId,tenantId,actorId,action,digest,"nonce-"+randomUUID()]);
+    const store = createPostgresAgentApprovalStore(client, tenantId);
+    const first = await authorizeAgentExecution({
+      store, action, args, context: { tenantId, actorId }, policy,
+      approvalId, queueIntent: true, idempotencyKey: "invoice-456"
+    });
+    assert.equal(first.allowed, true);
+    const second = await authorizeAgentExecution({
+      store, action, args, context: { tenantId, actorId }, policy,
+      approvalId, queueIntent: true, idempotencyKey: "invoice-456"
+    });
+    assert.equal(second.allowed, false);
+    const approval = await client.query("select consumed_at from agent_action_approvals where id=$1", [approvalId]);
+    assert.ok(approval.rows[0].consumed_at);
+  } finally {
+    await client.query("delete from agent_action_outbox where tenant_id=$1", [tenantId]);
+    await client.query("delete from agent_action_audit where tenant_id=$1", [tenantId]);
+    await client.query("delete from agent_action_approvals where tenant_id=$1", [tenantId]);
     await client.end();
   }
 });
