@@ -64,3 +64,28 @@ test("malformed action and approval IDs are rejected before database access", as
   }
   assert.equal(touched, false);
 });
+
+test("authenticated service queues draft and commits audit in one transaction", async () => {
+  const queries = [];
+  const client = {
+    async query(sql, values = []) {
+      queries.push({ sql, values });
+      if (sql.includes("insert into agent_action_outbox")) return { rowCount: 1, rows: [{ id: values[0] }] };
+      return { rowCount: 1, rows: [] };
+    },
+    release() {}
+  };
+  const result = await authorizeAuthenticatedAgentAction({
+    pool: { async connect() { return client; } },
+    principal: { tenantId: "tenant-a", actorId: "owner-a" },
+    action: "invoice.draft", args: { note: "preview" }, policy,
+    queueIntent: true, idempotencyKey: "draft-123"
+  });
+  assert.equal(result.allowed, true);
+  assert.equal(result.queued, true);
+  const auditIndex = queries.findIndex(q => q.sql.includes("insert into agent_action_audit"));
+  const outboxIndex = queries.findIndex(q => q.sql.includes("insert into agent_action_outbox"));
+  const commitIndex = queries.findIndex(q => q.sql === "COMMIT");
+  assert.ok(auditIndex >= 0 && auditIndex < outboxIndex && outboxIndex < commitIndex);
+  assert.equal(queries[outboxIndex].values[1], "tenant-a");
+});
