@@ -73,3 +73,10 @@ test("agent argument digest enforces UTF-8 byte limit", () => {
   assert.throws(() => agentArgumentDigest({ text: "🦓".repeat(17_000) }), /agent_arguments_too_large/);
   assert.match(agentArgumentDigest({ text: "x".repeat(100) }), /^[a-f0-9]{64}$/);
 });
+
+test("deeply nested agent arguments fail with controlled validation error", () => {
+  let deep = "leaf";
+  for (let i = 0; i < 40; i++) deep = { next: deep };
+  assert.throws(() => agentArgumentDigest(deep), /agent_arguments_too_deep/);
+  assert.match(agentArgumentDigest({ nested: { value: 1 } }), /^[a-f0-9]{64}$/);
+});
