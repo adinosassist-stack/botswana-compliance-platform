@@ -12,12 +12,13 @@ const EXPECTED = [
   MIGRATION,
   'tests/owner-closure-record-production-persistence-adapter-static-v362.mjs',
   'tests/owner-closure-record-production-writer-adapter-implementation-readiness-static-v364.mjs',
+  'tests/owner-closure-record-production-writer-adapter-implementation-readiness-v364.mjs',
   'tests/owner-closure-record-schema-foundation-v365.mjs'
 ].sort();
 
 const changed = execFileSync('git', ['diff', '--name-only', `${BASE}...HEAD`], { encoding: 'utf8' })
   .trim().split(/\r?\n/).filter(Boolean).sort();
-assert.deepEqual(changed, EXPECTED, 'V365 must change only migration 033, its runtime proof/workflow, and the exact V362/V364 stack guards required for this approved schema descendant');
+assert.deepEqual(changed, EXPECTED, 'V365 must change only migration 033, its runtime proof/workflow, and the exact V362/V364 descendant guards required for this approved schema layer');
 
 const migration = fs.readFileSync(MIGRATION, 'utf8');
 const server = fs.readFileSync('server/server.js', 'utf8');
