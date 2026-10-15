@@ -46,6 +46,7 @@
 #propertyintelligence.property-compact-v260 .property-home-hero-v230{
   min-height:112px!important;
   padding:16px 18px!important;
+  margin-bottom:8px!important;
   background:#fff!important;
   background-image:none!important;
   color:var(--property-ink)!important;
