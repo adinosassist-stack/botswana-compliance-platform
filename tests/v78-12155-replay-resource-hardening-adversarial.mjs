@@ -11,7 +11,8 @@ const retiredWorkerIdentity=worker.includes(`const APP_RELEASE="v78.${pkg.versio
 ok(historicalRuntimeIdentity||retiredWorkerIdentity,"runtime/cache/route release identity aligned");
 const scopes=["payment-create-checkout","evidence-presign","hr-case-create","employee-create","operating-location-create","daily-operations-ai-summary","partner-task-create","compliance-schedule-create","ai-advisor","company-action-create","licence-create"];
 for(const scope of scopes)ok(worker.includes(`"${scope}"`),`idempotency protects ${scope}`);
-ok(worker.includes('readJson(req,{maxBytes:8192})'),"AI advisor request body has route-specific 8 KiB stream cap");
+ok(worker.includes('readJson(req,{maxBytes:ADVISOR_ATTACHMENT_BODY_BYTES})')&&read('cloudflare/src/advisor-attachments.js').includes('ADVISOR_ATTACHMENT_BODY_BYTES=3*1024*1024'),"AI advisor file request has a bounded 3 MiB stream cap");
+ok(worker.includes('!checked.files.length&&new TextEncoder().encode(JSON.stringify(body)).byteLength>8192'),"AI advisor ordinary questions retain an 8 KiB payload cap");
 ok(worker.includes('headers=out?.headers')&&worker.includes('headers:{"retry-after":String(durableRate.retryAfterSeconds||60)}')&&worker.includes('retryAfterSeconds:durableRate.retryAfterSeconds'),"idempotent mutation wrapper preserves bounded retry guidance on transient business responses");
 ok(client.includes("AUTO_IDEMPOTENT_MUTATIONS")&&client.includes("autoIdempotency(method,target)"),"browser API centrally opts approved mutations into stable retry keys");
 for(const route of ["POST /api/payments/create-checkout","POST /api/evidence/presign","POST /api/hr/cases","POST /api/employees","POST /api/daily-reporting/locations","POST /api/daily-reporting/ai-summary","POST /api/partner/tasks","POST /api/compliance-schedules","POST /api/ai/advisor","POST /api/company-actions","POST /api/licences"])ok(client.includes(`"${route}"`),`browser auto-idempotency covers ${route}`);

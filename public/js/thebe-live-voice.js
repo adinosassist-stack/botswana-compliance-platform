@@ -573,6 +573,7 @@
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
   let dock=null,pill=null,pillLabel=null,orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,scrollRegion=null,input=null,sendButton=null,attentionButton=null,quick=null,foot=null,mascot=null,missionRail=null,missionLabel=null,missionMeta=null,missionAction=null,contextBar=null,contextLabel=null,modeRail=null,clearButton=null,latestResponseButton=null;
+  let audioButton=null,attachButton=null,fileInput=null,attachmentTray=null,pendingFiles=[];
   let voiceScreen=null,voiceScreenStatus=null,voiceScreenOrb=null,voiceScreenTranscript=null,voiceReturnFocus=null;
   let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",mascotState="idle",mascotContext="general",mascotFocus="ambient",ownerCommandState=null,persistentObjectiveState=null,collapsed=false,assistantMode="ask",lastAnswer="",lastGoal="",lastAdvisorTrust="neutral",autoFollowResponse=true,responseScrollLock=false,textRunId=0,textAbortController=null;
 
@@ -787,6 +788,7 @@
     renderVoiceTranscript();
     responseMessage("Ready when you are. Ask about this screen, request a brief, or choose a priority action.");
     if(input)input.value="";
+    pendingFiles=[];renderAttachmentTray();
     syncComposerHeight();
     syncBusyControls();
     autoFollowResponse=true;
@@ -974,6 +976,8 @@
     document.body.classList.toggle("thebe-ai-mobile-open",mobile&&visible&&!isCollapsed);
     dock.dataset.surface=surface;
     pill.dataset.surface=surface;
+    if(!workspace&&pendingFiles.length){clearConversation()}
+    syncComposerState();
     syncWorkspaceVisualInvariants();
     dock.dataset.workspaceVisible=workspace?"1":"0";
     pill.dataset.workspaceVisible=workspace?"1":"0";
@@ -1151,11 +1155,44 @@
     input.style.height=next+"px";
     input.style.overflowY=(input.scrollHeight||0)>limit?"auto":"hidden";
   }
+  function renderAttachmentTray(){
+    if(!attachmentTray)return;
+    attachmentTray.replaceChildren();
+    attachmentTray.hidden=pendingFiles.length===0;
+    for(const file of pendingFiles){
+      const chip=el("div","thebe-ai-file-chip");
+      chip.append(el("span","",file.name));
+      const remove=el("button","","×");remove.type="button";remove.disabled=textBusy;
+      remove.setAttribute("aria-label",`Remove ${file.name}`);
+      remove.addEventListener("click",()=>{pendingFiles=pendingFiles.filter(item=>item!==file);renderAttachmentTray();syncComposerState()});
+      chip.append(remove);attachmentTray.append(chip);
+    }
+  }
+  function stageFiles(files){
+    if(!shellVisible()||textBusy)return;
+    const incoming=[...files].filter(file=>!pendingFiles.some(item=>item.name===file.name&&item.size===file.size&&item.lastModified===file.lastModified));
+    const next=[...pendingFiles,...incoming];
+    if(next.length>3||next.some(file=>!file.size||file.size>1024*1024)||next.reduce((sum,file)=>sum+file.size,0)>2*1024*1024){responseMessage("Choose up to three files: 1 MB each and 2 MB combined.","error");return}
+    if(next.some(file=>!/\.(pdf|docx|xlsx|txt|md|csv|json|png|jpe?g|webp)$/i.test(file.name))){responseMessage("Choose PDF, Word, Excel, PNG, JPEG, WebP or a text file.","error");return}
+    pendingFiles=next;renderAttachmentTray();syncComposerState();
+  }
+  function filePayload(file){
+    return new Promise((resolve,reject)=>{
+      const reader=new FileReader();
+      reader.onload=()=>resolve({name:file.name,type:file.type,data:String(reader.result).split(",")[1]||""});
+      reader.onerror=()=>reject(new Error("The file could not be opened. Select it again."));
+      reader.readAsDataURL(file);
+    });
+  }
   function syncComposerState(){
     if(!sendButton)return;
-    const ready=clean(input?.value||"",MAX_QUESTION).length>=3;
-    sendButton.disabled=textBusy||!ready;
+    const draft=clean(input?.value||"",MAX_QUESTION).length>0||pendingFiles.length>0;
+    sendButton.hidden=!draft&&!textBusy;
+    sendButton.disabled=textBusy||!draft;
     sendButton.setAttribute("aria-disabled",String(sendButton.disabled));
+    if(audioButton){audioButton.hidden=draft||textBusy;audioButton.disabled=textBusy}
+    if(attachButton){attachButton.hidden=!shellVisible();attachButton.disabled=textBusy}
+    attachmentTray?.querySelectorAll("button").forEach(button=>{button.disabled=textBusy});
   }
   function syncBusyControls(){
     if(dock)dock.dataset.busy=String(textBusy);
@@ -1176,6 +1213,7 @@
     if(references.length>0&&references.length===official.length&&verifiedOfficial.length===official.length){
       return {key:"verified",label:"Verified",detail:`${verifiedOfficial.length} verified official source${verifiedOfficial.length===1?"":"s"}`};
     }
+    if(references.some(item=>item.type==="user_attachment"))return {key:"advisory",label:"File review",detail:"Includes user-supplied file sources"};
     if(references.length>0){
       return {key:"grounded",label:"Grounded",detail:`${references.length} workspace source${references.length===1?"":"s"}`};
     }
@@ -1410,9 +1448,9 @@
     for(const suggestion of suggestions)quick.append(quickButton(...suggestion));
   }
 
-  async function ask(mode,question){
-    const q=clean(question,MAX_QUESTION);
-    if(textBusy||q.length<3)return;
+  async function ask(mode,question,files=[]){
+    const q=clean(question,MAX_QUESTION)||(files.length?"Review the attached files and summarise the important points.":"");
+    if(textBusy||!q.length)return;
     dock.dataset.conversation="true";
     syncWorkspaceVisualInvariants();
     if(!shellVisible()){
@@ -1429,9 +1467,10 @@
     autoFollowResponse=true;
     if(latestResponseButton)latestResponseButton.hidden=true;
     syncBusyControls();
-    responseMessage("Reviewing the current workspace and this screen…","thinking");
+    responseMessage(files.length?"Reading the attached files and reviewing the workspace…":"Reviewing the current workspace and this screen…","thinking");
     scrollResponseIntoView(true);
     try{
+      if(files.length&&["resume_plan","goal_plan"].includes(mode))throw new Error("Use Ask, Brief or Priorities to review attached files.");
       if(mode==="resume_plan"){
         const plan=await global.ThebeOwnerCommandCentre?.loadLatestPlan?.();
         if(runId!==textRunId)return;
@@ -1448,16 +1487,21 @@
         renderGoalPlan(plan);
         return;
       }
+      const attachments=await Promise.all(files.map(filePayload));
+      if(runId!==textRunId||controller.signal.aborted)return;
       const result=await api("/api/ai/advisor",{
         method:"POST",
         headers:{"content-type":"application/json"},
-        body:JSON.stringify({mode:requestedMode,question:contextualQuestion(q)}),
+        body:JSON.stringify({mode:requestedMode,question:contextualQuestion(q),...(attachments.length?{attachments}:{})}),
+        ...(attachments.length?{timeoutMs:120000}:{}),
         signal:controller.signal
       });
       if(runId!==textRunId)return;
+      pendingFiles=pendingFiles.filter(file=>!files.includes(file));renderAttachmentTray();
       renderResult(result||{});
     }catch(error){
       if(runId!==textRunId||error?.code==="aborted")return;
+      if(files.length&&input&&!input.value)input.value=q;
       const creditMessages={
         insufficient_ai_credits:"There are not enough AI credits for this question. Review your AI balance or ask the workspace owner to add credits.",
         monthly_ai_credit_cap_reached:"The monthly AI credit limit has been reached. Ask the workspace owner to review AI cost controls.",
@@ -1668,14 +1712,24 @@
       latestResponseButton.hidden=true;
     });
 
+    attachmentTray=el("div","thebe-ai-attachments");attachmentTray.hidden=true;attachmentTray.setAttribute("aria-label","Attached files");
     const compose=el("form","thebe-ai-compose");
+    attachButton=el("button","thebe-ai-composer-action thebe-ai-attach","+");attachButton.type="button";attachButton.setAttribute("aria-label","Add files");attachButton.title="Add files · up to 3 files, 1 MB each";
+    fileInput=el("input","");fileInput.type="file";fileInput.hidden=true;fileInput.multiple=true;fileInput.accept=".pdf,.docx,.xlsx,.txt,.md,.csv,.json,.png,.jpg,.jpeg,.webp";
+    attachButton.addEventListener("click",()=>fileInput.click());
+    fileInput.addEventListener("change",()=>{stageFiles(fileInput.files||[]);fileInput.value=""});
+    audioButton=el("button","thebe-ai-composer-action thebe-ai-audio");audioButton.type="button";audioButton.setAttribute("aria-label","Start Thebe voice");audioButton.title="Talk to Thebe";
+    const mic=document.createElementNS(svgNS,"svg");mic.setAttribute("viewBox","0 0 24 24");mic.setAttribute("aria-hidden","true");
+    const micPath=document.createElementNS(svgNS,"path");micPath.setAttribute("d","M12 15a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v7a3 3 0 0 0 3 3Zm-7-4v1a7 7 0 0 0 14 0v-1M12 19v3m-4 0h8");
+    micPath.setAttribute("fill","none");micPath.setAttribute("stroke","currentColor");micPath.setAttribute("stroke-width","1.8");micPath.setAttribute("stroke-linecap","round");micPath.setAttribute("stroke-linejoin","round");mic.append(micPath);audioButton.append(mic);
+    audioButton.addEventListener("click",()=>orbButton.click());
     const composeBody=el("div","thebe-ai-compose-body");
     input=document.createElement("textarea");input.id="thebeAiDockInput";input.maxLength=MAX_QUESTION;input.rows=1;input.placeholder=modeCopy[assistantMode].placeholder;input.setAttribute("aria-label","Ask Thebe anything");
     const composeHint=el("div","thebe-ai-compose-hint","Enter to send · Shift+Enter for a new line · Alt+T opens Thebe");
     composeBody.append(input,composeHint);
     sendButton=el("button","thebe-ai-send","↑");sendButton.type="submit";sendButton.setAttribute("aria-label","Send to Thebe");sendButton.title="Send to Thebe";
-    compose.append(composeBody,sendButton);
-    compose.addEventListener("submit",event=>{event.preventDefault();const value=input.value;if(textBusy||clean(value,MAX_QUESTION).length<3)return;input.value="";syncComposerHeight();syncComposerState();void ask(assistantMode,value)});
+    compose.append(attachButton,fileInput,composeBody,audioButton,sendButton);
+    compose.addEventListener("submit",event=>{event.preventDefault();const value=input.value,files=[...pendingFiles];if(textBusy||(!clean(value,MAX_QUESTION).length&&!files.length))return;input.value="";syncComposerHeight();syncComposerState();void ask(assistantMode,value,files)});
     input.addEventListener("input",()=>{syncComposerHeight();syncComposerState()});
     input.addEventListener("focus",()=>setMascotFocus("compose"));
     input.addEventListener("blur",()=>setMascotFocus("ambient"));
@@ -1684,7 +1738,7 @@
     syncComposerState();
 
     foot=el("div","thebe-ai-foot","Thebe can analyse, brief and prepare next steps. Governed actions remain behind the existing approval controls.");
-    dock.append(head,scroll,latestResponseButton,compose,foot);
+    dock.append(head,scroll,latestResponseButton,attachmentTray,compose,foot);
 
     pill=el("button","thebe-ai-pill");
     pill.id="thebeAiDockPill";pill.type="button";pill.hidden=true;
