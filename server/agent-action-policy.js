@@ -17,6 +17,7 @@ function canonicalJsonInner(value, seen) {
     return JSON.stringify(value);
   }
   if (Array.isArray(value)) {
+    if (Object.getPrototypeOf(value) !== Array.prototype || Object.keys(value).length !== value.length) throw new TypeError("non_json_argument");
     if (Object.getOwnPropertySymbols(value).length || Object.keys(value).some(key => !/^(0|[1-9]\\d*)$/.test(key) || !("value" in Object.getOwnPropertyDescriptor(value, key)))) throw new TypeError("non_json_argument");
     if (seen.has(value)) throw new TypeError("non_json_argument");
     seen.add(value);
