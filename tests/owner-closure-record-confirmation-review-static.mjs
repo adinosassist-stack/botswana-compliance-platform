@@ -63,7 +63,7 @@ for(const pattern of numericScorePatterns)assert.ok(!pattern.test(source),`numer
 
 assert.ok(lowerSource.includes('do not persist the selected disposition, draft wording, rationale/evidence basis, residual context, confirmation result, or corrected wording'),'must prohibit persistence');
 assert.ok(source.includes('Corrections remain draft wording pending owner review and cannot change the selected disposition'),'corrections must remain human-gated');
-assert.ok(source.includes('association from causation'),'must preserve causation discipline');
+assert.ok(source.includes('association remains separate from causation'),'must preserve causation discipline');
 assert.ok(source.includes('suppress an Unknown'),'must preserve Unknowns');
 
 console.log('V355 Owner Closure Record Confirmation Review static boundary: PASS');
