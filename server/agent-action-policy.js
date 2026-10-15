@@ -28,7 +28,9 @@ export function evaluateAgentAction({ action, args, context, approval, policy })
   if (!policy?.enabled || policy?.killSwitch || !policy?.auditAvailable) return { allowed: false, reason: "governance_unavailable" };
   if (!context?.tenantId || !context?.actorId || !Array.isArray(policy.allowedActions) || !policy.allowedActions.includes(action)) return { allowed: false, reason: "unauthorized_action" };
   if (!Number.isFinite(policy.remainingBudget) || policy.remainingBudget < 0 || !Number.isFinite(policy.estimatedCost) || policy.estimatedCost < 0 || policy.estimatedCost > policy.remainingBudget) return { allowed: false, reason: "budget_exceeded" };
-  if (!SENSITIVE.has(action)) return { allowed: true, reason: "read_or_draft_only" };
+  const SAFE = new Set(["invoice.draft", "compliance.read", "finance.read", "operations.read", "compliance.reminder.draft", "reconciliation.suggest", "onboarding.exceptions.read"]);
+  if (SAFE.has(action)) return { allowed: true, reason: "read_or_draft_only" };
+  if (!SENSITIVE.has(action)) return { allowed: false, reason: "unclassified_action" };
   if (!approval || !approval.id || !approval.nonce || approval.consumed !== false || approval.status !== "approved") return { allowed: false, reason: "approval_required" };
   if (!equal(approval.tenantId, context.tenantId) || !equal(approval.actorId, context.actorId) || !equal(approval.action, action) || !equal(approval.argumentDigest, agentArgumentDigest(args))) return { allowed: false, reason: "approval_scope_mismatch" };
   if (!Number.isFinite(approval.expiresAt) || !Number.isFinite(context.now) || approval.expiresAt <= context.now) return { allowed: false, reason: "approval_expired" };
