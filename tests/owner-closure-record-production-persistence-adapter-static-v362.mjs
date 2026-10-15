@@ -11,7 +11,8 @@ const EXPECTED = [
 ].sort();
 const ALLOWED_PRODUCTION_DESCENDANT = new Set([
   'db/migrations/033_v365_owner_closure_records.sql',
-  'server/owner-closure-record-writer-v366.js'
+  'server/owner-closure-record-writer-v366.js',
+  'server/owner-closure-record-server-integration-v367.js'
 ]);
 
 const filesBetween = (base, head) => execFileSync('git', ['diff', '--name-only', `${base}...${head}`], { encoding: 'utf8' })
