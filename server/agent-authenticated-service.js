@@ -10,7 +10,7 @@ import { createPostgresAgentApprovalStore } from "./agent-postgres-store.js";
  * required before irreversible side effects can be enabled.
  */
 export async function authorizeAuthenticatedAgentAction({
-  pool, principal, action, args, approvalId, policy
+  pool, principal, action, args, approvalId, policy, queueIntent = false, idempotencyKey
 }) {
   const tenantId = principal?.tenantId;
   const actorId = principal?.actorId;
@@ -26,7 +26,7 @@ export async function authorizeAuthenticatedAgentAction({
   if (typeof pool.connect !== "function") return { allowed: false, reason: "governance_unavailable" };
   const store = createPostgresAgentApprovalStore(pool, tenantId);
   return authorizeAgentExecution({
-    store, action, args, approvalId, policy,
+    store, action, args, approvalId, policy, queueIntent, idempotencyKey,
     context: { tenantId, actorId }
   });
 }
