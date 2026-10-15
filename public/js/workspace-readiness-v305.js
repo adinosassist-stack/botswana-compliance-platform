@@ -151,3 +151,20 @@
   }
   loadVisualConsistency();
 })();
+
+(()=>{
+  "use strict";
+  const release="20261015-context-starters-v336";
+  let requested=false;
+  function loadContextStarters(){
+    if(requested)return;
+    requested=true;
+    import(`/js/thebe-context-starters-v336.js?release=${release}`).catch(error=>{
+      requested=false;
+      console.error("Thebe contextual starter actions failed to load",error);
+    });
+  }
+  if(typeof window.whenThebeWorkspaceReady==="function")window.whenThebeWorkspaceReady(loadContextStarters);
+  else if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",loadContextStarters,{once:true});
+  else loadContextStarters();
+})();
