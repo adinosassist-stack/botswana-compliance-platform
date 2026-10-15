@@ -1,14 +1,14 @@
 /* V312: live Property solid-surface override. Historical release assets remain immutable. */
 #propertyintelligence.property-compact-v260{
-  --property-bg:#f7f8fa;
+  --property-bg:#f7f9fc;
   --property-surface:#ffffff;
-  --property-soft:#f2f4f7;
-  --property-ink:#172033;
-  --property-muted:#667085;
-  --property-line:#e4e7ec;
-  --property-accent:#d92d20;
-  --property-accent-soft:#fff1f0;
-  --property-dark:#172033;
+  --property-soft:#eaf0f7;
+  --property-ink:#18375a;
+  --property-muted:#526a86;
+  --property-line:#dce7f5;
+  --property-accent:#3377bd;
+  --property-accent-soft:#edf3fb;
+  --property-dark:#18375a;
   color:var(--property-ink)!important;
 }
 
@@ -41,7 +41,7 @@
   color:var(--property-ink)!important;
 }
 
-/* Keep the Property page bright and product-like instead of the legacy dark/lime treatment. */
+/* Match the current workspace palette: white surfaces, navy text and blue accents. */
 #propertyintelligence.property-compact-v260 .property-hero-compact,
 #propertyintelligence.property-compact-v260 .property-home-hero-v230{
   background:#fff!important;
@@ -49,7 +49,7 @@
   color:var(--property-ink)!important;
   border:1px solid var(--property-line)!important;
   border-left:4px solid var(--property-accent)!important;
-  box-shadow:0 8px 24px rgba(16,24,40,.05)!important;
+  box-shadow:0 8px 24px rgba(24,55,90,.06)!important;
 }
 #propertyintelligence.property-compact-v260 .property-hero-compact p,
 #propertyintelligence.property-compact-v260 .property-home-hero-v230 p{color:var(--property-muted)!important}
@@ -57,13 +57,13 @@
 #propertyintelligence.property-compact-v260 .property-home-hero-v230 .badge{
   background:var(--property-accent-soft)!important;
   color:var(--property-accent)!important;
-  border:1px solid #fecdca!important;
+  border:1px solid var(--property-line)!important;
 }
 
 #propertyintelligence.property-compact-v260 .property-primary-v260{
   background:#fff!important;
   border-color:var(--property-line)!important;
-  box-shadow:0 4px 14px rgba(16,24,40,.04)!important;
+  box-shadow:0 4px 14px rgba(24,55,90,.05)!important;
 }
 #propertyintelligence.property-compact-v260 .property-primary-v260 button{
   color:var(--property-muted)!important;
@@ -83,7 +83,7 @@
 #propertyintelligence.property-compact-v260 .property-compare-action-v264{
   background:#fff!important;
   background-image:none!important;
-  border-color:#d0d5dd!important;
+  border-color:var(--property-line)!important;
   color:var(--property-ink)!important;
   box-shadow:none!important;
 }
@@ -102,20 +102,20 @@
 #propertyintelligence.property-compact-v260 :is(input,select,textarea){
   background:#fff!important;
   color:var(--property-ink)!important;
-  border-color:#d0d5dd!important;
+  border-color:var(--property-line)!important;
   box-shadow:none!important;
 }
 #propertyintelligence.property-compact-v260 :is(input,select,textarea):focus{
   border-color:var(--property-accent)!important;
-  outline:3px solid rgba(217,45,32,.14)!important;
+  outline:3px solid rgba(51,119,189,.16)!important;
   outline-offset:1px!important;
 }
 #propertyintelligence.property-compact-v260 :is(button,[role="button"]):focus-visible{
-  outline:3px solid rgba(217,45,32,.2)!important;
+  outline:3px solid rgba(51,119,189,.22)!important;
   outline-offset:2px!important;
 }
 
-/* Preserve infographic meaning with solid, high-contrast shapes and no legacy lime. */
+/* Preserve infographic meaning with solid, high-contrast shapes. */
 .property-yield-card-v261,
 #propertyintelligence.property-compact-v260 .property-ops-readiness-v262{
   background:#fff!important;
@@ -128,15 +128,17 @@
 .property-yield-ring-v261,
 .property-ops-ring-v262,
 #propertyintelligence.property-compact-v260 .property-ring-v230{
-  background:var(--property-accent,#d92d20)!important;
+  background:var(--property-accent,#3377bd)!important;
   background-image:none!important;
-  color:#fff!important;
+  color:var(--property-ink)!important;
   box-shadow:inset 0 0 0 8px var(--property-accent-soft)!important;
 }
 .property-yield-ring-v261::after,
 #propertyintelligence.property-compact-v260 .property-ops-ring-v262::after{
   background:#fff!important;
 }
+#propertyintelligence.property-compact-v260 .property-yield-value-v261,
+#propertyintelligence.property-compact-v260 .property-ops-readiness-value-v262{color:var(--property-ink)!important}
 #propertyintelligence.property-compact-v260 .property-mini-bar-v230 i,
 #propertyintelligence.property-compact-v260 .property-opt-bar-v263 i,
 #propertyintelligence.property-compact-v260 .property-compare-score-v264{
@@ -159,7 +161,7 @@
 #propertyintelligence.property-compact-v260 .property-muted-v230{color:var(--property-muted)!important}
 
 @media(max-width:760px){
-  #propertyintelligence.property-compact-v260{--property-bg:#f7f8fa}
+  #propertyintelligence.property-compact-v260{--property-bg:#f7f9fc}
   #propertyintelligence.property-compact-v260 .property-hero-compact,
   #propertyintelligence.property-compact-v260 .property-home-hero-v230{border-left-width:3px!important}
   #propertyintelligence.property-compact-v260 .property-primary-v260{background:#fff!important}
