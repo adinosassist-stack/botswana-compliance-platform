@@ -7,6 +7,7 @@ const follow=fs.readFileSync(new URL('../public/js/owner-decision-follow-through
 const learning=fs.readFileSync(new URL('../public/js/owner-decision-outcome-learning-v332.js',import.meta.url),'utf8');
 const calibration=fs.readFileSync(new URL('../public/js/owner-decision-recommendation-calibration-v333.js',import.meta.url),'utf8');
 const challenge=fs.readFileSync(new URL('../public/js/owner-recommendation-challenge-mode-v334.js',import.meta.url),'utf8');
+const premortem=fs.readFileSync(new URL('../public/js/owner-decision-premortem-v335.js',import.meta.url),'utf8');
 const businessMemory=fs.readFileSync(new URL('../cloudflare/src/business-memory.js',import.meta.url),'utf8');
 
 for(const token of [
@@ -16,6 +17,7 @@ for(const token of [
   '/js/owner-decision-outcome-learning-v332.js?v=20261015-owner-decision-outcome-learning-v332',
   '/js/owner-decision-recommendation-calibration-v333.js?v=20261015-owner-decision-recommendation-calibration-v333',
   '/js/owner-recommendation-challenge-mode-v334.js?v=20261015-owner-recommendation-challenge-mode-v334',
+  '/js/owner-decision-premortem-v335.js?v=20261015-owner-decision-premortem-v335',
   'script.async=false'
 ]){
   if(!wrapper.includes(token))throw new Error('Owner-first bundle loader missing: '+token);
@@ -212,6 +214,51 @@ for(const forbidden of [
 }
 
 for(const token of [
+  'const RELEASE="20261015-owner-decision-premortem-v335"',
+  'function isOwner(){return role()==="owner"}',
+  'global.ThebeOwnerFocusStrip?.canonicalSnapshot?.()',
+  'global.ThebeOwnerFirstHome?.classify?.(item)',
+  'global.ThebeOwnerRecommendationChallengeMode?.challengeSpec?.(item)',
+  'return items.filter(item=>classify(item)==="decision");',
+  'if(state!=="ready")',
+  'Assume that six months after the owner chose this path, the decision failed materially or produced a clearly disappointing result.',
+  'the most plausible failure modes, clearly labelled as hypotheses unless already evidenced',
+  'early warning signals the owner could observe before damage becomes material',
+  'safeguards or reversible tests that reduce exposure',
+  'explicit exit triggers or stop conditions',
+  'irreversible commitments that deserve extra scrutiny',
+  'Do not invent probabilities, forecasts, evidence, or thresholds that are not supported.',
+  'If a useful threshold is unavailable, state what measurement would be needed.',
+  'Current verified evidence must override contradictory historical patterns.',
+  'Historical outcomes are descriptive, not causal proof.',
+  'the smallest reversible next step',
+  'authoritative:false',
+  'authority:"context_only_no_execution"',
+  'Pre-Mortem is advisory and read-only.',
+  'global.ThebeOwnerDecisionPremortem=Object.freeze({'
+]){
+  if(!premortem.includes(token))throw new Error('Decision Pre-Mortem contract missing: '+token);
+}
+
+for(const forbidden of [
+  'apiJson(',
+  'fetch(',
+  'XMLHttpRequest',
+  'method:"POST"',
+  'method:"PUT"',
+  'method:"PATCH"',
+  'method:"DELETE"',
+  '/api/',
+  '/execute',
+  '/approve',
+  '/payments/',
+  '/file',
+  '/send'
+]){
+  if(premortem.includes(forbidden))throw new Error('Decision Pre-Mortem widened authority or added a network/mutation path: '+forbidden);
+}
+
+for(const token of [
   'if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);',
   'sourceKind:"owner_confirmed"',
   'BUSINESS_MEMORY_CONFIRMED',
@@ -235,4 +282,4 @@ for(const forbidden of [
 
 if(!legacy.includes('const RELEASE="20260929-v180"'))throw new Error('Legacy executive personalization was not preserved byte-for-byte as the compatibility layer.');
 
-console.log('Owner Attention + Decision Memory + Follow-through + Outcome Learning + Recommendation Calibration + Challenge Mode static checks passed');
+console.log('Owner Attention + Decision Memory + Follow-through + Outcome Learning + Recommendation Calibration + Challenge Mode + Pre-Mortem static checks passed');
