@@ -28,3 +28,12 @@ test("non-JSON agent arguments cannot be hashed", () => {
     assert.throws(() => agentArgumentDigest(value), /non_json_argument/);
   }
 });
+
+test("cyclic agent arguments fail with controlled validation error", () => {
+  const cycle = { amount: 1 };
+  cycle.self = cycle;
+  assert.throws(() => agentArgumentDigest(cycle), /non_json_argument/);
+  const array = [];
+  array.push(array);
+  assert.throws(() => agentArgumentDigest(array), /non_json_argument/);
+});
