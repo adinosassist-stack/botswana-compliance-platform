@@ -18,13 +18,19 @@ function errorMessage(error){
   if(code==="report_attachment_type_not_allowed")return "One of the attachments is not an accepted image or PDF.";
   if(code==="report_attachment_too_large")return "One of the attachments is too large. Keep each file under 3 MB.";
   if(code==="report_attachments_too_large")return "The selected attachments are too large together. Keep the total under 6 MB.";
+  if(code==="report_attachment_grant_invalid")return "The attachment upload window expired. Submit the report again to get a fresh upload window.";
   if(error?.name==="AbortError")return "The connection took too long. Check your network and reopen the reporting link.";
   return String(error?.message||"The reporting link could not be verified. Check your connection and try again.");
 }
 const reporterApiClient=globalThis.BW?.api?.createClient?.({timeoutMs:45000,retries:1})||null;
+const attachmentApiClient=globalThis.BW?.api?.createClient?.({timeoutMs:60000,retries:0})||null;
 async function request(path,options={}){
   if(!reporterApiClient)throw new Error("The reporting service could not start. Reload the private reporting link.");
   return reporterApiClient.request(path,{...options,cache:"no-store",referrerPolicy:"no-referrer"});
+}
+async function attachmentRequest(path,options={}){
+  if(!attachmentApiClient)throw new Error("The attachment service could not start. Reload the private reporting link.");
+  return attachmentApiClient.request(path,{...options,cache:"no-store",referrerPolicy:"no-referrer"});
 }
 function readToken(){
   const hash=String(location.hash||"");
@@ -45,20 +51,13 @@ function setAttachmentStatus(text,isError=false){
   el.classList.toggle("is-error",Boolean(isError));
 }
 function revokeItem(item){if(item?.previewUrl){try{URL.revokeObjectURL(item.previewUrl)}catch{}}}
-function clearAttachments(){
-  attachmentState.splice(0).forEach(revokeItem);
-  renderAttachments();
-}
+function clearAttachments(){attachmentState.splice(0).forEach(revokeItem);renderAttachments()}
 function removeAttachment(index){
   if(index<0||index>=attachmentState.length)return;
-  revokeItem(attachmentState[index]);
-  attachmentState.splice(index,1);
-  renderAttachments();
+  revokeItem(attachmentState[index]);attachmentState.splice(index,1);renderAttachments();
 }
 function renderAttachments(){
-  const list=byId("reportAttachmentList");
-  if(!list)return;
-  list.replaceChildren();
+  const list=byId("reportAttachmentList");if(!list)return;list.replaceChildren();
   attachmentState.forEach((item,index)=>{
     const row=document.createElement("div");row.className="report-attachment-item";
     const media=document.createElement("div");media.className="report-attachment-thumb";
@@ -96,8 +95,7 @@ async function optimizeImage(file){
     const width=Math.max(1,Math.round(decoded.width*scale));
     const height=Math.max(1,Math.round(decoded.height*scale));
     const canvas=document.createElement("canvas");canvas.width=width;canvas.height=height;
-    const ctx=canvas.getContext("2d",{alpha:false});
-    if(!ctx)throw new Error("Photo processing is unavailable on this device.");
+    const ctx=canvas.getContext("2d",{alpha:false});if(!ctx)throw new Error("Photo processing is unavailable on this device.");
     ctx.fillStyle="#fff";ctx.fillRect(0,0,width,height);decoded.draw(ctx,width,height);
     const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/jpeg",IMAGE_QUALITY));
     if(!blob)throw new Error("The photo could not be prepared for upload.");
@@ -108,10 +106,7 @@ async function prepareAttachment(file,source){
   if(!(file instanceof File))throw new Error("The selected attachment could not be read.");
   let prepared=file;
   if(String(file.type||"").startsWith("image/")){
-    try{prepared=await optimizeImage(file)}catch(err){
-      if(ALLOWED_DIRECT_TYPES.has(file.type)&&file.size<=MAX_FILE_BYTES)prepared=file;
-      else throw err;
-    }
+    try{prepared=await optimizeImage(file)}catch(err){if(ALLOWED_DIRECT_TYPES.has(file.type)&&file.size<=MAX_FILE_BYTES)prepared=file;else throw err}
   }else if(file.type!=="application/pdf")throw new Error("Only photos, images and PDF files are accepted.");
   if(!ALLOWED_DIRECT_TYPES.has(prepared.type))throw new Error("Only JPEG, PNG, WebP and PDF files are accepted.");
   if(prepared.size>MAX_FILE_BYTES)throw new Error("This attachment is larger than 3 MB after preparation.");
@@ -119,8 +114,7 @@ async function prepareAttachment(file,source){
   return {file:prepared,source:source==="camera"?"camera":"file",previewUrl};
 }
 async function addFiles(files,source){
-  const incoming=Array.from(files||[]);
-  if(!incoming.length)return;
+  const incoming=Array.from(files||[]);if(!incoming.length)return;
   if(attachmentState.length>=MAX_ATTACHMENTS){setAttachmentStatus(`Maximum ${MAX_ATTACHMENTS} attachments per submission.`,true);return}
   setAttachmentStatus(source==="camera"?"Preparing camera photo…":"Preparing attachment…");
   for(const file of incoming){
@@ -139,68 +133,54 @@ function bytesToBase64(buffer){
 }
 async function serializeAttachments(){
   const result=[];
-  for(const item of attachmentState){
-    const buffer=await item.file.arrayBuffer();
-    result.push({name:item.file.name,type:item.file.type,size:item.file.size,source:item.source,data:bytesToBase64(buffer)});
-  }
+  for(const item of attachmentState){const buffer=await item.file.arrayBuffer();result.push({name:item.file.name,type:item.file.type,size:item.file.size,source:item.source,data:bytesToBase64(buffer)})}
   return result;
 }
 async function initialize(){
-  reporterToken=readToken();
-  networkStatus();renderAttachments();
-  if(reporterToken.length<32||reporterToken.length>128){
-    setMessage("reporterPortalError","This reporting link is incomplete. Open the full private link sent by your manager.");
-    return;
-  }
+  reporterToken=readToken();networkStatus();renderAttachments();
+  if(reporterToken.length<32||reporterToken.length>128){setMessage("reporterPortalError","This reporting link is incomplete. Open the full private link sent by your manager.");return}
   try{
     const data=await request("/public/daily-reporting/access",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({token:reporterToken})});
     byId("reporterEmployeeName").textContent=(data.employee?.name||"Employee")+(data.employee?.roleTitle?" · "+data.employee.roleTitle:"");
     byId("reporterLocationName").textContent=(data.location?.name||"Location")+(data.location?.town?" · "+data.location.town:"");
-    byId("reporterCompanyName").textContent=data.companyName||"Company";
-    byId("reporterDate").value=data.reportDate||"";
-    byId("reporterDailyForm").hidden=false;
+    byId("reporterCompanyName").textContent=data.companyName||"Company";byId("reporterDate").value=data.reportDate||"";byId("reporterDailyForm").hidden=false;
   }catch(error){setMessage("reporterPortalError",errorMessage(error))}
 }
 async function submit(event){
   event.preventDefault();
-  const error=byId("reporterPortalError"),success=byId("reporterPortalSuccess"),button=byId("reporterSubmitBtn");
-  error.hidden=true;success.hidden=true;
+  const error=byId("reporterPortalError"),success=byId("reporterPortalSuccess"),button=byId("reporterSubmitBtn");error.hidden=true;success.hidden=true;
   const payload={
-    token:reporterToken,
-    reportDate:byId("reporterDate").value,
-    workSummary:byId("reporterWorkSummary").value,
-    wins:byId("reporterWins").value,
-    blockers:byId("reporterBlockers").value,
-    incidents:byId("reporterIncidents").value,
-    nextPlan:byId("reporterNextPlan").value,
-    needsAttention:byId("reporterNeedsAttention").checked,
-    kpis:{
-      tasksCompleted:byId("reporterTasks").value,
-      customersHandled:byId("reporterCustomers").value,
-      revenueBwp:byId("reporterRevenue").value,
-      incidentsCount:byId("reporterIncidentCount").value,
-      customLabel:byId("reporterCustomLabel").value,
-      customValue:byId("reporterCustomValue").value
-    }
+    token:reporterToken,reportDate:byId("reporterDate").value,workSummary:byId("reporterWorkSummary").value,wins:byId("reporterWins").value,blockers:byId("reporterBlockers").value,incidents:byId("reporterIncidents").value,nextPlan:byId("reporterNextPlan").value,needsAttention:byId("reporterNeedsAttention").checked,
+    kpis:{tasksCompleted:byId("reporterTasks").value,customersHandled:byId("reporterCustomers").value,revenueBwp:byId("reporterRevenue").value,incidentsCount:byId("reporterIncidentCount").value,customLabel:byId("reporterCustomLabel").value,customValue:byId("reporterCustomValue").value}
   };
-  if(![payload.workSummary,payload.wins,payload.blockers,payload.incidents,payload.nextPlan].some(value=>String(value||"").trim())){
-    setMessage("reporterPortalError","Add at least one report note before sending.");return;
-  }
-  button.disabled=true;button.textContent=attachmentState.length?"Preparing attachments…":"Sending…";
+  if(![payload.workSummary,payload.wins,payload.blockers,payload.incidents,payload.nextPlan].some(value=>String(value||"").trim())){setMessage("reporterPortalError","Add at least one report note before sending.");return}
+  const hasAttachments=attachmentState.length>0;button.disabled=true;button.textContent="Sending report…";
   try{
-    if(attachmentState.length){payload.attachments=await serializeAttachments();button.textContent="Uploading report…"}
-    const data=await request("/public/daily-reporting/submit",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
+    const headers={"content-type":"application/json"};if(hasAttachments)headers["x-thebe-report-attachments"]="1";
+    const data=await request("/public/daily-reporting/submit",{method:"POST",headers,body:JSON.stringify(payload)});
     let message=(data.message||"Daily report submitted.")+" You can update the same reporting date if you need to correct something.";
-    if(data.attachmentsStored===false){
-      message+=" The report was saved, but its attachments were not stored. Keep this page open and submit again to retry the attachments.";
-      setAttachmentStatus("Report saved, but attachment storage failed. Your selected files are still on this page for retry.",true);
-    }else if(attachmentState.length){
-      const added=Number(data.attachmentsAdded||0);const skipped=Number(data.attachmentsSkipped||0);
-      message+=` ${added} attachment${added===1?"":"s"} saved${skipped?`; ${skipped} duplicate${skipped===1?"":"s"} skipped`:""}.`;
-      clearAttachments();
+    let attachmentsStored=!hasAttachments;
+    if(hasAttachments){
+      const grant=String(data.attachmentUploadGrant||"");
+      if(data.attachmentsStored===false||!grant){
+        message+=" The report was saved, but attachment upload could not start. Your selected files are still on this page.";
+        setAttachmentStatus("Report saved, but attachment upload is unavailable. Keep these files selected and submit again to retry.",true);
+      }else{
+        button.textContent="Preparing attachments…";
+        try{
+          const attachments=await serializeAttachments();button.textContent="Uploading attachments…";
+          const uploaded=await attachmentRequest("/public/daily-reporting/attachments",{method:"POST",headers:{"content-type":"application/json","x-report-attachment-grant":grant},body:JSON.stringify({attachments})});
+          const added=Number(uploaded.attachmentsAdded||0),skipped=Number(uploaded.attachmentsSkipped||0);
+          message+=` ${added} attachment${added===1?"":"s"} saved${skipped?`; ${skipped} duplicate${skipped===1?"":"s"} skipped`:""}.`;
+          attachmentsStored=true;clearAttachments();
+        }catch(uploadError){
+          message+=" The report was saved, but its attachments were not. Your selected files are still on this page so you can retry.";
+          setAttachmentStatus(errorMessage(uploadError),true);
+        }
+      }
     }
     setMessage("reporterPortalSuccess",message);
-    window.dispatchEvent(new CustomEvent("thebe:daily-report-submitted",{detail:{reportDate:payload.reportDate,reportId:data.reportId||data.id||null,attachmentsStored:data.attachmentsStored!==false}}));
+    window.dispatchEvent(new CustomEvent("thebe:daily-report-submitted",{detail:{reportDate:payload.reportDate,reportId:data.reportId||data.id||null,attachmentsStored}}));
     window.scrollTo({top:0,behavior:"smooth"});
   }catch(err){setMessage("reporterPortalError",errorMessage(err))}
   finally{button.disabled=false;button.textContent="Send daily report"}
@@ -209,8 +189,6 @@ function bindAttachments(){
   byId("reportCameraInput")?.addEventListener("change",async event=>{const input=event.currentTarget;await addFiles(input.files,"camera");input.value=""});
   byId("reportFileInput")?.addEventListener("change",async event=>{const input=event.currentTarget;await addFiles(input.files,"file");input.value=""});
 }
-window.addEventListener("online",networkStatus);
-window.addEventListener("offline",networkStatus);
-window.addEventListener("pagehide",()=>attachmentState.forEach(revokeItem));
+window.addEventListener("online",networkStatus);window.addEventListener("offline",networkStatus);window.addEventListener("pagehide",()=>attachmentState.forEach(revokeItem));
 document.addEventListener("DOMContentLoaded",()=>{byId("reporterDailyForm")?.addEventListener("submit",submit);bindAttachments();initialize()});
 })();
