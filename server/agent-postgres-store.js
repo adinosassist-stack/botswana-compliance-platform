@@ -9,7 +9,10 @@ export function createPostgresAgentApprovalStore(pool, tenantId) {
     async transaction(fn) {
       if (typeof fn !== "function") throw Error("invalid_agent_transaction");
       const client = await pool.connect();
-      if (!client || typeof client.query !== "function" || typeof client.release !== "function") throw Error("invalid_agent_database_client");
+      if (!client || typeof client.query !== "function" || typeof client.release !== "function") {
+        if (typeof client?.release === "function") client.release();
+        throw Error("invalid_agent_database_client");
+      }
       try {
         await client.query("BEGIN");
         await client.query("SET LOCAL statement_timeout = '5000ms'");
