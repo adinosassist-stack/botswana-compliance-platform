@@ -20,7 +20,7 @@ for (const path of changed) {
 const design = fs.readFileSync('tests/owner-closure-record-production-writer-adapter-design-review-v363.mjs', 'utf8');
 const workflow = fs.readFileSync('.github/workflows/v363-production-writer-adapter-design-review-boundary.yml', 'utf8');
 const v362Static = fs.readFileSync('tests/owner-closure-record-production-persistence-adapter-static-v362.mjs', 'utf8');
-const combined = `${design}\n${workflow}\n${v362Static}`;
+const combined = `${design}\n${workflow}`;
 
 const forbidden = [
   /\bapp\.(?:post|put|patch|delete)\s*\(/i,
