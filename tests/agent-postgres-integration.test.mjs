@@ -39,3 +39,25 @@ test("real PostgreSQL enforces nonce uniqueness, tenant scope and single consump
     await pool.end();
   }
 });
+
+test("outbox enforces tenant idempotency and unique authorization", async () => {
+  const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  const tenantId = "outbox-" + randomUUID();
+  const authId = randomUUID();
+  const otherTenant = "outbox-" + randomUUID();
+  const base = [randomUUID(), tenantId, "owner", "invoice.draft", "b".repeat(64), authId, "idem-1"];
+  const sql = `insert into agent_action_outbox
+    (id, tenant_id, actor_id, action, argument_digest, authorization_id, idempotency_key)
+    values ($1,$2,$3,$4,$5,$6,$7)`;
+  try {
+    await client.query(sql, base);
+    await assert.rejects(client.query(sql, [randomUUID(), tenantId, "owner", "invoice.draft", "b".repeat(64), randomUUID(), "idem-1"]), e => e.code === "23505");
+    await assert.rejects(client.query(sql, [randomUUID(), tenantId, "owner", "invoice.draft", "b".repeat(64), authId, "idem-2"]), e => e.code === "23505");
+    await client.query(sql, [randomUUID(), otherTenant, "owner", "invoice.draft", "b".repeat(64), randomUUID(), "idem-1"]);
+    await assert.rejects(client.query("update agent_action_outbox set status='invalid' where id=$1", [base[0]]), e => e.code === "23514");
+  } finally {
+    await client.query("delete from agent_action_outbox where tenant_id=$1 or tenant_id=$2", [tenantId, otherTenant]).catch(() => {});
+    await client.end();
+  }
+});
