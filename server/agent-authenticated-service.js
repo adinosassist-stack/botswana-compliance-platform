@@ -17,9 +17,10 @@ export async function authorizeAuthenticatedAgentAction({
   if (!tenantId || !actorId || !pool || !policy) {
     return { allowed: false, reason: "unauthenticated_or_unconfigured" };
   }
-  if (typeof tenantId !== "string" || typeof actorId !== "string") {
+  if (typeof tenantId !== "string" || typeof actorId !== "string" || !tenantId.trim() || !actorId.trim()) {
     return { allowed: false, reason: "invalid_principal" };
   }
+  if (typeof pool.connect !== "function") return { allowed: false, reason: "governance_unavailable" };
   const store = createPostgresAgentApprovalStore(pool, tenantId);
   return authorizeAgentExecution({
     store, action, args, approvalId, policy,
