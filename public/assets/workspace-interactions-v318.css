@@ -294,3 +294,15 @@ html:has(meta[name="bw-runtime-mode"][content="production"]) #appShell [data-bw-
     border:1px solid ButtonText!important;
   }
 }
+
+/* V337: make the existing expand/restore control a useful workspace-width choice.
+   Wide desktop default: 380px. Expanded: 480px. Medium desktop stays bounded.
+   Mobile keeps the full-width overlay contract from the spatial dock stylesheet. */
+@media (min-width:1200px){
+  html body:has(#thebeAiDock[data-surface="workspace"]){--thebe-spatial-width:380px!important}
+  html body.thebe-ai-expanded:has(#thebeAiDock[data-surface="workspace"]){--thebe-spatial-width:480px!important}
+}
+@media (min-width:1024px) and (max-width:1199px){
+  html body:has(#thebeAiDock[data-surface="workspace"]){--thebe-spatial-width:320px!important}
+  html body.thebe-ai-expanded:has(#thebeAiDock[data-surface="workspace"]){--thebe-spatial-width:380px!important}
+}
