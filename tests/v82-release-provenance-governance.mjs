@@ -34,14 +34,15 @@ const checks = [
   ['release merge commit must be GitHub-verified', bf07.includes('$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/commits/$release_sha') && bf07.includes('release merge commit is not GitHub-verified with a valid signature')],
   ['release merge must have successful Recovery CI', bf07.includes('/actions/workflows/recovery-ci.yml/runs?branch=main&per_page=100&page=1') && bf07.includes('/actions/workflows/recovery-ci.yml/runs?branch=main&per_page=100&page=2') && bf07.includes('fetch_recovery_runs') && bf07.includes('release merge has no successful completed Recovery CI run on main')],
   ['release Recovery CI synchronization is bounded and fail-closed', bf07.includes('for attempt in $(seq 1 37)') && bf07.includes('bounded wait $attempt/36') && bf07.includes('release merge Recovery CI failed closed') && bf07.includes("[[ \"$recovery_confirmed\" == '1' ]]")],
-  ['closed-release workflow history is paginated beyond the first 100 runs without GitHub workflow_run branch filtering', bf07.includes('fetch_workflow_runs(){') && bf07.includes('/actions/workflows/$workflow/runs?per_page=100&page=1') && bf07.includes('/actions/workflows/$workflow/runs?per_page=100&page=2') && !bf07.includes('/actions/workflows/$workflow/runs?branch=main') && bf07.includes('p1.get("workflow_runs",[])+p2.get("workflow_runs",[])')],
+  ['closed-release workflow history is paginated beyond the first 100 runs without GitHub workflow_run branch filtering', bf07.includes('fetch_workflow_runs(){') && bf07.includes('/actions/workflows/$workflow/runs?$qualification&per_page=100&page=1') && bf07.includes('/actions/workflows/$workflow/runs?$qualification&per_page=100&page=2') && !bf07.includes('/actions/workflows/$workflow/runs?branch=main') && bf07.includes('p1.get("workflow_runs",[])+p2.get("workflow_runs",[])')],
   ['prior closed release is resolved from bounded first-parent manifest merges with successful automatic Phase 0 audit', bf07.includes('fetch_workflow_runs production-launch-audit.yml') && bf07.includes('git rev-list --first-parent --max-count="$MAX_RELEASE_LINEAGE_MERGES" "$base_sha"') && bf07.includes('candidate_parent_count') && bf07.includes('candidate_parent="${candidate_line[1]}"') && bf07.includes('git diff --quiet "$candidate_parent" "$candidate_sha" -- release/production.json && continue') && bf07.includes('candidate_launch_audit_success') && bf07.includes('no prior closed production release with a successful automatic launch audit found on bounded first-parent history') && !bf07.includes('git merge-base --is-ancestor')],
   ['prior release baseline must have successful BF-07 from paginated history', bf07.includes('fetch_workflow_runs bf07-seal.yml') && bf07.includes('prior closed release has no successful BF-07 seal on main')],
   ['prior release baseline must have successful automatic production deployment from paginated history', bf07.includes('fetch_workflow_runs deploy-production.yml') && bf07.includes('prior closed release has no successful automatic production deployment on main')],
   ['prior release baseline must have successful automatic post-deploy smoke from paginated history', bf07.includes('fetch_workflow_runs postdeploy-smoke.yml') && bf07.includes('prior closed release has no successful automatic post-deploy smoke on main')],
   ['prior release baseline must have successful automatic Phase 0 launch audit', bf07.includes('prior closed release has no successful automatic Phase 0 launch audit on main') && bf07.includes('Prior Phase 0 launch-audit release baseline confirmed')],
-  ['first-parent lineage review window is bounded and capped', bf07.includes("MAX_RELEASE_LINEAGE_MERGES: '150'") && bf07.includes('MAX_RELEASE_LINEAGE_MERGES <= 150') && bf07.includes('release lineage exceeds the bounded ${MAX_RELEASE_LINEAGE_MERGES}-merge review window') && bf07.includes('${#lineage_shas[@]} <= MAX_RELEASE_LINEAGE_MERGES')],
+  ['first-parent lineage review window is bounded and capped', bf07.includes("MAX_RELEASE_LINEAGE_MERGES: '200'") && bf07.includes('MAX_RELEASE_LINEAGE_MERGES <= 200') && bf07.includes('release lineage exceeds the bounded ${MAX_RELEASE_LINEAGE_MERGES}-merge review window') && bf07.includes('${#lineage_shas[@]} <= MAX_RELEASE_LINEAGE_MERGES')],
   ['lineage Recovery CI lookup is paginated beyond the lineage cap', bf07.includes('per_page=100&page=1') && bf07.includes('per_page=100&page=2') && bf07.includes('p1.get("workflow_runs",[])+p2.get("workflow_runs",[])')],
+  ['baseline lookup filters successful runs and exact-SHA evidence remains authoritative', bf07.includes('local qualification="status=success"') && bf07.includes('qualification="head_sha=$exact_sha"') && bf07.includes('fetch_workflow_runs recovery-ci.yml "$lineage_sha"') && bf07.includes('fetch_workflow_runs bf07-seal.yml "$previous_release_sha"')],
   ['direct or squash commits on first-parent release lineage fail closed', bf07.includes('unreviewed first-parent commit detected between deployed releases') && bf07.includes("[[ \"$lineage_parent_count\" == '2' ]]")],
   ['every first-parent lineage commit must be an exact merged PR on main', bf07.includes('first-parent release lineage contains a commit that is not an exact merged PR commit targeting main')],
   ['every first-parent lineage merge must have a valid GitHub signature', bf07.includes('first-parent release lineage contains a merge commit without a valid GitHub-verified signature')],
@@ -98,7 +99,7 @@ try {
   git('add', '.'); git('commit', '-qm', 'direct manifest write');
   const direct = git('rev-parse', 'HEAD');
   const audit = (sha, overrides = {}) => ({ head_sha: sha, head_branch: 'main', event: 'workflow_run', status: 'completed', conclusion: 'success', ...overrides });
-  const select = (runs, limit = 150) => spawnSync('bash', ['-euo', 'pipefail', '-c', `${selector}\nprintf '%s' "$previous_release_sha"`], {
+  const select = (runs, limit = 200) => spawnSync('bash', ['-euo', 'pipefail', '-c', `${selector}\nprintf '%s' "$previous_release_sha"`], {
     cwd: fixture, encoding: 'utf8', env: { ...process.env, base_sha: direct, MAX_RELEASE_LINEAGE_MERGES: String(limit), prior_launch_audit_json: JSON.stringify({ workflow_runs: runs }) }
   });
   const result = select([audit(direct), audit(source), audit(failedRelease, { conclusion: 'failure' }), audit(release)]);
@@ -109,6 +110,18 @@ try {
   }
   assert.notEqual(select([audit(release)], 2).status, 0, 'history cap must fail closed instead of accepting an older release');
   assert.notEqual(select([]).status, 0, 'missing audit evidence must fail closed');
+  // Reproduce production: the last closed release fell outside the old 150-commit window.
+  for (let i = 0; i < 151; i++) {
+    git('commit', '--allow-empty', '-qm', `history ${i}`);
+  }
+  const distant = git('rev-parse', 'HEAD');
+  const distantSelector = (limit) => spawnSync('bash', ['-euo', 'pipefail', '-c', `${selector}\nprintf '%s' "$previous_release_sha"`], {
+    cwd: fixture, encoding: 'utf8', env: { ...process.env, base_sha: distant, MAX_RELEASE_LINEAGE_MERGES: String(limit), prior_launch_audit_json: JSON.stringify({ workflow_runs: [audit(release)] }) }
+  });
+  assert.notEqual(distantSelector(150).status, 0, 'reproduce old history-window failure');
+  const expanded = distantSelector(200);
+  assert.equal(expanded.status, 0, expanded.stderr);
+  assert.ok(expanded.stdout.endsWith(release), 'expanded bounded window finds exact successful baseline');
   console.log('PASS real Git release baseline selection and fail-closed audit/history boundaries');
 } finally {
   rmSync(fixture, { recursive: true, force: true });

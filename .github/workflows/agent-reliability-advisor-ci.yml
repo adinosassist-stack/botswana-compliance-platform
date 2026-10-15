@@ -1,0 +1,44 @@
+name: Agent reliability advisor CI
+on:
+  pull_request:
+    paths:
+      - 'cloudflare/src/agent-reliability-advisor.js'
+      - 'cloudflare/src/agent-cost-outcome-telemetry.js'
+      - 'cloudflare/migrations/069_agent_cost_shadow_events.sql'
+      - 'tests/agent-reliability-advisor.mjs'
+      - 'cloudflare/src/agent-reliability-telemetry-adapter.js'
+      - 'tests/agent-reliability-telemetry-adapter.mjs'
+      - 'tests/agent-reliability-real-schema-blocker.mjs'
+      - 'tests/helpers/agent-shadow-telemetry.mjs'
+      - 'cloudflare/schema.sql'
+      - 'cloudflare/migrations/*.sql'
+      - 'cloudflare/src/agent-reliability-api.js'
+      - 'tests/agent-reliability-api.mjs'
+      - 'tests/agent-reliability-preintegration.mjs'
+      - 'cloudflare/src/worker.js'
+      - 'public/js/owner-command-centre.js'
+      - 'tests/agent-reliability-owner-panel.mjs'
+      - '.github/workflows/agent-reliability-advisor-ci.yml'
+permissions:
+  contents: read
+jobs:
+  advisor-isolated-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check cloudflare/src/agent-reliability-advisor.js
+      - run: node tests/agent-reliability-advisor.mjs
+      - run: node --check cloudflare/src/agent-reliability-telemetry-adapter.js
+      - run: node tests/agent-reliability-telemetry-adapter.mjs
+      - run: node tests/agent-reliability-real-schema-blocker.mjs
+      - run: node tests/agent-cost-outcome-telemetry.mjs
+      - run: node --check cloudflare/src/agent-reliability-api.js
+      - run: node tests/agent-reliability-api.mjs
+      - run: node --check cloudflare/src/worker.js
+      - run: node tests/agent-reliability-preintegration.mjs
+      - run: node --check public/js/owner-command-centre.js
+      - run: node tests/agent-reliability-owner-panel.mjs

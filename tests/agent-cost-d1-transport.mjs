@@ -35,6 +35,7 @@ try{
   assert.equal((await inspectAgentCostSchema(rows)).code,'accounting_schema_absent');
   execute(schema);
   execute(schema);
+  execute(readFileSync(join(root,'cloudflare/migrations/069_agent_cost_shadow_events.sql'),'utf8'));
   assert.equal((await inspectAgentCostSchema(rows)).code,'accounting_schema_compatible');
   assert.deepEqual(rows('PRAGMA foreign_key_check;'),[]);
   execute("INSERT INTO tenants(id,name) VALUES('t1','Purge'),('t2','Keep'); INSERT INTO users(id,email) VALUES('u1','purge@example.test'); INSERT INTO memberships(tenant_id,user_id,role,status) VALUES('t1','u1','owner','active'); INSERT INTO agent_cost_budgets(tenant_id,agent_id,budget_minor) VALUES('t1','thebe',100),('t2','thebe',100);");
