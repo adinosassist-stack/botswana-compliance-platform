@@ -194,6 +194,14 @@ jobs:
           node --check tests/owner-decision-review-delta-static.mjs
           node tests/owner-decision-review-delta-static.mjs
 
+      - name: Owner decision reconsideration trigger boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check public/js/owner-decision-reconsideration-trigger-v345.js
+          node --check tests/owner-decision-reconsideration-trigger-static.mjs
+          node tests/owner-decision-reconsideration-trigger-static.mjs
+
       - name: Regulatory reviewer provisioning governance
         shell: bash
         run: |
