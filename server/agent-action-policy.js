@@ -25,7 +25,7 @@ function canonicalJsonInner(value, seen, depth = 0) {
     try { return "[" + value.map(item => canonicalJsonInner(item, seen, depth + 1)).join(",") + "]"; }
     finally { seen.delete(value); }
   }
-  if (typeof value !== "object" || Object.getPrototypeOf(value) !== Object.prototype) throw new TypeError("non_json_argument");
+  if (typeof value !== "object" || (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null)) throw new TypeError("non_json_argument");
   if (seen.has(value)) throw new TypeError("non_json_argument");
   seen.add(value);
   try {
