@@ -10,6 +10,7 @@ const WORKSPACE_FOCUS_VISIBLE_SRC='/js/workspace-focus-visible-v278.js';
 const OWNER_FOCUS_STRIP_SRC='/js/owner-focus-strip-v296.js';
 const MONEY_WORKSPACE_SRC='/js/money-workspace-v307.js';
 const PROTECT_WORKSPACE_SRC='/js/protect-workspace-v308.js';
+const PEOPLE_DIRECTORY_UX_SRC='/js/people-directory-ux-20261015.js';
 
 function injectAtFinalClosingTag(source,tag,markup){
   const pattern=new RegExp(`<\\/${tag}\\s*>`, 'gi');
@@ -30,6 +31,7 @@ export function versionReleaseAssets(html,sha=releaseSourceSha(),options={}){
   if(options?.includeWorkspaceFixes===true&&!source.includes(OWNER_FOCUS_STRIP_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${OWNER_FOCUS_STRIP_SRC}" defer></script>\n`);
   if(options?.includeWorkspaceFixes===true&&!source.includes(MONEY_WORKSPACE_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${MONEY_WORKSPACE_SRC}" defer></script>\n`);
   if(options?.includeWorkspaceFixes===true&&!source.includes(PROTECT_WORKSPACE_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${PROTECT_WORKSPACE_SRC}" defer></script>\n`);
+  if(options?.includeWorkspaceFixes===true&&!source.includes(PEOPLE_DIRECTORY_UX_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${PEOPLE_DIRECTORY_UX_SRC}" defer></script>\n`);
   if(options?.includeWorkspaceFixes===true){
     if(!source.includes('/assets/money-inputs-v310.css'))source=injectAtFinalClosingTag(source,'head','<link rel="stylesheet" href="/assets/money-inputs-v310.css">\n');
     if(!source.includes('/js/money-inputs-v310.js'))source=injectAtFinalClosingTag(source,'body','<script src="/js/money-inputs-v310.js" defer></script>\n');
@@ -42,6 +44,7 @@ export function versionReleaseAssets(html,sha=releaseSourceSha(),options={}){
     if(!source.includes('/assets/workspace-control-polish-v317.css'))source=injectAtFinalClosingTag(source,'head','<link rel="stylesheet" href="/assets/workspace-control-polish-v317.css">\n');
     if(!source.includes('/assets/workspace-mobile-header-targets-v315.css'))source=injectAtFinalClosingTag(source,'head','<link rel="stylesheet" href="/assets/workspace-mobile-header-targets-v315.css">\n');
     if(!source.includes('/assets/workspace-audit-refinements-20261013.css'))source=injectAtFinalClosingTag(source,'head','<link rel="stylesheet" href="/assets/workspace-audit-refinements-20261013.css">\n');
+    if(!source.includes('/assets/people-ux-audit-20261015.css'))source=injectAtFinalClosingTag(source,'head','<link rel="stylesheet" href="/assets/people-ux-audit-20261015.css">\n');
   }
   source=source.replace(/(<(?:script|link)\b[^>]*\b(?:src|href)=["'])(\/(?:js|assets)\/[^"']+)(["'][^>]*>)/gi,(_match,start,path,end)=>{
     const url=new URL(path.replaceAll('&amp;','&'),'https://thebe.invalid');
