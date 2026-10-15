@@ -24,7 +24,8 @@
     "/js/owner-decision-recommendation-calibration-v333.js?v=20261015-owner-decision-recommendation-calibration-v333",
     "/js/owner-recommendation-challenge-mode-v334.js?v=20261015-owner-recommendation-challenge-mode-v334",
     "/js/owner-decision-premortem-v335.js?v=20261015-owner-decision-premortem-v335",
-    "/js/owner-decision-safeguard-gate-v336.js?v=20261015-owner-decision-safeguard-gate-v336"
+    "/js/owner-decision-safeguard-gate-v336.js?v=20261015-owner-decision-safeguard-gate-v336",
+    "/js/owner-decision-experiment-planner-v337.js?v=20261015-owner-decision-experiment-planner-v337"
   ];
   const q=(selector,root=document)=>root.querySelector(selector);
   let telemetryBusy=false;
