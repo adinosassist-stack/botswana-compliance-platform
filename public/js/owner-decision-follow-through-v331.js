@@ -9,6 +9,7 @@
   const q=(selector,root=document)=>root.querySelector(selector);
   let refreshTimer=null;
   let refreshBusy=false;
+  let reviewBusy=false;
   let currentRecord=null;
 
   function role(){
@@ -190,6 +191,11 @@
     });
   }
 
+  function setReviewBusy(dialog,busy){
+    reviewBusy=busy;
+    dialog?.querySelectorAll(".decision-review-actions button").forEach(control=>{control.disabled=busy});
+  }
+
   function ensureDialog(){
     let dialog=document.getElementById(DIALOG_ID);
     if(dialog)return dialog;
@@ -231,7 +237,7 @@
     controls.append(button("Close decision",()=>void closeCurrentDecision(),"btn soft"));
     controls.append(button("Keep decision",()=>void keepCurrentDecision(),"btn alt"));
     form.append(head,outcomeLabel,nextLabel,status,controls);
-    dialog.addEventListener("cancel",event=>{event.preventDefault();closeDialog()});
+    dialog.addEventListener("cancel",event=>{event.preventDefault();if(!reviewBusy)closeDialog()});
     dialog.append(form);
     document.body.append(dialog);
     return dialog;
@@ -241,6 +247,7 @@
     if(!isOwner())return;
     currentRecord=record;
     const dialog=ensureDialog();
+    setReviewBusy(dialog,false);
     q("#ownerDecisionObservedOutcome",dialog).value="";
     q("#ownerDecisionNextReview",dialog).value="";
     q("#ownerDecisionReviewStatus",dialog).textContent=`Reviewing ${clean(record?.value?.title,220)||"owner decision"}. No action will be executed.`;
@@ -249,12 +256,14 @@
   }
 
   function closeDialog(){
+    if(reviewBusy)return;
     currentRecord=null;
     const dialog=document.getElementById(DIALOG_ID);
     if(dialog?.open){try{dialog.close()}catch{dialog.removeAttribute("open")}}
   }
 
   function reviseCurrent(){
+    if(reviewBusy)return;
     const record=currentRecord;
     if(!record)return;
     closeDialog();
@@ -264,7 +273,7 @@
 
   async function keepCurrentDecision(){
     const record=currentRecord,dialog=document.getElementById(DIALOG_ID);
-    if(!record||!dialog||!isOwner())return;
+    if(!record||!dialog||!isOwner()||reviewBusy)return;
     const next=String(q("#ownerDecisionNextReview",dialog)?.value||""),outcome=clean(q("#ownerDecisionObservedOutcome",dialog)?.value,1200),status=q("#ownerDecisionReviewStatus",dialog);
     if(!validDate(next)||next<=todayISO()){
       status.textContent="Choose a future review date before keeping this decision.";
@@ -272,25 +281,27 @@
       q("#ownerDecisionNextReview",dialog)?.focus();
       return;
     }
+    setReviewBusy(dialog,true);
     status.textContent="Saving follow-through note…";status.dataset.state="loading";
     try{
       await persistReview(record,{status:"active",followUpAt:next,lastReviewedAt:new Date().toISOString(),reviewState:"kept",lastOutcomeNote:outcome||null,closedAt:null});
       status.textContent="Decision kept and next review scheduled. No action was executed.";status.dataset.state="ready";
-      global.setTimeout(()=>{closeDialog();void refresh(true)},260);
-    }catch{status.textContent="Follow-through note could not be saved. Nothing was executed.";status.dataset.state="error"}
+      global.setTimeout(()=>{reviewBusy=false;closeDialog();void refresh(true)},260);
+    }catch{setReviewBusy(dialog,false);status.textContent="Follow-through note could not be saved. Nothing was executed.";status.dataset.state="error"}
   }
 
   async function closeCurrentDecision(){
     const record=currentRecord,dialog=document.getElementById(DIALOG_ID);
-    if(!record||!dialog||!isOwner())return;
+    if(!record||!dialog||!isOwner()||reviewBusy)return;
     const outcome=clean(q("#ownerDecisionObservedOutcome",dialog)?.value,1200),status=q("#ownerDecisionReviewStatus",dialog);
+    setReviewBusy(dialog,true);
     status.textContent="Closing owner decision note…";status.dataset.state="loading";
     try{
       const now=new Date().toISOString();
       await persistReview(record,{status:"closed",followUpAt:null,lastReviewedAt:now,reviewState:"closed",lastOutcomeNote:outcome||null,closedAt:now});
       status.textContent="Decision note closed. No action was executed.";status.dataset.state="ready";
-      global.setTimeout(()=>{closeDialog();void refresh(true)},260);
-    }catch{status.textContent="Decision note could not be closed. Nothing was executed.";status.dataset.state="error"}
+      global.setTimeout(()=>{reviewBusy=false;closeDialog();void refresh(true)},260);
+    }catch{setReviewBusy(dialog,false);status.textContent="Decision note could not be closed. Nothing was executed.";status.dataset.state="error"}
   }
 
   async function refresh(force=false){
@@ -298,7 +309,7 @@
       document.getElementById(SECTION_ID)?.remove();
       return;
     }
-    if(refreshBusy&&!force)return;
+    if(refreshBusy)return;
     refreshBusy=true;
     try{
       const payload=await apiJson("/api/business-memory");
