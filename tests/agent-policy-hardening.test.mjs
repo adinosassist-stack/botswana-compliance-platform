@@ -84,3 +84,10 @@ test("deeply nested agent arguments fail with controlled validation error", () =
 test("ordinary multi-element arrays retain valid numeric indices", () => {
   assert.match(agentArgumentDigest({ entries: [10, 20, 30] }), /^[a-f0-9]{64}$/);
 });
+
+test("null-prototype JSON maps are canonicalized like ordinary objects", () => {
+  const map = Object.create(null);
+  map.amount = 12;
+  map.currency = "BWP";
+  assert.equal(agentArgumentDigest(map), agentArgumentDigest({ amount: 12, currency: "BWP" }));
+});
