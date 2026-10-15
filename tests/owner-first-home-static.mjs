@@ -32,6 +32,8 @@ for(const token of [
   'scroll-margin-bottom:180px',
   'if(laneKey==="decision"&&isOwner())',
   'openDecisionDialog(item)',
+  'const source=sourceKey(item);',
+  'return `decision.${tinyHash(source)}.${slug}`.slice(0,80);',
   'await apiJson("/api/business-memory",{',
   'namespace:"operations"',
   'kind:"owner_decision_note"',
@@ -41,6 +43,8 @@ for(const token of [
 ]){
   if(!owner.includes(token))throw new Error('Owner-first canonical Home contract missing: '+token);
 }
+
+if(owner.includes('tinyHash(sourceKey(item))}.${title}'))throw new Error('Decision Memory key must not depend on mutable item title.');
 
 for(const token of [
   'if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);',
