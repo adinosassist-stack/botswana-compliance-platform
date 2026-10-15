@@ -18,7 +18,7 @@
   });
   const scripts=[
     "/js/executive-personalization-v180.js?v=20260929-v180",
-    "/js/owner-first-home-v328.js?v=20261015-owner-attention-v329"
+    "/js/owner-first-home-v328.js?v=20261015-owner-decision-memory-v330"
   ];
   const q=(selector,root=document)=>root.querySelector(selector);
   let telemetryBusy=false;
