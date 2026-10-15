@@ -184,3 +184,37 @@ test("atomic queue failure rolls back authorization audit and consumed approval"
     await client.end();
   }
 });
+
+test("database conflict rolls back approval consumption and authorized audit", async () => {
+  const client = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+  const tenantId = "conflict-" + randomUUID(), actorId = "owner", action = "invoice.draft";
+  const args = { invoice: "INV-789" }, digest = agentArgumentDigest(args);
+  const approvalId = randomUUID(), existingAuthId = randomUUID();
+  const key = "duplicate-key";
+  const policy = { enabled: true, auditAvailable: true, killSwitch: false, allowedActions: [action], remainingBudget: 2, estimatedCost: 1 };
+  try {
+    await client.query(`insert into agent_action_approvals
+      (id,tenant_id,actor_id,action,argument_digest,nonce,status,expires_at)
+      values ($1,$2,$3,$4,$5,$6,'approved',now()+interval '1 hour')`,
+      [approvalId,tenantId,actorId,action,digest,"nonce-"+randomUUID()]);
+    await client.query(`insert into agent_action_outbox
+      (id,tenant_id,actor_id,action,argument_digest,authorization_id,idempotency_key)
+      values ($1,$2,$3,$4,$5,$6,$7)`,
+      [randomUUID(),tenantId,actorId,action,digest,existingAuthId,key]);
+    const result = await authorizeAgentExecution({
+      store: createPostgresAgentApprovalStore(client,tenantId),
+      action,args,context:{tenantId,actorId},approvalId,policy,
+      queueIntent:true,idempotencyKey:key
+    });
+    assert.deepEqual(result,{allowed:false,reason:"governance_unavailable"});
+    const approval = await client.query("select consumed_at from agent_action_approvals where id=$1",[approvalId]);
+    assert.equal(approval.rows[0].consumed_at,null);
+    const audit = await client.query("select count(*)::int as n from agent_action_audit where tenant_id=$1 and allowed=true",[tenantId]);
+    assert.equal(audit.rows[0].n,0);
+  } finally {
+    await client.query("delete from agent_action_outbox where tenant_id=$1",[tenantId]);
+    await client.query("delete from agent_action_audit where tenant_id=$1",[tenantId]);
+    await client.query("delete from agent_action_approvals where tenant_id=$1",[tenantId]);
+    await client.end();
+  }
+});
