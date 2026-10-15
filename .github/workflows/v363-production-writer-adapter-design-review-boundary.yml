@@ -1,0 +1,59 @@
+name: V363 production-writer-adapter-design-review boundary
+
+on:
+  pull_request:
+    branches:
+      - chatgpt/owner-closure-record-production-persistence-adapter-conformance-v362-20261015
+    paths:
+      - "tests/owner-closure-record-production-writer-adapter-design-review-v363.mjs"
+      - "tests/owner-closure-record-production-writer-adapter-design-static-v363.mjs"
+      - ".github/workflows/v363-production-writer-adapter-design-review-boundary.yml"
+  workflow_dispatch:
+    inputs:
+      expected_head_sha:
+        description: "Exact commit SHA to qualify"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || inputs.expected_head_sha }}
+
+jobs:
+  adapter-design-review:
+    name: Owner closure record production writer adapter design review boundary
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify exact checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          [[ "$actual" == "$EXPECTED_HEAD_SHA" ]] || { echo "head mismatch expected=$EXPECTED_HEAD_SHA actual=$actual" >&2; exit 1; }
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo 'checkout is not clean' >&2; exit 1; }
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: ".nvmrc"
+          package-manager-cache: false
+          check-latest: false
+      - name: Production closure writer adapter design review
+        run: |
+          set -euo pipefail
+          node --check tests/owner-closure-record-production-writer-adapter-design-review-v363.mjs
+          node --check tests/owner-closure-record-production-writer-adapter-design-static-v363.mjs
+          node tests/owner-closure-record-production-writer-adapter-design-review-v363.mjs
+          node tests/owner-closure-record-production-writer-adapter-design-static-v363.mjs
+      - name: Inherited V362 production persistence primitive proof
+        run: |
+          set -euo pipefail
+          node --check tests/owner-closure-record-production-persistence-adapter-conformance-v362.mjs
+          node tests/owner-closure-record-production-persistence-adapter-conformance-v362.mjs
