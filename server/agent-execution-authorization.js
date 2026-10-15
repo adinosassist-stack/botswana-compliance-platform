@@ -11,6 +11,9 @@ import { agentArgumentDigest, evaluateAgentAction } from "./agent-action-policy.
 export async function authorizeAgentExecution({ store, action, args, context, approvalId, policy }) {
   if (!store || typeof store.transaction !== "function") return { allowed: false, reason: "governance_unavailable" };
   if (!policy?.enabled || policy?.killSwitch || !policy?.auditAvailable) return { allowed: false, reason: "governance_unavailable" };
+  // Validate before starting the transaction: malformed model arguments must fail closed.
+  let argumentDigest;
+  try { argumentDigest = agentArgumentDigest(args); } catch { return { allowed: false, reason: "invalid_arguments" }; }
   try {
     return await store.transaction(async tx => {
       if (typeof tx.getApproval !== "function" || typeof tx.consumeApproval !== "function" || typeof tx.appendAudit !== "function") {
@@ -22,7 +25,7 @@ export async function authorizeAgentExecution({ store, action, args, context, ap
       const event = {
         id: randomUUID(), tenantId: context?.tenantId ?? null,
         actorId: context?.actorId ?? null, action,
-        argumentDigest: agentArgumentDigest(args),
+        argumentDigest,
         approvalId: approval?.id ?? null, allowed: false,
         reason: decision.reason, timestamp: new Date().toISOString()
       };
