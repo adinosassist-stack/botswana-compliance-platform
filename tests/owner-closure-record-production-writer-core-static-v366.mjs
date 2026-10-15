@@ -88,17 +88,25 @@ assert.ok(!server.includes('/api/owner-closure'), 'Node entry point must not exp
 assert.ok(!worker.includes('owner-closure-record-writer-v366'), 'Worker must not import V366 writer');
 assert.ok(!worker.includes('/api/owner-closure'), 'Worker must not expose owner-closure route');
 
-const verifyIndex = writer.indexOf('await verifyAuthorization');
-const replayIndex = writer.indexOf('findReplay');
-const targetIndex = writer.indexOf('await loadTarget');
-const insertIndex = writer.indexOf('record = await insertClosureRecord');
-const auditIndex = writer.indexOf('await insertAuditEvent');
-const commitIndex = writer.lastIndexOf("await client.query('COMMIT')");
-assert.ok(verifyIndex >= 0 && verifyIndex < insertIndex, 'write-time authorization must precede persistence');
-assert.ok(replayIndex >= 0 && replayIndex < targetIndex, 'idempotency replay classification must precede target CAS for deterministic retry');
-assert.ok(targetIndex >= 0 && targetIndex < insertIndex, 'authoritative target reread/CAS must precede persistence');
-assert.ok(insertIndex >= 0 && insertIndex < auditIndex, 'closure insert must precede same-transaction audit insert');
-assert.ok(auditIndex >= 0 && auditIndex < commitIndex, 'audit insert must precede durable commit');
+// Prove invocation order inside the actual write() body rather than matching helper declarations elsewhere.
+const writeStart = writer.indexOf('async write({ request, serverContext } = {}) {');
+const writeEnd = writer.indexOf('\n    }\n  });', writeStart);
+assert.ok(writeStart >= 0 && writeEnd > writeStart, 'V366 write() body must be discoverable for order proof');
+const writeBody = writer.slice(writeStart, writeEnd);
+const verifyIndex = writeBody.indexOf('const authorization = await verifyAuthorization');
+const replayIndex = writeBody.indexOf('classifyReplay(await findReplay(client, scope, normalized.idempotencyKey), fingerprint)');
+const targetIndex = writeBody.indexOf('const currentTarget = await loadTarget');
+const insertIndex = writeBody.indexOf('record = await insertClosureRecord');
+const auditIndex = writeBody.indexOf('await insertAuditEvent');
+const commitAfterAuditIndex = writeBody.indexOf("await client.query('COMMIT')", auditIndex);
+for (const [label, index] of Object.entries({ verifyIndex, replayIndex, targetIndex, insertIndex, auditIndex, commitAfterAuditIndex })) {
+  assert.ok(index >= 0, `V366 write() order proof must locate ${label}`);
+}
+assert.ok(verifyIndex < replayIndex, 'write-time authorization must precede replay classification');
+assert.ok(replayIndex < targetIndex, 'idempotency replay classification must precede target CAS for deterministic retry');
+assert.ok(targetIndex < insertIndex, 'authoritative target reread/CAS must precede persistence');
+assert.ok(insertIndex < auditIndex, 'closure insert must precede same-transaction audit insert');
+assert.ok(auditIndex < commitAfterAuditIndex, 'audit insert must precede durable commit');
 
 for (const token of [
   'caller fingerprint must be ignored',
