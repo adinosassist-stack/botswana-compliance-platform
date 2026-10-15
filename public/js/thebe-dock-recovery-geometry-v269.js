@@ -3,6 +3,9 @@
   const RELEASE="20261003-emergency-dock-geometry-v269";
   const PROPERTY_ISOLATION_RELEASE="20261003-property-view-isolation-v273";
   const RECOVERY_STYLE_ID="thebe-dock-recovery-geometry-v269-style";
+  const WORKSPACE_RESIZE_RELEASE="20261015-workspace-dock-resize-v0518";
+  const WORKSPACE_RESIZE_STYLE_ID="thebe-workspace-dock-resize-v0518-style";
+  const WORKSPACE_WIDTH_KEY="thebe:workspace-dock:width:v1";
   const managed=new Map();
   let queued=false;
 
@@ -27,6 +30,159 @@
     }
     const dockWidth=widthFor(width,expanded);
     return {position:"fixed",left:"auto",right:"16px",top:"88px",bottom:"auto",width:`${dockWidth}px`,"max-width":`${dockWidth}px`,height:"min(610px,calc(100dvh - 104px))","min-height":"0","max-height":"calc(100dvh - 104px)","border-radius":"20px","z-index":"900"};
+  }
+
+  function workspaceWidthBounds(viewport=viewportWidth()){
+    const width=Math.max(0,Number(viewport)||0);
+    if(width<1024)return {min:0,defaultWidth:0,expandedDefault:0,max:0};
+    if(width>=1200)return {min:320,defaultWidth:376,expandedDefault:500,max:560};
+    return {min:288,defaultWidth:320,expandedDefault:440,max:440};
+  }
+
+  function clampWorkspaceWidth(value,bounds=workspaceWidthBounds()){
+    const numeric=Number(value);
+    const fallback=bounds.defaultWidth||0;
+    if(!Number.isFinite(numeric))return fallback;
+    return Math.min(bounds.max,Math.max(bounds.min,Math.round(numeric)));
+  }
+
+  function readStoredWorkspaceWidth(){
+    try{
+      const raw=global.localStorage?.getItem?.(WORKSPACE_WIDTH_KEY);
+      if(raw===null||raw===undefined||raw==="")return null;
+      const numeric=Number(raw);
+      return Number.isFinite(numeric)?numeric:null;
+    }catch{return null}
+  }
+
+  function writeStoredWorkspaceWidth(width){
+    try{global.localStorage?.setItem?.(WORKSPACE_WIDTH_KEY,String(Math.round(width)))}catch{}
+  }
+
+  function clearStoredWorkspaceWidth(){
+    try{global.localStorage?.removeItem?.(WORKSPACE_WIDTH_KEY)}catch{}
+  }
+
+  function ensureWorkspaceResizeStyle(){
+    const document=global.document;
+    if(!document||document.getElementById(WORKSPACE_RESIZE_STYLE_ID))return;
+    const style=document.createElement("style");
+    style.id=WORKSPACE_RESIZE_STYLE_ID;
+    style.textContent=`
+#thebeAiDock .thebe-workspace-dock-resize-handle{display:none}
+@media (min-width:1024px){
+ #thebeAiDock[data-surface="workspace"][data-workspace-resizable="true"] .thebe-workspace-dock-resize-handle{display:flex;position:absolute;left:-8px;top:50%;transform:translateY(-50%);width:16px;height:88px;z-index:8;align-items:center;justify-content:center;border:0;padding:0;background:transparent;cursor:ew-resize;touch-action:none}
+ #thebeAiDock[data-surface="workspace"] .thebe-workspace-dock-resize-handle::before{content:"";display:block;width:3px;height:42px;border-radius:999px;background:rgba(142,180,208,.62);box-shadow:0 0 0 1px rgba(5,24,39,.35)}
+ #thebeAiDock[data-surface="workspace"] .thebe-workspace-dock-resize-handle:hover::before,#thebeAiDock[data-surface="workspace"] .thebe-workspace-dock-resize-handle:focus-visible::before{background:#8fd2ff;height:52px}
+ #thebeAiDock[data-surface="workspace"] .thebe-workspace-dock-resize-handle:focus-visible{outline:3px solid #2f8fe6;outline-offset:2px;border-radius:10px}
+ body.thebe-workspace-dock-resizing,body.thebe-workspace-dock-resizing *{cursor:ew-resize!important;user-select:none!important}
+}
+`;
+    (document.head||document.documentElement||document.body)?.appendChild(style);
+  }
+
+  function ensureWorkspaceResizeHandle(dock){
+    if(!dock)return null;
+    let handle=dock.querySelector?.(".thebe-workspace-dock-resize-handle");
+    if(handle)return handle;
+    handle=global.document?.createElement?.("button");
+    if(!handle)return null;
+    handle.type="button";
+    handle.className="thebe-workspace-dock-resize-handle";
+    handle.setAttribute("aria-label","Resize Thebe assistant panel");
+    handle.setAttribute("aria-orientation","vertical");
+    handle.title="Drag to resize · double-click to reset";
+    dock.appendChild(handle);
+
+    let drag=null;
+    const applyPreferred=(next,{persist=true}={})=>{
+      const bounds=workspaceWidthBounds();
+      if(!bounds.defaultWidth)return 0;
+      const value=clampWorkspaceWidth(next,bounds);
+      if(persist)writeStoredWorkspaceWidth(value);
+      applyWorkspaceWidth(dock,{preferred:value,stored:persist});
+      return value;
+    };
+    const stopDrag=()=>{
+      if(!drag)return;
+      drag=null;
+      global.document?.body?.classList?.remove("thebe-workspace-dock-resizing");
+    };
+    handle.addEventListener("pointerdown",event=>{
+      if(event.button!==undefined&&event.button!==0)return;
+      const bounds=workspaceWidthBounds();
+      if(!bounds.defaultWidth)return;
+      const current=Number(dock.dataset.workspaceWidth)||dock.getBoundingClientRect?.().width||bounds.defaultWidth;
+      drag={pointerId:event.pointerId,startX:event.clientX,startWidth:current};
+      handle.setPointerCapture?.(event.pointerId);
+      global.document?.body?.classList?.add("thebe-workspace-dock-resizing");
+      event.preventDefault?.();
+    });
+    handle.addEventListener("pointermove",event=>{
+      if(!drag||event.pointerId!==drag.pointerId)return;
+      // The dock is anchored to the right edge, so dragging left increases width.
+      applyPreferred(drag.startWidth-(event.clientX-drag.startX));
+      event.preventDefault?.();
+    });
+    handle.addEventListener("pointerup",stopDrag);
+    handle.addEventListener("pointercancel",stopDrag);
+    handle.addEventListener("dblclick",event=>{
+      clearStoredWorkspaceWidth();
+      const bounds=workspaceWidthBounds();
+      applyWorkspaceWidth(dock,{preferred:bounds.defaultWidth,stored:false});
+      event.preventDefault?.();
+    });
+    handle.addEventListener("keydown",event=>{
+      const bounds=workspaceWidthBounds();
+      if(!bounds.defaultWidth)return;
+      const current=Number(dock.dataset.workspaceWidth)||bounds.defaultWidth;
+      let next=null;
+      if(event.key==="ArrowLeft")next=current+16;
+      if(event.key==="ArrowRight")next=current-16;
+      if(event.key==="Home"){
+        clearStoredWorkspaceWidth();
+        applyWorkspaceWidth(dock,{preferred:bounds.defaultWidth,stored:false});
+        event.preventDefault();
+        return;
+      }
+      if(event.key==="End")next=bounds.max;
+      if(next===null)return;
+      applyPreferred(next);
+      event.preventDefault();
+    });
+    return handle;
+  }
+
+  function applyWorkspaceWidth(dock,{preferred,stored}={}){
+    const document=global.document;
+    const body=document?.body;
+    if(!dock||!body)return 0;
+    const viewport=viewportWidth();
+    const bounds=workspaceWidthBounds(viewport);
+    if(dock.dataset.surface!=="workspace"||!bounds.defaultWidth||!spatialStylesheetHealthy(dock)){
+      dock.dataset.workspaceResizable="false";
+      delete dock.dataset.workspaceWidth;
+      body.style.removeProperty("--thebe-spatial-width");
+      return 0;
+    }
+    ensureWorkspaceResizeStyle();
+    ensureWorkspaceResizeHandle(dock);
+    const storedRaw=stored===undefined?readStoredWorkspaceWidth():(stored?preferred:null);
+    const hasStored=storedRaw!==null&&storedRaw!==undefined&&Number.isFinite(Number(storedRaw));
+    const base=clampWorkspaceWidth(preferred??storedRaw??bounds.defaultWidth,bounds);
+    // Before the user chooses a size, preserve the roomy expanded state. Once a
+    // manual width is saved, that width becomes authoritative in both states.
+    const active=hasStored?base:(body.classList.contains("thebe-ai-expanded")?Math.max(base,bounds.expandedDefault):base);
+    const clamped=clampWorkspaceWidth(active,bounds);
+    body.style.setProperty("--thebe-spatial-width",`${clamped}px`);
+    dock.dataset.workspaceResizable="true";
+    dock.dataset.workspaceWidth=String(clamped);
+    dock.dataset.workspaceResizeRelease=WORKSPACE_RESIZE_RELEASE;
+    return clamped;
+  }
+
+  function syncWorkspaceResize(dock){
+    return applyWorkspaceWidth(dock,{});
   }
 
   function ensureRecoveryStyle(){
@@ -131,7 +287,12 @@
     if(!document)return false;
     isolateInactiveProperty();
     const dock=document.getElementById("thebeAiDock");
-    if(!dock){releaseAll();return false}
+    if(!dock){
+      document.body?.style?.removeProperty?.("--thebe-spatial-width");
+      releaseAll();
+      return false;
+    }
+    syncWorkspaceResize(dock);
     if(dock.dataset.cssRecovery!=="1"){
       if(spatialStylesheetHealthy(dock)){
         releaseAll();
@@ -140,6 +301,10 @@
       }
       dock.dataset.cssRecovery="1";
     }
+    // Emergency geometry intentionally ignores user sizing. If the primary
+    // spatial stylesheet is unavailable, deterministic fallback dimensions win.
+    document.body?.style?.removeProperty?.("--thebe-spatial-width");
+    dock.dataset.workspaceResizable="false";
     ensureRecoveryStyle();
     const width=viewportWidth();
     const expanded=dock.dataset.expanded==="true";
@@ -175,5 +340,5 @@
     else start();
   }
 
-  global.ThebeDockRecoveryGeometry=Object.freeze({release:RELEASE,propertyIsolationRelease:PROPERTY_ISOLATION_RELEASE,widthFor,geometryFor,repair,isolateInactiveProperty});
+  global.ThebeDockRecoveryGeometry=Object.freeze({release:RELEASE,propertyIsolationRelease:PROPERTY_ISOLATION_RELEASE,workspaceResizeRelease:WORKSPACE_RESIZE_RELEASE,widthFor,geometryFor,workspaceWidthBounds,clampWorkspaceWidth,applyWorkspaceWidth,repair,isolateInactiveProperty});
 })(typeof window!=="undefined"?window:globalThis);
