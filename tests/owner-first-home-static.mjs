@@ -10,6 +10,7 @@ const challenge=fs.readFileSync(new URL('../public/js/owner-recommendation-chall
 const premortem=fs.readFileSync(new URL('../public/js/owner-decision-premortem-v335.js',import.meta.url),'utf8');
 const safeguard=fs.readFileSync(new URL('../public/js/owner-decision-safeguard-gate-v336.js',import.meta.url),'utf8');
 const experiment=fs.readFileSync(new URL('../public/js/owner-decision-experiment-planner-v337.js',import.meta.url),'utf8');
+const resultReview=fs.readFileSync(new URL('../public/js/owner-experiment-result-review-v338.js',import.meta.url),'utf8');
 const businessMemory=fs.readFileSync(new URL('../cloudflare/src/business-memory.js',import.meta.url),'utf8');
 
 for(const token of [
@@ -22,6 +23,7 @@ for(const token of [
   '/js/owner-decision-premortem-v335.js?v=20261015-owner-decision-premortem-v335',
   '/js/owner-decision-safeguard-gate-v336.js?v=20261015-owner-decision-safeguard-gate-v336',
   '/js/owner-decision-experiment-planner-v337.js?v=20261015-owner-decision-experiment-planner-v337',
+  '/js/owner-experiment-result-review-v338.js?v=20261015-owner-experiment-result-review-v338',
   'script.async=false'
 ]){
   if(!wrapper.includes(token))throw new Error('Owner-first bundle loader missing: '+token);
@@ -116,6 +118,15 @@ for(const token of [
   'Outcome rating could not be saved. No business state was changed.'
 ]){
   if(!learning.includes(token))throw new Error('Decision Outcome Learning contract missing: '+token);
+}
+
+for(const token of [
+  'row?.namespace==="operations"&&row?.value?.kind==="owner_experiment_result"',
+  'Owner-confirmed experiment evidence is a separate evidence stream and must not be automatically converted into Better, Mixed, or Worse decision ratings.',
+  'Experiment results remain separate evidence and are not automatically converted into Better, Mixed, or Worse decision outcome ratings.',
+  'render(decisionRows(payload),experimentRows(payload));'
+]){
+  if(!learning.includes(token))throw new Error('Experiment evidence did not remain separate inside Decision Learning: '+token);
 }
 
 for(const forbidden of [
@@ -361,6 +372,55 @@ for(const forbidden of [
 }
 
 for(const token of [
+  'const RELEASE="20261015-owner-experiment-result-review-v338"',
+  'function isOwner(){return role()==="owner"}',
+  'global.ThebeOwnerFocusStrip?.canonicalSnapshot?.()',
+  'global.ThebeOwnerFirstHome?.classify?.(item)',
+  'global.ThebeOwnerDecisionExperimentPlanner?.experimentSpec?.(item)',
+  'return `experiment-result.${tinyHash(source)}.${slug}`.slice(0,80);',
+  'kind:"owner_experiment_result"',
+  'Observed evidence · facts only',
+  'Owner interpretation · separate from observation',
+  'criteriaPredatedTest',
+  'continueCriterion',
+  'stopCriterion',
+  'continue_supported:"Continue evidence met"',
+  'stop_or_revise_supported:"Stop / revise evidence met"',
+  'inconclusive:"Inconclusive"',
+  'Without confirmed pre-defined continue and stop/revise criteria, the saved assessment must remain Inconclusive.',
+  'resultAssessment:criteriaComplete?requestedAssessment:"inconclusive"',
+  'await apiJson("/api/business-memory",{',
+  'namespace:"operations"',
+  'authoritative:false',
+  'authority:"context_only_no_execution"',
+  'Determine whether the observed evidence actually satisfies the pre-defined continue criterion, the stop/revise criterion, both, or neither.',
+  'If source quality, observation period, sample, or criteria are insufficient, say clearly that the result is inconclusive.',
+  'Do not convert correlation into causation.',
+  'Experiment result saved. No business record or action was changed.',
+  'global.ThebeOwnerExperimentResultReview=Object.freeze({'
+]){
+  if(!resultReview.includes(token))throw new Error('Experiment Result Review contract missing: '+token);
+}
+
+for(const forbidden of [
+  'fetch(',
+  'XMLHttpRequest',
+  'method:"PUT"',
+  'method:"PATCH"',
+  'method:"DELETE"',
+  '/api/ai/operator/attention',
+  '/api/business-context/brief',
+  '/api/daily-brief',
+  '/api/payments/',
+  '/execute',
+  '/approve',
+  '/file',
+  '/send'
+]){
+  if(resultReview.includes(forbidden))throw new Error('Experiment Result Review widened authority or added an unapproved mutation path: '+forbidden);
+}
+
+for(const token of [
   'if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);',
   'sourceKind:"owner_confirmed"',
   'BUSINESS_MEMORY_CONFIRMED',
@@ -384,4 +444,4 @@ for(const forbidden of [
 
 if(!legacy.includes('const RELEASE="20260929-v180"'))throw new Error('Legacy executive personalization was not preserved byte-for-byte as the compatibility layer.');
 
-console.log('Owner Attention + Decision Memory + Follow-through + Outcome Learning + Recommendation Calibration + Challenge Mode + Pre-Mortem + Safeguard Gate + Experiment Planner static checks passed');
+console.log('Owner Attention + Decision Memory + Follow-through + Outcome Learning + Recommendation Calibration + Challenge Mode + Pre-Mortem + Safeguard Gate + Experiment Planner + Experiment Result Review static checks passed');
