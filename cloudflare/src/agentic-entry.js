@@ -56,8 +56,11 @@ export * from "./agentic-core-entry.js";
 // (SELECT COUNT(*) FROM finance_customers)
 // (SELECT COUNT(*) FROM finance_invoices)
 // (SELECT COUNT(*) FROM finance_invoice_allocations)
+// agenticAuthoritySchemaReady
+// latestSchemaDelta:V81_SCHEMA_DELTA
 //
-// JIT capability route anchors:
+// Delegated authority / JIT capability route anchors:
+// handleAgenticAuthorityRequest
 // handleJitCapabilityGovernanceRequest
 // const liveTaskFetch=
 // const taskExecutionResponse=await handleJitCapabilityGovernanceRequest({request,logicalPath,env});
@@ -65,12 +68,15 @@ export * from "./agentic-core-entry.js";
 // handleAgenticFinanceReconciliationRequest({request,logicalPath,env})
 // handleAgenticTaskExecutionRequest({request,logicalPath,env})
 //
-// Owner-attention anchors:
+// Owner-attention and canonical owner-login anchors:
 // import {DAILY_BRIEF_PATH,ownerAttentionDailyBrief} from "./owner-attention-entry.js"
 // request.method==="GET"&&logicalPath===DAILY_BRIEF_PATH
 // ownerAttentionDailyBrief({
 // const ownerEnv=withPlatformOwnerAdminEnv(env);
 // preparePlatformOwnerLogin(request,ownerEnv)
+// env=withPlatformOwnerAdminEnv(env)
+// request=await preparePlatformOwnerLogin(request,env)
+// const response=await base.fetch(request,env,ctx)
 //
 // GPT-Live preview ordering / governed-delegation anchors. Preview markers are
 // intentionally before production markers because that ordering is enforced:
