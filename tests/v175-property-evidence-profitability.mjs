@@ -40,7 +40,7 @@ const property=fs.readFileSync("cloudflare/src/property-portfolio.js","utf8");
 const owner=fs.readFileSync("public/js/owner-command-centre.js","utf8");
 const analytics=fs.readFileSync("cloudflare/src/business-analytics.js","utf8");
 const context=fs.readFileSync("cloudflare/src/business-context.js","utf8");
-const agentic=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
+const agentic=fs.readFileSync("cloudflare/src/agentic-core-entry.js","utf8");
 const runner=fs.readFileSync("scripts/migrate-production-v175-property-evidence-profitability.mjs","utf8");
 const workflow=fs.readFileSync(".github/workflows/migrate-production-v175-property-evidence-profitability.yml","utf8");
 

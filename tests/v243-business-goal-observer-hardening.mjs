@@ -13,7 +13,12 @@ const migrationBlobSha=createHash("sha1")
   .update(migrationBytes)
   .digest("hex");
 const loop=fs.readFileSync("cloudflare/src/business-goal-durable-loop.js","utf8");
-const entry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
+const entryWrapper=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
+const entry=fs.readFileSync("cloudflare/src/agentic-core-entry.js","utf8");
+assert.match(entryWrapper,/import core from "\.\/agentic-core-entry\.js";/,
+  "the production entry must load the core whose observer controls are checked below");
+assert.match(entryWrapper,/export default withReportAttachments\(core\);/,
+  "report attachments must decorate the checked core runtime");
 const engine=fs.readFileSync("cloudflare/src/agentic-persistent-tasks.js","utf8");
 const runner=fs.readFileSync("scripts/migrate-production-v243-business-goal-observer.mjs","utf8");
 const workflow=fs.readFileSync(".github/workflows/migrate-production-v243-business-goal-observer.yml","utf8");

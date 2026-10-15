@@ -28,7 +28,7 @@ assert.equal(ready({
 
 const migration=fs.readFileSync("cloudflare/migrations/063_v179_property_valuer_credential_binding.sql","utf8");
 const service=fs.readFileSync("cloudflare/src/property-valuation-services.js","utf8");
-const agentic=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
+const agentic=fs.readFileSync("cloudflare/src/agentic-core-entry.js","utf8");
 const profile=JSON.parse(fs.readFileSync("RELEASE_PROFILE.json","utf8"));
 const runner=fs.readFileSync("scripts/migrate-production-v179-property-valuer-credential-binding.mjs","utf8");
 const workflow=fs.readFileSync(".github/workflows/migrate-production-v179-property-valuer-credential-binding.yml","utf8");

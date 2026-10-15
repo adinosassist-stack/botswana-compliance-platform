@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const agent=fs.readFileSync("cloudflare/src/agentic-finance-reconciliation.js","utf8");
-const entry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
+const entry=fs.readFileSync("cloudflare/src/agentic-core-entry.js","utf8");
 const policy=fs.readFileSync("cloudflare/src/agent-policy.js","utf8");
 
 assert.match(agent,/authenticate\(request,env\)/);
