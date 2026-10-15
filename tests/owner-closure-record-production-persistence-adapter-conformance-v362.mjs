@@ -14,13 +14,13 @@ const requireAll = (source, tokens, label) => {
   for (const token of tokens) assert.ok(source.includes(token), `${label} missing ${token}`);
 };
 
-// Production transaction capability: explicit acquire/begin/commit/rollback/release exists.
+// Production transaction capability: explicit acquire/begin/commit/rollback plus fail-safe release exists.
 requireAll(server, [
   'pool.connect()',
   'client.query("BEGIN")',
   'client.query("COMMIT")',
   'client.query("ROLLBACK")',
-  'client.release()'
+  'client?.release()'
 ], 'Postgres transaction primitive');
 
 // Production optimistic concurrency capability: state mutations bind tenant + observed version.
