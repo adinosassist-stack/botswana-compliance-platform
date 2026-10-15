@@ -47,3 +47,14 @@ test("accessor and symbol-bearing arguments are rejected without executing gette
   const symbol = { amount: 1, [Symbol("hidden")]: "secret" };
   assert.throws(() => agentArgumentDigest(symbol), /non_json_argument/);
 });
+
+test("array extra properties and accessor indices cannot bypass digest validation", () => {
+  const extra = [1, 2];
+  extra.hidden = "ignored-by-json";
+  assert.throws(() => agentArgumentDigest(extra), /non_json_argument/);
+  let accessed = false;
+  const accessor = [1];
+  Object.defineProperty(accessor, "0", { enumerable: true, get() { accessed = true; return 9; } });
+  assert.throws(() => agentArgumentDigest(accessor), /non_json_argument/);
+  assert.equal(accessed, false);
+});
