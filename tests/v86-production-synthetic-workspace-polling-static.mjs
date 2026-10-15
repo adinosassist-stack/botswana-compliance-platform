@@ -3,6 +3,7 @@ import fs from "node:fs";
 
 const source=fs.readFileSync("scripts/production-synthetic-browser-wrapper.mjs","utf8");
 const fullUser=fs.readFileSync("scripts/production-synthetic-full-user-wrapper.mjs","utf8");
+const holdWrapper=fs.readFileSync("scripts/production-synthetic-hold-wrapper.mjs","utf8");
 const workspaceProof=source.slice(source.indexOf("function workspaceAuthoredState"),source.indexOf("async function loginInBrowser"));
 
 assert.ok(workspaceProof.length>0,"workspace proof section must be discoverable");
@@ -22,6 +23,24 @@ assert.doesNotMatch(workspaceProof,/page\.waitForFunction\(/,"production workspa
 assert.match(source,/getComputedStyle\(shell\)/,"computed rendered visibility confirmation must remain after authored readiness");
 assert.match(source,/rendered\.display!=='none'&&rendered\.visibility!=='hidden'&&rendered\.opacity!=='0'&&rendered\.rects>0/,"rendered workspace must still fail closed when not visible");
 assert.match(source,/WORKSPACE_AUTHORED_VISIBILITY_WAIT_MS\+Math\.max\(DIAGNOSTIC_EXTERNAL_DEADLINE_MS,WORKSPACE_COMPUTED_VISIBILITY_DEADLINE_MS\)\+6000<WORKSPACE_EXTERNAL_DEADLINE_MS/,"inner diagnostics plus bounded stack capture must remain inside outer workspace deadline");
+
+assert.match(holdWrapper,/20261015-workspace-late-ready-retry-v0519/,"late-ready retry must expose an auditable release marker");
+assert.match(holdWrapper,/workspace authored-readiness timeout/,"late-ready retry must be scoped to the canonical authored-readiness timeout");
+assert.match(holdWrapper,/gates=\{\"workspaceReady\":true/,"retry requires the timeout diagnostic to prove workspace readiness");
+for(const proof of [
+  /\"shell\":true/,
+  /\"shellHiddenAttribute\":false/,
+  /\"shellHiddenClass\":false/,
+  /\"shellDisplay\":\"\"/,
+  /\"shellVisibility\":\"visible\"/,
+  /\"marketingHidden\":true/,
+  /\"authHidden\":true/,
+  /\"sidebar\":true/
+])assert.match(holdWrapper,proof,"late-ready retry must preserve every authored workspace gate");
+assert.match(holdWrapper,/if\(!isLateReadyWorkspaceDiagnostic\(error\)\)throw error/,"all non-late-ready browser failures must still fail closed");
+assert.equal((holdWrapper.match(/originalProof\(credentials\)/g)||[]).length,2,"late-ready recovery must allow exactly one retry after the original proof attempt");
+assert.match(holdWrapper,/priorProofDescriptor\.set\.call\(globalThis,boundedProof\)/,"full-user wrapper hook composition must remain intact");
+
 assert.ok(fullUser.includes("reporterPage.locator('#reporterPortal').waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS})"),"reporter portal visibility proof must wait for the real rendered portal using the standard bounded workspace timeout");
 assert.ok(fullUser.includes("reporterPage.locator('#reporterEmployeeName',{hasText:syntheticEmployeeName}).waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS})"),"reporter portal proof must wait for the issued employee identity to bind");
 assert.ok(fullUser.includes("reporterPage.locator('#reporterLocationName',{hasText:locationName}).waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS})"),"reporter portal proof must wait for the issued location identity to bind");
