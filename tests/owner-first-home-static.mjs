@@ -8,6 +8,7 @@ const learning=fs.readFileSync(new URL('../public/js/owner-decision-outcome-lear
 const calibration=fs.readFileSync(new URL('../public/js/owner-decision-recommendation-calibration-v333.js',import.meta.url),'utf8');
 const challenge=fs.readFileSync(new URL('../public/js/owner-recommendation-challenge-mode-v334.js',import.meta.url),'utf8');
 const premortem=fs.readFileSync(new URL('../public/js/owner-decision-premortem-v335.js',import.meta.url),'utf8');
+const safeguard=fs.readFileSync(new URL('../public/js/owner-decision-safeguard-gate-v336.js',import.meta.url),'utf8');
 const businessMemory=fs.readFileSync(new URL('../cloudflare/src/business-memory.js',import.meta.url),'utf8');
 
 for(const token of [
@@ -18,6 +19,7 @@ for(const token of [
   '/js/owner-decision-recommendation-calibration-v333.js?v=20261015-owner-decision-recommendation-calibration-v333',
   '/js/owner-recommendation-challenge-mode-v334.js?v=20261015-owner-recommendation-challenge-mode-v334',
   '/js/owner-decision-premortem-v335.js?v=20261015-owner-decision-premortem-v335',
+  '/js/owner-decision-safeguard-gate-v336.js?v=20261015-owner-decision-safeguard-gate-v336',
   'script.async=false'
 ]){
   if(!wrapper.includes(token))throw new Error('Owner-first bundle loader missing: '+token);
@@ -259,6 +261,52 @@ for(const forbidden of [
 }
 
 for(const token of [
+  'const RELEASE="20261015-owner-decision-safeguard-gate-v336"',
+  'function isOwner(){return role()==="owner"}',
+  'global.ThebeOwnerFocusStrip?.canonicalSnapshot?.()',
+  'global.ThebeOwnerFirstHome?.classify?.(item)',
+  'global.ThebeOwnerDecisionPremortem?.premortemSpec?.(item)',
+  'return items.filter(item=>classify(item)==="decision");',
+  'if(state!=="ready")',
+  'Defined, Partial, Missing, or Unknown',
+  'measurable success / failure signal',
+  'early warning signal',
+  'reversible first step or bounded test',
+  'explicit exit trigger / stop condition',
+  'exposure limit or maximum downside where a verified limit exists',
+  'accountable human owner / reviewer',
+  'irreversible commitment requiring extra scrutiny',
+  'Do not infer that a safeguard is defined merely because it would be sensible.',
+  'Do not invent thresholds, limits, probabilities, approvals, or evidence.',
+  'If a threshold or limit is Unknown, state what measurement or owner decision is needed to define it.',
+  'This is an advisory readiness check, not a blocker, approval, or execution gate.',
+  'Exposure signals are presentation heuristics, not an authoritative risk score.',
+  'authoritative:false',
+  'authority:"context_only_no_execution"',
+  'global.ThebeOwnerDecisionSafeguardGate=Object.freeze({'
+]){
+  if(!safeguard.includes(token))throw new Error('Decision Safeguard Gate contract missing: '+token);
+}
+
+for(const forbidden of [
+  'apiJson(',
+  'fetch(',
+  'XMLHttpRequest',
+  'method:"POST"',
+  'method:"PUT"',
+  'method:"PATCH"',
+  'method:"DELETE"',
+  '/api/',
+  '/execute',
+  '/approve',
+  '/payments/',
+  '/file',
+  '/send'
+]){
+  if(safeguard.includes(forbidden))throw new Error('Decision Safeguard Gate widened authority or added a network/mutation path: '+forbidden);
+}
+
+for(const token of [
   'if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);',
   'sourceKind:"owner_confirmed"',
   'BUSINESS_MEMORY_CONFIRMED',
@@ -282,4 +330,4 @@ for(const forbidden of [
 
 if(!legacy.includes('const RELEASE="20260929-v180"'))throw new Error('Legacy executive personalization was not preserved byte-for-byte as the compatibility layer.');
 
-console.log('Owner Attention + Decision Memory + Follow-through + Outcome Learning + Recommendation Calibration + Challenge Mode + Pre-Mortem static checks passed');
+console.log('Owner Attention + Decision Memory + Follow-through + Outcome Learning + Recommendation Calibration + Challenge Mode + Pre-Mortem + Safeguard Gate static checks passed');
