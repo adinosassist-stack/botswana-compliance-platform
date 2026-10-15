@@ -6,6 +6,7 @@ const owner=fs.readFileSync(new URL('../public/js/owner-first-home-v328.js',impo
 const follow=fs.readFileSync(new URL('../public/js/owner-decision-follow-through-v331.js',import.meta.url),'utf8');
 const learning=fs.readFileSync(new URL('../public/js/owner-decision-outcome-learning-v332.js',import.meta.url),'utf8');
 const calibration=fs.readFileSync(new URL('../public/js/owner-decision-recommendation-calibration-v333.js',import.meta.url),'utf8');
+const challenge=fs.readFileSync(new URL('../public/js/owner-recommendation-challenge-mode-v334.js',import.meta.url),'utf8');
 const businessMemory=fs.readFileSync(new URL('../cloudflare/src/business-memory.js',import.meta.url),'utf8');
 
 for(const token of [
@@ -14,6 +15,7 @@ for(const token of [
   '/js/owner-decision-follow-through-v331.js?v=20261015-owner-decision-follow-through-v331',
   '/js/owner-decision-outcome-learning-v332.js?v=20261015-owner-decision-outcome-learning-v332',
   '/js/owner-decision-recommendation-calibration-v333.js?v=20261015-owner-decision-recommendation-calibration-v333',
+  '/js/owner-recommendation-challenge-mode-v334.js?v=20261015-owner-recommendation-challenge-mode-v334',
   'script.async=false'
 ]){
   if(!wrapper.includes(token))throw new Error('Owner-first bundle loader missing: '+token);
@@ -166,6 +168,50 @@ for(const forbidden of [
 }
 
 for(const token of [
+  'const RELEASE="20261015-owner-recommendation-challenge-mode-v334"',
+  'function isOwner(){return role()==="owner"}',
+  'global.ThebeOwnerFocusStrip?.canonicalSnapshot?.()',
+  'global.ThebeOwnerFirstHome?.classify?.(item)',
+  'global.ThebeOwnerDecisionRecommendationCalibration?.getCalibration?.(sourceType(item))',
+  'return items.filter(item=>classify(item)==="decision");',
+  'if(state!=="ready")',
+  'strongest evidence-based case AGAINST that recommendation',
+  'verified evidence supporting it',
+  'verified evidence against it',
+  'assumptions and material unknowns',
+  'the specific new evidence or threshold that would reverse the recommendation',
+  'Current verified evidence must override contradictory historical patterns.',
+  'Historical outcomes are descriptive, not causal proof.',
+  'Do not invent evidence.',
+  'safest reversible next step',
+  'authoritative:false',
+  'authority:"context_only_no_execution"',
+  'Challenge Mode is advisory and read-only.',
+  'does not create a second decision queue',
+  'global.ThebeOwnerRecommendationChallengeMode=Object.freeze({'
+]){
+  if(!challenge.includes(token))throw new Error('Recommendation Challenge Mode contract missing: '+token);
+}
+
+for(const forbidden of [
+  'apiJson(',
+  'fetch(',
+  'XMLHttpRequest',
+  'method:"POST"',
+  'method:"PUT"',
+  'method:"PATCH"',
+  'method:"DELETE"',
+  '/api/',
+  '/execute',
+  '/approve',
+  '/payments/',
+  '/file',
+  '/send'
+]){
+  if(challenge.includes(forbidden))throw new Error('Recommendation Challenge Mode widened authority or added a network/mutation path: '+forbidden);
+}
+
+for(const token of [
   'if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);',
   'sourceKind:"owner_confirmed"',
   'BUSINESS_MEMORY_CONFIRMED',
@@ -189,4 +235,4 @@ for(const forbidden of [
 
 if(!legacy.includes('const RELEASE="20260929-v180"'))throw new Error('Legacy executive personalization was not preserved byte-for-byte as the compatibility layer.');
 
-console.log('Owner Attention + Decision Memory + Follow-through + Outcome Learning + Recommendation Calibration static checks passed');
+console.log('Owner Attention + Decision Memory + Follow-through + Outcome Learning + Recommendation Calibration + Challenge Mode static checks passed');
