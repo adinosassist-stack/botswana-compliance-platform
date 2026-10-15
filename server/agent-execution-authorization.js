@@ -16,7 +16,8 @@ export async function authorizeAgentExecution({ store, action, args, context, ap
       if (typeof tx.getApproval !== "function" || typeof tx.consumeApproval !== "function" || typeof tx.appendAudit !== "function") {
         throw new Error("missing_transaction_capabilities");
       }
-      const trustedContext = { ...context, now: Date.now() };\n      const approval = approvalId ? await tx.getApproval(approvalId) : null;
+      const trustedContext = { ...context, now: Date.now() };
+      const approval = approvalId ? await tx.getApproval(approvalId) : null;
       const decision = evaluateAgentAction({ action, args, context: trustedContext, approval, policy });
       const event = {
         id: randomUUID(), tenantId: context?.tenantId ?? null,
