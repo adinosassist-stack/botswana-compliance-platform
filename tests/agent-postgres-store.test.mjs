@@ -61,3 +61,10 @@ test("invalid database client with release callback is returned to pool", async 
   await assert.rejects(store.transaction(async () => true), /invalid_agent_database_client/);
   assert.equal(releases, 1);
 });
+
+test("malformed client release failure preserves the original validation error", async () => {
+  const store = createPostgresAgentApprovalStore({
+    async connect() { return { release() { throw Error("release failed"); } }; }
+  }, "tenant-a");
+  await assert.rejects(store.transaction(async () => true), /invalid_agent_database_client/);
+});
