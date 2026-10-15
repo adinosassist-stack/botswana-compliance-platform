@@ -11,6 +11,12 @@
     worse:"Worse outcome",
     insufficient:"Not enough evidence"
   });
+  const EXPERIMENT_ASSESSMENTS=Object.freeze({
+    continue_supported:"Continue evidence met",
+    stop_or_revise_supported:"Stop / revise evidence met",
+    mixed:"Mixed evidence",
+    inconclusive:"Inconclusive"
+  });
   const q=(selector,root=document)=>root.querySelector(selector);
   let refreshTimer=null;
   let refreshBusy=false;
@@ -102,6 +108,10 @@
     const rows=Array.isArray(payload?.items)?payload.items:[];
     return rows.filter(row=>row?.namespace==="operations"&&row?.value?.kind==="owner_decision_note");
   }
+  function experimentRows(payload){
+    const rows=Array.isArray(payload?.items)?payload.items:[];
+    return rows.filter(row=>row?.namespace==="operations"&&row?.value?.kind==="owner_experiment_result");
+  }
   function reviewedRows(rows){
     return rows.filter(row=>Boolean(row?.value?.lastReviewedAt)||["kept","closed"].includes(String(row?.value?.reviewState||"")));
   }
@@ -116,6 +126,15 @@
       const key=assessment(row);
       if(key)result[key]+=1;
       else result.unrated+=1;
+    });
+    return result;
+  }
+  function experimentCounts(rows){
+    const result={total:rows.length,continue_supported:0,stop_or_revise_supported:0,mixed:0,inconclusive:0};
+    rows.forEach(row=>{
+      const key=String(row?.value?.resultAssessment||"inconclusive");
+      if(Object.hasOwn(EXPERIMENT_ASSESSMENTS,key))result[key]+=1;
+      else result.inconclusive+=1;
     });
     return result;
   }
@@ -149,10 +168,15 @@
     global.ThebeOwnerFocusStrip?.focusThebe?.();
     return false;
   }
-  function askThebeLearning(rows){
+  function askThebeLearning(rows,experiments=[]){
     const totals=counts(rows);
+    const experimentTotals=experimentCounts(experiments);
     const grouped=patterns(rows).map(group=>`${friendlyType(group.sourceType)}: ${group.better} better, ${group.mixed} mixed, ${group.worse} worse, ${group.insufficient} not enough evidence`).join("; ")||"No decision type has at least two owner-rated outcomes yet";
-    setDockPrompt(`Review my owner-confirmed decision outcomes. Reviewed: ${totals.reviewed}; better: ${totals.better}; mixed: ${totals.mixed}; worse: ${totals.worse}; not enough evidence: ${totals.insufficient}; awaiting owner rating: ${totals.unrated}. Descriptive groups: ${grouped}. Use current verified business context and owner-confirmed notes to explain possible patterns, but do not claim causation from these counts. Separate evidence, hypotheses, and unknowns. Do not execute anything or change any business record.`);
+    const experimentEvidence=experiments.slice(0,4).map(row=>{
+      const value=row?.value||{};
+      return `${clean(value.title,120)||"Decision"}: ${EXPERIMENT_ASSESSMENTS[value.resultAssessment]||"Inconclusive"}; observed ${clean(value.observedEvidence,220)||"no observation recorded"}`;
+    }).join("; ")||"No owner-confirmed experiment result is recorded";
+    setDockPrompt(`Review my owner-confirmed decision outcomes. Reviewed: ${totals.reviewed}; better: ${totals.better}; mixed: ${totals.mixed}; worse: ${totals.worse}; not enough evidence: ${totals.insufficient}; awaiting owner rating: ${totals.unrated}. Descriptive groups: ${grouped}. Owner-confirmed experiment evidence is a separate evidence stream and must not be automatically converted into Better, Mixed, or Worse decision ratings. Experiment results: ${experimentTotals.total}; continue evidence met: ${experimentTotals.continue_supported}; stop/revise evidence met: ${experimentTotals.stop_or_revise_supported}; mixed: ${experimentTotals.mixed}; inconclusive: ${experimentTotals.inconclusive}. Latest experiment evidence: ${experimentEvidence}. Use current verified business context and owner-confirmed notes to explain possible patterns, but do not claim causation from these counts or experiments. Separate evidence, hypotheses, and unknowns. Do not execute anything or change any business record.`);
   }
 
   async function saveAssessment(row,value){
@@ -198,20 +222,21 @@
     return item;
   }
 
-  function render(rows){
+  function render(rows,experiments=[]){
     const section=ensureSection();
     if(!section)return;
     const reviewed=reviewedRows(rows);
-    if(!reviewed.length){section.remove();return}
+    if(!reviewed.length&&!experiments.length){section.remove();return}
     const totals=counts(rows);
+    const experimentTotals=experimentCounts(experiments);
     const grouped=patterns(rows);
     section.replaceChildren();
 
     const head=node("div",undefined,"decision-learning-head");
     const copy=node("div");
-    copy.append(node("div","Decision outcome learning","section-eyebrow"),node("h4","Learn from owner-confirmed outcomes"),node("div","Descriptive learning from decisions you reviewed. It does not change canonical business data or create execution authority.","decision-learning-meta"));
+    copy.append(node("div","Decision outcome learning","section-eyebrow"),node("h4","Learn from owner-confirmed outcomes"),node("div","Descriptive learning from decisions you reviewed and owner-confirmed experiment evidence. It does not change canonical business data or create execution authority.","decision-learning-meta"));
     const actions=node("div",undefined,"decision-learning-head-actions");
-    actions.append(button("Ask Thebe",()=>askThebeLearning(rows),"btn alt"));
+    actions.append(button("Ask Thebe",()=>askThebeLearning(rows,experiments),"btn alt"));
     head.append(copy,actions);
     section.append(head);
 
@@ -228,7 +253,7 @@
       unrated.slice(0,3).forEach(row=>list.append(pendingItem(row)));
       pending.append(list);
       if(unrated.length>3)pending.append(node("div",`${unrated.length-3} more reviewed decisions still need an owner outcome rating.`,"decision-learning-empty"));
-    }else pending.append(node("div","All currently reviewed decisions have an owner-confirmed outcome rating.","decision-learning-empty"));
+    }else pending.append(node("div",reviewed.length?"All currently reviewed decisions have an owner-confirmed outcome rating.":"No reviewed decision is currently waiting for an outcome rating.","decision-learning-empty"));
 
     const patternPanel=node("section",undefined,"decision-learning-panel");
     patternPanel.append(node("h5","Observed decision patterns"));
@@ -241,6 +266,9 @@
       });
       patternPanel.append(list,node("div","Owner-confirmed descriptive pattern only. These counts do not prove that a decision caused the later outcome.","decision-learning-note"));
     }else patternPanel.append(node("div","At least two owner-rated outcomes in the same decision type are required before a pattern is shown.","decision-learning-empty"));
+    if(experimentTotals.total){
+      patternPanel.append(node("div",`Owner-confirmed experiment evidence · ${experimentTotals.total} result${experimentTotals.total===1?"":"s"} · ${experimentTotals.continue_supported} continue · ${experimentTotals.stop_or_revise_supported} stop/revise · ${experimentTotals.mixed} mixed · ${experimentTotals.inconclusive} inconclusive. Experiment results remain separate evidence and are not automatically converted into Better, Mixed, or Worse decision outcome ratings.`,"decision-learning-note"));
+    }else patternPanel.append(node("div","No owner-confirmed experiment result has been recorded yet.","decision-learning-note"));
     grid.append(pending,patternPanel);
     section.append(grid);
   }
@@ -254,7 +282,7 @@
     refreshBusy=true;
     try{
       const payload=await apiJson("/api/business-memory");
-      render(decisionRows(payload));
+      render(decisionRows(payload),experimentRows(payload));
     }catch{
       const section=ensureSection();
       if(section)section.replaceChildren(node("div","Decision outcome learning is temporarily unavailable. No business state was changed.","decision-learning-error"));
