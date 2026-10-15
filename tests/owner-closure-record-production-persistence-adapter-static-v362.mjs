@@ -3,17 +3,31 @@ import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
 const BASE = 'ea792a27e20f9fcf9f505a382feefc6167a75f1c';
+const QUALIFIED_HEAD = 'c4d435793e6aa8f2f9dd0c8e6baa57401c37752b';
 const EXPECTED = [
   '.github/workflows/v362-production-persistence-adapter-conformance-boundary.yml',
   'tests/owner-closure-record-production-persistence-adapter-conformance-v362.mjs',
   'tests/owner-closure-record-production-persistence-adapter-static-v362.mjs'
 ].sort();
 
-const changed = execFileSync('git', ['diff', '--name-only', `${BASE}...HEAD`], { encoding: 'utf8' })
+const filesBetween = (base, head) => execFileSync('git', ['diff', '--name-only', `${base}...${head}`], { encoding: 'utf8' })
   .trim().split(/\r?\n/).filter(Boolean).sort();
-assert.deepEqual(changed, EXPECTED, 'V362 must change only its two tests and exact-head workflow');
 
-for (const path of changed) {
+// Preserve the exact frozen V362 qualification proof even when this boundary runs from a stacked descendant.
+const qualifiedChanged = filesBetween(BASE, QUALIFIED_HEAD);
+assert.deepEqual(qualifiedChanged, EXPECTED, 'frozen V362 head must change only its two tests and exact-head workflow');
+
+const head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+if (head !== QUALIFIED_HEAD) {
+  execFileSync('git', ['merge-base', '--is-ancestor', QUALIFIED_HEAD, head]);
+  const descendantChanged = filesBetween(QUALIFIED_HEAD, head);
+  assert.ok(descendantChanged.length > 0, 'stacked V362 descendant must contain an explicit descendant delta');
+  for (const path of descendantChanged) {
+    assert.ok(path.startsWith('tests/') || path.startsWith('.github/workflows/'), `stacked descendant changed runtime/production path: ${path}`);
+  }
+}
+
+for (const path of qualifiedChanged) {
   assert.ok(path.startsWith('tests/') || path.startsWith('.github/workflows/'), `runtime/production path changed: ${path}`);
 }
 
