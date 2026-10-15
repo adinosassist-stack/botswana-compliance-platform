@@ -35,7 +35,9 @@ function canonicalJsonInner(value, seen) {
 }
 
 export function agentArgumentDigest(args) {
-  return createHash("sha256").update(canonicalJson(args)).digest("hex");
+  const encoded = canonicalJson(args);
+  if (Buffer.byteLength(encoded, "utf8") > 65536) throw new TypeError("agent_arguments_too_large");
+  return createHash("sha256").update(encoded).digest("hex");
 }
 
 function equal(a, b) {
