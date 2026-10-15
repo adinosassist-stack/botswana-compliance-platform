@@ -46,7 +46,8 @@
     "/js/owner-closure-record-confirmation-review-v355.js?v=20261015-owner-closure-record-confirmation-review-v355",
     "/js/owner-closure-record-persistence-preflight-v356.js?v=20261015-owner-closure-record-persistence-preflight-v356",
     "/js/owner-closure-record-persistence-authorization-gate-v357.js?v=20261015-owner-closure-record-persistence-authorization-gate-v357",
-    "/js/owner-closure-record-persistence-commit-preview-v358.js?v=20261015-owner-closure-record-persistence-commit-preview-v358"
+    "/js/owner-closure-record-persistence-commit-preview-v358.js?v=20261015-owner-closure-record-persistence-commit-preview-v358",
+    "/js/owner-closure-record-persistence-write-handoff-gate-v359.js?v=20261015-owner-closure-record-persistence-write-handoff-gate-v359"
   ];
   const q=(selector,root=document)=>root.querySelector(selector);
   let telemetryBusy=false;
