@@ -1,7 +1,7 @@
 (()=>{
   "use strict";
 
-  const RELEASE="20261015-market-thebe-adjustable-width-v281";
+  const RELEASE="20261013-market-thebe-gemini-parity-v275";
   const DOCK_ID="thebeAiDock";
   const GATE_ID="marketingGate";
   const OWNED_PROPS=["left","right","top","bottom","width","min-width","max-width","height","min-height","max-height","border-radius","box-sizing"];
