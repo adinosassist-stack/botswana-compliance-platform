@@ -20,3 +20,9 @@ test("deny over budget", () => assert.equal(decide({ policy: { ...policy, estima
 test("deny non-allowlisted tools", () => assert.equal(decide({ action: "unknown.execute" }).allowed, false));
 test("canonical argument hash ignores key order", () => assert.equal(agentArgumentDigest({ a: 1, b: 2 }), agentArgumentDigest({ b: 2, a: 1 })));
 test("allow approved drafting without financial execution", () => assert.equal(decide({ action: "invoice.draft", approval: null }).allowed, true));
+
+test("deny unknown action even when configured in allowlist", () => {
+  const result = decide({ action: "unknown.action", policy: { ...policy, allowedActions: [...policy.allowedActions, "unknown.action"] } });
+  assert.equal(result.allowed, false);
+  assert.equal(result.reason, "unclassified_action");
+});
