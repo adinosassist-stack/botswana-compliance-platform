@@ -42,7 +42,7 @@ assert.ok(source.includes('idempotencyMatches(rows,idem)'),'must inspect visible
 assert.ok(lower.includes('do not infer implementation completeness from architecture labels, framework names, database brands'),'must reject vague architecture claims');
 assert.ok(lower.includes('same transaction or equivalent indivisible operation as persistence'),'must require atomic idempotency with persistence');
 assert.ok(lower.includes('truthful durable success acknowledgement only after commit'),'must require truthful success acknowledgement');
-assert.ok(lower.includes('do not invent authentication, identity assurance, endpoint, route, http method, database command, transaction isolation level'),'must forbid invented writer details');
+assert.ok(lower.includes('never invent authentication, identity assurance, endpoint, route, http method, database command, transaction isolation level'),'must forbid invented writer details');
 assert.ok(lower.includes('do not create numeric confidence, probability, risk, urgency, readiness, dependency, reversibility, materiality, completion, success, closure, attribution, fidelity, duplication, authorization, replay, commit, persistence, handoff, atomicity, specification, test-coverage, or causal scores'),'must prohibit numeric scores');
 assert.ok(lower.includes('do not persist any input or review result'),'must forbid persistence');
 assert.ok(lower.includes('do not create/invoke/configure/deploy a writer'),'must forbid writer activation');
