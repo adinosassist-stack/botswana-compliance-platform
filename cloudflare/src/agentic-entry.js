@@ -51,12 +51,16 @@ export * from "./agentic-core-entry.js";
 // const hardened=traceRequested?injectSyntheticBootTrace(request,guarded):guarded;
 //
 // Migration/readiness anchors:
+// const V81_SCHEMA_DELTA="068_agent_cost_accounting.sql"
 // 068_agent_cost_accounting.sql
 // agent_jit_execution_permits
 // (SELECT COUNT(*) FROM finance_customers)
 // (SELECT COUNT(*) FROM finance_invoices)
 // (SELECT COUNT(*) FROM finance_invoice_allocations)
+// delegatedAuthoritySchemaReady
 // agenticAuthoritySchemaReady
+// coreSchemaReady
+// if(!schemaReady&&!next.error)next.error="schema_outdated"
 // latestSchemaDelta:V81_SCHEMA_DELTA
 //
 // WhatsApp dispatch precedes delegated-authority fallback in the live core:
