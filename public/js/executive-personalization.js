@@ -41,7 +41,8 @@
     "/js/owner-transition-completion-evidence-review-v350.js?v=20261015-owner-transition-completion-evidence-review-v350",
     "/js/owner-transition-outcome-success-review-v351.js?v=20261015-owner-transition-outcome-success-review-v351",
     "/js/owner-decision-closure-readiness-review-v352.js?v=20261015-owner-decision-closure-readiness-review-v352",
-    "/js/owner-decision-closure-brief-v353.js?v=20261015-owner-decision-closure-brief-v353"
+    "/js/owner-decision-closure-brief-v353.js?v=20261015-owner-decision-closure-brief-v353",
+    "/js/owner-closure-decision-record-draft-v354.js?v=20261015-owner-closure-decision-record-draft-v354"
   ];
   const q=(selector,root=document)=>root.querySelector(selector);
   let telemetryBusy=false;
