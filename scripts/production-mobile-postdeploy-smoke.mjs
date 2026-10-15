@@ -35,7 +35,7 @@ try{
   }));
   assert.match(publicState.title,/Thebe Desk/i);
   assert.equal(publicState.marketing,true,'public homepage container missing');
-  assert.equal(publicState.hero,'Run your Botswana business with fewer surprises.','current public homepage hero is missing on mobile root');
+  assert.equal(publicState.hero,'Run money, people, work and compliance from one intelligent desk.','current v21 public homepage hero is missing on mobile root');
   assert.equal(publicState.appShell,false,'plain mobile root leaked the workspace shell');
   assert.equal(publicState.authForm,false,'plain mobile root leaked the authentication form');
   assert.equal(publicState.rolePortal,false,'plain mobile root exposed the role-access portal instead of the public homepage');
