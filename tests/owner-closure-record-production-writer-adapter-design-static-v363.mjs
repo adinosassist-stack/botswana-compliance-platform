@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
 const BASE = 'c4d435793e6aa8f2f9dd0c8e6baa57401c37752b';
+const QUALIFIED_HEAD = 'b6769aa1d9bcd1ec5c73fa15d447d86e5b388695';
 const EXPECTED = [
   '.github/workflows/v363-production-writer-adapter-design-review-boundary.yml',
   'tests/owner-closure-record-production-persistence-adapter-static-v362.mjs',
@@ -10,10 +11,24 @@ const EXPECTED = [
   'tests/owner-closure-record-production-writer-adapter-design-static-v363.mjs'
 ].sort();
 
-const changed = execFileSync('git', ['diff', '--name-only', `${BASE}...HEAD`], { encoding: 'utf8' })
+const filesBetween = (base, head) => execFileSync('git', ['diff', '--name-only', `${base}...${head}`], { encoding: 'utf8' })
   .trim().split(/\r?\n/).filter(Boolean).sort();
-assert.deepEqual(changed, EXPECTED, 'V363 must change only its two design tests, exact-head workflow, and stack-aware V362 static boundary');
-for (const path of changed) {
+
+// Preserve the exact frozen V363 qualification proof even when this boundary runs from a stacked descendant.
+const qualifiedChanged = filesBetween(BASE, QUALIFIED_HEAD);
+assert.deepEqual(qualifiedChanged, EXPECTED, 'frozen V363 head must preserve its exact four-file design-review delta');
+
+const head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+if (head !== QUALIFIED_HEAD) {
+  execFileSync('git', ['merge-base', '--is-ancestor', QUALIFIED_HEAD, head]);
+  const descendantChanged = filesBetween(QUALIFIED_HEAD, head);
+  assert.ok(descendantChanged.length > 0, 'stacked V363 descendant must contain an explicit descendant delta');
+  for (const path of descendantChanged) {
+    assert.ok(path.startsWith('tests/') || path.startsWith('.github/workflows/'), `stacked V363 descendant changed runtime/production path: ${path}`);
+  }
+}
+
+for (const path of qualifiedChanged) {
   assert.ok(path.startsWith('tests/') || path.startsWith('.github/workflows/'), `runtime/production path changed: ${path}`);
 }
 
