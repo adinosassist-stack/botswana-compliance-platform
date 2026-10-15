@@ -1,0 +1,40 @@
+name: Agent Governance PostgreSQL Integration
+on:
+  pull_request:
+    paths:
+      - "db/migrations/20261015_agent_action_governance.sql"
+      - "db/migrations/20261016_agent_governance_integrity.sql"
+      - "tests/agent-postgres-integration.test.mjs"
+      - ".github/workflows/agent-governance-postgres.yml"
+  workflow_dispatch:
+jobs:
+  postgres-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: agent
+          POSTGRES_PASSWORD: agent_test_only
+          POSTGRES_DB: governance
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U agent -d governance"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://agent:agent_test_only@localhost:5432/governance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci
+      - name: Apply agent governance migrations
+        run: |
+          PGPASSWORD=agent_test_only psql -h localhost -U agent -d governance -v ON_ERROR_STOP=1 -f db/migrations/20261015_agent_action_governance.sql
+          PGPASSWORD=agent_test_only psql -h localhost -U agent -d governance -v ON_ERROR_STOP=1 -f db/migrations/20261016_agent_governance_integrity.sql
+      - name: Run real PostgreSQL tests
+        run: node --test tests/agent-postgres-integration.test.mjs
