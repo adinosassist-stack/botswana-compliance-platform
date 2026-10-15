@@ -13,7 +13,7 @@ test("safe action catalogue contains no money movement", () => {
   assert.ok(!SAFE_AGENT_ACTIONS.includes("money.transfer"));
 });
 test("missing trusted clock denies", () => {
-  assert.equal(evaluateAgentAction({ action: "invoice.draft", args: {}, context: { tenantId: "tenant-a", actorId: "owner-a" }, policy }).allowed, false);
+  assert.equal(evaluateAgentAction({ action: "invoice.draft", args: {}, context: { tenantId: "tenant-a", actorId: "owner-a" }, policy }).reason, "invalid_server_time");
 });
 test("draft actions still require tenant identity and spend budget", () => {
   assert.equal(evaluateAgentAction({ action: "invoice.draft", args: {}, context: { actorId: "owner-a", now: Date.now() }, policy }).allowed, false);
