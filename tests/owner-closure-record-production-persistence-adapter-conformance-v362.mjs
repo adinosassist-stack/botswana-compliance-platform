@@ -64,11 +64,21 @@ requireAll(server, [
   'scan_job_stale_or_consumed',
   'crypto.timingSafeEqual'
 ], 'single-consumption replay primitive');
-requireAll(replayMigration, [
-  'scan_job_id',
-  'scan_job_issued_at',
-  'scan_job_consumed_at'
-], 'replay-hardening migration');
+assert.match(
+  replayMigration,
+  /alter\s+table\s+evidence\s+add\s+column\s+if\s+not\s+exists\s+scan_job_id\s+uuid/i,
+  'replay-hardening migration must persist the authoritative scan job id'
+);
+assert.match(
+  replayMigration,
+  /alter\s+table\s+evidence\s+add\s+column\s+if\s+not\s+exists\s+scan_job_consumed_at\s+timestamptz/i,
+  'replay-hardening migration must persist one-time consumption state'
+);
+assert.match(
+  replayMigration,
+  /create\s+index\s+if\s+not\s+exists\s+evidence_scan_job_idx\s+on\s+evidence\(scan_job_id\)\s+where\s+scan_job_id\s+is\s+not\s+null/i,
+  'replay-hardening migration must index non-null scan job claims'
+);
 
 // Existing isolated executable tests prove CAS, exact replay binding, and atomic rollback shapes.
 requireAll(casTest, [
