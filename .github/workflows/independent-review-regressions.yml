@@ -226,6 +226,14 @@ jobs:
           node --check tests/owner-transition-stage-readiness-gate-static.mjs
           node tests/owner-transition-stage-readiness-gate-static.mjs
 
+      - name: Owner transition stage outcome checkpoint boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check public/js/owner-transition-stage-outcome-checkpoint-v349.js
+          node --check tests/owner-transition-stage-outcome-checkpoint-static.mjs
+          node tests/owner-transition-stage-outcome-checkpoint-static.mjs
+
       - name: Regulatory reviewer provisioning governance
         shell: bash
         run: |
