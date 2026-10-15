@@ -10,6 +10,9 @@ const EXPECTED = [
   'tests/owner-closure-record-production-writer-adapter-design-review-v363.mjs',
   'tests/owner-closure-record-production-writer-adapter-design-static-v363.mjs'
 ].sort();
+const ALLOWED_SCHEMA_DESCENDANT = new Set([
+  'db/migrations/033_v365_owner_closure_records.sql'
+]);
 
 const filesBetween = (base, head) => execFileSync('git', ['diff', '--name-only', `${base}...${head}`], { encoding: 'utf8' })
   .trim().split(/\r?\n/).filter(Boolean).sort();
@@ -24,7 +27,8 @@ if (head !== QUALIFIED_HEAD) {
   const descendantChanged = filesBetween(QUALIFIED_HEAD, head);
   assert.ok(descendantChanged.length > 0, 'stacked V363 descendant must contain an explicit descendant delta');
   for (const path of descendantChanged) {
-    assert.ok(path.startsWith('tests/') || path.startsWith('.github/workflows/'), `stacked V363 descendant changed runtime/production path: ${path}`);
+    const safe = path.startsWith('tests/') || path.startsWith('.github/workflows/') || ALLOWED_SCHEMA_DESCENDANT.has(path);
+    assert.ok(safe, `stacked V363 descendant changed unauthorized runtime/production path: ${path}`);
   }
 }
 
@@ -54,7 +58,7 @@ const forbidden = [
   /CREATE\s+TABLE\s+owner_closure/i,
   /ALTER\s+TABLE\s+owner_closure/i
 ];
-for (const pattern of forbidden) assert.ok(!pattern.test(combined), `V363 must remain design-only/non-routable: ${pattern}`);
+for (const pattern of forbidden) assert.ok(!pattern.test(combined), `V363 frozen design proof must remain design-only/non-routable: ${pattern}`);
 
 for (const token of [
   "storageModel: 'immutable_append_only_closure_record'",
@@ -79,7 +83,7 @@ for (const token of [
 for (const token of [
   "const QUALIFIED_HEAD = 'c4d435793e6aa8f2f9dd0c8e6baa57401c37752b'",
   "execFileSync('git', ['merge-base', '--is-ancestor', QUALIFIED_HEAD, head])",
-  'stacked descendant changed runtime/production path'
+  'stacked descendant changed unauthorized runtime/production path'
 ]) assert.ok(v362Static.includes(token), `missing V362 descendant-safe boundary: ${token}`);
 
 assert.ok(workflow.includes('Checkout exact PR head'), 'V363 workflow must checkout exact PR head');

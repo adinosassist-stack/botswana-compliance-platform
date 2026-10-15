@@ -1,16 +1,17 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { execFileSync } from 'node:child_process';
 
 const read = (path) => fs.readFileSync(path, 'utf8');
+const V364_QUALIFIED_HEAD = '5aefd271b40563df098bcc9451de2461a124363c';
+const APPROVED_V365_MIGRATION = 'db/migrations/033_v365_owner_closure_records.sql';
+const head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 const v363 = read('tests/owner-closure-record-production-writer-adapter-design-review-v363.mjs');
 const v362 = read('tests/owner-closure-record-production-persistence-adapter-conformance-v362.mjs');
 const server = read('server/server.js');
 const migrationDir = 'db/migrations';
-const migrations = fs.readdirSync(migrationDir)
-  .filter((name) => name.endsWith('.sql'))
-  .sort()
-  .map((name) => read(`${migrationDir}/${name}`))
-  .join('\n');
+const migrationFiles = fs.readdirSync(migrationDir).filter((name) => name.endsWith('.sql')).sort();
+const migrations = migrationFiles.map((name) => read(`${migrationDir}/${name}`)).join('\n');
 
 const requireAll = (source, tokens, label) => {
   for (const token of tokens) assert.ok(source.includes(token), `${label} missing ${token}`);
@@ -100,11 +101,21 @@ requireAll(v362, [
   'liveClosurePersistenceEnabled: false'
 ], 'V362 production primitive evidence');
 
-// Readiness must be evaluated before a closure writer/schema/route exists, not inferred after production mutation surfaces appear.
-assert.ok(!server.includes('owner_closure_record'), 'V364 expects no existing production owner_closure_record writer');
-assert.ok(!server.includes('/api/owner-closure'), 'V364 expects no existing production owner-closure route');
-assert.ok(!/create\s+table\s+(?:if\s+not\s+exists\s+)?owner_closure/i.test(migrations), 'V364 expects no existing owner closure schema migration');
-assert.ok(!/alter\s+table\s+owner_closure/i.test(migrations), 'V364 expects no existing owner closure schema mutation');
+const closureSchemaPresent = /create\s+table\s+(?:if\s+not\s+exists\s+)?owner_closure/i.test(migrations)
+  || /alter\s+table\s+owner_closure/i.test(migrations);
+
+// Freeze V364's original pre-schema claim at its exact qualified head. Approved descendants may add only
+// the specifically named V365 schema foundation while still having no production writer or route.
+assert.ok(!server.includes('owner_closure_record'), 'V364/V365 stack expects no production owner_closure_record writer');
+assert.ok(!server.includes('/api/owner-closure'), 'V364/V365 stack expects no production owner-closure route');
+if (head === V364_QUALIFIED_HEAD) {
+  assert.equal(closureSchemaPresent, false, 'frozen V364 head must predate any owner closure schema migration');
+} else {
+  execFileSync('git', ['merge-base', '--is-ancestor', V364_QUALIFIED_HEAD, head]);
+  assert.ok(migrationFiles.includes('033_v365_owner_closure_records.sql'), 'schema-bearing descendant must use the approved V365 migration filename');
+  assert.ok(fs.existsSync(APPROVED_V365_MIGRATION), 'approved V365 migration must exist');
+  assert.equal(closureSchemaPresent, true, 'approved schema-bearing descendant must contain the V365 closure schema foundation');
+}
 
 // The implementation plan must be complete enough to prevent a route-first or client-authoritative writer.
 const requiredPrerequisites = new Set(readiness.implementationPrerequisites);
@@ -141,7 +152,7 @@ for (const code of [
   'PERSISTENCE_TRANSACTION_ABORTED'
 ]) assert.ok(readiness.requiredFailureSemantics.includes(code), `missing fail-closed semantic ${code}`);
 
-// "Ready" means only ready to begin a separately reviewed implementation branch.
+// These values describe the frozen V364 readiness decision, not live descendant repository state.
 assert.equal(readiness.state, 'ready_for_separate_implementation_branch');
 assert.equal(readiness.implementationMustRemainSeparate, true);
 assert.equal(readiness.currentProductionClosureWriter, false);
