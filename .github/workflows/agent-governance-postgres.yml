@@ -36,5 +36,9 @@ jobs:
         run: |
           PGPASSWORD=agent_test_only psql -h localhost -U agent -d governance -v ON_ERROR_STOP=1 -f db/migrations/20261015_agent_action_governance.sql
           PGPASSWORD=agent_test_only psql -h localhost -U agent -d governance -v ON_ERROR_STOP=1 -f db/migrations/20261016_agent_governance_integrity.sql
+      - name: Verify governance migrations are idempotent
+        run: |
+          PGPASSWORD=agent_test_only psql -h localhost -U agent -d governance -v ON_ERROR_STOP=1 -f db/migrations/20261015_agent_action_governance.sql
+          PGPASSWORD=agent_test_only psql -h localhost -U agent -d governance -v ON_ERROR_STOP=1 -f db/migrations/20261016_agent_governance_integrity.sql
       - name: Run real PostgreSQL tests
         run: node --test tests/agent-postgres-integration.test.mjs
