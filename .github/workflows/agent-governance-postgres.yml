@@ -4,6 +4,7 @@ on:
     paths:
       - "db/migrations/20261015_agent_action_governance.sql"
       - "db/migrations/20261016_agent_governance_integrity.sql"
+      - "db/migrations/20261017_agent_action_outbox.sql"
       - "tests/agent-postgres-integration.test.mjs"
       - ".github/workflows/agent-governance-postgres.yml"
   workflow_dispatch:
@@ -36,9 +37,11 @@ jobs:
         run: |
           PGPASSWORD=agent_test_only psql -h localhost -U agent -d governance -v ON_ERROR_STOP=1 -f db/migrations/20261015_agent_action_governance.sql
           PGPASSWORD=agent_test_only psql -h localhost -U agent -d governance -v ON_ERROR_STOP=1 -f db/migrations/20261016_agent_governance_integrity.sql
+          PGPASSWORD=agent_test_only psql -h localhost -U agent -d governance -v ON_ERROR_STOP=1 -f db/migrations/20261017_agent_action_outbox.sql
       - name: Verify governance migrations are idempotent
         run: |
           PGPASSWORD=agent_test_only psql -h localhost -U agent -d governance -v ON_ERROR_STOP=1 -f db/migrations/20261015_agent_action_governance.sql
           PGPASSWORD=agent_test_only psql -h localhost -U agent -d governance -v ON_ERROR_STOP=1 -f db/migrations/20261016_agent_governance_integrity.sql
+          PGPASSWORD=agent_test_only psql -h localhost -U agent -d governance -v ON_ERROR_STOP=1 -f db/migrations/20261017_agent_action_outbox.sql
       - name: Run real PostgreSQL tests
         run: node --test tests/agent-postgres-integration.test.mjs
