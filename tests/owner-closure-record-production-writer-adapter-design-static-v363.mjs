@@ -5,20 +5,22 @@ import { execFileSync } from 'node:child_process';
 const BASE = 'c4d435793e6aa8f2f9dd0c8e6baa57401c37752b';
 const EXPECTED = [
   '.github/workflows/v363-production-writer-adapter-design-review-boundary.yml',
+  'tests/owner-closure-record-production-persistence-adapter-static-v362.mjs',
   'tests/owner-closure-record-production-writer-adapter-design-review-v363.mjs',
   'tests/owner-closure-record-production-writer-adapter-design-static-v363.mjs'
 ].sort();
 
 const changed = execFileSync('git', ['diff', '--name-only', `${BASE}...HEAD`], { encoding: 'utf8' })
   .trim().split(/\r?\n/).filter(Boolean).sort();
-assert.deepEqual(changed, EXPECTED, 'V363 must change only its two design tests and exact-head workflow');
+assert.deepEqual(changed, EXPECTED, 'V363 must change only its two design tests, exact-head workflow, and stack-aware V362 static boundary');
 for (const path of changed) {
   assert.ok(path.startsWith('tests/') || path.startsWith('.github/workflows/'), `runtime/production path changed: ${path}`);
 }
 
 const design = fs.readFileSync('tests/owner-closure-record-production-writer-adapter-design-review-v363.mjs', 'utf8');
 const workflow = fs.readFileSync('.github/workflows/v363-production-writer-adapter-design-review-boundary.yml', 'utf8');
-const combined = `${design}\n${workflow}`;
+const v362Static = fs.readFileSync('tests/owner-closure-record-production-persistence-adapter-static-v362.mjs', 'utf8');
+const combined = `${design}\n${workflow}\n${v362Static}`;
 
 const forbidden = [
   /\bapp\.(?:post|put|patch|delete)\s*\(/i,
@@ -58,6 +60,12 @@ for (const token of [
   'WORKSPACE_SCOPE_MISMATCH',
   'V363 defines a production closure-writer adapter design only — it creates no schema, migration, writer, route, endpoint, live closure mutation, decision closure, or execution authority.'
 ]) assert.ok(design.includes(token), `missing V363 design boundary: ${token}`);
+
+for (const token of [
+  "const QUALIFIED_HEAD = 'c4d435793e6aa8f2f9dd0c8e6baa57401c37752b'",
+  "execFileSync('git', ['merge-base', '--is-ancestor', QUALIFIED_HEAD, head])",
+  'stacked descendant changed runtime/production path'
+]) assert.ok(v362Static.includes(token), `missing V362 descendant-safe boundary: ${token}`);
 
 assert.ok(workflow.includes('Checkout exact PR head'), 'V363 workflow must checkout exact PR head');
 assert.ok(workflow.includes('Verify exact checkout'), 'V363 workflow must verify exact PR head');
