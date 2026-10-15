@@ -9,9 +9,11 @@ on:
       - 'public/js/thebe-live-voice.js'
       - 'public/js/api-client.js'
       - 'public/assets/thebe-ai-dock.css'
+      - 'public/assets/market-thebe-gemini-v273.css'
       - 'tests/dock-composer-browser.mjs'
       - 'tests/advisor-attachments-integration.mjs'
       - 'tests/v292-dock-visual-contract-browser.mjs'
+      - 'tests/public-dock-width-contract.mjs'
       - '.github/workflows/dock-composer-ci.yml'
 permissions:
   contents: read
@@ -39,3 +41,4 @@ jobs:
         run: |
           node tests/dock-composer-browser.mjs
           node tests/v292-dock-visual-contract-browser.mjs
+          node tests/public-dock-width-contract.mjs
