@@ -6,6 +6,7 @@ on:
       - "db/migrations/20261016_agent_governance_integrity.sql"
       - "db/migrations/20261017_agent_action_outbox.sql"
       - "tests/agent-postgres-integration.test.mjs"
+      - "server/agent-outbox.js"
       - ".github/workflows/agent-governance-postgres.yml"
   workflow_dispatch:
 jobs:
