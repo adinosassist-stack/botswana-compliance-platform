@@ -80,3 +80,7 @@ test("deeply nested agent arguments fail with controlled validation error", () =
   assert.throws(() => agentArgumentDigest(deep), /agent_arguments_too_deep/);
   assert.match(agentArgumentDigest({ nested: { value: 1 } }), /^[a-f0-9]{64}$/);
 });
+
+test("ordinary multi-element arrays retain valid numeric indices", () => {
+  assert.match(agentArgumentDigest({ entries: [10, 20, 30] }), /^[a-f0-9]{64}$/);
+});
