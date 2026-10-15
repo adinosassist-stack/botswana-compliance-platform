@@ -9,6 +9,9 @@ on:
       - 'cloudflare/src/agent-reliability-telemetry-adapter.js'
       - 'tests/agent-reliability-telemetry-adapter.mjs'
       - 'tests/agent-reliability-real-schema-blocker.mjs'
+      - 'tests/helpers/agent-shadow-telemetry.mjs'
+      - 'cloudflare/schema.sql'
+      - 'cloudflare/migrations/*.sql'
       - 'cloudflare/src/agent-reliability-api.js'
       - 'tests/agent-reliability-api.mjs'
       - 'tests/agent-reliability-preintegration.mjs'
@@ -32,6 +35,7 @@ jobs:
       - run: node --check cloudflare/src/agent-reliability-telemetry-adapter.js
       - run: node tests/agent-reliability-telemetry-adapter.mjs
       - run: node tests/agent-reliability-real-schema-blocker.mjs
+      - run: node tests/agent-cost-outcome-telemetry.mjs
       - run: node --check cloudflare/src/agent-reliability-api.js
       - run: node tests/agent-reliability-api.mjs
       - run: node --check cloudflare/src/worker.js

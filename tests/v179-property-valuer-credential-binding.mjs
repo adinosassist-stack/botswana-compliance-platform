@@ -61,13 +61,13 @@ assert.match(service,/thebeCertifiesProfessionalCredentials:false/);
 assert.match(service,/PROPERTY_VALUER_CREDENTIAL_RECORDED/);
 assert.doesNotMatch(service,/const professionalUserId=text\(body\.professionalUserId,64\),registrationRef=text\(body\.registrationRef,120\)/);
 
-assert.equal(profile.latest_cloudflare_migration,"068_agent_cost_accounting.sql");
+assert.equal(profile.latest_cloudflare_migration,"069_agent_cost_shadow_events.sql");
 assert.equal(profile.property_valuation_valuer_credential_binding_v179,true);
 assert.equal(profile.property_valuation_assignment_uses_verified_profile_registration,true);
 assert.equal(profile.property_valuation_professional_credential_expiry_enforced,true);
 assert.equal(profile.property_valuation_professional_credential_events,true);
 
-assert.match(agentic,/068_agent_cost_accounting\.sql/);
+assert.match(agentic,/069_agent_cost_shadow_events\.sql/);
 assert.match(agentic,/professional_credential_events/);
 assert.match(runner,/number:63/);
 assert.match(runner,/063_v179_property_valuer_credential_binding\.sql/);
@@ -79,9 +79,9 @@ assert.match(runner,/foreign_key_check/);
 assert.match(workflow,/\[migrate-063\]/);
 assert.match(workflow,/thebe\/production-d1-063/);
 assert.match(workflow,/migration authority must be a two-parent merged PR commit/);
-assert.match(deploy,/Current reviewed schema delta: 068_agent_cost_accounting\.sql/);
+assert.match(deploy,/Current reviewed schema delta: 069_agent_cost_shadow_events\.sql/);
 assert.match(deploy,/063_v179_property_valuer_credential_binding\.sql/);
-assert.match(launch,/through `068_agent_cost_accounting\.sql`/);
+assert.match(launch,/through `069_agent_cost_shadow_events\.sql`/);
 assert.match(launch,/063_v179_property_valuer_credential_binding\.sql/,"launch guidance must preserve migration 063 as a prerequisite");
 
 console.log("v179 property valuer professional-profile credential binding checks passed");

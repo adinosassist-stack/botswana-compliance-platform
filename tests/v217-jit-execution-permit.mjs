@@ -55,7 +55,7 @@ assert.equal(profile.jit_execution_permits_v217,true);
 assert.equal(profile.jit_execution_permit_single_use,true);
 assert.equal(profile.jit_execution_permit_same_owner_bound,true);
 assert.equal(profile.jit_execution_permit_ttl_seconds,300);
-assert.match(entry,/068_agent_cost_accounting\.sql/);
+assert.match(entry,/069_agent_cost_shadow_events\.sql/);
 assert.match(entry,/agent_jit_execution_permits/);
 
 assert.match(runner,/number:64/);

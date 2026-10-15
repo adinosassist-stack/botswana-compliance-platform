@@ -19,7 +19,7 @@ export async function loadReliabilityAdvisorSummary(env, tenantId, {windowDays=7
       !Number.isSafeInteger(windowDays) || windowDays<1 || windowDays>90)
     return Object.freeze({available:false,reason:"reliability_advisor_unavailable"});
   try {
-    // agentic_events is defined by migration 045 with occurred_at (not created_at).
+    // Migration 069 isolates shadow telemetry from governed agentic event types.
     const result=await env.DB.prepare(`SELECT detail_json FROM agent_cost_shadow_events
       WHERE tenant_id=? AND occurred_at>=datetime('now',?)
       ORDER BY occurred_at DESC LIMIT 500`)

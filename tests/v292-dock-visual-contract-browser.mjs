@@ -35,6 +35,9 @@ try{
  await page.locator('#thebeAiDockPill').click();
  await page.waitForSelector('#thebeAiDock');
 
+  assert(await page.locator('#thebeAiDock .thebe-ai-audio').isVisible(),'empty composer offers voice');
+  assert(await page.locator('#thebeAiDock .thebe-ai-send').isHidden(),'empty composer hides send');
+  await page.locator('#thebeAiDockInput').fill('Review this workspace');
   const desktop=await page.evaluate(()=>{
     const dock=document.getElementById('thebeAiDock');
     const composer=dock.querySelector('.thebe-ai-compose');

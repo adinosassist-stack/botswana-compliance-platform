@@ -1,6 +1,8 @@
-/* V275 — public Thebe mirrors Gemini's narrow side rail.
+/* V280 — public Thebe mirrors Gemini's narrow side rail with an adjustable reading width.
    Scope: market/public surface only. Keep Thebe branding; match Gemini geometry,
-   restraint, control density and conversation-first hierarchy. No suggestion pills. */
+   restraint, control density and conversation-first hierarchy. No suggestion pills.
+   Compact mode protects the market-page content lane; expanded mode uses a recommended
+   560px desktop reading width without changing mobile containment. */
 
 @media (min-width:1200px) and (hover:hover) and (pointer:fine){
   html body #thebeAiDock[data-surface="public"]{
@@ -19,6 +21,14 @@
   }
   html body:has(#thebeAiDock[data-surface="public"]:not([hidden]):not([aria-hidden="true"])) #marketingGate{
     padding-right:calc(clamp(360px,28vw,420px) + 32px)!important;
+  }
+  html body.thebe-ai-expanded #thebeAiDock[data-surface="public"]{
+    width:min(560px,calc(100vw - 64px))!important;
+    min-width:480px!important;
+    max-width:560px!important;
+  }
+  html body.thebe-ai-expanded:has(#thebeAiDock[data-surface="public"]:not([hidden]):not([aria-hidden="true"])) #marketingGate{
+    padding-right:calc(min(560px,calc(100vw - 64px)) + 32px)!important;
   }
 }
 
@@ -40,9 +50,37 @@
   html body:has(#thebeAiDock[data-surface="public"]:not([hidden]):not([aria-hidden="true"])) #marketingGate{
     padding-right:calc(clamp(332px,31vw,360px) + 24px)!important;
   }
+  html body.thebe-ai-expanded #thebeAiDock[data-surface="public"]{
+    width:min(460px,calc(100vw - 48px))!important;
+    min-width:400px!important;
+    max-width:460px!important;
+  }
+  html body.thebe-ai-expanded:has(#thebeAiDock[data-surface="public"]:not([hidden]):not([aria-hidden="true"])) #marketingGate{
+    padding-right:calc(min(460px,calc(100vw - 48px)) + 24px)!important;
+  }
 }
 
 /* Gemini reference: one quiet header, one conversation canvas, one composer. */
+/* The public rail reduces the content lane without changing the viewport.
+   Reflow the hero against that lane rather than retaining desktop minima. */
+@media (min-width:1024px){
+  #marketingGate{container-type:inline-size;container-name:thebe-market}
+  @container thebe-market (max-width:1060px){
+    #marketingGate .hero-grid{
+      grid-template-columns:minmax(0,1fr)!important;
+      gap:28px!important;
+    }
+    #marketingGate .hero-grid>div:first-child,
+    #marketingGate .hero h1,
+    #marketingGate .hero p{max-width:100%!important}
+    #marketingGate .market-hero-visual{
+      width:100%!important;
+      max-width:100%!important;
+      justify-self:stretch!important;
+    }
+  }
+}
+
 html body #thebeAiDock[data-surface="public"]{
   background:#191919!important;
   color:#f4f4f4!important;
@@ -84,6 +122,11 @@ html body #thebeAiDock[data-surface="public"] .thebe-ai-icon-btn{
 html body #thebeAiDock[data-surface="public"] .thebe-ai-icon-btn:hover{
   background:rgba(255,255,255,.08)!important;
 }
+html body #thebeAiDock[data-surface="public"] .thebe-ai-expand{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+}
 
 /* Remove public chrome that is not present in Gemini's side-panel treatment. */
 html body #thebeAiDock[data-surface="public"] :is(
@@ -92,7 +135,6 @@ html body #thebeAiDock[data-surface="public"] :is(
   .thebe-ai-mode-rail,
   .thebe-ai-eyebrow,
   .thebe-ai-attention,
-  .thebe-ai-expand,
   .thebe-ai-foot,
   .thebe-ai-voice-card,
   .thebe-ai-quick,
@@ -177,8 +219,52 @@ html body #thebeAiDock[data-surface="public"] :is(.thebe-ai-public-signin,.thebe
 }
 
 @media (max-width:1023px){
+  /* The launcher owns a viewport lane; padding alone cannot prevent a fixed
+     button from covering the hero and cards as the market page scrolls. */
+  body:has(#thebeAiDockPill[data-surface="public"]:not([hidden])) #marketingGate{
+    position:fixed!important;
+    top:0!important;
+    left:0!important;
+    right:0!important;
+    bottom:calc(64px + env(safe-area-inset-bottom))!important;
+    height:calc(100dvh - 64px - env(safe-area-inset-bottom))!important;
+    min-height:0!important;
+    padding-bottom:24px!important;
+    box-sizing:border-box!important;
+    overflow:auto!important;
+  }
+  html body #thebeAiDockPill[data-surface="public"]{
+    position:fixed!important;
+    left:0!important;
+    right:0!important;
+    top:auto!important;
+    bottom:0!important;
+    width:100%!important;
+    max-width:none!important;
+    height:calc(64px + env(safe-area-inset-bottom))!important;
+    min-height:64px!important;
+    margin:0!important;
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom))!important;
+    box-sizing:border-box!important;
+    align-items:center!important;
+    justify-content:center!important;
+    border:0!important;
+    border-top:1px solid #dedede!important;
+    border-radius:0!important;
+    background:#fff!important;
+    color:#191919!important;
+    box-shadow:none!important;
+    z-index:181!important;
+  }
+  html body #thebeAiDockPill[data-surface="public"] .thebe-ai-pill-dot{
+    background:#b42332!important;
+    box-shadow:none!important;
+  }
   html body #thebeAiDock[data-surface="public"]{
     border-radius:22px!important;
+  }
+  html body #thebeAiDock[data-surface="public"] .thebe-ai-expand{
+    display:none!important;
   }
   html body #thebeAiDock[data-surface="public"] .thebe-ai-dock-scroll{
     padding:16px 16px 12px!important;

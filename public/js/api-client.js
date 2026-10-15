@@ -224,11 +224,12 @@
       const registrationError=registrationValidationMessage(logicalTarget,method,options.body);if(registrationError)throw new ApiError(registrationError,{status:400,code:"invalid_registration",requestId});
       const requestedIdempotency=options.idempotencyKey??autoIdempotency(method,logicalTarget),idempotencyKey=requestedIdempotency===true?(global.crypto?.randomUUID?.()||requestId):String(requestedIdempotency||"").trim();
       const safeRetry=idempotent||!!idempotencyKey,attempts=safeRetry?Math.max(1,retries+1):1;
-      const fetchOptions={...options};delete fetchOptions.idempotencyKey;delete fetchOptions.signal;
+      const requestTimeoutMs=options.timeoutMs==null?timeoutMs:Math.max(1000,Math.min(120000,Number(options.timeoutMs)||timeoutMs));
+      const fetchOptions={...options};delete fetchOptions.idempotencyKey;delete fetchOptions.signal;delete fetchOptions.timeoutMs;
       let lastError;
       for(let attempt=0;attempt<attempts;attempt++){
         if(parentSignal?.aborted)throw new ApiError("Request cancelled.",{status:0,code:"aborted",requestId});
-        const controller=new AbortController(),timer=setTimeout(()=>controller.abort("timeout"),timeoutMs);
+        const controller=new AbortController(),timer=setTimeout(()=>controller.abort("timeout"),requestTimeoutMs);
         const abortFromParent=()=>controller.abort(parentSignal?.reason||"caller-aborted");
         if(parentSignal?.aborted)abortFromParent();else parentSignal?.addEventListener?.("abort",abortFromParent,{once:true});
         const headers=new Headers(options.headers||{});headers.set("accept","application/json");headers.set("x-client-request-id",requestId);
