@@ -5,6 +5,7 @@ const legacy=fs.readFileSync(new URL('../public/js/executive-personalization-v18
 const owner=fs.readFileSync(new URL('../public/js/owner-first-home-v328.js',import.meta.url),'utf8');
 const follow=fs.readFileSync(new URL('../public/js/owner-decision-follow-through-v331.js',import.meta.url),'utf8');
 const learning=fs.readFileSync(new URL('../public/js/owner-decision-outcome-learning-v332.js',import.meta.url),'utf8');
+const calibration=fs.readFileSync(new URL('../public/js/owner-decision-recommendation-calibration-v333.js',import.meta.url),'utf8');
 const businessMemory=fs.readFileSync(new URL('../cloudflare/src/business-memory.js',import.meta.url),'utf8');
 
 for(const token of [
@@ -12,6 +13,7 @@ for(const token of [
   '/js/owner-first-home-v328.js?v=20261015-owner-decision-memory-v330',
   '/js/owner-decision-follow-through-v331.js?v=20261015-owner-decision-follow-through-v331',
   '/js/owner-decision-outcome-learning-v332.js?v=20261015-owner-decision-outcome-learning-v332',
+  '/js/owner-decision-recommendation-calibration-v333.js?v=20261015-owner-decision-recommendation-calibration-v333',
   'script.async=false'
 ]){
   if(!wrapper.includes(token))throw new Error('Owner-first bundle loader missing: '+token);
@@ -122,6 +124,48 @@ for(const forbidden of [
 }
 
 for(const token of [
+  'const RELEASE="20261015-owner-decision-recommendation-calibration-v333"',
+  'const MIN_DIRECTIONAL_SAMPLE=3;',
+  'function isOwner(){return role()==="owner"}',
+  'row?.namespace==="operations"&&row?.value?.kind==="owner_decision_note"',
+  '["better","mixed","worse","insufficient"].includes(value)',
+  'if(directional<MIN_DIRECTIONAL_SAMPLE)return "uncalibrated";',
+  'return "slightly_supportive";',
+  'return "more_cautious";',
+  'return "neutral_mixed";',
+  'Current verified evidence stays primary.',
+  'Historical outcome counts may only adjust recommendation wording strength',
+  'never as causal proof',
+  'must not override contradictory current evidence',
+  'Separate evidence from hypothesis.',
+  'Do not execute anything, approve anything, or change any business record.',
+  'authoritative:false',
+  'authority:"context_only_no_execution"',
+  'function getCalibration(sourceType)',
+  'global.ThebeOwnerDecisionRecommendationCalibration=Object.freeze({',
+  'minDirectionalSample:MIN_DIRECTIONAL_SAMPLE'
+]){
+  if(!calibration.includes(token))throw new Error('Decision Recommendation Calibration contract missing: '+token);
+}
+
+for(const forbidden of [
+  'method:"POST"',
+  'method:"PUT"',
+  'method:"PATCH"',
+  'method:"DELETE"',
+  '/api/ai/operator/attention',
+  '/api/business-context/brief',
+  '/api/daily-brief',
+  '/api/payments/',
+  '/execute',
+  '/approve',
+  '/file',
+  '/send'
+]){
+  if(calibration.includes(forbidden))throw new Error('Decision Recommendation Calibration widened authority or added a mutation path: '+forbidden);
+}
+
+for(const token of [
   'if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);',
   'sourceKind:"owner_confirmed"',
   'BUSINESS_MEMORY_CONFIRMED',
@@ -145,4 +189,4 @@ for(const forbidden of [
 
 if(!legacy.includes('const RELEASE="20260929-v180"'))throw new Error('Legacy executive personalization was not preserved byte-for-byte as the compatibility layer.');
 
-console.log('Owner Attention + Decision Memory + Follow-through + Outcome Learning static checks passed');
+console.log('Owner Attention + Decision Memory + Follow-through + Outcome Learning + Recommendation Calibration static checks passed');
