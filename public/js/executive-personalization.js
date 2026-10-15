@@ -53,13 +53,7 @@
   }
   function canView(){return ["owner","manager"].includes(role())}
   function text(tag,value,className=""){
-    const node=document.createElement("div");
-    if(tag!=="div"){
-      const replacement=document.createElement(tag);
-      if(className)replacement.className=className;
-      replacement.textContent=String(value??"");
-      return replacement;
-    }
+    const node=document.createElement(tag);
     if(className)node.className=className;
     node.textContent=String(value??"");
     return node;
