@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 const dock=fs.readFileSync("public/assets/thebe-ai-dock.css","utf8");
 const workspace=fs.readFileSync("public/assets/workspace-command-center-v231.css","utf8");
+const recovery=fs.readFileSync("public/js/thebe-dock-recovery-geometry-v269.js","utf8");
 const production=fs.readFileSync("cloudflare/src/production-entry.js","utf8");
 
 assert.match(production,/const THEBE_AI_DOCK_RELEASE="20261002-pricing-voice-continuity-v247";/,
@@ -22,6 +23,25 @@ assert.match(dock,/body\.thebe-ai-expanded #thebeAiDock\[data-surface="workspace
 assert.match(dock,/#thebeAiDock\[data-surface="workspace"\] \.thebe-ai-orb-button\{[\s\S]*?width:68px!important[\s\S]*?height:68px!important/,
   "desktop voice affordance must stay compact rather than dominate the command surface");
 
+assert.match(recovery,/20261015-workspace-dock-resize-v0518/,
+  "workspace dock resize implementation must expose an auditable release marker");
+assert.match(recovery,/thebe:workspace-dock:width:v1/,
+  "workspace dock width must persist independently of the public dock width");
+assert.match(recovery,/if\(width>=1200\)return \{min:320,defaultWidth:376,expandedDefault:500,max:560\}/,
+  "wide desktop must use the reviewed 376px default and bounded 320-560px resize range");
+assert.match(recovery,/return \{min:288,defaultWidth:320,expandedDefault:440,max:440\}/,
+  "medium desktop must clamp the assistant rail so workspace content retains room");
+assert.match(recovery,/thebe-workspace-dock-resize-handle/,
+  "workspace dock must expose a dedicated desktop resize handle");
+assert.match(recovery,/drag\.startWidth-\(event\.clientX-drag\.startX\)/,
+  "right-anchored dock must grow when its left resize edge is dragged left");
+assert.match(recovery,/ArrowLeft[\s\S]*?current\+16[\s\S]*?ArrowRight[\s\S]*?current-16/,
+  "workspace dock resizing must remain keyboard accessible");
+assert.match(recovery,/body\.style\.setProperty\("--thebe-spatial-width",`\$\{clamped\}px`\)/,
+  "resized dock width must flow through the spatial rail variable so reserved workspace space tracks it");
+assert.match(recovery,/Emergency geometry intentionally ignores user sizing/,
+  "stylesheet recovery must remain deterministic instead of inheriting user resize state");
+
 assert.match(workspace,/V233 adversarial alignment closure/);
 assert.match(workspace,/\.simplified-hub :is\(\.outcome-card,\.people-outcome-card,\.hub-card\)\{[\s\S]*?display:flex!important[\s\S]*?flex-direction:column!important/,
   "action cards must align their content and CTAs consistently");
@@ -32,4 +52,4 @@ assert.doesNotMatch(workspace,/V233 adversarial alignment closure[\s\S]*?\.notic
 assert.doesNotMatch(dock,/V233 adversarial workspace density closure[\s\S]*?gradient\(/i,
   "V233 dock closure must preserve the flat command-surface language");
 
-console.log("PASS: V233 removes desktop dock overlap, reduces command-surface density and aligns workspace cards without hiding governed boundaries.");
+console.log("PASS: workspace dock keeps governed density, adds bounded persistent resizing, and preserves a dock-safe content rail.");
