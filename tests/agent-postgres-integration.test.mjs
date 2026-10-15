@@ -154,7 +154,7 @@ test("atomic draft authorization commits audit and outbox together", async () =>
   }
 });
 
-test("atomic queue failure rolls back authorization audit and consumed approval", async () => {
+test("duplicate draft queue request does not consume optional approval", async () => {
   const client = new pg.Pool({ connectionString: process.env.DATABASE_URL });
   const tenantId = "rollback-" + randomUUID(), actorId = "owner", action = "invoice.draft";
   const args = { invoice: "INV-456" }, digest = agentArgumentDigest(args), approvalId = randomUUID();
@@ -176,7 +176,7 @@ test("atomic queue failure rolls back authorization audit and consumed approval"
     });
     assert.equal(second.allowed, false);
     const approval = await client.query("select consumed_at from agent_action_approvals where id=$1", [approvalId]);
-    assert.ok(approval.rows[0].consumed_at);
+    assert.equal(approval.rows[0].consumed_at, null);
   } finally {
     await client.query("delete from agent_action_outbox where tenant_id=$1", [tenantId]);
     await client.query("delete from agent_action_audit where tenant_id=$1", [tenantId]);
