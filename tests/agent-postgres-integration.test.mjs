@@ -3,6 +3,7 @@ import { test } from "node:test";
 import pg from "pg";
 import { randomUUID } from "node:crypto";
 import { createPostgresAgentApprovalStore } from "../server/agent-postgres-store.js";
+import { enqueueAgentIntent } from "../server/agent-outbox.js";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const tenant = "tenant-" + randomUUID();
@@ -58,6 +59,29 @@ test("outbox enforces tenant idempotency and unique authorization", async () => 
     await assert.rejects(client.query("update agent_action_outbox set status='invalid' where id=$1", [base[0]]), e => e.code === "23514");
   } finally {
     await client.query("delete from agent_action_outbox where tenant_id=$1 or tenant_id=$2", [tenantId, otherTenant]).catch(() => {});
+    await client.end();
+  }
+});
+
+test("outbox enqueue requires matching authorized audit record", async () => {
+  const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  const tenantId = "audit-" + randomUUID(), actorId = "owner", action = "invoice.draft";
+  const authorizationId = randomUUID(), argumentDigest = "c".repeat(64);
+  const intent = { pool: client, tenantId, actorId, action, argumentDigest, authorizationId, idempotencyKey: "once" };
+  try {
+    assert.equal((await enqueueAgentIntent(intent)).queued, false);
+    await client.query(`insert into agent_action_audit
+      (id,tenant_id,actor_id,action,argument_digest,allowed,reason)
+      values ($1,$2,$3,$4,$5,true,'authorized')`,
+      [authorizationId,tenantId,actorId,action,argumentDigest]);
+    assert.equal((await enqueueAgentIntent({ ...intent, tenantId: "wrong-tenant" })).queued, false);
+    assert.equal((await enqueueAgentIntent({ ...intent, argumentDigest: "d".repeat(64) })).queued, false);
+    assert.equal((await enqueueAgentIntent(intent)).queued, true);
+    assert.equal((await enqueueAgentIntent(intent)).queued, false);
+  } finally {
+    await client.query("delete from agent_action_outbox where tenant_id=$1", [tenantId]);
+    await client.query("delete from agent_action_audit where id=$1", [authorizationId]);
     await client.end();
   }
 });
