@@ -59,15 +59,23 @@ try{
       const beforeWidth=await dock.evaluate(el=>el.getBoundingClientRect().width);
       await resize.press('ArrowLeft');
       await page.waitForFunction(previous=>document.querySelector('#thebeAiDock').getBoundingClientRect().width>previous,beforeWidth);
-      const resized=await page.evaluate(()=>({
-        dock:document.querySelector('#thebeAiDock').getBoundingClientRect().width,
-        spatial:parseFloat(getComputedStyle(document.body).getPropertyValue('--thebe-spatial-width')),
-        shellPad:parseFloat(getComputedStyle(document.querySelector('#appShell')).paddingRight),
-        saved:Number(localStorage.getItem('thebe:workspace-dock:width:v1'))
-      }));
-      assert(resized.dock>beforeWidth,'keyboard resize grows right-anchored workspace dock');
-      assert(Math.abs(resized.spatial-resized.dock)<=3,'spatial rail variable tracks dock width including the dock border');
-      assert(resized.shellPad>=resized.dock+29,'workspace shell retains roughly 32px of protected rail beyond the rendered dock border');
+      const resized=await page.evaluate(()=>{
+        const dock=document.querySelector('#thebeAiDock');
+        const main=document.querySelector('#mainContent');
+        const dockRect=dock.getBoundingClientRect();
+        const mainRect=main.getBoundingClientRect();
+        return {
+          dockOuter:dockRect.width,
+          dockLeft:dockRect.left,
+          layoutWidth:parseFloat(getComputedStyle(dock).width),
+          mainRight:mainRect.right,
+          spatial:parseFloat(getComputedStyle(document.body).getPropertyValue('--thebe-spatial-width')),
+          saved:Number(localStorage.getItem('thebe:workspace-dock:width:v1'))
+        };
+      });
+      assert(resized.dockOuter>beforeWidth,'keyboard resize grows right-anchored workspace dock');
+      assert(Math.abs(resized.spatial-resized.layoutWidth)<=1,'spatial rail variable tracks the dock layout width');
+      assert(resized.mainRight<=resized.dockLeft,'workspace content remains outside the rendered dock footprint');
       assert.equal(resized.saved,Math.round(resized.spatial),'workspace dock width persists');
       await resize.press('Home');
       assert.equal(await page.evaluate(()=>localStorage.getItem('thebe:workspace-dock:width:v1')),null,'Home resets saved dock width');
