@@ -71,7 +71,7 @@
       "For growing SMEs running staff, licences, tenders and recurring work.",
       "For multi-branch or higher-control operations that need deeper oversight."
     ];
-    text(card.querySelector("h3"),headings[index]||card.querySelector("h3")?.textContent||"");
+    if(headings[index])text(card.querySelector("h3"),headings[index]);
     const descriptor=card.querySelector(".muted.small, p");
     if(descriptor&&descriptions[index])text(descriptor,descriptions[index]);
 
@@ -93,10 +93,10 @@
     if(!pricing)return;
 
     text(pricing.querySelector("h2"),"Start with the control you need. Upgrade when the business grows.");
-    text(pricing.querySelector(".section-head p"),"Three plans. One workspace. Every plan starts with a 14-day free trial.");
+    text(pricing.querySelector(".section-head p"),"Five plans. One workspace. Start lean, then scale as the business needs more control.");
 
     const cards=[...pricing.querySelectorAll(".pricecard")];
-    cards.slice(0,3).forEach((card,index)=>{
+    cards.forEach((card,index)=>{
       card.dataset.marketPlanIndex=String(index);
       concisePlan(card,index);
       const button=card.querySelector(".marketing-start-action");
