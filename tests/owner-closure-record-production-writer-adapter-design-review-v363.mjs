@@ -94,7 +94,17 @@ const adapterDesign = Object.freeze({
 
 // V361 remains the semantic contract and must still be explicitly reference-only.
 assert.equal(V361_REFERENCE_ONLY, true);
-assert.match(V361_AUTHORITY_BOUNDARY, /Reference writer only/);
+for (const [key, expected] of Object.entries({
+  referenceOnly: true,
+  routable: false,
+  deployed: false,
+  productionPersistence: false,
+  networkAccess: false,
+  environmentAccess: false,
+  productionDatabaseAccess: false
+})) {
+  assert.equal(V361_AUTHORITY_BOUNDARY[key], expected, `V361 authority boundary ${key}`);
+}
 const referenceWriter = createReferenceWriter(createReferenceStore());
 assert.equal(referenceWriter.referenceOnly, true);
 assert.equal(referenceWriter.routable, false);
