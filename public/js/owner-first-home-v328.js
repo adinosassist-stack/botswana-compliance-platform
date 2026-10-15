@@ -220,8 +220,9 @@
     return (hash>>>0).toString(36);
   }
   function memoryKey(item){
-    const title=clean(item?.title||"decision").toLowerCase().replace(/[^a-z0-9.-]+/g,"-").replace(/^-+|-+$/g,"").slice(0,42)||"decision";
-    return `decision.${tinyHash(sourceKey(item))}.${title}`.slice(0,80);
+    const source=sourceKey(item);
+    const slug=source.toLowerCase().replace(/[^a-z0-9.-]+/g,"-").replace(/^-+|-+$/g,"").slice(0,48)||"item";
+    return `decision.${tinyHash(source)}.${slug}`.slice(0,80);
   }
   async function apiJson(url,options){
     if(typeof global.apiJson!=="function")throw new Error("secure_api_unavailable");
