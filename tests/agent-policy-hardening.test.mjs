@@ -37,3 +37,13 @@ test("cyclic agent arguments fail with controlled validation error", () => {
   array.push(array);
   assert.throws(() => agentArgumentDigest(array), /non_json_argument/);
 });
+
+test("accessor and symbol-bearing arguments are rejected without executing getter", () => {
+  let accessed = false;
+  const getter = {};
+  Object.defineProperty(getter, "amount", { enumerable: true, get() { accessed = true; return 1; } });
+  assert.throws(() => agentArgumentDigest(getter), /non_json_argument/);
+  assert.equal(accessed, false);
+  const symbol = { amount: 1, [Symbol("hidden")]: "secret" };
+  assert.throws(() => agentArgumentDigest(symbol), /non_json_argument/);
+});
