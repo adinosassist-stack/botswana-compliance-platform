@@ -11,7 +11,7 @@ const valid = {
 test("invalid intent cannot reach storage", async () => {
   let queries = 0;
   const pool = { async query() { queries++; return { rows: [] }; } };
-  for (const overrides of [{ tenantId: "" }, { actorId: 4 }, { argumentDigest: "bad" }, { authorizationId: "bad" }, { idempotencyKey: "" }]) {
+  for (const overrides of [{ tenantId: "" }, { actorId: 4 }, { argumentDigest: "bad" }, { authorizationId: "bad" }, { authorizationId: "------------------------------------" }, { idempotencyKey: "" }]) {
     assert.deepEqual(await enqueueAgentIntent({ ...valid, ...overrides, pool }), { queued: false, reason: "invalid_intent" });
   }
   assert.equal(queries, 0);
