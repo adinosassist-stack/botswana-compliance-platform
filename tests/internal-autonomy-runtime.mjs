@@ -4,6 +4,7 @@ import {createHmac} from 'node:crypto';
 import {installShadowTelemetrySchema,seedShadowTelemetryFixtures} from './helpers/agent-shadow-telemetry.mjs';
 import {handleInternalAutonomyRequest,runInternalAutonomyPolicy,runDueInternalAutonomy} from '../cloudflare/src/agent-internal-autonomy.js';
 import {handleAgenticTaskExecutionRequest} from '../cloudflare/src/agentic-task-execution.js';
+import {handleAgenticAuthorityRequest} from '../cloudflare/src/agentic-authority-core.js';
 
 function fixture(){
   const db=new DatabaseSync(':memory:');
@@ -128,5 +129,15 @@ for(const mutation of [
  f.env.DB.prepare=sql=>sql.startsWith('SELECT COUNT(*) count FROM agent_execution_receipts')?{bind(){return this;},first(){return {count:0};}}:original(sql);
  const denied=await f.taskRequest('requests/'+id+'/execute',{permitId:issued.permit.id});
  assert.equal((await denied.json()).error,'task_execution_failed','write-time shared cap rejects a stale pre-read');assert.equal(f.count('agent_internal_tasks'),1);f.db.close();
+}
+{
+ const f=fixture();f.db.exec('DELETE FROM agent_execution_grants; DELETE FROM agent_delegations;');
+ const request=new Request('https://thebe.test/api/agentic/authority/delegations',{method:'POST',headers:{cookie:'bw_session=fixture-session',origin:'https://thebe.test','x-csrf-token':'csrf-fixture','content-type':'application/json'},body:JSON.stringify({agentKey:'thebe',actionKey:'task.create',maxAutonomyLevel:3,maxDailyActions:5,maxAmountMinor:0,externalSideEffects:false,expiresAt:new Date(Date.now()+7*86400000).toISOString()})});
+ const response=await handleAgenticAuthorityRequest({request,env:f.env});
+ assert.equal(response.status,201,JSON.stringify(await response.clone().json()));
+ const delegation=await response.json();
+ const grant=await f.taskRequest('grants',{delegationId:delegation.delegation.id});assert.equal(grant.status,201,JSON.stringify(await grant.clone().json()));
+ const policy=await f.create({...f.policyBody,delegationId:delegation.delegation.id});
+ assert.equal((await runInternalAutonomyPolicy(f.env,policy)).ok,true,'new owner can authorize and complete the entire workflow');f.db.close();
 }
 console.log('internal autonomy production-schema lifecycle, concurrency, exact-template binding, budgets, revocation and audit rollback: PASS');

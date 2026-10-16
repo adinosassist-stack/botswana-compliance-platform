@@ -194,7 +194,7 @@ async function createDelegation({request,env,auth}){
     await env.DB.batch([
       env.DB.prepare(`INSERT INTO agent_delegations(id,tenant_id,agent_key,action_key,status,max_autonomy_level,external_side_effects,strong_auth_required,
         human_confirmation_required,max_daily_actions,max_amount_minor,shadow_only,valid_from,expires_at,created_by_user_id,approved_by_user_id)
-        VALUES(?,?,?,?, 'active',?,?,?,?,?,?,1,?,?,?,?,?)`).bind(
+        VALUES(?,?,?,?, 'active',?,?,?,?,?,?,1,?,?,?,?)`).bind(
           delegationId,auth.tenant_id,agentKey,actionKey,maxAutonomyLevel,externalSideEffects,strongAuthRequired,humanConfirmationRequired,
           maxDailyActions,maxAmountMinor,validFrom,expiresAt,auth.user_id,auth.user_id
         ),
