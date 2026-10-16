@@ -5,6 +5,7 @@ import {versionReleaseAssets,applyAssetReleaseIdentity} from '../cloudflare/src/
 const source=fs.readFileSync('public/js/protect-workspace-v308.js','utf8');
 const recovery=fs.readFileSync('public/js/protect-lazy-hydration-v528.js','utf8');
 const accountRecovery=fs.readFileSync('public/js/account-lazy-hydration-v532.js','utf8');
+const genericRecovery=fs.readFileSync('public/js/workspace-lazy-hydration-recovery-v533.js','utf8');
 const canonicalShard=fs.readFileSync('public/assets/workspace-view-fragments-20261001a-10.json','utf8');
 const recoveryShard=fs.readFileSync('public/assets/workspace-view-fragments-20261016a-10.json','utf8');
 const recoveryPayload=JSON.parse(recoveryShard);
@@ -83,6 +84,7 @@ const viewShard=id=>{let hash=0;for(const ch of String(id||''))hash=(Math.imul(h
 const lazyConstant=(production.match(/const WORKSPACE_LAZY_VIEW_IDS=Object\.freeze\((\[[^\n]+\])\);/)||[])[1];
 assert.ok(lazyConstant,'production lazy workspace route inventory must remain parseable');
 const productionLazyViews=JSON.parse(lazyConstant);
+assert.equal(fragmentManifest.schema,1,'canonical all-view manifest must preserve schema 1 for systemic fallback');
 assert.deepEqual(productionLazyViews.slice().sort(),Object.keys(expectedLazyRouteShards).sort(),'every production lazy workspace route must have an explicit expected shard regression fixture');
 assert.deepEqual(Object.keys(fragmentManifest.views||{}).sort(),Object.keys(expectedLazyRouteShards).sort(),'fragment manifest must cover exactly the expected lazy workspace routes');
 for(const [id,expectedShard] of Object.entries(expectedLazyRouteShards)){
@@ -96,6 +98,10 @@ for(const [id,expectedShard] of Object.entries(expectedLazyRouteShards)){
   }
 }
 assert.equal(expectedLazyRouteShards.protecthub,10,'Protect must remain pinned to its deterministic shard 10 route');
+assert.equal(expectedLazyRouteShards.accounthub,4,'Settings must remain pinned to deterministic shard 4');
+assert.equal(expectedLazyRouteShards.audit,7,'Activity history must remain pinned to deterministic shard 7');
+assert.equal(typeof fragmentManifest.views?.audit,'string','systemic fallback manifest must contain Activity history markup');
+assert(fragmentManifest.views.audit.trim().length>0,'systemic fallback Activity history markup must be non-empty');
 assert.equal(legacyAccountShard.schema,2,'Release 532 Settings recovery source must preserve workspace fragment schema');
 assert.equal(legacyAccountShard.shard,4,'Release 532 Settings recovery source must remain shard 4');
 assert.equal(legacyAccountShard.views?.accounthub,fragmentManifest.views?.accounthub,'Release 532 Settings recovery markup must exactly match the current canonical Settings view');
@@ -158,24 +164,45 @@ assert.match(accountRecovery,/delete root\.dataset\.lazyError/,'Release 532 clea
 assert.doesNotMatch(accountRecovery,/\.innerHTML\s*=/,'Release 532 Settings recovery does not bypass safe DOM rendering');
 assert.doesNotMatch(accountRecovery,/method:\s*['"](?:POST|PUT|PATCH|DELETE)['"]/i,'Release 532 Settings recovery remains read-only');
 
-assert.match(assetIdentity,/ACCOUNT_LAZY_HYDRATION_SRC='\/js\/account-lazy-hydration-v532\.js'/,'Release 532 Settings recovery is release-bound');
-assert.match(assetIdentity,/PROTECT_LAZY_HYDRATION_SRC='\/js\/protect-lazy-hydration-v528\.js'/,'V528 recovery is release-bound');
+assert.match(genericRecovery,/20261016-workspace-lazy-hydration-recovery-v533/,'Release 533 systemic lazy recovery has explicit release identity');
+assert.match(genericRecovery,/workspace-view-fragments-20261001a\.json/,'Release 533 systemic recovery uses the canonical all-view manifest fallback');
+assert.match(genericRecovery,/globalThis\.BW\?\.api\?\.createClient/,'Release 533 systemic recovery uses centralized API transport');
+assert.match(genericRecovery,/client\.request\(releaseBoundAsset\(\),\{method:'GET',cache:'reload'\}\)/,'Release 533 systemic recovery forces manifest revalidation');
+assert.match(genericRecovery,/Number\(payload\?\.schema\)!==1/,'Release 533 systemic recovery validates fallback manifest schema');
+assert.match(genericRecovery,/data-lazy-view=\\?"1\\?".*data-lazy-error=\\?"1\\?"/,'Release 533 systemic recovery targets failed lazy views rather than eager hydration');
+assert.match(genericRecovery,/MutationObserver/,'Release 533 systemic recovery observes lazy failure transitions');
+assert.match(genericRecovery,/globalThis\.BW\?\.dom\?\.renderMarkup/,'Release 533 systemic recovery requires the DOM safety layer');
+assert.match(genericRecovery,/root\.dataset\.lazyHydrated='1'/,'Release 533 marks a recovered route hydrated only after safe rendering');
+assert.match(genericRecovery,/root\.removeAttribute\('data-lazy-view'\)/,'Release 533 removes the lazy marker only after successful systemic recovery');
+assert.match(genericRecovery,/delete root\.dataset\.lazyError/,'Release 533 clears the lazy error only after successful systemic recovery');
+assert.match(genericRecovery,/globalThis\.showView\(id,\{lazyHydrated:true,preserveNavigationEpoch:true\}\)/,'Release 533 hands an active recovered route back to the normal showView lifecycle');
+assert.doesNotMatch(genericRecovery,/\.innerHTML\s*=/,'Release 533 systemic recovery never bypasses safe DOM rendering');
+assert.doesNotMatch(genericRecovery,/method:\s*['"](?:POST|PUT|PATCH|DELETE)['"]/i,'Release 533 systemic recovery remains read-only');
+
+assert.match(assetIdentity,/WORKSPACE_LAZY_HYDRATION_RECOVERY_SRC='\/js\/workspace-lazy-hydration-recovery-v533\.js'/,'Release 533 systemic recovery is release-bound');
+assert.match(assetIdentity,/ACCOUNT_LAZY_HYDRATION_SRC='\/js\/account-lazy-hydration-v532\.js'/,'Release 532 Settings recovery remains release-bound');
+assert.match(assetIdentity,/PROTECT_LAZY_HYDRATION_SRC='\/js\/protect-lazy-hydration-v528\.js'/,'V528 recovery remains release-bound');
 assert.match(assetIdentity,/PROTECT_WORKSPACE_SRC='\/js\/protect-workspace-v308\.js'/,'V308 is release-bound');
+assert.match(assetIdentity,/includeWorkspaceFixes===true&&!source\.includes\(WORKSPACE_LAZY_HYDRATION_RECOVERY_SRC\)/,'Release 533 systemic recovery is scoped to workspace-fix delivery');
 assert.match(assetIdentity,/includeWorkspaceFixes===true&&!source\.includes\(ACCOUNT_LAZY_HYDRATION_SRC\)/,'Release 532 Settings recovery is scoped to workspace-fix delivery');
 assert.match(assetIdentity,/includeWorkspaceFixes===true&&!source\.includes\(PROTECT_LAZY_HYDRATION_SRC\)/,'V528 recovery is scoped to workspace-fix delivery');
 assert.match(assetIdentity,/includeWorkspaceFixes===true&&!source\.includes\(PROTECT_WORKSPACE_SRC\)/,'V308 is scoped to workspace-fix delivery');
 
 const appHtml=versionReleaseAssets('<html><head></head><body><main>App</main></body></html>',sha,{includeWorkspaceFixes:true});
+assert(appHtml.includes('/js/workspace-lazy-hydration-recovery-v533.js?release='+sha),'app workspace receives SHA-bound Release 533 systemic recovery asset');
 assert(appHtml.includes('/js/account-lazy-hydration-v532.js?release='+sha),'app workspace receives SHA-bound Release 532 Settings recovery asset');
 assert(appHtml.includes('/js/protect-lazy-hydration-v528.js?release='+sha),'app workspace receives SHA-bound V528 recovery asset');
 assert(appHtml.includes('/js/protect-workspace-v308.js?release='+sha),'app workspace receives SHA-bound V308 asset');
+assert(appHtml.indexOf('workspace-lazy-hydration-recovery-v533.js')<appHtml.indexOf('account-lazy-hydration-v532.js'),'Release 533 systemic recovery is delivered before legacy route-specific recovery layers');
 assert(appHtml.indexOf('account-lazy-hydration-v532.js')<appHtml.indexOf('protect-lazy-hydration-v528.js'),'Release 532 Settings recovery is delivered before Protect recovery');
 assert(appHtml.indexOf('protect-lazy-hydration-v528.js')<appHtml.indexOf('protect-workspace-v308.js'),'V528 recovery is delivered before the V308 Protect enhancer');
+assert.equal((appHtml.match(/workspace-lazy-hydration-recovery-v533\.js/g)||[]).length,1,'Release 533 systemic recovery injection is idempotent within one decoration');
 assert.equal((appHtml.match(/account-lazy-hydration-v532\.js/g)||[]).length,1,'Release 532 Settings recovery injection is idempotent within one decoration');
 assert.equal((appHtml.match(/protect-lazy-hydration-v528\.js/g)||[]).length,1,'V528 recovery injection is idempotent within one decoration');
 assert.equal((appHtml.match(/protect-workspace-v308\.js/g)||[]).length,1,'V308 injection is idempotent within one decoration');
 assert.equal(versionReleaseAssets(appHtml,sha,{includeWorkspaceFixes:true}),appHtml,'workspace recovery decoration remains idempotent');
 const publicHtml=versionReleaseAssets('<html><head></head><body>Public</body></html>',sha,{includeWorkspaceFixes:false});
+assert.equal(publicHtml.includes('workspace-lazy-hydration-recovery-v533.js'),false,'public surface does not receive private systemic lazy recovery');
 assert.equal(publicHtml.includes('account-lazy-hydration-v532.js'),false,'public surface does not receive private Settings recovery');
 assert.equal(publicHtml.includes('protect-lazy-hydration-v528.js'),false,'public surface does not receive private Protect recovery');
 assert.equal(publicHtml.includes('protect-workspace-v308.js'),false,'public surface does not receive private Protect enhancement');
@@ -183,13 +210,15 @@ assert.equal(publicHtml.includes('protect-workspace-v308.js'),false,'public surf
 const base='<html><head></head><body>Surface</body></html>';
 const appResponse=await applyAssetReleaseIdentity(new Request('https://thebedesk.com/app/'),new Response(base,{headers:{'content-type':'text/html'}}));
 const appResponseText=await appResponse.text();
+assert(appResponseText.includes('workspace-lazy-hydration-recovery-v533.js'),'real /app response receives Release 533 systemic lazy recovery');
 assert(appResponseText.includes('account-lazy-hydration-v532.js'),'real /app response receives Release 532 Settings recovery');
 assert(appResponseText.includes('protect-lazy-hydration-v528.js'),'real /app response receives V528 recovery');
 assert(appResponseText.includes('protect-workspace-v308.js'),'real /app response receives V308');
 const homeResponse=await applyAssetReleaseIdentity(new Request('https://thebedesk.com/'),new Response(base,{headers:{'content-type':'text/html'}}));
 const homeResponseText=await homeResponse.text();
+assert.equal(homeResponseText.includes('workspace-lazy-hydration-recovery-v533.js'),false,'real public root excludes Release 533 systemic lazy recovery');
 assert.equal(homeResponseText.includes('account-lazy-hydration-v532.js'),false,'real public root excludes Release 532 Settings recovery');
 assert.equal(homeResponseText.includes('protect-lazy-hydration-v528.js'),false,'real public root excludes V528 recovery');
 assert.equal(homeResponseText.includes('protect-workspace-v308.js'),false,'real public root excludes V308');
 
-console.log('PASS: V308 Protect workspace, V528 shard-10 recovery, Release 532 Settings recovery, and exhaustive lazy route shard regression are deterministic-first, read-only, safe-DOM, app-scoped and release-bound');
+console.log('PASS: V308 Protect workspace, V528 shard-10 recovery, Release 532 Settings recovery, Release 533 systemic lazy recovery, and exhaustive lazy route shard regression are deterministic-first, read-only, safe-DOM, app-scoped and release-bound');
