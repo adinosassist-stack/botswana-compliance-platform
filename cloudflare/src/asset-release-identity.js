@@ -10,6 +10,7 @@ const WORKSPACE_FOCUS_VISIBLE_SRC='/js/workspace-focus-visible-v278.js';
 const OWNER_FOCUS_STRIP_SRC='/js/owner-focus-strip-v296.js';
 const MONEY_WORKSPACE_SRC='/js/money-workspace-v307.js';
 const WORKSPACE_LAZY_HYDRATION_RECOVERY_SRC='/js/workspace-lazy-hydration-recovery-v533.js';
+const WORKSPACE_LAZY_HYDRATION_RETRY_SRC='/js/workspace-lazy-hydration-retry-v535.js';
 const ACCOUNT_LAZY_HYDRATION_SRC='/js/account-lazy-hydration-v532.js';
 const PROTECT_LAZY_HYDRATION_SRC='/js/protect-lazy-hydration-v528.js';
 const PROTECT_WORKSPACE_SRC='/js/protect-workspace-v308.js';
@@ -33,6 +34,7 @@ export function versionReleaseAssets(html,sha=releaseSourceSha(),options={}){
   if(options?.includeWorkspaceFixes===true&&!source.includes(OWNER_FOCUS_STRIP_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${OWNER_FOCUS_STRIP_SRC}" defer></script>\n`);
   if(options?.includeWorkspaceFixes===true&&!source.includes(MONEY_WORKSPACE_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${MONEY_WORKSPACE_SRC}" defer></script>\n`);
   if(options?.includeWorkspaceFixes===true&&!source.includes(WORKSPACE_LAZY_HYDRATION_RECOVERY_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${WORKSPACE_LAZY_HYDRATION_RECOVERY_SRC}" defer></script>\n`);
+  if(options?.includeWorkspaceFixes===true&&!source.includes(WORKSPACE_LAZY_HYDRATION_RETRY_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${WORKSPACE_LAZY_HYDRATION_RETRY_SRC}" defer></script>\n`);
   if(options?.includeWorkspaceFixes===true&&!source.includes(ACCOUNT_LAZY_HYDRATION_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${ACCOUNT_LAZY_HYDRATION_SRC}" defer></script>\n`);
   if(options?.includeWorkspaceFixes===true&&!source.includes(PROTECT_LAZY_HYDRATION_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${PROTECT_LAZY_HYDRATION_SRC}" defer></script>\n`);
   if(options?.includeWorkspaceFixes===true&&!source.includes(PROTECT_WORKSPACE_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${PROTECT_WORKSPACE_SRC}" defer></script>\n`);
