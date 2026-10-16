@@ -81,7 +81,6 @@
   async function recover(root,fromRetry=false){
     if(!eligible(root)||pending.has(root))return false;
     const state=stateFor(root);
-    if(state.attempts>=RETRY_DELAYS_MS.length&&fromRetry)return false;
     if(!fromRetry&&root.dataset.lazyError!=='1'&&state.attempts===0)return false;
 
     const id=String(root.dataset.lazyViewId||root.id||'').trim();
@@ -141,7 +140,7 @@
   }
 
   function scan(){
-    document.querySelectorAll('[data-lazy-view="1"][data-lazy-error="1"]').forEach(root=>{void recover(root);});
+    document.querySelectorAll('[data-lazy-view="1"][data-lazy-error="1"]:not([data-lazy-recovery-exhausted="1"])').forEach(root=>{void recover(root);});
   }
 
   function boot(){
@@ -150,11 +149,7 @@
       for(const record of records){
         if(record.type==='attributes'&&record.attributeName==='data-lazy-error'){
           const root=record.target;
-          if(root?.dataset?.lazyError==='1'){
-            const state=retryState.get(root);
-            if(state?.attempts>=RETRY_DELAYS_MS.length)clearRetry(root);
-            void recover(root);
-          }
+          if(root?.dataset?.lazyError==='1'&&root.dataset.lazyRecoveryExhausted!=='1')void recover(root);
           continue;
         }
         if(record.type==='childList')scan();
