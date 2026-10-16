@@ -41,8 +41,8 @@ ok(
 const publicDockWidthContract=fs.readFileSync('tests/public-dock-width-contract.mjs','utf8');
 ok(
   fullUserWrapper.includes("dock.dataset.geminiNarrowV274==='1'")&&
-  fullUserWrapper.includes("Math.round(Math.max(360,Math.min(420,window.innerWidth*0.28)))")&&
-  fullUserWrapper.includes("Math.round(Math.max(332,Math.min(360,window.innerWidth*0.31)))")&&
+  fullUserWrapper.includes("Math.round(Math.max(360,Math.min(420,viewportWidth*0.28)))")&&
+  fullUserWrapper.includes("Math.round(Math.max(332,Math.min(360,viewportWidth*0.31)))")&&
   !fullUserWrapper.includes("getPropertyValue('--thebe-spatial-width')")&&
   publicDockWidthContract.includes('wide desktop keeps the compact Gemini-style rail')&&
   publicDockWidthContract.includes('runtime geometry must accept expanded state'),

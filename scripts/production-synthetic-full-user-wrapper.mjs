@@ -163,11 +163,12 @@ async function runFullUserJourney(credentials){
       const dock=document.getElementById('thebeAiDock'),pill=document.getElementById('thebeAiDockPill');
       if(!dock||!pill)return false;
       const style=getComputedStyle(dock),rect=dock.getBoundingClientRect(),pillStyle=getComputedStyle(pill);
-      const expanded=dock.dataset.expanded==='true'||document.body?.classList.contains('thebe-ai-expanded');
-      const expectedWidth=window.innerWidth>=1200
-        ?(expanded?560:Math.round(Math.max(360,Math.min(420,window.innerWidth*0.28))))
-        :window.innerWidth>=1024
-          ?(expanded?460:Math.round(Math.max(332,Math.min(360,window.innerWidth*0.31))))
+      const expanded=dock.dataset.geminiNarrowExpanded==='1';
+      const viewportWidth=Number(globalThis.innerWidth)||0;
+      const expectedWidth=viewportWidth>=1200
+        ?(expanded?560:Math.round(Math.max(360,Math.min(420,viewportWidth*0.28))))
+        :viewportWidth>=1024
+          ?(expanded?460:Math.round(Math.max(332,Math.min(360,viewportWidth*0.31))))
           :0;
       return !dock.hidden&&style.display!=='none'&&style.visibility!=='hidden'&&expectedWidth>0&&Math.abs(rect.width-expectedWidth)<=1&&rect.height>300&&
         pill.hidden&&pillStyle.display==='none'&&dock.dataset.surface==='public'&&
