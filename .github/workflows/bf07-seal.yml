@@ -51,6 +51,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          curl(){
+            command curl --retry 5 --retry-delay 2 --retry-max-time 90 --retry-connrefused "$@"
+          }
           [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo "release authority is restricted to main, got $GITHUB_REF" >&2; exit 1; }
           [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'release SHA must be a full lowercase 40-character commit SHA' >&2; exit 1; }
           if [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]; then
@@ -305,7 +308,7 @@ jobs:
             # A global recent-run page is not proof that old exact-SHA evidence is absent.
             if [[ "$lineage_recovery_state" != success:* ]]; then
               lineage_recovery_json="$(fetch_workflow_runs recovery-ci.yml "$lineage_sha")"
-            lineage_recovery_state="$(printf '%s' "$lineage_recovery_json" | LINEAGE_SHA="$lineage_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["LINEAGE_SHA"]; runs=[r for r in body.get("workflow_runs",[]) if r.get("head_sha")==sha and r.get("head_branch")=="main"]; success=next((r for r in runs if r.get("status")=="completed" and r.get("conclusion")=="success"),None); failed=next((r for r in runs if r.get("status")=="completed" and r.get("conclusion") and r.get("conclusion")!="success"),None); print("success:"+str(success.get("id")) if success else ("failure:"+str(failed.get("conclusion"))+":"+str(failed.get("id")) if failed else "missing"))')"
+              lineage_recovery_state="$(printf '%s' "$lineage_recovery_json" | LINEAGE_SHA="$lineage_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["LINEAGE_SHA"]; runs=[r for r in body.get("workflow_runs",[]) if r.get("head_sha")==sha and r.get("head_branch")=="main"]; success=next((r for r in runs if r.get("status")=="completed" and r.get("conclusion")=="success"),None); failed=next((r for r in runs if r.get("status")=="completed" and r.get("conclusion") and r.get("conclusion")!="success"),None); print("success:"+str(success.get("id")) if success else ("failure:"+str(failed.get("conclusion"))+":"+str(failed.get("id")) if failed else "missing"))')"
             fi
             if [[ "$lineage_recovery_state" == success:* ]]; then
               echo "Lineage Recovery CI confirmed: ${lineage_sha:0:12} run ${lineage_recovery_state#success:}"
@@ -369,6 +372,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          curl(){
+            command curl --retry 5 --retry-delay 2 --retry-max-time 90 --retry-connrefused "$@"
+          }
           [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]] || { echo 'BF-07 checkout moved before seal publication' >&2; exit 1; }
           live_main_sha="$(
             curl --fail-with-body --silent --show-error \
