@@ -1,0 +1,39 @@
+name: Lazy Hydration Retry CI
+run-name: Lazy hydration retry ${{ github.sha }}
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lazy-hydration-retry-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  retry-runtime:
+    name: Bounded lazy hydration retry runtime
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+
+      - name: Verify retry runtime syntax and behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check public/js/workspace-lazy-hydration-retry-v535.js
+          node tests/v535-workspace-lazy-hydration-retry.mjs
