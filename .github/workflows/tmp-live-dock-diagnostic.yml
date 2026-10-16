@@ -1,0 +1,64 @@
+name: Temporary live dock diagnostic
+
+on:
+  push:
+    branches:
+      - chatgpt/v21-production-proof-20261016
+    paths:
+      - '.github/workflows/tmp-live-dock-diagnostic.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Inspect live public dock geometry
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import {chromium} from 'playwright-core';
+          const executablePath=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(p=>fs.existsSync(p));
+          if(!executablePath) throw new Error('browser missing');
+          const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox']});
+          const page=await browser.newPage({viewport:{width:1440,height:1100}});
+          const response=await page.goto('https://thebedesk.com/?dock-diagnostic='+Date.now(),{waitUntil:'domcontentloaded',timeout:30000});
+          await page.waitForTimeout(8000);
+          const state=await page.evaluate(()=>{
+            const dock=document.getElementById('thebeAiDock');
+            const pill=document.getElementById('thebeAiDockPill');
+            if(!dock||!pill)return {dock:false,pill:false,html:(document.body?.innerText||'').slice(0,500)};
+            const style=getComputedStyle(dock),rect=dock.getBoundingClientRect(),pillStyle=getComputedStyle(pill);
+            return {
+              http:200,
+              dock:true,
+              hidden:dock.hidden,
+              display:style.display,
+              visibility:style.visibility,
+              width:rect.width,
+              height:rect.height,
+              expectedWidth:getComputedStyle(document.body).getPropertyValue('--thebe-spatial-width').trim(),
+              pillHidden:pill.hidden,
+              pillDisplay:pillStyle.display,
+              surface:dock.dataset.surface||'',
+              release:String(globalThis.ThebeAiDock?.release||''),
+              mobile:Boolean(globalThis.ThebeAiDock?.state?.().mobile),
+              marketV20:document.getElementById('marketingGate')?.dataset.marketGrowthV20||'',
+              marketV21:document.getElementById('marketingGate')?.dataset.marketRefinementV21||'',
+              hero:(document.querySelector('.hero h1')?.textContent||'').trim()
+            };
+          });
+          console.log('LIVE_DOCK_STATE',JSON.stringify(state));
+          console.log('HTTP_STATUS',response?.status()||0);
+          await browser.close();
+          NODE
