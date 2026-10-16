@@ -85,6 +85,61 @@
     }
     return global.apiJson(url,options);
   };
+  function internalAutonomyPanel(){
+    const panel=document.createElement("details");panel.id="ownerInternalAutonomyPanel";panel.className="owner-panel";
+    panel.append(text("summary","Unattended internal work"));
+    const body=document.createElement("div");body.className="owner-agentic-controls";panel.append(body);
+    let sequence=0;
+    const load=async()=>{
+      const seq=++sequence,company=q("#companySelect")?.value||"";
+      const current=()=>seq===sequence&&canEdit()&&panel.open&&(q("#companySelect")?.value||"")===company;
+      body.replaceChildren(text("p","Loading standing authorizations…","muted"));
+      try{
+        const payload=await request("/api/agentic/internal-autonomy");if(!current())return;
+        body.replaceChildren(text("p","Approve a recurring task template once. Thebe can create that exact internal task, prepare a draft evidence report and refresh its managed operational summary. Financial, legal, employment and access records remain outside this workflow.","muted"));
+        const active=(payload.policies||[]).filter(p=>p.status==="active"&&Date.parse(p.policy?.expiresAt)>Date.now());
+        for(const p of active){
+          const item=document.createElement("div");item.className="owner-agentic-controls";
+          item.append(text("b",p.policy?.taskTemplate?.title||"Operations report and summary"),text("p",`Every ${p.policy?.intervalHours} hours · expires ${new Date(p.policy?.expiresAt).toLocaleDateString()} · next ${p.next_run_at?new Date(p.next_run_at).toLocaleString():"unscheduled"}`,"muted"));
+          item.append(button("Run due work",async()=>{if(!current())return;try{await request(`/api/agentic/internal-autonomy/${encodeURIComponent(p.id)}/run`,{method:"POST",body:"{}"});if(current())await load();}catch(e){if(current())body.append(text("p",String(e.message||"This work is not due or is restricted."),"muted"));}},"btn soft"));
+          item.append(button("Revoke authorization",async()=>{if(!current())return;try{await request(`/api/agentic/internal-autonomy/${encodeURIComponent(p.id)}/revoke`,{method:"POST",body:"{}"});if(current())await load();}catch(e){if(current())body.append(text("p",String(e.message||"Revocation could not be confirmed."),"muted"));}},"btn soft"));
+          body.append(item);
+        }
+        if(!active.length){
+          const label=document.createElement("label");label.textContent="Recurring internal task";
+          const title=document.createElement("input");title.type="text";title.maxLength=160;title.value="Review the operations evidence report";label.append(title);body.append(label);
+          body.append(text("p","Standing authorization: all three workflows, every 24 hours, for 30 days; no model spend or external actions. Maximum 5 internal tasks per day. The task wording below remains fixed until you revoke and replace the authorization.","muted"));
+          const enable=button("Authorize all three workflows",async()=>{
+            if(!current()||!title.value.trim())return;enable.disabled=true;
+            try{
+              const expiresAt=new Date(Date.now()+30*86400000-60000).toISOString();
+              const listed=await request("/api/agentic/authority/delegations");if(!current())return;
+              let delegation=(listed.items||[]).find(d=>d.actionKey==="task.create"&&d.status==="active"&&(!d.expiresAt||Date.parse(d.expiresAt)>Date.now()));
+              if(!delegation){
+                const created=await request("/api/agentic/authority/delegations",{method:"POST",body:JSON.stringify({agentKey:"thebe",actionKey:"task.create",maxAutonomyLevel:3,maxDailyActions:5,maxAmountMinor:0,externalSideEffects:false,expiresAt})});
+                delegation={id:created.id||created.delegation?.id};
+              }
+              if(!current())return;
+              const status=await request("/api/agentic/task-execution/status");if(!current())return;
+              if(!(status.activeGrants||[]).some(g=>g.delegationId===delegation.id))await request("/api/agentic/task-execution/grants",{method:"POST",body:JSON.stringify({delegationId:delegation.id})});
+              if(!current())return;
+              const created=await request("/api/agentic/internal-autonomy",{method:"POST",body:JSON.stringify({scopes:["tasks","drafts","records"],delegationId:delegation.id,taskTemplate:{title:title.value.trim(),priority:2},expiresAt,intervalHours:24,maxDailyRuns:5})});
+              if(current()){await request(`/api/agentic/internal-autonomy/${encodeURIComponent(created.id)}/run`,{method:"POST",body:"{}"});await load();}
+            }catch(e){if(current()){body.append(text("p",String(e.message||"Authorization could not be activated."),"muted"));enable.disabled=false;}}
+          },"btn");body.append(enable);
+        }
+        for(const run of (payload.runs||[]).slice(0,5)){
+          const item=document.createElement("details");item.append(text("summary",`${new Date(run.createdAt).toLocaleString()} · ${run.task?"Task verified · ":""}${run.report?"Draft prepared · ":""}${run.record?"Operational summary updated":""}`));
+          if(run.report){const report=document.createElement("pre");report.style.whiteSpace="pre-wrap";report.style.overflowWrap="anywhere";report.textContent=JSON.stringify(run.report,null,2);item.append(report);}
+          if(run.task)item.append(text("p",run.task.title||run.task.id));body.append(item);
+        }
+      }catch(e){if(current())body.replaceChildren(text("p",String(e.message||"Unattended work is unavailable."),"muted"));}
+    };
+    panel.addEventListener("toggle",()=>{if(panel.open&&canEdit())load();else sequence++;});
+    q("#companySelect")?.addEventListener("change",()=>{sequence++;panel.open=false;body.replaceChildren();});
+    return panel;
+  }
+
   const clone=value=>typeof global.structuredClone==="function"
     ?global.structuredClone(value)
     :JSON.parse(JSON.stringify(value));
@@ -1471,6 +1526,7 @@
     agenticBody.id="ownerAgenticBody";
     agentic.append(agenticHead,agenticBody);
     shell.append(agentic);
+    if(canEdit())shell.append(internalAutonomyPanel());
     // Read-only reliability advice. Server independently enforces owner role and default-off flag.
     if(canEdit()){
       const reliability=document.createElement("details");
