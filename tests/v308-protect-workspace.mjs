@@ -7,8 +7,93 @@ const recovery=fs.readFileSync('public/js/protect-lazy-hydration-v528.js','utf8'
 const canonicalShard=fs.readFileSync('public/assets/workspace-view-fragments-20261001a-10.json','utf8');
 const recoveryShard=fs.readFileSync('public/assets/workspace-view-fragments-20261016a-10.json','utf8');
 const recoveryPayload=JSON.parse(recoveryShard);
+const fragmentManifest=JSON.parse(fs.readFileSync('public/assets/workspace-view-fragments-20261001a.json','utf8'));
+const fragmentShards=Array.from({length:12},(_,i)=>JSON.parse(fs.readFileSync(`public/assets/workspace-view-fragments-20261001a-${i}.json`,'utf8')));
+const production=fs.readFileSync('cloudflare/src/production-entry.js','utf8');
 const assetIdentity=fs.readFileSync('cloudflare/src/asset-release-identity.js','utf8');
 const sha='8'.repeat(40);
+
+const expectedLazyRouteShards=Object.freeze({
+  protecthub:10,
+  propertyintelligence:4,
+  tenderhub:5,
+  accounthub:4,
+  employer:3,
+  employees:1,
+  dailyreports:6,
+  privacy:8,
+  tender:0,
+  events:1,
+  manufacturing:6,
+  sources:4,
+  taxprofile:6,
+  bwreadiness:1,
+  corporate:9,
+  employmentcontrols:2,
+  publishing:7,
+  calendar:10,
+  vault:10,
+  documents:8,
+  changes:3,
+  audit:7,
+  rules:3,
+  expert:10,
+  security:4,
+  integrations:11,
+  billing:3,
+  accountsocial:2,
+  accountsecurity:5,
+  accountdata:7,
+  tenderready:7,
+  protectionengine:7,
+  employershield:4,
+  companysecretary:3,
+  compliancepassport:1,
+  licenceos:1,
+  partnerportal:4,
+  workflowhub:2,
+  aiservices:10,
+  aicontrols:6,
+  notifications:0,
+  recurringautomation:4,
+  servicesmarketplace:9,
+  payments:5,
+  entitlements:2,
+  regulatoryintel:2,
+  regulatoryobligations:9,
+  inspectionreadiness:6,
+  datadeletion:8,
+  evidenceintegrity:10,
+  controlcenter:10,
+  riskengine:1,
+  portfolioRisk:11,
+  industryintel:0,
+  assurancefreshness:4,
+  auditintegrity:6,
+  controllineage:2,
+  regulatorygovernance:6,
+  statutorycalendar:1,
+  businessevents:5,
+  partneractioncenter:7,
+  profile:1
+});
+const viewShard=id=>{let hash=0;for(const ch of String(id||''))hash=(Math.imul(hash,31)+ch.charCodeAt(0))>>>0;return hash%12};
+const lazyConstant=(production.match(/const WORKSPACE_LAZY_VIEW_IDS=Object\.freeze\((\[[^\n]+\])\);/)||[])[1];
+assert.ok(lazyConstant,'production lazy workspace route inventory must remain parseable');
+const productionLazyViews=JSON.parse(lazyConstant);
+assert.deepEqual(productionLazyViews.slice().sort(),Object.keys(expectedLazyRouteShards).sort(),'every production lazy workspace route must have an explicit expected shard regression fixture');
+assert.deepEqual(Object.keys(fragmentManifest.views||{}).sort(),Object.keys(expectedLazyRouteShards).sort(),'fragment manifest must cover exactly the expected lazy workspace routes');
+for(const [id,expectedShard] of Object.entries(expectedLazyRouteShards)){
+  assert.equal(viewShard(id),expectedShard,`lazy workspace route ${id} must resolve to expected shard ${expectedShard}`);
+  assert.equal(fragmentShards[expectedShard]?.shard,expectedShard,`expected shard payload identity mismatch for ${id}`);
+  assert.equal(Object.prototype.hasOwnProperty.call(fragmentShards[expectedShard]?.views||{},id),true,`lazy workspace route ${id} is missing from expected shard ${expectedShard}`);
+  assert.equal(fragmentShards[expectedShard].views[id],fragmentManifest.views[id],`lazy workspace route ${id} markup drifted from canonical manifest`);
+  for(let shard=0;shard<fragmentShards.length;shard++){
+    if(shard===expectedShard)continue;
+    assert.equal(Object.prototype.hasOwnProperty.call(fragmentShards[shard]?.views||{},id),false,`lazy workspace route ${id} must not appear in shard ${shard}`);
+  }
+}
+assert.equal(expectedLazyRouteShards.protecthub,10,'Protect must remain pinned to its deterministic shard 10 route');
 
 assert.match(source,/20261007-protect-workspace-v308/,'explicit V308 release identity');
 assert.match(source,/obligations:'\/api\/obligations'/,'Protect reads existing compliance obligations');
@@ -81,4 +166,4 @@ const homeResponseText=await homeResponse.text();
 assert.equal(homeResponseText.includes('protect-lazy-hydration-v528.js'),false,'real public root excludes V528 recovery');
 assert.equal(homeResponseText.includes('protect-workspace-v308.js'),false,'real public root excludes V308');
 
-console.log('PASS: V308 Protect workspace and V528 fresh-shard recovery are deterministic-first, read-only, safe-DOM, app-scoped and release-bound');
+console.log('PASS: V308 Protect workspace, V528 shard-10 recovery, and exhaustive lazy route shard regression are deterministic-first, read-only, safe-DOM, app-scoped and release-bound');
