@@ -1,7 +1,7 @@
 (()=>{
   'use strict';
 
-  const RELEASE='20261016-workspace-lazy-hydration-recovery-v535';
+  const RELEASE='20261016-workspace-lazy-hydration-recovery-v533';
   const MANIFEST_ASSET='/assets/workspace-view-fragments-20261001a.json';
   const RETRY_DELAYS_MS=Object.freeze([150,300,600,1000,1500,2000,2500,3000]);
   const pending=new WeakSet();
