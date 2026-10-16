@@ -31,10 +31,18 @@ assert.match(config,/name = "bw-compliance-os-evaluation"/);
 assert.match(config,/main = "src\/evaluation-entry\.js"/);
 assert.match(config,/pattern = "evaluate\.thebedesk\.com"/);
 assert.match(config,/REGISTRATION_MODE = "cohort"/);
+assert.match(config,/PAYMENT_PROVIDER = "none"/,'evaluation payments must remain disabled');
 assert.match(config,/GOOGLE_OAUTH_CLIENT_ID = ""/);
 assert.match(config,/FACEBOOK_APP_ID = ""/);
 assert.match(config,/REGISTRATION_COHORT_EMAILS_SECRET/);
 assert.doesNotMatch(config,/release\/production\.json/,'evaluation config must not mutate production release authority');
+
+const renderer=fs.readFileSync('cloudflare/render-evaluation-config.mjs','utf8');
+assert.match(renderer,/PAYMENT_PROVIDER = \"none\"/,'renderer must refuse evaluation config if payment collection becomes enabled');
+for(const key of ['THEBE_BANK_NAME','THEBE_BANK_ACCOUNT_NUMBER','THEBE_BANK_ACCOUNT_TYPE','THEBE_BANK_BRANCH_NAME','THEBE_BANK_BRANCH_CODE','THEBE_BANK_SWIFT_CODE']){
+  assert.match(renderer,new RegExp(`optional\\('${key}'`),`${key} must not block a payment-disabled evaluation deployment`);
+}
+assert.doesNotMatch(renderer,/REPLACE_WITH_THEBE_BANK_NAME:required/,'bank metadata must not become a required evaluation dependency');
 
 const production=fs.readFileSync('cloudflare/wrangler.toml','utf8');
 assert.match(production,/name = "bw-compliance-os"/);

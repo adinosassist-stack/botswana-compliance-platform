@@ -10,9 +10,10 @@ const required=(name,pattern=null)=>{
   if(pattern&&!pattern.test(value))fail(`${name} is malformed`);
   return value;
 };
-const optional=name=>{
+const optional=(name,pattern=null)=>{
   const value=String(process.env[name]||'').trim();
   if(/["\\\u0000-\u001f\u007f]/.test(value))fail(`${name} contains unsafe TOML characters`);
+  if(value&&pattern&&!pattern.test(value))fail(`${name} is malformed`);
   return value;
 };
 
@@ -35,18 +36,21 @@ const values={
   REPLACE_WITH_PLATFORM_ADMIN_EMAILS:required('PLATFORM_ADMIN_EMAILS'),
   REPLACE_WITH_PLATFORM_REGULATORY_REVIEWERS:required('PLATFORM_REGULATORY_REVIEWERS'),
   REPLACE_WITH_EMAIL_FROM:required('EMAIL_FROM',/@[^\s<>]+\.[^\s<>]+>?$/),
-  REPLACE_WITH_THEBE_BANK_NAME:required('THEBE_BANK_NAME'),
-  REPLACE_WITH_THEBE_BANK_ACCOUNT_NUMBER:required('THEBE_BANK_ACCOUNT_NUMBER',/^[0-9]{6,20}$/),
+  // Payment collection is disabled in the evaluation profile. Keep bank metadata optional so
+  // performance testing cannot be blocked by unrelated production checkout configuration.
+  REPLACE_WITH_THEBE_BANK_NAME:optional('THEBE_BANK_NAME'),
+  REPLACE_WITH_THEBE_BANK_ACCOUNT_NUMBER:optional('THEBE_BANK_ACCOUNT_NUMBER',/^[0-9]{6,20}$/),
   REPLACE_WITH_THEBE_BANK_ACCOUNT_TYPE:optional('THEBE_BANK_ACCOUNT_TYPE'),
   REPLACE_WITH_THEBE_BANK_BRANCH_NAME:optional('THEBE_BANK_BRANCH_NAME'),
-  REPLACE_WITH_THEBE_BANK_BRANCH_CODE:required('THEBE_BANK_BRANCH_CODE',/^[0-9]{3,12}$/),
-  REPLACE_WITH_THEBE_BANK_SWIFT_CODE:required('THEBE_BANK_SWIFT_CODE',/^[A-Z0-9]{8}([A-Z0-9]{3})?$/)
+  REPLACE_WITH_THEBE_BANK_BRANCH_CODE:optional('THEBE_BANK_BRANCH_CODE',/^[0-9]{3,12}$/),
+  REPLACE_WITH_THEBE_BANK_SWIFT_CODE:optional('THEBE_BANK_SWIFT_CODE',/^[A-Z0-9]{8}([A-Z0-9]{3})?$/)
 };
 
 let source=fs.readFileSync(template,'utf8');
 if(!/^name = "bw-compliance-os-evaluation"$/m.test(source))fail('evaluation Worker identity changed');
 if(!/^main = "src\/evaluation-entry\.js"$/m.test(source))fail('evaluation entrypoint changed');
 if(!/^REGISTRATION_MODE = "cohort"$/m.test(source))fail('evaluation registration must remain cohort-only');
+if(!/^PAYMENT_PROVIDER = "none"$/m.test(source))fail('evaluation payments must remain disabled');
 if(!/^GOOGLE_OAUTH_CLIENT_ID = ""$/m.test(source)||!/^FACEBOOK_APP_ID = ""$/m.test(source))fail('social OAuth must remain disabled for evaluation');
 source=source.replace(/^main = "src\/evaluation-entry\.js"$/m,`main = "${mainEntry}"`);
 source=source.replace(/^directory = "\.\.\/public"$/m,`directory = "${assetsDirectory}"`);
