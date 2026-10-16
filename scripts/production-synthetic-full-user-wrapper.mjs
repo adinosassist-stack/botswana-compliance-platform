@@ -175,7 +175,15 @@ async function runFullUserJourney(credentials){
         dock.dataset.geminiNarrowV274==='1'&&dock.dataset.geminiNarrowExpanded===(expanded?'1':'0');
     },null,{timeout:15000});
     const publicDock=await page.evaluate(()=>{
-      const core=document.querySelector('#thebeAiDock .thebe-particle-core');
+      const audio=document.querySelector('#thebeAiDock .thebe-ai-audio');
+      const send=document.querySelector('#thebeAiDock .thebe-ai-send');
+      const input=document.getElementById('thebeAiDockInput');
+      const voiceCard=document.querySelector('#thebeAiDock .thebe-ai-voice-card');
+      const visible=node=>{
+        if(!node)return false;
+        const style=getComputedStyle(node),rect=node.getBoundingClientRect();
+        return !node.hidden&&style.display!=='none'&&style.visibility!=='hidden'&&rect.width>0&&rect.height>0;
+      };
       return {
         release:String(globalThis.ThebeAiDock?.release||''),
         dockHidden:document.getElementById('thebeAiDock')?.hidden??true,
@@ -186,8 +194,12 @@ async function runFullUserJourney(credentials){
         mobile:Boolean(globalThis.ThebeAiDock?.state?.().mobile),
         mascotImages:document.querySelectorAll('#thebeAiDock .thebe-mascot-image').length,
         mascotSvgs:document.querySelectorAll('#thebeAiDock .thebe-mascot-svg').length,
-        coreWidth:core?Math.round(core.getBoundingClientRect().width):0,
-        particleCount:document.querySelectorAll('#thebeAiDock .thebe-particle').length
+        voiceCardDisplay:voiceCard?getComputedStyle(voiceCard).display:'missing',
+        audioVisible:visible(audio),
+        audioLabel:String(audio?.getAttribute('aria-label')||''),
+        sendHidden:send?.hidden??false,
+        sendDisplay:send?getComputedStyle(send).display:'missing',
+        composerInputPresent:!!input
       };
     });
     assert(publicDock.surface==='public'&&!publicDock.mobile&&!publicDock.dockHidden&&publicDock.pillHidden&&publicDock.pillDisplay==='none',
@@ -195,9 +207,9 @@ async function runFullUserJourney(credentials){
     assert(publicDock.minimizeDisplay==='none','desktop Thebe dock must not expose the mobile minimise control');
     assert(publicDock.mascotImages===0&&publicDock.mascotSvgs===0,
       `Talk to Thebe must stay character-free: ${safe(JSON.stringify(publicDock))}`);
-    assert(publicDock.coreWidth>=60&&publicDock.particleCount===343,
-      `Talk to Thebe must retain the animated voice field without a mascot or decorative character: ${safe(JSON.stringify(publicDock))}`);
-    mark('Thebe desktop persistence',`release=${publicDock.release} full public dock fixed open; character-free voice field; pill/minimise hidden`);
+    assert(publicDock.voiceCardDisplay==='none'&&publicDock.audioVisible&&/Start Thebe voice/i.test(publicDock.audioLabel)&&publicDock.sendHidden&&publicDock.sendDisplay==='none'&&publicDock.composerInputPresent,
+      `Talk to Thebe must expose the current empty-composer mic contract while the legacy voice card stays hidden: ${safe(JSON.stringify(publicDock))}`);
+    mark('Thebe desktop persistence',`release=${publicDock.release} full public dock fixed open; composer mic visible with Send hidden; pill/minimise/legacy voice card hidden`);
     const marketingCopy=await page.evaluate(()=>({
       quick:[...document.querySelectorAll('#thebeAiDock .thebe-ai-quick button')].map(x=>(x.textContent||'').trim()),
       sub:(document.querySelector('#thebeAiDock .thebe-ai-voice-sub')?.textContent||'').trim(),

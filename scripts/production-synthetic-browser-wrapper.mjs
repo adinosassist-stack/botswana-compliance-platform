@@ -201,8 +201,10 @@ async function waitForWorkspaceAuthoredState(page,label){
       if(lastState?.ready===true)return lastState;
       lastError=null;
     }catch(error){
+      // A busy workspace main thread can transiently outlive the per-evaluation
+      // deadline while still becoming ready well inside the authored visibility
+      // window. Keep the overall poll bounded instead of failing on one sample.
       lastError=error;
-      break;
     }
     const remaining=deadline-Date.now();
     if(remaining<=0)break;
