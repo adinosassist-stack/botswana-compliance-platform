@@ -22,7 +22,7 @@ try{
     window.calls=[];window.active=false;
     const request=async(url,options={})=>{
       calls.push({url,method:options.method||'GET',body:options.body?JSON.parse(options.body):null});
-      if(url==='/api/agentic/internal-autonomy'&&!options.method)return {policies:active?[{id:'policy-a',status:'active',policy:{expiresAt:new Date(Date.now()+86400000).toISOString(),intervalHours:24,taskTemplate:{title:'<img onerror=alert(1)>'}},next_run_at:new Date().toISOString()}]:[],runs:[]};
+      if(url==='/api/agentic/internal-autonomy'&&!options.method)return {policies:active?[{id:'policy-a',status:'active',policy:{expiresAt:new Date(Date.now()+86400000).toISOString(),intervalHours:24,taskTemplate:{title:'<img onerror=alert(1)>'}},next_run_at:new Date().toISOString()}]:[],runs:active?[{createdAt:new Date().toISOString(),report:{sources:[{actionKey:'business_health.read',data:{openPerformanceSignals:2}},{actionKey:'daily_operations_summary.read',data:{available:false}}]},record:{}}]:[]};
       if(url==='/api/agentic/authority/delegations'&&!options.method)return {items:[]};
       if(url==='/api/agentic/authority/delegations')return {delegation:{id:'delegation-a'}};
       if(url==='/api/agentic/task-execution/status')return {activeGrants:[]};
@@ -41,6 +41,9 @@ try{
   assert.deepEqual(policy.body.scopes,['tasks','drafts','records']);assert.equal(policy.body.maxDailyRuns,5);assert.equal(policy.body.intervalHours,24);
   assert.equal(calls.filter(c=>c.url.endsWith('/run')).length,1);
   assert.equal(await page.locator('#ownerInternalAutonomyPanel img').count(),0,'owner task names use safe DOM text');
+  await page.locator('#ownerInternalAutonomyPanel details > summary').click();
+  assert.equal(await page.getByText('Open signals: 2',{exact:true}).isVisible(),true,'report uses readable evidence labels');
+  assert.equal(await page.getByText('No operations summary has been recorded yet.',{exact:true}).isVisible(),true,'missing source is explicit');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'panel fits the viewport');
   await page.getByRole('button',{name:'Revoke authorization'}).click();
   await page.getByRole('button',{name:'Authorize all three workflows'}).waitFor();
