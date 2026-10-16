@@ -3,7 +3,9 @@
 
   const RELEASE='20261016-workspace-lazy-hydration-recovery-v533';
   const MANIFEST_ASSET='/assets/workspace-view-fragments-20261001a.json';
+  const RETRY_DELAYS_MS=Object.freeze([150,300,600,1000,1500,2000,2500,3000]);
   const pending=new WeakSet();
+  const retryState=new WeakMap();
   let manifestPromise=null;
 
   function releaseBoundAsset(){
@@ -29,17 +31,79 @@
     return manifestPromise;
   }
 
-  async function recover(root){
-    if(!root||pending.has(root)||root.dataset.lazyHydrated==='1')return false;
-    if(root.dataset.lazyView!=='1'||root.dataset.lazyError!=='1')return false;
+  function eligible(root){
+    return !!root&&root.isConnected&&root.dataset.lazyView==='1'&&root.dataset.lazyHydrated!=='1';
+  }
+
+  function stateFor(root){
+    let state=retryState.get(root);
+    if(!state){
+      state={attempts:0,timer:null};
+      retryState.set(root,state);
+    }
+    return state;
+  }
+
+  function clearRetry(root){
+    const state=retryState.get(root);
+    if(state?.timer)clearTimeout(state.timer);
+    retryState.delete(root);
+    if(root){
+      delete root.dataset.lazyRecoveryExhausted;
+      delete root.dataset.lazyRecoveryAttempt;
+    }
+  }
+
+  function scheduleRetry(root){
+    if(!eligible(root)){
+      clearRetry(root);
+      return false;
+    }
+    const state=stateFor(root);
+    if(state.timer)return true;
+    if(state.attempts>=RETRY_DELAYS_MS.length){
+      root.dataset.lazyRecoveryExhausted='1';
+      root.dataset.lazyError='1';
+      root.setAttribute('aria-busy','false');
+      console.warn('workspace_lazy_view_recovery_exhausted',{view:String(root.dataset.lazyViewId||root.id||''),attempts:state.attempts});
+      return false;
+    }
+    const delay=RETRY_DELAYS_MS[state.attempts];
+    state.timer=setTimeout(()=>{
+      state.timer=null;
+      state.attempts+=1;
+      root.dataset.lazyRecoveryAttempt=String(state.attempts);
+      void recover(root,true);
+    },delay);
+    return true;
+  }
+
+  async function recover(root,fromRetry=false){
+    if(!eligible(root)||pending.has(root))return false;
+    const state=stateFor(root);
+    if(!fromRetry&&root.dataset.lazyError!=='1'&&state.attempts===0)return false;
+
     const id=String(root.dataset.lazyViewId||root.id||'').trim();
     if(!id)return false;
-    const renderMarkup=globalThis.BW?.dom?.renderMarkup;
-    if(typeof renderMarkup!=='function')return false;
 
-    pending.add(root);
+    // Once fallback recovery owns this failure, lazy-error is no longer terminal.
+    // Keep the view busy while bounded retries run and only restore lazy-error
+    // when the retry budget is exhausted. This prevents production probes and
+    // users from observing a stale terminal error while recovery is active.
+    delete root.dataset.lazyError;
+    delete root.dataset.lazyRecoveryExhausted;
     root.dataset.lazyRecovery='1';
     root.setAttribute('aria-busy','true');
+
+    const renderMarkup=globalThis.BW?.dom?.renderMarkup;
+    if(typeof renderMarkup!=='function'){
+      root.dataset.lazyRecoveryError='1';
+      delete root.dataset.lazyRecovery;
+      scheduleRetry(root);
+      return false;
+    }
+
+    pending.add(root);
     try{
       const views=await manifestViews();
       const markup=Object.prototype.hasOwnProperty.call(views,id)?views[id]:null;
@@ -51,9 +115,11 @@
       delete root.dataset.lazyError;
       delete root.dataset.lazyLoading;
       delete root.dataset.lazyRecoveryError;
+      delete root.dataset.lazyRecovery;
       root.removeAttribute('data-lazy-view');
       root.removeAttribute('data-lazy-view-id');
       root.setAttribute('aria-busy','false');
+      clearRetry(root);
       root.dispatchEvent(new CustomEvent('thebe:lazy-view-hydrated',{detail:{id,source:RELEASE}}));
 
       if(root.classList.contains('active')&&typeof globalThis.showView==='function'){
@@ -64,17 +130,17 @@
       return true;
     }catch(error){
       root.dataset.lazyRecoveryError='1';
-      root.setAttribute('aria-busy','false');
-      console.warn('workspace_lazy_view_recovery_failed',{view:id,error});
+      console.warn('workspace_lazy_view_recovery_failed',{view:id,attempt:state.attempts,error});
+      scheduleRetry(root);
       return false;
     }finally{
-      delete root.dataset.lazyRecovery;
       pending.delete(root);
+      if(root.dataset.lazyHydrated!=='1')delete root.dataset.lazyRecovery;
     }
   }
 
   function scan(){
-    document.querySelectorAll('[data-lazy-view="1"][data-lazy-error="1"]').forEach(root=>{void recover(root);});
+    document.querySelectorAll('[data-lazy-view="1"][data-lazy-error="1"]:not([data-lazy-recovery-exhausted="1"])').forEach(root=>{void recover(root);});
   }
 
   function boot(){
@@ -82,7 +148,8 @@
     const observer=new MutationObserver(records=>{
       for(const record of records){
         if(record.type==='attributes'&&record.attributeName==='data-lazy-error'){
-          void recover(record.target);
+          const root=record.target;
+          if(root?.dataset?.lazyError==='1'&&root.dataset.lazyRecoveryExhausted!=='1')void recover(root);
           continue;
         }
         if(record.type==='childList')scan();
