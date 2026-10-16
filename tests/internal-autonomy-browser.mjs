@@ -6,6 +6,7 @@ const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES?path.join(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES,'playwright'):'playwright-core');
 const executablePath=[process.env.CHROMIUM_EXECUTABLE_PATH,'/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].filter(Boolean).find(p=>fs.existsSync(p));
 const source=fs.readFileSync('public/js/owner-command-centre.js','utf8');
+assert.match(source,/if\(shell\)\{ensureInternalAutonomyPanel\(shell\);return shell;\}/,'existing shells must re-evaluate owner-only controls after role hydration');
 const factory=source.slice(source.indexOf('  function internalAutonomyPanel(){'),source.indexOf('  const clone='));
 assert.ok(factory.includes('Authorize all three workflows'));
 const browser=await chromium.launch({...(executablePath?{executablePath}:{}),headless:true,args:['--no-sandbox']});
@@ -16,7 +17,7 @@ try{
   await page.addStyleTag({content:fs.readFileSync('public/assets/owner-command-centre.css','utf8')});
   await page.addScriptTag({content:`
     const q=(s,r=document)=>r.querySelector(s);
-    let isOwner=true; const canEdit=()=>isOwner;
+    let isOwner=false; const canEdit=()=>isOwner;
     const text=(tag,value,cls)=>{const n=document.createElement(tag);n.textContent=value;if(cls)n.className=cls;return n;};
     const button=(label,fn,cls)=>{const n=text('button',label,cls);n.type='button';n.addEventListener('click',fn);return n;};
     window.calls=[];window.active=false;
@@ -31,8 +32,11 @@ try{
       return {ok:true};
     };
     ${factory}
-    document.getElementById('host').append(internalAutonomyPanel());
+    ensureInternalAutonomyPanel(document.getElementById('host'));
   `});
+  assert.equal(await page.locator('#ownerInternalAutonomyPanel').count(),0,'unresolved/non-owner role does not mount owner controls');
+  await page.evaluate(()=>{isOwner=true;ensureInternalAutonomyPanel(document.getElementById('host'));ensureInternalAutonomyPanel(document.getElementById('host'));});
+  assert.equal(await page.locator('#ownerInternalAutonomyPanel').count(),1,'late owner hydration mounts once into the existing shell');
   await page.locator('#ownerInternalAutonomyPanel > summary').click();
   await page.getByRole('button',{name:'Authorize all three workflows'}).click();
   await page.getByRole('button',{name:'Revoke authorization'}).waitFor();
@@ -49,6 +53,8 @@ try{
   await page.getByRole('button',{name:'Authorize all three workflows'}).waitFor();
   await page.selectOption('#companySelect','b');
   assert.equal(await page.locator('#ownerInternalAutonomyPanel').getAttribute('open'),null,'company switch closes the old scope');
+  await page.evaluate(()=>{isOwner=false;ensureInternalAutonomyPanel(document.getElementById('host'));});
+  assert.equal(await page.locator('#ownerInternalAutonomyPanel').count(),0,'role loss removes the owner controls');
   await page.close();
  }
  console.log('internal autonomy desktop/mobile standing authorization, run, revoke, tenant switch and safe rendering: PASS');

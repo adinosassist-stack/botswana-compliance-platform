@@ -154,6 +154,12 @@
     return panel;
   }
 
+  function ensureInternalAutonomyPanel(shell){
+    const existing=q("#ownerInternalAutonomyPanel",shell);
+    if(!canEdit()){existing?.remove();return;}
+    if(!existing)shell.append(internalAutonomyPanel());
+  }
+
   const clone=value=>typeof global.structuredClone==="function"
     ?global.structuredClone(value)
     :JSON.parse(JSON.stringify(value));
@@ -1436,7 +1442,7 @@
     const parent=q("#homeDecisionCenter");
     if(!parent)return null;
     let shell=q("#ownerCommandCentre");
-    if(shell)return shell;
+    if(shell){ensureInternalAutonomyPanel(shell);return shell;}
 
     shell=document.createElement("section");
     shell.id="ownerCommandCentre";
@@ -1540,7 +1546,7 @@
     agenticBody.id="ownerAgenticBody";
     agentic.append(agenticHead,agenticBody);
     shell.append(agentic);
-    if(canEdit())shell.append(internalAutonomyPanel());
+    ensureInternalAutonomyPanel(shell);
     // Read-only reliability advice. Server independently enforces owner role and default-off flag.
     if(canEdit()){
       const reliability=document.createElement("details");
