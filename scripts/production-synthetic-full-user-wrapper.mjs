@@ -119,9 +119,9 @@ async function runFullUserJourney(credentials){
 
     const publicRoot=await page.goto(`${ORIGIN}/?full-user-public-proof=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:NAVIGATION_TIMEOUT_MS});
     assert(publicRoot?.status()===200,`public root returned HTTP ${publicRoot?.status()||0}`);
-    await page.waitForSelector('#marketingGate[data-market-growth-v20="1"]',{state:'visible',timeout:15000});
+    await page.waitForSelector('#marketingGate[data-market-refinement-v21="21"]',{state:'visible',timeout:15000});
     const publicState=await page.evaluate(()=>({hero:(document.querySelector('.hero h1')?.textContent||'').trim(),hasWorkspace:!!document.getElementById('appShell'),hasAuthForm:!!document.getElementById('authForm')}));
-    assert(publicState.hero==='Run your Botswana business with fewer surprises.','public root hero missing or stale');
+    assert(publicState.hero==='Run money, people, work and compliance from one intelligent desk.','public root hero missing or stale');
     assert(!publicState.hasWorkspace&&!publicState.hasAuthForm,'public root leaked workspace or authentication shell');
 
     const readMarketingHeroComposition=async()=>page.evaluate(()=>{
@@ -163,9 +163,16 @@ async function runFullUserJourney(credentials){
       const dock=document.getElementById('thebeAiDock'),pill=document.getElementById('thebeAiDockPill');
       if(!dock||!pill)return false;
       const style=getComputedStyle(dock),rect=dock.getBoundingClientRect(),pillStyle=getComputedStyle(pill);
-      const expectedWidth=parseFloat(getComputedStyle(document.body).getPropertyValue('--thebe-spatial-width'));
+      const expanded=dock.dataset.geminiNarrowExpanded==='1';
+      const viewportWidth=Number(globalThis.innerWidth)||0;
+      const expectedWidth=viewportWidth>=1200
+        ?(expanded?560:Math.round(Math.max(360,Math.min(420,viewportWidth*0.28))))
+        :viewportWidth>=1024
+          ?(expanded?460:Math.round(Math.max(332,Math.min(360,viewportWidth*0.31))))
+          :0;
       return !dock.hidden&&style.display!=='none'&&style.visibility!=='hidden'&&expectedWidth>0&&Math.abs(rect.width-expectedWidth)<=1&&rect.height>300&&
-        pill.hidden&&pillStyle.display==='none'&&dock.dataset.surface==='public';
+        pill.hidden&&pillStyle.display==='none'&&dock.dataset.surface==='public'&&
+        dock.dataset.geminiNarrowV274==='1'&&dock.dataset.geminiNarrowExpanded===(expanded?'1':'0');
     },null,{timeout:15000});
     const publicDock=await page.evaluate(()=>{
       const core=document.querySelector('#thebeAiDock .thebe-particle-core');
