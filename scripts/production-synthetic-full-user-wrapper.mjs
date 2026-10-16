@@ -163,9 +163,15 @@ async function runFullUserJourney(credentials){
       const dock=document.getElementById('thebeAiDock'),pill=document.getElementById('thebeAiDockPill');
       if(!dock||!pill)return false;
       const style=getComputedStyle(dock),rect=dock.getBoundingClientRect(),pillStyle=getComputedStyle(pill);
-      const expectedWidth=parseFloat(getComputedStyle(document.body).getPropertyValue('--thebe-spatial-width'));
+      const expanded=dock.dataset.expanded==='true'||document.body?.classList.contains('thebe-ai-expanded');
+      const expectedWidth=window.innerWidth>=1200
+        ?(expanded?560:Math.round(Math.max(360,Math.min(420,window.innerWidth*0.28))))
+        :window.innerWidth>=1024
+          ?(expanded?460:Math.round(Math.max(332,Math.min(360,window.innerWidth*0.31))))
+          :0;
       return !dock.hidden&&style.display!=='none'&&style.visibility!=='hidden'&&expectedWidth>0&&Math.abs(rect.width-expectedWidth)<=1&&rect.height>300&&
-        pill.hidden&&pillStyle.display==='none'&&dock.dataset.surface==='public';
+        pill.hidden&&pillStyle.display==='none'&&dock.dataset.surface==='public'&&
+        dock.dataset.geminiNarrowV274==='1'&&dock.dataset.geminiNarrowExpanded===(expanded?'1':'0');
     },null,{timeout:15000});
     const publicDock=await page.evaluate(()=>{
       const core=document.querySelector('#thebeAiDock .thebe-particle-core');

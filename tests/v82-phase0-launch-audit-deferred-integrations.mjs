@@ -38,6 +38,16 @@ ok(
   fullUserWrapper.includes(`assert(publicState.hero==='${currentHero}','public root hero missing or stale');`),
   'mandatory full-user lifecycle waits for market refinement v21 and proves its canonical public hero'
 );
+const publicDockWidthContract=fs.readFileSync('tests/public-dock-width-contract.mjs','utf8');
+ok(
+  fullUserWrapper.includes("dock.dataset.geminiNarrowV274==='1'")&&
+  fullUserWrapper.includes("Math.round(Math.max(360,Math.min(420,window.innerWidth*0.28)))")&&
+  fullUserWrapper.includes("Math.round(Math.max(332,Math.min(360,window.innerWidth*0.31)))")&&
+  !fullUserWrapper.includes("getPropertyValue('--thebe-spatial-width')")&&
+  publicDockWidthContract.includes('wide desktop keeps the compact Gemini-style rail')&&
+  publicDockWidthContract.includes('runtime geometry must accept expanded state'),
+  'mandatory full-user lifecycle binds public dock readiness to the authoritative adjustable Gemini geometry contract'
+);
 ok(!fullUserWrapper.includes("/business risk/i.test(publicState.hero)"), 'mandatory full-user lifecycle rejects the obsolete business-risk hero contract');
 ok(
   fullUserWrapper.includes("photoSource==='/assets/gaborone-entrepreneurs-v67.webp'")&&
