@@ -437,6 +437,9 @@ async function executeTask({env,auth,requestId,permitId,standingBinding=null}){
       env.DB.prepare(`UPDATE agent_task_requests
         SET status='executed',executed_at=CURRENT_TIMESTAMP,jit_permit_id=?
         WHERE id=? AND tenant_id=? AND status='approved' AND approved_payload_hash=payload_hash AND approved_by_user_id=? AND jit_permit_id IS NULL
+        AND EXISTS(SELECT 1 FROM memberships WHERE tenant_id=? AND user_id=? AND role='owner' AND status='active')
+        AND EXISTS(SELECT 1 FROM agent_registry WHERE agent_id='THEBE-001' AND authority_state='active' AND actor_type='agent' AND execution_capable=1)
+        AND (? IS NULL OR (SELECT COUNT(*) FROM agent_execution_receipts WHERE tenant_id=? AND execution_grant_id=? AND created_at>=date('now'))<?)
         AND (? IS NULL OR EXISTS(
           SELECT 1 FROM agent_persistent_tasks p JOIN memberships m ON m.tenant_id=p.tenant_id AND m.user_id=p.owner_user_id
           WHERE p.id=? AND p.tenant_id=? AND p.owner_user_id=? AND p.status='active'
@@ -446,6 +449,7 @@ async function executeTask({env,auth,requestId,permitId,standingBinding=null}){
             AND (SELECT COUNT(*) FROM agent_execution_receipts WHERE tenant_id=? AND execution_grant_id=? AND created_at>=date('now'))<?
         ))`).bind(
           jitPermitId,requestId,auth.tenant_id,auth.user_id,
+          auth.tenant_id,auth.user_id,row.max_daily_actions??null,auth.tenant_id,row.execution_grant_id,Number(row.max_daily_actions??0),
           standingBinding?.id??null,standingBinding?.id??null,auth.tenant_id,auth.user_id,standingBinding?.serializedPolicy??null,standingBinding?.occurrence??null,
           auth.tenant_id,row.execution_grant_id,Math.min(Number(row.max_daily_actions||0),standingBinding?.maxDailyRuns??Number(row.max_daily_actions||0))
         ),

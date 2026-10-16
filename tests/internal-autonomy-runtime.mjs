@@ -3,6 +3,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {createHmac} from 'node:crypto';
 import {installShadowTelemetrySchema,seedShadowTelemetryFixtures} from './helpers/agent-shadow-telemetry.mjs';
 import {handleInternalAutonomyRequest,runInternalAutonomyPolicy,runDueInternalAutonomy} from '../cloudflare/src/agent-internal-autonomy.js';
+import {handleAgenticTaskExecutionRequest} from '../cloudflare/src/agentic-task-execution.js';
 
 function fixture(){
   const db=new DatabaseSync(':memory:');
@@ -27,9 +28,12 @@ function fixture(){
   async function request(path='',body,headers={}){
     return handleInternalAutonomyRequest({request:new Request('https://thebe.test/api/agentic/internal-autonomy'+path,{method:body===undefined?'GET':'POST',headers:{cookie:'bw_session='+token,origin:'https://thebe.test','x-csrf-token':'csrf-fixture','content-type':'application/json',...headers},body:body===undefined?undefined:JSON.stringify(body)}),env});
   }
+  async function taskRequest(path,body,headers={}){
+    return handleAgenticTaskExecutionRequest({request:new Request('https://thebe.test/api/agentic/task-execution/'+path,{method:'POST',headers:{cookie:'bw_session='+token,origin:'https://thebe.test','x-csrf-token':'csrf-fixture','content-type':'application/json',...headers},body:JSON.stringify(body)}),env});
+  }
   async function create(body=policyBody){const r=await request('',body);assert.equal(r.status,201,JSON.stringify(await r.clone().json()));const p=await r.json();return db.prepare('SELECT * FROM agent_persistent_tasks WHERE id=?').get(p.id);}
   const count=table=>Number(db.prepare('SELECT COUNT(*) c FROM '+table).get().c);
-  return {db,env,request,create,policyBody,count,setBeforeBatch:fn=>{beforeBatch=fn;}};
+  return {db,env,request,taskRequest,create,policyBody,count,setBeforeBatch:fn=>{beforeBatch=fn;}};
 }
 
 {
@@ -113,5 +117,16 @@ for(const mutation of [
  f.db.prepare("UPDATE agent_persistent_tasks SET next_run_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").run(row.id);
  const again=f.db.prepare('SELECT * FROM agent_persistent_tasks WHERE id=?').get(row.id);
  assert.equal((await runInternalAutonomyPolicy(f.env,again)).reason,'daily_run_limit');f.db.close();
+}
+{
+ const f=fixture(),row=await f.create();assert.equal((await runInternalAutonomyPolicy(f.env,row)).ok,true);
+ f.db.exec('UPDATE agent_delegations SET max_daily_actions=1');
+ const prepared=await (await f.taskRequest('prepare',{title:'Another exact owner-approved task',delegationId:'delegation-a'},{'idempotency-key':'manual-cap-race'})).json();
+ const id=prepared.request.id;assert.equal((await f.taskRequest('requests/'+id+'/approve',{})).status,200);
+ const issued=await (await f.taskRequest('requests/'+id+'/jit-permit',{})).json();
+ const original=f.env.DB.prepare;
+ f.env.DB.prepare=sql=>sql.startsWith('SELECT COUNT(*) count FROM agent_execution_receipts')?{bind(){return this;},first(){return {count:0};}}:original(sql);
+ const denied=await f.taskRequest('requests/'+id+'/execute',{permitId:issued.permit.id});
+ assert.equal((await denied.json()).error,'task_execution_failed','write-time shared cap rejects a stale pre-read');assert.equal(f.count('agent_internal_tasks'),1);f.db.close();
 }
 console.log('internal autonomy production-schema lifecycle, concurrency, exact-template binding, budgets, revocation and audit rollback: PASS');
