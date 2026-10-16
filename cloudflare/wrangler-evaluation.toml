@@ -78,7 +78,7 @@ crons = []
 
 [[ratelimits]]
 name = "PUBLIC_RATE_LIMITER"
-namespace_id = "78212151"
+namespace_id = "78212150"
 
   [ratelimits.simple]
   limit = 30
