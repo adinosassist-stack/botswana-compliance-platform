@@ -23,13 +23,14 @@ function envTrue(value){return ["1","true","on","yes"].includes(String(value??""
 function executionMode(env){
   if(envTrue(env?.AGENT_BOUNDED_TASK_EXECUTION_ENABLED))return "global";
   const mode=String(env?.AGENT_BOUNDED_TASK_EXECUTION_MODE||"off").trim().toLowerCase();
-  return ["off","platform_admin_canary","global"].includes(mode)?mode:"off";
+  return ["off","platform_admin_canary","owner_bounded","global"].includes(mode)?mode:"off";
 }
 function platformAdminEmails(env){
   return new Set(String(env?.PLATFORM_ADMIN_EMAILS||"").split(",").map(value=>value.trim().toLowerCase()).filter(Boolean));
 }
 function sessionExecutionEnabled(env,auth){
   const mode=executionMode(env);
+  if(mode==="owner_bounded")return roleAllowed(auth,"owner")&&typeof auth?.tenant_id==="string"&&!!auth.tenant_id.trim()&&typeof auth?.user_id==="string"&&!!auth.user_id.trim();
   if(mode==="global")return true;
   if(mode!=="platform_admin_canary")return false;
   const email=String(auth?.email||"").trim().toLowerCase();
@@ -251,7 +252,7 @@ async function prepareTask({request,env,auth}){
   return json({ok:true,replayed:false,request:{id:requestId,status:"prepared",payload:normalized.payload,payloadHash},approvalRequired:true,execution:{performed:false,enabled:globalExecutionEnabled(env)}},201);
 }
 
-async function approveTask({env,auth,requestId}){
+async function approveTask({env,auth,requestId,standingAuthorization=null}){
   if(!roleAllowed(auth,"owner"))return json({error:"owner_approval_required"},403);
   if(!(await schemaReady(env)))return json({error:"bounded_execution_schema_not_ready"},503);
   const current=await safeFirst(env,`SELECT id,status,payload_hash,approved_payload_hash FROM agent_task_requests WHERE id=? AND tenant_id=? LIMIT 1`,[requestId,auth.tenant_id]);
@@ -263,7 +264,7 @@ async function approveTask({env,auth,requestId}){
       WHERE id=? AND tenant_id=? AND status='prepared'`).bind(auth.user_id,requestId,auth.tenant_id),
     env.DB.prepare(`INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data)
       SELECT ?,?,'AGENT_TASK_APPROVED','agent_task_request',?,? WHERE changes()=1`).bind(
-        auth.tenant_id,auth.user_id,requestId,JSON.stringify({payloadHash:String(current.payload_hash)})
+        auth.tenant_id,auth.user_id,requestId,JSON.stringify({payloadHash:String(current.payload_hash),...(standingAuthorization?{approvalSource:"owner_approved_standing_template",standingPolicyId:standingAuthorization.id,standingApprovedAt:standingAuthorization.approvedAt}:{} )})
       )
   ]);
   const changed=Number(results?.[0]?.meta?.changes??results?.[0]?.changes??0);
@@ -351,7 +352,7 @@ async function issueJitPermit({env,auth,requestId}){
   return json({ok:true,permit:{id:permitId,requestId,agentId:THEBE_AGENT_ID,actionKey:ACTION_KEY,payloadHash:row.payload_hash,expiresAt,maxUses:1,sameOwnerBound:true}},201);
 }
 
-async function executeTask({env,auth,requestId,permitId}){
+async function executeTask({env,auth,requestId,permitId,standingBinding=null}){
   if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);
   if(!(await schemaReady(env)))return json({error:"bounded_execution_schema_not_ready"},503);
   const canonicalAuthority=await loadCanonicalAgentAuthority(env,THEBE_AGENT_ID);
@@ -435,8 +436,18 @@ async function executeTask({env,auth,requestId,permitId}){
     const results=await env.DB.batch([
       env.DB.prepare(`UPDATE agent_task_requests
         SET status='executed',executed_at=CURRENT_TIMESTAMP,jit_permit_id=?
-        WHERE id=? AND tenant_id=? AND status='approved' AND approved_payload_hash=payload_hash AND approved_by_user_id=? AND jit_permit_id IS NULL`).bind(
-          jitPermitId,requestId,auth.tenant_id,auth.user_id
+        WHERE id=? AND tenant_id=? AND status='approved' AND approved_payload_hash=payload_hash AND approved_by_user_id=? AND jit_permit_id IS NULL
+        AND (? IS NULL OR EXISTS(
+          SELECT 1 FROM agent_persistent_tasks p JOIN memberships m ON m.tenant_id=p.tenant_id AND m.user_id=p.owner_user_id
+          WHERE p.id=? AND p.tenant_id=? AND p.owner_user_id=? AND p.status='active'
+            AND p.approval_policy_json=? AND p.next_run_at=? AND m.role='owner' AND m.status='active'
+            AND json_extract(p.approval_policy_json,'$.expiresAt')>strftime('%Y-%m-%dT%H:%M:%fZ','now')
+            AND EXISTS(SELECT 1 FROM agent_registry WHERE agent_id='THEBE-001' AND authority_state='active' AND actor_type='agent' AND execution_capable=1)
+            AND (SELECT COUNT(*) FROM agent_execution_receipts WHERE tenant_id=? AND execution_grant_id=? AND created_at>=date('now'))<?
+        ))`).bind(
+          jitPermitId,requestId,auth.tenant_id,auth.user_id,
+          standingBinding?.id??null,standingBinding?.id??null,auth.tenant_id,auth.user_id,standingBinding?.serializedPolicy??null,standingBinding?.occurrence??null,
+          auth.tenant_id,row.execution_grant_id,Math.min(Number(row.max_daily_actions||0),standingBinding?.maxDailyRuns??Number(row.max_daily_actions||0))
         ),
       env.DB.prepare(`INSERT INTO agent_internal_tasks(id,tenant_id,title,description,priority,due_at,status,source_request_id,source_intent_id,execution_grant_id,requested_by_user_id,created_by_agent_key)
         SELECT ?,?,?,?,?,?,'open',?,?,?,?, 'thebe' WHERE changes()=1`).bind(
@@ -510,6 +521,36 @@ export async function handleAgenticTaskExecutionRequest({request,logicalPath,env
   }
   if(path==="/api/agentic/task-execution/tasks"&&request.method==="GET")return listTasks(env,auth);
   return json({error:"not_found"},404);
+}
+
+export async function validateStandingTaskGrant(env,auth,delegationId){
+  const grant=await loadExecutionGrant(env,auth.tenant_id,delegationId);
+  return !!grant&&sessionExecutionEnabled(env,auth)&&Number(grant.row.max_daily_actions)>=1;
+}
+
+// Internal service seam. HTTP handlers never accept standing authorization.
+// A standing policy confirms only its immutable exact task template. Every
+// occurrence still traverses the canonical grant, approval, JIT and guard path.
+export async function runStandingApprovedTask({env,auth,policyRow,policy,occurrence}){
+  if(String(env?.THEBE_INTERNAL_AUTONOMY_ENABLED)!=="true"||!roleAllowed(auth,"owner")||!sessionExecutionEnabled(env,auth))return {ok:false,reason:"autonomy_session_disabled"};
+  const live=await safeFirst(env,"SELECT p.* FROM agent_persistent_tasks p JOIN memberships m ON m.tenant_id=p.tenant_id AND m.user_id=p.owner_user_id WHERE p.id=? AND p.tenant_id=? AND p.owner_user_id=? AND p.status='active' AND p.approval_policy_json=? AND p.next_run_at=? AND m.role='owner' AND m.status='active' LIMIT 1",[policyRow?.id,auth.tenant_id,auth.user_id,policyRow?.approval_policy_json,occurrence]);
+  if(!live||policy?.version!=="internal-autonomy-v1"||policy.ownerUserId!==auth.user_id||policy.tenantId!==auth.tenant_id||!policy.scopes?.includes("tasks")||!(Date.parse(policy.expiresAt)>Date.now())||JSON.stringify(policy)!==live.approval_policy_json)return {ok:false,reason:"standing_authorization_invalid"};
+  const normalized=normalizeTaskPayload(policy.taskTemplate);
+  if(normalized.error||JSON.stringify(normalized.payload)!==JSON.stringify(policy.taskTemplate)||await sha256Hex(JSON.stringify(normalized.payload))!==policy.templateDigest)return {ok:false,reason:"standing_template_mismatch"};
+  if(!await validateStandingTaskGrant(env,auth,policy.delegationId))return {ok:false,reason:"active_task_execution_grant_required"};
+  const request=new Request("https://internal.invalid/api/agentic/task-execution/prepare",{method:"POST",headers:{"content-type":"application/json","idempotency-key":`autonomy:${live.id}:${occurrence}`},body:JSON.stringify({...normalized.payload,delegationId:policy.delegationId})});
+  const prepared=await prepareTask({request,env,auth});
+  const body=await prepared.json();if(!prepared.ok||!body.request?.id)return {ok:false,reason:body.error||"task_prepare_failed"};
+  const requestId=body.request.id;
+  const existing=await safeFirst(env,"SELECT t.id,t.title,t.status FROM agent_internal_tasks t JOIN agent_execution_receipts r ON r.result_entity_id=t.id AND r.tenant_id=t.tenant_id WHERE t.tenant_id=? AND t.source_request_id=? LIMIT 1",[auth.tenant_id,requestId]);
+  if(existing)return {ok:true,task:existing,replayed:true};
+  const approved=await approveTask({env,auth,requestId,standingAuthorization:{id:live.id,approvedAt:policy.approvedAt}});
+  if(!approved.ok)return {ok:false,reason:"standing_approval_failed"};
+  let permit=await safeFirst(env,"SELECT id FROM agent_jit_execution_permits WHERE tenant_id=? AND task_request_id=? AND status='active' AND use_count=0 AND expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now') LIMIT 1",[auth.tenant_id,requestId]);
+  if(!permit){const issued=await issueJitPermit({env,auth,requestId});const issuedBody=await issued.json();if(!issued.ok)return {ok:false,reason:issuedBody.error||"jit_issue_failed"};permit=issuedBody.permit;}
+  const executed=await executeTask({env,auth,requestId,permitId:permit.id,standingBinding:{id:live.id,serializedPolicy:live.approval_policy_json,occurrence,maxDailyRuns:policy.maxDailyRuns}});
+  const result=await executed.json();
+  return executed.ok&&result.verified?{ok:true,task:result.task,receiptId:result.receiptId}:{ok:false,reason:result.error||"task_execution_failed"};
 }
 
 export const __agenticTaskExecutionTest=Object.freeze({

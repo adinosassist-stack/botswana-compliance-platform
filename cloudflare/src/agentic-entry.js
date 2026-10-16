@@ -6,6 +6,7 @@ import {handleAgenticResponsibilityRequest} from "./agentic-responsibility-api.j
 import {handleAgenticResponsibilityCommand} from "./agentic-responsibility-command.js";
 import {handleAgenticWhatsAppRequest} from "./agentic-whatsapp-core.js";
 import {handleAgenticTaskExecutionRequest} from "./agentic-task-execution.js";
+import {handleInternalAutonomyRequest,runDueInternalAutonomy} from "./agent-internal-autonomy.js";
 import {handleJitCapabilityGovernanceRequest} from "./jit-capability-governance-entry.js";
 import {handleAgenticPersistentTaskRequest} from "./agentic-persistent-tasks.js";
 import {handleAgenticLiveVoiceRequest} from "./agentic-live-voice.js";
@@ -226,6 +227,8 @@ export default {
     if(whatsappResponse)return whatsappResponse;
     const financeReconciliationResponse=await handleAgenticFinanceReconciliationRequest({request,logicalPath,env});
     if(financeReconciliationResponse)return financeReconciliationResponse;
+    const internalAutonomyResponse=await handleInternalAutonomyRequest({request,logicalPath,env});
+    if(internalAutonomyResponse)return internalAutonomyResponse;
     const persistentTaskResponse=await handleAgenticPersistentTaskRequest({request,logicalPath,env});
     if(persistentTaskResponse)return persistentTaskResponse;
     const responsibilityCommandResponse=await handleAgenticResponsibilityCommand({request,logicalPath,env});
@@ -262,6 +265,7 @@ export default {
   },
   async scheduled(event,env,ctx){
     env=withRegulatorySqlGuard(env);
+    ctx.waitUntil(runDueInternalAutonomy(env).catch(()=>console.error("internal_autonomy_run_unavailable")));
     return base.scheduled(event,env,ctx);
   }
 };
