@@ -9,6 +9,7 @@ const WORKSPACE_PROPERTY_ROUTE_ISOLATION_SRC='/js/workspace-property-route-isola
 const WORKSPACE_FOCUS_VISIBLE_SRC='/js/workspace-focus-visible-v278.js';
 const OWNER_FOCUS_STRIP_SRC='/js/owner-focus-strip-v296.js';
 const MONEY_WORKSPACE_SRC='/js/money-workspace-v307.js';
+const PROTECT_LAZY_HYDRATION_SRC='/js/protect-lazy-hydration-v528.js';
 const PROTECT_WORKSPACE_SRC='/js/protect-workspace-v308.js';
 
 function injectAtFinalClosingTag(source,tag,markup){
@@ -29,6 +30,7 @@ export function versionReleaseAssets(html,sha=releaseSourceSha(),options={}){
   if(options?.includeWorkspaceFixes===true&&!source.includes(WORKSPACE_FOCUS_VISIBLE_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${WORKSPACE_FOCUS_VISIBLE_SRC}" defer></script>\n`);
   if(options?.includeWorkspaceFixes===true&&!source.includes(OWNER_FOCUS_STRIP_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${OWNER_FOCUS_STRIP_SRC}" defer></script>\n`);
   if(options?.includeWorkspaceFixes===true&&!source.includes(MONEY_WORKSPACE_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${MONEY_WORKSPACE_SRC}" defer></script>\n`);
+  if(options?.includeWorkspaceFixes===true&&!source.includes(PROTECT_LAZY_HYDRATION_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${PROTECT_LAZY_HYDRATION_SRC}" defer></script>\n`);
   if(options?.includeWorkspaceFixes===true&&!source.includes(PROTECT_WORKSPACE_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${PROTECT_WORKSPACE_SRC}" defer></script>\n`);
   if(options?.includeWorkspaceFixes===true){
     if(!source.includes('/assets/money-inputs-v310.css'))source=injectAtFinalClosingTag(source,'head','<link rel="stylesheet" href="/assets/money-inputs-v310.css">\n');
