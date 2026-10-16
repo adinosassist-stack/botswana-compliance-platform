@@ -1,0 +1,217 @@
+name: Thebe Desk 30-user Evaluation Lane
+run-name: Evaluation lane ${{ github.sha }}
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'cloudflare/src/evaluation-entry.js'
+      - 'cloudflare/wrangler-evaluation.toml'
+      - 'cloudflare/render-evaluation-config.mjs'
+      - 'tests/v536-evaluation-cohort-lane.mjs'
+      - '.github/workflows/evaluation-lane.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'cloudflare/src/evaluation-entry.js'
+      - 'cloudflare/wrangler-evaluation.toml'
+      - 'cloudflare/render-evaluation-config.mjs'
+      - 'tests/v536-evaluation-cohort-lane.mjs'
+      - '.github/workflows/evaluation-lane.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: thebe-desk-evaluation-lane
+  cancel-in-progress: false
+
+jobs:
+  regress:
+    name: Verify 30-user evaluation boundary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+      - name: Install exact lockfile
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Run evaluation boundary regression
+        run: node tests/v536-evaluation-cohort-lane.mjs
+
+  deploy:
+    name: Deploy controlled evaluation Worker
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: regress
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    environment: production
+    env:
+      TARGET_SHA: ${{ github.sha }}
+      D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
+      PUBLIC_APP_URL: https://evaluate.thebedesk.com
+      PUBLIC_ORIGIN: https://evaluate.thebedesk.com
+      TURNSTILE_SITE_KEY: ${{ vars.TURNSTILE_SITE_KEY }}
+      PLATFORM_ADMIN_EMAILS: ${{ vars.PLATFORM_ADMIN_EMAILS }}
+      PLATFORM_REGULATORY_REVIEWERS: ${{ vars.PLATFORM_REGULATORY_REVIEWERS }}
+      EMAIL_FROM: ${{ vars.EMAIL_FROM }}
+      THEBE_BANK_NAME: ${{ vars.THEBE_BANK_NAME }}
+      THEBE_BANK_ACCOUNT_NUMBER: ${{ vars.THEBE_BANK_ACCOUNT_NUMBER }}
+      THEBE_BANK_ACCOUNT_TYPE: ${{ vars.THEBE_BANK_ACCOUNT_TYPE }}
+      THEBE_BANK_BRANCH_NAME: ${{ vars.THEBE_BANK_BRANCH_NAME }}
+      THEBE_BANK_BRANCH_CODE: ${{ vars.THEBE_BANK_BRANCH_CODE }}
+      THEBE_BANK_SWIFT_CODE: ${{ vars.THEBE_BANK_SWIFT_CODE }}
+    steps:
+      - name: Checkout exact current main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact current main and governed qualification
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'TARGET_SHA must be a full SHA' >&2; exit 1; }
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]] || { echo 'checkout mismatch' >&2; exit 1; }
+          api_main="$(curl --fail-with-body --silent --show-error --header 'Accept: application/vnd.github+json' --header "Authorization: Bearer $GH_TOKEN" --header 'X-GitHub-Api-Version: 2022-11-28' "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main" | python3 -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])')"
+          [[ "$api_main" == "$TARGET_SHA" ]] || { echo "evaluation deploy requires exact current main target=$TARGET_SHA current=$api_main" >&2; exit 1; }
+          node <<'NODE'
+          const [owner,repo]=process.env.GITHUB_REPOSITORY.split('/');
+          const sha=process.env.TARGET_SHA,token=process.env.GH_TOKEN;
+          const headers={accept:'application/vnd.github+json',authorization:`Bearer ${token}`,'x-github-api-version':'2022-11-28'};
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          async function requireSuccess(workflow,label,{event=null}={}){
+            for(let attempt=1;attempt<=37;attempt++){
+              const response=await fetch(`https://api.github.com/repos/${owner}/${repo}/actions/workflows/${workflow}/runs?branch=main&per_page=100`,{headers});
+              if(!response.ok)throw new Error(`${label} lookup HTTP ${response.status}`);
+              const body=await response.json();
+              const runs=(body.workflow_runs||[]).filter(run=>run.head_sha===sha&&run.head_branch==='main'&&(!event||run.event===event));
+              const success=runs.find(run=>run.status==='completed'&&run.conclusion==='success');
+              if(success){console.log(`${label} PASS run=${success.id}`);return;}
+              const failure=runs.find(run=>run.status==='completed'&&run.conclusion&&run.conclusion!=='success');
+              if(failure)throw new Error(`${label} failed as ${failure.conclusion} run=${failure.id}`);
+              if(attempt===37)break;
+              await sleep(10_000);
+            }
+            throw new Error(`${label} has no successful exact-SHA run`);
+          }
+          await requireSuccess('main-governance-guard.yml','Main Governance Guard',{event:'push'});
+          await requireSuccess('recovery-ci.yml','Recovery CI');
+          NODE
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+
+      - name: Validate evaluator cohort secret
+        env:
+          REGISTRATION_COHORT_EMAILS_SECRET: ${{ secrets.REGISTRATION_COHORT_EMAILS_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const raw=String(process.env.REGISTRATION_COHORT_EMAILS_SECRET||'');
+          const listed=raw.split(',').map(value=>value.trim().toLowerCase()).filter(Boolean);
+          const unique=[...new Set(listed)];
+          if(unique.length<1)throw new Error('REGISTRATION_COHORT_EMAILS_SECRET is required for evaluation');
+          if(unique.length>30)throw new Error(`evaluation cohort exceeds 30 unique emails: ${unique.length}`);
+          const email=/^[^\s,@]+@[^\s,@]+\.[^\s,@]+$/;
+          for(const value of unique)if(!email.test(value))throw new Error('evaluation cohort contains a malformed email');
+          console.log(`Evaluation cohort validated: ${unique.length}/30 unique evaluators`);
+          NODE
+
+      - name: Render evaluation config
+        shell: bash
+        run: |
+          set -euo pipefail
+          node cloudflare/render-evaluation-config.mjs cloudflare/wrangler-evaluation.toml > "$RUNNER_TEMP/thebe-wrangler-evaluation.toml"
+          chmod 600 "$RUNNER_TEMP/thebe-wrangler-evaluation.toml"
+          grep -q 'name = "bw-compliance-os-evaluation"' "$RUNNER_TEMP/thebe-wrangler-evaluation.toml"
+          grep -q 'REGISTRATION_MODE = "cohort"' "$RUNNER_TEMP/thebe-wrangler-evaluation.toml"
+          ! grep -q 'REPLACE_WITH_' "$RUNNER_TEMP/thebe-wrangler-evaluation.toml"
+
+      - name: Install pinned Wrangler
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/wrangler-cli"
+          mkdir -p "$ROOT"
+          npm install --prefix "$ROOT" --no-audit --no-fund --no-save --package-lock=false wrangler@4.135.0
+          node "$ROOT/node_modules/wrangler/bin/wrangler.js" --version | grep -q '4.135.0'
+
+      - name: Dry-run evaluation Worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          WRANGLER="$RUNNER_TEMP/wrangler-cli/node_modules/wrangler/bin/wrangler.js"
+          cat > "$RUNNER_TEMP/evaluation-secrets-dry.json" <<'JSON'
+          {"SESSION_SECRET":"dry-session","AUDIT_INTEGRITY_SECRET":"dry-audit-12345678901234567890123456789012","OPERATIONS_SECRET":"dry-ops","AUTOMATION_SECRET":"dry-auto","TURNSTILE_SECRET_KEY":"dry-turnstile","PAYMENT_WEBHOOK_SECRET":"dry-payment","BILLING_WEBHOOK_SECRET":"dry-billing","OPENAI_API_KEY":"dry-openai","RESEND_API_KEY":"dry-resend","REGISTRATION_COHORT_EMAILS_SECRET":"evaluator@example.test"}
+          JSON
+          node "$WRANGLER" deploy --dry-run --outdir "$RUNNER_TEMP/evaluation-dry-run" --secrets-file "$RUNNER_TEMP/evaluation-secrets-dry.json" --config "$RUNNER_TEMP/thebe-wrangler-evaluation.toml"
+          rm -f "$RUNNER_TEMP/evaluation-secrets-dry.json"
+
+      - name: Deploy evaluation Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          AUDIT_INTEGRITY_SECRET: ${{ secrets.AUDIT_INTEGRITY_SECRET }}
+          OPERATIONS_SECRET: ${{ secrets.OPERATIONS_SECRET }}
+          AUTOMATION_SECRET: ${{ secrets.AUTOMATION_SECRET }}
+          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
+          PAYMENT_WEBHOOK_SECRET: ${{ secrets.PAYMENT_WEBHOOK_SECRET }}
+          BILLING_WEBHOOK_SECRET: ${{ secrets.BILLING_WEBHOOK_SECRET }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          REGISTRATION_COHORT_EMAILS_SECRET: ${{ secrets.REGISTRATION_COHORT_EMAILS_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID SESSION_SECRET AUDIT_INTEGRITY_SECRET OPERATIONS_SECRET AUTOMATION_SECRET TURNSTILE_SECRET_KEY PAYMENT_WEBHOOK_SECRET BILLING_WEBHOOK_SECRET OPENAI_API_KEY RESEND_API_KEY REGISTRATION_COHORT_EMAILS_SECRET)
+          for key in "${required[@]}"; do [[ -n "${!key:-}" ]] || { echo "Missing evaluation deployment secret: $key" >&2; exit 1; }; done
+          WRANGLER="$RUNNER_TEMP/wrangler-cli/node_modules/wrangler/bin/wrangler.js"
+          node <<'NODE'
+          const fs=require('node:fs');
+          const names=['SESSION_SECRET','AUDIT_INTEGRITY_SECRET','OPERATIONS_SECRET','AUTOMATION_SECRET','TURNSTILE_SECRET_KEY','PAYMENT_WEBHOOK_SECRET','BILLING_WEBHOOK_SECRET','OPENAI_API_KEY','RESEND_API_KEY','REGISTRATION_COHORT_EMAILS_SECRET'];
+          const out=Object.fromEntries(names.map(name=>[name,process.env[name]||'']));
+          if(Object.values(out).some(value=>!value))throw new Error('evaluation runtime secret is empty');
+          fs.writeFileSync(process.env.RUNNER_TEMP+'/evaluation-secrets.json',JSON.stringify(out),{mode:0o600});
+          NODE
+          trap 'rm -f "$RUNNER_TEMP/evaluation-secrets.json" "$RUNNER_TEMP/thebe-wrangler-evaluation.toml"' EXIT
+          node "$WRANGLER" deploy --secrets-file "$RUNNER_TEMP/evaluation-secrets.json" --config "$RUNNER_TEMP/thebe-wrangler-evaluation.toml"
+
+      - name: Verify live cohort-only evaluation boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='https://evaluate.thebedesk.com'
+          policy=''
+          for attempt in $(seq 1 24); do
+            status="$(curl --silent --show-error --max-time 12 --output "$RUNNER_TEMP/eval-policy.json" --write-out '%{http_code}' "$BASE/api/auth/registration-policy" || true)"
+            if [[ "$status" == '200' ]]; then policy="$(cat "$RUNNER_TEMP/eval-policy.json")"; break; fi
+            sleep 5
+          done
+          [[ -n "$policy" ]] || { echo 'evaluation registration policy did not become live' >&2; exit 1; }
+          POLICY_JSON="$policy" node <<'NODE'
+          const body=JSON.parse(process.env.POLICY_JSON||'{}');
+          if(body.mode!=='cohort'||body.evaluation!==true||body.cohortConfigured!==true||body.maxCohort!==30)throw new Error(`unexpected evaluation policy ${JSON.stringify(body)}`);
+          if(!(Number.isInteger(body.cohortSize)&&body.cohortSize>=1&&body.cohortSize<=30))throw new Error('live evaluation cohort size is outside 1-30');
+          console.log(`Live evaluation cohort boundary PASS: ${body.cohortSize}/30`);
+          NODE
+          unknown="not-listed-$(date +%s)-$RANDOM@example.invalid"
+          status="$(curl --silent --show-error --max-time 12 --request POST --header 'content-type: application/json' --header 'origin: https://evaluate.thebedesk.com' --data "{\"email\":\"$unknown\",\"password\":\"EvaluationOnly-NotARealPassword-123!\"}" --output "$RUNNER_TEMP/eval-block.json" --write-out '%{http_code}' "$BASE/api/auth/register" || true)"
+          [[ "$status" == '403' ]] || { echo "unlisted evaluator was not blocked: HTTP $status body=$(cat "$RUNNER_TEMP/eval-block.json")" >&2; exit 1; }
+          grep -q 'registration_not_in_cohort' "$RUNNER_TEMP/eval-block.json"
+          echo 'Evaluation lane live: cohort-only registration verified and unlisted identity blocked.'
