@@ -4,12 +4,13 @@
 
 Thebe Desk uses one canonical Thebe agent. Models may propose work, but deterministic platform controls remain authoritative and no model can increase its own authority.
 
-The production agent boundary has two distinct lanes:
+The production agent boundary includes the following lanes:
 
 1. governed read/prepare activity that cannot perform side effects; and
-2. a tightly bounded internal `task.create` execution canary that is restricted to an eligible platform-admin owner session and remains subject to deterministic containment, delegation, approval and audit controls.
+2. owner-only bounded internal `task.create` execution, subject to deterministic containment, delegation, approval and audit controls; and
+3. unattended internal workflows under an expiring owner-approved standing policy, limited to exact recurring task templates, draft evidence reports and Thebe-managed operational summaries.
 
-The canary is **not global autonomous execution** and grants no authority for external or permanently human-only actions.
+No lane grants authority for external or permanently human-only actions.
 
 ## Runtime Guard
 
@@ -32,7 +33,7 @@ The guard fails closed when any of the following is true:
 
 The generic Runtime Guard does not decide whether a browser session is a production canary participant. Canary eligibility is established by the bounded-task handler before that handler passes execution authority into the Runtime Guard.
 
-## Production bounded-task canary
+## Previous production bounded-task canary (historical)
 
 The only production bounded execution lane described here is the internal `task.create` path in `cloudflare/src/agentic-task-execution.js`.
 
@@ -97,4 +98,18 @@ When Thebe introduces or changes a model/provider, proposed tool calls must stil
 
 Deployment success, schema availability, a delegation, an execution grant, an approval, a JIT permit or canary membership is never sufficient alone. Bounded execution is permitted only when the complete control chain agrees on the exact request at execution time.
 
-General customer/autonomous execution remains outside this canary. Any move beyond the reviewed platform-admin owner canary requires an explicit release decision, regression expansion, adversarial review and exact-SHA production qualification.
+The new owner-bounded and standing-policy lanes below supersede the participant restriction of this historical canary. The canonical guard and human-only restrictions remain in force.
+
+## Owner-bounded and unattended internal workflows — 16 October 2026
+
+The owner authorized expansion to internal tasks, report/draft preparation and internal record updates. Production mode is `AGENT_BOUNDED_TASK_EXECUTION_MODE="owner_bounded"` with `THEBE_INTERNAL_AUTONOMY_ENABLED="true"`. The legacy global compatibility switch remains `0`. Managers and reviewers cannot execute or approve standing policies. An authenticated owner must have a current same-tenant membership.
+
+An owner approves an immutable task template and scopes once in **Unattended internal work**. Policies expire within 30 days, run no more frequently than hourly (default daily) and allow at most five runs per policy/day. The shared task execution grant additionally caps all recurring tasks using that grant. Revocation cancels the policy; membership loss, containment, kill switches, budget exhaustion, changed authorization bytes, expiry or unavailable authoritative sources deny execution. Other tenants are never enrolled through platform-wide deployment.
+
+A recurring task must exactly match the standing-approved title, description and priority. Each occurrence traverses the existing separate execution grant, payload-bound approval, same-owner five-minute single-use JIT permit, Runtime Guard, durable receipt and read-back. Approval audit metadata explicitly records `owner_approved_standing_template`, the policy ID and original approval time. The database mutation rereads active policy, owner membership, canonical authority and daily task usage inside the write transaction. The old manual task API cannot supply standing authorization.
+
+Reports are deterministic drafts from the existing governed business-health and aggregate operations read tools. Missing operations data stays explicitly unavailable. Operational record updates refresh only the policy's Thebe-managed `last_verified_state_json` and checkpoint; authoritative financial, statutory, employment, access-control and owner-confirmed business-memory records are never overwritten. No provider/model call or model spend is introduced. All financial posting, payments, signatures, external messaging and statutory submissions remain outside the lane.
+
+No migration is needed: this composes the qualified task execution tables and existing persistent task/event storage. A responsibility/policy record alone still grants no task execution authority; the independently approved canonical delegation and execution grant remain required. Reports/checkpoints and audit commit through a compare-and-swap D1 batch. Stable occurrence idempotency prevents duplicate tasks. After an uncertain report audit failure, retry reuses the verified existing task instead of consuming its permit twice.
+
+Rollback: revoke standing policies through the owner panel or API; return production mode to the qualified canary only through a tested release. Existing receipts and audit evidence are retained. Qualification includes real production-schema lifecycle, concurrent occurrence, scope/role/tenant denial, source failure, changed-template rejection, revocation-at-write, daily budget and audit-failure rollback/recovery tests plus desktop/mobile browser coverage.

@@ -13,6 +13,11 @@ const {
 assert.equal(executionMode({}),"off");
 assert.equal(executionMode({AGENT_BOUNDED_TASK_EXECUTION_MODE:"off"}),"off");
 assert.equal(executionMode({AGENT_BOUNDED_TASK_EXECUTION_MODE:"platform_admin_canary"}),"platform_admin_canary");
+assert.equal(executionMode({AGENT_BOUNDED_TASK_EXECUTION_MODE:"owner_bounded"}),"owner_bounded");
+assert.equal(globalExecutionEnabled({AGENT_BOUNDED_TASK_EXECUTION_MODE:"owner_bounded"}),false);
+const broader={AGENT_BOUNDED_TASK_EXECUTION_MODE:"owner_bounded"};
+assert.equal(sessionExecutionEnabled(broader,{role:"owner",tenant_id:"tenant-A",user_id:"owner-A",email:"customer@example.com"}),true);
+for(const auth of [null,{}, {role:"manager",tenant_id:"tenant-A",user_id:"owner-A"},{role:"owner",user_id:"owner-A"},{role:"owner",tenant_id:"tenant-A"},{role:"owner",tenant_id:" ",user_id:"owner-A"}])assert.equal(sessionExecutionEnabled(broader,auth),false);
 assert.equal(executionMode({AGENT_BOUNDED_TASK_EXECUTION_MODE:"global"}),"global");
 assert.equal(executionMode({AGENT_BOUNDED_TASK_EXECUTION_MODE:"unexpected"}),"off");
 assert.equal(executionMode({AGENT_BOUNDED_TASK_EXECUTION_ENABLED:"1",AGENT_BOUNDED_TASK_EXECUTION_MODE:"off"}),"global");
@@ -43,15 +48,16 @@ assert.doesNotMatch(backend,/payment\.execute/);
 assert.doesNotMatch(backend,/government_filing\.submit/);
 
 const wrangler=fs.readFileSync("cloudflare/wrangler.toml","utf8");
-assert.match(wrangler,/AGENT_BOUNDED_TASK_EXECUTION_MODE = "platform_admin_canary"/);
+assert.match(wrangler,/AGENT_BOUNDED_TASK_EXECUTION_MODE = "owner_bounded"/);
+assert.match(wrangler,/THEBE_INTERNAL_AUTONOMY_ENABLED = "true"/);
 assert.doesNotMatch(wrangler,/AGENT_BOUNDED_TASK_EXECUTION_MODE = "global"/);
 assert.match(wrangler,/AGENT_BOUNDED_TASK_EXECUTION_ENABLED = "0"/);
 assert.doesNotMatch(wrangler,/AGENT_BOUNDED_TASK_EXECUTION_ENABLED = "1"/);
 
 const preflight=fs.readFileSync("cloudflare/preflight-production.sh","utf8");
 assert.match(preflight,/AGENT_BOUNDED_TASK_EXECUTION_MODE/);
-assert.match(preflight,/platform_admin_canary/);
-assert.match(preflight,/reviewed platform-admin canary/);
+assert.match(preflight,/owner_bounded/);
+assert.match(preflight,/reviewed owner-only bounded execution/);
 assert.match(preflight,/AGENT_BOUNDED_TASK_EXECUTION_ENABLED/);
 assert.match(preflight,/legacy bounded-task global compatibility flag must remain explicitly disabled/);
 

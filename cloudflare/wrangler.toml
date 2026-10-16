@@ -18,8 +18,9 @@ DEPLOYMENT_PROFILE = "workers-free-first"
 REGISTRATION_MODE = "open"
 AI_FEATURES_DEFAULT = "on"
 AI_REPORT_MODEL = "@cf/zai-org/glm-4.7-flash"
-AGENT_BOUNDED_TASK_EXECUTION_MODE = "platform_admin_canary"
+AGENT_BOUNDED_TASK_EXECUTION_MODE = "owner_bounded"
 AGENT_BOUNDED_TASK_EXECUTION_ENABLED = "0"
+THEBE_INTERNAL_AUTONOMY_ENABLED = "true"
 THEBE_LIVE_VOICE_ENABLED = "true"
 THEBE_GPT_LIVE_PREVIEW_ENABLED = "true"
 THEBE_LIVE_VOICE_RUNTIME = "gpt_live_preview"
@@ -111,11 +112,12 @@ crons = ["15 6 * * *", "15 16 * * *"]
 # The default controls cap workspace/user session starts, bound each browser session to 10 minutes,
 # time out upstream session creation, and open a short failure circuit after repeated provider errors.
 # OPENAI_API_KEY is supplied from the GitHub production environment into the Worker secret set.
-# Bounded task execution canary
-# Only authenticated workspace owners whose email is already present in PLATFORM_ADMIN_EMAILS
-# can execute the internal task.create lane. All other customer sessions fail closed.
+# Bounded owner execution and exact-template standing authorization.
+# Only authenticated tenant owners can execute the internal task.create lane.
+# Unattended runs additionally require a tenant owner-approved expiring policy,
+# a separate active delegation/grant, an exact immutable task template and JIT.
 # The legacy AGENT_BOUNDED_TASK_EXECUTION_ENABLED compatibility flag is pinned to 0 so it cannot
-# override the reviewed platform_admin_canary mode through a retained dashboard variable.
+# override the reviewed owner_bounded mode through a retained dashboard variable.
 # The existing owner delegation, separate execution grant, exact-payload approval, Runtime Guard,
 # kill switch, budget controls and daily caps remain mandatory.
 
