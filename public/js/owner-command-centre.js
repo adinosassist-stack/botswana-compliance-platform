@@ -130,7 +130,21 @@
         }
         for(const run of (payload.runs||[]).slice(0,5)){
           const item=document.createElement("details");item.append(text("summary",`${new Date(run.createdAt).toLocaleString()} · ${run.task?"Task verified · ":""}${run.report?"Draft prepared · ":""}${run.record?"Operational summary updated":""}`));
-          if(run.report){const report=document.createElement("pre");report.style.whiteSpace="pre-wrap";report.style.overflowWrap="anywhere";report.textContent=JSON.stringify(run.report,null,2);item.append(report);}
+          if(run.report){
+            item.append(text("p","Draft evidence report · check the source records before acting.","muted"));
+            for(const source of run.report.sources||[]){
+              const section=document.createElement("div");
+              const operations=source.actionKey==="daily_operations_summary.read";
+              section.append(text("b",operations?"Daily operations":"Business health"));
+              if(operations&&source.data?.available===false)section.append(text("p","No operations summary has been recorded yet.","muted"));
+              else{
+                const labels=operations?{coverage:"Reporting coverage",reportedRevenue:"Reported revenue",revenue:"Reported revenue",customers:"Customers",orders:"Orders",jobsCompleted:"Jobs reported complete",jobsPending:"Jobs pending",exceptions:"Exceptions",locationsReporting:"Locations reporting",locationCount:"Locations",headcountReported:"Headcount reported"}:{openPerformanceSignals:"Open signals",criticalPerformanceSignals:"Critical signals",warningPerformanceSignals:"Warnings",pendingWorkflowCount:"Queued workflows",failedWorkflowCount:"Failed workflows",overdueComplianceCount:"Overdue obligations",complianceDueWithin14Days:"Obligations due within 14 days"};
+                const values=operations?source.data?.metrics:source.data;
+                for(const [key,label] of Object.entries(labels)){const value=values?.[key];if(typeof value==="number"&&Number.isFinite(value))section.append(text("p",`${label}: ${value.toLocaleString()}`,"muted"));}
+              }
+              item.append(section);
+            }
+          }
           if(run.task)item.append(text("p",run.task.title||run.task.id));body.append(item);
         }
       }catch(e){if(current())body.replaceChildren(text("p",String(e.message||"Unattended work is unavailable."),"muted"));}
