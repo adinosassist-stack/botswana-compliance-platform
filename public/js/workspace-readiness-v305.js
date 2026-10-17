@@ -194,13 +194,15 @@
   }
 
   async function warmWorkspaceFragments(){
-    if(scheduled||!networkAllowsWarmup()||typeof window.fetch!=="function")return;
+    const createClient=window.BW?.api?.createClient;
+    if(scheduled||!networkAllowsWarmup()||typeof createClient!=="function")return;
     scheduled=true;
+    const client=createClient({timeoutMs:6000,retries:0});
     for(const shard of SHARD_ORDER){
       const url=workspaceShardUrl(shard);
       if(!url)continue;
       try{
-        await window.fetch(url,{method:"GET",credentials:"same-origin",cache:"force-cache"});
+        await client.request(url,{method:"GET"});
       }catch(_){/* Prefetch is opportunistic; normal bounded hydration remains authoritative. */}
       await new Promise(resolve=>window.setTimeout(resolve,25));
     }
