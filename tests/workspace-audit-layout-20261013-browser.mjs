@@ -8,6 +8,10 @@ const focus=fs.readFileSync('public/js/owner-focus-strip-v296.js','utf8').match(
 const protect=fs.readFileSync('public/js/protect-workspace-v308.js','utf8').match(/style.textContent=`([\s\S]*?)`;/)[1].replaceAll('${ROOT_ID}','protecthub');
 const polish=fs.readFileSync('public/assets/workspace-audit-refinements-20261013.css','utf8');
 const productionControls=fs.readFileSync('public/assets/workspace-control-polish-v317.css','utf8');
+// Guard all three workspace surfaces against regression to the legacy red brand.
+assert.doesNotMatch(polish,/#(?:b42318|8f1d16|fff1ee|efd1cc)\b|rgba\(180,35,24/i,'shared workspace, Owner Focus and AI dock must not inherit legacy red accents');
+assert.match(polish,/\.btn:not\(\.alt\):not\(\.soft\):not\(\.danger\)\{background:#0b66d6!important\}/,'blue must not override explicit danger controls');
+assert.match(polish,/#thebeAiDockPill\[data-surface="workspace"\]\{background:#0b66d6!important/,'collapsed AI dock pill must use shared blue');
 const metrics=['Needs action','Approvals','Pending outcomes'].map(label=>`<button class="owner-focus-metric"><span class="owner-focus-value">6</span><span class="owner-focus-label">${label}</span></button>`).join('');
 const lanes=['No open action returned','No near-term date returned','No gap returned'].map(label=>`<article class="protect-v308-lane"><div class="protect-v308-lane-head"><div><h3>Review protection gaps</h3></div><span class="protect-v308-badge">${label}</span></div><p>Open the source records.</p></article>`).join('');
 const browser=await chromium.launch({headless:true,executablePath:[process.env.CHROMIUM_EXECUTABLE_PATH,'/usr/bin/google-chrome','/usr/bin/chromium'].filter(Boolean).find(file=>fs.existsSync(file)),args:['--no-sandbox']});
@@ -24,7 +28,7 @@ try{
     assert.deepEqual(result.outside,[],`focus controls contained and touch-sized at ${width}`);
     assert.deepEqual(result.badgeOutside,[],`protection badges contained at ${width}`);
     assert.equal(result.overflow,false,`no horizontal overflow at ${width}`);
-    assert.equal(await page.locator('.owner-focus-ask').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(180, 35, 24)','production button styles must retain the red accent');
+    assert.equal(await page.locator('.owner-focus-ask').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(11, 102, 214)','production button styles must retain the blue action accent');
     assert.equal(await page.locator('.owner-analysis-details').getAttribute('open'),null,'analysis starts collapsed');
     await page.getByText('Business analysis & planning',{exact:true}).click();
     assert.notEqual(await page.locator('.owner-analysis-details').getAttribute('open'),null,'analysis remains reachable');
