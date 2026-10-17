@@ -38,16 +38,38 @@
     }
   }
 
+  function installPeopleDeferredReporting(people){
+    if(!people)return false;
+    if(people.dataset.v337DeferredReporting==="1")return true;
+    const original=window.renderPeopleReportingSetup;
+    if(typeof original!=="function")return false;
+    window.renderPeopleReportingSetup=async function(...args){
+      const root=document.getElementById("peopleops");
+      if(!root?.classList.contains("active"))return;
+      const panel=root.querySelector("#opsReportingSetupDetails");
+      if(panel&&!panel.open)return;
+      return original.apply(this,args);
+    };
+    const details=people.querySelector("#opsReportingSetupDetails");
+    if(details&&details.dataset.v337DeferredReportingToggle!=="1"){
+      details.dataset.v337DeferredReportingToggle="1";
+      details.addEventListener("toggle",()=>{if(details.open)void window.renderPeopleReportingSetup()});
+    }
+    people.dataset.v337DeferredReporting="1";
+    return true;
+  }
+
   function bindPeopleV306Polish(){
     if(typeof document==="undefined")return false;
     const people=document.getElementById("peopleops");
     if(!people)return false;
     applyPeopleV306Polish(people);
+    const reportingReady=installPeopleDeferredReporting(people);
     if(people.dataset.v306PeopleObserver!=="1"&&typeof MutationObserver==="function"){
       people.dataset.v306PeopleObserver="1";
       new MutationObserver(()=>applyPeopleV306Polish(people)).observe(people,{childList:true,subtree:true});
     }
-    return true;
+    return reportingReady;
   }
 
   function installPeopleV306Polish(){
@@ -167,4 +189,55 @@
   if(typeof window.whenThebeWorkspaceReady==="function")window.whenThebeWorkspaceReady(loadContextStarters);
   else if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",loadContextStarters,{once:true});
   else loadContextStarters();
+})();
+
+(()=>{
+  "use strict";
+  const SHARD_COUNT=12;
+  const SHARD_PREFIX="/assets/workspace-view-fragments-20261001a-";
+  const SHARD_ORDER=Object.freeze([1,4,10,9,2,8,0,6,3,5,7,11]);
+  let scheduled=false;
+
+  function networkAllowsWarmup(){
+    const connection=window.navigator?.connection;
+    if(connection?.saveData===true)return false;
+    const effectiveType=String(connection?.effectiveType||"").toLowerCase();
+    return effectiveType!=="slow-2g"&&effectiveType!=="2g";
+  }
+
+  function workspaceShardUrl(shard){
+    if(!window.location?.origin||!window.document)return "";
+    const index=Number(shard);
+    if(!Number.isInteger(index)||index<0||index>=SHARD_COUNT)return "";
+    const url=new URL(`${SHARD_PREFIX}${index}.json`,window.location.origin);
+    const assetRelease=String(window.document.querySelector('meta[name="thebe-assets-release"]')?.content||"");
+    if(/^[0-9a-f]{40}$/.test(assetRelease))url.searchParams.set("release",assetRelease);
+    return url.pathname+url.search;
+  }
+
+  async function warmWorkspaceFragments(){
+    const createClient=window.BW?.api?.createClient;
+    if(scheduled||!networkAllowsWarmup()||typeof createClient!=="function")return;
+    scheduled=true;
+    const client=createClient({timeoutMs:6000,retries:0});
+    for(const shard of SHARD_ORDER){
+      const url=workspaceShardUrl(shard);
+      if(!url)continue;
+      try{
+        await client.request(url,{method:"GET"});
+      }catch(_){/* Prefetch is opportunistic; normal bounded hydration remains authoritative. */}
+      await new Promise(resolve=>window.setTimeout(resolve,25));
+    }
+  }
+
+  function scheduleWorkspaceFragmentWarmup(){
+    if(scheduled||!networkAllowsWarmup())return;
+    if(typeof window.requestIdleCallback==="function"){
+      window.requestIdleCallback(()=>void warmWorkspaceFragments(),{timeout:1200});
+      return;
+    }
+    if(typeof window.setTimeout==="function")window.setTimeout(()=>void warmWorkspaceFragments(),350);
+  }
+
+  if(typeof window.whenThebeWorkspaceReady==="function")window.whenThebeWorkspaceReady(scheduleWorkspaceFragmentWarmup);
 })();
