@@ -137,7 +137,7 @@ if(existing){
   assert(existing.role==='reviewer'&&number(existing.active)===0,'existing principal is not an inactive reviewer');
   mutation=await d1(`UPDATE platform_regulatory_principals SET email=?,active=1 WHERE user_id=? AND role='reviewer' AND active=0 AND EXISTS (SELECT 1 FROM users u WHERE u.id=? AND lower(u.email)=? AND EXISTS (SELECT 1 FROM memberships m WHERE m.user_id=u.id))`,[candidateEmail,candidateId,candidateId,candidateEmail],{mutation:true});
 }else{
-  mutation=await d1(`INSERT INTO platform_regulatory_principals(user_id,email,role,active,created_at) SELECT u.id,u.email,'reviewer',1,? FROM users u WHERE u.id=? AND lower(u.email)=? AND EXISTS (SELECT 1 FROM memberships m WHERE m.user_id=u.id) AND NOT EXISTS (SELECT 1 FROM platform_regulatory_principals p WHERE p.user_id=u.id)`,[new Date().toISOString(),candidateId,candidateEmail],{mutation:true});
+  mutation=await d1(`INSERT INTO platform_regulatory_principals(user_id,email,role,active,provisioned_at) SELECT u.id,u.email,'reviewer',1,? FROM users u WHERE u.id=? AND lower(u.email)=? AND EXISTS (SELECT 1 FROM memberships m WHERE m.user_id=u.id) AND NOT EXISTS (SELECT 1 FROM platform_regulatory_principals p WHERE p.user_id=u.id)`,[new Date().toISOString(),candidateId,candidateEmail],{mutation:true});
 }
 assert(mutation.changes===1,`expected exactly one reviewer-principal change; observed ${mutation.changes}`);
 
