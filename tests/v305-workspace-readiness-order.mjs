@@ -16,7 +16,9 @@ assert.doesNotMatch(helper,/warmWorkspaceFragments[\s\S]{0,2000}\/api\//,"fragme
 assert.match(helper,/function installPeopleDeferredReporting\(people\)/,"People page must install deferred reporting setup");
 assert.match(helper,/window\.renderPeopleReportingSetup=async function/,"People page must wrap the secondary reporting renderer");
 assert.match(helper,/if\(panel&&!panel\.open\)return;/,"People reporting data must stay deferred while its disclosure is closed");
-assert.match(helper,/details\.addEventListener\("toggle",\(\)=>\{if\(details\.open\)void window\.renderPeopleReportingSetup\(\)\}\)/,"opening People reporting setup must hydrate it on demand");
+assert.match(helper,/details\.addEventListener\("toggle",\(\)=>\{[\s\S]*?if\(details\.open\)void window\.renderPeopleReportingSetup\(\)/,"opening People reporting setup must hydrate it on demand");
+assert.match(helper,/people\.dataset\.v337ReportingOpen=details\.open\?"1":"0"/,"People location setup must preserve open state across lazy hydration");
+assert.match(helper,/new MutationObserver\(\(\)=>\{[\s\S]*?installPeopleDeferredReporting\(people\)/,"People deferred reporting must rebind when the view subtree is replaced");
 assert.match(helper,/return original\.apply\(this,args\);/,"deferred People reporting must preserve the authoritative renderer once opened");
 const start=entry.indexOf("function externalizeWorkspaceRuntime(");
 const end=entry.indexOf("\nfunction externalizeWorkspaceHeadStyles",start);
