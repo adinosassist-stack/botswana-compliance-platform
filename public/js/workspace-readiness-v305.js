@@ -38,16 +38,38 @@
     }
   }
 
+  function installPeopleDeferredReporting(people){
+    if(!people)return false;
+    if(people.dataset.v337DeferredReporting==="1")return true;
+    const original=window.renderPeopleReportingSetup;
+    if(typeof original!=="function")return false;
+    window.renderPeopleReportingSetup=async function(...args){
+      const root=document.getElementById("peopleops");
+      if(!root?.classList.contains("active"))return;
+      const panel=root.querySelector("#opsReportingSetupDetails");
+      if(panel&&!panel.open)return;
+      return original.apply(this,args);
+    };
+    const details=people.querySelector("#opsReportingSetupDetails");
+    if(details&&details.dataset.v337DeferredReportingToggle!=="1"){
+      details.dataset.v337DeferredReportingToggle="1";
+      details.addEventListener("toggle",()=>{if(details.open)void window.renderPeopleReportingSetup()});
+    }
+    people.dataset.v337DeferredReporting="1";
+    return true;
+  }
+
   function bindPeopleV306Polish(){
     if(typeof document==="undefined")return false;
     const people=document.getElementById("peopleops");
     if(!people)return false;
     applyPeopleV306Polish(people);
+    const reportingReady=installPeopleDeferredReporting(people);
     if(people.dataset.v306PeopleObserver!=="1"&&typeof MutationObserver==="function"){
       people.dataset.v306PeopleObserver="1";
       new MutationObserver(()=>applyPeopleV306Polish(people)).observe(people,{childList:true,subtree:true});
     }
-    return true;
+    return reportingReady;
   }
 
   function installPeopleV306Polish(){
