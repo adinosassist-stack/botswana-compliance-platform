@@ -123,6 +123,7 @@ jobs:
           PY
 
       - name: Resolve exact pending BURS source and refuse unsafe recapture
+        id: resolve
         shell: bash
         run: |
           set -euo pipefail
@@ -132,7 +133,7 @@ jobs:
             --cookie "$cookie_jar" --header 'Accept: application/json' \
             "$APP_ORIGIN/api/platform/regulatory/sources" --output "$sources_body"
 
-          python3 - "$sources_body" <<'PY'
+          python3 - "$sources_body" "$GITHUB_OUTPUT" <<'PY'
           import json, os, sys
           data=json.load(open(sys.argv[1], encoding='utf-8'))
           items=data.get('items') or []
@@ -142,16 +143,19 @@ jobs:
           assert str(row.get('status') or '')=='pending', f'source is not pending: {row.get("status")}'
           version=int(row.get('latest_snapshot_version') or 0)
           verification=str(row.get('verification_status') or 'unverified')
+          already=False
           if version > 0:
               assert verification=='verified', f'refusing recapture of existing non-verified evidence: version={version} verification={verification}'
+              already=True
               print(f'Existing verified evidence already present at snapshot version {version}; no capture required.')
-              open('/tmp/source-already-verified','w',encoding='utf-8').write('1')
           open('/tmp/regulatory-source-id','w',encoding='utf-8').write(str(row['id']))
+          with open(sys.argv[2], 'a', encoding='utf-8') as out:
+              out.write(f'already_verified={str(already).lower()}\n')
           print(f'Resolved pending source id={row["id"]} snapshotVersion={version} verification={verification}')
           PY
 
       - name: Fetch and normalize authoritative BURS page
-        if: ${{ hashFiles('/tmp/source-already-verified') == '' }}
+        if: steps.resolve.outputs.already_verified != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -203,7 +207,7 @@ jobs:
           echo "Validated official BURS source text bytes=$(wc -c < /tmp/burs-payments-source.txt) effectiveUrl=$effective_url"
 
       - name: Capture evidence through governed maker API
-        if: ${{ hashFiles('/tmp/source-already-verified') == '' }}
+        if: steps.resolve.outputs.already_verified != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -272,5 +276,4 @@ jobs:
           cookie_path="$(cat /tmp/thebe-maker-cookie-path 2>/dev/null)"
           [[ -n "$cookie_path" ]] && rm -f "$cookie_path"
           rm -f /tmp/thebe-maker-cookie-path /tmp/thebe-maker-csrf /tmp/thebe-maker-login.json \
-            /tmp/regulatory-source-id /tmp/source-already-verified /tmp/burs-payments-source.txt \
-            /tmp/regulatory-snapshot-request.json
+            /tmp/regulatory-source-id /tmp/burs-payments-source.txt /tmp/regulatory-snapshot-request.json
