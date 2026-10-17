@@ -128,21 +128,21 @@ try {
     'postdeploy-smoke.yml': [...(smoke ? [successRun(candidate)] : []), ...(extra['postdeploy-smoke.yml'] || [])]
   });
 
-  const stub = String.raw`
-fetch_workflow_runs(){
-  local workflow="$1"
-  local exact_sha="${2:-}"
-  WORKFLOW="$workflow" EXACT_SHA="$exact_sha" python3 - <<'PY'
-import json, os
-body=json.loads(os.environ['WORKFLOW_RUNS_JSON'])
-runs=list(body.get(os.environ['WORKFLOW'], []))
-sha=os.environ.get('EXACT_SHA','')
-if sha:
-    runs=[r for r in runs if r.get('head_sha')==sha]
-print(json.dumps({'workflow_runs':runs},separators=(',',':')))
-PY
-}
-`;
+  const stub = [
+    'fetch_workflow_runs(){',
+    '  local workflow="$1"',
+    '  local exact_sha="${2:-}"',
+    "  WORKFLOW=\"$workflow\" EXACT_SHA=\"$exact_sha\" python3 - <<'PY'",
+    'import json, os',
+    "body=json.loads(os.environ['WORKFLOW_RUNS_JSON'])",
+    "runs=list(body.get(os.environ['WORKFLOW'], []))",
+    "sha=os.environ.get('EXACT_SHA','')",
+    'if sha:',
+    "    runs=[r for r in runs if r.get('head_sha')==sha]",
+    "print(json.dumps({'workflow_runs':runs},separators=(',',':')))",
+    'PY',
+    '}'
+  ].join('\n');
 
   const select = (runs, limit = 200, baseSha = direct) => spawnSync(
     'bash', ['-euo', 'pipefail', '-c', `${stub}\n${selector}\nprintf '%s' "$previous_release_sha"`],
