@@ -1,0 +1,22 @@
+name: Agent Governance Unit Tests
+on:
+  pull_request:
+    paths:
+      - 'server/agent-*.js'
+      - 'tests/agent-*.mjs'
+      - 'db/migrations/*agent*'
+      - '.github/workflows/agent-governance-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  agent-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Agent governance tests
+        run: node --test tests/agent-action-policy.test.mjs tests/agent-execution-authorization.test.mjs tests/agent-postgres-store.test.mjs tests/agent-policy-hardening.test.mjs tests/agent-authenticated-service.test.mjs tests/agent-governance-migration.test.mjs tests/agent-outbox.test.mjs tests/agent-governance-nondisruptive.test.mjs tests/agent-untrusted-input-boundary.test.mjs

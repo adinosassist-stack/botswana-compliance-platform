@@ -136,3 +136,35 @@
   else if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",loadLocationsBranches,{once:true});
   else loadLocationsBranches();
 })();
+
+(()=>{
+  "use strict";
+  const STYLE_ID="thebe-workspace-visual-consistency-v319";
+  function loadVisualConsistency(){
+    if(typeof document==="undefined"||document.getElementById(STYLE_ID))return;
+    const link=document.createElement("link");
+    link.id=STYLE_ID;
+    link.rel="stylesheet";
+    link.href="/assets/workspace-visual-consistency-v319.css?v=20261015a";
+    link.dataset.workspaceOnly="true";
+    (document.head||document.documentElement).appendChild(link);
+  }
+  loadVisualConsistency();
+})();
+
+(()=>{
+  "use strict";
+  const release="20261015-context-starters-v336";
+  let requested=false;
+  function loadContextStarters(){
+    if(requested)return;
+    requested=true;
+    import(`/js/thebe-context-starters-v336.js?release=${release}`).catch(error=>{
+      requested=false;
+      console.error("Thebe contextual starter actions failed to load",error);
+    });
+  }
+  if(typeof window.whenThebeWorkspaceReady==="function")window.whenThebeWorkspaceReady(loadContextStarters);
+  else if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",loadContextStarters,{once:true});
+  else loadContextStarters();
+})();

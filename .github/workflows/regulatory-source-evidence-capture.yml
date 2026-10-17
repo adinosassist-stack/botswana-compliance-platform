@@ -1,0 +1,279 @@
+name: Thebe Desk Regulatory Source Evidence Capture
+run-name: Regulatory source evidence capture ${{ github.sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type CAPTURE_BURS_PAYMENTS_EVIDENCE
+        required: true
+        type: string
+  push:
+    branches: [main]
+    paths:
+      - 'operations/regulatory-source-evidence-trigger.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: thebe-desk-regulatory-source-evidence-capture
+  cancel-in-progress: false
+
+jobs:
+  capture-burs-payments:
+    name: Capture official BURS Payments evidence through governed maker API
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (
+        (github.event_name == 'workflow_dispatch' && inputs.confirmation == 'CAPTURE_BURS_PAYMENTS_EVIDENCE') ||
+        github.event_name == 'push'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: production
+    env:
+      APP_ORIGIN: https://thebedesk.com
+      SOURCE_URL: https://www.burs.org.bw/index.php/tax/payments
+      SOURCE_AUTHORITY: BURS
+      SOURCE_TITLE: Payments & Refunds - All Tax Types
+      MAKER_EMAIL: ${{ secrets.PLATFORM_REGULATORY_MAKER_EMAIL }}
+      MAKER_PASSWORD: ${{ secrets.PLATFORM_REGULATORY_MAKER_PASSWORD }}
+
+    steps:
+      - name: Checkout exact workflow authority
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Validate explicit trigger authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "$MAKER_EMAIL" ]] || { echo 'PLATFORM_REGULATORY_MAKER_EMAIL is not configured.' >&2; exit 1; }
+          [[ -n "$MAKER_PASSWORD" ]] || { echo 'PLATFORM_REGULATORY_MAKER_PASSWORD is not configured.' >&2; exit 1; }
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo "refusing non-main execution: $GITHUB_REF" >&2; exit 1; }
+
+          if [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]; then
+            [[ "${{ inputs.confirmation }}" == 'CAPTURE_BURS_PAYMENTS_EVIDENCE' ]] || { echo 'explicit dispatch confirmation missing' >&2; exit 1; }
+          elif [[ "$GITHUB_EVENT_NAME" == 'push' ]]; then
+            python3 - <<'PY'
+          import json
+          data=json.load(open('operations/regulatory-source-evidence-trigger.json', encoding='utf-8'))
+          assert data.get('schema') == 1, 'invalid evidence trigger schema'
+          assert data.get('requested') is True, 'evidence capture is not explicitly requested'
+          assert data.get('sourceKey') == 'burs-payments', 'unexpected source key'
+          assert data.get('sourceUrl') == 'https://www.burs.org.bw/index.php/tax/payments', 'unexpected source URL'
+          assert data.get('purpose') == 'governed-source-evidence-capture', 'unexpected evidence trigger purpose'
+          print('Bounded BURS evidence trigger validated.')
+          PY
+          else
+            echo "unsupported trigger event: $GITHUB_EVENT_NAME" >&2
+            exit 1
+          fi
+
+      - name: Authenticate production maker
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          cookie_jar="$(mktemp)"
+          login_body="$(mktemp)"
+          status_body="$(mktemp)"
+          printf '%s' "$cookie_jar" > /tmp/thebe-maker-cookie-path
+
+          python3 - <<'PY' > /tmp/thebe-maker-login.json
+          import json, os
+          print(json.dumps({'email': os.environ['MAKER_EMAIL'], 'password': os.environ['MAKER_PASSWORD']}))
+          PY
+
+          login_status="$(curl --silent --show-error --output "$login_body" --write-out '%{http_code}' \
+            --cookie-jar "$cookie_jar" \
+            --request POST "$APP_ORIGIN/api/auth/login" \
+            --header 'Accept: application/json' \
+            --header 'Content-Type: application/json' \
+            --header "Origin: $APP_ORIGIN" \
+            --data-binary @/tmp/thebe-maker-login.json)"
+          [[ "$login_status" == '200' ]] || { echo "maker login failed HTTP $login_status" >&2; exit 1; }
+
+          csrf="$(python3 - "$login_body" <<'PY'
+          import json, sys
+          data=json.load(open(sys.argv[1], encoding='utf-8'))
+          assert data.get('ok') is True, 'login did not return ok=true'
+          csrf=str(data.get('csrfToken') or '')
+          assert len(csrf) >= 20, 'login csrf token missing'
+          print(csrf)
+          PY
+          )"
+          printf '%s' "$csrf" > /tmp/thebe-maker-csrf
+
+          status_http="$(curl --silent --show-error --output "$status_body" --write-out '%{http_code}' \
+            --cookie "$cookie_jar" --header 'Accept: application/json' \
+            "$APP_ORIGIN/api/platform/regulatory/status")"
+          [[ "$status_http" == '200' ]] || { echo "platform regulatory status failed HTTP $status_http" >&2; exit 1; }
+          python3 - "$status_body" <<'PY'
+          import json, sys
+          data=json.load(open(sys.argv[1], encoding='utf-8'))
+          assert data.get('ok') is True, 'platform regulatory status is not ok'
+          role=str(data.get('role') or '')
+          assert role in {'editor','admin'}, f'maker account is not editor/admin: {role or "missing"}'
+          print(f'Authenticated governed maker role: {role}')
+          PY
+
+      - name: Resolve exact pending BURS source and refuse unsafe recapture
+        id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+          cookie_jar="$(cat /tmp/thebe-maker-cookie-path)"
+          sources_body="$(mktemp)"
+          curl --fail-with-body --silent --show-error \
+            --cookie "$cookie_jar" --header 'Accept: application/json' \
+            "$APP_ORIGIN/api/platform/regulatory/sources" --output "$sources_body"
+
+          python3 - "$sources_body" "$GITHUB_OUTPUT" <<'PY'
+          import json, os, sys
+          data=json.load(open(sys.argv[1], encoding='utf-8'))
+          items=data.get('items') or []
+          matches=[r for r in items if str(r.get('authority') or '')==os.environ['SOURCE_AUTHORITY'] and str(r.get('title') or '')==os.environ['SOURCE_TITLE'] and str(r.get('source_url') or '')==os.environ['SOURCE_URL']]
+          assert len(matches)==1, f'expected exactly one BURS Payments source, found {len(matches)}'
+          row=matches[0]
+          assert str(row.get('status') or '')=='pending', f'source is not pending: {row.get("status")}'
+          version=int(row.get('latest_snapshot_version') or 0)
+          verification=str(row.get('verification_status') or 'unverified')
+          already=False
+          if version > 0:
+              assert verification=='verified', f'refusing recapture of existing non-verified evidence: version={version} verification={verification}'
+              already=True
+              print(f'Existing verified evidence already present at snapshot version {version}; no capture required.')
+          open('/tmp/regulatory-source-id','w',encoding='utf-8').write(str(row['id']))
+          with open(sys.argv[2], 'a', encoding='utf-8') as out:
+              out.write(f'already_verified={str(already).lower()}\n')
+          print(f'Resolved pending source id={row["id"]} snapshotVersion={version} verification={verification}')
+          PY
+
+      - name: Fetch and normalize authoritative BURS page
+        if: steps.resolve.outputs.already_verified != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          html_file="$(mktemp)"
+          effective_url="$(curl --proto '=https' --tlsv1.2 --location --fail-with-body --silent --show-error \
+            --connect-timeout 10 --max-time 30 \
+            --user-agent 'ThebeDesk-RegulatoryEvidence/1.0 (+https://thebedesk.com)' \
+            --output "$html_file" --write-out '%{url_effective}' "$SOURCE_URL")"
+
+          python3 - "$html_file" "$effective_url" <<'PY' > /tmp/burs-payments-source.txt
+          from html.parser import HTMLParser
+          from urllib.parse import urlparse
+          import re, sys
+
+          path=sys.argv[1]
+          effective=sys.argv[2]
+          host=(urlparse(effective).hostname or '').lower()
+          assert host in {'burs.org.bw','www.burs.org.bw'}, f'redirect left approved BURS host: {effective}'
+
+          class VisibleText(HTMLParser):
+              def __init__(self):
+                  super().__init__(convert_charrefs=True)
+                  self.skip=0
+                  self.parts=[]
+              def handle_starttag(self, tag, attrs):
+                  if tag in {'script','style','noscript','template','svg'}:
+                      self.skip += 1
+                  elif not self.skip and tag in {'p','div','section','article','main','header','footer','li','tr','td','th','br','h1','h2','h3','h4'}:
+                      self.parts.append('\n')
+              def handle_endtag(self, tag):
+                  if tag in {'script','style','noscript','template','svg'} and self.skip:
+                      self.skip -= 1
+                  elif not self.skip and tag in {'p','div','section','article','main','header','footer','li','tr','td','th','h1','h2','h3','h4'}:
+                      self.parts.append('\n')
+              def handle_data(self, data):
+                  if not self.skip:
+                      self.parts.append(data)
+
+          raw=open(path,'r',encoding='utf-8',errors='replace').read()
+          parser=VisibleText(); parser.feed(raw)
+          text='\n'.join(line.strip() for line in re.sub(r'[ \t\r\f\v]+',' ',''.join(parser.parts)).split('\n') if line.strip())
+          assert 500 <= len(text) <= 240000, f'unexpected normalized source size: {len(text)}'
+          low=text.lower()
+          assert 'payments' in low and 'refunds' in low, 'expected BURS payments heading missing'
+          assert 'paye' in low, 'PAYE marker missing'
+          assert 'within 15 days after end of month' in low, 'PAYE 15-day due-date marker missing'
+          print(text)
+          PY
+          echo "Validated official BURS source text bytes=$(wc -c < /tmp/burs-payments-source.txt) effectiveUrl=$effective_url"
+
+      - name: Capture evidence through governed maker API
+        if: steps.resolve.outputs.already_verified != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cookie_jar="$(cat /tmp/thebe-maker-cookie-path)"
+          csrf="$(cat /tmp/thebe-maker-csrf)"
+          source_id="$(cat /tmp/regulatory-source-id)"
+          response_body="$(mktemp)"
+
+          python3 - <<'PY' > /tmp/regulatory-snapshot-request.json
+          import json
+          content=open('/tmp/burs-payments-source.txt',encoding='utf-8').read()
+          print(json.dumps({'content': content}))
+          PY
+
+          status="$(curl --silent --show-error --output "$response_body" --write-out '%{http_code}' \
+            --cookie "$cookie_jar" \
+            --request POST "$APP_ORIGIN/api/platform/regulatory/sources/$source_id/snapshot" \
+            --header 'Accept: application/json' \
+            --header 'Content-Type: application/json' \
+            --header "Origin: $APP_ORIGIN" \
+            --header "X-CSRF-Token: $csrf" \
+            --data-binary @/tmp/regulatory-snapshot-request.json)"
+          [[ "$status" == '201' ]] || { echo "source snapshot capture failed HTTP $status" >&2; cat "$response_body" >&2; exit 1; }
+
+          python3 - "$response_body" <<'PY'
+          import json, sys
+          data=json.load(open(sys.argv[1], encoding='utf-8'))
+          assert data.get('ok') is True, 'snapshot capture did not return ok=true'
+          assert data.get('changed') is False, 'first bounded evidence capture unexpectedly reported changed=true'
+          assert int(data.get('version') or 0) >= 1, 'snapshot version missing'
+          print(f'Captured governed source evidence snapshot version={data.get("version")} changed={data.get("changed")}')
+          PY
+
+      - name: Verify evidence is prepared but remains unapproved
+        shell: bash
+        run: |
+          set -euo pipefail
+          cookie_jar="$(cat /tmp/thebe-maker-cookie-path)"
+          source_id="$(cat /tmp/regulatory-source-id)"
+          sources_body="$(mktemp)"
+          curl --fail-with-body --silent --show-error \
+            --cookie "$cookie_jar" --header 'Accept: application/json' \
+            "$APP_ORIGIN/api/platform/regulatory/sources" --output "$sources_body"
+
+          python3 - "$sources_body" "$source_id" <<'PY'
+          import json, sys
+          data=json.load(open(sys.argv[1], encoding='utf-8'))
+          source_id=sys.argv[2]
+          matches=[r for r in (data.get('items') or []) if str(r.get('id'))==source_id]
+          assert len(matches)==1, 'captured source not found after evidence preparation'
+          row=matches[0]
+          assert str(row.get('status') or '')=='pending', f'evidence preparation changed review status: {row.get("status")}'
+          assert str(row.get('verification_status') or '')=='verified', f'source evidence is not verified: {row.get("verification_status")}'
+          assert int(row.get('latest_snapshot_version') or 0) >= 1, 'latest snapshot version missing'
+          assert not row.get('approved_by_user_id'), 'evidence preparation must not approve the source'
+          assert not row.get('approved_at'), 'evidence preparation must not set source approval timestamp'
+          print(f'Evidence ready: source remains pending, verification=verified, snapshotVersion={row.get("latest_snapshot_version")}.')
+          print('No source approval, rule approval, rule publication, reviewer provisioning, or direct database mutation was performed.')
+          PY
+
+      - name: Remove local authentication and evidence material
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          cookie_path="$(cat /tmp/thebe-maker-cookie-path 2>/dev/null)"
+          [[ -n "$cookie_path" ]] && rm -f "$cookie_path"
+          rm -f /tmp/thebe-maker-cookie-path /tmp/thebe-maker-csrf /tmp/thebe-maker-login.json \
+            /tmp/regulatory-source-id /tmp/burs-payments-source.txt /tmp/regulatory-snapshot-request.json

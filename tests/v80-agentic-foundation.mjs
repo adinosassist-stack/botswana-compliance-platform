@@ -6,7 +6,6 @@ import {logicalRequestPath} from '../cloudflare/src/agentic-entry.js';
 const core=fs.readFileSync(new URL('../cloudflare/src/agentic-core.js',import.meta.url),'utf8');
 const releaseGovernanceEntry=fs.readFileSync(new URL('../cloudflare/src/release-governance-entry.js',import.meta.url),'utf8');
 const agenticEntry=fs.readFileSync(new URL('../cloudflare/src/agentic-entry.js',import.meta.url),'utf8');
-const agenticCoreEntry=fs.readFileSync(new URL('../cloudflare/src/agentic-core-entry.js',import.meta.url),'utf8');
 const runtimeIdentity=fs.readFileSync(new URL('../cloudflare/src/client-runtime-identity.js',import.meta.url),'utf8');
 const productionEntry=fs.readFileSync(new URL('../cloudflare/src/production-entry.js',import.meta.url),'utf8');
 const migration=fs.readFileSync(new URL('../cloudflare/migrations/045_v80_agentic_foundation.sql',import.meta.url),'utf8');
@@ -14,16 +13,14 @@ const wrangler=fs.readFileSync(new URL('../cloudflare/wrangler.toml',import.meta
 let checks=0;const ok=(value,message)=>{assert.ok(value,message);checks++};
 
 ok(wrangler.includes('main = "src/release-governance-entry.js"'),'release governance wrapper is the deployed production entrypoint');
-ok(releaseGovernanceEntry.includes('import base from "./agentic-entry.js"'),'release governance delegates to the attachment-aware V81 agentic adapter');
+ok(releaseGovernanceEntry.includes('import base from "./agentic-entry.js"'),'release governance delegates to V81 agentic wrapper');
 ok(releaseGovernanceEntry.includes('const response=await base.fetch(request,downstreamEnv,ctx)')&&releaseGovernanceEntry.includes('let downstreamEnv=env'),'release governance preserves downstream production dispatch while allowing server-only registration handoff state');
-ok(agenticEntry.includes('import core from "./agentic-core-entry.js"'),'attachment-aware agentic adapter delegates to the canonical V81 core entry');
-ok(agenticEntry.includes('export * from "./agentic-core-entry.js"'),'attachment-aware adapter preserves the V81 named module API');
-ok(agenticCoreEntry.includes('import base from "./production-entry.js"'),'V81 core delegates to canonical hardened production entry');
-ok(agenticCoreEntry.includes('import {applyClientRuntimeIdentity} from "./client-runtime-identity.js"'),'V81 core imports isolated client runtime identity decoration');
-ok(agenticCoreEntry.includes('const runtimeResponse=await applyClientRuntimeIdentity(request,response)'),'V81 core applies client runtime identity only after canonical production dispatch');
-ok(agenticCoreEntry.includes('return enhanceReadiness(request,env,runtimeResponse)'),'V81 core retains schema-readiness augmentation after runtime identity decoration');
+ok(agenticEntry.includes('import base from "./production-entry.js"'),'V81 wrapper delegates to canonical hardened production entry');
+ok(agenticEntry.includes('import {applyClientRuntimeIdentity} from "./client-runtime-identity.js"'),'V81 wrapper imports isolated client runtime identity decoration');
+ok(agenticEntry.includes('const runtimeResponse=await applyClientRuntimeIdentity(request,response)'),'V81 wrapper applies client runtime identity only after canonical production dispatch');
+ok(agenticEntry.includes('return enhanceReadiness(request,env,runtimeResponse)'),'V81 wrapper retains schema-readiness augmentation after runtime identity decoration');
 ok(runtimeIdentity.includes('CLIENT_TRANSPORT_IMPLEMENTATION="transport-fallback-race-v2"'),'client runtime identity is explicitly bound to the current transport implementation');
-ok(!agenticCoreEntry.includes('handleAgenticRequest'),'V81 core does not double-dispatch governed V80 agentic routes');
+ok(!agenticEntry.includes('handleAgenticRequest'),'V81 wrapper does not double-dispatch governed V80 agentic routes');
 ok(productionEntry.includes('import {handleAgenticRequest} from "./agentic-core.js"'),'canonical production boundary imports governed agentic router');
 ok(productionEntry.includes('const agenticResponse=await handleAgenticRequest'),'canonical production boundary invokes agentic router before base worker dispatch');
 ok(productionEntry.includes('worker.fetch(request,env,ctx)'),'non-authority traffic still delegates through hardened base Worker');
@@ -62,4 +59,4 @@ ok(migration.includes("execution_policy TEXT NOT NULL CHECK(execution_policy IN 
 ok(!migration.includes('agentic_execution'),'migration creates no execution queue');
 ok(!migration.includes('payment_id')&&!migration.includes('journal_id'),'agentic schema has no payment or journal side-effect linkage');
 
-console.log(`V80 agentic foundation gate: ${checks}/${checks} PASS through release governance -> attachment adapter -> V81 core -> runtime identity -> production entry chain`);
+console.log(`V80 agentic foundation gate: ${checks}/${checks} PASS through release governance -> V81 -> runtime identity -> production entry chain`);

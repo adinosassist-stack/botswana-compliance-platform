@@ -8,6 +8,9 @@ on:
       - 'cloudflare/src/delegated-authority.js'
       - 'cloudflare/src/agent-cost-admission.js'
       - 'cloudflare/src/agentic-task-execution.js'
+      - 'cloudflare/src/agent-internal-autonomy.js'
+      - 'cloudflare/src/agentic-entry.js'
+      - 'tests/internal-autonomy-*.mjs'
       - 'cloudflare/preflight-production.sh'
       - 'cloudflare/wrangler.toml'
       - 'public/js/owner-command-centre.js'
@@ -40,3 +43,5 @@ jobs:
           node --check tests/v100-platform-admin-task-canary.mjs
           node tests/agent-runtime-guard-regression-20261009.mjs
           node tests/v100-platform-admin-task-canary.mjs
+          node tests/internal-autonomy-policy.mjs
+          node tests/internal-autonomy-runtime.mjs

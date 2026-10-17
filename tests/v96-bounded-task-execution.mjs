@@ -166,9 +166,9 @@ assert.match(source,/WHERE id=\? AND tenant_id=\?/);
 assert.doesNotMatch(source,/payment\.execute/);
 assert.doesNotMatch(source,/government_filing\.submit/);
 
-const entry=fs.readFileSync("cloudflare/src/agentic-core-entry.js","utf8");
+const entry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
 assert.match(entry,/handleAgenticTaskExecutionRequest/);
-assert.match(entry,/068_agent_cost_accounting\.sql/);
+assert.match(entry,/069_agent_cost_shadow_events\.sql/);
 assert.match(entry,/agent_execution_receipts/);
 
 console.log("v96 bounded internal task execution guard: PASS");

@@ -1,0 +1,14 @@
+.marketinggate .market-africa-note{display:inline-flex;align-items:center;margin-top:10px;padding:6px 9px;border:1px solid #d9e0e7;border-radius:999px;background:#fff;color:#5b6570;font-size:11px;font-weight:600;letter-spacing:.01em}
+.marketinggate #thebe-ai .section-head{max-width:760px}
+.marketinggate #thebe-ai .ai-prompt{min-height:42px;padding:10px 12px;border-radius:12px}
+.marketinggate #pricing .pricecard{display:flex;flex-direction:column;height:100%}
+.marketinggate #pricing .pricecard>.marketing-start-action{margin-top:auto}
+.marketinggate #pricing .plan-more{margin-top:8px;border-top:1px solid #e9edf2;padding-top:8px}
+.marketinggate #pricing .plan-more summary{cursor:pointer;list-style:none;color:#58636e;font-size:12px;font-weight:700;min-height:38px;display:flex;align-items:center;justify-content:space-between}
+.marketinggate #pricing .plan-more summary::-webkit-details-marker{display:none}
+.marketinggate #pricing .plan-more summary::after{content:"+";font-size:17px;font-weight:500;color:#7b8792}
+.marketinggate #pricing .plan-more[open] summary::after{content:"−"}
+.marketinggate #pricing .plan-more-list{margin-top:4px}
+.marketinggate #botswana-compliance .section-head{max-width:780px}
+@media (min-width:1101px){.marketinggate .hero-grid>div:first-child{max-width:550px}.marketinggate .hero h1{font-size:clamp(48px,4.5vw,66px);line-height:.98;max-width:620px}.marketinggate .market-hero-visual{max-width:800px}.marketinggate #pricing .pricegrid{align-items:stretch}}
+@media (max-width:760px){.marketinggate .market-africa-note{margin-top:8px}.marketinggate .hero h1{font-size:clamp(35px,10vw,41px)}.marketinggate #pricing .plan-more summary{min-height:44px}.marketinggate #thebe-ai .ai-prompt{min-height:46px}}

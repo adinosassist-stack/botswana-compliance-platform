@@ -23,7 +23,7 @@ try{
 
   const root=await page.goto(ORIGIN+'/?mobile-smoke='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});
   assert.equal(root?.status(),200,'mobile root must return HTTP 200');
-  await page.waitForSelector('#marketingGate[data-market-growth-v20="1"]',{state:'visible',timeout:15000});
+  await page.waitForSelector('#marketingGate[data-market-refinement-v21="21"]',{state:'visible',timeout:15000});
   const publicState=await page.evaluate(()=>({
     title:document.title,
     hero:(document.querySelector('.hero h1')?.textContent||'').trim(),
@@ -35,7 +35,7 @@ try{
   }));
   assert.match(publicState.title,/Thebe Desk/i);
   assert.equal(publicState.marketing,true,'public homepage container missing');
-  assert.equal(publicState.hero,'Run your Botswana business with fewer surprises.','current public homepage hero is missing on mobile root');
+  assert.equal(publicState.hero,'Run money, people, work and compliance from one intelligent desk.','current public homepage hero is missing on mobile root');
   assert.equal(publicState.appShell,false,'plain mobile root leaked the workspace shell');
   assert.equal(publicState.authForm,false,'plain mobile root leaked the authentication form');
   assert.equal(publicState.rolePortal,false,'plain mobile root exposed the role-access portal instead of the public homepage');

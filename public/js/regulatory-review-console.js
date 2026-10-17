@@ -7,6 +7,7 @@
   const MAX_SOURCE_SNAPSHOT_CHARS=262144;
   let csrfToken="";
   let platformRole="";
+  let platformEmail="";
   let readiness=null;
   let client=null;
   let busy=false;
@@ -18,7 +19,7 @@
   function setNotice(message,kind=""){
     const node=byId("sessionNotice");if(!node)return;
     node.className=`notice${kind?` ${kind}`:""}`;
-    node.textContent=String(message||"");
+    node.textContent=(platformEmail?`Signed in as ${platformEmail}. `:"")+String(message||"");
   }
   function redirectToLogin(){
     const next=encodeURIComponent("/regulatory-review.html");
@@ -166,6 +167,7 @@
     try{
       const me=await api("/api/auth/me");csrfToken=String(me?.csrfToken||"");
       const status=await api("/api/platform/regulatory/status");platformRole=String(status?.role||"");
+      platformEmail=String(status?.email||"").trim();
       if(!ALLOWED_PLATFORM_ROLES.has(platformRole)){setNotice("This signed-in account is not provisioned for platform regulatory governance.","bad");return}
       setNotice(`Governed platform role: ${platformRole.toUpperCase()}. Server-side maker/checker controls are active.`,"good");
       byId("refreshBtn")?.addEventListener("click",()=>governedAction(byId("refreshBtn"),refresh));

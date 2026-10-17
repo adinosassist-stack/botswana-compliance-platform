@@ -95,6 +95,7 @@ assert.ok(liveGate.indexOf("Number(permit.use_count)!==0")<liveGate.lastIndexOf(
 assert.ok(liveGate.indexOf("new Date(permit.expires_at).getTime()<=Date.now()")<liveGate.lastIndexOf("return taskFetch(request,env)"));
 assert.ok(liveGate.indexOf("if(!verification.valid)")<liveGate.lastIndexOf("return taskFetch(request,env)"));
 
+
 assert.match(wrapper,/verifyJitExecutionCapabilityCredential/);
 assert.match(wrapper,/agent_jit_execution_permits/);
 assert.match(wrapper,/const taskFetch=.*handleAgenticTaskExecutionRequest/);
@@ -103,9 +104,7 @@ assert.doesNotMatch(wrapper,/UPDATE\s+agent_jit_execution_permits/i);
 assert.doesNotMatch(wrapper,/DELETE\s+FROM\s+agent_jit_execution_permits/i);
 assert.doesNotMatch(wrapper,/INSERT\s+INTO\s+agent_jit_execution_permits/i);
 
-// Route-order proof belongs to the canonical V81 implementation, not the
-// attachment adapter that decorates its default Worker export.
-const agenticEntry=fs.readFileSync(new URL("../cloudflare/src/agentic-core-entry.js",import.meta.url),"utf8");
+const agenticEntry=fs.readFileSync(new URL("../cloudflare/src/agentic-entry.js",import.meta.url),"utf8");
 assert.match(agenticEntry,/handleJitCapabilityGovernanceRequest/);
 assert.match(agenticEntry,/const liveTaskFetch=/);
 assert.match(agenticEntry,/const taskExecutionResponse=await handleJitCapabilityGovernanceRequest\(\{request,logicalPath,env\}\)/);

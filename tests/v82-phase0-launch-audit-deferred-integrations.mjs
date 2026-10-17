@@ -30,12 +30,23 @@ ok(workflow.includes('post-deploy smoke SHA mismatch')&&workflow.includes('refus
 ok(workflow.includes('environment: production')&&workflow.includes('CLOUDFLARE_API_TOKEN')&&workflow.includes('D1_DATABASE_ID'), 'privileged Cloudflare and D1 audit remains isolated in the production environment');
 ok(browserWrapper.includes("opening dedicated auth surface")&&browserWrapper.includes("/auth/?mode=login&next=/app/")&&browserWrapper.includes("opening authenticated /app/ workspace"), 'canonical desktop synthetic lifecycle authenticates through the dedicated auth surface and enters /app/');
 ok(browserWrapper.includes("mobile auth surface navigation")&&browserWrapper.includes("mobile authenticated /app/ route did not return 200")&&browserWrapper.includes("reloading authenticated /app/ workspace"), 'canonical mobile synthetic lifecycle reloads the authenticated /app/ boundary instead of legacy root');
-const publicMarketing=fs.readFileSync('public/js/public-marketing-v249.js','utf8');
-const currentHero='Run your Botswana business from one place.';
+const marketRefinement=fs.readFileSync('public/js/market-refinement-v21.js','utf8');
+const currentHero='Run money, people, work and compliance from one intelligent desk.';
 ok(
-  !publicMarketing.includes('text(gate.querySelector(".hero h1"),')&&
+  marketRefinement.includes(`text(hero.querySelector("h1"),"${currentHero}")`)&&
+  fullUserWrapper.includes('data-market-refinement-v21')&&
   fullUserWrapper.includes(`assert(publicState.hero==='${currentHero}','public root hero missing or stale');`),
-  'mandatory full-user lifecycle binds its public-root proof to the server-rendered canonical hero and prevents the enhancement layer from overwriting it'
+  'mandatory full-user lifecycle waits for market refinement v21 and proves its canonical public hero'
+);
+const publicDockWidthContract=fs.readFileSync('tests/public-dock-width-contract.mjs','utf8');
+ok(
+  fullUserWrapper.includes("dock.dataset.geminiNarrowV274==='1'")&&
+  fullUserWrapper.includes("Math.round(Math.max(360,Math.min(420,viewportWidth*0.28)))")&&
+  fullUserWrapper.includes("Math.round(Math.max(332,Math.min(360,viewportWidth*0.31)))")&&
+  !fullUserWrapper.includes("getPropertyValue('--thebe-spatial-width')")&&
+  publicDockWidthContract.includes('wide desktop keeps the compact Gemini-style rail')&&
+  publicDockWidthContract.includes('runtime geometry must accept expanded state'),
+  'mandatory full-user lifecycle binds public dock readiness to the authoritative adjustable Gemini geometry contract'
 );
 ok(!fullUserWrapper.includes("/business risk/i.test(publicState.hero)"), 'mandatory full-user lifecycle rejects the obsolete business-risk hero contract');
 ok(

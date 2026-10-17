@@ -1,0 +1,90 @@
+name = "bw-compliance-os-evaluation"
+main = "src/evaluation-entry.js"
+compatibility_date = "2026-09-03"
+workers_dev = false
+preview_urls = false
+keep_vars = true
+
+[[routes]]
+pattern = "evaluate.thebedesk.com"
+custom_domain = true
+
+[secrets]
+required = ["SESSION_SECRET", "AUDIT_INTEGRITY_SECRET", "OPERATIONS_SECRET", "AUTOMATION_SECRET", "TURNSTILE_SECRET_KEY", "PAYMENT_WEBHOOK_SECRET", "BILLING_WEBHOOK_SECRET", "OPENAI_API_KEY", "RESEND_API_KEY", "REGISTRATION_COHORT_EMAILS_SECRET"]
+
+[vars]
+APP_ENV = "evaluation"
+DEPLOYMENT_PROFILE = "prelaunch-evaluation-30"
+REGISTRATION_MODE = "cohort"
+AI_FEATURES_DEFAULT = "on"
+AI_REPORT_MODEL = "@cf/zai-org/glm-4.7-flash"
+AGENT_BOUNDED_TASK_EXECUTION_MODE = "owner_bounded"
+AGENT_BOUNDED_TASK_EXECUTION_ENABLED = "0"
+THEBE_INTERNAL_AUTONOMY_ENABLED = "true"
+THEBE_LIVE_VOICE_ENABLED = "true"
+THEBE_GPT_LIVE_PREVIEW_ENABLED = "true"
+THEBE_LIVE_VOICE_RUNTIME = "gpt_live_preview"
+THEBE_LIVE_VOICE_MAX_STARTS_PER_HOUR = "6"
+THEBE_LIVE_VOICE_MAX_USER_STARTS_PER_HOUR = "4"
+THEBE_LIVE_VOICE_MAX_SESSION_SECONDS = "600"
+THEBE_LIVE_VOICE_UPSTREAM_TIMEOUT_MS = "12000"
+THEBE_LIVE_VOICE_FAILURE_CIRCUIT_THRESHOLD = "3"
+THEBE_MARKETING_VOICE_ENABLED = "false"
+PAYMENT_PROVIDER = "none"
+TRIAL_DAYS = "14"
+MAX_UPLOAD_MB = "3.5"
+EVIDENCE_UPLOADS_ENABLED = "false"
+PENDING_UPLOAD_RETENTION_DAYS = "3"
+FAILED_UPLOAD_RETENTION_DAYS = "7"
+PUBLIC_APP_URL = "REPLACE_WITH_PUBLIC_APP_URL"
+PUBLIC_ORIGIN = "REPLACE_WITH_PUBLIC_ORIGIN"
+TURNSTILE_SITE_KEY = "REPLACE_WITH_TURNSTILE_SITE_KEY"
+PLATFORM_ADMIN_EMAILS = "REPLACE_WITH_PLATFORM_ADMIN_EMAILS"
+PLATFORM_REGULATORY_REVIEWERS = "REPLACE_WITH_PLATFORM_REGULATORY_REVIEWERS"
+EVIDENCE_SCAN_API_URL = ""
+GOOGLE_OAUTH_CLIENT_ID = ""
+GOOGLE_OAUTH_REDIRECT_URI = ""
+FACEBOOK_APP_ID = ""
+FACEBOOK_OAUTH_REDIRECT_URI = ""
+EMAIL_FROM = "REPLACE_WITH_EMAIL_FROM"
+THEBE_BANK_NAME = "REPLACE_WITH_THEBE_BANK_NAME"
+THEBE_BANK_ACCOUNT_NUMBER = "REPLACE_WITH_THEBE_BANK_ACCOUNT_NUMBER"
+THEBE_BANK_ACCOUNT_TYPE = "REPLACE_WITH_THEBE_BANK_ACCOUNT_TYPE"
+THEBE_BANK_BRANCH_NAME = "REPLACE_WITH_THEBE_BANK_BRANCH_NAME"
+THEBE_BANK_BRANCH_CODE = "REPLACE_WITH_THEBE_BANK_BRANCH_CODE"
+THEBE_BANK_SWIFT_CODE = "REPLACE_WITH_THEBE_BANK_SWIFT_CODE"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bw-compliance-os"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+[[r2_buckets]]
+binding = "EVIDENCE"
+bucket_name = "bw-compliance-evidence"
+
+[ai]
+binding = "AI"
+
+[assets]
+directory = "../public"
+binding = "ASSETS"
+not_found_handling = "404-page"
+html_handling = "auto-trailing-slash"
+run_worker_first = ["/", "/index.html", "/auth", "/auth/*", "/app", "/app/*", "/report", "/report/*", "/robots.txt", "/sitemap.xml", "/cipa-compliance-botswana/*", "/burs-tax-compliance-botswana/*", "/business-licences-botswana/*", "/employment-compliance-botswana/*", "/tender-readiness-botswana/*", "/compliance-evidence-botswana/*", "/pricing/*", "/api/*", "/public/*", "/js/workspace-runtime-*", "/assets/workspace-inline-styles-*", "/assets/workspace-view-fragments-*"]
+
+[triggers]
+crons = []
+
+[[ratelimits]]
+name = "PUBLIC_RATE_LIMITER"
+namespace_id = "78212150"
+
+  [ratelimits.simple]
+  limit = 30
+  period = 60
+
+# Pre-launch evaluation only. The Worker entrypoint fails closed unless registration is cohort-only,
+# the evaluator secret contains 1-30 unique normalized email addresses, and all normal registration
+# protection controls pass. Social OAuth registration is deliberately disabled in this environment.
+# This config does not modify production launch authority or thebedesk.com.

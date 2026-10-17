@@ -13,12 +13,7 @@ const migrationBlobSha=createHash("sha1")
   .update(migrationBytes)
   .digest("hex");
 const loop=fs.readFileSync("cloudflare/src/business-goal-durable-loop.js","utf8");
-const entryWrapper=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
-const entry=fs.readFileSync("cloudflare/src/agentic-core-entry.js","utf8");
-assert.match(entryWrapper,/import core from "\.\/agentic-core-entry\.js";/,
-  "the production entry must load the core whose observer controls are checked below");
-assert.match(entryWrapper,/export default withReportAttachments\(core\);/,
-  "report attachments must decorate the checked core runtime");
+const entry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
 const engine=fs.readFileSync("cloudflare/src/agentic-persistent-tasks.js","utf8");
 const runner=fs.readFileSync("scripts/migrate-production-v243-business-goal-observer.mjs","utf8");
 const workflow=fs.readFileSync(".github/workflows/migrate-production-v243-business-goal-observer.yml","utf8");
@@ -104,7 +99,7 @@ assert.equal(missingIdentityPersistAttempted,false,
 assert.match(loop,/BUSINESS_GOAL_OBSERVER_AGENT_ID/);
 assert.doesNotMatch(loop,/FINANCE_OBSERVER_AGENT_ID/);
 assert.match(loop,/executionAllowed:false,externalActions:0/);
-assert.match(entry,/068_agent_cost_accounting\.sql/);
+assert.match(entry,/069_agent_cost_shadow_events\.sql/);
 assert.match(entry,/agent_id='SYS-BIZ-OBS-001'/);
 assert.match(entry,/execution_capable=0/);
 assert.match(engine,/business_goal_duplicate_active/);
@@ -152,7 +147,7 @@ insert.run("g3","tenant-b","active","scheduled",JSON.stringify({templateKey:"pro
 insert.run("g4","tenant-a","cancelled","scheduled",JSON.stringify({templateKey:"protect_cash"}));
 assert.throws(()=>db.prepare("UPDATE agent_persistent_tasks SET status='paused' WHERE id='g4'").run(),/duplicate_business_goal/);
 
-assert.equal(profile.latest_cloudflare_migration,"068_agent_cost_accounting.sql");
+assert.equal(profile.latest_cloudflare_migration,"069_agent_cost_shadow_events.sql");
 assert.equal(profile.business_goal_observer_v243,true);
 assert.equal(profile.business_goal_observer_agent_id,"SYS-BIZ-OBS-001");
 assert.equal(profile.business_goal_observer_execution_capable,false);

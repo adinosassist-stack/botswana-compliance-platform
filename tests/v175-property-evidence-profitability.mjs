@@ -40,7 +40,7 @@ const property=fs.readFileSync("cloudflare/src/property-portfolio.js","utf8");
 const owner=fs.readFileSync("public/js/owner-command-centre.js","utf8");
 const analytics=fs.readFileSync("cloudflare/src/business-analytics.js","utf8");
 const context=fs.readFileSync("cloudflare/src/business-context.js","utf8");
-const agentic=fs.readFileSync("cloudflare/src/agentic-core-entry.js","utf8");
+const agentic=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
 const runner=fs.readFileSync("scripts/migrate-production-v175-property-evidence-profitability.mjs","utf8");
 const workflow=fs.readFileSync(".github/workflows/migrate-production-v175-property-evidence-profitability.yml","utf8");
 
@@ -105,7 +105,7 @@ assert.match(analytics,/valuationReportEvidenceGapCount/);
 assert.match(analytics,/property_operating_snapshots/);
 assert.match(context,/property_valuation_evidence_links/);
 assert.match(context,/property_operating_snapshots/);
-assert.match(agentic,/068_agent_cost_accounting\.sql/);
+assert.match(agentic,/069_agent_cost_shadow_events\.sql/);
 assert.match(agentic,/property_valuation_evidence_links/);
 assert.match(agentic,/property_operating_snapshots/);
 
