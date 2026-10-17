@@ -13,6 +13,11 @@ assert.match(helper,/client\.request\(url,\{method:"GET"\}\)/,"fragment warmup m
 assert.match(helper,/whenThebeWorkspaceReady\(scheduleWorkspaceFragmentWarmup\)/,"fragment warmup must stay behind authenticated workspace readiness");
 assert.doesNotMatch(helper,/\bfetch\s*\(/,"workspace readiness helper must not bypass centralized transport");
 assert.doesNotMatch(helper,/warmWorkspaceFragments[\s\S]{0,2000}\/api\//,"fragment warmup must never prefetch tenant API data");
+assert.match(helper,/function installPeopleDeferredReporting\(people\)/,"People page must install deferred reporting setup");
+assert.match(helper,/window\.renderPeopleReportingSetup=async function/,"People page must wrap the secondary reporting renderer");
+assert.match(helper,/if\(panel&&!panel\.open\)return;/,"People reporting data must stay deferred while its disclosure is closed");
+assert.match(helper,/details\.addEventListener\("toggle",\(\)=>\{if\(details\.open\)void window\.renderPeopleReportingSetup\(\)\}\)/,"opening People reporting setup must hydrate it on demand");
+assert.match(helper,/return original\.apply\(this,args\);/,"deferred People reporting must preserve the authoritative renderer once opened");
 const start=entry.indexOf("function externalizeWorkspaceRuntime(");
 const end=entry.indexOf("\nfunction externalizeWorkspaceHeadStyles",start);
 assert(start>=0&&end>start);
