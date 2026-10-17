@@ -10,6 +10,7 @@ on:
       - '.github/workflows/deploy-production.yml'
       - '.github/workflows/main-governance-release-chain-regression.yml'
       - 'scripts/main-governance-release-chain-regression.mjs'
+      - 'scripts/bf07-deployed-baseline-regression.mjs'
   push:
     branches: [main]
     paths:
@@ -18,6 +19,7 @@ on:
       - '.github/workflows/deploy-production.yml'
       - '.github/workflows/main-governance-release-chain-regression.yml'
       - 'scripts/main-governance-release-chain-regression.mjs'
+      - 'scripts/bf07-deployed-baseline-regression.mjs'
   workflow_dispatch:
 
 permissions:
@@ -45,3 +47,4 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/main-governance-release-chain-regression.mjs
+          node scripts/bf07-deployed-baseline-regression.mjs
