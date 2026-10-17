@@ -12,7 +12,8 @@
     if(!people)return;
     const setup=people.querySelector("#opsReportingSetupDetails");
     if(setup&&setup.dataset.v306DefaultCollapse!=="1"){
-      setup.removeAttribute("open");
+      if(people.dataset.v337ReportingOpen==="1")setup.open=true;
+      else setup.removeAttribute("open");
       setup.dataset.v306DefaultCollapse="1";
     }
     const box=people.querySelector("#peopleLocationBars");
@@ -40,22 +41,29 @@
 
   function installPeopleDeferredReporting(people){
     if(!people)return false;
-    if(people.dataset.v337DeferredReporting==="1")return true;
-    const original=window.renderPeopleReportingSetup;
-    if(typeof original!=="function")return false;
-    window.renderPeopleReportingSetup=async function(...args){
-      const root=document.getElementById("peopleops");
-      if(!root?.classList.contains("active"))return;
-      const panel=root.querySelector("#opsReportingSetupDetails");
-      if(panel&&!panel.open)return;
-      return original.apply(this,args);
-    };
-    const details=people.querySelector("#opsReportingSetupDetails");
-    if(details&&details.dataset.v337DeferredReportingToggle!=="1"){
-      details.dataset.v337DeferredReportingToggle="1";
-      details.addEventListener("toggle",()=>{if(details.open)void window.renderPeopleReportingSetup()});
+    // Wrap the canonical renderer only once, but bind each new disclosure node.
+    // Lazy workspace hydration can replace the <details> element after this hook ran.
+    if(people.dataset.v337DeferredReporting!=="1"){
+      const original=window.renderPeopleReportingSetup;
+      if(typeof original!=="function")return false;
+      window.renderPeopleReportingSetup=async function(...args){
+        const root=document.getElementById("peopleops");
+        if(!root?.classList.contains("active"))return;
+        const panel=root.querySelector("#opsReportingSetupDetails");
+        if(panel&&!panel.open)return;
+        return original.apply(this,args);
+      };
+      people.dataset.v337DeferredReporting="1";
     }
-    people.dataset.v337DeferredReporting="1";
+    const details=people.querySelector("#opsReportingSetupDetails");
+    if(!details)return false;
+    if(details.dataset.v337DeferredReportingToggle!=="1"){
+      details.dataset.v337DeferredReportingToggle="1";
+      details.addEventListener("toggle",()=>{
+        people.dataset.v337ReportingOpen=details.open?"1":"0";
+        if(details.open)void window.renderPeopleReportingSetup();
+      });
+    }
     return true;
   }
 
@@ -67,7 +75,11 @@
     const reportingReady=installPeopleDeferredReporting(people);
     if(people.dataset.v306PeopleObserver!=="1"&&typeof MutationObserver==="function"){
       people.dataset.v306PeopleObserver="1";
-      new MutationObserver(()=>applyPeopleV306Polish(people)).observe(people,{childList:true,subtree:true});
+      new MutationObserver(()=>{
+        applyPeopleV306Polish(people);
+        // Reattach to lazily replaced People panels: do not leave Add location unhydrated.
+        installPeopleDeferredReporting(people);
+      }).observe(people,{childList:true,subtree:true});
     }
     return reportingReady;
   }
