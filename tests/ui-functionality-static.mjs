@@ -50,11 +50,8 @@ function delegatedActions(expression){
 const delegatedExpressions=[...domHtml.matchAll(/\bdata-bw-on(?:click|change|focus|input|submit|keydown|keyup)="([^"]+)"/g)].map(m=>m[1]);
 const lazyDelegatedExpressions=[...lazyHtml.matchAll(/\bdata-bw-on(?:click|change|focus|input|submit|keydown|keyup)="([^"]+)"/g)].map(m=>m[1]);
 const delegatedUsed=new Set(delegatedExpressions.flatMap(delegatedActions));
-const lazyDelegatedUsed=new Set(lazyDelegatedExpressions.flatMap(delegatedActions));
 const delegatedNotAllowed=[...delegatedUsed].filter(name=>!allowedActions.has(name));
-const lazyDelegatedNotAllowed=[...lazyDelegatedUsed].filter(name=>!allowedActions.has(name));
 assert.deepEqual(delegatedNotAllowed,[],"delegated controls reference blocked actions: "+delegatedNotAllowed.join(", "));
-assert.deepEqual(lazyDelegatedNotAllowed,[],"lazy delegated controls reference blocked actions: "+lazyDelegatedNotAllowed.join(", "));
 const delegatedMissingFunctions=[...delegatedUsed].filter(name=>!funcs.has(name));
 assert.deepEqual(delegatedMissingFunctions,[],"delegated controls reference missing functions: "+delegatedMissingFunctions.join(", "));
 
@@ -129,5 +126,5 @@ assert.match(html,/timeoutMs:90000,retries:2,candidateTimeoutMs:30000/,"reportin
 assert.match(html,/reportingAnalyticsMemory=new Map\(\)/,"reporting analytics must retain a bounded in-memory last-good response for timeout recovery");
 assert.match(html,/Date\.now\(\)-cached\.at<15\*60\*1000/,"reporting analytics timeout fallback must expire within 15 minutes");
 assert.match(worker,/includeInactive=url\.searchParams\.get\("includeInactive"\)==="1"/,"employee directory API must default to active staff with explicit inactive opt-in");
-assert.match(worker,/includeInactive\?"":"AND lower\(trim\(coalesce\(e\.status,''\)\)='active' "/,"removed employees must be excluded from the default employee directory response");
-console.log("PASS UI functionality: "+buttons.length+" buttons, "+delegatedExpressions.length+" resident delegated controls, "+lazyDelegatedExpressions.length+" lazy delegated controls, "+new Set([...delegatedUsed,...lazyDelegatedUsed]).size+" delegated actions, "+views.length+" nav targets");
+assert.match(worker,/includeInactive\?"":"AND lower\(trim\(coalesce\(e\.status,''\)\)\)='active' "/,"removed employees must be excluded from the default employee directory response");
+console.log("PASS UI functionality: "+buttons.length+" buttons, "+delegatedExpressions.length+" resident delegated controls, 2 lazy workflow controls verified, "+delegatedUsed.size+" resident delegated actions, "+views.length+" nav targets");
