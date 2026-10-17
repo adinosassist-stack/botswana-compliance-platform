@@ -23,8 +23,8 @@
   --ui-good-soft:#edf8f2;
   --ui-warn:#996208;
   --ui-warn-soft:#fff7e8;
-  --ui-bad:#b42318;
-  --ui-bad-soft:#fff0ed;
+  --ui-bad:#6f5510;
+  --ui-bad-soft:#fff8e8;
   --ui-radius-sm:10px;
   --ui-radius:14px;
   --ui-radius-lg:18px;
@@ -168,7 +168,7 @@
 #appShell .notice{border-radius:13px!important;padding:12px 14px!important}
 #appShell .notice:not(.good):not(.bad){background:var(--ui-warn-soft)!important;border-color:#ead7aa!important}
 #appShell .notice.good{background:var(--ui-good-soft)!important;border-color:#cae4d4!important}
-#appShell .notice.bad{background:var(--ui-bad-soft)!important;border-color:#efcdc7!important}
+#appShell .notice.bad{background:var(--ui-bad-soft)!important;border-color:#e4d09a!important}
 
 /* Hub pages: stable hierarchy and aligned actions. */
 #appShell .hub-hero{
