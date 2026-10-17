@@ -168,3 +168,52 @@
   else if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",loadContextStarters,{once:true});
   else loadContextStarters();
 })();
+
+(()=>{
+  "use strict";
+  const SHARD_COUNT=12;
+  const SHARD_PREFIX="/assets/workspace-view-fragments-20261001a-";
+  const SHARD_ORDER=Object.freeze([1,4,10,9,2,8,0,6,3,5,7,11]);
+  let scheduled=false;
+
+  function networkAllowsWarmup(){
+    const connection=window.navigator?.connection;
+    if(connection?.saveData===true)return false;
+    const effectiveType=String(connection?.effectiveType||"").toLowerCase();
+    return effectiveType!=="slow-2g"&&effectiveType!=="2g";
+  }
+
+  function workspaceShardUrl(shard){
+    if(!window.location?.origin||!window.document)return "";
+    const index=Number(shard);
+    if(!Number.isInteger(index)||index<0||index>=SHARD_COUNT)return "";
+    const url=new URL(`${SHARD_PREFIX}${index}.json`,window.location.origin);
+    const assetRelease=String(window.document.querySelector('meta[name="thebe-assets-release"]')?.content||"");
+    if(/^[0-9a-f]{40}$/.test(assetRelease))url.searchParams.set("release",assetRelease);
+    return url.pathname+url.search;
+  }
+
+  async function warmWorkspaceFragments(){
+    if(scheduled||!networkAllowsWarmup()||typeof window.fetch!=="function")return;
+    scheduled=true;
+    for(const shard of SHARD_ORDER){
+      const url=workspaceShardUrl(shard);
+      if(!url)continue;
+      try{
+        await window.fetch(url,{method:"GET",credentials:"same-origin",cache:"force-cache"});
+      }catch(_){/* Prefetch is opportunistic; normal bounded hydration remains authoritative. */}
+      await new Promise(resolve=>window.setTimeout(resolve,25));
+    }
+  }
+
+  function scheduleWorkspaceFragmentWarmup(){
+    if(scheduled||!networkAllowsWarmup())return;
+    if(typeof window.requestIdleCallback==="function"){
+      window.requestIdleCallback(()=>void warmWorkspaceFragments(),{timeout:1200});
+      return;
+    }
+    if(typeof window.setTimeout==="function")window.setTimeout(()=>void warmWorkspaceFragments(),350);
+  }
+
+  if(typeof window.whenThebeWorkspaceReady==="function")window.whenThebeWorkspaceReady(scheduleWorkspaceFragmentWarmup);
+})();
