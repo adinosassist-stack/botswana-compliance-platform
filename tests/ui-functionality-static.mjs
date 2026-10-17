@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import assert from "node:assert/strict";
+import vm from "node:vm";
 import {fileURLToPath} from "node:url";
 
 const here=path.dirname(fileURLToPath(import.meta.url));
@@ -10,6 +11,8 @@ const html=fs.readFileSync(path.join(pub,"index.html"),"utf8");
 const domHtml=html.replace(/<script\b[\s\S]*?<\/script>/gi,"");
 const eventDelegation=fs.readFileSync(path.join(pub,"js/event-delegation.js"),"utf8");
 const worker=fs.readFileSync(path.join(root,"cloudflare/src/worker.js"),"utf8");
+const lazyManifest=JSON.parse(fs.readFileSync(path.join(pub,"assets/workspace-view-fragments-20261001a.json"),"utf8"));
+const lazyHtml=Object.values(lazyManifest.views||{}).join("\n");
 
 const ids=[...domHtml.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);
 const dup=[...new Set(ids.filter((x,i)=>ids.indexOf(x)!==i))];
@@ -45,11 +48,51 @@ function delegatedActions(expression){
 }
 
 const delegatedExpressions=[...domHtml.matchAll(/\bdata-bw-on(?:click|change|focus|input|submit|keydown|keyup)="([^"]+)"/g)].map(m=>m[1]);
+const lazyDelegatedExpressions=[...lazyHtml.matchAll(/\bdata-bw-on(?:click|change|focus|input|submit|keydown|keyup)="([^"]+)"/g)].map(m=>m[1]);
 const delegatedUsed=new Set(delegatedExpressions.flatMap(delegatedActions));
+const lazyDelegatedUsed=new Set(lazyDelegatedExpressions.flatMap(delegatedActions));
 const delegatedNotAllowed=[...delegatedUsed].filter(name=>!allowedActions.has(name));
+const lazyDelegatedNotAllowed=[...lazyDelegatedUsed].filter(name=>!allowedActions.has(name));
 assert.deepEqual(delegatedNotAllowed,[],"delegated controls reference blocked actions: "+delegatedNotAllowed.join(", "));
+assert.deepEqual(lazyDelegatedNotAllowed,[],"lazy delegated controls reference blocked actions: "+lazyDelegatedNotAllowed.join(", "));
 const delegatedMissingFunctions=[...delegatedUsed].filter(name=>!funcs.has(name));
 assert.deepEqual(delegatedMissingFunctions,[],"delegated controls reference missing functions: "+delegatedMissingFunctions.join(", "));
+
+const protectedWorkflowExpression="startWorkflow(document.getElementById('protectedWorkflowType').value)";
+const corporateChangeExpression="runCorpChange(document.getElementById('corporateChangeType').value)";
+assert.ok(lazyDelegatedExpressions.includes(protectedWorkflowExpression),"protected HR workflow control must remain covered by lazy-view functionality tests");
+assert.ok(lazyDelegatedExpressions.includes(corporateChangeExpression),"corporate-change control must remain covered by lazy-view functionality tests");
+
+class DelegatedElement{
+  constructor(attrs={}){this.attrs=attrs;this.value="";this.checked=false}
+  getAttribute(name){return this.attrs[name]??null}
+}
+const delegatedValues=new Map([
+  ["protectedWorkflowType",{value:"Misconduct"}],
+  ["corporateChangeType",{value:"director"}]
+]);
+const delegatedDocument={
+  addEventListener(){},
+  getElementById(id){return delegatedValues.get(id)??null}
+};
+const delegatedCalls=[];
+const delegatedWindow={
+  document:delegatedDocument,
+  Element:DelegatedElement,
+  location:{href:"https://workspace.test/",origin:"https://workspace.test"},
+  setTimeout,
+  BW:{},
+  startWorkflow(value){delegatedCalls.push(["workflow",value])},
+  runCorpChange(value){delegatedCalls.push(["corp",value])}
+};
+vm.runInNewContext(eventDelegation,{window:delegatedWindow,console,URL,setTimeout});
+assert.equal(delegatedWindow.BW.events.isAllowedExpression(protectedWorkflowExpression),true,"protected workflow must be accepted by the secure delegated-event parser");
+assert.equal(delegatedWindow.BW.events.isAllowedExpression(corporateChangeExpression),true,"corporate change must be accepted by the secure delegated-event parser");
+delegatedWindow.BW.events.runExpression(protectedWorkflowExpression,new DelegatedElement(),{target:null});
+delegatedWindow.BW.events.runExpression(corporateChangeExpression,new DelegatedElement(),{target:null});
+assert.deepEqual(delegatedCalls,[["workflow","Misconduct"],["corp","director"]],"lazy controls must pass only the selected DOM value into their allowlisted actions");
+assert.equal(delegatedWindow.BW.events.isAllowedExpression("startWorkflow(document.getElementById('protectedWorkflowType').value.trim())"),false,"delegated DOM values must reject chained method calls");
+assert.equal(delegatedWindow.BW.events.isAllowedExpression("startWorkflow(document.querySelector('#protectedWorkflowType').value)"),false,"delegated DOM values must reject arbitrary selectors");
 
 function regexEscape(value){return String(value).replace(/[.*+?^$()|[\]\\{}]/g,"\\$&")}
 function buttonHasBinding(attrs){
@@ -86,5 +129,5 @@ assert.match(html,/timeoutMs:90000,retries:2,candidateTimeoutMs:30000/,"reportin
 assert.match(html,/reportingAnalyticsMemory=new Map\(\)/,"reporting analytics must retain a bounded in-memory last-good response for timeout recovery");
 assert.match(html,/Date\.now\(\)-cached\.at<15\*60\*1000/,"reporting analytics timeout fallback must expire within 15 minutes");
 assert.match(worker,/includeInactive=url\.searchParams\.get\("includeInactive"\)==="1"/,"employee directory API must default to active staff with explicit inactive opt-in");
-assert.match(worker,/includeInactive\?"":"AND lower\(trim\(coalesce\(e\.status,''\)\)\)='active' "/,"removed employees must be excluded from the default employee directory response");
-console.log("PASS UI functionality: "+buttons.length+" buttons, "+delegatedExpressions.length+" delegated controls, "+delegatedUsed.size+" delegated actions, "+views.length+" nav targets");
+assert.match(worker,/includeInactive\?"":"AND lower\(trim\(coalesce\(e\.status,''\)\)='active' "/,"removed employees must be excluded from the default employee directory response");
+console.log("PASS UI functionality: "+buttons.length+" buttons, "+delegatedExpressions.length+" resident delegated controls, "+lazyDelegatedExpressions.length+" lazy delegated controls, "+new Set([...delegatedUsed,...lazyDelegatedUsed]).size+" delegated actions, "+views.length+" nav targets");
