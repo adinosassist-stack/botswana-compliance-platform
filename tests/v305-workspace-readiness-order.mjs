@@ -8,8 +8,10 @@ assert.match(helper,/const SHARD_COUNT=12;/,"workspace readiness helper must kno
 assert.match(helper,/workspace-view-fragments-20261001a-/,"workspace readiness helper must warm the active immutable fragment generation");
 assert.match(helper,/connection\?\.saveData===true/,"fragment warmup must respect Save-Data");
 assert.match(helper,/effectiveType!=="slow-2g"&&effectiveType!=="2g"/,"fragment warmup must avoid constrained 2G links");
-assert.match(helper,/cache:"force-cache"/,"fragment warmup must reuse the browser cache instead of forcing reloads");
+assert.match(helper,/window\.BW\?\.api\?\.createClient/,"fragment warmup must use the centralized same-origin transport");
+assert.match(helper,/client\.request\(url,\{method:"GET"\}\)/,"fragment warmup must reuse the bounded GET transport");
 assert.match(helper,/whenThebeWorkspaceReady\(scheduleWorkspaceFragmentWarmup\)/,"fragment warmup must stay behind authenticated workspace readiness");
+assert.doesNotMatch(helper,/\bfetch\s*\(/,"workspace readiness helper must not bypass centralized transport");
 assert.doesNotMatch(helper,/warmWorkspaceFragments[\s\S]{0,2000}\/api\//,"fragment warmup must never prefetch tenant API data");
 const start=entry.indexOf("function externalizeWorkspaceRuntime(");
 const end=entry.indexOf("\nfunction externalizeWorkspaceHeadStyles",start);
