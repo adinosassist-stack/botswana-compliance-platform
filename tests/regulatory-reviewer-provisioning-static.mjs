@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
+import { DatabaseSync } from 'node:sqlite';
 
 const script=fs.readFileSync('scripts/provision-regulatory-reviewer.mjs','utf8');
 const workflow=fs.readFileSync('.github/workflows/regulatory-reviewer-provision.yml','utf8');
@@ -22,7 +23,7 @@ has(script,/eligible\.length===1/,'preflight must require exactly one eligible r
 has(script,/membership_count/,'reviewer candidate must be an existing member');
 has(script,/activeEditorIds\.has\(id\)/,'active editors must be excluded from reviewer candidacy');
 has(script,/principal\.role!=='reviewer'/,'incompatible existing principal roles must fail closed');
-has(script,/INSERT INTO platform_regulatory_principals\(user_id,email,role,active,created_at\)[\s\S]*'reviewer'/,'fresh provisioning must create reviewer authority only');
+has(script,/INSERT INTO platform_regulatory_principals\(user_id,email,role,active,provisioned_at\)[\s\S]*'reviewer'/,'fresh provisioning must use the production schema and create reviewer authority only');
 has(script,/UPDATE platform_regulatory_principals SET email=\?,active=1 WHERE user_id=\? AND role='reviewer' AND active=0/,'reactivation must be restricted to inactive reviewers');
 has(script,/mutation\.changes===1/,'apply mode must prove exactly one principal mutation');
 has(script,/makerCheckerReady\(principals\)/,'apply mode must re-prove independent maker-checker readiness');
@@ -52,4 +53,29 @@ has(workflow,/node scripts\/provision-regulatory-reviewer\.mjs/,'workflow must r
 lacks(workflow,/reviewer[_-]?email/i,'workflow must not accept an arbitrary reviewer email input');
 lacks(workflow,/secrets\.[A-Z0-9_]*(EMAIL|PASSWORD)/,'workflow must not require reviewer credentials');
 
-console.log('Regulatory reviewer provisioning static governance: PASS');
+// Execute the actual provisioning statement against the authoritative schema.
+const migration=fs.readFileSync('cloudflare/migrations/005_v57_regulatory_governance.sql','utf8');
+const principalSchema=migration.match(/CREATE TABLE IF NOT EXISTS platform_regulatory_principals\([\s\S]*?;/)?.[0];
+assert.ok(principalSchema,'authoritative principal schema must exist');
+const insertSql=script.match(/d1\(`(INSERT INTO platform_regulatory_principals[^`]+)`/)?.[1];
+assert.ok(insertSql,'actual reviewer INSERT must be exercised');
+const db=new DatabaseSync(':memory:');
+try{
+  db.exec('CREATE TABLE users(id TEXT PRIMARY KEY,email TEXT NOT NULL); CREATE TABLE memberships(user_id TEXT NOT NULL);');
+  db.exec(principalSchema);
+  db.prepare('INSERT INTO users(id,email) VALUES (?,?)').run('reviewer','reviewer@example.test');
+  db.prepare('INSERT INTO memberships(user_id) VALUES (?)').run('reviewer');
+  const timestamp='2026-10-17T10:00:00.000Z';
+  const insert=db.prepare(insertSql);
+  assert.equal(insert.run(timestamp,'reviewer','reviewer@example.test').changes,1,'existing member must provision exactly once');
+  const principal=db.prepare('SELECT role,active,provisioned_at FROM platform_regulatory_principals WHERE user_id=?').get('reviewer');
+  assert.equal(principal.role,'reviewer');
+  assert.equal(principal.active,1);
+  assert.equal(principal.provisioned_at,timestamp,'provisioning must use the real timestamp column');
+  assert.equal(insert.run(timestamp,'reviewer','reviewer@example.test').changes,0,'replay must not create another principal');
+  db.prepare('INSERT INTO users(id,email) VALUES (?,?)').run('nonmember','nonmember@example.test');
+  assert.equal(insert.run(timestamp,'nonmember','nonmember@example.test').changes,0,'nonmembers must remain ineligible');
+}finally{db.close();}
+
+console.log('Regulatory reviewer provisioning static governance and schema execution: PASS');
+
