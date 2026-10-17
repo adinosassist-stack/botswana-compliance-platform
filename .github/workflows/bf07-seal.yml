@@ -235,7 +235,10 @@ jobs:
           done
           [[ "$recovery_confirmed" == '1' ]] || { echo 'release merge has no successful completed Recovery CI run on main after bounded wait' >&2; exit 1; }
 
-          prior_launch_audit_json="$(fetch_workflow_runs production-launch-audit.yml)"
+          # Resolve the historical artifact lineage baseline only from releases that
+          # were actually sealed, automatically deployed, and passed the exact
+          # post-deploy smoke. Phase 0 is a post-deploy readiness verdict and must
+          # not make an already-deployed release unusable as a supply-chain anchor.
           previous_release_sha=''
           while IFS= read -r candidate_sha; do
             [[ "$candidate_sha" =~ ^[0-9a-f]{40}$ ]] || continue
@@ -245,28 +248,39 @@ jobs:
             [[ "$candidate_parent_count" == '2' ]] || continue
             candidate_parent="${candidate_line[1]}"
             git diff --quiet "$candidate_parent" "$candidate_sha" -- release/production.json && continue
-            candidate_launch_audit_success="$(printf '%s' "$prior_launch_audit_json" | CANDIDATE_SHA="$candidate_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["CANDIDATE_SHA"]; runs=body.get("workflow_runs",[]); print("1" if any(run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("event")=="workflow_run" and run.get("status")=="completed" and run.get("conclusion")=="success" for run in runs) else "0")')"
-            if [[ "$candidate_launch_audit_success" == '1' ]]; then
-              previous_release_sha="$candidate_sha"
-              break
-            fi
+
+            candidate_bf07_json="$(fetch_workflow_runs bf07-seal.yml "$candidate_sha")"
+            candidate_bf07_success="$(printf '%s' "$candidate_bf07_json" | CANDIDATE_SHA="$candidate_sha" python3 -c 'import json,os,sys; runs=json.load(sys.stdin).get("workflow_runs",[]); sha=os.environ["CANDIDATE_SHA"]; print("1" if any(r.get("head_sha")==sha and r.get("head_branch")=="main" and r.get("status")=="completed" and r.get("conclusion")=="success" for r in runs) else "0")')"
+            [[ "$candidate_bf07_success" == '1' ]] || continue
+
+            candidate_deploy_json="$(fetch_workflow_runs deploy-production.yml "$candidate_sha")"
+            candidate_deploy_success="$(printf '%s' "$candidate_deploy_json" | CANDIDATE_SHA="$candidate_sha" python3 -c 'import json,os,sys; runs=json.load(sys.stdin).get("workflow_runs",[]); sha=os.environ["CANDIDATE_SHA"]; print("1" if any(r.get("head_sha")==sha and r.get("head_branch")=="main" and r.get("event")=="workflow_run" and r.get("status")=="completed" and r.get("conclusion")=="success" for r in runs) else "0")')"
+            [[ "$candidate_deploy_success" == '1' ]] || continue
+
+            candidate_smoke_json="$(fetch_workflow_runs postdeploy-smoke.yml "$candidate_sha")"
+            candidate_smoke_success="$(printf '%s' "$candidate_smoke_json" | CANDIDATE_SHA="$candidate_sha" python3 -c 'import json,os,sys; runs=json.load(sys.stdin).get("workflow_runs",[]); sha=os.environ["CANDIDATE_SHA"]; print("1" if any(r.get("head_sha")==sha and r.get("head_branch")=="main" and r.get("event")=="workflow_run" and r.get("status")=="completed" and r.get("conclusion")=="success" for r in runs) else "0")')"
+            [[ "$candidate_smoke_success" == '1' ]] || continue
+
+            previous_release_sha="$candidate_sha"
+            break
           done < <(git rev-list --first-parent --max-count="$MAX_RELEASE_LINEAGE_MERGES" "$base_sha")
-          [[ "$previous_release_sha" =~ ^[0-9a-f]{40}$ ]] || { echo 'no prior closed production release with a successful automatic launch audit found on bounded first-parent history' >&2; exit 1; }
-          echo "Prior closed production release resolved: ${previous_release_sha:0:12}"
+          [[ "$previous_release_sha" =~ ^[0-9a-f]{40}$ ]] || { echo 'no prior BF-07-sealed, automatically deployed production release with successful post-deploy smoke found on bounded first-parent history' >&2; exit 1; }
+          echo "Prior deployed production release baseline resolved: ${previous_release_sha:0:12}"
 
           prior_bf07_json="$(fetch_workflow_runs bf07-seal.yml "$previous_release_sha")"
-          printf '%s' "$prior_bf07_json" | PREVIOUS_RELEASE_SHA="$previous_release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["PREVIOUS_RELEASE_SHA"]; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("status")=="completed" and run.get("conclusion")=="success"),None); match or sys.exit("prior closed release has no successful BF-07 seal on main"); print("Prior BF-07 release baseline confirmed: run {}".format(match.get("id")))'
+          printf '%s' "$prior_bf07_json" | PREVIOUS_RELEASE_SHA="$previous_release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["PREVIOUS_RELEASE_SHA"]; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("status")=="completed" and run.get("conclusion")=="success"),None); match or sys.exit("prior deployed release has no successful BF-07 seal on main"); print("Prior BF-07 release baseline confirmed: run {}".format(match.get("id")))'
 
           prior_deploy_json="$(fetch_workflow_runs deploy-production.yml "$previous_release_sha")"
-          printf '%s' "$prior_deploy_json" | PREVIOUS_RELEASE_SHA="$previous_release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["PREVIOUS_RELEASE_SHA"]; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("event")=="workflow_run" and run.get("status")=="completed" and run.get("conclusion")=="success"),None); match or sys.exit("prior closed release has no successful automatic production deployment on main"); print("Prior production release baseline confirmed: run {}".format(match.get("id")))'
+          printf '%s' "$prior_deploy_json" | PREVIOUS_RELEASE_SHA="$previous_release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["PREVIOUS_RELEASE_SHA"]; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("event")=="workflow_run" and run.get("status")=="completed" and run.get("conclusion")=="success"),None); match or sys.exit("prior deployed release has no successful automatic production deployment on main"); print("Prior production release baseline confirmed: run {}".format(match.get("id")))'
 
           prior_smoke_json="$(fetch_workflow_runs postdeploy-smoke.yml "$previous_release_sha")"
-          printf '%s' "$prior_smoke_json" | PREVIOUS_RELEASE_SHA="$previous_release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["PREVIOUS_RELEASE_SHA"]; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("event")=="workflow_run" and run.get("status")=="completed" and run.get("conclusion")=="success"),None); match or sys.exit("prior closed release has no successful automatic post-deploy smoke on main"); print("Prior post-deploy smoke release baseline confirmed: run {}".format(match.get("id")))'
+          printf '%s' "$prior_smoke_json" | PREVIOUS_RELEASE_SHA="$previous_release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["PREVIOUS_RELEASE_SHA"]; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("event")=="workflow_run" and run.get("status")=="completed" and run.get("conclusion")=="success"),None); match or sys.exit("prior deployed release has no successful automatic post-deploy smoke on main"); print("Prior post-deploy smoke release baseline confirmed: run {}".format(match.get("id")))'
 
-          printf '%s' "$prior_launch_audit_json" | PREVIOUS_RELEASE_SHA="$previous_release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["PREVIOUS_RELEASE_SHA"]; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("event")=="workflow_run" and run.get("status")=="completed" and run.get("conclusion")=="success"),None); match or sys.exit("prior closed release has no successful automatic Phase 0 launch audit on main"); print("Prior Phase 0 launch-audit release baseline confirmed: run {}".format(match.get("id")))'
+          prior_launch_audit_json="$(fetch_workflow_runs production-launch-audit.yml "$previous_release_sha")"
+          printf '%s' "$prior_launch_audit_json" | PREVIOUS_RELEASE_SHA="$previous_release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["PREVIOUS_RELEASE_SHA"]; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("event")=="workflow_run" and run.get("status")=="completed" and run.get("conclusion") in {"success","failure"}),None); match or sys.exit("prior deployed release has no completed automatic Phase 0 launch-audit verdict on main"); print("Prior Phase 0 launch-audit execution confirmed: run {} conclusion={}".format(match.get("id"),match.get("conclusion")))'
 
           mapfile -t lineage_shas < <(git rev-list --first-parent --reverse "$previous_release_sha..$release_sha")
-          (( ${#lineage_shas[@]} >= 1 )) || { echo 'release lineage contains no qualifying commits after the prior closed production release' >&2; exit 1; }
+          (( ${#lineage_shas[@]} >= 1 )) || { echo 'release lineage contains no qualifying commits after the prior deployed production release' >&2; exit 1; }
           [[ "$MAX_RELEASE_LINEAGE_MERGES" =~ ^[0-9]+$ ]] && (( MAX_RELEASE_LINEAGE_MERGES >= 1 && MAX_RELEASE_LINEAGE_MERGES <= 200 )) || { echo "invalid bounded release lineage review window: $MAX_RELEASE_LINEAGE_MERGES" >&2; exit 1; }
           (( ${#lineage_shas[@]} <= MAX_RELEASE_LINEAGE_MERGES )) || { echo "release lineage exceeds the bounded ${MAX_RELEASE_LINEAGE_MERGES}-merge review window: ${#lineage_shas[@]}" >&2; exit 1; }
 
@@ -342,7 +356,7 @@ jobs:
           done
 
           echo "First-parent release lineage Recovery CI confirmed or narrowly superseded for ${#lineage_shas[@]} merge(s)"
-          echo "First-parent release lineage confirmed from closed baseline ${previous_release_sha:0:12} through release ${release_sha:0:12}"
+          echo "First-parent release lineage confirmed from deployed baseline ${previous_release_sha:0:12} through release ${release_sha:0:12}"
 
       - name: Setup pinned Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
