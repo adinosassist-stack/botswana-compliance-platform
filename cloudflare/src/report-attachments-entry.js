@@ -23,8 +23,8 @@ function jsonResponse(payload,status=200,baseHeaders=null){
 }
 function attachmentError(code,message,status=400){return jsonResponse({ok:false,error:code,code,message},status)}
 function safeDecode(value){try{return decodeURIComponent(value)}catch{return ""}}
-function reportPrefix(reportId){return `${ATTACHMENT_PREFIX}/${encodeURIComponent(String(reportId||""))}/`}
-function manifestKey(reportId){return `${reportPrefix(reportId)}manifest.json`}
+export async function reportAttachmentPrefix(reportId){return `${ATTACHMENT_PREFIX}/${await sha256Hex(new TextEncoder().encode(String(reportId)))}/`}
+async function manifestKey(reportId){return `${await reportAttachmentPrefix(reportId)}manifest.json`}
 function extensionFor(type){return type==="image/jpeg"?"jpg":type==="image/png"?"png":type==="image/webp"?"webp":"pdf"}
 function safeFilename(name,type){
   const fallback=`attachment.${extensionFor(type)}`;
@@ -112,12 +112,72 @@ async function parseAttachment(input){
   return {id:sha256.slice(0,24),name,type,size:bytes.byteLength,source:input.source==="camera"?"camera":"file",sha256,bytes};
 }
 async function readManifest(env,reportId){
-  const object=await env.EVIDENCE.get(manifestKey(reportId));
+  const object=await env.EVIDENCE.get(await manifestKey(reportId));
   if(!object)return {version:1,reportId:String(reportId),attachments:[],used_grants:[],etag:null};
   let data;try{data=JSON.parse(await object.text())}catch{throw new Error("manifest_unreadable")}
+  if(data?.deleted===true)return {deleted:true,attachments:[],used_grants:[],etag:object.etag};
   if(!Array.isArray(data?.attachments))throw new Error("manifest_unreadable");
   if(!object.etag)throw new Error("manifest_version_unavailable");
-  return {version:1,reportId:String(reportId),attachments:data.attachments,used_grants:Array.isArray(data.used_grants)?data.used_grants:[],etag:object.etag};
+  return {version:1,reportId:String(reportId),attachments:data.attachments,used_grants:Array.isArray(data.used_grants)?data.used_grants:[],inflight:data.inflight||null,etag:object.etag};
+}
+async function writeManifest(env,reportId,data,etag){
+  const key=await manifestKey(reportId),encoded=JSON.stringify(data);
+  const options={httpMetadata:{contentType:"application/json"},onlyIf:etag?{etagMatches:etag}:{etagDoesNotMatch:"*"}};
+  let result;
+  try{result=await env.EVIDENCE.put(key,encoded,options)}catch(error){
+    const current=await env.EVIDENCE.get(key);
+    if(!current||await current.text()!==encoded)throw error;
+    result=current;
+  }
+  if(!result?.etag)throw new Error("report_attachment_upload_conflict");
+  return result.etag;
+}
+async function uploadReportOwner(env,reportId){
+  if(!env?.DB)throw new Error("report_attachment_authority_unavailable");
+  return env.DB.prepare(`SELECT r.tenant_id FROM daily_employee_reports r
+    WHERE r.id=? AND NOT EXISTS(SELECT 1 FROM deletion_requests d WHERE d.tenant_id=r.tenant_id
+      AND d.status IN ('approved','processing','failed','blocked')) LIMIT 1`).bind(String(reportId)).first();
+}
+async function removeUnreferencedObjects(env,reportId,attachments=[]){
+  const keep=new Set([await manifestKey(reportId),...attachments.map(item=>item.key)]);
+  const page=await env.EVIDENCE.list({prefix:await reportAttachmentPrefix(reportId),limit:100});
+  const keys=(page.objects||[]).map(item=>item.key).filter(key=>!keep.has(key));
+  if(keys.length)await env.EVIDENCE.delete(keys);
+  return {done:!page.truncated,objectsDeleted:keys.length};
+}
+
+// Invoked only by the existing claimed, legal-hold-aware tenant deletion path.
+// Hash-only markers contain no tenant ID, report ID, filenames or file content.
+export async function purgeDailyReportAttachments(env,{tenantId,requestId,claimToken}){
+  async function authority(){
+    const claim=await env.DB.prepare("SELECT id FROM deletion_requests WHERE id=? AND tenant_id=? AND status='processing' AND processing_token=?").bind(requestId,tenantId,claimToken).first();
+    if(!claim)throw new Error("report_attachment_deletion_claim_lost");
+    const hold=await env.DB.prepare("SELECT id FROM legal_holds WHERE tenant_id=? AND status='active' AND active=1 LIMIT 1").bind(tenantId).first();
+    if(hold)throw new Error("report_attachment_legal_hold_active");
+  }
+  await authority();
+  const first=await env.DB.prepare("SELECT id FROM daily_employee_reports WHERE tenant_id=? ORDER BY id LIMIT 1").bind(tenantId).first();
+  if(!first)return {done:true,objectsDeleted:0};
+  if(!env?.EVIDENCE)throw new Error("report_attachment_storage_unavailable");
+  const progressKey=`daily-report-attachment-deletions/${await sha256Hex(new TextEncoder().encode(String(tenantId)))}`;
+  const previous=await env.EVIDENCE.get(progressKey);
+  const progress=previous?JSON.parse(await previous.text()):{};
+  if(progress.done===true)return {done:true,objectsDeleted:Number(progress.objectsDeleted||0)};
+  const reports=await env.DB.prepare("SELECT id FROM daily_employee_reports WHERE tenant_id=? AND id>? ORDER BY id LIMIT 2").bind(tenantId,String(progress.cursor||"")).all();
+  let total=Number(progress.objectsDeleted||0),cursor=String(progress.cursor||"");
+  for(const report of reports.results||[]){
+    await authority();
+    const storedManifest=await env.EVIDENCE.get(await manifestKey(report.id));
+    await writeManifest(env,report.id,{deleted:true},storedManifest?.etag||null);
+    await authority();
+    const cleanup=await removeUnreferencedObjects(env,report.id);total+=cleanup.objectsDeleted;
+    if(cleanup.done)cursor=report.id;
+    await env.EVIDENCE.put(progressKey,JSON.stringify({cursor,objectsDeleted:total}),{httpMetadata:{contentType:"application/json"}});
+    if(!cleanup.done)return {done:false,objectsDeleted:total};
+  }
+  if((reports.results||[]).length===2)return {done:false,objectsDeleted:total};
+  await env.EVIDENCE.put(progressKey,JSON.stringify({done:true,objectsDeleted:total}),{httpMetadata:{contentType:"application/json"}});
+  return {done:true,objectsDeleted:total};
 }
 function publicAttachment(item,reportId,reportDate){
   return {id:item.id,name:item.name,type:item.type,size:item.size,source:item.source,uploaded_at:item.uploaded_at,download_url:`/api/daily-reporting/attachments/${encodeURIComponent(String(reportId))}/${encodeURIComponent(String(item.id))}?date=${encodeURIComponent(String(reportDate||""))}`};
@@ -144,6 +204,7 @@ async function handlePublicSubmit(request,env,ctx,core){
   const reportId=coreData?.reportId||coreData?.id;if(!reportId)return coreResponse;
   if(!env?.EVIDENCE)return responseWithJson(coreResponse,{...coreData,attachmentsStored:false,attachmentError:"report_attachment_storage_unavailable"});
   try{
+    if(!await uploadReportOwner(env,reportId))return responseWithJson(coreResponse,{...coreData,attachmentsStored:false,attachmentError:"report_attachment_report_unavailable"});
     const attachmentUploadGrant=await issueAttachmentGrant(env,reportId);
     return responseWithJson(coreResponse,{...coreData,attachmentsPending:true,attachmentUploadGrant,attachmentUploadExpiresInSeconds:Math.floor(GRANT_TTL_MS/1000)});
   }catch{return responseWithJson(coreResponse,{...coreData,attachmentsStored:false,attachmentError:"report_attachment_grant_unavailable"})}
@@ -153,6 +214,7 @@ async function handlePublicAttachmentUpload(request,env){
   if(!env?.EVIDENCE)return attachmentError("report_attachment_storage_unavailable","Attachment storage is temporarily unavailable.",503);
   const grantToken=String(request.headers.get("x-report-attachment-grant")||"");let grant;
   try{grant=await verifyAttachmentGrant(env,grantToken)}catch{return attachmentError("report_attachment_grant_invalid","Attachment upload authorization is invalid or expired.",401)}
+  try{if(!await uploadReportOwner(env,grant.reportId))return attachmentError("report_attachment_report_unavailable","This report no longer accepts attachments.",409)}catch{return attachmentError("report_attachment_authority_unavailable","Attachment access could not be verified.",503)}
   if(!env?.PUBLIC_RATE_LIMITER)return attachmentError("report_attachment_rate_limit_unavailable","Attachment upload protection is unavailable.",503);
   try{
     const limited=await env.PUBLIC_RATE_LIMITER.limit({key:`report-attachment:${grant.reportId}:${grant.nonce}`});
@@ -160,6 +222,15 @@ async function handlePublicAttachmentUpload(request,env){
   }catch{return attachmentError("report_attachment_rate_limit_unavailable","Attachment upload protection is unavailable.",503)}
   let manifest;
   try{manifest=await readManifest(env,grant.reportId)}catch{return attachmentError("report_attachment_manifest_unavailable","Attachment storage metadata is unavailable.",503)}
+  if(manifest.deleted)return attachmentError("report_attachment_report_unavailable","This report no longer accepts attachments.",409);
+  if(manifest.inflight){
+    if(Number(manifest.inflight.expiresAt)>Date.now())return attachmentError("report_attachment_upload_conflict","Another upload is still in progress.",409);
+    try{
+      manifest.etag=await writeManifest(env,grant.reportId,{version:1,attachments:manifest.attachments,used_grants:manifest.used_grants},manifest.etag);
+      const cleanup=await removeUnreferencedObjects(env,grant.reportId,manifest.attachments);
+      if(!cleanup.done)return attachmentError("report_attachment_cleanup_pending","Attachment recovery is continuing. Try again shortly.",503);
+    }catch{return attachmentError("report_attachment_upload_conflict","Attachment recovery could not finish. Try again shortly.",409)}
+  }
   if(manifest.used_grants.includes(grant.nonce))return attachmentError("report_attachment_grant_used","This attachment upload authorization has already been used.",409);
 
   let raw;
@@ -183,24 +254,29 @@ async function handlePublicAttachmentUpload(request,env){
 
   const writtenKeys=[];
   const uploadId=crypto.randomUUID();
+  let reservedEtag=null;
   try{
     const existingByHash=new Map(manifest.attachments.map(item=>[String(item.sha256||""),item]));
     const next=[...manifest.attachments];let added=0,skipped=0;let existingBytes=next.reduce((sum,row)=>sum+Number(row.size||0),0);
     for(const item of parsed){
       if(existingByHash.has(item.sha256)){skipped++;continue}
       if(next.length+1>MAX_REPORT_ATTACHMENTS||existingBytes+item.size>MAX_REPORT_ATTACHMENT_BYTES)throw new Error("report_attachment_quota_exceeded");
-      const key=`${reportPrefix(grant.reportId)}${uploadId}/${item.id}.${extensionFor(item.type)}`;
-      await env.EVIDENCE.put(key,item.bytes,{httpMetadata:{contentType:item.type},customMetadata:{reportId:String(grant.reportId),source:item.source,sha256:item.sha256}});
+      const key=`${await reportAttachmentPrefix(grant.reportId)}${uploadId}/${item.id}.${extensionFor(item.type)}`;
+      const placeholder=await env.EVIDENCE.put(key,new Uint8Array(),{onlyIf:{etagDoesNotMatch:"*"}});
+      if(!placeholder?.etag)throw new Error("report_attachment_upload_conflict");
+      item.storageKey=key;item.placeholderEtag=placeholder.etag;
       writtenKeys.push(key);existingBytes+=item.size;
       const record={id:item.id,name:item.name,type:item.type,size:item.size,key,sha256:item.sha256,source:item.source,uploaded_at:new Date().toISOString()};
       next.push(record);existingByHash.set(item.sha256,record);added++;
     }
+    if(!await uploadReportOwner(env,grant.reportId))throw new Error("report_attachment_upload_conflict");
+    reservedEtag=await writeManifest(env,grant.reportId,{version:1,attachments:manifest.attachments,used_grants:manifest.used_grants,inflight:{id:uploadId,expiresAt:grant.exp}},manifest.etag);
+    for(const item of parsed.filter(item=>item.storageKey)){
+      const stored=await env.EVIDENCE.put(item.storageKey,item.bytes,{onlyIf:{etagMatches:item.placeholderEtag},httpMetadata:{contentType:item.type},customMetadata:{source:item.source,sha256:item.sha256}});
+      if(!stored)throw new Error("report_attachment_upload_conflict");
+    }
     const usedGrants=[...manifest.used_grants.filter(value=>value!==grant.nonce).slice(-31),grant.nonce];
-    const committed=await env.EVIDENCE.put(manifestKey(grant.reportId),JSON.stringify({version:1,reportId:String(grant.reportId),updated_at:new Date().toISOString(),attachments:next,used_grants:usedGrants}),{
-      httpMetadata:{contentType:"application/json"},
-      onlyIf:manifest.etag?{etagMatches:manifest.etag}:{etagDoesNotMatch:"*"}
-    });
-    if(!committed)throw new Error("report_attachment_upload_conflict");
+    await writeManifest(env,grant.reportId,{version:1,updated_at:new Date().toISOString(),attachments:next,used_grants:usedGrants},reservedEtag);
     return jsonResponse({ok:true,reportId:String(grant.reportId),attachmentsStored:true,attachmentsAdded:added,attachmentsSkipped:skipped});
   }catch(error){
     // A transport error may follow a successful manifest commit. Re-read before
@@ -215,6 +291,7 @@ async function handlePublicAttachmentUpload(request,env){
       }catch{}
     }
     if(cleanupSafe)await Promise.allSettled(writtenKeys.map(key=>env.EVIDENCE.delete(key)));
+    if(cleanupSafe&&reservedEtag){try{await writeManifest(env,grant.reportId,{version:1,attachments:manifest.attachments,used_grants:manifest.used_grants},reservedEtag)}catch{}}
     if(error?.message==="report_attachment_upload_conflict")return attachmentError("report_attachment_upload_conflict","Another upload changed this report. Refresh the report before uploading again.",409);
     if(error?.message==="report_attachment_quota_exceeded")return attachmentError("report_attachment_quota_exceeded","This report has reached its attachment limit.",413);
     return attachmentError("attachments_store_failed","The report is saved, but its attachments could not be stored. Try the attachment upload again.",503);
@@ -249,7 +326,7 @@ async function handleDownload(request,env,ctx,core,reportId,attachmentId){
   if(!containsReportId(dashboard,reportId))return attachmentError("report_attachment_not_found","Attachment not found.",404);
   let manifest;try{manifest=await readManifest(env,reportId)}catch{return attachmentError("report_attachment_manifest_unavailable","Attachment storage metadata is unavailable.",503)}
   const item=manifest.attachments.find(row=>String(row.id)===String(attachmentId));
-  if(!item||!String(item.key||"").startsWith(reportPrefix(reportId)))return attachmentError("report_attachment_not_found","Attachment not found.",404);
+  if(manifest.deleted||!item||!String(item.key||"").startsWith(await reportAttachmentPrefix(reportId)))return attachmentError("report_attachment_not_found","Attachment not found.",404);
   const object=await env.EVIDENCE.get(item.key);if(!object)return attachmentError("report_attachment_not_found","Attachment not found.",404);
   const headers=new Headers();headers.set("content-type",String(item.type||"application/octet-stream"));headers.set("content-disposition",contentDisposition(item.name));headers.set("x-content-type-options","nosniff");headers.set("cache-control","private, no-store");if(Number(item.size)>0)headers.set("content-length",String(item.size));
   return new Response(object.body,{status:200,headers});
