@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "requested": true,
+  "sourceKey": "burs-payments",
+  "sourceUrl": "https://www.burs.org.bw/index.php/tax/payments",
+  "purpose": "governed-source-evidence-capture",
+  "requestedAt": "2026-10-17"
+}
