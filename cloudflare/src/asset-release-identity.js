@@ -13,6 +13,7 @@ const WORKSPACE_LAZY_HYDRATION_RECOVERY_SRC='/js/workspace-lazy-hydration-recove
 const ACCOUNT_LAZY_HYDRATION_SRC='/js/account-lazy-hydration-v532.js';
 const PROTECT_LAZY_HYDRATION_SRC='/js/protect-lazy-hydration-v528.js';
 const PROTECT_WORKSPACE_SRC='/js/protect-workspace-v308.js';
+const PEOPLE_DIRECTORY_UX_SRC='/js/people-directory-ux-20261015.js';
 
 function injectAtFinalClosingTag(source,tag,markup){
   const pattern=new RegExp(`<\\/${tag}\\s*>`, 'gi');
@@ -36,6 +37,7 @@ export function versionReleaseAssets(html,sha=releaseSourceSha(),options={}){
   if(options?.includeWorkspaceFixes===true&&!source.includes(ACCOUNT_LAZY_HYDRATION_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${ACCOUNT_LAZY_HYDRATION_SRC}" defer></script>\n`);
   if(options?.includeWorkspaceFixes===true&&!source.includes(PROTECT_LAZY_HYDRATION_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${PROTECT_LAZY_HYDRATION_SRC}" defer></script>\n`);
   if(options?.includeWorkspaceFixes===true&&!source.includes(PROTECT_WORKSPACE_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${PROTECT_WORKSPACE_SRC}" defer></script>\n`);
+  if(options?.includeWorkspaceFixes===true&&!source.includes(PEOPLE_DIRECTORY_UX_SRC))source=injectAtFinalClosingTag(source,"body",`<script src="${PEOPLE_DIRECTORY_UX_SRC}" defer></script>\n`);
   if(options?.includeWorkspaceFixes===true){
     if(!source.includes('/js/report-attachment-links.js'))source=injectAtFinalClosingTag(source,'body','<script src="/js/report-attachment-links.js" defer></script>\n');
     if(!source.includes('/assets/money-inputs-v310.css'))source=injectAtFinalClosingTag(source,'head','<link rel="stylesheet" href="/assets/money-inputs-v310.css">\n');
@@ -49,6 +51,7 @@ export function versionReleaseAssets(html,sha=releaseSourceSha(),options={}){
     if(!source.includes('/assets/workspace-control-polish-v317.css'))source=injectAtFinalClosingTag(source,'head','<link rel="stylesheet" href="/assets/workspace-control-polish-v317.css">\n');
     if(!source.includes('/assets/workspace-mobile-header-targets-v315.css'))source=injectAtFinalClosingTag(source,'head','<link rel="stylesheet" href="/assets/workspace-mobile-header-targets-v315.css">\n');
     if(!source.includes('/assets/workspace-audit-refinements-20261013.css'))source=injectAtFinalClosingTag(source,'head','<link rel="stylesheet" href="/assets/workspace-audit-refinements-20261013.css">\n');
+    if(!source.includes('/assets/people-ux-audit-20261015.css'))source=injectAtFinalClosingTag(source,'head','<link rel="stylesheet" href="/assets/people-ux-audit-20261015.css">\n');
   }
   source=source.replace(/(<(?:script|link)\b[^>]*\b(?:src|href)=["'])(\/(?:js|assets)\/[^"']+)(["'][^>]*>)/gi,(_match,start,path,end)=>{
     const url=new URL(path.replaceAll('&amp;','&'),'https://thebe.invalid');
