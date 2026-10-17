@@ -1,0 +1,226 @@
+/* People UX audit — 2026-10-15. App-only live override; historical People assets stay immutable. */
+#appShell #peopleops,
+#appShell #employees{
+  --people-ink:#18375a;
+  --people-accent:#3377bd;
+  --people-accent-strong:#244f78;
+  --people-muted:#526a86;
+  --people-line:#dce7f5;
+  --people-soft:#edf3fb;
+  --people-soft-2:#eaf0f7;
+  --people-surface:#ffffff;
+  color:var(--people-ink)!important;
+}
+
+/* Keep People clearly within the current navy / blue / white workspace system. */
+#appShell #peopleops :is(.hub-hero,.people-status-chip,.people-info-panel,.people-outcome-card,#opsReportingSetupDetails .card),
+#appShell #employees :is(.employee-metric-card,.employee-register-panel,.employee-add-panel,#employeeRegister>.item){
+  background:#fff!important;
+  background-image:none!important;
+  border-color:var(--people-line)!important;
+  color:var(--people-ink)!important;
+  box-shadow:none!important;
+}
+#appShell #peopleops .hub-hero{
+  min-height:0!important;
+  padding:15px 18px!important;
+  margin-bottom:10px!important;
+  border:1px solid var(--people-line)!important;
+  border-left:4px solid var(--people-accent)!important;
+  border-radius:16px!important;
+}
+#appShell #peopleops .hub-hero h2{color:var(--people-ink)!important;font-size:clamp(21px,2.4vw,27px)!important}
+#appShell #peopleops .hub-hero p{max-width:720px!important;color:var(--people-muted)!important;line-height:1.45!important}
+#appShell #peopleops .people-toolbar{gap:7px!important}
+#appShell #peopleops .people-toolbar .btn:not(.alt):not(.soft):not(.danger),
+#appShell #employees .employee-add-button{
+  background:var(--people-accent)!important;
+  background-image:none!important;
+  border-color:var(--people-accent)!important;
+  color:#fff!important;
+  box-shadow:none!important;
+}
+#appShell #peopleops .people-toolbar :is(.btn.alt,.btn.soft){
+  background:#fff!important;
+  border-color:var(--people-line)!important;
+  color:var(--people-accent-strong)!important;
+}
+
+/* Management scan order: compact team health first, then the item that needs attention. */
+#appShell #peopleops .people-status-strip{
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:9px!important;
+  margin-bottom:10px!important;
+}
+#appShell #peopleops .people-status-chip{
+  min-height:76px!important;
+  padding:11px 12px!important;
+  gap:4px!important;
+  border:1px solid var(--people-line)!important;
+  border-radius:13px!important;
+  background:#fff!important;
+  color:var(--people-ink)!important;
+  box-shadow:none!important;
+}
+#appShell #peopleops .people-status-chip b{font-size:21px!important;color:var(--people-ink)!important}
+#appShell #peopleops .people-status-chip span{font-size:11px!important;color:var(--people-muted)!important}
+#appShell #peopleops .people-status-chip:hover{
+  background:var(--people-soft)!important;
+  border-color:#9fbee1!important;
+}
+#appShell #peopleops .people-reporting-pulse{
+  display:grid!important;
+  grid-template-columns:auto minmax(120px,220px) minmax(0,1fr)!important;
+  align-items:center!important;
+  gap:10px 14px!important;
+  padding:10px 12px!important;
+  margin-bottom:11px!important;
+  border:1px solid var(--people-line)!important;
+  border-left:4px solid var(--people-accent)!important;
+  border-radius:12px!important;
+  background:var(--people-soft)!important;
+  color:var(--people-ink)!important;
+}
+#appShell #peopleops .people-reporting-pulse label{font-weight:750!important;color:var(--people-ink)!important}
+#appShell #peopleops .people-reporting-pulse progress{width:100%!important;max-width:220px!important;accent-color:var(--people-accent)!important}
+#appShell #peopleops .people-reporting-pulse [role="status"]{margin-left:0!important;color:var(--people-muted)!important;line-height:1.4!important}
+
+/* Infographics: preserve direct labels, reduce visual competition, remove off-palette amber. */
+#appShell #peopleops .people-infographics{gap:10px!important;margin-bottom:11px!important}
+#appShell #peopleops .people-info-panel{padding:13px!important;border-radius:14px!important}
+#appShell #peopleops .people-info-heading{margin-bottom:10px!important}
+#appShell #peopleops .people-info-heading h3{color:var(--people-ink)!important}
+#appShell #peopleops .people-info-heading span,
+#appShell #peopleops .people-info-foot,
+#appShell #peopleops .people-info-legend button,
+#appShell #peopleops .people-location-bar{color:var(--people-muted)!important}
+#appShell #peopleops .people-info-legend b,
+#appShell #peopleops .people-location-label b{color:var(--people-ink)!important}
+#appShell #peopleops .people-info-dot,
+#appShell #peopleops .people-info-dot.pending,
+#appShell #peopleops .people-bar-fill{background:var(--people-accent)!important;background-image:none!important}
+#appShell #peopleops .people-ring-value,
+#appShell #peopleops .people-ring-center{background:var(--people-soft-2)!important;background-image:none!important}
+#appShell #peopleops .people-ring-center{background:#fff!important}
+#appShell #peopleops .people-ring-percent{color:var(--people-ink)!important;fill:var(--people-ink)!important}
+#appShell #peopleops .people-ring-caption{color:var(--people-muted)!important;fill:var(--people-muted)!important}
+#appShell #peopleops .people-followup-step{
+  background:#f7f9fc!important;
+  color:var(--people-muted)!important;
+  border:1px solid transparent!important;
+}
+#appShell #peopleops .people-followup-step strong{
+  background:var(--people-soft)!important;
+  color:var(--people-accent-strong)!important;
+}
+#appShell #peopleops .people-followup-step:hover{background:var(--people-soft)!important;border-color:var(--people-line)!important}
+#appShell #peopleops .people-followup-step span:last-child{color:var(--people-accent)!important}
+#appShell #peopleops .people-location-more{
+  background:#fff!important;
+  border-color:var(--people-line)!important;
+  color:var(--people-accent-strong)!important;
+}
+
+/* Keep secondary workflow/setup controls visibly secondary. */
+#appShell #peopleops .people-outcome-card{min-height:108px!important;padding:12px!important}
+#appShell #peopleops .people-outcome-status{font-size:12px!important;line-height:1.45!important;color:var(--people-muted)!important}
+#appShell #peopleops :is(#opsReportingSetupDetails,.people-automation-details){margin-top:10px!important}
+#appShell #peopleops .people-automation-details summary,
+#appShell #peopleops #opsReportingSetupDetails summary{
+  min-height:44px!important;
+  color:var(--people-accent-strong)!important;
+}
+
+/* Directory: compact manager workflow plus fast, local filtering of the rendered register. */
+#appShell #employees{--employee-blue:var(--people-accent)!important;--employee-blue-soft:var(--people-soft)!important;--employee-ink:var(--people-ink)!important;--employee-muted:var(--people-muted)!important;--employee-line:var(--people-line)!important}
+#appShell #employees .employee-directory-shell{gap:12px!important}
+#appShell #employees .employee-directory-hero{padding:0 2px!important;gap:12px!important}
+#appShell #employees .employee-directory-hero h2{font-size:25px!important;color:var(--people-ink)!important}
+#appShell #employees .employee-directory-hero .muted{color:var(--people-muted)!important}
+#appShell #employees .employee-metric-grid{gap:10px!important}
+#appShell #employees .employee-metric-card{min-height:88px!important;padding:13px!important}
+#appShell #employees .employee-metric-card .score{font-size:24px!important;color:var(--people-ink)!important}
+#appShell #employees .employee-metric-icon{background:var(--people-soft)!important;border-color:var(--people-line)!important;color:var(--people-accent)!important}
+#appShell #employees .employee-directory-layout{gap:12px!important}
+#appShell #employees .employee-register-panel,#appShell #employees .employee-add-panel{padding:15px!important}
+#appShell #employees .employee-add-mark{background:var(--people-accent)!important;box-shadow:none!important}
+#appShell #employees #employeeRegister>.item{border-left-color:var(--people-accent)!important}
+#appShell #employees #employeeRegister>.item:hover{border-color:#a9c6e7!important;border-left-color:var(--people-accent-strong)!important}
+#appShell #employees #employeeRegister>.item>.between.row>button:first-child:before{background:var(--people-soft)!important;border-color:#bfd3ea!important;box-shadow:inset 0 0 0 10px #e1ecf8!important}
+#appShell #employees #employeeRegister>.item:before{background:var(--people-accent)!important}
+#appShell #employees .employee-directory-tools-v20261015{
+  display:grid;
+  grid-template-columns:minmax(180px,1fr) auto auto;
+  gap:8px;
+  align-items:center;
+  margin:12px 0 10px;
+  padding:9px;
+  border:1px solid var(--people-line);
+  border-radius:12px;
+  background:#f7f9fc;
+}
+#appShell #employees .employee-directory-search-v20261015{
+  min-width:0;
+  width:100%;
+  min-height:42px;
+  padding:9px 11px;
+  border:1px solid var(--people-line)!important;
+  border-radius:10px;
+  background:#fff!important;
+  color:var(--people-ink)!important;
+  font:inherit;
+}
+#appShell #employees .employee-directory-clear-v20261015{
+  min-height:42px;
+  padding:8px 11px;
+  border:1px solid var(--people-line);
+  border-radius:10px;
+  background:#fff;
+  color:var(--people-accent-strong);
+  font:700 11px/1.2 system-ui,sans-serif;
+  cursor:pointer;
+}
+#appShell #employees .employee-directory-clear-v20261015:disabled{opacity:.45;cursor:default}
+#appShell #employees .employee-directory-count-v20261015{font-size:11px;color:var(--people-muted);white-space:nowrap}
+#appShell #employees #employeeRegister>.item[hidden]{display:none!important}
+#appShell #employees .employee-directory-empty-v20261015{
+  padding:18px;
+  border:1px dashed var(--people-line);
+  border-radius:12px;
+  background:#f7f9fc;
+  color:var(--people-muted);
+  text-align:center;
+  font-size:12px;
+}
+
+#appShell #peopleops :is(button,summary):focus-visible,
+#appShell #employees :is(button,input,select,summary):focus-visible{
+  outline:3px solid rgba(51,119,189,.24)!important;
+  outline-offset:2px!important;
+  border-color:var(--people-accent)!important;
+}
+
+@media(max-width:1100px){
+  #appShell #peopleops .people-status-strip{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+@media(max-width:760px){
+  #appShell #peopleops .hub-hero{padding:13px!important;border-left-width:3px!important}
+  #appShell #peopleops .people-reporting-pulse{grid-template-columns:1fr!important;gap:7px!important}
+  #appShell #peopleops .people-reporting-pulse progress{max-width:none!important}
+  #appShell #peopleops .people-toolbar{width:100%!important}
+  #appShell #peopleops .people-toolbar .btn{flex:1 1 140px!important;min-height:44px!important}
+  #appShell #peopleops .people-info-panel{padding:12px!important}
+  #appShell #employees .employee-directory-tools-v20261015{grid-template-columns:minmax(0,1fr) auto!important}
+  #appShell #employees .employee-directory-count-v20261015{grid-column:1/-1!important;white-space:normal!important}
+}
+@media(max-width:430px){
+  #appShell #peopleops .people-status-strip{grid-template-columns:1fr!important}
+  #appShell #peopleops .people-status-chip{min-height:68px!important}
+  #appShell #peopleops .people-infographics{grid-template-columns:1fr!important}
+  #appShell #employees .employee-metric-grid{grid-template-columns:1fr!important}
+  #appShell #employees .employee-directory-tools-v20261015{grid-template-columns:1fr!important}
+  #appShell #employees .employee-directory-clear-v20261015{width:100%!important}
+}
+@media(prefers-reduced-motion:reduce){
+  #appShell #peopleops *,#appShell #employees *{scroll-behavior:auto!important;transition:none!important}
+}
