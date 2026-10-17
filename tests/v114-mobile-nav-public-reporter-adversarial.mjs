@@ -10,6 +10,8 @@ const worker=fs.readFileSync("cloudflare/src/worker.js","utf8");
 const redirect=fs.readFileSync("public/js/reporter-link-redirect.js","utf8");
 const reportHtml=fs.readFileSync("public/report/index.html","utf8");
 const reportJs=fs.readFileSync("public/js/employee-reporting-portal.js","utf8");
+const reportCss=fs.readFileSync("public/assets/employee-reporting-portal.css","utf8");
+const reportAttachmentsEntry=fs.readFileSync("cloudflare/src/report-attachments-entry.js","utf8");
 const wrangler=fs.readFileSync("cloudflare/wrangler.toml","utf8");
 const synthetic=fs.readFileSync("scripts/production-synthetic-full-user-wrapper.mjs","utf8");
 
@@ -68,4 +70,29 @@ assert.ok(!synthetic.includes('#dailyreports [data-bw-onclick="addOpsLocation()"
 assert.ok(!synthetic.includes('#dailyreports [data-bw-onclick="createOpsReporterLink()"]:visible'),"synthetic lifecycle must not regress reporting-link creation to Daily Reports");
 assert.ok(synthetic.includes("issued employee reporting link did not use the dedicated public report route"),"desktop reporter route assertion missing");
 
-console.log("v114 mobile navigation and passwordless employee reporting: 3-pass PASS");
+// Pass 4: camera-first attachments stay inside the existing reporting and workspace authorization boundaries.
+assert.ok(reportHtml.includes('id="reportCameraInput"')&&reportHtml.includes('accept="image/*"')&&reportHtml.includes('capture="environment"'),"reporter must expose an explicit rear-camera capture control");
+assert.ok(reportHtml.includes('id="reportFileInput"')&&reportHtml.includes("application/pdf")&&reportHtml.includes("multiple"),"reporter must separately support existing image/PDF selection");
+assert.ok(reportJs.includes("MAX_ATTACHMENTS=3")&&reportJs.includes("MAX_FILE_BYTES=3*1024*1024")&&reportJs.includes("MAX_TOTAL_BYTES=6*1024*1024"),"reporter attachment count and byte limits must be enforced client-side");
+assert.ok(reportJs.includes("MAX_IMAGE_EDGE=1920")&&reportJs.includes('canvas.toBlob(resolve,"image/jpeg",IMAGE_QUALITY)'),"camera images must be resized/compressed on-device before upload");
+assert.ok(reportJs.includes('source==="camera"?"camera":"file"')&&reportJs.includes('headers["x-thebe-report-attachments"]="1"')&&reportJs.includes('attachmentRequest("/public/daily-reporting/attachments"'),"camera provenance and two-stage attachment upload wiring missing");
+assert.ok(reportJs.includes('"x-report-attachment-grant":grant')&&reportJs.includes("retries:0"),"attachment upload must use its short-lived grant without automatic replay retries");
+assert.ok(reportCss.includes(".attachment-action--camera")&&reportCss.includes("min-height:52px"),"camera control must remain prominent and touch-friendly on mobile");
+assert.ok(wrangler.includes('main = "src/release-governance-entry.js"'),"production Worker must retain the canonical release-governance entry");
+assert.ok(fs.readFileSync('cloudflare/src/agentic-entry.js','utf8').includes('export default withReportAttachments(agenticRuntime,{logicalRequestPath});'),"canonical agentic runtime must be decorated with report attachments");
+assert.ok(reportAttachmentsEntry.includes('path==="/public/daily-reporting/submit"')&&reportAttachmentsEntry.includes("core.fetch(request,env,ctx)"),"authoritative report submission must remain delegated unchanged to the existing hardened endpoint");
+assert.ok(reportAttachmentsEntry.includes('path==="/public/daily-reporting/attachments"')&&reportAttachmentsEntry.includes("issueAttachmentGrant")&&reportAttachmentsEntry.includes("verifyAttachmentGrant"),"attachments must use a distinct short-lived report-bound upload authorization");
+const uploadHandler=reportAttachmentsEntry.slice(reportAttachmentsEntry.indexOf("async function handlePublicAttachmentUpload"),reportAttachmentsEntry.indexOf("async function decorateDashboard"));
+assert.ok(uploadHandler.indexOf("verifyAttachmentGrant")>=0&&uploadHandler.indexOf("verifyAttachmentGrant")<uploadHandler.indexOf("readRequestTextLimited"),"attachment grant must be verified before a large request body is read");
+assert.ok(uploadHandler.indexOf("PUBLIC_RATE_LIMITER.limit")>=0&&uploadHandler.indexOf("PUBLIC_RATE_LIMITER.limit")<uploadHandler.indexOf("readRequestTextLimited"),"native public rate limiting must run before attachment body ingestion");
+assert.ok(reportAttachmentsEntry.includes("used_grants")&&reportAttachmentsEntry.includes("manifest.used_grants.includes(grant.nonce)"),"successful upload grants must be replay-detected before body ingestion");
+assert.ok(reportAttachmentsEntry.includes("if(!env?.EVIDENCE)")&&reportAttachmentsEntry.includes('ATTACHMENT_PREFIX="daily-report-attachments"'),"attachments must fail closed without private R2 storage and use an isolated key namespace");
+assert.ok(reportAttachmentsEntry.includes("magicMatches(bytes,type)")&&reportAttachmentsEntry.includes('crypto.subtle.digest("SHA-256",bytes)'),"server must verify file signatures and hash attachments before storage");
+assert.ok(reportAttachmentsEntry.includes("MAX_ATTACHMENTS_PER_SUBMISSION=3")&&reportAttachmentsEntry.includes("MAX_ATTACHMENT_BYTES=3*1024*1024")&&reportAttachmentsEntry.includes("MAX_TOTAL_ATTACHMENT_BYTES=6*1024*1024"),"server must independently enforce attachment limits");
+assert.ok(reportAttachmentsEntry.includes('path==="/api/daily-reporting/dashboard"')&&reportAttachmentsEntry.includes("report.attachments=manifest.attachments.map"),"authenticated daily-report dashboard must receive attachment metadata");
+assert.ok(reportAttachmentsEntry.includes('authUrl.pathname="/api/daily-reporting/dashboard"')&&reportAttachmentsEntry.includes("core.fetch(authRequest"),"attachment downloads must reuse the existing authenticated daily-report authorization path");
+assert.ok(reportAttachmentsEntry.includes('headers.set("content-disposition",contentDisposition(item.name))')&&reportAttachmentsEntry.includes('headers.set("x-content-type-options","nosniff")')&&reportAttachmentsEntry.includes('headers.set("cache-control","private, no-store")'),"attachment downloads must be forced, nosniff and private/no-store");
+assert.ok(reportAttachmentsEntry.includes("core.scheduled(controller,env,ctx)"),"attachment wrapper must preserve scheduled release-governance execution");
+assert.ok(wrangler.includes('EVIDENCE_UPLOADS_ENABLED = "false"'),"camera/report attachments must not accidentally enable generic unscanned evidence uploads");
+
+console.log("v114 mobile navigation, passwordless employee reporting and camera attachments: 4-pass PASS");

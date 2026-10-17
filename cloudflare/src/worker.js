@@ -1,4 +1,5 @@
 import {BOTSWANA_FOUNDATION_PACK_V1,BOTSWANA_FOUNDATION_PACK_V1_HASH} from "./regulatory-pack-registry.js";
+import {purgeDailyReportAttachments} from "./report-attachments-entry.js";
 import {handleFinanceRequest,financeSummary} from "./finance-core.js";
 import {handleOwnerOperatorRequest,isOwnerOperatorPath} from "./owner-operator-api.js";
 import {handleReliabilityAdvisorRequest} from "./agent-reliability-api.js";
@@ -3460,6 +3461,18 @@ async function processDeletionRequest(env,requestId){
   if(hold){
     await releaseTenantDeletionClaim(env,requestId,token,"blocked",`legal_hold:${hold.id}`);
     return {ok:false,error:"legal_hold_active",holdId:hold.id};
+  }
+  let reportCleanup;
+  try{reportCleanup=await purgeDailyReportAttachments(env,{tenantId:dr.tenant_id,requestId,claimToken:token})}catch{
+    await releaseTenantDeletionClaim(env,requestId,token,"failed","report_attachment_cleanup_failed");
+    return {ok:false,error:"report_attachment_cleanup_failed"};
+  }
+  if(!reportCleanup.done){
+    // A bounded, successful page is progress, not a failed deletion attempt.
+    const continued=await env.DB.prepare("UPDATE deletion_requests SET attempts=CASE WHEN attempts>0 THEN attempts-1 ELSE 0 END WHERE id=? AND status='processing' AND processing_token=?").bind(requestId,token).run();
+    if(Number(continued.meta?.changes||0)!==1)return {ok:false,error:"deletion_claim_lost"};
+    await releaseTenantDeletionClaim(env,requestId,token,"approved","report_attachment_cleanup_continuing");
+    return {ok:false,inProgress:true,error:"report_attachment_cleanup_in_progress"};
   }
   const files=await env.DB.prepare(
     `SELECT id,tenant_id,object_key,clean_object_key,deletion_status FROM evidence

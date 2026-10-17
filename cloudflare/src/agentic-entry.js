@@ -1,3 +1,4 @@
+import withReportAttachments from "./report-attachments-entry.js";
 import {ledgerSchemaReady} from "./ledger-schema-readiness.js";
 import base from "./production-entry.js";
 import {handleAgenticAuthorityRequest} from "./agentic-authority-core.js";
@@ -199,7 +200,7 @@ async function enhanceReadiness(request,env,response){
   });
 }
 
-export default {
+const agenticRuntime={
   async fetch(request,env,ctx){
     const logicalPath=logicalRequestPath(request);
     const liveCoreFetch=(innerRequest,innerEnv=env,innerCtx=ctx)=>base.fetch(innerRequest,innerEnv,innerCtx);
@@ -269,5 +270,7 @@ export default {
     return base.scheduled(event,env,ctx);
   }
 };
+
+export default withReportAttachments(agenticRuntime,{logicalRequestPath});
 
 export {delegatedAuthoritySchemaReady,enhanceReadiness,hardenAuthenticatedColdStart,injectSyntheticBootTrace,logicalRequestPath,syntheticBootTraceRequested,V81_SCHEMA_DELTA,withRegulatorySqlGuard};
