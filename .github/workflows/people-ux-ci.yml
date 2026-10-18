@@ -4,6 +4,8 @@ run-name: People UX ${{ github.sha }}
 on:
   pull_request:
     paths:
+      - 'public/js/employee-reporting-portal.js'
+      - 'tests/report-attachment-selection.mjs'
       - 'public/assets/people-ux-audit-20261015.css'
       - 'public/js/people-directory-ux-20261015.js'
       - 'public/assets/people-infographics-20261003.css'
@@ -18,6 +20,8 @@ on:
   push:
     branches: [main]
     paths:
+      - 'public/js/employee-reporting-portal.js'
+      - 'tests/report-attachment-selection.mjs'
       - 'public/assets/people-ux-audit-20261015.css'
       - 'public/js/people-directory-ux-20261015.js'
       - 'public/assets/people-infographics-20261003.css'
@@ -54,6 +58,7 @@ jobs:
       - name: Enforce People workspace UX contract
         run: |
           node --check public/js/workspace-readiness-v305.js
+          node tests/report-attachment-selection.mjs
           node tests/people-ux-audit-20261015.mjs
           node tests/v305-workspace-readiness-order.mjs
           node tests/v337-people-location-rebind.mjs
