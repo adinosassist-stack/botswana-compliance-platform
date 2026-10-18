@@ -51,3 +51,5 @@ vm.runInContext(helper,context);
 assert.equal(window.__THEBE_WORKSPACE_READY__,true,"reloading the helper must not reset readiness");
 assert.equal(transform.externalizeWorkspaceRuntime("<p>Public surface</p>"),"<p>Public surface</p>");
 console.log("PASS: parser-time enhancements can register before deferred runtime; authenticated readiness remains required.");
+
+await import("./v551-workspace-navigation-speed.mjs");
