@@ -2,6 +2,9 @@
 "use strict";
 let reporterToken="";
 const attachmentState=[];
+let attachmentQueue=Promise.resolve();
+let pendingSelections=0;
+let submitting=false;
 const MAX_ATTACHMENTS=3;
 const MAX_FILE_BYTES=3*1024*1024;
 const MAX_TOTAL_BYTES=6*1024*1024;
@@ -53,6 +56,7 @@ function setAttachmentStatus(text,isError=false){
 function revokeItem(item){if(item?.previewUrl){try{URL.revokeObjectURL(item.previewUrl)}catch{}}}
 function clearAttachments(){attachmentState.splice(0).forEach(revokeItem);renderAttachments()}
 function removeAttachment(index){
+  if(submitting)return;
   if(index<0||index>=attachmentState.length)return;
   revokeItem(attachmentState[index]);attachmentState.splice(index,1);renderAttachments();
 }
@@ -113,7 +117,23 @@ async function prepareAttachment(file,source){
   const previewUrl=prepared.type.startsWith("image/")?URL.createObjectURL(prepared):"";
   return {file:prepared,source:source==="camera"?"camera":"file",previewUrl};
 }
-async function addFiles(files,source){
+function addFiles(files,source){
+  if(submitting)return Promise.resolve();
+  const incoming=Array.from(files||[]);
+  if(!incoming.length)return Promise.resolve();
+  pendingSelections++;
+  updateAttachmentControls();
+  const task=attachmentQueue.then(()=>prepareFiles(incoming,source));
+  attachmentQueue=task.catch(()=>{});
+  return task.finally(()=>{pendingSelections--;updateAttachmentControls()});
+}
+function updateAttachmentControls(){
+  const busy=submitting||pendingSelections>0;
+  const button=byId("reporterSubmitBtn");if(button)button.disabled=busy;
+  for(const id of ["reportCameraInput","reportFileInput"]){const input=byId(id);if(input)input.disabled=submitting}
+  byId("reportAttachmentList")?.querySelectorAll?.("button").forEach(button=>{button.disabled=submitting});
+}
+async function prepareFiles(files,source){
   const incoming=Array.from(files||[]);if(!incoming.length)return;
   if(attachmentState.length>=MAX_ATTACHMENTS){setAttachmentStatus(`Maximum ${MAX_ATTACHMENTS} attachments per submission.`,true);return}
   setAttachmentStatus(source==="camera"?"Preparing camera photo…":"Preparing attachment…");
@@ -148,13 +168,15 @@ async function initialize(){
 }
 async function submit(event){
   event.preventDefault();
+  if(submitting)return;
+  if(pendingSelections){setAttachmentStatus("Please wait while your photos and files are prepared, then send the report.");return}
   const error=byId("reporterPortalError"),success=byId("reporterPortalSuccess"),button=byId("reporterSubmitBtn");error.hidden=true;success.hidden=true;
   const payload={
     token:reporterToken,reportDate:byId("reporterDate").value,workSummary:byId("reporterWorkSummary").value,wins:byId("reporterWins").value,blockers:byId("reporterBlockers").value,incidents:byId("reporterIncidents").value,nextPlan:byId("reporterNextPlan").value,needsAttention:byId("reporterNeedsAttention").checked,
     kpis:{tasksCompleted:byId("reporterTasks").value,customersHandled:byId("reporterCustomers").value,revenueBwp:byId("reporterRevenue").value,incidentsCount:byId("reporterIncidentCount").value,customLabel:byId("reporterCustomLabel").value,customValue:byId("reporterCustomValue").value}
   };
   if(![payload.workSummary,payload.wins,payload.blockers,payload.incidents,payload.nextPlan].some(value=>String(value||"").trim())){setMessage("reporterPortalError","Add at least one report note before sending.");return}
-  const hasAttachments=attachmentState.length>0;button.disabled=true;button.textContent="Sending report…";
+  const hasAttachments=attachmentState.length>0;submitting=true;updateAttachmentControls();button.textContent="Sending report…";
   try{
     const headers={"content-type":"application/json"};if(hasAttachments)headers["x-thebe-report-attachments"]="1";
     const data=await request("/public/daily-reporting/submit",{method:"POST",headers,body:JSON.stringify(payload)});
@@ -183,12 +205,12 @@ async function submit(event){
     window.dispatchEvent(new CustomEvent("thebe:daily-report-submitted",{detail:{reportDate:payload.reportDate,reportId:data.reportId||data.id||null,attachmentsStored}}));
     window.scrollTo({top:0,behavior:"smooth"});
   }catch(err){setMessage("reporterPortalError",errorMessage(err))}
-  finally{button.disabled=false;button.textContent="Send daily report"}
+  finally{submitting=false;updateAttachmentControls();button.textContent="Send daily report"}
 }
 function bindAttachments(){
   byId("reportCameraInput")?.addEventListener("change",async event=>{const input=event.currentTarget;await addFiles(input.files,"camera");input.value=""});
   byId("reportFileInput")?.addEventListener("change",async event=>{const input=event.currentTarget;await addFiles(input.files,"file");input.value=""});
 }
-window.addEventListener("online",networkStatus);window.addEventListener("offline",networkStatus);window.addEventListener("pagehide",()=>attachmentState.forEach(revokeItem));
+window.addEventListener("online",networkStatus);window.addEventListener("offline",networkStatus);window.addEventListener("pagehide",event=>{if(!event.persisted)attachmentState.forEach(revokeItem)});
 document.addEventListener("DOMContentLoaded",()=>{byId("reporterDailyForm")?.addEventListener("submit",submit);bindAttachments();initialize()});
 })();
