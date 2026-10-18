@@ -265,7 +265,9 @@
     document.addEventListener("pointerover",prefetchOnNavigationIntent,{passive:true});
     document.addEventListener("focusin",prefetchOnNavigationIntent);
     document.addEventListener("touchstart",prefetchOnNavigationIntent,{passive:true});
-    scheduleWorkspaceFragmentWarmup();
   }
-  if(typeof window.whenThebeWorkspaceReady==="function")window.whenThebeWorkspaceReady(bindWorkspacePrefetch);
+  if(typeof window.whenThebeWorkspaceReady==="function"){
+    window.whenThebeWorkspaceReady(bindWorkspacePrefetch);
+    window.whenThebeWorkspaceReady(scheduleWorkspaceFragmentWarmup);
+  }
 })();
