@@ -3269,6 +3269,24 @@ async function workspaceViewFragments(id){
   workspaceViewShardPromises.set(cacheKey,promise);
   return promise;
 }
+// Share one validated, same-origin shard request between idle prefetch and navigation.
+function prefetchThebeWorkspaceShard(shard){
+  if(window.__THEBE_WORKSPACE_READY__!==true)return Promise.resolve(false);
+  if(!Number.isInteger(shard)||shard<0||shard>=WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT)return Promise.resolve(false);
+  const cacheKey=String(shard);
+  if(workspaceViewShardPromises.has(cacheKey))return workspaceViewShardPromises.get(cacheKey);
+  const asset=WORKSPACE_VIEW_FRAGMENT_PREFIX+shard+".json";
+  const promise=fetchWorkspaceViewShard(asset,shard).catch(error=>{workspaceViewShardPromises.delete(cacheKey);throw error});
+  workspaceViewShardPromises.set(cacheKey,promise);
+  return promise;
+}
+window.prefetchThebeWorkspaceShard=prefetchThebeWorkspaceShard;
+window.prefetchThebeWorkspaceView=function(id){
+  if(window.__THEBE_WORKSPACE_READY__!==true)return Promise.resolve(false);
+  const target=document.getElementById(id);
+  if(!target||target.dataset.lazyView!=="1"||!roleCanView(id))return Promise.resolve(false);
+  return workspaceViewFragments(id).then(()=>true).catch(()=>false);
+};
 function lazyWorkspaceViewLabel(id){
   const meta=typeof COMMAND_META!=="undefined"?COMMAND_META[id]:null;
   const nav=document.querySelector('[data-view="'+String(id||"")+'"]');
@@ -3396,8 +3414,21 @@ function scheduleResidentPropertyVisibility(target){
   setTimeout(()=>enforceResidentPropertyVisibility(target),700);
 }
 
+// Let the destination paint before running expensive multi-panel renderers.
+// A superseding navigation invalidates its predecessor without skipping security checks.
+let workspacePendingRenderToken=0;
+function scheduleWorkspaceNavigationRender(id,target,epoch){
+  const token=++workspacePendingRenderToken;
+  const render=()=>{
+    if(token!==workspacePendingRenderToken||epoch!==workspaceViewNavigationEpoch||!target.classList.contains("active"))return;
+    renderAll();if(id==="propertyintelligence")scheduleResidentPropertyVisibility(target);
+  };
+  if(typeof requestAnimationFrame==="function"&&document.visibilityState!=="hidden")
+    requestAnimationFrame(()=>setTimeout(render,0));
+  else setTimeout(render,0);
+}
 let lastWorkspaceView="dashboard";
-function showView(id,options={}){if(!roleCanView(id)){console.warn("Role denied view",id,currentWorkspaceRole());if(!options?.silent){let sr=document.getElementById("srStatus");if(sr)sr.textContent="This area is not available for your role."}return false}const target=document.getElementById(id);if(!target){console.warn("Unknown view",id);return false}const workspaceNavigationEpoch=options?.preserveNavigationEpoch===true?workspaceViewNavigationEpoch:++workspaceViewNavigationEpoch;if(target.dataset.lazyView==="1"&&options?.lazyHydrated!==true){target.dataset.lazyNavigationEpoch=String(workspaceNavigationEpoch);activateLazyWorkspacePlaceholder(id,target);void hydrateLazyWorkspaceView(id,target,options);return true}lastWorkspaceView=id;document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));target.classList.add("active");if(id==="propertyintelligence")scheduleResidentPropertyVisibility(target);document.querySelectorAll(".nav button").forEach(b=>{let active=b.dataset.view===id;b.classList.toggle("active",active);if(active)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});const nb=document.querySelector(`[data-view="${id}"]`),meta=(typeof COMMAND_META!=="undefined"?COMMAND_META[id]:null);document.getElementById("pageTitle").textContent=meta?.[0]||nb?.textContent?.trim()||"BW Compliance OS";updateMobileNav(id);let sr=document.getElementById("srStatus");if(sr)sr.textContent="Opened "+document.getElementById("pageTitle").textContent;window.scrollTo({top:0,behavior:prefersReducedMotion()?"auto":"smooth"});setTimeout(animateViewItems,20);if(!options?.skipDataRefresh&&!options?.roleRedirect)queueMicrotask(()=>{renderAll();if(id==="propertyintelligence")scheduleResidentPropertyVisibility(target)});globalThis.dispatchEvent?.(new CustomEvent("thebe:workspace-view-change",{detail:{id}}));if(!STANDALONE_PREVIEW&&!options?.skipDataRefresh&&!options?.roleRedirect){if(id==="billing")queueMicrotask(()=>void loadBilling());if(id==="audit")queueMicrotask(()=>void hydrateWorkspaceAudit())}return true}
+function showView(id,options={}){if(!roleCanView(id)){console.warn("Role denied view",id,currentWorkspaceRole());if(!options?.silent){let sr=document.getElementById("srStatus");if(sr)sr.textContent="This area is not available for your role."}return false}const target=document.getElementById(id);if(!target){console.warn("Unknown view",id);return false}const workspaceNavigationEpoch=options?.preserveNavigationEpoch===true?workspaceViewNavigationEpoch:++workspaceViewNavigationEpoch;if(target.dataset.lazyView==="1"&&options?.lazyHydrated!==true){target.dataset.lazyNavigationEpoch=String(workspaceNavigationEpoch);activateLazyWorkspacePlaceholder(id,target);void hydrateLazyWorkspaceView(id,target,options);return true}lastWorkspaceView=id;document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));target.classList.add("active");if(id==="propertyintelligence")scheduleResidentPropertyVisibility(target);document.querySelectorAll(".nav button").forEach(b=>{let active=b.dataset.view===id;b.classList.toggle("active",active);if(active)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});const nb=document.querySelector(`[data-view="${id}"]`),meta=(typeof COMMAND_META!=="undefined"?COMMAND_META[id]:null);document.getElementById("pageTitle").textContent=meta?.[0]||nb?.textContent?.trim()||"BW Compliance OS";updateMobileNav(id);let sr=document.getElementById("srStatus");if(sr)sr.textContent="Opened "+document.getElementById("pageTitle").textContent;window.scrollTo({top:0,behavior:prefersReducedMotion()?"auto":"smooth"});setTimeout(animateViewItems,20);if(!options?.skipDataRefresh&&!options?.roleRedirect)scheduleWorkspaceNavigationRender(id,target,workspaceNavigationEpoch);globalThis.dispatchEvent?.(new CustomEvent("thebe:workspace-view-change",{detail:{id}}));if(!STANDALONE_PREVIEW&&!options?.skipDataRefresh&&!options?.roleRedirect){if(id==="billing")queueMicrotask(()=>void loadBilling());if(id==="audit")queueMicrotask(()=>void hydrateWorkspaceAudit())}return true}
 
 let wizardStep=0;
 let firstValueTopTarget="workhub";
