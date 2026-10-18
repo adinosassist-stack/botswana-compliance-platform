@@ -232,11 +232,12 @@
     if(scheduled||!networkAllowsWarmup()||typeof createClient!=="function")return;
     scheduled=true;
     const client=createClient({timeoutMs:6000,retries:0});
-    for(const shard of SHARD_ORDER){
+    for(const shard of SHARD_ORDER.slice(0,3)){
       const url=workspaceShardUrl(shard);
       if(!url)continue;
       try{
-        await client.request(url,{method:"GET"});
+        if(typeof window.prefetchThebeWorkspaceShard==="function")await window.prefetchThebeWorkspaceShard(shard);
+        else await client.request(url,{method:"GET"});
       }catch(_){/* Prefetch is opportunistic; normal bounded hydration remains authoritative. */}
       await new Promise(resolve=>window.setTimeout(resolve,25));
     }
@@ -251,5 +252,20 @@
     if(typeof window.setTimeout==="function")window.setTimeout(()=>void warmWorkspaceFragments(),350);
   }
 
-  if(typeof window.whenThebeWorkspaceReady==="function")window.whenThebeWorkspaceReady(scheduleWorkspaceFragmentWarmup);
+  // Only warm a destination the user is actually moving toward, and share
+  // its in-flight request with showView rather than downloading it twice.
+  function prefetchOnNavigationIntent(event){
+    if(!networkAllowsWarmup()||window.__THEBE_WORKSPACE_READY__!==true)return;
+    const button=event.target?.closest?.("[data-view]");
+    const id=String(button?.dataset?.view||"");
+    if(!id||document.getElementById(id)?.dataset?.lazyView!=="1")return;
+    if(typeof window.prefetchThebeWorkspaceView==="function")void window.prefetchThebeWorkspaceView(id);
+  }
+  function bindWorkspacePrefetch(){
+    document.addEventListener("pointerover",prefetchOnNavigationIntent,{passive:true});
+    document.addEventListener("focusin",prefetchOnNavigationIntent);
+    document.addEventListener("touchstart",prefetchOnNavigationIntent,{passive:true});
+    scheduleWorkspaceFragmentWarmup();
+  }
+  if(typeof window.whenThebeWorkspaceReady==="function")window.whenThebeWorkspaceReady(bindWorkspacePrefetch);
 })();
