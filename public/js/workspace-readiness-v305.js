@@ -262,6 +262,7 @@
     if(typeof window.prefetchThebeWorkspaceView==="function")void window.prefetchThebeWorkspaceView(id);
   }
   function bindWorkspacePrefetch(){
+    if(typeof document==="undefined")return;
     document.addEventListener("pointerover",prefetchOnNavigationIntent,{passive:true});
     document.addEventListener("focusin",prefetchOnNavigationIntent);
     document.addEventListener("touchstart",prefetchOnNavigationIntent,{passive:true});
