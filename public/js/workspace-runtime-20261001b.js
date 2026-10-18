@@ -3421,8 +3421,7 @@ function scheduleWorkspaceNavigationRender(id,target,epoch){
   const token=++workspacePendingRenderToken;
   const render=()=>{
     if(token!==workspacePendingRenderToken||epoch!==workspaceViewNavigationEpoch||!target.classList.contains("active"))return;
-    renderAll();
-    if(id==="propertyintelligence")scheduleResidentPropertyVisibility(target);
+    renderAll();if(id==="propertyintelligence")scheduleResidentPropertyVisibility(target);
   };
   if(typeof requestAnimationFrame==="function"&&document.visibilityState!=="hidden")
     requestAnimationFrame(()=>setTimeout(render,0));
