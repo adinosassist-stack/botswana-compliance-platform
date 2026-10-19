@@ -8659,6 +8659,10 @@ async function hydrateWorkspaceAudit(){
   if(document.getElementById("audit")?.classList.contains("active"))renderAudit();
  }catch{}
 }
+async function yieldFirstWorkspacePaint(){
+  if(typeof requestAnimationFrame!=="function"||document.visibilityState==="hidden")return;
+  await new Promise(resolve=>requestAnimationFrame(()=>setTimeout(resolve,0)));
+}
 async function loadServerState(){
  if(STANDALONE_PREVIEW){
   const role=isWorkspaceRole(currentUser?.role)?currentUser.role:"owner";currentUser={id:currentUser?.id||"preview-user",email:currentUser?.email||"owner@preview.local",displayName:currentUser?.displayName||"Preview user",role,tenantId:currentUser?.tenantId||"preview-tenant",tenantName:currentUser?.tenantName||"Preview Business",onboardingComplete:true};csrfToken="preview-csrf";serverStateVersion=1;const nextStore=structuredClone(DEFAULT_STATE);nextStore.activeRole=role;replaceWorkspaceStore(nextStore);renderAll();applyRoleUi();hideAuth();const landing=roleLandingView(role);if(landing&&roleCanView(landing))showView(landing,{roleRedirect:true});else showView("dashboard",{roleRedirect:true});const chip=document.querySelector(".prodchip");if(chip)chip.textContent=`PREVIEW · ${role.toUpperCase()}`;return
@@ -8667,7 +8671,7 @@ async function loadServerState(){
  const st=consumeInitialWorkspaceState()||await apiFetch("/api/state");serverStateVersion=st.version||1;let nextStore;
  if(st.state&&st.state.companies?.length){nextStore=structuredClone(st.state)}else if(currentUser.role==="owner"){nextStore=blankWorkspaceState(currentUser.tenantName||"My Business",currentUser.role)}else{throw new Error("The account owner must finish initial workspace setup before this role can enter.")}
  nextStore.activeRole=currentUser.role;nextStore.audit=[];replaceWorkspaceStore(nextStore);
- renderAll();applyRoleUi();hideAuth();logEvent("APP_OPENED",{ruleset:"BW-2026.08.30-launch"});const landing=roleLandingView(currentUser.role);if(landing&&roleCanView(landing))showView(landing,{roleRedirect:true});handleOAuthResult();handleResetLink();
+ applyRoleUi();hideAuth();const landing=roleLandingView(currentUser.role);if(landing&&roleCanView(landing))showView(landing,{roleRedirect:true});await yieldFirstWorkspacePaint();renderAll();logEvent("APP_OPENED",{ruleset:"BW-2026.08.30-launch"});handleOAuthResult();handleResetLink();
  if(currentUser.role==="owner"&&currentUser.onboardingComplete===false)scheduleOwnerOnboarding();
  if(currentUser.role==="owner"&&currentUser.onboardingComplete===true&&state?.profile?.firstProtectionCheckStatus==="pending")setTimeout(()=>{document.getElementById("firstValuePanel")?.classList.add("show");renderFirstValueFailure("The previous first protection check did not finish. Run it again to generate server-backed actions.")},220);
 }
