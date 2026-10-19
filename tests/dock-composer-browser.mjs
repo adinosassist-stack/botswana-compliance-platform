@@ -96,6 +96,25 @@ try{
       await page.evaluate(()=>{document.querySelector('#appShell').style.display='none';document.querySelector('#marketingGate').style.display='block';document.querySelector('#marketingGate').classList.remove('hidden')});
       await page.waitForFunction(()=>!window.ThebeAiDock.state().workspaceVisible);
       assert(await dock.locator('.thebe-ai-attachments').isHidden(),'leaving workspace clears files');assert(await plus.isHidden());
+      await page.evaluate(()=>{document.querySelector('#appShell').style.display='';document.querySelector('#marketingGate').style.display='none';document.querySelector('#marketingGate').classList.add('hidden')});
+      await page.waitForFunction(()=>window.ThebeAiDock.state().workspaceVisible);
+      if(await dock.isHidden())await page.locator('#thebeAiDockPill').click();
+      await page.evaluate(()=>{window.apiJson=async()=>{throw new Error('Connection lost')}});
+      await input.fill('Keep this question for retry');await send.click();
+      await page.waitForFunction(()=>!window.ThebeAiDock.state().textBusy);
+      assert.equal(await input.inputValue(),'Keep this question for retry','failed text requests preserve the question');
+      captured=null;
+      await page.evaluate(()=>{window.apiJson=async(url,opts)=>window.reviewFiles(opts.body)});
+      await input.fill('Private workspace question');await send.click();
+      await page.waitForFunction(()=>window.ThebeAiDock.state().textBusy);
+      for(let i=0;i<100&&!captured;i++)await page.waitForTimeout(20);
+      assert(captured,'text-only request started');
+      await page.evaluate(()=>{document.querySelector('#appShell').style.display='none';document.querySelector('#marketingGate').style.display='block';document.querySelector('#marketingGate').classList.remove('hidden')});
+      await page.waitForFunction(()=>!window.ThebeAiDock.state().workspaceVisible);
+      assert.equal(await page.evaluate(()=>window.ThebeAiDock.state().textBusy),false,'leaving the workspace cancels text-only requests');
+      resolveReview({summary:'Private late response must be discarded',references:[],priorities:[]});
+      await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+      assert(!(await dock.innerText()).includes('Private late response'),'late private response cannot appear on public surface');
     }else{
       await input.fill('What does Thebe cost?');await send.click();
       assert((await dock.innerText()).match(/pricing|price|plan/i),'public question returns a useful answer');
