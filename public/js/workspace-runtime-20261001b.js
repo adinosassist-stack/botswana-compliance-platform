@@ -1057,7 +1057,7 @@ async function renderPeopleOperationsHub(){
   const pending=results.filter(r=>r.status==="pending").length;
   set("peopleRefreshStatus",pending?`Updating · ${pending} source${pending===1?"":"s"} remaining${failed?` · ${failed} unavailable`:""}`:failed?`${failed} source${failed===1?"":"s"} unavailable · refresh to retry`:`Updated ${new Intl.DateTimeFormat("en-BW",{timeZone:"Africa/Gaborone",hour:"2-digit",minute:"2-digit"}).format(new Date())} · Botswana time`);
   };
-  publish();
+  set("peopleRefreshStatus","Updating · 4 sources remaining");
   await Promise.allSettled([apiJson("/api/employees"),reportingAnalyticsJson(`/api/daily-reporting/dashboard?date=${encodeURIComponent(date)}`),apiJson("/api/hr/cases"),apiJson("/api/employer-risk")].map(async(request,index)=>{
     try{results[index]={status:"fulfilled",value:await request}}
     catch(reason){results[index]={status:"rejected",reason}}
