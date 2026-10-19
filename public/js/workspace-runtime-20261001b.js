@@ -469,6 +469,7 @@ async function renderExecutiveExceptions(){
 
 async function renderMoneyHub(){
  if(!roleCanView("moneyhub")||!["owner","manager"].includes(currentWorkspaceRole()))return;
+ if(document.getElementById("moneyWorkspaceV307")&&typeof globalThis.ThebeMoneyWorkspaceV307?.refresh==="function")return globalThis.ThebeMoneyWorkspaceV307.refresh({force:false});
  const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value};
  try{const f=await apiJson("/api/finance/summary"),receivables=f.receivables||{},accounts=Array.isArray(f.accounts)?f.accounts:[],recon=f.reconciliation||{};set("moneyCashPosition",homeMoneyMinor(f.cashPositionMinor));set("moneyReceivables",homeMoneyMinor(receivables.outstandingMinor));set("moneyReconIssues",Number(recon.unresolvedCount||0));set("moneyCashDetail",`Canonical Finance Core · ${accounts.length} active account${accounts.length===1?"":"s"} · ${Number(recon.unresolvedCount||0)} unresolved reconciliation item${Number(recon.unresolvedCount||0)===1?"":"s"}.`);set("moneyReceivablesDetail",`${Number(receivables.outstandingInvoiceCount||0)} outstanding invoice${Number(receivables.outstandingInvoiceCount||0)===1?"":"s"} · ${Number(receivables.overdueInvoiceCount||0)} overdue.`)}
  catch(e){set("moneyCashPosition","Unavailable");set("moneyReceivables","Unavailable");set("moneyReconIssues","—");set("moneyCashDetail","Finance Core could not be confirmed. Do not interpret unavailable as a zero balance.");set("moneyReceivablesDetail","Receivables could not be confirmed from the canonical invoice ledger.")}
@@ -495,6 +496,10 @@ function askThebeAboutProperty(){const x=propertyDealScenario();if(!x){calculate
 async function renderWorkHub(){
   if(!roleCanView("workhub"))return;
   const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value},reviewAllowed=["owner","manager","reviewer"].includes(currentWorkspaceRole()),auditAllowed=["owner","manager","reviewer","auditor"].includes(currentWorkspaceRole());document.querySelectorAll(".review-role-only").forEach(x=>x.hidden=!reviewAllowed);document.querySelectorAll(".audit-role-only").forEach(x=>x.hidden=!auditAllowed);
+  const panels=[];
+  if(reviewAllowed)panels.push(renderManagementReviewInbox(),renderManagementReReview());
+  if(auditAllowed)panels.push(renderManagementReviewAudit());
+  const panelRefresh=Promise.allSettled(panels);
   try{
     const [o,calendar,impacts]=await Promise.all([apiJson("/api/obligations"),apiJson("/api/statutory-calendar"),apiJson("/api/regulatory/impacts")]);
     const items=o.items||[],open=items.filter(x=>!["completed","not_applicable"].includes(x.status));
@@ -506,8 +511,7 @@ async function renderWorkHub(){
     set("workDeadlineDetail",next?`Next recorded statutory due date: ${new Date(next.due_at).toLocaleDateString()}. Verify the underlying source and business facts before filing.`:"No future statutory due date is currently generated. Review schedule setup for missing inputs.");
     set("workRuleDetail",review.length?`${review.length} recorded rule impact${review.length===1?"":"s"} need review or are marked action/urgent.`:"No current rule impact is flagged for review or action.");
   }catch(e){["workOpenActions","workDueSoon","workNextDeadline","workRuleImpacts"].forEach(id=>set(id,"—"));set("workActionDetail","Status unavailable. Open actions to inspect the authoritative records directly.");set("workDeadlineDetail","Deadline summary unavailable. Open the calendar before relying on a due-date conclusion.");set("workRuleDetail","Rule-impact summary unavailable. Open rule updates for the authoritative status.")}
-  if(reviewAllowed){await renderManagementReviewInbox();await renderManagementReReview();}
-  if(auditAllowed)await renderManagementReviewAudit();
+  await panelRefresh;
 }
 async function renderTenderHub(){
   if(!roleCanView("tenderhub")||!["owner","manager"].includes(currentWorkspaceRole()))return;

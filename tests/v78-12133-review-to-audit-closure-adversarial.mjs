@@ -155,7 +155,7 @@ check('audit changed after decision copy',ui.includes('Changed after decision'))
 check('audit empty is not approval',ui.includes('empty history is not an approval or compliance conclusion'));
 check('audit fail closed copy',ui.includes('Do not assume prior approvals are still current.'));
 check('audit retry exists',ui.includes('renderManagementReviewAudit()">Retry'));
-check('work renders audit',ui.includes('if(auditAllowed)await renderManagementReviewAudit()'));
+check('work renders audit',ui.includes('if(auditAllowed)panels.push(renderManagementReviewAudit())')&&ui.includes('await panelRefresh'));
 check('decision refreshes audit',html.includes('renderManagementReviewInbox(),renderManagementReviewAudit(),renderWorkHub()'));
 check('mobile audit row one column',html.includes('@media(max-width:820px){.review-audit-row{grid-template-columns:1fr}'));
 check('audit hidden class',html.includes('.audit-role-only[hidden]{display:none!important}'));

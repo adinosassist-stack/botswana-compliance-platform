@@ -1,8 +1,11 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import assert from 'node:assert/strict';
-import {chromium} from 'playwright-core';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url);
+const {chromium}=require(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES?path.join(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES,'playwright'):'playwright-core');
 
-const executablePath=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(path=>fs.existsSync(path));
+const executablePath=[process.env.CHROMIUM_EXECUTABLE_PATH,'/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].filter(Boolean).find(path=>fs.existsSync(path));
 assert.ok(executablePath,'no Chromium-compatible browser found');
 
 const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox']});
@@ -30,6 +33,7 @@ try{
       payables:{available:true,businessDate:'2026-10-07',outstandingPayableCount:3,outstandingMinor:450000,overduePayableCount:1,overdueMinor:100000,due7dMinor:150000,supplierCount:2,suppliers:[{supplierName:'Supplier One',outstandingPayableCount:2,outstandingMinor:300000,overduePayableCount:1,overdueMinor:100000,earliestDueOn:'2026-10-02'}],payables:[{payableNumber:'BILL-01',supplierName:'Supplier One',dueOn:'2026-10-02',outstandingMinor:100000,overdue:true,expenseCategory:'materials'}]}
     };
     globalThis.BW={api:{createClient:()=>({request:async(path,options)=>{
+      globalThis.__moneyReads=(globalThis.__moneyReads||0)+1;
       if(path!=='/api/finance/summary'||options?.method!=='GET')throw new Error('unexpected finance client request');
       if(globalThis.__moneyFetchMode==='fail')throw new TypeError('simulated finance outage');
       return payload;
@@ -38,6 +42,18 @@ try{
   const before=await page.evaluate(()=>({property:document.getElementById('protectedPropertyCalculator').getBoundingClientRect().toJSON(),dock:document.getElementById('thebeAiDock').getBoundingClientRect().toJSON()}));
   await page.addScriptTag({path:'public/js/money-workspace-v307.js'});
   await page.waitForFunction(()=>document.getElementById('moneyhub')?.dataset.moneyV307State==='ready',null,{timeout:5000});
+  const runtime=fs.readFileSync('public/js/workspace-runtime-20261001b.js','utf8');
+  await page.addScriptTag({content:runtime.slice(runtime.indexOf('async function renderMoneyHub(){'),runtime.indexOf('function propertyNumber('))});
+  await page.evaluate(()=>{
+    globalThis.roleCanView=()=>true;globalThis.currentWorkspaceRole=()=> 'owner';
+    globalThis.__legacyMoneyReads=0;globalThis.apiJson=async()=>{globalThis.__legacyMoneyReads++;throw new Error('Unexpected legacy finance read')};
+    globalThis.__moneyReadsBefore=globalThis.__moneyReads;
+  });
+  await page.evaluate(()=>renderMoneyHub());
+  assert.equal(await page.evaluate(()=>globalThis.__legacyMoneyReads),0,'mounted Money must not fetch through the legacy renderer');
+  assert.equal(await page.evaluate(()=>globalThis.__moneyReads),await page.evaluate(()=>globalThis.__moneyReadsBefore),'fresh navigation must not repeat the finance request');
+  await page.evaluate(()=>globalThis.ThebeMoneyWorkspaceV307.refresh());
+  assert.equal(await page.evaluate(()=>globalThis.__moneyReads),1+await page.evaluate(()=>globalThis.__moneyReadsBefore),'manual refresh must still fetch current finance data');
   const state=await page.evaluate(()=>{
     const root=document.getElementById('moneyhub'),mount=document.getElementById('moneyWorkspaceV307');
     const buttons=[...root.querySelectorAll('button,summary')].filter(control=>control.getBoundingClientRect().height>0).map(control=>control.getBoundingClientRect().height);
