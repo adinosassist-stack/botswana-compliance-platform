@@ -139,7 +139,15 @@
     }
   }
 
-  function mount(){const panel=ensurePanel();if(panel)render(panel);}
+  function mount(){
+    const view=document.getElementById("dailyreports");
+    if(!view?.classList.contains("active"))return;
+    const panel=ensurePanel();
+    if(panel)render(panel);
+  }
+  window.addEventListener("thebe:workspace-view-change",event=>{
+    if(event.detail?.id==="dailyreports")mount();
+  });
   if(typeof window.whenThebeWorkspaceReady==="function")window.whenThebeWorkspaceReady(mount);else if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",mount,{once:true});else mount();
   window.ThebeReportMoney=Object.freeze({release:RELEASE,refresh:()=>render(ensurePanel())});
 })();
