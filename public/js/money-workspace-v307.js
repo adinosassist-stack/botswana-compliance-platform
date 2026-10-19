@@ -412,7 +412,7 @@
     schedule();
     observer=new MutationObserver(schedule);
     observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','hidden','data-lazy-view']});
-    globalThis.ThebeMoneyWorkspaceV307=Object.freeze({release:RELEASE,refresh:()=>refresh({force:true}),state:()=>({release:RELEASE,loadedAt:lastLoadedAt,loading,viewState:document.getElementById(ROOT_ID)?.dataset.moneyV307State||'unmounted'})});
+    globalThis.ThebeMoneyWorkspaceV307=Object.freeze({release:RELEASE,refresh:({force=true}={})=>refresh({force}),state:()=>({release:RELEASE,loadedAt:lastLoadedAt,loading,viewState:document.getElementById(ROOT_ID)?.dataset.moneyV307State||'unmounted'})});
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
