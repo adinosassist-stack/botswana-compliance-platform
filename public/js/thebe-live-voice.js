@@ -976,7 +976,7 @@
     document.body.classList.toggle("thebe-ai-mobile-open",mobile&&visible&&!isCollapsed);
     dock.dataset.surface=surface;
     pill.dataset.surface=surface;
-    if(!workspace&&pendingFiles.length){clearConversation()}
+    if(!workspace&&(dock.dataset.workspaceVisible==="1"||pendingFiles.length)){clearConversation()}
     syncComposerState();
     syncWorkspaceVisualInvariants();
     dock.dataset.workspaceVisible=workspace?"1":"0";
@@ -1501,7 +1501,7 @@
       renderResult(result||{});
     }catch(error){
       if(runId!==textRunId||error?.code==="aborted")return;
-      if(files.length&&input&&!input.value)input.value=q;
+      if(input&&!input.value){input.value=q;syncComposerHeight()}
       const creditMessages={
         insufficient_ai_credits:"There are not enough AI credits for this question. Review your AI balance or ask the workspace owner to add credits.",
         monthly_ai_credit_cap_reached:"The monthly AI credit limit has been reached. Ask the workspace owner to review AI cost controls.",

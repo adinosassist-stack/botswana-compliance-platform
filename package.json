@@ -93,7 +93,7 @@
     "test:v78-12118-seo": "node tests/v78-12118-seo-semantic-adversarial.mjs && node tests/v78-12117-seo-expansion-adversarial.mjs && node tests/v78-12117-seo-expansion-runtime.mjs && node tests/v78-12116-seo-adversarial.mjs && node tests/v78-12116-seo-runtime.mjs",
     "test:v78-12120": "node tests/v78-12120-everything-alignment-adversarial.mjs && node tests/v78-12120-runtime.mjs",
     "test:v78-12121": "node tests/v78-12121-documents-proof-adversarial.mjs",
-    "test:people-ops-v78": "node tests/v78-12122-people-operations-adversarial.mjs",
+    "test:people-ops-v78": "node tests/people-progressive-loading.mjs && node tests/v78-12122-people-operations-adversarial.mjs",
     "test:business-v78": "node tests/v78-12123-business-simplification-adversarial.mjs",
     "test:hubs-v78": "node tests/v78-12124-hub-depth-simplification-adversarial.mjs",
     "test:home-v78": "node tests/v78-12125-home-decision-center-adversarial.mjs",
