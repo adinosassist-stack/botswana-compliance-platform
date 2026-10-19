@@ -1,8 +1,11 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import assert from 'node:assert/strict';
-import {chromium} from 'playwright-core';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url);
+const {chromium}=require(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES?path.join(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES,'playwright'):'playwright-core');
 
-const executablePath=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(path=>fs.existsSync(path));
+const executablePath=[process.env.CHROMIUM_EXECUTABLE_PATH,'/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].filter(Boolean).find(path=>fs.existsSync(path));
 assert.ok(executablePath,'no Chromium-compatible browser found');
 
 const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox']});
@@ -45,6 +48,8 @@ try{
       if(options?.method!=='GET')throw new Error('unexpected Protect write');
       if(globalThis.__protectFetchMode==='fail')throw new TypeError('simulated protection outage');
       if(globalThis.__protectFetchMode==='partial'&&path==='/api/next-actions')throw new TypeError('simulated proof queue outage');
+      if(globalThis.__protectFetchMode==='delayed'&&path==='/api/next-actions')return new Promise(resolve=>{globalThis.__resolveProtectProof=()=>resolve(payloads[path])});
+      if(globalThis.__protectFetchMode==='delayed'&&path==='/api/obligations')return {items:[{title:'Fast obligation source arrived',status:'open'}]};
       if(!payloads[path])throw new Error('unexpected Protect path '+path);
       return payloads[path];
     }})}};
@@ -75,6 +80,14 @@ try{
   assert.match(explain,/confirmed obligations/i);assert.match(explain,/Do not claim legal compliance/i);
   await page.getByRole('button',{name:'Open compliance actions'}).tap();
   assert.equal(await page.evaluate(()=>globalThis.__protectView),'obligations');
+
+  await page.evaluate(()=>{globalThis.__protectFetchMode='delayed';globalThis.__protectRefresh=globalThis.ThebeProtectWorkspaceV308.refresh()});
+  await page.getByText('Fast obligation source arrived',{exact:true}).waitFor({state:'visible',timeout:2000});
+  assert.equal(await page.evaluate(()=>document.getElementById('protecthub').dataset.protectV308State),'loading','remaining sources must stay visibly pending');
+  assert.match(await page.locator('#protectV308Freshness').innerText(),/2 of 3.*1.*loading/i);
+  assert.match(await page.locator('.protect-v308-stat').nth(2).innerText(),/Proof gaps\s+Unknown/i,'pending proof must not become zero');
+  await page.evaluate(async()=>{globalThis.__resolveProtectProof();await globalThis.__protectRefresh});
+  assert.equal(await page.evaluate(()=>document.getElementById('protecthub').dataset.protectV308State),'ready');
 
   await page.evaluate(async()=>{globalThis.__protectFetchMode='partial';await globalThis.ThebeProtectWorkspaceV308.refresh()});
   await page.waitForFunction(()=>document.getElementById('protecthub')?.dataset.protectV308State==='degraded',null,{timeout:5000});

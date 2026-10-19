@@ -109,14 +109,16 @@
 
   async function read(path){return client().request(path,{method:'GET'})}
 
-  async function loadProtection(){
+  async function loadProtection(onProgress){
     const entries=Object.entries(ENDPOINTS);
-    const settled=await Promise.allSettled(entries.map(([,path])=>read(path)));
     const data={},errors={};
-    settled.forEach((result,index)=>{
-      const key=entries[index][0];
-      if(result.status==='fulfilled')data[key]=result.value||{};else errors[key]=String(result.reason?.message||result.reason||'unavailable');
-    });
+    const pending=new Set(entries.map(([key])=>key));
+    await Promise.allSettled(entries.map(async([key,path])=>{
+      try{data[key]=await read(path)||{}}
+      catch(error){errors[key]=String(error?.message||error||'unavailable')}
+      pending.delete(key);
+      if(pending.size&&typeof onProgress==='function')onProgress({data:{...data},errors:{...errors},pending:[...pending]});
+    }));
     if(Object.keys(data).length===0)throw new Error('protect_sources_unavailable');
     return {data,errors};
   }
@@ -196,29 +198,30 @@
     const root=document.getElementById(ROOT_ID),body=document.getElementById('protectV308Body'),fresh=document.getElementById('protectV308Freshness');
     if(!root||!body||!fresh)return;
     const errors=result.errors||{};
-    const obligations=summarizeObligations(result.data.obligations,!!errors.obligations);
-    const calendar=summarizeCalendar(result.data.calendar,!!errors.calendar);
-    const proof=summarizeProof(result.data.actions,!!errors.actions);
+    const pending=list(result.pending),waiting=key=>pending.includes(key);
+    const obligations=summarizeObligations(result.data.obligations,!!errors.obligations||waiting('obligations'));
+    const calendar=summarizeCalendar(result.data.calendar,!!errors.calendar||waiting('calendar'));
+    const proof=summarizeProof(result.data.actions,!!errors.actions||waiting('actions'));
     const unavailableCount=Object.keys(errors).length;
-    fresh.textContent=unavailableCount?`${3-unavailableCount} of 3 protection sources confirmed · unavailable sources are shown as unknown`:`Obligations, statutory dates and proof actions confirmed now`;
+    fresh.textContent=pending.length?`${3-pending.length-unavailableCount} of 3 protection sources confirmed · ${pending.length} source${pending.length===1?'':'s'} loading${unavailableCount?' · unavailable sources are shown as unknown':''}`:unavailableCount?`${3-unavailableCount} of 3 protection sources confirmed · unavailable sources are shown as unknown`:`Obligations, statutory dates and proof actions confirmed now`;
 
     const statusGrid=createElement('div',{className:'protect-v308-status-grid',attrs:{'aria-label':'Protection status'}},[
-      statNode('Open actions',obligations.available?count(obligations.open):'Unknown',obligations.available?`${count(obligations.overdue)} overdue · ${count(obligations.blocked)} blocked`:'Obligation source unavailable',obligations.available?toneForRisk(obligations.overdue+obligations.blocked):'unknown'),
-      statNode('Filing dates',calendar.available?count(calendar.upcoming):'Unknown',calendar.available?`${count(calendar.due30)} due within 30 days · ${count(calendar.overdue)} overdue`:'Statutory calendar unavailable',calendar.available?toneForRisk(calendar.overdue):'unknown'),
-      statNode('Proof gaps',proof.available?count(proof.missing):'Unknown',proof.available?`${count(proof.actions)} regulatory action${proof.actions===1?'':'s'} affected`:'Proof action queue unavailable',proof.available?toneForRisk(proof.missing):'unknown'),
-      statNode('Setup gaps',calendar.available?count(calendar.setup):'Unknown',calendar.available?(calendar.setup?'Schedule inputs still required':'No current schedule setup gap returned'):'Schedule configuration unavailable',calendar.available&&calendar.setup?'warn':calendar.available?'':'unknown')
+      statNode('Open actions',obligations.available?count(obligations.open):'Unknown',obligations.available?`${count(obligations.overdue)} overdue · ${count(obligations.blocked)} blocked`:(waiting('obligations')?'Loading obligations…':'Obligation source unavailable'),obligations.available?toneForRisk(obligations.overdue+obligations.blocked):'unknown'),
+      statNode('Filing dates',calendar.available?count(calendar.upcoming):'Unknown',calendar.available?`${count(calendar.due30)} due within 30 days · ${count(calendar.overdue)} overdue`:(waiting('calendar')?'Loading statutory calendar…':'Statutory calendar unavailable'),calendar.available?toneForRisk(calendar.overdue):'unknown'),
+      statNode('Proof gaps',proof.available?count(proof.missing):'Unknown',proof.available?`${count(proof.actions)} regulatory action${proof.actions===1?'':'s'} affected`:(waiting('actions')?'Loading proof actions…':'Proof action queue unavailable'),proof.available?toneForRisk(proof.missing):'unknown'),
+      statNode('Setup gaps',calendar.available?count(calendar.setup):'Unknown',calendar.available?(calendar.setup?'Schedule inputs still required':'No current schedule setup gap returned'):(waiting('calendar')?'Loading schedule configuration…':'Schedule configuration unavailable'),calendar.available&&calendar.setup?'warn':calendar.available?'':'unknown')
     ]);
 
     const obligationRows=obligations.available?obligations.items.slice(0,4).map(item=>{
       const due=item?.due_at||item?.dueAt;const d=daysUntil(due);const meta=[String(item?.area||item?.authority||'Compliance'),String(item?.status||'open').replaceAll('_',' ')];if(due)meta.push(`due ${businessDate(due)}`);
       return rowNode(item?.title||item?.rule_title||'Compliance action',meta.join(' · '),d===null?'':d<0?`${Math.abs(d)}d late`:d===0?'Today':`${d}d`);
-    }):[rowNode('Obligations unavailable','Do not assume there are no open compliance actions.','Unknown')];
+    }):[rowNode((waiting('obligations')?'Loading obligations…':'Obligations unavailable'),'Do not assume there are no open compliance actions.','Unknown')];
 
     const calendarRows=calendar.available?calendar.items.slice(0,4).map(item=>{
       const d=daysUntil(item.due_at);return rowNode(item?.title||item?.rule_title||'Statutory deadline',`${item?.rule_title&&item?.title!==item.rule_title?item.rule_title+' · ':''}due ${businessDate(item.due_at)}`,d===null?'':d<0?`${Math.abs(d)}d late`:d===0?'Today':`${d}d`);
-    }):[rowNode('Calendar unavailable','Do not infer that filing dates are clear.','Unknown')];
+    }):[rowNode((waiting('calendar')?'Loading statutory calendar…':'Calendar unavailable'),'Do not infer that filing dates are clear.','Unknown')];
 
-    const proofRows=proof.available?proof.items.slice(0,4).map(item=>rowNode(String(item?.title||'Compliance proof action').replace(/^Compliance:\s*/i,''),`${count(item?.proofMissing)} mandatory proof requirement${number(item?.proofMissing)===1?'':'s'} open`,`${count(Math.max(0,number(item?.proofTotal)-number(item?.proofMissing)))}/${count(item?.proofTotal)}`)):[rowNode('Proof queue unavailable','Do not treat missing proof data as proof complete.','Unknown')];
+    const proofRows=proof.available?proof.items.slice(0,4).map(item=>rowNode(String(item?.title||'Compliance proof action').replace(/^Compliance:\s*/i,''),`${count(item?.proofMissing)} mandatory proof requirement${number(item?.proofMissing)===1?'':'s'} open`,`${count(Math.max(0,number(item?.proofTotal)-number(item?.proofMissing)))}/${count(item?.proofTotal)}`)):[rowNode((waiting('actions')?'Loading proof actions…':'Proof queue unavailable'),'Do not treat missing proof data as proof complete.','Unknown')];
 
     const workGrid=createElement('div',{className:'protect-v308-work-grid',attrs:{'aria-label':'Protection work'}},[
       laneNode('Compliance work','Fix action gaps',obligations.available?(obligations.open?`${count(obligations.open)} open`:'No open action returned'):'Unknown',obligations.available?toneForRisk(obligations.overdue+obligations.blocked):'unknown','Work existing obligations and blocked items before relying on an AI interpretation.',[
@@ -235,9 +238,9 @@
     const boundary=createElement('div',{className:'protect-v308-boundary'});
     boundary.append(textElement('b','','Decision boundary:'),document.createTextNode(' Protect is a read-only operational view over existing obligations, statutory schedules and regulatory proof actions. It does not declare legal compliance, file returns, approve evidence or change an obligation. Unknown source state remains unknown.'));
     body.replaceChildren(statusGrid,workGrid,boundary);
-    root.dataset.protectV308State=unavailableCount?'degraded':'ready';
+    root.dataset.protectV308State=pending.length?'loading':unavailableCount?'degraded':'ready';
     if(unavailableCount)root.dataset.protectV308Unavailable=Object.keys(errors).join(',');else delete root.dataset.protectV308Unavailable;
-    lastLoadedAt=Date.now();
+    if(!pending.length)lastLoadedAt=Date.now();
   }
 
   function renderUnavailable(error){
@@ -259,7 +262,7 @@
     if(!force&&lastLoadedAt&&Date.now()-lastLoadedAt<STALE_AFTER_MS)return;
     loading=true;root.dataset.protectV308State='loading';
     const fresh=document.getElementById('protectV308Freshness');if(fresh)fresh.textContent='Confirming obligations, dates and proof actions…';
-    try{render(await loadProtection())}catch(error){renderUnavailable(error)}finally{loading=false}
+    try{render(await loadProtection(render))}catch(error){renderUnavailable(error)}finally{loading=false}
   }
 
   function navigate(view){
