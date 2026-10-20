@@ -4604,13 +4604,20 @@
     }
     const propertyView=q("#propertyintelligence");
     if(propertyView){
-      ensurePropertyPortfolioShell();
-      new MutationObserver(()=>{
+      // Hidden Property tools must not build their panels or query tenant data during startup.
+      if(propertyView.classList.contains("active")){
+        ensurePropertyPortfolioShell();
+        void renderPropertyPortfolio(false);
+      }
+      new MutationObserver(records=>{
         if(!propertyView.classList.contains("active"))return;
-        if(!q("#propertyPortfolioWorkspace",propertyView))ensurePropertyPortfolioShell();
+        const activated=records.some(record=>record.type==="attributes"&&record.attributeName==="class");
+        const missingShell=!q("#propertyPortfolioWorkspace",propertyView);
+        // Ignore unrelated child insertions such as construction tools; they are not new portfolio reads.
+        if(!activated&&!missingShell)return;
+        if(missingShell)ensurePropertyPortfolioShell();
         void renderPropertyPortfolio(false);
       }).observe(propertyView,{attributes:true,attributeFilter:["class"],childList:true});
-      if(propertyView.classList.contains("active"))void renderPropertyPortfolio(false);
     }
   }
 
