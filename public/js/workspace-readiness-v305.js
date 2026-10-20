@@ -133,6 +133,7 @@
       });
   }
   function loadPropertyWhenVisible(){
+    if(typeof document==="undefined")return;
     if(document.getElementById("propertyintelligence")?.classList.contains("active")||
        document.getElementById("industryintel")?.classList.contains("active"))loadPropertyConstruction();
   }
