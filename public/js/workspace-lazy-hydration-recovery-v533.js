@@ -139,8 +139,12 @@
     }
   }
 
-  function scan(){
-    document.querySelectorAll('[data-lazy-view="1"][data-lazy-error="1"]:not([data-lazy-recovery-exhausted="1"])').forEach(root=>{void recover(root);});
+  const FAILED_LAZY_SELECTOR='[data-lazy-view="1"][data-lazy-error="1"]:not([data-lazy-recovery-exhausted="1"])';
+  // Scan just the inserted subtree; unrelated dashboard/People mutations must not
+  // query every lazy view across the entire authenticated workspace.
+  function scan(root=document){
+    if(root?.matches?.(FAILED_LAZY_SELECTOR))void recover(root);
+    root?.querySelectorAll?.(FAILED_LAZY_SELECTOR).forEach(view=>{void recover(view);});
   }
 
   function boot(){
@@ -152,7 +156,11 @@
           if(root?.dataset?.lazyError==='1'&&root.dataset.lazyRecoveryExhausted!=='1')void recover(root);
           continue;
         }
-        if(record.type==='childList')scan();
+        if(record.type==='childList'){
+          for(const node of record.addedNodes){
+            if(node.nodeType===1)scan(node);
+          }
+        }
       }
     });
     observer.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['data-lazy-error']});
