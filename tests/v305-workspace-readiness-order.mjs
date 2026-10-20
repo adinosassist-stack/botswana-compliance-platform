@@ -56,3 +56,4 @@ await import("./v551-workspace-navigation-speed.mjs");
 await import("./v555-workspace-first-paint.mjs");
 await import("./v556-workspace-render-churn.mjs");
 await import("./v557-workspace-section-observers.mjs");
+await import("./v558-workspace-lazy-recovery-observer.mjs");
