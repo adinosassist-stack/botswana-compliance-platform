@@ -132,9 +132,16 @@
         console.error("Property construction extension failed to load",error);
       });
   }
-  if(typeof window.whenThebeWorkspaceReady==="function")window.whenThebeWorkspaceReady(loadPropertyConstruction);
-  else if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",loadPropertyConstruction,{once:true});
-  else loadPropertyConstruction();
+  function loadPropertyWhenVisible(){
+    if(document.getElementById("propertyintelligence")?.classList.contains("active")||
+       document.getElementById("industryintel")?.classList.contains("active"))loadPropertyConstruction();
+  }
+  window.addEventListener("thebe:workspace-view-change",event=>{
+    if(["propertyintelligence","industryintel"].includes(String(event.detail?.id||"")))loadPropertyConstruction();
+  });
+  if(typeof window.whenThebeWorkspaceReady==="function")window.whenThebeWorkspaceReady(loadPropertyWhenVisible);
+  else if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",loadPropertyWhenVisible,{once:true});
+  else loadPropertyWhenVisible();
 })();
 
 (()=>{
