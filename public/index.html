@@ -5081,8 +5081,8 @@ function mfgRoute(){
 
 function applicable(){return rules.filter(r=>r.applies(state.profile))}
 function riskClass(r){return r==="High"?"bad":r==="Medium"?"warn":"good"}
-function scoreData(){
- const a=applicable();let penalties=0,protection=0;
+function scoreData(a=applicable()){
+ let penalties=0,protection=0;
  a.forEach(r=>{
   const st=r.status();
   if(/Action required|gaps|verify|Professional review required/i.test(st))penalties+=r.risk==="High"?12:7;
@@ -5466,7 +5466,7 @@ async function renderSettingsHub(){
 }
 
 function renderAll(){
- const s=scoreData(),a=applicable();
+ const a=applicable(),s=scoreData(a);
  document.getElementById("companyHero").textContent=state.profile.name;
  ["complianceScore","protectionScore"].forEach((id,i)=>{let v=i?s.prot:s.comp;let el=document.getElementById(id);el.textContent=v;el.className="score "+(v>=85?"good":v>=70?"warn":"bad")});
  document.getElementById("complianceBar").style.width=s.comp+"%";document.getElementById("protectionBar").style.width=s.prot+"%";
@@ -6639,18 +6639,37 @@ function animateViewItems(){
     );
   });
 }
+const workspaceNumberAnimations=new WeakMap();
 function animateNumber(el,to,suffix=""){
   if(!el)return;
-  if(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches){el.textContent=to+suffix;return}
-  let start=0,t0=performance.now(),dur=420;
-  function step(t){
-    let p=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-p,3);
-    el.textContent=Math.round(start+(to-start)*e)+suffix;
-    if(p<1)requestAnimationFrame(step)
+  const target=String(to)+suffix;
+  const previous=workspaceNumberAnimations.get(el);
+  // Repeated navigation must not restart an animation that already has this target.
+  if(previous?.target===target&&(previous.frame!==null||el.textContent===target))return;
+  if(previous?.frame!=null&&typeof cancelAnimationFrame==="function")cancelAnimationFrame(previous.frame);
+  if(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches){
+    el.textContent=target;
+    workspaceNumberAnimations.set(el,{target,frame:null});
+    return;
   }
-  requestAnimationFrame(step);
+  if(el.textContent===target){
+    workspaceNumberAnimations.set(el,{target,frame:null});
+    return;
+  }
+  const initial=Number.parseFloat(el.textContent);
+  const start=Number.isFinite(initial)?initial:0;
+  const t0=performance.now(),dur=420;
+  const active={target,frame:null};
+  workspaceNumberAnimations.set(el,active);
+  function step(t){
+    if(workspaceNumberAnimations.get(el)!==active)return;
+    const p=Math.min(1,Math.max(0,(t-t0)/dur)),e=1-Math.pow(1-p,3);
+    el.textContent=Math.round(start+(to-start)*e)+suffix;
+    if(p<1)active.frame=requestAnimationFrame(step);
+    else{active.frame=null;el.textContent=target;}
+  }
+  active.frame=requestAnimationFrame(step);
 }
-
 
 function startOAuth(provider){if(!["google","facebook"].includes(provider))return;if(STANDALONE_PREVIEW||location.protocol==="file:"){notifyUser("Social sign-in requires the deployed OAuth backend. Use email sign-in or Preview workspace in the standalone HTML.");return}const next=encodeURIComponent(window.location.pathname+window.location.search);window.location.assign(`/api/auth/oauth/${provider}/start?next=${next}`)}
 
