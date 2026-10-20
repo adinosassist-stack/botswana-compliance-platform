@@ -2,7 +2,8 @@
   "use strict";
 
   const RELEASE="20261013-locations-branches-v335";
-  let observer=null;
+  // Observe only the views that use Locations & Branches, never every DOM change in the workspace.
+  const sectionObservers=new Map();
   let onboardingObserver=null;
   let decorateQueued=false;
   let onboardingYieldQueued=false;
@@ -203,6 +204,24 @@
     onboardingObserver.observe(modal,{attributes:true,attributeFilter:["class","aria-hidden"]});
   }
 
+  function bindSectionObservers(){
+    if(typeof MutationObserver!=="function")return;
+    for(const id of ["peopleops","accounthub"]){
+      const root=document.getElementById(id);
+      const current=sectionObservers.get(id);
+      if(current?.root===root)continue;
+      current?.observer.disconnect();
+      sectionObservers.delete(id);
+      if(!root)continue;
+      const observer=new MutationObserver(()=>{
+        scheduleDecorate();
+        if(id==="peopleops")scheduleOnboardingYield();
+      });
+      observer.observe(root,{childList:true,subtree:true});
+      sectionObservers.set(id,{root,observer});
+    }
+  }
+
   function install(){
     if(typeof document==="undefined")return;
     window.openLocationsBranches=openLocationsBranches;
@@ -213,17 +232,14 @@
       if(!target)return;
       [0,80,240,800,1600].forEach(delay=>setTimeout(scheduleOnboardingYield,delay));
     },true);
-    if(!observer&&typeof MutationObserver==="function"){
-      const root=document.body||document.documentElement;
-      if(root){
-        observer=new MutationObserver(()=>{
-          scheduleDecorate();
-          bindOnboardingObserver();
-          scheduleOnboardingYield();
-        });
-        observer.observe(root,{childList:true,subtree:true});
-      }
-    }
+    bindSectionObservers();
+    window.addEventListener("thebe:workspace-view-change",event=>{
+      const id=String(event?.detail?.id||"");
+      if(id!=="peopleops"&&id!=="accounthub")return;
+      bindSectionObservers();
+      scheduleDecorate();
+      if(id==="peopleops")scheduleOnboardingYield();
+    });
     document.documentElement.dataset.locationsBranchesRelease=RELEASE;
   }
 

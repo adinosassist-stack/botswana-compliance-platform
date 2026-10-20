@@ -55,3 +55,4 @@ console.log("PASS: parser-time enhancements can register before deferred runtime
 await import("./v551-workspace-navigation-speed.mjs");
 await import("./v555-workspace-first-paint.mjs");
 await import("./v556-workspace-render-churn.mjs");
+await import("./v557-workspace-section-observers.mjs");
