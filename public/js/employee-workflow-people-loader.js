@@ -35,7 +35,7 @@
   }
   document.addEventListener("click",()=>queueMicrotask(mountWhenReady),{passive:true});
   document.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" ")queueMicrotask(mountWhenReady);},{passive:true});
-  document.addEventListener("thebe:workspace-view-changed",mountWhenReady);
+  window.addEventListener("thebe:workspace-view-change",mountWhenReady);
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",mountWhenReady,{once:true});
   else mountWhenReady();
 })();
