@@ -56,3 +56,11 @@ test("original proposal author cannot approve through a different dispatch actor
   assert.equal(decide({ proposal: { ...proposal, authorId: undefined } }).reason, "approval_required");
   assert.equal(decide({}).allowed, true);
 });
+
+
+test("author and reviewer identity checks use exact persisted IDs", () => {
+  assert.equal(decide({ proposal: { ...proposal, authorId: review.reviewerId } }).reason, "approval_required");
+  assert.equal(decide({ review: { ...review, reviewerId: identity.actorId } }).reason, "approval_required");
+  assert.equal(decide({ proposal: { ...proposal, authorId: "" } }).reason, "approval_required");
+  assert.equal(decide({ proposal: { ...proposal, authorId: "bad author id" } }).reason, "approval_required");
+});
