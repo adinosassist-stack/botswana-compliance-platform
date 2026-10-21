@@ -42,6 +42,8 @@ export function previewEmployeeWorkflows({ tenantId, today, employees, workflows
     const preview = previewEmployeeRoutines({ tenantId, today, employees, enabledTypes: [workflow.routineType] });
     for (const task of preview.tasks) {
       proposals.push({ workflowId: workflow.id, workflowName: workflow.name,
+        // Stable, tenant-scoped identity for future deduplication; no task is created here.
+        proposalKey: JSON.stringify([tenantId, workflow.id, task.employeeId, task.type, task.dueDate]),
         effect: workflow.effect, ...task, status: "proposed", requiresHumanReview: true });
     }
   }
