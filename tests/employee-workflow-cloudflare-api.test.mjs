@@ -62,3 +62,13 @@ test('workflow save fails closed when D1 migration is absent',async()=>{
  assert.equal(JSON.stringify(body).includes('SQLITE_ERROR'),false);
  assert.equal(response.headers.get('cache-control'),'no-store');
 });
+
+test('missing D1 binding fails closed with a controlled response',async()=>{
+ const response=await handleEmployeeWorkflowRequest({
+  req:{method:'GET'},env:{},session:{tenant_id:'t1',user_id:'u1'},
+  readJson:async()=>({}),roleAllowed:()=>true
+ });
+ assert.equal(response.status,503);
+ assert.deepEqual(await response.json(),{ok:false,reason:'storage_unavailable'});
+ assert.equal(response.headers.get('cache-control'),'no-store');
+});
