@@ -45,7 +45,7 @@ test('slow People workflow mounts are measured without changing startup or auth'
  assert.doesNotMatch(loader,/setTimeout\(mountWhenReady/);
 });
 
-test("People enhancement mounts isolated read-only employee review queue without bypassing API client",()=>{
+test("People enhancement mounts isolated employee review queue without bypassing API client",()=>{
  const panel=readFileSync(new URL("../public/employee-proposal-review-panel.js",import.meta.url),"utf8");
  assert.match(loader,/import\("\/employee-proposal-review-panel\.js"\)/);
  assert.match(loader,/mountEmployeeProposalReviewQueue\(reviewHost/);
