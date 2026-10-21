@@ -33,3 +33,10 @@ test("worker refuses tenant spoofing and wrong intent lifecycle", () => {
     {intent: {...intent, action: "payroll.run"}}
   ]) assert.equal(evaluateEmployeeWorker({...base, ...overrides}).allowed, false);
 });
+
+
+test("worker denies original author self-approval even when worker identity differs", () => {
+  const result = evaluateEmployeeWorker({ ...base, review: { ...review, reviewerId: proposal.authorId } });
+  assert.equal(result.allowed, false);
+  assert.equal(result.reason, "approval_required");
+});
