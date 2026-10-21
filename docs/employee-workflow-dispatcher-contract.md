@@ -27,3 +27,6 @@ Connect approved People workflow proposals to **internal** task creation and rep
 
 ## Release gates
 Independent review, exact-head CI, migration backup/rollback evidence, signed release provenance, and post-deployment API/asset/authorization smoke tests. Activate only after these pass.
+## Transactional reviewer provenance and freshness
+
+The storage adapter must implement `isAuthorizedReviewer(tenantId, reviewerId, proposalId, reviewId)` and `isCurrentApprovedReview(tenantId, proposalId, reviewId)` within the same transaction as proposal/review reads and queue insertion. Both must return the boolean `true` only for trusted, persisted, tenant-scoped authorization and the latest unrevoked approval of the exact immutable proposal revision. Missing methods, unavailable governance data, or a false result deny admission. Never accept reviewer role, review status, or proposal revision supplied by the caller. The draft SQL outbox does not implement these checks; a production adapter is still required.
