@@ -29,6 +29,22 @@
         try{await client.request(path,options);return {ok:true,status:200};}
         catch(error){return {ok:false,status:Number(error?.status)||500};}
       }});
+      // Optional read-only review queue; failure cannot break workflow builder.
+      try{
+        const reviewHost=document.createElement("section");
+        reviewHost.id="employee-ai-proposal-review-queue";
+        reviewHost.setAttribute("aria-label","Pending employee workflow reviews");
+        const {mountEmployeeProposalReviewQueue}=await import("/employee-proposal-review-panel.js");
+        if(people.isConnected&&!people.hidden&&people.getClientRects().length){
+          people.appendChild(reviewHost);
+          mountEmployeeProposalReviewQueue(reviewHost,{fetcher:async(path)=>{
+            try{return {ok:true,data:await client.request(path)};}
+            catch(error){return {ok:false,status:Number(error?.status)||500};}
+          }});
+        }
+      }catch{
+        // The optional review list must never block People workflows.
+      }
       mounted=true;
     }catch{
       // Optional enhancement must never break the existing People page.
