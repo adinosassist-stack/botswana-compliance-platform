@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { evaluateEmployeeDispatch } from "../server/employee-dispatch-admission.js";
 
 const identity = { tenantId: "tenant-a", actorId: "actor-a", permissions: ["employee.workflow.dispatch"] };
-const proposal = { id: "proposal-a", tenantId: "tenant-a", action: "internal.task.create" };
+const proposal = { id: "proposal-a", tenantId: "tenant-a", authorId: "author-c", action: "internal.task.create" };
 const review = { id: "review-a", proposalId: "proposal-a", tenantId: "tenant-a", reviewerId: "manager-b", status: "approved" };
 const request = { featureEnabled: true, killSwitch: false, auditAvailable: true, identity, proposal, review, action: "internal.task.create", idempotencyKey: "task-a" };
 const decide = overrides => evaluateEmployeeDispatch({ ...request, ...overrides });
@@ -47,4 +47,12 @@ test("unknown action cannot be smuggled through proposal metadata", () => {
 test("missing reviewer and malformed identity fail closed", () => {
   assert.equal(decide({ review: null }).reason, "approval_required");
   assert.equal(decide({ identity: { ...identity, tenantId: "" } }).reason, "unauthorized_actor");
+});
+
+
+test("original proposal author cannot approve through a different dispatch actor", () => {
+  assert.equal(decide({ review: { ...review, reviewerId: proposal.authorId } }).reason, "approval_required");
+  assert.equal(decide({ proposal: { ...proposal, authorId: review.reviewerId } }).reason, "approval_required");
+  assert.equal(decide({ proposal: { ...proposal, authorId: undefined } }).reason, "approval_required");
+  assert.equal(decide({}).allowed, true);
 });
