@@ -25,6 +25,8 @@ export async function queueEmployeeDispatch({
           typeof tx.insertIntentOnce !== "function") {
         throw Error("missing_dispatch_capabilities");
       }
+      if (typeof tx.lockDispatchKey !== "function") throw Error("missing_dispatch_lock");
+      await tx.lockDispatchKey(identity?.tenantId, idempotencyKey);
       const proposal = await tx.getProposal(identity?.tenantId, proposalId);
       const review = proposal ? await tx.getLatestReview(identity?.tenantId, proposalId) : null;
       const decision = evaluateEmployeeDispatch({
@@ -35,7 +37,7 @@ export async function queueEmployeeDispatch({
         tenantId: identity.tenantId, proposalId: proposal.id,
         reviewId: review.id, action, idempotencyKey, intentType: decision.intentType
       };
-      // Storage MUST enforce uniqueness on (tenantId, idempotencyKey), and
+      // Lock and storage MUST enforce uniqueness on (tenantId, idempotencyKey), and
       // reject a reused key if any immutable intent fields differ.
       const result = await tx.insertIntentOnce(intent);
       if (!result || !["created", "existing"].includes(result.status)) throw Error("invalid_insert_result");
