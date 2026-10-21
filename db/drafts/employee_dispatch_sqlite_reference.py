@@ -12,7 +12,9 @@ ALLOWED = {"internal.task.create": "task", "internal.report.draft": "report"}
 def insert_approved_dispatch(db: sqlite3.Connection, *, tenant_id: str,
                              proposal_id: str, review_id: str, actor_id: str,
                              action: str, idempotency_key: str):
-    """Call inside a transaction started by the trusted caller; never commit here."""
+    """Call inside a trusted BEGIN IMMEDIATE transaction; never commit here."""
+    if not db.in_transaction:
+        raise RuntimeError("dispatch transaction required")
     if not all(isinstance(v, str) and 0 < len(v) <= 200 for v in
                (tenant_id, proposal_id, review_id, actor_id, idempotency_key)):
         raise ValueError("invalid dispatch identifiers")
