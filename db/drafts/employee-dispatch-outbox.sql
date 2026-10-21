@@ -34,3 +34,18 @@ CREATE TABLE IF NOT EXISTS employee_dispatch_audit (
 );
 CREATE INDEX IF NOT EXISTS idx_employee_dispatch_audit_tenant
   ON employee_dispatch_audit(tenant_id, intent_id);
+
+-- Tenant/intent relationship is enforced by the compound foreign key.
+-- Existing installations must use a reviewed migration, not replay this draft.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_employee_dispatch_intent_tenant_id
+  ON employee_dispatch_intents(tenant_id, id);
+CREATE TRIGGER IF NOT EXISTS trg_employee_dispatch_audit_tenant
+BEFORE INSERT ON employee_dispatch_audit
+FOR EACH ROW
+WHEN NOT EXISTS (
+  SELECT 1 FROM employee_dispatch_intents
+  WHERE id = NEW.intent_id AND tenant_id = NEW.tenant_id
+)
+BEGIN
+  SELECT RAISE(ABORT, 'employee_dispatch_audit_tenant_mismatch');
+END;
