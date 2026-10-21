@@ -21,7 +21,12 @@ class SQLiteReferenceTests(unittest.TestCase):
     def tearDown(self):
         self.db.close()
 
+    def test_missing_explicit_transaction_denied(self):
+        with self.assertRaises(RuntimeError):
+            insert_approved_dispatch(self.db, **self.kw)
+
     def test_one_intent_and_audit_on_retry(self):
+        self.db.execute("BEGIN IMMEDIATE")
         with self.db:
             first = insert_approved_dispatch(self.db, **self.kw)
             second = insert_approved_dispatch(self.db, **self.kw)
@@ -32,6 +37,7 @@ class SQLiteReferenceTests(unittest.TestCase):
             self.assertEqual(self.db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0], 1)
 
     def test_conflicting_reuse_fails(self):
+        self.db.execute("BEGIN IMMEDIATE")
         with self.db:
             insert_approved_dispatch(self.db, **self.kw)
             with self.assertRaises(ValueError):
@@ -40,6 +46,7 @@ class SQLiteReferenceTests(unittest.TestCase):
     def test_audit_failure_rolls_back_intent(self):
         self.db.execute("""CREATE TRIGGER force_audit_failure BEFORE INSERT
                            ON employee_dispatch_audit BEGIN SELECT RAISE(ABORT, 'audit outage'); END""")
+        self.db.execute("BEGIN IMMEDIATE")
         with self.assertRaises(sqlite3.IntegrityError):
             with self.db:
                 insert_approved_dispatch(self.db, **self.kw)
