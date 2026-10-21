@@ -28,7 +28,7 @@ test("invalid method and invalid decision do not touch database",async()=>{
 });
 
 test("manual generation rejects untrusted tenant, owner, date and employee payload fields",async()=>{
- const response=await handle({...base,req:{method:"POST"},readJson:async()=>({action:"generate",tenantId:"other",employees:[],today:"2027-01-01"})});
+ const response=await handle({...base,env:{DB:{prepare(){throw Error("untrusted input reached storage")}}},req:{method:"POST"},readJson:async()=>({action:"generate",tenantId:"other",employees:[],today:"2027-01-01"})});
  assert.equal(response.status,400);
  assert.equal((await response.json()).error,"invalid_generation_request");
 });
