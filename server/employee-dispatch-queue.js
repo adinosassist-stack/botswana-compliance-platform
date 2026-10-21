@@ -29,7 +29,8 @@ export async function queueEmployeeDispatch({
       if (typeof identity?.tenantId !== "string" || !identity.tenantId.trim() ||
           typeof idempotencyKey !== "string" || !idempotencyKey.trim() ||
           idempotencyKey.length > 200) return { queued: false, reason: "invalid_request" };
-      await tx.lockDispatchKey(identity.tenantId, idempotencyKey);
+      const lockAcquired = await tx.lockDispatchKey(identity.tenantId, idempotencyKey);
+      if (lockAcquired !== true) throw Error("dispatch_lock_unavailable");
       const proposal = await tx.getProposal(identity?.tenantId, proposalId);
       const review = proposal ? await tx.getLatestReview(identity?.tenantId, proposalId) : null;
       const decision = evaluateEmployeeDispatch({
