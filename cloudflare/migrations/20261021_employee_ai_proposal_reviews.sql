@@ -18,3 +18,17 @@ CREATE TABLE IF NOT EXISTS employee_ai_proposal_reviews (
 );
 CREATE INDEX IF NOT EXISTS idx_employee_ai_proposal_reviews_tenant_status
  ON employee_ai_proposal_reviews(tenant_id,status,created_at DESC);
+
+-- Append-only history of review decisions. No external execution is authorized here.
+CREATE TABLE IF NOT EXISTS employee_ai_proposal_review_events (
+ tenant_id TEXT NOT NULL,
+ proposal_key TEXT NOT NULL,
+ decision TEXT NOT NULL CHECK(decision IN ('approved','rejected')),
+ reviewer_id TEXT NOT NULL,
+ reviewed_at TEXT NOT NULL,
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY (tenant_id,proposal_key),
+ FOREIGN KEY (tenant_id,proposal_key) REFERENCES employee_ai_proposal_reviews(tenant_id,proposal_key)
+);
+CREATE INDEX IF NOT EXISTS idx_employee_ai_review_events_tenant_time
+ ON employee_ai_proposal_review_events(tenant_id,reviewed_at DESC);
