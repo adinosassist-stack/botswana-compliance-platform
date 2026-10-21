@@ -37,8 +37,6 @@ CREATE INDEX IF NOT EXISTS idx_employee_dispatch_audit_tenant
 
 -- Tenant/intent relationship is enforced by the compound foreign key.
 -- Existing installations must use a reviewed migration, not replay this draft.
-CREATE UNIQUE INDEX IF NOT EXISTS idx_employee_dispatch_intent_tenant_id
-  ON employee_dispatch_intents(tenant_id, id);
 CREATE TRIGGER IF NOT EXISTS trg_employee_dispatch_audit_tenant
 BEFORE INSERT ON employee_dispatch_audit
 FOR EACH ROW
@@ -48,4 +46,16 @@ WHEN NOT EXISTS (
 )
 BEGIN
   SELECT RAISE(ABORT, 'employee_dispatch_audit_tenant_mismatch');
+END;
+
+-- Audit entries are immutable: correction requires an additional event.
+CREATE TRIGGER IF NOT EXISTS trg_employee_dispatch_audit_no_update
+BEFORE UPDATE ON employee_dispatch_audit
+BEGIN
+  SELECT RAISE(ABORT, 'employee_dispatch_audit_immutable');
+END;
+CREATE TRIGGER IF NOT EXISTS trg_employee_dispatch_audit_no_delete
+BEFORE DELETE ON employee_dispatch_audit
+BEGIN
+  SELECT RAISE(ABORT, 'employee_dispatch_audit_immutable');
 END;
