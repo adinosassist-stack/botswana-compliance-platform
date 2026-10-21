@@ -7,6 +7,8 @@ on:
       - 'server/employee-dispatch-queue.js'
       - 'tests/employee-dispatch-admission.test.mjs'
       - 'tests/employee-dispatch-queue.test.mjs'
+      - 'tests/employee_dispatch_schema_test.py'
+      - 'db/drafts/employee-dispatch-outbox.sql'
       - '.github/workflows/employee-dispatch-admission-tests.yml'
   workflow_dispatch:
 
@@ -24,3 +26,5 @@ jobs:
           node-version: '22'
       - name: Employee dispatcher admission tests
         run: node --test tests/employee-dispatch-admission.test.mjs tests/employee-dispatch-queue.test.mjs
+      - name: SQLite employee dispatch schema tests
+        run: python3 tests/employee_dispatch_schema_test.py
