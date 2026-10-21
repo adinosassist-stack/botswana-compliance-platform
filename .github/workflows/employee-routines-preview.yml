@@ -5,9 +5,11 @@ on:
       - 'server/employee-routines-preview.js'
       - 'server/employee-routines-service.js'
       - 'server/employee-workflow-definitions.js'
+      - 'public/employee-workflow-builder.js'
       - 'tests/employee-routines-preview.test.mjs'
       - 'tests/employee-routines-service.test.mjs'
       - 'tests/employee-workflow-definitions.test.mjs'
+      - 'tests/employee-workflow-builder.test.mjs'
       - '.github/workflows/employee-routines-preview.yml'
   workflow_dispatch:
 permissions:
@@ -22,4 +24,4 @@ jobs:
         with:
           node-version: '22'
       - name: Employee routine preview tests
-        run: node --test tests/employee-routines-preview.test.mjs tests/employee-routines-service.test.mjs tests/employee-workflow-definitions.test.mjs
+        run: node --test tests/employee-routines-preview.test.mjs tests/employee-routines-service.test.mjs tests/employee-workflow-definitions.test.mjs tests/employee-workflow-builder.test.mjs
