@@ -83,3 +83,21 @@ test("reused idempotency key with a different proposal is rejected", async () =>
   assert.equal((await queueEmployeeDispatch({ ...request, proposalId: "p2", store: collision })).reason, "idempotency_conflict");
   assert.equal(s.intents.size, 1);
 });
+
+test("malformed tenant and idempotency are rejected before lock acquisition", async () => {
+  for (const overrides of [
+    { identity: { ...identity, tenantId: "" } },
+    { idempotencyKey: "" },
+    { idempotencyKey: "x".repeat(201) }
+  ]) {
+    const s = store();
+    let lockCalls = 0;
+    const original = s.transaction;
+    s.transaction = fn => original.call(s, tx => fn({
+      ...tx, lockDispatchKey: async () => { lockCalls++; }
+    }));
+    assert.equal((await queueEmployeeDispatch({ ...request, ...overrides, store: s })).queued, false);
+    assert.equal(lockCalls, 0);
+    assert.equal(s.intents.size, 0);
+  }
+});
