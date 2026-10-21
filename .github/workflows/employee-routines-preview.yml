@@ -19,6 +19,8 @@ on:
       - 'cloudflare/src/employee-workflow-api.js'
       - 'cloudflare/src/worker.js'
       - 'public/employee-workflow-panel.js'
+      - 'public/employee-proposal-review-panel.js'
+      - 'public/js/employee-workflow-people-loader.js'
       - 'public/js/workspace-runtime-20261001b.js'
       - 'cloudflare/migrations/20261021_employee_ai_workflows.sql'
       - 'db/migrations/20261021_employee_ai_workflows.sql'
