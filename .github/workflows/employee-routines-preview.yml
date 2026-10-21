@@ -12,6 +12,7 @@ on:
       - 'tests/employee-proposal-review-worker-wiring.test.mjs'
       - 'cloudflare/migrations/20261021_employee_ai_proposal_reviews.sql'
       - 'tests/employee-proposal-review-d1-store.test.mjs'
+      - 'tests/employee-proposal-review-d1-migration-execution.test.mjs'
       - 'server/employee-workflow-ownership-service.js'
       - 'server/employee-workflow-postgres-store.js'
       - 'server/employee-workflow-handlers.js'
@@ -53,4 +54,4 @@ jobs:
         with:
           node-version: '22'
       - name: Employee routine preview tests
-        run: node --test tests/employee-routines-preview.test.mjs tests/employee-routines-service.test.mjs tests/employee-workflow-definitions.test.mjs tests/employee-workflow-review-gate.test.mjs tests/employee-proposal-review-d1-store.test.mjs tests/employee-proposal-review-api.test.mjs tests/employee-proposal-review-worker-wiring.test.mjs tests/employee-workflow-builder.test.mjs tests/employee-workflow-ownership-service.test.mjs tests/employee-workflow-postgres-store.test.mjs tests/employee-workflow-migration.test.mjs tests/employee-workflow-handlers.test.mjs tests/employee-workflow-d1-store.test.mjs tests/employee-workflow-cloudflare-api.test.mjs tests/employee-workflow-worker-wiring.test.mjs tests/employee-workflow-people-mount.test.mjs tests/employee-workflow-d1-migration-execution.test.mjs
+        run: node --test tests/employee-routines-preview.test.mjs tests/employee-routines-service.test.mjs tests/employee-workflow-definitions.test.mjs tests/employee-workflow-review-gate.test.mjs tests/employee-proposal-review-d1-store.test.mjs tests/employee-proposal-review-d1-migration-execution.test.mjs tests/employee-proposal-review-api.test.mjs tests/employee-proposal-review-worker-wiring.test.mjs tests/employee-workflow-builder.test.mjs tests/employee-workflow-ownership-service.test.mjs tests/employee-workflow-postgres-store.test.mjs tests/employee-workflow-migration.test.mjs tests/employee-workflow-handlers.test.mjs tests/employee-workflow-d1-store.test.mjs tests/employee-workflow-cloudflare-api.test.mjs tests/employee-workflow-worker-wiring.test.mjs tests/employee-workflow-people-mount.test.mjs tests/employee-workflow-d1-migration-execution.test.mjs
