@@ -25,7 +25,7 @@ export async function handleEmployeeWorkflowRequest({ req, env, session, readJso
     response = await handlers.save({body});
     } else response = {status:405,body:{error:"method_not_allowed"}};
   } catch {
-    return new Response(JSON.stringify({error:"workflow_storage_unavailable"}),{status:503,headers:{"content-type":"application/json","cache-control":"no-store"}});
+    return new Response(JSON.stringify({ok:false,reason:"storage_unavailable"}),{status:503,headers:{"content-type":"application/json","cache-control":"no-store"}});
   }
   return new Response(JSON.stringify(response.body),{status:response.status,headers:{"content-type":"application/json","cache-control":"no-store"}});
 }
