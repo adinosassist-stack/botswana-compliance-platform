@@ -178,3 +178,11 @@ test("missing proposal revision verification fails closed", async () => {
   assert.equal((await queueEmployeeDispatch({ ...request, store: s })).reason, "governance_unavailable");
   assert.equal(s.intents.size, 0);
 });
+
+
+test("queue denies author self-approval even when dispatch actor differs", async () => {
+  const s = store({ savedReview: { ...review, reviewerId: proposal.authorId } });
+  const result = await queueEmployeeDispatch({ ...request, store: s });
+  assert.equal(result.queued, false);
+  assert.equal(result.reason, "approval_required");
+});
