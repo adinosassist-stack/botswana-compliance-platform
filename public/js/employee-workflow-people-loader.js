@@ -12,6 +12,7 @@
     const visible=!people.hidden&&people.getAttribute("aria-hidden")!=="true"&&people.getClientRects().length>0;
     if(!visible)return;
     loading=true;
+    const startedAt=performance.now();
     try{
       const client=window.BW?.api?.createClient?.();
       if(!client)return;
@@ -31,7 +32,11 @@
       mounted=true;
     }catch{
       // Optional enhancement must never break the existing People page.
-    }finally{loading=false}
+    }finally{
+      loading=false;
+      const durationMs=Math.round(performance.now()-startedAt);
+      if(durationMs>=1500)console.warn("employee_workflow_builder_slow_mount",{durationMs});
+    }
   }
   document.addEventListener("click",()=>queueMicrotask(mountWhenReady),{passive:true});
   document.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" ")queueMicrotask(mountWhenReady);},{passive:true});
