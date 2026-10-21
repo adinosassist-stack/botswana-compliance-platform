@@ -1,0 +1,19 @@
+import {createEmployeeProposalReviewD1Store} from "./employee-proposal-review-d1-store.js";
+/** Isolated authenticated review API adapter; must be mounted behind session validation. */
+export async function handleEmployeeProposalReviewRequest({req,env,session,readJson,roleAllowed}={}){
+ const respond=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{"content-type":"application/json","cache-control":"no-store"}});
+ if(!session?.tenant_id||!session?.user_id)return respond({error:"unauthenticated"},401);
+ if(!roleAllowed(session,"owner","manager"))return respond({error:"forbidden"},403);
+ if(!["GET","POST"].includes(req?.method))return new Response(JSON.stringify({error:"method_not_allowed"}),{status:405,headers:{"content-type":"application/json","cache-control":"no-store","allow":"GET, POST"}});
+ if(typeof env?.DB?.prepare!=="function")return respond({error:"storage_unavailable"},503);
+ const store=createEmployeeProposalReviewD1Store(env.DB);
+ try{
+  if(req.method==="GET")return respond({ok:true,proposals:await store.listPending({tenantId:session.tenant_id})});
+  let body;
+  try{body=await readJson(req,{maxBytes:4096});}catch{return respond({error:"invalid_json"},400);}
+  if(!body||typeof body.proposalKey!=="string"||body.proposalKey.length>2048||!["approved","rejected"].includes(body.decision))return respond({error:"invalid_decision"},400);
+  // Reviewer and tenant identity always come from the verified session.
+  const changed=await store.decide({tenantId:session.tenant_id,proposalKey:body.proposalKey,reviewerId:session.user_id,decision:body.decision,reviewedAt:new Date().toISOString()});
+  return changed?respond({ok:true,status:body.decision}):respond({ok:false,error:"not_pending"},409);
+ }catch{return respond({error:"storage_unavailable"},503);}
+}
