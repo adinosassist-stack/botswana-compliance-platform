@@ -38,3 +38,7 @@ The adapter must also implement `isCurrentProposalRevision(tenantId, proposalId,
 ## Draft SQLite audit verification
 
 The draft outbox now includes `employee_dispatch_audit` with an intent foreign key. The SQLite integration suite exercises both an atomic successful insert and rollback when the audit foreign key rejects an insert. A production adapter must enable foreign keys, bind authenticated tenant/actor, validate tenant consistency for audit rows, and guarantee one transaction across review checks, intent insertion and audit. These draft tests do not prove Cloudflare D1 interactive transaction compatibility or a deployed worker.
+
+## Tenant-safe audit linkage
+
+The draft SQLite schema now rejects audit rows whose `tenant_id` differs from the referenced intent's tenant. This is enforced by an insert trigger in addition to the intent foreign key and covered by an integration test. Production implementation must apply equivalent tenant isolation on inserts and updates, and must not use a caller-provided tenant identifier as authorization evidence.
