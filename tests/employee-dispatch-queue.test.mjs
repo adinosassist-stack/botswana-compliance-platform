@@ -17,6 +17,7 @@ function store({ auditFails = false, savedProposal = proposal, savedReview = rev
         async lockDispatchKey() { return true; },
         async getProposal() { return savedProposal; },
         async getLatestReview() { return savedReview; },
+        async isAuthorizedReviewer() { return true; },
         async insertIntentOnce(intent) {
           const key = intent.tenantId + ":" + intent.idempotencyKey;
           const previous = intents.get(key) ?? staged.find(x => x.key === key)?.intent;
@@ -113,4 +114,25 @@ test("failed or unconfirmed transactional lock prevents queue insertion", async 
     assert.equal(s.intents.size, 0);
     assert.equal(s.audit.length, 0);
   }
+});
+
+test("untrusted or unauthorized reviewer cannot authorize dispatch", async () => {
+  const s = store();
+  const original = s.transaction;
+  s.transaction = fn => original.call(s, tx => fn({
+    ...tx, isAuthorizedReviewer: async () => false
+  }));
+  assert.equal((await queueEmployeeDispatch({ ...request, store: s })).reason, "approval_required");
+  assert.equal(s.intents.size, 0);
+  assert.equal(s.audit.length, 0);
+});
+test("missing reviewer authorization capability fails closed", async () => {
+  const s = store();
+  const original = s.transaction;
+  s.transaction = fn => original.call(s, tx => {
+    delete tx.isAuthorizedReviewer;
+    return fn(tx);
+  });
+  assert.equal((await queueEmployeeDispatch({ ...request, store: s })).reason, "governance_unavailable");
+  assert.equal(s.intents.size, 0);
 });
