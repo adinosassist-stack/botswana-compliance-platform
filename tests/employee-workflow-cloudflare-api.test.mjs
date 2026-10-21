@@ -44,6 +44,6 @@ test('unavailable D1 table produces controlled 503 without leaking database deta
  const broken={DB:{prepare(){throw new Error('SQLITE_ERROR: no such table: employee_ai_workflows')}}};
  const response=await handleEmployeeWorkflowRequest({req:{method:'GET'},env:broken,session:{tenant_id:'t1',user_id:'u1'},readJson:async()=>({}),roleAllowed:()=>true});
  assert.equal(response.status,503);
- assert.deepEqual(await response.json(),{error:'workflow_storage_unavailable'});
+ assert.deepEqual(await response.json(),{ok:false,reason:'storage_unavailable'});
  assert.equal(response.headers.get('cache-control'),'no-store');
 });
