@@ -22,6 +22,17 @@ db.commit()
 assert db.execute("SELECT count(*) FROM employee_ai_proposal_review_events").fetchone()[0]==1
 assert db.execute("UPDATE employee_ai_proposal_reviews SET status='rejected',reviewed_by='other',reviewed_at='later' WHERE tenant_id=? AND proposal_key=? AND status='proposed'",("t1",key)).rowcount==0
 assert db.execute("SELECT decision,reviewer_id FROM employee_ai_proposal_review_events").fetchone()==("approved","manager")
+
+# A second reviewer cannot overwrite the first decision, including after a replay.
+assert db.execute("UPDATE employee_ai_proposal_reviews SET status=?,reviewed_by=?,reviewed_at=? WHERE tenant_id=? AND proposal_key=? AND status='proposed'",("rejected","manager2","2026-10-21T17:00:00Z","t1",key)).rowcount==0
+assert db.execute("SELECT status,reviewed_by FROM employee_ai_proposal_reviews WHERE tenant_id=? AND proposal_key=?",("t1",key)).fetchone()==("approved","manager")
+assert db.execute("SELECT count(*) FROM employee_ai_proposal_review_events WHERE tenant_id=? AND proposal_key=?",("t1",key)).fetchone()[0]==1
+# Another tenant may use the same workflow and employee identifiers without seeing this review.
+key2=json.dumps(["t2","w1","e1","contract_renewal","2026-11-01"],separators=(",",":"))
+db.execute("INSERT INTO employee_ai_proposal_reviews (tenant_id,proposal_key,workflow_id,employee_id,task_type,due_date) VALUES (?,?,?,?,?,?)",("t2",key2,"w1","e1","contract_renewal","2026-11-01"))
+assert db.execute("SELECT count(*) FROM employee_ai_proposal_reviews WHERE tenant_id='t2' AND status='proposed'").fetchone()[0]==1
+assert db.execute("SELECT count(*) FROM employee_ai_proposal_review_events WHERE tenant_id='t2'").fetchone()[0]==0
+
 for mutation in ["UPDATE employee_ai_proposal_review_events SET reviewer_id='tampered' WHERE tenant_id='t1'","DELETE FROM employee_ai_proposal_review_events WHERE tenant_id='t1'"]:
  try:
   db.execute(mutation)
