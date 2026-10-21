@@ -36,3 +36,11 @@ test('People workflow loader subscribes to the actual workspace navigation event
  assert.match(loader,/window\.addEventListener\("thebe:workspace-view-change",mountWhenReady\)/);
  assert.doesNotMatch(loader,/thebe:workspace-view-changed/);
 });
+
+test('slow People workflow mounts are measured without changing startup or auth',()=>{
+ assert.match(loader,/const startedAt=performance\.now\(\)/);
+ assert.match(loader,/const durationMs=Math\.round\(performance\.now\(\)-startedAt\)/);
+ assert.match(loader,/if\(durationMs>=1500\)console\.warn\("employee_workflow_builder_slow_mount",\{durationMs\}\)/);
+ assert.match(loader,/finally\{\s*loading=false;/);
+ assert.doesNotMatch(loader,/setTimeout\(mountWhenReady/);
+});
