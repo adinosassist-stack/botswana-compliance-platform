@@ -34,3 +34,7 @@ The storage adapter must implement `isAuthorizedReviewer(tenantId, reviewerId, p
 ## Immutable proposal revision binding
 
 The adapter must also implement `isCurrentProposalRevision(tenantId, proposalId, reviewId)`, returning `true` only when the reviewed immutable proposal revision is exactly the currently dispatchable revision. A changed, withdrawn, or replaced proposal must require fresh independent approval. This check must be part of the same atomic admission transaction and must not rely on caller-provided revision metadata.
+
+## Draft SQLite audit verification
+
+The draft outbox now includes `employee_dispatch_audit` with an intent foreign key. The SQLite integration suite exercises both an atomic successful insert and rollback when the audit foreign key rejects an insert. A production adapter must enable foreign keys, bind authenticated tenant/actor, validate tenant consistency for audit rows, and guarantee one transaction across review checks, intent insertion and audit. These draft tests do not prove Cloudflare D1 interactive transaction compatibility or a deployed worker.
