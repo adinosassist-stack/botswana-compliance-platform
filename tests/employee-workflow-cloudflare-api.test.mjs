@@ -82,3 +82,14 @@ test('unauthorized viewer is denied before missing D1 binding is accessed',async
  assert.deepEqual(await response.json(),{ok:false,reason:'forbidden'});
  assert.equal(response.headers.get('cache-control'),'no-store');
 });
+
+test('unsupported methods return 405 even without a D1 binding',async()=>{
+ const response=await handleEmployeeWorkflowRequest({
+  req:{method:'DELETE'},env:{},session:{tenant_id:'t1',user_id:'u1'},
+  readJson:async()=>{throw new Error('body must not be read')},roleAllowed:()=>true
+ });
+ assert.equal(response.status,405);
+ assert.deepEqual(await response.json(),{error:'method_not_allowed'});
+ assert.equal(response.headers.get('allow'),'GET, POST');
+ assert.equal(response.headers.get('cache-control'),'no-store');
+});
