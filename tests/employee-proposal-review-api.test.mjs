@@ -14,10 +14,12 @@ test("GET retrieves only session tenant pending reviews",async()=>{
  const response=await handle({...base,env});assert.equal(response.status,200);assert.deepEqual(params,["t1"]);
 });
 test("POST uses trusted reviewer identity and rejects repeat decisions",async()=>{
- let params=[];
- const env={DB:{prepare(){return {bind(...p){params=p;return {async run(){return {success:true,meta:{changes:0}}}}}}}}};
+ let queries=[];
+ const env={DB:{prepare(sql){return {bind(...params){queries.push({sql,params});return {sql,params}}}},async batch(){return [{success:true,meta:{changes:0}},{success:true,meta:{changes:0}}]}}};
  const response=await handle({...base,req:{method:"POST"},env,readJson:async()=>({tenantId:"evil",reviewerId:"evil",proposalKey:"key",decision:"approved"})});
- assert.equal(response.status,409);assert.equal(params[3],"t1");assert.equal(params[4],"key");assert.equal(params[1],"manager1");
+ assert.equal(response.status,409);
+ assert.equal(queries[0].params[3],"t1");assert.equal(queries[0].params[4],"key");assert.equal(queries[0].params[1],"manager1");
+ assert.match(queries[1].sql,/employee_ai_proposal_review_events/);
 });
 test("invalid method and invalid decision do not touch database",async()=>{
  const env={DB:{prepare(){throw Error("unexpected")}}};
