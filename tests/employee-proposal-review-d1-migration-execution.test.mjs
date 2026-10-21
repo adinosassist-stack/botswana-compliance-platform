@@ -12,6 +12,7 @@ db.executescript(sys.stdin.read())
 key=json.dumps(["t1","w1","e1","contract_renewal","2026-11-01"],separators=(",",":"))
 db.execute("INSERT INTO employee_ai_proposal_reviews (tenant_id,proposal_key,workflow_id,employee_id,task_type,due_date) VALUES (?,?,?,?,?,?)",("t1",key,"w1","e1","contract_renewal","2026-11-01"))
 assert db.execute("SELECT count(*) FROM employee_ai_proposal_reviews WHERE tenant_id='t2'").fetchone()[0]==0
+db.commit()
 db.execute("BEGIN")
 updated=db.execute("UPDATE employee_ai_proposal_reviews SET status=?,reviewed_by=?,reviewed_at=? WHERE tenant_id=? AND proposal_key=? AND status='proposed'",("approved","manager","2026-10-21T16:00:00Z","t1",key))
 assert updated.rowcount==1
