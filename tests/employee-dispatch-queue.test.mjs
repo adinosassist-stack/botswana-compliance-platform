@@ -101,3 +101,16 @@ test("malformed tenant and idempotency are rejected before lock acquisition", as
     assert.equal(s.intents.size, 0);
   }
 });
+
+test("failed or unconfirmed transactional lock prevents queue insertion", async () => {
+  for (const lockResult of [false, undefined, null]) {
+    const s = store();
+    const original = s.transaction;
+    s.transaction = fn => original.call(s, tx => fn({
+      ...tx, lockDispatchKey: async () => lockResult
+    }));
+    assert.equal((await queueEmployeeDispatch({ ...request, store: s })).reason, "governance_unavailable");
+    assert.equal(s.intents.size, 0);
+    assert.equal(s.audit.length, 0);
+  }
+});
