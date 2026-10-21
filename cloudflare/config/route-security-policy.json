@@ -233,6 +233,7 @@
     ],
     "employees_hr": [
       "/api/employees",
+      "/api/employee-workflows",
       "/api/hr/",
       "/api/employer-risk"
     ],
