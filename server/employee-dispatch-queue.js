@@ -22,6 +22,7 @@ export async function queueEmployeeDispatch({
       if (typeof tx.getProposal !== "function" ||
           typeof tx.getLatestReview !== "function" ||
           typeof tx.isAuthorizedReviewer !== "function" ||
+          typeof tx.isCurrentApprovedReview !== "function" ||
           typeof tx.appendAudit !== "function" ||
           typeof tx.insertIntentOnce !== "function") {
         throw Error("missing_dispatch_capabilities");
@@ -35,6 +36,9 @@ export async function queueEmployeeDispatch({
       const proposal = await tx.getProposal(identity?.tenantId, proposalId);
       const review = proposal ? await tx.getLatestReview(identity?.tenantId, proposalId) : null;
       if (review && !(await tx.isAuthorizedReviewer(identity.tenantId, review.reviewerId, proposalId, review.id))) {
+        return { queued: false, reason: "approval_required" };
+      }
+      if (review && !(await tx.isCurrentApprovedReview(identity.tenantId, proposalId, review.id))) {
         return { queued: false, reason: "approval_required" };
       }
       const decision = evaluateEmployeeDispatch({
