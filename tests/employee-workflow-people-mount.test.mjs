@@ -14,12 +14,12 @@ test('People dashboard retains progressive employee loading',()=>{
 
 const loader=readFileSync(new URL('../public/js/employee-workflow-people-loader.js',import.meta.url),'utf8');
 const entry=readFileSync(new URL('../cloudflare/src/production-entry.js',import.meta.url),'utf8');
-test('production entry injects the isolated workflow loader without changing canonical runtime',()=>{
- assert.match(entry,/employee-workflow-people-loader\\.js/);
- assert.match(loader,/BW\\?\\.api\\?\\.createClient/);
- assert.doesNotMatch(loader,/\\bfetch\\s*\\(/);
+test('production entry injects isolated workflow loader and uses central API',()=>{
+ assert.ok(entry.includes('employee-workflow-people-loader.js'));
+ assert.ok(loader.includes('BW?.api?.createClient'));
+ assert.ok(!loader.includes('fetch('));
 });
-test('People workflow loader supports keyboard navigation and checks view visibility after loading',()=>{
- assert.match(loader,/addEventListener\\("keydown"/);
- assert.match(loader,/people\\.hidden\\|\\|!people\\.getClientRects\\(\\)\\.length/);
+test('People workflow loader supports keyboard navigation and checks visibility',()=>{
+ assert.ok(loader.includes('addEventListener("keydown"'));
+ assert.ok(loader.includes('people.hidden||!people.getClientRects().length'));
 });
