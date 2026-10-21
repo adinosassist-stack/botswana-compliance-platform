@@ -235,7 +235,8 @@
       "/api/employees",
       "/api/employee-workflows",
       "/api/hr/",
-      "/api/employer-risk"
+      "/api/employer-risk",
+      "/api/employee-workflow-reviews"
     ],
     "tenders": [
       "/api/tenders"
