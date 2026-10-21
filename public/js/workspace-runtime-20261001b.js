@@ -1030,27 +1030,6 @@ function runEvent(k){
 
 async function renderPeopleOperationsHub(){
   if(!roleCanView("peopleops")||!["owner","manager"].includes(currentWorkspaceRole()))return;
-  // Mount the workflow editor only for the existing owner/manager People view.
-  // Keep legacy People data hydration independent of this optional UI.
-  const workflowAnchor=document.getElementById("peopleRefreshStatus");
-  if(workflowAnchor?.parentElement && typeof document.createElement==="function"){
-    let panel=document.getElementById("employeeWorkflowPanel");
-    if(!panel){
-      panel=document.createElement("section");
-      panel.id="employeeWorkflowPanel";
-      panel.setAttribute("aria-label","Employee AI workflows");
-      workflowAnchor.parentElement.insertAdjacentElement("afterend",panel);
-    }
-    if(panel.dataset?.workflowMounted!=="1"){
-      if(panel.dataset)panel.dataset.workflowMounted="1";
-      import("../employee-workflow-panel.js").then(({mountEmployeeWorkflowBuilder})=>{
-        if(panel.isConnected && ["owner","manager"].includes(currentWorkspaceRole()))mountEmployeeWorkflowBuilder(panel);
-      }).catch(()=>{
-        if(panel.isConnected)panel.textContent="Workflow builder unavailable. Refresh to retry.";
-        if(panel.dataset)delete panel.dataset.workflowMounted;
-      });
-    }
-  }
   const epoch=(renderPeopleOperationsHub.epoch||0)+1;renderPeopleOperationsHub.epoch=epoch;
   const companyId=store.activeCompanyId;
   const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value};
