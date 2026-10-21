@@ -11,3 +11,15 @@ test('workflow panel remains separately loadable without modifying canonical wor
 test('People dashboard retains progressive employee loading',()=>{
  assert.match(runtime,/Promise\.allSettled\(\[apiJson\("\/api\/employees"\)/);
 });
+
+const loader=readFileSync(new URL('../public/js/employee-workflow-people-loader.js',import.meta.url),'utf8');
+const entry=readFileSync(new URL('../cloudflare/src/production-entry.js',import.meta.url),'utf8');
+test('production entry injects the isolated workflow loader without changing canonical runtime',()=>{
+ assert.match(entry,/employee-workflow-people-loader\\.js/);
+ assert.match(loader,/BW\\?\\.api\\?\\.createClient/);
+ assert.doesNotMatch(loader,/\\bfetch\\s*\\(/);
+});
+test('People workflow loader supports keyboard navigation and checks view visibility after loading',()=>{
+ assert.match(loader,/addEventListener\\("keydown"/);
+ assert.match(loader,/people\\.hidden\\|\\|!people\\.getClientRects\\(\\)\\.length/);
+});
