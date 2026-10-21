@@ -2,18 +2,31 @@
    Workspace-only. Flat surfaces; no gradients. */
 
 #appShell{
-  --thebe-control-accent:#b42318;
-  --thebe-control-accent-hover:#8f1d16;
-  --thebe-control-border:#decac7;
-  --thebe-control-text:#2f2928;
-  --thebe-control-muted:#675a58;
-  --thebe-control-soft:#fff1ef;
+  --thebe-control-accent:#0b66d6;
+  --thebe-control-accent-hover:#0955b7;
+  --thebe-control-border:#d2d7dc;
+  --thebe-control-text:#17191c;
+  --thebe-control-muted:#68717a;
+  --thebe-control-soft:#edf5ff;
   --thebe-control-surface:#fff;
-  --thebe-control-panel:#fbfaf9;
+  --thebe-control-panel:#f7f9fb;
   --thebe-control-danger:#8f1d16;
   --thebe-control-danger-hover:#741713;
   --thebe-control-disabled-opacity:.52;
 }
+
+/* Decorative navigation uses the brand palette; success/error indicators keep their semantic colors. */
+#appShell .hub-icon,
+#appShell .commandquickicon,
+#appShell .commandmodes button.active,
+#appShell .commandcategories button.active{
+  color:var(--thebe-control-accent)!important;
+  background:var(--thebe-control-soft)!important;
+}
+#appShell .commandcategories button.active{border-color:#d8e9ff!important}
+#appShell .home-signal-action,
+#appShell .people-outcome-action,
+#appShell .business-outcome-action{color:var(--thebe-control-accent)!important}
 
 #appShell .btn{
   appearance:none!important;
@@ -52,19 +65,19 @@
   border-color:var(--thebe-control-border)!important;
 }
 #appShell .btn.alt:hover:not(:disabled):not([aria-disabled="true"]):not([aria-busy="true"]){
-  background:#fcf6f5!important;
-  border-color:#d6aaa5!important;
-  color:#74231c!important;
+  background:#edf5ff!important;
+  border-color:#bfd8f5!important;
+  color:#0955b7!important;
 }
 
 #appShell .btn.soft{
   background:var(--thebe-control-soft)!important;
   color:var(--thebe-control-accent)!important;
-  border-color:#efc5c0!important;
+  border-color:#d8e9ff!important;
 }
 #appShell .btn.soft:hover:not(:disabled):not([aria-disabled="true"]):not([aria-busy="true"]){
-  background:#ffe5e2!important;
-  border-color:#dc9e97!important;
+  background:#e2efff!important;
+  border-color:#c5dcf8!important;
 }
 
 #appShell .btn.danger{
