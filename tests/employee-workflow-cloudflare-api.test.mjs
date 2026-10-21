@@ -72,3 +72,13 @@ test('missing D1 binding fails closed with a controlled response',async()=>{
  assert.deepEqual(await response.json(),{ok:false,reason:'storage_unavailable'});
  assert.equal(response.headers.get('cache-control'),'no-store');
 });
+
+test('unauthorized viewer is denied before missing D1 binding is accessed',async()=>{
+ const response=await handleEmployeeWorkflowRequest({
+  req:{method:'GET'},env:{},session:{tenant_id:'t1',user_id:'viewer'},
+  readJson:async()=>({}),roleAllowed:()=>false
+ });
+ assert.equal(response.status,403);
+ assert.deepEqual(await response.json(),{ok:false,reason:'forbidden'});
+ assert.equal(response.headers.get('cache-control'),'no-store');
+});
