@@ -2,15 +2,12 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
 const runtime=readFileSync(new URL('../public/js/workspace-runtime-20261001b.js',import.meta.url),'utf8');
-const start=runtime.indexOf('async function renderPeopleOperationsHub(){');
-const end=runtime.indexOf('\nfunction renderPeopleInfographics(',start);
-const people=runtime.slice(start,end);
-test('People workflow editor is behind existing owner manager role gate',()=>{
- assert.match(people,/roleCanView\("peopleops"\)/);
- assert.match(people,/\["owner","manager"\]\.includes\(currentWorkspaceRole\(\)\)/);
- assert.match(people,/employeeWorkflowPanel/);
+const panel=readFileSync(new URL('../public/employee-workflow-panel.js',import.meta.url),'utf8');
+test('workflow panel remains separately loadable without modifying canonical workspace runtime',()=>{
+ assert.match(panel,/mountEmployeeWorkflowBuilder/);
+ assert.match(runtime,/async function renderPeopleOperationsHub\(\)/);
+ assert.doesNotMatch(runtime,/employeeWorkflowPanel/);
 });
-test('People editor loads without blocking employee summary requests',()=>{
- assert.match(people,/import\("\.\.\/employee-workflow-panel\.js"\)\.then/);
- assert.match(people,/Promise\.allSettled\(\[apiJson\("\/api\/employees"\)/);
+test('People dashboard retains progressive employee loading',()=>{
+ assert.match(runtime,/Promise\.allSettled\(\[apiJson\("\/api\/employees"\)/);
 });
