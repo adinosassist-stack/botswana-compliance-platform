@@ -17,13 +17,13 @@ export async function handleEmployeeWorkflowRequest({ req, env, session, readJso
   const method = req.method;
   let response;
   try {
-  if (method === "GET") response = await handlers.list({});
-  else if (method === "POST") {
+    if (method === "GET") response = await handlers.list({});
+    else if (method === "POST") {
     let body;
     try { body = await readJson(req); }
     catch { return new Response(JSON.stringify({error:"invalid_json"}),{status:400,headers:{"content-type":"application/json"}}); }
     response = await handlers.save({body});
-  } else response = {status:405,body:{error:"method_not_allowed"}};
+    } else response = {status:405,body:{error:"method_not_allowed"}};
   } catch {
     return new Response(JSON.stringify({error:"workflow_storage_unavailable"}),{status:503,headers:{"content-type":"application/json","cache-control":"no-store"}});
   }
