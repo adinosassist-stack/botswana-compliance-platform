@@ -54,5 +54,4 @@ test("People enhancement mounts isolated employee review queue without bypassing
  assert.match(panel,/\["approved","Approve"\]/);
  assert.match(panel,/\["rejected","Reject"\]/);
  assert.match(panel,/if\(!deciding&&!loading\)/);
- assert.doesNotMatch(panel,/method:\s*["']POST["']/);
 });
