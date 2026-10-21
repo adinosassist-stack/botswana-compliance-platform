@@ -23,6 +23,7 @@ export async function queueEmployeeDispatch({
           typeof tx.getLatestReview !== "function" ||
           typeof tx.isAuthorizedReviewer !== "function" ||
           typeof tx.isCurrentApprovedReview !== "function" ||
+          typeof tx.isCurrentProposalRevision !== "function" ||
           typeof tx.appendAudit !== "function" ||
           typeof tx.insertIntentOnce !== "function") {
         throw Error("missing_dispatch_capabilities");
@@ -40,6 +41,9 @@ export async function queueEmployeeDispatch({
       }
       if (review && !(await tx.isCurrentApprovedReview(identity.tenantId, proposalId, review.id))) {
         return { queued: false, reason: "approval_required" };
+      }
+      if (proposal && !(await tx.isCurrentProposalRevision(identity.tenantId, proposalId, review?.id))) {
+        return { queued: false, reason: "proposal_revision_stale" };
       }
       const decision = evaluateEmployeeDispatch({
         featureEnabled, killSwitch, auditAvailable, identity, proposal, review, action, idempotencyKey
