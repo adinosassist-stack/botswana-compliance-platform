@@ -40,3 +40,10 @@ test("worker denies original author self-approval even when worker identity diff
   assert.equal(result.allowed, false);
   assert.equal(result.reason, "approval_required");
 });
+
+
+test("worker fails closed when original proposal author is unknown", () => {
+  const result = evaluateEmployeeWorker({ ...base, proposal: { ...proposal, authorId: undefined } });
+  assert.equal(result.allowed, false);
+  assert.equal(result.reason, "approval_required");
+});
