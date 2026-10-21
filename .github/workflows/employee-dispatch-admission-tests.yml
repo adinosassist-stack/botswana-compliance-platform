@@ -1,0 +1,24 @@
+name: Employee Dispatcher Admission Tests
+
+on:
+  pull_request:
+    paths:
+      - 'server/employee-dispatch-admission.js'
+      - 'tests/employee-dispatch-admission.test.mjs'
+      - '.github/workflows/employee-dispatch-admission-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  admission:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Employee dispatcher admission tests
+        run: node --test tests/employee-dispatch-admission.test.mjs
