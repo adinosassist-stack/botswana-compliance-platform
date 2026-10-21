@@ -56,3 +56,30 @@ test("kill switch and disabled feature block queue", async () => {
   }
   assert.equal(s.intents.size, 0);
 });
+
+test("missing transaction lock fails closed without creating an intent", async () => {
+  const s = store();
+  const original = s.transaction;
+  s.transaction = async fn => original.call(s, async tx => {
+    delete tx.lockDispatchKey;
+    return fn(tx);
+  });
+  assert.equal((await queueEmployeeDispatch({ ...request, store: s })).reason, "governance_unavailable");
+  assert.equal(s.intents.size, 0);
+});
+test("reused idempotency key with a different proposal is rejected", async () => {
+  const s = store();
+  assert.equal((await queueEmployeeDispatch({ ...request, store: s })).reason, "intent_created");
+  const other = { ...proposal, id: "p2" };
+  const otherReview = { ...review, id: "r2", proposalId: "p2" };
+  const collision = {
+    ...s,
+    transaction: async fn => s.transaction(async tx => fn({
+      ...tx,
+      getProposal: async () => other,
+      getLatestReview: async () => otherReview
+    }))
+  };
+  assert.equal((await queueEmployeeDispatch({ ...request, proposalId: "p2", store: collision })).reason, "idempotency_conflict");
+  assert.equal(s.intents.size, 1);
+});
