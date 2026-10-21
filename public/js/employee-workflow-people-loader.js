@@ -3,8 +3,9 @@
   "use strict";
   let loading=false;
   let mounted=false;
+  let accessDenied=false;
   async function mountWhenReady(){
-    if(loading||mounted)return;
+    if(loading||mounted||accessDenied)return;
     const candidates=[document.getElementById("peopleops"),document.getElementById("employees")].filter(Boolean);
     const people=candidates.find(node=>!node.hidden&&node.getClientRects().length>0);
     if(!people||people.hasAttribute("data-lazy-view")||!people.isConnected)return;
@@ -15,7 +16,7 @@
       const client=window.BW?.api?.createClient?.();
       if(!client)return;
       try{await client.request("/api/employee-workflows");}
-      catch{return;} // Do not expose an unusable form to unauthorized staff.
+      catch(error){if([401,403].includes(Number(error?.status)))accessDenied=true;return;} // Do not expose an unusable form to unauthorized staff.
       if(mounted||!people.isConnected||people.hidden||!people.getClientRects().length)return;
       const host=document.createElement("section");
       host.id="employee-ai-workflow-builder";
