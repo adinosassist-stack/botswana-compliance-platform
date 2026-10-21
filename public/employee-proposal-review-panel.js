@@ -2,12 +2,24 @@
 export function mountEmployeeProposalReviewQueue(container,{fetcher}={}){
  if(!container||typeof container.replaceChildren!=="function"||typeof fetcher!=="function")throw new TypeError("invalid_review_queue_mount");
  const doc=container.ownerDocument;
- const section=doc.createElement("section"),title=doc.createElement("h3"),status=doc.createElement("p"),list=doc.createElement("ul"),refresh=doc.createElement("button");
+ const section=doc.createElement("section"),title=doc.createElement("h3"),status=doc.createElement("p"),list=doc.createElement("ul"),refresh=doc.createElement("button"),generate=doc.createElement("button");
  title.textContent="Pending employee workflow reviews";
  status.setAttribute("role","status");
  refresh.type="button";refresh.textContent="Refresh pending reviews";
- section.append(title,status,refresh,list);container.replaceChildren(section);
- let disposed=false,loading=false,deciding=false;
+ generate.type="button";generate.textContent="Generate review proposals";
+ section.append(title,status,generate,refresh,list);container.replaceChildren(section);
+ let disposed=false,loading=false,deciding=false,generating=false;
+ async function generateReviews(){
+  if(disposed||loading||deciding||generating)return;
+  generating=true;generate.disabled=true;refresh.disabled=true;status.textContent="Generating proposals for review…";
+  try{
+   const response=await fetcher("/api/employee-workflow-reviews",{method:"POST",credentials:"same-origin",headers:{"content-type":"application/json"},body:JSON.stringify({action:"generate"})});
+   if(!response?.ok||response.data?.ok!==true)throw new Error("generation_failed");
+   if(!disposed)await load();
+  }catch{if(!disposed)status.textContent="Unable to generate proposals. Try again later."}
+  finally{generating=false;generate.disabled=false;refresh.disabled=false;}
+ }
+ generate.addEventListener("click",()=>{void generateReviews();});
  async function decide(proposalKey,decision){
   if(disposed||deciding||loading)return;
   deciding=true;refresh.disabled=true;status.textContent="Recording "+decision+" decision…";
