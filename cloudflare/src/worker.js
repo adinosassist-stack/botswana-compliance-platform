@@ -1,3 +1,4 @@
+import {handleEmployeeWorkflowRequest} from "./employee-workflow-api.js";
 import {BOTSWANA_FOUNDATION_PACK_V1,BOTSWANA_FOUNDATION_PACK_V1_HASH} from "./regulatory-pack-registry.js";
 import {purgeDailyReportAttachments} from "./report-attachments-entry.js";
 import {handleFinanceRequest,financeSummary} from "./finance-core.js";
@@ -6970,6 +6971,10 @@ export default {
         return json({ok:true,status:next});
       }
 
+
+      if(url.pathname==="/api/employee-workflows"){
+        return handleEmployeeWorkflowRequest({req,env,session:a,readJson,roleAllowed});
+      }
 
       if(url.pathname==="/api/employees"&&req.method==="POST"){
         if(!roleAllowed(a,"owner","manager"))return json({error:"forbidden"},403);
