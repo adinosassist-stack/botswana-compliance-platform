@@ -354,6 +354,7 @@ function injectOwnerCommandCentreAssets(html){
   if(!source.includes(WORKSPACE_HOME_COMMAND_V238_CSS_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${workspaceHomeCommandV238CssHref}" />\n`);
   if(!source.includes("/assets/thebe-ai-dock.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${aiDockCssHref}" />\n`);
   if(!source.includes("/js/api-client.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${publicApiClientJsSrc}" defer></script>\n`);
+  if(!source.includes("/js/employee-workflow-people-loader.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="/js/employee-workflow-people-loader.js?v=20261021" defer></script>\n`);
   if(!source.includes("/js/owner-command-centre.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${jsSrc}" defer></script>\n`);
   if(!source.includes("/js/executive-personalization.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${personalizationJsSrc}" defer></script>\n`);
   if(!source.includes("/js/business-data-bridge.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${bridgeJsSrc}" defer></script>\n`);
