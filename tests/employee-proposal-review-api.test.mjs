@@ -26,3 +26,9 @@ test("invalid method and invalid decision do not touch database",async()=>{
  assert.equal((await handle({...base,env,req:{method:"DELETE"}})).status,405);
  assert.equal((await handle({...base,env,req:{method:"POST"},readJson:async()=>({decision:"execute",proposalKey:"key"})})).status,400);
 });
+
+test("manual generation rejects untrusted tenant, owner, date and employee payload fields",async()=>{
+ const response=await handle({...base,req:{method:"POST"},readJson:async()=>({action:"generate",tenantId:"other",employees:[],today:"2027-01-01"})});
+ assert.equal(response.status,400);
+ assert.equal((await response.json()).error,"invalid_generation_request");
+});
