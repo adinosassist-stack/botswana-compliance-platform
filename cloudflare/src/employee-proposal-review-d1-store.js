@@ -20,9 +20,16 @@ export function createEmployeeProposalReviewD1Store(db){
   },
   async decide({tenantId,proposalKey,reviewerId,decision,reviewedAt}){
    if(!scope(tenantId)||!scope(proposalKey)||!scope(reviewerId)||!["approved","rejected"].includes(decision)||typeof reviewedAt!=="string"||!Number.isFinite(Date.parse(reviewedAt)))throw new TypeError("invalid_decision");
-   const result=await db.prepare("UPDATE employee_ai_proposal_reviews SET status=?,reviewed_by=?,reviewed_at=? WHERE tenant_id=? AND proposal_key=? AND status='proposed'").bind(decision,reviewerId,reviewedAt,tenantId,proposalKey).run();
-   if(result?.success!==true)throw new Error("storage_unavailable");
-   return Number(result.meta?.changes||0)===1;
+   // D1 batch executes the decision and audit insert as a single transaction.
+   // The audit insert is conditional on the row having transitioned from proposed.
+   if(typeof db.batch!=="function")throw new Error("atomic_batch_unavailable");
+   const update=db.prepare("UPDATE employee_ai_proposal_reviews SET status=?,reviewed_by=?,reviewed_at=? WHERE tenant_id=? AND proposal_key=? AND status='proposed'").bind(decision,reviewerId,reviewedAt,tenantId,proposalKey);
+   const audit=db.prepare("INSERT INTO employee_ai_proposal_review_events (tenant_id,proposal_key,decision,reviewer_id,reviewed_at) SELECT tenant_id,proposal_key,status,reviewed_by,reviewed_at FROM employee_ai_proposal_reviews WHERE tenant_id=? AND proposal_key=? AND status=? AND reviewed_by=? AND reviewed_at=? AND NOT EXISTS (SELECT 1 FROM employee_ai_proposal_review_events WHERE tenant_id=? AND proposal_key=?)").bind(tenantId,proposalKey,decision,reviewerId,reviewedAt,tenantId,proposalKey);
+   const results=await db.batch([update,audit]);
+   if(!Array.isArray(results)||results.length!==2||results.some(result=>result?.success!==true))throw new Error("storage_unavailable");
+   const changed=Number(results[0].meta?.changes||0)===1;
+   if(changed&&Number(results[1].meta?.changes||0)!==1)throw new Error("audit_integrity_failure");
+   return changed;
   }
  };
 }
