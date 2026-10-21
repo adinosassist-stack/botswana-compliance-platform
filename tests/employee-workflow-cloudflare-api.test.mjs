@@ -20,3 +20,22 @@ test('unsupported methods cannot mutate workflows',async()=>{
  const response=await handleEmployeeWorkflowRequest({req:{method:'DELETE'},env,session:{tenant_id:'t1',user_id:'u1'},readJson:async()=>({}),roleAllowed:()=>true});
  assert.equal(response.status,405);
 });
+
+test('request body cannot override authenticated tenant or owner',async()=>{
+ let bindings;
+ const scopedEnv={DB:{prepare(){return {bind(...args){bindings=args;return {async run(){return {success:true}}}}}}}};
+ const response=await handleEmployeeWorkflowRequest({
+  req:{method:'POST'},env:scopedEnv,
+  session:{tenant_id:'trusted-tenant',user_id:'trusted-owner'},
+  readJson:async()=>({tenantId:'attacker-tenant',actorId:'attacker-owner',workflow:{
+   id:'w1',name:'Review onboarding',routineType:'onboarding_checklist',
+   trigger:'manual',effect:'preview',enabled:true
+  }}),
+  roleAllowed:()=>true
+ });
+ assert.equal(response.status,200);
+ assert.ok(bindings.includes('trusted-tenant'));
+ assert.ok(bindings.includes('trusted-owner'));
+ assert.ok(!bindings.includes('attacker-tenant'));
+ assert.ok(!bindings.includes('attacker-owner'));
+});
