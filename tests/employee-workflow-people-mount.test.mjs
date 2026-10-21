@@ -50,6 +50,9 @@ test("People enhancement mounts isolated employee review queue without bypassing
  assert.match(loader,/import\("\/employee-proposal-review-panel\.js"\)/);
  assert.match(loader,/mountEmployeeProposalReviewQueue\(reviewHost/);
  assert.match(panel,/\/api\/employee-workflow-reviews/);
- assert.doesNotMatch(panel,/\bfetch\s*\(/);
+ assert.match(panel,/method:"POST"/);
+ assert.match(panel,/\["approved","Approve"\]/);
+ assert.match(panel,/\["rejected","Reject"\]/);
+ assert.match(panel,/if\(!deciding&&!loading\)/);
  assert.doesNotMatch(panel,/method:\s*["']POST["']/);
 });
