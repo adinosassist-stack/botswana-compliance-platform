@@ -16,7 +16,9 @@ export function evaluateEmployeeDispatch({ featureEnabled = false, killSwitch = 
   if (!validId(identity?.tenantId) || !validId(identity?.actorId) || !Array.isArray(identity?.permissions) || !identity.permissions.includes("employee.workflow.dispatch")) return { allowed: false, reason: "unauthorized_actor" };
   if (!Object.hasOwn(INTERNAL_ACTIONS, action)) return { allowed: false, reason: "unsupported_action" };
   if (!validId(proposal?.id) || !validId(proposal?.tenantId) || proposal.tenantId !== identity.tenantId || proposal.action !== action) return { allowed: false, reason: "proposal_scope_mismatch" };
-  if (!validId(review?.id) || review.proposalId !== proposal.id || review.tenantId !== identity.tenantId || review.status !== "approved" || !validId(review.reviewerId) || review.reviewerId === identity.actorId) return { allowed: false, reason: "approval_required" };
+  // Review independence is from the original proposal author, not the dispatching worker.
+  // Missing author identity fails closed until the trusted store supplies it.
+  if (!validId(proposal.authorId) || !validId(review?.id) || review.proposalId !== proposal.id || review.tenantId !== identity.tenantId || review.status !== "approved" || !validId(review.reviewerId) || review.reviewerId === proposal.authorId || review.reviewerId === identity.actorId) return { allowed: false, reason: "approval_required" };
   if (!validId(idempotencyKey)) return { allowed: false, reason: "invalid_idempotency_key" };
   return { allowed: true, reason: "eligible_for_transactional_authorization", intentType: INTERNAL_ACTIONS[action] };
 }
