@@ -186,3 +186,13 @@ test("queue denies author self-approval even when dispatch actor differs", async
   assert.equal(result.queued, false);
   assert.equal(result.reason, "approval_required");
 });
+
+
+test("queue fails closed when original proposal author is missing", async () => {
+  const s = store({ savedProposal: { ...proposal, authorId: undefined } });
+  const result = await queueEmployeeDispatch({ ...request, store: s });
+  assert.equal(result.queued, false);
+  assert.equal(result.reason, "approval_required");
+  assert.equal(s.intents.size, 0);
+  assert.equal(s.audit.length, 0);
+});
