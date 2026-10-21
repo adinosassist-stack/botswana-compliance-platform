@@ -21,6 +21,7 @@ export async function queueEmployeeDispatch({
     return await store.transaction(async tx => {
       if (typeof tx.getProposal !== "function" ||
           typeof tx.getLatestReview !== "function" ||
+          typeof tx.isAuthorizedReviewer !== "function" ||
           typeof tx.appendAudit !== "function" ||
           typeof tx.insertIntentOnce !== "function") {
         throw Error("missing_dispatch_capabilities");
@@ -33,6 +34,9 @@ export async function queueEmployeeDispatch({
       if (lockAcquired !== true) throw Error("dispatch_lock_unavailable");
       const proposal = await tx.getProposal(identity?.tenantId, proposalId);
       const review = proposal ? await tx.getLatestReview(identity?.tenantId, proposalId) : null;
+      if (review && !(await tx.isAuthorizedReviewer(identity.tenantId, review.reviewerId, proposalId, review.id))) {
+        return { queued: false, reason: "approval_required" };
+      }
       const decision = evaluateEmployeeDispatch({
         featureEnabled, killSwitch, auditAvailable, identity, proposal, review, action, idempotencyKey
       });
