@@ -1,0 +1,33 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { evaluateEmployeeDispatch } from "../server/employee-dispatch-admission.js";
+
+const identity = { tenantId: "tenant-a", actorId: "actor-a", permissions: ["employee.workflow.dispatch"] };
+const proposal = { id: "proposal-a", tenantId: "tenant-a", action: "internal.task.create" };
+const review = { id: "review-a", proposalId: "proposal-a", tenantId: "tenant-a", reviewerId: "manager-b", status: "approved" };
+const request = { featureEnabled: true, killSwitch: false, auditAvailable: true, identity, proposal, review, action: "internal.task.create", idempotencyKey: "task-a" };
+const decide = overrides => evaluateEmployeeDispatch({ ...request, ...overrides });
+
+test("disabled feature, kill switch, and audit outage fail closed", () => {
+  for (const overrides of [{ featureEnabled: false }, { killSwitch: true }, { auditAvailable: false }]) {
+    assert.equal(decide(overrides).reason, "governance_unavailable");
+  }
+});
+test("tenant mismatch and proposal action spoofing are rejected", () => {
+  assert.equal(decide({ proposal: { ...proposal, tenantId: "tenant-b" } }).reason, "proposal_scope_mismatch");
+  assert.equal(decide({ proposal: { ...proposal, action: "internal.report.draft" } }).reason, "proposal_scope_mismatch");
+});
+test("independent persisted approval and scope are mandatory", () => {
+  for (const changed of [{ status: "pending" }, { reviewerId: identity.actorId }, { tenantId: "tenant-b" }, { proposalId: "other" }]) {
+    assert.equal(decide({ review: { ...review, ...changed } }).reason, "approval_required");
+  }
+});
+test("permission, action registry and idempotency format fail closed", () => {
+  assert.equal(decide({ identity: { ...identity, permissions: [] } }).reason, "unauthorized_actor");
+  assert.equal(decide({ action: "payroll.run" }).reason, "unsupported_action");
+  assert.equal(decide({ idempotencyKey: " " }).reason, "invalid_idempotency_key");
+});
+test("valid request only qualifies for later transactional authorization", () => {
+  assert.deepEqual(decide({}), { allowed: true, reason: "eligible_for_transactional_authorization", intentType: "task" });
+  assert.equal(evaluateEmployeeDispatch().allowed, false);
+});
