@@ -22,6 +22,12 @@ db.commit()
 assert db.execute("SELECT count(*) FROM employee_ai_proposal_review_events").fetchone()[0]==1
 assert db.execute("UPDATE employee_ai_proposal_reviews SET status='rejected',reviewed_by='other',reviewed_at='later' WHERE tenant_id=? AND proposal_key=? AND status='proposed'",("t1",key)).rowcount==0
 assert db.execute("SELECT decision,reviewer_id FROM employee_ai_proposal_review_events").fetchone()==("approved","manager")
+for mutation in ["UPDATE employee_ai_proposal_review_events SET reviewer_id='tampered' WHERE tenant_id='t1'","DELETE FROM employee_ai_proposal_review_events WHERE tenant_id='t1'"]:
+ try:
+  db.execute(mutation)
+  raise AssertionError("audit event mutation unexpectedly allowed")
+ except sqlite3.IntegrityError as error:
+  assert "review_audit_immutable" in str(error)
 print("review migration SQLite transactional lifecycle PASS")
 `;
  const result=spawnSync("python3",["-c",python],{input:migration,encoding:"utf8"});
