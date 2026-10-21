@@ -30,3 +30,7 @@ Independent review, exact-head CI, migration backup/rollback evidence, signed re
 ## Transactional reviewer provenance and freshness
 
 The storage adapter must implement `isAuthorizedReviewer(tenantId, reviewerId, proposalId, reviewId)` and `isCurrentApprovedReview(tenantId, proposalId, reviewId)` within the same transaction as proposal/review reads and queue insertion. Both must return the boolean `true` only for trusted, persisted, tenant-scoped authorization and the latest unrevoked approval of the exact immutable proposal revision. Missing methods, unavailable governance data, or a false result deny admission. Never accept reviewer role, review status, or proposal revision supplied by the caller. The draft SQL outbox does not implement these checks; a production adapter is still required.
+
+## Immutable proposal revision binding
+
+The adapter must also implement `isCurrentProposalRevision(tenantId, proposalId, reviewId)`, returning `true` only when the reviewed immutable proposal revision is exactly the currently dispatchable revision. A changed, withdrawn, or replaced proposal must require fresh independent approval. This check must be part of the same atomic admission transaction and must not rely on caller-provided revision metadata.
