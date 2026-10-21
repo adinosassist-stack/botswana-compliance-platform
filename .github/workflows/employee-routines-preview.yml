@@ -12,6 +12,7 @@ on:
       - 'cloudflare/src/employee-workflow-api.js'
       - 'cloudflare/src/worker.js'
       - 'public/employee-workflow-panel.js'
+      - 'public/js/workspace-runtime-20261001b.js'
       - 'cloudflare/migrations/20261021_employee_ai_workflows.sql'
       - 'db/migrations/20261021_employee_ai_workflows.sql'
       - 'public/employee-workflow-builder.js'
@@ -25,6 +26,7 @@ on:
       - 'tests/employee-workflow-d1-store.test.mjs'
       - 'tests/employee-workflow-cloudflare-api.test.mjs'
       - 'tests/employee-workflow-worker-wiring.test.mjs'
+      - 'tests/employee-workflow-people-mount.test.mjs'
       - 'tests/employee-workflow-builder.test.mjs'
       - '.github/workflows/employee-routines-preview.yml'
   workflow_dispatch:
@@ -40,4 +42,4 @@ jobs:
         with:
           node-version: '22'
       - name: Employee routine preview tests
-        run: node --test tests/employee-routines-preview.test.mjs tests/employee-routines-service.test.mjs tests/employee-workflow-definitions.test.mjs tests/employee-workflow-builder.test.mjs tests/employee-workflow-ownership-service.test.mjs tests/employee-workflow-postgres-store.test.mjs tests/employee-workflow-migration.test.mjs tests/employee-workflow-handlers.test.mjs tests/employee-workflow-d1-store.test.mjs tests/employee-workflow-cloudflare-api.test.mjs tests/employee-workflow-worker-wiring.test.mjs
+        run: node --test tests/employee-routines-preview.test.mjs tests/employee-routines-service.test.mjs tests/employee-workflow-definitions.test.mjs tests/employee-workflow-builder.test.mjs tests/employee-workflow-ownership-service.test.mjs tests/employee-workflow-postgres-store.test.mjs tests/employee-workflow-migration.test.mjs tests/employee-workflow-handlers.test.mjs tests/employee-workflow-d1-store.test.mjs tests/employee-workflow-cloudflare-api.test.mjs tests/employee-workflow-worker-wiring.test.mjs tests/employee-workflow-people-mount.test.mjs
