@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { evaluateEmployeeWorker } from "../server/employee-dispatch-worker-policy.js";
 
 const identity = { tenantId: "t1", actorId: "worker1", permissions: ["employee.workflow.dispatch"] };
-const proposal = { id: "p1", tenantId: "t1", action: "internal.task.create" };
+const proposal = { id: "p1", tenantId: "t1", authorId: "employee-author", action: "internal.task.create" };
 const review = { id: "r1", tenantId: "t1", proposalId: "p1", reviewerId: "manager1", status: "approved" };
 const intent = { tenantId: "t1", proposalId: "p1", reviewId: "r1", action: "internal.task.create", idempotencyKey: "k1", state: "leased", attempts: 1 };
 const base = { featureEnabled: true, killSwitch: false, auditAvailable: true,
