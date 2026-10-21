@@ -69,6 +69,21 @@ class EmployeeDispatchSchemaTests(unittest.TestCase):
         self.assertEqual(self.db.execute(
             "SELECT COUNT(*) FROM employee_dispatch_audit").fetchone()[0], 0)
 
+    def test_audit_is_append_only(self):
+        self.insert()
+        self.db.execute(
+            """INSERT INTO employee_dispatch_audit
+            (id,tenant_id,intent_id,actor_id,proposal_id,review_id,event_type)
+            VALUES (?,?,?,?,?,?,?)""",
+            ("audit-1", "tenant-a", "tenant-akey-1", "actor-1",
+             "proposal-a", "review-a", "employee.dispatch.admitted"))
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.db.execute("UPDATE employee_dispatch_audit SET actor_id='forged'")
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.db.execute("DELETE FROM employee_dispatch_audit")
+        self.assertEqual(self.db.execute(
+            "SELECT COUNT(*) FROM employee_dispatch_audit").fetchone()[0], 1)
+
     def test_intent_and_audit_commit_together(self):
         self.db.execute("BEGIN")
         self.insert()
