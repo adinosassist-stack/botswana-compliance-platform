@@ -31,3 +31,20 @@ test("valid request only qualifies for later transactional authorization", () =>
   assert.deepEqual(decide({}), { allowed: true, reason: "eligible_for_transactional_authorization", intentType: "task" });
   assert.equal(evaluateEmployeeDispatch().allowed, false);
 });
+
+test("report drafts are eligible but never executed by admission", () => {
+  const result = decide({
+    action: "internal.report.draft",
+    proposal: { ...proposal, action: "internal.report.draft" }
+  });
+  assert.deepEqual(result, { allowed: true, reason: "eligible_for_transactional_authorization", intentType: "report" });
+  assert.equal(Object.hasOwn(result, "queued"), false);
+});
+test("unknown action cannot be smuggled through proposal metadata", () => {
+  const forged = { ...proposal, action: "internal.task.create", requestedAction: "record.delete" };
+  assert.equal(decide({ proposal: forged, action: "record.delete" }).reason, "unsupported_action");
+});
+test("missing reviewer and malformed identity fail closed", () => {
+  assert.equal(decide({ review: null }).reason, "approval_required");
+  assert.equal(decide({ identity: { ...identity, tenantId: "" } }).reason, "unauthorized_actor");
+});
