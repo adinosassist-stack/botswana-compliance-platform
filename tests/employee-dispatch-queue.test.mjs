@@ -14,6 +14,7 @@ function store({ auditFails = false, savedProposal = proposal, savedReview = rev
     async transaction(fn) {
       const staged = [], logs = [];
       const result = await fn({
+        async lockDispatchKey() { return true; },
         async getProposal() { return savedProposal; },
         async getLatestReview() { return savedReview; },
         async insertIntentOnce(intent) {
