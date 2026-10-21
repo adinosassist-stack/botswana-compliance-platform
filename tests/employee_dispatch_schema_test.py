@@ -57,6 +57,18 @@ class EmployeeDispatchSchemaTests(unittest.TestCase):
         self.assertEqual(self.db.execute("SELECT COUNT(*) FROM employee_dispatch_intents").fetchone()[0], 0)
         self.assertEqual(self.db.execute("SELECT COUNT(*) FROM employee_dispatch_audit").fetchone()[0], 0)
 
+    def test_cross_tenant_audit_attachment_rejected(self):
+        self.insert()
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.db.execute(
+                """INSERT INTO employee_dispatch_audit
+                (id,tenant_id,intent_id,actor_id,proposal_id,review_id,event_type)
+                VALUES (?,?,?,?,?,?,?)""",
+                ("audit-cross", "tenant-b", "tenant-akey-1", "actor-1",
+                 "proposal-a", "review-a", "employee.dispatch.admitted"))
+        self.assertEqual(self.db.execute(
+            "SELECT COUNT(*) FROM employee_dispatch_audit").fetchone()[0], 0)
+
     def test_intent_and_audit_commit_together(self):
         self.db.execute("BEGIN")
         self.insert()
