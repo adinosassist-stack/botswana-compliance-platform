@@ -23,3 +23,10 @@ test('People workflow loader supports keyboard navigation and checks visibility'
  assert.ok(loader.includes('addEventListener("keydown"'));
  assert.ok(loader.includes('people.hidden||!people.getClientRects().length'));
 });
+
+test('People workflow loader caches explicit access denials only',()=>{
+ assert.match(loader,/let accessDenied=false/);
+ assert.match(loader,/loading\|\|mounted\|\|accessDenied/);
+ assert.match(loader,/\[401,403\]\.includes\(Number\(error\?\.status\)\)/);
+ assert.doesNotMatch(loader,/accessDenied=true;return;\}\s*finally/);
+});
