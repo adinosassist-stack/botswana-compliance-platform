@@ -12,6 +12,7 @@ export async function handleEmployeeWorkflowRequest({ req, env, session, readJso
   const principal = { tenantId: session.tenant_id, actorId: session.user_id,
     permissions: rolePermitted ? ["people.workflow.manage"] : [] };
   const method = req.method;
+  if (method !== "GET" && method !== "POST") return new Response(JSON.stringify({error:"method_not_allowed"}),{status:405,headers:{"content-type":"application/json","cache-control":"no-store","allow":"GET, POST"}});
   let response;
   try {
     const handlers = createEmployeeWorkflowHandlers({
