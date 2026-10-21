@@ -12,8 +12,10 @@
     if(!visible)return;
     loading=true;
     try{
-      const response=await fetch("/api/employee-workflows",{credentials:"same-origin"});
-      if(!response.ok)return; // Do not expose an unusable form to unauthorized staff.
+      const client=window.BW?.api?.createClient?.();
+      if(!client)return;
+      try{await client.request("/api/employee-workflows");}
+      catch{return;} // Do not expose an unusable form to unauthorized staff.
       if(mounted||!people.isConnected)return;
       const host=document.createElement("section");
       host.id="employee-ai-workflow-builder";
@@ -21,7 +23,10 @@
       const {mountEmployeeWorkflowBuilder}=await import("/employee-workflow-panel.js");
       if(mounted||!people.isConnected)return;
       people.appendChild(host);
-      mountEmployeeWorkflowBuilder(host);
+      mountEmployeeWorkflowBuilder(host,{fetcher:async(path,options)=>{
+        try{await client.request(path,options);return {ok:true,status:200};}
+        catch(error){return {ok:false,status:Number(error?.status)||500};}
+      }});
       mounted=true;
     }catch{
       // Optional enhancement must never break the existing People page.
