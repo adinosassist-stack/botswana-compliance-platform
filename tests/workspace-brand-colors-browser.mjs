@@ -3,6 +3,7 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {injectOwnerCommandCentreAssets,externalizeWorkspaceHeadStyles} from '../cloudflare/src/production-entry.js';
+import {versionReleaseAssets} from '../cloudflare/src/asset-release-identity.js';
 const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES?path.join(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES,'playwright'):'playwright-core');
 const components=fs.readFileSync('public/js/components.js','utf8');
@@ -52,5 +53,40 @@ try{
   assert.equal(await style('brandBusy','cursor'),'progress','loading state remains distinguishable');
   await page.close();
  }
- console.log('PASS workspace brand colors: actual production CSS cascade, default/hover/focus, semantic states, 390px and 1280px');
+ // Exercise the actual lazy construction modules after the authenticated style chain.
+ for(const width of [390,1280]){
+  const page=await browser.newPage({viewport:{width,height:900},reducedMotion:'reduce'});
+  let propertyHtml=injectOwnerCommandCentreAssets('<!doctype html><html><head><link rel="stylesheet" href="/assets/workspace-inline-styles-20261001c.css"><link rel="stylesheet" href="/assets/people-workspace-20261003.css"></head><body><div id="appShell"><main id="mainContent"><section id="propertyintelligence" class="property-compact-v260" data-property-construction-mode="estimating"></section><section id="industryintel"></section></main></div></body></html>');
+  propertyHtml=versionReleaseAssets(propertyHtml,'a'.repeat(40),{includeWorkspaceFixes:true}).replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'');
+  await page.route('**/*',async route=>{
+   const url=new URL(route.request().url());
+   if(url.origin!=='http://workspace.test')return route.abort();
+   if(url.pathname==='/')return route.fulfill({contentType:'text/html',body:propertyHtml});
+   if(/^\/assets\/[a-z0-9-]+\.css$/.test(url.pathname)&&fs.existsSync('public'+url.pathname))return route.fulfill({contentType:'text/css',body:fs.readFileSync('public'+url.pathname,'utf8')});
+   return route.abort();
+  });
+  await page.goto('http://workspace.test/',{waitUntil:'networkidle'});
+  await page.addScriptTag({path:'public/js/property-construction-v311.js'});
+  await page.addScriptTag({path:'public/js/property-construction-workflow-v312.js'});
+  await page.waitForLoadState('networkidle');
+  const ai=page.locator('.construction-ai-v311');
+  assert.equal(await ai.evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(11, 102, 214)',`lazy estimate action blue at ${width}`);
+  const workflow=page.locator('.construction-workflow-action-v312:not(.secondary):not(.ghost)').first();
+  assert.equal(await workflow.evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(11, 102, 214)',`lazy workflow action blue at ${width}`);
+  assert.equal(await page.locator('#industryintel .construction-button-v311').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(11, 102, 214)',`regional coverage action blue at ${width}`);
+  assert.equal(await page.locator('#industryintel .africa-market-card-v311>span').first().evaluate(el=>getComputedStyle(el).color),'rgb(11, 102, 214)',`regional coverage label blue at ${width}`);
+  const secondary=page.locator('.construction-workflow-action-v312.secondary').first();
+  assert.equal(await secondary.evaluate(el=>getComputedStyle(el).color),'rgb(11, 102, 214)',`lazy secondary action blue at ${width}`);
+  assert.equal(await page.locator('#propertyintelligence .construction-eyebrow-v311').evaluate(el=>getComputedStyle(el).color),'rgb(11, 102, 214)',`construction eyebrow blue at ${width}`);
+  await ai.hover();
+  assert.equal(await ai.evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(9, 85, 183)',`lazy estimate hover blue at ${width}`);
+  await ai.focus();
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Shift+Tab');
+  assert.equal(await ai.evaluate(el=>el===document.activeElement),true,'keyboard focus returns to the estimate action');
+  assert.equal(await ai.evaluate(el=>getComputedStyle(el).outlineColor),'rgb(11, 102, 214)',`lazy estimate keyboard focus blue at ${width}`);
+  assert.equal(await page.locator('.construction-project-handoff-v312').isDisabled(),true,'unapproved handoff remains disabled');
+  await page.close();
+ }
+ console.log('PASS workspace brand colors: actual production CSS cascade, default/hover/focus, semantic states and real lazy construction modules, 390px and 1280px');
 }finally{await browser.close()}
