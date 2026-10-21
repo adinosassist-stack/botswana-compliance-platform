@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
+import {runInNewContext} from 'node:vm';
+import {mountEmployeeProposalReviewQueue} from '../public/employee-proposal-review-panel.js';
 const runtime=readFileSync(new URL('../public/js/workspace-runtime-20261001b.js',import.meta.url),'utf8');
 const panel=readFileSync(new URL('../public/employee-workflow-panel.js',import.meta.url),'utf8');
 test('workflow panel remains separately loadable without modifying canonical workspace runtime',()=>{
@@ -14,6 +16,57 @@ test('People dashboard retains progressive employee loading',()=>{
 
 const loader=readFileSync(new URL('../public/js/employee-workflow-people-loader.js',import.meta.url),'utf8');
 const entry=readFileSync(new URL('../cloudflare/src/production-entry.js',import.meta.url),'utf8');
+
+test('People review controls forward generation and decision requests through the authenticated client',async()=>{
+ const elements=[];
+ const doc={readyState:'complete',addEventListener(){},createElement(tag){
+  const node={tag,children:[],listeners:{},ownerDocument:doc,
+   setAttribute(){},append(...children){this.children.push(...children);},
+   replaceChildren(...children){this.children=children;},
+   addEventListener(name,listener){this.listeners[name]=listener;}};
+  elements.push(node);return node;
+ }};
+ const people={hidden:false,isConnected:true,hasAttribute(){return false;},getAttribute(){return null;},getClientRects(){return [1];},appendChild(){}};
+ doc.getElementById=id=>id==='peopleops'?people:null;
+ const requests=[];
+ let proposals=[];
+ const request=async(path,options)=>{
+  requests.push({path,options});
+  if(path==='/api/employee-workflows')return {ok:true,workflows:[]};
+  if(options?.method==='POST'){
+   const body=JSON.parse(options.body);
+   if(body.action==='generate')proposals=[{proposal_key:'p1',task_type:'onboarding_checklist',employee_id:'e1',due_date:'2026-10-21'}];
+   else proposals=[];
+   return {ok:true};
+  }
+  return {ok:true,proposals};
+ };
+ // Replace only the dynamic module boundary; execute the actual loader and review panel.
+ runInNewContext(loader.replaceAll('import(', 'loadModule('),{
+  document:doc,window:{BW:{api:{createClient:()=>({request})}},addEventListener(){}},
+  performance,console,queueMicrotask,
+  loadModule:async path=>path==='/employee-proposal-review-panel.js'
+   ?{mountEmployeeProposalReviewQueue}:{mountEmployeeWorkflowBuilder(){}}
+ });
+ const settle=()=>new Promise(resolve=>setImmediate(resolve));
+ await settle();
+ const click=async label=>{
+  const button=elements.findLast(node=>node.tag==='button'&&node.textContent===label);
+  assert.ok(button,`Missing ${label} button`);
+  button.listeners.click();await settle();
+ };
+ for(const label of ['Approve','Reject']){
+  await click('Generate review proposals');
+  assert.equal(requests.filter(r=>r.options?.method==='POST').at(-1)?.options.body,JSON.stringify({action:'generate'}));
+  await click(label);
+  const sent=requests.filter(r=>r.options?.method==='POST').at(-1);
+  assert.equal(sent.path,'/api/employee-workflow-reviews');
+  assert.deepEqual(JSON.parse(sent.options.body),{proposalKey:'p1',decision:label==='Approve'?'approved':'rejected'});
+  assert.equal(sent.options.credentials,'same-origin');
+  assert.equal(sent.options.headers['content-type'],'application/json');
+ }
+ assert.equal(requests.filter(r=>r.options?.method==='POST').length,4);
+});
 test('production entry injects isolated workflow loader and uses central API',()=>{
  assert.ok(entry.includes('employee-workflow-people-loader.js'));
  assert.ok(loader.includes('BW?.api?.createClient'));

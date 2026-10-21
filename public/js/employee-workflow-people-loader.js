@@ -37,8 +37,8 @@
         const {mountEmployeeProposalReviewQueue}=await import("/employee-proposal-review-panel.js");
         if(people.isConnected&&!people.hidden&&people.getClientRects().length){
           people.appendChild(reviewHost);
-          mountEmployeeProposalReviewQueue(reviewHost,{fetcher:async(path)=>{
-            try{return {ok:true,data:await client.request(path)};}
+          mountEmployeeProposalReviewQueue(reviewHost,{fetcher:async(path,options)=>{
+            try{return {ok:true,data:await client.request(path,options)};}
             catch(error){return {ok:false,status:Number(error?.status)||500};}
           }});
         }
