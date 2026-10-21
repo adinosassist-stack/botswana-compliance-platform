@@ -48,3 +48,15 @@ test("does not mutate workflow definitions or employee records", () => {
   previewEmployeeWorkflows({ ...base, workflows: [workflow] });
   assert.deepEqual({ ...base, workflows: [workflow] }, before);
 });
+
+test("proposal identities are stable, tenant-scoped and unique across workflow definitions", () => {
+  const first = previewEmployeeWorkflows({ ...base, workflows: [workflow] });
+  const second = previewEmployeeWorkflows({ ...base, workflows: [workflow] });
+  assert.equal(first.proposals[0].proposalKey, second.proposals[0].proposalKey);
+  const anotherWorkflow = { ...workflow, id: "renewals-2" };
+  const multiple = previewEmployeeWorkflows({ ...base, workflows: [workflow, anotherWorkflow] });
+  assert.equal(new Set(multiple.proposals.map(p => p.proposalKey)).size, 2);
+  const otherTenant = previewEmployeeWorkflows({ tenantId: "t2", today: base.today, employees: [{ id: "e1", tenantId: "t2", contractEndDate: "2026-11-01" }], workflows: [workflow] });
+  assert.notEqual(first.proposals[0].proposalKey, otherTenant.proposals[0].proposalKey);
+  assert.equal(first.proposals[0].requiresHumanReview, true);
+});
