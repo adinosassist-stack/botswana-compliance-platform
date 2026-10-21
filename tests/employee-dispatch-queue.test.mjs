@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { queueEmployeeDispatch } from "../server/employee-dispatch-queue.js";
 
 const identity = { tenantId: "t1", actorId: "a1", permissions: ["employee.workflow.dispatch"] };
-const proposal = { id: "p1", tenantId: "t1", action: "internal.task.create" };
+const proposal = { id: "p1", tenantId: "t1", authorId: "employee-author", action: "internal.task.create" };
 const review = { id: "r1", proposalId: "p1", tenantId: "t1", reviewerId: "manager", status: "approved" };
 const request = { identity, proposalId: "p1", action: "internal.task.create", idempotencyKey: "k1", featureEnabled: true, killSwitch: false, auditAvailable: true };
 
