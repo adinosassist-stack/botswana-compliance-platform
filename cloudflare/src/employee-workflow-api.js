@@ -10,13 +10,13 @@ export async function handleEmployeeWorkflowRequest({ req, env, session, readJso
   const rolePermitted = roleAllowed(session,"owner","manager");
   const principal = { tenantId: session.tenant_id, actorId: session.user_id,
     permissions: rolePermitted ? ["people.workflow.manage"] : [] };
-  const handlers = createEmployeeWorkflowHandlers({
-    store: createEmployeeWorkflowD1Store(env.DB),
-    resolvePrincipal: async () => principal
-  });
   const method = req.method;
   let response;
   try {
+    const handlers = createEmployeeWorkflowHandlers({
+      store: createEmployeeWorkflowD1Store(env?.DB),
+      resolvePrincipal: async () => principal
+    });
     if (method === "GET") response = await handlers.list({});
     else if (method === "POST") {
     let body;
