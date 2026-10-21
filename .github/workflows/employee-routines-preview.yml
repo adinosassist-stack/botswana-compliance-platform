@@ -3,7 +3,9 @@ on:
   pull_request:
     paths:
       - 'server/employee-routines-preview.js'
+      - 'server/employee-routines-service.js'
       - 'tests/employee-routines-preview.test.mjs'
+      - 'tests/employee-routines-service.test.mjs'
       - '.github/workflows/employee-routines-preview.yml'
   workflow_dispatch:
 permissions:
@@ -18,4 +20,4 @@ jobs:
         with:
           node-version: '22'
       - name: Employee routine preview tests
-        run: node --test tests/employee-routines-preview.test.mjs
+        run: node --test tests/employee-routines-preview.test.mjs tests/employee-routines-service.test.mjs
