@@ -13,12 +13,24 @@ test("cross-tenant enqueue rejects before touching storage",async()=>{
  await assert.rejects(createEmployeeProposalReviewD1Store(db).enqueue({tenantId:"t2",proposal}),/scope_mismatch/);
  assert.equal(called,false);
 });
-test("approval changes only pending scoped row",async()=>{
- let sql="",params=[];
- const db={prepare(s){sql=s;return {bind(...p){params=p;return {async run(){return {success:true,meta:{changes:1}}}}}}}};
+test("approval atomically updates pending row and appends audit record",async()=>{
+ let queries=[];
+ const db={prepare(sql){return {bind(...params){queries.push({sql,params});return {sql,params}}}},async batch(statements){
+  assert.equal(statements.length,2);
+  return [{success:true,meta:{changes:1}},{success:true,meta:{changes:1}}];
+ }};
  assert.equal(await createEmployeeProposalReviewD1Store(db).decide({tenantId:"t1",proposalKey:proposal.proposalKey,reviewerId:"manager",decision:"approved",reviewedAt:"2026-10-21T16:00:00Z"}),true);
- assert.match(sql,/WHERE tenant_id=\? AND proposal_key=\? AND status='proposed'/);
- assert.deepEqual(params.slice(0,3),["approved","manager","2026-10-21T16:00:00Z"]);
+ assert.match(queries[0].sql,/WHERE tenant_id=\? AND proposal_key=\? AND status='proposed'/);
+ assert.match(queries[1].sql,/INSERT INTO employee_ai_proposal_review_events/);
+ assert.deepEqual(queries[0].params.slice(0,3),["approved","manager","2026-10-21T16:00:00Z"]);
+});
+test("repeat decisions do not add audit rows",async()=>{
+ const db={prepare(sql){return {bind(){return {sql}}}},async batch(){return [{success:true,meta:{changes:0}},{success:true,meta:{changes:0}}]}};
+ assert.equal(await createEmployeeProposalReviewD1Store(db).decide({tenantId:"t1",proposalKey:"key",reviewerId:"manager",decision:"rejected",reviewedAt:"2026-10-21T16:00:00Z"}),false);
+});
+test("atomic batch is required before decision writes",async()=>{
+ const db={prepare(){throw Error("must not write")}};
+ await assert.rejects(createEmployeeProposalReviewD1Store(db).decide({tenantId:"t1",proposalKey:"key",reviewerId:"manager",decision:"approved",reviewedAt:"2026-10-21T16:00:00Z"}),/atomic_batch_unavailable/);
 });
 test("pending list cannot query across tenants",async()=>{
  let sql="",params=[];const db={prepare(s){sql=s;return {bind(...p){params=p;return {async all(){return {success:true,results:[]}}}}}}};
