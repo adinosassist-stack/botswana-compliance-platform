@@ -32,3 +32,15 @@ CREATE TABLE IF NOT EXISTS employee_ai_proposal_review_events (
 );
 CREATE INDEX IF NOT EXISTS idx_employee_ai_review_events_tenant_time
  ON employee_ai_proposal_review_events(tenant_id,reviewed_at DESC);
+
+-- Preserve decision history even if an application caller issues a mistaken mutation.
+CREATE TRIGGER IF NOT EXISTS trg_employee_ai_review_events_no_update
+BEFORE UPDATE ON employee_ai_proposal_review_events
+BEGIN
+ SELECT RAISE(ABORT,'review_audit_immutable');
+END;
+CREATE TRIGGER IF NOT EXISTS trg_employee_ai_review_events_no_delete
+BEFORE DELETE ON employee_ai_proposal_review_events
+BEGIN
+ SELECT RAISE(ABORT,'review_audit_immutable');
+END;
