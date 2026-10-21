@@ -5,6 +5,7 @@ on:
       - 'server/employee-routines-preview.js'
       - 'server/employee-routines-service.js'
       - 'server/employee-workflow-definitions.js'
+      - 'server/employee-workflow-review-gate.js'
       - 'server/employee-workflow-ownership-service.js'
       - 'server/employee-workflow-postgres-store.js'
       - 'server/employee-workflow-handlers.js'
@@ -19,6 +20,7 @@ on:
       - 'tests/employee-routines-preview.test.mjs'
       - 'tests/employee-routines-service.test.mjs'
       - 'tests/employee-workflow-definitions.test.mjs'
+      - 'tests/employee-workflow-review-gate.test.mjs'
       - 'tests/employee-workflow-ownership-service.test.mjs'
       - 'tests/employee-workflow-postgres-store.test.mjs'
       - 'tests/employee-workflow-migration.test.mjs'
@@ -43,4 +45,4 @@ jobs:
         with:
           node-version: '22'
       - name: Employee routine preview tests
-        run: node --test tests/employee-routines-preview.test.mjs tests/employee-routines-service.test.mjs tests/employee-workflow-definitions.test.mjs tests/employee-workflow-builder.test.mjs tests/employee-workflow-ownership-service.test.mjs tests/employee-workflow-postgres-store.test.mjs tests/employee-workflow-migration.test.mjs tests/employee-workflow-handlers.test.mjs tests/employee-workflow-d1-store.test.mjs tests/employee-workflow-cloudflare-api.test.mjs tests/employee-workflow-worker-wiring.test.mjs tests/employee-workflow-people-mount.test.mjs tests/employee-workflow-d1-migration-execution.test.mjs
+        run: node --test tests/employee-routines-preview.test.mjs tests/employee-routines-service.test.mjs tests/employee-workflow-definitions.test.mjs tests/employee-workflow-review-gate.test.mjs tests/employee-workflow-builder.test.mjs tests/employee-workflow-ownership-service.test.mjs tests/employee-workflow-postgres-store.test.mjs tests/employee-workflow-migration.test.mjs tests/employee-workflow-handlers.test.mjs tests/employee-workflow-d1-store.test.mjs tests/employee-workflow-cloudflare-api.test.mjs tests/employee-workflow-worker-wiring.test.mjs tests/employee-workflow-people-mount.test.mjs tests/employee-workflow-d1-migration-execution.test.mjs
