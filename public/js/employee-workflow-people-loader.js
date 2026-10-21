@@ -5,9 +5,10 @@
   let mounted=false;
   async function mountWhenReady(){
     if(loading||mounted)return;
-    const people=document.getElementById("peopleops")||document.getElementById("employees");
+    const candidates=[document.getElementById("peopleops"),document.getElementById("employees")].filter(Boolean);
+    const people=candidates.find(node=>!node.hidden&&node.getClientRects().length>0);
     if(!people||people.hasAttribute("data-lazy-view")||!people.isConnected)return;
-    const visible=people.classList.contains("active")||people.getAttribute("aria-hidden")==="false"||(!people.hidden&&people.getClientRects().length>0);
+    const visible=!people.hidden&&people.getAttribute("aria-hidden")!=="true"&&people.getClientRects().length>0;
     if(!visible)return;
     loading=true;
     try{
