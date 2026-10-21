@@ -19,6 +19,7 @@ function store({ auditFails = false, savedProposal = proposal, savedReview = rev
         async getLatestReview() { return savedReview; },
         async isAuthorizedReviewer() { return true; },
         async isCurrentApprovedReview() { return true; },
+        async isCurrentProposalRevision() { return true; },
         async insertIntentOnce(intent) {
           const key = intent.tenantId + ":" + intent.idempotencyKey;
           const previous = intents.get(key) ?? staged.find(x => x.key === key)?.intent;
@@ -152,6 +153,26 @@ test("missing approval freshness capability fails closed", async () => {
   const original = s.transaction;
   s.transaction = fn => original.call(s, tx => {
     delete tx.isCurrentApprovedReview;
+    return fn(tx);
+  });
+  assert.equal((await queueEmployeeDispatch({ ...request, store: s })).reason, "governance_unavailable");
+  assert.equal(s.intents.size, 0);
+});
+
+test("changed proposal revision cannot reuse old approval", async () => {
+  const s = store();
+  const original = s.transaction;
+  s.transaction = fn => original.call(s, tx => fn({
+    ...tx, isCurrentProposalRevision: async () => false
+  }));
+  assert.equal((await queueEmployeeDispatch({ ...request, store: s })).reason, "proposal_revision_stale");
+  assert.equal(s.intents.size, 0);
+});
+test("missing proposal revision verification fails closed", async () => {
+  const s = store();
+  const original = s.transaction;
+  s.transaction = fn => original.call(s, tx => {
+    delete tx.isCurrentProposalRevision;
     return fn(tx);
   });
   assert.equal((await queueEmployeeDispatch({ ...request, store: s })).reason, "governance_unavailable");
