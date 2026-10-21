@@ -30,3 +30,9 @@ test('People workflow loader caches explicit access denials only',()=>{
  assert.match(loader,/\[401,403\]\.includes\(Number\(error\?\.status\)\)/);
  assert.doesNotMatch(loader,/accessDenied=true;return;\}\s*finally/);
 });
+
+test('People workflow loader subscribes to the actual workspace navigation event',()=>{
+ assert.match(runtime,/dispatchEvent\?\.\(new CustomEvent\("thebe:workspace-view-change"/);
+ assert.match(loader,/window\.addEventListener\("thebe:workspace-view-change",mountWhenReady\)/);
+ assert.doesNotMatch(loader,/thebe:workspace-view-changed/);
+});
