@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { queueEmployeeDispatch } from "../server/employee-dispatch-queue.js";
 
 const identity = { tenantId: "t1", actorId: "a1", permissions: ["employee.workflow.dispatch"] };
-const proposal = { id: "p1", tenantId: "t1", action: "internal.task.create" };
+const proposal = { id: "p1", tenantId: "t1", authorId: "employee-author", action: "internal.task.create" };
 const review = { id: "r1", proposalId: "p1", tenantId: "t1", reviewerId: "manager", status: "approved" };
 const request = { identity, proposalId: "p1", action: "internal.task.create", idempotencyKey: "k1", featureEnabled: true, killSwitch: false, auditAvailable: true };
 
@@ -58,6 +58,22 @@ test("kill switch and disabled feature block queue", async () => {
     assert.equal((await queueEmployeeDispatch({ ...request, ...override, store: s })).reason, "governance_unavailable");
   }
   assert.equal(s.intents.size, 0);
+});
+test("ambiguous governance flags are denied before opening a transaction", async () => {
+  for (const flag of ["featureEnabled", "killSwitch", "auditAvailable"]) {
+    for (const value of [undefined, null, 0, 1, "", "false", "true", {}, []]) {
+      const s = store();
+      let transactions = 0;
+      const original = s.transaction;
+      s.transaction = fn => { transactions++; return original.call(s, fn); };
+      const result = await queueEmployeeDispatch({ ...request, [flag]: value, store: s });
+      assert.equal(result.reason, "governance_unavailable",
+        `${flag} accepted ${typeof value} ${JSON.stringify(value)}`);
+      assert.equal(transactions, 0);
+      assert.equal(s.intents.size, 0);
+      assert.equal(s.audit.length, 0);
+    }
+  }
 });
 
 test("missing transaction lock fails closed without creating an intent", async () => {
@@ -178,3 +194,42 @@ test("missing proposal revision verification fails closed", async () => {
   assert.equal((await queueEmployeeDispatch({ ...request, store: s })).reason, "governance_unavailable");
   assert.equal(s.intents.size, 0);
 });
+
+
+test("queue denies author self-approval even when dispatch actor differs", async () => {
+  const s = store({ savedReview: { ...review, reviewerId: proposal.authorId } });
+  const result = await queueEmployeeDispatch({ ...request, store: s });
+  assert.equal(result.queued, false);
+  assert.equal(result.reason, "approval_required");
+});
+
+
+test("queue fails closed when original proposal author is missing", async () => {
+  const s = store({ savedProposal: { ...proposal, authorId: undefined } });
+  const result = await queueEmployeeDispatch({ ...request, store: s });
+  assert.equal(result.queued, false);
+  assert.equal(result.reason, "approval_required");
+  assert.equal(s.intents.size, 0);
+  assert.equal(s.audit.length, 0);
+});
+
+for (const [capability, reason] of [
+  ["isAuthorizedReviewer", "approval_required"],
+  ["isCurrentApprovedReview", "approval_required"],
+  ["isCurrentProposalRevision", "proposal_revision_stale"]
+]) {
+  test(`${capability} must return boolean true to admit a dispatch`, async () => {
+    for (const value of [false, undefined, null, 0, "", "false", "true", 1, {}, []]) {
+      const s = store();
+      const original = s.transaction;
+      s.transaction = fn => original.call(s, tx => fn({
+        ...tx, [capability]: async () => value
+      }));
+      const result = await queueEmployeeDispatch({ ...request, store: s });
+      assert.equal(result.queued, false, `${capability} accepted ${typeof value} ${JSON.stringify(value)}`);
+      assert.equal(result.reason, reason);
+      assert.equal(s.intents.size, 0);
+      assert.equal(s.audit.length, 0);
+    }
+  });
+}

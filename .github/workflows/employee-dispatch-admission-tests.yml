@@ -12,6 +12,7 @@ on:
       - 'tests/employee_dispatch_schema_test.py'
       - 'tests/employee_dispatch_concurrency_test.py'
       - 'tests/employee_dispatch_sqlite_reference_test.py'
+      - 'tests/employee_dispatch_leases_test.py'
       - 'db/drafts/employee_dispatch_sqlite_reference.py'
       - 'db/drafts/employee-dispatch-outbox.sql'
       - '.github/workflows/employee-dispatch-admission-tests.yml'
@@ -37,3 +38,5 @@ jobs:
         run: python3 tests/employee_dispatch_concurrency_test.py
       - name: SQLite reference adapter integration tests
         run: python3 tests/employee_dispatch_sqlite_reference_test.py
+      - name: Durable worker lease and bounded retry tests
+        run: python3 tests/employee_dispatch_leases_test.py
