@@ -10,7 +10,18 @@ export async function handleEmployeeProposalReviewRequest({req,env,session,readJ
  if(typeof env?.DB?.prepare!=="function")return respond({error:"storage_unavailable"},503);
  const store=createEmployeeProposalReviewD1Store(env.DB);
  try{
-  if(req.method==="GET")return respond({ok:true,proposals:await store.listPending({tenantId:session.tenant_id})});
+  if(req.method==="GET"){
+   const params=new URL(req.url||"https://internal.invalid/api/employee-workflow-reviews").searchParams;
+   const view=params.get("view")||"pending";
+   if(!["pending","approved"].includes(view)||String(params.get("after")||"").length>2048)return respond({error:"invalid_review_view"},400);
+   const taskPreparationEnabled=env.THEBE_EMPLOYEE_TASK_PREPARATION_ENABLED==="true";
+   if(view==="approved"){
+    if(!taskPreparationEnabled)return respond({error:"employee_task_preparation_disabled"},409);
+    const page=await store.listApprovedProvenance({tenantId:session.tenant_id,after:params.get("after")||""});
+    return respond({ok:true,...page,taskPreparationEnabled});
+   }
+   return respond({ok:true,proposals:await store.listPending({tenantId:session.tenant_id}),taskPreparationEnabled});
+  }
   let body;
   try{body=await readJson(req,{maxBytes:4096});}catch{return respond({error:"invalid_json"},400);}
   if(body?.action==="prepare_task"){

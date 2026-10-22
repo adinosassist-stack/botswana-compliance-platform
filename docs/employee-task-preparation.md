@@ -53,3 +53,26 @@ history remain subject to the normal owner review/cancellation flow.
 Verification includes real SQLite API tests and actual local workerd D1 tests
 for concurrent retries, stale-source races, rollback and absence of execution.
 No live tenant data or production execution is involved in those tests.
+
+## People workspace controls
+
+The pending-review response advertises `taskPreparationEnabled` only from the
+server flag. When it is true, the People review panel offers **Approved proposals**.
+Opening this view requests `GET /api/employee-workflow-reviews?view=approved`.
+It lists only hash-verified, currently eligible provenance, with 25 rows per page.
+The tenant comes from the verified session. An opaque `after` cursor orders by
+proposal key; Previous, Next and Refresh preserve page navigation. Listing is a
+read snapshot, never preparation or execution authority.
+
+Only when approved proposals are opened and present does the panel read the
+existing bounded-task status endpoint to discover an active delegation. It adds
+no requests to initial People mounting. Without one unambiguous active grant,
+it explains that owner authorization is needed and offers no preparation button.
+This view neither creates nor changes a grant.
+
+**Prepare task for owner review** sends only action, proposal key and delegation
+ID. All controls serialize requests. The panel describes prepared, approved,
+previously executed and cancelled responses separately, and leaves conflicts
+retryable after refreshing. It never invokes approval, permit or execution APIs.
+Closing the panel ignores late responses. With an older backend or the flag off,
+the new controls stay hidden and the existing pending-review flow remains usable.

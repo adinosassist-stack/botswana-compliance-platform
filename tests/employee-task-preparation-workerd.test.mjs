@@ -30,6 +30,8 @@ test('actual D1 prepares, replays and rolls back the guarded task batch without 
   await store.decide({tenantId:'t1',proposalKey,reviewerId:'manager',decision:'approved',reviewedAt:'2026-10-22T20:00:00.000Z'});return proposalKey;
  };
  const firstKey=await seed(workflow);
+ assert.equal((await store.listApprovedProvenance({tenantId:'t1'})).proposals[0].proposalKey,firstKey);
+ assert.equal((await store.listApprovedProvenance({tenantId:'foreign-tenant'})).proposals.length,0);
  const args={env:{DB:db,THEBE_EMPLOYEE_TASK_PREPARATION_ENABLED:'true'},auth:{tenant_id:'t1',user_id:'author',role:'owner'},delegationId:'d1',proposalKey:firstKey};
  const concurrent=await Promise.all(Array.from({length:4},()=>prepareEmployeeProposalTask(args)));
  assert.deepEqual(concurrent.map(response=>response.status).sort(),[200,200,200,201]);
@@ -40,6 +42,7 @@ test('actual D1 prepares, replays and rolls back the guarded task batch without 
  await db.prepare('UPDATE employee_ai_workflows SET definition=?').bind(JSON.stringify(changed)).run();
  assert.equal((await prepareEmployeeProposalTask(args)).status,409);
  const nextKey=await seed(changed);const next={...args,proposalKey:nextKey};
+ assert.deepEqual((await store.listApprovedProvenance({tenantId:'t1'})).proposals.map(source=>source.proposalKey),[nextKey]);
  await db.prepare("CREATE TRIGGER fail_task_audit BEFORE INSERT ON audit_events BEGIN SELECT RAISE(ABORT,'synthetic_task_audit_failure'); END").run();
  assert.equal((await prepareEmployeeProposalTask(next)).status,500);
  for(const table of ['agent_action_intents','agent_task_requests','audit_events'])assert.equal((await db.prepare('SELECT COUNT(*) n FROM '+table).first()).n,1,table+' rolls back');
