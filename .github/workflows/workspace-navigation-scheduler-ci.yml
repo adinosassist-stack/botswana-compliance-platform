@@ -1,0 +1,32 @@
+name: Workspace navigation scheduler Chromium
+
+on:
+  pull_request:
+    paths:
+      - "tests/workspace-navigation-scheduler-browser.mjs"
+      - "public/js/workspace-runtime-20261001b.js"
+      - ".github/workflows/workspace-navigation-scheduler-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "tests/workspace-navigation-scheduler-browser.mjs"
+      - "public/js/workspace-runtime-20261001b.js"
+      - ".github/workflows/workspace-navigation-scheduler-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  chromium-navigation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+      - run: node --check tests/workspace-navigation-scheduler-browser.mjs
+      - run: node tests/workspace-navigation-scheduler-browser.mjs
