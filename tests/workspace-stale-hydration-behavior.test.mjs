@@ -14,7 +14,7 @@ function harness() {
   const target = {
     dataset: { lazyView: "1", lazyNavigationEpoch: "1" },
     setAttribute(k,v) { events.push(["attr",k,v]); },
-    removeAttribute(k) { events.push(["remove",k]); }
+    removeAttribute(k) { events.push(["remove",k]); if(k==="data-lazy-view")delete this.dataset.lazyView; if(k==="data-lazy-view-id")delete this.dataset.lazyViewId; }
   };
   let resolveShard;
   const shard = new Promise(resolve => { resolveShard = resolve; });
