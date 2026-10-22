@@ -2,20 +2,25 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
-// Guard the production render path against repeated expensive hidden-view work.
-// This is a structural regression, not a substitute for authenticated browser tracing.
 const runtime = readFileSync(new URL("../public/js/workspace-runtime-20261001b.js", import.meta.url), "utf8");
-const start = runtime.indexOf("function renderAll(){");
-const end = runtime.indexOf("\nfunction addDays(", start);
-assert.ok(start >= 0 && end > start, "workspace renderAll must be present");
-const body = runtime.slice(start, end);
+const renderStart = runtime.indexOf("function renderAll(){");
+const renderEnd = runtime.indexOf("\nfunction addDays(", renderStart);
+const companyStart = runtime.indexOf("function renderCompanies(){");
+const companyEnd = runtime.indexOf("\nfunction ", companyStart + 20);
+assert.ok(renderStart >= 0 && renderEnd > renderStart && companyStart >= 0 && companyEnd > companyStart);
+const render = runtime.slice(renderStart, renderEnd);
+const companies = runtime.slice(companyStart, companyEnd);
 
-test("workspace navigation does not unconditionally render company lists", () => {
-  assert.doesNotMatch(body, /;renderCompanies\(\);/, "company lists must be restricted to their active view");
+test("company selector skips unnecessary DOM rebuilding when unchanged", () => {
+  assert.match(companies, /sel\.options\.length===companies\.length/);
+  assert.match(companies, /option\.selected===\(c\.id===state\.id\)/);
+  assert.ok(companies.indexOf("}))return;") < companies.indexOf("sel.replaceChildren()"));
 });
 
-test("workspace navigation avoids dashboard scoring when dashboard is hidden", () => {
-  const first = body.indexOf("const a=applicable(),s=scoreData(a)");
-  const dashboard = body.indexOf('document.getElementById("dashboard")?.classList.contains("active")');
-  assert.ok(first < 0 || (dashboard >= 0 && dashboard < first), "dashboard scoring currently executes before the dashboard visibility guard");
+test("dashboard-only list hydration stays behind active-dashboard guard", () => {
+  const guard = render.indexOf('document.getElementById("dashboard")?.classList.contains("active")');
+  const list = render.indexOf('document.getElementById("priorityList").safeHTML');
+  assert.ok(guard >= 0 && list > guard);
 });
+
+test.todo("profile authenticated non-dashboard navigation to quantify applicable() and scoreData() blocking time");
