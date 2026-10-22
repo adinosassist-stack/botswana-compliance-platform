@@ -52,7 +52,7 @@ try{
       assert(original,'Workspace dock has measurable geometry');
       const titleBox=await title.boundingBox();
       assert(titleBox,'Dock drag handle is measurable');
-      const start={x:titleBox.x+titleBox.width/2,y:titleBox.y+titleBox.height/2};
+      const start={x:titleBox.x+Math.min(28,titleBox.width/4),y:titleBox.y+titleBox.height/2};
       await page.mouse.move(start.x,start.y);
       await page.mouse.down();
       await page.mouse.move(start.x-110,start.y+65,{steps:8});
