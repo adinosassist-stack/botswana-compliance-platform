@@ -1,4 +1,22 @@
 import {buildEmployeeProposalProvenance} from '../../server/employee-proposal-provenance.js';
+// Shared read/write eligibility predicate; callers bind tenant and proposal key.
+export const APPROVED_EMPLOYEE_PROVENANCE_SQL=`SELECT p.*,r.reviewed_by reviewer_id,r.reviewed_at
+    FROM employee_ai_proposal_provenance p
+    JOIN employee_ai_proposal_reviews r ON r.tenant_id=p.tenant_id AND r.proposal_key=p.proposal_key
+    JOIN employee_ai_proposal_review_events h ON h.tenant_id=r.tenant_id AND h.proposal_key=r.proposal_key
+    JOIN employee_ai_workflows w ON w.tenant_id=p.tenant_id AND w.owner_id=p.author_id AND w.workflow_id=p.workflow_id
+    JOIN memberships reviewer ON reviewer.tenant_id=p.tenant_id AND reviewer.user_id=r.reviewed_by
+    JOIN memberships author ON author.tenant_id=p.tenant_id AND author.user_id=p.author_id
+    JOIN employees e ON e.tenant_id=p.tenant_id AND e.id=r.employee_id
+    WHERE p.tenant_id=? AND p.proposal_key=?
+     AND r.status='approved' AND h.decision='approved' AND h.reviewer_id=r.reviewed_by AND h.reviewed_at=r.reviewed_at
+     AND r.reviewed_by<>p.author_id AND reviewer.status='active' AND reviewer.role IN ('owner','manager')
+     AND author.status='active' AND author.role IN ('owner','manager')
+     AND w.definition=p.workflow_definition AND r.workflow_id=p.workflow_id
+     AND r.workflow_id=json_extract(p.proposal_json,'$.workflowId')
+     AND r.employee_id=json_extract(p.proposal_json,'$.employeeId')
+     AND r.task_type=json_extract(p.proposal_json,'$.type') AND r.due_date=json_extract(p.proposal_json,'$.dueDate')
+     AND r.task_type='onboarding_checklist' AND e.start_date=r.due_date AND lower(trim(coalesce(e.status,'')))='active'`;
 /** Tenant-scoped D1 review queue adapter. All writes require authenticated service callers. */
 export function createEmployeeProposalReviewD1Store(db){
  if(!db||typeof db.prepare!=="function")throw new TypeError("invalid_d1");
@@ -42,23 +60,7 @@ export function createEmployeeProposalReviewD1Store(db){
   // these predicates atomically with effect creation and fenced completion.
   async loadApprovedProvenance({tenantId,proposalKey}){
    if(!scope(tenantId)||!scope(proposalKey)||proposalKey.length>2048)throw new TypeError('invalid_provenance_scope');
-   const row=await db.prepare(`SELECT p.*,r.reviewed_by reviewer_id,r.reviewed_at
-    FROM employee_ai_proposal_provenance p
-    JOIN employee_ai_proposal_reviews r ON r.tenant_id=p.tenant_id AND r.proposal_key=p.proposal_key
-    JOIN employee_ai_proposal_review_events h ON h.tenant_id=r.tenant_id AND h.proposal_key=r.proposal_key
-    JOIN employee_ai_workflows w ON w.tenant_id=p.tenant_id AND w.owner_id=p.author_id AND w.workflow_id=p.workflow_id
-    JOIN memberships reviewer ON reviewer.tenant_id=p.tenant_id AND reviewer.user_id=r.reviewed_by
-    JOIN memberships author ON author.tenant_id=p.tenant_id AND author.user_id=p.author_id
-    JOIN employees e ON e.tenant_id=p.tenant_id AND e.id=r.employee_id
-    WHERE p.tenant_id=? AND p.proposal_key=?
-     AND r.status='approved' AND h.decision='approved' AND h.reviewer_id=r.reviewed_by AND h.reviewed_at=r.reviewed_at
-     AND r.reviewed_by<>p.author_id AND reviewer.status='active' AND reviewer.role IN ('owner','manager')
-     AND author.status='active' AND author.role IN ('owner','manager')
-     AND w.definition=p.workflow_definition AND r.workflow_id=p.workflow_id
-     AND r.workflow_id=json_extract(p.proposal_json,'$.workflowId')
-     AND r.employee_id=json_extract(p.proposal_json,'$.employeeId')
-     AND r.task_type=json_extract(p.proposal_json,'$.type') AND r.due_date=json_extract(p.proposal_json,'$.dueDate')
-     AND r.task_type='onboarding_checklist' AND e.start_date=r.due_date AND lower(trim(coalesce(e.status,'')))='active'
+   const row=await db.prepare(`${APPROVED_EMPLOYEE_PROVENANCE_SQL}
     LIMIT 1`).bind(tenantId,proposalKey).first();
    if(!row)return null;
    try{

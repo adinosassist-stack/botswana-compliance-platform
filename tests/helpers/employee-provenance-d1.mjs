@@ -20,12 +20,14 @@ export function fixture(){
  const db={
   beforeBatch:null,
   prepare(statement){
-   return {bind(...parameters){return {
+   const prepared={bind(...parameters){return {
     statement,parameters,
     async run(){const r=sql.prepare(statement).run(...parameters);return {success:true,meta:{changes:Number(r.changes)}}},
     async first(){const r=sql.prepare(statement).get(...parameters);return r?{...r}:null},
     async all(){return {success:true,results:sql.prepare(statement).all(...parameters).map(r=>({...r}))}}
-   }}}
+   }}};
+   for(const method of ['first','all','run'])prepared[method]=(...args)=>prepared.bind()[method](...args);
+   return prepared;
   },
   async batch(statements){
    if(db.beforeBatch){const hook=db.beforeBatch;db.beforeBatch=null;hook(sql)}

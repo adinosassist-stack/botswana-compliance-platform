@@ -1,3 +1,4 @@
+import {prepareEmployeeProposalTask} from "./agentic-task-execution.js";
 import {createEmployeeProposalReviewD1Store} from "./employee-proposal-review-d1-store.js";
 import {generateEmployeeWorkflowReviews} from "./employee-workflow-review-generation.js";
 /** Isolated authenticated review API adapter; must be mounted behind session validation. */
@@ -12,6 +13,10 @@ export async function handleEmployeeProposalReviewRequest({req,env,session,readJ
   if(req.method==="GET")return respond({ok:true,proposals:await store.listPending({tenantId:session.tenant_id})});
   let body;
   try{body=await readJson(req,{maxBytes:4096});}catch{return respond({error:"invalid_json"},400);}
+  if(body?.action==="prepare_task"){
+   if(Object.keys(body).some(key=>!["action","proposalKey","delegationId"].includes(key)))return respond({error:"invalid_employee_task_request"},400);
+   return await prepareEmployeeProposalTask({env,auth:session,proposalKey:body.proposalKey,delegationId:body.delegationId});
+  }
   if(body?.action==="generate"){
    if(Object.keys(body).some(key=>key!=="action"))return respond({error:"invalid_generation_request"},400);
    const today=new Date().toISOString().slice(0,10);
