@@ -14,6 +14,10 @@ on:
       - 'tests/helpers/employee-provenance-d1.mjs'
       - 'cloudflare/src/employee-proposal-review-d1-store.js'
       - 'cloudflare/src/employee-proposal-review-api.js'
+      - 'cloudflare/src/agentic-task-execution.js'
+      - 'tests/employee-task-preparation.test.mjs'
+      - 'tests/employee-task-preparation-workerd.test.mjs'
+      - 'docs/employee-task-preparation.md'
       - 'cloudflare/src/employee-workflow-review-generation.js'
       - 'tests/employee-workflow-review-generation.test.mjs'
       - 'tests/employee-proposal-review-api.test.mjs'
@@ -69,3 +73,5 @@ jobs:
         run: node --test tests/employee-proposal-provenance.test.mjs tests/employee-proposal-provenance-d1.test.mjs
       - name: Actual local workerd D1 batch contract
         run: node --test tests/employee-proposal-provenance-workerd.test.mjs
+      - name: Employee proposal task preparation and actual D1 atomicity
+        run: node --test tests/employee-task-preparation.test.mjs tests/employee-task-preparation-workerd.test.mjs
