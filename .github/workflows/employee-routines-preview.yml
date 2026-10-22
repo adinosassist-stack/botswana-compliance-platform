@@ -16,6 +16,9 @@ on:
       - 'cloudflare/src/employee-proposal-review-api.js'
       - 'cloudflare/src/agentic-task-execution.js'
       - 'tests/employee-task-preparation.test.mjs'
+      - 'tests/employee-approved-proposals.test.mjs'
+      - 'tests/employee-task-preparation-panel.test.mjs'
+      - 'tests/employee-task-preparation-browser.mjs'
       - 'tests/employee-task-preparation-workerd.test.mjs'
       - 'docs/employee-task-preparation.md'
       - 'cloudflare/src/employee-workflow-review-generation.js'
@@ -75,3 +78,11 @@ jobs:
         run: node --test tests/employee-proposal-provenance-workerd.test.mjs
       - name: Employee proposal task preparation and actual D1 atomicity
         run: node --test tests/employee-task-preparation.test.mjs tests/employee-task-preparation-workerd.test.mjs
+      - name: Approved proposal list and panel interaction tests
+        run: node --test tests/employee-approved-proposals.test.mjs tests/employee-task-preparation-panel.test.mjs
+      - name: Install pinned browser driver
+        run: npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+      - name: Employee task preparation mobile and desktop browser contract
+        env:
+          CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome
+        run: node tests/employee-task-preparation-browser.mjs

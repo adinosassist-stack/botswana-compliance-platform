@@ -1,6 +1,6 @@
 import {buildEmployeeProposalProvenance} from '../../server/employee-proposal-provenance.js';
 // Shared read/write eligibility predicate; callers bind tenant and proposal key.
-export const APPROVED_EMPLOYEE_PROVENANCE_SQL=`SELECT p.*,r.reviewed_by reviewer_id,r.reviewed_at
+const APPROVED_EMPLOYEE_PROVENANCE_TENANT_SQL=`SELECT p.*,r.reviewed_by reviewer_id,r.reviewed_at
     FROM employee_ai_proposal_provenance p
     JOIN employee_ai_proposal_reviews r ON r.tenant_id=p.tenant_id AND r.proposal_key=p.proposal_key
     JOIN employee_ai_proposal_review_events h ON h.tenant_id=r.tenant_id AND h.proposal_key=r.proposal_key
@@ -8,7 +8,7 @@ export const APPROVED_EMPLOYEE_PROVENANCE_SQL=`SELECT p.*,r.reviewed_by reviewer
     JOIN memberships reviewer ON reviewer.tenant_id=p.tenant_id AND reviewer.user_id=r.reviewed_by
     JOIN memberships author ON author.tenant_id=p.tenant_id AND author.user_id=p.author_id
     JOIN employees e ON e.tenant_id=p.tenant_id AND e.id=r.employee_id
-    WHERE p.tenant_id=? AND p.proposal_key=?
+    WHERE p.tenant_id=?
      AND r.status='approved' AND h.decision='approved' AND h.reviewer_id=r.reviewed_by AND h.reviewed_at=r.reviewed_at
      AND r.reviewed_by<>p.author_id AND reviewer.status='active' AND reviewer.role IN ('owner','manager')
      AND author.status='active' AND author.role IN ('owner','manager')
@@ -17,6 +17,21 @@ export const APPROVED_EMPLOYEE_PROVENANCE_SQL=`SELECT p.*,r.reviewed_by reviewer
      AND r.employee_id=json_extract(p.proposal_json,'$.employeeId')
      AND r.task_type=json_extract(p.proposal_json,'$.type') AND r.due_date=json_extract(p.proposal_json,'$.dueDate')
      AND r.task_type='onboarding_checklist' AND e.start_date=r.due_date AND lower(trim(coalesce(e.status,'')))='active'`;
+export const APPROVED_EMPLOYEE_PROVENANCE_SQL=`${APPROVED_EMPLOYEE_PROVENANCE_TENANT_SQL} AND p.proposal_key=?`;
+
+// Recompute source and payload hashes for both individual reads and list rows.
+async function verifyApprovedProvenance(row,tenantId,proposalKey){
+ try{
+  const payload=JSON.parse(row.proposal_json);
+  const originalKey=JSON.stringify([tenantId,payload.workflowId,payload.employeeId,payload.type,payload.dueDate]);
+  const verified=await buildEmployeeProposalProvenance({tenantId,authorId:row.author_id,sourceDefinition:row.workflow_definition,
+   proposal:{...payload,proposalKey:originalKey,status:'proposed',requiresHumanReview:true}});
+  if(verified.proposalKey!==proposalKey||verified.workflowRevision!==row.workflow_revision||verified.proposalRevision!==row.proposal_revision||verified.payloadJson!==row.proposal_json)return null;
+  return Object.freeze({proposalKey,authorId:row.author_id,workflowId:row.workflow_id,workflowRevision:row.workflow_revision,proposalRevision:row.proposal_revision,
+   reviewerId:row.reviewer_id,reviewedAt:row.reviewed_at,payload:Object.freeze(payload)});
+ }catch{return null}
+}
+
 /** Tenant-scoped D1 review queue adapter. All writes require authenticated service callers. */
 export function createEmployeeProposalReviewD1Store(db){
  if(!db||typeof db.prepare!=="function")throw new TypeError("invalid_d1");
@@ -63,15 +78,19 @@ export function createEmployeeProposalReviewD1Store(db){
    const row=await db.prepare(`${APPROVED_EMPLOYEE_PROVENANCE_SQL}
     LIMIT 1`).bind(tenantId,proposalKey).first();
    if(!row)return null;
-   try{
-    const payload=JSON.parse(row.proposal_json);
-    const originalKey=JSON.stringify([tenantId,payload.workflowId,payload.employeeId,payload.type,payload.dueDate]);
-    const verified=await buildEmployeeProposalProvenance({tenantId,authorId:row.author_id,sourceDefinition:row.workflow_definition,
-     proposal:{...payload,proposalKey:originalKey,status:'proposed',requiresHumanReview:true}});
-    if(verified.proposalKey!==proposalKey||verified.workflowRevision!==row.workflow_revision||verified.proposalRevision!==row.proposal_revision||verified.payloadJson!==row.proposal_json)return null;
-    return Object.freeze({proposalKey,authorId:row.author_id,workflowId:row.workflow_id,workflowRevision:row.workflow_revision,proposalRevision:row.proposal_revision,
-     reviewerId:row.reviewer_id,reviewedAt:row.reviewed_at,payload:Object.freeze(payload)});
-   }catch{return null}
+   return verifyApprovedProvenance(row,tenantId,proposalKey);
+  },
+  async listApprovedProvenance({tenantId,after=""}){
+   if(!scope(tenantId)||typeof after!=="string"||after.length>2048)throw new TypeError("invalid_provenance_scope");
+   const result=await db.prepare(`${APPROVED_EMPLOYEE_PROVENANCE_TENANT_SQL}
+    AND p.proposal_key>? ORDER BY p.proposal_key ASC LIMIT 26`).bind(tenantId,after).all();
+   if(result?.success!==true||!Array.isArray(result.results))throw new Error("storage_unavailable");
+   const rows=result.results.slice(0,25),proposals=[];
+   for(const row of rows){
+    const verified=await verifyApprovedProvenance(row,tenantId,row.proposal_key);
+    if(verified)proposals.push(verified);
+   }
+   return {proposals,nextCursor:result.results.length>25?rows.at(-1).proposal_key:null};
   },
   async enqueue({tenantId,proposal}){
    if(!scope(tenantId)||!proposal||typeof proposal.proposalKey!=="string"||!proposal.proposalKey||proposal.status!=="proposed"||proposal.requiresHumanReview!==true)throw new TypeError("invalid_proposal");
