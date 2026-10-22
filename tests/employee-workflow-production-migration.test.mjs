@@ -28,7 +28,12 @@ print(json.dumps([dict(x) for x in r.fetchall()])); c.commit()\`,file],{input:JS
   if(r.status!==0)throw Error(r.stderr);
  }
  sql('CREATE TABLE employees(id TEXT,tenant_id TEXT,start_date TEXT,end_date TEXT,status TEXT)');
- if(mode==='existing')for(const path of ['cloudflare/migrations/20261021_employee_ai_workflows.sql','cloudflare/migrations/20261021_employee_ai_proposal_reviews.sql'])apply(path);
+ const schemas=['cloudflare/migrations/20261021_employee_ai_workflows.sql','cloudflare/migrations/20261021_employee_ai_proposal_reviews.sql','cloudflare/migrations/20261022_employee_ai_proposal_provenance.sql'];
+ if(mode==='existing'||mode==='legacy')for(const path of mode==='legacy'?schemas.slice(0,2):schemas)apply(path);
+ if(mode==='legacy'){
+  sql("INSERT INTO employee_ai_proposal_reviews(tenant_id,proposal_key,workflow_id,employee_id,task_type,due_date,status,reviewed_by,reviewed_at) VALUES ('t1','legacy-key','w1','e1','onboarding_checklist','2026-11-01','approved','manager','2026-10-21T16:00:00Z')");
+  sql("INSERT INTO employee_ai_proposal_review_events(tenant_id,proposal_key,decision,reviewer_id,reviewed_at) VALUES ('t1','legacy-key','approved','manager','2026-10-21T16:00:00Z')");
+ }
  if(mode==='drift')sql('CREATE TABLE employee_ai_workflows(tenant_id TEXT)');
  globalThis.fetch=async(url,options={})=>{
   if(url==='https://api.github.com/repos/adinosassist-stack/botswana-compliance-platform/branches/main')return {ok:true,json:async()=>({commit:{sha:mode==='stale'?'b'.repeat(40):'a'.repeat(40)}})};
@@ -42,7 +47,14 @@ print(json.dumps([dict(x) for x in r.fetchall()])); c.commit()\`,file],{input:JS
  cp.execFile=(exe,args,options,callback)=>{
   try{
    const path=args.find(x=>x.startsWith('--file=')).slice(7);
-   apply(path);console.log('APPLY '+path);callback(null,{stdout:'applied',stderr:''});
+   apply(path);console.log('APPLY '+path);
+   if(mode==='legacy'&&path.includes('20261022_employee_ai_proposal_provenance')){
+    if(sql('SELECT COUNT(*) n FROM employee_ai_proposal_provenance')[0].n!==0)throw Error('legacy provenance was invented');
+    if(sql("SELECT status FROM employee_ai_proposal_reviews WHERE proposal_key='legacy-key'")[0].status!=='approved')throw Error('legacy review was changed');
+    if(sql("SELECT decision FROM employee_ai_proposal_review_events WHERE proposal_key='legacy-key'")[0].decision!=='approved')throw Error('legacy audit was changed');
+    console.log('LEGACY_REVIEW_PRESERVED_WITHOUT_PROVENANCE');
+   }
+   callback(null,{stdout:'applied',stderr:''});
   }catch(error){callback(error);}
  };
  syncBuiltinESMExports();
@@ -52,7 +64,7 @@ print(json.dumps([dict(x) for x in r.fetchall()])); c.commit()\`,file],{input:JS
 }
 test('production employee migration applies pinned schemas after a recovery bookmark and verifies SQLite definitions',()=>{
  const r=run('fresh');assert.equal(r.status,0,r.stderr+r.stdout);
- assert.equal((r.stdout.match(/APPLY /g)||[]).length,2);
+ assert.equal((r.stdout.match(/APPLY /g)||[]).length,3);
  assert.ok(r.stdout.indexOf('BOOKMARK')<r.stdout.indexOf('APPLY '));
  assert.match(r.stdout,/schemas verified successfully/);
 });
@@ -60,6 +72,11 @@ test('verified existing production schemas cause no migration writes',()=>{
  const r=run('existing');assert.equal(r.status,0,r.stderr+r.stdout);
  assert.doesNotMatch(r.stdout,/APPLY |BOOKMARK/);
  assert.match(r.stdout,/no mutation required/);
+});
+test('legacy review decisions survive the additive provenance migration without backfill',()=>{
+ const r=run('legacy');assert.equal(r.status,0,r.stderr+r.stdout);
+ assert.match(r.stdout,/LEGACY_REVIEW_PRESERVED_WITHOUT_PROVENANCE/);
+ assert.ok(r.stdout.indexOf('BOOKMARK')<r.stdout.indexOf('APPLY '));
 });
 for(const mode of ['drift','stale'])test(`production ${mode} blocks migration before mutation`,()=>{
  const r=run(mode);assert.notEqual(r.status,0);

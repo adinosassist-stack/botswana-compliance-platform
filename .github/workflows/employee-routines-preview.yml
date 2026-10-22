@@ -6,8 +6,18 @@ on:
       - 'server/employee-routines-service.js'
       - 'server/employee-workflow-definitions.js'
       - 'server/employee-workflow-review-gate.js'
+      - 'server/employee-proposal-provenance.js'
+      - 'cloudflare/migrations/20261022_employee_ai_proposal_provenance.sql'
+      - 'tests/employee-proposal-provenance.test.mjs'
+      - 'tests/employee-proposal-provenance-d1.test.mjs'
+      - 'tests/employee-proposal-provenance-workerd.test.mjs'
+      - 'tests/helpers/employee-provenance-d1.mjs'
       - 'cloudflare/src/employee-proposal-review-d1-store.js'
       - 'cloudflare/src/employee-proposal-review-api.js'
+      - 'cloudflare/src/agentic-task-execution.js'
+      - 'tests/employee-task-preparation.test.mjs'
+      - 'tests/employee-task-preparation-workerd.test.mjs'
+      - 'docs/employee-task-preparation.md'
       - 'cloudflare/src/employee-workflow-review-generation.js'
       - 'tests/employee-workflow-review-generation.test.mjs'
       - 'tests/employee-proposal-review-api.test.mjs'
@@ -55,5 +65,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install exact dependencies for local D1 verification
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Employee routine preview tests
         run: node --test tests/employee-routines-preview.test.mjs tests/employee-routines-service.test.mjs tests/employee-workflow-definitions.test.mjs tests/employee-workflow-review-gate.test.mjs tests/employee-proposal-review-d1-store.test.mjs tests/employee-proposal-review-d1-migration-execution.test.mjs tests/employee-proposal-review-api.test.mjs tests/employee-workflow-review-generation.test.mjs tests/employee-proposal-review-worker-wiring.test.mjs tests/employee-workflow-builder.test.mjs tests/employee-workflow-ownership-service.test.mjs tests/employee-workflow-postgres-store.test.mjs tests/employee-workflow-migration.test.mjs tests/employee-workflow-handlers.test.mjs tests/employee-workflow-d1-store.test.mjs tests/employee-workflow-cloudflare-api.test.mjs tests/employee-workflow-worker-wiring.test.mjs tests/employee-workflow-people-mount.test.mjs tests/employee-workflow-d1-migration-execution.test.mjs
+      - name: Immutable proposal provenance and real SQLite binding tests
+        run: node --test tests/employee-proposal-provenance.test.mjs tests/employee-proposal-provenance-d1.test.mjs
+      - name: Actual local workerd D1 batch contract
+        run: node --test tests/employee-proposal-provenance-workerd.test.mjs
+      - name: Employee proposal task preparation and actual D1 atomicity
+        run: node --test tests/employee-task-preparation.test.mjs tests/employee-task-preparation-workerd.test.mjs

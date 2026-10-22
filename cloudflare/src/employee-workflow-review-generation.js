@@ -1,12 +1,18 @@
-import {previewEmployeeWorkflows} from "../../server/employee-workflow-definitions.js";
+import {previewEmployeeWorkflows,validateEmployeeWorkflow} from "../../server/employee-workflow-definitions.js";
 import {createEmployeeProposalReviewD1Store} from "./employee-proposal-review-d1-store.js";
 
 /** Server-only, tenant-scoped, manual generation of review proposals. Never executes actions. */
 export async function generateEmployeeWorkflowReviews({db,tenantId,ownerId,today}={}){
  if(!db||typeof db.prepare!=="function"||typeof tenantId!=="string"||!tenantId.trim()||typeof ownerId!=="string"||!ownerId.trim()||!/^\d{4}-\d{2}-\d{2}$/.test(today))throw new TypeError("invalid_generation_scope");
- const workflowsResult=await db.prepare("SELECT definition FROM employee_ai_workflows WHERE tenant_id=? AND owner_id=? ORDER BY updated_at DESC LIMIT 100").bind(tenantId,ownerId).all();
+ const workflowsResult=await db.prepare("SELECT workflow_id,definition FROM employee_ai_workflows WHERE tenant_id=? AND owner_id=? ORDER BY updated_at DESC LIMIT 100").bind(tenantId,ownerId).all();
  if(workflowsResult?.success!==true||!Array.isArray(workflowsResult.results))throw new Error("storage_unavailable");
- const workflows=workflowsResult.results.map(row=>JSON.parse(row.definition)).filter(w=>w.effect==="propose_internal_task"&&["onboarding_checklist","contract_renewal"].includes(w.routineType));
+ const records=workflowsResult.results.map(row=>{
+  const workflow=validateEmployeeWorkflow(JSON.parse(row.definition));
+  if(row.workflow_id!==workflow.id)throw new Error('workflow_source_mismatch');
+  return {workflow,sourceDefinition:row.definition};
+ });
+ const workflows=records.map(row=>row.workflow).filter(w=>w.effect==="propose_internal_task"&&["onboarding_checklist","contract_renewal"].includes(w.routineType));
+ const definitions=new Map(records.map(row=>[row.workflow.id,row.sourceDefinition]));
  const employeesResult=await db.prepare("SELECT id,start_date,end_date,status FROM employees WHERE tenant_id=? AND lower(trim(coalesce(status,'')))='active' ORDER BY id LIMIT 10000").bind(tenantId).all();
  if(employeesResult?.success!==true||!Array.isArray(employeesResult.results))throw new Error("storage_unavailable");
  // The current employee schema supplies start_date and end_date only.
@@ -16,7 +22,7 @@ export async function generateEmployeeWorkflowReviews({db,tenantId,ownerId,today
  const store=createEmployeeProposalReviewD1Store(db);
  let inserted=0;
  for(const proposal of preview.proposals){
-  const result=await store.enqueue({tenantId,proposal});
+  const result=await store.enqueueVersioned({tenantId,authorId:ownerId,sourceDefinition:definitions.get(proposal.workflowId),proposal});
   if(result.inserted)inserted++;
  }
  return {ok:true,generated:preview.proposalCount,inserted,duplicateCount:preview.proposalCount-inserted,executed:0};
