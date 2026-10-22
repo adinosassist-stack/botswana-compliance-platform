@@ -28,13 +28,14 @@ try{
         await page.addScriptTag({content:security});
         await page.evaluate(({hydration,messages})=>{
           window.hydrationCheck=new Function(`
+            "use strict";
             let workspaceViewNavigationEpoch=1,resolveShard,rejectShard,pending,shard;
             const target=document.getElementById('employees');
             const metrics={renders:0,shows:0,fetches:0,mutations:0};
             const observer=new MutationObserver(records=>{metrics.mutations+=records.length});
             observer.observe(target,{childList:true,subtree:true});
             const render=window.BW.dom.renderMarkup;
-            window.BW.dom.renderMarkup=(...args)=>{metrics.renders++;return render(...args)};
+            window.BW.dom={...window.BW.dom,renderMarkup(...args){metrics.renders++;return render(...args)}};
             function workspaceViewFragments(){metrics.fetches++;return shard}
             function showView(){metrics.shows++;return true}
             function lazyWorkspaceViewLabel(){return 'Employees'}
