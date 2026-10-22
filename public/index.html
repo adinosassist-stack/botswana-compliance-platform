@@ -5466,12 +5466,16 @@ async function renderSettingsHub(){
 }
 
 function renderAll(){
+ const dashboardMetricsNeeded=document.getElementById("dashboard")?.classList.contains("active")||(window.__THEBE_WORKSPACE_READY__!==true&&roleLandingView(currentUser?.role)==="dashboard");
+ if(dashboardMetricsNeeded){
  const a=applicable(),s=scoreData(a);
  document.getElementById("companyHero").textContent=state.profile.name;
  ["complianceScore","protectionScore"].forEach((id,i)=>{let v=i?s.prot:s.comp;let el=document.getElementById(id);el.textContent=v;el.className="score "+(v>=85?"good":v>=70?"warn":"bad")});
  document.getElementById("complianceBar").style.width=s.comp+"%";document.getElementById("protectionBar").style.width=s.prot+"%";
  animateNumber(document.getElementById("openActions"),s.open);document.getElementById("navAlerts").textContent=s.open;let ac=document.getElementById("attentionCount");if(ac)ac.textContent=sourceConflicts.length?`${sourceConflicts.length} source conflict${sourceConflicts.length===1?"":"s"}`:(s.open?`${s.open} to review`:"No local gaps");
  {const evMetric=document.getElementById("evidenceCoverage"),evCaption=document.getElementById("evidenceMetricCaption");if(STANDALONE_PREVIEW){const reviewed=(state.evidence||[]).filter(e=>e.verified).length;evMetric.textContent=Math.min(100,Math.round(reviewed/(a.length||1)*100))+"%";if(evCaption)evCaption.textContent="Preview estimate · local reviewed metadata only"}else{evMetric.textContent="—";if(evCaption)evCaption.textContent="Waiting for server assurance"}}
+ }
+ if(dashboardMetricsNeeded){
  // Dashboard-only lists are expensive to rebuild and need not mutate hidden DOM on every navigation.
  if(document.getElementById("dashboard")?.classList.contains("active")||(window.__THEBE_WORKSPACE_READY__!==true&&roleLandingView(currentUser?.role)==="dashboard")){
  let priority=a.filter(r=>/Action required|gaps|due|verify/i.test(r.status())).slice(0,5);
@@ -5479,6 +5483,8 @@ function renderAll(){
  let areas=[...new Set(a.map(x=>x.area))];
  document.getElementById("areaScores").safeHTML=areas.map(area=>{let ar=a.filter(x=>x.area===area), issues=ar.filter(x=>/Action required|gaps|due|verify/i.test(x.status())).length;let sc=Math.max(55,100-issues*18);let band=sc>=85?"Strong":sc>=70?"Watch":"Needs action";return `<div class="area-health-row"><div class="area-mini-ring" style="--ring-value:${sc}" role="img" aria-label="${escapeHtml(area)} ${sc} percent"><div>${sc}<span>%</span></div></div><div class="area-health-copy"><b>${escapeHtml(area)}</b><div class="muted small">${band}${issues?` · ${issues} item${issues===1?"":"s"} to review`:" · no immediate gaps"}</div></div><button class="area-arrow" type="button" data-bw-onclick="showView('obligations')" aria-label="Review ${escapeHtml(area)} obligations">→</button></div>`}).join("");
  }
+ }
+
  applyRoleUi();
  const shouldRender=view=>{if(!roleCanView(view))return false;const target=document.getElementById(view),active=!!target?.classList.contains("active"),coldLanding=window.__THEBE_WORKSPACE_READY__!==true&&view===roleLandingView(currentUser?.role);return active||coldLanding};const run=(view,fn)=>{if(!shouldRender(view)||typeof fn!=="function")return;try{const result=fn();if(result&&typeof result.catch==="function")result.catch(error=>reportClientError(error,`render:${view}`))}catch(error){reportClientError(error,`render:${view}`)}};
  if(shouldRender("dashboard")){renderGlobalConflict();setupProgress();renderDeadlines();renderOnboardingBanner();if(document.getElementById("dashboard")?.classList.contains("active")){renderDailyOperatingBrief();if(["owner","manager"].includes(currentWorkspaceRole()))renderExecutiveExceptions()}}
