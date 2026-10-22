@@ -12,4 +12,6 @@ assert.match(geometry,/setDockPosition\(dock/,'Dock movement must clamp to viewp
 assert.match(geometry,/title\.addEventListener\("pointerdown"/,'Drag must start from title');
 assert.match(geometry,/title\.addEventListener\("dblclick"/,'Position reset must be available');
 assert.match(geometry,/ensureWorkspaceResizeHandle\(dock\)/,'Existing resize handle must remain');
+assert.doesNotMatch(geometry,/ensureDockMovement\\(dock\\);const saved=readDockPosition\\(\\)/,'Repair must not reset the dock while dragging');
+assert.match(geometry,/getPropertyValue\\("--thebe-dock-float-left"\\)!==x\\+"px"/,'Dock geometry writes must be guarded against redundant mutation loops');
 console.log('AI Dock minimal contract checks passed');
