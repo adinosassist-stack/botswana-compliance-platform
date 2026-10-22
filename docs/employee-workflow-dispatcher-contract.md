@@ -31,6 +31,29 @@ caller; these policies must never use truthiness to grant execution eligibility.
 - Manager approval does not itself enqueue an action.
 - All tests run with real schema migration and durable storage adapter.
 
+## Nonproduction SQLite lease lifecycle
+
+The reference adapter now supports tenant-scoped claim, completion and retry.
+Each claim increments the durable attempt count and creates a unique lease token
+with a database-clock expiry. Completion and retry require that exact token and
+an unexpired lease. An expired lease may be claimed with a new token; the prior
+token cannot complete or release the new worker's claim.
+
+Retry limits are stored per intent (default three, schema range one to ten).
+The final failed or abandoned attempt enters `dead_letter`. A claim retires at
+most 64 exhausted records before selecting one eligible intent. All transitions
+append immutable audit events within the caller's transaction. Audit errors must
+roll back the entire transaction. These helpers never commit on their own.
+
+This draft is not a production migration, worker loop or execution adapter.
+The caller must revalidate current authorization, proposal revision, review and
+governance immediately before effects, then atomically commit the internal effect,
+fenced completion and audit. A rejected completion must roll back the effect.
+External side effects cannot be made atomic by these helpers. The synthetic
+effect rollback test does not establish production task/report idempotency.
+Existing databases require a separately reviewed migration and recovery plan;
+replaying this CREATE TABLE draft does not upgrade them.
+
 ## Release gates
 Independent review, exact-head CI, migration backup/rollback evidence, signed release provenance, and post-deployment API/asset/authorization smoke tests. Activate only after these pass.
 ## Transactional reviewer provenance and freshness
