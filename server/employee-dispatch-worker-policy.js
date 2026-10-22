@@ -8,7 +8,8 @@ import { evaluateEmployeeDispatch } from "./employee-dispatch-admission.js";
 export function evaluateEmployeeWorker({
   featureEnabled = false, killSwitch = true, auditAvailable = false,
   identity, proposal, review, intent, action, currentReview = false,
-  reviewerAuthorized = false, currentRevision = false
+  reviewerAuthorized = false, currentRevision = false,
+  leaseToken, nowEpochSeconds
 } = {}) {
   if (!intent || intent.state !== "leased" || intent.attempts < 1 ||
       !Number.isSafeInteger(intent.attempts) ||
@@ -19,6 +20,14 @@ export function evaluateEmployeeWorker({
       intent.idempotencyKey == null) {
     return { allowed: false, reason: "invalid_worker_intent" };
   }
+  if (!Number.isSafeInteger(intent.maxAttempts) || intent.maxAttempts < 1 ||
+      intent.maxAttempts > 10 || intent.attempts > intent.maxAttempts ||
+      typeof leaseToken !== "string" || !/^[a-zA-Z0-9_:.\-]{1,200}$/.test(leaseToken) ||
+      intent.leaseToken !== leaseToken ||
+      !Number.isSafeInteger(nowEpochSeconds) || nowEpochSeconds < 0 ||
+      !Number.isSafeInteger(intent.leaseExpiresAt) || intent.leaseExpiresAt <= nowEpochSeconds) {
+    return { allowed: false, reason: "invalid_worker_lease" };
+  }
   if (currentReview !== true || reviewerAuthorized !== true || currentRevision !== true) {
     return { allowed: false, reason: "approval_required" };
   }
@@ -26,6 +35,8 @@ export function evaluateEmployeeWorker({
     featureEnabled, killSwitch, auditAvailable, identity, proposal, review,
     action, idempotencyKey: intent.idempotencyKey
   });
+  // Storage must still fence completion in the same transaction as the effect;
+  // this preflight decision is not a reusable execution grant.
   return decision.allowed
     ? { allowed: true, reason: "eligible_for_internal_worker_execution" }
     : { allowed: false, reason: decision.reason };
