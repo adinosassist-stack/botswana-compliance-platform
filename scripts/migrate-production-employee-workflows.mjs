@@ -13,7 +13,8 @@ const wranglerConfig=String(process.env.WRANGLER_CONFIG||'').trim();
 const execFile=promisify(execFileCallback);
 const specs=Object.freeze([
   {path:'cloudflare/migrations/20261021_employee_ai_workflows.sql',blob:'f1d125bf2bef57f973f75c38447c472e5468750a'},
-  {path:'cloudflare/migrations/20261021_employee_ai_proposal_reviews.sql',blob:'7f61304cdf8d621e032f696c17c907db814cf082'}
+  {path:'cloudflare/migrations/20261021_employee_ai_proposal_reviews.sql',blob:'7f61304cdf8d621e032f696c17c907db814cf082'},
+  {path:'cloudflare/migrations/20261022_employee_ai_proposal_provenance.sql',blob:'9c47ccf18f7ead7555640e7ec7da39570ab3b730'}
 ]);
 
 function fail(message){throw new Error(`Production D1 employee workflow migration refused: ${message}`)}

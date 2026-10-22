@@ -7,6 +7,9 @@ on:
       - ".github/workflows/migrate-production-employee-workflows.yml"
       - "scripts/migrate-production-employee-workflows.mjs"
       - "tests/employee-workflow-production-migration.test.mjs"
+      - "cloudflare/migrations/20261021_employee_ai_workflows.sql"
+      - "cloudflare/migrations/20261021_employee_ai_proposal_reviews.sql"
+      - "cloudflare/migrations/20261022_employee_ai_proposal_provenance.sql"
   push:
     branches: [main]
 
@@ -23,7 +26,7 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version-file: .nvmrc
-      - run: node --test tests/employee-workflow-production-migration.test.mjs tests/employee-workflow-d1-migration-execution.test.mjs tests/employee-proposal-review-d1-migration-execution.test.mjs
+      - run: node --test tests/employee-workflow-production-migration.test.mjs tests/employee-workflow-d1-migration-execution.test.mjs tests/employee-proposal-review-d1-migration-execution.test.mjs tests/employee-proposal-provenance.test.mjs tests/employee-proposal-provenance-d1.test.mjs
   migrate:
     needs: verify
     concurrency:
