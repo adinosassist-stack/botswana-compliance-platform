@@ -19,7 +19,7 @@ try{
    const calls=[];
    let workspacePendingRenderToken=0,workspaceViewNavigationEpoch=1;
    const renderAll=()=>calls.push({time:performance.now(),active:document.querySelector('.active')?.id});
-   const schedule=new Function('renderAll','getEpoch',`let workspacePendingRenderToken=0;let workspaceViewNavigationEpoch=1;${implementation};return {scheduleWorkspaceNavigationRender,setEpoch:value=>workspaceViewNavigationEpoch=value}`)(renderAll,()=>workspaceViewNavigationEpoch);
+   const schedule=new Function('renderAll',`let workspacePendingRenderToken=0;let workspaceViewNavigationEpoch=1;${implementation};return {scheduleWorkspaceNavigationRender,setEpoch:value=>workspaceViewNavigationEpoch=value}`)(renderAll);
    const people=document.getElementById('people'),work=document.getElementById('work');
    schedule.scheduleWorkspaceNavigationRender('people',people,1);
    people.classList.remove('active');work.classList.add('active');
