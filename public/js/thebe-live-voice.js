@@ -774,7 +774,7 @@
       });
     }
     if(input)input.placeholder=surfaceMode()==="workspace"?modeCopy[assistantMode].placeholder:"Ask about Thebe Desk…";
-    if(quick){quick.dataset.mode="";renderQuickActions(surfaceMode())}
+    if(quick){quick.hidden=true;quick.replaceChildren()}
     if(options.focus!==false)input?.focus({preventScroll:true});
   }
   function clearConversation(){
@@ -1575,6 +1575,7 @@
     titleCopy.append(presence);title.append(titleCopy);
 
     const headActions=el("div","thebe-ai-head-actions");
+    // Preserve the existing working attachment picker; keep the header uncluttered.
     clearButton=el("button","thebe-ai-icon-btn thebe-ai-clear","×");
     clearButton.type="button";clearButton.setAttribute("aria-label","Clear Thebe conversation");clearButton.title="Clear conversation";
     clearButton.addEventListener("click",clearConversation);
@@ -1696,11 +1697,12 @@
 
     quick=el("div","thebe-ai-quick");
     quick.setAttribute("role","group");quick.setAttribute("aria-label","Suggested Thebe actions");
-    renderQuickActions(surfaceMode());
+    // Minimal dock: do not populate preset question shortcuts.
+    quick.hidden=true;
 
     responseBox=el("div","thebe-ai-response");responseBox.id="thebeAiDockResponse";responseBox.setAttribute("role","status");responseBox.setAttribute("aria-live","polite");responseBox.setAttribute("aria-busy","false");responseMessage("Ready when you are. Ask about this screen, request a brief, or choose a priority action.");
 
-    scroll.append(contextBar,modeRail,voiceCard,quick,responseBox);
+    scroll.append(contextBar,modeRail,voiceCard,responseBox);
 
     latestResponseButton=el("button","thebe-ai-latest-response","Latest response ↓");
     latestResponseButton.type="button";
