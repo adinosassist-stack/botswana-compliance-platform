@@ -196,3 +196,24 @@ test("queue fails closed when original proposal author is missing", async () => 
   assert.equal(s.intents.size, 0);
   assert.equal(s.audit.length, 0);
 });
+
+for (const [capability, reason] of [
+  ["isAuthorizedReviewer", "approval_required"],
+  ["isCurrentApprovedReview", "approval_required"],
+  ["isCurrentProposalRevision", "proposal_revision_stale"]
+]) {
+  test(`${capability} must return boolean true to admit a dispatch`, async () => {
+    for (const value of [false, undefined, null, 0, "", "false", "true", 1, {}, []]) {
+      const s = store();
+      const original = s.transaction;
+      s.transaction = fn => original.call(s, tx => fn({
+        ...tx, [capability]: async () => value
+      }));
+      const result = await queueEmployeeDispatch({ ...request, store: s });
+      assert.equal(result.queued, false, `${capability} accepted ${typeof value} ${JSON.stringify(value)}`);
+      assert.equal(result.reason, reason);
+      assert.equal(s.intents.size, 0);
+      assert.equal(s.audit.length, 0);
+    }
+  });
+}
