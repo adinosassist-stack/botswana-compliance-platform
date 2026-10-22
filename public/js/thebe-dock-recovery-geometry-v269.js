@@ -194,9 +194,9 @@
     const rect=dock.getBoundingClientRect();
     const x=Math.max(8,Math.min(Math.round(position.x),Math.max(8,viewportWidth()-rect.width-8)));
     const y=Math.max(8,Math.min(Math.round(position.y),Math.max(8,(global.innerHeight||768)-rect.height-8)));
-    dock.dataset.workspaceFloating="true";
-    dock.style.setProperty("--thebe-dock-float-left",x+"px");
-    dock.style.setProperty("--thebe-dock-float-top",y+"px");
+    if(dock.dataset.workspaceFloating!=="true")dock.dataset.workspaceFloating="true";
+    if(dock.style.getPropertyValue("--thebe-dock-float-left")!==x+"px")dock.style.setProperty("--thebe-dock-float-left",x+"px");
+    if(dock.style.getPropertyValue("--thebe-dock-float-top")!==y+"px")dock.style.setProperty("--thebe-dock-float-top",y+"px");
   }
   function ensureDockMovement(dock){
     if(!dock||dock.dataset.workspaceMoveReady==="true")return;
@@ -340,7 +340,7 @@
       return false;
     }
     syncWorkspaceResize(dock);
-    if(dock.dataset.surface==="workspace"&&viewportWidth()>=1024&&spatialStylesheetHealthy(dock)){ensureDockMovement(dock);const saved=readDockPosition();if(saved)setDockPosition(dock,saved)}
+    if(dock.dataset.surface==="workspace"&&viewportWidth()>=1024&&spatialStylesheetHealthy(dock))ensureDockMovement(dock);
     if(dock.dataset.cssRecovery!=="1"){
       if(spatialStylesheetHealthy(dock)){
         releaseAll();
