@@ -39,6 +39,13 @@ with a database-clock expiry. Completion and retry require that exact token and
 an unexpired lease. An expired lease may be claimed with a new token; the prior
 token cannot complete or release the new worker's claim.
 
+Worker preflight requires the worker's claimed `leaseToken` and a trusted
+`nowEpochSeconds` from the server clock. The freshly loaded intent must expose
+`leaseToken`, integer `leaseExpiresAt` (Unix seconds), and `maxAttempts` matching
+the stored lease and retry bound. Missing fields, an expired/replaced token, or
+an exhausted count deny preflight. Preflight remains a point-in-time check;
+transactional fenced completion is still mandatory before effects can commit.
+
 Retry limits are stored per intent (default three, schema range one to ten).
 The final failed or abandoned attempt enters `dead_letter`. A claim retires at
 most 64 exhausted records before selecting one eligible intent. All transitions
