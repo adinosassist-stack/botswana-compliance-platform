@@ -59,6 +59,22 @@ test("kill switch and disabled feature block queue", async () => {
   }
   assert.equal(s.intents.size, 0);
 });
+test("ambiguous governance flags are denied before opening a transaction", async () => {
+  for (const flag of ["featureEnabled", "killSwitch", "auditAvailable"]) {
+    for (const value of [undefined, null, 0, 1, "", "false", "true", {}, []]) {
+      const s = store();
+      let transactions = 0;
+      const original = s.transaction;
+      s.transaction = fn => { transactions++; return original.call(s, fn); };
+      const result = await queueEmployeeDispatch({ ...request, [flag]: value, store: s });
+      assert.equal(result.reason, "governance_unavailable",
+        `${flag} accepted ${typeof value} ${JSON.stringify(value)}`);
+      assert.equal(transactions, 0);
+      assert.equal(s.intents.size, 0);
+      assert.equal(s.audit.length, 0);
+    }
+  }
+});
 
 test("missing transaction lock fails closed without creating an intent", async () => {
   const s = store();

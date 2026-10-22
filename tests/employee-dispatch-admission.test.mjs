@@ -13,6 +13,14 @@ test("disabled feature, kill switch, and audit outage fail closed", () => {
     assert.equal(decide(overrides).reason, "governance_unavailable");
   }
 });
+test("ambiguous governance flags cannot authorize dispatch admission", () => {
+  for (const flag of ["featureEnabled", "killSwitch", "auditAvailable"]) {
+    for (const value of [undefined, null, 0, 1, "", "false", "true", {}, []]) {
+      assert.equal(decide({ [flag]: value }).reason, "governance_unavailable",
+        `${flag} accepted ${typeof value} ${JSON.stringify(value)}`);
+    }
+  }
+});
 test("tenant mismatch and proposal action spoofing are rejected", () => {
   assert.equal(decide({ proposal: { ...proposal, tenantId: "tenant-b" } }).reason, "proposal_scope_mismatch");
   assert.equal(decide({ proposal: { ...proposal, action: "internal.report.draft" } }).reason, "proposal_scope_mismatch");

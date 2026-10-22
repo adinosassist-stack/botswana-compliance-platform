@@ -14,7 +14,7 @@ export async function queueEmployeeDispatch({
       typeof proposalId !== "string" || !proposalId.trim()) {
     return { queued: false, reason: "invalid_request" };
   }
-  if (!featureEnabled || killSwitch || !auditAvailable) {
+  if (featureEnabled !== true || killSwitch !== false || auditAvailable !== true) {
     return { queued: false, reason: "governance_unavailable" };
   }
   try {

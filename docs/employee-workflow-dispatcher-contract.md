@@ -15,6 +15,12 @@ Connect approved People workflow proposals to **internal** task creation and rep
 7. Workers revalidate the kill switch, permissions and scope before side effects; record attempts and outcomes.
 8. Expose bounded retries, dead-letter recovery, and a manual operator stop control.
 
+Governance control inputs are typed booleans: dispatch requires
+`featureEnabled === true`, `killSwitch === false`, and `auditAvailable === true`.
+Missing, null, string, numeric or object values must deny admission and worker
+execution. Resolve configuration strings to explicit booleans in the trusted
+caller; these policies must never use truthiness to grant execution eligibility.
+
 ## Required regression tests
 - Cross-tenant proposal replay and actor spoofing fail closed.
 - Repeated dispatch requests yield one durable intent.

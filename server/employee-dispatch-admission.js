@@ -12,7 +12,7 @@ export const EMPLOYEE_DISPATCH_ACTIONS = Object.freeze(Object.keys(INTERNAL_ACTI
 const validId = value => typeof value === "string" && value.length > 0 && value.length <= 200 && /^[a-zA-Z0-9_:.\-]+$/.test(value);
 
 export function evaluateEmployeeDispatch({ featureEnabled = false, killSwitch = true, auditAvailable = false, identity, proposal, review, action, idempotencyKey } = {}) {
-  if (!featureEnabled || killSwitch || !auditAvailable) return { allowed: false, reason: "governance_unavailable" };
+  if (featureEnabled !== true || killSwitch !== false || auditAvailable !== true) return { allowed: false, reason: "governance_unavailable" };
   if (!validId(identity?.tenantId) || !validId(identity?.actorId) || !Array.isArray(identity?.permissions) || !identity.permissions.includes("employee.workflow.dispatch")) return { allowed: false, reason: "unauthorized_actor" };
   if (!Object.hasOwn(INTERNAL_ACTIONS, action)) return { allowed: false, reason: "unsupported_action" };
   if (!validId(proposal?.id) || !validId(proposal?.tenantId) || proposal.tenantId !== identity.tenantId || proposal.action !== action) return { allowed: false, reason: "proposal_scope_mismatch" };

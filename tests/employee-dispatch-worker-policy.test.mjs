@@ -18,6 +18,14 @@ test("worker fails closed for stopped governance", () => {
     assert.equal(evaluateEmployeeWorker({...base, ...overrides}).allowed, false);
   }
 });
+test("worker cannot execute with ambiguous governance flags", () => {
+  for (const flag of ["featureEnabled", "killSwitch", "auditAvailable"]) {
+    for (const value of [undefined, null, 0, 1, "", "false", "true", {}, []]) {
+      assert.equal(evaluateEmployeeWorker({ ...base, [flag]: value }).allowed, false,
+        `${flag} accepted ${typeof value} ${JSON.stringify(value)}`);
+    }
+  }
+});
 test("worker refuses revoked review, reviewer or proposal revision", () => {
   for (const overrides of [{currentReview: false}, {reviewerAuthorized: false}, {currentRevision: false}]) {
     assert.equal(evaluateEmployeeWorker({...base, ...overrides}).allowed, false);
