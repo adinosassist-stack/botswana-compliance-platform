@@ -15,6 +15,12 @@ Connect approved People workflow proposals to **internal** task creation and rep
 7. Workers revalidate the kill switch, permissions and scope before side effects; record attempts and outcomes.
 8. Expose bounded retries, dead-letter recovery, and a manual operator stop control.
 
+Governance control inputs are typed booleans: dispatch requires
+`featureEnabled === true`, `killSwitch === false`, and `auditAvailable === true`.
+Missing, null, string, numeric or object values must deny admission and worker
+execution. Resolve configuration strings to explicit booleans in the trusted
+caller; these policies must never use truthiness to grant execution eligibility.
+
 ## Required regression tests
 - Cross-tenant proposal replay and actor spoofing fail closed.
 - Repeated dispatch requests yield one durable intent.
@@ -24,6 +30,36 @@ Connect approved People workflow proposals to **internal** task creation and rep
 - Worker crash/retry does not duplicate task or report creation.
 - Manager approval does not itself enqueue an action.
 - All tests run with real schema migration and durable storage adapter.
+
+## Nonproduction SQLite lease lifecycle
+
+The reference adapter now supports tenant-scoped claim, completion and retry.
+Each claim increments the durable attempt count and creates a unique lease token
+with a database-clock expiry. Completion and retry require that exact token and
+an unexpired lease. An expired lease may be claimed with a new token; the prior
+token cannot complete or release the new worker's claim.
+
+Worker preflight requires the worker's claimed `leaseToken` and a trusted
+`nowEpochSeconds` from the server clock. The freshly loaded intent must expose
+`leaseToken`, integer `leaseExpiresAt` (Unix seconds), and `maxAttempts` matching
+the stored lease and retry bound. Missing fields, an expired/replaced token, or
+an exhausted count deny preflight. Preflight remains a point-in-time check;
+transactional fenced completion is still mandatory before effects can commit.
+
+Retry limits are stored per intent (default three, schema range one to ten).
+The final failed or abandoned attempt enters `dead_letter`. A claim retires at
+most 64 exhausted records before selecting one eligible intent. All transitions
+append immutable audit events within the caller's transaction. Audit errors must
+roll back the entire transaction. These helpers never commit on their own.
+
+This draft is not a production migration, worker loop or execution adapter.
+The caller must revalidate current authorization, proposal revision, review and
+governance immediately before effects, then atomically commit the internal effect,
+fenced completion and audit. A rejected completion must roll back the effect.
+External side effects cannot be made atomic by these helpers. The synthetic
+effect rollback test does not establish production task/report idempotency.
+Existing databases require a separately reviewed migration and recovery plan;
+replaying this CREATE TABLE draft does not upgrade them.
 
 ## Release gates
 Independent review, exact-head CI, migration backup/rollback evidence, signed release provenance, and post-deployment API/asset/authorization smoke tests. Activate only after these pass.

@@ -14,7 +14,7 @@ export async function queueEmployeeDispatch({
       typeof proposalId !== "string" || !proposalId.trim()) {
     return { queued: false, reason: "invalid_request" };
   }
-  if (!featureEnabled || killSwitch || !auditAvailable) {
+  if (featureEnabled !== true || killSwitch !== false || auditAvailable !== true) {
     return { queued: false, reason: "governance_unavailable" };
   }
   try {
@@ -36,13 +36,13 @@ export async function queueEmployeeDispatch({
       if (lockAcquired !== true) throw Error("dispatch_lock_unavailable");
       const proposal = await tx.getProposal(identity?.tenantId, proposalId);
       const review = proposal ? await tx.getLatestReview(identity?.tenantId, proposalId) : null;
-      if (review && !(await tx.isAuthorizedReviewer(identity.tenantId, review.reviewerId, proposalId, review.id))) {
+      if (review && (await tx.isAuthorizedReviewer(identity.tenantId, review.reviewerId, proposalId, review.id)) !== true) {
         return { queued: false, reason: "approval_required" };
       }
-      if (review && !(await tx.isCurrentApprovedReview(identity.tenantId, proposalId, review.id))) {
+      if (review && (await tx.isCurrentApprovedReview(identity.tenantId, proposalId, review.id)) !== true) {
         return { queued: false, reason: "approval_required" };
       }
-      if (proposal && !(await tx.isCurrentProposalRevision(identity.tenantId, proposalId, review?.id))) {
+      if (proposal && (await tx.isCurrentProposalRevision(identity.tenantId, proposalId, review?.id)) !== true) {
         return { queued: false, reason: "proposal_revision_stale" };
       }
       const decision = evaluateEmployeeDispatch({
