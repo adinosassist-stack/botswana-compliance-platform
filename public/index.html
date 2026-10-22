@@ -5474,8 +5474,6 @@ function renderAll(){
  document.getElementById("complianceBar").style.width=s.comp+"%";document.getElementById("protectionBar").style.width=s.prot+"%";
  animateNumber(document.getElementById("openActions"),s.open);document.getElementById("navAlerts").textContent=s.open;let ac=document.getElementById("attentionCount");if(ac)ac.textContent=sourceConflicts.length?`${sourceConflicts.length} source conflict${sourceConflicts.length===1?"":"s"}`:(s.open?`${s.open} to review`:"No local gaps");
  {const evMetric=document.getElementById("evidenceCoverage"),evCaption=document.getElementById("evidenceMetricCaption");if(STANDALONE_PREVIEW){const reviewed=(state.evidence||[]).filter(e=>e.verified).length;evMetric.textContent=Math.min(100,Math.round(reviewed/(a.length||1)*100))+"%";if(evCaption)evCaption.textContent="Preview estimate · local reviewed metadata only"}else{evMetric.textContent="—";if(evCaption)evCaption.textContent="Waiting for server assurance"}}
- }
- if(dashboardMetricsNeeded){
  // Dashboard-only lists are expensive to rebuild and need not mutate hidden DOM on every navigation.
  if(document.getElementById("dashboard")?.classList.contains("active")||(window.__THEBE_WORKSPACE_READY__!==true&&roleLandingView(currentUser?.role)==="dashboard")){
  let priority=a.filter(r=>/Action required|gaps|due|verify/i.test(r.status())).slice(0,5);
