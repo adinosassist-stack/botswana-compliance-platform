@@ -31,7 +31,7 @@ try{
  assert.equal(results.length,1,'superseded navigation must not render');
  assert.equal(results[0].active,'work','only the latest destination may render');
  
- // Measure browser event-loop blockage independently from the scheduler correctness test.
+ // Sanity-check frame scheduling in this isolated fixture only; this is not a production performance gate.
  const responsiveness=await page.evaluate(async ()=>{
    const before=performance.now();
    const frames=[];
@@ -40,6 +40,17 @@ try{
    return {elapsedMs:Math.round(performance.now()-before),maxFrameGapMs:Math.max(...gaps)};
  });
  assert.ok(responsiveness.maxFrameGapMs<250,'isolated navigation fixture blocked Chromium frames');
+ // Exercise a representative synchronous render workload during navigation, not only after it.
+ const workload=await page.evaluate(async implementation=>{
+   const section=document.getElementById('work');
+   const renderAll=()=>{const start=performance.now();while(performance.now()-start<80){};section.dataset.rendered='yes';};
+   const schedule=new Function('renderAll',`let workspacePendingRenderToken=0;let workspaceViewNavigationEpoch=3;${implementation};return scheduleWorkspaceNavigationRender`)(renderAll);
+   const begin=performance.now();schedule('work',section,3);
+   await new Promise(resolve=>{const poll=()=>section.dataset.rendered==='yes'?resolve():setTimeout(poll,5);poll();});
+   return Math.round(performance.now()-begin);
+ },implementation);
+ assert.ok(workload>=65,'representative render workload was not executed');
+ console.log('INFO: synthetic navigation-to-render with 80ms main-thread work',workload);
  console.log('INFO: isolated Chromium frame responsiveness',JSON.stringify(responsiveness));
  console.log('PASS: real Chromium cancels stale navigation and renders latest destination');
 }finally{await browser.close()}
