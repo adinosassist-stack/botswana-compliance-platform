@@ -1599,7 +1599,19 @@
       expand.title=expanded?"Restore Thebe width":"Expand Thebe";
       syncVisibility();
     });
-    headActions.append(attentionButton,clearButton,expand,minimize);head.append(title,headActions);
+    const exportAnswer=el("button","thebe-ai-icon-btn thebe-ai-export","↗");
+    exportAnswer.type="button";
+    exportAnswer.title="Download current answer";
+    exportAnswer.setAttribute("aria-label","Download current answer as text");
+    exportAnswer.addEventListener("click",()=>{
+      if(!lastAnswer)return;
+      const file=new Blob([lastAnswer],{type:"text/plain;charset=utf-8"});
+      const href=URL.createObjectURL(file);
+      const a=document.createElement("a");
+      a.href=href;a.download="thebe-answer.txt";a.click();
+      setTimeout(()=>URL.revokeObjectURL(href),1000);
+    });
+    headActions.append(attentionButton,exportAnswer,clearButton,expand,minimize);head.append(title,headActions);
 
     const scroll=el("div","thebe-ai-dock-scroll");
     scrollRegion=scroll;
