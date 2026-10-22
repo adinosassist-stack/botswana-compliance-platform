@@ -58,7 +58,7 @@ try{
       await page.mouse.move(start.x-110,start.y+65,{steps:8});
       await page.mouse.up();
       const moved=await dock.boundingBox();
-      assert(moved&&Math.abs(moved.x-original.x)>30&&Math.abs(moved.y-original.y)>20,'Workspace dock can be dragged in both axes');
+      assert(moved&&Math.abs(moved.x-original.x)>30&&Math.abs(moved.y-original.y)>20,'Workspace dock can be dragged in both axes: '+JSON.stringify({original,moved,position:await dock.evaluate(el=>({floating:el.dataset.workspaceFloating,left:el.style.getPropertyValue('--thebe-dock-float-left'),top:el.style.getPropertyValue('--thebe-dock-float-top'),computedLeft:getComputedStyle(el).left,computedTop:getComputedStyle(el).top,moveReady:el.dataset.workspaceMoveReady}))}));
       const stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('thebe:workspace-dock:position:v1')||'null'));
       assert(stored&&Number.isFinite(stored.x)&&Number.isFinite(stored.y),'Drag position persists locally');
       await title.dblclick();
