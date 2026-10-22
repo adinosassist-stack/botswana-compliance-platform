@@ -30,5 +30,16 @@ try{
  },implementation);
  assert.equal(results.length,1,'superseded navigation must not render');
  assert.equal(results[0].active,'work','only the latest destination may render');
+ 
+ // Measure browser event-loop blockage independently from the scheduler correctness test.
+ const responsiveness=await page.evaluate(async ()=>{
+   const before=performance.now();
+   const frames=[];
+   for(let i=0;i<5;i++)await new Promise(resolve=>requestAnimationFrame(()=>{frames.push(performance.now());resolve();}));
+   const gaps=frames.slice(1).map((t,i)=>Math.round(t-frames[i]));
+   return {elapsedMs:Math.round(performance.now()-before),maxFrameGapMs:Math.max(...gaps)};
+ });
+ assert.ok(responsiveness.maxFrameGapMs<250,'isolated navigation fixture blocked Chromium frames');
+ console.log('INFO: isolated Chromium frame responsiveness',JSON.stringify(responsiveness));
  console.log('PASS: real Chromium cancels stale navigation and renders latest destination');
 }finally{await browser.close()}
