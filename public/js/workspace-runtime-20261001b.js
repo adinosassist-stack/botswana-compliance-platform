@@ -3374,6 +3374,13 @@ async function hydrateLazyWorkspaceView(id,target,options={}){
     const views=await workspaceViewFragments(id);
     const markup=Object.prototype.hasOwnProperty.call(views,id)?views[id]:null;
     if(typeof markup!=="string")throw new Error("Workspace view is unavailable.");
+    // Avoid expensive DOM insertion for a view abandoned while its shard was loading.
+    // Leave the placeholder lazy so a later visit can hydrate it normally.
+    if(Number(target.dataset.lazyNavigationEpoch||0)!==workspaceViewNavigationEpoch){
+      delete target.dataset.lazyLoading;
+      target.setAttribute("aria-busy","false");
+      return true;
+    }
     if(!window.BW?.dom?.renderMarkup)throw new Error("Workspace DOM safety layer is unavailable.");
     window.BW.dom.renderMarkup(target,markup);
     target.dataset.lazyHydrated="1";
