@@ -110,7 +110,7 @@ try{
   });
   assert(expanded.expanded,'expanded state remains available');
   assert.equal(expanded.visible,0,'Expanded dock still shows no preset shortcuts');
-  if(expanded.total>3)assert(expanded.visible>3,'expanded state reveals the secondary shortcuts');
+  assert.equal(expanded.total,0,'Expanded dock has no preset shortcut elements');
   assert(expanded.composerVisible,'composer remains available when expanded');
 
   await page.setViewportSize({width:390,height:844});
@@ -135,7 +135,7 @@ try{
   assert(mobile.sendWidth>0&&mobile.sendHeight>0,'mobile retains a visible compact send action');
   assert(mobile.hiddenChrome,'mobile also keeps legacy dock chrome hidden');
   assert.deepEqual(errors,[],'V292 visual contract produces no browser errors');
-  console.log('V292_DOCK_VISUAL_CONTRACT_PASS: monochrome shell, hidden legacy chrome, three collapsed shortcuts, GPT-style composer, compact send action, minimal voice visual inside preserved 68px recovery target, mobile parity');
+  console.log('V292_DOCK_VISUAL_CONTRACT_PASS: monochrome shell, hidden legacy chrome, no preset shortcuts, GPT-style composer, compact send action, minimal voice visual inside preserved 68px recovery target, mobile parity');
 }finally{
   await browser.close();
 }
