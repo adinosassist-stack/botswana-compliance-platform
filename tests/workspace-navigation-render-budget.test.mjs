@@ -24,3 +24,13 @@ test("dashboard-only list hydration stays behind active-dashboard guard", () => 
 });
 
 test.todo("profile authenticated non-dashboard navigation to quantify applicable() and scoreData() blocking time");
+
+test("navigation renderer invalidates superseded requests and defers work past paint", () => {
+  const start = runtime.indexOf("function scheduleWorkspaceNavigationRender(");
+  const end = runtime.indexOf("\nlet lastWorkspaceView=", start);
+  assert.ok(start >= 0 && end > start);
+  const schedule = runtime.slice(start, end);
+  assert.match(schedule, /token!==workspacePendingRenderToken/);
+  assert.match(schedule, /epoch!==workspaceViewNavigationEpoch/);
+  assert.match(schedule, /requestAnimationFrame\(\(\)=>setTimeout\(render,0\)\)/);
+});
