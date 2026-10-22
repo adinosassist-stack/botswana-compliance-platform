@@ -2,6 +2,38 @@
   "use strict";
   if(typeof window.whenThebeWorkspaceReady==="function")return;
   window.__THEBE_WORKSPACE_READY__=false;
+
+  // Cold-start landing navigation must not synchronously run secondary workspace
+  // listeners before the authenticated shell has committed authored readiness.
+  // Preserve normal navigation semantics once ready and coalesce any pre-ready
+  // landing changes to the latest view.
+  const nativeWorkspaceDispatch=window.dispatchEvent.bind(window);
+  let deferredWorkspaceViewChange=null;
+  let deferredWorkspaceViewFlushScheduled=false;
+  const scheduleDeferredWorkspaceViewChange=()=>{
+    if(deferredWorkspaceViewFlushScheduled||window.__THEBE_WORKSPACE_READY__!==true||!deferredWorkspaceViewChange)return;
+    deferredWorkspaceViewFlushScheduled=true;
+    const flush=()=>{
+      deferredWorkspaceViewFlushScheduled=false;
+      if(window.__THEBE_WORKSPACE_READY__!==true||!deferredWorkspaceViewChange)return;
+      const event=deferredWorkspaceViewChange;
+      deferredWorkspaceViewChange=null;
+      nativeWorkspaceDispatch(event);
+    };
+    const afterPaint=()=>setTimeout(flush,0);
+    if(typeof requestAnimationFrame==="function")requestAnimationFrame(afterPaint);
+    else setTimeout(flush,0);
+  };
+  window.dispatchEvent=function(event){
+    if(event?.type==="thebe:workspace-view-change"&&window.__THEBE_WORKSPACE_READY__!==true){
+      deferredWorkspaceViewChange=event;
+      return true;
+    }
+    const result=nativeWorkspaceDispatch(event);
+    if(event?.type==="thebe:workspace-ready"&&window.__THEBE_WORKSPACE_READY__===true)scheduleDeferredWorkspaceViewChange();
+    return result;
+  };
+
   window.whenThebeWorkspaceReady=function(callback){
     if(typeof callback!=="function")return;
     if(window.__THEBE_WORKSPACE_READY__===true){queueMicrotask(callback);return}

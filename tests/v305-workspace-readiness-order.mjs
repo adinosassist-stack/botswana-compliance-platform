@@ -29,7 +29,10 @@ const html=transform.externalizeWorkspaceRuntime('<script id="thebe-workspace-ru
 const tags=[...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)];
 let enhanced=0;
 const events=new EventTarget();
-const window={addEventListener:events.addEventListener.bind(events)};
+const window={
+  addEventListener:events.addEventListener.bind(events),
+  dispatchEvent:events.dispatchEvent.bind(events),
+};
 const context=vm.createContext({window,queueMicrotask,enhance:()=>{enhanced++}});
 for(const tag of tags){
   const attributes=tag[1];
