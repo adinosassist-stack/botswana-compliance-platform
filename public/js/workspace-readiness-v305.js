@@ -262,12 +262,20 @@
 
   // Only warm a destination the user is actually moving toward, and share
   // its in-flight request with showView rather than downloading it twice.
+  const prefetchedIntentViews=new Set();
   function prefetchOnNavigationIntent(event){
     if(!networkAllowsWarmup()||window.__THEBE_WORKSPACE_READY__!==true)return;
     const button=event.target?.closest?.("[data-view]");
     const id=String(button?.dataset?.view||"");
     if(!id||document.getElementById(id)?.dataset?.lazyView!=="1")return;
-    if(typeof window.prefetchThebeWorkspaceView==="function")void window.prefetchThebeWorkspaceView(id);
+    if(prefetchedIntentViews.has(id)||typeof window.prefetchThebeWorkspaceView!=="function")return;
+    prefetchedIntentViews.add(id);
+    try{
+      Promise.resolve(window.prefetchThebeWorkspaceView(id)).catch(()=>{
+        // Allow another intent to retry after a failed speculative fetch.
+        prefetchedIntentViews.delete(id);
+      });
+    }catch(_){prefetchedIntentViews.delete(id);}
   }
   function bindWorkspacePrefetch(){
     if(typeof document==="undefined")return;
