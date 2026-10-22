@@ -68,6 +68,7 @@ function exercise(activeView,ready=true){
   applyRoleUi:()=>hit("applyRoleUi"),
   renderCompanies:()=>hit("renderCompanies"),
   animateNumber:()=>hit("animateNumber"),
+  animateViewItems:()=>hit("animateViewItems"),
   setTimeout:()=>{},
   renderGlobalConflict:()=>hit("renderGlobalConflict"),
   setupProgress:()=>hit("setupProgress"),
