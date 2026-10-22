@@ -14,22 +14,20 @@ Issue: #1701. This diagnostic runs in the affected signed-in browser. It does no
   if (typeof window.thebeFreezeStop === "function") window.thebeFreezeStop();
   const longTasks = [];
   const navs = [];
-  let lastNav = null;
   const observer = typeof PerformanceObserver === "function"
     ? new PerformanceObserver(list => {
         for (const entry of list.getEntries()) {
           longTasks.push({ start: Math.round(entry.startTime), duration: Math.round(entry.duration) });
         }
       }) : null;
-  try { observer?.observe({ type: "longtask", buffered: true }); } catch (_) {}
+  try { observer?.observe({ type: "longtask" }); } catch (_) {}
   const click = event => {
     const button = event.target?.closest?.("[data-view]");
     if (!button) return;
-    lastNav = { start: performance.now(), longTaskIndex: longTasks.length };
-    navs.push(lastNav);
+    const nav = { start: performance.now() };
+    navs.push(nav);
     requestAnimationFrame(() => requestAnimationFrame(() => {
-      if (!lastNav || !navs.includes(lastNav)) return;
-      lastNav.twoFrameMs = Math.round(performance.now() - lastNav.start);
+      nav.twoFrameMs = Math.round(performance.now() - nav.start);
     }));
   };
   document.addEventListener("click", click, true);
@@ -40,7 +38,7 @@ Issue: #1701. This diagnostic runs in the affected signed-in browser. It does no
     longTaskDurationsMs: longTasks.map(t => t.duration),
     maxLongTaskMs: Math.max(0, ...longTasks.map(t => t.duration)),
     totalLongTaskMs: longTasks.reduce((sum, t) => sum + t.duration, 0),
-    note: "Two-frame timing measures initial frame scheduling, not complete view readiness. Long tasks are page-wide; use DevTools Performance for function attribution."
+    note: "Two-frame timing measures initial frame scheduling, not complete view readiness. Long tasks are page-wide, not per-click; use DevTools Performance for function attribution."
   });
   window.thebeFreezeStop = () => {
     observer?.disconnect();
