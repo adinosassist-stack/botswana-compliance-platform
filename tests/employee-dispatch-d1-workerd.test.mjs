@@ -77,12 +77,17 @@ test('actual workerd D1 preflight denies stale or unapproved provenance without 
  await db.prepare("UPDATE memberships SET status='active' WHERE tenant_id='t1' AND user_id='manager'").run();
  await db.prepare("UPDATE memberships SET status='inactive' WHERE tenant_id='t1' AND user_id='author'").run();
  assert.equal((await preflight.check(controls)).eligible,false,'inactive author must deny');
+ assert.equal((await admission.admit({...admit,dispatchId:'dispatch-00000000007',idempotencyKey:'idem-author-off-00001'})).ok,false,'inactive author must deny writes');
  await db.prepare("UPDATE memberships SET status='active' WHERE tenant_id='t1' AND user_id='author'").run();
  await db.prepare("UPDATE employees SET status='inactive' WHERE tenant_id='t1' AND id='e1'").run();
  assert.equal((await preflight.check(controls)).eligible,false,'inactive employee must deny');
+ assert.equal((await admission.admit({...admit,dispatchId:'dispatch-00000000008',idempotencyKey:'idem-employee-off-001'})).ok,false,'inactive employee must deny writes');
  await db.prepare("UPDATE employees SET status='active' WHERE tenant_id='t1' AND id='e1'").run();
  assert.equal((await preflight.check(controls)).eligible,true,'restored eligibility');
  await db.prepare("UPDATE employee_ai_workflows SET definition=? WHERE tenant_id='t1' AND owner_id='author' AND workflow_id='w1'").bind(JSON.stringify({...workflow,name:'Changed'})).run();
  assert.equal((await preflight.check(controls)).eligible,false,'changed workflow must deny');
+ assert.equal((await admission.admit({...admit,dispatchId:'dispatch-00000000009',idempotencyKey:'idem-workflow-drift01'})).ok,false,'workflow drift must deny writes');
+ assert.equal((await db.prepare('SELECT COUNT(*) n FROM employee_dispatch_d1_intents').first()).n,2,'revocations must not persist intents');
+ assert.equal((await db.prepare('SELECT COUNT(*) n FROM employee_dispatch_d1_audit').first()).n,2,'revocations must not persist audit');
  assert.equal((await db.prepare('SELECT COUNT(*) n FROM employee_ai_proposal_provenance').first()).n,1,'no dispatch side effects');
 });
