@@ -81,3 +81,14 @@ test("missing values have a distinct visual state, not a zero progress ring", ()
   assert.doesNotMatch(zero.children[0].className, /thebe-kpi-ring--unavailable/);
   assert.match(css, /thebe-kpi-ring--unavailable/);
 });
+
+test("explicit metric-data-only hooks remain readable without exposing hidden sections", () => {
+  const window = { document: { createElement: node }, CSS: { supports: () => true } };
+  vm.runInNewContext(source, { window });
+  const target = { replaceChildren(...nodes) { this.children = nodes; } };
+  const metric = textContent => ({ textContent, hidden: false, closest: selector => selector === "[hidden]" ? null : null });
+  window.ThebeCircularKpi.mountRatioKpiFromElements(target, {
+    label: "Coverage", numeratorElement: metric("1,200"), denominatorElement: metric("2,000")
+  });
+  assert.equal(target.children[0].children[0].children[0].text, "60%");
+});
