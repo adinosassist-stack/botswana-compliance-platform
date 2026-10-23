@@ -1,0 +1,23 @@
+name: Workspace circular KPI tests
+on:
+  pull_request:
+    paths:
+      - 'public/js/workspace-circular-kpis.js'
+      - 'public/assets/workspace-circular-kpis.css'
+      - 'cloudflare/src/production-entry.js'
+      - 'tests/workspace-circular-kpis.test.mjs'
+      - '.github/workflows/workspace-circular-kpis.yml'
+  workflow_dispatch:
+jobs:
+  circular-kpi-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run circular KPI unit tests
+        run: node --test tests/workspace-circular-kpis.test.mjs
