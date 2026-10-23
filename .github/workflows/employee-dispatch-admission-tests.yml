@@ -7,6 +7,7 @@ on:
       - 'server/employee-dispatch-queue.js'
       - 'server/employee-dispatch-worker-policy.js'
       - 'tests/employee-dispatch-admission.test.mjs'
+      - 'tests/employee-dispatch-qualification.test.mjs'
       - 'tests/employee-dispatch-queue.test.mjs'
       - 'tests/employee-dispatch-worker-policy.test.mjs'
       - 'tests/employee_dispatch_schema_test.py'
@@ -31,7 +32,7 @@ jobs:
         with:
           node-version: '22'
       - name: Employee dispatcher admission tests
-        run: node --test tests/employee-dispatch-admission.test.mjs tests/employee-dispatch-queue.test.mjs tests/employee-dispatch-worker-policy.test.mjs
+        run: node --test tests/employee-dispatch-admission.test.mjs tests/employee-dispatch-qualification.test.mjs tests/employee-dispatch-queue.test.mjs tests/employee-dispatch-worker-policy.test.mjs
       - name: SQLite employee dispatch schema tests
         run: python3 tests/employee_dispatch_schema_test.py
       - name: Concurrent SQLite dispatch test
