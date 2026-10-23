@@ -23,3 +23,6 @@ Payroll, money movement, financial posting, external messaging, regulatory filin
 
 ## Hold conditions
 Any unverified production schema, missing reviewer provenance, unavailable atomic commit, ambiguous feature flag, failed audit insertion, unfenced side effect, or absent rollback evidence blocks activation.
+
+## Identity binding discovery (23 October 2026)
+The immutable employee proposal uses a JSON-array proposal_key, whereas the reference dispatch admission accepts only bounded ASCII proposal IDs. Production integration must retain the original tenant-scoped proposal key and revision hashes in trusted D1 storage, while using a distinct server-generated bounded dispatch ID. Do not weaken admission validation or interpret employee review approval as task execution authorization. The existing task preparation still requires a separate owner decision. Confirm this mapping in D1 integration tests before any adapter wiring.
