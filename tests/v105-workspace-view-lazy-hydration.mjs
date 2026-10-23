@@ -160,7 +160,8 @@ assert.ok(fullUserProof.includes("in-view navigation control failed"),"in-view m
 assert.ok(fullUserProof.includes("full-user in-view navigation control matrix"),"live proof must report in-view navigation completion");
 
 assert.match(runtime,/const workspaceNavigationEpoch=options\?\.preserveNavigationEpoch===true\?workspaceViewNavigationEpoch:\+\+workspaceViewNavigationEpoch;if\(target\.dataset\.lazyView==="1"&&options\?\.lazyHydrated!==true\)\{target\.dataset\.lazyNavigationEpoch=String\(workspaceNavigationEpoch\);activateLazyWorkspacePlaceholder\(id,target\);void hydrateLazyWorkspaceView\(id,target,options\);return true\}/,"canonical showView must carry the baked lazy interception branch");
-assert.match(runtime,/const shouldRender=view=>\{if\(!roleCanView\(view\)\)return false;const target=document\.getElementById\(view\),active=!!target\?\.classList\.contains\("active"\),coldLanding=window\.__THEBE_WORKSPACE_READY__!==true&&view===roleLandingView\(currentUser\?\.role\);return active\|\|coldLanding\}/,"render fan-out must remain active-or-cold-landing only");
+assert.match(runtime,/const allowedRenderViews=allowedViewsForRole\(currentWorkspaceRole\(\)\);/,"render must take a fresh role permissions snapshot");
+assert.match(runtime,/const shouldRender=view=>\{if\(!allowedRenderViews\.has\(view\)\)return false;const target=document\.getElementById\(view\),active=!!target\?\.classList\.contains\("active"\),coldLanding=window\.__THEBE_WORKSPACE_READY__!==true&&view===roleLandingView\(currentUser\?\.role\);return active\|\|coldLanding\}/,"render fan-out must remain role scoped and active-or-cold-landing only");
 
 assert.match(worker,/immutableWorkspaceViewFragments=\/\^\\\/assets\\\/workspace-view-fragments-\[a-z0-9\.\-\]\+\\\.json\$\/i\.test\(url\.pathname\)/);
 assert.match(worker,/immutableWorkspaceRuntime\|\|immutableWorkspaceStyles\|\|immutableWorkspaceViewFragments/);
