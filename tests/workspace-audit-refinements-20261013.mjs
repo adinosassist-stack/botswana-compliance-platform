@@ -3,6 +3,12 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 import {versionReleaseAssets} from '../cloudflare/src/asset-release-identity.js';
 
+const clarity=fs.readFileSync('public/assets/workspace-audit-refinements-20261013.css','utf8');
+assert.match(clarity,/Workspace clarity pass 2026-10-23/,'clarity layer is present');
+assert.match(clarity,/@media\(min-width:901px\)/,'compact desktop navigation must remain desktop-only');
+assert.match(clarity,/#mainContent>\.top\{min-height:60px!important/,'desktop top bar is compact');
+assert.match(clarity,/#mainContent\{background:#f7f9fc!important/,'workspace canvas is flat');
+assert.match(clarity, /@media\(prefers-reduced-motion:reduce\)/,'motion preference is respected');
 const dock=fs.readFileSync('public/js/thebe-live-voice.js','utf8');
 const runtime=fs.readFileSync('public/js/workspace-runtime-20261001b.js','utf8');
 const authored=fs.readFileSync('public/index.html','utf8');
