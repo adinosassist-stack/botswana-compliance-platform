@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import {isSafeUiMutation} from './production-synthetic-request-policy.mjs';
 import {chromium} from 'playwright-core';
-import {summarizeWorkspaceNavigationPerformance} from './workspace-navigation-performance-summary.mjs';
+import {summarizeWorkspaceNavigationPerformance,assertWorkspaceNavigationResponsiveness} from './workspace-navigation-performance-summary.mjs';
 import {profileNavigationClick} from './workspace-navigation-cpu-profile.mjs';
 
 const ORIGIN='https://thebedesk.com';
@@ -453,7 +453,6 @@ async function runFullUserJourney(credentials){
     const views=await page.evaluate(()=>{const roleCheck=typeof globalThis.roleCanView==='function'?globalThis.roleCanView:null;const unique=[];for(const button of document.querySelectorAll('#nav button[data-view]')){const view=String(button.dataset.view||'').trim();const style=getComputedStyle(button);if(!view||unique.includes(view)||button.hidden||button.closest('[hidden]')||button.offsetParent===null||style.display==='none'||style.visibility==='hidden')continue;if(roleCheck&&!roleCheck(view))continue;unique.push(view);}return unique;});
     assert(views.length>=MIN_OWNER_VIEW_COUNT,`only ${views.length} owner-visible views were discoverable; expected at least ${MIN_OWNER_VIEW_COUNT}`);
     // Browser-only synthetic owner proof: route slugs and durations, no customer identifiers.
-    const navigationPerfSamples=[];
     await page.evaluate(()=>{
       const state={current:null,longTasks:[],pendingObserver:null,longTaskSupported:false};
       try{
@@ -483,6 +482,8 @@ async function runFullUserJourney(credentials){
       },true);
       Object.defineProperty(globalThis,'__thebeSyntheticNavigationPerf',{configurable:true,value:state});
     });
+    for(const navigationPass of ['initial','repeat']){
+    const navigationPerfSamples=[];
     for(const view of views){
       const button=page.locator(`#nav button[data-view="${view}"]`).first();assert(await button.count(),`navigation button missing for owner view ${view}`);const details=button.locator('xpath=ancestor::details[1]');if(await details.count()&&!(await details.evaluate(node=>node.open===true))){const summary=details.locator(':scope > summary').first();assert(await summary.count(),`collapsed navigation group for ${view} has no summary control`);await summary.click();await page.waitForFunction(targetView=>{const button=document.querySelector(`#nav button[data-view="${targetView}"]`);return !!button&&button.offsetParent!==null;},view,{timeout:VIEW_TIMEOUT_MS});}
       const before=await page.evaluate(targetView=>{const target=document.getElementById(targetView);return {exists:!!target,lazy:target?.dataset?.lazyView==='1'||target?.dataset?.lazyHydrated==='1'};},view);assert(before.exists,`workspace target missing for owner view ${view}`);await profileNavigationClick(page,view,()=>button.click());await page.waitForFunction(targetView=>document.getElementById(targetView)?.classList.contains('active'),view,{timeout:VIEW_TIMEOUT_MS});if(before.lazy){await page.waitForFunction(targetView=>{const target=document.getElementById(targetView);return target?.dataset?.lazyHydrated==='1'||target?.dataset?.lazyError==='1';},view,{timeout:WORKSPACE_TIMEOUT_MS});}else await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>setTimeout(resolve,30))));
@@ -506,11 +507,14 @@ async function runFullUserJourney(credentials){
       },view);
       assert(perf&&perf.view===view,'navigation performance evidence missing for '+view);
       navigationPerfSamples.push(perf);
-      console.log('WORKSPACE_NAV_SAMPLE '+JSON.stringify(perf));
+      console.log('WORKSPACE_NAV_SAMPLE '+JSON.stringify({pass:navigationPass,...perf}));
     }
     assert(navigationPerfSamples.length===views.length,'navigation responsiveness coverage incomplete');
     const navigationPerfSummary=summarizeWorkspaceNavigationPerformance(navigationPerfSamples);
+    console.log('WORKSPACE_NAV_PASS_SUMMARY '+JSON.stringify({pass:navigationPass,...navigationPerfSummary}));
     console.log('WORKSPACE_NAV_PERF_SUMMARY '+JSON.stringify(navigationPerfSummary));
+    assertWorkspaceNavigationResponsiveness(navigationPerfSamples);
+    }
 
     const openOwnerViewThroughNav=async view=>{
       const button=page.locator('#nav button[data-view="'+view+'"]').first();assert(await button.count(),'safe UI action source navigation/search index missing for '+view);

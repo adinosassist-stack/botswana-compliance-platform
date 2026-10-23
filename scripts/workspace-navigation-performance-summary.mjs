@@ -23,3 +23,14 @@ export function summarizeWorkspaceNavigationPerformance(samples){
   worstLongTaskMs:observed.length?whole(Math.max(0,...observed.map(s=>s.worstLongTaskMs||0))):null
  };
 }
+
+// Conservative freeze regression limits, not latency SLOs. Hydration/network waits
+// remain reported separately through settledFrameMs and do not consume this budget.
+export function assertWorkspaceNavigationResponsiveness(samples){
+ if(!Array.isArray(samples)||!samples.length||summarizeWorkspaceNavigationPerformance(samples).views!==samples.length)throw new Error('Navigation responsiveness evidence missing or invalid');
+ for(const sample of samples){
+  if(sample.longTaskSupported!==true||!Number.isFinite(sample.worstLongTaskMs)||sample.worstLongTaskMs<0)throw new Error('Navigation blocking-task evidence unavailable');
+  if(sample.activateMs>2000)throw new Error(`Navigation activation freeze: ${sample.view} exceeded 2000ms`);
+  if(sample.worstLongTaskMs>1000)throw new Error(`Navigation blocking freeze: ${sample.view} exceeded 1000ms`);
+ }
+}
