@@ -10,6 +10,7 @@
     const ring = doc.createElement("div");
     ring.className = "thebe-kpi-ring";
     if (valid) ring.style.setProperty("--ring-value", String(value));
+    else ring.className += " thebe-kpi-ring--unavailable";
     if (color && global.CSS?.supports?.("color", color)) ring.style.setProperty("--ring-color", color);
     const number = doc.createElement("span");
     number.className = "thebe-kpi-ring__value";
