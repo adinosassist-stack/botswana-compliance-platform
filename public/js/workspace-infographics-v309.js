@@ -67,7 +67,7 @@
       const strip=root.querySelector('.outcome-status-strip,.market-v257-stats');
       if(strip&&!strip.nextElementSibling?.classList.contains('workspace-info-scale-v309')){
         const caption=document.createElement('p');caption.className='workspace-info-scale-v309';
-        caption.textContent='Count bars share a scale; the largest visible count fills the bar.';strip.after(caption);
+        caption.textContent='Relative counts';caption.title='Bars are relative to the largest visible count, not percentages.';strip.after(caption);
       }
     }
   }
