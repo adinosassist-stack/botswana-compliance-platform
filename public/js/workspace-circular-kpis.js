@@ -31,5 +31,12 @@
     root.append(ring, copy);
     return root;
   }
-  global.ThebeCircularKpi = Object.freeze({ createCircularKpi });
+  function createRatioKpi({ label, numerator, denominator, detail = "", color } = {}) {
+    const valid = Number.isSafeInteger(numerator) && Number.isSafeInteger(denominator)
+      && numerator >= 0 && denominator > 0 && numerator <= denominator;
+    const value = valid ? (numerator / denominator) * 100 : null;
+    const context = valid ? numerator.toLocaleString() + " / " + denominator.toLocaleString() : "";
+    return createCircularKpi({ label, value, detail: detail || context, color });
+  }
+  global.ThebeCircularKpi = Object.freeze({ createCircularKpi, createRatioKpi });
 })(window);
