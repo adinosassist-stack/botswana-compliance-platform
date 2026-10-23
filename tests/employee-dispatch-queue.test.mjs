@@ -246,3 +246,28 @@ test("unconfirmed audit write cannot commit a dispatch intent", async () => {
     assert.equal(s.audit.length, 0);
   }
 });
+
+test("dispatch rejects approval from another proposal or tenant without persisting an intent", async () => {
+  for (const savedReview of [
+    { ...review, proposalId: "other-proposal" },
+    { ...review, tenantId: "other-tenant" },
+    { ...review, status: "revoked" },
+    { ...review, reviewerId: identity.actorId }
+  ]) {
+    const s = store({ savedReview });
+    const result = await queueEmployeeDispatch({ ...request, store: s });
+    assert.equal(result.queued, false);
+    assert.equal(result.reason, "approval_required");
+    assert.equal(s.intents.size, 0);
+    assert.equal(s.audit.length, 0);
+  }
+});
+
+test("dispatch rejects a different action than the approved proposal", async () => {
+  const s = store();
+  const result = await queueEmployeeDispatch({ ...request, action: "internal.report.draft", store: s });
+  assert.equal(result.queued, false);
+  assert.equal(result.reason, "proposal_scope_mismatch");
+  assert.equal(s.intents.size, 0);
+  assert.equal(s.audit.length, 0);
+});
