@@ -1,0 +1,13 @@
+/* Direct labels carry the data; bars provide proportion without animation. */
+.workspace-infographic{padding:18px;border:1px solid var(--line,#dce7f5);border-radius:14px;background:var(--panel,#fff);margin:0 0 16px;min-width:0}
+.workspace-info-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:12px}
+.workspace-info-heading h3{margin:0;font-size:15px;color:var(--text,#18375a)}
+.workspace-info-heading>span,.workspace-info-note{font-size:12px;color:var(--muted,#526a86)}
+.workspace-info-bars{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 24px}
+.workspace-info-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px 12px;align-items:center;min-height:48px;padding:8px 0;border:0;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.workspace-info-label{font-size:13px}.workspace-info-row b{font-size:18px;font-variant-numeric:tabular-nums}
+.workspace-info-track{grid-column:1/-1;height:7px;border-radius:9px;background:#e8eef6;overflow:hidden}
+.workspace-info-track>span{display:block;height:100%;background:#2463b3;border-radius:9px}
+.workspace-info-row:focus-visible{outline:2px solid #2463b3;outline-offset:4px;border-radius:4px}
+.workspace-info-note{margin:12px 0 0;line-height:1.5}
+@media(max-width:650px){.workspace-info-bars{grid-template-columns:1fr}.workspace-info-heading{flex-wrap:wrap}.workspace-infographic{padding:14px}}
