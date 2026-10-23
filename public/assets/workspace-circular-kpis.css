@@ -77,3 +77,15 @@
 @media (prefers-reduced-motion: reduce) {
   #mainContent .thebe-kpi-ring { animation: none; transition: none; }
 }
+
+/* Unknown is not zero: do not display an empty progress ring as a measurement. */
+:where(#mainContent) .thebe-kpi-ring--unavailable {
+  background: none;
+  border: 3px dashed var(--v231-line, #dce7f5);
+}
+:where(#mainContent) .thebe-kpi-ring--unavailable::before {
+  inset: 6px;
+}
+@media (forced-colors: active) {
+  :where(#mainContent) .thebe-kpi-ring--unavailable { border-style: dashed; }
+}
