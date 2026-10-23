@@ -45,6 +45,20 @@ test('actual workerd D1 preflight denies stale or unapproved provenance without 
  assert.equal((await admission.admit({...admit,dispatchId:'dispatch-00000000002'})).ok,false,'duplicate idempotency');
  assert.equal((await db.prepare('SELECT COUNT(*) n FROM employee_dispatch_d1_intents').first()).n,1);
  assert.equal((await db.prepare('SELECT COUNT(*) n FROM employee_dispatch_d1_audit').first()).n,1);
+ // Concurrent duplicate admissions must never produce a second durable intent.
+ const race=await Promise.all([
+  admission.admit({...admit,dispatchId:'dispatch-00000000003',idempotencyKey:'idem-concurrent-000001'}),
+  admission.admit({...admit,dispatchId:'dispatch-00000000004',idempotencyKey:'idem-concurrent-000001'})
+ ]);
+ assert.equal(race.filter(x=>x.ok).length,1,'one concurrent winner');
+ assert.equal((await db.prepare('SELECT COUNT(*) n FROM employee_dispatch_d1_intents').first()).n,2);
+ assert.equal((await db.prepare('SELECT COUNT(*) n FROM employee_dispatch_d1_audit').first()).n,2);
+ // Denied admission must not leave an unaudited intent.
+ await db.prepare("UPDATE memberships SET status='inactive' WHERE tenant_id='t1' AND user_id='manager'").run();
+ assert.equal((await admission.admit({...admit,dispatchId:'dispatch-00000000005',idempotencyKey:'idem-revoked-00000001'})).ok,false);
+ assert.equal((await db.prepare('SELECT COUNT(*) n FROM employee_dispatch_d1_intents').first()).n,2);
+ await db.prepare("UPDATE memberships SET status='active' WHERE tenant_id='t1' AND user_id='manager'").run();
+
  const approved=await preflight.check(controls);
  assert.equal(approved.eligible,true);
  assert.equal(approved.reason,'snapshot_only_no_execution_authority');
