@@ -42,3 +42,12 @@ test("workspace entry loads both assets", () => {
   assert.match(entry, /injectBeforeFinalClosingTag\(source,"head",`<link rel="stylesheet" href="\/assets\/workspace-circular-kpis\.css/);
   assert.match(entry, /injectBeforeFinalClosingTag\(source,"body",`<script src="\/js\/workspace-circular-kpis\.js/);
 });
+
+test("ratio KPI uses actual counts and rejects invalid denominators", () => {
+  const window = { document: { createElement: node }, CSS: { supports: () => true } };
+  vm.runInNewContext(source, { window });
+  const good = window.ThebeCircularKpi.createRatioKpi({ label: "Complete", numerator: 3, denominator: 4 });
+  assert.equal(good.children[0].children[0].text, "75%");
+  const bad = window.ThebeCircularKpi.createRatioKpi({ label: "Complete", numerator: 3, denominator: 0 });
+  assert.equal(bad.children[0].children[0].text, "—");
+});
