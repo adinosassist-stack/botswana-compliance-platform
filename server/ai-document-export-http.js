@@ -15,7 +15,8 @@ export function createAiExportHandlers(deps){
    const identity=await getIdentity(req);
    const input=await createExportJobInputAsync(req?.body,identity,resolveMessage);
    if(!input.ok)return failure(input.reason,input.reason==="unauthorized"?401:400);
-   const job=await createJob(input.value,identity);
+   let job;
+   try{job=await createJob(input.value,identity)}catch{return failure("export_unavailable",503)}
    const checked=exportJobStatus(job,identity,now());
    if(!checked.ok)return failure("export_unavailable",503);
    return {status:202,body:checked.value};
@@ -23,7 +24,8 @@ export function createAiExportHandlers(deps){
   async status(req){
    const identity=await getIdentity(req);
    if(typeof req?.params?.id!=="string"||!/^[a-zA-Z0-9_.:-]{1,200}$/.test(req.params.id))return failure("not_found");
-   const job=await findJob(req.params.id,identity);
+   let job;
+   try{job=await findJob(req.params.id,identity)}catch{return failure("export_unavailable",503)}
    const checked=exportJobStatus(job,identity,now());
    return checked.ok?{status:200,body:checked.value}:failure(checked.reason);
   },
@@ -34,7 +36,8 @@ export function createAiExportHandlers(deps){
    if(!checked.ok)return failure(checked.reason);
    const headers=exportDownloadHeaders(checked.value.format,job.title);
    if(!headers)return failure("invalid_format");
-   const bytes=await readPrivateObject(checked.value.objectKey,identity);
+   let bytes;
+   try{bytes=await readPrivateObject(checked.value.objectKey,identity)}catch{return failure("export_unavailable",503)}
    if(!Buffer.isBuffer(bytes)||bytes.length===0)return failure("export_unavailable",503);
    return {status:200,headers,bytes};
   }
