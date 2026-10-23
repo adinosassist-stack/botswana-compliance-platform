@@ -13,8 +13,7 @@ test('actual workerd D1 preflight denies stale or unapproved provenance without 
  t.after(()=>mf.dispose());
  const db=await mf.getD1Database('DB');
  const canonical=splitSqliteMigrationStatements(readFileSync('cloudflare/schema.sql','utf8'));
- const base=canonical.map(s=>s.replace(/--[^
-]*/g,'').trim()).filter(s=>/^CREATE TABLE IF NOT EXISTS (tenants|users|memberships|employees)\(/.test(s));
+ const base=canonical.map(s=>s.replace(/--[^\n]*/g,'').trim()).filter(s=>/^CREATE TABLE IF NOT EXISTS (tenants|users|memberships|employees)\(/.test(s));
  assert.equal(base.length,4);
  for(const statement of base)await db.prepare(statement).run();
  for(const name of ['20261021_employee_ai_workflows.sql','20261021_employee_ai_proposal_reviews.sql','20261022_employee_ai_proposal_provenance.sql']){
