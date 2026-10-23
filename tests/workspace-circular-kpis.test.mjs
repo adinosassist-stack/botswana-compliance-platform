@@ -92,3 +92,24 @@ test("explicit metric-data-only hooks remain readable without exposing hidden se
   });
   assert.equal(target.children[0].children[0].children[0].text, "60%");
 });
+
+test("declarative ratios require explicitly mapped metric elements", () => {
+  const target = {
+    attributes: {
+      "data-thebe-ratio-label": "Complete",
+      "data-thebe-ratio-numerator": "done",
+      "data-thebe-ratio-denominator": "total"
+    },
+    getAttribute(name) { return this.attributes[name]; },
+    replaceChildren(...nodes) { this.children = nodes; }
+  };
+  const metrics = { done: { textContent: "3", hidden: false, closest: () => null }, total: { textContent: "4", hidden: false, closest: () => null } };
+  const window = { document: { createElement: node, getElementById: id => metrics[id] }, CSS: { supports: () => true } };
+  vm.runInNewContext(source, { window });
+  const root = { querySelectorAll: () => [target] };
+  assert.equal(window.ThebeCircularKpi.mountConfiguredRatios(root), 1);
+  assert.equal(target.children[0].children[0].children[0].text, "75%");
+  delete metrics.total;
+  assert.equal(window.ThebeCircularKpi.mountConfiguredRatios(root), 1);
+  assert.equal(target.children[0].children[0].children[0].text, "—");
+});
