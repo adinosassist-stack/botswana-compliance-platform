@@ -56,7 +56,7 @@ function decoratorFixture(action,initialStatus=''){
  const start=source.indexOf('function bindAddLocationAction('),end=source.indexOf('function decorateLocationForm(',start);
  assert(start>=0&&end>start,'People save decorator must exist');
  let timed=0;
- const bind=vm.runInNewContext(source.slice(start,end)+'\\nbindAddLocationAction',{
+ const bind=vm.runInNewContext(source.slice(start,end)+'\nbindAddLocationAction',{
    window:{addOpsLocation:action},console:{error(){}},setTimeout(){timed++}
  });
  bind(people);
