@@ -42,7 +42,8 @@ test("dashboard lists remain dashboard-only",()=>{
 });
 
 const callbackNames=[...new Set([...render.matchAll(/run\("[^"]+",([A-Za-z_$][\w$]*)\)/g)].map(match=>match[1]))];
-function exercise(activeView,ready=true){
+const allViewNames=[...new Set([...render.matchAll(/run\("([^"]+)"/g)].map(match=>match[1]).concat(["dashboard","employershield","protectionengine","sources","rules","publishing","regulatorygovernance"]))];
+function exercise(activeView,ready=true,allowedViews=allViewNames){
  const calls=new Map();
  const hit=name=>calls.set(name,(calls.get(name)||0)+1);
  const elements=new Map();
@@ -59,7 +60,8 @@ function exercise(activeView,ready=true){
   currentUser:{role:"owner"},
   roleLandingView:()=>"dashboard",
   currentWorkspaceRole:()=>"owner",
-  roleCanView:()=>true,
+  roleCanView:()=>{throw new Error("renderAll must not rescan role permissions per view");},
+  allowedViewsForRole:()=>{hit("allowedViewsForRole");return new Set(allowedViews);},
   state:{profile:{name:"Test tenant"},evidence:[]},
   STANDALONE_PREVIEW:false,
   sourceConflicts:[],
@@ -111,4 +113,30 @@ test("cold dashboard landing retains metrics even before ready flag",()=>{
  assert.equal(calls.get("applicable"),1);
  assert.equal(calls.get("scoreData"),1);
  assert.equal(calls.get("applyRoleUi"),1);
+});
+
+test("workspace role permissions are snapshotted once per render",()=>{
+ for(const view of ["dashboard","security","employees"]){
+  const {calls}=exercise(view);
+  assert.equal(calls.get("allowedViewsForRole"),1,view+" should resolve role permissions once");
+  assert.equal(calls.get("applyRoleUi"),1,view+" should still apply the role to the UI");
+ }
+ assert.equal((render.match(/allowedViewsForRole\(/g)||[]).length,1);
+ assert.doesNotMatch(render,/roleCanView\(/,"renderAll must not perform per-view DOM permission rescans");
+});
+
+test("a denied active route never reaches its renderer",()=>{
+ const {calls}=exercise("employees",true,["dashboard","security"]);
+ assert.equal(calls.get("renderEmployeeRegister")||0,0);
+ assert.equal(calls.get("allowedViewsForRole"),1);
+ assert.equal(calls.get("applyRoleUi"),1);
+});
+
+test("role permission snapshot is refreshed on each render",()=>{
+ const {calls:allowed}=exercise("employees",true,["employees","dashboard"]);
+ const {calls:denied}=exercise("employees",true,["dashboard"]);
+ assert.equal(allowed.get("renderEmployeeRegister"),1);
+ assert.equal(denied.get("renderEmployeeRegister")||0,0);
+ assert.equal(allowed.get("allowedViewsForRole"),1);
+ assert.equal(denied.get("allowedViewsForRole"),1);
 });

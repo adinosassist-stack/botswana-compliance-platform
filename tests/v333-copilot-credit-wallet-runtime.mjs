@@ -3,7 +3,7 @@ import fs from "node:fs";
 import vm from "node:vm";
 
 const runtime=fs.readFileSync("public/js/workspace-runtime-20261001b.js","utf8");
-const scheduler=runtime.slice(runtime.indexOf(" const shouldRender=view=>"),runtime.indexOf("\n}\nfunction addDays",runtime.indexOf(" const shouldRender=view=>")));
+const scheduler=runtime.slice(runtime.indexOf(" const allowedRenderViews=allowedViewsForRole(currentWorkspaceRole());"),runtime.indexOf("\n}\nfunction addDays",runtime.indexOf(" const allowedRenderViews=allowedViewsForRole(currentWorkspaceRole());")));
 assert.ok(scheduler.length>0,"workspace hydration dispatcher must be available");
 const credits=runtime.slice(runtime.indexOf("async function renderAiCredits(){"),runtime.indexOf("\nfunction setAiAdvisorPrompt",runtime.indexOf("async function renderAiCredits(){")));
 assert.ok(credits.length>0,"wallet renderer must be available");
@@ -14,7 +14,7 @@ async function hydrate(active,permitted=true,reject=false){
   const scope={
     window:{__THEBE_WORKSPACE_READY__:true},currentUser:{role:"owner"},
     document:{getElementById(id){if(nodes.has(id))return nodes.get(id);return {classList:{contains:()=>id===active}}}},
-    roleCanView:()=>permitted,roleLandingView:()=>"dashboard",currentWorkspaceRole:()=>"owner",
+    roleCanView:()=>permitted,allowedViewsForRole:()=>permitted?new Set(["aiservices","aicontrols"]):new Set(),roleLandingView:()=>"dashboard",currentWorkspaceRole:()=>"owner",
     escapeHtml:value=>String(value),reportClientError:error=>{throw error},setTimeout:()=>{},
     apiJson:async path=>{assert.equal(path,"/api/ai/credits");reads++;if(reject)throw new Error("Wallet service unavailable");return {wallet:{balance:17,monthly_allowance:40,lifetime_used:23,lifetime_purchased:0},plan:{plan:"protect"},packs:[],ledger:[]}}
   };
