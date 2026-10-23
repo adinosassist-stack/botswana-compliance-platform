@@ -44,6 +44,11 @@ try{
     const dock=page.locator('#thebeAiDock'),input=page.locator('#thebeAiDockInput');
     const audio=dock.locator('.thebe-ai-audio'),send=dock.locator('.thebe-ai-send'),plus=dock.locator('.thebe-ai-attach');
     await dock.waitFor({state:'visible'});
+    if(workspace){
+      const presets=dock.locator('.thebe-ai-quick');
+      assert.equal(await presets.isVisible(),false,'workspace dock must not show preset question tiles');
+      assert(await input.isVisible(),'workspace composer remains available without presets');
+    }
     assert(await audio.isVisible(),'idle voice is available');assert(await send.isHidden(),'idle send hidden');
     assert.equal(await plus.isVisible(),workspace,'files restricted to workspace');
     await input.fill('a');assert(await send.isVisible(),'one character offers send');assert(await audio.isHidden());
