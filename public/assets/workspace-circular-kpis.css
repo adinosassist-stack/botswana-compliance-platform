@@ -1,0 +1,56 @@
+/* Thebe circular KPI primitives — progressive enhancement, no runtime dependency. */
+:where(#mainContent) .thebe-kpi-ring {
+  --ring-value: 0;
+  --ring-color: var(--brand-primary, #2563eb);
+  width: clamp(76px, 9vw, 112px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  position: relative;
+  flex: none;
+  background: conic-gradient(var(--ring-color) calc(clamp(0, var(--ring-value), 100) * 1%), color-mix(in srgb, currentColor 10%, transparent) 0);
+}
+:where(#mainContent) .thebe-kpi-ring::before {
+  content: "";
+  position: absolute;
+  inset: 9px;
+  border-radius: inherit;
+  background: var(--surface, var(--card-bg, #fff));
+}
+:where(#mainContent) .thebe-kpi-ring__value {
+  position: relative;
+  z-index: 1;
+  font-size: clamp(1rem, 2vw, 1.4rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+:where(#mainContent) .thebe-kpi {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+:where(#mainContent) .thebe-kpi__label {
+  font-size: .82rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+:where(#mainContent) .thebe-kpi__detail {
+  font-size: .75rem;
+  opacity: .72;
+  line-height: 1.3;
+}
+:where(#mainContent) .thebe-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+  gap: 12px;
+}
+@media (max-width: 620px) {
+  :where(#mainContent) .thebe-kpi-ring { width: 76px; }
+  :where(#mainContent) .thebe-kpi { gap: 8px; }
+}
+@media (forced-colors: active) {
+  :where(#mainContent) .thebe-kpi-ring { border: 4px solid CanvasText; background: Canvas; }
+  :where(#mainContent) .thebe-kpi-ring::before { background: Canvas; }
+}
