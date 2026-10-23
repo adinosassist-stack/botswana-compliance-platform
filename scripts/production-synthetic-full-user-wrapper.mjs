@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import {isSafeUiMutation} from './production-synthetic-request-policy.mjs';
 import {chromium} from 'playwright-core';
 import {summarizeWorkspaceNavigationPerformance} from './workspace-navigation-performance-summary.mjs';
+import {profileNavigationClick} from './workspace-navigation-cpu-profile.mjs';
 
 const ORIGIN='https://thebedesk.com';
 const NAVIGATION_TIMEOUT_MS=30000;
@@ -484,7 +485,7 @@ async function runFullUserJourney(credentials){
     });
     for(const view of views){
       const button=page.locator(`#nav button[data-view="${view}"]`).first();assert(await button.count(),`navigation button missing for owner view ${view}`);const details=button.locator('xpath=ancestor::details[1]');if(await details.count()&&!(await details.evaluate(node=>node.open===true))){const summary=details.locator(':scope > summary').first();assert(await summary.count(),`collapsed navigation group for ${view} has no summary control`);await summary.click();await page.waitForFunction(targetView=>{const button=document.querySelector(`#nav button[data-view="${targetView}"]`);return !!button&&button.offsetParent!==null;},view,{timeout:VIEW_TIMEOUT_MS});}
-      const before=await page.evaluate(targetView=>{const target=document.getElementById(targetView);return {exists:!!target,lazy:target?.dataset?.lazyView==='1'||target?.dataset?.lazyHydrated==='1'};},view);assert(before.exists,`workspace target missing for owner view ${view}`);await button.click();await page.waitForFunction(targetView=>document.getElementById(targetView)?.classList.contains('active'),view,{timeout:VIEW_TIMEOUT_MS});if(before.lazy){await page.waitForFunction(targetView=>{const target=document.getElementById(targetView);return target?.dataset?.lazyHydrated==='1'||target?.dataset?.lazyError==='1';},view,{timeout:WORKSPACE_TIMEOUT_MS});}else await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>setTimeout(resolve,30))));
+      const before=await page.evaluate(targetView=>{const target=document.getElementById(targetView);return {exists:!!target,lazy:target?.dataset?.lazyView==='1'||target?.dataset?.lazyHydrated==='1'};},view);assert(before.exists,`workspace target missing for owner view ${view}`);await profileNavigationClick(page,view,()=>button.click());await page.waitForFunction(targetView=>document.getElementById(targetView)?.classList.contains('active'),view,{timeout:VIEW_TIMEOUT_MS});if(before.lazy){await page.waitForFunction(targetView=>{const target=document.getElementById(targetView);return target?.dataset?.lazyHydrated==='1'||target?.dataset?.lazyError==='1';},view,{timeout:WORKSPACE_TIMEOUT_MS});}else await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>setTimeout(resolve,30))));
       const result=await page.evaluate(targetView=>{const target=document.getElementById(targetView);return {exists:!!target,active:!!target?.classList.contains('active'),title:String(document.getElementById('pageTitle')?.textContent||'').trim(),shellVisible:!document.getElementById('appShell')?.classList.contains('hidden'),lazyHydrated:target?.dataset?.lazyHydrated==='1',lazyError:target?.dataset?.lazyError==='1',stillLazy:target?.dataset?.lazyView||'',contentLength:String(target?.textContent||'').trim().length};},view);
       assert(result.exists&&result.active&&result.shellVisible,`real navigation click did not activate owner view ${view}: ${safe(JSON.stringify(result))}`);assert(result.title.length>0,`view ${view} activated without a page title`);if(before.lazy){assert(result.lazyHydrated&&!result.lazyError&&!result.stillLazy,`lazy view ${view} did not complete hydration after its real navigation click: ${safe(JSON.stringify(result))}`);assert(result.contentLength>0,`lazy view ${view} hydrated with empty content after its real navigation click`);}
       const perf=await page.evaluate(async targetView=>{
@@ -505,9 +506,9 @@ async function runFullUserJourney(credentials){
       },view);
       assert(perf&&perf.view===view,'navigation performance evidence missing for '+view);
       navigationPerfSamples.push(perf);
+      console.log('WORKSPACE_NAV_SAMPLE '+JSON.stringify(perf));
     }
     assert(navigationPerfSamples.length===views.length,'navigation responsiveness coverage incomplete');
-    for(const sample of navigationPerfSamples)console.log('WORKSPACE_NAV_SAMPLE '+JSON.stringify(sample));
     const navigationPerfSummary=summarizeWorkspaceNavigationPerformance(navigationPerfSamples);
     console.log('WORKSPACE_NAV_PERF_SUMMARY '+JSON.stringify(navigationPerfSummary));
 
