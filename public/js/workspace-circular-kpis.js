@@ -12,6 +12,8 @@
     if (valid) ring.style.setProperty("--ring-value", String(value));
     else ring.className += " thebe-kpi-ring--unavailable";
     if (color && global.CSS?.supports?.("color", color)) ring.style.setProperty("--ring-color", color);
+    if (!valid) ring.setAttribute("data-state", "unavailable");
+    else ring.setAttribute("data-state", value === 0 ? "zero" : "measured");
     const number = doc.createElement("span");
     number.className = "thebe-kpi-ring__value";
     number.textContent = valid ? Math.round(value) + "%" : "—";
