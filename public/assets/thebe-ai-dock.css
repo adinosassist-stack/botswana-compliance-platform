@@ -2023,3 +2023,13 @@
 .thebe-ai-plan-artifact>small{display:block;margin:6px 0;color:#b7c8d9}
 body.thebe-ai-dock-open .thebe-ai-mode-rail:has([data-thebe-mode="goal_plan"]:not([hidden])){grid-template-columns:repeat(4,minmax(0,1fr))}
 @media(max-width:520px){body.thebe-ai-dock-open .thebe-ai-mode-rail:has([data-thebe-mode="goal_plan"]:not([hidden])){grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Export interaction: compact, keyboard-visible, and responsive. Hidden until secured API is enabled. */
+.thebe-ai-export-menu{position:absolute;inset:auto 12px 100% auto;z-index:20;min-width:184px;max-width:min(280px,calc(100vw - 24px));padding:6px;border:1px solid var(--thebe-dock-line);border-radius:12px;background:var(--thebe-dock-soft);box-shadow:0 12px 28px #0005}
+.thebe-ai-export-menu[hidden],.thebe-ai-export-status[hidden]{display:none!important}
+.thebe-ai-export-menu button{display:flex;align-items:center;gap:8px;width:100%;min-height:44px;padding:9px 12px;text-align:left;border:0;border-radius:8px;background:transparent;color:var(--thebe-dock-ink)}
+.thebe-ai-export-menu button:hover,.thebe-ai-export-menu button:focus-visible{background:rgba(131,186,255,.13)}
+.thebe-ai-export-status{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;padding:8px 12px;color:var(--thebe-dock-muted);font-size:12px;overflow-wrap:anywhere}
+.thebe-ai-export-status button{min-height:36px}
+@media(max-width:520px){.thebe-ai-export-menu{left:8px;right:8px;max-width:none}.thebe-ai-export-menu button{min-height:48px}}
+@media(prefers-reduced-motion:reduce){.thebe-ai-export-menu,.thebe-ai-export-status{animation:none!important;transition:none!important}}
