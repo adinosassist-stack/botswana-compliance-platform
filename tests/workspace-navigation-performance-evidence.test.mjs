@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
 import {summarizeWorkspaceNavigationPerformance} from '../scripts/workspace-navigation-performance-summary.mjs';
@@ -38,4 +39,25 @@ test('navigation summary uses nearest-rank p95 and keeps route slugs only',()=>{
  assert.equal(unsupported.longTaskApiAvailableInAllViews,false);
  assert.equal(unsupported.longTasksOver50ms,null,'unsupported observer cannot report zero blocking tasks');
  assert.equal(unsupported.totalLongTaskMs,null);
+});
+
+// Execute the delivered collector, with a deterministic browser boundary.
+test('click task overlap and pending observer records are included once',async()=>{
+ const start=synthetic.indexOf('const perf=await page.evaluate(');
+ const end=synthetic.indexOf('\n      assert(perf',start);
+ const code=synthetic.slice(start,end).replace('const perf=await ', '');
+ let drained=false;
+ const state={current:{view:'people',clickedAt:105,activeAt:120},longTaskSupported:true,
+  longTasks:[{start:10,duration:50},{start:100,duration:1500},{start:1900,duration:200}],
+  observer:{takeRecords:()=>{if(drained)return [];drained=true;return [{startTime:1650,duration:100}];}}};
+ const context={view:'people',globalThis:{__thebeSyntheticNavigationPerf:state},performance:{now:()=>1800},
+  requestAnimationFrame:fn=>fn(),setTimeout:fn=>fn(),page:{evaluate:fn=>fn('people')}};
+ const perf=await vm.runInNewContext(code,context);
+ assert.equal(perf.longTaskCount,2);
+ assert.equal(perf.worstLongTaskMs,1500);
+ assert.equal(perf.longTaskTotalMs,1600);
+ assert.equal(perf.activateMs,15);
+ const repeated=await vm.runInNewContext(code,context);
+ assert.equal(repeated.longTaskCount,2,'drained entries must not be counted twice');
+ assert.equal(repeated.longTaskTotalMs,1600);
 });
