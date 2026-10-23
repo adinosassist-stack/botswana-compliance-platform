@@ -44,5 +44,16 @@ try{
     assert.equal(state.active,'rgb(11, 102, 214)',`blue active navigation at ${width}`);
     await page.close();
   }
+  // Verify dock-open presentation without pretending this synthetic fixture tests drag/resize behavior.
+  {
+    const page=await browser.newPage({viewport:{width:1280,height:900}});
+    await page.setContent(`<!doctype html><style>${polish}</style><div id="thebeAiDock" class="thebe-ai-dock" data-surface="workspace"><div class="thebe-ai-compose"><textarea aria-label="Message"></textarea></div><button class="thebe-ai-minimize">Minimize</button></div>`);
+    await page.evaluate(()=>document.body.classList.add('thebe-ai-dock-open'));
+    await page.locator('textarea').focus();
+    const state=await page.evaluate(()=>({compose:getComputedStyle(document.querySelector('.thebe-ai-compose')).backgroundColor,focus:getComputedStyle(document.querySelector('textarea')).outlineColor,minimize:getComputedStyle(document.querySelector('.thebe-ai-minimize')).display}));
+    assert.equal(state.compose,'rgb(247, 247, 245)','dock-open composer uses neutral surface');
+    assert.equal(state.minimize,'inline-flex','dock-open minimize action stays visible');
+    await page.close();
+  }
   console.log('PASS workspace layout: contained priority controls and badges, >=44px controls, no horizontal overflow, analysis disclosure at 320–1280px');
 }finally{await browser.close()}
