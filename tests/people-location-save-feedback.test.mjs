@@ -44,3 +44,12 @@ test('People location decorator preserves canonical validation and avoids forced
  assert.doesNotMatch(addAction,/setTimeout\(revealLocations/,'save must not force scroll or refocus');
  assert.match(addAction,/button\.disabled=wasDisabled/,'button must recover after errors');
 });
+
+
+test('People location decorator does not erase a server-provided error after a rejected save',()=>{
+ const decorator=readFileSync(new URL('../public/js/locations-branches-v335.js',import.meta.url),'utf8');
+ const handler=decorator.slice(decorator.indexOf('function bindAddLocationAction('),decorator.indexOf('function decorateLocationForm('));
+ assert.match(handler,/catch\s*\(/,'rejected saves must have a recovery path');
+ assert.match(handler,/status\.dataset\.state="error"/,'rejected saves must be visible as errors');
+ assert.doesNotMatch(handler,/location\.reload\s*\(/,'rejected saves must not reload and discard the draft');
+});
