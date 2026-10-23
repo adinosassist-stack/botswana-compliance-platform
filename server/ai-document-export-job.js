@@ -9,6 +9,7 @@ export function createExportJobInput(request,identity,resolveMessage){
  if(!validated.ok)return validated;
  if(typeof resolveMessage!=="function")return {ok:false,reason:"resolver_required"};
  const message=resolveMessage(validated.value.conversationId,validated.value.messageId,identity);
+ if(message && typeof message.then==="function")return {ok:false,reason:"async_resolver_not_supported"};
  if(!message||message.actorRole!=="assistant"||message.authorized!==true||
     typeof message.contentHash!=="string"||!/^[a-f0-9]{64}$/.test(message.contentHash))
    return {ok:false,reason:"message_not_found"};
