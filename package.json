@@ -318,7 +318,7 @@
     "express-rate-limit": "8.7.0",
     "helmet": "8.1.0",
     "pg": "8.16.3",
-    "zod": "3.25.76",
+    "zod": "4.6.7",
     "cookie-parser": "1.4.7"
   },
   "packageManager": "npm@10.9.8",
