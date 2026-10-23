@@ -101,3 +101,14 @@ test("worker rejects mismatched, missing or forged execution categories", () => 
     assert.equal(result.reason, "intent_type_mismatch");
   }
 });
+
+test("report-draft worker accepts only the report execution category", () => {
+  const reportAction = "internal.report.draft";
+  const reportProposal = { ...proposal, action: reportAction };
+  const reportIntent = { ...intent, action: reportAction, intentType: "report" };
+  const valid = evaluateEmployeeWorker({ ...base, proposal: reportProposal, intent: reportIntent, action: reportAction });
+  assert.equal(valid.allowed, true);
+  const wrongCategory = evaluateEmployeeWorker({ ...base, proposal: reportProposal, intent: { ...reportIntent, intentType: "task" }, action: reportAction });
+  assert.equal(wrongCategory.allowed, false);
+  assert.equal(wrongCategory.reason, "intent_type_mismatch");
+});
