@@ -49,7 +49,7 @@
     const readCount = (element) => {
       if (!element || element.hidden || element.closest?.("[hidden],.metric-data-only")) return null;
       const raw = String(element.textContent || "").trim();
-      if (!/^(?:0|[1-9]\\d{0,2}(?:,\\d{3})*|[1-9]\\d*)$/.test(raw)) return null;
+      if (!/^(?:0|[1-9]\d{0,2}(?:,\d{3})*|[1-9]\d*)$/.test(raw)) return null;
       const number = Number(raw.replaceAll(",", ""));
       return Number.isSafeInteger(number) ? number : null;
     };
