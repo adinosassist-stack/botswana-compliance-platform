@@ -54,3 +54,26 @@
   :where(#mainContent) .thebe-kpi-ring { border: 4px solid CanvasText; background: Canvas; }
   :where(#mainContent) .thebe-kpi-ring::before { background: Canvas; }
 }
+
+/* Scan-first information density without hiding safety or action content. */
+#mainContent :is(.workspace-info-scale-v309) {
+  font-size: .7rem;
+  line-height: 1.25;
+  opacity: .65;
+  margin-block: 4px 8px;
+}
+#mainContent :is(.workspace-info-card-v309,.home-status-chip,.people-status-chip) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+#mainContent :is(.workspace-info-card-v309,.home-status-chip,.people-status-chip) :is(h3,h4) {
+  line-height: 1.2;
+  margin-block: 0 4px;
+}
+#mainContent .thebe-kpi:focus-within {
+  outline: 2px solid var(--v231-blue, #0b66d6);
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  #mainContent .thebe-kpi-ring { animation: none; transition: none; }
+}
