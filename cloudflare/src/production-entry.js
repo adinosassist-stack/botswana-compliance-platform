@@ -359,6 +359,8 @@ function injectOwnerCommandCentreAssets(html){
   if(!source.includes(WORKSPACE_HOME_DENSITY_V234_CSS_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${workspaceHomeDensityV234CssHref}" />\n`);
   if(!source.includes(WORKSPACE_REFERENCE_SHELL_V237_CSS_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${workspaceReferenceShellV237CssHref}" />\n`);
   if(!source.includes(WORKSPACE_HOME_COMMAND_V238_CSS_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${workspaceHomeCommandV238CssHref}" />\n`);
+  if(!source.includes("/assets/workspace-circular-kpis.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="/assets/workspace-circular-kpis.css?v=20261024" />\n`);
+  if(!source.includes("/js/workspace-circular-kpis.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="/js/workspace-circular-kpis.js?v=20261024" defer></script>\n`);
   if(!source.includes("/assets/thebe-ai-dock.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${aiDockCssHref}" />\n`);
   if(!source.includes("/js/api-client.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${publicApiClientJsSrc}" defer></script>\n`);
   if(!source.includes("/js/employee-workflow-people-loader.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="/js/employee-workflow-people-loader.js?v=20261021" defer></script>\n`);
