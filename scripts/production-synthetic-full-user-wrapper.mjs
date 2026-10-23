@@ -454,13 +454,14 @@ async function runFullUserJourney(credentials){
     assert(views.length>=MIN_OWNER_VIEW_COUNT,`only ${views.length} owner-visible views were discoverable; expected at least ${MIN_OWNER_VIEW_COUNT}`);
     // Browser-only synthetic owner proof: route slugs and durations, no customer identifiers.
     await page.evaluate(()=>{
-      const state={current:null,longTasks:[],pendingObserver:null,longTaskSupported:false};
+      const state={current:null,longTasks:[],pendingObserver:null,observer:null,longTaskSupported:false};
       try{
         const observer=new PerformanceObserver(list=>{
           for(const entry of list.getEntries())state.longTasks.push({start:entry.startTime,duration:entry.duration});
           if(state.longTasks.length>1024)state.longTasks.splice(0,state.longTasks.length-1024);
         });
         observer.observe({type:'longtask',buffered:true});
+        state.observer=observer;
         state.longTaskSupported=true;
       }catch{} // Long Tasks API is optional.
       document.addEventListener('click',event=>{
@@ -494,7 +495,10 @@ async function runFullUserJourney(credentials){
         const state=globalThis.__thebeSyntheticNavigationPerf,clicked=state?.current;
         if(!clicked||clicked.view!==targetView)return null;
         const settledAt=performance.now();
-        const tasks=state.longTasks.filter(task=>task.start>=clicked.clickedAt&&task.start<=settledAt&&task.duration>=50);
+        // Drain entries not yet delivered by the asynchronous observer callback.
+        for(const entry of state.observer?.takeRecords()||[])state.longTasks.push({start:entry.startTime,duration:entry.duration});
+        // The click handler runs inside a task that may have started before clickedAt.
+        const tasks=state.longTasks.filter(task=>task.start+task.duration>clicked.clickedAt&&task.start<=settledAt&&task.duration>=50);
         return {
           view:targetView,
           longTaskSupported:state.longTaskSupported,

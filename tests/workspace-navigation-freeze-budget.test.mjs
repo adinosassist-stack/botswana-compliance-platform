@@ -9,7 +9,7 @@ test('responsive navigation passes even when hydration waits on the network',()=
 test('multi-second activation and blocking tasks fail the freeze regression',()=>{
  assert.throws(()=>assertWorkspaceNavigationResponsiveness([sample({activateMs:6835})]),/activation/);
  assert.throws(()=>assertWorkspaceNavigationResponsiveness([sample({worstLongTaskMs:6890})]),/blocking/);
- assert.doesNotThrow(()=>assertWorkspaceNavigationResponsiveness([sample({activateMs:2000,worstLongTaskMs:1000})]));
+ assert.doesNotThrow(()=>assertWorkspaceNavigationResponsiveness([sample({activateMs:200,worstLongTaskMs:200})]));
 });
 test('missing or invalid evidence cannot pass the regression',()=>{
  for(const samples of [[],[sample({longTaskSupported:false})],[sample({activateMs:NaN})],[sample({worstLongTaskMs:undefined})],[sample({view:'private / identity'})]])assert.throws(()=>assertWorkspaceNavigationResponsiveness(samples));
@@ -20,4 +20,9 @@ test('initial and repeat navigation both have complete coverage and independent 
  assert.match(source,/WORKSPACE_NAV_PASS_SUMMARY /);
  assert.match(source,/assertWorkspaceNavigationResponsiveness\(navigationPerfSamples\)/);
  assert.match(source,/navigationPerfSamples\.length===views\.length/);
+});
+
+test('noticeable activation and main-thread stalls fail above the 200ms budget',()=>{
+ assert.throws(()=>assertWorkspaceNavigationResponsiveness([sample({activateMs:201})]),/activation/);
+ assert.throws(()=>assertWorkspaceNavigationResponsiveness([sample({worstLongTaskMs:201})]),/blocking/);
 });
