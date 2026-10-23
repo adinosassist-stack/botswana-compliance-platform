@@ -454,13 +454,14 @@ async function runFullUserJourney(credentials){
     // Browser-only synthetic owner proof: route slugs and durations, no customer identifiers.
     const navigationPerfSamples=[];
     await page.evaluate(()=>{
-      const state={current:null,longTasks:[],pendingObserver:null};
+      const state={current:null,longTasks:[],pendingObserver:null,longTaskSupported:false};
       try{
         const observer=new PerformanceObserver(list=>{
           for(const entry of list.getEntries())state.longTasks.push({start:entry.startTime,duration:entry.duration});
           if(state.longTasks.length>1024)state.longTasks.splice(0,state.longTasks.length-1024);
         });
         observer.observe({type:'longtask',buffered:true});
+        state.longTaskSupported=true;
       }catch{} // Long Tasks API is optional.
       document.addEventListener('click',event=>{
         const button=event.target instanceof Element?event.target.closest('#nav button[data-view]'):null;
@@ -494,6 +495,7 @@ async function runFullUserJourney(credentials){
         const tasks=state.longTasks.filter(task=>task.start>=clicked.clickedAt&&task.start<=settledAt&&task.duration>=50);
         return {
           view:targetView,
+          longTaskSupported:state.longTaskSupported,
           activateMs:Math.max(0,Math.round((clicked.activeAt??settledAt)-clicked.clickedAt)),
           settledFrameMs:Math.max(0,Math.round(settledAt-clicked.clickedAt)),
           longTaskCount:tasks.length,
