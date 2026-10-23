@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
-import {createExportJobInput,exportJobStatus,exportJobDownload} from "../server/ai-document-export-job.js";
+import {createExportJobInput,createExportJobInputAsync,exportJobStatus,exportJobDownload} from "../server/ai-document-export-job.js";
 
 const identity={authenticated:true,workspaceMember:true,tenantId:"tenant1",actorId:"user1"};
 const request={conversationId:"conversation1",messageId:"message1",format:"pdf",documentType:"report"};
@@ -28,4 +28,15 @@ test("job status and download are tenant and actor isolated",()=>{
  assert.equal(exportJobDownload(job,{...identity,actorId:"user2"},now).ok,false);
  assert.equal(exportJobDownload({...job,status:"pending"},identity,now).ok,false);
  assert.equal(exportJobDownload(job,identity,2000).ok,false);
+});
+
+test("async message resolver binds authorized content and fails closed",async()=>{
+ const ok=await createExportJobInputAsync(request,identity,async()=>resolver());
+ assert.equal(ok.ok,true);
+ assert.equal(ok.value.contentHash,contentHash);
+ const rejected=await createExportJobInputAsync(request,identity,async()=>{throw new Error("database unavailable")});
+ assert.equal(rejected.reason,"message_not_found");
+});
+test("unknown job status is not returned to clients",()=>{
+ assert.equal(exportJobStatus({...job,status:"unknown"},identity,now).reason,"invalid_job_status");
 });
