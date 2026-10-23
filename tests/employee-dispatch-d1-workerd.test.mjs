@@ -47,7 +47,7 @@ test('actual workerd D1 preflight denies stale or unapproved provenance without 
 
  assert.equal((await admission.admit({...admit,actorId:'manager'})).ok,false,'manager cannot grant owner admission');
  assert.equal((await admission.admit({...admit,tenantId:'other-tenant'})).ok,false,'tenant isolation');
- assert.equal((await admission.admit(admit)).ok,true,'approved intent admitted');
+ const admitted=await admission.admit(admit);\n assert.equal(admitted.ok,true,'approved intent admitted');\n assert.equal(admitted.executed,0,'admission never executes');\n assert.equal(admitted.executionAuthorized,false,'owner membership does not confer exact owner approval');
  assert.equal((await admission.admit({...admit,dispatchId:'dispatch-00000000002'})).ok,false,'duplicate idempotency');
  assert.equal((await db.prepare('SELECT COUNT(*) n FROM employee_dispatch_d1_intents').first()).n,1);
  assert.equal((await db.prepare('SELECT COUNT(*) n FROM employee_dispatch_d1_audit').first()).n,1);
