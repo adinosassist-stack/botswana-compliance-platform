@@ -7,6 +7,7 @@ on:
       - 'cloudflare/src/employee-dispatch-d1-preflight.js'
       - 'cloudflare/src/employee-proposal-review-d1-store.js'
       - 'tests/employee-dispatch-d1-preflight.test.mjs'
+      - 'tests/employee-dispatch-d1-workerd.test.mjs'
       - 'server/employee-dispatch-queue.js'
       - 'server/employee-dispatch-worker-policy.js'
       - 'tests/employee-dispatch-admission.test.mjs'
@@ -36,6 +37,8 @@ jobs:
           node-version: '22'
       - name: Employee dispatcher admission tests
         run: node --test tests/employee-dispatch-admission.test.mjs tests/employee-dispatch-qualification.test.mjs tests/employee-dispatch-d1-preflight.test.mjs tests/employee-dispatch-queue.test.mjs tests/employee-dispatch-worker-policy.test.mjs
+      - name: Actual workerd D1 dispatch preflight
+        run: node --test tests/employee-dispatch-d1-workerd.test.mjs
       - name: SQLite employee dispatch schema tests
         run: python3 tests/employee_dispatch_schema_test.py
       - name: Concurrent SQLite dispatch test
