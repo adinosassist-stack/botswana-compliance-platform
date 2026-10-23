@@ -2033,3 +2033,10 @@ body.thebe-ai-dock-open .thebe-ai-mode-rail:has([data-thebe-mode="goal_plan"]:no
 .thebe-ai-export-status button{min-height:36px}
 @media(max-width:520px){.thebe-ai-export-menu{left:8px;right:8px;max-width:none}.thebe-ai-export-menu button{min-height:48px}}
 @media(prefers-reduced-motion:reduce){.thebe-ai-export-menu,.thebe-ai-export-status{animation:none!important;transition:none!important}}
+
+/* Response actions stay secondary to the answer, with stable tap targets. */
+.thebe-ai-response-tools{display:flex;align-items:center;flex-wrap:wrap;gap:6px;min-width:0}
+.thebe-ai-response-tools button{min-height:36px;max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.thebe-ai-response-tools button:disabled{cursor:not-allowed;opacity:.55}
+.thebe-ai-response-tools button:focus-visible{outline:2px solid #83baff;outline-offset:2px}
+@media(max-width:520px){.thebe-ai-response-tools{gap:4px}.thebe-ai-response-tools button{min-height:44px}}
