@@ -37,7 +37,11 @@ jobs:
           node-version: '22'
       - name: Employee dispatcher admission tests
         run: node --test tests/employee-dispatch-admission.test.mjs tests/employee-dispatch-qualification.test.mjs tests/employee-dispatch-d1-preflight.test.mjs tests/employee-dispatch-queue.test.mjs tests/employee-dispatch-worker-policy.test.mjs
+      - name: Install Cloudflare test dependencies
+        run: npm ci --prefix cloudflare
       - name: Actual workerd D1 dispatch preflight
+        env:
+          NODE_PATH: cloudflare/node_modules
         run: node --test tests/employee-dispatch-d1-workerd.test.mjs
       - name: SQLite employee dispatch schema tests
         run: python3 tests/employee_dispatch_schema_test.py
