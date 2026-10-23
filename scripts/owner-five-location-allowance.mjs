@@ -61,7 +61,7 @@ async function main(){
  console.log('OWNER_LOCATION_ALLOWANCE '+JSON.stringify(await applyFiveLocationAllowance(query,{apply:mode==='APPLY_FIVE_LOCATIONS',runId:process.env.GITHUB_RUN_ID})));
 }
 export function allowanceFailureMessage(error){
- const message=String(error?.message||'');
+ const message=String(error?.message||'').split(/\r?\n/,1)[0];
  const safeMessages=[
   'Expected exactly one matching active owner workspace; refusing changes',
   'Current plan capacity is missing, disabled or exceeds five; refusing changes',
