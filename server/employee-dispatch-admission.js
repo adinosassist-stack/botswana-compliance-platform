@@ -1,27 +1,24 @@
 /**
- * Pure, fail-closed admission preflight for future employee workflow dispatch.
- * No database writes, approvals, queues or effects are performed here.
+ * Pure, default-off employee dispatch admission. No side effects or authority
+ * are granted here: the caller must validate persisted proposal/review records,
+ * then transactionally authorize and enqueue with a durable storage adapter.
  */
-export const EMPLOYEE_INTERNAL_ACTIONS = Object.freeze([
-  "create_internal_task",
-  "prepare_report_draft"
-]);
+const INTERNAL_ACTIONS = Object.freeze({
+  "internal.task.create": "task",
+  "internal.report.draft": "report"
+});
+export const EMPLOYEE_DISPATCH_ACTIONS = Object.freeze(Object.keys(INTERNAL_ACTIONS));
 
-export function evaluateEmployeeDispatchAdmission(input = {}) {
-  const deny = reason => Object.freeze({ allowed: false, reason });
-  if (input.featureEnabled !== true || input.killSwitch !== false ||
-      input.auditAvailable !== true) return deny("governance_denied");
-  if (typeof input.tenantId !== "string" || !input.tenantId.trim() ||
-      typeof input.actorId !== "string" || !input.actorId.trim())
-    return deny("identity_missing");
-  if (input.proposalTenantId !== input.tenantId) return deny("tenant_mismatch");
-  if (input.action !== "create_internal_task" &&
-      input.action !== "prepare_report_draft") return deny("action_denied");
-  if (input.persistedApprovalValid !== true ||
-      input.reviewerAuthorized !== true ||
-      input.currentProposalRevision !== true ||
-      input.approvalUnrevoked !== true) return deny("approval_denied");
-  if (input.authorizationCurrent !== true || input.budgetAvailable !== true)
-    return deny("authorization_denied");
-  return Object.freeze({ allowed: true, reason: "preflight_only" });
+const validId = value => typeof value === "string" && value.length > 0 && value.length <= 200 && /^[a-zA-Z0-9_:.\-]+$/.test(value);
+
+export function evaluateEmployeeDispatch({ featureEnabled = false, killSwitch = true, auditAvailable = false, identity, proposal, review, action, idempotencyKey } = {}) {
+  if (featureEnabled !== true || killSwitch !== false || auditAvailable !== true) return { allowed: false, reason: "governance_unavailable" };
+  if (!validId(identity?.tenantId) || !validId(identity?.actorId) || !Array.isArray(identity?.permissions) || !identity.permissions.includes("employee.workflow.dispatch")) return { allowed: false, reason: "unauthorized_actor" };
+  if (!Object.hasOwn(INTERNAL_ACTIONS, action)) return { allowed: false, reason: "unsupported_action" };
+  if (!validId(proposal?.id) || !validId(proposal?.tenantId) || proposal.tenantId !== identity.tenantId || proposal.action !== action) return { allowed: false, reason: "proposal_scope_mismatch" };
+  // Review independence is from the original proposal author, not the dispatching worker.
+  // Missing author identity fails closed until the trusted store supplies it.
+  if (!validId(proposal.authorId) || !validId(review?.id) || review.proposalId !== proposal.id || review.tenantId !== identity.tenantId || review.status !== "approved" || !validId(review.reviewerId) || review.reviewerId === proposal.authorId || review.reviewerId === identity.actorId) return { allowed: false, reason: "approval_required" };
+  if (!validId(idempotencyKey)) return { allowed: false, reason: "invalid_idempotency_key" };
+  return { allowed: true, reason: "eligible_for_transactional_authorization", intentType: INTERNAL_ACTIONS[action] };
 }
