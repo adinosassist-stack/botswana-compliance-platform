@@ -57,6 +57,15 @@ test('actual workerd D1 preflight denies stale or unapproved provenance without 
  await db.prepare("UPDATE memberships SET status='inactive' WHERE tenant_id='t1' AND user_id='manager'").run();
  assert.equal((await admission.admit({...admit,dispatchId:'dispatch-00000000005',idempotencyKey:'idem-revoked-00000001'})).ok,false);
  assert.equal((await db.prepare('SELECT COUNT(*) n FROM employee_dispatch_d1_intents').first()).n,2);
+ assert.equal((await db.prepare('SELECT COUNT(*) n FROM employee_dispatch_d1_audit').first()).n,2);
+ // Force the audit write to abort; D1 must roll back the preceding intent.
+ await db.prepare(`CREATE TRIGGER trg_dispatch_d1_force_audit_failure
+  BEFORE INSERT ON employee_dispatch_d1_audit
+  BEGIN SELECT RAISE(ABORT,'synthetic_audit_failure'); END`).run();
+ assert.equal((await admission.admit({...admit,dispatchId:'dispatch-00000000006',idempotencyKey:'idem-auditfail-000001'})).ok,false);
+ assert.equal((await db.prepare('SELECT COUNT(*) n FROM employee_dispatch_d1_intents').first()).n,2,'audit failure must roll back intent');
+ assert.equal((await db.prepare('SELECT COUNT(*) n FROM employee_dispatch_d1_audit').first()).n,2,'audit failure must not create audit');
+ await db.prepare('DROP TRIGGER trg_dispatch_d1_force_audit_failure').run();
  await db.prepare("UPDATE memberships SET status='active' WHERE tenant_id='t1' AND user_id='manager'").run();
 
  const approved=await preflight.check(controls);
