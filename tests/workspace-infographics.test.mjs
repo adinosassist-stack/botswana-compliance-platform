@@ -28,3 +28,9 @@ test('work buckets partition open actions, including overdue and missing dates',
 test('canonical runtime parity and loading/error reset are retained',()=>{
  assert.ok(html.includes(helper));assert.match(runtime,/renderWorkspaceInfographic\("proofInfographic","",null,"Evidence status unavailable/);assert.match(runtime,/renderWorkspaceInfographic\("workInfographic","",null,"Workload unavailable/);assert.match(html,/workspace-infographics.css/);
 });
+
+test('infographic surface uses explicit matching light-theme colours',()=>{
+ const css=readFileSync(new URL('../public/assets/workspace-infographics.css',import.meta.url),'utf8');
+ assert.match(css,/background:#fff;color:#18375a/);
+ assert.doesNotMatch(css,/var\(--panel|var\(--text|var\(--muted/);
+});
