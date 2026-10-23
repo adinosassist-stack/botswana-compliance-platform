@@ -73,3 +73,11 @@ test("reads real DOM counts only when both sources are available", () => {
   window.ThebeCircularKpi.mountRatioKpiFromElements(target, args);
   assert.equal(target.children[0].children[0].children[0].text, "—");
 });
+
+test("missing values have a distinct visual state, not a zero progress ring", () => {
+  const unknown = render({ label: "Completion", value: null });
+  const zero = render({ label: "Completion", value: 0 });
+  assert.match(unknown.children[0].className, /thebe-kpi-ring--unavailable/);
+  assert.doesNotMatch(zero.children[0].className, /thebe-kpi-ring--unavailable/);
+  assert.match(css, /thebe-kpi-ring--unavailable/);
+});
