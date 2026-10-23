@@ -87,11 +87,20 @@
       button.setAttribute("aria-busy","true");
       try{
         await action();
+      }catch(error){
+        // The canonical save handler owns actionable server/plan validation errors.
+        // Only replace missing or stale progress feedback on an unexpected rejection.
+        console.error("Add location failed",error);
+        const status=people.querySelector("#opsLocationStatus");
+        if(status&&(!status.textContent.trim()||/^saving location/i.test(status.textContent.trim()))){
+          status.textContent="Could not add location. Please retry.";
+          status.dataset.state="error";
+          status.setAttribute("role","alert");
+        }
       }finally{
         button.disabled=wasDisabled;
         button.removeAttribute("aria-busy");
         delete button.dataset.locationsBranchesSaving;
-        setTimeout(revealLocations,0);
       }
     },true);
   }
