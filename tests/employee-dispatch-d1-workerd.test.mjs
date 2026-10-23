@@ -39,6 +39,12 @@ test('actual workerd D1 preflight denies stale or unapproved provenance without 
  const admission=createEmployeeDispatchD1Admission(db);
  const admit={...controls,dispatchId:'dispatch-00000000001',idempotencyKey:'idem-000000000000001',actorId:'author',action:'internal.task.create'};
  assert.equal((await admission.admit({...admit,featureEnabled:false})).ok,false,'default-off');
+ assert.equal((await admission.admit({...admit,killSwitch:true})).ok,false,'kill switch blocks admission');
+ assert.equal((await admission.admit({...admit,auditAvailable:false})).ok,false,'audit unavailable blocks admission');
+ assert.equal((await admission.admit({...admit,action:'external.email.send'})).ok,false,'external effects are not admissible');
+ assert.equal((await admission.admit({...admit,idempotencyKey:'short'})).ok,false,'weak idempotency rejected');
+ assert.equal((await db.prepare('SELECT COUNT(*) n FROM employee_dispatch_d1_intents').first()).n,0,'governance denials are side-effect free');
+
  assert.equal((await admission.admit({...admit,actorId:'manager'})).ok,false,'manager cannot grant owner admission');
  assert.equal((await admission.admit({...admit,tenantId:'other-tenant'})).ok,false,'tenant isolation');
  assert.equal((await admission.admit(admit)).ok,true,'approved intent admitted');
