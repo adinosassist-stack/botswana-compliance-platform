@@ -833,8 +833,8 @@
     return {stage:0,tone:"neutral",label:"Ready"};
   }
   const commandCentreRole=()=>{try{return String(global.currentWorkspaceRole?.()||global.currentUser?.role||"").toLowerCase()}catch{return ""}};
-  function ownerCommandSummary(){
-    if(surfaceMode()!=="workspace")return "Public assistant";
+  function ownerCommandSummary(surface=surfaceMode()){
+    if(surface!=="workspace")return "Public assistant";
     if(!ownerCommandState)return "Owner Command Centre · governed state";
     const reviews=Math.max(0,Number(ownerCommandState?.pendingReviews||0));
     const approved=Math.max(0,Number(ownerCommandState?.approvedRequests||0));
@@ -855,8 +855,8 @@
     if(ownerCommandState?.boundedExecutionAvailable===true)return "Owner Command Centre · governed lane ready";
     return "Owner Command Centre · governed lane controlled";
   }
-  function ownerCommandActionDescriptor(){
-    if(surfaceMode()!=="workspace"||!["owner","manager"].includes(commandCentreRole())||!ownerCommandState)return null;
+  function ownerCommandActionDescriptor(surface=surfaceMode()){
+    if(surface!=="workspace"||!["owner","manager"].includes(commandCentreRole())||!ownerCommandState)return null;
     const reviews=Math.max(0,Number(ownerCommandState?.pendingReviews||0));
     const approved=Math.max(0,Number(ownerCommandState?.approvedRequests||0));
     const open=Math.max(0,Number(ownerCommandState?.openTasks||0));
@@ -887,17 +887,20 @@
   }
   function syncMission(){
     if(!missionRail)return;
+    const surface=surfaceMode();
     const descriptor=missionDescriptor();
-    missionRail.dataset.stage=String(descriptor.stage);
-    missionRail.dataset.tone=descriptor.tone;
-    if(missionLabel)missionLabel.textContent=descriptor.label;
-    if(missionMeta)missionMeta.textContent=ownerCommandSummary();
+    const summary=ownerCommandSummary(surface);
+    const action=missionAction?ownerCommandActionDescriptor(surface):null;
+    const stage=String(descriptor.stage);
+    if(missionRail.dataset.stage!==stage)missionRail.dataset.stage=stage;
+    if(missionRail.dataset.tone!==descriptor.tone)missionRail.dataset.tone=descriptor.tone;
+    if(missionLabel&&missionLabel.textContent!==descriptor.label)missionLabel.textContent=descriptor.label;
+    if(missionMeta&&missionMeta.textContent!==summary)missionMeta.textContent=summary;
     if(missionAction){
-      const action=ownerCommandActionDescriptor();
-      missionAction.hidden=!action;
+      if(missionAction.hidden!==!action)missionAction.hidden=!action;
       if(action){
-        missionAction.textContent=action.label;
-        missionAction.setAttribute("aria-label",action.aria);
+        if(missionAction.textContent!==action.label)missionAction.textContent=action.label;
+        if(missionAction.getAttribute("aria-label")!==action.aria)missionAction.setAttribute("aria-label",action.aria);
       }
     }
   }
@@ -1769,9 +1772,18 @@
       renderQuickActions(surfaceMode());
       if(wasYielded&&!yielded)global.requestAnimationFrame?.(()=>{recoverVisibility();recoverDockPresentation()});
     };
-    if(pageTitle)new MutationObserver(syncAfterWorkspaceViewChange).observe(pageTitle,{childList:true,characterData:true,subtree:true});
-    document.querySelectorAll(".view").forEach(view=>new MutationObserver(syncAfterWorkspaceViewChange).observe(view,{attributes:true,attributeFilter:["class"]}));
-    global.addEventListener("thebe:workspace-view-change",()=>{syncAfterWorkspaceViewChange();global.requestAnimationFrame?.(()=>global.requestAnimationFrame?.(()=>{recoverVisibility();recoverDockPresentation()}))});
+    let workspaceViewSyncPending=false;
+    const scheduleWorkspaceViewSync=()=>{
+      if(workspaceViewSyncPending)return;
+      workspaceViewSyncPending=true;
+      global.requestAnimationFrame(()=>{
+        workspaceViewSyncPending=false;
+        syncAfterWorkspaceViewChange();
+      });
+    };
+    if(pageTitle)new MutationObserver(scheduleWorkspaceViewSync).observe(pageTitle,{childList:true,characterData:true,subtree:true});
+    document.querySelectorAll(".view").forEach(view=>new MutationObserver(scheduleWorkspaceViewSync).observe(view,{attributes:true,attributeFilter:["class"]}));
+    global.addEventListener("thebe:workspace-view-change",()=>{scheduleWorkspaceViewSync();global.requestAnimationFrame?.(()=>global.requestAnimationFrame?.(()=>{recoverVisibility();recoverDockPresentation()}))});
     const syncKeyboard=()=>{
       const viewport=global.visualViewport;
       if(!viewport)return;
