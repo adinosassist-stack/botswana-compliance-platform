@@ -18,12 +18,13 @@ for(const enhanced of [true,false]){
   assert.equal(refreshes.length,enhanced?1:0);
   if(enhanced)assert.equal(refreshes[0].force,false,'navigation must respect the finance freshness window');
 }
-const workSource=slice('async function renderWorkHub(){','async function renderTenderHub(){');
+const workSource=slice('function renderWorkspaceInfographic(','async function renderTenderHub(){');
 for(const role of ['owner','manager','reviewer','auditor']){
   let release;
   const slow=new Promise(resolve=>{release=resolve}),panels=[];
   const context=vm.createContext({
     roleCanView:()=>true,currentWorkspaceRole:()=>role,
+    escapeHtml:value=>String(value),
     document:{getElementById:()=>({textContent:''}),querySelectorAll:()=>[]},
     apiJson:async path=>path==='/api/obligations'?slow:{items:[],obligations:[]},
     renderManagementReviewInbox:async()=>{panels.push('inbox')},
