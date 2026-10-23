@@ -1,0 +1,63 @@
+name: Owner five-location allowance
+run-name: Owner location allowance ${{ inputs.mode }} ${{ inputs.expected_sha }}
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact current main SHA containing the reviewed allowance workflow
+        required: true
+        type: string
+      mode:
+        description: Inspect or apply the owner-requested five-location allowance
+        required: true
+        type: choice
+        default: INSPECT_ONLY
+        options: [INSPECT_ONLY, APPLY_FIVE_LOCATIONS]
+permissions:
+  contents: read
+concurrency:
+  group: owner-five-location-allowance
+  cancel-in-progress: false
+jobs:
+  allowance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: production
+    steps:
+      - name: Checkout exact reviewed authority
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify owner dispatch and current main
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]
+          [[ "$GITHUB_REPOSITORY" == 'adinosassist-stack/botswana-compliance-platform' ]]
+          [[ "$GITHUB_ACTOR" == 'adinosassist-stack' ]]
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]]
+          [[ "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$EXPECTED_SHA" == "$GITHUB_SHA" ]]
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SHA" ]]
+          git fetch --no-tags origin '+refs/heads/main:refs/remotes/origin/main'
+          [[ "$(git rev-parse refs/remotes/origin/main)" == "$EXPECTED_SHA" ]]
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]]
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Verify allowance scope and failure behavior locally
+        run: node --test tests/owner-five-location-allowance.test.mjs
+      - name: Inspect or apply and verify the five-location override
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          ALLOWANCE_MODE: ${{ inputs.mode }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
+        run: node scripts/owner-five-location-allowance.mjs
