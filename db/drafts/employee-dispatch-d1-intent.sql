@@ -24,6 +24,14 @@ CREATE TABLE IF NOT EXISTS employee_dispatch_d1_audit (
  PRIMARY KEY(tenant_id,dispatch_id,event_type),
  FOREIGN KEY(tenant_id,dispatch_id) REFERENCES employee_dispatch_d1_intents(tenant_id,dispatch_id)
 );
+-- Explicit tenant/intent audit binding; never rely on PRAGMA foreign_keys.
+CREATE TRIGGER IF NOT EXISTS trg_dispatch_d1_audit_requires_intent
+ BEFORE INSERT ON employee_dispatch_d1_audit
+ WHEN NOT EXISTS (
+  SELECT 1 FROM employee_dispatch_d1_intents i
+  WHERE i.tenant_id=NEW.tenant_id AND i.dispatch_id=NEW.dispatch_id
+ )
+ BEGIN SELECT RAISE(ABORT,'dispatch_audit_requires_intent'); END;
 CREATE TRIGGER IF NOT EXISTS trg_dispatch_d1_intent_immutable
  BEFORE UPDATE ON employee_dispatch_d1_intents BEGIN SELECT RAISE(ABORT,'dispatch_intent_immutable'); END;
 CREATE TRIGGER IF NOT EXISTS trg_dispatch_d1_intent_no_delete
