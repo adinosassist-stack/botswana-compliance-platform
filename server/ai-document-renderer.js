@@ -30,13 +30,13 @@ export async function renderAiDocument(model, format) {
    const items=[{type:"heading",text:doc.title},...doc.blocks,
      ...doc.references.map(r=>({type:"bullet",text:r.label+" — "+r.url}))];
    // One content item per slide prevents unbounded overflow of generated text.
+   if(items.length>40)throw new Error("too_many_slides");
    for(const item of items){
      const slide=pptx.addSlide();
      slide.addText(item.text,{x:0.8,y:0.7,w:11.7,h:5.8,
        fontSize:item.type==="heading"?28:18,breakLine:false,
        valign:"top",margin:0.1,fit:"shrink"});
    }
-   if(items.length>40)throw new Error("too_many_slides");
    return Buffer.from(await pptx.write({outputType:"nodebuffer"}));
  }
  if(format==="pdf"){
@@ -50,6 +50,8 @@ export async function renderAiDocument(model, format) {
      // Standard Helvetica cannot encode all Unicode; reject rather than corrupt.
      if(/[^\x20-\x7E]/.test(text))throw new Error("pdf_unicode_font_required");
      const words=text.split(/\s+/);let line="";
+     // Reject unbreakable words that exceed the printable width.
+     if(words.some(word=>font.widthOfTextAtSize(word,11)>490))throw new Error("pdf_word_too_long");
      for(const word of words){
        const candidate=line?line+" "+word:word;
        if(font.widthOfTextAtSize(candidate,11)>490 && line){
