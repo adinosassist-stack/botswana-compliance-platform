@@ -56,6 +56,17 @@ class DraftSchemaTests(unittest.TestCase):
             intent(db,"dispatch-id-00000002")
         self.assertEqual(db.execute("SELECT COUNT(*) FROM employee_dispatch_d1_intents").fetchone()[0],1)
 
+    def test_audit_binding_when_foreign_keys_disabled(self):
+        db=setup()
+        db.execute("PRAGMA foreign_keys=OFF")
+        with self.assertRaises(sqlite3.IntegrityError):
+            with db:
+                intent(db)
+                audit(db,"wrong-dispatch-id")
+        self.assertEqual(db.execute("SELECT COUNT(*) FROM employee_dispatch_d1_intents").fetchone()[0],0)
+        with self.assertRaises(sqlite3.IntegrityError):
+            audit(db,"wrong-dispatch-id")
+
     def test_audit_immutable(self):
         db=setup()
         with db:
