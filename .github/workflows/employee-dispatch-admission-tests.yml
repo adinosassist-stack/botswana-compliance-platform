@@ -20,6 +20,8 @@ on:
       - 'tests/employee_dispatch_leases_test.py'
       - 'db/drafts/employee_dispatch_sqlite_reference.py'
       - 'db/drafts/employee-dispatch-outbox.sql'
+      - 'db/drafts/employee-dispatch-d1-intent.sql'
+      - 'tests/employee_dispatch_d1_draft_schema_test.py'
       - '.github/workflows/employee-dispatch-admission-tests.yml'
   workflow_dispatch:
 
@@ -43,6 +45,8 @@ jobs:
         run: node --test tests/employee-dispatch-d1-workerd.test.mjs
       - name: SQLite employee dispatch schema tests
         run: python3 tests/employee_dispatch_schema_test.py
+      - name: D1 draft intent and audit schema tests
+        run: python3 tests/employee_dispatch_d1_draft_schema_test.py
       - name: Concurrent SQLite dispatch test
         run: python3 tests/employee_dispatch_concurrency_test.py
       - name: SQLite reference adapter integration tests
