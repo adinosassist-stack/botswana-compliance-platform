@@ -38,5 +38,12 @@
     const context = valid ? numerator.toLocaleString() + " / " + denominator.toLocaleString() : "";
     return createCircularKpi({ label, value, detail: detail || context, color });
   }
-  global.ThebeCircularKpi = Object.freeze({ createCircularKpi, createRatioKpi });
+  function mountRatioKpi(target, metrics) {
+    if (!target || typeof target.replaceChildren !== "function") return false;
+    const node = createRatioKpi(metrics);
+    if (!node) return false;
+    target.replaceChildren(node);
+    return true;
+  }
+  global.ThebeCircularKpi = Object.freeze({ createCircularKpi, createRatioKpi, mountRatioKpi });
 })(window);
