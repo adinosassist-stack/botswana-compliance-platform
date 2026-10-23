@@ -16,7 +16,7 @@ assert.match(html,/<button[^>]*class="active nav-primary"[^>]*data-view="dashboa
 assert.match(html,/class="home-decision-center" id="homeDecisionCenter"/,
   "Owner Command Centre must retain its Home decision-centre mount");
 
-assert.match(dock,/function ownerCommandActionDescriptor\(\)/);
+assert.match(dock,/function ownerCommandActionDescriptor\(surface=surfaceMode\(\)\)/);
 assert.match(dock,/\["owner","manager"\]\.includes\(commandCentreRole\(\)\)/,
   "Command Centre handoff must stay role-gated");
 assert.match(dock,/if\(reviews\)return \{label:"Review"/,
