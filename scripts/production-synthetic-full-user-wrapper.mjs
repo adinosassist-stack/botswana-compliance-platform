@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import {isSafeUiMutation} from './production-synthetic-request-policy.mjs';
 import {chromium} from 'playwright-core';
+import {summarizeWorkspaceNavigationPerformance} from './workspace-navigation-performance-summary.mjs';
 
 const ORIGIN='https://thebedesk.com';
 const NAVIGATION_TIMEOUT_MS=30000;
@@ -450,12 +451,65 @@ async function runFullUserJourney(credentials){
     }
     const views=await page.evaluate(()=>{const roleCheck=typeof globalThis.roleCanView==='function'?globalThis.roleCanView:null;const unique=[];for(const button of document.querySelectorAll('#nav button[data-view]')){const view=String(button.dataset.view||'').trim();const style=getComputedStyle(button);if(!view||unique.includes(view)||button.hidden||button.closest('[hidden]')||button.offsetParent===null||style.display==='none'||style.visibility==='hidden')continue;if(roleCheck&&!roleCheck(view))continue;unique.push(view);}return unique;});
     assert(views.length>=MIN_OWNER_VIEW_COUNT,`only ${views.length} owner-visible views were discoverable; expected at least ${MIN_OWNER_VIEW_COUNT}`);
+    // Browser-only synthetic owner proof: route slugs and durations, no customer identifiers.
+    const navigationPerfSamples=[];
+    await page.evaluate(()=>{
+      const state={current:null,longTasks:[],pendingObserver:null,longTaskSupported:false};
+      try{
+        const observer=new PerformanceObserver(list=>{
+          for(const entry of list.getEntries())state.longTasks.push({start:entry.startTime,duration:entry.duration});
+          if(state.longTasks.length>1024)state.longTasks.splice(0,state.longTasks.length-1024);
+        });
+        observer.observe({type:'longtask',buffered:true});
+        state.longTaskSupported=true;
+      }catch{} // Long Tasks API is optional.
+      document.addEventListener('click',event=>{
+        const button=event.target instanceof Element?event.target.closest('#nav button[data-view]'):null;
+        if(!button)return;
+        const view=String(button.dataset.view||''),target=document.getElementById(view);
+        if(!target)return;
+        state.pendingObserver?.disconnect();
+        const clickedAt=performance.now();
+        const current={view,clickedAt,activeAt:target.classList.contains('active')?clickedAt:null};
+        state.current=current;
+        if(current.activeAt===null){
+          const watcher=new MutationObserver(()=>{
+            if(target.classList.contains('active')){current.activeAt=performance.now();watcher.disconnect();}
+          });
+          watcher.observe(target,{attributes:true,attributeFilter:['class']});
+          state.pendingObserver=watcher;
+        }
+      },true);
+      Object.defineProperty(globalThis,'__thebeSyntheticNavigationPerf',{configurable:true,value:state});
+    });
     for(const view of views){
       const button=page.locator(`#nav button[data-view="${view}"]`).first();assert(await button.count(),`navigation button missing for owner view ${view}`);const details=button.locator('xpath=ancestor::details[1]');if(await details.count()&&!(await details.evaluate(node=>node.open===true))){const summary=details.locator(':scope > summary').first();assert(await summary.count(),`collapsed navigation group for ${view} has no summary control`);await summary.click();await page.waitForFunction(targetView=>{const button=document.querySelector(`#nav button[data-view="${targetView}"]`);return !!button&&button.offsetParent!==null;},view,{timeout:VIEW_TIMEOUT_MS});}
       const before=await page.evaluate(targetView=>{const target=document.getElementById(targetView);return {exists:!!target,lazy:target?.dataset?.lazyView==='1'||target?.dataset?.lazyHydrated==='1'};},view);assert(before.exists,`workspace target missing for owner view ${view}`);await button.click();await page.waitForFunction(targetView=>document.getElementById(targetView)?.classList.contains('active'),view,{timeout:VIEW_TIMEOUT_MS});if(before.lazy){await page.waitForFunction(targetView=>{const target=document.getElementById(targetView);return target?.dataset?.lazyHydrated==='1'||target?.dataset?.lazyError==='1';},view,{timeout:WORKSPACE_TIMEOUT_MS});}else await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>setTimeout(resolve,30))));
       const result=await page.evaluate(targetView=>{const target=document.getElementById(targetView);return {exists:!!target,active:!!target?.classList.contains('active'),title:String(document.getElementById('pageTitle')?.textContent||'').trim(),shellVisible:!document.getElementById('appShell')?.classList.contains('hidden'),lazyHydrated:target?.dataset?.lazyHydrated==='1',lazyError:target?.dataset?.lazyError==='1',stillLazy:target?.dataset?.lazyView||'',contentLength:String(target?.textContent||'').trim().length};},view);
       assert(result.exists&&result.active&&result.shellVisible,`real navigation click did not activate owner view ${view}: ${safe(JSON.stringify(result))}`);assert(result.title.length>0,`view ${view} activated without a page title`);if(before.lazy){assert(result.lazyHydrated&&!result.lazyError&&!result.stillLazy,`lazy view ${view} did not complete hydration after its real navigation click: ${safe(JSON.stringify(result))}`);assert(result.contentLength>0,`lazy view ${view} hydrated with empty content after its real navigation click`);}
+      const perf=await page.evaluate(async targetView=>{
+        await new Promise(resolve=>requestAnimationFrame(()=>setTimeout(()=>requestAnimationFrame(resolve),0)));
+        const state=globalThis.__thebeSyntheticNavigationPerf,clicked=state?.current;
+        if(!clicked||clicked.view!==targetView)return null;
+        const settledAt=performance.now();
+        const tasks=state.longTasks.filter(task=>task.start>=clicked.clickedAt&&task.start<=settledAt&&task.duration>=50);
+        return {
+          view:targetView,
+          longTaskSupported:state.longTaskSupported,
+          activateMs:Math.max(0,Math.round((clicked.activeAt??settledAt)-clicked.clickedAt)),
+          settledFrameMs:Math.max(0,Math.round(settledAt-clicked.clickedAt)),
+          longTaskCount:tasks.length,
+          longTaskTotalMs:Math.round(tasks.reduce((ms,task)=>ms+task.duration,0)),
+          worstLongTaskMs:Math.round(tasks.reduce((ms,task)=>Math.max(ms,task.duration),0))
+        };
+      },view);
+      assert(perf&&perf.view===view,'navigation performance evidence missing for '+view);
+      navigationPerfSamples.push(perf);
     }
+    assert(navigationPerfSamples.length===views.length,'navigation responsiveness coverage incomplete');
+    for(const sample of navigationPerfSamples)console.log('WORKSPACE_NAV_SAMPLE '+JSON.stringify(sample));
+    const navigationPerfSummary=summarizeWorkspaceNavigationPerformance(navigationPerfSamples);
+    console.log('WORKSPACE_NAV_PERF_SUMMARY '+JSON.stringify(navigationPerfSummary));
 
     const openOwnerViewThroughNav=async view=>{
       const button=page.locator('#nav button[data-view="'+view+'"]').first();assert(await button.count(),'safe UI action source navigation/search index missing for '+view);

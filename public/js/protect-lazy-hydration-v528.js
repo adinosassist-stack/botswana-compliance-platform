@@ -10,6 +10,7 @@
   const RETRY_MS=50;
   let running=false;
   let complete=false;
+  let activeObserver=null;
 
   const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 
@@ -30,6 +31,7 @@
       return true;
     }
     if(!root.hasAttribute('data-lazy-view'))return false;
+    if(!root.classList.contains('active'))return false;
 
     const createClient=globalThis.BW?.api?.createClient;
     const renderMarkup=globalThis.BW?.dom?.renderMarkup;
@@ -43,6 +45,9 @@
       const markup=payload.views[VIEW_ID];
       if(typeof markup!=='string'||markup.trim()==='')throw new Error('protect_fragment_markup_missing');
 
+      // Normal hydration may have won, or navigation may have left this route.
+      if(!root.hasAttribute('data-lazy-view')){complete=true;return true;}
+      if(!root.classList.contains('active'))return false;
       renderMarkup(root,markup);
       root.dataset.lazyHydrated='1';
       delete root.dataset.lazyError;
@@ -63,10 +68,18 @@
 
   async function boot(){
     for(let attempt=0;attempt<MAX_ATTEMPTS;attempt+=1){
+      const root=document.getElementById(ROOT_ID);
+      if(root&&!activeObserver&&typeof MutationObserver==='function'){
+        activeObserver=new MutationObserver(()=>{if(root.classList.contains('active'))void boot();});
+        activeObserver.observe(root,{attributes:true,attributeFilter:['class']});
+      }
+      if(root&&!root.classList.contains('active'))return;
       if(await hydrateProtect())return;
       await delay(RETRY_MS);
     }
   }
+
+  window.addEventListener('thebe:workspace-view-change',event=>{if(event.detail?.id===VIEW_ID)void boot();});
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});
   else queueMicrotask(boot);
