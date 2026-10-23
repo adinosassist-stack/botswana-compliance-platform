@@ -41,6 +41,13 @@ test('actual workerd D1 preflight denies stale or unapproved provenance without 
  await db.prepare("UPDATE memberships SET status='inactive' WHERE tenant_id='t1' AND user_id='manager'").run();
  assert.equal((await preflight.check(controls)).eligible,false,'reviewer deactivation must deny');
  await db.prepare("UPDATE memberships SET status='active' WHERE tenant_id='t1' AND user_id='manager'").run();
+ await db.prepare("UPDATE memberships SET status='inactive' WHERE tenant_id='t1' AND user_id='author'").run();
+ assert.equal((await preflight.check(controls)).eligible,false,'inactive author must deny');
+ await db.prepare("UPDATE memberships SET status='active' WHERE tenant_id='t1' AND user_id='author'").run();
+ await db.prepare("UPDATE employees SET status='inactive' WHERE tenant_id='t1' AND id='e1'").run();
+ assert.equal((await preflight.check(controls)).eligible,false,'inactive employee must deny');
+ await db.prepare("UPDATE employees SET status='active' WHERE tenant_id='t1' AND id='e1'").run();
+ assert.equal((await preflight.check(controls)).eligible,true,'restored eligibility');
  await db.prepare("UPDATE employee_ai_workflows SET definition=? WHERE tenant_id='t1' AND owner_id='author' AND workflow_id='w1'").bind(JSON.stringify({...workflow,name:'Changed'})).run();
  assert.equal((await preflight.check(controls)).eligible,false,'changed workflow must deny');
  assert.equal((await db.prepare('SELECT COUNT(*) n FROM employee_ai_proposal_provenance').first()).n,1,'no dispatch side effects');
