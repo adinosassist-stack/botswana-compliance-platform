@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {pathToFileURL} from 'node:url';
 
-const OWNER_EMAIL='adinosassist@gmail.com';
+const OWNER_EMAIL='banabothem@yahoo.com';
 const WORKSPACE_NAME='Lovely Group';
 const FEATURE='operating_locations';
 const REASON='owner_requested_five_locations_20261023';
