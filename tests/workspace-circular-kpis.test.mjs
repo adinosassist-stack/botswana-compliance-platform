@@ -51,3 +51,12 @@ test("ratio KPI uses actual counts and rejects invalid denominators", () => {
   const bad = window.ThebeCircularKpi.createRatioKpi({ label: "Complete", numerator: 3, denominator: 0 });
   assert.equal(bad.children[0].children[0].text, "—");
 });
+
+test("mounting is opt-in and replaces only its own target", () => {
+  const window = { document: { createElement: node }, CSS: { supports: () => true } };
+  vm.runInNewContext(source, { window });
+  const target = { children: [], replaceChildren(...nodes) { this.children = nodes; } };
+  assert.equal(window.ThebeCircularKpi.mountRatioKpi(target, { label: "Complete", numerator: 2, denominator: 5 }), true);
+  assert.equal(target.children[0].children[0].children[0].text, "40%");
+  assert.equal(window.ThebeCircularKpi.mountRatioKpi(null, { label: "Complete", numerator: 2, denominator: 5 }), false);
+});
