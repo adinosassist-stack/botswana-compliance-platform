@@ -1938,7 +1938,34 @@ async function renderDailyOperations(){
   }
 }
 async function loadOpsPerformanceLearning(){const date=document.getElementById("opsReportDate")?.value||browserGaboroneDate(),locationId=document.getElementById("opsLocationFilter")?.value||"",status=document.getElementById("opsLearningUpdated");if(status)status.textContent="Loading performance learning…";try{const performance=await reportingAnalyticsJson(`/api/daily-reporting/performance?date=${encodeURIComponent(date)}${locationId?`&locationId=${encodeURIComponent(locationId)}`:""}`);renderOpsPerformance(performance);if(status&&!String(status.textContent||"").includes("historical"))status.textContent="Performance learning loaded."}catch(e){if(status)status.textContent="Performance learning could not load. "+e.message}}
-async function addOpsLocation(){const name=document.getElementById("opsLocationName").value.trim();if(!name)return notifyUser("Enter a location name.");try{const saved=await apiJson("/api/daily-reporting/locations",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({name,code:document.getElementById("opsLocationCode").value,town:document.getElementById("opsLocationTown").value})});document.getElementById("opsLocationName").value="";document.getElementById("opsLocationCode").value="";document.getElementById("opsLocationTown").value="";if(document.getElementById("peopleops")?.classList.contains("active"))await renderPeopleReportingSetup();if(document.getElementById("dailyreports")?.classList.contains("active"))await renderDailyOperations();notifyUser(saved?.reusedDefault?"Location saved. The initial Head Office placeholder was replaced.":"Location added.",{type:"success"})}catch(e){notifyUser(e.message)}}
+function setOpsLocationStatus(message,state="info"){
+  let status=document.getElementById("opsLocationStatus");
+  if(!status){
+    const list=document.getElementById("opsLocationsList");if(!list)return;
+    status=document.createElement("div");status.id="opsLocationStatus";status.className="notice info";status.setAttribute("aria-live","polite");list.before(status);
+  }
+  status.setAttribute("role",state==="error"?"alert":"status");status.dataset.state=state;status.textContent=message;
+}
+async function addOpsLocation(){
+  const name=document.getElementById("opsLocationName").value.trim();
+  if(name.length<2){setOpsLocationStatus("Enter a location name with at least 2 characters.","error");return}
+  setOpsLocationStatus("Saving location…");
+  let saved;
+  try{
+    saved=await apiJson("/api/daily-reporting/locations",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({name,code:document.getElementById("opsLocationCode").value,town:document.getElementById("opsLocationTown").value})});
+  }catch(e){
+    const code=String(e?.code||e?.data?.error||""),limit=Number(e?.data?.limit);
+    const message=code==="location_plan_limit_reached"?`Your current plan’s active-location limit${Number.isFinite(limit)&&limit>0?` of ${limit}`:""} has been reached. Review Plan & billing or manage existing locations.`:code==="location_code_already_used"?"This location code is already in use. Choose a different code.":code==="location_name_required"?"Enter a location name with at least 2 characters.":String(e?.message||"Location could not be saved. Please retry.");
+    setOpsLocationStatus(message,"error");return;
+  }
+  document.getElementById("opsLocationName").value="";document.getElementById("opsLocationCode").value="";document.getElementById("opsLocationTown").value="";
+  const message=saved?.reusedDefault?"Location saved. The initial Head Office placeholder was replaced.":"Location added.";
+  setOpsLocationStatus(message,"success");notifyUser(message,{type:"success"});
+  try{
+    if(document.getElementById("peopleops")?.classList.contains("active"))await renderPeopleReportingSetup();
+    if(document.getElementById("dailyreports")?.classList.contains("active"))await renderDailyOperations();
+  }catch{setOpsLocationStatus(message+" Refresh the location list to see the update.","success")}
+}
 async function editOpsLocation(id){const current=globalThis.__opsLocationsById?.[String(id)];if(!current)return notifyUser("Location details are unavailable. Reload this section.");const name=await BW.dialog.prompt({title:"Edit location name",message:"Update the office, branch, shop, site or team name.",defaultValue:String(current.name||""),required:true,minLength:2,maxLength:90,confirmLabel:"Next"});if(name===null)return;const code=await BW.dialog.prompt({title:"Edit location code",message:"Optional short code used in reporting filters.",defaultValue:String(current.code||""),maxLength:16,confirmLabel:"Next"});if(code===null)return;const town=await BW.dialog.prompt({title:"Edit location town / area",message:"Optional town or area.",defaultValue:String(current.town||""),maxLength:80,confirmLabel:"Save location"});if(town===null)return;try{await apiJson(`/api/daily-reporting/locations/${encodeURIComponent(id)}`,{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify({name,code,town})});await renderDailyOperations();await renderPeopleReportingSetup();notifyUser("Location updated.",{type:"success"})}catch(e){notifyUser(e.message)}}
 async function removeOpsLocation(id){const current=globalThis.__opsLocationsById?.[String(id)],confirmed=await BW.dialog.confirm({title:"Remove location?",message:`Remove ${current?.name||"this location"} from active use? Historical reports stay intact and active employee reporting links for this location will be revoked. You can restore the location later.`,confirmLabel:"Remove location",danger:true});if(!confirmed)return;try{await apiJson(`/api/daily-reporting/locations/${encodeURIComponent(id)}/deactivate`,{method:"POST",body:"{}"});await renderDailyOperations();await renderPeopleReportingSetup();notifyUser("Location removed from active use. Historical reports were retained and reporting links for it were revoked.",{type:"success"})}catch(e){notifyUser(e.message)}}
 async function reactivateOpsLocation(id){try{await apiJson(`/api/daily-reporting/locations/${encodeURIComponent(id)}/reactivate`,{method:"POST",body:"{}"});await renderDailyOperations();await renderPeopleReportingSetup();notifyUser("Location reactivated.",{type:"success"})}catch(e){notifyUser(e.message)}}
