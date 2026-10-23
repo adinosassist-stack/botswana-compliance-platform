@@ -16,3 +16,11 @@ test("renderer refuses unsupported formats and invalid document models",async()=
 test("PDF rejects unsupported Unicode instead of silently corrupting text",async()=>{
  await assert.rejects(renderAiDocument({...model,title:"Pula ₱"},"pdf"),/pdf_unicode_font_required/);
 });
+
+test("PowerPoint slide limit rejects oversized documents",async()=>{
+ const blocks=Array.from({length:40},(_,i)=>({type:"paragraph",text:"Page "+i}));
+ await assert.rejects(renderAiDocument({title:"Deck",blocks},"pptx"),/too_many_slides/);
+});
+test("PDF rejects unbreakable text wider than a page",async()=>{
+ await assert.rejects(renderAiDocument({title:"Report",blocks:[{type:"paragraph",text:"W".repeat(300)}]},"pdf"),/pdf_word_too_long/);
+});
