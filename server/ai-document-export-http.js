@@ -22,7 +22,8 @@ export function createAiExportHandlers(deps){
   },
   async status(req){
    const identity=await getIdentity(req);
-   const job=await findJob(req?.params?.id,identity);
+   if(typeof req?.params?.id!=="string"||!/^[a-zA-Z0-9_.:-]{1,200}$/.test(req.params.id))return failure("not_found");
+   const job=await findJob(req.params.id,identity);
    const checked=exportJobStatus(job,identity,now());
    return checked.ok?{status:200,body:checked.value}:failure(checked.reason);
   },
