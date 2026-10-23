@@ -35,3 +35,12 @@ test('a list-refresh failure cannot turn a completed save into a failed save',as
  await f.save();assert.match(f.elements.opsLocationStatus.textContent,/Location added.*Refresh/);
  assert.equal(f.elements.opsLocationName.value,'');assert.equal(f.writes(),1);
 });
+
+test('People location decorator preserves canonical validation and avoids forced form reopening',()=>{
+ const decorator=readFileSync(new URL('../public/js/locations-branches-v335.js',import.meta.url),'utf8');
+ assert.match(decorator,/if\(status&&!status\.textContent\.trim\(\)\)/,'existing backend error messages must be preserved');
+ assert.match(decorator,/status\.dataset\.state="error"/,'fallback failure must expose an error state');
+ const addAction=decorator.slice(decorator.indexOf('function bindAddLocationAction('),decorator.indexOf('function decorateLocationForm('));
+ assert.doesNotMatch(addAction,/setTimeout\(revealLocations/,'save must not force scroll or refocus');
+ assert.match(addAction,/button\.disabled=wasDisabled/,'button must recover after errors');
+});
