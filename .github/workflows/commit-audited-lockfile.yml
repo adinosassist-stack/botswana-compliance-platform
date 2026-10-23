@@ -1,0 +1,50 @@
+name: Commit audited dependency lockfile
+on:
+  push:
+    branches:
+      - fix/people-location-error-recovery-20261023
+    paths:
+      - '.github/workflows/commit-audited-lockfile.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  lockfile:
+    if: github.repository == 'adinosassist-stack/botswana-compliance-platform' && github.ref == 'refs/heads/fix/people-location-error-recovery-20261023'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+      - name: Resolve patched dependencies from npm registry
+        run: |
+          set -euo pipefail
+          npm install zod@4.6.7 --save-exact --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm update ip-address --package-lock-only --ignore-scripts --no-audit --no-fund
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const lock=JSON.parse(fs.readFileSync('package-lock.json','utf8'));
+          const zod=lock.packages['node_modules/zod']?.version;
+          const ip=lock.packages['node_modules/ip-address']?.version;
+          if(zod!=='4.6.7'||ip!=='10.7.4')throw Error('Unexpected resolved versions: '+JSON.stringify({zod,ip}));
+          NODE
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run audit:dependencies
+          npm run check
+          npm run test:static
+      - name: Commit verified lockfile only
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package-lock.json
+          if git diff --cached --quiet; then
+            echo 'Lockfile already current'
+            exit 0
+          fi
+          git commit -m 'fix(security): lock audited Zod and ip-address releases'
+          git push origin HEAD:fix/people-location-error-recovery-20261023

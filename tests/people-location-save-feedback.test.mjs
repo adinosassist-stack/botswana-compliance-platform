@@ -35,3 +35,32 @@ test('a list-refresh failure cannot turn a completed save into a failed save',as
  await f.save();assert.match(f.elements.opsLocationStatus.textContent,/Location added.*Refresh/);
  assert.equal(f.elements.opsLocationName.value,'');assert.equal(f.writes(),1);
 });
+
+test('People location decorator preserves canonical validation and avoids forced form reopening',()=>{
+ const decorator=readFileSync(new URL('../public/js/locations-branches-v335.js',import.meta.url),'utf8');
+ assert.match(decorator,/if\(status&&!status\.textContent\.trim\(\)\)/,'existing backend error messages must be preserved');
+ assert.match(decorator,/status\.dataset\.state="error"/,'fallback failure must expose an error state');
+ const addAction=decorator.slice(decorator.indexOf('function bindAddLocationAction('),decorator.indexOf('function decorateLocationForm('));
+ assert.doesNotMatch(addAction,/setTimeout\(revealLocations/,'save must not force scroll or refocus');
+ assert.match(addAction,/button\.disabled=wasDisabled/,'button must recover after errors');
+});
+
+
+test('People location decorator does not erase a server-provided error after a rejected save',()=>{
+ const decorator=readFileSync(new URL('../public/js/locations-branches-v335.js',import.meta.url),'utf8');
+ const handler=decorator.slice(decorator.indexOf('function bindAddLocationAction('),decorator.indexOf('function decorateLocationForm('));
+ assert.match(handler,/catch\s*\(/,'rejected saves must have a recovery path');
+ assert.match(handler,/status\.dataset\.state="error"/,'rejected saves must be visible as errors');
+ assert.doesNotMatch(handler,/location\.reload\s*\(/,'rejected saves must not reload and discard the draft');
+});
+
+
+test('People location decorator restores save-button state after synchronous or asynchronous failures',()=>{
+ const decorator=readFileSync(new URL('../public/js/locations-branches-v335.js',import.meta.url),'utf8');
+ const handler=decorator.slice(decorator.indexOf('function bindAddLocationAction('),decorator.indexOf('function decorateLocationForm('));
+ assert.match(handler,/button\.disabled=true/,'save button must lock while saving');
+ assert.match(handler,/finally\s*\{/,'cleanup must execute on success and rejection');
+ assert.match(handler,/button\.disabled=wasDisabled/,'original disabled state must be restored');
+ assert.match(handler,/button\.removeAttribute\("aria-busy"\)/,'busy accessibility state must be cleared');
+ assert.match(handler,/delete button\.dataset\.locationsBranchesSaving/,'saving guard must be cleared');
+});

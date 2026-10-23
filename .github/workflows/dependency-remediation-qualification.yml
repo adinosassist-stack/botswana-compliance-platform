@@ -1,0 +1,48 @@
+name: Dependency remediation qualification
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/dependency-remediation-qualification.yml'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  qualify:
+    name: Evaluate patched dependency migration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+      - name: Generate genuine registry-resolved lockfile
+        run: |
+          set -euo pipefail
+          npm install zod@4.6.7 --save-exact --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm update ip-address --package-lock-only --ignore-scripts --no-audit --no-fund
+          node - <<'NODE'
+          const fs=require('fs');
+          const lock=JSON.parse(fs.readFileSync('package-lock.json','utf8'));
+          const zod=lock.packages['node_modules/zod']?.version;
+          const ip=lock.packages['node_modules/ip-address']?.version;
+          if(zod!=='4.6.7'||!ip||Number(ip.split('.')[0])<10||(ip.startsWith('10.')&&Number(ip.split('.')[1])===7&&Number(ip.split('.')[2])<=3))throw Error('Unpatched dependency: '+JSON.stringify({zod,ip}));
+          console.log({zod,ip});
+          NODE
+      - name: Install and test patched dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run audit:dependencies
+          npm run check
+          npm run test:static
+      - name: Upload candidate lockfile and manifest for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: patched-dependency-candidate
+          path: |
+            package.json
+            package-lock.json
+          retention-days: 7
