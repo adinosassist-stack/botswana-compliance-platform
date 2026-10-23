@@ -34,5 +34,15 @@ try{
     assert.notEqual(await page.locator('.owner-analysis-details').getAttribute('open'),null,'analysis remains reachable');
     await page.close();
   }
+  for(const width of [390,768,1280]){
+    const page=await browser.newPage({viewport:{width,height:900}});
+    await page.setContent(`<!doctype html><style>*{box-sizing:border-box}body{margin:0}#appShell{display:flex;min-height:100vh}#workspaceSidebar{width:220px;flex:none}#mainContent{flex:1;min-width:0}#mainContent>.top{height:72px}#workspaceSidebar .nav-primary{display:block} ${polish}</style><div id="appShell"><aside id="workspaceSidebar"><button class="nav-primary active">Home</button><button class="nav-primary">People</button></aside><main id="mainContent"><header class="top"><div><h2>Workspace</h2></div></header><section class="simplified-hub"><div class="hub-hero"><h2>Overview</h2></div></section></main></div>`);
+    const state=await page.evaluate(()=>({canvas:getComputedStyle(document.querySelector('#mainContent')).backgroundColor,header:getComputedStyle(document.querySelector('#mainContent>.top')).backgroundColor,overflow:document.documentElement.scrollWidth>innerWidth,active:getComputedStyle(document.querySelector('.nav-primary.active')).backgroundColor}));
+    assert.equal(state.canvas,'rgb(247, 249, 252)',`flat canvas at ${width}`);
+    assert.equal(state.header,'rgb(255, 255, 255)',`white header at ${width}`);
+    assert.equal(state.overflow,false,`workspace shell fits at ${width}`);
+    assert.equal(state.active,'rgb(11, 102, 214)',`blue active navigation at ${width}`);
+    await page.close();
+  }
   console.log('PASS workspace layout: contained priority controls and badges, >=44px controls, no horizontal overflow, analysis disclosure at 320–1280px');
 }finally{await browser.close()}
