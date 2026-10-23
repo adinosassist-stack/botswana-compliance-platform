@@ -36,8 +36,7 @@ test('actual workerd D1 preflight denies stale or unapproved provenance without 
  assert.equal((await preflight.check(controls)).eligible,false,'unapproved provenance');
  const reviews=createEmployeeProposalReviewD1Store(db);
  assert.equal(await reviews.decide({tenantId:'t1',proposalKey:saved.proposal_key,reviewerId:'manager',decision:'approved',reviewedAt:'2026-10-22T20:00:00.000Z'}),true);
- for(const statement of splitSqliteMigrationStatements(readFileSync('db/drafts/employee-dispatch-d1-intent.sql','utf8'))) { const executable=statement.replace(/--[^
-]*/g,'').trim(); if(executable) await db.prepare(executable).run(); }
+ for(const statement of splitSqliteMigrationStatements(readFileSync('db/drafts/employee-dispatch-d1-intent.sql','utf8'))) { const executable=statement.replace(/--[^\n]*/g,'').trim(); if(executable) await db.prepare(executable).run(); }
  const admission=createEmployeeDispatchD1Admission(db);
  const admit={...controls,dispatchId:'dispatch-00000000001',idempotencyKey:'idem-000000000000001',actorId:'author',action:'internal.task.create'};
  assert.equal((await admission.admit({...admit,featureEnabled:false})).ok,false,'default-off');
