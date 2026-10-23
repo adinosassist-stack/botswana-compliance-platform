@@ -23,15 +23,12 @@
           for(const kind of ['track','value']){const circle=document.createElementNS('http://www.w3.org/2000/svg','circle');for(const [key,value] of Object.entries({cx:50,cy:50,r:44,pathLength:100,class:kind}))circle.setAttribute(key,value);chart.append(circle)}
           ring.prepend(chart);
         }
-        // The existing Property Intelligence readiness percentage is calculated from real deal inputs.
-        // Reuse it directly; never derive a new ratio from unrelated workspace counts.
+        // Property Operations already owns the ring and its live readiness calculation.
+        // Keep the native CSS ring as the single visible indicator.
         const readiness=Number(raw.slice(0,-1));
-        if(Number.isFinite(readiness)&&readiness>=0&&readiness<=100){
-          ring.style.setProperty('--ring-value',String(readiness));
-          ring.setAttribute('data-thebe-readiness-source','property-ops-readiness');
-          ring.setAttribute('aria-label','Operational setup readiness: '+readiness+' percent');
-        }
         const dash=`${Math.min(100,Math.max(0,readiness))} 100`;
+        ring.setAttribute('aria-label','Operational setup readiness: '+readiness+' percent');
+        chart.setAttribute('aria-hidden','true');
         if(chart.lastChild.getAttribute('stroke-dasharray')!==dash)chart.lastChild.setAttribute('stroke-dasharray',dash);
       }
     }
