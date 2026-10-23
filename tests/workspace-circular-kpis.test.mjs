@@ -60,3 +60,16 @@ test("mounting is opt-in and replaces only its own target", () => {
   assert.equal(target.children[0].children[0].children[0].text, "40%");
   assert.equal(window.ThebeCircularKpi.mountRatioKpi(null, { label: "Complete", numerator: 2, denominator: 5 }), false);
 });
+
+test("reads real DOM counts only when both sources are available", () => {
+  const window = { document: { createElement: node }, CSS: { supports: () => true } };
+  vm.runInNewContext(source, { window });
+  const target = { replaceChildren(...nodes) { this.children = nodes; } };
+  const element = textContent => ({ textContent, hidden: false, closest: () => null });
+  const args = { label: "Complete", numeratorElement: element("12"), denominatorElement: element("20") };
+  assert.equal(window.ThebeCircularKpi.mountRatioKpiFromElements(target, args), true);
+  assert.equal(target.children[0].children[0].children[0].text, "60%");
+  args.denominatorElement.hidden = true;
+  window.ThebeCircularKpi.mountRatioKpiFromElements(target, args);
+  assert.equal(target.children[0].children[0].children[0].text, "—");
+});
