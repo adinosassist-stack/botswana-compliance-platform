@@ -60,4 +60,18 @@ async function main(){
  };
  console.log('OWNER_LOCATION_ALLOWANCE '+JSON.stringify(await applyFiveLocationAllowance(query,{apply:mode==='APPLY_FIVE_LOCATIONS',runId:process.env.GITHUB_RUN_ID})));
 }
-if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)main().catch(()=>{console.error('Owner location allowance failed. Inspect the workflow stage; no success is claimed.');process.exitCode=1});
+export function allowanceFailureMessage(error){
+ const message=String(error?.message||'');
+ const safeMessages=[
+  'Expected exactly one matching active owner workspace; refusing changes',
+  'Current plan capacity is missing, disabled or exceeds five; refusing changes',
+  'Existing override is disabled, unlimited or exceeds five; refusing to replace it',
+  'Active location count invalid or already exceeds five',
+  'GitHub run identifier required for apply',
+  'Five-location override not verified; inspect concurrent changes before retrying',
+  'Unrelated workspace overrides changed during operation',
+  'Cloudflare token missing','Cloudflare D1 result invalid','Invalid allowance mode'
+ ];
+ return safeMessages.includes(message)||/^Cloudflare D1 request failed HTTP [0-9]{3}$/.test(message)?message:'Unrecognized failure; no sensitive response or credential data logged';
+}
+if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)main().catch(error=>{console.error('Owner location allowance failed: '+allowanceFailureMessage(error));process.exitCode=1});

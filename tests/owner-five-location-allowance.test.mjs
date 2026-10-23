@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
-import {applyFiveLocationAllowance} from '../scripts/owner-five-location-allowance.mjs';
+import {applyFiveLocationAllowance,allowanceFailureMessage} from '../scripts/owner-five-location-allowance.mjs';
 function fixture(){
  const db=new DatabaseSync(':memory:');
  db.exec(readFileSync(new URL('../cloudflare/schema.sql',import.meta.url),'utf8'));
@@ -48,4 +48,10 @@ test('workflow requires explicit owner dispatch, exact current main and producti
  const s=readFileSync(new URL('../.github/workflows/owner-five-location-allowance.yml',import.meta.url),'utf8');
  for(const text of ['workflow_dispatch:','environment: production',"GITHUB_ACTOR\" == 'adinosassist-stack'",'refs/remotes/origin/main','default: INSPECT_ONLY','persist-credentials: false'])assert(s.includes(text));
  assert(!s.includes('pull_request_target'));assert(!s.includes('contents: write'));
+});
+
+test('diagnostics expose only allowlisted failure reasons, never raw credentials or responses',()=>{
+ assert.equal(allowanceFailureMessage(new Error('Expected exactly one matching active owner workspace; refusing changes')),'Expected exactly one matching active owner workspace; refusing changes');
+ assert.equal(allowanceFailureMessage(new Error('Cloudflare D1 request failed HTTP 403')),'Cloudflare D1 request failed HTTP 403');
+ assert(!allowanceFailureMessage(new Error('token=private-secret database-response')).includes('private-secret'));
 });
