@@ -2040,3 +2040,38 @@ body.thebe-ai-dock-open .thebe-ai-mode-rail:has([data-thebe-mode="goal_plan"]:no
 .thebe-ai-response-tools button:disabled{cursor:not-allowed;opacity:.55}
 .thebe-ai-response-tools button:focus-visible{outline:2px solid #83baff;outline-offset:2px}
 @media(max-width:520px){.thebe-ai-response-tools{gap:4px}.thebe-ai-response-tools button{min-height:44px}}
+
+/* Workspace dock surface refinement: clearer hierarchy without decorative clutter. */
+#thebeAiDock[data-surface="workspace"]{
+  --thebe-control-radius:10px;
+  --thebe-panel-radius:16px;
+}
+#thebeAiDock[data-surface="workspace"] :is(button,[role="button"]){
+  border-radius:var(--thebe-control-radius);
+  transition:background-color .16s ease,border-color .16s ease,box-shadow .16s ease;
+}
+#thebeAiDock[data-surface="workspace"] :is(button,[role="button"]):not(:disabled):focus-visible{
+  outline:2px solid #83baff;
+  outline-offset:2px;
+}
+#thebeAiDock[data-surface="workspace"] :is(button,[role="button"]):disabled{
+  cursor:not-allowed;
+  opacity:.55;
+}
+#thebeAiDock[data-surface="workspace"] :is(.thebe-ai-plan-artifact,.thebe-ai-export-menu){
+  border-radius:var(--thebe-panel-radius);
+  box-shadow:0 6px 20px rgba(0,0,0,.12);
+}
+#thebeAiDock[data-surface="workspace"] .thebe-ai-response-tools{
+  padding-top:8px;
+  margin-top:8px;
+  border-top:1px solid var(--thebe-dock-line);
+}
+@media (hover:hover){
+  #thebeAiDock[data-surface="workspace"] .thebe-ai-response-tools button:not(:disabled):hover{
+    background:rgba(131,186,255,.12);
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  #thebeAiDock[data-surface="workspace"] :is(button,[role="button"]){transition:none}
+}
