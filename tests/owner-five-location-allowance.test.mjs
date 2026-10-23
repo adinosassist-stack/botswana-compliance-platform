@@ -55,3 +55,9 @@ test('diagnostics expose only allowlisted failure reasons, never raw credentials
  assert.equal(allowanceFailureMessage(new Error('Cloudflare D1 request failed HTTP 403')),'Cloudflare D1 request failed HTTP 403');
  assert(!allowanceFailureMessage(new Error('token=private-secret database-response')).includes('private-secret'));
 });
+
+test('real Node assertion details retain the allowlisted reason without leaking comparison data',async()=>{
+ let failure;try{await applyFiveLocationAllowance(async()=>[])}catch(error){failure=error}
+ assert(failure);assert.match(failure.message,/0 !== 1/);
+ assert.equal(allowanceFailureMessage(failure),'Expected exactly one matching active owner workspace; refusing changes');
+});
