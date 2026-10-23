@@ -64,5 +64,19 @@
       color
     });
   }
-  global.ThebeCircularKpi = Object.freeze({ createCircularKpi, createRatioKpi, mountRatioKpi, mountRatioKpiFromElements });
+  function mountConfiguredRatios(root = global.document) {
+    if (!root || typeof root.querySelectorAll !== "function") return 0;
+    let mounted = 0;
+    for (const target of root.querySelectorAll("[data-thebe-ratio-label][data-thebe-ratio-numerator][data-thebe-ratio-denominator]")) {
+      const numeratorId = target.getAttribute("data-thebe-ratio-numerator");
+      const denominatorId = target.getAttribute("data-thebe-ratio-denominator");
+      const label = target.getAttribute("data-thebe-ratio-label");
+      if (!numeratorId || !denominatorId || !label || !global.document?.getElementById) continue;
+      const numeratorElement = global.document.getElementById(numeratorId);
+      const denominatorElement = global.document.getElementById(denominatorId);
+      if (mountRatioKpiFromElements(target, { label, numeratorElement, denominatorElement })) mounted++;
+    }
+    return mounted;
+  }
+  global.ThebeCircularKpi = Object.freeze({ createCircularKpi, createRatioKpi, mountRatioKpi, mountRatioKpiFromElements, mountConfiguredRatios });
 })(window);
