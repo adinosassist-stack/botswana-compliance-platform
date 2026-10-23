@@ -7,7 +7,7 @@ function fixture(){
  const db=new DatabaseSync(':memory:');
  db.exec(readFileSync(new URL('../cloudflare/schema.sql',import.meta.url),'utf8'));
  db.exec(`INSERT INTO tenants(id,name) VALUES('target','Lovely Group'),('other','Other');
- INSERT INTO users(id,email) VALUES('owner','adinosassist@gmail.com'),('other','other@example.test');
+ INSERT INTO users(id,email) VALUES('owner','banabothem@yahoo.com'),('other','other@example.test');
  INSERT INTO memberships(tenant_id,user_id,role,status) VALUES('target','owner','owner','active'),('other','other','owner','active');
  INSERT INTO subscriptions(tenant_id,plan,status) VALUES('target','business','trialing');
  INSERT OR REPLACE INTO plan_entitlements(plan,feature_key,enabled,limit_value) VALUES('business','operating_locations',1,2);
@@ -28,7 +28,7 @@ test('apply changes only the selected location allowance and records intent and 
  await applyFiveLocationAllowance(query,{apply:true,runId:'124'});assert.equal((await query("SELECT * FROM entitlement_overrides WHERE tenant_id='target' AND feature_key='operating_locations'")).length,1);
 });
 test('missing, ambiguous or non-owner workspace refuses all writes',async()=>{
- for(const mutation of ["UPDATE memberships SET role='manager' WHERE tenant_id='target'","UPDATE tenants SET name='Renamed' WHERE id='target'","INSERT INTO tenants(id,name) VALUES('duplicate','Lovely Group'); INSERT INTO memberships(tenant_id,user_id,role) VALUES('duplicate','owner','owner')"]){
+ for(const mutation of ["UPDATE users SET email='adinosassist@gmail.com' WHERE id='owner'","UPDATE memberships SET role='manager' WHERE tenant_id='target'","UPDATE tenants SET name='Renamed' WHERE id='target'","INSERT INTO tenants(id,name) VALUES('duplicate','Lovely Group'); INSERT INTO memberships(tenant_id,user_id,role) VALUES('duplicate','owner','owner')"]){
   const {db,query}=fixture();db.exec(mutation);await assert.rejects(applyFiveLocationAllowance(query,{apply:true,runId:'1'}),/exactly one/);assert.equal((await query('SELECT * FROM audit_events')).length,0);
  }
 });
