@@ -91,7 +91,12 @@
         // Preserve the entered values and surface failures without reopening the form.
         console.error("Add location failed",error);
         const status=people.querySelector("#opsLocationStatus");
-        if(status){status.textContent="Could not add location. Please retry.";status.setAttribute("role","alert");}
+        // The canonical addOpsLocation handler owns actionable validation messages.
+        if(status&&!status.textContent.trim()){
+          status.textContent="Could not add location. Please retry.";
+          status.dataset.state="error";
+          status.setAttribute("role","alert");
+        }
       }finally{
         button.disabled=wasDisabled;
         button.removeAttribute("aria-busy");
