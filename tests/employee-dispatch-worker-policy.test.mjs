@@ -5,7 +5,7 @@ import { evaluateEmployeeWorker } from "../server/employee-dispatch-worker-polic
 const identity = { tenantId: "t1", actorId: "worker1", permissions: ["employee.workflow.dispatch"] };
 const proposal = { id: "p1", tenantId: "t1", authorId: "employee-author", action: "internal.task.create" };
 const review = { id: "r1", tenantId: "t1", proposalId: "p1", reviewerId: "manager1", status: "approved" };
-const intent = { tenantId: "t1", proposalId: "p1", reviewId: "r1", action: "internal.task.create", idempotencyKey: "k1", state: "leased", attempts: 1, maxAttempts: 3, leaseToken: "lease-1", leaseExpiresAt: 2000000060 };
+const intent = { tenantId: "t1", proposalId: "p1", reviewId: "r1", action: "internal.task.create", idempotencyKey: "k1", intentType: "task", state: "leased", attempts: 1, maxAttempts: 3, leaseToken: "lease-1", leaseExpiresAt: 2000000060 };
 const base = { featureEnabled: true, killSwitch: false, auditAvailable: true,
   identity, proposal, review, intent, action: "internal.task.create",
   currentReview: true, reviewerAuthorized: true, currentRevision: true,
@@ -92,4 +92,12 @@ test("reclaimed intent fences the old worker and permits only the new token", ()
   assert.equal(evaluateEmployeeWorker(base).allowed, true);
   assert.equal(evaluateEmployeeWorker({ ...base, intent: reclaimed }).allowed, false);
   assert.equal(evaluateEmployeeWorker({ ...base, intent: reclaimed, leaseToken: "lease-2" }).allowed, true);
+});
+
+test("worker rejects mismatched, missing or forged execution categories", () => {
+  for (const intentType of [undefined, null, "report", "payroll", "TASK", ""]) {
+    const result = evaluateEmployeeWorker({ ...base, intent: { ...intent, intentType } });
+    assert.equal(result.allowed, false);
+    assert.equal(result.reason, "intent_type_mismatch");
+  }
 });
