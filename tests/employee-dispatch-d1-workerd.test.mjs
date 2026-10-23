@@ -13,7 +13,8 @@ test('actual workerd D1 preflight denies stale or unapproved provenance without 
  t.after(()=>mf.dispose());
  const db=await mf.getD1Database('DB');
  const canonical=splitSqliteMigrationStatements(readFileSync('cloudflare/schema.sql','utf8'));
- const base=canonical.map(s=>s.replace(/--[^\n]*/g,'').trim()).filter(s=>/^CREATE TABLE IF NOT EXISTS (tenants|users|memberships|employees)\(/.test(s));
+ const base=canonical.map(s=>s.replace(/--[^
+]*/g,'').trim()).filter(s=>/^CREATE TABLE IF NOT EXISTS (tenants|users|memberships|employees)\(/.test(s));
  assert.equal(base.length,4);
  for(const statement of base)await db.prepare(statement).run();
  for(const name of ['20261021_employee_ai_workflows.sql','20261021_employee_ai_proposal_reviews.sql','20261022_employee_ai_proposal_provenance.sql']){
@@ -35,7 +36,8 @@ test('actual workerd D1 preflight denies stale or unapproved provenance without 
  assert.equal((await preflight.check(controls)).eligible,false,'unapproved provenance');
  const reviews=createEmployeeProposalReviewD1Store(db);
  assert.equal(await reviews.decide({tenantId:'t1',proposalKey:saved.proposal_key,reviewerId:'manager',decision:'approved',reviewedAt:'2026-10-22T20:00:00.000Z'}),true);
- for(const statement of splitSqliteMigrationStatements(readFileSync('db/drafts/employee-dispatch-d1-intent.sql','utf8'))) { const executable=statement.replace(/--[^\n]*/g,'').trim(); if(executable) await db.prepare(executable).run(); }
+ for(const statement of splitSqliteMigrationStatements(readFileSync('db/drafts/employee-dispatch-d1-intent.sql','utf8'))) { const executable=statement.replace(/--[^
+]*/g,'').trim(); if(executable) await db.prepare(executable).run(); }
  const admission=createEmployeeDispatchD1Admission(db);
  const admit={...controls,dispatchId:'dispatch-00000000001',idempotencyKey:'idem-000000000000001',actorId:'author',action:'internal.task.create'};
  assert.equal((await admission.admit({...admit,featureEnabled:false})).ok,false,'default-off');
@@ -47,7 +49,10 @@ test('actual workerd D1 preflight denies stale or unapproved provenance without 
 
  assert.equal((await admission.admit({...admit,actorId:'manager'})).ok,false,'manager cannot grant owner admission');
  assert.equal((await admission.admit({...admit,tenantId:'other-tenant'})).ok,false,'tenant isolation');
- const admitted=await admission.admit(admit);\n assert.equal(admitted.ok,true,'approved intent admitted');\n assert.equal(admitted.executed,0,'admission never executes');\n assert.equal(admitted.executionAuthorized,false,'owner membership does not confer exact owner approval');
+ const admitted=await admission.admit(admit);
+ assert.equal(admitted.ok,true,'approved intent admitted');
+ assert.equal(admitted.executed,0,'admission never executes');
+ assert.equal(admitted.executionAuthorized,false,'owner membership does not confer exact owner approval');
  assert.equal((await admission.admit({...admit,dispatchId:'dispatch-00000000002'})).ok,false,'duplicate idempotency');
  assert.equal((await db.prepare('SELECT COUNT(*) n FROM employee_dispatch_d1_intents').first()).n,1);
  assert.equal((await db.prepare('SELECT COUNT(*) n FROM employee_dispatch_d1_audit').first()).n,1);
