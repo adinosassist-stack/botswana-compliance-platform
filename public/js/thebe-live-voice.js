@@ -1313,7 +1313,14 @@
     const open=el("button","thebe-ai-open-full","Open workspace AI");
     open.type="button";
     open.addEventListener("click",()=>{openView("automationhub");if(mobileDockMode())setCollapsed(true)});
-    tools.append(follow,copy,open);
+    // Keep export discoverable without advertising a non-operational endpoint.
+    const exportButton=el("button","thebe-ai-export-trigger","Export");
+    exportButton.type="button";
+    exportButton.disabled=true;
+    exportButton.title="Document export is being prepared";
+    exportButton.setAttribute("aria-label","Export this answer (coming soon)");
+    exportButton.dataset.feature="ai-document-export";
+    tools.append(follow,copy,open,exportButton);
     responseBox.append(tools);
     surfaceLatestResponse();
   }
