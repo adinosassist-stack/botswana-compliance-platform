@@ -39,5 +39,8 @@ jobs:
           git add -- package-lock.json
           git commit -m 'fix: synchronize document export dependency lockfile'
           git fetch origin "$TARGET_BRANCH"
-          git rebase "origin/$TARGET_BRANCH"
+          git switch -C "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+          git checkout HEAD@{1} -- package-lock.json
+          git add -- package-lock.json
+          git commit -m "fix: synchronize document export dependency lockfile"
           git push origin "HEAD:$TARGET_BRANCH"
