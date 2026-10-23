@@ -279,3 +279,82 @@
 #industryintel .africa-market-foundation-v311 .africa-market-card-v311>span{
   color:var(--ui-accent,#0b66d6)!important;
 }
+
+
+/* Property UX refinement: readable metrics, clear actions, accessible mobile layout. */
+#propertyintelligence.property-compact-v260 .property-ops-metrics-v262 {
+  gap: 10px;
+  margin-bottom: 14px;
+}
+#propertyintelligence.property-compact-v260 .property-ops-metric-v262 {
+  padding: 14px;
+  border-radius: 14px;
+  min-height: 92px;
+}
+#propertyintelligence.property-compact-v260 .property-ops-metric-v262 span {
+  font-size: 11px;
+  line-height: 1.35;
+  letter-spacing: .035em;
+}
+#propertyintelligence.property-compact-v260 .property-ops-metric-v262 strong {
+  font-size: clamp(18px, 1.8vw, 24px);
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+#propertyintelligence.property-compact-v260 .property-ops-metric-v262 small {
+  font-size: 11px;
+  line-height: 1.4;
+}
+#propertyintelligence.property-compact-v260 .property-ops-grid-v262 { gap: 12px; }
+#propertyintelligence.property-compact-v260 .property-ops-item-v262 {
+  padding: 13px;
+  gap: 10px;
+  border-radius: 13px;
+}
+#propertyintelligence.property-compact-v260 .property-ops-item-copy-v262 b {
+  font-size: 13px;
+  line-height: 1.3;
+}
+#propertyintelligence.property-compact-v260 .property-ops-item-copy-v262 span {
+  font-size: 11px;
+  line-height: 1.4;
+}
+#propertyintelligence.property-compact-v260 .property-ops-status-v262 {
+  font-size: 10px!important;
+  line-height: 1.25;
+  padding: 4px 8px;
+}
+#propertyintelligence.property-compact-v260 :is(.property-ops-action-v262,.property-ops-plan-v262,.property-ops-ai-v262) {
+  min-height: 40px;
+  font-size: 12px;
+  line-height: 1.3;
+}
+#propertyintelligence.property-compact-v260 .property-ops-readiness-v262 {
+  background: var(--property-ink)!important;
+  color: #fff!important;
+}
+#propertyintelligence.property-compact-v260 .property-ops-ring-v262 {
+  --property-accent: #77b8ff;
+}
+#propertyintelligence.property-compact-v260 .property-ops-readiness-v262 b { font-size: 13px; }
+#propertyintelligence.property-compact-v260 .property-ops-readiness-v262 span {
+  font-size: 11px;
+  line-height: 1.4;
+  color: #e2ebf6;
+}
+#propertyintelligence.property-compact-v260 .property-operations-v262 button:focus-visible {
+  outline: 3px solid var(--property-accent);
+  outline-offset: 3px;
+}
+@media (max-width: 760px) {
+  #propertyintelligence.property-compact-v260 .property-ops-metrics-v262 { gap: 8px; }
+  #propertyintelligence.property-compact-v260 .property-ops-metric-v262 {
+    padding: 12px;
+    min-height: 0;
+  }
+  #propertyintelligence.property-compact-v260 .property-ops-queue-v262 { gap: 8px; }
+}
+@media (max-width: 420px) {
+  #propertyintelligence.property-compact-v260 .property-ops-item-v262 { gap: 8px; }
+  #propertyintelligence.property-compact-v260 .property-ops-metric-v262 strong { font-size: 17px; }
+}
