@@ -16,7 +16,7 @@ export async function queueEmployeeDispatch({
   }
   // Apply the same ID shape constraints as admission before acquiring a DB transaction.
   const validId = value => typeof value === "string" && value.length > 0 &&
-    value.length <= 200 && /^[a-zA-Z0-9_:.\\-]+$/.test(value);
+    value.length <= 200 && /^[a-zA-Z0-9_:.-]+$/.test(value);
   if (!validId(identity?.tenantId) || !validId(identity?.actorId) ||
       !validId(proposalId) || !validId(idempotencyKey)) {
     return { queued: false, reason: "invalid_request" };
