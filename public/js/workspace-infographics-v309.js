@@ -23,7 +23,12 @@
           for(const kind of ['track','value']){const circle=document.createElementNS('http://www.w3.org/2000/svg','circle');for(const [key,value] of Object.entries({cx:50,cy:50,r:44,pathLength:100,class:kind}))circle.setAttribute(key,value);chart.append(circle)}
           ring.prepend(chart);
         }
-        const dash=`${Math.min(100,Math.max(0,Number(raw.slice(0,-1))))} 100`;
+        // Property Operations already owns the ring and its live readiness calculation.
+        // Keep the native CSS ring as the single visible indicator.
+        const readiness=Number(raw.slice(0,-1));
+        const dash=`${Math.min(100,Math.max(0,readiness))} 100`;
+        ring.setAttribute('aria-label','Operational setup readiness: '+readiness+' percent');
+        chart.setAttribute('aria-hidden','true');
         if(chart.lastChild.getAttribute('stroke-dasharray')!==dash)chart.lastChild.setAttribute('stroke-dasharray',dash);
       }
     }
@@ -67,7 +72,7 @@
       const strip=root.querySelector('.outcome-status-strip,.market-v257-stats');
       if(strip&&!strip.nextElementSibling?.classList.contains('workspace-info-scale-v309')){
         const caption=document.createElement('p');caption.className='workspace-info-scale-v309';
-        caption.textContent='Count bars share a scale; the largest visible count fills the bar.';strip.after(caption);
+        caption.textContent='Relative counts';caption.title='Bars are relative to the largest visible count, not percentages.';strip.after(caption);
       }
     }
   }

@@ -1,0 +1,115 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import test from "node:test";
+import vm from "node:vm";
+
+const source = readFileSync(new URL("../public/js/workspace-circular-kpis.js", import.meta.url), "utf8");
+const css = readFileSync(new URL("../public/assets/workspace-circular-kpis.css", import.meta.url), "utf8");
+const entry = readFileSync(new URL("../cloudflare/src/production-entry.js", import.meta.url), "utf8");
+function node(tag) {
+  return {
+    tag, children: [], attributes: {}, style: { values: {}, setProperty(k, v) { this.values[k] = v; } },
+    setAttribute(k, v) { this.attributes[k] = v; },
+    append(...items) { this.children.push(...items); },
+    set textContent(v) { this.text = v; }
+  };
+}
+function render(input) {
+  const window = { document: { createElement: node }, CSS: { supports: () => true } };
+  vm.runInNewContext(source, { window });
+  return window.ThebeCircularKpi.createCircularKpi(input);
+}
+test("renders actual percentage and accessible label", () => {
+  const kpi = render({ label: "Completed", value: 84.7 });
+  assert.equal(kpi.children[0].children[0].text, "85%");
+  assert.equal(kpi.children[0].attributes["aria-label"], "Completed: 84.7 percent");
+  assert.equal(kpi.children[0].style.values["--ring-value"], "84.7");
+});
+test("rejects out-of-range and unavailable metrics", () => {
+  for (const value of [NaN, -1, 101, undefined, "80"]) {
+    const kpi = render({ label: "Coverage", value });
+    assert.equal(kpi.children[0].children[0].text, "—");
+    assert.equal(kpi.children[0].style.values["--ring-value"], undefined);
+  }
+});
+test("requires a meaningful label", () => assert.equal(render({ label: " ", value: 50 }), null));
+test("uses lightweight responsive and forced-colors styles", () => {
+  assert.match(css, /@media \(max-width: 620px\)/);
+  assert.match(css, /forced-colors: active/);
+  assert.match(css, /conic-gradient/);
+});
+test("workspace entry loads both assets", () => {
+  assert.match(entry, /injectBeforeFinalClosingTag\(source,"head",`<link rel="stylesheet" href="\/assets\/workspace-circular-kpis\.css/);
+  assert.match(entry, /injectBeforeFinalClosingTag\(source,"body",`<script src="\/js\/workspace-circular-kpis\.js/);
+});
+
+test("ratio KPI uses actual counts and rejects invalid denominators", () => {
+  const window = { document: { createElement: node }, CSS: { supports: () => true } };
+  vm.runInNewContext(source, { window });
+  const good = window.ThebeCircularKpi.createRatioKpi({ label: "Complete", numerator: 3, denominator: 4 });
+  assert.equal(good.children[0].children[0].text, "75%");
+  const bad = window.ThebeCircularKpi.createRatioKpi({ label: "Complete", numerator: 3, denominator: 0 });
+  assert.equal(bad.children[0].children[0].text, "—");
+});
+
+test("mounting is opt-in and replaces only its own target", () => {
+  const window = { document: { createElement: node }, CSS: { supports: () => true } };
+  vm.runInNewContext(source, { window });
+  const target = { children: [], replaceChildren(...nodes) { this.children = nodes; } };
+  assert.equal(window.ThebeCircularKpi.mountRatioKpi(target, { label: "Complete", numerator: 2, denominator: 5 }), true);
+  assert.equal(target.children[0].children[0].children[0].text, "40%");
+  assert.equal(window.ThebeCircularKpi.mountRatioKpi(null, { label: "Complete", numerator: 2, denominator: 5 }), false);
+});
+
+test("reads real DOM counts only when both sources are available", () => {
+  const window = { document: { createElement: node }, CSS: { supports: () => true } };
+  vm.runInNewContext(source, { window });
+  const target = { replaceChildren(...nodes) { this.children = nodes; } };
+  const element = textContent => ({ textContent, hidden: false, closest: () => null });
+  const args = { label: "Complete", numeratorElement: element("12"), denominatorElement: element("20") };
+  assert.equal(window.ThebeCircularKpi.mountRatioKpiFromElements(target, args), true);
+  assert.equal(target.children[0].children[0].children[0].text, "60%");
+  args.denominatorElement.hidden = true;
+  window.ThebeCircularKpi.mountRatioKpiFromElements(target, args);
+  assert.equal(target.children[0].children[0].children[0].text, "—");
+});
+
+test("missing values have a distinct visual state, not a zero progress ring", () => {
+  const unknown = render({ label: "Completion", value: null });
+  const zero = render({ label: "Completion", value: 0 });
+  assert.match(unknown.children[0].className, /thebe-kpi-ring--unavailable/);
+  assert.doesNotMatch(zero.children[0].className, /thebe-kpi-ring--unavailable/);
+  assert.match(css, /thebe-kpi-ring--unavailable/);
+});
+
+test("explicit metric-data-only hooks remain readable without exposing hidden sections", () => {
+  const window = { document: { createElement: node }, CSS: { supports: () => true } };
+  vm.runInNewContext(source, { window });
+  const target = { replaceChildren(...nodes) { this.children = nodes; } };
+  const metric = textContent => ({ textContent, hidden: false, closest: selector => selector === "[hidden]" ? null : null });
+  window.ThebeCircularKpi.mountRatioKpiFromElements(target, {
+    label: "Coverage", numeratorElement: metric("1,200"), denominatorElement: metric("2,000")
+  });
+  assert.equal(target.children[0].children[0].children[0].text, "60%");
+});
+
+test("declarative ratios require explicitly mapped metric elements", () => {
+  const target = {
+    attributes: {
+      "data-thebe-ratio-label": "Complete",
+      "data-thebe-ratio-numerator": "done",
+      "data-thebe-ratio-denominator": "total"
+    },
+    getAttribute(name) { return this.attributes[name]; },
+    replaceChildren(...nodes) { this.children = nodes; }
+  };
+  const metrics = { done: { textContent: "3", hidden: false, closest: () => null }, total: { textContent: "4", hidden: false, closest: () => null } };
+  const window = { document: { createElement: node, getElementById: id => metrics[id] }, CSS: { supports: () => true } };
+  vm.runInNewContext(source, { window });
+  const root = { querySelectorAll: () => [target] };
+  assert.equal(window.ThebeCircularKpi.mountConfiguredRatios(root), 1);
+  assert.equal(target.children[0].children[0].children[0].text, "75%");
+  delete metrics.total;
+  assert.equal(window.ThebeCircularKpi.mountConfiguredRatios(root), 1);
+  assert.equal(target.children[0].children[0].children[0].text, "—");
+});
