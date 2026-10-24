@@ -128,6 +128,37 @@ test("draft employee proposal schema: real PostgreSQL isolation, revision and ro
       });
     });
 
+    await t.test("persisted proposal author, digest and versions are immutable", async () => {
+      await assert.rejects(
+        pool.query(
+          "update employee_dispatch_proposal_versions set payload_digest=$3 where tenant_id=$1 and proposal_id=$2 and revision=1",
+          [tenant, proposalId, "d".repeat(64)]
+        ),
+        e => e.code === "23514"
+      );
+      await assert.rejects(
+        pool.query(
+          "update employee_dispatch_proposal_versions set author_id='reviewer-1' where tenant_id=$1 and proposal_id=$2 and revision=1",
+          [tenant, proposalId]
+        ),
+        e => e.code === "23514"
+      );
+      await assert.rejects(
+        pool.query(
+          "delete from employee_dispatch_proposal_versions where tenant_id=$1 and proposal_id=$2 and revision=2",
+          [tenant, proposalId]
+        ),
+        e => e.code === "23514"
+      );
+      const persisted = await pool.query(
+        "select author_id,payload_digest from employee_dispatch_proposal_versions where tenant_id=$1 and proposal_id=$2 and revision=1",
+        [tenant, proposalId]
+      );
+      assert.deepEqual(persisted.rows, [{
+        author_id: "author-1", payload_digest: "a".repeat(64)
+      }]);
+    });
+
     await t.test("review writes are append-only and cannot supply their own sequence", async () => {
       await assert.rejects(
         pool.query("update employee_dispatch_proposal_reviews set decision='rejected' where tenant_id=$1 and review_id=$2", [tenant, reviewId]),
