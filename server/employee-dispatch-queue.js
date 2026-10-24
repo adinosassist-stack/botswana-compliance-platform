@@ -14,6 +14,14 @@ export async function queueEmployeeDispatch({
       typeof proposalId !== "string" || !proposalId.trim()) {
     return { queued: false, reason: "invalid_request" };
   }
+  // Reject malformed caller input before acquiring a connection or transaction.
+  // Governance remains default-off; these checks do not grant execution rights.
+  if (typeof identity?.tenantId !== "string" || !identity.tenantId.trim() ||
+      typeof identity?.actorId !== "string" || !identity.actorId.trim() ||
+      typeof idempotencyKey !== "string" || !idempotencyKey.trim() ||
+      idempotencyKey.length > 200) {
+    return { queued: false, reason: "invalid_request" };
+  }
   if (featureEnabled !== true || killSwitch !== false || auditAvailable !== true) {
     return { queued: false, reason: "governance_unavailable" };
   }
