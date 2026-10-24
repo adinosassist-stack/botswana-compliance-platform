@@ -9,6 +9,9 @@ import {
 const seed=JSON.parse(fs.readFileSync(new URL("../cloudflare/seeds/botswana-foundation-pack-v1.json",import.meta.url),"utf8"));
 const meta=JSON.parse(fs.readFileSync(new URL("../cloudflare/config/foundation-pack-v1.meta.json",import.meta.url),"utf8"));
 const hash=crypto.createHash("sha256").update(JSON.stringify(seed)).digest("hex");
+const worker=fs.readFileSync(new URL("../cloudflare/src/worker.js",import.meta.url),"utf8");
+assert.match(worker,/if\(!Number\.isInteger\(Number\(action\.dueDaysAfterPeriodEnd\)\)\|\|Number\(action\.dueDaysAfterPeriodEnd\)<1\)return out;/);
+assert.ok(!worker.includes("action.dueDaysAfterPeriodEnd||25"),"VAT scheduler must not silently default to legacy 25 days");
 const source=key=>seed.sources.find(item=>item.key===key);
 const rule=key=>seed.rules.find(item=>item.key===key);
 
