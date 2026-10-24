@@ -70,6 +70,13 @@ test("PostgreSQL worker recovery is lease-fenced, audited, bounded and simulatio
   try{
     await pool.query("insert into tenants(id,name) values ($1,'Worker tenant'),($2,'Other tenant')",
       [tenant,otherTenant]);
+    await pool.query("insert into employee_dispatch_worker_controls(tenant_id) values ($1)",[tenant]);
+    // Disposable CI owner only: there is no production activation API.
+    const enableControls=()=>pool.query(
+      `update employee_dispatch_worker_controls
+       set feature_enabled=true,kill_switch=false,operator_stop=false
+       where tenant_id=$1`,[tenant]);
+    await enableControls();
     for(const id of [issuer,approver,reviewer]){
       await pool.query("insert into users(id,email) values ($1,$2)",
         [id,"recovery-"+randomUUID()+"@example.invalid"]);
@@ -330,6 +337,121 @@ test("PostgreSQL worker recovery is lease-fenced, audited, bounded and simulatio
       assert.equal((await resolve(lease,"qualify")).ok,true);
     });
 
+    await t.test("new control rows must start disabled and stopped",async()=>{
+      await assert.rejects(pool.query(
+        "insert into employee_dispatch_worker_controls(tenant_id,feature_enabled) values ($1,true)",
+        [otherTenant]),e=>e.code==='23514');
+      await pool.query("insert into employee_dispatch_worker_controls(tenant_id) values ($1)",[otherTenant]);
+      const initial=await pool.query(
+        "select feature_enabled,kill_switch,operator_stop from employee_dispatch_worker_controls where tenant_id=$1",[otherTenant]);
+      assert.deepEqual(initial.rows,[{feature_enabled:false,kill_switch:true,operator_stop:true}]);
+      assert.equal((await pool.query("select 1 from employee_dispatch_worker_control_events where tenant_id=$1 and revision=1",[otherTenant])).rowCount,1);
+    });
+
+    await t.test("durable disabled controls cannot be overridden by caller flags",async()=>{
+      const key="durable-off-"+randomUUID();await insertIntent(key);
+      const secondWorker=createEmployeeDispatchWorkerRecoveryDraft(pool);
+      try{
+        for(const column of ['feature_enabled','kill_switch','operator_stop']){
+          await enableControls();
+          await pool.query(`update employee_dispatch_worker_controls set ${column}=$2 where tenant_id=$1`,
+            [tenant,column!=='feature_enabled']);
+          for(const instance of [worker,secondWorker]){
+            assert.deepEqual(await instance.claimNext({tenantId:tenant,...allow}),
+              {ok:false,reason:"durable_controls_stopped"});
+          }
+          assert.equal((await byKey(key)).attempts,0);
+        }
+        assert.deepEqual(await secondWorker.claimNext({tenantId:randomUUID(),...allow}),
+          {ok:false,reason:"durable_controls_stopped"},"missing tenant controls deny");
+      }finally{await enableControls();}
+      const lease=await claim();assert.equal(lease.ok,true);
+      assert.equal((await resolve(lease,"qualify")).ok,true);
+    });
+
+    await t.test("committed stop blocks another instance from qualifying or retrying",async()=>{
+      const key="shared-stop-"+randomUUID();await insertIntent(key);
+      const lease=await claim();assert.equal(lease.ok,true);
+      const other=createEmployeeDispatchWorkerRecoveryDraft(pool);
+      try{
+        await pool.query("update employee_dispatch_worker_controls set operator_stop=true where tenant_id=$1",[tenant]);
+        for(const transition of ['qualify','retry']){
+          assert.deepEqual(await other.resolveLease({tenantId:tenant,intentId:lease.intentId,
+            leaseToken:lease.leaseToken,transition,...allow}),
+            {ok:false,reason:"durable_controls_stopped"});
+        }
+        assert.equal((await byKey(key)).state,"leased");
+        assert.equal((await byKey(key)).attempts,1);
+      }finally{await enableControls();}
+      assert.equal((await resolve(lease,"qualify")).ok,true);
+    });
+
+    await t.test("a stop waits for an in-flight transaction then fences later work",async()=>{
+      const key="stop-order-"+randomUUID();await insertIntent(key);
+      const blocker=await pool.connect();
+      let pendingClaim,pendingStop,lease;
+      const waitForLock=async pattern=>{
+        const deadline=Date.now()+2000;
+        while(Date.now()<deadline){
+          const result=await pool.query(
+            `select 1 from pg_stat_activity where datname=current_database()
+             and pid<>pg_backend_pid() and wait_event_type='Lock' and query like $1`,[pattern]);
+          if(result.rowCount)return;
+          await sleep(10);
+        }
+        assert.fail("expected transaction lock wait: "+pattern);
+      };
+      try{
+        await blocker.query("BEGIN");
+        await blocker.query("select 1 from employee_dispatch_proposal_heads where tenant_id=$1 and proposal_id=$2 for update",[tenant,proposal]);
+        pendingClaim=claim();
+        await waitForLock('%join employee_dispatch_proposal_heads h%');
+        pendingStop=pool.query("update employee_dispatch_worker_controls set operator_stop=true where tenant_id=$1",[tenant]);
+        await waitForLock('%update employee_dispatch_worker_controls set operator_stop=true%');
+        await blocker.query("COMMIT");
+        lease=await pendingClaim;assert.equal(lease.ok,true);
+        await pendingStop;
+        assert.deepEqual(await resolve(lease,"qualify"),{ok:false,reason:"durable_controls_stopped"});
+      }finally{
+        await blocker.query("ROLLBACK").catch(()=>{});blocker.release();
+        if(pendingClaim)await pendingClaim;
+        if(pendingStop)await pendingStop;
+        await enableControls();
+      }
+      assert.equal((await resolve(lease,"qualify")).ok,true);
+    });
+
+    await t.test("control state and its immutable audit commit atomically",async()=>{
+      const before=await pool.query("select revision,operator_stop from employee_dispatch_worker_controls where tenant_id=$1",[tenant]);
+      const client=await pool.connect();
+      try{
+        await client.query("BEGIN");
+        await client.query("update employee_dispatch_worker_controls set operator_stop=true where tenant_id=$1",[tenant]);
+        await client.query("ROLLBACK");
+      }finally{client.release();}
+      const after=await pool.query("select revision,operator_stop from employee_dispatch_worker_controls where tenant_id=$1",[tenant]);
+      assert.deepEqual(after.rows,before.rows);
+      assert.equal((await pool.query("select 1 from employee_dispatch_worker_control_events where tenant_id=$1 and revision>$2",[tenant,before.rows[0].revision])).rowCount,0);
+      await pool.query(`create function employee_dispatch_test_control_audit_error()
+        returns trigger language plpgsql as $failure$
+        begin raise exception 'control_audit_unavailable' using errcode='23514';end;
+        $failure$`);
+      await pool.query(`create trigger employee_dispatch_test_control_audit_failure
+        before insert on employee_dispatch_worker_control_events
+        for each row execute function employee_dispatch_test_control_audit_error()`);
+      try{
+        await assert.rejects(pool.query("update employee_dispatch_worker_controls set operator_stop=true where tenant_id=$1",[tenant]),e=>e.code==='23514');
+        const unchanged=await pool.query("select revision,operator_stop from employee_dispatch_worker_controls where tenant_id=$1",[tenant]);
+        assert.deepEqual(unchanged.rows,before.rows,"failed audit rolls back stop state and revision");
+      }finally{
+        await pool.query("drop trigger employee_dispatch_test_control_audit_failure on employee_dispatch_worker_control_events");
+        await pool.query("drop function employee_dispatch_test_control_audit_error()");
+      }
+      await assert.rejects(pool.query("delete from employee_dispatch_worker_control_events where tenant_id=$1",[tenant]),e=>e.code==='23514');
+      await assert.rejects(pool.query("delete from employee_dispatch_worker_controls where tenant_id=$1",[tenant]),e=>e.code==='23514');
+      await assert.rejects(pool.query("update employee_dispatch_worker_controls set revision=0 where tenant_id=$1",[tenant]),e=>e.code==='23514');
+    });
+
     await t.test("revoked reviewer permission blocks revalidation, no side effects",async()=>{
       const key="revoke-"+randomUUID();
       await insertIntent(key);
@@ -355,7 +477,8 @@ test("PostgreSQL worker recovery is lease-fenced, audited, bounded and simulatio
       try{
         await client.query("BEGIN");
         await client.query("SET LOCAL ROLE employee_dispatch_preview_reader");
-        for(const table of ["employee_dispatch_worker_claims","employee_dispatch_worker_events"]){
+        for(const table of ["employee_dispatch_worker_claims","employee_dispatch_worker_events",
+          "employee_dispatch_worker_controls","employee_dispatch_worker_control_events"]){
           await client.query("SAVEPOINT denied");
           await assert.rejects(client.query("select * from "+table),
             e=>e.code==="42501");

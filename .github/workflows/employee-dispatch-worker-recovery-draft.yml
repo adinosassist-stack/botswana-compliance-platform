@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'db/drafts/employee-dispatch-worker-recovery-postgres.sql'
+      - 'db/drafts/employee-dispatch-worker-controls-postgres.sql'
       - 'server/employee-dispatch-worker-recovery-draft.js'
       - 'tests/employee-dispatch-worker-recovery-postgres.test.mjs'
       - '.github/workflows/employee-dispatch-worker-recovery-draft.yml'
@@ -48,7 +49,8 @@ jobs:
             db/drafts/employee-dispatch-outbox-postgres.sql \
             db/drafts/employee-dispatch-grant-activation-postgres.sql \
             db/drafts/employee-dispatch-deny-default-access-postgres.sql \
-            db/drafts/employee-dispatch-worker-recovery-postgres.sql
+            db/drafts/employee-dispatch-worker-recovery-postgres.sql \
+            db/drafts/employee-dispatch-worker-controls-postgres.sql
           do
             psql -h 127.0.0.1 -U dispatch -d employee_dispatch_ci -v ON_ERROR_STOP=1 -f "$sql"
           done
