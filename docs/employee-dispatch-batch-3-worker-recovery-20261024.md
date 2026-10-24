@@ -6,6 +6,7 @@
 - Create a separate PostgreSQL worker-claim state table for existing audited dispatch intents; do **not** rewrite immutable employee_dispatch_intents.
 - Bound every claim to at most three attempts; lease UUIDs are randomly rotated and tied to the exact tenant and intent. Claim transactions use PostgreSQL `FOR UPDATE SKIP LOCKED` to prevent two workers acquiring the same state.
 - An expired lease can be reclaimed, but its previous token cannot retry or qualify the new holder. Failure on the third attempt moves the row to an irreversible dead-letter state.
+- Lease checks use PostgreSQL's live `clock_timestamp()`, including the final fenced UPDATE and database transition trigger. A completion waiting behind another transaction must fail if the lease expires during that wait; transaction-start `now()` is not a lease clock.
 - Every transition requires its corresponding append-only audit event before COMMIT; injected audit failure rolls back the attempt, lease and state change.
 - Require strict booleans before entering even this simulation: `featureEnabled === true`, `killSwitch === false`, `auditAvailable === true`, `operatorStop === false`, and `simulationOnly === true`. Defaults deny.
 - Check current tenant, latest approved revision, independent reviewer, authenticated-session provenance, valid reviewer permission and issuance owner, and existence of the creation admission audit at claim and resolution time. This is a CI-only current-approval probe, not a complete production dispatch authorization adapter.

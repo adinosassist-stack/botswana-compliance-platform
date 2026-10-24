@@ -49,7 +49,7 @@ export function createEmployeeDispatchWorkerRecoveryDraft(pool) {
            and r.reviewer_id<>v.author_id and i.action=v.action
            and s.tenant_id::text=i.tenant_id
            and s.user_id=p.reviewer_user_id
-           and s.revoked_at is null and s.expires_at>now()
+           and s.revoked_at is null and s.expires_at>clock_timestamp()
            and s.session_generation=u.session_generation
            and m.status='active' and m.role in ('owner','manager','reviewer')
            and g.permission='people.workflow.approve'
@@ -78,7 +78,7 @@ export function createEmployeeDispatchWorkerRecoveryDraft(pool) {
     async function lockLease(tenantId,intentId) {
       const r=await client.query(
         `select state,attempts,max_attempts,lease_token,
-                (lease_expires_at>now()) as lease_live
+                (lease_expires_at>clock_timestamp()) as lease_live
          from employee_dispatch_worker_claims
          where tenant_id=$1 and intent_id=$2::uuid
          for update`,
@@ -94,9 +94,9 @@ export function createEmployeeDispatchWorkerRecoveryDraft(pool) {
            from employee_dispatch_worker_claims w
            join employee_dispatch_intents i
              on i.tenant_id=w.tenant_id and i.id=w.intent_id
-           where w.tenant_id=$1 and w.next_attempt_at<=now()
+           where w.tenant_id=$1 and w.next_attempt_at<=clock_timestamp()
              and (w.state='pending' or
-                  (w.state='leased' and w.lease_expires_at<=now()))
+                  (w.state='leased' and w.lease_expires_at<=clock_timestamp()))
            order by w.next_attempt_at,w.updated_at,w.intent_id
            for update of w skip locked limit 1`,
           [tenantId]
@@ -119,7 +119,7 @@ export function createEmployeeDispatchWorkerRecoveryDraft(pool) {
           const changed=await client.query(
             `update employee_dispatch_worker_claims
              set state='dead_letter',lease_token=null,lease_expires_at=null,
-                 updated_at=now()
+                 updated_at=clock_timestamp()
              where tenant_id=$1 and intent_id=$2::uuid
              returning state`,[tenantId,row.intent_id]
           );
@@ -131,8 +131,8 @@ export function createEmployeeDispatchWorkerRecoveryDraft(pool) {
         const changed=await client.query(
           `update employee_dispatch_worker_claims
            set state='leased',attempts=attempts+1,lease_token=$3::uuid,
-               lease_expires_at=now()+($4::integer*interval '1 second'),
-               updated_at=now()
+               lease_expires_at=clock_timestamp()+($4::integer*interval '1 second'),
+               updated_at=clock_timestamp()
            where tenant_id=$1 and intent_id=$2::uuid
            returning attempts`,
           [tenantId,row.intent_id,token,leaseSeconds]
@@ -159,13 +159,14 @@ export function createEmployeeDispatchWorkerRecoveryDraft(pool) {
         const x=await client.query(
           `update employee_dispatch_worker_claims
            set state=$4,lease_token=null,lease_expires_at=null,
-               next_attempt_at=now()+($5::integer*interval '1 second'),
-               updated_at=now()
+               next_attempt_at=clock_timestamp()+($5::integer*interval '1 second'),
+               updated_at=clock_timestamp()
            where tenant_id=$1 and intent_id=$2::uuid and lease_token=$3::uuid
+             and lease_expires_at>clock_timestamp()
            returning state`,
           [tenantId,intentId,leaseToken,newState,delaySeconds]
         );
-        if(x.rowCount!==1) throw new Error("fenced_transition_failed");
+        if(x.rowCount!==1) return fail("stale_or_expired_lease");
         await event(tenantId,intentId,l.attempts,leaseToken,type);
         return {ok:true,reason:newState==="qualified"?"simulated_preflight_only":newState};
       }

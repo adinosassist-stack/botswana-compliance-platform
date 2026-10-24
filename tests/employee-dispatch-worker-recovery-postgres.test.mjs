@@ -156,6 +156,37 @@ test("PostgreSQL worker recovery is lease-fenced, audited, bounded and simulatio
       assert.equal((await resolve(second,"qualify")).ok,true);
     });
 
+    await t.test("retry delay prevents immediate re-claim without consuming attempts",async()=>{
+      const key="delayed-retry-"+randomUUID();
+      await insertIntent(key);
+      const first=await claim();
+      assert.equal(first.ok,true);
+      assert.equal((await resolve(first,"retry",{retryDelaySeconds:1})).reason,"pending");
+      assert.deepEqual(await claim(),{ok:false,reason:"no_claim_ready"});
+      assert.equal((await byKey(key)).attempts,1);
+      await sleep(1250);
+      const second=await claim();
+      assert.equal(second.ok,true);
+      assert.equal(second.attempt,2);
+      assert.equal((await resolve(second,"qualify")).ok,true);
+    });
+
+    await t.test("stop controls fence resolution as well as admission",async()=>{
+      const key="stop-resolve-"+randomUUID();
+      await insertIntent(key);
+      const lease=await claim();
+      assert.equal(lease.ok,true);
+      for(const config of [{featureEnabled:false},{killSwitch:true},
+        {auditAvailable:false},{operatorStop:true},{simulationOnly:false}]){
+        assert.deepEqual(await resolve(lease,"qualify",config),
+          {ok:false,reason:"governance_unavailable"});
+        assert.equal((await byKey(key)).state,"leased");
+      }
+      assert.equal((await resolve(lease,"qualify",{tenantId:otherTenant})).ok,false);
+      assert.equal((await byKey(key)).state,"leased");
+      assert.equal((await resolve(lease,"qualify")).ok,true);
+    });
+
     await t.test("bounded attempts dead-letter and cannot be claimed again",async()=>{
       const key="exhaust-"+randomUUID();
       await insertIntent(key);
@@ -192,6 +223,23 @@ test("PostgreSQL worker recovery is lease-fenced, audited, bounded and simulatio
       assert.notEqual(second.leaseToken,first.leaseToken);
       assert.equal((await resolve(first,"qualify")).ok,false);
       assert.equal((await resolve(second,"qualify")).ok,true);
+    });
+
+    await t.test("repeated worker crashes exhaust leases into dead-letter",async()=>{
+      const key="expired-limit-"+randomUUID();
+      await insertIntent(key);
+      let lease;
+      for(let attempt=1;attempt<=3;attempt++){
+        lease=await claim({leaseSeconds:1});
+        assert.equal(lease.ok,true);
+        assert.equal(lease.attempt,attempt);
+        await sleep(1250);
+      }
+      assert.deepEqual(await claim(),{ok:false,reason:"dead_lettered"});
+      assert.equal((await byKey(key)).state,"dead_letter");
+      assert.equal((await byKey(key)).attempts,3);
+      assert.equal((await resolve(lease,"qualify")).ok,false);
+      assert.deepEqual(await claim(),{ok:false,reason:"no_claim_ready"});
     });
 
     await t.test("lease expiring during a row-lock wait cannot qualify",async()=>{

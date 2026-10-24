@@ -83,9 +83,12 @@ begin
     raise exception 'invalid_worker_pending_transition' using errcode='23514';
   end if;
   if old.state='leased' and
-     not ((new.state='leased' and old.lease_expires_at<=now()
+     not ((new.state='leased' and old.lease_expires_at<=clock_timestamp()
            and new.attempts=old.attempts+1 and new.lease_token<>old.lease_token)
-       or (new.state in ('pending','qualified','dead_letter')
+       or (new.state in ('pending','qualified')
+           and old.lease_expires_at>clock_timestamp()
+           and new.attempts=old.attempts)
+       or (new.state='dead_letter' and old.attempts>=old.max_attempts
            and new.attempts=old.attempts)) then
     raise exception 'invalid_worker_leased_transition' using errcode='23514';
   end if;
