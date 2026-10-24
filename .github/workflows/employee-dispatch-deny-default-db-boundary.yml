@@ -9,6 +9,11 @@ on:
       - 'db/drafts/employee-dispatch-authenticated-grant-issuance.sql'
       - 'db/drafts/employee-dispatch-review-session-provenance.sql'
       - 'db/drafts/employee-dispatch-outbox-postgres.sql'
+      - 'db/drafts/employee-dispatch-grant-activation-postgres.sql'
+      - 'server/employee-reviewer-grant-activator-draft.js'
+      - 'server/employee-reviewer-grant-issuer-draft.js'
+      - 'server/employee-review-session-writer-draft.js'
+      - 'tests/employee-dispatch-grant-activation-postgres.test.mjs'
       - 'db/drafts/employee-dispatch-deny-default-access-postgres.sql'
       - 'tests/employee-dispatch-deny-default-access-postgres.test.mjs'
       - '.github/workflows/employee-dispatch-deny-default-db-boundary.yml'
@@ -55,9 +60,12 @@ jobs:
             db/drafts/employee-dispatch-authenticated-grant-issuance.sql \
             db/drafts/employee-dispatch-review-session-provenance.sql \
             db/drafts/employee-dispatch-outbox-postgres.sql \
+            db/drafts/employee-dispatch-grant-activation-postgres.sql \
             db/drafts/employee-dispatch-deny-default-access-postgres.sql
           do
             psql -h 127.0.0.1 -U dispatch -d employee_dispatch_ci -v ON_ERROR_STOP=1 -f "$sql"
           done
+      - name: Test independent-owner activation, session binding and atomic audit
+        run: node --test tests/employee-dispatch-grant-activation-postgres.test.mjs
       - name: Test RLS default deny, no tenant leakage and no write privileges
         run: node --test tests/employee-dispatch-deny-default-access-postgres.test.mjs
