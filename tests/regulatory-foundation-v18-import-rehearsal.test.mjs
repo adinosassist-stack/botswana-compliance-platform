@@ -10,6 +10,7 @@ import {
   updateUnreviewedFoundationSourceMetadata,foundationSourceDesired
 } from "../cloudflare/src/regulatory-foundation-source-reconciliation.js";
 import {normalizeRegulatoryRuleInsertSql} from "../cloudflare/src/regulatory-rule-insert-sql-fix.js";
+import {inspectActiveLegacyVatRules,publicActiveLegacyVatRules} from "../cloudflare/src/regulatory-foundation-legacy-vat.js";
 
 const current=BOTSWANA_FOUNDATION_PACK_V1;
 const stableValue=value=>Array.isArray(value)?value.map(stableValue):value&&typeof value==="object"
@@ -125,6 +126,7 @@ function stage({fullSchema=false}={}){
     BOTSWANA_FOUNDATION_PACK_V1:current,BOTSWANA_FOUNDATION_PACK_V1_HASH,
     inspectFoundationSourceMetadata,publicFoundationSourcePreflight,
     updateUnreviewedFoundationSourceMetadata,
+    inspectActiveLegacyVatRules,publicActiveLegacyVatRules,
     validateApplicabilityDefinition:()=>({ok:true}),
     validateRuleActionDefinition:()=>({ok:true}),
     regulatoryRuleDefinitionHashInput(b){
@@ -273,5 +275,38 @@ test("real checked-in 182-table D1 schema: populated v1.7 import remains draft-o
     assert.equal(repeat.sourcesUpdated,0);
     assert.equal(scalar(f.sql,"SELECT COUNT(*) AS n FROM regulatory_rules"),18);
     assert.equal(f.sql.prepare("PRAGMA foreign_key_check").all().length,0);
+  }finally{f.close()}
+});
+
+test("active legacy VAT approval or publication stops the real importer before every write",async()=>{
+  for(const status of ["approved","published"]){
+    const f=stage({fullSchema:true});
+    try{
+      await primeV17(f);
+      f.sql.prepare("UPDATE regulatory_rules SET status=? WHERE id='v17-rule-vat-return-payment'").run(status);
+      const baseline=f.sql.prepare("SELECT total_changes() n").get().n;
+      const result=await f.importer(f.env,actor);
+      assert.equal(result.ok,false);
+      assert.equal(result.error,"legacy_vat_rule_active_requires_review");
+      assert.equal(result.legacyVat.count,1);
+      assert.equal(result.legacyVat.rules[0].status,status);
+      assert.equal(f.sql.prepare("SELECT total_changes() n").get().n,baseline,"must not touch registry, sources or rules");
+      assert.equal(scalar(f.sql,"SELECT COUNT(*) n FROM regulatory_sources"),23);
+      assert.equal(scalar(f.sql,"SELECT COUNT(*) n FROM regulatory_rules"),16);
+      assert.equal(scalar(f.sql,"SELECT COUNT(*) n FROM compliance_obligations"),1);
+    }finally{f.close()}
+  }
+});
+
+test("historically ended VAT publication does not block after effective end",async()=>{
+  const f=stage({fullSchema:true});
+  try{
+    await primeV17(f);
+    f.sql.prepare("UPDATE regulatory_rules SET status='published',effective_to='2026-06-30' WHERE id='v17-rule-vat-return-payment'").run();
+    const result=await f.importer(f.env,actor);
+    assert.equal(result.ok,true);
+    assert.equal(scalar(f.sql,"SELECT COUNT(*) n FROM regulatory_rules"),18);
+    assert.equal(f.sql.prepare("SELECT status FROM regulatory_rules WHERE id='v17-rule-vat-return-payment'").get().status,"published");
+    assert.equal(f.sql.prepare("SELECT effective_to FROM regulatory_rules WHERE id='v17-rule-vat-return-payment'").get().effective_to,"2026-06-30");
   }finally{f.close()}
 });
