@@ -1,0 +1,56 @@
+name: Employee Dispatch Worker Recovery Draft
+on:
+  pull_request:
+    paths:
+      - 'db/drafts/employee-dispatch-worker-recovery-postgres.sql'
+      - 'server/employee-dispatch-worker-recovery-draft.js'
+      - 'tests/employee-dispatch-worker-recovery-postgres.test.mjs'
+      - '.github/workflows/employee-dispatch-worker-recovery-draft.yml'
+permissions:
+  contents: read
+jobs:
+  recovery-simulation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: dispatch
+          POSTGRES_PASSWORD: dispatch_ci_only
+          POSTGRES_DB: employee_dispatch_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dispatch -d employee_dispatch_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://dispatch:dispatch_ci_only@127.0.0.1:5432/employee_dispatch_ci
+      EMPLOYEE_DISPATCH_PG_TEST_ONLY: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - name: Apply drafts to disposable PostgreSQL
+        run: |
+          set -e
+          export PGPASSWORD=dispatch_ci_only
+          for sql in \
+            db/schema.sql \
+            db/drafts/employee-dispatch-proposal-review-postgres.sql \
+            db/drafts/employee-dispatch-reviewer-permission-postgres.sql \
+            db/drafts/employee-dispatch-authenticated-grant-issuance.sql \
+            db/drafts/employee-dispatch-review-session-provenance.sql \
+            db/drafts/employee-dispatch-outbox-postgres.sql \
+            db/drafts/employee-dispatch-grant-activation-postgres.sql \
+            db/drafts/employee-dispatch-deny-default-access-postgres.sql \
+            db/drafts/employee-dispatch-worker-recovery-postgres.sql
+          do
+            psql -h 127.0.0.1 -U dispatch -d employee_dispatch_ci -v ON_ERROR_STOP=1 -f "$sql"
+          done
+      - name: Verify simulation-only recovery lifecycle
+        run: node --test tests/employee-dispatch-worker-recovery-postgres.test.mjs
