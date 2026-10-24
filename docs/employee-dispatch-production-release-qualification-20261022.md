@@ -27,3 +27,10 @@ Status: **NOT RELEASE AUTHORIZED**. Documentation-only checklist. No feature act
 
 ## Release decision
 **HOLD** for autonomous employee execution. A default-off code-only release may be separately qualified, but this checklist does not authorize it. Record the approver, exact commit, CI run URLs, deployment ID, database backup reference, smoke-test results and rollback owner before changing this decision.
+
+## PostgreSQL adapter gap assessment — 24 October 2026
+- `server/employee-workflow-postgres-store.js` persists employee-owned workflow definitions only; it is **not** an employee dispatch admission or outbox adapter. Its `saveOwned` and `listOwned` methods do not implement `transaction`, `lockDispatchKey`, persisted proposal/review freshness, `insertIntentOnce`, or `appendAudit` required by `queueEmployeeDispatch`.
+- `db/drafts/employee-dispatch-outbox.sql` uses SQLite-specific `typeof(...)`, `RAISE(ABORT,...)`, and trigger syntax. It must not be run as a PostgreSQL or production migration.
+- Before implementation, map authoritative proposal/review tables and immutable revision identifiers; define tenant isolation, transaction isolation/locking, compound foreign keys, unique idempotency constraints, append-only audit privileges, and rollback guarantees. Audit acknowledgement must return exactly boolean `true` after successful persistence inside the transaction.
+- Qualification must include PostgreSQL-backed concurrent same-key admission, cross-tenant rejection, stale/revoked approvals, audit-insert rollback, lease fencing, crash/retry, and operator stop. A passing mock or SQLite test is insufficient.
+- No database migration, worker execution, feature enablement, or deployment is authorized by this gap assessment.
