@@ -2,7 +2,7 @@
 // Neither function changes source approval, rule history or customer obligations.
 export const VAT_2026_COMMENCEMENT="2026-07-01";
 export const VAT_LEGACY_25_DAY_KEY="bw.burs.vat.return-payment.25-days";
-const dateIsBefore=(v,cutoff)=>/^\d{4}-\d{2}-\d{2}$/.test(String(v||""))&&String(v)<cutoff;
+const dateIsBefore=(v,cutoff)=>{const value=String(v||"");if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;const d=new Date(`${value}T00:00:00Z`);return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===value&&value<cutoff;};
 export function isLegacyVat25DayDefinition(row){
   if(!row)return false;
   let action={};try{action=JSON.parse(String(row.action_json||"{}"))}catch{}
