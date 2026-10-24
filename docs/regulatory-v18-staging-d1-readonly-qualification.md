@@ -44,3 +44,26 @@ The four query inputs and API paths are pinned in `scripts/regulatory-staging-re
 6. Independently inspect live production preflight if separately authorised, without write permissions. Review the aggregate history under #1793. Human acceptance and distinct explicit production go/no-go are necessary.
 
 **This script does not perform the staging import.** No actual Cloudflare D1 query was made while authoring this code, and a green local CI result is not an operational D1 staging qualification.
+
+## GitHub Actions (operator-approved staging-only dispatch)
+
+After this workflow PR has independently passed CI and merged to `main`, use the GitHub Actions workflow `Regulatory Staging D1 Read-only Attestation`. It **does not run on push, PR or a schedule** and cannot perform a migration.
+
+**One-time GitHub setup** (by a repository administrator): create the `regulatory-staging` environment with required reviewers, restrict it to `main`, and populate this **environment** with the following values. Do not substitute production credentials or expose them in commit history.
+
+| Environment field | Type | Meaning |
+| --- | --- | --- |
+| `REGULATORY_STAGING_CLOUDFLARE_TOKEN` | Secret | Dedicated least-privileged staging account token |
+| `REGULATORY_STAGING_CLOUDFLARE_ACCOUNT_ID` | Secret | Cloudflare account holding the segregated staging D1 |
+| `REGULATORY_STAGING_D1_ID` | Variable | Staging D1 UUID |
+| `REGULATORY_STAGING_D1_NAME` | Variable | Exact staging DB name with a staging/evaluation/sandbox/test segment |
+| `PRODUCTION_D1_DATABASE_ID` | Variable | Production UUID **for exclusion only**, never queried |
+| `REGULATORY_STAGING_AUDIT_ENABLED` | Variable | Explicitly set `READ_ONLY_APPROVED` after environment reviewers and target fencing are configured |
+
+Run it from [the repository's Actions page](https://github.com/adinosassist-stack/botswana-compliance-platform/actions) by choosing `Regulatory Staging D1 Read-only Attestation` → `Run workflow`, branch `main`, the **exact current `main` 40-character SHA** in `expected_sha`, and confirmation `READ_ONLY_STAGING_D1`. A missing setting, a stale commit SHA, or an identical production/staging UUID fails before any Cloudflare SQL request. The runtime independently checks Cloudflare's remote database UUID and exact name before making any data queries.
+
+A successful GitHub job reports only aggregate counts in the step summary and uploads a **three-day retention** redacted JSON audit artifact. Protected drift and legacy VAT blockers can make the check exit 2; this is a meaningful *blocked* outcome, not permission to bypass a governance gate. This evidence still needs human review and cannot complete the actual D1 staging import or production regulatory approval.
+
+If the protected `regulatory-staging` environment does not exist or has no required reviewers, **do not dispatch**; configure environment protection before enabling `REGULATORY_STAGING_AUDIT_ENABLED`. The workflow checks the enabling variable but cannot independently prove the GitHub environment's required-reviewer settings.
+
+> Security boundary: Actions upload artifacts are accessible to authorised repository users. Do not use live customer records in staging. Keep the staging token scoped as narrowly as the Cloudflare account setup permits, and review the emitted report before retaining or sharing it.
