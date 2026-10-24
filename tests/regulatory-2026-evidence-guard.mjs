@@ -17,6 +17,13 @@ assert.match(worker,/legacyVatDeadline=String\(row\.rule_key\|\|""\)==="bw\.burs
 assert.match(worker,/coversCurrentVatPeriods=!row\.effective_to\|\|String\(row\.effective_to\)\.slice\(0,10\)>="2026-07-01"/);
 assert.match(worker,/if\(legacyVatDeadline&&coversCurrentVatPeriods\)return json\(\{error:"vat_2026_legacy_deadline_blocked"/);
 assert.ok(worker.includes('if(["approved","published"].includes(next)){'),"legacy VAT guard must be inside governed approval/publication path");
+const consoleJs=fs.readFileSync(new URL("../public/js/regulatory-review-console.js",import.meta.url),"utf8");
+assert.match(consoleJs,/vat_2026_legacy_deadline_blocked:"This legacy 25-day VAT rule cannot be approved or published/);
+const advanceStart=worker.indexOf('if(url.pathname.match(/^\\/api\\/platform\\/regulatory\\/rules\\/[^/]+\\/advance$/)');
+const approvalGuard=worker.indexOf('vat_2026_legacy_deadline_blocked',advanceStart);
+const approvalRouteEnd=worker.indexOf('if(url.pathname==="/api/platform/regulatory/conflicts"',advanceStart);
+assert.ok(advanceStart>0&&approvalGuard>advanceStart&&approvalGuard<approvalRouteEnd,
+  "legacy 25-day rule guard must execute inside server-side review transition route");
 const source=key=>seed.sources.find(item=>item.key===key);
 const rule=key=>seed.rules.find(item=>item.key===key);
 
