@@ -93,3 +93,17 @@ test("reclaimed intent fences the old worker and permits only the new token", ()
   assert.equal(evaluateEmployeeWorker({ ...base, intent: reclaimed }).allowed, false);
   assert.equal(evaluateEmployeeWorker({ ...base, intent: reclaimed, leaseToken: "lease-2" }).allowed, true);
 });
+
+test("worker denies stale or cross-scope persisted records", () => {
+  const variants = [
+    { review: { ...review, proposalId: "different" } },
+    { review: { ...review, tenantId: "different" } },
+    { review: { ...review, status: "revoked" } },
+    { proposal: { ...proposal, tenantId: "different" } },
+    { proposal: { ...proposal, action: "internal.report.draft" } },
+    { intent: { ...intent, proposalId: "different" } }
+  ];
+  for (const variant of variants) {
+    assert.equal(evaluateEmployeeWorker({ ...base, ...variant }).allowed, false);
+  }
+});
