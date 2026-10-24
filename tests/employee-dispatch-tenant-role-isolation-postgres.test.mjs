@@ -188,10 +188,14 @@ test("DB-authenticated roles isolate two tenants without trusting spoofable GUCs
       try {
         await client.query("BEGIN");
         await client.query("SET LOCAL ROLE employee_dispatch_preview_reader");
+        // A SQL permission error aborts its transaction unless isolated
+        // behind a savepoint; re-establish the transaction before SELECT.
+        await client.query("SAVEPOINT expect_denial");
         await assert.rejects(
           client.query("select * from employee_dispatch_ci_role_tenants"),
           e=>e.code==="42501"
         );
+        await client.query("ROLLBACK TO SAVEPOINT expect_denial");
         const rows=await client.query("select * from employee_dispatch_proposal_versions");
         assert.deepEqual(rows.rows,[]);
       } finally {
