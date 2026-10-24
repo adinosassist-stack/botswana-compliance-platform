@@ -17,6 +17,7 @@ const draftTables = [
   "employee_dispatch_proposal_reviews",
   "employee_dispatch_reviewer_permission_grants",
   "employee_dispatch_grant_issuance_audit",
+  "employee_dispatch_grant_activation_audit",
   "employee_dispatch_review_session_provenance",
   "employee_dispatch_intents",
   "employee_dispatch_admission_audit"
@@ -40,7 +41,9 @@ test("PostgreSQL design-only dispatch reader is default-deny even with SELECT ri
        values ($1,$3,1),($2,$3,1)`, [tenant1, tenant2, proposal]
     );
     const owner = await pool.query(
-      "select count(*)::int as n from employee_dispatch_proposal_versions"
+      `select count(*)::int as n from employee_dispatch_proposal_versions
+       where proposal_id=$1 and tenant_id in ($2,$3)`,
+      [proposal, tenant1, tenant2]
     );
     assert.equal(owner.rows[0].n, 2, "fixture contains data before testing RLS");
 
@@ -101,6 +104,7 @@ test("PostgreSQL design-only dispatch reader is default-deny even with SELECT ri
         "insert into employee_dispatch_intents (id,tenant_id,proposal_id,review_id,action,intent_type,idempotency_key) values ('00000000-0000-0000-0000-000000000001','x','x','x','internal.task.create','task','x')",
         "delete from employee_dispatch_admission_audit",
         "delete from employee_dispatch_grant_issuance_audit",
+        "delete from employee_dispatch_grant_activation_audit",
         "update employee_dispatch_review_session_provenance set recorded_at=now()"
       ];
       for (const statement of checks) {

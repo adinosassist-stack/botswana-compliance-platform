@@ -1,5 +1,5 @@
 -- DESIGN/CI SECURITY BOUNDARY ONLY. NOT A MIGRATION. NEVER RUN IN PRODUCTION.
--- Apply only after db/schema.sql and ALL five employee-dispatch PostgreSQL
+-- Apply only after db/schema.sql and ALL employee-dispatch PostgreSQL
 -- draft scripts in the disposable GitHub Actions database.
 --
 -- SECURITY MODEL: The preview role deliberately has NO tenant-scoped access.
@@ -20,6 +20,7 @@ revoke all on table
   employee_dispatch_proposal_reviews,
   employee_dispatch_reviewer_permission_grants,
   employee_dispatch_grant_issuance_audit,
+  employee_dispatch_grant_activation_audit,
   employee_dispatch_review_session_provenance,
   employee_dispatch_intents,
   employee_dispatch_admission_audit
@@ -32,6 +33,7 @@ grant select on table
   employee_dispatch_proposal_reviews,
   employee_dispatch_reviewer_permission_grants,
   employee_dispatch_grant_issuance_audit,
+  employee_dispatch_grant_activation_audit,
   employee_dispatch_review_session_provenance,
   employee_dispatch_intents,
   employee_dispatch_admission_audit
@@ -45,6 +47,7 @@ alter table employee_dispatch_proposal_heads enable row level security;
 alter table employee_dispatch_proposal_reviews enable row level security;
 alter table employee_dispatch_reviewer_permission_grants enable row level security;
 alter table employee_dispatch_grant_issuance_audit enable row level security;
+alter table employee_dispatch_grant_activation_audit enable row level security;
 alter table employee_dispatch_review_session_provenance enable row level security;
 alter table employee_dispatch_intents enable row level security;
 alter table employee_dispatch_admission_audit enable row level security;
@@ -65,6 +68,10 @@ revoke all on function
   employee_dispatch_guard_intent_insert(),
   employee_dispatch_reject_intent_mutation(),
   employee_dispatch_reject_admission_audit_mutation(),
+  employee_dispatch_verify_activation_audit(),
+  employee_dispatch_require_grant_activation_audit(),
+  employee_dispatch_no_silent_grant_downgrade(),
+  employee_dispatch_activation_audit_immutable(),
   employee_dispatch_require_creation_audit()
 from public;
 
