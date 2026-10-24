@@ -41,7 +41,9 @@ test("PostgreSQL design-only dispatch reader is default-deny even with SELECT ri
        values ($1,$3,1),($2,$3,1)`, [tenant1, tenant2, proposal]
     );
     const owner = await pool.query(
-      "select count(*)::int as n from employee_dispatch_proposal_versions"
+      `select count(*)::int as n from employee_dispatch_proposal_versions
+       where proposal_id=$1 and tenant_id in ($2,$3)`,
+      [proposal, tenant1, tenant2]
     );
     assert.equal(owner.rows[0].n, 2, "fixture contains data before testing RLS");
 
