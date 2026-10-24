@@ -93,6 +93,33 @@ create trigger employee_dispatch_admission_audit_immutable
   before update or delete on employee_dispatch_admission_audit
   for each row execute function employee_dispatch_reject_admission_audit_mutation();
 
+-- Database-enforced admission/audit atomicity: an inserted intent cannot
+-- commit without exactly one tenant-matching *creation* audit. Deferring this
+-- check until COMMIT lets the application insert intent then audit in the same
+-- transaction; a bare SQL INSERT fails, even outside the application adapter.
+create unique index employee_dispatch_single_creation_audit
+  on employee_dispatch_admission_audit (tenant_id, intent_id)
+  where created = true;
+
+create function employee_dispatch_require_creation_audit()
+returns trigger language plpgsql as $employee_dispatch$
+begin
+  if not exists (
+    select 1 from employee_dispatch_admission_audit a
+     where a.tenant_id=new.tenant_id and a.intent_id=new.id
+       and a.event_type='employee.dispatch.admitted' and a.created=true
+  ) then
+    raise exception 'employee_dispatch_creation_audit_required'
+      using errcode='23514';
+  end if;
+  return null;
+end;
+$employee_dispatch$;
+create constraint trigger employee_dispatch_creation_audit_required
+  after insert on employee_dispatch_intents
+  deferrable initially deferred
+  for each row execute function employee_dispatch_require_creation_audit();
+
 -- Not release ready: reviewer role binding, canonical identity, write privileges,
 -- RLS/tenant session scoping, migration/rollback, worker lease fencing,
 -- effect idempotency and operator activation must be independently verified.
