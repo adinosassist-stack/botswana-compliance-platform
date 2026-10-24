@@ -97,13 +97,12 @@ function stage({fullSchema=false}={}){
   // D1's SQL guard fixes the historic draft-rule insertion placeholder typo.
   const prepare=text=>{
     const stmt=sql.prepare(normalizeRegulatoryRuleInsertSql(text));
-    return {bind(...params){
-      return {
-        first:async()=>stmt.get(...params)||null,
-        all:async()=>({results:stmt.all(...params)}),
-        run:async()=>({meta:{changes:Number(stmt.run(...params).changes)}})
-      };
-    }};
+    const methods=(...params)=>({
+      first:async()=>stmt.get(...params)||null,
+      all:async()=>({results:stmt.all(...params)}),
+      run:async()=>({meta:{changes:Number(stmt.run(...params).changes)}})
+    });
+    return {...methods(),bind:(...params)=>methods(...params)};
   };
   const DB={prepare,batch:async items=>{const out=[];for(const item of items)out.push(await item.run());return out}};
   sql.prepare("INSERT INTO tenants(id,name) VALUES(?,?)").run("fixture-tenant","No regulatory action allowed");
