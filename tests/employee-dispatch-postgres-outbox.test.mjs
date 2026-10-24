@@ -130,6 +130,48 @@ test("disposable PostgreSQL dispatch: durable idempotency, tenant audit and roll
       assert.equal(result.rowCount, 0);
     });
 
+    await t.test("bare SQL intent without creation audit cannot commit", async () => {
+      const key = "no-audit-" + randomUUID();
+      const intentId = randomUUID();
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query(
+          `insert into employee_dispatch_intents
+           (id,tenant_id,proposal_id,review_id,action,intent_type,idempotency_key)
+           values ($1,$2,$3,$4,$5,'task',$6)`,
+          [intentId, tenantA, proposalA, reviewA, validAction, key]
+        );
+        await assert.rejects(client.query("COMMIT"), error => error.code === "23514");
+      } finally {
+        await client.query("ROLLBACK").catch(() => {});
+        client.release();
+      }
+      const count = await pool.query(
+        "select count(*)::int as n from employee_dispatch_intents where tenant_id=$1 and idempotency_key=$2",
+        [tenantA, key]
+      );
+      assert.equal(count.rows[0].n, 0);
+    });
+
+    await t.test("database permits exactly one creation audit per intent", async () => {
+      const key = "single-created-" + randomUUID();
+      await admit({ tenantId: tenantA, proposalId: proposalA, reviewId: reviewA, key });
+      const intent = await pool.query(
+        "select id from employee_dispatch_intents where tenant_id=$1 and idempotency_key=$2",
+        [tenantA, key]
+      );
+      await assert.rejects(
+        pool.query(
+          `insert into employee_dispatch_admission_audit
+           (id,tenant_id,intent_id,actor_id,event_type,created)
+           values ($1,$2,$3,'dispatcher-1','employee.dispatch.admitted',true)`,
+          [randomUUID(), tenantA, intent.rows[0].id]
+        ),
+        error => error.code === "23505"
+      );
+    });
+
     await t.test("database rejects stale/revoked review and action mismatch", async () => {
       const direct = (key, tenantId, proposalId, reviewId, action = validAction, kind = "task") =>
         pool.query(`insert into employee_dispatch_intents
