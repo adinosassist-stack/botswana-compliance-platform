@@ -1,0 +1,49 @@
+name: Employee Dispatch Reviewer Permission Draft
+
+on:
+  pull_request:
+    paths:
+      - 'db/drafts/employee-dispatch-reviewer-permission-postgres.sql'
+      - 'db/drafts/employee-dispatch-proposal-review-postgres.sql'
+      - 'server/employee-reviewer-permission-evidence.js'
+      - 'tests/employee-reviewer-permission-evidence-postgres.test.mjs'
+      - '.github/workflows/employee-dispatch-reviewer-permission-draft.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reviewer-permission-draft:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: dispatch
+          POSTGRES_PASSWORD: dispatch_ci_only
+          POSTGRES_DB: employee_dispatch_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dispatch -d employee_dispatch_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://dispatch:dispatch_ci_only@127.0.0.1:5432/employee_dispatch_ci
+      EMPLOYEE_DISPATCH_PG_TEST_ONLY: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - name: Bootstrap canonical identity and proposal drafts in disposable PostgreSQL
+        run: |
+          PGPASSWORD=dispatch_ci_only psql -h 127.0.0.1 -U dispatch -d employee_dispatch_ci -v ON_ERROR_STOP=1 -f db/schema.sql
+          PGPASSWORD=dispatch_ci_only psql -h 127.0.0.1 -U dispatch -d employee_dispatch_ci -v ON_ERROR_STOP=1 -f db/drafts/employee-dispatch-proposal-review-postgres.sql
+          PGPASSWORD=dispatch_ci_only psql -h 127.0.0.1 -U dispatch -d employee_dispatch_ci -v ON_ERROR_STOP=1 -f db/drafts/employee-dispatch-reviewer-permission-postgres.sql
+      - name: Test tenant membership and explicit approval permission evidence
+        run: node --test tests/employee-reviewer-permission-evidence-postgres.test.mjs
