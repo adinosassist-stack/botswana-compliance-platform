@@ -19,6 +19,8 @@ on:
       - 'cloudflare/src/agentic-entry.js'
       - 'cloudflare/src/employee-dispatch.js'
       - 'cloudflare/migrations/20261024_employee_dispatch.sql'
+      - 'cloudflare/wrangler.toml'
+      - 'tests/employee-dispatch-scheduler.test.mjs'
       - 'tests/employee-dispatch-d1.test.mjs'
       - 'tests/employee-dispatch-workerd.test.mjs'
       - 'tests/helpers/employee-dispatch-seed.mjs'
@@ -83,4 +85,4 @@ jobs:
       - name: Employee proposal task preparation and actual D1 atomicity
         run: node --test tests/employee-task-preparation.test.mjs tests/employee-task-preparation-workerd.test.mjs
       - name: Default-off D1 dispatcher, recovery and exact owner task execution
-        run: node --test tests/employee-dispatch-d1.test.mjs tests/employee-dispatch-workerd.test.mjs
+        run: node --test tests/employee-dispatch-d1.test.mjs tests/employee-dispatch-workerd.test.mjs tests/employee-dispatch-scheduler.test.mjs

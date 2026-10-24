@@ -269,7 +269,11 @@ const agenticRuntime={
   },
   async scheduled(event,env,ctx){
     env=withRegulatorySqlGuard(env);
-    ctx.waitUntil(runEmployeeDispatchSweep(env).catch(()=>console.error("employee_dispatch_unavailable")));
+    // The minute dispatch schedule must never run the daily platform sweeps.
+    if(event.cron==="* * * * *"){
+      ctx.waitUntil(runEmployeeDispatchSweep(env).catch(()=>console.error("employee_dispatch_unavailable")));
+      return;
+    }
     ctx.waitUntil(runDueInternalAutonomy(env).catch(()=>console.error("internal_autonomy_run_unavailable")));
     return base.scheduled(event,env,ctx);
   }

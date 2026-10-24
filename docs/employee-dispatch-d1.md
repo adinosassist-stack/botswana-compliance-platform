@@ -20,8 +20,11 @@ side effect, or report-draft adapter.
    permit through the existing task API. The dispatcher issues neither.
 4. The authenticated owner can enqueue that specific request, permit and proposal.
    The server binds the live owner session, tenant and prepared provenance audit.
-5. The existing scheduled entry point claims up to ten due jobs per sweep and
-   calls the existing bounded executor. A tenant-scoped owner tick is also wired.
+5. An isolated minute schedule claims up to ten due jobs per sweep and calls
+   the existing bounded executor. It returns before the daily platform/autonomy
+   sweeps; those retain their original schedules. With the feature flag absent,
+   this schedule performs no database operations. A tenant-scoped owner tick is
+   also wired.
 
 `/api/agentic/employee-dispatch` accepts owner-only GET status and CSRF/origin-
 checked POST bodies:
