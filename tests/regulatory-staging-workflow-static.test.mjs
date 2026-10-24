@@ -30,6 +30,11 @@ test("no production credentials or environment may be used by staging-only workf
   assert.match(workflow,/STAGING_AUDIT_ENABLED.*READ_ONLY_APPROVED/);
   assert.match(workflow,/REGULATORY_STAGING_CLOUDFLARE_TOKEN/);
   assert.match(workflow,/REGULATORY_STAGING_CLOUDFLARE_ACCOUNT_ID/);
+  const [setup,boundedAudit]=workflow.split("      - name: Inspect staging database using pinned SELECT-only statements");
+  assert.ok(boundedAudit,"Dedicated audit step must exist");
+  assert.doesNotMatch(setup,/CLOUDFLARE_API_TOKEN:/,"tests and authority check must never see staging bearer token");
+  assert.match(boundedAudit,/CLOUDFLARE_API_TOKEN:/,"token must be scoped to audit step");
+
   assert.match(workflow,/PRODUCTION_D1_DATABASE_ID.*vars.PRODUCTION_D1_DATABASE_ID/);
   assert.match(workflow,/REGULATORY_STAGING_D1_ID.*vars.REGULATORY_STAGING_D1_ID/);
   assert.match(workflow,/REGULATORY_STAGING_D1_NAME.*vars.REGULATORY_STAGING_D1_NAME/);
