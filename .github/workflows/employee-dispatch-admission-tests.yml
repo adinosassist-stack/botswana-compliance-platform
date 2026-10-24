@@ -4,9 +4,14 @@ on:
   pull_request:
     paths:
       - 'server/employee-dispatch-admission.js'
+      - 'cloudflare/src/employee-dispatch-d1-preflight.js'
+      - 'cloudflare/src/employee-proposal-review-d1-store.js'
+      - 'tests/employee-dispatch-d1-preflight.test.mjs'
+      - 'tests/employee-dispatch-d1-workerd.test.mjs'
       - 'server/employee-dispatch-queue.js'
       - 'server/employee-dispatch-worker-policy.js'
       - 'tests/employee-dispatch-admission.test.mjs'
+      - 'tests/employee-dispatch-qualification.test.mjs'
       - 'tests/employee-dispatch-queue.test.mjs'
       - 'tests/employee-dispatch-worker-policy.test.mjs'
       - 'tests/employee_dispatch_schema_test.py'
@@ -15,6 +20,8 @@ on:
       - 'tests/employee_dispatch_leases_test.py'
       - 'db/drafts/employee_dispatch_sqlite_reference.py'
       - 'db/drafts/employee-dispatch-outbox.sql'
+      - 'db/drafts/employee-dispatch-d1-intent.sql'
+      - 'tests/employee_dispatch_d1_draft_schema_test.py'
       - '.github/workflows/employee-dispatch-admission-tests.yml'
   workflow_dispatch:
 
@@ -31,9 +38,15 @@ jobs:
         with:
           node-version: '22'
       - name: Employee dispatcher admission tests
-        run: node --test tests/employee-dispatch-admission.test.mjs tests/employee-dispatch-queue.test.mjs tests/employee-dispatch-worker-policy.test.mjs
+        run: node --test tests/employee-dispatch-admission.test.mjs tests/employee-dispatch-qualification.test.mjs tests/employee-dispatch-d1-preflight.test.mjs tests/employee-dispatch-queue.test.mjs tests/employee-dispatch-worker-policy.test.mjs
+      - name: Install Cloudflare test dependencies
+        run: npm ci
+      - name: Actual workerd D1 dispatch preflight
+        run: node --test tests/employee-dispatch-d1-workerd.test.mjs
       - name: SQLite employee dispatch schema tests
         run: python3 tests/employee_dispatch_schema_test.py
+      - name: D1 draft intent and audit schema tests
+        run: python3 tests/employee_dispatch_d1_draft_schema_test.py
       - name: Concurrent SQLite dispatch test
         run: python3 tests/employee_dispatch_concurrency_test.py
       - name: SQLite reference adapter integration tests
