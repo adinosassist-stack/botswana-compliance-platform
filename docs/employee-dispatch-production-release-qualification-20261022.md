@@ -7,10 +7,12 @@ Status: **NOT RELEASE AUTHORIZED**. Documentation-only checklist. No feature act
 - At preparation time `release/production.json` records sequence **564**, source SHA `1fd70f3bca897ae1e14e721eb4d5a00fc82eb0fe`. This manifest is not evidence of a live deployment.
 - `docs/employee-workflow-dispatcher-contract.md` explicitly says design-only/default-off. The SQLite draft is **not** a production migration or production execution adapter.
 
-## Latest branch qualification — 24 October 2026
-- PR #1744 commit `3f5e1ecdb02ea058e9557588d87c1ec557c83839`: all nine reported GitHub Actions workflows passed, including Recovery CI, Audit remediation CI, and Employee Dispatcher Admission Tests.
-- Patched production dependencies on this branch: Zod 4.6.7 and ip-address 10.7.4. This clears the previously reported dependency-audit failure; it does not establish production database, worker, or release readiness.
-- Outstanding hold points 1–9 below remain applicable. This branch stays draft, default-off, and not authorized for deployment or activation.
+## Latest merged qualification — 24 October 2026
+- PR #1744 merged to main at commit `141eeddcefbabba2b109baeef911517407951cc2` after independent reviewer `thusico` approved commit `5353c8f5cd2d7d628db3b9dd97978832d12dc344`.
+- All eight reported PR workflows passed on `5353c8f5cd2d7d628db3b9dd97978832d12dc344`, including Employee Dispatcher Admission Tests, Audit remediation CI, Recovery CI, and independent review regressions. Main-branch governance and recovery workflows also passed after merge.
+- Production release manifest sequence 576 records source SHA `27136a6325c88cea30224b4515249e7728d9c6be`, not the PR merge SHA. This manifest alone is not evidence of live deployment; live artifact and release provenance remain unverified.
+- Dependencies Zod 4.6.7 and ip-address 10.7.4 were qualified on the PR. Passing unit/CI checks does not establish production transactional adapter, migration, worker, or release readiness.
+- This PR is merged, **not deployed or activated by this qualification**. All nine hold points remain in force; autonomous execution stays default-off with the kill switch on.
 
 ## Non-negotiable hold points
 1. Confirm a production-compatible tenant-scoped storage adapter with transactional approval/proposal freshness, idempotency lock, intent and immutable audit persistence. Prove actual deployed database transaction semantics rather than relying on SQLite reference tests.
