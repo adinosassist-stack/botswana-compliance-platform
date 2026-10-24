@@ -1,4 +1,4 @@
 {
-  "importIdentityHash": "7a2e6025d97393f75297548b58bd7279978ed32a145be479d3c73d00827ccf64",
-  "note": "Content-bound import identity for Botswana foundation pack v1.7. The generator refuses source/meta drift; update deliberately whenever reviewed pack content changes."
+  "importIdentityHash": "9fe91056178d8542780bef2f0186a06007787233baf12dec9c937cb31b827e47",
+  "note": "Content-bound import identity for Botswana foundation pack v1.8 (24 Oct 2026 legal source reconciliation). Generator refuses source/meta drift; new import creates pending sources/draft rules only, subject to independent governed review."
 }
