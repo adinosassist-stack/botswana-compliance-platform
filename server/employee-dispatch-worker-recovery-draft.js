@@ -19,6 +19,19 @@ export function createEmployeeDispatchWorkerRecoveryDraft(pool) {
     throw new TypeError("invalid_employee_worker_pool");
   }
   const store = createEmployeeDispatchPostgresTransactionStore(pool, client => {
+    async function durableControls(tenantId) {
+      // Hold the shared row lock until lease state and audit COMMIT together.
+      // A stop writer waits for in-flight transactions; after it commits,
+      // every instance must observe the stopped state before doing any work.
+      const result=await client.query(
+        `select feature_enabled,kill_switch,operator_stop
+         from employee_dispatch_worker_controls where tenant_id=$1
+         for share`,[tenantId]
+      );
+      const controls=result.rows?.[0];
+      return result.rowCount===1 && controls?.feature_enabled===true &&
+        controls?.kill_switch===false && controls?.operator_stop===false;
+    }
     async function currentApproval(tenantId,intentId) {
       const check = await client.query(
         `select 1 from employee_dispatch_intents i
@@ -88,6 +101,7 @@ export function createEmployeeDispatchWorkerRecoveryDraft(pool) {
     }
     return {
       async claim(tenantId,leaseSeconds) {
+        if(!(await durableControls(tenantId)))return fail("durable_controls_stopped");
         const result=await client.query(
           `select w.tenant_id,w.intent_id,w.state,w.attempts,w.max_attempts,
                   i.action,i.proposal_id
@@ -144,6 +158,7 @@ export function createEmployeeDispatchWorkerRecoveryDraft(pool) {
                 leaseToken:token,attempt,action:row.action};
       },
       async finish(tenantId,intentId,leaseToken,kind,delaySeconds=0) {
+        if(!(await durableControls(tenantId)))return fail("durable_controls_stopped");
         const l=await lockLease(tenantId,intentId);
         if(!l||l.state!=="leased"||l.lease_token!==leaseToken||
            l.lease_live!==true) return fail("stale_or_expired_lease");

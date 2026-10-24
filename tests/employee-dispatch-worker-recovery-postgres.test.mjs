@@ -337,6 +337,17 @@ test("PostgreSQL worker recovery is lease-fenced, audited, bounded and simulatio
       assert.equal((await resolve(lease,"qualify")).ok,true);
     });
 
+    await t.test("new control rows must start disabled and stopped",async()=>{
+      await assert.rejects(pool.query(
+        "insert into employee_dispatch_worker_controls(tenant_id,feature_enabled) values ($1,true)",
+        [otherTenant]),e=>e.code==='23514');
+      await pool.query("insert into employee_dispatch_worker_controls(tenant_id) values ($1)",[otherTenant]);
+      const initial=await pool.query(
+        "select feature_enabled,kill_switch,operator_stop from employee_dispatch_worker_controls where tenant_id=$1",[otherTenant]);
+      assert.deepEqual(initial.rows,[{feature_enabled:false,kill_switch:true,operator_stop:true}]);
+      assert.equal((await pool.query("select 1 from employee_dispatch_worker_control_events where tenant_id=$1 and revision=1",[otherTenant])).rowCount,1);
+    });
+
     await t.test("durable disabled controls cannot be overridden by caller flags",async()=>{
       const key="durable-off-"+randomUUID();await insertIntent(key);
       const secondWorker=createEmployeeDispatchWorkerRecoveryDraft(pool);
@@ -351,7 +362,7 @@ test("PostgreSQL worker recovery is lease-fenced, audited, bounded and simulatio
           }
           assert.equal((await byKey(key)).attempts,0);
         }
-        assert.deepEqual(await secondWorker.claimNext({tenantId:otherTenant,...allow}),
+        assert.deepEqual(await secondWorker.claimNext({tenantId:randomUUID(),...allow}),
           {ok:false,reason:"durable_controls_stopped"},"missing tenant controls deny");
       }finally{await enableControls();}
       const lease=await claim();assert.equal(lease.ok,true);
@@ -438,6 +449,7 @@ test("PostgreSQL worker recovery is lease-fenced, audited, bounded and simulatio
       }
       await assert.rejects(pool.query("delete from employee_dispatch_worker_control_events where tenant_id=$1",[tenant]),e=>e.code==='23514');
       await assert.rejects(pool.query("delete from employee_dispatch_worker_controls where tenant_id=$1",[tenant]),e=>e.code==='23514');
+      await assert.rejects(pool.query("update employee_dispatch_worker_controls set revision=0 where tenant_id=$1",[tenant]),e=>e.code==='23514');
     });
 
     await t.test("revoked reviewer permission blocks revalidation, no side effects",async()=>{
