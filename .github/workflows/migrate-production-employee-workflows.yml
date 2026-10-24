@@ -10,6 +10,7 @@ on:
       - "cloudflare/migrations/20261021_employee_ai_workflows.sql"
       - "cloudflare/migrations/20261021_employee_ai_proposal_reviews.sql"
       - "cloudflare/migrations/20261022_employee_ai_proposal_provenance.sql"
+      - "cloudflare/migrations/20261024_employee_dispatch.sql"
   push:
     branches: [main]
 

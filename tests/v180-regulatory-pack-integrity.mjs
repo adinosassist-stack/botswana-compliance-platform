@@ -66,6 +66,6 @@ assert.match(agenticEntry,/\.\/regulatory-rule-insert-sql-fix\.js/);
 assert.match(agenticEntry,/withRegulatoryRuleInsertFix/);
 assert.match(agenticEntry,/env=withRegulatorySqlGuard\(env\);/);
 assert.match(agenticEntry,/base\.fetch\(request,env,ctx\)/);
-assert.match(agenticEntry,/async scheduled\(event,env,ctx\)\{\s*env=withRegulatorySqlGuard\(env\);\s*ctx\.waitUntil\(runDueInternalAutonomy\(env\)\.catch\(\(\)=>console\.error\("internal_autonomy_run_unavailable"\)\)\);\s*return base\.scheduled\(event,env,ctx\);\s*\}/);
+assert.match(agenticEntry,/async scheduled\(event,env,ctx\)\{\s*env=withRegulatorySqlGuard\(env\);\s*\/\/[^\n]*\s*if\(event\.cron==="\* \* \* \* \*"\)\{\s*ctx\.waitUntil\(runEmployeeDispatchSweep\(env\)\.catch\(\(\)=>console\.error\("employee_dispatch_unavailable"\)\)\);\s*return;\s*\}\s*ctx\.waitUntil\(runDueInternalAutonomy\(env\)\.catch\(\(\)=>console\.error\("internal_autonomy_run_unavailable"\)\)\);\s*return base\.scheduled\(event,env,ctx\);\s*\}/);
 
 console.log("V180_REGULATORY_PACK_INTEGRITY_PASS");

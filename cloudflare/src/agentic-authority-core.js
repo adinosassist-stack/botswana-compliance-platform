@@ -33,7 +33,7 @@ async function authenticate(request,env){
   const secret=String(env?.SESSION_SECRET||"");
   if(!raw||!secret||!env?.DB)return null;
   const tokenHash=await hmacHex(secret,raw);
-  return await env.DB.prepare(`SELECT s.user_id,s.tenant_id,s.csrf_token,m.role,u.email
+  return await env.DB.prepare(`SELECT s.user_id,s.tenant_id,s.csrf_token,s.token_hash,m.role,u.email
     FROM sessions s
     JOIN users u ON u.id=s.user_id
     JOIN memberships m ON m.user_id=s.user_id AND m.tenant_id=s.tenant_id AND m.status='active'

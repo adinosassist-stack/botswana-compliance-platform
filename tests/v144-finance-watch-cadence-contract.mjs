@@ -5,6 +5,10 @@ assert.match(loop,/const ms=\{daily:86400000,weekly:604800000\}\[cadence\]/);
 assert.match(loop,/code:"invalid_observation_cadence"/,"unsupported legacy cadence must fail closed");
 const scheduled=worker.slice(worker.indexOf("async scheduled(event,env,ctx)"));
 assert.match(scheduled,/summary\.financeWatch=await runDueFinanceWatchTasks\(env,\{limit:25\}\)/);
-assert.match(wrangler,/crons = \["15 6 \* \* \*", "15 16 \* \* \*"\]/);
-assert.doesNotMatch(wrangler,/\* \* \* \* \*/,"no hidden hourly cron should exist");
+assert.match(wrangler,/crons = \["15 6 \* \* \*", "15 16 \* \* \*", "\* \* \* \* \*"\]/);
+// Minute dispatch recovery is isolated before base.scheduled; it must never
+// promote Finance Watch beyond its supported daily/weekly cadence.
+const entry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
+assert.match(entry,/if\(event\.cron==="\* \* \* \* \*"\)\{\s*ctx\.waitUntil\(runEmployeeDispatchSweep[\s\S]*?return;\s*\}\s*ctx\.waitUntil\(runDueInternalAutonomy/);
+assert.doesNotMatch(entry,/runDueFinanceWatchTasks\(/);
 console.log("v144 Finance Watch cadence contract passed");
