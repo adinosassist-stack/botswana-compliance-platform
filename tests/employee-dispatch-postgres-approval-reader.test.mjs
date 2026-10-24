@@ -10,7 +10,8 @@ const proposalRow = {
 };
 const reviewRow = {
   tenant_id: "tenant-a", proposal_id: "proposal-1",
-  review_id: "review-1", reviewer_id: "reviewer-1", decision: "approved", timestamp_peers: "1"
+  review_id: "review-1", reviewer_id: "reviewer-1", decision: "approved",
+  review_sequence: "1", last_review_sequence: "1"
 };
 
 test("reader locks the tenant-scoped current head before returning a proposal", async () => {
@@ -60,27 +61,29 @@ test("latest review is version-bound, tenant-bound and must be approved", async 
   decision = "revoked";
   assert.equal(await reader.isCurrentApprovedReview("tenant-a", "proposal-1", "review-1"), false);
   assert.match(calls[1].sql, /h.current_revision=r.proposal_revision/);
-  assert.match(calls[1].sql, /count\(\*\) over \(partition by r.reviewed_at\) as timestamp_peers/);
-  assert.match(calls[1].sql, /order by r.reviewed_at desc, r.review_id desc limit 1/);
+  assert.match(calls[1].sql, /r.review_sequence, h.last_review_sequence/);
+  assert.match(calls[1].sql, /order by r.review_sequence desc limit 1/);
   assert.deepEqual(calls[1].params, ["tenant-a", "proposal-1"]);
 });
 
-test("latest approval fails closed when timestamp ties with another decision", async () => {
-  let tied = true;
+test("review reader refuses missing, superseded and malformed DB review sequences", async () => {
+  let ordinal = "1";
   const calls = [];
   const reader = createEmployeeDispatchPostgresApprovalReader({
     async query(sql, params) {
       calls.push({ sql, params });
       if (/for update of h/i.test(sql)) return { rows: [proposalRow] };
-      return { rows: [{ ...reviewRow, timestamp_peers: tied ? "2" : "1" }] };
+      return { rows: [{ ...reviewRow, review_sequence: ordinal, last_review_sequence: "2" }] };
     }
   });
   await reader.getProposal("tenant-a", "proposal-1");
   assert.equal(await reader.getLatestReview("tenant-a", "proposal-1"), null);
   assert.equal(await reader.isCurrentApprovedReview("tenant-a", "proposal-1", "review-1"), false);
-  tied = false;
+  ordinal = "nonsense";
+  assert.equal(await reader.isCurrentApprovedReview("tenant-a", "proposal-1", "review-1"), false);
+  ordinal = "2";
   assert.equal(await reader.isCurrentApprovedReview("tenant-a", "proposal-1", "review-1"), true);
-  assert.equal(calls.length, 4);
+  assert.equal(calls.length, 5);
 });
 
 test("current revision check scopes the review to the locked proposal head", async () => {

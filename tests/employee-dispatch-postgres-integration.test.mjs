@@ -63,11 +63,11 @@ test("draft employee proposal schema: real PostgreSQL isolation, revision and ro
       assert.equal(absent, null);
     });
 
-    await t.test("database rejects cross-tenant proposal foreign keys", async () => {
+    await t.test("database rejects tenant-scoped head foreign keys", async () => {
       await assert.rejects(
         pool.query(
-          "insert into employee_dispatch_proposal_reviews (tenant_id,review_id,proposal_id,proposal_revision,reviewer_id,decision) values ($1,$2,$3,2,'reviewer-other','approved')",
-          [otherTenant, "forged-" + randomUUID(), proposalId]
+          "insert into employee_dispatch_proposal_heads (tenant_id,proposal_id,current_revision) values ($1,$2,2)",
+          ["foreign-" + randomUUID(), proposalId]
         ),
         error => error.code === "23503"
       );
@@ -97,34 +97,103 @@ test("draft employee proposal schema: real PostgreSQL isolation, revision and ro
       }
     });
 
-    await t.test("equal-timestamp revocation cannot be displaced by approval ID sorting", async () => {
+    await t.test("database sequence makes equal-timestamp revocation latest", async () => {
       const tiedRevocationId = "a-revoked-" + randomUUID();
-      await pool.query(
-        `insert into employee_dispatch_proposal_reviews
-          (tenant_id,review_id,proposal_id,proposal_revision,reviewer_id,decision,reviewed_at)
-         select tenant_id,$2,proposal_id,proposal_revision,'reviewer-2','revoked',reviewed_at
-         from employee_dispatch_proposal_reviews
-         where tenant_id=$1 and review_id=$3`,
-        [tenant, tiedRevocationId, reviewId]
-      );
+      const client = await pool.connect();
       try {
-        await store.transaction(async reader => {
-          assert.ok(await reader.getProposal(tenant, proposalId));
-          assert.equal(await reader.getLatestReview(tenant, proposalId), null);
-          assert.equal(await reader.isCurrentApprovedReview(tenant, proposalId, reviewId), false);
-          assert.equal(await reader.isCurrentProposalRevision(tenant, proposalId, reviewId), true);
-        });
-      } finally {
-        await pool.query(
-          "delete from employee_dispatch_proposal_reviews where tenant_id=$1 and review_id=$2",
-          [tenant, tiedRevocationId]
+        await client.query("BEGIN");
+        await client.query(
+          `insert into employee_dispatch_proposal_reviews
+            (tenant_id,review_id,proposal_id,proposal_revision,reviewer_id,decision,reviewed_at)
+           select tenant_id,$2,proposal_id,proposal_revision,'reviewer-2','revoked',reviewed_at
+           from employee_dispatch_proposal_reviews
+           where tenant_id=$1 and review_id=$3`,
+          [tenant, tiedRevocationId, reviewId]
         );
+        const reader = createEmployeeDispatchPostgresApprovalReader(client);
+        assert.ok(await reader.getProposal(tenant, proposalId));
+        const review = await reader.getLatestReview(tenant, proposalId);
+        assert.equal(review?.id, tiedRevocationId);
+        assert.equal(review?.status, "revoked");
+        assert.equal(await reader.isCurrentApprovedReview(tenant, proposalId, reviewId), false);
+        assert.equal(await reader.isCurrentProposalRevision(tenant, proposalId, reviewId), true);
+      } finally {
+        await client.query("ROLLBACK");
+        client.release();
       }
       await store.transaction(async reader => {
         assert.ok(await reader.getProposal(tenant, proposalId));
         assert.equal((await reader.getLatestReview(tenant, proposalId))?.id, reviewId);
         assert.equal(await reader.isCurrentApprovedReview(tenant, proposalId, reviewId), true);
       });
+    });
+
+    await t.test("review writes are append-only and cannot supply their own sequence", async () => {
+      await assert.rejects(
+        pool.query("update employee_dispatch_proposal_reviews set decision='rejected' where tenant_id=$1 and review_id=$2", [tenant, reviewId]),
+        e => e.code === "23514"
+      );
+      await assert.rejects(
+        pool.query("delete from employee_dispatch_proposal_reviews where tenant_id=$1 and review_id=$2", [tenant, reviewId]),
+        e => e.code === "23514"
+      );
+      await assert.rejects(
+        pool.query(`insert into employee_dispatch_proposal_reviews
+          (tenant_id,review_id,proposal_id,proposal_revision,reviewer_id,decision,review_sequence)
+          values ($1,$2,$3,1,'reviewer-2','approved',999)`,
+          [tenant, "manual-" + randomUUID(), proposalId]),
+        e => e.code === "23514"
+      );
+      await assert.rejects(
+        pool.query(`insert into employee_dispatch_proposal_reviews
+          (tenant_id,review_id,proposal_id,proposal_revision,reviewer_id,decision)
+          values ($1,$2,$3,1,'author-1','approved')`,
+          [tenant, "self-" + randomUUID(), proposalId]),
+        e => e.code === "23514"
+      );
+      const head = await pool.query(
+        "select last_review_sequence from employee_dispatch_proposal_heads where tenant_id=$1 and proposal_id=$2",
+        [tenant, proposalId]
+      );
+      assert.equal(head.rows[0].last_review_sequence, "1");
+    });
+
+    await t.test("concurrent review writers serialize on the proposal head", async () => {
+      const holder = await pool.connect();
+      const challenger = await pool.connect();
+      try {
+        await holder.query("BEGIN");
+        await holder.query(
+          `insert into employee_dispatch_proposal_reviews
+           (tenant_id,review_id,proposal_id,proposal_revision,reviewer_id,decision)
+           values ($1,$2,$3,1,'reviewer-2','rejected')`,
+          [tenant, "held-" + randomUUID(), proposalId]
+        );
+        await challenger.query("BEGIN");
+        try {
+          await challenger.query("SET LOCAL lock_timeout = '300ms'");
+          await assert.rejects(
+            challenger.query(
+              `insert into employee_dispatch_proposal_reviews
+               (tenant_id,review_id,proposal_id,proposal_revision,reviewer_id,decision)
+               values ($1,$2,$3,1,'reviewer-3','approved')`,
+              [tenant, "blocked-" + randomUUID(), proposalId]
+            ),
+            e => e.code === "55P03"
+          );
+        } finally {
+          await challenger.query("ROLLBACK");
+        }
+      } finally {
+        await holder.query("ROLLBACK");
+        holder.release();
+        challenger.release();
+      }
+      const head = await pool.query(
+        "select last_review_sequence from employee_dispatch_proposal_heads where tenant_id=$1 and proposal_id=$2",
+        [tenant, proposalId]
+      );
+      assert.equal(head.rows[0].last_review_sequence, "1");
     });
 
     await t.test("revision change makes previously approved review stale", async () => {
@@ -157,18 +226,8 @@ test("draft employee proposal schema: real PostgreSQL isolation, revision and ro
       assert.equal(await store.transaction(reader => reader.getProposal(tenant, proposalId)), null);
     });
   } finally {
-    await pool.query(
-      "delete from employee_dispatch_proposal_reviews where tenant_id=$1 or tenant_id=$2",
-      [tenant, otherTenant]
-    ).catch(() => {});
-    await pool.query(
-      "delete from employee_dispatch_proposal_heads where tenant_id=$1 or tenant_id=$2",
-      [tenant, otherTenant]
-    ).catch(() => {});
-    await pool.query(
-      "delete from employee_dispatch_proposal_versions where tenant_id=$1 or tenant_id=$2",
-      [tenant, otherTenant]
-    ).catch(() => {});
+    // Database is disposable and test-only; immutable review rows deliberately
+    // cannot be deleted by the application role during teardown.
     await pool.end();
   }
 });
