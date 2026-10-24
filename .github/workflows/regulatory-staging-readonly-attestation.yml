@@ -41,8 +41,6 @@ jobs:
       REGULATORY_STAGING_D1_ID: ${{ vars.REGULATORY_STAGING_D1_ID }}
       REGULATORY_STAGING_D1_NAME: ${{ vars.REGULATORY_STAGING_D1_NAME }}
       PRODUCTION_D1_DATABASE_ID: ${{ vars.PRODUCTION_D1_DATABASE_ID }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.REGULATORY_STAGING_CLOUDFLARE_ACCOUNT_ID }}
-      CLOUDFLARE_API_TOKEN: ${{ secrets.REGULATORY_STAGING_CLOUDFLARE_TOKEN }}
 
     steps:
       - name: Checkout immutable main revision without write credentials
@@ -64,7 +62,6 @@ jobs:
           [[ "$(git rev-parse HEAD)" == "$EXPECTED_SHA" ]] || { echo 'Checkout is not the exact requested SHA.' >&2; exit 1; }
           live_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
           [[ "$live_sha" == "$EXPECTED_SHA" ]] || { echo 'Requested SHA is no longer current main.' >&2; exit 1; }
-          [[ -n "$CLOUDFLARE_API_TOKEN" && -n "$CLOUDFLARE_ACCOUNT_ID" ]] || { echo 'Dedicated staging Cloudflare credentials are required.' >&2; exit 1; }
           [[ -n "$REGULATORY_STAGING_D1_ID" && -n "$REGULATORY_STAGING_D1_NAME" && -n "$PRODUCTION_D1_DATABASE_ID" ]] || { echo 'Staging/production exclusion variables are not configured.' >&2; exit 1; }
           [[ "$REGULATORY_STAGING_D1_ID" != "$PRODUCTION_D1_DATABASE_ID" ]] || { echo 'Refusing production D1 database.' >&2; exit 1; }
           echo 'Approved exact-main staging-only read-only inspection authority verified.'
@@ -82,9 +79,13 @@ jobs:
           npm run test:regulatory-staging-readonly
 
       - name: Inspect staging database using pinned SELECT-only statements
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.REGULATORY_STAGING_CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.REGULATORY_STAGING_CLOUDFLARE_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
+          [[ -n "$CLOUDFLARE_API_TOKEN" && -n "$CLOUDFLARE_ACCOUNT_ID" ]] || { echo 'Dedicated staging Cloudflare credentials are required.' >&2; exit 1; }
           umask 077
           node scripts/run-regulatory-staging-readonly-preflight.mjs > "$RUNNER_TEMP/regulatory-staging-attestation.json"
 
