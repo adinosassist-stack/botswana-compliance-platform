@@ -22,7 +22,13 @@ export function fixture(){
   prepare(statement){
    const prepared={bind(...parameters){return {
     statement,parameters,
-    async run(){const r=sql.prepare(statement).run(...parameters);return {success:true,meta:{changes:Number(r.changes)}}},
+    async run(){
+     if(/\bRETURNING\b/i.test(statement)){
+      const results=sql.prepare(statement).all(...parameters).map(row=>({...row}));
+      return {success:true,results,meta:{changes:Number(sql.prepare('SELECT changes() n').get().n)}};
+     }
+     const r=sql.prepare(statement).run(...parameters);return {success:true,meta:{changes:Number(r.changes)}}
+    },
     async first(){const r=sql.prepare(statement).get(...parameters);return r?{...r}:null},
     async all(){return {success:true,results:sql.prepare(statement).all(...parameters).map(r=>({...r}))}}
    }}};

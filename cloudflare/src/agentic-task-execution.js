@@ -394,7 +394,7 @@ async function issueJitPermit({env,auth,requestId}){
   return json({ok:true,permit:{id:permitId,requestId,agentId:THEBE_AGENT_ID,actionKey:ACTION_KEY,payloadHash:row.payload_hash,expiresAt,maxUses:1,sameOwnerBound:true}},201);
 }
 
-async function executeTask({env,auth,requestId,permitId,standingBinding=null}){
+async function executeTask({env,auth,requestId,permitId,standingBinding=null,dispatchBinding=null}){
   if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);
   if(!(await schemaReady(env)))return json({error:"bounded_execution_schema_not_ready"},503);
   const canonicalAuthority=await loadCanonicalAgentAuthority(env,THEBE_AGENT_ID);
@@ -474,8 +474,29 @@ async function executeTask({env,auth,requestId,permitId,standingBinding=null}){
   }
 
   const taskId=id(),receiptId=id();
+  // The dispatcher supplies only a server-loaded, fenced queue binding. No HTTP
+  // task-execution body can set it. All queue/effect changes share this batch.
+  const dispatchGuard=dispatchBinding?` AND EXISTS (SELECT 1 FROM employee_dispatch_queue dq
+    JOIN employee_dispatch_controls dc ON dc.tenant_id=dq.tenant_id
+    JOIN sessions ds ON ds.token_hash=dq.session_hash AND ds.tenant_id=dq.tenant_id AND ds.user_id=dq.owner_id
+    JOIN users du ON du.id=ds.user_id
+    WHERE dq.id=? AND dq.tenant_id=agent_task_requests.tenant_id AND dq.request_id=agent_task_requests.id
+      AND dq.proposal_key=? AND dq.state='committing' AND dq.lease_token=? AND dq.lease_until>unixepoch()
+      AND dc.enabled=1 AND dc.stopped=0 AND ds.expires_at>CURRENT_TIMESTAMP AND ds.session_generation=du.session_generation
+      AND EXISTS (${APPROVED_EMPLOYEE_PROVENANCE_SQL})
+      AND EXISTS (SELECT 1 FROM agent_delegations dd JOIN agent_execution_grants dg ON dg.delegation_id=dd.id AND dg.tenant_id=dd.tenant_id
+        WHERE dd.id=agent_task_requests.delegation_id AND dd.tenant_id=agent_task_requests.tenant_id
+          AND dg.id=agent_task_requests.execution_grant_id AND dg.status='active' AND dd.status='active'
+          AND dd.agent_key='thebe' AND dd.action_key='task.create' AND dd.max_autonomy_level>=3
+          AND dd.external_side_effects=0 AND dd.human_confirmation_required=1 AND dd.strong_auth_required=0
+          AND (dd.max_daily_actions IS NULL OR (SELECT COUNT(*) FROM agent_execution_receipts WHERE tenant_id=dd.tenant_id AND execution_grant_id=dg.id AND created_at>=date('now'))<dd.max_daily_actions)
+          AND (dd.valid_from IS NULL OR dd.valid_from<=CURRENT_TIMESTAMP) AND (dd.expires_at IS NULL OR dd.expires_at>CURRENT_TIMESTAMP)))`:'';
+  const dispatchParams=dispatchBinding?[dispatchBinding.id,dispatchBinding.proposalKey,dispatchBinding.leaseToken,auth.tenant_id,dispatchBinding.proposalKey]:[];
   try{
     const results=await env.DB.batch([
+      ...(dispatchBinding?[env.DB.prepare(`UPDATE employee_dispatch_queue SET state='committing'
+        WHERE id=? AND tenant_id=? AND state='leased' AND lease_token=? AND lease_until>unixepoch()
+          AND request_id=? AND owner_id=? AND permit_id=?`).bind(dispatchBinding.id,auth.tenant_id,dispatchBinding.leaseToken,requestId,auth.user_id,jitPermitId)]:[]),
       env.DB.prepare(`UPDATE agent_task_requests
         SET status='executed',executed_at=CURRENT_TIMESTAMP,jit_permit_id=?
         WHERE id=? AND tenant_id=? AND status='approved' AND approved_payload_hash=payload_hash AND approved_by_user_id=? AND jit_permit_id IS NULL
@@ -489,11 +510,11 @@ async function executeTask({env,auth,requestId,permitId,standingBinding=null}){
             AND json_extract(p.approval_policy_json,'$.expiresAt')>strftime('%Y-%m-%dT%H:%M:%fZ','now')
             AND EXISTS(SELECT 1 FROM agent_registry WHERE agent_id='THEBE-001' AND authority_state='active' AND actor_type='agent' AND execution_capable=1)
             AND (SELECT COUNT(*) FROM agent_execution_receipts WHERE tenant_id=? AND execution_grant_id=? AND created_at>=date('now'))<?
-        ))`).bind(
+        ))${dispatchGuard} RETURNING id`).bind(
           jitPermitId,requestId,auth.tenant_id,auth.user_id,
           auth.tenant_id,auth.user_id,row.max_daily_actions??null,auth.tenant_id,row.execution_grant_id,Number(row.max_daily_actions??0),
           standingBinding?.id??null,standingBinding?.id??null,auth.tenant_id,auth.user_id,standingBinding?.serializedPolicy??null,standingBinding?.occurrence??null,
-          auth.tenant_id,row.execution_grant_id,Math.min(Number(row.max_daily_actions||0),standingBinding?.maxDailyRuns??Number(row.max_daily_actions||0))
+          auth.tenant_id,row.execution_grant_id,Math.min(Number(row.max_daily_actions||0),standingBinding?.maxDailyRuns??Number(row.max_daily_actions||0)),...dispatchParams
         ),
       env.DB.prepare(`INSERT INTO agent_internal_tasks(id,tenant_id,title,description,priority,due_at,status,source_request_id,source_intent_id,execution_grant_id,requested_by_user_id,created_by_agent_key)
         SELECT ?,?,?,?,?,?,'open',?,?,?,?, 'thebe' WHERE changes()=1`).bind(
@@ -507,9 +528,12 @@ async function executeTask({env,auth,requestId,permitId,standingBinding=null}){
       env.DB.prepare(`INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data)
         SELECT ?,?,'AGENT_TASK_EXECUTED','agent_internal_task',?,? WHERE changes()=1`).bind(
           auth.tenant_id,auth.user_id,taskId,JSON.stringify({requestId,intentId:row.intent_id,executionGrantId:row.execution_grant_id,jitPermitId,payloadHash:row.payload_hash,guardVersion:decision.guardVersion,executionMode:executionMode(env)})
-        )
+        ),
+      ...(dispatchBinding?[env.DB.prepare(`UPDATE employee_dispatch_queue SET state='completed',result_task_id=?,lease_token=NULL,lease_until=NULL
+        WHERE id=? AND tenant_id=? AND lease_token=? AND state='committing'`).bind(taskId,dispatchBinding.id,auth.tenant_id,dispatchBinding.leaseToken)]:[])
     ]);
-    const changed=Number(results?.[0]?.meta?.changes??results?.[0]?.changes??0);
+    const effectIndex=dispatchBinding?1:0;
+    const changed=results?.[effectIndex]?.results?.length??0;
     if(changed!==1)throw new Error("execution_conflict");
   }catch{
     const permitState=await safeFirst(env,`SELECT status,use_count,consumed_by_user_id,consumed_at FROM agent_jit_execution_permits WHERE id=? AND tenant_id=? LIMIT 1`,[jitPermitId,auth.tenant_id]);
@@ -608,3 +632,10 @@ export const __agenticTaskExecutionTest=Object.freeze({
   globalExecutionEnabled,
   runtimeKillSwitch
 });
+
+/** Internal scheduler seam; the public execution API cannot supply a dispatch binding. */
+export async function executeEmployeeDispatchedTask({env,auth,job}){
+  if(env?.THEBE_EMPLOYEE_DISPATCH_ENABLED!=="true")return json({error:"employee_dispatch_disabled"},409);
+  return executeTask({env,auth,requestId:job.request_id,permitId:job.permit_id,
+    dispatchBinding:{id:job.id,leaseToken:job.lease_token,proposalKey:job.proposal_key}});
+}

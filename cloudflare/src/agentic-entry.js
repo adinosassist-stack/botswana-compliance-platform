@@ -6,6 +6,7 @@ import {handleAgenticControlPlaneRequest} from "./agentic-control-plane.js";
 import {handleAgenticResponsibilityRequest} from "./agentic-responsibility-api.js";
 import {handleAgenticResponsibilityCommand} from "./agentic-responsibility-command.js";
 import {handleAgenticWhatsAppRequest} from "./agentic-whatsapp-core.js";
+import {handleEmployeeDispatchRequest,runEmployeeDispatchSweep} from "./employee-dispatch.js";
 import {handleAgenticTaskExecutionRequest} from "./agentic-task-execution.js";
 import {handleInternalAutonomyRequest,runDueInternalAutonomy} from "./agent-internal-autonomy.js";
 import {handleJitCapabilityGovernanceRequest} from "./jit-capability-governance-entry.js";
@@ -250,6 +251,8 @@ const agenticRuntime={
       const runtimeResponse=await applyClientRuntimeIdentity(ownerRequest,ownerResponse);
       return enhanceReadiness(ownerRequest,ownerEnv,runtimeResponse);
     }
+    const dispatchResponse=await handleEmployeeDispatchRequest({request,logicalPath,env});
+    if(dispatchResponse)return dispatchResponse;
     const taskExecutionResponse=await handleJitCapabilityGovernanceRequest({request,logicalPath,env})
       ??await handleAgenticTaskExecutionRequest({request,logicalPath,env});
     if(taskExecutionResponse)return taskExecutionResponse;
@@ -266,6 +269,7 @@ const agenticRuntime={
   },
   async scheduled(event,env,ctx){
     env=withRegulatorySqlGuard(env);
+    ctx.waitUntil(runEmployeeDispatchSweep(env).catch(()=>console.error("employee_dispatch_unavailable")));
     ctx.waitUntil(runDueInternalAutonomy(env).catch(()=>console.error("internal_autonomy_run_unavailable")));
     return base.scheduled(event,env,ctx);
   }

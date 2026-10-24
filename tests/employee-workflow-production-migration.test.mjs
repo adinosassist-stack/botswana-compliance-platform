@@ -27,8 +27,9 @@ print(json.dumps([dict(x) for x in r.fetchall()])); c.commit()\`,file],{input:JS
   const r=cp.spawnSync('python3',['-c','import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.executescript(open(sys.argv[2]).read()); c.commit()',file,path],{encoding:'utf8'});
   if(r.status!==0)throw Error(r.stderr);
  }
- sql('CREATE TABLE employees(id TEXT,tenant_id TEXT,start_date TEXT,end_date TEXT,status TEXT)');
- const schemas=['cloudflare/migrations/20261021_employee_ai_workflows.sql','cloudflare/migrations/20261021_employee_ai_proposal_reviews.sql','cloudflare/migrations/20261022_employee_ai_proposal_provenance.sql'];
+ apply('cloudflare/schema.sql');
+ for(const file of ['047_v81_delegated_authority.sql','048_v102_bounded_internal_task_execution.sql','051_v117_persistent_agent_tasks.sql','056_v154_agent_control_plane.sql','064_v217_jit_execution_permits.sql'])apply('cloudflare/migrations/'+file);
+ const schemas=['cloudflare/migrations/20261021_employee_ai_workflows.sql','cloudflare/migrations/20261021_employee_ai_proposal_reviews.sql','cloudflare/migrations/20261022_employee_ai_proposal_provenance.sql','cloudflare/migrations/20261024_employee_dispatch.sql'];
  if(mode==='existing'||mode==='legacy')for(const path of mode==='legacy'?schemas.slice(0,2):schemas)apply(path);
  if(mode==='legacy'){
   sql("INSERT INTO employee_ai_proposal_reviews(tenant_id,proposal_key,workflow_id,employee_id,task_type,due_date,status,reviewed_by,reviewed_at) VALUES ('t1','legacy-key','w1','e1','onboarding_checklist','2026-11-01','approved','manager','2026-10-21T16:00:00Z')");
@@ -64,7 +65,7 @@ print(json.dumps([dict(x) for x in r.fetchall()])); c.commit()\`,file],{input:JS
 }
 test('production employee migration applies pinned schemas after a recovery bookmark and verifies SQLite definitions',()=>{
  const r=run('fresh');assert.equal(r.status,0,r.stderr+r.stdout);
- assert.equal((r.stdout.match(/APPLY /g)||[]).length,3);
+ assert.equal((r.stdout.match(/APPLY /g)||[]).length,4);
  assert.ok(r.stdout.indexOf('BOOKMARK')<r.stdout.indexOf('APPLY '));
  assert.match(r.stdout,/schemas verified successfully/);
 });
