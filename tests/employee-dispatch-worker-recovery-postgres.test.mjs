@@ -194,6 +194,45 @@ test("PostgreSQL worker recovery is lease-fenced, audited, bounded and simulatio
       assert.equal((await resolve(second,"qualify")).ok,true);
     });
 
+    await t.test("lease expiring during a row-lock wait cannot qualify",async()=>{
+      const key="lock-expiry-"+randomUUID();
+      await insertIntent(key);
+      const first=await claim({leaseSeconds:2});
+      assert.equal(first.ok,true);
+      const blocker=await pool.connect();
+      let completion;
+      try{
+        await blocker.query("BEGIN");
+        await blocker.query(
+          "select 1 from employee_dispatch_worker_claims where tenant_id=$1 and intent_id=$2 for update",
+          [tenant,first.intentId]);
+        completion=resolve(first,"qualify");
+        let blocked=false;
+        const deadline=Date.now()+1500;
+        while(Date.now()<deadline){
+          const waiting=await pool.query(
+            `select 1 from pg_stat_activity where datname=current_database()
+             and pid<>pg_backend_pid() and wait_event_type='Lock'
+             and query like '%select state,attempts,max_attempts,lease_token%'`);
+          if(waiting.rowCount){blocked=true;break;}
+          await sleep(10);
+        }
+        assert.equal(blocked,true,"completion actually waits behind another transaction");
+        await sleep(2100);
+        await blocker.query("COMMIT");
+        assert.deepEqual(await completion,{ok:false,reason:"stale_or_expired_lease"});
+        assert.equal((await byKey(key)).state,"leased","expired completion cannot qualify work");
+      }finally{
+        await blocker.query("ROLLBACK").catch(()=>{});blocker.release();
+        if(completion)await completion;
+      }
+      const second=await claim();
+      assert.equal(second.ok,true);
+      assert.equal(second.attempt,2);
+      assert.notEqual(second.leaseToken,first.leaseToken);
+      assert.equal((await resolve(second,"qualify")).ok,true);
+    });
+
     await t.test("unaudited direct SQL claim cannot commit",async()=>{
       const key="bare-"+randomUUID();
       await insertIntent(key);
