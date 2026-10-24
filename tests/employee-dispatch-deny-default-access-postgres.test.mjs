@@ -17,6 +17,7 @@ const draftTables = [
   "employee_dispatch_proposal_reviews",
   "employee_dispatch_reviewer_permission_grants",
   "employee_dispatch_grant_issuance_audit",
+  "employee_dispatch_grant_activation_audit",
   "employee_dispatch_review_session_provenance",
   "employee_dispatch_intents",
   "employee_dispatch_admission_audit"
@@ -101,6 +102,7 @@ test("PostgreSQL design-only dispatch reader is default-deny even with SELECT ri
         "insert into employee_dispatch_intents (id,tenant_id,proposal_id,review_id,action,intent_type,idempotency_key) values ('00000000-0000-0000-0000-000000000001','x','x','x','internal.task.create','task','x')",
         "delete from employee_dispatch_admission_audit",
         "delete from employee_dispatch_grant_issuance_audit",
+        "delete from employee_dispatch_grant_activation_audit",
         "update employee_dispatch_review_session_provenance set recorded_at=now()"
       ];
       for (const statement of checks) {
