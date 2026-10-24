@@ -7,7 +7,7 @@ const checks=[
  ["seed registry",s.includes("regulatory_seed_registry")],
  ["pack import history",s.includes("regulatory_pack_imports")],
  ["idempotent registry",w.includes("seedRegistryGet")&&w.includes("seedRegistryPut")],
- ["reuse source url",w.includes("WHERE source_url=? ORDER BY created_at LIMIT 1")],
+ ["reuse source url",fs.readFileSync(new URL("../cloudflare/src/regulatory-foundation-source-reconciliation.js",import.meta.url),"utf8").includes("WHERE s.source_url=? ORDER BY s.created_at,s.id LIMIT 1")],
  ["reuse identical rule",w.includes("existing.definition_hash===seedHash")],
  ["platform-only import",w.includes('/api/platform/regulatory/foundation-pack/import')&&w.includes('requirePlatformRegulatory(a,env,"editor","admin")')],
  ["no source auto approval",w.includes("'pending',?,?,'unverified'")],
