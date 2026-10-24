@@ -1,0 +1,38 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import {z} from 'zod';
+
+// Exercise the actual route schemas without starting a server or connecting to a database.
+const source=fs.readFileSync(new URL('../server/server.js',import.meta.url),'utf8');
+const start=source.indexOf('const emailSchema=');
+const end=source.indexOf('const allowedTypes=',start);
+assert.ok(start>=0&&end>start,'request schema block must be present');
+const schemas=vm.runInNewContext(`${source.slice(start,end)};({authSchema,registerSchema,resetCompleteSchema,stateSchema,auditSchema,evidenceSchema,evidenceCompleteSchema,scanResultSchema})`,{z});
+const password='Compatibility-Password-123!';
+assert.equal(schemas.authSchema.parse({email:'Owner@Example.com',password}).email,'owner@example.com');
+assert.equal(schemas.authSchema.safeParse({email:'invalid',password}).success,false);
+assert.equal(schemas.authSchema.safeParse({email:'owner@example.com',password:'short'}).success,false);
+assert.equal(schemas.registerSchema.parse({email:'owner@example.com',password,companyName:'  Lovely  '}).companyName,'Lovely');
+assert.equal(schemas.registerSchema.parse({email:'owner@example.com',password,companyName:'Lovely'}).plan,'business');
+assert.equal(schemas.resetCompleteSchema.safeParse({token:'a'.repeat(43),password}).success,true);
+assert.equal(schemas.resetCompleteSchema.safeParse({token:'short',password}).success,false);
+const state={activeCompanyId:'lovely',companies:[{id:'lovely',profile:{name:'Lovely'}}],audit:[],flag:true,nullable:null};
+assert.equal(JSON.stringify(schemas.stateSchema.parse({state,version:1}).state),JSON.stringify(state));
+assert.equal(schemas.stateSchema.safeParse({state:{},version:1}).success,true);
+for(const invalid of [null,[],42,'state'])assert.equal(schemas.stateSchema.safeParse({state:invalid,version:1}).success,false);
+for(const version of [0,-1,1.5,'1'])assert.equal(schemas.stateSchema.safeParse({state,version}).success,false);
+assert.equal(JSON.stringify(schemas.auditSchema.parse({eventType:'WORKSPACE_UPDATED'}).eventData),'{}');
+const eventData={company:'lovely',changes:['name'],before:null,count:2};
+assert.equal(JSON.stringify(schemas.auditSchema.parse({eventType:'WORKSPACE_UPDATED',eventData}).eventData),JSON.stringify(eventData));
+assert.equal(schemas.auditSchema.safeParse({eventType:'invalid',eventData}).success,false);
+const evidence={companyId:'lovely',filename:'report.pdf',contentType:'application/pdf',size:1024,displayName:'Report',category:'compliance'};
+assert.equal(schemas.evidenceSchema.safeParse(evidence).success,true);
+assert.equal(schemas.evidenceSchema.safeParse({...evidence,size:16*1024*1024}).success,false);
+assert.equal(schemas.evidenceCompleteSchema.safeParse({}).success,true);
+const scan={evidenceId:'d58c6a62-4d44-48f5-b202-915d9e233a10',scanJobId:'cfeb95ae-2d63-4c47-91b4-f7a278d737a6',status:'clean',sha256:'a'.repeat(64)};
+assert.equal(schemas.scanResultSchema.safeParse(scan).success,true);
+assert.equal(schemas.scanResultSchema.safeParse({...scan,sha256:undefined}).success,false);
+assert.equal(schemas.scanResultSchema.safeParse({...scan,status:'error',sha256:undefined}).success,true);
+assert.equal(schemas.scanResultSchema.safeParse({...scan,scanJobId:'invalid'}).success,false);
+console.log('Node request schema compatibility PASS: auth, registration, reset, workspace, audit, evidence and scan verdicts');
