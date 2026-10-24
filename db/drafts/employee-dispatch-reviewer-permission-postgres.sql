@@ -21,6 +21,32 @@ create table employee_dispatch_reviewer_permission_grants (
     references memberships (tenant_id, user_id),
   check (not enabled or revoked_at is null)
 );
+-- Revocation is terminal: a revoked grant cannot be silently reenabled.
+-- The grant identity and recorded issuer are immutable after creation.
+create function employee_dispatch_guard_grant_update()
+returns trigger language plpgsql as $employee_permission$
+begin
+  if old.revoked_at is not null then
+    raise exception 'reviewer_permission_revocation_is_final' using errcode='23514';
+  end if;
+  if row(new.tenant_id,new.reviewer_user_id,new.permission,
+         new.granted_by_user_id,new.granted_at)
+     is distinct from
+     row(old.tenant_id,old.reviewer_user_id,old.permission,
+         old.granted_by_user_id,old.granted_at) then
+    raise exception 'reviewer_permission_identity_immutable' using errcode='23514';
+  end if;
+  if new.revoked_at is not null and new.enabled then
+    raise exception 'revoked_reviewer_permission_cannot_be_enabled'
+      using errcode='23514';
+  end if;
+  return new;
+end;
+$employee_permission$;
+create trigger employee_dispatch_reviewer_grant_update_guard
+  before update on employee_dispatch_reviewer_permission_grants
+  for each row execute function employee_dispatch_guard_grant_update();
+
 create index employee_dispatch_reviewer_permission_active_idx
   on employee_dispatch_reviewer_permission_grants (tenant_id, reviewer_user_id)
   where enabled = true and revoked_at is null;
