@@ -12,6 +12,7 @@ const hash=crypto.createHash("sha256").update(JSON.stringify(seed)).digest("hex"
 const worker=fs.readFileSync(new URL("../cloudflare/src/worker.js",import.meta.url),"utf8");
 assert.match(worker,/if\(!Number\.isInteger\(Number\(action\.dueDaysAfterPeriodEnd\)\)\|\|Number\(action\.dueDaysAfterPeriodEnd\)<1\)return out;/);
 assert.ok(!worker.includes("action.dueDaysAfterPeriodEnd||25"),"VAT scheduler must not silently default to legacy 25 days");
+assert.ok(worker.includes('missing.push("dueDaysAfterPeriodEnd")'),"missing VAT period deadline must surface as needs_input");
 const source=key=>seed.sources.find(item=>item.key===key);
 const rule=key=>seed.rules.find(item=>item.key===key);
 
