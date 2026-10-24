@@ -271,3 +271,21 @@ test("dispatch rejects a different action than the approved proposal", async () 
   assert.equal(s.intents.size, 0);
   assert.equal(s.audit.length, 0);
 });
+
+test("invalid request does not start database transaction", async () => {
+  for (const override of [
+    { identity: undefined },
+    { identity: { ...identity, actorId: "" } },
+    { identity: { ...identity, tenantId: "" } },
+    { idempotencyKey: "" },
+    { idempotencyKey: "x".repeat(201) }
+  ]) {
+    let transactionCount = 0;
+    const s = store();
+    s.transaction = async () => { transactionCount += 1; throw Error("unexpected_transaction"); };
+    const result = await queueEmployeeDispatch({ ...request, ...override, store: s });
+    assert.equal(result.reason, "invalid_request");
+    assert.equal(result.queued, false);
+    assert.equal(transactionCount, 0);
+  }
+});
