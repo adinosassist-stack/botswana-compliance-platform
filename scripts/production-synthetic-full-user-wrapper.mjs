@@ -3,6 +3,7 @@ import {isSafeUiMutation} from './production-synthetic-request-policy.mjs';
 import {chromium} from 'playwright-core';
 import {summarizeWorkspaceNavigationPerformance,assertWorkspaceNavigationResponsiveness} from './workspace-navigation-performance-summary.mjs';
 import {profileNavigationClick} from './workspace-navigation-cpu-profile.mjs';
+import {provePeopleLocationNetworkRecovery} from './people-location-network-recovery-proof.mjs';
 
 const ORIGIN='https://thebedesk.com';
 const NAVIGATION_TIMEOUT_MS=30000;
@@ -406,6 +407,7 @@ async function runFullUserJourney(credentials){
     const setup=page.locator('#peopleops #opsReportingSetupDetails').first();assert(await setup.count(),'People reporting setup disclosure missing');if(!(await setup.evaluate(node=>node.open===true)))await setup.locator(':scope > summary').first().click();
     let locationName=`Synthetic Branch ${Date.now()}`;const locationCode=`S${String(Date.now()).slice(-7)}`;
     await page.locator('#peopleops #opsLocationName').fill(locationName);await page.locator('#peopleops #opsLocationCode').fill(locationCode);await page.locator('#peopleops #opsLocationTown').fill('Gaborone');
+    await provePeopleLocationNetworkRecovery(page,{timeoutMs:WORKSPACE_TIMEOUT_MS});
     const addLocation=page.locator('#peopleops [data-bw-onclick="addOpsLocation()"]:visible').first();assert(await addLocation.count(),'Add location control missing');await addLocation.click();
     await page.waitForFunction(name=>String(document.getElementById('opsLocationsList')?.innerText||'').includes(name),locationName,{timeout:WORKSPACE_TIMEOUT_MS});
     const editedLocationName=`${locationName} Updated`;const locationRow=page.locator('#opsLocationsList .item',{hasText:locationName}).first();await locationRow.waitFor({state:'visible',timeout:WORKSPACE_TIMEOUT_MS});
