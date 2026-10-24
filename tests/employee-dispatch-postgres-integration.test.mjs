@@ -97,6 +97,36 @@ test("draft employee proposal schema: real PostgreSQL isolation, revision and ro
       }
     });
 
+    await t.test("equal-timestamp revocation cannot be displaced by approval ID sorting", async () => {
+      const tiedRevocationId = "a-revoked-" + randomUUID();
+      await pool.query(
+        `insert into employee_dispatch_proposal_reviews
+          (tenant_id,review_id,proposal_id,proposal_revision,reviewer_id,decision,reviewed_at)
+         select tenant_id,$2,proposal_id,proposal_revision,'reviewer-2','revoked',reviewed_at
+         from employee_dispatch_proposal_reviews
+         where tenant_id=$1 and review_id=$3`,
+        [tenant, tiedRevocationId, reviewId]
+      );
+      try {
+        await store.transaction(async reader => {
+          assert.ok(await reader.getProposal(tenant, proposalId));
+          assert.equal(await reader.getLatestReview(tenant, proposalId), null);
+          assert.equal(await reader.isCurrentApprovedReview(tenant, proposalId, reviewId), false);
+          assert.equal(await reader.isCurrentProposalRevision(tenant, proposalId, reviewId), true);
+        });
+      } finally {
+        await pool.query(
+          "delete from employee_dispatch_proposal_reviews where tenant_id=$1 and review_id=$2",
+          [tenant, tiedRevocationId]
+        );
+      }
+      await store.transaction(async reader => {
+        assert.ok(await reader.getProposal(tenant, proposalId));
+        assert.equal((await reader.getLatestReview(tenant, proposalId))?.id, reviewId);
+        assert.equal(await reader.isCurrentApprovedReview(tenant, proposalId, reviewId), true);
+      });
+    });
+
     await t.test("revision change makes previously approved review stale", async () => {
       await pool.query(
         "update employee_dispatch_proposal_heads set current_revision=2 where tenant_id=$1 and proposal_id=$2",

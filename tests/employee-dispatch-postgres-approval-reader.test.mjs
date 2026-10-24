@@ -10,7 +10,7 @@ const proposalRow = {
 };
 const reviewRow = {
   tenant_id: "tenant-a", proposal_id: "proposal-1",
-  review_id: "review-1", reviewer_id: "reviewer-1", decision: "approved"
+  review_id: "review-1", reviewer_id: "reviewer-1", decision: "approved", timestamp_peers: "1"
 };
 
 test("reader locks the tenant-scoped current head before returning a proposal", async () => {
@@ -60,8 +60,27 @@ test("latest review is version-bound, tenant-bound and must be approved", async 
   decision = "revoked";
   assert.equal(await reader.isCurrentApprovedReview("tenant-a", "proposal-1", "review-1"), false);
   assert.match(calls[1].sql, /h.current_revision=r.proposal_revision/);
+  assert.match(calls[1].sql, /count\(\*\) over \(partition by r.reviewed_at\) as timestamp_peers/);
   assert.match(calls[1].sql, /order by r.reviewed_at desc, r.review_id desc limit 1/);
   assert.deepEqual(calls[1].params, ["tenant-a", "proposal-1"]);
+});
+
+test("latest approval fails closed when timestamp ties with another decision", async () => {
+  let tied = true;
+  const calls = [];
+  const reader = createEmployeeDispatchPostgresApprovalReader({
+    async query(sql, params) {
+      calls.push({ sql, params });
+      if (/for update of h/i.test(sql)) return { rows: [proposalRow] };
+      return { rows: [{ ...reviewRow, timestamp_peers: tied ? "2" : "1" }] };
+    }
+  });
+  await reader.getProposal("tenant-a", "proposal-1");
+  assert.equal(await reader.getLatestReview("tenant-a", "proposal-1"), null);
+  assert.equal(await reader.isCurrentApprovedReview("tenant-a", "proposal-1", "review-1"), false);
+  tied = false;
+  assert.equal(await reader.isCurrentApprovedReview("tenant-a", "proposal-1", "review-1"), true);
+  assert.equal(calls.length, 4);
 });
 
 test("current revision check scopes the review to the locked proposal head", async () => {
