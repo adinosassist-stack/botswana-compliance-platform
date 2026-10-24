@@ -94,7 +94,20 @@ create trigger employee_dispatch_review_immutable
   before update or delete on employee_dispatch_proposal_reviews
   for each row execute function employee_dispatch_reject_review_mutation();
 
+-- Proposal versions are content-addressed, therefore edits to a persisted
+-- author, action or payload digest must never rewrite what a review approved.
+-- Publish a new version instead; deletions are also denied.
+create function employee_dispatch_reject_proposal_version_mutation()
+returns trigger language plpgsql as $employee_proposal$
+begin
+  raise exception 'employee_dispatch_proposal_version_immutable' using errcode='23514';
+end;
+$employee_proposal$;
+create trigger employee_dispatch_proposal_version_immutable
+  before update or delete on employee_dispatch_proposal_versions
+  for each row execute function employee_dispatch_reject_proposal_version_mutation();
+
 -- Remaining release blockers: trusted reviewer identity/role verification,
--- write privileges/RLS, immutable proposal versions, client transaction scope,
+-- write privileges/RLS, client transaction scope,
 -- tenant session binding, dispatch idempotency+audit, and lease fencing.
 -- This draft has NO deployment/activation authority.
