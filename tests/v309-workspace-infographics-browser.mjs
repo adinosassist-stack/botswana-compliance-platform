@@ -10,7 +10,7 @@ const ids=['workhub','businesshub','evidencehub','tenderhub','automationhub','si
 const sections=[...ids,'accounthub'].map(id=>html.match(new RegExp('<section id="'+id+'"[\\s\\S]*?</section>'))[0]).join('');
 const inline=[...html.slice(0,html.indexOf('</head>')).matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(x=>x[1]).join('\n');
 const assets=['workspace-command-center-v230.css','workspace-command-center-v231.css','workspace-reference-shell-v237.css','property-calculator-compact-v223.css','property-calculator-reference-v224.css','property-visibility-v230.css','property-operations-v262.css','property-optimise-v263.css','property-compare-v264.css'];
-const styles=inline+'\n'+assets.map(f=>fs.readFileSync('public/assets/'+f,'utf8')).join('\n');
+const styles=inline+'\n'+[...assets,'workspace-ui-consolidation-20261010.css','property-solid-surfaces-v312.css'].map(f=>fs.readFileSync('public/assets/'+f,'utf8')).join('\n');
 const newStyles=fs.readFileSync('public/assets/workspace-infographics-v309.css','utf8');
 const dashboardFixture='<section id="dashboard" class="view active"><div class="home-thebe-agent" style="width:100%;max-width:900px;padding:16px"><div><strong>Thebe Super Agent</strong></div><form><input aria-label="Ask Thebe" placeholder="Ask: What needs management attention today?"><button class="btn" type="button">Ask Thebe</button></form><div class="home-thebe-agent-quick"><button class="btn" type="button">Today\'s priorities</button><button class="btn" type="button">Cash & collections</button><button class="btn" type="button">Follow-up</button></div></div></section>';
 const sha='a'.repeat(40),base='<html><head></head><body></body></html>';
@@ -38,8 +38,16 @@ try{
   }
   const before=await page.locator('#calculator').evaluate(el=>el.getBoundingClientRect().toJSON());
   await page.addStyleTag({content:newStyles});
+  await page.locator('.property-operations-v262').evaluate(panel=>{
+    const readiness=document.createElement('div');readiness.className='property-ops-readiness-v262';
+    const label=document.createElement('span');label.textContent='Operational setup readiness';
+    readiness.append(label);panel.append(readiness);
+  });
+  assert.equal(await page.locator('.property-ops-readiness-v262>span').evaluate(el=>getComputedStyle(el).color),'rgb(226, 235, 246)','readiness label contrasts with its navy panel');
   await page.addScriptTag({path:'public/js/workspace-infographics-v309.js'});
   assert.equal(await page.locator('.workspace-info-ring-v309 .value').getAttribute('stroke-dasharray'),'67 100','Property readiness uses a true SVG arc, without a gradient');
+  assert.equal(await page.locator('.property-ops-ring-v262').getAttribute('aria-label'),'Operational setup readiness: 67 percent');
+  assert.equal(await page.locator('.property-ops-ring-v262').getAttribute('role'),'img');
   const after=await page.locator('#calculator').evaluate(el=>el.getBoundingClientRect().toJSON());assert.deepEqual(after,before,`calculator geometry ${width}`);
   for(const selector of ['.property-hero-compact','.property-overview-v261','.property-calculator-v224','.property-ops-ring-v262'])assert.equal(await page.locator(selector).evaluate(el=>getComputedStyle(el).backgroundImage),'none',`solid Property ${selector}`);
   const edges=await page.locator('.property-overview-v261,.property-operations-v262,.property-optimise-v263,.property-compare-v264').evaluateAll(els=>els.map(el=>({x:el.getBoundingClientRect().x,right:el.getBoundingClientRect().right})));
@@ -55,6 +63,8 @@ try{
   await page.evaluate(()=>{document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='workhub'));document.getElementById('workOpenActions').textContent='8';document.getElementById('workWaitingReviews').textContent='2';window.dispatchEvent(new Event('thebe:workspace-view-change'))});
   await page.waitForFunction(()=>document.getElementById('workWaitingReviews').parentElement.querySelector('.workspace-info-bar-v309>span').style.width==='25%');
   assert.equal(await page.locator('#workOpenActions').textContent(),'8');
+  assert.equal(await page.locator('#workhub .workspace-info-scale-v309').textContent(),'Relative counts');
+  assert.match(await page.locator('#workhub .workspace-info-scale-v309').getAttribute('title'),/not percentages/);
   if(process.env.V309_SCREENSHOT_DIR&&width===390)await page.screenshot({path:path.join(process.env.V309_SCREENSHOT_DIR,'work-phone.png'),fullPage:true});
   await page.evaluate(()=>{document.getElementById('workWaitingReviews').parentElement.hidden=true});
   await page.waitForFunction(()=>document.getElementById('workWaitingReviews').parentElement.querySelector('.workspace-info-bar-v309').hidden);
