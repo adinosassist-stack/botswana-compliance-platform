@@ -1,5 +1,6 @@
 import {BOTSWANA_FOUNDATION_PACK_V1,BOTSWANA_FOUNDATION_PACK_V1_HASH} from "./regulatory-pack-registry.js";
 import {inspectFoundationSourceMetadata,publicFoundationSourcePreflight,updateUnreviewedFoundationSourceMetadata} from "./regulatory-foundation-source-reconciliation.js";
+import {inspectActiveLegacyVatRules,publicActiveLegacyVatRules} from "./regulatory-foundation-legacy-vat.js";
 import {handleEmployeeWorkflowRequest} from "./employee-workflow-api.js";
 import {handleEmployeeProposalReviewRequest} from "./employee-proposal-review-api.js";
 import {purgeDailyReportAttachments} from "./report-attachments-entry.js";
@@ -4482,9 +4483,12 @@ async function seedRegistryPut(env,packKey,seedKey,entityType,entityId,definitio
 async function importBotswanaFoundationPack(env,a){
   const pack=BOTSWANA_FOUNDATION_PACK_V1,packKey=pack.packKey;
   const counts={sourcesCreated:0,sourcesExisting:0,sourcesUpdated:0,rulesCreated:0,rulesExisting:0,rulesUpgraded:0,conflictsCreated:0,conflictsExisting:0,conflictsUpdated:0};
+  const legacyVatPreflight=await inspectActiveLegacyVatRules(env.DB);
+  if(!legacyVatPreflight.ok)return {ok:false,error:"legacy_vat_rule_active_requires_review",
+    legacyVat:publicActiveLegacyVatRules(legacyVatPreflight)};
   const sourcePreflight=await inspectFoundationSourceMetadata(env.DB,pack);
   if(!sourcePreflight.ok)return {ok:false,error:"source_metadata_drift_requires_review",
-    preflight:publicFoundationSourcePreflight(sourcePreflight)};
+    preflight:publicFoundationSourcePreflight(sourcePreflight),legacyVat:publicActiveLegacyVatRules(legacyVatPreflight)};
   const sourceIds={};
   for(const src of pack.sources){
     const sk=`source:${src.key}`,plan=sourcePreflight.items.find(item=>item.key===src.key),seedHash=await sha256Hex(stableJson(src));
@@ -6255,8 +6259,12 @@ export default {
       if(url.pathname==="/api/platform/regulatory/foundation-pack"&&req.method==="GET"){
         const access=await requirePlatformRegulatory(a,env,"editor","reviewer","admin");if(!access.ok)return json(access,403);
         if(url.searchParams.get("preflight")==="1"){
-          const preflight=await inspectFoundationSourceMetadata(env.DB,BOTSWANA_FOUNDATION_PACK_V1);
-          return json({preflight:publicFoundationSourcePreflight(preflight),readOnly:true,noApprovalOrImport:true});
+          const [preflight,legacyVat]=await Promise.all([
+            inspectFoundationSourceMetadata(env.DB,BOTSWANA_FOUNDATION_PACK_V1),
+            inspectActiveLegacyVatRules(env.DB)
+          ]);
+          return json({preflight:publicFoundationSourcePreflight(preflight),
+            legacyVat:publicActiveLegacyVatRules(legacyVat),readOnly:true,noApprovalOrImport:true});
         }
         const imported=await env.DB.prepare("SELECT * FROM regulatory_pack_imports WHERE pack_key=? ORDER BY created_at DESC LIMIT 10").bind(BOTSWANA_FOUNDATION_PACK_V1.packKey).all();
         return json({pack:{packKey:BOTSWANA_FOUNDATION_PACK_V1.packKey,version:BOTSWANA_FOUNDATION_PACK_V1.version,asOf:BOTSWANA_FOUNDATION_PACK_V1.asOf,
