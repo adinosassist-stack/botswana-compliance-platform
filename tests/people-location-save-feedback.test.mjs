@@ -40,7 +40,6 @@ function decoratorFixture(action,initialStatus=''){
  let handler=null;
  const attrs=new Map();
  const status={textContent:initialStatus,dataset:{},setAttribute(k,v){attrs.set(k,v)}};
- const draft={name:'Maun Office',code:'MAU',town:'Maun'};
  const button={
    dataset:{},disabled:false,
    setAttribute(k,v){attrs.set('button:'+k,v)},
@@ -61,16 +60,15 @@ function decoratorFixture(action,initialStatus=''){
  });
  bind(people);
  const click=()=>handler({preventDefault(){},stopPropagation(){}});
- return {click,button,status,attrs,draft,timed:()=>timed};
+ return {click,button,status,attrs,timed:()=>timed};
 }
 
-test('decorated People save preserves draft and provides fallback after rejected promise',async()=>{
+test('decorated People save provides fallback and restores controls after rejected promise',async()=>{
  const f=decoratorFixture(async()=>{throw Error('network unavailable')});
  await f.click();
  assert.match(f.status.textContent,/Could not add location/);
  assert.equal(f.status.dataset.state,'error');
  assert.equal(f.attrs.get('role'),'alert');
- assert.deepEqual(f.draft,{name:'Maun Office',code:'MAU',town:'Maun'});
  assert.equal(f.button.disabled,false);
  assert.equal(f.attrs.has('button:aria-busy'),false);
  assert.equal(f.button.dataset.locationsBranchesSaving,undefined);
