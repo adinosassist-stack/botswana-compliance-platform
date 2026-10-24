@@ -73,6 +73,36 @@ test("explicit approval-grant evidence is tenant-scoped, revocable and transacti
       });
     });
 
+    await t.test("grant creation requires another active owner and defaults to disabled",async () => {
+      const target=randomUUID();
+      await pool.query("insert into users(id,email) values ($1,$2)",
+        [target,"target-"+randomUUID()+"@example.invalid"]);
+      await pool.query(
+        "insert into memberships(tenant_id,user_id,role,status) values ($1,$2,'reviewer','active')",
+        [tenant,target]);
+      const insert=(reviewerId,grantor,enabled=false)=>pool.query(
+        `insert into employee_dispatch_reviewer_permission_grants
+         (tenant_id,reviewer_user_id,permission,granted_by_user_id,enabled)
+         values ($1,$2,'people.workflow.approve',$3,$4)`,
+        [tenant,reviewerId,grantor,enabled]
+      );
+      await assert.rejects(insert(target,reviewer),e=>e.code==="23514");
+      await assert.rejects(insert(issuer,issuer),e=>e.code==="23514");
+      await assert.rejects(insert(target,issuer,true),e=>e.code==="23514");
+      await insert(target,issuer);
+      const grant=await pool.query(
+        "select enabled from employee_dispatch_reviewer_permission_grants where tenant_id=$1 and reviewer_user_id=$2",
+        [tenant,target]);
+      assert.equal(grant.rows[0].enabled,false);
+      await assert.rejects(
+        pool.query(
+          "delete from employee_dispatch_reviewer_permission_grants where tenant_id=$1 and reviewer_user_id=$2",
+          [tenant,target]
+        ),
+        e=>e.code==="23514"
+      );
+    });
+
     await t.test("disabled grant and inactive membership deny reviewer evidence",async () => {
       await pool.query(
         "update employee_dispatch_reviewer_permission_grants set enabled=false where tenant_id=$1 and reviewer_user_id=$2",
@@ -111,6 +141,41 @@ test("explicit approval-grant evidence is tenant-scoped, revocable and transacti
               "update employee_dispatch_reviewer_permission_grants set enabled=false where tenant_id=$1 and reviewer_user_id=$2",
               [tenant,reviewer]
             ),e=>e.code==="55P03");
+        } finally { await writer.query("ROLLBACK"); }
+      } finally { await holder.query("ROLLBACK"); holder.release(); writer.release(); }
+    });
+
+    await t.test("grant ceases to count if issuing owner loses active owner role",async () => {
+      assert.equal(await read(),true);
+      await pool.query("update memberships set role='manager' where tenant_id=$1 and user_id=$2",
+        [tenant,issuer]);
+      assert.equal(await read(),false);
+      await pool.query("update memberships set role='owner',status='inactive' where tenant_id=$1 and user_id=$2",
+        [tenant,issuer]);
+      assert.equal(await read(),false);
+      await pool.query("update memberships set status='active' where tenant_id=$1 and user_id=$2",
+        [tenant,issuer]);
+      assert.equal(await read(),true);
+    });
+
+    await t.test("issuer role downgrade blocks behind an active authorization read",async () => {
+      const holder=await pool.connect(),writer=await pool.connect();
+      try {
+        await holder.query("BEGIN");
+        const reader=createEmployeeDispatchPostgresApprovalReader(holder);
+        const evidence=createEmployeeReviewerPermissionEvidence(holder);
+        assert.ok(await reader.getProposal(tenant,proposal));
+        assert.equal(await evidence.hasExplicitApprovalGrant(tenant,reviewer,proposal,review),true);
+        await writer.query("BEGIN");
+        try {
+          await writer.query("SET LOCAL lock_timeout='300ms'");
+          await assert.rejects(
+            writer.query(
+              "update memberships set role='manager' where tenant_id=$1 and user_id=$2",
+              [tenant,issuer]
+            ),
+            e=>e.code==="55P03"
+          );
         } finally { await writer.query("ROLLBACK"); }
       } finally { await holder.query("ROLLBACK"); holder.release(); writer.release(); }
     });
