@@ -2023,3 +2023,9 @@
 .thebe-ai-plan-artifact>small{display:block;margin:6px 0;color:#b7c8d9}
 body.thebe-ai-dock-open .thebe-ai-mode-rail:has([data-thebe-mode="goal_plan"]:not([hidden])){grid-template-columns:repeat(4,minmax(0,1fr))}
 @media(max-width:520px){body.thebe-ai-dock-open .thebe-ai-mode-rail:has([data-thebe-mode="goal_plan"]:not([hidden])){grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Workspace dock: keep the composer primary; remove preset question tiles only. */
+#thebeAiDock[data-surface="workspace"] .thebe-ai-quick{display:none!important}
+
+/* The workspace root is available before data-surface initialization. */
+body:has(#appShell:not(.hidden):not([style*="display:none"])) #thebeAiDock .thebe-ai-quick{display:none!important}

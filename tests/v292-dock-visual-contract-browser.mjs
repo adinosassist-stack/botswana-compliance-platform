@@ -82,8 +82,8 @@ try{
   assert.equal(desktop.dockColor,'rgb(23, 25, 28)','workspace text contrasts with the light surface');
   for(const item of desktop.hiddenChrome)assert(!item.present||item.display==='none',`${item.selector} must stay visually removed in V292`);
   assert(desktop.quickTotal>=3,'V292 retains at least three useful shortcuts');
-  assert.equal(desktop.quickVisible,3,'collapsed V292 dock exposes exactly three shortcuts');
-  assert.equal(desktop.quickRadius,'999px','V292 shortcuts stay compact pill controls');
+  assert.equal(desktop.quickVisible,0,'workspace dock hides preset question shortcuts');
+  assert.equal(desktop.quickRadius,null,'hidden shortcuts have no visible pill geometry');
   assert.equal(desktop.composeBackground,'rgb(247, 247, 245)','composer retains contrast within the light workspace');
   assert.equal(desktop.composeRadius,'24px','composer keeps GPT-style rounded geometry');
   assert.equal(desktop.composeShadow,'none','composer stays visually flat');
