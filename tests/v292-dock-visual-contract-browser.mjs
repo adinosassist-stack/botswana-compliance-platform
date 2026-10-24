@@ -81,9 +81,9 @@ try{
   assert.equal(desktop.dockBackground,'rgb(255, 255, 255)','workspace uses the current light surface');
   assert.equal(desktop.dockColor,'rgb(23, 25, 28)','workspace text contrasts with the light surface');
   for(const item of desktop.hiddenChrome)assert(!item.present||item.display==='none',`${item.selector} must stay visually removed in V292`);
-  assert(desktop.quickTotal>=3,'V292 retains at least three useful shortcuts');
-  assert.equal(desktop.quickVisible,3,'collapsed V292 dock exposes exactly three shortcuts');
-  assert.equal(desktop.quickRadius,'999px','V292 shortcuts stay compact pill controls');
+  assert.equal(desktop.quickTotal,0,'Minimal dock removes preset question shortcuts');
+  assert.equal(desktop.quickVisible,0,'Minimal dock shows no preset shortcuts');
+  assert.equal(desktop.quickRadius,null,'No preset shortcut pills are rendered');
   assert.equal(desktop.composeBackground,'rgb(247, 247, 245)','composer retains contrast within the light workspace');
   assert.equal(desktop.composeRadius,'24px','composer keeps GPT-style rounded geometry');
   assert.equal(desktop.composeShadow,'none','composer stays visually flat');
@@ -109,8 +109,8 @@ try{
     };
   });
   assert(expanded.expanded,'expanded state remains available');
-  assert(expanded.visible>=desktop.quickVisible,'expansion never removes the primary shortcuts');
-  if(expanded.total>3)assert(expanded.visible>3,'expanded state reveals the secondary shortcuts');
+  assert.equal(expanded.visible,0,'Expanded dock still shows no preset shortcuts');
+  assert.equal(expanded.total,0,'Expanded dock has no preset shortcut elements');
   assert(expanded.composerVisible,'composer remains available when expanded');
 
   await page.setViewportSize({width:390,height:844});
@@ -135,7 +135,7 @@ try{
   assert(mobile.sendWidth>0&&mobile.sendHeight>0,'mobile retains a visible compact send action');
   assert(mobile.hiddenChrome,'mobile also keeps legacy dock chrome hidden');
   assert.deepEqual(errors,[],'V292 visual contract produces no browser errors');
-  console.log('V292_DOCK_VISUAL_CONTRACT_PASS: monochrome shell, hidden legacy chrome, three collapsed shortcuts, GPT-style composer, compact send action, minimal voice visual inside preserved 68px recovery target, mobile parity');
+  console.log('V292_DOCK_VISUAL_CONTRACT_PASS: monochrome shell, hidden legacy chrome, no preset shortcuts, GPT-style composer, compact send action, minimal voice visual inside preserved 68px recovery target, mobile parity');
 }finally{
   await browser.close();
 }

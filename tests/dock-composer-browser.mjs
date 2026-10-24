@@ -44,6 +44,27 @@ try{
     const dock=page.locator('#thebeAiDock'),input=page.locator('#thebeAiDockInput');
     const audio=dock.locator('.thebe-ai-audio'),send=dock.locator('.thebe-ai-send'),plus=dock.locator('.thebe-ai-attach');
     await dock.waitFor({state:'visible'});
+    if(workspace){
+      const title=dock.locator('.thebe-ai-dock-title');
+      await title.waitFor({state:'visible'});
+      await page.waitForFunction(()=>document.getElementById('thebeAiDock')?.dataset.workspaceMoveReady==='true');
+      const original=await dock.boundingBox();
+      assert(original,'Workspace dock has measurable geometry');
+      const titleBox=await title.boundingBox();
+      assert(titleBox,'Dock drag handle is measurable');
+      const start={x:titleBox.x+Math.min(28,titleBox.width/4),y:titleBox.y+titleBox.height/2};
+      await page.mouse.move(start.x,start.y);
+      await page.mouse.down();
+      await page.mouse.move(start.x-110,start.y+65,{steps:8});
+      await page.mouse.up();
+      const moved=await dock.boundingBox();
+      assert(moved&&Math.abs(moved.x-original.x)>30&&Math.abs(moved.y-original.y)>20,'Workspace dock can be dragged in both axes: '+JSON.stringify({original,moved,position:await dock.evaluate(el=>({floating:el.dataset.workspaceFloating,left:el.style.getPropertyValue('--thebe-dock-float-left'),top:el.style.getPropertyValue('--thebe-dock-float-top'),computedLeft:getComputedStyle(el).left,computedTop:getComputedStyle(el).top,moveReady:el.dataset.workspaceMoveReady}))}));
+      const stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('thebe:workspace-dock:position:v1')||'null'));
+      assert(stored&&Number.isFinite(stored.x)&&Number.isFinite(stored.y),'Drag position persists locally');
+      await title.dblclick();
+      assert.equal(await dock.getAttribute('data-workspace-floating'),null,'Double-click restores default dock position');
+      assert.equal(await page.evaluate(()=>localStorage.getItem('thebe:workspace-dock:position:v1')),null,'Reset clears saved dock position');
+    }
     assert(await audio.isVisible(),'idle voice is available');assert(await send.isHidden(),'idle send hidden');
     assert.equal(await plus.isVisible(),workspace,'files restricted to workspace');
     await input.fill('a');assert(await send.isVisible(),'one character offers send');assert(await audio.isHidden());
