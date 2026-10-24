@@ -17,6 +17,8 @@ export function createEmployeeReviewerPermissionEvidence(client) {
         `select 1 from employee_dispatch_reviewer_permission_grants g
          join memberships m
            on m.tenant_id=g.tenant_id and m.user_id=g.reviewer_user_id
+         join memberships issuer
+           on issuer.tenant_id=g.tenant_id and issuer.user_id=g.granted_by_user_id
          join employee_dispatch_proposal_reviews r
            on r.tenant_id=g.tenant_id::text and r.reviewer_id=g.reviewer_user_id::text
          join employee_dispatch_proposal_heads h
@@ -28,12 +30,14 @@ export function createEmployeeReviewerPermissionEvidence(client) {
            and g.permission='people.workflow.approve'
            and g.enabled=true and g.revoked_at is null
            and m.status='active' and m.role in ('owner','manager','reviewer')
+           and issuer.status='active' and issuer.role='owner'
+           and issuer.user_id<>m.user_id
            and r.proposal_id=$3 and r.review_id=$4
            and r.proposal_revision=h.current_revision
            and r.review_sequence=h.last_review_sequence
            and r.decision='approved' and h.revoked=false
            and v.author_id<>r.reviewer_id
-         for share of g,m,h`,
+         for share of g,m,issuer,h`,
         [tenantId, reviewerId, proposalId, reviewId]
       );
       return result.rowCount === 1;
