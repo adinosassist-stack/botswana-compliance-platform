@@ -157,9 +157,15 @@
       console.error("Daily report money extension failed to load",error);
     });
   }
-  if(typeof window.whenThebeWorkspaceReady==="function")window.whenThebeWorkspaceReady(loadReportMoney);
-  else if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",loadReportMoney,{once:true});
-  else loadReportMoney();
+  function loadWhenVisible(){
+    if(document.getElementById("dailyreports")?.classList.contains("active"))loadReportMoney();
+  }
+  window.addEventListener("thebe:workspace-view-change",event=>{
+    if(event.detail?.id==="dailyreports")loadReportMoney();
+  });
+  if(typeof window.whenThebeWorkspaceReady==="function")window.whenThebeWorkspaceReady(loadWhenVisible);
+  else if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",loadWhenVisible,{once:true});
+  else loadWhenVisible();
 })();
 
 (()=>{
@@ -174,9 +180,16 @@
       console.error("Locations & Branches extension failed to load",error);
     });
   }
-  if(typeof window.whenThebeWorkspaceReady==="function")window.whenThebeWorkspaceReady(loadLocationsBranches);
-  else if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",loadLocationsBranches,{once:true});
-  else loadLocationsBranches();
+  function loadWhenVisible(){
+    if(document.getElementById("peopleops")?.classList.contains("active")||
+       document.getElementById("accounthub")?.classList.contains("active"))loadLocationsBranches();
+  }
+  window.addEventListener("thebe:workspace-view-change",event=>{
+    if(["peopleops","accounthub"].includes(String(event.detail?.id||"")))loadLocationsBranches();
+  });
+  if(typeof window.whenThebeWorkspaceReady==="function")window.whenThebeWorkspaceReady(loadWhenVisible);
+  else if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",loadWhenVisible,{once:true});
+  else loadWhenVisible();
 })();
 
 (()=>{
