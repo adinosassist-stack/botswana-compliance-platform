@@ -27,7 +27,8 @@ export function createEmployeeDispatchPostgresApprovalReader(client) {
   async function getLatestReview(tenantId, proposalId) {
     requireLocked(tenantId, proposalId);
     const result = await client.query(
-      `select r.review_id, r.proposal_id, r.tenant_id, r.reviewer_id, r.decision
+      `select r.review_id, r.proposal_id, r.tenant_id, r.reviewer_id, r.decision,
+              count(*) over (partition by r.reviewed_at) as timestamp_peers
        from employee_dispatch_proposal_reviews r
        join employee_dispatch_proposal_heads h
          on h.tenant_id=r.tenant_id and h.proposal_id=r.proposal_id
@@ -37,7 +38,10 @@ export function createEmployeeDispatchPostgresApprovalReader(client) {
       [tenantId, proposalId]
     );
     const row = result.rows?.[0];
-    if (!row) return null;
+    // A timestamp tie cannot establish which review was last. In particular,
+    // do not allow a lexically larger approval ID to outrank a revocation.
+    // Real review ordering needs an authoritative write-side sequence before release.
+    if (!row || Number(row.timestamp_peers) !== 1) return null;
     return {
       id: row.review_id, tenantId: row.tenant_id,
       proposalId: row.proposal_id, reviewerId: row.reviewer_id,
