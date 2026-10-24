@@ -17,6 +17,8 @@ assert.match(script,/\/api\/platform\/regulatory\/foundation-pack\?preflight=1/)
 assert.match(script,/result\?\.readOnly!==true\|\|result\?\.noApprovalOrImport!==true/);
 assert.match(script,/source_metadata_drift_requires_review/);
 assert.match(script,/inspectFoundationPreflight/);
+assert.match(script,/legacyVat\.count/);
+assert.match(script,/Legacy 25-day VAT blocker/);
 assert.doesNotMatch(html,/id="importBtn"/,"reviewer console must not expose an import button");
 
 assert.match(script,/BW\?\.api\?\.createClient/);

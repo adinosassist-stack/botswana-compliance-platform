@@ -148,8 +148,9 @@
   function renderFoundationPreflight(result){
     const plan=result?.preflight;
     if(result?.readOnly!==true||result?.noApprovalOrImport!==true||
-      !plan||!Array.isArray(plan.sources)||!plan.counts)throw new Error("Invalid read-only preflight response.");
-    const counts=plan.counts,summary=byId("preflightSummary"),list=byId("preflightList");
+      !plan||!Array.isArray(plan.sources)||!plan.counts||!result?.legacyVat||
+      !Array.isArray(result.legacyVat.rules)||!Number.isInteger(result.legacyVat.count))throw new Error("Invalid read-only preflight response.");
+    const counts=plan.counts,legacyVat=result.legacyVat,summary=byId("preflightSummary"),list=byId("preflightList");
     if(!summary||!list)throw new Error("Preflight panel is missing.");
     summary.replaceChildren();list.replaceChildren();
     for(const [key,label] of [
@@ -158,8 +159,16 @@
       ["create","New sources"],
       ["reuse","Unchanged sources"]
     ])summary.append(el("span","pill",`${Number(counts[key]||0)} ${label}`));
+    summary.append(el("span","pill",`${legacyVat.count} executable legacy VAT rule blockers`));
     const changed=plan.sources.filter(source=>source.action!=="reuse");
-    if(!changed.length)list.append(el("div","empty","No metadata differences detected. This check does not authorize an import."));
+    if(!changed.length&&!legacyVat.count)list.append(el("div","empty","No metadata differences detected. This check does not authorize an import."));
+    for(const rule of legacyVat.rules){
+      const row=el("div","preflight-row"),left=el("div");
+      left.append(el("div","title",String(rule.ruleKey||"Legacy VAT rule")));
+      left.append(el("div","meta",`Existing ${rule.status} rule · effective-to ${rule.effectiveTo||"unset"} · requires independent governed disposition before importing v1.8`));
+      row.append(left,el("span","pill","Legacy 25-day VAT blocker"));
+      list.append(row);
+    }
     for(const source of changed){
       const row=el("div","preflight-row"),left=el("div");
       left.append(el("div","title",String(source.key||"Unknown source")));
@@ -175,11 +184,13 @@
       list.append(row);
     }
     summary.hidden=false;list.hidden=false;
-    const blocked=Number(counts.source_metadata_drift_requires_review||0);
+    const blocked=Number(counts.source_metadata_drift_requires_review||0),vatBlocked=legacyVat.count;
     const status=byId("preflightStatus");
     if(status){
-      status.className=`preflight-banner ${blocked?"warning":"safe"}`;
-      status.textContent=blocked
+      status.className=`preflight-banner ${blocked||vatBlocked?"warning":"safe"}`;
+      status.textContent=vatBlocked
+        ?`${vatBlocked} approved/published legacy 25-day VAT rule(s) require governed review. Import is blocked; no data was changed.`
+        :blocked
         ?`${blocked} source(s) require manual evidence reconciliation. The governed import is blocked; no data was changed.`
         :"Read-only inspection complete. No evidence changed. Any actual import still requires separate authorised review and staging qualification.";
     }

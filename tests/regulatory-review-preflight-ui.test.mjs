@@ -50,6 +50,7 @@ async function boot(h){
 }
 const sample={
   readOnly:true,noApprovalOrImport:true,
+  legacyVat:{ok:true,count:0,rules:[]},
   preflight:{
     ok:false,version:"1.8",counts:{source_metadata_drift_requires_review:1,refresh_unreviewed:1,create:1,reuse:21},
     sources:[
@@ -72,7 +73,7 @@ test("reviewer inspects protected drift in read-only mode without API mutation",
   const later=h.requests.slice(before);
   assert.deepEqual(later,[{path:"/api/platform/regulatory/foundation-pack?preflight=1",method:"GET"}]);
   assert.match(h.byId("preflightStatus").textContent,/1 source\(s\) require manual evidence reconciliation/);
-  assert.equal(h.byId("preflightSummary").children.length,4);
+  assert.equal(h.byId("preflightSummary").children.length,5);
   assert.equal(h.byId("preflightList").children.length,3);
   assert.ok(h.byId("preflightList").children[0].children[0].children[0].textContent.includes("legacy-egp"));
   assert.ok(h.requests.every(x=>x.method==="GET"));
@@ -97,5 +98,19 @@ test("clean preflight does not suggest approval or import",async()=>{
   await h.byId("preflightBtn").trigger("click");
   assert.match(h.byId("preflightStatus").textContent,/Any actual import still requires separate authorised review/);
   assert.match(h.byId("preflightList").children[0].textContent,/does not authorize an import/);
+  assert.ok(h.requests.every(x=>x.method==="GET"));
+});
+
+test("existing published 25-day VAT rule appears as a blocker with no action",async()=>{
+  const result=structuredClone(sample);
+  result.preflight.ok=true;
+  result.preflight.counts={source_metadata_drift_requires_review:0,refresh_unreviewed:0,create:0,reuse:24};
+  result.preflight.sources=[];
+  result.legacyVat={ok:false,count:1,rules:[{ruleId:"old-vat-1",ruleKey:"bw.burs.vat.return-payment.25-days",status:"published",effectiveTo:null}]};
+  const h=harness(result);await boot(h);
+  await h.byId("preflightBtn").trigger("click");
+  assert.match(h.byId("preflightStatus").textContent,/1 approved\/published legacy 25-day VAT rule/);
+  assert.match(h.byId("preflightList").children[0].children[1].textContent,/Legacy 25-day VAT blocker/);
+  assert.equal(h.byId("preflightSummary").children.length,5);
   assert.ok(h.requests.every(x=>x.method==="GET"));
 });
