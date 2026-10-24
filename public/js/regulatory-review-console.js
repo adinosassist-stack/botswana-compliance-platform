@@ -139,6 +139,69 @@
     });
   }
 
+  const PREFLIGHT_LABELS={
+    create:"New pending source",
+    reuse:"Unchanged",
+    refresh_unreviewed:"Eligible for guarded metadata correction",
+    source_metadata_drift_requires_review:"Evidence review required"
+  };
+  function renderFoundationPreflight(result){
+    const plan=result?.preflight;
+    if(result?.readOnly!==true||result?.noApprovalOrImport!==true||
+      !plan||!Array.isArray(plan.sources)||!plan.counts)throw new Error("Invalid read-only preflight response.");
+    const counts=plan.counts,summary=byId("preflightSummary"),list=byId("preflightList");
+    if(!summary||!list)throw new Error("Preflight panel is missing.");
+    summary.replaceChildren();list.replaceChildren();
+    for(const [key,label] of [
+      ["source_metadata_drift_requires_review","Reviewer-required drift"],
+      ["refresh_unreviewed","Unreviewed corrections"],
+      ["create","New sources"],
+      ["reuse","Unchanged sources"]
+    ])summary.append(el("span","pill",`${Number(counts[key]||0)} ${label}`));
+    const changed=plan.sources.filter(source=>source.action!=="reuse");
+    if(!changed.length)list.append(el("div","empty","No metadata differences detected. This check does not authorize an import."));
+    for(const source of changed){
+      const row=el("div","preflight-row"),left=el("div");
+      left.append(el("div","title",String(source.key||"Unknown source")));
+      const details=[
+        source.changedFields?.length?`Fields: ${source.changedFields.join(", ")}`:"No existing source record",
+        `Status: ${source.status||"new"}`,
+        `Verification: ${source.verificationStatus||"not captured"}`,
+        `Snapshots: ${Number(source.snapshotCount||0)}`,
+        `Reviews: ${Number(source.reviewCount||0)}`
+      ];
+      left.append(el("div","meta",details.join(" · ")));
+      row.append(left,el("span","pill",PREFLIGHT_LABELS[source.action]||"Unknown disposition"));
+      list.append(row);
+    }
+    summary.hidden=false;list.hidden=false;
+    const blocked=Number(counts.source_metadata_drift_requires_review||0);
+    const status=byId("preflightStatus");
+    if(status){
+      status.className=`preflight-banner ${blocked?"warning":"safe"}`;
+      status.textContent=blocked
+        ?`${blocked} source(s) require manual evidence reconciliation. The governed import is blocked; no data was changed.`
+        :"Read-only inspection complete. No evidence changed. Any actual import still requires separate authorised review and staging qualification.";
+    }
+  }
+  async function inspectFoundationPreflight(button){
+    if(busy)return;
+    busy=true;const root=byId("reviewConsole"),status=byId("preflightStatus");
+    root?.classList.add("loading");
+    const original=button?.textContent||"";
+    if(button){button.disabled=true;button.textContent="Checking…"}
+    if(status){status.className="meta";status.textContent="Inspecting source metadata without writing records…"}
+    try{
+      const result=await api("/api/platform/regulatory/foundation-pack?preflight=1");
+      renderFoundationPreflight(result);
+    }catch(error){
+      if(status){status.className="preflight-banner warning";status.textContent=`Preflight unavailable: ${clientErrorMessage(error)}. No import has been initiated.`}
+    }finally{
+      busy=false;root?.classList.remove("loading");
+      if(button){button.disabled=false;button.textContent=original}
+    }
+  }
+
   function renderReadiness(data){
     readiness=data||{};
     text(byId("principalCount"),readiness.principals?.active||0);
@@ -171,6 +234,7 @@
       if(!ALLOWED_PLATFORM_ROLES.has(platformRole)){setNotice("This signed-in account is not provisioned for platform regulatory governance.","bad");return}
       setNotice(`Governed platform role: ${platformRole.toUpperCase()}. Server-side maker/checker controls are active.`,"good");
       byId("refreshBtn")?.addEventListener("click",()=>governedAction(byId("refreshBtn"),refresh));
+      byId("preflightBtn")?.addEventListener("click",()=>inspectFoundationPreflight(byId("preflightBtn")));
       await refresh();
     }catch(error){
       if(String(error?.code||"")==="unauthenticated"||Number(error?.status||0)===401){redirectToLogin();return}
