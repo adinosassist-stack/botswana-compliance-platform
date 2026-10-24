@@ -6175,6 +6175,9 @@ export default {
         const sourceIds=safeJson(row.source_ids_json,[]),av=validateApplicabilityDefinition(safeJson(row.applicability_json,{}));if(!av.ok)return json(av,409);
         const actionDef=safeJson(row.action_json,{}),xv=validateRuleActionDefinition(actionDef);if(!xv.ok)return json(xv,409);
         if(["approved","published"].includes(next)){
+          const legacyVatDeadline=String(row.rule_key||"")==="bw.burs.vat.return-payment.25-days"||(String(actionDef.operationalization||"")==="vat_category_period"&&Number(actionDef.dueDaysAfterPeriodEnd)===25);
+          const coversCurrentVatPeriods=!row.effective_to||String(row.effective_to).slice(0,10)>="2026-07-01";
+          if(legacyVatDeadline&&coversCurrentVatPeriods)return json({error:"vat_2026_legacy_deadline_blocked",requiredSource:"burs-vat-act-2026"},409);
           const readiness=ruleOperationalizationReady(actionDef);if(!readiness.ok)return json(readiness,409);
           const integrity=await executableRuleIntegrityReady(env,row,sourceIds);if(!integrity.ok)return json(integrity,409);
           const conflict=await openConflictForSources(env,sourceIds);if(conflict)return json({error:"open_source_conflict",conflictId:conflict.id,topicKey:conflict.topic_key},409);
