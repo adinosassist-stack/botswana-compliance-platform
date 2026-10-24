@@ -29,7 +29,7 @@ test("read-only DB query surfaces active legacy rules without mutation",async()=
     stmt.run("one","bw.burs.vat.return-payment.25-days","approved",null,"{}",1);
     stmt.run("two","bw.burs.vat.return-payment.25-days","published","2026-06-30","{}",2);
     stmt.run("three","bw.burs.vat.return-payment.28-days","draft",null,"{}",1);
-    const db={prepare:sql=>({bind:(...args)=>({all:async()=>({results:sqlite.prepare(sql).all(...args)})})})};
+    const db={prepare:sql=>({all:async()=>({results:sqlite.prepare(sql).all()}),bind:(...args)=>({all:async()=>({results:sqlite.prepare(sql).all(...args)})})})};
     const before=sqlite.prepare("SELECT total_changes() count").get().count;
     const result=await inspectActiveLegacyVatRules(db);
     assert.equal(result.ok,false);
