@@ -50,3 +50,25 @@ test("invalid dependencies and callback fail closed", async () => {
   await assert.rejects(store.transaction(null), /invalid_transaction_callback/);
   assert.deepEqual(pool.calls, []);
 });
+
+test("BEGIN failure does not invoke adapter and releases client", async () => {
+  const calls = [];
+  let adapterCalls = 0;
+  const pool = { async connect() { return {
+    async query(sql) { calls.push(sql); if (sql === "BEGIN") throw Error("begin_failed"); },
+    release() { calls.push("RELEASE"); }
+  }; } };
+  const store = createEmployeeDispatchPostgresTransactionStore(pool, async () => { adapterCalls++; return {}; });
+  await assert.rejects(store.transaction(() => true), /begin_failed/);
+  assert.equal(adapterCalls, 0);
+  assert.deepEqual(calls, ["BEGIN", "RELEASE"]);
+});
+
+test("adapter factory failure rolls back and never runs callback", async () => {
+  const pool = fakePool();
+  let callbackCalls = 0;
+  const store = createEmployeeDispatchPostgresTransactionStore(pool, async () => { throw Error("adapter_failed"); });
+  await assert.rejects(store.transaction(() => { callbackCalls++; }), /adapter_failed/);
+  assert.equal(callbackCalls, 0);
+  assert.deepEqual(pool.calls, ["BEGIN", "ROLLBACK", "RELEASE"]);
+});
