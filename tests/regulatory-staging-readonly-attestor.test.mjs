@@ -97,7 +97,7 @@ test("approved evidence drift and live legacy VAT rules become blockers without 
   assert.equal(report.legacyVat.rules[0].ruleKey,legacyRule.rule_key);
   assert.ok(fake.calls.every(c=>!["PATCH","PUT","DELETE"].includes(c.method)));
   assert.equal(report.legacyVatObligationInventory[0].affected_tenants,2);
-  assert.ok(!JSON.stringify(report).includes("source-existing-1"),"source IDs must be limited to governing source preflight");
+  assert.ok(!JSON.stringify(report).includes("sensitive@example.test"),"attestation must never expose a tenant email");
 });
 
 test("target must be a separate named staging database before any remote query",async()=>{
