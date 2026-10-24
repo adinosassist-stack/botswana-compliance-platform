@@ -13,6 +13,10 @@ const worker=fs.readFileSync(new URL("../cloudflare/src/worker.js",import.meta.u
 assert.match(worker,/if\(!Number\.isInteger\(Number\(action\.dueDaysAfterPeriodEnd\)\)\|\|Number\(action\.dueDaysAfterPeriodEnd\)<1\)return out;/);
 assert.ok(!worker.includes("action.dueDaysAfterPeriodEnd||25"),"VAT scheduler must not silently default to legacy 25 days");
 assert.ok(worker.includes('missing.push("dueDaysAfterPeriodEnd")'),"missing VAT period deadline must surface as needs_input");
+assert.match(worker,/legacyVatDeadline=String\(row\.rule_key\|\|""\)==="bw\.burs\.vat\.return-payment\.25-days"/);
+assert.match(worker,/coversCurrentVatPeriods=!row\.effective_to\|\|String\(row\.effective_to\)\.slice\(0,10\)>="2026-07-01"/);
+assert.match(worker,/if\(legacyVatDeadline&&coversCurrentVatPeriods\)return json\(\{error:"vat_2026_legacy_deadline_blocked"/);
+assert.ok(worker.includes('if(["approved","published"].includes(next)){'),"legacy VAT guard must be inside governed approval/publication path");
 const source=key=>seed.sources.find(item=>item.key===key);
 const rule=key=>seed.rules.find(item=>item.key===key);
 
