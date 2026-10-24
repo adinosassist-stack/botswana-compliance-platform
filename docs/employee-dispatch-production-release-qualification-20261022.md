@@ -7,6 +7,11 @@ Status: **NOT RELEASE AUTHORIZED**. Documentation-only checklist. No feature act
 - At preparation time `release/production.json` records sequence **564**, source SHA `1fd70f3bca897ae1e14e721eb4d5a00fc82eb0fe`. This manifest is not evidence of a live deployment.
 - `docs/employee-workflow-dispatcher-contract.md` explicitly says design-only/default-off. The SQLite draft is **not** a production migration or production execution adapter.
 
+## Latest branch qualification — 24 October 2026
+- PR #1744 commit `3f5e1ecdb02ea058e9557588d87c1ec557c83839`: all nine reported GitHub Actions workflows passed, including Recovery CI, Audit remediation CI, and Employee Dispatcher Admission Tests.
+- Patched production dependencies on this branch: Zod 4.6.7 and ip-address 10.7.4. This clears the previously reported dependency-audit failure; it does not establish production database, worker, or release readiness.
+- Outstanding hold points 1–9 below remain applicable. This branch stays draft, default-off, and not authorized for deployment or activation.
+
 ## Non-negotiable hold points
 1. Confirm a production-compatible tenant-scoped storage adapter with transactional approval/proposal freshness, idempotency lock, intent and immutable audit persistence. Prove actual deployed database transaction semantics rather than relying on SQLite reference tests.
 2. Review a real migration plan for existing production databases: backup, forward migration, rollback/recovery, tenant isolation and audit integrity. Never run the draft CREATE TABLE script as an upgrade.

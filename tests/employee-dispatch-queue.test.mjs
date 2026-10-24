@@ -26,7 +26,7 @@ function store({ auditFails = false, savedProposal = proposal, savedReview = rev
           if (previous) return { status: "existing", sameIntent: JSON.stringify(previous) === JSON.stringify(intent) };
           staged.push({ key, intent }); return { status: "created" };
         },
-        async appendAudit(event) { if (auditFails) throw Error("audit failure"); logs.push(event); }
+        async appendAudit(event) { if (auditFails) throw Error("audit failure"); logs.push(event); return true; }
       });
       for (const item of staged) intents.set(item.key, item.intent);
       audit.push(...logs);
@@ -233,3 +233,41 @@ for (const [capability, reason] of [
     }
   });
 }
+
+test("unconfirmed audit write cannot commit a dispatch intent", async () => {
+  for (const value of [undefined, false, null, 1, "true"]) {
+    const s = store();
+    const original = s.transaction;
+    s.transaction = fn => original.call(s, tx => fn({
+      ...tx, appendAudit: async () => value
+    }));
+    assert.equal((await queueEmployeeDispatch({ ...request, store: s })).reason, "governance_unavailable");
+    assert.equal(s.intents.size, 0);
+    assert.equal(s.audit.length, 0);
+  }
+});
+
+test("dispatch rejects approval from another proposal or tenant without persisting an intent", async () => {
+  for (const savedReview of [
+    { ...review, proposalId: "other-proposal" },
+    { ...review, tenantId: "other-tenant" },
+    { ...review, status: "revoked" },
+    { ...review, reviewerId: identity.actorId }
+  ]) {
+    const s = store({ savedReview });
+    const result = await queueEmployeeDispatch({ ...request, store: s });
+    assert.equal(result.queued, false);
+    assert.equal(result.reason, "approval_required");
+    assert.equal(s.intents.size, 0);
+    assert.equal(s.audit.length, 0);
+  }
+});
+
+test("dispatch rejects a different action than the approved proposal", async () => {
+  const s = store();
+  const result = await queueEmployeeDispatch({ ...request, action: "internal.report.draft", store: s });
+  assert.equal(result.queued, false);
+  assert.equal(result.reason, "proposal_scope_mismatch");
+  assert.equal(s.intents.size, 0);
+  assert.equal(s.audit.length, 0);
+});

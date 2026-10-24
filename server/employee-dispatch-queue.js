@@ -60,11 +60,13 @@ export async function queueEmployeeDispatch({
       if (result.status === "existing" && result.sameIntent !== true) {
         return { queued: false, reason: "idempotency_conflict" };
       }
-      await tx.appendAudit({
+      const auditWritten = await tx.appendAudit({
         type: "employee.dispatch.admitted", tenantId: identity.tenantId,
         actorId: identity.actorId, proposalId, reviewId: review.id,
         action, idempotencyKey, created: result.status === "created"
       });
+      // A storage adapter must explicitly acknowledge durable audit persistence.
+      if (auditWritten !== true) throw Error("dispatch_audit_unconfirmed");
       return { queued: result.status === "created", reason: result.status === "created" ? "intent_created" : "already_queued" };
     });
   } catch {

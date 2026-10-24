@@ -112,3 +112,17 @@ test("report-draft worker accepts only the report execution category", () => {
   assert.equal(wrongCategory.allowed, false);
   assert.equal(wrongCategory.reason, "intent_type_mismatch");
 });
+
+test("worker denies stale or cross-scope persisted records", () => {
+  const variants = [
+    { review: { ...review, proposalId: "different" } },
+    { review: { ...review, tenantId: "different" } },
+    { review: { ...review, status: "revoked" } },
+    { proposal: { ...proposal, tenantId: "different" } },
+    { proposal: { ...proposal, action: "internal.report.draft" } },
+    { intent: { ...intent, proposalId: "different" } }
+  ];
+  for (const variant of variants) {
+    assert.equal(evaluateEmployeeWorker({ ...base, ...variant }).allowed, false);
+  }
+});
