@@ -340,7 +340,7 @@
 #propertyintelligence.property-compact-v260 .property-ops-readiness-v262 span {
   font-size: 11px;
   line-height: 1.4;
-  color: #e2ebf6;
+  color: #e2ebf6!important;
 }
 #propertyintelligence.property-compact-v260 .property-operations-v262 button:focus-visible {
   outline: 3px solid var(--property-accent);

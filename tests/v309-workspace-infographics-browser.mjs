@@ -38,6 +38,12 @@ try{
   }
   const before=await page.locator('#calculator').evaluate(el=>el.getBoundingClientRect().toJSON());
   await page.addStyleTag({content:newStyles});
+  await page.locator('.property-operations-v262').evaluate(panel=>{
+    const readiness=document.createElement('div');readiness.className='property-ops-readiness-v262';
+    const label=document.createElement('span');label.textContent='Operational setup readiness';
+    readiness.append(label);panel.append(readiness);
+  });
+  assert.equal(await page.locator('.property-ops-readiness-v262>span').evaluate(el=>getComputedStyle(el).color),'rgb(226, 235, 246)','readiness label contrasts with its navy panel');
   await page.addScriptTag({path:'public/js/workspace-infographics-v309.js'});
   assert.equal(await page.locator('.workspace-info-ring-v309 .value').getAttribute('stroke-dasharray'),'67 100','Property readiness uses a true SVG arc, without a gradient');
   assert.equal(await page.locator('.property-ops-ring-v262').getAttribute('aria-label'),'Operational setup readiness: 67 percent');
