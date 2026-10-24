@@ -22,7 +22,13 @@ function fixture(){
     bind(...values){this.values=values;return this;}
     first(){return db.prepare(this.sql).get(...this.values)||null;}
     all(){return {results:db.prepare(this.sql).all(...this.values)};}
-    run(){return {meta:{changes:Number(db.prepare(this.sql).run(...this.values).changes)}};}
+    run(){
+      if(/\bRETURNING\b/i.test(this.sql)){
+        const results=db.prepare(this.sql).all(...this.values).map(row=>({...row}));
+        return {results,meta:{changes:Number(db.prepare('SELECT changes() n').get().n)}};
+      }
+      return {meta:{changes:Number(db.prepare(this.sql).run(...this.values).changes)}};
+    }
   }
   const env={SESSION_SECRET:secret,PUBLIC_ORIGIN:'https://thebe.test',THEBE_INTERNAL_AUTONOMY_ENABLED:'true',AGENT_BOUNDED_TASK_EXECUTION_MODE:'owner_bounded',DB:{prepare:sql=>new Statement(sql),batch(statements){beforeBatch?.(statements);db.exec('BEGIN IMMEDIATE');try{const r=statements.map(s=>s.run());db.exec('COMMIT');return r;}catch(e){db.exec('ROLLBACK');throw e;}}}};
   const policyBody={scopes:['tasks','drafts','records'],delegationId:'delegation-a',taskTemplate:{title:'Review the operations evidence report',description:'Check the observed figures before taking further action.',priority:2},expiresAt:new Date(Date.now()+7*86400000).toISOString(),intervalHours:24,maxDailyRuns:5};
