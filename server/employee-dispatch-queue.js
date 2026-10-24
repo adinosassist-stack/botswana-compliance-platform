@@ -14,12 +14,11 @@ export async function queueEmployeeDispatch({
       typeof proposalId !== "string" || !proposalId.trim()) {
     return { queued: false, reason: "invalid_request" };
   }
-  // Reject malformed caller input before acquiring a connection or transaction.
-  // Governance remains default-off; these checks do not grant execution rights.
-  if (typeof identity?.tenantId !== "string" || !identity.tenantId.trim() ||
-      typeof identity?.actorId !== "string" || !identity.actorId.trim() ||
-      typeof idempotencyKey !== "string" || !idempotencyKey.trim() ||
-      idempotencyKey.length > 200) {
+  // Apply the same ID shape constraints as admission before acquiring a DB transaction.
+  const validId = value => typeof value === "string" && value.length > 0 &&
+    value.length <= 200 && /^[a-zA-Z0-9_:.-]+$/.test(value);
+  if (!validId(identity?.tenantId) || !validId(identity?.actorId) ||
+      !validId(proposalId) || !validId(idempotencyKey)) {
     return { queued: false, reason: "invalid_request" };
   }
   if (featureEnabled !== true || killSwitch !== false || auditAvailable !== true) {

@@ -289,3 +289,19 @@ test("invalid request does not start database transaction", async () => {
     assert.equal(transactionCount, 0);
   }
 });
+
+test("malformed identifier characters are denied without opening a transaction", async () => {
+  for (const override of [
+    { identity: { ...identity, tenantId: "tenant with spaces" } },
+    { identity: { ...identity, actorId: "actor/other" } },
+    { proposalId: "proposal\\nother" },
+    { idempotencyKey: "key/other" }
+  ]) {
+    let transactions = 0;
+    const s = store();
+    s.transaction = async () => { transactions++; throw Error("unexpected_transaction"); };
+    const result = await queueEmployeeDispatch({ ...request, ...override, store: s });
+    assert.equal(result.reason, "invalid_request");
+    assert.equal(transactions, 0);
+  }
+});
