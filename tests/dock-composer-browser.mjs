@@ -44,6 +44,12 @@ try{
     const dock=page.locator('#thebeAiDock'),input=page.locator('#thebeAiDockInput');
     const audio=dock.locator('.thebe-ai-audio'),send=dock.locator('.thebe-ai-send'),plus=dock.locator('.thebe-ai-attach');
     await dock.waitFor({state:'visible'});
+    if(!workspace)assert(await dock.locator('.thebe-ai-quick').isVisible(),'public shortcuts remain available');
+    if(workspace){
+      const presets=dock.locator('.thebe-ai-quick');
+      assert.equal(await presets.isVisible(),false,'workspace dock must not show preset question tiles');
+      assert(await input.isVisible(),'workspace composer remains available without presets');
+    }
     assert(await audio.isVisible(),'idle voice is available');assert(await send.isHidden(),'idle send hidden');
     assert.equal(await plus.isVisible(),workspace,'files restricted to workspace');
     await input.fill('a');assert(await send.isVisible(),'one character offers send');assert(await audio.isHidden());
@@ -95,6 +101,7 @@ try{
       await dock.locator('input[type=file]').setInputFiles(file);
       await page.evaluate(()=>{document.querySelector('#appShell').style.display='none';document.querySelector('#marketingGate').style.display='block';document.querySelector('#marketingGate').classList.remove('hidden')});
       await page.waitForFunction(()=>!window.ThebeAiDock.state().workspaceVisible);
+      assert(await dock.locator('.thebe-ai-quick').isVisible(),'public shortcuts return after workspace exit');
       assert(await dock.locator('.thebe-ai-attachments').isHidden(),'leaving workspace clears files');assert(await plus.isHidden());
       await page.evaluate(()=>{document.querySelector('#appShell').style.display='';document.querySelector('#marketingGate').style.display='none';document.querySelector('#marketingGate').classList.add('hidden')});
       await page.waitForFunction(()=>window.ThebeAiDock.state().workspaceVisible);

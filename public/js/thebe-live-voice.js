@@ -721,7 +721,7 @@
     if(workspace&&!mobile)setCriticalStyle(orbButton,{"width":"82px","min-width":"82px","max-width":"82px","height":"82px","min-height":"82px","max-height":"82px","box-sizing":"border-box","flex":"0 0 82px"});
     setCriticalStyle(voiceMount,{"grid-column":"1 / -1","display":"grid","width":"100%","min-width":"0","grid-template-columns":"minmax(0,1fr) auto","gap":"7px"});
     setCriticalStyle(mission,{"grid-column":"1 / -1","width":"100%","min-width":"0","box-sizing":"border-box"});
-    setCriticalStyle(quick,{"display":"grid","width":"100%","min-width":"0","grid-template-columns":"repeat(3,minmax(0,1fr))","gap":"7px"});
+    setCriticalStyle(quick,{"display":workspace?"none":"grid","width":"100%","min-width":"0","grid-template-columns":"repeat(3,minmax(0,1fr))","gap":"7px"});
     setCriticalStyle(responseBox,{"width":"100%","min-width":"0","box-sizing":"border-box","padding":"13px 14px","border":"1px solid rgba(125,180,255,.16)","border-radius":"15px","background":"#0a1928","color":"#edf7ff"});
     setCriticalStyle(compose,{"display":"flex","flex":"0 0 auto","align-self":"stretch","width":"auto","min-width":"0","box-sizing":"border-box","align-items":"flex-end","gap":"8px","margin":"0 14px 10px","padding":"8px","border":"1px solid rgba(125,180,255,.20)","border-radius":"16px","background":"#0b1b2a"});
     setCriticalStyle(composeBody,{"flex":"1 1 auto","min-width":"0"});
@@ -1416,6 +1416,17 @@
   }
   function renderQuickActions(surface){
     if(!quick)return;
+    const workspace=surface==="workspace";
+    if(quick.hidden!==workspace)quick.hidden=workspace;
+    if(workspace){
+      if(quick.dataset.mode!=="workspace-empty"){
+        quick.dataset.mode="workspace-empty";
+        quick.replaceChildren();
+      }
+      if(quick.style.getPropertyValue("display")!=="none"||quick.style.getPropertyPriority("display")!=="important")quick.style.setProperty("display","none","important");
+      return;
+    }
+    quick.style.removeProperty("display");
     const context=activeContext();
     syncMascotContext(context);
     const mode=surface==="public"?"public":context.id+":"+context.title+":"+assistantMode;

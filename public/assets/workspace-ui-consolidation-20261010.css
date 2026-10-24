@@ -374,3 +374,24 @@ body.thebe-ai-dock-open #appShell .thebe-agent-launcher{display:none!important}
 @media(max-width:650px){
   #appShell :is(.hub-card,.outcome-card) .actions>.btn{flex:1 1 100%!important}
 }
+/* Compact operational hierarchy: preserve all explanatory content and controls,
+   but reduce visual dominance of supporting copy. No DOM or visibility changes. */
+#appShell .view.active :is(.section-eyebrow,.kpi){
+  font-size:11px!important;
+  letter-spacing:0!important;
+}
+#appShell .view.active :is(.small,.muted.small){
+  font-size:12.5px!important;
+  line-height:1.4!important;
+}
+#appShell .view.active .card{
+  padding:15px!important;
+}
+#appShell .view.active .formgrid{
+  gap:9px!important;
+}
+@media (max-width:767px){
+  #appShell .view.active .card{padding:13px!important}
+  #appShell .view.active :is(.small,.muted.small){font-size:13px!important}
+  #appShell .home-thebe-agent-quick .btn{min-height:44px!important}
+}

@@ -1,0 +1,44 @@
+name: Workspace UI batch
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'public/assets/workspace-ui-consolidation-20261010.css'
+      - 'public/assets/property-solid-surfaces-v312.css'
+      - 'public/assets/thebe-ai-dock.css'
+      - 'public/js/workspace-infographics-v309.js'
+      - 'public/js/thebe-live-voice.js'
+      - 'tests/v309-workspace-infographics-browser.mjs'
+      - 'tests/v314-workspace-mobile-readability-browser.mjs'
+      - 'tests/dock-composer-browser.mjs'
+      - 'tests/v292-dock-visual-contract-browser.mjs'
+      - '.github/workflows/workspace-ui-batch.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  workspace-ui:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+      - name: Verify navigation and Property contracts
+        run: |
+          node --check public/js/thebe-live-voice.js
+          node --check public/js/workspace-infographics-v309.js
+          npm run test:workspace-navigation-performance
+          node tests/v312-property-solid-surfaces.mjs
+      - name: Install pinned browser driver
+        run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+      - name: Verify integrated desktop and mobile behavior
+        run: |
+          node tests/dock-composer-browser.mjs
+          node tests/v292-dock-visual-contract-browser.mjs
+          node tests/v309-workspace-infographics-browser.mjs
+          node tests/v314-workspace-mobile-readability-browser.mjs
