@@ -158,6 +158,7 @@
     });
   }
   function loadWhenVisible(){
+    if(typeof document==="undefined")return;
     if(document.getElementById("dailyreports")?.classList.contains("active"))loadReportMoney();
   }
   window.addEventListener("thebe:workspace-view-change",event=>{
@@ -181,6 +182,7 @@
     });
   }
   function loadWhenVisible(){
+    if(typeof document==="undefined")return;
     if(document.getElementById("peopleops")?.classList.contains("active")||
        document.getElementById("accounthub")?.classList.contains("active"))loadLocationsBranches();
   }
