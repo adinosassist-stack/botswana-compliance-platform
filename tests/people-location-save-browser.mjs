@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {chromium} from 'playwright-core';
+import {provePeopleLocationNetworkRecovery} from '../scripts/people-location-network-recovery-proof.mjs';
 
 // Isolated DOM/HTTP boundary test: production People markup and save/decorator code.
 // This does not qualify tenant authorization, plan enforcement, or the live backend.
@@ -42,6 +43,7 @@ try{
   await page.locator('#opsLocationName').fill('Maun Office');
   await page.locator('#opsLocationCode').fill('MAU');
   await page.locator('#opsLocationTown').fill('Maun');
+  await provePeopleLocationNetworkRecovery(page,{timeoutMs:15000});
   for(const failure of ['network','limit','duplicate']){
    mode=failure;await button.click();
    await page.waitForFunction(()=>document.querySelector('#opsLocationStatus')?.dataset.state==='error'&&!document.querySelector('[data-bw-onclick="addOpsLocation()"]').disabled);
