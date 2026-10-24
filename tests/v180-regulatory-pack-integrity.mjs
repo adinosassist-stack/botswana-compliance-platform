@@ -21,7 +21,7 @@ const agenticEntry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
 const contentHash=crypto.createHash("sha256").update(JSON.stringify(source)).digest("hex");
 const allowedConfidence=new Set(["low","medium","high"]);
 
-assert.equal(source.version,"1.7");
+assert.equal(source.version,"1.8");
 assert.deepEqual(BOTSWANA_FOUNDATION_PACK_V1,source);
 assert.equal(BOTSWANA_FOUNDATION_PACK_V1_HASH,contentHash);
 assert.equal(meta.importIdentityHash,contentHash);
