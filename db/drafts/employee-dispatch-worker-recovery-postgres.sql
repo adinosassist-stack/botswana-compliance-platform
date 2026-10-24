@@ -65,29 +65,90 @@ create trigger employee_dispatch_worker_event_immutable
   before update or delete on employee_dispatch_worker_events
   for each row execute function employee_dispatch_reject_worker_event_mutation();
 
--- A worker claim must be paired with a recorded immutable claim event in the
--- SAME database transaction. The operator never relies on timestamps alone.
-create function employee_dispatch_require_worker_claim_event()
+-- State-machine integrity prevents terminal state resurrection, token reuse,
+-- direct attempts changes and deletion. Privileged writers remain untrusted
+-- in the absence of production DB access and identity controls.
+create function employee_dispatch_guard_worker_transition()
 returns trigger language plpgsql as $employee_worker$
 begin
+  if old.state in ('qualified','dead_letter') then
+    raise exception 'terminal_worker_claim_immutable' using errcode='23514';
+  end if;
+  if old.tenant_id <> new.tenant_id or old.intent_id <> new.intent_id
+     or old.max_attempts <> new.max_attempts then
+    raise exception 'worker_claim_identity_immutable' using errcode='23514';
+  end if;
+  if old.state='pending' and
+     not (new.state='leased' and new.attempts=old.attempts+1) then
+    raise exception 'invalid_worker_pending_transition' using errcode='23514';
+  end if;
+  if old.state='leased' and
+     not ((new.state='leased' and old.lease_expires_at<=now()
+           and new.attempts=old.attempts+1 and new.lease_token<>old.lease_token)
+       or (new.state in ('pending','qualified','dead_letter')
+           and new.attempts=old.attempts)) then
+    raise exception 'invalid_worker_leased_transition' using errcode='23514';
+  end if;
+  return new;
+end;
+$employee_worker$;
+create trigger employee_dispatch_worker_transition_guard
+  before update on employee_dispatch_worker_claims
+  for each row execute function employee_dispatch_guard_worker_transition();
+
+create function employee_dispatch_no_worker_claim_delete()
+returns trigger language plpgsql as $employee_worker$
+begin
+  raise exception 'employee_worker_claim_immutable' using errcode='23514';
+end;
+$employee_worker$;
+create trigger employee_dispatch_worker_claim_no_delete
+  before delete on employee_dispatch_worker_claims
+  for each row execute function employee_dispatch_no_worker_claim_delete();
+
+-- ALL transitions must pair with immutable events in the same transaction.
+-- An expired lease is fenced by a new randomly generated lease UUID.
+create function employee_dispatch_require_worker_transition_event()
+returns trigger language plpgsql as $employee_worker$
+declare
+  type_required text;
+  token_required uuid;
+  attempt_required integer;
+begin
+  if new.state='leased' then
+    type_required:='claimed';
+    token_required:=new.lease_token;
+    attempt_required:=new.attempts;
+  elsif new.state='pending' then
+    type_required:='retried';
+    token_required:=old.lease_token;
+    attempt_required:=old.attempts;
+  elsif new.state='qualified' then
+    type_required:='qualified';
+    token_required:=old.lease_token;
+    attempt_required:=old.attempts;
+  else
+    type_required:='dead_lettered';
+    token_required:=old.lease_token;
+    attempt_required:=old.attempts;
+  end if;
   if not exists (
     select 1 from employee_dispatch_worker_events e
      where e.tenant_id=new.tenant_id and e.intent_id=new.intent_id
-       and e.attempt=new.attempts and e.lease_token=new.lease_token
-       and e.event_type='claimed'
+       and e.attempt=attempt_required and e.lease_token=token_required
+       and e.event_type=type_required
   ) then
-    raise exception 'employee_worker_claim_audit_required' using errcode='23514';
+    raise exception 'employee_worker_transition_audit_required'
+      using errcode='23514';
   end if;
   return null;
 end;
 $employee_worker$;
-create constraint trigger employee_dispatch_worker_claim_audit_required
+create constraint trigger employee_dispatch_worker_transition_audit_required
   after update on employee_dispatch_worker_claims
   deferrable initially deferred
   for each row
-  when (new.state='leased' and old.state<>'leased' or
-        (new.state='leased' and old.lease_token is distinct from new.lease_token))
-  execute function employee_dispatch_require_worker_claim_event();
+  execute function employee_dispatch_require_worker_transition_event();
 
 -- This CI model is NEVER a production role design. RLS defaults to deny.
 alter table employee_dispatch_worker_claims enable row level security;
@@ -97,7 +158,9 @@ revoke all on employee_dispatch_worker_claims,
 revoke all on function
   employee_dispatch_seed_worker_claim(),
   employee_dispatch_reject_worker_event_mutation(),
-  employee_dispatch_require_worker_claim_event()
+  employee_dispatch_guard_worker_transition(),
+  employee_dispatch_no_worker_claim_delete(),
+  employee_dispatch_require_worker_transition_event()
 from public;
 
 -- Explicitly NO GRANT SELECT/INSERT/UPDATE/DELETE for the preview or tenant
