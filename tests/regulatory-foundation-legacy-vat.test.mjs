@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {DatabaseSync} from "node:sqlite";
-import {isActiveLegacyVatRule,inspectActiveLegacyVatRules} from "../cloudflare/src/regulatory-foundation-legacy-vat.js";
+import fs from "node:fs";
+import vm from "node:vm";
+import {isActiveLegacyVatRule,isLegacyVat25DayDefinition,inspectActiveLegacyVatRules} from "../cloudflare/src/regulatory-foundation-legacy-vat.js";
 
 test("legacy VAT 25-day detection handles rule keys, action definitions and cutoff dates",()=>{
   const base={id:"x",rule_key:"bw.burs.vat.return-payment.25-days",status:"published",effective_to:null,action_json:"{}"};
@@ -34,4 +36,27 @@ test("read-only DB query surfaces active legacy rules without mutation",async()=
     assert.equal(result.rules[0].ruleId,"one");
     assert.equal(sqlite.prepare("SELECT total_changes() count").get().count,before);
   }finally{sqlite.close()}
+});
+
+test("runtime execution hard-blocks legacy VAT before creating customer obligations",async()=>{
+  const worker=fs.readFileSync(new URL("../cloudflare/src/worker.js",import.meta.url),"utf8");
+  const legacy={id:"legacy",rule_key:"bw.burs.vat.return-payment.25-days",
+    status:"published",action_json:'{"operationalization":"vat_category_period","dueDaysAfterPeriodEnd":25}',effective_to:null};
+  assert.equal(isLegacyVat25DayDefinition(legacy),true);
+  const db={prepare(){throw new Error("unexpected database mutation")}};
+  const examples=[
+    ["async function evaluateRuleForTenant","\n\n\nfunction daysUntil"],
+    ["async function materializeRecurringRule","async function runStatutoryDeadlineEngine"]
+  ];
+  for(const [startKey,endKey] of examples){
+    const start=worker.indexOf(startKey),end=worker.indexOf(endKey,start);
+    assert.ok(start>0&&end>start,`missing runtime function ${startKey}`);
+    const fn=vm.runInNewContext("("+worker.slice(start,end).trim()+")",
+      {isLegacyVat25DayDefinition},{timeout:1200});
+    const answer=startKey.includes("evaluateRule")
+      ?await fn({DB:db},legacy,"tenant")
+      :await fn({DB:db},"tenant",legacy,{},"run");
+    assert.equal(answer.obligationsCreated??answer.created,0);
+    assert.equal(answer.status==="blocked_legacy_vat"||answer.blocked===true,true);
+  }
 });
