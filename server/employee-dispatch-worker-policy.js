@@ -37,7 +37,11 @@ export function evaluateEmployeeWorker({
   });
   // Storage must still fence completion in the same transaction as the effect;
   // this preflight decision is not a reusable execution grant.
-  return decision.allowed
-    ? { allowed: true, reason: "eligible_for_internal_worker_execution" }
-    : { allowed: false, reason: decision.reason };
+  if (!decision.allowed) return { allowed: false, reason: decision.reason };
+  // Bind the persisted execution category to the allowlisted action mapping.
+  // A stale or tampered intent must not be routed to another effect adapter.
+  if (intent.intentType !== decision.intentType) {
+    return { allowed: false, reason: "intent_type_mismatch" };
+  }
+  return { allowed: true, reason: "eligible_for_internal_worker_execution" };
 }

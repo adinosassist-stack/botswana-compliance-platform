@@ -35,3 +35,82 @@ test('a list-refresh failure cannot turn a completed save into a failed save',as
  await f.save();assert.match(f.elements.opsLocationStatus.textContent,/Location added.*Refresh/);
  assert.equal(f.elements.opsLocationName.value,'');assert.equal(f.writes(),1);
 });
+
+function decoratorFixture(action,initialStatus=''){
+ let handler=null;
+ const attrs=new Map();
+ const status={textContent:initialStatus,dataset:{},setAttribute(k,v){attrs.set(k,v)}};
+ const button={
+   dataset:{},disabled:false,
+   setAttribute(k,v){attrs.set('button:'+k,v)},
+   removeAttribute(k){attrs.delete('button:'+k)},
+   addEventListener(type,callback){assert.equal(type,'click');handler=callback}
+ };
+ const people={querySelector(selector){
+   if(selector==='[data-bw-onclick="addOpsLocation()"]')return button;
+   if(selector==='#opsLocationStatus')return status;
+   return null;
+ }};
+ const source=readFileSync(new URL('../public/js/locations-branches-v335.js',import.meta.url),'utf8');
+ const start=source.indexOf('function bindAddLocationAction('),end=source.indexOf('function decorateLocationForm(',start);
+ assert(start>=0&&end>start,'People save decorator must exist');
+ let timed=0;
+ const bind=vm.runInNewContext(source.slice(start,end)+'\nbindAddLocationAction',{
+   window:{addOpsLocation:action},console:{error(){}},setTimeout(){timed++}
+ });
+ bind(people);
+ const click=()=>handler({preventDefault(){},stopPropagation(){}});
+ return {click,button,status,attrs,timed:()=>timed};
+}
+
+test('decorated People save provides fallback and restores controls after rejected promise',async()=>{
+ const f=decoratorFixture(async()=>{throw Error('network unavailable')});
+ await f.click();
+ assert.match(f.status.textContent,/Could not add location/);
+ assert.equal(f.status.dataset.state,'error');
+ assert.equal(f.attrs.get('role'),'alert');
+ assert.equal(f.button.disabled,false);
+ assert.equal(f.attrs.has('button:aria-busy'),false);
+ assert.equal(f.button.dataset.locationsBranchesSaving,undefined);
+ assert.equal(f.timed(),0,'rejected save must not refocus or scroll to form');
+});
+
+test('decorator never overwrites the canonical plan-limit explanation',async()=>{
+ let f;
+ f=decoratorFixture(async()=>{
+   f.status.textContent='Your plan has reached its location limit. Visit Plan & billing.';
+   f.status.dataset.state='error';
+   throw Error('save was rejected');
+ });
+ await f.click();
+ assert.match(f.status.textContent,/Plan & billing/);
+ assert.doesNotMatch(f.status.textContent,/Could not add location/);
+ assert.equal(f.button.disabled,false);
+});
+
+test('unexpected save failure replaces a stale saving message',async()=>{
+ let f;
+ f=decoratorFixture(async()=>{
+   f.status.textContent='Saving location…';
+   throw Error('request aborted');
+ });
+ await f.click();
+ assert.equal(f.status.textContent,'Could not add location. Please retry.');
+});
+
+test('decorated save suppresses duplicate submission and leaves successful values alone',async()=>{
+ let release;
+ let calls=0;
+ const f=decoratorFixture(async()=>{calls++;await new Promise(resolve=>release=resolve);f.status.textContent='Location added.'});
+ const first=f.click();
+ const second=f.click();
+ assert.equal(calls,1,'repeated click must not send duplicate POST');
+ assert.equal(f.button.disabled,true);
+ assert.equal(f.attrs.get('button:aria-busy'),'true');
+ await second;
+ release();
+ await first;
+ assert.equal(f.status.textContent,'Location added.');
+ assert.equal(f.button.disabled,false);
+ assert.equal(f.timed(),0,'success must not automatically reopen or focus the form');
+});
