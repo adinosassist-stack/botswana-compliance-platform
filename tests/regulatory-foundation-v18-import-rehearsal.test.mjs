@@ -17,7 +17,7 @@ const stableValue=value=>Array.isArray(value)?value.map(stableValue):value&&type
 const stableJson=value=>JSON.stringify(stableValue(value));
 const sha256Hex=async value=>crypto.createHash("sha256").update(String(value)).digest("hex");
 const actor={user_id:"fixture-maker",email:"maker@example.test"};
-const newId=(()=>{let n=0;return()=>\`seed-fixture-\${++n}\`})();
+const newId=(()=>{let n=0;return()=>`seed-fixture-${++n}`})();
 
 function historicPack(){
   const pack=structuredClone(current);
@@ -44,7 +44,7 @@ function historicPack(){
 
 function stage(){
   const sql=new DatabaseSync(":memory:");
-  sql.exec(\`
+  sql.exec(`
     CREATE TABLE regulatory_sources(
       id TEXT PRIMARY KEY,jurisdiction TEXT DEFAULT 'BW',authority TEXT NOT NULL,title TEXT NOT NULL,
       source_url TEXT NOT NULL,source_type TEXT DEFAULT 'official',
@@ -89,7 +89,7 @@ function stage(){
     );
     CREATE TABLE tenants(id TEXT PRIMARY KEY,name TEXT);
     CREATE TABLE compliance_obligations(id TEXT PRIMARY KEY,tenant_id TEXT,rule_id TEXT,status TEXT);
-  \`);
+  `);
   // D1's SQL guard fixes the historic draft-rule insertion placeholder typo.
   const prepare=text=>{
     const stmt=sql.prepare(normalizeRegulatoryRuleInsertSql(text));
@@ -109,10 +109,10 @@ function stage(){
   const seeds={
     async seedRegistryGet(e,packKey,seedKey){return e.DB.prepare("SELECT * FROM regulatory_seed_registry WHERE pack_key=? AND seed_key=? LIMIT 1").bind(packKey,seedKey).first()},
     async seedRegistryPut(e,packKey,seedKey,entityType,entityId,hash,a){
-      await e.DB.prepare(\`INSERT INTO regulatory_seed_registry(pack_key,seed_key,entity_type,entity_id,definition_hash,imported_by_user_id)
+      await e.DB.prepare(`INSERT INTO regulatory_seed_registry(pack_key,seed_key,entity_type,entity_id,definition_hash,imported_by_user_id)
         VALUES(?,?,?,?,?,?) ON CONFLICT(pack_key,seed_key) DO UPDATE SET
         entity_id=excluded.entity_id,definition_hash=excluded.definition_hash,imported_by_user_id=excluded.imported_by_user_id,
-        imported_at=CURRENT_TIMESTAMP\`).bind(packKey,seedKey,entityType,entityId,hash,a.user_id).run();
+        imported_at=CURRENT_TIMESTAMP`).bind(packKey,seedKey,entityType,entityId,hash,a.user_id).run();
     }
   };
   const helper={
@@ -138,7 +138,7 @@ function stage(){
   const start=worker.indexOf("async function importBotswanaFoundationPack");
   const end=worker.indexOf("\nfunction thresholdCompare",start);
   assert.ok(start>0&&end>start,"cannot locate production import method");
-  const importer=vm.runInNewContext(\`(\${worker.slice(start,end)})\`,helper,{timeout:1500});
+  const importer=vm.runInNewContext(`(${worker.slice(start,end)})`,helper,{timeout:1500});
   return {sql,env,importer,close:()=>sql.close()};
 }
 
@@ -147,9 +147,9 @@ async function primeV17(f){
   const ids=new Map();
   for(const src of pack.sources){
     const id="v17-source-"+src.key,d=foundationSourceDesired(src,packKey);
-    f.sql.prepare(\`INSERT INTO regulatory_sources
+    f.sql.prepare(`INSERT INTO regulatory_sources
       (id,jurisdiction,authority,title,source_url,source_type,publication_date,effective_date,status,notes,submitted_by_user_id,verification_status)
-      VALUES(?,'BW',?,?,?,?,?,?,'pending',?,?,'unverified')\`)
+      VALUES(?,'BW',?,?,?,?,?,?,'pending',?,?,'unverified')`)
       .run(id,d.authority,d.title,d.source_url,d.source_type,d.publication_date,d.effective_date,d.notes,actor.user_id);
     ids.set(src.key,id);
     f.sql.prepare("INSERT INTO regulatory_seed_registry(pack_key,seed_key,entity_type,entity_id,definition_hash,imported_by_user_id) VALUES(?,?,?,?,?,?)")
@@ -169,9 +169,9 @@ async function primeV17(f){
       effectiveFrom:rule.effectiveFrom||null,effectiveTo:rule.effectiveTo||null,
       confidence:rule.confidence||"medium"};
     const seedHash=await sha256Hex(stableJson(seed));
-    f.sql.prepare(\`INSERT INTO regulatory_rules(id,rule_key,version,title,summary,applicability_json,action_json,
+    f.sql.prepare(`INSERT INTO regulatory_rules(id,rule_key,version,title,summary,applicability_json,action_json,
       source_ids_json,effective_from,effective_to,status,confidence,created_by_user_id,definition_hash)
-      VALUES(?,?,1,?,?,?,?,?,?,?,?,?,?,?)\`)
+      VALUES(?,?,1,?,?,?,?,?,?,?,?,?,?,?)`)
       .run(id,rule.ruleKey,rule.title,rule.summary,JSON.stringify(seed.applicability),
         JSON.stringify(seed.action),JSON.stringify(sids),seed.effectiveFrom,seed.effectiveTo,
         status,seed.confidence,actor.user_id,seedHash);
