@@ -14,6 +14,7 @@ test("legacy VAT 25-day detection handles rule keys, action definitions and cuto
   assert.equal(isActiveLegacyVatRule({...base,effective_to:"2026-06-30"}),false);
   assert.equal(isActiveLegacyVatRule({...base,effective_to:"2026-07-01"}),true);
   assert.equal(isActiveLegacyVatRule({...base,effective_to:"not-a-date"}),true);
+  assert.equal(isActiveLegacyVatRule({...base,effective_to:"2026-06-31"}),true);
   assert.equal(isActiveLegacyVatRule({...base,rule_key:"other",action_json:JSON.stringify({operationalization:"vat_category_period",dueDaysAfterPeriodEnd:25})}),true);
   assert.equal(isActiveLegacyVatRule({...base,rule_key:"other",action_json:JSON.stringify({operationalization:"vat_category_period",dueDaysAfterPeriodEnd:28})}),false);
   assert.equal(isActiveLegacyVatRule({...base,rule_key:"bw.burs.vat.return-payment.28-days",action_json:"{}"}),false);
