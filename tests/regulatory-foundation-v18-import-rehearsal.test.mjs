@@ -42,9 +42,12 @@ function historicPack(){
   return pack;
 }
 
-function stage(){
+function stage({fullSchema=false}={}){
   const sql=new DatabaseSync(":memory:");
-  sql.exec(`
+  if(fullSchema){
+    // Create every table, index and migration in the checked-in D1 SQL schema.
+    sql.exec(fs.readFileSync(new URL("../cloudflare/schema.sql",import.meta.url),"utf8"));
+  }else sql.exec(`
     CREATE TABLE regulatory_sources(
       id TEXT PRIMARY KEY,jurisdiction TEXT DEFAULT 'BW',authority TEXT NOT NULL,title TEXT NOT NULL,
       source_url TEXT NOT NULL,source_type TEXT DEFAULT 'official',
@@ -103,7 +106,9 @@ function stage(){
   };
   const DB={prepare,batch:async items=>{const out=[];for(const item of items)out.push(await item.run());return out}};
   sql.prepare("INSERT INTO tenants(id,name) VALUES(?,?)").run("fixture-tenant","No regulatory action allowed");
-  sql.prepare("INSERT INTO compliance_obligations(id,tenant_id,rule_id,status) VALUES(?,?,?,?)")
+  if(fullSchema){
+    sql.prepare("INSERT INTO users(id,email) VALUES(?,?)").run(actor.user_id,actor.email);
+  }else sql.prepare("INSERT INTO compliance_obligations(id,tenant_id,rule_id,status) VALUES(?,?,?,?)")
     .run("untouched-obligation","fixture-tenant","legacy","open");
   const env={DB};
   const seeds={
@@ -139,7 +144,7 @@ function stage(){
   const end=worker.indexOf("\nfunction thresholdCompare",start);
   assert.ok(start>0&&end>start,"cannot locate production import method");
   const importer=vm.runInNewContext(`(${worker.slice(start,end)})`,helper,{timeout:1500});
-  return {sql,env,importer,close:()=>sql.close()};
+  return {sql,env,importer,fullSchema,close:()=>sql.close()};
 }
 
 async function primeV17(f){
@@ -177,6 +182,11 @@ async function primeV17(f){
         status,seed.confidence,actor.user_id,seedHash);
     f.sql.prepare("INSERT INTO regulatory_seed_registry(pack_key,seed_key,entity_type,entity_id,definition_hash,imported_by_user_id) VALUES(?,?,?,?,?,?)")
       .run(packKey,"rule:"+rule.key,"rule",id,seedHash,actor.user_id);
+  }
+  if(f.fullSchema){
+    // Real schema requires an existing rule, mandatory obligation fields, and FK integrity.
+    f.sql.prepare("INSERT INTO compliance_obligations(id,tenant_id,rule_id,obligation_key,title,status) VALUES(?,?,?,?,?,'open')")
+      .run("untouched-obligation","fixture-tenant","v17-rule-cipa-company-constitution","fixture-untouched","Do not modify");
   }
   return ids;
 }
@@ -239,5 +249,29 @@ test("actual importer blocks protected changed source before ANY mutation",async
     assert.equal(f.sql.prepare("SELECT COUNT(*) AS n FROM regulatory_pack_imports").get().n,before);
     assert.equal(f.sql.prepare("SELECT publication_date FROM regulatory_sources WHERE id='v17-source-botswana-egp-procurement-2026'").get().publication_date,"2026-08-13");
     assert.equal(scalar(f.sql,"SELECT COUNT(*) AS n FROM regulatory_rules"),16);
+  }finally{f.close()}
+});
+
+test("real checked-in 182-table D1 schema: populated v1.7 import remains draft-only and idempotent",async()=>{
+  const f=stage({fullSchema:true});
+  try{
+    await primeV17(f);
+    const pre=await inspectFoundationSourceMetadata(f.env.DB,current);
+    assert.equal(pre.ok,true);
+    const outcome=await f.importer(f.env,actor);
+    assert.equal(outcome.ok,true);
+    assert.equal(outcome.sourcesCreated,1);
+    assert.equal(scalar(f.sql,"SELECT COUNT(*) AS n FROM regulatory_sources"),24);
+    assert.equal(scalar(f.sql,"SELECT COUNT(*) AS n FROM regulatory_rules"),18);
+    assert.equal(f.sql.prepare("SELECT status FROM regulatory_rules WHERE rule_key='bw.burs.vat.return-payment.25-days'").get().status,"review");
+    assert.equal(f.sql.prepare("SELECT status FROM regulatory_rules WHERE rule_key='bw.burs.vat.return-payment.28-days'").get().status,"draft");
+    assert.equal(scalar(f.sql,"SELECT COUNT(*) AS n FROM compliance_obligations"),1);
+    assert.equal(f.sql.prepare("SELECT status FROM compliance_obligations WHERE id='untouched-obligation'").get().status,"open");
+    const repeat=await f.importer(f.env,actor);
+    assert.equal(repeat.rulesCreated,0);
+    assert.equal(repeat.sourcesCreated,0);
+    assert.equal(repeat.sourcesUpdated,0);
+    assert.equal(scalar(f.sql,"SELECT COUNT(*) AS n FROM regulatory_rules"),18);
+    assert.equal(f.sql.prepare("PRAGMA foreign_key_check").all().length,0);
   }finally{f.close()}
 });
