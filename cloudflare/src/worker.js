@@ -1,4 +1,5 @@
 import {BOTSWANA_FOUNDATION_PACK_V1,BOTSWANA_FOUNDATION_PACK_V1_HASH} from "./regulatory-pack-registry.js";
+import {inspectFoundationSourceMetadata,publicFoundationSourcePreflight,updateUnreviewedFoundationSourceMetadata} from "./regulatory-foundation-source-reconciliation.js";
 import {handleEmployeeWorkflowRequest} from "./employee-workflow-api.js";
 import {handleEmployeeProposalReviewRequest} from "./employee-proposal-review-api.js";
 import {purgeDailyReportAttachments} from "./report-attachments-entry.js";
@@ -4480,13 +4481,26 @@ async function seedRegistryPut(env,packKey,seedKey,entityType,entityId,definitio
 }
 async function importBotswanaFoundationPack(env,a){
   const pack=BOTSWANA_FOUNDATION_PACK_V1,packKey=pack.packKey;
-  const counts={sourcesCreated:0,sourcesExisting:0,rulesCreated:0,rulesExisting:0,rulesUpgraded:0,conflictsCreated:0,conflictsExisting:0,conflictsUpdated:0};
+  const counts={sourcesCreated:0,sourcesExisting:0,sourcesUpdated:0,rulesCreated:0,rulesExisting:0,rulesUpgraded:0,conflictsCreated:0,conflictsExisting:0,conflictsUpdated:0};
+  const sourcePreflight=await inspectFoundationSourceMetadata(env.DB,pack);
+  if(!sourcePreflight.ok)return {ok:false,error:"source_metadata_drift_requires_review",
+    preflight:publicFoundationSourcePreflight(sourcePreflight)};
   const sourceIds={};
   for(const src of pack.sources){
-    const sk=`source:${src.key}`,existing=await seedRegistryGet(env,packKey,sk),seedHash=await sha256Hex(stableJson(src));
-    if(existing){const row=await env.DB.prepare("SELECT id FROM regulatory_sources WHERE id=? LIMIT 1").bind(existing.entity_id).first();if(row){sourceIds[src.key]=row.id;await seedRegistryPut(env,packKey,sk,"source",row.id,seedHash,a);counts.sourcesExisting++;continue}}
-    const byUrl=await env.DB.prepare("SELECT id FROM regulatory_sources WHERE source_url=? ORDER BY created_at LIMIT 1").bind(src.url).first();
-    if(byUrl){await seedRegistryPut(env,packKey,sk,"source",byUrl.id,seedHash,a);sourceIds[src.key]=byUrl.id;counts.sourcesExisting++;continue}
+    const sk=`source:${src.key}`,plan=sourcePreflight.items.find(item=>item.key===src.key),seedHash=await sha256Hex(stableJson(src));
+    if(!plan)throw new Error("foundation_source_preflight_missing");
+    if(plan.sourceId){
+      if(plan.action==="refresh_unreviewed"){
+        const update=await updateUnreviewedFoundationSourceMetadata(env.DB,plan);
+        if(!update.ok)return {ok:false,...update,preflight:publicFoundationSourcePreflight(sourcePreflight)};
+        counts.sourcesUpdated++;
+        await platformRegulatoryAudit(env,a,"FOUNDATION_SOURCE_METADATA_RECONCILED","regulatory_source",plan.sourceId,
+          {packKey,seedKey:sk,changedFields:plan.changedFields,priorSnapshotCount:plan.snapshotCount});
+      }else if(plan.action!=="reuse")return {ok:false,error:"source_metadata_drift_requires_review",key:src.key};
+      // Never update the registry hash before the guarded source correction succeeds.
+      await seedRegistryPut(env,packKey,sk,"source",plan.sourceId,seedHash,a);
+      sourceIds[src.key]=plan.sourceId;counts.sourcesExisting++;continue;
+    }
     const sid=id();await env.DB.prepare(`INSERT INTO regulatory_sources(id,jurisdiction,authority,title,source_url,source_type,publication_date,effective_date,status,notes,submitted_by_user_id,verification_status)
       VALUES(?,'BW',?,?,?,?,?,?,'pending',?,?,'unverified')`).bind(sid,src.authority,src.title,src.url,src.type||"official",src.publicationDate||null,src.effectiveDate||null,`[FOUNDATION PACK ${packKey}] ${src.notes||""}`,a.user_id).run();
     await seedRegistryPut(env,packKey,sk,"source",sid,seedHash,a);sourceIds[src.key]=sid;counts.sourcesCreated++;
@@ -6240,6 +6254,10 @@ export default {
 
       if(url.pathname==="/api/platform/regulatory/foundation-pack"&&req.method==="GET"){
         const access=await requirePlatformRegulatory(a,env,"editor","reviewer","admin");if(!access.ok)return json(access,403);
+        if(url.searchParams.get("preflight")==="1"){
+          const preflight=await inspectFoundationSourceMetadata(env.DB,BOTSWANA_FOUNDATION_PACK_V1);
+          return json({preflight:publicFoundationSourcePreflight(preflight),readOnly:true,noApprovalOrImport:true});
+        }
         const imported=await env.DB.prepare("SELECT * FROM regulatory_pack_imports WHERE pack_key=? ORDER BY created_at DESC LIMIT 10").bind(BOTSWANA_FOUNDATION_PACK_V1.packKey).all();
         return json({pack:{packKey:BOTSWANA_FOUNDATION_PACK_V1.packKey,version:BOTSWANA_FOUNDATION_PACK_V1.version,asOf:BOTSWANA_FOUNDATION_PACK_V1.asOf,
           hash:BOTSWANA_FOUNDATION_PACK_V1_HASH,sources:BOTSWANA_FOUNDATION_PACK_V1.sources.length,rules:BOTSWANA_FOUNDATION_PACK_V1.rules.length,
@@ -6247,7 +6265,7 @@ export default {
       }
       if(url.pathname==="/api/platform/regulatory/foundation-pack/import"&&req.method==="POST"){
         const access=await requirePlatformRegulatory(a,env,"editor","admin");if(!access.ok)return json(access,403);
-        const result=await importBotswanaFoundationPack(env,a);return json(result,201);
+        const result=await importBotswanaFoundationPack(env,a);return json(result,result.ok?201:409);
       }
       if(url.pathname==="/api/re-review"&&req.method==="GET"){
         const rr=await managementReReviewList(env,a);if(!rr)return json({error:"forbidden"},403);return json(rr);
