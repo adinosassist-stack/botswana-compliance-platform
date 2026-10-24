@@ -73,13 +73,13 @@ test("explicit approval-grant evidence is tenant-scoped, revocable and transacti
       });
     });
 
-    await t.test("permission and membership revocation deny authorization evidence",async () => {
+    await t.test("disabled grant and inactive membership deny reviewer evidence",async () => {
       await pool.query(
-        "update employee_dispatch_reviewer_permission_grants set enabled=false,revoked_at=now() where tenant_id=$1 and reviewer_user_id=$2",
+        "update employee_dispatch_reviewer_permission_grants set enabled=false where tenant_id=$1 and reviewer_user_id=$2",
         [tenant,reviewer]);
       assert.equal(await read(),false);
       await pool.query(
-        "update employee_dispatch_reviewer_permission_grants set enabled=true,revoked_at=null where tenant_id=$1 and reviewer_user_id=$2",
+        "update employee_dispatch_reviewer_permission_grants set enabled=true where tenant_id=$1 and reviewer_user_id=$2",
         [tenant,reviewer]);
       await pool.query(
         "update memberships set status='inactive' where tenant_id=$1 and user_id=$2",
@@ -130,6 +130,32 @@ test("explicit approval-grant evidence is tenant-scoped, revocable and transacti
         assert.equal(await tx.getProposal(tenant,proposal),null);
         assert.equal(await tx.hasExplicitApprovalGrant(tenant,reviewer,proposal,review),false);
       });
+    });
+    await t.test("grant issuer is immutable and terminal revocation cannot be undone",async () => {
+      await assert.rejects(
+        pool.query(
+          "update employee_dispatch_reviewer_permission_grants set granted_by_user_id=$3 where tenant_id=$1 and reviewer_user_id=$2",
+          [tenant,reviewer,reviewer]
+        ),
+        e=>e.code==="23514"
+      );
+      await pool.query(
+        "update employee_dispatch_reviewer_permission_grants set enabled=false,revoked_at=now() where tenant_id=$1 and reviewer_user_id=$2",
+        [tenant,reviewer]
+      );
+      await assert.rejects(
+        pool.query(
+          "update employee_dispatch_reviewer_permission_grants set enabled=true,revoked_at=null where tenant_id=$1 and reviewer_user_id=$2",
+          [tenant,reviewer]
+        ),
+        e=>e.code==="23514"
+      );
+      const record=await pool.query(
+        "select enabled,revoked_at from employee_dispatch_reviewer_permission_grants where tenant_id=$1 and reviewer_user_id=$2",
+        [tenant,reviewer]
+      );
+      assert.equal(record.rows[0].enabled,false);
+      assert.ok(record.rows[0].revoked_at);
     });
   } finally {
     // The test database and draft records are disposable by design.
