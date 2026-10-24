@@ -44,6 +44,13 @@ try{
   await page.locator('#opsLocationCode').fill('MAU');
   await page.locator('#opsLocationTown').fill('Maun');
   await provePeopleLocationNetworkRecovery(page,{timeoutMs:15000});
+  // Browser scroll anchoring may move a live page without a save handler doing so.
+  await page.evaluate(()=>{const spacer=document.createElement('div');spacer.style.height='1000px';document.body.prepend(spacer)});
+  page.once('requestfailed',()=>{void page.evaluate(()=>setTimeout(()=>{const shift=document.createElement('div');shift.style.height='4px';document.body.prepend(shift)},150))});
+  const anchored=await provePeopleLocationNetworkRecovery(page,{timeoutMs:15000});
+  assert.equal(anchored.scrollDelta,4,'controlled passive layout shift must exercise browser scroll anchoring');
+  assert.deepEqual(anchored.calls,[],'passive layout shift must not be classified as a scripted scroll');
+  assert.equal(await page.evaluate(()=>typeof globalThis.__thebeLocationRecoveryProbe),'undefined','probe instrumentation must be restored');
   for(const failure of ['network','limit','duplicate']){
    mode=failure;await button.click();
    await page.waitForFunction(()=>document.querySelector('#opsLocationStatus')?.dataset.state==='error'&&!document.querySelector('[data-bw-onclick="addOpsLocation()"]').disabled);
