@@ -13,7 +13,8 @@ test("staging workflow can only be manually dispatched against an explicitly con
   assert.match(workflow,/github\.event_name == 'workflow_dispatch'/);
   assert.match(workflow,/inputs\.confirmation == 'READ_ONLY_STAGING_D1'/);
   assert.match(workflow,/default: DO_NOT_RUN/);
-  assert.match(workflow,/EXPECTED_SHA.*github\.sha/);
+  assert.match(workflow,/EXPECTED_SHA.*inputs\.expected_sha/);
+  assert.match(workflow,/\$EXPECTED_SHA\" == \"\$GITHUB_SHA/);
   assert.match(workflow,/git rev-parse HEAD/);
   assert.match(workflow,/gh api "repos\/\$GITHUB_REPOSITORY\/git\/ref\/heads\/main"/);
   assert.match(workflow,/live_sha.*EXPECTED_SHA/);
