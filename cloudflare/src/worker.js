@@ -6264,7 +6264,7 @@ export default {
             inspectFoundationSourceMetadata(env.DB,BOTSWANA_FOUNDATION_PACK_V1),
             inspectActiveLegacyVatRules(env.DB)
           ]);
-          return json({preflight:publicFoundationSourcePreflight(preflight),
+          return json({preflight:{...publicFoundationSourcePreflight(preflight),ok:preflight.ok&&legacyVat.ok},
             legacyVat:publicActiveLegacyVatRules(legacyVat),readOnly:true,noApprovalOrImport:true});
         }
         const imported=await env.DB.prepare("SELECT * FROM regulatory_pack_imports WHERE pack_key=? ORDER BY created_at DESC LIMIT 10").bind(BOTSWANA_FOUNDATION_PACK_V1.packKey).all();
