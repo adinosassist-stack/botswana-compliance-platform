@@ -6,10 +6,13 @@ on:
       - 'server/employee-dispatch-postgres-approval-reader.js'
       - 'server/employee-dispatch-postgres-transaction.js'
       - 'server/employee-dispatch-postgres-outbox-writer.js'
+      - 'server/employee-reviewer-membership-evidence.js'
+      - 'db/schema.sql'
       - 'db/drafts/employee-dispatch-proposal-review-postgres.sql'
       - 'db/drafts/employee-dispatch-outbox-postgres.sql'
       - 'tests/employee-dispatch-postgres-integration.test.mjs'
       - 'tests/employee-dispatch-postgres-outbox.test.mjs'
+      - 'tests/employee-dispatch-reviewer-membership-postgres.test.mjs'
       - '.github/workflows/employee-dispatch-postgres-integration.yml'
   workflow_dispatch:
 
@@ -43,6 +46,8 @@ jobs:
         with:
           node-version: '22'
       - run: npm ci
+      - name: Initialize canonical identity tables in disposable CI PostgreSQL
+        run: PGPASSWORD=dispatch_ci_only psql -h 127.0.0.1 -U dispatch -d employee_dispatch_ci -v ON_ERROR_STOP=1 -f db/schema.sql
       - name: Apply draft schema ONLY to disposable CI PostgreSQL
         run: PGPASSWORD=dispatch_ci_only psql -h 127.0.0.1 -U dispatch -d employee_dispatch_ci -v ON_ERROR_STOP=1 -f db/drafts/employee-dispatch-proposal-review-postgres.sql
       - name: Apply outbox draft ONLY to disposable CI PostgreSQL
@@ -51,3 +56,5 @@ jobs:
         run: node --test tests/employee-dispatch-postgres-integration.test.mjs
       - name: Verify tenant idempotency and atomic audit on real PostgreSQL
         run: node --test tests/employee-dispatch-postgres-outbox.test.mjs
+      - name: Verify reviewer membership evidence on real PostgreSQL
+        run: node --test tests/employee-dispatch-reviewer-membership-postgres.test.mjs
