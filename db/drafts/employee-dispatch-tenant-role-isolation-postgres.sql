@@ -29,6 +29,9 @@ create policy employee_dispatch_ci_role_tenants_self
   to employee_dispatch_ci_tenant_a, employee_dispatch_ci_tenant_b
   using (role_name = current_user::name);
 
+grant usage on schema public
+  to employee_dispatch_ci_tenant_a, employee_dispatch_ci_tenant_b;
+
 -- There are intentionally no INSERT/UPDATE/DELETE/TRUNCATE privileges on
 -- any dispatch table or on the binding table for either tenant role.
 grant select on employee_dispatch_proposal_versions
