@@ -31,6 +31,21 @@ export async function prepareStagingBootstrap(options){
       database_id:stagingDatabaseId,database_name:expectedStagingName}]};
 }
 
+// Show only allowlisted diagnostic fields; never echo provider messages or secrets.
+export function safeBootstrapCloudflareDiagnostic(error){
+  const detail=error?.diagnostic;
+  if(detail?.stage!=="metadata"||
+    !["transport","invalid_json","provider_rejected"].includes(detail?.kind))
+    return null;
+  const safe={stage:"metadata",kind:detail.kind};
+  if(Number.isInteger(detail.httpStatus)&&detail.httpStatus>=100&&detail.httpStatus<=599)
+    safe.httpStatus=detail.httpStatus;
+  if(Array.isArray(detail.providerCodes))
+    safe.providerCodes=detail.providerCodes.filter(value=>
+      Number.isSafeInteger(value)&&value>=0&&value<=999999).slice(0,10);
+  return safe;
+}
+
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   try{
     const config=await prepareStagingBootstrap({
@@ -45,6 +60,8 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   }catch(error){
     const code=/^staging_[a-z_]+$/.test(error.message)?error.message:"staging_bootstrap_failed";
     console.error("REGULATORY_STAGING_BOOTSTRAP_REFUSED "+code);
+    const diagnostic=safeBootstrapCloudflareDiagnostic(error);
+    if(diagnostic)console.error("REGULATORY_STAGING_BOOTSTRAP_DIAGNOSTIC "+JSON.stringify(diagnostic));
     process.exitCode=1;
   }
 }

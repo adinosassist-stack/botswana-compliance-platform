@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {DatabaseSync} from "node:sqlite";
-import {prepareStagingBootstrap,EMPTY_DATABASE_QUERY} from "../scripts/prepare-regulatory-staging-bootstrap.mjs";
+import {prepareStagingBootstrap,EMPTY_DATABASE_QUERY,safeBootstrapCloudflareDiagnostic} from "../scripts/prepare-regulatory-staging-bootstrap.mjs";
 import {STAGING_REGULATORY_QUERIES} from "../scripts/regulatory-staging-readonly-attestor.mjs";
 
 const options={token:"test-secret",accountId:"a".repeat(32),
@@ -47,6 +47,26 @@ test("malformed provider inventories and network failures cannot authorize boots
   }
   await assert.rejects(prepareStagingBootstrap({...options,fetchImpl:async()=>{throw new Error("sensitive provider detail")}}),/staging_cloudflare_unavailable/);
 });
+test("bootstrap diagnostics reveal only allowlisted HTTP status and provider codes",()=>{
+  const privateValue="very-private-token-and-account";
+  const safe=safeBootstrapCloudflareDiagnostic({diagnostic:{
+    stage:"metadata",kind:"provider_rejected",httpStatus:403,
+    providerCodes:[10000,privateValue,-1,1000000,7500],
+    providerBody:privateValue,token:privateValue,accountId:privateValue
+  }});
+  assert.deepEqual(safe,{stage:"metadata",kind:"provider_rejected",httpStatus:403,providerCodes:[10000,7500]});
+  assert.ok(!JSON.stringify(safe).includes(privateValue));
+  assert.deepEqual(safeBootstrapCloudflareDiagnostic({diagnostic:{
+    stage:"metadata",kind:"transport",httpStatus:privateValue
+  }}),{stage:"metadata",kind:"transport"});
+  assert.equal(safeBootstrapCloudflareDiagnostic({diagnostic:{
+    stage:"query_sources",kind:"provider_rejected",httpStatus:403
+  }}),null);
+  assert.equal(safeBootstrapCloudflareDiagnostic({diagnostic:{
+    stage:"metadata",kind:privateValue,httpStatus:403
+  }}),null);
+});
+
 test("checked-in baseline repairs all four missing-schema queries without tenant or regulatory data",()=>{
   const db=new DatabaseSync(":memory:");
   try{
