@@ -1,0 +1,103 @@
+name: Regulatory Staging Empty Database Bootstrap
+run-name: Empty staging baseline schema ${{ inputs.expected_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact current main SHA containing the reviewed baseline
+        required: true
+        type: string
+      confirmation:
+        description: Write baseline schema and static defaults to empty staging only
+        required: true
+        type: choice
+        default: DO_NOT_RUN
+        options:
+          - DO_NOT_RUN
+          - INITIALIZE_EMPTY_STAGING
+
+permissions:
+  contents: read
+
+concurrency:
+  group: thebe-regulatory-staging-readonly
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    name: Initialize verified empty staging database
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'workflow_dispatch' &&
+      inputs.confirmation == 'INITIALIZE_EMPTY_STAGING'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: regulatory-staging
+    env:
+      EXPECTED_SHA: ${{ inputs.expected_sha }}
+      REGULATORY_STAGING_D1_ID: ${{ vars.REGULATORY_STAGING_D1_ID }}
+      REGULATORY_STAGING_D1_NAME: ${{ vars.REGULATORY_STAGING_D1_NAME }}
+      PRODUCTION_D1_DATABASE_ID: ${{ vars.PRODUCTION_D1_DATABASE_ID }}
+      WRANGLER_SEND_METRICS: 'false'
+
+    steps:
+      - name: Checkout immutable revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up pinned Node toolchain
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Qualify empty-database guards and baseline query compatibility
+        run: node --test tests/regulatory-staging-bootstrap.test.mjs tests/regulatory-staging-readonly-attestor.test.mjs tests/regulatory-staging-workflow-static.test.mjs
+
+      - name: Install lockfile-pinned Wrangler without package lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Verify exact current main authority immediately before bootstrap
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]] || { echo 'Expected SHA malformed.' >&2; exit 1; }
+          [[ "$EXPECTED_SHA" == "$GITHUB_SHA" ]] || { echo 'Dispatched SHA changed.' >&2; exit 1; }
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SHA" ]] || { echo 'Checkout differs from approved revision.' >&2; exit 1; }
+          live_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          [[ "$live_sha" == "$EXPECTED_SHA" ]] || { echo 'Requested revision is no longer current main.' >&2; exit 1; }
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo 'Checkout changed.' >&2; exit 1; }
+
+      - name: Verify identity and emptiness then load reviewed baseline
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.REGULATORY_STAGING_CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.REGULATORY_STAGING_BOOTSTRAP_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "$CLOUDFLARE_API_TOKEN" ]] || { echo 'Dedicated temporary staging bootstrap token required.' >&2; exit 1; }
+          umask 077
+          config="$RUNNER_TEMP/regulatory-staging-bootstrap.json"
+          node scripts/prepare-regulatory-staging-bootstrap.mjs "$config"
+          trap 'rm -f "$config"' EXIT
+          if ! ./node_modules/.bin/wrangler d1 execute STAGING_DB --config "$config" --remote --file "$GITHUB_WORKSPACE/cloudflare/schema.sql" --yes > "$RUNNER_TEMP/staging-bootstrap-provider.log" 2>&1; then
+            echo 'Staging baseline import failed; inspect staging before any retry. Provider output withheld.' >&2
+            exit 1
+          fi
+          echo 'Reviewed baseline schema and static platform defaults loaded into previously empty staging.'
+
+      - name: Verify baseline through existing read-only audit
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.REGULATORY_STAGING_CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.REGULATORY_STAGING_CLOUDFLARE_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/run-regulatory-staging-readonly-preflight.mjs > "$RUNNER_TEMP/regulatory-staging-baseline-attestation.json"
+          echo 'Baseline verified. Reviewed v1.7 fixtures and v1.8 import qualification remain separate.' >> "$GITHUB_STEP_SUMMARY"
