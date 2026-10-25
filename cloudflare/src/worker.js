@@ -7495,6 +7495,20 @@ export default {
             return json({error:"manual_payment_activation_failed",settlement},503);
           }
         }
+        // A successful helper return is not enough: never display activation
+        // unless the same order has a paid row, applied fulfillment and active
+        // matching manual-bank subscription in authoritative storage.
+        const plan=String(safeJson(row.metadata_json,{})?.plan||"starter");
+        const appliedNow=await env.DB.prepare(`SELECT o.id FROM payment_orders o
+          JOIN payment_fulfillments f ON f.payment_order_id=o.id AND f.tenant_id=o.tenant_id
+          JOIN subscriptions s ON s.tenant_id=o.tenant_id
+          WHERE o.id=? AND o.tenant_id=? AND o.status='paid' AND o.order_type='subscription'
+            AND o.provider='manual_bank' AND o.provider_payment_id=?
+            AND f.order_type='subscription' AND f.fulfillment_status='applied'
+            AND s.provider='manual_bank' AND s.plan=? AND s.status='active'
+            AND datetime(s.current_period_ends_at)>datetime('now') LIMIT 1`)
+          .bind(row.payment_order_id,row.tenant_id,row.bank_reference,plan).first();
+        if(!appliedNow)return json({error:"manual_payment_settlement_not_confirmed"},503);
         const marked=await env.DB.prepare("UPDATE manual_payment_submissions SET status='approved',reviewed_at=CURRENT_TIMESTAMP,reviewed_by_user_id=?,rejection_reason=NULL WHERE id=? AND status IN ('submitted','reviewing')").bind(a.user_id,submissionId).run();
         if(Number(marked.meta?.changes||0)!==1)return json({error:"manual_payment_review_conflict"},409);
         await env.DB.prepare("INSERT INTO manual_payment_events(id,submission_id,payment_order_id,tenant_id,event_type,actor_user_id,event_data) VALUES(?,?,?,?,?,?,?)")
