@@ -153,3 +153,7 @@ jobs:
           node --check scripts/provision-regulatory-reviewer.mjs
           node --check tests/regulatory-reviewer-provisioning-static.mjs
           node tests/regulatory-reviewer-provisioning-static.mjs
+
+      - name: Platform billing controls and approval loading
+        shell: bash
+        run: node --test tests/platform-billing-controls.test.mjs

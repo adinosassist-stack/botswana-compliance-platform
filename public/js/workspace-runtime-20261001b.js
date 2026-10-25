@@ -1422,6 +1422,7 @@ function showRestrictedRolePortal(role=currentWorkspaceRole()){
 function applyRoleUi(){
  let role=currentWorkspaceRole();if(store&&store.activeRole!==role)updateWorkspaceMeta({activeRole:role});let label=document.getElementById("roleLabel");if(label)label.textContent=role?role.charAt(0).toUpperCase()+role.slice(1):"—";
  const allowed=allowedViewsForRole(role);
+ syncPlatformBillingControls();
  document.querySelectorAll(".nav button[data-view]").forEach(b=>{if(b.classList.contains("platformRegulatoryOnly"))return;b.style.display=allowed.has(b.dataset.view)?"":"none"});
  const more=document.querySelector(".nav-more-tools");if(more)more.style.display=allowed.size?"":"none";syncMobileRoleNav(role);
  let add=document.getElementById("addCompanyBtn");if(add)add.style.display=role==="owner"?"":"none";
@@ -2718,7 +2719,28 @@ async function renderProfessionalServices(){
 }
 
 
+function syncPlatformBillingControls(){
+  const allowed=currentUser?.platformBillingAdmin===true&&roleCanView("payments");
+  document.querySelectorAll(".platformBillingControl").forEach(button=>{button.hidden=!allowed;button.style.display=allowed?"":"none"});
+}
+let manualPaymentAdminLoad=0;
+async function renderManualPaymentApprovals(){
+  const card=document.getElementById("manualPaymentAdminCard"),box=document.getElementById("manualPaymentAdminList");
+  const load=++manualPaymentAdminLoad,user=currentUser;
+  if(!card||!box)return;
+  if(user?.platformBillingAdmin!==true||!roleCanView("payments")){card.hidden=true;box.textContent="";return}
+  card.hidden=false;box.textContent="Loading pending payments…";
+  try{
+    const admin=await apiJson("/api/platform/billing/manual-payments");
+    if(load!==manualPaymentAdminLoad||currentUser!==user)return;
+    box.safeHTML=(admin.items||[]).map(x=>`<div class="item"><b>${escapeHtml(x.tenant_name||x.tenant_id)} · P${x.amount_bwp}</b><div class="muted small">${escapeHtml(x.metadata?.plan||"subscription")} · bank ref ${escapeHtml(x.bank_reference)} · submitted ${new Date(x.submitted_at).toLocaleString()}</div><div class="row" style="margin-top:8px"><button type="button" class="btn" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','approve')">Verify & activate</button><button type="button" class="btn soft" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','reject')">Reject</button></div></div>`).join("")||'<div class="muted small">No manual payments awaiting approval.</div>';
+  }catch(e){
+    if(load!==manualPaymentAdminLoad||currentUser!==user)return;
+    box.textContent=e.status===403?"Platform billing access was denied. Sign out and sign in with an authorized Thebe Desk admin account.":"Pending payments could not be loaded. Select Refresh approvals to try again.";
+  }
+}
 async function renderPayments(){
+  void renderManualPaymentApprovals();
   const list=document.getElementById("paymentOrderList");if(!list)return;
   try{
     const r=await apiJson("/api/payments/orders");const items=r.items||[];
@@ -2731,10 +2753,7 @@ async function renderPayments(){
     const vb=document.getElementById("paymentVerificationList"),rb=document.getElementById("paymentRefundList");
     if(vb)vb.safeHTML=(v.items||[]).map(x=>`<div class="item"><b>${escapeHtml(x.verification_status)}</b><div class="muted small">${escapeHtml(x.provider)} · ${escapeHtml(x.trigger_type)}${x.provider_result_code?` · code ${escapeHtml(x.provider_result_code)}`:""} · ${new Date(x.checked_at).toLocaleString()}</div></div>`).join("")||'<div class="muted small">No provider verification checks yet.</div>';
     if(rb)rb.safeHTML=(rf.items||[]).map(x=>`<div class="item"><b>${escapeHtml(x.status)} · P${x.amount_bwp}</b><div class="muted small">${escapeHtml(x.provider)}${x.reversal_status?` · ${escapeHtml(x.reversal_status)}`:""} · ${new Date(x.created_at).toLocaleString()}</div></div>`).join("")||'<div class="muted small">No refunds yet.</div>';
-    try{
-      const admin=await apiJson("/api/platform/billing/manual-payments"),card=document.getElementById("manualPaymentAdminCard"),box=document.getElementById("manualPaymentAdminList");
-      if(card&&box){card.hidden=false;box.safeHTML=(admin.items||[]).map(x=>`<div class="item"><b>${escapeHtml(x.tenant_name||x.tenant_id)} · P${x.amount_bwp}</b><div class="muted small">${escapeHtml(x.metadata?.plan||"subscription")} · bank ref ${escapeHtml(x.bank_reference)} · submitted ${new Date(x.submitted_at).toLocaleString()}</div><div class="row" style="margin-top:8px"><button type="button" class="btn" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','approve')">Verify & activate</button><button type="button" class="btn soft" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','reject')">Reject</button></div></div>`).join("")||'<div class="muted small">No manual payments awaiting approval.</div>'}
-    }catch(e){const card=document.getElementById("manualPaymentAdminCard");if(card)card.hidden=true}
+
   }catch(e){list.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
 }
 async function reviewManualPayment(submissionId,action){
@@ -3808,7 +3827,7 @@ async function submitAuth(){
   if(authMode===submittingMode)authSubmit.textContent=originalSubmitText;else authSubmit.textContent=authMode==="register"?"Create account & workspace":"Sign in"
  }
 }
-async function logoutUser(){platformRegulatoryAccess=false;try{await apiFetch("/api/auth/logout",{method:"POST",body:"{}"})}catch{}csrfToken="";currentUser=null;lastWorkspaceView="dashboard";replaceWorkspaceStore({activeCompanyId:null,activeRole:"",companies:[],audit:[]});authPassword.value="";document.querySelectorAll(".modal.open").forEach(m=>m.classList.remove("open"));showMarketing()}
+async function logoutUser(){platformRegulatoryAccess=false;currentUser=null;syncPlatformBillingControls();void renderManualPaymentApprovals();try{await apiFetch("/api/auth/logout",{method:"POST",body:"{}"})}catch{}csrfToken="";currentUser=null;lastWorkspaceView="dashboard";replaceWorkspaceStore({activeCompanyId:null,activeRole:"",companies:[],audit:[]});authPassword.value="";document.querySelectorAll(".modal.open").forEach(m=>m.classList.remove("open"));showMarketing()}
 function consumeInitialWorkspaceState(){
  const node=document.getElementById("thebe-initial-workspace-state");
  if(!node)return null;
