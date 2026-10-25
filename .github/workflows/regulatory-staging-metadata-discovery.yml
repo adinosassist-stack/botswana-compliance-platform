@@ -1,0 +1,78 @@
+name: Regulatory Staging Metadata Discovery
+on:
+  pull_request:
+    paths:
+      - scripts/discover-regulatory-staging-metadata.mjs
+      - tests/regulatory-staging-metadata-discovery.test.mjs
+      - .github/workflows/regulatory-staging-metadata-discovery.yml
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact current main SHA
+        required: true
+        type: string
+      confirmation:
+        description: Metadata discovery only; no SQL or import
+        required: true
+        type: choice
+        default: DO_NOT_RUN
+        options: [DO_NOT_RUN, READ_ONLY_STAGING_METADATA]
+permissions:
+  contents: read
+concurrency:
+  group: regulatory-staging-metadata-discovery
+  cancel-in-progress: false
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - run: node --test tests/regulatory-staging-metadata-discovery.test.mjs
+  discover:
+    needs: test
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirmation == 'READ_ONLY_STAGING_METADATA'
+    environment: regulatory-staging
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Verify exact main and protected environment enablement
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          ENABLED: ${{ vars.REGULATORY_STAGING_AUDIT_ENABLED }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$ENABLED" == READ_ONLY_APPROVED ]]
+          [[ "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$EXPECTED_SHA" == "$GITHUB_SHA" ]]
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SHA" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" == "$EXPECTED_SHA" ]]
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: List account and staging database metadata only
+        env:
+          REGULATORY_STAGING_CLOUDFLARE_TOKEN: ${{ secrets.REGULATORY_STAGING_CLOUDFLARE_TOKEN }}
+          PRODUCTION_D1_DATABASE_ID: ${{ vars.PRODUCTION_D1_DATABASE_ID }}
+        run: |
+          umask 077
+          node scripts/discover-regulatory-staging-metadata.mjs > "$RUNNER_TEMP/staging-metadata.json"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: regulatory-staging-metadata-${{ github.run_id }}
+          path: ${{ runner.temp }}/staging-metadata.json
+          retention-days: 3
+          if-no-files-found: error
