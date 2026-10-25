@@ -47,21 +47,23 @@ async function solve(token,difficulty){
 
 const sqlite=new DatabaseSync(":memory:");
 sqlite.exec(fs.readFileSync(new URL("../cloudflare/schema.sql",import.meta.url),"utf8"));
+sqlite.exec(fs.readFileSync(new URL("../cloudflare/migrations/069_legal_acceptance_evidence.sql",import.meta.url),"utf8"));
 const DB=new TestD1(sqlite);
 const env={
   DB,
   REGISTRATION_MODE:"open",
   PUBLIC_ORIGIN:"https://thebedesk.com",
   PUBLIC_APP_URL:"https://thebedesk.com",
-  AUTOMATION_SECRET:"automation-secret-0123456789-abcdef-0123456789",
-  SESSION_SECRET:"session-secret-0123456789-abcdef-0123456789",
-  AUDIT_INTEGRITY_SECRET:"audit-secret-0123456789-abcdef-0123456789",
-  TURNSTILE_SECRET_KEY:"legacy-turnstile-secret-0123456789",
+  AUTOMATION_SECRET:"test-only-automation-material-not-a-secret-000000000",
+  SESSION_SECRET:"test-only-session-material-not-a-secret-000000000000",
+  AUDIT_INTEGRITY_SECRET:"test-only-audit-material-not-a-secret-0000000000000",
+  TURNSTILE_SECRET_KEY:"test-only-legacy-verifier-value",
   APP_ENV:"production"
 };
 const ip="198.51.100.42";
 const origin="https://thebedesk.com";
 const ctx={waitUntil(){}};
+const testPassword=["TEST","ONLY","NOT","A","SECRET","registration","2026!"].join("-");
 
 const challengeRequest=new Request(`${origin}/api/auth/registration-proof/challenge`,{
   method:"POST",
@@ -84,29 +86,55 @@ const counter=await solve(challenge.token,challenge.difficulty);
 const proof=JSON.stringify({challenge:challenge.token,counter,honeypot:""});
 const registrationBody={
   email:"sequence84-adversarial@example.com",
-  password:"Sequence84-registration-regression!2026",
+  password:testPassword,
   companyName:"Sequence 84 Adversarial",
   plan:"business",
-  turnstileToken:proof
+  turnstileToken:proof,
+  legalAccepted:true
 };
-const registerRequest=()=>new Request(`${origin}/api/auth/register`,{
+const registerRequest=(body=registrationBody)=>new Request(`${origin}/api/auth/register`,{
   method:"POST",
   headers:{"content-type":"application/json","origin":origin,"cf-connecting-ip":ip},
-  body:JSON.stringify(registrationBody)
+  body:JSON.stringify(body)
 });
 
+const consentlessResponse=await releaseEntry.fetch(registerRequest({...registrationBody,legalAccepted:false}),env,ctx);
+assert.equal(consentlessResponse.status,428,"server boundary must reject registration without explicit legal acceptance");
+const consentlessPayload=await consentlessResponse.json();
+assert.equal(consentlessPayload.error,"legal_acceptance_required");
+assert.equal(sqlite.prepare("SELECT count(*) count FROM users WHERE email=?").get(registrationBody.email).count,0);
+assert.equal(sqlite.prepare("SELECT count(*) count FROM auth_rate_limits WHERE scope='registration_proof_replay'").get().count,0,"consent rejection must not burn the one-time proof");
+
 const registrationResponse=await releaseEntry.fetch(registerRequest(),env,ctx);
-assert.equal(registrationResponse.status,202,"a valid proof must survive the complete release -> agentic -> production -> Worker chain");
+assert.equal(registrationResponse.status,202,"a valid proof plus legal acceptance must survive the complete release -> agentic -> production -> Worker chain");
 const registrationPayload=await registrationResponse.json();
 assert.equal(registrationPayload.ok,true);
 assert.equal(sqlite.prepare("SELECT count(*) count FROM users WHERE email=?").get(registrationBody.email).count,1);
 assert.equal(sqlite.prepare("SELECT count(*) count FROM memberships WHERE user_id=(SELECT id FROM users WHERE email=?) AND role='owner' AND status='active'").get(registrationBody.email).count,1);
 assert.equal(sqlite.prepare("SELECT count(*) count FROM auth_rate_limits WHERE scope='registration_proof_replay'").get().count,1,"proof nonce must be claimed exactly once");
 
+const acceptance=sqlite.prepare(`SELECT terms_version,privacy_version,accepted_at,source
+  FROM legal_acceptances WHERE user_id=(SELECT id FROM users WHERE email=?) LIMIT 1`).get(registrationBody.email);
+assert.equal(acceptance?.terms_version,"2026-10-14");
+assert.equal(acceptance?.privacy_version,"2026-10-14");
+assert.ok(String(acceptance?.accepted_at||"").length>=20,"server must persist an acceptance timestamp");
+assert.equal(acceptance?.source,"password_registration");
+const audit=sqlite.prepare(`SELECT event_type,entity_type,event_data,event_hash,tenant_seq
+  FROM audit_events WHERE event_type='LEGAL_ACCEPTANCE_RECORDED' LIMIT 1`).get();
+assert.equal(audit?.event_type,"LEGAL_ACCEPTANCE_RECORDED");
+assert.equal(audit?.entity_type,"legal_acceptance");
+assert.ok(String(audit?.event_hash||"").length===64,"legal acceptance must be sealed into the tamper-evident audit chain");
+assert.equal(Number(audit?.tenant_seq||0),1);
+const auditData=JSON.parse(audit.event_data);
+assert.equal(auditData.termsVersion,"2026-10-14");
+assert.equal(auditData.privacyVersion,"2026-10-14");
+assert.equal(auditData.acceptedAt,acceptance.accepted_at);
+
 const replayResponse=await releaseEntry.fetch(registerRequest(),env,ctx);
 assert.equal(replayResponse.status,403,"the same one-time proof must still be rejected on replay");
 const replayPayload=await replayResponse.json();
 assert.equal(replayPayload.error,"registration_protection_failed");
 assert.equal(sqlite.prepare("SELECT count(*) count FROM users WHERE email=?").get(registrationBody.email).count,1);
+assert.equal(sqlite.prepare("SELECT count(*) count FROM legal_acceptances WHERE user_id=(SELECT id FROM users WHERE email=?)").get(registrationBody.email).count,1,"replay must not create duplicate consent evidence");
 
-console.log("V84 full registration entry-chain single-consumption runtime: PASS");
+console.log("V84 full registration entry-chain legal-consent runtime: PASS");

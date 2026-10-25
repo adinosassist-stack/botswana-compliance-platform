@@ -3,8 +3,20 @@
 const form=document.getElementById("registerForm"),btn=document.getElementById("submitBtn"),status=document.getElementById("status");
 const encoder=new TextEncoder();
 const client=window.BW?.api?.createClient?.({getCsrfToken:()=>"",onUnauthorized:()=>{},onError:()=>{}});
+let legalConsent=null;
 function setStatus(message,type="bad"){status.textContent=message;status.className=`status show ${type}`}
 async function api(path,options={}){if(!client)throw new Error("Registration service is not ready. Reload and try again.");return client.request(path,options)}
+function ensureLegalConsent(){
+ if(!form||document.getElementById("directLegalConsent"))return;
+ const wrap=document.createElement("div");wrap.id="directLegalConsent";wrap.style.margin="14px 0";wrap.style.padding="12px";wrap.style.border="1px solid #e1e4e0";wrap.style.borderRadius="12px";wrap.style.background="#fafbf9";
+ const label=document.createElement("label");label.htmlFor="directLegalAccept";label.style.display="flex";label.style.gap="9px";label.style.alignItems="flex-start";label.style.fontSize="12px";label.style.lineHeight="1.5";label.style.color="#505a55";
+ legalConsent=document.createElement("input");legalConsent.id="directLegalAccept";legalConsent.type="checkbox";legalConsent.style.width="auto";legalConsent.style.minHeight="0";legalConsent.style.margin="3px 0 0";
+ const copy=document.createElement("span");copy.append("I agree to the ");
+ const terms=document.createElement("a");terms.href="/terms/";terms.target="_blank";terms.rel="noopener noreferrer";terms.textContent="Terms of Service";
+ const and=document.createTextNode(" and acknowledge the ");
+ const privacy=document.createElement("a");privacy.href="/privacy/";privacy.target="_blank";privacy.rel="noopener noreferrer";privacy.textContent="Privacy Notice";
+ copy.append(terms,and,privacy,document.createTextNode(" (14 October 2026)."));label.append(legalConsent,copy);wrap.append(label);form.insertBefore(wrap,btn);
+}
 function leadingZeroBits(bytes,bits){let remaining=Number(bits)||0;for(const value of bytes){if(remaining<=0)return true;const take=Math.min(8,remaining);if((value>>(8-take))!==0)return false;remaining-=take}return remaining<=0}
 async function solveProof(){
  const challenge=await api("/api/auth/registration-proof/challenge",{method:"POST",headers:{"content-type":"application/json"},body:"{}"});
@@ -37,6 +49,7 @@ async function finishWorkspaceSelection(loginError,email,password){
  if(!tenantId)throw loginError;
  await api("/api/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email,password,tenantId})});
 }
+ensureLegalConsent();
 form?.addEventListener("submit",async event=>{
  event.preventDefault();status.className="status";
  const companyName=String(document.getElementById("companyName")?.value||"").trim();
@@ -45,11 +58,12 @@ form?.addEventListener("submit",async event=>{
  if(companyName.length<2){setStatus("Enter a business name with at least 2 characters.");return}
  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){setStatus("Enter a valid email address.");return}
  if(password.length<12){setStatus("Create a password with at least 12 characters.");return}
+ if(!legalConsent?.checked){setStatus("Agree to the Terms of Service and acknowledge the Privacy Notice to create a workspace.");legalConsent?.focus();return}
  btn.disabled=true;btn.textContent="Securing registration…";
  try{
   const proof=await solveProof();
   btn.textContent="Creating account…";
-  await api("/api/auth/register",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({companyName,email,password,turnstileToken:proof})});
+  await api("/api/auth/register",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({companyName,email,password,turnstileToken:proof,legalAccepted:true})});
   btn.textContent="Signing in…";
   try{
    await api("/api/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email,password})});
