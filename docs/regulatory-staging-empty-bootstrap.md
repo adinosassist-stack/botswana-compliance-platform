@@ -54,6 +54,17 @@ binding; the production Wrangler configuration is never used.
    Revoke the temporary write token and remove its GitHub secret when finished.
    Keep the read-only token for subsequent evidence collection.
 
+If the identity check stops at `REGULATORY_STAGING_BOOTSTRAP_REFUSED
+staging_cloudflare_unavailable`, no baseline SQL has been executed. The companion
+`REGULATORY_STAGING_BOOTSTRAP_DIAGNOSTIC` line, when available, reports only
+`stage`, `kind`, bounded HTTP status, and numeric Cloudflare error codes.
+Check the staging account ID and the temporary token's D1 Edit permission
+within that same account. A 401/403 or a provider code can narrow the
+investigation; a transport failure does not establish a credential problem.
+Do not paste secrets, bypass target guards, or retry an uninspected partial
+import. This diagnostic enhancement must be reviewed and merged before it
+appears in a fresh bootstrap workflow run.
+
 An empty-baseline audit success establishes schema/query connectivity only.
 The reviewed v1.7 fixture preparation and actual v1.8 import qualification in
 [the staging qualification guide](regulatory-v18-staging-d1-readonly-qualification.md)
