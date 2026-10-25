@@ -1,0 +1,120 @@
+name: Isolated Operations Rehearsals
+run-name: Isolated operations ${{ inputs.mode || 'qualification' }} ${{ inputs.expected_sha }}
+
+on:
+  pull_request:
+    paths:
+      - scripts/isolated-operations-rehearsal.mjs
+      - tests/isolated-operations-rehearsal.test.mjs
+      - .github/workflows/isolated-operations-rehearsals.yml
+      - docs/isolated-operations-rehearsals.md
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact reviewed current main SHA
+        type: string
+        required: true
+      mode:
+        description: Dedicated rehearsal resources only
+        type: choice
+        default: PREFLIGHT_ONLY
+        options:
+          - PREFLIGHT_ONLY
+          - PREFLIGHT_WORKER
+          - RESTORE_APPROVED_BACKUP
+          - ROLLBACK_REHEARSAL_WORKER
+          - ALERT_PROBE
+      confirmation:
+        description: Authorize only the selected isolated operation
+        type: choice
+        default: DO_NOT_RUN
+        options:
+          - DO_NOT_RUN
+          - RUN_ISOLATED_REHEARSAL
+
+permissions:
+  contents: read
+
+concurrency:
+  group: thebe-isolated-operations-rehearsals
+  cancel-in-progress: false
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - run: node --test tests/isolated-operations-rehearsal.test.mjs
+  rehearse:
+    needs: qualify
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.confirmation == 'RUN_ISOLATED_REHEARSAL'
+    environment: operations-rehearsal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      EXPECTED_SHA: ${{ inputs.expected_sha }}
+      REHEARSAL_MODE: ${{ inputs.mode }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Qualify isolated boundaries
+        run: node --test tests/isolated-operations-rehearsal.test.mjs
+      - name: Install lockfile-pinned transport without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify exact current main immediately before rehearsal
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]] || { echo 'Invalid expected SHA.' >&2; exit 1; }
+          [[ "$EXPECTED_SHA" == "$GITHUB_SHA" && "$(git rev-parse HEAD)" == "$EXPECTED_SHA" ]] || { echo 'Revision mismatch.' >&2; exit 1; }
+          live_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          [[ "$live_sha" == "$EXPECTED_SHA" ]] || { echo 'Reviewed revision is no longer current main.' >&2; exit 1; }
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo 'Checkout changed.' >&2; exit 1; }
+      - name: Run selected isolated rehearsal
+        env:
+          OPERATIONS_REHEARSAL_ACCOUNT_ID: ${{ secrets.OPERATIONS_REHEARSAL_ACCOUNT_ID }}
+          OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN: ${{ secrets.OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN }}
+          REHEARSAL_DATABASE_ID: ${{ (inputs.mode == 'PREFLIGHT_WORKER' || inputs.mode == 'ROLLBACK_REHEARSAL_WORKER' || inputs.mode == 'ALERT_PROBE') && vars.OPS_WORKER_D1_ID || vars.OPS_RESTORE_D1_ID }}
+          REHEARSAL_ISOLATION_APPROVAL: ${{ vars.REHEARSAL_ISOLATION_APPROVAL }}
+          REHEARSAL_BASE_URL: ${{ vars.REHEARSAL_BASE_URL }}
+          REHEARSAL_BACKUP_SHA256: ${{ vars.REHEARSAL_BACKUP_SHA256 }}
+          REHEARSAL_OBJECT_SHA256: ${{ vars.REHEARSAL_OBJECT_SHA256 }}
+          REHEARSAL_BACKUP_APPROVAL: ${{ vars.REHEARSAL_BACKUP_APPROVAL }}
+          REHEARSAL_ROLLBACK_VERSION_ID: ${{ vars.REHEARSAL_ROLLBACK_VERSION_ID }}
+          REHEARSAL_CURRENT_VERSION_ID: ${{ vars.REHEARSAL_CURRENT_VERSION_ID }}
+          REHEARSAL_SCHEMA_SHA256: ${{ vars.REHEARSAL_SCHEMA_SHA256 }}
+          REHEARSAL_COMPATIBILITY_APPROVAL: ${{ vars.REHEARSAL_COMPATIBILITY_APPROVAL }}
+          REHEARSAL_ALERT_APPROVAL: ${{ vars.REHEARSAL_ALERT_APPROVAL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          report="$RUNNER_TEMP/isolated-operations-report.json"
+          trap 'rm -f "$report"' EXIT
+          node --no-warnings scripts/isolated-operations-rehearsal.mjs > "$report"
+          {
+            echo '## Isolated rehearsal evidence'
+            echo 'This result does not authorize a production rollback, restore, or launch.'
+            echo '```json'
+            cat "$report"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
