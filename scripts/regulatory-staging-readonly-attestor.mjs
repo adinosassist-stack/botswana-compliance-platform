@@ -75,18 +75,37 @@ export function createStagingRegulatoryAttestor({
   const base=`https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${stagingDatabaseId}`;
   const headers={Authorization:`Bearer ${token}`,"Content-Type":"application/json",Accept:"application/json"};
   let verified=false;
-  async function cloudflare(url,options={}){
+  function providerFailure(stage,kind,response,body){
+    const error=new Error("staging_cloudflare_unavailable");
+    // Only fixed local labels and bounded numbers leave this module. Never log
+    // provider messages, URLs, identifiers, headers, response bodies or causes.
+    const diagnostic={stage,kind};
+    if(Number.isInteger(response?.status)&&response.status>=100&&response.status<=599)
+      diagnostic.httpStatus=response.status;
+    if(body){
+      const errors=Array.isArray(body.errors)?body.errors.slice(0,10):[];
+      diagnostic.providerCodes=errors.map(e=>e?.code).filter(code=>
+        Number.isSafeInteger(code)&&code>=0&&code<=999999);
+      if(errors.some(e=>typeof e?.message==="string"&&
+        /no such (?:table|column)\b/i.test(e.message.slice(0,1000))))
+        diagnostic.kind="schema_missing";
+    }
+    error.diagnostic=Object.freeze(diagnostic);
+    throw error;
+  }
+  async function cloudflare(stage,url,options={}){
     let response,body;
     try{
       response=await fetchImpl(url,{...options,headers,redirect:"error",signal:AbortSignal.timeout(20000)});
-      body=await response.json();
-    }catch{fail("staging_cloudflare_unavailable")}
-    if(!response.ok||body?.success!==true)fail("staging_cloudflare_unavailable");
+    }catch{providerFailure(stage,"transport")}
+    try{body=await response.json()}
+    catch{providerFailure(stage,"invalid_json",response)}
+    if(!response.ok||body?.success!==true)providerFailure(stage,"provider_rejected",response,body);
     return body.result;
   }
   async function verifyTarget(){
     verified=false;
-    const metadata=await cloudflare(base);
+    const metadata=await cloudflare("metadata",base);
     if(metadata?.uuid?.toLowerCase()!==stagingDatabaseId.toLowerCase()||
       metadata?.name!==expectedStagingName)
       fail("staging_database_identity_mismatch");
@@ -95,7 +114,8 @@ export function createStagingRegulatoryAttestor({
   async function query(sql){
     if(!verified||!Object.values(STAGING_REGULATORY_QUERIES).includes(sql))fail("staging_query_not_allowed");
     assertReadOnly(sql);
-    const batches=await cloudflare(base+"/query",{method:"POST",body:JSON.stringify({sql,params:[]})});
+    const queryName=Object.keys(STAGING_REGULATORY_QUERIES).find(key=>STAGING_REGULATORY_QUERIES[key]===sql);
+    const batches=await cloudflare("query_"+queryName,base+"/query",{method:"POST",body:JSON.stringify({sql,params:[]})});
     if(!Array.isArray(batches)||batches.length!==1||
       batches[0]?.success!==true||!Array.isArray(batches[0].results))
       fail("staging_query_result_invalid");
@@ -134,3 +154,4 @@ export function createStagingRegulatoryAttestor({
   }
   return {verifyTarget,query,attest};
 }
+

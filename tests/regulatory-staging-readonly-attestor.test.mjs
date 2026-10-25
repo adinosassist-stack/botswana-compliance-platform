@@ -130,6 +130,43 @@ test("no token, body or customer values are surfaced through cloudflare errors",
   await assert.rejects(attestor(fetchImpl).attest(),e=>e.message==="staging_cloudflare_unavailable");
 });
 
+test("metadata failures expose only a fixed stage, HTTP status and bounded numeric codes",async()=>{
+  const privateBody={success:false,errors:[{code:10000,message:token},{code:token}],accountId,stagingDatabaseId};
+  await assert.rejects(attestor(async()=>({ok:false,status:403,json:async()=>privateBody})).attest(),error=>{
+    assert.equal(error.message,"staging_cloudflare_unavailable");
+    assert.deepEqual(error.diagnostic,{stage:"metadata",kind:"provider_rejected",httpStatus:403,providerCodes:[10000]});
+    const printed=JSON.stringify(error.diagnostic);
+    for(const value of [token,accountId,stagingDatabaseId])assert.ok(!printed.includes(value));
+    return true;
+  });
+});
+
+test("missing schema identifies the first pinned query and stops before later queries",async()=>{
+  const fake=simulatedCloudflare();let calls=0;
+  await assert.rejects(attestor(async(...args)=>{
+    calls++;
+    if(args[1]?.method==="POST")return {ok:false,status:400,json:async()=>({success:false,errors:[{code:7500,message:'no such table: private-table '+token}]})};
+    return fake.fetchImpl(...args);
+  }).attest(),error=>{
+    assert.deepEqual(error.diagnostic,{stage:"query_sources",kind:"schema_missing",httpStatus:400,providerCodes:[7500]});
+    assert.ok(!JSON.stringify(error.diagnostic).includes('private-table'));
+    return true;
+  });
+  assert.equal(calls,2);
+});
+
+test("network and JSON errors remain redacted and distinguishable",async()=>{
+  for(const [fetchImpl,kind] of [
+    [async()=>{throw new Error(token)},"transport"],
+    [async()=>({ok:true,status:200,json:async()=>{throw new Error(token)}}),"invalid_json"]
+  ])await assert.rejects(attestor(fetchImpl).attest(),error=>{
+    assert.equal(error.diagnostic.stage,"metadata");
+    assert.equal(error.diagnostic.kind,kind);
+    assert.ok(!JSON.stringify(error.diagnostic).includes(token));
+    return true;
+  });
+});
+
 test("inspection query names and commands never perform D1 mutations",()=>{
   assert.deepEqual(Object.keys(STAGING_REGULATORY_QUERIES),["sources","registry","legacyRules","obligationCounts"]);
   for(const query of Object.values(STAGING_REGULATORY_QUERIES)){
@@ -138,3 +175,4 @@ test("inspection query names and commands never perform D1 mutations",()=>{
     assert.doesNotMatch(normalized,/\b(?:UPDATE|DELETE|INSERT|ALTER|DROP|REPLACE|VACUUM|PRAGMA)\b/i);
   }
 });
+
