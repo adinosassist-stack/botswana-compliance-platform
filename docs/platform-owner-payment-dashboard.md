@@ -22,3 +22,13 @@ Validation: `node --test tests/owner-payment-dashboard.test.mjs tests/platform-b
 - Client search, status filters and a renewal shortcut that filters the client list. All dates used in server aggregation are UTC. No fake growth, churn, revenue forecasts or demo figures appear in live analytics.
 
 Graphs use lightweight HTML/CSS with text labels, a table alternative, keyboard controls and explicit empty/error states. They load only for authorized platform owners; logout clears them and fences late responses. No chart library, tracking integration or recurring background polling was added. Desktop/mobile visual acceptance remains to be run against the deployed owner session.
+
+## Dashboard audit follow-up
+
+Regression cases reproduced misleading expired-access switch state, hidden customer-billing requests, confirmation dialogs surviving an account change, delayed filtering after navigation, and UTC timestamps parsed as browser-local time. The fix keeps access-control state separate from paid-period validity: an expired active record may still be explicitly paused, while an expired paused record requires a new verified payment before resume. Neither action changes the paid-through date.
+
+Payment/access confirmations are fenced to the same authorized session before submission. Owner refreshes request only platform panels; customer owners retain their ordinary billing panels. Client filters stop after navigation and reset on logout. UTC database timestamps are converted before local display. Long names/references and exact-figure tables wrap within narrow screens.
+
+`tests/owner-dashboard-audit.test.mjs` covers these behaviors. `scripts/owner-dashboard-audit-browser.mjs` renders the canonical Payments section, actual dashboard scripts, delegation/sanitization and styles in isolated Chrome at desktop and mobile widths, using synthetic records only. CI checks switching, chart/date/search wiring, cancellation, viewport overflow and zero POST requests, and saves four screenshots for review. This component test does not substitute for a live signed-in owner acceptance test.
+
+Screenshot review also found the shared H2 rule suppressing the dashboard title and analytics preceding approvals. The title now retains its hierarchy, payment approvals precede the charts, and top-level Review payments / Manage subscriptions actions provide direct access. Browser checks verify the heading size and rendered approval order; overview screenshots expand the component scroll container for inspection while controls screenshots preserve the real viewport.
