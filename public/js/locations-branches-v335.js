@@ -8,6 +8,7 @@
   let decorateQueued=false;
   let onboardingYieldQueued=false;
   let onboardingYieldInFlight=false;
+  let locationsOpenEpoch=0;
 
   function make(tag,className,text){
     const el=document.createElement(tag);
@@ -188,10 +189,15 @@
   }
 
   function openLocationsBranches(){
-    if(typeof window.showView==="function")window.showView("peopleops");
+    const epoch=++locationsOpenEpoch;
+    if(typeof window.showView==="function"&&window.showView("peopleops")===false)return;
     scheduleOnboardingYield();
     let attempts=0;
     const retry=()=>{
+      // Repeated shortcuts or a later page change must not keep old retry loops alive.
+      if(epoch!==locationsOpenEpoch)return;
+      const people=document.getElementById("peopleops");
+      if(people&&!people.classList.contains("active")&&people.dataset?.lazyView!=="1")return;
       scheduleOnboardingYield();
       if(revealLocations())return;
       attempts+=1;
@@ -244,6 +250,7 @@
     bindSectionObservers();
     window.addEventListener("thebe:workspace-view-change",event=>{
       const id=String(event?.detail?.id||"");
+      if(id!=="peopleops")locationsOpenEpoch++;
       if(id!=="peopleops"&&id!=="accounthub")return;
       bindSectionObservers();
       scheduleDecorate();
