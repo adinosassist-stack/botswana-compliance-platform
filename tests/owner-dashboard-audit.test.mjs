@@ -3,17 +3,17 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 const source=fs.readFileSync('public/js/workspace-runtime-20261001b.js','utf8');
-function dashboard({admin=true,items=[],paymentItems=[]}={}){
+function dashboard({admin=true,items=[],paymentItems=[],paymentReviewResult={ok:true,status:'approved',activated:true}}={}){
  const ids=['payments','platformBillingOverview','platformSubscriptionAdminCard','platformSubscriptionList','platformActiveCount','platformPausedCount','platformPendingCount','platformSubscriptionNext','platformSubscriptionFirst','platformClientSearch','platformClientFilter','manualPaymentAdminCard','manualPaymentAdminList','paymentOrderList','paymentPending','paymentPaid','paymentFailed','paymentRefunded','paymentVerificationList','paymentRefundList','paymentProviderList','paymentReconciliationList'];
  const elements=new Map(ids.map(id=>[id,{hidden:false,textContent:'',safeHTML:'',value:id==='platformClientFilter'?'all':'',dataset:{},classList:{contains:()=>true,toggle(){}},style:{}}]));
- const calls=[],timers=[];let prompts=0;
+ const calls=[],timers=[],notifications=[];let prompts=0;
  class BrowserDate extends Date{constructor(value){super(typeof value==='string'&&/^\d{4}-\d\d-\d\d /.test(value)?value.replace(' ','T')+'+02:00':value)}toLocaleString(){return this.toISOString()}}
- const context=vm.createContext({window:{BW:{}},Date:BrowserDate,document:{getElementById:id=>elements.get(id)||null,querySelectorAll:()=>[]},currentUser:{platformBillingAdmin:admin,role:'owner',tenantId:'platform-owner'},roleCanView:()=>true,escapeHtml:String,notifyUser:()=>{},renderPayments:()=>{},loadBilling:async()=>{},clearTimeout:()=>{},setTimeout:fn=>{timers.push(fn);return timers.length},BW:{dialog:{confirm:async()=>true,prompt:async()=>{prompts++;return 'Verified owner request'}}},apiJson:async(path,options)=>{
-  calls.push({path,options});if(path.includes('manual-payments')&&!options)return {items:paymentItems};
+ const context=vm.createContext({window:{BW:{}},Date:BrowserDate,document:{getElementById:id=>elements.get(id)||null,querySelectorAll:()=>[]},currentUser:{platformBillingAdmin:admin,role:'owner',tenantId:'platform-owner'},roleCanView:()=>true,escapeHtml:String,notifyUser:message=>notifications.push(String(message)),renderPayments:()=>{},loadBilling:async()=>{},clearTimeout:()=>{},setTimeout:fn=>{timers.push(fn);return timers.length},BW:{dialog:{confirm:async()=>true,prompt:async()=>{prompts++;return 'Verified owner request'}}},apiJson:async(path,options)=>{
+  calls.push({path,options});if(path.includes('manual-payments')&&!options)return {items:paymentItems};if(path.includes('manual-payments')&&options?.method==='POST')return paymentReviewResult;
   if(path.includes('/subscriptions'))return {items,counts:{active:1,paused:0},nextAfter:null};return {items:[],providers:[]};
  }});
  vm.runInContext(source.slice(source.indexOf('function syncPlatformBillingControls(){'),source.indexOf('async function renderEntitlements(){')),context);
- return {elements,context,calls,timers,get prompts(){return prompts},run:code=>vm.runInContext(code,context)};
+ return {elements,context,calls,timers,notifications,get prompts(){return prompts},run:code=>vm.runInContext(code,context)};
 }
 test('stored active state remains On after expiry and can be deliberately paused',async()=>{
  const f=dashboard({items:[{tenant_id:'expired-client',tenant_name:'Expired client',plan:'business',status:'active',current_period:0,current_period_ends_at:'2000-01-01 00:00:00'}]});await f.run('loadPlatformSubscriptions()');
@@ -46,3 +46,39 @@ test('account changes during reason entry cannot submit access or rejection chan
  for(const action of ['toggle','reject']){const f=dashboard();f.context.BW.dialog.prompt=async()=>{f.context.currentUser={platformBillingAdmin:true,role:'owner',tenantId:'other-owner'};return 'Different account now'};f.context.button={disabled:false,dataset:{tenantId:'client',expectedStatus:'active',expectedPeriod:'2099-01-01'}};await f.run(action==='toggle'?'togglePlatformSubscription({target:{closest:()=>button}})':'reviewManualPayment("submission","reject")');assert.equal(f.calls.filter(x=>x.options?.method==='POST').length,0)}
 });
 test('payment approval refreshes platform data without loading the admin workspace own billing',async()=>{const f=dashboard();let ownBillingReads=0;f.context.loadBilling=async()=>{ownBillingReads++};await f.run('reviewManualPayment("submission","approve")');assert.equal(ownBillingReads,0)});
+
+test('bank-receipt approval is sent only after explicit owner confirmation and requires activated acknowledgement',async()=>{
+ const f=dashboard();
+ await f.run('reviewManualPayment("submission","approve")');
+ const posts=f.calls.filter(x=>x.options?.method==='POST');
+ assert.equal(posts.length,1);
+ assert.equal(posts[0].path,'/api/platform/billing/manual-payments/submission/approve');
+ assert.equal(JSON.parse(posts[0].options.body).bankFundsConfirmed,true);
+ assert.match(f.notifications.join(' '),/verified and plan activated/i);
+});
+test('declining bank-receipt confirmation never sends a payment mutation',async()=>{
+ const f=dashboard();f.context.BW.dialog.confirm=async()=>false;
+ await f.run('reviewManualPayment("submission","approve")');
+ assert.equal(f.calls.filter(x=>x.options?.method==='POST').length,0);
+});
+test('HTTP success without explicit activation is NOT reported as a successful payment',async()=>{
+ const f=dashboard({paymentReviewResult:{ok:true,status:'reviewing'}});
+ await f.run('reviewManualPayment("submission","approve")');
+ assert.equal(f.calls.filter(x=>x.options?.method==='POST').length,1);
+ assert.doesNotMatch(f.notifications.join(' '),/payment verified and plan activated/i);
+ assert.match(f.notifications.join(' '),/did not confirm/i);
+});
+test('duplicate approval clicks send a single in-flight mutation',async()=>{
+ const f=dashboard();let release;
+ f.context.apiJson=async(path,options)=>{
+   f.calls.push({path,options});
+   if(options?.method==='POST')return await new Promise(resolve=>{release=resolve});
+   return {items:[],counts:{active:0,paused:0},nextAfter:null};
+ };
+ const first=f.run('reviewManualPayment("submission","approve")');
+ await new Promise(resolve=>setImmediate(resolve));
+ const second=f.run('reviewManualPayment("submission","approve")');
+ assert.equal(f.calls.filter(x=>x.options?.method==='POST').length,1);
+ release({ok:true,status:'approved',activated:true});
+ await Promise.all([first,second]);
+});
