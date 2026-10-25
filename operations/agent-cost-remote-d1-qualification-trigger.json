@@ -1,0 +1,6 @@
+{
+  "schema": 1,
+  "requested": true,
+  "purpose": "qualify-agent-cost-on-disposable-remote-d1",
+  "safety": "create and delete disposable remote D1 only; refuse production D1; no deployment or production activation"
+}
