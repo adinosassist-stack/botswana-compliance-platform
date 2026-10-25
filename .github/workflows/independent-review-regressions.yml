@@ -156,4 +156,4 @@ jobs:
 
       - name: Platform billing controls and approval loading
         shell: bash
-        run: node --test tests/platform-billing-controls.test.mjs
+        run: node --test tests/platform-billing-controls.test.mjs tests/owner-payment-dashboard.test.mjs tests/platform-billing-analytics.test.mjs
