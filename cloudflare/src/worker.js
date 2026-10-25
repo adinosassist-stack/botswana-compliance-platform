@@ -7439,7 +7439,7 @@ export default {
         return idempotentJsonMutation(env,a,req,"platform-subscription-access",body,()=>setSubscriptionAccess({env,auth:a,body,writeAudit}));
       }
       if(url.pathname==="/api/platform/billing/manual-payments"&&req.method==="GET"){
-        if(!platformBillingAdmin(a,env))return json({error:"platform_billing_forbidden"},403);
+        if(!roleAllowed(a,"owner")||!platformBillingAdmin(a,env))return json({error:"platform_billing_forbidden"},403);
         const r=await env.DB.prepare(`SELECT m.id,m.payment_order_id,m.tenant_id,m.bank_reference,m.status,m.submitted_at,m.reviewed_at,m.rejection_reason,
           o.amount_bwp,o.metadata_json,t.name tenant_name
           FROM manual_payment_submissions m JOIN payment_orders o ON o.id=m.payment_order_id JOIN tenants t ON t.id=m.tenant_id
@@ -7449,16 +7449,20 @@ export default {
       }
       const manualAdminMatch=url.pathname.match(/^\/api\/platform\/billing\/manual-payments\/([0-9a-f-]{36})\/(approve|reject)$/i);
       if(manualAdminMatch&&req.method==="POST"){
-        if(!platformBillingAdmin(a,env))return json({error:"platform_billing_forbidden"},403);
+        if(!roleAllowed(a,"owner")||!platformBillingAdmin(a,env))return json({error:"platform_billing_forbidden"},403);
         const submissionId=manualAdminMatch[1],action=manualAdminMatch[2].toLowerCase(),body=await readJson(req);
-        const row=await env.DB.prepare(`SELECT m.*,o.amount_bwp,o.status order_status,o.order_type,o.provider,o.metadata_json
+        // A customer's payment reference is not evidence of receipt; require an
+        // explicit authenticated platform-owner bank-credit attestation.
+        if(action==="approve"&&body.bankFundsConfirmed!==true)return json({error:"bank_funds_confirmation_required"},400);
+        const row=await env.DB.prepare(`SELECT m.*,o.amount_bwp,o.status order_status,o.order_type,o.provider,o.provider_payment_id,o.metadata_json
           FROM manual_payment_submissions m JOIN payment_orders o ON o.id=m.payment_order_id WHERE m.id=? LIMIT 1`).bind(submissionId).first();
         if(!row)return json({error:"manual_payment_submission_not_found"},404);
         if(!["submitted","reviewing"].includes(row.status))return json({error:"manual_payment_already_reviewed",status:row.status},409);
         if(action==="reject"){
+          if(row.status==="reviewing")return json({error:"manual_payment_review_in_progress"},409);
           const reason=boundedReportText(body.reason||"",500);if(String(reason||"").trim().length<5)return json({error:"rejection_reason_required"},400);
           const changed=await env.DB.prepare(`UPDATE manual_payment_submissions SET status='rejected',reviewed_at=CURRENT_TIMESTAMP,reviewed_by_user_id=?,rejection_reason=?
-            WHERE id=? AND status IN ('submitted','reviewing')`).bind(a.user_id,reason,submissionId).run();
+            WHERE id=? AND status='submitted'`).bind(a.user_id,reason,submissionId).run();
           if(Number(changed.meta?.changes||0)!==1)return json({error:"manual_payment_review_conflict"},409);
           await env.DB.prepare("INSERT INTO manual_payment_events(id,submission_id,payment_order_id,tenant_id,event_type,actor_user_id,event_data) VALUES(?,?,?,?,?,?,?)")
             .bind(id(),submissionId,row.payment_order_id,row.tenant_id,"rejected",a.user_id,JSON.stringify({reason})).run();
@@ -7466,15 +7470,33 @@ export default {
           return json({ok:true,status:"rejected"});
         }
         if(row.order_type!=="subscription"||String(row.provider||"")!=="manual_bank")return json({error:"manual_payment_order_invalid"},409);
-        if(["paid","refunded"].includes(row.order_status))return json({error:"payment_order_already_final",status:row.order_status},409);
-        const claimed=await env.DB.prepare(`UPDATE manual_payment_submissions SET status='reviewing',reviewed_by_user_id=? WHERE id=? AND status='submitted'`).bind(a.user_id,submissionId).run();
-        if(Number(claimed.meta?.changes||0)!==1&&row.status!=="reviewing")return json({error:"manual_payment_review_conflict"},409);
-        const settlement=await applyVerifiedPaymentOrder(env,row.payment_order_id,{verified:true,status:"verified_paid",providerPaymentId:row.bank_reference,resultCode:"MANUAL_APPROVED"});
-        if(!settlement.ok){
-          await env.DB.prepare("UPDATE manual_payment_submissions SET status='submitted',reviewed_by_user_id=NULL WHERE id=? AND status='reviewing'").bind(submissionId).run();
-          return json({error:"manual_payment_activation_failed",settlement},503);
+        if(row.order_status==="refunded"||row.order_status==="canceled")return json({error:"payment_order_already_final",status:row.order_status},409);
+        // A previous attempt may have already committed the paid order and
+        // applied fulfillment before the review/audit response was interrupted.
+        // Resume only the review, never grant a second paid period or settle twice.
+        let settlement;
+        if(row.order_status==="paid"){
+          const plan=String(safeJson(row.metadata_json,{})?.plan||"starter");
+          const applied=await env.DB.prepare(`SELECT f.payment_order_id FROM payment_fulfillments f
+            JOIN subscriptions s ON s.tenant_id=f.tenant_id
+            WHERE f.payment_order_id=? AND f.tenant_id=? AND f.order_type='subscription'
+              AND f.fulfillment_status='applied' AND s.provider='manual_bank'
+              AND s.plan=? AND s.status='active' AND datetime(s.current_period_ends_at)>datetime('now')
+            LIMIT 1`).bind(row.payment_order_id,row.tenant_id,plan).first();
+          if(!applied||String(row.provider_payment_id||"")!==String(row.bank_reference||""))
+            return json({error:"paid_order_reconciliation_required"},409);
+          settlement={ok:true,alreadySettled:true,recoveredExistingFulfillment:true};
+        }else{
+          const claimed=await env.DB.prepare(`UPDATE manual_payment_submissions SET status='reviewing',reviewed_by_user_id=? WHERE id=? AND status='submitted'`).bind(a.user_id,submissionId).run();
+          if(Number(claimed.meta?.changes||0)!==1&&row.status!=="reviewing")return json({error:"manual_payment_review_conflict"},409);
+          settlement=await applyVerifiedPaymentOrder(env,row.payment_order_id,{verified:true,status:"verified_paid",providerPaymentId:row.bank_reference,resultCode:"MANUAL_APPROVED"});
+          if(!settlement.ok){
+            await env.DB.prepare("UPDATE manual_payment_submissions SET status='submitted',reviewed_by_user_id=NULL WHERE id=? AND status='reviewing'").bind(submissionId).run();
+            return json({error:"manual_payment_activation_failed",settlement},503);
+          }
         }
-        await env.DB.prepare("UPDATE manual_payment_submissions SET status='approved',reviewed_at=CURRENT_TIMESTAMP,reviewed_by_user_id=?,rejection_reason=NULL WHERE id=?").bind(a.user_id,submissionId).run();
+        const marked=await env.DB.prepare("UPDATE manual_payment_submissions SET status='approved',reviewed_at=CURRENT_TIMESTAMP,reviewed_by_user_id=?,rejection_reason=NULL WHERE id=? AND status IN ('submitted','reviewing')").bind(a.user_id,submissionId).run();
+        if(Number(marked.meta?.changes||0)!==1)return json({error:"manual_payment_review_conflict"},409);
         await env.DB.prepare("INSERT INTO manual_payment_events(id,submission_id,payment_order_id,tenant_id,event_type,actor_user_id,event_data) VALUES(?,?,?,?,?,?,?)")
           .bind(id(),submissionId,row.payment_order_id,row.tenant_id,"approved_and_activated",a.user_id,JSON.stringify({bankReference:row.bank_reference,amountBwp:row.amount_bwp})).run();
         await writeAudit(env,row.tenant_id,a.user_id,"MANUAL_PAYMENT_APPROVED",{paymentOrderId:row.payment_order_id,submissionId,bankReference:row.bank_reference,amountBwp:row.amount_bwp});
