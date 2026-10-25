@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 
 const ORIGIN='https://thebedesk.com';
 const REGISTER_URL=`${ORIGIN}/api/auth/register`;
+const LEGAL_ACCEPTANCE_VERSION='2026-10-14';
 const SYNTHETIC_EMAIL_RE=/^synthetic\.lifecycle\.\d+\.\d+\.[0-9a-f]{12}@example\.invalid$/;
 const LATE_READY_RETRY_RELEASE='20261015-workspace-late-ready-retry-v0519';
 const auditSecret=String(process.env.AUDIT_INTEGRITY_SECRET||'');
@@ -56,7 +57,8 @@ globalThis.fetch=async(input,init={})=>{
     const signature=crypto.createHmac('sha256',auditSecret).update(`registration-override:${email}`).digest('hex');
     const headers=new Headers(init?.headers||{});
     headers.set('x-thebe-registration-audit',signature);
-    return realFetch(input,{...init,headers});
+    headers.set('x-thebe-legal-acceptance',LEGAL_ACCEPTANCE_VERSION);
+    return realFetch(input,{...init,headers,body:JSON.stringify({...payload,acceptLegal:true})});
   }
   return realFetch(input,init);
 };

@@ -1,5 +1,6 @@
 (()=>{
 "use strict";
+const LEGAL_ACCEPTANCE_VERSION="2026-10-14";
 const form=document.getElementById("registerForm"),btn=document.getElementById("submitBtn"),status=document.getElementById("status");
 const encoder=new TextEncoder();
 const client=window.BW?.api?.createClient?.({getCsrfToken:()=>"",onUnauthorized:()=>{},onError:()=>{}});
@@ -42,14 +43,16 @@ form?.addEventListener("submit",async event=>{
  const companyName=String(document.getElementById("companyName")?.value||"").trim();
  const email=String(document.getElementById("email")?.value||"").trim().toLowerCase();
  const password=String(document.getElementById("password")?.value||"");
+ const acceptLegal=document.getElementById("acceptLegal")?.checked===true;
  if(companyName.length<2){setStatus("Enter a business name with at least 2 characters.");return}
  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){setStatus("Enter a valid email address.");return}
  if(password.length<12){setStatus("Create a password with at least 12 characters.");return}
+ if(!acceptLegal){setStatus("Agree to the Terms of Service and acknowledge the Privacy Notice before creating your account.");return}
  btn.disabled=true;btn.textContent="Securing registration…";
  try{
   const proof=await solveProof();
   btn.textContent="Creating account…";
-  await api("/api/auth/register",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({companyName,email,password,turnstileToken:proof})});
+  await api("/api/auth/register",{method:"POST",headers:{"content-type":"application/json","x-thebe-legal-acceptance":LEGAL_ACCEPTANCE_VERSION},body:JSON.stringify({companyName,email,password,turnstileToken:proof,acceptLegal:true})});
   btn.textContent="Signing in…";
   try{
    await api("/api/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email,password})});
