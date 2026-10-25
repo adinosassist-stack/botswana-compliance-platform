@@ -14,5 +14,8 @@ try{
 }catch(error){
   // Deliberately never echo provider bodies, tokens, IDs or full remote metadata.
   process.stderr.write("REGULATORY_STAGING_READONLY_FAILED "+String(error?.message||"unknown")+"\n");
+  if(error?.diagnostic)
+    process.stderr.write("REGULATORY_STAGING_DIAGNOSTIC "+JSON.stringify(error.diagnostic)+"\n");
   process.exitCode=1;
 }
+
