@@ -4300,19 +4300,19 @@ body.thebe-ai-dock-open .property-valuation-service-card .formgrid{grid-template
 
 <section id="payments" class="view">
   <div id="platformBillingOverview" hidden>
-    <div class="billing-dashboard-heading"><div><div class="kpi">Thebe Desk</div><h2>Owner dashboard</h2><p class="muted">Review payments. Control client subscriptions.</p></div><button type="button" class="btn alt" data-bw-onclick="refreshPlatformBillingDashboard()">Refresh dashboard</button></div>
+    <div class="billing-dashboard-heading"><div><div class="kpi">Thebe Desk</div><h2>Owner dashboard</h2><p class="muted">Review payments. Control client subscriptions.</p></div><div class="billing-dashboard-actions"><button type="button" class="btn" data-bw-onclick="jumpPlatformBillingSection('manualPaymentAdminCard')">Review payments</button><button type="button" class="btn alt" data-bw-onclick="jumpPlatformBillingSection('platformSubscriptionAdminCard')">Manage subscriptions</button><button type="button" class="btn alt" data-bw-onclick="refreshPlatformBillingDashboard()">Refresh dashboard</button></div></div>
     <div class="billing-dashboard-stats"><div class="card"><div class="kpi">Pending review</div><div class="score" id="platformPendingCount">—</div></div><div class="card"><div class="kpi">Active paid plans</div><div class="score" id="platformActiveCount">—</div></div><div class="card"><div class="kpi">Paused plans</div><div class="score" id="platformPausedCount">—</div></div></div>
+  </div>
+
+  <div id="manualPaymentAdminCard" class="card" style="margin-top:16px" hidden><div class="between row"><div><div class="kpi">Thebe Desk controls</div><h2>Manual payment approvals</h2></div><button type="button" class="btn alt" data-bw-onclick="renderManualPaymentApprovals()">Refresh approvals</button></div>
+    <div class="notice warn"><b>Platform billing control</b><div class="small">Approve only after the matching funds are visible in the Thebe Desk company bank account. Customer-submitted references are not proof of receipt.</div></div>
+    <div id="manualPaymentAdminList" class="muted small" style="margin-top:12px">No manual payments awaiting approval.</div>
   </div>
 
   <div id="platformBillingInsights" hidden>
     <div class="billing-insights-heading"><h2>Business at a glance</h2><label for="platformBillingMonths">Receipts period<select id="platformBillingMonths" data-bw-onchange="changePlatformBillingRange()"><option value="3">3 months</option><option value="6" selected>6 months</option><option value="12">12 months</option></select></label></div>
     <p id="platformBillingChartStatus" class="muted small" role="status" aria-live="polite">Loading billing insights…</p><div id="platformBillingCharts"></div>
   </div>
-  <div id="manualPaymentAdminCard" class="card" style="margin-top:16px" hidden><div class="between row"><div><div class="kpi">Thebe Desk controls</div><h2>Manual payment approvals</h2></div><button type="button" class="btn alt" data-bw-onclick="renderManualPaymentApprovals()">Refresh approvals</button></div>
-    <div class="notice warn"><b>Platform billing control</b><div class="small">Approve only after the matching funds are visible in the Thebe Desk company bank account. Customer-submitted references are not proof of receipt.</div></div>
-    <div id="manualPaymentAdminList" class="muted small" style="margin-top:12px">No manual payments awaiting approval.</div>
-  </div>
-
   <div id="platformSubscriptionAdminCard" class="card" hidden>
     <h2>Client subscriptions</h2><p class="muted small">Switches pause or resume signed-in workspace changes. Paid-through dates stay unchanged.</p>
     <div class="billing-client-filters"><label for="platformClientSearch">Find client<input id="platformClientSearch" type="search" placeholder="Business name or ID" maxlength="80" data-bw-oninput="filterPlatformSubscriptions()"></label><label for="platformClientFilter">Show<select id="platformClientFilter" data-bw-onchange="filterPlatformSubscriptions()"><option value="all">All clients</option><option value="active">Active paid plans</option><option value="paused">Paused plans</option><option value="renewal">Renewing within seven days</option></select></label></div>

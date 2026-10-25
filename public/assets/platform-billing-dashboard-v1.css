@@ -16,3 +16,5 @@
 @media(max-width:600px){.billing-client-filters{grid-template-columns:1fr}}
 
 .billing-client-row>div{min-width:0;flex:1}.billing-client-row b,.billing-activity li>div,.billing-renewals li,.platform-billing-dashboard .item{overflow-wrap:anywhere}.billing-activity li>div{min-width:0}.billing-figures{table-layout:fixed}.billing-figures td,.billing-figures th{overflow-wrap:anywhere}
+
+#platformBillingOverview .billing-dashboard-heading h2{font-size:clamp(26px,4vw,36px)!important;line-height:1.1!important;letter-spacing:-.025em!important}.billing-dashboard-actions{display:flex;gap:8px;flex-wrap:wrap}.billing-dashboard-actions .btn{min-height:44px!important}
