@@ -8,6 +8,7 @@
   let decorateQueued=false;
   let onboardingYieldQueued=false;
   let onboardingYieldInFlight=false;
+  let locationsOpenEpoch=0;
 
   function make(tag,className,text){
     const el=document.createElement(tag);
@@ -87,11 +88,20 @@
       button.setAttribute("aria-busy","true");
       try{
         await action();
+      }catch(error){
+        // The canonical save handler owns actionable server/plan validation errors.
+        // Only replace missing or stale progress feedback on an unexpected rejection.
+        console.error("Add location failed",error);
+        const status=people.querySelector("#opsLocationStatus");
+        if(status&&(!status.textContent.trim()||/^saving location/i.test(status.textContent.trim()))){
+          status.textContent="Could not add location. Please retry.";
+          status.dataset.state="error";
+          status.setAttribute("role","alert");
+        }
       }finally{
         button.disabled=wasDisabled;
         button.removeAttribute("aria-busy");
         delete button.dataset.locationsBranchesSaving;
-        setTimeout(revealLocations,0);
       }
     },true);
   }
@@ -179,10 +189,15 @@
   }
 
   function openLocationsBranches(){
-    if(typeof window.showView==="function")window.showView("peopleops");
+    const epoch=++locationsOpenEpoch;
+    if(typeof window.showView==="function"&&window.showView("peopleops")===false)return;
     scheduleOnboardingYield();
     let attempts=0;
     const retry=()=>{
+      // Repeated shortcuts or a later page change must not keep old retry loops alive.
+      if(epoch!==locationsOpenEpoch)return;
+      const people=document.getElementById("peopleops");
+      if(people&&!people.classList.contains("active")&&people.dataset?.lazyView!=="1")return;
       scheduleOnboardingYield();
       if(revealLocations())return;
       attempts+=1;
@@ -235,6 +250,7 @@
     bindSectionObservers();
     window.addEventListener("thebe:workspace-view-change",event=>{
       const id=String(event?.detail?.id||"");
+      if(id!=="peopleops")locationsOpenEpoch++;
       if(id!=="peopleops"&&id!=="accounthub")return;
       bindSectionObservers();
       scheduleDecorate();

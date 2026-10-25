@@ -1,7 +1,7 @@
 {
   "bomFormat": "CycloneDX",
   "specVersion": "1.5",
-  "serialNumber": "urn:uuid:24c958b3-d3c5-5407-a3bf-b4b7f3014b12",
+  "serialNumber": "urn:uuid:d7272168-3b16-5226-b720-edef5ab7db65",
   "version": 1,
   "metadata": {
     "component": {
@@ -14,7 +14,7 @@
     "properties": [
       {
         "name": "bw.release.lock.sha256",
-        "value": "24c958b3d3c55407e3bfb4b7f3014b12de0cba6546d17300b0e7d91033f169df"
+        "value": "d72721683b1622263720edef5ab7db65cbddc27721b116f1d95a74f47dbfa9f8"
       },
       {
         "name": "bw.release.package-manager",
@@ -1924,13 +1924,13 @@
     {
       "type": "library",
       "name": "body-parser",
-      "version": "2.3.0",
-      "bom-ref": "pkg:npm/body-parser@2.3.0",
-      "purl": "pkg:npm/body-parser@2.3.0",
+      "version": "2.4.0",
+      "bom-ref": "pkg:npm/body-parser@2.4.0",
+      "purl": "pkg:npm/body-parser@2.4.0",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "d9c1a626ea5a36083e414c152c0b9c0ee5aea0c67a117f621c346cc19e65b0d6049b03da4649cc3c22d9cf4ef24f356affcde9e28ff0cdb0d96c1ad3bc619323"
+          "content": "21f93529c2ebc5a1add6871c41a81034534d3aa46dd4b16e7a11271c7cc1f19e9c460231454d5305a888b14882740fa0cb93cbed8d485f7d4334a9119b1b578d"
         }
       ],
       "licenses": [
@@ -2784,13 +2784,13 @@
     {
       "type": "library",
       "name": "ip-address",
-      "version": "10.7.0",
-      "bom-ref": "pkg:npm/ip-address@10.7.0",
-      "purl": "pkg:npm/ip-address@10.7.0",
+      "version": "10.7.4",
+      "bom-ref": "pkg:npm/ip-address@10.7.4",
+      "purl": "pkg:npm/ip-address@10.7.4",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "04616cc897799a95e9deb2ba8c87400cb360a4950ad639e3cef605f252be5720da6fd2409aa37460e28374fd7b1e580a6f6f9e84f80373c12d9d12db18200c84"
+          "content": "0d604c2b278cdb90fbd27ac889392042d879f7f1be9da28e4dea7a86e17d8fe1a678adc3303eb466fc60e5de6a427cfedfc007828bba79a9f62c4097fa5aca0e"
         }
       ],
       "licenses": [
@@ -3404,13 +3404,13 @@
     {
       "type": "library",
       "name": "proxy-addr",
-      "version": "2.0.7",
-      "bom-ref": "pkg:npm/proxy-addr@2.0.7",
-      "purl": "pkg:npm/proxy-addr@2.0.7",
+      "version": "2.0.8",
+      "bom-ref": "pkg:npm/proxy-addr@2.0.8",
+      "purl": "pkg:npm/proxy-addr@2.0.8",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "96542c30b4940d43d3e388ddad4fcedfbaa59e27e2b433fe670ae699972848ac8b2afb59c69c95d27dbf6c3fcde2d040019fe024475953b28cadaa0ad7e5d802"
+          "content": "e679f1d321b2554718eadf519d6700456b704fd1750fc3bdaedd3c86d3ef9dde3d5b522066d98b921bbd59f333423d5c1718c720ee9ca279d43555b993b015c9"
         }
       ],
       "licenses": [
@@ -3424,13 +3424,13 @@
     {
       "type": "library",
       "name": "qs",
-      "version": "6.16.0",
-      "bom-ref": "pkg:npm/qs@6.16.0",
-      "purl": "pkg:npm/qs@6.16.0",
+      "version": "6.16.1",
+      "bom-ref": "pkg:npm/qs@6.16.1",
+      "purl": "pkg:npm/qs@6.16.1",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "87a7e1388691ac80f609b118d9faacfbbb7e517668f8c2c09d4e60448abce6e16d76250f09db00a4c947857a202953381ccd8355b22318d4d3607d8e7263f5bc"
+          "content": "e4fc7a27badf1c1006521350ddeb3863370e741070d120dc56d4e126697845d9cac38b4ab367a903490f67e2bc5fe5a21e4b53f7744755c43fdf29b96930a0b6"
         }
       ],
       "licenses": [
@@ -4037,13 +4037,13 @@
     {
       "type": "library",
       "name": "zod",
-      "version": "3.25.76",
-      "bom-ref": "pkg:npm/zod@3.25.76",
-      "purl": "pkg:npm/zod@3.25.76",
+      "version": "4.6.7",
+      "bom-ref": "pkg:npm/zod@4.6.7",
+      "purl": "pkg:npm/zod@4.6.7",
       "hashes": [
         {
           "alg": "SHA-512",
-          "content": "83352dfeab7cd675ec14628815c0b76277c4031e4d92e9c27e70e5bee0524854b4d9b717bb82e679ad001485306cb5b158fc7777da7c4b94286ae8ca70d43171"
+          "content": "83c5b60f6914e9af2e9ed734e777d7d6e5412b333bcaa0315bfdf3c24f37fba472176f9228eb95f9cd30043854c335753da19aa66647fab99c5333dffb7086c2"
         }
       ],
       "licenses": [

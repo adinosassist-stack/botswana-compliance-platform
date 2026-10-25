@@ -1,0 +1,126 @@
+name: Regulatory Staging D1 Read-only Attestation
+run-name: Staging-only regulatory preflight ${{ inputs.expected_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact current main SHA to inspect
+        required: true
+        type: string
+      confirmation:
+        description: Explicit staging-only read-only inspection (never a database import)
+        required: true
+        type: choice
+        default: DO_NOT_RUN
+        options:
+          - DO_NOT_RUN
+          - READ_ONLY_STAGING_D1
+
+permissions:
+  contents: read
+
+concurrency:
+  group: thebe-regulatory-staging-readonly
+  cancel-in-progress: false
+
+jobs:
+  inspect:
+    name: Inspect segregated staging D1 without database writes
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'workflow_dispatch' &&
+      inputs.confirmation == 'READ_ONLY_STAGING_D1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: regulatory-staging
+    env:
+      EXPECTED_SHA: ${{ inputs.expected_sha }}
+      GH_TOKEN: ${{ github.token }}
+      STAGING_AUDIT_ENABLED: ${{ vars.REGULATORY_STAGING_AUDIT_ENABLED }}
+      REGULATORY_STAGING_D1_ID: ${{ vars.REGULATORY_STAGING_D1_ID }}
+      REGULATORY_STAGING_D1_NAME: ${{ vars.REGULATORY_STAGING_D1_NAME }}
+      PRODUCTION_D1_DATABASE_ID: ${{ vars.PRODUCTION_D1_DATABASE_ID }}
+
+    steps:
+      - name: Checkout immutable main revision without write credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Refuse stale SHA, missing approval and unsafe target configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]] || { echo 'Manual dispatch required.' >&2; exit 1; }
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo 'Main only.' >&2; exit 1; }
+          [[ "$STAGING_AUDIT_ENABLED" == 'READ_ONLY_APPROVED' ]] || { echo 'Regulatory staging audit has not been enabled in the protected environment.' >&2; exit 1; }
+          [[ "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]] || { echo 'Expected SHA malformed.' >&2; exit 1; }
+          [[ "$EXPECTED_SHA" == "$GITHUB_SHA" ]] || { echo 'Dispatched SHA changed.' >&2; exit 1; }
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SHA" ]] || { echo 'Checkout is not the exact requested SHA.' >&2; exit 1; }
+          live_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          [[ "$live_sha" == "$EXPECTED_SHA" ]] || { echo 'Requested SHA is no longer current main.' >&2; exit 1; }
+          [[ -n "$REGULATORY_STAGING_D1_ID" && -n "$REGULATORY_STAGING_D1_NAME" && -n "$PRODUCTION_D1_DATABASE_ID" ]] || { echo 'Staging/production exclusion variables are not configured.' >&2; exit 1; }
+          [[ "$REGULATORY_STAGING_D1_ID" != "$PRODUCTION_D1_DATABASE_ID" ]] || { echo 'Refusing production D1 database.' >&2; exit 1; }
+          echo 'Approved exact-main staging-only read-only inspection authority verified.'
+
+      - name: Set up pinned Node toolchain
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Qualify read-only transport and PII guards using simulated D1
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run test:regulatory-staging-readonly
+
+      - name: Inspect staging database using pinned SELECT-only statements
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.REGULATORY_STAGING_CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.REGULATORY_STAGING_CLOUDFLARE_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "$CLOUDFLARE_API_TOKEN" && -n "$CLOUDFLARE_ACCOUNT_ID" ]] || { echo 'Dedicated staging Cloudflare credentials are required.' >&2; exit 1; }
+          umask 077
+          node scripts/run-regulatory-staging-readonly-preflight.mjs > "$RUNNER_TEMP/regulatory-staging-attestation.json"
+
+      - name: Report non-sensitive attestation summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module - <<'NODE'
+          import {existsSync,readFileSync,appendFileSync} from 'node:fs';
+          import {join} from 'node:path';
+          const file=join(process.env.RUNNER_TEMP,'regulatory-staging-attestation.json');
+          if(!existsSync(file)||!readFileSync(file,'utf8').trim()){
+            appendFileSync(process.env.GITHUB_STEP_SUMMARY,'## Staging regulatory read-only audit\n\nNo valid attestation was produced. No import or approval was attempted.\n');
+            process.exit(0);
+          }
+          const a=JSON.parse(readFileSync(file,'utf8'));
+          if(a.readOnly!==true||a.noApprovalOrImport!==true||a.decision!=='human_review_required')
+            throw new Error('Unexpected attestation safety contract');
+          const n=a.blockers||{};
+          const line=(label,v)=>'| '+label+' | '+Number(v||0)+' |\n';
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+            '## Staging regulatory read-only audit\n\n'+
+            'Evidence is for independent human review, not import authorisation.\n\n'+
+            '| Finding | Count |\n|---|---:|\n'+
+            line('Protected source drift',n.sourceMetadataDrift)+
+            line('Active legacy 25-day VAT rules',n.activeLegacyVatRules)+
+            line('Previously created legacy VAT obligations',n.priorLegacyVatObligations));
+          NODE
+
+      - name: Retain redacted staging inspection evidence briefly
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: regulatory-staging-readonly-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/regulatory-staging-attestation.json
+          if-no-files-found: warn
+          retention-days: 3

@@ -1,0 +1,60 @@
+name: Employee Dispatch PostgreSQL Draft Integration
+
+on:
+  pull_request:
+    paths:
+      - 'server/employee-dispatch-postgres-approval-reader.js'
+      - 'server/employee-dispatch-postgres-transaction.js'
+      - 'server/employee-dispatch-postgres-outbox-writer.js'
+      - 'server/employee-reviewer-membership-evidence.js'
+      - 'db/schema.sql'
+      - 'db/drafts/employee-dispatch-proposal-review-postgres.sql'
+      - 'db/drafts/employee-dispatch-outbox-postgres.sql'
+      - 'tests/employee-dispatch-postgres-integration.test.mjs'
+      - 'tests/employee-dispatch-postgres-outbox.test.mjs'
+      - 'tests/employee-dispatch-reviewer-membership-postgres.test.mjs'
+      - '.github/workflows/employee-dispatch-postgres-integration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  disposable-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: dispatch
+          POSTGRES_PASSWORD: dispatch_ci_only
+          POSTGRES_DB: employee_dispatch_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dispatch -d employee_dispatch_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://dispatch:dispatch_ci_only@127.0.0.1:5432/employee_dispatch_ci
+      EMPLOYEE_DISPATCH_PG_TEST_ONLY: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - name: Initialize canonical identity tables in disposable CI PostgreSQL
+        run: PGPASSWORD=dispatch_ci_only psql -h 127.0.0.1 -U dispatch -d employee_dispatch_ci -v ON_ERROR_STOP=1 -f db/schema.sql
+      - name: Apply draft schema ONLY to disposable CI PostgreSQL
+        run: PGPASSWORD=dispatch_ci_only psql -h 127.0.0.1 -U dispatch -d employee_dispatch_ci -v ON_ERROR_STOP=1 -f db/drafts/employee-dispatch-proposal-review-postgres.sql
+      - name: Apply outbox draft ONLY to disposable CI PostgreSQL
+        run: PGPASSWORD=dispatch_ci_only psql -h 127.0.0.1 -U dispatch -d employee_dispatch_ci -v ON_ERROR_STOP=1 -f db/drafts/employee-dispatch-outbox-postgres.sql
+      - name: Verify tenant scope, revision invalidation and row lock on real PostgreSQL
+        run: node --test tests/employee-dispatch-postgres-integration.test.mjs
+      - name: Verify tenant idempotency and atomic audit on real PostgreSQL
+        run: node --test tests/employee-dispatch-postgres-outbox.test.mjs
+      - name: Verify reviewer membership evidence on real PostgreSQL
+        run: node --test tests/employee-dispatch-reviewer-membership-postgres.test.mjs

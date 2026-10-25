@@ -1,0 +1,307 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { queueEmployeeDispatch } from "../server/employee-dispatch-queue.js";
+
+const identity = { tenantId: "t1", actorId: "a1", permissions: ["employee.workflow.dispatch"] };
+const proposal = { id: "p1", tenantId: "t1", authorId: "employee-author", action: "internal.task.create" };
+const review = { id: "r1", proposalId: "p1", tenantId: "t1", reviewerId: "manager", status: "approved" };
+const request = { identity, proposalId: "p1", action: "internal.task.create", idempotencyKey: "k1", featureEnabled: true, killSwitch: false, auditAvailable: true };
+
+function store({ auditFails = false, savedProposal = proposal, savedReview = review } = {}) {
+  const intents = new Map(), audit = [];
+  return {
+    intents, audit,
+    async transaction(fn) {
+      const staged = [], logs = [];
+      const result = await fn({
+        async lockDispatchKey() { return true; },
+        async getProposal() { return savedProposal; },
+        async getLatestReview() { return savedReview; },
+        async isAuthorizedReviewer() { return true; },
+        async isCurrentApprovedReview() { return true; },
+        async isCurrentProposalRevision() { return true; },
+        async insertIntentOnce(intent) {
+          const key = intent.tenantId + ":" + intent.idempotencyKey;
+          const previous = intents.get(key) ?? staged.find(x => x.key === key)?.intent;
+          if (previous) return { status: "existing", sameIntent: JSON.stringify(previous) === JSON.stringify(intent) };
+          staged.push({ key, intent }); return { status: "created" };
+        },
+        async appendAudit(event) { if (auditFails) throw Error("audit failure"); logs.push(event); return true; }
+      });
+      for (const item of staged) intents.set(item.key, item.intent);
+      audit.push(...logs);
+      return result;
+    }
+  };
+}
+
+test("approved internal task produces one durable intent", async () => {
+  const s = store();
+  assert.equal((await queueEmployeeDispatch({ ...request, store: s })).reason, "intent_created");
+  assert.equal((await queueEmployeeDispatch({ ...request, store: s })).reason, "already_queued");
+  assert.equal(s.intents.size, 1);
+});
+test("audit outage rolls back the queued intent", async () => {
+  const s = store({ auditFails: true });
+  assert.equal((await queueEmployeeDispatch({ ...request, store: s })).reason, "governance_unavailable");
+  assert.equal(s.intents.size, 0);
+});
+test("cross-tenant proposal and missing approval never queue", async () => {
+  for (const s of [store({ savedProposal: { ...proposal, tenantId: "t2" } }), store({ savedReview: null })]) {
+    assert.equal((await queueEmployeeDispatch({ ...request, store: s })).queued, false);
+    assert.equal(s.intents.size, 0);
+  }
+});
+test("kill switch and disabled feature block queue", async () => {
+  const s = store();
+  for (const override of [{ killSwitch: true }, { featureEnabled: false }]) {
+    assert.equal((await queueEmployeeDispatch({ ...request, ...override, store: s })).reason, "governance_unavailable");
+  }
+  assert.equal(s.intents.size, 0);
+});
+test("ambiguous governance flags are denied before opening a transaction", async () => {
+  for (const flag of ["featureEnabled", "killSwitch", "auditAvailable"]) {
+    for (const value of [undefined, null, 0, 1, "", "false", "true", {}, []]) {
+      const s = store();
+      let transactions = 0;
+      const original = s.transaction;
+      s.transaction = fn => { transactions++; return original.call(s, fn); };
+      const result = await queueEmployeeDispatch({ ...request, [flag]: value, store: s });
+      assert.equal(result.reason, "governance_unavailable",
+        `${flag} accepted ${typeof value} ${JSON.stringify(value)}`);
+      assert.equal(transactions, 0);
+      assert.equal(s.intents.size, 0);
+      assert.equal(s.audit.length, 0);
+    }
+  }
+});
+
+test("missing transaction lock fails closed without creating an intent", async () => {
+  const s = store();
+  const original = s.transaction;
+  s.transaction = async fn => original.call(s, async tx => {
+    delete tx.lockDispatchKey;
+    return fn(tx);
+  });
+  assert.equal((await queueEmployeeDispatch({ ...request, store: s })).reason, "governance_unavailable");
+  assert.equal(s.intents.size, 0);
+});
+test("reused idempotency key with a different proposal is rejected", async () => {
+  const s = store();
+  assert.equal((await queueEmployeeDispatch({ ...request, store: s })).reason, "intent_created");
+  const other = { ...proposal, id: "p2" };
+  const otherReview = { ...review, id: "r2", proposalId: "p2" };
+  const collision = {
+    ...s,
+    transaction: async fn => s.transaction(async tx => fn({
+      ...tx,
+      getProposal: async () => other,
+      getLatestReview: async () => otherReview
+    }))
+  };
+  assert.equal((await queueEmployeeDispatch({ ...request, proposalId: "p2", store: collision })).reason, "idempotency_conflict");
+  assert.equal(s.intents.size, 1);
+});
+
+test("malformed tenant and idempotency are rejected before lock acquisition", async () => {
+  for (const overrides of [
+    { identity: { ...identity, tenantId: "" } },
+    { idempotencyKey: "" },
+    { idempotencyKey: "x".repeat(201) }
+  ]) {
+    const s = store();
+    let lockCalls = 0;
+    const original = s.transaction;
+    s.transaction = fn => original.call(s, tx => fn({
+      ...tx, lockDispatchKey: async () => { lockCalls++; }
+    }));
+    assert.equal((await queueEmployeeDispatch({ ...request, ...overrides, store: s })).queued, false);
+    assert.equal(lockCalls, 0);
+    assert.equal(s.intents.size, 0);
+  }
+});
+
+test("failed or unconfirmed transactional lock prevents queue insertion", async () => {
+  for (const lockResult of [false, undefined, null]) {
+    const s = store();
+    const original = s.transaction;
+    s.transaction = fn => original.call(s, tx => fn({
+      ...tx, lockDispatchKey: async () => lockResult
+    }));
+    assert.equal((await queueEmployeeDispatch({ ...request, store: s })).reason, "governance_unavailable");
+    assert.equal(s.intents.size, 0);
+    assert.equal(s.audit.length, 0);
+  }
+});
+
+test("untrusted or unauthorized reviewer cannot authorize dispatch", async () => {
+  const s = store();
+  const original = s.transaction;
+  s.transaction = fn => original.call(s, tx => fn({
+    ...tx, isAuthorizedReviewer: async () => false
+  }));
+  assert.equal((await queueEmployeeDispatch({ ...request, store: s })).reason, "approval_required");
+  assert.equal(s.intents.size, 0);
+  assert.equal(s.audit.length, 0);
+});
+test("missing reviewer authorization capability fails closed", async () => {
+  const s = store();
+  const original = s.transaction;
+  s.transaction = fn => original.call(s, tx => {
+    delete tx.isAuthorizedReviewer;
+    return fn(tx);
+  });
+  assert.equal((await queueEmployeeDispatch({ ...request, store: s })).reason, "governance_unavailable");
+  assert.equal(s.intents.size, 0);
+});
+
+test("revoked or superseded approval cannot queue a dispatch", async () => {
+  const s = store();
+  const original = s.transaction;
+  s.transaction = fn => original.call(s, tx => fn({
+    ...tx, isCurrentApprovedReview: async () => false
+  }));
+  assert.equal((await queueEmployeeDispatch({ ...request, store: s })).reason, "approval_required");
+  assert.equal(s.intents.size, 0);
+});
+test("missing approval freshness capability fails closed", async () => {
+  const s = store();
+  const original = s.transaction;
+  s.transaction = fn => original.call(s, tx => {
+    delete tx.isCurrentApprovedReview;
+    return fn(tx);
+  });
+  assert.equal((await queueEmployeeDispatch({ ...request, store: s })).reason, "governance_unavailable");
+  assert.equal(s.intents.size, 0);
+});
+
+test("changed proposal revision cannot reuse old approval", async () => {
+  const s = store();
+  const original = s.transaction;
+  s.transaction = fn => original.call(s, tx => fn({
+    ...tx, isCurrentProposalRevision: async () => false
+  }));
+  assert.equal((await queueEmployeeDispatch({ ...request, store: s })).reason, "proposal_revision_stale");
+  assert.equal(s.intents.size, 0);
+});
+test("missing proposal revision verification fails closed", async () => {
+  const s = store();
+  const original = s.transaction;
+  s.transaction = fn => original.call(s, tx => {
+    delete tx.isCurrentProposalRevision;
+    return fn(tx);
+  });
+  assert.equal((await queueEmployeeDispatch({ ...request, store: s })).reason, "governance_unavailable");
+  assert.equal(s.intents.size, 0);
+});
+
+
+test("queue denies author self-approval even when dispatch actor differs", async () => {
+  const s = store({ savedReview: { ...review, reviewerId: proposal.authorId } });
+  const result = await queueEmployeeDispatch({ ...request, store: s });
+  assert.equal(result.queued, false);
+  assert.equal(result.reason, "approval_required");
+});
+
+
+test("queue fails closed when original proposal author is missing", async () => {
+  const s = store({ savedProposal: { ...proposal, authorId: undefined } });
+  const result = await queueEmployeeDispatch({ ...request, store: s });
+  assert.equal(result.queued, false);
+  assert.equal(result.reason, "approval_required");
+  assert.equal(s.intents.size, 0);
+  assert.equal(s.audit.length, 0);
+});
+
+for (const [capability, reason] of [
+  ["isAuthorizedReviewer", "approval_required"],
+  ["isCurrentApprovedReview", "approval_required"],
+  ["isCurrentProposalRevision", "proposal_revision_stale"]
+]) {
+  test(`${capability} must return boolean true to admit a dispatch`, async () => {
+    for (const value of [false, undefined, null, 0, "", "false", "true", 1, {}, []]) {
+      const s = store();
+      const original = s.transaction;
+      s.transaction = fn => original.call(s, tx => fn({
+        ...tx, [capability]: async () => value
+      }));
+      const result = await queueEmployeeDispatch({ ...request, store: s });
+      assert.equal(result.queued, false, `${capability} accepted ${typeof value} ${JSON.stringify(value)}`);
+      assert.equal(result.reason, reason);
+      assert.equal(s.intents.size, 0);
+      assert.equal(s.audit.length, 0);
+    }
+  });
+}
+
+test("unconfirmed audit write cannot commit a dispatch intent", async () => {
+  for (const value of [undefined, false, null, 1, "true"]) {
+    const s = store();
+    const original = s.transaction;
+    s.transaction = fn => original.call(s, tx => fn({
+      ...tx, appendAudit: async () => value
+    }));
+    assert.equal((await queueEmployeeDispatch({ ...request, store: s })).reason, "governance_unavailable");
+    assert.equal(s.intents.size, 0);
+    assert.equal(s.audit.length, 0);
+  }
+});
+
+test("dispatch rejects approval from another proposal or tenant without persisting an intent", async () => {
+  for (const savedReview of [
+    { ...review, proposalId: "other-proposal" },
+    { ...review, tenantId: "other-tenant" },
+    { ...review, status: "revoked" },
+    { ...review, reviewerId: identity.actorId }
+  ]) {
+    const s = store({ savedReview });
+    const result = await queueEmployeeDispatch({ ...request, store: s });
+    assert.equal(result.queued, false);
+    assert.equal(result.reason, "approval_required");
+    assert.equal(s.intents.size, 0);
+    assert.equal(s.audit.length, 0);
+  }
+});
+
+test("dispatch rejects a different action than the approved proposal", async () => {
+  const s = store();
+  const result = await queueEmployeeDispatch({ ...request, action: "internal.report.draft", store: s });
+  assert.equal(result.queued, false);
+  assert.equal(result.reason, "proposal_scope_mismatch");
+  assert.equal(s.intents.size, 0);
+  assert.equal(s.audit.length, 0);
+});
+
+test("invalid request does not start database transaction", async () => {
+  for (const override of [
+    { identity: undefined },
+    { identity: { ...identity, actorId: "" } },
+    { identity: { ...identity, tenantId: "" } },
+    { idempotencyKey: "" },
+    { idempotencyKey: "x".repeat(201) }
+  ]) {
+    let transactionCount = 0;
+    const s = store();
+    s.transaction = async () => { transactionCount += 1; throw Error("unexpected_transaction"); };
+    const result = await queueEmployeeDispatch({ ...request, ...override, store: s });
+    assert.equal(result.reason, "invalid_request");
+    assert.equal(result.queued, false);
+    assert.equal(transactionCount, 0);
+  }
+});
+
+test("malformed identifier characters are denied without opening a transaction", async () => {
+  for (const override of [
+    { identity: { ...identity, tenantId: "tenant with spaces" } },
+    { identity: { ...identity, actorId: "actor/other" } },
+    { proposalId: "proposal\\nother" },
+    { idempotencyKey: "key/other" }
+  ]) {
+    let transactions = 0;
+    const s = store();
+    s.transaction = async () => { transactions++; throw Error("unexpected_transaction"); };
+    const result = await queueEmployeeDispatch({ ...request, ...override, store: s });
+    assert.equal(result.reason, "invalid_request");
+    assert.equal(transactions, 0);
+  }
+});

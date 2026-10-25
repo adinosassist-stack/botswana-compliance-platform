@@ -6,7 +6,8 @@ const canonical=fs.readFileSync("public/index.html","utf8");
 const runtime=fs.readFileSync("public/js/workspace-runtime-20261001b.js","utf8");
 for(const [name,source] of [["canonical",canonical],["runtime",runtime]]){
   assert.match(source,/function scoreData\(a=applicable\(\)\)/,name+" must support caller-supplied applicable rules");
-  assert.match(source,/function renderAll\(\)\{\s*const a=applicable\(\),s=scoreData\(a\);/,name+" must not filter the rule set twice");
+  assert.match(source,/function renderAll\(\)\{[\s\S]*?const a=applicable\(\),s=scoreData\(a\);/,name+" must reuse one applicable rule set for scoring");
+  if(name==="runtime")assert.match(source,/if\(dashboardMetricsNeeded\)\{\s*const a=applicable\(\),s=scoreData\(a\);/, "runtime scoring must be dashboard-gated");
   assert.match(source,/const workspaceNumberAnimations=new WeakMap\(\)/,name+" must deduplicate per-element animations");
 }
 const start=runtime.indexOf("function applicable(){");

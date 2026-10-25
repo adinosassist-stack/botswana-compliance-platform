@@ -58,7 +58,8 @@ assert(runtime.includes('function dockShouldYield()'),'V201 must explicitly yiel
 assert(runtime.includes('subscription|payment plan'),'V201 Billing yield must cover billing, subscription and payment-plan context');
 assert(runtime.includes('pill.hidden=!visible||!isCollapsed||yielded'),'V201 must hide the collapsed pill while Billing owns the interaction surface');
 assert(runtime.includes('const syncAfterWorkspaceViewChange=()=>'),'V205 must own a deterministic post-navigation dock recovery path');
-assert(runtime.includes('new MutationObserver(syncAfterWorkspaceViewChange)'),'V205 must invoke full dock recovery when the active workspace view changes');
+assert(runtime.includes('new MutationObserver(scheduleWorkspaceViewSync)'),'View changes must schedule dock recovery');
+assert.match(runtime,/global\.requestAnimationFrame\(\(\)=>\{\s*workspaceViewSyncPending=false;\s*syncAfterWorkspaceViewChange\(\);/,'Scheduled view changes must retain full dock recovery');
 assert(runtime.includes('if(wasYielded&&!yielded)'),'V205 must restrict expensive dock recovery to leaving a yielded view');
 assert(runtime.includes('dockHeight>250'),'V204 recovery health must reject undersized full docks');
 assert(runtime.includes('Number(dockRect?.right)<=viewportWidth+1'),'V204 recovery health must reject docks extending beyond the viewport');

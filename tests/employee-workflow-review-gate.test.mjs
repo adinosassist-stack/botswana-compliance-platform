@@ -1,0 +1,10 @@
+import assert from "node:assert/strict";
+import {test} from "node:test";
+import {reviewEmployeeProposal} from "../server/employee-workflow-review-gate.js";
+const proposal={proposalKey:JSON.stringify(["tenant1","wf","emp","contract_renewal","2026-11-01"]),workflowId:"wf",employeeId:"emp",type:"contract_renewal",dueDate:"2026-11-01",status:"proposed",requiresHumanReview:true};
+const principal={tenantId:"tenant1",actorId:"manager1",permissions:["people.workflow.approve"]};
+const reviewedAt="2026-10-21T16:00:00.000Z";
+test("approval records reviewer but never executes",()=>{const result=reviewEmployeeProposal({proposal,principal,decision:"approved",reviewedAt});assert.equal(result.status,"approved");assert.equal(result.executionStatus,"not_executed");assert.equal(result.reviewedBy,"manager1");assert.equal(proposal.status,"proposed");});
+test("rejection records decision without execution",()=>{const result=reviewEmployeeProposal({proposal,principal,decision:"rejected",reviewedAt});assert.equal(result.status,"rejected");assert.equal(result.executionStatus,"not_executed");});
+test("cross-tenant and altered proposal identity rejected",()=>{assert.throws(()=>reviewEmployeeProposal({proposal,principal:{...principal,tenantId:"tenant2"},decision:"approved",reviewedAt}),/scope_mismatch/);assert.throws(()=>reviewEmployeeProposal({proposal:{...proposal,employeeId:"other"},principal,decision:"approved",reviewedAt}),/scope_mismatch/);});
+test("requires approval permission and disallows repeat decisions",()=>{assert.throws(()=>reviewEmployeeProposal({proposal,principal:{...principal,permissions:[]},decision:"approved",reviewedAt}),/forbidden/);const approved=reviewEmployeeProposal({proposal,principal,decision:"approved",reviewedAt});assert.throws(()=>reviewEmployeeProposal({proposal:approved,principal,decision:"rejected",reviewedAt}),/invalid_proposal/);});

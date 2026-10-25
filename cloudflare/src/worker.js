@@ -1,4 +1,8 @@
 import {BOTSWANA_FOUNDATION_PACK_V1,BOTSWANA_FOUNDATION_PACK_V1_HASH} from "./regulatory-pack-registry.js";
+import {inspectFoundationSourceMetadata,publicFoundationSourcePreflight,updateUnreviewedFoundationSourceMetadata} from "./regulatory-foundation-source-reconciliation.js";
+import {inspectActiveLegacyVatRules,publicActiveLegacyVatRules,isLegacyVat25DayDefinition} from "./regulatory-foundation-legacy-vat.js";
+import {handleEmployeeWorkflowRequest} from "./employee-workflow-api.js";
+import {handleEmployeeProposalReviewRequest} from "./employee-proposal-review-api.js";
 import {purgeDailyReportAttachments} from "./report-attachments-entry.js";
 import {handleFinanceRequest,financeSummary} from "./finance-core.js";
 import {handleOwnerOperatorRequest,isOwnerOperatorPath} from "./owner-operator-api.js";
@@ -2841,6 +2845,7 @@ async function createObligationsFromRule(env,tenantId,rule){
   return created;
 }
 async function evaluateRuleForTenant(env,rule,tenantId){
+  if(isLegacyVat25DayDefinition(rule))return {status:"blocked_legacy_vat",obligationsCreated:0,impactLevel:"review"};
   const profile=await tenantProfileForRules(env,tenantId);
   const applicability=safeJson(rule.applicability_json,{});
   const result=applicabilityFromProfile(applicability,profile);
@@ -4478,13 +4483,29 @@ async function seedRegistryPut(env,packKey,seedKey,entityType,entityId,definitio
 }
 async function importBotswanaFoundationPack(env,a){
   const pack=BOTSWANA_FOUNDATION_PACK_V1,packKey=pack.packKey;
-  const counts={sourcesCreated:0,sourcesExisting:0,rulesCreated:0,rulesExisting:0,rulesUpgraded:0,conflictsCreated:0,conflictsExisting:0,conflictsUpdated:0};
+  const counts={sourcesCreated:0,sourcesExisting:0,sourcesUpdated:0,rulesCreated:0,rulesExisting:0,rulesUpgraded:0,conflictsCreated:0,conflictsExisting:0,conflictsUpdated:0};
+  const legacyVatPreflight=await inspectActiveLegacyVatRules(env.DB);
+  if(!legacyVatPreflight.ok)return {ok:false,error:"legacy_vat_rule_active_requires_review",
+    legacyVat:publicActiveLegacyVatRules(legacyVatPreflight)};
+  const sourcePreflight=await inspectFoundationSourceMetadata(env.DB,pack);
+  if(!sourcePreflight.ok)return {ok:false,error:"source_metadata_drift_requires_review",
+    preflight:publicFoundationSourcePreflight(sourcePreflight),legacyVat:publicActiveLegacyVatRules(legacyVatPreflight)};
   const sourceIds={};
   for(const src of pack.sources){
-    const sk=`source:${src.key}`,existing=await seedRegistryGet(env,packKey,sk),seedHash=await sha256Hex(stableJson(src));
-    if(existing){const row=await env.DB.prepare("SELECT id FROM regulatory_sources WHERE id=? LIMIT 1").bind(existing.entity_id).first();if(row){sourceIds[src.key]=row.id;await seedRegistryPut(env,packKey,sk,"source",row.id,seedHash,a);counts.sourcesExisting++;continue}}
-    const byUrl=await env.DB.prepare("SELECT id FROM regulatory_sources WHERE source_url=? ORDER BY created_at LIMIT 1").bind(src.url).first();
-    if(byUrl){await seedRegistryPut(env,packKey,sk,"source",byUrl.id,seedHash,a);sourceIds[src.key]=byUrl.id;counts.sourcesExisting++;continue}
+    const sk=`source:${src.key}`,plan=sourcePreflight.items.find(item=>item.key===src.key),seedHash=await sha256Hex(stableJson(src));
+    if(!plan)throw new Error("foundation_source_preflight_missing");
+    if(plan.sourceId){
+      if(plan.action==="refresh_unreviewed"){
+        const update=await updateUnreviewedFoundationSourceMetadata(env.DB,plan);
+        if(!update.ok)return {ok:false,...update,preflight:publicFoundationSourcePreflight(sourcePreflight)};
+        counts.sourcesUpdated++;
+        await platformRegulatoryAudit(env,a,"FOUNDATION_SOURCE_METADATA_RECONCILED","regulatory_source",plan.sourceId,
+          {packKey,seedKey:sk,changedFields:plan.changedFields,priorSnapshotCount:plan.snapshotCount});
+      }else if(plan.action!=="reuse")return {ok:false,error:"source_metadata_drift_requires_review",key:src.key};
+      // Never update the registry hash before the guarded source correction succeeds.
+      await seedRegistryPut(env,packKey,sk,"source",plan.sourceId,seedHash,a);
+      sourceIds[src.key]=plan.sourceId;counts.sourcesExisting++;continue;
+    }
     const sid=id();await env.DB.prepare(`INSERT INTO regulatory_sources(id,jurisdiction,authority,title,source_url,source_type,publication_date,effective_date,status,notes,submitted_by_user_id,verification_status)
       VALUES(?,'BW',?,?,?,?,?,?,'pending',?,?,'unverified')`).bind(sid,src.authority,src.title,src.url,src.type||"official",src.publicationDate||null,src.effectiveDate||null,`[FOUNDATION PACK ${packKey}] ${src.notes||""}`,a.user_id).run();
     await seedRegistryPut(env,packKey,sk,"source",sid,seedHash,a);sourceIds[src.key]=sid;counts.sourcesCreated++;
@@ -4537,11 +4558,11 @@ function monthNumberFromName(name){const names=["january","february","march","ap
 function effectiveCipaDueMonth(profile){const explicit=monthNumberFromName(profile.cipaMonth);if(explicit)return explicit;if(!profile.incorporationDate)return null;const d=new Date(`${profile.incorporationDate}T00:00:00Z`);if(Number.isNaN(d.getTime()))return null;const m=d.getUTCMonth()+1;return m===1?2:m===12?11:m}
 function annualDateForYear(base,y){const m=base.getUTCMonth(),day=base.getUTCDate(),last=new Date(Date.UTC(y,m+1,0)).getUTCDate();return new Date(Date.UTC(y,m,Math.min(day,last)))}
 function nextAnnualDateFromRecorded(dateStr,fromDate){if(!dateStr)return null;const base=new Date(`${dateStr}T00:00:00Z`);if(Number.isNaN(base.getTime()))return null;let y=fromDate.getUTCFullYear(),candidate=annualDateForYear(base,y);if(candidate<fromDate)candidate=annualDateForYear(base,y+1);return candidate}
-function recurringScheduleMissingFields(action,profile){const type=String(action.operationalization||""),missing=[];if(type==="vat_category_period"&&!['A','B','C'].includes(String(profile[action.profileCategoryField||"vatCategory"]||"").toUpperCase()))missing.push(action.profileCategoryField||"vatCategory");if(type==="annual_profile_date"&&!profile[action.profileDateField])missing.push(action.profileDateField||"annualDueDate");if(type==="cipa_company_annual_return"&&!monthNumberFromName(profile[action.profileMonthField||"cipaMonth"])&&!profile[action.profileIncorporationField||"incorporationDate"])missing.push("cipaMonth_or_incorporationDate");if(type==="business_name_three_year_renewal"&&!profile[action.profileIncorporationField||"incorporationDate"])missing.push(action.profileIncorporationField||"incorporationDate");return missing}
+function recurringScheduleMissingFields(action,profile){const type=String(action.operationalization||""),missing=[];if(type==="vat_category_period"&&(!Number.isInteger(Number(action.dueDaysAfterPeriodEnd))||Number(action.dueDaysAfterPeriodEnd)<1))missing.push("dueDaysAfterPeriodEnd");if(type==="vat_category_period"&&!['A','B','C'].includes(String(profile[action.profileCategoryField||"vatCategory"]||"").toUpperCase()))missing.push(action.profileCategoryField||"vatCategory");if(type==="annual_profile_date"&&!profile[action.profileDateField])missing.push(action.profileDateField||"annualDueDate");if(type==="cipa_company_annual_return"&&!monthNumberFromName(profile[action.profileMonthField||"cipaMonth"])&&!profile[action.profileIncorporationField||"incorporationDate"])missing.push("cipaMonth_or_incorporationDate");if(type==="business_name_three_year_renewal"&&!profile[action.profileIncorporationField||"incorporationDate"])missing.push(action.profileIncorporationField||"incorporationDate");return missing}
 function buildRecurringOccurrences(action,profile,now=new Date()){
   const type=String(action.operationalization||""),horizon=addDaysUTC(now,Number(action.lookAheadDays||180)),out=[];const push=(periodKey,periodStart,periodEnd,dueAt,basis={})=>out.push({periodKey,periodStart:periodStart?isoDateUTC(periodStart):null,periodEnd:periodEnd?isoDateUTC(periodEnd):null,dueAt:isoDateUTC(dueAt),basis});
   if(type==="monthly_end_plus_days"){let cursor=utcDate(now.getUTCFullYear(),now.getUTCMonth()+1,1);while(cursor<=horizon){const y=cursor.getUTCFullYear(),m=cursor.getUTCMonth()+1,end=lastDayOfMonthUTC(y,m);push(`${y}-${String(m).padStart(2,"0")}`,cursor,end,addDaysUTC(end,action.dueDaysAfterPeriodEnd||0),{formula:"month_end_plus_days",days:Number(action.dueDaysAfterPeriodEnd||0)});cursor=utcDate(m===12?y+1:y,m===12?1:m+1,1)}}
-  else if(type==="vat_category_period"){const cat=String(profile[action.profileCategoryField||"vatCategory"]||"").toUpperCase();let cursor=utcDate(now.getUTCFullYear(),now.getUTCMonth()+1,1);while(cursor<=horizon){const y=cursor.getUTCFullYear(),m=cursor.getUTCMonth()+1,endMonth=cat==="C"||(cat==="A"&&m%2===1)||(cat==="B"&&m%2===0);if(endMonth){const end=lastDayOfMonthUTC(y,m),start=cat==="C"?utcDate(y,m,1):new Date(Date.UTC(y,m-2,1));push(`VAT-${cat}-${y}-${String(m).padStart(2,"0")}`,start,end,addDaysUTC(end,action.dueDaysAfterPeriodEnd||25),{category:cat,formula:"tax_period_end_plus_days",days:Number(action.dueDaysAfterPeriodEnd||25)})}cursor=utcDate(m===12?y+1:y,m===12?1:m+1,1)}}
+  else if(type==="vat_category_period"){if(!Number.isInteger(Number(action.dueDaysAfterPeriodEnd))||Number(action.dueDaysAfterPeriodEnd)<1)return out;const cat=String(profile[action.profileCategoryField||"vatCategory"]||"").toUpperCase();let cursor=utcDate(now.getUTCFullYear(),now.getUTCMonth()+1,1);while(cursor<=horizon){const y=cursor.getUTCFullYear(),m=cursor.getUTCMonth()+1,endMonth=cat==="C"||(cat==="A"&&m%2===1)||(cat==="B"&&m%2===0);if(endMonth){const end=lastDayOfMonthUTC(y,m),start=cat==="C"?utcDate(y,m,1):new Date(Date.UTC(y,m-2,1));push(`VAT-${cat}-${y}-${String(m).padStart(2,"0")}`,start,end,addDaysUTC(end,Number(action.dueDaysAfterPeriodEnd)),{category:cat,formula:"tax_period_end_plus_days",days:Number(action.dueDaysAfterPeriodEnd)})}cursor=utcDate(m===12?y+1:y,m===12?1:m+1,1)}}
   else if(type==="annual_profile_date"){const field=action.profileDateField,first=nextAnnualDateFromRecorded(profile[field],now);if(first)for(let d=first;d<=horizon;d=addYearsSafeUTC(d,1))push(`${field}-${d.getUTCFullYear()}`,null,null,d,{profileDateField:field,recordedDate:profile[field]})}
   else if(type==="cipa_company_annual_return"){const dueMonth=effectiveCipaDueMonth(profile);if(dueMonth){let y=now.getUTCFullYear(),due=lastDayOfMonthUTC(y,dueMonth);if(due<now)due=lastDayOfMonthUTC(y+1,dueMonth);for(let d=due;d<=horizon;d=lastDayOfMonthUTC(d.getUTCFullYear()+1,dueMonth))push(`CIPA-AR-${d.getUTCFullYear()}`,utcDate(d.getUTCFullYear(),dueMonth,1),d,d,{dueMonth,source:profile.cipaMonth?"recorded_due_month":"derived_from_incorporation",incorporationDate:profile.incorporationDate||null})}}
   else if(type==="business_name_three_year_renewal"){const inc=new Date(`${profile[action.profileIncorporationField||"incorporationDate"]}T00:00:00Z`);if(!Number.isNaN(inc.getTime())){let years=Math.max(3,Math.ceil((now.getUTCFullYear()-inc.getUTCFullYear())/3)*3),renewal=addYearsSafeUTC(inc,years);while(renewal<now){years+=3;renewal=addYearsSafeUTC(inc,years)}for(let d=renewal;d<=horizon;d=addYearsSafeUTC(d,3)){const end=lastDayOfMonthUTC(d.getUTCFullYear(),d.getUTCMonth()+1);push(`CIPA-BN-${d.getUTCFullYear()}`,utcDate(d.getUTCFullYear(),d.getUTCMonth()+1,1),end,end,{cycleYears:3,registrationDate:profile.incorporationDate})}}}
@@ -4549,7 +4570,7 @@ function buildRecurringOccurrences(action,profile,now=new Date()){
   return out.filter(x=>new Date(`${x.dueAt}T23:59:59Z`)>=new Date(now.getTime()-86400000));
 }
 async function createRecurringObligation(env,tenantId,rule,action,occ,runId){const ob=action.obligation||{},baseKey=String(ob.key||rule.rule_key),key=`${baseKey}:${occ.periodKey}`,oid=id();try{await env.DB.prepare(`INSERT INTO compliance_obligations(id,tenant_id,rule_id,obligation_key,title,description,due_at,status,priority,evidence_required,period_key,period_start,period_end,schedule_type,deadline_basis_json,generated_by_run_id) VALUES(?,?,?,?,?,?,?,'open',?,?,?,?,?,?,?,?)`).bind(oid,tenantId,rule.id,key,String(ob.title||rule.title),String(ob.description||rule.summary||""),occ.dueAt,Number(ob.priority||2),Array.isArray(ob.evidence)&&ob.evidence.length?1:0,occ.periodKey,occ.periodStart,occ.periodEnd,String(action.operationalization||""),JSON.stringify(occ.basis||{}),runId).run();for(const ev of (Array.isArray(ob.evidence)?ob.evidence:[]))await env.DB.prepare("INSERT INTO obligation_evidence_requirements(id,obligation_id,tenant_id,label,evidence_type,mandatory,status) VALUES(?,?,?,?,?,?, 'missing')").bind(id(),oid,tenantId,String(ev.label||"Evidence"),String(ev.type||""),ev.mandatory===false?0:1).run();return 1}catch(e){if(String(e).includes("UNIQUE"))return 0;throw e}}
-async function materializeRecurringRule(env,tenantId,rule,profile,runId){const action=safeJson(rule.action_json,{}),type=String(action.operationalization||""),recurring=new Set(["monthly_end_plus_days","vat_category_period","annual_profile_date","cipa_company_annual_return","business_name_three_year_renewal","annual_fixed_period_end_plus_days"]);if(!recurring.has(type))return {handled:false,created:0};const missing=recurringScheduleMissingFields(action,profile);if(missing.length){await env.DB.prepare(`INSERT INTO statutory_schedule_status(tenant_id,rule_id,schedule_type,config_status,missing_fields_json,next_due_at,last_generated_at,details_json,updated_at) VALUES(?,?,?,'needs_input',?,NULL,CURRENT_TIMESTAMP,?,CURRENT_TIMESTAMP) ON CONFLICT(tenant_id,rule_id) DO UPDATE SET schedule_type=excluded.schedule_type,config_status='needs_input',missing_fields_json=excluded.missing_fields_json,next_due_at=NULL,last_generated_at=CURRENT_TIMESTAMP,details_json=excluded.details_json,updated_at=CURRENT_TIMESTAMP`).bind(tenantId,rule.id,type,JSON.stringify(missing),JSON.stringify({ruleTitle:rule.title})).run();return {handled:true,created:0,needsInput:true,missing}}const occs=buildRecurringOccurrences(action,profile),next=occs.length?occs.map(x=>x.dueAt).sort()[0]:null;let created=0;for(const occ of occs)created+=await createRecurringObligation(env,tenantId,rule,action,occ,runId);await env.DB.prepare(`INSERT INTO statutory_schedule_status(tenant_id,rule_id,schedule_type,config_status,missing_fields_json,next_due_at,last_generated_at,details_json,updated_at) VALUES(?,?,?,'ready','[]',?,CURRENT_TIMESTAMP,?,CURRENT_TIMESTAMP) ON CONFLICT(tenant_id,rule_id) DO UPDATE SET schedule_type=excluded.schedule_type,config_status='ready',missing_fields_json='[]',next_due_at=excluded.next_due_at,last_generated_at=CURRENT_TIMESTAMP,details_json=excluded.details_json,updated_at=CURRENT_TIMESTAMP`).bind(tenantId,rule.id,type,next,JSON.stringify({occurrencesEvaluated:occs.length})).run();return {handled:true,created,needsInput:false,nextDueAt:next}}
+async function materializeRecurringRule(env,tenantId,rule,profile,runId){if(isLegacyVat25DayDefinition(rule))return {handled:true,created:0,needsInput:true,blocked:true,reason:"legacy_vat_2026_review_required"};const action=safeJson(rule.action_json,{}),type=String(action.operationalization||""),recurring=new Set(["monthly_end_plus_days","vat_category_period","annual_profile_date","cipa_company_annual_return","business_name_three_year_renewal","annual_fixed_period_end_plus_days"]);if(!recurring.has(type))return {handled:false,created:0};const missing=recurringScheduleMissingFields(action,profile);if(missing.length){await env.DB.prepare(`INSERT INTO statutory_schedule_status(tenant_id,rule_id,schedule_type,config_status,missing_fields_json,next_due_at,last_generated_at,details_json,updated_at) VALUES(?,?,?,'needs_input',?,NULL,CURRENT_TIMESTAMP,?,CURRENT_TIMESTAMP) ON CONFLICT(tenant_id,rule_id) DO UPDATE SET schedule_type=excluded.schedule_type,config_status='needs_input',missing_fields_json=excluded.missing_fields_json,next_due_at=NULL,last_generated_at=CURRENT_TIMESTAMP,details_json=excluded.details_json,updated_at=CURRENT_TIMESTAMP`).bind(tenantId,rule.id,type,JSON.stringify(missing),JSON.stringify({ruleTitle:rule.title})).run();return {handled:true,created:0,needsInput:true,missing}}const occs=buildRecurringOccurrences(action,profile),next=occs.length?occs.map(x=>x.dueAt).sort()[0]:null;let created=0;for(const occ of occs)created+=await createRecurringObligation(env,tenantId,rule,action,occ,runId);await env.DB.prepare(`INSERT INTO statutory_schedule_status(tenant_id,rule_id,schedule_type,config_status,missing_fields_json,next_due_at,last_generated_at,details_json,updated_at) VALUES(?,?,?,'ready','[]',?,CURRENT_TIMESTAMP,?,CURRENT_TIMESTAMP) ON CONFLICT(tenant_id,rule_id) DO UPDATE SET schedule_type=excluded.schedule_type,config_status='ready',missing_fields_json='[]',next_due_at=excluded.next_due_at,last_generated_at=CURRENT_TIMESTAMP,details_json=excluded.details_json,updated_at=CURRENT_TIMESTAMP`).bind(tenantId,rule.id,type,next,JSON.stringify({occurrencesEvaluated:occs.length})).run();return {handled:true,created,needsInput:false,nextDueAt:next}}
 async function runStatutoryDeadlineEngine(env,tenantId,{triggerType="manual"}={}){const runId=id();await env.DB.prepare("INSERT INTO statutory_deadline_runs(id,tenant_id,trigger_type,status) VALUES(?,?,?,'running')").bind(runId,tenantId,triggerType).run();try{const profile=await tenantProfileForRules(env,tenantId),rules=await env.DB.prepare("SELECT * FROM regulatory_rules WHERE status='published' ORDER BY rule_key,version").all();let evaluated=0,created=0,needs=0;for(const rule of rules.results||[]){const action=safeJson(rule.action_json,{});if(!String(action.operationalization||""))continue;const app=applicabilityFromProfile(safeJson(rule.applicability_json,{}),profile);if(app.status!=="applies"){const type=String(action.operationalization||"");if(app.status==="unknown"){await env.DB.prepare(`INSERT INTO statutory_schedule_status(tenant_id,rule_id,schedule_type,config_status,missing_fields_json,next_due_at,last_generated_at,details_json,updated_at) VALUES(?,?,?,'needs_input',?,NULL,CURRENT_TIMESTAMP,?,CURRENT_TIMESTAMP) ON CONFLICT(tenant_id,rule_id) DO UPDATE SET config_status='needs_input',missing_fields_json=excluded.missing_fields_json,next_due_at=NULL,last_generated_at=CURRENT_TIMESTAMP,details_json=excluded.details_json,updated_at=CURRENT_TIMESTAMP`).bind(tenantId,rule.id,type,JSON.stringify(app.missing||[]),JSON.stringify({applicability:"unknown",reasons:app.reasons})).run();needs++}continue}const rr=await materializeRecurringRule(env,tenantId,rule,profile,runId);if(!rr.handled)continue;evaluated++;created+=Number(rr.created||0);if(rr.needsInput)needs++}await env.DB.prepare(`UPDATE statutory_deadline_runs SET status='completed',rules_evaluated=?,obligations_created=?,schedules_needing_input=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(evaluated,created,needs,runId).run();return {runId,rulesEvaluated:evaluated,obligationsCreated:created,schedulesNeedingInput:needs}}catch(e){await env.DB.prepare("UPDATE statutory_deadline_runs SET status='failed',error_summary=?,completed_at=CURRENT_TIMESTAMP WHERE id=?").bind(String(e).slice(0,500),runId).run();throw e}}
 async function runStatutoryDeadlineSweep(env,limit=30){const state=await env.DB.prepare("SELECT state_value FROM statutory_scheduler_state WHERE state_key='tenant_cursor' LIMIT 1").first(),cursor=String(state?.state_value||"");let tenants=await env.DB.prepare("SELECT id FROM tenants WHERE id>? ORDER BY id LIMIT ?").bind(cursor,limit).all();if(!(tenants.results||[]).length)tenants=await env.DB.prepare("SELECT id FROM tenants ORDER BY id LIMIT ?").bind(limit).all();let processed=0,failed=0,last=cursor;for(const t of tenants.results||[]){last=t.id;try{await runStatutoryDeadlineEngine(env,t.id,{triggerType:"scheduled"});processed++}catch{failed++}}if(last)await env.DB.prepare(`INSERT INTO statutory_scheduler_state(state_key,state_value,updated_at) VALUES('tenant_cursor',?,CURRENT_TIMESTAMP) ON CONFLICT(state_key) DO UPDATE SET state_value=excluded.state_value,updated_at=CURRENT_TIMESTAMP`).bind(last).run();return {processed,failed,lastCursor:last}}
 
@@ -6173,6 +6194,9 @@ export default {
         const sourceIds=safeJson(row.source_ids_json,[]),av=validateApplicabilityDefinition(safeJson(row.applicability_json,{}));if(!av.ok)return json(av,409);
         const actionDef=safeJson(row.action_json,{}),xv=validateRuleActionDefinition(actionDef);if(!xv.ok)return json(xv,409);
         if(["approved","published"].includes(next)){
+          const legacyVatDeadline=String(row.rule_key||"")==="bw.burs.vat.return-payment.25-days"||(String(actionDef.operationalization||"")==="vat_category_period"&&Number(actionDef.dueDaysAfterPeriodEnd)===25);
+          const coversCurrentVatPeriods=!row.effective_to||String(row.effective_to).slice(0,10)>="2026-07-01";
+          if(legacyVatDeadline&&coversCurrentVatPeriods)return json({error:"vat_2026_legacy_deadline_blocked",requiredSource:"burs-vat-act-2026"},409);
           const readiness=ruleOperationalizationReady(actionDef);if(!readiness.ok)return json(readiness,409);
           const integrity=await executableRuleIntegrityReady(env,row,sourceIds);if(!integrity.ok)return json(integrity,409);
           const conflict=await openConflictForSources(env,sourceIds);if(conflict)return json({error:"open_source_conflict",conflictId:conflict.id,topicKey:conflict.topic_key},409);
@@ -6235,6 +6259,14 @@ export default {
 
       if(url.pathname==="/api/platform/regulatory/foundation-pack"&&req.method==="GET"){
         const access=await requirePlatformRegulatory(a,env,"editor","reviewer","admin");if(!access.ok)return json(access,403);
+        if(url.searchParams.get("preflight")==="1"){
+          const [preflight,legacyVat]=await Promise.all([
+            inspectFoundationSourceMetadata(env.DB,BOTSWANA_FOUNDATION_PACK_V1),
+            inspectActiveLegacyVatRules(env.DB)
+          ]);
+          return json({preflight:{...publicFoundationSourcePreflight(preflight),ok:preflight.ok&&legacyVat.ok},
+            legacyVat:publicActiveLegacyVatRules(legacyVat),readOnly:true,noApprovalOrImport:true});
+        }
         const imported=await env.DB.prepare("SELECT * FROM regulatory_pack_imports WHERE pack_key=? ORDER BY created_at DESC LIMIT 10").bind(BOTSWANA_FOUNDATION_PACK_V1.packKey).all();
         return json({pack:{packKey:BOTSWANA_FOUNDATION_PACK_V1.packKey,version:BOTSWANA_FOUNDATION_PACK_V1.version,asOf:BOTSWANA_FOUNDATION_PACK_V1.asOf,
           hash:BOTSWANA_FOUNDATION_PACK_V1_HASH,sources:BOTSWANA_FOUNDATION_PACK_V1.sources.length,rules:BOTSWANA_FOUNDATION_PACK_V1.rules.length,
@@ -6242,7 +6274,7 @@ export default {
       }
       if(url.pathname==="/api/platform/regulatory/foundation-pack/import"&&req.method==="POST"){
         const access=await requirePlatformRegulatory(a,env,"editor","admin");if(!access.ok)return json(access,403);
-        const result=await importBotswanaFoundationPack(env,a);return json(result,201);
+        const result=await importBotswanaFoundationPack(env,a);return json(result,result.ok?201:409);
       }
       if(url.pathname==="/api/re-review"&&req.method==="GET"){
         const rr=await managementReReviewList(env,a);if(!rr)return json({error:"forbidden"},403);return json(rr);
@@ -6970,6 +7002,13 @@ export default {
         return json({ok:true,status:next});
       }
 
+
+      if(url.pathname==="/api/employee-workflows"){
+        return handleEmployeeWorkflowRequest({req,env,session:a,readJson,roleAllowed});
+      }
+      if(url.pathname==="/api/employee-workflow-reviews"){
+        return handleEmployeeProposalReviewRequest({req,env,session:a,readJson,roleAllowed});
+      }
 
       if(url.pathname==="/api/employees"&&req.method==="POST"){
         if(!roleAllowed(a,"owner","manager"))return json({error:"forbidden"},403);

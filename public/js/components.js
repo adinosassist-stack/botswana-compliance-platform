@@ -54,7 +54,7 @@
   function ensureStyles(){
     if(doc.getElementById(STYLE_ID))return;
     const link=doc.createElement("link");
-    link.id=STYLE_ID;link.rel="stylesheet";link.href="/assets/workspace-interactions-v318.css";
+    link.id=STYLE_ID;link.rel="stylesheet";link.href="/assets/workspace-interactions-v318.css?v=20261021-brand-blue";
     link.dataset.workspaceOnly="true";
     (doc.head||doc.documentElement).appendChild(link);
   }

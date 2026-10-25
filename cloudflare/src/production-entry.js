@@ -285,6 +285,13 @@ async function hydrateLazyWorkspaceView(id,target,options={}){
     const views=await workspaceViewFragments(id);
     const markup=Object.prototype.hasOwnProperty.call(views,id)?views[id]:null;
     if(typeof markup!=="string")throw new Error("Workspace view is unavailable.");
+    // Avoid expensive DOM insertion for a view abandoned while its shard was loading.
+    // Leave the placeholder lazy so a later visit can hydrate it normally.
+    if(Number(target.dataset.lazyNavigationEpoch||0)!==workspaceViewNavigationEpoch){
+      delete target.dataset.lazyLoading;
+      target.setAttribute("aria-busy","false");
+      return true;
+    }
     if(!window.BW?.dom?.renderMarkup)throw new Error("Workspace DOM safety layer is unavailable.");
     window.BW.dom.renderMarkup(target,markup);
     target.dataset.lazyHydrated="1";
@@ -354,6 +361,7 @@ function injectOwnerCommandCentreAssets(html){
   if(!source.includes(WORKSPACE_HOME_COMMAND_V238_CSS_ASSET))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${workspaceHomeCommandV238CssHref}" />\n`);
   if(!source.includes("/assets/thebe-ai-dock.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${aiDockCssHref}" />\n`);
   if(!source.includes("/js/api-client.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${publicApiClientJsSrc}" defer></script>\n`);
+  if(!source.includes("/js/employee-workflow-people-loader.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="/js/employee-workflow-people-loader.js?v=20261021" defer></script>\n`);
   if(!source.includes("/js/owner-command-centre.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${jsSrc}" defer></script>\n`);
   if(!source.includes("/js/executive-personalization.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${personalizationJsSrc}" defer></script>\n`);
   if(!source.includes("/js/business-data-bridge.js"))source=injectBeforeFinalClosingTag(source,"body",`<script src="${bridgeJsSrc}" defer></script>\n`);

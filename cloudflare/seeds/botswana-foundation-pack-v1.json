@@ -1,7 +1,7 @@
 {
   "packKey": "botswana-foundation-v1",
-  "version": "1.7",
-  "asOf": "2026-09-28",
+  "version": "1.8",
+  "asOf": "2026-10-24",
   "sources": [
     {
       "key": "cipa-annual-return-faq",
@@ -25,7 +25,7 @@
       "title": "Payments & Refunds - All Tax Types",
       "url": "https://www.burs.org.bw/index.php/tax/payments",
       "type": "official",
-      "notes": "Official BURS payment table: PAYE remittance within 15 days after month end; VAT payment within 25 days after tax period."
+      "notes": "Official BURS payments page supports PAYE remittance within 15 days after month end. Its VAT 25-day wording is historical and superseded by Value Added Tax Act 2026 sections 65-66 (28 days); do not use the Payments page for current VAT deadlines."
     },
     {
       "key": "burs-vat-faq-500k",
@@ -120,7 +120,15 @@
       "title": "Issuance of Industrial Licence",
       "url": "https://gov.bw/trade/issuance-industrial-licence",
       "type": "official",
-      "notes": "Official government service page: manufacturing enterprises require industrial licence before operations; annual renewal wording and P5m routing threshold."
+      "notes": "Government service page on obtaining an industrial licence before manufacturing; refers to annual renewal, conflicting with the Ministry industrial eServices portal's indefinite-validity/25%-annual-fee wording. Reviewer must reconcile legislation and determine the governing current fee requirements."
+    },
+    {
+      "key": "industrial-licence-eservices",
+      "authority": "Government of Botswana - Ministry of Trade & Entrepreneurship",
+      "title": "Industrial Licence and Registration Certificate eServices",
+      "url": "https://trade.gov.bw/Home/Applications?DeptId=7",
+      "type": "official",
+      "notes": "Ministry industrial eServices portal states licences/registration certificates are indefinitely valid subject to conditions and lists a 25% annual fee. Separate gov.bw service page uses annual-renewal wording. Reconcile with Industrial Development Act 2019 and Industrial Development Regulations 2020 before rule approval."
     },
     {
       "key": "ppra-ipms",
@@ -144,7 +152,7 @@
       "title": "VAT Act Subsidiary Legislation — Tax Period Categories",
       "url": "https://www.burs.org.bw/phocadownload/Revenue_laws/CAP%2050-03%20Value%20Added%20Tax%20Act%20Subsidiary%20Legislation.pdf",
       "type": "official",
-      "notes": "Official VAT subsidiary legislation defines Category A and B as two-month tax periods and Category C as monthly; the Commissioner determines category allocation."
+      "notes": "Historical VAT subsidiary legislation; tax-period categories for current VAT obligations are controlled by Value Added Tax Act 2026 section 54. Preserve for pre-2026 provenance only unless a reviewer validates its continued applicability under section 88."
     },
     {
       "key": "botswana-tax-reform-2026",
@@ -168,11 +176,10 @@
     {
       "key": "botswana-egp-procurement-2026",
       "authority": "Ministry of Finance Botswana",
-      "title": "Government e-Procurement system implementation tender",
+      "title": "Government e-Procurement article — publication date unverified",
       "url": "https://www.finance.gov.bw/index.php?Itemid=289&catid=38&id=339&option=com_content&view=article",
       "type": "official",
-      "publicationDate": "2026-08-13",
-      "notes": "Government procurement for supply, design, development and implementation of an e-Government Procurement system was active in August 2026. Product should track transition readiness rather than duplicate free tender discovery."
+      "notes": "Historical/provenance-only e-Government Procurement article: the source URL and original publication date have not been independently reconciled. Prior seed claim of an active August 2026 implementation tender is unverified and must not drive current implementation or launch claims. Obtain authoritative original metadata before approval."
     },
     {
       "key": "burs-tax-administration-act-2026",
@@ -191,7 +198,7 @@
       "url": "https://burs.org.bw/index.php/tax/tax-laws-2026?download=958%3Avalue-added-tax-act-2026",
       "type": "official",
       "publicationDate": "2026-07-01",
-      "notes": "Primary 2026 VAT legislation. Section 12 ties compulsory registration to Schedule 5; Schedule 5 paragraph 2 sets the compulsory registration amount at P1,000,000. Older BURS P500,000 FAQ wording is retained only as stale source evidence for this issue."
+      "notes": "Primary 2026 VAT Act, commenced 1 July 2026 subject to SI 95 exceptions. Section 54 defines tax-period categories; section 65(1) requires returns within 28 days after period end, section 66(1) makes net VAT due on return due date. Section 88 preserves specified pre-commencement matters; historical periods require separate review. Section 12 and Schedule 5 paragraph 2 set P1,000,000 general compulsory registration; remote-services and voluntary registration use separate thresholds."
     },
     {
       "key": "burs-tax-table-2026",
@@ -301,25 +308,24 @@
     },
     {
       "key": "vat-return-payment",
-      "ruleKey": "bw.burs.vat.return-payment.25-days",
+      "ruleKey": "bw.burs.vat.return-payment.28-days",
       "title": "VAT return and payment timing",
-      "summary": "BURS states VAT returns and VAT payable are due within 25 days after each assigned tax period.",
+      "summary": "Value Added Tax Act 2026 sections 54, 65 and 66 require VAT returns within 28 days after the applicable assigned tax period, with net VAT payable by the return due date.",
       "sourceKeys": [
-        "burs-payments",
-        "burs-vat-category-regulations"
+        "burs-vat-act-2026"
       ],
       "applicability": {
         "requiresVat": true
       },
       "action": {
         "operationalization": "vat_category_period",
-        "dueDaysAfterPeriodEnd": 25,
+        "dueDaysAfterPeriodEnd": 28,
         "profileCategoryField": "vatCategory",
         "lookAheadDays": 210,
         "obligation": {
           "key": "vat-period-return-payment",
           "title": "VAT return and payment",
-          "description": "Submit the VAT return for the assigned BURS tax period and pay VAT due within 25 days after period-end.",
+          "description": "For applicable VAT periods under the 2026 Act, lodge the VAT return and pay net VAT by 28 days after period-end, using the authority-confirmed VAT period category. Historical or transitional periods require independent review.",
           "priority": 1,
           "evidence": [
             {
@@ -330,7 +336,8 @@
           ]
         }
       },
-      "confidence": "high"
+      "confidence": "high",
+      "effectiveFrom": "2026-07-01"
     },
     {
       "key": "employment-act-commencement",
@@ -655,9 +662,9 @@
       "key": "industrial-annual-fee",
       "ruleKey": "bw.industrial.licence.annual-fee",
       "title": "Industrial licence annual fee",
-      "summary": "Government trade eServices states industrial licences/registration certificates are indefinite and require an annual fee equal to 25% of the licence/certificate fee.",
+      "summary": "Ministry of Trade industrial eServices says licences/certificates remain valid indefinitely, subject to conditions, with a 25% annual fee; conflict with separate government annual-renewal guidance requires legal reviewer reconciliation.",
       "sourceKeys": [
-        "industrial-licence-gov"
+        "industrial-licence-eservices"
       ],
       "applicability": {
         "requiresManufacturing": true
@@ -680,7 +687,7 @@
           ]
         }
       },
-      "confidence": "high"
+      "confidence": "medium"
     }
   ],
   "conflicts": [

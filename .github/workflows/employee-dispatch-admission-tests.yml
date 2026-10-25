@@ -1,0 +1,48 @@
+name: Employee Dispatcher Admission Tests
+
+on:
+  pull_request:
+    paths:
+      - 'server/employee-dispatch-admission.js'
+      - 'server/employee-dispatch-queue.js'
+      - 'server/employee-dispatch-postgres-transaction.js'
+      - 'server/employee-dispatch-postgres-approval-reader.js'
+      - 'server/employee-dispatch-worker-policy.js'
+      - 'tests/employee-dispatch-admission.test.mjs'
+      - 'tests/employee-dispatch-queue.test.mjs'
+      - 'tests/employee-dispatch-postgres-transaction.test.mjs'
+      - 'tests/employee-dispatch-postgres-approval-reader.test.mjs'
+      - 'tests/employee-dispatch-worker-policy.test.mjs'
+      - 'tests/employee_dispatch_schema_test.py'
+      - 'tests/employee_dispatch_concurrency_test.py'
+      - 'tests/employee_dispatch_sqlite_reference_test.py'
+      - 'tests/employee_dispatch_leases_test.py'
+      - 'db/drafts/employee_dispatch_sqlite_reference.py'
+      - 'db/drafts/employee-dispatch-outbox.sql'
+      - '.github/workflows/employee-dispatch-admission-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  admission:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Employee dispatcher admission tests
+        run: node --test tests/employee-dispatch-admission.test.mjs tests/employee-dispatch-queue.test.mjs tests/employee-dispatch-worker-policy.test.mjs
+      - name: PostgreSQL dispatch transaction and approval reader unit tests
+        run: node --test tests/employee-dispatch-postgres-transaction.test.mjs tests/employee-dispatch-postgres-approval-reader.test.mjs
+      - name: SQLite employee dispatch schema tests
+        run: python3 tests/employee_dispatch_schema_test.py
+      - name: Concurrent SQLite dispatch test
+        run: python3 tests/employee_dispatch_concurrency_test.py
+      - name: SQLite reference adapter integration tests
+        run: python3 tests/employee_dispatch_sqlite_reference_test.py
+      - name: Durable worker lease and bounded retry tests
+        run: python3 tests/employee_dispatch_leases_test.py

@@ -9,6 +9,17 @@ assert.match(html,/src="\/js\/api-client\.js"/);
 assert.match(html,/src="\/js\/regulatory-review-console\.js"/);
 assert.doesNotMatch(html,/<script(?![^>]*\bsrc=)[^>]*>/i,'reviewer console must not add inline executable script');
 assert.match(html,/No bulk approval is available/);
+assert.match(html,/id="preflightBtn"/);
+assert.match(html,/id="preflightSummary"/);
+assert.match(html,/id="preflightList"/);
+assert.match(html,/read-only: no import, approval or publication/i);
+assert.match(script,/\/api\/platform\/regulatory\/foundation-pack\?preflight=1/);
+assert.match(script,/result\?\.readOnly!==true\|\|result\?\.noApprovalOrImport!==true/);
+assert.match(script,/source_metadata_drift_requires_review/);
+assert.match(script,/inspectFoundationPreflight/);
+assert.match(script,/legacyVat\.count/);
+assert.match(script,/Legacy 25-day VAT blocker/);
+assert.doesNotMatch(html,/id="importBtn"/,"reviewer console must not expose an import button");
 
 assert.match(script,/BW\?\.api\?\.createClient/);
 assert.match(script,/\/api\/auth\/me/);

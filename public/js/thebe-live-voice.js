@@ -721,7 +721,7 @@
     if(workspace&&!mobile)setCriticalStyle(orbButton,{"width":"82px","min-width":"82px","max-width":"82px","height":"82px","min-height":"82px","max-height":"82px","box-sizing":"border-box","flex":"0 0 82px"});
     setCriticalStyle(voiceMount,{"grid-column":"1 / -1","display":"grid","width":"100%","min-width":"0","grid-template-columns":"minmax(0,1fr) auto","gap":"7px"});
     setCriticalStyle(mission,{"grid-column":"1 / -1","width":"100%","min-width":"0","box-sizing":"border-box"});
-    setCriticalStyle(quick,{"display":"grid","width":"100%","min-width":"0","grid-template-columns":"repeat(3,minmax(0,1fr))","gap":"7px"});
+    setCriticalStyle(quick,{"display":workspace?"none":"grid","width":"100%","min-width":"0","grid-template-columns":"repeat(3,minmax(0,1fr))","gap":"7px"});
     setCriticalStyle(responseBox,{"width":"100%","min-width":"0","box-sizing":"border-box","padding":"13px 14px","border":"1px solid rgba(125,180,255,.16)","border-radius":"15px","background":"#0a1928","color":"#edf7ff"});
     setCriticalStyle(compose,{"display":"flex","flex":"0 0 auto","align-self":"stretch","width":"auto","min-width":"0","box-sizing":"border-box","align-items":"flex-end","gap":"8px","margin":"0 14px 10px","padding":"8px","border":"1px solid rgba(125,180,255,.20)","border-radius":"16px","background":"#0b1b2a"});
     setCriticalStyle(composeBody,{"flex":"1 1 auto","min-width":"0"});
@@ -833,8 +833,8 @@
     return {stage:0,tone:"neutral",label:"Ready"};
   }
   const commandCentreRole=()=>{try{return String(global.currentWorkspaceRole?.()||global.currentUser?.role||"").toLowerCase()}catch{return ""}};
-  function ownerCommandSummary(){
-    if(surfaceMode()!=="workspace")return "Public assistant";
+  function ownerCommandSummary(surface=surfaceMode()){
+    if(surface!=="workspace")return "Public assistant";
     if(!ownerCommandState)return "Owner Command Centre · governed state";
     const reviews=Math.max(0,Number(ownerCommandState?.pendingReviews||0));
     const approved=Math.max(0,Number(ownerCommandState?.approvedRequests||0));
@@ -855,8 +855,8 @@
     if(ownerCommandState?.boundedExecutionAvailable===true)return "Owner Command Centre · governed lane ready";
     return "Owner Command Centre · governed lane controlled";
   }
-  function ownerCommandActionDescriptor(){
-    if(surfaceMode()!=="workspace"||!["owner","manager"].includes(commandCentreRole())||!ownerCommandState)return null;
+  function ownerCommandActionDescriptor(surface=surfaceMode()){
+    if(surface!=="workspace"||!["owner","manager"].includes(commandCentreRole())||!ownerCommandState)return null;
     const reviews=Math.max(0,Number(ownerCommandState?.pendingReviews||0));
     const approved=Math.max(0,Number(ownerCommandState?.approvedRequests||0));
     const open=Math.max(0,Number(ownerCommandState?.openTasks||0));
@@ -887,17 +887,20 @@
   }
   function syncMission(){
     if(!missionRail)return;
+    const surface=surfaceMode();
     const descriptor=missionDescriptor();
-    missionRail.dataset.stage=String(descriptor.stage);
-    missionRail.dataset.tone=descriptor.tone;
-    if(missionLabel)missionLabel.textContent=descriptor.label;
-    if(missionMeta)missionMeta.textContent=ownerCommandSummary();
+    const summary=ownerCommandSummary(surface);
+    const action=missionAction?ownerCommandActionDescriptor(surface):null;
+    const stage=String(descriptor.stage);
+    if(missionRail.dataset.stage!==stage)missionRail.dataset.stage=stage;
+    if(missionRail.dataset.tone!==descriptor.tone)missionRail.dataset.tone=descriptor.tone;
+    if(missionLabel&&missionLabel.textContent!==descriptor.label)missionLabel.textContent=descriptor.label;
+    if(missionMeta&&missionMeta.textContent!==summary)missionMeta.textContent=summary;
     if(missionAction){
-      const action=ownerCommandActionDescriptor();
-      missionAction.hidden=!action;
+      if(missionAction.hidden!==!action)missionAction.hidden=!action;
       if(action){
-        missionAction.textContent=action.label;
-        missionAction.setAttribute("aria-label",action.aria);
+        if(missionAction.textContent!==action.label)missionAction.textContent=action.label;
+        if(missionAction.getAttribute("aria-label")!==action.aria)missionAction.setAttribute("aria-label",action.aria);
       }
     }
   }
@@ -1413,6 +1416,17 @@
   }
   function renderQuickActions(surface){
     if(!quick)return;
+    const workspace=surface==="workspace";
+    if(quick.hidden!==workspace)quick.hidden=workspace;
+    if(workspace){
+      if(quick.dataset.mode!=="workspace-empty"){
+        quick.dataset.mode="workspace-empty";
+        quick.replaceChildren();
+      }
+      if(quick.style.getPropertyValue("display")!=="none"||quick.style.getPropertyPriority("display")!=="important")quick.style.setProperty("display","none","important");
+      return;
+    }
+    quick.style.removeProperty("display");
     const context=activeContext();
     syncMascotContext(context);
     const mode=surface==="public"?"public":context.id+":"+context.title+":"+assistantMode;
@@ -1769,9 +1783,18 @@
       renderQuickActions(surfaceMode());
       if(wasYielded&&!yielded)global.requestAnimationFrame?.(()=>{recoverVisibility();recoverDockPresentation()});
     };
-    if(pageTitle)new MutationObserver(syncAfterWorkspaceViewChange).observe(pageTitle,{childList:true,characterData:true,subtree:true});
-    document.querySelectorAll(".view").forEach(view=>new MutationObserver(syncAfterWorkspaceViewChange).observe(view,{attributes:true,attributeFilter:["class"]}));
-    global.addEventListener("thebe:workspace-view-change",()=>{syncAfterWorkspaceViewChange();global.requestAnimationFrame?.(()=>global.requestAnimationFrame?.(()=>{recoverVisibility();recoverDockPresentation()}))});
+    let workspaceViewSyncPending=false;
+    const scheduleWorkspaceViewSync=()=>{
+      if(workspaceViewSyncPending)return;
+      workspaceViewSyncPending=true;
+      global.requestAnimationFrame(()=>{
+        workspaceViewSyncPending=false;
+        syncAfterWorkspaceViewChange();
+      });
+    };
+    if(pageTitle)new MutationObserver(scheduleWorkspaceViewSync).observe(pageTitle,{childList:true,characterData:true,subtree:true});
+    document.querySelectorAll(".view").forEach(view=>new MutationObserver(scheduleWorkspaceViewSync).observe(view,{attributes:true,attributeFilter:["class"]}));
+    global.addEventListener("thebe:workspace-view-change",()=>{scheduleWorkspaceViewSync();global.requestAnimationFrame?.(()=>global.requestAnimationFrame?.(()=>{recoverVisibility();recoverDockPresentation()}))});
     const syncKeyboard=()=>{
       const viewport=global.visualViewport;
       if(!viewport)return;

@@ -73,3 +73,20 @@ html body #appShell .owner-analysis-details>summary:focus-visible{outline:3px so
 
 html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-compose:focus-within{background:#f7f7f5!important;border-color:#0b66d6!important}
 html body.thebe-ai-dock-open #thebeAiDock[data-surface="workspace"] .thebe-ai-send:not(:disabled):hover{background:#0955b7!important;color:#fff!important}
+
+/* Workspace clarity pass 2026-10-23: presentation only; preserve all actions. */
+@media(min-width:901px){
+ html body #appShell #workspaceSidebar .nav-primary,
+ html body #appShell #workspaceSidebar .nav-more-tools{min-height:40px!important;border-radius:9px!important;box-shadow:none!important;transition:background-color .14s ease,color .14s ease!important}
+ html body #appShell #workspaceSidebar .nav-primary.active{background:#0b66d6!important;box-shadow:none!important}
+ html body #appShell #mainContent>.top{min-height:60px!important;box-shadow:none!important;backdrop-filter:none!important}
+}
+html body #appShell #mainContent{background:#f7f9fc!important;background-image:none!important}
+html body #appShell #mainContent>.top{background:#fff!important;border-bottom:1px solid #e4e9f0!important}
+html body #appShell .simplified-hub>.hub-hero{padding-block:2px 8px!important;margin-bottom:12px!important}
+html body #appShell .simplified-hub>.hub-hero h2{font-size:clamp(20px,2vw,24px)!important;line-height:1.2!important}
+html body #appShell .simplified-hub :is(.outcome-status-chip,.people-status-chip){box-shadow:0 1px 3px rgba(15,23,42,.045)!important;border-radius:11px!important}
+html body #appShell :is(.nav-primary,.nav-more-tools,.btn):focus-visible{outline:3px solid #0b66d6!important;outline-offset:2px!important}
+@media(prefers-reduced-motion:reduce){
+ html body #appShell :is(.nav-primary,.nav-more-tools,.btn){transition:none!important;transform:none!important}
+}

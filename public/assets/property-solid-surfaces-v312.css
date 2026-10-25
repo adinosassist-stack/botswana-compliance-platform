@@ -237,3 +237,125 @@
   #propertyintelligence.property-compact-v260 .property-overview-actions-v261{grid-template-columns:1fr!important}
   #propertyintelligence.property-compact-v260 .property-overview-actions-v261>.property-overview-action-v261{width:100%}
 }
+
+/* Lazy construction modules use construction-* classes, not the older
+   property-construction-* action names. Keep custom controls on the shared brand. */
+#propertyintelligence.property-compact-v260 .property-construction-v311{
+  background:#fff!important;
+  border-color:var(--property-line)!important;
+  color:var(--property-ink)!important;
+}
+#propertyintelligence.property-compact-v260 :is(.construction-button-v311,.construction-ai-v311,.construction-workflow-action-v312),
+#industryintel .africa-market-foundation-v311 .construction-button-v311{
+  background:var(--ui-accent,#0b66d6)!important;
+  border:1px solid var(--ui-accent,#0b66d6)!important;
+  color:#fff!important;
+}
+#propertyintelligence.property-compact-v260 :is(.construction-button-v311.alt,.construction-workflow-action-v312.secondary){
+  background:var(--ui-accent-soft,#edf5ff)!important;
+  border-color:#d8e9ff!important;
+  color:var(--ui-accent,#0b66d6)!important;
+}
+#propertyintelligence.property-compact-v260 :is(.construction-button-v311.ghost,.construction-workflow-action-v312.ghost){
+  background:#fff!important;
+  border-color:var(--property-line)!important;
+  color:var(--property-muted)!important;
+}
+#propertyintelligence.property-compact-v260 :is(.construction-button-v311,.construction-ai-v311,.construction-workflow-action-v312):not(.alt):not(.secondary):not(.ghost):not(:disabled):hover,
+#industryintel .africa-market-foundation-v311 .construction-button-v311:hover{
+  background:var(--ui-accent-strong,#0955b7)!important;
+  border-color:var(--ui-accent-strong,#0955b7)!important;
+  filter:none!important;
+}
+#propertyintelligence.property-compact-v260 :is(.construction-button-v311,.construction-ai-v311,.construction-workflow-action-v312):focus-visible,
+#industryintel .africa-market-foundation-v311 .construction-button-v311:focus-visible{
+  outline:3px solid var(--ui-accent,#0b66d6)!important;
+  outline-offset:3px!important;
+}
+#propertyintelligence.property-compact-v260 .construction-eyebrow-v311,
+#propertyintelligence.property-compact-v260 .construction-workflow-head-v312>div>span:first-child,
+#propertyintelligence.property-compact-v260 .construction-breakdown-v311 summary:after,
+#industryintel .africa-market-foundation-v311 .construction-eyebrow-v311,
+#industryintel .africa-market-foundation-v311 .africa-market-card-v311>span{
+  color:var(--ui-accent,#0b66d6)!important;
+}
+
+
+/* Property UX refinement: readable metrics, clear actions, accessible mobile layout. */
+#propertyintelligence.property-compact-v260 .property-ops-metrics-v262 {
+  gap: 10px;
+  margin-bottom: 14px;
+}
+#propertyintelligence.property-compact-v260 .property-ops-metric-v262 {
+  padding: 14px;
+  border-radius: 14px;
+  min-height: 92px;
+}
+#propertyintelligence.property-compact-v260 .property-ops-metric-v262 span {
+  font-size: 11px;
+  line-height: 1.35;
+  letter-spacing: .035em;
+}
+#propertyintelligence.property-compact-v260 .property-ops-metric-v262 strong {
+  font-size: clamp(18px, 1.8vw, 24px);
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+#propertyintelligence.property-compact-v260 .property-ops-metric-v262 small {
+  font-size: 11px;
+  line-height: 1.4;
+}
+#propertyintelligence.property-compact-v260 .property-ops-grid-v262 { gap: 12px; }
+#propertyintelligence.property-compact-v260 .property-ops-item-v262 {
+  padding: 13px;
+  gap: 10px;
+  border-radius: 13px;
+}
+#propertyintelligence.property-compact-v260 .property-ops-item-copy-v262 b {
+  font-size: 13px;
+  line-height: 1.3;
+}
+#propertyintelligence.property-compact-v260 .property-ops-item-copy-v262 span {
+  font-size: 11px;
+  line-height: 1.4;
+}
+#propertyintelligence.property-compact-v260 .property-ops-status-v262 {
+  font-size: 10px!important;
+  line-height: 1.25;
+  padding: 4px 8px;
+}
+#propertyintelligence.property-compact-v260 :is(.property-ops-action-v262,.property-ops-plan-v262,.property-ops-ai-v262) {
+  min-height: 40px;
+  font-size: 12px;
+  line-height: 1.3;
+}
+#propertyintelligence.property-compact-v260 .property-ops-readiness-v262 {
+  background: var(--property-ink)!important;
+  color: #fff!important;
+}
+#propertyintelligence.property-compact-v260 .property-ops-ring-v262 {
+  --property-accent: #77b8ff;
+}
+#propertyintelligence.property-compact-v260 .property-ops-readiness-v262 b { font-size: 13px; }
+#propertyintelligence.property-compact-v260 .property-ops-readiness-v262 span {
+  font-size: 11px;
+  line-height: 1.4;
+  color: #e2ebf6!important;
+}
+#propertyintelligence.property-compact-v260 .property-operations-v262 button:focus-visible {
+  outline: 3px solid var(--property-accent);
+  outline-offset: 3px;
+}
+@media (max-width: 760px) {
+  #propertyintelligence.property-compact-v260 :is(.property-ops-action-v262,.property-ops-plan-v262,.property-ops-ai-v262) { min-height: 44px; }
+  #propertyintelligence.property-compact-v260 .property-ops-metrics-v262 { gap: 8px; }
+  #propertyintelligence.property-compact-v260 .property-ops-metric-v262 {
+    padding: 12px;
+    min-height: 0;
+  }
+  #propertyintelligence.property-compact-v260 .property-ops-queue-v262 { gap: 8px; }
+}
+@media (max-width: 420px) {
+  #propertyintelligence.property-compact-v260 .property-ops-item-v262 { gap: 8px; }
+  #propertyintelligence.property-compact-v260 .property-ops-metric-v262 strong { font-size: 17px; }
+}

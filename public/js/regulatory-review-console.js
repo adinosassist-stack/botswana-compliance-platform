@@ -27,7 +27,7 @@
   }
   function clientErrorMessage(error){
     const code=String(error?.code||error?.data?.error||"");
-    const known={maker_checker_required:"A different authorized checker must complete this action.",verified_source_snapshot_required:"This source needs a verified current snapshot before approval.",review_notes_required:"Enter review notes of at least 10 characters.",source_content_required:"Paste the authoritative full source text before capturing a snapshot.",source_content_too_large:"The source text exceeds the 262,144 byte evidence limit.",regulatory_source_storage_not_configured:"Regulatory evidence storage is not configured; no snapshot was saved.",rule_must_be_approved_first:"Approve this rule before publishing it.",approval_review_record_required:"A governed approval record is required before publication.",rule_changed_after_approval:"The rule changed after approval and must be reviewed again.",sources_changed_after_approval:"A linked source changed after approval and the rule must be reviewed again.",open_source_conflict:"Resolve the linked source conflict before progressing this rule.",invalid_state_transition:"This rule is no longer in the expected state. Refresh the page."};
+    const known={maker_checker_required:"A different authorized checker must complete this action.",verified_source_snapshot_required:"This source needs a verified current snapshot before approval.",review_notes_required:"Enter review notes of at least 10 characters.",source_content_required:"Paste the authoritative full source text before capturing a snapshot.",source_content_too_large:"The source text exceeds the 262,144 byte evidence limit.",regulatory_source_storage_not_configured:"Regulatory evidence storage is not configured; no snapshot was saved.",rule_must_be_approved_first:"Approve this rule before publishing it.",approval_review_record_required:"A governed approval record is required before publication.",rule_changed_after_approval:"The rule changed after approval and must be reviewed again.",sources_changed_after_approval:"A linked source changed after approval and the rule must be reviewed again.",open_source_conflict:"Resolve the linked source conflict before progressing this rule.",vat_2026_legacy_deadline_blocked:"This legacy 25-day VAT rule cannot be approved or published for current periods. Use the reviewed 2026 VAT Act and 28-day rule; historical periods require separate review.",invalid_state_transition:"This rule is no longer in the expected state. Refresh the page."};
     return known[code]||String(error?.message||"The governed action could not be completed.");
   }
   async function api(path,options={}){return client.request(path,options)}
@@ -139,6 +139,80 @@
     });
   }
 
+  const PREFLIGHT_LABELS={
+    create:"New pending source",
+    reuse:"Unchanged",
+    refresh_unreviewed:"Eligible for guarded metadata correction",
+    source_metadata_drift_requires_review:"Evidence review required"
+  };
+  function renderFoundationPreflight(result){
+    const plan=result?.preflight;
+    if(result?.readOnly!==true||result?.noApprovalOrImport!==true||
+      !plan||!Array.isArray(plan.sources)||!plan.counts||!result?.legacyVat||
+      !Array.isArray(result.legacyVat.rules)||!Number.isInteger(result.legacyVat.count))throw new Error("Invalid read-only preflight response.");
+    const counts=plan.counts,legacyVat=result.legacyVat,summary=byId("preflightSummary"),list=byId("preflightList");
+    if(!summary||!list)throw new Error("Preflight panel is missing.");
+    summary.replaceChildren();list.replaceChildren();
+    for(const [key,label] of [
+      ["source_metadata_drift_requires_review","Reviewer-required drift"],
+      ["refresh_unreviewed","Unreviewed corrections"],
+      ["create","New sources"],
+      ["reuse","Unchanged sources"]
+    ])summary.append(el("span","pill",`${Number(counts[key]||0)} ${label}`));
+    summary.append(el("span","pill",`${legacyVat.count} executable legacy VAT rule blockers`));
+    const changed=plan.sources.filter(source=>source.action!=="reuse");
+    if(!changed.length&&!legacyVat.count)list.append(el("div","empty","No metadata differences detected. This check does not authorize an import."));
+    for(const rule of legacyVat.rules){
+      const row=el("div","preflight-row"),left=el("div");
+      left.append(el("div","title",String(rule.ruleKey||"Legacy VAT rule")));
+      left.append(el("div","meta",`Existing ${rule.status} rule · effective-to ${rule.effectiveTo||"unset"} · requires independent governed disposition before importing v1.8`));
+      row.append(left,el("span","pill","Legacy 25-day VAT blocker"));
+      list.append(row);
+    }
+    for(const source of changed){
+      const row=el("div","preflight-row"),left=el("div");
+      left.append(el("div","title",String(source.key||"Unknown source")));
+      const details=[
+        source.changedFields?.length?`Fields: ${source.changedFields.join(", ")}`:"No existing source record",
+        `Status: ${source.status||"new"}`,
+        `Verification: ${source.verificationStatus||"not captured"}`,
+        `Snapshots: ${Number(source.snapshotCount||0)}`,
+        `Reviews: ${Number(source.reviewCount||0)}`
+      ];
+      left.append(el("div","meta",details.join(" · ")));
+      row.append(left,el("span","pill",PREFLIGHT_LABELS[source.action]||"Unknown disposition"));
+      list.append(row);
+    }
+    summary.hidden=false;list.hidden=false;
+    const blocked=Number(counts.source_metadata_drift_requires_review||0),vatBlocked=legacyVat.count;
+    const status=byId("preflightStatus");
+    if(status){
+      status.className=`preflight-banner ${blocked||vatBlocked?"warning":"safe"}`;
+      status.textContent=vatBlocked
+        ?`${vatBlocked} approved/published legacy 25-day VAT rule(s) require governed review. Import is blocked; no data was changed.`
+        :blocked
+        ?`${blocked} source(s) require manual evidence reconciliation. The governed import is blocked; no data was changed.`
+        :"Read-only inspection complete. No evidence changed. Any actual import still requires separate authorised review and staging qualification.";
+    }
+  }
+  async function inspectFoundationPreflight(button){
+    if(busy)return;
+    busy=true;const root=byId("reviewConsole"),status=byId("preflightStatus");
+    root?.classList.add("loading");
+    const original=button?.textContent||"";
+    if(button){button.disabled=true;button.textContent="Checking…"}
+    if(status){status.className="meta";status.textContent="Inspecting source metadata without writing records…"}
+    try{
+      const result=await api("/api/platform/regulatory/foundation-pack?preflight=1");
+      renderFoundationPreflight(result);
+    }catch(error){
+      if(status){status.className="preflight-banner warning";status.textContent=`Preflight unavailable: ${clientErrorMessage(error)}. No import has been initiated.`}
+    }finally{
+      busy=false;root?.classList.remove("loading");
+      if(button){button.disabled=false;button.textContent=original}
+    }
+  }
+
   function renderReadiness(data){
     readiness=data||{};
     text(byId("principalCount"),readiness.principals?.active||0);
@@ -171,6 +245,7 @@
       if(!ALLOWED_PLATFORM_ROLES.has(platformRole)){setNotice("This signed-in account is not provisioned for platform regulatory governance.","bad");return}
       setNotice(`Governed platform role: ${platformRole.toUpperCase()}. Server-side maker/checker controls are active.`,"good");
       byId("refreshBtn")?.addEventListener("click",()=>governedAction(byId("refreshBtn"),refresh));
+      byId("preflightBtn")?.addEventListener("click",()=>inspectFoundationPreflight(byId("preflightBtn")));
       await refresh();
     }catch(error){
       if(String(error?.code||"")==="unauthenticated"||Number(error?.status||0)===401){redirectToLogin();return}

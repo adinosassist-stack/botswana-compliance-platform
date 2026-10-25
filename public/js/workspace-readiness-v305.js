@@ -8,6 +8,9 @@
     window.addEventListener("thebe:workspace-ready",callback,{once:true});
   };
 
+  let reportingRendererWrapped=false;
+  const peoplePolishPending=new WeakSet();
+
   function applyPeopleV306Polish(people){
     if(!people)return;
     const setup=people.querySelector("#opsReportingSetupDetails");
@@ -19,7 +22,7 @@
     const box=people.querySelector("#peopleLocationBars");
     if(!box)return;
     const rows=[...box.querySelectorAll(".people-location-bar")];
-    rows.forEach((row,index)=>{row.hidden=index>=4});
+    rows.forEach((row,index)=>{const shouldHide=index>=4;if(row.hidden!==shouldHide)row.hidden=shouldHide});
     let more=box.querySelector(".people-location-more");
     if(rows.length>4){
       if(!more){
@@ -29,7 +32,7 @@
         more.addEventListener("click",()=>{if(typeof window.showView==="function")window.showView("dailyreports")});
         box.appendChild(more);
       }
-      more.hidden=false;
+      if(more.hidden)more.hidden=false;
       const label=`View all ${rows.length} locations →`;
       const ariaLabel=`View all ${rows.length} reporting locations`;
       if(more.textContent!==label)more.textContent=label;
@@ -43,7 +46,7 @@
     if(!people)return false;
     // Wrap the canonical renderer only once, but bind each new disclosure node.
     // Lazy workspace hydration can replace the <details> element after this hook ran.
-    if(people.dataset.v337DeferredReporting!=="1"){
+    if(!reportingRendererWrapped){
       const original=window.renderPeopleReportingSetup;
       if(typeof original!=="function")return false;
       window.renderPeopleReportingSetup=async function(...args){
@@ -53,8 +56,9 @@
         if(panel&&!panel.open)return;
         return original.apply(this,args);
       };
-      people.dataset.v337DeferredReporting="1";
+      reportingRendererWrapped=true;
     }
+    people.dataset.v337DeferredReporting="1";
     const details=people.querySelector("#opsReportingSetupDetails");
     if(!details)return false;
     if(details.dataset.v337DeferredReportingToggle!=="1"){
@@ -76,9 +80,16 @@
     if(people.dataset.v306PeopleObserver!=="1"&&typeof MutationObserver==="function"){
       people.dataset.v306PeopleObserver="1";
       new MutationObserver(()=>{
-        applyPeopleV306Polish(people);
-        // Reattach to lazily replaced People panels: do not leave Add location unhydrated.
-        installPeopleDeferredReporting(people);
+        // Coalesce rapid innerHTML/fragment mutations into one People polish pass.
+        if(peoplePolishPending.has(people))return;
+        peoplePolishPending.add(people);
+        queueMicrotask(()=>{
+          peoplePolishPending.delete(people);
+          if(document.getElementById("peopleops")!==people)return;
+          applyPeopleV306Polish(people);
+          // Reattach to lazily replaced People panels without rewrapping its renderer.
+          installPeopleDeferredReporting(people);
+        });
       }).observe(people,{childList:true,subtree:true});
     }
     return reportingReady;
@@ -157,9 +168,16 @@
       console.error("Daily report money extension failed to load",error);
     });
   }
-  if(typeof window.whenThebeWorkspaceReady==="function")window.whenThebeWorkspaceReady(loadReportMoney);
-  else if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",loadReportMoney,{once:true});
-  else loadReportMoney();
+  function loadWhenVisible(){
+    if(typeof document==="undefined")return;
+    if(document.getElementById("dailyreports")?.classList.contains("active"))loadReportMoney();
+  }
+  window.addEventListener("thebe:workspace-view-change",event=>{
+    if(event.detail?.id==="dailyreports")loadReportMoney();
+  });
+  if(typeof window.whenThebeWorkspaceReady==="function")window.whenThebeWorkspaceReady(loadWhenVisible);
+  else if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",loadWhenVisible,{once:true});
+  else loadWhenVisible();
 })();
 
 (()=>{
@@ -174,9 +192,17 @@
       console.error("Locations & Branches extension failed to load",error);
     });
   }
-  if(typeof window.whenThebeWorkspaceReady==="function")window.whenThebeWorkspaceReady(loadLocationsBranches);
-  else if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",loadLocationsBranches,{once:true});
-  else loadLocationsBranches();
+  function loadWhenVisible(){
+    if(typeof document==="undefined")return;
+    if(document.getElementById("peopleops")?.classList.contains("active")||
+       document.getElementById("accounthub")?.classList.contains("active"))loadLocationsBranches();
+  }
+  window.addEventListener("thebe:workspace-view-change",event=>{
+    if(["peopleops","accounthub"].includes(String(event.detail?.id||"")))loadLocationsBranches();
+  });
+  if(typeof window.whenThebeWorkspaceReady==="function")window.whenThebeWorkspaceReady(loadWhenVisible);
+  else if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",loadWhenVisible,{once:true});
+  else loadWhenVisible();
 })();
 
 (()=>{
@@ -217,6 +243,8 @@
   const SHARD_PREFIX="/assets/workspace-view-fragments-20261001a-";
   const SHARD_ORDER=Object.freeze([1,4,10,9,2,8,0,6,3,5,7,11]);
   let scheduled=false;
+  let activeNavigationGeneration=0;
+  window.addEventListener("thebe:workspace-view-change",()=>{activeNavigationGeneration++});
 
   function networkAllowsWarmup(){
     const connection=window.navigator?.connection;
@@ -239,8 +267,11 @@
     const createClient=window.BW?.api?.createClient;
     if(scheduled||!networkAllowsWarmup()||typeof createClient!=="function")return;
     scheduled=true;
+    if(document.visibilityState==="hidden")return;
+    const generation=activeNavigationGeneration;
     const client=createClient({timeoutMs:6000,retries:0});
     for(const shard of SHARD_ORDER.slice(0,3)){
+      if(generation!==activeNavigationGeneration||document.visibilityState==="hidden")break;
       const url=workspaceShardUrl(shard);
       if(!url)continue;
       try{
@@ -262,12 +293,20 @@
 
   // Only warm a destination the user is actually moving toward, and share
   // its in-flight request with showView rather than downloading it twice.
+  const prefetchedIntentViews=new Set();
   function prefetchOnNavigationIntent(event){
     if(!networkAllowsWarmup()||window.__THEBE_WORKSPACE_READY__!==true)return;
     const button=event.target?.closest?.("[data-view]");
     const id=String(button?.dataset?.view||"");
     if(!id||document.getElementById(id)?.dataset?.lazyView!=="1")return;
-    if(typeof window.prefetchThebeWorkspaceView==="function")void window.prefetchThebeWorkspaceView(id);
+    if(prefetchedIntentViews.has(id)||typeof window.prefetchThebeWorkspaceView!=="function")return;
+    prefetchedIntentViews.add(id);
+    try{
+      Promise.resolve(window.prefetchThebeWorkspaceView(id)).catch(()=>{
+        // Allow another intent to retry after a failed speculative fetch.
+        prefetchedIntentViews.delete(id);
+      });
+    }catch(_){prefetchedIntentViews.delete(id);}
   }
   function bindWorkspacePrefetch(){
     if(typeof document==="undefined")return;

@@ -52,13 +52,13 @@ assert.equal(people.dataset.v337ReportingOpen,"1","open state recorded on stable
 
 const original=detail;
 detail=disclosure();
-peopleObserver();
+peopleObserver();await Promise.resolve();
 assert.notEqual(detail,original);
 assert.equal(detail.open,true,"lazy replacement preserves a user-opened Locations panel");
 assert.equal(typeof detail.onToggle,"function","replacement disclosure gets a new listener");
 detail.onToggle();
 assert.equal(saves,2,"replacement disclosure can refresh locations");
-peopleObserver();
+peopleObserver();await Promise.resolve();
 detail.onToggle();
 assert.equal(saves,3,"repeated mutations must not duplicate toggle callbacks");
 
@@ -66,7 +66,7 @@ detail.open=false;
 detail.onToggle();
 assert.equal(people.dataset.v337ReportingOpen,"0");
 detail=disclosure();
-peopleObserver();
+peopleObserver();await Promise.resolve();
 assert.equal(detail.open,false,"user-closed disclosure stays closed after replacement");
 await window.renderPeopleReportingSetup();
 assert.equal(saves,3,"closed replacement must not make location API calls");

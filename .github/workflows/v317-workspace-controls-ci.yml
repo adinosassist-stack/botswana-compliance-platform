@@ -6,6 +6,15 @@ on:
       - "public/js/owner-command-centre.js"
       - "public/js/owner-focus-strip-v296.js"
       - "public/assets/workspace-control-polish-v317.css"
+      - "public/assets/workspace-interactions-v318.css"
+      - "public/assets/property-solid-surfaces-v312.css"
+      - "public/assets/property-construction-v311.css"
+      - "public/assets/property-construction-workflow-v312.css"
+      - "public/js/property-construction-v311.js"
+      - "public/js/property-construction-workflow-v312.js"
+      - "public/js/components.js"
+      - "tests/workspace-brand-colors-browser.mjs"
+      - "tests/v322-reviewer-ui-contract.mjs"
       - "cloudflare/src/asset-release-identity.js"
       - "tests/v317-workspace-control-polish-browser.mjs"
       - "public/assets/workspace-audit-refinements-20261013.css"
@@ -18,6 +27,15 @@ on:
       - "public/js/owner-command-centre.js"
       - "public/js/owner-focus-strip-v296.js"
       - "public/assets/workspace-control-polish-v317.css"
+      - "public/assets/workspace-interactions-v318.css"
+      - "public/assets/property-solid-surfaces-v312.css"
+      - "public/assets/property-construction-v311.css"
+      - "public/assets/property-construction-workflow-v312.css"
+      - "public/js/property-construction-v311.js"
+      - "public/js/property-construction-workflow-v312.js"
+      - "public/js/components.js"
+      - "tests/workspace-brand-colors-browser.mjs"
+      - "tests/v322-reviewer-ui-contract.mjs"
       - "cloudflare/src/asset-release-identity.js"
       - "tests/v317-workspace-control-polish-browser.mjs"
       - "public/assets/workspace-audit-refinements-20261013.css"
@@ -61,6 +79,7 @@ jobs:
         run: |
           node tests/v317-workspace-control-polish-browser.mjs
           node tests/workspace-audit-layout-20261013-browser.mjs
+          node tests/workspace-brand-colors-browser.mjs
       - name: Preserve Owner Focus interactions
         env:
           CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome

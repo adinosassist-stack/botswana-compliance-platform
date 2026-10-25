@@ -16,6 +16,10 @@ on:
       - 'tests/v305-workspace-readiness-order.mjs'
       - 'tests/v337-people-location-rebind.mjs'
       - 'tests/people-workspace-20261003.mjs'
+      - 'tests/people-location-save-feedback.test.mjs'
+      - 'tests/people-location-save-browser.mjs'
+      - 'scripts/people-location-network-recovery-proof.mjs'
+      - 'scripts/production-synthetic-full-user-wrapper.mjs'
       - '.github/workflows/people-ux-ci.yml'
   push:
     branches: [main]
@@ -32,6 +36,10 @@ on:
       - 'tests/v305-workspace-readiness-order.mjs'
       - 'tests/v337-people-location-rebind.mjs'
       - 'tests/people-workspace-20261003.mjs'
+      - 'tests/people-location-save-feedback.test.mjs'
+      - 'tests/people-location-save-browser.mjs'
+      - 'scripts/people-location-network-recovery-proof.mjs'
+      - 'scripts/production-synthetic-full-user-wrapper.mjs'
       - '.github/workflows/people-ux-ci.yml'
   workflow_dispatch:
 
@@ -63,3 +71,12 @@ jobs:
           node tests/v305-workspace-readiness-order.mjs
           node tests/v337-people-location-rebind.mjs
           node tests/people-workspace-20261003.mjs
+          node --test tests/people-location-save-feedback.test.mjs
+
+      - name: Install pinned browser driver
+        run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+
+      - name: Verify location save recovery in desktop and mobile browsers
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+        run: node tests/people-location-save-browser.mjs

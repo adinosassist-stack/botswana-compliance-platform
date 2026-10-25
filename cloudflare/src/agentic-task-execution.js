@@ -1,3 +1,4 @@
+import {createEmployeeProposalReviewD1Store,APPROVED_EMPLOYEE_PROVENANCE_SQL} from "./employee-proposal-review-d1-store.js";
 import {AGENT_ACTION_CATALOG} from "./agent-policy.js";
 import {evaluateAgentRuntimeGuard} from "./agent-runtime-guard.js";
 import {normalizeDelegation} from "./delegated-authority.js";
@@ -197,7 +198,16 @@ async function revokeExecutionGrant({env,auth,grantId}){
   return json({ok:true,id:grantId,status:"revoked"});
 }
 
-async function prepareTask({request,env,auth}){
+// Only verified service callers may supply employeeSource. HTTP bodies cannot set it.
+async function employeePreparationMatches(env,tenantId,requestId,source,delegationId,grantId){
+  if(!source)return true;
+  return !!await safeFirst(env,`SELECT a.entity_id FROM audit_events a JOIN agent_task_requests q ON q.tenant_id=a.tenant_id AND q.id=a.entity_id
+    WHERE a.tenant_id=? AND a.entity_type='agent_task_request' AND a.entity_id=? AND a.event_type='AGENT_TASK_PREPARED'
+    AND json_extract(a.event_data,'$.employeeProposal.proposalKey')=? AND q.delegation_id=? AND q.execution_grant_id=? LIMIT 1`,
+    [tenantId,requestId,source.proposalKey,delegationId,grantId]);
+}
+
+async function prepareTask({request,env,auth,employeeSource=null}){
   if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
   if(!(await schemaReady(env)))return json({error:"bounded_execution_schema_not_ready"},503);
   const idem=text(request.headers.get("idempotency-key"),200);
@@ -221,35 +231,67 @@ async function prepareTask({request,env,auth}){
     FROM agent_action_intents i LEFT JOIN agent_task_requests r ON r.action_intent_id=i.id AND r.tenant_id=i.tenant_id
     WHERE i.tenant_id=? AND i.idempotency_key=? LIMIT 1`,[auth.tenant_id,idem]);
   if(existing){
-    if(String(existing.payload_hash)!==payloadHash||!existing.request_id)return json({error:"idempotency_key_conflict"},409);
+    if(String(existing.payload_hash)!==payloadHash||!existing.request_id||!await employeePreparationMatches(env,auth.tenant_id,existing.request_id,employeeSource,delegationId,authority.executionGrantId))return json({error:"idempotency_key_conflict"},409);
     return json({ok:true,replayed:true,request:{id:existing.request_id,status:existing.status,payload:JSON.parse(existing.payload_json||"{}"),createdAt:existing.created_at},execution:{performed:false,enabled:globalExecutionEnabled(env)}});
   }
 
   const intentId=id(),requestId=id();
+  // Check the same immutable source and current authority inside the write transaction.
+  const sourceGuard=employeeSource?` WHERE EXISTS (${APPROVED_EMPLOYEE_PROVENANCE_SQL}
+    AND p.workflow_revision=? AND p.proposal_revision=? AND r.reviewed_by=? AND r.reviewed_at=?)
+    AND EXISTS (SELECT 1 FROM memberships WHERE tenant_id=? AND user_id=? AND status='active' AND role IN ('owner','manager'))
+    AND EXISTS (SELECT 1 FROM agent_delegations d JOIN agent_execution_grants g ON g.delegation_id=d.id AND g.tenant_id=d.tenant_id
+      WHERE d.tenant_id=? AND d.id=? AND g.id=? AND d.agent_key='thebe' AND d.action_key='task.create'
+       AND d.status='active' AND d.max_autonomy_level>=3 AND d.external_side_effects=0 AND d.human_confirmation_required=1
+       AND (d.valid_from IS NULL OR d.valid_from<=CURRENT_TIMESTAMP) AND (d.expires_at IS NULL OR d.expires_at>CURRENT_TIMESTAMP)
+       AND g.status='active')`:'';
+  const sourceParameters=employeeSource?[auth.tenant_id,employeeSource.proposalKey,employeeSource.workflowRevision,employeeSource.proposalRevision,
+    employeeSource.reviewerId,employeeSource.reviewedAt,auth.tenant_id,auth.user_id,auth.tenant_id,delegationId,authority.executionGrantId]:[];
   try{
-    await env.DB.batch([
+    const results=await env.DB.batch([
       env.DB.prepare(`INSERT INTO agent_action_intents(id,tenant_id,run_id,proposal_id,agent_key,action_key,requested_by_user_id,delegation_id,mode,decision,decision_code,
         required_autonomy_level,amount_minor,payload_hash,idempotency_key,status)
-        VALUES(?,?,?,?, 'thebe',?,?,?,'shadow','review_required','human_confirmation_required',3,0,?,?,'review_required')`).bind(
-          intentId,auth.tenant_id,runId,proposalId,ACTION_KEY,auth.user_id,delegationId,payloadHash,idem
+        SELECT ?,?,?,?, 'thebe',?,?,?,'shadow','review_required','human_confirmation_required',3,0,?,?,'review_required'${sourceGuard}`).bind(
+          intentId,auth.tenant_id,runId,proposalId,ACTION_KEY,auth.user_id,delegationId,payloadHash,idem,...sourceParameters
         ),
       env.DB.prepare(`INSERT INTO agent_task_requests(id,tenant_id,action_intent_id,delegation_id,execution_grant_id,requested_by_user_id,payload_json,payload_hash,status)
-        VALUES(?,?,?,?,?,?,?,?,'prepared')`).bind(
+        SELECT ?,?,?,?,?,?,?,?,'prepared'${employeeSource?" WHERE changes()=1":""}`).bind(
           requestId,auth.tenant_id,intentId,delegationId,authority.executionGrantId,auth.user_id,JSON.stringify(normalized.payload),payloadHash
         ),
       env.DB.prepare(`INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data)
-        VALUES(?,?,'AGENT_TASK_PREPARED','agent_task_request',?,?)`).bind(
-          auth.tenant_id,auth.user_id,requestId,JSON.stringify({intentId,delegationId,executionGrantId:authority.executionGrantId,payloadHash})
+        SELECT ?,?,'AGENT_TASK_PREPARED','agent_task_request',?,?${employeeSource?" WHERE changes()=1":""}`).bind(
+          auth.tenant_id,auth.user_id,requestId,JSON.stringify({intentId,delegationId,executionGrantId:authority.executionGrantId,payloadHash,...(employeeSource?{employeeProposal:{proposalKey:employeeSource.proposalKey,authorId:employeeSource.authorId,workflowRevision:employeeSource.workflowRevision,proposalRevision:employeeSource.proposalRevision,reviewerId:employeeSource.reviewerId,reviewedAt:employeeSource.reviewedAt}}:{})})
         )
     ]);
+    if(employeeSource){
+      if(!Array.isArray(results)||results.length!==3||results.some(result=>result?.success!==true))throw new Error('storage_unavailable');
+      const changes=results.map(result=>Number(result.meta?.changes??result.changes??0));
+      if(changes.every(count=>count===0))return json({error:"employee_proposal_source_changed"},409);
+      if(!changes.every(count=>count===1))throw new Error('employee_preparation_integrity_failure');
+    }
   }catch{
     const replay=await safeFirst(env,`SELECT i.payload_hash,r.id request_id,r.status,r.payload_json
       FROM agent_action_intents i JOIN agent_task_requests r ON r.action_intent_id=i.id AND r.tenant_id=i.tenant_id
       WHERE i.tenant_id=? AND i.idempotency_key=? LIMIT 1`,[auth.tenant_id,idem]);
-    if(replay&&String(replay.payload_hash)===payloadHash)return json({ok:true,replayed:true,request:{id:replay.request_id,status:replay.status,payload:JSON.parse(replay.payload_json||"{}")},execution:{performed:false,enabled:globalExecutionEnabled(env)}});
+    if(replay&&String(replay.payload_hash)===payloadHash&&await employeePreparationMatches(env,auth.tenant_id,replay.request_id,employeeSource,delegationId,authority.executionGrantId))return json({ok:true,replayed:true,request:{id:replay.request_id,status:replay.status,payload:JSON.parse(replay.payload_json||"{}")},execution:{performed:false,enabled:globalExecutionEnabled(env)}});
     return json({error:"task_prepare_failed"},500);
   }
   return json({ok:true,replayed:false,request:{id:requestId,status:"prepared",payload:normalized.payload,payloadHash},approvalRequired:true,execution:{performed:false,enabled:globalExecutionEnabled(env)}},201);
+}
+
+/** Preparation only: verified-session adapter. Never approves, issues a permit or executes. */
+export async function prepareEmployeeProposalTask({env,auth,proposalKey,delegationId}){
+  if(!auth?.tenant_id||!auth?.user_id)return json({error:"unauthenticated"},401);
+  if(!roleAllowed(auth,"owner","manager"))return json({error:"forbidden"},403);
+  if(env?.THEBE_EMPLOYEE_TASK_PREPARATION_ENABLED!=="true")return json({error:"employee_task_preparation_disabled"},409);
+  if(typeof proposalKey!=="string"||!proposalKey||proposalKey.length>2048||typeof delegationId!=="string"||!delegationId.trim()||delegationId.length>120)return json({error:"invalid_employee_task_request"},400);
+  const source=await createEmployeeProposalReviewD1Store(env.DB).loadApprovedProvenance({tenantId:auth.tenant_id,proposalKey});
+  if(!source)return json({error:"approved_employee_provenance_required"},409);
+  const fingerprint=await sha256Hex(proposalKey);
+  const payload={title:source.payload.title,description:`Employee: ${source.payload.employeeId}. Workflow: ${source.payload.workflowName}.`,
+    priority:source.payload.severity==="high"?1:2,dueAt:source.payload.dueDate+"T00:00:00.000Z",delegationId};
+  const request=new Request("https://internal.invalid/api/agentic/task-execution/prepare",{method:"POST",headers:{"content-type":"application/json","idempotency-key":"employee-proposal:"+fingerprint},body:JSON.stringify(payload)});
+  return prepareTask({request,env,auth,employeeSource:source});
 }
 
 async function approveTask({env,auth,requestId,standingAuthorization=null}){
@@ -352,7 +394,7 @@ async function issueJitPermit({env,auth,requestId}){
   return json({ok:true,permit:{id:permitId,requestId,agentId:THEBE_AGENT_ID,actionKey:ACTION_KEY,payloadHash:row.payload_hash,expiresAt,maxUses:1,sameOwnerBound:true}},201);
 }
 
-async function executeTask({env,auth,requestId,permitId,standingBinding=null}){
+async function executeTask({env,auth,requestId,permitId,standingBinding=null,dispatchBinding=null}){
   if(!roleAllowed(auth,"owner"))return json({error:"owner_required"},403);
   if(!(await schemaReady(env)))return json({error:"bounded_execution_schema_not_ready"},503);
   const canonicalAuthority=await loadCanonicalAgentAuthority(env,THEBE_AGENT_ID);
@@ -432,8 +474,29 @@ async function executeTask({env,auth,requestId,permitId,standingBinding=null}){
   }
 
   const taskId=id(),receiptId=id();
+  // The dispatcher supplies only a server-loaded, fenced queue binding. No HTTP
+  // task-execution body can set it. All queue/effect changes share this batch.
+  const dispatchGuard=dispatchBinding?` AND EXISTS (SELECT 1 FROM employee_dispatch_queue dq
+    JOIN employee_dispatch_controls dc ON dc.tenant_id=dq.tenant_id
+    JOIN sessions ds ON ds.token_hash=dq.session_hash AND ds.tenant_id=dq.tenant_id AND ds.user_id=dq.owner_id
+    JOIN users du ON du.id=ds.user_id
+    WHERE dq.id=? AND dq.tenant_id=agent_task_requests.tenant_id AND dq.request_id=agent_task_requests.id
+      AND dq.proposal_key=? AND dq.state='committing' AND dq.lease_token=? AND dq.lease_until>unixepoch()
+      AND dc.enabled=1 AND dc.stopped=0 AND ds.expires_at>CURRENT_TIMESTAMP AND ds.session_generation=du.session_generation
+      AND EXISTS (${APPROVED_EMPLOYEE_PROVENANCE_SQL})
+      AND EXISTS (SELECT 1 FROM agent_delegations dd JOIN agent_execution_grants dg ON dg.delegation_id=dd.id AND dg.tenant_id=dd.tenant_id
+        WHERE dd.id=agent_task_requests.delegation_id AND dd.tenant_id=agent_task_requests.tenant_id
+          AND dg.id=agent_task_requests.execution_grant_id AND dg.status='active' AND dd.status='active'
+          AND dd.agent_key='thebe' AND dd.action_key='task.create' AND dd.max_autonomy_level>=3
+          AND dd.external_side_effects=0 AND dd.human_confirmation_required=1 AND dd.strong_auth_required=0
+          AND (dd.max_daily_actions IS NULL OR (SELECT COUNT(*) FROM agent_execution_receipts WHERE tenant_id=dd.tenant_id AND execution_grant_id=dg.id AND created_at>=date('now'))<dd.max_daily_actions)
+          AND (dd.valid_from IS NULL OR dd.valid_from<=CURRENT_TIMESTAMP) AND (dd.expires_at IS NULL OR dd.expires_at>CURRENT_TIMESTAMP)))`:'';
+  const dispatchParams=dispatchBinding?[dispatchBinding.id,dispatchBinding.proposalKey,dispatchBinding.leaseToken,auth.tenant_id,dispatchBinding.proposalKey]:[];
   try{
     const results=await env.DB.batch([
+      ...(dispatchBinding?[env.DB.prepare(`UPDATE employee_dispatch_queue SET state='committing'
+        WHERE id=? AND tenant_id=? AND state='leased' AND lease_token=? AND lease_until>unixepoch()
+          AND request_id=? AND owner_id=? AND permit_id=?`).bind(dispatchBinding.id,auth.tenant_id,dispatchBinding.leaseToken,requestId,auth.user_id,jitPermitId)]:[]),
       env.DB.prepare(`UPDATE agent_task_requests
         SET status='executed',executed_at=CURRENT_TIMESTAMP,jit_permit_id=?
         WHERE id=? AND tenant_id=? AND status='approved' AND approved_payload_hash=payload_hash AND approved_by_user_id=? AND jit_permit_id IS NULL
@@ -447,11 +510,11 @@ async function executeTask({env,auth,requestId,permitId,standingBinding=null}){
             AND json_extract(p.approval_policy_json,'$.expiresAt')>strftime('%Y-%m-%dT%H:%M:%fZ','now')
             AND EXISTS(SELECT 1 FROM agent_registry WHERE agent_id='THEBE-001' AND authority_state='active' AND actor_type='agent' AND execution_capable=1)
             AND (SELECT COUNT(*) FROM agent_execution_receipts WHERE tenant_id=? AND execution_grant_id=? AND created_at>=date('now'))<?
-        ))`).bind(
+        ))${dispatchGuard} RETURNING id`).bind(
           jitPermitId,requestId,auth.tenant_id,auth.user_id,
           auth.tenant_id,auth.user_id,row.max_daily_actions??null,auth.tenant_id,row.execution_grant_id,Number(row.max_daily_actions??0),
           standingBinding?.id??null,standingBinding?.id??null,auth.tenant_id,auth.user_id,standingBinding?.serializedPolicy??null,standingBinding?.occurrence??null,
-          auth.tenant_id,row.execution_grant_id,Math.min(Number(row.max_daily_actions||0),standingBinding?.maxDailyRuns??Number(row.max_daily_actions||0))
+          auth.tenant_id,row.execution_grant_id,Math.min(Number(row.max_daily_actions||0),standingBinding?.maxDailyRuns??Number(row.max_daily_actions||0)),...dispatchParams
         ),
       env.DB.prepare(`INSERT INTO agent_internal_tasks(id,tenant_id,title,description,priority,due_at,status,source_request_id,source_intent_id,execution_grant_id,requested_by_user_id,created_by_agent_key)
         SELECT ?,?,?,?,?,?,'open',?,?,?,?, 'thebe' WHERE changes()=1`).bind(
@@ -465,9 +528,12 @@ async function executeTask({env,auth,requestId,permitId,standingBinding=null}){
       env.DB.prepare(`INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data)
         SELECT ?,?,'AGENT_TASK_EXECUTED','agent_internal_task',?,? WHERE changes()=1`).bind(
           auth.tenant_id,auth.user_id,taskId,JSON.stringify({requestId,intentId:row.intent_id,executionGrantId:row.execution_grant_id,jitPermitId,payloadHash:row.payload_hash,guardVersion:decision.guardVersion,executionMode:executionMode(env)})
-        )
+        ),
+      ...(dispatchBinding?[env.DB.prepare(`UPDATE employee_dispatch_queue SET state='completed',result_task_id=?,lease_token=NULL,lease_until=NULL
+        WHERE id=? AND tenant_id=? AND lease_token=? AND state='committing'`).bind(taskId,dispatchBinding.id,auth.tenant_id,dispatchBinding.leaseToken)]:[])
     ]);
-    const changed=Number(results?.[0]?.meta?.changes??results?.[0]?.changes??0);
+    const effectIndex=dispatchBinding?1:0;
+    const changed=results?.[effectIndex]?.results?.length??0;
     if(changed!==1)throw new Error("execution_conflict");
   }catch{
     const permitState=await safeFirst(env,`SELECT status,use_count,consumed_by_user_id,consumed_at FROM agent_jit_execution_permits WHERE id=? AND tenant_id=? LIMIT 1`,[jitPermitId,auth.tenant_id]);
@@ -566,3 +632,10 @@ export const __agenticTaskExecutionTest=Object.freeze({
   globalExecutionEnabled,
   runtimeKillSwitch
 });
+
+/** Internal scheduler seam; the public execution API cannot supply a dispatch binding. */
+export async function executeEmployeeDispatchedTask({env,auth,job}){
+  if(env?.THEBE_EMPLOYEE_DISPATCH_ENABLED!=="true")return json({error:"employee_dispatch_disabled"},409);
+  return executeTask({env,auth,requestId:job.request_id,permitId:job.permit_id,
+    dispatchBinding:{id:job.id,leaseToken:job.lease_token,proposalKey:job.proposal_key}});
+}

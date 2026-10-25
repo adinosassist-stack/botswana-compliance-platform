@@ -21,7 +21,7 @@ const agenticEntry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
 const contentHash=crypto.createHash("sha256").update(JSON.stringify(source)).digest("hex");
 const allowedConfidence=new Set(["low","medium","high"]);
 
-assert.equal(source.version,"1.7");
+assert.equal(source.version,"1.8");
 assert.deepEqual(BOTSWANA_FOUNDATION_PACK_V1,source);
 assert.equal(BOTSWANA_FOUNDATION_PACK_V1_HASH,contentHash);
 assert.equal(meta.importIdentityHash,contentHash);
@@ -66,6 +66,6 @@ assert.match(agenticEntry,/\.\/regulatory-rule-insert-sql-fix\.js/);
 assert.match(agenticEntry,/withRegulatoryRuleInsertFix/);
 assert.match(agenticEntry,/env=withRegulatorySqlGuard\(env\);/);
 assert.match(agenticEntry,/base\.fetch\(request,env,ctx\)/);
-assert.match(agenticEntry,/async scheduled\(event,env,ctx\)\{\s*env=withRegulatorySqlGuard\(env\);\s*ctx\.waitUntil\(runDueInternalAutonomy\(env\)\.catch\(\(\)=>console\.error\("internal_autonomy_run_unavailable"\)\)\);\s*return base\.scheduled\(event,env,ctx\);\s*\}/);
+assert.match(agenticEntry,/async scheduled\(event,env,ctx\)\{\s*env=withRegulatorySqlGuard\(env\);\s*\/\/[^\n]*\s*if\(event\.cron==="\* \* \* \* \*"\)\{\s*ctx\.waitUntil\(runEmployeeDispatchSweep\(env\)\.catch\(\(\)=>console\.error\("employee_dispatch_unavailable"\)\)\);\s*return;\s*\}\s*ctx\.waitUntil\(runDueInternalAutonomy\(env\)\.catch\(\(\)=>console\.error\("internal_autonomy_run_unavailable"\)\)\);\s*return base\.scheduled\(event,env,ctx\);\s*\}/);
 
 console.log("V180_REGULATORY_PACK_INTEGRITY_PASS");
