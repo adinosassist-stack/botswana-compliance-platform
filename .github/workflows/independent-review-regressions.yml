@@ -158,6 +158,10 @@ jobs:
         shell: bash
         run: node --test tests/platform-billing-controls.test.mjs tests/owner-payment-dashboard.test.mjs tests/platform-billing-analytics.test.mjs tests/owner-dashboard-audit.test.mjs
 
+      - name: Install pinned isolated browser test driver
+        shell: bash
+        run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+
       - name: Owner dashboard desktop and mobile browser audit
         shell: bash
         env:

@@ -24,11 +24,22 @@ if(process.argv.includes('--syntax-only')){console.log('Owner dashboard browser 
 if(!chrome)throw new Error('Owner dashboard browser audit requires installed Chrome/Chromium');
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),'thebe-dashboard-browser-')),out=process.env.OWNER_DASHBOARD_ARTIFACT_DIR||path.join(temp,'screenshots');fs.mkdirSync(out,{recursive:true});const file=path.join(temp,'dashboard.html');fs.writeFileSync(file,fixture);
 console.log(spawnSync(chrome,['--version'],{encoding:'utf8'}).stdout.trim());
+const {chromium}=await import('playwright-core');
+const browser=await chromium.launch({executablePath:chrome,headless:true,args:['--no-sandbox','--disable-dev-shm-usage','--disable-background-networking']});
 try{
  for(const [label,width,height] of [['desktop',1280,900],['mobile',390,844]])for(const view of ['overview','controls']){
-  const screenshot=path.join(out,`owner-dashboard-${label}-${view}.png`),profile=path.join(temp,label+'-'+view);
-  const result=spawnSync(chrome,['--headless','--no-sandbox','--disable-dev-shm-usage','--disable-background-networking','--hide-scrollbars','--no-first-run','--no-default-browser-check',`--user-data-dir=${profile}`,`--window-size=${width},${height}`,'--virtual-time-budget=3000','--run-all-compositor-stages-before-draw',`--screenshot=${screenshot}`,'--dump-dom',pathToFileURL(file).href+(view==='controls'?'#controls':'')],{encoding:'utf8',timeout:30000,maxBuffer:8*1024*1024});
-  const dom=result.stdout||'';if(result.status!==0||!dom.includes('data-owner-dashboard-audit="pass"')){const message=dom.match(/data-owner-dashboard-error="([^"]*)"/)?.[1];throw Error(`${label}/${view}: ${message||result.error?.message||result.stderr?.slice(-1500)||'browser audit did not finish'}`)}
-  const report=dom.match(/data-owner-dashboard-report="([^"]*)"/)?.[1]?.replaceAll('&quot;','"').replaceAll('&amp;','&');console.log(`OWNER_DASHBOARD_BROWSER_PASS ${label}/${view} ${report}`);if(!fs.existsSync(screenshot))throw Error('Screenshot missing');
+  const context=await browser.newContext({viewport:{width,height},locale:'en-GB',timezoneId:'Africa/Gaborone',reducedMotion:'reduce'});
+  const network=[];await context.route(/^https?:/,async route=>{network.push(route.request().url());await route.abort()});
+  const page=await context.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));
+  const screenshot=path.join(out,`owner-dashboard-${label}-${view}.png`);
+  try{
+    await page.goto(pathToFileURL(file).href+(view==='controls'?'#controls':''));
+    await page.waitForFunction(()=>['pass','fail'].includes(document.documentElement.getAttribute('data-owner-dashboard-audit')),{},{timeout:15000});
+    const result=await page.evaluate(()=>({state:document.documentElement.getAttribute('data-owner-dashboard-audit'),error:document.documentElement.getAttribute('data-owner-dashboard-error'),report:JSON.parse(document.documentElement.getAttribute('data-owner-dashboard-report')||'null')}));
+    if(result.state!=='pass')throw Error(result.error||errors.join('; ')||'browser audit failed');
+    if(result.report.viewport!==width)throw Error(`Requested viewport ${width}, rendered ${result.report.viewport}`);
+    if(network.length)throw Error('Browser fixture attempted an external HTTP request');
+    console.log(`OWNER_DASHBOARD_BROWSER_PASS ${label}/${view} ${JSON.stringify(result.report)}`);
+  }finally{await page.screenshot({path:screenshot,fullPage:view==='overview'});await context.close()}
  }
-}finally{fs.rmSync(temp,{recursive:true,force:true})}
+}finally{await browser.close();fs.rmSync(temp,{recursive:true,force:true})}
