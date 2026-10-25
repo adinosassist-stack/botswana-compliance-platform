@@ -115,7 +115,7 @@ test("warmup prefetch stops after actual navigation and skips hidden tabs",async
   const end=readiness.indexOf("\n})();",idx)+6;
   const code=readiness.slice(start,end);
   const listeners=new Map(),onReady=[],idle=[],shards=[];
-  const document={visibilityState:"visible",querySelector:()=>null};
+  const document={visibilityState:"visible",querySelector:()=>null,addEventListener:()=>{}};
   const window={
     document,
     location:{origin:"https://thebedesk.com"},
