@@ -9,7 +9,7 @@ const runtime=fs.readFileSync('public/js/workspace-runtime-20261001b.js','utf8')
 function ui({admin=true,role='owner',request=async()=>({items:[]})}={}){
   const elements=new Map(['manualPaymentAdminCard','manualPaymentAdminList','paymentOrderList'].map(id=>[id,{hidden:true,textContent:'',safeHTML:'',style:{}}]));
   const button={hidden:true,style:{display:'none'}};
-  const context=vm.createContext({document:{getElementById:id=>elements.get(id)||null,querySelectorAll:()=>[button]},apiJson:request,escapeHtml:value=>String(value).replaceAll('<','&lt;'),currentUser:{platformBillingAdmin:admin,role},roleCanView:()=>role==='owner'});
+  const context=vm.createContext({window:{BW:{}},document:{getElementById:id=>elements.get(id)||null,querySelectorAll:()=>[button]},apiJson:request,escapeHtml:value=>String(value).replaceAll('<','&lt;'),currentUser:{platformBillingAdmin:admin,role},roleCanView:()=>role==='owner'});
   const start=runtime.indexOf('function syncPlatformBillingControls(){'),end=runtime.indexOf('async function reviewManualPayment',start);
   assert.ok(start>=0,'owner control entry point must exist');
   vm.runInContext(runtime.slice(start,end),context);

@@ -1,4 +1,6 @@
 import {BOTSWANA_FOUNDATION_PACK_V1,BOTSWANA_FOUNDATION_PACK_V1_HASH} from "./regulatory-pack-registry.js";
+import {platformBillingAnalytics} from "./platform-billing-analytics.js";
+import {subscriptionDashboard,setSubscriptionAccess} from "./platform-subscription-controls.js";
 import {inspectFoundationSourceMetadata,publicFoundationSourcePreflight,updateUnreviewedFoundationSourceMetadata} from "./regulatory-foundation-source-reconciliation.js";
 import {inspectActiveLegacyVatRules,publicActiveLegacyVatRules,isLegacyVat25DayDefinition} from "./regulatory-foundation-legacy-vat.js";
 import {handleEmployeeWorkflowRequest} from "./employee-workflow-api.js";
@@ -7420,13 +7422,30 @@ export default {
           return {status:201,body:{ok:true,submissionId:row.id,status:"submitted",message:"Payment submitted for manual verification. Your plan remains inactive until Thebe Desk confirms the funds have reflected."}};
         });
       }
+      if(url.pathname==="/api/platform/billing/analytics"&&req.method==="GET"){
+        if(!roleAllowed(a,"owner")||!platformBillingAdmin(a,env))return json({error:"platform_billing_forbidden"},403);
+        const months=Number(url.searchParams.get("months")||6);if(![3,6,12].includes(months))return json({error:"invalid_analytics_period"},400);
+        return json(await platformBillingAnalytics(env.DB,{months}));
+      }
+      if(url.pathname==="/api/platform/billing/subscriptions"&&req.method==="GET"){
+        if(!roleAllowed(a,"owner")||!platformBillingAdmin(a,env))return json({error:"platform_billing_forbidden"},403);
+        const status=String(url.searchParams.get("status")||"all");if(!["all","active","paused","renewal"].includes(status))return json({error:"invalid_subscription_filter"},400);
+        return json(await subscriptionDashboard(env.DB,{after:String(url.searchParams.get("after")||"").slice(0,100),search:String(url.searchParams.get("search")||"").trim().slice(0,80),status}));
+      }
+      if(url.pathname==="/api/platform/billing/subscription-access"&&req.method==="POST"){
+        if(!roleAllowed(a,"owner")||!platformBillingAdmin(a,env))return json({error:"platform_billing_forbidden"},403);
+        if(!String(req.headers.get("idempotency-key")||"").trim())return json({error:"idempotency_key_required"},400);
+        const body=await readJson(req);
+        return idempotentJsonMutation(env,a,req,"platform-subscription-access",body,()=>setSubscriptionAccess({env,auth:a,body,writeAudit}));
+      }
       if(url.pathname==="/api/platform/billing/manual-payments"&&req.method==="GET"){
         if(!platformBillingAdmin(a,env))return json({error:"platform_billing_forbidden"},403);
         const r=await env.DB.prepare(`SELECT m.id,m.payment_order_id,m.tenant_id,m.bank_reference,m.status,m.submitted_at,m.reviewed_at,m.rejection_reason,
           o.amount_bwp,o.metadata_json,t.name tenant_name
           FROM manual_payment_submissions m JOIN payment_orders o ON o.id=m.payment_order_id JOIN tenants t ON t.id=m.tenant_id
           WHERE m.status IN ('submitted','reviewing') ORDER BY m.submitted_at ASC LIMIT 200`).all();
-        return json({items:(r.results||[]).map(x=>({...x,metadata:safeJson(x.metadata_json,{})}))});
+        const total=await env.DB.prepare("SELECT COUNT(*) total FROM manual_payment_submissions WHERE status IN ('submitted','reviewing')").first();
+        return json({items:(r.results||[]).map(x=>({...x,metadata:safeJson(x.metadata_json,{})})),total:Number(total?.total||0)});
       }
       const manualAdminMatch=url.pathname.match(/^\/api\/platform\/billing\/manual-payments\/([0-9a-f-]{36})\/(approve|reject)$/i);
       if(manualAdminMatch&&req.method==="POST"){
@@ -8415,3 +8434,5 @@ export const __v782190Test=Object.freeze({unsafeServiceHostname,safeExternalServ
 export const __v782193Test=Object.freeze({externalResponseBytesBounded,externalTextBounded,externalJsonBounded});
 export const __v782194Test=Object.freeze({oauthStateCookieName,oauthStateCookie});
 export const __v782195Test=Object.freeze({fetchMetadataAllowsBrowserMutation,requestOriginAllowed});
+
+export {auth as authenticateWorkspaceSession};

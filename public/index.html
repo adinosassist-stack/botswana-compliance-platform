@@ -2464,6 +2464,8 @@ body.thebe-ai-dock-open .property-valuation-service-card .formgrid{grid-template
 <link rel="stylesheet" href="/assets/people-infographics-20261003.css" />
 <link rel="stylesheet" href="/assets/workspace-infographics.css" />
 <link id="thebe-employee-directory-styles" rel="stylesheet" href="/assets/employee-directory-v188.css" />
+<link rel="stylesheet" href="/assets/platform-billing-dashboard-v1.css">
+<script defer src="/js/platform-billing-insights-v1.js"></script>
 </head>
 <style id="thebe-market-photo-style">
 .marketingvisual.market-photo-visual:after{display:none}
@@ -2658,6 +2660,7 @@ body.thebe-ai-dock-open .property-valuation-service-card .formgrid{grid-template
   <button class="brand workspace-brand-link" type="button" data-bw-onclick="returnToPublicWebsite()" aria-label="Back to Thebe Desk website" title="Back to website"><img src="/assets/thebe-desk-logo-symbol.png" alt="Thebe Desk logo symbol"><span>Thebe Desk</span></button>
   <div class="nav" id="nav">
     <div class="navgroup nav-primary-label">Core workspace</div>
+    <button type="button" class="nav-primary platformBillingControl" data-view="payments" hidden style="display:none"><span class="nav-primary-icon">✓</span><span>Owner dashboard</span></button>
     <button type="button" class="active nav-primary" data-view="dashboard"><span class="nav-primary-icon nav-svg-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-5.5h5V20"/></svg></span><span>Home</span></button>
     <button type="button" class="nav-primary" data-view="moneyhub"><span class="nav-primary-icon nav-svg-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M8.5 9.5c.7-1 1.8-1.5 3.5-1.5 2 0 3.3.8 3.3 2.1 0 1.1-.8 1.7-2.7 2.1l-1.3.3c-1.8.4-2.6 1-2.6 2.2 0 1.4 1.4 2.3 3.5 2.3 1.7 0 3-.5 3.8-1.6M12 6.2v11.6"/></svg></span><span>Money</span></button>
     <button type="button" class="nav-primary" data-view="propertyintelligence"><span class="nav-primary-icon nav-svg-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 20.5h17"/><path d="M5.5 20.5V9.5L12 4l6.5 5.5v11"/><path d="M9 20.5v-6h6v6"/><path d="M8.5 10.5h7"/></svg></span><span>Property</span></button>
@@ -2667,7 +2670,6 @@ body.thebe-ai-dock-open .property-valuation-service-card .formgrid{grid-template
     <button type="button" class="nav-primary" data-view="automationhub"><span class="nav-primary-icon nav-svg-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 1.3 3.7L17 8l-3.7 1.3L12 13l-1.3-3.7L7 8l3.7-1.3L12 3Z"/><path d="m18.5 13 .8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2Z"/><path d="m6 14 .9 2.6L9.5 17l-2.6.9L6 20.5l-.9-2.6L2.5 17l2.6-.4L6 14Z"/></svg></span><span>Thebe AI</span></button>
     <button type="button" class="nav-primary" data-view="accounthub"><span class="nav-primary-icon nav-svg-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.6-2-3.4-2.5 1a7 7 0 0 0-1.8-1L14.2 3h-4.4l-.4 3a7 7 0 0 0-1.8 1L5.1 6l-2 3.4 2 1.6a7 7 0 0 0 0 2l-2 1.6 2 3.4 2.5-1a7 7 0 0 0 1.8 1l.4 3h4.4l.4-3a7 7 0 0 0 1.8-1l2.5 1 2-3.4-2-1.6a7 7 0 0 0 .1-1Z"/></svg></span><span>Settings</span></button>
 
-    <button type="button" class="nav-primary platformBillingControl" data-bw-onclick="showView('payments')" hidden style="display:none"><span class="nav-primary-icon">✓</span><span>Thebe Desk controls</span></button>
 
     <div class="navgroup nav-primary-label nav-primary-section">More</div>
     <button type="button" class="nav-more-tools" data-bw-onclick="openCommandPalette()"><span class="nav-primary-icon">⌕</span><span>Find tools</span><span class="kbd">Ctrl K</span></button>
@@ -4297,9 +4299,25 @@ body.thebe-ai-dock-open .property-valuation-service-card .formgrid{grid-template
 
 
 <section id="payments" class="view">
+  <div id="platformBillingOverview" hidden>
+    <div class="billing-dashboard-heading"><div><div class="kpi">Thebe Desk</div><h2>Owner dashboard</h2><p class="muted">Review payments. Control client subscriptions.</p></div><button type="button" class="btn alt" data-bw-onclick="refreshPlatformBillingDashboard()">Refresh dashboard</button></div>
+    <div class="billing-dashboard-stats"><div class="card"><div class="kpi">Pending review</div><div class="score" id="platformPendingCount">—</div></div><div class="card"><div class="kpi">Active paid plans</div><div class="score" id="platformActiveCount">—</div></div><div class="card"><div class="kpi">Paused plans</div><div class="score" id="platformPausedCount">—</div></div></div>
+  </div>
+
+  <div id="platformBillingInsights" hidden>
+    <div class="billing-insights-heading"><h2>Business at a glance</h2><label for="platformBillingMonths">Receipts period<select id="platformBillingMonths" data-bw-onchange="changePlatformBillingRange()"><option value="3">3 months</option><option value="6" selected>6 months</option><option value="12">12 months</option></select></label></div>
+    <p id="platformBillingChartStatus" class="muted small" role="status" aria-live="polite">Loading billing insights…</p><div id="platformBillingCharts"></div>
+  </div>
   <div id="manualPaymentAdminCard" class="card" style="margin-top:16px" hidden><div class="between row"><div><div class="kpi">Thebe Desk controls</div><h2>Manual payment approvals</h2></div><button type="button" class="btn alt" data-bw-onclick="renderManualPaymentApprovals()">Refresh approvals</button></div>
     <div class="notice warn"><b>Platform billing control</b><div class="small">Approve only after the matching funds are visible in the Thebe Desk company bank account. Customer-submitted references are not proof of receipt.</div></div>
     <div id="manualPaymentAdminList" class="muted small" style="margin-top:12px">No manual payments awaiting approval.</div>
+  </div>
+
+  <div id="platformSubscriptionAdminCard" class="card" hidden>
+    <h2>Client subscriptions</h2><p class="muted small">On: active paid access. Off: workspace changes paused. Resuming keeps the existing paid-through date.</p>
+    <div class="billing-client-filters"><label for="platformClientSearch">Find client<input id="platformClientSearch" type="search" placeholder="Business name or ID" maxlength="80" data-bw-oninput="filterPlatformSubscriptions()"></label><label for="platformClientFilter">Show<select id="platformClientFilter" data-bw-onchange="filterPlatformSubscriptions()"><option value="all">All clients</option><option value="active">Active paid plans</option><option value="paused">Paused plans</option><option value="renewal">Renewing within seven days</option></select></label></div>
+    <div id="platformSubscriptionList" aria-live="polite">Loading client subscriptions…</div>
+    <div class="row"><button type="button" id="platformSubscriptionFirst" class="btn alt" data-bw-onclick="loadPlatformSubscriptions()" hidden>First page</button><button type="button" id="platformSubscriptionNext" class="btn alt" data-bw-onclick="pagePlatformSubscriptions(event)" hidden>Next page</button></div>
   </div>
 
   <div class="grid g4">
@@ -6321,6 +6339,7 @@ function allowedViewsForRole(role=currentWorkspaceRole()){
 }
 function roleCanView(view,role=currentWorkspaceRole()){return allowedViewsForRole(role).has(String(view||""))}
 function roleLandingView(role=currentWorkspaceRole()){
+ if(role==="owner"&&currentUser?.platformBillingAdmin===true)return "payments";
  if(role==="owner"||role==="manager")return "dashboard";
  if(role==="reviewer"||role==="auditor")return "workhub";
  return null;
@@ -6345,7 +6364,7 @@ function applyRoleUi(){
  let role=currentWorkspaceRole();if(store&&store.activeRole!==role)updateWorkspaceMeta({activeRole:role});let label=document.getElementById("roleLabel");if(label)label.textContent=role?role.charAt(0).toUpperCase()+role.slice(1):"—";
  const allowed=allowedViewsForRole(role);
  syncPlatformBillingControls();
- document.querySelectorAll(".nav button[data-view]").forEach(b=>{if(b.classList.contains("platformRegulatoryOnly"))return;b.style.display=allowed.has(b.dataset.view)?"":"none"});
+ document.querySelectorAll(".nav button[data-view]").forEach(b=>{if(b.classList.contains("platformRegulatoryOnly")||b.classList.contains("platformBillingControl"))return;b.style.display=allowed.has(b.dataset.view)?"":"none"});
  const more=document.querySelector(".nav-more-tools");if(more)more.style.display=allowed.size?"":"none";syncMobileRoleNav(role);
  let add=document.getElementById("addCompanyBtn");if(add)add.style.display=role==="owner"?"":"none";
  document.querySelectorAll(".primaryTop,.workspace-quick-actions,.workspace-pulse,#billingBanner").forEach(el=>{if(el)el.hidden=!(role==="owner"||role==="manager")});document.querySelectorAll(".executive-only").forEach(el=>{if(el)el.hidden=!(role==="owner"||role==="manager")});
@@ -7644,6 +7663,8 @@ async function renderProfessionalServices(){
 function syncPlatformBillingControls(){
   const allowed=currentUser?.platformBillingAdmin===true&&roleCanView("payments");
   document.querySelectorAll(".platformBillingControl").forEach(button=>{button.hidden=!allowed;button.style.display=allowed?"":"none"});
+  document.getElementById("payments")?.classList?.toggle("platform-billing-dashboard",allowed);
+  for(const id of ["platformBillingOverview","platformSubscriptionAdminCard","platformBillingInsights"]){const el=document.getElementById(id);if(el)el.hidden=!allowed}
 }
 let manualPaymentAdminLoad=0;
 async function renderManualPaymentApprovals(){
@@ -7652,17 +7673,20 @@ async function renderManualPaymentApprovals(){
   if(!card||!box)return;
   if(user?.platformBillingAdmin!==true||!roleCanView("payments")){card.hidden=true;box.textContent="";return}
   card.hidden=false;box.textContent="Loading pending payments…";
+  const pendingCount=document.getElementById("platformPendingCount");if(pendingCount)pendingCount.textContent="—";
   try{
     const admin=await apiJson("/api/platform/billing/manual-payments");
     if(load!==manualPaymentAdminLoad||currentUser!==user)return;
-    box.safeHTML=(admin.items||[]).map(x=>`<div class="item"><b>${escapeHtml(x.tenant_name||x.tenant_id)} · P${x.amount_bwp}</b><div class="muted small">${escapeHtml(x.metadata?.plan||"subscription")} · bank ref ${escapeHtml(x.bank_reference)} · submitted ${new Date(x.submitted_at).toLocaleString()}</div><div class="row" style="margin-top:8px"><button type="button" class="btn" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','approve')">Verify & activate</button><button type="button" class="btn soft" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','reject')">Reject</button></div></div>`).join("")||'<div class="muted small">No manual payments awaiting approval.</div>';
+    if(pendingCount)pendingCount.textContent=String(admin.total??(admin.items||[]).length);
+    box.safeHTML=(admin.items||[]).map(x=>`<div class="item"><b>${escapeHtml(x.tenant_name||x.tenant_id)} · P${x.amount_bwp}</b><div class="muted small">${escapeHtml(x.metadata?.plan||"subscription")} · bank ref ${escapeHtml(x.bank_reference)} · submitted ${new Date(x.submitted_at).toLocaleString()}</div><div class="row" style="margin-top:8px"><button type="button" class="billing-switch" role="switch" aria-checked="false" aria-label="Activate ${escapeHtml(x.tenant_name||x.tenant_id)}" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','approve')"><span class="billing-switch-track" aria-hidden="true"></span><span>Verify & activate</span></button><button type="button" class="btn soft" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','reject')">Reject</button></div></div>`).join("")||'<div class="muted small">No manual payments awaiting approval.</div>';
   }catch(e){
     if(load!==manualPaymentAdminLoad||currentUser!==user)return;
     box.textContent=e.status===403?"Platform billing access was denied. Sign out and sign in with an authorized Thebe Desk admin account.":"Pending payments could not be loaded. Select Refresh approvals to try again.";
   }
 }
 async function renderPayments(){
-  void renderManualPaymentApprovals();
+  syncPlatformBillingControls();
+  void refreshPlatformBillingDashboard();
   const list=document.getElementById("paymentOrderList");if(!list)return;
   try{
     const r=await apiJson("/api/payments/orders");const items=r.items||[];
@@ -7677,6 +7701,60 @@ async function renderPayments(){
     if(rb)rb.safeHTML=(rf.items||[]).map(x=>`<div class="item"><b>${escapeHtml(x.status)} · P${x.amount_bwp}</b><div class="muted small">${escapeHtml(x.provider)}${x.reversal_status?` · ${escapeHtml(x.reversal_status)}`:""} · ${new Date(x.created_at).toLocaleString()}</div></div>`).join("")||'<div class="muted small">No refunds yet.</div>';
 
   }catch(e){list.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
+}
+let platformSubscriptionLoad=0;
+let platformBillingCursor="";
+async function refreshPlatformBillingDashboard(){
+  await Promise.all([renderManualPaymentApprovals(),loadPlatformSubscriptions(platformBillingCursor),refreshPlatformBillingInsights()]);
+}
+function refreshPlatformBillingInsights(){return window.BW?.billingInsights?.refresh?.({user:currentUser,allowed:roleCanView("payments"),request:apiJson,escape:escapeHtml,isCurrent:user=>currentUser===user})}
+function changePlatformBillingRange(){return refreshPlatformBillingInsights()}
+function jumpPlatformBillingSection(id){if(currentUser?.platformBillingAdmin!==true)return;const target=document.getElementById(id);if(target){target.scrollIntoView({block:"start",behavior:"auto"});target.setAttribute("tabindex","-1");target.focus({preventScroll:true})}}
+let platformClientSearchTimer=null;
+function filterPlatformSubscriptions(){clearTimeout(platformClientSearchTimer);platformClientSearchTimer=setTimeout(()=>void loadPlatformSubscriptions(),250)}
+function showPlatformRenewals(){const select=document.getElementById("platformClientFilter");if(select)select.value="renewal";void loadPlatformSubscriptions();jumpPlatformBillingSection("platformSubscriptionAdminCard")}
+function pagePlatformSubscriptions(event){return loadPlatformSubscriptions(event.target.closest("button")?.dataset.after||"")}
+async function loadPlatformSubscriptions(after=""){
+  const card=document.getElementById("platformSubscriptionAdminCard"),box=document.getElementById("platformSubscriptionList");
+  const load=++platformSubscriptionLoad,user=currentUser;
+  if(!card||!box)return;
+  if(user?.platformBillingAdmin!==true||!roleCanView("payments")){card.hidden=true;box.textContent="";return}
+  platformBillingCursor=String(after||"");card.hidden=false;box.textContent="Loading client subscriptions…";
+  for(const id of ["platformActiveCount","platformPausedCount"]){const counter=document.getElementById(id);if(counter)counter.textContent="—";}
+  try{
+    const search=String(document.getElementById("platformClientSearch")?.value||"").trim().slice(0,80),status=document.getElementById("platformClientFilter")?.value||"all";
+    const result=await apiJson("/api/platform/billing/subscriptions?status="+encodeURIComponent(status)+"&search="+encodeURIComponent(search)+(after?"&after="+encodeURIComponent(after):""));
+    if(load!==platformSubscriptionLoad||currentUser!==user)return;
+    for(const key of ["active","paused"]){const counter=document.getElementById(key==="active"?"platformActiveCount":"platformPausedCount");if(counter)counter.textContent=String(result.counts?.[key]??0)}
+    box.safeHTML=(result.items||[]).map(row=>{
+      const active=row.status==="active"&&Number(row.current_period)===1,eligible=Number(row.current_period)===1&&row.tenant_id!==currentUser.tenantId;
+      return `<div class="billing-client-row"><div><b>${escapeHtml(row.tenant_name)}</b><div class="muted small">${escapeHtml(row.plan)} · ${Number(row.current_period)===1?escapeHtml(row.status):"Paid period expired"} · paid through ${escapeHtml(String(row.current_period_ends_at||""))}</div></div><button type="button" class="billing-switch" role="switch" aria-checked="${active}" aria-label="${active?"Pause":"Resume"} subscription for ${escapeHtml(row.tenant_name)}" data-tenant-id="${escapeHtml(row.tenant_id)}" data-expected-status="${escapeHtml(row.status)}" data-expected-period="${escapeHtml(row.current_period_ends_at)}" data-bw-onclick="togglePlatformSubscription(event)" ${eligible?"":"disabled"}><span class="billing-switch-track" aria-hidden="true"></span><span>${active?"On":"Off"}</span></button></div>`;
+    }).join("")||'<div class="muted small">No subscriptions match this view. Adjust the client search or status filter.</div>';
+    const next=document.getElementById("platformSubscriptionNext"),first=document.getElementById("platformSubscriptionFirst");
+    if(next){next.hidden=!result.nextAfter;next.dataset.after=result.nextAfter||""}if(first)first.hidden=!after;
+  }catch(e){
+    if(load!==platformSubscriptionLoad||currentUser!==user)return;
+    box.textContent="Client subscriptions could not be loaded. Select Refresh dashboard to try again.";
+    for(const id of ["platformActiveCount","platformPausedCount"]){const counter=document.getElementById(id);if(counter)counter.textContent="—"}
+    for(const id of ["platformSubscriptionNext","platformSubscriptionFirst"]){const button=document.getElementById(id);if(button)button.hidden=true}
+  }
+}
+async function togglePlatformSubscription(event){
+  const button=event.target.closest("button");if(!button)return;
+  if(button.disabled||currentUser?.platformBillingAdmin!==true)return;
+  const enabled=button.dataset.expectedStatus==="paused";
+  button.disabled=true;
+  try{
+    const confirmed=await BW.dialog.confirm({title:enabled?"Resume subscription access?":"Pause subscription access?",message:enabled?"Resume the remaining verified paid period. This does not charge the client or extend the paid-through date.":"Pause signed-in workspace changes. Read access and billing stay available. Existing background jobs are not cancelled, and the payment record is retained.",confirmLabel:enabled?"Turn on":"Turn off",danger:!enabled});
+    if(!confirmed)return;
+    const reason=await BW.dialog.prompt({title:"Record the reason",message:"Add a short note for the subscription audit history.",multiline:true,required:true,minLength:5,maxLength:500,confirmLabel:"Save change"});
+    if(reason===null)return;
+    await apiJson("/api/platform/billing/subscription-access",{method:"POST",headers:{"content-type":"application/json"},idempotencyKey:true,body:JSON.stringify({tenantId:button.dataset.tenantId,enabled,expectedStatus:button.dataset.expectedStatus,expectedPeriod:button.dataset.expectedPeriod,reason})});
+    notifyUser(enabled?"Subscription access is on.":"Subscription access is paused.");
+  }catch(e){
+    const messages={subscription_changed_refresh_required:"This subscription changed. Review its refreshed status before trying again.",paid_period_expired_new_payment_required:"The paid period has ended. Verify a new payment before resuming.",verified_subscription_payment_required:"A verified subscription payment is required.",cannot_change_current_admin_workspace:"You cannot change access for your current admin workspace."};
+    notifyUser(messages[e.code]||"Could not confirm the change. Check the refreshed subscription status before trying again.");
+  }finally{button.disabled=false;await Promise.all([loadPlatformSubscriptions(platformBillingCursor),refreshPlatformBillingInsights()])}
 }
 async function reviewManualPayment(submissionId,action){
  try{
@@ -8749,7 +8827,7 @@ async function submitAuth(){
   if(authMode===submittingMode)authSubmit.textContent=originalSubmitText;else authSubmit.textContent=authMode==="register"?"Create account & workspace":"Sign in"
  }
 }
-async function logoutUser(){platformRegulatoryAccess=false;currentUser=null;syncPlatformBillingControls();void renderManualPaymentApprovals();try{await apiFetch("/api/auth/logout",{method:"POST",body:"{}"})}catch{}csrfToken="";currentUser=null;lastWorkspaceView="dashboard";replaceWorkspaceStore({activeCompanyId:null,activeRole:"",companies:[],audit:[]});authPassword.value="";document.querySelectorAll(".modal.open").forEach(m=>m.classList.remove("open"));showMarketing()}
+async function logoutUser(){platformRegulatoryAccess=false;currentUser=null;syncPlatformBillingControls();void refreshPlatformBillingDashboard();try{await apiFetch("/api/auth/logout",{method:"POST",body:"{}"})}catch{}csrfToken="";currentUser=null;lastWorkspaceView="dashboard";replaceWorkspaceStore({activeCompanyId:null,activeRole:"",companies:[],audit:[]});authPassword.value="";document.querySelectorAll(".modal.open").forEach(m=>m.classList.remove("open"));showMarketing()}
 function consumeInitialWorkspaceState(){
  const node=document.getElementById("thebe-initial-workspace-state");
  if(!node)return null;

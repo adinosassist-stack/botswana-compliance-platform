@@ -79,7 +79,7 @@ assert.ok(reportJs.includes('source==="camera"?"camera":"file"')&&reportJs.inclu
 assert.ok(reportJs.includes('"x-report-attachment-grant":grant')&&reportJs.includes("retries:0"),"attachment upload must use its short-lived grant without automatic replay retries");
 assert.ok(reportCss.includes(".attachment-action--camera")&&reportCss.includes("min-height:52px"),"camera control must remain prominent and touch-friendly on mobile");
 assert.ok(wrangler.includes('main = "src/release-governance-entry.js"'),"production Worker must retain the canonical release-governance entry");
-assert.ok(fs.readFileSync('cloudflare/src/agentic-entry.js','utf8').includes('export default withReportAttachments(agenticRuntime,{logicalRequestPath});'),"canonical agentic runtime must be decorated with report attachments");
+assert.ok(fs.readFileSync('cloudflare/src/agentic-entry.js','utf8').includes('const attachmentRuntime=withReportAttachments(agenticRuntime,{logicalRequestPath});'),"canonical agentic runtime must be decorated with report attachments");
 assert.ok(reportAttachmentsEntry.includes('path==="/public/daily-reporting/submit"')&&reportAttachmentsEntry.includes("core.fetch(request,env,ctx)"),"authoritative report submission must remain delegated unchanged to the existing hardened endpoint");
 assert.ok(reportAttachmentsEntry.includes('path==="/public/daily-reporting/attachments"')&&reportAttachmentsEntry.includes("issueAttachmentGrant")&&reportAttachmentsEntry.includes("verifyAttachmentGrant"),"attachments must use a distinct short-lived report-bound upload authorization");
 const uploadHandler=reportAttachmentsEntry.slice(reportAttachmentsEntry.indexOf("async function handlePublicAttachmentUpload"),reportAttachmentsEntry.indexOf("async function decorateDashboard"));
