@@ -1406,12 +1406,12 @@ function roleLandingView(role=currentWorkspaceRole()){
 }
 function syncMobileRoleNav(role=currentWorkspaceRole()){
  const bar=document.getElementById("mobileBar");if(!bar)return;
- const workspace=isWorkspaceRole(role);bar.style.display=workspace?"":"none";
+ const workspace=isWorkspaceRole(role);const allowed=workspace?allowedViewsForRole(role):null;bar.style.display=workspace?"":"none";
  bar.querySelectorAll("button[data-mobile-view]").forEach(btn=>{
    const target=btn.dataset.mobileView;
    if(!workspace){btn.style.display="none";return}
    if(target==="more"){btn.style.display="";return}
-   btn.style.display=roleCanView(target,role)?"":"none";
+   btn.style.display=allowed.has(target)?"":"none";
  });
 }
 function showRestrictedRolePortal(role=currentWorkspaceRole()){
