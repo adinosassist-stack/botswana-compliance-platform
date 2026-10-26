@@ -32,5 +32,5 @@ test("remote rehearsal contract preserves authorization and non-production bound
     "no automatic publication",
     "no real tenant records",
     "concurrent writer"
-  ])assert.ok(policy.toLowerCase().includes(requirement),requirement);
+  ])assert.ok(policy.toLowerCase().includes(requirement.toLowerCase()),requirement);
 });
