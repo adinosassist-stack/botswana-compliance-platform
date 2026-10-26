@@ -1399,6 +1399,7 @@ function allowedViewsForRole(role=currentWorkspaceRole()){
 }
 function roleCanView(view,role=currentWorkspaceRole()){return allowedViewsForRole(role).has(String(view||""))}
 function roleLandingView(role=currentWorkspaceRole()){
+ if(role==="owner"&&currentUser?.platformBillingAdmin===true)return "payments";
  if(role==="owner"||role==="manager")return "dashboard";
  if(role==="reviewer"||role==="auditor")return "workhub";
  return null;
@@ -1422,7 +1423,8 @@ function showRestrictedRolePortal(role=currentWorkspaceRole()){
 function applyRoleUi(){
  let role=currentWorkspaceRole();if(store&&store.activeRole!==role)updateWorkspaceMeta({activeRole:role});let label=document.getElementById("roleLabel");if(label)label.textContent=role?role.charAt(0).toUpperCase()+role.slice(1):"—";
  const allowed=allowedViewsForRole(role);
- document.querySelectorAll(".nav button[data-view]").forEach(b=>{if(b.classList.contains("platformRegulatoryOnly"))return;b.style.display=allowed.has(b.dataset.view)?"":"none"});
+ syncPlatformBillingControls();
+ document.querySelectorAll(".nav button[data-view]").forEach(b=>{if(b.classList.contains("platformRegulatoryOnly")||b.classList.contains("platformBillingControl"))return;b.style.display=allowed.has(b.dataset.view)?"":"none"});
  const more=document.querySelector(".nav-more-tools");if(more)more.style.display=allowed.size?"":"none";syncMobileRoleNav(role);
  let add=document.getElementById("addCompanyBtn");if(add)add.style.display=role==="owner"?"":"none";
  document.querySelectorAll(".primaryTop,.workspace-quick-actions,.workspace-pulse,#billingBanner").forEach(el=>{if(el)el.hidden=!(role==="owner"||role==="manager")});document.querySelectorAll(".executive-only").forEach(el=>{if(el)el.hidden=!(role==="owner"||role==="manager")});
@@ -2718,7 +2720,37 @@ async function renderProfessionalServices(){
 }
 
 
+function syncPlatformBillingControls(){
+  const allowed=currentUser?.platformBillingAdmin===true&&roleCanView("payments");
+  document.querySelectorAll(".platformBillingControl").forEach(button=>{button.hidden=!allowed;button.style.display=allowed?"":"none"});
+  document.getElementById("payments")?.classList?.toggle("platform-billing-dashboard",allowed);
+  for(const id of ["platformBillingOverview","platformSubscriptionAdminCard","platformBillingInsights"]){const el=document.getElementById(id);if(el)el.hidden=!allowed}
+}
+function platformBillingSessionCurrent(user,warn=false){const valid=currentUser===user&&user?.platformBillingAdmin===true&&roleCanView("payments");if(!valid&&warn)notifyUser("Your session changed. Refresh the dashboard and confirm again.");return valid}
+function platformBillingTime(value){let raw=String(value||"").trim().replace(" ","T");if(/^\d{4}-\d{2}-\d{2}$/.test(raw))raw+="T00:00:00";if(!/(?:Z|[+-]\d{2}:\d{2})$/i.test(raw))raw+="Z";const date=new Date(raw);return Number.isFinite(date.getTime())?date.toLocaleString():"Date unavailable"}
+function platformBillingPlan(value){return ({starter:"Monitor",business:"Protect",pro:"Control",network:"Network"})[value]||value||"Subscription"}
+let manualPaymentAdminLoad=0;
+async function renderManualPaymentApprovals(){
+  const card=document.getElementById("manualPaymentAdminCard"),box=document.getElementById("manualPaymentAdminList");
+  const load=++manualPaymentAdminLoad,user=currentUser;
+  if(!card||!box)return;
+  if(user?.platformBillingAdmin!==true||!roleCanView("payments")){card.hidden=true;box.textContent="";return}
+  card.hidden=false;box.textContent="Loading pending payments…";
+  const pendingCount=document.getElementById("platformPendingCount");if(pendingCount)pendingCount.textContent="—";
+  try{
+    const admin=await apiJson("/api/platform/billing/manual-payments");
+    if(load!==manualPaymentAdminLoad||currentUser!==user)return;
+    if(pendingCount)pendingCount.textContent=String(admin.total??(admin.items||[]).length);
+    box.safeHTML=(admin.items||[]).map(x=>`<div class="item"><b>${escapeHtml(x.tenant_name||x.tenant_id)} · P${x.amount_bwp}</b><div class="muted small">${escapeHtml(platformBillingPlan(x.metadata?.plan))} · bank ref ${escapeHtml(x.bank_reference)} · submitted ${platformBillingTime(x.submitted_at)}</div><div class="row" style="margin-top:8px"><button type="button" class="billing-switch" role="switch" aria-checked="false" aria-label="Activate ${escapeHtml(x.tenant_name||x.tenant_id)}" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','approve')"><span class="billing-switch-track" aria-hidden="true"></span><span>Verify & activate</span></button><button type="button" class="btn soft" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','reject')">Reject</button></div><div class="muted small" role="status" aria-live="polite" id="manualPaymentStatus_${escapeHtml(x.id)}"></div></div>`).join("")||'<div class="muted small">No manual payments awaiting approval.</div>';
+  }catch(e){
+    if(load!==manualPaymentAdminLoad||currentUser!==user)return;
+    box.textContent=e.status===403?"Platform billing access was denied. Sign out and sign in with an authorized Thebe Desk admin account.":"Pending payments could not be loaded. Select Refresh approvals to try again.";
+  }
+}
 async function renderPayments(){
+  syncPlatformBillingControls();
+  void refreshPlatformBillingDashboard();
+  if(platformBillingSessionCurrent(currentUser))return;
   const list=document.getElementById("paymentOrderList");if(!list)return;
   try{
     const r=await apiJson("/api/payments/orders");const items=r.items||[];
@@ -2731,27 +2763,91 @@ async function renderPayments(){
     const vb=document.getElementById("paymentVerificationList"),rb=document.getElementById("paymentRefundList");
     if(vb)vb.safeHTML=(v.items||[]).map(x=>`<div class="item"><b>${escapeHtml(x.verification_status)}</b><div class="muted small">${escapeHtml(x.provider)} · ${escapeHtml(x.trigger_type)}${x.provider_result_code?` · code ${escapeHtml(x.provider_result_code)}`:""} · ${new Date(x.checked_at).toLocaleString()}</div></div>`).join("")||'<div class="muted small">No provider verification checks yet.</div>';
     if(rb)rb.safeHTML=(rf.items||[]).map(x=>`<div class="item"><b>${escapeHtml(x.status)} · P${x.amount_bwp}</b><div class="muted small">${escapeHtml(x.provider)}${x.reversal_status?` · ${escapeHtml(x.reversal_status)}`:""} · ${new Date(x.created_at).toLocaleString()}</div></div>`).join("")||'<div class="muted small">No refunds yet.</div>';
-    try{
-      const admin=await apiJson("/api/platform/billing/manual-payments"),card=document.getElementById("manualPaymentAdminCard"),box=document.getElementById("manualPaymentAdminList");
-      if(card&&box){card.hidden=false;box.safeHTML=(admin.items||[]).map(x=>`<div class="item"><b>${escapeHtml(x.tenant_name||x.tenant_id)} · P${x.amount_bwp}</b><div class="muted small">${escapeHtml(x.metadata?.plan||"subscription")} · bank ref ${escapeHtml(x.bank_reference)} · submitted ${new Date(x.submitted_at).toLocaleString()}</div><div class="row" style="margin-top:8px"><button type="button" class="btn" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','approve')">Verify & activate</button><button type="button" class="btn soft" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','reject')">Reject</button></div></div>`).join("")||'<div class="muted small">No manual payments awaiting approval.</div>'}
-    }catch(e){const card=document.getElementById("manualPaymentAdminCard");if(card)card.hidden=true}
+
   }catch(e){list.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
 }
-async function reviewManualPayment(submissionId,action){
+let platformSubscriptionLoad=0;
+let platformBillingCursor="";
+async function refreshPlatformBillingDashboard(){
+  await Promise.all([renderManualPaymentApprovals(),loadPlatformSubscriptions(platformBillingCursor),refreshPlatformBillingInsights()]);
+}
+function refreshPlatformBillingInsights(){return window.BW?.billingInsights?.refresh?.({user:currentUser,allowed:roleCanView("payments"),request:apiJson,escape:escapeHtml,isCurrent:user=>currentUser===user})}
+function changePlatformBillingRange(){return refreshPlatformBillingInsights()}
+function jumpPlatformBillingSection(id){if(currentUser?.platformBillingAdmin!==true)return;const target=document.getElementById(id);if(target){target.scrollIntoView({block:"start",behavior:"auto"});target.setAttribute("tabindex","-1");target.focus({preventScroll:true})}}
+let platformClientSearchTimer=null;
+function filterPlatformSubscriptions(){clearTimeout(platformClientSearchTimer);const user=currentUser;platformClientSearchTimer=setTimeout(()=>{if(platformBillingSessionCurrent(user)&&document.getElementById("payments")?.classList.contains("active"))void loadPlatformSubscriptions()},250)}
+function showPlatformRenewals(){const select=document.getElementById("platformClientFilter");if(select)select.value="renewal";void loadPlatformSubscriptions();jumpPlatformBillingSection("platformSubscriptionAdminCard")}
+function pagePlatformSubscriptions(event){return loadPlatformSubscriptions(event.target.closest("button")?.dataset.after||"")}
+async function loadPlatformSubscriptions(after=""){
+  const card=document.getElementById("platformSubscriptionAdminCard"),box=document.getElementById("platformSubscriptionList");
+  const load=++platformSubscriptionLoad,user=currentUser;
+  if(!card||!box)return;
+  if(!platformBillingSessionCurrent(user)){card.hidden=true;box.textContent="";platformBillingCursor="";const search=document.getElementById("platformClientSearch"),filter=document.getElementById("platformClientFilter");if(search)search.value="";if(filter)filter.value="all";return}
+  platformBillingCursor=String(after||"");card.hidden=false;box.textContent="Loading client subscriptions…";
+  for(const id of ["platformActiveCount","platformPausedCount"]){const counter=document.getElementById(id);if(counter)counter.textContent="—";}
+  try{
+    const search=String(document.getElementById("platformClientSearch")?.value||"").trim().slice(0,80),status=document.getElementById("platformClientFilter")?.value||"all";
+    for(const id of ["platformSubscriptionNext","platformSubscriptionFirst"]){const control=document.getElementById(id);if(control)control.hidden=true}
+    const result=await apiJson("/api/platform/billing/subscriptions?status="+encodeURIComponent(status)+"&search="+encodeURIComponent(search)+(after?"&after="+encodeURIComponent(after):""));
+    if(load!==platformSubscriptionLoad||currentUser!==user)return;
+    for(const key of ["active","paused"]){const counter=document.getElementById(key==="active"?"platformActiveCount":"platformPausedCount");if(counter)counter.textContent=String(result.counts?.[key]??0)}
+    box.safeHTML=(result.items||[]).map(row=>{
+      const active=row.status==="active",eligible=(active||Number(row.current_period)===1)&&row.tenant_id!==currentUser.tenantId;
+      return `<div class="billing-client-row"><div><b>${escapeHtml(row.tenant_name)}</b><div class="muted small">${escapeHtml(platformBillingPlan(row.plan))} · ${active?"Changes on":"Changes paused"}${Number(row.current_period)===1?"":" · Paid period expired"} · paid through ${escapeHtml(platformBillingTime(row.current_period_ends_at))}${!active&&Number(row.current_period)!==1?" · A new verified payment is required to resume.":""}</div></div><button type="button" class="billing-switch" role="switch" aria-checked="${active}" aria-label="${active?"Pause":"Resume"} subscription for ${escapeHtml(row.tenant_name)}" data-tenant-id="${escapeHtml(row.tenant_id)}" data-expected-status="${escapeHtml(row.status)}" data-expected-period="${escapeHtml(row.current_period_ends_at)}" data-bw-onclick="togglePlatformSubscription(event)" ${eligible?"":"disabled"}><span class="billing-switch-track" aria-hidden="true"></span><span>${active?"On":"Off"}</span></button></div>`;
+    }).join("")||'<div class="muted small">No subscriptions match this view. Adjust the client search or status filter.</div>';
+    const next=document.getElementById("platformSubscriptionNext"),first=document.getElementById("platformSubscriptionFirst");
+    if(next){next.hidden=!result.nextAfter;next.dataset.after=result.nextAfter||""}if(first)first.hidden=!after;
+  }catch(e){
+    if(load!==platformSubscriptionLoad||currentUser!==user)return;
+    box.textContent="Client subscriptions could not be loaded. Select Refresh dashboard to try again.";
+    for(const id of ["platformActiveCount","platformPausedCount"]){const counter=document.getElementById(id);if(counter)counter.textContent="—"}
+    for(const id of ["platformSubscriptionNext","platformSubscriptionFirst"]){const button=document.getElementById(id);if(button)button.hidden=true}
+  }
+}
+async function togglePlatformSubscription(event){
+  const button=event.target.closest("button");if(!button)return;
+  const user=currentUser;if(button.disabled||!platformBillingSessionCurrent(user))return;
+  const enabled=button.dataset.expectedStatus==="paused";
+  button.disabled=true;
+  try{
+    const confirmed=await BW.dialog.confirm({title:enabled?"Resume subscription access?":"Pause subscription access?",message:enabled?"Resume the remaining verified paid period. This does not charge the client or extend the paid-through date.":"Pause signed-in workspace changes. Read access and billing stay available. Existing background jobs are not cancelled, and the payment record is retained.",confirmLabel:enabled?"Turn on":"Turn off",danger:!enabled});
+    if(!confirmed||!platformBillingSessionCurrent(user,true))return;
+    const reason=await BW.dialog.prompt({title:"Record the reason",message:"Add a short note for the subscription audit history.",multiline:true,required:true,minLength:5,maxLength:500,confirmLabel:"Save change"});
+    if(reason===null||!platformBillingSessionCurrent(user,true))return;
+    await apiJson("/api/platform/billing/subscription-access",{method:"POST",headers:{"content-type":"application/json"},idempotencyKey:true,body:JSON.stringify({tenantId:button.dataset.tenantId,enabled,expectedStatus:button.dataset.expectedStatus,expectedPeriod:button.dataset.expectedPeriod,reason})});
+    if(!platformBillingSessionCurrent(user))return;
+    notifyUser(enabled?"Subscription access is on.":"Subscription access is paused.");
+  }catch(e){
+    const messages={subscription_changed_refresh_required:"This subscription changed. Review its refreshed status before trying again.",paid_period_expired_new_payment_required:"The paid period has ended. Verify a new payment before resuming.",verified_subscription_payment_required:"A verified subscription payment is required.",cannot_change_current_admin_workspace:"You cannot change access for your current admin workspace."};
+    notifyUser(messages[e.code]||"Could not confirm the change. Check the refreshed subscription status before trying again.");
+  }finally{button.disabled=false;await Promise.all([loadPlatformSubscriptions(platformBillingCursor),refreshPlatformBillingInsights()])}
+}
+const manualPaymentReviewsInFlight=new Set();
+async function reviewManualPayment(id,action){
+ const user=currentUser;if(!platformBillingSessionCurrent(user)||manualPaymentReviewsInFlight.has(id))return;
+ manualPaymentReviewsInFlight.add(id);
+ const status=document.getElementById("manualPaymentStatus_"+id);
+ const show=msg=>{if(currentUser===user){if(status)status.textContent=msg;notifyUser(msg)}};
  try{
-   let reason="";
-   if(action==="reject"){
-     reason=await BW.dialog.prompt({title:"Reject payment submission",message:"Explain why this bank payment could not be verified. The customer plan will remain inactive.",multiline:true,required:true,minLength:5,maxLength:500,confirmLabel:"Reject payment"});
-     if(reason===null)return;
-     reason=reason.trim();if(reason.length<5){notifyUser("Add a rejection reason of at least 5 characters.");return}
-   }else{
-     const confirmed=await BW.dialog.confirm({title:"Verify payment and activate plan",message:"Confirm that the matching funds are visible in the Thebe Desk company bank account. Customer-submitted references are not proof of receipt.",confirmLabel:"Verify & activate"});
-     if(!confirmed)return;
-   }
-   const r=await apiJson(`/api/platform/billing/manual-payments/${encodeURIComponent(submissionId)}/${action}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({reason}),idempotencyKey:true});
-   notifyUser(action==="approve"?"Payment verified and plan activated.":"Payment submission rejected.");
-   await Promise.all([renderPayments(),loadBilling()]);
- }catch(e){notifyUser(e.message)}
+  let reason="",bankFundsConfirmed=false;
+  if(action==="reject"){
+   reason=await BW.dialog.prompt({title:"Reject payment",message:"Explain the rejection.",required:true,minLength:5,maxLength:500,confirmLabel:"Reject payment"});
+   if(reason===null||!platformBillingSessionCurrent(user,true))return;
+  }else if(action==="approve"){
+   bankFundsConfirmed=await BW.dialog.confirm({title:"Verify payment and activate plan",message:"Approve only after matching funds appear in Thebe Desk's company bank account. A customer's reference is not receipt evidence.",confirmLabel:"Funds received — activate"});
+   if(!bankFundsConfirmed||!platformBillingSessionCurrent(user,true))return;
+  }else return;
+  const r=await apiJson(`/api/platform/billing/manual-payments/${encodeURIComponent(id)}/${action}`,{method:"POST",body:JSON.stringify({reason,bankFundsConfirmed}),idempotencyKey:true});
+  if(!platformBillingSessionCurrent(user))return;
+  if(r?.ok!==true||(action==="approve"?(r.status!=="approved"||r.activated!==true):r.status!=="rejected"))throw Error("Server did not confirm the decision. Refresh approvals.");
+  show(action==="approve"?"Payment verified and plan activated.":"Payment submission rejected.");
+  await refreshPlatformBillingDashboard();
+ }catch(e){
+  if(platformBillingSessionCurrent(user)){
+   const errors={paid_order_reconciliation_required:"Paid order needs reconciliation; no second settlement was applied.",manual_payment_settlement_not_confirmed:"Activation unconfirmed; reconcile this order.",platform_billing_forbidden:"Only the platform owner may approve payments."};
+   show(errors[e?.code]||String(e?.message||"Payment decision failed; refresh approvals."));
+  }
+ }finally{manualPaymentReviewsInFlight.delete(id)}
 }
 
 
@@ -2765,6 +2861,7 @@ async function openHostedCheckout(paymentOrderId){
 
 
 async function renderPaymentProviders(){
+  if(platformBillingSessionCurrent(currentUser))return;
   const box=document.getElementById("paymentProviderList");if(!box)return;
   try{
     const r=await apiJson("/api/payments/providers");
@@ -2772,6 +2869,7 @@ async function renderPaymentProviders(){
   }catch(e){box.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
 }
 async function renderPaymentReconciliation(){
+  if(platformBillingSessionCurrent(currentUser))return;
   const box=document.getElementById("paymentReconciliationList");if(!box)return;
   try{
     const r=await apiJson("/api/payments/reconciliation");
@@ -3808,7 +3906,7 @@ async function submitAuth(){
   if(authMode===submittingMode)authSubmit.textContent=originalSubmitText;else authSubmit.textContent=authMode==="register"?"Create account & workspace":"Sign in"
  }
 }
-async function logoutUser(){platformRegulatoryAccess=false;try{await apiFetch("/api/auth/logout",{method:"POST",body:"{}"})}catch{}csrfToken="";currentUser=null;lastWorkspaceView="dashboard";replaceWorkspaceStore({activeCompanyId:null,activeRole:"",companies:[],audit:[]});authPassword.value="";document.querySelectorAll(".modal.open").forEach(m=>m.classList.remove("open"));showMarketing()}
+async function logoutUser(){platformRegulatoryAccess=false;currentUser=null;syncPlatformBillingControls();void refreshPlatformBillingDashboard();try{await apiFetch("/api/auth/logout",{method:"POST",body:"{}"})}catch{}csrfToken="";currentUser=null;lastWorkspaceView="dashboard";replaceWorkspaceStore({activeCompanyId:null,activeRole:"",companies:[],audit:[]});authPassword.value="";document.querySelectorAll(".modal.open").forEach(m=>m.classList.remove("open"));showMarketing()}
 function consumeInitialWorkspaceState(){
  const node=document.getElementById("thebe-initial-workspace-state");
  if(!node)return null;
