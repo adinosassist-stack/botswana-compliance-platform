@@ -14,14 +14,24 @@ permissions:
   contents: read
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      - name: Verify runner Android SDK and install platform 35 if needed
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${ANDROID_HOME:?GitHub Android runner SDK required}"
+          test -d "$ANDROID_HOME/cmdline-tools"
+          if [ ! -d "$ANDROID_HOME/platforms/android-35" ]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -path '*/bin/sdkmanager' -type f | head -n 1)"
+            test -n "$SDKMANAGER"
+            "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0"
+          fi
       - name: Build debug APK
         working-directory: android-app
         run: gradle --no-daemon :app:assembleDebug
