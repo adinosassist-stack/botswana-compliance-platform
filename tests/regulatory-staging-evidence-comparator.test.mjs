@@ -30,3 +30,14 @@ test("refuses unbounded inventory and extra/untrusted fields",()=>{
  const x=args();x.before.obligations=Array.from({length:201},()=>({id:"x"}));assert.equal(compare(x).ok,false);
  const y=args();y.before.customerRecords=[];assert.equal(compare(y).ok,false);
 });
+
+test("rejects duplicate or unrelated VAT rules even if expected first-match statuses pass",()=>{
+ const dup=args();dup.after.rules.push({...dup.after.rules[1]});dup.retry.rules.push({...dup.retry.rules[1]});
+ assert.equal(compare(dup).ok,false);
+ const foreign=args();foreign.before.rules.push({ruleKey:"unrelated.vat.draft",status:"draft"});
+ foreign.after.rules.push({ruleKey:"unrelated.vat.draft",status:"draft"});
+ foreign.retry.rules.push({ruleKey:"unrelated.vat.draft",status:"draft"});
+ assert.equal(compare(foreign).ok,false);
+ const absent=args();absent.after.rules.splice(1,1);absent.retry.rules.splice(1,1);
+ assert.equal(compare(absent).ok,false);
+});
