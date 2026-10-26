@@ -4,7 +4,7 @@ import {createAiExportService} from "../server/ai-document-export-service.js";
 const actor={authenticated:true,workspaceMember:true,tenantId:"tenant1",actorId:"user1"};
 const request={conversationId:"c1",messageId:"m1",format:"pdf",documentType:"report"};
 const input={authorized:true,actorRole:"assistant",contentHash:"a".repeat(64),document:{title:"Thebe report",blocks:[{type:"paragraph",text:"Payroll P 3000"}],references:[]}};
-const job={id:"job1",tenantId:"tenant1",actorId:"user1",status:"completed",format:"pdf",expiresAt:5000,title:"Thebe report",objectKey:"ai-exports/tenant1/user1/job1"};
+const job={id:"job1",tenantId:"tenant1",actorId:"user1",status:"completed",format:"pdf",expiresAt:5000,title:"Thebe report",objectKey:"ai-exports/tenant1/job1"};
 function setup({enabled=true,message=input,storedJob=job,read=Buffer.from("%PDF-test"),render=async()=>Buffer.from("%PDF-test")}={}){
  const calls={create:0,read:0,render:0};
  const store={create:async()=>{calls.create++;return storedJob},get:async()=>storedJob,complete:async()=>{},readPrivate:async()=>{calls.read++;return read}};
