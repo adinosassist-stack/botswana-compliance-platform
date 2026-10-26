@@ -1284,6 +1284,24 @@
     appendAdvisorRunSummary(result);
     lastAnswer=cleanMultiline(result?.answer||"No grounded answer was returned.",3200);
     responseBox.append(responseAnswer(lastAnswer));
+    // Copy only the visible assistant answer; never create public conversation links.
+    if(lastAnswer){
+      const copyAnswer=el("button","thebe-ai-open-full","Copy answer");
+      copyAnswer.type="button";
+      copyAnswer.setAttribute("aria-label","Copy Thebe answer");
+      copyAnswer.addEventListener("click",async()=>{
+        try{
+          if(!global.navigator?.clipboard?.writeText)throw new Error("clipboard_unavailable");
+          await global.navigator.clipboard.writeText(lastAnswer);
+          copyAnswer.textContent="Copied";
+          copyAnswer.setAttribute("aria-label","Thebe answer copied");
+        }catch{
+          copyAnswer.textContent="Copy unavailable";
+          copyAnswer.setAttribute("aria-label","Copy unavailable; use text selection");
+        }
+      });
+      responseBox.append(copyAnswer);
+    }
     const actions=Array.isArray(result?.actions)?result.actions.slice(0,3):[];
     for(const action of actions){
       const card=el("div","thebe-ai-action");
