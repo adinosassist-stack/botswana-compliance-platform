@@ -183,6 +183,51 @@
     return clamped;
   }
 
+  // Optional floating position for the workspace dock. Keep the existing width
+  // manager authoritative; position is only applied on desktop with healthy CSS.
+  const WORKSPACE_POSITION_KEY="thebe:workspace-dock:position:v1";
+  function readDockPosition(){
+    try{const value=JSON.parse(global.localStorage?.getItem?.(WORKSPACE_POSITION_KEY)||"null");return Number.isFinite(value?.x)&&Number.isFinite(value?.y)?value:null}catch{return null}
+  }
+  function setDockPosition(dock,position){
+    if(!dock||!position||viewportWidth()<1024)return;
+    const rect=dock.getBoundingClientRect();
+    const x=Math.max(8,Math.min(Math.round(position.x),Math.max(8,viewportWidth()-rect.width-8)));
+    const y=Math.max(8,Math.min(Math.round(position.y),Math.max(8,(global.innerHeight||768)-rect.height-8)));
+    if(dock.dataset.workspaceFloating!=="true")dock.dataset.workspaceFloating="true";
+    if(dock.style.getPropertyValue("--thebe-dock-float-left")!==x+"px")dock.style.setProperty("--thebe-dock-float-left",x+"px");
+    if(dock.style.getPropertyValue("--thebe-dock-float-top")!==y+"px")dock.style.setProperty("--thebe-dock-float-top",y+"px");
+  }
+  function ensureDockMovement(dock){
+    if(!dock||dock.dataset.workspaceMoveReady==="true")return;
+    const head=dock.querySelector(".thebe-ai-dock-head");
+    if(!head)return;
+    dock.dataset.workspaceMoveReady="true";
+    const styleId="thebe-workspace-dock-move-v1-style";
+    if(!global.document.getElementById(styleId)){
+      const style=global.document.createElement("style");style.id=styleId;
+      style.textContent='@media(min-width:1024px){body #thebeAiDock[data-surface="workspace"][data-workspace-floating="true"]{left:var(--thebe-dock-float-left)!important;right:auto!important;top:var(--thebe-dock-float-top)!important;bottom:auto!important}#thebeAiDock[data-workspace-move-ready="true"] .thebe-ai-dock-title{cursor:grab;touch-action:none}#thebeAiDock[data-workspace-floating="true"] .thebe-ai-dock-title:active{cursor:grabbing}}';
+      (global.document.head||global.document.documentElement).appendChild(style);
+    }
+    const title=head.querySelector(".thebe-ai-dock-title");
+    if(!title)return;
+    title.title="Drag to move Thebe AI · double-click to reset";
+    let drag=null;
+    title.addEventListener("pointerdown",event=>{
+      if(viewportWidth()<1024||dock.dataset.surface!=="workspace"||event.button!==0)return;
+      const rect=dock.getBoundingClientRect();drag={id:event.pointerId,dx:event.clientX-rect.left,dy:event.clientY-rect.top};
+      title.setPointerCapture?.(event.pointerId);event.preventDefault();
+    });
+    title.addEventListener("pointermove",event=>{
+      if(!drag||drag.id!==event.pointerId)return;
+      setDockPosition(dock,{x:event.clientX-drag.dx,y:event.clientY-drag.dy});
+    });
+    const finish=()=>{if(!drag)return;drag=null;if(dock.dataset.workspaceFloating==="true")try{global.localStorage?.setItem?.(WORKSPACE_POSITION_KEY,JSON.stringify({x:parseInt(dock.style.getPropertyValue("--thebe-dock-float-left"),10),y:parseInt(dock.style.getPropertyValue("--thebe-dock-float-top"),10)}))}catch{}};
+    title.addEventListener("pointerup",finish);title.addEventListener("pointercancel",finish);
+    title.addEventListener("dblclick",()=>{try{global.localStorage?.removeItem?.(WORKSPACE_POSITION_KEY)}catch{};delete dock.dataset.workspaceFloating;dock.style.removeProperty("--thebe-dock-float-left");dock.style.removeProperty("--thebe-dock-float-top")});
+    const saved=readDockPosition();if(saved)setDockPosition(dock,saved);
+  }
+
   function syncWorkspaceResize(dock){
     return applyWorkspaceWidth(dock,{});
   }
@@ -295,6 +340,7 @@
       return false;
     }
     syncWorkspaceResize(dock);
+    if(dock.dataset.surface==="workspace"&&viewportWidth()>=1024&&spatialStylesheetHealthy(dock))ensureDockMovement(dock);
     if(dock.dataset.cssRecovery!=="1"){
       if(spatialStylesheetHealthy(dock)){
         releaseAll();
