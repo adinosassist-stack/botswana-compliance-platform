@@ -2823,51 +2823,31 @@ async function togglePlatformSubscription(event){
   }finally{button.disabled=false;await Promise.all([loadPlatformSubscriptions(platformBillingCursor),refreshPlatformBillingInsights()])}
 }
 const manualPaymentReviewsInFlight=new Set();
-async function reviewManualPayment(submissionId,action){
-  const user=currentUser;
+async function reviewManualPayment(id,action){
+ const user=currentUser;if(!platformBillingSessionCurrent(user)||manualPaymentReviewsInFlight.has(id))return;
+ manualPaymentReviewsInFlight.add(id);
+ const status=document.getElementById("manualPaymentStatus_"+id);
+ const show=msg=>{if(currentUser===user){if(status)status.textContent=msg;notifyUser(msg)}};
+ try{
+  let reason="",bankFundsConfirmed=false;
+  if(action==="reject"){
+   reason=await BW.dialog.prompt({title:"Reject payment",message:"Explain the rejection.",required:true,minLength:5,maxLength:500,confirmLabel:"Reject payment"});
+   if(reason===null||!platformBillingSessionCurrent(user,true))return;
+  }else if(action==="approve"){
+   bankFundsConfirmed=await BW.dialog.confirm({title:"Verify payment and activate plan",message:"Approve only after matching funds appear in Thebe Desk's company bank account. A customer's reference is not receipt evidence.",confirmLabel:"Funds received — activate"});
+   if(!bankFundsConfirmed||!platformBillingSessionCurrent(user,true))return;
+  }else return;
+  const r=await apiJson(`/api/platform/billing/manual-payments/${encodeURIComponent(id)}/${action}`,{method:"POST",body:JSON.stringify({reason,bankFundsConfirmed}),idempotencyKey:true});
   if(!platformBillingSessionCurrent(user))return;
-  if(!["approve","reject"].includes(action)||!submissionId){notifyUser("Invalid payment review action. Refresh approvals.");return}
-  if(manualPaymentReviewsInFlight.has(submissionId))return;
-  manualPaymentReviewsInFlight.add(submissionId);
-  const status=document.getElementById("manualPaymentStatus_"+submissionId);
-  const feedback=message=>{if(currentUser===user&&status)status.textContent=message};
-  try{
-    let reason="",bankFundsConfirmed=false;
-    if(action==="reject"){
-      reason=await BW.dialog.prompt({title:"Reject payment submission",message:"Explain why this bank payment could not be verified. The customer plan will remain inactive.",multiline:true,required:true,minLength:5,maxLength:500,confirmLabel:"Reject payment"});
-      if(reason===null||!platformBillingSessionCurrent(user,true))return;
-      reason=reason.trim();if(reason.length<5){feedback("A rejection reason of at least 5 characters is required.");return}
-    }else{
-      bankFundsConfirmed=await BW.dialog.confirm({title:"Verify payment and activate plan",message:"Only continue if you have independently checked the Thebe Desk company bank account and the matching funds are visible as a received credit. A customer-submitted transaction reference or screenshot is NOT proof of receipt.",confirmLabel:"Funds received — activate"});
-      if(!bankFundsConfirmed||!platformBillingSessionCurrent(user,true))return;
-    }
-    feedback(action==="approve"?"Confirming bank-payment settlement and subscription activation…":"Recording rejection…");
-    const r=await apiJson(`/api/platform/billing/manual-payments/${encodeURIComponent(submissionId)}/${action}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({reason,bankFundsConfirmed}),idempotencyKey:true});
-    if(!platformBillingSessionCurrent(user))return;
-    if(r?.ok!==true||(action==="approve"?(r.status!=="approved"||r.activated!==true):r.status!=="rejected"))throw new Error("The server did not confirm the payment decision. Refresh approvals before trying again.");
-    feedback(action==="approve"?"Confirmed: payment settled and plan activated.":"Payment submission rejected.");
-    notifyUser(action==="approve"?"Payment verified and plan activated.":"Payment submission rejected.");
-    await refreshPlatformBillingDashboard();
-  }catch(e){
-    if(!platformBillingSessionCurrent(user))return;
-    const code=String(e?.code||e?.data?.error||"");
-    const messages={
-      bank_funds_confirmation_required:"Bank receipt must be confirmed before activation.",
-      manual_payment_activation_failed:"The server could not complete activation. No activation is confirmed; refresh approvals and retry. If this repeats, check settlement diagnostics.",
-      settlement_in_progress_retry:"Payment settlement is still processing. Refresh approvals before retrying.",
-      paid_order_reconciliation_required:"This order is already marked paid, but its matching fulfillment could not be verified. Manual reconciliation is required; no second paid period was granted.",
-      manual_payment_review_conflict:"Another review changed this payment. Refresh approvals and check the current status.",
-      manual_payment_review_in_progress:"This payment is already being reviewed. Refresh its status.",
-      manual_payment_already_reviewed:"This payment has already been reviewed. Refresh the queue.",
-      csrf_failed:"Session security expired. Refresh the page and sign in again if necessary.",
-      platform_billing_forbidden:"Only the authorized Thebe Desk platform owner can approve payments."
-    };
-    const message=messages[code]||String(e?.message||"The payment decision could not be confirmed. Refresh approvals and retry.");
-    feedback(message);
-    notifyUser(message);
-  }finally{
-    manualPaymentReviewsInFlight.delete(submissionId);
+  if(r?.ok!==true||(action==="approve"?(r.status!=="approved"||r.activated!==true):r.status!=="rejected"))throw Error("Server did not confirm the decision. Refresh approvals.");
+  show(action==="approve"?"Payment verified and plan activated.":"Payment submission rejected.");
+  await refreshPlatformBillingDashboard();
+ }catch(e){
+  if(platformBillingSessionCurrent(user)){
+   const errors={paid_order_reconciliation_required:"Paid order needs reconciliation; no second settlement was applied.",manual_payment_settlement_not_confirmed:"Activation unconfirmed; reconcile this order.",platform_billing_forbidden:"Only the platform owner may approve payments."};
+   show(errors[e?.code]||String(e?.message||"Payment decision failed; refresh approvals."));
   }
+ }finally{manualPaymentReviewsInFlight.delete(id)}
 }
 
 
