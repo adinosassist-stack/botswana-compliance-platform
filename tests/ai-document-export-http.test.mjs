@@ -41,3 +41,30 @@ test("invalid job IDs never reach the lookup",async()=>{
  assert.equal((await handlers.download({params:{id:"../secret"}})).status,404);
  assert.equal(lookups,0);
 });
+
+test("download fails closed for missing, expired, and cross-tenant jobs",async()=>{
+ const build=(returnedJob,actor=identity)=>createAiExportHandlers({
+  identityFor:async()=>actor,
+  resolveMessage:async()=>null,
+  createJob:async()=>returnedJob,
+  findJob:async()=>returnedJob,
+  readPrivateObject:async()=>Buffer.from("%PDF-sample"),
+  now:()=>2001
+ });
+ assert.equal((await build(null).download({params:{id:"job1"}})).status,404);
+ assert.equal((await build(job).download({params:{id:"job1"}})).status,404);
+ assert.equal((await build({...job,tenantId:"tenant2"},identity).download({params:{id:"job1"}})).status,404);
+});
+test("private object and lookup failures never leak storage details",async()=>{
+ const handlers=createAiExportHandlers({
+  identityFor:async()=>identity,
+  resolveMessage:async()=>null,
+  createJob:async()=>job,
+  findJob:async()=>{throw Error("internal DB secret")},
+  readPrivateObject:async()=>{throw Error("internal object secret")},
+  now:()=>1000
+ });
+ const response=await handlers.download({params:{id:"job1"}});
+ assert.equal(response.status,503);
+ assert.equal(JSON.stringify(response).includes("secret"),false);
+});
