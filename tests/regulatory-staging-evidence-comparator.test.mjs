@@ -41,3 +41,12 @@ test("rejects duplicate or unrelated VAT rules even if expected first-match stat
  const absent=args();absent.after.rules.splice(1,1);absent.retry.rules.splice(1,1);
  assert.equal(compare(absent).ok,false);
 });
+
+test("refuses already activated historical rules in before or retry evidence",()=>{
+ for(const phase of ["before","retry"]){
+  const x=args();x[phase].rules[0].status="published";
+  assert.equal(compare(x).ok,false,phase);
+ }
+ const y=args();y.before.rules[1].status="approved";
+ assert.equal(compare(y).ok,false);
+});
