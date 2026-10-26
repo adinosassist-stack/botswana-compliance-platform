@@ -1,0 +1,67 @@
+name: Regulatory Populated Staging Execution Gate
+run-name: Staging execution gate validation ${{ inputs.expected_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact current main SHA
+        required: true
+        type: string
+      confirmation:
+        description: Safety gate qualification ONLY, no staging writes
+        required: true
+        type: choice
+        default: DO_NOT_RUN
+        options:
+          - DO_NOT_RUN
+          - VALIDATE_STAGING_EXECUTION_GATES_ONLY
+
+permissions:
+  contents: read
+
+concurrency:
+  group: regulatory-populated-staging-execution-gate
+  cancel-in-progress: false
+
+jobs:
+  execution-gate:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.confirmation == 'VALIDATE_STAGING_EXECUTION_GATES_ONLY'
+    environment: regulatory-staging
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      EXPECTED_SHA: ${{ inputs.expected_sha }}
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Refuse non-current main SHA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$EXPECTED_SHA" == "$GITHUB_SHA" ]]
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SHA" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" == "$EXPECTED_SHA" ]]
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]]
+      - name: Set up pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Execute safety gate and fixture regressions locally
+        run: |
+          node --test tests/regulatory-staging-rehearsal-write-plan.test.mjs tests/regulatory-staging-write-authorization.test.mjs tests/regulatory-staging-fixture-manifest.test.mjs tests/regulatory-staging-evidence-comparator.test.mjs
+      - name: Record non-authorization
+        run: |
+          echo 'GATE_ONLY: This workflow cannot access Cloudflare, produce SQL, approve rules, import fixtures or write staging.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Real populated rehearsal requires a NEW reviewed workflow and explicit separately approved write authority.' >> "$GITHUB_STEP_SUMMARY"
