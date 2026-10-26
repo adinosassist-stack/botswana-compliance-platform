@@ -60,7 +60,7 @@ jobs:
           package-manager-cache: false
       - name: Execute safety gate and fixture regressions locally
         run: |
-          node --test tests/regulatory-staging-rehearsal-write-plan.test.mjs tests/regulatory-staging-write-authorization.test.mjs tests/regulatory-staging-fixture-manifest.test.mjs tests/regulatory-staging-fixture-schema-qualification.test.mjs tests/regulatory-staging-evidence-comparator.test.mjs tests/regulatory-staging-rehearsal-authorization-static.test.mjs tests/regulatory-foundation-v18-import-rehearsal.test.mjs tests/regulatory-foundation-source-reconciliation.test.mjs tests/regulatory-foundation-legacy-vat.test.mjs tests/regulatory-populated-staging-execution-gate.test.mjs
+          node --test tests/regulatory-rehearsal-preparation-report.test.mjs tests/regulatory-staging-rehearsal-write-plan.test.mjs tests/regulatory-staging-write-authorization.test.mjs tests/regulatory-staging-fixture-manifest.test.mjs tests/regulatory-staging-fixture-schema-qualification.test.mjs tests/regulatory-staging-evidence-comparator.test.mjs tests/regulatory-staging-rehearsal-authorization-static.test.mjs tests/regulatory-foundation-v18-import-rehearsal.test.mjs tests/regulatory-foundation-source-reconciliation.test.mjs tests/regulatory-foundation-legacy-vat.test.mjs tests/regulatory-populated-staging-execution-gate.test.mjs
       - name: Record non-authorization
         run: |
           echo 'GATE_ONLY: This workflow cannot access Cloudflare, produce SQL, approve rules, import fixtures or write staging.' >> "$GITHUB_STEP_SUMMARY"
