@@ -2741,7 +2741,7 @@ async function renderManualPaymentApprovals(){
     const admin=await apiJson("/api/platform/billing/manual-payments");
     if(load!==manualPaymentAdminLoad||currentUser!==user)return;
     if(pendingCount)pendingCount.textContent=String(admin.total??(admin.items||[]).length);
-    box.safeHTML=(admin.items||[]).map(x=>`<div class="item"><b>${escapeHtml(x.tenant_name||x.tenant_id)} · P${x.amount_bwp}</b><div class="muted small">${escapeHtml(platformBillingPlan(x.metadata?.plan))} · bank ref ${escapeHtml(x.bank_reference)} · submitted ${platformBillingTime(x.submitted_at)}</div><div class="row" style="margin-top:8px"><button type="button" class="billing-switch" role="switch" aria-checked="false" aria-label="Activate ${escapeHtml(x.tenant_name||x.tenant_id)}" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','approve')"><span class="billing-switch-track" aria-hidden="true"></span><span>Verify & activate</span></button><button type="button" class="btn soft" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','reject')">Reject</button></div></div>`).join("")||'<div class="muted small">No manual payments awaiting approval.</div>';
+    box.safeHTML=(admin.items||[]).map(x=>`<div class="item"><b>${escapeHtml(x.tenant_name||x.tenant_id)} · P${x.amount_bwp}</b><div class="muted small">${escapeHtml(platformBillingPlan(x.metadata?.plan))} · bank ref ${escapeHtml(x.bank_reference)} · submitted ${platformBillingTime(x.submitted_at)}</div><div class="row" style="margin-top:8px"><button type="button" class="billing-switch" role="switch" aria-checked="false" aria-label="Activate ${escapeHtml(x.tenant_name||x.tenant_id)}" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','approve')"><span class="billing-switch-track" aria-hidden="true"></span><span>Verify & activate</span></button><button type="button" class="btn soft" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','reject')">Reject</button></div><div class="muted small" role="status" aria-live="polite" id="manualPaymentStatus_${escapeHtml(x.id)}"></div></div>`).join("")||'<div class="muted small">No manual payments awaiting approval.</div>';
   }catch(e){
     if(load!==manualPaymentAdminLoad||currentUser!==user)return;
     box.textContent=e.status===403?"Platform billing access was denied. Sign out and sign in with an authorized Thebe Desk admin account.":"Pending payments could not be loaded. Select Refresh approvals to try again.";
@@ -2822,23 +2822,32 @@ async function togglePlatformSubscription(event){
     notifyUser(messages[e.code]||"Could not confirm the change. Check the refreshed subscription status before trying again.");
   }finally{button.disabled=false;await Promise.all([loadPlatformSubscriptions(platformBillingCursor),refreshPlatformBillingInsights()])}
 }
-async function reviewManualPayment(submissionId,action){
- const user=currentUser;if(!platformBillingSessionCurrent(user))return;
+const manualPaymentReviewsInFlight=new Set();
+async function reviewManualPayment(id,action){
+ const user=currentUser;if(!platformBillingSessionCurrent(user)||manualPaymentReviewsInFlight.has(id))return;
+ manualPaymentReviewsInFlight.add(id);
+ const status=document.getElementById("manualPaymentStatus_"+id);
+ const show=msg=>{if(currentUser===user){if(status)status.textContent=msg;notifyUser(msg)}};
  try{
-   let reason="";
-   if(action==="reject"){
-     reason=await BW.dialog.prompt({title:"Reject payment submission",message:"Explain why this bank payment could not be verified. The customer plan will remain inactive.",multiline:true,required:true,minLength:5,maxLength:500,confirmLabel:"Reject payment"});
-     if(reason===null||!platformBillingSessionCurrent(user,true))return;
-     reason=reason.trim();if(reason.length<5){notifyUser("Add a rejection reason of at least 5 characters.");return}
-   }else{
-     const confirmed=await BW.dialog.confirm({title:"Verify payment and activate plan",message:"Confirm that the matching funds are visible in the Thebe Desk company bank account. Customer-submitted references are not proof of receipt.",confirmLabel:"Verify & activate"});
-     if(!confirmed||!platformBillingSessionCurrent(user,true))return;
-   }
-   const r=await apiJson(`/api/platform/billing/manual-payments/${encodeURIComponent(submissionId)}/${action}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({reason}),idempotencyKey:true});
-   if(!platformBillingSessionCurrent(user))return;
-   notifyUser(action==="approve"?"Payment verified and plan activated.":"Payment submission rejected.");
-   await refreshPlatformBillingDashboard();
- }catch(e){notifyUser(e.message)}
+  let reason="",bankFundsConfirmed=false;
+  if(action==="reject"){
+   reason=await BW.dialog.prompt({title:"Reject payment",message:"Explain the rejection.",required:true,minLength:5,maxLength:500,confirmLabel:"Reject payment"});
+   if(reason===null||!platformBillingSessionCurrent(user,true))return;
+  }else if(action==="approve"){
+   bankFundsConfirmed=await BW.dialog.confirm({title:"Verify payment and activate plan",message:"Approve only after matching funds appear in Thebe Desk's company bank account. A customer's reference is not receipt evidence.",confirmLabel:"Funds received — activate"});
+   if(!bankFundsConfirmed||!platformBillingSessionCurrent(user,true))return;
+  }else return;
+  const r=await apiJson(`/api/platform/billing/manual-payments/${encodeURIComponent(id)}/${action}`,{method:"POST",body:JSON.stringify({reason,bankFundsConfirmed}),idempotencyKey:true});
+  if(!platformBillingSessionCurrent(user))return;
+  if(r?.ok!==true||(action==="approve"?(r.status!=="approved"||r.activated!==true):r.status!=="rejected"))throw Error("Server did not confirm the decision. Refresh approvals.");
+  show(action==="approve"?"Payment verified and plan activated.":"Payment submission rejected.");
+  await refreshPlatformBillingDashboard();
+ }catch(e){
+  if(platformBillingSessionCurrent(user)){
+   const errors={paid_order_reconciliation_required:"Paid order needs reconciliation; no second settlement was applied.",manual_payment_settlement_not_confirmed:"Activation unconfirmed; reconcile this order.",platform_billing_forbidden:"Only the platform owner may approve payments."};
+   show(errors[e?.code]||String(e?.message||"Payment decision failed; refresh approvals."));
+  }
+ }finally{manualPaymentReviewsInFlight.delete(id)}
 }
 
 
