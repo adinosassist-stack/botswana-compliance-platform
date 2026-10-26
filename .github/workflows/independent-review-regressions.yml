@@ -153,3 +153,32 @@ jobs:
           node --check scripts/provision-regulatory-reviewer.mjs
           node --check tests/regulatory-reviewer-provisioning-static.mjs
           node tests/regulatory-reviewer-provisioning-static.mjs
+
+      - name: Staging OAuth bootstrap syntax and safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/regulatory-staging-oauth-bootstrap.sh
+          node --test tests/regulatory-staging-oauth-bootstrap-static.test.mjs
+
+      - name: Platform billing controls and approval loading
+        shell: bash
+        run: node --test tests/platform-billing-controls.test.mjs tests/owner-payment-dashboard.test.mjs tests/platform-billing-analytics.test.mjs tests/owner-dashboard-audit.test.mjs tests/manual-bank-owner-approval-flow.test.mjs
+
+      - name: Install pinned isolated browser test driver
+        shell: bash
+        run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+
+      - name: Owner dashboard desktop and mobile browser audit
+        shell: bash
+        env:
+          OWNER_DASHBOARD_ARTIFACT_DIR: ${{ runner.temp }}/owner-dashboard-audit
+        run: node scripts/owner-dashboard-audit-browser.mjs
+
+      - name: Upload synthetic owner dashboard screenshots
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: owner-dashboard-audit-${{ github.event.pull_request.head.sha }}
+          path: ${{ runner.temp }}/owner-dashboard-audit/*.png
+          if-no-files-found: warn
