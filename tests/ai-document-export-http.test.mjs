@@ -5,6 +5,8 @@ const identity={authenticated:true,workspaceMember:true,tenantId:"tenant1",actor
 const hash="a".repeat(64);
 const job={id:"job1",tenantId:"tenant1",actorId:"user1",status:"completed",format:"pdf",expiresAt:2000,objectKey:"ai-exports/tenant1/job1",title:"Thebe Report"};
 const make=(actor=identity)=>createAiExportHandlers({
+ enabled:true,
+ enabled:true,
  identityFor:async()=>actor,
  resolveMessage:async()=>({authorized:true,actorRole:"assistant",contentHash:hash}),
  createJob:async()=>job,
@@ -30,6 +32,7 @@ test("download returns private attachment headers only to origin actor",async()=
 test("invalid job IDs never reach the lookup",async()=>{
  let lookups=0;
  const handlers=createAiExportHandlers({
+ enabled:true,
  identityFor:async()=>identity,
  resolveMessage:async()=>null,
  createJob:async()=>job,
@@ -44,6 +47,7 @@ test("invalid job IDs never reach the lookup",async()=>{
 
 test("download fails closed for missing, expired, and cross-tenant jobs",async()=>{
  const build=(returnedJob,actor=identity)=>createAiExportHandlers({
+ enabled:true,
   identityFor:async()=>actor,
   resolveMessage:async()=>null,
   createJob:async()=>returnedJob,
@@ -57,6 +61,7 @@ test("download fails closed for missing, expired, and cross-tenant jobs",async()
 });
 test("private object and lookup failures never leak storage details",async()=>{
  const handlers=createAiExportHandlers({
+ enabled:true,
   identityFor:async()=>identity,
   resolveMessage:async()=>null,
   createJob:async()=>job,
@@ -67,4 +72,16 @@ test("private object and lookup failures never leak storage details",async()=>{
  const response=await handlers.download({params:{id:"job1"}});
  assert.equal(response.status,503);
  assert.equal(JSON.stringify(response).includes("secret"),false);
+});
+
+test("HTTP exports default to disabled without invoking identity, storage or rendering",async()=>{
+ let invoked=0;
+ const forbidden=async()=>{invoked++;throw Error("unexpected dependency call")};
+ const handlers=createAiExportHandlers({identityFor:forbidden,resolveMessage:forbidden,createJob:forbidden,findJob:forbidden,readPrivateObject:forbidden});
+ for(const action of ["create","status","download"]){
+  const result=await handlers[action]({body:{conversationId:"c1",messageId:"m1",format:"pdf",documentType:"report"},params:{id:"job1"}});
+  assert.equal(result.status,503);
+  assert.equal(result.body.error,"export_disabled");
+ }
+ assert.equal(invoked,0);
 });
