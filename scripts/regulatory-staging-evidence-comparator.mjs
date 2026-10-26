@@ -53,12 +53,11 @@ export function compareSyntheticRehearsalEvidence({before,after,retry,manifest,m
     !identity(before.schedules,manifest.schedules.map(x=>x.tenantId),"tenantId")||
     before.obligations.some(row=>{
      const expected=manifest.historicalVat.find(x=>x.id===row.id);
-     return !expected||row.tenantId!==expected.tenantId||row.dueAt!==expected.dueAt||
-       row.status!==expected.status;
+     return !expected||JSON.stringify(row)!==JSON.stringify(expected);
     })||
     before.schedules.some(row=>{
      const expected=manifest.schedules.find(x=>x.tenantId===row.tenantId);
-     return !expected||row.nextDueAt!==expected.nextDueAt||row.status!==expected.status;
+     return !expected||JSON.stringify(row)!==JSON.stringify(expected);
     }))return reject("fixture_values_mismatch");
  return {ok:true,decision:"human_review_required",scope:"offline-comparison-only",
   fingerprint:before.databaseFingerprint,fixtureHash:manifestHash,

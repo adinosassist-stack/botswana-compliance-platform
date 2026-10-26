@@ -50,3 +50,10 @@ test("refuses already activated historical rules in before or retry evidence",()
  const y=args();y.before.rules[1].status="approved";
  assert.equal(compare(y).ok,false);
 });
+
+test("rejects fixture period and due-day drift even when all phases agree",()=>{
+ for(const [table,field,value] of [["obligations","periodEnd","2026-01-31"],["obligations","dueDays",28],["schedules","unexpected","hidden"]]){
+  const x=args();for(const phase of ["before","after","retry"])x[phase][table][0][field]=value;
+  assert.equal(compare(x).ok,false,table+"."+field);
+ }
+});
