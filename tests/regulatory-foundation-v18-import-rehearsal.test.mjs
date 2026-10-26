@@ -309,3 +309,74 @@ test("historically ended VAT publication does not block after effective end",asy
     assert.equal(f.sql.prepare("SELECT effective_to FROM regulatory_rules WHERE id='v17-rule-vat-return-payment'").get().effective_to,"2026-06-30");
   }finally{f.close()}
 });
+
+
+test("full-schema approved source snapshot and independent review are immutable on blocked upgrade",async()=>{
+  const f=stage({fullSchema:true});
+  try{
+    await primeV17(f);
+    f.sql.prepare("INSERT INTO users(id,email) VALUES(?,?)")
+      .run("fixture-reviewer","checker@example.test");
+    const sourceId="v17-source-botswana-egp-procurement-2026";
+    f.sql.prepare("UPDATE regulatory_sources SET status='approved',verification_status='verified',latest_snapshot_version=1,content_hash=?,metadata_hash=? WHERE id=?")
+      .run("synthetic-content-hash","synthetic-metadata-hash",sourceId);
+    f.sql.prepare("INSERT INTO regulatory_source_snapshots(id,source_id,version,content_hash,metadata_hash,content_excerpt,captured_by_user_id) VALUES(?,?,?,?,?,?,?)")
+      .run("fixture-snapshot",sourceId,1,"synthetic-content-hash","synthetic-metadata-hash","Synthetic immutable text",actor.user_id);
+    f.sql.prepare("INSERT INTO regulatory_source_reviews(id,source_id,reviewer_user_id,decision,content_hash,metadata_hash,notes) VALUES(?,?,?,?,?,?,?)")
+      .run("fixture-review",sourceId,"fixture-reviewer","approved","synthetic-content-hash","synthetic-metadata-hash","Synthetic approval only");
+    const snapshotBefore=f.sql.prepare("SELECT * FROM regulatory_source_snapshots WHERE id='fixture-snapshot'").get();
+    const reviewBefore=f.sql.prepare("SELECT * FROM regulatory_source_reviews WHERE id='fixture-review'").get();
+    const sourceBefore=f.sql.prepare("SELECT * FROM regulatory_sources WHERE id=?").get(sourceId);
+    const changesBefore=f.sql.prepare("SELECT total_changes() AS n").get().n;
+    const outcome=await f.importer(f.env,actor);
+    assert.equal(outcome.ok,false);
+    assert.equal(outcome.error,"source_metadata_drift_requires_review");
+    assert.ok(outcome.preflight.sources.some(x=>x.key==="botswana-egp-procurement-2026"&&
+      x.action==="source_metadata_drift_requires_review"));
+    assert.equal(f.sql.prepare("SELECT total_changes() AS n").get().n,changesBefore,
+      "no source, registry, audit or rule writes on protected source drift");
+    assert.deepEqual(f.sql.prepare("SELECT * FROM regulatory_source_snapshots WHERE id='fixture-snapshot'").get(),snapshotBefore);
+    assert.deepEqual(f.sql.prepare("SELECT * FROM regulatory_source_reviews WHERE id='fixture-review'").get(),reviewBefore);
+    assert.deepEqual(f.sql.prepare("SELECT * FROM regulatory_sources WHERE id=?").get(sourceId),sourceBefore);
+    assert.equal(scalar(f.sql,"SELECT COUNT(*) AS n FROM regulatory_sources"),23);
+    assert.equal(scalar(f.sql,"SELECT COUNT(*) AS n FROM regulatory_rules"),16);
+    assert.equal(scalar(f.sql,"SELECT COUNT(*) AS n FROM regulatory_pack_imports"),0);
+    assert.equal(f.sql.prepare("PRAGMA foreign_key_check").all().length,0);
+  }finally{f.close()}
+});
+
+test("full-schema historical VAT due dates and two-tenant schedules survive upgrade and retry",async()=>{
+  const f=stage({fullSchema:true});
+  try{
+    await primeV17(f);
+    f.sql.prepare("INSERT INTO tenants(id,name) VALUES(?,?)")
+      .run("fixture-tenant-b","Synthetic tenant B");
+    const vatRule="v17-rule-vat-return-payment";
+    const insertObligation=f.sql.prepare("INSERT INTO compliance_obligations(id,tenant_id,rule_id,obligation_key,title,status,due_at) VALUES(?,?,?,?,?,?,?)");
+    insertObligation.run("vat-history-a","fixture-tenant",vatRule,"vat-2026-05","Synthetic historical VAT A","completed","2026-06-25");
+    insertObligation.run("vat-history-b","fixture-tenant-b",vatRule,"vat-2026-06","Synthetic historical VAT B","open","2026-07-25");
+    const schedule=f.sql.prepare("INSERT INTO statutory_schedule_status(tenant_id,rule_id,schedule_type,config_status,next_due_at) VALUES(?,?,?,?,?)");
+    schedule.run("fixture-tenant",vatRule,"VAT","ready","2026-06-25");
+    schedule.run("fixture-tenant-b",vatRule,"VAT","needs_input","2026-07-25");
+    const obligationsSql="SELECT id,tenant_id,rule_id,obligation_key,title,status,due_at FROM compliance_obligations ORDER BY id";
+    const schedulesSql="SELECT tenant_id,rule_id,schedule_type,config_status,next_due_at FROM statutory_schedule_status ORDER BY tenant_id";
+    const beforeObligations=f.sql.prepare(obligationsSql).all();
+    const beforeSchedules=f.sql.prepare(schedulesSql).all();
+    for(let n=0;n<2;n++){
+      const outcome=await f.importer(f.env,actor);
+      assert.equal(outcome.ok,true);
+      assert.deepEqual(f.sql.prepare(obligationsSql).all(),beforeObligations,
+        "upgrade or retry must not silently change historical tenant obligations");
+      assert.deepEqual(f.sql.prepare(schedulesSql).all(),beforeSchedules,
+        "upgrade or retry must not silently recalculate tenant schedules");
+      assert.equal(f.sql.prepare("SELECT status FROM regulatory_rules WHERE id=?").get(vatRule).status,"review");
+      assert.equal(f.sql.prepare("SELECT status FROM regulatory_rules WHERE rule_key='bw.burs.vat.return-payment.28-days'").get().status,"draft");
+      assert.equal(f.sql.prepare("PRAGMA foreign_key_check").all().length,0);
+      if(n===1){
+        assert.equal(outcome.sourcesCreated,0);
+        assert.equal(outcome.sourcesUpdated,0);
+        assert.equal(outcome.rulesCreated,0);
+      }
+    }
+  }finally{f.close()}
+});
