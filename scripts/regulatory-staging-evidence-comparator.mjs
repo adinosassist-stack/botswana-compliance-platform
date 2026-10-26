@@ -31,11 +31,15 @@ export function compareSyntheticRehearsalEvidence({before,after,retry,manifest,m
   if(keys.length!==expectedKeys.size||new Set(keys).size!==keys.length||
      keys.some(key=>!expectedKeys.has(key)))return reject("unexpected_or_duplicate_vat_rule");
  }
- const oldRule=after.rules.find(x=>x.ruleKey==="bw.burs.vat.return-payment.25-days");
- const newRule=after.rules.find(x=>x.ruleKey==="bw.burs.vat.return-payment.28-days");
- if(oldRule?.status!=="review"||newRule?.status!=="draft")return reject("vat_governance_failed");
- if(after.rules.some(x=>x.status==="approved"||x.status==="published"))
-  return reject("unexpected_activated_rule");
+ // Governance is required in EACH phase, not just after: a tampered before/retry
+ // baseline must never be treated as a qualified historical fixture.
+ for(const phase of [before,after,retry]){
+  const oldRule=phase.rules.find(x=>x.ruleKey==="bw.burs.vat.return-payment.25-days");
+  const newRule=phase.rules.find(x=>x.ruleKey==="bw.burs.vat.return-payment.28-days");
+  if(oldRule?.status!=="review"||newRule?.status!=="draft")return reject("vat_governance_failed");
+  if(phase.rules.some(x=>x.status==="approved"||x.status==="published"))
+   return reject("unexpected_activated_rule");
+ }
  if(before.obligations.length!==manifest.historicalVat.length||before.schedules.length!==manifest.schedules.length)
   return reject("synthetic_inventory_mismatch");
  // Prevent a false pass where identical but fabricated before/after/retry evidence
