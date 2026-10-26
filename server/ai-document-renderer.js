@@ -44,7 +44,7 @@ export async function renderAiDocument(model, format) {
    const pdf=await PDFDocument.create();
    const font=await pdf.embedFont(StandardFonts.Helvetica);
    const lines=[doc.title,...doc.blocks.map(x=>x.text),
-     ...doc.references.map(r=>r.label+" — "+r.url)];
+     ...doc.references.map(r=>r.label+" - "+r.url)];
    let page=pdf.addPage([595.28,841.89]),y=790;
    for(const text of lines){
      // Standard Helvetica cannot encode all Unicode; reject rather than corrupt.
