@@ -1,0 +1,68 @@
+name: Regulatory Populated Staging Rehearsal Readiness
+run-name: Synthetic-only rehearsal readiness ${{ inputs.expected_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact current main commit SHA
+        required: true
+        type: string
+      confirmation:
+        description: Readiness-only; never writes to Cloudflare
+        required: true
+        type: choice
+        default: DO_NOT_RUN
+        options:
+          - DO_NOT_RUN
+          - PREPARE_SYNTHETIC_REHEARSAL_ONLY
+
+permissions:
+  contents: read
+
+concurrency:
+  group: regulatory-staging-rehearsal-readiness
+  cancel-in-progress: false
+
+jobs:
+  readiness:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'workflow_dispatch' &&
+      inputs.confirmation == 'PREPARE_SYNTHETIC_REHEARSAL_ONLY'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: regulatory-staging
+    env:
+      EXPECTED_SHA: ${{ inputs.expected_sha }}
+    steps:
+      - name: Checkout immutable commit without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify exact current main commit before tests
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]] || exit 1
+          [[ "$EXPECTED_SHA" == "$GITHUB_SHA" ]] || exit 1
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SHA" ]] || exit 1
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" == "$EXPECTED_SHA" ]] || exit 1
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]] || exit 1
+      - name: Set up pinned Node toolchain
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Run isolated full-schema synthetic v1.7-to-v1.8 importer regressions
+        run: node --test tests/regulatory-foundation-v18-import-rehearsal.test.mjs tests/regulatory-foundation-source-reconciliation.test.mjs tests/regulatory-foundation-legacy-vat.test.mjs
+      - name: Explicitly refuse remote write or regulatory activation
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'READINESS_ONLY: isolated synthetic tests passed; no staging SQL, import, approval, or production deployment.'
+          echo 'Remote populated rehearsal needs a separately reviewed, explicit staging-write workflow and authorization.' >> "$GITHUB_STEP_SUMMARY"
