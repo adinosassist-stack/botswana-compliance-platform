@@ -57,3 +57,14 @@ test("rejects fixture period and due-day drift even when all phases agree",()=>{
   assert.equal(compare(x).ok,false,table+"."+field);
  }
 });
+
+test("refuses duplicated or missing snapshot, reviewer and registry identities",()=>{
+ for(const key of ["snapshots","reviews","registry"]){
+  const duplicate=args();for(const phase of ["before","after","retry"])
+   duplicate[phase][key].push({...duplicate[phase][key][0]});
+  assert.equal(compare(duplicate).ok,false,key+" duplicate");
+  const absent=args();for(const phase of ["before","after","retry"])
+   delete absent[phase][key][0].id;
+  assert.equal(compare(absent).ok,false,key+" missing id");
+ }
+});
