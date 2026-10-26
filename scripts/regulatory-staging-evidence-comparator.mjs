@@ -31,6 +31,24 @@ export function compareSyntheticRehearsalEvidence({before,after,retry,manifest,m
   return reject("unexpected_activated_rule");
  if(before.obligations.length!==manifest.historicalVat.length||before.schedules.length!==manifest.schedules.length)
   return reject("synthetic_inventory_mismatch");
+ // Prevent a false pass where identical but fabricated before/after/retry evidence
+ // contains unrelated or duplicated synthetic records.
+ const identity = (actual, expected, key) => {
+  if(actual.length!==expected.length)return false;
+  const ids=actual.map(x=>x[key]);
+  return new Set(ids).size===expected.length && expected.every(id=>ids.includes(id));
+ };
+ if(!identity(before.obligations,manifest.historicalVat.map(x=>x.id),"id")||
+    !identity(before.schedules,manifest.schedules.map(x=>x.tenantId),"tenantId")||
+    before.obligations.some(row=>{
+     const expected=manifest.historicalVat.find(x=>x.id===row.id);
+     return !expected||row.tenantId!==expected.tenantId||row.dueAt!==expected.dueAt||
+       row.status!==expected.status;
+    })||
+    before.schedules.some(row=>{
+     const expected=manifest.schedules.find(x=>x.tenantId===row.tenantId);
+     return !expected||row.nextDueAt!==expected.nextDueAt||row.status!==expected.status;
+    }))return reject("fixture_values_mismatch");
  return {ok:true,decision:"human_review_required",scope:"offline-comparison-only",
   fingerprint:before.databaseFingerprint,fixtureHash:manifestHash,
   evidenceDigest:sha({before,after,retry})};
