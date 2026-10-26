@@ -31,3 +31,9 @@ test("every mandatory control is fail closed",()=>{
  for(const [key,value] of mutations){const result=validate({...base(),[key]:value});assert.equal(result.ok,false,key);}
  assert.equal(validate().ok,false);
 });
+
+test("independent reviewer identity rejects case, whitespace and empty aliases",()=>{
+ for(const [reviewerId,operatorId] of [[" Maker ","maker"],["MAKER","maker"],[" ","maker"],["checker","  "]]){
+  assert.equal(validate({...base(),reviewerId,operatorId}).ok,false,JSON.stringify([reviewerId,operatorId]));
+ }
+});
