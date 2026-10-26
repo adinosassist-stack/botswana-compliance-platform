@@ -419,9 +419,11 @@ async function runBrowserProof(credentials){
     await dismissFirstRunOnboardingIfPresent(page,'desktop');
     const desktopNav=page.locator('#workspaceSidebar [data-view]:visible');
     const desktopNavCount=await desktopNav.count();assert(desktopNavCount>0,'desktop owner workspace has no visible data-view navigation');
-    const firstDesktopNav=desktopNav.first();const desktopView=await firstDesktopNav.getAttribute('data-view');await firstDesktopNav.click({timeout:10000});
+    const firstDesktopNav=desktopNav.first();const desktopView=await firstDesktopNav.getAttribute('data-view');const desktopNavigationStarted=Date.now();await firstDesktopNav.click({timeout:10000});const desktopClickSettledMs=Date.now()-desktopNavigationStarted;
     const desktopResponsive=await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>setTimeout(()=>resolve(true),60))));
     assert(desktopResponsive===true,'desktop owner workspace stopped responding after navigation');
+    const navTiming=await page.evaluate(async ()=>{const frames=[];const start=performance.now();await new Promise(resolve=>requestAnimationFrame(()=>{frames.push(performance.now());resolve();}));await new Promise(resolve=>requestAnimationFrame(()=>{frames.push(performance.now());resolve();}));return {twoFrameMs:Math.round(performance.now()-start),frameGapMs:Math.round(frames[1]-frames[0])};});
+    info('authenticated desktop navigation frame timing',JSON.stringify({...navTiming,clickSettledMs:desktopClickSettledMs}));
     assert(pageErrors.length===0,`desktop page errors: ${safe(pageErrors.join(' | '))}`);
     assert(criticalFailures.length===0,`desktop critical assets failed: ${safe(criticalFailures.join(' | '))}`);
     mark('desktop registration pass 3',`canonical synthetic owner reached workspace and ${desktopView||'workspace'} navigation stayed responsive`);
