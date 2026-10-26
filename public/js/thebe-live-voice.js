@@ -774,7 +774,7 @@
       });
     }
     if(input)input.placeholder=surfaceMode()==="workspace"?modeCopy[assistantMode].placeholder:"Ask about Thebe Desk…";
-    if(quick){quick.dataset.mode="";renderQuickActions(surfaceMode())}
+    if(quick){quick.hidden=true;quick.replaceChildren()}
     if(options.focus!==false)input?.focus({preventScroll:true});
   }
   function clearConversation(){
