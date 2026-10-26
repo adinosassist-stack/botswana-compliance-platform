@@ -1,0 +1,27 @@
+name: AI export guarded-core tests
+on:
+  pull_request:
+    paths:
+      - 'server/ai-document-export-*.js'
+      - 'tests/ai-document-export-*.test.mjs'
+      - '.github/workflows/ai-export-guarded-core.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'server/ai-document-export-*.js'
+      - 'tests/ai-document-export-*.test.mjs'
+      - '.github/workflows/ai-export-guarded-core.yml'
+permissions:
+  contents: read
+jobs:
+  guarded-core:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+      - name: Verify isolated tenant/export security contracts
+        run: |
+          node --test tests/ai-document-export-policy.test.mjs tests/ai-document-export-access.test.mjs tests/ai-document-export-model.test.mjs tests/ai-document-export-mime.test.mjs
