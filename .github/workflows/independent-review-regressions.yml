@@ -154,6 +154,13 @@ jobs:
           node --check tests/regulatory-reviewer-provisioning-static.mjs
           node tests/regulatory-reviewer-provisioning-static.mjs
 
+      - name: Staging OAuth bootstrap syntax and safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/regulatory-staging-oauth-bootstrap.sh
+          node --test tests/regulatory-staging-oauth-bootstrap-static.test.mjs
+
       - name: Platform billing controls and approval loading
         shell: bash
         run: node --test tests/platform-billing-controls.test.mjs tests/owner-payment-dashboard.test.mjs tests/platform-billing-analytics.test.mjs tests/owner-dashboard-audit.test.mjs tests/manual-bank-owner-approval-flow.test.mjs
