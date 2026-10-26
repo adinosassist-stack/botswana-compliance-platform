@@ -38,3 +38,27 @@ test("authorized private download returns attachment bytes only",async()=>{
  const result=await service.download("job1",actor);
  assert.equal(result.ok,true);assert.match(result.headers["Content-Disposition"],/attachment/);assert.equal(calls.read,1);
 });
+
+test("export rejects oversized or invalid rendered bytes and never marks success",async()=>{
+ for(const render of [async()=>Buffer.alloc(0),async()=>Buffer.alloc(20*1024*1024+1),async()=>null,async()=>{throw Error("renderer failed")}]) {
+  const {service}=setup({render});
+  const result=await service.create(request,actor);
+  assert.equal(result.ok,false);
+  assert.equal(result.reason,"render_failed");
+ }
+});
+test("invalid input and unauthorized context are rejected before any message read or storage write",async()=>{
+ const {service,calls}=setup();
+ assert.equal((await service.create({...request,tenantId:"tenant2"},actor)).ok,false);
+ assert.equal((await service.create(request,{...actor,workspaceMember:false})).ok,false);
+ assert.equal(calls.create,0);
+});
+test("private storage failures do not expose error messages",async()=>{
+ const service=createAiExportService({enabled:true,clock:()=>1000,
+  loadMessage:async()=>input,render:async()=>Buffer.from("%PDF-test"),
+  store:{create:async()=>{throw Error("database-password")},get:async()=>{throw Error("secret-store")},complete:async()=>{},readPrivate:async()=>{throw Error("secret-blob")}}
+ });
+ for(const result of [await service.create(request,actor),await service.download("job1",actor)]){
+  assert.equal(result.ok,false);assert.equal(JSON.stringify(result).includes("secret"),false);
+ }
+});
