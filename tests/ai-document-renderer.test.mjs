@@ -21,8 +21,12 @@ test("PowerPoint slide limit rejects oversized documents",async()=>{
  const blocks=Array.from({length:40},(_,i)=>({type:"paragraph",text:"Page "+i}));
  await assert.rejects(renderAiDocument({title:"Deck",blocks},"pptx"),/too_many_slides/);
 });
-test("PDF rejects unbreakable text wider than a page",async()=>{
- await assert.rejects(renderAiDocument({title:"Report",blocks:[{type:"paragraph",text:"W".repeat(300)}]},"pdf"),/pdf_word_too_long/);
+test("PDF wraps unbreakable text wider than a page without rejecting or truncating",async()=>{
+ const {PDFDocument}=await import("pdf-lib");
+ const file=await renderAiDocument({title:"Report",blocks:[{type:"paragraph",text:"W".repeat(300)}]},"pdf");
+ const pdf=await PDFDocument.load(file);
+ assert(pdf.getPageCount()>=1);
+ assert.equal(file.subarray(0,4).toString(),"%PDF");
 });
 
 test("PDF supports Botswana pula amounts and retains reference metadata without Unicode separator errors",async()=>{
