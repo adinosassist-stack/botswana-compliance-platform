@@ -1,0 +1,69 @@
+name: Regulatory Rehearsal Pre-authorization Packet
+run-name: Offline staging rehearsal packet ${{ inputs.expected_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact current main commit SHA
+        required: true
+        type: string
+      confirmation:
+        description: Prepare offline evidence only; never write to staging
+        required: true
+        type: choice
+        default: DO_NOT_RUN
+        options:
+          - DO_NOT_RUN
+          - PREPARE_OFFLINE_AUTHORIZATION_PACKET
+
+permissions:
+  contents: read
+
+concurrency:
+  group: regulatory-staging-offline-authorization-packet
+  cancel-in-progress: false
+
+jobs:
+  packet:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'workflow_dispatch' &&
+      inputs.confirmation == 'PREPARE_OFFLINE_AUTHORIZATION_PACKET'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: regulatory-staging
+    env:
+      EXPECTED_SHA: ${{ inputs.expected_sha }}
+    steps:
+      - name: Checkout exact immutable revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Refuse stale revision and unclean checkout
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]] || exit 1
+          [[ "$GITHUB_SHA" == "$EXPECTED_SHA" ]] || exit 1
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SHA" ]] || exit 1
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" == "$EXPECTED_SHA" ]] || exit 1
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]] || exit 1
+      - name: Set up pinned Node runtime
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Check isolated authorization and fixture safety contracts
+        run: |
+          node --test tests/regulatory-staging-write-authorization.test.mjs tests/regulatory-staging-fixture-manifest.test.mjs tests/regulatory-staging-fixture-schema-qualification.test.mjs tests/regulatory-staging-evidence-comparator.test.mjs tests/regulatory-staging-rehearsal-authorization-static.test.mjs
+      - name: Record explicit human decision requirement
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'OFFLINE_PACKET_ONLY: no remote SQL, secrets, write authorization, source approval, or activation.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'A distinct reviewed, default-off staging writer and fresh independent authorization are required.' >> "$GITHUB_STEP_SUMMARY"
