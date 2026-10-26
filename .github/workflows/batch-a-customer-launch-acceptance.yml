@@ -1,0 +1,44 @@
+name: Batch A Customer Launch Acceptance
+on:
+  pull_request:
+    paths:
+      - "cloudflare/src/**"
+      - "public/**"
+      - "server/**"
+      - "scripts/**"
+      - "tests/**"
+      - ".github/workflows/batch-a-customer-launch-acceptance.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+concurrency:
+  group: thebe-batch-a-acceptance-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: false
+jobs:
+  customer-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout immutable revision without credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Set up pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Workspace navigation and freeze budgets
+        run: node --test tests/workspace-navigation-freeze-budget.test.mjs tests/workspace-navigation-render-budget.test.mjs tests/workspace-navigation-performance-evidence.test.mjs tests/workspace-route-recovery-navigation.test.mjs tests/v551-workspace-navigation-speed.mjs
+      - name: Owner payments and subscription activation contracts
+        run: node --test tests/owner-dashboard-audit.test.mjs tests/owner-payment-dashboard.test.mjs tests/manual-bank-owner-approval-flow.test.mjs tests/payment-verification-static.mjs tests/v115-manual-bank-subscriptions-adversarial.mjs
+      - name: Require human authenticated production evidence before launch
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'BATCH_A_TESTS_ONLY: isolated regressions do not prove authenticated production responsiveness or a real payment.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'P0 #1701 requires browser performance profiles and verified deployed cold/warm navigation.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Owner access, bank settlement, subscription enforcement and onboarding require independently recorded E2E acceptance.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'No payments, customer mutations, production deployment or regulatory activation were attempted.' >> "$GITHUB_STEP_SUMMARY"
