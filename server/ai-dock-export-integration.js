@@ -9,13 +9,17 @@ export function createAiDockExportIntegration({identityFor,store,loadMessage,ren
  const safeResponse=result=>result.ok?result:{ok:false,reason:result.reason};
  return Object.freeze({
   async create(req){
-   if(!enabled)return {ok:false,reason:"export_disabled"};
-   const identity=await identityFor(req);
+   if(enabled!==true)return {ok:false,reason:"export_disabled"};
+   let identity;
+   try{identity=await identityFor(req)}catch{return {ok:false,reason:"unauthorized"}}
+   if(identity?.authenticated!==true||identity?.workspaceMember!==true)return {ok:false,reason:"unauthorized"};
    return safeResponse(await service.create(req?.body,identity));
   },
   async download(req){
-   if(!enabled)return {ok:false,reason:"export_disabled"};
-   const identity=await identityFor(req);
+   if(enabled!==true)return {ok:false,reason:"export_disabled"};
+   let identity;
+   try{identity=await identityFor(req)}catch{return {ok:false,reason:"unauthorized"}}
+   if(identity?.authenticated!==true||identity?.workspaceMember!==true)return {ok:false,reason:"unauthorized"};
    return safeResponse(await service.download(req?.params?.id,identity));
   }
  });

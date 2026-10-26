@@ -10,7 +10,7 @@ export function createAiExportService({store,loadMessage,clock=()=>Date.now(),re
  const unavailable=()=>({ok:false,reason:"export_disabled"});
  return Object.freeze({
   async create(request,context){
-   if(!enabled)return unavailable();
+   if(enabled!==true)return unavailable();
    const check=validateAiExportRequest(request,context);
    if(!check.ok)return check;
    const input=check.value;
@@ -33,7 +33,7 @@ export function createAiExportService({store,loadMessage,clock=()=>Date.now(),re
    }catch{return {ok:false,reason:"render_failed"};}
   },
   async download(id,context){
-   if(!enabled)return unavailable();
+   if(enabled!==true)return unavailable();
    if(!validId(id))return {ok:false,reason:"not_found"};
    if(context?.authenticated!==true||context?.workspaceMember!==true||!validId(context.tenantId)||!validId(context.actorId))return {ok:false,reason:"unauthorized"};
    let job;

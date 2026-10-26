@@ -62,3 +62,10 @@ test("private storage failures do not expose error messages",async()=>{
   assert.equal(result.ok,false);assert.equal(JSON.stringify(result).includes("secret"),false);
  }
 });
+
+test("service cannot activate with a truthy string flag",async()=>{
+ const {service,calls}=setup({enabled:"true"});
+ assert.equal((await service.create(request,actor)).reason,"export_disabled");
+ assert.equal((await service.download("job1",actor)).reason,"export_disabled");
+ assert.equal(calls.create,0);assert.equal(calls.read,0);
+});
