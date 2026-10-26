@@ -4,8 +4,7 @@ import {renderAiDocument} from "../server/ai-document-renderer.js";
 const model={title:"Thebe report",blocks:[{type:"heading",text:"Summary"},{type:"paragraph",text:"Operational findings"}],references:[{label:"Reference",url:"https://example.org/report"}]};
 test("real renderers emit PDF and Office file signatures",async()=>{
  for(const [format,signature] of [["pdf","%PDF"],["docx","PK"],["pptx","PK"]]){
-   const safeModel=format==="pdf"?{...model,references:[]}:model;
-   const file=await renderAiDocument(safeModel,format);
+   const file=await renderAiDocument(model,format);
    assert(Buffer.isBuffer(file));assert(file.length>200);
    assert.equal(file.subarray(0,signature.length).toString(),signature);
  }
@@ -24,4 +23,9 @@ test("PowerPoint slide limit rejects oversized documents",async()=>{
 });
 test("PDF rejects unbreakable text wider than a page",async()=>{
  await assert.rejects(renderAiDocument({title:"Report",blocks:[{type:"paragraph",text:"W".repeat(300)}]},"pdf"),/pdf_word_too_long/);
+});
+
+test("PDF supports Botswana pula amounts and retains reference metadata without Unicode separator errors",async()=>{
+ const file=await renderAiDocument({title:"Botswana budget P 12,500",blocks:[{type:"paragraph",text:"Monthly payroll P 3,500"}],references:[{label:"BOCRA",url:"https://www.bocra.org.bw"}]},"pdf");
+ assert.equal(file.subarray(0,4).toString(),"%PDF");
 });
