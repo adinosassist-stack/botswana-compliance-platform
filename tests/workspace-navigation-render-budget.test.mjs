@@ -28,13 +28,13 @@ test("non-dashboard navigation does not evaluate dashboard scoring", () => {
   const flagIndex = render.indexOf(flag);
   const guardIndex = render.indexOf("if(dashboardMetricsNeeded){", flagIndex);
   const scoreIndex = render.indexOf("const a=applicable(),s=scoreData(a);", guardIndex);
-  const guardEnd = render.indexOf("\\n applyRoleUi();", guardIndex);
+  const guardEnd = render.indexOf("applyRoleUi();", guardIndex);
   assert.ok(flagIndex >= 0 && guardIndex > flagIndex, "dashboard scoring must be gated");
   assert.ok(scoreIndex > guardIndex && guardEnd > scoreIndex, "scoring must remain inside dashboard-only block");
   const beforeGuard = render.slice(0, guardIndex);
   const afterGuard = render.slice(guardEnd);
-  assert.doesNotMatch(beforeGuard, /\\b(?:scoreData|applicable)\\s*\\(/, "no unconditional scoring before the guard");
-  assert.doesNotMatch(afterGuard, /\\b(?:scoreData|applicable)\\s*\\(/, "no unconditional scoring after the guard");
+  assert.doesNotMatch(beforeGuard, /\b(?:scoreData|applicable)\s*\(/, "no unconditional scoring before the guard");
+  assert.doesNotMatch(afterGuard, /\b(?:scoreData|applicable)\s*\(/, "no unconditional scoring after the guard");
 });
 
 test.todo("profile authenticated non-dashboard navigation to quantify applicable() and scoreData() blocking time");
