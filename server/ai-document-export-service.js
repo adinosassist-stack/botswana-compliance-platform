@@ -27,7 +27,7 @@ export function createAiExportService({store,loadMessage,clock=()=>Date.now(),re
    try{
     const bytes=await render(validated.value,input.format);
     if(!Buffer.isBuffer(bytes)||bytes.length===0||bytes.length>20*1024*1024)throw Error("invalid_export_bytes");
-    const objectKey="ai-exports/"+input.tenantId+"/"+input.actorId+"/"+job.id;
+    const objectKey="ai-exports/"+input.tenantId+"/"+job.id;
     await store.complete({tenantId:input.tenantId,actorId:input.actorId,id:job.id,objectKey,bytes,format:input.format});
     return {ok:true,id:job.id,status:"completed"};
    }catch{return {ok:false,reason:"render_failed"};}
@@ -41,7 +41,7 @@ export function createAiExportService({store,loadMessage,clock=()=>Date.now(),re
    catch{return {ok:false,reason:"storage_unavailable"};}
    const allowed=authorizeExportDownload(job,context,clock());
    if(!allowed.allowed)return {ok:false,reason:allowed.reason};
-   if(typeof job.objectKey!=="string"||job.objectKey!=="ai-exports/"+context.tenantId+"/"+context.actorId+"/"+id)return {ok:false,reason:"not_found"};
+   if(typeof job.objectKey!=="string"||job.objectKey!=="ai-exports/"+context.tenantId+"/"+id)return {ok:false,reason:"not_found"};
    const headers=exportDownloadHeaders(job.format,job.title);
    if(!headers)return {ok:false,reason:"invalid_format"};
    let bytes;
