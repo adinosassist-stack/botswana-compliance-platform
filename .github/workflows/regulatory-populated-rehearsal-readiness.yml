@@ -60,6 +60,9 @@ jobs:
           package-manager-cache: false
       - name: Run isolated full-schema synthetic v1.7-to-v1.8 importer regressions
         run: node --test tests/regulatory-foundation-v18-import-rehearsal.test.mjs tests/regulatory-foundation-source-reconciliation.test.mjs tests/regulatory-foundation-legacy-vat.test.mjs
+      - name: Qualify fixture integrity, real D1 schema and fail-closed authorization offline
+        run: |
+          node --test tests/regulatory-staging-fixture-manifest.test.mjs tests/regulatory-staging-fixture-schema-qualification.test.mjs tests/regulatory-staging-write-authorization.test.mjs tests/regulatory-staging-rehearsal-authorization-static.test.mjs tests/regulatory-staging-evidence-comparator.test.mjs
       - name: Explicitly refuse remote write or regulatory activation
         shell: bash
         run: |
