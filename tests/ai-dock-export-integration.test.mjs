@@ -28,3 +28,19 @@ test("foreign actor and caller-supplied tenant fail closed",async()=>{
  assert.equal((await api.download({params:{id:"j1"}})).ok,false);
  assert.equal((await api.create({body:{...request,tenantId:"t2"}})).ok,false);
 });
+
+test("truthy strings cannot activate exports",async()=>{
+ let identityCalls=0;
+ const api=createAiDockExportIntegration({enabled:"true",identityFor:async()=>{identityCalls++;return actor},store:{create:async()=>job,get:async()=>job,complete:async()=>{},readPrivate:async()=>Buffer.from("file")},loadMessage:async()=>document,render:async()=>Buffer.from("file"),clock:()=>1000});
+ assert.equal((await api.create({body:request})).reason,"export_disabled");
+ assert.equal((await api.download({params:{id:"j1"}})).reason,"export_disabled");
+ assert.equal(identityCalls,0);
+});
+test("identity resolver failures and unauthenticated sessions fail closed",async()=>{
+ for(const identityFor of [async()=>{throw Error("session-secret")},async()=>({...actor,authenticated:false})]){
+  let storageCalls=0;
+  const api=createAiDockExportIntegration({enabled:true,identityFor,store:{create:async()=>{storageCalls++;return job},get:async()=>{storageCalls++;return job},complete:async()=>{},readPrivate:async()=>Buffer.from("file")},loadMessage:async()=>document,render:async()=>Buffer.from("file"),clock:()=>1000});
+  for(const result of [await api.create({body:request}),await api.download({params:{id:"j1"}})]){assert.equal(result.ok,false);assert.equal(result.reason,"unauthorized");}
+  assert.equal(storageCalls,0);
+ }
+});
