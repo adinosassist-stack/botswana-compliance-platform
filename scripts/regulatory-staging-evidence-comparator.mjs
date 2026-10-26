@@ -14,6 +14,13 @@ export function compareSyntheticRehearsalEvidence({before,after,retry,manifest,m
     typeof state.databaseFingerprint!=="string"||!/^[a-f0-9]{16}$/.test(state.databaseFingerprint))
     return reject(name+"_invalid");
   for(const key of allowed)if(!validRows(state[key],200))return reject(name+"_rows_invalid");
+  // Snapshot, review and registry identity collisions can conceal fabricated evidence
+  // even when all three phase dumps have the same hashes.
+  for(const key of ["snapshots","reviews","registry"]){
+   const ids=state[key].map(row=>row.id);
+   if(ids.some(id=>typeof id!=="string"||!id.trim())||
+      new Set(ids).size!==ids.length)return reject(name+"_"+key+"_identity_invalid");
+  }
  }
  if(before.databaseFingerprint!==after.databaseFingerprint||after.databaseFingerprint!==retry.databaseFingerprint)
   return reject("staging_identity_changed");
