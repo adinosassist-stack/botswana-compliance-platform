@@ -9,7 +9,7 @@ test("AI Dock offers explicit answer-only copy action",()=>{
  assert.match(source,/if\(lastAnswer\)/);
 });
 test("copy action does not expose public share links or auto-copy",()=>{
- const fragment=source.slice(source.indexOf("Copy only the visible assistant answer"),source.indexOf("const actions=Array.isArray(result?.actions)"));
+ const fragment=source.slice(source.indexOf("Copy only the visible assistant answer"),source.indexOf("const actions=",source.indexOf("Copy only the visible assistant answer")));
  assert.match(fragment,/addEventListener\("click"/);
  assert.doesNotMatch(fragment,/fetch\(|shareUrl|createObjectURL|localStorage/);
 });
