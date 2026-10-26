@@ -22,8 +22,10 @@ export function validateRegulatoryRehearsalAuthorization(input={}){
     !DIGEST.test(String(input.approvedFixtureManifestSha256||""))||
     input.fixtureManifestSha256!==input.approvedFixtureManifestSha256)
     return fail("fixture_manifest_unapproved");
-  if(input.independentReviewerApproved!==true||input.reviewerId===input.operatorId||
-    !input.reviewerId||!input.operatorId)return fail("independent_authorization_required");
+  const reviewer=typeof input.reviewerId==="string"?input.reviewerId.trim().toLowerCase():"";
+  const operator=typeof input.operatorId==="string"?input.operatorId.trim().toLowerCase():"";
+  if(input.independentReviewerApproved!==true||!reviewer||!operator||reviewer===operator)
+    return fail("independent_authorization_required");
   if(input.noConcurrentWriter!==true||input.recoveryVerified!==true||
     input.beforeStateVerified!==true)return fail("staging_safety_prerequisite_missing");
   if(input.noAutoApproval!==true||input.noProductionWrite!==true)
