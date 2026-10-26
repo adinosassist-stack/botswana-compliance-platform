@@ -24,6 +24,13 @@ export function compareSyntheticRehearsalEvidence({before,after,retry,manifest,m
  }
  // Retry must be fully idempotent across every compared inventory.
  for(const key of allowed)if(sha(after[key])!==sha(retry[key]))return reject("retry_"+key+"_changed");
+ // Reject duplicates and unrelated records; first-match status checks alone are insufficient.
+ const expectedKeys=new Set(manifest.rules.map(x=>x.key));
+ for(const phase of [before,after,retry]){
+  const keys=phase.rules.map(x=>x.ruleKey);
+  if(keys.length!==expectedKeys.size||new Set(keys).size!==keys.length||
+     keys.some(key=>!expectedKeys.has(key)))return reject("unexpected_or_duplicate_vat_rule");
+ }
  const oldRule=after.rules.find(x=>x.ruleKey==="bw.burs.vat.return-payment.25-days");
  const newRule=after.rules.find(x=>x.ruleKey==="bw.burs.vat.return-payment.28-days");
  if(oldRule?.status!=="review"||newRule?.status!=="draft")return reject("vat_governance_failed");
