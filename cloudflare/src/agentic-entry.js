@@ -1,3 +1,5 @@
+import {guardPausedWorkspaceWrites} from "./platform-subscription-controls.js";
+import {authenticateWorkspaceSession} from "./worker.js";
 import withReportAttachments from "./report-attachments-entry.js";
 import {ledgerSchemaReady} from "./ledger-schema-readiness.js";
 import base from "./production-entry.js";
@@ -279,6 +281,13 @@ const agenticRuntime={
   }
 };
 
-export default withReportAttachments(agenticRuntime,{logicalRequestPath});
+const attachmentRuntime=withReportAttachments(agenticRuntime,{logicalRequestPath});
+export default {
+  ...attachmentRuntime,
+  async fetch(request,env,ctx){
+    const paused=await guardPausedWorkspaceWrites(request,env,{logicalPath:logicalRequestPath(request),authenticate:authenticateWorkspaceSession});
+    return paused||attachmentRuntime.fetch(request,env,ctx);
+  }
+};
 
 export {delegatedAuthoritySchemaReady,enhanceReadiness,hardenAuthenticatedColdStart,injectSyntheticBootTrace,logicalRequestPath,syntheticBootTraceRequested,V81_SCHEMA_DELTA,withRegulatorySqlGuard};
