@@ -3796,6 +3796,7 @@ async function requestPlan(plan){
      <div class="small" style="margin-top:8px">Use the payment reference above on the bank transfer. After paying, enter your bank transaction reference below. Submission does not activate the plan.</div>
      <label style="display:block;margin-top:10px">Bank transaction reference<input id="manualBankReference" maxlength="100" autocomplete="off" placeholder="e.g. transfer confirmation/reference"></label>
      <button type="button" class="btn" style="margin-top:10px" data-bw-onclick="submitManualBankPayment('${escapeHtml(data.paymentOrder.id)}')">I have paid</button>
+     ${b.popWhatsappNumber?`<a class="btn soft" target="_blank" rel="noopener noreferrer" href="https://wa.me/${b.popWhatsappNumber}?text=${encodeURIComponent("Thebe Desk POP for order "+data.paymentOrder.id+". I will attach my receipt. Please verify cleared funds in the company bank account.")}">Send POP on WhatsApp</a>`:""}
      <div id="manualBankSubmitResult" style="margin-top:10px" role="status" aria-live="polite"></div></div>`;
  }catch(e){if(upgradeResult)upgradeResult.safeHTML=`<div class="autherror show">${escapeHtml(e.message)}</div>`}
 }
