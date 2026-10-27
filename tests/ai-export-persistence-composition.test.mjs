@@ -22,7 +22,7 @@ function fakeEnvironment(){
   async put(key,bytes,opts){writes++;blobs.set(key,{bytes,opts})},
   async get(key){const b=blobs.get(key);return b?{size:b.bytes.length,customMetadata:b.opts.customMetadata,arrayBuffer:async()=>b.bytes}:null}
  };
- return {db,r2Binding,rows,blobs,getWrites:()=>writes};
+ return {db,r2Binding,evidenceBinding:{},rows,blobs,getWrites:()=>writes};
 }
 const identity={authenticated:true,workspaceMember:true,tenantId:"tenant1",actorId:"actor1"};
 const request={conversationId:"conv1",messageId:"msg1",format:"pdf",documentType:"report"};
@@ -55,4 +55,11 @@ test("trusted D1-R2 composition safely executes create and private download",asy
  assert.equal(otherTenant.ok,false);
  assert.equal(env.rows.get(created.id).status,"completed");
  assert.equal(env.blobs.get("ai-exports/tenant1/job1").opts.customMetadata.expiresAt,"3601000");
+});
+
+test("enabled composition refuses evidence bucket reuse or missing comparison binding",()=>{
+ const env=fakeEnvironment();
+ assert.throws(()=>createAiExportPersistence({enabled:true,db:env.db,r2Binding:env.r2Binding,bucketName:"private",clock:()=>1000}),/private_export_bindings_required/);
+ assert.throws(()=>createAiExportPersistence({enabled:true,...env,evidenceBinding:env.r2Binding,bucketName:"private",clock:()=>1000}),/private_export_bindings_required/);
+ assert.equal(env.getWrites(),0);
 });
