@@ -2,7 +2,7 @@
  * Default is a read-only dry run. No cron/HTTP route/production binding.
  * Separate approval is required before ANY private R2 delete in isolated staging.
  */
-const id=v=>typeof v==="string"&&/^[a-zA-Z0-9_.:-]{1,200}$/.test(v);
+const id=v=>typeof v==="string"&&/^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,199}$/.test(v)&&!v.includes("..");
 const CONFIRM="DELETE_EXPIRED_EXPORT_OBJECTS_IN_STAGING";
 const DEFAULT_GRACE_MS=3600000;
 const unavailable=reason=>Object.freeze({ok:false,reason,mode:"disabled",inspected:0,eligible:0,deleted:0,failed:0,invalid:0});
