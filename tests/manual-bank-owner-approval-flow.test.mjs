@@ -131,3 +131,14 @@ test('same reviewing administrator may recover a previously claimed approval',as
  assert.equal(response.body.activated,true);
  assert.equal(f.state.settlements,1);
 });
+
+test('final approval and failed-settlement reset use reviewer-fenced compare-and-set',async()=>{
+ const successful=fixture();await successful.run();
+ const final=successful.state.writes.find(w=>w.sql.includes("status='approved'"));
+ assert.ok(final);assert.match(final.sql,/reviewed_by_user_id=\\?/);
+ assert.equal(final.args.at(-1),'admin');
+ const failing=fixture({settles:false});await failing.run();
+ const reset=failing.state.writes.find(w=>w.sql.includes("status='submitted',reviewed_by_user_id=NULL"));
+ assert.ok(reset);assert.match(reset.sql,/reviewed_by_user_id=\\?/);
+ assert.equal(reset.args.at(-1),'admin');
+});
