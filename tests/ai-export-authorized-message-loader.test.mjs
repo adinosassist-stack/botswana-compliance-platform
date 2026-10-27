@@ -6,7 +6,9 @@ const ids={tenantId:"tenant1",actorId:"actor1",conversationId:"conv1",messageId:
 const conversation={id:"conv1",tenantId:"tenant1",deletedAt:null};
 const message={id:"message1",conversationId:"conv1",tenantId:"tenant1",role:"assistant",isFinal:true};
 const document={title:"Your report",blocks:[{type:"paragraph",text:"Cost P 1,200"}],references:[]};
-function setup({conversationRow=conversation,messageRow=message,member=true,documentRow=document,throwAt=null}={}){
+function setup(options={}){
+ const {conversationRow=conversation,messageRow=message,documentRow=document,throwAt=null}=options;
+ const member=Object.prototype.hasOwnProperty.call(options,"member")?options.member:true;
  const calls=[];
  const callbacks={
   readConversation:async args=>{calls.push(["conversation",args]);if(throwAt==="conversation")throw Error("secret-db");return conversationRow},
