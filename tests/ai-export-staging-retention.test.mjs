@@ -61,13 +61,14 @@ test("corrupt, foreign, queued, too-new or manipulated rows are never deleted",a
   makeRow("ok"),
   makeRow("foreign",{objectKey:"ai-exports/another/foreign"}),
   makeRow("traversal",{tenantId:"../private"}),
+  makeRow("dot",{tenantId:"..",objectKey:"ai-exports/../dot"}),
   makeRow("queued",{status:"queued"}),
   makeRow("recent",{expiresAt:now-1000}),
   makeRow("invalid",{objectKey:"ai-exports/tenant1/something-else"})
  ];
  const x=setup({rows:list});
  const r=await x.cleanup.run({dryRun:false,approval:true,confirmation:"DELETE_EXPIRED_EXPORT_OBJECTS_IN_STAGING"});
- assert.equal(r.eligible,1);assert.equal(r.deleted,1);assert.equal(r.invalid,5);
+ assert.equal(r.eligible,1);assert.equal(r.deleted,1);assert.equal(r.invalid,6);
  assert.deepEqual(x.events.filter(e=>e[0]==="delete").map(e=>e[1]),["ai-exports/tenant1/ok"]);
 });
 test("fresh metadata recheck prevents delete after changed status, expiry or owner",async()=>{
