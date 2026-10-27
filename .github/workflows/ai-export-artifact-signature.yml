@@ -7,6 +7,7 @@ on:
       - 'tests/ai-export-artifact-signature.test.mjs'
       - 'tests/ai-export-artifact-real-render.test.mjs'
       - 'tests/ai-export-pptx-text-only-import.test.mjs'
+      - 'docs/ai-export-renderer-review-lock.sha256'
       - '.github/workflows/ai-export-artifact-signature.yml'
 permissions:
   contents: read
@@ -56,6 +57,8 @@ jobs:
           '
           cd .ai-export-renderer-candidate
           npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          # Match the independently captured candidate manifest and complete transitive lock graph.
+          sha256sum -c ../docs/ai-export-renderer-review-lock.sha256
           npm ci --ignore-scripts --no-audit --no-fund
           sha256sum package.json package-lock.json > package-sha256.txt
       - name: Strict high-severity dependency audit of selected candidate
