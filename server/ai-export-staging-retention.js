@@ -21,8 +21,10 @@ export function createAiExportStagingRetention({
   throw new TypeError("isolated_retention_dependencies_required");
  return Object.freeze({enabled:true,async run({dryRun=true,approval=false,confirmation="",limit=25}={}){
   if(!Number.isSafeInteger(limit)||limit<1||limit>25)return unavailable("invalid_retention_limit");
+  // Reject string/number coercions: only the literal boolean false opts into deletion.
+  if(dryRun!==true&&dryRun!==false)return unavailable("invalid_retention_mode");
   // An actual delete requires three distinct, literal gates; dry-run cannot delete.
-  if(dryRun!==true&&(approval!==true||confirmation!==CONFIRM))
+  if(dryRun===false&&(approval!==true||confirmation!==CONFIRM))
    return unavailable("explicit_staging_delete_approval_required");
   const now=clock();
   if(!Number.isSafeInteger(now)||now<graceMs)return unavailable("invalid_retention_clock");
