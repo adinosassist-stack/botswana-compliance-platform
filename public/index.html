@@ -5509,7 +5509,6 @@ function renderAll(){
  document.getElementById("complianceBar").style.width=s.comp+"%";document.getElementById("protectionBar").style.width=s.prot+"%";
  animateNumber(document.getElementById("openActions"),s.open);document.getElementById("navAlerts").textContent=s.open;let ac=document.getElementById("attentionCount");if(ac)ac.textContent=sourceConflicts.length?`${sourceConflicts.length} source conflict${sourceConflicts.length===1?"":"s"}`:(s.open?`${s.open} to review`:"No local gaps");
  {const evMetric=document.getElementById("evidenceCoverage"),evCaption=document.getElementById("evidenceMetricCaption");if(STANDALONE_PREVIEW){const reviewed=(state.evidence||[]).filter(e=>e.verified).length;evMetric.textContent=Math.min(100,Math.round(reviewed/(a.length||1)*100))+"%";if(evCaption)evCaption.textContent="Preview estimate · local reviewed metadata only"}else{evMetric.textContent="—";if(evCaption)evCaption.textContent="Waiting for server assurance"}}
- // Dashboard-only lists are expensive to rebuild and need not mutate hidden DOM on every navigation.
  if(document.getElementById("dashboard")?.classList.contains("active")||(window.__THEBE_WORKSPACE_READY__!==true&&roleLandingView(currentUser?.role)==="dashboard")){
  let priority=a.filter(r=>/Action required|gaps|due|verify/i.test(r.status())).slice(0,5);
  document.getElementById("priorityList").safeHTML=priority.length?priority.map(r=>`<div class="item"><div class="between row"><b>${escapeHtml(r.title)}</b><span class="badge ${riskClass(r.risk)}">${escapeHtml(r.risk)}</span></div><div class="muted small">${escapeHtml(r.status())}</div></div>`).join(""):`<div class="notice good">No urgent actions detected in this demo rule pack.</div>`;
@@ -7781,6 +7780,9 @@ async function reviewManualPayment(id,action){
   if(platformBillingSessionCurrent(user)){
    const errors={paid_order_reconciliation_required:"Paid order needs reconciliation; no second settlement was applied.",manual_payment_settlement_not_confirmed:"Activation unconfirmed; reconcile this order.",platform_billing_forbidden:"Only the platform owner may approve payments."};
    show(errors[e?.code]||String(e?.message||"Payment decision failed; refresh approvals."));
+   try{await refreshPlatformBillingDashboard()}catch(refreshError){
+    show("Payment status could not be refreshed. Reload before retrying.");
+   }
   }
  }finally{manualPaymentReviewsInFlight.delete(id)}
 }
@@ -8390,7 +8392,6 @@ async function workspaceViewFragments(id){
   workspaceViewShardPromises.set(cacheKey,promise);
   return promise;
 }
-// Share one validated, same-origin shard request between idle prefetch and navigation.
 function prefetchThebeWorkspaceShard(shard){
   if(window.__THEBE_WORKSPACE_READY__!==true)return Promise.resolve(false);
   if(!Number.isInteger(shard)||shard<0||shard>=WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT)return Promise.resolve(false);
@@ -8543,7 +8544,6 @@ function scheduleResidentPropertyVisibility(target){
 }
 
 // Let the destination paint before running expensive multi-panel renderers.
-// A superseding navigation invalidates its predecessor without skipping security checks.
 let workspacePendingRenderToken=0;
 function scheduleWorkspaceNavigationRender(id,target,epoch){
   const token=++workspacePendingRenderToken;
