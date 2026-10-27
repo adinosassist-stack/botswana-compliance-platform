@@ -10,10 +10,16 @@ test("POP quarantine refuses writes when disabled",async()=>{
  assert.equal(calls,0);
 });
 test("enabled quarantine stores only pending objects, not payment actions",async()=>{
- let captured;const env={POP_UPLOAD_STAGING_ENABLED:"true",EVIDENCE:{put:async(...args)=>{captured=args}}};
+ let captured;const env={POP_UPLOAD_STAGING_ENABLED:"true",EVIDENCE:{put:async(...args)=>{captured=args;return {etag:'new-etag'}}}};
  const result=await quarantinePop(env,opts);
  assert.match(result.key,/^payment-pop\/quarantine\//);
  assert.equal(result.scanStatus,"pending");
  assert.equal(captured[2].httpMetadata.contentType,"application/octet-stream");
  assert.equal(captured[2].customMetadata.scanStatus,"pending");
+ assert.equal(captured[2].onlyIf.etagDoesNotMatch,"*");
+});
+
+test("existing POP document cannot be overwritten on retry",async()=>{
+ const env={POP_UPLOAD_STAGING_ENABLED:"true",EVIDENCE:{put:async()=>null}};
+ await assert.rejects(quarantinePop(env,opts),/pop_upload_conflict/);
 });
