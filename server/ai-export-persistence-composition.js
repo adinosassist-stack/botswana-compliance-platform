@@ -6,9 +6,10 @@ import {createAiExportD1Metadata} from "./ai-export-d1-metadata.js";
 import {createAiExportR2Binding} from "./ai-export-r2-binding.js";
 import {createAiPrivateObjectProvider} from "./ai-export-private-object-provider.js";
 import {createPrivateAiExportStore} from "./ai-document-export-private-store.js";
-export function createAiExportPersistence({enabled=false,db,r2Binding,bucketName,clock=()=>Date.now(),makeId}={}){
+export function createAiExportPersistence({enabled=false,db,r2Binding,evidenceBinding,bucketName,clock=()=>Date.now(),makeId}={}){
  if(enabled!==true)return Object.freeze({enabled:false,store:null});
  if(!db||typeof db.prepare!=="function"||!r2Binding||
+    !evidenceBinding||r2Binding===evidenceBinding||
     typeof r2Binding.put!=="function"||typeof r2Binding.get!=="function"||
     typeof bucketName!=="string"||!bucketName.trim()||
     typeof clock!=="function")throw new TypeError("private_export_bindings_required");
