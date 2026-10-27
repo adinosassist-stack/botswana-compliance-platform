@@ -7,7 +7,7 @@ test("R2 binding + private object provider + tenant store enforce access boundar
  let record;const bucket=new Map();const now=Date.now();
  const r2=createAiExportR2Binding({binding:{
   put:async(key,body,options)=>bucket.set(key,{body,customMetadata:options.customMetadata}),
-  get:async key=>{const item=bucket.get(key);return item?{customMetadata:item.customMetadata,arrayBuffer:async()=>item.body}:null}
+  get:async key=>{const item=bucket.get(key);return item?{customMetadata:item.customMetadata,size:item.body.length,arrayBuffer:async()=>item.body}:null}
  }});
  const objectProvider=createAiPrivateObjectProvider({bucket:"private-export-r2",clock:()=>now,putObject:r2.putObject,getObject:r2.getObject});
  const store=createPrivateAiExportStore({clock:()=>now,metadata:{
