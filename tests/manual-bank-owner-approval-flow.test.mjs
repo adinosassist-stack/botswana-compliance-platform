@@ -11,7 +11,7 @@ const to=worker.indexOf('if(url.pathname==="/api/payments/ai-credit-checkout"',f
 assert.ok(from>0&&to>from,'manual-bank approval handler still exists');
 const route='(async()=>{'+worker.slice(from,to)+'return {status:404,body:{error:"unmatched_route"}};})()';
 const sid='11111111-1111-4111-8111-111111111111';
-function fixture({action='approve',confirmed=true,role='owner',orderStatus='pending',reviewStatus='submitted',matchingFulfillment=true,settles=true}={}){
+function fixture({action='approve',confirmed=true,role='owner',orderStatus='pending',reviewStatus='submitted',reviewOwner=null,matchingFulfillment=true,settles=true}={}){
   const state={writes:[],settlements:0,audits:0,status:reviewStatus,orderStatus,providerPaymentId:orderStatus==='paid'?'BANK-123':null,matchingFulfillment,settles};
   const db={prepare(sql){
     let args=[];
@@ -20,7 +20,7 @@ function fixture({action='approve',confirmed=true,role='owner',orderStatus='pend
       async first(){
         if(sql.includes('SELECT m.*,o.amount_bwp'))return {
           id:sid,payment_order_id:'order-1',tenant_id:'client-1',bank_reference:'BANK-123',
-          status:state.status,amount_bwp:149,order_status:state.orderStatus,
+          status:state.status,reviewed_by_user_id:reviewOwner,amount_bwp:149,order_status:state.orderStatus,
           provider_payment_id:state.providerPaymentId,order_type:'subscription',provider:'manual_bank',
           metadata_json:'{"plan":"business"}'
         };
@@ -113,4 +113,21 @@ test('failed settlement does not acknowledge activation or record approval',asyn
   assert.notEqual(result.body.activated,true);
   assert.notEqual(f.state.status,'approved');
   assert.equal(f.state.audits,0);
+});
+
+test('in-progress manual approval cannot be taken over by another administrator',async()=>{
+ const f=fixture({reviewStatus:'reviewing',reviewOwner:'other-admin'});
+ const response=await f.run();
+ assert.equal(response.status,409);
+ assert.equal(response.body.error,'manual_payment_review_in_progress');
+ assert.equal(f.state.settlements,0);
+ assert.equal(f.state.audits,0);
+ assert.equal(f.state.writes.length,0);
+});
+test('same reviewing administrator may recover a previously claimed approval',async()=>{
+ const f=fixture({reviewStatus:'reviewing',reviewOwner:'admin'});
+ const response=await f.run();
+ assert.equal(response.status,200);
+ assert.equal(response.body.activated,true);
+ assert.equal(f.state.settlements,1);
 });
