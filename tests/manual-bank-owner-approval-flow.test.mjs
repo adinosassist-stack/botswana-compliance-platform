@@ -11,7 +11,7 @@ const to=worker.indexOf('if(url.pathname==="/api/payments/ai-credit-checkout"',f
 assert.ok(from>0&&to>from,'manual-bank approval handler still exists');
 const route='(async()=>{'+worker.slice(from,to)+'return {status:404,body:{error:"unmatched_route"}};})()';
 const sid='11111111-1111-4111-8111-111111111111';
-function fixture({action='approve',confirmed=true,role='owner',orderStatus='pending',reviewStatus='submitted',reviewOwner=null,matchingFulfillment=true,settles=true}={}){
+function fixture({action='approve',confirmed=true,amountMatched=true,transactionMatched=true,role='owner',orderStatus='pending',reviewStatus='submitted',reviewOwner=null,matchingFulfillment=true,settles=true}={}){
   const state={writes:[],settlements:0,audits:0,status:reviewStatus,orderStatus,providerPaymentId:orderStatus==='paid'?'BANK-123':null,matchingFulfillment,settles};
   const db={prepare(sql){
     let args=[];
@@ -44,7 +44,7 @@ function fixture({action='approve',confirmed=true,role='owner',orderStatus='pend
     env:{DB:db},
     roleAllowed:(actor,expected)=>actor.role===expected,
     platformBillingAdmin:()=>true,
-    readJson:async()=>({reason:'Not visible in company account',bankFundsConfirmed:confirmed}),
+    readJson:async()=>({reason:'Not visible in company account',bankFundsConfirmed:confirmed,bankAmountMatched:amountMatched,bankTransactionMatched:transactionMatched}),
     json:(body,status=200)=>({status,body}),
     boundedReportText:(value,max)=>String(value).slice(0,max),
     safeJson:(value,fallback)=>{try{return JSON.parse(value)}catch{return fallback}},
@@ -141,4 +141,12 @@ test('final approval and failed-settlement reset use reviewer-fenced compare-and
  const reset=failing.state.writes.find(w=>w.sql.includes("status='submitted',reviewed_by_user_id=NULL"));
  assert.ok(reset);assert.match(reset.sql,/reviewed_by_user_id=\\?/);
  assert.equal(reset.args.at(-1),'admin');
+});
+
+test('bank amount and bank transaction must each be explicitly reconciled before approval',async()=>{
+ for(const [input,error] of [[{amountMatched:false},'bank_amount_match_required'],[{transactionMatched:false},'bank_transaction_match_required']]){
+  const f=fixture(input),r=await f.run();
+  assert.equal(r.status,400);assert.equal(r.body.error,error);
+  assert.equal(f.state.settlements,0);assert.equal(f.state.writes.length,0);
+ }
 });
