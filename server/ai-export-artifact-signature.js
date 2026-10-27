@@ -37,7 +37,7 @@ function validOfficeArchive(bytes,format){
      name.split("/").some(segment=>segment===".."||segment===".")||
      name.includes("\0")||entries.has(name)||
      /(?:^|\/)(?:vbaProject\.bin|[^/]*\.exe|[^/]*\.dll)$/i.test(name)||
-     /(?:^|\/)(?:activeX|embeddings)\//i.test(name))return false;
+     (/(?:^|\/)(?:activeX|embeddings)\//i.test(name)&&!name.endsWith("/")))return false;
   entries.add(name);
   if(u32(bytes,localOffset)!==LOCAL||u16(bytes,localOffset+8)!==method||
      (u16(bytes,localOffset+6)&1)!==0)return false;
