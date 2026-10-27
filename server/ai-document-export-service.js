@@ -4,6 +4,7 @@ import {authorizeExportDownload} from "./ai-document-export-access.js";
 import {exportDownloadHeaders} from "./ai-document-export-mime.js";
 import {validateExportDocument} from "./ai-document-export-model.js";
 import {renderAiDocument} from "./ai-document-renderer.js";
+import {hasExpectedAiExportSignature} from "./ai-export-artifact-signature.js";
 const validId=v=>typeof v==="string"&&/^[a-zA-Z0-9_.:-]{1,200}$/.test(v);
 export function createAiExportService({store,loadMessage,clock=()=>Date.now(),render=renderAiDocument,enabled=false}={}){
  if(!store||["create","get","complete","readPrivate"].some(k=>typeof store[k]!=="function")||typeof loadMessage!=="function"||typeof clock!=="function"||typeof render!=="function")throw new TypeError("private_store_required");
@@ -26,7 +27,7 @@ export function createAiExportService({store,loadMessage,clock=()=>Date.now(),re
    if(!validId(job?.id)||job.tenantId!==input.tenantId||job.actorId!==input.actorId)return {ok:false,reason:"storage_unavailable"};
    try{
     const bytes=await render(validated.value,input.format);
-    if(!Buffer.isBuffer(bytes)||bytes.length===0||bytes.length>20*1024*1024)throw Error("invalid_export_bytes");
+    if(!hasExpectedAiExportSignature(bytes,input.format))throw Error("invalid_export_bytes");
     const objectKey="ai-exports/"+input.tenantId+"/"+job.id;
     await store.complete({tenantId:input.tenantId,actorId:input.actorId,id:job.id,objectKey,bytes,format:input.format});
     return {ok:true,id:job.id,status:"completed"};
@@ -47,7 +48,7 @@ export function createAiExportService({store,loadMessage,clock=()=>Date.now(),re
    let bytes;
    try{bytes=await store.readPrivate({tenantId:context.tenantId,actorId:context.actorId,id,objectKey:job.objectKey});}
    catch{return {ok:false,reason:"storage_unavailable"};}
-   if(!Buffer.isBuffer(bytes)||!bytes.length||bytes.length>20*1024*1024)return {ok:false,reason:"not_ready"};
+   if(!hasExpectedAiExportSignature(bytes,job.format))return {ok:false,reason:"not_ready"};
    return {ok:true,bytes,headers};
   }
  });
