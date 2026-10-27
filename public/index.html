@@ -7781,6 +7781,11 @@ async function reviewManualPayment(id,action){
   if(platformBillingSessionCurrent(user)){
    const errors={paid_order_reconciliation_required:"Paid order needs reconciliation; no second settlement was applied.",manual_payment_settlement_not_confirmed:"Activation unconfirmed; reconcile this order.",platform_billing_forbidden:"Only the platform owner may approve payments."};
    show(errors[e?.code]||String(e?.message||"Payment decision failed; refresh approvals."));
+   // A settlement may have committed before its response/audit failed. Reload
+   // authoritative state instead of leaving an actionable stale review row.
+   try{await refreshPlatformBillingDashboard()}catch(refreshError){
+    show("Payment status could not be refreshed. Reload before retrying.");
+   }
   }
  }finally{manualPaymentReviewsInFlight.delete(id)}
 }
