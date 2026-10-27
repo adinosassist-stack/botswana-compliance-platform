@@ -1,0 +1,17 @@
+name: AI Dock private storage contract
+on:
+  pull_request:
+    paths:
+      - 'tests/ai-dock-private-storage-contract.test.mjs'
+      - '.github/workflows/ai-dock-private-storage-contract.yml'
+permissions:
+  contents: read
+jobs:
+  storage-contract:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+      - run: node --test tests/ai-dock-private-storage-contract.test.mjs
