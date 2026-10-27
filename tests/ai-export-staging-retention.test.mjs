@@ -47,6 +47,11 @@ test("only literal approval plus exact confirmation allows deletion",async()=>{
   assert.equal(r.deleted,0);assert.equal(r.reason,"explicit_staging_delete_approval_required");
  }
  assert.equal(x.events.length,0);
+ for(const dryRun of ["false","true",0,1,null]){
+  const denied=await x.cleanup.run({dryRun,approval:true,confirmation:"DELETE_EXPIRED_EXPORT_OBJECTS_IN_STAGING"});
+  assert.equal(denied.reason,"invalid_retention_mode");
+ }
+ assert.equal(x.events.length,0);
  const yes=await x.cleanup.run({dryRun:false,approval:true,confirmation:"DELETE_EXPIRED_EXPORT_OBJECTS_IN_STAGING"});
  assert.equal(yes.deleted,1);assert.equal(yes.ok,true);assert.equal(x.objects.size,0);
  assert.deepEqual(x.events.map(e=>e[0]),["scan","find","delete"]);
