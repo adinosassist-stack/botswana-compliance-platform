@@ -7458,6 +7458,7 @@ export default {
           FROM manual_payment_submissions m JOIN payment_orders o ON o.id=m.payment_order_id WHERE m.id=? LIMIT 1`).bind(submissionId).first();
         if(!row)return json({error:"manual_payment_submission_not_found"},404);
         if(!["submitted","reviewing"].includes(row.status))return json({error:"manual_payment_already_reviewed",status:row.status},409);
+        if(row.status==="reviewing"&&String(row.reviewed_by_user_id||"")!==String(a.user_id))return json({error:"manual_payment_review_in_progress"},409);
         if(action==="reject"){
           if(row.status==="reviewing")return json({error:"manual_payment_review_in_progress"},409);
           const reason=boundedReportText(body.reason||"",500);if(String(reason||"").trim().length<5)return json({error:"rejection_reason_required"},400);
