@@ -46,6 +46,7 @@ test("format admission requires signed PDF or ZIP container and bounded size",()
  assert.equal(hasExpectedAiExportSignature(pdf,"pdf"),true);
  assert.equal(hasExpectedAiExportSignature(docx,"docx"),true);
  assert.equal(hasExpectedAiExportSignature(pptx,"pptx"),true);
+ assert.equal(hasExpectedAiExportSignature(makeZip(["[Content_Types].xml","_rels/.rels","ppt/embeddings/","ppt/presentation.xml"]),"pptx"),true);
  for(const pair of [[Buffer.from("not-a-pdf"),"pdf"],[Buffer.from("malicious"),"docx"],[pdf,"docx"],[zip,"pdf"],[pdf,"exe"],[Buffer.alloc(0),"pdf"],[Buffer.alloc(20*1024*1024+1),"pdf"]]){
   assert.equal(hasExpectedAiExportSignature(...pair),false);
  }
