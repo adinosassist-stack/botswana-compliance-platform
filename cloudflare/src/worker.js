@@ -1,5 +1,6 @@
 import {BOTSWANA_FOUNDATION_PACK_V1,BOTSWANA_FOUNDATION_PACK_V1_HASH} from "./regulatory-pack-registry.js";
 import {platformBillingAnalytics} from "./platform-billing-analytics.js";
+import {stagePopSubmission} from "./payment-pop-staging-service.js";
 import {subscriptionDashboard,setSubscriptionAccess} from "./platform-subscription-controls.js";
 import {inspectFoundationSourceMetadata,publicFoundationSourcePreflight,updateUnreviewedFoundationSourceMetadata} from "./regulatory-foundation-source-reconciliation.js";
 import {inspectActiveLegacyVatRules,publicActiveLegacyVatRules,isLegacyVat25DayDefinition} from "./regulatory-foundation-legacy-vat.js";
@@ -7399,6 +7400,30 @@ export default {
           FROM manual_payment_submissions m JOIN payment_orders o ON o.id=m.payment_order_id
           WHERE m.tenant_id=? AND o.tenant_id=? ORDER BY m.submitted_at DESC LIMIT 100`).bind(a.tenant_id,a.tenant_id).all();
         return json({items:r.results||[]});
+      }
+      // Staging-only POP quarantine. No live uploads, receipt viewing, or billing effects.
+      if(url.pathname==="/api/payments/manual-bank/pop/stage"&&req.method==="POST"){
+        if(String(env?.POP_UPLOAD_STAGING_ENABLED||"false")!=="true")return json({error:"pop_upload_disabled"},503);
+        if(!roleAllowed(a,"owner"))return json({error:"forbidden"},403);
+        const orderId=String(req.headers.get("x-pop-order-id")||"");
+        const documentId=String(req.headers.get("x-pop-document-id")||"");
+        const name=String(req.headers.get("x-pop-filename")||"");
+        const contentType=String(req.headers.get("content-type")||"").toLowerCase();
+        if(!PAYMENT_ORDER_ID_RE.test(orderId)||!PAYMENT_ORDER_ID_RE.test(documentId))return json({error:"invalid_pop_id"},400);
+        const size=Number(req.headers.get("content-length")||0);
+        if(size>3670016)return json({error:"pop_too_large"},413);
+        const bytes=await readBytesBounded(req,{maxBytes:3670016});
+        try{
+          const result=await stagePopSubmission(env,{session:{tenantId:a.tenant_id,role:a.role,userId:a.user_id},orderId,documentId,bytes,name,contentType});
+          return json({ok:true,documentId:result.documentId,scanStatus:"pending",reviewable:false,message:"Receipt quarantined for security review; this is not payment confirmation."},202);
+        }catch(error){
+          const code=String(error?.message||"pop_stage_failed");
+          if(code==="pop_submission_forbidden")return json({error:code},403);
+          if(code==="pop_order_not_found")return json({error:code},404);
+          if(["pop_order_not_eligible","pop_order_not_submittable"].includes(code))return json({error:code},409);
+          if(code.startsWith("invalid_pop")||code==="pop_signature_mismatch")return json({error:code},400);
+          return json({error:"pop_staging_unavailable"},503);
+        }
       }
       if(url.pathname==="/api/payments/manual-bank/submit"&&req.method==="POST"){
         if(!roleAllowed(a,"owner"))return json({error:"forbidden"},403);
