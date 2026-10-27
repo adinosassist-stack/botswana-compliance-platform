@@ -1,0 +1,18 @@
+name: AI private R2 binding qualification
+on:
+  pull_request:
+    paths:
+      - 'server/ai-export-r2-binding.js'
+      - 'tests/ai-export-r2-binding.test.mjs'
+      - '.github/workflows/ai-export-r2-binding.yml'
+permissions:
+  contents: read
+jobs:
+  binding:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+      - run: node --test tests/ai-export-r2-binding.test.mjs
