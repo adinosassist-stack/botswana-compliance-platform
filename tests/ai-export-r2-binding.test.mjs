@@ -35,3 +35,37 @@ test("rejects missing R2 size before reading file body",async()=>{
  assert.equal(await b.getObject({key:"ai-exports/t1/j1",visibility:"private"}),null);
  assert.equal(bytesRead,0);
 });
+
+test("private R2 records a SHA-256 digest and denies tampering after upload",async()=>{
+ let item=null;
+ const adapter=createAiExportR2Binding({clock:()=>1000,binding:{
+  put:async(key,body,options)=>{item={key,body:Buffer.from(body),metadata:options.customMetadata}},
+  get:async()=>({size:item.body.length,customMetadata:item.metadata,arrayBuffer:async()=>item.body})
+ }});
+ await adapter.putObject({key:"ai-exports/t1/j1",body:Buffer.from("%PDF-original"),visibility:"private",expiresAt:2000});
+ assert.match(item.metadata.sha256,/^[a-f0-9]{64}$/);
+ assert.equal((await adapter.getObject({key:"ai-exports/t1/j1",visibility:"private"})).toString(),"%PDF-original");
+ item.body=Buffer.from("%PDF-forged!!"); // Length preserved; digest differs.
+ assert.equal(await adapter.getObject({key:"ai-exports/t1/j1",visibility:"private"}),null);
+});
+test("R2 missing or malformed integrity metadata fails closed without retrieving object bytes",async()=>{
+ let reads=0;
+ const hashes=[undefined,"invalid","F".repeat(64),"a".repeat(63)];
+ for(const hash of hashes){
+  const metadata={expiresAt:"2000",...(hash===undefined?{}:{sha256:hash})};
+  const adapter=createAiExportR2Binding({clock:()=>1000,binding:{
+   put:async()=>{},get:async()=>({size:9,customMetadata:metadata,arrayBuffer:async()=>{reads++;return Buffer.from("%PDF-data")}})
+  }});
+  assert.equal(await adapter.getObject({key:"ai-exports/t1/j1",visibility:"private"}),null);
+ }
+ assert.equal(reads,0);
+});
+test("R2 rejects a payload whose reported size differs from retrieved bytes",async()=>{
+ const {createHash}=await import("node:crypto");
+ let reads=0;const actual=Buffer.from("%PDF-body");
+ const adapter=createAiExportR2Binding({clock:()=>1000,binding:{
+  put:async()=>{},get:async()=>({size:actual.length+1,customMetadata:{expiresAt:"2000",sha256:createHash("sha256").update(actual).digest("hex")},arrayBuffer:async()=>{reads++;return actual}})
+ }});
+ assert.equal(await adapter.getObject({key:"ai-exports/t1/j1",visibility:"private"}),null);
+ assert.equal(reads,1);
+});
