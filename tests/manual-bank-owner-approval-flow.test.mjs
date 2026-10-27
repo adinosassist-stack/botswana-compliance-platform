@@ -96,3 +96,21 @@ test('manager role cannot approve cross-client bank payments',async()=>{
   const f=fixture({role:'manager'});const r=await f.run();
   assert.equal(r.status,403);assert.equal(r.body.error,'platform_billing_forbidden');assert.equal(f.state.writes.length,0);
 });
+
+test('repeated approval cannot settle or acknowledge activation twice',async()=>{
+  const f=fixture();
+  const first=await f.run();
+  assert.equal(first.status,200);
+  assert.equal(f.state.settlements,1);
+  const second=await f.run();
+  assert.notEqual(second.body.activated,true);
+  assert.equal(f.state.settlements,1);
+  assert.equal(f.state.audits,1);
+});
+test('failed settlement does not acknowledge activation or record approval',async()=>{
+  const f=fixture({settles:false});
+  const result=await f.run();
+  assert.notEqual(result.body.activated,true);
+  assert.notEqual(f.state.status,'approved');
+  assert.equal(f.state.audits,0);
+});
