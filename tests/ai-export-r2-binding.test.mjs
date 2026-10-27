@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import {test} from "node:test";
 import {createAiExportR2Binding} from "../server/ai-export-r2-binding.js";
 test("R2 binding writes private object and reads only unexpired",async()=>{
- let item=null;const adapter=createAiExportR2Binding({binding:{put:async(k,b,o)=>{item={k,b,o}},get:async()=>({customMetadata:item.o.customMetadata,arrayBuffer:async()=>item.b})}});
+ let item=null;const adapter=createAiExportR2Binding({binding:{put:async(k,b,o)=>{item={k,b,o}},get:async()=>({customMetadata:item.o.customMetadata,size:item.b.length,arrayBuffer:async()=>item.b})}});
  await adapter.putObject({key:"ai-exports/t1/j1",body:Buffer.from("%PDF"),visibility:"private",expiresAt:Date.now()+300000});
  assert.equal((await adapter.getObject({key:"ai-exports/t1/j1",visibility:"private"})).toString(),"%PDF");
  assert.equal(await adapter.getObject({key:"ai-exports/t1/j1",visibility:"public"}),null);
 });
 test("denies expired objects and never returns a public URL",async()=>{
- const adapter=createAiExportR2Binding({binding:{put:async()=>{},get:async()=>({customMetadata:{expiresAt:"1"},arrayBuffer:async()=>Buffer.from("secret")})}});
+ const adapter=createAiExportR2Binding({binding:{put:async()=>{},get:async()=>({customMetadata:{expiresAt:"1"},size:6,arrayBuffer:async()=>Buffer.from("secret")})}});
  assert.equal(await adapter.getObject({key:"ai-exports/t1/j1",visibility:"private"}),null);
  await assert.rejects(adapter.putObject({key:"x",body:Buffer.from("x"),visibility:"public",expiresAt:1}));
 });
@@ -27,4 +27,11 @@ test("private R2 refuses expired writes, invalid object keys and oversized input
  await assert.rejects(adapter.putObject({key:"../public",body:Buffer.from("x"),visibility:"private",expiresAt:2000}));
  await assert.rejects(adapter.putObject({key:"ai-exports/t1/j1",body:Buffer.alloc(20*1024*1024+1),visibility:"private",expiresAt:2000}));
  assert.equal(writes,0);
+});
+
+test("rejects missing R2 size before reading file body",async()=>{
+ let bytesRead=0;
+ const b=createAiExportR2Binding({clock:()=>1000,binding:{put:async()=>{},get:async()=>({customMetadata:{expiresAt:"2000"},arrayBuffer:async()=>{bytesRead++;return Buffer.from("private")}})}});
+ assert.equal(await b.getObject({key:"ai-exports/t1/j1",visibility:"private"}),null);
+ assert.equal(bytesRead,0);
 });
