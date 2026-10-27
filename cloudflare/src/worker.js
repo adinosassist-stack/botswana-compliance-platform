@@ -7454,6 +7454,8 @@ export default {
         // A customer's payment reference is not evidence of receipt; require an
         // explicit authenticated platform-owner bank-credit attestation.
         if(action==="approve"&&body.bankFundsConfirmed!==true)return json({error:"bank_funds_confirmation_required"},400);
+        if(action==="approve"&&body.bankAmountMatched!==true)return json({error:"bank_amount_match_required"},400);
+        if(action==="approve"&&body.bankTransactionMatched!==true)return json({error:"bank_transaction_match_required"},400);
         const row=await env.DB.prepare(`SELECT m.*,o.amount_bwp,o.status order_status,o.order_type,o.provider,o.provider_payment_id,o.metadata_json
           FROM manual_payment_submissions m JOIN payment_orders o ON o.id=m.payment_order_id WHERE m.id=? LIMIT 1`).bind(submissionId).first();
         if(!row)return json({error:"manual_payment_submission_not_found"},404);
