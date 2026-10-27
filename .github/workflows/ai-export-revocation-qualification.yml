@@ -1,0 +1,19 @@
+name: AI export download revocation qualification
+on:
+  pull_request:
+    paths:
+      - 'server/ai-export-revocation-aware-store.js'
+      - 'tests/ai-export-revocation-aware-store.test.mjs'
+      - '.github/workflows/ai-export-revocation-qualification.yml'
+permissions:
+  contents: read
+jobs:
+  revocation-qualification:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+      - run: node --check server/ai-export-revocation-aware-store.js
+      - run: node --test tests/ai-export-revocation-aware-store.test.mjs tests/ai-export-authorized-message-loader.test.mjs tests/ai-document-export-service.test.mjs
