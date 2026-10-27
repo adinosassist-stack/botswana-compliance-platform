@@ -90,3 +90,14 @@ test('client search is literal, paginated and compatible with status filters',as
 });
 
 test('an expired active record can be explicitly paused without extending its period',async()=>{const f=fixture();f.sql.exec("UPDATE subscriptions SET current_period_ends_at='2000-01-01 00:00:00'");const r=await f.change({expectedPeriod:'2000-01-01 00:00:00'});assert.equal(r.body.status,'paused');assert.equal(f.sql.prepare('SELECT current_period_ends_at FROM subscriptions').get().current_period_ends_at,'2000-01-01 00:00:00')});
+
+test('manual payment approval failure reloads authoritative owner billing state before retry',()=>{
+ const source=fs.readFileSync('public/js/workspace-runtime-20261001b.js','utf8');
+ const start=source.indexOf('async function reviewManualPayment(');
+ const end=source.indexOf('async function openHostedCheckout(',start);
+ assert.ok(start>=0&&end>start,'manual approval handler exists');
+ const handler=source.slice(start,end);
+ assert.match(handler,/catch\(e\)\{[\s\S]*await refreshPlatformBillingDashboard\(\)/);
+ assert.match(handler,/catch\(refreshError\)/);
+ assert.match(handler,/Reload before retrying/);
+});
