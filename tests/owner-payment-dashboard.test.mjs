@@ -101,3 +101,31 @@ test('manual payment approval failure reloads authoritative owner billing state 
  assert.match(handler,/catch\(refreshError\)/);
  assert.match(handler,/Reload before retrying/);
 });
+
+test('failed owner payment approval refreshes the live queue without reporting activation',async()=>{
+ const source=fs.readFileSync('public/js/workspace-runtime-20261001b.js','utf8');
+ const start=source.indexOf('async function reviewManualPayment(');
+ const end=source.indexOf('async function openHostedCheckout(',start);
+ assert.ok(start>=0&&end>start);
+ for(const refreshFails of [false,true]){
+  const messages=[];let refreshCount=0,postCount=0;
+  const user={platformBillingAdmin:true};
+  const ctx=vm.createContext({
+   currentUser:user,manualPaymentReviewsInFlight:new Set(),
+   platformBillingSessionCurrent:(u)=>u===user,
+   document:{getElementById:()=>({textContent:''})},
+   BW:{dialog:{confirm:async()=>true}},
+   apiJson:async()=>{postCount++;throw Object.assign(Error('Settlement unavailable'),{code:'manual_payment_settlement_not_confirmed'})},
+   refreshPlatformBillingDashboard:async()=>{refreshCount++;if(refreshFails)throw Error('refresh failed')},
+   notifyUser:msg=>messages.push(msg)
+  });
+  vm.runInContext(source.slice(start,end),ctx);
+  await vm.runInContext('reviewManualPayment("11111111-1111-4111-8111-111111111111","approve")',ctx);
+  assert.equal(postCount,1);
+  assert.equal(refreshCount,1);
+  assert.equal(ctx.manualPaymentReviewsInFlight.size,0);
+  assert.ok(messages.some(m=>m.includes('Activation unconfirmed')));
+  assert.ok(!messages.some(m=>m.includes('plan activated')));
+  if(refreshFails)assert.ok(messages.some(m=>m.includes('Reload before retrying')));
+ }
+});
