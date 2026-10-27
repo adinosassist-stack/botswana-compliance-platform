@@ -7768,10 +7768,10 @@ async function reviewManualPayment(id,action){
    reason=await BW.dialog.prompt({title:"Reject payment",message:"Explain the rejection.",required:true,minLength:5,maxLength:500,confirmLabel:"Reject payment"});
    if(reason===null||!platformBillingSessionCurrent(user,true))return;
   }else if(action==="approve"){
-   bankFundsConfirmed=await BW.dialog.confirm({title:"Verify payment and activate plan",message:"Approve only after matching funds appear in Thebe Desk's company bank account. A customer's reference is not receipt evidence.",confirmLabel:"Funds received — activate"});
+   bankFundsConfirmed=await BW.dialog.confirm({title:"Verify payment and activate plan",message:"Confirm in the company bank account: funds received, amount matches the order, and the bank transaction matches this customer payment. Customer-submitted references alone are not proof.",confirmLabel:"Funds received — activate"});
    if(!bankFundsConfirmed||!platformBillingSessionCurrent(user,true))return;
   }else return;
-  const r=await apiJson(`/api/platform/billing/manual-payments/${encodeURIComponent(id)}/${action}`,{method:"POST",body:JSON.stringify({reason,bankFundsConfirmed}),idempotencyKey:true});
+  const r=await apiJson(`/api/platform/billing/manual-payments/${encodeURIComponent(id)}/${action}`,{method:"POST",body:JSON.stringify({reason,bankFundsConfirmed,bankAmountMatched:bankFundsConfirmed,bankTransactionMatched:bankFundsConfirmed}),idempotencyKey:true});
   if(!platformBillingSessionCurrent(user))return;
   if(r?.ok!==true||(action==="approve"?(r.status!=="approved"||r.activated!==true):r.status!=="rejected"))throw Error("Server did not confirm the decision. Refresh approvals.");
   show(action==="approve"?"Payment verified and plan activated.":"Payment submission rejected.");
