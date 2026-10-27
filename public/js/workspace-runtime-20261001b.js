@@ -578,7 +578,6 @@ function renderAll(){
  }
 
  applyRoleUi();
- // Resolve role permissions once per render; individual views still fail closed.
  const allowedRenderViews=allowedViewsForRole(currentWorkspaceRole());
  const shouldRender=view=>{if(!allowedRenderViews.has(view))return false;const target=document.getElementById(view),active=!!target?.classList.contains("active"),coldLanding=window.__THEBE_WORKSPACE_READY__!==true&&view===roleLandingView(currentUser?.role);return active||coldLanding};const run=(view,fn)=>{if(!shouldRender(view)||typeof fn!=="function")return;try{const result=fn();if(result&&typeof result.catch==="function")result.catch(error=>reportClientError(error,`render:${view}`))}catch(error){reportClientError(error,`render:${view}`)}};
  if(shouldRender("dashboard")){renderGlobalConflict();setupProgress();renderDeadlines();renderOnboardingBanner();if(document.getElementById("dashboard")?.classList.contains("active")){renderDailyOperatingBrief();if(["owner","manager"].includes(currentWorkspaceRole()))renderExecutiveExceptions()}}
@@ -1747,7 +1746,6 @@ function animateNumber(el,to,suffix=""){
   if(!el)return;
   const target=String(to)+suffix;
   const previous=workspaceNumberAnimations.get(el);
-  // Repeated navigation must not restart an animation that already has this target.
   if(previous?.target===target&&(previous.frame!==null||el.textContent===target))return;
   if(previous?.frame!=null&&typeof cancelAnimationFrame==="function")cancelAnimationFrame(previous.frame);
   if(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches){
@@ -3517,8 +3515,6 @@ async function hydrateLazyWorkspaceView(id,target,options={}){
     const views=await workspaceViewFragments(id);
     const markup=Object.prototype.hasOwnProperty.call(views,id)?views[id]:null;
     if(typeof markup!=="string")throw new Error("Workspace view is unavailable.");
-    // Avoid expensive DOM insertion for a view abandoned while its shard was loading.
-    // Leave the placeholder lazy so a later visit can hydrate it normally.
     if(Number(target.dataset.lazyNavigationEpoch||0)!==workspaceViewNavigationEpoch){
       delete target.dataset.lazyLoading;
       target.setAttribute("aria-busy","false");
@@ -3603,7 +3599,6 @@ function scheduleResidentPropertyVisibility(target){
   setTimeout(()=>enforceResidentPropertyVisibility(target),700);
 }
 
-// Let the destination paint before running expensive multi-panel renderers.
 let workspacePendingRenderToken=0;
 function scheduleWorkspaceNavigationRender(id,target,epoch){
   const token=++workspacePendingRenderToken;
