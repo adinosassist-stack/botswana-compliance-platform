@@ -63,3 +63,23 @@ test("enabled composition refuses evidence bucket reuse or missing comparison bi
  assert.throws(()=>createAiExportPersistence({enabled:true,...env,evidenceBinding:env.r2Binding,bucketName:"private",clock:()=>1000}),/private_export_bindings_required/);
  assert.equal(env.getWrites(),0);
 });
+
+test("D1/R2 export cannot download altered bytes even if stored job remains completed",async()=>{
+ const env=fakeEnvironment();
+ const p=createAiExportPersistence({enabled:true,...env,bucketName:"private",clock:()=>1000,makeId:()=>"integrity1"});
+ const api=createAiExportService({enabled:true,store:p.store,clock:()=>1000,
+  loadMessage:async()=>({authorized:true,actorRole:"assistant",contentHash:"b".repeat(64),
+   document:{title:"Document",blocks:[{type:"paragraph",text:"Private report"}],references:[]}}),
+  render:async()=>Buffer.from("%PDF-original")});
+ const created=await api.create(request,identity);
+ assert.equal(created.ok,true);
+ assert.equal((await api.download(created.id,identity)).ok,true);
+ const key="ai-exports/tenant1/integrity1";
+ const object=env.blobs.get(key);
+ assert.match(object.opts.customMetadata.sha256,/^[a-f0-9]{64}$/);
+ object.bytes=Buffer.from("%PDF-corrupt!"); // Same size, changed content.
+ const invalid=await api.download(created.id,identity);
+ assert.equal(invalid.ok,false);
+ assert.equal(invalid.reason,"not_ready");
+ assert.equal(env.rows.get(created.id).status,"completed"); // Not silently rewritten.
+});
