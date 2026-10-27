@@ -26,3 +26,46 @@ jobs:
           npm install --no-save --ignore-scripts --no-audit --no-fund --save-exact docx@9.5.1 pptxgenjs@3.12.0 pdf-lib@1.17.1
       - name: Validate real renderer package signatures
         run: node --test tests/ai-export-artifact-real-render.test.mjs
+      - name: Generate isolated, exact-version renderer lockfile
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .ai-export-renderer-candidate
+          node --input-type=module -e '
+            import fs from "node:fs";
+            const manifest = {
+              name: "thebe-ai-export-renderer-review-candidate",
+              version: "0.0.0",
+              private: true,
+              type: "module",
+              engines: { node: ">=22" },
+              dependencies: {
+                docx: "9.5.1",
+                "pdf-lib": "1.17.1",
+                pptxgenjs: "3.12.0"
+              }
+            };
+            fs.writeFileSync(".ai-export-renderer-candidate/package.json", JSON.stringify(manifest, null, 2) + "\n");
+          '
+          cd .ai-export-renderer-candidate
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm ci --ignore-scripts --no-audit --no-fund
+          sha256sum package.json package-lock.json > package-sha256.txt
+      - name: Check isolated renderer runtime advisories
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd .ai-export-renderer-candidate
+          npm audit --omit=dev --audit-level=high --json > npm-audit.json
+      - name: Retain isolated renderer lock and advisory evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-export-renderer-lock-candidate
+          path: |
+            .ai-export-renderer-candidate/package.json
+            .ai-export-renderer-candidate/package-lock.json
+            .ai-export-renderer-candidate/package-sha256.txt
+            .ai-export-renderer-candidate/npm-audit.json
+          if-no-files-found: warn
+          retention-days: 14
