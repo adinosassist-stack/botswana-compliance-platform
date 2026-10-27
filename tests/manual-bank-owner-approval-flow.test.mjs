@@ -30,7 +30,7 @@ function fixture({action='approve',confirmed=true,role='owner',orderStatus='pend
       },
       async run(){
         state.writes.push({sql,args});
-        if(sql.includes("status='reviewing'")&&sql.includes("status='submitted'")){state.status='reviewing';return {meta:{changes:1}}}
+        if(sql.includes("SET status='reviewing'")&&sql.includes("status='submitted'")){state.status='reviewing';return {meta:{changes:1}}}
         if(sql.includes("status='approved'")){state.status='approved';return {meta:{changes:1}}}
         if(sql.includes("status='rejected'")){state.status='rejected';return {meta:{changes:1}}}
         if(sql.includes("status='submitted',reviewed_by_user_id=NULL")){state.status='submitted';return {meta:{changes:1}}}
