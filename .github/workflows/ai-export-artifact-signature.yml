@@ -17,4 +17,4 @@ jobs:
         with:
           node-version-file: '.nvmrc'
       - run: node --check server/ai-document-export-service.js
-      - run: node --test tests/ai-export-artifact-signature.test.mjs tests/ai-document-export-service.test.mjs tests/ai-dock-export-integration.test.mjs tests/ai-export-persistence-composition.test.mjs
+      - run: node --test tests/ai-export-artifact-signature.test.mjs tests/ai-document-export-service.test.mjs tests/ai-dock-export-integration.test.mjs tests/ai-dock-export-end-to-end-contract.test.mjs
