@@ -7510,7 +7510,7 @@ export default {
             AND datetime(s.current_period_ends_at)>datetime('now') LIMIT 1`)
           .bind(row.payment_order_id,row.tenant_id,row.bank_reference,plan).first();
         if(!appliedNow)return json({error:"manual_payment_settlement_not_confirmed"},503);
-        const marked=await env.DB.prepare("UPDATE manual_payment_submissions SET status='approved',reviewed_at=CURRENT_TIMESTAMP,reviewed_by_user_id=?,rejection_reason=NULL WHERE id=? AND status='reviewing' AND reviewed_by_user_id=?").bind(a.user_id,submissionId,a.user_id).run();
+        const marked=await env.DB.prepare("UPDATE manual_payment_submissions SET status='approved',reviewed_at=CURRENT_TIMESTAMP,reviewed_by_user_id=?,rejection_reason=NULL WHERE id=? AND ((status='reviewing' AND reviewed_by_user_id=?) OR (status='submitted' AND reviewed_by_user_id IS NULL))").bind(a.user_id,submissionId,a.user_id).run();
         if(Number(marked.meta?.changes||0)!==1)return json({error:"manual_payment_review_conflict"},409);
         await env.DB.prepare("INSERT INTO manual_payment_events(id,submission_id,payment_order_id,tenant_id,event_type,actor_user_id,event_data) VALUES(?,?,?,?,?,?,?)")
           .bind(id(),submissionId,row.payment_order_id,row.tenant_id,"approved_and_activated",a.user_id,JSON.stringify({bankReference:row.bank_reference,amountBwp:row.amount_bwp})).run();
