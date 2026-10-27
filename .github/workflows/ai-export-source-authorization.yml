@@ -1,0 +1,19 @@
+name: AI export source authorization qualification
+on:
+  pull_request:
+    paths:
+      - 'server/ai-export-authorized-message-loader.js'
+      - 'tests/ai-export-authorized-message-loader.test.mjs'
+      - '.github/workflows/ai-export-source-authorization.yml'
+permissions:
+  contents: read
+jobs:
+  source-authorization:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+      - run: node --check server/ai-export-authorized-message-loader.js
+      - run: node --test tests/ai-export-authorized-message-loader.test.mjs tests/ai-document-export-service.test.mjs tests/ai-dock-export-integration.test.mjs
