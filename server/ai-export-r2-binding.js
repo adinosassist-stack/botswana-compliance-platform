@@ -20,7 +20,8 @@ export function createAiExportR2Binding({binding,clock=()=>Date.now()}={}){
    if(typeof raw!=="string"||!/^[1-9][0-9]*$/.test(raw))return null;
    const expiry=Number(raw);
    if(!Number.isSafeInteger(expiry)||expiry<=clock())return null;
-   if(obj.size!==undefined&&(!Number.isSafeInteger(obj.size)||obj.size<1||obj.size>MAX))return null;
+   // R2 must report its size before we allocate an ArrayBuffer.
+   if(!Number.isSafeInteger(obj.size)||obj.size<1||obj.size>MAX)return null;
    if(typeof obj.arrayBuffer!=="function")return null;
    const bytes=await obj.arrayBuffer();
    if(!bytes||!Number.isSafeInteger(bytes.byteLength)||bytes.byteLength<1||bytes.byteLength>MAX)return null;
