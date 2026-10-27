@@ -428,8 +428,17 @@ html body #thebeAiDock[data-surface="workspace"] .thebe-ai-icon-btn:hover{backgr
 html body #thebeAiDock[data-surface="workspace"] :is(
   .thebe-ai-presence,.thebe-ai-context-bar,.thebe-ai-mode-rail,
   .thebe-ai-eyebrow,.thebe-ai-attention,.thebe-ai-foot,
-  .thebe-ai-voice-card,.thebe-ai-quick
+  .thebe-ai-quick
 ){display:none!important}
+/* Keep the existing compact voice action accessible; hiding its parent breaks voice and browser contracts. */
+html body #thebeAiDock[data-surface="workspace"] .thebe-ai-voice-card{
+ display:flex!important;align-items:center!important;justify-content:center!important;
+ flex:none!important;min-height:76px!important;padding:4px 0!important;
+ border:0!important;background:transparent!important;
+}
+html body #thebeAiDock[data-surface="workspace"] .thebe-ai-voice-card :is(.thebe-ai-voice-label,.thebe-ai-voice-sub,.thebe-ai-voice-mount){display:none!important}
+html body #thebeAiDock[data-surface="workspace"] .thebe-ai-orb-button{margin:0!important}
+
 html body #thebeAiDock[data-surface="workspace"] .thebe-ai-dock-scroll{
   flex:1 1 auto!important;min-height:0!important;overflow:auto!important;
   padding:22px 22px 16px!important;gap:14px!important;background:#191919!important;
