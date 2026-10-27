@@ -1,0 +1,17 @@
+name: AI export provider-store integration
+on:
+  pull_request:
+    paths:
+      - 'tests/ai-dock-provider-store-integration.test.mjs'
+      - '.github/workflows/ai-export-provider-store-integration.yml'
+permissions:
+  contents: read
+jobs:
+  integration:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+      - run: node --test tests/ai-dock-provider-store-integration.test.mjs
