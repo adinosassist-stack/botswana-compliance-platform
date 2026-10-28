@@ -353,3 +353,14 @@ replay conflict handling and uncertain-write reconciliation. Its table remains i
 the design candidate SQL only. The reviewed code must not be interpreted as
 permission to import that schema or enable uploads. Activation evidence and the
 remaining POP scan/privacy/retrieval/retention gates are still outstanding.
+
+## Content-bound scan/retrieval candidate
+
+The [scan/retrieval candidate](proposals/payment-pop-scan-verification.md) replaces
+Boolean scanner trust with a signed five-minute content/scope-bound scan request
+and result. A clean verdict and its sealed audit commit together; private attachment
+responses require the persisted signature, unchanged stored bytes, current owner
+context and an atomic access audit. No network transport, provider, route or
+scheduled scanner is installed. The current staging runtime strips the proposed
+scan/retrieval flags and credentials, and uploads remain disabled. New fields remain
+in the candidate schema only; no schema import is authorized by the code change.

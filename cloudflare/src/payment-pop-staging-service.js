@@ -10,7 +10,8 @@ export async function stagePopSubmission(env,{session,orderId,documentId,bytes,n
  const authority=await authorizePopSubmission(env.DB,{tenantId:session.tenantId,actorRole:session.role,orderId});
  if(!validPopRequestKey(requestKey))throw Error('invalid_pop_idempotency_key');
  const validated=validatePopUpload(bytes,name,contentType);
- const requestHash=await popSha256(JSON.stringify([session.userId,name,validated.contentType,validated.bytes,await popSha256(bytes)]));
+ const contentSha256=await popSha256(bytes);
+ const requestHash=await popSha256(JSON.stringify([session.userId,name,validated.contentType,validated.bytes,contentSha256]));
  const reservation=await reservePopUpload(env.DB,{tenantId:authority.tenantId,orderId:authority.orderId,documentId,requestKey,requestHash,bytes:validated.bytes});
  const scope={tenantId:authority.tenantId,orderId:authority.orderId,documentId:reservation.documentId,requestHash};
  const result=(scanStatus='pending',replayed=false)=>({documentId:scope.documentId,orderId:authority.orderId,scanStatus,reviewable:false,bankFundsConfirmed:false,subscriptionActivated:false,replayed});
@@ -25,7 +26,7 @@ export async function stagePopSubmission(env,{session,orderId,documentId,bytes,n
  // object existence before releasing capacity or accepting another attempt.
  const stored=await quarantinePop(env,{...scope,bytes,name,contentType});
  try {
-  await recordPendingPop(env.DB,{documentId:scope.documentId,tenantId:scope.tenantId,orderId:scope.orderId,objectKey:stored.key,name,contentType:validated.contentType,bytes:stored.bytes,userId:session.userId,reservationHash:requestHash});
+  await recordPendingPop(env.DB,{documentId:scope.documentId,tenantId:scope.tenantId,orderId:scope.orderId,objectKey:stored.key,name,contentType:validated.contentType,bytes:stored.bytes,userId:session.userId,reservationHash:requestHash,contentSha256,objectEtag:stored.etag});
  } catch(error) {
   let current;
   try {current=await popReservationState(env.DB,scope)} catch {throw Error('pop_upload_reconciliation_required')}
