@@ -449,3 +449,63 @@ POP operations and WhatsApp intake as unverified. Signed-in browser and independ
 end-to-end evidence remain required for #1874/#1886. No successful live checker
 run is recorded here yet; automated tests use the actual staging entry and real
 local SQLite fixtures without contacting Cloudflare.
+
+## Explicit Alpha test-account credential recovery
+
+The operator reported deployment of `aa500d4c6f8f35679faa33a8dfec0be4794b9636`,
+Worker version `ad403bc5-bf0b-4ef4-9361-91ed50f07b1e`. The third sanitized API
+report passed source identity and owner authentication/inactive subscription,
+then failed at Alpha login with cleanup complete. A separate Alpha login returned
+401 `invalid_credentials`. Authenticated acceptance remains incomplete. The user
+explicitly authorized resetting **only Alpha's staging test account**; no password
+was shared here and no reset has been applied by this code change.
+
+`prepare-billing-staging-alpha-reset.mjs` prepares private SQL offline. It cannot
+connect to a database, deploy, create an account or choose another target email.
+It validates the reviewed local config/source, excluded production/regulatory
+resources, exact staging marker, designated owner, Alpha's expected tenant UUID,
+sole active owner membership, alpha fixture marker and inactive/manual subscription
+without a paid period. Non-pending/paid/provider-verified orders, fulfillment or
+entitlement overrides for Alpha refuse recovery. Alpha must not be a platform
+admin. Confirm the target's current nonsecret tenant and generation first:
+
+```bash
+npx wrangler@4.135.0 d1 execute DB --config /tmp/billing-staging.json --remote --command "SELECT u.email,m.tenant_id,u.session_generation FROM users u JOIN memberships m ON m.user_id=u.id WHERE u.email='alpha.billing-staging@example.invalid';" --json
+```
+
+Prepare only after independent review and exact checkout/config qualification.
+Use the returned tenant and generation, not an assumed value. For this fixture,
+previous observations placed Alpha in `672e9710-82c6-4f06-bc48-597824d9b07a`;
+its generation must still be freshly checked. Choose/confirm a new 12–200-character
+password privately using hidden terminal prompts. No CR/LF is allowed. Pass the
+two values as `printf '%s\n%s' "$NEW_ALPHA" "$CONFIRM_ALPHA"` on stdin; never put
+passwords in command arguments, chat, logs or source files. The CLI arguments are:
+
+```text
+node scripts/prepare-billing-staging-alpha-reset.mjs
+  --config /tmp/billing-staging.json
+  --owner-email thebedesk@gmail.com
+  --database 9d1b8852-4424-46e9-ba24-cdad5ced215f
+  --tenant <freshly-verified-alpha-tenant>
+  --generation <freshly-verified-generation>
+  --out /tmp/billing-staging-alpha-reset.sql
+```
+
+Set `PRODUCTION_D1_DATABASE_ID` as for the other offline helpers. The output is
+exclusive mode 0600 and contains a salted PBKDF2 hash, never the plaintext. Treat
+it as private. Apply the **entire file in one remote D1 import** using the validated
+billing staging config; never execute individual statements or bypass a guard.
+The import updates only Alpha's password hash/generation, removes all Alpha
+sessions and consumes unused Alpha password-reset tokens. Other credentials,
+sessions, memberships, orders, subscriptions and regulatory state stay untouched.
+Replay/stale generation fails before writes; all steps roll back together if token
+or session revocation fails. Generation increment also fences old-password session
+creation through the existing authentication compare-and-set.
+
+If an import acknowledgement is uncertain, inspect the nonsecret generation before
+retrying. A guard error is a refusal, not permission to weaken SQL or change the
+expected generation blindly. Verify old sessions/credentials fail and the new
+password works, then rerun the authenticated API checkpoint with a fresh report
+path. Delete the private SQL file and unset temporary shell password variables
+after use. This is an explicitly authorized synthetic staging recovery utility,
+not a production password reset endpoint or an audited self-service recovery flow.
