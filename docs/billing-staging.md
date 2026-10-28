@@ -5,13 +5,14 @@ Related: #1874, #1886 and merged audit consistency fix #1906.
 This first slice is a compilable, read-only staging configuration and request
 boundary. It does not provision or deploy infrastructure, initialize schemas,
 create identities, accept POPs, reconcile bank funds or activate subscriptions.
-No authenticated staging acceptance has been demonstrated.
+Authenticated read-only smoke checks have been reported by the staging operator;
+full payment and POP acceptance remains outstanding.
 
 The evaluation deployment is unsuitable for this purpose: it uses the production
 database variable and evidence bucket. The new configuration fixes a separate
 Worker (`bw-billing-staging`), D1 name (`bw-billing-staging`) and R2 bucket
 (`bw-billing-staging-pop`) at `https://billing-staging.thebedesk.com`.
-That address is a proposed target, not an assertion that it exists.
+The staging operator has deployed that target with the dedicated resources.
 
 The renderer requires an explicit staging database UUID and current production
 database UUID. It rejects equality, the known production UUID and the separate
@@ -120,3 +121,35 @@ forbidden resources, API transports, credential isolation and marker failures.
 The billing staging qualification workflow also runs existing billing/D1/POP
 regressions and a pinned Wrangler `deploy --dry-run`. It has no provider credentials
 or remote write step. These checks qualify preparation only, not a live deployment.
+
+## Read-only qualification checkpoint
+
+The staging operator reported the following for reviewed source
+`86d624fc80c13057ee6ac81a72c53d237405debc`, Worker version
+`252df4e7-73b8-44c7-8143-a2354d0058a2`:
+
+- Source identity verification passed after deployment.
+- The dedicated marker matched the billing staging database. The database contained
+  one designated owner, one tenant and zero payment orders.
+- The owner membership was active and its subscription inactive.
+- Sign-in, dashboard refresh, billing queues, sign-out and repeat sign-in worked
+  without reported errors. The operator reported no layout issue at 375px width.
+
+These are operator-reported smoke results, not independently captured browser or
+HTTP acceptance artifacts. The status endpoint's `authenticatedAcceptance:false`
+remains unchanged. Production approvals and regulatory controls remain unchanged.
+
+The automated owner-bootstrap suite additionally uses two unrelated customers in
+an in-memory database through the actual staging entry and real password login.
+It verifies session-bound workspace, identity and order reads even when another
+tenant is named in query parameters or a header, rejects customer access to all
+three platform billing queues, and checks independent logout. Direct, shadow-path
+and root-query transports are covered. A populated manual queue is visible to the
+designated platform owner, so customer denial is not tested only against empty data.
+These local fixtures never reach Cloudflare and do not qualify live tenant isolation.
+
+Next live acceptance requires a reviewed, guarded customer-fixture provisioner
+and separate customer sessions. Activation/replay/refund races and POP upload,
+scan and retrieval need their own reviewed staging boundary before execution.
+Do not rerun the first-owner bootstrap: its existing-data guard deliberately rejects
+an already provisioned database. Do not clear the database to bypass that guard.
