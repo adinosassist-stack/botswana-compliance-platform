@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 
 const migration070=readFileSync('cloudflare/migrations/070_payment_pop_documents.sql','utf8');
-const migration071=readFileSync('cloudflare/migrations/071_payment_pop_runtime_compat.sql','utf8');
+const migration071=readFileSync('docs/proposals/071_payment_pop_runtime_compat.sql','utf8');
 const writer=readFileSync('cloudflare/src/payment-pop-metadata.js','utf8');
 const reservations=readFileSync('cloudflare/src/payment-pop-upload-reservations.js','utf8');
 
