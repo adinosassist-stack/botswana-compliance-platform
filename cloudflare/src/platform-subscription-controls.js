@@ -1,3 +1,5 @@
+import {appendSealedAuditEvent} from './audit-lineage-writer.js';
+
 // Platform-only controls for an existing, verified manual-bank subscription.
 export async function subscriptionDashboard(db,{after="",search="",status="all"}={}){
   if(!["all","active","paused","renewal"].includes(status))throw new Error("invalid_subscription_filter");
@@ -36,13 +38,14 @@ export async function setSubscriptionAccess({env,auth,body,writeAudit}){
   if(!proof)return {status:409,body:{error:'verified_subscription_payment_required'}};
   // Record intent before changing access: an unavailable audit ledger prevents mutation.
   await writeAudit(env,tenantId,auth.user_id,'SUBSCRIPTION_ACCESS_CHANGE_REQUESTED',{from:row.status,to:next,reason,paymentOrderId:proof.id,periodEndsAt:row.current_period_ends_at});
-  const changed=await env.DB.prepare(`UPDATE subscriptions SET status=?,updated_at=CURRENT_TIMESTAMP
+  const mutation=env.DB.prepare(`UPDATE subscriptions SET status=?,updated_at=CURRENT_TIMESTAMP
     WHERE tenant_id=? AND status=? AND provider='manual_bank' AND current_period_ends_at=? AND plan=?
     AND (?='paused' OR datetime(current_period_ends_at)>datetime('now'))
     AND EXISTS(SELECT 1 FROM payment_orders o JOIN payment_fulfillments f ON f.payment_order_id=o.id AND f.tenant_id=o.tenant_id
-      WHERE o.id=? AND o.tenant_id=subscriptions.tenant_id AND o.status='paid' AND f.fulfillment_status='applied')`).bind(next,tenantId,row.status,row.current_period_ends_at,row.plan,next,proof.id).run();
-  if(Number(changed.meta?.changes||0)!==1)return {status:409,body:{error:'subscription_changed_refresh_required'}};
-  await writeAudit(env,tenantId,auth.user_id,'SUBSCRIPTION_ACCESS_CHANGED',{from:row.status,to:next,reason,paymentOrderId:proof.id,periodEndsAt:row.current_period_ends_at});
+      WHERE o.id=? AND o.tenant_id=subscriptions.tenant_id AND o.status='paid' AND f.fulfillment_status='applied')`).bind(next,tenantId,row.status,row.current_period_ends_at,row.plan,next,proof.id);
+  const changed=await appendSealedAuditEvent(env,{tenantId,actorUserId:auth.user_id,eventType:'SUBSCRIPTION_ACCESS_CHANGED',entityType:'user',entityId:auth.user_id,
+    eventData:{from:row.status,to:next,reason,paymentOrderId:proof.id,periodEndsAt:row.current_period_ends_at},mutation});
+  if(!changed.ok)return {status:409,body:{error:'subscription_changed_refresh_required'}};
   return {status:200,body:{ok:true,status:next,periodEndsAt:row.current_period_ends_at}};
 }
 

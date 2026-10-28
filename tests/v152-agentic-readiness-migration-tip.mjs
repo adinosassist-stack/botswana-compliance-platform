@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import {delegatedAuthoritySchemaReady,V81_SCHEMA_DELTA} from "../cloudflare/src/agentic-entry.js";
 
-assert.equal(V81_SCHEMA_DELTA,"069_agent_cost_shadow_events.sql");
+assert.equal(V81_SCHEMA_DELTA,"071_payment_pop_runtime_compat.sql");
 
 function db({missingClaims=false,missingScheduledFor=false,missingOccurrenceIndex=false,missingSchedulerIndex=false,missingRegistry=false,missingMemory=false,missingProperty=false,missingPropertyV175=false,missingPropertyV176=false,missingPropertyV179=false,missingJitV217=false,missingBusinessGoalObserver=false,missingLedger=false}={}){
   return {

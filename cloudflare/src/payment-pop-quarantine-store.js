@@ -6,6 +6,7 @@ export async function quarantinePop(env,{tenantId,orderId,documentId,bytes,name,
  if(!env?.EVIDENCE)throw new Error("pop_storage_unavailable");
  const key=popQuarantineKey({tenantId,orderId,documentId});
  const validated=validatePopUpload(bytes,name,contentType);
- await env.EVIDENCE.put(key,bytes,{httpMetadata:{contentType:"application/octet-stream"},customMetadata:{scanStatus:"pending"}});
- return {key,bytes:validated.bytes,scanStatus:"pending"};
+ const stored=await env.EVIDENCE.put(key,bytes,{onlyIf:{etagDoesNotMatch:"*"},httpMetadata:{contentType:"application/octet-stream"},customMetadata:{scanStatus:"pending"}});
+ if(!stored?.etag)throw new Error("pop_upload_conflict");
+ return {key,bytes:validated.bytes,scanStatus:"pending",etag:stored.etag};
 }
