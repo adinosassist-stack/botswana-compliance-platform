@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
-const tip="069_agent_cost_shadow_events.sql";
+const tip="070_payment_pop_documents.sql";
 const profile=JSON.parse(fs.readFileSync("RELEASE_PROFILE.json","utf8"));
 const entry=fs.readFileSync("cloudflare/src/agentic-entry.js","utf8");
 const deploy=fs.readFileSync("cloudflare/deploy-free.sh","utf8");
