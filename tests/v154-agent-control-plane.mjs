@@ -52,6 +52,6 @@ assert.match(execution,/authorityPermitsExecution/);
 assert.match(execution,/AGENT_EXECUTION_CONTAINED/);
 assert.match(execution,/sessionExecutionEnabled\(env,auth\)&&authorityPermitsExecution\(canonicalAuthority\)/);
 assert.match(entry,/handleAgenticControlPlaneRequest/);
-assert.match(entry,/070_payment_pop_documents\.sql/,"Reviewed successors may advance the release tip only after the V154 control-plane contract remains present and tested");
+assert.match(entry,/071_payment_pop_runtime_compat\.sql/,"Reviewed successors may advance the release tip only after the V154 control-plane contract remains present and tested");
 
 console.log("v154 canonical Thebe agent control plane contract passed");
