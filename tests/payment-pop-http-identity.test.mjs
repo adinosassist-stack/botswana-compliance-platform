@@ -23,7 +23,7 @@ async function fixture(){
  const customers=prepareBillingStagingCustomers({...authority,alphaPassword:passwords.alpha,betaPassword:passwords.beta});db.exec(customers.sql);
  const payments=prepareBillingStagingPayments(authority);db.exec(payments.sql);
  // Candidate schema exists only in this local fixture, not in a release migration.
- db.exec(readFileSync('docs/proposals/payment-pop-documents-schema.sql','utf8'));
+ db.exec(readFileSync('docs/proposals/071_payment_pop_runtime_compat.sql','utf8'));
  const DB=popSqliteAdapter(db);
  const mf=new Miniflare(convertV4MiniflareOptions({modules:true,script:"export default {fetch(){return new Response('local')}}",compatibilityDate:'2026-09-03',r2Buckets:['EVIDENCE']}));
  const EVIDENCE=await mf.getR2Bucket('EVIDENCE');
