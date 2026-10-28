@@ -300,3 +300,41 @@ Never approve these synthetic fixtures. A later reviewed qualification needs a s
 plan for real test-bank/provider evidence and a safe fixture retirement transition;
 do not repurpose fake references as cleared funds. POP schema remains a design candidate
 and scanning/privacy requirements must be qualified before uploads can be enabled.
+
+## Populated queue checkpoint and POP identity qualification
+
+The operator deployed reviewed source `cfd9b56fac5036ffd32cb7cce5c9e193e790f007`
+as Worker version `5075fbdf-8951-4c1f-9f51-77951754aa34` and confirmed source
+identity with all mutation/upload/activation flags still disabled. The guarded
+7-statement synthetic fixture import succeeded. Subsequent operator responses showed:
+
+- Owner queue: exactly two submitted synthetic records, each P349, with NO FUNDS
+  references and matching alpha/beta metadata.
+- Owner analytics: 2 pending / P698, zero receipts, 3 inactive subscriptions.
+- Alpha and beta each received only their own P349 pending order despite requesting
+  the other tenant ID. An empty response from the owner session was excluded and
+  beta's test was repeated after signing in as the correct customer.
+
+These are operator-provided responses, not independently captured live traces.
+No synthetic payment was approved or activated. The required separately reconciled
+real test bank credit has not been confirmed in this conversation; a generic request
+to continue is not bank-credit evidence. Activation remains unqualified.
+
+The dormant POP HTTP handler now allocates its document UUID on the server instead
+of accepting `x-pop-document-id`. That legacy header is ignored; it cannot select or
+reuse a private storage key. Trusted session tenant/user and the tenant-scoped order
+lookup still determine the quarantine scope. Accepted uploads return their allocated
+ID and remain pending, non-reviewable and unrelated to bank receipt/activation.
+
+The new HTTP regression uses the real worker authentication/CSRF/tenant route,
+in-memory SQLite and local Miniflare R2. The candidate POP schema is created only
+inside that local test fixture; it is not a reviewed release migration. Tests cover
+missing/forged/colliding caller IDs, private object metadata and scope, validation and
+CSRF/tenant failures, compensation after metadata failure, default-off behavior and
+continued read-only staging rejection even when a caller supplies an enabled flag.
+
+This narrow identity fix does not enable an upload deployment. Scanner authentication,
+quotas, retention/deletion, a governed migration, safe retrieval, audited intake and
+idempotent retry/duplicate policy still require qualification before uploads. Each
+accepted request currently allocates a new ID; this is not retry deduplication.
+WhatsApp/manual intake is not enabled. Production upload flags remain unchanged.
