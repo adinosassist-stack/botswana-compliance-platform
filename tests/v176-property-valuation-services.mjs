@@ -55,8 +55,8 @@ assert.match(owner,/\/api\/property\/valuation-services/);
 assert.match(owner,/\/api\/payments\/service-checkout/);
 assert.match(owner,/\/api\/payments\/create-checkout/);
 
-assert.equal(profile.latest_cloudflare_migration,"069_agent_cost_shadow_events.sql");
-assert.match(agentic,/069_agent_cost_shadow_events\.sql/);
+assert.equal(profile.latest_cloudflare_migration,"070_payment_pop_documents.sql");
+assert.match(agentic,/070_payment_pop_documents\.sql/);
 assert.match(runner,/number:61/);
 assert.match(runner,/061_v176_property_valuation_services\.sql/);
 assert.match(runner,/blob:'914fce9da4bf1794fd9b61d0f7e3ee59baadcceb'/);
