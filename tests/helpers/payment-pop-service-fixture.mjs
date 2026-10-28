@@ -7,7 +7,7 @@ export function popSqliteAdapter(sql){
  }};
 }
 export function popServiceFixture(){
- const sql=new DatabaseSync(':memory:');sql.exec(readFileSync('cloudflare/schema.sql','utf8'));sql.exec(readFileSync('docs/proposals/payment-pop-documents-schema.sql','utf8'));
+ const sql=new DatabaseSync(':memory:');sql.exec(readFileSync('cloudflare/schema.sql','utf8'));sql.exec(readFileSync('docs/proposals/071_payment_pop_runtime_compat.sql','utf8'));
  sql.prepare("INSERT INTO tenants(id,name) VALUES(?,'Local POP fixture')").run(popFixtureId);
  sql.prepare("INSERT INTO users(id,email) VALUES(?,'pop-fixture@example.invalid')").run(popFixtureId);
  sql.prepare("INSERT INTO memberships(tenant_id,user_id,role,status) VALUES(?,?,'owner','active')").run(popFixtureId,popFixtureId);
