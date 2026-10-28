@@ -1,5 +1,7 @@
 import governed from './release-governance-entry.js';
 import {__requestBoundaryTest} from './worker.js';
+import {versionReleaseAssets} from './asset-release-identity.js';
+import {CLIENT_TRANSPORT_IMPLEMENTATION,runtimeScriptUrl} from './client-runtime-identity.js';
 
 export const BILLING_STAGING_ORIGIN='https://billing-staging.thebedesk.com';
 const READ_METHODS=new Set(['GET','HEAD','OPTIONS']);
@@ -13,7 +15,7 @@ const json=(body,status)=>Response.json(body,{status,headers:{'cache-control':'n
 // This first staging slice permits sign-in and inspection only. Enabling any
 // billing mutation, POP upload or fixture provisioning requires a separate review.
 export function createBillingStagingEntry(delegate=governed){
- return {async fetch(request,env,ctx){
+ async function handle(request,env,ctx){
   if(env?.APP_ENV!=='staging'||env?.DEPLOYMENT_PROFILE!=='billing-staging-readonly'||
      env?.PUBLIC_ORIGIN!==BILLING_STAGING_ORIGIN||env?.PUBLIC_APP_URL!==BILLING_STAGING_ORIGIN||
      !/^[a-f0-9]{40}$/.test(String(env?.BILLING_STAGING_SOURCE_SHA||''))){
@@ -46,8 +48,33 @@ export function createBillingStagingEntry(delegate=governed){
   Object.assign(runtime,{REGISTRATION_MODE:'hold',PAYMENT_PROVIDER:'none',EVIDENCE_UPLOADS_ENABLED:'false',POP_UPLOAD_STAGING_ENABLED:'false',
    AGENT_RUNTIME_ENABLED:'0',AGENT_BOUNDED_TASK_EXECUTION_ENABLED:'0',THEBE_INTERNAL_AUTONOMY_ENABLED:'false',THEBE_LIVE_VOICE_ENABLED:'false',THEBE_GPT_LIVE_PREVIEW_ENABLED:'false',THEBE_MARKETING_VOICE_ENABLED:'false',AI_FEATURES_DEFAULT:'off'});
   const response=await delegate.fetch(request,runtime,ctx);
-  const headers=new Headers(response.headers);headers.set('x-thebe-billing-staging','read-only');headers.set('x-robots-tag','noindex, nofollow');
-  return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
+  return response;
+ }
+ return {async fetch(request,env,ctx){
+  const response=await handle(request,env,ctx);
+  const headers=new Headers(response.headers);
+  headers.set('x-thebe-billing-staging','read-only');headers.set('x-robots-tag','noindex, nofollow');
+  headers.delete('x-thebe-release-sequence');headers.delete('x-thebe-source-sha');
+  const sha=String(env?.BILLING_STAGING_SOURCE_SHA||'');
+  const validSha=/^[a-f0-9]{40}$/.test(sha);
+  const clientRelease=CLIENT_TRANSPORT_IMPLEMENTATION+'-'+sha.slice(0,12);
+  if(validSha){
+   headers.set('x-thebe-source-sha',sha);
+   if(headers.has('x-thebe-client-release'))headers.set('x-thebe-client-release',clientRelease);
+  }
+  let body=response.body;
+  if(request.method==='GET'&&headers.get('content-type')?.includes('text/html')&&validSha){
+   body=versionReleaseAssets(runtimeScriptUrl(await response.text(),clientRelease),sha);
+   headers.delete('content-length');headers.delete('etag');
+   headers.set('cache-control','no-store');headers.set('cdn-cache-control','no-store');
+  }else if(request.method==='GET'&&headers.get('content-type')?.includes('application/json')&&validSha&&__requestBoundaryTest.normalizeApiTransport(request).url.pathname==='/api/ready'){
+   try{
+    const data=await response.clone().json();
+    if(data?.provenance)data.provenance={release:'billing-staging-readonly',sourceSha:sha,runtimeEntry:'billing-staging-entry',registrationMode:'hold'};
+    body=JSON.stringify(data);headers.delete('content-length');headers.delete('etag');
+   }catch{}
+  }
+  return new Response(body,{status:response.status,statusText:response.statusText,headers});
  }};
 }
 

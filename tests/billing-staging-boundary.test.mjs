@@ -79,6 +79,26 @@ test('status identifies source SHA without asserting authenticated acceptance',a
  const response=await createBillingStagingEntry({fetch(){throw Error('must not delegate')}}).fetch(request('/api/billing-staging/status'),config().vars,{});
  const result=await response.json();assert.equal(result.sourceSha,inputs.BILLING_STAGING_SOURCE_SHA);assert.equal(result.authenticatedAcceptance,false);assert.equal(result.billingMutationsEnabled,false);
 });
+test('all staging responses use staging provenance instead of the production release',async()=>{
+ const productionSha='b'.repeat(40);
+ const entry=createBillingStagingEntry({async fetch(){return new Response('<html><head><script src="/js/api-client.js?v=production-'+productionSha+'"></script><meta name="thebe-assets-release" content="'+productionSha+'"></head></html>',{status:200,headers:{'content-type':'text/html','x-thebe-source-sha':productionSha,'x-thebe-release-sequence':'582','x-thebe-client-release':'production-'+productionSha}})}});
+ for(const path of ['/app/','/api/billing-staging/status','/api/platform/regulatory/rules']){
+  const response=await entry.fetch(request(path),{...config().vars,DB:qualifiedDb},{});
+  assert.equal(response.headers.get('x-thebe-source-sha'),inputs.BILLING_STAGING_SOURCE_SHA);
+  assert.equal(response.headers.get('x-thebe-release-sequence'),null);
+  if(path==='/app/'){
+   const html=await response.text();assert.match(html,new RegExp('thebe-assets-release" content="'+inputs.BILLING_STAGING_SOURCE_SHA));assert.doesNotMatch(html,new RegExp(productionSha));
+   assert.match(response.headers.get('x-thebe-client-release'),/aaaaaaaaaaaa$/);
+  }
+ }
+});
+test('staging ready JSON does not claim the production release provenance',async()=>{
+ const entry=createBillingStagingEntry({async fetch(){return Response.json({ok:false,provenance:{sourceSha:'b'.repeat(40),releaseSequence:582,release:'production'}},{status:503})}});
+ for(const path of ['/api/ready','/__thebe_api/ready','/?__thebe_api_path=%2Fapi%2Fready']){
+  const response=await entry.fetch(request(path),{...config().vars,DB:qualifiedDb},{});assert.equal(response.status,503);
+  const body=await response.json();assert.equal(body.ok,false);assert.deepEqual(body.provenance,{release:'billing-staging-readonly',sourceSha:inputs.BILLING_STAGING_SOURCE_SHA,runtimeEntry:'billing-staging-entry',registrationMode:'hold'});
+ }
+});
 test('production hostname and incomplete runtime are refused',async()=>{
  const entry=createBillingStagingEntry({fetch(){throw Error('must not delegate')}});
  assert.equal((await entry.fetch(new Request('https://thebedesk.com/api/live'),config().vars,{})).status,403);
