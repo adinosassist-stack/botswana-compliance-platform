@@ -10,7 +10,7 @@ test("POP metadata writes only pending receipt records and never payment status"
  assert.match(sql,/INSERT INTO payment_pop_documents/);
  assert.match(sql,/'pending'/);
  assert.doesNotMatch(sql,/payment_fulfillments|UPDATE payment_orders|subscriptions/i);
- assert.equal(params.length,8);
+ assert.equal(params.length,10);
 });
 test("missing authority scope and bad storage keys fail closed",async()=>{
  await assert.rejects(recordPendingPop(null,{}),/invalid/);

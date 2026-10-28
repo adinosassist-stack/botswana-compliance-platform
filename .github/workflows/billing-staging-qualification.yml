@@ -9,6 +9,7 @@ on:
       - 'tests/payment-pop-*.test.mjs'
       - 'tests/helpers/payment-pop-service-fixture.mjs'
       - 'docs/proposals/payment-pop-documents-schema.sql'
+      - 'docs/proposals/payment-pop-scan-verification.md'
       - 'cloudflare/src/platform-owner-access.js'
       - 'scripts/render-billing-staging-config.mjs'
       - 'scripts/prepare-billing-staging-owner.mjs'
