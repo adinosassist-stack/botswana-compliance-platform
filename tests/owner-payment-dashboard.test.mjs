@@ -1,8 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
+import {appendSealedAuditEvent} from '../cloudflare/src/audit-lineage-writer.js';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import {createHmac} from 'node:crypto';
 import app from '../cloudflare/src/agentic-entry.js';
 import worker from '../cloudflare/src/worker.js';
 import {subscriptionDashboard,setSubscriptionAccess,guardPausedWorkspaceWrites} from '../cloudflare/src/platform-subscription-controls.js';
@@ -11,17 +13,20 @@ function fixture(){
  sql.exec(`CREATE TABLE tenants(id TEXT PRIMARY KEY,name TEXT);CREATE TABLE subscriptions(tenant_id TEXT PRIMARY KEY,plan TEXT,status TEXT,provider TEXT,current_period_ends_at TEXT,updated_at TEXT);CREATE TABLE payment_orders(id TEXT,tenant_id TEXT,order_type TEXT,provider TEXT,status TEXT,metadata_json TEXT);CREATE TABLE payment_fulfillments(payment_order_id TEXT,tenant_id TEXT,fulfillment_status TEXT);
  INSERT INTO tenants VALUES('client','Client One');INSERT INTO subscriptions VALUES('client','business','active','manual_bank','2099-01-01 00:00:00',NULL);
  INSERT INTO payment_orders VALUES('paid-order','client','subscription','manual_bank','paid','{"plan":"business"}');INSERT INTO payment_fulfillments VALUES('paid-order','client','applied');`);
- const DB={prepare(query){let args=[];return {bind(...values){args=values;return this},async first(){return sql.prepare(query).get(...args)||null},async all(){return {results:sql.prepare(query).all(...args)}},async run(){return {meta:{changes:Number(sql.prepare(query).run(...args).changes)}}}}}};
+ sql.exec(fs.readFileSync('cloudflare/schema.sql','utf8').match(/CREATE TABLE IF NOT EXISTS audit_events\([\s\S]*?\);/)[0]);
+ sql.exec(fs.readFileSync('cloudflare/migrations/004_v56_audit_lineage.sql','utf8').split('CREATE TABLE IF NOT EXISTS audit_integrity_checks')[0]);
+ const DB={async batch(statements){sql.exec('BEGIN');try{const results=statements.map(statement=>statement.execute());sql.exec('COMMIT');return results}catch(error){sql.exec('ROLLBACK');throw error}},prepare(query){let args=[];return {bind(...values){args=values;return this},execute(){return {success:true,meta:{changes:Number(sql.prepare(query).run(...args).changes)}}},async first(){return sql.prepare(query).get(...args)||null},async all(){return {results:sql.prepare(query).all(...args)}},async run(){return {meta:{changes:Number(sql.prepare(query).run(...args).changes)}}}}}};
  const audit=[];const auth={tenant_id:'platform-owner',user_id:'admin'};
  const body={tenantId:'client',enabled:false,expectedStatus:'active',expectedPeriod:'2099-01-01 00:00:00',reason:'Owner verified request'};
- const change=(overrides={},writeAudit=async(...args)=>audit.push(args))=>setSubscriptionAccess({env:{DB},auth,body:{...body,...overrides},writeAudit});
+ const env={DB,AUDIT_INTEGRITY_SECRET:'test-only-audit-secret'};
+ const change=(overrides={},writeAudit=async(_env,tenantId,userId,eventType,eventData)=>{audit.push(eventType);return appendSealedAuditEvent(_env,{tenantId,actorUserId:userId,eventType,entityType:'user',entityId:userId,eventData})})=>setSubscriptionAccess({env,auth,body:{...body,...overrides},writeAudit});
  return {sql,DB,audit,auth,body,change};
 }
 test('pause and resume preserve the verified payment and paid-through date',async()=>{
  const f=fixture();assert.equal((await f.change()).body.status,'paused');
  assert.equal((await f.change({enabled:true,expectedStatus:'paused'})).body.status,'active');
  assert.equal(f.sql.prepare('SELECT current_period_ends_at FROM subscriptions').get().current_period_ends_at,'2099-01-01 00:00:00');
- assert.equal(f.sql.prepare('SELECT status FROM payment_orders').get().status,'paid');assert.equal(f.audit.length,4);
+ assert.equal(f.sql.prepare('SELECT status FROM payment_orders').get().status,'paid');assert.equal(f.sql.prepare('SELECT count(*) n FROM audit_events').get().n,4);
 });
 for(const [label,sql,overrides,error] of [
  ['unverified payment',"DELETE FROM payment_fulfillments",{},'verified_subscription_payment_required'],
@@ -39,6 +44,7 @@ test('invalid controls and current admin workspace cannot mutate access',async()
 test('audit unavailability prevents access changes',async()=>{const f=fixture();await assert.rejects(f.change({},async()=>{throw Error('ledger down')}));assert.equal(f.sql.prepare('SELECT status FROM subscriptions').get().status,'active')});
 for(const sql of ["UPDATE subscriptions SET plan='pro'","UPDATE subscriptions SET current_period_ends_at='2098-01-01'","UPDATE payment_orders SET status='refunded'"])test('compare-and-set rejects a concurrent change: '+sql,async()=>{
  const f=fixture();const r=await f.change({},async()=>f.sql.exec(sql));assert.equal(r.status,409);assert.equal(f.sql.prepare('SELECT status FROM subscriptions').get().status,'active');
+ assert.equal(f.sql.prepare('SELECT count(*) n FROM audit_events').get().n,0);assert.equal(f.sql.prepare('SELECT count(*) n FROM audit_chain_state').get().n,0);
 });
 test('dashboard paginates all clients and returns aggregate counts',async()=>{
  const f=fixture();for(let i=0;i<55;i++)f.sql.exec(`INSERT INTO tenants VALUES('extra-${String(i).padStart(2,'0')}','Synthetic client');INSERT INTO subscriptions VALUES('extra-${String(i).padStart(2,'0')}','business','paused','manual_bank','2099-01-01',NULL)`);
@@ -128,4 +134,46 @@ test('failed owner payment approval refreshes the live queue without reporting a
   assert.ok(!messages.some(m=>m.includes('plan activated')));
   if(refreshFails)assert.ok(messages.some(m=>m.includes('Reload before retrying')));
  }
+});
+
+for(const [label,trigger] of [
+ ['completion audit insert',"CREATE TRIGGER fail_completion BEFORE INSERT ON audit_events WHEN NEW.event_type='SUBSCRIPTION_ACCESS_CHANGED' BEGIN SELECT RAISE(ABORT,'ledger unavailable'); END"],
+ ['completion chain update',"CREATE TRIGGER fail_chain BEFORE UPDATE ON audit_chain_state WHEN NEW.event_count=2 BEGIN SELECT RAISE(ABORT,'chain unavailable'); END"]
+])test(label+' failure rolls back access and permits a safe retry',async()=>{
+ const f=fixture();f.sql.exec(trigger);
+ await assert.rejects(f.change(),/audit_write_failed/);
+ assert.equal(f.sql.prepare('SELECT status FROM subscriptions').get().status,'active');
+ assert.deepEqual(f.sql.prepare('SELECT event_type,tenant_seq FROM audit_events').all().map(r=>({...r})),[{event_type:'SUBSCRIPTION_ACCESS_CHANGE_REQUESTED',tenant_seq:1}]);
+ assert.equal(f.sql.prepare('SELECT event_count FROM audit_chain_state').get().event_count,1);
+ f.sql.exec(label==='completion audit insert'?'DROP TRIGGER fail_completion':'DROP TRIGGER fail_chain');
+ assert.equal((await f.change()).status,200);
+ assert.equal(f.sql.prepare('SELECT status FROM subscriptions').get().status,'paused');
+ assert.equal(f.sql.prepare("SELECT count(*) n FROM audit_events WHERE event_type='SUBSCRIPTION_ACCESS_CHANGED'").get().n,1);
+ const replay=await f.change({expectedStatus:'paused'});assert.equal(replay.body.unchanged,true);
+ assert.equal(f.sql.prepare("SELECT count(*) n FROM audit_events WHERE event_type='SUBSCRIPTION_ACCESS_CHANGED'").get().n,1);
+});
+
+test('concurrent requests commit only one access change and completion event',async()=>{
+ const f=fixture();
+ const results=await Promise.all([f.change(),f.change()]);
+ assert.deepEqual(results.map(r=>r.status).sort(),[200,409]);
+ assert.equal(f.sql.prepare("SELECT count(*) n FROM audit_events WHERE event_type='SUBSCRIPTION_ACCESS_CHANGED'").get().n,1);
+ assert.equal(f.sql.prepare('SELECT status FROM subscriptions').get().status,'paused');
+ const events=f.sql.prepare('SELECT * FROM audit_events ORDER BY tenant_seq').all();
+ let prevHash='GENESIS';
+ const stable=value=>value&&typeof value==='object'?Object.fromEntries(Object.keys(value).sort().map(k=>[k,stable(value[k])])):value;
+ for(const [i,event] of events.entries()){
+  assert.equal(event.tenant_seq,i+1);assert.equal(event.prev_hash,prevHash);
+  const payload={tenantId:event.tenant_id,seq:event.tenant_seq,actorUserId:event.actor_user_id,eventType:event.event_type,entityType:event.entity_type,entityId:event.entity_id,eventData:JSON.parse(event.event_data),occurredAt:event.occurred_at,prevHash,integrityVersion:1};
+  assert.equal(event.event_hash,createHmac('sha256','test-only-audit-secret').update(JSON.stringify(stable(payload))).digest('hex'));
+  prevHash=event.event_hash;
+ }
+ assert.equal(f.sql.prepare('SELECT last_hash FROM audit_chain_state').get().last_hash,prevHash);
+});
+
+test('completion audit failure also rolls back a resume',async()=>{
+ const f=fixture();f.sql.exec("UPDATE subscriptions SET status='paused'; CREATE TRIGGER fail_resume BEFORE INSERT ON audit_events WHEN NEW.event_type='SUBSCRIPTION_ACCESS_CHANGED' BEGIN SELECT RAISE(ABORT,'ledger unavailable'); END");
+ await assert.rejects(f.change({enabled:true,expectedStatus:'paused'}),/audit_write_failed/);
+ assert.equal(f.sql.prepare('SELECT status FROM subscriptions').get().status,'paused');
+ assert.equal(f.sql.prepare('SELECT event_count FROM audit_chain_state').get().event_count,1);
 });

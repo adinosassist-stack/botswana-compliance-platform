@@ -1,0 +1,67 @@
+name: Billing staging isolation qualification
+
+on:
+  pull_request:
+    paths:
+      - 'cloudflare/src/billing-staging-entry.js'
+      - 'cloudflare/src/worker.js'
+      - 'cloudflare/src/payment-pop-*.js'
+      - 'tests/payment-pop-*.test.mjs'
+      - 'tests/helpers/payment-pop-service-fixture.mjs'
+      - 'docs/proposals/payment-pop-documents-schema.sql'
+      - 'docs/proposals/payment-pop-scan-verification.md'
+      - 'docs/proposals/payment-pop-retention-recovery.md'
+      - 'cloudflare/src/platform-owner-access.js'
+      - 'scripts/render-billing-staging-config.mjs'
+      - 'scripts/prepare-billing-staging-owner.mjs'
+      - 'scripts/prepare-billing-staging-customers.mjs'
+      - 'scripts/prepare-billing-staging-payments.mjs'
+      - 'scripts/check-billing-staging-acceptance.mjs'
+      - 'scripts/prepare-billing-staging-alpha-reset.mjs'
+      - 'tests/billing-staging-boundary.test.mjs'
+      - 'tests/billing-staging-owner-bootstrap.test.mjs'
+      - 'tests/billing-staging-customer-bootstrap.test.mjs'
+      - 'tests/billing-staging-payment-fixtures.test.mjs'
+      - 'tests/billing-staging-acceptance.test.mjs'
+      - 'tests/billing-staging-alpha-reset.test.mjs'
+      - 'docs/billing-staging.md'
+      - '.github/workflows/billing-staging-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - name: Checkout exact revision without credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Set up pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Install lockfile dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify staging boundary and existing billing contracts
+        run: node --test tests/billing-staging-boundary.test.mjs tests/billing-staging-acceptance.test.mjs tests/billing-staging-alpha-reset.test.mjs tests/billing-staging-owner-bootstrap.test.mjs tests/billing-staging-customer-bootstrap.test.mjs tests/billing-staging-payment-fixtures.test.mjs tests/v82-registration-owner-navigation-hardening.mjs tests/subscription-access-audit-d1.test.mjs tests/owner-payment-dashboard.test.mjs tests/platform-billing-controls.test.mjs tests/payment-pop-*.test.mjs
+      - name: Compile staging Worker without uploading or provider credentials
+        env:
+          BILLING_STAGING_D1_ID: '11111111-1111-4111-8111-111111111111'
+          PRODUCTION_D1_DATABASE_ID: '22222222-2222-4222-8222-222222222222'
+          BILLING_STAGING_ADMIN_EMAILS: 'billing-owner@example.invalid'
+          BILLING_STAGING_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          node scripts/render-billing-staging-config.mjs > "$RUNNER_TEMP/billing-staging.json"
+          node ./node_modules/wrangler/bin/wrangler.js deploy --dry-run --config "$RUNNER_TEMP/billing-staging.json" --outdir "$RUNNER_TEMP/billing-staging-bundle"
+          echo 'Compilation only. No provider credentials, deployment, migrations, accounts or billing mutations.' >> "$GITHUB_STEP_SUMMARY"
