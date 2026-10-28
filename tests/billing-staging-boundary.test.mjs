@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {renderBillingStagingConfig,billingStagingMarkerSql} from '../scripts/render-billing-staging-config.mjs';
 import {DatabaseSync} from 'node:sqlite';
 import {createBillingStagingEntry,BILLING_STAGING_ORIGIN} from '../cloudflare/src/billing-staging-entry.js';
+import {preparePlatformOwnerLogin,withPlatformOwnerAdminEnv} from '../cloudflare/src/platform-owner-access.js';
 
 const inputs={BILLING_STAGING_D1_ID:'11111111-1111-4111-8111-111111111111',PRODUCTION_D1_DATABASE_ID:'22222222-2222-4222-8222-222222222222',BILLING_STAGING_SOURCE_SHA:'a'.repeat(40),BILLING_STAGING_ADMIN_EMAILS:'billing-owner@example.invalid'};
 const config=()=>renderBillingStagingConfig(inputs);
@@ -19,8 +20,37 @@ test('configuration pins separate Worker, database and storage identities with n
 for(const bad of [inputs.PRODUCTION_D1_DATABASE_ID,'8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce','20c0d37e-552e-438f-a56d-3f12c27d38e2','20C0D37E-552E-438F-A56D-3F12C27D38E2'])test('refuses production or regulatory staging D1: '+bad,()=>{
  assert.throws(()=>renderBillingStagingConfig({...inputs,BILLING_STAGING_D1_ID:bad}),/database_forbidden/);
 });
-for(const overrides of [{BILLING_STAGING_D1_ID:''},{PRODUCTION_D1_DATABASE_ID:''},{BILLING_STAGING_SOURCE_SHA:'main'},{BILLING_STAGING_ADMIN_EMAILS:''},{BILLING_STAGING_ADMIN_EMAILS:'thebedesk@gmail.com'},{BILLING_STAGING_ADMIN_EMAILS:'x@example.invalid\nmalformed'}])test('refuses incomplete or unsafe configuration '+JSON.stringify(overrides),()=>{
+for(const overrides of [{BILLING_STAGING_D1_ID:''},{PRODUCTION_D1_DATABASE_ID:''},{BILLING_STAGING_SOURCE_SHA:'main'},{BILLING_STAGING_ADMIN_EMAILS:''},{BILLING_STAGING_ADMIN_EMAILS:'x@example.invalid\nmalformed'}])test('refuses incomplete or unsafe configuration '+JSON.stringify(overrides),()=>{
  assert.throws(()=>renderBillingStagingConfig({...inputs,...overrides}),/billing_staging_/);
+});
+test('an explicitly selected owner email may be reused in isolated staging',()=>{
+ const c=renderBillingStagingConfig({...inputs,BILLING_STAGING_ADMIN_EMAILS:'thebedesk@gmail.com'});
+ assert.equal(c.vars.PLATFORM_ADMIN_EMAILS,'thebedesk@gmail.com');
+ assert.equal(c.vars.REGISTRATION_MODE,'hold');assert.equal(c.vars.PAYMENT_PROVIDER,'none');
+ assert.equal(c.d1_databases[0].database_id,inputs.BILLING_STAGING_D1_ID);
+});
+test('billing staging admin allowlist is explicit and does not inject the production owner',()=>{
+ const env={...config().vars,PLATFORM_ADMIN_EMAILS:'designated@example.invalid'};
+ const result=withPlatformOwnerAdminEnv(env);
+ assert.equal(result.PLATFORM_ADMIN_EMAILS,'designated@example.invalid');
+ assert.equal(env.PLATFORM_ADMIN_EMAILS,'designated@example.invalid');
+ for(const patch of [{APP_ENV:'production'},{DEPLOYMENT_PROFILE:'workers-free-first'}]){
+  assert.match(withPlatformOwnerAdminEnv({...env,...patch}).PLATFORM_ADMIN_EMAILS,/thebedesk@gmail.com/);
+ }
+});
+test('staging owner login leaves membership, entitlements and regulatory principals untouched',async()=>{
+ const req=new Request(BILLING_STAGING_ORIGIN+'/api/auth/login',{method:'POST',headers:{origin:BILLING_STAGING_ORIGIN,'content-type':'application/json'},body:JSON.stringify({email:'thebedesk@gmail.com',password:'test-only'})});
+ const env={...config().vars,DB:{prepare(){throw Error('staging login must not repair production-owner privileges')}}};
+ assert.equal(await preparePlatformOwnerLogin(req,env),req);
+ assert.deepEqual(await req.json(),{email:'thebedesk@gmail.com',password:'test-only'});
+});
+test('owner login preparation remains active outside the exact billing staging profile',async()=>{
+ for(const patch of [{APP_ENV:'production'},{DEPLOYMENT_PROFILE:'workers-free-first'}]){
+  let queries=0;
+  const env={...config().vars,...patch,DB:{prepare(sql){assert.match(sql,/SELECT id,password_hash FROM users/);queries++;return {bind(){return {first:async()=>null}}}}}};
+  const req=new Request(BILLING_STAGING_ORIGIN+'/api/auth/login',{method:'POST',headers:{origin:BILLING_STAGING_ORIGIN,'content-type':'application/json'},body:JSON.stringify({email:'thebedesk@gmail.com',password:'test-only'})});
+  assert.equal(await preparePlatformOwnerLogin(req,env),req);assert.equal(queries,1);
+ }
 });
 test('configuration ignores attempted production routes, buckets and runtime overrides',()=>{
  assert.deepEqual(renderBillingStagingConfig({...inputs,PUBLIC_ORIGIN:'https://thebedesk.com',EVIDENCE_BUCKET:'bw-compliance-evidence',PAYMENT_PROVIDER:'dpo',POP_UPLOAD_STAGING_ENABLED:'true'}),config());
