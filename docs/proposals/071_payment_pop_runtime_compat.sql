@@ -3,6 +3,16 @@
 -- No payment settlement, entitlement, upload enablement or scanner activation.
 ALTER TABLE payment_pop_documents ADD COLUMN content_sha256 TEXT;
 ALTER TABLE payment_pop_documents ADD COLUMN object_etag TEXT;
+ALTER TABLE payment_pop_documents ADD COLUMN scan_request_id TEXT;
+ALTER TABLE payment_pop_documents ADD COLUMN scan_requested_at INTEGER;
+ALTER TABLE payment_pop_documents ADD COLUMN scan_request_expires_at INTEGER;
+ALTER TABLE payment_pop_documents ADD COLUMN scan_result_hash TEXT;
+ALTER TABLE payment_pop_documents ADD COLUMN scan_result_body TEXT;
+ALTER TABLE payment_pop_documents ADD COLUMN scan_result_signature TEXT;
+ALTER TABLE payment_pop_documents ADD COLUMN scanner_provider TEXT;
+ALTER TABLE payment_pop_documents ADD COLUMN scanned_at TEXT;
+ALTER TABLE payment_pop_documents ADD COLUMN last_owner_read_at TEXT;
+ALTER TABLE payment_pop_documents ADD COLUMN storage_deleted_at TEXT;
 
 -- Keep reserved and failed requests until a separate reviewed reconciliation policy.
 CREATE TABLE payment_pop_upload_requests (
