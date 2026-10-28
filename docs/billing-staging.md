@@ -379,3 +379,73 @@ period, quota release, live data deletion, route, schedule or schema import is s
 The additional timestamp remains only in candidate SQL, and the current runtime
 strips both proposed operation flags. Privacy/provider/migration and operational
 qualification gates remain outstanding before upload enablement.
+# Repeatable authenticated API checkpoint
+
+The operator reported deployment of reviewed merge
+`e48d32571cf146ecd8e2b97c43d99c7f8c878c5f`, Worker version
+`4cfbf756-94d7-40a5-ad23-4f1985c4532c`. The supplied status response at
+2026-10-28 18:08:57 UTC matched that SHA and read-only flags. A subsequent
+response returned 403 `billing_staging_mutations_disabled`; the pasted command
+contained concatenated URLs, so this records boundary rejection rather than a
+clean authenticated POP route trace. No live POP acceptance is claimed.
+
+`scripts/check-billing-staging-acceptance.mjs` supplies a repeatable **API-only**
+checkpoint for the existing three accounts and two synthetic pending fixtures.
+It uses the fixed staging HTTPS origin, refuses redirects, validates local
+resource configuration and exact current checkout/deployment SHA, and verifies
+read-only provenance before sending credentials and on every response. It is
+not a general production smoke tool and accepts no target URL override.
+
+Passwords are supplied on private stdin in owner/Alpha/Beta order. No password,
+cookie, CSRF token, email, tenant identifier, payment reference or response body
+is copied into the report. The output is created exclusively with mode 0600;
+an existing file is never overwritten. Each request has a 15-second timeout.
+The checker creates login sessions and attempts to revoke them on success/failure;
+cleanup uncertainty makes the run fail. Login/session timestamps and normal
+authentication/rate-limit bookkeeping can change. Business records are only read.
+Its only non-authentication POST is an empty, invalid POP staging request with no
+file, order, idempotency key or bank assertion, which must be blocked by staging.
+It never calls payment approval, subscription mutation or regulatory endpoints.
+
+The expected fixture baseline is deliberately strict: three distinct inactive
+tenants, one pending P349 manual order per customer, two labelled synthetic queue
+entries, P698 pending, zero receipts, zero active/paused subscriptions. Customer
+state and orders must remain their own when another tenant ID is supplied; all
+three platform billing reads must deny customers. Alpha logout must revoke Alpha
+while Beta and owner sessions continue. A changed fixture or unsupported API
+response is a failure requiring investigation, not a reason to reset live data.
+
+After independent review, checkout and staging deployment of the checker revision,
+an operator can run the following in the Codespace terminal. Supply staging-only
+passwords at the hidden prompts; never paste them into chat. Use a fresh output
+filename for every run. The config must already match the exact deployed checkout.
+
+```bash
+(
+  set -e
+  set +x
+  umask 077
+  IFS= read -r -s -p 'Owner staging password: ' ACCEPTANCE_OWNER
+  printf '\n'
+  IFS= read -r -s -p 'Alpha staging password: ' ACCEPTANCE_ALPHA
+  printf '\n'
+  IFS= read -r -s -p 'Beta staging password: ' ACCEPTANCE_BETA
+  printf '\n'
+  printf '%s\n%s\n%s' "$ACCEPTANCE_OWNER" "$ACCEPTANCE_ALPHA" "$ACCEPTANCE_BETA" |
+    PRODUCTION_D1_DATABASE_ID=8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce node scripts/check-billing-staging-acceptance.mjs \
+      --config /tmp/billing-staging.json \
+      --owner-email thebedesk@gmail.com \
+      --database 9d1b8852-4424-46e9-ba24-cdad5ced215f \
+      --out /tmp/billing-staging-acceptance.json
+)
+```
+
+Exit zero and `ok: true` confirm only the listed authenticated API observations
+for that run/SHA. On failure, inspect `failedCheck`, `failure` and
+`cleanupComplete` in the private report; never share credential diagnostics. If
+cleanup is incomplete, session revocation remains unverified. The report always
+lists browser login/mobile layout, genuine bank reconciliation/activation, live
+POP operations and WhatsApp intake as unverified. Signed-in browser and independent
+end-to-end evidence remain required for #1874/#1886. No successful live checker
+run is recorded here yet; automated tests use the actual staging entry and real
+local SQLite fixtures without contacting Cloudflare.
