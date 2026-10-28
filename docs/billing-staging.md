@@ -338,3 +338,18 @@ quotas, retention/deletion, a governed migration, safe retrieval, audited intake
 idempotent retry/duplicate policy still require qualification before uploads. Each
 accepted request currently allocates a new ID; this is not retry deduplication.
 WhatsApp/manual intake is not enabled. Production upload flags remain unchanged.
+
+## Upload admission candidate and deployed default-off checkpoint
+
+The operator deployed reviewed source `9214918450ebdc02e19a417713b5a884faaa36cd`
+as Worker version `18df7ec1-544e-4d2f-9124-86eb818066b6`. The reported status body
+and source header matched; mutation/upload/activation flags remained false. A
+reported staging POST response returned 403 `billing_staging_mutations_disabled`.
+This confirms a rejection response, not authenticated upload or scan acceptance.
+
+[POP admission/replay candidate](proposals/payment-pop-upload-limits.md) documents
+new durable request reservations, conservative caps, atomic metadata completion,
+replay conflict handling and uncertain-write reconciliation. Its table remains in
+the design candidate SQL only. The reviewed code must not be interpreted as
+permission to import that schema or enable uploads. Activation evidence and the
+remaining POP scan/privacy/retrieval/retention gates are still outstanding.
