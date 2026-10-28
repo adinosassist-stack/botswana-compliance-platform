@@ -15,8 +15,11 @@ That address is a proposed target, not an assertion that it exists.
 
 The renderer requires an explicit staging database UUID and current production
 database UUID. It rejects equality, the known production UUID and the separate
-regulatory staging UUID. It accepts only an exact source SHA and designated
-staging administrator emails; it refuses the production platform-owner email.
+regulatory staging UUID. It accepts only an exact source SHA and explicitly designated
+staging administrator emails. An address may also be used in production, but its
+staging user, password, memberships and sessions must be independently provisioned.
+In this staging profile, the owner helper neither injects a production administrator
+email nor repairs memberships, entitlements or regulatory principals during login.
 The configuration contains no production route, AI binding or scheduled handler.
 
 The runtime permits sign-in/out and an explicit set of billing/state reads.

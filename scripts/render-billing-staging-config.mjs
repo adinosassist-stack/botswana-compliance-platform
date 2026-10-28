@@ -18,7 +18,7 @@ export function renderBillingStagingConfig(env){
  const sourceSha=String(env.BILLING_STAGING_SOURCE_SHA||'');
  if(!/^[a-f0-9]{40}$/.test(sourceSha))throw Error('billing_staging_exact_sha_required');
  const emails=String(env.BILLING_STAGING_ADMIN_EMAILS||'').split(',').map(s=>s.trim().toLowerCase());
- if(!emails.length||emails.some(s=>!(/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(s)))||emails.includes('thebedesk@gmail.com'))throw Error('billing_staging_designated_admin_required');
+ if(!emails.length||emails.some(s=>!(/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(s))))throw Error('billing_staging_designated_admin_required');
  return {
   name:BILLING_STAGING_WORKER,main:path.join(root,'cloudflare/src/billing-staging-entry.js'),compatibility_date:'2026-09-03',
   workers_dev:false,preview_urls:false,keep_vars:false,

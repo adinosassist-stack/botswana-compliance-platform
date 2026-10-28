@@ -110,15 +110,22 @@ function withTenantId(request,body,tenantId){
   return new Request(request,{headers,body:JSON.stringify({...body,tenantId})});
 }
 
+function isolatedBillingStaging(env){
+  return env?.APP_ENV==="staging"&&env?.DEPLOYMENT_PROFILE==="billing-staging-readonly";
+}
+
 export function withPlatformOwnerAdminEnv(env){
   const runtimeEnv=Object.assign({},env||{});
   const current=String(env?.PLATFORM_ADMIN_EMAILS||"").split(",").map(value=>value.trim().toLowerCase()).filter(Boolean);
-  if(!current.includes(PLATFORM_OWNER_EMAIL))current.push(PLATFORM_OWNER_EMAIL);
+  if(!isolatedBillingStaging(env)&&!current.includes(PLATFORM_OWNER_EMAIL))current.push(PLATFORM_OWNER_EMAIL);
   runtimeEnv.PLATFORM_ADMIN_EMAILS=current.join(",");
   return runtimeEnv;
 }
 
 export async function preparePlatformOwnerLogin(request,env){
+  // Staging identities are explicitly provisioned in their own database. Reusing
+  // an email must not trigger production membership, entitlement or principal repair.
+  if(isolatedBillingStaging(env))return request;
   if(String(request?.method||"").toUpperCase()!=="POST"||logicalRequestPath(request)!=="/api/auth/login"||!env?.DB||!ownerLoginOriginAllowed(request,env))return request;
   let body;
   try{body=await request.clone().json()}catch{return request}
