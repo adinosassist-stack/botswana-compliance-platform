@@ -69,10 +69,10 @@ for(const path of ['/api/payments/return?order=x','/api/platform/billing/new-uns
 });
 test('login body survives the boundary while credentials and flags cannot enable integrations',async()=>{
  const entry=createBillingStagingEntry({async fetch(req,env){
-  assert.deepEqual(await req.json(),{test:true});assert.equal(env.PAYMENT_PROVIDER,'none');assert.equal(env.POP_UPLOAD_STAGING_ENABLED,'false');assert.equal(env.OPENAI_API_KEY,undefined);assert.equal(env.RESEND_API_KEY,undefined);assert.equal(env.OPERATIONS_SECRET,undefined);assert.equal(env.AI,undefined);for(const key of ['POP_SCAN_STAGING_ENABLED','POP_OWNER_RETRIEVAL_STAGING_ENABLED','POP_SCAN_SECRET','POP_SCANNER_ID'])assert.equal(env[key],undefined);return Response.json({ok:true});
+  assert.deepEqual(await req.json(),{test:true});assert.equal(env.PAYMENT_PROVIDER,'none');assert.equal(env.POP_UPLOAD_STAGING_ENABLED,'false');assert.equal(env.OPENAI_API_KEY,undefined);assert.equal(env.RESEND_API_KEY,undefined);assert.equal(env.OPERATIONS_SECRET,undefined);assert.equal(env.AI,undefined);for(const key of ['POP_SCAN_STAGING_ENABLED','POP_OWNER_RETRIEVAL_STAGING_ENABLED','POP_SCAN_SECRET','POP_SCANNER_ID','POP_RETENTION_STAGING_ENABLED','POP_RECOVERY_STAGING_ENABLED'])assert.equal(env[key],undefined);return Response.json({ok:true});
  }});
  for(const alias of ['/api/auth/login','/__thebe_api/auth/login','/?__thebe_api_path=%2Fapi%2Fauth%2Flogin']){
-  const response=await entry.fetch(request(alias,'POST'),{...config().vars,DB:qualifiedDb,PAYMENT_PROVIDER:'dpo',POP_UPLOAD_STAGING_ENABLED:'true',OPENAI_API_KEY:'must-not-forward',RESEND_API_KEY:'must-not-forward',OPERATIONS_SECRET:'must-not-forward',POP_SCAN_STAGING_ENABLED:'true',POP_OWNER_RETRIEVAL_STAGING_ENABLED:'true',POP_SCAN_SECRET:'must-not-forward',POP_SCANNER_ID:'unapproved',AI:{}},{});
+  const response=await entry.fetch(request(alias,'POST'),{...config().vars,DB:qualifiedDb,PAYMENT_PROVIDER:'dpo',POP_UPLOAD_STAGING_ENABLED:'true',OPENAI_API_KEY:'must-not-forward',RESEND_API_KEY:'must-not-forward',OPERATIONS_SECRET:'must-not-forward',POP_SCAN_STAGING_ENABLED:'true',POP_OWNER_RETRIEVAL_STAGING_ENABLED:'true',POP_SCAN_SECRET:'must-not-forward',POP_SCANNER_ID:'unapproved',POP_RETENTION_STAGING_ENABLED:'true',POP_RECOVERY_STAGING_ENABLED:'true',AI:{}},{});
   assert.equal(response.status,200);assert.equal(response.headers.get('x-robots-tag'),'noindex, nofollow');
  }
  assert.equal(entry.scheduled,undefined);

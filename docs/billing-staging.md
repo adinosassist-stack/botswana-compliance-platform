@@ -364,3 +364,18 @@ context and an atomic access audit. No network transport, provider, route or
 scheduled scanner is installed. The current staging runtime strips the proposed
 scan/retrieval flags and credentials, and uploads remain disabled. New fields remain
 in the candidate schema only; no schema import is authorized by the code change.
+
+## Disabled content-retirement and recovery candidate
+
+The operator reported source `9714e079c3aa750beec4fda9a9d023ab1bcddc8a` at
+Worker version `9402f7eb-f3d5-41f8-9e10-6b40ad3d88aa`, with matching status/source
+headers and all mutation/upload/activation flags false. This establishes configuration
+identity, not live scan/download acceptance.
+
+The [content-retirement/recovery candidate](proposals/payment-pop-retention-recovery.md)
+adds audited access revocation before content removal, audited cleanup completion,
+and inspection of uncertain uploads without speculative deletion. No retention
+period, quota release, live data deletion, route, schedule or schema import is supplied.
+The additional timestamp remains only in candidate SQL, and the current runtime
+strips both proposed operation flags. Privacy/provider/migration and operational
+qualification gates remain outstanding before upload enablement.

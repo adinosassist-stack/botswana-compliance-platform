@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS payment_pop_documents (
  received_by_user_id TEXT,
  uploaded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
  deleted_at TEXT,
+ storage_deleted_at TEXT,
  FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
  FOREIGN KEY(payment_order_id) REFERENCES payment_orders(id) ON DELETE CASCADE,
  FOREIGN KEY(submission_id) REFERENCES manual_payment_submissions(id) ON DELETE SET NULL
