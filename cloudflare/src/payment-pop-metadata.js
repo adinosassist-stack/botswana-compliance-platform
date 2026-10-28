@@ -1,3 +1,4 @@
+import {popQuarantineKey} from "./payment-pop-storage-boundary.js";
 // Metadata-only POP persistence. This does not settle payments.
 export async function recordPendingPop(db,{documentId,tenantId,orderId,objectKey,name,contentType,bytes,userId}={}){
  if(!db?.prepare||!documentId||!tenantId||!orderId||!objectKey||!userId)throw Error("pop_metadata_invalid");
