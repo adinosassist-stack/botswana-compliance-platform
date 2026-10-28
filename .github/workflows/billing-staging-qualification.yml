@@ -7,8 +7,10 @@ on:
       - 'cloudflare/src/platform-owner-access.js'
       - 'scripts/render-billing-staging-config.mjs'
       - 'scripts/prepare-billing-staging-owner.mjs'
+      - 'scripts/prepare-billing-staging-customers.mjs'
       - 'tests/billing-staging-boundary.test.mjs'
       - 'tests/billing-staging-owner-bootstrap.test.mjs'
+      - 'tests/billing-staging-customer-bootstrap.test.mjs'
       - 'docs/billing-staging.md'
       - '.github/workflows/billing-staging-qualification.yml'
   workflow_dispatch:
@@ -36,7 +38,7 @@ jobs:
       - name: Install lockfile dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Verify staging boundary and existing billing contracts
-        run: node --test tests/billing-staging-boundary.test.mjs tests/billing-staging-owner-bootstrap.test.mjs tests/v82-registration-owner-navigation-hardening.mjs tests/subscription-access-audit-d1.test.mjs tests/owner-payment-dashboard.test.mjs tests/platform-billing-controls.test.mjs tests/payment-pop-*.test.mjs
+        run: node --test tests/billing-staging-boundary.test.mjs tests/billing-staging-owner-bootstrap.test.mjs tests/billing-staging-customer-bootstrap.test.mjs tests/v82-registration-owner-navigation-hardening.mjs tests/subscription-access-audit-d1.test.mjs tests/owner-payment-dashboard.test.mjs tests/platform-billing-controls.test.mjs tests/payment-pop-*.test.mjs
       - name: Compile staging Worker without uploading or provider credentials
         env:
           BILLING_STAGING_D1_ID: '11111111-1111-4111-8111-111111111111'

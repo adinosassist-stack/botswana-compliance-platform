@@ -148,8 +148,69 @@ and root-query transports are covered. A populated manual queue is visible to th
 designated platform owner, so customer denial is not tested only against empty data.
 These local fixtures never reach Cloudflare and do not qualify live tenant isolation.
 
-Next live acceptance requires a reviewed, guarded customer-fixture provisioner
-and separate customer sessions. Activation/replay/refund races and POP upload,
+Next live acceptance requires independent review of the customer-fixture
+provisioner below and separate customer sessions. Activation/replay/refund races and POP upload,
 scan and retrieval need their own reviewed staging boundary before execution.
 Do not rerun the first-owner bootstrap: its existing-data guard deliberately rejects
 an already provisioned database. Do not clear the database to bypass that guard.
+
+## Two unrelated staging customers
+
+`scripts/prepare-billing-staging-customers.mjs` prepares one private SQL import for
+`alpha.billing-staging@example.invalid` and `beta.billing-staging@example.invalid`.
+It reuses the owner's configuration/identity validation and refuses either test
+email in the platform administrator list. It does not connect to Cloudflare.
+The source SHA must match the reviewed checkout and rendered configuration.
+
+The SQL requires the matching billing marker, exactly one existing user, tenant,
+membership, app state and subscription, with the designated owner's active owner
+membership and inactive manual-bank subscription. Payment orders, fulfillments,
+entitlement overrides and regulatory principals must be absent. Otherwise the
+first statement aborts. Apply the entire file using Wrangler's atomic remote D1
+import, never statement by statement. Replay deliberately fails; inspect state
+before retrying an unsuccessful import, and never delete data to bypass the guard.
+
+Each customer receives its own user, tenant, active owner membership and fixture
+marker in app state. Both subscriptions remain inactive. No orders, submissions,
+paid periods, overrides or regulatory permissions are created. Existing owner
+credentials and records are preserved. Passwords must differ and each must contain
+12–200 characters with no newline. The helper reads exactly two password lines on
+stdin, uses the canonical salted PBKDF2 format, and creates the SQL with mode 0600
+without overwriting a file. Keep that file and passwords out of chat and artifacts.
+
+Only after independent review, rerender the configuration at the reviewed source,
+verify deployment identity and use the authenticated operator's Codespace:
+
+```bash
+(
+set -e
+set +x
+umask 077
+IFS= read -r -s -p 'New alpha staging password: ' BILLING_ALPHA_PASSWORD
+printf '\n'
+IFS= read -r -s -p 'New beta staging password (different): ' BILLING_BETA_PASSWORD
+printf '\n'
+printf '%s\n%s' "$BILLING_ALPHA_PASSWORD" "$BILLING_BETA_PASSWORD" |
+  node scripts/prepare-billing-staging-customers.mjs \
+    --config /tmp/billing-staging.json \
+    --owner-email "$BILLING_STAGING_ADMIN_EMAILS" \
+    --database "$BILLING_STAGING_D1_ID" \
+    --out /tmp/billing-staging-customers.sql
+unset BILLING_ALPHA_PASSWORD BILLING_BETA_PASSWORD
+npx wrangler@4.135.0 d1 execute DB --config /tmp/billing-staging.json \
+  --remote --file /tmp/billing-staging-customers.sql --yes
+rm /tmp/billing-staging-customers.sql
+)
+```
+
+Use separate browser sessions for alpha and beta. Each `/api/auth/me` must report
+its own email/tenant and `platformBillingAdmin:false`; `/api/state` must contain
+only its own `billingStagingFixture` marker, even if the other tenant is supplied
+in a query parameter or `x-tenant-id` header. All three `/api/platform/billing/`
+queues (`subscriptions`, `manual-payments`, `analytics`) must return 403 with
+`platform_billing_forbidden` for both customers. The designated platform owner
+must retain access. Signing out alpha must invalidate alpha's session while beta
+continues working. Record exact source, response statuses and redacted results;
+never record cookies, CSRF tokens or passwords. Empty payment queues here cannot
+prove populated-order isolation; that remains a separate live fixture qualification.
+The automated suites cover populated orders locally and D1 import rollback.
