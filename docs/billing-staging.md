@@ -36,6 +36,9 @@ binding errors; it does not replace provider-side resource identity checks.
 `GET /api/billing-staging/status` reports configuration/source identity only and
 explicitly returns `authenticatedAcceptance:false`. The application's `/api/ready`
 may remain unavailable until schema and dedicated configuration are qualified.
+Staging responses override inherited production SHA/release headers. HTML asset
+and client identities and readiness JSON use the staging SHA too; readiness errors
+remain errors and are not promoted to successful acceptance.
 
 ## Provisioning handoff
 
@@ -68,6 +71,47 @@ its exact source SHA, provider isolation evidence and authenticated desktop/375p
 read checks. A later reviewed slice must explicitly authorize staging fixtures and
 selected billing mutations before testing activation, replay, refund races and POP
 scan/retrieval workflows. Cleared bank-credit reconciliation remains a human gate.
+
+## First staging owner account
+
+After this helper is independently reviewed, rerender the configuration at that
+exact checked-out revision and deploy it. `scripts/prepare-billing-staging-owner.mjs`
+then prepares an insert-only SQL file from a password supplied on stdin. It makes
+no network or database calls. Its configuration must match the checkout SHA,
+explicitly designated email, expected dedicated database UUID and safe profile.
+
+The SQL itself requires the matching staging identity marker and zero users,
+tenants and payment orders immediately before its inserts. Existing data or a
+wrong marker aborts the bootstrap; it cannot reset an existing password. It creates
+one user, one owner membership, empty app state and an **inactive** subscription.
+It creates no payments, paid periods, entitlement overrides or regulatory principals.
+The password format matches the canonical Worker verifier (PBKDF2-SHA256, 100,000
+iterations, fresh 16-byte salt); the generated SQL file contains its salted hash.
+
+With the reviewed configuration and variables from the provisioning handoff:
+
+```bash
+(
+set -e
+set +x
+umask 077
+read -r -s -p 'New staging-only password: ' BILLING_STAGING_PASSWORD
+printf '\n'
+printf '%s' "$BILLING_STAGING_PASSWORD" | node scripts/prepare-billing-staging-owner.mjs \
+  --config /tmp/billing-staging.json --email "$BILLING_STAGING_ADMIN_EMAILS" \
+  --database "$BILLING_STAGING_D1_ID" --out /tmp/billing-staging-owner.sql
+unset BILLING_STAGING_PASSWORD
+npx wrangler@4.135.0 d1 execute DB --config /tmp/billing-staging.json \
+  --remote --file /tmp/billing-staging-owner.sql --yes
+rm /tmp/billing-staging-owner.sql
+)
+```
+
+Choose a fresh staging password locally. No password or generated SQL contents
+belong in chat, GitHub or CI artifacts. If preparation/import fails, inspect the
+error and staging state before retrying. A successful import still needs an actual
+staging login, owner capability checks and unrelated-customer isolation tests.
+Public registration stays on hold and billing mutations remain disabled.
 
 ## Verification
 
