@@ -6,7 +6,7 @@ const sql=readFileSync(path,'utf8');
 const hash=createHash('sha256').update(sql).digest('hex');
 const expected=process.env.EXPECTED_SOURCE_SHA256;
 if(expected && (!/^[a-f0-9]{64}$/.test(expected)||expected!==hash))throw Error('migration_071_source_hash_mismatch');
-const names=[...sql.matchAll(/^ALTER TABLE payment_pop_documents ADD COLUMN ([a-z_]+) /gm)].map(x=>x[1]);
+const names=[...sql.matchAll(/^ALTER TABLE payment_pop_documents ADD COLUMN ([a-z_][a-z_0-9]*) /gm)].map(x=>x[1]);
 const required=['content_sha256','object_etag','scan_request_id','scan_requested_at','scan_request_expires_at','scan_result_hash','scan_result_body','scan_result_signature','scanner_provider','scanned_at','last_owner_read_at','storage_deleted_at'];
 assert.deepEqual(names,required);
 assert.match(sql,/CREATE TABLE payment_pop_upload_requests/);
