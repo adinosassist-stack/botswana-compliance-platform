@@ -1,3 +1,4 @@
+import vm from 'node:vm';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync,writeFileSync,mkdtempSync,statSync,rmSync} from 'node:fs';
@@ -72,11 +73,22 @@ test('generated customers authenticate separately through staging and cannot rea
  const db=fixture();try{
   const prepared=prepareBillingStagingCustomers(args);db.exec(prepared.sql);
   const DB={prepare(sql){let values=[];return {bind(...p){values=p;return this},async first(){return db.prepare(sql).get(...values)||null},async all(){return {results:db.prepare(sql).all(...values)}},async run(){return {meta:{changes:Number(db.prepare(sql).run(...values).changes)}}}}}};
-  const env={...config.vars,DB,SESSION_SECRET:'customer-fixture-session-secret-'.repeat(3)};
+  const env={...config.vars,DB,SESSION_SECRET:'customer-fixture-session-secret-'.repeat(3),ASSETS:{fetch:async()=>new Response(readFileSync('public/auth.html','utf8'),{headers:{'content-type':'text/html'}})}};
   for(const [i,c] of prepared.customers.entries()){
-   const login=await staging.fetch(new Request(config.vars.PUBLIC_ORIGIN+'/api/auth/login',{method:'POST',headers:{origin:config.vars.PUBLIC_ORIGIN,'content-type':'application/json'},body:JSON.stringify({email:c.email,password:i===0?args.alphaPassword:args.betaPassword})}),env,{});
-   assert.equal(login.status,200);const body=await login.json();assert.equal(body.user.email,c.email);
-   const cookie=login.headers.get('set-cookie').split(';')[0];
+   const page=await staging.fetch(new Request(config.vars.PUBLIC_ORIGIN+'/auth/'),env,{});
+   assert.equal(page.status,200);const html=await page.text();
+   const mode=html.match(/<meta name="bw-runtime-mode" content="([^"]+)"/)?.[1];assert.equal(mode,'staging');
+   let cookie='';const paths=[];
+   const browser={URL,Headers,AbortController,crypto,setTimeout,clearTimeout,console,location:{href:config.vars.PUBLIC_ORIGIN+'/auth/',origin:config.vars.PUBLIC_ORIGIN,replace(){assert.fail('browser redirected away from staging')}},document:{querySelector:selector=>selector.includes('bw-runtime-mode')?{content:mode}:{}},fetch:async(target,options)=>{
+    assert.equal(new URL(target).origin,config.vars.PUBLIC_ORIGIN);paths.push(new URL(target).searchParams.get('__thebe_api_path')||new URL(target).pathname);
+    const headers=new Headers(options.headers);headers.set('origin',config.vars.PUBLIC_ORIGIN);
+    const res=await staging.fetch(new Request(target,{...options,headers}),env,{});
+    if(res.headers.has('set-cookie'))cookie=res.headers.get('set-cookie').split(';')[0];return res;
+   }};
+   browser.window=browser;vm.runInNewContext(readFileSync('public/js/api-client.js','utf8'),browser);
+   const body=await browser.BW.api.createClient().request('/api/auth/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:c.email,password:i===0?args.alphaPassword:args.betaPassword})});
+   assert.equal(body.user.email,c.email);assert.ok(cookie);
+   assert.deepEqual(paths,['/api/auth/register-transport-probe','/api/auth/login']);
    const me=await staging.fetch(new Request(config.vars.PUBLIC_ORIGIN+'/api/auth/me',{headers:{cookie}}),env,{});
    assert.equal(me.status,200);assert.equal((await me.json()).user.platformBillingAdmin,false);
    const state=await staging.fetch(new Request(config.vars.PUBLIC_ORIGIN+'/api/state?tenantId='+prepared.customers[1-i].tenantId,{headers:{cookie}}),env,{});
