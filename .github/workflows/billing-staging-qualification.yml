@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - 'cloudflare/src/billing-staging-entry.js'
+      - 'cloudflare/src/worker.js'
+      - 'cloudflare/src/payment-pop-*.js'
+      - 'tests/payment-pop-*.test.mjs'
       - 'cloudflare/src/platform-owner-access.js'
       - 'scripts/render-billing-staging-config.mjs'
       - 'scripts/prepare-billing-staging-owner.mjs'

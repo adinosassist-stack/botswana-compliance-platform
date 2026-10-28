@@ -7406,10 +7406,12 @@ export default {
         if(String(env?.POP_UPLOAD_STAGING_ENABLED||"false")!=="true")return json({error:"pop_upload_disabled"},503);
         if(!roleAllowed(a,"owner"))return json({error:"forbidden"},403);
         const orderId=String(req.headers.get("x-pop-order-id")||"");
-        const documentId=String(req.headers.get("x-pop-document-id")||"");
+        // Storage identity belongs to the server. Caller-supplied document IDs
+        // never select or reuse a private quarantine object.
+        const documentId=id();
         const name=String(req.headers.get("x-pop-filename")||"");
         const contentType=String(req.headers.get("content-type")||"").toLowerCase();
-        if(!PAYMENT_ORDER_ID_RE.test(orderId)||!PAYMENT_ORDER_ID_RE.test(documentId))return json({error:"invalid_pop_id"},400);
+        if(!PAYMENT_ORDER_ID_RE.test(orderId))return json({error:"invalid_pop_id"},400);
         const size=Number(req.headers.get("content-length")||0);
         if(size>3670016)return json({error:"pop_too_large"},413);
         const bytes=await readBytesBounded(req,{maxBytes:3670016});

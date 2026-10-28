@@ -11,6 +11,8 @@ test("POP HTTP staging remains default-off and session-scoped",()=>{
  assert.match(route,/roleAllowed\(a,"owner"\)/);
  assert.match(route,/tenantId:a\.tenant_id,role:a\.role,userId:a\.user_id/);
  assert.match(route,/stagePopSubmission/);
+ assert.match(route,/const documentId=id\(\)/);
+ assert.doesNotMatch(route,/req\.headers\.get\("x-pop-document-id"\)/);
  assert.match(route,/PAYMENT_ORDER_ID_RE\.test\(orderId\)/);
  assert.match(route,/readBytesBounded\(req,\{maxBytes:3670016\}\)/);
 });
