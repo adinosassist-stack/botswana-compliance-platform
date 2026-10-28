@@ -397,3 +397,20 @@ body.thebe-voice-active{overflow:hidden!important}
   body.thebe-ai-dock-open #appShell,
   body.thebe-ai-dock-open.thebe-ai-expanded #appShell{padding-right:calc(var(--thebe-spatial-width) + 32px)!important}
 }
+
+
+/* AI Dock finish batch #1898: non-destructive accessibility and overflow safeguards. */
+#thebeAiDock .thebe-ai-dock-scroll,
+#thebeAiDock .thebe-ai-response{min-width:0;overflow-wrap:anywhere;word-break:normal}
+#thebeAiDock .thebe-ai-compose textarea{min-width:0;max-width:100%;box-sizing:border-box}
+#thebeAiDock :is(button,textarea,input,select,a):focus-visible{
+  outline:2px solid #82c7ff!important;outline-offset:2px!important;
+}
+#thebeAiDock button{touch-action:manipulation}
+@media(max-width:767px){
+  #thebeAiDock{max-width:calc(100vw - 16px)!important;box-sizing:border-box}
+  #thebeAiDock .thebe-ai-compose{min-width:0;max-width:calc(100% - 24px);box-sizing:border-box}
+}
+@media(prefers-reduced-motion:reduce){
+  #thebeAiDock,#thebeAiDock *{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
