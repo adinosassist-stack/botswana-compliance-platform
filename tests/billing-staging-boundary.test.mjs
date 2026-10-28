@@ -1,3 +1,5 @@
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {renderBillingStagingConfig,billingStagingMarkerSql} from '../scripts/render-billing-staging-config.mjs';
@@ -122,4 +124,39 @@ test('marker SQL is additive staging-only metadata and refuses replay on an exis
   assert.throws(()=>db.exec(sql),/already exists/);
   assert.doesNotMatch(sql,/users|subscriptions|payment_orders|regulatory_rules|DROP|DELETE|UPDATE/);
  }finally{db.close()}
+});
+
+for(const file of ['public/auth.html','public/index.html'])test('staging HTML keeps the real browser API client on staging: '+file,async()=>{
+ const source=readFileSync(file,'utf8');
+ const entry=createBillingStagingEntry({async fetch(){return new Response(source,{headers:{'content-type':'text/html'}})}});
+ const response=await entry.fetch(request('/auth/'),{...config().vars,DB:qualifiedDb},{});const html=await response.text();
+ const tags=html.match(/<meta\b[^>]*name=["']bw-runtime-mode["'][^>]*>/gi)||[];
+ assert.equal(tags.length,1);assert.match(tags[0],/content="staging"/);
+ assert.ok(html.indexOf(tags[0])<html.indexOf('<script'));
+ const redirects=[],targets=[];
+ const context={URL,Headers,AbortController,crypto,setTimeout,clearTimeout,console,location:{href:BILLING_STAGING_ORIGIN+'/auth/',origin:BILLING_STAGING_ORIGIN,replace:url=>redirects.push(url)},document:{querySelector:selector=>selector.includes('bw-runtime-mode')?{content:'staging'}:{}},fetch:async target=>{targets.push(String(target));return Response.json({ok:true})}};
+ context.window=context;vm.runInNewContext(readFileSync('public/js/api-client.js','utf8'),context);
+ await context.BW.api.createClient().request('/api/auth/me');
+ assert.deepEqual(redirects,[]);assert.ok(targets.length>0);assert.ok(targets.every(t=>new URL(t).origin===BILLING_STAGING_ORIGIN));
+ // The unmodified production page must still redirect an alternate host.
+ const productionRedirects=[];
+ const productionContext={...context,location:{...context.location,replace:url=>productionRedirects.push(url)},document:{querySelector:selector=>selector.includes('bw-runtime-mode')?(source.includes('name="bw-runtime-mode"')?{content:'production'}:null):{}}};
+ productionContext.window=productionContext;vm.runInNewContext(readFileSync('public/js/api-client.js','utf8'),productionContext);
+ assert.deepEqual(productionRedirects,['https://thebedesk.com/auth/']);
+ assert.equal(readFileSync(file,'utf8'),source);
+});
+test('real browser auth probe is side-effect-free and origin checked across staging transports',async()=>{
+ const path='/api/auth/register-transport-probe';
+ for(const [alias,transport] of [[path,'direct'],['/__thebe_api/auth/register-transport-probe','shadow_path'],['/?__thebe_api_path='+encodeURIComponent(path),'root_tunnel']]){
+  for(const origin of [BILLING_STAGING_ORIGIN,'https://unrelated.example']){
+   let markerReads=0;
+   const DB={prepare(sql){assert.equal(sql,'SELECT database_id,environment FROM billing_staging_identity WHERE id=1');markerReads++;return qualifiedDb.prepare(sql)}};
+   const response=await createBillingStagingEntry().fetch(new Request(BILLING_STAGING_ORIGIN+alias,{method:'POST',headers:{origin}}),{...config().vars,DB},{});
+   assert.equal(response.status,origin===BILLING_STAGING_ORIGIN?200:403);
+   const body=await response.json();
+   if(origin===BILLING_STAGING_ORIGIN){assert.equal(body.ok,true);assert.equal(body.transport,transport);assert.equal(body.release,'20260906-registration-post-capability-v1')}
+   else assert.equal(body.error,'origin_failed');
+   assert.equal(markerReads,1);
+  }
+ }
 });

@@ -5,12 +5,19 @@ import {CLIENT_TRANSPORT_IMPLEMENTATION,runtimeScriptUrl} from './client-runtime
 
 export const BILLING_STAGING_ORIGIN='https://billing-staging.thebedesk.com';
 const READ_METHODS=new Set(['GET','HEAD','OPTIONS']);
-const AUTH_WRITES=new Set(['/api/auth/login','/api/auth/logout']);
+// The transport probe is a read-only capability response despite using POST.
+const AUTH_WRITES=new Set(['/api/auth/login','/api/auth/logout','/api/auth/register-transport-probe']);
 const READ_PATHS=new Set(['/api/auth/me','/api/auth/csrf','/api/auth/anti-bot-config','/api/auth/oauth/providers','/api/auth/registration-policy','/api/state','/api/live','/api/ready',
  '/api/platform/billing/analytics','/api/platform/billing/subscriptions','/api/platform/billing/manual-payments',
  '/api/billing/status','/api/payments/providers','/api/payments/reconciliation','/api/payments/verifications','/api/payments/refunds',
  '/api/payments/provider-status','/api/payments/orders','/api/payments/manual-bank/config','/api/payments/manual-bank/status']);
 const json=(body,status)=>Response.json(body,{status,headers:{'cache-control':'no-store','x-robots-tag':'noindex, nofollow','x-thebe-billing-staging':'read-only'}});
+
+function stagingRuntimeMode(html){
+ const marker='<meta name="bw-runtime-mode" content="staging">';
+ const clean=html.replace(/<meta\b[^>]*\bname\s*=\s*(["'])bw-runtime-mode\1[^>]*>/gi,'');
+ return /<head\b[^>]*>/i.test(clean)?clean.replace(/<head\b[^>]*>/i,head=>head+marker):marker+clean;
+}
 
 // This first staging slice permits sign-in and inspection only. Enabling any
 // billing mutation, POP upload or fixture provisioning requires a separate review.
@@ -64,7 +71,7 @@ export function createBillingStagingEntry(delegate=governed){
   }
   let body=response.body;
   if(request.method==='GET'&&headers.get('content-type')?.includes('text/html')&&validSha){
-   body=versionReleaseAssets(runtimeScriptUrl(await response.text(),clientRelease),sha);
+   body=stagingRuntimeMode(versionReleaseAssets(runtimeScriptUrl(await response.text(),clientRelease),sha));
    headers.delete('content-length');headers.delete('etag');
    headers.set('cache-control','no-store');headers.set('cdn-cache-control','no-store');
   }else if(request.method==='GET'&&headers.get('content-type')?.includes('application/json')&&validSha&&__requestBoundaryTest.normalizeApiTransport(request).url.pathname==='/api/ready'){

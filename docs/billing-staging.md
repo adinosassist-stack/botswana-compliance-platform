@@ -23,7 +23,8 @@ In this staging profile, the owner helper neither injects a production administr
 email nor repairs memberships, entitlements or regulatory principals during login.
 The configuration contains no production route, AI binding or scheduled handler.
 
-The runtime permits sign-in/out and an explicit set of billing/state reads.
+The runtime permits sign-in/out, the side-effect-free POST auth transport probe,
+and an explicit set of billing/state reads.
 Existing session, tenant, CSRF and platform-owner checks remain in the downstream
 application. It rejects all other writes, including payment approval, pause/resume,
 registration, POP uploads, webhook intake, agent actions and regulatory publication.
@@ -214,3 +215,29 @@ continues working. Record exact source, response statuses and redacted results;
 never record cookies, CSRF tokens or passwords. Empty payment queues here cannot
 prove populated-order isolation; that remains a separate live fixture qualification.
 The automated suites cover populated orders locally and D1 import rollback.
+
+## Browser sign-in boundary
+
+A live customer diagnosis established that the prepared password matched and a
+same-origin direct staging login returned 200. The browser client nevertheless
+defaulted missing `bw-runtime-mode` metadata to production, redirecting the auth
+page to the production host; the workspace HTML also retained production mode.
+In addition, its mandatory POST transport probe was blocked by the staging allowlist.
+Earlier operator-reported browser smoke results must therefore be repeated while
+checking the address remains `billing-staging.thebedesk.com`; they do not establish
+browser staging acceptance by themselves.
+
+Staging HTML responses now replace existing runtime-mode metadata or insert it
+before scripts with `content="staging"`. Shared production assets and their canonical
+origin enforcement are unchanged. Only the exact `/api/auth/register-transport-probe`
+POST is additionally permitted: the existing worker returns static transport
+capabilities after origin validation and before account/database writes. Marker
+qualification still precedes delegation. Account registration, payment mutations,
+POP intake and regulatory writes remain blocked across all transports.
+
+Regression coverage runs the real API client against rendered auth/workspace HTML,
+checks production canonical redirects remain intact, and exercises both customer
+logins using the actual client, transport probe and staging worker. It verifies
+probe origin rejection and that probes perform only the staging marker read.
+After review and deployment, reuse the existing customers; do not provision them
+again or reset their passwords to diagnose this browser boundary issue.
