@@ -24,3 +24,21 @@ CREATE INDEX IF NOT EXISTS payment_pop_documents_order_idx ON payment_pop_docume
 CREATE INDEX IF NOT EXISTS payment_pop_documents_scan_idx ON payment_pop_documents(scan_status,uploaded_at);
 -- POP storage is intentionally separate from payment fulfillment; never use these
 -- records to mark an order paid or activate any subscription.
+
+-- CANDIDATE ONLY: durable admission/idempotency ledger. Not a release migration.
+-- Reserved/failed attempts retain quota until separately reviewed reconciliation
+-- and retention tooling qualifies their release; do not delete rows to bypass caps.
+CREATE TABLE IF NOT EXISTS payment_pop_upload_requests (
+ document_id TEXT PRIMARY KEY,
+ tenant_id TEXT NOT NULL,
+ payment_order_id TEXT NOT NULL,
+ key_hash TEXT NOT NULL CHECK(length(key_hash)=64),
+ request_hash TEXT NOT NULL CHECK(length(request_hash)=64),
+ bytes INTEGER NOT NULL CHECK(bytes BETWEEN 1 AND 3670016),
+ state TEXT NOT NULL DEFAULT 'reserved' CHECK(state IN ('reserved','stored','failed')),
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ UNIQUE(tenant_id,payment_order_id,key_hash),
+ FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+ FOREIGN KEY(payment_order_id) REFERENCES payment_orders(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS payment_pop_upload_requests_tenant_idx ON payment_pop_upload_requests(tenant_id,created_at);

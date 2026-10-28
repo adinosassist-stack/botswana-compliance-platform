@@ -7,6 +7,8 @@ on:
       - 'cloudflare/src/worker.js'
       - 'cloudflare/src/payment-pop-*.js'
       - 'tests/payment-pop-*.test.mjs'
+      - 'tests/helpers/payment-pop-service-fixture.mjs'
+      - 'docs/proposals/payment-pop-documents-schema.sql'
       - 'cloudflare/src/platform-owner-access.js'
       - 'scripts/render-billing-staging-config.mjs'
       - 'scripts/prepare-billing-staging-owner.mjs'

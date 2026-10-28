@@ -5,6 +5,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {Miniflare,convertV4MiniflareOptions} from 'miniflare';
 import worker from '../cloudflare/src/worker.js';
 import staging from '../cloudflare/src/billing-staging-entry.js';
+import {popSqliteAdapter} from './helpers/payment-pop-service-fixture.mjs';
 import {renderBillingStagingConfig,billingStagingMarkerSql} from '../scripts/render-billing-staging-config.mjs';
 import {prepareBillingStagingOwner} from '../scripts/prepare-billing-staging-owner.mjs';
 import {prepareBillingStagingCustomers} from '../scripts/prepare-billing-staging-customers.mjs';
@@ -23,7 +24,7 @@ async function fixture(){
  const payments=prepareBillingStagingPayments(authority);db.exec(payments.sql);
  // Candidate schema exists only in this local fixture, not in a release migration.
  db.exec(readFileSync('docs/proposals/payment-pop-documents-schema.sql','utf8'));
- const DB={prepare(sql){let values=[];return {bind(...p){values=p;return this},async first(){return db.prepare(sql).get(...values)||null},async all(){return {results:db.prepare(sql).all(...values)}},async run(){return {success:true,meta:{changes:Number(db.prepare(sql).run(...values).changes)}}}}}};
+ const DB=popSqliteAdapter(db);
  const mf=new Miniflare(convertV4MiniflareOptions({modules:true,script:"export default {fetch(){return new Response('local')}}",compatibilityDate:'2026-09-03',r2Buckets:['EVIDENCE']}));
  const EVIDENCE=await mf.getR2Bucket('EVIDENCE');
  const env={...config.vars,DB,EVIDENCE,SESSION_SECRET:'local-pop-http-session-secret-'.repeat(3)};
@@ -33,7 +34,7 @@ async function fixture(){
  }
  const sessions={alpha:await login('alpha'),beta:await login('beta')};
  const send=({key='alpha',orderId=payments.fixtures[0].orderId,clientId,bytes=png,csrf=true,enabled=true,entry=worker,extraHeaders={}}={})=>{
-  const headers={origin,cookie:sessions[key].cookie,'x-pop-order-id':orderId,'x-pop-filename':'receipt.png','content-type':'image/png',...extraHeaders};
+  const headers={origin,cookie:sessions[key].cookie,'x-pop-order-id':orderId,'x-pop-filename':'receipt.png','content-type':'image/png','idempotency-key':crypto.randomUUID(),...extraHeaders};
   if(csrf)headers['x-csrf-token']=sessions[key].csrf;
   if(clientId!==undefined)headers['x-pop-document-id']=clientId;
   return entry.fetch(new Request(origin+'/api/payments/manual-bank/pop/stage',{method:'POST',headers,body:bytes}),{...env,POP_UPLOAD_STAGING_ENABLED:enabled?'true':'false'},{});
@@ -65,6 +66,7 @@ test('POP server identity change keeps session, CSRF, tenant and signature gates
   for(const [options,status,error] of [
    [{key:'beta'},404,'pop_order_not_found'],
    [{csrf:false},403,'csrf_failed'],
+   [{extraHeaders:{'idempotency-key':''}},400,'invalid_pop_idempotency_key'],
    [{orderId:'invalid-order'},400,'invalid_pop_id'],
    [{bytes:new Uint8Array([1,2,3,4,5,6,7,8,9])},400,'pop_signature_mismatch']
   ]){const r=await f.send(options);assert.equal(r.status,status);assert.equal((await r.json()).error,error)}
@@ -90,5 +92,42 @@ test('metadata failure cleans only the newly allocated object and preserves an e
   assert.equal((await f.EVIDENCE.list()).objects.length,1);assert.ok(await f.EVIDENCE.get(key));
   assert.equal(f.db.prepare('SELECT count(*) n FROM payment_pop_documents').get().n,1);
   assert.equal(f.db.prepare("SELECT count(*) n FROM payment_orders WHERE status!='pending'").get().n,0);
+ }finally{await f.close()}
+});
+
+test('same POP request replays one receipt and changed bytes with the same key are rejected',async()=>{
+ const f=await fixture();try{
+  const extraHeaders={'idempotency-key':'pop-retry-request-0001'};
+  const first=await f.send({extraHeaders});assert.equal(first.status,202);const documentId=(await first.json()).documentId;
+  const replay=await f.send({extraHeaders});assert.equal(replay.status,202);assert.equal((await replay.json()).documentId,documentId);
+  const changed=await f.send({extraHeaders,bytes:new Uint8Array([...png,2])});assert.equal(changed.status,409);assert.equal((await changed.json()).error,'pop_idempotency_conflict');
+  assert.equal(f.db.prepare('SELECT count(*) n FROM payment_pop_documents').get().n,1);assert.equal((await f.EVIDENCE.list()).objects.length,1);
+ }finally{await f.close()}
+});
+
+test('POP order quota rejects the sixth distinct receipt before private storage',async()=>{
+ const f=await fixture();try{
+  for(let i=0;i<5;i++)assert.equal((await f.send({extraHeaders:{'idempotency-key':'pop-quota-request-000'+i}})).status,202);
+  const sixth=await f.send({extraHeaders:{'idempotency-key':'pop-quota-request-0005'}});assert.equal(sixth.status,429);assert.equal((await sixth.json()).error,'pop_upload_quota_exceeded');
+  assert.equal(f.db.prepare('SELECT count(*) n FROM payment_pop_documents').get().n,5);assert.equal((await f.EVIDENCE.list()).objects.length,5);
+ }finally{await f.close()}
+});
+
+test('POP replay rechecks order eligibility and refuses deleted receipt metadata',async()=>{
+ const f=await fixture();try{
+  const extraHeaders={'idempotency-key':'replay-scope-request-0001'};
+  const first=await f.send({extraHeaders});assert.equal(first.status,202);const doc=(await first.json()).documentId;
+  f.db.prepare("UPDATE payment_pop_documents SET deleted_at=CURRENT_TIMESTAMP WHERE id=?").run(doc);
+  const deleted=await f.send({extraHeaders});assert.equal(deleted.status,409);assert.equal((await deleted.json()).error,'pop_upload_deleted');
+  f.db.prepare("UPDATE payment_orders SET status='canceled' WHERE id=?").run(f.payments[0].orderId);
+  const revoked=await f.send({extraHeaders});assert.equal(revoked.status,409);assert.equal((await revoked.json()).error,'pop_order_not_submittable');
+  assert.equal((await f.EVIDENCE.list()).objects.length,1);
+ }finally{await f.close()}
+});
+
+test('missing admission schema fails closed before any POP object write',async()=>{
+ const f=await fixture();try{
+  f.db.exec('DROP TABLE payment_pop_upload_requests');const r=await f.send();assert.equal(r.status,503);assert.equal((await r.json()).error,'pop_staging_unavailable');
+  assert.equal((await f.EVIDENCE.list()).objects.length,0);assert.equal(f.db.prepare('SELECT count(*) n FROM payment_pop_documents').get().n,0);
  }finally{await f.close()}
 });

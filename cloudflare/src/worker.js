@@ -1,6 +1,7 @@
 import {BOTSWANA_FOUNDATION_PACK_V1,BOTSWANA_FOUNDATION_PACK_V1_HASH} from "./regulatory-pack-registry.js";
 import {platformBillingAnalytics} from "./platform-billing-analytics.js";
 import {stagePopSubmission} from "./payment-pop-staging-service.js";
+import {validPopRequestKey} from "./payment-pop-upload-reservations.js";
 import {subscriptionDashboard,setSubscriptionAccess} from "./platform-subscription-controls.js";
 import {inspectFoundationSourceMetadata,publicFoundationSourcePreflight,updateUnreviewedFoundationSourceMetadata} from "./regulatory-foundation-source-reconciliation.js";
 import {inspectActiveLegacyVatRules,publicActiveLegacyVatRules,isLegacyVat25DayDefinition} from "./regulatory-foundation-legacy-vat.js";
@@ -7412,15 +7413,19 @@ export default {
         const name=String(req.headers.get("x-pop-filename")||"");
         const contentType=String(req.headers.get("content-type")||"").toLowerCase();
         if(!PAYMENT_ORDER_ID_RE.test(orderId))return json({error:"invalid_pop_id"},400);
+        const requestKey=String(req.headers.get("idempotency-key")||"");
+        if(!validPopRequestKey(requestKey))return json({error:"invalid_pop_idempotency_key"},400);
         const size=Number(req.headers.get("content-length")||0);
         if(size>3670016)return json({error:"pop_too_large"},413);
         const bytes=await readBytesBounded(req,{maxBytes:3670016});
         try{
-          const result=await stagePopSubmission(env,{session:{tenantId:a.tenant_id,role:a.role,userId:a.user_id},orderId,documentId,bytes,name,contentType});
-          return json({ok:true,documentId:result.documentId,scanStatus:"pending",reviewable:false,message:"Receipt quarantined for security review; this is not payment confirmation."},202);
+          const result=await stagePopSubmission(env,{session:{tenantId:a.tenant_id,role:a.role,userId:a.user_id},orderId,documentId,bytes,name,contentType,requestKey});
+          return json({ok:true,documentId:result.documentId,scanStatus:result.scanStatus,reviewable:false,replayed:result.replayed,message:"Receipt quarantined for security review; this is not payment confirmation."},202);
         }catch(error){
           const code=String(error?.message||"pop_stage_failed");
           if(code==="pop_submission_forbidden")return json({error:code},403);
+          if(code==="pop_upload_quota_exceeded")return json({error:code},429);
+          if(["pop_idempotency_conflict","pop_upload_in_progress","pop_upload_previous_failure","pop_upload_deleted"].includes(code))return json({error:code},409);
           if(code==="pop_order_not_found")return json({error:code},404);
           if(["pop_order_not_eligible","pop_order_not_submittable"].includes(code))return json({error:code},409);
           if(code.startsWith("invalid_pop")||code==="pop_signature_mismatch")return json({error:code},400);
