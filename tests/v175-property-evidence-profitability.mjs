@@ -105,7 +105,7 @@ assert.match(analytics,/valuationReportEvidenceGapCount/);
 assert.match(analytics,/property_operating_snapshots/);
 assert.match(context,/property_valuation_evidence_links/);
 assert.match(context,/property_operating_snapshots/);
-assert.match(agentic,/070_payment_pop_documents\.sql/);
+assert.match(agentic,/071_payment_pop_runtime_compat\.sql/);
 assert.match(agentic,/property_valuation_evidence_links/);
 assert.match(agentic,/property_operating_snapshots/);
 
