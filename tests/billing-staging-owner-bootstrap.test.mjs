@@ -101,3 +101,57 @@ test('local D1 applies bootstrap as a batch and rolls back partial account creat
   assert.equal((await DB.prepare('SELECT count(*) n FROM users').first()).n,1);
  }finally{await mf.dispose()}
 });
+
+// All customers and payment records below exist only in this in-memory database.
+test('separate customer sessions isolate workspace and order reads across every staging transport',async()=>{
+ const db=fixture();try{
+  const owner=prepareBillingStagingOwner(args);db.exec(owner.sql);
+  const hash=db.prepare('SELECT password_hash FROM users').get().password_hash;
+  for(const key of ['alpha','beta']){
+   db.prepare('INSERT INTO tenants(id,name) VALUES(?,?)').run(key,'Customer '+key);
+   db.prepare('INSERT INTO users(id,email,password_hash,onboarding_complete) VALUES(?,?,?,1)').run(key,key+'@example.invalid',hash);
+   db.prepare("INSERT INTO memberships(tenant_id,user_id,role,status) VALUES(?,?,'owner','active')").run(key,key);
+   db.prepare('INSERT INTO app_state(tenant_id,version,state_json) VALUES(?,1,?)').run(key,JSON.stringify({privateMarker:key}));
+   db.prepare("INSERT INTO subscriptions(tenant_id,plan,status,provider) VALUES(?,'business','inactive','manual_bank')").run(key);
+   db.prepare("INSERT INTO payment_orders(id,tenant_id,order_type,amount_bwp,status,idempotency_key) VALUES(?,?,'subscription',100,'pending',?)").run('order-'+key,key,'fixture-'+key);
+   db.prepare('INSERT INTO manual_payment_submissions(id,payment_order_id,tenant_id,bank_reference) VALUES(?,?,?,?)').run('submission-'+key,'order-'+key,key,'fixture-ref-'+key);
+  }
+  const DB={prepare(sql){let values=[];return {bind(...p){values=p;return this},async first(){return db.prepare(sql).get(...values)||null},async all(){return {results:db.prepare(sql).all(...values)}},async run(){return {meta:{changes:Number(db.prepare(sql).run(...values).changes)}}}}}};
+  const env={...config.vars,DB,SESSION_SECRET:'isolated-session-test-secret-'.repeat(3),AUDIT_INTEGRITY_SECRET:'isolated-audit-test-secret-'.repeat(3)};
+  const send=(path,options={})=>staging.fetch(new Request(config.vars.PUBLIC_ORIGIN+path,options),env,{});
+  const login=async(email)=>{
+   const res=await send('/api/auth/login',{method:'POST',headers:{origin:config.vars.PUBLIC_ORIGIN,'content-type':'application/json'},body:JSON.stringify({email,password})});
+   assert.equal(res.status,200);const body=await res.json();
+   return {cookie:res.headers.get('set-cookie').split(';')[0],csrf:body.csrfToken};
+  };
+  const sessions={alpha:await login('alpha@example.invalid'),beta:await login('beta@example.invalid')};
+  assert.notEqual(sessions.alpha.cookie,sessions.beta.cookie);
+  const transports=path=>[path,'/__thebe_api/'+path.slice(5),'/?__thebe_api_path='+encodeURIComponent(path)];
+  for(const key of ['alpha','beta']){
+   const other=key==='alpha'?'beta':'alpha';
+   for(const route of ['/api/state','/api/payments/orders','/api/auth/me'])for(const path of transports(route)){
+    const url=new URL(config.vars.PUBLIC_ORIGIN+path);url.searchParams.set('tenantId',other);url.searchParams.set('tenant_id',other);
+    const res=await send(url.pathname+url.search,{headers:{cookie:sessions[key].cookie,'x-tenant-id':other}});
+    assert.equal(res.status,200,path);const body=await res.json();
+    if(route==='/api/state')assert.equal(body.state.privateMarker,key);
+    if(route==='/api/payments/orders')assert.deepEqual(body.items.map(x=>x.id),['order-'+key]);
+    if(route==='/api/auth/me'){assert.equal(body.user.tenantId,key);assert.equal(body.user.platformBillingAdmin,false)}
+   }
+   for(const route of ['/api/platform/billing/subscriptions','/api/platform/billing/manual-payments','/api/platform/billing/analytics'])for(const path of transports(route)){
+    const res=await send(path,{headers:{cookie:sessions[key].cookie}});
+    assert.equal(res.status,403,path);assert.equal((await res.json()).error,'platform_billing_forbidden');
+   }
+  }
+  const admin=await login(args.email);
+  const queue=await send('/api/platform/billing/manual-payments',{headers:{cookie:admin.cookie}});
+  assert.equal(queue.status,200);const items=(await queue.json()).items;
+  assert.ok(items.some(x=>x.tenant_id==='alpha'));assert.ok(items.some(x=>x.tenant_id==='beta'));
+  const logout=await send('/api/auth/logout',{method:'POST',headers:{cookie:sessions.alpha.cookie,origin:config.vars.PUBLIC_ORIGIN,'x-csrf-token':sessions.alpha.csrf}});
+  assert.equal(logout.status,200);
+  assert.equal((await send('/api/state',{headers:{cookie:sessions.alpha.cookie}})).status,401);
+  assert.equal((await send('/api/state',{headers:{cookie:sessions.beta.cookie}})).status,200);
+  assert.equal(db.prepare("SELECT count(*) n FROM subscriptions WHERE status!='inactive'").get().n,0);
+  assert.equal(db.prepare("SELECT count(*) n FROM payment_orders WHERE status!='pending'").get().n,0);
+  assert.equal(db.prepare('SELECT count(*) n FROM platform_regulatory_principals').get().n,0);
+ }finally{db.close()}
+});
