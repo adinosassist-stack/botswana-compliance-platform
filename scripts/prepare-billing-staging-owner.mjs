@@ -10,7 +10,7 @@ const refuse=()=>{throw Error('billing_staging_owner_configuration_refused')};
 
 // Offline SQL preparation only. The operator applies this private file through
 // their authenticated CLI after independent review; no credentials are fetched.
-export function prepareBillingStagingOwner({config,email,password,expectedDatabaseId,productionDatabaseId,sourceSha}={}){
+export function validateBillingStagingOwnerConfiguration({config,email,expectedDatabaseId,productionDatabaseId,sourceSha}={}){
  if(!config?.vars||!Array.isArray(config.d1_databases)||config.d1_databases.length!==1||!Array.isArray(config.r2_buckets)||config.r2_buckets.length!==1)refuse();
  const expected=renderBillingStagingConfig({BILLING_STAGING_D1_ID:expectedDatabaseId,PRODUCTION_D1_DATABASE_ID:productionDatabaseId,BILLING_STAGING_SOURCE_SHA:sourceSha,BILLING_STAGING_ADMIN_EMAILS:email});
  const binding=config.d1_databases[0],bucket=config.r2_buckets[0];
@@ -18,6 +18,12 @@ export function prepareBillingStagingOwner({config,email,password,expectedDataba
  for(const key of ['APP_ENV','DEPLOYMENT_PROFILE','PUBLIC_ORIGIN','PUBLIC_APP_URL','BILLING_STAGING_SOURCE_SHA','BILLING_STAGING_D1_ID','REGISTRATION_MODE','PAYMENT_PROVIDER','EVIDENCE_UPLOADS_ENABLED','POP_UPLOAD_STAGING_ENABLED'])if(config.vars[key]!==expected.vars[key])refuse();
  const selected=String(email).trim().toLowerCase();
  if(!String(config.vars.PLATFORM_ADMIN_EMAILS||'').split(',').map(s=>s.trim().toLowerCase()).includes(selected))refuse();
+ return selected;
+}
+
+export function prepareBillingStagingOwner(options={}){
+ const {password,expectedDatabaseId,sourceSha}=options;
+ const selected=validateBillingStagingOwnerConfiguration(options);
  if(typeof password!=='string'||password.length<12||password.length>200||!password.trim())throw Error('billing_staging_owner_password_length');
  const salt=randomBytes(16);
  const hash='pbkdf2$100000$'+salt.toString('base64')+'$'+pbkdf2Sync(password,salt,100000,32,'sha256').toString('base64');
