@@ -24,6 +24,7 @@ if(info?.uuid?.toLowerCase()!==database.toLowerCase()||info?.name!=='bw-complian
 async function select(query){
  if(![
   "SELECT name,type FROM sqlite_master WHERE name IN ('payment_pop_documents','payment_pop_upload_requests','payment_pop_upload_requests_tenant_idx') ORDER BY name",
+  "SELECT name,type FROM sqlite_master WHERE type='table' AND name IN ('tenants','payment_orders','manual_payment_submissions','payment_pop_documents','payment_pop_upload_requests','d1_migrations') ORDER BY name",
   'PRAGMA table_info(payment_pop_documents)',
   'PRAGMA table_info(payment_pop_upload_requests)',
   'PRAGMA foreign_key_list(payment_pop_upload_requests)'
@@ -33,6 +34,7 @@ async function select(query){
  return result.flatMap(x=>x.results);
 }
 const objects=await select("SELECT name,type FROM sqlite_master WHERE name IN ('payment_pop_documents','payment_pop_upload_requests','payment_pop_upload_requests_tenant_idx') ORDER BY name");
+const dependencies=await select("SELECT name,type FROM sqlite_master WHERE type='table' AND name IN ('tenants','payment_orders','manual_payment_submissions','payment_pop_documents','payment_pop_upload_requests','d1_migrations') ORDER BY name");
 const docs=await select('PRAGMA table_info(payment_pop_documents)');
 const ledger=await select('PRAGMA table_info(payment_pop_upload_requests)');
 const fks=await select('PRAGMA foreign_key_list(payment_pop_upload_requests)');
@@ -42,7 +44,10 @@ const requiredLedger=['document_id','tenant_id','payment_order_id','key_hash','r
 const table=objects.some(x=>x.name==='payment_pop_upload_requests'&&x.type==='table');
 const index=objects.some(x=>x.name==='payment_pop_upload_requests_tenant_idx'&&x.type==='index');
 const ready=requiredDocs.every(x=>documentColumns.has(x))&&requiredLedger.every(x=>ledgerColumns.has(x))&&table&&index&&fks.length>=2;
-const report={kind:'pop071_readonly_inspection',head:env.GITHUB_SHA,source_sha256:digest,documents_table_present:docs.length>0,documents_columns_present:requiredDocs.filter(x=>documentColumns.has(x)),documents_columns_missing:requiredDocs.filter(x=>!documentColumns.has(x)),reservation_table_present:table,reservation_index_present:index,reservation_columns_missing:requiredLedger.filter(x=>!ledgerColumns.has(x)),reservation_foreign_key_count:fks.length,schema_ready:ready,mutation_performed:false};
+const prerequisiteTables=['tenants','payment_orders','manual_payment_submissions'];
+const prerequisiteTablesMissing=prerequisiteTables.filter(x=>!dependencies.some(row=>row.name===x&&row.type==='table'));
+const migrationHistoryTablePresent=dependencies.some(row=>row.name==='d1_migrations'&&row.type==='table');
+const report={prerequisite_tables_missing:prerequisiteTablesMissing,migration_history_table_present:migrationHistoryTablePresent,kind:'pop071_readonly_inspection',head:env.GITHUB_SHA,source_sha256:digest,documents_table_present:docs.length>0,documents_columns_present:requiredDocs.filter(x=>documentColumns.has(x)),documents_columns_missing:requiredDocs.filter(x=>!documentColumns.has(x)),reservation_table_present:table,reservation_index_present:index,reservation_columns_missing:requiredLedger.filter(x=>!ledgerColumns.has(x)),reservation_foreign_key_count:fks.length,schema_ready:ready,mutation_performed:false};
 console.log(JSON.stringify(report));
 if(env.GITHUB_STEP_SUMMARY){const {appendFileSync}=await import('node:fs');appendFileSync(env.GITHUB_STEP_SUMMARY,'\nPOP 071 remote schema inspection (read-only): '+(ready?'schema present':'schema incomplete / review required')+'\n');}
 if(!ready)process.exitCode=2;
