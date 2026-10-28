@@ -241,3 +241,62 @@ logins using the actual client, transport probe and staging worker. It verifies
 probe origin rejection and that probes perform only the staging marker read.
 After review and deployment, reuse the existing customers; do not provision them
 again or reset their passwords to diagnose this browser boundary issue.
+
+## Operator-reported read-only acceptance after the browser fix
+
+The operator deployed source `7c9e312013ea879902afe8a0b55b188d8e5bccb1`
+as Worker version `9c1e1c27-8423-451d-91e6-2ba1a98e1ee7` and then reported:
+
+- Alpha and beta signed in and each received its own fixture marker from state.
+- With the other customer's `tenantId` query parameter, each still received its own
+  marker. An initial empty-state response was traced to the owner session and was
+  excluded from the customer results; the check was repeated as the correct customer.
+- Both customers received `platform_billing_forbidden` on subscriptions,
+  manual-payments and analytics; the designated owner accessed all three endpoints.
+- Owner analytics showed three inactive subscriptions, no receipts and no pending
+  submissions; the manual queue was empty. No activation was performed.
+- With beta in a normal browser session and alpha in a private session, signing out
+  alpha produced `unauthenticated` while beta continued returning its own marker.
+
+These are operator-provided responses/confirmations, not independent browser traces.
+An API link clicked from another site may trigger `origin_failed`; the operator
+repeated checks by pasting API URLs directly into the authenticated window's address
+bar. No origin/CSRF restriction was weakened. Populated order isolation, post-fix
+375px controls, payment activation and POP upload/scan acceptance remain outstanding.
+
+## Synthetic pending-payment fixtures
+
+After independent review, `scripts/prepare-billing-staging-payments.mjs` can prepare
+a single atomic staging import with two business/monthly pending orders (P349 each),
+one per existing fixture customer, plus two submitted manual-payment records and
+explicit `staging_fixture_created` history. Every order has `synthetic:true`, reviewed
+source provenance and a NO FUNDS RECEIVED / NEVER APPROVE notice. Asserted references
+start with `STAGING-TEST-NO-FUNDS`; these are not actual bank transaction references.
+This is a populated read qualification, not activation evidence or bank reconciliation.
+
+The helper makes no network/database call and requires the same exact-source and
+resource validation as the previous provisioners. Its SQL guard requires exactly
+three known users/tenants/memberships/states/subscriptions, separate customer tenants,
+correct customer markers, active owner memberships, inactive manual-bank subscriptions
+with no paid period, and empty payment orders/submissions/events/fulfillments,
+entitlement overrides and regulatory principals. Unknown data, wrong scope or replay
+aborts before inserts. It does not reset accounts or alter subscriptions. The complete
+file must be applied through Wrangler's atomic D1 import, never one statement at a time.
+
+With configuration rendered at the reviewed source, the protected operator prepares:
+
+```bash
+PRODUCTION_D1_DATABASE_ID="$PRODUCTION_D1_DATABASE_ID" node scripts/prepare-billing-staging-payments.mjs \
+  --config /tmp/billing-staging.json --owner-email "$BILLING_STAGING_ADMIN_EMAILS" \
+  --database "$BILLING_STAGING_D1_ID" --out /tmp/billing-staging-payments.sql
+```
+
+The output file is private (0600) and cannot overwrite an existing file. Preparation
+is separate from the protected remote import. After import, owner manual queue total
+must be 2, pending analytics P698, total receipts zero, all subscriptions still inactive.
+Each customer must see exactly its own order/submission, including when another tenant
+is requested. The existing read-only boundary must continue rejecting owner approval.
+Never approve these synthetic fixtures. A later reviewed qualification needs a separate
+plan for real test-bank/provider evidence and a safe fixture retirement transition;
+do not repurpose fake references as cleared funds. POP schema remains a design candidate
+and scanning/privacy requirements must be qualified before uploads can be enabled.
