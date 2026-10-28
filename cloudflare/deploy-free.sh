@@ -7,7 +7,7 @@ DOMAIN="https://thebedesk.com"
 
 echo "Thebe Desk V81 Recovery R1 — fresh Cloudflare production launch sequence"
 echo "Runtime release: V78 1.21.101 recovered under V81 Recovery R1"
-echo "Current reviewed schema delta: 069_agent_cost_shadow_events.sql"
+echo "Current reviewed schema delta: 070_payment_pop_documents.sql"
 echo "Existing databases migrate through 069_agent_cost_shadow_events.sql; new Recovery R1 databases load the current schema.sql, then apply reviewed forward migrations 047, 048, 049, 050, 051, 052, 053, 054, 055, 056, 057, 058, 059, 060, 061, 062, 063, 064, 065, 066, 067, 068, and 069 in order."
 echo "Reviewed Wrangler CLI: ${WRANGLER_VERSION}"
 echo "Launch defaults: payments disabled; evidence uploads disabled fail-closed; no third-party scanner configured."
