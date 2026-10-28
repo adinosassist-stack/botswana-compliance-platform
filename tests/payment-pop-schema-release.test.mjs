@@ -12,7 +12,7 @@ test("fresh schema and migration contain POP metadata with no settlement effects
 test("release metadata and deployment instructions point to migration 071",()=>{
  const profile=JSON.parse(fs.readFileSync("RELEASE_PROFILE.json","utf8"));
  assert.equal(profile.latest_cloudflare_migration,"071_payment_pop_runtime_compat.sql");
- assert.match(fs.readFileSync("cloudflare/src/agentic-entry.js","utf8"),/V81_SCHEMA_DELTA="070_payment_pop_documents.sql"/);
+ assert.match(fs.readFileSync("cloudflare/src/agentic-entry.js","utf8"),/V81_SCHEMA_DELTA="071_payment_pop_runtime_compat.sql"/);
  assert.match(fs.readFileSync("docs/LAUNCH.md","utf8"),/through `071_payment_pop_runtime_compat.sql`/);
- assert.match(fs.readFileSync("cloudflare/README.md","utf8"),/migrations\/070_payment_pop_documents.sql/);
+ assert.match(fs.readFileSync("cloudflare/README.md","utf8"),/migrations\/071_payment_pop_runtime_compat.sql/);
 });
