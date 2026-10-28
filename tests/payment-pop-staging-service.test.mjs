@@ -4,7 +4,8 @@ import {stagePopSubmission} from "../cloudflare/src/payment-pop-staging-service.
 const id="11111111-1111-4111-8111-111111111111",bytes=new Uint8Array([137,80,78,71,13,10,26,10,1]);
 function setup(role="owner",tenant=id,provider="manual_bank"){
  let writes=0;
- const env={POP_UPLOAD_STAGING_ENABLED:"true",EVIDENCE:{put:async()=>{writes++}},DB:{prepare(sql){
+ const env={POP_UPLOAD_STAGING_ENABLED:"true",EVIDENCE:{put:async()=>{writes++;return {etag:"new-object"}}},DB:{prepare(sql){
+  if(sql.startsWith("INSERT INTO payment_pop_documents"))return {bind(){return {run:async()=>({success:true})}}};
   assert.match(sql,/tenant_id=\?/);
   return {bind(orderId,tenantId){return {first:async()=>({id:orderId,tenant_id:tenant,order_type:"subscription",provider,status:"pending"})}}};
  }}};
