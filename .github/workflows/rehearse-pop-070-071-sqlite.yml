@@ -1,0 +1,21 @@
+name: POP 070-071 isolated SQLite rehearsal
+on:
+  pull_request:
+    paths:
+      - 'cloudflare/migrations/070_payment_pop_documents.sql'
+      - 'cloudflare/migrations/071_payment_pop_runtime_compat.sql'
+      - 'scripts/rehearse-pop-070-071-sqlite.py'
+      - '.github/workflows/rehearse-pop-070-071-sqlite.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  rehearse:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Run offline migration simulation
+        run: python3 scripts/rehearse-pop-070-071-sqlite.py
