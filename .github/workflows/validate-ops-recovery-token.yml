@@ -1,0 +1,68 @@
+name: Validate isolated recovery Cloudflare token (read-only)
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact reviewed current main SHA
+        required: true
+        type: string
+      confirmation:
+        description: Type VALIDATE_RECOVERY_TOKEN_READ_ONLY
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  validate:
+    if: github.ref == 'refs/heads/main'
+    environment: operations-rehearsal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Verify exact revision and authorization
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ && "$GITHUB_SHA" == "$EXPECTED_SHA" ]]
+          [[ "$CONFIRMATION" == VALIDATE_RECOVERY_TOKEN_READ_ONLY ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" == "$EXPECTED_SHA" ]]
+      - name: Check dedicated D1 token without revealing credentials
+        env:
+          OPERATIONS_REHEARSAL_ACCOUNT_ID: ${{ secrets.OPERATIONS_REHEARSAL_ACCOUNT_ID }}
+          OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN: ${{ secrets.OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN }}
+          OPS_RESTORE_D1_ID: ${{ vars.OPS_RESTORE_D1_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const account=process.env.OPERATIONS_REHEARSAL_ACCOUNT_ID??'';
+          const token=process.env.OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN??'';
+          const id=process.env.OPS_RESTORE_D1_ID??'';
+          const expected='07c1aaeb-215a-4f01-80b6-a5e0ebedfcd8';
+          const report=(result)=>{const line=JSON.stringify({kind:'recovery_token_readonly_validation',...result});
+            console.log(line);if(process.env.GITHUB_STEP_SUMMARY)requireSummary(line);};
+          function requireSummary(line){import('node:fs').then(fs=>fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,'### Isolated recovery token validation\n\x60\x60\x60json\n'+line+'\n\x60\x60\x60\n'));}
+          if(!/^[a-f0-9]{32}$/i.test(account)||!token.trim()||id!==expected){
+            report({status:'CONFIGURATION_INVALID',accountIdPresent:/^[a-f0-9]{32}$/i.test(account),tokenPresent:!!token.trim(),restoreDatabaseIdMatches:id===expected,readOnly:true});
+            process.exitCode=1;
+          }else{
+            try{
+              const response=await fetch(`https://api.cloudflare.com/client/v4/accounts/${account}/d1/database/${expected}`,{
+                method:'GET',headers:{authorization:`Bearer ${token}`,accept:'application/json'},
+                redirect:'error',signal:AbortSignal.timeout(12000)});
+              let valid=false;
+              if(response.status===200){
+                const body=await response.json();
+                valid=body.success===true&&body.result?.uuid?.toLowerCase()===expected&&body.result?.name==='bw-compliance-os-ops-restore';
+              }
+              report({status:valid?'D1_READ_OK':response.status===401?'UNAUTHORIZED':response.status===403?'FORBIDDEN':'D1_READ_FAILED',httpStatus:response.status,targetVerified:valid,readOnly:true,productionUnchanged:true});
+              if(!valid)process.exitCode=1;
+            }catch{
+              report({status:'NETWORK_OR_RESPONSE_ERROR',readOnly:true});process.exitCode=1;
+            }
+          }
+          NODE
