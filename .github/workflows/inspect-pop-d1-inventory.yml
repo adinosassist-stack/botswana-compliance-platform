@@ -1,0 +1,54 @@
+name: POP D1 inventory discovery (read-only)
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Current exact main SHA
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  inventory:
+    environment: production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    concurrency:
+      group: thebe-desk-production
+      cancel-in-progress: false
+    steps:
+      - name: List all D1 databases without mutation
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REF: ${{ github.ref }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PROD_D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == refs/heads/main && "$GITHUB_SHA" == "$EXPECTED_SHA" && "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[a-f0-9]{32}$ && -n "$CLOUDFLARE_API_TOKEN" ]]
+          [[ "$PROD_D1_DATABASE_ID" == 8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce ]]
+          node --input-type=module <<'NODE'
+          const account=process.env.CLOUDFLARE_ACCOUNT_ID;
+          const names=[];
+          let page=1;
+          while(page<=20){
+            const url=new URL(`https://api.cloudflare.com/client/v4/accounts/${account}/d1/database`);
+            url.searchParams.set('page',String(page));
+            url.searchParams.set('per_page','100');
+            const response=await fetch(url,{method:'GET',redirect:'error',signal:AbortSignal.timeout(15000),headers:{Authorization:`Bearer ${process.env.CLOUDFLARE_API_TOKEN}`,Accept:'application/json'}});
+            if(!response.ok)throw Error('D1 inventory GET HTTP '+response.status);
+            const data=await response.json();
+            if(data.success!==true||!Array.isArray(data.result))throw Error('D1 inventory response invalid');
+            names.push(...data.result.map(d=>({name:d.name,uuid:d.uuid,production:d.uuid?.toLowerCase()===process.env.PROD_D1_DATABASE_ID.toLowerCase()})));
+            const totalPages=data.result_info?.total_pages;
+            if(Number.isInteger(totalPages)?page>=totalPages:data.result.length<100)break;
+            page++;
+          }
+          if(page>20)throw Error('D1 inventory exceeded 20 page safety limit');
+          const prod=names.filter(x=>x.production);
+          if(prod.length!==1||prod[0].name!=='bw-compliance-os')throw Error('production D1 identity not found exactly once');
+          console.log(JSON.stringify({kind:'pop_d1_inventory_readonly',database_count:names.length,databases:names,staging_candidates:names.filter(x=>!x.production&&/stag|pop|test|rehears/i.test(x.name||'')),production_write:false,staging_write:false,restore_tested:false}));
+          NODE
