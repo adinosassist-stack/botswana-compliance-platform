@@ -20,12 +20,14 @@ required={"tenants","payment_orders","manual_payment_submissions"}
 existing={r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
 assert required <= existing, f"schema missing dependency tables: {required-existing}"
 preexisting_pop={"payment_pop_documents","payment_pop_upload_requests"} & existing
-if preexisting_pop:
-    print(json.dumps({"kind":"pop_repo_schema_rehearsal","result":"blocked_baseline_already_contains_pop_objects",
-                      "objects":sorted(preexisting_pop),"production_contacted":False,
-                      "production_compatible_staging_verified":False}))
-    raise SystemExit(2)
-db.executescript(sql070)
+if preexisting_pop=={"payment_pop_documents"}:
+    # Repository schema already incorporates 070. Verify its columns match the
+    # pre-071 shape, then rehearse only pending 071 on the isolated baseline.
+    assert "content_sha256" not in {r[1] for r in db.execute("PRAGMA table_info(payment_pop_documents)")}
+elif not preexisting_pop:
+    db.executescript(sql070)
+else:
+    raise AssertionError(f"unexpected partially applied POP baseline: {preexisting_pop}")
 db.executescript(sql071)
 assert {r[1] for r in db.execute("PRAGMA table_info(payment_pop_documents)")} >= {
     "content_sha256","object_etag","scan_result_signature","storage_deleted_at"}
