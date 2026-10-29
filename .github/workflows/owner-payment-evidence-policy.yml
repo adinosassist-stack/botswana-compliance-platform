@@ -1,0 +1,22 @@
+name: Owner payment evidence policy
+on:
+  pull_request:
+    paths:
+      - 'server/payments/owner-payment-evidence-policy.mjs'
+      - 'tests/owner-payment-evidence-policy.test.mjs'
+      - '.github/workflows/owner-payment-evidence-policy.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  owner-payment-evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: node --check server/payments/owner-payment-evidence-policy.mjs && node --check tests/owner-payment-evidence-policy.test.mjs
+      - name: Verify owner bank-funds evidence gates
+        run: node --test tests/owner-payment-evidence-policy.test.mjs
