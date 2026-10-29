@@ -1,0 +1,25 @@
+name: Agent admission policy tests
+on:
+  pull_request:
+    paths:
+      - 'server/agentic/agent-admission-policy.mjs'
+      - 'tests/agentic-admission-policy.test.mjs'
+      - '.github/workflows/agent-admission-policy.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  agent-admission-policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check syntax
+        run: node --check server/agentic/agent-admission-policy.mjs && node --check tests/agentic-admission-policy.test.mjs
+      - name: Run isolated admission policy regressions
+        run: node --test tests/agentic-admission-policy.test.mjs
