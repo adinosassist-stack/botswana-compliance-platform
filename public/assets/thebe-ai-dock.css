@@ -2026,3 +2026,22 @@ body.thebe-ai-dock-open .thebe-ai-mode-rail:has([data-thebe-mode="goal_plan"]:no
 
 /* Workspace dock: keep the composer primary; remove preset question tiles only. */
 #thebeAiDock[data-surface="workspace"] .thebe-ai-quick{display:none!important}
+
+/* V234 canonical charcoal palette shared by Workspace and Market.
+   Reuse existing selectors to stay within V191 selector-consolidation budget. */
+:root{
+  --thebe-dock-bg:#111315;
+  --thebe-dock-panel:#1b2027;
+  --thebe-dock-elevated:#292e35;
+  --thebe-dock-ink:#f4f5f6;
+  --thebe-dock-muted:#aab0b8;
+  --thebe-dock-line:#32363c;
+  --thebe-dock-line-strong:#50555e;
+  --thebe-dock-accent-soft:#172c47;
+}
+.thebe-ai-dock{background:#111315;color:#f4f5f6;border-color:#32363c;color-scheme:dark}
+.thebe-ai-dock-head{background:#1b2027;border-bottom-color:#32363c}
+.thebe-ai-compose,.thebe-ai-compose textarea{background:#1b2027;color:#f4f5f6;border-color:#454c56}
+.thebe-ai-compose textarea::placeholder{color:#aab0b8}
+.thebe-ai-icon-btn{background:#292e35;color:#f4f5f6;border-color:#454c56}
+.thebe-ai-presence{color:#aab0b8}
