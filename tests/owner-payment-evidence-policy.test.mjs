@@ -5,7 +5,7 @@ import {evaluateOwnerPaymentEvidence as evaluate, PAYMENT_DECISIONS as D} from "
 const invoice={id:"inv-1",tenantId:"tenant-a",amountMinor:150000,currency:"BWP"};
 const bankEvidence={invoiceId:"inv-1",tenantId:"tenant-a",source:"trusted_bank_reconciliation",status:"settled",bankTransactionId:"bank-123",amountMinor:150000,currency:"BWP"};
 const reviewer={authenticated:true,role:"owner",tenantId:"tenant-a",actorId:"owner-1"};
-const input=(patch={})=>({tenantId:"tenant-a",invoice,bankEvidence,reviewer,...patch});
+const input=(patch={})=>({tenantId:"tenant-a",invoice,bankEvidence,reviewer,priorBankAllocations:[],...patch});
 
 test("trusted settled funds with authenticated tenant owner can be marked verified",()=>{
   assert.equal(evaluate(input()).decision,D.VERIFIED);
@@ -37,4 +37,19 @@ test("invalid money and missing transaction ID are denied",()=>{
 });
 test("no evidence or review input never grants verification",()=>{
   assert.notEqual(evaluate().decision,D.VERIFIED);
+});
+
+test("missing server-side allocation lookup cannot verify funds",()=>{
+  assert.equal(evaluate(input({priorBankAllocations:undefined})).decision,D.REVIEW_REQUIRED);
+});
+test("same bank transaction cannot be reused for a second invoice",()=>{
+  const priorBankAllocations=[{bankTransactionId:"bank-123",invoiceId:"inv-old",tenantId:"tenant-a"}];
+  assert.equal(evaluate(input({priorBankAllocations})).reason,"bank_transaction_already_allocated");
+});
+test("malformed allocation history fails closed",()=>{
+  assert.equal(evaluate(input({priorBankAllocations:[null]})).decision,D.REVIEW_REQUIRED);
+});
+test("different bank transaction remains eligible for owner review",()=>{
+  const priorBankAllocations=[{bankTransactionId:"bank-older",invoiceId:"inv-old",tenantId:"tenant-a"}];
+  assert.equal(evaluate(input({priorBankAllocations})).decision,D.VERIFIED);
 });
