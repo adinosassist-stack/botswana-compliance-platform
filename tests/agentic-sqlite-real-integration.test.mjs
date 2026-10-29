@@ -45,3 +45,24 @@ test("real SQLite concurrent requests cannot exceed budget",async()=>{
  assert.equal(db.prepare("SELECT spent_minor FROM agent_budget_policy").get().spent_minor,70);
  db.close();
 });
+
+test("real SQLite stopped agent cannot reserve",async()=>{
+ const db=setup(),adapter=createSqliteAgentBudgetAdapter(db);
+ db.prepare("UPDATE agent_budget_policy SET stopped=1 WHERE tenant_id=? AND agent_id=?").run("tenant","agent");
+ assert.equal((await reserveAgentBudget({...base,db:adapter})).status,"denied");
+ assert.equal(db.prepare("SELECT count(*) AS n FROM agent_budget_reservation").get().n,0);
+ db.close();
+});
+test("real SQLite tenant mismatch cannot spend another tenant budget",async()=>{
+ const db=setup(),adapter=createSqliteAgentBudgetAdapter(db);
+ assert.equal((await reserveAgentBudget({...base,identity:{tenantId:"other",agentId:"agent",actorId:"owner"},db:adapter})).status,"denied");
+ assert.equal(db.prepare("SELECT spent_minor FROM agent_budget_policy WHERE tenant_id='tenant'").get().spent_minor,0);
+ db.close();
+});
+test("real SQLite stale version cannot reserve",async()=>{
+ const db=setup(),adapter=createSqliteAgentBudgetAdapter(db);
+ db.prepare("UPDATE agent_budget_policy SET version=2 WHERE tenant_id='tenant' AND agent_id='agent'").run();
+ assert.equal((await reserveAgentBudget({...base,db:adapter})).status,"denied");
+ assert.equal(db.prepare("SELECT spent_minor FROM agent_budget_policy").get().spent_minor,0);
+ db.close();
+});
