@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {createAuthorizedAgentBudgetService} from "../server/agentic/agent-budget-authorized-service.mjs";
 const policy={tenantId:"t",agentId:"a",enabled:true,stopped:false,version:1};
-const request={agentId:"a",requestId:"r",costMinor:10,expectedVersion:1,occurredAt:"now"};
+const request={agentId:"a",requestId:"r",costMinor:10,expectedVersion:1,occurredAt:"2026-10-29T12:00:00Z"};
 async function service(session,loadedPolicy=policy){
  let calls=0;
  const api=await createAuthorizedAgentBudgetService({
