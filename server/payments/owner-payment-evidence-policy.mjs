@@ -10,7 +10,7 @@ const validId = value => typeof value === "string" && value.trim().length > 0 &&
 const validMoney = value => Number.isSafeInteger(value) && value > 0;
 const validCurrency = value => typeof value === "string" && /^[A-Z]{3}$/.test(value);
 
-export function evaluateOwnerPaymentEvidence({tenantId, invoice, bankEvidence, reviewer} = {}) {
+export function evaluateOwnerPaymentEvidence({tenantId, invoice, bankEvidence, reviewer, priorBankAllocations} = {}) {
   if (!validId(tenantId) || !invoice || invoice.tenantId !== tenantId ||
       !validId(invoice.id) || !validMoney(invoice.amountMinor) || !validCurrency(invoice.currency)) {
     return {decision: PAYMENT_DECISIONS.REJECTED, reason: "invalid_invoice"};
@@ -24,6 +24,18 @@ export function evaluateOwnerPaymentEvidence({tenantId, invoice, bankEvidence, r
   }
   if (bankEvidence.amountMinor !== invoice.amountMinor || bankEvidence.currency !== invoice.currency) {
     return {decision: PAYMENT_DECISIONS.REVIEW_REQUIRED, reason: "bank_amount_or_currency_mismatch"};
+  }
+  // Server-supplied allocation records prevent one bank credit being reused.
+  // Missing allocation evidence fails closed; callers cannot provide this from the browser.
+  if (!Array.isArray(priorBankAllocations)) {
+    return {decision: PAYMENT_DECISIONS.REVIEW_REQUIRED, reason: "bank_allocation_lookup_required"};
+  }
+  if (priorBankAllocations.some(item => !item || !validId(item.bankTransactionId) ||
+      !validId(item.invoiceId) || !validId(item.tenantId))) {
+    return {decision: PAYMENT_DECISIONS.REVIEW_REQUIRED, reason: "invalid_bank_allocation_record"};
+  }
+  if (priorBankAllocations.some(item => item.bankTransactionId === bankEvidence.bankTransactionId)) {
+    return {decision: PAYMENT_DECISIONS.REVIEW_REQUIRED, reason: "bank_transaction_already_allocated"};
   }
   if (!reviewer || reviewer.authenticated !== true || reviewer.role !== "owner" ||
       reviewer.tenantId !== tenantId || !validId(reviewer.actorId)) {
