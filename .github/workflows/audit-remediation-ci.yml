@@ -74,6 +74,7 @@ jobs:
           node tests/conversion-funnel-v14-static.mjs
           node --test tests/conversion-funnel-v14-client.test.mjs tests/conversion-funnel-v14-governance.test.mjs tests/conversion-funnel-v14-schema.test.mjs
           node tests/v84-registration-entry-chain-runtime.mjs
+          node --test tests/signup-conversion-staging.test.mjs
 
       - name: Signed HOLD browser lifecycle governance
         shell: bash
