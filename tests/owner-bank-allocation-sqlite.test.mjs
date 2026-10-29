@@ -41,6 +41,6 @@ test("SQLite stores verified actor, tenant and amount",async()=>{
  try{
   assert.equal((await allocateVerifiedBankReceipt(args(adapter))).status,"allocated");
   const row=db.prepare("SELECT tenant_id,amount_minor,currency,verified_by_actor_id FROM owner_bank_receipt_allocation").get();
-  assert.deepEqual(row,{tenant_id:"tenant-a",amount_minor:150000,currency:"BWP",verified_by_actor_id:"owner-1"});
+  assert.deepEqual({...row},{tenant_id:"tenant-a",amount_minor:150000,currency:"BWP",verified_by_actor_id:"owner-1"});
  }finally{db.close();}
 });
