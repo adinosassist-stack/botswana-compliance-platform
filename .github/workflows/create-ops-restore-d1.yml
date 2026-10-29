@@ -1,0 +1,70 @@
+name: Provision isolated operations restore D1 (protected)
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact reviewed current main SHA
+        required: true
+        type: string
+      confirmation:
+        description: Type CREATE_ISOLATED_OPS_RESTORE
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: thebe-desk-production
+  cancel-in-progress: false
+jobs:
+  create:
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Verify reviewed main and production authority without changing production
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PROD_D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ && "$EXPECTED_SHA" == "$GITHUB_SHA" ]]
+          [[ "$CONFIRMATION" == CREATE_ISOLATED_OPS_RESTORE ]]
+          [[ "$PROD_D1_DATABASE_ID" == 8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce ]]
+          [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[a-f0-9]{32}$ && -n "$CLOUDFLARE_API_TOKEN" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" == "$EXPECTED_SHA" ]]
+          node --input-type=module <<'NODE'
+          const account=process.env.CLOUDFLARE_ACCOUNT_ID;
+          const base=`https://api.cloudflare.com/client/v4/accounts/${account}/d1/database`;
+          const headers={authorization:`Bearer ${process.env.CLOUDFLARE_API_TOKEN}`,accept:'application/json'};
+          const request=async(url,options={})=>{
+            const r=await fetch(url,{redirect:'error',signal:AbortSignal.timeout(15000),...options});
+            if(!r.ok)throw Error(`Cloudflare request refused: HTTP ${r.status}`);
+            const body=await r.json();
+            if(body.success!==true)throw Error('Cloudflare request unsuccessful');
+            return body;
+          };
+          let records=[],complete=false;
+          for(let page=1;page<=20;page++){
+            const u=new URL(base);u.searchParams.set('page',String(page));u.searchParams.set('per_page','100');
+            const b=await request(u,{headers});
+            if(!Array.isArray(b.result))throw Error('Invalid D1 inventory');
+            records.push(...b.result);
+            if(Number.isInteger(b.result_info?.total_pages)?page>=b.result_info.total_pages:b.result.length<100){complete=true;break}
+          }
+          if(!complete)throw Error('Incomplete D1 inventory');
+          const prod=records.filter(d=>d.uuid?.toLowerCase()===process.env.PROD_D1_DATABASE_ID.toLowerCase());
+          if(prod.length!==1||prod[0].name!=='bw-compliance-os')throw Error('Production database identity mismatch');
+          const target='bw-compliance-os-ops-restore';
+          const matches=records.filter(d=>d.name===target);
+          if(matches.length)throw Error('Restore target already exists; refuse duplicate. Verify its UUID independently.');
+          const b=await request(base,{method:'POST',headers:{...headers,'content-type':'application/json'},body:JSON.stringify({name:target})});
+          const d=b.result;
+          if(d?.name!==target||!/^[0-9a-f-]{36}$/i.test(d?.uuid||'')||records.some(p=>p.uuid?.toLowerCase()===d.uuid.toLowerCase()))throw Error('Unexpected new D1 identity: inspect manually');
+          console.log(JSON.stringify({kind:'ops_restore_target_created',name:d.name,uuid:d.uuid,production_unchanged:true,pop_staging_unchanged:true,restore_tested:false,isolation_verified:false,credentials_configured:false}));
+          NODE
