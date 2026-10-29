@@ -7,6 +7,7 @@ const {chromium}=require(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES?path.joi
 const focus=fs.readFileSync('public/js/owner-focus-strip-v296.js','utf8').match(/style.textContent=`([\s\S]*?)`;/)[1].replaceAll('${STRIP_ID}','ownerFocusStrip').replaceAll('${ATTENTION_ID}','ownerAttentionPanel');
 const protect=fs.readFileSync('public/js/protect-workspace-v308.js','utf8').match(/style.textContent=`([\s\S]*?)`;/)[1].replaceAll('${ROOT_ID}','protecthub');
 const polish=fs.readFileSync('public/assets/workspace-audit-refinements-20261013.css','utf8');
+const spatial=fs.readFileSync('public/assets/thebe-spatial-dock-v246.css','utf8');
 const productionControls=fs.readFileSync('public/assets/workspace-control-polish-v317.css','utf8');
 // Guard all three workspace surfaces against regression to the legacy red brand.
 assert.doesNotMatch(polish,/#(?:b42318|8f1d16|fff1ee|efd1cc)\b|rgba\(180,35,24/i,'shared workspace, Owner Focus and AI dock must not inherit legacy red accents');
@@ -47,12 +48,12 @@ try{
   // Verify dock-open presentation without pretending this synthetic fixture tests drag/resize behavior.
   {
     const page=await browser.newPage({viewport:{width:1280,height:900}});
-    await page.setContent(`<!doctype html><style>${polish}</style><div id="thebeAiDock" class="thebe-ai-dock" data-surface="workspace"><div class="thebe-ai-compose"><textarea aria-label="Message"></textarea></div><button class="thebe-ai-minimize">Minimize</button></div>`);
+    await page.setContent(`<!doctype html><style>${spatial}${polish}</style><div id="thebeAiDock" class="thebe-ai-dock" data-surface="workspace"><div class="thebe-ai-compose"><textarea aria-label="Message"></textarea></div><button class="thebe-ai-minimize">Minimize</button></div>`);
     await page.evaluate(()=>document.body.classList.add('thebe-ai-dock-open'));
     await page.locator('textarea').focus();
-    const state=await page.evaluate(()=>({compose:getComputedStyle(document.querySelector('.thebe-ai-compose')).backgroundColor,focus:getComputedStyle(document.querySelector('textarea')).outlineColor,minimize:getComputedStyle(document.querySelector('.thebe-ai-minimize')).display}));
-    assert.equal(state.compose,'rgb(247, 247, 245)','dock-open composer uses neutral surface');
-    assert.equal(state.minimize,'inline-flex','dock-open minimize action stays visible');
+    const state=await page.evaluate(()=>({compose:getComputedStyle(document.querySelector('.thebe-ai-compose')).backgroundColor,focus:getComputedStyle(document.querySelector('textarea')).outlineColor,minimize:getComputedStyle(document.querySelector('.thebe-ai-minimize')).display,minimizeHeight:document.querySelector('.thebe-ai-minimize').getBoundingClientRect().height}));
+    assert.equal(state.compose,'rgb(36, 36, 36)','dock-open composer inherits the canonical charcoal surface');
+    assert.ok(['inline-flex','flex'].includes(state.minimize)&&state.minimizeHeight>0,'dock-open minimize action stays visible');
     await page.close();
   }
   console.log('PASS workspace layout: contained priority controls and badges, >=44px controls, no horizontal overflow, analysis disclosure at 320–1280px');
