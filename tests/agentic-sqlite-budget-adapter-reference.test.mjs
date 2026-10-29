@@ -6,3 +6,22 @@ test("commit occurs after transactional operations",async()=>{const db=mock();co
 test("rollback on failed callback",async()=>{const db=mock();await assert.rejects(createSqliteAgentBudgetAdapter(db).transaction(async()=>{throw Error("fail")}),/fail/);assert.deepEqual(db.statements,["BEGIN IMMEDIATE","ROLLBACK"])});
 test("requires real transaction primitives",()=>assert.throws(()=>createSqliteAgentBudgetAdapter({}),TypeError));
 test("audit schema tenant indexed",()=>assert.match(agentAuditSchema,/idx_agent_audit_tenant_time/));
+
+test("concurrent requests on one adapter serialize BEGIN/COMMIT boundaries",async()=>{
+ const db=mock(),adapter=createSqliteAgentBudgetAdapter(db);
+ let release;const gate=new Promise(resolve=>{release=resolve});
+ const first=adapter.transaction(async()=>{await gate});
+ const second=adapter.transaction(async()=>{});
+ await Promise.resolve();await Promise.resolve();
+ assert.deepEqual(db.statements,["BEGIN IMMEDIATE"]);
+ release();await Promise.all([first,second]);
+ assert.deepEqual(db.statements,["BEGIN IMMEDIATE","COMMIT","BEGIN IMMEDIATE","COMMIT"]);
+});
+test("failed transaction releases queue for subsequent requests",async()=>{
+ const db=mock(),adapter=createSqliteAgentBudgetAdapter(db);
+ const first=adapter.transaction(async()=>{throw Error("fail")});
+ const second=adapter.transaction(async()=>42);
+ await assert.rejects(first,/fail/);
+ assert.equal(await second,42);
+ assert.deepEqual(db.statements,["BEGIN IMMEDIATE","ROLLBACK","BEGIN IMMEDIATE","COMMIT"]);
+});
