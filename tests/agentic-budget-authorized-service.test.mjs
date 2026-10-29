@@ -26,3 +26,17 @@ test("policy provider failure fails closed",async()=>{
  const api=await createAuthorizedAgentBudgetService({sessionProvider:async()=>({authenticated:true,tenantId:"t",actorId:"owner",role:"owner"}),policyProvider:async()=>{throw Error("policy unavailable")},transactionAdapter:{}});
  assert.equal((await api.reserve(request)).status,"denied");
 });
+
+test("malformed reservation requests do not reach policy provider",async()=>{
+ const s=await service({authenticated:true,tenantId:"t",actorId:"owner",role:"owner"});
+ for(const invalid of [
+  {...request,agentId:""},
+  {...request,requestId:""},
+  {...request,costMinor:0},
+  {...request,costMinor:1.5},
+  {...request,costMinor:Number.MAX_SAFE_INTEGER+1},
+  {...request,expectedVersion:-1},
+  {...request,occurredAt:"not-a-date"}
+ ]) assert.match((await s.api.reserve(invalid)).status,/^invalid_/);
+ assert.equal(s.policyCalls(),0);
+});
