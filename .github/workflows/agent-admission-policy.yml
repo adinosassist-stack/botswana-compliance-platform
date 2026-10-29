@@ -8,6 +8,8 @@ on:
       - 'tests/agentic-budget-persistence-contract.test.mjs'
       - 'server/agentic/agent-governance-summary.mjs'
       - 'tests/agentic-governance-summary.test.mjs'
+      - 'server/agentic/agent-audit-event.mjs'
+      - 'tests/agentic-audit-event.test.mjs'
       - '.github/workflows/agent-admission-policy.yml'
   workflow_dispatch:
 permissions:
@@ -31,5 +33,7 @@ jobs:
           node --check tests/agentic-budget-persistence-contract.test.mjs
           node --check server/agentic/agent-governance-summary.mjs
           node --check tests/agentic-governance-summary.test.mjs
+          node --check server/agentic/agent-audit-event.mjs
+          node --check tests/agentic-audit-event.test.mjs
       - name: Run isolated admission policy regressions
-        run: node --test tests/agentic-admission-policy.test.mjs tests/agentic-budget-persistence-contract.test.mjs tests/agentic-governance-summary.test.mjs
+        run: node --test tests/agentic-admission-policy.test.mjs tests/agentic-budget-persistence-contract.test.mjs tests/agentic-governance-summary.test.mjs tests/agentic-audit-event.test.mjs
