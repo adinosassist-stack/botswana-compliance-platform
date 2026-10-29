@@ -2026,3 +2026,52 @@ body.thebe-ai-dock-open .thebe-ai-mode-rail:has([data-thebe-mode="goal_plan"]:no
 
 /* Workspace dock: keep the composer primary; remove preset question tiles only. */
 #thebeAiDock[data-surface="workspace"] .thebe-ai-quick{display:none!important}
+
+/* V234 unified charcoal dock: canonical Market palette for Workspace and public.
+   Scoped to the dock; do not change workspace page backgrounds or geometry. */
+#thebeAiDock.thebe-ai-dock,
+.thebe-ai-dock[data-surface="workspace"],
+.thebe-ai-dock[data-surface="public"]{
+  --thebe-dock-bg:#111315;
+  --thebe-dock-panel:#1b2027;
+  --thebe-dock-elevated:#292e35;
+  --thebe-dock-ink:#f4f5f6;
+  --thebe-dock-muted:#aab0b8;
+  --thebe-dock-line:#32363c;
+  --thebe-dock-line-strong:#50555e;
+  --thebe-dock-accent:#0b66d6;
+  --thebe-dock-accent-soft:#172c47;
+  background:#111315;
+  color:#f4f5f6;
+  border-color:#32363c;
+  color-scheme:dark;
+}
+#thebeAiDock .thebe-ai-dock-head,
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-dock-head,
+.thebe-ai-dock[data-surface="public"] .thebe-ai-dock-head{
+  background:#1b2027;
+  border-bottom-color:#32363c;
+}
+#thebeAiDock .thebe-ai-compose,
+#thebeAiDock .thebe-ai-compose textarea,
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-compose,
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-compose textarea,
+.thebe-ai-dock[data-surface="public"] .thebe-ai-compose,
+.thebe-ai-dock[data-surface="public"] .thebe-ai-compose textarea{
+  background:#1b2027;
+  color:#f4f5f6;
+  border-color:#454c56;
+}
+#thebeAiDock .thebe-ai-compose textarea::placeholder,
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-compose textarea::placeholder,
+.thebe-ai-dock[data-surface="public"] .thebe-ai-compose textarea::placeholder{color:#aab0b8}
+#thebeAiDock .thebe-ai-icon-btn,
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-icon-btn,
+.thebe-ai-dock[data-surface="public"] .thebe-ai-icon-btn{
+  background:#292e35;
+  color:#f4f5f6;
+  border-color:#454c56;
+}
+#thebeAiDock .thebe-ai-presence,
+.thebe-ai-dock[data-surface="workspace"] .thebe-ai-presence,
+.thebe-ai-dock[data-surface="public"] .thebe-ai-presence{color:#aab0b8}
