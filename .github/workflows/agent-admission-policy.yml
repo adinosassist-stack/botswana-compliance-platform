@@ -14,6 +14,7 @@ on:
       - 'tests/agentic-budget-reservation-coordinator.test.mjs'
       - 'server/agentic/sqlite-budget-adapter-reference.mjs'
       - 'tests/agentic-sqlite-budget-adapter-reference.test.mjs'
+      - 'tests/agentic-sqlite-real-integration.test.mjs'
       - '.github/workflows/agent-admission-policy.yml'
   workflow_dispatch:
 permissions:
@@ -43,5 +44,6 @@ jobs:
           node --check tests/agentic-budget-reservation-coordinator.test.mjs
           node --check server/agentic/sqlite-budget-adapter-reference.mjs
           node --check tests/agentic-sqlite-budget-adapter-reference.test.mjs
+          node --check tests/agentic-sqlite-real-integration.test.mjs
       - name: Run isolated admission policy regressions
-        run: node --test tests/agentic-admission-policy.test.mjs tests/agentic-budget-persistence-contract.test.mjs tests/agentic-governance-summary.test.mjs tests/agentic-audit-event.test.mjs tests/agentic-budget-reservation-coordinator.test.mjs tests/agentic-sqlite-budget-adapter-reference.test.mjs
+        run: node --test tests/agentic-admission-policy.test.mjs tests/agentic-budget-persistence-contract.test.mjs tests/agentic-governance-summary.test.mjs tests/agentic-audit-event.test.mjs tests/agentic-budget-reservation-coordinator.test.mjs tests/agentic-sqlite-budget-adapter-reference.test.mjs tests/agentic-sqlite-real-integration.test.mjs
