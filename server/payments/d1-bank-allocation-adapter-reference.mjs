@@ -11,7 +11,7 @@ export function createD1BankAllocationAdapter(db) {
         VALUES (?,?,?,?,?,?,?)`)
         .bind(record.bankTransactionId,record.tenantId,record.invoiceId,record.amountMinor,record.currency,record.verifiedByActorId,record.verifiedAt)
         .run();
-      if (!result || result.success!==true || !Number.isSafeInteger(result.meta?.changes)) throw new Error("unconfirmed D1 insert");
+      if (!result || result.success!==true || !Number.isSafeInteger(result.meta?.changes) || ![0,1].includes(result.meta.changes)) throw new Error("unconfirmed D1 insert");
       return result.meta.changes===1;
     }
   });
