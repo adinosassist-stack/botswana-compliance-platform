@@ -281,7 +281,7 @@
           if(parentSignal?.aborted)throw new ApiError("Request cancelled.",{status:0,code:"aborted",requestId});
           const err=error instanceof ApiError?error:new ApiError(error?.name==="AbortError"?"The request timed out. Please retry.":"Network connection failed. Check connectivity and retry.",{status:0,code:error?.name==="AbortError"?"timeout":"network_error",requestId});
           if(!idempotent&&safeRetry&&attempt+1<attempts&&!(error instanceof ApiError)){lastError=err;await sleep(200*(attempt+1));continue}
-          try{console.error("BW API request failed",{url:logicalTarget,method,status:err.status,code:err.code,requestId});onError(err,{url:logicalTarget,method,requestId})}catch{}
+          try{console.error("BW API request failed",{path:new URL(logicalTarget).pathname,method,status:err.status,code:err.code,requestId,transport:preferredTransport,attempt:attempt+1,timeoutMs:requestTimeoutMs});onError(err,{url:logicalTarget,method,requestId})}catch{}
           throw err;
         }finally{
           clearTimeout(timer);
