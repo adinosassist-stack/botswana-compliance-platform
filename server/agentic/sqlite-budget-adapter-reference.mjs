@@ -3,8 +3,8 @@
 // IMMEDIATE / COMMIT / ROLLBACK semantics and exclusive ownership per transaction.
 export function createSqliteAgentBudgetAdapter(connection) {
  if(!connection||typeof connection.exec!=="function"||typeof connection.prepare!=="function") throw new TypeError("SQLite connection required");
- return {
-  async transaction(fn) {
+ let tail=Promise.resolve();
+ async function executeTransaction(fn) {
    connection.exec("BEGIN IMMEDIATE");
    let committed=false;
    try {
@@ -26,6 +26,13 @@ export function createSqliteAgentBudgetAdapter(connection) {
    } finally {
     if(!committed) connection.exec("ROLLBACK");
    }
+ }
+ return {
+  transaction(fn) {
+   if(typeof fn!=="function") return Promise.reject(new TypeError("transaction callback required"));
+   const current=tail.then(()=>executeTransaction(fn));
+   tail=current.then(()=>undefined,()=>undefined);
+   return current;
   }
  };
 }
@@ -40,5 +47,6 @@ CREATE TABLE IF NOT EXISTS agent_audit_event (
 CREATE INDEX IF NOT EXISTS idx_agent_audit_tenant_time
  ON agent_audit_event(tenant_id,occurred_at);
 `;
-// IMPORTANT: connection must not be shared with other async operations during
-// the transaction callback. Real staging race tests are mandatory before use.
+// Transactions through this adapter are serialized per connection. The caller
+// must exclusively own the connection; direct external queries are not serialized.
+// Real multi-connection staging race tests are mandatory before use.
