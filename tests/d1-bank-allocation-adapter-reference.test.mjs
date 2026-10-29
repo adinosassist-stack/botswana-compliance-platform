@@ -24,3 +24,12 @@ test("missing D1 binding and invalid allocation reject",async()=>{
  assert.throws(()=>createD1BankAllocationAdapter(null));
  await assert.rejects(()=>createD1BankAllocationAdapter(fake(1).db).insertUniqueAllocation({...record,amountMinor:0}));
 });
+
+test("ambiguous multi-row D1 changes fail closed",async()=>{
+ await assert.rejects(()=>createD1BankAllocationAdapter(fake(2).db).insertUniqueAllocation(record));
+ await assert.rejects(()=>createD1BankAllocationAdapter(fake(-1).db).insertUniqueAllocation(record));
+});
+test("D1 binding and execution exceptions are not interpreted as allocation success",async()=>{
+ const db={prepare(){return {bind(){return {run:async()=>{throw Error("D1 unavailable");}}}}}};
+ await assert.rejects(()=>createD1BankAllocationAdapter(db).insertUniqueAllocation(record));
+});
