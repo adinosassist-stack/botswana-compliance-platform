@@ -499,26 +499,9 @@ html body #thebeAiDock[data-surface="workspace"] .thebe-ai-send{
   }
 }
 
-/* Workspace visual parity with the Market Thebe side rail (v273).
-   Scoped to workspace: preserve draggable runtime, voice, uploads and focus safeguards. */
-@media(min-width:1200px) and (hover:hover) and (pointer:fine){
- html body #thebeAiDock[data-surface="workspace"]:not(.thebe-ai-dragging){
-  width:clamp(360px,28vw,420px)!important;max-width:420px!important;
-  border-radius:24px!important;
- }
- html body.thebe-ai-expanded #thebeAiDock[data-surface="workspace"]:not(.thebe-ai-dragging){
-  width:min(560px,calc(100vw - 64px))!important;
-  max-width:560px!important;
- }
-}
-@media(min-width:1024px) and (max-width:1199px){
- html body #thebeAiDock[data-surface="workspace"]:not(.thebe-ai-dragging){
-  width:clamp(332px,31vw,360px)!important;max-width:360px!important;border-radius:22px!important;
- }
- html body.thebe-ai-expanded #thebeAiDock[data-surface="workspace"]:not(.thebe-ai-dragging){
-  width:min(460px,calc(100vw - 48px))!important;max-width:460px!important;
- }
-}
+/* Workspace visual parity: match Market chrome without overriding the
+   workspace's collision-tested rail width and expansion dimensions.
+   Workspace geometry remains protected by v246 spatial dock browser tests. */
 html body #thebeAiDock[data-surface="workspace"] .thebe-ai-expand{
  display:inline-flex!important;align-items:center!important;justify-content:center!important;
 }
