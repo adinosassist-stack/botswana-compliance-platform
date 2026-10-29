@@ -39,13 +39,13 @@ jobs:
         run: |
           set -euo pipefail
           node --input-type=module <<'NODE'
+          const {appendFileSync}=await import('node:fs');
           const account=process.env.OPERATIONS_REHEARSAL_ACCOUNT_ID??'';
           const token=process.env.OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN??'';
           const id=process.env.OPS_RESTORE_D1_ID??'';
           const expected='07c1aaeb-215a-4f01-80b6-a5e0ebedfcd8';
           const report=(result)=>{const line=JSON.stringify({kind:'recovery_token_readonly_validation',...result});
-            console.log(line);if(process.env.GITHUB_STEP_SUMMARY)requireSummary(line);};
-          function requireSummary(line){import('node:fs').then(fs=>fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,'### Isolated recovery token validation\n\x60\x60\x60json\n'+line+'\n\x60\x60\x60\n'));}
+            console.log(line);if(process.env.GITHUB_STEP_SUMMARY)appendFileSync(process.env.GITHUB_STEP_SUMMARY,'### Isolated recovery token validation\\n\\x60\\x60\\x60json\\n'+line+'\\n\\x60\\x60\\x60\\n');};
           if(!/^[a-f0-9]{32}$/i.test(account)||!token.trim()||id!==expected){
             report({status:'CONFIGURATION_INVALID',accountIdPresent:/^[a-f0-9]{32}$/i.test(account),tokenPresent:!!token.trim(),restoreDatabaseIdMatches:id===expected,readOnly:true});
             process.exitCode=1;
