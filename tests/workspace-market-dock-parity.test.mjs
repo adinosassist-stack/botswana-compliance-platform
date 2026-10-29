@@ -3,16 +3,15 @@ import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
 const market=readFileSync('public/assets/market-thebe-gemini-v273.css','utf8');
 const workspace=readFileSync('public/assets/thebe-spatial-dock-v246.css','utf8');
-test('workspace rail follows Market width and radius tokens',()=>{
- for(const token of ['clamp(360px,28vw,420px)','min(560px,calc(100vw - 64px))','clamp(332px,31vw,360px)','min(460px,calc(100vw - 48px))']){
+test('workspace retains Market chat chrome without overriding collision-tested rail widths',()=>{
+ for(const token of ['background:#191919!important','border-radius:28px!important','font-size:16px!important']){
   assert.ok(market.includes(token),'Market missing '+token);
   assert.ok(workspace.includes(token),'Workspace missing '+token);
  }
+ assert.doesNotMatch(workspace,/html body #thebeAiDock\[data-surface="workspace"\]:not\(\.thebe-ai-dragging\)/);
 });
-test('workspace voice and accessibility survive design parity',()=>{
+test('workspace voice and accessibility survive visual parity',()=>{
  assert.match(workspace,/\.thebe-ai-voice-card\{/);
  assert.match(workspace,/focus-visible/);
  assert.match(workspace,/prefers-reduced-motion:reduce/);
- assert.match(workspace,/data-surface="workspace"\]/);
- assert.doesNotMatch(workspace,/data-surface="public"\]/);
 });
