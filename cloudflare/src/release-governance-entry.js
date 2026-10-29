@@ -3,6 +3,7 @@ import {applyAssetReleaseIdentity} from "./asset-release-identity.js";
 import releaseMetadata from "../../release/production.json" with {type:"json"};
 import {durableRegistrationChallengeGate,validateAndClaimRegistrationProof} from "./registration-boundary.js";
 import {handleConversionEvent,recordRegistrationSuccess,recordWorkspaceReached} from "./conversion-funnel-governance.js";
+import {REGISTRATION_CREATION_OUTCOME} from "./registration-creation-outcome.js";
 
 const VALID_REGISTRATION_MODES=new Set(["hold","cohort","open"]);
 const WORKSPACE_SURFACE_ROLES=new Set(["owner","manager","reviewer","auditor"]);
@@ -388,6 +389,7 @@ export default {
     if(method==="GET"&&path==="/api/auth/registration-policy")return json({ok:true,mode:registrationMode(env)});
 
     let downstreamEnv=env;
+    const registrationOutcome={created:false};
     if(method==="POST"&&path===REGISTRATION_PROOF_CHALLENGE_PATH){
       const blocked=await durableRegistrationChallengeGate(request,env);
       if(blocked)return decorateResponse(request,env,blocked);
@@ -406,6 +408,7 @@ export default {
         return decorateResponse(request,env,registrationProtectionFailure(status));
       }
       downstreamEnv=Object.assign({},env,{
+        [REGISTRATION_CREATION_OUTCOME]:registrationOutcome,
         __THEBE_REGISTRATION_PROOF_VERIFIED:true,
         APP_ENV:"registration-proof-verified",
         TURNSTILE_SECRET_KEY:""
@@ -413,7 +416,7 @@ export default {
     }
 
     const response=await base.fetch(request,downstreamEnv,ctx);
-    await recordRegistrationSuccess({request,path,env,response,ctx});
+    await recordRegistrationSuccess({request,path,env,response,ctx,registrationCreated:registrationOutcome.created});
     return decorateResponse(request,env,response);
   },
   async scheduled(event,env,ctx){

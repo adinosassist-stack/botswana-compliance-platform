@@ -1,4 +1,5 @@
 import {BOTSWANA_FOUNDATION_PACK_V1,BOTSWANA_FOUNDATION_PACK_V1_HASH} from "./regulatory-pack-registry.js";
+import {noteRegistrationCreated} from "./registration-creation-outcome.js";
 import {platformBillingAnalytics} from "./platform-billing-analytics.js";
 import {stagePopSubmission} from "./payment-pop-staging-service.js";
 import {validPopRequestKey} from "./payment-pop-upload-reservations.js";
@@ -5269,7 +5270,7 @@ export default {
         env.DB.prepare("INSERT INTO users(id,email,display_name,password_hash) VALUES(?,?,?,?)").bind(userId,email,email.split("@")[0],ph),
         env.DB.prepare("INSERT INTO memberships(tenant_id,user_id,role,status) VALUES(?,?,'owner','active')").bind(tenantId,userId),
         env.DB.prepare("INSERT INTO subscriptions(tenant_id,plan,status,trial_ends_at) VALUES(?,?,'trialing',datetime('now','+14 days'))").bind(tenantId,SELF_SERVE_PLAN_IDS.has(String(body.plan||"").toLowerCase())?String(body.plan).toLowerCase():"business")
-      ]);await registrationTimingFloor(registrationStartedAt);return json(generic,202)}catch(e){if(/unique|constraint/i.test(String(e?.message||e))){await registrationTimingFloor(registrationStartedAt);return json(generic,202)}throw e}
+      ]);noteRegistrationCreated(env);await registrationTimingFloor(registrationStartedAt);return json(generic,202)}catch(e){if(/unique|constraint/i.test(String(e?.message||e))){await registrationTimingFloor(registrationStartedAt);return json(generic,202)}throw e}
     }
     if(url.pathname==="/api/auth/login"&&req.method==="POST"){
       if(!requestOriginAllowed(req,env))return json({error:"origin_failed"},403);

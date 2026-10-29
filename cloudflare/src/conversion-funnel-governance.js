@@ -100,8 +100,8 @@ async function handleConversionEvent({request,path,env,ctx}){
   return json({ok:true},202);
 }
 
-async function recordRegistrationSuccess({request,path,env,response,ctx}){
-  if(String(request?.method||"").toUpperCase()!=="POST"||path!==REGISTER_PATH||!response?.ok)return response;
+async function recordRegistrationSuccess({request,path,env,response,ctx,registrationCreated=false}){
+  if(registrationCreated!==true||String(request?.method||"").toUpperCase()!=="POST"||path!==REGISTER_PATH||!response?.ok)return response;
   const conversionId=conversionIdFromRequest(request);
   if(!conversionId)return response;
   const work=recordEvent(env,{conversionId,stage:"registration_success",source:"unknown",plan:"",path:"/auth/"});
