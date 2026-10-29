@@ -498,3 +498,32 @@ html body #thebeAiDock[data-surface="workspace"] .thebe-ai-send{
     width:44px!important;min-width:44px!important;height:44px!important;min-height:44px!important;
   }
 }
+
+/* Workspace visual parity with the Market Thebe side rail (v273).
+   Scoped to workspace: preserve draggable runtime, voice, uploads and focus safeguards. */
+@media(min-width:1200px) and (hover:hover) and (pointer:fine){
+ html body #thebeAiDock[data-surface="workspace"]:not(.thebe-ai-dragging){
+  width:clamp(360px,28vw,420px)!important;max-width:420px!important;
+  border-radius:24px!important;
+ }
+ html body.thebe-ai-expanded #thebeAiDock[data-surface="workspace"]:not(.thebe-ai-dragging){
+  width:min(560px,calc(100vw - 64px))!important;
+  max-width:560px!important;
+ }
+}
+@media(min-width:1024px) and (max-width:1199px){
+ html body #thebeAiDock[data-surface="workspace"]:not(.thebe-ai-dragging){
+  width:clamp(332px,31vw,360px)!important;max-width:360px!important;border-radius:22px!important;
+ }
+ html body.thebe-ai-expanded #thebeAiDock[data-surface="workspace"]:not(.thebe-ai-dragging){
+  width:min(460px,calc(100vw - 48px))!important;max-width:460px!important;
+ }
+}
+html body #thebeAiDock[data-surface="workspace"] .thebe-ai-expand{
+ display:inline-flex!important;align-items:center!important;justify-content:center!important;
+}
+@media(max-width:1023px){
+ html body #thebeAiDock[data-surface="workspace"]{border-radius:22px!important;}
+ html body #thebeAiDock[data-surface="workspace"] .thebe-ai-expand{display:none!important;}
+}
+/* Voice remains visible in workspace only: Market deliberately hides public voice card. */
