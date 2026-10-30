@@ -3,13 +3,13 @@ import {conversationStagingBoundary as handle} from "../cloudflare/src/conversat
 const context={session:{authenticated:true,active:true,userId:"user1",tenantId:"A"},workspaceMembership:{active:true,userId:"user1",tenantId:"A",conversationId:"chat",role:"member"},conversation:{id:"chat",tenantId:"A",status:"active"},csrfVerified:true};
 let writes=0;
 const env={DB:{prepare(){return {bind(){return {async run(){writes++;return {success:true,meta:{changes:1}}},async all(){return {results:[]}},async first(){return null}}}}}}};
-const request=(method,headers={},body={role:"user",sourceKind:"typed",content:"Test",idempotencyKey:"m1"})=>({method,headers:{get:key=>headers[key]||null},json:async()=>body});
+const request=(method,headers={},body={role:"user",sourceKind:"typed",content:"Test",idempotencyKey:"m1"})=>({method,headers:{get:key=>headers[key]||null},body:new ReadableStream({start(c){c.enqueue(new TextEncoder().encode(JSON.stringify(body)));c.close()}})});
 const post=request("POST",{"content-type":"application/json","content-length":"87"});
 assert.equal((await handle({env,request:post,context:{...context,csrfVerified:false},threadId:"chat"})).status,403);
 assert.equal((await handle({env,request:post,context,threadId:"foreign"})).status,403);
 assert.equal((await handle({env,request:post,context:{...context,session:{...context.session,active:false}},threadId:"chat"})).status,401);
 assert.equal((await handle({env,request:request("POST",{"content-type":"text/plain"}),context,threadId:"chat"})).status,415);
-assert.equal((await handle({env,request:request("POST",{"content-type":"application/json"}),context,threadId:"chat"})).status,411);
+assert.equal((await handle({env,request:request("POST",{"content-type":"application/json"}),context,threadId:"chat"})).status,200);
 assert.equal((await handle({env,request:request("POST",{"content-type":"application/json","content-length":"999999"}),context,threadId:"chat"})).status,413);
 assert.equal((await handle({env:{},request:request("GET"),context,threadId:"chat"})).status,503);
 assert.equal((await handle({env,request:request("POST",{"content-type":"application/json","content-length":"10"},{role:"user",sourceKind:"typed",content:"x".repeat(9000),idempotencyKey:"oversized"}),context,threadId:"chat"})).status,413);
