@@ -1,0 +1,20 @@
+# Conversation history: isolated staging acceptance gate
+
+This is a **not deployed** staging rehearsal, not an approved migration or live customer service.
+
+## Required preconditions before staging deployment
+
+1. Dedicated staging Worker, staging-only exact origin, and a dedicated staging D1. Neither Worker route nor D1 binding may target production.
+2. Independent database identity verification against the production D1 UUID. Never accept a same-name database or assumed isolation. Existing session verifier uses the same `env.DB` binding for `sessions`, `users`, `memberships`, `tenants` and rehearsal conversation tables: the dedicated D1 must hold **independently provisioned staging auth records** plus approved rehearsal tables.
+3. Get privacy, retention, deletion, consent, and logging approvals before enabling any persistent user content. Conversation schema is intentionally design-stage only.
+4. Authenticate using existing signed cookie/session-generation logic. Test session revocation, CSRF, tenant switching, viewer append rejection, duplicate idempotency keys, and 8 KB body enforcement.
+5. Confirm complete staged typed and final-voice transcript append/list, duplicate retry behavior, no audio blobs, and denial of cross-tenant reads.
+6. Explicit deployment profile `conversation-staging`, `APP_ENV=staging`, `DEPLOYMENT_ENV=staging`, `CONVERSATION_HISTORY_STAGING_ENABLED=true` only after the above gates. The route is currently unregistered.
+
+## CI evidence
+
+The Conversation staging integration acceptance workflow executes every `tests/conversation-*.test.mjs` in Node 24 and checks the production worker and entrypoint do not import the rehearsal dispatcher. CI proves code behavior against mocks only; it **does not** prove Cloudflare D1 identity, actual cookie authentication, real database persistence, or live deployment readiness.
+
+## Stop conditions
+
+Never run rehearsal SQL against `bw-compliance-os`, production D1 UUID `8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce`, or the billing staging D1. If staging identity is uncertain, leave the feature disabled. No customer API exposure is permitted without explicit security and privacy sign-off.
