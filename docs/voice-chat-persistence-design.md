@@ -53,3 +53,17 @@ Unify typed chat, completed speech transcripts, assistant responses and governed
 
 ## Release plan
 Implement in separate scoped PRs: database + migration qualification; authenticated API + adversarial tenant tests; opt-in client sync; staged end-to-end tests; explicit privacy/legal review; BF-07 sealed production release. No bypass of main governance or regulated activation gates.
+
+
+## Integration dependency order (2026-10-30 verified)
+No step below authorizes merging without a current independent approval and required CI at the exact head SHA.
+
+1. Independent main-target baseline PRs: #1973 (this design), #1974 (authorization policy), #1975 (isolated schema rehearsal), #1976 (API acceptance contract). They can be reviewed independently; #1974 and #1975 are code/test prerequisites for later staging work.
+2. Schema branch: #1977 contains actual SQLite behavioral tests stacked on #1975. Its branch already absorbed #1980's concurrent-write test. Once #1975 is approved and merged, rebase or retarget #1977 with exact-head and test verification.
+3. Storage adapter branch: #1978 stacks on #1974; #1979 stacks on #1978 with atomic idempotency; #1984 stacks on #1979 with failure-isolation tests. #1984's development branch has absorbed #1985, #1986, #1987, #1989, and #1991. These development-branch merges are NOT merges into main.
+4. Independent client changes: #1970 (mobile composer focus), #1971 (concurrent voice/text regression), #1972 (in-session voice turns). Keep their existing independent review requirements; avoid blindly reconciling overlapping dock changes.
+5. After prerequisites are on main through protected PRs, make a new staging-only integration PR for server-resolved actor/membership, authenticated CSRF-protected routes, a real D1 rehearsal migration with rollback, and browser tests. All storage and authorization must fail closed.
+6. Before customer rollout: approve privacy disclosure, transcript consent, retention/deletion policy, staged tenant-isolation tests, audit logging and idempotent concurrent-write validation. No production schema change or live transcription storage by any current PR.
+
+### Current release decision
+Blocked pending required independent reviews on foundational PRs. Do not bypass governance, and do not treat successful CI or development-branch merges as permission to deploy.
