@@ -35,7 +35,7 @@
   function workspaceWidthBounds(viewport=viewportWidth()){
     const width=Math.max(0,Number(viewport)||0);
     if(width<1024)return {min:0,defaultWidth:0,expandedDefault:0,max:0};
-    if(width>=1200)return {min:320,defaultWidth:376,expandedDefault:500,max:560};
+    if(width>=1200){const market=Math.min(720,width*.38);return {min:430,defaultWidth:Math.round(market),expandedDefault:Math.round(Math.min(780,Math.max(520,width*.44))),max:Math.round(Math.min(780,width-64))};}
     return {min:288,defaultWidth:320,expandedDefault:440,max:440};
   }
 
