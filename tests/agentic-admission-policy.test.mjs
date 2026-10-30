@@ -1,0 +1,18 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {admitAgentAction} from "../server/agentic/agent-admission-policy.mjs";
+const policy={enabled:true,stopped:false,tenantId:"a",allowedActions:["invoice.read"],budgetMinor:100,spentMinor:20,requiresApproval:false};
+const context={authenticated:true,tenantId:"a",actorId:"owner"};
+const check=(overrides={},ctx=context,action="invoice.read",cost=10)=>admitAgentAction({policy:{...policy,...overrides},context:ctx,action,estimatedCostMinor:cost});
+test("approved read-only task is admitted",()=>assert.equal(check().allowed,true));
+test("disabled and stopped agents fail closed",()=>{assert.equal(check({enabled:false}).allowed,false);assert.equal(check({stopped:true}).allowed,false)});
+test("cross-tenant access fails closed",()=>assert.equal(check({}, {...context,tenantId:"b"}).reason,"tenant_mismatch"));
+test("missing session fails closed",()=>assert.equal(check({}, {...context,authenticated:false}).reason,"unauthenticated"));
+test("unlisted tool fails closed",()=>assert.equal(check({},context,"invoice.delete").reason,"action_not_allowed"));
+test("payments cannot be executed even if allowlisted",()=>assert.equal(check({allowedActions:["payment.execute"]},context,"payment.execute").reason,"restricted_action"));
+test("subscription activation cannot be executed",()=>assert.equal(check({allowedActions:["subscription.activate"]},context,"subscription.activate").allowed,false));
+test("regulatory activation cannot be executed",()=>assert.equal(check({allowedActions:["regulatory.activate"]},context,"regulatory.activate").allowed,false));
+test("budget cap rejects excess cost",()=>assert.equal(check({},context,"invoice.read",81).reason,"budget_exceeded"));
+test("invalid costs fail closed",()=>assert.equal(check({},context,"invoice.read",-1).reason,"invalid_cost"));
+test("approval must be explicit",()=>assert.equal(check({requiresApproval:true,approved:false}).reason,"approval_required"));
+test("expired policy fails closed",()=>assert.equal(check({expiresAt:0}).reason,"policy_expired"));

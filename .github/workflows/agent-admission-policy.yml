@@ -1,0 +1,55 @@
+name: Agent admission policy tests
+on:
+  pull_request:
+    paths:
+      - 'server/agentic/agent-admission-policy.mjs'
+      - 'tests/agentic-admission-policy.test.mjs'
+      - 'server/agentic/agent-budget-persistence-contract.mjs'
+      - 'tests/agentic-budget-persistence-contract.test.mjs'
+      - 'server/agentic/agent-governance-summary.mjs'
+      - 'tests/agentic-governance-summary.test.mjs'
+      - 'server/agentic/agent-audit-event.mjs'
+      - 'tests/agentic-audit-event.test.mjs'
+      - 'server/agentic/agent-budget-reservation-coordinator.mjs'
+      - 'tests/agentic-budget-reservation-coordinator.test.mjs'
+      - 'server/agentic/sqlite-budget-adapter-reference.mjs'
+      - 'tests/agentic-sqlite-budget-adapter-reference.test.mjs'
+      - 'tests/agentic-sqlite-real-integration.test.mjs'
+      - 'tests/agentic-sqlite-multiconnection.test.mjs'
+      - 'server/agentic/agent-budget-authorized-service.mjs'
+      - 'tests/agentic-budget-authorized-service.test.mjs'
+      - '.github/workflows/agent-admission-policy.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  agent-admission-policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check syntax
+        run: |
+          node --check server/agentic/agent-admission-policy.mjs
+          node --check tests/agentic-admission-policy.test.mjs
+          node --check server/agentic/agent-budget-persistence-contract.mjs
+          node --check tests/agentic-budget-persistence-contract.test.mjs
+          node --check server/agentic/agent-governance-summary.mjs
+          node --check tests/agentic-governance-summary.test.mjs
+          node --check server/agentic/agent-audit-event.mjs
+          node --check tests/agentic-audit-event.test.mjs
+          node --check server/agentic/agent-budget-reservation-coordinator.mjs
+          node --check tests/agentic-budget-reservation-coordinator.test.mjs
+          node --check server/agentic/sqlite-budget-adapter-reference.mjs
+          node --check tests/agentic-sqlite-budget-adapter-reference.test.mjs
+          node --check tests/agentic-sqlite-real-integration.test.mjs
+          node --check tests/agentic-sqlite-multiconnection.test.mjs
+          node --check server/agentic/agent-budget-authorized-service.mjs
+          node --check tests/agentic-budget-authorized-service.test.mjs
+      - name: Run isolated admission policy regressions
+        run: node --test tests/agentic-admission-policy.test.mjs tests/agentic-budget-persistence-contract.test.mjs tests/agentic-governance-summary.test.mjs tests/agentic-audit-event.test.mjs tests/agentic-budget-reservation-coordinator.test.mjs tests/agentic-sqlite-budget-adapter-reference.test.mjs tests/agentic-sqlite-real-integration.test.mjs tests/agentic-sqlite-multiconnection.test.mjs tests/agentic-budget-authorized-service.test.mjs
