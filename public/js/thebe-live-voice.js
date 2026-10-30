@@ -779,6 +779,8 @@
   }
   function clearConversation(){
     if(!dock)return;
+    dock.dataset.lastConversationClear='workspace-exit';
+    dock.dataset.conversationClearCount=String((Number(dock.dataset.conversationClearCount)||0)+1);
     textAbortController?.abort("conversation-cleared");
     textAbortController=null;
     textRunId+=1;
