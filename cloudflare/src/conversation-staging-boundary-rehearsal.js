@@ -23,6 +23,11 @@ export async function conversationStagingBoundary({env,request,context,threadId,
   if(!Number.isSafeInteger(length)||length>8192)return deny(413,"payload_too_large");
   let body;
   try{body=await request.json()}catch{return deny(400,"invalid_json")}
+  // Defense in depth: reject decoded JSON that exceeds the declared body budget.
+  // An eventual live route must ALSO enforce a streaming byte limit before JSON parsing.
+  try{
+    if(new TextEncoder().encode(JSON.stringify(body)).byteLength>8192)return deny(413,"payload_too_large");
+  }catch{return deny(400,"invalid_json")}
   const result=await appendFromTrustedSession({env,context,clientBody:body,id});
   return {status:result.ok?200:result.error==="invalid_message"?400:result.error==="idempotency_conflict"?409:result.error==="access_denied"?403:503,body:result};
 }
