@@ -163,7 +163,7 @@ body.thebe-voice-active{overflow:hidden!important}
     bottom:16px!important;
     width:var(--thebe-spatial-width)!important;
     min-width:430px!important;
-    max-width:min(46vw,780px)!important;
+    max-width:780px!important;
     height:auto!important;
     min-height:0!important;
     max-height:none!important;
@@ -541,10 +541,10 @@ html body #thebeAiDock[data-surface="workspace"] .thebe-ai-expand{
    Desktop explicit resize remains available at smaller breakpoints. */
 @media (min-width:1200px) and (hover:hover) and (pointer:fine){
   html body:has(#thebeAiDock[data-surface="workspace"]){
-    --thebe-spatial-width:clamp(430px,38vw,720px)!important;
+    --thebe-spatial-width:clamp(430px,38vw,720px);
   }
   html body.thebe-ai-expanded:has(#thebeAiDock[data-surface="workspace"]){
-    --thebe-spatial-width:clamp(520px,44vw,780px)!important;
+    --thebe-spatial-width:clamp(520px,44vw,780px);
   }
   html body #thebeAiDock[data-surface="workspace"]{
     left:auto!important;
@@ -567,7 +567,7 @@ html body #thebeAiDock[data-surface="workspace"] .thebe-ai-expand{
     top:16px!important;
     bottom:16px!important;
     min-width:430px!important;
-    max-width:min(46vw,780px)!important;
+    max-width:780px!important;
     height:auto!important;
     max-height:none!important;
     border-radius:24px!important;
