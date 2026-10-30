@@ -58,7 +58,8 @@ try{
       await page.waitForTimeout(100);
       if(await dock.isHidden())await page.locator('#thebeAiDockPill').click();
       await dock.waitFor({state:'visible'});
-      assert.equal(await input.inputValue(),unsentDraft,'same-surface mobile resize must retain draft');
+      const draftState=await page.evaluate(()=>({width:innerWidth,surface:document.querySelector('#thebeAiDock')?.dataset.surface,workspaceVisible:document.querySelector('#thebeAiDock')?.dataset.workspaceVisible,mode:window.ThebeAiDock?.state?.(),value:document.querySelector('#thebeAiDockInput')?.value}));
+      assert.equal(draftState.value,unsentDraft,'same-surface mobile resize must retain draft: '+JSON.stringify({width:draftState.width,surface:draftState.surface,workspaceVisible:draftState.workspaceVisible,mode:draftState.mode?.workspaceVisible}));
     }
     await input.fill('');
     await page.setViewportSize({width:1440,height:960});
