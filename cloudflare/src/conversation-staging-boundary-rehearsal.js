@@ -7,7 +7,8 @@ export async function conversationStagingBoundary({env,request,context,threadId,
   if(!request||!context?.session?.authenticated||!context?.session?.active)return deny(401,"unauthenticated");
   if(context?.conversation?.id!==threadId||!context?.workspaceMembership?.active)return deny();
   if(request.method==="GET"){
-    return {status:200,body:await readFromTrustedSession({env,context,limit:25})};
+    const result=await readFromTrustedSession({env,context,limit:25});
+    return {status:result.ok?200:result.error==="access_denied"?403:503,body:result};
   }
   if(request.method!=="POST")return deny(405,"method_not_allowed");
   if(context.csrfVerified!==true)return deny(403,"csrf_required");
@@ -23,5 +24,5 @@ export async function conversationStagingBoundary({env,request,context,threadId,
   let body;
   try{body=await request.json()}catch{return deny(400,"invalid_json")}
   const result=await appendFromTrustedSession({env,context,clientBody:body,id});
-  return {status:result.ok?200:result.error==="invalid_message"?400:403,body:result};
+  return {status:result.ok?200:result.error==="invalid_message"?400:result.error==="idempotency_conflict"?409:result.error==="access_denied"?403:503,body:result};
 }
