@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {checkConversationStagingD1} from "../scripts/check-conversation-staging-d1.mjs";
-const id="ab098765-4321-4f00-8901-123456789abc";
+const id="95c48030-0395-44cb-aa95-622beaf4efdf";
 const env={CONVERSATION_STAGING_D1_ID:id,CONVERSATION_STAGING_SOURCE_SHA:"a".repeat(40),CLOUDFLARE_API_TOKEN:"synthetic",CLOUDFLARE_ACCOUNT_ID:"b".repeat(32)};
 let calls=0;
 const fetcher=async(url,options)=>{calls++;assert(url.endsWith("/d1/database/"+id));assert.equal(options.method,undefined);return{ok:true,json:async()=>({success:true,result:{uuid:id,name:"bw-conversation-staging"}})}};

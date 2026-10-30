@@ -32,3 +32,7 @@ Never run rehearsal SQL against `bw-compliance-os`, production D1 UUID `8e6ae3fe
 ## Staging marker cardinality
 
 The route now requires exactly **one** row in `thebe_conversation_staging_identity`, with `database_uuid` matching the dedicated staging UUID. Missing, duplicate, invalid and production-ID markers fail closed before session resolution. This is a defense-in-depth test, **not proof of Cloudflare binding isolation**: inspect the deployed Worker binding separately and do not treat a copied marker as identity attestation. No data-writing migration is authorized by this document.
+
+## Deployment configuration fail-closed identity
+
+The locked non-routed Worker configuration now accepts only the verified `bw-conversation-staging` D1 UUID `95c48030-0395-44cb-aa95-622beaf4efdf`; previously it accepted any valid non-production UUID. This prevents accidental binding to another staging environment or newly created database. It remains disabled (`CONVERSATION_REHEARSAL_ENABLED=false`, no routes, no workers.dev) and does **not** install schema, enable recording, or deploy the Worker. Requalify and review this pin if the staging database must ever change; do not silently replace it.
