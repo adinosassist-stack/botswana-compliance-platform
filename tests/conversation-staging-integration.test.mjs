@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import {createConversationStagingIntegration} from "../cloudflare/src/conversation-staging-integration-rehearsal.js";
 const origin="https://conversation-staging.example.invalid";
 const path=origin+"/api/conversation-staging/threads/thread/messages";
-const envBase={APP_ENV:"staging",DEPLOYMENT_ENV:"staging",DEPLOYMENT_PROFILE:"conversation-staging",CONVERSATION_HISTORY_STAGING_ENABLED:"true",CONVERSATION_STAGING_ORIGIN:origin};
+const envBase={APP_ENV:"staging",DEPLOYMENT_ENV:"staging",DEPLOYMENT_PROFILE:"conversation-staging",CONVERSATION_HISTORY_STAGING_ENABLED:"true",CONVERSATION_STAGING_ORIGIN:origin,CONVERSATION_STAGING_D1_ID:"95c48030-0395-44cb-aa95-622beaf4efdf"};
 let calls=[],session={authenticated:true,active:true,userId:"u",tenantId:"A",csrfVerified:true};
-const db={prepare(sql){return{bind(...params){return{
+const db={prepare(sql){if(sql.includes("thebe_conversation_staging_identity"))return {async first(){return {database_uuid:"95c48030-0395-44cb-aa95-622beaf4efdf"}}};return{bind(...params){return{
  async first(){calls.push({sql,params});if(sql.includes("conversation_members"))return {tenant_id:"A",conversation_id:"thread",user_id:"u",role:"member",active:1};
  if(sql.includes("thebe_conversations_rehearsal"))return {tenant_id:"A",id:"thread",status:"active"};
  return null},
