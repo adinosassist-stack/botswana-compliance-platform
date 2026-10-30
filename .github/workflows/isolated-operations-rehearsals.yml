@@ -39,7 +39,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: thebe-isolated-operations-rehearsals
+  # Read-only PR qualification must not wait behind an approval-gated rehearsal.
+  # All manual rehearsal modes retain the same global serialization group.
+  group: ${{ github.event_name == 'pull_request' && format('thebe-isolated-operations-qualification-{0}', github.event.pull_request.number) || 'thebe-isolated-operations-rehearsals' }}
   cancel-in-progress: false
 
 jobs:
