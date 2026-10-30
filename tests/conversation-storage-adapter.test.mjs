@@ -1,3 +1,4 @@
+import {readConversationPageRehearsal} from "../cloudflare/src/conversation-page-reader-rehearsal.js";
 import assert from "node:assert/strict";
 import {appendConversationMessageRehearsal,listConversationMessagesRehearsal} from "../cloudflare/src/conversation-storage-rehearsal.js";
 const actor={authenticated:true,active:true,userId:"u1",tenantId:"A"};
@@ -16,3 +17,10 @@ assert.equal(calls.length,old);
 assert.equal((await appendConversationMessageRehearsal({env,actor,conversation,membership,message:{...message,sourceKind:"voice_partial"}})).ok,false);
 assert.equal((await appendConversationMessageRehearsal({env:{},actor,conversation,membership,message})).error,"schema_unavailable");
 console.log("Conversation rehearsal adapter fail-closed checks PASS");
+
+// Provider refusal or malformed read results must never become a successful empty history.
+for(const result of [{success:false,results:[]},null,{}, {success:true,results:null}]){
+ const broken={DB:{prepare(){return {bind(){return {async all(){return result}}}}}}};
+ assert.deepEqual(await listConversationMessagesRehearsal({env:broken,actor,conversation,membership}),{ok:false,error:"storage_unavailable"});
+ assert.deepEqual(await readConversationPageRehearsal({env:broken,actor,conversation,membership,secret:"s".repeat(32)}),{ok:false,error:"storage_unavailable"});
+}
