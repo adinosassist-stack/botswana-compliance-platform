@@ -65,6 +65,11 @@ jobs:
           node --check scripts/probe-staging-readiness.mjs
           node --test tests/probe-staging-readiness.test.mjs
 
+      - name: Staging readiness request timing guard
+        run: |
+          node --check cloudflare/src/release-governance-entry.js
+          node --test tests/readiness-staging-request-timing.test.mjs
+
       - name: Subscription audit rollback and POP isolation
         shell: bash
         run: node --test tests/owner-payment-dashboard.test.mjs tests/platform-billing-controls.test.mjs tests/subscription-access-audit-d1.test.mjs tests/manual-bank-owner-approval-flow.test.mjs tests/manual-bank-review-audit-d1.test.mjs tests/payment-pop-*.test.mjs tests/pop-intake-metadata-contract.test.mjs tests/pop-whatsapp-*.test.mjs
