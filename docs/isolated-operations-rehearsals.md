@@ -48,6 +48,15 @@ bindings and cron settings. Refuses a restore target bound to the rehearsal
 Worker. No live writes. This is the default operation, but confirmation still
 defaults to `DO_NOT_RUN`.
 
+Provider failures include only sanitized status/code diagnostics. R2 preflight
+failures also identify one of the three fixed bucket names above and the check
+(`bucket_metadata`, `managed_domain`, or `custom_domains`). For HTTP 403, verify
+that bucket exists in the dedicated token's account and that the token can read
+R2 storage and domain settings. A 403 alone does not prove a missing bucket or
+the exact permission problem. Never paste tokens or provider response bodies
+into logs; never substitute the production credential. Correct dedicated access
+and rerun `PREFLIGHT_ONLY` on exact current main through the protected environment.
+
 ### PREFLIGHT_WORKER
 
 Checks the rehearsal app database/bindings and reads its schema definitions to

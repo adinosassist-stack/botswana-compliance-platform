@@ -140,6 +140,31 @@ test('provider refusals expose numeric diagnostics without echoed credentials or
   });
 });
 
+test('R2 refusals identify only fixed bucket and operation labels and stop without writes',async()=>{
+  for(const bucket of ['bw-compliance-ops-backups','bw-compliance-ops-restore','bw-compliance-ops-evidence']){
+    for(const [suffix,operation] of [['','bucket_metadata'],['/domains/managed','managed_domain'],['/domains/custom','custom_domains']]){
+      const calls=[];
+      const fetchImpl=async(url,options)=>{
+        calls.push({url,method:options.method});
+        if(url.endsWith(`/r2/buckets/${bucket}${suffix}`))return new Response(JSON.stringify({success:false,errors:[{code:10000,message:`${base.token} ${accountId} private-provider-body`}]}),{status:403});
+        let result;
+        if(url.endsWith(`/d1/database/${databaseId}`))result={uuid:databaseId,name:'bw-compliance-os-ops-restore'};
+        else if(url.endsWith('/domains/managed'))result={enabled:false};
+        else if(url.endsWith('/domains/custom'))result={domains:[]};
+        else result={name:url.split('/').at(-1)};
+        return new Response(JSON.stringify({success:true,result}));
+      };
+      await assert.rejects(runIsolatedRehearsal({...base,mode:'PREFLIGHT_ONLY'},{fetchImpl}),e=>{
+        assert.deepEqual(e.diagnostic,{stage:'r2',method:'GET',bucket,operation,httpStatus:403,providerCodes:[10000]});
+        for(const secret of [base.token,accountId,databaseId,'private-provider-body'])assert.equal(JSON.stringify(e).includes(secret),false);
+        return true;
+      });
+      assert.ok(calls.every(c=>c.method==='GET'));
+      assert.ok(calls.at(-1).url.endsWith(`/r2/buckets/${bucket}${suffix}`));
+    }
+  }
+});
+
 test('a different account hostname cannot receive the alert probe or cause a logging write',async()=>{
   const calls=[];
   const fetchImpl=async(url,options)=>{

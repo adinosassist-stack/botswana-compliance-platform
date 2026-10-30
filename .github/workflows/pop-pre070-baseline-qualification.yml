@@ -1,0 +1,24 @@
+name: POP pre-070 baseline qualification
+on:
+  pull_request:
+    paths:
+      - 'cloudflare/schema.sql'
+      - 'cloudflare/migrations/070_payment_pop_documents.sql'
+      - 'cloudflare/migrations/071_payment_pop_runtime_compat.sql'
+      - 'scripts/prepare-pop-pre070-baseline.py'
+      - 'tests/pop-pre070-baseline.test.py'
+      - '.github/workflows/pop-pre070-baseline-qualification.yml'
+permissions:
+  contents: read
+jobs:
+  baseline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Qualify pinned candidate and ordered migrations offline
+        run: |
+          python3 tests/pop-pre070-baseline.test.py
+          python3 scripts/prepare-pop-pre070-baseline.py
