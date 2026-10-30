@@ -41,7 +41,7 @@ try{
  assert(compactVoice.dockScrollWidth<=compactVoice.dockClientWidth+1,`dock text must not spill horizontally: ${JSON.stringify(compactVoice)}`);
  assert(compactVoice.answerScrollWidth<=compactVoice.answerClientWidth+1,`AI answer must wrap inside the dock: ${JSON.stringify(compactVoice)}`);
  assert(compactVoice.statusScrollWidth<=compactVoice.statusClientWidth+1,`voice status must wrap inside the dock: ${JSON.stringify(compactVoice)}`);
- const normalDockWidths=new Map([[1440,272],[1200,272],[1199,256],[1180,256],[1024,256]]);
+ const normalDockWidths=new Map([[1440,547],[1200,456],[1199,256],[1180,256],[1024,256]]);
  for(const [width,expectedDockWidth] of normalDockWidths){
   await page.setViewportSize({width,height:960});
   await page.waitForFunction(expected=>Math.abs(document.getElementById('thebeAiDock').getBoundingClientRect().width-expected)<=1,expectedDockWidth);
@@ -62,7 +62,7 @@ try{
  await page.setViewportSize({width:1440,height:960});
  if(process.env.THEBE_SCREENSHOT_DIR){fs.mkdirSync(process.env.THEBE_SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.THEBE_SCREENSHOT_DIR,'dock-desktop.png')})}
  await page.getByRole('button',{name:'Expand Thebe panel',exact:true}).click();
- const expandedDockWidths=new Map([[1440,344],[1200,344],[1199,324],[1024,324]]);
+ const expandedDockWidths=new Map([[1440,634],[1200,528],[1199,324],[1024,324]]);
  for(const [width,expectedDockWidth] of expandedDockWidths){
   await page.setViewportSize({width,height:960});
   await page.waitForFunction(expected=>Math.abs(document.getElementById('thebeAiDock').getBoundingClientRect().width-expected)<=1,expectedDockWidth);
@@ -85,9 +85,10 @@ try{
  await page.locator('.thebe-ai-orb-button').click();
  const screen=page.locator('#thebeVoiceScreen');assert(await screen.isVisible(),'voice activation opens dedicated screen');
  if(process.env.THEBE_SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.THEBE_SCREENSHOT_DIR,'voice-fullscreen.png')});
- const rect=await screen.boundingBox();assert(rect.width===1440&&rect.height===960,'voice fills viewport');
- await page.keyboard.press('Tab');assert(await page.evaluate(()=>document.getElementById('thebeVoiceScreen').contains(document.activeElement)),'focus stays inside native dialog');
- await page.keyboard.press('Escape');assert(!(await screen.isVisible()),'Escape closes voice');
+ const rect=await screen.boundingBox();assert(rect.width<250&&rect.height<400,'voice remains a compact floating orb');
+ assert(await page.locator('#thebeAiDockInput').isEditable(),'voice must not block the dock composer');
+ await page.locator('.thebe-voice-float-toggle').click();
+ await page.locator('.thebe-voice-exit').click();assert(!(await screen.isVisible()),'end voice closes floating controller');
  await page.evaluate(()=>window.resolveVoiceGate({sessionCreationAllowed:true}));
  await page.waitForTimeout(30);assert.equal(await page.evaluate(()=>window.mediaRequests),0,'cancelled connection cannot acquire microphone');
  await page.evaluate(()=>{

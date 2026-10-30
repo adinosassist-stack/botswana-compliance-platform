@@ -78,13 +78,13 @@ try{
     };
   });
 
-  assert.equal(desktop.dockBackground,'rgb(255, 255, 255)','workspace uses the current light surface');
-  assert.equal(desktop.dockColor,'rgb(23, 25, 28)','workspace text contrasts with the light surface');
+  assert.equal(desktop.dockBackground,'rgb(25, 25, 25)','workspace uses the user-selected charcoal surface');
+  assert.equal(desktop.dockColor,'rgb(244, 244, 244)','workspace text contrasts with the charcoal surface');
   for(const item of desktop.hiddenChrome)assert(!item.present||item.display==='none',`${item.selector} must stay visually removed in V292`);
   assert.equal(desktop.quickTotal,0,'workspace does not render preset questions');
   assert.equal(desktop.quickVisible,0,'workspace dock hides preset question shortcuts');
   assert.equal(desktop.quickRadius,null,'hidden shortcuts have no visible pill geometry');
-  assert.equal(desktop.composeBackground,'rgb(247, 247, 245)','composer retains contrast within the light workspace');
+  assert.ok(['rgb(36, 36, 36)','rgb(37, 37, 37)'].includes(desktop.composeBackground),'composer retains charcoal contrast in resting and focused states');
   assert.equal(desktop.composeRadius,'24px','composer keeps GPT-style rounded geometry');
   assert.equal(desktop.composeShadow,'none','composer stays visually flat');
   assert(Math.round(desktop.sendWidth)>=44,'send control provides a 44px horizontal target');
@@ -130,8 +130,8 @@ try{
       hiddenChrome:['.thebe-ai-presence','.thebe-ai-context-bar','.thebe-ai-mode-rail','.thebe-ai-foot','.thebe-ai-response-title'].every(selector=>{const element=dock.querySelector(selector);return !element||getComputedStyle(element).display==='none';})
     };
   });
-  assert.equal(mobile.dockBackground,'rgb(255, 255, 255)','mobile retains the light workspace surface');
-  assert.equal(mobile.composeBackground,'rgb(247, 247, 245)','mobile keeps the same composer hierarchy');
+  assert.equal(mobile.dockBackground,'rgb(25, 25, 25)','mobile retains the charcoal workspace surface');
+  assert.ok(['rgb(36, 36, 36)','rgb(37, 37, 37)'].includes(mobile.composeBackground),'mobile keeps the same charcoal composer hierarchy');
   assert(mobile.sendWidth>0&&mobile.sendHeight>0,'mobile retains a visible compact send action');
   assert(mobile.hiddenChrome,'mobile also keeps legacy dock chrome hidden');
   assert.deepEqual(errors,[],'V292 visual contract produces no browser errors');

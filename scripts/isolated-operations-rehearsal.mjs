@@ -125,6 +125,12 @@ export async function runIsolatedRehearsal(o,{fetchImpl=globalThis.fetch}={}){
   const exec=promisify(execFile),root=resolve('.');
   const scratch=mkdtempSync(join(tmpdir(),'thebe-ops-rehearsal-'));
   try{
+    // Only fixed, source-controlled labels may be included in operator logs.
+    const r2Diagnostics=new Map([backups,objects,'bw-compliance-ops-evidence'].flatMap(bucket=>[
+      [`/r2/buckets/${bucket}`,{bucket,operation:'bucket_metadata'}],
+      [`/r2/buckets/${bucket}/domains/managed`,{bucket,operation:'managed_domain'}],
+      [`/r2/buckets/${bucket}/domains/custom`,{bucket,operation:'custom_domains'}]
+    ]));
     async function cf(path,method='GET',payload){
       let httpStatus;let providerCodes=[];
       try{
@@ -137,6 +143,7 @@ export async function runIsolatedRehearsal(o,{fetchImpl=globalThis.fetch}={}){
       }catch{
         const error=new RehearsalError('rehearsal_provider_unavailable');
         error.diagnostic={stage:path.startsWith('/d1/')?'d1':path.startsWith('/r2/')?'r2':'worker',method,
+          ...r2Diagnostics.get(path),
           ...(Number.isInteger(httpStatus)&&httpStatus>=100&&httpStatus<=599?{httpStatus}:{}),providerCodes};
         throw error;
       }
