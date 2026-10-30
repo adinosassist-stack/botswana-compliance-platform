@@ -1137,6 +1137,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
   function setPhase(phase,label,sub){
     voicePhase=phase||"idle";
     if(voiceScreenOrb)voiceScreenOrb.dataset.phase=voicePhase;
+    syncVoiceChatActivity();
     if(voiceScreenStatus)voiceScreenStatus.textContent=label||"Talk to Thebe";
     if(orb){
       orb.dataset.phase=voicePhase;
@@ -1159,9 +1160,22 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     if(mascot)mascot.dataset.attention=count?"true":"false";
     if(dock)dock.dataset.agentAttention=count?"true":"false";
   }
+  let voiceChatActivity=null;
+  function syncVoiceChatActivity(){
+    if(!voiceChatActivity)return;
+    const active=["connecting","ready","listening","thinking","speaking"].includes(voicePhase);
+    voiceChatActivity.hidden=!active&&!voiceInput&&!voiceOutput;
+    if(voiceChatActivity.hidden)return;
+    voiceChatActivity.replaceChildren();
+    const heading=el("div","thebe-ai-voice-activity-heading","Voice conversation · "+(voicePhase==="listening"?"Listening":voicePhase==="thinking"?"Thinking":voicePhase==="speaking"?"Speaking":voicePhase==="connecting"?"Connecting":"Connected"));
+    voiceChatActivity.append(heading);
+    if(voiceInput){const line=el("div","thebe-ai-live-line");line.append(el("b","","You"),document.createTextNode(clean(voiceInput,600)));voiceChatActivity.append(line)}
+    if(voiceOutput){const line=el("div","thebe-ai-live-line");line.append(el("b","","Thebe"),document.createTextNode(clean(voiceOutput,600)));voiceChatActivity.append(line)}
+  }
   function renderVoiceTranscript(){
     const user=clean(voiceInput,360),assistant=clean(voiceOutput,360);
     if(voiceScreenTranscript){voiceScreenTranscript.replaceChildren();voiceScreenTranscript.hidden=!user&&!assistant;if(user){const line=el("div","thebe-voice-caption");line.append(el("b","","You"),el("span","",user));voiceScreenTranscript.append(line)}if(assistant){const line=el("div","thebe-voice-caption");line.append(el("b","","Thebe"),el("span","",assistant));voiceScreenTranscript.append(line)}}
+    syncVoiceChatActivity();
     if(!transcriptBox)return;
     transcriptBox.replaceChildren();
     if(!user&&!assistant){transcriptBox.hidden=true;return}
@@ -1795,7 +1809,8 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
 
     responseBox=el("div","thebe-ai-response");responseBox.id="thebeAiDockResponse";responseBox.setAttribute("role","status");responseBox.setAttribute("aria-live","polite");responseBox.setAttribute("aria-busy","false");responseMessage("Ready when you are. Ask about this screen, request a brief, or choose a priority action.");
 
-    scroll.append(contextBar,modeRail,voiceCard,quick,responseBox);
+    voiceChatActivity=el("div","thebe-ai-voice-chat-activity");voiceChatActivity.hidden=true;voiceChatActivity.setAttribute("role","status");voiceChatActivity.setAttribute("aria-live","polite");
+    scroll.append(contextBar,modeRail,voiceCard,quick,voiceChatActivity,responseBox);
 
     latestResponseButton=el("button","thebe-ai-latest-response","Latest response ↓");
     latestResponseButton.type="button";
