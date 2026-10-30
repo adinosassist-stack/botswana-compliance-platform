@@ -50,6 +50,27 @@ try{
       assert.equal(await presets.isVisible(),false,'workspace dock must not show preset question tiles');
       assert(await input.isVisible(),'workspace composer remains available without presets');
     }
+    // Simulate a reduced visual viewport when the on-screen keyboard opens.
+    // Test only the active composer; private workspace reset remains unchanged.
+    await page.setViewportSize({width:390,height:900});
+    if(await dock.isHidden()&&await page.locator('#thebeAiDockPill').isVisible())await page.locator('#thebeAiDockPill').click();
+    if(await dock.isVisible()){
+      await input.fill('Unsent mobile keyboard message');
+      await page.evaluate(()=>{
+        const viewport=window.visualViewport;
+        if(viewport)viewport.dispatchEvent(new Event('resize'));
+      });
+      await page.setViewportSize({width:390,height:550});
+      await page.waitForTimeout(100);
+      const metrics=await input.evaluate(el=>{
+        const rect=el.getBoundingClientRect();
+        return {value:el.value,left:rect.left,right:rect.right,viewportWidth:innerWidth};
+      });
+      assert.equal(metrics.value,'Unsent mobile keyboard message','keyboard viewport change preserves draft');
+      assert(metrics.left>=-1&&metrics.right<=metrics.viewportWidth+1,'keyboard composer input remains horizontally accessible');
+      await input.fill('');
+    }
+    await page.setViewportSize({width:1440,height:960});
     assert(await audio.isVisible(),'idle voice is available');assert(await send.isHidden(),'idle send hidden');
     assert.equal(await plus.isVisible(),workspace,'files restricted to workspace');
     await input.fill('a');assert(await send.isVisible(),'one character offers send');assert(await audio.isHidden());
