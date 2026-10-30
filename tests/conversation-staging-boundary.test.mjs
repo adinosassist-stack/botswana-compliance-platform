@@ -11,6 +11,7 @@ assert.equal((await handle({env,request:post,context:{...context,session:{...con
 assert.equal((await handle({env,request:request("POST",{"content-type":"text/plain"}),context,threadId:"chat"})).status,415);
 assert.equal((await handle({env,request:request("POST",{"content-type":"application/json"}),context,threadId:"chat"})).status,411);
 assert.equal((await handle({env,request:request("POST",{"content-type":"application/json","content-length":"999999"}),context,threadId:"chat"})).status,413);
+assert.equal((await handle({env:{},request:request("GET"),context,threadId:"chat"})).status,503);
 assert.equal(writes,0);
 const good=await handle({env,request:post,context,threadId:"chat",id:()=>"id1"});
 assert.equal(good.status,200);
