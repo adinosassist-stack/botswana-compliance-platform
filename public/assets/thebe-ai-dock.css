@@ -2059,3 +2059,20 @@ body.thebe-ai-dock-open .thebe-ai-mode-rail:has([data-thebe-mode="goal_plan"]:no
   #thebeAiDock .thebe-ai-compose{gap:4px}
   #thebeAiDock .thebe-ai-conversation-voice{width:36px;min-width:36px;flex-basis:36px;height:40px;min-height:40px}
 }
+
+/* Full-screen-capable chat keeps showing voice turns while the blue orb floats. */
+#thebeAiDock .thebe-ai-voice-chat-activity{
+  display:flex;flex-direction:column;gap:8px;padding:12px;
+  background:#182331;color:#eaf4ff;border:1px solid #36516b;
+  border-radius:14px;min-width:0;overflow-wrap:anywhere;
+}
+#thebeAiDock .thebe-ai-voice-chat-activity[hidden]{display:none!important}
+#thebeAiDock .thebe-ai-voice-activity-heading{
+  color:#9dcfff;font-size:11px;font-weight:700;letter-spacing:.02em
+}
+#thebeAiDock .thebe-ai-voice-chat-activity .thebe-ai-live-line{
+  font-size:12px;line-height:1.5;white-space:pre-wrap;min-width:0
+}
+#thebeAiDock .thebe-ai-voice-chat-activity .thebe-ai-live-line b{
+  display:block;color:#9dcfff;margin-bottom:3px
+}
