@@ -731,7 +731,9 @@
   }
   function shellVisible(){
     const shell=document.getElementById("appShell");
-    if(!shell)return false;
+    // Responsive CSS can override display:none in a hidden public fixture.
+    // Explicit shell visibility state must take precedence over computed layout.
+    if(!shell||shell.hidden||shell.classList.contains("hidden"))return false;
     const style=getComputedStyle(shell);
     return style.display!=="none"&&style.visibility!=="hidden";
   }
@@ -779,8 +781,6 @@
   }
   function clearConversation(){
     if(!dock)return;
-    dock.dataset.lastConversationClear='workspace-exit';
-    dock.dataset.conversationClearCount=String((Number(dock.dataset.conversationClearCount)||0)+1);
     textAbortController?.abort("conversation-cleared");
     textAbortController=null;
     textRunId+=1;
