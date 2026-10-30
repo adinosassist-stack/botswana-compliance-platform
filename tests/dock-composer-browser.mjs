@@ -128,6 +128,9 @@ try{
       assert((await dock.innerText()).match(/pricing|price|plan/i),'public question returns a useful answer');
       assert.equal(captured,null,'public never calls private advisor');
     }
+    // A mobile orientation/viewport change must never erase an unsent question.
+    const unsentDraft='Draft must survive mobile viewport changes';
+    await input.fill(unsentDraft);
     for(const width of [390,768,1100,1440]){
       await page.setViewportSize({width,height:900});
       await page.waitForTimeout(100);
@@ -135,6 +138,7 @@ try{
       await dock.waitFor({state:'visible'});
       const geometry=await dock.locator('.thebe-ai-compose').evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,width:innerWidth}});
       assert(geometry.left>=-1&&geometry.right<=geometry.width+1,'composer stays within viewport');
+      assert.equal(await input.inputValue(),unsentDraft,'viewport resize does not discard the unsent draft');
     }
     assert.deepEqual(errors,[]);await page.close();
   }
