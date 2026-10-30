@@ -68,6 +68,11 @@ try{
       });
       assert.equal(metrics.value,'Unsent mobile keyboard message','keyboard viewport change preserves draft');
       assert(metrics.left>=-1&&metrics.right<=metrics.viewportWidth+1,'keyboard composer input remains horizontally accessible');
+      const sendVisible=await send.isVisible();
+      assert(sendVisible,'draft exposes Send action with the reduced keyboard viewport');
+      const sendBounds=await send.evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,height:r.height,width:innerWidth}});
+      assert(sendBounds.left>=-1&&sendBounds.right<=sendBounds.width+1,'keyboard Send action stays horizontally within viewport');
+      assert(sendBounds.height>0,'keyboard Send action retains a hit target');
       await input.fill('');
     }
     await page.setViewportSize({width:1440,height:960});
