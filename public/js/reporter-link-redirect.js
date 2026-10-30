@@ -136,6 +136,13 @@
     conversion.async=false;
     document.head.appendChild(conversion);
   }
+  if(!document.querySelector('script[data-conversion-funnel-v14]')){
+    const funnel=document.createElement("script");
+    funnel.src="/js/conversion-funnel-v14.js?v=20261029a";
+    funnel.dataset.conversionFunnelV14="1";
+    funnel.async=false;
+    document.head.appendChild(funnel);
+  }
   if(!document.querySelector('script[data-market-product-snapshot-v15]')){
     const snapshot=document.createElement("script");
     snapshot.src="/js/market-product-snapshot-v15.js?v=20261013a";
