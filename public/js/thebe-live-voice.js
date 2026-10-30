@@ -979,7 +979,13 @@
     document.body.classList.toggle("thebe-ai-mobile-open",mobile&&visible&&!isCollapsed);
     dock.dataset.surface=surface;
     pill.dataset.surface=surface;
-    if(!workspace&&(dock.dataset.workspaceVisible==="1"||pendingFiles.length)){clearConversation()}
+    // Only a real workspace exit may reset the private conversation.
+    // A responsive breakpoint must never discard a public unsent draft.
+    if(!workspace&&dock.dataset.workspaceVisible==="1"){
+      clearConversation();
+    }else if(!workspace&&pendingFiles.length){
+      pendingFiles=[];renderAttachmentTray();
+    }
     syncComposerState();
     syncWorkspaceVisualInvariants();
     dock.dataset.workspaceVisible=workspace?"1":"0";
