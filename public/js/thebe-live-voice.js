@@ -1755,12 +1755,35 @@
     const micPath=document.createElementNS(svgNS,"path");micPath.setAttribute("d","M12 15a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v7a3 3 0 0 0 3 3Zm-7-4v1a7 7 0 0 0 14 0v-1M12 19v3m-4 0h8");
     micPath.setAttribute("fill","none");micPath.setAttribute("stroke","currentColor");micPath.setAttribute("stroke-width","1.8");micPath.setAttribute("stroke-linecap","round");micPath.setAttribute("stroke-linejoin","round");mic.append(micPath);audioButton.append(mic);
     audioButton.addEventListener("click",()=>orbButton.click());
+    // Dedicated conversation control beside the mic: reuse the governed
+    // full-duplex Thebe Live Voice session, including its mute/end controls.
+    const conversationVoiceButton=el("button","thebe-ai-composer-action thebe-ai-conversation-voice");
+    conversationVoiceButton.type="button";
+    conversationVoiceButton.setAttribute("aria-label","Start voice conversation with Thebe");
+    conversationVoiceButton.title="Voice conversation with Thebe";
+    const voiceIcon=document.createElementNS(svgNS,"svg");
+    voiceIcon.setAttribute("viewBox","0 0 24 24");
+    voiceIcon.setAttribute("aria-hidden","true");
+    const voiceBars=document.createElementNS(svgNS,"path");
+    voiceBars.setAttribute("d","M4 10v4m4-8v12m4-15v18m4-14v10m4-7v4");
+    voiceBars.setAttribute("fill","none");
+    voiceBars.setAttribute("stroke","currentColor");
+    voiceBars.setAttribute("stroke-width","2");
+    voiceBars.setAttribute("stroke-linecap","round");
+    voiceIcon.append(voiceBars);conversationVoiceButton.append(voiceIcon);
+    conversationVoiceButton.addEventListener("click",()=>{
+      if(!global.ThebeLiveVoice?.start){
+        conversationVoiceButton.setAttribute("title","Voice is currently unavailable");
+        return;
+      }
+      orbButton.click();
+    });
     const composeBody=el("div","thebe-ai-compose-body");
     input=document.createElement("textarea");input.id="thebeAiDockInput";input.maxLength=MAX_QUESTION;input.rows=1;input.placeholder=modeCopy[assistantMode].placeholder;input.setAttribute("aria-label","Ask Thebe anything");
     const composeHint=el("div","thebe-ai-compose-hint","Enter to send · Shift+Enter for a new line · Alt+T opens Thebe");
     composeBody.append(input,composeHint);
     sendButton=el("button","thebe-ai-send","↑");sendButton.type="submit";sendButton.setAttribute("aria-label","Send to Thebe");sendButton.title="Send to Thebe";
-    compose.append(attachButton,fileInput,composeBody,audioButton,sendButton);
+    compose.append(attachButton,fileInput,composeBody,audioButton,conversationVoiceButton,sendButton);
     compose.addEventListener("submit",event=>{event.preventDefault();const value=input.value,files=[...pendingFiles];if(textBusy||(!clean(value,MAX_QUESTION).length&&!files.length))return;input.value="";syncComposerHeight();syncComposerState();void ask(assistantMode,value,files)});
     input.addEventListener("input",()=>{syncComposerHeight();syncComposerState()});
     input.addEventListener("focus",()=>setMascotFocus("compose"));
