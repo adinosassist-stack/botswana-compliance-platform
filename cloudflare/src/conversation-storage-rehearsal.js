@@ -10,12 +10,19 @@ export async function appendConversationMessageRehearsal({env,actor,conversation
   if(!validateFinalConversationMessage(message).valid)return {ok:false,error:"invalid_message"};
   try{
     const tenant=actor.tenantId,thread=conversation.id;
-    const existing=await env.DB.prepare("SELECT id FROM thebe_conversation_messages_rehearsal WHERE tenant_id=? AND conversation_id=? AND idempotency_key=? LIMIT 1").bind(tenant,thread,message.idempotencyKey).first();
-    if(existing)return {ok:true,id:existing.id,duplicate:true};
     const messageId=id();
-    await env.DB.prepare("INSERT INTO thebe_conversation_messages_rehearsal(tenant_id,conversation_id,id,author_user_id,role,source_kind,content_redacted,idempotency_key) VALUES(?,?,?,?,?,?,?,?)")
+    // The tenant/thread/key UNIQUE constraint arbitrates concurrent retries.
+    const result=await env.DB.prepare("INSERT INTO thebe_conversation_messages_rehearsal(tenant_id,conversation_id,id,author_user_id,role,source_kind,content_redacted,idempotency_key) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(tenant_id,conversation_id,idempotency_key) DO NOTHING")
       .bind(tenant,thread,messageId,actor.userId,message.role,message.sourceKind,message.content,message.idempotencyKey).run();
-    return {ok:true,id:messageId,duplicate:false};
+    if(result?.success===false) return {ok:false,error:"storage_unavailable"};
+    if(Number(result?.meta?.changes)===1)return {ok:true,id:messageId,duplicate:false};
+    const prior=await env.DB.prepare("SELECT id,role,source_kind,content_redacted FROM thebe_conversation_messages_rehearsal WHERE tenant_id=? AND conversation_id=? AND idempotency_key=? LIMIT 1")
+      .bind(tenant,thread,message.idempotencyKey).first();
+    // A reused idempotency key with different content is a conflict, not success.
+    if(!prior)return {ok:false,error:"storage_unavailable"};
+    if(prior.role!==message.role||prior.source_kind!==message.sourceKind||prior.content_redacted!==message.content)
+      return {ok:false,error:"idempotency_conflict"};
+    return {ok:true,id:prior.id,duplicate:true};
   }catch{return {ok:false,error:"storage_unavailable"}}
 }
 export async function listConversationMessagesRehearsal({env,actor,conversation,membership,limit=25}={}){
