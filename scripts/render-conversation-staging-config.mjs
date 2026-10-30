@@ -5,11 +5,12 @@ const root=fileURLToPath(new URL("../",import.meta.url));
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PROD="8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce";
 const BILLING="9d1b8852-4424-46e9-ba24-cdad5ced215f";
+const STAGING="95c48030-0395-44cb-aa95-622beaf4efdf";
 export function conversationStagingConfig(env={}){
  const id=String(env.CONVERSATION_STAGING_D1_ID||"").trim().toLowerCase();
  const production=String(env.PRODUCTION_D1_DATABASE_ID||PROD).trim().toLowerCase();
  const billing=String(env.BILLING_STAGING_D1_ID||BILLING).trim().toLowerCase();
- if(!UUID.test(id)||id===PROD||id===BILLING||id===production||id===billing)
+ if(!UUID.test(id)||id!==STAGING||id===PROD||id===BILLING||id===production||id===billing)
    throw Error("conversation_staging_d1_must_be_distinct");
  if(!UUID.test(production)||!UUID.test(billing)||production===billing)
    throw Error("known_database_id_invalid");
