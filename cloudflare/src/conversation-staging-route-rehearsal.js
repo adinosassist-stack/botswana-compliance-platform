@@ -22,8 +22,8 @@ export function createConversationStagingRoute(resolveAuthenticatedContext){
    if(env.CONVERSATION_STAGING_D1_ID!==stagingId||!env.DB?.prepare)
       return fail(503,"staging_database_identity_required");
    try{
-     const marker=await env.DB.prepare("SELECT database_uuid FROM thebe_conversation_staging_identity LIMIT 1").first();
-     if(marker?.database_uuid!==stagingId)return fail(503,"staging_database_identity_required");
+     const marker=await env.DB.prepare("SELECT COUNT(*) AS marker_count, MIN(database_uuid) AS database_uuid FROM thebe_conversation_staging_identity").first();
+     if(Number(marker?.marker_count)!==1||marker?.database_uuid!==stagingId)return fail(503,"staging_database_identity_required");
    }catch{return fail(503,"staging_database_identity_required")}
    const result=await conversationStagingGateway({
      request,env,threadId:match[1],resolveAuthenticatedContext
