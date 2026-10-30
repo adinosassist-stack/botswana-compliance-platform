@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {createConversationStagingAuthenticatedEntry as create} from "../cloudflare/src/conversation-staging-authenticated-entry-rehearsal.js";
 const origin="https://conversation-staging.example.invalid";
 const url=origin+"/api/conversation-staging/threads/t1/messages";
-const env={APP_ENV:"staging",DEPLOYMENT_PROFILE:"conversation-staging",DEPLOYMENT_ENV:"staging",CONVERSATION_HISTORY_STAGING_ENABLED:"true",CONVERSATION_STAGING_ORIGIN:origin,CONVERSATION_STAGING_D1_ID:"95c48030-0395-44cb-aa95-622beaf4efdf",DB:{prepare(){return {async first(){return {database_uuid:"95c48030-0395-44cb-aa95-622beaf4efdf"}}}}}};
+const env={APP_ENV:"staging",DEPLOYMENT_PROFILE:"conversation-staging",DEPLOYMENT_ENV:"staging",CONVERSATION_HISTORY_STAGING_ENABLED:"true",CONVERSATION_STAGING_ORIGIN:origin,CONVERSATION_STAGING_D1_ID:"95c48030-0395-44cb-aa95-622beaf4efdf",DB:{prepare(){return {async first(){return {database_uuid:"95c48030-0395-44cb-aa95-622beaf4efdf",marker_count:1}}}}}};
 let verified=0;
 const entry=create(async()=>{verified++;return {user_id:"u",tenant_id:"T",csrf_token:"csrf-secret"}});
 let r=await entry.fetch(new Request(url),{...env,DEPLOYMENT_ENV:"production"});
