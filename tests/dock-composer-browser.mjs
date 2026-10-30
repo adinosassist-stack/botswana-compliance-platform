@@ -146,7 +146,13 @@ try{
     for(const width of [390,768,1100,1440]){
       await page.setViewportSize({width,height:900});
       await page.waitForTimeout(100);
-      if(await dock.isHidden())await page.locator('#thebeAiDockPill').click();
+      if(await dock.isHidden()){
+        const launcher=page.locator('#thebeAiDockPill');
+        // The workspace privacy test deliberately leaves the authenticated shell.
+        // When no surface is visible there is no dock geometry to inspect.
+        if(!(await launcher.isVisible()))continue;
+        await launcher.click();
+      }
       await dock.waitFor({state:'visible'});
       const geometry=await dock.locator('.thebe-ai-compose').evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,width:innerWidth}});
       assert(geometry.left>=-1&&geometry.right<=geometry.width+1,'composer stays within viewport');
