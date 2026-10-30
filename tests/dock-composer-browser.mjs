@@ -58,7 +58,8 @@ try{
     await audio.click();await page.locator('#thebeVoiceScreen').waitFor({state:'visible'});
     await page.waitForFunction(()=>window.voiceStarts.length===1);
     assert.equal(await page.evaluate(()=>voiceStarts[0].mode),workspace?'workspace':'marketing');
-    await page.locator('.thebe-voice-exit').click();
+    await page.locator('.thebe-voice-float-toggle').click();
+     await page.locator('.thebe-voice-exit').click();
     if(workspace){
       const resize=dock.locator('.thebe-workspace-dock-resize-handle');
       await resize.waitFor({state:'visible'});
