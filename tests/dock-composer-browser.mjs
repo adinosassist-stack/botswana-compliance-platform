@@ -50,6 +50,18 @@ try{
       assert.equal(await presets.isVisible(),false,'workspace dock must not show preset question tiles');
       assert(await input.isVisible(),'workspace composer remains available without presets');
     }
+    // Verify draft retention before sending requests or exercising privacy reset.
+    const unsentDraft='Draft must survive mobile viewport changes';
+    await input.fill(unsentDraft);
+    for(const width of [390,768,1100,1440]){
+      await page.setViewportSize({width,height:900});
+      await page.waitForTimeout(100);
+      if(await dock.isHidden())await page.locator('#thebeAiDockPill').click();
+      await dock.waitFor({state:'visible'});
+      assert.equal(await input.inputValue(),unsentDraft,'same-surface mobile resize must retain draft');
+    }
+    await input.fill('');
+    await page.setViewportSize({width:1440,height:960});
     assert(await audio.isVisible(),'idle voice is available');assert(await send.isHidden(),'idle send hidden');
     assert.equal(await plus.isVisible(),workspace,'files restricted to workspace');
     await input.fill('a');assert(await send.isVisible(),'one character offers send');assert(await audio.isHidden());
@@ -128,9 +140,6 @@ try{
       assert((await dock.innerText()).match(/pricing|price|plan/i),'public question returns a useful answer');
       assert.equal(captured,null,'public never calls private advisor');
     }
-    // A mobile orientation/viewport change must never erase an unsent question.
-    const unsentDraft='Draft must survive mobile viewport changes';
-    await input.fill(unsentDraft);
     for(const width of [390,768,1100,1440]){
       await page.setViewportSize({width,height:900});
       await page.waitForTimeout(100);
@@ -138,9 +147,6 @@ try{
       await dock.waitFor({state:'visible'});
       const geometry=await dock.locator('.thebe-ai-compose').evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,width:innerWidth}});
       assert(geometry.left>=-1&&geometry.right<=geometry.width+1,'composer stays within viewport');
-      // The workspace fixture intentionally transitions into public mode above;
-      // privacy clearing on that transition must take precedence over draft retention.
-      if(!workspace)assert.equal(await input.inputValue(),unsentDraft,'same-surface viewport resize does not discard the unsent draft');
     }
     assert.deepEqual(errors,[]);await page.close();
   }
