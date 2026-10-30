@@ -1,6 +1,7 @@
 // Unwired adapter boundary. This intentionally has NO exported HTTP route.
 // Only server-resolved trusted session and membership may construct the actor.
 import {appendConversationMessageRehearsal,listConversationMessagesRehearsal} from "./conversation-storage-rehearsal.js";
+import {readConversationPageRehearsal} from "./conversation-page-reader-rehearsal.js";
 const deny=()=>({ok:false,error:"access_denied"});
 function trustedInput(context){
   const {session,workspaceMembership,conversation}=context||{};
@@ -27,4 +28,11 @@ export async function readFromTrustedSession({env,context,limit}={}){
   const bound=trustedInput(context);
   if(!bound)return deny();
   return listConversationMessagesRehearsal({env,...bound,limit});
+}
+
+// Per-request identity resolution is compulsory, including on subsequent pages.
+export async function readPageFromTrustedSession({env,context,cursor=null,secret,limit}={}){
+  const bound=trustedInput(context);
+  if(!bound)return deny();
+  return readConversationPageRehearsal({env,...bound,cursor,secret,limit});
 }
