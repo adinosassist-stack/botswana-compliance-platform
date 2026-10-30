@@ -171,7 +171,16 @@ jobs:
 
       - name: Install pinned isolated browser test driver
         shell: bash
-        run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+        run: |
+          set -euo pipefail
+          # Avoid resolving the app's AWS SDK dependency tree for this browser-only driver.
+          driver_dir="${RUNNER_TEMP}/thebe-playwright-driver"
+          mkdir -p "$driver_dir"
+          npm install --prefix "$driver_dir" --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+          mkdir -p node_modules
+          if [ ! -e node_modules/playwright-core ]; then
+            ln -s "$driver_dir/node_modules/playwright-core" node_modules/playwright-core
+          fi
 
       - name: Owner dashboard desktop and mobile browser audit
         shell: bash

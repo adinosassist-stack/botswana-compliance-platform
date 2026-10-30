@@ -1,0 +1,18 @@
+import assert from "node:assert/strict";
+import {readConversationPageRehearsal} from "../cloudflare/src/conversation-page-reader-rehearsal.js";
+const actor={authenticated:true,active:true,userId:"u",tenantId:"A"},conversation={id:"chat",tenantId:"A",status:"active"},membership={active:true,userId:"u",tenantId:"A",conversationId:"chat",role:"member"},secret="0123456789abcdef0123456789abcdef";
+let calls=[];
+const data=[{id:"m3",created_at:"2026-10-30 12:02:00"},{id:"m2",created_at:"2026-10-30 12:01:00"},{id:"m1",created_at:"2026-10-30 12:00:00"}];
+const env={DB:{prepare(sql){return {bind(...args){calls.push({sql,args});return {async all(){return {results:args.length===3?data.slice(0,3):data.slice(2)}}}}}}}};
+const base={env,actor,conversation,membership,secret,limit:2};
+const first=await readConversationPageRehearsal(base);
+assert.equal(first.ok,true);assert.equal(first.items.length,2);assert(first.nextCursor);
+const second=await readConversationPageRehearsal({...base,cursor:first.nextCursor});
+assert.equal(second.ok,true);assert.equal(second.items[0].id,"m1");
+assert(calls[1].sql.includes("created_at < ?"));assert.deepEqual(calls[1].args.slice(0,2),["A","chat"]);
+const before=calls.length;
+assert.equal((await readConversationPageRehearsal({...base,membership:{...membership,active:false},cursor:first.nextCursor})).error,"access_denied");
+assert.equal((await readConversationPageRehearsal({...base,actor:{...actor,tenantId:"B"},cursor:first.nextCursor})).error,"access_denied");
+assert.equal((await readConversationPageRehearsal({...base,cursor:"tampered"})).error,"invalid_cursor");
+assert.equal(calls.length,before);
+console.log("Authenticated keyset page reader rehearsal PASS");
