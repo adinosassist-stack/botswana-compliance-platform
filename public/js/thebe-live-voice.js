@@ -731,7 +731,8 @@
   }
   function shellVisible(){
     const shell=document.getElementById("appShell");
-    if(!shell)return false;
+    // Explicit workspace/auth visibility takes precedence over responsive layout CSS.
+    if(!shell||shell.hidden||shell.classList.contains("hidden"))return false;
     const style=getComputedStyle(shell);
     return style.display!=="none"&&style.visibility!=="hidden";
   }
@@ -1887,7 +1888,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     syncVisibility();syncAttention();bindMarketingPrompts();
 
     const shell=document.getElementById("appShell");
-    if(shell)new MutationObserver(syncVisibility).observe(shell,{attributes:true,attributeFilter:["style","class"]});
+    if(shell)new MutationObserver(syncVisibility).observe(shell,{attributes:true,attributeFilter:["style","class","hidden"]});
     const marketing=document.getElementById("marketingGate");
     if(marketing)new MutationObserver(syncVisibility).observe(marketing,{attributes:true,attributeFilter:["style","class"]});
     const quickbar=document.getElementById("workspaceQuickbar");
