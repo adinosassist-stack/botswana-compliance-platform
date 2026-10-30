@@ -50,6 +50,25 @@ try{
       assert.equal(await presets.isVisible(),false,'workspace dock must not show preset question tiles');
       assert(await input.isVisible(),'workspace composer remains available without presets');
     }
+    // Exercise both actual surfaces before the later privacy-reset scenario exits Workspace.
+    const unsentDraft='Draft must survive mobile viewport and keyboard changes';
+    await input.fill(unsentDraft);
+    for(const [width,height] of [[320,900],[360,900],[390,900],[390,430],[768,900],[1100,900],[1440,960]]){
+      await page.setViewportSize({width,height});
+      await page.waitForFunction(({width,height})=>innerWidth===width&&innerHeight===height,{width,height});
+      if(await dock.isHidden())await page.locator('#thebeAiDockPill').click();
+      await dock.waitFor({state:'visible'});
+      assert.equal(await input.inputValue(),unsentDraft,'same-surface resize preserves draft');
+      assert.equal(await page.evaluate(()=>window.ThebeAiDock.state().workspaceVisible),workspace,'resize preserves surface identity');
+      for(const control of [dock.locator('.thebe-ai-compose'),input,send]){
+        await control.waitFor({state:'visible'});
+        const bounds=await control.evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:innerWidth,height:innerHeight}});
+        assert(bounds.left>=-1&&bounds.right<=bounds.width+1,'composer controls stay horizontally within viewport');
+        assert(bounds.bottom>bounds.top,'composer controls retain hit targets');
+        assert(bounds.top>=-1&&bounds.bottom<=bounds.height+1,'composer controls remain vertically accessible');
+      }
+    }
+    await input.fill('');
     assert(await audio.isVisible(),'idle voice is available');assert(await send.isHidden(),'idle send hidden');
     assert.equal(await plus.isVisible(),workspace,'files restricted to workspace');
     await input.fill('a');assert(await send.isVisible(),'one character offers send');assert(await audio.isHidden());
@@ -58,6 +77,18 @@ try{
     await audio.click();await page.locator('#thebeVoiceScreen').waitFor({state:'visible'});
     await page.waitForFunction(()=>window.voiceStarts.length===1);
     assert.equal(await page.evaluate(()=>voiceStarts[0].mode),workspace?'workspace':'marketing');
+    await input.fill('I can continue typing during voice');
+    await page.evaluate(()=>{
+      dispatchEvent(new CustomEvent('thebe-live-event',{detail:{event:{type:'conversation.item.input_audio_transcription.delta',delta:'Show my open invoices'}}}));
+      dispatchEvent(new CustomEvent('thebe-live-event',{detail:{event:{type:'response.output_audio_transcript.delta',delta:'Here are your outstanding invoices'}}}));
+    });
+    const activity=dock.locator('.thebe-ai-voice-chat-activity');
+    await activity.waitFor({state:'visible'});
+    assert((await activity.innerText()).includes('Show my open invoices'),'user speech appears in dock');
+    assert((await activity.innerText()).includes('Here are your outstanding invoices'),'assistant speech appears in dock');
+    assert.equal(await input.inputValue(),'I can continue typing during voice','voice cannot overwrite typed draft');
+    assert(await page.locator('#thebeVoiceScreen').isVisible(),'voice remains active while typing');
+    await input.fill('');
     await page.locator('.thebe-voice-float-toggle').click();
      await page.locator('.thebe-voice-exit').click();
     if(workspace){
@@ -127,14 +158,6 @@ try{
       await input.fill('What does Thebe cost?');await send.click();
       assert((await dock.innerText()).match(/pricing|price|plan/i),'public question returns a useful answer');
       assert.equal(captured,null,'public never calls private advisor');
-    }
-    for(const width of [390,768,1100,1440]){
-      await page.setViewportSize({width,height:900});
-      await page.waitForTimeout(100);
-      if(await dock.isHidden())await page.locator('#thebeAiDockPill').click();
-      await dock.waitFor({state:'visible'});
-      const geometry=await dock.locator('.thebe-ai-compose').evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,width:innerWidth}});
-      assert(geometry.left>=-1&&geometry.right<=geometry.width+1,'composer stays within viewport');
     }
     assert.deepEqual(errors,[]);await page.close();
   }
