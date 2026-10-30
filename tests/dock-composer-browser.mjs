@@ -156,6 +156,26 @@ try{
       resolveReview({summary:'Private late response must be discarded',references:[],priorities:[]});
       await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
       assert(!(await dock.innerText()).includes('Private late response'),'late private response cannot appear on public surface');
+      // Explicit auth-surface state must win even if responsive CSS renders the shell.
+      for(const hiddenState of ['hidden','class']){
+        await page.evaluate(()=>{
+          const shell=document.querySelector('#appShell'),market=document.querySelector('#marketingGate');
+          shell.hidden=false;shell.classList.remove('hidden');
+          shell.style.setProperty('display','grid','important');shell.style.setProperty('visibility','visible','important');
+          market.style.display='none';market.classList.add('hidden');
+        });
+        await page.waitForFunction(()=>window.ThebeAiDock.state().workspaceVisible);
+        if(await dock.isHidden())await page.locator('#thebeAiDockPill').click();
+        await input.fill('Private draft before explicit workspace exit');
+        await page.evaluate(state=>{
+          const shell=document.querySelector('#appShell'),market=document.querySelector('#marketingGate');
+          market.style.display='block';market.classList.remove('hidden');
+          if(state==='hidden')shell.hidden=true;else shell.classList.add('hidden');
+        },hiddenState);
+        await page.waitForFunction(()=>!window.ThebeAiDock.state().workspaceVisible,null,{timeout:5000});
+        assert.equal(await input.inputValue(),'','explicit workspace exit clears the private draft');
+        assert(await plus.isHidden(),'explicit workspace exit removes private attachment controls');
+      }
     }else{
       await input.fill('What does Thebe cost?');await send.click();
       assert((await dock.innerText()).match(/pricing|price|plan/i),'public question returns a useful answer');
