@@ -56,6 +56,8 @@ try{
     for(const [width,height] of [[320,900],[360,900],[390,900],[390,430],[768,900],[1100,900],[1440,960]]){
       await page.setViewportSize({width,height});
       await page.waitForFunction(({width,height})=>innerWidth===width&&innerHeight===height,{width,height});
+      // Let the resize listener apply its intentional desktop-to-mobile collapse.
+      await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
       if(await dock.isHidden())await page.locator('#thebeAiDockPill').click();
       await dock.waitFor({state:'visible'});
       assert.equal(await input.inputValue(),unsentDraft,'same-surface resize preserves draft');
@@ -64,8 +66,8 @@ try{
         await control.waitFor({state:'visible'});
         const bounds=await control.evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:innerWidth,height:innerHeight}});
         assert(bounds.left>=-1&&bounds.right<=bounds.width+1,'composer controls stay horizontally within viewport');
-        assert(bounds.bottom>bounds.top,'composer controls retain hit targets');
-        assert(bounds.top>=-1&&bounds.bottom<=bounds.height+1,'composer controls remain vertically accessible');
+        assert(bounds.bottom>bounds.top,'composer controls retain hit targets: '+JSON.stringify({workspace,width,height,bounds}));
+        assert(bounds.top>=-1&&bounds.bottom<=bounds.height+1,'composer controls remain vertically accessible: '+JSON.stringify({workspace,width,height,bounds}));
       }
     }
     await input.fill('');
