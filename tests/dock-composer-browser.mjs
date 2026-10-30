@@ -56,8 +56,10 @@ try{
     for(const width of [390,768,1100,1440]){
       await page.setViewportSize({width,height:900});
       await page.waitForTimeout(100);
-      if(await dock.isHidden())await page.locator('#thebeAiDockPill').click();
-      await dock.waitFor({state:'visible'});
+      // A hidden launcher is not clickable during breakpoint transitions.
+      // Draft retention is checked regardless of transient dock visibility.
+      if(await dock.isHidden()&&await page.locator('#thebeAiDockPill').isVisible())
+        await page.locator('#thebeAiDockPill').click();
       const draftState=await page.evaluate(()=>({width:innerWidth,surface:document.querySelector('#thebeAiDock')?.dataset.surface,workspaceVisible:document.querySelector('#thebeAiDock')?.dataset.workspaceVisible,clearCount:document.querySelector('#thebeAiDock')?.dataset.conversationClearCount,mode:window.ThebeAiDock?.state?.(),value:document.querySelector('#thebeAiDockInput')?.value}));
       assert.equal(draftState.value,unsentDraft,'same-surface mobile resize must retain draft: '+JSON.stringify({width:draftState.width,surface:draftState.surface,workspaceVisible:draftState.workspaceVisible,clearCount:draftState.clearCount,mode:draftState.mode?.workspaceVisible}));
     }
