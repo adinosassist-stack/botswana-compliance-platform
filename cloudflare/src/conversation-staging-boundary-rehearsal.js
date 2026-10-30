@@ -13,8 +13,13 @@ export async function conversationStagingBoundary({env,request,context,threadId,
   if(context.csrfVerified!==true)return deny(403,"csrf_required");
   const type=String(request.headers?.get?.("content-type")||"").split(";")[0].trim().toLowerCase();
   if(type!=="application/json")return deny(415,"unsupported_media_type");
-  const length=Number(request.headers?.get?.("content-length")||0);
-  if(!Number.isFinite(length)||length>8192)return deny(413,"payload_too_large");
+  // Content-Length may be absent for chunked requests. Reject unknown sizes until
+  // the worker has an explicitly bounded streaming JSON parser.
+  const rawLength=request.headers?.get?.("content-length");
+  if(rawLength===null||rawLength===undefined||!/^[0-9]+$/.test(String(rawLength)))
+    return deny(411,"content_length_required");
+  const length=Number(rawLength);
+  if(!Number.isSafeInteger(length)||length>8192)return deny(413,"payload_too_large");
   let body;
   try{body=await request.json()}catch{return deny(400,"invalid_json")}
   const result=await appendFromTrustedSession({env,context,clientBody:body,id});
