@@ -10,6 +10,10 @@ assert.equal((await worker.fetch(request(),{...env,CONVERSATION_HISTORY_STAGING_
 assert.equal((await worker.fetch(request("https://other.example.invalid/api/conversation-staging/threads/thread1/messages"),env)).status,403);
 assert.equal((await worker.fetch(request(url,"PUT"),env)).status,405);
 assert.equal((await worker.fetch(request(),{...env,CONVERSATION_STAGING_D1_ID:"wrong"})).status,503);
+assert.equal((await worker.fetch(request(),{...env,DB:{prepare(){throw Error("missing identity table")}}})).status,503);
+assert.equal((await worker.fetch(request(),{...env,DB:{prepare(){return {async first(){return null}}}}})).status,503);
+assert.equal((await worker.fetch(request(),{...env,DB:{prepare(){return {async first(){return {database_uuid:"8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce"}}}}}})).status,503);
+assert.equal(resolved,0,"identity failure must not reach session resolver");
 assert.equal((await worker.fetch(request(),env)).status,401);
 assert.equal(resolved,1,"only gated authorized route should invoke server resolver");
 console.log("Dedicated conversation staging route remains gated PASS");
