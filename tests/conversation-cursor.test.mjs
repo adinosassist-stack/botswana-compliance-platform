@@ -1,0 +1,12 @@
+import assert from "node:assert/strict";
+import {encodeConversationCursor,decodeConversationCursor} from "../cloudflare/src/conversation-cursor-rehearsal.js";
+const secret="0123456789abcdef0123456789abcdef";
+const args={tenantId:"A",threadId:"chat1",createdAt:"2026-10-30 15:00:00",messageId:"m1",secret};
+const cursor=await encodeConversationCursor(args);
+assert.deepEqual(await decodeConversationCursor({cursor,...args}),{createdAt:args.createdAt,messageId:"m1"});
+assert.equal(await decodeConversationCursor({cursor,...args,tenantId:"B"}),null);
+assert.equal(await decodeConversationCursor({cursor,...args,threadId:"chat2"}),null);
+assert.equal(await decodeConversationCursor({cursor:cursor.slice(0,-1)+(cursor.at(-1)==="a"?"b":"a"),...args}),null);
+assert.equal(await decodeConversationCursor({cursor:"malformed",...args}),null);
+assert.equal(await decodeConversationCursor({cursor,...args,secret:"a".repeat(32)}),null);
+console.log("Signed, tenant-bound keyset cursor tests PASS");
