@@ -4,7 +4,7 @@ const actor={authenticated:true,active:true,userId:"u1",tenantId:"A"};
 const conversation={id:"thread",tenantId:"A",status:"active"};
 const membership={active:true,userId:"u1",tenantId:"A",conversationId:"thread",role:"member"};
 const calls=[];
-const env={DB:{prepare(sql){return {bind(...args){calls.push({sql,args});return {async first(){return null},async run(){return {success:true}},async all(){return {results:[]}}}}}}}};
+const env={DB:{prepare(sql){return {bind(...args){calls.push({sql,args});return {async first(){return null},async run(){return {success:true,meta:{changes:1}}},async all(){return {results:[]}}}}}}}};
 const message={role:"user",sourceKind:"voice_final",content:"Show sales",idempotencyKey:"voice_1"};
 assert.equal((await appendConversationMessageRehearsal({env,actor,conversation,membership,message,id:()=>"msg1"})).ok,true);
 assert(calls.every(c=>c.args[0]==="A"&&c.args[1]==="thread"));
