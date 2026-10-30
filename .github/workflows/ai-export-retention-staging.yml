@@ -1,0 +1,22 @@
+name: AI export isolated staging retention qualification
+on:
+  pull_request:
+    paths:
+      - 'server/ai-export-staging-retention.js'
+      - 'tests/ai-export-staging-retention.test.mjs'
+      - 'docs/ai-export-retention-staging-protocol.md'
+      - '.github/workflows/ai-export-retention-staging.yml'
+permissions:
+  contents: read
+jobs:
+  isolated-retention:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+      - name: Validate candidate syntax
+        run: node --check server/ai-export-staging-retention.js
+      - name: Verify dry-run, tenant scope and confirmation gates
+        run: node --test tests/ai-export-staging-retention.test.mjs
