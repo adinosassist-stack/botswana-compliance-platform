@@ -48,6 +48,15 @@ jobs:
         shell: bash
         run: node --test tests/owner-payment-dashboard.test.mjs tests/platform-billing-controls.test.mjs tests/subscription-access-audit-d1.test.mjs tests/manual-bank-owner-approval-flow.test.mjs tests/manual-bank-review-audit-d1.test.mjs tests/payment-pop-*.test.mjs tests/pop-intake-metadata-contract.test.mjs tests/pop-whatsapp-*.test.mjs
 
+      - name: Disabled conversation staging contracts and isolated SQLite
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/conversation-*.test.mjs
+          python3 tests/conversation-sqlite-rehearsal.py
+          python3 tests/conversation-sqlite-concurrent-writers.py
+          python3 tests/conversation-staging-sqlite-qualification.py
+
       - name: Password recovery source-contract regression
         shell: bash
         run: |

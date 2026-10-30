@@ -32,6 +32,7 @@ export async function listConversationMessagesRehearsal({env,actor,conversation,
   try{
     const rows=await env.DB.prepare("SELECT id,role,source_kind,content_redacted,created_at FROM thebe_conversation_messages_rehearsal WHERE tenant_id=? AND conversation_id=? ORDER BY created_at DESC,id DESC LIMIT ?")
       .bind(actor.tenantId,conversation.id,count).all();
-    return {ok:true,items:rows.results||[]};
+    if(rows?.success===false||!Array.isArray(rows?.results))return {ok:false,error:"storage_unavailable"};
+    return {ok:true,items:rows.results};
   }catch{return {ok:false,error:"storage_unavailable"}}
 }

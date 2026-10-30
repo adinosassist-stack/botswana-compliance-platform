@@ -21,8 +21,8 @@ export async function readConversationPageRehearsal({env,actor,conversation,memb
    ? [actor.tenantId,conversation.id,boundary.createdAt,boundary.createdAt,boundary.messageId,count+1]
    : [actor.tenantId,conversation.id,count+1];
   const result=await env.DB.prepare(sql).bind(...args).all();
-  if(result?.success===false)return {ok:false,error:"storage_unavailable"};
-  const rows=Array.isArray(result?.results)?result.results:[];
+  if(result?.success===false||!Array.isArray(result?.results))return {ok:false,error:"storage_unavailable"};
+  const rows=result.results;
   const items=rows.slice(0,count);
   const last=items.at(-1);
   const nextCursor=rows.length>count&&last
