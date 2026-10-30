@@ -1,0 +1,22 @@
+name: AI export atomic generation quota qualification
+on:
+  pull_request:
+    paths:
+      - 'server/ai-export-atomic-quota.js'
+      - 'docs/ai-export-quota-schema-candidate.sql'
+      - 'tests/ai-export-atomic-quota.test.mjs'
+      - '.github/workflows/ai-export-atomic-quota.yml'
+permissions:
+  contents: read
+jobs:
+  atomic-quota:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+      - name: Validate module syntax
+        run: node --check server/ai-export-atomic-quota.js
+      - name: Qualify real SQLite atomic admission and concurrent requests
+        run: node --experimental-sqlite --test tests/ai-export-atomic-quota.test.mjs
