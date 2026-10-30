@@ -1160,15 +1160,32 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     if(mascot)mascot.dataset.attention=count?"true":"false";
     if(dock)dock.dataset.agentAttention=count?"true":"false";
   }
+  // Per-session voice turns; no localStorage, cross-tenant persistence or backend writes.
+  const voiceCompletedTurns=[];
+  const VOICE_TURN_LIMIT=20;
+  function retainVoiceTurn(role,value){
+    const content=clean(value,600);
+    if(!content)return;
+    const last=voiceCompletedTurns[voiceCompletedTurns.length-1];
+    if(last?.role===role&&last.content===content)return;
+    voiceCompletedTurns.push({role,content});
+    if(voiceCompletedTurns.length>VOICE_TURN_LIMIT)voiceCompletedTurns.splice(0,voiceCompletedTurns.length-VOICE_TURN_LIMIT);
+    syncVoiceChatActivity();
+  }
   let voiceChatActivity=null;
   function syncVoiceChatActivity(){
     if(!voiceChatActivity)return;
     const active=["connecting","ready","listening","thinking","speaking"].includes(voicePhase);
-    voiceChatActivity.hidden=!active&&!voiceInput&&!voiceOutput;
+    voiceChatActivity.hidden=!active&&!voiceInput&&!voiceOutput&&!voiceCompletedTurns.length;
     if(voiceChatActivity.hidden)return;
     voiceChatActivity.replaceChildren();
     const heading=el("div","thebe-ai-voice-activity-heading","Voice conversation · "+(voicePhase==="listening"?"Listening":voicePhase==="thinking"?"Thinking":voicePhase==="speaking"?"Speaking":voicePhase==="connecting"?"Connecting":"Connected"));
     voiceChatActivity.append(heading);
+    for(const turn of voiceCompletedTurns){
+      const line=el("div","thebe-ai-live-line");
+      line.append(el("b","",turn.role==="user"?"You":"Thebe"),document.createTextNode(turn.content));
+      voiceChatActivity.append(line);
+    }
     if(voiceInput){const line=el("div","thebe-ai-live-line");line.append(el("b","","You"),document.createTextNode(clean(voiceInput,600)));voiceChatActivity.append(line)}
     if(voiceOutput){const line=el("div","thebe-ai-live-line");line.append(el("b","","Thebe"),document.createTextNode(clean(voiceOutput,600)));voiceChatActivity.append(line)}
   }
@@ -1959,13 +1976,22 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       voiceInput="";setPhase("listening","Listening…","Thebe is hearing you");
     }else if(message.type==="conversation.item.input_audio_transcription.delta"){
       voiceInput=(voiceInput+String(message?.delta??message?.text??"")).slice(-600);renderVoiceTranscript();
+    }else if(message.type==="conversation.item.input_audio_transcription.completed"){
+      voiceInput=String(message?.transcript??message?.text??voiceInput).slice(-600);
+      retainVoiceTurn("user",voiceInput);
+      voiceInput="";renderVoiceTranscript();
     }else if(message.type==="input_audio_buffer.speech_stopped"){
       setPhase("thinking","Thinking…","Checking the request and workspace context");
     }else if(message.type==="response.output_audio_transcript.delta"){
       if(voicePhase!=="speaking")voiceOutput="";
       voiceOutput=(voiceOutput+String(message?.delta??message?.text??"")).slice(-600);
       setPhase("speaking","Thebe is speaking","You can interrupt at any time");renderVoiceTranscript();
+    }else if(message.type==="response.output_audio_transcript.done"){
+      voiceOutput=String(message?.transcript??message?.text??voiceOutput).slice(-600);
+      retainVoiceTurn("assistant",voiceOutput);
+      voiceOutput="";renderVoiceTranscript();
     }else if(message.type==="response.done"){
+      if(voiceOutput){retainVoiceTurn("assistant",voiceOutput);voiceOutput="";renderVoiceTranscript()}
       setPhase("ready","Voice connected","Ready for your next request");
     }
   });
