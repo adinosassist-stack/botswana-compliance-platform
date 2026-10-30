@@ -1,4 +1,5 @@
 import {BOTSWANA_FOUNDATION_PACK_V1,BOTSWANA_FOUNDATION_PACK_V1_HASH} from "./regulatory-pack-registry.js";
+import {billingDashboardRows,billingDashboardAggregate} from './billing-dashboard-reads.js';
 import {noteRegistrationCreated} from "./registration-creation-outcome.js";
 import {appendSealedAuditEvent} from "./audit-lineage-writer.js";
 import {platformBillingAnalytics} from "./platform-billing-analytics.js";
@@ -7461,12 +7462,12 @@ export default {
       if(url.pathname==="/api/platform/billing/analytics"&&req.method==="GET"){
         if(!roleAllowed(a,"owner")||!platformBillingAdmin(a,env))return json({error:"platform_billing_forbidden"},403);
         const months=Number(url.searchParams.get("months")||6);if(![3,6,12].includes(months))return json({error:"invalid_analytics_period"},400);
-        return json(await platformBillingAnalytics(env.DB,{months}));
+        try{return json(await platformBillingAnalytics(env.DB,{months}))}catch{return json({error:"billing_dashboard_unavailable"},503)}
       }
       if(url.pathname==="/api/platform/billing/subscriptions"&&req.method==="GET"){
         if(!roleAllowed(a,"owner")||!platformBillingAdmin(a,env))return json({error:"platform_billing_forbidden"},403);
         const status=String(url.searchParams.get("status")||"all");if(!["all","active","paused","renewal"].includes(status))return json({error:"invalid_subscription_filter"},400);
-        return json(await subscriptionDashboard(env.DB,{after:String(url.searchParams.get("after")||"").slice(0,100),search:String(url.searchParams.get("search")||"").trim().slice(0,80),status}));
+        try{return json(await subscriptionDashboard(env.DB,{after:String(url.searchParams.get("after")||"").slice(0,100),search:String(url.searchParams.get("search")||"").trim().slice(0,80),status}))}catch{return json({error:"billing_dashboard_unavailable"},503)}
       }
       if(url.pathname==="/api/platform/billing/subscription-access"&&req.method==="POST"){
         if(!roleAllowed(a,"owner")||!platformBillingAdmin(a,env))return json({error:"platform_billing_forbidden"},403);
@@ -7476,12 +7477,14 @@ export default {
       }
       if(url.pathname==="/api/platform/billing/manual-payments"&&req.method==="GET"){
         if(!roleAllowed(a,"owner")||!platformBillingAdmin(a,env))return json({error:"platform_billing_forbidden"},403);
-        const r=await env.DB.prepare(`SELECT m.id,m.payment_order_id,m.tenant_id,m.bank_reference,m.status,m.submitted_at,m.reviewed_at,m.rejection_reason,
+        try{const r=await env.DB.prepare(`SELECT m.id,m.payment_order_id,m.tenant_id,m.bank_reference,m.status,m.submitted_at,m.reviewed_at,m.rejection_reason,
           o.amount_bwp,o.metadata_json,t.name tenant_name
           FROM manual_payment_submissions m JOIN payment_orders o ON o.id=m.payment_order_id JOIN tenants t ON t.id=m.tenant_id
           WHERE m.status IN ('submitted','reviewing') ORDER BY m.submitted_at ASC LIMIT 200`).all();
         const total=await env.DB.prepare("SELECT COUNT(*) total FROM manual_payment_submissions WHERE status IN ('submitted','reviewing')").first();
-        return json({items:(r.results||[]).map(x=>({...x,metadata:safeJson(x.metadata_json,{})})),total:Number(total?.total||0)});
+        billingDashboardAggregate(total,["total"]);
+        return json({items:billingDashboardRows(r).map(x=>({...x,metadata:safeJson(x.metadata_json,{})})),total:Number(total.total)});
+        }catch{return json({error:"billing_dashboard_unavailable"},503)}
       }
       const manualAdminMatch=url.pathname.match(/^\/api\/platform\/billing\/manual-payments\/([0-9a-f-]{36})\/(approve|reject)$/i);
       if(manualAdminMatch&&req.method==="POST"){

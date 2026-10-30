@@ -176,7 +176,7 @@ jobs:
 
       - name: Platform billing controls and approval loading
         shell: bash
-        run: node --test tests/platform-billing-controls.test.mjs tests/owner-payment-dashboard.test.mjs tests/platform-billing-analytics.test.mjs tests/owner-dashboard-audit.test.mjs tests/manual-bank-owner-approval-flow.test.mjs
+        run: node --test tests/platform-billing-controls.test.mjs tests/owner-payment-dashboard.test.mjs tests/platform-billing-analytics.test.mjs tests/billing-dashboard-read-failures.test.mjs tests/owner-dashboard-audit.test.mjs tests/manual-bank-owner-approval-flow.test.mjs
 
       - name: Install pinned isolated browser test driver
         shell: bash
