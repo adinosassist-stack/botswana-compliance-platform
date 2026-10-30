@@ -18,6 +18,10 @@ class BaselineTests(unittest.TestCase):
     def test_ordered_migrations_restore_entire_original_schema_and_seeds(self):
         baseline, report = module.prepare()
         with sqlite3.connect(":memory:") as original, sqlite3.connect(":memory:") as candidate:
+            # Seed DEFAULT CURRENT_TIMESTAMP values must share the same clock;
+            # sequential schema loads may otherwise cross a second boundary.
+            for db in [original, candidate]:
+                db.create_function("current_timestamp", 0, lambda: "2026-01-01 00:00:00")
             original.executescript((ROOT / "cloudflare/schema.sql").read_text())
             candidate.executescript(baseline)
             self.assertIsNone(candidate.execute("SELECT 1 FROM sqlite_master WHERE name='payment_pop_documents'").fetchone())
