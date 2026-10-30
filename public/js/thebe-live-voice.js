@@ -731,8 +731,7 @@
   }
   function shellVisible(){
     const shell=document.getElementById("appShell");
-    // Responsive CSS can override display:none in a hidden public fixture.
-    // Explicit shell visibility state must take precedence over computed layout.
+    // Explicit workspace/auth visibility takes precedence over responsive layout CSS.
     if(!shell||shell.hidden||shell.classList.contains("hidden"))return false;
     const style=getComputedStyle(shell);
     return style.display!=="none"&&style.visibility!=="hidden";
@@ -741,7 +740,10 @@
     const gate=document.getElementById("marketingGate");
     if(!gate)return false;
     const style=getComputedStyle(gate);
-    return !gate.classList.contains("hidden")&&style.display!=="none"&&style.visibility!=="hidden";
+    // Mobile dock CSS deliberately conceals the underlying Market surface.
+    // That presentation state must not make the dock hide its own surface.
+    const concealedByDock=mobileDockMode()&&document.body.classList.contains("thebe-ai-mobile-open")&&dock?.dataset.surface==="public"&&gate.style.visibility!=="hidden";
+    return !gate.hidden&&!gate.classList.contains("hidden")&&style.display!=="none"&&(style.visibility!=="hidden"||concealedByDock);
   }
   function surfaceMode(){
     if(shellVisible())return "workspace";
@@ -981,13 +983,7 @@
     document.body.classList.toggle("thebe-ai-mobile-open",mobile&&visible&&!isCollapsed);
     dock.dataset.surface=surface;
     pill.dataset.surface=surface;
-    // Only a real workspace exit may reset the private conversation.
-    // A responsive breakpoint must never discard a public unsent draft.
-    if(!workspace&&dock.dataset.workspaceVisible==="1"){
-      clearConversation();
-    }else if(!workspace&&pendingFiles.length){
-      pendingFiles=[];renderAttachmentTray();
-    }
+    if(!workspace&&(dock.dataset.workspaceVisible==="1"||pendingFiles.length)){clearConversation()}
     syncComposerState();
     syncWorkspaceVisualInvariants();
     dock.dataset.workspaceVisible=workspace?"1":"0";
@@ -1892,7 +1888,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     syncVisibility();syncAttention();bindMarketingPrompts();
 
     const shell=document.getElementById("appShell");
-    if(shell)new MutationObserver(syncVisibility).observe(shell,{attributes:true,attributeFilter:["style","class"]});
+    if(shell)new MutationObserver(syncVisibility).observe(shell,{attributes:true,attributeFilter:["style","class","hidden"]});
     const marketing=document.getElementById("marketingGate");
     if(marketing)new MutationObserver(syncVisibility).observe(marketing,{attributes:true,attributeFilter:["style","class"]});
     const quickbar=document.getElementById("workspaceQuickbar");

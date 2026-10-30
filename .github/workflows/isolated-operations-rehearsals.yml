@@ -6,6 +6,9 @@ on:
     paths:
       - scripts/isolated-operations-rehearsal.mjs
       - tests/isolated-operations-rehearsal.test.mjs
+      - cloudflare/src/ops-rehearsal-entry.js
+      - scripts/render-ops-rehearsal-config.mjs
+      - tests/ops-rehearsal-bootstrap.test.mjs
       - .github/workflows/isolated-operations-rehearsals.yml
       - docs/isolated-operations-rehearsals.md
   workflow_dispatch:
@@ -36,7 +39,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: thebe-isolated-operations-rehearsals
+  # Read-only PR qualification must not wait behind an approval-gated rehearsal.
+  # All manual rehearsal modes retain the same global serialization group.
+  group: ${{ github.event_name == 'pull_request' && format('thebe-isolated-operations-qualification-{0}', github.event.pull_request.number) || 'thebe-isolated-operations-rehearsals' }}
   cancel-in-progress: false
 
 jobs:
@@ -52,7 +57,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           package-manager-cache: false
-      - run: node --test tests/isolated-operations-rehearsal.test.mjs
+      - run: node --test tests/isolated-operations-rehearsal.test.mjs tests/ops-rehearsal-bootstrap.test.mjs
   rehearse:
     needs: qualify
     if: >-
@@ -75,7 +80,7 @@ jobs:
           node-version-file: .nvmrc
           package-manager-cache: false
       - name: Qualify isolated boundaries
-        run: node --test tests/isolated-operations-rehearsal.test.mjs
+        run: node --test tests/isolated-operations-rehearsal.test.mjs tests/ops-rehearsal-bootstrap.test.mjs
       - name: Install lockfile-pinned transport without lifecycle scripts
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Verify exact current main immediately before rehearsal

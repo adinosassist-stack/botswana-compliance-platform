@@ -39,6 +39,34 @@ Use the exact reviewed current main SHA and `RUN_ISOLATED_REHEARSAL` for every
 manual dispatch. There are no push/scheduled operations. Pull requests run only
 credential-free tests. Existing environment protections remain in force.
 
+## Locked bootstrap package (review candidate only)
+
+The approved empty rehearsal app database is `bw-compliance-os-ops-rehearsal`
+(`c5c232a8-8fe7-440c-81ba-021a44fd3fdd`). It is distinct from restore target
+`07c1aaeb-215a-4f01-80b6-a5e0ebedfcd8`. The three private recovery buckets
+were provisioned and verified without uploading objects; see issue #1950.
+
+`scripts/render-ops-rehearsal-config.mjs` prepares an offline configuration from
+`CLOUDFLARE_ACCOUNT_ID`, the exact `OPS_WORKER_D1_ID` above and a full reviewed
+`OPS_REHEARSAL_SOURCE_SHA`. It refuses other database identities and binds only
+the rehearsal app D1 and `bw-compliance-ops-evidence`; backup/restore storage is
+never bound. The package has no routes, workers.dev or preview exposure, cron,
+assets, AI binding, service binding or credentials. Configuration generation
+neither deploys nor changes GitHub environment approvals.
+
+`cloudflare/src/ops-rehearsal-entry.js` is a locked bootstrap, not a restored
+application: every request returns 503 with readiness and activation false,
+without accessing D1/R2 or forwarding requests. It cannot prove application
+compatibility, authenticated recovery, alerts or successful rollback. A later
+separately reviewed application artifact and schema qualification are required
+for those tests; do not replace the 503 with a fabricated readiness response.
+
+Independent review and explicit deployment authorization remain necessary before
+creating this Worker. The existing protected exact-main `PREFLIGHT_ONLY` may
+inspect its bindings and empty cron settings only after that deployment; it is
+not replaced by these offline tests. All backup approvals, full access-path
+inspection, environment protection and production-write gates below remain.
+
 ## Modes and evidence
 
 ### PREFLIGHT_ONLY

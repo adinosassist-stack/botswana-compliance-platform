@@ -30,8 +30,10 @@ export async function appendSealedAuditEvent(env,{
   entityId=null,
   eventData={},
   writeSource="server",
-  mutation=null
+  mutation=null,
+  completionReceipt=null
 }={}){
+  if(completionReceipt&&!mutation)throw new Error("audit_receipt_requires_mutation");
   if(!env?.DB)throw new Error("audit_database_unavailable");
   if(!tenantId||!eventType)throw new Error("audit_identity_required");
   if(!env?.AUDIT_INTEGRITY_SECRET)throw new Error("audit_integrity_secret_not_configured");
@@ -78,7 +80,11 @@ export async function appendSealedAuditEvent(env,{
       // D1 batches are transactional. A zero-row compare-and-set writes neither
       // the completion event nor its chain head. Any audit failure rolls back
       // the mutation as well, including during a bounded retry.
-      const results=await env.DB.batch(mutation?[mutation,insert,update]:[insert,update]);
+      // A trusted completion receipt must use INSERT ... SELECT ... WHERE changes()=1.
+      // Place it after the guarded chain update, in the same rollback boundary.
+      const statements=mutation?[mutation,insert,update]:[insert,update];
+      if(completionReceipt)statements.push(completionReceipt);
+      const results=await env.DB.batch(statements);
       if(mutation&&Number(results[0]?.meta?.changes||0)!==1)return Object.freeze({ok:false,applied:false});
       return Object.freeze({ok:true,seq,eventHash,prevHash});
     }catch(error){
